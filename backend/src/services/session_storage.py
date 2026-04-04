@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from ephemeralos.api.usage import UsageSnapshot
+from ephemeralos.models.types import UsageSnapshot
 from ephemeralos.config.paths import get_sessions_dir
 from ephemeralos.engine.messages import ConversationMessage
 

@@ -24,25 +24,18 @@ class AgentDefinitionRecord(Base):
     system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     effort: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    permission_mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
     max_turns: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    # Tools & skills (JSON arrays)
-    tools: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    disallowed_tools: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Toolkits & skills (JSON arrays)
     toolkits: Mapped[list | None] = mapped_column(JSON, nullable=True)
     skills: Mapped[list] = mapped_column(JSON, default=list)
-    mcp_servers: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     # Hooks (JSON object)
     hooks: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
-    # UI & lifecycle
-    color: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Lifecycle
     background: Mapped[bool] = mapped_column(Boolean, default=False)
     initial_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
-    memory: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    isolation: Mapped[str | None] = mapped_column(String(16), nullable=True)
     subagent_type: Mapped[str] = mapped_column(String(64), default="general-purpose")
 
     # Metadata & versioning

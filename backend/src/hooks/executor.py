@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from ephemeralos.api.client import ApiMessageCompleteEvent, ApiMessageRequest, SupportsStreamingMessages
+from ephemeralos.models.types import ApiMessageCompleteEvent, ApiMessageRequest, SupportsStreamingMessages
 from ephemeralos.engine.messages import ConversationMessage
 from ephemeralos.hooks.events import HookEvent
 from ephemeralos.hooks.loader import HookRegistry

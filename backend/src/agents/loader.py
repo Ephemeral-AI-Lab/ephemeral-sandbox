@@ -9,11 +9,7 @@ from typing import Any
 import yaml
 
 from ephemeralos.agents.types import (
-    AGENT_COLORS,
     EFFORT_LEVELS,
-    ISOLATION_MODES,
-    MEMORY_SCOPES,
-    PERMISSION_MODES,
     AgentDefinition,
     parse_positive_int,
     parse_str_list,
@@ -66,10 +62,6 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
                 description = f"Agent: {name}"
             description = description.replace("\\n", "\n")
 
-            tools = parse_str_list(frontmatter.get("tools"))
-            disallowed_raw = frontmatter.get("disallowedTools", frontmatter.get("disallowed_tools"))
-            disallowed_tools = parse_str_list(disallowed_raw)
-
             model_raw = frontmatter.get("model")
             model: str | None = None
             if isinstance(model_raw, str) and model_raw.strip():
@@ -84,29 +76,14 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
                 elif isinstance(effort_raw, str) and effort_raw in EFFORT_LEVELS:
                     effort = effort_raw
 
-            perm_raw = frontmatter.get("permissionMode", frontmatter.get("permission_mode"))
-            permission_mode: str | None = None
-            if isinstance(perm_raw, str) and perm_raw in PERMISSION_MODES:
-                permission_mode = perm_raw
-
             max_turns = parse_positive_int(frontmatter.get("maxTurns", frontmatter.get("max_turns")))
             skills = parse_str_list(frontmatter.get("skills")) or []
             toolkits = parse_str_list(frontmatter.get("toolkits")) or []
-
-            mcp_raw = frontmatter.get("mcpServers", frontmatter.get("mcp_servers"))
-            mcp_servers: list[Any] | None = None
-            if isinstance(mcp_raw, list):
-                mcp_servers = mcp_raw if mcp_raw else None
 
             hooks_raw = frontmatter.get("hooks")
             hooks: dict[str, Any] | None = None
             if isinstance(hooks_raw, dict):
                 hooks = hooks_raw
-
-            color_raw = frontmatter.get("color")
-            color: str | None = None
-            if isinstance(color_raw, str) and color_raw in AGENT_COLORS:
-                color = color_raw
 
             bg_raw = frontmatter.get("background")
             background = bg_raw is True or bg_raw == "true"
@@ -116,16 +93,6 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
             if isinstance(ip_raw, str) and ip_raw.strip():
                 initial_prompt = ip_raw
 
-            memory_raw = frontmatter.get("memory")
-            memory: str | None = None
-            if isinstance(memory_raw, str) and memory_raw in MEMORY_SCOPES:
-                memory = memory_raw
-
-            iso_raw = frontmatter.get("isolation")
-            isolation: str | None = None
-            if isinstance(iso_raw, str) and iso_raw in ISOLATION_MODES:
-                isolation = iso_raw
-
             ocm_raw = frontmatter.get("omitClaudeMd", frontmatter.get("omit_claude_md"))
             omit_claude_md = ocm_raw is True or ocm_raw == "true"
 
@@ -133,9 +100,6 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
             critical_system_reminder: str | None = None
             if isinstance(csr_raw, str) and csr_raw.strip():
                 critical_system_reminder = csr_raw
-
-            rms_raw = frontmatter.get("requiredMcpServers", frontmatter.get("required_mcp_servers"))
-            required_mcp_servers = parse_str_list(rms_raw)
 
             permissions: list[str] = []
             raw_perms = frontmatter.get("permissions", "")
@@ -145,13 +109,13 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
             agents.append(
                 AgentDefinition(
                     name=name, description=description, system_prompt=body or None,
-                    tools=tools, disallowed_tools=disallowed_tools, model=model,
-                    effort=effort, permission_mode=permission_mode, max_turns=max_turns,
-                    skills=skills, toolkits=toolkits, mcp_servers=mcp_servers,
-                    hooks=hooks, color=color, background=background,
-                    initial_prompt=initial_prompt, memory=memory, isolation=isolation,
+                    model=model,
+                    effort=effort, max_turns=max_turns,
+                    skills=skills, toolkits=toolkits,
+                    hooks=hooks, background=background,
+                    initial_prompt=initial_prompt,
                     omit_claude_md=omit_claude_md, critical_system_reminder=critical_system_reminder,
-                    required_mcp_servers=required_mcp_servers, permissions=permissions,
+                    permissions=permissions,
                     filename=path.stem, base_dir=str(directory),
                     subagent_type=str(frontmatter.get("subagent_type", name)),
                     source="user",
@@ -203,18 +167,3 @@ def get_agent_definition(name: str) -> AgentDefinition | None:
         if agent.name == name:
             return agent
     return None
-
-
-def has_required_mcp_servers(agent: AgentDefinition, available_servers: list[str]) -> bool:
-    if not agent.required_mcp_servers:
-        return True
-    return all(
-        any(pattern.lower() in server.lower() for server in available_servers)
-        for pattern in agent.required_mcp_servers
-    )
-
-
-def filter_agents_by_mcp_requirements(
-    agents: list[AgentDefinition], available_servers: list[str],
-) -> list[AgentDefinition]:
-    return [a for a in agents if has_required_mcp_servers(a, available_servers)]

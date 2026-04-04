@@ -122,9 +122,6 @@ class TeamMember:
     is_active: bool = True
     """False when idle; undefined/True when active."""
 
-    mode: str | None = None
-    """Current permission mode for this agent (e.g. 'auto', 'manual')."""
-
     tmux_pane_id: str = ""
     """Tmux/iTerm2 pane ID for pane-backed agents."""
 
@@ -467,101 +464,8 @@ def remove_member_by_agent_id(team_name: str, agent_id: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Mode and active-status helpers
+# Active-status helpers
 # ---------------------------------------------------------------------------
-
-
-def set_member_mode(
-    team_name: str,
-    member_name: str,
-    mode: str,
-) -> bool:
-    """Set a team member's permission mode.
-
-    Called when the team leader changes a teammate's mode.
-
-    Args:
-        team_name: The name of the team.
-        member_name: The *name* (not agent_id) of the member to update.
-        mode: The new permission mode string (e.g. ``'auto'``, ``'manual'``).
-
-    Returns:
-        ``True`` if successful, ``False`` if the team or member is not found.
-    """
-    team_file = read_team_file(team_name)
-    if not team_file:
-        return False
-
-    member = next(
-        (m for m in team_file.members.values() if m.name == member_name), None
-    )
-    if not member:
-        return False
-
-    if member.mode == mode:
-        return True
-
-    # Immutably update
-    for k, m in team_file.members.items():
-        if m.name == member_name:
-            team_file.members[k] = TeamMember(
-                **{**m.to_dict(), "mode": mode}  # type: ignore[arg-type]
-            )
-            break
-
-    write_team_file(team_name, team_file)
-    return True
-
-
-def sync_teammate_mode(
-    mode: str,
-    team_name_override: str | None = None,
-) -> None:
-    """Sync the current agent's permission mode to the team config file.
-
-    No-op if ``CLAUDE_CODE_AGENT_NAME`` or the resolved team name are not set.
-
-    Args:
-        mode: The permission mode to sync.
-        team_name_override: Optional override for the team name.
-    """
-    team_name = team_name_override or os.environ.get("CLAUDE_CODE_TEAM_NAME")
-    agent_name = os.environ.get("CLAUDE_CODE_AGENT_NAME")
-    if team_name and agent_name:
-        set_member_mode(team_name, agent_name, mode)
-
-
-def set_multiple_member_modes(
-    team_name: str,
-    mode_updates: list[dict[str, str]],
-) -> bool:
-    """Set multiple team members' permission modes in a single atomic write.
-
-    Args:
-        team_name: The name of the team.
-        mode_updates: List of dicts with ``member_name`` and ``mode`` keys.
-
-    Returns:
-        ``True`` if the team file was found (even if nothing changed).
-    """
-    team_file = read_team_file(team_name)
-    if not team_file:
-        return False
-
-    update_map = {u["member_name"]: u["mode"] for u in mode_updates}
-    any_changed = False
-
-    for k, m in list(team_file.members.items()):
-        new_mode = update_map.get(m.name)
-        if new_mode is not None and m.mode != new_mode:
-            team_file.members[k] = TeamMember(
-                **{**m.to_dict(), "mode": new_mode}  # type: ignore[arg-type]
-            )
-            any_changed = True
-
-    if any_changed:
-        write_team_file(team_name, team_file)
-    return True
 
 
 async def set_member_active(
@@ -883,16 +787,6 @@ class TeamLifecycleManager:
         del team.members[agent_id]
         team.save(path)
         return team
-
-    # ------------------------------------------------------------------
-    # Mode helpers (proxy to standalone functions)
-    # ------------------------------------------------------------------
-
-    def set_member_mode(
-        self, team_name: str, member_name: str, mode: str
-    ) -> bool:
-        """Set a team member's permission mode."""
-        return set_member_mode(team_name, member_name, mode)
 
     async def set_member_active(
         self, team_name: str, member_name: str, is_active: bool

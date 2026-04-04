@@ -136,8 +136,8 @@
     },
     {
       "path": "pyproject.toml",
-      "accessCount": 33,
-      "lastAccessed": 1775341290693,
+      "accessCount": 37,
+      "lastAccessed": 1775342723255,
       "type": "file"
     },
     {
@@ -273,6 +273,12 @@
       "type": "file"
     },
     {
+      "path": "README.md",
+      "accessCount": 6,
+      "lastAccessed": 1775341650890,
+      "type": "file"
+    },
+    {
       "path": "src/ephemeralos/bridge/manager.py",
       "accessCount": 5,
       "lastAccessed": 1775333612238,
@@ -294,12 +300,6 @@
       "path": "src/ephemeralos/swarm/team_lifecycle.py",
       "accessCount": 5,
       "lastAccessed": 1775336250102,
-      "type": "file"
-    },
-    {
-      "path": "README.md",
-      "accessCount": 5,
-      "lastAccessed": 1775337502545,
       "type": "file"
     },
     {

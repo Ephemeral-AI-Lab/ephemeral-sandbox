@@ -170,7 +170,6 @@ _BUILTIN_AGENTS: list[AgentDefinition] = [
             "and are not confident that you will find the right match in the first few tries "
             "use this agent to perform the search for you."
         ),
-        tools=["*"],
         system_prompt=_GENERAL_PURPOSE_SYSTEM_PROMPT,
         subagent_type="general-purpose",
         source="builtin",
@@ -179,10 +178,9 @@ _BUILTIN_AGENTS: list[AgentDefinition] = [
     AgentDefinition(
         name="statusline-setup",
         description="Use this agent to configure the user's Claude Code status line setting.",
-        tools=["Read", "Edit"],
+        toolkits=["filesystem"],
         system_prompt=_STATUSLINE_SYSTEM_PROMPT,
         model="sonnet",
-        color="orange",
         subagent_type="statusline-setup",
         source="builtin",
         base_dir="built-in",
@@ -194,10 +192,9 @@ _BUILTIN_AGENTS: list[AgentDefinition] = [
             '"How do I...") about: (1) Claude Code (the CLI tool); '
             "(2) Claude Agent SDK; (3) Claude API."
         ),
-        tools=["Glob", "Grep", "Read", "WebFetch", "WebSearch"],
+        toolkits=["filesystem", "web"],
         system_prompt=_CLAUDE_CODE_GUIDE_SYSTEM_PROMPT,
         model="haiku",
-        permission_mode="dontAsk",
         subagent_type="claude-code-guide",
         source="builtin",
         base_dir="built-in",
@@ -209,7 +206,7 @@ _BUILTIN_AGENTS: list[AgentDefinition] = [
             'quickly find files by patterns, search code for keywords, or answer questions '
             "about the codebase."
         ),
-        disallowed_tools=["agent", "file_edit", "file_write", "notebook_edit"],
+        toolkits=["filesystem", "execution", "web", "task_management", "scheduling", "code_analysis", "discovery", "system"],
         system_prompt=_EXPLORE_SYSTEM_PROMPT,
         model="haiku",
         omit_claude_md=True,
@@ -223,7 +220,7 @@ _BUILTIN_AGENTS: list[AgentDefinition] = [
             "Software architect agent for designing implementation plans. Use this when you "
             "need to plan the implementation strategy for a task."
         ),
-        disallowed_tools=["agent", "file_edit", "file_write", "notebook_edit"],
+        toolkits=["filesystem", "execution", "web", "task_management", "scheduling", "planning", "code_analysis", "discovery", "system"],
         system_prompt=_PLAN_SYSTEM_PROMPT,
         model="inherit",
         omit_claude_md=True,
@@ -237,7 +234,6 @@ _BUILTIN_AGENTS: list[AgentDefinition] = [
             "Implementation-focused worker agent. Use this for concrete coding tasks: "
             "writing features, fixing bugs, refactoring code, and running tests."
         ),
-        tools=None,
         system_prompt=_WORKER_SYSTEM_PROMPT,
         subagent_type="worker",
         source="builtin",
@@ -249,10 +245,9 @@ _BUILTIN_AGENTS: list[AgentDefinition] = [
             "Use this agent to verify that implementation work is correct before reporting "
             "completion. Produces a PASS/FAIL/PARTIAL verdict with evidence."
         ),
-        disallowed_tools=["agent", "file_edit", "file_write", "notebook_edit"],
+        toolkits=["filesystem", "execution", "web", "task_management", "scheduling", "code_analysis", "discovery", "system"],
         system_prompt=_VERIFICATION_SYSTEM_PROMPT,
         critical_system_reminder=_VERIFICATION_CRITICAL_REMINDER,
-        color="red",
         background=True,
         model="inherit",
         subagent_type="verification",

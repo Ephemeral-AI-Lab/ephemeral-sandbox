@@ -47,7 +47,6 @@ def _build_context(tmp_path: Path) -> CommandContext:
         app_state=AppStateStore(
             AppState(
                 model="claude-test",
-                permission_mode="default",
                 theme="default",
                 keybindings={},
             )

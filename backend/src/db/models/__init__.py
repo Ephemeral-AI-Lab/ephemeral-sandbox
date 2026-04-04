@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models for EphemeralOS persistence."""
 
-from ephemeralos.db.models.agent_definition import AgentDefinitionRecord
+from ephemeralos.agents.db.model import AgentDefinitionRecord
 from ephemeralos.db.models.agent_run import AgentResponseChunkRecord, AgentRunRecord
 from ephemeralos.db.models.model_registration import ModelRegistrationRecord
 from ephemeralos.db.models.session import SessionRecord

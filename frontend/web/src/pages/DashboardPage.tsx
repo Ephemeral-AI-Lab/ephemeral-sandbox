@@ -179,7 +179,6 @@ export default function DashboardPage() {
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <MetricCard label="Model" value={appState.model} />
-        <MetricCard label="Permission" value={appState.permission_mode} />
         <MetricCard label="Effort" value={appState.effort} />
         <MetricCard
           label="Toolkits"

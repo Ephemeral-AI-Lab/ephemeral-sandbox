@@ -7,13 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncIterator
 
-from ephemeralos.api.client import (
+from ephemeralos.models.types import (
     ApiMessageCompleteEvent,
     ApiMessageRequest,
     ApiTextDeltaEvent,
     SupportsStreamingMessages,
+    UsageSnapshot,
 )
-from ephemeralos.api.usage import UsageSnapshot
 from ephemeralos.engine.messages import ConversationMessage, ToolResultBlock
 from ephemeralos.engine.stream_events import (
     AssistantTextDelta,

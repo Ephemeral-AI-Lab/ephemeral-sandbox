@@ -23,11 +23,6 @@ const scriptedSteps = (() => {
 	}
 })();
 
-const PERMISSION_MODES: SelectOption[] = [
-	{value: 'default', label: 'Default', description: 'Ask before write/execute operations'},
-	{value: 'full_auto', label: 'Auto', description: 'Allow all tools automatically'},
-	{value: 'plan', label: 'Plan Mode', description: 'Block all write operations'},
-];
 
 type SelectModalState = {
 	title: string;
@@ -102,39 +97,6 @@ export function App({config}: {config: FrontendConfig}): React.JSX.Element {
 	// Intercept special commands that need interactive UI
 	const handleCommand = (cmd: string): boolean => {
 		const trimmed = cmd.trim();
-
-		// /permissions → show mode picker
-		if (trimmed === '/permissions' || trimmed === '/permissions show') {
-			const currentMode = String(session.status.permission_mode ?? 'default');
-			const options = PERMISSION_MODES.map((opt) => ({
-				...opt,
-				active: opt.value === currentMode,
-			}));
-			const initialIndex = options.findIndex((o) => o.active);
-			setSelectIndex(initialIndex >= 0 ? initialIndex : 0);
-			setSelectModal({
-				title: 'Permission Mode',
-				options,
-				onSelect: (value) => {
-					session.sendRequest({type: 'submit_line', line: `/permissions set ${value}`});
-					session.setBusy(true);
-					setSelectModal(null);
-				},
-			});
-			return true;
-		}
-
-		// /plan → toggle plan mode
-		if (trimmed === '/plan') {
-			const currentMode = String(session.status.permission_mode ?? 'default');
-			if (currentMode === 'plan') {
-				session.sendRequest({type: 'submit_line', line: '/plan off'});
-			} else {
-				session.sendRequest({type: 'submit_line', line: '/plan on'});
-			}
-			session.setBusy(true);
-			return true;
-		}
 
 		// /resume → request session list from backend (will trigger select_request)
 		if (trimmed === '/resume') {

@@ -10,28 +10,8 @@ from pydantic import BaseModel, Field
 # Constants
 # ---------------------------------------------------------------------------
 
-#: Valid color names for agents (matches AgentColorName in TS).
-AGENT_COLORS: frozenset[str] = frozenset(
-    {"red", "green", "blue", "yellow", "purple", "orange", "cyan", "magenta", "white", "gray"}
-)
-
 #: Valid effort level strings.
 EFFORT_LEVELS: tuple[str, ...] = ("low", "medium", "high")
-
-#: Valid permission mode strings.
-PERMISSION_MODES: tuple[str, ...] = (
-    "default",
-    "acceptEdits",
-    "bypassPermissions",
-    "plan",
-    "dontAsk",
-)
-
-#: Valid memory scope strings.
-MEMORY_SCOPES: tuple[str, ...] = ("user", "project", "local")
-
-#: Valid isolation mode strings.
-ISOLATION_MODES: tuple[str, ...] = ("worktree", "remote")
 
 
 # ---------------------------------------------------------------------------
@@ -56,38 +36,26 @@ class AgentDefinition(BaseModel):
     name: str
     description: str
 
-    # --- prompt / tools ---
+    # --- prompt ---
     system_prompt: str | None = None
-    tools: list[str] | None = None  # None means all tools allowed; ['*'] is equivalent
-    disallowed_tools: list[str] | None = None
 
     # --- model & effort ---
     model: str | None = Field(default=None, alias="model_key")  # accepts both 'model' and 'model_key'
     effort: str | int | None = None  # "low" | "medium" | "high" or positive int
-
-    # --- permissions ---
-    permission_mode: str | None = None  # one of PERMISSION_MODES
 
     # --- agent loop control ---
     max_turns: int | None = None  # maximum agentic turns before stopping
 
     # --- skills & toolkits ---
     skills: list[str] = Field(default_factory=list)
-    toolkits: list[str] = Field(default_factory=list)  # toolkit factory names
-    mcp_servers: list[Any] | None = None  # str refs or {name: config} dicts
-    required_mcp_servers: list[str] | None = None  # server name patterns that must be present
+    toolkits: list[str] = Field(default_factory=list)  # allowed toolkit names
 
     # --- hooks ---
     hooks: dict[str, Any] | None = None  # session-scoped hooks registered when agent starts
 
-    # --- ui ---
-    color: str | None = None  # one of AGENT_COLORS
-
     # --- lifecycle ---
     background: bool = False  # always run as background task when spawned
     initial_prompt: str | None = None  # prepended to the first user turn
-    memory: str | None = None  # one of MEMORY_SCOPES
-    isolation: str | None = None  # one of ISOLATION_MODES
 
     # --- metadata ---
     filename: str | None = None  # original filename without .md extension

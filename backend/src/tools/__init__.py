@@ -19,6 +19,7 @@ from ephemeralos.tools.code_analysis import CodeAnalysisToolkit
 from ephemeralos.tools.discovery import DiscoveryToolkit
 from ephemeralos.tools.system import SystemToolkit
 from ephemeralos.tools.daytona_toolkit import DaytonaToolkit
+from ephemeralos.tools.ci_toolkit import CIToolkit
 
 
 
@@ -61,4 +62,5 @@ __all__ = [
     "DiscoveryToolkit",
     "SystemToolkit",
     "DaytonaToolkit",
+    "CIToolkit",
 ]

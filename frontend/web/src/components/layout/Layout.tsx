@@ -18,8 +18,6 @@ export default function Layout() {
             <>
               <span>{state.model}</span>
               <span className="text-zinc-600">|</span>
-              <span>{state.permission_mode}</span>
-              <span className="text-zinc-600">|</span>
               <span>{state.cwd}</span>
             </>
           )}

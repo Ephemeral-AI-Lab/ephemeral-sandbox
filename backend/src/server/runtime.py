@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from ephemeralos.api.client import AnthropicApiClient, SupportsStreamingMessages
-from ephemeralos.api.openai_client import OpenAICompatibleClient
-from ephemeralos.api.provider import auth_status, detect_provider
+from ephemeralos.models.clients.anthropic import AnthropicApiClient
+from ephemeralos.models.clients.openai_compat import OpenAICompatibleClient
+from ephemeralos.models.provider import auth_status, detect_provider
+from ephemeralos.models.types import SupportsStreamingMessages
 from ephemeralos.config import load_settings
 from ephemeralos.engine import QueryEngine
 from ephemeralos.engine.messages import ConversationMessage

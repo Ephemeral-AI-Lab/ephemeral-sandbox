@@ -73,7 +73,14 @@ def _register_builtins() -> None:
         sandbox_id = ctx.metadata.get("sandbox_id", "")
         return DaytonaToolkit(sandbox_id=sandbox_id or None)
 
+    def _create_ci(ctx: ToolkitContext) -> BaseToolkit:
+        from ephemeralos.tools.ci_toolkit import CIToolkit
+
+        return CIToolkit()
+
     register_toolkit_factory("daytona", _create_daytona)
+    register_toolkit_factory("ci", _create_ci)
+    register_toolkit_factory("explorer", _create_ci)  # backward-compat alias
 
 
 _register_builtins()

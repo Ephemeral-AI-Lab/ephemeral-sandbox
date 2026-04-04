@@ -6,11 +6,7 @@ Import from here instead of deep paths:
 """
 
 from ephemeralos.agents.types import (
-    AGENT_COLORS,
     EFFORT_LEVELS,
-    ISOLATION_MODES,
-    MEMORY_SCOPES,
-    PERMISSION_MODES,
     AgentDefinition,
 )
 from ephemeralos.agents.registry import (
@@ -22,21 +18,15 @@ from ephemeralos.agents.registry import (
 )
 from ephemeralos.agents.builtins import get_builtin_agent_definitions
 from ephemeralos.agents.loader import (
-    filter_agents_by_mcp_requirements,
     get_agent_definition,
     get_all_agent_definitions,
-    has_required_mcp_servers,
     load_agents_dir,
 )
 
 __all__ = [
     # Types & constants
     "AgentDefinition",
-    "AGENT_COLORS",
     "EFFORT_LEVELS",
-    "ISOLATION_MODES",
-    "MEMORY_SCOPES",
-    "PERMISSION_MODES",
     # Registry
     "register_definition",
     "unregister_definition",
@@ -49,6 +39,4 @@ __all__ = [
     "get_agent_definition",
     "get_all_agent_definitions",
     "load_agents_dir",
-    "has_required_mcp_servers",
-    "filter_agents_by_mcp_requirements",
 ]

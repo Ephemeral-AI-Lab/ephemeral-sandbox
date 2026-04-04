@@ -319,7 +319,7 @@ async def compact_conversation(
     Returns:
         The new compacted message list.
     """
-    from ephemeralos.api.client import ApiMessageRequest, ApiMessageCompleteEvent
+    from ephemeralos.models.types import ApiMessageRequest, ApiMessageCompleteEvent
 
     if len(messages) <= preserve_recent:
         return list(messages)

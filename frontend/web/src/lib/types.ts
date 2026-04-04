@@ -52,7 +52,6 @@ export type AppState = {
   provider: string
   auth_status: string
   base_url: string
-  permission_mode: string
   theme: string
   vim_enabled: boolean
   voice_enabled: boolean

@@ -1,0 +1,9 @@
+{
+  "active": true,
+  "started_at": "2026-04-04T22:30:58.726Z",
+  "original_prompt": "  /ccg:execute\n  .claude/plan/code-intelligence-migration.md /using-superpowers /autopilot",
+  "session_id": "5241a7ad-5b83-4886-a5af-64586711334b",
+  "project_path": "/Users/yifanxu/machine_learning/LoVC/EphemeralOS",
+  "reinforcement_count": 0,
+  "last_checked_at": "2026-04-04T22:30:58.726Z"
+}

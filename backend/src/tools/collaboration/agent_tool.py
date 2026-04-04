@@ -6,7 +6,7 @@ import logging
 
 from pydantic import BaseModel, Field
 
-from ephemeralos.coordinator.agent_definitions import get_agent_definition
+from ephemeralos.agents import get_agent_definition
 from ephemeralos.coordinator.coordinator_mode import get_team_registry
 from ephemeralos.swarm.registry import get_backend_registry
 from ephemeralos.swarm.types import TeammateSpawnConfig

@@ -10,9 +10,9 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from ephemeralos.api.client import AnthropicApiClient
-from ephemeralos.api.openai_client import OpenAICompatibleClient
-from ephemeralos.api.provider import auth_status, detect_provider
+from ephemeralos.models.clients.anthropic import AnthropicApiClient
+from ephemeralos.models.clients.openai_compat import OpenAICompatibleClient
+from ephemeralos.models.provider import auth_status, detect_provider
 from ephemeralos.config import load_settings, save_settings
 from ephemeralos.engine.stream_events import (
     AssistantTextDelta,
@@ -69,7 +69,6 @@ def create_core_router(get_session: callable) -> APIRouter:
             "provider": settings.api_format,
             "auth_status": "authorized",
             "base_url": settings.base_url or "",
-            "permission_mode": "auto",
             "theme": settings.theme,
             "vim_enabled": False,
             "voice_enabled": False,
@@ -78,8 +77,6 @@ def create_core_router(get_session: callable) -> APIRouter:
             "fast_mode": settings.fast_mode,
             "effort": settings.effort,
             "passes": settings.passes,
-            "mcp_connected": 0,
-            "mcp_failed": 0,
             "bridge_sessions": 0,
             "output_style": "verbose" if settings.verbose else "normal",
             "keybindings": {},

@@ -33,10 +33,12 @@ from ephemeralos.server.runtime import (
     close_runtime,
     start_runtime,
 )
-from ephemeralos.server.routers.agents import create_agents_router
+from ephemeralos.models.api import create_models_router
+from ephemeralos.agents.api.router import create_agents_router
 from ephemeralos.server.routers.core import create_core_router
 from ephemeralos.server.routers.persistence import create_persistence_router
 from ephemeralos.server.routers.sandboxes import create_sandbox_router
+from ephemeralos.server.routers.code_intelligence import router as ci_router
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +165,8 @@ def create_app(config: BackendHostConfig) -> FastAPI:
         )
     )
     app.include_router(create_sandbox_router())
+    app.include_router(ci_router)
+    app.include_router(create_models_router(model_store))
     app.include_router(
         create_agents_router(
             get_builder_service=lambda: _builder_service,

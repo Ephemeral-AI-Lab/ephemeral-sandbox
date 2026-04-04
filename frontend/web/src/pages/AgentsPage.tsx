@@ -9,7 +9,6 @@ interface AgentSummary {
   description: string
   source: string
   model: string | null
-  color: string | null
   subagent_type: string
   background: boolean
 }
@@ -21,19 +20,14 @@ interface AgentDetail {
   system_prompt: string | null
   model: string | null
   effort: string | null
-  permission_mode: string | null
   max_turns: number | null
   tools: string[] | null
   disallowed_tools: string[] | null
   toolkits: string[] | null
   skills: string[]
-  mcp_servers: unknown[] | null
   hooks: Record<string, unknown> | null
-  color: string | null
   background: boolean
   initial_prompt: string | null
-  memory: string | null
-  isolation: string | null
   subagent_type: string
   version?: number
   is_active?: boolean
@@ -58,24 +52,7 @@ interface ValidationResult {
 // Constants
 // ---------------------------------------------------------------------------
 
-const COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'cyan', 'magenta', 'white', 'gray']
 const EFFORT_LEVELS = ['low', 'medium', 'high']
-const PERMISSION_MODES = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'dontAsk']
-const MEMORY_SCOPES = ['user', 'project', 'local']
-const ISOLATION_MODES = ['worktree', 'remote']
-
-const COLOR_CLASSES: Record<string, string> = {
-  red: 'bg-red-900/30 text-red-400 border-red-800/50',
-  green: 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50',
-  blue: 'bg-blue-900/30 text-blue-400 border-blue-800/50',
-  yellow: 'bg-yellow-900/30 text-yellow-400 border-yellow-800/50',
-  purple: 'bg-purple-900/30 text-purple-400 border-purple-800/50',
-  orange: 'bg-orange-900/30 text-orange-400 border-orange-800/50',
-  cyan: 'bg-cyan-900/30 text-cyan-400 border-cyan-800/50',
-  magenta: 'bg-pink-900/30 text-pink-400 border-pink-800/50',
-  white: 'bg-zinc-700/30 text-zinc-200 border-zinc-600/50',
-  gray: 'bg-zinc-800/30 text-zinc-400 border-zinc-700/50',
-}
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -178,14 +155,6 @@ function SourceBadge({ source }: { source: string }) {
   )
 }
 
-function ColorDot({ color }: { color: string | null }) {
-  if (!color) return null
-  const cls = COLOR_CLASSES[color] ?? COLOR_CLASSES.gray
-  return (
-    <span className={`inline-block h-3 w-3 rounded-full border ${cls}`} title={color} />
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Agent Card (list view)
 // ---------------------------------------------------------------------------
@@ -206,7 +175,6 @@ function AgentCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 cursor-pointer" onClick={onSelect}>
           <div className="flex items-center gap-2">
-            <ColorDot color={agent.color} />
             <span className="text-sm font-medium text-zinc-100 hover:text-cyan-400 transition-colors">
               {agent.name}
             </span>
@@ -256,17 +224,13 @@ interface FormData {
   system_prompt: string
   model: string
   effort: string
-  permission_mode: string
   max_turns: string
   tools: string
   disallowed_tools: string
   toolkits: string
   skills: string
-  color: string
   background: boolean
   initial_prompt: string
-  memory: string
-  isolation: string
   subagent_type: string
   tags: string
 }
@@ -277,17 +241,13 @@ const EMPTY_FORM: FormData = {
   system_prompt: '',
   model: '',
   effort: '',
-  permission_mode: '',
   max_turns: '',
   tools: '',
   disallowed_tools: '',
   toolkits: '',
   skills: '',
-  color: '',
   background: false,
   initial_prompt: '',
-  memory: '',
-  isolation: '',
   subagent_type: '',
   tags: '',
 }
@@ -299,17 +259,13 @@ function agentToForm(agent: AgentDetail): FormData {
     system_prompt: agent.system_prompt ?? '',
     model: agent.model ?? '',
     effort: agent.effort ?? '',
-    permission_mode: agent.permission_mode ?? '',
     max_turns: agent.max_turns?.toString() ?? '',
     tools: agent.tools?.join(', ') ?? '',
     disallowed_tools: agent.disallowed_tools?.join(', ') ?? '',
     toolkits: agent.toolkits?.join(', ') ?? '',
     skills: agent.skills?.join(', ') ?? '',
-    color: agent.color ?? '',
     background: agent.background,
     initial_prompt: agent.initial_prompt ?? '',
-    memory: agent.memory ?? '',
-    isolation: agent.isolation ?? '',
     subagent_type: agent.subagent_type ?? '',
     tags: agent.tags?.join(', ') ?? '',
   }
@@ -326,17 +282,13 @@ function formToPayload(form: FormData): Record<string, unknown> {
     system_prompt: form.system_prompt || null,
     model: form.model || null,
     effort: form.effort || null,
-    permission_mode: form.permission_mode || null,
     max_turns: form.max_turns ? parseInt(form.max_turns, 10) : null,
     tools: splitList(form.tools),
     disallowed_tools: splitList(form.disallowed_tools),
     toolkits: splitList(form.toolkits),
     skills: splitList(form.skills) ?? [],
-    color: form.color || null,
     background: form.background,
     initial_prompt: form.initial_prompt || null,
-    memory: form.memory || null,
-    isolation: form.isolation || null,
     subagent_type: form.subagent_type || form.name,
     tags: splitList(form.tags),
   }
@@ -509,7 +461,6 @@ function AgentBuilderForm({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <TextField label="Model" value={form.model} onChange={v => set('model', v)} placeholder="inherit" />
           <SelectField label="Effort" value={form.effort} onChange={v => set('effort', v)} options={EFFORT_LEVELS} />
-          <SelectField label="Permission Mode" value={form.permission_mode} onChange={v => set('permission_mode', v)} options={PERMISSION_MODES} />
           <TextField label="Max Turns" value={form.max_turns} onChange={v => set('max_turns', v)} placeholder="e.g. 20" />
         </div>
       </section>
@@ -564,9 +515,6 @@ function AgentBuilderForm({
       <section className="space-y-3">
         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">UI & Lifecycle</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <SelectField label="Color" value={form.color} onChange={v => set('color', v)} options={COLORS} />
-          <SelectField label="Memory" value={form.memory} onChange={v => set('memory', v)} options={MEMORY_SCOPES} />
-          <SelectField label="Isolation" value={form.isolation} onChange={v => set('isolation', v)} options={ISOLATION_MODES} />
           <div>
             <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wide mb-1">Background</label>
             <button
@@ -630,7 +578,6 @@ function AgentDetailView({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button className="text-xs text-zinc-500 hover:text-zinc-300" onClick={onBack}>&larr; Back</button>
-          <ColorDot color={agent.color} />
           <h2 className="text-lg font-semibold text-zinc-100">{agent.name}</h2>
           <SourceBadge source={agent.source ?? 'builtin'} />
           {agent.version && (
@@ -652,10 +599,7 @@ function AgentDetailView({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {agent.model && <DetailField label="Model" value={agent.model} />}
         {agent.effort && <DetailField label="Effort" value={agent.effort} />}
-        {agent.permission_mode && <DetailField label="Permission" value={agent.permission_mode} />}
         {agent.max_turns && <DetailField label="Max Turns" value={String(agent.max_turns)} />}
-        {agent.memory && <DetailField label="Memory" value={agent.memory} />}
-        {agent.isolation && <DetailField label="Isolation" value={agent.isolation} />}
         <DetailField label="Background" value={agent.background ? 'Yes' : 'No'} />
         <DetailField label="Type" value={agent.subagent_type} />
       </div>

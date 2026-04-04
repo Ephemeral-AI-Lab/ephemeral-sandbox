@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from ephemeralos.api.client import SupportsStreamingMessages
+from ephemeralos.models.types import SupportsStreamingMessages
 from ephemeralos.tasks.types import TaskRecord
 
 

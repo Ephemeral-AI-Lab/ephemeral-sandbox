@@ -218,7 +218,6 @@ def get_coordinator_tools() -> list[str]:
 
 
 def get_coordinator_user_context(
-    mcp_clients: list[dict[str, str]] | None = None,
     scratchpad_dir: Optional[str] = None,
 ) -> dict[str, str]:
     """Build the workerToolsContext injected into the coordinator's user turn."""
@@ -233,10 +232,6 @@ def get_coordinator_user_context(
         f"Workers spawned via the {_AGENT_TOOL_NAME} tool have access to these tools: "
         f"{worker_tools_str}"
     )
-
-    if mcp_clients:
-        server_names = ", ".join(c["name"] for c in mcp_clients)
-        content += f"\n\nWorkers also have access to MCP tools from connected MCP servers: {server_names}"
 
     if scratchpad_dir:
         content += (

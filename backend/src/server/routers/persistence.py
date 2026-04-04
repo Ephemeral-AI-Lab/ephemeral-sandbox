@@ -1,32 +1,14 @@
-"""Persistence API routes — DB-backed sessions, agent runs, usage, models."""
+"""Persistence API routes — DB-backed sessions, agent runs, usage."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from ephemeralos.db.stores import AgentRunStore, ModelStore, SessionStore, UsageStore
-
-
-# ---------------------------------------------------------------------------
-# Request models
-# ---------------------------------------------------------------------------
-
-
-class RegisterModelRequest(BaseModel):
-    key: str
-    label: str
-    class_path: str
-    kwargs: dict[str, Any] = {}
-    activate: bool = True
-
-
-class SelectModelRequest(BaseModel):
-    key: str
+    from ephemeralos.db.stores import AgentRunStore, SessionStore, UsageStore
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +21,7 @@ def create_persistence_router(
     session_store: SessionStore,
     agent_run_store: AgentRunStore,
     usage_store: UsageStore,
-    model_store: ModelStore,
+    model_store: object = None,
 ) -> APIRouter:
     """Build the persistence API router."""
     router = APIRouter(prefix="/api/db")
@@ -148,86 +130,6 @@ def create_persistence_router(
             )
         data = usage_store.get_session_usage(session_id)
         return JSONResponse(content=data)
-
-    # -- models ----------------------------------------------------------------
-
-    @router.get("/models")
-    async def list_models():
-        if not _db_available():
-            return JSONResponse(
-                status_code=503,
-                content={"error": "Database not configured"},
-            )
-        models = model_store.list_all(redact=True)
-        active = model_store.get_active(redact=True)
-        return JSONResponse(content={
-            "models": models,
-            "active": active["key"] if active else None,
-        })
-
-    @router.get("/models/active")
-    async def get_active_model():
-        if not _db_available():
-            return JSONResponse(
-                status_code=503,
-                content={"error": "Database not configured"},
-            )
-        active = model_store.get_active(redact=True)
-        if active is None:
-            return JSONResponse(status_code=404, content={"error": "No active model"})
-        return JSONResponse(content=active)
-
-    @router.get("/models/{key}")
-    async def get_model(key: str):
-        if not _db_available():
-            return JSONResponse(
-                status_code=503,
-                content={"error": "Database not configured"},
-            )
-        model = model_store.get(key, redact=True)
-        if model is None:
-            return JSONResponse(status_code=404, content={"error": "Model not found"})
-        return JSONResponse(content=model)
-
-    @router.post("/models/register")
-    async def register_model(req: RegisterModelRequest):
-        if not _db_available():
-            return JSONResponse(
-                status_code=503,
-                content={"error": "Database not configured"},
-            )
-        result = model_store.register(
-            key=req.key,
-            label=req.label,
-            class_path=req.class_path,
-            kwargs=req.kwargs,
-            activate=req.activate,
-        )
-        return JSONResponse(content={"ok": True, "model": result})
-
-    @router.post("/models/select")
-    async def select_model(req: SelectModelRequest):
-        if not _db_available():
-            return JSONResponse(
-                status_code=503,
-                content={"error": "Database not configured"},
-            )
-        result = model_store.select_active(req.key)
-        if result is None:
-            return JSONResponse(status_code=404, content={"error": "Model not found"})
-        return JSONResponse(content={"ok": True, "model": result})
-
-    @router.delete("/models/{key}")
-    async def delete_model(key: str):
-        if not _db_available():
-            return JSONResponse(
-                status_code=503,
-                content={"error": "Database not configured"},
-            )
-        deleted = model_store.delete(key)
-        if not deleted:
-            return JSONResponse(status_code=404, content={"error": "Model not found"})
-        return JSONResponse(content={"ok": True, "deleted": key})
 
     # -- health ----------------------------------------------------------------
 

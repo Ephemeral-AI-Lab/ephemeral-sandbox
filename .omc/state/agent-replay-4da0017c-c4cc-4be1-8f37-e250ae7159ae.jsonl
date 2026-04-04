@@ -1,0 +1,5 @@
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"using-superpowers"}
+{"t":0,"agent":"a76a631","agent_type":"Explore","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a02e918","agent_type":"Explore","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a76a631","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":52352}
+{"t":0,"agent":"a02e918","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":80612}

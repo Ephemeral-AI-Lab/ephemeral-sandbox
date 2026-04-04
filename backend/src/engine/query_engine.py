@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import AsyncIterator
 
-from ephemeralos.api.client import SupportsStreamingMessages
+from ephemeralos.models.types import SupportsStreamingMessages
 from ephemeralos.engine.cost_tracker import CostTracker
 from ephemeralos.engine.messages import ConversationMessage
 from ephemeralos.engine.query import QueryContext, run_query

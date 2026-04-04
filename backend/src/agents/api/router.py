@@ -45,22 +45,20 @@ def create_agents_router(
         defs = list_definitions(source=source)
         return [
             {"name": d.name, "description": d.description, "source": d.source,
-             "model": d.model, "color": d.color, "subagent_type": d.subagent_type,
+             "model": d.model, "subagent_type": d.subagent_type,
              "background": d.background}
             for d in defs
         ]
 
-    @router.get("/tools/available")
-    async def list_available_tools() -> list[dict[str, str]]:
-        tr = get_tool_registry()
-        if tr is None:
-            return []
-        return [{"name": t.name, "description": t.description} for t in tr.list_tools()]
-
     @router.get("/toolkits/available")
     async def list_available_toolkits() -> list[str]:
-        from ephemeralos.toolkits.factory import list_factories  # noqa: PLC0415
-        return list_factories()
+        from ephemeralos.tools.factory import list_factories  # noqa: PLC0415
+        names: set[str] = set()
+        tr = get_tool_registry()
+        if tr:
+            names.update(tk.name for tk in tr.list_toolkits())
+        names.update(list_factories())
+        return sorted(names)
 
     @router.get("/{name}")
     async def get_agent(name: str) -> dict[str, Any]:

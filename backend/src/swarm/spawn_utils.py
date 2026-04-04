@@ -86,7 +86,6 @@ def get_teammate_command() -> str:
 def build_inherited_cli_flags(
     *,
     model: str | None = None,
-    permission_mode: str | None = None,
     plan_mode_required: bool = False,
     settings_path: str | None = None,
     teammate_mode: str | None = None,
@@ -95,8 +94,8 @@ def build_inherited_cli_flags(
 ) -> list[str]:
     """Build CLI flags to propagate from the current session to spawned teammates.
 
-    Ensures teammates inherit important settings like permission mode, model
-    selection, and plugin configuration from their parent.
+    Ensures teammates inherit important settings like model
+    selection and plugin configuration from their parent.
 
     All flag values are shell-quoted with :func:`shlex.quote` to prevent
     command injection when the resulting list is later joined into a shell
@@ -104,9 +103,7 @@ def build_inherited_cli_flags(
 
     Args:
         model: Model override to forward (e.g. ``"claude-opus-4-6"``).
-        permission_mode: One of ``"bypassPermissions"``, ``"acceptEdits"``, or None.
-        plan_mode_required: When True, bypass-permissions flag is suppressed
-            (plan mode takes precedence over bypass for safety).
+        plan_mode_required: Reserved for future use.
         settings_path: Path to a settings JSON file to propagate via
             ``--settings``.  Shell-quoted for safety.
         teammate_mode: Teammate execution mode (``"auto"``, ``"in_process"``,
@@ -122,14 +119,6 @@ def build_inherited_cli_flags(
         List of CLI flag strings ready to be passed to :mod:`subprocess`.
     """
     flags: list[str] = []
-
-    # --- Permission mode ---------------------------------------------------
-    # Plan mode takes precedence over bypass permissions for safety.
-    if not plan_mode_required:
-        if permission_mode == "bypassPermissions":
-            flags.append("--dangerously-skip-permissions")
-        elif permission_mode == "acceptEdits":
-            flags.extend(["--permission-mode", "acceptEdits"])
 
     # --- Model override ----------------------------------------------------
     if model:

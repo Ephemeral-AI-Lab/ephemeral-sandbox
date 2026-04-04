@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from ephemeralos.api.usage import UsageSnapshot
+from ephemeralos.models.types import UsageSnapshot
 from ephemeralos.engine.messages import ConversationMessage
 
 
