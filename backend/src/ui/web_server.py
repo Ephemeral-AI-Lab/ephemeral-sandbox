@@ -11,7 +11,11 @@ import logging
 import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from ephemeralos.services.agent_builder.builder import AgentBuilderService
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -22,7 +26,7 @@ load_dotenv()
 from ephemeralos.bridge import get_bridge_manager
 from ephemeralos.config import load_settings
 from ephemeralos.db.engine import initialize_db
-from ephemeralos.db.stores import AgentRunStore, ModelStore, SessionStore, UsageStore
+from ephemeralos.db.stores import AgentDefinitionStore, AgentRunStore, ModelStore, SessionStore, UsageStore
 from ephemeralos.ui.protocol import BackendEvent, BackendHostConfig, ToolkitSnapshot
 from ephemeralos.ui.runtime import (
     RuntimeBundle,
@@ -30,6 +34,7 @@ from ephemeralos.ui.runtime import (
     close_runtime,
     start_runtime,
 )
+from ephemeralos.ui.routers.agents import create_agents_router
 from ephemeralos.ui.routers.core import create_core_router
 from ephemeralos.ui.routers.persistence import create_persistence_router
 from ephemeralos.ui.routers.sandboxes import create_sandbox_router
@@ -157,12 +162,14 @@ class SessionState:
 # ---------------------------------------------------------------------------
 
 _session: SessionState | None = None
+_builder_service: "AgentBuilderService | None" = None
 
 # Database stores — module-level singletons, initialised during lifespan
 session_store = SessionStore()
 agent_run_store = AgentRunStore()
 usage_store = UsageStore()
 model_store = ModelStore()
+agent_definition_store = AgentDefinitionStore()
 
 
 def create_app(config: BackendHostConfig) -> FastAPI:
@@ -170,9 +177,14 @@ def create_app(config: BackendHostConfig) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        global _session
+        global _session, _builder_service
         _session = SessionState()
         await _session.initialize(config)
+
+        # Register built-in agent definitions into the runtime registry
+        from ephemeralos.coordinator.agent_definitions import initialize_builtin_definitions
+
+        initialize_builtin_definitions()
 
         # Initialise PostgreSQL persistence (opt-in via database config)
         settings = load_settings()
@@ -182,9 +194,22 @@ def create_app(config: BackendHostConfig) -> FastAPI:
             agent_run_store.initialize(sf)
             usage_store.initialize(sf)
             model_store.initialize(sf)
+            agent_definition_store.initialize(sf)
             # Seed models from registry.json on first boot
             registry_path = Path(__file__).resolve().parent.parent.parent.parent / "models" / "registry.json"
             model_store.seed_from_json(str(registry_path))
+
+            # Bootstrap agent builder service and load DB agents
+            from ephemeralos.services.agent_builder import (
+                AgentBuilderService,
+                AgentDefinitionValidator,
+            )
+
+            tool_reg = _session.bundle.tool_registry if _session.bundle else None
+            validator = AgentDefinitionValidator(tool_reg)
+            _builder_service = AgentBuilderService(agent_definition_store, validator)
+            db_agents = _builder_service.load_all_from_db()
+            logger.info("Loaded %d user agents from DB", len(db_agents))
             logger.info("Database stores initialised")
         else:
             logger.info("Running without database — file-based persistence only")
@@ -192,6 +217,7 @@ def create_app(config: BackendHostConfig) -> FastAPI:
         yield
         await _session.close()
         _session = None
+        _builder_service = None
 
     app = FastAPI(title="EphemeralOS", lifespan=lifespan)
 
@@ -203,6 +229,12 @@ def create_app(config: BackendHostConfig) -> FastAPI:
         )
     )
     app.include_router(create_sandbox_router())
+    app.include_router(
+        create_agents_router(
+            get_builder_service=lambda: _builder_service,
+            get_tool_registry=lambda: _session.bundle.tool_registry if _session and _session.bundle else None,
+        )
+    )
 
     # Static file serving (SPA fallback) — must be last
     @app.get("/{full_path:path}")

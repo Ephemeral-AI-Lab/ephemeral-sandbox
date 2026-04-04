@@ -19,15 +19,12 @@ from ephemeralos.hooks import HookEvent, HookExecutionContext, HookExecutor, loa
 from ephemeralos.hooks.hot_reload import HookReloader
 from ephemeralos.mcp.client import McpClientManager
 from ephemeralos.mcp.config import load_mcp_server_configs
-from ephemeralos.permissions import PermissionChecker
 from ephemeralos.plugins import load_plugins
 from ephemeralos.prompts import build_runtime_system_prompt
 from ephemeralos.state import AppState, AppStateStore
 from ephemeralos.services.session_storage import save_session_snapshot
 from ephemeralos.tools import ToolRegistry, create_default_tool_registry
 
-PermissionPrompt = Callable[[str, str], Awaitable[bool]]
-AskUserPrompt = Callable[[str], Awaitable[str]]
 SystemPrinter = Callable[[str], Awaitable[None]]
 StreamRenderer = Callable[[StreamEvent], Awaitable[None]]
 ClearHandler = Callable[[], Awaitable[None]]
@@ -96,8 +93,6 @@ async def build_runtime(
     api_key: str | None = None,
     api_format: str | None = None,
     api_client: SupportsStreamingMessages | None = None,
-    permission_prompt: PermissionPrompt | None = None,
-    ask_user_prompt: AskUserPrompt | None = None,
     restore_messages: list[dict] | None = None,
 ) -> RuntimeBundle:
     """Build the shared runtime for an EphemeralOS session."""
@@ -130,7 +125,6 @@ async def build_runtime(
     app_state = AppStateStore(
         AppState(
             model=settings.model,
-            permission_mode=settings.permission.mode.value,
             theme=settings.theme,
             cwd=cwd,
             provider=provider.name,
@@ -156,13 +150,10 @@ async def build_runtime(
     engine = QueryEngine(
         api_client=resolved_api_client,
         tool_registry=tool_registry,
-        permission_checker=PermissionChecker(settings.permission),
         cwd=cwd,
         model=settings.model,
         system_prompt=build_runtime_system_prompt(settings, cwd=cwd, latest_user_prompt=prompt),
         max_tokens=settings.max_tokens,
-        permission_prompt=permission_prompt,
-        ask_user_prompt=ask_user_prompt,
         hook_executor=hook_executor,
         tool_metadata={"mcp_manager": mcp_manager, "bridge_manager": bridge_manager},
     )
@@ -212,7 +203,6 @@ def sync_app_state(bundle: RuntimeBundle) -> None:
     provider = detect_provider(settings)
     bundle.app_state.set(
         model=settings.model,
-        permission_mode=settings.permission.mode.value,
         theme=settings.theme,
         cwd=bundle.cwd,
         provider=provider.name,

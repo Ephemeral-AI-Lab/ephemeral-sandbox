@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "Agent",
+      "NotebookEdit",
+      "TodoWrite",
+      "Skill(code-reviewer)",
+      "Skill(code-reviewer:*)",
+      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
+      "mcp__plugin_oh-my-claudecode_t__ast_grep_search",
+      "mcp__plugin_oh-my-claudecode_t__state_list_active",
+      "mcp__plugin_oh-my-claudecode_t__state_clear",
+      "mcp__plugin_oh-my-claudecode_t__state_get_status",
+      "mcp__plugin_oh-my-claudecode_t__ast_grep_replace",
+      "mcp__plugin_oh-my-claudecode_t__state_read"
+    ]
+  },
+  "enabledPlugins": {
+    "oh-my-claudecode@omc": true
+  }
+}

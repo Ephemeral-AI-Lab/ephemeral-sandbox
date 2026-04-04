@@ -18,24 +18,6 @@ from pydantic import BaseModel, Field
 
 from ephemeralos.hooks.schemas import HookDefinition
 from ephemeralos.mcp.types import McpServerConfig
-from ephemeralos.permissions.modes import PermissionMode
-
-
-class PathRuleConfig(BaseModel):
-    """A glob-pattern path permission rule."""
-
-    pattern: str
-    allow: bool = True
-
-
-class PermissionSettings(BaseModel):
-    """Permission mode configuration."""
-
-    mode: PermissionMode = PermissionMode.DEFAULT
-    allowed_tools: list[str] = Field(default_factory=list)
-    denied_tools: list[str] = Field(default_factory=list)
-    path_rules: list[PathRuleConfig] = Field(default_factory=list)
-    denied_commands: list[str] = Field(default_factory=list)
 
 
 class DatabaseSettings(BaseModel):
@@ -72,7 +54,6 @@ class Settings(BaseModel):
 
     # Behavior
     system_prompt: str | None = None
-    permission: PermissionSettings = Field(default_factory=PermissionSettings)
     hooks: dict[str, list[HookDefinition]] = Field(default_factory=dict)
     memory: MemorySettings = Field(default_factory=MemorySettings)
     enabled_plugins: dict[str, bool] = Field(default_factory=dict)

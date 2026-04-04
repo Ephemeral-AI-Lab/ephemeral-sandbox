@@ -8,10 +8,9 @@ from typing import AsyncIterator
 from ephemeralos.api.client import SupportsStreamingMessages
 from ephemeralos.engine.cost_tracker import CostTracker
 from ephemeralos.engine.messages import ConversationMessage
-from ephemeralos.engine.query import AskUserPrompt, PermissionPrompt, QueryContext, run_query
+from ephemeralos.engine.query import QueryContext, run_query
 from ephemeralos.engine.stream_events import StreamEvent
 from ephemeralos.hooks import HookExecutor
-from ephemeralos.permissions.checker import PermissionChecker
 from ephemeralos.tools.base import ToolRegistry
 
 
@@ -23,25 +22,19 @@ class QueryEngine:
         *,
         api_client: SupportsStreamingMessages,
         tool_registry: ToolRegistry,
-        permission_checker: PermissionChecker,
         cwd: str | Path,
         model: str,
         system_prompt: str,
         max_tokens: int = 4096,
-        permission_prompt: PermissionPrompt | None = None,
-        ask_user_prompt: AskUserPrompt | None = None,
         hook_executor: HookExecutor | None = None,
         tool_metadata: dict[str, object] | None = None,
     ) -> None:
         self._api_client = api_client
         self._tool_registry = tool_registry
-        self._permission_checker = permission_checker
         self._cwd = Path(cwd).resolve()
         self._model = model
         self._system_prompt = system_prompt
         self._max_tokens = max_tokens
-        self._permission_prompt = permission_prompt
-        self._ask_user_prompt = ask_user_prompt
         self._hook_executor = hook_executor
         self._tool_metadata = tool_metadata or {}
         self._messages: list[ConversationMessage] = []
@@ -70,10 +63,6 @@ class QueryEngine:
         """Update the active model for future turns."""
         self._model = model
 
-    def set_permission_checker(self, checker: PermissionChecker) -> None:
-        """Update the active permission checker for future turns."""
-        self._permission_checker = checker
-
     def load_messages(self, messages: list[ConversationMessage]) -> None:
         """Replace the in-memory conversation history."""
         self._messages = list(messages)
@@ -84,13 +73,10 @@ class QueryEngine:
         context = QueryContext(
             api_client=self._api_client,
             tool_registry=self._tool_registry,
-            permission_checker=self._permission_checker,
             cwd=self._cwd,
             model=self._model,
             system_prompt=self._system_prompt,
             max_tokens=self._max_tokens,
-            permission_prompt=self._permission_prompt,
-            ask_user_prompt=self._ask_user_prompt,
             hook_executor=self._hook_executor,
             tool_metadata=self._tool_metadata,
         )

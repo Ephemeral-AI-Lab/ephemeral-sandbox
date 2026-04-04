@@ -5,7 +5,7 @@
  * - POST /api/chat with SSE streaming for chat responses
  */
 
-import type { BackendEvent, ConfigUpdate } from './types'
+import type { BackendEvent, ConfigUpdate, DbHealthStatus, ModelRegistration } from './types'
 
 type EventHandler = (event: BackendEvent) => void
 
@@ -205,3 +205,49 @@ class ConnectionMonitor {
 }
 
 export const connectionMonitor = new ConnectionMonitor()
+
+// ---------------------------------------------------------------------------
+// Database persistence API (/api/db/*)
+// ---------------------------------------------------------------------------
+
+const DB_BASE = '/api/db'
+
+export async function fetchDbHealth(): Promise<DbHealthStatus> {
+  const res = await fetch(`${DB_BASE}/health`)
+  return res.json()
+}
+
+export async function fetchModels(): Promise<{ models: ModelRegistration[]; active: string | null }> {
+  const res = await fetch(`${DB_BASE}/models`)
+  if (!res.ok) return { models: [], active: null }
+  return res.json()
+}
+
+export async function registerModel(params: {
+  key: string
+  label: string
+  class_path: string
+  kwargs: Record<string, unknown>
+  activate?: boolean
+}): Promise<{ ok: boolean; model: ModelRegistration }> {
+  const res = await fetch(`${DB_BASE}/models/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  return res.json()
+}
+
+export async function selectModel(key: string): Promise<{ ok: boolean; model: ModelRegistration }> {
+  const res = await fetch(`${DB_BASE}/models/select`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  })
+  return res.json()
+}
+
+export async function deleteModel(key: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`${DB_BASE}/models/${key}`, { method: 'DELETE' })
+  return res.json()
+}

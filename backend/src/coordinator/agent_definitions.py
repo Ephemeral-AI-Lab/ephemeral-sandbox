@@ -893,6 +893,42 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
 
 
 # ---------------------------------------------------------------------------
+# Runtime registry — unified store for built-in + user + DB agents
+# ---------------------------------------------------------------------------
+
+_DEFINITIONS: dict[str, AgentDefinition] = {}
+
+
+def register_definition(defn: AgentDefinition) -> None:
+    """Register or replace an agent definition at runtime."""
+    _DEFINITIONS[defn.name] = defn
+
+
+def unregister_definition(name: str) -> bool:
+    """Remove an agent definition. Returns True if it existed."""
+    return _DEFINITIONS.pop(name, None) is not None
+
+
+def get_definition(name: str) -> AgentDefinition | None:
+    """Look up a registered definition by name."""
+    return _DEFINITIONS.get(name)
+
+
+def list_definitions(source: str | None = None) -> list[AgentDefinition]:
+    """List all registered definitions, optionally filtered by source."""
+    defs = list(_DEFINITIONS.values())
+    if source:
+        defs = [d for d in defs if d.source == source]
+    return defs
+
+
+def initialize_builtin_definitions() -> None:
+    """Register all built-in agents into the runtime registry."""
+    for defn in get_builtin_agent_definitions():
+        register_definition(defn)
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -946,7 +982,16 @@ def get_all_agent_definitions() -> list[AgentDefinition]:
 
 
 def get_agent_definition(name: str) -> AgentDefinition | None:
-    """Return the agent definition for *name*, or ``None`` if not found."""
+    """Return the agent definition for *name*, or ``None`` if not found.
+
+    Checks the runtime registry first (includes DB-loaded agents), then
+    falls back to the full scan of built-in + user + plugin definitions.
+    """
+    # Fast path: check runtime registry
+    defn = get_definition(name)
+    if defn is not None:
+        return defn
+    # Slow path: full scan (covers agents not yet in registry)
     for agent in get_all_agent_definitions():
         if agent.name == name:
             return agent

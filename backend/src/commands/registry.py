@@ -35,7 +35,6 @@ from ephemeralos.memory import (
     list_memory_files,
     remove_memory_entry,
 )
-from ephemeralos.permissions import PermissionChecker, PermissionMode
 from ephemeralos.keybindings import load_keybindings
 from ephemeralos.output_styles import load_output_styles
 from ephemeralos.plugins import load_plugins
@@ -917,50 +916,6 @@ def create_default_command_registry() -> CommandRegistry:
             return CommandResult(message=context.plugin_summary)
         return CommandResult(message="Usage: /plugin [list|enable NAME|disable NAME|install PATH|uninstall NAME]")
 
-    _MODE_LABELS = {"default": "Default", "plan": "Plan Mode", "full_auto": "Auto"}
-
-    async def _permissions_handler(args: str, context: CommandContext) -> CommandResult:
-        settings = load_settings()
-        tokens = args.split()
-        if not tokens or tokens[0] == "show":
-            permission = settings.permission
-            label = _MODE_LABELS.get(permission.mode.value, permission.mode.value)
-            return CommandResult(
-                message=(
-                    f"Mode: {label}\n"
-                    f"Allowed tools: {permission.allowed_tools}\n"
-                    f"Denied tools: {permission.denied_tools}"
-                )
-            )
-        if tokens[0] == "set" and len(tokens) == 2:
-            settings.permission.mode = PermissionMode(tokens[1])
-            save_settings(settings)
-            context.engine.set_permission_checker(PermissionChecker(settings.permission))
-            if context.app_state is not None:
-                context.app_state.set(permission_mode=settings.permission.mode.value)
-            label = _MODE_LABELS.get(tokens[1], tokens[1])
-            return CommandResult(message=f"Permission mode set to {label}")
-        return CommandResult(message="Usage: /permissions [show|set MODE]")
-
-    async def _plan_handler(args: str, context: CommandContext) -> CommandResult:
-        settings = load_settings()
-        mode = args.strip() or "on"
-        if mode in {"on", "enter"}:
-            settings.permission.mode = PermissionMode.PLAN
-            save_settings(settings)
-            context.engine.set_permission_checker(PermissionChecker(settings.permission))
-            if context.app_state is not None:
-                context.app_state.set(permission_mode=settings.permission.mode.value)
-            return CommandResult(message="Plan mode enabled.")
-        if mode in {"off", "exit"}:
-            settings.permission.mode = PermissionMode.DEFAULT
-            save_settings(settings)
-            context.engine.set_permission_checker(PermissionChecker(settings.permission))
-            if context.app_state is not None:
-                context.app_state.set(permission_mode=settings.permission.mode.value)
-            return CommandResult(message="Plan mode disabled.")
-        return CommandResult(message="Usage: /plan [on|off]")
-
     async def _model_handler(args: str, context: CommandContext) -> CommandResult:
         settings = load_settings()
         tokens = args.split(maxsplit=1)
@@ -996,7 +951,6 @@ def create_default_command_registry() -> CommandRegistry:
             "Doctor summary:",
             f"- cwd: {context.cwd}",
             f"- model: {settings.model}",
-            f"- permission_mode: {state.permission_mode if state is not None else settings.permission.mode}",
             f"- output_style: {state.output_style if state is not None else 'default'}",
             f"- theme: {state.theme if state is not None else settings.theme}",
             f"- effort: {state.effort if state is not None else settings.effort}",
@@ -1220,8 +1174,6 @@ def create_default_command_registry() -> CommandRegistry:
     registry.register(SlashCommand("mcp", "Show MCP status", _mcp_handler))
     registry.register(SlashCommand("plugin", "Manage plugins", _plugin_handler))
     registry.register(SlashCommand("reload-plugins", "Reload plugin discovery for this workspace", _reload_plugins_handler))
-    registry.register(SlashCommand("permissions", "Show or update permission mode", _permissions_handler))
-    registry.register(SlashCommand("plan", "Toggle plan permission mode", _plan_handler))
     registry.register(SlashCommand("fast", "Show or update fast mode", _fast_handler))
     registry.register(SlashCommand("effort", "Show or update reasoning effort", _effort_handler))
     registry.register(SlashCommand("passes", "Show or update reasoning pass count", _passes_handler))

@@ -1,4 +1,4 @@
-"""Core API routes — health, state, chat, config, permissions, sessions."""
+"""Core API routes — health, state, chat, config, sessions."""
 
 from __future__ import annotations
 

@@ -46,7 +46,7 @@ from ephemeralos.swarm.mailbox import (
 )
 
 if TYPE_CHECKING:
-    from ephemeralos.permissions.checker import PermissionChecker
+    pass
 
 
 # ---------------------------------------------------------------------------

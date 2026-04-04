@@ -101,6 +101,24 @@ export type ConfigUpdate = {
   api_format?: string
 }
 
+// -- Database persistence types -----------------------------------------------
+
+export type ModelRegistration = {
+  id: number
+  key: string
+  label: string
+  class_path: string
+  kwargs: Record<string, unknown>
+  is_active: boolean
+  model_id: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export type DbHealthStatus = {
+  database: 'connected' | 'not_configured'
+}
+
 export type FrontendRequest =
   | { type: 'submit_line'; line: string }
   | { type: 'permission_response'; request_id: string; allowed: boolean }

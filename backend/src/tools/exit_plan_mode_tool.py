@@ -1,28 +1,28 @@
-"""Tool for leaving plan permission mode."""
+"""Tool for exiting plan mode."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel
 
-from ephemeralos.config.settings import load_settings, save_settings
-from ephemeralos.permissions import PermissionMode
 from ephemeralos.tools.base import BaseTool, ToolExecutionContext, ToolResult
 
 
 class ExitPlanModeToolInput(BaseModel):
-    """No-op input model."""
+    """Arguments for exiting plan mode."""
+
+    pass
 
 
 class ExitPlanModeTool(BaseTool):
-    """Switch settings permission mode back to default."""
+    """Exit plan mode and return to normal execution."""
 
     name = "exit_plan_mode"
-    description = "Switch permission mode back to default."
+    description = "Exit plan mode and return to normal execution."
     input_model = ExitPlanModeToolInput
 
-    async def execute(self, arguments: ExitPlanModeToolInput, context: ToolExecutionContext) -> ToolResult:
-        del arguments, context
-        settings = load_settings()
-        settings.permission.mode = PermissionMode.DEFAULT
-        save_settings(settings)
-        return ToolResult(output="Permission mode set to default")
+    async def execute(
+        self,
+        arguments: ExitPlanModeToolInput,
+        context: ToolExecutionContext,
+    ) -> ToolResult:
+        return ToolResult(output="Exited plan mode.")

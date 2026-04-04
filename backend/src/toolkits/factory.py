@@ -69,12 +69,12 @@ def _register_builtins() -> None:
     """Register factories for toolkits that need runtime context."""
 
     def _create_mcp(ctx: ToolkitContext) -> BaseToolkit:
-        from ephemeralos.toolkits.mcp_toolkit import McpToolkit
+        from ephemeralos.toolkits.integrations.mcp_toolkit import McpToolkit
 
         return McpToolkit(mcp_manager=ctx.mcp_manager)
 
     def _create_daytona(ctx: ToolkitContext) -> BaseToolkit:
-        from ephemeralos.toolkits.daytona_toolkit import DaytonaToolkit
+        from ephemeralos.toolkits.integrations.daytona_toolkit import DaytonaToolkit
 
         sandbox_id = ctx.metadata.get("sandbox_id", "")
         return DaytonaToolkit(sandbox_id=sandbox_id or None)

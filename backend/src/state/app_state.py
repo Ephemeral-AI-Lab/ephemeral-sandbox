@@ -10,7 +10,6 @@ class AppState:
     """Shared mutable UI/session state."""
 
     model: str
-    permission_mode: str
     theme: str
     cwd: str = "."
     provider: str = "unknown"

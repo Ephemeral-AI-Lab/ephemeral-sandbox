@@ -186,7 +186,6 @@ def _state_payload(state: AppState) -> dict[str, Any]:
         "provider": state.provider,
         "auth_status": state.auth_status,
         "base_url": state.base_url,
-        "permission_mode": _format_permission_mode(state.permission_mode),
         "theme": state.theme,
         "fast_mode": state.fast_mode,
         "effort": state.effort,
@@ -195,21 +194,6 @@ def _state_payload(state: AppState) -> dict[str, Any]:
         "mcp_failed": state.mcp_failed,
         "bridge_sessions": state.bridge_sessions,
     }
-
-
-_MODE_LABELS = {
-    "default": "Default",
-    "plan": "Plan Mode",
-    "full_auto": "Auto",
-    "PermissionMode.DEFAULT": "Default",
-    "PermissionMode.PLAN": "Plan Mode",
-    "PermissionMode.FULL_AUTO": "Auto",
-}
-
-
-def _format_permission_mode(raw: str) -> str:
-    """Convert raw permission mode to human-readable label."""
-    return _MODE_LABELS.get(raw, raw)
 
 
 __all__ = [

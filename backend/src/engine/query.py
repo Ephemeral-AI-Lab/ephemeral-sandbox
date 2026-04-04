@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator, Awaitable, Callable
+from typing import AsyncIterator
 
 from ephemeralos.api.client import (
     ApiMessageCompleteEvent,
@@ -23,13 +23,8 @@ from ephemeralos.engine.stream_events import (
     ToolExecutionStarted,
 )
 from ephemeralos.hooks import HookEvent, HookExecutor
-from ephemeralos.permissions.checker import PermissionChecker
 from ephemeralos.tools.base import ToolExecutionContext
 from ephemeralos.tools.base import ToolRegistry
-
-
-PermissionPrompt = Callable[[str, str], Awaitable[bool]]
-AskUserPrompt = Callable[[str], Awaitable[str]]
 
 
 @dataclass
@@ -38,13 +33,10 @@ class QueryContext:
 
     api_client: SupportsStreamingMessages
     tool_registry: ToolRegistry
-    permission_checker: PermissionChecker
     cwd: Path
     model: str
     system_prompt: str
     max_tokens: int
-    permission_prompt: PermissionPrompt | None = None
-    ask_user_prompt: AskUserPrompt | None = None
     max_turns: int = 200
     hook_executor: HookExecutor | None = None
     tool_metadata: dict[str, object] | None = None
@@ -180,38 +172,12 @@ async def _execute_tool_call(
             is_error=True,
         )
 
-    # Extract file_path and command for path-level permission checks
-    _file_path = str(tool_input.get("file_path", "")) or None
-    _command = str(tool_input.get("command", "")) or None
-    decision = context.permission_checker.evaluate(
-        tool_name,
-        is_read_only=tool.is_read_only(parsed_input),
-        file_path=_file_path,
-        command=_command,
-    )
-    if not decision.allowed:
-        if decision.requires_confirmation and context.permission_prompt is not None:
-            confirmed = await context.permission_prompt(tool_name, decision.reason)
-            if not confirmed:
-                return ToolResultBlock(
-                    tool_use_id=tool_use_id,
-                    content=f"Permission denied for {tool_name}",
-                    is_error=True,
-                )
-        else:
-            return ToolResultBlock(
-                tool_use_id=tool_use_id,
-                content=decision.reason or f"Permission denied for {tool_name}",
-                is_error=True,
-            )
-
     result = await tool.execute(
         parsed_input,
         ToolExecutionContext(
             cwd=context.cwd,
             metadata={
                 "tool_registry": context.tool_registry,
-                "ask_user_prompt": context.ask_user_prompt,
                 **(context.tool_metadata or {}),
             },
         ),

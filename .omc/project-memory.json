@@ -1,0 +1,433 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1775332520633,
+  "projectRoot": "/Users/yifanxu/machine_learning/LoVC/EphemeralOS",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "pyproject.toml"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "pytest",
+        "version": null,
+        "category": "testing"
+      }
+    ],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": "pytest",
+    "lintCommand": "ruff check",
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "assets",
+      "docs",
+      "scripts",
+      "src",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "assets": {
+      "path": "assets",
+      "purpose": "Static assets",
+      "fileCount": 10,
+      "lastAccessed": 1775332520628,
+      "keyFiles": [
+        "architecture-comic.png",
+        "cli-typing.gif",
+        "harness-equation.png",
+        "landing.png",
+        "logo.png"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1775332520628,
+      "keyFiles": [
+        "SHOWCASE.md"
+      ]
+    },
+    "frontend": {
+      "path": "frontend",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1775332520628,
+      "keyFiles": []
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 9,
+      "lastAccessed": 1775332520629,
+      "keyFiles": [
+        "e2e_smoke.py",
+        "local_system_scenarios.py",
+        "react_tui_e2e.py",
+        "test_cli_flags.py",
+        "test_harness_features.py"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1775332520629,
+      "keyFiles": [
+        "__init__.py"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 6,
+      "lastAccessed": 1775332520629,
+      "keyFiles": [
+        "__init__.py",
+        "conftest.py",
+        "test_hooks_skills_plugins_real.py",
+        "test_merged_prs_on_autoagent.py",
+        "test_real_large_tasks.py"
+      ]
+    },
+    "tests/fixtures": {
+      "path": "tests/fixtures",
+      "purpose": "Test fixtures",
+      "fileCount": 1,
+      "lastAccessed": 1775332520630,
+      "keyFiles": [
+        "fake_mcp_server.py"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/ephemeralos/cli.py",
+      "accessCount": 37,
+      "lastAccessed": 1775336810797,
+      "type": "file"
+    },
+    {
+      "path": "pyproject.toml",
+      "accessCount": 31,
+      "lastAccessed": 1775338568387,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos",
+      "accessCount": 28,
+      "lastAccessed": 1775336826645,
+      "type": "directory"
+    },
+    {
+      "path": "src",
+      "accessCount": 27,
+      "lastAccessed": 1775336278502,
+      "type": "directory"
+    },
+    {
+      "path": "src/ephemeralos/ui/runtime.py",
+      "accessCount": 25,
+      "lastAccessed": 1775337002812,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/ui/app.py",
+      "accessCount": 22,
+      "lastAccessed": 1775336968576,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/engine/query.py",
+      "accessCount": 11,
+      "lastAccessed": 1775334197662,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/swarm/in_process.py",
+      "accessCount": 11,
+      "lastAccessed": 1775336257820,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/tasks/manager.py",
+      "accessCount": 11,
+      "lastAccessed": 1775336749466,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/swarm/types.py",
+      "accessCount": 10,
+      "lastAccessed": 1775336819747,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/coordinator/coordinator_mode.py",
+      "accessCount": 9,
+      "lastAccessed": 1775334180184,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/config/settings.py",
+      "accessCount": 9,
+      "lastAccessed": 1775336972188,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/engine/query_engine.py",
+      "accessCount": 8,
+      "lastAccessed": 1775334713618,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/state/app_state.py",
+      "accessCount": 8,
+      "lastAccessed": 1775336970794,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/tools/base.py",
+      "accessCount": 7,
+      "lastAccessed": 1775333792102,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/tasks/types.py",
+      "accessCount": 7,
+      "lastAccessed": 1775334406030,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/tools/__init__.py",
+      "accessCount": 7,
+      "lastAccessed": 1775334509070,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/swarm/mailbox.py",
+      "accessCount": 7,
+      "lastAccessed": 1775336258468,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/swarm/subprocess_backend.py",
+      "accessCount": 7,
+      "lastAccessed": 1775336716576,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/tools/agent_tool.py",
+      "accessCount": 6,
+      "lastAccessed": 1775334229977,
+      "type": "file"
+    },
+    {
+      "path": "frontend/terminal/src/types.ts",
+      "accessCount": 6,
+      "lastAccessed": 1775335218038,
+      "type": "file"
+    },
+    {
+      "path": "tests",
+      "accessCount": 6,
+      "lastAccessed": 1775335938025,
+      "type": "directory"
+    },
+    {
+      "path": "src/ephemeralos/swarm/registry.py",
+      "accessCount": 6,
+      "lastAccessed": 1775336250287,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/swarm/spawn_utils.py",
+      "accessCount": 6,
+      "lastAccessed": 1775336985907,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/bridge/manager.py",
+      "accessCount": 5,
+      "lastAccessed": 1775333612238,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/hooks/executor.py",
+      "accessCount": 5,
+      "lastAccessed": 1775334171158,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/ui",
+      "accessCount": 5,
+      "lastAccessed": 1775336074567,
+      "type": "directory"
+    },
+    {
+      "path": "src/ephemeralos/swarm/team_lifecycle.py",
+      "accessCount": 5,
+      "lastAccessed": 1775336250102,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 5,
+      "lastAccessed": 1775337502545,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/coordinator/agent_definitions.py",
+      "accessCount": 4,
+      "lastAccessed": 1775332735784,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/hooks/types.py",
+      "accessCount": 4,
+      "lastAccessed": 1775334170528,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/coordinator",
+      "accessCount": 3,
+      "lastAccessed": 1775334054024,
+      "type": "directory"
+    },
+    {
+      "path": "src/ephemeralos/api/client.py",
+      "accessCount": 3,
+      "lastAccessed": 1775334686618,
+      "type": "file"
+    },
+    {
+      "path": "frontend/terminal/package.json",
+      "accessCount": 3,
+      "lastAccessed": 1775335238018,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/services/compact/__init__.py",
+      "accessCount": 3,
+      "lastAccessed": 1775335426381,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/swarm/worktree.py",
+      "accessCount": 3,
+      "lastAccessed": 1775336716810,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/__main__.py",
+      "accessCount": 3,
+      "lastAccessed": 1775336809647,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/swarm",
+      "accessCount": 3,
+      "lastAccessed": 1775336860027,
+      "type": "directory"
+    },
+    {
+      "path": "src/ephemeralos/prompts/system_prompt.py",
+      "accessCount": 2,
+      "lastAccessed": 1775332621735,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/bridge/session_runner.py",
+      "accessCount": 2,
+      "lastAccessed": 1775332631246,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/tools",
+      "accessCount": 2,
+      "lastAccessed": 1775332632647,
+      "type": "directory"
+    },
+    {
+      "path": "src/ephemeralos/permissions/checker.py",
+      "accessCount": 2,
+      "lastAccessed": 1775332783908,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/mcp/client.py",
+      "accessCount": 2,
+      "lastAccessed": 1775333580834,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/skills/types.py",
+      "accessCount": 2,
+      "lastAccessed": 1775333590726,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/plugins/types.py",
+      "accessCount": 2,
+      "lastAccessed": 1775333605380,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/tools/team_create_tool.py",
+      "accessCount": 1,
+      "lastAccessed": 1775332614238,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/services/session_storage.py",
+      "accessCount": 1,
+      "lastAccessed": 1775332618399,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/hooks",
+      "accessCount": 1,
+      "lastAccessed": 1775332621576,
+      "type": "directory"
+    },
+    {
+      "path": ".claude/agents/multi-agent-orchestrator.md",
+      "accessCount": 1,
+      "lastAccessed": 1775332624560,
+      "type": "file"
+    },
+    {
+      "path": "src/ephemeralos/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1775332768015,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

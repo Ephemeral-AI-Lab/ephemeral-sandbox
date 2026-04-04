@@ -60,7 +60,7 @@ def create_sandbox_router() -> APIRouter:
                 "detail": "Set daytona_api_key/daytona_api_url in settings.json or DAYTONA_API_KEY/DAYTONA_API_URL env vars",
             })
         try:
-            from ephemeralos.toolkits.daytona_toolkit.client import get_daytona_client
+            from ephemeralos.toolkits.integrations.daytona_toolkit.client import get_daytona_client
             client = get_daytona_client()
             result = client.list(limit=1)
             return JSONResponse(content={
@@ -83,7 +83,7 @@ def create_sandbox_router() -> APIRouter:
     async def list_sandboxes():
         """List all Daytona sandboxes."""
         try:
-            from ephemeralos.toolkits.daytona_toolkit.client import get_daytona_client
+            from ephemeralos.toolkits.integrations.daytona_toolkit.client import get_daytona_client
             client = get_daytona_client()
             result = client.list()
             sandboxes = []
@@ -106,7 +106,7 @@ def create_sandbox_router() -> APIRouter:
     async def create_sandbox(req: CreateSandboxRequest):
         """Create a new Daytona sandbox."""
         try:
-            from ephemeralos.toolkits.daytona_toolkit.client import get_daytona_client
+            from ephemeralos.toolkits.integrations.daytona_toolkit.client import get_daytona_client
             from daytona_sdk import CreateSandboxFromImageParams
             client = get_daytona_client()
             params = CreateSandboxFromImageParams(
@@ -128,7 +128,7 @@ def create_sandbox_router() -> APIRouter:
     async def start_sandbox(sandbox_id: str):
         """Start a stopped sandbox."""
         try:
-            from ephemeralos.toolkits.daytona_toolkit.client import get_daytona_client
+            from ephemeralos.toolkits.integrations.daytona_toolkit.client import get_daytona_client
             client = get_daytona_client()
             sandbox = client.get(sandbox_id)
             client.start(sandbox, timeout=60)
@@ -144,7 +144,7 @@ def create_sandbox_router() -> APIRouter:
     async def stop_sandbox(sandbox_id: str):
         """Stop a running sandbox."""
         try:
-            from ephemeralos.toolkits.daytona_toolkit.client import get_daytona_client
+            from ephemeralos.toolkits.integrations.daytona_toolkit.client import get_daytona_client
             client = get_daytona_client()
             sandbox = client.get(sandbox_id)
             client.stop(sandbox, timeout=60)
@@ -160,7 +160,7 @@ def create_sandbox_router() -> APIRouter:
     async def delete_sandbox(sandbox_id: str):
         """Delete a sandbox."""
         try:
-            from ephemeralos.toolkits.daytona_toolkit.client import get_daytona_client
+            from ephemeralos.toolkits.integrations.daytona_toolkit.client import get_daytona_client
             client = get_daytona_client()
             sandbox = client.get(sandbox_id)
             client.delete(sandbox)
@@ -172,7 +172,7 @@ def create_sandbox_router() -> APIRouter:
     async def exec_in_sandbox(sandbox_id: str, req: ExecRequest):
         """Execute a command in a sandbox."""
         try:
-            from ephemeralos.toolkits.daytona_toolkit.client import get_sandbox
+            from ephemeralos.toolkits.integrations.daytona_toolkit.client import get_sandbox
             sandbox = get_sandbox(sandbox_id)
             resp = sandbox.process.exec(req.command, timeout=req.timeout)
             return JSONResponse(content={
@@ -186,7 +186,7 @@ def create_sandbox_router() -> APIRouter:
     async def list_sandbox_files(sandbox_id: str, path: str = "/home/daytona"):
         """List files in a sandbox directory."""
         try:
-            from ephemeralos.toolkits.daytona_toolkit.client import get_sandbox
+            from ephemeralos.toolkits.integrations.daytona_toolkit.client import get_sandbox
             sandbox = get_sandbox(sandbox_id)
             entries = sandbox.fs.list_files(path)
             files = [

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router'
 import { useAppState, useTasks, useToolkits, useMcpServers, useBridgeSessions } from '@/lib/hooks'
-import type { TaskSnapshot, ToolkitSnapshot, McpServerSnapshot, BridgeSessionSnapshot } from '@/lib/types'
+import { fetchDbHealth } from '@/lib/api'
+import type { TaskSnapshot, ToolkitSnapshot, McpServerSnapshot, BridgeSessionSnapshot, DbHealthStatus } from '@/lib/types'
 
 // ── MetricCard ────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,11 @@ export default function DashboardPage() {
   const toolkits = useToolkits()
   const servers = useMcpServers()
   const sessions = useBridgeSessions()
+  const [dbHealth, setDbHealth] = useState<DbHealthStatus | null>(null)
+
+  useEffect(() => {
+    fetchDbHealth().then(setDbHealth).catch(() => {})
+  }, [])
 
   if (!appState) {
     return (
@@ -188,6 +194,11 @@ export default function DashboardPage() {
           label="Tasks"
           value={`${runningTasks} / ${tasks.length}`}
           accent={runningTasks > 0 ? 'text-green-400' : 'text-zinc-100'}
+        />
+        <MetricCard
+          label="Database"
+          value={dbHealth?.database === 'connected' ? 'Connected' : 'Off'}
+          accent={dbHealth?.database === 'connected' ? 'text-green-400' : 'text-zinc-500'}
         />
       </div>
 
