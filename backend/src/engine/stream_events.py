@@ -37,6 +37,7 @@ class ToolExecutionStarted:
 
     tool_name: str
     tool_input: dict[str, Any]
+    task_note: str = ""
 
 
 @dataclass(frozen=True)

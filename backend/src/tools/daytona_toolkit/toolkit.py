@@ -72,17 +72,27 @@ class DaytonaToolkit(BaseToolkit):
                 daytona_bash,
             ],
             instructions=(
-                "Use these tools to interact with the remote Daytona sandbox. "
-                "Prefer read-only tools first to understand context before making changes:\n"
-                "1. Explore: `daytona_list_files` and `daytona_glob` to find files\n"
-                "2. Search: `daytona_grep` to find code patterns\n"
-                "3. Read: `daytona_read_file` to understand file contents\n"
-                "4. Analyze: LSP tools (`daytona_lsp_hover`, `daytona_lsp_definition`, "
-                "`daytona_lsp_references`, `daytona_lsp_diagnostics`) for type info and errors\n"
-                "5. Edit: `daytona_edit` for targeted edits, `daytona_write_file` for new files\n"
-                "6. Execute: `daytona_bash` to run commands, tests, and verify changes\n"
-                "7. Advanced: `daytona_codeact` for multi-step code transformations\n\n"
-                "After making edits, always verify by reading the file or running relevant tests."
+                "Interact with a remote Daytona sandbox for file operations, "
+                "code analysis, editing, and command execution. "
+                "Read before you write — explore and understand context first.\n\n"
+                "**Explore & Search**\n"
+                "- `daytona_list_files` — list directory contents. Use to orient yourself.\n"
+                "- `daytona_glob` — find files by pattern (e.g. `**/*.py`). Use to locate files.\n"
+                "- `daytona_grep` — search file contents by regex. Use to find code patterns.\n"
+                "- `daytona_read_file` — read a file. Use before editing to understand context.\n\n"
+                "**Analyze**\n"
+                "- `daytona_lsp_hover` — type info and docs for a symbol at a position.\n"
+                "- `daytona_lsp_definition` — jump to where a symbol is defined.\n"
+                "- `daytona_lsp_references` — find all usages of a symbol across files.\n"
+                "- `daytona_lsp_diagnostics` — check a file for errors and warnings.\n\n"
+                "**Edit**\n"
+                "- `daytona_edit` — targeted string replacement in a file. Preferred for small changes.\n"
+                "- `daytona_write_file` — create or overwrite a file. Use for new files.\n"
+                "- `daytona_codeact` — execute Python with atomic file I/O. "
+                "Use for multi-step transformations that need read/write/shell in one operation.\n\n"
+                "**Execute**\n"
+                "- `daytona_bash` — run a shell command. Use for tests, builds, installs, verification.\n\n"
+                "After editing, always verify by reading the file back or running relevant tests."
             ),
         )
         self.sandbox_id = sandbox_id

@@ -36,6 +36,13 @@ class CoordinationWorkerToolkit(BaseToolkit):
                     trigger_dispatch_fn=trigger_dispatch_fn,
                 ),
             ],
+            instructions=(
+                "Escalation tool for worker agents in a coordinated pipeline. "
+                "Use when your assigned task hits a blocker that requires replanning.\n\n"
+                "- `request_replan` — signal the coordinator that your task cannot proceed. "
+                "Include the reason and any partial results. "
+                "The coordinator will reassess the plan and may reassign or restructure work."
+            ),
         )
 
 

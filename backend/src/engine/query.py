@@ -202,7 +202,9 @@ async def _run_query_loop(
                 messages=api_messages,
                 system_prompt=context.system_prompt,
                 max_tokens=context.max_tokens,
-                tools=context.tool_registry.to_api_schema(),
+                tools=context.tool_registry.to_api_schema(
+                    inject_task_note=context.enable_background_tasks,
+                ),
             )
         ):
             if isinstance(event, ApiThinkingDeltaEvent):
@@ -364,8 +366,9 @@ async def _run_query_loop(
             foreground_calls = []
 
             for tc in tool_calls:
+                # Strip meta-fields before passing input to the tool
+                task_note = str(tc.input.pop("task_note", ""))
                 is_background = tc.input.pop("background", False) if background_manager else False
-                task_note = str(tc.input.pop("task_note", "")) if background_manager else ""
 
                 if is_background:
                     # Validate tool supports background

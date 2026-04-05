@@ -37,6 +37,23 @@ class CIToolkit(BaseToolkit):
                 ci_recent_changes,
                 ci_read_file,
             ],
+            instructions=(
+                "Read-only code intelligence for understanding codebases "
+                "without modifying them. Use to ground your reasoning before making changes.\n\n"
+                "- `ci_status` — check if the code intelligence service is available.\n"
+                "- `ci_workspace_structure` — get a tree view of the project layout. "
+                "Use first to orient yourself in an unfamiliar codebase.\n"
+                "- `ci_query_symbols` — find functions, classes, or variables by name. "
+                "Use to locate definitions across the project.\n"
+                "- `ci_query_references` — find all usages of a symbol. "
+                "Use to understand impact before renaming or refactoring.\n"
+                "- `ci_edit_hotspots` — find frequently edited files. "
+                "Use to identify areas of churn that may need attention.\n"
+                "- `ci_recent_changes` — see recent commits and diffs. "
+                "Use to understand what changed and why.\n"
+                "- `ci_read_file` — read file contents via the CI service. "
+                "Use when sandbox tools are not available."
+            ),
         )
 
 

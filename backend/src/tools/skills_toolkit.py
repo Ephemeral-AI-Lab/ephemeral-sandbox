@@ -30,9 +30,11 @@ from skills.registry import SkillRegistry
 
 def make_skills_toolkit(
     skill_registry: SkillRegistry,
-    allowed_slugs: list[str],
+    allowed_slugs: list[str] | None = None,
 ) -> BaseToolkit:
     """Create a skills toolkit scoped to the given skill slugs.
+
+    If *allowed_slugs* is None, all registered skills are available.
 
     The toolkit provides three tools:
 
@@ -43,7 +45,8 @@ def make_skills_toolkit(
 
     # Pre-resolve allowed skills for fast lookup
     available: dict[str, dict[str, object]] = {}
-    for slug in allowed_slugs:
+    slugs = allowed_slugs if allowed_slugs is not None else [s.name for s in skill_registry.list_skills()]
+    for slug in slugs:
         skill = skill_registry.get(slug)
         if skill:
             available[skill.name] = {
@@ -51,23 +54,6 @@ def make_skills_toolkit(
                 "description": skill.description,
                 "references": list(skill.references.keys()),
             }
-
-    @tool(
-        name="list_skills",
-        description="List available skills with descriptions and reference documents.",
-        read_only=True,
-    )
-    async def list_skills(*, context: ToolExecutionContext) -> ToolResult:
-        """List all available skills.
-
-        Returns:
-            skills (list): Available skills with name, description, and references
-            total (int): Total number of skills
-        """
-        return ToolResult(output=json.dumps({
-            "skills": list(available.values()),
-            "total": len(available),
-        }))
 
     @tool(
         name="load_skill",
@@ -158,25 +144,21 @@ def make_skills_toolkit(
 
         return ToolResult(output=content)
 
-    # Build summary for instructions
-    skill_lines = []
+    # Build skill catalog for instructions
+    skill_entries = []
     for info in available.values():
-        line = f"- **{info['name']}**: {info['description']}"
-        refs = info.get("references", [])
-        if refs:
-            line += f" ({len(refs)} references)"
-        skill_lines.append(line)
+        skill_entries.append(f"  {info['name']}: {info['description']}")
 
     instructions = (
-        "You have access to specialized skills. Use `load_skill` to load "
-        "full instructions when a task matches. Use `load_skill_reference` "
-        "to load supplementary docs (schemas, rubrics, examples).\n\n"
-        "Available skills:\n" + "\n".join(skill_lines)
-    ) if skill_lines else None
+        "Lazy-loaded skill system. Use `load_skill(skill_name)` when a task "
+        "matches a skill's domain. Use `load_skill_reference(skill_name, ref)` "
+        "for supplementary docs.\n\n"
+        "```yaml\nskills:\n" + "\n".join(skill_entries) + "\n```"
+    ) if skill_entries else None
 
     return BaseToolkit(
         name="skills",
         description="Lazy-loaded skill instructions and reference documents",
-        tools=[list_skills, load_skill, load_skill_reference],
+        tools=[load_skill, load_skill_reference],
         instructions=instructions,
     )

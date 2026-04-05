@@ -162,17 +162,18 @@ def spawn_agent(
             latest_user_prompt=latest_user_prompt,
         )
 
-    # --- Implicit SkillsToolkit when agent has skills -----------------------
-    if agent_def and agent_def.skills:
-        from skills.loader import load_skill_registry
-        from tools.skills_toolkit import make_skills_toolkit
+    # --- Skills toolkit — always registered so agents can discover and load skills
+    from skills.loader import load_skill_registry
+    from tools.skills_toolkit import make_skills_toolkit
 
-        skill_registry = load_skill_registry(config.cwd)
-        skills_toolkit = make_skills_toolkit(skill_registry, agent_def.skills)
+    skill_filter = agent_def.skills if agent_def and agent_def.skills else None
+    skill_registry = load_skill_registry(config.cwd)
+    skills_toolkit = make_skills_toolkit(skill_registry, skill_filter)
+    if skills_toolkit.list_tools():
         tool_registry.register_toolkit(skills_toolkit)
         logger.info(
-            "Registered SkillsToolkit with %d skills for agent %r",
-            len(agent_def.skills),
+            "Registered SkillsToolkit (%d tools) for agent %r",
+            len(skills_toolkit.list_tools()),
             agent_name,
         )
 
@@ -181,48 +182,17 @@ def spawn_agent(
         t.supports_background for t in tool_registry.list_tools()
     )
 
-    # --- Inject toolkit awareness into system prompt -----------------------
-    awareness_sections: list[str] = []
+    # --- Inject toolkit and capability awareness into system prompt ---------
+    from prompts.context import build_agent_capabilities_prompt
 
-    # Toolkit awareness — only behavioral guidance, not tool descriptions.
-    # Tool names, descriptions, and schemas are already sent via the API
-    # `tools` parameter. Repeating them here wastes tokens.
-    registered_toolkits = tool_registry.list_toolkits()
-    if registered_toolkits:
-        tk_sections = []
-        for tk in registered_toolkits:
-            section = f"## {tk.name}\n{tk.description}"
-            if tk.instructions:
-                section += f"\n\n{tk.instructions}"
-            tool_names = ", ".join(f"`{t.name}`" for t in tk.list_tools())
-            section += f"\n\nTools: {tool_names}"
-            tk_sections.append(section)
-        awareness_sections.append("# Available Toolkits\n\n" + "\n\n".join(tk_sections))
-
-    # Background task awareness
-    if has_background_tools:
-        bg_tool_names = [t.name for t in tool_registry.list_tools() if t.supports_background]
-        awareness_sections.append(
-            "# Background Task Execution\n\n"
-            "You can run long-running tools in the background by adding "
-            '`"background": true` to the tool input JSON. Also include '
-            '`"task_note": "brief description"` to label the task for easier tracking. '
-            "This launches the tool asynchronously — you get an immediate acknowledgment "
-            "and can continue with other work while it runs.\n\n"
-            f"**Tools that support background execution:** {', '.join(f'`{n}`' for n in bg_tool_names)}\n\n"
-            "**Available management tools:**\n"
-            "- `check_background_progress` — check status of running background tasks\n"
-            "- `cancel_background_task` — cancel a running background task\n\n"
-            "**When to use background:**\n"
-            "- Long-running operations: test suites, builds, installations, deployments\n"
-            "- When you have other useful work to do in parallel\n\n"
-            "**When NOT to use background:**\n"
-            "- Quick commands (< 5 seconds)\n"
-            "- When you need the result immediately for your next step\n"
-        )
-
-    if awareness_sections:
-        system_prompt = system_prompt + "\n\n" + "\n\n".join(awareness_sections)
+    bg_tool_names = [t.name for t in tool_registry.list_tools() if t.supports_background]
+    awareness = build_agent_capabilities_prompt(
+        toolkits=tool_registry.list_toolkits(),
+        has_background_tools=has_background_tools,
+        bg_tool_names=bg_tool_names,
+    )
+    if awareness:
+        system_prompt = system_prompt + "\n\n" + awareness
 
     # --- Max turns
     max_turns = agent_def.max_turns if agent_def and agent_def.max_turns else 200

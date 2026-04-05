@@ -25,6 +25,16 @@ class CoordinationPlannerToolkit(BaseToolkit):
                 make_query_phase_context_tool(phase_outputs=phase_outputs or {}),
                 make_list_phases_tool(phase_outputs=phase_outputs or {}),
             ],
+            instructions=(
+                "Introspection tools for the coordination planner. "
+                "Use to discover available agents and review outputs from prior phases.\n\n"
+                "- `list_agents` — list all registered worker agents. "
+                "Use to decide which agents to assign tasks to.\n"
+                "- `query_phase_context` — read the output of a completed phase. "
+                "Use to build on prior results when planning the next phase.\n"
+                "- `list_phases` — list all phases and their status. "
+                "Use to understand overall progress and dependencies."
+            ),
         )
 
 

@@ -216,6 +216,23 @@ class ToolRegistry:
         self._toolkits = kept_toolkits
         self._tools = {k: v for k, v in self._tools.items() if k in allowed_tools}
 
-    def to_api_schema(self) -> list[dict[str, Any]]:
-        """Return all tool schemas in API format."""
-        return [tool.to_api_schema() for tool in self._tools.values()]
+    def to_api_schema(self, *, inject_task_note: bool = False) -> list[dict[str, Any]]:
+        """Return all tool schemas in API format.
+
+        When *inject_task_note* is True, every tool's input_schema gets a
+        required ``task_note`` field so the LLM must provide it on every call.
+        """
+        schemas = []
+        for tool in self._tools.values():
+            schema = tool.to_api_schema()
+            if inject_task_note:
+                inp = schema.setdefault("input_schema", {})
+                inp.setdefault("properties", {})["task_note"] = {
+                    "type": "string",
+                    "description": "Brief note: what and why",
+                }
+                req = inp.setdefault("required", [])
+                if "task_note" not in req:
+                    req.append("task_note")
+            schemas.append(schema)
+        return schemas
