@@ -34,6 +34,8 @@ if TYPE_CHECKING:
 
 class ChatRequest(BaseModel):
     line: str
+    agent_name: str | None = None
+    sandbox_id: str | None = None
 
 
 class ConfigRequest(BaseModel):
@@ -169,12 +171,27 @@ def create_core_router(get_session: Callable[[], "SessionState"]) -> APIRouter:
                 async def _clear_output() -> None:
                     await session.emit(BackendEvent(type="clear_transcript"))
 
+                # Resolve agent definition if requested
+                agent_def = None
+                if req.agent_name:
+                    from ephemeralos.agents.registry import get_definition
+                    agent_def = get_definition(req.agent_name)
+                    if agent_def is None:
+                        await _print_system(f"Agent '{req.agent_name}' not found — using default")
+
+                # Attach sandbox context if requested
+                if req.sandbox_id:
+                    sandbox_line = f"[sandbox:{req.sandbox_id}] {req.line}"
+                else:
+                    sandbox_line = req.line
+
                 await handle_line(
                     config,
-                    req.line,
+                    sandbox_line,
                     print_system=_print_system,
                     render_event=_render_event,
                     clear_output=_clear_output,
+                    agent_def=agent_def,
                 )
                 await session.emit(BackendEvent.tasks_snapshot(get_task_manager().list_tasks()))
                 await session.emit(BackendEvent(type="line_complete"))

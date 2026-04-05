@@ -68,6 +68,33 @@ class AgentBuilderService:
         if existing is not None and existing.source == "builtin":
             raise ValueError(f"Cannot overwrite built-in agent '{data.name}'")
 
+        # Check for inactive record with the same name — reactivate instead of inserting
+        inactive = self._store.get_by_name(data.name, active_only=False)
+        if inactive is not None:
+            if inactive.is_active:
+                raise ValueError(f"Agent '{data.name}' already exists")
+            # Reactivate with new data
+            updates = {
+                "description": data.description,
+                "system_prompt": data.system_prompt,
+                "model": data.model,
+                "effort": data.effort,
+                "max_turns": data.max_turns,
+                "toolkits": data.toolkits,
+                "skills": data.skills or [],
+                "hooks": data.hooks,
+                "background": data.background,
+                "initial_prompt": data.initial_prompt,
+                "subagent_type": data.subagent_type,
+                "tags": data.tags,
+                "metadata_json": data.metadata,
+                "created_by": data.created_by,
+                "is_active": True,
+            }
+            record = self._store.update(data.name, updates)
+            self._register(self.record_to_definition(record))
+            return self._record_to_response(record)
+
         now = datetime.now(timezone.utc)
         record = AgentDefinitionRecord(
             id=str(uuid4()), name=data.name, description=data.description,

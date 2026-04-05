@@ -40,19 +40,35 @@ ClearHandler = Callable[[], Awaitable[None]]
 # ---------------------------------------------------------------------------
 
 
-def _make_api_client(settings: Settings, external: SupportsStreamingMessages | None = None) -> SupportsStreamingMessages:
-    """Build an API client from settings, or return the external one."""
+def _make_api_client(
+    settings: Settings,
+    external: SupportsStreamingMessages | None = None,
+    *,
+    db_kwargs: dict | None = None,
+    db_class_path: str | None = None,
+) -> SupportsStreamingMessages:
+    """Build an API client from settings, or return the external one.
+
+    When *db_kwargs* / *db_class_path* are provided (from the active model
+    registration in the DB) they supply ``api_key``, ``base_url``, and the
+    provider type — falling back to ``settings`` only when a value is absent.
+    """
     if external is not None:
         return external
-    if settings.api_format == "openai":
-        return OpenAICompatibleClient(
-            api_key=settings.resolve_api_key(),
-            base_url=settings.base_url,
-        )
-    return AnthropicApiClient(
-        api_key=settings.resolve_api_key(),
-        base_url=settings.base_url,
+
+    # Resolve from DB-registered model first, then settings
+    api_key = (db_kwargs or {}).get("api_key") or settings.resolve_api_key()
+    base_url = (db_kwargs or {}).get("base_url") or settings.base_url
+
+    # Determine provider: DB class_path > settings.api_format
+    is_openai = (
+        (db_class_path or "").lower() in ("openai", "openai_compat")
+        or settings.api_format == "openai"
     )
+
+    if is_openai:
+        return OpenAICompatibleClient(api_key=api_key, base_url=base_url)
+    return AnthropicApiClient(api_key=api_key, base_url=base_url)
 
 
 def _make_hook_executor(settings: Settings, cwd: str, api_client: SupportsStreamingMessages) -> HookExecutor:
@@ -148,12 +164,30 @@ def spawn_agent(
     """
     settings = config.resolve_settings()
 
+    # --- Active model from DB (carries api_key, base_url, class_path) ------
+    db_kwargs: dict | None = None
+    db_class_path: str | None = None
+    try:
+        from ephemeralos.server.app_factory import model_store
+        active = model_store.get_active_resolved() if model_store.is_available else None
+        if active:
+            db_kwargs = active.get("kwargs")
+            db_class_path = active.get("class_path")
+    except Exception:
+        active = None
+
     # --- Per-agent overrides ------------------------------------------------
-    resolved_model = agent_def.model if agent_def and agent_def.model else settings.model
+    resolved_model = (
+        agent_def.model if agent_def and agent_def.model
+        else (db_kwargs or {}).get("model") or settings.model
+    )
     agent_name = agent_def.name if agent_def else resolved_model
 
     # --- API client
-    api_client = _make_api_client(settings, config.external_api_client)
+    api_client = _make_api_client(
+        settings, config.external_api_client,
+        db_kwargs=db_kwargs, db_class_path=db_class_path,
+    )
 
     # --- Tool registry
     tool_registry = create_default_tool_registry()
@@ -304,8 +338,20 @@ async def handle_line(
     )
     logger.info("Spawned agent %r (model=%s, session=%s)", agent.agent_name, agent.model, config.session_id)
 
-    # 3. Create agent run record
+    # 3. Ensure session record exists (agent_runs FK requires it)
     run_id: str | None = None
+    if db_available:
+        try:
+            session_store.upsert(
+                session_id=config.session_id,
+                cwd=config.cwd,
+                model=agent.model,
+                message_count=0,
+            )
+        except Exception:
+            logger.debug("Failed to ensure session record", exc_info=True)
+
+    # 4. Create agent run record
     if db_available:
         from uuid import uuid4
 
@@ -321,7 +367,7 @@ async def handle_line(
             logger.debug("Failed to create agent run record", exc_info=True)
             run_id = None
 
-    # 4. Run the agent
+    # 5. Run the agent
     event_count = 0
     run_error: str | None = None
     usage_snapshot = None
@@ -361,7 +407,7 @@ async def handle_line(
             except Exception:
                 logger.debug("Failed to record token usage", exc_info=True)
 
-    # 5. Save updated history to DB
+    # 6. Save updated history to DB
     if db_available:
         try:
             session_store.upsert(
@@ -385,5 +431,5 @@ async def handle_line(
 
     logger.info("Agent %r finished (events=%d, status=%s)", agent.agent_name, event_count, "failed" if run_error else "completed")
 
-    # 6. Agent goes out of scope — ephemeral lifecycle complete
+    # 7. Agent goes out of scope — ephemeral lifecycle complete
     return True

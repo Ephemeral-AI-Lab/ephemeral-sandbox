@@ -11,7 +11,7 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from ephemeralos.db.base import Base
@@ -33,6 +33,23 @@ def get_engine() -> Engine | None:
 def get_session_factory() -> sessionmaker[Session] | None:
     """Return the shared session factory (None if DB is not configured)."""
     return _session_factory
+
+
+def _add_missing_columns(engine: Engine) -> None:
+    """Add columns that exist in ORM models but not yet in the database."""
+    insp = inspect(engine)
+    for table in Base.metadata.sorted_tables:
+        if not insp.has_table(table.name):
+            continue
+        existing = {col["name"] for col in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name not in existing:
+                col_type = col.type.compile(dialect=engine.dialect)
+                logger.info("Adding missing column %s.%s (%s)", table.name, col.name, col_type)
+                with engine.begin() as conn:
+                    conn.execute(
+                        text(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col_type}')
+                    )
 
 
 def initialize_db(
@@ -76,6 +93,11 @@ def initialize_db(
     import ephemeralos.db.models  # noqa: F401
 
     Base.metadata.create_all(_engine)
+
+    # Patch existing tables with columns added after initial creation.
+    # create_all only creates missing *tables*, not missing *columns*.
+    _add_missing_columns(_engine)
+
     logger.info("Database tables created / verified")
 
     _session_factory = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)

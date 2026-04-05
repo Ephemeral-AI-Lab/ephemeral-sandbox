@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -14,3 +14,4 @@ class SkillDefinition:
     content: str
     source: str
     path: str | None = None
+    keybinding: str | None = None

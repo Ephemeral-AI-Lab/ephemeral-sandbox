@@ -52,6 +52,14 @@ export default function Layout() {
             Agents
           </NavLink>
           <NavLink
+            to="/skills"
+            className={({ isActive }) =>
+              `rounded px-3 py-1.5 text-sm transition ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`
+            }
+          >
+            Skills
+          </NavLink>
+          <NavLink
             to="/sandboxes"
             className={({ isActive }) =>
               `rounded px-3 py-1.5 text-sm transition ${isActive ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'}`

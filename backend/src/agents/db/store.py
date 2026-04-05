@@ -35,13 +35,12 @@ class AgentDefinitionStore:
             db.refresh(record)
             return record
 
-    def get_by_name(self, name: str) -> AgentDefinitionRecord | None:
+    def get_by_name(self, name: str, *, active_only: bool = True) -> AgentDefinitionRecord | None:
         with self._sf() as db:
-            return (
-                db.query(AgentDefinitionRecord)
-                .filter(AgentDefinitionRecord.name == name, AgentDefinitionRecord.is_active.is_(True))
-                .first()
-            )
+            q = db.query(AgentDefinitionRecord).filter(AgentDefinitionRecord.name == name)
+            if active_only:
+                q = q.filter(AgentDefinitionRecord.is_active.is_(True))
+            return q.first()
 
     def get_by_id(self, record_id: str) -> AgentDefinitionRecord | None:
         with self._sf() as db:
@@ -57,7 +56,7 @@ class AgentDefinitionStore:
 
     def update(self, name: str, updates: dict) -> AgentDefinitionRecord:
         with self._sf() as db:
-            record = db.query(AgentDefinitionRecord).filter(AgentDefinitionRecord.name == name, AgentDefinitionRecord.is_active.is_(True)).first()
+            record = db.query(AgentDefinitionRecord).filter(AgentDefinitionRecord.name == name).first()
             if record is None:
                 raise KeyError(f"Agent definition '{name}' not found")
             for key, value in updates.items():
@@ -93,6 +92,32 @@ class AgentDefinitionStore:
             source = db.query(AgentDefinitionRecord).filter(AgentDefinitionRecord.name == source_name, AgentDefinitionRecord.is_active.is_(True)).first()
             if source is None:
                 raise KeyError(f"Source agent '{source_name}' not found")
+            # Check if new_name already exists (including inactive)
+            existing = db.query(AgentDefinitionRecord).filter(AgentDefinitionRecord.name == new_name).first()
+            if existing is not None:
+                if existing.is_active:
+                    raise KeyError(f"Agent '{new_name}' already exists")
+                # Reactivate inactive record with cloned data
+                existing.description = source.description
+                existing.system_prompt = source.system_prompt
+                existing.model = source.model
+                existing.effort = source.effort
+                existing.max_turns = source.max_turns
+                existing.toolkits = source.toolkits
+                existing.skills = source.skills or []
+                existing.hooks = source.hooks
+                existing.background = source.background
+                existing.initial_prompt = source.initial_prompt
+                existing.subagent_type = new_name
+                existing.is_active = True
+                existing.created_by = source.created_by
+                existing.tags = source.tags
+                existing.metadata_json = source.metadata_json
+                existing.version += 1
+                existing.updated_at = datetime.now(timezone.utc)
+                db.commit()
+                db.refresh(existing)
+                return existing
             now = datetime.now(timezone.utc)
             clone_record = AgentDefinitionRecord(
                 id=str(uuid4()), name=new_name, description=source.description,

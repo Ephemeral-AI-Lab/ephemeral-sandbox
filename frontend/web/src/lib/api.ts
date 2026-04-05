@@ -88,6 +88,7 @@ export function streamChat(
   onEvent: EventHandler,
   onDone: () => void,
   onError: (error: Error) => void,
+  options?: { agent_name?: string; sandbox_id?: string },
 ): AbortController {
   const controller = new AbortController()
   let finished = false
@@ -101,10 +102,14 @@ export function streamChat(
 
   ;(async () => {
     try {
+      const body: Record<string, string> = { line }
+      if (options?.agent_name) body.agent_name = options.agent_name
+      if (options?.sandbox_id) body.sandbox_id = options.sandbox_id
+
       const res = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ line }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       })
 

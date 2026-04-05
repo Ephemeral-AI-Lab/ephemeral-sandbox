@@ -205,7 +205,7 @@ export function useTranscript() {
     return () => unsubs.forEach((u) => u())
   }, [])
 
-  const submitLine = useCallback((line: string) => {
+  const submitLine = useCallback((line: string, options?: { agent_name?: string; sandbox_id?: string }) => {
     setItems((prev) => [...prev, { role: 'user', text: line }])
     setBusy(true)
 
@@ -220,6 +220,7 @@ export function useTranscript() {
         ])
         setBusy(false)
       },
+      options,
     )
   }, [])
 

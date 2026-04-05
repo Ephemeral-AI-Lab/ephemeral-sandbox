@@ -9,6 +9,7 @@ import TaskDetailPage from './pages/TaskDetailPage'
 import SettingsPage from './pages/SettingsPage'
 import SessionsPage from './pages/SessionsPage'
 import AgentRunsPage from './pages/AgentRunsPage'
+import SkillsPage from './pages/SkillsPage'
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="conversation" element={<ConversationPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="agents" element={<AgentsPage />} />
+          <Route path="skills" element={<SkillsPage />} />
           <Route path="sandboxes" element={<SandboxesPage />} />
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="sessions/:sessionId/runs" element={<AgentRunsPage />} />

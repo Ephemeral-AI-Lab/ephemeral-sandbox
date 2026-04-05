@@ -25,6 +25,7 @@ load_dotenv()
 from ephemeralos.config import load_settings
 from ephemeralos.db.engine import initialize_db
 from ephemeralos.db.stores import AgentDefinitionStore, AgentRunStore, ModelStore, SessionStore, UsageStore
+from ephemeralos.skills.db.store import SkillDefinitionStore
 from ephemeralos.server.protocol import BackendEvent, BackendHostConfig, ToolkitSnapshot
 from ephemeralos.server.runtime import (
     SessionConfig,
@@ -37,6 +38,7 @@ from ephemeralos.server.routers.core import create_core_router
 from ephemeralos.server.routers.persistence import create_persistence_router
 from ephemeralos.server.routers.sandboxes import create_sandbox_router
 from ephemeralos.server.routers.code_intelligence import router as ci_router
+from ephemeralos.skills.api.router import create_skills_router
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +163,7 @@ agent_run_store = AgentRunStore()
 usage_store = UsageStore()
 model_store = ModelStore()
 agent_definition_store = AgentDefinitionStore()
+skill_definition_store = SkillDefinitionStore()
 
 
 def create_app(config: BackendHostConfig) -> FastAPI:
@@ -186,6 +189,7 @@ def create_app(config: BackendHostConfig) -> FastAPI:
             usage_store.initialize(sf)
             model_store.initialize(sf)
             agent_definition_store.initialize(sf)
+            skill_definition_store.initialize(sf)
             # Seed models from registry.json on first boot
             registry_path = Path(__file__).resolve().parent.parent.parent.parent / "models" / "registry.json"
             model_store.seed_from_json(str(registry_path))
@@ -199,6 +203,29 @@ def create_app(config: BackendHostConfig) -> FastAPI:
             tool_reg = _session._tool_registry if _session else None
             validator = AgentDefinitionValidator(tool_reg)
             _builder_service = AgentBuilderService(agent_definition_store, validator)
+
+            # Seed SuperCocoa specialists into DB on first boot (idempotent)
+            from ephemeralos.agents.seed import seed_specialists_from_supercocoa
+
+            specialist_dir = (
+                Path(__file__).resolve().parent.parent.parent.parent.parent
+                / "synthetic-os"
+                / ".super-cocoa-agents"
+                / "specialist"
+            )
+            if specialist_dir.exists():
+                seed_created, seed_skipped = seed_specialists_from_supercocoa(
+                    agent_definition_store, specialist_dir
+                )
+                if seed_created:
+                    logger.info(
+                        "Seeded %d SuperCocoa specialists (%d already existed)",
+                        seed_created,
+                        seed_skipped,
+                    )
+            else:
+                logger.debug("SuperCocoa specialist dir not found: %s", specialist_dir)
+
             db_agents = _builder_service.load_all_from_db()
             logger.info("Loaded %d user agents from DB", len(db_agents))
             logger.info("Database stores initialised")
@@ -227,6 +254,18 @@ def create_app(config: BackendHostConfig) -> FastAPI:
             get_tool_registry=lambda: _session._tool_registry if _session else None,
         )
     )
+
+    # Skills API — lazy-load the registry on first request
+    from ephemeralos.skills.loader import load_skill_registry as _load_skills
+
+    _skill_registry_cache: list = []  # mutable container for closure
+
+    def _get_skill_registry():
+        if not _skill_registry_cache:
+            _skill_registry_cache.append(_load_skills())
+        return _skill_registry_cache[0]
+
+    app.include_router(create_skills_router(_get_skill_registry))
 
     # Static file serving (SPA fallback) — must be last
     @app.get("/{full_path:path}")
@@ -290,19 +329,35 @@ class WebServer:
             restore_messages=restore_messages,
         )
 
-    async def start(self) -> None:
+    async def start(self, *, reload: bool = False) -> None:
         """Start the FastAPI server and run until interrupted."""
         import uvicorn
 
-        app = create_app(self._config)
-        config = uvicorn.Config(
-            app,
-            host=self.host,
-            port=self.port,
-            log_level="info",
-        )
+        if reload:
+            # uvicorn reload requires an import string, not an app instance
+            config = uvicorn.Config(
+                "ephemeralos.server.app_factory:create_default_app",
+                host=self.host,
+                port=self.port,
+                log_level="info",
+                reload=True,
+                reload_dirs=["backend/src"],
+            )
+        else:
+            app = create_app(self._config)
+            config = uvicorn.Config(
+                app,
+                host=self.host,
+                port=self.port,
+                log_level="info",
+            )
         server = uvicorn.Server(config)
         await server.serve()
 
 
-__all__ = ["WebServer", "create_app", "SessionState"]
+def create_default_app() -> FastAPI:
+    """Factory callable for uvicorn reload mode (import string target)."""
+    return create_app(BackendHostConfig())
+
+
+__all__ = ["WebServer", "create_app", "create_default_app", "SessionState"]

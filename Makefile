@@ -3,10 +3,10 @@
 # Start both backend and frontend for development
 dev: backend frontend
 
-# Start the FastAPI backend on port 8420
+# Start the FastAPI backend on port 8420 (hot-reload enabled)
 backend:
 	-lsof -ti:8420 | xargs kill -9 2>/dev/null || true
-	.venv/bin/python -m ephemeralos &
+	EPHEMERALOS_DEV=1 .venv/bin/python -m ephemeralos &
 
 # Start the Vite dev server on port 5173 (proxies /api to backend)
 frontend:

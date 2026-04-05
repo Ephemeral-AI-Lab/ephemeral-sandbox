@@ -1,8 +1,21 @@
-import { useEffect, useRef, useState, KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, useCallback, KeyboardEvent } from 'react'
 import { useTranscript } from '@/lib/hooks'
 import { useModal } from '@/lib/hooks'
 import { useConnected } from '@/lib/hooks'
 import type { TranscriptItem } from '@/lib/types'
+
+interface AgentSummary {
+  name: string
+  description: string
+  source: string
+  model: string | null
+}
+
+interface SandboxInfo {
+  id: string
+  name: string
+  state: string
+}
 
 // ── MessageBubble ──────────────────────────────────────────────────────────────
 
@@ -150,10 +163,22 @@ function PromptInput({
   onSubmit,
   disabled,
   busy,
+  agents,
+  sandboxes,
+  selectedAgent,
+  selectedSandbox,
+  onAgentChange,
+  onSandboxChange,
 }: {
-  onSubmit: (line: string) => void
+  onSubmit: (line: string, options?: { agent_name?: string; sandbox_id?: string }) => void
   disabled: boolean
   busy: boolean
+  agents: AgentSummary[]
+  sandboxes: SandboxInfo[]
+  selectedAgent: string
+  selectedSandbox: string
+  onAgentChange: (v: string) => void
+  onSandboxChange: (v: string) => void
 }) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -182,37 +207,93 @@ function PromptInput({
   const handleSubmit = () => {
     const trimmed = value.trim()
     if (!trimmed || disabled) return
-    onSubmit(trimmed)
+    const opts: { agent_name?: string; sandbox_id?: string } = {}
+    if (selectedAgent) opts.agent_name = selectedAgent
+    if (selectedSandbox) opts.sandbox_id = selectedSandbox
+    onSubmit(trimmed, Object.keys(opts).length > 0 ? opts : undefined)
     setValue('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
   }
 
+  const hasSelectors = agents.length > 0 || sandboxes.length > 0
+
   return (
     <div className="border-t border-zinc-800 bg-zinc-950 px-4 py-3">
-      <div className="flex items-end gap-3 max-w-4xl mx-auto">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          placeholder={disabled ? 'Connecting…' : 'Send a message… (Shift+Enter for newline)'}
-          rows={1}
-          className="flex-1 resize-none rounded-xl bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[42px] leading-6"
-        />
-        <button
-          onClick={handleSubmit}
-          disabled={disabled || !value.trim()}
-          className="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[42px] flex items-center gap-2"
-        >
-          {busy ? (
-            <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <span>Send</span>
-          )}
-        </button>
+      <div className="max-w-4xl mx-auto">
+        {/* Agent & Sandbox selectors */}
+        {hasSelectors && (
+          <div className="flex items-center gap-3 mb-2">
+            {agents.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-zinc-500">Agent</label>
+                <select
+                  value={selectedAgent}
+                  onChange={e => onAgentChange(e.target.value)}
+                  className="rounded-lg bg-zinc-800 border border-zinc-700 px-2 py-1 text-xs text-zinc-300 outline-none focus:ring-1 focus:ring-blue-500 max-w-[180px]"
+                >
+                  <option value="">Default</option>
+                  {agents.map(a => (
+                    <option key={a.name} value={a.name}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {sandboxes.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-zinc-500">Sandbox</label>
+                <select
+                  value={selectedSandbox}
+                  onChange={e => onSandboxChange(e.target.value)}
+                  className="rounded-lg bg-zinc-800 border border-zinc-700 px-2 py-1 text-xs text-zinc-300 outline-none focus:ring-1 focus:ring-blue-500 max-w-[180px]"
+                >
+                  <option value="">None</option>
+                  {sandboxes.map(s => (
+                    <option key={s.id} value={s.id} disabled={s.state !== 'started'}>
+                      {s.name} {s.state !== 'started' ? `(${s.state})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {(selectedAgent || selectedSandbox) && (
+              <button
+                onClick={() => { onAgentChange(''); onSandboxChange('') }}
+                className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Input row */}
+        <div className="flex items-end gap-3">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={disabled}
+            placeholder={disabled ? 'Connecting…' : 'Send a message… (Shift+Enter for newline)'}
+            rows={1}
+            className="flex-1 resize-none rounded-xl bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[42px] leading-6"
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={disabled || !value.trim()}
+            className="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[42px] flex items-center gap-2"
+          >
+            {busy ? (
+              <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <span>Send</span>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -318,11 +399,32 @@ export default function ConversationPage() {
   const connected = useConnected()
 
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const [agents, setAgents] = useState<AgentSummary[]>([])
+  const [sandboxes, setSandboxes] = useState<SandboxInfo[]>([])
+  const [selectedAgent, setSelectedAgent] = useState('')
+  const [selectedSandbox, setSelectedSandbox] = useState('')
+
+  // Fetch agents and sandboxes when connected
+  useEffect(() => {
+    if (!connected) return
+    fetch('/api/agents')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setAgents(Array.isArray(data) ? data : []))
+      .catch(() => {})
+    fetch('/api/sandboxes')
+      .then(r => r.ok ? r.json() : { sandboxes: [] })
+      .then(data => setSandboxes(data.sandboxes ?? []))
+      .catch(() => {})
+  }, [connected])
 
   // Auto-scroll to bottom when items or streaming text change
   useEffect(() => {
     sentinelRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [items, streamingText])
+
+  const handleSubmit = useCallback((line: string, options?: { agent_name?: string; sandbox_id?: string }) => {
+    submitLine(line, options)
+  }, [submitLine])
 
   const isEmpty = items.length === 0 && !streamingText
 
@@ -366,9 +468,15 @@ export default function ConversationPage() {
 
       {/* Input */}
       <PromptInput
-        onSubmit={submitLine}
+        onSubmit={handleSubmit}
         disabled={!connected || busy}
         busy={busy}
+        agents={agents}
+        sandboxes={sandboxes}
+        selectedAgent={selectedAgent}
+        selectedSandbox={selectedSandbox}
+        onAgentChange={setSelectedAgent}
+        onSandboxChange={setSelectedSandbox}
       />
     </div>
   )

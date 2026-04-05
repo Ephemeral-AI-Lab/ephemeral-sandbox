@@ -15,6 +15,7 @@ async def run_web(
     api_format: str | None = None,
     open_browser: bool = True,
     restore_messages: list[dict] | None = None,
+    reload: bool = False,
 ) -> None:
     """Start the web frontend server."""
     import os
@@ -43,5 +44,5 @@ async def run_web(
 
         webbrowser.open(url)
 
-    await server.start()
+    await server.start(reload=reload)
 
