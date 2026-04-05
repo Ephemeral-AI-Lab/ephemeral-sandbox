@@ -543,6 +543,131 @@ class TestLiveComplexTask:
 
 
 # ===========================================================================
+# US-016: Model key integration + explicit multi-tool calls with live MiniMax
+# ===========================================================================
+
+
+@pytest.mark.skipif(not HAS_BOTH, reason="MiniMax + Daytona both required")
+class TestLiveMultipleToolCallsWithModelKey:
+    """Use model_key when creating a live agent and verify multi-tool execution."""
+
+    @pytest.fixture(scope="class")
+    def sandbox_for_model_key(self):
+        """Create a sandbox for model-key multi-tool tests."""
+        sandbox = _create_test_sandbox("model-key-multi-tool")
+        yield sandbox
+        _delete_sandbox(sandbox["id"])
+
+    @pytest.fixture()
+    def minimax_client(self, db_session_factory, tmp_path, monkeypatch):
+        client = _make_live_client(
+            db_session_factory, tmp_path, monkeypatch,
+            api_key=MINIMAX_KEY,
+            model=MINIMAX_MODEL,
+            base_url=MINIMAX_BASE_URL,
+            api_format=MINIMAX_FORMAT,
+        )
+        with client:
+            yield client
+
+    def test_live_multiple_tools_with_model_key(self, minimax_client, sandbox_for_model_key):
+        """Create an agent with model_key and verify it calls multiple tools."""
+        agent_name = "modelkey-multi-tool-agent"
+        create_resp = minimax_client.post("/api/agents/", json={
+            "name": agent_name,
+            "description": "Agent using model_key with multiple tools",
+            "model": "minimax",
+            "toolkits": ["sandbox_operations"],
+            "system_prompt": (
+                "You are a coding assistant with sandbox tools. "
+                "When creating files, use daytona_write_file. "
+                "When reading or checking output, use daytona_read_file or daytona_bash. "
+                "Do every required step and then report results."
+            ),
+        })
+        if create_resp.status_code == 201:
+            agent_payload = create_resp.json()
+        else:
+            get_resp = minimax_client.get(f"/api/agents/{agent_name}")
+            assert get_resp.status_code == 200, create_resp.text
+            agent_payload = get_resp.json()
+        assert agent_payload["model"] == "minimax"
+
+        resp = minimax_client.post(
+            "/api/chat",
+            json={
+                "line": (
+                    "Create /workspace/modelkey_multi.txt with content: MODELKEY_TEST\n"
+                    "Then read it back and reply with exactly: CONTENT=<content>."
+                ),
+                "agent_name": agent_name,
+                "sandbox_id": sandbox_for_model_key["id"],
+            },
+            timeout=180,
+        )
+        assert resp.status_code == 200
+        events = parse_sse_events(resp.text)
+
+        types = {e["type"] for e in events}
+        assert "assistant_complete" in types, f"Missing assistant_complete. Types: {types}"
+
+        tool_started = events_of_type(events, "tool_started")
+        tool_completed = events_of_type(events, "tool_completed")
+        assert len(tool_started) >= 2, f"Expected >=2 tool calls. Got: {[e['tool_name'] for e in tool_started]}"
+        assert len(tool_completed) >= 2 or "error" in types, (
+            "Expected tool calls to complete (or error)."
+        )
+
+        tool_names = [e["tool_name"] for e in tool_started]
+        assert "daytona_write_file" in tool_names, f"Missing write tool. Tools: {tool_names}"
+        assert any(
+            name in tool_names for name in ("daytona_read_file", "daytona_bash")
+        ), f"Missing read/exec follow-up tool. Tools: {tool_names}"
+
+    def test_live_tool_call_chain_with_model_key(self, minimax_client, sandbox_for_model_key):
+        """Verify the same model_key can drive a short chain of 3 tool calls."""
+        agent_name = "modelkey-multi-tool-chain-agent"
+        create_resp = minimax_client.post("/api/agents/", json={
+            "name": agent_name,
+            "description": "Chain three tools using model_key",
+            "model": "minimax",
+            "toolkits": ["sandbox_operations"],
+            "system_prompt": (
+                "Complete every requested step using tools and do not stop early. "
+                "Use shell or file tools as appropriate."
+            ),
+        })
+        if create_resp.status_code == 201:
+            agent_payload = create_resp.json()
+        else:
+            get_resp = minimax_client.get(f"/api/agents/{agent_name}")
+            assert get_resp.status_code == 200, create_resp.text
+            agent_payload = get_resp.json()
+        assert agent_payload["model"] == "minimax"
+
+        resp = minimax_client.post(
+            "/api/chat",
+            json={
+                "line": (
+                    "Create /workspace/modelkey_one.txt with 'ONE', then create /workspace/modelkey_two.txt "
+                    "with 'TWO', then run: ls /workspace/modelkey_* | cat."
+                ),
+                "agent_name": agent_name,
+                "sandbox_id": sandbox_for_model_key["id"],
+            },
+            timeout=240,
+        )
+        assert resp.status_code == 200
+        events = parse_sse_events(resp.text)
+
+        tool_started = events_of_type(events, "tool_started")
+        tool_names = [e["tool_name"] for e in tool_started]
+        assert tool_names.count("daytona_write_file") >= 2, f"Expected two writes. Tools: {tool_names}"
+        assert "daytona_bash" in tool_names, f"Expected bash for listing. Tools: {tool_names}"
+        assert len(tool_started) >= 3, f"Expected at least 3 tool calls. Tools: {tool_names}"
+
+
+# ===========================================================================
 # Text tool call parsing (unit test — no API/sandbox needed)
 # ===========================================================================
 

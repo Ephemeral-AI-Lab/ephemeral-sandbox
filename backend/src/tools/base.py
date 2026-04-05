@@ -28,12 +28,18 @@ class ToolResult:
 
 
 _TYPE_MAP = {
-    "str": "string", "string": "string",
-    "int": "integer", "integer": "integer",
-    "float": "number", "number": "number",
-    "bool": "boolean", "boolean": "boolean",
-    "list": "array", "array": "array",
-    "dict": "object", "object": "object",
+    "str": "string",
+    "string": "string",
+    "int": "integer",
+    "integer": "integer",
+    "float": "number",
+    "number": "number",
+    "bool": "boolean",
+    "boolean": "boolean",
+    "list": "array",
+    "array": "array",
+    "dict": "object",
+    "object": "object",
 }
 
 
@@ -156,6 +162,12 @@ class BaseToolkit:
     def tool_names(self) -> list[str]:
         """Return names of all tools in this toolkit."""
         return list(self._tools.keys())
+
+    async def prepare_context_async(self, context: Any) -> None:
+        """Override in subclass to inject async sandbox into context."""
+
+    def prepare_context(self, context: Any) -> None:
+        """Override in subclass to inject sandbox into context."""
 
 
 class ToolRegistry:

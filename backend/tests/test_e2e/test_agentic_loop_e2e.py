@@ -72,7 +72,11 @@ def _make_live_client(
     from server.protocol import BackendHostConfig
     from server.app_factory import create_app
 
+    # Clear ALL proxy env vars to prevent httpx routing through localhost proxy
+    for _var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "NO_PROXY", "no_proxy"]:
+        monkeypatch.delenv(_var, raising=False)
     monkeypatch.delenv("EPHEMERALOS_DATABASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr("db.engine.initialize_db", lambda *a, **kw: db_session_factory)
     monkeypatch.setattr("engine.agent.make_hook_executor", lambda *a, **kw: None)
 

@@ -150,14 +150,15 @@ async def test_add_tool_unknown_tool():
     event = ApiToolUseDeltaEvent(
         id="tool_01",
         name="nonexistent",
-        input={},
+        input={"any": "value"},
     )
 
     executor.add_tool(event, _make_assistant_msg())
 
-    # Wait for execution to complete
+    # Wait for execution to complete - unknown tools fail immediately
+    await asyncio.sleep(0.1)
     tracked = executor._tools["tool_01"]
-    assert tracked.status == "executing"
+    assert tracked.status == "completed"
 
 
 # ---------------------------------------------------------------------------

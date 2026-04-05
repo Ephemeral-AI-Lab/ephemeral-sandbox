@@ -103,6 +103,21 @@ class DaytonaToolkit(BaseToolkit):
         logger.info("Daytona sandbox fetched: %s", self.sandbox_id)
         return self._sandbox
 
+    async def _get_sandbox_async(self) -> Any:
+        """Lazily fetch the async sandbox on first access."""
+        if self._sandbox is not None:
+            return self._sandbox
+        if not self.sandbox_id:
+            raise RuntimeError(
+                "No sandbox_id configured. Pass sandbox_id to DaytonaToolkit() "
+                "or set it via toolkit.sandbox_id = '...'."
+            )
+        from tools.daytona_toolkit.async_client import get_async_sandbox
+
+        self._sandbox = await get_async_sandbox(self.sandbox_id)
+        logger.info("Async Daytona sandbox fetched: %s", self.sandbox_id)
+        return self._sandbox
+
     def prepare_context(self, context: Any) -> None:
         """Inject sandbox and optional CI service into a ToolExecutionContext.
 
@@ -112,12 +127,36 @@ class DaytonaToolkit(BaseToolkit):
         """
         sandbox = self._get_sandbox()
         context.metadata["daytona_sandbox"] = sandbox
-        # Set working directory to project dir if available
         project_dir = getattr(sandbox, "project_dir", None)
         if project_dir:
             context.metadata["daytona_cwd"] = project_dir
 
-        # Inject CI service if available
+        if self.sandbox_id and "ci_service" not in context.metadata:
+            try:
+                from code_intelligence.routing.service import get_code_intelligence
+
+                workspace_root = project_dir or "/workspace"
+                svc = get_code_intelligence(
+                    sandbox_id=self.sandbox_id,
+                    workspace_root=workspace_root,
+                    sandbox=sandbox,
+                )
+                context.metadata["ci_service"] = svc
+            except Exception:
+                logger.debug("CI service not available for sandbox %s", self.sandbox_id)
+
+    async def prepare_context_async(self, context: Any) -> None:
+        """Inject async sandbox and optional CI service into a ToolExecutionContext.
+
+        Use this for streaming tool execution where cancellation support is needed.
+        The async sandbox supports asyncio.CancelledError propagation.
+        """
+        sandbox = await self._get_sandbox_async()
+        context.metadata["daytona_sandbox"] = sandbox
+        project_dir = getattr(sandbox, "project_dir", None)
+        if project_dir:
+            context.metadata["daytona_cwd"] = project_dir
+
         if self.sandbox_id and "ci_service" not in context.metadata:
             try:
                 from code_intelligence.routing.service import get_code_intelligence

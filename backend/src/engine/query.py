@@ -91,7 +91,7 @@ async def _run_query_loop(
         # Inject Daytona sandbox into context if DaytonaToolkit is registered
         daytona_toolkit = context.tool_registry.get_toolkit("sandbox_operations")
         if daytona_toolkit is not None:
-            daytona_toolkit.prepare_context(executor._context)
+            await daytona_toolkit.prepare_context_async(executor._context)
 
         final_message: ConversationMessage | None = None
         usage = UsageSnapshot()
@@ -119,7 +119,9 @@ async def _run_query_loop(
 
             if isinstance(event, ApiToolUseDeltaEvent):
                 assistant_msg = final_message or ConversationMessage(role="assistant", content=[])
-                executor.add_tool(event, assistant_msg)
+                started = executor.add_tool(event, assistant_msg)
+                if started:
+                    yield started, None
                 for progress in executor.get_progress():
                     yield progress, None
                 continue

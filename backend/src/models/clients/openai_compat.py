@@ -279,19 +279,18 @@ class OpenAICompatibleClient:
                         if tc_delta.function.arguments:
                             entry["arguments"] += tc_delta.function.arguments
 
-                    # Yield mid-stream only when arguments are complete and parseable
+                    # Yield mid-stream when we have name and some arguments
                     if idx not in yielded_tool_calls and entry["name"]:
+                        yielded_tool_calls.add(idx)
                         try:
                             args = json.loads(entry["arguments"]) if entry["arguments"] else {}
                         except (json.JSONDecodeError, TypeError):
-                            continue
-                        if args:
-                            yielded_tool_calls.add(idx)
-                            yield ApiToolUseDeltaEvent(
-                                id=entry["id"] or f"toolu_{idx}",
-                                name=entry["name"],
-                                input=args,
-                            )
+                            args = {}
+                        yield ApiToolUseDeltaEvent(
+                            id=entry["id"] or f"toolu_{idx}",
+                            name=entry["name"],
+                            input=args,
+                        )
 
             # Usage in chunk (if provider sends it)
             if chunk.usage:

@@ -67,16 +67,18 @@ async def daytona_bash(
     sandbox = _get_sandbox(context)
     cwd = _get_cwd(context)
     try:
-        response = sandbox.process.exec(
+        response = await sandbox.process.exec(
             command,
             cwd=cwd,
             timeout=timeout,
         )
         exit_code = getattr(response, "exit_code", 0)
-        output = json.dumps({
-            "stdout": _truncate(response.result or ""),
-            "exit_code": exit_code,
-        })
+        output = json.dumps(
+            {
+                "stdout": _truncate(response.result or ""),
+                "exit_code": exit_code,
+            }
+        )
         return ToolResult(
             output=output,
             is_error=exit_code != 0,
@@ -91,7 +93,11 @@ async def daytona_bash(
 # ---------------------------------------------------------------------------
 
 
-@tool(name="daytona_read_file", description="Read file contents from the remote Daytona sandbox.", read_only=True)
+@tool(
+    name="daytona_read_file",
+    description="Read file contents from the remote Daytona sandbox.",
+    read_only=True,
+)
 async def daytona_read_file(
     file_path: str,
     start_line: int = 1,
@@ -127,13 +133,15 @@ async def daytona_read_file(
         for i in range(start, end + 1):
             selected.append(f"{i:4d}: {lines[i - 1]}")
 
-        output = json.dumps({
-            "file_path": file_path,
-            "total_lines": total,
-            "start_line": start,
-            "end_line": end,
-            "content": _truncate("\n".join(selected)),
-        })
+        output = json.dumps(
+            {
+                "file_path": file_path,
+                "total_lines": total,
+                "start_line": start,
+                "end_line": end,
+                "content": _truncate("\n".join(selected)),
+            }
+        )
         return ToolResult(output=output)
     except Exception as exc:
         return ToolResult(output=str(exc), is_error=True)
@@ -144,7 +152,9 @@ async def daytona_read_file(
 # ---------------------------------------------------------------------------
 
 
-@tool(name="daytona_write_file", description="Write or create a file in the remote Daytona sandbox.")
+@tool(
+    name="daytona_write_file", description="Write or create a file in the remote Daytona sandbox."
+)
 async def daytona_write_file(
     file_path: str,
     content: str,
@@ -164,11 +174,13 @@ async def daytona_write_file(
     sandbox = _get_sandbox(context)
     try:
         content_bytes = content.encode("utf-8")
-        sandbox.fs.upload_file(file_path, content_bytes)
-        output = json.dumps({
-            "file_path": file_path,
-            "bytes_written": len(content_bytes),
-        })
+        await sandbox.fs.upload_file(file_path, content_bytes)
+        output = json.dumps(
+            {
+                "file_path": file_path,
+                "bytes_written": len(content_bytes),
+            }
+        )
         return ToolResult(output=output)
     except Exception as exc:
         return ToolResult(output=str(exc), is_error=True)
@@ -179,7 +191,11 @@ async def daytona_write_file(
 # ---------------------------------------------------------------------------
 
 
-@tool(name="daytona_list_files", description="List files and directories in the remote Daytona sandbox.", read_only=True)
+@tool(
+    name="daytona_list_files",
+    description="List files and directories in the remote Daytona sandbox.",
+    read_only=True,
+)
 async def daytona_list_files(
     directory: str = ".",
     *,
@@ -203,10 +219,12 @@ async def daytona_list_files(
         for entry in entries or []:
             name = getattr(entry, "name", None) or str(entry)
             names.append(name)
-        output = json.dumps({
-            "directory": directory,
-            "entries": sorted(names),
-        })
+        output = json.dumps(
+            {
+                "directory": directory,
+                "entries": sorted(names),
+            }
+        )
         return ToolResult(output=output)
     except Exception as exc:
         return ToolResult(output=str(exc), is_error=True)
@@ -217,7 +235,11 @@ async def daytona_list_files(
 # ---------------------------------------------------------------------------
 
 
-@tool(name="daytona_grep", description="Search file contents for a pattern in the remote Daytona sandbox.", read_only=True)
+@tool(
+    name="daytona_grep",
+    description="Search file contents for a pattern in the remote Daytona sandbox.",
+    read_only=True,
+)
 async def daytona_grep(
     pattern: str,
     path: str = ".",
@@ -242,23 +264,38 @@ async def daytona_grep(
     try:
         matches = sandbox.fs.find_files(path, pattern)
         if not matches:
-            return ToolResult(output=json.dumps({
-                "pattern": pattern, "path": path,
-                "matches": [], "total_matches": 0,
-            }))
+            return ToolResult(
+                output=json.dumps(
+                    {
+                        "pattern": pattern,
+                        "path": path,
+                        "matches": [],
+                        "total_matches": 0,
+                    }
+                )
+            )
         result_matches = []
         for match in matches[:500]:
             file_path = getattr(match, "file", None) or ""
             line_no = getattr(match, "line", None)
             content = getattr(match, "content", None) or ""
-            result_matches.append({
-                "file": file_path, "line": line_no,
-                "content": content.rstrip(),
-            })
-        return ToolResult(output=json.dumps({
-            "pattern": pattern, "path": path,
-            "matches": result_matches, "total_matches": len(matches),
-        }))
+            result_matches.append(
+                {
+                    "file": file_path,
+                    "line": line_no,
+                    "content": content.rstrip(),
+                }
+            )
+        return ToolResult(
+            output=json.dumps(
+                {
+                    "pattern": pattern,
+                    "path": path,
+                    "matches": result_matches,
+                    "total_matches": len(matches),
+                }
+            )
+        )
     except Exception as exc:
         return ToolResult(output=str(exc), is_error=True)
 
@@ -268,7 +305,11 @@ async def daytona_grep(
 # ---------------------------------------------------------------------------
 
 
-@tool(name="daytona_glob", description="Find files matching a glob pattern in the remote Daytona sandbox.", read_only=True)
+@tool(
+    name="daytona_glob",
+    description="Find files matching a glob pattern in the remote Daytona sandbox.",
+    read_only=True,
+)
 async def daytona_glob(
     pattern: str,
     path: str = ".",
@@ -293,19 +334,31 @@ async def daytona_glob(
     try:
         response = sandbox.fs.search_files(path, pattern)
         files = getattr(response, "files", None) or []
-        return ToolResult(output=json.dumps({
-            "pattern": pattern, "path": path,
-            "files": files[:500], "total_files": len(files),
-        }))
+        return ToolResult(
+            output=json.dumps(
+                {
+                    "pattern": pattern,
+                    "path": path,
+                    "files": files[:500],
+                    "total_files": len(files),
+                }
+            )
+        )
     except Exception as exc:
         # Fallback: use shell glob via process.exec
         try:
             fallback_cmd = f"find {path} -name '{pattern}' 2>/dev/null | head -500"
             resp = sandbox.process.exec(fallback_cmd, cwd=cwd, timeout=30)
             file_list = [f for f in (resp.result or "").splitlines() if f.strip()]
-            return ToolResult(output=json.dumps({
-                "pattern": pattern, "path": path,
-                "files": file_list, "total_files": len(file_list),
-            }))
+            return ToolResult(
+                output=json.dumps(
+                    {
+                        "pattern": pattern,
+                        "path": path,
+                        "files": file_list,
+                        "total_files": len(file_list),
+                    }
+                )
+            )
         except Exception as fallback_exc:
             return ToolResult(output=str(fallback_exc), is_error=True)

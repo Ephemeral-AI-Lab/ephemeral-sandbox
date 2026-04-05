@@ -56,8 +56,10 @@ class StreamingToolExecutor:
         self._tools: dict[str, TrackedTool] = {}
         self._aborted: set[str] = set()
 
-    def add_tool(self, event: ApiToolUseDeltaEvent, assistant_message: ConversationMessage) -> None:
-        """Add a tool to execute as it arrives mid-stream."""
+    def add_tool(
+        self, event: ApiToolUseDeltaEvent, assistant_message: ConversationMessage
+    ) -> ToolExecutionStarted | None:
+        """Add a tool to execute as it arrives mid-stream. Returns started event if tool was started."""
         tool_def = self._tool_registry.get(event.name)
 
         tracked = TrackedTool(
@@ -72,7 +74,10 @@ class StreamingToolExecutor:
             else False,
         )
         self._tools[event.id] = tracked
-        self._start_tool(tracked)
+        if event.input:
+            self._start_tool(tracked)
+            return ToolExecutionStarted(tool_name=event.name, tool_input=event.input)
+        return None
 
     def cancel(self, tool_id: str, reason: str) -> None:
         """Cancel a running tool."""
