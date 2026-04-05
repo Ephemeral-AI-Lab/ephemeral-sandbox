@@ -33,8 +33,3 @@ def list_definitions(source: str | None = None) -> list[AgentDefinition]:
     if source:
         defs = [d for d in defs if d.source == source]
     return defs
-
-
-def initialize_builtin_definitions() -> None:
-    """Register all built-in agents into the runtime registry."""
-    pass

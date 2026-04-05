@@ -72,7 +72,6 @@ class CodeIntelligenceService:
         )
         self.arbiter = Arbiter(
             workspace_root=workspace_root,
-            on_edit=self._on_edit_recorded,
         )
         self.ledger = Ledger()
         self.time_machine = TimeMachine()
@@ -327,10 +326,6 @@ class CodeIntelligenceService:
     def _on_tree_change(self, file_path: str, old_hash: str, new_hash: str) -> None:
         """Called when tree cache detects a file change."""
         self.query_router.register_file_change(file_path)
-
-    def _on_edit_recorded(self, file_path: str, agent_id: str, generation: int) -> None:
-        """Called after arbiter records an edit."""
-        pass  # Hook point for observers
 
 
 # ---------------------------------------------------------------------------

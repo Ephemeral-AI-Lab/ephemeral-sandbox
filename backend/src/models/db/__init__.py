@@ -1,6 +1,6 @@
 """Model DB layer — SQLAlchemy model and store."""
 
-from models.db.model import ModelRegistrationRecord
-from models.db.store import ModelStore
+from db.models.model_registration import ModelRegistrationRecord
+from db.stores.model_store import ModelStore
 
 __all__ = ["ModelRegistrationRecord", "ModelStore"]

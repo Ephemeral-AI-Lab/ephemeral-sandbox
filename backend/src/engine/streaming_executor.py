@@ -234,7 +234,3 @@ class StreamingToolExecutor:
                 tool.task.cancel()
                 tool.cancelled = True
                 tool.cancel_reason = "Superseded by fallback execution"
-
-    def finalize(self) -> None:
-        """Called when stream ends - wait for all tools to complete."""
-        pass

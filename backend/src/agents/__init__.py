@@ -11,7 +11,6 @@ from agents.types import (
 )
 from agents.registry import (
     get_definition,
-    initialize_builtin_definitions,
     list_definitions,
     register_definition,
     unregister_definition,
@@ -29,7 +28,6 @@ __all__ = [
     "unregister_definition",
     "get_definition",
     "list_definitions",
-    "initialize_builtin_definitions",
     "get_agent_definition",
     "get_all_agent_definitions",
     "load_agents_dir",
