@@ -14,10 +14,9 @@ class TestSettings:
     def test_defaults(self):
         s = Settings()
         assert s.api_key == ""
-        assert s.model == "claude-sonnet-4-20250514"
+        assert s.model == "gpt-4o"
         assert s.max_tokens == 16384
         assert s.fast_mode is False
-        assert s.permission.mode == "default"
 
     def test_resolve_api_key_from_instance(self):
         s = Settings(api_key="sk-test-123")
@@ -55,7 +54,14 @@ class TestSettings:
 
 
 class TestLoadSaveSettings:
-    def test_load_missing_file_returns_defaults(self, tmp_path: Path):
+    def test_load_missing_file_returns_defaults(self, tmp_path: Path, monkeypatch):
+        # Clear env vars that _apply_env_overrides would pick up
+        for var in (
+            "EPHEMERALOS_MODEL", "EPHEMERALOS_BASE_URL", "EPHEMERALOS_MAX_TOKENS",
+            "EPHEMERALOS_API_FORMAT", "EPHEMERALOS_DATABASE_URL",
+            "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+        ):
+            monkeypatch.delenv(var, raising=False)
         path = tmp_path / "nonexistent.json"
         s = load_settings(path)
         assert s == Settings()
@@ -83,27 +89,11 @@ class TestLoadSaveSettings:
         save_settings(Settings(), path)
         assert path.exists()
 
-    def test_load_with_permission_settings(self, tmp_path: Path):
-        path = tmp_path / "settings.json"
-        path.write_text(
-            json.dumps(
-                {
-                    "permission": {
-                        "mode": "full_auto",
-                        "allowed_tools": ["Bash", "Read"],
-                    }
-                }
-            )
-        )
-        s = load_settings(path)
-        assert s.permission.mode == "full_auto"
-        assert s.permission.allowed_tools == ["Bash", "Read"]
-
     def test_load_applies_env_overrides(self, tmp_path: Path, monkeypatch):
         path = tmp_path / "settings.json"
         path.write_text(json.dumps({"model": "from-file", "base_url": "https://file.example"}))
-        monkeypatch.setenv("ANTHROPIC_MODEL", "from-env-model")
-        monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://env.example/anthropic")
+        monkeypatch.setenv("EPHEMERALOS_MODEL", "from-env-model")
+        monkeypatch.setenv("EPHEMERALOS_BASE_URL", "https://env.example/anthropic")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-env-override")
 
         s = load_settings(path)
