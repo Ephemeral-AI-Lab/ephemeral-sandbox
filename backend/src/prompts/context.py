@@ -72,10 +72,9 @@ def build_agent_capabilities_prompt(
     if tk_sections:
         sections.append("# Toolkit Instructions\n\n" + "\n\n".join(tk_sections))
 
-    # Task note + background task awareness
+    # Task note enforcement (when background tools are available)
     if has_background_tools:
         sections.append(build_task_note_prompt())
-        sections.append(build_background_task_prompt(bg_tool_names or []))
 
     return "\n\n".join(sections)
 
@@ -92,27 +91,3 @@ def build_task_note_prompt() -> str:
     )
 
 
-def build_background_task_prompt(bg_tool_names: list[str]) -> str:
-    """Build the system prompt section for background task execution.
-
-    Args:
-        bg_tool_names: Names of tools that support background execution.
-    """
-    tools_list = ", ".join(f"`{n}`" for n in bg_tool_names)
-    return (
-        "# Background Task Execution\n\n"
-        "You can run long-running tools in the background by adding "
-        '`"background": true` to the tool input JSON. '
-        "This launches the tool asynchronously — you get an immediate acknowledgment "
-        "and can continue with other work while it runs.\n\n"
-        f"**Tools that support background execution:** {tools_list}\n\n"
-        "**Available management tools:**\n"
-        "- `check_background_progress` — check status of running background tasks\n"
-        "- `cancel_background_task` — cancel a running background task\n\n"
-        "**When to use background:**\n"
-        "- Long-running operations: test suites, builds, installations, deployments\n"
-        "- When you have other useful work to do in parallel\n\n"
-        "**When NOT to use background:**\n"
-        "- Quick commands (< 5 seconds)\n"
-        "- When you need the result immediately for your next step\n"
-    )
