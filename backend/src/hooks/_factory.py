@@ -7,11 +7,13 @@ from pathlib import Path
 from config import Settings
 from hooks.executor import HookExecutionContext, HookExecutor
 from hooks.loader import load_hook_registry
-from models.types import SupportsStreamingMessages
+from models.core.types import SupportsStreamingMessages
 
 
 def make_hook_executor(
-    settings: Settings, cwd: str, api_client: SupportsStreamingMessages,
+    settings: Settings,
+    cwd: str,
+    api_client: SupportsStreamingMessages,
 ) -> HookExecutor:
     """Build a hook executor from settings."""
     return HookExecutor(

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from agents import get_agent_definition
 from engine.agent import spawn_agent
-from engine.messages import ConversationMessage
+from message import ConversationMessage
 from pipeline.models import StepRecord, StepStatus
 from pipeline.schema import PipelineStepConfig, PipelineConfig
 
@@ -101,9 +101,7 @@ class StepRunner:
         for dep in self._step.input_deps:
             step_output = self._context_map.get(dep.step, {})
             if dep.keys:
-                inputs[dep.step] = {
-                    k: step_output[k] for k in dep.keys if k in step_output
-                }
+                inputs[dep.step] = {k: step_output[k] for k in dep.keys if k in step_output}
             else:
                 inputs[dep.step] = step_output
         return inputs
@@ -158,9 +156,7 @@ class StepRunner:
                 "\n## Instructions\n"
                 "Extract the structured output from the work response as valid JSON."
             )
-        parts.append(
-            "\nRespond with ONLY the JSON output, no markdown fences or explanation."
-        )
+        parts.append("\nRespond with ONLY the JSON output, no markdown fences or explanation.")
         return "\n".join(parts)
 
     async def _run_agent(

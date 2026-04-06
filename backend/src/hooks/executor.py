@@ -12,8 +12,8 @@ from typing import Any
 
 import httpx
 
-from models.types import ApiMessageCompleteEvent, ApiMessageRequest, SupportsStreamingMessages
-from engine.messages import ConversationMessage
+from models.core.types import ApiMessageCompleteEvent, ApiMessageRequest, SupportsStreamingMessages
+from message import ConversationMessage
 from hooks.events import HookEvent
 from hooks.loader import HookRegistry
 from hooks.schemas import (
@@ -53,9 +53,13 @@ class HookExecutor:
             elif isinstance(hook, HttpHookDefinition):
                 results.append(await self._run_http_hook(hook, event, payload))
             elif isinstance(hook, PromptHookDefinition):
-                results.append(await self._run_prompt_like_hook(hook, event, payload, agent_mode=False))
+                results.append(
+                    await self._run_prompt_like_hook(hook, event, payload, agent_mode=False)
+                )
             elif isinstance(hook, AgentHookDefinition):
-                results.append(await self._run_prompt_like_hook(hook, event, payload, agent_mode=True))
+                results.append(
+                    await self._run_prompt_like_hook(hook, event, payload, agent_mode=True)
+                )
         return AggregatedHookResult(results=results)
 
     async def _run_command_hook(
@@ -95,10 +99,12 @@ class HookExecutor:
             )
 
         output = "\n".join(
-            part for part in (
+            part
+            for part in (
                 stdout.decode("utf-8", errors="replace").strip(),
                 stderr.decode("utf-8", errors="replace").strip(),
-            ) if part
+            )
+            if part
         )
         success = process.returncode == 0
         return HookResult(
@@ -152,7 +158,7 @@ class HookExecutor:
         prompt = _inject_arguments(hook.prompt, payload)
         prefix = (
             "You are validating whether a hook condition passes in EphemeralOS. "
-            "Return strict JSON: {\"ok\": true} or {\"ok\": false, \"reason\": \"...\"}."
+            'Return strict JSON: {"ok": true} or {"ok": false, "reason": "..."}.'
         )
         if agent_mode:
             prefix += " Be more thorough and reason over the payload before deciding."
