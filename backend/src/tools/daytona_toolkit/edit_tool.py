@@ -7,7 +7,7 @@ import json
 import logging
 
 from tools.base import ToolExecutionContext, ToolResult
-from tools.daytona_toolkit.tools import _path_error
+from tools.daytona_toolkit.tools import _get_cwd, _path_error, _resolve_path
 from tools.daytona_toolkit.ci_integration import (
     get_ci_service,
     prime_cache_after_write,
@@ -58,6 +58,8 @@ async def daytona_edit_file(
             is_error=True,
         )
 
+    file_path = _resolve_path(file_path, context)
+
     # Read current content
     try:
         raw = await sandbox.fs.download_file(file_path)
@@ -91,6 +93,7 @@ async def daytona_edit_file(
             diff_text = diff_text[:_OUTPUT_MAX_CHARS] + "\n... (truncated)"
         output = json.dumps(
             {
+                "cwd": _get_cwd(context) or "",
                 "file_path": file_path,
                 "status": "dry_run",
                 "occ": False,
@@ -119,7 +122,7 @@ async def daytona_edit_file(
                 tm.save(file_path, current)
 
             # Write
-            await sandbox.fs.upload_file(file_path, new_content.encode("utf-8"))
+            await sandbox.fs.upload_file(new_content.encode("utf-8"), file_path)
 
             # Record
             new_hash = _content_hash(new_content)
@@ -136,6 +139,7 @@ async def daytona_edit_file(
 
             output = json.dumps(
                 {
+                    "cwd": _get_cwd(context) or "",
                     "file_path": file_path,
                     "status": "edited",
                     "occ": True,
@@ -150,9 +154,10 @@ async def daytona_edit_file(
     else:
         # Direct write (no CI)
         try:
-            await sandbox.fs.upload_file(file_path, new_content.encode("utf-8"))
+            await sandbox.fs.upload_file(new_content.encode("utf-8"), file_path)
             output = json.dumps(
                 {
+                    "cwd": _get_cwd(context) or "",
                     "file_path": file_path,
                     "status": "edited",
                     "occ": False,

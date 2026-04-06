@@ -13,6 +13,7 @@ import logging
 import uuid
 
 from tools.base import ToolExecutionContext, ToolResult
+from tools.daytona_toolkit.tools import _get_cwd
 from tools.daytona_toolkit.ci_integration import (
     get_ci_service,
     prime_cache_after_write,
@@ -100,7 +101,7 @@ async def daytona_codeact(
     script_path = f"/tmp/codeact-wrapper-{run_id}.py"
 
     try:
-        await sandbox.fs.upload_file(script_path, wrapper.encode("utf-8"))
+        await sandbox.fs.upload_file(wrapper.encode("utf-8"), script_path)
     except Exception as exc:
         return ToolResult(output=f"Failed to upload script: {exc}", is_error=True)
 
@@ -150,7 +151,7 @@ async def daytona_codeact(
         path = w.get("path", "")
         content = w.get("content", "")
         try:
-            await sandbox.fs.upload_file(path, content.encode("utf-8"))
+            await sandbox.fs.upload_file(content.encode("utf-8"), path)
             prime_cache_after_write(context, path, content)
             record_edit_in_ledger(context, path, edit_type="codeact")
             committed += 1
@@ -158,28 +159,27 @@ async def daytona_codeact(
             errors.append(f"{path}: {exc}")
 
     # Build output
-    output_parts = []
-    if manifest.get("status") == "ok":
-        output_parts.append(f"CodeAct completed: {committed} file(s) written")
-    else:
-        output_parts.append(f"CodeAct finished with status: {manifest.get('status')}")
-
-    if errors:
-        output_parts.append(f"Write errors: {'; '.join(errors)}")
-
     shells = manifest.get("shells", [])
-    if shells:
-        output_parts.append(f"Shell commands executed: {len(shells)}")
-        for sh in shells[:3]:
-            cmd = sh.get("command", "")[:80]
-            exit_code = sh.get("exit_code", "?")
-            output_parts.append(f"  $ {cmd} → exit {exit_code}")
+    shell_summaries = []
+    for sh in shells[:3]:
+        cmd = sh.get("command", "")[:80]
+        exit_code = sh.get("exit_code", "?")
+        shell_summaries.append(f"$ {cmd} → exit {exit_code}")
 
-    if manifest.get("error"):
-        output_parts.append(f"Error: {manifest['error'][:500]}")
+    output = json.dumps(
+        {
+            "cwd": _get_cwd(context) or "",
+            "status": manifest.get("status", "unknown"),
+            "files_written": committed,
+            "shells_run": len(shells),
+            "shell_summaries": shell_summaries,
+            "write_errors": errors or [],
+            "error": manifest.get("error", "")[:500] if manifest.get("error") else "",
+        }
+    )
 
     return ToolResult(
-        output="\n".join(output_parts),
+        output=output,
         is_error=bool(errors),
         metadata={
             "status": manifest.get("status", "unknown"),
