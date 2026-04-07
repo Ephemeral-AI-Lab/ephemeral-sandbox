@@ -397,3 +397,96 @@ class TestBackgroundTaskManagerExtras:
         await asyncio.sleep(0)
         snap = mgr.get_status(alias)
         assert snap and len(snap[0]["output"]) == 5000
+
+
+# ---------------------------------------------------------------------------
+# Live progress tail — append_progress / make_progress_callback / get_status
+# ---------------------------------------------------------------------------
+
+
+class TestLiveProgressTail:
+    async def test_append_progress_buffers_running_lines(self) -> None:
+        mgr = BackgroundTaskManager()
+
+        async def slow() -> ToolResult:
+            await asyncio.sleep(5)
+            return ToolResult(output="done")
+
+        alias = mgr.next_alias()
+        mgr.launch(alias, "noop", {}, slow())
+        try:
+            mgr.append_progress(alias, "first")
+            # Multi-line chunk should be split.
+            mgr.append_progress(alias, "second\nthird")
+            assert mgr._tasks[alias].progress_lines == ["first", "second", "third"]
+        finally:
+            await mgr.cancel(alias, "")
+
+    async def test_append_progress_unknown_task_is_noop(self) -> None:
+        mgr = BackgroundTaskManager()
+        mgr.append_progress("bg_nope", "ignored")  # must not raise
+
+    async def test_append_progress_after_finish_is_noop(self) -> None:
+        mgr = BackgroundTaskManager()
+
+        async def quick() -> ToolResult:
+            return ToolResult(output="hi")
+
+        alias = mgr.next_alias()
+        mgr.launch(alias, "noop", {}, quick())
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        before = list(mgr._tasks[alias].progress_lines)
+        mgr.append_progress(alias, "late")
+        assert mgr._tasks[alias].progress_lines == before
+
+    async def test_make_progress_callback_round_trip(self) -> None:
+        mgr = BackgroundTaskManager()
+
+        async def slow() -> ToolResult:
+            await asyncio.sleep(5)
+            return ToolResult(output="done")
+
+        alias = mgr.next_alias()
+        mgr.launch(alias, "noop", {}, slow())
+        try:
+            cb = mgr.make_progress_callback(alias)
+            cb("alpha")
+            cb("beta")
+            assert mgr._tasks[alias].progress_lines == ["alpha", "beta"]
+        finally:
+            await mgr.cancel(alias, "")
+
+    async def test_get_status_surfaces_live_tail_for_running(self) -> None:
+        mgr = BackgroundTaskManager()
+
+        async def slow() -> ToolResult:
+            await asyncio.sleep(5)
+            return ToolResult(output="done")
+
+        alias = mgr.next_alias()
+        mgr.launch(alias, "noop", {}, slow())
+        try:
+            mgr.append_progress(alias, "live-1")
+            mgr.append_progress(alias, "live-2")
+            snap = mgr.get_status(alias)
+            assert snap and snap[0]["status"] == "running"
+            assert snap[0]["output"] == "live-1\nlive-2"
+        finally:
+            await mgr.cancel(alias, "")
+
+    async def test_get_status_no_output_field_for_running_without_progress(self) -> None:
+        mgr = BackgroundTaskManager()
+
+        async def slow() -> ToolResult:
+            await asyncio.sleep(5)
+            return ToolResult(output="done")
+
+        alias = mgr.next_alias()
+        mgr.launch(alias, "noop", {}, slow())
+        try:
+            snap = mgr.get_status(alias)
+            assert snap and snap[0]["status"] == "running"
+            assert "output" not in snap[0]
+        finally:
+            await mgr.cancel(alias, "")

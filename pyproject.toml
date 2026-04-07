@@ -13,7 +13,6 @@ authors = [
 ]
 
 dependencies = [
-    "openai>=1.0.0",
     "anthropic>=0.39.0",
     "rich>=13.0.0",
     "pydantic>=2.0.0",
