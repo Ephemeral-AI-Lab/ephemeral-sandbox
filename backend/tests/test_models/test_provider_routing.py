@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 
 from config.settings import Settings, _apply_env_overrides
-from models.provider import make_api_client
-from models.clients.openai_compat import OpenAICompatibleClient
-from models.clients.anthropic_native import AnthropicClient
+from providers.provider import make_api_client
+from providers.clients.openai_compat import OpenAICompatibleClient
+from providers.clients.anthropic_native import AnthropicClient
 
 
 # ---------------------------------------------------------------------------

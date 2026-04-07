@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from models.core.types import UsageSnapshot
+from providers.types import UsageSnapshot
 from message.messages import ConversationMessage
 
 

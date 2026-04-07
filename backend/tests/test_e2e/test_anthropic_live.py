@@ -12,8 +12,8 @@ import pytest
 from engine.testing.eval_agent import EvalAgent
 from tests.test_e2e.conftest import create_eval_agent
 from message import ConversationMessage
-from models.clients.anthropic_native import AnthropicClient
-from models.types import (
+from providers.clients.anthropic_native import AnthropicClient
+from providers.types import (
     ApiMessageRequest,
     ApiTextDeltaEvent,
     ApiThinkingDeltaEvent,

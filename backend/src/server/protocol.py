@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from models.core.types import SupportsStreamingMessages
+from providers.types import SupportsStreamingMessages
 
 
 @dataclass(frozen=True)

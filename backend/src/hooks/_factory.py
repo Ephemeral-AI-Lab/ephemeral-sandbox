@@ -7,7 +7,7 @@ from pathlib import Path
 from config import Settings
 from hooks.executor import HookExecutionContext, HookExecutor
 from hooks.loader import load_hook_registry
-from models.core.types import SupportsStreamingMessages
+from providers.types import SupportsStreamingMessages
 
 
 def make_hook_executor(

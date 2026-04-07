@@ -303,7 +303,7 @@ WEBAPP_TESTS = textwrap.dedent("""\
             print(f"  FAIL: {name} — expected {expected!r}, got {got!r}")
             failed += 1
 
-    from models import User
+    from providers import User
 
     u1 = User("Alice", 18)
     check("User(18).is_adult()", u1.is_adult(), True)

@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import anthropic
 import pytest
 
-from models.clients.anthropic_native import AnthropicClient, MAX_RETRIES
-from models.types import (
+from providers.clients.anthropic_native import AnthropicClient, MAX_RETRIES
+from providers.types import (
     ApiMessageCompleteEvent,
     ApiMessageRequest,
     ApiTextDeltaEvent,
@@ -18,7 +18,7 @@ from models.types import (
     ApiToolUseDeltaEvent,
     UsageSnapshot,
 )
-from models.errors import AuthenticationFailure, RateLimitFailure
+from providers.errors import AuthenticationFailure, RateLimitFailure
 from message import ConversationMessage, TextBlock
 
 

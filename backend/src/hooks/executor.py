@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from models.core.types import ApiMessageCompleteEvent, ApiMessageRequest, SupportsStreamingMessages
+from providers.types import ApiMessageCompleteEvent, ApiMessageRequest, SupportsStreamingMessages
 from message import ConversationMessage
 from hooks.events import HookEvent
 from hooks.loader import HookRegistry

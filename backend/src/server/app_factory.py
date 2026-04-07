@@ -28,9 +28,9 @@ from db.engine import initialize_db
 from db.stores import AgentDefinitionStore, AgentRunStore, ModelStore, SessionStore, UsageStore
 from skills.db.store import SkillDefinitionStore
 from server.protocol import BackendEvent, BackendHostConfig, ToolkitSnapshot
-from models.core.types import SupportsStreamingMessages
+from providers.types import SupportsStreamingMessages
 from tools import ToolRegistry
-from models.api import create_models_router
+from providers.api import create_models_router
 from agents.api.router import create_agents_router
 from server.routers.core import create_core_router
 from server.routers.persistence import create_persistence_router

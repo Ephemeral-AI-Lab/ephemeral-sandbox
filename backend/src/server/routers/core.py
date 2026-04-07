@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from agents.types import AgentDefinition
-from models.core.provider import detect_provider, auth_status
+from providers.provider import detect_provider, auth_status
 from config import load_settings, save_settings
 from engine import spawn_agent
 from message.stream_events import (

@@ -65,7 +65,7 @@ from sqlalchemy.orm import sessionmaker
 from db.base import Base
 from engine.testing.eval_agent import EvalAgent
 from message import ConversationMessage, TextBlock, ThinkingBlock, ToolUseBlock
-from models import (
+from providers import (
     ApiMessageCompleteEvent,
     ApiTextDeltaEvent,
     ApiThinkingDeltaEvent,
