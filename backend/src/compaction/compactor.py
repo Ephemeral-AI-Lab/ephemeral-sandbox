@@ -13,17 +13,25 @@ import logging
 import math
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from providers.types import SupportsStreamingMessages
 
 from message import (
+    BackgroundTaskStateBlock,
     ConversationMessage,
     ContentBlock,
+    ThinkingBlock,
+    SystemReminderBlock,
     TextBlock,
     ToolResultBlock,
     ToolUseBlock,
+    serialize_content_block,
+)
+from tools.builtins.background._common import (
+    build_background_snapshot_metadata,
+    render_background_snapshot,
 )
 
 log = logging.getLogger(__name__)
@@ -68,6 +76,30 @@ TOKEN_ESTIMATION_PADDING = 4 / 3
 
 # Default context windows per model family
 _DEFAULT_CONTEXT_WINDOW = 200_000
+_BACKGROUND_SNAPSHOT_TOOLS: frozenset[str] = frozenset(
+    {"check_background_progress", "wait_for_background_task"}
+)
+_REDUCIBLE_RUNNING_STATUSES: frozenset[str] = frozenset({"running"})
+_REDUCIBLE_TERMINAL_STATUSES: frozenset[str] = frozenset(
+    {"completed", "failed", "cancelled"}
+)
+_REDUCIBLE_STATUSES: frozenset[str] = (
+    _REDUCIBLE_RUNNING_STATUSES | _REDUCIBLE_TERMINAL_STATUSES
+)
+
+
+@dataclass(frozen=True)
+class _ReductionCandidate:
+    task_id: str
+    status: str
+    sort_key: tuple[int, int, int]
+    block_ref: tuple[int, int] | None = None
+    tool_use_id: str | None = None
+    status_idx: int | None = None
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.status in _REDUCIBLE_TERMINAL_STATUSES
 
 
 # ---------------------------------------------------------------------------
@@ -80,14 +112,187 @@ def estimate_message_tokens(messages: list[ConversationMessage]) -> int:
     total = 0
     for msg in messages:
         for block in msg.content:
+            if isinstance(block, ThinkingBlock):
+                continue
             if isinstance(block, TextBlock):
                 total += estimate_tokens(block.text)
+            elif isinstance(block, (SystemReminderBlock, BackgroundTaskStateBlock)):
+                total += estimate_tokens(serialize_content_block(block)["text"])
             elif isinstance(block, ToolResultBlock):
                 total += estimate_tokens(block.content)
             elif isinstance(block, ToolUseBlock):
                 total += estimate_tokens(block.name)
                 total += estimate_tokens(str(block.input))
     return math.ceil(total * TOKEN_ESTIMATION_PADDING)
+
+
+def _background_snapshot_info(
+    block: ToolResultBlock,
+    tool_use_map: dict[str, tuple[int, int, str]],
+) -> dict[str, Any] | None:
+    if not block.metadata:
+        return None
+    snapshot = block.metadata.get("background_snapshot")
+    if not isinstance(snapshot, dict):
+        return None
+    tool_use = tool_use_map.get(block.tool_use_id)
+    if tool_use is None or tool_use[2] not in _BACKGROUND_SNAPSHOT_TOOLS:
+        return None
+    statuses = snapshot.get("statuses")
+    kind = snapshot.get("kind")
+    scope = snapshot.get("scope")
+    if not isinstance(statuses, list) or not isinstance(kind, str) or not isinstance(scope, str):
+        return None
+    elapsed = snapshot.get("elapsed_seconds")
+    if not isinstance(elapsed, (int, float)):
+        elapsed = None
+    return {
+        "kind": kind,
+        "scope": scope,
+        "statuses": statuses,
+        "elapsed_seconds": elapsed,
+    }
+
+
+def _pick_winners(
+    candidates: list[_ReductionCandidate],
+) -> dict[str, _ReductionCandidate]:
+    winners: dict[str, _ReductionCandidate] = {}
+    for candidate in candidates:
+        current = winners.get(candidate.task_id)
+        if current is None:
+            winners[candidate.task_id] = candidate
+            continue
+        if candidate.is_terminal:
+            if not current.is_terminal or candidate.sort_key > current.sort_key:
+                winners[candidate.task_id] = candidate
+            continue
+        if not current.is_terminal and candidate.sort_key > current.sort_key:
+            winners[candidate.task_id] = candidate
+    return winners
+
+
+def reduce_for_api(display_messages: list[ConversationMessage]) -> list[ConversationMessage]:
+    """Return a reduced provider view that keeps only the latest task state."""
+    tool_use_map: dict[str, tuple[int, int, str]] = {}
+    for msg_idx, msg in enumerate(display_messages):
+        if msg.role != "assistant":
+            continue
+        for block_idx, block in enumerate(msg.content):
+            if isinstance(block, ToolUseBlock):
+                tool_use_map[block.id] = (msg_idx, block_idx, block.name)
+
+    candidates: list[_ReductionCandidate] = []
+    for msg_idx, msg in enumerate(display_messages):
+        for block_idx, block in enumerate(msg.content):
+            if isinstance(block, BackgroundTaskStateBlock):
+                if block.status in _REDUCIBLE_STATUSES:
+                    candidates.append(
+                        _ReductionCandidate(
+                            task_id=block.task_id,
+                            status=block.status,
+                            sort_key=(msg_idx, block_idx, -1),
+                            block_ref=(msg_idx, block_idx),
+                        )
+                    )
+                continue
+
+            if not isinstance(block, ToolResultBlock):
+                continue
+            snapshot = _background_snapshot_info(block, tool_use_map)
+            if snapshot is None:
+                continue
+            for status_idx, status_entry in enumerate(snapshot["statuses"]):
+                task_id = status_entry.get("task_id")
+                status = status_entry.get("status")
+                if not isinstance(task_id, str) or status not in _REDUCIBLE_STATUSES:
+                    continue
+                candidates.append(
+                    _ReductionCandidate(
+                        task_id=task_id,
+                        status=status,
+                        sort_key=(msg_idx, block_idx, status_idx),
+                        tool_use_id=block.tool_use_id,
+                        status_idx=status_idx,
+                    )
+                )
+
+    winners = _pick_winners(candidates)
+    keep_state_blocks = {
+        winner.block_ref
+        for winner in winners.values()
+        if winner.block_ref is not None
+    }
+    keep_snapshot_statuses: dict[str, set[int]] = {}
+    for winner in winners.values():
+        if winner.tool_use_id is None or winner.status_idx is None:
+            continue
+        keep_snapshot_statuses.setdefault(winner.tool_use_id, set()).add(winner.status_idx)
+
+    snapshot_plans: dict[str, dict[str, Any] | None] = {}
+    for msg in display_messages:
+        for block in msg.content:
+            if not isinstance(block, ToolResultBlock):
+                continue
+            snapshot = _background_snapshot_info(block, tool_use_map)
+            if snapshot is None:
+                continue
+            keep_idxs = keep_snapshot_statuses.get(block.tool_use_id, set())
+            filtered_statuses = [
+                copy.deepcopy(status_entry)
+                for idx, status_entry in enumerate(snapshot["statuses"])
+                if idx in keep_idxs
+            ]
+            if filtered_statuses:
+                snapshot_plans[block.tool_use_id] = {
+                    "content": render_background_snapshot(
+                        snapshot["kind"],
+                        filtered_statuses,
+                        elapsed_seconds=snapshot["elapsed_seconds"],
+                    ),
+                    "metadata": build_background_snapshot_metadata(
+                        snapshot["kind"],
+                        snapshot["scope"],
+                        filtered_statuses,
+                        elapsed_seconds=snapshot["elapsed_seconds"],
+                    ),
+                }
+            else:
+                snapshot_plans[block.tool_use_id] = None
+
+    drop_tool_use_ids = {
+        tool_use_id
+        for tool_use_id, plan in snapshot_plans.items()
+        if plan is None
+    }
+    reduced: list[ConversationMessage] = []
+    for msg_idx, msg in enumerate(display_messages):
+        new_content: list[ContentBlock] = []
+        for block_idx, block in enumerate(msg.content):
+            if isinstance(block, BackgroundTaskStateBlock):
+                if (msg_idx, block_idx) not in keep_state_blocks:
+                    continue
+                new_content.append(block.model_copy(deep=True))
+                continue
+
+            if isinstance(block, ToolUseBlock) and block.id in drop_tool_use_ids:
+                continue
+
+            if isinstance(block, ToolResultBlock) and block.tool_use_id in snapshot_plans:
+                plan = snapshot_plans[block.tool_use_id]
+                if plan is None:
+                    continue
+                rebuilt = block.model_copy(deep=True)
+                rebuilt.content = plan["content"]
+                rebuilt.metadata = plan["metadata"]
+                new_content.append(rebuilt)
+                continue
+
+            new_content.append(block.model_copy(deep=True))
+
+        if new_content:
+            reduced.append(ConversationMessage(role=msg.role, content=new_content))
+    return reduced
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +356,7 @@ def microcompact_messages(
                         tool_use_id=block.tool_use_id,
                         content=TIME_BASED_MC_CLEARED_MESSAGE,
                         is_error=block.is_error,
+                        metadata=copy.deepcopy(block.metadata),
                     )
                 )
             else:
@@ -457,21 +663,20 @@ async def compact_for_api(
     Returns:
         A new ``list[ConversationMessage]`` ready to send to the provider.
     """
-    if not should_autocompact(display_messages, model, state):
-        return list(display_messages)
+    reduced = reduce_for_api(display_messages)
+    if not should_autocompact(reduced, model, state):
+        return reduced
 
     log.info(
         "compact_for_api: auto-compact triggered (failures=%d)",
         state.consecutive_failures,
     )
 
-    # Work on a deep copy so display_messages stays untouched.
-    working = copy.deepcopy(display_messages)
-    working, tokens_freed = microcompact_messages(working)
-    if tokens_freed > 0 and not should_autocompact(working, model, state):
+    working = copy.deepcopy(reduced)
+    working, _ = microcompact_messages(working)
+    if not should_autocompact(working, model, state):
         log.info(
-            "compact_for_api: microcompact freed ~%d tokens, full compact skipped",
-            tokens_freed,
+            "compact_for_api: background reduction/microcompact avoided full compact",
         )
         return working
 
@@ -513,5 +718,6 @@ __all__ = [
     "get_autocompact_threshold",
     "get_compact_prompt",
     "microcompact_messages",
+    "reduce_for_api",
     "should_autocompact",
 ]

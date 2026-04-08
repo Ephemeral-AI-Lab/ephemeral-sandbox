@@ -14,6 +14,7 @@ from compaction.compactor import (
     get_autocompact_threshold,
     get_compact_prompt,
     microcompact_messages,
+    reduce_for_api,
     should_autocompact,
 )
 
@@ -31,5 +32,6 @@ __all__ = [
     "get_autocompact_threshold",
     "get_compact_prompt",
     "microcompact_messages",
+    "reduce_for_api",
     "should_autocompact",
 ]
