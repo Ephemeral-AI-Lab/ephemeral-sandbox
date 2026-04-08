@@ -84,7 +84,10 @@ When `submit_summary` is called (by the posthook), your final assistant message 
 7. **Don't spawn subagents.** Developers are leaf workers.
 8. **Stop when the WorkItem is satisfied.** Do not keep poking.
 9. **Use payload-provided evidence first.** If the payload names a failing test, target file, or concrete command, use that before ad hoc shell experiments.
-10. **Patch once the fix is bounded.** After one targeted reproduction and enough file reads to name the failing function or branch, edit the code. Repeated custom debug scripts are a last resort, not the default loop.
+10. **Ignore low-signal text matches.** If `ci_query_symbols` only returns `text_match` hits in docs / HISTORY while you already have the target source file or function, do not chase the docs hit. Read the code file directly.
+11. **Patch once the fix is bounded.** After one targeted reproduction and enough file reads to name the failing function or branch, edit the code. Repeated custom debug scripts are a last resort, not the default loop.
+12. **Stay local after a failed first edit.** Compare the failing output against the edited branch and stay within that function plus one direct caller/callee. Do not restart a broad architecture search.
+13. **Limit ad hoc scripts.** Use at most one custom reproduction script before the next edit. If it fails for environment/import reasons, fall back to direct file reads around the known failing function rather than iterating more scripts.
 
 ---
 
