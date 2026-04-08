@@ -77,21 +77,30 @@ async def ci_read_file(
         except Exception as exc:
             return ToolResult(output=str(exc), is_error=True)
 
-    # Truncate large files
-    if len(content) > _MAX_CHARS:
-        content = content[:_MAX_CHARS]
-        truncated = True
-    else:
-        truncated = False
-
     lines = content.splitlines()
     total = len(lines)
     start = max(1, start_line)
-    end = min(total, start + max_lines - 1)
+    requested_end = min(total, start + max_lines - 1)
 
     selected = []
-    for i in range(start, end + 1):
-        selected.append(f"{i:4d}: {lines[i - 1]}")
+    rendered_chars = 0
+    truncated = False
+    end = start - 1
+    for i in range(start, requested_end + 1):
+        rendered = f"{i:4d}: {lines[i - 1]}"
+        extra_chars = len(rendered) + (1 if selected else 0)
+        if selected and rendered_chars + extra_chars > _MAX_CHARS:
+            truncated = True
+            break
+        if not selected and len(rendered) > _MAX_CHARS:
+            selected.append(rendered[: _MAX_CHARS - 1] + "…")
+            rendered_chars = _MAX_CHARS
+            truncated = True
+            end = i
+            break
+        selected.append(rendered)
+        rendered_chars += extra_chars
+        end = i
 
     result = {
         "file_path": path,

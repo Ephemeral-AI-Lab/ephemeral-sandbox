@@ -192,8 +192,10 @@ def _extract_final_text(messages: list[ConversationMessage]) -> str:
         "check_background_progress(task_id=...), join with "
         "wait_for_background_task(task_id=...), or stop stale work with "
         "cancel_background_task(task_id=...). Pass exactly one of ``prompt`` "
-        "(free-form text) or ``input`` (structured payload). Emit multiple "
-        "calls in one turn for parallel fan-out."
+        "(free-form text) or ``input`` (structured payload). In team mode, "
+        "planners should use this only for exploration subagents such as "
+        "``scout``; never pass ``developer`` or ``validator`` here. Emit "
+        "multiple calls in one turn for parallel fan-out."
     ),
     background="always",
     task_type="subagent",
@@ -211,7 +213,9 @@ async def run_subagent(
         agent_name: Required. Name of a registered ``AgentDefinition``
             whose ``agent_type == "subagent"``. Use ``"scout"`` for
             read-only path exploration, ``"subagent"`` for the generic
-            worker, or any user-registered subagent definition.
+            worker, or any user-registered subagent definition. Team-mode
+            planners must not pass execution agents like ``developer`` or
+            ``validator``; those belong in submitted WorkItems.
         prompt: Free-form task description. Mutually exclusive with ``input``.
         input: Structured payload (e.g. ``{"target_paths": [...]}`` for a
             scout). Mutually exclusive with ``prompt``.
@@ -243,7 +247,9 @@ async def run_subagent(
         return ToolResult(
             output=(
                 "run_subagent: must supply exactly one of `prompt` (str) or "
-                "`input` (dict)."
+                "`input` (dict). For team planners, prefer "
+                "`agent_name=\"scout\"` with `input={\"target_paths\": [...]}`; "
+                "do not retry with `prompt=null`."
             ),
             is_error=True,
         )
@@ -263,7 +269,10 @@ async def run_subagent(
             output=(
                 f"run_subagent: agent '{agent_name}' is not a subagent "
                 f"(agent_type={getattr(sub_def, 'agent_type', 'agent')!r}); "
-                f"only subagent-typed agents may be dispatched here."
+                "only subagent-typed agents may be dispatched here. "
+                "If you need coding or validation work, emit `developer` / "
+                "`validator` WorkItems in the Plan instead of calling "
+                "`run_subagent`."
             ),
             is_error=True,
         )
@@ -424,4 +433,3 @@ async def run_subagent(
         output=json.dumps(envelope, default=str),
         metadata={"envelope": envelope},
     )
-

@@ -6,6 +6,8 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
+
 from benchmarks.sweevo.models import _REPO_DIR, SWEEvoInstance, _normalize_sweevo_image_ref
 
 
@@ -51,9 +53,11 @@ def test_create_sweevo_test_sandbox_reuses_named_retry(monkeypatch):
         create_sandbox=lambda **_: pytest.fail("should not create a new sandbox"),
     )
     setup_mock = AsyncMock()
+    patch_mock = AsyncMock()
 
     monkeypatch.setattr(sweevo_sandbox, "_service", lambda: service)
     monkeypatch.setattr(sweevo_sandbox, "setup_sweevo_sandbox", setup_mock)
+    monkeypatch.setattr(sweevo_sandbox, "ensure_sweevo_test_patch", patch_mock)
 
     result = asyncio.run(
         sweevo_sandbox.create_sweevo_test_sandbox(
@@ -67,6 +71,7 @@ def test_create_sweevo_test_sandbox_reuses_named_retry(monkeypatch):
     assert result["sandbox"] == existing
     assert result["reused_existing"] is True
     setup_mock.assert_not_awaited()
+    patch_mock.assert_awaited_once_with(_instance(), "sb-existing", _REPO_DIR)
 
 
 def test_create_sweevo_test_sandbox_truncates_explicit_name_on_create(monkeypatch):
@@ -89,9 +94,11 @@ def test_create_sweevo_test_sandbox_truncates_explicit_name_on_create(monkeypatc
         get_sandbox=lambda sandbox_id: {"id": sandbox_id, "name": expected_name},
     )
     setup_mock = AsyncMock()
+    patch_mock = AsyncMock()
 
     monkeypatch.setattr(sweevo_sandbox, "_service", lambda: service)
     monkeypatch.setattr(sweevo_sandbox, "setup_sweevo_sandbox", setup_mock)
+    monkeypatch.setattr(sweevo_sandbox, "ensure_sweevo_test_patch", patch_mock)
 
     instance = _instance()
     result = asyncio.run(
@@ -108,3 +115,4 @@ def test_create_sweevo_test_sandbox_truncates_explicit_name_on_create(monkeypatc
     assert result["sandbox"]["name"] == expected_name
     assert result["reused_existing"] is False
     setup_mock.assert_awaited_once_with(instance, "sb-created", _REPO_DIR)
+    patch_mock.assert_awaited_once_with(instance, "sb-created", _REPO_DIR)

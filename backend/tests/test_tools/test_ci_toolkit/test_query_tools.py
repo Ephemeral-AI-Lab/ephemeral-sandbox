@@ -197,6 +197,7 @@ async def test_query_symbols_no_service():
 
 async def test_query_symbols_no_results():
     svc = MagicMock()
+    svc.is_initialized = True
     svc.query_symbols.return_value = []
 
     # SymbolKind is a lazy import inside the function; patch at its source module
@@ -218,6 +219,7 @@ async def test_query_symbols_returns_results():
     sym.signature = "def my_func(x: int) -> str"
 
     svc = MagicMock()
+    svc.is_initialized = True
     svc.query_symbols.return_value = [sym]
 
     with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
@@ -232,6 +234,29 @@ async def test_query_symbols_returns_results():
     assert symbols[0]["name"] == "my_func"
     assert symbols[0]["file"] == "src/mod.py"
     assert symbols[0]["line"] == 10
+
+
+async def test_query_symbols_waits_for_cold_index():
+    sym = MagicMock()
+    sym.name = "fresh_symbol"
+    sym.kind.value = "function"
+    sym.file_path = "tests/test_discriminated_union.py"
+    sym.line = 42
+    sym.signature = "def fresh_symbol() -> None"
+
+    svc = MagicMock()
+    svc.is_initialized = False
+    svc.query_symbols.return_value = [sym]
+
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        with patch("code_intelligence.types.SymbolKind"):
+            result = await ci_query_symbols.execute(
+                ci_query_symbols.input_model(query="fresh_symbol"),
+                _ctx_with_svc(svc),
+            )
+
+    assert not result.is_error
+    svc.ensure_initialized.assert_called_once_with(wait=True)
 
 
 async def test_query_symbols_with_valid_kind_filter():

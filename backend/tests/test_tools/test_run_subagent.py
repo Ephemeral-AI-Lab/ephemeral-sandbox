@@ -248,6 +248,35 @@ class _StubAgent:
 
 
 @pytest.mark.asyncio
+async def test_run_subagent_rejects_non_subagent_targets_with_plan_guidance(
+    monkeypatch,
+):
+    class _NonSubagentDef:
+        name = "developer"
+        agent_type = "agent"
+
+    monkeypatch.setattr("agents.get_definition", lambda _name: _NonSubagentDef())
+
+    class _StubConfig:
+        cwd = Path("/tmp")
+        session_id = "session_abc"
+
+    ctx = ToolExecutionContext(
+        cwd=Path("/tmp"),
+        metadata={"session_config": _StubConfig()},
+    )
+
+    result = await run_subagent.execute(
+        run_subagent.input_model(agent_name="developer", prompt="run pytest"),
+        ctx,
+    )
+
+    assert result.is_error is True
+    assert "is not a subagent" in result.output
+    assert "emit `developer` / `validator` WorkItems" in result.output
+
+
+@pytest.mark.asyncio
 async def test_run_subagent_registers_provider_and_returns_final_text(monkeypatch):
     scripted = [
         ConversationMessage(role="user", content=[TextBlock(text="task")]),

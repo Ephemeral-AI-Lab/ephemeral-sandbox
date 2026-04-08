@@ -199,6 +199,29 @@ async def test_read_file_truncated_flag_set_for_large_content(tmp_path):
     assert data["truncated"] is True
 
 
+async def test_read_file_keeps_true_total_lines_for_large_file_tail_reads(tmp_path):
+    """Large files should keep their real line count when reading from a high
+    start_line instead of pretending the file ends at the char cap."""
+    f = tmp_path / "huge.py"
+    lines = [f"line{i}" for i in range(1, 2001)]
+    f.write_text("\n".join(lines))
+
+    with patch("tools.ci_toolkit.file_tools.get_ci_service", return_value=None):
+        ctx = _ctx()
+        result = await ci_read_file.execute(
+            ci_read_file.input_model(path=str(f), start_line=1700, max_lines=5),
+            ctx,
+        )
+
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["total_lines"] == 2000
+    assert data["start_line"] == 1700
+    assert data["end_line"] == 1704
+    assert "line1700" in data["content"]
+    assert "line1704" in data["content"]
+
+
 async def test_read_file_no_truncation_for_small_content(tmp_path):
     """Small files do not get truncated=True."""
     f = tmp_path / "small.py"

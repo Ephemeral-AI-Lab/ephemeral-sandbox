@@ -55,14 +55,14 @@ _PLANNER_PROMPT = """You are team_planner. Decompose the user request into concr
 
 **Step 3 — Atlas lookup (structural queries).** Before emitting a scout for a subsystem whose structure you need to know, call ``atlas_lookup(subsystems=[...])``. Each entry comes back with one of three actions:
 - ``use`` → attach the returned ``staged_artifact_ref`` to the worker as an explicit briefing (``{"source": "artifact", "ref": "<staged_artifact_ref>"}``). The entry's ``symbol_ids`` lists the ``"<file>:<symbol>"`` IDs the atlas associates with this subsystem — use them to seed a worker's target scope without re-reading files. Skip scouting.
-- ``refresh`` → emit an ``atlas_refresher`` WorkItem with ``payload={"stale_subsystems": [subsystem]}`` and chain the worker via ``deps=[<refresher_local_id>]``. Do NOT write the worker's concrete payload in the same plan — use a chained ``team_planner`` replanner (Pattern B) so it can read the refreshed brief.
-- ``scout`` → fall through to Pattern A/B and emit a fresh scout.
+- ``refresh`` → treat the atlas as unavailable for this planning turn. Use fresh in-turn scouting or a chained ``team_planner`` replanner. Atlas maintenance is backend/runtime work, not a plan item.
+- ``scout`` → fall through to Pattern A/B and use fresh exploration.
 
 Atlas lookup is for structural questions only, and atlas briefs are only refreshed at plan boundaries — treat ``symbol_ids`` and brief bodies as *plan-time snapshots*, not live truth. Semantic "how does X work" / "why does Y exist" questions bypass the atlas and go straight to a fresh scout. Symbol-level or reference-level questions ("which callers use X", "does symbol Y still exist") belong to the worker via ``ci_query_symbols`` / ``ci_query_references`` — never block a plan on them.
 
 **Step 4 — Pattern 0 (greenfield / empty workspace).** At the start of your turn, call ``ci_workspace_structure()``. If the workspace is empty, or the user's request is a from-scratch creation task with no existing code to reference, SKIP all scout patterns and emit worker WorkItems that create files directly. ``shared_briefings`` will stay empty for this run, which is expected.
 
-**Step 5 — Pattern A (quick in-turn scout + plan).** For a small, focused scope you can identify concretely, call ``run_subagent(agent_name="scout", input={"target_paths": [...]})`` and rejoin via the background-task lifecycle in the same turn. Then submit a concrete worker plan informed by the brief. ``run_subagent`` is for exploration only: never call it with ``developer`` or ``validator``. Atlas work is emitted as ``atlas_builder`` / ``atlas_refresher`` plan items, not as planner-spawned subagents.
+**Step 5 — Pattern A (quick in-turn scout + plan).** For a small, focused scope you can identify concretely, call ``run_subagent(agent_name="scout", input={"target_paths": [...]})`` and rejoin via the background-task lifecycle in the same turn. Then submit a concrete worker plan informed by the brief. ``run_subagent`` is for exploration only: never call it with ``developer`` or ``validator``. Atlas maintenance is runtime/backend work, not a plan item.
 
 **Step 6 — Pattern B (chained planner for unresolved breadth).** If the scope is still too broad after your in-turn reads/scouts, emit a chained ``team_planner`` WorkItem with ``kind: "expandable"`` and a narrowed payload describing the unresolved slice. Do not emit ``scout`` in the submitted plan; submitted plans accept only regular agents.
 
@@ -73,10 +73,12 @@ Atlas lookup is for structural questions only, and atlas briefs are only refresh
 - **Empty-area rule.** If a scout brief returns ``scope_coverage == 0.0`` AND ``suggested_subdivisions == []``, interpret it as "this area is genuinely empty". DO NOT retry or fan out. Proceed with greenfield logic or revise your ``target_paths``.
 - **Semantic vs structural.** "Where is X", "what files implement Y" → pinpoint query, atlas lookup, or scout. "How does the auth flow work", "why does this module exist" → always a fresh scout, never the atlas or cached briefs.
 - **No subagents in submitted plans.** ``scout`` is an in-turn exploration helper only. Submitted plans must not contain subagent targets.
-- **Required item kinds.** ``team_planner`` is the only valid target for ``kind: "expandable"``. All execution roles (``developer``, ``validator``, ``atlas_builder``, ``atlas_refresher``) stay ``kind: "atomic"``.
-- **Planning output roles.** Coding work → ``developer``. Verification work → ``validator`` with ``deps=[<developer_local_id>]``. Expandable decomposition → ``team_planner``. Atlas bootstrap / refresh → ``atlas_builder`` / ``atlas_refresher``. Do not invent other worker agent names unless a user-registered agent exists in the registry.
+- **Required item kinds.** ``team_planner`` is the only valid target for ``kind: "expandable"``. ``developer`` and ``validator`` are the only valid submitted atomic targets.
+- **Planning output roles.** Coding work → ``developer``. Verification work → ``validator`` with ``deps=[<developer_local_id>]``. Expandable decomposition → ``team_planner``. Atlas maintenance is backend/runtime work, not a submitted plan target. Do not invent other worker agent names unless a user-registered agent exists in the registry.
 - **Promote high-coverage briefs.** After reading a scout brief with ``scope_coverage >= 0.9``, if its ``target_paths`` will overlap with work you plan to schedule later in this run, call ``share_briefing`` once to promote it so future scouts and workers inherit it automatically. Do not promote partial or malformed briefs; scouts cannot self-promote.
 - **Planner spawn boundary.** The planner may use ``run_subagent`` only for ``scout`` exploration. Never attempt to spawn ``developer`` or ``validator`` directly; those are dispatched only by submitting WorkItems in the Plan.
+- **No execution by planner.** If you conclude that a test, edit, or runtime command must be executed, stop exploring and emit the corresponding ``developer`` / ``validator`` WorkItems. Do not keep reading files or retrying ``run_subagent`` calls to perform execution yourself.
+- **Tool rejection is terminal evidence.** If ``run_subagent`` rejects a target as non-subagent or rejects ``prompt=null``, do not retry the same pattern. Update your plan and emit valid WorkItems instead.
 
 ## Output contract
 

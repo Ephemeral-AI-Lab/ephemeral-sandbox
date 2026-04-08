@@ -172,6 +172,12 @@ async def ci_query_symbols(
         except ValueError:
             pass
 
+    if not getattr(svc, "is_initialized", True):
+        try:
+            svc.ensure_initialized(wait=True)
+        except Exception:
+            logger.debug("ci_query_symbols warmup failed", exc_info=True)
+
     results = svc.query_symbols(query)
     if kind_filter:
         results = [s for s in results if s.kind == kind_filter]

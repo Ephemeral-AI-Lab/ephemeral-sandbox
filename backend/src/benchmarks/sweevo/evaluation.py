@@ -12,7 +12,7 @@ from benchmarks.sweevo.models import (
     _DEFAULT_SWEEVO_TEST_TIMEOUT,
     _REPO_DIR,
 )
-from benchmarks.sweevo.sandbox import _exec, _get_sandbox
+from benchmarks.sweevo.sandbox import _exec, ensure_sweevo_test_patch
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ async def evaluate_sweevo_result(
 ) -> SWEEvoResult:
     """Run FAIL_TO_PASS and PASS_TO_PASS tests to score the result."""
     # Step 1: Apply test patch
-    await _apply_test_patch(instance, sandbox_id, repo_dir)
+    await ensure_sweevo_test_patch(instance, sandbox_id, repo_dir)
 
     # Step 2: Run FAIL_TO_PASS tests
     f2p_passed = 0
@@ -75,50 +75,6 @@ async def evaluate_sweevo_result(
     )
 
     return result
-
-
-async def _apply_test_patch(
-    instance: SWEEvoInstance,
-    sandbox_id: str,
-    repo_dir: str,
-) -> None:
-    """Apply the SWE-EVO test patch to the sandbox."""
-    test_patch = instance.test_patch
-    if not test_patch:
-        logger.warning(
-            "No test patch for %s — F2P tests may not exist",
-            instance.instance_id,
-        )
-        return
-
-    patch_path = "/tmp/sweevo_test.patch"
-    try:
-        sandbox = await _get_sandbox(sandbox_id)
-        await sandbox.fs.upload_file(patch_path, test_patch.encode("utf-8"))
-    except Exception:
-        import base64
-
-        b64 = base64.b64encode(test_patch.encode("utf-8")).decode("ascii")
-        await _exec(
-            sandbox_id,
-            f'echo "{b64}" | base64 -d > {patch_path}',
-            check=False,
-        )
-
-    out = await _exec(
-        sandbox_id,
-        f"cd {repo_dir} && git apply {patch_path} 2>&1",
-        check=False,
-    )
-    if "error" in out.lower() and "already applied" not in out.lower():
-        logger.warning(
-            "Test patch for %s had issues: %s",
-            instance.instance_id,
-            out[:300],
-        )
-    else:
-        logger.info("Applied test patch for %s", instance.instance_id)
-
 
 async def _run_test_set(
     sandbox_id: str,

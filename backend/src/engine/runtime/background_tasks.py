@@ -129,7 +129,12 @@ class BackgroundTaskManager:
             # status/result — the SDK may complete normally with exit_code -1
             # after we logically cancelled it.
             if tracked.status in (TaskStatus.CANCELLED, TaskStatus.DELIVERED):
-                if task.exception() is not None:
+                if task.cancelled():
+                    logger.debug(
+                        "Background task %s observed asyncio cancellation after cancel",
+                        tracked.task_id,
+                    )
+                elif task.exception() is not None:
                     logger.debug(
                         "Background task %s raised after cancel: %s",
                         tracked.task_id,

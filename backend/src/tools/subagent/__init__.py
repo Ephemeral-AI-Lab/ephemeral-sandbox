@@ -18,6 +18,7 @@ class SubagentToolkit(BaseToolkit):
                 "Use `run_subagent` to delegate bounded work to a worker.\n"
                 "- Each call returns a `task_id` immediately; workers always run in the background.\n"
                 "- Emit multiple `run_subagent` calls in one turn to fan out in parallel.\n"
+                "- Only subagent-typed targets are valid. In team mode, planners should use `scout` for exploration and must not launch `developer` or `validator` here.\n"
                 "- Prefer `check_background_progress(task_id=...)` to inspect a running worker before you wait on it.\n"
                 "- Use `wait_for_background_task(task_id=...)` to join a worker when you are ready for its final answer.\n"
                 "- Cancel stale or low-value workers with `cancel_background_task(task_id=...)`.\n"

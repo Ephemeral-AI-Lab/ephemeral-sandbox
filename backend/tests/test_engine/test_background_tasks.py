@@ -699,6 +699,35 @@ async def test_done_callback_skips_cancelled_status() -> None:
     assert "late-completion" not in mgr._tasks["t1"].result.output
 
 
+async def test_done_callback_handles_asyncio_cancel_without_loop_error() -> None:
+    """Cancelling a pure-Python background task must not trigger the loop's
+    exception handler from the done callback."""
+    mgr = BackgroundTaskManager()
+    loop = asyncio.get_running_loop()
+    observed: list[dict[str, object]] = []
+    previous_handler = loop.get_exception_handler()
+
+    def _handler(loop, context):  # type: ignore[no-untyped-def]
+        observed.append(context)
+
+    loop.set_exception_handler(_handler)
+    try:
+        mgr.launch(
+            task_id="t_cancel",
+            tool_name="t",
+            tool_input={},
+            coro=_make_tool_coro(delay=10),
+        )
+        await mgr.cancel("t_cancel", "stop")
+        await asyncio.sleep(0)
+    finally:
+        loop.set_exception_handler(previous_handler)
+
+    assert observed == []
+    assert mgr._tasks["t_cancel"].status == "cancelled"
+    assert "stop" in mgr._tasks["t_cancel"].result.output
+
+
 # ---------------------------------------------------------------------------
 # 28-30. apply_last_n_lines: line trim + char-cap + budget split
 # ---------------------------------------------------------------------------

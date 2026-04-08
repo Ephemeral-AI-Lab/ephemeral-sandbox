@@ -31,8 +31,8 @@ Before emitting a scout for a **subsystem whose structure you need**, call `atla
 | action    | meaning                                    | planner response |
 |-----------|--------------------------------------------|------------------|
 | `use`     | Fresh brief exists                         | Attach `staged_artifact_ref` as an explicit briefing on the downstream worker: `{"source": "artifact", "ref": "<ref>"}`. Use `symbol_ids` to seed worker target scope. **Skip scouting.** |
-| `refresh` | Brief is stale                             | Emit an `atlas_refresher` WorkItem with `payload={"stale_subsystems": [subsystem]}` and chain a `team_planner` replanner via `deps=[<refresher_local_id>]`. **Do not write the downstream worker in the same plan.** |
-| `scout`   | No usable brief                            | Fall through to Pattern A/B. |
+| `refresh` | Brief is stale                             | Treat atlas as unavailable for this planning turn. Use fresh in-turn scouting or a chained `team_planner` replanner. Atlas maintenance is backend/runtime work, not a plan item. |
+| `scout`   | No usable brief                            | Fall through to Pattern A/B and use fresh exploration. |
 
 Atlas briefs and `symbol_ids` are **plan-time snapshots**, not live truth. Symbol-level and reference-level questions ("does this still exist", "who calls it") always belong to the worker via live CI — never block a plan on them.
 
@@ -47,7 +47,7 @@ For a scope you can identify concretely:
 2. Rejoin via the background-task lifecycle in the same turn.
 3. Emit a concrete `developer` → `validator` plan informed by the brief.
 
-`run_subagent` is exploration-only. Never call it with `developer` or `validator`. Atlas work is scheduled by submitting `atlas_builder` / `atlas_refresher` WorkItems in the plan, not by spawning them as planner subagents.
+`run_subagent` is exploration-only. Never call it with `developer` or `validator`. Atlas maintenance is runtime/backend work, not a plan item and not a planner-spawned subagent.
 
 ### Step 6 — Pattern B: chained replanner for unresolved breadth
 If the scope is still too broad after your in-turn reads/scouts, emit a chained `team_planner` WorkItem with `kind: "expandable"` and a narrowed payload describing the unresolved slice.
@@ -68,7 +68,7 @@ Never emit `scout` as a plan item.
 - **Coding work (read, write, edit)** → emit a `developer` WorkItem.
 - **Verification work (tests, lint, diagnostics, smoke checks)** → emit a `validator` WorkItem with `deps=[<developer_local_id>]`.
 - **Expandable follow-up decomposition** → emit a `team_planner` WorkItem with `kind: "expandable"`.
-- **Atlas bootstrap / refresh** → emit `atlas_builder` / `atlas_refresher` as atomic WorkItems.
+- **Atlas maintenance** → backend/runtime work, not a submitted plan target.
 - **Exploration** → use `scout` only as an in-turn `run_subagent`, never as a submitted plan item.
 
 **Default shape for any coding task**:
@@ -85,11 +85,13 @@ Never invent new worker agent names unless the user has registered one in the ag
 
 1. **Empty-area rule.** If a scout returns `scope_coverage == 0.0` AND `suggested_subdivisions == []`, the area is genuinely empty. Do not retry. Do not fan out. Revise `target_paths` or switch to greenfield mode.
 2. **No subagents in submitted plans.** `scout` is an in-turn exploration helper only. Submitted plans must not contain subagent targets.
-3. **Required item kinds.** `team_planner` is the only valid target for `kind: "expandable"`. Execution roles (`developer`, `validator`, `atlas_builder`, `atlas_refresher`) stay `kind: "atomic"`.
+3. **Required item kinds.** `team_planner` is the only valid target for `kind: "expandable"`. `developer` and `validator` are the only valid submitted atomic targets.
 4. **Promote high-coverage briefs.** After reading a scout brief with `scope_coverage >= 0.9` whose `target_paths` will overlap with later work in this run, call `share_briefing` once to promote it. Do not promote partial or malformed briefs.
 5. **Planner work phase only.** Do not call `submit_plan` yourself. Emit the plan payload and let `submit_plan_agent` perform the submission.
-6. **No prose outside the plan payload.** End your turn with a single JSON object that matches the `Plan` shape (`items`, optional `rationale`), with no wrapper prose before or after it.
-7. **Stop after the JSON payload.** Once the plan JSON is written, your turn is over. Do not inspect background tasks, run more tools, or spawn workers afterward.
+6. **No execution by planner.** If you conclude a test, edit, or shell command must be run, stop exploring and emit `developer` / `validator` WorkItems instead of trying to execute through `run_subagent`.
+7. **Treat tool rejection as evidence.** If `run_subagent` rejects a target as non-subagent or rejects `prompt=null`, do not retry the same pattern. Update your plan and emit valid WorkItems.
+8. **No prose outside the plan payload.** End your turn with a single JSON object that matches the `Plan` shape (`items`, optional `rationale`), with no wrapper prose before or after it.
+9. **Stop after the JSON payload.** Once the plan JSON is written, your turn is over. Do not inspect background tasks, run more tools, or spawn workers afterward.
 
 ---
 

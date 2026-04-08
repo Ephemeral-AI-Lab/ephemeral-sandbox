@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Any
 from uuid import uuid4
@@ -239,6 +240,59 @@ async def setup_sweevo_sandbox(
     return repo_dir
 
 
+async def ensure_sweevo_test_patch(
+    instance: SWEEvoInstance,
+    sandbox_id: str,
+    repo_dir: str = _REPO_DIR,
+) -> None:
+    """Apply the SWE-EVO test patch so planner, workers, and grader share one test surface."""
+    test_patch = instance.test_patch
+    if not test_patch:
+        logger.warning(
+            "No test patch for %s — F2P tests may not exist",
+            instance.instance_id,
+        )
+        return
+
+    patch_path = "/tmp/sweevo_test.patch"
+    try:
+        sandbox = await _get_sandbox(sandbox_id)
+        await sandbox.fs.upload_file(patch_path, test_patch.encode("utf-8"))
+    except Exception:
+        b64 = base64.b64encode(test_patch.encode("utf-8")).decode("ascii")
+        await _exec(
+            sandbox_id,
+            f'echo "{b64}" | base64 -d > {patch_path}',
+            check=False,
+        )
+
+    out = await _exec(
+        sandbox_id,
+        f"cd {repo_dir} && git apply {patch_path} 2>&1",
+        check=False,
+    )
+    lower = out.lower()
+    if "error" in lower and "already applied" not in lower:
+        logger.warning(
+            "Test patch for %s had issues: %s",
+            instance.instance_id,
+            out[:300],
+        )
+    else:
+        logger.info("Ensured test patch for %s", instance.instance_id)
+
+    try:
+        from code_intelligence.routing.service import dispose_code_intelligence
+
+        dispose_code_intelligence(sandbox_id)
+    except Exception:
+        logger.debug(
+            "CI disposal skipped after test patch for sandbox %s",
+            sandbox_id,
+            exc_info=True,
+        )
+
+
 async def create_sweevo_test_sandbox(
     instance: SWEEvoInstance,
     *,
@@ -261,6 +315,7 @@ async def create_sweevo_test_sandbox(
                 resolved_name,
                 existing.get("id", ""),
             )
+            await ensure_sweevo_test_patch(instance, existing["id"], repo_dir)
             return {
                 "sandbox_id": existing["id"],
                 "sandbox": existing,
@@ -298,6 +353,7 @@ async def create_sweevo_test_sandbox(
     )
     sandbox_id = result["id"]
     await setup_sweevo_sandbox(instance, sandbox_id, repo_dir)
+    await ensure_sweevo_test_patch(instance, sandbox_id, repo_dir)
     sandbox_info = service.get_sandbox(sandbox_id)
     return {
         "sandbox_id": sandbox_id,

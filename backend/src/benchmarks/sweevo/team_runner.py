@@ -70,6 +70,8 @@ def _build_root_prompt(instance: SWEEvoInstance, repo_dir: str) -> str:
         f"## Objective\n"
         f"Make the grading command pass by fixing the repository so the fail-to-pass tests turn green "
         f"without regressing the pass-to-pass coverage.\n\n"
+        f"The SWE-EVO test patch has already been applied inside the sandbox, so any newly added "
+        f"or modified fail-to-pass tests are present in the working tree.\n\n"
         f"## Fail-To-Pass Targets\n"
         f"{json.dumps(instance.fail_to_pass, indent=2)}\n\n"
         f"## Pass-To-Pass Guardrail\n"

@@ -11,6 +11,7 @@ from team.models import Plan, WorkItem, WorkItemKind, WorkItemSpec, WorkItemStat
 
 _MAX_INLINE_BRIEFING_BYTES_PER_SPEC = 4096
 _EXPANDABLE_AGENT = "team_planner"
+_ALLOWED_ATOMIC_AGENTS = frozenset({"developer", "validator"})
 
 Issue = dict[str, str]
 
@@ -74,6 +75,19 @@ def validate_plan_phase_a(plan: Plan, max_plan_size: int = 50) -> list[Issue]:
                         "msg": (
                             f"expandable items must target '{_EXPANDABLE_AGENT}', "
                             f"got '{item.agent_name}'"
+                        ),
+                    }
+                )
+            if (
+                item.kind == WorkItemKind.ATOMIC
+                and item.agent_name not in _ALLOWED_ATOMIC_AGENTS
+            ):
+                issues.append(
+                    {
+                        "field": f"items[{idx}].agent_name",
+                        "msg": (
+                            "atomic submitted items must target one of "
+                            f"{sorted(_ALLOWED_ATOMIC_AGENTS)}, got '{item.agent_name}'"
                         ),
                     }
                 )
