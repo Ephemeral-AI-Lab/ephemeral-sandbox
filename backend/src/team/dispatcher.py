@@ -1,4 +1,4 @@
-"""Dispatcher — DAG + ready queue + atomic mutations for a single TeamRun."""
+"""Dispatcher — DAG, ready queue, and atomic mutations for one TeamRun."""
 
 from __future__ import annotations
 
@@ -6,20 +6,22 @@ import asyncio
 import copy
 import logging
 import uuid
-from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from collections import deque
+from typing import TYPE_CHECKING, Any, Callable
 
-from team.checkpoint import CheckpointStore, TeamRunCheckpoint, build_checkpoint
+from team.checkpoint import TeamRunCheckpoint
 from team.types import (
     AgentResult,
     ArtifactTooLarge,
     BudgetConfig,
+    BudgetExceeded,
     BudgetState,
     CheckpointNotFound,
     InvalidPlan,
     WorkItem,
     WorkItemStatus,
     TERMINAL_WI_STATUSES,
+    _utcnow,
 )
 from team.validation import validate_plan_phase_b
 
@@ -29,17 +31,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class BudgetExceeded(Exception):
-    pass
-
-
 class Dispatcher:
-    """Owns the WorkItem DAG for one TeamRun.
-
-    All mutations happen under ``self.lock`` so concurrent Workers observe a
-    consistent graph. Readiness is recomputed in place; the ready queue
-    mirrors the exact set of WorkItems whose status is READY.
-    """
+    """Owns the WorkItem DAG for one TeamRun. Mutations are lock-protected."""
 
     def __init__(
         self,
@@ -47,26 +40,25 @@ class Dispatcher:
         budgets: BudgetConfig,
         budget_state: BudgetState,
         artifact_store: "InMemoryArtifactStore",
-        checkpoint_store: CheckpointStore | None = None,
+        max_checkpoints: int = 10,
     ) -> None:
         self.team_run_id = team_run_id
         self.budgets = budgets
         self.budget_state = budget_state
         self.artifact_store = artifact_store
-        self.checkpoint_store = checkpoint_store or CheckpointStore()
         self.graph: dict[str, WorkItem] = {}
         self._ready_queue: asyncio.Queue[str] = asyncio.Queue()
-        self._ready_order: list[str] = []  # mirror of queue contents for checkpoints
+        self._ready_order: list[str] = []
         self.lock = asyncio.Lock()
-
-    # ---- construction helpers --------------------------------------------
+        self._checkpoints: deque[TeamRunCheckpoint] = deque(maxlen=max_checkpoints)
+        self._checkpoint_seq = 0
 
     def new_id(self) -> str:
         return str(uuid.uuid4())
 
     def _compute_readiness(self, wi: WorkItem) -> bool:
-        """A WorkItem is READY iff all deps are DONE. Never reads parent_id."""
-        if wi.status not in (WorkItemStatus.PENDING, WorkItemStatus.READY):
+        """A WorkItem becomes READY iff PENDING and all deps are DONE."""
+        if wi.status != WorkItemStatus.PENDING:
             return False
         for dep_id in wi.deps:
             dep = self.graph.get(dep_id)
@@ -80,7 +72,6 @@ class Dispatcher:
         self._ready_order.append(wi.id)
 
     async def add_work_item(self, wi: WorkItem) -> None:
-        """Insert a new WorkItem, enforcing budget caps, and enqueue if ready."""
         async with self.lock:
             if self.budget_state.work_items_used >= self.budgets.max_work_items:
                 raise BudgetExceeded(
@@ -94,17 +85,19 @@ class Dispatcher:
                 self._enqueue(wi)
 
     async def pop_ready(self) -> str:
-        """Block until a ready WorkItem becomes available, then return its id."""
-        wi_id = await self._ready_queue.get()
-        # Remove first matching entry from ready_order mirror.
-        try:
-            self._ready_order.remove(wi_id)
-        except ValueError:
-            pass
-        return wi_id
+        while True:
+            wi_id = await self._ready_queue.get()
+            async with self.lock:
+                try:
+                    self._ready_order.remove(wi_id)
+                except ValueError:
+                    pass
+                wi = self.graph.get(wi_id)
+                if wi is None or wi.status != WorkItemStatus.READY:
+                    continue
+                return wi_id
 
     async def mark_running(self, wi_id: str, agent_run_id: str) -> WorkItem:
-        """Atomic READY→RUNNING with agent_run_id stamp."""
         async with self.lock:
             wi = self.graph[wi_id]
             if wi.status != WorkItemStatus.READY:
@@ -113,11 +106,11 @@ class Dispatcher:
                 )
             wi.status = WorkItemStatus.RUNNING
             wi.agent_run_id = agent_run_id
-            wi.started_at = datetime.utcnow()
+            wi.started_at = _utcnow()
             return wi
 
     async def complete(self, wi_id: str, result: AgentResult) -> list[WorkItem]:
-        """Mark DONE and atomically insert any submitted Plan. Returns new items inserted."""
+        """Mark DONE and atomically insert any submitted Plan."""
         new_items: list[WorkItem] = []
         async with self.lock:
             wi = self.graph[wi_id]
@@ -126,7 +119,6 @@ class Dispatcher:
                     f"complete: {wi_id} is {wi.status.value}, not RUNNING"
                 )
 
-            # Phase B validation BEFORE storing the artifact — nothing partial lands.
             if result.submitted_plan is not None:
                 try:
                     new_items = validate_plan_phase_b(
@@ -139,42 +131,37 @@ class Dispatcher:
                     )
                 except InvalidPlan as e:
                     wi.status = WorkItemStatus.FAILED
-                    wi.finished_at = datetime.utcnow()
+                    wi.finished_at = _utcnow()
                     wi.failure_reason = f"InvalidPlan: {e}"
                     self._cascade_cancel(wi_id)
                     return []
-                # Enforce count budget before inserting
                 if (
                     self.budget_state.work_items_used + len(new_items)
                     > self.budgets.max_work_items
                 ):
                     wi.status = WorkItemStatus.FAILED
-                    wi.finished_at = datetime.utcnow()
+                    wi.finished_at = _utcnow()
                     wi.failure_reason = "BudgetExceeded: max_work_items"
                     self._cascade_cancel(wi_id)
                     return []
 
-            # Store artifact
             try:
                 self.artifact_store.save(wi_id, result.artifact)
                 wi.artifact_ref = wi_id
             except ArtifactTooLarge as e:
                 wi.status = WorkItemStatus.FAILED
-                wi.finished_at = datetime.utcnow()
+                wi.finished_at = _utcnow()
                 wi.failure_reason = f"ArtifactTooLarge: {e}"
                 self._cascade_cancel(wi_id)
                 return []
 
-            # Insert new items atomically
             for nwi in new_items:
                 self.graph[nwi.id] = nwi
                 self.budget_state.work_items_used += 1
 
-            # Mark parent DONE now that everything is persisted
             wi.status = WorkItemStatus.DONE
-            wi.finished_at = datetime.utcnow()
+            wi.finished_at = _utcnow()
 
-            # Recompute readiness for new items and for existing successors of wi
             touched: list[WorkItem] = list(new_items)
             for other in self.graph.values():
                 if wi_id in other.deps and other.status == WorkItemStatus.PENDING:
@@ -188,17 +175,15 @@ class Dispatcher:
     async def fail(self, wi_id: str, reason: str) -> None:
         async with self.lock:
             wi = self.graph.get(wi_id)
-            if wi is None:
-                return
-            if wi.status in TERMINAL_WI_STATUSES:
+            if wi is None or wi.status in TERMINAL_WI_STATUSES:
                 return
             wi.status = WorkItemStatus.FAILED
-            wi.finished_at = datetime.utcnow()
+            wi.finished_at = _utcnow()
             wi.failure_reason = reason
             self._cascade_cancel(wi_id)
 
     def _cascade_cancel(self, wi_id: str) -> None:
-        """Cancel everything transitively dependent on wi_id (forward dep walk)."""
+        """Cancel everything transitively dependent on wi_id."""
         stack = [wi_id]
         seen: set[str] = set()
         while stack:
@@ -208,24 +193,30 @@ class Dispatcher:
                     seen.add(other.id)
                     if other.status not in TERMINAL_WI_STATUSES:
                         other.status = WorkItemStatus.CANCELLED
-                        other.finished_at = datetime.utcnow()
+                        other.finished_at = _utcnow()
                         other.failure_reason = f"cascaded from {wi_id}"
                     stack.append(other.id)
 
     async def cancel_all_pending(self) -> None:
-        """Mark every PENDING/READY WorkItem as CANCELLED. Used by TeamRun.cancel."""
         async with self.lock:
             for wi in self.graph.values():
                 if wi.status in (WorkItemStatus.PENDING, WorkItemStatus.READY):
                     wi.status = WorkItemStatus.CANCELLED
-                    wi.finished_at = datetime.utcnow()
+                    wi.finished_at = _utcnow()
                     wi.failure_reason = "team_run cancelled"
+
+    async def cancel_running(self, reason: str) -> None:
+        """Mark any RUNNING items as CANCELLED. Used after a cooperative drain."""
+        async with self.lock:
+            for wi in self.graph.values():
+                if wi.status == WorkItemStatus.RUNNING:
+                    wi.status = WorkItemStatus.CANCELLED
+                    wi.finished_at = _utcnow()
+                    wi.failure_reason = reason
 
     async def cancel_descendants(self, wi_id: str) -> None:
         async with self.lock:
             self._cascade_cancel(wi_id)
-
-    # ---- introspection ---------------------------------------------------
 
     def ready_items(self) -> list[WorkItem]:
         return [wi for wi in self.graph.values() if wi.status == WorkItemStatus.READY]
@@ -245,33 +236,38 @@ class Dispatcher:
         change_log_entries: list[Any],
     ) -> TeamRunCheckpoint:
         async with self.lock:
-            cp = build_checkpoint(
+            self._checkpoint_seq += 1
+            cp = TeamRunCheckpoint(
+                id=str(uuid.uuid4()),
                 team_run_id=self.team_run_id,
+                sequence=self._checkpoint_seq,
+                taken_at=_utcnow(),
                 label=label,
-                store=self.checkpoint_store,
-                work_items=self.graph,
-                ready_queue_order=self._ready_order,
+                work_items=copy.deepcopy(self.graph),
+                ready_queue_order=list(self._ready_order),
                 artifacts=self.artifact_store.snapshot(),
-                project_context=project_context,
-                change_log_entries=change_log_entries,
-                budget_state=self.budget_state,
+                project_context=copy.deepcopy(project_context),
+                change_log_entries=copy.deepcopy(change_log_entries),
+                budget_state=copy.deepcopy(self.budget_state),
             )
-            self.checkpoint_store.save(cp)
+            self._checkpoints.append(cp)
             return cp
+
+    def list_checkpoints(self) -> list[TeamRunCheckpoint]:
+        return list(self._checkpoints)
+
+    def _get_checkpoint(self, checkpoint_id: str) -> TeamRunCheckpoint | None:
+        return next((cp for cp in self._checkpoints if cp.id == checkpoint_id), None)
 
     async def rollback_to(
         self,
         checkpoint_id: str,
-        project_context_setter,
-        change_log_setter,
+        project_context_setter: Callable[[Any], None],
+        change_log_setter: Callable[[Any], None],
     ) -> TeamRunCheckpoint:
-        """Atomically restore graph + artifacts + context from a checkpoint.
-
-        Caller is responsible for cooperative drain (setting cancel_event,
-        waiting for Workers to settle) BEFORE invoking this method.
-        """
+        """Atomically restore graph + artifacts + context. Caller must drain workers first."""
         async with self.lock:
-            cp = self.checkpoint_store.get(checkpoint_id)
+            cp = self._get_checkpoint(checkpoint_id)
             if cp is None:
                 raise CheckpointNotFound(checkpoint_id)
 
@@ -282,8 +278,8 @@ class Dispatcher:
             project_context_setter(copy.deepcopy(cp.project_context))
             change_log_setter(copy.deepcopy(cp.change_log_entries))
 
-            # Rebuild ready queue
-            self._ready_queue = asyncio.Queue()
+            while not self._ready_queue.empty():
+                self._ready_queue.get_nowait()
             self._ready_order = []
             for wi_id in cp.ready_queue_order:
                 wi = self.graph.get(wi_id)
@@ -294,4 +290,8 @@ class Dispatcher:
 
     async def delete_checkpoint(self, checkpoint_id: str) -> bool:
         async with self.lock:
-            return self.checkpoint_store.delete(checkpoint_id)
+            cp = self._get_checkpoint(checkpoint_id)
+            if cp is None:
+                return False
+            self._checkpoints.remove(cp)
+            return True

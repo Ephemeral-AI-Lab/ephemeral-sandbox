@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+import copy
+import json
+from typing import Any
 
 from team.types import ArtifactTooLarge, BudgetConfig, BudgetState
 
@@ -14,18 +16,9 @@ def _size_of(obj: Any) -> int:
     if isinstance(obj, str):
         return len(obj.encode("utf-8"))
     try:
-        import json
-
         return len(json.dumps(obj, default=str).encode("utf-8"))
     except Exception:
         return len(repr(obj).encode("utf-8"))
-
-
-class ArtifactStoreProto(Protocol):
-    def save(self, work_item_id: str, artifact: Any) -> str: ...
-    def load(self, work_item_id: str) -> Any: ...
-    def load_many(self, work_item_ids: list[str]) -> dict[str, Any]: ...
-    def delete(self, work_item_id: str) -> bool: ...
 
 
 class InMemoryArtifactStore:
@@ -49,7 +42,6 @@ class InMemoryArtifactStore:
                 f"aggregate artifact bytes would reach {projected}, "
                 f"max_total_artifact_bytes={self._budgets.max_total_artifact_bytes}"
             )
-        # Release old allocation if replacing
         if work_item_id in self._sizes:
             self._state.artifact_bytes_used -= self._sizes[work_item_id]
         self._data[work_item_id] = artifact
@@ -70,15 +62,10 @@ class InMemoryArtifactStore:
         del self._data[work_item_id]
         return True
 
-    # Checkpoint helpers
     def snapshot(self) -> dict[str, Any]:
-        import copy
-
         return copy.deepcopy(self._data)
 
     def restore(self, snapshot: dict[str, Any]) -> None:
-        import copy
-
         self._data = copy.deepcopy(snapshot)
         self._sizes = {k: _size_of(v) for k, v in self._data.items()}
         self._state.artifact_bytes_used = sum(self._sizes.values())

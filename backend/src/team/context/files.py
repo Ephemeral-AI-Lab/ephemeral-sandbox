@@ -1,14 +1,4 @@
-"""Tier 3 — ChangeLog of file mutations across WorkItems in one TeamRun.
-
-The plan calls for subscribing to the existing file-edit hook event. The
-``hooks/events.py`` enum exposes ``POST_TOOL_USE`` as the only file-mutation
-signal available today. ``install_changelog_subscriber`` is the entry point
-used at server bootstrap; it does nothing unless the process has at least
-one ``active_team_run``. Worker code is responsible for calling
-``ChangeLog.record_from_tool_event`` from within the POST_TOOL_USE hook
-dispatch. The live Worker threads ``team_context`` through
-``ctx.tool_metadata``, so routing is O(1).
-"""
+"""Tier 3 — ChangeLog of file mutations across WorkItems in one TeamRun."""
 
 from __future__ import annotations
 
@@ -17,12 +7,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from team.types import _utcnow
+
 if TYPE_CHECKING:
     from team.run import TeamRun
 
 
-# File-editing tool names we consider as "file change" events. Keeping this
-# narrow avoids polluting the ChangeLog with read-only tool calls.
+# File-editing tool names we treat as "file change" events.
 FILE_EDIT_TOOL_NAMES: frozenset[str] = frozenset(
     {
         "str_replace_based_edit_tool",
@@ -39,7 +30,7 @@ class ChangeLogEntry:
     work_item_id: str
     agent_run_id: str | None
     filepath: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow)
 
 
 class ChangeLog:
@@ -59,14 +50,12 @@ class ChangeLog:
         exclude_work_item_id: str | None = None,
     ) -> list[ChangeLogEntry]:
         with self._lock:
-            out: list[ChangeLogEntry] = []
-            for e in self._entries:
-                if ts is not None and e.timestamp < ts:
-                    continue
-                if exclude_work_item_id is not None and e.work_item_id == exclude_work_item_id:
-                    continue
-                out.append(e)
-            return out
+            return [
+                e
+                for e in self._entries
+                if (ts is None or e.timestamp >= ts)
+                and (exclude_work_item_id is None or e.work_item_id != exclude_work_item_id)
+            ]
 
     def all(self) -> list[ChangeLogEntry]:
         with self._lock:
@@ -101,14 +90,7 @@ def get_active_team_run(team_run_id: str) -> "TeamRun | None":
 
 
 def record_file_edit_from_hook_payload(payload: dict[str, Any]) -> bool:
-    """POST_TOOL_USE hook subscriber entry point.
-
-    Expects the payload to carry ``team_context`` (injected by the Worker via
-    ``ctx.tool_metadata``) with ``team_run_id`` / ``work_item_id`` /
-    ``agent_run_id`` keys, plus the standard ``tool_name`` / ``tool_input``
-    fields. Returns True if the event matched a live TeamRun and was
-    recorded.
-    """
+    """POST_TOOL_USE hook subscriber entry point."""
     tool_name = payload.get("tool_name")
     if tool_name not in FILE_EDIT_TOOL_NAMES:
         return False
@@ -138,15 +120,3 @@ def record_file_edit_from_hook_payload(payload: dict[str, Any]) -> bool:
         )
     )
     return True
-
-
-def install_changelog_subscriber() -> None:
-    """Hook up the process-wide POST_TOOL_USE subscriber.
-
-    The existing ``hooks/`` infrastructure is dispatcher-driven rather than
-    event-bus-driven, so in practice the subscriber is invoked from within
-    the Worker's execution callback. This function is a no-op placeholder
-    that centralizes the registration point so a future hook-bus migration
-    has one call site to change.
-    """
-    return None

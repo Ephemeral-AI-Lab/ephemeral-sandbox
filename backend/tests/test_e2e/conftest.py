@@ -299,6 +299,12 @@ def get_eval_persistence(agent: EvalAgent) -> dict[str, Any]:
     for child in subagent_runs:
         child["usage"] = child_usage.get(child["id"])
 
+    parent_total_tokens = (run_usage or {}).get("total_tokens", 0)
+    subagent_total_tokens = sum(
+        (child.get("usage") or {}).get("total_tokens", 0)
+        for child in subagent_runs
+    )
+
     return {
         "session_id": session_id,
         "session": session_store.get(session_id) if session_id and session_store.is_ready else None,
@@ -309,6 +315,9 @@ def get_eval_persistence(agent: EvalAgent) -> dict[str, Any]:
         "run": run,
         "run_usage": run_usage,
         "subagent_runs": subagent_runs,
+        "parent_total_tokens": parent_total_tokens,
+        "subagent_total_tokens": subagent_total_tokens,
+        "run_tree_total_tokens": parent_total_tokens + subagent_total_tokens,
     }
 
 
@@ -462,13 +471,25 @@ if not getattr(EvalAgent, "_tests_e2e_persistence_patched", False):
                 f", compactions={'+1' if new_compactions > 0 else '0'}"
                 f" (compacted={st.compacted})"
             )
+        usage_note = ""
+        try:
+            persisted = get_eval_persistence(self)
+            parent_tokens = persisted["parent_total_tokens"] or total_usage.total_tokens
+            child_tokens = persisted["subagent_total_tokens"]
+            if child_tokens:
+                usage_note = (
+                    f", subagent_tokens={child_tokens}, "
+                    f"run_tree_total={persisted['run_tree_total_tokens'] or parent_tokens + child_tokens}"
+                )
+        except Exception:
+            logger.debug("[tests.test_e2e] Failed to load run usage for eval summary", exc_info=True)
         _out(
             f"  [EvalAgent] done: {len(tool_calls)} tool calls, "
             f"{latency_ms:.0f}ms, "
             f"tokens in={total_usage.input_tokens} out={total_usage.output_tokens} "
             f"total={total_usage.total_tokens}, "
             f"final_context={_estimate_final_context(self._query_context.api_messages_snapshot)}"
-            f"{compaction_note}"
+            f"{compaction_note}{usage_note}"
         )
 
         result = EvalResult(

@@ -177,12 +177,12 @@ class EvalResult:
                 return False
 
         results: list[ToolExecutionCompleted | BackgroundTaskCompleted] = []
-        for e in self.tools_completed():
-            if e.is_error and not _is_killed_process(e.output):
-                results.append(e)
-        for e in self.background_completed():
-            if e.is_error and not e.output.startswith("Cancelled"):
-                results.append(e)
+        for tool_evt in self.tools_completed():
+            if tool_evt.is_error and not _is_killed_process(tool_evt.output):
+                results.append(tool_evt)
+        for bg_evt in self.background_completed():
+            if bg_evt.is_error and not bg_evt.output.startswith("Cancelled"):
+                results.append(bg_evt)
         return results
 
     @property

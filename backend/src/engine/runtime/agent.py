@@ -252,6 +252,21 @@ def _build_agent_tool_registry(
         # it when agent_def.toolkits is non-empty.
         tool_registry.restrict_to_toolkits(agent_def.toolkits)
 
+    # Standalone tools — registered after restrict_to_toolkits so they
+    # survive the toolkit filter. Used by agents that need individual
+    # tools outside any toolkit (e.g. submit_plan_agent → submit_plan).
+    if agent_def and agent_def.extra_tools:
+        from tools.core.factory import create_standalone_tool
+
+        for tool_name in agent_def.extra_tools:
+            tool = create_standalone_tool(tool_name)
+            if tool is not None:
+                tool_registry.register(tool)
+            else:
+                logger.warning(
+                    "extra_tools: no standalone tool registered for %r", tool_name
+                )
+
     # Skills toolkit — opt-out via ``include_skills=False``.
     include_skills = agent_def.include_skills if agent_def else True
     if include_skills:
@@ -311,6 +326,8 @@ def spawn_agent(
     - ``toolkits`` restricts available toolkits
     - ``max_turns`` caps the tool-call loop iterations
     """
+    from pathlib import Path
+
     from engine.core.query import QueryContext
     from tools.core.base import ExecutionMetadata
 
@@ -347,7 +364,7 @@ def spawn_agent(
     query_context = QueryContext(
         api_client=api_client,
         tool_registry=tool_registry,
-        cwd=config.cwd,
+        cwd=Path(config.cwd),
         model=resolved_model,
         system_prompt=system_prompt,
         max_tokens=settings.max_tokens,

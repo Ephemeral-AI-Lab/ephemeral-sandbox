@@ -18,7 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from tools.core.base import BaseToolkit
+from tools.core.base import BaseTool, BaseToolkit
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,25 @@ def has_factory(name: str) -> bool:
 def list_factories() -> list[str]:
     """List all registered toolkit names (class + callable)."""
     return list({*_classes.keys(), *_factories.keys()})
+
+
+# ---------------------------------------------------------------------------
+# Standalone tool registry — for tools registered individually (e.g. submit_plan)
+# rather than as part of a toolkit. Referenced via AgentDefinition.extra_tools.
+# ---------------------------------------------------------------------------
+
+_standalone_tools: dict[str, Callable[[], BaseTool]] = {}
+
+
+def register_standalone_tool(name: str, factory: Callable[[], BaseTool]) -> None:
+    """Register a factory for a standalone tool by name."""
+    _standalone_tools[name] = factory
+
+
+def create_standalone_tool(name: str) -> BaseTool | None:
+    """Instantiate a registered standalone tool, or return None if unknown."""
+    factory = _standalone_tools.get(name)
+    return factory() if factory is not None else None
 
 
 # ---------------------------------------------------------------------------

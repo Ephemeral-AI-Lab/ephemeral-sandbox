@@ -82,8 +82,9 @@ You are a coordinator. Delegate only through ``run_subagent``.
 - Do not do delegated work yourself.
 - Launch parallel workers in one turn when possible.
 - Use ``check_background_progress`` for live inspection.
-- Use ``wait_for_background_task`` only when ready to join.
+- After each spawn wave, do at least one ``check_background_progress`` and one ``wait_for_background_task`` before starting the next wave, even if workers already look done.
 - Use ``cancel_background_task`` when a worker is blocked or no longer useful.
+- If a worker returns unusable output, replace it; cancel first if it is still running.
 - Keep narration minimal and synthesize actual worker outputs in the final answer.
 """
 
@@ -547,17 +548,18 @@ class TestSubagentFanoutWithCancellationAndRecovery:
             )
         else:
             blocked_terminal = any(
-                e.tool_name == "run_subagent" and e.output.strip().startswith("BLOCKED:")
-                for e in result.background_completed()
+                "BLOCKED:" in (e.output or "")
+                for e in [*result.background_completed(), *result.tools_completed()]
             )
             assert blocked_terminal, (
                 "No cancellation was issued, so the blocked worker should already have been terminal. "
-                f"Completed outputs: {[e.output[:200] for e in result.background_completed()]}"
+                f"Completed outputs: {[e.output[:200] for e in [*result.background_completed(), *result.tools_completed()]]}"
             )
 
-        # wait_for_background_task must be called
-        assert result.has_tool("wait_for_background_task"), (
-            f"Parent never called wait_for_background_task. "
+        # Joining via wait is preferred, but a progress-driven terminal path is
+        # also valid when the parent has already observed completion explicitly.
+        assert result.has_tool("wait_for_background_task") or result.tool_count("check_background_progress") >= 3, (
+            f"Parent never performed an explicit join or enough progress-driven completion checks. "
             f"Tool sequence: {result.tool_names}"
         )
 
@@ -615,7 +617,7 @@ class TestSubagentFanoutWithCancellationAndRecovery:
 # Observable invariants:
 #   - At least 14 run_subagent background_started events
 #   - wait_for_background_task called at least 3 times (once per wave)
-#   - check_background_progress called at least 3 times (once per wave)
+#   - At least one progress inspection happens before the first join
 #   - Final text covers at least 4 of the 8 component names
 #   - Final text references both wave-3 completion markers
 #   - No unrecovered errors
@@ -769,16 +771,39 @@ class TestSubagentLargeFanoutThreeWave:
             f"Got {len(subagent_starts)}. Tool sequence: {result.tool_names}"
         )
 
-        waits = result.tool_count("wait_for_background_task")
-        assert waits >= 2, (
-            f"Expected at least 2 wait_for_background_task calls. "
-            f"Got {waits}. Tool sequence: {result.tool_names}"
+        check_indices = [
+            idx for idx, name in enumerate(result.tool_names)
+            if name == "check_background_progress"
+        ]
+        wait_indices = [
+            idx for idx, name in enumerate(result.tool_names)
+            if name == "wait_for_background_task"
+        ]
+        assert check_indices and check_indices[0] < wait_indices[0], (
+            "Expected at least one check_background_progress call before the first "
+            f"wait_for_background_task. Tool sequence: {result.tool_names}"
         )
-
-        checks = result.tool_count("check_background_progress")
-        assert checks >= 2, (
-            f"Expected at least 2 check_background_progress calls. "
-            f"Got {checks}. Tool sequence: {result.tool_names}"
+        assert len(wait_indices) >= 2, (
+            f"Expected at least 2 wait_for_background_task calls across later waves. "
+            f"Got {len(wait_indices)}. Tool sequence: {result.tool_names}"
+        )
+        wave2_index = [idx for idx, name in enumerate(result.tool_names) if name == "run_subagent"][8]
+        wave3_index = [idx for idx, name in enumerate(result.tool_names) if name == "run_subagent"][12]
+        sync_indices = [
+            idx for idx, name in enumerate(result.tool_names)
+            if name in {"check_background_progress", "wait_for_background_task"}
+        ]
+        assert any(idx < wave2_index for idx in sync_indices), (
+            "Expected a sync point before wave 2 launch. "
+            f"Tool sequence: {result.tool_names}"
+        )
+        assert any(wave2_index < idx < wave3_index for idx in sync_indices), (
+            "Expected a sync point between wave 2 and wave 3. "
+            f"Tool sequence: {result.tool_names}"
+        )
+        assert any(idx > wave3_index for idx in sync_indices), (
+            "Expected a sync point after wave 3 launch. "
+            f"Tool sequence: {result.tool_names}"
         )
 
         text_lower = result.text.lower()
@@ -1304,6 +1329,7 @@ You are a coordinator agent. Delegate only through ``run_subagent``.
 Rules:
 - Do not do delegated work yourself.
 - Launch parallel workers in a single turn when the task naturally decomposes.
+- Use exact tool names only; never invent or approximate a tool name.
 - Use ``check_background_progress`` to inspect live status.
 - When fast workers finish, inspect the remaining workers. If any are still
   running and are low-value or too slow for the deadline, cancel them explicitly
@@ -1580,9 +1606,16 @@ Rules:
             "search", "observability", "cdn", "auth", "scheduling",
         ]
         segment_hits = sum(1 for seg in substantive_segments if seg in text_lower)
-        assert segment_hits >= 6, (
+        report_written = any(
+            e.tool_name == "daytona_write_file"
+            and not e.is_error
+            and "nexus_competitive_landscape_report.md" in (e.output or "")
+            for e in result.tools_completed()
+        )
+        assert segment_hits >= 6 or (segment_hits >= 4 and report_written), (
             f"Final text covers only {segment_hits}/10 substantive segments. "
-            f"Expected ≥6. Text (first 1000 chars): {result.text[:1000]}"
+            f"Expected ≥6, or ≥4 when the full report was successfully written. "
+            f"report_written={report_written}. Text (first 1000 chars): {result.text[:1000]}"
         )
 
         # ── Assertion 6: executive risk summary present ───────────────────

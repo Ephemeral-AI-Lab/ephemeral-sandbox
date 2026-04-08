@@ -102,11 +102,12 @@ def _deliver_completed_background_task(
         output = (
             f"[truncated, showing last {MAX_OUTPUT_LENGTH} chars]\n...{output[-MAX_OUTPUT_LENGTH:]}"
         )
-    terminal_status = "completed"
-    if task.cancel_reason or (task.result and task.result.output.startswith("Cancelled")):
-        terminal_status = "cancelled"
-    elif task.result and task.result.is_error:
-        terminal_status = "failed"
+    terminal_status = (
+        "cancelled"
+        if task.cancel_reason or (task.result and task.result.output.startswith("Cancelled"))
+        else "failed" if task.result and task.result.is_error
+        else "completed"
+    )
     display_messages.append(
         ConversationMessage(
             role="user",
@@ -197,10 +198,7 @@ def _build_background_reminder(
             )
         )
 
-    return ConversationMessage(
-        role="user",
-        content=content,
-    )
+    return ConversationMessage(role="user", content=content)
 
 
 def _launch_background_tool(

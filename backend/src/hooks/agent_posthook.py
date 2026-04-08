@@ -1,81 +1,95 @@
-"""Generic posthook wrapper for enforcing structured output.
+"""Posthook execution: run a serializer agent after a work-phase agent.
 
-After the work phase (the agent runs with its full toolkit), a posthook
-phase runs a constrained ephemeral ``AgentDefinition`` whose ``toolkits``
-are empty and whose ``extra_tools`` contain only the submit tool. This is
-the enforcement pattern borrowed from synthetic-os.
+A posthook is just *another registered agent*. The work-phase agent
+declares ``posthook=PosthookConfig(agent_name="submit_plan_agent", ...)``
+and the engine looks that name up in the agent registry, then runs it as
+a normal ephemeral agent. The serializer agent's own AgentDefinition
+controls its tool surface, model, max_turns, and prompt — there is no
+parent-clone hack and no special-case fields on AgentDefinition.
 
-The helper is deliberately generic — ``team/`` is not imported from this
-file. Any caller that wants structured output can use it.
+Contract for posthook serializer agents:
+
+* They MUST NOT carry builtin skills (``skills == []`` and
+  ``include_skills is False``). A serializer is meant to do exactly one
+  thing — call its submit tool — and a wider tool surface defeats the
+  point. This is enforced at runtime by ``execute_with_posthook``.
+* They communicate the accepted submission back to the helper through a
+  single string-keyed slot in ``ctx.tool_metadata`` (see
+  ``PosthookConfig.metadata_key``). The submit tool reads
+  ``tool_metadata['posthook_metadata_key']`` to know which slot to write.
+
+The helper stays generic: ``team/`` is not imported here.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 if TYPE_CHECKING:
     from agents.types import AgentDefinition
 
-
-DEFAULT_POSTHOOK_PROMPT = """You are a posthook serializer. Your only job is to call the injected submit tool with a correctly-shaped payload based on the work-phase output above.
-
-- Call the submit tool exactly once with valid arguments.
-- If the submit tool returns a validation error, read the `issues` field, fix the payload, and call the submit tool again in the same turn.
-- Stop immediately after the first accepted submission.
-- Do not write prose. You have no other tools."""
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class PosthookConfig:
-    submit_tool: str
+    """Pointer to a registered serializer agent.
+
+    ``agent_name`` is looked up via the caller-supplied ``agent_lookup``
+    callable (typically ``agents.registry.get_definition``). ``metadata_key``
+    is the slot in ``ctx.tool_metadata`` that the submit tool writes to and
+    that the helper reads back.
+    """
+
+    agent_name: str
     metadata_key: str = "submitted_output"
-    system_prompt: str | None = None
-    max_turns: int = 5
-    extra_tools: list[str] = field(default_factory=list)
-
-    def resolved_system_prompt(self) -> str:
-        return self.system_prompt or DEFAULT_POSTHOOK_PROMPT
 
 
-class NoPosthookOutput(Exception):
-    """Raised when the posthook agent never calls the submit tool successfully."""
+class PosthookError(Exception):
+    """Base class for posthook lifecycle errors."""
 
 
-def _build_posthook_definition(
-    parent: "AgentDefinition", cfg: PosthookConfig
-) -> "AgentDefinition":
-    """Construct an ephemeral AgentDefinition whose only tool is cfg.submit_tool."""
-    from agents.types import AgentDefinition
-
-    data = parent.model_dump()
-    data.update(
-        {
-            "name": f"{parent.name}__posthook",
-            "description": f"Posthook serializer for {parent.name}",
-            "system_prompt": cfg.resolved_system_prompt(),
-            "max_turns": cfg.max_turns,
-            "toolkits": [],
-            "skills": [],
-            "hooks": None,
-            "background": False,
-            "source": "builtin",
-            "posthook": None,
-            "posthook_extra_tools": [cfg.submit_tool, *cfg.extra_tools],
-        }
-    )
-    return AgentDefinition.model_validate(data)
+class PosthookMisconfigured(PosthookError):
+    """Configuration is invalid: missing dependencies, unregistered agent,
+    or a serializer agent that violates the no-skills contract."""
 
 
-# ---------------------------------------------------------------------------
-# Execution entry point
-# ---------------------------------------------------------------------------
+class NoPosthookOutput(PosthookError):
+    """Raised when the posthook agent never wrote an accepted submission."""
 
-# The real engine's ``run_query`` has a streaming contract (returns an async
-# iterator of events). Posthook callers supply a thin adapter that runs one
-# agent end-to-end and returns a plain result; this keeps the helper usable
-# both by the live Worker and by unit tests that mock the engine.
+
 QueryRunner = Callable[["AgentDefinition", Any], Awaitable[Any]]
+AgentLookup = Callable[[str], "AgentDefinition | None"]
+PosthookCtxBuilder = Callable[["AgentDefinition", Any], Any]
+
+
+def _stamp_metadata_key(ctx: Any, key: str) -> None:
+    """Tell the submit tool which metadata slot to write its accepted payload into.
+
+    The ctx contract requires ``ctx.tool_metadata`` to be a mutable dict;
+    callers that pass anything else are buggy and we want that to surface
+    loudly rather than be silently swallowed.
+    """
+    ctx.tool_metadata["posthook_metadata_key"] = key
+
+
+def _assert_serializer_has_no_skills(defn: "AgentDefinition") -> None:
+    """Posthook serializers must not carry builtin skills.
+
+    A serializer agent exists to call exactly one submit tool. Builtin
+    skills broaden its tool surface and invite the model to wander —
+    which is the entire failure mode the dedicated submit phase was
+    designed to prevent. Reject at lookup time so misconfigurations
+    fail before the work phase burns budget on the next call.
+    """
+    if getattr(defn, "include_skills", False) or getattr(defn, "skills", None):
+        raise PosthookMisconfigured(
+            f"posthook agent {defn.name!r} must not be equipped with builtin "
+            f"skills (include_skills must be False and skills must be empty); "
+            f"got include_skills={defn.include_skills!r}, skills={defn.skills!r}"
+        )
 
 
 async def execute_with_posthook(
@@ -83,58 +97,74 @@ async def execute_with_posthook(
     work_ctx: Any,
     *,
     runner: QueryRunner,
-    posthook_ctx_builder: Callable[["AgentDefinition", Any], Any] | None = None,
+    agent_lookup: AgentLookup | None = None,
+    posthook_ctx_builder: PosthookCtxBuilder | None = None,
 ) -> tuple[Any, Any | None]:
-    """Run the work phase; if posthook is configured, run a constrained second phase.
+    """Run the work phase; if posthook is configured, run the serializer agent.
 
-    ``runner(defn, ctx)`` drives a single ``run_query`` call for the given
-    ``AgentDefinition`` and returns whatever result shape the caller wants
-    (the helper only inspects ``ctx.tool_metadata`` after the call). The
-    ``posthook_ctx_builder`` constructs the second-phase context from the
-    posthook AgentDefinition + first-phase result; callers supply it so the
-    helper stays ignorant of ``QueryContext`` construction details.
+    Returns ``(work_result, submitted_output | None)``.
 
-    Returns ``(work_result, submitted_output | None)``. Raises
-    ``NoPosthookOutput`` if a posthook was configured but the agent never
-    produced an accepted submission.
+    Raises:
+        PosthookMisconfigured: posthook is configured but ``agent_lookup``
+            or ``posthook_ctx_builder`` was not supplied, the named
+            serializer is not registered, or the serializer carries
+            builtin skills. Raised *before* the work phase runs whenever
+            possible so misconfigurations don't burn the work budget.
+        NoPosthookOutput: serializer ran but never wrote an accepted
+            submission to ``ctx.tool_metadata[metadata_key]``.
     """
+    cfg: PosthookConfig | None = work_defn.posthook
+
+    # Eager validation: if a posthook is configured, fail before running
+    # the work phase rather than after. The work phase can be expensive.
+    if cfg is not None:
+        if agent_lookup is None or posthook_ctx_builder is None:
+            raise PosthookMisconfigured(
+                f"work agent {work_defn.name!r} declares posthook "
+                f"{cfg.agent_name!r} but agent_lookup or posthook_ctx_builder "
+                f"was not supplied to execute_with_posthook"
+            )
+        posthook_defn = agent_lookup(cfg.agent_name)
+        if posthook_defn is None:
+            raise PosthookMisconfigured(
+                f"posthook agent {cfg.agent_name!r} (declared by "
+                f"{work_defn.name!r}) is not registered"
+            )
+        _assert_serializer_has_no_skills(posthook_defn)
+        _stamp_metadata_key(work_ctx, cfg.metadata_key)
+    else:
+        posthook_defn = None
+
     work_result = await runner(work_defn, work_ctx)
 
-    cfg: PosthookConfig | None = getattr(work_defn, "posthook", None)
     if cfg is None:
         return work_result, None
 
-    # If the work phase itself already submitted a plan (e.g. the planner has
-    # submit_plan in its own toolkit), skip the posthook entirely.
-    meta = getattr(work_ctx, "tool_metadata", None)
-    if meta is not None:
-        try:
-            already = meta.get(cfg.metadata_key)
-        except Exception:
-            already = None
-        if already is not None:
-            return work_result, already
-
-    posthook_defn = _build_posthook_definition(work_defn, cfg)
-    if posthook_ctx_builder is None:
-        raise RuntimeError(
-            "execute_with_posthook: posthook configured but no posthook_ctx_builder supplied"
+    # If the work phase already submitted (e.g. its toolkit included the
+    # submit tool directly), skip the posthook entirely. Logged because
+    # this branch silently changes the agent lifecycle and is otherwise
+    # invisible.
+    work_meta = work_ctx.tool_metadata
+    if work_meta.get(cfg.metadata_key) is not None:
+        logger.debug(
+            "execute_with_posthook: work agent %r already submitted to %r; "
+            "skipping posthook %r",
+            work_defn.name,
+            cfg.metadata_key,
+            cfg.agent_name,
         )
-    posthook_ctx = posthook_ctx_builder(posthook_defn, work_result)
+        return work_result, work_meta[cfg.metadata_key]
+
+    assert posthook_defn is not None  # established above when cfg is not None
+    posthook_ctx = posthook_ctx_builder(posthook_defn, work_result)  # type: ignore[misc]
+    _stamp_metadata_key(posthook_ctx, cfg.metadata_key)
 
     await runner(posthook_defn, posthook_ctx)
 
-    posthook_meta = getattr(posthook_ctx, "tool_metadata", None)
-    submitted: Any | None = None
-    if posthook_meta is not None:
-        try:
-            submitted = posthook_meta.get(cfg.metadata_key)
-        except Exception:
-            submitted = None
-
+    submitted = posthook_ctx.tool_metadata.get(cfg.metadata_key)
     if submitted is None:
         raise NoPosthookOutput(
-            f"Posthook for agent '{work_defn.name}' ended without a valid "
-            f"'{cfg.submit_tool}' call."
+            f"Posthook agent {cfg.agent_name!r} for {work_defn.name!r} ended "
+            f"without writing {cfg.metadata_key!r}."
         )
     return work_result, submitted

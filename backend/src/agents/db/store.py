@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, UTC
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -56,7 +57,7 @@ class AgentDefinitionStore:
                     q = q.filter(AgentDefinitionRecord.tags.contains([tag]))
             return list(q.offset(offset).limit(limit).all())
 
-    def update(self, name: str, updates: dict) -> AgentDefinitionRecord:
+    def update(self, name: str, updates: dict[str, Any]) -> AgentDefinitionRecord:
         with self._sf() as db:
             record = (
                 db.query(AgentDefinitionRecord).filter(AgentDefinitionRecord.name == name).first()

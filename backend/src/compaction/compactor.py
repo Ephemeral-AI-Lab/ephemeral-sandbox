@@ -227,11 +227,7 @@ def reduce_for_api(display_messages: list[ConversationMessage]) -> list[Conversa
             continue
         keep_snapshot_statuses.setdefault(winner.tool_use_id, set()).add(winner.status_idx)
 
-    drop_tool_use_ids = {
-        tool_use_id
-        for tool_use_id in snapshot_tool_use_ids
-        if not keep_snapshot_statuses.get(tool_use_id)
-    }
+    drop_tool_use_ids = snapshot_tool_use_ids - keep_snapshot_statuses.keys()
     reduced: list[ConversationMessage] = []
     for msg_idx, msg in enumerate(display_messages):
         new_content: list[ContentBlock] = []
@@ -250,7 +246,7 @@ def reduce_for_api(display_messages: list[ConversationMessage]) -> list[Conversa
                 if snapshot is None:
                     new_content.append(block.model_copy(deep=True))
                     continue
-                keep_idxs = keep_snapshot_statuses.get(block.tool_use_id, set())
+                keep_idxs = keep_snapshot_statuses.get(block.tool_use_id)
                 if not keep_idxs:
                     continue
                 filtered_statuses = [

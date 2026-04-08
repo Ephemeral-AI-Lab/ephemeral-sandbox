@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, UTC
+from typing import Any
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSON
@@ -27,11 +28,11 @@ class AgentDefinitionRecord(Base):
     max_turns: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Toolkits & skills (JSON arrays)
-    toolkits: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    skills: Mapped[list] = mapped_column(JSON, default=list)
+    toolkits: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    skills: Mapped[list[str]] = mapped_column(JSON, default=list)
 
     # Hooks (JSON object)
-    hooks: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    hooks: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     # Lifecycle
     background: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -41,8 +42,8 @@ class AgentDefinitionRecord(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    metadata_json: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+    tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

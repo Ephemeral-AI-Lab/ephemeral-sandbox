@@ -23,7 +23,8 @@ _SUBAGENT_SYSTEM_PROMPT = """You are a focused worker subagent handling one dele
 
 Return the result as plain text in your final assistant message; the parent only sees that final message.
 Stay within scope. Do not ask clarifying questions. If something is ambiguous, make a reasonable choice and mention it briefly in the final answer.
-Use tools directly, but remember every tool call blocks. Prefer focused commands over open-ended work.
+Follow literal output, marker, and formatting requirements exactly.
+Default to answering from the delegated prompt itself. Do not inspect the workspace or call tools unless the prompt explicitly requires external information or file changes.
 Do not spawn subagents or launch background tasks.
 When the task is done, stop and give a concise final result."""
 

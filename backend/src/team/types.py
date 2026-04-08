@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class WorkItemStatus(str, Enum):
@@ -44,7 +48,7 @@ class WorkItem:
     artifact_ref: str | None = None
     timeout_seconds: float | None = None
     depth: int = 0
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utcnow)
     started_at: datetime | None = None
     finished_at: datetime | None = None
     failure_reason: str | None = None
@@ -118,5 +122,30 @@ class CheckpointNotFound(Exception):
     pass
 
 
+class BudgetExceeded(Exception):
+    """Raised when adding a WorkItem would exceed a configured budget."""
+
+
 class NoPosthookOutput(Exception):
     """Raised when the posthook phase ends without an accepted submission."""
+
+
+@dataclass
+class TeamDefinition:
+    """Composition blob naming which agent plays which role in a team run.
+
+    A ``TeamDefinition`` is persistent metadata (stored in ``team/db/``) that
+    selects the planner agent and records the intended worker pool for a
+    team. ``planner_agent`` and ``worker_agents`` are name references looked
+    up in ``agents.registry`` at team-run start time; broken references fail
+    fast with a clear error. ``worker_agents`` is advisory metadata — the
+    planner is responsible for picking agents for its emitted WorkItemSpecs
+    and may pick any registered agent. Enforcing a hard whitelist at the
+    Dispatcher is future work.
+    """
+
+    id: str
+    name: str
+    description: str
+    planner_agent: str
+    worker_agents: list[str] = field(default_factory=list)

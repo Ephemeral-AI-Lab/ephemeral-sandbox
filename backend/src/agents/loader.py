@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import ValidationError
@@ -15,7 +16,7 @@ from config.paths import get_config_dir
 logger = logging.getLogger(__name__)
 
 
-def _parse_frontmatter(content: str) -> tuple[dict, str]:
+def _parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     """Split a markdown file into (frontmatter dict, body)."""
     lines = content.splitlines()
     if not lines or lines[0].strip() != "---":

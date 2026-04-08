@@ -196,7 +196,7 @@ async def execute_ephemeral_agent_run(
                 ),
                 messages=[m.model_dump(mode="json") for m in agent._display_messages],
                 full_messages=full_history,
-                usage=agent.total_usage.model_dump(),
+                usage=agent.total_usage.model_dump() if agent.total_usage else {},
                 session_state=agent.query_context.session_state.to_dict()
                 if agent.query_context.session_state
                 else None,

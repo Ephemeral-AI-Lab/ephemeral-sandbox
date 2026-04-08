@@ -1,15 +1,4 @@
-"""Worker pull loop.
-
-Each Worker is an ``asyncio`` task that pops ready WorkItems from a
-Dispatcher and hands each one to ``hooks.agent_posthook.execute_with_posthook``.
-
-The Worker is deliberately ignorant of engine internals. It takes a
-``QueryRunner`` callable at construction time — a coroutine of shape
-``(AgentDefinition, QueryContext) -> work_result`` — that knows how to drive
-``engine.core.query.run_query``. Production code supplies a real runner;
-tests supply a scripted one. Either way, the Worker's responsibility is
-the dispatcher lifecycle, not the LLM loop.
-"""
+"""Worker pull loop. Pops ready WorkItems and drives them through execute_with_posthook."""
 
 from __future__ import annotations
 
@@ -19,7 +8,8 @@ import uuid
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from hooks.agent_posthook import NoPosthookOutput, execute_with_posthook
-from team.types import AgentResult, Plan, WorkItemStatus
+from team.types import AgentResult, Plan
+from tools.posthook import SubmittedSummary
 
 if TYPE_CHECKING:
     from agents.types import AgentDefinition
@@ -52,13 +42,18 @@ class Worker:
         self.agent_lookup = agent_lookup
 
     async def run_forever(self) -> None:
+        """Pop READY items until cancel_event is set.
+
+        Workers MUST NOT exit just because the graph is momentarily terminal —
+        a peer worker may still complete a planner that submits a fresh Plan,
+        re-populating the queue. Only ``TeamRun`` decides when workers stop,
+        via ``cancel_event``.
+        """
         dispatcher = self.team_run.dispatcher
         while not self.team_run.cancel_event.is_set():
             try:
-                wi_id = await asyncio.wait_for(dispatcher.pop_ready(), timeout=0.5)
+                wi_id = await asyncio.wait_for(dispatcher.pop_ready(), timeout=0.1)
             except asyncio.TimeoutError:
-                if self.team_run.dispatcher.all_terminal():
-                    return
                 continue
 
             try:
@@ -78,8 +73,11 @@ class Worker:
             return
 
         query_ctx = self.build_query_context(defn, self.team_run, wi)
-
-        timeout = wi.timeout_seconds or self.team_run.budgets.default_work_item_timeout
+        timeout = (
+            wi.timeout_seconds
+            if wi.timeout_seconds is not None
+            else self.team_run.budgets.default_work_item_timeout
+        )
 
         try:
             work_result, submitted = await asyncio.wait_for(
@@ -87,6 +85,7 @@ class Worker:
                     work_defn=defn,
                     work_ctx=query_ctx,
                     runner=self.runner,
+                    agent_lookup=self.agent_lookup,
                     posthook_ctx_builder=self.build_posthook_context,
                 ),
                 timeout=timeout,
@@ -99,10 +98,11 @@ class Worker:
             return
 
         result = self.extract_result(work_result, wi)
-        if submitted is not None and result.submitted_plan is None:
-            if isinstance(submitted, Plan):
-                result.submitted_plan = submitted
-            elif isinstance(submitted, dict):
-                result.submitted_plan = Plan.from_dict(submitted)
+        if submitted is not None and result.submitted_plan is None and isinstance(submitted, Plan):
+            result.submitted_plan = submitted
+        if isinstance(submitted, SubmittedSummary):
+            result.summary = submitted.summary
+            if submitted.artifact is not None:
+                result.artifact = submitted.artifact
 
         await dispatcher.complete(wi_id, result)
