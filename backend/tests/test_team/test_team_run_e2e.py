@@ -10,9 +10,9 @@ import pytest
 from agents.registry import register_definition, unregister_definition
 from agents.types import AgentDefinition
 from hooks.agent_posthook import PosthookConfig
-from team.run import TeamRun
-from team.types import AgentResult, Plan, TeamRunStatus, WorkItemKind, WorkItemStatus
-from team.worker import Worker
+from team.models import AgentResult, Plan, TeamRunStatus, WorkItemKind, WorkItemStatus
+from team.runtime.team_run import TeamRun
+from team.runtime.executor import Executor
 
 
 @dataclass
@@ -94,7 +94,7 @@ def make_worker_factory(runner):
     def factory(team_run):
         from agents.registry import get_definition
 
-        return Worker(
+        return Executor(
             team_run=team_run,
             runner=runner,
             build_query_context=build_query_ctx,
@@ -256,7 +256,7 @@ async def test_sandbox_id_propagates_to_query_context_builder():
         def factory(team_run):
             from agents.registry import get_definition
 
-            return Worker(
+            return Executor(
                 team_run=team_run,
                 runner=make_runner({"solo": {"artifact": {}, "summary": "ok"}}),
                 build_query_context=build_query_ctx,

@@ -6,7 +6,7 @@ stores) with a session factory; tests use an in-memory SQLite session
 factory via the same ``initialize()`` contract.
 """
 
-from team.db.model import TeamDefinitionRecord
-from team.db.store import TeamDefinitionStore
+from team.persistence.model import TeamDefinitionRecord
+from team.persistence.store import TeamDefinitionStore
 
 __all__ = ["TeamDefinitionRecord", "TeamDefinitionStore"]

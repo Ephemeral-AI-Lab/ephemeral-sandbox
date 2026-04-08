@@ -6,7 +6,8 @@ import copy
 import json
 from typing import Any
 
-from team.types import ArtifactTooLarge, BudgetConfig, BudgetState
+from team.errors import ArtifactTooLarge
+from team.models import BudgetConfig, BudgetState
 
 
 def _size_of(obj: Any) -> int:

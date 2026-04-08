@@ -7,7 +7,14 @@ untouched — deleting ``backend/src/team/`` leaves the single-agent flow
 fully functional.
 """
 
-from team.types import (
+from team.errors import (
+    ArtifactTooLarge,
+    BudgetExceeded,
+    CheckpointNotFound,
+    InvalidPlan,
+    NoPosthookOutput,
+)
+from team.models import (
     AgentResult,
     BudgetConfig,
     BudgetState,
@@ -15,18 +22,27 @@ from team.types import (
     TeamDefinition,
     TeamRunStatus,
     WorkItem,
+    WorkItemKind,
     WorkItemSpec,
     WorkItemStatus,
 )
+from team.runtime.team_run import TeamRun
 
 __all__ = [
     "AgentResult",
+    "ArtifactTooLarge",
     "BudgetConfig",
+    "BudgetExceeded",
     "BudgetState",
+    "CheckpointNotFound",
+    "InvalidPlan",
+    "NoPosthookOutput",
     "Plan",
     "TeamDefinition",
+    "TeamRun",
     "TeamRunStatus",
     "WorkItem",
+    "WorkItemKind",
     "WorkItemSpec",
     "WorkItemStatus",
 ]

@@ -6,10 +6,9 @@ import asyncio
 import uuid
 from typing import Any, Callable
 
-from team.artifact_store import InMemoryArtifactStore
+from team.artifacts.store import InMemoryArtifactStore
 from team.context.project import ProjectContext
-from team.dispatcher import Dispatcher
-from team.types import (
+from team.models import (
     BudgetConfig,
     BudgetState,
     TeamDefinition,
@@ -18,7 +17,8 @@ from team.types import (
     WorkItemKind,
     WorkItemStatus,
 )
-from team.worker import Worker
+from team.runtime.dispatcher import Dispatcher
+from team.runtime.executor import Executor
 
 
 class TeamRun:
@@ -51,7 +51,7 @@ class TeamRun:
         self.cancel_event = asyncio.Event()
         self.root_work_item_id: str | None = None
         self._worker_tasks: list[asyncio.Task[None]] = []
-        self._worker_factory: Callable[["TeamRun"], Worker] | None = None
+        self._worker_factory: Callable[["TeamRun"], Executor] | None = None
         self._num_workers: int = 1
 
     # ---- lifecycle -------------------------------------------------------
@@ -61,7 +61,7 @@ class TeamRun:
         agent_name: str,
         payload: dict[str, Any],
         *,
-        worker_factory: Callable[["TeamRun"], Worker],
+        worker_factory: Callable[["TeamRun"], Executor],
         num_workers: int = 1,
         root_kind: WorkItemKind = WorkItemKind.ATOMIC,
     ) -> None:
@@ -88,7 +88,7 @@ class TeamRun:
         team_def: TeamDefinition,
         payload: dict[str, Any],
         *,
-        worker_factory: Callable[["TeamRun"], Worker],
+        worker_factory: Callable[["TeamRun"], Executor],
         num_workers: int = 1,
     ) -> None:
         """Start a team run using a ``TeamDefinition`` to pick the planner.
@@ -99,7 +99,7 @@ class TeamRun:
         and no workers are spawned.
         """
         # Lazy import — avoids a module-level dependency cycle between
-        # ``team.run`` and ``agents.registry``.
+        # ``team.runtime.team_run`` and ``agents.registry``.
         from agents.registry import get_definition
 
         if get_definition(team_def.planner_agent) is None:

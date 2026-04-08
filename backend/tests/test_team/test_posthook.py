@@ -447,7 +447,7 @@ async def test_work_phase_exception_propagates():
 
 def test_submit_plan_agent_registry_strictly_contains_only_submit_tool():
     """The serializer agent's spawning registry must expose exactly one tool."""
-    from team.builtin_agents import register_all
+    from team.builtins import register_all
     from engine.runtime.agent import _build_agent_tool_registry
 
     register_all()  # idempotent

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from team.types import BudgetState, WorkItem
+from team.models import BudgetState, WorkItem
 
 
 @dataclass

@@ -6,8 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from team.types import Plan, WorkItemKind, WorkItemSpec
-from team.validation import validate_plan_phase_a
+from team.models import Plan, WorkItemKind, WorkItemSpec
+from team.planning.validation import validate_plan_phase_a
 from tools.core.base import ToolExecutionContext
 from tools.posthook.base import SubmitPosthookTool
 

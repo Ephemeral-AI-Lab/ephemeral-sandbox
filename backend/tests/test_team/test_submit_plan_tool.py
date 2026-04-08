@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from team.types import Plan
+from team.models import Plan
 from tools.core.base import ExecutionMetadata, ToolExecutionContext
 from tools.posthook import SubmitPlanInput, SubmitPlanTool
 
 
 @pytest.fixture(autouse=True)
 def _all_agents_exist(monkeypatch):
-    from team import validation
+    from team.planning import validation
 
     monkeypatch.setattr(validation, "_agent_exists", lambda name: True)
 
@@ -43,7 +43,7 @@ async def test_valid_plan_accepted_and_stashed():
 
 @pytest.mark.asyncio
 async def test_invalid_plan_returns_structured_error(monkeypatch):
-    from team import validation
+    from team.planning import validation
 
     monkeypatch.setattr(validation, "_agent_exists", lambda name: name != "ghost")
     tool = SubmitPlanTool()

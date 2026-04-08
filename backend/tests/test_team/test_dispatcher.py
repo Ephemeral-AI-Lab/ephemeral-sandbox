@@ -1,15 +1,14 @@
-"""Unit tests for team.dispatcher.Dispatcher."""
+"""Unit tests for team.runtime.dispatcher.Dispatcher."""
 
 from __future__ import annotations
 
 import pytest
 
-from team.artifact_store import InMemoryArtifactStore
-from team.dispatcher import Dispatcher
-from team.types import (
+from team.artifacts.store import InMemoryArtifactStore
+from team.errors import BudgetExceeded
+from team.models import (
     AgentResult,
     BudgetConfig,
-    BudgetExceeded,
     BudgetState,
     Plan,
     WorkItem,
@@ -17,6 +16,7 @@ from team.types import (
     WorkItemSpec,
     WorkItemStatus,
 )
+from team.runtime.dispatcher import Dispatcher
 
 
 def _make_dispatcher(budgets: BudgetConfig | None = None) -> Dispatcher:
@@ -51,7 +51,7 @@ def _wi(
 
 @pytest.fixture(autouse=True)
 def _patch_agent_exists(monkeypatch):
-    from team import validation
+    from team.planning import validation
 
     monkeypatch.setattr(validation, "_agent_exists", lambda name: True)
 

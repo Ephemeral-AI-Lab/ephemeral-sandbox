@@ -9,25 +9,27 @@ import uuid
 from collections import deque
 from typing import TYPE_CHECKING, Any, Callable
 
-from team.checkpoint import TeamRunCheckpoint
-from team.types import (
-    AgentResult,
+from team.errors import (
     ArtifactTooLarge,
-    BudgetConfig,
     BudgetExceeded,
-    BudgetState,
     CheckpointNotFound,
     InvalidPlan,
+)
+from team.models import (
+    AgentResult,
+    BudgetConfig,
+    BudgetState,
+    TERMINAL_WI_STATUSES,
     WorkItem,
     WorkItemKind,
     WorkItemStatus,
-    TERMINAL_WI_STATUSES,
     _utcnow,
 )
-from team.validation import validate_plan_phase_b
+from team.planning.validation import validate_plan_phase_b
+from team.runtime.checkpoint import TeamRunCheckpoint
 
 if TYPE_CHECKING:
-    from team.artifact_store import InMemoryArtifactStore
+    from team.artifacts.store import InMemoryArtifactStore
 
 logger = logging.getLogger(__name__)
 

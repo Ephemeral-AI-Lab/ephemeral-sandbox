@@ -1,4 +1,8 @@
-"""Core team-mode dataclasses and enums."""
+"""Core team-mode dataclasses and enums.
+
+Exceptions live in :mod:`team.errors`. Runtime code should import data
+types from here and exception types from ``team.errors``.
+"""
 
 from __future__ import annotations
 
@@ -116,26 +120,6 @@ class BudgetConfig:
 class BudgetState:
     work_items_used: int = 0
     artifact_bytes_used: int = 0
-
-
-class InvalidPlan(Exception):
-    """Raised when Phase B validation rejects a submitted Plan."""
-
-
-class ArtifactTooLarge(Exception):
-    """Raised when an artifact exceeds the configured size budget."""
-
-
-class CheckpointNotFound(Exception):
-    pass
-
-
-class BudgetExceeded(Exception):
-    """Raised when adding a WorkItem would exceed a configured budget."""
-
-
-class NoPosthookOutput(Exception):
-    """Raised when the posthook phase ends without an accepted submission."""
 
 
 @dataclass

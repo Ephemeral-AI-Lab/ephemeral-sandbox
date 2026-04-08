@@ -7,8 +7,8 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from team.db.model import TeamDefinitionRecord
-from team.types import TeamDefinition
+from team.models import TeamDefinition
+from team.persistence.model import TeamDefinitionRecord
 
 logger = logging.getLogger(__name__)
 

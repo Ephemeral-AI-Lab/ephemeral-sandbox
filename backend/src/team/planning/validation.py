@@ -6,7 +6,8 @@ from typing import Callable, Iterator
 
 from agents.registry import get_definition as _get_definition
 
-from team.types import InvalidPlan, Plan, WorkItem, WorkItemKind, WorkItemSpec, WorkItemStatus
+from team.errors import InvalidPlan
+from team.models import Plan, WorkItem, WorkItemKind, WorkItemSpec, WorkItemStatus
 
 Issue = dict[str, str]
 

@@ -1,22 +1,21 @@
-"""Unit tests for team.types, team.validation, team.artifact_store."""
+"""Unit tests for team.models, team.planning.validation, team.artifacts.store."""
 
 from __future__ import annotations
 
 import pytest
 
-from team.artifact_store import InMemoryArtifactStore
-from team.types import (
-    ArtifactTooLarge,
+from team.artifacts.store import InMemoryArtifactStore
+from team.errors import ArtifactTooLarge, InvalidPlan
+from team.models import (
     BudgetConfig,
     BudgetState,
-    InvalidPlan,
     Plan,
     WorkItem,
     WorkItemKind,
     WorkItemSpec,
     WorkItemStatus,
 )
-from team.validation import validate_plan_phase_a, validate_plan_phase_b
+from team.planning.validation import validate_plan_phase_a, validate_plan_phase_b
 
 
 # ---------- Plan construction ------------------------------------------------
@@ -41,7 +40,7 @@ def test_plan_from_dict_roundtrip():
 
 
 def _patch_registry(monkeypatch, known_agents):
-    from team import validation
+    from team.planning import validation
 
     monkeypatch.setattr(
         validation, "_agent_exists", lambda name: name in known_agents
@@ -183,7 +182,7 @@ def test_phase_b_depth_exceeded(monkeypatch):
 
 def test_phase_b_rejects_agent_without_supported_kind(monkeypatch):
     from agents.types import AgentDefinition
-    from team import validation as _v
+    from team.planning import validation as _v
 
     atomic_only = AgentDefinition(
         name="atomic_only", description="d", supported_kinds=["atomic"]

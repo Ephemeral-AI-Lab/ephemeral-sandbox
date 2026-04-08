@@ -12,10 +12,10 @@ from sqlalchemy.orm import sessionmaker
 from db.base import Base
 # Importing the model registers the table on ``Base.metadata`` so
 # ``create_all`` picks it up below.
-from team.db.model import TeamDefinitionRecord  # noqa: F401
-from team.db.store import TeamDefinitionStore
-from team.run import TeamRun
-from team.types import TeamDefinition, TeamRunStatus
+from team.models import TeamDefinition, TeamRunStatus
+from team.persistence.model import TeamDefinitionRecord  # noqa: F401
+from team.persistence.store import TeamDefinitionStore
+from team.runtime.team_run import TeamRun
 
 
 # ---------------------------------------------------------------------------

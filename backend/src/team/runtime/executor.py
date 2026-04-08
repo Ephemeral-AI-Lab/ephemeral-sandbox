@@ -8,13 +8,13 @@ import uuid
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from hooks.agent_posthook import NoPosthookOutput, execute_with_posthook
-from team.types import AgentResult, Plan
+from team.models import AgentResult, Plan
 from tools.posthook import SubmittedSummary
 
 if TYPE_CHECKING:
     from agents.types import AgentDefinition
-    from team.run import TeamRun
-    from team.types import WorkItem
+    from team.models import WorkItem
+    from team.runtime.team_run import TeamRun
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ PosthookContextBuilder = Callable[["AgentDefinition", Any], Any]
 ResultExtractor = Callable[[Any, "WorkItem"], AgentResult]
 
 
-class Worker:
+class Executor:
     def __init__(
         self,
         team_run: "TeamRun",
