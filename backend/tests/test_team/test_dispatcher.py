@@ -149,17 +149,16 @@ async def test_invalid_plan_fails_parent_without_partial_insert():
 async def test_checkpoint_rollback_round_trip():
     disp = _make_dispatcher()
     await disp.add_work_item(_wi("A"))
-    cp = await disp.checkpoint(label="t0", project_context={"g": "x"}, change_log_entries=[])
+    cp = await disp.checkpoint(label="t0", project_context={"g": "x"})
     await disp.pop_ready()
     await disp.mark_running("A", "AR1")
     await disp.complete("A", AgentResult(artifact="done", summary="ok"))
     assert disp.graph["A"].status == WorkItemStatus.DONE
 
-    captured = {"pc": None, "cl": None}
+    captured = {"pc": None}
     await disp.rollback_to(
         cp.id,
         project_context_setter=lambda pc: captured.__setitem__("pc", pc),
-        change_log_setter=lambda cl: captured.__setitem__("cl", cl),
     )
     assert disp.graph["A"].status == WorkItemStatus.READY
     assert captured["pc"] == {"g": "x"}
@@ -172,5 +171,5 @@ async def test_checkpoint_ring_buffer_drops_oldest():
     disp = _make_dispatcher()
     disp._checkpoints.clear()  # start empty
     for _ in range(12):  # default maxlen is 10
-        await disp.checkpoint(label=None, project_context=None, change_log_entries=[])
+        await disp.checkpoint(label=None, project_context=None)
     assert len(disp.list_checkpoints()) == 10

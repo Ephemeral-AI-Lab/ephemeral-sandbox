@@ -233,7 +233,6 @@ class Dispatcher:
         self,
         label: str | None,
         project_context: Any,
-        change_log_entries: list[Any],
     ) -> TeamRunCheckpoint:
         async with self.lock:
             self._checkpoint_seq += 1
@@ -247,7 +246,6 @@ class Dispatcher:
                 ready_queue_order=list(self._ready_order),
                 artifacts=self.artifact_store.snapshot(),
                 project_context=copy.deepcopy(project_context),
-                change_log_entries=copy.deepcopy(change_log_entries),
                 budget_state=copy.deepcopy(self.budget_state),
             )
             self._checkpoints.append(cp)
@@ -263,7 +261,6 @@ class Dispatcher:
         self,
         checkpoint_id: str,
         project_context_setter: Callable[[Any], None],
-        change_log_setter: Callable[[Any], None],
     ) -> TeamRunCheckpoint:
         """Atomically restore graph + artifacts + context. Caller must drain workers first."""
         async with self.lock:
@@ -276,7 +273,6 @@ class Dispatcher:
             self.budget_state.work_items_used = cp.budget_state.work_items_used
             self.budget_state.artifact_bytes_used = cp.budget_state.artifact_bytes_used
             project_context_setter(copy.deepcopy(cp.project_context))
-            change_log_setter(copy.deepcopy(cp.change_log_entries))
 
             while not self._ready_queue.empty():
                 self._ready_queue.get_nowait()

@@ -22,7 +22,7 @@ Think clearly, reference the user request, and produce a structured plan.
 The next phase will hand your output to submit_plan_agent, which will call
 submit_plan, so be explicit about dependencies between items."""
 
-_WORKER_PROMPT = """You are team_worker. Execute the specific WorkItem described in the payload. Return a concise summary and any artifacts. Use the team context tools (team_list_siblings, team_files_changed_since_dispatch) to stay aware of peer work."""
+_WORKER_PROMPT = """You are team_worker. Execute the specific WorkItem described in the payload. Return a concise summary and any artifacts."""
 
 _SUBMIT_PLAN_AGENT_PROMPT = """You are submit_plan_agent. Read the work-phase output above and call submit_plan exactly once with a Plan whose items match it.
 

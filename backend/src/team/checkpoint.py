@@ -20,5 +20,4 @@ class TeamRunCheckpoint:
     ready_queue_order: list[str]
     artifacts: dict[str, Any]
     project_context: Any
-    change_log_entries: list[Any]
     budget_state: BudgetState

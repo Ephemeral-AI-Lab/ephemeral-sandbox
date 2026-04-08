@@ -7,7 +7,6 @@ import uuid
 from typing import Any, Callable
 
 from team.artifact_store import InMemoryArtifactStore
-from team.context.files import ChangeLog, register_team_run, unregister_team_run
 from team.context.project import ProjectContext
 from team.dispatcher import Dispatcher
 from team.types import (
@@ -41,7 +40,6 @@ class TeamRun:
         self.project_context = ProjectContext(
             goal=goal or user_request, user_request=user_request
         )
-        self.change_log = ChangeLog()
         self.artifacts = InMemoryArtifactStore(self.budgets, self.budget_state)
         self.dispatcher = Dispatcher(
             team_run_id=self.id,
@@ -77,7 +75,6 @@ class TeamRun:
         self.root_work_item_id = root.id
         await self.dispatcher.add_work_item(root)
         self.status = TeamRunStatus.RUNNING
-        register_team_run(self)
 
         self._worker_factory = worker_factory
         self._num_workers = num_workers
@@ -121,14 +118,11 @@ class TeamRun:
             self._worker_tasks.append(asyncio.create_task(worker.run_forever()))
 
     async def wait(self) -> TeamRunStatus:
-        try:
-            while not self.dispatcher.all_terminal():
-                await asyncio.sleep(0.05)
-            await self._join_workers()
-            self._compute_final_status()
-            return self.status
-        finally:
-            unregister_team_run(self.id)
+        while not self.dispatcher.all_terminal():
+            await asyncio.sleep(0.05)
+        await self._join_workers()
+        self._compute_final_status()
+        return self.status
 
     async def _join_workers(self) -> None:
         """Cooperative shutdown after the DAG has reached a terminal state.
@@ -176,7 +170,6 @@ class TeamRun:
         cp = await self.dispatcher.checkpoint(
             label=label,
             project_context=self.project_context,
-            change_log_entries=self.change_log.all(),
         )
         return cp.id
 
@@ -188,7 +181,6 @@ class TeamRun:
         await self.dispatcher.rollback_to(
             checkpoint_id,
             project_context_setter=lambda pc: setattr(self, "project_context", pc),
-            change_log_setter=lambda entries: self.change_log.restore(entries),
         )
         self.cancel_event.clear()
         # Phase 3 — respawn workers so the restored DAG actually drains.
