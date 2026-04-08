@@ -234,7 +234,7 @@ async def test_sibling_view_reflects_live_completion_during_run():
             from team.context.siblings import SiblingView
 
             view = SiblingView(tr.dispatcher, tctx["work_item_id"], tr.artifacts)
-            observed["siblings"] = [s.status for s in view.list()]
+            observed["siblings"] = [s["status"] for s in view.list()]
             return {"artifact": "observed", "summary": "seen"}
 
         async def runner(defn, ctx):
