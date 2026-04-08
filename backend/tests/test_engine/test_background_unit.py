@@ -22,6 +22,8 @@ from tools.builtins.background._common import (
     MAX_TOTAL_OUTPUT_CHARS,
     MIN_PER_ENTRY_CHARS,
     apply_last_n_lines,
+    build_background_snapshot_metadata,
+    render_background_snapshot,
 )
 from tools.builtins.background.check_background_progress import (
     CheckBackgroundProgressInput,
@@ -194,6 +196,8 @@ class TestCheckBackgroundProgressExecute:
             result = await tool.execute(CheckBackgroundProgressInput(task_id="all"), _ctx(mgr))
             assert '"task_id": "bg_run"' in result.output
             assert '"task_id": "bg_done"' not in result.output
+            assert result.metadata["background_snapshot"]["kind"] == "progress"
+            assert result.metadata["background_snapshot"]["scope"] == "all"
         finally:
             await mgr.cancel("bg_run")
 
@@ -240,6 +244,67 @@ class TestWaitForBackgroundTaskExecute:
         assert "[COMPLETED]" in result.output
         assert '"task_id": "bg_new"' in result.output
         assert '"task_id": "bg_old"' not in result.output
+        assert result.metadata["background_snapshot"]["kind"] == "wait_completed"
+
+    async def test_wait_timeout_returns_snapshot_metadata(self) -> None:
+        tool = WaitForBackgroundTaskTool()
+        mgr = BackgroundTaskManager()
+
+        async def slow() -> ToolResult:
+            await asyncio.sleep(5)
+            return ToolResult(output="done")
+
+        mgr.launch("bg_run", "t", {}, slow())
+        try:
+            result = await tool.execute(
+                WaitForBackgroundTaskInput(task_id="bg_run", timeout=1),
+                _ctx(mgr),
+            )
+            assert "[TIMED_OUT" in result.output
+            assert result.metadata["background_snapshot"]["kind"] == "wait_timed_out"
+            assert result.metadata["background_snapshot"]["scope"] == "bg_run"
+        finally:
+            await mgr.cancel("bg_run")
+
+    async def test_wait_no_tasks_returns_snapshot_metadata(self) -> None:
+        tool = WaitForBackgroundTaskTool()
+        mgr = BackgroundTaskManager()
+
+        result = await tool.execute(
+            WaitForBackgroundTaskInput(task_id="all", timeout=1),
+            _ctx(mgr),
+        )
+        assert result.metadata["background_snapshot"]["kind"] == "wait_no_tasks"
+        assert result.metadata["background_snapshot"]["statuses"] == []
+
+
+class TestBackgroundSnapshotHelpers:
+    def test_progress_render_matches_metadata_shape(self) -> None:
+        statuses = [{"task_id": "bg_1", "status": "running", "output": "hello"}]
+        output = render_background_snapshot("progress", statuses)
+        metadata = build_background_snapshot_metadata("progress", "all", statuses)
+        assert output == '[\n  {\n    "task_id": "bg_1",\n    "status": "running",\n    "output": "hello"\n  }\n]'
+        assert metadata["background_snapshot"]["scope"] == "all"
+
+    def test_wait_completed_render_matches_tool_branch(self) -> None:
+        statuses = [{"task_id": "bg_1", "status": "completed", "output": "done"}]
+        output = render_background_snapshot("wait_completed", statuses)
+        assert output.startswith("[COMPLETED]\n[")
+
+    def test_wait_timed_out_render_matches_tool_branch(self) -> None:
+        statuses = [{"task_id": "bg_1", "status": "running", "output": "still"}]
+        output = render_background_snapshot("wait_timed_out", statuses, elapsed_seconds=2.5)
+        assert "[TIMED_OUT after 2.5s]" in output
+        assert output.endswith(
+            "Call wait_for_background_task again to continue waiting, or cancel_background_task to stop."
+        )
+
+    def test_wait_no_tasks_render_matches_tool_branch(self) -> None:
+        output = render_background_snapshot("wait_no_tasks", [])
+        assert output == (
+            "[NO TASKS RUNNING] 0 background tasks are pending and "
+            "none have ever been launched in this session."
+        )
 
 
 # ---------------------------------------------------------------------------
