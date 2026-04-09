@@ -16,6 +16,7 @@ from hooks.agent_posthook import (
     PosthookMisconfigured,
     execute_with_posthook,
 )
+from tools.posthook.toolkits import SubmitReplanPosthookToolkit, SubmitRetryPosthookToolkit
 
 
 @dataclass
@@ -260,6 +261,14 @@ async def test_serializer_with_include_skills_true_is_rejected():
             agent_lookup=lambda n: bad,
             posthook_ctx_builder=lambda d, r: FakeCtx(),
         )
+
+
+def test_decision_posthook_toolkits_allow_summary_retry_and_replan() -> None:
+    retry_tools = set(SubmitRetryPosthookToolkit().tool_names())
+    replan_tools = set(SubmitReplanPosthookToolkit().tool_names())
+
+    assert retry_tools == {"submit_summary", "request_retry", "request_replan"}
+    assert replan_tools == {"submit_summary", "request_retry", "request_replan"}
 
 
 @pytest.mark.asyncio
