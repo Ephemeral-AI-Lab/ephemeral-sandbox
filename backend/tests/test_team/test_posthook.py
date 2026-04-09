@@ -233,7 +233,7 @@ async def test_no_output_subclasses_posthook_error():
         )
 
 
-# ---- No-skills contract: serializer agents must not carry builtin skills ----
+# ---- No-skills contract: pure submit serializers must not carry builtin skills ----
 
 
 @pytest.mark.asyncio
@@ -253,7 +253,7 @@ async def test_serializer_with_include_skills_true_is_rejected():
     async def runner(d, c):
         return "work"
 
-    with pytest.raises(PosthookMisconfigured, match="must not be equipped with builtin skills"):
+    with pytest.raises(PosthookMisconfigured, match="pure submit posthook agent .* must not be equipped with builtin skills"):
         await execute_with_posthook(
             defn,
             FakeCtx(),
@@ -288,7 +288,7 @@ async def test_serializer_with_nonempty_skills_is_rejected():
     async def runner(d, c):
         return "work"
 
-    with pytest.raises(PosthookMisconfigured, match="must not be equipped with builtin skills"):
+    with pytest.raises(PosthookMisconfigured, match="pure submit posthook agent .* must not be equipped with builtin skills"):
         await execute_with_posthook(
             defn,
             FakeCtx(),
@@ -314,6 +314,64 @@ async def test_serializer_with_no_skills_is_accepted():
         FakeCtx(),
         runner=runner,
         agent_lookup=lambda n: ok,
+        posthook_ctx_builder=lambda d, r: FakeCtx(),
+    )
+    assert submitted == {"ok": True}
+
+
+@pytest.mark.asyncio
+async def test_decision_posthook_with_skills_is_accepted() -> None:
+    cfg = PosthookConfig(agent_name="decision_submit_retry", metadata_key="submitted_summary")
+    defn = _make_defn(posthook=cfg)
+    decision = AgentDefinition(
+        name="decision_submit_retry",
+        description="decision",
+        system_prompt="p",
+        toolkits=["posthook_submit_retry"],
+        include_skills=True,
+        skills=["team-posthook-decision-playbook"],
+        source="builtin",
+    )
+
+    async def runner(d, c):
+        if d.name == "decision_submit_retry":
+            c.tool_metadata["submitted_summary"] = {"ok": True}
+        return d.name
+
+    _, submitted = await execute_with_posthook(
+        defn,
+        FakeCtx(),
+        runner=runner,
+        agent_lookup=lambda n: decision,
+        posthook_ctx_builder=lambda d, r: FakeCtx(),
+    )
+    assert submitted == {"ok": True}
+
+
+@pytest.mark.asyncio
+async def test_decision_named_posthook_with_submit_toolkit_and_skills_is_accepted() -> None:
+    cfg = PosthookConfig(agent_name="decision_submit_retry", metadata_key="submitted_summary")
+    defn = _make_defn(posthook=cfg)
+    decision = AgentDefinition(
+        name="decision_submit_retry",
+        description="decision",
+        system_prompt="p",
+        toolkits=["submit_summary_posthook"],
+        include_skills=True,
+        skills=["team-posthook-decision-playbook"],
+        source="builtin",
+    )
+
+    async def runner(d, c):
+        if d.name == "decision_submit_retry":
+            c.tool_metadata["submitted_summary"] = {"ok": True}
+        return d.name
+
+    _, submitted = await execute_with_posthook(
+        defn,
+        FakeCtx(),
+        runner=runner,
+        agent_lookup=lambda n: decision,
         posthook_ctx_builder=lambda d, r: FakeCtx(),
     )
     assert submitted == {"ok": True}

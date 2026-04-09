@@ -23,28 +23,34 @@ def _sandbox_exec_is_async(sandbox: Any) -> bool:
     return bool(exec_fn) and inspect.iscoroutinefunction(exec_fn)
 
 
-def _ci_sandbox_handle(sandbox_id: str | None, sandbox: Any) -> Any:
-    """Return a sandbox handle safe for CI warmup.
+def _ci_sandbox_handle(sandbox_id: str | None, sandbox: Any) -> tuple[Any, bool]:
+    """Return a sandbox handle plus whether eager CI warmup is safe.
 
     Worker tools use an async sandbox so shell/file operations can be awaited
     and cancelled. CI warmup should not reuse that same async handle because
     some CI/LSP warmup paths are synchronous and may survive across loop
     boundaries. When we detect an async Daytona sandbox, resolve a separate
     sync handle for CI instead.
+
+    If the sync handle cannot be resolved, we still return the original
+    sandbox so the CI service can be attached lazily, but we mark eager
+    warmup as unsafe. The loop-corruption risk comes from the warmup calls,
+    not from storing the sandbox reference itself.
     """
     if not sandbox_id or sandbox is None or not _sandbox_exec_is_async(sandbox):
-        return sandbox
+        return sandbox, True
     try:
         from sandbox.service import SandboxService
 
-        return SandboxService().get_sandbox_object(sandbox_id)
+        return SandboxService().get_sandbox_object(sandbox_id), True
     except Exception:
         logger.debug(
-            "Could not resolve sync sandbox handle for CI warmup on %s; falling back to async handle",
+            "Could not resolve sync sandbox handle for CI warmup on %s; "
+            "using async handle without eager warmup",
             sandbox_id,
             exc_info=True,
         )
-        return sandbox
+        return sandbox, False
 
 
 def discover_workspace(sandbox: Any) -> str | None:
@@ -83,17 +89,24 @@ def inject_code_intelligence(
         try:
             from code_intelligence.routing.service import get_code_intelligence
 
-            ci_sandbox = _ci_sandbox_handle(sandbox_id, sandbox)
+            ci_sandbox, eager_warmup_safe = _ci_sandbox_handle(sandbox_id, sandbox)
             svc = get_code_intelligence(
                 sandbox_id=sandbox_id,
                 workspace_root=workspace_root,
                 sandbox=ci_sandbox,
             )
             try:
-                if Path(workspace_root).is_dir():
-                    svc.ensure_initialized(wait=False)
+                if eager_warmup_safe:
+                    if Path(workspace_root).is_dir():
+                        svc.ensure_initialized(wait=False)
+                    else:
+                        svc.lsp_client.ensure_ready()
                 else:
-                    svc.lsp_client.ensure_ready()
+                    logger.debug(
+                        "Skipping eager CI warmup for async sandbox %s because "
+                        "no sync handle was available",
+                        sandbox_id,
+                    )
             except Exception:
                 logger.debug(
                     "CI service warmup skipped for sandbox %s", sandbox_id, exc_info=True

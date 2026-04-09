@@ -183,7 +183,7 @@ def register_all() -> None:
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             toolkits=["code_intelligence", "team_context", "atlas", "subagent"],
             skills=["team-planner-playbook"],
-            include_skills=True,
+            include_skills=False,
             source="builtin",
             posthook=PosthookConfig(
                 agent_name=SUBMIT_PLAN_AGENT,
@@ -219,7 +219,7 @@ def register_all() -> None:
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             toolkits=["sandbox_operations", "code_intelligence"],
             skills=["team-developer-playbook"],
-            include_skills=True,
+            include_skills=False,
             supported_kinds=["atomic"],
             source="builtin",
             posthook=PosthookConfig(
@@ -242,7 +242,7 @@ def register_all() -> None:
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             toolkits=["sandbox_operations", "code_intelligence"],
             skills=["team-validator-playbook"],
-            include_skills=True,
+            include_skills=False,
             supported_kinds=["atomic"],
             source="builtin",
             posthook=PosthookConfig(
@@ -263,7 +263,7 @@ def register_all() -> None:
             max_turns=100,
             toolkits=["code_intelligence"],
             skills=["team-scout-playbook"],
-            include_skills=True,
+            include_skills=False,
             agent_type="subagent",
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             posthook=PosthookConfig(
@@ -300,7 +300,7 @@ def register_all() -> None:
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             toolkits=["code_intelligence", "subagent"],
             skills=["team-atlas-builder-playbook"],
-            include_skills=True,
+            include_skills=False,
             source="builtin",
             posthook=PosthookConfig(
                 agent_name=SUBMIT_ATLAS_AGENT,
@@ -321,7 +321,7 @@ def register_all() -> None:
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             toolkits=["subagent"],
             skills=["team-atlas-refresher-playbook"],
-            include_skills=True,
+            include_skills=False,
             source="builtin",
             posthook=PosthookConfig(
                 agent_name=SUBMIT_ATLAS_AGENT,
@@ -338,8 +338,8 @@ def register_all() -> None:
             model="inherit",
             max_turns=5,
             toolkits=["posthook_submit_retry"],
-            skills=["team-posthook-decision-playbook"],
-            include_skills=True,
+            skills=[],
+            include_skills=False,
             agent_type="subagent",
             source="builtin",
         )
@@ -352,8 +352,8 @@ def register_all() -> None:
             model="inherit",
             max_turns=5,
             toolkits=["posthook_submit_replan"],
-            skills=["team-posthook-decision-playbook"],
-            include_skills=True,
+            skills=[],
+            include_skills=False,
             agent_type="subagent",
             source="builtin",
         )
@@ -383,7 +383,7 @@ def register_all() -> None:
             tool_call_limit=25,
             toolkits=["code_intelligence", "team_context", "subagent"],
             skills=["team-replanner-playbook"],
-            include_skills=True,
+            include_skills=False,
             supported_kinds=["atomic"],
             source="builtin",
             posthook=PosthookConfig(

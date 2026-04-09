@@ -50,6 +50,19 @@ class Executor:
         self.agent_lookup = agent_lookup
         self.after_dispatch = after_dispatch
 
+    async def _checkpoint_after_transition(
+        self,
+        wi: "WorkItem",
+        *,
+        outcome: str,
+    ) -> None:
+        """Persist a post-dispatch checkpoint after the dispatcher state mutates."""
+        try:
+            label = f"durable:{outcome}:{wi.agent_name}:{wi.local_id or wi.id}"
+            await self.team_run.checkpoint(label=label)
+        except Exception:
+            logger.debug("Failed to checkpoint after %s transition for %s", outcome, wi.id, exc_info=True)
+
     async def run_forever(self) -> None:
         """Pop READY items until cancel_event is set.
 
@@ -106,9 +119,11 @@ class Executor:
             return
         if isinstance(submitted, RetryRequest):
             await dispatcher.retry_work_item(wi_id, submitted)
+            await self._checkpoint_after_transition(wi, outcome="retry")
             return
         if isinstance(submitted, ReplanRequest):
             await dispatcher.request_replan(wi_id, submitted)
+            await self._checkpoint_after_transition(wi, outcome="replan_request")
             return
         if isinstance(submitted, Plan):
             result = AgentResult(artifact=None, summary="", submitted_plan=submitted)
@@ -131,3 +146,4 @@ class Executor:
             callback_result = self.after_dispatch(wi, result, new_items)
             if isinstance(callback_result, Awaitable):
                 await callback_result
+        await self._checkpoint_after_transition(wi, outcome="complete")

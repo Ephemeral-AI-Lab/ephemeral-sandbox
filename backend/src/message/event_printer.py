@@ -58,8 +58,10 @@ _RED = "\033[31m"
 _GREEN = "\033[32m"
 
 
-def _truncate(text: str, limit: int) -> str:
+def _truncate(text: str, limit: int | None) -> str:
     text = text or ""
+    if limit is None:
+        return text
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
@@ -89,7 +91,7 @@ class MultiAgentEventPrinter:
         *,
         color: bool = True,
         tag_width: int = 14,
-        truncate: int = 500,
+        truncate: int | None = 500,
         sink: "Any" = None,
         timestamps: bool = False,
     ) -> None:
@@ -203,7 +205,14 @@ class MultiAgentEventPrinter:
             self._flush_buffers(agent, work_id)
         elif isinstance(event, SystemNotification):
             tag = f"[system{':' + event.category if event.category else ''}]"
-            limit = 400 if event.category in {"budget_warning", "background_progress"} else 200
+            if self._truncate_n is None:
+                limit = None
+            elif event.category == "background_progress":
+                limit = None
+            elif event.category == "budget_warning":
+                limit = 400
+            else:
+                limit = 200
             self._line(agent, work_id, f"{tag} {_truncate(event.text, limit)}")
 
     def raw_line(self, agent: str, body: str) -> None:
@@ -314,9 +323,7 @@ class MultiAgentEventPrinter:
         return raw
 
     def _format_work_id(self, work_id: str) -> str:
-        if len(work_id) <= 16:
-            return work_id
-        return f"{work_id[:8]}…{work_id[-4:]}"
+        return work_id
 
     def _c(self, key: str, text: str) -> str:
         if not self._color:

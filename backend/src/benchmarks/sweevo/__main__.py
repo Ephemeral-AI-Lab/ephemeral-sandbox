@@ -17,8 +17,12 @@ import argparse
 import asyncio
 import json
 import logging
+import re
 import sys
-from typing import Any
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Iterator
 
 from benchmarks.sweevo.dataset import load_sweevo_dataset, summarize_sweevo_instance
 from benchmarks.sweevo.models import (
@@ -31,6 +35,85 @@ from benchmarks.sweevo.models import (
 # MultiAgentEventPrinter and run_sweevo_with_agent are imported lazily inside
 # _cmd_run so that ``--help`` / ``--list`` still work in minimal envs without
 # the full providers dependency tree.
+
+
+_DEFAULT_LOG_DIR = Path(".ephemeralos/benchmark-logs")
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+_SAFE_LOG_NAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+class _AnsiStrippingTee:
+    """Mirror writes to the terminal and a plain-text run log."""
+
+    def __init__(self, primary: Any, mirror: Any) -> None:
+        self._primary = primary
+        self._mirror = mirror
+        self.encoding = getattr(primary, "encoding", "utf-8")
+        self.errors = getattr(primary, "errors", "strict")
+
+    def write(self, data: str) -> int:
+        written = self._primary.write(data)
+        try:
+            self._mirror.write(_ANSI_ESCAPE_RE.sub("", data))
+        except ValueError:
+            # Interrupt-driven shutdown can close the log file before late
+            # asyncio/aiohttp cleanup messages drain through logging.
+            pass
+        return written
+
+    def writelines(self, lines: list[str]) -> None:
+        for line in lines:
+            self.write(line)
+
+    def flush(self) -> None:
+        self._primary.flush()
+        self._mirror.flush()
+
+    def isatty(self) -> bool:
+        return bool(getattr(self._primary, "isatty", lambda: False)())
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._primary, name)
+
+
+def _utc_log_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _sanitize_log_name(value: str) -> str:
+    sanitized = _SAFE_LOG_NAME_RE.sub("_", value).strip("._")
+    return sanitized or "run"
+
+
+def _build_run_log_path(args: argparse.Namespace, *, timestamp: str) -> Path:
+    log_dir = Path(args.log_dir).expanduser()
+    if args.instance_id:
+        stem = args.instance_id
+    else:
+        stem = f"auto_{args.size}_{args.target_bullets}"
+    return log_dir / f"{timestamp}_{_sanitize_log_name(stem)}.log"
+
+
+@contextmanager
+def _capture_run_output(args: argparse.Namespace) -> Iterator[Path]:
+    log_path = _build_run_log_path(args, timestamp=_utc_log_timestamp())
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    with log_path.open("w", encoding="utf-8", buffering=1) as log_file:
+        sys.stdout = _AnsiStrippingTee(original_stdout, log_file)
+        sys.stderr = _AnsiStrippingTee(original_stderr, log_file)
+        try:
+            yield log_path
+        finally:
+            try:
+                sys.stdout.flush()
+                sys.stderr.flush()
+            finally:
+                sys.stdout = original_stdout
+                sys.stderr = original_stderr
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -80,6 +163,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--disk", type=int, default=10)
     p.add_argument("--test-command", default=None, help="Override instance.test_cmds")
     p.add_argument("--test-timeout", type=int, default=_DEFAULT_SWEEVO_TEST_TIMEOUT)
+    p.add_argument(
+        "--log-dir",
+        default=str(_DEFAULT_LOG_DIR),
+        help="Directory where SWE-EVO run logs are written.",
+    )
     p.add_argument("--no-stream", action="store_true", help="Disable live line streaming")
     p.add_argument("--no-color", action="store_true")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -167,6 +255,7 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     quiet = args.no_stream
     printer = MultiAgentEventPrinter(
         color=use_color and not quiet,
+        truncate=None,
         timestamps=True,
         sink=(lambda _line: None) if quiet else None,
     )
@@ -314,13 +403,34 @@ async def _cmd_run(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.WARNING,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
     if args.list:
+        logging.basicConfig(
+            level=logging.DEBUG if args.verbose else logging.WARNING,
+            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+            force=True,
+        )
         return _cmd_list(args.source)
-    return asyncio.run(_cmd_run(args))
+    with _capture_run_output(args) as log_path:
+        logging.basicConfig(
+            level=logging.DEBUG if args.verbose else logging.WARNING,
+            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+            force=True,
+        )
+        print(f"Log file: {log_path}", flush=True)
+        try:
+            return asyncio.run(_cmd_run(args))
+        except KeyboardInterrupt:
+            try:
+                from sandbox.lifecycle import shutdown_cached_client
+
+                shutdown_cached_client()
+            except Exception:
+                logging.getLogger(__name__).debug(
+                    "Interrupted run cleanup failed",
+                    exc_info=True,
+                )
+            print("\nInterrupted.", flush=True)
+            return 130
 
 
 if __name__ == "__main__":

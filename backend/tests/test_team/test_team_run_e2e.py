@@ -210,6 +210,19 @@ async def test_planner_emits_plan_via_posthook_and_children_run():
         assert len(tr.dispatcher.graph) == 3
         done = [wi for wi in tr.dispatcher.graph.values() if wi.status == WorkItemStatus.DONE]
         assert len(done) == 3
+        planner_cps = [
+            cp for cp in tr.dispatcher.list_checkpoints()
+            if (cp.label or "").startswith("durable:complete:planner:")
+        ]
+        assert planner_cps
+        planner_cp = planner_cps[-1]
+        assert len(planner_cp.work_items) == 3
+        local_ids = {
+            wi.local_id
+            for wi in planner_cp.work_items.values()
+            if wi.local_id is not None
+        }
+        assert {"c1", "c2"} <= local_ids
     finally:
         _cleanup("planner", "child", "submit_plan_agent")
 

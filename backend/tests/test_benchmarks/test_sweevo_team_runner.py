@@ -92,6 +92,7 @@ def test_root_prompt_points_to_skill_owned_workflow_policy():
     assert "Stable SWE-EVO workflow policy lives in the declared skills" in prompt
     assert "Recommended first-ready frontier cap" in prompt
     assert "must not inspect dependency/version metadata" in prompt
+    assert "benchmark run log file under `.ephemeralos/benchmark-logs/`" in prompt
 
 
 def test_agent_overrides_attach_sweevo_skills_without_prompt_duplication():

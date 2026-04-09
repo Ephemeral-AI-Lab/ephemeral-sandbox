@@ -165,3 +165,45 @@ class TestInjectCodeIntelligence:
         assert captured["sandbox"] is sync_sandbox
         mock_svc.ensure_initialized.assert_not_called()
         mock_svc.lsp_client.ensure_ready.assert_called_once_with()
+
+    def test_skips_eager_warmup_when_async_remote_sandbox_has_no_sync_handle(self, monkeypatch):
+        from sandbox.workspace import inject_code_intelligence
+
+        mock_context = MagicMock()
+        mock_context.metadata = {}
+        async_sandbox = MagicMock()
+        async_sandbox.process = MagicMock(exec=AsyncMock())
+        mock_svc = MagicMock()
+        mock_svc.lsp_client = MagicMock()
+        captured = {}
+
+        def fake_get_ci(sandbox_id, workspace_root, sandbox):
+            captured["sandbox"] = sandbox
+            return mock_svc
+
+        import sys
+        import types
+
+        fake_ci_module = types.ModuleType("code_intelligence.routing.service")
+        fake_ci_module.get_code_intelligence = fake_get_ci
+        monkeypatch.setitem(sys.modules, "code_intelligence.routing.service", fake_ci_module)
+
+        class FakeSandboxService:
+            def get_sandbox_object(self, sandbox_id):
+                raise RuntimeError("sync handle unavailable")
+
+        fake_service_module = types.ModuleType("sandbox.service")
+        fake_service_module.SandboxService = FakeSandboxService
+        monkeypatch.setitem(sys.modules, "sandbox.service", fake_service_module)
+
+        inject_code_intelligence(
+            mock_context,
+            "sb-123",
+            async_sandbox,
+            "/definitely-not-a-local-workspace",
+        )
+
+        assert mock_context.metadata["ci_service"] == mock_svc
+        assert captured["sandbox"] is async_sandbox
+        mock_svc.ensure_initialized.assert_not_called()
+        mock_svc.lsp_client.ensure_ready.assert_not_called()

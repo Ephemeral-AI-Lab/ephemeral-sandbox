@@ -7,12 +7,16 @@ a normal ephemeral agent. The serializer agent's own AgentDefinition
 controls its tool surface, model, max_turns, and prompt — there is no
 parent-clone hack and no special-case fields on AgentDefinition.
 
-Contract for posthook serializer agents:
+Contract for posthook submit serializers:
 
-* They MUST NOT carry builtin skills (``skills == []`` and
-  ``include_skills is False``). A serializer is meant to do exactly one
-  thing — call its submit tool — and a wider tool surface defeats the
-  point. This is enforced at runtime by ``execute_with_posthook``.
+* Pure submit serializers MUST NOT carry builtin skills (``skills == []``
+  and ``include_skills is False``). A pure serializer is meant to do
+  exactly one thing — call its submit tool — and a wider tool surface
+  defeats the point. This is enforced at runtime by
+  ``execute_with_posthook``.
+* Decision-style posthooks that choose between multiple posthook tools
+  (for example summary vs retry vs replan) may carry bundled skills. The
+  no-skills contract applies only to pure submit serializers.
 * They communicate the accepted submission back to the helper through a
   single string-keyed slot in ``ctx.tool_metadata`` (see
   ``PosthookConfig.metadata_key``). The submit tool reads
@@ -53,7 +57,7 @@ class PosthookError(Exception):
 
 class PosthookMisconfigured(PosthookError):
     """Configuration is invalid: missing dependencies, unregistered agent,
-    or a serializer agent that violates the no-skills contract."""
+    or a pure submit serializer that violates the no-skills contract."""
 
 
 class NoPosthookOutput(PosthookError):
@@ -86,8 +90,24 @@ def _read_submitted_output(ctx: Any, key: str) -> Any | None:
     return ctx.tool_metadata.get(key)
 
 
+def _is_pure_submit_posthook(defn: "AgentDefinition") -> bool:
+    """Return whether *defn* is a pure submit serializer posthook.
+
+    Builtin pure serializers use exactly one ``submit_*`` toolkit, while
+    decision posthooks use ``posthook_*`` multi-tool toolkits. Some legacy
+    decision agents still use decision-prefixed names with serializer-shaped
+    toolkits; those must not be treated as pure submitters for the no-skills
+    guard.
+    """
+    name = str(getattr(defn, "name", "") or "")
+    if name.startswith("decision_"):
+        return False
+    toolkits = [str(tk) for tk in (getattr(defn, "toolkits", None) or [])]
+    return bool(toolkits) and all(tk.startswith("submit_") for tk in toolkits)
+
+
 def _assert_serializer_has_no_skills(defn: "AgentDefinition") -> None:
-    """Posthook serializers must not carry builtin skills.
+    """Pure submit serializers must not carry builtin skills.
 
     A serializer agent exists to call exactly one submit tool. Builtin
     skills broaden its tool surface and invite the model to wander —
@@ -95,10 +115,13 @@ def _assert_serializer_has_no_skills(defn: "AgentDefinition") -> None:
     designed to prevent. Reject at lookup time so misconfigurations
     fail before the work phase burns budget on the next call.
     """
+    if not _is_pure_submit_posthook(defn):
+        return
     if getattr(defn, "include_skills", False) or getattr(defn, "skills", None):
         raise PosthookMisconfigured(
-            f"posthook agent {defn.name!r} must not be equipped with builtin "
-            f"skills (include_skills must be False and skills must be empty); "
+            f"pure submit posthook agent {defn.name!r} must not be equipped "
+            f"with builtin skills (include_skills must be False and skills "
+            f"must be empty); "
             f"got include_skills={defn.include_skills!r}, skills={defn.skills!r}"
         )
 
@@ -118,9 +141,9 @@ async def execute_with_posthook(
     Raises:
         PosthookMisconfigured: posthook is configured but ``agent_lookup``
             or ``posthook_ctx_builder`` was not supplied, the named
-            serializer is not registered, or the serializer carries
-            builtin skills. Raised *before* the work phase runs whenever
-            possible so misconfigurations don't burn the work budget.
+            posthook agent is not registered, or a pure submit serializer
+            carries builtin skills. Raised *before* the work phase runs
+            whenever possible so misconfigurations don't burn the work budget.
         NoPosthookOutput: serializer ran but never wrote an accepted
             submission to ``ctx.tool_metadata[metadata_key]``.
     """

@@ -77,19 +77,4 @@ esac
 
 ensure_snapshot_mode_default "$@"
 
-echo "================================================================"
-echo "  SWE-EVO benchmark: $NAME"
-echo "================================================================"
-
-LOG_DIR=".ephemeralos/benchmark-logs"
-mkdir -p "$LOG_DIR"
-TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-SAFE_NAME="${NAME//[^A-Za-z0-9_.-]/_}"
-LOG_FILE="$LOG_DIR/${TIMESTAMP}_${SAFE_NAME}.log"
-
-echo "Log file: $LOG_FILE"
-
-set +e
-"$PY" -m "$BENCH_MOD" --instance-id "$NAME" "${BENCH_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
-STATUS=${PIPESTATUS[0]}
-exit "$STATUS"
+exec "$PY" -m "$BENCH_MOD" --instance-id "$NAME" "${BENCH_ARGS[@]}"
