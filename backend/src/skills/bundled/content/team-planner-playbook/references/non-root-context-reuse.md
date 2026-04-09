@@ -100,3 +100,10 @@ Fresh exploration is not justified when:
 - Treating `## Scoped Expansion` as permission to reopen sibling branches
 - Spending a child turn reproducing the parent planner's decomposition instead of narrowing one owned sub-slice
 - Launching fresh exploration before reading the inherited briefing sections
+
+## Direct child execution from parent expansion hints
+
+- When the parent briefing already names the residual clusters, target files, and likely worker split, treat that as the decomposition boundary for this layer.
+- Do not spawn nested `team_planner` agents to restate the parent split. Either emit direct developer/validator items or use a single scout per unresolved owner file and then emit the plan.
+- Never call a nested planner with `prompt=null` or with no concrete decomposition question. That is a protocol error, not exploration.
+- If a parent expansion hint already says "one child for X, one child for Y, one child for Z", your job is to convert X/Y/Z into concrete worker items, not to open a new planning tree for X/Y/Z.

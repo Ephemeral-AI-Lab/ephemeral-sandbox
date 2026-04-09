@@ -115,7 +115,7 @@ def _build_test_set_command(repo_dir: str, test_ids: list[str], test_cmds: str) 
         "print(proc.stdout, end='')\n"
         "print(f'EXIT_CODE={proc.returncode}')\n"
     )
-    return f"{_CONDA_ACTIVATE} && cd {repo_dir} && python - <<'PY'\n{script}PY"
+    return f"{_CONDA_ACTIVATE} && cd {repo_dir} && python - <<'PY'\n{script}\nPY"
 
 
 def _parse_pytest_passed_count(output: str, total: int) -> int:

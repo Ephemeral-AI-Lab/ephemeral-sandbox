@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,14 @@ def _all_agents_exist(monkeypatch):
 
 def _ctx() -> ToolExecutionContext:
     return ToolExecutionContext(cwd=Path.cwd(), metadata=ExecutionMetadata())
+
+
+def test_submit_plan_input_accepts_json_string_items() -> None:
+    args = SubmitPlanInput.model_validate(
+        {"items": json.dumps([{"agent_name": "developer", "local_id": "w1"}])}
+    )
+    assert len(args.items) == 1
+    assert args.items[0].agent_name == "developer"
 
 
 @pytest.mark.asyncio

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -91,6 +92,14 @@ async def _run(
     args = SubmitAtlasInput(**kwargs)
     result = await tool.execute(args, ctx)
     return result, ctx.metadata.get("submitted_atlas")
+
+
+def test_submit_atlas_input_accepts_json_string_chunks() -> None:
+    args = SubmitAtlasInput.model_validate(
+        {"chunks": json.dumps([{"brief": _scout_brief(["src/a"])}])}
+    )
+    assert len(args.chunks) == 1
+    assert args.chunks[0].brief["target_paths"] == ["src/a"]
 
 
 # ---------------------------------------------------------------------------

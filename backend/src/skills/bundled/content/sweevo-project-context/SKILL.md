@@ -34,6 +34,7 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 
 ## Planner rules for SWE-EVO
 
+- When the request already names one dominant FAIL_TO_PASS cluster plus several smaller named failures, the default first wave is one dominant production-owner scout plus one residual source-owner or residual-aggregate scout. Do not spend a first-wave lane on the already-named giant test file unless no plausible production owner exists yet.
 - On large benchmark roots, spend the first exploration pass on 2-3 disjoint source-owner scouts rather than one long serial hypothesis lane.
 - If the first scout wave comes back partial or still leaves several disjoint owner hypotheses alive, launch another disjoint scout wave or a narrowed child planner. Do not freeze the root plan just because the first wave already ran.
 - Once two scout waves or roughly 25 planner tool calls have already gone into the same root benchmark surface, the default next step is the plan. A third wave needs a genuinely new disjoint owner cluster, not a deeper read of the same mapped clusters.
@@ -51,14 +52,17 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 - Root planners must not spend CI turns on dependency-name or import archaeology (`pydantic_core`, package pins, installed versions, lockfiles) once concrete source owners are known. If version drift is still plausible, pass it to the developer lane as a hypothesis tied to an exact reproduction target.
 - Once source-owner scouts exist, do not open new manifest or giant-test scouts. Remaining uncertainty belongs to a developer or validator lane unless source ownership is still ambiguous.
 - Split disjoint owner clusters into separate source-owned execution lanes. Do not collapse unrelated modules into one omnibus developer task just because they appear in the same release-note block.
+- When one dominant owner cluster is already mapped and the remaining named failures span several smaller modules, keep the root graph hierarchical: emit the dominant developer lane, one concrete residual lane that is already source-owned, and park the still-unowned residual surface behind a downstream expandable child planner. Do not keep scouting just to flatten every residual into the root plan.
+- Once the dominant owner slice and one residual slice are both mapped, stop waiting on additional scouts from the same root surface and emit the plan. Downstream developers and validators own the runtime confirmation.
 - Validators verify; they do not own first-fix work. Every named FAIL_TO_PASS cluster in the request must map to a developer or child-planner owner before a validator is allowed to cover it.
 - A root or sibling validator must not depend on an expandable child planner as a placeholder barrier. If residual work is parked behind child planning, the verification for that slice belongs inside that child branch or behind the concrete leaf developers it emits.
 - If one file is large but still the likely owner, a bounded single-file scout is valid. If that still leaves several independent regions, emit a narrowed child planner instead of forcing a flat root plan.
 - Parent and sibling exploration lanes must stay disjoint. Do not reopen a slice already owned by a scout or child planner unless new evidence invalidates the boundary.
 - While scouts are running, keep the planner moving on other uncovered branches, shared-context reuse, and plan-shape reasoning. Wait only when a scout result becomes the remaining blocker.
 - Once the returned scout evidence is sufficient to name the likely implementation surfaces and direct validation surfaces, the root planner should stop scouting and emit the plan. This may happen after one wave or several; additional confirmation belongs to developer or validator lanes, not to the root planner.
+- Treat pytest assertion renderings as runtime symptoms only. A line such as `where None = MultiHostUrl(...).path` is not proof that the bug lives in a particular accessor or external dependency API; it is only evidence the downstream worker should reproduce against the owned source slice.
 - If the planner receives a budget warning, the next assistant message must be the final plan JSON. Do not spend the remaining budget checking background progress or reopening hypotheses.
-- Treat duplicate-scout rejections and background wait protocol errors as stop-and-plan signals. Reuse the gathered evidence instead of retrying the same exploration pattern.
+- Treat duplicate-scout rejections and background wait protocol errors as stop-and-plan signals. Reuse the gathered evidence instead of retrying the same exploration pattern, and do not pivot into `ci_recent_changes`, `ci_edit_hotspots`, or dependency/version archaeology once those signals fire.
 - A repeated `WAIT_REQUIRES_PROGRESS_CHECK` or repeated whole-batch wait on the same benchmark wave is evidence that the planner should finish the plan, not evidence that another planner-side deep-dive is needed.
 - After emitting the final plan JSON, stop immediately. Do not append prose summaries after the payload.
 
@@ -71,6 +75,9 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 - After one targeted reproduction plus one or two focused code reads identify the deciding function or branch, edit immediately. Do not spend the attempt on repeated ad hoc probes.
 - If the exact retry target is already green in the sandbox, stop debugging and report that result; let the validator spend the one broader regression check.
 - Fix production code first. Do not edit tests, snapshots, or benchmark harness files unless the WorkItem explicitly assigns them.
+- When touching core metadata propagation or schema-wrapper logic, run a same-surface regression slice that checks ordering, wrapper passthrough, and error-shape stability, not just the exact failing test.
+- When touching RootModel JSON schema description propagation, validate both the field-description-only case and the docstring-vs-field precedence case.
+- If the full benchmark later exposes new pass-to-pass regressions, treat those exact failures as the next concrete retry targets; do not keep reporting only the original FAIL_TO_PASS list.
 
 ---
 
@@ -87,3 +94,12 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 
 - Usage totals, model breakdowns, checkpoints, and retry metadata are part of the benchmark evidence. Prefer the latest healthy checkpoint when deciding what to resume.
 - When reporting a blocker, include the exact command, exit code, failing test ids, and likely owner surface so replanning can stay surgical.
+
+## Benchmark decomposition stop conditions
+
+- Once the root planner can name a dominant owner slice and a residual cluster boundary, planning is complete for that layer. Submit the hierarchical plan immediately.
+- Duplicate-scout rejection, background wait protocol errors, and already-completed waits are evidence that exploration has crossed the sufficiency boundary. Do not open another scout after those signals.
+- If the dominant cluster is already mapped to one owner file or one tightly-coupled owner pair, keep that as one developer lane. Everything else becomes either a residual child planner or separately bounded residual developer lanes.
+- The default root benchmark shape for this repo is: one dominant developer lane, one residual child planner lane, one validator lane. Flatten the residual lane into direct developers only when each residual owner is already bounded without more planning.
+- Planner outputs that collapse unrelated residual bugs from `construction`, `json_schema`, `root_model`, and `types` into one developer lane are low-quality plans and should be avoided.
+- Planner-side narration must stay at the ownership and validation-target level. Do not speculate about concrete code fixes from failure strings such as `MultiHostUrl.path` or other pytest assertion details.

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from team.models import ReplanPlan, WorkItemKind
 from tools.core.base import ToolExecutionContext
-from tools.posthook.base import SubmitPosthookTool
+from tools.posthook.base import SubmitPosthookTool, _decode_json_array_string
 
 
 class _SubmitReplanBriefing(BaseModel):
@@ -39,6 +39,11 @@ class SubmitReplanInput(BaseModel):
         default_factory=list,
         description="IDs of PENDING/READY work items to cancel (must share same parent).",
     )
+
+    @field_validator("add_items", "cancel_ids", mode="before")
+    @classmethod
+    def _deserialize_lists(cls, value: Any) -> Any:
+        return _decode_json_array_string(value)
 
 
 class SubmitReplanTool(SubmitPosthookTool):

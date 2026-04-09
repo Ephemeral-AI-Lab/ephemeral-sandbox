@@ -24,14 +24,14 @@ import logging
 import time
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from team.atlas.freshness import hash_paths_under
 from team.atlas.store import AtlasChunk, AtlasStore, get_default_store
 from team.context.canonicalize import scope_of_artifact
 from team.runtime.registry import get as _get_team_run
 from tools.core.base import ToolExecutionContext
-from tools.posthook.base import SubmitPosthookTool
+from tools.posthook.base import SubmitPosthookTool, _decode_json_array_string
 from tools.posthook.submit_summary import SubmittedSummary
 
 logger = logging.getLogger(__name__)
@@ -68,6 +68,11 @@ class SubmitAtlasInput(BaseModel):
         default=None,
         description="Optional short note explaining why the atlas was updated.",
     )
+
+    @field_validator("chunks", mode="before")
+    @classmethod
+    def _deserialize_chunks(cls, value: Any) -> Any:
+        return _decode_json_array_string(value)
 
 
 class SubmitAtlasTool(SubmitPosthookTool):

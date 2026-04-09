@@ -161,6 +161,23 @@ async def test_share_briefing_validates_briefing_xor():
 
 
 @pytest.mark.asyncio
+async def test_share_briefing_missing_inline_explains_literal_text_requirement():
+    tr = _fake_team_run()
+    register(tr)
+    try:
+        result = await _call(
+            name="bad_inline",
+            source="inline",
+            context=_ctx("T1"),
+        )
+        assert result.is_error
+        assert "literal non-empty" in result.output
+        assert "skip promotion" in result.output
+    finally:
+        unregister("T1")
+
+
+@pytest.mark.asyncio
 async def test_share_briefing_missing_artifact_ref_explains_inline_fallback():
     tr = _fake_team_run()
     register(tr)
@@ -211,3 +228,20 @@ async def test_share_briefing_unknown_team_run_id():
     )
     assert result.is_error
     assert "not registered" in result.output
+
+
+def test_share_briefing_schema_advertises_source_specific_requirements():
+    schema = _share_briefing_tool.to_api_schema()["input_schema"]
+    assert schema["required"] == ["name", "source"]
+    assert schema["oneOf"] == [
+        {
+            "title": "ArtifactBriefing",
+            "properties": {"source": {"enum": ["artifact"]}},
+            "required": ["ref"],
+        },
+        {
+            "title": "InlineBriefing",
+            "properties": {"source": {"enum": ["inline"]}},
+            "required": ["inline"],
+        },
+    ]

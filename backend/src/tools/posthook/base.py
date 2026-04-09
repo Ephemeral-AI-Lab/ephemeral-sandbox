@@ -15,11 +15,25 @@ the domain-specific ``_build_payload`` step.
 from __future__ import annotations
 
 from abc import abstractmethod
+import json
 from typing import Any
 
 from pydantic import BaseModel
 
 from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
+
+
+def _decode_json_array_string(value: Any) -> Any:
+    """Best-effort decode for serializer agents that pass JSON arrays as text."""
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text.startswith("["):
+        return value
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return value
 
 
 class SubmitPosthookTool(BaseTool):

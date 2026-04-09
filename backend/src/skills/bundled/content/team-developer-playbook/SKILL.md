@@ -127,3 +127,32 @@ When `submit_summary` is called (by the posthook), your final assistant message 
 - Using `git stash`, `git checkout`, `git restore`, or similar repo-state rewrites to escape a local mistake.
 - Starting a file-wide `daytona_codeact` rewrite after a budget warning instead of finishing one bounded fix loop.
 - Asking clarifying questions. Make a reasonable choice and document it in the summary.
+## Hard stop after budget warning
+
+- Treat any `[system:budget_warning]` as a hard transition out of exploration mode.
+- After a budget warning, do not read more files, grep more files, inspect git state, or start new debugging branches.
+- After a budget warning, the only acceptable next actions are:
+  - run one already-planned targeted validation command, then immediately `submit_summary`
+  - `submit_summary` immediately
+- Do not make new edits after a budget warning unless the edit is the already-planned minimal change you are validating in the very next command.
+- If multiple failures remain at budget warning time, summarize the exact remaining failures, likely owner files, and the narrowest next-step hypotheses instead of improvising more exploration.
+
+## Never use git to recover local mistakes
+
+- Never use `git checkout`, `git restore`, `git stash`, `git reset`, or `git clean` to recover from a bad edit.
+- This applies even when you are only reverting your own mistake.
+- If you damage a file and cannot repair it with one bounded edit in the current lane, stop and report the damage in `submit_summary`.
+- Do not inspect `git diff` or `git status` as a recovery workflow after a bad edit; rely on the file context you already have and summarize if recovery is not immediate.
+
+## Benchmark developer scope control
+
+- Treat your assignment as a leaf slice. If the task spans more than two production files or clearly contains more than one bug family, fix only the bounded slice you can justify and return the remaining evidence for replan instead of widening the task.
+- When you hit `[system:budget_warning]`, stop opening new files or launching new diagnostics. Finish the bounded edit already in flight or return a residual blocker summary.
+- Do not turn a residual benchmark lane into a cross-subsystem omnibus repair. `construction`, `json_schema`, `root_model`, `types`, and `networks` are separate slices unless the plan explicitly proved a shared owner surface.
+- If a task description bundles unrelated failures, prioritize the shared owner file first. If no shared owner file exists, stop and request replan rather than spreading across unrelated modules.
+
+## Dominant-cluster verification discipline
+
+- For a dominant benchmark cluster, the first failing example is an entry point, not proof of the full root cause. After a bounded fix, rerun the assigned cluster and confirm the remaining failure shape before declaring the slice resolved.
+- Do not treat one import error, one missing export, or one assertion message as explanation for hundreds of named targets until the post-fix rerun proves the cluster is actually green.
+- If the first fix only reveals the next failure in the same cluster, stay within the same owner slice and continue. Do not declare success until the assigned verification command is green.

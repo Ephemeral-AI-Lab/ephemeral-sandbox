@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import shlex
 from typing import Any
 from uuid import uuid4
 
@@ -157,7 +158,7 @@ async def _exec(
 ) -> str:
     """Execute a command in the sandbox via the async Daytona SDK, returning stdout."""
     sandbox = await _get_sandbox(sandbox_id)
-    wrapped_cmd = f"bash -c {repr(cmd)}"
+    wrapped_cmd = f"bash -lc {shlex.quote(cmd)}"
     try:
         response = await sandbox.process.exec(
             wrapped_cmd,
@@ -354,20 +355,44 @@ async def ensure_sweevo_test_patch(
             check=False,
         )
 
-    out = await _exec(
+    patch_status = await _exec(
         sandbox_id,
-        f"cd {repo_dir} && git apply {patch_path} 2>&1",
+        (
+            f"cd {repo_dir} && "
+            f"if git apply --check {patch_path} >/dev/null 2>&1; then "
+            f"echo APPLYABLE; "
+            f"elif git apply -R --check {patch_path} >/dev/null 2>&1; then "
+            f"echo ALREADY_APPLIED; "
+            f"else "
+            f"git apply --check {patch_path} 2>&1; "
+            f"fi"
+        ),
         check=False,
     )
-    lower = out.lower()
-    if "error" in lower and "already applied" not in lower:
+    normalized_status = patch_status.strip()
+    if normalized_status == "APPLYABLE":
+        out = await _exec(
+            sandbox_id,
+            f"cd {repo_dir} && git apply {patch_path} 2>&1",
+            check=False,
+        )
+        lower = out.lower()
+        if "error" in lower and "already applied" not in lower:
+            logger.warning(
+                "Test patch for %s had issues: %s",
+                instance.instance_id,
+                out[:300],
+            )
+        else:
+            logger.info("Ensured test patch for %s", instance.instance_id)
+    elif normalized_status == "ALREADY_APPLIED":
+        logger.info("Test patch for %s already applied", instance.instance_id)
+    else:
         logger.warning(
             "Test patch for %s had issues: %s",
             instance.instance_id,
-            out[:300],
+            patch_status[:300],
         )
-    else:
-        logger.info("Ensured test patch for %s", instance.instance_id)
 
     try:
         from code_intelligence.routing.service import dispose_code_intelligence
