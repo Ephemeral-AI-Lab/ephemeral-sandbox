@@ -779,6 +779,28 @@ def _emit_team_runtime_banner(
             f"max_shared_briefings={budgets.max_shared_briefings}"
         ),
     )
+
+
+def _emit_team_identity_banner(
+    printer: MultiAgentEventPrinter | None,
+    *,
+    team_run_id: str,
+    session_id: str,
+    sandbox_id: str,
+) -> None:
+    if printer is None:
+        return
+    printer.raw_line(
+        "team",
+        (
+            "[run_ids] "
+            f"team_run_id={team_run_id} "
+            f"session_id={session_id} "
+            f"sandbox_id={sandbox_id}"
+        ),
+    )
+
+
 def _build_team_metrics() -> dict[str, Any]:
     return {
         "agent_runs": 0,
@@ -962,6 +984,12 @@ async def run_sweevo_team(
         repo_root=repo_dir,
         event_store=event_store,
     )
+    _emit_team_identity_banner(
+        printer,
+        team_run_id=tr.id,
+        session_id=getattr(session_config, "session_id", "sweevo"),
+        sandbox_id=sandbox_id,
+    )
 
     atlas_factory = (
         _make_atlas_scheduler_factory(
@@ -1064,6 +1092,12 @@ async def resume_sweevo_team(
                 f"checkpoint={resolved_checkpoint_id or '<latest-state>'}"
             ),
         )
+    _emit_team_identity_banner(
+        printer,
+        team_run_id=tr.id,
+        session_id=getattr(session_config, "session_id", "sweevo"),
+        sandbox_id=tr.sandbox_id,
+    )
 
     atlas_factory = (
         _make_atlas_scheduler_factory(

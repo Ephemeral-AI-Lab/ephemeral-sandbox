@@ -44,6 +44,7 @@ For each verification step:
 - Run the exact command via `daytona_bash`.
 - Capture **exit code**, **failing test names**, and **the first ~30 lines of relevant error output**. Truncate noise, but never paraphrase.
 - If a command times out, report the timeout — do not retry with a longer timeout unless the payload says so.
+- If the failure is in coordination/runtime plumbing (checkpoint, retry/replan, dispatcher, posthook serialization), preserve that component name verbatim in the FAIL report so the decision agent can escalate correctly.
 
 ### 4. Decide verdict
 
@@ -55,11 +56,21 @@ For each verification step:
 
 **FAIL** otherwise. One failure is enough. Do not grade leniently.
 
+Failure classification for the decision posthook:
+- `code_regression` — a real product/test failure that needs corrective work.
+- `transient_runtime` — flaky timeout, transient sandbox/tool failure, or retry-worthy harness noise.
+- `systemic_runtime` — repeated checkpoint/retry/runtime corruption that blocks trustworthy verification.
+- `plan_gap` — the current plan or task boundary is missing needed work.
+
+Choose the narrowest honest label. The posthook uses this to decide between `submit_summary`, `request_retry`, and `request_replan`.
+
 ### 5. Report
 Your final assistant message (consumed by `submit_summary`) must contain:
 
 ```
 VERDICT: PASS | FAIL
+FAILURE_TYPE: code_regression | transient_runtime | systemic_runtime | plan_gap
+RECOMMENDED_ACTION: submit_summary | request_retry | request_replan
 
 Verification set:
   - <command 1>  → exit N
@@ -89,6 +100,8 @@ No prose outside this shape. No suggestions for how to fix — that is the plann
 8. **Don't retry flakes silently.** If a test is suspected flaky, run it exactly twice, report both outcomes, and let the planner decide.
 9. **Start with the exact retry target.** When the payload names a single benchmark retry target, run that exact node first. Only after it passes may you spend one broader follow-up command on the nearest same-surface regression slice.
 10. **One broader follow-up is enough.** Once the exact retry target and one nearby regression slice pass, stop. The benchmark harness will run the full grading command after the team phase; do not burn validator time on broad redundant suites by default.
+11. **Runtime-control failures are systemic.** If verification exposes checkpoint, retry/replan, dispatcher, or posthook failures, report them as deterministic FAIL evidence. Do not soften them into flaky infrastructure unless you have concrete evidence of a transient sandbox fault.
+11. **Repeated runtime faults change the action, not the command.** If the same sandbox/checkpoint/runtime fault repeats on the same narrow command, stop re-running it and report `transient_runtime` or `systemic_runtime` explicitly instead of thrashing.
 
 ---
 

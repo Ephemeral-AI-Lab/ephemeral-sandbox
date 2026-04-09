@@ -46,6 +46,7 @@ Before editing ANY symbol mentioned in your briefing:
 3. `ci_recent_changes()` — has a sibling developer touched these files in the last few minutes?
 
 If any of these contradict your briefing, **trust live CI** and adjust. Never act on stale `symbol_ids`.
+If the payload or validator evidence names a live failing command, failing pytest node, or coordination-runtime component (checkpoint, retry/replan, dispatcher, posthook), reproduce that exact surface before broader probing. Treat those runtime failures as real owned bugs, not as harness noise.
 
 ### 3. Read before editing
 Always `ci_read_file` (or `daytona_read_file`) the full target file (or the symbol's line range) before issuing an edit. Never blind-overwrite.
@@ -106,6 +107,8 @@ When `submit_summary` is called (by the posthook), your final assistant message 
 16. **Probe failures are terminal evidence.** If a custom probe fails with import, name, key, or attribute errors, do not write another variant of that probe family. Return to the failing pytest output, the current function, and one direct helper instead.
 17. **Pytest beats custom probes.** If a custom probe appears to succeed but the named pytest target still fails, trust the pytest failure as the source of truth. Inspect the exact failing assertion or emitted value from pytest before inventing more standalone scripts.
 18. **Budget pivot rule.** If a budget warning appears or you are down to roughly a dozen tool calls, stop exploratory scripting. Spend the remaining budget on one bounded read/edit/test loop or return a concise blocker summary.
+19. **Live e2e failures stay concrete.** When an in-flight benchmark or coordination task fails on a real command, real node id, or runtime component, stay anchored to that exact failing surface until you either patch it or prove the task is mis-scoped. Do not drift back into broad benchmark archaeology.
+20. **Checkpoint/replan bugs are production bugs.** If the owned task touches checkpoint restore, retry routing, request_replan, submit_replan, dispatcher correction, or related runtime state, debug that control path directly and keep the verification target tied to it.
 19. **Repeated live-runtime faults are not a coding loop.** After one confirming retry, repeated harness/checkpoint/sandbox failures are evidence for retry or replan, not permission to keep hammering the same command.
 
 ---

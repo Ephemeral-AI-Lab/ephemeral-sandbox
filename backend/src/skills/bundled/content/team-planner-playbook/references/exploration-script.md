@@ -56,6 +56,8 @@ Produce a structural ownership map first, then assign developer and validator wo
    - the likely fix or investigation question
    - the direct validation command or test target
    Sufficiency, not wave count, is the stop condition. Stop after the first wave if ownership is clear; launch another wave only if the existing evidence is still incomplete.
+   If the only remaining question is the exact runtime mismatch inside an already mapped owner cluster, stop exploring and hand that cluster to a developer or validator with the exact failing test or command.
+   On benchmark-style root turns, treat two scout waves or roughly 25 tool calls as the default ceiling. A third wave needs a genuinely new disjoint owner cluster, not a deeper dive into the same mapped cluster.
 
 ## Heuristics
 
@@ -67,6 +69,7 @@ Produce a structural ownership map first, then assign developer and validator wo
 - Parallel scouts are background work, not foreground joins. If another ownership question remains, resolve that or do a non-blocking progress check before any blocking wait.
 - While scouts are running, the planner may keep working other uncovered branches, reuse atlas/shared briefings, reason about task boundaries, and decide whether another disjoint scout wave is warranted.
 - Launch another scout wave only when the current briefs leave a real disjoint ownership gap or expose disjoint `suggested_subdivisions`. Do not treat first-wave completion as an automatic stop, and do not treat it as automatic permission for more scouts either.
+- If a `WAIT_REQUIRES_PROGRESS_CHECK` error fires, inspect once and either finish the plan or wait on the single remaining blocker. Do not use that error as permission for a fresh deep-dive scout wave over the same benchmark surface.
 - If a whole-set wait times out, use completed scout returns, cancel stale low-value scouts when appropriate, or wait only on the remaining blocker. Do not immediately reissue another `wait_for_background_task(task_id="all")` across the same batch.
 - If a budget warning appears, or you are down to only a few tool calls, stop exploring and emit the final JSON plan immediately.
 - If a tool call is rejected because the planner budget is exhausted, treat that rejection itself as the finalization trigger and emit the JSON plan immediately.
@@ -86,6 +89,7 @@ Produce a structural ownership map first, then assign developer and validator wo
 - Launching a scout and then making `wait_for_background_task` the very next action while other ownership branches or planning work remain
 - Treating the first scout wave as a mandatory stopping point even though the returned briefs still leave disjoint owner gaps unresolved
 - Treating the first scout wave as automatic permission for more scouts even though the plan is already ownership-complete
+- Treating "I need to understand the actual failures better" as a reason for another planner-side scout after the owner cluster is already known
 - Reissuing `wait_for_background_task(task_id="all")` after a timeout instead of using completed briefs or canceling the stale scout
 - Treating the planner like a file reader instead of using scout for file contents
 - Responding to a budget or tool-limit warning with prose instead of the final JSON plan
