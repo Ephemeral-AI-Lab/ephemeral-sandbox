@@ -86,8 +86,10 @@ def test_planner_runtime_prompt_avoids_timeout_and_budget_instructions():
     assert "timeout_seconds" not in prompt
     assert "hard stop" not in prompt
     assert "switch to scout-led exploration" in prompt
+    assert "Treat planner-side ci_read_file as seed-only" in prompt
     assert "expandable child planner" in prompt
     assert "at most one additional direct code read" in prompt
+    assert "exception, not a budget to spend by default" in prompt
     assert "Once you say or infer that you have enough context" in prompt
 
 
