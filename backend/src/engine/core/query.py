@@ -277,6 +277,10 @@ def _build_background_reminder(
                 f"Running for {elapsed:.0f}s\n"
                 f"No new output in the last {since:.0f}s"
             )
+        text += (
+            "\nKeep working on any other ready analysis or tool tasks first. "
+            "Only wait when this background task is the remaining blocker."
+        )
         content.append(
             BackgroundTaskStateBlock(
                 task_id=t.task_id,
@@ -367,6 +371,8 @@ def _launch_background_tool(
             f"check_background_progress(task_id=\"{bg_alias}\"), "
             f"wait_for_background_task(task_id=\"{bg_alias}\"), or "
             f"cancel_background_task(task_id=\"{bg_alias}\"). "
+            f"Keep using the current turn on other ready work first; do not "
+            f"wait immediately unless this task is the only blocker left. "
             f"A [BACKGROUND {bg_alias} COMPLETED] message will arrive automatically."
         ),
         is_error=False,

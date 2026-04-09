@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from benchmarks.sweevo.models import (
@@ -37,6 +38,34 @@ def _parse_test_list(raw: Any) -> list[str]:
     return []
 
 
+def _load_cached_arrow_rows(source: str, split: str) -> tuple[dict[str, Any], ...] | None:
+    """Return rows from the local Hugging Face Arrow cache when available."""
+    try:
+        from datasets import Dataset
+        from datasets.config import HF_DATASETS_CACHE
+    except Exception:
+        return None
+
+    cache_root = Path(HF_DATASETS_CACHE)
+    if not cache_root.exists():
+        return None
+
+    source_key = source.replace("/", "___").lower()
+    candidates: list[Path] = []
+    for entry in cache_root.iterdir():
+        if not entry.is_dir() or entry.name.lower() != source_key:
+            continue
+        candidates.extend(path for path in entry.rglob(f"*{split}.arrow") if path.is_file())
+
+    if not candidates:
+        return None
+
+    arrow_path = max(candidates, key=lambda path: path.stat().st_mtime)
+    ds = Dataset.from_file(str(arrow_path))
+    logger.info("Loaded SWE-EVO split %s from cached Arrow dataset %s", split, arrow_path)
+    return tuple(dict(row) for row in ds)
+
+
 @functools.lru_cache(maxsize=4)
 def _load_sweevo_rows(source: str, split: str) -> tuple[dict[str, Any], ...]:
     """Cache-friendly loader that returns raw rows as a hashable tuple."""
@@ -45,11 +74,27 @@ def _load_sweevo_rows(source: str, split: str) -> tuple[dict[str, Any], ...]:
 
         df = pd.read_parquet(source)
         return tuple(df.to_dict("records"))
-    else:
-        from datasets import load_dataset
 
+    cached_rows = _load_cached_arrow_rows(source, split)
+    if cached_rows is not None:
+        return cached_rows
+
+    from datasets import load_dataset
+
+    try:
         ds = load_dataset(source, split=split)
         return tuple(dict(row) for row in ds)
+    except Exception:
+        cached_rows = _load_cached_arrow_rows(source, split)
+        if cached_rows is not None:
+            logger.warning(
+                "Falling back to cached SWE-EVO dataset after remote load failure for %s[%s]",
+                source,
+                split,
+                exc_info=True,
+            )
+            return cached_rows
+        raise
 
 
 def load_sweevo_dataset(

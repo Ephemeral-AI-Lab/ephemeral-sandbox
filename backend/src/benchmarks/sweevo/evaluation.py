@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 
@@ -88,8 +89,7 @@ async def _run_test_set(
     if not test_ids:
         return 0
 
-    test_args = " ".join(f'"{tid}"' for tid in test_ids)
-    cmd = f'{_CONDA_ACTIVATE} && cd {repo_dir} && {test_cmds} {test_args} 2>&1; echo "EXIT_CODE=$?"'
+    cmd = _build_test_set_command(repo_dir, test_ids, test_cmds)
 
     try:
         output = await _exec(sandbox_id, cmd, timeout=timeout, check=False)
@@ -102,6 +102,20 @@ async def _run_test_set(
 
     passed = _parse_pytest_passed_count(output, len(test_ids))
     return passed
+
+
+def _build_test_set_command(repo_dir: str, test_ids: list[str], test_cmds: str) -> str:
+    """Build a shell command that replays pytest IDs without shell-quoting them."""
+    script = (
+        "import shlex, subprocess\n"
+        f"test_cmd = {json.dumps(test_cmds)}\n"
+        f"test_ids = {json.dumps(test_ids)}\n"
+        "argv = shlex.split(test_cmd) + test_ids\n"
+        "proc = subprocess.run(argv, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)\n"
+        "print(proc.stdout, end='')\n"
+        "print(f'EXIT_CODE={proc.returncode}')\n"
+    )
+    return f"{_CONDA_ACTIVATE} && cd {repo_dir} && python - <<'PY'\n{script}PY"
 
 
 def _parse_pytest_passed_count(output: str, total: int) -> int:

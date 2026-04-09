@@ -103,6 +103,20 @@ def test_phase_a_valid_plan(monkeypatch):
     assert validate_plan_phase_a(plan) == []
 
 
+def test_phase_a_rejects_unknown_dep_when_external_scope_is_known(monkeypatch):
+    _patch_registry(monkeypatch, {"developer", "validator"})
+    plan = Plan(
+        items=[
+            WorkItemSpec(agent_name="developer", local_id="w1"),
+            WorkItemSpec(agent_name="validator", local_id="w2", deps=["missing_dep"]),
+        ]
+    )
+
+    issues = validate_plan_phase_a(plan, known_external_deps={"EXISTING_WORK_ITEM"})
+
+    assert any("unknown dep reference 'missing_dep'" in i["msg"] for i in issues)
+
+
 # ---------- Phase B ----------------------------------------------------------
 
 

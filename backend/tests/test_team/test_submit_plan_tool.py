@@ -100,3 +100,34 @@ async def test_max_plan_size_respects_metadata_override():
     res = await tool.execute(args, ctx)
     assert res.is_error
     assert "max_plan_size" in res.output
+
+
+@pytest.mark.asyncio
+async def test_submit_plan_rejects_unknown_dep_against_live_team_run(monkeypatch):
+    tool = SubmitPlanTool()
+    ctx = _ctx()
+    ctx.metadata["team_run_id"] = "TR1"
+
+    fake_team_run = type(
+        "FakeTeamRun",
+        (),
+        {"dispatcher": type("FakeDispatcher", (), {"graph": {"ROOT": object()}})()},
+    )()
+
+    from team.runtime import registry as runtime_registry
+
+    monkeypatch.setattr(runtime_registry, "get", lambda team_run_id: fake_team_run if team_run_id == "TR1" else None)
+
+    args = SubmitPlanInput.model_validate(
+        {
+            "items": [
+                {"agent_name": "developer", "local_id": "dev_alpha"},
+                {"agent_name": "validator", "local_id": "val", "deps": ["dev1"]},
+            ]
+        }
+    )
+
+    res = await tool.execute(args, ctx)
+
+    assert res.is_error
+    assert "unknown dep reference 'dev1'" in res.output

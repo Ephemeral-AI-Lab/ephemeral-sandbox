@@ -322,6 +322,8 @@ async def test_background_scout_trace_is_recorded_after_launch_not_before(tmp_pa
     assert not result.is_error
     assert started is not None
     assert rejected is None
+    assert "Keep using the current turn on other ready work first" in result.content
+    assert "do not wait immediately unless this task is the only blocker left" in result.content
 
     completed = await manager.wait_any(timeout=1.0)
     assert completed is not None

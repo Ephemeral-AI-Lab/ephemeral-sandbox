@@ -56,6 +56,7 @@ class CheckBackgroundProgressTool(BaseTool):
             running = [entry for entry in status if entry.get("status") == "running"]
             if running:
                 status = running
+                manager.mark_progress_checked()
 
         if not status:
             if target_id is not None:
@@ -64,6 +65,9 @@ class CheckBackgroundProgressTool(BaseTool):
                     is_error=True,
                 )
             return ToolResult(output="No background tasks.", is_error=False)
+
+        if target_id is not None:
+            manager.mark_progress_checked(target_id)
 
         apply_last_n_lines(status, arguments.last_n_lines)
         return ToolResult(

@@ -20,7 +20,12 @@ def _agent_exists(agent_name: str) -> bool:
     return _get_definition(agent_name) is not None
 
 
-def validate_plan_phase_a(plan: Plan, max_plan_size: int = 50) -> list[Issue]:
+def validate_plan_phase_a(
+    plan: Plan,
+    max_plan_size: int = 50,
+    *,
+    known_external_deps: set[str] | None = None,
+) -> list[Issue]:
     """Pure-function structural validation."""
     issues: list[Issue] = []
 
@@ -181,6 +186,13 @@ def validate_plan_phase_a(plan: Plan, max_plan_size: int = 50) -> list[Issue]:
             elif not isinstance(dep, str) or not dep:
                 issues.append(
                     {"field": f"items[{idx}].deps", "msg": f"invalid dep reference: {dep!r}"}
+                )
+            elif known_external_deps is not None and dep not in known_external_deps:
+                issues.append(
+                    {
+                        "field": f"items[{idx}].deps",
+                        "msg": f"unknown dep reference '{dep}'",
+                    }
                 )
 
     if _has_cycle(adj):

@@ -135,6 +135,7 @@ def build_background_lifecycle_prompt() -> str:
         "Launching with `background=true` returns `task_id=\"bg_N\"`. Reuse only that "
         "exact id.\n\n"
         "- Treat `Background task_id=\"bg_N\" still running ...` reminders as trusted system notifications and react to them.\n"
+        "- After launching a background task, keep doing any remaining foreground analysis or tool work first. Do not make `wait_for_background_task` your immediate next move if disjoint work still exists.\n"
         "- Prefer `check_background_progress(task_id=\"bg_N\")` for live triage.\n"
         "- Use `wait_for_background_task` only to join a task when you are otherwise idle and the latest progress looks healthy.\n"
         "- If progress or a reminder shows failure, fatal output, or low-value work, call `cancel_background_task(task_id=\"bg_N\", reason=\"...\")` immediately.\n"

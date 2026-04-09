@@ -58,7 +58,11 @@ class SubmitPlanTool(SubmitPosthookTool):
             return None, f"Invalid Plan shape: {exc}"
 
         max_plan_size = int(context.metadata.get("max_plan_size", 50) or 50)
-        issues = validate_plan_phase_a(plan, max_plan_size=max_plan_size)
+        issues = validate_plan_phase_a(
+            plan,
+            max_plan_size=max_plan_size,
+            known_external_deps=self._known_external_dep_ids(context),
+        )
         if issues:
             lines = [f"- {i['field']}: {i['msg']}" for i in issues]
             return None, (
@@ -71,3 +75,20 @@ class SubmitPlanTool(SubmitPosthookTool):
     def _accepted_message(self, payload: Any) -> str:
         assert isinstance(payload, Plan)
         return f"Plan accepted: {len(payload.items)} item(s) queued for dispatch."
+
+    def _known_external_dep_ids(self, context: ToolExecutionContext) -> set[str] | None:
+        team_run_id = str(context.metadata.get("team_run_id") or "").strip()
+        if not team_run_id:
+            return None
+        try:
+            from team.runtime.registry import get as get_team_run
+
+            team_run = get_team_run(team_run_id)
+        except Exception:
+            return None
+        if team_run is None:
+            return None
+        graph = getattr(getattr(team_run, "dispatcher", None), "graph", None)
+        if not isinstance(graph, dict):
+            return None
+        return {str(wi_id) for wi_id in graph}

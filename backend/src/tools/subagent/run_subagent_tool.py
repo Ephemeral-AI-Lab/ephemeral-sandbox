@@ -245,7 +245,13 @@ async def _run_posthook_if_needed(
         latest_user_prompt=final_text,
         sandbox_id=sandbox_id,
     )
-    posthook_agent.query_context.tool_metadata = base_metadata.metadata.copy()
+    posthook_meta = getattr(posthook_agent.query_context, "tool_metadata", None)
+    if posthook_meta is None or not hasattr(posthook_meta, "update"):
+        posthook_meta = base_metadata.metadata.copy()
+    else:
+        posthook_meta = posthook_meta.copy() if hasattr(posthook_meta, "copy") else posthook_meta
+        posthook_meta.update(base_metadata.metadata)
+    posthook_agent.query_context.tool_metadata = posthook_meta
     posthook_agent.query_context.tool_metadata.agent_name = posthook_def.name
     posthook_agent.query_context.tool_metadata["posthook_metadata_key"] = cfg.metadata_key
 

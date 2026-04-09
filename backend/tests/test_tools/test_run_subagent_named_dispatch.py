@@ -316,6 +316,41 @@ async def test_envelope_kind_raw_when_no_posthook_submission(monkeypatch):
     assert env["payload"]["final_text"] == "hello world"
 
 
+@pytest.mark.asyncio
+async def test_configured_posthook_runs_when_work_phase_only_returns_raw_text(monkeypatch):
+    work_stub, _ = _make_stub_agent(
+        submitted=None,
+        final_text='{"summary":"scout report","artifact":{"target_paths":["src/auth"],"files":[]}}',
+    )
+    serializer_stub, captured = _make_stub_agent(
+        submitted=SubmittedSummary(
+            summary="scout report",
+            artifact={"target_paths": ["src/auth"], "files": []},
+        ),
+        final_text="submitted",
+    )
+
+    def _fake_spawn(*args, **kwargs):
+        agent_name = kwargs["agent_def"].name
+        if agent_name == "submit_summary_agent":
+            return serializer_stub
+        return work_stub
+
+    monkeypatch.setattr("engine.runtime.agent.spawn_agent", _fake_spawn, raising=True)
+
+    res = await run_subagent.execute(
+        run_subagent.input_model(agent_name="scout", input={"target_paths": ["src/auth"]}),
+        _ctx(),
+    )
+
+    assert not res.is_error
+    env = json.loads(res.output)
+    assert env["kind"] == "brief"
+    assert env["summary"] == "scout report"
+    assert env["payload"]["target_paths"] == ["src/auth"]
+    assert captured["prompt"].startswith("{")
+
+
 # ---------- shared_briefings inheritance --------------------------------------
 
 

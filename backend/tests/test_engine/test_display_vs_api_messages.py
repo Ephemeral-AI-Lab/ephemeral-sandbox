@@ -211,6 +211,8 @@ class TestBuildBackgroundReminder:
         assert "bg_1" in reminder_text
         assert "long sleep" in reminder_text
         assert "halfway there" in reminder_text
+        assert "Keep working on any other ready analysis or tool tasks first" in reminder_text
+        assert "Only wait when this background task is the remaining blocker" in reminder_text
         assert msg.background_task_states[0].status == "running"
         api_param = msg.to_api_param()
         assert "<background-task" in api_param["content"][0]["text"]
@@ -220,6 +222,9 @@ class TestBuildBackgroundReminder:
         assert msg2 is not None
         assert "halfway there" not in msg2.background_task_state_text
         assert "No new output" in msg2.background_task_state_text
+        assert "Only wait when this background task is the remaining blocker" in (
+            msg2.background_task_state_text
+        )
 
         await mgr.cancel_all()
 

@@ -894,3 +894,159 @@ async def test_check_progress_unknown_id_is_error() -> None:
     result = await tool.execute(args, ctx)
     assert result.is_error is True
     assert "ghost" in result.output
+
+
+async def test_wait_tool_rejects_immediate_join_on_fresh_subagent() -> None:
+    from tools.builtins.background.check_background_progress import (
+        CheckBackgroundProgressInput,
+        CheckBackgroundProgressTool,
+    )
+    from tools.builtins.background.wait_for_background_task import (
+        WaitForBackgroundTaskInput,
+        WaitForBackgroundTaskTool,
+    )
+    from tools.core.base import ToolExecutionContext
+
+    mgr = BackgroundTaskManager()
+    mgr.launch(
+        task_id="bg_1",
+        tool_name="run_subagent",
+        tool_input={"agent_name": "scout"},
+        coro=_make_tool_coro(delay=10),
+        task_type="subagent",
+    )
+
+    check_tool = CheckBackgroundProgressTool()
+    tool = WaitForBackgroundTaskTool()
+    ctx = ToolExecutionContext(cwd="/tmp", metadata={"background_task_manager": mgr})
+    check_result = await check_tool.execute(CheckBackgroundProgressInput(task_id="bg_1"), ctx)
+    assert check_result.is_error is False
+
+    args = WaitForBackgroundTaskInput(task_id="bg_1", timeout=5)
+    result = await tool.execute(args, ctx)
+    assert result.is_error is True
+    assert "WAIT_TOO_EARLY" in result.output
+
+    await mgr.cancel("bg_1")
+
+
+async def test_wait_tool_rejects_wait_all_for_only_fresh_subagents() -> None:
+    from tools.builtins.background.check_background_progress import (
+        CheckBackgroundProgressInput,
+        CheckBackgroundProgressTool,
+    )
+    from tools.builtins.background.wait_for_background_task import (
+        WaitForBackgroundTaskInput,
+        WaitForBackgroundTaskTool,
+    )
+    from tools.core.base import ToolExecutionContext
+
+    mgr = BackgroundTaskManager()
+    mgr.launch(
+        task_id="bg_1",
+        tool_name="run_subagent",
+        tool_input={"agent_name": "scout"},
+        coro=_make_tool_coro(delay=10),
+        task_type="subagent",
+    )
+    mgr.launch(
+        task_id="bg_2",
+        tool_name="run_subagent",
+        tool_input={"agent_name": "scout"},
+        coro=_make_tool_coro(delay=10),
+        task_type="subagent",
+    )
+
+    check_tool = CheckBackgroundProgressTool()
+    tool = WaitForBackgroundTaskTool()
+    ctx = ToolExecutionContext(cwd="/tmp", metadata={"background_task_manager": mgr})
+    check_result = await check_tool.execute(CheckBackgroundProgressInput(task_id="all"), ctx)
+    assert check_result.is_error is False
+
+    args = WaitForBackgroundTaskInput(task_id="all", timeout=5)
+    result = await tool.execute(args, ctx)
+    assert result.is_error is True
+    assert "WAIT_TOO_EARLY" in result.output
+
+    await mgr.cancel_all()
+
+
+async def test_wait_tool_requires_progress_check_before_joining_subagent() -> None:
+    from tools.builtins.background.wait_for_background_task import (
+        WaitForBackgroundTaskInput,
+        WaitForBackgroundTaskTool,
+    )
+    from tools.core.base import ToolExecutionContext
+
+    mgr = BackgroundTaskManager()
+    mgr.launch(
+        task_id="bg_1",
+        tool_name="run_subagent",
+        tool_input={"agent_name": "scout"},
+        coro=_make_tool_coro(delay=10),
+        task_type="subagent",
+    )
+
+    tool = WaitForBackgroundTaskTool()
+    ctx = ToolExecutionContext(cwd="/tmp", metadata={"background_task_manager": mgr})
+
+    result = await tool.execute(WaitForBackgroundTaskInput(task_id="bg_1", timeout=5), ctx)
+    assert result.is_error is True
+    assert "WAIT_REQUIRES_PROGRESS_CHECK" in result.output
+
+    await mgr.cancel("bg_1")
+
+
+async def test_check_progress_marks_subagent_as_inspected() -> None:
+    from tools.builtins.background.check_background_progress import (
+        CheckBackgroundProgressInput,
+        CheckBackgroundProgressTool,
+    )
+    from tools.core.base import ToolExecutionContext
+
+    mgr = BackgroundTaskManager()
+    mgr.launch(
+        task_id="bg_1",
+        tool_name="run_subagent",
+        tool_input={"agent_name": "scout"},
+        coro=_make_tool_coro(delay=10),
+        task_type="subagent",
+    )
+
+    tool = CheckBackgroundProgressTool()
+    ctx = ToolExecutionContext(cwd="/tmp", metadata={"background_task_manager": mgr})
+    result = await tool.execute(CheckBackgroundProgressInput(task_id="bg_1"), ctx)
+
+    assert result.is_error is False
+    tracked = mgr.get_task("bg_1")
+    assert tracked is not None
+    assert tracked.progress_checks == 1
+
+    await mgr.cancel("bg_1")
+
+
+async def test_wait_tool_allows_immediate_join_for_non_subagent_task() -> None:
+    from tools.builtins.background.wait_for_background_task import (
+        WaitForBackgroundTaskInput,
+        WaitForBackgroundTaskTool,
+    )
+    from tools.core.base import ToolExecutionContext
+
+    mgr = BackgroundTaskManager()
+    mgr.launch(
+        task_id="bg_1",
+        tool_name="daytona_bash",
+        tool_input={"command": "sleep 1"},
+        coro=_make_tool_coro(delay=10),
+        task_type="agent",
+    )
+
+    tool = WaitForBackgroundTaskTool()
+    args = WaitForBackgroundTaskInput(task_id="bg_1", timeout=1)
+    ctx = ToolExecutionContext(cwd="/tmp", metadata={"background_task_manager": mgr})
+
+    result = await tool.execute(args, ctx)
+    assert result.is_error is False
+    assert "WAIT_TOO_EARLY" not in result.output
+
+    await mgr.cancel("bg_1")

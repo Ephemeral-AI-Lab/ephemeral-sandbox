@@ -270,7 +270,7 @@ def _build_agent_system_prompt(
 
     skill_preamble = _build_declared_skill_preamble(config, agent_def)
     if skill_preamble:
-        return f"{base}\n\n{skill_preamble}"
+        return f"{skill_preamble}\n\n{base}"
     return base
 
 
@@ -305,8 +305,9 @@ def _build_declared_skill_preamble(
         return ""
     return (
         "# Preloaded Skills\n\n"
-        "These declared skills are already loaded for this run. Follow them from turn 1; "
-        "do not spend a turn calling `load_skill` unless you need an additional reference.\n\n"
+        "Read and follow these declared skills first. They are the authoritative task workflow for "
+        "this run. Do not spend a turn calling `load_skill` unless you need an additional "
+        "reference beyond what is already preloaded.\n\n"
         + "\n\n".join(loaded)
     )
 

@@ -8,16 +8,17 @@ import pytest
 
 from benchmarks.sweevo import team_runner as sweevo_team_runner
 from benchmarks.sweevo.team_runner import (
-    _build_sweevo_developer_runtime_prompt,
+    _derive_atlas_parallelism,
     _enforce_validation_evidence,
-    _build_sweevo_planner_runtime_prompt,
-    _build_sweevo_validator_runtime_prompt,
+    _build_agent_overrides,
+    _build_root_prompt,
     _derive_planner_runtime_limits,
     _emit_dispatcher_dag,
     _make_context_builders,
     _make_runner,
 )
 from message import ConversationMessage, TextBlock, ToolUseBlock
+from team.builtins import DEVELOPER, TEAM_PLANNER, VALIDATOR
 from team.models import WorkItem, WorkItemKind, WorkItemStatus
 from tools.core.runtime import ExecutionMetadata
 
@@ -69,7 +70,32 @@ def test_query_ctx_seeds_repo_root_for_daytona_and_ci():
     assert ctx.tool_metadata["ci_workspace_root"] == "/testbed"
 
 
-def test_planner_runtime_prompt_avoids_timeout_and_budget_instructions():
+def test_root_prompt_points_to_skill_owned_workflow_policy():
+    instance = SimpleNamespace(
+        repo="pydantic/pydantic",
+        instance_id="pydantic__pydantic_v2.6.0b1_v2.6.0",
+        instance_id_swe="pydantic__pydantic_v2.6.0b1_v2.6.0",
+        base_commit="deadbeef",
+        start_version="2.6.0b1",
+        end_version="2.6.0",
+        docker_image="example/image:latest",
+        test_cmds="pytest -q",
+        problem_statement="- bullet\n" * 80,
+        fail_to_pass=["tests/test_foo.py::test_bar"],
+        pass_to_pass=["tests/test_foo.py::test_existing"],
+    )
+
+    prompt = _build_root_prompt(instance, "/repo")
+
+    assert "The SWE-EVO test patch has already been applied inside the sandbox" in prompt
+    assert "release notes are intentionally omitted from the root planner prompt" in prompt
+    assert "Stable SWE-EVO workflow policy lives in the declared skills" in prompt
+    assert "Recommended first-ready frontier cap" in prompt
+    assert "must not inspect dependency/version metadata" in prompt
+
+
+def test_agent_overrides_attach_sweevo_skills_without_prompt_duplication():
+    sweevo_team_runner._register_team_builtins()
     instance = SimpleNamespace(
         repo="pydantic/pydantic",
         instance_id="pydantic__pydantic_v2.6.0b1_v2.6.0",
@@ -83,45 +109,15 @@ def test_planner_runtime_prompt_avoids_timeout_and_budget_instructions():
         pass_to_pass=["tests/test_foo.py::test_existing"],
     )
 
-    prompt = _build_sweevo_planner_runtime_prompt(instance)
+    overrides = _build_agent_overrides(instance)
 
-    assert "timeout_seconds" not in prompt
-    assert "hard stop" not in prompt
-    assert "switch to scout-led exploration" in prompt
-    assert "run the failing test before planning" in prompt
-    assert "planner does not have ci_read_file" in prompt
-    assert "expandable child planner" in prompt
-    assert "the next exploration step must be a bounded scout" in prompt
-    assert "planner-side symbol or reference probing" in prompt
-    assert "terminal evidence" in prompt
-    assert "Do not queue a ready expandable child planner" in prompt
-    assert "one likely owner file and one concrete reproduction target" in prompt
-    assert "Once you say or infer that you have enough context" in prompt
-    assert "do not write developer payload sections titled `Root Cause`" in prompt
-    assert "a single-file scout is allowed" in prompt
-    assert "do not resume planner-side CI queries driven only by changelog prose" in prompt
-
-
-def test_developer_runtime_prompt_limits_post_failure_probes():
-    prompt = _build_sweevo_developer_runtime_prompt()
-
-    assert "at most one ad hoc python/bash probe" in prompt
-    assert "trust the pytest failure as the source of truth" in prompt
-    assert "already green on the first reproduction" in prompt
-    assert "Once a budget warning appears" in prompt
-    assert "do not apply it blindly" in prompt
-
-
-def test_validator_runtime_prompt_prefers_exact_retry_target_first():
-    instance = SimpleNamespace(
-        fail_to_pass=["tests/test_foo.py::test_bar"],
-    )
-
-    prompt = _build_sweevo_validator_runtime_prompt(instance)
-
-    assert "Start with the exact named retry target" in prompt
-    assert "at most one broader follow-up verification command" in prompt
-    assert "benchmark harness will run the full grading command after the team phase" in prompt
+    assert "system_prompt" not in overrides[TEAM_PLANNER]
+    assert "sweevo-project-context" in overrides[TEAM_PLANNER]["skills"]
+    assert "system_prompt" not in overrides[DEVELOPER]
+    assert "sweevo-project-context" in overrides[DEVELOPER]["skills"]
+    assert "system_prompt" not in overrides[VALIDATOR]
+    assert "sweevo-project-context" in overrides[VALIDATOR]["skills"]
+    assert "verification-replan" in overrides[VALIDATOR]["skills"]
 
 
 def test_planner_runtime_limits_scale_to_warn_before_thrashing():
@@ -138,8 +134,8 @@ def test_planner_runtime_limits_scale_to_warn_before_thrashing():
         problem_statement="- bullet\n" * 80,
     )
     assert _derive_planner_runtime_limits(large_single_target) == {
-        "tool_call_limit": 16,
-        "max_turns": 64,
+        "tool_call_limit": 14,
+        "max_turns": 56,
     }
 
     medium_multi_target = SimpleNamespace(
@@ -155,9 +151,26 @@ def test_planner_runtime_limits_scale_to_warn_before_thrashing():
         problem_statement="- bullet\n" * 10,
     )
     assert _derive_planner_runtime_limits(medium_multi_target) == {
-        "tool_call_limit": 22,
-        "max_turns": 88,
+        "tool_call_limit": 16,
+        "max_turns": 64,
     }
+
+
+def test_sweevo_disables_atlas_maintenance_parallelism():
+    instance = SimpleNamespace(
+        fail_to_pass=["a", "b"],
+        problem_statement="- bullet\n" * 10,
+        repo="example/repo",
+        instance_id="atlas-off",
+        instance_id_swe="atlas-off",
+        start_version="1.0.0",
+        end_version="1.0.1",
+        docker_image="example/image:latest",
+        test_cmds="pytest -q",
+        pass_to_pass=[],
+    )
+
+    assert _derive_atlas_parallelism(instance, num_executors=8) == 0
 
 
 def test_enforce_validation_evidence_requires_daytona_bash():

@@ -134,19 +134,19 @@ def _derive_sweevo_budgets(instance: SWEEvoInstance) -> BudgetConfig:
 
 
 def _derive_atlas_parallelism(instance: SWEEvoInstance, *, num_executors: int) -> int:
-    if len(instance.fail_to_pass) <= 1:
-        return 1
-    size = str(summarize_sweevo_instance(instance).get("size") or "medium")
-    cap = 1 if size == "small" else 2 if size == "medium" else 3
-    return max(1, min(cap, max(1, num_executors // 4)))
+    del instance, num_executors
+    # SWE-EVO runs are dominated by benchmark-critical planner/developer/validator
+    # work. Atlas maintenance currently adds substantial background churn and token
+    # burn without helping the grading path reliably enough to justify it.
+    return 0
 
 
 def _derive_planner_runtime_limits(instance: SWEEvoInstance) -> dict[str, int]:
     """Return benchmark-specific planner limits that warn before thrashing."""
     size = str(summarize_sweevo_instance(instance).get("size") or "medium")
-    base_limit = {"small": 12, "medium": 14, "large": 16}.get(size, 14)
+    base_limit = {"small": 10, "medium": 12, "large": 14}.get(size, 12)
     extra_targets = max(0, len(instance.fail_to_pass) - 1)
-    tool_call_limit = min(28, base_limit + min(12, extra_targets * 4))
+    tool_call_limit = min(20, base_limit + min(6, extra_targets * 2))
     max_turns = max(48, tool_call_limit * 4)
     return {
         "tool_call_limit": tool_call_limit,
@@ -172,30 +172,35 @@ def _build_root_prompt(instance: SWEEvoInstance, repo_dir: str) -> str:
         f"{json.dumps(instance.fail_to_pass, indent=2)}\n\n"
         f"## Pass-To-Pass Guardrail\n"
         f"{json.dumps(instance.pass_to_pass, indent=2)}\n\n"
-        f"## Context (problem statement / release notes)\n"
-        f"This section is background context only. It may mention release notes or changelog entries; "
-        f"do not treat it as the implementation checklist. The grading command and test targets above define success.\n"
-        f"{instance.problem_statement}\n\n"
+        f"## Background Context\n"
+        f"The raw problem statement / release notes are intentionally omitted from the root planner "
+        f"prompt because they are low-signal for decomposition on SWE-EVO. Use the live test targets, "
+        f"current source ownership, and grading command above as the source of truth.\n\n"
         f"## Grading command\n"
         f"After your team finishes, this exact command will be executed in the sandbox "
         f"to grade the work:\n```\n{instance.test_cmds}\n```\n\n"
-        f"## Planning Guidance\n"
+        f"## Instance Notes\n"
         f"- Instance size: {size} ({summary.get('bullet_count', 0)} changelog bullets, "
         f"{len(instance.fail_to_pass)} fail-to-pass target(s)).\n"
-        f"- Keep the first ready frontier to at most {frontier_cap} benchmark-critical "
-        f"implementation lane(s) for this run.\n"
-        f"- Put speculative or lower-signal follow-ups behind a downstream expandable "
-        f"planner item or final verification.\n"
-        f"- Recursive planner items must narrow ownership and should not form one-child "
-        f"recursive chains once a concrete execution lane is known.\n\n"
+        f"- Recommended first-ready frontier cap: {frontier_cap} benchmark-critical "
+        f"implementation lane(s).\n"
+        f"- Stable SWE-EVO workflow policy lives in the declared skills for this run; "
+        f"use the test targets and grading command above as the source of truth.\n\n"
         f"## Instructions\n"
         f"- Decompose the work into concrete developer and validator WorkItems.\n"
         f"- Developers edit the repo in the sandbox via sandbox_operations tools.\n"
         f"- Stay inside {repo_dir}.\n"
         f"- Do NOT modify test files unless the task explicitly asks for it.\n"
         f"- Start from the failing tests or failing behavior, not from the changelog prose.\n"
+        f"- The root planner must not inspect dependency/version metadata or ``pyproject.toml`` as a "
+        f"first-step diagnosis. If a manifest hypothesis remains after source ownership is clear, hand "
+        f"it to a developer lane instead of keeping the root planner in version archaeology.\n"
+        f"- Treat the named fail-to-pass tests as reproduction targets, not as a queue of large "
+        f"test-file scouts. Prefer source ownership once the failing surface is known.\n"
         f"- Validators should run the grading command (or a tighter subset) and "
         f"report PASS/FAIL with evidence."
+        f"\n- Fix the repository checkout itself. Do not rely on ad hoc sandbox-only "
+        f"package upgrades or ambient environment mutations as the benchmark fix."
     )
 
 
@@ -238,132 +243,6 @@ def _enforce_validation_evidence(
     raise RuntimeError(
         "validator_missing_tool_evidence: validator must execute at least one "
         "daytona_bash command before returning a verdict"
-    )
-
-
-def _build_sweevo_planner_runtime_prompt(instance: SWEEvoInstance) -> str:
-    return (
-        "## SWE-EVO Runtime Guardrails\n"
-        "- If you feel tempted to 'run the failing test before planning', stop and emit a developer "
-        "or validator WorkItem instead. The planner does not obtain runtime evidence in-turn by "
-        "spawning execution workers.\n"
-        "- Use one or two pinpoint CI queries to seed candidate paths, then switch to scout-led "
-        "exploration when ownership is still ambiguous. The planner does not have ci_read_file, "
-        "so file contents must come from scout rather than planner-side reads.\n"
-        "- If one concrete owner file is already known, a single-file scout is allowed when "
-        "you still need that file's live structure or key symbols before assigning work. "
-        "Move to a narrowed expandable child planner only when that scout still leaves "
-        "several named regions or symbol clusters unresolved, or when the next step is "
-        "branch-local decomposition rather than more file reading.\n"
-        "- Once the failing target and one candidate implementation file or subsystem are known, "
-        "the next exploration step must be a bounded scout, an expandable child planner, or the "
-        "final plan JSON.\n"
-        "- If a bounded scout can answer the ownership question, prefer the scout over more "
-        "planner-side symbol or reference probing.\n"
-        "- Do not spawn scout to confirm line numbers, restate a failure you already read, "
-        "or revisit an exact file path already covered by shared context or a sibling scout.\n"
-        "- If `run_subagent` rejects a target or mode, treat that as terminal evidence. Your next "
-        "action must be either a bounded scout call or the final plan JSON; do not continue root "
-        "cause analysis with more planner-side probing after the rejection.\n"
-        "- If a semantic CI query is cold or disconnected before ownership is clear, prefer a "
-        "bounded scout on the candidate slice or an expandable child planner over more serial CI "
-        "paging from the root planner.\n"
-        "- Ignore low-signal CI text matches once you already have a candidate source file or "
-        "function. Do not pivot away from a concrete owner file just to chase nearby text-match "
-        "breadcrumbs.\n"
-        "- Do not queue a ready expandable child planner whose only job is 'if the developer "
-        "finds more issues'. If a follow-up depends on what an atomic lane discovers, keep that "
-        "contingency in notes or let validator failure trigger the later replan.\n"
-        "- For assertion mismatches or missing generated fields, do not lock the plan to an exact "
-        "code edit unless the broken condition is directly evidenced by the code you already read. "
-        "Once the owning function is known, let the developer lane confirm the real cause from live output.\n"
-        "- If you have not run the failing test or inspected the actual failing value, do not state the "
-        "root cause as settled. Hand off the symptom, the likely owning file/function, and the exact "
-        "reproduction target instead of a confident patch prescription.\n"
-        "- Once a scout brief names the likely owner file cluster, do not resume planner-side CI "
-        "queries driven only by changelog prose, dependency bumps, or version hypotheses. Hand "
-        "that uncertainty to the developer lane with the reproduction target instead.\n"
-        "- Unless runtime evidence or explicit shared context already proves the defect, do not write "
-        "developer payload sections titled `Root Cause`, `Specific Edit`, or other exact patch "
-        "instructions. Hand off a working hypothesis, one likely owner, one reproduction target, "
-        "and one verification target instead.\n"
-        "- When one likely owner file and one concrete reproduction target are known, default to "
-        "submitting one developer lane and one validator lane instead of continuing planner-side "
-        "root-cause analysis.\n"
-        f"- This instance has {len(instance.fail_to_pass)} fail-to-pass target(s). "
-        "When that count is 1, default to a single developer lane plus one validator lane unless a "
-        "concrete second implementation file is already proven necessary.\n"
-        "- If one file or subsystem contains too many relevant branches for the current level, emit "
-        "an expandable child planner for that named region instead of flattening the whole slice "
-        "into one root-level decision.\n"
-        "- Once you say or infer that you have enough context, your very next assistant message "
-        "must be the plan JSON. Do not call more tools after that point.\n"
-    )
-
-
-def _build_sweevo_developer_runtime_prompt() -> str:
-    return (
-        "## SWE-EVO Developer Guardrails\n"
-        "- Treat planner-supplied root-cause claims as hypotheses, not facts. Before the first edit, "
-        "run the exact fail-to-pass test (or a faithful reproduction lifted directly from it) and "
-        "inspect the actual failing assertion/value unless the code already makes the defect explicit.\n"
-        "- If the planner payload includes `Root Cause`, `Specific Edit`, or an exact patch "
-        "prescription, do not apply it blindly. The first targeted reproduction is the tiebreaker; "
-        "if pytest or the emitted value contradicts the planner's diagnosis, discard the diagnosis.\n"
-        "- When the failing signal is an assertion diff or a missing generated field, inspect the "
-        "actual produced value before the first edit unless the root cause is explicit in the code "
-        "you already opened.\n"
-        "- If the produced output is missing an expected key/field entirely, inspect the immediate "
-        "guard, predicate, or early-return that decides whether that key is emitted before writing "
-        "more repro scripts.\n"
-        "- Use at most one ad hoc python/bash probe before the first edit. If that probe fails or "
-        "the failing test already reveals the key symptom, the next step must be an immediate code "
-        "read of the deciding branch or an edit.\n"
-        "- Once two probes contradict the current hypothesis, stop probing and pivot to the nearest "
-        "emitting function or guard in the live code. Do not keep rerunning the same failing test "
-        "or variant scripts to defend a disproven theory.\n"
-        "- If the first edit does not fix the failing test, stop guessing. Capture one targeted "
-        "intermediate value or inspect the immediate mapping source before the next edit.\n"
-        "- After a targeted pytest/test-command failure, you get at most one ad hoc python/bash "
-        "probe before the next code read or edit. The next step after that probe must be a direct "
-        "read of the emitting branch, one bounded edit, or your final summary.\n"
-        "- Avoid multiple scratch repro scripts that fight the sandbox environment. If a quick "
-        "script fails for import or environment reasons, fall back to the failing test, the target "
-        "function, and one direct helper rather than stacking more scripts.\n"
-        "- If the exact fail-to-pass target is already green on the first reproduction, stop "
-        "debugging immediately. Record the passing command as evidence, summarize that the target "
-        "is already green in this sandbox, and hand broad regression confirmation to the validator lane.\n"
-        "- If a custom probe fails with import, name, key, or attribute errors, do not write "
-        "another variant of that probe family. Return to the failing pytest output and the nearest "
-        "emitting function instead.\n"
-        "- If a custom probe appears to succeed but the named pytest target still fails, trust the "
-        "pytest failure as the source of truth and inspect its exact assertion/value before inventing "
-        "more standalone scripts.\n"
-        "- Once a budget warning appears, stop exploratory scripting. Spend the remaining tool calls "
-        "on one bounded read/edit/test loop or submit a concise blocker summary.\n"
-        "- After the first reproduction, do not run broad module suites or unrelated regressions until "
-        "the exact fail-to-pass target turns green. Hand broad regression coverage to the validator lane.\n"
-        "- Do not inspect git history, changelogs, or commit logs unless the WorkItem explicitly "
-        "asks for regression archaeology. Use the current checkout, current failing output, and "
-        "current implementation.\n"
-        "- Do not edit tests, snapshots, or benchmark harness files unless the WorkItem explicitly "
-        "asks for it. Fix production code first.\n"
-    )
-
-
-def _build_sweevo_validator_runtime_prompt(instance: SWEEvoInstance) -> str:
-    return (
-        "## SWE-EVO Validator Guardrails\n"
-        f"- This instance has {len(instance.fail_to_pass)} fail-to-pass target(s). Start with the exact "
-        "named retry target(s) before any broader regression command.\n"
-        "- After the exact retry target passes, spend at most one broader follow-up verification "
-        "command on the nearest same-surface regression slice. Do not default to the full grading "
-        "command from the validator lane unless the payload explicitly requires it or the change "
-        "touches multiple unrelated surfaces.\n"
-        "- Once the exact retry target and one nearby regression slice pass, submit your verdict. "
-        "The benchmark harness will run the full grading command after the team phase.\n"
-        "- If the exact retry target fails, report that failure immediately with evidence instead of "
-        "queueing broader suites.\n"
     )
 
 
@@ -682,28 +561,33 @@ def _make_atlas_scheduler_factory(
 
 
 def _build_agent_overrides(instance: SWEEvoInstance) -> dict[str, dict[str, Any]]:
+    def _with_extra_skills(base: list[str], *extra: str) -> list[str]:
+        merged = list(base)
+        for skill_name in extra:
+            if skill_name and skill_name not in merged:
+                merged.append(skill_name)
+        return merged
+
     planner_def = get_definition(TEAM_PLANNER)
     agent_overrides: dict[str, dict[str, Any]] = {}
-    if planner_def is not None and planner_def.system_prompt:
+    if planner_def is not None:
         planner_limits = _derive_planner_runtime_limits(instance)
         agent_overrides[TEAM_PLANNER] = {
-            "system_prompt": (
-                f"{planner_def.system_prompt}\n\n{_build_sweevo_planner_runtime_prompt(instance)}"
-            ),
+            "skills": _with_extra_skills(planner_def.skills, "sweevo-project-context"),
             **planner_limits,
         }
     developer_def = get_definition(DEVELOPER)
-    if developer_def is not None and developer_def.system_prompt:
+    if developer_def is not None:
         agent_overrides[DEVELOPER] = {
-            "system_prompt": (
-                f"{developer_def.system_prompt}\n\n{_build_sweevo_developer_runtime_prompt()}"
-            ),
+            "skills": _with_extra_skills(developer_def.skills, "sweevo-project-context"),
         }
     validator_def = get_definition(VALIDATOR)
-    if validator_def is not None and validator_def.system_prompt:
+    if validator_def is not None:
         agent_overrides[VALIDATOR] = {
-            "system_prompt": (
-                f"{validator_def.system_prompt}\n\n{_build_sweevo_validator_runtime_prompt(instance)}"
+            "skills": _with_extra_skills(
+                validator_def.skills,
+                "sweevo-project-context",
+                "verification-replan",
             ),
         }
     return agent_overrides
@@ -906,6 +790,19 @@ async def run_sweevo_team(
         event_store=event_store,
     )
 
+    atlas_factory = (
+        _make_atlas_scheduler_factory(
+            session_config,
+            sandbox_id,
+            printer,
+            repo_dir=repo_dir,
+            team_metrics=team_metrics,
+            max_concurrent_jobs=atlas_parallelism,
+        )
+        if atlas_parallelism > 0
+        else None
+    )
+
     await tr.start(
         agent_name=TEAM_PLANNER,
         payload={
@@ -925,14 +822,7 @@ async def run_sweevo_team(
             team_metrics=team_metrics,
             agent_overrides=agent_overrides,
         ),
-        atlas_scheduler_factory=_make_atlas_scheduler_factory(
-            session_config,
-            sandbox_id,
-            printer,
-            repo_dir=repo_dir,
-            team_metrics=team_metrics,
-            max_concurrent_jobs=atlas_parallelism,
-        ),
+        atlas_scheduler_factory=atlas_factory,
         num_executors=num_executors,
         root_kind=WorkItemKind.EXPANDABLE,
     )
@@ -991,6 +881,19 @@ async def resume_sweevo_team(
             ),
         )
 
+    atlas_factory = (
+        _make_atlas_scheduler_factory(
+            session_config,
+            tr.sandbox_id,
+            printer,
+            repo_dir=repo_dir,
+            team_metrics=team_metrics,
+            max_concurrent_jobs=atlas_parallelism,
+        )
+        if atlas_parallelism > 0
+        else None
+    )
+
     await tr.resume(
         executor_factory=_make_executor_factory(
             session_config,
@@ -1000,14 +903,7 @@ async def resume_sweevo_team(
             team_metrics=team_metrics,
             agent_overrides=agent_overrides,
         ),
-        atlas_scheduler_factory=_make_atlas_scheduler_factory(
-            session_config,
-            tr.sandbox_id,
-            printer,
-            repo_dir=repo_dir,
-            team_metrics=team_metrics,
-            max_concurrent_jobs=atlas_parallelism,
-        ),
+        atlas_scheduler_factory=atlas_factory,
         num_executors=num_executors,
     )
     await tr.wait()

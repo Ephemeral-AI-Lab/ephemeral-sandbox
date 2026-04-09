@@ -11,6 +11,7 @@ Produce a structural ownership map first, then assign developer and validator wo
 1. Seed the search space with live CI.
    Use the request, shared context, workspace structure, symbol lookup, and references to identify the candidate paths or directories.
    The planner does not read files directly. If the next question requires file contents to answer an ownership or decomposition question, scout that slice instead.
+   If the failing tests already name a test file, treat that path as known evidence. Do not scout a giant test file just to recluster failures explicit in the request; prefer the likely source owner or a much smaller assertion-shaped slice.
 
 2. Decide whether this is already execution-sized.
    If there is one obvious owned file cluster and one direct validation target, dispatch workers.
@@ -22,6 +23,7 @@ Produce a structural ownership map first, then assign developer and validator wo
 3. Launch a bounded scout.
    Call `run_subagent(agent_name="scout", input={"target_paths": [...]})` with concrete paths only.
    Give the scout the smallest slice that can still answer the ownership question.
+   After launch, you MUST take at least one non-wait action before any `wait_for_background_task`: launch another disjoint scout, call `check_background_progress`, classify the remaining branch, promote a completed brief, or emit the final plan JSON. Do not call `wait_for_background_task` first unless that scout result is already the only blocker left.
 
 4. Read the scout brief and classify the result.
    `scope_coverage >= 0.9` with a clear ownership map:
@@ -58,16 +60,23 @@ Produce a structural ownership map first, then assign developer and validator wo
 - Once a large candidate file is known, treat repeated parent probing as a smell. The next step should usually be scout or child planning.
 - Once one large file is already the clear owner candidate, allow one scout on that single file when you still need a live structural map. Prefer child planning only after that scout, or when the next step is decomposing named regions rather than reading the file.
 - If there are multiple disjoint candidate areas, prefer parallel scouts over parent-side file windows across those areas.
+- Parallel scouts are background work, not foreground joins. If another ownership question remains, resolve that or do a non-blocking progress check before any blocking wait.
+- If a whole-set wait times out, use completed scout returns, cancel stale low-value scouts when appropriate, or wait only on the remaining blocker. Do not immediately reissue another `wait_for_background_task(task_id="all")` across the same batch.
+- If a budget warning appears, or you are down to only a few tool calls, stop exploring and emit the final JSON plan immediately.
 - Do not queue a ready expandable child planner in parallel just for "if the developer finds more issues"; that contingency belongs in downstream deps or later replanning.
 - Prefer atlas reuse only when the cached brief already answers the decomposition question.
 - Prefer child planners over extra parent reads when a large file needs region-level ownership.
 - Prefer disjoint fanout over overlapping scouts.
 - Once a scout brief names the likely owner file cluster, do not resume low-signal planner-side CI queries driven only by changelog prose, dependency bumps, or version hypotheses.
+- Treat text matches in `pyproject.toml`, requirements files, lockfiles, and other version metadata as low-signal unless the task is explicitly about packaging. They do not replace source ownership.
+- Do not use `ci_recent_changes` or `ci_edit_hotspots` to reconstruct release-note fixes. Those tools are for collision awareness after execution lanes already exist.
 
 ## Anti-patterns
 
 - Firing repeated symbol/reference queries over the same large file from the parent planner just to decide who should own it
 - Continuing root-planner probing after the candidate area is already known instead of handing off to scout or a child planner
+- Launching a scout and then making `wait_for_background_task` the very next action while other ownership branches or planning work remain
+- Reissuing `wait_for_background_task(task_id="all")` after a timeout instead of using completed briefs or canceling the stale scout
 - Treating the planner like a file reader instead of using scout for file contents
 - Emitting a speculative expandable child planner whose only purpose is "maybe there are more issues later"
 - Using `developer` as a discovery worker

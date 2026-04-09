@@ -71,6 +71,7 @@ class TrackedBackgroundTask:
     # which is more meaningful than a flat line buffer. When set, get_status
     # calls this instead of joining progress_lines for running tasks.
     progress_provider: Callable[[int], str] | None = None
+    progress_checks: int = 0
     _last_reminder_line_idx: int = 0  # tracks where the last reminder left off
     _last_reminder_at: float = 0.0  # monotonic time of last reminder
 
@@ -336,6 +337,22 @@ class BackgroundTaskManager:
                     entry["output"] = "[no output captured yet]"
             result.append(entry)
         return result
+
+    def mark_progress_checked(self, task_id: str | None = None) -> list[TrackedBackgroundTask]:
+        """Mark one or more tasks as explicitly inspected by the agent."""
+        if task_id is not None:
+            tracked = self._tasks.get(task_id)
+            if tracked is None:
+                return []
+            tracked.progress_checks += 1
+            return [tracked]
+
+        checked: list[TrackedBackgroundTask] = []
+        for tracked in self._tasks.values():
+            if tracked.status == TaskStatus.RUNNING:
+                tracked.progress_checks += 1
+                checked.append(tracked)
+        return checked
 
     async def cancel(self, task_id: str, reason: str = "") -> bool:
         """Cancel a task by id. Returns True if found and cancelled.
