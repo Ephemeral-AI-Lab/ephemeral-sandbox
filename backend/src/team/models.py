@@ -150,7 +150,7 @@ class BudgetConfig:
     max_plan_size: int = 50
     max_artifact_bytes: int = 1_000_000
     max_total_artifact_bytes: int = 50_000_000
-    default_work_item_timeout: float | None = 300.0
+    default_work_item_timeout: float | None = None
     max_briefing_bytes: int = 32_000
     max_shared_briefings: int = 16
 

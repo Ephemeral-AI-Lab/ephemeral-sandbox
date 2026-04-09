@@ -24,7 +24,7 @@ from engine.runtime.agent import spawn_agent
 from message.event_printer import MultiAgentEventPrinter
 from message.stream_events import ToolExecutionCompleted
 from token_tracker.runtime import persist_run_usage
-from team.builtins import DEVELOPER, SUBMIT_PLAN_AGENT, TEAM_PLANNER, register_all as _register_team_builtins
+from team.builtins import DEVELOPER, TEAM_PLANNER, register_all as _register_team_builtins
 from team.atlas.scheduler import AtlasMaintenanceScheduler
 from team.models import BudgetConfig, TeamRunStatus, WorkItemKind
 from team.persistence.run_store import build_default_store
@@ -80,43 +80,6 @@ def _recommended_frontier_cap(instance: SWEEvoInstance) -> int:
     size = str(summarize_sweevo_instance(instance).get("size") or "medium")
     size_cap = 3 if size == "large" else 2
     return max(1, min(size_cap, len(instance.fail_to_pass) or 1))
-
-
-def _derive_planner_controls(instance: SWEEvoInstance) -> dict[str, int]:
-    size = str(summarize_sweevo_instance(instance).get("size") or "medium")
-    f2p_targets = max(1, len(instance.fail_to_pass))
-    controls = {
-        "small": {
-            "first_plan_exploration_budget": 6,
-            "tool_call_limit": 24,
-            "max_turns": 40,
-        },
-        "medium": {
-            "first_plan_exploration_budget": 8,
-            "tool_call_limit": 30,
-            "max_turns": 50,
-        },
-        "large": {
-            "first_plan_exploration_budget": 10,
-            "tool_call_limit": 36,
-            "max_turns": 60,
-        },
-    }.get(size, {
-        "first_plan_exploration_budget": 8,
-        "tool_call_limit": 30,
-        "max_turns": 50,
-    })
-    extra_targets = max(0, f2p_targets - 1)
-    controls = {
-        "first_plan_exploration_budget": controls["first_plan_exploration_budget"] + min(2, extra_targets),
-        "tool_call_limit": controls["tool_call_limit"] + min(12, extra_targets * 4),
-        "max_turns": controls["max_turns"] + min(12, extra_targets * 3),
-    }
-    if f2p_targets == 1:
-        controls["first_plan_exploration_budget"] = max(5, controls["first_plan_exploration_budget"] - 2)
-        controls["tool_call_limit"] = max(18, controls["tool_call_limit"] - 8)
-        controls["max_turns"] = max(35, controls["max_turns"] - 10)
-    return controls
 
 
 def _derive_sweevo_budgets(instance: SWEEvoInstance) -> BudgetConfig:
@@ -177,20 +140,10 @@ def _derive_atlas_parallelism(instance: SWEEvoInstance, *, num_executors: int) -
     return max(1, min(cap, max(1, num_executors // 4)))
 
 
-def _derive_timeout_floors(instance: SWEEvoInstance) -> dict[str, float]:
-    f2p_targets = max(1, len(instance.fail_to_pass))
-    if f2p_targets == 1:
-        return {"developer": 240.0, "validator": 300.0}
-    if f2p_targets <= 3:
-        return {"developer": 300.0, "validator": 360.0}
-    return {"developer": 420.0, "validator": 480.0}
-
-
 def _build_root_prompt(instance: SWEEvoInstance, repo_dir: str) -> str:
     summary = summarize_sweevo_instance(instance)
     size = str(summary.get("size") or "medium")
     frontier_cap = _recommended_frontier_cap(instance)
-    planner_controls = _derive_planner_controls(instance)
     return (
         f"You are leading a coding team on a SWE-EVO benchmark instance.\n"
         f"Repository: {instance.repo}\n"
@@ -212,16 +165,11 @@ def _build_root_prompt(instance: SWEEvoInstance, repo_dir: str) -> str:
         f"## Grading command\n"
         f"After your team finishes, this exact command will be executed in the sandbox "
         f"to grade the work:\n```\n{instance.test_cmds}\n```\n\n"
-        f"## Planning Budget Guidance\n"
+        f"## Planning Guidance\n"
         f"- Instance size: {size} ({summary.get('bullet_count', 0)} changelog bullets, "
         f"{len(instance.fail_to_pass)} fail-to-pass target(s)).\n"
         f"- Keep the first ready frontier to at most {frontier_cap} benchmark-critical "
         f"implementation lane(s) for this run.\n"
-        f"- Aim to submit the first plan within roughly "
-        f"{planner_controls['first_plan_exploration_budget']} exploratory tool calls when the "
-        f"failing test and owning implementation slice are already clear.\n"
-        f"- You have up to {planner_controls['tool_call_limit']} tool calls overall for the "
-        f"planner turn; use the extra budget only when a missing fact truly blocks task ownership.\n"
         f"- Put speculative or lower-signal follow-ups behind a downstream expandable "
         f"planner item or final verification.\n"
         f"- Recursive planner items must narrow ownership and should not form one-child "
@@ -256,13 +204,8 @@ def _extract_final_text(messages: list[Any]) -> str:
 
 
 def _build_sweevo_planner_runtime_prompt(instance: SWEEvoInstance) -> str:
-    controls = _derive_planner_controls(instance)
     return (
         "## SWE-EVO Runtime Guardrails\n"
-        f"- Aim to land the first plan within roughly {controls['first_plan_exploration_budget']} "
-        f"exploratory tool calls when the failing test and owning implementation file are "
-        f"already clear. You still have up to {controls['tool_call_limit']} total tool calls "
-        "for the planner turn when deeper discovery is genuinely required.\n"
         "- Do not spawn scout to confirm line numbers, restate a failure you already read, "
         "or revisit an exact file path you already opened this turn.\n"
         "- If a semantic CI query is cold or disconnected after you already have one failing "
@@ -275,17 +218,11 @@ def _build_sweevo_planner_runtime_prompt(instance: SWEEvoInstance) -> str:
         "- If you have not run the failing test or inspected the actual failing value, do not state the "
         "root cause as settled. Hand off the symptom, the likely owning file/function, and the exact "
         "reproduction target instead of a confident patch prescription.\n"
-        "- Submitted WorkItems should set explicit `timeout_seconds`. On a single-target instance, "
-        "give the primary developer lane at least 240 seconds and the validator lane at least 300 "
-        "seconds so one reproduce-edit-rerun cycle can finish without a planner retry.\n"
         f"- This instance has {len(instance.fail_to_pass)} fail-to-pass target(s). "
         "When that count is 1, default to a single developer lane plus one validator lane unless a "
         "concrete second implementation file is already proven necessary.\n"
-        f"- Reaching {controls['first_plan_exploration_budget']} exploration tool calls is the hard stop "
-        "for discovery on this turn. After that threshold, your very next assistant message must be the "
-        "plan JSON and you must not call more tools.\n"
-        "- Once you say or infer that you have enough context before that threshold, your very next "
-        "assistant message must also be the plan JSON. Do not call more tools after that point.\n"
+        "- Once you say or infer that you have enough context, your very next assistant message "
+        "must be the plan JSON. Do not call more tools after that point.\n"
     )
 
 
@@ -371,18 +308,12 @@ def _make_runner(
         ctx.tool_metadata.agent_name = effective_defn.name
         agent.query_context.tool_metadata = ctx.tool_metadata
         agent.query_context.run_id = tracker.run_id or ""
-        try:
-            soft_limit = int(ctx.tool_metadata.get("planner_soft_tool_limit") or 0)
-        except (TypeError, ValueError):
-            soft_limit = 0
-        agent.query_context.planner_soft_tool_limit = soft_limit or None
         if printer is not None and effective_defn.name == TEAM_PLANNER:
             printer.raw_line(
                 effective_defn.name,
                 (
                     "[runtime_limits] "
                     f"tool_call_limit={agent.query_context.tool_call_limit} "
-                    f"soft_tool_limit={agent.query_context.planner_soft_tool_limit or 0} "
                     f"max_turns={agent.query_context.max_turns}"
                 ),
             )
@@ -410,8 +341,7 @@ def _make_runner(
                         (
                             "[runtime_budget] "
                             f"used={agent.query_context.tool_calls_used} "
-                            f"hard={agent.query_context.tool_call_limit} "
-                            f"soft={agent.query_context.planner_soft_tool_limit or 0}"
+                            f"limit={agent.query_context.tool_call_limit}"
                         ),
                     )
         except Exception as exc:
@@ -530,8 +460,6 @@ def _emit_dispatcher_dag(
 def _make_context_builders(
     sandbox_id: str,
     repo_dir: str = _REPO_DIR,
-    planner_controls: dict[str, int] | None = None,
-    timeout_floors: dict[str, float] | None = None,
 ):
     def build_query_ctx(defn, team_run, wi):
         base_prompt = _work_item_base_prompt(wi.payload)
@@ -540,8 +468,6 @@ def _make_context_builders(
         meta["sandbox_id"] = team_run.sandbox_id or sandbox_id
         meta["daytona_cwd"] = repo_dir
         meta["ci_workspace_root"] = repo_dir
-        if defn.name == TEAM_PLANNER and planner_controls is not None:
-            meta["planner_soft_tool_limit"] = planner_controls["first_plan_exploration_budget"]
         return TeamAgentContext(user_message=user_message, tool_metadata=meta)
 
     def build_posthook_ctx(posthook_defn, work_result):
@@ -551,8 +477,6 @@ def _make_context_builders(
             "daytona_cwd": repo_dir,
             "ci_workspace_root": repo_dir,
         }
-        if posthook_defn.name == SUBMIT_PLAN_AGENT and timeout_floors:
-            meta["min_timeout_seconds_by_agent"] = timeout_floors
         user_message = _work_item_base_prompt(work_result)
         if isinstance(work_result, dict):
             for key in ("team_run_id", "work_item_id"):
@@ -579,8 +503,6 @@ def _make_executor_factory(
     repo_dir: str = _REPO_DIR,
     team_metrics: dict[str, Any] | None = None,
     agent_overrides: dict[str, dict[str, Any]] | None = None,
-    planner_controls: dict[str, int] | None = None,
-    timeout_floors: dict[str, float] | None = None,
 ):
     runner = _make_runner(
         session_config,
@@ -592,8 +514,6 @@ def _make_executor_factory(
     build_query_ctx, build_posthook_ctx = _make_context_builders(
         sandbox_id,
         repo_dir,
-        planner_controls=planner_controls,
-        timeout_floors=timeout_floors,
     )
 
     def factory(team_run):
@@ -622,7 +542,6 @@ def _make_atlas_scheduler_factory(
     repo_dir: str = _REPO_DIR,
     team_metrics: dict[str, Any] | None = None,
     max_concurrent_jobs: int = 1,
-    planner_controls: dict[str, int] | None = None,
 ):
     runner = _make_runner(
         session_config,
@@ -633,7 +552,6 @@ def _make_atlas_scheduler_factory(
     build_query_ctx, build_posthook_ctx = _make_context_builders(
         sandbox_id,
         repo_dir,
-        planner_controls=planner_controls,
     )
 
     def factory(team_run):
@@ -649,33 +567,29 @@ def _make_atlas_scheduler_factory(
     return factory
 
 
-def _build_planner_overrides(instance: SWEEvoInstance) -> tuple[dict[str, int], dict[str, dict[str, Any]]]:
-    planner_controls = _derive_planner_controls(instance)
+def _build_agent_overrides(instance: SWEEvoInstance) -> dict[str, dict[str, Any]]:
     planner_def = get_definition(TEAM_PLANNER)
-    planner_overrides: dict[str, dict[str, Any]] = {}
+    agent_overrides: dict[str, dict[str, Any]] = {}
     if planner_def is not None and planner_def.system_prompt:
-        planner_overrides[TEAM_PLANNER] = {
+        agent_overrides[TEAM_PLANNER] = {
             "system_prompt": (
                 f"{planner_def.system_prompt}\n\n{_build_sweevo_planner_runtime_prompt(instance)}"
             ),
-            "tool_call_limit": planner_controls["tool_call_limit"],
-            "max_turns": planner_controls["max_turns"],
         }
     developer_def = get_definition(DEVELOPER)
     if developer_def is not None and developer_def.system_prompt:
-        planner_overrides[DEVELOPER] = {
+        agent_overrides[DEVELOPER] = {
             "system_prompt": (
                 f"{developer_def.system_prompt}\n\n{_build_sweevo_developer_runtime_prompt()}"
             ),
         }
-    return planner_controls, planner_overrides
+    return agent_overrides
 
 
 def _emit_team_runtime_banner(
     printer: MultiAgentEventPrinter | None,
     *,
     budgets: BudgetConfig,
-    planner_controls: dict[str, int],
 ) -> None:
     if printer is None:
         return
@@ -688,17 +602,6 @@ def _emit_team_runtime_banner(
             f"max_shared_briefings={budgets.max_shared_briefings}"
         ),
     )
-    printer.raw_line(
-        "team",
-        (
-            "[planner_controls] "
-            f"first_plan_exploration_budget={planner_controls['first_plan_exploration_budget']} "
-            f"tool_call_limit={planner_controls['tool_call_limit']} "
-            f"max_turns={planner_controls['max_turns']}"
-        ),
-    )
-
-
 def _build_team_metrics() -> dict[str, Any]:
     return {
         "agent_runs": 0,
@@ -742,7 +645,6 @@ def _finalize_team_result(
     session_config: Any,
     team_metrics: dict[str, Any],
     budgets: BudgetConfig,
-    planner_controls: dict[str, int],
     atlas_parallelism: int,
     printer: MultiAgentEventPrinter | None,
     checkpoint_ids: list[str] | None = None,
@@ -833,7 +735,6 @@ def _finalize_team_result(
             "max_shared_briefings": budgets.max_shared_briefings,
             "max_briefing_bytes": budgets.max_briefing_bytes,
         },
-        "planner_controls": planner_controls,
         "atlas_parallelism": atlas_parallelism,
         "resumed_from": resumed_from,
     }
@@ -868,15 +769,10 @@ async def run_sweevo_team(
     event_store = _build_benchmark_event_store(session_factory=session_factory)
     root_prompt = _build_root_prompt(instance, repo_dir)
     budgets = _derive_sweevo_budgets(instance)
-    planner_controls, planner_overrides = _build_planner_overrides(instance)
-    timeout_floors = _derive_timeout_floors(instance)
+    agent_overrides = _build_agent_overrides(instance)
     atlas_parallelism = _derive_atlas_parallelism(instance, num_executors=num_executors)
     team_metrics = _build_team_metrics()
-    _emit_team_runtime_banner(
-        printer,
-        budgets=budgets,
-        planner_controls=planner_controls,
-    )
+    _emit_team_runtime_banner(printer, budgets=budgets)
 
     tr = TeamRun(
         session_id=getattr(session_config, "session_id", "sweevo"),
@@ -904,9 +800,7 @@ async def run_sweevo_team(
             printer,
             repo_dir=repo_dir,
             team_metrics=team_metrics,
-            agent_overrides=planner_overrides,
-            planner_controls=planner_controls,
-            timeout_floors=timeout_floors,
+            agent_overrides=agent_overrides,
         ),
         atlas_scheduler_factory=_make_atlas_scheduler_factory(
             session_config,
@@ -915,7 +809,6 @@ async def run_sweevo_team(
             repo_dir=repo_dir,
             team_metrics=team_metrics,
             max_concurrent_jobs=atlas_parallelism,
-            planner_controls=planner_controls,
         ),
         num_executors=num_executors,
         root_kind=WorkItemKind.EXPANDABLE,
@@ -927,7 +820,6 @@ async def run_sweevo_team(
         session_config=session_config,
         team_metrics=team_metrics,
         budgets=budgets,
-        planner_controls=planner_controls,
         atlas_parallelism=atlas_parallelism,
         printer=printer,
     )
@@ -962,15 +854,10 @@ async def resume_sweevo_team(
         session_id=tr.session_id or None,
     )
     budgets = tr.budgets
-    planner_controls, planner_overrides = _build_planner_overrides(instance)
-    timeout_floors = _derive_timeout_floors(instance)
+    agent_overrides = _build_agent_overrides(instance)
     atlas_parallelism = _derive_atlas_parallelism(instance, num_executors=num_executors)
     team_metrics = _build_team_metrics()
-    _emit_team_runtime_banner(
-        printer,
-        budgets=budgets,
-        planner_controls=planner_controls,
-    )
+    _emit_team_runtime_banner(printer, budgets=budgets)
     if printer is not None:
         printer.raw_line(
             "team",
@@ -988,9 +875,7 @@ async def resume_sweevo_team(
             printer,
             repo_dir=repo_dir,
             team_metrics=team_metrics,
-            agent_overrides=planner_overrides,
-            planner_controls=planner_controls,
-            timeout_floors=timeout_floors,
+            agent_overrides=agent_overrides,
         ),
         atlas_scheduler_factory=_make_atlas_scheduler_factory(
             session_config,
@@ -999,7 +884,6 @@ async def resume_sweevo_team(
             repo_dir=repo_dir,
             team_metrics=team_metrics,
             max_concurrent_jobs=atlas_parallelism,
-            planner_controls=planner_controls,
         ),
         num_executors=num_executors,
     )
@@ -1009,7 +893,6 @@ async def resume_sweevo_team(
         session_config=session_config,
         team_metrics=team_metrics,
         budgets=budgets,
-        planner_controls=planner_controls,
         atlas_parallelism=atlas_parallelism,
         printer=printer,
         checkpoint_ids=_checkpoint_ids_from_store(event_store, team_run_id),

@@ -464,8 +464,7 @@ async def test_streaming_tool_calls_respect_planner_soft_limit(tmp_path: Path):
         model="test",
         system_prompt="test",
         max_tokens=100,
-        tool_call_limit=20,
-        planner_soft_tool_limit=1,
+        tool_call_limit=1,
     )
     messages = [ConversationMessage.from_user_text("echo twice")]
     events = []
@@ -479,7 +478,7 @@ async def test_streaming_tool_calls_respect_planner_soft_limit(tmp_path: Path):
     assert len(tool_starts) == 1
     assert tool_starts[0].tool_name == "echo"
     assert any(not event.is_error and '"echoed": "first"' in event.output for event in tool_completes)
-    assert any(event.is_error and "planner discovery budget exceeded" in event.output for event in tool_completes)
+    assert any(event.is_error and "tool_call_limit exceeded" in event.output for event in tool_completes)
 
 
 @pytest.mark.asyncio

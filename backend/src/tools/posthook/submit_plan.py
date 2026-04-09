@@ -57,19 +57,6 @@ class SubmitPlanTool(SubmitPosthookTool):
         except Exception as exc:
             return None, f"Invalid Plan shape: {exc}"
 
-        timeout_floors = context.metadata.get("min_timeout_seconds_by_agent") or {}
-        if isinstance(timeout_floors, dict):
-            for item in plan.items:
-                floor = timeout_floors.get(item.agent_name)
-                try:
-                    floor_value = float(floor) if floor is not None else None
-                except (TypeError, ValueError):
-                    floor_value = None
-                if floor_value is not None and (
-                    item.timeout_seconds is None or item.timeout_seconds < floor_value
-                ):
-                    item.timeout_seconds = floor_value
-
         max_plan_size = int(context.metadata.get("max_plan_size", 50) or 50)
         issues = validate_plan_phase_a(plan, max_plan_size=max_plan_size)
         if issues:

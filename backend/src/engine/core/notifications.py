@@ -9,24 +9,14 @@ control flow only and gives notifications a single, easy-to-test home.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 import math
+from typing import TYPE_CHECKING
 
 from message.messages import ConversationMessage
 from message.stream_events import SystemNotification
 
 if TYPE_CHECKING:
     from engine.core.query import QueryContext
-
-
-def get_planner_soft_limit(metadata: object | None) -> int:
-    """Return the configured planner discovery budget, or ``0`` when unset."""
-    if metadata is None:
-        return 0
-    try:
-        return int(metadata.get("planner_soft_tool_limit") or 0)
-    except (AttributeError, TypeError, ValueError):
-        return 0
 
 
 def build_budget_warning(
@@ -44,24 +34,6 @@ def build_budget_warning(
     ``display_messages`` so the agent's next turn sees it, then yields
     ``event`` so subscribers (eval harness, UI) get a structured notice.
     """
-    tool_metadata = context.tool_metadata
-    soft_limit = context.planner_soft_tool_limit or get_planner_soft_limit(tool_metadata)
-    if soft_limit > 0 and context.tool_calls_used >= soft_limit:
-        warned_at = tool_metadata.get("_planner_soft_tool_limit_warned_at") if tool_metadata is not None else None
-        if warned_at != soft_limit:
-            if tool_metadata is not None:
-                tool_metadata["_planner_soft_tool_limit_warned_at"] = soft_limit
-            text = (
-                f"[planning stop] You have already used {context.tool_calls_used} tool calls, which meets or "
-                f"exceeds the SWE-EVO planner discovery budget ({soft_limit}). Reuse the evidence you already "
-                "have, stop exploring, and emit the plan JSON now. Do not call more tools unless a submitted "
-                "plan would be impossible without them."
-            )
-            return (
-                ConversationMessage.from_user_text(text),
-                SystemNotification(text=text, category="planning_stop"),
-            )
-
     limit = context.tool_call_limit
     if limit is None:
         return None

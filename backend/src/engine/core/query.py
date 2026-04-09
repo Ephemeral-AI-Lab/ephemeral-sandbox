@@ -43,7 +43,7 @@ from message.stream_events import (
     ToolExecutionCompleted,
     ToolExecutionStarted,
 )
-from engine.core.notifications import build_budget_warning, get_planner_soft_limit
+from engine.core.notifications import build_budget_warning
 from engine.core.streaming_executor import StreamingToolExecutor, defer_background_dispatch
 from hooks import HookEvent, HookExecutor
 from tools.core.base import (
@@ -81,7 +81,6 @@ class QueryContext:
     # Per-ephemeral-run cap on tool dispatches. ``None`` = unlimited. Each
     # spawned agent starts with a fresh ``tool_calls_used`` counter.
     tool_call_limit: int | None = None
-    planner_soft_tool_limit: int | None = None
     tool_calls_used: int = 0
     last_budget_warning_remaining: int | None = None
     hook_executor: HookExecutor | None = None
@@ -165,27 +164,10 @@ def _record_tool_trace(
     )
 
 
-def _planner_soft_limit_for_context(context: QueryContext) -> int:
-    return context.planner_soft_tool_limit or get_planner_soft_limit(context.tool_metadata)
-
-
 def _consume_tool_budget_or_reject(
     context: QueryContext,
     tool_use_id: str,
 ) -> ToolResultBlock | None:
-    soft_limit = _planner_soft_limit_for_context(context)
-    if soft_limit > 0 and context.tool_calls_used >= soft_limit:
-        context.tool_calls_used += 1
-        return ToolResultBlock(
-            tool_use_id=tool_use_id,
-            content=(
-                f"planner discovery budget exceeded: {soft_limit} tool calls already used. "
-                "Stop requesting more tools, reuse the evidence you already gathered, and emit the "
-                "plan JSON now so submit_plan can preserve the handoff."
-            ),
-            is_error=True,
-        )
-
     if context.tool_call_limit is None:
         return None
     if context.tool_calls_used >= context.tool_call_limit:

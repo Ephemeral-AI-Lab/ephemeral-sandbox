@@ -82,12 +82,6 @@ class Executor:
             return
 
         query_ctx = self.build_query_context(defn, self.team_run, wi)
-        timeout = (
-            wi.timeout_seconds
-            if wi.timeout_seconds is not None
-            else self.team_run.budgets.default_work_item_timeout
-        )
-
         try:
             # work_result is consumed for posthook side-effects only; the
             # final dispatch result is built from ``submitted`` below.
@@ -98,13 +92,7 @@ class Executor:
                 agent_lookup=self.agent_lookup,
                 posthook_ctx_builder=self.build_posthook_context,
             )
-            if timeout is None:
-                _, submitted = await execution
-            else:
-                _, submitted = await asyncio.wait_for(execution, timeout=timeout)
-        except asyncio.TimeoutError:
-            await dispatcher.fail(wi_id, f"timeout after {timeout}s")
-            return
+            _, submitted = await execution
         except NoPosthookOutput as exc:
             await dispatcher.fail(wi_id, f"NoPosthookOutput: {exc}")
             return

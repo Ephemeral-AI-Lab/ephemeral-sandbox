@@ -22,13 +22,10 @@ from engine.core.query import QueryContext, _execute_tool_call
 from tools.core.runtime import ExecutionMetadata
 
 
-def _ctx(limit: int | None, used: int = 0, *, soft_limit: int | None = None) -> QueryContext:
+def _ctx(limit: int | None, used: int = 0) -> QueryContext:
     """Build a minimal QueryContext that only the budget paths inspect."""
     from unittest.mock import MagicMock
 
-    metadata = ExecutionMetadata()
-    if soft_limit is not None:
-        metadata["planner_soft_tool_limit"] = soft_limit
     return QueryContext(
         api_client=MagicMock(),
         tool_registry=MagicMock(),
@@ -39,7 +36,7 @@ def _ctx(limit: int | None, used: int = 0, *, soft_limit: int | None = None) -> 
         max_turns=10,
         tool_call_limit=limit,
         tool_calls_used=used,
-        tool_metadata=metadata,
+        tool_metadata=ExecutionMetadata(),
     )
 
 
@@ -110,29 +107,6 @@ def test_budget_warning_silent_when_exhausted():
     assert build_budget_warning(_ctx(5, 5)) is None
 
 
-def test_budget_warning_fires_when_planner_soft_limit_is_reached():
-    pair = build_budget_warning(_ctx(50, 8, soft_limit=8))
-    assert pair is not None
-    _, event = pair
-    assert event.category == "planning_stop"
-    assert "planner discovery budget (8)" in event.text
-
-
-def test_budget_warning_planner_soft_limit_emits_once():
-    ctx = _ctx(50, 8, soft_limit=8)
-    assert build_budget_warning(ctx) is not None
-    assert build_budget_warning(ctx) is None
-
-
-def test_budget_warning_uses_query_context_soft_limit_when_present():
-    ctx = _ctx(50, 8)
-    ctx.planner_soft_tool_limit = 8
-    pair = build_budget_warning(ctx)
-    assert pair is not None
-    _, event = pair
-    assert event.category == "planning_stop"
-
-
 # ---------- _execute_tool_call budget enforcement ----------------------------
 
 
@@ -167,21 +141,3 @@ async def test_execute_tool_call_unlimited_budget_does_not_count():
     # ``None`` limit short-circuits the budget gate; counter stays put.
     assert ctx.tool_calls_used == 0
 
-
-@pytest.mark.asyncio
-async def test_execute_tool_call_rejects_when_planner_soft_limit_is_spent():
-    ctx = _ctx(limit=20, used=8, soft_limit=8)
-    result = await _execute_tool_call(ctx, "any_tool", "id1", {})
-    assert result.is_error
-    assert "planner discovery budget exceeded" in result.content
-    # Rejected attempts still count so repeated over-budget retries cannot spin forever.
-    assert ctx.tool_calls_used == 9
-
-
-@pytest.mark.asyncio
-async def test_execute_tool_call_rejects_when_query_context_soft_limit_is_spent():
-    ctx = _ctx(limit=20, used=8)
-    ctx.planner_soft_tool_limit = 8
-    result = await _execute_tool_call(ctx, "any_tool", "id1", {})
-    assert result.is_error
-    assert "planner discovery budget exceeded" in result.content

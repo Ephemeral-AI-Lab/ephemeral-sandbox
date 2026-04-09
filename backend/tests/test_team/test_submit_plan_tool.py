@@ -27,13 +27,13 @@ async def test_valid_plan_accepted_and_stashed():
     tool = SubmitPlanTool()
     ctx = _ctx()
     args = SubmitPlanInput.model_validate(
-            {
-                "items": [
-                    {"agent_name": "developer", "local_id": "w1"},
-                    {"agent_name": "validator", "local_id": "w2", "deps": ["w1"]},
-                ]
-            }
-        )
+        {
+            "items": [
+                {"agent_name": "developer", "local_id": "w1"},
+                {"agent_name": "validator", "local_id": "w2", "deps": ["w1"]},
+            ]
+        }
+    )
     res = await tool.execute(args, ctx)
     assert not res.is_error
     stashed = ctx.metadata["submitted_plan"]
@@ -100,25 +100,3 @@ async def test_max_plan_size_respects_metadata_override():
     res = await tool.execute(args, ctx)
     assert res.is_error
     assert "max_plan_size" in res.output
-
-
-@pytest.mark.asyncio
-async def test_submit_plan_applies_timeout_floors_from_metadata():
-    tool = SubmitPlanTool()
-    ctx = _ctx()
-    ctx.metadata["min_timeout_seconds_by_agent"] = {"developer": 240.0, "validator": 300.0}
-    args = SubmitPlanInput.model_validate(
-        {
-            "items": [
-                {"agent_name": "developer", "local_id": "dev1", "timeout_seconds": 120},
-                {"agent_name": "validator", "local_id": "val1"},
-            ]
-        }
-    )
-
-    res = await tool.execute(args, ctx)
-
-    assert not res.is_error
-    stashed = ctx.metadata["submitted_plan"]
-    assert stashed.items[0].timeout_seconds == 240.0
-    assert stashed.items[1].timeout_seconds == 300.0

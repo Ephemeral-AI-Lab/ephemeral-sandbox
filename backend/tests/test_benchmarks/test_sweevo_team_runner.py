@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock
 from benchmarks.sweevo import team_runner as sweevo_team_runner
 from benchmarks.sweevo.team_runner import (
     _build_sweevo_planner_runtime_prompt,
-    _derive_planner_controls,
     _emit_dispatcher_dag,
     _make_context_builders,
     _make_runner,
@@ -33,23 +32,6 @@ def test_posthook_ctx_prefers_final_text_over_wrapped_work_result():
     )
     assert ctx.tool_metadata.team_run_id == "T1"
     assert ctx.tool_metadata.work_item_id == "W1"
-
-
-def test_submit_plan_posthook_ctx_seeds_timeout_floors():
-    _, build_posthook_ctx = _make_context_builders(
-        "sbx-1",
-        timeout_floors={"developer": 240.0, "validator": 300.0},
-    )
-
-    ctx = build_posthook_ctx(
-        SimpleNamespace(name="submit_plan_agent"),
-        {"final_text": '{"items":[]}', "team_run_id": "T1", "work_item_id": "W1"},
-    )
-
-    assert ctx.tool_metadata["min_timeout_seconds_by_agent"] == {
-        "developer": 240.0,
-        "validator": 300.0,
-    }
 
 
 def test_query_ctx_seeds_repo_root_for_daytona_and_ci():
@@ -80,37 +62,7 @@ def test_query_ctx_seeds_repo_root_for_daytona_and_ci():
     assert ctx.tool_metadata["ci_workspace_root"] == "/testbed"
 
 
-def test_query_ctx_seeds_planner_soft_limit_for_team_planner():
-    build_query_ctx, _ = _make_context_builders(
-        "sbx-1",
-        repo_dir="/testbed",
-        planner_controls={"first_plan_exploration_budget": 8},
-    )
-    ctx = build_query_ctx(
-        SimpleNamespace(name="team_planner"),
-        SimpleNamespace(
-            id="TR1",
-            sandbox_id="sbx-1",
-            dispatcher=SimpleNamespace(
-                artifact_store=SimpleNamespace(load=lambda _ref: None)
-            ),
-            budgets=None,
-            project_context=None,
-        ),
-        WorkItem(
-            id="W1",
-            team_run_id="T1",
-            agent_name="team_planner",
-            status=WorkItemStatus.PENDING,
-            kind=WorkItemKind.EXPANDABLE,
-            payload={"prompt": "Plan it"},
-        ),
-    )
-
-    assert ctx.tool_metadata["planner_soft_tool_limit"] == 8
-
-
-def test_planner_controls_scale_with_large_instance():
+def test_planner_runtime_prompt_avoids_timeout_and_budget_instructions():
     instance = SimpleNamespace(
         repo="pydantic/pydantic",
         instance_id="pydantic__pydantic_v2.6.0b1_v2.6.0",
@@ -123,15 +75,15 @@ def test_planner_controls_scale_with_large_instance():
         fail_to_pass=["tests/test_foo.py::test_bar"],
         pass_to_pass=["tests/test_foo.py::test_existing"],
     )
-    controls = _derive_planner_controls(instance)
 
-    assert controls["first_plan_exploration_budget"] == 8
-    assert controls["tool_call_limit"] == 28
-    assert controls["max_turns"] == 50
-    assert "Once you say or infer that you have enough context" in _build_sweevo_planner_runtime_prompt(instance)
+    prompt = _build_sweevo_planner_runtime_prompt(instance)
+
+    assert "timeout_seconds" not in prompt
+    assert "hard stop" not in prompt
+    assert "Once you say or infer that you have enough context" in prompt
 
 
-def test_resume_sweevo_team_threads_planner_controls_and_timeout_floors(monkeypatch):
+def test_resume_sweevo_team_uses_default_executor_factory_signature(monkeypatch):
     instance = SimpleNamespace(
         repo="pydantic/pydantic",
         instance_id="pydantic__pydantic_v2.6.0b1_v2.6.0",
@@ -160,7 +112,7 @@ def test_resume_sweevo_team_threads_planner_controls_and_timeout_floors(monkeypa
         "_prepare_benchmark_session",
         lambda **_: (SimpleNamespace(session_id="sess-1"), object()),
     )
-    monkeypatch.setattr(sweevo_team_runner, "_build_planner_overrides", lambda _instance: ({}, {}))
+    monkeypatch.setattr(sweevo_team_runner, "_build_agent_overrides", lambda _instance: {})
     monkeypatch.setattr(sweevo_team_runner, "_derive_atlas_parallelism", lambda *args, **kwargs: 1)
     monkeypatch.setattr(sweevo_team_runner, "_build_team_metrics", lambda: {})
     monkeypatch.setattr(sweevo_team_runner, "_emit_team_runtime_banner", lambda *args, **kwargs: None)
@@ -181,16 +133,13 @@ def test_resume_sweevo_team_threads_planner_controls_and_timeout_floors(monkeypa
         repo_dir="/testbed",
         team_metrics=None,
         agent_overrides=None,
-        planner_controls=None,
-        timeout_floors=None,
     ):
         seen_factory_calls.append(
             {
                 "session_config": session_config,
                 "sandbox_id": sandbox_id,
                 "printer": printer,
-                "planner_controls": planner_controls,
-                "timeout_floors": timeout_floors,
+                "agent_overrides": agent_overrides,
             }
         )
         return "executor-factory"
@@ -218,13 +167,12 @@ def test_resume_sweevo_team_threads_planner_controls_and_timeout_floors(monkeypa
 
     assert result == {"status": "ok"}
     assert seen_factory_calls and seen_factory_calls[0]["sandbox_id"] == "sbx-1"
-    assert seen_factory_calls[0]["planner_controls"] == {}
-    assert seen_factory_calls[0]["timeout_floors"] == {"developer": 240.0, "validator": 300.0}
-    assert seen_atlas_calls and seen_atlas_calls[0]["planner_controls"] == {}
+    assert seen_factory_calls[0]["agent_overrides"] == {}
+    assert seen_atlas_calls
     fake_tr.resume.assert_awaited_once()
 
 
-def test_make_runner_copies_planner_soft_limit_into_query_context(monkeypatch):
+def test_make_runner_uses_agent_definition_limits(monkeypatch):
     captured_agents: list[SimpleNamespace] = []
 
     class _Tracker:
@@ -244,7 +192,6 @@ def test_make_runner_copies_planner_soft_limit_into_query_context(monkeypatch):
                 tool_metadata=ExecutionMetadata(session_config="cfg", sandbox_id="sbx-1"),
                 run_id="",
                 tool_call_limit=_kwargs["agent_def"].tool_call_limit,
-                planner_soft_tool_limit=None,
                 max_turns=_kwargs["agent_def"].max_turns,
                 api_messages_snapshot=None,
             ),
@@ -267,13 +214,12 @@ def test_make_runner_copies_planner_soft_limit_into_query_context(monkeypatch):
         session_config=SimpleNamespace(session_id="sess-1"),
         sandbox_id="sbx-1",
         printer=None,
-        agent_overrides={"team_planner": {"tool_call_limit": 28, "max_turns": 50}},
+        agent_overrides={"team_planner": {"tool_call_limit": 50, "max_turns": 100}},
     )
     ctx = sweevo_team_runner.TeamAgentContext(
         user_message="Plan it",
         tool_metadata=ExecutionMetadata(team_run_id="TR1", work_item_id="W1"),
     )
-    ctx.tool_metadata["planner_soft_tool_limit"] = 8
 
     asyncio.run(
         runner(
@@ -287,9 +233,8 @@ def test_make_runner_copies_planner_soft_limit_into_query_context(monkeypatch):
 
     assert captured_agents
     assert captured_agents[0].query_context.tool_metadata.agent_name == "team_planner"
-    assert captured_agents[0].query_context.tool_call_limit == 28
-    assert captured_agents[0].query_context.planner_soft_tool_limit == 8
-    assert captured_agents[0].query_context.max_turns == 50
+    assert captured_agents[0].query_context.tool_call_limit == 50
+    assert captured_agents[0].query_context.max_turns == 100
 
 
 def test_emit_dispatcher_dag_logs_graph_lines():
