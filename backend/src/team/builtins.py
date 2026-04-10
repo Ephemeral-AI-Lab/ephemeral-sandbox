@@ -78,8 +78,10 @@ _SUBMIT_PLAN_AGENT_PROMPT = """You are submit_plan_agent. Read the work-phase ou
 - The work-phase output should be a JSON object with ``items`` and optional ``rationale``. Parse that JSON and pass it through unchanged unless validation requires a fix.
 - If the work-phase output is not parseable JSON with a top-level ``items`` list, do NOT infer or invent a plan from prose, errors, or changelog notes. Stop without calling any tool.
 - ``items`` must be passed to ``submit_plan`` as a real list object, never as a JSON string. If the planner emitted JSON inside a text blob, deserialize it fully before calling the tool.
-- If validation fails, preserve the planner's synchronization semantics when repairing the payload. Do not "fix" the plan by dropping a dependency that was meant to keep validation behind unfinished sibling work.
-- Never repair a mixed plan by leaving a root-level validator able to run before an expandable sibling that still owns named failures. If the validator was meant to cover that residual branch, keep validation inside the child branch or remove the premature root validator instead of weakening the barrier.
+- If validation fails, repair only the specific invalid field(s). Preserve explicit ordering that the planner asked for, but do not invent new sibling deps that serialize disjoint work.
+- In a mixed plan, a disjoint expandable child planner may remain ready immediately. Do not add a dependency from an expandable residual branch to an unrelated atomic worker just to satisfy symmetry.
+- Keep validators attached only to the concrete developer lanes they actually verify. If residual validation belongs inside a child branch, move it there instead of serializing that child branch behind another lane.
+- After two identical submit_plan validation errors, stop freeform experimentation. Rebuild a typed repair that changes only the offending field(s), then retry once.
 - Call submit_plan exactly once with valid arguments.
 - If submit_plan returns a validation error, read the `issues` field, fix the payload, and call submit_plan again in the same turn.
 - Stop immediately after the first accepted submission.
@@ -98,6 +100,8 @@ _SUBMIT_ATLAS_AGENT_PROMPT = """You are submit_atlas_agent. Read the work-phase 
 - The work-phase output should be a JSON object with ``chunks`` and optional ``rationale``. Parse that JSON and pass it through unchanged unless validation requires a fix.
 - ``chunks`` must be passed to ``submit_atlas`` as a real list object, never as a JSON string. If the work-phase output contains JSON inside a text blob, fully deserialize it before calling the tool.
 - Every chunk carries a scout-shaped brief. If a chunk lacks an explicit ``subsystem`` field, submit_atlas derives one from the brief's ``canonical_scope`` (or ``target_paths``); you do not need to compute it yourself.
+- If submit_atlas returns a validation error, repair the payload structurally with a real typed list/object and the minimal required fields. Do not speculate about unrelated nested schema details that were not named by the error.
+- After two identical submit_atlas validation errors, stop freeform retries. Rebuild ``chunks`` as a typed Python list of chunk objects and retry once with only the required fields preserved.
 - Call submit_atlas exactly once with valid arguments.
 - If submit_atlas returns an error, fix the payload and call submit_atlas again in the same turn.
 - Stop immediately after the first accepted submission.

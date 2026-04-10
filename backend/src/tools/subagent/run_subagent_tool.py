@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from agents.run_tracker import AgentRunTracker
@@ -129,18 +130,55 @@ def format_last_n_messages(messages: list[ConversationMessage], n: int) -> str:
 
 
 _ENVELOPE_SUMMARY_CAP = 500
+_DIRECT_SUBMISSION_METADATA_KEY = "submitted_output"
 
 
 def _extract_submitted_output(agent: Any) -> Any | None:
-    """Return the agent's accepted submitted output, if any."""
+    """Return the agent's accepted submitted output from the active slot."""
     qc = getattr(agent, "query_context", None)
     if qc is None or qc.tool_metadata is None:
         return None
-    for key in ("submitted_summary", "submitted_plan"):
-        value = qc.tool_metadata.get(key)
-        if value is not None:
-            return value
-    return None
+    key = qc.tool_metadata.get("posthook_metadata_key", _DIRECT_SUBMISSION_METADATA_KEY)
+    if not isinstance(key, str) or not key.strip():
+        key = _DIRECT_SUBMISSION_METADATA_KEY
+    return qc.tool_metadata.get(key)
+
+
+def _coerce_payload_object(value: Any) -> dict[str, Any]:
+    """Best-effort conversion of arbitrary structured output into a JSON object."""
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if is_dataclass(value):
+        dumped = asdict(value)
+        return dumped if isinstance(dumped, dict) else {"value": dumped}
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump(mode="json")
+        return dumped if isinstance(dumped, dict) else {"value": dumped}
+    try:
+        dumped = json.loads(json.dumps(value, default=str))
+    except Exception:
+        return {"value": str(value)}
+    return dumped if isinstance(dumped, dict) else {"value": dumped}
+
+
+def _derive_submission_summary(submitted: Any, final_text: str) -> str:
+    summary: str | None = None
+    if isinstance(submitted, dict):
+        candidate = submitted.get("summary")
+        if isinstance(candidate, str):
+            summary = candidate.strip()
+    else:
+        candidate = getattr(submitted, "summary", None)
+        if isinstance(candidate, str):
+            summary = candidate.strip()
+    if summary:
+        return summary[:_ENVELOPE_SUMMARY_CAP]
+    if final_text:
+        return final_text[:_ENVELOPE_SUMMARY_CAP]
+    return str(submitted)[:_ENVELOPE_SUMMARY_CAP]
 
 
 def _build_subagent_envelope(
@@ -156,6 +194,9 @@ def _build_subagent_envelope(
                                    the submitter set one; if its artifact
                                    carries a ``target_paths`` field, kind is
                                    promoted to ``"brief"``.
+        - other structured data  → kind="summary", payload=best-effort JSON
+                                   object, summary derived from the submission
+                                   or final_text.
         - no posthook submission → kind="raw",    payload={"final_text": ...}
     """
     # Lazy imports — avoid pulling team into tools at import time.
@@ -195,6 +236,14 @@ def _build_subagent_envelope(
             "payload": artifact if isinstance(artifact, dict) else {},
         }
 
+    if submitted is not None:
+        return {
+            "kind": "summary",
+            "summary": _derive_submission_summary(submitted, final_text),
+            "artifact_ref": sub_run_id,
+            "payload": _coerce_payload_object(submitted),
+        }
+
     # No posthook submission — fall back to raw final text.
     return {
         "kind": "raw",
@@ -217,7 +266,8 @@ def _extract_final_text(messages: list[ConversationMessage]) -> str:
 
 async def _run_posthook_if_needed(
     *,
-    sub_def: Any,
+    posthook_cfg: Any | None,
+    posthook_def: Any | None,
     submitted: Any | None,
     final_text: str,
     parent_cfg: Any,
@@ -225,17 +275,15 @@ async def _run_posthook_if_needed(
     base_metadata: ToolExecutionContext,
 ) -> Any | None:
     """Run the subagent's serializer posthook when the work phase did not submit."""
-    if submitted is not None or getattr(sub_def, "posthook", None) is None:
+    if submitted is not None or posthook_cfg is None:
         return submitted
 
-    from agents import get_definition
     from engine.runtime.agent import spawn_agent
+    from hooks.agent_posthook import read_posthook_output, stamp_posthook_metadata_key
 
-    cfg = sub_def.posthook
-    posthook_def = get_definition(cfg.agent_name)
     if posthook_def is None:
         raise RuntimeError(
-            f"run_subagent: posthook agent {cfg.agent_name!r} for {sub_def.name!r} is not registered"
+            f"run_subagent: posthook agent {posthook_cfg.agent_name!r} is not registered"
         )
 
     posthook_agent = spawn_agent(
@@ -253,7 +301,7 @@ async def _run_posthook_if_needed(
         posthook_meta.update(base_metadata.metadata)
     posthook_agent.query_context.tool_metadata = posthook_meta
     posthook_agent.query_context.tool_metadata.agent_name = posthook_def.name
-    posthook_agent.query_context.tool_metadata["posthook_metadata_key"] = cfg.metadata_key
+    stamp_posthook_metadata_key(posthook_agent.query_context, posthook_cfg.metadata_key)
 
     try:
         async for _event in posthook_agent.run(final_text):
@@ -263,10 +311,10 @@ async def _run_posthook_if_needed(
             f"run_subagent: posthook {posthook_def.name!r} failed: {exc}"
         ) from exc
 
-    submitted = posthook_agent.query_context.tool_metadata.get(cfg.metadata_key)
+    submitted = read_posthook_output(posthook_agent.query_context, posthook_cfg.metadata_key)
     if submitted is None:
         raise RuntimeError(
-            f"run_subagent: posthook {posthook_def.name!r} ended without writing {cfg.metadata_key!r}"
+            f"run_subagent: posthook {posthook_def.name!r} ended without writing {posthook_cfg.metadata_key!r}"
         )
     return submitted
 
@@ -314,6 +362,11 @@ async def run_subagent(
     """
     from agents import get_definition
     from engine.runtime.agent import spawn_agent
+    from hooks.agent_posthook import (
+        PosthookMisconfigured,
+        resolve_posthook_definition,
+        stamp_posthook_metadata_key,
+    )
 
     parent_cfg = context.metadata.session_config
     sandbox_id = context.metadata.sandbox_id or None
@@ -415,6 +468,14 @@ async def run_subagent(
                 is_error=True,
             )
 
+    try:
+        posthook_cfg, posthook_def = resolve_posthook_definition(
+            sub_def,
+            agent_lookup=get_definition,
+        )
+    except PosthookMisconfigured as exc:
+        return ToolResult(output=str(exc), is_error=True)
+
     # Build the subagent's initial user message: shared_briefings preamble
     # (run-scoped, inherited symmetrically with the DAG executor path) + the
     # caller-supplied prompt or serialized input. Parent ``wi.briefings`` are
@@ -465,6 +526,13 @@ async def run_subagent(
             final_text="",
         )
         return ToolResult(output=f"run_subagent: spawn failed: {exc}", is_error=True)
+
+    qc = getattr(agent, "query_context", None)
+    if qc is not None:
+        stamp_posthook_metadata_key(
+            qc,
+            posthook_cfg.metadata_key if posthook_cfg is not None else _DIRECT_SUBMISSION_METADATA_KEY,
+        )
 
     # Register the live-peek progress provider — closes over the inner agent's
     # _messages list, so each peek returns a fresh snapshot of the last N
@@ -522,22 +590,7 @@ async def run_subagent(
 
     final_text = _extract_final_text(agent.display_messages)
     # Tolerate test stubs that don't expose a query_context.
-    qc = getattr(agent, "query_context", None)
     api_snapshot = qc.api_messages_snapshot if qc is not None else None
-    if cancelled:
-        final_status = "cancelled"
-    elif run_error:
-        final_status = "failed"
-    else:
-        final_status = "completed"
-    tracker.finish(
-        status=final_status,
-        display_messages=agent.display_messages,
-        api_messages_snapshot=api_snapshot,
-        error=run_error,
-        final_text=final_text,
-        cancellation_reason=cancel_reason,
-    )
     # Test stubs may not expose ``agent_name``/``model``/``total_usage`` —
     # skip usage persistence in that case instead of crashing the tool.
     agent_name_for_usage = getattr(agent, "agent_name", None)
@@ -559,16 +612,33 @@ async def run_subagent(
         )
 
     if cancelled:
+        tracker.finish(
+            status="cancelled",
+            display_messages=agent.display_messages,
+            api_messages_snapshot=api_snapshot,
+            error=None,
+            final_text=final_text,
+            cancellation_reason=cancel_reason,
+        )
         msg = f"run_subagent: cancelled ({cancel_reason})" if cancel_reason else "run_subagent: cancelled"
         # Re-raise so the bg manager's done callback observes a cancelled task
         # and the parent's wait/peek paths see consistent cancelled framing.
         raise asyncio.CancelledError(msg)
     if run_error:
+        tracker.finish(
+            status="failed",
+            display_messages=agent.display_messages,
+            api_messages_snapshot=api_snapshot,
+            error=run_error,
+            final_text=final_text,
+            cancellation_reason=cancel_reason,
+        )
         return ToolResult(output=f"run_subagent: subagent crashed: {run_error}", is_error=True)
 
     try:
         submitted = await _run_posthook_if_needed(
-            sub_def=sub_def,
+            posthook_cfg=posthook_cfg,
+            posthook_def=posthook_def,
             submitted=_extract_submitted_output(agent),
             final_text=final_text,
             parent_cfg=parent_cfg,
@@ -576,9 +646,25 @@ async def run_subagent(
             base_metadata=context,
         )
     except Exception as exc:
+        tracker.finish(
+            status="failed",
+            display_messages=agent.display_messages,
+            api_messages_snapshot=api_snapshot,
+            error=str(exc),
+            final_text=final_text,
+            cancellation_reason=cancel_reason,
+        )
         return ToolResult(output=str(exc), is_error=True)
 
     envelope = _build_subagent_envelope(submitted, sub_run_id, final_text)
+    tracker.finish(
+        status="completed",
+        display_messages=agent.display_messages,
+        api_messages_snapshot=api_snapshot,
+        error=None,
+        final_text=final_text,
+        cancellation_reason=cancel_reason,
+    )
     return ToolResult(
         output=json.dumps(envelope, default=str),
         metadata={"envelope": envelope},

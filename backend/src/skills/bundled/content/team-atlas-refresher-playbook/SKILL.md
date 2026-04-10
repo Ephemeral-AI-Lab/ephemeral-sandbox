@@ -71,7 +71,7 @@ Do **not** call `submit_atlas` yourself. The posthook agent will read this paylo
 
 1. **Only refresh what the caller listed.** `stale_subsystems` is authoritative. Do not add, do not drop.
 2. **Read-only.** Never edit files. Never run shell commands. Never call CI tools directly.
-3. **Whitelist enforced.** Only `run_subagent`.
+3. **Whitelist enforced.** Only `run_subagent`, `check_background_progress`, and `wait_for_background_task`.
 4. **Exactly one payload per turn.** End your turn with one JSON object and no wrapper prose.
 5. **Subdivide under-covered refreshes.** Never commit a `scope_coverage < 0.7` chunk when `suggested_subdivisions` is non-empty.
 6. **Preserve the upsert contract.** One chunk per stale subsystem. No extras.
@@ -93,6 +93,7 @@ Do **not** call `submit_atlas` yourself. The posthook agent will read this paylo
 - After spawning a new scout background task, inspect it exactly once with `check_background_progress` before any `wait_for_background_task`.
 - If a wait returns `WAIT_REQUIRES_PROGRESS_CHECK`, do not loop on `wait_for_background_task`; perform the required progress check first, then wait once.
 - Do not alternate repeated wait calls with no new information. One progress check is enough to satisfy the join precondition.
+- If the same scout times out twice with no new useful output, stop waiting on that whole scope. Either commit an already acceptable brief, fan out only the unresolved subdivisions, or emit the best faithful refresh payload for the requested stale subsystem.
 - When a scout finishes with acceptable coverage, emit the JSON payload immediately instead of narrating more analysis.
 
 ## Refresh scope discipline

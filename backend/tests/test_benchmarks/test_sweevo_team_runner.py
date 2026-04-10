@@ -293,7 +293,7 @@ def test_sweevo_budgets_cap_submitted_plan_size_at_ten():
     assert budgets.max_plan_size == 10
 
 
-def test_sweevo_enables_low_parallelism_atlas_maintenance():
+def test_sweevo_disables_atlas_maintenance_for_now():
     instance = SimpleNamespace(
         fail_to_pass=["a", "b"],
         problem_statement="- bullet\n" * 10,
@@ -307,7 +307,7 @@ def test_sweevo_enables_low_parallelism_atlas_maintenance():
         pass_to_pass=[],
     )
 
-    assert _derive_atlas_parallelism(instance, num_executors=8) == 1
+    assert _derive_atlas_parallelism(instance, num_executors=8) == 0
 
 
 def test_enforce_validation_evidence_requires_daytona_bash():

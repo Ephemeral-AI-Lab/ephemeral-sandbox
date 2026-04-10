@@ -69,6 +69,11 @@ AgentLookup = Callable[[str], "AgentDefinition | None"]
 PosthookCtxBuilder = Callable[["AgentDefinition", Any], Any]
 
 
+def stamp_posthook_metadata_key(ctx: Any, key: str) -> None:
+    """Public wrapper for stamping the active posthook metadata slot."""
+    _stamp_metadata_key(ctx, key)
+
+
 def _stamp_metadata_key(ctx: Any, key: str) -> None:
     """Tell the submit tool which metadata slot to write its accepted payload into.
 
@@ -81,6 +86,11 @@ def _stamp_metadata_key(ctx: Any, key: str) -> None:
         setter(key)
         return
     ctx.tool_metadata["posthook_metadata_key"] = key
+
+
+def read_posthook_output(ctx: Any, key: str) -> Any | None:
+    """Public wrapper for reading an accepted posthook submission."""
+    return _read_submitted_output(ctx, key)
 
 
 def _read_submitted_output(ctx: Any, key: str) -> Any | None:
@@ -126,6 +136,31 @@ def _assert_serializer_has_no_skills(defn: "AgentDefinition") -> None:
         )
 
 
+def resolve_posthook_definition(
+    work_defn: "AgentDefinition",
+    *,
+    agent_lookup: AgentLookup | None = None,
+) -> tuple[PosthookConfig | None, "AgentDefinition | None"]:
+    """Validate and resolve the configured posthook agent for *work_defn*."""
+    cfg: PosthookConfig | None = work_defn.posthook
+    if cfg is None:
+        return None, None
+    if agent_lookup is None:
+        raise PosthookMisconfigured(
+            f"work agent {work_defn.name!r} declares posthook "
+            f"{cfg.agent_name!r} but agent_lookup or posthook_ctx_builder "
+            f"was not supplied to execute_with_posthook"
+        )
+    posthook_defn = agent_lookup(cfg.agent_name)
+    if posthook_defn is None:
+        raise PosthookMisconfigured(
+            f"posthook agent {cfg.agent_name!r} (declared by "
+            f"{work_defn.name!r}) is not registered"
+        )
+    _assert_serializer_has_no_skills(posthook_defn)
+    return cfg, posthook_defn
+
+
 async def execute_with_posthook(
     work_defn: "AgentDefinition",
     work_ctx: Any,
@@ -147,27 +182,20 @@ async def execute_with_posthook(
         NoPosthookOutput: serializer ran but never wrote an accepted
             submission to ``ctx.tool_metadata[metadata_key]``.
     """
-    cfg: PosthookConfig | None = work_defn.posthook
-
     # Eager validation: if a posthook is configured, fail before running
     # the work phase rather than after. The work phase can be expensive.
+    cfg, posthook_defn = resolve_posthook_definition(
+        work_defn,
+        agent_lookup=agent_lookup,
+    )
     if cfg is not None:
-        if agent_lookup is None or posthook_ctx_builder is None:
+        if posthook_ctx_builder is None:
             raise PosthookMisconfigured(
                 f"work agent {work_defn.name!r} declares posthook "
                 f"{cfg.agent_name!r} but agent_lookup or posthook_ctx_builder "
                 f"was not supplied to execute_with_posthook"
             )
-        posthook_defn = agent_lookup(cfg.agent_name)
-        if posthook_defn is None:
-            raise PosthookMisconfigured(
-                f"posthook agent {cfg.agent_name!r} (declared by "
-                f"{work_defn.name!r}) is not registered"
-            )
-        _assert_serializer_has_no_skills(posthook_defn)
-        _stamp_metadata_key(work_ctx, cfg.metadata_key)
-    else:
-        posthook_defn = None
+        stamp_posthook_metadata_key(work_ctx, cfg.metadata_key)
 
     work_result = await runner(work_defn, work_ctx)
 
@@ -178,7 +206,7 @@ async def execute_with_posthook(
     # submit tool directly), skip the posthook entirely. Logged because
     # this branch silently changes the agent lifecycle and is otherwise
     # invisible.
-    if _read_submitted_output(work_ctx, cfg.metadata_key) is not None:
+    if read_posthook_output(work_ctx, cfg.metadata_key) is not None:
         logger.debug(
             "execute_with_posthook: work agent %r already submitted to %r; "
             "skipping posthook %r",
@@ -186,15 +214,15 @@ async def execute_with_posthook(
             cfg.metadata_key,
             cfg.agent_name,
         )
-        return work_result, _read_submitted_output(work_ctx, cfg.metadata_key)
+        return work_result, read_posthook_output(work_ctx, cfg.metadata_key)
 
     assert posthook_defn is not None  # established above when cfg is not None
     posthook_ctx = posthook_ctx_builder(posthook_defn, work_result)  # type: ignore[misc]
-    _stamp_metadata_key(posthook_ctx, cfg.metadata_key)
+    stamp_posthook_metadata_key(posthook_ctx, cfg.metadata_key)
 
     await runner(posthook_defn, posthook_ctx)
 
-    submitted = _read_submitted_output(posthook_ctx, cfg.metadata_key)
+    submitted = read_posthook_output(posthook_ctx, cfg.metadata_key)
     if submitted is None:
         raise NoPosthookOutput(
             f"Posthook agent {cfg.agent_name!r} for {work_defn.name!r} ended "

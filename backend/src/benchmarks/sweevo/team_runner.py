@@ -140,13 +140,11 @@ def _derive_sweevo_budgets(instance: SWEEvoInstance) -> BudgetConfig:
 
 
 def _derive_atlas_parallelism(instance: SWEEvoInstance, *, num_executors: int) -> int:
-    del instance
-    # Keep atlas maintenance on at low concurrency so resumed / retried benchmark
-    # runs can reuse scout structure without starving foreground planner and worker
-    # lanes.
-    if num_executors <= 1:
-        return 0
-    return 1
+    del instance, num_executors
+    # Atlas maintenance currently duplicates foreground scout work on fresh
+    # benchmark runs. Keep the scheduler disabled until deferred persistence
+    # lands, so planners and developers own the full critical path.
+    return 0
 
 
 def _derive_planner_runtime_limits(instance: SWEEvoInstance) -> dict[str, int]:

@@ -8,7 +8,10 @@ from pathlib import Path
 import pytest
 
 from agents import get_definition as get_agent_definition
+from agents.registry import register_definition, unregister_definition
+from agents.types import AgentDefinition
 from engine.runtime.background_tasks import BackgroundTaskManager
+from hooks.agent_posthook import PosthookConfig
 from message.messages import (
     ConversationMessage,
     TextBlock,
@@ -722,3 +725,102 @@ async def test_run_subagent_persists_usage_when_cancelled(monkeypatch):
     assert len(fake_usage_store.records) == 1
     assert fake_usage_store.records[0]["prompt_tokens"] == 8
     assert fake_usage_store.records[0]["completion_tokens"] == 2
+
+
+@pytest.mark.asyncio
+async def test_run_subagent_marks_persisted_run_failed_when_posthook_fails(monkeypatch):
+    register_definition(
+        AgentDefinition(
+            name="worker_with_posthook",
+            description="d",
+            agent_type="subagent",
+            posthook=PosthookConfig(
+                agent_name="submit_summary_agent",
+                metadata_key="submitted_summary",
+            ),
+        )
+    )
+
+    work_agent = _StubAgent(
+        [ConversationMessage(role="assistant", content=[TextBlock(text="work complete")])],
+        usage=UsageSnapshot(input_tokens=5, output_tokens=3),
+    )
+
+    class _FailingSerializer:
+        def __init__(self) -> None:
+            from tools.core.runtime import ExecutionMetadata
+
+            self.display_messages: list[ConversationMessage] = []
+            self.query_context = type(
+                "_QC",
+                (),
+                {
+                    "tool_metadata": ExecutionMetadata(),
+                    "api_messages_snapshot": None,
+                },
+            )()
+
+        async def run(self, prompt: str):
+            raise RuntimeError("serializer exploded")
+            yield  # pragma: no cover
+
+    def _fake_spawn(*args, **kwargs):
+        if kwargs["agent_def"].name == "submit_summary_agent":
+            return _FailingSerializer()
+        return work_agent
+
+    monkeypatch.setattr(
+        "engine.runtime.agent.spawn_agent",
+        _fake_spawn,
+        raising=True,
+    )
+
+    fake_store = _StubAgentRunStore()
+    fake_usage_store = _StubUsageStore()
+    import server.app_factory as app_factory
+
+    monkeypatch.setattr(app_factory, "agent_run_store", fake_store, raising=True)
+    monkeypatch.setattr(app_factory, "usage_store", fake_usage_store, raising=True)
+
+    bg = BackgroundTaskManager()
+
+    async def _noop_coro() -> ToolResult:
+        return ToolResult(output="placeholder")
+
+    bg.launch(
+        task_id="bg_posthook_fail",
+        tool_name="run_subagent",
+        tool_input={"prompt": "x"},
+        coro=_noop_coro(),
+        task_note="test",
+    )
+
+    class _StubCfg:
+        cwd = Path("/tmp")
+        session_id = "session_abc"
+
+    ctx = ToolExecutionContext(
+        cwd=Path("/tmp"),
+        metadata={
+            "session_config": _StubCfg(),
+            "background_task_manager": bg,
+            "background_task_id": "bg_posthook_fail",
+            "sandbox_id": "",
+            "agent_run_id": "parent_run_xyz",
+        },
+    )
+
+    try:
+        result = await run_subagent.execute(
+            run_subagent.input_model(agent_name="worker_with_posthook", prompt="x"),
+            ctx,
+        )
+    finally:
+        unregister_definition("worker_with_posthook")
+
+    assert result.is_error is True
+    assert "serializer exploded" in result.output
+    assert len(fake_store.finished) == 1
+    assert fake_store.finished[0]["status"] == "failed"
+    assert "serializer exploded" in fake_store.finished[0]["error"]
+    assert len(fake_usage_store.records) == 1

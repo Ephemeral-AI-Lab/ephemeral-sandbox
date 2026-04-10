@@ -45,6 +45,10 @@ Treat these as real planning inputs, not as decorative background text.
    If the child learns something siblings will need and it is not already present in shared context, distill it once.
    Otherwise keep the inherited evidence local and finish the plan.
 
+6. Attach the handoff explicitly.
+   If the emitted child planner, developer, or validator will rely on inherited ownership maps, artifact refs, touched-file scope, or nearby guardrails, attach that evidence as `briefings` or concrete payload fields.
+   Do not assume the next worker will recover the same branch-local map from atlas lookups or global `ci_recent_changes`.
+
 ---
 
 ## Reuse Rules
@@ -87,6 +91,7 @@ Fresh exploration is not justified when:
 
 - Shared context is for cross-branch reuse; dependency artifacts are for branch-local truth; explicit parent briefings are for scope control.
 - If those three together give you ownership plus validation, dispatch immediately.
+- If a downstream validator needs branch-local touched files or nearby regression targets, pass that branch-local scope directly instead of widening validation through repo-global recency checks.
 - If only one meaningful sub-slice remains, emit execution work instead of another planner wrapper.
 - If you scout, ask only for the missing structure that inherited context did not already answer.
 - If the next move would be "re-read the same file because this is a child planner now", stop and reuse the existing brief instead.

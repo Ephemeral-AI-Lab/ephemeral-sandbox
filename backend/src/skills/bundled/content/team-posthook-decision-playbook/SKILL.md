@@ -30,6 +30,7 @@ Read the worker output and place it in one bucket before calling any tool:
   - timeout, sandbox hiccup, flaky test, cancelled run, or model confusion
   - the same work item is still the right task
   - no new ownership boundary or new corrective task graph is needed
+  - one repeat is enough; if the same transient-looking tool/input/runtime failure is already recurring, it is no longer a plain retry case
 
 - **Systemic failure**
   - deterministic failing command or assertion shows the current task needs a different implementation follow-up
@@ -48,6 +49,7 @@ Checkpoint or replan instability is always systemic, never transient.
 - **`request_retry`**
   - use only when the same task should run again unchanged
   - require a concrete transient reason such as timeout, flaky test, sandbox interruption, or obvious model confusion without a new plan boundary
+  - do not use after repeated identical tool-input, serializer-shape, or runtime failures
   - do not use retry for deterministic code failures, mis-scoped ownership, or coordination-runtime bugs
 
 - **`request_replan`**
@@ -85,10 +87,10 @@ When the worker already produced a structured FAIL block, preserve its exact com
 1. **One tool only.** Never call more than one tool.
 2. **No silent leniency.** Deterministic code failures are not retries.
 3. **Systemic coordination bugs escalate.** Anything involving checkpointing, retry/replan plumbing, dispatcher correction, or serializer/posthook shape goes to `request_replan` when available.
-4. **Retry requires sameness.** If the next attempt would need a different fix surface, a different task boundary, or a different verification command, do not retry.
+4. **Retry requires sameness and non-recurrence.** If the next attempt would need a different fix surface, a different task boundary, or a different verification command, do not retry. After one repeated tool-input, serializer-shape, or runtime failure with the same observable symptom, prefer `request_replan` when available instead of optimistic retry.
 5. **Prefer evidence over optimism.** If the output contains a real failing command or assertion, treat that as systemic unless it is clearly flaky infrastructure.
 6. **Prefer evidence over worker self-classification.** Do not let `code_fix_complete` or `submit_summary` override a report that still contains named deterministic remaining issues, widened regression clusters, or plan-shape mismatches.
-6. **Do not write prose outside the tool call.** Once the tool is accepted, stop.
+7. **Do not write prose outside the tool call.** Once the tool is accepted, stop.
 
 ---
 

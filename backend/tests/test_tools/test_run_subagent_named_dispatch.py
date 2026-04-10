@@ -27,6 +27,7 @@ if _get_agent_def("scout") is None:
         pass
 from agents.types import AgentDefinition
 from engine.runtime.background_tasks import BackgroundTaskManager
+from hooks.agent_posthook import PosthookConfig
 from team.context.project import ProjectContext
 from team.models import Briefing, BudgetConfig, BudgetState, Plan, WorkItemSpec
 from team.runtime.registry import register as _register_team_run
@@ -48,13 +49,7 @@ class _StubConfig:
 
 def _make_stub_agent(submitted: Any | None = None, final_text: str = "ok") -> Any:
     """Mock the spawn_agent return so run_subagent can drive its lifecycle."""
-    metadata = ExecutionMetadata()
-    if isinstance(submitted, Plan):
-        metadata["submitted_plan"] = submitted
-    elif isinstance(submitted, SubmittedSummary):
-        metadata["submitted_summary"] = submitted
-
-    qc = SimpleNamespace(tool_metadata=metadata, api_messages_snapshot=None)
+    qc = SimpleNamespace(tool_metadata=ExecutionMetadata(), api_messages_snapshot=None)
     captured: dict[str, Any] = {}
 
     class _Stub:
@@ -66,6 +61,9 @@ def _make_stub_agent(submitted: Any | None = None, final_text: str = "ok") -> An
             captured["prompt"] = prompt
             from message.messages import ConversationMessage, TextBlock
 
+            if submitted is not None:
+                key = qc.tool_metadata.get("posthook_metadata_key", "submitted_output")
+                qc.tool_metadata[key] = submitted
             self.display_messages.append(
                 ConversationMessage(role="assistant", content=[TextBlock(text=final_text)])
             )
@@ -349,6 +347,106 @@ async def test_configured_posthook_runs_when_work_phase_only_returns_raw_text(mo
     assert env["summary"] == "scout report"
     assert env["payload"]["target_paths"] == ["src/auth"]
     assert captured["prompt"].startswith("{")
+
+
+@pytest.mark.asyncio
+async def test_direct_submission_uses_configured_metadata_key(monkeypatch):
+    register_definition(
+        AgentDefinition(
+            name="custom_submitter",
+            description="d",
+            agent_type="subagent",
+            posthook=PosthookConfig(
+                agent_name="submit_summary_agent",
+                metadata_key="submitted_custom",
+            ),
+        )
+    )
+
+    class _DirectSubmitter:
+        def __init__(self) -> None:
+            self.display_messages: list[Any] = []
+            self.query_context = SimpleNamespace(
+                tool_metadata=ExecutionMetadata(),
+                api_messages_snapshot=None,
+            )
+
+        async def run(self, prompt: str):  # type: ignore[no-untyped-def]
+            from message.messages import ConversationMessage, TextBlock
+
+            key = self.query_context.tool_metadata["posthook_metadata_key"]
+            self.query_context.tool_metadata[key] = {"custom": ["src/auth/service.py"]}
+            self.display_messages.append(
+                ConversationMessage(role="assistant", content=[TextBlock(text="custom output")])
+            )
+            if False:  # pragma: no cover - generator stub
+                yield None
+            return
+
+    try:
+        monkeypatch.setattr(
+            "engine.runtime.agent.spawn_agent",
+            lambda *a, **k: _DirectSubmitter(),
+            raising=True,
+        )
+
+        res = await run_subagent.execute(
+            run_subagent.input_model(agent_name="custom_submitter", prompt="x"),
+            _ctx(),
+        )
+
+        assert not res.is_error
+        env = json.loads(res.output)
+        assert env["kind"] == "summary"
+        assert env["summary"] == "custom output"
+        assert env["payload"] == {"custom": ["src/auth/service.py"]}
+    finally:
+        unregister_definition("custom_submitter")
+
+
+@pytest.mark.asyncio
+async def test_misconfigured_serializer_is_rejected_before_work_phase(monkeypatch):
+    register_definition(
+        AgentDefinition(
+            name="bad_submitter",
+            description="bad",
+            toolkits=["submit_summary_posthook"],
+            include_skills=True,
+            skills=[],
+            agent_type="subagent",
+        )
+    )
+    register_definition(
+        AgentDefinition(
+            name="worker_with_bad_posthook",
+            description="d",
+            agent_type="subagent",
+            posthook=PosthookConfig(
+                agent_name="bad_submitter",
+                metadata_key="submitted_custom",
+            ),
+        )
+    )
+    try:
+        def _should_not_spawn(*args, **kwargs):
+            raise AssertionError("spawn_agent should not be called for invalid serializer config")
+
+        monkeypatch.setattr(
+            "engine.runtime.agent.spawn_agent",
+            _should_not_spawn,
+            raising=True,
+        )
+
+        res = await run_subagent.execute(
+            run_subagent.input_model(agent_name="worker_with_bad_posthook", prompt="x"),
+            _ctx(),
+        )
+
+        assert res.is_error
+        assert "must not be equipped with builtin skills" in res.output
+    finally:
+        unregister_definition("worker_with_bad_posthook")
+        unregister_definition("bad_submitter")
 
 
 # ---------- shared_briefings inheritance --------------------------------------

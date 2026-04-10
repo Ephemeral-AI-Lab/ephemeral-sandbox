@@ -530,6 +530,31 @@ def test_submit_plan_agent_registry_strictly_contains_only_submit_tool():
     assert tool_names == {"submit_plan"}, f"expected only submit_plan, got {tool_names}"
 
 
+def test_submit_plan_agent_prompt_preserves_parallel_expandable_children():
+    from team.builtins import register_all
+    from agents.registry import get_definition
+
+    register_all()  # idempotent
+
+    serializer = get_definition("submit_plan_agent")
+    assert serializer is not None
+    assert (
+        "a disjoint expandable child planner may remain ready immediately"
+        in serializer.system_prompt
+    )
+
+
+def test_submit_atlas_agent_prompt_requires_typed_retry_after_repeated_errors():
+    from team.builtins import register_all
+    from agents.registry import get_definition
+
+    register_all()  # idempotent
+
+    serializer = get_definition("submit_atlas_agent")
+    assert serializer is not None
+    assert "After two identical submit_atlas validation errors" in serializer.system_prompt
+
+
 def test_team_planner_definition_uses_submit_plan_posthook_not_submit_toolkit():
     from team.builtins import SUBMIT_PLAN_AGENT, TEAM_PLANNER, register_all
     from agents.registry import get_definition
