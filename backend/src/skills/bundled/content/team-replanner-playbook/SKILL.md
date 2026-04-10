@@ -25,6 +25,13 @@ Extract:
 - whether the broken surface is implementation, integration, missing coverage, or coordination runtime
 - whether any pending sibling work is now stale
 
+Before opening fresh exploration, reuse what already exists:
+- start with completed sibling artifacts and shared briefings
+- if a stable subsystem key is already named and you still need structural context, use `atlas_lookup(...)` as a shortcut
+- if Atlas returns `use`, reuse that brief directly
+- if Atlas returns `refresh` or `scout`, treat Atlas as unavailable for this turn and fall back to live scouting
+- do not launch duplicate scouts for a surface already covered by a fresh shared briefing or reusable atlas brief
+
 ### 2. Reuse the existing branch shape
 
 Default bias:
@@ -50,6 +57,7 @@ Special case:
 Use `run_subagent(agent_name="scout", input={"target_paths": [...]})` only when one ownership boundary is still unclear from the failure packet.
 
 Scout rules:
+- call `ci_scope_status(scope_paths=[...])` first when the failure touches shared runtime files or checkpoint/retry surfaces, so corrective work is anchored on current repo state instead of stale checkpoint assumptions
 - bounded, concrete paths only
 - prefer one narrow scout over broad rediscovery
 - do not scout to re-run tests or gather runtime evidence
@@ -78,6 +86,8 @@ Emit one developer item per cluster. Keep them parallel unless one cluster truly
 ### Pattern C — Coordination/runtime bug
 
 If the failure is in checkpointing, retry/replan plumbing, submit_replan, dispatcher correction, or related runtime state:
+- verify the implicated paths with `ci_scope_status(...)` before drafting corrective work so you can see current reservations, touched files, and whether the checkpoint state diverged from live workspace reality
+- reuse shared briefings or Atlas only as structural hints; current CI state is the authority for active runtime branches
 - emit a narrow developer item on the exact runtime files implicated by the failure
 - include one direct reproducer or regression target in the payload
 - keep the plan surgical; do not reopen benchmark-domain ownership unless the runtime failure proved the domain plan was wrong
@@ -125,6 +135,8 @@ Rules:
 5. **Use deps only for true unlock order.** Keep independent corrective items parallel.
 6. **Stay concrete.** Payloads must name exact files, commands, or owner surfaces from the failure evidence.
 7. **Treat checkpoint/replan bugs as first-class fix surfaces.** They are not "infrastructure noise"; draft a direct corrective lane for them.
+8. **Prefer reuse before rediscovery.** Fresh shared briefings and reusable atlas briefs beat a new scout; only scout when ownership is still unresolved.
+9. **Live CI wins on runtime branches.** When checkpoint or retry state may have drifted, use `ci_scope_status(...)` to anchor on live workspace truth before drafting the fix.
 
 ---
 

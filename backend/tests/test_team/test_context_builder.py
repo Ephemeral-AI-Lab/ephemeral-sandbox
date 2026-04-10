@@ -126,7 +126,7 @@ def test_build_query_context_carries_team_metadata_and_briefings():
     store.save("P", {"target_paths": ["src"], "summary": "scout report"})
     tr = _fake_team_run(store)
     wi = _wi(
-        payload={"task": "implement"},
+        payload={"task": "implement", "target_paths": ["src/file.py"]},
         dep_artifacts=[
             DependencyArtifact(source_wi_id="P", artifact_ref="P", display_name="scout_1")
         ],
@@ -143,6 +143,7 @@ def test_build_query_context_carries_team_metadata_and_briefings():
     assert isinstance(ctx.tool_metadata.get("work_item_started_at"), float)
     assert ctx.tool_metadata["coordination_mode"] == "ultra"
     assert ctx.tool_metadata["require_declared_shell_outputs"] is True
+    assert ctx.tool_metadata["default_scope_paths"] == ["src/file.py"]
 
 
 def test_shared_briefings_flow_into_query_context():
@@ -186,6 +187,7 @@ def test_build_query_context_injects_scope_packet_when_ci_is_available(monkeypat
     assert ctx.tool_metadata.sandbox_id == "sbx-1"
     assert ctx.tool_metadata.daytona_cwd == "/testbed"
     assert ctx.tool_metadata["ci_workspace_root"] == "/testbed"
+    assert ctx.tool_metadata["default_scope_paths"] == ["src/module.py"]
     assert ctx.tool_metadata["scope_packet"]["coherence_token"] == "token-1"
     assert ctx.tool_metadata["coherence_token"] == "token-1"
     assert ctx.tool_metadata["coordination_mode"] == "ultra"

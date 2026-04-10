@@ -28,8 +28,12 @@ _SHELL_MUTATION_PATTERN = re.compile(
     r"cat\s+>|tee\s|cp\s|mv\s|rm\s|touch\s|mkdir\s|install\s|ln\s|"
     r"git\s+(apply|checkout|restore|reset|clean|mv|rm)\b|"
     r"sed\s+-i\b|perl\s+-pi\b|patch\b|ed\b|ex\b|"
-    r".*>>|.*[^<]>[^>]"
+    r".*>>|.*[^<]>(?!&)[^>]"
     r")",
+    flags=re.IGNORECASE,
+)
+_READ_ONLY_TEST_COMMAND_PATTERN = re.compile(
+    r"^\s*(?:python(?:\d+(?:\.\d+)*)?\s+-m\s+)?(?:pytest|py\.test)\b",
     flags=re.IGNORECASE,
 )
 
@@ -327,6 +331,10 @@ def command_may_mutate_workspace(command: str) -> bool:
     """Heuristic gate for when a shell command should trigger CI reconciliation."""
     stripped = (command or "").strip()
     if not stripped:
+        return False
+    # Treat test execution as read-only for coordination purposes even if the
+    # tool runner writes ephemeral caches like .pytest_cache internally.
+    if _READ_ONLY_TEST_COMMAND_PATTERN.match(stripped):
         return False
     return bool(_SHELL_MUTATION_PATTERN.search(stripped))
 

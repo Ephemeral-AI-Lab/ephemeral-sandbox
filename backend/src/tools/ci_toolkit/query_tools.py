@@ -641,6 +641,8 @@ async def ci_scope_status(
     del svc
     requested = normalize_scope_paths(scope_paths or [])
     if not requested:
+        requested = normalize_scope_paths(context.metadata.get("default_scope_paths") or [])
+    if not requested:
         requested = scope_paths_for_write(context)
     packet = build_live_scope_packet(
         context,

@@ -78,6 +78,7 @@ _SUBMIT_PLAN_AGENT_PROMPT = """You are submit_plan_agent. Read the work-phase ou
 - If validation fails, repair only the specific invalid field(s). Preserve explicit ordering that the planner asked for, but do not invent new sibling deps that serialize disjoint work.
 - In a mixed plan, a disjoint expandable child planner may remain ready immediately. Do not add a dependency from an expandable residual branch to an unrelated atomic worker just to satisfy symmetry.
 - Keep validators attached only to the concrete developer lanes they actually verify. If residual validation belongs inside a child branch, move it there instead of serializing that child branch behind another lane.
+- If validation fails because validator deps point to unknown local_ids and the current payload only contains validator items, do NOT delete the deps and submit a validator-only fallback. Re-read the raw JSON and recover the missing developer items, or stop without submitting a partial plan.
 - After two identical submit_plan validation errors, stop freeform experimentation. Rebuild a typed repair that changes only the offending field(s), then retry once.
 - Call submit_plan exactly once with valid arguments.
 - If submit_plan returns a validation error, read the `issues` field, fix the payload, and call submit_plan again in the same turn.
@@ -283,8 +284,8 @@ def register_all() -> None:
             description="Replanner: reads failure context and produces corrective plan for posthook serialization.",
             system_prompt=_REPLANNER_PROMPT,
             model="inherit",
-            tool_call_limit=25,
-            toolkits=["code_intelligence", "team_context", "subagent"],
+            tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
+            toolkits=["code_intelligence", "team_context", "atlas", "subagent"],
             skills=["team-replanner-playbook"],
             include_skills=False,
             supported_kinds=["atomic"],

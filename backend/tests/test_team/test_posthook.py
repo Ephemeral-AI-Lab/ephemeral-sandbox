@@ -551,9 +551,12 @@ def test_team_planner_definition_uses_submit_plan_posthook_not_submit_toolkit():
     register_all()  # idempotent
 
     planner = get_definition(TEAM_PLANNER)
+    serializer = get_definition(SUBMIT_PLAN_AGENT)
     assert planner is not None
+    assert serializer is not None
     assert planner.posthook is not None
     assert planner.posthook.agent_name == SUBMIT_PLAN_AGENT
+    assert "validator-only fallback" in serializer.system_prompt
     assert "submit_plan_posthook" not in planner.toolkits
     assert "submit_replan_posthook" not in planner.toolkits
     assert "posthook_submit_replan" not in planner.toolkits
@@ -569,6 +572,8 @@ def test_team_replanner_definition_uses_submit_replan_posthook_not_replan_tools(
     assert replanner is not None
     assert replanner.posthook is not None
     assert replanner.posthook.agent_name == SUBMIT_REPLAN_AGENT
+    assert replanner.tool_call_limit == 100
+    assert "atlas" in replanner.toolkits
     assert "submit_plan_posthook" not in replanner.toolkits
     assert "submit_replan_posthook" not in replanner.toolkits
     assert "posthook_submit_replan" not in replanner.toolkits

@@ -116,6 +116,28 @@ async def test_ci_scope_status_returns_live_scope_packet():
     assert ctx.metadata["coherence_token"] == data["coherence_token"]
 
 
+async def test_ci_scope_status_defaults_to_owned_scope_paths_when_unspecified():
+    svc = MagicMock()
+    svc.ledger.generation = 1
+    svc.ledger.recent_entries.return_value = []
+    svc.arbiter.generation = 2
+    svc.arbiter.active_reservations.return_value = []
+    svc.arbiter.hotspots.return_value = []
+    svc.symbol_index.generation = 3
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        ctx = _ctx(
+            {
+                "ci_service": svc,
+                "default_scope_paths": ["pydantic/networks.py"],
+            }
+        )
+        result = await ci_scope_status.execute(ci_scope_status.input_model(), ctx)
+
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["scope_paths"] == ["pydantic/networks.py"]
+
+
 # ---------------------------------------------------------------------------
 # ci_workspace_structure
 # ---------------------------------------------------------------------------

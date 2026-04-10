@@ -19,7 +19,7 @@ from benchmarks.sweevo.team_runner import (
     _make_runner,
 )
 from message import ConversationMessage, TextBlock, ToolUseBlock
-from team.builtins import DEVELOPER, TEAM_PLANNER, VALIDATOR
+from team.builtins import DEVELOPER, TEAM_PLANNER, TEAM_REPLANNER, VALIDATOR
 from team.models import WorkItem, WorkItemKind, WorkItemStatus
 from tools.core.runtime import ExecutionMetadata
 
@@ -84,6 +84,82 @@ def test_extract_posthook_input_text_recovers_plan_json_with_trailing_prose():
     assert extracted is not None
     assert json.loads(extracted) == {
         "items": [{"agent_name": "developer", "local_id": "dev1", "kind": "atomic"}]
+    }
+
+
+def test_extract_posthook_input_text_repairs_malformed_plan_items_missing_outer_braces():
+    extracted = sweevo_team_runner._extract_posthook_input_text(
+        [
+            ConversationMessage(
+                role="assistant",
+                content=[
+                    TextBlock(
+                        text=(
+                            "I have sufficient evidence.\n\n"
+                            '{"items": ['
+                            '{"local_id": "dev1", "agent_name": "developer", "kind": "atomic", '
+                            '"payload": {"owned_files": ["pydantic/networks.py"]}, '
+                            '{"local_id": "planner_residual", "agent_name": "team_planner", '
+                            '"kind": "expandable", "payload": {"owned_files": ["pydantic/root_model.py"]}, '
+                            '{"local_id": "val1", "agent_name": "validator", "kind": "atomic", '
+                            '"deps": ["dev1"], "payload": {"verify": ["tests/test_networks.py"]}}], '
+                            '"rationale": "Keep the dominant networks lane isolated."}'
+                        )
+                    )
+                ],
+            )
+        ],
+        "submitted_plan",
+    )
+
+    assert extracted is not None
+    assert json.loads(extracted) == {
+        "items": [
+            {
+                "local_id": "dev1",
+                "agent_name": "developer",
+                "kind": "atomic",
+                "payload": {"owned_files": ["pydantic/networks.py"]},
+            },
+            {
+                "local_id": "planner_residual",
+                "agent_name": "team_planner",
+                "kind": "expandable",
+                "payload": {"owned_files": ["pydantic/root_model.py"]},
+            },
+            {
+                "local_id": "val1",
+                "agent_name": "validator",
+                "kind": "atomic",
+                "deps": ["dev1"],
+                "payload": {"verify": ["tests/test_networks.py"]},
+            },
+        ],
+        "rationale": "Keep the dominant networks lane isolated.",
+    }
+
+
+def test_extract_matching_json_object_prefers_matching_top_level_plan():
+    text = (
+        '{"items": [{"local_id": "dev1", "agent_name": "developer", "kind": "atomic", '
+        '"payload": {"metadata": {"items": ["not-a-plan"]}}}], "rationale": "ok"}'
+    )
+
+    payload = sweevo_team_runner._extract_matching_json_object(
+        text,
+        lambda candidate: sweevo_team_runner._matches_posthook_payload(candidate, "submitted_plan"),
+    )
+
+    assert payload == {
+        "items": [
+            {
+                "local_id": "dev1",
+                "agent_name": "developer",
+                "kind": "atomic",
+                "payload": {"metadata": {"items": ["not-a-plan"]}},
+            }
+        ],
+        "rationale": "ok",
     }
 
 def test_posthook_ctx_propagates_live_team_plan_budget(monkeypatch):
@@ -249,6 +325,8 @@ def test_agent_overrides_attach_sweevo_skills_without_prompt_duplication():
     assert "system_prompt" not in overrides[VALIDATOR]
     assert "sweevo-project-context" in overrides[VALIDATOR]["skills"]
     assert "verification-replan" in overrides[VALIDATOR]["skills"]
+    assert "system_prompt" not in overrides[TEAM_REPLANNER]
+    assert "sweevo-project-context" in overrides[TEAM_REPLANNER]["skills"]
 
 
 def test_planner_runtime_limits_preserve_shared_agent_budget():

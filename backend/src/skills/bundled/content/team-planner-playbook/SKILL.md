@@ -214,10 +214,12 @@ When the prompt includes `## Scoped Expansion`, you are decomposing a child slic
 - Start from inherited `## Shared context`, `## From deps`, and `## From parent` material before spending tools. New exploration should cover only gaps that those sections do not already answer.
 - Plan only the owned child slice named by the parent hint.
 - Treat the parent `expansion_hint` as an ownership boundary, not a literal file whitelist. Adjacent helper files inside the same behavior slice may still belong to the child.
+- Default to one developer lane per owned file in child-planner residual branches. Split the same file into multiple developer lanes only when a scout already proved disjoint owner regions or truly independent behavior families inside that file.
 - If the child or its downstream validator will rely on inherited ownership maps, artifact refs, or branch-local guardrails that are not fully restated in the payload, attach them explicitly via `briefings` instead of assuming the child will rediscover them.
 - Do not emit a one-child recursive chain. If only one meaningful child slice remains, emit it as execution-sized work instead of another planner wrapper.
 - At deeper child levels, once one concrete production-file cluster and one direct validation target are known, emit at least one non-expandable execution leaf instead of returning an all-expandable frontier.
 - Every child `expansion_hint` must narrow to one owned sub-slice. Do not reopen sibling branches outside that slice.
+- When emitting multiple developer/validator pairs, each item must be its own standalone JSON object inside `items`. Never place a validator's `local_id`, `deps`, or `payload` keys inside the same object as a developer item.
 
 ---
 
@@ -243,10 +245,10 @@ Never invent new worker agent names unless the user has registered one in the ag
 1. **Empty-area rule.** If a scout returns `scope_coverage == 0.0` AND `suggested_subdivisions == []`, the area is genuinely empty. Do not retry. Do not fan out. Revise `target_paths` or switch to greenfield mode.
 2. **No subagents in submitted plans.** `scout` is an in-turn exploration helper only. Submitted plans must not contain subagent targets.
 3. **Required item kinds.** `team_planner` is the only valid target for `kind: "expandable"`. `developer` and `validator` are the only valid submitted atomic targets.
-4. **Promote only truly shareable briefs.** After reading a high-coverage brief whose evidence will help later branches, you may promote it once with `share_briefing`. Do not promote partial or malformed briefs.
+4. **Promote only truly shareable briefs, and only when `share_briefing` is actually available in your tool list.** Some runtime profiles omit the `team_context` toolkit because stable scout refs plus auto-promoted shared context already cover same-run reuse. If the tool is absent, skip promotion and keep planning.
 4a. **Fresh scout `artifact_ref` values are real team refs.** If a just-completed `run_subagent(agent_name="scout", ...)` returns `artifact_ref`, you may reuse or promote that ref directly. Use `run_id` only for audit or progress; it is not a briefing ref.
 4b. **Reserve `source="artifact"` for real stored refs.** Use `share_briefing(name=..., source="artifact", ref="<artifact_id>")` only for actual team artifact refs such as atlas `staged_artifact_ref` values, completed WorkItem artifacts, or scout `artifact_ref` values returned by `run_subagent`. Never invent or omit the ref.
-4c. **Skip promotion when in doubt.** If promotion would require inventing an inline note, retyping scout evidence, or recovering from a tool error, skip `share_briefing` and keep the evidence local to the plan. Shared context is optional; valid task decomposition is not.
+4c. **Skip promotion when in doubt.** If promotion would require inventing an inline note, retyping scout evidence, recovering from a tool error, or calling a tool that is not visibly available, skip `share_briefing` and keep the evidence local to the plan. Shared context is optional; valid task decomposition is not.
 5. **Planner work phase only.** Do not call `submit_plan` yourself. Emit the plan payload and let `submit_plan_agent` perform the submission.
 6. **No execution by planner.** If you conclude a test, edit, or shell command must be run, stop exploring and emit `developer` / `validator` WorkItems instead of trying to execute through `run_subagent`.
 7. **Exploration handoff rule.** After live CI identifies candidate paths, use scout or a child planner to understand ownership whenever the slice is still structurally ambiguous. Do not keep substituting serial planner-side CI probes for exploration.
@@ -289,6 +291,7 @@ Never invent new worker agent names unless the user has registered one in the ag
 41. **Duplicate-scout rejection closes that slice.** If `run_subagent` rejects a scout because the target paths are already covered in the current turn, treat that owner slice as closed for planning. Your next action must be either inspect one already-running uncovered scout or emit the final plan JSON.
 42. **Protocol errors are stop-and-plan signals.** After `WAIT_REQUIRES_PROGRESS_CHECK` on a benchmark root, do the single required progress check if an uncovered scout is still meaningful; otherwise finish the plan immediately. Do not respond by opening new scouts, waiting on `all`, or narrating more diagnosis.
 43. **No release archaeology after sufficiency.** Once you can name the dominant owner cluster and at least one residual owner or child-planner slice, do not call `ci_recent_changes`, `ci_edit_hotspots`, or version/dependency-oriented CI queries from the root planner turn. Those tools are for collision awareness after execution lanes exist, not for recovering confidence after source ownership is already clear.
+44. **Do not rescue malformed child plans by dropping validator deps.** If a child branch needs developer lanes, they must appear in the same JSON `items` array before the validators that depend on them. Validators with unknown deps are evidence of a malformed plan, not permission to submit a validator-only fallback.
 
 ---
 
@@ -357,3 +360,5 @@ Never invent new worker agent names unless the user has registered one in the ag
   - omit the root omnibus validator and require the child planner to emit the downstream validator after its concrete developer lanes are known, or
   - keep a root validator that verifies only the concrete root lanes it actually depends on.
 - Never emit a root validator whose command covers residual clusters that remain owned only by an expandable sibling. That creates a race the submit-plan repair path cannot safely solve.
+- For large benchmark clusters, `owned_failures` should be a representative deduped subset, not a full dump of hundreds of parametrized nodes. Keep the list short enough to stay readable, and carry the total cluster size in `cluster_notes`, `notes`, or `rationale`.
+- JSON item boundaries are literal. Every entry in `items` must be its own `{...}` object. If you see yourself writing `local_id`, `agent_name`, `kind`, or `payload` a second time before closing the current item object, stop and split that content into a new sibling object.

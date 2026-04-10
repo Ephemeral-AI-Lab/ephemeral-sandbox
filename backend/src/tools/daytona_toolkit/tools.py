@@ -14,6 +14,7 @@ from tools.core.base import ToolExecutionContext, ToolResult
 from tools.core.decorator import tool
 from tools.daytona_toolkit.ci_integration import (
     abort_ci_write,
+    command_may_mutate_workspace,
     finalize_ci_write,
     prepare_ci_write,
     prepare_declared_shell_outputs,
@@ -141,10 +142,12 @@ async def daytona_bash(
     sandbox = _get_sandbox(context)
     cwd = _get_cwd(context)
     on_progress_line = context.metadata.get("on_progress_line")
+    mutates_workspace = command_may_mutate_workspace(command)
+    effective_declared_output_paths = declared_output_paths if mutates_workspace else None
     declaration_error = shell_mutation_declaration_error(
         context,
         command=command,
-        declared_output_paths=declared_output_paths,
+        declared_output_paths=effective_declared_output_paths,
     )
     if declaration_error is not None:
         return ToolResult(
@@ -152,10 +155,17 @@ async def daytona_bash(
             is_error=True,
             metadata={"missing_declarations": True, "conflict": True},
         )
-    declared_shell_prepared, scope_packet, precheck_error = prepare_declared_shell_outputs(
-        context,
-        declared_output_paths=declared_output_paths,
-    )
+    if mutates_workspace or effective_declared_output_paths:
+        declared_shell_prepared, scope_packet, precheck_error = prepare_declared_shell_outputs(
+            context,
+            declared_output_paths=effective_declared_output_paths,
+        )
+    else:
+        declared_shell_prepared = []
+        scope_packet = context.metadata.get("scope_packet")
+        if not isinstance(scope_packet, dict):
+            scope_packet = {}
+        precheck_error = None
     if precheck_error is not None:
         return ToolResult(
             output=precheck_error,
@@ -182,7 +192,7 @@ async def daytona_bash(
             sync_info = await sync_shell_mutations(
                 context,
                 command=command,
-                declared_output_paths=declared_output_paths,
+                declared_output_paths=effective_declared_output_paths,
             )
             if sync_info.get("enabled"):
                 try:
@@ -217,7 +227,7 @@ async def daytona_bash(
             sync_info = await sync_shell_mutations(
                 context,
                 command=command,
-                declared_output_paths=declared_output_paths,
+                declared_output_paths=effective_declared_output_paths,
             )
             if sync_info.get("enabled"):
                 payload["ci_sync"] = sync_info

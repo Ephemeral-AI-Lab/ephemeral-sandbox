@@ -16,6 +16,7 @@ from tools.daytona_toolkit.ci_integration import (
     prime_cache_after_write,
     record_edit_in_ledger,
 )
+from tools.daytona_toolkit.coordination import build_scope_packet
 
 
 def _ctx(metadata=None) -> ToolExecutionContext:
@@ -216,6 +217,51 @@ def test_finalize_ci_write_refreshes_scope_baseline_after_commit(monkeypatch):
     assert result.success is True
     assert ctx.metadata["scope_packet"]["coherence_token"] == "after-commit"
     assert ctx.metadata["coherence_token"] == "after-commit"
+
+
+def test_build_scope_packet_coherence_ignores_unrelated_global_generation_changes():
+    svc = MagicMock()
+    svc.ledger.generation = 1
+    svc.ledger.recent_entries.return_value = []
+    svc.arbiter.generation = 2
+    svc.arbiter.active_reservations.return_value = []
+    svc.arbiter.hotspots.return_value = []
+    svc.symbol_index.generation = 3
+
+    first = build_scope_packet(scope_paths=["src/app.py"], svc=svc)
+
+    svc.ledger.generation = 11
+    svc.arbiter.generation = 12
+    svc.symbol_index.generation = 13
+    second = build_scope_packet(scope_paths=["src/app.py"], svc=svc, baseline_packet=first)
+
+    assert first["coherence_token"] == second["coherence_token"]
+    assert second["freshness"] == "fresh"
+
+
+def test_build_scope_packet_coherence_changes_when_scope_local_changes_change():
+    svc = MagicMock()
+    svc.ledger.generation = 1
+    svc.arbiter.generation = 2
+    svc.arbiter.active_reservations.return_value = []
+    svc.arbiter.hotspots.return_value = []
+    svc.symbol_index.generation = 3
+    svc.ledger.recent_entries.return_value = []
+
+    first = build_scope_packet(scope_paths=["src/app.py"], svc=svc)
+
+    svc.ledger.recent_entries.return_value = [
+        SimpleNamespace(
+            file_path="src/app.py",
+            agent_id="worker-2",
+            timestamp=123.0,
+            edit_type="edit",
+        )
+    ]
+    second = build_scope_packet(scope_paths=["src/app.py"], svc=svc, baseline_packet=first)
+
+    assert first["coherence_token"] != second["coherence_token"]
+    assert second["freshness"] == "touched"
 
 
 # ---------------------------------------------------------------------------

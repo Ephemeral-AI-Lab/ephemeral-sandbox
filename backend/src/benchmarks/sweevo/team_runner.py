@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from collections import Counter
 import json
+import re
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from agents.run_tracker import AgentRunTracker
 from agents.registry import get_definition
@@ -26,7 +27,13 @@ from message.messages import ConversationMessage, ToolUseBlock
 from message.stream_events import ToolExecutionCompleted
 from token_tracker.runtime import persist_run_usage
 from code_intelligence.routing.service import get_code_intelligence
-from team.builtins import DEVELOPER, TEAM_PLANNER, VALIDATOR, register_all as _register_team_builtins
+from team.builtins import (
+    DEVELOPER,
+    TEAM_PLANNER,
+    TEAM_REPLANNER,
+    VALIDATOR,
+    register_all as _register_team_builtins,
+)
 from team.models import BudgetConfig, TeamRunStatus, WorkItemKind
 from team.persistence.run_store import build_default_store
 from team.runtime.context_builder import (
@@ -267,6 +274,111 @@ def _extract_last_json_object(text: str) -> dict[str, Any] | None:
     return best_payload
 
 
+def _extract_matching_json_object(
+    text: str,
+    matcher: Callable[[dict[str, Any]], bool],
+) -> dict[str, Any] | None:
+    if not text.strip():
+        return None
+
+    decoder = json.JSONDecoder()
+    best_payload: dict[str, Any] | None = None
+    best_start: int | None = None
+    best_end = -1
+
+    for start, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            payload, end = decoder.raw_decode(text, idx=start)
+        except ValueError:
+            continue
+        if not isinstance(payload, dict) or not matcher(payload):
+            continue
+        if end > best_end or (end == best_end and (best_start is None or start < best_start)):
+            best_payload = payload
+            best_start = start
+            best_end = end
+    return best_payload
+
+
+def _find_matching_delimiter(text: str, start: int, open_char: str, close_char: str) -> int:
+    depth = 0
+    in_string = False
+    escape = False
+    for idx in range(start, len(text)):
+        char = text[idx]
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+            continue
+        if char == open_char:
+            depth += 1
+        elif char == close_char:
+            depth -= 1
+            if depth == 0:
+                return idx
+    return -1
+
+
+_BROKEN_PLAN_ITEM_SPLIT = re.compile(r",\s*(?=\{\"(?:local_id|agent_name)\")")
+
+
+def _repair_submitted_plan_payload(text: str) -> dict[str, Any] | None:
+    items_key = text.find('"items"')
+    if items_key < 0:
+        return None
+    array_start = text.find("[", items_key)
+    if array_start < 0:
+        return None
+    array_end = _find_matching_delimiter(text, array_start, "[", "]")
+    if array_end < 0:
+        return None
+
+    decoder = json.JSONDecoder()
+    raw_items = text[array_start + 1 : array_end]
+    item_chunks = [chunk.strip() for chunk in _BROKEN_PLAN_ITEM_SPLIT.split(raw_items) if chunk.strip()]
+    if not item_chunks:
+        return None
+
+    items: list[dict[str, Any]] = []
+    for chunk in item_chunks:
+        candidates = list(dict.fromkeys([chunk, chunk + "}"]))
+        parsed_item: dict[str, Any] | None = None
+        for candidate in candidates:
+            try:
+                payload, end = decoder.raw_decode(candidate)
+            except ValueError:
+                continue
+            if isinstance(payload, dict) and end == len(candidate):
+                parsed_item = payload
+                break
+        if parsed_item is None:
+            return None
+        items.append(parsed_item)
+
+    repaired: dict[str, Any] = {"items": items}
+    rationale_key = text.find('"rationale"', array_end)
+    if rationale_key >= 0:
+        colon = text.find(":", rationale_key)
+        if colon >= 0:
+            raw_tail = text[colon + 1 :].lstrip()
+            try:
+                rationale, _ = decoder.raw_decode(raw_tail)
+            except ValueError:
+                rationale = None
+            if isinstance(rationale, str):
+                repaired["rationale"] = rationale
+    return repaired
+
+
 def _matches_posthook_payload(payload: dict[str, Any], metadata_key: str) -> bool:
     if metadata_key == "submitted_plan":
         return isinstance(payload.get("items"), list)
@@ -309,7 +421,12 @@ def _extract_posthook_input_text(
             text = _block_text(block)
             if text is None:
                 continue
-            payload = _extract_last_json_object(text)
+            payload = _extract_matching_json_object(
+                text,
+                lambda candidate: _matches_posthook_payload(candidate, metadata_key),
+            )
+            if payload is None and metadata_key == "submitted_plan":
+                payload = _repair_submitted_plan_payload(text)
             if payload is None or not _matches_posthook_payload(payload, metadata_key):
                 continue
             return json.dumps(payload, ensure_ascii=False)
@@ -816,6 +933,14 @@ def _build_agent_overrides(instance: SWEEvoInstance) -> dict[str, dict[str, Any]
                 validator_def.skills,
                 "sweevo-project-context",
                 "verification-replan",
+            ),
+        }
+    replanner_def = get_definition(TEAM_REPLANNER)
+    if replanner_def is not None:
+        agent_overrides[TEAM_REPLANNER] = {
+            "skills": _with_extra_skills(
+                replanner_def.skills,
+                "sweevo-project-context",
             ),
         }
     return agent_overrides

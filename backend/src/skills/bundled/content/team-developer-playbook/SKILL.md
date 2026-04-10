@@ -50,6 +50,7 @@ Before editing ANY symbol mentioned in your briefing:
 3. `ci_recent_changes()` — has a sibling developer touched these files in the last few minutes?
 4. `ci_edit_hotspots()` when the target scope is broad or likely shared — is this area already high-churn?
 5. `ci_scope_status(scope_paths=[...])` before a shared or high-risk write — did the coherence token, reservations, or freshness grade change?
+   If a write/edit tool rejects with "Scope coherence changed", refresh with the exact file(s) you are about to edit. Do not call `ci_scope_status()` with an empty scope and then retry a file edit.
 
 If any of these contradict your briefing, **trust live CI** and adjust. Never act on stale `symbol_ids`.
 Tool-choice rule:
@@ -70,6 +71,7 @@ Always `ci_read_file` (or `daytona_read_file`) the full target file (or the symb
 - One logical change per edit call. Do not batch unrelated edits.
 - **Stay in scope.** Do not refactor adjacent code, rename unrelated symbols, or "clean up" the file. The WorkItem payload is the contract.
 - Tool names are exact. Use `daytona_edit_file` / `daytona_write_file` / `daytona_read_file`, not generic `edit_file` / `write_file` / `read_file`.
+- If you need to refresh write coherence mid-task, `ci_scope_status(scope_paths=[<exact target file>])` is the default retry path. A blank-scope refresh is not a write preflight.
 
 ### 5. Self-verify
 After every edit to a source file you MUST run at least one of:
@@ -199,6 +201,7 @@ When `submit_summary` is called (by the posthook), your final assistant message 
 - Treat `symptom`, `likely_owner`, and `fix_hypothesis` in the WorkItem payload as planner guidance, not ground truth. Your first scoped reproduction is the authority on the current failure entry point.
 - If the first observed failure contradicts the planner narrative, follow the live failure. Do not spend tool budget proving the stale narrative wrong; instead, pivot to the minimal owner surface implied by the observed failure.
 - When a broad test module contains many targets, the first collection/import/runtime failure is an entry point for the cluster. Use that to narrow the fix surface before speculating about downstream assertions.
+- If that first entry point is an import or collection failure, do at most one standalone `python -c` / shell probe to sanity-check it, then return to direct file reads in the owning export path. Do not promote a probe-only theory into broader code edits unless the named pytest surface still points to the same missing export or import path.
 - If the planner named a deep implementation defect but reproduction first shows a missing export, missing public type, or test collection failure, fix or further investigate that entry point first.
 
 ## No git archaeology in live benchmark sandboxes

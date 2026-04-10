@@ -37,6 +37,55 @@ def test_plan_from_dict_roundtrip():
     assert plan.rationale == "why"
 
 
+def test_plan_from_dict_normalizes_redundant_failure_payload_fields():
+    repeated = ["tests/test_networks.py::test_any_url_success"] * 70
+    data = {
+        "items": [
+            {
+                "agent_name": "developer",
+                "local_id": "dev1",
+                "payload": {
+                    "owned_files": ["pydantic/networks.py", "pydantic/networks.py"],
+                    "owned_failures": repeated + ["tests/test_networks.py::test_address_valid"],
+                    "verify": ["pytest tests/test_networks.py -q", "pytest tests/test_networks.py -q"],
+                },
+            }
+        ]
+    }
+
+    plan = Plan.from_dict(data)
+    payload = plan.items[0].payload
+
+    assert payload["owned_files"] == ["pydantic/networks.py"]
+    assert payload["verify"] == ["pytest tests/test_networks.py -q"]
+    assert payload["owned_failures"] == [
+        "tests/test_networks.py::test_any_url_success",
+        "tests/test_networks.py::test_address_valid",
+    ]
+    assert payload["owned_failures_total"] == 71
+
+
+def test_plan_from_dict_caps_owned_failures_to_representative_subset():
+    failures = [f"tests/test_networks.py::case_{idx}" for idx in range(80)]
+    data = {
+        "items": [
+            {
+                "agent_name": "developer",
+                "local_id": "dev1",
+                "payload": {"owned_failures": failures},
+            }
+        ]
+    }
+
+    plan = Plan.from_dict(data)
+    payload = plan.items[0].payload
+
+    assert len(payload["owned_failures"]) == 64
+    assert payload["owned_failures"][0] == "tests/test_networks.py::case_0"
+    assert payload["owned_failures"][-1] == "tests/test_networks.py::case_63"
+    assert payload["owned_failures_unique_total"] == 80
+
+
 # ---------- Phase A ----------------------------------------------------------
 
 

@@ -275,9 +275,6 @@ def _coherence_token(packet: dict[str, Any]) -> str:
     stable = {
         "scope_paths": packet.get("scope_paths") or [],
         "briefing_versions": packet.get("briefing_versions") or [],
-        "ledger_generation": packet.get("ledger_generation") or 0,
-        "arbiter_generation": packet.get("arbiter_generation") or 0,
-        "symbol_index_generation": packet.get("symbol_index_generation") or 0,
         "recent_changes": packet.get("recent_changes") or [],
         "active_reservations": packet.get("active_reservations") or [],
     }

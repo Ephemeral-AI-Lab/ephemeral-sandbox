@@ -11,9 +11,48 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+_OWNED_FAILURES_CAP = 64
+
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _dedupe_str_list(values: Any) -> list[str] | None:
+    if not isinstance(values, list):
+        return None
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for raw in values:
+        if not isinstance(raw, str):
+            continue
+        item = raw.strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        deduped.append(item)
+    return deduped
+
+
+def _normalize_payload(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {}
+    normalized = dict(payload)
+    for key in ("owned_files", "verify"):
+        deduped = _dedupe_str_list(normalized.get(key))
+        if deduped is not None:
+            normalized[key] = deduped
+    deduped_failures = _dedupe_str_list(normalized.get("owned_failures"))
+    if deduped_failures is not None:
+        raw_total = len([item for item in normalized.get("owned_failures") or [] if isinstance(item, str) and item.strip()])
+        if raw_total > len(deduped_failures):
+            normalized["owned_failures_total"] = raw_total
+        if len(deduped_failures) > _OWNED_FAILURES_CAP:
+            normalized["owned_failures_unique_total"] = len(deduped_failures)
+            normalized["owned_failures"] = deduped_failures[:_OWNED_FAILURES_CAP]
+        else:
+            normalized["owned_failures"] = deduped_failures
+    return normalized
 
 
 class WorkItemKind(str, Enum):
@@ -124,7 +163,7 @@ class Plan:
         items = [
             WorkItemSpec(
                 agent_name=str(it["agent_name"]),
-                payload=dict(it.get("payload") or {}),
+                payload=_normalize_payload(it.get("payload") or {}),
                 local_id=it.get("local_id"),
                 deps=list(it.get("deps") or []),
                 notes=it.get("notes"),
@@ -181,7 +220,7 @@ class ReplanPlan:
         add_items = [
             ReplanItemSpec(
                 agent_name=str(it["agent_name"]),
-                payload=dict(it.get("payload") or {}),
+                payload=_normalize_payload(it.get("payload") or {}),
                 local_id=it.get("local_id"),
                 deps=list(it.get("deps") or []),
                 notes=it.get("notes"),

@@ -151,6 +151,63 @@ async def test_bash_allows_mutating_command_with_declared_outputs_in_ultra_mode(
     assert sb.process.exec.called
 
 
+async def test_bash_allows_read_only_stderr_redirection_without_declared_outputs():
+    sb = _sb(exec_result=MagicMock(result="ok", exit_code=0))
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "coordination_mode": "ultra",
+            "require_declared_shell_outputs": True,
+        }
+    )
+
+    result = await daytona_bash.execute(
+        daytona_bash.input_model(command="pytest tests/test_networks.py -x -v 2>&1 | head -100"),
+        ctx,
+    )
+
+    assert not result.is_error
+    assert json.loads(result.output)["exit_code"] == 0
+    sb.process.exec.assert_called_once()
+
+
+async def test_bash_read_only_pytest_ignores_declared_outputs_and_stale_scope_coherence():
+    sb = _sb(exec_result=MagicMock(result="ok", exit_code=0))
+    svc = MagicMock()
+    svc.ledger.generation = 1
+    svc.ledger.recent_entries.return_value = []
+    svc.arbiter.generation = 1
+    svc.arbiter.active_reservations.return_value = []
+    svc.arbiter.hotspots.return_value = []
+    svc.symbol_index.generation = 1
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/workspace",
+            "coordination_mode": "ultra",
+            "require_declared_shell_outputs": True,
+            "ci_service": svc,
+            "scope_packet": {
+                "scope_paths": ["pydantic/networks.py"],
+                "coherence_token": "stale-token",
+            },
+            "coherence_token": "stale-token",
+        }
+    )
+
+    result = await daytona_bash.execute(
+        daytona_bash.input_model(
+            command="pytest tests/test_networks.py -x -v 2>&1 | head -100",
+            declared_output_paths=["tests/test_networks.py", ".pytest_cache"],
+        ),
+        ctx,
+    )
+
+    assert not result.is_error
+    assert json.loads(result.output)["exit_code"] == 0
+    sb.process.exec.assert_called_once()
+
+
 # ---------------------------------------------------------------------------
 # daytona_read_file
 # ---------------------------------------------------------------------------

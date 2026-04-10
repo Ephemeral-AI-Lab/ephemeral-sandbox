@@ -35,6 +35,7 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 ## Planner rules for SWE-EVO
 
 - When the request already names one dominant FAIL_TO_PASS cluster plus several smaller named failures, the default first wave is one dominant production-owner scout plus one residual source-owner or residual-aggregate scout. Do not spend a first-wave lane on the already-named giant test file unless no plausible production owner exists yet.
+- When a dominant FAIL_TO_PASS cluster contains dozens or hundreds of parametrized nodes, summarize it as one owner slice with a representative deduped subset of failing ids. Do not paste the full repeated test-id list into one developer payload.
 - On large benchmark roots, spend the first exploration pass on 2-3 disjoint source-owner scouts rather than one long serial hypothesis lane.
 - If the first scout wave comes back partial or still leaves several disjoint owner hypotheses alive, launch another disjoint scout wave or a narrowed child planner. Do not freeze the root plan just because the first wave already ran.
 - Once two scout waves or roughly 25 planner tool calls have already gone into the same root benchmark surface, the default next step is the plan. A third wave needs a genuinely new disjoint owner cluster, not a deeper read of the same mapped clusters.
@@ -59,6 +60,7 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 - If one file is large but still the likely owner, a bounded single-file scout is valid. If that still leaves several independent regions, emit a narrowed child planner instead of forcing a flat root plan.
 - Parent and sibling exploration lanes must stay disjoint. Do not reopen a slice already owned by a scout or child planner unless new evidence invalidates the boundary.
 - While scouts are running, keep the planner moving on other uncovered branches, shared-context reuse, and plan-shape reasoning. Wait only when a scout result becomes the remaining blocker.
+- Benchmark planner turns should not spend tool budget on explicit `share_briefing` promotion unless that tool is visibly available. Same-run scout auto-promotion plus attached artifact refs already cover the normal reuse path here.
 - Once the returned scout evidence is sufficient to name the likely implementation surfaces and direct validation surfaces, the root planner should stop scouting and emit the plan. This may happen after one wave or several; additional confirmation belongs to developer or validator lanes, not to the root planner.
 - Treat pytest assertion renderings as runtime symptoms only. A line such as `where None = MultiHostUrl(...).path` is not proof that the bug lives in a particular accessor or external dependency API; it is only evidence the downstream worker should reproduce against the owned source slice.
 - If the planner receives a budget warning, the next assistant message must be the final plan JSON. Do not spend the remaining budget checking background progress or reopening hypotheses.
@@ -99,9 +101,11 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 
 - Once the root planner can name a dominant owner slice and a residual cluster boundary, planning is complete for that layer. Submit the hierarchical plan immediately.
 - Duplicate-scout rejection, background wait protocol errors, and already-completed waits are evidence that exploration has crossed the sufficiency boundary. Do not open another scout after those signals.
+- If `share_briefing` is absent from the visible tool list, treat that as a no-promotion profile, not as a blocker. Reuse the scout artifact locally or via auto-promoted shared context and keep planning.
 - If the dominant cluster is already mapped to one owner file or one tightly-coupled owner pair, keep that as one developer lane. Everything else becomes either a residual child planner or separately bounded residual developer lanes.
 - The default root benchmark shape for this repo is: one dominant developer lane, one residual child planner lane, one validator lane. Flatten the residual lane into direct developers only when each residual owner is already bounded without more planning.
 - Planner outputs that collapse unrelated residual bugs from `construction`, `json_schema`, `root_model`, and `types` into one developer lane are low-quality plans and should be avoided.
+- Planner outputs that repeat `local_id`, `agent_name`, `kind`, or `payload` keys inside one JSON object are malformed and unusable. Close the current item object and start a new sibling item instead of continuing the same object.
 - Planner-side narration must stay at the ownership and validation-target level. Do not speculate about concrete code fixes from failure strings such as `MultiHostUrl.path` or other pytest assertion details.
 
 ## Pydantic cross-surface guardrails
