@@ -616,6 +616,15 @@ async def run_subagent(
     rendered_scope_packet = render_scope_packet(subagent_scope_packet)
     if rendered_scope_packet:
         final_prompt = f"{rendered_scope_packet}\n\n{final_prompt}"
+    if agent_name == "scout" and subagent_scope_paths:
+        strict_scope_lines = [
+            "## Scout scope contract",
+            "- Explore only the assigned `target_paths`.",
+            "- If a target path is a file, do not widen to sibling files or the whole package unless the target itself is a directory.",
+            "- If a target path does not exist, report zero coverage for that missing path instead of correcting it to a nearby file.",
+            "- Do not inspect already-named benchmark test files or guessed owner files unless they are inside `target_paths`.",
+        ]
+        final_prompt = f"{'\n'.join(strict_scope_lines)}\n\n{final_prompt}"
 
     # Persist a subagent run record FIRST, before spawn_agent — so spawn
     # failures still leave an audit trail that the parent can list / inspect

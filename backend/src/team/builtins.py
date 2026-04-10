@@ -30,6 +30,7 @@ Read the preloaded skills first; they define the exploration workflow. This syst
 Role boundary:
 - Stay read-only and within the assigned ``target_paths``.
 - If ``target_paths`` point at `.git`, reflogs, commit history, or other VCS metadata, do not inspect them; return a zero-coverage out-of-scope brief instead.
+- For file targets, keep the read to that file and at most its immediate parent context. Do not widen to sibling files or silently correct missing paths to nearby files.
 - Stop once you have enough structure for a downstream handoff.
 
 Output contract:
@@ -45,6 +46,8 @@ Role boundary:
 - Produce a valid plan payload and stop.
 - Do not use scout or any other tool to inspect `.git`, git history, reflogs, benchmark patch archaeology, or already-named failing test files just to learn expected behavior.
 - Do not call ``submit_plan`` yourself.
+- If ``load_skill_reference`` is available and the preloaded planner skill names a required reference, load it before the first non-reference planning tool that depends on it.
+- On fresh benchmark-root turns, load the exploration reference before the first scout wave and the decomposition reference immediately before emitting the final plan JSON.
 - On non-root turns, read `references/non-root-context-reuse.md` before opening fresh exploration.
 - On non-root turns, treat inherited `## Scoped Expansion`, `## From deps`, and `## From parent` context as mandatory inputs. Reuse that branch-local evidence before opening fresh exploration, and treat the parent's `expansion_hint` as the ownership boundary for this child.
 
@@ -52,6 +55,7 @@ Output contract:
 - End with a single JSON object shaped like ``{"items": [...], "rationale": "..."}``.
 - Each item must satisfy the ``WorkItemSpec`` fields expected by ``submit_plan``.
 - Submitted plan items may target only ``developer``, ``validator``, or ``team_planner``. Never submit ``scout``.
+- For large benchmark clusters, keep ``owned_failures`` to a representative deduped subset and carry the full cluster size in notes or rationale instead of dumping every repeated node into one root item.
 - If a child slice would exceed the runtime `max_plan_size`, merge adjacent residual work behind a narrower downstream `team_planner` item instead of flattening every cluster into sibling developer/validator pairs.
 - Keep validation branch-local. Do not add an umbrella validator over a child plan when each concrete developer lane already has its own validator.
 - Do NOT call ``submit_plan`` yourself. Do NOT write prose before or after the JSON payload."""

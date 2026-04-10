@@ -1,12 +1,4 @@
-"""LspClient — semantic language server queries.
-
-Provides one-shot helper script queries for Python (jedi) and
-TypeScript (TS compiler). Includes query caching with TTL and
-dependency state tracking.
-
-Lock ordering (Group C):
-    C2: cache lock  <  C3: counter lock
-"""
+"""Semantic language-server-backed code intelligence queries."""
 
 from __future__ import annotations
 
@@ -36,6 +28,14 @@ from code_intelligence.types import (
 
 logger = logging.getLogger(__name__)
 
+_LANGUAGE_BY_EXTENSION = {
+    ".py": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+}
+
 
 @dataclass
 class _CacheEntry:
@@ -56,22 +56,7 @@ class LspTelemetry:
 
 
 class LspClient:
-    """Hybrid semantic backend for code intelligence queries.
-
-    Uses subprocess calls to language-specific tools (jedi for Python,
-    tsc for TypeScript) with result caching.
-
-    Parameters
-    ----------
-    workspace_root:
-        Root directory for resolving paths.
-    sandbox:
-        Optional Daytona sandbox object for remote execution.
-    cache_ttl:
-        Cache TTL in seconds.
-    cache_max:
-        Maximum cache entries.
-    """
+    """Hybrid semantic backend with subprocess queries and caching."""
 
     def __init__(
         self,
@@ -85,9 +70,8 @@ class LspClient:
         self._cache_ttl = cache_ttl
         self._cache_max = cache_max
 
-        # Group C locks
-        self._cache_lock = threading.Lock()  # C2
-        self._counter_lock = threading.Lock()  # C3
+        self._cache_lock = threading.Lock()
+        self._counter_lock = threading.Lock()
 
         self._cache: OrderedDict[str, _CacheEntry] = OrderedDict()
         self._telemetry = LspTelemetry()
@@ -100,56 +84,40 @@ class LspClient:
         self, file_path: str, line: int, character: int,
     ) -> list[SymbolInfo]:
         """Find symbol definitions at position."""
-        cache_key = f"def:{file_path}:{line}:{character}"
-        cached = self._get_cached(cache_key)
-        if cached is not None:
-            return cached
-
         language = self._detect_language(file_path)
-        results = self._query_definitions(file_path, line, character, language)
-        self._put_cached(cache_key, results)
-        return results
+        return self._run_cached_query(
+            f"def:{file_path}:{line}:{character}",
+            lambda: self._query_definitions(file_path, line, character, language),
+        )
 
     def find_references(
         self, file_path: str, line: int, character: int,
     ) -> list[ReferenceInfo]:
         """Find all references to symbol at position."""
-        cache_key = f"ref:{file_path}:{line}:{character}"
-        cached = self._get_cached(cache_key)
-        if cached is not None:
-            return cached
-
         language = self._detect_language(file_path)
-        results = self._query_references(file_path, line, character, language)
-        self._put_cached(cache_key, results)
-        return results
+        return self._run_cached_query(
+            f"ref:{file_path}:{line}:{character}",
+            lambda: self._query_references(file_path, line, character, language),
+        )
 
     def hover(
         self, file_path: str, line: int, character: int,
     ) -> HoverResult | None:
         """Get hover information at position."""
-        cache_key = f"hover:{file_path}:{line}:{character}"
-        cached = self._get_cached(cache_key)
-        if cached is not None:
-            return cached
-
         language = self._detect_language(file_path)
-        result = self._query_hover(file_path, line, character, language)
-        if result:
-            self._put_cached(cache_key, result)
-        return result
+        return self._run_cached_query(
+            f"hover:{file_path}:{line}:{character}",
+            lambda: self._query_hover(file_path, line, character, language),
+            cache_when=lambda result: result is not None,
+        )
 
     def diagnostics(self, file_path: str) -> list[Diagnostic]:
         """Get diagnostics for a file."""
-        cache_key = f"diag:{file_path}"
-        cached = self._get_cached(cache_key)
-        if cached is not None:
-            return cached
-
         language = self._detect_language(file_path)
-        results = self._query_diagnostics(file_path, language)
-        self._put_cached(cache_key, results)
-        return results
+        return self._run_cached_query(
+            f"diag:{file_path}",
+            lambda: self._query_diagnostics(file_path, language),
+        )
 
     def invalidate(self, file_path: str) -> None:
         """Invalidate all cached results for a file."""
@@ -231,22 +199,20 @@ class LspClient:
             f"'type': d.type}} for d in defs]))"
         )
         output = self._run_python_script(script)
-        if not output:
+        raw = self._decode_json(output)
+        if not isinstance(raw, list):
             return []
-        try:
-            raw = json.loads(output)
-            return [
-                SymbolInfo(
-                    name=d["name"],
-                    kind=_coerce_symbol_kind(d.get("type")),
-                    file_path=d.get("path", ""),
-                    line=d.get("line", 0),
-                    character=d.get("col", 0),
-                )
-                for d in raw
-            ]
-        except (json.JSONDecodeError, KeyError):
-            return []
+        return [
+            SymbolInfo(
+                name=str(item.get("name", "")),
+                kind=_coerce_symbol_kind(item.get("type")),
+                file_path=str(item.get("path", "")),
+                line=int(item.get("line", 0) or 0),
+                character=int(item.get("col", 0) or 0),
+            )
+            for item in raw
+            if isinstance(item, dict) and item.get("name")
+        ]
 
     def _python_references(
         self, file_path: str, line: int, character: int,
@@ -259,20 +225,18 @@ class LspClient:
             f"'line': r.line or 0, 'col': r.column or 0}} for r in refs]))"
         )
         output = self._run_python_script(script)
-        if not output:
+        raw = self._decode_json(output)
+        if not isinstance(raw, list):
             return []
-        try:
-            raw = json.loads(output)
-            return [
-                ReferenceInfo(
-                    file_path=r.get("path", ""),
-                    line=r.get("line", 0),
-                    character=r.get("col", 0),
-                )
-                for r in raw
-            ]
-        except (json.JSONDecodeError, KeyError):
-            return []
+        return [
+            ReferenceInfo(
+                file_path=str(item.get("path", "")),
+                line=int(item.get("line", 0) or 0),
+                character=int(item.get("col", 0) or 0),
+            )
+            for item in raw
+            if isinstance(item, dict)
+        ]
 
     def _python_hover(
         self, file_path: str, line: int, character: int,
@@ -293,14 +257,13 @@ class LspClient:
         output = self._run_python_script(script)
         if not output or output.strip() == "null":
             return None
-        try:
-            raw = json.loads(output)
-            return HoverResult(
-                content=raw.get("docstring", ""),
-                language="python",
-            )
-        except (json.JSONDecodeError, KeyError):
+        raw = self._decode_json(output)
+        if not isinstance(raw, dict):
             return None
+        return HoverResult(
+            content=str(raw.get("docstring", "")),
+            language="python",
+        )
 
     def _python_diagnostics(self, file_path: str) -> list[Diagnostic]:
         """Check Python syntax."""
@@ -372,29 +335,24 @@ class LspClient:
     # -- Backend availability -------------------------------------------------
 
     def _check_python_backend(self) -> bool:
-        try:
-            if self._sandbox:
-                resp = self._resolve(
-                    self._sandbox.process.exec("python3 -c 'import jedi'", timeout=10)
-                )
-                return getattr(resp, "exit_code", 1) == 0
-            proc = subprocess.run(
-                ["python3", "-c", "import jedi"],
-                capture_output=True, timeout=10,
-            )
-            return proc.returncode == 0
-        except Exception:
-            return False
+        return self._check_backend(
+            local_cmd=["python3", "-c", "import jedi"],
+            sandbox_cmd="python3 -c 'import jedi'",
+        )
 
     def _check_typescript_backend(self) -> bool:
+        return self._check_backend(
+            local_cmd=["npx", "tsc", "--version"],
+            sandbox_cmd="npx tsc --version",
+        )
+
+    def _check_backend(self, *, local_cmd: list[str], sandbox_cmd: str) -> bool:
         try:
             if self._sandbox:
-                resp = self._resolve(
-                    self._sandbox.process.exec("npx tsc --version", timeout=10)
-                )
+                resp = self._resolve(self._sandbox.process.exec(sandbox_cmd, timeout=10))
                 return getattr(resp, "exit_code", 1) == 0
             proc = subprocess.run(
-                ["npx", "tsc", "--version"],
+                local_cmd,
                 capture_output=True, timeout=10,
             )
             return proc.returncode == 0
@@ -402,6 +360,23 @@ class LspClient:
             return False
 
     # -- Cache ----------------------------------------------------------------
+
+    def _run_cached_query(
+        self,
+        key: str,
+        loader,
+        *,
+        cache_when=None,
+    ):
+        cached = self._get_cached(key)
+        if cached is not None:
+            return cached
+
+        result = loader()
+        should_cache = True if cache_when is None else cache_when(result)
+        if should_cache:
+            self._put_cached(key, result)
+        return result
 
     def _get_cached(self, key: str) -> Any:
         with self._cache_lock:
@@ -441,13 +416,16 @@ class LspClient:
 
     def _detect_language(self, file_path: str) -> str:
         ext = Path(file_path).suffix.lower()
-        return {
-            ".py": "python",
-            ".js": "javascript",
-            ".jsx": "javascript",
-            ".ts": "typescript",
-            ".tsx": "typescript",
-        }.get(ext, "unknown")
+        return _LANGUAGE_BY_EXTENSION.get(ext, "unknown")
+
+    @staticmethod
+    def _decode_json(payload: str) -> Any:
+        if not payload:
+            return None
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError:
+            return None
 
 
 def _coerce_symbol_kind(raw_kind: Any) -> SymbolKind:

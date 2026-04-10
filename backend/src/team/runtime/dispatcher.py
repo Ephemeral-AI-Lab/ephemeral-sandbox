@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import copy
 import uuid
 from collections import deque
 from typing import TYPE_CHECKING, Any, Callable
@@ -11,7 +10,6 @@ from typing import TYPE_CHECKING, Any, Callable
 from team.errors import (
     ArtifactTooLarge,
     BudgetExceeded,
-    CheckpointNotFound,
     InvalidPlan,
 )
 from team.models import (
@@ -31,13 +29,28 @@ from team.persistence.events import (
     TeamRunEvent,
     make_artifact_written,
     make_budget_update,
-    make_checkpoint_taken,
     make_work_item_added,
     make_work_item_status,
     work_item_to_dict,
 )
 from team.persistence.run_store import NullTeamRunStore, TeamRunStore
 from team.planning.validation import validate_plan_phase_b
+from team.runtime.dispatcher_checkpoint_ops import (
+    checkpoint as checkpoint_dispatcher_state,
+    prepare_for_resume as prepare_dispatcher_for_resume,
+    rollback_to as rollback_dispatcher_state,
+)
+from team.runtime.dispatcher_mutation_ops import (
+    cancel_all_pending as cancel_dispatcher_pending,
+    cancel_running as cancel_dispatcher_running,
+    cascade_cancel,
+    fail as fail_work_item,
+    retry_work_item as retry_dispatcher_work_item,
+)
+from team.runtime.dispatcher_replan_ops import (
+    apply_replan as apply_dispatcher_replan,
+    request_replan as request_dispatcher_replan,
+)
 from team.runtime.checkpoint import TeamRunCheckpoint
 
 if TYPE_CHECKING:
@@ -227,7 +240,7 @@ class Dispatcher:
                     wi,
                     "InvalidPlan: expandable work item did not submit a plan",
                 )
-                self._cascade_cancel(wi_id)
+                cascade_cancel(self, wi_id)
                 return []
 
             if result.submitted_plan is not None:
@@ -242,14 +255,14 @@ class Dispatcher:
                     )
                 except InvalidPlan as e:
                     self._mark_failed(wi, f"InvalidPlan: {e}")
-                    self._cascade_cancel(wi_id)
+                    cascade_cancel(self, wi_id)
                     return []
                 if (
                     self.budget_state.work_items_used + len(new_items)
                     > self.budgets.max_work_items
                 ):
                     self._mark_failed(wi, "BudgetExceeded: max_work_items")
-                    self._cascade_cancel(wi_id)
+                    cascade_cancel(self, wi_id)
                     return []
 
             try:
@@ -266,7 +279,7 @@ class Dispatcher:
                 )
             except ArtifactTooLarge as e:
                 self._mark_failed(wi, f"ArtifactTooLarge: {e}")
-                self._cascade_cancel(wi_id)
+                cascade_cancel(self, wi_id)
                 return []
 
             for nwi in new_items:
@@ -341,158 +354,28 @@ class Dispatcher:
         )
 
     async def fail(self, wi_id: str, reason: str) -> None:
-        async with self.lock:
-            wi = self.graph.get(wi_id)
-            if wi is None or wi.status in TERMINAL_WI_STATUSES:
-                return
-            self._mark_failed(wi, reason)
-            self._cascade_cancel(wi_id)
+        await fail_work_item(self, wi_id=wi_id, reason=reason)
 
     # ---- retry / replan --------------------------------------------------
 
     async def retry_work_item(self, wi_id: str, request: RetryRequest) -> None:
         """Reset a RUNNING work item back to READY for re-execution."""
-
-        async with self.lock:
-            wi = self.graph[wi_id]
-            if wi.status != WorkItemStatus.RUNNING:
-                raise RuntimeError(f"retry: {wi_id} is {wi.status.value}, not RUNNING")
-            if wi.retry_count >= wi.max_retries:
-                self._mark_failed(wi, f"retry_exhausted: {request.reason}")
-                self._cascade_cancel(wi_id)
-                return
-            wi.retry_count += 1
-            wi.agent_run_id = None
-            wi.started_at = None
-            wi.status = WorkItemStatus.PENDING
-            retries = wi.payload.setdefault("_retry_history", [])
-            retries.append({"attempt": wi.retry_count, "reason": request.reason})
-            self._emit(make_work_item_status(self.team_run_id, wi_id, "pending"))
-            self._promote_to_ready(wi)
+        await retry_dispatcher_work_item(self, wi_id=wi_id, request=request)
 
     async def request_replan(self, wi_id: str, request: ReplanRequest) -> WorkItem:
         """Fail the work item and spawn an ATOMIC replanner at the same depth level."""
-        async with self.lock:
-            wi = self.graph[wi_id]
-            if wi.status != WorkItemStatus.RUNNING:
-                raise RuntimeError(f"replan: {wi_id} is {wi.status.value}, not RUNNING")
-
-            if self.budget_state.replans_used >= self.budgets.max_replans_per_run:
-                self._mark_failed(wi, f"replan_budget_exhausted: {request.reason}")
-                self._cascade_cancel(wi_id)
-                raise BudgetExceeded("max_replans_per_run reached")
-
-            # 1. Fail the current work item
-            self._mark_failed(wi, f"replan_requested: {request.reason}")
-
-            # 2. Cancel PENDING and READY siblings (not RUNNING)
-            for other in list(self.graph.values()):
-                if (
-                    other.parent_id == wi.parent_id
-                    and other.id != wi_id
-                    and other.status in (WorkItemStatus.PENDING, WorkItemStatus.READY)
-                ):
-                    self._mark_cancelled(other, f"cancelled_by_replan_from_{wi_id}")
-                    self._cascade_cancel(other.id)
-
-            # 3. Cancel downstream dependents of failed item
-            self._cascade_cancel(wi_id)
-
-            # 4. Collect DONE siblings as deps for replanner
-            done_sibling_ids = [
-                other.id
-                for other in self.graph.values()
-                if other.parent_id == wi.parent_id
-                and other.id != wi_id
-                and other.status == WorkItemStatus.DONE
-            ]
-
-            # 5. Create ATOMIC replanner
-            from team.builtins import TEAM_REPLANNER
-
-            replanner_id = self.new_id()
-            replanner = WorkItem(
-                id=replanner_id,
-                team_run_id=self.team_run_id,
-                agent_name=TEAM_REPLANNER,
-                status=WorkItemStatus.PENDING,
-                kind=WorkItemKind.ATOMIC,
-                deps=done_sibling_ids,
-                parent_id=wi.parent_id,
-                root_id=wi.root_id,
-                depth=wi.depth,
-                local_id=f"replan-from-{wi.local_id or wi_id}",
-                payload={
-                    "failed_work_item_id": wi_id,
-                    "failed_agent": wi.agent_name,
-                    "failure_reason": request.reason,
-                    "failure_context": request.context,
-                    "suggestion": request.suggestion,
-                    "original_payload": wi.payload,
-                },
-                briefings=list(wi.briefings),
-                replan_source_id=wi_id,
-            )
-            self.graph[replanner_id] = replanner
-            self.budget_state.work_items_used += 1
-            self.budget_state.replans_used += 1
-            self._emit(make_work_item_added(self.team_run_id, work_item_to_dict(replanner)))
-            self._emit_budget()
-
-            if self._compute_readiness(replanner):
-                self._promote_to_ready(replanner)
-
-            return replanner
-
-    def _should_reattach_failed_verifier(self, failed_wi: WorkItem) -> bool:
-        from team.builtins import VALIDATOR
-
-        return failed_wi.agent_name == VALIDATOR and failed_wi.status == WorkItemStatus.FAILED
-
-    def _build_replan_verifier_deps(
-        self,
-        failed_wi: WorkItem,
-        *,
-        new_item_ids: list[str],
-        cancelled_ids: set[str],
-    ) -> list[str]:
-        deps: list[str] = []
-        seen: set[str] = set()
-        for dep_id in [*failed_wi.deps, *new_item_ids]:
-            if dep_id in seen or dep_id in cancelled_ids:
-                continue
-            dep = self.graph.get(dep_id)
-            if dep is not None and dep.status == WorkItemStatus.CANCELLED:
-                continue
-            deps.append(dep_id)
-            seen.add(dep_id)
-        return deps
-
-    def _cascade_cancel(self, wi_id: str) -> None:
-        """Cancel everything transitively dependent on wi_id."""
-        stack = [wi_id]
-        seen: set[str] = set()
-        while stack:
-            cur = stack.pop()
-            for other in self.graph.values():
-                if cur in other.deps and other.id not in seen:
-                    seen.add(other.id)
-                    if other.status not in TERMINAL_WI_STATUSES:
-                        self._mark_cancelled(other, f"cascaded from {wi_id}")
-                    stack.append(other.id)
+        return await request_dispatcher_replan(
+            self,
+            wi_id=wi_id,
+            request=request,
+        )
 
     async def cancel_all_pending(self) -> None:
-        async with self.lock:
-            for wi in self.graph.values():
-                if wi.status in (WorkItemStatus.PENDING, WorkItemStatus.READY):
-                    self._mark_cancelled(wi, "team_run cancelled")
+        await cancel_dispatcher_pending(self)
 
     async def cancel_running(self, reason: str) -> None:
         """Mark any RUNNING items as CANCELLED. Used after a cooperative drain."""
-        async with self.lock:
-            for wi in self.graph.values():
-                if wi.status == WorkItemStatus.RUNNING:
-                    self._mark_cancelled(wi, reason)
+        await cancel_dispatcher_running(self, reason=reason)
 
     def all_terminal(self) -> bool:
         return all(wi.status in TERMINAL_WI_STATUSES for wi in self.graph.values())
@@ -504,30 +387,11 @@ class Dispatcher:
         label: str | None,
         project_context: Any,
     ) -> TeamRunCheckpoint:
-        async with self.lock:
-            self._checkpoint_seq += 1
-            cp = TeamRunCheckpoint(
-                id=str(uuid.uuid4()),
-                team_run_id=self.team_run_id,
-                sequence=self._checkpoint_seq,
-                taken_at=_utcnow(),
-                label=label,
-                work_items=copy.deepcopy(self.graph),
-                ready_queue_order=list(self._ready_order),
-                artifacts=self.artifact_store.snapshot(),
-                project_context=copy.deepcopy(project_context),
-                budget_state=copy.deepcopy(self.budget_state),
-            )
-            self._checkpoints.append(cp)
-            self._emit(
-                make_checkpoint_taken(
-                    self.team_run_id,
-                    checkpoint_id=cp.id,
-                    sequence=cp.sequence,
-                    label=label,
-                )
-            )
-            return cp
+        return await checkpoint_dispatcher_state(
+            self,
+            label=label,
+            project_context=project_context,
+        )
 
     def list_checkpoints(self) -> list[TeamRunCheckpoint]:
         return list(self._checkpoints)
@@ -541,52 +405,15 @@ class Dispatcher:
         project_context_setter: Callable[[Any], None],
     ) -> TeamRunCheckpoint:
         """Atomically restore graph + artifacts + context. Caller must drain workers first."""
-        async with self.lock:
-            cp = self._get_checkpoint(checkpoint_id)
-            if cp is None:
-                raise CheckpointNotFound(checkpoint_id)
-
-            self.graph = copy.deepcopy(cp.work_items)
-            self.artifact_store.restore(cp.artifacts)
-            self.budget_state.work_items_used = cp.budget_state.work_items_used
-            self.budget_state.artifact_bytes_used = cp.budget_state.artifact_bytes_used
-            self.budget_state.replans_used = cp.budget_state.replans_used
-            project_context_setter(copy.deepcopy(cp.project_context))
-
-            while not self._ready_queue.empty():
-                self._ready_queue.get_nowait()
-            self._ready_order = []
-            for wi_id in cp.ready_queue_order:
-                wi = self.graph.get(wi_id)
-                if wi is not None and wi.status == WorkItemStatus.READY:
-                    self._ready_queue.put_nowait(wi_id)
-                    self._ready_order.append(wi_id)
-            return cp
+        return await rollback_dispatcher_state(
+            self,
+            checkpoint_id=checkpoint_id,
+            project_context_setter=project_context_setter,
+        )
 
     async def prepare_for_resume(self) -> None:
         """Normalize live state after process loss and rebuild the ready queue."""
-        async with self.lock:
-            while not self._ready_queue.empty():
-                self._ready_queue.get_nowait()
-            self._ready_order = []
-
-            for wi in self.graph.values():
-                if wi.status == WorkItemStatus.RUNNING:
-                    wi.status = WorkItemStatus.READY
-                    wi.agent_run_id = None
-                    wi.started_at = None
-                    self._ready_queue.put_nowait(wi.id)
-                    self._ready_order.append(wi.id)
-                    self._emit(make_work_item_status(self.team_run_id, wi.id, "ready"))
-                    continue
-
-                if wi.status == WorkItemStatus.READY:
-                    self._ready_queue.put_nowait(wi.id)
-                    self._ready_order.append(wi.id)
-                    continue
-
-                if self._compute_readiness(wi):
-                    self._promote_to_ready(wi)
+        await prepare_dispatcher_for_resume(self)
 
     # ---- replan: lateral DAG mutation ------------------------------------
 
@@ -599,161 +426,13 @@ class Dispatcher:
         target_parent_id: str | None,
         target_root_id: str,
     ) -> dict[str, int]:
-        """Atomically cancel stale items and insert corrective items at the target level.
-
-        Unlike ``complete()`` + ``validate_plan_phase_b`` (which always creates
-        children at ``depth + 1``), this method inserts items at a specified
-        depth and parent — enabling true sibling-level replacement.
-
-        ``cancel_ids`` must share the same ``parent_id`` as the target to
-        enforce scoping to the current plan level.
-        """
-        from team.models import Briefing
-
-        async with self.lock:
-            replan_wi = self.graph.get(replan_wi_id)
-            if replan_wi is None:
-                raise InvalidPlan(f"replanner work item {replan_wi_id} not found")
-            failed_wi_id = replan_wi.replan_source_id or (replan_wi.payload or {}).get(
-                "failed_work_item_id"
-            )
-            failed_wi = self.graph.get(failed_wi_id) if failed_wi_id else None
-            if failed_wi is None:
-                raise InvalidPlan(f"failed work item {failed_wi_id!r} not found")
-
-            # --- Validate cancellations (scoped to same parent) ---
-            for cid in cancel_ids:
-                wi = self.graph.get(cid)
-                if wi is None:
-                    raise InvalidPlan(f"cancel target {cid} not found")
-                if wi.parent_id != target_parent_id:
-                    raise InvalidPlan(
-                        f"cancel target {cid} has parent {wi.parent_id!r}, "
-                        f"but replan is scoped to parent {target_parent_id!r}"
-                    )
-                if wi.status not in (WorkItemStatus.PENDING, WorkItemStatus.READY):
-                    raise InvalidPlan(
-                        f"cancel target {cid} is {wi.status.value}; "
-                        f"can only cancel PENDING or READY items"
-                    )
-
-            # --- Resolve local_ids ---
-            local_to_new: dict[str, str] = {}
-            for spec in add_specs:
-                lid = spec.get("local_id")
-                if lid:
-                    if lid in local_to_new:
-                        raise InvalidPlan(f"duplicate local_id '{lid}'")
-                    local_to_new[lid] = self.new_id()
-
-            # --- Build new WorkItems ---
-            new_items: list[WorkItem] = []
-            for spec in add_specs:
-                lid = spec.get("local_id")
-                new_id = local_to_new.get(lid, self.new_id()) if lid else self.new_id()
-                resolved_deps: list[str] = []
-                for dep in spec.get("deps") or []:
-                    if dep in local_to_new:
-                        resolved_deps.append(local_to_new[dep])
-                    elif dep in self.graph:
-                        resolved_deps.append(dep)
-                    else:
-                        raise InvalidPlan(f"dep '{dep}' not found")
-
-                briefings = [Briefing(**b) for b in (spec.get("briefings") or [])]
-                new_items.append(
-                    WorkItem(
-                        id=new_id,
-                        team_run_id=self.team_run_id,
-                        agent_name=spec["agent_name"],
-                        status=WorkItemStatus.PENDING,
-                        kind=WorkItemKind(spec.get("kind", "atomic")),
-                        deps=resolved_deps,
-                        parent_id=target_parent_id,
-                        root_id=target_root_id,
-                        depth=target_depth,
-                        local_id=lid,
-                        payload=dict(spec.get("payload") or {}),
-                        timeout_seconds=spec.get("timeout_seconds"),
-                        briefings=briefings,
-                    )
-                )
-
-            # --- Budget check ---
-            if self.budget_state.work_items_used + len(new_items) > self.budgets.max_work_items:
-                raise BudgetExceeded("max_work_items would be exceeded by replan")
-
-            # --- Cycle detection on merged graph ---
-            cancelled_set = set(cancel_ids)
-            verifier_reset_deps: list[str] | None = None
-            if self._should_reattach_failed_verifier(failed_wi):
-                verifier_reset_deps = self._build_replan_verifier_deps(
-                    failed_wi,
-                    new_item_ids=[nwi.id for nwi in new_items],
-                    cancelled_ids=cancelled_set,
-                )
-            combined_adj: dict[str, list[str]] = {}
-            for wi_id_key, wi in self.graph.items():
-                if wi_id_key not in cancelled_set:
-                    combined_adj[wi_id_key] = list(wi.deps)
-            for nwi in new_items:
-                combined_adj[nwi.id] = list(nwi.deps)
-            if verifier_reset_deps is not None:
-                combined_adj[failed_wi.id] = list(verifier_reset_deps)
-
-            # Topological sort check (DFS-based cycle detection)
-            visited: set[str] = set()
-            on_stack: set[str] = set()
-
-            def _has_cycle_from(node: str) -> bool:
-                if node in on_stack:
-                    return True
-                if node in visited:
-                    return False
-                visited.add(node)
-                on_stack.add(node)
-                for nb in combined_adj.get(node, []):
-                    if _has_cycle_from(nb):
-                        return True
-                on_stack.discard(node)
-                return False
-
-            for start in combined_adj:
-                if _has_cycle_from(start):
-                    raise InvalidPlan("replan would create a cycle in the combined graph")
-
-            # --- Apply atomically ---
-            # 1. Cancel stale items + cascade dependents
-            for cid in cancel_ids:
-                wi = self.graph[cid]
-                self._mark_cancelled(wi, f"cancelled_by_replan_{replan_wi_id}")
-                self._cascade_cancel(cid)
-
-            # 2. Insert new items
-            for nwi in new_items:
-                self.graph[nwi.id] = nwi
-                self.budget_state.work_items_used += 1
-                self._emit(make_work_item_added(self.team_run_id, work_item_to_dict(nwi)))
-
-            if verifier_reset_deps is not None:
-                failed_wi.status = WorkItemStatus.PENDING
-                failed_wi.deps = list(verifier_reset_deps)
-                failed_wi.agent_run_id = None
-                failed_wi.artifact_ref = None
-                failed_wi.started_at = None
-                failed_wi.finished_at = None
-                failed_wi.failure_reason = None
-                failed_wi.dep_artifacts = []
-                self._emit(make_work_item_status(self.team_run_id, failed_wi.id, "pending"))
-
-            if new_items:
-                self._emit_budget()
-
-            # 3. Promote newly ready items
-            for nwi in new_items:
-                if self._compute_readiness(nwi):
-                    self._promote_to_ready(nwi)
-            if verifier_reset_deps is not None and self._compute_readiness(failed_wi):
-                self._promote_to_ready(failed_wi)
-
-            return {"added": len(new_items), "cancelled": len(cancel_ids)}
+        """Atomically cancel stale items and insert corrective items at the target level."""
+        return await apply_dispatcher_replan(
+            self,
+            replan_wi_id=replan_wi_id,
+            add_specs=add_specs,
+            cancel_ids=cancel_ids,
+            target_depth=target_depth,
+            target_parent_id=target_parent_id,
+            target_root_id=target_root_id,
+        )

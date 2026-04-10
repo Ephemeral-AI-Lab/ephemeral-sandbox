@@ -1,9 +1,4 @@
-"""CodeIntelligenceService — per-sandbox orchestrator.
-
-Manages all code intelligence primitives (TreeCache, SymbolIndex,
-Arbiter, Ledger, TimeMachine, Patcher, LspClient, QueryRouter) in a
-single sandbox. Thread-safe with per-sandbox creation locks.
-"""
+"""Per-sandbox code intelligence runtime."""
 
 from __future__ import annotations
 
@@ -56,6 +51,26 @@ def _content_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
 
 
+def _result(
+    file_path: str,
+    message: str,
+    *,
+    success: bool = False,
+    conflict: bool = False,
+    conflict_reason: str = "",
+    snapshot_id: str = "",
+) -> EditResult:
+    """Build a normalized edit result payload."""
+    return EditResult(
+        success=success,
+        file_path=file_path,
+        message=message,
+        conflict=conflict,
+        conflict_reason=conflict_reason,
+        snapshot_id=snapshot_id,
+    )
+
+
 def _rebind_service_sandbox(service: CodeIntelligenceService, sandbox: Any) -> None:
     """Refresh the sandbox handle carried by a cached CI service."""
     if sandbox is None:
@@ -67,19 +82,7 @@ def _rebind_service_sandbox(service: CodeIntelligenceService, sandbox: Any) -> N
 
 
 class CodeIntelligenceService:
-    """Per-sandbox code intelligence runtime.
-
-    Orchestrates all CI primitives and exposes a unified query/edit API.
-
-    Parameters
-    ----------
-    sandbox_id:
-        The sandbox this service is bound to.
-    workspace_root:
-        Root directory for indexing and path validation.
-    sandbox:
-        Optional Daytona sandbox object for remote operations.
-    """
+    """Orchestrates code intelligence queries and edits for one sandbox."""
 
     def __init__(
         self,
@@ -93,30 +96,19 @@ class CodeIntelligenceService:
         self._initialized = False
         self._init_lock = threading.Lock()
 
-        # Core components
-        self.tree_cache = TreeCache(
-            on_change=self._on_tree_change,
-        )
-        self.symbol_index = SymbolIndex(
-            workspace_root=workspace_root,
-        )
-        self.arbiter = Arbiter(
-            workspace_root=workspace_root,
-        )
+        self.tree_cache = TreeCache(on_change=self._on_tree_change)
+        self.symbol_index = SymbolIndex(workspace_root=workspace_root)
+        self.arbiter = Arbiter(workspace_root=workspace_root)
         self.ledger = Ledger()
         self.time_machine = TimeMachine()
         self.patcher = Patcher()
-        self.lsp_client = LspClient(
-            workspace_root=workspace_root,
-            sandbox=sandbox,
-        )
+        self.lsp_client = LspClient(workspace_root=workspace_root, sandbox=sandbox)
         self.atlas = AtlasService(
             workspace_root=workspace_root,
             ledger=self.ledger,
             symbol_index=self.symbol_index,
         )
 
-        # Query router with backend adapters
         self.query_router = IntelligenceQueryRouter()
         self.query_router.register(LspBackendAdapter(self.lsp_client))
         self.query_router.register(SymbolIndexBackendAdapter(self.symbol_index))
@@ -263,24 +255,16 @@ class CodeIntelligenceService:
         try:
             current, existed = self._read_content(file_path, allow_missing=allow_missing)
         except Exception as exc:
-            return EditResult(
-                success=False,
-                file_path=file_path,
-                message=f"Cannot read file: {exc}",
-            )
+            return _result(file_path, f"Cannot read file: {exc}")
 
         current_hash = _content_hash(current)
         if expected_hash and current_hash != expected_hash:
-            return EditResult(
-                success=False,
-                file_path=file_path,
-                message=(
-                    "Write precheck failed: file content changed since it was read. "
-                    "Re-read the file and retry."
-                ),
+            return _result(
+                file_path,
+                "Write precheck failed: file content changed since it was read. "
+                "Re-read the file and retry.",
                 conflict=True,
             )
-
         token = self.arbiter.issue_token(file_path, current_hash, agent_id)
         return PreparedWrite(
             file_path=file_path,
@@ -302,10 +286,9 @@ class CodeIntelligenceService:
     ) -> EditResult:
         """Commit a prepared write after validating the reservation is still current."""
         if not self.arbiter.acquire_file_lock(prepared.file_path):
-            return EditResult(
-                success=False,
-                file_path=prepared.file_path,
-                message="Could not acquire file lock (timeout)",
+            return _result(
+                prepared.file_path,
+                "Could not acquire file lock (timeout)",
                 conflict=True,
                 conflict_reason="lock_timeout",
             )
@@ -317,10 +300,9 @@ class CodeIntelligenceService:
                 content_hash=prepared.current_hash,
             )
             if not ok:
-                return EditResult(
-                    success=False,
-                    file_path=prepared.file_path,
-                    message=f"Write precheck failed: {reason}",
+                return _result(
+                    prepared.file_path,
+                    f"Write precheck failed: {reason}",
                     conflict=True,
                     conflict_reason="stale_reservation",
                 )
@@ -328,69 +310,26 @@ class CodeIntelligenceService:
             try:
                 current_now, _ = self._read_content(prepared.file_path, allow_missing=True)
             except Exception as exc:
-                return EditResult(
-                    success=False,
-                    file_path=prepared.file_path,
-                    message=f"Cannot re-read file before commit: {exc}",
+                return _result(
+                    prepared.file_path,
+                    f"Cannot re-read file before commit: {exc}",
                 )
 
-            old_hash = prepared.current_hash
-            current_hash = _content_hash(current_now)
-            if current_hash != prepared.current_hash:
-                line_start = prepared.line_start
-                line_end = prepared.line_end
-                operation_type = prepared.operation_type or "replace"
-                if line_start is None:
-                    line_start, line_end, operation_type = detect_edit_window(
-                        prepared.current_content,
-                        new_content,
-                    )
-                merged_content: str | None = None
-                if prepared.existed and line_start is not None:
-                    merged_content = merge_non_overlapping_edit(
-                        original_content=prepared.current_content,
-                        new_content=new_content,
-                        current_content=current_now,
-                        line_start=line_start,
-                        line_end=line_end,
-                        operation_type=operation_type,
-                    )
-                if merged_content is None:
-                    if line_start is not None and prepared.existed:
-                        return EditResult(
-                            success=False,
-                            file_path=prepared.file_path,
-                            message=(
-                                "Write precheck failed: file content changed in an overlapping "
-                                "or unsupported range. Re-read the file and retry."
-                            ),
-                            conflict=True,
-                            conflict_reason="overlapping_range",
-                        )
-                    return EditResult(
-                        success=False,
-                        file_path=prepared.file_path,
-                        message=(
-                            "Write precheck failed: file content changed before commit. "
-                            "Re-read the file and retry."
-                        ),
-                        conflict=True,
-                        conflict_reason="version_mismatch",
-                    )
-                new_content = merged_content
-                old_hash = current_hash
+            write_content, old_hash, conflict = self._resolve_pending_write(
+                prepared,
+                current_now,
+                new_content,
+            )
+            if conflict is not None:
+                return conflict
 
             self.time_machine.save(prepared.file_path, current_now)
             try:
-                self._write_content(prepared.file_path, new_content)
+                self._write_content(prepared.file_path, write_content)
             except Exception as exc:
-                return EditResult(
-                    success=False,
-                    file_path=prepared.file_path,
-                    message=f"Write failed: {exc}",
-                )
+                return _result(prepared.file_path, f"Write failed: {exc}")
 
-            new_hash = _content_hash(new_content)
+            new_hash = _content_hash(write_content)
             self.ledger.record(
                 file_path=prepared.file_path,
                 agent_id=prepared.agent_id,
@@ -400,14 +339,14 @@ class CodeIntelligenceService:
                 description=description,
             )
             gen = self.arbiter.record_edit(prepared.file_path, prepared.agent_id)
-            self.tree_cache.put_content(prepared.file_path, new_content)
-            self.symbol_index.refresh(prepared.file_path, new_content)
+            self.tree_cache.put_content(prepared.file_path, write_content)
+            self.symbol_index.refresh(prepared.file_path, write_content)
             self.lsp_client.invalidate(prepared.file_path)
             self.arbiter.release_token(prepared.token_id)
-            return EditResult(
+            return _result(
+                prepared.file_path,
+                message,
                 success=True,
-                file_path=prepared.file_path,
-                message=message,
                 snapshot_id=str(gen),
             )
         finally:
@@ -479,31 +418,19 @@ class CodeIntelligenceService:
         """Undo the last edit to a file via TimeMachine."""
         snapshot = self.time_machine.rollback(file_path)
         if snapshot is None:
-            return EditResult(
-                success=False,
-                file_path=file_path,
-                message="No snapshot available for undo",
-            )
+            return _result(file_path, "No snapshot available for undo")
 
         try:
             self._write_content(file_path, snapshot.content)
         except Exception as exc:
-            return EditResult(
-                success=False,
-                file_path=file_path,
-                message=f"Undo write failed: {exc}",
-            )
+            return _result(file_path, f"Undo write failed: {exc}")
 
         # Refresh caches
         self.tree_cache.put_content(file_path, snapshot.content)
         self.symbol_index.refresh(file_path, snapshot.content)
         self.lsp_client.invalidate(file_path)
 
-        return EditResult(
-            success=True,
-            file_path=file_path,
-            message="Reverted to previous snapshot",
-        )
+        return _result(file_path, "Reverted to previous snapshot", success=True)
 
     def scope_status(
         self,
@@ -515,7 +442,7 @@ class CodeIntelligenceService:
     ) -> dict[str, Any]:
         """Return the authoritative live coordination snapshot for *scope_paths*."""
         normalized = normalize_scope_paths(scope_paths)
-        recent_changes: list[dict[str, Any]] = []
+        recent_changes = []
         for entry in self.ledger.recent_entries(recent_seconds):
             file_path = str(getattr(entry, "file_path", "") or "")
             if normalized and not any(scope_paths_overlap(file_path, scope) for scope in normalized):
@@ -529,14 +456,16 @@ class CodeIntelligenceService:
                 }
             )
         recent_changes.sort(key=lambda item: (item["file_path"], item["timestamp"]))
-
         active_reservations = self.arbiter.active_reservations(normalized)
         active_edit_intents = self.arbiter.active_edit_intents(normalized)
-        hotspots = [
-            {"file_path": str(file_path), "edit_count": int(count)}
-            for file_path, count in self.arbiter.hotspots(limit=25)
-            if not normalized or any(scope_paths_overlap(str(file_path), scope) for scope in normalized)
-        ][:10]
+        hotspots = []
+        for file_path, count in self.arbiter.hotspots(limit=25):
+            file_path = str(file_path)
+            if normalized and not any(scope_paths_overlap(file_path, scope) for scope in normalized):
+                continue
+            hotspots.append({"file_path": file_path, "edit_count": int(count)})
+            if len(hotspots) >= 10:
+                break
 
         return build_scope_packet(
             scope_paths=normalized,
@@ -614,28 +543,78 @@ class CodeIntelligenceService:
         """Called when tree cache detects a file change."""
         self.query_router.register_file_change(file_path)
 
+    def _resolve_pending_write(
+        self,
+        prepared: PreparedWrite,
+        current_now: str,
+        requested_content: str,
+    ) -> tuple[str, str, EditResult | None]:
+        """Merge a prepared write with the latest file content when possible."""
+        current_hash = _content_hash(current_now)
+        if current_hash == prepared.current_hash:
+            return requested_content, prepared.current_hash, None
+
+        line_start = prepared.line_start
+        line_end = prepared.line_end
+        operation_type = prepared.operation_type or "replace"
+        if line_start is None:
+            line_start, line_end, operation_type = detect_edit_window(
+                prepared.current_content,
+                requested_content,
+            )
+
+        if prepared.existed and line_start is not None:
+            merged_content = merge_non_overlapping_edit(
+                original_content=prepared.current_content,
+                new_content=requested_content,
+                current_content=current_now,
+                line_start=line_start,
+                line_end=line_end,
+                operation_type=operation_type,
+            )
+            if merged_content is not None:
+                return merged_content, current_hash, None
+            return "", current_hash, _result(
+                prepared.file_path,
+                "Write precheck failed: file content changed in an overlapping "
+                "or unsupported range. Re-read the file and retry.",
+                conflict=True,
+                conflict_reason="overlapping_range",
+            )
+
+        return "", current_hash, _result(
+            prepared.file_path,
+            "Write precheck failed: file content changed before commit. "
+            "Re-read the file and retry.",
+            conflict=True,
+            conflict_reason="version_mismatch",
+        )
+
     def _write_content(self, file_path: str, content: str) -> None:
         """Write content locally or to the attached sandbox."""
         from pathlib import Path
 
         if self._sandbox:
-            payload = content.encode("utf-8")
-            try:
-                result = self._sandbox.fs.upload_file(
-                    payload,
-                    file_path,
-                )
-                self._resolve(result)
-            except (AttributeError, TypeError) as exc:
-                if "decode" not in str(exc) and "bytes-like object" not in str(exc):
-                    raise
-                result = self._sandbox.fs.upload_file(
-                    file_path,
-                    payload,
-                )
-                self._resolve(result)
+            self._write_content_to_sandbox(file_path, content.encode("utf-8"))
             return
         Path(file_path).write_text(content, encoding="utf-8")
+
+    def _write_content_to_sandbox(self, file_path: str, payload: bytes) -> None:
+        """Handle both known upload_file argument orders exposed by sandboxes."""
+        try:
+            result = self._sandbox.fs.upload_file(
+                payload,
+                file_path,
+            )
+            self._resolve(result)
+        except (AttributeError, TypeError) as exc:
+            if "decode" not in str(exc) and "bytes-like object" not in str(exc):
+                raise
+            result = self._sandbox.fs.upload_file(
+                file_path,
+                payload,
+            )
+            self._resolve(result)
 
     def _read_content(
         self,

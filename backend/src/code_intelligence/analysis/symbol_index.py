@@ -1,14 +1,10 @@
-"""SymbolIndex — per-sandbox symbol indexing with background builds.
-
-Provides lazy-build background indexing with per-file refresh,
-generational tracking, and per-file completion events to avoid
-O(N) spurious wakeups.
-"""
+"""Background symbol indexing for a workspace."""
 
 from __future__ import annotations
 
 import ast
 import logging
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -24,6 +20,16 @@ from code_intelligence.types import SymbolInfo, SymbolKind
 
 logger = logging.getLogger(__name__)
 
+_GENERIC_SYMBOL_PATTERNS: tuple[tuple[re.Pattern[str], SymbolKind], ...] = (
+    (re.compile(r"(?:export\s+)?(?:async\s+)?function\s+(\w+)"), SymbolKind.FUNCTION),
+    (re.compile(r"(?:export\s+)?class\s+(\w+)"), SymbolKind.CLASS),
+    (re.compile(r"(?:export\s+)?interface\s+(\w+)"), SymbolKind.INTERFACE),
+    (re.compile(r"(?:export\s+)?const\s+(\w+)\s*="), SymbolKind.CONSTANT),
+    (re.compile(r"def\s+(\w+)\s*\("), SymbolKind.FUNCTION),
+    (re.compile(r"func\s+(\w+)\s*\("), SymbolKind.FUNCTION),
+    (re.compile(r"fn\s+(\w+)\s*[<(]"), SymbolKind.FUNCTION),
+)
+
 
 @dataclass
 class _FileSymbols:
@@ -36,18 +42,7 @@ class _FileSymbols:
 
 
 class SymbolIndex:
-    """Per-workspace symbol index with background building.
-
-    Thread-safe. Supports lazy builds triggered by ``ensure_built()``,
-    per-file refresh via ``refresh()``, and generational tracking.
-
-    Parameters
-    ----------
-    workspace_root:
-        Root directory to index.
-    max_files:
-        Maximum files to index (prevents unbounded memory growth).
-    """
+    """Thread-safe workspace symbol index with lazy background builds."""
 
     def __init__(
         self,
@@ -57,18 +52,13 @@ class SymbolIndex:
         self._workspace_root = workspace_root
         self._max_files = max_files
 
-        # Index state
         self._lock = threading.Lock()
         self._symbols: dict[str, _FileSymbols] = {}
         self._built = False
         self._building = False
         self._build_event = threading.Event()
         self._generation = 0
-
-        # Per-file waiters
         self._file_events: dict[str, threading.Event] = {}
-
-        # Background thread
         self._build_thread: threading.Thread | None = None
         self._pending_rebuild = False
 
@@ -110,7 +100,6 @@ class SymbolIndex:
                 generation=gen,
                 indexed_at=time.time(),
             )
-            # Wake per-file waiters
             evt = self._file_events.get(file_path)
             if evt:
                 evt.set()
@@ -267,9 +256,8 @@ class SymbolIndex:
     ) -> list[SymbolInfo]:
         """Extract symbols from a file."""
         if content is None:
-            try:
-                content = Path(file_path).read_text(encoding="utf-8")
-            except Exception:
+            content = self._read_file_content(file_path)
+            if content is None:
                 return []
 
         ext = Path(file_path).suffix.lower()
@@ -303,83 +291,103 @@ class SymbolIndex:
                 full_name = f"{container}.{name}" if container else name
                 kind = SymbolKind.METHOD if container else SymbolKind.FUNCTION
                 args = [arg.arg for arg in child.args.args]
-                signature = f"def {name}({', '.join(args)})"
-                bucket.append(SymbolInfo(
-                    name=full_name,
-                    kind=kind,
-                    file_path=file_path,
-                    line=child.lineno,
-                    end_line=getattr(child, "end_lineno", child.lineno),
-                    character=child.col_offset,
-                    signature=signature,
-                    docstring=ast.get_docstring(child) or "",
-                    container=container,
-                ))
+                bucket.append(
+                    self._build_symbol_info(
+                        file_path=file_path,
+                        node=child,
+                        name=full_name,
+                        kind=kind,
+                        signature=f"def {name}({', '.join(args)})",
+                        docstring=ast.get_docstring(child) or "",
+                        container=container,
+                    )
+                )
                 self._walk_python_ast(child, file_path, bucket, full_name)
 
             elif isinstance(child, ast.ClassDef):
                 name = child.name
                 full_name = f"{container}.{name}" if container else name
-                bucket.append(SymbolInfo(
-                    name=full_name,
-                    kind=SymbolKind.CLASS,
-                    file_path=file_path,
-                    line=child.lineno,
-                    end_line=getattr(child, "end_lineno", child.lineno),
-                    character=child.col_offset,
-                    signature=f"class {name}",
-                    docstring=ast.get_docstring(child) or "",
-                    container=container,
-                ))
+                bucket.append(
+                    self._build_symbol_info(
+                        file_path=file_path,
+                        node=child,
+                        name=full_name,
+                        kind=SymbolKind.CLASS,
+                        signature=f"class {name}",
+                        docstring=ast.get_docstring(child) or "",
+                        container=container,
+                    )
+                )
                 self._walk_python_ast(child, file_path, bucket, full_name)
 
             elif isinstance(child, ast.Assign):
                 for target in child.targets:
                     if isinstance(target, ast.Name):
                         full_name = f"{container}.{target.id}" if container else target.id
-                        bucket.append(SymbolInfo(
-                            name=full_name,
-                            kind=SymbolKind.VARIABLE,
-                            file_path=file_path,
-                            line=target.lineno,
-                            end_line=getattr(target, "end_lineno", target.lineno),
-                            character=target.col_offset,
-                            signature=f"{target.id} = ...",
-                            container=container,
-                        ))
+                        bucket.append(
+                            self._build_symbol_info(
+                                file_path=file_path,
+                                node=target,
+                                name=full_name,
+                                kind=SymbolKind.VARIABLE,
+                                signature=f"{target.id} = ...",
+                                container=container,
+                            )
+                        )
             else:
                 self._walk_python_ast(child, file_path, bucket, container)
 
     def _extract_generic_symbols(self, file_path: str, content: str) -> list[SymbolInfo]:
         """Extract basic symbols from non-Python files using regex patterns."""
-        import re
         symbols: list[SymbolInfo] = []
         lines = content.splitlines()
 
-        # Common patterns: function/class/interface/const definitions
-        patterns = [
-            (r'(?:export\s+)?(?:async\s+)?function\s+(\w+)', SymbolKind.FUNCTION),
-            (r'(?:export\s+)?class\s+(\w+)', SymbolKind.CLASS),
-            (r'(?:export\s+)?interface\s+(\w+)', SymbolKind.INTERFACE),
-            (r'(?:export\s+)?const\s+(\w+)\s*=', SymbolKind.CONSTANT),
-            (r'def\s+(\w+)\s*\(', SymbolKind.FUNCTION),
-            (r'func\s+(\w+)\s*\(', SymbolKind.FUNCTION),  # Go
-            (r'fn\s+(\w+)\s*[<(]', SymbolKind.FUNCTION),  # Rust
-        ]
-
         for lineno, line in enumerate(lines, start=1):
-            for pattern, kind in patterns:
-                m = re.match(pattern, line.strip())
+            stripped = line.strip()
+            for pattern, kind in _GENERIC_SYMBOL_PATTERNS:
+                m = pattern.match(stripped)
                 if m:
-                    symbols.append(SymbolInfo(
-                        name=m.group(1),
-                        kind=kind,
-                        file_path=file_path,
-                        line=lineno,
-                        end_line=lineno,
-                        character=0,
-                        signature=line.strip()[:100],
-                    ))
+                    symbols.append(
+                        SymbolInfo(
+                            name=m.group(1),
+                            kind=kind,
+                            file_path=file_path,
+                            line=lineno,
+                            end_line=lineno,
+                            character=0,
+                            signature=stripped[:100],
+                        )
+                    )
                     break
 
         return symbols
+
+    @staticmethod
+    def _read_file_content(file_path: str) -> str | None:
+        try:
+            return Path(file_path).read_text(encoding="utf-8")
+        except Exception:
+            return None
+
+    @staticmethod
+    def _build_symbol_info(
+        *,
+        file_path: str,
+        node: ast.AST,
+        name: str,
+        kind: SymbolKind,
+        signature: str,
+        docstring: str = "",
+        container: str = "",
+    ) -> SymbolInfo:
+        return SymbolInfo(
+            name=name,
+            kind=kind,
+            file_path=file_path,
+            line=getattr(node, "lineno", 0),
+            end_line=getattr(node, "end_lineno", getattr(node, "lineno", 0)),
+            character=getattr(node, "col_offset", 0),
+            signature=signature,
+            docstring=docstring,
+            container=container,
+        )

@@ -1,32 +1,4 @@
-"""Atlas freshness — git-independent, ledger + content-hash based.
-
-Three signals drive Atlas staleness:
-
-1. **Ledger fast path.** :class:`code_intelligence.editing.ledger.Ledger`
-   is an in-memory, agent-attributed append-only log of every edit in
-   the current process. Within a session it is authoritative: if no
-   entry under a chunk's scope has been recorded since the chunk's
-   ``snapshot_time``, the chunk is fresh in O(log n). The cutoff is the
-   **pre-read snapshot time** the writer captured *before* scouting the
-   files — not the DB ``updated_at`` — so edits that landed between
-   "files read" and "row committed" are detected as stale instead of
-   being silently skipped.
-
-2. **Content-hash cold path.** :attr:`AtlasChunk.content_hashes` stores
-   a ``path → sha256[:16]`` map captured at write time. On cold start
-   (fresh process, empty ledger) the chunk is proven fresh iff:
-     a) every tracked file still hashes to its stored value, and
-     b) the current file set under ``target_paths`` has **no new files**
-        that weren't tracked at write time.
-   The second check catches the class of staleness where a concurrent
-   writer *added* a file to the scope after the chunk was written —
-   hash-only comparison would miss it entirely.
-
-3. **TTL.** An optional max-age bound so briefs cannot linger forever
-   under scopes that happen never to be touched.
-
-Neither signal touches git.
-"""
+"""Atlas freshness checks using ledger events, content hashes, and TTL."""
 
 from __future__ import annotations
 
@@ -48,39 +20,17 @@ DEFAULT_ATLAS_MAX_AGE_SECONDS = 6 * 3600
 MIN_COMPLETE_SCOPE_COVERAGE = 0.9
 
 
-# ---------------------------------------------------------------------------
-# Stat-cached content hashing
-# ---------------------------------------------------------------------------
-#
-# Hashing a whole subsystem scope costs O(files × filesize). Under cold
-# starts the same files are re-hashed repeatedly, and the content almost
-# never changes between calls. The cache keys on ``(path, mtime_ns, size)``
-# — any real mutation invalidates the key for free via the mtime/size
-# change, so we never serve a stale hash. Bounded by ``_CACHE_MAX`` to
-# keep memory trivial under long-lived processes.
-
 _CACHE_MAX = 4096
 _hash_cache: dict[tuple[str, int, int], str] = {}
 
 
 def content_hash(text: str) -> str:
-    """16-char sha256 prefix of UTF-8-encoded *text*.
-
-    Matches the hash format used by ``code_intelligence``. For file
-    hashing prefer :func:`hash_file`, which hashes raw bytes and works
-    correctly for binary files.
-    """
+    """Return the 16-char sha256 prefix for UTF-8 text."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
 def _raw_hash_file(path: Path) -> str | None:
-    """Hash *path* as raw bytes. Returns ``None`` if the file cannot be read.
-
-    Hashing bytes (not decoded text) is what lets us detect mutations to
-    binary files — the previous ``read_text`` path silently dropped any
-    non-UTF-8 file from ``content_hashes`` entirely, so replacing a
-    binary under scope was invisible to freshness checks.
-    """
+    """Hash a file as raw bytes, or return ``None`` if unreadable."""
     try:
         return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
     except OSError:
@@ -88,13 +38,7 @@ def _raw_hash_file(path: Path) -> str | None:
 
 
 def hash_file(path: str | Path) -> str | None:
-    """Return the stat-cached content hash of *path*, or ``None`` if gone.
-
-    The cache keys on ``(str(path), mtime_ns, size)``, so any real
-    mutation invalidates the entry for free. Missing files and
-    unreadable files both return ``None`` — both correctly register as
-    stale when compared against a stored hash.
-    """
+    """Return the stat-cached content hash of a path, or ``None`` if missing."""
     p = Path(path)
     try:
         st = p.stat()
@@ -108,24 +52,18 @@ def hash_file(path: str | Path) -> str | None:
     if h is None:
         return None
     if len(_hash_cache) >= _CACHE_MAX:
-        # FIFO-ish eviction via CPython dict insertion order. Good
-        # enough for a hot-path cache that is write-once, read-many.
         _hash_cache.pop(next(iter(_hash_cache)))
     _hash_cache[key] = h
     return h
 
 
 def _clear_hash_cache() -> None:
-    """Test helper — drop the stat cache so a fresh run sees a clean slate."""
+    """Clear the stat cache."""
     _hash_cache.clear()
 
 
 def hash_paths_under(scope_paths: list[str], repo_root: str | Path) -> dict[str, str]:
-    """Hash every regular file under each scope path.
-
-    Used by the atlas writer to snapshot a chunk's inputs so cold-start
-    freshness checks have something to compare against.
-    """
+    """Hash every regular file under each scope path."""
     out: dict[str, str] = {}
     for target in _iter_scope_files(scope_paths, repo_root):
         h = hash_file(target)
@@ -137,13 +75,7 @@ def hash_paths_under(scope_paths: list[str], repo_root: str | Path) -> dict[str,
 def _iter_scope_files(
     scope_paths: list[str], repo_root: str | Path
 ) -> list[Path]:
-    """Resolve the list of files currently under *scope_paths*.
-
-    All paths are ``resolve()``-d so write-time and read-time produce
-    identical keys on symlinked filesystems (e.g. macOS ``/tmp`` →
-    ``/private/tmp``). Without this, the cold-path added-file check
-    would false-positive every chunk on such systems.
-    """
+    """Resolve the files currently under *scope_paths*."""
     root = Path(repo_root)
     files: list[Path] = []
     for raw in scope_paths:
@@ -166,11 +98,6 @@ def _iter_scope_files(
     return files
 
 
-# ---------------------------------------------------------------------------
-# Scope matching (ledger fast path)
-# ---------------------------------------------------------------------------
-
-
 def is_subsystem_stale(chunk: AtlasChunk, changed_files: set[str]) -> bool:
     """Return True if any file under the chunk's scope is in *changed_files*."""
     if not changed_files:
@@ -187,14 +114,7 @@ def is_subsystem_stale(chunk: AtlasChunk, changed_files: set[str]) -> bool:
 
 
 def changes_since_chunk(chunk: AtlasChunk, ledger: "Ledger") -> set[str]:
-    """Return file paths touched in *ledger* after the chunk's cutoff.
-
-    The cutoff is ``chunk.snapshot_time`` when present (the wall-clock
-    captured *before* the scout read files), falling back to
-    ``chunk.updated_at`` for rows written before snapshot_time existed.
-    Using snapshot_time closes the race where an edit lands between
-    "files read" and "row committed".
-    """
+    """Return file paths touched after the chunk's cutoff."""
     cutoff = _ledger_cutoff(chunk)
     if cutoff is None:
         return set()
@@ -213,11 +133,6 @@ def _ledger_cutoff(chunk: AtlasChunk) -> float | None:
     if chunk.updated_at is not None:
         return _as_utc(chunk.updated_at).timestamp()
     return None
-
-
-# ---------------------------------------------------------------------------
-# Primary entry point
-# ---------------------------------------------------------------------------
 
 
 def is_chunk_fresh(
@@ -241,21 +156,7 @@ def freshness_status(
     ledger: "Ledger | None" = None,
     max_age_seconds: float | None = None,
 ) -> tuple[bool, str | None]:
-    """Return True iff *chunk* can be proven fresh.
-
-    Resolution order:
-
-    1. **TTL gate** — if ``max_age_seconds`` is set and ``updated_at``
-       is older than that bound, the chunk is stale regardless of other
-       signals. This bounds drift from sources the ledger cannot see
-       (e.g. dependency upgrades that don't touch scope files).
-    2. **Ledger fast path** — O(log n) scope intersection against edits
-       since ``snapshot_time``.
-    3. **Content-hash cold path** — re-hash tracked files *and* verify
-       no new files were added under the scope since write time.
-    4. **Conservative fallback** — if neither signal is available,
-       return False.
-    """
+    """Return whether a chunk is fresh plus the first stale reason."""
     if max_age_seconds is not None and chunk.updated_at is not None:
         now = datetime.now(timezone.utc)
         age = (now - _as_utc(chunk.updated_at)).total_seconds()
@@ -274,14 +175,12 @@ def freshness_status(
         )
 
     if chunk.content_hashes:
-        # (a) every tracked file must still hash identically
         for path, stored in chunk.content_hashes.items():
             current = hash_file(path)
             if current is None or current != stored:
                 return False, (
                     "content hashes diverged from the working tree under this scope"
                 )
-        # (b) no new files may have appeared in scope
         target_paths = _target_paths(chunk)
         if target_paths and chunk.repo_root:
             current_files = {
@@ -326,11 +225,6 @@ def chunk_reuse_status(
     )
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _target_paths(chunk: AtlasChunk) -> list[str]:
     raw = chunk.brief.get("target_paths") if isinstance(chunk.brief, dict) else None
     if not isinstance(raw, list):
@@ -346,7 +240,7 @@ _resolved_root_cache: dict[str, str] = {}
 
 
 def _resolve_once(root: str) -> str:
-    """Resolve ``root`` exactly once per process — stat syscalls hurt in hot loops."""
+    """Resolve ``root`` once per process."""
     if not root:
         return ""
     cached = _resolved_root_cache.get(root)
@@ -361,13 +255,7 @@ def _resolve_once(root: str) -> str:
 
 
 def _normalise_changed_path(path: str, repo_root: str) -> str:
-    """Best-effort repo-relative normalization for a path set by the caller.
-
-    This is the slow path used when ``is_subsystem_stale`` is called
-    directly by tests or external callers with arbitrary strings. The
-    hot ledger path goes through :func:`_normalise_ledger_path` which
-    avoids per-entry ``.resolve()`` calls entirely.
-    """
+    """Best-effort repo-relative normalization for caller-provided paths."""
     cleaned = path.strip().replace("\\", "/").removeprefix("./").rstrip("/")
     if not cleaned:
         return cleaned
@@ -386,13 +274,7 @@ def _normalise_changed_path(path: str, repo_root: str) -> str:
 def _normalise_ledger_path(
     path: str, resolved_root: str, raw_root: str
 ) -> str:
-    """Strip a ``raw_root`` or ``resolved_root`` prefix from a ledger entry.
-
-    The ledger stores whatever absolute path the edit tool was given,
-    which on macOS may start with ``/tmp`` while ``resolved_root`` is
-    ``/private/tmp``. Checking both forms avoids a per-entry
-    ``os.path.realpath`` stat syscall on the hot freshness path.
-    """
+    """Strip a matching root prefix from a ledger entry path."""
     for root in (resolved_root, raw_root):
         if root and path.startswith(root + "/"):
             return path[len(root) + 1 :]
