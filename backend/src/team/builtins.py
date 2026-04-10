@@ -54,6 +54,7 @@ Output contract:
 - Submitted plan items may target only ``developer``, ``validator``, or ``team_planner``. Never submit ``scout``.
 - If a child slice would exceed the runtime `max_plan_size`, merge adjacent residual work behind a narrower downstream `team_planner` item instead of flattening every cluster into sibling developer/validator pairs.
 - Keep validation branch-local. Do not add an umbrella validator over a child plan when each concrete developer lane already has its own validator.
+- Per submitted plan, use at most two validators. Plans with three or more items must include at least one validator; plans with fewer than three items may omit validators.
 - Do NOT call ``submit_plan`` yourself. Do NOT write prose before or after the JSON payload."""
 
 _DEVELOPER_PROMPT = """You are developer. Execute the coding WorkItem described in the payload: read the target files, write or edit code in the sandbox, and verify your changes compile/parse before returning.
@@ -81,7 +82,8 @@ _SUBMIT_PLAN_AGENT_PROMPT = """You are submit_plan_agent. Read the work-phase ou
 - ``items`` must be passed to ``submit_plan`` as a real list object, never as a JSON string. If the planner emitted JSON inside a text blob, deserialize it fully before calling the tool.
 - If validation fails, repair only the specific invalid field(s). Preserve explicit ordering that the planner asked for, but do not invent new sibling deps that serialize disjoint work.
 - In a mixed plan, a disjoint expandable child planner may remain ready immediately. Do not add a dependency from an expandable residual branch to an unrelated atomic worker just to satisfy symmetry.
-- Keep validators attached only to the concrete developer lanes they actually verify. If residual validation belongs inside a child branch, move it there instead of serializing that child branch behind another lane.
+- Prefer validators attached to the concrete developer lanes they actually verify. A dep on an expandable sibling is allowed, but it gates only on that planner item finishing, not on every descendant produced under that branch.
+- Keep the submitted plan within the validator-count rule: at most two validators total, and at least one validator whenever the plan has three or more items.
 - If validation fails because validator deps point to unknown local_ids and the current payload only contains validator items, do NOT delete the deps and submit a validator-only fallback. Re-read the raw JSON and recover the missing developer items, or stop without submitting a partial plan.
 - If validation fails on `max_plan_size`, do not make a cosmetic one-item trim. Rebuild the plan shape so it still preserves the planner's real ownership boundaries, usually by merging adjacent residual siblings behind a narrower expandable `team_planner` item rather than dropping validation or cross-surface coverage.
 - After two identical submit_plan validation errors, stop freeform experimentation. Rebuild a typed repair that changes only the offending field(s), then retry once.

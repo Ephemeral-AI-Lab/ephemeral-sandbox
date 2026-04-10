@@ -113,3 +113,4 @@ Fresh exploration is not justified when:
 - Do not spawn nested `team_planner` agents to restate the parent split. Either emit direct developer/validator items or use a single scout per unresolved owner file and then emit the plan.
 - Never call a nested planner with `prompt=null` or with no concrete decomposition question. That is a protocol error, not exploration.
 - If a parent expansion hint already says "one child for X, one child for Y, one child for Z", your job is to convert X/Y/Z into concrete worker items, not to open a new planning tree for X/Y/Z.
+- If inherited `owned_failures` already contain exact pytest node ids, preserve them verbatim downstream. Do not rename, shorten, de-parameterize, or substitute nearby test names while expanding the child plan.

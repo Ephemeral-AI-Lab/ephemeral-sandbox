@@ -40,6 +40,7 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 
 - When the request already names one dominant FAIL_TO_PASS cluster plus several smaller named failures, the default first wave is one dominant production-owner scout plus one residual source-owner or residual-aggregate scout. Do not spend a first-wave lane on the already-named giant test file unless no plausible production owner exists yet.
 - When a dominant FAIL_TO_PASS cluster contains dozens or hundreds of parametrized nodes, summarize it as one owner slice with a representative deduped subset of failing ids. Do not paste the full repeated test-id list into one developer payload.
+- Preserve exact pytest node ids verbatim in planner payloads. Do not shorten `test_info_versions` to `test_info`, drop parametrization, or invent normalized aliases when you split FAIL_TO_PASS targets across child planners or workers.
 - Planner briefings must be execution-ready. Each developer or validator lane should receive the exact retry target, owned files or region, nearest same-surface guardrail, and any artifact refs or residual-cluster notes needed to act without fresh ownership discovery.
 - On large benchmark roots, spend the first exploration pass on a small set of disjoint source-owner scouts rather than one long serial hypothesis lane.
 - Treat scout lanes as scarce. Open a new scout only for a genuinely distinct unresolved owner slice, and remember that fresh scout fanout is capped at `8` launches per planner turn.
@@ -89,6 +90,7 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 - After one targeted reproduction plus one or two focused code reads identify the deciding function or branch, edit immediately. Do not spend the attempt on repeated ad hoc probes.
 - If the exact retry target is already green in the sandbox, stop debugging and report that result; let the validator spend the one broader regression check.
 - If the named pytest node does not exist in the live checkout, stop and report the mismatch with the exact missing node id. Do not invent substitute tests, new compatibility shims, or neighboring files until the benchmark surface is confirmed.
+- If the first failing surface is an unowned benchmark test import/collection error, keep the lane on the adjacent production/export owner. Do not "repair" the benchmark by editing the unowned test file just because the payload or node name is stale.
 - Fix production code first. Do not edit tests, snapshots, or benchmark harness files unless the WorkItem explicitly assigns them.
 - When touching core metadata propagation or schema-wrapper logic, run a same-surface regression slice that checks ordering, wrapper passthrough, and error-shape stability, not just the exact failing test.
 - When touching RootModel JSON schema description propagation, validate both the field-description-only case and the docstring-vs-field precedence case.

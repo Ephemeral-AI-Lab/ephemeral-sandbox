@@ -266,7 +266,7 @@ def test_phase_b_rejects_agent_without_supported_kind(monkeypatch):
         )
 
 
-def test_phase_b_rejects_validator_depending_on_expandable_sibling(monkeypatch):
+def test_phase_b_allows_validator_depending_on_expandable_sibling(monkeypatch):
     from agents.types import AgentDefinition
     from team.planning import validation as _v
 
@@ -308,10 +308,12 @@ def test_phase_b_rejects_validator_depending_on_expandable_sibling(monkeypatch):
         ]
     )
 
-    with pytest.raises(InvalidPlan, match="validator items may not depend on expandable planner"):
-        validate_plan_phase_b(
-            {parent.id: parent}, plan, "T1", parent, new_id_factory=fresh_id, max_depth=5
-        )
+    new_items = validate_plan_phase_b(
+        {parent.id: parent}, plan, "T1", parent, new_id_factory=fresh_id, max_depth=5
+    )
+
+    assert [wi.local_id for wi in new_items] == ["dev1", "child", "val1"]
+    assert new_items[2].deps == [new_items[1].id]
 
 
 def test_phase_b_combined_cycle(monkeypatch):
@@ -550,7 +552,7 @@ def test_phase_a_allows_ready_expandable_item_in_mixed_plan(monkeypatch):
     assert not issues
 
 
-def test_phase_a_rejects_validator_depending_on_expandable_sibling(monkeypatch):
+def test_phase_a_allows_validator_depending_on_expandable_sibling(monkeypatch):
     from agents.types import AgentDefinition
     from team.planning import validation as _v
 
@@ -584,9 +586,7 @@ def test_phase_a_rejects_validator_depending_on_expandable_sibling(monkeypatch):
         ]
     )
 
-    issues = validate_plan_phase_a(plan)
-
-    assert any("validator items may not depend on expandable sibling" in i["msg"] for i in issues)
+    assert validate_plan_phase_a(plan) == []
 
 
 def test_submit_plan_item_parses_briefings_and_kind():

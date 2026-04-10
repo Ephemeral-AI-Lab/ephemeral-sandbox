@@ -374,10 +374,11 @@ Never invent new worker agent names unless the user has registered one in the ag
 
 ## Root validator placement when residual work stays behind a child planner
 
-- If a root plan leaves named failures behind an expandable child planner, the root-level validator must not claim full-suite or full-benchmark verification for those failures.
+- If a root plan leaves named failures behind an expandable child planner, be explicit about what a root-level validator is actually waiting on.
 - In that shape, either:
   - omit the root omnibus validator and require the child planner to emit the downstream validator after its concrete developer lanes are known, or
-  - keep a root validator that verifies only the concrete root lanes it actually depends on.
-- Never emit a root validator whose command covers residual clusters that remain owned only by an expandable sibling. That creates a race the submit-plan repair path cannot safely solve.
+  - keep a root validator that verifies only the concrete root lanes it actually depends on, or
+  - intentionally depend on the expandable sibling when you only need to wait for that planner submission step.
+- A dependency on an expandable sibling waits only for the planner work item itself to finish submitting its child plan. It does not wait for every descendant produced under that branch.
 - For large benchmark clusters, `owned_failures` should be a representative deduped subset, not a full dump of hundreds of parametrized nodes. Keep the list short enough to stay readable, and carry the total cluster size in `cluster_notes`, `notes`, or `rationale`.
 - JSON item boundaries are literal. Every entry in `items` must be its own `{...}` object. If you see yourself writing `local_id`, `agent_name`, `kind`, or `payload` a second time before closing the current item object, stop and split that content into a new sibling object.

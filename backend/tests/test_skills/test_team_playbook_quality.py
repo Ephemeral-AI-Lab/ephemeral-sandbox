@@ -68,6 +68,9 @@ def test_sweevo_context_treats_missing_share_briefing_as_non_blocking() -> None:
     assert "Ownership mismatch is a planning problem." in sweevo
     assert "Planner briefings must be execution-ready." in sweevo
     assert "Do not push that rediscovery work down to the next developer or validator lane." in sweevo
+    assert "Preserve exact pytest node ids verbatim in planner payloads." in sweevo
+    assert "Do not shorten `test_info_versions` to `test_info`" in sweevo
+    assert 'Do not "repair" the benchmark by editing the unowned test file' in sweevo
 
 
 def test_developer_playbook_anchors_import_failures_to_named_pytest_surface() -> None:
@@ -85,6 +88,8 @@ def test_developer_playbook_anchors_import_failures_to_named_pytest_surface() ->
     assert "Budget warnings require the identified patch point, not more diagnosis." in developer
     assert "Rejected mutating shell probes are a stop sign." in developer
     assert "patch the last merge/update function that overwrites the public field" in developer
+    assert "If the first failing pytest surface is inside an unowned test file" in developer
+    assert "Named-node mismatches are not permission to rewrite tests." in developer
 
 
 def test_validator_playbook_mentions_codeact_is_unavailable_in_team_lanes() -> None:
