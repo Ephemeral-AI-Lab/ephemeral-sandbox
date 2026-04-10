@@ -21,10 +21,12 @@ from typing import Any
 import pytest
 
 from compaction import SessionState, compact_for_api
+from compaction.compactor import compact_conversation
 from compaction.compactor import (
     AUTOCOMPACT_BUFFER_TOKENS,
     get_autocompact_threshold,
     reduce_for_api,
+    _sanitize_tool_sequence,
 )
 from engine.core.query import _build_background_reminder
 from engine.runtime.background_tasks import BackgroundTaskManager
@@ -70,6 +72,29 @@ class _StubApiClient:
             role="assistant", content=[TextBlock(text=self._summary)]
         )
         yield ApiMessageCompleteEvent(message=msg, usage=UsageSnapshot())
+
+
+class _ToolPairValidatingApiClient(_StubApiClient):
+    async def stream_message(self, request: ApiMessageRequest) -> AsyncIterator[Any]:
+        pending_tool_uses: set[str] = set()
+        for message in request.messages:
+            if pending_tool_uses:
+                tool_results = {
+                    block.tool_use_id
+                    for block in message.content
+                    if isinstance(block, ToolResultBlock)
+                }
+                assert message.role == "user"
+                assert pending_tool_uses <= tool_results
+                pending_tool_uses = set()
+            pending_tool_uses = {
+                block.id
+                for block in message.content
+                if isinstance(block, ToolUseBlock)
+            }
+        assert not pending_tool_uses
+        async for event in super().stream_message(request):
+            yield event
 
 
 def _make_user(text: str) -> ConversationMessage:
@@ -170,6 +195,140 @@ class TestCompactForApiPurity:
         assert api is not display
         # The summary message replaces the older history.
         assert any("compressed" in m.text for m in api)
+
+    @pytest.mark.asyncio
+    async def test_compact_conversation_keeps_tool_pairs_out_of_split_boundary(
+        self,
+    ) -> None:
+        messages = [
+            _make_user("older context"),
+            ConversationMessage(
+                role="assistant",
+                content=[
+                    ToolUseBlock(id="toolu_pair", name="check_background_progress", input={"task_id": "bg_1"})
+                ],
+            ),
+            ConversationMessage(
+                role="user",
+                content=[
+                    ToolResultBlock(
+                        tool_use_id="toolu_pair",
+                        content="background snapshot",
+                    )
+                ],
+            ),
+            _make_user("newer context"),
+        ]
+
+        result = await compact_conversation(
+            copy.deepcopy(messages),
+            api_client=_ToolPairValidatingApiClient(),
+            model="claude-opus-4-6",
+            preserve_recent=2,
+            skip_microcompact=True,
+        )
+
+        assert result is not messages
+        assert any("STUB SUMMARY" in msg.text for msg in result)
+
+    def test_sanitize_tool_sequence_drops_orphaned_tool_results(self) -> None:
+        messages = [
+            _make_user("prompt"),
+            ConversationMessage(role="assistant", content=[TextBlock(text="no tools here")]),
+            ConversationMessage(
+                role="user",
+                content=[ToolResultBlock(tool_use_id="toolu_orphan", content="stale result")],
+            ),
+        ]
+
+        sanitized = _sanitize_tool_sequence(messages)
+
+        assert len(sanitized) == 2
+        assert all(
+            not any(isinstance(block, ToolResultBlock) for block in msg.content)
+            for msg in sanitized
+        )
+
+    @pytest.mark.asyncio
+    async def test_compact_conversation_rejects_orphan_tool_result_history(
+        self,
+    ) -> None:
+        client = _StubApiClient()
+        messages = [
+            _make_user("older context"),
+            ConversationMessage(
+                role="user",
+                content=[
+                    ToolResultBlock(
+                        tool_use_id="toolu_orphan",
+                        content="orphaned tool result",
+                    )
+                ],
+            ),
+            _make_user("newer context"),
+        ]
+
+        with pytest.raises(ValueError, match="compaction preflight rejected malformed tool sequencing"):
+            await compact_conversation(
+                copy.deepcopy(messages),
+                api_client=client,
+                model="claude-opus-4-6",
+                preserve_recent=0,
+                skip_microcompact=True,
+            )
+
+        assert client.calls == 0, "preflight should fail before the summary API call"
+
+    @pytest.mark.asyncio
+    async def test_compact_for_api_sanitizes_invalid_history_before_provider_call(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from compaction import compactor as compactor_mod
+
+        monkeypatch.setattr(
+            compactor_mod, "should_autocompact", lambda msgs, model, state: True
+        )
+
+        display = [
+            _make_user("prefix 0"),
+            _make_user("prefix 1"),
+            _make_user("older context"),
+            ConversationMessage(
+                role="assistant",
+                content=[ToolUseBlock(id="toolu_pair", name="echo", input={"value": "x"})],
+            ),
+            ConversationMessage(
+                role="user",
+                content=[
+                    ToolResultBlock(
+                        tool_use_id="toolu_pair",
+                        content="expected tool result",
+                    ),
+                    ToolResultBlock(
+                        tool_use_id="toolu_orphan",
+                        content="unexpected extra tool result",
+                    ),
+                ],
+            ),
+            _make_user("suffix 0"),
+            _make_user("suffix 1"),
+            _make_user("suffix 2"),
+            _make_user("newer context"),
+        ]
+        state = SessionState()
+        client = _StubApiClient()
+
+        api = await compact_for_api(
+            display,
+            api_client=client,
+            model="claude-opus-4-6",
+            state=state,
+        )
+
+        assert client.calls == 1, "sanitized history should remain compactable"
+        assert any("STUB SUMMARY" in msg.text for msg in api)
+        assert state.compacted is True
+        assert state.consecutive_failures == 0
 
 
 # ---------------------------------------------------------------------------

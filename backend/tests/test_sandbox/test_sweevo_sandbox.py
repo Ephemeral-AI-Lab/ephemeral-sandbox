@@ -187,3 +187,80 @@ def test_setup_sweevo_sandbox_preserves_existing_labels(monkeypatch):
             "project_dir": _REPO_DIR,
         }
     ]
+
+
+def test_ensure_sweevo_test_patch_uploads_with_content_first_signature(monkeypatch):
+    from benchmarks.sweevo import sandbox as sweevo_sandbox
+
+    uploads: list[tuple[bytes, str]] = []
+
+    class FakeFs:
+        async def upload_file(self, content: bytes, path: str) -> None:
+            uploads.append((content, path))
+
+    fake_sandbox = SimpleNamespace(fs=FakeFs())
+    exec_mock = AsyncMock(side_effect=["APPLYABLE", ""])
+    instance = _instance()
+    instance.test_patch = "diff --git a/foo b/foo\n"
+
+    monkeypatch.setattr(sweevo_sandbox, "_get_sandbox", AsyncMock(return_value=fake_sandbox))
+    monkeypatch.setattr(sweevo_sandbox, "_exec", exec_mock)
+
+    asyncio.run(sweevo_sandbox.ensure_sweevo_test_patch(instance, "sbx-1"))
+
+    assert uploads == [(instance.test_patch.encode("utf-8"), "/tmp/sweevo_test.patch")]
+
+
+def test_ensure_sweevo_test_patch_falls_back_to_chunked_exec(monkeypatch):
+    from benchmarks.sweevo import sandbox as sweevo_sandbox
+
+    async def exec_stub(_sandbox_id: str, command: str, *args, **kwargs) -> str:
+        if "git apply --check" in command:
+            return "APPLYABLE"
+        return ""
+
+    exec_mock = AsyncMock(side_effect=exec_stub)
+    instance = _instance()
+    instance.test_patch = "diff --git a/foo b/foo\n" * 20
+
+    class FakeFs:
+        async def upload_file(self, content: bytes, path: str) -> None:
+            raise RuntimeError("upload unavailable")
+
+    monkeypatch.setattr(
+        sweevo_sandbox,
+        "_get_sandbox",
+        AsyncMock(return_value=SimpleNamespace(fs=FakeFs())),
+    )
+    monkeypatch.setattr(sweevo_sandbox, "_exec", exec_mock)
+
+    asyncio.run(sweevo_sandbox.ensure_sweevo_test_patch(instance, "sbx-1"))
+
+    commands = [call.args[1] for call in exec_mock.await_args_list]
+    assert commands[0].startswith(": > /tmp/sweevo_test.patch.b64")
+    assert any(
+        "base64 -d /tmp/sweevo_test.patch.b64 > /tmp/sweevo_test.patch" in command
+        for command in commands
+    )
+
+
+def test_ensure_sweevo_test_patch_uses_upload_file_compat(monkeypatch):
+    from benchmarks.sweevo import sandbox as sweevo_sandbox
+
+    sandbox = SimpleNamespace(fs=SimpleNamespace())
+    upload_mock = AsyncMock()
+    exec_mock = AsyncMock(return_value="ALREADY_APPLIED")
+
+    monkeypatch.setattr(sweevo_sandbox, "_get_sandbox", AsyncMock(return_value=sandbox))
+    monkeypatch.setattr(sweevo_sandbox, "_upload_file_compat", upload_mock)
+    monkeypatch.setattr(sweevo_sandbox, "_exec", exec_mock)
+
+    instance = _instance()
+    instance.test_patch = "diff --git a/foo b/foo\n"
+    asyncio.run(sweevo_sandbox.ensure_sweevo_test_patch(instance, "sbx-1"))
+
+    upload_mock.assert_awaited_once_with(
+        sandbox,
+        b"diff --git a/foo b/foo\n",
+        "/tmp/sweevo_test.patch",
+    )

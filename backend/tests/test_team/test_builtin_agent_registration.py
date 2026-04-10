@@ -21,10 +21,7 @@ def test_builtin_team_agents_preload_skills_without_lazy_skill_toolkit() -> None
     for name in (TEAM_PLANNER, DEVELOPER, VALIDATOR, SCOUT):
         defn = get_definition(name)
         assert defn is not None
-        if name == TEAM_PLANNER:
-            assert defn.include_skills is True
-        else:
-            assert defn.include_skills is False
+        assert defn.include_skills is True
         assert defn.skills, f"{name} should still declare its preloaded playbook"
 
 
@@ -39,7 +36,7 @@ def test_decision_posthook_agents_preload_decision_playbook_without_lazy_skill_t
     for name in (DECISION_SUBMIT_RETRY, DECISION_SUBMIT_REPLAN):
         defn = get_definition(name)
         assert defn is not None
-        assert defn.include_skills is False
+        assert defn.include_skills is True
         assert defn.skills == ["team-posthook-decision-playbook"]
 
 

@@ -157,6 +157,8 @@ def _record_tool_trace(
     scout_input = tool_input.get("input")
     if not isinstance(scout_input, dict):
         return
+    current_launches = metadata.get("_scout_launches_this_turn", 0)
+    metadata["_scout_launches_this_turn"] = int(current_launches) + 1 if isinstance(current_launches, (int, float)) else 1
     _append_trace_values(
         metadata,
         "_scout_target_paths_this_turn",

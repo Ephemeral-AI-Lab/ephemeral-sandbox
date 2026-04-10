@@ -255,7 +255,7 @@ class BudgetConfig:
     max_total_artifact_bytes: int = 50_000_000
     default_work_item_timeout: float | None = None
     max_briefing_bytes: int = 32_000
-    max_shared_briefings: int = 16
+    max_shared_briefings: int = 1000
     max_retries_per_item: int = 2
     max_replans_per_run: int = 5
 

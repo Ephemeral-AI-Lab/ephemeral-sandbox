@@ -19,14 +19,16 @@ Produce a structural ownership map first, then assign developer and validator wo
    Once live CI identifies one candidate implementation file or subsystem, the next step should be scout, child-planning, or dispatch.
    Prefer scout immediately whenever it can answer the ownership question.
    If the owner is already a single large file, a single-file scout is allowed when you still need that file's live structure or key symbols before dispatch. Move to child planning only when that scout still leaves several named regions unresolved.
-   If two or three disjoint owner hypotheses remain, prefer parallel scouts immediately instead of proving them one at a time from the parent planner.
+   If several disjoint owner hypotheses remain, prefer a small wave of parallel scouts instead of proving them one at a time from the parent planner.
 
 3. Launch a bounded scout.
    Call `run_subagent(agent_name="scout", input={"target_paths": [...]})` with concrete paths only.
    Give the scout the smallest slice that can still answer the ownership question.
    When ownership has already split, prefer several disjoint scouts in parallel over serial parent-side probing.
+   Do not open a scout just because fanout is available. Launch only when the lane covers a still-unresolved owner boundary that existing scout briefs, atlas results, or shared context do not already answer.
    After launch, you MUST take at least one non-wait action before any `wait_for_background_task`: launch another disjoint scout, call `check_background_progress`, classify the remaining branch, promote a completed brief, or emit the final plan JSON. Do not call `wait_for_background_task` first unless that scout result is already the only blocker left.
    Treat parallel scouting as waves, not as a rigid one-shot batch. Start with the smallest useful wave, keep reasoning while those scouts run, and launch another disjoint scout or child planner only when the current evidence still leaves a real ownership gap.
+   Fresh scout fanout is hard-capped at `8` launches per planner turn, so conserve lanes for genuinely distinct ownership questions.
 
 4. Read the scout brief and classify the result.
    `scope_coverage >= 0.9` with a clear ownership map:

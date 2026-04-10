@@ -190,7 +190,7 @@ def register_all() -> None:
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             toolkits=["sandbox_operations", "code_intelligence"],
             skills=["team-developer-playbook"],
-            include_skills=False,
+            include_skills=True,
             supported_kinds=["atomic"],
             source="builtin",
             posthook=PosthookConfig(
@@ -212,7 +212,7 @@ def register_all() -> None:
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             toolkits=["sandbox_operations", "code_intelligence"],
             skills=["team-validator-playbook"],
-            include_skills=False,
+            include_skills=True,
             supported_kinds=["atomic"],
             source="builtin",
             posthook=PosthookConfig(
@@ -232,7 +232,7 @@ def register_all() -> None:
             model="inherit",
             toolkits=["code_intelligence"],
             skills=["team-scout-playbook"],
-            include_skills=False,
+            include_skills=True,
             agent_type="subagent",
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             posthook=PosthookConfig(
@@ -251,7 +251,7 @@ def register_all() -> None:
             model="inherit",
             toolkits=["posthook_submit_retry"],
             skills=["team-posthook-decision-playbook"],
-            include_skills=False,
+            include_skills=True,
             agent_type="subagent",
             source="builtin",
         )
@@ -264,7 +264,7 @@ def register_all() -> None:
             model="inherit",
             toolkits=["posthook_submit_replan"],
             skills=["team-posthook-decision-playbook"],
-            include_skills=False,
+            include_skills=True,
             agent_type="subagent",
             source="builtin",
         )
@@ -292,7 +292,7 @@ def register_all() -> None:
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
             toolkits=["code_intelligence", "team_context", "atlas", "subagent"],
             skills=["team-replanner-playbook"],
-            include_skills=False,
+            include_skills=True,
             supported_kinds=["atomic"],
             source="builtin",
             posthook=PosthookConfig(

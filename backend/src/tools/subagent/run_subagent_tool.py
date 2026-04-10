@@ -59,6 +59,7 @@ _PEEK_BLOCK_CHAR_CAP = 200
 # Total character cap for the peek view.
 _PEEK_TOTAL_CHAR_CAP = 2048
 _SCOUT_ONLY_CALLERS = frozenset({"team_planner"})
+_MAX_SCOUT_LAUNCHES_PER_TURN = 8
 
 
 def _truncate(s: str) -> str:
@@ -108,6 +109,14 @@ def _scout_fanout_admission_error(
 ) -> tuple[dict[str, Any] | None, str | None]:
     if str(context.metadata.get("coordination_mode") or "") != "ultra":
         return None, None
+    prior_launches_raw = context.metadata.get("_scout_launches_this_turn", 0)
+    prior_launches = int(prior_launches_raw) if isinstance(prior_launches_raw, (int, float)) else 0
+    if prior_launches >= _MAX_SCOUT_LAUNCHES_PER_TURN:
+        return None, (
+            "run_subagent: scout fanout cap reached for this turn "
+            f"({_MAX_SCOUT_LAUNCHES_PER_TURN}). Reuse the current evidence, inspect progress on "
+            "existing scouts, or emit the plan instead of opening another scout lane."
+        )
     prior_scouts = _normalize_target_paths(context.metadata.get("_scout_target_paths_this_turn", []))
     if not prior_scouts:
         return None, None
@@ -120,12 +129,10 @@ def _scout_fanout_admission_error(
     if not isinstance(admission, dict) or admission.get("allow_parallel_fanout", True):
         return packet if isinstance(packet, dict) else None, None
     reasons = "; ".join(str(item) for item in (admission.get("reasons") or []) if str(item).strip())
-    recommended = int(admission.get("recommended_parallel_scouts") or 1)
     return packet if isinstance(packet, dict) else None, (
         "run_subagent: live scope status requires serialized scout expansion for this "
-        f"scope (recommended_parallel_scouts={recommended}"
-        + (f"; {reasons}" if reasons else "")
-        + "). Reuse the current evidence, inspect progress on existing scouts, or emit "
+        + ("scope" if not reasons else f"scope ({reasons})")
+        + ". Reuse the current evidence, inspect progress on existing scouts, or emit "
         "the plan instead of opening another overlapping or hot scout lane."
     )
 

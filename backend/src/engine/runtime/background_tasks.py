@@ -80,6 +80,7 @@ class TrackedBackgroundTask:
     progress_checks: int = 0
     _last_reminder_line_idx: int = 0  # tracks where the last reminder left off
     _last_reminder_at: float = 0.0  # monotonic time of last reminder
+    _last_provider_reminder_lines: list[str] = field(default_factory=list)
 
 
 class BackgroundTaskManager:
@@ -438,6 +439,25 @@ class BackgroundTaskManager:
             if tracked._last_reminder_at
             else now - tracked.started_at
         )
+        if tracked.progress_provider is not None and tracked.status == TaskStatus.RUNNING:
+            try:
+                snapshot = tracked.progress_provider(max_lines)
+            except Exception as exc:
+                snapshot = f"[progress provider error: {exc}]"
+            current_lines = snapshot.splitlines()
+            previous_lines = tracked._last_provider_reminder_lines
+
+            overlap = min(len(previous_lines), len(current_lines))
+            while overlap > 0 and previous_lines[-overlap:] != current_lines[:overlap]:
+                overlap -= 1
+
+            new_lines = current_lines[overlap:]
+            tracked._last_provider_reminder_lines = current_lines
+            tracked._last_reminder_at = now
+            if len(new_lines) > max_lines:
+                new_lines = new_lines[-max_lines:]
+            return new_lines, since
+
         new_lines = tracked.progress_lines[tracked._last_reminder_line_idx :]
         tracked._last_reminder_line_idx = len(tracked.progress_lines)
         tracked._last_reminder_at = now

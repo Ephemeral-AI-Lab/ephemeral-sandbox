@@ -331,6 +331,7 @@ async def test_background_scout_trace_is_recorded_after_launch_not_before(tmp_pa
     payload = json.loads(completed.result.output)
     assert payload["seen_paths"] == []
     assert context.tool_metadata is not None
+    assert context.tool_metadata["_scout_launches_this_turn"] == 1
     assert context.tool_metadata["_scout_target_paths_this_turn"] == [
         "/testbed/pydantic/json_schema.py"
     ]

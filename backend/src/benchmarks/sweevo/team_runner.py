@@ -106,28 +106,28 @@ def _derive_sweevo_budgets(instance: SWEEvoInstance) -> BudgetConfig:
             "max_depth": 4,
             "max_plan_size": 8,
             "max_work_items": 24,
-            "max_shared_briefings": 8,
+            "max_shared_briefings": 1000,
             "max_briefing_bytes": 24_000,
         },
         "medium": {
             "max_depth": 5,
             "max_plan_size": 12,
             "max_work_items": 40,
-            "max_shared_briefings": 12,
+            "max_shared_briefings": 1000,
             "max_briefing_bytes": 48_000,
         },
         "large": {
             "max_depth": 6,
             "max_plan_size": 16,
             "max_work_items": 64,
-            "max_shared_briefings": 16,
+            "max_shared_briefings": 1000,
             "max_briefing_bytes": 64_000,
         },
     }.get(size, {
         "max_depth": 5,
         "max_plan_size": 12,
         "max_work_items": 40,
-        "max_shared_briefings": 12,
+        "max_shared_briefings": 1000,
         "max_briefing_bytes": 48_000,
     })
 

@@ -122,7 +122,7 @@ async def test_ci_scope_status_returns_live_scope_packet():
     assert data["active_edit_intents"][0]["scope"] == "symbol"
     assert data["coherence_token"]
     assert data["admission"]["mode"] == "serialize"
-    assert data["admission"]["recommended_parallel_scouts"] == 1
+    assert data["admission"]["allow_parallel_fanout"] is False
     assert result.metadata["scope_packet"]["coherence_token"] == data["coherence_token"]
     assert result.metadata["coherence_token"] == data["coherence_token"]
     assert ctx.metadata["scope_packet"]["coherence_token"] == data["coherence_token"]

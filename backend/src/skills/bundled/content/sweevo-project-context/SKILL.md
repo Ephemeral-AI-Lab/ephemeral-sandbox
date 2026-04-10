@@ -14,6 +14,7 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 ## Shared benchmark constraints
 
 - **Source of truth is the current sandbox checkout.** The SWE-EVO test patch is already applied in the sandbox for this run. Treat the working tree, the named FAIL_TO_PASS targets, the PASS_TO_PASS guardrails, and the grading command as the benchmark contract.
+- **Missing named tests are a runtime mismatch signal.** If a developer or validator cannot collect a named FAIL_TO_PASS node, or discovers the expected test file/function is absent from the live checkout, treat that as a sandbox or benchmark-surface mismatch first. Re-check the applied test surface and request replan or retry instead of guessing replacement owner files from similarly named modules.
 - **Use the injected repo root as-is.** The benchmark runtime already injects the sandbox repo root as the working directory for worker shell commands. Do not prepend guessed `cd /workspace`, `cd /home/user`, or similar path hops unless the payload explicitly names a real child directory.
 - **Changelog prose is background context only.** Do not treat release notes or version-transition prose as the implementation checklist.
 - **Fix the repository, not the ambient environment.** Do not rely on ad hoc `pip install`, `conda install`, `uv add`, or other sandbox-only environment mutation as the benchmark fix. If dependency metadata is part of the solution, land it in the repo-managed manifest or lockfile.
@@ -40,9 +41,12 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 - When the request already names one dominant FAIL_TO_PASS cluster plus several smaller named failures, the default first wave is one dominant production-owner scout plus one residual source-owner or residual-aggregate scout. Do not spend a first-wave lane on the already-named giant test file unless no plausible production owner exists yet.
 - When a dominant FAIL_TO_PASS cluster contains dozens or hundreds of parametrized nodes, summarize it as one owner slice with a representative deduped subset of failing ids. Do not paste the full repeated test-id list into one developer payload.
 - Planner briefings must be execution-ready. Each developer or validator lane should receive the exact retry target, owned files or region, nearest same-surface guardrail, and any artifact refs or residual-cluster notes needed to act without fresh ownership discovery.
-- On large benchmark roots, spend the first exploration pass on 2-3 disjoint source-owner scouts rather than one long serial hypothesis lane.
+- On large benchmark roots, spend the first exploration pass on a small set of disjoint source-owner scouts rather than one long serial hypothesis lane.
+- Treat scout lanes as scarce. Open a new scout only for a genuinely distinct unresolved owner slice, and remember that fresh scout fanout is capped at `8` launches per planner turn.
 - If the first scout wave comes back partial or still leaves several disjoint owner hypotheses alive, launch another disjoint scout wave or a narrowed child planner. Do not freeze the root plan just because the first wave already ran.
 - Once two scout waves or roughly 25 planner tool calls have already gone into the same root benchmark surface, the default next step is the plan. A third wave needs a genuinely new disjoint owner cluster, not a deeper read of the same mapped clusters.
+- Once the launched scout wave has returned enough owner coverage to name the dominant lane and at least one residual boundary, stop narrating and emit the plan. Do not spend extra planner turns debating benchmark-patch intent, missing fixtures, or whether the failures represent "new code" versus "regressions".
+- Do not use root-planner CI queries like `import tables`, `ujson`, or similar dependency-name probes as evidence of the fix owner. Those probes do not identify source ownership and they frequently push the planner toward environment theories instead of code lanes.
 - The submitted root benchmark plan should stay within **1-10 total tasks**. Use dependency edges to keep the ready frontier small; do not confuse a small ready frontier with a two-item total plan.
 - If the natural root task set exceeds 10 concrete slices, regroup adjacent sibling work into expandable child-planner items until the submitted level is back within 10.
 - On large benchmark roots, child planners are also workload-sharding tools. If two developer lanes cannot plausibly cover every known residual cluster, keep the remaining owned surface behind one or more downstream expandable planner items instead of leaving it implicit.
@@ -84,6 +88,7 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 - Once that missing public name is anchored to a local export file, do not spend developer budget on dependency version checks or dependency capability archaeology. Fix the local surface first.
 - After one targeted reproduction plus one or two focused code reads identify the deciding function or branch, edit immediately. Do not spend the attempt on repeated ad hoc probes.
 - If the exact retry target is already green in the sandbox, stop debugging and report that result; let the validator spend the one broader regression check.
+- If the named pytest node does not exist in the live checkout, stop and report the mismatch with the exact missing node id. Do not invent substitute tests, new compatibility shims, or neighboring files until the benchmark surface is confirmed.
 - Fix production code first. Do not edit tests, snapshots, or benchmark harness files unless the WorkItem explicitly assigns them.
 - When touching core metadata propagation or schema-wrapper logic, run a same-surface regression slice that checks ordering, wrapper passthrough, and error-shape stability, not just the exact failing test.
 - When touching RootModel JSON schema description propagation, validate both the field-description-only case and the docstring-vs-field precedence case.
@@ -97,6 +102,7 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 - After the exact retry target passes, spend at most one broader same-surface regression command unless the payload explicitly requires more.
 - If the exact retry target fails, report that failure immediately with exact test ids, exit code, and a short verbatim error snippet.
 - If verification shows the lane owns the wrong files, misses a sibling corrective cluster, or resumed from a stale retry boundary, report `plan_gap` with `RECOMMENDED_ACTION: request_replan`. Do not broaden into fresh exploration from validator mode.
+- If the validator cannot collect a named FAIL_TO_PASS node because the test or file is missing, report `FAILURE_TYPE: benchmark_surface_mismatch` and `RECOMMENDED_ACTION: request_replan` with the exact missing node ids.
 - The benchmark harness will run the full grading command after the team phase. Do not spend validator budget duplicating broad redundant suites by default.
 
 ---
@@ -113,6 +119,8 @@ When benchmark prose, release notes, or changelog bullets disagree with the live
 - If `share_briefing` is absent from the visible tool list, treat that as a no-promotion profile, not as a blocker. Reuse the scout artifact locally or via auto-promoted shared context and keep planning.
 - If the dominant cluster is already mapped to one owner file or one tightly-coupled owner pair, keep that as one developer lane. Everything else becomes either a residual child planner or separately bounded residual developer lanes.
 - The default root benchmark shape for this repo is: one dominant developer lane, one residual child planner lane, one validator lane. Flatten the residual lane into direct developers only when each residual owner is already bounded without more planning.
+- On benchmark-root turns that require scouting or DAG shaping, load the corresponding planner references before acting: `team-planner-playbook/exploration-script` before the first scout wave, and `team-planner-playbook/task-planning-decomposition` before finalizing the root DAG when the runtime exposes `load_skill_reference`.
+- Root benchmark scouts should target likely production owner files or directories first. Do not spend the first scout wave on already-named benchmark test files unless production ownership is still unresolved after the owner-surface pass.
 - Planner outputs that collapse unrelated residual bugs from `construction`, `json_schema`, `root_model`, and `types` into one developer lane are low-quality plans and should be avoided.
 - Planner outputs that repeat `local_id`, `agent_name`, `kind`, or `payload` keys inside one JSON object are malformed and unusable. Close the current item object and start a new sibling item instead of continuing the same object.
 - Planner-side narration must stay at the ownership and validation-target level. Do not speculate about concrete code fixes from failure strings such as `MultiHostUrl.path` or other pytest assertion details.

@@ -276,6 +276,169 @@ def reduce_for_api(display_messages: list[ConversationMessage]) -> list[Conversa
     return reduced
 
 
+def _message_tool_use_ids(message: ConversationMessage) -> set[str]:
+    return {
+        block.id
+        for block in message.content
+        if isinstance(block, ToolUseBlock)
+    }
+
+
+def _message_tool_result_ids(message: ConversationMessage) -> set[str]:
+    return {
+        block.tool_use_id
+        for block in message.content
+        if isinstance(block, ToolResultBlock)
+    }
+
+
+def _preserve_recent_split_index(
+    messages: list[ConversationMessage],
+    preserve_recent: int,
+) -> int:
+    """Return a split index that keeps provider-visible tool sequencing valid."""
+    def _tool_sequence_valid(msgs: list[ConversationMessage]) -> bool:
+        pending: set[str] = set()
+        for msg in msgs:
+            tool_results = _message_tool_result_ids(msg)
+            if pending:
+                if msg.role != "user" or not pending.issubset(tool_results):
+                    return False
+                if tool_results - pending:
+                    return False
+                pending.clear()
+            elif tool_results:
+                return False
+            pending = _message_tool_use_ids(msg)
+        return not pending
+
+    split_idx = max(0, len(messages) - max(0, preserve_recent))
+    while 0 < split_idx < len(messages):
+        if _tool_sequence_valid(messages[:split_idx]) and _tool_sequence_valid(messages[split_idx:]):
+            break
+        split_idx -= 1
+    return split_idx
+
+
+def _find_tool_sequence_error(messages: list[ConversationMessage]) -> str | None:
+    """Return a human-readable tool sequencing error, or ``None`` when valid.
+
+    Anthropic requires every assistant message containing ``tool_use`` blocks
+    to be followed immediately by a user message containing matching
+    ``tool_result`` blocks. Full compaction sends older history back through
+    the provider, so we validate that history before making the summary call.
+    """
+    pending_ids: set[str] = set()
+    pending_msg_idx: int | None = None
+
+    for msg_idx, message in enumerate(messages):
+        tool_use_ids = _message_tool_use_ids(message)
+        tool_result_ids = _message_tool_result_ids(message)
+        satisfied_pending = False
+
+        if pending_ids:
+            expected_ids = set(pending_ids)
+            if message.role != "user":
+                return (
+                    "assistant tool_use message at index "
+                    f"{pending_msg_idx} is followed by non-user message at index {msg_idx}"
+                )
+            missing = expected_ids - tool_result_ids
+            if missing:
+                return (
+                    "assistant tool_use message at index "
+                    f"{pending_msg_idx} is followed by user message at index {msg_idx} "
+                    f"without matching tool_result blocks for {sorted(missing)}"
+                )
+            extra = tool_result_ids - expected_ids
+            if extra:
+                return (
+                    "user message at index "
+                    f"{msg_idx} includes unexpected tool_result blocks {sorted(extra)} "
+                    f"alongside the response to assistant tool_use message at index "
+                    f"{pending_msg_idx}"
+                )
+            pending_ids = set()
+            pending_msg_idx = None
+            satisfied_pending = True
+
+        if tool_result_ids and not tool_use_ids and not satisfied_pending:
+            prev_idx = msg_idx - 1
+            return (
+                f"user message at index {msg_idx} contains tool_result blocks "
+                f"{sorted(tool_result_ids)} without an immediately preceding assistant "
+                f"tool_use message (previous index {prev_idx})"
+            )
+
+        if tool_use_ids:
+            pending_ids = set(tool_use_ids)
+            pending_msg_idx = msg_idx
+
+    if pending_ids:
+        return (
+            "assistant tool_use message at index "
+            f"{pending_msg_idx} is missing its trailing user tool_result message "
+            f"for {sorted(pending_ids)}"
+        )
+    return None
+
+
+def _sanitize_tool_sequence(messages: list[ConversationMessage]) -> list[ConversationMessage]:
+    """Drop malformed stale tool-use/result blocks from the provider view."""
+    sanitized = copy.deepcopy(messages)
+    pending_ids: set[str] = set()
+    pending_msg_idx: int | None = None
+
+    def _strip_tool_uses(msg_idx: int | None, ids: set[str]) -> None:
+        if msg_idx is None or not ids:
+            return
+        message = sanitized[msg_idx]
+        message.content = [
+            block
+            for block in message.content
+            if not (isinstance(block, ToolUseBlock) and block.id in ids)
+        ]
+
+    for msg_idx, message in enumerate(sanitized):
+        tool_use_ids = _message_tool_use_ids(message)
+        tool_result_ids = _message_tool_result_ids(message)
+        satisfied_pending = False
+
+        if pending_ids:
+            if message.role != "user" or not pending_ids.issubset(tool_result_ids):
+                _strip_tool_uses(pending_msg_idx, pending_ids)
+                pending_ids = set()
+                pending_msg_idx = None
+                tool_result_ids = _message_tool_result_ids(message)
+            else:
+                extra = tool_result_ids - pending_ids
+                if extra:
+                    message.content = [
+                        block
+                        for block in message.content
+                        if not (isinstance(block, ToolResultBlock) and block.tool_use_id in extra)
+                    ]
+                pending_ids = set()
+                pending_msg_idx = None
+                tool_result_ids = _message_tool_result_ids(message)
+                satisfied_pending = True
+
+        if tool_result_ids and not satisfied_pending:
+            message.content = [
+                block for block in message.content if not isinstance(block, ToolResultBlock)
+            ]
+
+        tool_use_ids = _message_tool_use_ids(message)
+        if tool_use_ids:
+            pending_ids = set(tool_use_ids)
+            pending_msg_idx = msg_idx
+
+    if pending_ids:
+        _strip_tool_uses(pending_msg_idx, pending_ids)
+
+    return [msg for msg in sanitized if msg.content]
+
+
 # ---------------------------------------------------------------------------
 # Microcompact — clear old tool results to reduce tokens cheaply
 # ---------------------------------------------------------------------------
@@ -550,16 +713,32 @@ async def compact_conversation(
     if not skip_microcompact:
         microcompact_messages(messages, keep_recent=DEFAULT_KEEP_RECENT)
 
+    sequence_error = _find_tool_sequence_error(messages)
+    if sequence_error is not None:
+        raise ValueError(
+            "compaction preflight rejected malformed tool sequencing: "
+            f"{sequence_error}"
+        )
+
     pre_compact_tokens = estimate_message_tokens(messages)
     log.info("Compacting conversation: %d messages, ~%d tokens", len(messages), pre_compact_tokens)
 
     # Step 2: split into older (summarize) and newer (preserve)
-    older = messages[:-preserve_recent]
-    newer = messages[-preserve_recent:]
+    split_idx = _preserve_recent_split_index(messages, preserve_recent)
+    if split_idx <= 0:
+        return list(messages)
+    older = messages[:split_idx]
+    newer = messages[split_idx:]
 
     # Step 3: build compact request — send older messages + compact prompt
     compact_prompt = get_compact_prompt(custom_instructions)
     compact_messages = list(older) + [ConversationMessage.from_user_text(compact_prompt)]
+    sequence_error = _find_tool_sequence_error(compact_messages)
+    if sequence_error is not None:
+        raise ValueError(
+            "compaction preflight rejected malformed tool sequencing: "
+            f"{sequence_error}"
+        )
 
     summary_text = ""
     async for event in api_client.stream_message(
@@ -644,7 +823,7 @@ async def compact_for_api(
     Returns:
         A new ``list[ConversationMessage]`` ready to send to the provider.
     """
-    reduced = reduce_for_api(display_messages)
+    reduced = _sanitize_tool_sequence(reduce_for_api(display_messages))
     if not should_autocompact(reduced, model, state):
         return reduced
 

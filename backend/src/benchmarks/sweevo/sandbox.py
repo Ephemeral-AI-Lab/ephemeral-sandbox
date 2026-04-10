@@ -9,6 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 from sandbox.async_client import get_async_sandbox
+from tools.daytona_toolkit.tools import _upload_file_compat
 
 from benchmarks.sweevo.dataset import (
     default_sweevo_snapshot_name,
@@ -146,6 +147,39 @@ def _cleanup_failed_sandbox(service: Any, sandbox_name: str) -> None:
 async def _get_sandbox(sandbox_id: str) -> Any:
     """Get the async Daytona sandbox object."""
     return await get_async_sandbox(sandbox_id)
+
+
+async def _upload_file_compat(sandbox: Any, content: bytes, path: str) -> None:
+    """Upload using the SDK's content-first signature with a stale-mock fallback."""
+    try:
+        await sandbox.fs.upload_file(content, path)
+    except (AttributeError, TypeError) as exc:
+        if "decode" not in str(exc) and "bytes-like object" not in str(exc):
+            raise
+        await sandbox.fs.upload_file(path, content)
+
+
+async def _write_file_via_chunked_base64_exec(
+    sandbox_id: str,
+    path: str,
+    content: bytes,
+    *,
+    chunk_size: int = 4096,
+) -> None:
+    """Write a file via repeated short exec calls when direct upload is unavailable."""
+    encoded = base64.b64encode(content).decode("ascii")
+    encoded_path = f"{path}.b64"
+    await _exec(sandbox_id, f": > {shlex.quote(encoded_path)}")
+    for start in range(0, len(encoded), chunk_size):
+        chunk = encoded[start:start + chunk_size]
+        await _exec(
+            sandbox_id,
+            f"printf %s {shlex.quote(chunk)} >> {shlex.quote(encoded_path)}",
+        )
+    await _exec(
+        sandbox_id,
+        f"base64 -d {shlex.quote(encoded_path)} > {shlex.quote(path)} && rm -f {shlex.quote(encoded_path)}",
+    )
 
 
 async def _exec(
@@ -346,13 +380,12 @@ async def ensure_sweevo_test_patch(
     patch_path = "/tmp/sweevo_test.patch"
     try:
         sandbox = await _get_sandbox(sandbox_id)
-        await sandbox.fs.upload_file(patch_path, test_patch.encode("utf-8"))
+        await _upload_file_compat(sandbox, test_patch.encode("utf-8"), patch_path)
     except Exception:
-        b64 = base64.b64encode(test_patch.encode("utf-8")).decode("ascii")
-        await _exec(
+        await _write_file_via_chunked_base64_exec(
             sandbox_id,
-            f'echo "{b64}" | base64 -d > {patch_path}',
-            check=False,
+            patch_path,
+            test_patch.encode("utf-8"),
         )
 
     patch_status = await _exec(

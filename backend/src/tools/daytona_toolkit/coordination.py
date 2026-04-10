@@ -185,7 +185,7 @@ def render_scope_packet(packet: dict[str, Any] | None) -> str:
     reservations = ", ".join(item["file_path"] for item in (packet.get("active_reservations") or [])[:4]) or "none"
     admission = packet.get("admission") if isinstance(packet.get("admission"), dict) else {}
     admission_mode = str(admission.get("mode") or "unknown")
-    scout_budget = int(admission.get("recommended_parallel_scouts") or 0)
+    reasons = "; ".join(str(item) for item in (admission.get("reasons") or []) if str(item).strip()) or "none"
     return (
         "## Live scope packet\n"
         f"- freshness: {packet.get('freshness')}\n"
@@ -194,7 +194,7 @@ def render_scope_packet(packet: dict[str, Any] | None) -> str:
         f"- recent_changes: {changes}\n"
         f"- active_reservations: {reservations}\n"
         f"- scout_fanout_mode: {admission_mode}\n"
-        f"- recommended_parallel_scouts: {scout_budget}"
+        f"- scout_fanout_reasons: {reasons}"
     )
 
 
@@ -317,7 +317,6 @@ def _admission(packet: dict[str, Any]) -> dict[str, Any]:
         return {
             "mode": "serialize",
             "contention": "high",
-            "recommended_parallel_scouts": 1,
             "allow_parallel_fanout": False,
             "active_reservation_count": len(reservations),
             "recent_change_count": len(recent_changes),
@@ -328,7 +327,6 @@ def _admission(packet: dict[str, Any]) -> dict[str, Any]:
         return {
             "mode": "serialize",
             "contention": "high",
-            "recommended_parallel_scouts": 1,
             "allow_parallel_fanout": False,
             "active_reservation_count": 0,
             "recent_change_count": len(recent_changes),
@@ -339,7 +337,6 @@ def _admission(packet: dict[str, Any]) -> dict[str, Any]:
         return {
             "mode": "cautious",
             "contention": "medium",
-            "recommended_parallel_scouts": 2,
             "allow_parallel_fanout": True,
             "active_reservation_count": 0,
             "recent_change_count": len(recent_changes),
@@ -350,7 +347,6 @@ def _admission(packet: dict[str, Any]) -> dict[str, Any]:
         return {
             "mode": "cautious",
             "contention": "medium",
-            "recommended_parallel_scouts": 2,
             "allow_parallel_fanout": True,
             "active_reservation_count": 0,
             "recent_change_count": len(recent_changes),
@@ -360,7 +356,6 @@ def _admission(packet: dict[str, Any]) -> dict[str, Any]:
     return {
         "mode": "parallel",
         "contention": "low",
-        "recommended_parallel_scouts": 3,
         "allow_parallel_fanout": True,
         "active_reservation_count": 0,
         "recent_change_count": len(recent_changes),

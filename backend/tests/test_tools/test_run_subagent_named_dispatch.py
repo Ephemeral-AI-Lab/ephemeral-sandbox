@@ -255,7 +255,6 @@ async def test_scout_rejects_parallel_fanout_when_live_scope_requires_serializat
             "coherence_token": "token-1",
             "admission": {
                 "mode": "serialize",
-                "recommended_parallel_scouts": 1,
                 "allow_parallel_fanout": False,
                 "reasons": ["active write reservations overlap this scope"],
             },
@@ -272,7 +271,25 @@ async def test_scout_rejects_parallel_fanout_when_live_scope_requires_serializat
 
     assert res.is_error
     assert "requires serialized scout expansion" in res.output
-    assert "recommended_parallel_scouts=1" in res.output
+    assert "active write reservations overlap this scope" in res.output
+
+
+@pytest.mark.asyncio
+async def test_scout_rejects_when_turn_fanout_cap_is_reached(monkeypatch):
+    ctx = _ctx()
+    ctx.metadata["coordination_mode"] = "ultra"
+    ctx.metadata["_scout_launches_this_turn"] = 8
+
+    res = await run_subagent.execute(
+        run_subagent.input_model(
+            agent_name="scout",
+            input={"target_paths": ["/testbed/pydantic/json_schema.py"]},
+        ),
+        ctx,
+    )
+
+    assert res.is_error
+    assert "scout fanout cap reached for this turn (8)" in res.output
 
 
 # ---------- typed envelope ----------------------------------------------------
@@ -313,7 +330,7 @@ async def test_scout_injects_scope_packet_into_prompt_and_metadata(monkeypatch):
         lambda *a, **k: {
             "scope_paths": ["src/auth"],
             "coherence_token": "token-1",
-            "admission": {"mode": "parallel", "recommended_parallel_scouts": 3},
+            "admission": {"mode": "parallel", "allow_parallel_fanout": True},
         },
     )
     monkeypatch.setattr(

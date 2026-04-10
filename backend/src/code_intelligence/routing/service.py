@@ -148,34 +148,28 @@ def _scope_admission(packet: dict[str, Any]) -> dict[str, Any]:
     if reservations:
         mode = "serialize"
         contention = "high"
-        recommended_parallel_scouts = 1
         reasons.append("active write reservations overlap this scope")
     elif hotspot_max >= 4 or change_count >= 6:
         mode = "serialize"
         contention = "high"
-        recommended_parallel_scouts = 1
         reasons.append("scope is in a high-churn hotspot window")
     elif hotspot_max >= 2 or change_count >= 2:
         mode = "cautious"
         contention = "medium"
-        recommended_parallel_scouts = 2
         reasons.append("scope changed recently; keep scout fanout narrow and disjoint")
     elif intents:
         mode = "cautious"
         contention = "medium"
-        recommended_parallel_scouts = 2
         reasons.append("active edit intents exist in this scope; prefer disjoint work")
     else:
         mode = "parallel"
         contention = "low"
-        recommended_parallel_scouts = 3
         reasons.append("scope is stable enough for disjoint scout fanout")
 
     return {
         "mode": mode,
         "contention": contention,
-        "recommended_parallel_scouts": recommended_parallel_scouts,
-        "allow_parallel_fanout": recommended_parallel_scouts > 1,
+        "allow_parallel_fanout": mode != "serialize",
         "active_reservation_count": len(reservations),
         "recent_change_count": change_count,
         "hotspot_max_edit_count": hotspot_max,
