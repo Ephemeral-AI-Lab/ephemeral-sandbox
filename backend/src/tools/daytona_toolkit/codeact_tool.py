@@ -77,7 +77,7 @@ def shell(command, timeout=300):
     """Execute a shell command."""
     try:
         proc = subprocess.run(
-            ["env", "-u", "LC_ALL", "bash", "-lc", command],
+            ["env", "-u", "LC_ALL", "bash", "-o", "pipefail", "-lc", command],
             capture_output=True,
             text=True,
             timeout=timeout,

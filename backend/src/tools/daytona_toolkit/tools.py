@@ -77,7 +77,7 @@ def _wrap_bash_command(command: str) -> str:
         f'printf "\\n{_EXIT_MARKER}%s\\n" "$__codex_exit_code"\n'
         'exit "$__codex_exit_code"'
     )
-    return f"env -u LC_ALL bash -lc {shlex.quote(script)}"
+    return f"env -u LC_ALL bash -o pipefail -lc {shlex.quote(script)}"
 
 
 def _extract_exit_code(

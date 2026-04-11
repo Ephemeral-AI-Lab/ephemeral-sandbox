@@ -33,6 +33,8 @@ class AtlasToolkit(BaseToolkit):
                 "current-turn scout outputs, and live `ci_scoped_status(...)` anchoring beat Atlas.\n"
                 "Use Atlas when you can already name a real owner scope and want a cheap answer to "
                 "'do we already have a reusable structural brief for this slice?'\n"
+                "On resumed or repeated work, once same-run reuse is exhausted and the owner scope is "
+                "already exact, do one `atlas_lookup(...)` before spawning a duplicate scout.\n"
                 "Semantic questions ('how does X work', 'why does Y exist') must "
                 "always go to a fresh scout, never the atlas."
             ),

@@ -8,6 +8,7 @@ from message.stream_events import (
     ToolExecutionCompleted,
 )
 from providers.types import UsageSnapshot
+import logging
 import sys
 
 from benchmarks.sweevo import __main__ as sweevo_main
@@ -52,15 +53,96 @@ def test_main_writes_plaintext_run_log(monkeypatch, tmp_path):
 
     assert exit_code == 0
 
-    log_files = sorted(tmp_path.glob("*.log"))
-    assert len(log_files) == 1
+    run_logs = sorted(path for path in tmp_path.glob("*.log") if ".code-intelligence." not in path.name)
+    assert len(run_logs) == 1
 
-    contents = log_files[0].read_text(encoding="utf-8")
-    assert f"Log file: {log_files[0]}" in contents
+    ci_logs = sorted(tmp_path.glob("*.code-intelligence.log"))
+    assert len(ci_logs) == 1
+
+    contents = run_logs[0].read_text(encoding="utf-8")
     assert "SWE-EVO run  instance=pydantic__pydantic_v2.7.0_v2.7.1" in contents
     assert "[pass] recorded" in contents
     assert "warning on stderr" in contents
     assert "\x1b[" not in contents
+
+
+def test_main_writes_code_intelligence_log_in_parallel(monkeypatch, tmp_path):
+    async def _fake_cmd_run(_args):
+        logging.getLogger("code_intelligence.routing.service").info("indexed workspace")
+        logging.getLogger("server.routers.code_intelligence").info("router request")
+        logging.getLogger("benchmarks.sweevo.runner").warning("benchmark warning")
+        return 0
+
+    monkeypatch.setattr(sweevo_main, "_cmd_run", _fake_cmd_run)
+
+    exit_code = sweevo_main.main(
+        [
+            "--instance-id",
+            "pydantic__pydantic_v2.7.0_v2.7.1",
+            "--log-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+
+    ci_logs = sorted(tmp_path.glob("*.code-intelligence.log"))
+    assert len(ci_logs) == 1
+
+    contents = ci_logs[0].read_text(encoding="utf-8")
+    assert "code_intelligence.routing.service: indexed workspace" in contents
+    assert "server.routers.code_intelligence: router request" in contents
+    assert "benchmarks.sweevo.runner" not in contents
+
+
+def test_main_run_log_records_info_level_python_logs(monkeypatch, tmp_path):
+    async def _fake_cmd_run(_args):
+        logging.getLogger("benchmarks.sweevo.runner").info("benchmark info message")
+        return 0
+
+    monkeypatch.setattr(sweevo_main, "_cmd_run", _fake_cmd_run)
+
+    exit_code = sweevo_main.main(
+        [
+            "--instance-id",
+            "pydantic__pydantic_v2.7.0_v2.7.1",
+            "--log-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+
+    run_logs = sorted(path for path in tmp_path.glob("*.log") if ".code-intelligence." not in path.name)
+    assert len(run_logs) == 1
+    contents = run_logs[0].read_text(encoding="utf-8")
+    assert "INFO benchmarks.sweevo.runner: benchmark info message" in contents
+
+
+def test_main_does_not_print_log_paths_into_run_log(monkeypatch, tmp_path):
+    async def _fake_cmd_run(_args):
+        print("benchmark body", flush=True)
+        return 0
+
+    monkeypatch.setattr(sweevo_main, "_cmd_run", _fake_cmd_run)
+
+    exit_code = sweevo_main.main(
+        [
+            "--instance-id",
+            "pydantic__pydantic_v2.7.0_v2.7.1",
+            "--log-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+
+    run_logs = sorted(path for path in tmp_path.glob("*.log") if ".code-intelligence." not in path.name)
+    assert len(run_logs) == 1
+    contents = run_logs[0].read_text(encoding="utf-8")
+    assert "benchmark body" in contents
+    assert "Log file:" not in contents
+    assert "Code intelligence log file:" not in contents
 
 
 def test_main_list_does_not_write_run_log(monkeypatch, tmp_path):
@@ -126,9 +208,9 @@ def test_main_run_log_keeps_full_conversation_messages(monkeypatch, tmp_path):
 
     assert exit_code == 0
 
-    log_files = sorted(tmp_path.glob("*.log"))
-    assert len(log_files) == 1
-    contents = log_files[0].read_text(encoding="utf-8")
+    run_logs = sorted(path for path in tmp_path.glob("*.log") if ".code-intelligence." not in path.name)
+    assert len(run_logs) == 1
+    contents = run_logs[0].read_text(encoding="utf-8")
     assert f"[text] {long_text}" in contents
     assert f"[system:runtime_note] {long_system}" in contents
 
@@ -168,9 +250,9 @@ def test_main_run_log_keeps_full_tool_done_messages(monkeypatch, tmp_path):
 
     assert exit_code == 0
 
-    log_files = sorted(tmp_path.glob("*.log"))
-    assert len(log_files) == 1
-    contents = log_files[0].read_text(encoding="utf-8")
+    run_logs = sorted(path for path in tmp_path.glob("*.log") if ".code-intelligence." not in path.name)
+    assert len(run_logs) == 1
+    contents = run_logs[0].read_text(encoding="utf-8")
     assert (
         "[team_planner  ] [2af5cbde-0bae-4f7f-98f1-5aa6d9a13b6c] "
         "<- tool_done:  ci_scoped_status [ok] {"

@@ -12,7 +12,7 @@ Usage::
         enable_background_tasks=True,
     )
     result = await agent.invoke("Run tests in the sandbox")
-    assert "daytona_bash" in result.tool_names
+    assert "daytona_codeact" in result.tool_names
 
     # For raw client access (streaming protocol tests):
     client = agent.api_client

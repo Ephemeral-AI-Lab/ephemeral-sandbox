@@ -1,6 +1,6 @@
 # Root Cause Debugging
 
-Use this reference when the first reproduction still leaves the bug ambiguous, the traceback lands far from the likely source, or you catch yourself cycling through test-file and source-file reads without a falsifiable hypothesis.
+Use this reference when the first reproduction still leaves the bug ambiguous, the traceback lands far from the likely source, or you catch yourself cycling through reads without a falsifiable hypothesis.
 
 ## Goal
 
@@ -26,12 +26,10 @@ If you cannot state all three after the first reproduction, gather one more boun
 6. Make one minimal edit or one minimal proving check.
 7. Re-verify on the same narrow surface.
 
-Do not skip from reproduction directly to edits.
-
 ## Bounded evidence you may gather
 
 - Read the owned production file and the immediate consumer or importer.
-- Read the exact failing test node when the expected behavior is unclear.
+- Use `ci_query_symbols(...)` or `ci_query_references(...)` once to identify the next caller/callee boundary before writing custom runtime probes.
 - Run one narrow import-smoke, assertion-smoke, or helper-level repro through `daytona_codeact`.
 - Read one adjacent shared production file when the traceback first lands there.
 - Compare one working sibling implementation in the same package when the pattern is unclear.
@@ -39,7 +37,7 @@ Do not skip from reproduction directly to edits.
 ## What counts as the first failing boundary
 
 - The first owned helper that receives wrong data.
-- The first import path that crashes before the named test runs.
+- The first import or warning-filter path that crashes before the named test runs.
 - The first warning or error producer that no longer matches the owned assertion.
 - The first schema/config/public API layer where the live behavior departs from the expected contract.
 
@@ -52,16 +50,6 @@ The failing test file itself is usually symptom evidence, not the boundary.
 - Tie it to concrete evidence from the current run.
 - Prefer source-of-bad-data explanations over symptom-level rewrites.
 
-Good:
-- `valid_divisions` now rejects nullable dtypes because a helper normalizes NA values before monotonicity checks.
-- Direct import no longer warns because the symbol already exists in the module dict and bypasses `__getattr__`.
-- The public wrapper is fine; the first divergence is an option passed incorrectly into the downstream parser.
-
-Bad:
-- The tests seem outdated.
-- Something about pandas compatibility is broken.
-- I should patch the message and see if that works.
-
 ## Multi-boundary systems
 
 When behavior crosses layers such as test -> public API -> helper -> downstream library:
@@ -71,7 +59,7 @@ When behavior crosses layers such as test -> public API -> helper -> downstream 
 3. Confirm the first downstream call where behavior changes.
 4. Fix the earliest owned boundary that can legitimately correct the bug.
 
-Do not jump to the deepest stack frame if an earlier owned boundary already explains the failure.
+Do not jump to the deepest stack frame if an earlier owned boundary already explains the failure, and do not keep tracing sibling paths once that boundary survives a proving repro.
 
 ## Stop signs
 
@@ -82,6 +70,7 @@ Stop and gather evidence instead of editing when:
 - You are reasoning from failure counts or cluster size instead of runtime evidence.
 - You are about to change multiple files to "cover possibilities".
 - You have re-read the same test or source file and still cannot state a hypothesis.
+- The same boundary already survived one proving repro and you are still reading siblings instead of patching or replanning.
 
 ## Escalation rules
 
@@ -89,18 +78,14 @@ Stop and gather evidence instead of editing when:
 - After two failed hypotheses, check whether the boundary is wrong and whether one adjacent shared surface owns the bug.
 - After three failed hypotheses or fixes, stop local thrashing and surface replanning evidence.
 
-Do not keep stacking fixes on top of an unproven theory.
-
 ## Few-shot examples
 
-- Example: the exact pytest node fails during collection because `pkg/__init__.py` imports a deprecated symbol.
-  The first failing boundary is the shared import chain, not the owned assertion body.
-  Confirm that import path once, then either widen one step on the same chain or report a blocker.
-
-- Example: `pytest.warns(FutureWarning, match="use_nullable_dtypes")` fails because no warning appears.
-  Check whether the warning-producing path still runs and whether the public import or option path bypasses it.
-  Do not rewrite the warning text before proving the warning is emitted at all.
-
-- Example: many URL-related tests fail in one file, but the wrapper module delegates validation to a downstream core library.
-  Treat the Python wrapper as an owner candidate, not a proven root cause.
-  Find the first boundary where wrapper inputs or outputs differ from the expected contract before patching.
+- Example: pytest dies while parsing a warning filter because resolving `pkg.tests.warning_aliases.RemovedInXWarning` imports `pkg/__init__.py`, then `pkg/base.py`, then `pkg/compat.py`.
+  The first failing boundary is that shared import chain or compatibility shim, not `setup.cfg`, the warning alias, or the owned assertion body.
+  Confirm the production import path once, then fix the caller that still imports the deprecated private symbol or widen one step on that chain; do not patch warning filters, tests, or add a new quiet alias for the deprecated name first.
+- Example: `pytest.warns(FutureWarning, match="deprecated_option")` should warn only on an explicit opt-in path, but the default path now warns or errors too.
+  Check the deprecation guard or option normalization first.
+  Do not chase downstream dtype conversion, parser, or backend code until the quiet default path is restored.
+- Example: an aggregate result has the right values but the wrong MultiIndex shape or dtype.
+  Treat the result-construction step as the first boundary and inspect the constructed index or levels directly. Use one symbol or reference query to map the aggregate builder before inventing custom probe scripts.
+  Do not spelunk unrelated grouper internals until the aggregate assembly path is proven correct.

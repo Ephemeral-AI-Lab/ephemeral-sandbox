@@ -630,11 +630,11 @@ def _enforce_validation_evidence(
     if agent_name != VALIDATOR:
         return
     tool_names = _tool_names_from_messages(display_messages)
-    if "daytona_bash" in tool_names:
+    if "daytona_codeact" in tool_names or "daytona_bash" in tool_names:
         return
     raise RuntimeError(
         "validator_missing_tool_evidence: validator must execute at least one "
-        "daytona_bash command before returning a verdict"
+        "daytona_codeact verification command before returning a verdict"
     )
 
 
@@ -967,7 +967,7 @@ def _make_context_builders(
     sandbox_note = (
         "## Sandbox Working Directory\n"
         f"- Repo root inside the sandbox: {repo_dir}\n"
-        "- `daytona_bash`, `daytona_read_file`, `daytona_edit_file`, and related "
+        "- `daytona_codeact`, `daytona_read_file`, `daytona_edit_file`, and related "
         "tools already execute relative to that repo root when you use relative paths.\n"
         "- Do not prepend guessed roots such as `/workspace`, `/home/user`, or "
         "`/home/user/repos/...` unless the payload names a real child directory.\n\n"

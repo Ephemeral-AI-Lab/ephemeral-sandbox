@@ -97,6 +97,17 @@ def _build_run_log_path(args: argparse.Namespace, *, timestamp: str) -> Path:
     return log_dir / f"{timestamp}_{_sanitize_log_name(stem)}.log"
 
 
+def _build_code_intelligence_log_path(run_log_path: Path) -> Path:
+    return run_log_path.with_name(f"{run_log_path.stem}.code-intelligence{run_log_path.suffix}")
+
+
+def _build_file_handler(path: Path, *, level: int) -> logging.FileHandler:
+    handler = logging.FileHandler(path, encoding="utf-8")
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    return handler
+
+
 @contextmanager
 def _capture_run_output(args: argparse.Namespace) -> Iterator[Path]:
     log_path = _build_run_log_path(args, timestamp=_utc_log_timestamp())
@@ -117,6 +128,39 @@ def _capture_run_output(args: argparse.Namespace) -> Iterator[Path]:
             finally:
                 sys.stdout = original_stdout
                 sys.stderr = original_stderr
+
+
+@contextmanager
+def _capture_code_intelligence_logs(
+    run_log_path: Path,
+    *,
+    verbose: bool,
+) -> Iterator[Path]:
+    log_path = _build_code_intelligence_log_path(run_log_path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_level = logging.DEBUG if verbose else logging.INFO
+    handler = _build_file_handler(log_path, level=log_level)
+
+    managed_loggers = [
+        logging.getLogger("code_intelligence"),
+        logging.getLogger("server.routers.code_intelligence"),
+    ]
+    original_levels = {logger.name: logger.level for logger in managed_loggers}
+    original_propagates = {logger.name: logger.propagate for logger in managed_loggers}
+
+    for logger in managed_loggers:
+        logger.addHandler(handler)
+        logger.setLevel(log_level)
+        logger.propagate = False
+
+    try:
+        yield log_path
+    finally:
+        for logger in managed_loggers:
+            logger.removeHandler(handler)
+            logger.setLevel(original_levels[logger.name])
+            logger.propagate = original_propagates[logger.name]
+        handler.close()
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -407,32 +451,33 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.list:
         logging.basicConfig(
-            level=logging.DEBUG if args.verbose else logging.WARNING,
-            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+            level=logging.DEBUG if args.verbose else logging.INFO,
+            handlers=[logging.NullHandler()],
             force=True,
         )
         return _cmd_list(args.source)
     with _capture_run_output(args) as log_path:
-        logging.basicConfig(
-            level=logging.DEBUG if args.verbose else logging.WARNING,
-            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-            force=True,
-        )
-        print(f"Log file: {log_path}", flush=True)
-        try:
-            return asyncio.run(_cmd_run(args))
-        except KeyboardInterrupt:
+        with _capture_code_intelligence_logs(log_path, verbose=args.verbose) as ci_log_path:
+            root_handler = _build_file_handler(log_path, level=logging.DEBUG if args.verbose else logging.INFO)
+            logging.basicConfig(
+                level=root_handler.level,
+                handlers=[root_handler],
+                force=True,
+            )
             try:
-                from sandbox.lifecycle import shutdown_cached_client
+                return asyncio.run(_cmd_run(args))
+            except KeyboardInterrupt:
+                try:
+                    from sandbox.lifecycle import shutdown_cached_client
 
-                shutdown_cached_client()
-            except Exception:
-                logging.getLogger(__name__).debug(
-                    "Interrupted run cleanup failed",
-                    exc_info=True,
-                )
-            print("\nInterrupted.", flush=True)
-            return 130
+                    shutdown_cached_client()
+                except Exception:
+                    logging.getLogger(__name__).debug(
+                        "Interrupted run cleanup failed",
+                        exc_info=True,
+                    )
+                print("\nInterrupted.", flush=True)
+                return 130
 
 
 if __name__ == "__main__":

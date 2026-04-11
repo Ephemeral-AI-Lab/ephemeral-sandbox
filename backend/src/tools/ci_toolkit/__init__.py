@@ -59,6 +59,9 @@ class CIToolkit(BaseToolkit):
             "Use to locate definitions across the project.\n"
             "- `ci_query_references` — find all usages of a symbol. "
             "Use to understand impact before renaming or refactoring.\n"
+            "- Call-chain rule — after one exact `ci_scoped_status(...)` packet, use "
+            "`ci_query_symbols(...)` or `ci_query_references(...)` before falling back to "
+            "custom runtime scripts when localizing a production boundary.\n"
         )
         if include_change_awareness:
             instructions += (
@@ -92,7 +95,7 @@ class CIToolkit(BaseToolkit):
             "\nTool-choice rule:\n"
             "- use Atlas for cross-run reusable structural briefs on canonical scopes\n"
             "- use shared briefings for same-run scout reuse already attached to the run; fresh scout completions may appear there under stable `scout:<canonical_scope>` refs\n"
-            "- use code_intelligence for live symbol truth, recent edits, and collision awareness"
+            "- use code_intelligence for live symbol truth, recent edits, collision awareness, and call-chain localization"
         )
         super().__init__(
             name="code_intelligence",
