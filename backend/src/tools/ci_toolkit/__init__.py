@@ -94,7 +94,8 @@ class CIToolkit(BaseToolkit):
         instructions += (
             "\nTool-choice rule:\n"
             "- use Atlas for cross-run reusable structural briefs on canonical scopes\n"
-            "- use shared briefings for same-run scout reuse already attached to the run; fresh scout completions may appear there under stable `scout:<canonical_scope>` refs\n"
+            "- use `inspect_inherited_context(...)` for same-run shared-brief inspection and freshness on the current slice\n"
+            "- use `share_briefing(...)` only from the context_sharing toolkit when you are intentionally publishing a high-confidence shared note; treat that as a scoped coordination write\n"
             "- use code_intelligence for live symbol truth, recent edits, collision awareness, and call-chain localization"
         )
         super().__init__(

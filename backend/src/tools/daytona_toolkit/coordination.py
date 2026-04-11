@@ -12,7 +12,10 @@ from code_intelligence.routing.scope_packets import (
     scope_paths_overlap,
 )
 from team.context.canonicalize import scope_of_artifact
-from team.context.scout_briefings import context_pressure_for_scope
+from team.context.scout_briefings import (
+    context_pressure_for_scope,
+    shared_context_summary_for_scope,
+)
 from tools.core.base import ToolExecutionContext
 
 _DEFAULT_RECENT_SECONDS = 300.0
@@ -88,6 +91,7 @@ def build_scope_packet(
         normalized,
         ci_service=svc,
     ) if team_run is not None else {}
+    shared_context = shared_context_summary_for_scope(team_run, normalized)
     scope_status = getattr(svc, "scope_status", None)
     if callable(scope_status):
         try:
@@ -95,6 +99,7 @@ def build_scope_packet(
                 normalized,
                 briefing_versions=briefing_versions,
                 context_pressure=context_pressure,
+                shared_context=shared_context,
                 baseline_packet=baseline_packet,
                 recent_seconds=recent_seconds,
             )
@@ -113,6 +118,7 @@ def build_scope_packet(
         active_edit_intents=_active_edit_intents(svc, normalized),
         hotspots=_hotspots(svc, normalized),
         context_pressure=context_pressure,
+        shared_context=shared_context,
         generated_at=time.time(),
         baseline_packet=baseline_packet,
     )
@@ -171,6 +177,12 @@ def render_scope_packet(packet: dict[str, Any] | None) -> str:
     context_reasons = "; ".join(
         str(item) for item in (context_pressure.get("reasons") or []) if str(item).strip()
     ) or "none"
+    shared_context = packet.get("shared_context") if isinstance(packet.get("shared_context"), list) else []
+    shared_summary = "; ".join(
+        f"{item.get('scope')}:{item.get('kind')}/{item.get('freshness')}"
+        for item in shared_context[:4]
+        if isinstance(item, dict)
+    ) or "none"
     return (
         "## Live scope packet\n"
         f"- freshness: {packet.get('freshness')}\n"
@@ -180,6 +192,7 @@ def render_scope_packet(packet: dict[str, Any] | None) -> str:
         f"- active_reservations: {reservations}\n"
         f"- context_pressure: {context_level} ({context_score:.2f})\n"
         f"- context_pressure_reasons: {context_reasons}\n"
+        f"- shared_context: {shared_summary}\n"
         f"- scout_fanout_mode: {admission_mode}\n"
         f"- scout_fanout_reasons: {reasons}"
     )

@@ -620,6 +620,12 @@ def test_team_planner_prompt_makes_child_scope_rules_explicit():
     assert "Must treat inherited `## Scoped Expansion`, `## From deps`, and `## From parent` context as mandatory inputs on non-root turns." in (
         planner.system_prompt
     )
+    assert "Must use `inspect_inherited_context(...)` when same-run shared context needs a live freshness check" in (
+        planner.system_prompt
+    )
+    assert "Must treat `share_briefing(...)` as a scoped coordination write" in (
+        planner.system_prompt
+    )
     assert "Must keep validation aligned to the actual branch cut being guarded." in (
         planner.system_prompt
     )
@@ -662,6 +668,9 @@ def test_team_planner_definition_uses_submit_plan_posthook_not_submit_toolkit():
     assert planner.posthook is not None
     assert planner.posthook.agent_name == SUBMIT_PLAN_AGENT
     assert "validator-only fallback" in serializer.system_prompt
+    assert "context_inheritance" in planner.toolkits
+    assert "context_sharing" in planner.toolkits
+    assert "team_context" not in planner.toolkits
     assert "submit_plan_posthook" not in planner.toolkits
     assert "submit_replan_posthook" not in planner.toolkits
     assert "posthook_submit_replan" not in planner.toolkits
@@ -679,13 +688,33 @@ def test_team_replanner_definition_uses_submit_replan_posthook_not_replan_tools(
     assert replanner.posthook.agent_name == SUBMIT_REPLAN_AGENT
     assert replanner.tool_call_limit == 100
     assert "atlas" in replanner.toolkits
+    assert "context_inheritance" in replanner.toolkits
+    assert "context_sharing" in replanner.toolkits
+    assert "team_context" not in replanner.toolkits
     assert "corrective-fast-path" in replanner.system_prompt
     assert "load_skill_reference" in replanner.system_prompt
     assert "ci_scoped_status" in replanner.system_prompt
+    assert "inspect_inherited_context(...)" in replanner.system_prompt
     assert "submit_plan_posthook" not in replanner.toolkits
     assert "submit_replan_posthook" not in replanner.toolkits
     assert "posthook_submit_replan" not in replanner.toolkits
     assert "replan_operations" not in replanner.toolkits
+
+
+def test_developer_and_validator_get_read_only_context_inheritance_toolkit():
+    from team.builtins import DEVELOPER, VALIDATOR, register_all
+    from agents.registry import get_definition
+
+    register_all()
+
+    developer = get_definition(DEVELOPER)
+    validator = get_definition(VALIDATOR)
+    assert developer is not None
+    assert validator is not None
+    assert "context_inheritance" in developer.toolkits
+    assert "context_sharing" not in developer.toolkits
+    assert "context_inheritance" in validator.toolkits
+    assert "context_sharing" not in validator.toolkits
 
 
 def test_submit_replan_agent_definition_uses_only_replan_submit_toolkit():

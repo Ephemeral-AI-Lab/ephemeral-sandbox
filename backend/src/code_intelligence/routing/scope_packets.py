@@ -54,6 +54,26 @@ def stable_briefing_versions(value: list[dict[str, Any]] | None) -> list[dict[st
     return out
 
 
+def stable_shared_context(value: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for item in value or []:
+        if not isinstance(item, dict):
+            continue
+        out.append(
+            {
+                "scope": str(item.get("scope") or ""),
+                "kind": str(item.get("kind") or ""),
+                "provenance": str(item.get("provenance") or ""),
+                "freshness": str(item.get("freshness") or ""),
+                "consumer_count": int(item.get("consumer_count") or 0),
+                "render_count": int(item.get("render_count") or 0),
+                "scope_write_epoch": int(item.get("scope_write_epoch") or 0),
+            }
+        )
+    out.sort(key=lambda entry: entry["scope"])
+    return out
+
+
 def build_scope_packet(
     *,
     scope_paths: list[str] | tuple[str, ...] | None,
@@ -66,6 +86,7 @@ def build_scope_packet(
     active_edit_intents: list[dict[str, Any]] | None = None,
     hotspots: list[dict[str, Any]] | None = None,
     context_pressure: dict[str, Any] | None = None,
+    shared_context: list[dict[str, Any]] | None = None,
     generated_at: float | None = None,
     baseline_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -80,6 +101,7 @@ def build_scope_packet(
         "active_edit_intents": list(active_edit_intents or []),
         "hotspots": list(hotspots or []),
         "context_pressure": dict(context_pressure or {}),
+        "shared_context": stable_shared_context(shared_context),
         "generated_at": generated_at,
     }
     packet["coherence_token"] = scope_coherence_token(packet)
@@ -98,6 +120,7 @@ def scope_coherence_token(packet: dict[str, Any]) -> str:
         "active_reservations": packet.get("active_reservations") or [],
         "active_edit_intents": packet.get("active_edit_intents") or [],
         "context_pressure": packet.get("context_pressure") or {},
+        "shared_context": packet.get("shared_context") or [],
     }
     encoded = json.dumps(stable, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:24]

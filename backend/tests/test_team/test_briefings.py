@@ -125,6 +125,36 @@ def test_render_deduplicates_by_canonical_scope_across_tiers():
     assert "Shared context" in out
 
 
+def test_render_shared_context_envelope_tracks_reuse_metadata():
+    store = _store_with(shared_art={"summary": "shared scout", "target_paths": ["src/auth"]})
+    wi = _wi(agent_name="developer", local_id="auth_fix")
+    from team.context.project import ProjectContext
+
+    pc = ProjectContext(goal="g", user_request="u")
+    pc.shared_briefings = {
+        "src/auth": Briefing(name="auth_map", source="artifact", ref="shared_art")
+    }
+    pc.shared_briefing_meta["src/auth"] = {
+        "kind": "structural",
+        "provenance": "atlas",
+        "stale_on_write": False,
+        "scope_paths": ["src/auth"],
+        "repo_epoch": 0,
+        "scope_write_epoch": 0,
+        "render_count": 0,
+        "consumer_lane_ids": set(),
+        "consumer_roles": set(),
+    }
+
+    out = render_briefings(wi, store, project_context=pc)
+
+    assert "context: tier=shared; kind=structural; provenance=atlas; freshness=fresh" in out
+    meta = pc.shared_briefing_meta["src/auth"]
+    assert meta["render_count"] == 1
+    assert "auth_fix" in meta["consumer_lane_ids"]
+    assert "developer" in meta["consumer_roles"]
+
+
 def test_render_skips_invalidated_scout_dep_artifact():
     store = _store_with(
         dep_art={
@@ -197,6 +227,34 @@ def test_render_handles_missing_artifact():
     wi = _wi(briefings=[Briefing(name="m", source="artifact", ref="does_not_exist")])
     out = render_briefings(wi, store)
     assert "missing artifact" in out
+
+
+def test_render_marks_runtime_shared_note_as_caution_after_overlapping_write():
+    store = _store_with()
+    wi = _wi(agent_name="developer", local_id="auth_fix")
+    from team.context.project import ProjectContext
+
+    pc = ProjectContext(goal="g", user_request="u", repo_root="/repo")
+    pc.shared_briefings = {
+        "src/auth": Briefing(name="src/auth", source="inline", inline="old runtime note")
+    }
+    pc.shared_briefing_meta["src/auth"] = {
+        "kind": "runtime",
+        "provenance": "manual-inline",
+        "stale_on_write": True,
+        "scope_paths": ["src/auth"],
+        "repo_epoch": 0,
+        "scope_write_epoch": 0,
+        "render_count": 0,
+        "consumer_lane_ids": set(),
+        "consumer_roles": set(),
+    }
+    pc.repo_epoch = 1
+    pc.scope_write_epochs["src/auth"] = 1
+
+    out = render_briefings(wi, store, project_context=pc)
+
+    assert "context: tier=shared; kind=runtime; provenance=manual-inline; freshness=caution" in out
 
 
 # ---------- Dispatcher ``_promote_to_ready`` ---------------------------------

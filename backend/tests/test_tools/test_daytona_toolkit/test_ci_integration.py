@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from team.context.project import ProjectContext
+from team.models import Briefing
 from team.runtime.registry import register, unregister
 from tools.core.base import ToolExecutionContext
 from tools.daytona_toolkit.ci_integration import (
@@ -420,6 +422,48 @@ def test_build_scope_packet_coherence_changes_when_scope_local_changes_change():
 
     assert first["coherence_token"] != second["coherence_token"]
     assert second["freshness"] == "touched"
+
+
+def test_build_scope_packet_includes_shared_context_summary_and_tracks_freshness():
+    pc = ProjectContext(goal="g", user_request="u", repo_root="/repo")
+    pc.shared_briefings["src/auth"] = Briefing(name="src/auth", source="inline", inline="runtime note")
+    pc.shared_briefing_meta["src/auth"] = {
+        "kind": "runtime",
+        "provenance": "manual-inline",
+        "stale_on_write": True,
+        "scope_paths": ["src/auth"],
+        "repo_epoch": 0,
+        "scope_write_epoch": 0,
+        "render_count": 2,
+        "consumer_lane_ids": {"dev-a"},
+        "consumer_roles": {"developer"},
+    }
+    team_run = SimpleNamespace(project_context=pc)
+
+    first = build_scope_packet(scope_paths=["src/auth/service.py"], team_run=team_run)
+
+    assert first["shared_context"] == [
+        {
+            "scope": "src/auth",
+            "kind": "runtime",
+            "provenance": "manual-inline",
+            "freshness": "fresh",
+            "consumer_count": 1,
+            "render_count": 2,
+            "scope_write_epoch": 0,
+        }
+    ]
+
+    pc.repo_epoch = 1
+    pc.scope_write_epochs["src/auth"] = 1
+    second = build_scope_packet(
+        scope_paths=["src/auth/service.py"],
+        team_run=team_run,
+        baseline_packet=first,
+    )
+
+    assert second["shared_context"][0]["freshness"] == "caution"
+    assert second["coherence_token"] != first["coherence_token"]
 
 
 # ---------------------------------------------------------------------------

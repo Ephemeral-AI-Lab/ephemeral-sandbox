@@ -48,6 +48,8 @@ Role boundary:
 - Must not inspect `.git`, git history, reflogs, or benchmark patch archaeology.
 - Must read `references/non-root-context-reuse.md` before opening fresh exploration on non-root turns.
 - Must treat inherited `## Scoped Expansion`, `## From deps`, and `## From parent` context as mandatory inputs on non-root turns.
+- Must use `inspect_inherited_context(...)` when same-run shared context needs a live freshness check on a resumed or non-root slice.
+- Must treat `share_briefing(...)` as a scoped coordination write; if coherence drifted on that slice, refresh before publishing.
 - Must keep validation aligned to the actual branch cut being guarded. If a validator depends on a `team_planner` sibling, that planner still counts in the guarded chain, but the validator only becomes ready after the planner subtree resolves.
 - On fresh root turns, open with one narrow ``ci_workspace_structure(path="<nearest likely production directory/package>")`` pass and then call ``ci_scoped_status(scope_paths=[...])`` on an exact existing production path.
 - Must keep the first scout wave dynamic: wide enough for the live owner surface, narrow enough that each lane answers one real ownership question.
@@ -71,6 +73,7 @@ Role boundary:
 - Must stay in the scope of the WorkItem payload. Must not refactor unrelated code or add speculative features.
 - Must use the literal sandbox tool names exposed at runtime instead of assuming generic aliases.
 - Must not mutate repo files through shell when direct edit or write tools are the better fit.
+- If inherited shared context influences the next edit, may inspect it with `inspect_inherited_context(...)`, but must still trust current scoped coherence over the older brief before writing.
 - If the first reproduction does not already give you the observed failure, a concrete first failing boundary, and a testable root-cause hypothesis, must load `team-developer-playbook/root-cause-debugging` with `load_skill_reference(...)` before any source edit or further broad file reading.
 - If you catch yourself re-reading tests or source files without a new question, reasoning from failure counts, or preparing a speculative fix, must stop and load `team-developer-playbook/root-cause-debugging` before proceeding.
 - Must not spawn subagents or hand off work."""
@@ -128,6 +131,7 @@ Must read the preloaded skills first; they define how to analyze the failure and
 Role boundary:
 - Must read the failure context, completed sibling artifacts, and the original payload.
 - Must use only read-only live confirmation if needed. You are not an executor.
+- May inspect same-run shared context with `inspect_inherited_context(...)`, but corrective ownership still comes from the current scoped packet.
 - Must use run_subagent only for read-only scout exploration if needed.
 
 Output contract:
@@ -170,7 +174,7 @@ def register_all() -> None:
             system_prompt=_PLANNER_PROMPT,
             model="inherit",
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
-            toolkits=["code_intelligence", "team_context", "atlas", "subagent"],
+            toolkits=["code_intelligence", "context_inheritance", "context_sharing", "atlas", "subagent"],
             skills=["team-planner-playbook"],
             include_skills=True,
             source="builtin",
@@ -205,7 +209,7 @@ def register_all() -> None:
             system_prompt=_DEVELOPER_PROMPT,
             model="inherit",
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
-            toolkits=["sandbox_operations", "code_intelligence"],
+            toolkits=["sandbox_operations", "code_intelligence", "context_inheritance"],
             skills=["team-developer-playbook"],
             include_skills=True,
             supported_kinds=["atomic"],
@@ -227,7 +231,7 @@ def register_all() -> None:
             system_prompt=_VALIDATOR_PROMPT,
             model="inherit",
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
-            toolkits=["sandbox_operations", "code_intelligence"],
+            toolkits=["sandbox_operations", "code_intelligence", "context_inheritance"],
             skills=["team-validator-playbook"],
             include_skills=True,
             supported_kinds=["atomic"],
@@ -310,7 +314,7 @@ def register_all() -> None:
             system_prompt=_REPLANNER_PROMPT,
             model="inherit",
             tool_call_limit=_DEFAULT_TEAM_TOOL_CALL_LIMIT,
-            toolkits=["code_intelligence", "team_context", "atlas", "subagent"],
+            toolkits=["code_intelligence", "context_inheritance", "context_sharing", "atlas", "subagent"],
             skills=["team-replanner-playbook"],
             include_skills=True,
             supported_kinds=["atomic"],

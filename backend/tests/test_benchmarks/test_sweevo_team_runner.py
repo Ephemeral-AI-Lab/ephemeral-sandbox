@@ -488,6 +488,8 @@ def test_agent_overrides_attach_sweevo_skills_without_prompt_duplication():
 
     assert "system_prompt" not in overrides[TEAM_PLANNER]
     assert "sweevo-project-context" in overrides[TEAM_PLANNER]["skills"]
+    assert "context_inheritance" in overrides[TEAM_PLANNER]["toolkits"]
+    assert "context_sharing" not in overrides[TEAM_PLANNER]["toolkits"]
     assert "team_context" not in overrides[TEAM_PLANNER]["toolkits"]
     assert overrides[TEAM_PLANNER]["tool_call_limit"] == 100
     assert "system_prompt" not in overrides[DEVELOPER]

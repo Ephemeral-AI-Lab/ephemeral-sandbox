@@ -159,6 +159,7 @@ def test_shared_briefings_flow_into_query_context():
     ctx = build_query_context(defn, tr, wi)
     assert "shared scout" in ctx.user_message
     assert "Shared context" in ctx.user_message
+    assert "context: tier=shared" in ctx.user_message
 
 
 def test_build_query_context_injects_scope_packet_when_ci_is_available(monkeypatch):

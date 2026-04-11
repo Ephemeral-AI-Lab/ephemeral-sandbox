@@ -20,7 +20,11 @@ from __future__ import annotations
 from typing import Any, TYPE_CHECKING
 
 from team.context.canonicalize import scope_of_artifact
-from team.context.scout_briefings import scout_artifact_invalidated
+from team.context.scout_briefings import (
+    inherited_context_line,
+    note_inherited_context_render,
+    scout_artifact_invalidated,
+)
 from team.models import Briefing, BudgetConfig, WorkItem
 
 if TYPE_CHECKING:
@@ -62,13 +66,19 @@ def _format_section(header: str, title: str, description: str | None, body: str)
     return f"{header} — {title}:\n{body}"
 
 
+def _compose_description(context_line: str, description: str | None) -> str:
+    if description:
+        return f"{context_line}\n{description}"
+    return context_line
+
+
 def render_briefings(
     wi: WorkItem,
     artifact_store: "InMemoryArtifactStore",
     project_context: "ProjectContext | None" = None,
     budgets: BudgetConfig | None = None,
 ) -> str:
-    """Pure-ish renderer. Reads only ``wi`` fields, the store, and shared ctx."""
+    """Render inherited context with tiered dedupe plus freshness hints."""
     max_bytes = (budgets or BudgetConfig()).max_briefing_bytes
     sections: list[str] = []
     seen_scopes: set[str] = set()
@@ -102,11 +112,16 @@ def render_briefings(
         scope = key or scope_of_artifact(body)
         if not _claim(scope, b.ref):
             continue
+        note_inherited_context_render(project_context, scope or "", wi, tier="shared")
         name = _dedupe_name(b.name, used_names)
         title = f"{name} [{scope}]" if scope else name
+        description = _compose_description(
+            inherited_context_line(project_context, scope, briefing=b, artifact=body, tier="shared"),
+            b.description,
+        )
         sections.append(
             _format_section(
-                _SHARED_HEADER, title, b.description, _truncate(body, max_bytes)
+                _SHARED_HEADER, title, description, _truncate(body, max_bytes)
             )
         )
 
@@ -118,11 +133,13 @@ def render_briefings(
         scope = scope_of_artifact(body)
         if not _claim(scope, dep.artifact_ref):
             continue
+        note_inherited_context_render(project_context, scope or "", wi, tier="deps")
         raw_name = dep.display_name or dep.source_wi_id
         name = _dedupe_name(raw_name, used_names)
         title = f"{name} [{scope}]" if scope else name
+        description = inherited_context_line(project_context, scope, artifact=body, tier="deps")
         sections.append(
-            _format_section(_DEPS_HEADER, title, None, _truncate(body, max_bytes))
+            _format_section(_DEPS_HEADER, title, description, _truncate(body, max_bytes))
         )
 
     # Tier 3 — explicit briefings
@@ -134,10 +151,15 @@ def render_briefings(
         ref = b.ref if b.source == "artifact" else None
         if not _claim(scope, ref):
             continue
+        note_inherited_context_render(project_context, scope or "", wi, tier="explicit")
         name = _dedupe_name(b.name, used_names)
+        description = _compose_description(
+            inherited_context_line(project_context, scope, briefing=b, artifact=body, tier="explicit"),
+            b.description,
+        )
         sections.append(
             _format_section(
-                _EXPLICIT_HEADER, name, b.description, _truncate(body, max_bytes)
+                _EXPLICIT_HEADER, name, description, _truncate(body, max_bytes)
             )
         )
 

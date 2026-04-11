@@ -98,11 +98,17 @@ def _register_builtins() -> None:
         SubmitSummaryToolkit,
     )
     from tools.subagent import SubagentToolkit
-    from tools.team_context import TeamContextToolkit
+    from tools.team_context import (
+        ContextInheritanceToolkit,
+        ContextSharingToolkit,
+        TeamContextToolkit,
+    )
 
     register_toolkit_class("sandbox_operations", DaytonaToolkit)
     register_toolkit_class("code_intelligence", CIToolkit)
     register_toolkit_class("subagent", SubagentToolkit)
+    register_toolkit_class("context_inheritance", ContextInheritanceToolkit)
+    register_toolkit_class("context_sharing", ContextSharingToolkit)
     register_toolkit_class("team_context", TeamContextToolkit)
     register_toolkit_class("atlas", AtlasToolkit)
     register_toolkit_class("submit_plan_posthook", SubmitPlanToolkit)

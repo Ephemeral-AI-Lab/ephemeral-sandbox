@@ -30,6 +30,7 @@ If you cannot state all three after the first reproduction, gather one more boun
 
 - Read the owned production file and the immediate consumer or importer.
 - Use `ci_query_symbols(...)` or `ci_query_references(...)` once to identify the next caller/callee boundary before writing custom runtime probes.
+- Use `inspect_inherited_context(...)` once when a shared brief might answer the question, but only if you also keep the current scoped coherence token in view.
 - Run one narrow import-smoke, assertion-smoke, or helper-level repro through `daytona_codeact`.
 - Read one adjacent shared production file when the traceback first lands there.
 - Compare one working sibling implementation in the same package when the pattern is unclear.
@@ -71,6 +72,7 @@ Stop and gather evidence instead of editing when:
 - You are about to change multiple files to "cover possibilities".
 - You have re-read the same test or source file and still cannot state a hypothesis.
 - The same boundary already survived one proving repro and you are still reading siblings instead of patching or replanning.
+- You are about to trust an inherited shared note even though the scoped packet already drifted.
 
 ## Escalation rules
 

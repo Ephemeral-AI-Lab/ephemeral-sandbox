@@ -6,7 +6,8 @@ Use this reference only when the validator packet already names exact failing py
 
 1. Must start with `ci_scoped_status(scope_paths=[...])` on the exact owner surface.
 2. Must confirm the owner surface is still live.
-3. Must draft corrective JSON as soon as the failing cluster, owner surface, and retry target are clear.
+3. May use `inspect_inherited_context(scope_paths=[...])` to confirm a same-run shared brief on that exact owner surface before asking Atlas or a new scout.
+4. Must draft corrective JSON as soon as the failing cluster, owner surface, and retry target are clear.
 
 ## Rules
 
@@ -18,6 +19,7 @@ Use this reference only when the validator packet already names exact failing py
 - Never merge distinct corrective clusters into one item.
 - If the validator failed before the target collected, must keep that failing command visible and route the correction toward the shared owner or runtime-control surface.
 - If the same owner cluster was already reopened once and is still clear, must emit JSON now.
+- If inherited context for that owner already drifted, must refresh the scoped packet before trusting or re-sharing it.
 
 ## Few-shot examples
 - Example: the validator packet says `tests/test_hdf.py` fails on `from pkg._compat import X` and live structure shows `pkg/` exists.
@@ -29,3 +31,6 @@ Use this reference only when the validator packet already names exact failing py
 - Example: the validator packet says `pytest pkg/utils.py -x -q` collected zero tests, and the same packet still names `pkg/tests/test_utils_dataframe.py` as the live benchmark file.
   Keep `owned_files=["pkg/utils.py"]`, switch `verify` to `pytest pkg/tests/test_utils_dataframe.py -x -q`, and stop.
   Do not reopen the benchmark test body, and do not escalate to `benchmark_surface_mismatch`.
+- Example: the failing owner is still `pkg/groupby.py`, and a same-run shared brief already exists for that file.
+  Call `inspect_inherited_context(scope_paths=["pkg/groupby.py"])` once. If it is still fresh, reuse that owner map and emit corrective JSON.
+  If it drifted, refresh with `ci_scoped_status(...)` before deciding whether more exploration is necessary.

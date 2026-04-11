@@ -18,6 +18,11 @@ class ProjectContext:
     # explicitly via the ``share_briefing`` tool, read automatically by
     # ``render_briefings`` for every executor and spawned subagent.
     shared_briefings: dict[str, Briefing] = field(default_factory=dict)
+    # Lightweight metadata for active shared briefings. Keyed by the same
+    # canonical scope as ``shared_briefings`` so inherited context can carry
+    # provenance, freshness, and reuse hints without changing the briefing
+    # transport shape seen by workers.
+    shared_briefing_meta: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Runtime-owned scout scopes that may be displaced under briefing
     # pressure. Explicit promotions remove a scope from this set.
     auto_promoted_scout_scopes: set[str] = field(default_factory=set)
@@ -36,6 +41,11 @@ class ProjectContext:
     # canonical scope. Used to suppress stale scout artifacts that were read
     # before an overlapping write landed in the same run.
     invalidated_scout_scopes: dict[str, float] = field(default_factory=dict)
+    # Monotonic same-run edit generations. ``repo_epoch`` increments on every
+    # overlapping write the runtime observes; ``scope_write_epochs`` keeps a
+    # narrower per-scope counter for inherited/shared context freshness.
+    repo_epoch: int = 0
+    scope_write_epochs: dict[str, int] = field(default_factory=dict)
     # Phase 2 — project identity for the persistent atlas. Both fields
     # default to empty strings; atlas tools treat an empty ``project_key``
     # as "atlas disabled" and degrade gracefully.
@@ -68,6 +78,13 @@ class ProjectContext:
                 }
                 for scope, b in self.shared_briefings.items()
             },
+            "shared_briefing_meta": {
+                scope: {
+                    key: sorted(value) if isinstance(value, set) else value
+                    for key, value in meta.items()
+                }
+                for scope, meta in self.shared_briefing_meta.items()
+            },
             "auto_promoted_scout_scopes": sorted(self.auto_promoted_scout_scopes),
             "stable_scout_versions": {
                 scope: dict(version)
@@ -87,5 +104,10 @@ class ProjectContext:
             "invalidated_scout_scopes": {
                 scope: float(ts)
                 for scope, ts in self.invalidated_scout_scopes.items()
+            },
+            "repo_epoch": int(self.repo_epoch),
+            "scope_write_epochs": {
+                scope: int(epoch)
+                for scope, epoch in self.scope_write_epochs.items()
             },
         }

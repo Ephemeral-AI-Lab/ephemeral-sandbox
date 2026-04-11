@@ -438,6 +438,7 @@ class CodeIntelligenceService:
         *,
         briefing_versions: list[dict[str, Any]] | None = None,
         context_pressure: dict[str, Any] | None = None,
+        shared_context: list[dict[str, Any]] | None = None,
         baseline_packet: dict[str, Any] | None = None,
         recent_seconds: float = _DEFAULT_SCOPE_RECENT_SECONDS,
     ) -> dict[str, Any]:
@@ -479,6 +480,7 @@ class CodeIntelligenceService:
             active_edit_intents=[dict(item) for item in active_edit_intents][:25],
             hotspots=hotspots,
             context_pressure=context_pressure,
+            shared_context=shared_context,
             generated_at=time.time(),
             baseline_packet=baseline_packet,
         )

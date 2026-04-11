@@ -1120,7 +1120,7 @@ def _build_agent_overrides(instance: SWEEvoInstance) -> dict[str, dict[str, Any]
         planner_toolkits = [
             toolkit_name
             for toolkit_name in (planner_def.toolkits or [])
-            if toolkit_name != "team_context"
+            if toolkit_name not in {"team_context", "context_sharing"}
         ]
         agent_overrides[TEAM_PLANNER] = {
             "skills": _with_extra_skills(planner_def.skills, "sweevo-project-context"),
