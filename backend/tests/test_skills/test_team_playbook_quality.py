@@ -89,7 +89,7 @@ def test_planner_skill_has_explicit_conditional_reference_loading() -> None:
     assert "Must use `agent_name` only for registered workers: `developer`, `validator`, or `team_planner`." in plan_json
     assert "Must keep `deps` as a top-level item field." in plan_json
     assert "Must emit each `local_id` only once." in plan_json
-    assert "Do not emit `agent_name: \"fix_compat_make_bytes_tuple_version\"` or `kind: \"developer\"`." in plan_json
+    assert "Do not submit an expandable `developer`." in plan_json
     assert "Do not merge `json.py`, `cli.py`, `config.py`, `compatibility.py`, and `utils.py` into one atomic `core_misc_fix` developer lane." in plan_json
     assert "Do not create one atomic \"misc fixes\" lane just because those residual slices are individually small." in decomposition
     assert "Do not collapse those unrelated files into one atomic developer just to save root-plan slots." in decomposition
@@ -120,9 +120,9 @@ def test_developer_and_validator_skills_explain_when_to_load_references() -> Non
     assert "Must load `widening-and-runtime` before the first widened write outside `owned_files`." in developer
     assert "Must load `widening-and-runtime` before concluding a runtime-owned lane from non-runtime evidence." in developer
     assert "Must load `codeact-runtime-examples` before the first `daytona_codeact` verification or reproduction command on a benchmark lane." in developer
-    assert "Must use `daytona_codeact` for bounded runtime reproduction or verification." in developer
-    assert "Must drive repo commands inside `daytona_codeact` through the provided `shell(\"...\")` helper." in developer
-    assert "Never use `daytona_bash` from developer lanes." in developer
+    assert "Must use `daytona_edit_file` or `daytona_write_file` for code changes, `daytona_codeact` for bounded runtime work" in developer
+    assert "and the provided `shell(\"...\")` helper for repo commands inside `daytona_codeact`." in developer
+    assert "`daytona_bash`" in developer
     assert "Must not use raw Python `subprocess.run(...)` snippets" in developer
     assert "Must execute repo commands through `shell(\"...\")` inside `daytona_codeact`." in developer_codeact_ref
     assert "Do not start a generic `pip install ...` loop" in developer_codeact_ref

@@ -14,6 +14,7 @@ from team.models import (
     ReplanPlan,
     ReplanItemSpec,
     ReplanRequest,
+    RetryRequest,
     WorkItem,
     WorkItemKind,
     WorkItemSpec,
@@ -234,6 +235,67 @@ async def test_request_replan_keeps_ancestor_subtree_dependent_pending():
     assert disp.graph[child.id].status == WorkItemStatus.FAILED
     assert disp.graph["VAL"].status == WorkItemStatus.PENDING
     assert replanner.status == WorkItemStatus.READY
+
+
+@pytest.mark.asyncio
+async def test_retry_validator_cancels_failed_child_validators_in_dependency_subtree():
+    disp = _make_dispatcher()
+    branch = _wi(
+        "PLANNER",
+        kind=WorkItemKind.EXPANDABLE,
+        agent_name="team_planner",
+        status=WorkItemStatus.DONE,
+    )
+    child_validator = _wi(
+        "VAL-CHILD",
+        agent_name="validator",
+        status=WorkItemStatus.FAILED,
+        parent_id="PLANNER",
+        root_id="PLANNER",
+    )
+    validator = _wi(
+        "VAL-PARENT",
+        deps=["PLANNER"],
+        agent_name="validator",
+        status=WorkItemStatus.RUNNING,
+    )
+    disp.graph = {wi.id: wi for wi in (branch, child_validator, validator)}
+
+    await disp.retry_work_item("VAL-PARENT", RetryRequest(reason="retry exact verifier"))
+
+    assert disp.graph["VAL-CHILD"].status == WorkItemStatus.CANCELLED
+    assert disp.graph["VAL-PARENT"].status == WorkItemStatus.READY
+
+
+@pytest.mark.asyncio
+async def test_prepare_for_resume_promotes_validator_after_superseding_failed_child_validator():
+    disp = _make_dispatcher()
+    branch = _wi(
+        "PLANNER",
+        kind=WorkItemKind.EXPANDABLE,
+        agent_name="team_planner",
+        status=WorkItemStatus.DONE,
+    )
+    child_validator = _wi(
+        "VAL-CHILD",
+        agent_name="validator",
+        status=WorkItemStatus.FAILED,
+        parent_id="PLANNER",
+        root_id="PLANNER",
+    )
+    validator = _wi(
+        "VAL-PARENT",
+        deps=["PLANNER"],
+        agent_name="validator",
+        status=WorkItemStatus.PENDING,
+    )
+    disp.graph = {wi.id: wi for wi in (branch, child_validator, validator)}
+
+    await disp.prepare_for_resume()
+
+    assert disp.graph["VAL-CHILD"].status == WorkItemStatus.CANCELLED
+    assert disp.graph["VAL-PARENT"].status == WorkItemStatus.READY
+    assert await disp.pop_ready() == "VAL-PARENT"
 
 
 @pytest.mark.asyncio

@@ -606,7 +606,7 @@ def test_submit_plan_agent_prompt_calls_out_validator_dep_repairs_and_local_id_d
     assert "its ``deps`` must include every terminal non-validator sibling" in serializer.system_prompt
 
 
-def test_team_planner_prompt_makes_child_scope_rules_explicit():
+def test_team_planner_prompt_delegates_workflow_to_skills():
     from team.builtins import TEAM_PLANNER, register_all
     from agents.registry import get_definition
 
@@ -614,45 +614,18 @@ def test_team_planner_prompt_makes_child_scope_rules_explicit():
 
     planner = get_definition(TEAM_PLANNER)
     assert planner is not None
-    assert "Must read `references/non-root-context-reuse.md` before opening fresh exploration on non-root turns." in (
+    assert "Must read the preloaded skills first; they define the planning workflow" in (
         planner.system_prompt
     )
-    assert "Must treat inherited `## Scoped Expansion`, `## From deps`, and `## From parent` context as mandatory inputs on non-root turns." in (
-        planner.system_prompt
-    )
-    assert "Must use `inspect_inherited_context(...)` when same-run shared context needs a live freshness check" in (
-        planner.system_prompt
-    )
-    assert "Must treat `share_briefing(...)` as a scoped coordination write" in (
-        planner.system_prompt
-    )
-    assert "Must keep validation aligned to the actual branch cut being guarded." in (
-        planner.system_prompt
-    )
-    assert "the validator only becomes ready after the planner subtree resolves." in (
-        planner.system_prompt
-    )
-    assert "If a validator depends on a `team_planner` sibling, that planner still counts in the guarded chain" in (
+    assert "Must produce a valid plan payload and stop." in planner.system_prompt
+    assert "Must not patch code, run verification, or use scout as a proxy for developer or validator work." in (
         planner.system_prompt
     )
     assert "If you cannot quote the node id verbatim from the prompt or a live artifact, must use the exact benchmark test file path instead of inventing one." in (
         planner.system_prompt
     )
-    assert "open with one narrow ``ci_workspace_structure(path=\"<nearest likely production directory/package>\")`` pass and then call ``ci_scoped_status(scope_paths=[...])`` on an exact existing production path" in (
-        planner.system_prompt
-    )
-    assert "keep the first scout wave dynamic: wide enough for the live owner surface, narrow enough that each lane answers one real ownership question" in (
-        planner.system_prompt
-    )
-    assert "prefer multiple separate production-owner scouts instead of collapsing those clusters into one omnibus lane" in (
-        planner.system_prompt
-    )
-    assert "Must not spend those first-wave lanes on already-named benchmark test files when a plausible production owner already exists." in (
-        planner.system_prompt
-    )
-    assert "If a guessed benchmark owner file is missing, must re-anchor on the nearest exact existing production directory/package path" in (
-        planner.system_prompt
-    )
+    assert "references/non-root-context-reuse.md" not in planner.system_prompt
+    assert "keep the first scout wave dynamic" not in planner.system_prompt
 
 
 def test_team_planner_definition_uses_submit_plan_posthook_not_submit_toolkit():
@@ -691,10 +664,13 @@ def test_team_replanner_definition_uses_submit_replan_posthook_not_replan_tools(
     assert "context_inheritance" in replanner.toolkits
     assert "context_sharing" in replanner.toolkits
     assert "team_context" not in replanner.toolkits
-    assert "corrective-fast-path" in replanner.system_prompt
-    assert "load_skill_reference" in replanner.system_prompt
-    assert "ci_scoped_status" in replanner.system_prompt
-    assert "inspect_inherited_context(...)" in replanner.system_prompt
+    assert "Must read the preloaded skills first; they define how to analyze the failure" in (
+        replanner.system_prompt
+    )
+    assert "Must use only read-only live confirmation if needed. You are not an executor." in (
+        replanner.system_prompt
+    )
+    assert "corrective-fast-path" not in replanner.system_prompt
     assert "submit_plan_posthook" not in replanner.toolkits
     assert "submit_replan_posthook" not in replanner.toolkits
     assert "posthook_submit_replan" not in replanner.toolkits

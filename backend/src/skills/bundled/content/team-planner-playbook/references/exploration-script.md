@@ -17,6 +17,7 @@ Use this reference only on fresh benchmark roots or any turn that still lacks cl
 11. Once live evidence names an exact existing owner path, keep reusing that exact path in later reasoning, scout notes, and plan lanes unless a later live packet changes it.
 12. Before loading decomposition or plan-shaping references, must launch the whole currently nameable first scout wave.
 13. Must keep each scout on one distinct unresolved owner slice and stop exploring once the current plan layer can name ready work plus residual boundaries.
+14. Before the first scout wave, a second sibling `ci_workspace_structure(...)` or second sibling `ci_scoped_status(...)` is drift. Reuse the first anchor or launch scouts; do not branch the root opener sideways.
 
 ## Few-shot examples
 

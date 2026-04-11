@@ -34,6 +34,8 @@ _PY_CLASS_RE = re.compile(r"^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)\b")
 _ASSIGN_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
 _SCOUT_ALLOWED_QUERY_TOOLS = frozenset({"ci_workspace_structure"})
 _BENCHMARK_ROOT_PREANCHOR_STRUCTURE_KEY = "_benchmark_root_preanchor_structure_done"
+_BENCHMARK_ROOT_PREANCHOR_STRUCTURE_CLAIM_KEY = "_benchmark_root_preanchor_structure_claimed"
+_BENCHMARK_ROOT_SCOPE_ANCHOR_CLAIM_KEY = "_benchmark_root_scope_anchor_claimed"
 
 
 @dataclass(frozen=True)
@@ -101,6 +103,31 @@ def _immediate_parent(path: str) -> str:
     if not cleaned or "/" not in cleaned:
         return ""
     return cleaned.rsplit("/", 1)[0]
+
+
+def _loaded_skill_references(
+    context: ToolExecutionContext,
+    *,
+    skill_name: str,
+) -> list[str]:
+    raw = context.metadata.get("_loaded_skill_references_by_skill_this_turn", {})
+    if not isinstance(raw, dict):
+        return []
+    refs = raw.get(skill_name)
+    if not isinstance(refs, list):
+        return []
+    return [str(ref).strip() for ref in refs if str(ref).strip()]
+
+
+def _benchmark_root_exploration_reference_loaded(context: ToolExecutionContext) -> bool:
+    return "exploration-script" in _loaded_skill_references(
+        context,
+        skill_name="team-planner-playbook",
+    )
+
+
+def _has_tests_segment(path: str) -> bool:
+    return "tests" in {segment for segment in path.split("/") if segment}
 
 
 def _looks_like_file_target(path: str) -> bool:
@@ -270,6 +297,27 @@ def _validate_benchmark_root_preanchor_structure(
         return None
     if context.metadata.get("_benchmark_root_scope_anchor_done"):
         return None
+    if not _benchmark_root_exploration_reference_loaded(context):
+        return ToolResult(
+            output=(
+                "Fresh benchmark-root planners must load "
+                "`team-planner-playbook/exploration-script` before the first non-reference "
+                "planning tool call. Call "
+                "`load_skill_reference(skill_name=\"team-planner-playbook\", reference_name=\"exploration-script\")` "
+                "first."
+            ),
+            is_error=True,
+        )
+    if context.metadata.get(_BENCHMARK_ROOT_PREANCHOR_STRUCTURE_CLAIM_KEY):
+        return ToolResult(
+            output=(
+                "Fresh benchmark-root planners get one narrow "
+                "`ci_workspace_structure(...)` opener before the first "
+                "`ci_scoped_status(...)` anchor. Reuse that production listing and anchor "
+                "one exact path now instead of opening a sibling structure pass."
+            ),
+            is_error=True,
+        )
 
     cleaned = str(path or "").strip().replace("\\", "/").rstrip("/")
     if not cleaned:
@@ -283,7 +331,7 @@ def _validate_benchmark_root_preanchor_structure(
         )
 
     benchmark_tests = _benchmark_test_files(payload)
-    if cleaned in benchmark_tests or "/tests/" in cleaned or cleaned.startswith("tests/"):
+    if cleaned in benchmark_tests or _has_tests_segment(cleaned):
         return ToolResult(
             output=(
                 "Fresh benchmark-root planners must anchor on a likely production "
@@ -302,6 +350,75 @@ def _validate_benchmark_root_preanchor_structure(
             is_error=True,
         )
 
+    return None
+
+
+def _validate_benchmark_root_scope_anchor(
+    *,
+    requested: list[str],
+    context: ToolExecutionContext,
+) -> ToolResult | None:
+    payload = _benchmark_root_payload(context)
+    if payload is None:
+        return None
+    if str(context.metadata.get("agent_name") or "").strip() != "team_planner":
+        return None
+    if context.metadata.get("_benchmark_root_scope_anchor_done"):
+        return None
+    if not _benchmark_root_exploration_reference_loaded(context):
+        return ToolResult(
+            output=(
+                "Fresh benchmark-root planners must load "
+                "`team-planner-playbook/exploration-script` before the first "
+                "`ci_scoped_status(...)` anchor."
+            ),
+            is_error=True,
+        )
+    if not context.metadata.get(_BENCHMARK_ROOT_PREANCHOR_STRUCTURE_KEY):
+        if context.metadata.get(_BENCHMARK_ROOT_PREANCHOR_STRUCTURE_CLAIM_KEY):
+            return ToolResult(
+                output=(
+                    "Fresh benchmark-root planners must wait for the first narrow "
+                    "`ci_workspace_structure(...)` result, then anchor one exact existing "
+                    "production path from that listing."
+                ),
+                is_error=True,
+            )
+        return ToolResult(
+            output=(
+                "Fresh benchmark-root planners must begin with one narrow "
+                "`ci_workspace_structure(...)` pass on a likely production directory or "
+                "package before the first `ci_scoped_status(...)` anchor."
+            ),
+            is_error=True,
+        )
+    if context.metadata.get(_BENCHMARK_ROOT_SCOPE_ANCHOR_CLAIM_KEY):
+        return ToolResult(
+            output=(
+                "Fresh benchmark-root planners get one exact "
+                "`ci_scoped_status(scope_paths=[...])` anchor before the first scout wave. "
+                "Reuse the anchored production path or launch scouts now instead of opening a "
+                "sibling anchor."
+            ),
+            is_error=True,
+        )
+    if len(requested) != 1:
+        return ToolResult(
+            output=(
+                "Fresh benchmark-root planners must anchor exactly one existing production "
+                "path in the first `ci_scoped_status(scope_paths=[...])` packet."
+            ),
+            is_error=True,
+        )
+    cleaned = requested[0]
+    if cleaned in _benchmark_test_files(payload) or _has_tests_segment(cleaned):
+        return ToolResult(
+            output=(
+                "Fresh benchmark-root planners must use one exact production path for the "
+                "first `ci_scoped_status(...)` anchor, not a benchmark test path."
+            ),
+            is_error=True,
+        )
     return None
 
 
@@ -1010,20 +1127,35 @@ async def _ci_scope_status_impl(
         requested = normalize_scope_paths(context.metadata.get("default_scope_paths") or [])
     if not requested:
         requested = scope_paths_for_write(context)
+    benchmark_anchor_err = _validate_benchmark_root_scope_anchor(
+        requested=requested,
+        context=context,
+    )
+    if benchmark_anchor_err is not None:
+        return benchmark_anchor_err
     benchmark_payload = _benchmark_root_payload(context)
+    metadata = None
+    if benchmark_payload is not None and not context.metadata.get("_benchmark_root_scope_anchor_done"):
+        context.metadata[_BENCHMARK_ROOT_SCOPE_ANCHOR_CLAIM_KEY] = True
+        metadata = {_BENCHMARK_ROOT_SCOPE_ANCHOR_CLAIM_KEY: True}
     packet = build_live_scope_packet(
         context,
         scope_paths=requested,
     )
     if benchmark_payload is not None:
         context.metadata["_benchmark_root_scope_anchor_done"] = True
+        if metadata is None:
+            metadata = {}
+        metadata["_benchmark_root_scope_anchor_done"] = True
+        metadata[_BENCHMARK_ROOT_SCOPE_ANCHOR_CLAIM_KEY] = True
     refresh_scope_baseline(context, packet=packet)
+    if metadata is None:
+        metadata = {}
+    metadata["scope_packet"] = packet
+    metadata["coherence_token"] = str(packet.get("coherence_token") or "")
     return ToolResult(
         output=json.dumps(packet, indent=2, default=str),
-        metadata={
-            "scope_packet": packet,
-            "coherence_token": str(packet.get("coherence_token") or ""),
-        },
+        metadata=metadata,
     )
 
 
@@ -1097,6 +1229,7 @@ async def ci_workspace_structure(
         return preanchor_err
     if _benchmark_root_payload(context) is not None and not context.metadata.get("_benchmark_root_scope_anchor_done"):
         preanchor_structure = True
+        context.metadata[_BENCHMARK_ROOT_PREANCHOR_STRUCTURE_CLAIM_KEY] = True
     svc, err = _svc_or_error(context)
     if err:
         return err
@@ -1128,7 +1261,10 @@ async def ci_workspace_structure(
     metadata = None
     if preanchor_structure:
         context.metadata[_BENCHMARK_ROOT_PREANCHOR_STRUCTURE_KEY] = True
-        metadata = {_BENCHMARK_ROOT_PREANCHOR_STRUCTURE_KEY: True}
+        metadata = {
+            _BENCHMARK_ROOT_PREANCHOR_STRUCTURE_KEY: True,
+            _BENCHMARK_ROOT_PREANCHOR_STRUCTURE_CLAIM_KEY: True,
+        }
 
     if output:
         return ToolResult(output=output, metadata=metadata)

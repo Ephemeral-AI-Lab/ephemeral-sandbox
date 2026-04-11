@@ -36,6 +36,28 @@ def _ctx_with_svc(svc) -> ToolExecutionContext:
     return _ctx({"ci_service": svc})
 
 
+def _benchmark_root_metadata(
+    svc,
+    *,
+    team_run_id: str = "TR1",
+    loaded_refs: list[str] | None = None,
+    extra: dict | None = None,
+) -> dict:
+    metadata = {
+        "agent_name": "team_planner",
+        "team_run_id": team_run_id,
+        "work_item_id": "ROOT",
+        "ci_service": svc,
+    }
+    if loaded_refs is not None:
+        metadata["_loaded_skill_references_by_skill_this_turn"] = {
+            "team-planner-playbook": loaded_refs,
+        }
+    if extra:
+        metadata.update(extra)
+    return metadata
+
+
 # ---------------------------------------------------------------------------
 # _svc_or_error helper
 # ---------------------------------------------------------------------------
@@ -206,22 +228,15 @@ async def test_workspace_structure_allows_single_narrow_preanchor_pass_on_benchm
     monkeypatch.setattr("team.runtime.registry.get", lambda team_run_id: team_run if team_run_id == "TR1" else None)
     with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
         result = await ci_workspace_structure.execute(
-            ci_workspace_structure.input_model(path="pkg", max_depth=4),
-            _ctx(
-                {
-                    "agent_name": "team_planner",
-                    "team_run_id": "TR1",
-                    "work_item_id": "ROOT",
-                    "ci_service": svc,
-                }
-            ),
+            ci_workspace_structure.input_model(path="pkg", max_depth=3),
+            _ctx(_benchmark_root_metadata(svc, loaded_refs=["exploration-script"])),
         )
 
     assert not result.is_error
     assert result.metadata["_benchmark_root_preanchor_structure_done"] is True
 
 
-async def test_workspace_structure_allows_root_listing_before_scope_status_on_benchmark_root_planner(monkeypatch):
+async def test_workspace_structure_rejects_root_listing_before_scope_status_on_benchmark_root_planner(monkeypatch):
     svc = MagicMock()
     svc.symbol_index = MagicMock()
     team_run = SimpleNamespace(
@@ -238,21 +253,14 @@ async def test_workspace_structure_allows_root_listing_before_scope_status_on_be
     with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
         result = await ci_workspace_structure.execute(
             ci_workspace_structure.input_model(path=""),
-            _ctx(
-                {
-                    "agent_name": "team_planner",
-                    "team_run_id": "TR1",
-                    "work_item_id": "ROOT",
-                    "ci_service": svc,
-                }
-            ),
+            _ctx(_benchmark_root_metadata(svc, loaded_refs=["exploration-script"])),
         )
 
-    assert not result.is_error
-    assert result.metadata["_benchmark_root_preanchor_structure_done"] is True
+    assert result.is_error
+    assert "must open with a narrow" in result.output
 
 
-async def test_workspace_structure_allows_second_preanchor_pass_before_scope_status_on_benchmark_root_planner(monkeypatch):
+async def test_workspace_structure_rejects_second_preanchor_pass_before_scope_status_on_benchmark_root_planner(monkeypatch):
     svc = MagicMock()
     svc.symbol_index = MagicMock()
     team_run = SimpleNamespace(
@@ -268,24 +276,20 @@ async def test_workspace_structure_allows_second_preanchor_pass_before_scope_sta
     monkeypatch.setattr("team.runtime.registry.get", lambda team_run_id: team_run if team_run_id == "TR1" else None)
     with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
         ctx = _ctx(
-            {
-                "agent_name": "team_planner",
-                "team_run_id": "TR1",
-                "work_item_id": "ROOT",
-                "ci_service": svc,
-            }
+            _benchmark_root_metadata(svc, loaded_refs=["exploration-script"])
         )
         first = await ci_workspace_structure.execute(
-            ci_workspace_structure.input_model(path="pkg", max_depth=4),
+            ci_workspace_structure.input_model(path="pkg", max_depth=3),
             ctx,
         )
         second = await ci_workspace_structure.execute(
-            ci_workspace_structure.input_model(path="pkg/io", max_depth=4),
+            ci_workspace_structure.input_model(path="pkg/io", max_depth=3),
             ctx,
         )
 
     assert not first.is_error
-    assert not second.is_error
+    assert second.is_error
+    assert "one narrow `ci_workspace_structure(...)` opener" in second.output
 
 
 async def test_ci_scope_status_allows_missing_paths_on_benchmark_root_planner(monkeypatch):
@@ -313,12 +317,11 @@ async def test_ci_scope_status_allows_missing_paths_on_benchmark_root_planner(mo
         result = await ci_scope_status.execute(
             ci_scope_status.input_model(scope_paths=["pkg/missing.py", "pkg/io"]),
             _ctx(
-                {
-                    "agent_name": "team_planner",
-                    "team_run_id": "TR_MISSING",
-                    "work_item_id": "ROOT",
-                    "ci_service": svc,
-                }
+                _benchmark_root_metadata(
+                    svc,
+                    team_run_id="TR_MISSING",
+                    extra={"_benchmark_root_scope_anchor_done": True},
+                )
             ),
         )
 
@@ -363,13 +366,14 @@ async def test_ci_scope_status_allows_missing_paths_on_benchmark_root_planner_vi
         result = await ci_scope_status.execute(
             ci_scope_status.input_model(scope_paths=["pkg/missing.py", "pkg/io"]),
             _ctx(
-                {
-                    "agent_name": "team_planner",
-                    "team_run_id": "TR_REMOTE",
-                    "work_item_id": "ROOT",
-                    "ci_service": svc,
-                    "daytona_sandbox": sandbox,
-                }
+                _benchmark_root_metadata(
+                    svc,
+                    team_run_id="TR_REMOTE",
+                    extra={
+                        "_benchmark_root_scope_anchor_done": True,
+                        "daytona_sandbox": sandbox,
+                    },
+                )
             ),
         )
 
@@ -410,6 +414,7 @@ async def test_ci_query_symbols_rejects_test_only_hits_for_benchmark_root_planne
                     "team_run_id": "TR2",
                     "work_item_id": "ROOT",
                     "ci_service": svc,
+                    "_benchmark_root_preanchor_structure_done": True,
                     "_benchmark_root_scope_anchor_done": True,
                 }
             ),
@@ -427,6 +432,102 @@ async def test_merge_submission_metadata_propagates_benchmark_root_scope_anchor_
     _merge_submission_metadata(original=original, updated=updated, result_metadata=None)
 
     assert original["_benchmark_root_scope_anchor_done"] is True
+
+
+async def test_workspace_structure_requires_exploration_reference_for_benchmark_root_planner(monkeypatch):
+    svc = MagicMock()
+    svc.symbol_index = MagicMock()
+    team_run = SimpleNamespace(
+        root_work_item_id="ROOT",
+        dispatcher=SimpleNamespace(
+            graph={
+                "ROOT": SimpleNamespace(
+                    payload={"fail_to_pass": ["pkg/tests/test_api.py::test_one"]}
+                )
+            }
+        ),
+    )
+    monkeypatch.setattr("team.runtime.registry.get", lambda team_run_id: team_run if team_run_id == "TR_REF" else None)
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        result = await ci_workspace_structure.execute(
+            ci_workspace_structure.input_model(path="pkg", max_depth=3),
+            _ctx(_benchmark_root_metadata(svc, team_run_id="TR_REF")),
+        )
+
+    assert result.is_error
+    assert "exploration-script" in result.output
+
+
+async def test_workspace_structure_rejects_tests_directory_anchor(monkeypatch):
+    svc = MagicMock()
+    svc.symbol_index = MagicMock()
+    team_run = SimpleNamespace(
+        root_work_item_id="ROOT",
+        dispatcher=SimpleNamespace(
+            graph={
+                "ROOT": SimpleNamespace(
+                    payload={"fail_to_pass": ["pkg/tests/test_api.py::test_one"]}
+                )
+            }
+        ),
+    )
+    monkeypatch.setattr("team.runtime.registry.get", lambda team_run_id: team_run if team_run_id == "TR_TESTS" else None)
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        result = await ci_workspace_structure.execute(
+            ci_workspace_structure.input_model(path="pkg/tests", max_depth=3),
+            _ctx(
+                _benchmark_root_metadata(
+                    svc,
+                    team_run_id="TR_TESTS",
+                    loaded_refs=["exploration-script"],
+                )
+            ),
+        )
+
+    assert result.is_error
+    assert "not a benchmark test path" in result.output
+
+
+async def test_ci_scope_status_requires_one_exact_anchor_on_benchmark_root_planner(monkeypatch):
+    svc = MagicMock()
+    svc.ledger.generation = 3
+    svc.ledger.recent_entries.return_value = []
+    svc.arbiter.generation = 7
+    svc.arbiter.active_reservations.return_value = []
+    svc.arbiter.active_edit_intents.return_value = []
+    svc.arbiter.hotspots.return_value = []
+    svc.symbol_index = SimpleNamespace(generation=11, _symbols={"/testbed/pkg/core.py": []})
+    team_run = SimpleNamespace(
+        root_work_item_id="ROOT",
+        dispatcher=SimpleNamespace(
+            graph={
+                "ROOT": SimpleNamespace(
+                    payload={"fail_to_pass": ["pkg/tests/test_api.py::test_one"]}
+                )
+            }
+        ),
+    )
+    monkeypatch.setattr("team.runtime.registry.get", lambda team_run_id: team_run if team_run_id == "TR_SCOPE" else None)
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        ctx = _ctx(
+            _benchmark_root_metadata(
+                svc,
+                team_run_id="TR_SCOPE",
+                loaded_refs=["exploration-script"],
+            )
+        )
+        structure = await ci_workspace_structure.execute(
+            ci_workspace_structure.input_model(path="pkg", max_depth=3),
+            ctx,
+        )
+        result = await ci_scope_status.execute(
+            ci_scope_status.input_model(scope_paths=["pkg/core.py", "pkg/io"]),
+            ctx,
+        )
+
+    assert not structure.is_error
+    assert result.is_error
+    assert "anchor exactly one existing production path" in result.output
 
 
 # ---------------------------------------------------------------------------

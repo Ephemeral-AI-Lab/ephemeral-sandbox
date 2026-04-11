@@ -89,6 +89,4 @@ async def prepare_for_resume(dispatcher: "Dispatcher") -> None:
             if wi.status == WorkItemStatus.READY:
                 dispatcher._ready_queue.put_nowait(wi.id)
                 dispatcher._ready_order.append(wi.id)
-                continue
-            if dispatcher._compute_readiness(wi):
-                dispatcher._promote_to_ready(wi)
+        dispatcher._promote_ready_work_items()
