@@ -59,6 +59,15 @@ PEEK_MESSAGE_MAX = 10
 _PEEK_BLOCK_CHAR_CAP = 200
 # Total character cap for the peek view.
 _PEEK_TOTAL_CHAR_CAP = 2048
+_SCOUT_REQUIRED_ARTIFACT_KEYS = (
+    "target_paths",
+    "files",
+    "entry_points",
+    "open_questions",
+    "scope_coverage",
+    "gaps",
+    "suggested_subdivisions",
+)
 
 
 @dataclass
@@ -96,6 +105,79 @@ def _normalize_target_paths(value: Any) -> list[str]:
             if stripped:
                 out.append(stripped)
     return out
+
+
+def _normalize_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            stripped = item.strip()
+            if stripped:
+                out.append(stripped)
+    return out
+
+
+def _validate_team_scout_artifact(artifact: Any) -> str | None:
+    if not isinstance(artifact, dict):
+        return (
+            "run_subagent: scout artifact invalid: missing structured artifact payload. "
+            "Team-mode scouts must submit summary+artifact that matches the scout playbook contract."
+        )
+
+    issues: list[str] = []
+    missing = [key for key in _SCOUT_REQUIRED_ARTIFACT_KEYS if key not in artifact]
+    if missing:
+        issues.append(f"missing required fields: {', '.join(missing)}")
+
+    if not _normalize_target_paths(artifact.get("target_paths")):
+        issues.append("target_paths must be a non-empty string list")
+    for key in ("files", "entry_points", "open_questions", "suggested_subdivisions"):
+        if key in artifact and not isinstance(artifact.get(key), list):
+            issues.append(f"{key} must be a list")
+    if "gaps" in artifact and not isinstance(artifact.get("gaps"), str):
+        issues.append("gaps must be a string")
+
+    coverage = artifact.get("scope_coverage")
+    if coverage is None:
+        pass
+    elif not isinstance(coverage, (int, float)):
+        issues.append("scope_coverage must be numeric")
+    else:
+        coverage_value = float(coverage)
+        if coverage_value < 0.0 or coverage_value > 1.0:
+            issues.append("scope_coverage must be between 0.0 and 1.0")
+        if 0.0 < coverage_value < 1.0 and not _normalize_string_list(
+            artifact.get("suggested_subdivisions")
+        ):
+            issues.append("partial coverage requires non-empty suggested_subdivisions")
+        gaps = artifact.get("gaps")
+        if coverage_value >= 0.9 and isinstance(gaps, str) and gaps.strip():
+            issues.append("high-coverage scout briefs must keep gaps empty")
+
+    if not issues:
+        return None
+    return (
+        "run_subagent: scout artifact invalid: "
+        + "; ".join(issues)
+        + ". Team-mode scouts must satisfy the playbook output contract before planners can reuse the brief."
+    )
+
+
+def _validate_team_scout_submission(submitted: Any) -> str | None:
+    from tools.posthook import SubmittedSummary
+    from tools.posthook.submit_summary import _normalize_scout_artifact_contract
+
+    if not isinstance(submitted, SubmittedSummary):
+        return (
+            "run_subagent: scout output invalid: expected submit_summary payload with scout artifact. "
+            "Team-mode scouts must end with one summary+artifact brief."
+        )
+    normalized = _normalize_scout_artifact_contract(submitted.artifact)
+    if normalized is not submitted.artifact:
+        submitted.artifact = normalized
+    return _validate_team_scout_artifact(submitted.artifact)
 
 
 def _already_covered_scout_targets(context: ToolExecutionContext, target_paths: list[str]) -> list[str]:
@@ -968,6 +1050,19 @@ async def run_subagent(
             cancellation_reason=cancel_reason,
         )
         return ToolResult(output=str(exc), is_error=True)
+
+    if agent_name == "scout" and parent_team_run_id:
+        scout_submission_error = _validate_team_scout_submission(submitted)
+        if scout_submission_error is not None:
+            tracker.finish(
+                status="failed",
+                display_messages=agent.display_messages,
+                api_messages_snapshot=api_snapshot,
+                error=scout_submission_error,
+                final_text=final_text,
+                cancellation_reason=cancel_reason,
+            )
+            return ToolResult(output=scout_submission_error, is_error=True)
 
     stored_artifact_ref: str | None = None
     atlas_info: dict[str, Any] | None = None

@@ -75,6 +75,7 @@ class TeamAgentContext:
 def build_work_item_metadata(team_run: TeamRun, wi: WorkItem) -> ExecutionMetadata:
     """Build the canonical routing metadata for a team work item."""
     default_scope_paths = scope_paths_for_work_item(team_run, wi)
+    payload = wi.payload if isinstance(wi.payload, dict) else {}
     meta = ExecutionMetadata(
         team_run_id=team_run.id,
         work_item_id=wi.id,
@@ -96,6 +97,10 @@ def build_work_item_metadata(team_run: TeamRun, wi: WorkItem) -> ExecutionMetada
         meta["ci_workspace_root"] = repo_root
     if default_scope_paths:
         meta["default_scope_paths"] = default_scope_paths
+    for key in ("owned_files", "owned_failures", "touches_paths", "verify"):
+        value = payload.get(key)
+        if value not in (None, "", [], {}):
+            meta[key] = value
     return meta
 
 

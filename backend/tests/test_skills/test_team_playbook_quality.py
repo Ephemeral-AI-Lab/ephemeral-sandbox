@@ -21,10 +21,12 @@ _ALL_SKILLS = _PLAYBOOKS + [
     _CONTENT / "verification-replan/SKILL.md",
 ]
 _REFERENCES = [
+    _CONTENT / "team-developer-playbook/references/codeact-runtime-examples.md",
     _CONTENT / "team-developer-playbook/references/widening-and-runtime.md",
     _CONTENT / "team-planner-playbook/references/exploration-script.md",
     _CONTENT / "team-planner-playbook/references/scout-launch-contract.md",
     _CONTENT / "team-planner-playbook/references/non-root-context-reuse.md",
+    _CONTENT / "team-planner-playbook/references/plan-json-contract.md",
     _CONTENT / "team-planner-playbook/references/task-planning-decomposition.md",
     _CONTENT / "team-scout-playbook/references/completion-contract.md",
     _CONTENT / "team-posthook-decision-playbook/references/decision-gates.md",
@@ -69,15 +71,33 @@ def test_planner_skill_has_explicit_conditional_reference_loading() -> None:
     planner = _read(_CONTENT / "team-planner-playbook/SKILL.md")
     decomposition = _read(_CONTENT / "team-planner-playbook/references/task-planning-decomposition.md")
     exploration = _read(_CONTENT / "team-planner-playbook/references/exploration-script.md")
+    non_root = _read(_CONTENT / "team-planner-playbook/references/non-root-context-reuse.md")
+    plan_json = _read(_CONTENT / "team-planner-playbook/references/plan-json-contract.md")
     scout_launch = _read(_CONTENT / "team-planner-playbook/references/scout-launch-contract.md")
     assert "Fresh benchmark root: must load `exploration-script`" in planner
+    assert "Immediately before final plan JSON: must load `plan-json-contract`" in planner
     assert "Fresh benchmark root: must load `task-planning-decomposition`" in planner
+    assert "before loading `plan-json-contract` or `task-planning-decomposition`, must complete at least one scout wave" in planner
     assert "Child or `## Scoped Expansion` turn: must load `non-root-context-reuse`" in planner
     assert "Before the first scout wave: must load `scout-launch-contract`" in planner
     assert "when `load_skill_reference` is available" in planner
+    assert "registered worker name in `agent_name`, human lane label in `local_id`" in planner
+    assert "Must keep dependency local ids in the top-level `deps` field" in planner
+    assert "Must emit each final lane exactly once." in planner
     assert "Atlas is cross-run memory only." in planner
+    assert "the sequence is `anchor -> scout wave -> decomposition -> plan JSON`" in planner
+    assert "Must use `agent_name` only for registered workers: `developer`, `validator`, or `team_planner`." in plan_json
+    assert "Must keep `deps` as a top-level item field." in plan_json
+    assert "Must emit each `local_id` only once." in plan_json
+    assert "Do not emit `agent_name: \"fix_compat_make_bytes_tuple_version\"` or `kind: \"developer\"`." in plan_json
+    assert "Do not merge `json.py`, `cli.py`, `config.py`, `compatibility.py`, and `utils.py` into one atomic `core_misc_fix` developer lane." in plan_json
     assert "Do not create one atomic \"misc fixes\" lane just because those residual slices are individually small." in decomposition
+    assert "Do not collapse those unrelated files into one atomic developer just to save root-plan slots." in decomposition
+    assert "Must emit a direct developer lane when the child turn already owns one exact production file" in non_root
+    assert "Do not emit another `team_planner` child for the same single-file residual." in non_root
     assert "Never map a benchmark cluster to a production file solely because the names look similar." in exploration
+    assert "the next planning action must be a scout wave, not final DAG synthesis" in exploration
+    assert "run_subagent(agent_name=\"scout\", input={\"target_paths\":[\"pkg/io/parquet\"]}" in exploration
     assert 'Must call `run_subagent(agent_name="scout", input={"target_paths": [...]}, task_note="...")`.' in scout_launch
     assert "Never pass prompt mode to `scout`." in scout_launch
 
@@ -92,14 +112,20 @@ def test_replanner_skill_has_explicit_conditional_reference_loading() -> None:
 
 def test_developer_and_validator_skills_explain_when_to_load_references() -> None:
     developer = _read(_CONTENT / "team-developer-playbook/SKILL.md")
+    developer_codeact_ref = _read(_CONTENT / "team-developer-playbook/references/codeact-runtime-examples.md")
     developer_ref = _read(_CONTENT / "team-developer-playbook/references/widening-and-runtime.md")
     validator = _read(_CONTENT / "team-validator-playbook/SKILL.md")
     validator_ref = _read(_CONTENT / "team-validator-playbook/references/cross-surface-guardrails.md")
 
     assert "Must load `widening-and-runtime` before the first widened write outside `owned_files`." in developer
     assert "Must load `widening-and-runtime` before concluding a runtime-owned lane from non-runtime evidence." in developer
+    assert "Must load `codeact-runtime-examples` before the first `daytona_codeact` verification or reproduction command on a benchmark lane." in developer
     assert "Must use `daytona_codeact` for bounded runtime reproduction or verification." in developer
+    assert "Must drive repo commands inside `daytona_codeact` through the provided `shell(\"...\")` helper." in developer
     assert "Never use `daytona_bash` from developer lanes." in developer
+    assert "Must not use raw Python `subprocess.run(...)` snippets" in developer
+    assert "Must execute repo commands through `shell(\"...\")` inside `daytona_codeact`." in developer_codeact_ref
+    assert "Do not start a generic `pip install ...` loop" in developer_codeact_ref
     assert "Use this reference only when either condition is true:" in developer_ref
 
     assert "Must load `cross-surface-guardrails` when the touched change affects public serialization, schema shape, or docs-visible output." in validator

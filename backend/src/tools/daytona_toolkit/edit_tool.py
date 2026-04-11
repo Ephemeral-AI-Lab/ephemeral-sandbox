@@ -15,6 +15,7 @@ from tools.daytona_toolkit.tools import (
     _recover_sandbox,
     _require_sandbox,
     _resolve_path,
+    _team_repo_write_error,
     _upload_file_compat,
 )
 from tools.daytona_toolkit.ci_integration import (
@@ -73,6 +74,9 @@ async def daytona_edit_file(
         return ToolResult(output=str(exc), is_error=True)
 
     file_path = _resolve_path(file_path, context)
+    contract_error = _team_repo_write_error(context, file_path, tool_name="daytona_edit_file")
+    if contract_error is not None:
+        return ToolResult(output=contract_error, is_error=True)
 
     prepared = None
     intent_id = None

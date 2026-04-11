@@ -198,6 +198,59 @@ async def test_edit_direct_write_success():
     assert b"goodbye world" in written_bytes
 
 
+async def test_edit_rejects_verify_surface_write_outside_owned_scope():
+    sb = _make_sandbox(download_content="original")
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "coordination_mode": "ultra",
+            "owned_files": ["dask/config.py"],
+            "owned_failures": ["dask/tests/test_config.py"],
+            "verify": ["pytest dask/tests/test_config.py -q"],
+        }
+    )
+
+    result = await daytona_edit_file.execute(
+        daytona_edit_file.input_model(
+            file_path="/testbed/dask/tests/test_config.py",
+            old_text="original",
+            new_text="patched",
+        ),
+        ctx,
+    )
+
+    assert result.is_error
+    assert "verification surfaces read-only" in result.output
+    sb.fs.upload_file.assert_not_called()
+
+
+async def test_edit_rejects_repo_write_from_validator():
+    sb = _make_sandbox(download_content="original")
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "validator",
+            "coordination_mode": "ultra",
+        }
+    )
+
+    result = await daytona_edit_file.execute(
+        daytona_edit_file.input_model(
+            file_path="/testbed/dask/config.py",
+            old_text="original",
+            new_text="patched",
+        ),
+        ctx,
+    )
+
+    assert result.is_error
+    assert "validator lanes must not write repository files" in result.output
+    sb.fs.upload_file.assert_not_called()
+
+
 async def test_edit_direct_write_exception():
     sb = _make_sandbox(download_content="content here")
     sb.fs.upload_file = AsyncMock(side_effect=RuntimeError("write fail"))

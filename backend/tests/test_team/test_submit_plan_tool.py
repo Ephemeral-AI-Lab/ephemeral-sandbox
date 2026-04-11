@@ -32,6 +32,68 @@ def test_submit_plan_input_accepts_json_string_items() -> None:
     assert args.items[0].agent_name == "developer"
 
 
+def test_submit_plan_input_normalizes_legacy_agent_and_id_fields() -> None:
+    args = SubmitPlanInput.model_validate(
+        {
+            "items": [
+                {
+                    "id": "fix_compat_make_bytes_tuple_version",
+                    "agent": "developer",
+                    "kind": "atomic",
+                    "payload": {"owned_files": ["dask/compatibility.py"]},
+                },
+                {
+                    "id": "validate_all",
+                    "agent": "validator",
+                    "kind": "atomic",
+                    "deps": ["fix_compat_make_bytes_tuple_version"],
+                    "payload": {
+                        "briefings": [{"name": "b", "source": "inline", "inline": "note"}],
+                        "verify": ["pytest dask/tests/test_compatibility.py -q"],
+                    },
+                },
+            ]
+        }
+    )
+    assert args.items[0].agent_name == "developer"
+    assert args.items[0].local_id == "fix_compat_make_bytes_tuple_version"
+    assert args.items[1].agent_name == "validator"
+    assert args.items[1].local_id == "validate_all"
+    assert args.items[1].briefings[0].name == "b"
+    assert "briefings" not in args.items[1].payload
+
+
+def test_submit_plan_input_infers_registered_agent_name_from_local_id_like_name() -> None:
+    args = SubmitPlanInput.model_validate(
+        {
+            "items": [
+                {
+                    "agent_name": "fix_config_cli_integration",
+                    "kind": "atomic",
+                    "payload": {"owned_files": ["dask/config.py", "dask/cli.py"]},
+                },
+                {
+                    "agent_name": "validate_all",
+                    "kind": "atomic",
+                    "deps": ["fix_config_cli_integration"],
+                    "payload": {"verify": ["pytest dask/tests/test_config.py -q"]},
+                },
+                {
+                    "agent_name": "misc_dask_child_planner",
+                    "kind": "expandable",
+                    "payload": {"owned_files": ["dask/config.py"]},
+                },
+            ]
+        }
+    )
+    assert args.items[0].agent_name == "developer"
+    assert args.items[0].local_id == "fix_config_cli_integration"
+    assert args.items[1].agent_name == "validator"
+    assert args.items[1].local_id == "validate_all"
+    assert args.items[2].agent_name == "team_planner"
+    assert args.items[2].local_id == "misc_dask_child_planner"
+
+
 @pytest.mark.asyncio
 async def test_valid_plan_accepted_and_stashed():
     tool = SubmitPlanTool()
@@ -540,6 +602,55 @@ async def test_submit_plan_normalizes_guessed_benchmark_repo_root_prefixes(monke
     assert plan.items[0].payload["verify"] == [
         "python -m pytest dask/dataframe/io/tests/test_hdf.py -q"
     ]
+
+
+@pytest.mark.asyncio
+async def test_submit_plan_normalizes_owned_failures_to_exact_benchmark_file(monkeypatch):
+    tool = SubmitPlanTool()
+    ctx = _ctx()
+    ctx.metadata["team_run_id"] = "TR2C"
+
+    root = SimpleNamespace(
+        payload={
+            "fail_to_pass": [
+                "dask/dataframe/io/tests/test_io.py::test_read_hdf_key_raises[dask]",
+            ],
+            "pass_to_pass": [],
+        }
+    )
+    fake_team_run = SimpleNamespace(
+        root_work_item_id="ROOT",
+        dispatcher=SimpleNamespace(graph={"ROOT": root}),
+    )
+
+    from team.runtime import registry as runtime_registry
+
+    monkeypatch.setattr(
+        runtime_registry, "get", lambda team_run_id: fake_team_run if team_run_id == "TR2C" else None
+    )
+
+    args = SubmitPlanInput.model_validate(
+        {
+            "items": [
+                {
+                    "agent_name": "developer",
+                    "local_id": "dev_io",
+                    "payload": {
+                        "owned_failures": [
+                            "dask/dataframe/tests/test_io.py::test_read_hdf_key_raises[dask]#2-0"
+                        ],
+                    },
+                }
+            ]
+        }
+    )
+
+    res = await tool.execute(args, ctx)
+
+    assert not res.is_error
+    plan = ctx.metadata["submitted_plan"]
+    assert isinstance(plan, Plan)
+    assert plan.items[0].payload["owned_failures"] == ["dask/dataframe/io/tests/test_io.py"]
 
 
 @pytest.mark.asyncio

@@ -52,7 +52,18 @@ Output contract:
 - Each item must satisfy the runtime ``WorkItemSpec`` fields.
 - Submitted plan items must target registered agents that support the requested work-item kind. Must never submit ``scout``.
 - Each `briefings` entry must use the runtime schema: `{"name": "...", "source": "artifact", "ref": "..."}` or `{"name": "...", "source": "inline", "inline": "..."}`. Must not emit `content` as a briefing field.
+- Must read `references/non-root-context-reuse.md` before opening fresh exploration on non-root turns.
+- Must treat inherited `## Scoped Expansion`, `## From deps`, and `## From parent` context as mandatory inputs on non-root turns.
+- Must keep validation branch-local. Must not add an umbrella validator over a child plan.
+- On benchmark plans, must keep validator items aligned to the concrete branch cut they actually verify.
+- Must not attach a validator to a ``team_planner`` item; child planners own their own validation.
 - On benchmark-root plans, every ``owned_failures`` entry must be either an exact prompt pytest node id or an exact prompt test file path. If you cannot quote the node id verbatim from the prompt or a live artifact, must use the exact benchmark test file path instead of inventing one.
+- If you cannot quote the node id verbatim from the prompt, must use the exact benchmark test file path instead of inventing or renaming a node.
+- On fresh benchmark roots, open with one narrow ``ci_workspace_structure(path="<nearest likely production directory/package>")`` pass and then call ``ci_scoped_status(scope_paths=[...])`` on an exact existing production path.
+- Must keep the first scout wave dynamic: wide enough for the live owner surface, narrow enough that each lane answers one real ownership question.
+- Must prefer multiple separate production-owner scouts instead of collapsing those clusters into one omnibus lane.
+- Must not spend those first-wave lanes on already-named benchmark test files when a plausible production owner already exists.
+- If a guessed benchmark owner file is missing, must re-anchor on the nearest exact existing production directory/package path.
 - Must not write prose before or after the JSON payload."""
 
 _DEVELOPER_PROMPT = """You are developer. Execute one bounded coding WorkItem in the sandbox and return a concise summary.
@@ -79,7 +90,16 @@ _SUBMIT_PLAN_AGENT_PROMPT = """You are submit_plan_agent. Read the work-phase ou
 - The work-phase output must be a JSON object with ``items`` and optional ``rationale``. Must parse that JSON and pass it through unchanged unless validation requires a fix.
 - If the work-phase output is not parseable JSON with a top-level ``items`` list, must not infer or invent a plan from prose or notes. Must stop without calling any tool.
 - ``items`` must be passed to ``submit_plan`` as a real list object, never as a JSON string.
+- If an item puts dependency local_ids under ``payload.deps``, must hoist them into the item's top-level ``deps`` field before calling ``submit_plan``.
+- Must keep exactly one entry per unique ``local_id``. If a repair pass encounters duplicate ``local_id`` values, deduplicate the list instead of submitting the duplicates again.
 - If submit_plan returns an `invalid_plan:` error block, must fix only the offending field(s) and call submit_plan again in the same turn.
+- If validation fails on `max_plan_size`, must not make a cosmetic one-item trim. Repair the shape by merging adjacent residual siblings behind a narrower expandable `team_planner` item or by another targeted structural fix that preserves the planner's intent.
+- If the invalid plan only needs validator coverage on a branch, may use a validator-only fallback instead of reshaping unrelated siblings.
+- When repairing deps after validation, a disjoint expandable child planner may remain ready immediately if it does not depend on the offending branch.
+- Every validator must depend on at least one upstream sibling.
+- If a validator is terminal, its ``deps`` must include every terminal concrete sibling in the submitted layer, not just the branch that first triggered the repair.
+- If validation fails on a benchmark reference for `owned_failures`, `reproduction`, `verification`, `verify`, or `retries`, must preserve exact prompt ids when they exist. Otherwise downgrade that entry to the exact benchmark test file path instead of guessing a nearby node name.
+- When downgrading an invalid benchmark node reference, strip the ``::...`` suffix and keep only the exact benchmark test file path if that path is the benchmark surface named in the prompt.
 - Must stop immediately after the first accepted submission.
 - Must not write prose. You have no other tools."""
 
@@ -113,6 +133,8 @@ Output contract:
 - Must end with a single JSON object shaped like ``{"add_items": [...], "cancel_ids": [...]}``.
 - Each item in add_items must have at least ``agent_name`` and ``payload``.
 - New items will be inserted as siblings of the failed item at the same DAG level.
+- On benchmark corrective turns, must load `corrective-fast-path` via `load_skill_reference` before broader recovery when the validator packet already names exact failing ids and owner files.
+- Must use `ci_scoped_status` for one exact live owner confirmation when the failure packet is insufficient on its own.
 - Must not write prose before or after the JSON payload."""
 
 _SUBMIT_REPLAN_AGENT_PROMPT = """You are submit_replan_agent. Read the work-phase output above and call submit_replan exactly once with the corrective plan.

@@ -24,6 +24,8 @@ Use this reference only after ownership is already clear enough to draft the DAG
 - Prefer one terminal validator when several concrete lanes converge on the same public surface.
 - Add one midflight validator only when it protects a genuinely risky branch cut before later lanes build on it.
 - Keep validator deps on the concrete work being checked, not on a child planner node by itself.
+- Every validator must depend on at least one upstream concrete sibling.
+- A terminal validator must depend on every terminal concrete sibling in that layer so it gates the whole ready frontier, not just one branch.
 
 ## Few-shot examples
 
@@ -39,6 +41,9 @@ Use this reference only after ownership is already clear enough to draft the DAG
 - Example: one dominant cluster has 32 targets, two secondary clusters have 11 and 8 targets, and the remaining slices are `cli`, `config`, `compat`, `json`, and `utils` with only 1-4 targets each.
   Emit the dominant lane directly, keep the two secondary clusters separate, and park the residual small slices behind one or more child planners only if live evidence still leaves them unresolved.
   Do not create one atomic "misc fixes" lane just because those residual slices are individually small.
+- Example: HDF and parquet are already split, and five remaining single-file production modules each have their own scout brief (`json.py`, `cli.py`, `config.py`, `compatibility.py`, `utils.py`).
+  Either keep those five developers separate or put them behind one residual child planner that can schedule them well.
+  Do not collapse those unrelated files into one atomic developer just to save root-plan slots.
 - Example: four unrelated direct developers converge only at the grading command.
   Prefer one terminal validator or grading lane at the end.
   Do not decorate the graph with paired validator siblings purely for symmetry.

@@ -237,8 +237,8 @@ async def test_codeact_write_commit_failure():
 
 async def test_codeact_shell_summaries():
     manifest = _make_manifest(shells=[
-        {"command": "ls -la", "exit_code": 0, "stdout": "", "stderr": ""},
-        {"command": "pytest", "exit_code": 1, "stdout": "", "stderr": ""},
+        {"command": "ls -la", "exit_code": 0, "stdout": "file-a\nfile-b\n", "stderr": ""},
+        {"command": "pytest", "exit_code": 1, "stdout": "", "stderr": "assertion failed"},
     ])
     sb = _make_sandbox(manifest=manifest)
     ctx = _ctx({"daytona_sandbox": sb})
@@ -249,6 +249,119 @@ async def test_codeact_shell_summaries():
     assert data["shells_run"] == 2
     assert len(data["shell_summaries"]) == 2
     assert "ls -la" in data["shell_summaries"][0]
+    assert len(data["shell_outputs"]) == 2
+    assert data["shell_outputs"][0]["stdout"] == "file-a\nfile-b\n"
+    assert data["shell_outputs"][1]["stderr"] == "assertion failed"
+
+
+async def test_codeact_preserves_script_stdout_before_manifest_line():
+    manifest = _make_manifest()
+    exec_stdout = 'hello from codeact\n{"manifest": "/tmp/codeact-xxx.json", "status": "ok"}'
+    sb = _make_sandbox(exec_stdout=exec_stdout, manifest=manifest)
+    ctx = _ctx({"daytona_sandbox": sb})
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(code="print('hello from codeact')"), ctx
+    )
+    data = json.loads(result.output)
+    assert data["script_stdout"] == "hello from codeact"
+
+
+async def test_codeact_rejects_raw_subprocess_calls_for_team_developer():
+    sb = _make_sandbox()
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "agent_name": "developer",
+            "coordination_mode": "ultra",
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(
+            code="import subprocess\nsubprocess.run(['pytest'], check=False)"
+        ),
+        ctx,
+    )
+
+    assert result.is_error
+    assert "shell(\"...\")" in result.output
+    sb.process.exec.assert_not_called()
+
+
+async def test_codeact_rejects_repo_writes_from_validator():
+    manifest = _make_manifest(writes=[{"path": "/testbed/pkg/core.py", "content": "x = 1\n"}])
+    sb = _make_sandbox(manifest=manifest)
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "validator",
+            "coordination_mode": "ultra",
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(code="write('/testbed/pkg/core.py', 'x = 1\\n')"),
+        ctx,
+    )
+
+    assert result.is_error
+    assert "must not write repository files" in result.output
+    assert sb.fs.upload_file.call_count == 1
+
+
+async def test_codeact_rejects_verify_surface_write_outside_owned_scope():
+    manifest = _make_manifest(writes=[{"path": "/testbed/dask/tests/test_cli.py", "content": "patched\n"}])
+    sb = _make_sandbox(manifest=manifest)
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "coordination_mode": "ultra",
+            "owned_files": ["dask/cli.py"],
+            "owned_failures": ["dask/tests/test_cli.py"],
+            "verify": ["pytest dask/tests/test_cli.py -q"],
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(code="write('/testbed/dask/tests/test_cli.py', 'patched\\n')"),
+        ctx,
+    )
+
+    assert result.is_error
+    assert "verification surfaces read-only" in result.output
+    assert sb.fs.upload_file.call_count == 1
+
+
+async def test_codeact_rejects_install_commands_for_team_developer():
+    manifest = _make_manifest(
+        shells=[
+            {
+                "command": "python -m pip install pytest",
+                "exit_code": 0,
+                "stdout": "",
+                "stderr": "",
+            }
+        ]
+    )
+    sb = _make_sandbox(manifest=manifest)
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "agent_name": "developer",
+            "coordination_mode": "ultra",
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(code="shell('python -m pip install pytest')"),
+        ctx,
+    )
+
+    assert result.is_error
+    assert "ambient runtime environment" in result.output
 
 
 # ---------------------------------------------------------------------------

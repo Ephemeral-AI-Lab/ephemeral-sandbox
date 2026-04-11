@@ -560,6 +560,18 @@ def test_submit_plan_agent_prompt_rebuilds_shape_on_plan_size_failure():
     )
 
 
+def test_submit_plan_agent_prompt_hoists_payload_deps_before_submit():
+    from team.builtins import register_all
+    from agents.registry import get_definition
+
+    register_all()  # idempotent
+
+    serializer = get_definition("submit_plan_agent")
+    assert serializer is not None
+    assert "payload.deps" in serializer.system_prompt
+    assert "top-level ``deps`` field" in serializer.system_prompt
+
+
 def test_submit_plan_agent_prompt_repairs_benchmark_refs_without_locking_old_validator_wording():
     from team.builtins import register_all
     from agents.registry import get_definition
@@ -574,6 +586,19 @@ def test_submit_plan_agent_prompt_repairs_benchmark_refs_without_locking_old_val
     assert "strip the ``::...`` suffix and keep only the exact benchmark test file path" in (
         serializer.system_prompt
     )
+
+
+def test_submit_plan_agent_prompt_calls_out_validator_dep_repairs_and_local_id_dedup():
+    from team.builtins import register_all
+    from agents.registry import get_definition
+
+    register_all()  # idempotent
+
+    serializer = get_definition("submit_plan_agent")
+    assert serializer is not None
+    assert "Must keep exactly one entry per unique ``local_id``." in serializer.system_prompt
+    assert "Every validator must depend on at least one upstream sibling." in serializer.system_prompt
+    assert "its ``deps`` must include every terminal concrete sibling" in serializer.system_prompt
 
 
 def test_team_planner_prompt_makes_child_scope_rules_explicit():

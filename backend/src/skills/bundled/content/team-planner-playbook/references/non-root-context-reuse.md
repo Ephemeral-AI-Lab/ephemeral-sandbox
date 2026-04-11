@@ -15,5 +15,12 @@ Use this reference only on child planning turns or prompts with `## Scoped Expan
 - Must recover real live filenames instead of guessed aliases.
 - Must deepen the DAG only for the unresolved branch. Do not serially re-plan already-settled siblings.
 - Must keep direct ready lanes ready even when one residual branch still needs a child planner.
+- Must emit a direct developer lane when the child turn already owns one exact production file or one exact file pair with one verification family.
 - Never reopen a broad workspace scan if the parent already handed down the relevant slice boundary.
 - Never invent replacement nodes, replacement files, or broad substitute ownership from a stale test name.
+
+## Few-shot example
+
+- Example: parent already narrowed the residual slice to `pkg/utils.py` plus `tests/test_utils.py`.
+  Emit a direct `developer` lane and, if needed, one sibling `validator` lane for that exact slice.
+  Do not emit another `team_planner` child for the same single-file residual.

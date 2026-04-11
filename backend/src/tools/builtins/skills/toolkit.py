@@ -188,16 +188,18 @@ def make_skills_toolkit(
 
         if (
             skill_name == "team-planner-playbook"
-            and reference_name == "task-planning-decomposition"
+            and reference_name in {"plan-json-contract", "task-planning-decomposition"}
             and _is_benchmark_root_planner(context)
             and not _has_scout_wave(context)
         ):
             return ToolResult(
                 output=(
-                    "Fresh benchmark-root planners must not load "
-                    "`task-planning-decomposition` before the first scout wave. "
-                    "Launch at least one bounded scout on an unresolved owner slice first, "
-                    "then load the decomposition reference when you are ready to draft the DAG."
+                    "Fresh benchmark-root planners must not load final-plan references "
+                    f"like `{reference_name}` before the first scout wave. "
+                    "Launch at least one bounded scout now with "
+                    "`run_subagent(agent_name=\"scout\", input={\"target_paths\": [...]}, task_note=\"...\")` "
+                    "on the next unresolved production-owner slice, wait for the scout brief, "
+                    "then load the final-plan reference when you are ready to draft the DAG."
                 ),
                 is_error=True,
             )

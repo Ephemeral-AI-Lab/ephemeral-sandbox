@@ -40,6 +40,8 @@ _SANDBOX_RECOVERY_PATTERNS = (
     "container not found",
     "sandbox container not found",
 )
+_TEAM_CONTRACT_AGENT_NAMES = frozenset({"developer", "validator"})
+_VERIFY_PATH_RE = re.compile(r"(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+\.py)(?![A-Za-z0-9_./-])")
 
 
 def _truncate(text: str, max_chars: int = _OUTPUT_MAX_CHARS) -> str:
@@ -202,6 +204,97 @@ def _resolve_path(path: str, context: ToolExecutionContext) -> str:
     if cwd:
         return f"{cwd}/{path}"
     return path
+
+
+def _normalize_repo_relative_path(path: Any, repo_root: str) -> str | None:
+    if not isinstance(path, str):
+        return None
+    cleaned = path.strip().replace("\\", "/")
+    if not cleaned:
+        return None
+    while cleaned.startswith("./"):
+        cleaned = cleaned[2:]
+    cleaned = cleaned.rstrip("/")
+    if not cleaned:
+        return None
+    if not cleaned.startswith("/"):
+        return cleaned
+    root = repo_root.rstrip("/")
+    if root and cleaned.startswith(root + "/"):
+        rel = cleaned[len(root) + 1 :].strip().rstrip("/")
+        return rel or None
+    return None
+
+
+def _normalize_string_list(value: Any, repo_root: str) -> list[str]:
+    if isinstance(value, str):
+        values = [value]
+    elif isinstance(value, list):
+        values = [item for item in value if isinstance(item, str)]
+    else:
+        return []
+    out: list[str] = []
+    for item in values:
+        normalized = _normalize_repo_relative_path(item, repo_root)
+        if normalized:
+            out.append(normalized)
+    return out
+
+
+def _extract_verify_paths(value: Any, repo_root: str) -> list[str]:
+    if isinstance(value, str):
+        candidates = [value]
+    elif isinstance(value, list):
+        candidates = [item for item in value if isinstance(item, str)]
+    else:
+        return []
+    out: list[str] = []
+    for item in candidates:
+        stripped = item.strip()
+        if not stripped:
+            continue
+        if stripped.endswith(".py") or "::" in stripped:
+            normalized = _normalize_repo_relative_path(stripped.split("::", 1)[0], repo_root)
+            if normalized:
+                out.append(normalized)
+        for match in _VERIFY_PATH_RE.findall(stripped):
+            normalized = _normalize_repo_relative_path(match.split("::", 1)[0], repo_root)
+            if normalized:
+                out.append(normalized)
+    return out
+
+
+def _team_repo_write_error(
+    context: ToolExecutionContext,
+    file_path: str,
+    *,
+    tool_name: str,
+) -> str | None:
+    agent_name = str(context.metadata.get("agent_name") or "").strip()
+    if agent_name not in _TEAM_CONTRACT_AGENT_NAMES:
+        return None
+    if str(context.metadata.get("coordination_mode") or "").strip() != "ultra":
+        return None
+    repo_root = str(_get_cwd(context) or "")
+    rel_path = _normalize_repo_relative_path(file_path, repo_root)
+    if not rel_path:
+        return None
+    if agent_name == "validator":
+        return (
+            f"{tool_name}: validator lanes must not write repository files. "
+            f"Observed repo write: {rel_path}."
+        )
+    allowed_write_paths = set(_normalize_string_list(context.metadata.get("owned_files"), repo_root))
+    allowed_write_paths.update(_normalize_string_list(context.metadata.get("touches_paths"), repo_root))
+    verify_paths = set(_extract_verify_paths(context.metadata.get("verify"), repo_root))
+    verify_paths.update(_extract_verify_paths(context.metadata.get("owned_failures"), repo_root))
+    if rel_path in verify_paths and rel_path not in allowed_write_paths:
+        return (
+            f"{tool_name}: developer lanes must keep verification surfaces read-only unless the "
+            "WorkItem explicitly owns or widens to them. "
+            f"Observed write on verification path: {rel_path}."
+        )
+    return None
 
 
 async def _upload_file_compat(sandbox: Any, content: bytes, file_path: str) -> None:
@@ -636,6 +729,9 @@ async def daytona_write_file(
     """
     sandbox = await _require_sandbox(context)
     file_path = _resolve_path(file_path, context)
+    contract_error = _team_repo_write_error(context, file_path, tool_name="daytona_write_file")
+    if contract_error is not None:
+        return ToolResult(output=contract_error, is_error=True)
     prepared = None
     async def _ensure_parent(active_sandbox: Any) -> None:
         parent = "/".join(file_path.split("/")[:-1])

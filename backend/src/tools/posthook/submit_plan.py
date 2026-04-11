@@ -17,6 +17,60 @@ _BENCHMARK_COMMAND_KEYS = ("reproduction", "verification", "verify", "retries")
 _CD_COMMAND_RE = re.compile(
     r"^\s*cd\s+(?P<quote>['\"]?)(?P<path>[^&|;'\"]+?)(?P=quote)\s*&&\s*(?P<rest>.+?)\s*$"
 )
+_PARAM_CASE_SUFFIX_RE = re.compile(r"#\d+(?:-\d+)*$")
+
+
+def _looks_like_validator_payload(payload: dict[str, Any]) -> bool:
+    return any(key in payload for key in ("verify", "verification", "retries", "reproduction"))
+
+
+def _normalize_submit_plan_item_shape(item: Any) -> Any:
+    if not isinstance(item, dict):
+        return item
+
+    normalized = dict(item)
+    payload = normalized.get("payload")
+    payload_dict = dict(payload) if isinstance(payload, dict) else {}
+
+    if "local_id" not in normalized and isinstance(normalized.get("id"), str):
+        normalized["local_id"] = normalized["id"]
+
+    if "briefings" not in normalized and isinstance(payload_dict.get("briefings"), list):
+        normalized["briefings"] = payload_dict.pop("briefings")
+
+    if "agent_name" not in normalized and isinstance(normalized.get("agent"), str):
+        normalized["agent_name"] = normalized["agent"]
+
+    raw_agent_name = normalized.get("agent_name")
+    local_id = normalized.get("local_id")
+    if isinstance(raw_agent_name, str):
+        agent_name = raw_agent_name.strip()
+        if agent_name not in {"developer", "validator", "team_planner"}:
+            inferred_agent = None
+            explicit_agent = normalized.get("agent")
+            if isinstance(explicit_agent, str) and explicit_agent.strip() in {
+                "developer",
+                "validator",
+                "team_planner",
+            }:
+                inferred_agent = explicit_agent.strip()
+            elif normalized.get("kind") == WorkItemKind.EXPANDABLE.value:
+                inferred_agent = "team_planner"
+            elif agent_name.startswith("validate") or agent_name.startswith("validator"):
+                inferred_agent = "validator"
+            elif _looks_like_validator_payload(payload_dict) and normalized.get("deps"):
+                inferred_agent = "validator"
+            else:
+                inferred_agent = "developer"
+
+            normalized["agent_name"] = inferred_agent
+            if not isinstance(local_id, str) or not local_id.strip():
+                normalized["local_id"] = agent_name
+
+    if payload_dict:
+        normalized["payload"] = payload_dict
+
+    return normalized
 
 
 def _optional_int(value: Any) -> int | None:
@@ -54,7 +108,10 @@ class SubmitPlanInput(BaseModel):
     @field_validator("items", mode="before")
     @classmethod
     def _deserialize_items(cls, value: Any) -> Any:
-        return _decode_json_array_string(value)
+        raw_items = _decode_json_array_string(value)
+        if not isinstance(raw_items, list):
+            return raw_items
+        return [_normalize_submit_plan_item_shape(item) for item in raw_items]
 
 
 class SubmitPlanTool(SubmitPosthookTool):
@@ -232,6 +289,18 @@ class SubmitPlanTool(SubmitPosthookTool):
                 normalized_items.append(item)
                 continue
             normalized_payload = dict(payload)
+            owned_failures = normalized_payload.get("owned_failures")
+            if isinstance(owned_failures, list):
+                normalized_payload["owned_failures"] = [
+                    self._normalize_benchmark_owned_failure(
+                        value,
+                        benchmark_test_ids=benchmark_test_ids,
+                        benchmark_test_files=benchmark_test_files,
+                    )
+                    if isinstance(value, str)
+                    else value
+                    for value in owned_failures
+                ]
             for key in _BENCHMARK_COMMAND_KEYS:
                 raw_value = normalized_payload.get(key)
                 if isinstance(raw_value, str):
@@ -248,6 +317,37 @@ class SubmitPlanTool(SubmitPosthookTool):
             normalized_items.append({**item, "payload": normalized_payload})
 
         return {**plan_data, "items": normalized_items}
+
+    def _normalize_benchmark_owned_failure(
+        self,
+        value: str,
+        *,
+        benchmark_test_ids: set[str] | None,
+        benchmark_test_files: set[str] | None,
+    ) -> str:
+        raw = value.strip()
+        if not raw:
+            return value
+        test_ids = benchmark_test_ids or set()
+        test_files = benchmark_test_files or set()
+        if raw in test_ids or raw in test_files:
+            return raw
+
+        trimmed = _PARAM_CASE_SUFFIX_RE.sub("", raw)
+        if trimmed in test_ids or trimmed in test_files:
+            return trimmed
+
+        file_candidate = trimmed.split("::", 1)[0].strip() if "::" in trimmed else trimmed
+        if file_candidate in test_files:
+            return file_candidate
+
+        basename = os.path.basename(file_candidate)
+        if basename:
+            matches = [path for path in test_files if os.path.basename(path) == basename]
+            if len(matches) == 1:
+                return matches[0]
+
+        return raw
 
     def _normalize_benchmark_command(self, value: str, *, repo_dir: str) -> str:
         match = _CD_COMMAND_RE.match(value)

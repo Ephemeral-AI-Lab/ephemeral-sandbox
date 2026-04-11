@@ -174,3 +174,64 @@ async def test_snapshot_time_explicit_value_preserved():
     res = await tool.execute(args, ctx)
     assert not res.is_error
     assert ctx.metadata["submitted_summary"].artifact["snapshot_time"] == 99.0
+
+
+@pytest.mark.asyncio
+async def test_scout_artifact_missing_empty_contract_fields_gets_normalized():
+    tool = SubmitSummaryTool()
+    ctx = _ctx()
+    args = SubmitSummaryInput.model_validate(
+        {
+            "summary": "scout report",
+            "artifact": {
+                "target_paths": ["src/auth"],
+                "entry_points": ["src.auth:main"],
+                "scope_coverage": 1.0,
+            },
+        }
+    )
+    res = await tool.execute(args, ctx)
+    assert not res.is_error
+    artifact = ctx.metadata["submitted_summary"].artifact
+    assert artifact["files"] == []
+    assert artifact["open_questions"] == []
+    assert artifact["gaps"] == ""
+    assert artifact["suggested_subdivisions"] == []
+
+
+@pytest.mark.asyncio
+async def test_scout_artifact_missing_scope_coverage_defaults_from_subdivisions():
+    tool = SubmitSummaryTool()
+    ctx = _ctx()
+    args = SubmitSummaryInput.model_validate(
+        {
+            "summary": "scout report",
+            "artifact": {
+                "target_paths": ["src/pkg"],
+                "suggested_subdivisions": ["src/pkg/io", "src/pkg/core"],
+            },
+        }
+    )
+    res = await tool.execute(args, ctx)
+    assert not res.is_error
+    artifact = ctx.metadata["submitted_summary"].artifact
+    assert artifact["scope_coverage"] == 0.5
+    assert artifact["files"] == []
+    assert artifact["entry_points"] == []
+    assert artifact["open_questions"] == []
+    assert artifact["gaps"] == ""
+
+
+@pytest.mark.asyncio
+async def test_non_scout_artifact_is_not_normalized():
+    tool = SubmitSummaryTool()
+    ctx = _ctx()
+    args = SubmitSummaryInput.model_validate(
+        {
+            "summary": "report",
+            "artifact": {"files": ["a.py"]},
+        }
+    )
+    res = await tool.execute(args, ctx)
+    assert not res.is_error
+    assert ctx.metadata["submitted_summary"].artifact == {"files": ["a.py"]}

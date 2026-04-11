@@ -61,7 +61,8 @@ class SubmitSummaryTool(SubmitPosthookTool):
         summary = arguments.summary.strip()
         if not summary:
             return None, "summary must be non-empty"
-        artifact = _inject_snapshot_time(arguments.artifact, context)
+        artifact = _normalize_scout_artifact_contract(arguments.artifact)
+        artifact = _inject_snapshot_time(artifact, context)
         artifact = _inject_canonical_scope(artifact)
         return (
             SubmittedSummary(summary=summary, artifact=artifact),
@@ -87,6 +88,49 @@ def _inject_canonical_scope(artifact: dict[str, Any] | None) -> dict[str, Any] |
     if not derived:
         return artifact
     return {**artifact, "canonical_scope": derived}
+
+
+def _normalize_scout_artifact_contract(
+    artifact: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Fill omitted scout brief fields before runtime validation.
+
+    The scout playbook requires a fixed artifact shape, but serializer
+    agents occasionally omit empty fields when calling ``submit_summary``.
+    Repair only missing fields for scout-shaped artifacts so downstream
+    validation remains strict about wrong types or incoherent values.
+    """
+    if not isinstance(artifact, dict):
+        return artifact
+    target_paths = artifact.get("target_paths")
+    if not isinstance(target_paths, list):
+        return artifact
+
+    normalized = dict(artifact)
+    changed = False
+    for key in ("files", "entry_points", "open_questions", "suggested_subdivisions"):
+        if key not in normalized:
+            normalized[key] = []
+            changed = True
+    if "gaps" not in normalized:
+        normalized["gaps"] = ""
+        changed = True
+    if "scope_coverage" not in normalized:
+        normalized["scope_coverage"] = _default_scope_coverage(normalized)
+        changed = True
+    return normalized if changed else artifact
+
+
+def _default_scope_coverage(artifact: dict[str, Any]) -> float:
+    subdivisions = artifact.get("suggested_subdivisions")
+    if isinstance(subdivisions, list) and any(
+        isinstance(item, str) and item.strip() for item in subdivisions
+    ):
+        return 0.5
+    gaps = artifact.get("gaps")
+    if isinstance(gaps, str) and gaps.strip():
+        return 0.0
+    return 1.0
 
 
 def _inject_snapshot_time(

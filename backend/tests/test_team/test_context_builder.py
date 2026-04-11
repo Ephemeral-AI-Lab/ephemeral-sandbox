@@ -195,6 +195,28 @@ def test_build_query_context_injects_scope_packet_when_ci_is_available(monkeypat
     assert ctx.user_message.startswith("SCOPE token-1\n\n")
 
 
+def test_build_query_context_forwards_execution_scope_fields():
+    store = InMemoryArtifactStore(BudgetConfig(), BudgetState())
+    tr = _fake_team_run(store)
+    wi = _wi(
+        payload={
+            "task": "fix cli",
+            "owned_files": ["dask/cli.py"],
+            "owned_failures": ["dask/tests/test_cli.py::test_info_versions"],
+            "touches_paths": ["dask/config.py"],
+            "verify": ["pytest dask/tests/test_cli.py -q"],
+        }
+    )
+    defn = SimpleNamespace(name="developer")
+
+    ctx = build_query_context(defn, tr, wi)
+
+    assert ctx.tool_metadata["owned_files"] == ["dask/cli.py"]
+    assert ctx.tool_metadata["owned_failures"] == ["dask/tests/test_cli.py::test_info_versions"]
+    assert ctx.tool_metadata["touches_paths"] == ["dask/config.py"]
+    assert ctx.tool_metadata["verify"] == ["pytest dask/tests/test_cli.py -q"]
+
+
 def test_team_agent_context_tracks_posthook_state_outside_raw_metadata():
     ctx = TeamAgentContext(work_result={"phase": "work"})
 

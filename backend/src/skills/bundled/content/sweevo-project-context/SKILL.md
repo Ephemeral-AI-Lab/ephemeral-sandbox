@@ -25,6 +25,7 @@ Use this skill only for stable benchmark policy. Must treat the prompt, payload,
 
 - Fresh benchmark roots must stay live-first. Must start with a narrow owner-surface pass before broad exploration.
 - Planners must load `team-planner-playbook/exploration-script` before the first non-reference planning tool call on a fresh benchmark root when `load_skill_reference` is available.
+- After the root anchor, planners must execute at least one scout wave on unresolved production-owner slices before loading final-plan references or emitting the root DAG.
 - Planners must load `team-planner-playbook/task-planning-decomposition` immediately before finalizing the root DAG when `load_skill_reference` is available.
 - Child or scoped benchmark planning must load `team-planner-playbook/non-root-context-reuse` before fresh exploration when `load_skill_reference` is available.
 - Must anchor `owned_files`, `owned_failures`, and verification commands on exact live paths. Never keep guessed aliases such as `compat.py` when live structure shows `compatibility.py`.

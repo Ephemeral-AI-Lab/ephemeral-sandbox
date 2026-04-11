@@ -823,6 +823,48 @@ async def test_team_scout_returns_stable_artifact_ref_and_auto_promotes(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_team_scout_normalizes_missing_empty_contract_fields(monkeypatch):
+    budgets = BudgetConfig()
+    state = BudgetState()
+    artifacts = InMemoryArtifactStore(budgets, state)
+    team_run = SimpleNamespace(
+        id="T-scout-normalized",
+        budgets=budgets,
+        artifacts=artifacts,
+        project_context=ProjectContext(goal="g", user_request="u"),
+    )
+    _register_team_run(team_run)
+
+    submitted = SubmittedSummary(
+        summary="scout report",
+        artifact={
+            "target_paths": ["src/auth"],
+            "canonical_scope": "src/auth",
+            "files": [],
+            "scope_coverage": 1.0,
+        },
+    )
+    stub, _ = _make_stub_agent(submitted=submitted)
+    _patch_spawn(monkeypatch, stub)
+
+    try:
+        res = await run_subagent.execute(
+            run_subagent.input_model(agent_name="scout", input={"target_paths": ["src/auth"]}),
+            _ctx(team_run_id="T-scout-normalized"),
+        )
+        assert not res.is_error
+        env = json.loads(res.output)
+        assert env["artifact_ref"] == "scout:src/auth"
+        stored = artifacts.load("scout:src/auth")
+        assert stored["entry_points"] == []
+        assert stored["open_questions"] == []
+        assert stored["gaps"] == ""
+        assert stored["suggested_subdivisions"] == []
+    finally:
+        _unregister_team_run("T-scout-normalized")
+
+
+@pytest.mark.asyncio
 async def test_team_scout_does_not_overwrite_newer_stable_artifact(monkeypatch):
     budgets = BudgetConfig()
     state = BudgetState()
