@@ -1,12 +1,8 @@
-"""Context toolkit — unified Task Center notes + scope change queries.
-
-Merges the former task_center, search, and search_context tools into one
-toolkit with read-only and read-write variants.
+"""Context toolkit — unified Task Center notes + staleness queries.
 
 Tools:
 - post_note        — post a note for other agents (write variant only)
 - read_notes       — read/search notes with optional keyword filter
-- scope_changed_since  — check file changes in scope since a timestamp
 - context_changed_since — check if context is stale (other agents' edits)
 """
 
@@ -108,60 +104,6 @@ class ReadNotesTool(BaseTool):
 
 
 # ---------------------------------------------------------------------------
-# ScopeChangedSinceTool
-# ---------------------------------------------------------------------------
-
-
-class ScopeChangedSinceInput(BaseModel):
-    paths: list[str] = Field(..., description="Scope paths to check")
-    since: float | None = Field(
-        default=None, description="Unix timestamp. Defaults to task start time."
-    )
-
-
-class ScopeChangedSinceTool(BaseTool):
-    name = "scope_changed_since"
-    description = "Check what files changed in your scope since a given time. Uses Arbiter (ground truth) with Task Center note fallback."
-    input_model = ScopeChangedSinceInput
-
-    async def execute(
-        self, arguments: ScopeChangedSinceInput, context: ToolExecutionContext
-    ) -> ToolResult:
-        since = arguments.since or context.metadata.get("work_item_started_at", 0)
-        arbiter = context.metadata.get("arbiter")
-
-        if arbiter is not None:
-            changes = arbiter.changes_since(since)
-            scoped = [
-                e
-                for e in changes
-                if any(e.file_path.startswith(p.rstrip("/")) for p in arguments.paths)
-            ]
-            if not scoped:
-                return ToolResult(output="No changes detected in scope since the given time.")
-            now = time.time()
-            lines = [f"Changes in scope since {since}:"]
-            for e in scoped:
-                lines.append(
-                    f"- {e.file_path} ({e.edit_type} by {e.agent_id}, "
-                    f"{int(now - e.timestamp)}s ago)"
-                )
-            return ToolResult(output="\n".join(lines))
-
-        # Fallback: query Task Center notes
-        tc = context.metadata.get("task_center")
-        if tc is None:
-            return ToolResult(output="No changes detected.")
-        notes = await tc.read(scope_paths=arguments.paths, since=since)
-        if not notes:
-            return ToolResult(output="No changes detected in scope since the given time.")
-        lines = [f"Changes in scope since {since}:"]
-        for n in notes:
-            lines.append(f"- {n.agent_name}: {n.content[:200]}")
-        return ToolResult(output="\n".join(lines))
-
-
-# ---------------------------------------------------------------------------
 # ContextChangedSinceTool
 # ---------------------------------------------------------------------------
 
@@ -233,7 +175,7 @@ class ContextChangedSinceTool(BaseTool):
 # Toolkits
 # ---------------------------------------------------------------------------
 
-_READ_TOOLS = [ReadNotesTool(), ScopeChangedSinceTool(), ContextChangedSinceTool()]
+_READ_TOOLS = [ReadNotesTool(), ContextChangedSinceTool()]
 _WRITE_TOOLS = [PostNoteTool()] + _READ_TOOLS
 
 
