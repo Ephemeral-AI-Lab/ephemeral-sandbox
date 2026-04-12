@@ -158,7 +158,7 @@ class Dispatcher:
 
     async def _pg_mark_running(self, wi_id: str, agent_run_id: str) -> Task:
         assert self._pg is not None
-        rec = await self._pg.get_task(wi_id, self.team_run_id)
+        rec = await self._pg.mark_running(self.team_run_id, wi_id, agent_run_id)
         if rec is None:
             raise RuntimeError(f"mark_running: {wi_id} not found in PG")
         task = _record_to_task(rec)
@@ -731,6 +731,40 @@ class Dispatcher:
         if self._pg is not None:
             return await self._pg_compute_final_statuses()
         return {str(wi.status.value) for wi in self.graph.values()}
+
+    async def known_task_ids(self) -> set[str]:
+        """Return the current task IDs in the run."""
+        if self._pg is not None:
+            assert self._pg is not None
+            return await self._pg.get_task_ids(self.team_run_id)
+        return set(self.graph.keys())
+
+    async def done_sibling_ids(
+        self,
+        *,
+        task_id: str,
+        parent_id: str | None,
+        since: float | None = None,
+    ) -> list[str]:
+        """Return sibling task IDs that completed since the given time."""
+        if self._pg is not None:
+            assert self._pg is not None
+            return await self._pg.get_done_sibling_ids(
+                self.team_run_id,
+                task_id=task_id,
+                parent_id=parent_id,
+                since=since,
+            )
+        done_ids: list[str] = []
+        for wi in self.graph.values():
+            if wi.id == task_id or wi.parent_id != parent_id or wi.status != TaskStatus.DONE:
+                continue
+            if since is not None:
+                finished_at = wi.finished_at.timestamp() if wi.finished_at else 0.0
+                if finished_at < since:
+                    continue
+            done_ids.append(wi.id)
+        return done_ids
 
     # ---- checkpoint / rollback -------------------------------------------
 

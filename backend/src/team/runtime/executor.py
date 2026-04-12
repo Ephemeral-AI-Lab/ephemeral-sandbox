@@ -70,19 +70,19 @@ class Executor:
             return
 
         # Pre-start: check if files in scope changed externally since task creation
-        self._inject_scope_warnings(task)
+        await self._inject_scope_warnings(task)
 
-        ctx = self._build_context(defn, task)
+        ctx = await self._build_context(defn, task)
         try:
             await self.runner(defn, ctx)
         except Exception as exc:
             await dispatcher.fail(task_id, f"runner_exception: {exc}")
             return
 
-        result = self._extract_result(ctx, defn)
+        result = self._posthook(ctx, defn)
         await self._dispatch(task_id, task, result)
 
-    def _inject_scope_warnings(self, task: "Task") -> None:
+    async def _inject_scope_warnings(self, task: "Task") -> None:
         """Check if files in task's scope changed since plan creation.
 
         If external changes are detected, inject a warning note into the
@@ -112,22 +112,27 @@ class Executor:
         lines.append("Review these changes before proceeding. "
                       "Call request_replan() if your task is no longer valid.")
         from team.models import Note
-        self.team_run.task_center.post(Note(
-            id=str(uuid.uuid4()),
-            task_id=task.id,
-            agent_name="system",
-            content="\n".join(lines),
-            timestamp=now,
-            scope_paths=list(task.scope_paths),
-        ))
+        try:
+            await self.team_run.task_center.post(
+                Note(
+                    id=str(uuid.uuid4()),
+                    task_id=task.id,
+                    agent_name="system",
+                    content="\n".join(lines),
+                    timestamp=now,
+                    scope_paths=list(task.scope_paths),
+                )
+            )
+        except Exception:
+            logger.debug("Failed to persist scope warning for %s", task.id, exc_info=True)
 
-    def _build_context(self, defn: "AgentDefinition", task: "Task") -> TeamAgentContext:
+    async def _build_context(self, defn: "AgentDefinition", task: "Task") -> TeamAgentContext:
         """Build agent context using the canonical build_query_context."""
         from team.runtime.context_builder import build_query_context
-        return build_query_context(defn, self.team_run, task)
+        return await build_query_context(defn, self.team_run, task)
 
     @staticmethod
-    def _extract_result(ctx: TeamAgentContext, defn: "AgentDefinition") -> AgentResult | RetryRequest | ReplanRequest:
+    def _posthook(ctx: TeamAgentContext, defn: "AgentDefinition") -> AgentResult | RetryRequest | ReplanRequest:
         """Deterministic result extraction — no LLM call, always produces a result."""
         metadata = ctx.tool_metadata
         submitted = metadata.get("submitted_output")
@@ -157,6 +162,8 @@ class Executor:
         if isinstance(work_result, str) and work_result.strip():
             return AgentResult(summary=work_result[:2000])
         return AgentResult(summary="completed (no explicit submission)")
+
+    _extract_result = _posthook
 
     async def _dispatch(self, task_id: str, task: "Task", result: Any) -> None:
         dispatcher = self.team_run.dispatcher

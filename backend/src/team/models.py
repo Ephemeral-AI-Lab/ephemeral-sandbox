@@ -110,6 +110,7 @@ class Task:
     parent_id: str | None = None
     root_id: str = ""
     depth: int = 0
+    pending_dep_count: int = 0
     retry_count: int = 0
     max_retries: int = 2
     agent_run_id: str | None = None
@@ -131,10 +132,7 @@ class Plan:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Plan:
-        tasks = [
-            _taskspec_from_dict(it)
-            for it in (data.get("tasks") or [])
-        ]
+        tasks = [_taskspec_from_dict(it) for it in (data.get("tasks") or [])]
         return cls(tasks=tasks, rationale=data.get("rationale"))
 
 
@@ -145,10 +143,7 @@ class ReplanPlan:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ReplanPlan:
-        add_tasks = [
-            _taskspec_from_dict(it)
-            for it in (data.get("add_tasks") or [])
-        ]
+        add_tasks = [_taskspec_from_dict(it) for it in (data.get("add_tasks") or [])]
         return cls(
             add_tasks=add_tasks,
             cancel_ids=list(data.get("cancel_ids") or []),
@@ -170,7 +165,9 @@ def _taskspec_from_dict(it: dict[str, Any]) -> TaskSpec:
     if not agent:
         raise ValueError(f"TaskSpec '{task_id}' requires a non-empty 'agent'")
     raw_policy = str(it.get("cascade_policy", "cancel"))
-    cascade_policy: CascadePolicy = raw_policy if raw_policy in _VALID_CASCADE_POLICIES else "cancel"  # type: ignore[assignment]
+    cascade_policy: CascadePolicy = (
+        raw_policy if raw_policy in _VALID_CASCADE_POLICIES else "cancel"
+    )  # type: ignore[assignment]
     return TaskSpec(
         id=task_id,
         task=task_text,

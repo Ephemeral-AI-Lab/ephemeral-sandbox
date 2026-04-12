@@ -8,12 +8,14 @@ See Section 14.2 of the coordination redesign doc.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
 from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from team.persistence.ltree_utils import path_to_ltree
 from team.persistence.task_note_record import TaskNoteRecord
 
 logger = logging.getLogger(__name__)
@@ -73,6 +75,55 @@ class NoteStore:
             result = await db.execute(stmt)
             return list(result.scalars().all())
 
+    async def query(
+        self,
+        run_id: str,
+        *,
+        task_ids: list[str] | None = None,
+        scope_paths: list[str] | None = None,
+        since: float | None = None,
+        limit: int | None = None,
+    ) -> list[TaskNoteRecord]:
+        """Fetch notes with optional filters.
+
+        PostgreSQL remains the source of truth; scope filtering is applied after
+        the query so the caller sees the same semantics in both PG-backed and
+        in-memory modes, including unscoped notes being visible to all queries.
+        """
+        async with self._sf() as db:
+            stmt = select(TaskNoteRecord).where(TaskNoteRecord.team_run_id == run_id)
+            if task_ids:
+                stmt = stmt.where(TaskNoteRecord.task_id.in_(task_ids))
+            if since is not None:
+                stmt = stmt.where(
+                    TaskNoteRecord.created_at
+                    >= datetime.fromtimestamp(since, tz=timezone.utc)
+                )
+            stmt = stmt.order_by(TaskNoteRecord.created_at)
+            result = await db.execute(stmt)
+            rows = list(result.scalars().all())
+
+        if scope_paths:
+            normalized = [
+                path_to_ltree(scope.rstrip("/"))
+                for scope in scope_paths
+                if isinstance(scope, str) and scope.strip()
+            ]
+            rows = [
+                row
+                for row in rows
+                if not row.scope_ltree
+                or any(
+                    note_scope.startswith(query_scope)
+                    for note_scope in row.scope_ltree
+                    for query_scope in normalized
+                )
+            ]
+
+        if limit is not None and limit > 0:
+            rows = rows[-limit:]
+        return rows
+
     async def search_fts(
         self,
         run_id: str,
@@ -119,6 +170,9 @@ class NullNoteStore:
         pass
 
     async def query_by_task_ids(self, *args: Any, **kwargs: Any) -> list:
+        return []
+
+    async def query(self, *args: Any, **kwargs: Any) -> list:
         return []
 
     async def search_fts(self, *args: Any, **kwargs: Any) -> list:

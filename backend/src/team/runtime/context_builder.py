@@ -5,21 +5,16 @@ Assembles a TeamAgentContext for a Task using TaskCenter.context_for().
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from team.models import Task, TaskStatus
-from team.runtime.registry import get as _get_team_run
+from team.models import Task
 from tools.core.runtime import ExecutionMetadata
 
 if TYPE_CHECKING:
     from agents.types import AgentDefinition
     from team.runtime.team_run import TeamRun
-
-logger = logging.getLogger(__name__)
-
 
 @dataclass
 class TeamAgentContext:
@@ -45,8 +40,13 @@ def build_work_item_metadata(team_run: "TeamRun", task: Task) -> ExecutionMetada
         sandbox_id=getattr(team_run, "sandbox_id", "") or "",
     )
     meta["work_item_started_at"] = time.time()
+    meta["posthook_enabled"] = True
+    meta["team_mode_enabled"] = True
     meta["retry_count"] = task.retry_count
     meta["max_retries"] = task.max_retries
+    meta["task_deps"] = list(task.deps)
+    meta["task_parent_id"] = task.parent_id
+    meta["task_depth"] = task.depth
     repo_root = str(getattr(getattr(team_run, "project_context", None), "repo_root", "") or "")
     if repo_root:
         meta["daytona_cwd"] = repo_root
@@ -58,12 +58,27 @@ def build_work_item_metadata(team_run: "TeamRun", task: Task) -> ExecutionMetada
 
     # Inject shared resources for tools
     meta["task_center"] = team_run.task_center
+    meta["dispatcher"] = team_run.dispatcher
     arbiter = getattr(team_run, "arbiter", None)
     if arbiter is not None:
         meta["arbiter"] = arbiter
     file_change_store = getattr(team_run, "file_change_store", None)
     if file_change_store is not None:
         meta["file_change_store"] = file_change_store
+
+    budgets = getattr(team_run, "budgets", None)
+    if budgets is not None:
+        meta["max_tasks"] = budgets.max_tasks
+        meta["max_depth"] = budgets.max_depth
+        meta["max_plan_size"] = budgets.max_plan_size
+        meta["max_replans_per_run"] = budgets.max_replans_per_run
+        meta["max_note_bytes"] = budgets.max_note_bytes
+        meta["max_total_note_bytes"] = budgets.max_total_note_bytes
+    budget_state = getattr(team_run, "budget_state", None)
+    if budget_state is not None:
+        meta["tasks_used"] = budget_state.tasks_used
+        meta["note_bytes_used"] = budget_state.note_bytes_used
+        meta["replans_used"] = budget_state.replans_used
 
     _populate_plan_submission_context(meta, team_run, task)
     return meta
@@ -89,6 +104,7 @@ def _populate_plan_submission_context(
 
     roster = getattr(team_run, "roster", None)
     if isinstance(roster, dict):
+        meta["roster"] = {str(role): list(agent_names) for role, agent_names in roster.items()}
         agent_names: set[str] = set()
         for names in roster.values():
             if isinstance(names, list):
@@ -109,13 +125,13 @@ def _populate_plan_submission_context(
         pass
 
 
-def build_initial_user_message(team_run: "TeamRun", task: Task) -> str:
+async def build_initial_user_message(team_run: "TeamRun", task: Task) -> str:
     """Build context string for a task via TaskCenter."""
     arbiter = getattr(team_run, "arbiter", None)
-    return team_run.task_center.context_for(task, arbiter=arbiter)
+    return await team_run.task_center.context_for(task, arbiter=arbiter)
 
 
-def build_query_context(
+async def build_query_context(
     defn: "AgentDefinition",
     team_run: "TeamRun",
     task: Task,
@@ -124,7 +140,8 @@ def build_query_context(
     from agents.registry import get_definition
 
     meta = build_work_item_metadata(team_run, task)
-    user_message = build_initial_user_message(team_run, task)
+    meta["role"] = getattr(defn, "role", "")
+    user_message = await build_initial_user_message(team_run, task)
     roster = getattr(team_run, "roster", None)
     if roster and getattr(defn, "role", None) in ("planner", "replanner"):
         lines = ["## Available Agents\n"]

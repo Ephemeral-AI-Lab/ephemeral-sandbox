@@ -67,7 +67,7 @@ def build_team_runtime_services(
         exploration_memory_store.initialize(pg_session_factory)
 
         # Attach PG store to the exploration memory singleton
-        from tools.exploration_memory.toolkit import get_exploration_memory
+        from tools.memory import get_exploration_memory
         get_exploration_memory().attach_pg(exploration_memory_store)
 
     dispatcher = Dispatcher(
