@@ -5,6 +5,11 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from code_intelligence.routing.scope_packets import (
+    normalize_scope_paths,
+    scope_paths_overlap,
+)
+
 # ---------------------------------------------------------------------------
 # ltree conversion for PostgreSQL hierarchical queries
 # ---------------------------------------------------------------------------
@@ -81,3 +86,43 @@ def paths_overlap(path_a: str | None, path_b: str | None) -> bool:
 def _normalise_path(path: str | None) -> str:
     """Normalize a path: strip, remove ./, trailing slashes, backslash to forward."""
     return str(path or "").strip().replace("\\", "/").removeprefix("./").rstrip("/")
+
+
+# ---------------------------------------------------------------------------
+# Scope-aware path utilities (migrated from tools.daytona_toolkit.coordination)
+# ---------------------------------------------------------------------------
+
+_PY_PATH_RE = re.compile(r"(?<![A-Za-z0-9_./-])([A-Za-z0-9_./-]+\.py)(?![A-Za-z0-9_./-])")
+
+
+def scopes_overlap(path_a: str, path_b: str) -> bool:
+    """Return True when two file or directory scopes overlap."""
+    return scope_paths_overlap(path_a, path_b)
+
+
+def scope_paths_from_payload(payload: Any) -> list[str]:
+    """Extract the most likely scope paths from a work-item payload."""
+    if not isinstance(payload, dict):
+        return []
+    collected: list[str] = []
+    for key in ("touches_paths", "target_paths", "stale_subsystems", "paths", "files", "owned_files"):
+        raw = payload.get(key)
+        if isinstance(raw, list):
+            collected.extend(str(item) for item in raw if isinstance(item, str))
+    raw_verify = payload.get("verify")
+    if isinstance(raw_verify, list):
+        for item in raw_verify:
+            if isinstance(item, str):
+                collected.extend(path.split("::", 1)[0].strip() for path in _PY_PATH_RE.findall(item))
+    elif isinstance(raw_verify, str):
+        collected.extend(path.split("::", 1)[0].strip() for path in _PY_PATH_RE.findall(raw_verify))
+    for key in ("file_path", "path", "subsystem", "canonical_scope"):
+        raw = payload.get(key)
+        if isinstance(raw, str) and raw.strip():
+            collected.append(raw)
+    return normalize_scope_paths(collected)
+
+
+def scope_paths_for_work_item(team_run: Any, wi: Any) -> list[str]:
+    """Resolve a work item's owned scope from payload."""
+    return scope_paths_from_payload(getattr(wi, "payload", None))
