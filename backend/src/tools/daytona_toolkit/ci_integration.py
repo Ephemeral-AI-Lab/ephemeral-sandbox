@@ -351,7 +351,7 @@ def finalize_ci_write(
         description=description,
     )
     if getattr(result, "success", False):
-        _note_atlas_edit(context, getattr(prepared, "file_path", ""), reason=edit_type)
+
         refresh_scope_baseline(
             context,
             scope_paths=scope_paths_for_write(
@@ -425,7 +425,7 @@ def prime_cache_after_write(context: ToolExecutionContext, file_path: str, conte
     """Prime the tree cache and refresh the symbol index after a write."""
     svc = get_ci_service(context)
     if svc is None:
-        _note_atlas_edit(context, file_path, reason="write")
+
         refresh_scope_baseline(
             context,
             scope_paths=scope_paths_for_write(context, fallback_paths=[file_path]),
@@ -438,7 +438,7 @@ def prime_cache_after_write(context: ToolExecutionContext, file_path: str, conte
     except Exception:
         logger.debug("CI prime_cache_after_write failed for %s", file_path)
     finally:
-        _note_atlas_edit(context, file_path, reason="write")
+
         refresh_scope_baseline(
             context,
             scope_paths=scope_paths_for_write(context, fallback_paths=[file_path]),
@@ -507,7 +507,7 @@ def sync_deleted_file(
         edit_type=edit_type,
         description=description,
     )
-    _note_atlas_edit(context, file_path, reason=edit_type)
+
     refresh_scope_baseline(
         context,
         scope_paths=scope_paths_for_write(context, fallback_paths=[file_path]),
@@ -698,23 +698,6 @@ def record_edit_in_ledger(
         logger.debug("CI record_edit_in_ledger failed for %s", file_path)
 
 
-def _note_atlas_edit(
-    context: ToolExecutionContext,
-    file_path: str,
-    *,
-    reason: str,
-) -> None:
-    """Tell the live TeamRun that a file changed so atlas can refresh lazily."""
-    team_run_id = context.metadata.get("team_run_id")
-    if not team_run_id:
-        return
-    team_run = _get_team_run(str(team_run_id))
-    if team_run is None:
-        return
-    try:
-        team_run.note_atlas_edit(file_path, reason=reason)
-    except Exception:
-        logger.debug("atlas dirty-mark failed for %s", file_path, exc_info=True)
 
 
 def _note_team_memory_conflict(

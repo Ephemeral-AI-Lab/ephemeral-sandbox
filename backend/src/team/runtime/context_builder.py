@@ -61,6 +61,9 @@ def build_work_item_metadata(team_run: "TeamRun", task: Task) -> ExecutionMetada
     ledger = getattr(team_run, "ledger", None)
     if ledger is not None:
         meta["ledger"] = ledger
+    file_change_store = getattr(team_run, "file_change_store", None)
+    if file_change_store is not None:
+        meta["file_change_store"] = file_change_store
 
     _populate_plan_submission_context(meta, team_run, task)
     return meta

@@ -50,13 +50,6 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
             if body:
                 data["system_prompt"] = body
             data["source"] = "user"
-            # Normalize ``posthook`` dict → PosthookConfig (hooks.agent_posthook
-            # holds the real dataclass; we keep loader free of the import
-            # unless the user actually declared a posthook).
-            if isinstance(data.get("posthook"), dict):
-                from hooks.agent_posthook import PosthookConfig
-
-                data["posthook"] = PosthookConfig(**data["posthook"])
             agents.append(AgentDefinition.model_validate(data))
         except ValidationError:
             logger.debug("Invalid agent definition in %s", path, exc_info=True)

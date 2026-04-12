@@ -9,7 +9,6 @@ import threading
 import time
 from typing import Any
 
-from code_intelligence.atlas.service import AtlasService
 from code_intelligence.routing.scope_packets import (
     build_scope_packet,
     normalize_scope_paths,
@@ -103,12 +102,6 @@ class CodeIntelligenceService:
         self.time_machine = TimeMachine()
         self.patcher = Patcher()
         self.lsp_client = LspClient(workspace_root=workspace_root, sandbox=sandbox)
-        self.atlas = AtlasService(
-            workspace_root=workspace_root,
-            ledger=self.ledger,
-            symbol_index=self.symbol_index,
-        )
-
         self.query_router = IntelligenceQueryRouter()
         self.query_router.register(LspBackendAdapter(self.lsp_client))
         self.query_router.register(SymbolIndexBackendAdapter(self.symbol_index))
@@ -490,7 +483,6 @@ class CodeIntelligenceService:
     def status(self) -> dict[str, Any]:
         """Return service status summary."""
         lsp_tel = self.lsp_client.telemetry
-        atlas_status = self.atlas.status()
         return {
             "sandbox_id": self.sandbox_id,
             "initialized": self.is_initialized,
@@ -507,8 +499,6 @@ class CodeIntelligenceService:
                 "entries": self.ledger.entry_count,
                 "generation": self.ledger.generation,
             },
-            "atlas": atlas_status,
-            "atlas_store_initialized": bool(atlas_status.get("store_initialized")),
             "lsp": {
                 "connected": self.lsp_client.connected,
                 "queries": lsp_tel.queries,

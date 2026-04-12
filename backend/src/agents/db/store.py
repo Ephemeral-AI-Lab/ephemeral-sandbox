@@ -34,10 +34,6 @@ class AgentDefinitionStore(DefinitionStoreBase[AgentDefinitionRecord]):
             if existing is not None:
                 return existing
 
-            posthook_data = None
-            if defn.posthook is not None:
-                posthook_data = _dc_asdict(defn.posthook)
-
             now = datetime.now(UTC)
             record = AgentDefinitionRecord(
                 id=str(uuid4()),
@@ -55,7 +51,6 @@ class AgentDefinitionStore(DefinitionStoreBase[AgentDefinitionRecord]):
                 role=defn.role,
                 agent_type=defn.agent_type,
                 supported_kinds=defn.supported_kinds,
-                posthook=posthook_data,
                 source=defn.source,
                 can_spawn_subagents=defn.can_spawn_subagents,
                 require_fresh_client=defn.require_fresh_client,
@@ -146,7 +141,6 @@ class AgentDefinitionStore(DefinitionStoreBase[AgentDefinitionRecord]):
             "role": source.role,
             "agent_type": source.agent_type,
             "supported_kinds": source.supported_kinds,
-            "posthook": source.posthook,
             "source": source.source,
             "can_spawn_subagents": source.can_spawn_subagents,
             "require_fresh_client": source.require_fresh_client,

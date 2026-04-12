@@ -1,4 +1,4 @@
-"""Executor — pops ready Tasks and runs agents with deterministic posthook."""
+"""Executor — pops ready Tasks and runs agents with deterministic result extraction."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ QueryRunner = Callable[["AgentDefinition", Any], Awaitable[Any]]
 
 
 class Executor:
-    """Pops ready tasks, runs agent, deterministic _posthook extracts result."""
+    """Pops ready tasks, runs agent, deterministic result extraction."""
 
     def __init__(
         self,
@@ -93,7 +93,6 @@ class Executor:
         ledger = getattr(self.team_run, "ledger", None)
         if ledger is None:
             return
-        import time
         created_ts = task.created_at.timestamp() if task.created_at else 0.0
         changes = ledger.changes_since(created_ts)
         # Filter to scope and exclude changes by this task's own agent run
@@ -123,15 +122,13 @@ class Executor:
         ))
 
     def _build_context(self, defn: "AgentDefinition", task: "Task") -> TeamAgentContext:
-        """Build agent context using the canonical build_query_context, plus posthook flag."""
+        """Build agent context using the canonical build_query_context."""
         from team.runtime.context_builder import build_query_context
-        ctx = build_query_context(defn, self.team_run, task)
-        ctx.tool_metadata["posthook_enabled"] = True
-        return ctx
+        return build_query_context(defn, self.team_run, task)
 
     @staticmethod
     def _posthook(ctx: TeamAgentContext, defn: "AgentDefinition") -> AgentResult | RetryRequest | ReplanRequest:
-        """Deterministic posthook — no LLM call, always produces a result."""
+        """Deterministic result extraction — no LLM call, always produces a result."""
         metadata = ctx.tool_metadata
         submitted = metadata.get("submitted_output")
 

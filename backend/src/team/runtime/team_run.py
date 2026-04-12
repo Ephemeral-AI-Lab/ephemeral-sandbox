@@ -96,6 +96,9 @@ class TeamRun:
         # Optional Ledger reference for file-change awareness in context_for().
         # Set by the caller if CodeIntelligenceService is available.
         self.ledger: Any = None
+        # Optional FileChangeStore for cross-run edit history.
+        # Set by the caller if PostgreSQL is available.
+        self.file_change_store: Any = None
 
     # ---- lifecycle -------------------------------------------------------
 

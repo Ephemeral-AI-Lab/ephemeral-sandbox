@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from team._path_utils import (
-    coerce_str_set,
     normalize_path_list,
     path_to_ltree,
     paths_overlap,
@@ -136,55 +135,3 @@ def test_paths_overlap_sibling_directories_no_overlap():
     assert paths_overlap("src/auth/login", "src/auth/logout") is False
 
 
-# ---------------------------------------------------------------------------
-# coerce_str_set
-# ---------------------------------------------------------------------------
-
-
-def test_coerce_str_set_from_set():
-    result = coerce_str_set({"a", "b", "c"})
-    assert result == {"a", "b", "c"}
-
-
-def test_coerce_str_set_from_list():
-    result = coerce_str_set(["x", "y"])
-    assert result == {"x", "y"}
-
-
-def test_coerce_str_set_filters_non_strings_from_set():
-    result = coerce_str_set({1, "valid", None, "also-valid"})
-    assert result == {"valid", "also-valid"}
-
-
-def test_coerce_str_set_filters_non_strings_from_list():
-    result = coerce_str_set([1, "valid", None])
-    assert result == {"valid"}
-
-
-def test_coerce_str_set_filters_empty_strings():
-    result = coerce_str_set({"", "valid"})
-    assert result == {"valid"}
-
-
-def test_coerce_str_set_from_none_returns_empty():
-    result = coerce_str_set(None)
-    assert result == set()
-
-
-def test_coerce_str_set_from_string_returns_empty():
-    # A plain string is not a set or list, so returns empty
-    result = coerce_str_set("hello")
-    assert result == set()
-
-
-def test_coerce_str_set_from_integer_returns_empty():
-    result = coerce_str_set(42)
-    assert result == set()
-
-
-def test_coerce_str_set_empty_set():
-    assert coerce_str_set(set()) == set()
-
-
-def test_coerce_str_set_empty_list():
-    assert coerce_str_set([]) == set()

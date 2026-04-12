@@ -11,12 +11,6 @@ from code_intelligence.routing.scope_packets import (
     normalize_scope_paths,
     scope_paths_overlap,
 )
-def __scope_of_artifact(artifact: Any) -> str:
-    if isinstance(artifact, dict):
-        paths = artifact.get("target_paths") or []
-        if paths:
-            return "|".join(sorted(paths))
-    return ""
 from tools.core.base import ToolExecutionContext
 
 _DEFAULT_RECENT_SECONDS = 300.0
@@ -52,28 +46,8 @@ def scope_paths_from_payload(payload: Any) -> list[str]:
 
 
 def scope_paths_for_work_item(team_run: Any, wi: Any) -> list[str]:
-    """Resolve a work item's owned scope from payload plus attached artifacts."""
-    candidates = scope_paths_from_payload(getattr(wi, "payload", None))
-    if candidates:
-        return candidates
-
-    artifact_store = getattr(team_run, "artifacts", None)
-    for dep in getattr(wi, "dep_artifacts", []) or ():
-        if artifact_store is None:
-            continue
-        body = artifact_store.load(dep.artifact_ref)
-        scope = _scope_of_artifact(body)
-        if scope:
-            candidates.append(scope)
-
-    for briefing in getattr(wi, "briefings", []) or ():
-        if getattr(briefing, "source", "") == "artifact" and getattr(briefing, "ref", None) and artifact_store is not None:
-            body = artifact_store.load(briefing.ref)
-            scope = _scope_of_artifact(body)
-            if scope:
-                candidates.append(scope)
-
-    return normalize_scope_paths(candidates)
+    """Resolve a work item's owned scope from payload."""
+    return scope_paths_from_payload(getattr(wi, "payload", None))
 
 
 def build_scope_packet(

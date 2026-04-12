@@ -1,7 +1,6 @@
 """SQLAlchemy ORM models for EphemeralOS persistence."""
 
 from agents.db.model import AgentDefinitionRecord
-from code_intelligence.atlas.model import ProjectAtlasChunkRecord, ProjectAtlasRecord
 from db.models.agent_run import AgentResponseChunkRecord, AgentRunRecord
 from db.models.model_registration import ModelRegistrationRecord
 from db.models.session import SessionRecord
@@ -15,8 +14,6 @@ __all__ = [
     "AgentResponseChunkRecord",
     "AgentRunRecord",
     "ModelRegistrationRecord",
-    "ProjectAtlasChunkRecord",
-    "ProjectAtlasRecord",
     "SessionRecord",
     "TeamMemoryRecordModel",
     "TeamDefinitionRecord",

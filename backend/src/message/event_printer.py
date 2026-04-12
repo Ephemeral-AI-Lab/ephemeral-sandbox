@@ -72,29 +72,7 @@ def _truncate(text: str, limit: int | None) -> str:
 
 
 def _subagent_completion_detail_lines(output: str) -> list[str]:
-    try:
-        payload = json.loads(output)
-    except Exception:
-        return []
-    if not isinstance(payload, dict):
-        return []
-    atlas = payload.get("atlas")
-    if not isinstance(atlas, dict):
-        return []
-
-    subsystem = str(atlas.get("subsystem") or "").strip() or "?"
-    parts = [f"[atlas] subsystem={subsystem}"]
-    if "persisted" in atlas:
-        parts.append(f"persisted={str(bool(atlas.get('persisted'))).lower()}")
-    if "promoted" in atlas:
-        parts.append(f"promoted={str(bool(atlas.get('promoted'))).lower()}")
-    artifact_ref = str(atlas.get("artifact_ref") or "").strip()
-    if artifact_ref:
-        parts.append(f"artifact={artifact_ref}")
-    reason = str(atlas.get("reason") or "").strip()
-    if reason:
-        parts.append(f"reason={reason}")
-    return [" ".join(parts)]
+    return []
 
 
 @dataclass

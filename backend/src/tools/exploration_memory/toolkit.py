@@ -47,18 +47,29 @@ class ExplorationMemory:
             f"{scope_str}:{content_hash}".encode()
         ).hexdigest()[:24]
 
+    _MAX_FILES_TO_HASH = 500  # cap to avoid latency on huge scopes
+
     def _hash_scope(self, scope_paths: list[str], workspace_root: str) -> str:
-        """Hash all files under scope_paths. Changes in any file invalidate cache."""
+        """Hash files under scope_paths. Changes in any file invalidate cache.
+
+        Caps at _MAX_FILES_TO_HASH to avoid latency on large directories.
+        If cap is hit, includes file count in hash so growth invalidates too."""
         h = hashlib.sha256()
+        file_count = 0
         for scope in sorted(scope_paths):
             full_path = os.path.join(workspace_root, scope) if workspace_root else scope
             if os.path.isfile(full_path):
                 h.update(self._hash_file(full_path).encode())
+                file_count += 1
             elif os.path.isdir(full_path):
                 for root, _dirs, files in sorted(os.walk(full_path)):
                     for fname in sorted(files):
+                        if file_count >= self._MAX_FILES_TO_HASH:
+                            h.update(f"capped:{file_count}".encode())
+                            return h.hexdigest()[:16]
                         fpath = os.path.join(root, fname)
                         h.update(self._hash_file(fpath).encode())
+                        file_count += 1
             else:
                 h.update(f"missing:{scope}".encode())
         return h.hexdigest()[:16]

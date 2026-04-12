@@ -235,14 +235,6 @@ def ensure_runtime_stores_ready(settings: Settings | None = None):
 
     model_store.seed_from_json(str(_model_registry_path()))
     try:
-        from code_intelligence.atlas.store import get_default_store
-
-        atlas_store = get_default_store()
-        if not atlas_store.is_initialised():
-            atlas_store.initialize(sf)
-    except Exception:
-        logger.debug("AtlasStore initialisation skipped", exc_info=True)
-    try:
         from team.memory.store import get_default_store as get_team_memory_store
 
         memory_store = get_team_memory_store()

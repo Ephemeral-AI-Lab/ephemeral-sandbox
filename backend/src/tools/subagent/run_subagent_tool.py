@@ -165,9 +165,38 @@ def _validate_team_scout_artifact(artifact: Any) -> str | None:
     )
 
 
+def _normalize_scout_artifact_contract(
+    artifact: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Fill omitted scout brief fields before runtime validation."""
+    if not isinstance(artifact, dict):
+        return artifact
+    target_paths = artifact.get("target_paths")
+    if not isinstance(target_paths, list):
+        return artifact
+    normalized = dict(artifact)
+    changed = False
+    for key in ("files", "entry_points", "open_questions", "suggested_subdivisions"):
+        if key not in normalized:
+            normalized[key] = []
+            changed = True
+    if "gaps" not in normalized:
+        normalized["gaps"] = ""
+        changed = True
+    if "scope_coverage" not in normalized:
+        subdivisions = normalized.get("suggested_subdivisions")
+        if isinstance(subdivisions, list) and any(
+            isinstance(item, str) and item.strip() for item in subdivisions
+        ):
+            normalized["scope_coverage"] = 0.6
+        else:
+            normalized["scope_coverage"] = 0.9
+        changed = True
+    return normalized if changed else artifact
+
+
 def _validate_team_scout_submission(submitted: Any) -> str | None:
-    from tools.posthook import SubmittedSummary
-    from tools.posthook.submit_summary import _normalize_scout_artifact_contract
+    from team.models import SubmittedSummary
 
     if not isinstance(submitted, SubmittedSummary):
         return (
@@ -557,7 +586,6 @@ def _build_subagent_envelope(
     final_text: str,
     *,
     artifact_ref: str | None = None,
-    atlas: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Project the subagent submission into the typed envelope.
 
@@ -599,8 +627,7 @@ def _build_subagent_envelope(
                 "rationale": submitted.rationale,
             },
         }
-        if atlas:
-            envelope["atlas"] = dict(atlas)
+
         return envelope
 
     if isinstance(submitted, SubmittedSummary):
@@ -613,8 +640,7 @@ def _build_subagent_envelope(
             "artifact_ref": artifact_ref,
             "payload": artifact if isinstance(artifact, dict) else {},
         }
-        if atlas:
-            envelope["atlas"] = dict(atlas)
+
         return envelope
 
     if submitted is not None:
@@ -625,8 +651,7 @@ def _build_subagent_envelope(
             "artifact_ref": artifact_ref,
             "payload": _coerce_payload_object(submitted),
         }
-        if atlas:
-            envelope["atlas"] = dict(atlas)
+
         return envelope
 
     # No posthook submission — fall back to raw final text.
@@ -1073,7 +1098,6 @@ async def run_subagent(
         sub_run_id,
         final_text,
         artifact_ref=None,
-        atlas=None,
     )
     if early_stopped:
         envelope["completion_mode"] = "early_stopped"

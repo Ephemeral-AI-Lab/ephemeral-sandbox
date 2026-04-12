@@ -189,6 +189,7 @@ def _taskspec_from_dict(it: dict[str, Any]) -> TaskSpec:
 @dataclass
 class SubmittedSummary:
     summary: str
+    artifact: dict[str, Any] | None = None
     submission_kind: str = field(default="summary", init=False, repr=False)
 
 

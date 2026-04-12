@@ -14,9 +14,6 @@ Issue = dict[str, str]
 # Type alias for pluggable plan validators.
 PlanItemValidator = Callable[[list[TaskSpec]], list[Issue]]
 
-_EXPANDABLE_ROLES: frozenset[str] = frozenset({"planner"})
-
-
 def _agent_exists(agent_name: str) -> bool:
     return _get_definition(agent_name) is not None
 
@@ -28,7 +25,7 @@ def _is_validator(agent_name: str) -> bool:
 
 def _is_expandable(agent_name: str) -> bool:
     defn = _get_definition(agent_name)
-    return defn is not None and defn.role in _EXPANDABLE_ROLES
+    return defn is not None and defn.role == "planner"
 
 
 def _validator_count(items: list[TaskSpec]) -> int:
