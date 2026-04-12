@@ -282,20 +282,29 @@ class BudgetState:
 
 @dataclass
 class TeamDefinition:
-    """Composition blob naming which agent plays which role in a team run.
+    """Composition blob naming which agents fill which slots in a team run.
 
-    A ``TeamDefinition`` is persistent metadata (stored in ``team/db/``) that
-    selects the planner agent and records the intended worker pool for a
-    team. ``planner_agent`` and ``worker_agents`` are name references looked
-    up in ``agents.registry`` at team-run start time; broken references fail
-    fast with a clear error. ``worker_agents`` is advisory metadata — the
-    planner is responsible for picking agents for its emitted WorkItemSpecs
-    and may pick any registered agent. Enforcing a hard whitelist at the
-    Dispatcher is future work.
+    ``roster`` maps freeform slot labels to agent-definition names looked
+    up in ``agents.registry`` at team-run start time.  At least one entry
+    must resolve to an agent whose ``role == "planner"``; beyond that any
+    combination is valid.
     """
 
     id: str
     name: str
     description: str
-    planner_agent: str
-    worker_agents: list[str] = field(default_factory=list)
+    roster: dict[str, str] = field(default_factory=dict)
+
+    # Back-compat helpers for code that still uses the old fields.
+    @property
+    def planner_agent(self) -> str:
+        from agents.registry import has_role
+        for agent_name in self.roster.values():
+            if has_role(agent_name, "planner"):
+                return agent_name
+        return next(iter(self.roster.values()), "")
+
+    @property
+    def worker_agents(self) -> list[str]:
+        from agents.registry import has_role
+        return [n for n in self.roster.values() if not has_role(n, "planner")]

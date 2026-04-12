@@ -63,7 +63,9 @@ def note_work_item_context_access(
     lane_id = str(
         getattr(work_item, "local_id", None) or getattr(work_item, "id", "") or ""
     ).strip()
-    role = str(getattr(work_item, "agent_name", "") or metadata.get("agent_name") or "").strip()
+    agent_name = str(getattr(work_item, "agent_name", "") or metadata.get("agent_name") or "").strip()
+    from agents.registry import get_role
+    role = get_role(agent_name) or agent_name
     verify_refs = normalize_path_list(payload.get("verify") if isinstance(payload, dict) else [])
     failure_refs = normalize_string_list(
         payload.get("owned_failures") if isinstance(payload, dict) else []

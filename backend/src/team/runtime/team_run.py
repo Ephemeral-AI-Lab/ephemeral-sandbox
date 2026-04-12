@@ -145,24 +145,32 @@ class TeamRun:
         executor_factory: Callable[["TeamRun"], Executor],
         num_executors: int | None = None,
     ) -> None:
-        """Start a team run using a ``TeamDefinition`` to pick the planner.
+        """Start a team run using a ``TeamDefinition`` roster.
 
-        Validates that ``team_def.planner_agent`` resolves in ``agents.registry``
-        before dispatching the root WorkItem. Broken references fail fast
-        with a descriptive error; the TeamRun stays in ``PENDING`` status
-        and no workers are spawned.
+        Finds the first roster entry whose registered agent has
+        ``role == "planner"`` and uses it as the root WorkItem agent.
+        Broken references fail fast with a descriptive error.
         """
-        # Lazy import — avoids a module-level dependency cycle between
-        # ``team.runtime.team_run`` and ``agents.registry``.
-        from agents.registry import get_definition
+        from agents.registry import get_definition, has_role
 
-        if get_definition(team_def.planner_agent) is None:
+        planner_agent: str | None = None
+        for _slot, agent_name in team_def.roster.items():
+            defn = get_definition(agent_name)
+            if defn is None:
+                raise ValueError(
+                    f"team_definition '{team_def.name}' roster references "
+                    f"agent '{agent_name}' which does not exist"
+                )
+            if planner_agent is None and has_role(agent_name, "planner"):
+                planner_agent = agent_name
+
+        if planner_agent is None:
             raise ValueError(
-                f"team_definition '{team_def.name}' references planner agent "
-                f"'{team_def.planner_agent}' which does not exist"
+                f"team_definition '{team_def.name}' roster has no agent "
+                f"with role='planner'"
             )
         await self.start(
-            agent_name=team_def.planner_agent,
+            agent_name=planner_agent,
             payload=payload,
             executor_factory=executor_factory,
             num_executors=num_executors,

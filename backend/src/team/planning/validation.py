@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable, Iterator
 
-from agents.registry import get_definition as _get_definition
+from agents.registry import get_definition as _get_definition, has_role as _has_role
 
 from team.errors import InvalidPlan
 from team.models import Plan, WorkItem, WorkItemKind, WorkItemSpec, WorkItemStatus
@@ -14,7 +14,6 @@ from team.models import Plan, WorkItem, WorkItemKind, WorkItemSpec, WorkItemStat
 PlanItemValidator = Callable[[list[WorkItemSpec]], list["Issue"]]
 
 _MAX_INLINE_BRIEFING_BYTES_PER_SPEC = 4096
-_VALIDATOR_AGENT = "validator"
 
 Issue = dict[str, str]
 
@@ -23,15 +22,19 @@ def _agent_exists(agent_name: str) -> bool:
     return _get_definition(agent_name) is not None
 
 
+def _is_validator(agent_name: str) -> bool:
+    return _has_role(agent_name, "validator")
+
+
 def _validator_count(items: list[WorkItemSpec]) -> int:
-    return sum(1 for item in items if item.agent_name == _VALIDATOR_AGENT)
+    return sum(1 for item in items if _is_validator(item.agent_name))
 
 
 def _concrete_execution_count(items: list[WorkItemSpec]) -> int:
     return sum(
         1
         for item in items
-        if item.agent_name != _VALIDATOR_AGENT and item.kind != WorkItemKind.EXPANDABLE
+        if not _is_validator(item.agent_name) and item.kind != WorkItemKind.EXPANDABLE
     )
 
 
@@ -46,7 +49,7 @@ def _terminal_validator_count(items: list[WorkItemSpec]) -> int:
         1
         for item in items
         if (
-        item.agent_name == _VALIDATOR_AGENT
+        _is_validator(item.agent_name)
         and (item.local_id is None or item.local_id not in downstream_local_ids)
         )
     )
@@ -139,7 +142,7 @@ def _terminal_non_validator_leaf_ids(items: list[WorkItemSpec]) -> set[str]:
         for item in items
         if (
             item.local_id is not None
-            and item.agent_name != _VALIDATOR_AGENT
+            and not _is_validator(item.agent_name)
             and item.local_id not in downstream_local_ids
         )
     }
@@ -155,7 +158,7 @@ def _validator_dependency_issues(items: list[WorkItemSpec]) -> list[Issue]:
         if isinstance(dep, str) and dep
     }
     for idx, item in enumerate(items):
-        if item.agent_name != _VALIDATOR_AGENT:
+        if not _is_validator(item.agent_name):
             continue
         if not item.deps:
             issues.append(
