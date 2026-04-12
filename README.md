@@ -7,7 +7,7 @@
 <p align="center">
   <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick_Start-5_min-blue?style=for-the-badge" alt="Quick Start"></a>
   <a href="#-harness-architecture"><img src="https://img.shields.io/badge/Harness-Architecture-ff69b4?style=for-the-badge" alt="Architecture"></a>
-  <a href="#-features"><img src="https://img.shields.io/badge/Tools-43+-green?style=for-the-badge" alt="Tools"></a>
+  <a href="#-features"><img src="https://img.shields.io/badge/Tools-36_Builtin-green?style=for-the-badge" alt="Tools"></a>
   <a href="#-test-results"><img src="https://img.shields.io/badge/Tests-114_Passing-brightgreen?style=for-the-badge" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License"></a>
 </p>
@@ -61,12 +61,13 @@ Supports CLI agent integration including OpenClaw, nanobot, Cursor, and more.
 <h3>🔧 Harness Toolkit</h3>
 
 <div align="center">
-  <img src="https://img.shields.io/badge/43+_Tools-10B981?style=for-the-badge&logo=toolbox&logoColor=white" alt="Toolkit" />
+  <img src="https://img.shields.io/badge/36_Builtin_Tools-10B981?style=for-the-badge&logo=toolbox&logoColor=white" alt="Toolkit" />
 </div>
 
 <img src="assets/scene-toolkit.png" width="140">
 
-<p align="center"><strong>• 43 Tools (File, Shell, Search, Web, MCP)</strong></p>
+<p align="center"><strong>• 36 built-in tools across 7 factory toolkits</strong></p>
+<p align="center"><strong>• Runtime adds `skills` and `background` toolkits</strong></p>
 <p align="center"><strong>• On-Demand Skill Loading (.md)</strong></p>
 <p align="center"><strong>• Plugin Ecosystem (Skills + Hooks + Agents)</strong></p>
 <p align="center"><strong>• Compatible with anthropics/skills & plugins</strong></p>
@@ -253,24 +254,22 @@ uv run oh
 
 ## 🏗️ Harness Architecture
 
-EphemeralOS implements the core Agent Harness pattern with 10 subsystems:
+EphemeralOS implements the core Agent Harness pattern across the live backend and frontend runtime surfaces:
 
 ```
-ephemeralos/
-  engine/          # 🧠 Agent Loop — query → stream → tool-call → loop
-  tools/           # 🔧 43 Tools — file I/O, shell, search, web, MCP
-  skills/          # 📚 Knowledge — on-demand skill loading (.md files)
-  plugins/         # 🔌 Extensions — commands, hooks, agents, MCP servers
-  permissions/     # 🛡️ Safety — multi-level modes, path rules, command deny
-  hooks/           # ⚡ Lifecycle — PreToolUse/PostToolUse event hooks
-  commands/        # 💬 54 Commands — /help, /commit, /plan, /resume, ...
-  mcp/             # 🌐 MCP — Model Context Protocol client
-  memory/          # 🧠 Memory — persistent cross-session knowledge
-  tasks/           # 📋 Tasks — background task management
-  coordinator/     # 🤝 Multi-Agent — subagent spawning, team coordination
-  prompts/         # 📝 Context — system prompt assembly, CLAUDE.md, skills
-  config/          # ⚙️ Settings — multi-layer config, migrations
-  ui/              # 🖥️ React TUI — backend protocol + frontend
+backend/src/
+  engine/          # 🧠 Agent loop, streaming executor, background task lifecycle
+  tools/           # 🔧 Factory toolkits: sandbox, CI, context, memory, subagent, submission
+  skills/          # 📚 Bundled + user markdown skills, lazy-loaded at runtime
+  agents/          # 🤖 Agent definitions, builder, registry, CRUD API
+  team/            # 🤝 Task Center, dispatcher, persistence, planner runtime
+  server/          # 🌐 FastAPI app, SSE protocol, state snapshots
+  sandbox/         # 🧪 Sandbox lifecycle, workspace discovery, credentials
+  prompts/         # 📝 Runtime/system prompt assembly and capability awareness
+  config/          # ⚙️ Settings, model resolution, paths
+frontend/
+  web/             # 🖥️ React dashboard (agents, toolkits, sessions, sandboxes)
+  terminal/        # 💬 Terminal UI components and backend session hooks
 ```
 
 ### The Agent Loop
@@ -312,19 +311,20 @@ flowchart LR
 
 ## ✨ Features
 
-### 🔧 Tools (43+)
+### 🔧 Tools (36 Built-In)
 
-| Category | Tools | Description |
-|----------|-------|-------------|
-| **File I/O** | Bash, Read, Write, Edit, Glob, Grep | Core file operations with permission checks |
-| **Search** | WebFetch, WebSearch, ToolSearch, LSP | Web and code search capabilities |
-| **Notebook** | NotebookEdit | Jupyter notebook cell editing |
-| **Agent** | Agent, SendMessage, TeamCreate/Delete | Subagent spawning and coordination |
-| **Task** | TaskCreate/Get/List/Update/Stop/Output | Background task management |
-| **MCP** | MCPTool, ListMcpResources, ReadMcpResource | Model Context Protocol integration |
-| **Mode** | EnterPlanMode, ExitPlanMode, Worktree | Workflow mode switching |
-| **Schedule** | CronCreate/List/Delete, RemoteTrigger | Scheduled and remote execution |
-| **Meta** | Skill, Config, Brief, Sleep, AskUser | Knowledge loading, configuration, interaction |
+Current runtime inventory:
+
+| Surface | Count | Description |
+|--------|------:|-------------|
+| `sandbox_operations` | 11 | Remote sandbox file I/O, atomic edits, LSP queries, and `daytona_codeact` execution |
+| `code_intelligence` | 7 | Workspace structure, symbol lookup, references, hotspots, recent changes, cached file reads |
+| `context_read` / `context_write` | 3 / 4 | Task Center notes plus scope and staleness checks |
+| `memory` | 3 | Exploration cache reuse and edit-history conflict prediction |
+| `subagent` | 1 | `run_subagent` for bounded scout/delegation work |
+| `submission` | 5 total variants | `done`, `request_retry`, `request_replan`, `submit_plan`, `submit_replan` depending on agent role |
+| Runtime `skills` | 2 | `load_skill`, `load_skill_reference` |
+| Runtime `background` | 3 | `check_background_progress`, `wait_for_background_task`, `cancel_background_task` |
 
 Every tool has:
 - **Pydantic input validation** — structured, type-safe inputs
@@ -337,19 +337,20 @@ Every tool has:
 Skills are **on-demand knowledge** — loaded only when the model needs them:
 
 ```
-Available Skills:
-- commit: Create clean, well-structured git commits
-- review: Review code for bugs, security issues, and quality
-- debug: Diagnose and fix bugs systematically
-- plan: Design an implementation plan before coding
-- test: Write and run tests for code
-- simplify: Refactor code to be simpler and more maintainable
-- pdf: PDF processing with pypdf (from anthropics/skills)
-- xlsx: Excel operations (from anthropics/skills)
-- ... 40+ more
+Bundled packaged skills:
+- team-planner-playbook
+- team-developer-playbook
+- team-validator-playbook
+- team-scout-playbook
+- team-replanner-playbook
+- team-posthook-decision-playbook
+- verification-replan
+- task-decompose
+- changelog-decompose
+- sweevo-project-context
 ```
 
-**Compatible with [anthropics/skills](https://github.com/anthropics/skills)** — just copy `.md` files to `~/.ephemeralos/skills/`.
+User-defined markdown skills are loaded from `~/.ephemeralos/skills/`, and the lazy `skills` toolkit loads them only when an agent asks for them.
 
 ### 🔌 Plugin System
 

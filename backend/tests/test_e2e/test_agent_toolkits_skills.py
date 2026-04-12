@@ -39,6 +39,12 @@ class TestInfrastructure:
         assert data["state"] is not None
         assert "model" in data["state"]
         assert data["toolkits"] is not None
+        toolkits = {entry["name"]: entry["tools"] for entry in data["toolkits"]}
+        assert "submission" in toolkits
+        assert "submit_plan" in toolkits["submission"]
+        assert "submit_replan" in toolkits["submission"]
+        assert "skills" in toolkits
+        assert "background" in toolkits
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +126,17 @@ class TestAgentCRUD:
         assert isinstance(toolkits, list)
         assert "sandbox_operations" in toolkits
         assert "code_intelligence" in toolkits
+
+    def test_list_available_tools(self, app_client):
+        client, _ = app_client
+        resp = client.get("/api/agents/tools/available")
+        assert resp.status_code == 200
+        tools = {entry["name"] for entry in resp.json()}
+        assert "daytona_codeact" in tools
+        assert "submit_plan" in tools
+        assert "submit_replan" in tools
+        assert "load_skill" in tools
+        assert "check_background_progress" in tools
 
     def test_create_agent_no_toolkits(self, app_client):
         client, _ = app_client
