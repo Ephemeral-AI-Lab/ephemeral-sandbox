@@ -41,10 +41,6 @@ from token_tracker.runtime import persist_run_usage
 from tools.core.base import ToolExecutionContext, ToolResult
 from tools.core.decorator import tool
 from team._path_utils import scope_paths_from_payload
-from tools.daytona_toolkit.scope_builder import (
-    build_scope_packet_for_context,
-    render_scope_packet,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +58,6 @@ _PEEK_TOTAL_CHAR_CAP = 2048
 @dataclass
 class _ValidatedRunSubagentRequest:
     sub_def: Any
-    subagent_scope_packet: dict[str, Any] | None
     subagent_scope_paths: list[str]
 
 
@@ -159,7 +154,6 @@ def _validate_run_subagent_request(
             is_error=True,
         )
 
-    subagent_scope_packet: dict[str, Any] | None = None
     subagent_scope_paths: list[str] = []
     if agent_name == "scout" and isinstance(input, dict):
         target_paths = input.get("target_paths")
@@ -167,18 +161,9 @@ def _validate_run_subagent_request(
         subagent_scope_paths = valid_paths
     elif isinstance(input, dict):
         subagent_scope_paths = scope_paths_from_payload(input)
-    else:
-        baseline_packet = context.metadata.get("scope_packet")
-        if isinstance(baseline_packet, dict):
-            subagent_scope_paths = [
-                str(item)
-                for item in (baseline_packet.get("scope_paths") or [])
-                if isinstance(item, str)
-            ]
 
     return _ValidatedRunSubagentRequest(
         sub_def=sub_def,
-        subagent_scope_packet=subagent_scope_packet,
         subagent_scope_paths=subagent_scope_paths,
     )
 
@@ -448,22 +433,10 @@ async def run_subagent(
     if isinstance(validation, ToolResult):
         return validation
     sub_def = validation.sub_def
-    subagent_scope_packet = validation.subagent_scope_packet
     subagent_scope_paths = validation.subagent_scope_paths
 
     body = prompt if prompt is not None else json.dumps(input, separators=(",", ":"), default=str)
     final_prompt = body
-    if subagent_scope_packet is None and subagent_scope_paths:
-        maybe_packet = build_scope_packet_for_context(
-            context,
-            scope_paths=subagent_scope_paths,
-            baseline_packet=None,
-        )
-        if isinstance(maybe_packet, dict):
-            subagent_scope_packet = maybe_packet
-    rendered_scope_packet = render_scope_packet(subagent_scope_packet)
-    if rendered_scope_packet:
-        final_prompt = f"{rendered_scope_packet}\n\n{final_prompt}"
     if agent_name == "scout" and subagent_scope_paths:
         strict_scope_lines = [
             "## Scout scope contract",
@@ -520,11 +493,6 @@ async def run_subagent(
     subagent_ctx.metadata["work_item_started_at"] = time.time()
     if parent_team_run_id:
         subagent_ctx.metadata.team_run_id = parent_team_run_id
-    if isinstance(subagent_scope_packet, dict):
-        subagent_ctx.metadata["scope_packet"] = subagent_scope_packet
-        coherence_token = str(subagent_scope_packet.get("coherence_token") or "")
-        if coherence_token:
-            subagent_ctx.metadata["coherence_token"] = coherence_token
 
     qc = getattr(agent, "query_context", None)
     if qc is not None:

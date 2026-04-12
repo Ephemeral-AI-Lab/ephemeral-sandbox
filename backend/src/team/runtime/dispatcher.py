@@ -200,9 +200,11 @@ class Dispatcher:
 
             # Validate plan — need adjacency for known_external_deps
             adj = await self._pg.get_adjacency(self.team_run_id)
+            allow_empty = bool(rec.root_id) and wi_id != (rec.root_id or wi_id)
             issues = validate_plan(
                 result.submitted_plan,
                 max_plan_size=self.budgets.max_plan_size,
+                allow_empty=allow_empty,
                 known_external_deps=set(adj.keys()),
             )
             if issues:
@@ -614,6 +616,7 @@ class Dispatcher:
                 issues = validate_plan(
                     result.submitted_plan,
                     max_plan_size=self.budgets.max_plan_size,
+                    allow_empty=bool(wi.root_id) and wi.id != (wi.root_id or wi.id),
                     known_external_deps=set(self.graph.keys()),
                 )
                 if issues:

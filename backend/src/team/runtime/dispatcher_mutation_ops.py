@@ -75,14 +75,16 @@ async def fail(dispatcher: "Dispatcher", *, wi_id: str, reason: str) -> None:
                     import uuid
                     tc = getattr(dispatcher, "task_center", None)
                     if tc is not None:
-                        tc.post(Note(
-                            id=str(uuid.uuid4()),
-                            task_id=dep.id,
-                            agent_name="system",
-                            content=f"Warning: dependency {wi_id} failed: {reason}. "
-                                    "Proceed with caution.",
-                            timestamp=time.time(),
-                        ))
+                        await tc.post(
+                            Note(
+                                id=str(uuid.uuid4()),
+                                task_id=dep.id,
+                                agent_name="system",
+                                content=f"Warning: dependency {wi_id} failed: {reason}. "
+                                "Proceed with caution.",
+                                timestamp=time.time(),
+                            )
+                        )
                 else:
                     # "cancel" (default) — cascade cancel
                     _cascade_cancel_from_roots(dispatcher, dispatcher._dependency_root_ids(wi_id))
