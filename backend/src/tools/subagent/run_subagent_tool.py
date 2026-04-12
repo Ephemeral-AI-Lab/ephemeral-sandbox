@@ -689,17 +689,6 @@ def _clear_current_task_cancellation() -> None:
     remaining = int(cancelling() or 0) if callable(cancelling) else 1
     for _ in range(max(1, remaining)):
         uncancel()
-    except Exception as exc:
-        raise RuntimeError(
-            f"run_subagent: posthook {posthook_def.name!r} failed: {exc}"
-        ) from exc
-
-    submitted = read_posthook_output(posthook_agent.query_context, posthook_cfg.metadata_key)
-    if submitted is None:
-        raise RuntimeError(
-            f"run_subagent: posthook {posthook_def.name!r} ended without writing {posthook_cfg.metadata_key!r}"
-        )
-    return submitted
 
 
 @tool(
@@ -748,11 +737,6 @@ async def run_subagent(
     """
     from agents import get_definition
     from engine.runtime.agent import spawn_agent
-    from hooks.agent_posthook import (
-        PosthookMisconfigured,
-        resolve_posthook_definition,
-        stamp_posthook_metadata_key,
-    )
 
     parent_cfg = context.metadata.session_config
     sandbox_id = context.metadata.sandbox_id or None
