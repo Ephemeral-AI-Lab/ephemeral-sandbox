@@ -208,9 +208,48 @@ class LspClient:
             p = Path(self._workspace_root) / p
         return str(p)
 
+    def _resolve_column(self, file_path: str, line: int, character: int) -> int:
+        """When character is 0, advance to the first non-whitespace column.
+
+        Jedi's ``help()``, ``get_references()``, and ``goto()`` need the
+        cursor on the actual symbol text.  Callers (ci_hover,
+        ci_query_references) often pass ``character=0`` which lands on
+        leading indentation — producing empty results.
+
+        Returns the resolved column (0-indexed).
+        """
+        if character != 0:
+            return character
+        try:
+            abs_path = self._resolve_path(file_path)
+            if self._sandbox:
+                resp = self._resolve(
+                    self._sandbox.process.exec(
+                        f"sed -n '{line}p' {abs_path!r}",
+                        timeout=5,
+                    )
+                )
+                text = str(getattr(resp, "result", "") or "")
+            else:
+                p = Path(abs_path)
+                if not p.exists():
+                    return 0
+                lines = p.read_text(encoding="utf-8").splitlines()
+                if line < 1 or line > len(lines):
+                    return 0
+                text = lines[line - 1]
+            stripped = text.lstrip()
+            if not stripped:
+                return 0
+            return len(text) - len(stripped)
+        except Exception:
+            logger.debug("_resolve_column failed for %s:%d", file_path, line)
+            return 0
+
     def _python_definitions(
         self, file_path: str, line: int, character: int,
     ) -> list[SymbolInfo]:
+        character = self._resolve_column(file_path, line, character)
         abs_path = self._resolve_path(file_path)
         script = (
             f"import jedi, json\n"
@@ -239,6 +278,7 @@ class LspClient:
     def _python_references(
         self, file_path: str, line: int, character: int,
     ) -> list[ReferenceInfo]:
+        character = self._resolve_column(file_path, line, character)
         abs_path = self._resolve_path(file_path)
         script = (
             f"import jedi, json\n"
@@ -264,6 +304,7 @@ class LspClient:
     def _python_hover(
         self, file_path: str, line: int, character: int,
     ) -> HoverResult | None:
+        character = self._resolve_column(file_path, line, character)
         abs_path = self._resolve_path(file_path)
         script = (
             f"import jedi, json\n"
