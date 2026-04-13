@@ -176,13 +176,17 @@ def test_agent_overrides_attach_sweevo_skills_without_prompt_duplication():
     assert overrides[TEAM_PLANNER]["tool_call_limit"] == 100
     assert "system_prompt" not in overrides[DEVELOPER]
     assert "sweevo-project-context" in overrides[DEVELOPER]["skills"]
+    assert overrides[DEVELOPER]["tool_call_limit"] == 50
     assert "system_prompt" not in overrides[SCOUT]
     assert "sweevo-project-context" in overrides[SCOUT]["skills"]
+    assert overrides[SCOUT]["tool_call_limit"] == 50
     assert "system_prompt" not in overrides[VALIDATOR]
     assert "sweevo-project-context" in overrides[VALIDATOR]["skills"]
     assert "verification-replan" in overrides[VALIDATOR]["skills"]
+    assert overrides[VALIDATOR]["tool_call_limit"] == 50
     assert "system_prompt" not in overrides[TEAM_REPLANNER]
     assert "sweevo-project-context" in overrides[TEAM_REPLANNER]["skills"]
+    assert overrides[TEAM_REPLANNER]["tool_call_limit"] == 50
 
 
 def test_planner_runtime_limits_preserve_shared_agent_budget():
@@ -195,9 +199,7 @@ def test_planner_runtime_limits_preserve_shared_agent_budget():
         fail_to_pass=["tests/test_foo.py::test_bar"],
         pass_to_pass=[],
     )
-    assert _derive_planner_runtime_limits(large_single_target) == {
-        "tool_call_limit": 100,
-    }
+    assert _derive_planner_runtime_limits(large_single_target) == {"tool_call_limit": 100}
 
     medium_multi_target = _pydantic_instance(
         instance_id="medium-three",
@@ -209,8 +211,22 @@ def test_planner_runtime_limits_preserve_shared_agent_budget():
         pass_to_pass=[],
         problem_statement="- bullet\n" * 10,
     )
-    assert _derive_planner_runtime_limits(medium_multi_target) == {
-        "tool_call_limit": 100,
+    assert _derive_planner_runtime_limits(medium_multi_target) == {"tool_call_limit": 100}
+
+
+def test_execution_runtime_limits_tighten_bounded_lanes():
+    instance = _pydantic_instance(
+        instance_id="exec-budget",
+        instance_id_swe="exec-budget",
+        repo="example/repo",
+        start_version="1.0.0",
+        end_version="1.0.1",
+        fail_to_pass=["tests/test_foo.py::test_bar"],
+        pass_to_pass=[],
+    )
+
+    assert sweevo_team_runner._derive_execution_runtime_limits(instance) == {
+        "tool_call_limit": 50,
     }
 
 

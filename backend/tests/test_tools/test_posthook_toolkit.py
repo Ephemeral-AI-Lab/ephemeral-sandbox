@@ -17,7 +17,8 @@ def _ctx(metadata=None) -> ToolExecutionContext:
 
 
 @pytest.mark.asyncio
-async def test_submit_summary_rejects_tainted_coordination_packet():
+async def test_submit_summary_allows_tainted_coordination_packet():
+    """Coordination warnings are advisory — they must not block submission."""
     ctx = _ctx(
         {
             "coordination_warnings": [
@@ -25,7 +26,7 @@ async def test_submit_summary_rejects_tainted_coordination_packet():
                     "category": "write_scope",
                     "message": (
                         "daytona_write_file: write to dask/_compatibility.py is outside "
-                        "write_scope ['dask/compatibility.py'] (advisory mode)."
+                        "write_scope ['dask/compatibility.py'] (advisory)."
                     ),
                 }
             ]
@@ -37,13 +38,13 @@ async def test_submit_summary_rejects_tainted_coordination_packet():
         ctx,
     )
 
-    assert result.is_error
-    assert "request_replan()" in result.output
-    assert "tainted this task packet" in result.output
+    assert not result.is_error
+    assert "accepted" in result.output
 
 
 @pytest.mark.asyncio
-async def test_request_retry_rejects_tainted_coordination_packet():
+async def test_request_retry_allows_tainted_coordination_packet():
+    """Coordination warnings are advisory — they must not block retry."""
     ctx = _ctx(
         {
             "coordination_warnings": [
@@ -51,7 +52,7 @@ async def test_request_retry_rejects_tainted_coordination_packet():
                     "category": "write_scope",
                     "message": (
                         "daytona_codeact.write: write to dask/_compatibility.py is outside "
-                        "write_scope ['dask/compatibility.py'] (advisory mode)."
+                        "write_scope ['dask/compatibility.py'] (advisory)."
                     ),
                 }
             ]
@@ -63,9 +64,8 @@ async def test_request_retry_rejects_tainted_coordination_packet():
         ctx,
     )
 
-    assert result.is_error
-    assert "request_replan()" in result.output
-    assert "outside write_scope" in result.output
+    assert not result.is_error
+    assert "Retry requested" in result.output
 
 
 @pytest.mark.asyncio

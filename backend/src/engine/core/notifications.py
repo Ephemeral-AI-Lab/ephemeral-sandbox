@@ -58,8 +58,7 @@ def build_budget_warning(
 
     Fires when:
       - ``tool_call_limit`` is set, AND
-      - remaining budget is ≤ 1 call OR ≤ 10% of the limit (whichever
-        triggers first), AND
+      - used budget has reached 75% of the limit OR only 1 call remains, AND
       - the budget is not yet fully exhausted (``remaining > 0``).
 
     Returns ``(message, event)``: the loop appends ``message`` to
@@ -72,8 +71,8 @@ def build_budget_warning(
     remaining = limit - context.tool_calls_used
     if remaining <= 0:
         return None  # exhausted — handled by loop termination
-    threshold = max(3, math.ceil(limit * 0.25))
-    should_warn = remaining in {threshold, 1}
+    used_threshold = max(1, math.ceil(limit * 0.75))
+    should_warn = context.tool_calls_used in {used_threshold, limit - 1}
     if not should_warn:
         return None
     if context.last_budget_warning_remaining == remaining:

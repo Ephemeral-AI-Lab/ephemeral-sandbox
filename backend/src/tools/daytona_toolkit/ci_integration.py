@@ -38,6 +38,36 @@ _READ_ONLY_TEST_COMMAND_PATTERN = re.compile(
     r"^\s*(?:python(?:\d+(?:\.\d+)*)?\s+-m\s+)?(?:pytest|py\.test)\b",
     flags=re.IGNORECASE,
 )
+# Hard-blocked destructive shell commands — matches the pattern in codeact_tool.py
+# _WRAPPER_TEMPLATE. Exported so callers can pre-screen commands before sandbox
+# execution.
+_DESTRUCTIVE_SHELL_PATTERN = re.compile(
+    r"(?:^|[;&|]\s*)(?:"
+    r"rm\s+(?:-\S*[rR]\S*\s+|--recursive\s+)(?:/(?:testbed|workspace|home|opt|usr|var|etc|tmp)\b|/\s|/\.\.|\.\.)"
+    r"|mv\s+/(?:testbed|workspace|home|opt|usr|var|etc)(?:/[^/\s]*)?(?:\s|$)"
+    r"|chmod\s+(?:-\S*R\S*\s+|--recursive\s+)\S*\s+/"
+    r"|chown\s+(?:-\S*R\S*\s+|--recursive\s+)\S*\s+/"
+    r"|rm\s+-\S*[rR]\S*\s+\.\s*$"
+    r"|mkfs\b|dd\s+.*of=/"
+    r")",
+    flags=re.IGNORECASE,
+)
+
+
+def destructive_shell_command_error(command: str) -> str | None:
+    """Return an error if the command is an unconditionally blocked destructive operation.
+
+    This is checked *before* coordination-mode gates — destructive commands
+    are always blocked regardless of team mode or declared_output_paths.
+    """
+    if _DESTRUCTIVE_SHELL_PATTERN.search(command or ""):
+        return (
+            "BLOCKED: destructive shell command that targets workspace or system "
+            "directories (rm -r /testbed, mv /testbed, etc.) is forbidden. "
+            "These commands destroy the shared workspace and cannot be undone. "
+            "Use targeted file operations instead."
+        )
+    return None
 
 
 def shell_mutation_declaration_error(
@@ -47,6 +77,10 @@ def shell_mutation_declaration_error(
     declared_output_paths: list[str] | None,
 ) -> str | None:
     """Return an error when a mutating shell command lacks declared outputs."""
+    # Unconditional hard block for destructive commands — not overridable.
+    destructive_err = destructive_shell_command_error(command)
+    if destructive_err is not None:
+        return destructive_err
     if not require_declared_shell_outputs(context) and not is_coordinated_team_agent(context):
         return None
     if not command_may_mutate_workspace(command):
@@ -295,6 +329,7 @@ async def detect_workspace_regression(
 
 __all__ = [
     "command_may_mutate_workspace",
+    "destructive_shell_command_error",
     "detect_workspace_regression",
     "shell_mutation_declaration_error",
     "snapshot_dirty_files",

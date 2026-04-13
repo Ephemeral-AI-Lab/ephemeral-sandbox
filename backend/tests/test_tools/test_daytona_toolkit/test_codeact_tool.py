@@ -507,7 +507,8 @@ async def test_codeact_reserves_and_syncs_declared_shell_outputs(monkeypatch):
     }
 
 
-async def test_codeact_surfaces_shell_sync_scope_errors(monkeypatch):
+async def test_codeact_surfaces_shell_sync_scope_warnings(monkeypatch):
+    """Shell sync scope issues are advisory — surfaced as warnings, not errors."""
     manifest = _make_manifest(
         shells=[
             {
@@ -533,14 +534,13 @@ async def test_codeact_surfaces_shell_sync_scope_errors(monkeypatch):
     async def fake_sync_shell_mutations(context, *, command, declared_output_paths=None, limit=64):
         return {
             "enabled": True,
-            "files": 0,
+            "files": 1,
             "truncated": False,
-            "write_errors": [
+            "write_errors": [],
+            "write_warnings": [
                 "shell_mutation: write to dask/_compatibility.py is outside write_scope "
-                "['dask/compatibility.py']. Refresh notes/context and call request_replan() "
-                "if this path is actually required."
+                "['dask/compatibility.py'] (advisory)."
             ],
-            "write_warnings": [],
         }
 
     monkeypatch.setattr(codeact_tool_module, "sync_shell_mutations", fake_sync_shell_mutations)
@@ -550,11 +550,8 @@ async def test_codeact_surfaces_shell_sync_scope_errors(monkeypatch):
         ctx,
     )
 
-    assert result.is_error
-    data = json.loads(result.output)
-    assert data["files_written"] == 0
-    assert data["write_errors"]
-    assert "request_replan()" in data["write_errors"][0]
+    data = _assert_ok(result)
+    assert any("outside write_scope" in w for w in data["warnings"])
 
 
 async def test_codeact_preserves_script_stdout_before_manifest_line():
@@ -636,6 +633,91 @@ async def test_build_wrapper_blocks_destructive_git_unconditionally():
             )
 
 
+def test_build_wrapper_blocks_destructive_shell_unconditionally():
+    """Destructive shell commands (rm -rf /testbed, mv /testbed) are hard-blocked."""
+    wrapper = _build_wrapper(
+        "shell('rm -rf /testbed/dask')",
+        run_id="shell-block-test",
+        cwd="/testbed",
+        require_declared_shell_outputs=False,
+    )
+    assert "_DESTRUCTIVE_SHELL_PATTERN.search(command" in wrapper
+    # The block should NOT be gated on _REQUIRE_DECLARED_SHELL_OUTPUTS
+    lines = wrapper.split("\n")
+    for line in lines:
+        if "_DESTRUCTIVE_SHELL_PATTERN.search" in line:
+            assert "_REQUIRE_DECLARED_SHELL_OUTPUTS" not in line, (
+                "Destructive shell block must be unconditional"
+            )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rm -rf /testbed/dask",
+        "rm -rF /testbed",
+        "rm --recursive /workspace/project",
+        "mv /testbed/dask /tmp/trash",
+        "mv /home/user /tmp",
+        "chmod -R 777 /usr",
+        "chown -R root:root /etc",
+        "rm -rf .",
+        "mkfs.ext4 /dev/sda1",
+        "dd if=/dev/zero of=/dev/sda",
+        "rm -rf /tmp/important",
+        # Chained
+        "echo ok; rm -rf /testbed/dask",
+        "true && mv /workspace/project /nowhere",
+    ],
+)
+def test_destructive_shell_pattern_matches(command):
+    """Verify _DESTRUCTIVE_SHELL_PATTERN catches known destructive commands."""
+    import re
+
+    pattern = re.compile(
+        r"(?:^|[;&|]\s*)(?:"
+        r"rm\s+(?:-\S*[rR]\S*\s+|--recursive\s+)(?:/(?:testbed|workspace|home|opt|usr|var|etc|tmp)\b|/\s|/\.\.|\.\.)"
+        r"|mv\s+/(?:testbed|workspace|home|opt|usr|var|etc)(?:/[^/\s]*)?(?:\s|$)"
+        r"|chmod\s+(?:-\S*R\S*\s+|--recursive\s+)\S*\s+/"
+        r"|chown\s+(?:-\S*R\S*\s+|--recursive\s+)\S*\s+/"
+        r"|rm\s+-\S*[rR]\S*\s+\.\s*$"
+        r"|mkfs\b|dd\s+.*of=/"
+        r")",
+        flags=re.IGNORECASE,
+    )
+    assert pattern.search(command), f"Pattern should match: {command}"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rm /testbed/dask/file.py",          # Not recursive — single file is fine
+        "rm -f /testbed/dask/file.py",        # Force but not recursive
+        "mv /testbed/dask/file.py /testbed/dask/new.py",  # mv deep path (file-level)
+        "cp -r /testbed/dask /testbed/backup", # cp, not rm/mv
+        "chmod 644 /testbed/dask/file.py",    # Not recursive
+        "pytest /testbed/dask/tests",          # Test runner
+        "python -c 'import os'",               # Harmless
+    ],
+)
+def test_destructive_shell_pattern_does_not_match_safe_commands(command):
+    """Verify _DESTRUCTIVE_SHELL_PATTERN does not flag legitimate commands."""
+    import re
+
+    pattern = re.compile(
+        r"(?:^|[;&|]\s*)(?:"
+        r"rm\s+(?:-\S*[rR]\S*\s+|--recursive\s+)(?:/(?:testbed|workspace|home|opt|usr|var|etc|tmp)\b|/\s|/\.\.|\.\.)"
+        r"|mv\s+/(?:testbed|workspace|home|opt|usr|var|etc)(?:/[^/\s]*)?(?:\s|$)"
+        r"|chmod\s+(?:-\S*R\S*\s+|--recursive\s+)\S*\s+/"
+        r"|chown\s+(?:-\S*R\S*\s+|--recursive\s+)\S*\s+/"
+        r"|rm\s+-\S*[rR]\S*\s+\.\s*$"
+        r"|mkfs\b|dd\s+.*of=/"
+        r")",
+        flags=re.IGNORECASE,
+    )
+    assert not pattern.search(command), f"Pattern should NOT match: {command}"
+
+
 async def test_codeact_rejects_writes_from_validator():
     """CodeAct staged writes must respect the validator no-write contract."""
     manifest = _make_manifest(writes=[{"path": "/testbed/pkg/core.py", "content": "x = 1\n"}])
@@ -661,8 +743,8 @@ async def test_codeact_rejects_writes_from_validator():
     assert "validator lanes must not write repository files" in data["write_errors"][0]
 
 
-async def test_codeact_rejects_verify_surface_writes_when_enforcement_is_error():
-    """Verification-surface writes are only advisory in warn mode."""
+async def test_codeact_warns_verify_surface_writes_when_enforcement_is_error():
+    """Write-scope is advisory — verification-surface writes succeed with a warning."""
     manifest = _make_manifest(
         writes=[{"path": "/testbed/dask/tests/test_cli.py", "content": "patched\n"}]
     )
@@ -686,11 +768,9 @@ async def test_codeact_rejects_verify_surface_writes_when_enforcement_is_error()
         ctx,
     )
 
-    assert result.is_error
-    data = json.loads(result.output)
-    assert data["files_written"] == 0
-    assert data["write_errors"]
-    assert "outside write_scope" in data["write_errors"][0]
+    data = _assert_ok(result)
+    assert data["files_written"] == 1
+    assert any("outside write_scope" in w for w in data["warnings"])
 
 
 async def test_codeact_records_scope_warning_on_advisory_write():
@@ -726,7 +806,8 @@ async def test_codeact_records_scope_warning_on_advisory_write():
     assert "outside write_scope" in warnings[0]["message"]
 
 
-async def test_codeact_rejects_non_verify_surface_write_in_warn_mode():
+async def test_codeact_warns_non_verify_surface_write_in_warn_mode():
+    """Write-scope is advisory — non-verify-surface writes succeed with a warning."""
     manifest = _make_manifest(
         writes=[{"path": "/testbed/dask/_compatibility.py", "content": "patched\n"}]
     )
@@ -751,14 +832,13 @@ async def test_codeact_rejects_non_verify_surface_write_in_warn_mode():
         ctx,
     )
 
-    assert result.is_error
-    data = json.loads(result.output)
-    assert data["files_written"] == 0
-    assert data["write_errors"]
-    assert "outside write_scope" in data["write_errors"][0]
+    data = _assert_ok(result)
+    assert data["files_written"] == 1
+    assert any("outside write_scope" in w for w in data["warnings"])
 
 
-async def test_codeact_rejects_declared_output_outside_scope_in_warn_mode():
+async def test_codeact_warns_declared_output_outside_scope_in_warn_mode():
+    """Write-scope is advisory — declared outputs outside scope succeed with a warning."""
     manifest = _make_manifest()
     sb = _make_sandbox(manifest=manifest)
     ctx = _ctx(
@@ -782,8 +862,7 @@ async def test_codeact_rejects_declared_output_outside_scope_in_warn_mode():
         ctx,
     )
 
-    assert result.is_error
-    assert "outside write_scope" in result.output
+    assert not result.is_error
 
 
 async def test_codeact_allows_install_commands_in_team_mode():

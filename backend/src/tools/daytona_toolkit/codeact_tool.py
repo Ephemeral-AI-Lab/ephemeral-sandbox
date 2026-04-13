@@ -189,6 +189,17 @@ _DESTRUCTIVE_GIT_PATTERN = re.compile(
     r"git\s+(stash|reset\s+--hard|checkout\s+--\s|checkout\s+\.\s*$|clean\s+-[fd])",
     flags=re.IGNORECASE,
 )
+_DESTRUCTIVE_SHELL_PATTERN = re.compile(
+    r"(?:^|[;&|]\s*)(?:"
+    r"rm\s+(?:-\S*[rR]\S*\s+|--recursive\s+)(?:/(?:testbed|workspace|home|opt|usr|var|etc|tmp)\b|/\s|/\.\.|\.\.)"
+    r"|mv\s+/(?:testbed|workspace|home|opt|usr|var|etc)(?:/[^/\s]*)?(?:\s|$)"
+    r"|chmod\s+(?:-\S*R\S*\s+|--recursive\s+)\S*\s+/"
+    r"|chown\s+(?:-\S*R\S*\s+|--recursive\s+)\S*\s+/"
+    r"|rm\s+-\S*[rR]\S*\s+\.\s*$"
+    r"|mkfs\b|dd\s+.*of=/"
+    r")",
+    flags=re.IGNORECASE,
+)
 
 def shell(command, timeout=900):
     """Execute a shell command."""
@@ -200,6 +211,26 @@ def shell(command, timeout=900):
             "BLOCKED: destructive git commands (stash, reset --hard, checkout --, clean) "
             "are forbidden in team coordination mode. They destroy other agents' work "
             "and bypass OCC. Use daytona_edit_file to revert specific edits instead."
+        )
+        _MANIFEST["shells"].append(
+            {{
+                "command": command,
+                "stdout": "",
+                "stderr": message,
+                "exit_code": -1,
+                "declared_output_paths": _DECLARED_OUTPUT_PATHS,
+                "blocked": True,
+            }}
+        )
+        raise RuntimeError(message)
+    # Hard block: destructive shell commands that move/remove workspace roots,
+    # system directories, or recursively destroy broad path trees.
+    if _DESTRUCTIVE_SHELL_PATTERN.search(command or ""):
+        message = (
+            "BLOCKED: destructive shell command that targets workspace or system "
+            "directories (rm -r /testbed, mv /testbed, etc.) is forbidden. "
+            "These commands destroy the shared workspace and cannot be undone. "
+            "Use targeted file operations instead."
         )
         _MANIFEST["shells"].append(
             {{

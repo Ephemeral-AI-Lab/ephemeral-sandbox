@@ -225,13 +225,20 @@ def _derive_sweevo_budgets(instance: SWEEvoInstance) -> BudgetConfig:
 def _derive_planner_runtime_limits(instance: SWEEvoInstance) -> dict[str, int]:
     """Return benchmark-specific planner limits.
 
-    SWE-EVO planner behavior should stay inside the shared 100-call runtime
-    budget enforced for the built-in coordination agents. Benchmark tuning
-    belongs in skills and plan quality, not by shrinking the planner's tool
-    ceiling per instance.
+    Keep the planner on the default coordination budget so it can finish
+    decomposition before execution lanes inherit tighter limits.
     """
     del instance
     tool_call_limit = 100
+    return {
+        "tool_call_limit": tool_call_limit,
+    }
+
+
+def _derive_execution_runtime_limits(instance: SWEEvoInstance) -> dict[str, int]:
+    """Return tighter runtime limits for execution lanes on SWE-EVO."""
+    del instance
+    tool_call_limit = 50
     return {
         "tool_call_limit": tool_call_limit,
     }
@@ -1100,11 +1107,13 @@ def _build_agent_overrides(instance: SWEEvoInstance) -> dict[str, dict[str, Any]
     if developer_def is not None:
         agent_overrides[DEVELOPER] = {
             "skills": _with_extra_skills(developer_def.skills, "sweevo-project-context"),
+            **_derive_execution_runtime_limits(instance),
         }
     scout_def = get_definition(SCOUT)
     if scout_def is not None:
         agent_overrides[SCOUT] = {
             "skills": _with_extra_skills(scout_def.skills, "sweevo-project-context"),
+            **_derive_execution_runtime_limits(instance),
         }
     validator_def = get_definition(VALIDATOR)
     if validator_def is not None:
@@ -1114,6 +1123,7 @@ def _build_agent_overrides(instance: SWEEvoInstance) -> dict[str, dict[str, Any]
                 "sweevo-project-context",
                 "verification-replan",
             ),
+            **_derive_execution_runtime_limits(instance),
         }
     replanner_def = get_definition(TEAM_REPLANNER)
     if replanner_def is not None:
@@ -1122,6 +1132,7 @@ def _build_agent_overrides(instance: SWEEvoInstance) -> dict[str, dict[str, Any]
                 replanner_def.skills,
                 "sweevo-project-context",
             ),
+            **_derive_execution_runtime_limits(instance),
         }
     return agent_overrides
 

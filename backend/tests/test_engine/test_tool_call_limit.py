@@ -73,12 +73,12 @@ def test_budget_warning_none_when_no_limit():
 
 
 def test_budget_warning_silent_when_far_from_limit():
-    # 100-call limit, 50 used → 50 remaining, threshold = 10. No warning.
+    # 100-call limit, 50 used → 50 remaining, threshold = 75 used. No warning.
     assert build_budget_warning(_ctx(100, 50)) is None
 
 
-def test_budget_warning_fires_at_quarter_budget_boundary():
-    # 100-call limit, 75 used → 25 remaining = threshold. Warns once.
+def test_budget_warning_fires_at_seventy_five_percent_used():
+    # 100-call limit, 75 used → 75% of the budget consumed. Warns once.
     pair = build_budget_warning(_ctx(100, 75))
     assert pair is not None
     history_msg, event = pair
@@ -112,7 +112,7 @@ def test_budget_warning_guides_validator_to_replan_on_red():
 
 
 def test_budget_warning_emits_once_per_remaining_count():
-    ctx = _ctx(10, 7)
+    ctx = _ctx(10, 8)
     assert build_budget_warning(ctx) is not None
     assert build_budget_warning(ctx) is None
 

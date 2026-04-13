@@ -325,3 +325,62 @@ def test_record_edit_swallows_exceptions():
     svc.arbiter.record_edit.side_effect = RuntimeError("boom")
     ctx = _ctx({"ci_service": svc})
     record_edit_in_arbiter(ctx, "/file.py")  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# destructive_shell_command_error
+# ---------------------------------------------------------------------------
+
+import pytest
+from tools.daytona_toolkit.ci_integration import destructive_shell_command_error
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rm -rf /testbed/dask",
+        "rm -rF /testbed",
+        "rm --recursive /workspace/project",
+        "mv /testbed/dask /tmp/trash",
+        "mv /home/user /tmp",
+        "mkfs.ext4 /dev/sda1",
+        "dd if=/dev/zero of=/dev/sda",
+        "rm -rf .",
+        "echo ok; rm -rf /testbed/dask",
+    ],
+)
+def test_destructive_shell_command_error_blocks(command):
+    err = destructive_shell_command_error(command)
+    assert err is not None, f"Should block: {command}"
+    assert "BLOCKED" in err
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rm /testbed/dask/file.py",
+        "rm -f /testbed/dask/file.py",
+        "mv /testbed/dask/file.py /testbed/dask/new.py",
+        "cp -r /testbed/dask /testbed/backup",
+        "pytest /testbed/dask/tests",
+        "python -c 'import os'",
+        "",
+    ],
+)
+def test_destructive_shell_command_error_allows_safe(command):
+    err = destructive_shell_command_error(command)
+    assert err is None, f"Should allow: {command}"
+
+
+def test_shell_mutation_declaration_error_blocks_destructive_unconditionally():
+    """Destructive commands are blocked even outside team coordination mode."""
+    from tools.daytona_toolkit.ci_integration import shell_mutation_declaration_error
+
+    ctx = _ctx()  # no team mode metadata
+    err = shell_mutation_declaration_error(
+        ctx,
+        command="rm -rf /testbed/dask",
+        declared_output_paths=["/testbed/dask"],
+    )
+    assert err is not None
+    assert "BLOCKED" in err

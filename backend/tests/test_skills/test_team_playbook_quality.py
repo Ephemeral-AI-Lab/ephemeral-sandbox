@@ -282,8 +282,8 @@ def test_developer_and_validator_skills_explain_when_to_load_references() -> Non
     assert "UID 0 bypassing a test's permission setup" in developer
     assert "If the assigned exact file is missing or disproved" in developer
     assert "outside-write-scope warnings on a non-adjacent file" in developer
-    assert "hard `outside write_scope` error on a required adjacent import/export shim" in developer
-    assert "not a cue to keep trying shell writes or alternate tools" in developer
+    assert "advisory warning on a required adjacent import/export shim" in developer
+    assert "repeated outside-write-scope warnings across many files" in developer
     assert "root-only skips, xfails, or verify-file rewrites" in developer
     assert "generic `edit_file`, `write_file`, or `read_file`" in developer
     assert "treat `Unknown tool` as your own Daytona tool-name error" in developer_codeact_ref

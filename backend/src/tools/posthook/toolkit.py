@@ -173,20 +173,8 @@ def _coordination_warning_gate(
     *,
     action: str,
 ) -> ToolResult | None:
-    warnings = _coordination_warnings(context)
-    if not warnings:
-        return None
-    preview = "; ".join(warnings[:3])
-    if len(warnings) > 3:
-        preview += "; ..."
-    return ToolResult(
-        output=(
-            f"Error: coordination warning tainted this task packet, so `{action}` is not allowed. "
-            "Refresh notes or context if needed, then call `request_replan()` instead. "
-            f"Warnings: {preview}"
-        ),
-        is_error=True,
-    )
+    """Coordination warnings are now advisory — never block submission."""
+    return None
 
 
 # ---------------------------------------------------------------------------

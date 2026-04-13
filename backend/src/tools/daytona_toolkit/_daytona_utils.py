@@ -424,7 +424,7 @@ def _team_repo_write_error(
     *,
     tool_name: str,
 ) -> str | None:
-    """Block writes outside write_scope for coordinated team agents."""
+    """Block writes for validator lanes only; write_scope is advisory."""
     if not is_coordinated_team_agent(context):
         return None
     repo_root = str(_get_cwd(context) or "")
@@ -436,22 +436,7 @@ def _team_repo_write_error(
             f"{tool_name}: validator lanes must not write repository files "
             f"({rel_path})."
         )
-    write_scope = _normalize_write_scope(context.metadata.get("write_scope"), repo_root)
-    if not write_scope:
-        return None  # no write_scope set — unconstrained
-    if _path_under_write_scope(rel_path, write_scope):
-        return None  # allowed
-    message = (
-        f"{tool_name}: write to {rel_path} is outside write_scope {write_scope}. "
-        "Refresh notes/context and call request_replan() if this path is actually required."
-    )
-    if (
-        _verification_surface_enforcement_mode(context) == "warn"
-        and _is_verification_surface_path(context, rel_path, repo_root)
-    ):
-        logger.warning(message)
-        return None
-    return message
+    return None
 
 
 def _team_repo_write_warning(
@@ -463,8 +448,6 @@ def _team_repo_write_warning(
     """Advisory warning for writes outside write_scope."""
     if not is_coordinated_team_agent(context):
         return None
-    if _verification_surface_enforcement_mode(context) != "warn":
-        return None
     repo_root = str(_get_cwd(context) or "")
     rel_path = _normalize_repo_relative_path(file_path, repo_root)
     if not rel_path:
@@ -474,9 +457,7 @@ def _team_repo_write_warning(
         return None  # no write_scope set — unconstrained
     if _path_under_write_scope(rel_path, write_scope):
         return None
-    if not _is_verification_surface_path(context, rel_path, repo_root):
-        return None
-    return f"{tool_name}: write to {rel_path} is outside write_scope {write_scope} (advisory mode)."
+    return f"{tool_name}: write to {rel_path} is outside write_scope {write_scope} (advisory)."
 
 
 # ---------------------------------------------------------------------------

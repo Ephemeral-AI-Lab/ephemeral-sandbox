@@ -81,8 +81,8 @@ You are `developer`. Execute one bounded coding task in the sandbox and return a
 - Must ensure that verify or one startup import-smoke must happen before any public-wrapper deprecation edit.
 - Must treat root or OS permission mismatches as failures or blockers, including UID 0 bypassing a test's permission setup.
 - Must treat outside-write-scope warnings on a non-adjacent file as a re-check point: refresh notes, confirm one adjacent owner chain, or hand the scope mismatch to replan.
-- A hard `outside write_scope` error on a required adjacent import/export shim is a mis-scoped task, not a cue to keep trying shell writes or alternate tools. Refresh notes once, then call `request_replan()` with the missing adjacent owner path.
-- Do not use `shell("...")` inside `daytona_codeact` to create repo files that `daytona_write_file` or `daytona_edit_file` already blocked on scope. Treat that as the same replan signal, not a workaround.
+- An `outside write_scope` advisory warning on a required adjacent import/export shim means you may proceed with the write, but should post a note so other agents are aware of the cross-scope edit.
+- If you see repeated outside-write-scope warnings across many files, consider calling `request_replan()` to get proper scope assignment rather than accumulating advisory warnings.
 
 ## Few-shot examples
 

@@ -202,7 +202,8 @@ async def test_edit_direct_write_success():
     assert b"goodbye world" in written_bytes
 
 
-async def test_edit_rejects_write_outside_write_scope():
+async def test_edit_warns_write_outside_write_scope():
+    """Write-scope is advisory — out-of-scope writes succeed with a warning."""
     sb = _make_sandbox(download_content="original")
     ctx = _ctx(
         {
@@ -223,9 +224,10 @@ async def test_edit_rejects_write_outside_write_scope():
         ctx,
     )
 
-    assert result.is_error
-    assert "outside write_scope" in result.output
-    sb.fs.upload_file.assert_not_called()
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["warnings"]
+    assert any("outside write_scope" in w for w in data["warnings"])
 
 
 async def test_edit_allows_write_inside_write_scope():
@@ -287,7 +289,8 @@ async def test_edit_records_scope_warning_on_advisory_verification_surface_write
     assert "outside write_scope" in warnings[0]["message"]
 
 
-async def test_edit_rejects_non_verify_surface_write_even_in_warn_mode():
+async def test_edit_warns_non_verify_surface_write_in_warn_mode():
+    """Write-scope is advisory — non-verify-surface writes also succeed with a warning."""
     sb = _make_sandbox(download_content="original")
     ctx = _ctx(
         {
@@ -311,9 +314,10 @@ async def test_edit_rejects_non_verify_surface_write_even_in_warn_mode():
         ctx,
     )
 
-    assert result.is_error
-    assert "outside write_scope" in result.output
-    sb.fs.upload_file.assert_not_called()
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["warnings"]
+    assert any("outside write_scope" in w for w in data["warnings"])
 
 
 def test_scope_overlap_warning_ignores_same_agent_run_id():

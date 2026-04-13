@@ -212,7 +212,6 @@ class LspClient:
     _DEF_CLASS_RE = __import__("re").compile(
         r"^(\s*(?:async\s+)?(?:def|class)\s+)"
     )
-
     def _resolve_column(self, file_path: str, line: int, character: int) -> int:
         """When character is 0, advance to the actual symbol name column.
 
@@ -426,7 +425,7 @@ class LspClient:
                 result = response.result or ""
             else:
                 proc = subprocess.run(
-                    ["python3", "-c", script],
+                    [__import__("sys").executable, "-c", script],
                     capture_output=True,
                     text=True,
                     timeout=LSP_QUERY_TIMEOUT,

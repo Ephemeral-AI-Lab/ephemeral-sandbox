@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from team._path_utils import scope_paths_overlap
 from tools.core.base import ToolExecutionContext
 
 
@@ -74,7 +75,20 @@ async def check_freshness(context: ToolExecutionContext) -> FreshnessReport:
             parent_id=context.metadata.get("task_parent_id"),
             since=since,
         )
-        new_sibling_completions = len(sibling_ids)
+        if sibling_ids and scope_paths and hasattr(dispatcher, "get_task_by_id"):
+            relevant = 0
+            for sibling_id in sibling_ids:
+                sibling = await dispatcher.get_task_by_id(sibling_id)
+                sibling_scopes = list(getattr(sibling, "scope_paths", None) or [])
+                if not sibling_scopes or any(
+                    scope_paths_overlap(scope, sibling_scope)
+                    for scope in scope_paths
+                    for sibling_scope in sibling_scopes
+                ):
+                    relevant += 1
+            new_sibling_completions = relevant
+        else:
+            new_sibling_completions = len(sibling_ids)
 
     return FreshnessReport(
         scope_changes_by_others=scope_changes,

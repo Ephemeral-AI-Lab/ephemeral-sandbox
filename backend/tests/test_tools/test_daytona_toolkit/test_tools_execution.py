@@ -155,8 +155,10 @@ async def test_write_file_resolves_relative_path():
     assert call_args[1] == "/workspace/subdir/file.txt"
 
 
-async def test_write_file_rejects_write_outside_write_scope():
+async def test_write_file_warns_write_outside_write_scope():
+    """Write-scope is advisory — out-of-scope writes succeed with a warning."""
     sb = _sb()
+    sb.process.exec = AsyncMock(return_value=MagicMock(result="", exit_code=0))
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
@@ -175,10 +177,10 @@ async def test_write_file_rejects_write_outside_write_scope():
         ctx,
     )
 
-    assert result.is_error
-    assert "outside write_scope" in result.output
-    sb.fs.upload_file.assert_not_called()
-    sb.process.exec.assert_not_called()
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["warnings"]
+    assert any("outside write_scope" in w for w in data["warnings"])
 
 
 async def test_write_file_allows_write_inside_write_scope():
@@ -238,8 +240,10 @@ async def test_write_file_records_scope_warning_on_advisory_write():
     assert "outside write_scope" in warnings[0]["message"]
 
 
-async def test_write_file_rejects_non_verify_surface_write_even_in_warn_mode():
+async def test_write_file_warns_non_verify_surface_write_in_warn_mode():
+    """Write-scope is advisory — non-verify-surface writes also succeed with a warning."""
     sb = _sb()
+    sb.process.exec = AsyncMock(return_value=MagicMock(result="", exit_code=0))
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
@@ -261,9 +265,10 @@ async def test_write_file_rejects_non_verify_surface_write_even_in_warn_mode():
         ctx,
     )
 
-    assert result.is_error
-    assert "outside write_scope" in result.output
-    sb.fs.upload_file.assert_not_called()
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["warnings"]
+    assert any("outside write_scope" in w for w in data["warnings"])
 
 
 async def test_write_file_rejects_repo_write_from_validator():
