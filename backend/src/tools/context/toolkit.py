@@ -163,6 +163,11 @@ class PostNoteTool(BaseTool):
             scope_paths=scope,
         )
         await tc.post(note)
+        # Reset edit counter so the note nudge doesn't fire until the
+        # next batch of edits.  See _track_edit_for_note_nudge().
+        context.metadata["edits_since_last_note"] = 0
+        context.metadata["files_edited_since_last_note"] = []
+        context.metadata["_note_nudge_at_edit"] = 0
         return ToolResult(output=f"Note posted ({len(arguments.content)} chars).")
 
 

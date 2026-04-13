@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Any
 
-from code_intelligence.editing.patcher import LineRangeEdit, Patcher, SearchReplaceEdit
+from code_intelligence.editing.patcher import Patcher, SearchReplaceEdit
 from tools.core.base import ToolExecutionContext, ToolResult
 from tools.core.ci_runtime import (
     abort_ci_write,
@@ -26,6 +26,7 @@ from tools.daytona_toolkit.tools import (
     _resolve_path,
     _team_repo_write_error,
     _team_repo_write_warning,
+    _track_edit_for_note_nudge,
     _upload_file_compat,
     record_coordination_warning,
 )
@@ -50,6 +51,7 @@ def _edit_success_result(
     expected_hash: str = "",
 ) -> ToolResult:
     """Build a successful-edit ToolResult with consistent JSON output."""
+    _track_edit_for_note_nudge(context, file_path)
     payload: dict[str, Any] = {
         "cwd": _get_cwd(context) or "",
         "file_path": file_path,
@@ -111,7 +113,7 @@ def _scope_overlap_warning(
 
 @tool(
     name="daytona_edit_file",
-    description="Edit a file atomically using search_replace or line_range operations.",
+    description="Edit a file atomically using search_replace operations.",
 )
 async def daytona_edit_file(
     file_path: str,
@@ -129,9 +131,8 @@ async def daytona_edit_file(
         file_path: Path to the file to edit
         old_text: Text to find and replace (legacy single-edit mode)
         new_text: Replacement text for legacy single-edit mode
-        edits: Optional batch edit list. Supported strategies:
+        edits: Optional batch edit list. Each edit must use strategy ``search_replace``:
             ``{"strategy": "search_replace", "search": "...", "replace": "..."}``
-            ``{"strategy": "line_range", "start_line": 1, "end_line": 3, "new_content": "..."}``
         description: Optional description of the edit
         dry_run: Preview the edit without applying
 
@@ -357,19 +358,28 @@ def _normalize_edits(
     old_text: str,
     new_text: str,
     edits: list[dict[str, Any]] | None,
-) -> tuple[list[SearchReplaceEdit | LineRangeEdit], str | None, bool]:
+) -> tuple[list[SearchReplaceEdit], str | None, bool]:
     """Validate and normalize tool inputs into patcher edit objects."""
     if edits is not None:
         if old_text or new_text:
             return [], "Provide either `old_text`/`new_text` or `edits`, not both.", False
-        normalized: list[SearchReplaceEdit | LineRangeEdit] = []
+        normalized: list[SearchReplaceEdit] = []
         for index, edit in enumerate(edits, start=1):
             if not isinstance(edit, dict):
                 return [], f"Edit {index}: each edit must be an object.", False
             strategy = str(edit.get("strategy") or "").strip()
+
+            # Auto-recover: LLMs sometimes omit strategy but pass recognizable keys
+            if not strategy:
+                if "old_text" in edit or "new_text" in edit or "old_string" in edit or "new_string" in edit:
+                    strategy = "search_replace"
+                elif "search" in edit or "replace" in edit:
+                    strategy = "search_replace"
+
             if strategy == "search_replace":
-                search = edit.get("search")
-                replace = edit.get("replace")
+                # Accept common LLM key variants: search/replace, old_text/new_text, old_string/new_string
+                search = edit.get("search") or edit.get("old_text") or edit.get("old_string")
+                replace = edit.get("replace") or edit.get("new_text") or edit.get("new_string")
                 if not isinstance(search, str) or not isinstance(replace, str):
                     return (
                         [],
@@ -377,36 +387,19 @@ def _normalize_edits(
                         False,
                     )
                 normalized.append(SearchReplaceEdit(old_text=search, new_text=replace))
-            elif strategy == "line_range":
-                start_line = edit.get("start_line")
-                end_line = edit.get("end_line")
-                new_content = edit.get("new_content")
-                if (
-                    not isinstance(start_line, int)
-                    or not isinstance(end_line, int)
-                    or not isinstance(new_content, str)
-                ):
-                    return (
-                        [],
-                        (
-                            f"Edit {index}: line_range requires integer `start_line`, integer `end_line`, "
-                            "and string `new_content`."
-                        ),
-                        False,
-                    )
-                normalized.append(
-                    LineRangeEdit(
-                        start_line=start_line,
-                        end_line=end_line,
-                        new_text=new_content,
-                    )
-                )
             else:
-                return [], f"Edit {index}: unknown strategy '{strategy}'.", False
+                return [], (
+                    f"Edit {index}: unknown strategy '{strategy}'. "
+                    "Use `{{\"strategy\": \"search_replace\", \"search\": \"...\", \"replace\": \"...\"}}` "
+                    "or use top-level `old_text`/`new_text` for a single edit."
+                ), False
         if not normalized:
             return [], "At least one edit is required.", False
         return normalized, None, False
 
     if not old_text:
-        return [], "Provide either `old_text`/`new_text` or `edits`.", False
+        return [], (
+            "Provide `old_text` (text to find) and `new_text` (replacement), "
+            "or use `edits` with strategy `search_replace`."
+        ), False
     return [SearchReplaceEdit(old_text=old_text, new_text=new_text)], None, True

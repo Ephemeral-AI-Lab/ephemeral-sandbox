@@ -51,7 +51,7 @@ def _build_instructions(*, include_codeact: bool) -> str:
         "- `daytona_grep` — search file contents by regex. Use to find code patterns.\n"
         "- `daytona_read_file` — read a file. Use before editing to understand context.\n\n"
         "**Edit**\n"
-        "- `daytona_edit_file` — atomic file edits using `search_replace` or `line_range`, including small batched edits.\n"
+        "- `daytona_edit_file` — atomic file edits using `old_text`/`new_text` or batched `search_replace` edits.\n"
         "- `daytona_write_file` — create or overwrite a file. Use for new files.\n"
         f"{codeact_line}\n"
         "**Execute**\n"

@@ -15,7 +15,7 @@ Use this reference before the first `daytona_codeact` verification command on a 
 
 ## Few-shot examples
 - Example: payload verify is `pytest dask/tests/test_cli.py dask/tests/test_compatibility.py --continue-on-collection-errors -n0 -rA --color=no`.
-  Run `result = shell("pytest dask/tests/test_cli.py dask/tests/test_compatibility.py --continue-on-collection-errors -n0 -rA --color=no", timeout=180)`. Print `result.exit_code` plus a short stdout or stderr tail from that same run, then decide PASS or FAIL.
+  Run `result = shell("pytest dask/tests/test_cli.py dask/tests/test_compatibility.py --continue-on-collection-errors -n0 -rA --color=no", timeout=600)`. Print `result["exit_code"]` plus a short stdout or stderr tail from that same run, then decide PASS or FAIL.
 - Example: the first `daytona_codeact` attempt is rejected because you wrote `subprocess.run(...)`.
   Retry once with `result = shell("pytest ...", timeout=180)` and use that shell result for the verdict.
   Do not inspect the rejection and then keep using Python process wrappers.
@@ -28,3 +28,48 @@ Use this reference before the first `daytona_codeact` verification command on a 
 - Example: the exact payload suite is `pytest pkg/tests/test_big_file.py -q`, it runs hundreds of cases, and dies with `SIGKILL` before printing any failing ids.
   Keep that first run as the runtime evidence, then shard only `pkg/tests/test_big_file.py` into disjoint equivalent chunks on the retry path.
   PASS only if every shard passes; if any shard fails, return that shard's exact failure evidence.
+
+## Large test suites (>10 tests or known-slow modules)
+
+When the payload command runs a broad test suite that may exceed 5 minutes, use `background=true` on `daytona_codeact` to avoid hitting the exec timeout.
+
+### Step 1 — Launch as background
+
+```python
+daytona_codeact(
+  code='result = shell("pytest tests/ --continue-on-collection-errors -n0 -rA --color=no", timeout=900)\nprint(result["exit_code"])\nprint(result["stdout"][-2000:])',
+  background=true
+)
+```
+The engine returns immediately with a `task_id` (e.g. `"bg_1"`). Save it.
+
+### Step 2 — Poll with check_background_progress
+
+```python
+check_background_progress(task_id="bg_1", last_n_lines=20)
+```
+- Non-blocking. Returns current status (`running`, `completed`, `failed`, `cancelled`) and recent output lines.
+- Call this periodically while doing other work. Do not tight-loop — space checks out.
+- You **must** call this at least once before `wait_for_background_task` will accept the task.
+
+### Step 3 — Collect with wait_for_background_task
+
+```python
+wait_for_background_task(task_id="bg_1", timeout=120)
+```
+- Blocks server-side up to `timeout` seconds (max 300s). Use only when no foreground work remains.
+- If the test suite runs longer than 300s, do **not** set `timeout=900` — it caps at 300. Instead, alternate between `check_background_progress` and short `wait_for_background_task(timeout=120)` calls until status is `completed`.
+
+### Step 4 — Cancel if stuck
+
+```python
+cancel_background_task(task_id="bg_1", reason="test suite hung after 10 minutes")
+```
+- Requires the exact `task_id` — `"all"` is not accepted.
+- Use `"auto"` only when exactly one task is running.
+- After cancellation, partial output is still available via `check_background_progress`.
+
+### Rules
+- The `shell()` timeout default is 900s (15 min). For suites known to run longer, pass an explicit `timeout=` to `shell()`.
+- Do not fall back to `subprocess.run(...)` or `subprocess.Popen(...)` to work around timeouts — use `shell()` with a higher timeout or background execution.
+- Do not call `wait_for_background_task` immediately after launch — the engine will reject it. Do other work or call `check_background_progress` first.

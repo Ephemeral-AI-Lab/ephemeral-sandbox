@@ -13,6 +13,7 @@ Use this reference after decomposition examples and immediately before `plan-jso
 - An atomic leftovers lane owns several unrelated exact files even though one child planner could schedule them without another explorer wave.
 - The terminal validator widened to a repo-scale command mainly because the parent layer flattened everything, or you still need to refresh notes after a scope-change signal.
 - You are still recounting tests or rewriting the same ownership summary even though the gate is already satisfied.
+- Two parallel developer lanes (no dep edge) share an exact file in their `scope_paths`, or scout notes show both slices import/modify the same file. This is a shared-file split — sequence them or create a dedicated task.
 
 ## Repair moves
 

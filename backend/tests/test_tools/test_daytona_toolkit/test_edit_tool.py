@@ -343,7 +343,7 @@ async def test_edit_replaces_only_first_occurrence():
     assert written_bytes == b"y x x"
 
 
-async def test_edit_line_range_direct_write_success():
+async def test_edit_line_range_rejected():
     sb = _make_sandbox(download_content="a\nb\nc\n")
     ctx = _ctx({"daytona_sandbox": sb})
     result = await daytona_edit_file.execute(
@@ -360,9 +360,8 @@ async def test_edit_line_range_direct_write_success():
         ),
         ctx,
     )
-    assert not result.is_error
-    written_bytes = sb.fs.upload_file.call_args[0][0]
-    assert written_bytes == b"a\nbeta\nc\n"
+    assert result.is_error
+    assert "unknown strategy" in result.output
 
 
 async def test_edit_batch_direct_write_success():
@@ -373,7 +372,7 @@ async def test_edit_batch_direct_write_success():
             file_path="/file.py",
             edits=[
                 {"strategy": "search_replace", "search": "alpha", "replace": "ALPHA"},
-                {"strategy": "line_range", "start_line": 3, "end_line": 3, "new_content": "GAMMA"},
+                {"strategy": "search_replace", "search": "gamma", "replace": "GAMMA"},
             ],
         ),
         ctx,

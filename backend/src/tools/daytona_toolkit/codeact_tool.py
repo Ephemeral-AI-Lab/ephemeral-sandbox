@@ -84,7 +84,7 @@ def write(path, content):
     """Stage a file write (not written to disk until commit)."""
     _MANIFEST["writes"].append({{"path": path, "content": content}})
 
-def shell(command, timeout=300):
+def shell(command, timeout=900):
     """Execute a shell command."""
     if (
         _REQUIRE_DECLARED_SHELL_OUTPUTS
@@ -290,7 +290,7 @@ async def daytona_codeact(
     """Execute multi-step code with staged file I/O in the Daytona sandbox.
 
     Args:
-        code: Python code to execute in the sandbox. Has access to read(path), write(path, content), and shell(command, timeout=300). Helper-based writes are staged and committed after execution.
+        code: Python code to execute in the sandbox. Has access to read(path), write(path, content), and shell(command, timeout=900). Helper-based writes are staged and committed after execution.
 
     Returns:
         status (str): Execution status — ok or error
@@ -367,7 +367,7 @@ async def daytona_codeact(
         try:
             response = await sandbox.process.exec(
                 exec_command,
-                timeout=300,
+                timeout=900,
             )
             stdout = response.result or ""
         except Exception as exc:
@@ -375,7 +375,7 @@ async def daytona_codeact(
                 sandbox = await _recover_sandbox(context, exc)
                 response = await sandbox.process.exec(
                     exec_command,
-                    timeout=300,
+                    timeout=900,
                 )
                 stdout = response.result or ""
             except Exception as recovery_exc:

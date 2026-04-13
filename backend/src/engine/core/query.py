@@ -27,6 +27,7 @@ from providers.types import (
 from message.messages import (
     BackgroundTaskStateBlock,
     ConversationMessage,
+    SystemReminderBlock,
     TextBlock,
     ToolResultBlock,
 )
@@ -410,6 +411,32 @@ async def _run_query_loop(
                         ),
                         None,
                     )
+
+        # Mid-task note nudge: remind the agent to post progress notes
+        # after a batch of edits.  Mirrors the ScopeChangeBuffer pattern.
+        if context.tool_metadata is not None:
+            _edits = context.tool_metadata.get("edits_since_last_note", 0) or 0
+            _last_nudge = context.tool_metadata.get("_note_nudge_at_edit", 0) or 0
+            if _edits >= 3 and _edits - _last_nudge >= 3:
+                _files = context.tool_metadata.get("files_edited_since_last_note") or []
+                _nudge_text = (
+                    f"You have made {_edits} file edits without posting a progress note. "
+                    f"Files edited: {', '.join(_files[-5:])}. "
+                    "Call post_note(content, scope_paths) now with a summary of "
+                    "what you changed and why, so downstream and sibling agents "
+                    "can see your progress."
+                )
+                display_messages.append(
+                    ConversationMessage(
+                        role="user",
+                        content=[SystemReminderBlock(category="note_nudge", text=_nudge_text)],
+                    )
+                )
+                yield (
+                    SystemNotification(text=_nudge_text, category="note_nudge"),
+                    None,
+                )
+                context.tool_metadata["_note_nudge_at_edit"] = _edits
 
         executor = StreamingToolExecutor(
             tool_registry=context.tool_registry,

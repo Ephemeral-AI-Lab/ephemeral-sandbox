@@ -844,7 +844,7 @@ class TestEditToolOccRoundTrip:
         assert "return 99" in final
 
     def test_batch_edits_through_tool(self):
-        """Batch edits (multiple strategies) in a single tool call."""
+        """Batch edits (multiple search_replace) in a single tool call."""
         sandbox = _make_mock_sandbox(files={
             "/workspace/f.py": "alpha\nbeta\ngamma\ndelta\n"
         })
@@ -856,7 +856,7 @@ class TestEditToolOccRoundTrip:
                 file_path="/workspace/f.py",
                 edits=[
                     {"strategy": "search_replace", "search": "alpha", "replace": "ALPHA"},
-                    {"strategy": "line_range", "start_line": 4, "end_line": 4, "new_content": "DELTA"},
+                    {"strategy": "search_replace", "search": "delta", "replace": "DELTA"},
                 ],
             ),
             ctx,

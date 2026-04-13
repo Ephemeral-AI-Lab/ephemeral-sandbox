@@ -56,6 +56,26 @@ from tools.daytona_toolkit.ci_integration import (
 
 logger = logging.getLogger(__name__)
 
+_NOTE_NUDGE_EDIT_THRESHOLD = 3
+
+
+def _track_edit_for_note_nudge(context: ToolExecutionContext, file_path: str) -> None:
+    """Increment edit counter for mid-task note nudging.
+
+    Only tracks in team mode (work_item_id present). The query loop
+    checks this counter and injects a SystemReminderBlock when the
+    developer has made several edits without calling post_note().
+    """
+    md = getattr(context, "metadata", None)
+    if md is None or not md.get("work_item_id"):
+        return
+    count = md.get("edits_since_last_note", 0) or 0
+    md["edits_since_last_note"] = count + 1
+    files: list[str] = md.get("files_edited_since_last_note") or []
+    if file_path not in files:
+        files.append(file_path)
+    md["files_edited_since_last_note"] = files
+
 
 async def _run_with_recovery(
     context: ToolExecutionContext,
@@ -111,6 +131,7 @@ def _build_write_file_result(
     bytes_written: int,
     warning: str | None,
 ) -> ToolResult:
+    _track_edit_for_note_nudge(context, file_path)
     return ToolResult(
         output=json.dumps(
             {
