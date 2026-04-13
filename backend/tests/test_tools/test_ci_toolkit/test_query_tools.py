@@ -228,6 +228,55 @@ async def test_workspace_structure_non_symbol_index_returns_empty():
     assert "No files indexed" in result.output
 
 
+async def test_workspace_structure_local_fallback_for_cold_index(tmp_path):
+    source = tmp_path / "src"
+    nested = source / "pkg"
+    nested.mkdir(parents=True)
+    (source / "top.py").write_text("def top():\n    pass\n", encoding="utf-8")
+    (nested / "nested.py").write_text("def nested():\n    pass\n", encoding="utf-8")
+    (source / "notes.bin").write_text("ignore", encoding="utf-8")
+
+    svc = MagicMock()
+    svc.workspace_root = str(tmp_path)
+    svc.symbol_index = MagicMock()
+
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        result = await ci_workspace_structure.execute(
+            ci_workspace_structure.input_model(path="src", max_depth=1),
+            _ctx_with_svc(svc),
+        )
+
+    assert not result.is_error
+    assert result.output.strip() == "src/top.py"
+
+
+async def test_workspace_structure_remote_fallback_for_cold_index():
+    svc = MagicMock()
+    svc.workspace_root = "/testbed"
+    svc.symbol_index = MagicMock()
+
+    sandbox = MagicMock()
+    sandbox.process.exec = AsyncMock(
+        return_value=MagicMock(
+            exit_code=0,
+            result="dask/cli.py\ndask/config.py\n",
+        )
+    )
+
+    ctx = _ctx_with_svc(svc)
+    ctx.metadata["daytona_sandbox"] = sandbox
+    ctx.metadata["daytona_cwd"] = "/testbed"
+
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        result = await ci_workspace_structure.execute(
+            ci_workspace_structure.input_model(path="dask", max_depth=1),
+            ctx,
+        )
+
+    assert not result.is_error
+    assert result.output.strip().splitlines() == ["dask/cli.py", "dask/config.py"]
+
+
 # ---------------------------------------------------------------------------
 # ci_query_symbols
 # ---------------------------------------------------------------------------
@@ -643,5 +692,4 @@ async def test_edit_hotspots_returns_results():
     assert items[0]["file"] == "src/hot.py"
     assert items[0]["edit_count"] == 15
     svc.arbiter.file_change_store.hotspots.assert_called_once_with(limit=5)
-
 

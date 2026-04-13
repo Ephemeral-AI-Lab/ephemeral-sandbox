@@ -72,7 +72,12 @@ def _rebind_service_sandbox(service: CodeIntelligenceService, sandbox: Any) -> N
     service._sandbox = sandbox
     lsp = getattr(service, "lsp_client", None)
     if lsp is not None:
+        old_sandbox = getattr(lsp, "_sandbox", None)
         lsp._sandbox = sandbox
+        if old_sandbox is not sandbox:
+            reset = getattr(lsp, "reset_backend_availability", None)
+            if callable(reset):
+                reset()
 
 
 class CodeIntelligenceService:

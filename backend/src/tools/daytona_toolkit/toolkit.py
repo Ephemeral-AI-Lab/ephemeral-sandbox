@@ -109,7 +109,7 @@ class DaytonaToolkit(BaseToolkit):
         from sandbox import fetch_sandbox as get_sandbox
 
         self._sandbox = get_sandbox(self.sandbox_id)
-        logger.info("Daytona sandbox fetched: %s", self.sandbox_id)
+        logger.debug("Daytona sandbox fetched: %s", self.sandbox_id)
         return self._sandbox
 
     async def _get_sandbox_async(self) -> Any:
@@ -135,7 +135,7 @@ class DaytonaToolkit(BaseToolkit):
 
         self._sandbox = await get_async_sandbox(self.sandbox_id)
         self._sandbox_loop_id = loop_id
-        logger.info("Async Daytona sandbox fetched: %s", self.sandbox_id)
+        logger.debug("Async Daytona sandbox fetched: %s", self.sandbox_id)
         return self._sandbox
 
     @staticmethod

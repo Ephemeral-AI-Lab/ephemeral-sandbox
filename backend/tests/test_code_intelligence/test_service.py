@@ -215,6 +215,22 @@ def test_get_code_intelligence_recreates_service_when_workspace_root_changes() -
     assert second.lsp_client._workspace_root == "/tmp/second"
 
 
+def test_get_code_intelligence_rebind_resets_lsp_backend_cache_for_new_sandbox() -> None:
+    first_sandbox = SimpleNamespace(name="first")
+    second_sandbox = SimpleNamespace(name="second")
+
+    service = get_code_intelligence("sandbox-rebind", "/tmp/workspace", sandbox=first_sandbox)
+    service.lsp_client._py_available = False
+    service.lsp_client._ts_available = False
+
+    rebound = get_code_intelligence("sandbox-rebind", "/tmp/workspace", sandbox=second_sandbox)
+
+    assert rebound is service
+    assert rebound.lsp_client._sandbox is second_sandbox
+    assert rebound.lsp_client._py_available is None
+    assert rebound.lsp_client._ts_available is None
+
+
 @pytest.mark.asyncio
 async def test_initialize_endpoint_passes_requested_workspace_root(monkeypatch) -> None:
     calls: list[tuple[str, str]] = []

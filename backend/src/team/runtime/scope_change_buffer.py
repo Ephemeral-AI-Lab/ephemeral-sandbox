@@ -40,7 +40,7 @@ class ScopeChangeBuffer:
       the next batch window rather than firing immediately.
     """
 
-    def __init__(self, *, min_turns_between: int = 5) -> None:
+    def __init__(self, *, min_turns_between: int = 1) -> None:
         self._pending: dict[str, dict[str, str]] = {}  # file_path → latest change
         self._last_notification_idx: int | None = None
         self._min_turns_between = min_turns_between
@@ -56,11 +56,11 @@ class ScopeChangeBuffer:
         """
         self._pending[change["file_path"]] = change
 
-    def flush_into(self, display_messages: list[Any]) -> bool:
+    def flush_into(self, display_messages: list[Any]) -> str | None:
         """Flush buffered changes into display_messages as one SystemReminderBlock.
 
-        Called at the top of each query loop turn. Returns True if a
-        notification was injected.
+        Called at the top of each query loop turn. Returns the injected
+        notification text when a reminder was added, otherwise ``None``.
 
         Skips the flush if the minimum turn interval hasn't elapsed —
         changes stay in the buffer and are coalesced into the next
@@ -73,13 +73,13 @@ class ScopeChangeBuffer:
         if not self._pending:
             # No changes — still count the turn for interval tracking.
             self._turns_since_last_flush += 1
-            return False
+            return None
 
         self._turns_since_last_flush += 1
 
         # Hold changes until minimum interval elapses (batched buffer).
         if self._turns_since_last_flush < self._min_turns_between:
-            return False
+            return None
 
         # Interval met — drain the entire buffer into one notification.
         changes = list(self._pending.values())
@@ -115,7 +115,7 @@ class ScopeChangeBuffer:
                 content=[SystemReminderBlock(category=SCOPE_CHANGE_CATEGORY, text=text)],
             )
         )
-        return True
+        return text
 
     @property
     def has_pending(self) -> bool:

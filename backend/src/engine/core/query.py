@@ -401,7 +401,15 @@ async def _run_query_loop(
         if context.tool_metadata is not None:
             _scope_buf = context.tool_metadata.extras.get("scope_change_buffer")
             if _scope_buf is not None:
-                _scope_buf.flush_into(display_messages)
+                scope_change_text = _scope_buf.flush_into(display_messages)
+                if scope_change_text:
+                    yield (
+                        SystemNotification(
+                            text=scope_change_text,
+                            category="scope_change",
+                        ),
+                        None,
+                    )
 
         executor = StreamingToolExecutor(
             tool_registry=context.tool_registry,
@@ -532,7 +540,7 @@ async def _run_query_loop(
                 continue
 
             if isinstance(event, ApiToolUseDeltaEvent):
-                logger.info(
+                logger.debug(
                     "STREAM: Received ApiToolUseDeltaEvent: id=%s name=%s input_keys=%s",
                     event.id,
                     event.name,
@@ -554,7 +562,7 @@ async def _run_query_loop(
                 assistant_msg = final_message or ConversationMessage(role="assistant", content=[])
                 started = executor.add_tool(event, assistant_msg)
                 if started:
-                    logger.info("STREAM: Yielding ToolExecutionStarted: name=%s", started.tool_name)
+                    logger.debug("STREAM: Yielding ToolExecutionStarted: name=%s", started.tool_name)
                     yield started, None
                 for progress in executor.get_progress():
                     logger.debug(
@@ -573,7 +581,7 @@ async def _run_query_loop(
                 continue
 
             if isinstance(event, ApiMessageCompleteEvent):
-                logger.info(
+                logger.debug(
                     "STREAM: Received ApiMessageCompleteEvent: tool_uses_count=%d",
                     len(event.message.tool_uses) if event.message.tool_uses else 0,
                 )

@@ -321,27 +321,23 @@ def test_scout_playbook_keeps_missing_targets_missing() -> None:
     scout = _read(_CONTENT / "team-scout-playbook/SKILL.md")
     scout_ref = _read(_CONTENT / "team-scout-playbook/references/completion-contract.md")
     scout_launch = _read(_CONTENT / "team-planner-playbook/references/scout-launch-contract.md")
-    assert "must keep that exact path missing" in scout
+    assert "keep that exact path missing" in scout
     assert "Never inspect nearby replacements" in scout
     assert (
         "Must load `completion-contract` before the first read when `target_paths` is a single file"
         in scout
     )
     assert "Never claim code was created, fixed, patched, or refactored." in scout
-    assert (
-        "For single-file or short fixed file-list scouts, `suggested_subdivisions` should almost always be `[]`."
-        in scout
-    )
-    assert "If your draft lacks `artifact`, rebuild the whole object before replying" in scout
-    assert "Do not stop at `Mapped pkg/cli.py`" in scout
-    assert "Must treat the handed scope itself as the deliverable." in scout_ref
-    assert "If the draft is prose or lacks `artifact`, it is unfinished" in scout_ref
-    assert 'does not literally start with `{` and include `"artifact":`' in scout_ref
-    assert 'JSON like `{"summary":"Mapped cli helpers"}`' in scout_ref
-    assert 'raw JSON like `{"summary":"This file defines compatibility helpers."' in scout_ref
+    assert "The note is the durable contract; downstream planners should rely on `read_notes(...)`" in scout
+    assert "Task Center note should usually cover `Scope`, `Files mapped`, `Entry points`, `Owner seam`, `Suggested subdivisions`, and `Gaps`." in scout
+    assert "Final assistant message should be one short prose sentence" in scout
+    assert "Never dump JSON artifacts" in scout
+    assert "Treat the handed scope itself as the deliverable." in scout_ref
+    assert "The Task Center note is the durable handoff. The final message is only a short prose acknowledgment." in scout_ref
+    assert "If the draft is only a JSON object or only `Mapped pkg/cli.py`, it is unfinished." in scout_ref
     assert "Never subdivide a single file just because it is long" in scout_ref
-    assert "same-turn overlap as a reuse signal" in scout_launch
-    assert "same-turn overlap as a reuse signal instead of a cue to keep re-scouting the exact file" in scout_launch
+    assert "same-turn overlap is a reuse signal" in scout_launch
+    assert "not a cue to relaunch the same explorer" in scout_launch
 
 
 def test_sweevo_context_stays_shared_and_runtime_focused() -> None:

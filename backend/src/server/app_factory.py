@@ -28,6 +28,7 @@ from db.engine import get_session_factory, initialize_db
 from db.stores import AgentDefinitionStore, AgentRunStore, ModelStore, SessionStore, UsageStore
 from skills.db.store import SkillDefinitionStore
 from server.protocol import BackendEvent, BackendHostConfig, ToolkitSnapshot
+from server.logging_config import configure_runtime_logging
 from providers.types import SupportsStreamingMessages
 from tools import ToolRegistry
 from tools.core.catalog import collect_toolkit_catalog
@@ -251,6 +252,7 @@ def create_app(config: BackendHostConfig) -> FastAPI:
         global _session, _builder_service
         _session = SessionState()
         await _session.initialize(config)
+        configure_runtime_logging(verbose=_session.current_settings().verbose)
 
         _builder_service = _initialize_database(_session)
 

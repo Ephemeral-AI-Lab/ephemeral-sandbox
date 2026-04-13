@@ -134,6 +134,11 @@ class LspClient:
             self._ts_available = self._check_typescript_backend()
         return {"python": self._py_available or False, "typescript": self._ts_available or False}
 
+    def reset_backend_availability(self) -> None:
+        """Forget cached backend readiness so the next probe can re-check."""
+        self._py_available = None
+        self._ts_available = None
+
     @property
     def telemetry(self) -> LspTelemetry:
         with self._counter_lock:

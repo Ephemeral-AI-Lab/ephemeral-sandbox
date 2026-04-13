@@ -221,6 +221,7 @@ class ContextChangedSinceTool(BaseTool):
     async def execute(
         self, arguments: ContextChangedSinceInput, context: ToolExecutionContext
     ) -> ToolResult:
+        context.metadata["checked_context_freshness"] = True
         report = await check_freshness(context)
         return ToolResult(
             output=json.dumps(

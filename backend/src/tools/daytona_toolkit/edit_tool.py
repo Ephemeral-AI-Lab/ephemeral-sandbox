@@ -91,7 +91,7 @@ def _scope_overlap_warning(
     now = time.time()
     overlap_lines: list[str] = []
     for e in changes:
-        if e.agent_id == agent_run_id:
+        if e.agent_run_id == agent_run_id:
             continue
         if not any(e.file_path.startswith(p.rstrip("/")) for p in write_scope):
             continue

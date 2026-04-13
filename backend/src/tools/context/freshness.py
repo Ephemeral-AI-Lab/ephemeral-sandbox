@@ -51,7 +51,7 @@ async def check_freshness(context: ToolExecutionContext) -> FreshnessReport:
         scope_changes = sum(
             1
             for e in changes
-            if e.agent_id != agent_run_id
+            if e.agent_run_id != agent_run_id
             and any(e.file_path.startswith(p.rstrip("/")) for p in scope_paths)
         )
 

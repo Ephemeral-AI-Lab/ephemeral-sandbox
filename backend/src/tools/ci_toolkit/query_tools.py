@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
 
+from code_intelligence.constants import SKIP_DIRECTORIES, SUPPORTED_EXTENSIONS
 from code_intelligence.query_helpers import (
     _build_fallback_specs,
     _dedupe_matches,
@@ -25,6 +27,7 @@ from tools.core.decorator import tool
 logger = logging.getLogger(__name__)
 _SYMBOL_FALLBACK_LIMIT = 100
 _REFERENCE_FALLBACK_LIMIT = 100
+_STRUCTURE_FALLBACK_LIMIT = 500
 
 
 def _normalize_workspace_path(path: str, *, workspace_root: str = "") -> str:
@@ -85,6 +88,13 @@ def _reference_result(
             indent=2,
         )
     )
+
+
+def _render_workspace_paths(paths: list[str]) -> str:
+    output = "\n".join(paths[:_STRUCTURE_FALLBACK_LIMIT])
+    if len(paths) > _STRUCTURE_FALLBACK_LIMIT:
+        output += "\n... (truncated at 500 files)"
+    return output
 
 
 def _maybe_warm_service(context: ToolExecutionContext, svc: Any, *, label: str) -> None:
@@ -202,6 +212,118 @@ def _local_query_references(
     return _parse_reference_matches(stdout, symbol=symbol, skip_file=skip_file, skip_line=skip_line) or None
 
 
+def _local_workspace_structure(
+    *,
+    workspace_root: str,
+    path_prefix: str,
+    max_depth: int,
+) -> list[str] | None:
+    root = Path(workspace_root)
+    if not root.is_dir():
+        return None
+
+    normalized_prefix = _normalize_workspace_path(path_prefix, workspace_root=workspace_root)
+    start_root = root / normalized_prefix if normalized_prefix else root
+    if not start_root.is_dir():
+        return []
+
+    depth_limit = max(0, int(max_depth))
+    collected: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(start_root):
+        dirnames[:] = [name for name in dirnames if name not in SKIP_DIRECTORIES]
+
+        rel_dir = os.path.relpath(dirpath, start_root)
+        dir_depth = 0 if rel_dir == "." else len([part for part in rel_dir.split(os.sep) if part])
+        if dir_depth >= depth_limit:
+            dirnames[:] = []
+
+        for filename in sorted(filenames):
+            if Path(filename).suffix.lower() not in SUPPORTED_EXTENSIONS:
+                continue
+            full_path = Path(dirpath) / filename
+            rel_path = _normalize_workspace_path(str(full_path), workspace_root=workspace_root)
+            relative_to_prefix = (
+                rel_path[len(normalized_prefix) + 1 :] if normalized_prefix else rel_path
+            )
+            file_depth = len([part for part in relative_to_prefix.split("/") if part])
+            if file_depth <= depth_limit:
+                collected.append(rel_path)
+            if len(collected) >= _STRUCTURE_FALLBACK_LIMIT:
+                return collected
+    return collected
+
+
+async def _remote_workspace_structure(
+    context: ToolExecutionContext,
+    *,
+    workspace_root: str,
+    path_prefix: str,
+    max_depth: int,
+) -> list[str] | None:
+    target = resolve_daytona_path(path_prefix, context)
+    if not target:
+        return None
+
+    script = """
+import json
+import os
+import sys
+
+root = sys.argv[1]
+workspace_root = sys.argv[2]
+max_depth = int(sys.argv[3])
+skip_dirs = set(json.loads(sys.argv[4]))
+extensions = set(json.loads(sys.argv[5]))
+limit = int(sys.argv[6])
+
+if not os.path.isdir(root):
+    sys.exit(0)
+
+matches = []
+for dirpath, dirnames, filenames in os.walk(root):
+    dirnames[:] = [name for name in dirnames if name not in skip_dirs]
+
+    rel_dir = os.path.relpath(dirpath, root)
+    dir_depth = 0 if rel_dir == "." else len([part for part in rel_dir.split(os.sep) if part])
+    if dir_depth >= max_depth:
+        dirnames[:] = []
+
+    for filename in sorted(filenames):
+        if os.path.splitext(filename)[1].lower() not in extensions:
+            continue
+        full_path = os.path.join(dirpath, filename)
+        rel_path = os.path.relpath(full_path, workspace_root).replace(os.sep, "/")
+        rel_from_root = os.path.relpath(full_path, root)
+        file_depth = len([part for part in rel_from_root.split(os.sep) if part])
+        if file_depth <= max_depth:
+            matches.append(rel_path)
+        if len(matches) >= limit:
+            print("\\n".join(matches))
+            sys.exit(0)
+
+print("\\n".join(matches))
+"""
+    command = (
+        f"python3 -c {shlex.quote(script)} "
+        f"{shlex.quote(target)} "
+        f"{shlex.quote(workspace_root)} "
+        f"{shlex.quote(str(max(0, int(max_depth))))} "
+        f"{shlex.quote(json.dumps(sorted(SKIP_DIRECTORIES)))} "
+        f"{shlex.quote(json.dumps(sorted(SUPPORTED_EXTENSIONS)))} "
+        f"{shlex.quote(str(_STRUCTURE_FALLBACK_LIMIT))}"
+    )
+    response, output = await _exec_remote(
+        context,
+        command,
+        log_label=f"Remote workspace structure for {path_prefix or workspace_root}",
+    )
+    if response is None:
+        return None
+    if getattr(response, "exit_code", 0) not in (0, 1):
+        return None
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
 def _svc_or_error(context: ToolExecutionContext) -> tuple[Any | None, ToolResult | None]:
     """Get CI service or return an error ToolResult."""
     svc = get_ci_service(context)
@@ -309,14 +431,25 @@ async def ci_workspace_structure(
         max_depth=max_depth,
     )
 
-    # Limit output
-    paths = paths[:500]
-    output = "\n".join(paths)
-    if len(paths) == 500:
-        output += "\n... (truncated at 500 files)"
+    if paths:
+        return ToolResult(output=_render_workspace_paths(paths))
 
-    if output:
-        return ToolResult(output=output)
+    local_paths = _local_workspace_structure(
+        workspace_root=workspace_root,
+        path_prefix=path,
+        max_depth=max_depth,
+    )
+    if local_paths:
+        return ToolResult(output=_render_workspace_paths(local_paths))
+
+    remote_paths = await _remote_workspace_structure(
+        context,
+        workspace_root=workspace_root,
+        path_prefix=path,
+        max_depth=max_depth,
+    )
+    if remote_paths:
+        return ToolResult(output=_render_workspace_paths(remote_paths))
 
     return ToolResult(
         output="No files indexed yet. Use `daytona_glob` for file discovery when the symbol index is cold."

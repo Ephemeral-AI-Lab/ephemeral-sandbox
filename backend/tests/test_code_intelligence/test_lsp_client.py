@@ -36,3 +36,14 @@ def test_python_definitions_preserves_unknown_types(monkeypatch) -> None:
 
     assert len(results) == 1
     assert results[0].kind is SymbolKind.UNKNOWN
+
+
+def test_reset_backend_availability_clears_cached_readiness() -> None:
+    lsp = LspClient(workspace_root="/workspace")
+    lsp._py_available = False
+    lsp._ts_available = True
+
+    lsp.reset_backend_availability()
+
+    assert lsp._py_available is None
+    assert lsp._ts_available is None

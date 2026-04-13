@@ -9,6 +9,7 @@ Must emit:
 ```text
 REPLAN_REASON: <short reason>
 FAIL_TO_PASS: N/M failing
+ROOT_CAUSE_PACKET: {"observed_failure":"...","first_boundary":"...","hypothesis":"..."}
 
 CLUSTER: <root cause summary>
 - TEST: <exact test id>
@@ -23,11 +24,11 @@ REGRESSIONS:
 
 ## Rules
 
-- Must group failures by root cause.
-- Must keep test ids exact.
-- Must keep owner surfaces concrete.
-- Must mark an unknown sibling task as `unknown` instead of guessing.
-- Must keep collection or import crashes visible instead of replacing them with narrower substitute tests.
+- Group failures by root cause.
+- Keep test ids exact.
+- Keep owner surfaces concrete.
+- Mark an unknown sibling task as `unknown` instead of guessing.
+- Keep collection or import crashes visible instead of replacing them with narrower substitute tests.
 - Never emit a vague summary such as "tests failed".
 
 ## Few-shot examples

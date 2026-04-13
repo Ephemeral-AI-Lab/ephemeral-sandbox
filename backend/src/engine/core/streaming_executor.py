@@ -158,7 +158,7 @@ class StreamingToolExecutor:
         )
         if event.input is not None:
             self._start_tool(tracked)
-            logger.info("STREAM: Tool started: tool_id=%s tool_name=%s", event.id, event.name)
+            logger.debug("STREAM: Tool started: tool_id=%s tool_name=%s", event.id, event.name)
             return ToolExecutionStarted(tool_name=event.name, tool_input=event.input)
         return None
 
@@ -237,7 +237,7 @@ class StreamingToolExecutor:
 
     async def _execute_tool(self, tool: TrackedTool) -> None:
         """Execute a single tool with progress tracking."""
-        logger.info("STREAM: Executing tool: tool_id=%s tool_name=%s", tool.id, tool.name)
+        logger.debug("STREAM: Executing tool: tool_id=%s tool_name=%s", tool.id, tool.name)
         try:
             if tool.id in self._aborted:
                 logger.info("STREAM: Tool aborted before execution: tool_id=%s", tool.id)
@@ -266,7 +266,7 @@ class StreamingToolExecutor:
                 updated=context_with_id.metadata,
                 result_metadata=tool.result.metadata if tool.result is not None else None,
             )
-            logger.info(
+            logger.debug(
                 "STREAM: Tool completed: tool_id=%s tool_name=%s is_error=%s output_len=%d",
                 tool.id,
                 tool.name,
