@@ -19,6 +19,7 @@ Use this skill only for stable benchmark policy. Treat the prompt, payload, live
 - Must treat benchmark test files as failure evidence first, not default implementation ownership.
 - Must keep benchmark test files and pytest node ids literal in task prose or retry targets, but must not create planner/scout ownership tasks whose scope is benchmark-test archaeology unless the prompt explicitly makes tests the owner surface.
 - Must not derive an exact production file from benchmark filename resemblance alone, including `tests/test_foo.py -> pkg/foo.py` or public/private compat-name swaps without live import or note evidence.
+- Must treat a structure-only sighting of sibling files as boundary evidence, not exact-owner confirmation, after a scout disproves a file or marks a directory tests-only.
 - Must treat collection or import failures before the named target loads as still-red verification, not as a reason to trim the scope.
 
 ## Coordination redesign focus
@@ -27,7 +28,8 @@ Use this skill only for stable benchmark policy. Treat the prompt, payload, live
 - Must keep shared context in the Task Center: scouts, developers, and validators post durable notes; planners, developers, validators, and replanners reuse them with `read_notes(...)`.
 - Must use `check_exploration_memory(paths=[...])` only after same-run notes are insufficient and the scope is already exact.
 - Must treat scope-change notifications and `context_changed_since()` as freshness signals. Refresh with `read_notes(...)` before committing, verifying, or replanning on a drifting surface.
-- Must keep `scope_paths` as soft focus hints. Never turn them into rigid ownership bans.
+- Must keep `scope_paths` as soft coordination hints, not hard filesystem ownership bans.
+- Must treat any advisory outside-scope write as a tainted packet and hand it to replan instead of claiming success from that run.
 
 ## Planning and execution emphasis
 

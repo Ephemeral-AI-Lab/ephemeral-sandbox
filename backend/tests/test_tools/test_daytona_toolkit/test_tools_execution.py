@@ -206,6 +206,36 @@ async def test_write_file_allows_write_inside_write_scope():
     sb.fs.upload_file.assert_called_once()
 
 
+async def test_write_file_records_scope_warning_on_advisory_write():
+    sb = _sb()
+    sb.process.exec = AsyncMock(return_value=MagicMock(result="", exit_code=0))
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "team_mode_enabled": True,
+            "write_scope": ["dask/compatibility.py"],
+            "verification_surface_write_enforcement": "warn",
+        }
+    )
+
+    result = await daytona_write_file.execute(
+        daytona_write_file.input_model(
+            file_path="/testbed/dask/_compatibility.py",
+            content="patched",
+        ),
+        ctx,
+    )
+
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["warnings"]
+    warnings = ctx.metadata["coordination_warnings"]
+    assert warnings
+    assert "outside write_scope" in warnings[0]["message"]
+
+
 async def test_write_file_rejects_repo_write_from_validator():
     sb = _sb()
     ctx = _ctx(

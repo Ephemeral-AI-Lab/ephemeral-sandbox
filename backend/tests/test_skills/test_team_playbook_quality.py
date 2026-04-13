@@ -107,6 +107,8 @@ def test_planner_skill_has_explicit_conditional_reference_loading() -> None:
         in planner
     )
     assert "never synthesize an exact owner by stripping `test_`, `_test`" in planner.lower()
+    assert "A later `ci_workspace_structure(...)` listing only proves nearby files exist." in planner
+    assert "Never treat a structure-only sibling listing as exact-owner confirmation" in planner
     assert (
         "Child or `## Scoped Expansion` turn: must load `non-root-context-reuse` before fresh exploration when `load_skill_reference` is available."
         in planner
@@ -133,6 +135,7 @@ def test_planner_skill_has_explicit_conditional_reference_loading() -> None:
     assert "keep only those exact nodes or broaden to that same prompt file path" in plan_json.lower()
     assert "same-family sibling node" in plan_json
     assert "If validation rejects a guessed benchmark node" in plan_json
+    assert 'A structure-only listing or import intuition is not "live-confirmed" owner evidence.' in plan_json
     assert (
         "Before loading this reference, confirm that the terminal validator depends on every terminal non-validator sibling."
         in plan_json
@@ -159,6 +162,9 @@ def test_planner_skill_has_explicit_conditional_reference_loading() -> None:
     assert "keep that benchmark ledger literal through submit retries" in _read(
         _CONTENT / "team-planner-playbook/references/root-plan-self-check.md"
     )
+    assert "You repaired a scout-disproved file or tests-only directory into a sibling exact file" in _read(
+        _CONTENT / "team-planner-playbook/references/root-plan-self-check.md"
+    )
     assert (
         "Must emit a direct developer lane when the child turn already owns one exact production file"
         in non_root
@@ -176,6 +182,7 @@ def test_planner_skill_has_explicit_conditional_reference_loading() -> None:
     )
     assert "overwrite any earlier brainstorm alias in the first-wave ledger" in exploration
     assert "delete any earlier `pkg/dataframe/utils_dataframe.py` brainstorm" in exploration
+    assert "Never use a later `ci_workspace_structure(...)` sibling listing as proof" in exploration
     assert (
         'Must call `run_subagent(agent_name="scout", input={"target_paths": [...]}, task_note="...")` exactly'
         in scout_launch
@@ -194,6 +201,14 @@ def test_replanner_skill_has_explicit_conditional_reference_loading() -> None:
     reference = _read(_CONTENT / "team-replanner-playbook/references/corrective-fast-path.md")
     assert "must load `corrective-fast-path` before deeper analysis" in replanner.lower()
     assert "when `load_skill_reference` is available" in replanner
+
+
+def test_sweevo_project_context_blocks_structure_only_owner_repairs() -> None:
+    sweevo = _read(_CONTENT / "sweevo-project-context/SKILL.md")
+    assert (
+        "Must treat a structure-only sighting of sibling files as boundary evidence, not exact-owner confirmation"
+        in sweevo
+    )
 
 
 def test_developer_and_validator_skills_explain_when_to_load_references() -> None:
@@ -379,7 +394,8 @@ def test_sweevo_context_stays_shared_and_runtime_focused() -> None:
     assert "Must not derive an exact production file from benchmark filename resemblance alone" in sweevo
     assert "Must use `check_exploration_memory(paths=[...])` only after same-run notes are insufficient" in sweevo
     assert "Must treat scope-change notifications and `context_changed_since()` as freshness signals." in sweevo
-    assert "Must keep `scope_paths` as soft focus hints." in sweevo
+    assert "Must keep `scope_paths` as soft coordination hints" in sweevo
+    assert "Must treat any advisory outside-scope write as a tainted packet" in sweevo
 
 
 def test_posthook_decision_playbook_forbids_clarifying_questions() -> None:

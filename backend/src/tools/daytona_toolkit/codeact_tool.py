@@ -30,8 +30,10 @@ from tools.daytona_toolkit.tools import (
     _recover_sandbox,
     _require_sandbox,
     _resolve_path,
+    _team_repo_write_warning,
     _upload_file_compat,
     _wrap_bash_command,
+    record_coordination_warning,
 )
 from tools.core.decorator import tool
 
@@ -212,10 +214,21 @@ async def _commit_staged_write(
     path: str,
     content: str,
     expected_hash: str,
-) -> tuple[bool, str | None, bool]:
+) -> tuple[bool, str | None, bool, str | None]:
     """Commit a helper-staged write with CI coordination when available."""
     prepared = None
     intent_id = None
+    contract_warning = _team_repo_write_warning(
+        context,
+        path,
+        tool_name="daytona_codeact.write",
+    )
+    if contract_warning is not None:
+        record_coordination_warning(
+            context,
+            category="write_scope",
+            message=contract_warning,
+        )
     try:
         prepared, _, err = prepare_ci_write(
             context,
@@ -224,7 +237,7 @@ async def _commit_staged_write(
             allow_scope_drift=True,
         )
         if err is not None:
-            return False, err, True
+            return False, err, True, contract_warning
 
         if prepared is not None:
             prepared, intent_id = prepare_ci_edit_intent(context, prepared, content=content)
@@ -237,11 +250,12 @@ async def _commit_staged_write(
             )
 
             if getattr(result, "success", False):
-                return True, None, False
+                return True, None, False, contract_warning
             return (
                 False,
                 str(getattr(result, "message", "") or "Write failed"),
                 bool(getattr(result, "conflict", False)),
+                contract_warning,
             )
 
         await _upload_file_compat(sandbox, content.encode("utf-8"), path)
@@ -252,9 +266,9 @@ async def _commit_staged_write(
             edit_type="codeact",
             description="daytona_codeact",
         )
-        return True, None, False
+        return True, None, False, contract_warning
     except Exception as exc:
-        return False, str(exc), False
+        return False, str(exc), False, contract_warning
     finally:
         if intent_id is not None:
             release_ci_edit_intent(context, intent_id)
@@ -310,6 +324,22 @@ async def daytona_codeact(
     exec_command = _build_exec_command(script_path, cwd=repo_cwd)
     prepared_shell_outputs: list[object] = []
     shell_sync: dict[str, object] = {"enabled": False, "files": 0, "truncated": False}
+    warnings: list[str] = []
+
+    for path in resolved_declared_output_paths:
+        contract_warning = _team_repo_write_warning(
+            context,
+            path,
+            tool_name="daytona_codeact.declared_output",
+        )
+        if contract_warning is None:
+            continue
+        warnings.append(contract_warning)
+        record_coordination_warning(
+            context,
+            category="write_scope",
+            message=contract_warning,
+        )
 
     if resolved_declared_output_paths:
         prepared_shell_outputs, scope_packet, err = prepare_declared_shell_outputs(
@@ -384,7 +414,6 @@ async def daytona_codeact(
                 )
             return ToolResult(output=f"Script completed but manifest unreadable:\n{stdout[:4000]}")
 
-        warnings: list[str] = []
         shells = manifest.get("shells", [])
         mutating_shell_commands = [
             str(sh.get("command", "") or "")
@@ -421,13 +450,15 @@ async def daytona_codeact(
         conflicts = []
 
         for path, content in _coalesce_staged_writes(writes):
-            ok, error, conflict = await _commit_staged_write(
+            ok, error, conflict, contract_warning = await _commit_staged_write(
                 context=context,
                 sandbox=sandbox,
                 path=path,
                 content=content,
                 expected_hash=read_hashes.get(path, ""),
             )
+            if contract_warning is not None:
+                warnings.append(contract_warning)
             if ok:
                 committed += 1
                 continue

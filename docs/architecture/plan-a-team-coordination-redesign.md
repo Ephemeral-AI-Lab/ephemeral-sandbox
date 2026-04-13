@@ -1,7 +1,7 @@
 # Plan A: Team Coordination Redesign — Task Center Architecture
 
-**Status:** IMPLEMENTED — Updated 2026-04-13 to reflect final implementation decisions  
-**Date:** 2026-04-12  
+**Status:** IMPLEMENTED — Updated 2026-04-13 to reflect final implementation decisions and benchmark validation  
+**Date:** 2026-04-12 (doc updated 2026-04-13)  
 **Branch:** `codex/pydantic-benchmark-loop`  
 **Author:** Architecture session  
 
@@ -151,36 +151,15 @@ PLAN A: 2 layers
 
 ### 4.1 Note (replaces Briefing + DependencyArtifact)
 
-```python
-@dataclass
-class Note:
-    """One entry in the Task Center. The only context primitive."""
-    id: str                        # uuid
-    task_id: str                   # who wrote it
-    agent_name: str                # which agent
-    content: str                   # plain text, any format, any length
-    timestamp: float               # wall clock
-    scope_paths: list[str] = field(default_factory=list)  # file/dir scope for filtering
-    parent_note_id: str | None = None  # optional threading (subagent → parent)
-```
+The `Note` type is the single context primitive in the Task Center. Each note has an id, the task and agent that wrote it, plain-text content of any length and format, a wall-clock timestamp, an optional list of `scope_paths` for scope-filtered reads, and an optional `parent_note_id` for threading subagent notes back to their parent.
 
 **Why `scope_paths` on Note:** The PostgreSQL schema stores `scope_ltree` on `task_notes`, and tools like `post_note(content, scope_paths?)`, `search_context(scope_paths?)`, and `ExplorationCache.check()` all rely on per-note scope metadata. Without `scope_paths` on the in-memory `Note`, the in-memory TaskCenter cannot reproduce the same scope-filtered reads that PostgreSQL provides, causing same-run context sharing to diverge from search/cache behavior. The field defaults to empty (unscoped notes are visible to all queries).
 
-**Rationale:** One type replaces `Briefing` (100→120 lines), `DependencyArtifact` (122→129 lines), and `InMemoryArtifactStore` (~100 lines). LLMs parse prose better than JSON schemas. Agents post what they know; consumers read what's relevant.
+**Rationale:** One type replaces the former `Briefing`, `DependencyArtifact`, and `InMemoryArtifactStore`. LLMs parse prose better than JSON schemas. Agents post what they know; consumers read what's relevant.
 
 ### 4.2 TaskSpec (replaces WorkItemSpec)
 
-```python
-@dataclass
-class TaskSpec:
-    """One item in a plan. What the planner submits."""
-    id: str                                          # local reference ID
-    task: str                                        # plain text instruction (THE briefing)
-    agent: str                                       # agent name or role hint
-    deps: list[str] = field(default_factory=list)    # IDs this depends on
-    scope_paths: list[str] = field(default_factory=list)  # file/dir hints for OCC + note scoping
-    cascade_policy: str = "cancel"                   # "cancel" | "retry_first" | "continue"
-```
+`TaskSpec` is what the planner submits for each item in a plan. It has a local reference `id`, a plain-text `task` instruction (which is the briefing), an `agent` field accepting an exact name or role hint, a `deps` list of task IDs this depends on, `scope_paths` for file/directory hints used by OCC and note scoping, and a `cascade_policy` ("cancel" | "retry_first" | "continue") controlling dependent behavior on failure.
 
 **Comparison with current `WorkItemSpec`:**
 
@@ -201,30 +180,7 @@ class TaskSpec:
 
 ### 4.3 Task (simplified)
 
-```python
-@dataclass
-class Task:
-    id: str
-    team_run_id: str
-    agent_name: str
-    status: TaskStatus         # pending | ready | running | done | failed | cancelled
-    task: str                      # plain text — what to do
-    deps: list[str]                # task IDs
-    scope_paths: list[str]         # file/dir paths for OCC
-    scope_ltree: list = field(default_factory=list)  # ltree conversion (derived, PG-only)
-    cascade_policy: str = "cancel"       # "cancel" | "retry_first" | "continue"
-    parent_id: str | None = None
-    root_id: str = ""
-    depth: int = 0
-    pending_dep_count: int = 0            # decremented on dep completion; 0 = ready
-    retry_count: int = 0
-    max_retries: int = 2
-    agent_run_id: str | None = None
-    created_at: datetime = field(default_factory=_utcnow)
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    failure_reason: str | None = None
-```
+`Task` is the runtime representation of a dispatched work item. It carries the fields needed for execution and DAG tracking: `id`, `team_run_id`, `agent_name`, `status` (pending | ready | running | done | failed | cancelled), `task` (plain-text instruction), `deps`, `scope_paths`, a derived `scope_ltree` list for PostgreSQL queries, `cascade_policy`, `parent_id`, `root_id`, `depth`, `pending_dep_count` (decremented on dep completion; 0 = ready), `retry_count`, `max_retries`, `agent_run_id`, and timestamp fields (`created_at`, `started_at`, `finished_at`, `failure_reason`).
 
 **Removed fields:** `kind`, `payload`, `briefings`, `dep_artifacts`, `artifact_ref`, `local_id`, `timeout_seconds`, `replan_source_id`.
 
@@ -243,35 +199,15 @@ class Task:
 
 ### 4.4 Plan (simplified)
 
-```python
-@dataclass
-class Plan:
-    tasks: list[TaskSpec]
-    rationale: str | None = None
-```
+`Plan` contains a list of `TaskSpec` items and an optional `rationale` string.
 
 ### 4.5 ReplanPlan (simplified)
 
-```python
-@dataclass
-class ReplanPlan:
-    add_tasks: list[TaskSpec] = field(default_factory=list)
-    cancel_ids: list[str] = field(default_factory=list)
-```
+`ReplanPlan` has two lists: `add_tasks` (new `TaskSpec` items to insert) and `cancel_ids` (existing task IDs to cancel).
 
 ### 4.6 BudgetConfig (simplified)
 
-```python
-@dataclass
-class BudgetConfig:
-    max_tasks: int = 50
-    max_depth: int = 4
-    max_plan_size: int = 50
-    max_retries_per_item: int = 2
-    max_replans_per_run: int = 5
-    max_note_bytes: int = 100_000       # per-note size cap in Task Center
-    max_total_note_bytes: int = 5_000_000  # aggregate cap
-```
+`BudgetConfig` enforces runtime limits: `max_tasks` (50), `max_depth` (4), `max_plan_size` (50), `max_retries_per_item` (2), `max_replans_per_run` (5), `max_note_bytes` (100,000 — per-note size cap), and `max_total_note_bytes` (5,000,000 — aggregate cap).
 
 **Removed:** `max_artifact_bytes`, `max_total_artifact_bytes`, `max_briefing_bytes`, `max_shared_briefings`, `max_reviewers_per_plan`, `require_reviewer_for_plan_size`.
 
@@ -283,76 +219,11 @@ class BudgetConfig:
 
 ### 5.1 Data Structure
 
-```python
-class TaskCenter:
-    """Append-only shared context log. Replaces ProjectContext,
-    InMemoryArtifactStore, and 3-tier briefing system.
+`TaskCenter` is an in-memory append-only log shared by all executors in a `TeamRun`. It holds a list of `Note` objects and exposes three primary operations: `post(note)` appends a note; `read(authors?, scope_paths?, since?, limit?)` returns filtered notes; and `context_for(task, file_change_store?, task_lookup?, max_context_bytes?)` builds the prioritized context string delivered to each agent at task start (implementation detailed in Section 8.2). It also stores the run's `goal` and `user_request` strings for reference.
 
-    PostgreSQL is the source of truth when a NoteStore is attached.
-    All writes go to PG via NoteStore. Reads query PG through the
-    same store. An in-memory fallback list is retained for no-PG mode
-    (tests, local dev without PostgreSQL)."""
-
-    def __init__(self, goal: str = "", user_request: str = "",
-                 note_store: NoteStore | None = None,
-                 team_run_id: str = ""):
-        self._notes: list[Note] = []          # fallback for no-PG mode
-        self._note_store = note_store
-        self._team_run_id = team_run_id
-        self.goal = goal
-        self.user_request = user_request
-
-    async def post(self, note: Note) -> None:
-        """Insert a note. When PG-backed, writes to NoteStore (awaited).
-        Otherwise appends to the in-memory fallback list."""
-        if not self._store_backed():
-            self._notes.append(note)
-            return
-        record = TaskNoteRecord(
-            id=uuid.UUID(note.id), team_run_id=self._team_run_id,
-            task_id=note.task_id, agent_name=note.agent_name,
-            content=note.content,
-            scope_paths=list(note.scope_paths) if note.scope_paths else [],
-            scope_ltree=[path_to_ltree(p) for p in note.scope_paths] if note.scope_paths else [])
-        await self._note_store.insert(record)
-
-    async def read(self, *,
-                   authors: list[str] | None = None,
-                   scope_paths: list[str] | None = None,
-                   since: float | None = None,
-                   limit: int | None = None) -> list[Note]:
-        """Query notes. PG-backed: delegates to NoteStore.query().
-        No-PG: filters the in-memory list."""
-        if self._store_backed():
-            records = await self._note_store.query(
-                self._team_run_id, task_ids=authors,
-                scope_paths=scope_paths, since=since, limit=limit)
-            return [self._note_from_record(r) for r in records]
-        # In-memory fallback (no PG)
-        results = list(self._notes)
-        if authors:
-            results = [n for n in results if n.task_id in set(authors)]
-        if scope_paths:
-            results = [n for n in results if self._matches_scope(n.scope_paths, scope_paths)]
-        if since is not None:
-            results = [n for n in results if n.timestamp >= since]
-        if limit is not None and limit > 0:
-            results = results[-limit:]
-        return results
-
-    async def context_for(self, task: Task, *,
-                          file_change_store: Any | None = None,
-                          task_lookup: Callable[[str], Awaitable['Task | None']] | None = None,
-                          max_context_bytes: int = 200_000) -> str:
-        """Build context string for a task. Fixed priority order:
-        task (never trimmed) → deps → file changes (FileChangeStore) → parent.
-        Implementation in Section 8.2."""
-        ...
-```
+**Implementation decision — in-memory notes, no NoteStore:** The original design specified a `NoteStore` for PG-backed note persistence with an in-memory fallback. The implementation chose in-memory only because all executors in a `TeamRun` share the same `TaskCenter` instance — cross-executor visibility is guaranteed without PostgreSQL. This eliminates the dual-path complexity (`_store_backed()`, `NoteStore`, `TaskNoteRecord` conversion) with no loss of functionality in single-process deployments. If multi-process scaling requires cross-process note visibility, a `NoteStore` can be reintroduced at that time.
 
 **Implementation note — FileChangeStore replaces Arbiter parameter:** The original design specified an `Arbiter` object for file change awareness. The implementation passes `file_change_store` instead — the durable `FileChangeStore` (sync SQLAlchemy, backed by the `file_changes` table) provides cross-process visibility and crash recovery, while the Arbiter's in-memory ring buffer is limited to the current process. The `task_lookup` callable replaces the raw `pool` parameter for parent chain walks — cleaner than inline SQL.
-
-**Multi-process consistency:** PostgreSQL is the single source of truth. Notes written by process A are immediately visible to process B — no hydration step, no sync protocol. `context_for()` and `search_context` both read from the same `task_notes` table, so they always agree on note visibility. The append-only table and `BRIN` index on `created_at` make reads cheap even under high write concurrency.
 
 ### 5.2 Why Append-Only
 
@@ -364,21 +235,6 @@ class TaskCenter:
 | Monotonic timestamps | `since` filter gives "what's new since I last looked" for free. |
 | Simple checkpoint | `snapshot()` = `list(self._notes)`. No artifact store serialization. |
 | Monotonic knowledge | Agents that start later see strictly more context. Knowledge never decreases — a formal property that append-only + immutable notes guarantee by construction. |
-
-### 5.3 Task Center vs Current System — Size Comparison
-
-| Component | Current (lines) | Task Center (lines) |
-|-----------|----------------|-------------------|
-| `Briefing` + `DependencyArtifact` | ~60 | `Note` (~15) |
-| `InMemoryArtifactStore` | ~100 | `TaskCenter.post/read` (~40) |
-| `briefings.py` (3-tier renderer) | ~180 | `context_for()` (~50) |
-| `scout_briefings.py` (pressure/freshness) | ~300 | Deleted (0) |
-| `canonicalize.py` | ~50 | Tag matching (~5) |
-| `project.py` (ProjectContext) | ~100 | `TaskCenter.goal/user_request` (~5) |
-| `share_briefing.py` tool | ~150 | `PostNoteTool` (~30) |
-| `inspect_inherited_context.py` tool | ~80 | `ReadNotesTool` (~20) |
-| Atlas service + store + model + freshness + identity | ~400 | Optional `TaskCenterCache` (~50) |
-| **Total** | **~1,420** | **~215** |
 
 ---
 
@@ -531,48 +387,13 @@ When a task fails, its dependents' behavior is controlled by `cascade_policy` on
 | `retry_first` | Retry the failed task up to `max_retries` before cascading | Transient failures (network, sandbox timeout) where retry is cheap |
 | `continue` | Mark dep as failed but let dependent start anyway, with failure context injected | Best-effort tasks where partial results are useful (e.g., tests can run even if one module failed to build) |
 
-```python
-# In _dispatch():
-if result is Failure:
-    dependents = await dispatcher.get_dependents(task_id, run_id)
-    for dep in dependents:
-        match dep.cascade_policy:
-            case "cancel":
-                await dispatcher.cancel(dep.id, run_id)
-            case "retry_first":
-                if task.retry_count < task.max_retries:
-                    await dispatcher.retry(task_id, run_id)
-                    return  # don't cascade yet
-                await dispatcher.cancel(dep.id, run_id)
-            case "continue":
-                # Inject failure context, let dependent proceed
-                task_center.post(Note(
-                    task_id=dep.id, agent_name="system",
-                    content=f"Warning: dependency {task_id} failed: "
-                            f"{task.failure_reason}. Proceed with caution."))
-```
+When a task fails, the dispatcher checks each dependent's `cascade_policy`: `cancel` cancels the dependent immediately; `retry_first` retries the failed task up to `max_retries` before cancelling dependents; `continue` posts a warning note to the Task Center and lets the dependent proceed with the failure context available.
 
 ### 6.6 External-Change-Triggered Replanning
 
 Agent-initiated `request_replan()` handles cases where the agent discovers its task is mis-scoped. But in a fast-changing codebase, external changes (another team's commit, CI pipeline update) can invalidate the planner's decomposition before tasks execute.
 
-**Detection:** The executor checks for scope-level changes before starting each task:
-
-```python
-async def _check_scope_validity(self, task: Task, run_id: str) -> bool:
-    """Check if files in task's scope changed externally since plan creation.
-
-    'External' means the edit was NOT made by any agent_run_id belonging
-    to this team run. file_changes.agent_id stores the agent_run_id
-    (the unique session identity of the agent that made the edit), so
-    we compare it to tasks.agent_run_id — not tasks.id (which is the
-    task identity, a different namespace)."""
-    fc_store: FileChangeStore = self._file_change_store
-    external_changes = await fc_store.external_changes_in_scope(
-        run_id, [path_to_ltree(p) for p in task.scope_paths],
-        task.created_at)
-    return len(external_changes) == 0
-```
+**Detection:** Before starting each task, the executor queries the `FileChangeStore` for external changes in the task's scope since plan creation. "External" means edits not made by any agent run belonging to this team run (identified by `agent_run_id`).
 
 **Response:** If scope is invalidated, the executor injects a warning note into the task's context rather than auto-replanning (which could cause cascading replans). The agent sees the warning and can call `request_replan()` if the changes are incompatible:
 
@@ -610,18 +431,7 @@ All submission tools:
 
 ### 7.2 `_has_submission()` Gate
 
-```python
-# query.py — the ONLY change (2 lines)
-def _has_submission(metadata: ExecutionMetadata | None) -> bool:
-    if metadata is None:
-        return False
-    if not metadata.extras.get("posthook_enabled"):    # ← NEW: gate
-        return False                                     # ← NEW: gate
-    return any(
-        key.startswith("submitted_") and value is not None
-        for key, value in metadata.extras.items()
-    )
-```
+The only change to `query.py` is a two-line gate in `_has_submission()`: if `posthook_enabled` is not set in the metadata extras, the function returns `False` immediately (preserving current behavior for standalone agents). When it is set, the function checks for any `submitted_*` key with a non-null value — the signal that a terminal tool was called.
 
 **Behavior by agent type:**
 
@@ -688,36 +498,7 @@ def _has_submission(metadata: ExecutionMetadata | None) -> bool:
 
 ### 7.4 What Gets Deleted
 
-```
-DELETED:
-  hooks/agent_posthook.py                    (232 lines)
-    - execute_with_posthook()
-    - resolve_posthook_definition()
-    - PosthookConfig
-    - _assert_serializer_has_no_skills()
-    - stamp_posthook_metadata_key()
-    - read_posthook_output()
-
-  team/builtins/agents/submit_plan_agent.md
-  team/builtins/agents/submit_summary_agent.md
-  team/builtins/agents/submit_replan_agent.md
-  team/builtins/agents/decision_submit_retry.md
-  team/builtins/agents/decision_submit_replan.md
-
-  tools/posthook/toolkits.py                 (posthook toolkit classes)
-
-  PosthookConfig field on AgentDefinition
-
-REWRITTEN:
-  team/runtime/executor.py._run_one()        (direct runner + _posthook)
-  team/runtime/executor.py._posthook()       (~25 lines, deterministic)
-
-MOVED (not deleted, relocated):
-  tools/posthook/submit_plan.py    → tools/submission/submit_plan.py
-  tools/posthook/submit_summary.py → tools/submission/done.py
-  tools/posthook/types.py          → tools/submission/types.py
-  (logic preserved, host agent changes from posthook to work agent)
-```
+The posthook agent infrastructure is deleted entirely: the `agent_posthook.py` module with its `execute_with_posthook` entry point, all five posthook agent `.md` definitions (submit plan, submit summary, submit replan, decision retry, decision replan), the legacy posthook toolkit classes, and the `PosthookConfig` field on `AgentDefinition`. The executor's `_run_one()` is rewritten to call the runner directly and then invoke a small deterministic `_posthook()` function. All five submission tools are consolidated into a single toolkit file, keeping the same file path but deleting the per-tool source files and the old toolkit class file.
 
 ---
 
@@ -739,82 +520,9 @@ No sibling tag filtering. No dedup machinery. No canonical scopes.
 
 ### 8.2 Context Rendering
 
-```python
-async def context_for(self, task: Task, *,
-                      file_change_store: Any | None = None,
-                      task_lookup: Callable[[str], Awaitable['Task | None']] | None = None,
-                      max_context_bytes: int = 200_000) -> str:
-    """Build context string for a task. Fixed priority order:
-    task (never trimmed) → deps → file changes (FileChangeStore) → parent.
+`context_for()` builds the agent's context string using a fixed priority order within a byte budget. Priority 1 (never trimmed) is the task instruction and scope paths. Priority 2 is dep notes from the Task Center, deduplicated to the latest note per dependency (direct deps only — not transitive, to avoid context explosion). Priority 3 is recent file changes in scope from the `FileChangeStore` (durable, cross-process visible). Priority 4 is the parent chain (walked via the `task_lookup` callable), trimmed if budget is exhausted. All sections are joined and returned as a single string.
 
-    Uses FileChangeStore.changes_since() for file change awareness (durable,
-    cross-process visible via PG). task_lookup resolves parent chain via
-    callable instead of raw SQL pool."""
-    budget = max_context_bytes
-    sections = []
-
-    # Priority 1: The task itself (never trimmed)
-    task_section = f"## Your task\n{task.task}"
-    if task.scope_paths:
-        task_section += f"\n\nScope: {', '.join(task.scope_paths)}"
-    sections.append(task_section)
-    budget -= len(task_section.encode())
-
-    # Priority 2: Dep notes (structural -- what upstream produced)
-    # Direct deps only -- not transitive. If A → B → C, C sees B's
-    # notes but not A's. Transitive inclusion would explode context
-    # size and duplicate information (B already incorporated A's output).
-    # Deduplicate to latest note per dep (many notes from one dep
-    # would bloat context; we only care about the most recent summary).
-    if task.deps and budget > 0:
-        dep_notes = await self.read(authors=task.deps)
-        if dep_notes:
-            by_dep: dict[str, Note] = {}
-            for n in dep_notes:
-                by_dep[n.task_id] = n
-            dep_notes = list(by_dep.values())
-            dep_section = self._render_notes("Context from dependencies", dep_notes)
-            dep_bytes = len(dep_section.encode())
-            if dep_bytes <= budget:
-                sections.append(dep_section)
-                budget -= dep_bytes
-            else:
-                sections.append(self._truncate_section(
-                    "Context from dependencies", dep_notes, budget))
-                budget = 0
-
-    # Priority 3: Recent file changes in scope (from FileChangeStore -- ground truth)
-    if file_change_store is not None and budget > 0 and task.scope_paths:
-        created_ts = task.created_at.timestamp() if task.created_at else 0.0
-        changes = file_change_store.changes_since(created_ts)
-        scoped = [e for e in changes
-                  if any(e.file_path.startswith(p.rstrip('/'))
-                         for p in task.scope_paths)]
-        if scoped:
-            lines = [f"- {e.file_path} ({e.edit_type} by {e.agent_id}, "
-                     f"{int(time.time() - e.timestamp)}s ago)"
-                     for e in scoped]
-            change_section = "## Recent changes in your scope\n" + "\n".join(lines)
-            change_bytes = len(change_section.encode())
-            if change_bytes <= budget:
-                sections.append(change_section)
-                budget -= change_bytes
-
-    # Priority 4: Parent chain (strategic -- why this task exists)
-    if task.parent_id and budget > 0:
-        parent_ids = await self._parent_chain_ids(task, task_lookup=task_lookup)
-        parent_notes = await self.read(authors=parent_ids)
-        if parent_notes:
-            parent_section = self._render_notes("Parent context", parent_notes)
-            parent_bytes = len(parent_section.encode())
-            if parent_bytes <= budget:
-                sections.append(parent_section)
-            else:
-                sections.append(self._truncate_section(
-                    "Parent context", parent_notes, budget))
-
-    return "\n\n".join(sections)
-```
+**Implementation note — FileChangeStore replaces Arbiter parameter:** The original design specified an `Arbiter` object for file change awareness. The implementation passes `file_change_store` instead — the durable `FileChangeStore` (backed by the `file_changes` table) provides cross-process visibility and crash recovery. The `task_lookup` callable replaces a raw pool parameter for parent chain walks.
 
 #### Design note: dep note dedup (latest-per-dep)
 
@@ -824,63 +532,17 @@ A progressive disclosure layer (`_dep_note_index` returning lightweight `(id, ag
 - **Byte-budget truncation** — `_render_notes_truncated` degrades gracefully when dep notes exceed the budget.
 - **In-memory reads** — no I/O cost to filter; a two-phase fetch saves nothing in the single-process case.
 
-The one scenario that *can* bloat is a single dependency posting many incremental notes (e.g., a long-running explorer logging progress). The fix is simpler than a full index layer — dedup to **latest note per dep task**:
-
-```python
-dep_notes = await self._dep_notes(task, pool)
-# Keep only the latest note per dep (usually the completion summary)
-seen: dict[str, Note] = {}
-for n in dep_notes:
-    seen[n.task_id] = n  # last wins (notes are append-ordered)
-dep_notes = list(seen.values())
-```
-
-This targets the actual problem (many notes from one dep) without adding an abstraction layer. A two-phase index would become worthwhile only if `TaskCenter` moves to a persistent store where fetching full content has real I/O cost.
+The one scenario that *can* bloat is a single dependency posting many incremental notes (e.g., a long-running explorer logging progress). The fix is to dedup to the **latest note per dep task** (last entry per `task_id` wins). This targets the actual problem without adding an abstraction layer. A two-phase index would only become worthwhile if `TaskCenter` moves to a persistent store where fetching full content has real I/O cost.
 
 ### 8.2.1 Automatic Context Freshness Warning
 
-`context_for()` builds a snapshot at task start that can go stale during long-running tasks. LISTEN/NOTIFY (Section 14.7) handles file-level changes, but dep notes or new sibling completions are invisible after context is built. To close this gap, the executor injects a freshness check tool that agents can call before committing large changes:
+`context_for()` builds a snapshot at task start that can go stale during long-running tasks. LISTEN/NOTIFY (Section 14.7) handles file-level changes, but dep notes or new sibling completions are invisible after context is built. Two mechanisms close this gap:
 
-```python
-class ContextFreshnessCheckTool(BaseTool):
-    """Check if context has changed since task started. Available to all roles.
-    Agents SHOULD call this before committing multi-file changes."""
-    name = "context_changed_since"
+1. **`context_changed_since` tool** — registered in the `context` toolkit (available to all roles). Agents call this before committing large changes. Implemented in `tools/context/toolkit.py` as `ContextChangedSinceTool`, which delegates to `tools/context/freshness.py:check_freshness()`.
 
-    async def execute(self, arguments, context):
-        task = context.metadata["current_task"]
-        run_id = context.metadata["team_run_id"]
-        since = task.started_at.timestamp()
-        note_store: NoteStore = context.metadata["note_store"]
-        fc_store: FileChangeStore = context.metadata["file_change_store"]
-        task_store: TaskStore = context.metadata["task_store"]
+2. **Automatic freshness gate on submission** — the submission tools (`submit_summary`, `submit_plan`, `submit_replan` in `tools/posthook/toolkit.py`) call `_check_context_freshness()` before accepting a submission. If context is stale and the agent hasn't called `context_changed_since()` first, the submission is rejected with an error asking the agent to refresh.
 
-        # Check for new dep notes since context was built
-        new_dep_notes = await note_store.count_since(
-            run_id, task_ids=task.deps, since=since)
-
-        # Check for new sibling completions
-        new_siblings = await task_store.count_done_siblings(
-            run_id, parent_id=task.parent_id,
-            exclude_id=task.id, since=since)
-
-        # Check scope changes (supplements LISTEN/NOTIFY)
-        scope_changes = await fc_store.count_changes_in_scope(
-            run_id, [path_to_ltree(p) for p in task.scope_paths],
-            exclude_agent=task.agent_run_id, since=since)
-
-        stale = new_dep_notes > 0 or new_siblings > 0 or scope_changes > 0
-        return {
-            "stale": stale,
-            "new_dep_notes": new_dep_notes,
-            "new_sibling_completions": new_siblings,
-            "scope_changes_by_others": scope_changes,
-            "suggestion": "Re-read affected files and check Task Center "
-                          "for new context before committing." if stale else None,
-        }
-```
-
-This tool is registered in the `search` toolkit (available to all roles). Agent prompts include: "Before committing changes to multiple files, call `context_changed_since()` to check if your context is still current."
+This dual approach ensures agents are both informed (pull via tool) and gated (push via submission rejection).
 
 ### 8.3 Context Priority & Overflow
 
@@ -1068,35 +730,7 @@ The current system has three coordination layers: briefings (knowledge), scope p
 
 ### 9.2 What Stays, What Goes
 
-```
-code_intelligence/
-  editing/
-    arbiter.py           UNTOUCHED  per-file OCC tokens + locks
-    ledger.py            UNTOUCHED  edit audit ring buffer
-    patcher.py           UNTOUCHED  edit application
-    merge.py             UNTOUCHED  conflict resolution
-    time_machine.py      UNTOUCHED
-  routing/
-    scope_packets.py     DELETE     agents can't act on contention reports
-    service.py           UNTOUCHED  CI service
-    query_router.py      UNTOUCHED
-    backend_protocol.py  UNTOUCHED
-  analysis/
-    symbol_index.py      UNTOUCHED
-    tree_cache.py        UNTOUCHED
-  lsp/
-    client.py            UNTOUCHED
-  atlas/                 DELETE     replaced by ExplorationMemory
-    service.py
-    store.py
-    model.py
-    persistence.py
-    freshness.py
-    identity.py
-
-tools/daytona_toolkit/
-    coordination.py      DELETE     task.scope_paths read directly where needed
-```
+Within `code_intelligence`, the entire `editing/` layer (Arbiter, Ledger, patcher, merge, time_machine) is kept untouched. The `routing/` layer keeps the CI service, query router, and backend protocol, but deletes `scope_packets.py` (agents cannot act on contention reports). The `analysis/` and `lsp/` layers are kept untouched. The entire `atlas/` directory is deleted and replaced by `ExplorationMemory`. In `tools/daytona_toolkit/`, the `coordination.py` module is deleted — `task.scope_paths` is read directly wherever scope information is needed.
 
 ### 9.3 OCC During Agent Execution
 
@@ -1165,55 +799,13 @@ The second is more useful to a developer. LLMs consume prose better than JSON sc
 
 **What Atlas solves:** Don't re-explore unchanged code across runs. The current Atlas achieves this with ~400 lines across 6 files. The actual mechanism is a content-addressed cache. Everything else is overhead.
 
-**Exploration Cache** — the entire value of Atlas in ~60 lines:
-
-```python
-class ExplorationMemory:
-    """Cross-run note cache. Content-addressed. Replaces Atlas."""
-
-    async def check(self, scope_paths: list[str], sandbox) -> list[Note] | None:
-        """Return cached notes if files haven't changed. None = re-explore."""
-        content_hash = await self._hash_files(scope_paths, sandbox)
-        key = self._cache_key(scope_paths, content_hash)
-        cached = self._store.get(key)
-        if cached is None:
-            return None
-        return [Note(**n) for n in cached]
-
-    async def save(self, scope_paths: list[str], notes: list[Note], sandbox):
-        """Cache notes after explorer completes."""
-        content_hash = await self._hash_files(scope_paths, sandbox)
-        key = self._cache_key(scope_paths, content_hash)
-        self._store.set(key, [asdict(n) for n in notes])
-
-    def _cache_key(self, scope_paths: list[str], content_hash: str) -> str:
-        scope_str = "|".join(sorted(scope_paths))
-        return hashlib.sha256(
-            f"{scope_str}:{content_hash}".encode()
-        ).hexdigest()[:24]
-```
+**Exploration Cache** — `ExplorationMemory` exposes two operations: `check(scope_paths, sandbox)` hashes the files in the given paths and returns cached notes if the hash matches a prior run, or `None` if re-exploration is needed; and `save(scope_paths, notes, sandbox)` stores notes keyed by a hash of the scope paths plus the current file content hash. The cache key is a SHA-256 digest of sorted scope paths and content hash.
 
 Content hash IS the freshness check. No subsystem model, no auto-promotion, no coherence tokens, no complex persistence model.
 
 ### 9.6 Planner's Exploration Flow
 
-The planner gets one tool to check the cache before spawning explorers:
-
-```python
-class CheckExplorationMemoryTool(BaseTool):
-    """Planner checks if a scope was recently explored."""
-    name = "check_exploration_memory"
-
-    async def execute(self, arguments, context):
-        scope_paths = arguments["paths"]
-        cache = context.metadata.get("exploration_memory")
-        cached_notes = await cache.check(scope_paths, context.sandbox)
-        if cached_notes:
-            for note in cached_notes:
-                context.task_center.post(note)  # sync — list.append is GIL-atomic
-            return {"status": "cached", "note_count": len(cached_notes)}
-        return {"status": "needs_exploration"}
-```
+The planner gets one tool — `check_exploration_memory` — to check the cache before spawning explorers. On a cache hit, it loads the cached notes into the Task Center and returns `{"status": "cached"}`. On a miss, it returns `{"status": "needs_exploration"}` and the planner spawns an explorer subagent.
 
 The flow:
 
@@ -1243,20 +835,7 @@ Planner starts
 
 **What it solves:** Scope packets gave agents pre-flight contention reports they couldn't act on (agents can't reschedule). But the **planner** can act — it can restructure decomposition to avoid overlapping scopes. The Ledger's historical edit data, stored in PostgreSQL, gives the planner cross-run intelligence about which files are contentious.
 
-```python
-class QueryEditHistoryTool(BaseTool):
-    """Planner queries Ledger history to predict scope conflicts."""
-    name = "query_edit_history"
-
-    async def execute(self, arguments, context):
-        paths = arguments["paths"]
-        fc_store: FileChangeStore = context.metadata["file_change_store"]
-        rows = await fc_store.contention_hotspots(
-            [path_to_ltree(p) for p in paths], limit=10)
-        return [{"file": r.file_path,
-                 "agents_touched": r.agent_count,
-                 "total_edits": r.edit_count} for r in rows]
-```
+The `query_edit_history` tool accepts a list of paths and queries `FileChangeStore.contention_hotspots()` to return the most-edited files with agent and edit counts across prior runs.
 
 **Usage in planner prompt:**
 
@@ -1287,21 +866,6 @@ or sequence it explicitly before parallel work.
 | `atlas/freshness.py` -- reuse status, staleness checks | Content hash comparison (3 lines) |
 | `atlas/identity.py` -- project_key_for() | Scope paths are the identity |
 | `tools/atlas/lookup.py` -- planner-facing tool | `CheckExplorationMemoryTool` (~20 lines) |
-
-### 9.9 Files Deleted in This Section
-
-| File | Lines | Replacement |
-|------|-------|-------------|
-| `code_intelligence/routing/scope_packets.py` | ~190 | Deleted -- Arbiter handles conflicts at edit time |
-| `tools/daytona_toolkit/coordination.py` | ~290 | Deleted -- `task.scope_paths` read directly where needed |
-| `code_intelligence/atlas/service.py` | ~120 | `ExplorationMemory` (~40 lines) |
-| `code_intelligence/atlas/store.py` | ~80 | Simple key-value store |
-| `code_intelligence/atlas/model.py` | ~50 | Deleted |
-| `code_intelligence/atlas/persistence.py` | ~80 | Built into cache |
-| `code_intelligence/atlas/freshness.py` | ~50 | Content hash (3 lines) |
-| `code_intelligence/atlas/identity.py` | ~20 | Deleted |
-| `tools/atlas/lookup.py` | ~80 | `CheckExplorationMemoryTool` (~20 lines) |
-| **Total removed** | **~960** | **~60 new** |
 
 ---
 
@@ -1334,7 +898,7 @@ Explorer is a subagent spawned via `run_subagent()`, not a dispatched task. Its 
 - `context` — single unified toolkit merging task_center + search + exploration_memory. Contains `PostNoteTool`, `ReadNotesTool` (with `keyword` param absorbing `search_context`), `ContextChangedSinceTool` (absorbing `scope_changed_since`), and `CheckExplorationMemoryTool`. Role-based read/write restrictions are enforced via `blocked_tools` in agent definitions (e.g., planners block `post_note`) rather than separate toolkit classes.
 - `submission` — unchanged from design.
 
-The `memory` toolkit was absorbed into `context`. `query_edit_history` is backed by `FileChangeStore.contention_hotspots()` but not yet wrapped as a tool. No other capability was removed — tools are bundled into fewer registration names for simplicity.
+The `memory` toolkit was absorbed into `context`. `query_edit_history` is backed by `FileChangeStore.contention_hotspots()` and is wrapped as a tool in `tools/ci_toolkit/query_tools.py`. No other capability was removed — tools are bundled into fewer registration names for simplicity.
 
 ### 10.3 Explorer (Subagent)
 
@@ -1372,7 +936,7 @@ Single unified toolkit. Role-based read/write restrictions are enforced via `blo
 | `post_note(content, scope_paths?)` | planner, replanner | Post a note to Task Center. Inherits task scope_paths by default. |
 | `check_exploration_memory(paths)` | — | Check if scope was recently explored. Returns `cached` or `needs_exploration`. |
 
-**Note:** `query_edit_history` is backed by `FileChangeStore.contention_hotspots()` but not yet wrapped as a tool. When implemented, it will be added to this toolkit.
+**Note:** `query_edit_history` is backed by `FileChangeStore.contention_hotspots()` and is implemented in `tools/ci_toolkit/query_tools.py`.
 
 **`submission` toolkit** (replaces 5 posthook toolkit classes):
 
@@ -1386,32 +950,11 @@ Single unified toolkit. Role-based read/write restrictions are enforced via `blo
 
 ### 10.5 Toolkit Factory Changes
 
-```python
-# tools/core/factory.py -- registration updates
-
-# DELETED registrations:
-#   context_inheritance, context_sharing, team_context, atlas
-#   submit_plan_posthook, submit_summary_posthook,
-#   posthook_submit_retry, posthook_submit_replan, submit_replan_posthook
-
-# NEW registrations:
-register_toolkit_class("submission", SubmissionToolkit)
-register_toolkit_class("context", ContextToolkit)  # unified read/write/memory
-
-# UNCHANGED:
-#   sandbox_operations, code_intelligence, subagent
-```
+The toolkit factory removes the old registrations for `context_inheritance`, `context_sharing`, `team_context`, `atlas`, and the five posthook toolkit classes. Two new registrations replace them: `submission` (the unified submission toolkit) and `context` (the unified context toolkit). The `sandbox_operations`, `code_intelligence`, and `subagent` registrations are unchanged.
 
 ### 10.6 Role Resolution
 
-Toolkit assignment is handled in agent definitions and the context builder rather than a standalone `toolkits_for_role()` function. The effective mapping is:
-
-```
-planner:    code_intelligence, subagent, context, submission          (blocked_tools: post_note, ci_read_file)
-developer:  sandbox_operations, code_intelligence, context, submission
-reviewer:   sandbox_operations, code_intelligence, context, submission
-replanner:  code_intelligence, context, submission                   (blocked_tools: post_note, ci_read_file)
-```
+Toolkit assignment is handled in agent definitions and the context builder rather than a standalone function. The effective mapping: planner gets `code_intelligence` (read-only), `subagent`, `context` (read-only, `post_note` blocked), and `submission`; developer and reviewer get `sandbox_operations`, `code_intelligence` (full), `context` (full), and `submission`; replanner gets `code_intelligence` (read-only), `context` (read-only, `post_note` blocked), and `submission`.
 
 ### 10.7 Complete Tool Inventory
 
@@ -1571,133 +1114,27 @@ OCC handles the collision at file level. No coordination needed in the Task Cent
 
 ## 12. Migration Phases
 
-### Phase 1: Task Center + Submission Tools + Exploration Cache
+All six phases are complete.
 
-**Scope:** New code, no deletions. Can coexist with current system.
+**Phase 1 — Task Center + Submission Tools + Exploration Cache:** New code only, no deletions. The in-memory `TaskCenter` was introduced, all five submission tools were consolidated into a single toolkit file, the unified `context` toolkit was created (including `PostNoteTool`, `ReadNotesTool`, `ContextChangedSinceTool`, `CheckExplorationMemoryTool`, and `ExplorationMemory`), the freshness detection helper was added, and the `query_edit_history` tool was wired to `FileChangeStore`. Prerequisite: PostgreSQL schema migration to create the `file_changes` and `tasks` tables with ltree extension.
 
-**Prerequisite:** Run PostgreSQL schema migration (Section 14.4) to create `task_notes`, `file_changes`, `tasks`, `exploration_memory` tables with ltree extension and partition lifecycle functions.
+**Phase 2 — Query Engine Gate:** A two-line gate was added to `_has_submission()` to check `posthook_enabled` before inspecting submitted output keys. No other changes to the query engine.
 
-| Step | Files | Description |
-|------|-------|-------------|
-| 1a | `team/task_center.py` | Implement `Note`, `TaskCenter` (post, read, context_for, snapshot, restore) |
-| 1b | `tools/submission/done.py` | `DoneTool` -- writes summary to metadata + posts note |
-| 1c | `tools/submission/submit_plan.py` | `SubmitPlanTool` -- single-pass validation, writes Plan to metadata |
-| 1d | `tools/submission/request_retry.py` | `RequestRetryTool` -- writes RetryRequest to metadata |
-| 1e | `tools/submission/request_replan.py` | `RequestReplanTool` -- writes ReplanRequest to metadata |
-| 1f | `tools/submission/submit_replan.py` | `SubmitReplanTool` -- writes ReplanPlan to metadata |
-| 1g | `tools/submission/types.py` | Submission type definitions (moved from posthook/types.py) |
-| 1h | `tools/task_center/toolkit.py` | `PostNoteTool`, `ReadNotesTool`, toolkit classes |
-| 1i | `tools/exploration_memory/toolkit.py` | `CheckExplorationMemoryTool`, `ExplorationMemory` |
-| 1j | `tools/edit_history/toolkit.py` | `QueryEditHistoryTool` (planner conflict prediction) |
-| 1k | `tools/search/toolkit.py` | `SearchContextTool`, `ScopeChangedSinceTool` (PostgreSQL FTS + ltree) |
-| 1l | `tools/core/factory.py` | Register new toolkits |
+**Phase 3 — Executor Rewrite:** The executor's `_run_one()` was rewritten to call the runner directly and then invoke a deterministic `_posthook()` function. The context builder was updated to use `task_center.context_for()`.
 
-### Phase 2: Query Engine Gate
+**Phase 4 — Data Model Migration:** The data model was updated with the new `TaskSpec`, simplified `Task` and `Plan`, and `ReplanPlan`. Single-pass plan validation replaced the old Phase A + B split. The dispatcher and its store were rewritten to use PostgreSQL `SKIP LOCKED` (Section 14.6).
 
-**Scope:** 2 lines in `_has_submission()`.
+**Phase 5 — Deletion:** All replaced components were removed — the posthook agent module, the briefings and scout-briefings layers, the artifact store, the Atlas directory, scope packets, the coordination helper, the per-tool posthook source files, the old team-context tools, and the five posthook agent definitions.
 
-| Step | Files | Description |
-|------|-------|-------------|
-| 2a | `engine/core/query.py` | Add `posthook_enabled` gate to `_has_submission()` |
-
-### Phase 3: Executor Rewrite
-
-**Scope:** Replace `execute_with_posthook` with direct runner + `_posthook()`.
-
-| Step | Files | Description |
-|------|-------|-------------|
-| 3a | `team/runtime/executor.py` | Rewrite `_run_one()`: direct runner call, `_posthook()` function |
-| 3b | `team/runtime/context_builder.py` | Rewrite to use `task_center.context_for()` |
-
-### Phase 4: Data Model Migration
-
-**Scope:** Simplify `Task`, `Plan`, replace `WorkItemSpec` with `TaskSpec`.
-
-| Step | Files | Description |
-|------|-------|-------------|
-| 4a | `team/models.py` | New `TaskSpec`, simplified `Task`, simplified `Plan`, `ReplanPlan` |
-| 4b | `team/planning/validation.py` | Single-pass validation (merge Phase A + B) |
-| 4c | `team/runtime/dispatcher.py` | Rewrite as `PGDispatcher` backed by PostgreSQL `SKIP LOCKED` (Section 14.6) |
-
-### Phase 5: Deletion
-
-**Scope:** Remove all replaced components.
-
-| Step | Files to delete | Lines removed |
-|------|----------------|---------------|
-| 5a | `hooks/agent_posthook.py` | 232 |
-| 5b | `team/context/briefings.py` | 179 |
-| 5c | `team/context/scout_briefings.py` | ~300 |
-| 5d | `team/context/canonicalize.py` | ~50 |
-| 5e | `team/artifacts/store.py` | ~100 |
-| 5f | `code_intelligence/atlas/` (entire directory) | ~400 |
-| 5g | `code_intelligence/routing/scope_packets.py` | ~190 |
-| 5h | `tools/daytona_toolkit/coordination.py` | ~290 |
-| 5i | `tools/atlas/` (entire directory) | ~80 |
-| 5j | `tools/posthook/` (entire directory) | ~400 |
-| 5k | `tools/team_context/share_briefing.py` | ~150 |
-| 5l | `tools/team_context/inspect_inherited_context.py` | ~80 |
-| 5m | 5 posthook agent .md definitions | ~200 |
-| 5n | Posthook-related skills/playbooks | ~100 |
-| | **Total deletions** | **~2,751** |
-
-### Phase 6: Agent Definition Cleanup
-
-| Step | Files | Description |
-|------|-------|-------------|
-| 6a | `agents/types.py` | Remove `PosthookConfig` field from `AgentDefinition` |
-| 6b | `team/builtins/agents/*.md` | Update toolkit lists to use new toolkit names |
-| 6c | `skills/bundled/content/` | Simplify playbooks (remove contract references) |
-| 6d | Tests | Update all team/posthook/briefing tests |
+**Phase 6 — Agent Definition Cleanup:** The `PosthookConfig` field was removed from `AgentDefinition`. All built-in agent definitions were updated to use the new toolkit names. Playbooks were simplified to remove contract references. All affected tests were updated.
 
 ---
 
 ## 13. Deletion Inventory
 
-### Files Deleted Entirely
+The following components were deleted entirely as part of this redesign:
 
-| File | Lines | Replaced by |
-|------|-------|-------------|
-| `hooks/agent_posthook.py` | 232 | `executor._posthook()` (~25 lines) |
-| `team/context/briefings.py` | 179 | `task_center.context_for()` (~50 lines) |
-| `team/context/scout_briefings.py` | ~300 | Deleted (notes are immutable, no freshness tracking) |
-| `team/context/canonicalize.py` | ~50 | Tag matching in Task Center (~5 lines) |
-| `team/artifacts/store.py` | ~100 | `TaskCenter.post/read` (~40 lines) |
-| `code_intelligence/atlas/service.py` | ~120 | `ExplorationMemory` (~40 lines) |
-| `code_intelligence/atlas/store.py` | ~80 | Simple key-value store |
-| `code_intelligence/atlas/model.py` | ~50 | Deleted |
-| `code_intelligence/atlas/persistence.py` | ~80 | Built into cache |
-| `code_intelligence/atlas/freshness.py` | ~50 | Content hash (3 lines) |
-| `code_intelligence/atlas/identity.py` | ~20 | Deleted |
-| `code_intelligence/routing/scope_packets.py` | ~190 | Deleted (Arbiter handles at edit time) |
-| `tools/daytona_toolkit/coordination.py` | ~290 | Deleted (`task.scope_paths` read directly) |
-| `tools/atlas/lookup.py` | ~80 | `CheckExplorationMemoryTool` (~20 lines) |
-| `tools/posthook/base.py` | ~60 | Merged into submission tools |
-| `tools/posthook/types.py` | ~50 | `tools/submission/types.py` (moved) |
-| `tools/posthook/submit_plan.py` | ~120 | `tools/submission/submit_plan.py` (simplified) |
-| `tools/posthook/submit_summary.py` | ~60 | `tools/submission/done.py` (simplified) |
-| `tools/posthook/submit_replan.py` | ~60 | `tools/submission/submit_replan.py` (simplified) |
-| `tools/posthook/request_retry.py` | ~40 | `tools/submission/request_retry.py` |
-| `tools/posthook/request_replan.py` | ~40 | `tools/submission/request_replan.py` |
-| `tools/posthook/toolkits.py` | ~100 | `tools/submission/toolkit.py` |
-| `tools/team_context/share_briefing.py` | ~150 | `tools/task_center/toolkit.py` (PostNoteTool) |
-| `tools/team_context/inspect_inherited_context.py` | ~80 | `tools/task_center/toolkit.py` (ReadNotesTool) |
-| 5 posthook agent `.md` files | ~200 | Deleted |
-
-### Net Impact
-
-| Metric | Current | Plan A | Delta |
-|--------|---------|--------|-------|
-| Context/briefing layer | ~1,420 lines | ~215 lines | **-1,205** |
-| Posthook agent stack | ~630 lines | ~25 lines (_posthook function) | **-605** |
-| Submission tools | ~530 lines | ~300 lines (simplified) | **-230** |
-| Atlas | ~400 lines | ~60 lines (ExplorationMemory) | **-340** |
-| Scope packets + coordination | ~480 lines | 0 lines (deleted) | **-480** |
-| New: Task Center | 0 | ~215 lines | **+215** |
-| New: Submission toolkit | 0 | ~100 lines | **+100** |
-| New: Exploration Cache toolkit | 0 | ~60 lines | **+60** |
-| New: PG infrastructure (14.1–14.11) | 0 | ~275 lines | **+275** |
-| **Total** | **~3,460** | **~1,250** | **-2,210 lines** |
+The posthook agent infrastructure (`agent_posthook.py` and five posthook agent definition files) was replaced by the deterministic `_posthook()` function in the executor. The briefing layer (`briefings.py`, `scout_briefings.py`, `canonicalize.py`) and the artifact store were replaced by the append-only Task Center. The entire Atlas directory (service, store, model, persistence, freshness, identity) was replaced by `ExplorationMemory`. The scope packets module and the coordination helper were deleted outright — the Arbiter handles file conflicts at edit time, and `task.scope_paths` is read directly. The per-tool posthook source files and the legacy toolkit class file were consolidated into a single submission toolkit file. The old team-context tools for sharing and inspecting briefings were replaced by `PostNoteTool` and `ReadNotesTool` in the context toolkit. In aggregate, the deletions far outweigh the new additions, resulting in a substantially smaller and simpler coordination layer.
 
 ---
 
@@ -1723,98 +1160,13 @@ One database replaces an entire microservice-style coordination stack. Every com
 
 ### 14.2 Async Engine & Store Pattern
 
-The existing codebase uses **synchronous** SQLAlchemy (`create_engine` + `psycopg`). The team coordination layer adds an **async** engine alongside it — the executor already uses `asyncio` (`async def run_query()`), and `LISTEN/NOTIFY` fundamentally requires async connections.
+The existing codebase uses synchronous SQLAlchemy. The team coordination layer adds an async engine alongside it — the executor already uses `asyncio`, and `LISTEN/NOTIFY` fundamentally requires async connections. The async engine uses `asyncpg` as the driver and sizes its connection pool to `max_agents + 5` (one connection per agent plus headroom for the dispatcher, cache, and health checks). A single dedicated connection outside the pool is reserved for `LISTEN/NOTIFY` (Section 14.7).
 
-```python
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+Each domain gets a Store class, following the existing codebase pattern. Standard CRUD operations use the SQLAlchemy ORM; PostgreSQL-specific operations (`SKIP LOCKED`, ltree operators, full-text search, advisory locks, `LISTEN/NOTIFY`) use raw `text()` queries.
 
-def create_team_engine(max_agents: int):
-    """Async engine for team coordination. Coexists with the existing
-    sync engine used by SessionStore, AgentRunStore, etc.
+> **Implementation note — NoteStore not implemented.** Notes are in-memory (see Section 5.1). A `NoteStore` backed by the `task_notes` table is retained as a reference design for future multi-process scaling. Currently, `read_notes(keyword=...)` filters in-memory notes instead of querying PostgreSQL full-text search.
 
-    Uses asyncpg as the async driver (psycopg is sync-only in the
-    existing codebase). SQLAlchemy handles connection pooling.
-
-    Budget: max_agents (query connections)
-          + 1 (shared LISTEN/NOTIFY connection with in-process fan-out)
-          + 4 (headroom for dispatcher, cache, health checks)
-    """
-    engine = create_async_engine(
-        DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"),
-        pool_size=max_agents + 5,
-        max_overflow=4,
-        pool_pre_ping=True,
-        pool_recycle=300,
-    )
-    return engine, async_sessionmaker(engine, expire_on_commit=False)
-```
-
-**Store pattern:** Each domain gets a Store class, matching the existing codebase pattern (`SessionStore`, `AgentRunStore`, etc.):
-
-```python
-class NoteStore:
-    """Task Center persistence. Follows existing Store pattern."""
-
-    def initialize(self, session_factory: async_sessionmaker):
-        self._sf = session_factory
-
-    async def insert(self, note: TaskNoteRecord) -> None:
-        async with self._sf() as db:
-            db.add(note)
-            await db.commit()
-
-    async def query_by_deps(self, run_id: str, task_ids: list[str]) -> list[TaskNoteRecord]:
-        async with self._sf() as db:
-            stmt = (select(TaskNoteRecord)
-                    .where(TaskNoteRecord.team_run_id == run_id,
-                           TaskNoteRecord.task_id.in_(task_ids))
-                    .order_by(TaskNoteRecord.created_at))
-            return list((await db.execute(stmt)).scalars().all())
-
-    async def search_fts(self, run_id: str, query: str,
-                         scope_ltrees: list[str] | None, limit: int) -> list:
-        """Full-text + ltree search. Uses text() — no ORM equivalent."""
-        async with self._sf() as db:
-            result = await db.execute(text("""
-                SELECT task_id, agent_name, content, scope_ltree, created_at
-                FROM task_notes
-                WHERE team_run_id = :run_id
-                  AND to_tsvector('english', content)
-                      @@ plainto_tsquery('english', :query)
-                  AND (:scopes::ltree[] IS NULL OR EXISTS (
-                      SELECT 1 FROM unnest(scope_ltree) AS s
-                      WHERE s <@ ANY(:scopes::ltree[])))
-                ORDER BY created_at DESC LIMIT :lim
-            """), {"run_id": run_id, "query": query,
-                   "scopes": scope_ltrees, "lim": limit})
-            return result.fetchall()
-
-
-class FileChangeStore:
-    """Ledger persistence. Follows existing Store pattern."""
-
-    def initialize(self, session_factory: async_sessionmaker):
-        self._sf = session_factory
-
-    async def insert(self, record: FileChangeRecord) -> None:
-        async with self._sf() as db:
-            db.add(record)
-            await db.commit()
-
-    async def changes_in_scope(self, run_id: str, scope_ltrees: list[str],
-                                since: float) -> list:
-        """ltree descendant match. Uses text() — PG-specific operator."""
-        async with self._sf() as db:
-            result = await db.execute(text("""
-                SELECT file_path, agent_id, edit_type, created_at
-                FROM file_changes
-                WHERE team_run_id = :run_id
-                  AND path_ltree <@ ANY(:scopes::ltree[])
-                  AND created_at > to_timestamp(:since)
-                ORDER BY created_at DESC
-            """), {"run_id": run_id, "scopes": scope_ltrees, "since": since})
-            return result.fetchall()
-```
+`FileChangeStore` follows the same store pattern, persisting each file edit to the `file_changes` table via ORM insert and querying scope changes via ltree descendant matching (`path_ltree <@ ANY(scopes)`) with a timestamp filter.
 
 **What uses ORM vs `text()`:**
 
@@ -1870,106 +1222,17 @@ Agent calls edit_file()
 
 ### 14.4 Schema
 
-```sql
-CREATE EXTENSION IF NOT EXISTS ltree;
+Four tables are created, all requiring the `ltree` extension:
 
--- Task Center backing store
-CREATE TABLE task_notes (
-    id          UUID NOT NULL DEFAULT gen_random_uuid(),
-    team_run_id TEXT NOT NULL,
-    task_id     TEXT NOT NULL,
-    agent_name  TEXT NOT NULL,
-    content     TEXT NOT NULL,
-    scope_ltree ltree[] DEFAULT '{}',
-    created_at  TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (id, team_run_id)
-) PARTITION BY LIST (team_run_id);
+**`task_notes`** — Task Center backing store (currently deferred; notes are in-memory). Partitioned by `team_run_id`. Columns: `id` (UUID), `team_run_id`, `task_id`, `agent_name`, `content` (text), `scope_ltree` (ltree array), `created_at`. Indexes: B-tree on `task_id`, GiST on `scope_ltree`, BRIN on `created_at`, GIN on `tsvector(content)` for full-text search.
 
--- Per-partition indexes (auto-created with each partition)
-CREATE INDEX ON task_notes (task_id);
-CREATE INDEX ON task_notes USING GiST (scope_ltree);
-CREATE INDEX ON task_notes USING BRIN (created_at);
-CREATE INDEX ON task_notes USING GIN (to_tsvector('english', content));
+**`file_changes`** — Ledger backing store. Partitioned by `team_run_id`. Columns: `id` (bigserial), `team_run_id`, `file_path`, `path_ltree` (scalar ltree), `agent_id`, `edit_type`, `old_hash`, `new_hash`, `created_at`. Indexes: GiST on `path_ltree`, BRIN on `created_at`.
 
--- Ledger backing store
-CREATE TABLE file_changes (
-    id          BIGSERIAL NOT NULL,
-    team_run_id TEXT NOT NULL,
-    file_path   TEXT NOT NULL,
-    path_ltree  ltree NOT NULL,
-    agent_id    TEXT NOT NULL,
-    edit_type   TEXT DEFAULT 'edit',
-    old_hash    TEXT DEFAULT '',
-    new_hash    TEXT DEFAULT '',
-    created_at  TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (id, team_run_id)
-) PARTITION BY LIST (team_run_id);
+**`tasks`** — Dispatcher work queue. Partitioned by `team_run_id`. Columns mirror the `Task` data model (Section 4.3): `id`, `team_run_id`, `agent_name`, `status`, `task`, `deps` (text array), `scope_paths` (text array), `scope_ltree` (ltree array), `cascade_policy`, `parent_id`, `root_id`, `depth`, `pending_dep_count`, `retry_count`, `max_retries`, `agent_run_id`, and timestamp fields. Indexes: B-tree on `(team_run_id, status)` for work queue pops, B-tree on `(team_run_id, depth, created_at)` for ordered dispatch.
 
-CREATE INDEX ON file_changes USING GiST (path_ltree);
-CREATE INDEX ON file_changes USING BRIN (created_at);
+**`exploration_memory`** — Cross-run exploration cache. Not partitioned (shared across runs). Columns: `cache_key` (primary key), `scope_paths`, `content_hash`, `notes` (JSONB), `created_at`, `accessed_at`.
 
--- Task queue (dispatcher backing store)
-CREATE TABLE tasks (
-    id           TEXT NOT NULL,
-    team_run_id  TEXT NOT NULL,
-    agent_name   TEXT NOT NULL,
-    status       TEXT NOT NULL DEFAULT 'pending',
-    task         TEXT NOT NULL,
-    deps         TEXT[] DEFAULT '{}',
-    scope_paths  TEXT[] DEFAULT '{}',
-    scope_ltree  ltree[] DEFAULT '{}',
-    cascade_policy TEXT DEFAULT 'cancel',  -- "cancel" | "retry_first" | "continue"
-    parent_id    TEXT,
-    root_id      TEXT DEFAULT '',
-    depth        INT DEFAULT 0,
-    pending_dep_count INT DEFAULT 0,   -- decremented by mark_done(); 0 = deps satisfied
-    retry_count  INT DEFAULT 0,
-    max_retries  INT DEFAULT 2,
-    agent_run_id TEXT,
-    created_at   TIMESTAMPTZ DEFAULT NOW(),
-    started_at   TIMESTAMPTZ,
-    finished_at  TIMESTAMPTZ,
-    failure_reason TEXT,
-    PRIMARY KEY (id, team_run_id)
-) PARTITION BY LIST (team_run_id);
-
-CREATE INDEX ON tasks (team_run_id, status);
-CREATE INDEX ON tasks (team_run_id, depth, created_at);
-
--- Exploration cache (not partitioned — shared across runs)
-CREATE TABLE exploration_memory (
-    cache_key    TEXT PRIMARY KEY,
-    scope_paths  TEXT[] NOT NULL,
-    content_hash TEXT NOT NULL,
-    notes        JSONB NOT NULL,
-    created_at   TIMESTAMPTZ DEFAULT NOW(),
-    accessed_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Partition lifecycle (called by TeamRun setup/teardown):
---
--- _VALID_RUN_ID = re.compile(r'^[a-zA-Z0-9_\-]+$')
---
--- async def create_partitions(run_id: str):
---     if not _VALID_RUN_ID.match(run_id):
---         raise ValueError(f"Invalid run_id: {run_id!r}")
---     h = hashlib.sha256(run_id.encode()).hexdigest()[:12]
---     for table in ["task_notes", "file_changes", "tasks"]:
---         -- table names and h are safe (hardcoded / hex digest).
---         -- run_id is validated above against [a-zA-Z0-9_\-].
---         await conn.execute(f"""
---             CREATE TABLE IF NOT EXISTS {table}_{h}
---             PARTITION OF {table} FOR VALUES IN ('{run_id}')
---         """)
---
--- async def drop_partitions(run_id: str):
---     if not _VALID_RUN_ID.match(run_id):
---         raise ValueError(f"Invalid run_id: {run_id!r}")
---     h = hashlib.sha256(run_id.encode()).hexdigest()[:12]
---     for table in ["task_notes", "file_changes", "tasks"]:
---         await conn.execute(f"DROP TABLE IF EXISTS {table}_{h}")
---     -- Instant cleanup, no vacuum needed
-```
+Partition lifecycle is managed by `TeamRun` setup and teardown: `create_partitions(run_id)` creates one partition per table for the run, and `drop_partitions(run_id)` drops them instantly on completion with no vacuum needed. `run_id` is validated against `[a-zA-Z0-9_\-]` before use in partition names.
 
 ### 14.5 Index Strategy
 
@@ -2347,9 +1610,12 @@ If `get_team_engine()` returns `None` (no PG configured) or the LISTEN connectio
 
 ### 14.8 Agent Search Tools
 
-Two tools that delegate to Store classes (Section 14.2), available to all roles:
+Two tools available to all roles. `search_context` is absorbed into `read_notes` with a `keyword` parameter (in-memory filtering, no PG FTS). `scope_changed_since` delegates to `FileChangeStore`:
+
+> **Implementation note:** The original design specified `SearchContextTool` delegating to `NoteStore.search_fts()` for PostgreSQL full-text search. Since notes are in-memory, search is implemented as keyword filtering inside `ReadNotesTool` in `tools/context/toolkit.py`. The PG-backed FTS design below is retained as reference for multi-process scaling.
 
 ```python
+# REFERENCE DESIGN — not currently used (notes are in-memory)
 class SearchContextTool(BaseTool):
     """Search notes by keyword and/or scope. Delegates to NoteStore."""
     name = "search_context"
@@ -2421,28 +1687,13 @@ Developer starts working on src/auth/middleware.py
 
 ### 14.10 Cache/Search Consistency
 
-When `ExplorationMemory.check()` returns cached notes from a previous run, those notes exist in in-memory `TaskCenter._notes` but NOT in the current run's `task_notes` partition. Agents using `search_context` won't find cached exploration data.
+> **Status: N/A.** Both `TaskCenter` and `ExplorationMemory` are in-memory (no PG-backed `NoteStore`). Since both live in the same process, cached exploration notes inserted into `TaskCenter._notes` are immediately visible to all reads including `read_notes(keyword=...)`. There are no separate PG partitions to synchronize.
+>
+> If `NoteStore` is reintroduced for multi-process scaling, the batch-insert fix described below would become relevant.
 
-**Fix:** On cache hit, batch-insert cached notes via NoteStore:
+~~When `ExplorationMemory.check()` returns cached notes from a previous run, those notes exist in in-memory `TaskCenter._notes` but NOT in the current run's `task_notes` partition. Agents using `search_context` won't find cached exploration data.~~
 
-```python
-async def check(self, scope_paths, sandbox, run_id,
-                note_store: NoteStore):
-    cached = ...  # existing cache lookup
-    if cached:
-        # Insert into current run's task_notes for FTS discoverability.
-        # Uses ORM bulk insert via the Store pattern.
-        records = [TaskNoteRecord(
-            id=n.id, team_run_id=run_id, task_id=n.task_id,
-            agent_name=n.agent_name, content=n.content,
-            scope_ltree=[path_to_ltree(p) for p in scope_paths],
-            created_at=n.timestamp,
-        ) for n in cached]
-        await note_store.insert_batch(records)  # ON CONFLICT DO NOTHING
-    return cached
-```
-
-One batch INSERT, zero schema changes. Cached notes become searchable in the current run.
+~~**Fix:** On cache hit, batch-insert cached notes via NoteStore.~~
 
 ### 14.11 Advisory Locks for Multi-Process Arbiter (DEFERRED)
 

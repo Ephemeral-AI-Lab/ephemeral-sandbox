@@ -98,12 +98,25 @@ def _render_workspace_paths(paths: list[str]) -> str:
 
 
 def _maybe_warm_service(context: ToolExecutionContext, svc: Any, *, label: str) -> None:
+    if getattr(svc, "is_initialized", True):
+        return
     workspace_root = str(getattr(svc, "workspace_root", "") or "")
     has_remote_sandbox = get_daytona_sandbox(context) is not None
-    should_skip_local_warmup = bool(
+    is_remote_only = bool(
         has_remote_sandbox and workspace_root and not Path(workspace_root).is_dir()
     )
-    if getattr(svc, "is_initialized", True) or should_skip_local_warmup:
+    if is_remote_only:
+        # Full ensure_initialized is unsafe for remote-only sandboxes (LSP
+        # bootstrap requires a local filesystem).  However the symbol index
+        # build runs in its own daemon thread and can safely be awaited.
+        si = getattr(svc, "symbol_index", None)
+        if si is not None and not getattr(si, "is_built", False):
+            try:
+                si.ensure_built(wait=True, timeout=60.0)
+            except Exception:
+                logger.debug(
+                    "%s remote symbol index warmup failed", label, exc_info=True
+                )
         return
     try:
         svc.ensure_initialized(wait=True)
@@ -414,6 +427,16 @@ async def ci_workspace_structure(
     if si is None:
         return ToolResult(output="Symbol index not available")
     workspace_root = str(getattr(svc, "workspace_root", "") or "")
+
+    # If the symbol index is still building (e.g. kicked off by
+    # inject_code_intelligence for an async sandbox), wait for it so the
+    # first ci_workspace_structure call returns indexed paths instead of
+    # falling through to the slower remote-listing fallback.
+    if not si.is_built:
+        try:
+            si.ensure_built(wait=True, timeout=60.0)
+        except Exception:
+            logger.debug("ci_workspace_structure: symbol index wait failed", exc_info=True)
 
     # Get indexed file paths
     from code_intelligence.analysis.symbol_index import SymbolIndex

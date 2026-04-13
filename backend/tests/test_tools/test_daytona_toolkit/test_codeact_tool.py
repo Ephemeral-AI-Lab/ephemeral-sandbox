@@ -212,7 +212,7 @@ async def test_codeact_success_no_writes():
 async def test_build_wrapper_uses_bash_and_repo_cwd_for_shell_helper():
     wrapper = _build_wrapper("shell('pytest -q')", run_id="abcd1234", cwd="/testbed")
 
-    assert '["env", "-u", "LC_ALL", "bash", "-o", "pipefail", "-lc", command]' in wrapper
+    assert '["env", "-u", "LC_ALL", "bash", "-o", "pipefail", "-lc", wrapped]' in wrapper
     assert "cwd=_CODEACT_CWD or None" in wrapper
     assert '_CODEACT_CWD = "/testbed"' in wrapper
     assert 'export PATH="$HOME/.local/bin:$PATH"' in wrapper
@@ -556,6 +556,37 @@ async def test_codeact_allows_verify_surface_writes_in_team_mode():
     data = _assert_ok(result)
     assert data["files_written"] == 1
     assert data["warnings"] == []
+
+
+async def test_codeact_records_scope_warning_on_advisory_write():
+    manifest = _make_manifest(
+        writes=[{"path": "/testbed/dask/_compatibility.py", "content": "patched\n"}]
+    )
+    sb = _make_sandbox(manifest=manifest)
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "team_mode_enabled": True,
+            "write_scope": ["dask/compatibility.py"],
+            "verification_surface_write_enforcement": "warn",
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(
+            code="write('/testbed/dask/_compatibility.py', 'patched\\n')"
+        ),
+        ctx,
+    )
+
+    data = _assert_ok(result)
+    assert data["files_written"] == 1
+    assert any("outside write_scope" in warning for warning in data["warnings"])
+    warnings = ctx.metadata["coordination_warnings"]
+    assert warnings
+    assert "outside write_scope" in warnings[0]["message"]
 
 
 async def test_codeact_allows_install_commands_in_team_mode():

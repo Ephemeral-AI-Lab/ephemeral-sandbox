@@ -39,6 +39,7 @@ from tools.daytona_toolkit._daytona_utils import (
     _OUTPUT_MAX_CHARS,
     _EXIT_MARKER,
     is_coordinated_team_agent,
+    record_coordination_warning,
 )
 from tools.core.ci_runtime import (
     abort_ci_write,
@@ -418,6 +419,12 @@ async def daytona_write_file(
     if contract_error is not None:
         return ToolResult(output=contract_error, is_error=True)
     contract_warning = _team_repo_write_warning(context, file_path, tool_name="daytona_write_file")
+    if contract_warning is not None:
+        record_coordination_warning(
+            context,
+            category="write_scope",
+            message=contract_warning,
+        )
     prepared = None
     content_bytes = content.encode("utf-8")
 

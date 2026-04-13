@@ -103,6 +103,7 @@ async def test_workspace_structure_with_symbol_index():
     class FakeSymbolIndex:
         def __init__(self):
             self._lock = threading.Lock()
+            self.is_built = True
             self._symbols = {
                 "src/a.py": [],
                 "src/b.py": [],
@@ -135,6 +136,7 @@ async def test_workspace_structure_filters_by_path():
     class FakeSymbolIndex:
         def __init__(self):
             self._lock = threading.Lock()
+            self.is_built = True
             self._symbols = {
                 "src/foo/a.py": [],
                 "src/bar/b.py": [],
@@ -162,6 +164,7 @@ async def test_workspace_structure_normalizes_absolute_index_paths():
     class FakeSymbolIndex:
         def __init__(self):
             self._lock = threading.Lock()
+            self.is_built = True
             self._symbols = {
                 "/repo/src/foo/a.py": [],
                 "/repo/src/bar/b.py": [],
@@ -187,6 +190,7 @@ async def test_workspace_structure_honors_max_depth_for_warm_index():
     class FakeSymbolIndex:
         def __init__(self):
             self._lock = threading.Lock()
+            self.is_built = True
             self._symbols = {
                 "/repo/src/top.py": [],
                 "/repo/src/pkg/nested.py": [],
@@ -205,6 +209,48 @@ async def test_workspace_structure_honors_max_depth_for_warm_index():
 
     assert "src/top.py" in result.output
     assert "src/pkg/nested.py" not in result.output
+
+
+async def test_workspace_structure_waits_for_building_index():
+    """ci_workspace_structure waits for the symbol index build when in progress."""
+    import threading
+
+    class FakeSymbolIndex:
+        def __init__(self):
+            self._lock = threading.Lock()
+            self._symbols = {
+                "src/a.py": [],
+                "src/b.py": [],
+            }
+            self.is_built = True
+
+        def ensure_built(self, wait=True, timeout=30.0):
+            return True
+
+    fake_si = FakeSymbolIndex()
+    fake_si.is_built = False  # Start as not built
+
+    # Simulate: ensure_built completes and flips is_built + populates symbols
+    original_ensure = fake_si.ensure_built
+
+    def ensure_and_flip(wait=True, timeout=30.0):
+        fake_si.is_built = True
+        return True
+
+    fake_si.ensure_built = ensure_and_flip
+
+    svc = MagicMock()
+    svc.symbol_index = fake_si
+
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        with patch("code_intelligence.analysis.symbol_index.SymbolIndex", FakeSymbolIndex):
+            result = await ci_workspace_structure.execute(
+                ci_workspace_structure.input_model(), _ctx_with_svc(svc)
+            )
+
+    assert not result.is_error
+    assert "src/a.py" in result.output
+    assert "src/b.py" in result.output
 
 
 async def test_workspace_structure_non_symbol_index_returns_empty():
@@ -309,6 +355,7 @@ async def test_query_symbols_remote_fallback_on_cold_remote_workspace():
     svc.is_initialized = False
     svc.workspace_root = "/testbed"
     svc.query_symbols.return_value = []
+    svc.symbol_index.is_built = False
 
     sandbox = MagicMock()
     sandbox.process.exec = AsyncMock(
@@ -334,7 +381,64 @@ async def test_query_symbols_remote_fallback_on_cold_remote_workspace():
     assert symbols[0]["kind"] == "function"
     assert symbols[0]["name"] == "generate_definitions"
     assert symbols[0]["file"] == "/testbed/pydantic/json_schema.py"
+    # Full ensure_initialized is NOT called (remote-only sandbox),
+    # but the symbol index warmup IS attempted.
     svc.ensure_initialized.assert_not_called()
+    svc.symbol_index.ensure_built.assert_called_once_with(wait=True, timeout=60.0)
+
+
+async def test_maybe_warm_service_waits_for_symbol_index_on_remote_sandbox():
+    """_maybe_warm_service should wait for the symbol index on remote sandboxes
+    instead of skipping warmup entirely."""
+    from tools.ci_toolkit.query_tools import _maybe_warm_service
+
+    svc = MagicMock()
+    svc.is_initialized = False
+    svc.workspace_root = "/testbed"
+    svc.symbol_index.is_built = False
+
+    sandbox = MagicMock()
+    ctx = _ctx_with_svc(svc)
+    ctx.metadata["daytona_sandbox"] = sandbox
+
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        _maybe_warm_service(ctx, svc, label="test")
+
+    # Should NOT call full ensure_initialized (remote-only workspace)
+    svc.ensure_initialized.assert_not_called()
+    # Should wait for symbol index specifically
+    svc.symbol_index.ensure_built.assert_called_once_with(wait=True, timeout=60.0)
+
+
+async def test_maybe_warm_service_skips_when_already_initialized():
+    """_maybe_warm_service is a no-op when service is already initialized."""
+    from tools.ci_toolkit.query_tools import _maybe_warm_service
+
+    svc = MagicMock()
+    svc.is_initialized = True
+
+    _maybe_warm_service(_ctx_with_svc(svc), svc, label="test")
+
+    svc.ensure_initialized.assert_not_called()
+    svc.symbol_index.ensure_built.assert_not_called()
+
+
+async def test_maybe_warm_service_remote_symbol_index_failure_is_silent():
+    """Symbol index warmup failure on remote sandbox is logged but not raised."""
+    from tools.ci_toolkit.query_tools import _maybe_warm_service
+
+    svc = MagicMock()
+    svc.is_initialized = False
+    svc.workspace_root = "/testbed"
+    svc.symbol_index.is_built = False
+    svc.symbol_index.ensure_built.side_effect = RuntimeError("timeout")
+
+    sandbox = MagicMock()
+    ctx = _ctx_with_svc(svc)
+    ctx.metadata["daytona_sandbox"] = sandbox
+
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        _maybe_warm_service(ctx, svc, label="test")  # should not raise
 
 
 async def test_query_symbols_local_workspace_fallback_finds_class(tmp_path):

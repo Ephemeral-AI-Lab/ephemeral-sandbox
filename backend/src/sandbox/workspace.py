@@ -123,9 +123,24 @@ def inject_code_intelligence(
                 else:
                     logger.debug(
                         "Skipping eager CI warmup for async sandbox %s because "
-                        "no sync handle was available",
+                        "no sync handle was available; starting background "
+                        "symbol index build",
                         sandbox_id,
                     )
+                    # Full ensure_initialized is unsafe (LSP bootstrap may
+                    # corrupt the async event loop), but the symbol index
+                    # build runs in its own daemon thread and is safe to
+                    # start eagerly.  This gives the index a head start so
+                    # it is more likely to be ready by the time the first
+                    # ci_query_symbols call arrives.
+                    try:
+                        svc.symbol_index.ensure_built(wait=False)
+                    except Exception:
+                        logger.debug(
+                            "Background symbol index start failed for %s",
+                            sandbox_id,
+                            exc_info=True,
+                        )
             except Exception:
                 logger.debug(
                     "CI service warmup skipped for sandbox %s", sandbox_id, exc_info=True

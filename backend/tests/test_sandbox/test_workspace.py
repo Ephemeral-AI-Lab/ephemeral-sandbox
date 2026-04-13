@@ -231,5 +231,44 @@ class TestInjectCodeIntelligence:
 
         assert mock_context.metadata["ci_service"] == mock_svc
         assert captured["sandbox"] is async_sandbox
+        # Full ensure_initialized is NOT called (LSP bootstrap unsafe),
+        # but the symbol index background build IS started eagerly.
         mock_svc.ensure_initialized.assert_not_called()
         mock_svc.lsp_client.ensure_ready.assert_not_called()
+        mock_svc.symbol_index.ensure_built.assert_called_once_with(wait=False)
+
+    def test_async_sandbox_symbol_index_start_failure_is_silent(self, monkeypatch):
+        """If ensure_built raises when starting background build, it is swallowed."""
+        from sandbox.workspace import inject_code_intelligence
+
+        mock_context = MagicMock()
+        mock_context.metadata = {}
+        async_sandbox = MagicMock()
+        async_sandbox.process = MagicMock(exec=AsyncMock())
+        mock_svc = MagicMock()
+        mock_svc.lsp_client = MagicMock()
+        mock_svc.symbol_index.ensure_built.side_effect = RuntimeError("boom")
+
+        def fake_get_ci(sandbox_id, workspace_root, sandbox):
+            return mock_svc
+
+        import sys
+        import types
+
+        fake_ci_module = types.ModuleType("code_intelligence.routing.service")
+        fake_ci_module.get_code_intelligence = fake_get_ci
+        monkeypatch.setitem(sys.modules, "code_intelligence.routing.service", fake_ci_module)
+
+        class FakeSandboxService:
+            def get_sandbox_object(self, sandbox_id):
+                raise RuntimeError("sync handle unavailable")
+
+        fake_service_module = types.ModuleType("sandbox.service")
+        fake_service_module.SandboxService = FakeSandboxService
+        monkeypatch.setitem(sys.modules, "sandbox.service", fake_service_module)
+
+        # Should not raise
+        inject_code_intelligence(
+            mock_context, "sb-123", async_sandbox, "/workspace",
+        )
+        assert mock_context.metadata["ci_service"] == mock_svc

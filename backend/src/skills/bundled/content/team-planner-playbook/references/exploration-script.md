@@ -48,6 +48,7 @@ Use this reference only on fresh benchmark roots or any turn that still lacks cl
 - Never guess missing production files from test names, keep a disproven alias in the first-wave ledger, or name an exact production file absent from live CI or explorer notes.
 - Never derive `pkg/foo.py`, `pkg/foo_bar.py`, or a private compat module from a benchmark filename like `tests/test_foo.py` without live owner evidence.
 - Never react to one missing guessed leaf by opening a new structure pass mid-wave; delete the leaf, keep the confirmed parent boundary, and wait for note review.
+- Never use a later `ci_workspace_structure(...)` sibling listing as proof that a disproved leaf or tests-only directory now belongs to `pkg/utils.py`, `pkg/config.py`, or another nearby exact file; keep the last confirmed parent boundary broad until live symbol/import/note evidence says otherwise.
 - Never bundle unrelated owner slices or the whole first-wave ledger into one explorer.
 - Never start loading decomposition or plan-json references while the first explorer wave still has unlaunched exact-file slices.
 - Never turn benchmark test filename tokens into nested directories, inserted path segments, or composite production files absent from live evidence.

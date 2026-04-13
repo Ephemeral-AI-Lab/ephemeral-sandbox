@@ -130,6 +130,45 @@ def _note_budget_issues(
     return issues
 
 
+def _coordination_warnings(context: ToolExecutionContext) -> list[str]:
+    raw = context.metadata.get("coordination_warnings")
+    if not isinstance(raw, list):
+        return []
+    seen: set[str] = set()
+    messages: list[str] = []
+    for item in raw:
+        if isinstance(item, dict):
+            message = str(item.get("message") or "").strip()
+        else:
+            message = str(item or "").strip()
+        if not message or message in seen:
+            continue
+        seen.add(message)
+        messages.append(message)
+    return messages
+
+
+def _coordination_warning_gate(
+    context: ToolExecutionContext,
+    *,
+    action: str,
+) -> ToolResult | None:
+    warnings = _coordination_warnings(context)
+    if not warnings:
+        return None
+    preview = "; ".join(warnings[:3])
+    if len(warnings) > 3:
+        preview += "; ..."
+    return ToolResult(
+        output=(
+            f"Error: coordination warning tainted this task packet, so `{action}` is not allowed. "
+            "Refresh notes or context if needed, then call `request_replan()` instead. "
+            f"Warnings: {preview}"
+        ),
+        is_error=True,
+    )
+
+
 # ---------------------------------------------------------------------------
 # DoneTool
 # ---------------------------------------------------------------------------
@@ -167,6 +206,9 @@ class SubmitSummaryTool(BaseTool):
         summary = arguments.summary.strip()
         if not summary:
             return ToolResult(output="Error: summary must be non-empty", is_error=True)
+        warning_gate = _coordination_warning_gate(context, action="submit_summary()")
+        if warning_gate is not None:
+            return warning_gate
 
         freshness_warning = await _check_context_freshness(context)
         already_checked = bool(context.metadata.get("checked_context_freshness"))
@@ -313,6 +355,9 @@ class RequestRetryTool(BaseTool):
         assert isinstance(arguments, RequestRetryInput)
         from team.models import RetryRequest
 
+        warning_gate = _coordination_warning_gate(context, action="request_retry()")
+        if warning_gate is not None:
+            return warning_gate
         context.metadata["submitted_output"] = RetryRequest(reason=arguments.reason)
         await _post_submission_note(context, content=f"Requested retry: {arguments.reason}")
         return ToolResult(output="Retry requested.")

@@ -27,6 +27,7 @@ from tools.daytona_toolkit.tools import (
     _team_repo_write_error,
     _team_repo_write_warning,
     _upload_file_compat,
+    record_coordination_warning,
 )
 from tools.core.decorator import tool
 
@@ -152,6 +153,11 @@ async def daytona_edit_file(
     contract_warning = _team_repo_write_warning(context, file_path, tool_name="daytona_edit_file")
     if contract_warning is not None:
         warnings.append(contract_warning)
+        record_coordination_warning(
+            context,
+            category="write_scope",
+            message=contract_warning,
+        )
 
     prepared = None
     intent_id = None

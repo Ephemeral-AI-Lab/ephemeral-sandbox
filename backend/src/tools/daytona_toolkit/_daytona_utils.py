@@ -6,6 +6,7 @@ import asyncio
 import logging
 import re
 import shlex
+import time
 from typing import TYPE_CHECKING, Any
 
 from config.defaults import DEFAULT_SANDBOX_CI_ROOT, DEFAULT_TEAM_SAFE_AGENT_NAMES
@@ -46,6 +47,48 @@ def is_coordinated_team_agent(context: ToolExecutionContext) -> bool:
     if agent_name not in DEFAULT_TEAM_SAFE_AGENT_NAMES:
         return False
     return bool(context.metadata.get("team_mode_enabled"))
+
+
+def record_coordination_warning(
+    context: ToolExecutionContext,
+    *,
+    category: str,
+    message: str,
+) -> None:
+    """Persist a coordination warning on the live tool context.
+
+    Warnings are advisory, but they taint the current task packet so posthook
+    tools can steer the agent toward ``request_replan()`` instead of reporting
+    success after a scope mismatch.
+    """
+    raw = context.metadata.get("coordination_warnings")
+    warnings: list[dict[str, Any]]
+    if isinstance(raw, list):
+        warnings = raw
+    else:
+        warnings = []
+        context.metadata["coordination_warnings"] = warnings
+
+    normalized_category = str(category or "").strip() or "coordination"
+    normalized_message = str(message or "").strip()
+    if not normalized_message:
+        return
+    for item in warnings:
+        if not isinstance(item, dict):
+            continue
+        if (
+            str(item.get("category") or "").strip() == normalized_category
+            and str(item.get("message") or "").strip() == normalized_message
+        ):
+            return
+    warnings.append(
+        {
+            "category": normalized_category,
+            "message": normalized_message,
+            "timestamp": time.time(),
+        }
+    )
+    context.metadata["coordination_warning_present"] = True
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +391,11 @@ def _team_repo_write_error(
     rel_path = _normalize_repo_relative_path(file_path, repo_root)
     if not rel_path:
         return None
+    if str(context.metadata.get("agent_name") or "").strip() == "validator":
+        return (
+            f"{tool_name}: validator lanes must not write repository files "
+            f"({rel_path})."
+        )
     write_scope = _normalize_write_scope(context.metadata.get("write_scope"), repo_root)
     if not write_scope:
         return None  # no write_scope set — unconstrained
