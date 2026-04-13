@@ -30,6 +30,22 @@ class _FakeSessionFactory:
         return _Ctx()
 
 
+class _RecordingStore:
+    """Collect TeamRun events appended by TaskCenter."""
+
+    def __init__(self) -> None:
+        self.events = []
+
+    def append(self, event) -> None:
+        self.events.append(event)
+
+    def load_run(self, team_run_id: str):
+        return list(self.events)
+
+    def list_runs(self):
+        return ["run-1"] if self.events else []
+
+
 def _tc(**kwargs) -> TaskCenter:
     """Create a TaskCenter with test defaults for required params."""
     defaults = dict(
@@ -106,6 +122,37 @@ def test_post_appends_notes():
     assert len(notes) == 2
     assert notes[0].id == "n1"
     assert notes[1].id == "n2"
+
+
+def test_post_emits_note_posted_event():
+    store = _RecordingStore()
+    tc = _tc(event_store=store)
+
+    _run(tc.post(_note(
+        "n1",
+        "task-1",
+        "first line\nsecond line",
+        agent_name="developer (auto)",
+        scope_paths=["src/auth"],
+    )))
+
+    assert len(store.events) == 1
+    event = store.events[0]
+    assert event.kind == "note_posted"
+    assert event.data["task_id"] == "task-1"
+    assert event.data["agent_name"] == "developer (auto)"
+    assert event.data["auto"] is True
+    assert event.data["scope_paths"] == ["src/auth"]
+    assert event.data["content_preview"] == "first line second line"
+
+
+def test_post_logs_auto_note(caplog):
+    tc = _tc()
+
+    with caplog.at_level("INFO", logger="team.task_center"):
+        _run(tc.post(_note("n1", "task-1", "checkpoint summary", agent_name="developer (auto)")))
+
+    assert "[task_center] auto-note task=task-1" in caplog.text
 
 
 # ---------------------------------------------------------------------------

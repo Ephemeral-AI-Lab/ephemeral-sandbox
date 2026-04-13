@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 
 from ephemeral_task.core import EphemeralTaskResult, Snapshot
@@ -61,6 +62,9 @@ class NoteSummary(EphemeralTaskResult):
     task_id: str = ""
     trigger: str = ""  # "edit" or "turn"
     note_summary: str = ""
+    status: str = ""
+    blocked_by: str = ""
+    elapsed_seconds: float = 0.0
 
 
 async def run_ephemeral_task(
@@ -71,22 +75,29 @@ async def run_ephemeral_task(
     max_tokens: int = 500,
     model: str | None = None,
     api_client: object,
+    timeout_seconds: float | None = None,
 ) -> NoteSummary:
     """Single-shot checkpoint call with forced tool use. Returns NoteSummary."""
+    started = time.monotonic()
     result = await snapshot.ask_tool(
         prompt,
         tool=POST_NOTE_TOOL,
         api_client=api_client,
         max_tokens=max_tokens,
         model=model,
+        timeout_seconds=timeout_seconds,
     )
 
     note_text = result.text
     note_summary = ""
 
     if result.tool_input is not None:
-        note_summary = str(result.tool_input.get("content", ""))
-        note_text = note_summary or result.text
+        note_summary = str(
+            result.tool_input.get("content")
+            or result.tool_input.get("note")
+            or ""
+        )
+        note_text = note_summary
 
     return NoteSummary(
         text=note_text,
@@ -94,4 +105,7 @@ async def run_ephemeral_task(
         task_id=snapshot.task_id,
         trigger=trigger,
         note_summary=note_summary,
+        status=str((result.tool_input or {}).get("status", "")),
+        blocked_by=str((result.tool_input or {}).get("blocked_by", "")),
+        elapsed_seconds=max(0.0, time.monotonic() - started),
     )

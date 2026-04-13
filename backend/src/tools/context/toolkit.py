@@ -74,6 +74,13 @@ class PostNoteTool(BaseTool):
 
 
 class ReadNotesInput(BaseModel):
+    scope: str | None = Field(
+        default=None,
+        description=(
+            "Structural note scope. Use 'siblings' to read sibling-task and descendant notes "
+            "for the current task; omit or use 'full' for the whole Task Center."
+        ),
+    )
     authors: list[str] | None = Field(
         default=None,
         description=(
@@ -110,14 +117,23 @@ class ReadNotesTool(BaseTool):
         tc = context.metadata.get("task_center")
         if tc is None:
             return ToolResult(output="Error: Task Center not available", is_error=True)
-        notes = await tc.read(
-            authors=arguments.authors,
-            scope_paths=arguments.scope_paths,
-            limit=arguments.limit,
-        )
-        if arguments.keyword:
-            kw = arguments.keyword.lower()
-            notes = [n for n in notes if kw in n.content.lower()]
+        if arguments.scope:
+            notes = await tc.read_notes(
+                task_id=str(context.metadata.get("work_item_id") or ""),
+                scope=arguments.scope,
+                keyword=arguments.keyword,
+                scope_paths=arguments.scope_paths,
+                limit=arguments.limit,
+            )
+        else:
+            notes = await tc.read(
+                authors=arguments.authors,
+                scope_paths=arguments.scope_paths,
+                limit=arguments.limit,
+            )
+            if arguments.keyword:
+                kw = arguments.keyword.lower()
+                notes = [n for n in notes if kw in n.content.lower()]
         if not notes:
             return ToolResult(output="No notes found.")
         lines: list[str] = []

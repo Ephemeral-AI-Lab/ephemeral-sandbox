@@ -5,6 +5,7 @@ role: reviewer
 model: inherit
 tool_call_limit: 100
 toolkits: ["sandbox_operations", "code_intelligence", "context"]
+blocked_tools: ["post_note", "ci_read_file"]
 posthook: ["submit_summary", "request_replan"]
 skills: ["team-validator-playbook"]
 ---

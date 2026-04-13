@@ -55,9 +55,13 @@ class Executor:
     async def run_forever(self) -> None:
         tc = self.team_run.task_center
         dq = self.team_run.dispatch_queue
+        conductor = getattr(self.team_run, "conductor", None)
         while not self.team_run.cancel_event.is_set():
             try:
-                rec = await dq.pop_ready(self.team_run.id)
+                rec = await dq.pop_ready(
+                    self.team_run.id,
+                    blocker_guard=getattr(conductor, "guard_pop_ready", None),
+                )
             except Exception as exc:
                 logger.exception("DispatchQueue pop_ready failed: %s", exc)
                 await asyncio.sleep(0.2)
@@ -72,9 +76,14 @@ class Executor:
             except Exception as exc:
                 logger.exception("Worker error on %s: %s", task.id, exc)
                 await tc.fail(task.id, f"worker_exception: {exc}")
+                if conductor is not None:
+                    blocker = conductor.blocker_for_fix_task(task.id)
+                    if blocker is not None:
+                        await conductor.on_fix_failed(blocker.id, f"worker_exception: {exc}")
 
     async def _run_one(self, task: "Task") -> None:
         tc = self.team_run.task_center
+        conductor = getattr(self.team_run, "conductor", None)
         agent_run_id = str(uuid.uuid4())
         task = await tc.mark_running(task.id, agent_run_id)
 
@@ -102,6 +111,10 @@ class Executor:
             await self.runner(defn, ctx)
         except Exception as exc:
             await tc.fail(task.id, f"runner_exception: {exc}")
+            if conductor is not None:
+                blocker = conductor.blocker_for_fix_task(task.id)
+                if blocker is not None:
+                    await conductor.on_fix_failed(blocker.id, f"runner_exception: {exc}")
             return
         finally:
             if listener is not None:
@@ -310,13 +323,25 @@ class Executor:
 
     async def _dispatch(self, task: "Task", result: Any) -> None:
         tc = self.team_run.task_center
+        conductor = getattr(self.team_run, "conductor", None)
+        fix_blocker = conductor.blocker_for_fix_task(task.id) if conductor is not None else None
         if isinstance(result, RetryRequest):
+            if fix_blocker is not None and conductor is not None:
+                await tc.fail(task.id, f"blocker_fix_retry_requested: {result.reason}")
+                await conductor.on_fix_failed(fix_blocker.id, result.reason)
+                await self._checkpoint_after_transition(task, outcome="blocker_fix_failed")
+                return
             await self._post_retry_reason_note(task, result)
             await tc.retry_task(task.id, result)
             await self._checkpoint_after_transition(task, outcome="retry")
             await self._post_checkpoint_note(task, result)
             return
         if isinstance(result, ReplanRequest):
+            if fix_blocker is not None and conductor is not None:
+                await tc.fail(task.id, f"blocker_fix_failed: {result.reason}")
+                await conductor.on_fix_failed(fix_blocker.id, result.reason)
+                await self._checkpoint_after_transition(task, outcome="blocker_fix_failed")
+                return
             await tc.request_replan(task.id, result)
             await self._checkpoint_after_transition(task, outcome="replan_request")
             await self._post_checkpoint_note(task, result)
@@ -336,6 +361,11 @@ class Executor:
         new_items = await tc.complete_task(task.id, result)
         if isinstance(result, AgentResult) and result.summary:
             await self._post_completion_note(task, result.summary)
+        if fix_blocker is not None and conductor is not None:
+            await conductor.on_fix_complete(
+                fix_blocker.id,
+                result.summary if isinstance(result, AgentResult) and result.summary else f"Fix task {task.id} completed.",
+            )
         if self.after_dispatch is not None:
             cb = self.after_dispatch(task, result, new_items)
             if isinstance(cb, Awaitable):

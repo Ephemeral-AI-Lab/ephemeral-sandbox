@@ -8,6 +8,7 @@ from ephemeral_task.tc_note import (
     POST_NOTE_TOOL,
     TURN_CHECKPOINT_PROMPT,
     NoteSummary,
+    run_ephemeral_task as run_ephemeral_note,
     run_ephemeral_task,
 )
 
@@ -24,5 +25,6 @@ __all__ = [
     "assess_pause",
     "call_llm",
     "call_llm_tool",
+    "run_ephemeral_note",
     "run_ephemeral_task",
 ]

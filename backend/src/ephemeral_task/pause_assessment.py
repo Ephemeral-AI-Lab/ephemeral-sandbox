@@ -60,6 +60,7 @@ async def assess_pause(
     problem: str,
     api_client: Any,
     model: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> PauseVerdict:
     """Assess whether a running agent is affected by a blocker.
 
@@ -85,6 +86,7 @@ async def assess_pause(
         api_client=api_client,
         max_tokens=200,
         model=model,
+        timeout_seconds=timeout_seconds,
     )
 
     tid = snapshot.task_id

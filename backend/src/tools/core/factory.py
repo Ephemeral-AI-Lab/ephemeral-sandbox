@@ -60,10 +60,16 @@ def create_toolkit(name: str, ctx: ToolkitContext) -> BaseToolkit:
     """
     cls = _classes.get(name)
     if cls is not None:
-        return cls.from_context(ctx)
+        toolkit = cls.from_context(ctx)
+        if toolkit.name != name:
+            toolkit.name = name
+        return toolkit
     factory = _factories.get(name)
     if factory is not None:
-        return factory(ctx)
+        toolkit = factory(ctx)
+        if toolkit.name != name:
+            toolkit.name = name
+        return toolkit
     raise KeyError(
         f"Toolkit '{name}' not registered. "
         f"Classes: {list(_classes)} Factories: {list(_factories)}"
@@ -99,6 +105,7 @@ def _register_builtins() -> None:
     # Plan A toolkits — Task Center (notes + scope awareness)
     from tools.context import TaskCenterToolkit
 
+    register_toolkit_class("context", TaskCenterToolkit)
     register_toolkit_class("task_center", TaskCenterToolkit)
     # NOTE: Submission tools are no longer registered as a toolkit.
     # They are registered individually via agent_def.posthook in

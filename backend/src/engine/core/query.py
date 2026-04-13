@@ -122,6 +122,7 @@ class QueryContext:
     tool_metadata: ExecutionMetadata | None = None
     session_state: SessionState | None = None
     enable_background_tasks: bool = False
+    on_turn: Callable[[list[ConversationMessage]], None] | None = None
     # Snapshot of the most recent api_messages list sent to the provider.
     # Updated by the query loop on every turn. Persistence layers read this
     # to populate the ``compacted_history`` column without having to re-run
@@ -531,6 +532,12 @@ async def _run_query_loop(
                         ),
                         None,
                     )
+
+        if context.on_turn is not None:
+            try:
+                context.on_turn(display_messages)
+            except Exception:
+                logger.debug("on_turn callback failed", exc_info=True)
 
         executor = StreamingToolExecutor(
             tool_registry=context.tool_registry,

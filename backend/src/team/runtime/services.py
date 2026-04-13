@@ -34,7 +34,7 @@ def build_team_runtime_services(
     event_store: TeamRunStore | None = None,
     session_factory: "async_sessionmaker[AsyncSession] | None" = None,
 ) -> TeamRuntimeServices:
-    from team.persistence.team_engine import create_team_engine, get_team_session_factory
+    from team.persistence.team_engine import create_team_engine
     from team.runtime.dispatch_queue import DispatchQueue
     from team.task_center import TaskCenter
 
@@ -44,7 +44,7 @@ def build_team_runtime_services(
     )
     store = event_store if event_store is not None else build_default_store()
 
-    task_session_factory = session_factory or get_team_session_factory()
+    task_session_factory = session_factory
     if task_session_factory is None:
         try:
             _, task_session_factory = create_team_engine()

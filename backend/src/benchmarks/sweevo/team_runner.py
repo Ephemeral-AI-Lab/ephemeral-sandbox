@@ -11,6 +11,7 @@ prepared by :func:`benchmarks.sweevo.sandbox.create_sweevo_test_sandbox`.
 
 from __future__ import annotations
 
+import asyncio
 from collections import Counter
 from datetime import datetime, timezone
 import json
@@ -24,7 +25,7 @@ from config.paths import get_project_config_dir
 from engine.runtime.agent import spawn_agent
 from message.event_printer import MultiAgentEventPrinter
 from message.messages import ConversationMessage, ToolUseBlock
-from message.stream_events import ToolExecutionCompleted
+from message.stream_events import ToolExecutionCompleted, ToolExecutionStarted
 from token_tracker.runtime import persist_run_usage
 from code_intelligence.routing.service import get_code_intelligence
 from team.builtins import (
@@ -715,6 +716,64 @@ def _make_runner(
         ctx.tool_metadata.agent_name = effective_defn.name
         agent.query_context.tool_metadata = ctx.tool_metadata
         agent.query_context.run_id = tracker.run_id or ""
+        team_run_id = str(ctx.tool_metadata.get("team_run_id") or "")
+        work_item_id = str(ctx.tool_metadata.get("work_item_id") or "")
+        pending_tool_inputs: dict[str, list[dict[str, Any]]] = {}
+        checkpoint_tasks: set[asyncio.Task[None]] = set()
+
+        def _snapshot_messages() -> list[dict[str, Any]]:
+            return [m.model_dump(mode="json") for m in agent.display_messages]
+
+        def _schedule_checkpoint() -> None:
+            if not team_run_id or not work_item_id:
+                return
+            try:
+                from team.runtime.registry import get as get_team_run
+
+                team_run = get_team_run(team_run_id)
+                if team_run is None:
+                    return
+                snapshot = _snapshot_messages()
+                team_run.conductor.register_snapshot(work_item_id, snapshot)
+                task = asyncio.create_task(
+                    team_run.task_center.check(
+                        work_item_id,
+                        snapshot=snapshot,
+                        api_client=agent.query_context.api_client,
+                        model=agent.model,
+                    )
+                )
+                checkpoint_tasks.add(task)
+                task.add_done_callback(lambda done: checkpoint_tasks.discard(done))
+            except Exception:
+                logger.debug("Failed to schedule task-center checkpoint for %s", work_item_id, exc_info=True)
+
+        def _on_turn(display_messages: list[ConversationMessage]) -> None:
+            if not team_run_id or not work_item_id:
+                return
+            try:
+                from team.runtime.registry import get as get_team_run
+
+                team_run = get_team_run(team_run_id)
+                if team_run is None:
+                    return
+                snapshot = [m.model_dump(mode="json") for m in display_messages]
+                team_run.conductor.register_snapshot(work_item_id, snapshot)
+                team_run.task_center.tick(work_item_id)
+                task = asyncio.create_task(
+                    team_run.task_center.check(
+                        work_item_id,
+                        snapshot=snapshot,
+                        api_client=agent.query_context.api_client,
+                        model=agent.model,
+                    )
+                )
+                checkpoint_tasks.add(task)
+                task.add_done_callback(lambda done: checkpoint_tasks.discard(done))
+            except Exception:
+                logger.debug("Failed to observe turn for %s", work_item_id, exc_info=True)
+
+        agent.query_context.on_turn = _on_turn
         if printer is not None and effective_defn.name == TEAM_PLANNER:
             printer.raw_line(
                 effective_defn.name,
@@ -729,6 +788,39 @@ def _make_runner(
         final_text = ""
         try:
             async for event in agent.run(prompt):
+                if isinstance(event, ToolExecutionStarted):
+                    pending_tool_inputs.setdefault(event.tool_name, []).append(event.tool_input)
+                elif isinstance(event, ToolExecutionCompleted) and team_run_id and work_item_id:
+                    try:
+                        from team.runtime.registry import get as get_team_run
+
+                        team_run = get_team_run(team_run_id)
+                        tool_inputs = pending_tool_inputs.get(event.tool_name) or []
+                        tool_input = tool_inputs.pop(0) if tool_inputs else {}
+                        if team_run is not None and not event.is_error:
+                            if event.tool_name in {"daytona_edit_file", "daytona_write_file"}:
+                                file_path = str(
+                                    tool_input.get("file_path")
+                                    or tool_input.get("path")
+                                    or ""
+                                ).strip()
+                                if file_path:
+                                    team_run.task_center.on_edit(work_item_id, file_path)
+                            if event.tool_name in {
+                                "post_note",
+                                "submit_plan",
+                                "submit_summary",
+                                "submit_replan",
+                                "request_retry",
+                                "request_replan",
+                                "add_tasks",
+                                "declare_blocker",
+                                "cancel_and_redraft",
+                            }:
+                                team_run.task_center.on_posthook(work_item_id)
+                            _schedule_checkpoint()
+                    except Exception:
+                        logger.debug("Failed to observe tool completion for %s", work_item_id, exc_info=True)
                 if printer is None:
                     continue
                 try:
@@ -753,6 +845,8 @@ def _make_runner(
             logger.exception("sweevo team runner: agent %s crashed", defn.name)
             raise
         finally:
+            if checkpoint_tasks:
+                await asyncio.gather(*checkpoint_tasks, return_exceptions=True)
             qc = getattr(agent, "query_context", None)
             final_text = _extract_final_text(agent.display_messages)
             session_state = getattr(qc, "session_state", None)

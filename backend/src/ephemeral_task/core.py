@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from typing import Any
@@ -32,6 +33,7 @@ class Snapshot:
         api_client: Any,
         max_tokens: int = 500,
         model: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> EphemeralTaskResult:
         """Append a question and get a one-shot LLM answer (free text)."""
         full_messages = list(self.messages) + [{"role": "user", "content": prompt}]
@@ -41,6 +43,7 @@ class Snapshot:
             api_client=api_client,
             max_tokens=max_tokens,
             model=model,
+            timeout_seconds=timeout_seconds,
         )
 
     async def ask_tool(
@@ -51,6 +54,7 @@ class Snapshot:
         api_client: Any,
         max_tokens: int = 500,
         model: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> EphemeralTaskResult:
         """Append a question and force a single tool call response.
 
@@ -65,6 +69,7 @@ class Snapshot:
             api_client=api_client,
             max_tokens=max_tokens,
             model=model,
+            timeout_seconds=timeout_seconds,
         )
 
 
@@ -75,15 +80,23 @@ async def call_llm(
     api_client: Any,
     max_tokens: int = 500,
     model: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> EphemeralTaskResult:
     """Single-turn LLM call. Free-text response."""
     try:
-        response = await api_client.create_message(
+        coro = api_client.create_message(
             model=model or "claude-sonnet-4-20250514",
             max_tokens=max_tokens,
             system=system_prompt,
             messages=messages,
         )
+        response = (
+            await asyncio.wait_for(coro, timeout_seconds)
+            if timeout_seconds is not None
+            else await coro
+        )
+    except asyncio.TimeoutError:
+        return EphemeralTaskResult(text="", timed_out=True)
     except Exception:
         return EphemeralTaskResult(text="", timed_out=False)
 
@@ -99,11 +112,12 @@ async def call_llm_tool(
     api_client: Any,
     max_tokens: int = 500,
     model: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> EphemeralTaskResult:
     """Single-turn forced tool call. tool_choice='any' guarantees the model
     calls the tool in its first response."""
     try:
-        response = await api_client.create_message(
+        coro = api_client.create_message(
             model=model or "claude-sonnet-4-20250514",
             max_tokens=max_tokens,
             system=system_prompt,
@@ -111,6 +125,13 @@ async def call_llm_tool(
             tools=[tool],
             tool_choice={"type": "any"},
         )
+        response = (
+            await asyncio.wait_for(coro, timeout_seconds)
+            if timeout_seconds is not None
+            else await coro
+        )
+    except asyncio.TimeoutError:
+        return EphemeralTaskResult(text="", timed_out=True)
     except Exception:
         return EphemeralTaskResult(text="", timed_out=False)
 

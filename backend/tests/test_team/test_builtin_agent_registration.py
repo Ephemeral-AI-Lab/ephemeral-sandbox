@@ -9,6 +9,7 @@ from team.builtins import (
     VALIDATOR,
     register_all,
 )
+from tools.core.base import ToolRegistry
 from tools.core.factory import ToolkitContext, create_toolkit
 
 
@@ -77,3 +78,17 @@ def test_team_worker_sandbox_toolkit_includes_codeact() -> None:
     # daytona_bash has been removed — all agents use daytona_codeact
     assert "daytona_bash" not in developer_sandbox.tool_names()
     assert "daytona_bash" not in validator_sandbox.tool_names()
+
+
+def test_context_toolkit_alias_survives_restriction() -> None:
+    context_toolkit = create_toolkit(
+        "context",
+        ToolkitContext(metadata={"agent_name": TEAM_PLANNER}),
+    )
+    registry = ToolRegistry()
+    registry.register_toolkit(context_toolkit)
+    registry.restrict_to_toolkits(["context"])
+
+    assert registry.get_toolkit("context") is not None
+    assert registry.get("read_notes") is not None
+    assert registry.get("post_note") is not None

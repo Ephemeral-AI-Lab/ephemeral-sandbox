@@ -35,6 +35,7 @@ from team.persistence.events import (
     TeamRunEvent,
     make_budget_update,
     make_checkpoint_taken,
+    make_note_posted,
     make_task_added,
     make_task_status,
     task_to_dict,
@@ -59,6 +60,13 @@ _RETURNING = (
     " finished_at, failure_reason,"
     " blocker_id, pause_checkpoint, pause_verdict"
 )
+
+
+def _note_preview(content: str, *, limit: int = 240) -> str:
+    compact = " ".join(content.split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 1] + "…"
 
 
 def _row_to_record(row: Any) -> TaskRecord:
@@ -215,6 +223,16 @@ class TaskCenter:
         scope_paths = list(task.scope_paths) if task and task.scope_paths else []
         c = self._get_counters(task_id)
 
+        logger.info(
+            "[task_center] auto-note trigger=%s task=%s agent=%s edits=%d turns=%d scope=%s",
+            trigger,
+            task_id,
+            agent_name,
+            c["edits"],
+            c["turns"],
+            ",".join(scope_paths) if scope_paths else "-",
+        )
+
         content: str | None = None
 
         if snapshot and api_client:
@@ -268,12 +286,13 @@ class TaskCenter:
         scope_paths: list[str] | None = None,
     ) -> str:
         """Read notes from sibling tasks under the same parent."""
-        sibling_ids = [tid for tid, t in self.graph.items() if t.parent_id == parent_id]
+        sibling_ids = await self._sibling_subtree_ids(parent_id)
         if not sibling_ids:
             return ""
-        notes = await self.read(authors=sibling_ids)
-        if scope_paths:
-            notes = [n for n in notes if self._matches_scope(n.scope_paths, scope_paths)]
+        notes = await self.read(
+            authors=sibling_ids,
+            scope_paths=scope_paths,
+        )
         if keyword:
             kw = keyword.lower()
             notes = [n for n in notes if kw in n.content.lower()]
@@ -326,6 +345,25 @@ class TaskCenter:
     async def post(self, note: Note) -> None:
         self._notes.append(note)
         self.on_note_posted(note.task_id)
+        auto_generated = note.agent_name.endswith(" (auto)")
+        preview = _note_preview(note.content)
+        logger.info(
+            "[task_center] %snote task=%s agent=%s scope=%s preview=%s",
+            "auto-" if auto_generated else "",
+            note.task_id,
+            note.agent_name,
+            ",".join(note.scope_paths) if note.scope_paths else "-",
+            preview,
+        )
+        self._emit(make_note_posted(
+            self._team_run_id,
+            task_id=note.task_id,
+            agent_name=note.agent_name,
+            auto=auto_generated,
+            scope_paths=note.scope_paths,
+            content_preview=preview,
+            content_bytes=len(note.content.encode("utf-8")),
+        ))
 
     async def read(
         self,
@@ -352,6 +390,8 @@ class TaskCenter:
         *,
         task_id: str,
         scope: str = "full",
+        keyword: str | None = None,
+        scope_paths: list[str] | None = None,
         limit: int | None = None,
     ) -> list[Note]:
         """Read notes with scope filtering.
@@ -361,22 +401,24 @@ class TaskCenter:
             siblings — sibling tasks and their children
         """
         if scope == "full":
-            return await self.read(limit=limit)
-        if scope == "siblings":
+            notes = await self.read(scope_paths=scope_paths, limit=limit)
+        elif scope == "siblings":
             task = await self.get_task(task_id)
             if task is None:
                 return []
-            parent_id = task.parent_id
-            sibling_ids = set()
-            for tid, t in self.graph.items():
-                if t.parent_id == parent_id and tid != task_id:
-                    sibling_ids.add(tid)
-                    # include children of siblings
-                    for cid, ct in self.graph.items():
-                        if ct.parent_id == tid:
-                            sibling_ids.add(cid)
-            return await self.read(authors=list(sibling_ids), limit=limit)
-        return await self.read(limit=limit)
+            sibling_ids = await self._sibling_subtree_ids(task.parent_id)
+            sibling_ids = [tid for tid in sibling_ids if tid != task_id]
+            notes = await self.read(
+                authors=sibling_ids,
+                scope_paths=scope_paths,
+                limit=limit,
+            )
+        else:
+            notes = await self.read(scope_paths=scope_paths, limit=limit)
+        if keyword:
+            kw = keyword.lower()
+            notes = [n for n in notes if kw in n.content.lower()]
+        return notes
 
     async def context_for(
         self,
@@ -881,6 +923,24 @@ class TaskCenter:
                 ORDER BY t.depth, t.created_at
             """), {"rid": self._team_run_id, "tid": initiating_task_id})
             return [self._row_to_record(row) for row in result.fetchall()]
+
+    async def _sibling_subtree_ids(self, parent_id: str | None) -> list[str]:
+        async with self._sf() as db:
+            result = await db.execute(text("""
+                WITH RECURSIVE subtree AS (
+                    SELECT id
+                    FROM tasks
+                    WHERE team_run_id = :rid
+                      AND parent_id IS NOT DISTINCT FROM :pid
+                    UNION ALL
+                    SELECT child.id
+                    FROM tasks child
+                    JOIN subtree s ON child.parent_id = s.id
+                    WHERE child.team_run_id = :rid
+                )
+                SELECT id FROM subtree
+            """), {"rid": self._team_run_id, "pid": parent_id})
+            return [str(row.id) for row in result.fetchall()]
 
     @staticmethod
     def _row_to_record(row) -> TaskRecord:

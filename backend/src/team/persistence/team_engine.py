@@ -44,6 +44,7 @@ _LEGACY_LTREE_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
 def _ensure_team_models_registered() -> None:
     """Import team ORM models so Base.metadata knows about them."""
     from team.persistence.task_record import TaskRecord  # noqa: F401
+    from team.persistence.blocker_record import BlockerRecord  # noqa: F401
 
 
 def _legacy_column_type(engine: Engine, table_name: str, column_name: str) -> str | None:
@@ -81,6 +82,15 @@ def _normalize_legacy_ltree_columns(engine: Engine) -> None:
             conn.execute(text(ddl))
 
 
+def _ensure_team_schema(engine: Engine) -> None:
+    """Register team models and backfill any missing team columns/indexes."""
+    _ensure_team_models_registered()
+    Base.metadata.create_all(engine)
+    _normalize_legacy_ltree_columns(engine)
+    _add_missing_columns(engine)
+    _ensure_indexes(engine)
+
+
 def get_team_engine() -> "AsyncEngine | None":
     """Return the shared async engine."""
     return get_async_engine()
@@ -101,7 +111,9 @@ def create_team_engine(
     """
     factory = get_async_session_factory()
     engine = get_async_engine()
-    if factory is not None and engine is not None:
+    sync_engine = get_engine()
+    if factory is not None and engine is not None and sync_engine is not None:
+        _ensure_team_schema(sync_engine)
         return engine, factory
 
     # Ensure sync+async engines exist.
@@ -112,16 +124,10 @@ def create_team_engine(
             from config.settings import load_settings
             initialize_db(load_settings().database)
 
-    sync_engine = get_engine()
     if sync_engine is None:
         raise RuntimeError("Team runtime requires a configured database.")
 
-    # Register team models and create their tables.
-    _ensure_team_models_registered()
-    Base.metadata.create_all(sync_engine)
-    _normalize_legacy_ltree_columns(sync_engine)
-    _add_missing_columns(sync_engine)
-    _ensure_indexes(sync_engine)
+    _ensure_team_schema(sync_engine)
 
     engine = get_async_engine()
     factory = get_async_session_factory()

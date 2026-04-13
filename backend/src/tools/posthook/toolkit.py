@@ -84,6 +84,28 @@ async def _freshness_submission_gate(
     )
 
 
+async def _accept_replan_submission(
+    context: ToolExecutionContext,
+    *,
+    add_tasks: list[dict],
+    cancel_ids: list[str],
+    note_content: str,
+) -> ToolResult:
+    from team.models import ReplanPlan
+
+    replan = ReplanPlan.from_dict(
+        {"add_tasks": add_tasks, "cancel_ids": cancel_ids}
+    )
+    freshness_gate = await _freshness_submission_gate(context, action="submit_replan()")
+    if freshness_gate is not None:
+        return freshness_gate
+    context.metadata["submitted_output"] = replan
+    await _post_submission_note(context, content=note_content)
+    return ToolResult(
+        output=f"Replan accepted ({len(replan.add_tasks)} new tasks, {len(replan.cancel_ids)} cancelled)."
+    )
+
+
 def _resolve_agent_name(agent_value: str, roster: dict[str, list[str]]) -> str:
     candidate = agent_value.strip()
     if not candidate:
@@ -424,6 +446,71 @@ class SubmitReplanInput(BaseModel):
     )
 
 
+class AddTasksTool(BaseTool):
+    name = "add_tasks"
+    description = (
+        "Add corrective sibling tasks without cancelling the existing subtree. "
+        "Use when the failed task needs follow-up work but other siblings can continue."
+    )
+    input_model = SubmitReplanInput
+
+    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
+        assert isinstance(arguments, SubmitReplanInput)
+        return await _accept_replan_submission(
+            context,
+            add_tasks=arguments.add_tasks,
+            cancel_ids=[],
+            note_content=f"Replanner added {len(arguments.add_tasks)} corrective task(s).",
+        )
+
+
+class DeclareBlockerInput(BaseModel):
+    root_cause_paths: list[str] = Field(
+        ...,
+        description="Broken shared files that must be fixed before sibling work can continue.",
+        min_length=1,
+    )
+    reason: str = Field(
+        ...,
+        description="Why this is a shared blocker rather than an isolated task failure.",
+        min_length=1,
+    )
+    suggestion: str | None = Field(
+        default=None,
+        description="Optional hint for the resolver about the expected fix direction.",
+    )
+
+
+class DeclareBlockerTool(BaseTool):
+    name = "declare_blocker"
+    description = (
+        "Declare a shared blocker so the conductor can pause affected running siblings, "
+        "spawn one resolver, and resume work after the fix lands."
+    )
+    input_model = DeclareBlockerInput
+
+    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
+        assert isinstance(arguments, DeclareBlockerInput)
+        from team.models import BlockerDeclaration
+
+        freshness_gate = await _freshness_submission_gate(context, action="declare_blocker()")
+        if freshness_gate is not None:
+            return freshness_gate
+        context.metadata["submitted_output"] = BlockerDeclaration(
+            root_cause_paths=list(arguments.root_cause_paths),
+            reason=arguments.reason,
+            suggestion=arguments.suggestion,
+        )
+        note = (
+            f"Declared blocker on {', '.join(arguments.root_cause_paths)}: "
+            f"{arguments.reason}"
+        )
+        if arguments.suggestion:
+            note += f"\nSuggestion: {arguments.suggestion}"
+        await _post_submission_note(context, content=note)
+        return ToolResult(output="Blocker declared.")
+
+
 class SubmitReplanTool(BaseTool):
     name = "submit_replan"
     description = (
@@ -434,23 +521,35 @@ class SubmitReplanTool(BaseTool):
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
         assert isinstance(arguments, SubmitReplanInput)
-        from team.models import ReplanPlan
-
-        replan = ReplanPlan.from_dict(
-            {"add_tasks": arguments.add_tasks, "cancel_ids": arguments.cancel_ids}
-        )
-        freshness_gate = await _freshness_submission_gate(context, action="submit_replan()")
-        if freshness_gate is not None:
-            return freshness_gate
-        note_content = (
-            f"Submitted corrective replan with {len(replan.add_tasks)} new task(s) "
-            f"and {len(replan.cancel_ids)} cancellation(s)."
+        return await _accept_replan_submission(
+            context,
+            add_tasks=arguments.add_tasks,
+            cancel_ids=arguments.cancel_ids,
+            note_content=(
+                f"Submitted corrective replan with {len(arguments.add_tasks)} new task(s) "
+                f"and {len(arguments.cancel_ids)} cancellation(s)."
+            ),
         )
 
-        context.metadata["submitted_output"] = replan
-        await _post_submission_note(context, content=note_content)
-        return ToolResult(
-            output=f"Replan accepted ({len(replan.add_tasks)} new tasks, {len(replan.cancel_ids)} cancelled)."
+
+class CancelAndRedraftTool(BaseTool):
+    name = "cancel_and_redraft"
+    description = (
+        "Cancel stale sibling work and replace it with a new corrective task set. "
+        "Use when the existing subtree decomposition is wrong, not just incomplete."
+    )
+    input_model = SubmitReplanInput
+
+    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
+        assert isinstance(arguments, SubmitReplanInput)
+        return await _accept_replan_submission(
+            context,
+            add_tasks=arguments.add_tasks,
+            cancel_ids=arguments.cancel_ids,
+            note_content=(
+                f"Cancelled {len(arguments.cancel_ids)} task(s) and redrafted "
+                f"{len(arguments.add_tasks)} replacement task(s)."
+            ),
         )
 
 
@@ -477,7 +576,12 @@ class PosthookTools(BaseToolkit):
         if role == "planner":
             tools = [SubmitPlanTool()]
         elif role == "replanner":
-            tools = [SubmitReplanTool()]
+            tools = [
+                AddTasksTool(),
+                DeclareBlockerTool(),
+                CancelAndRedraftTool(),
+                SubmitReplanTool(),
+            ]
         else:
             tools = [SubmitSummaryTool(), RequestRetryTool(), RequestReplanTool()]
         return cls(

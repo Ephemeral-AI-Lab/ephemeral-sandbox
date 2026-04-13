@@ -16,6 +16,7 @@ EventKind = Literal[
     "team_run_status",
     "task_added",
     "task_status",
+    "note_posted",
     "budget_update",
     "checkpoint_taken",
     "checkpoint_repo_state",
@@ -83,6 +84,30 @@ def make_task_status(
     payload: dict[str, Any] = {"task_id": task_id, "status": status}
     payload.update(fields)
     return TeamRunEvent(team_run_id=team_run_id, kind="task_status", data=payload)
+
+
+def make_note_posted(
+    team_run_id: str,
+    *,
+    task_id: str,
+    agent_name: str,
+    auto: bool,
+    scope_paths: list[str] | None,
+    content_preview: str,
+    content_bytes: int,
+) -> TeamRunEvent:
+    return TeamRunEvent(
+        team_run_id=team_run_id,
+        kind="note_posted",
+        data={
+            "task_id": task_id,
+            "agent_name": agent_name,
+            "auto": auto,
+            "scope_paths": list(scope_paths or []),
+            "content_preview": content_preview,
+            "content_bytes": content_bytes,
+        },
+    )
 
 
 def make_budget_update(

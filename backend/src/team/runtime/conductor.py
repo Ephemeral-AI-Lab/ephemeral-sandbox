@@ -68,6 +68,19 @@ class Conductor:
     def has_active_blocker(self) -> bool:
         return bool(self._active_blockers)
 
+    def blocker_for_fix_task(self, task_id: str) -> Blocker | None:
+        for blocker in self._active_blockers.values():
+            if blocker.fix_task_id == task_id:
+                return blocker
+        return None
+
+    def guard_pop_ready(self, task: object) -> bool:
+        """Allow only resolver tasks to dispatch while blockers are active."""
+        if not self._active_blockers:
+            return True
+        task_id = str(getattr(task, "id", "") or "")
+        return any(blocker.fix_task_id == task_id for blocker in self._active_blockers.values())
+
     # ------------------------------------------------------------------
     # Blocker lifecycle
     # ------------------------------------------------------------------

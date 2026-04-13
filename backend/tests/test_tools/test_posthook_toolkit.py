@@ -6,10 +6,17 @@ from pathlib import Path
 
 import pytest
 
+from team.models import BlockerDeclaration, ReplanPlan
 import tools.context.freshness as freshness_module
 from tools.core.base import ToolExecutionContext
 from tools.context.freshness import FreshnessReport
-from tools.posthook.toolkit import RequestRetryTool, SubmitSummaryTool
+from tools.posthook.toolkit import (
+    AddTasksTool,
+    CancelAndRedraftTool,
+    DeclareBlockerTool,
+    RequestRetryTool,
+    SubmitSummaryTool,
+)
 
 
 def _ctx(metadata=None) -> ToolExecutionContext:
@@ -84,3 +91,61 @@ async def test_submit_summary_rejects_stale_context(monkeypatch):
     assert result.is_error
     assert "context_changed_since()" in result.output
     assert "request_replan()" in result.output
+
+
+@pytest.mark.asyncio
+async def test_add_tasks_sets_replan_submission():
+    ctx = _ctx({})
+
+    result = await AddTasksTool().execute(
+        AddTasksTool.input_model(
+            add_tasks=[{"id": "fix-1", "task": "fix owner", "agent": "developer"}],
+            cancel_ids=[],
+        ),
+        ctx,
+    )
+
+    assert not result.is_error
+    submitted = ctx.metadata["submitted_output"]
+    assert isinstance(submitted, ReplanPlan)
+    assert [task.id for task in submitted.add_tasks] == ["fix-1"]
+    assert submitted.cancel_ids == []
+
+
+@pytest.mark.asyncio
+async def test_declare_blocker_sets_blocker_submission():
+    ctx = _ctx({})
+
+    result = await DeclareBlockerTool().execute(
+        DeclareBlockerTool.input_model(
+            root_cause_paths=["pkg/shared.py"],
+            reason="shared import crash",
+            suggestion="restore exported helper",
+        ),
+        ctx,
+    )
+
+    assert not result.is_error
+    submitted = ctx.metadata["submitted_output"]
+    assert isinstance(submitted, BlockerDeclaration)
+    assert submitted.root_cause_paths == ["pkg/shared.py"]
+    assert submitted.reason == "shared import crash"
+
+
+@pytest.mark.asyncio
+async def test_cancel_and_redraft_sets_replan_submission():
+    ctx = _ctx({})
+
+    result = await CancelAndRedraftTool().execute(
+        CancelAndRedraftTool.input_model(
+            add_tasks=[{"id": "fix-2", "task": "rewrite lane", "agent": "developer"}],
+            cancel_ids=["old-1"],
+        ),
+        ctx,
+    )
+
+    assert not result.is_error
+    submitted = ctx.metadata["submitted_output"]
+    assert isinstance(submitted, ReplanPlan)
+    assert [task.id for task in submitted.add_tasks] == ["fix-2"]
+    assert submitted.cancel_ids == ["old-1"]
