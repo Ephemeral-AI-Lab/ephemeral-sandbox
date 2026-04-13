@@ -31,22 +31,7 @@ from skills.core.registry import SkillRegistry
 
 _LOADED_SKILL_REFERENCES_KEY = "_loaded_skill_references_by_skill_this_turn"
 _REQUIRED_NEXT_TOOL_KEY = "_required_next_tool"
-_REFERENCE_TERMINAL_ACTIONS: dict[tuple[str, str], dict[str, str]] = {
-    (
-        "team-planner-playbook",
-        "plan-json-contract",
-    ): {
-        "tool_name": "submit_plan",
-        "reason": (
-            "You loaded `team-planner-playbook/plan-json-contract`, so the ending-chain "
-            "guard is active: the next tool call must be `submit_plan(...)`."
-        ),
-        "reset_hint": (
-            "If the draft is no longer ready, restart the ending chain by reloading the "
-            "final planner references in order."
-        ),
-    }
-}
+_REFERENCE_TERMINAL_ACTIONS: dict[tuple[str, str], dict[str, str]] = {}
 
 
 def get_reference_terminal_action(

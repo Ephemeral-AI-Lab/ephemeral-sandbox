@@ -96,15 +96,6 @@ class LoadSkillReferenceTool(BaseTool):
         context: ToolExecutionContext,
     ) -> ToolResult:
         self.calls += 1
-        if (
-            arguments.skill_name == "team-planner-playbook"
-            and arguments.reference_name == "plan-json-contract"
-        ):
-            context.metadata["_required_next_tool"] = {
-                "tool_name": "submit_plan",
-                "reason": "plan-json-contract is active.",
-                "reset_hint": "Reload the ending chain if needed.",
-            }
         return ToolResult(output="loaded")
 
 
@@ -521,39 +512,6 @@ async def test_parallel_tool_calls(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_parallel_batch_rejects_terminal_reference_with_sibling_tool(tmp_path: Path):
-    load_ref = LoadSkillReferenceTool()
-    echo = EchoTool()
-    registry = _make_registry(load_ref, echo)
-    client = FakeApiClient([
-        _tool_reply(
-            ToolUseBlock(
-                id="tc1",
-                name="load_skill_reference",
-                input={
-                    "skill_name": "team-planner-playbook",
-                    "reference_name": "plan-json-contract",
-                },
-            ),
-            ToolUseBlock(id="tc2", name="echo", input={"message": "hi"}),
-        ),
-        _text_reply("Recovered."),
-    ])
-    context = _make_context(client, registry, tmp_path)
-
-    events = await _collect_events(context, "finalize the root plan")
-
-    tool_starts = [e for e in events if isinstance(e, ToolExecutionStarted)]
-    tool_completes = [e for e in events if isinstance(e, ToolExecutionCompleted)]
-
-    assert tool_starts == []
-    assert len(tool_completes) == 2
-    assert all(event.is_error for event in tool_completes)
-    assert all("must be loaded alone" in event.output for event in tool_completes)
-    assert load_ref.calls == 0
-
-
-@pytest.mark.asyncio
 async def test_parallel_batch_rejects_sibling_tool_when_terminal_guard_is_active(tmp_path: Path):
     submit_plan = SubmitPlanTool()
     echo = EchoTool()
@@ -587,103 +545,6 @@ async def test_parallel_batch_rejects_sibling_tool_when_terminal_guard_is_active
     assert all(event.is_error for event in tool_completes)
     assert all("Submit only `submit_plan(...)` in the next tool batch." in event.output for event in tool_completes)
     assert submit_plan.calls == 0
-
-
-@pytest.mark.asyncio
-async def test_terminal_reference_guard_persists_across_turns(tmp_path: Path):
-    load_ref = LoadSkillReferenceTool()
-    echo = EchoTool()
-    registry = _make_registry(load_ref, echo)
-    client = FakeApiClient([
-        _tool_reply(
-            ToolUseBlock(
-                id="tc1",
-                name="load_skill_reference",
-                input={
-                    "skill_name": "team-planner-playbook",
-                    "reference_name": "plan-json-contract",
-                },
-            )
-        ),
-        _tool_reply(ToolUseBlock(id="tc2", name="echo", input={"message": "wrong next tool"})),
-        _text_reply("Recovered."),
-    ])
-    context = _make_context(client, registry, tmp_path)
-
-    events = await _collect_events(context, "load the plan contract, then do the wrong thing")
-
-    tool_starts = [e for e in events if isinstance(e, ToolExecutionStarted)]
-    tool_completes = [e for e in events if isinstance(e, ToolExecutionCompleted)]
-
-    assert len(tool_starts) == 1
-    assert tool_starts[0].tool_name == "load_skill_reference"
-    assert len(tool_completes) == 2
-    assert tool_completes[0].is_error is False
-    assert tool_completes[1].is_error is True
-    assert "Submit only `submit_plan(...)` in the next tool batch." in tool_completes[1].output
-    assert load_ref.calls == 1
-
-
-@pytest.mark.asyncio
-async def test_streaming_terminal_reference_batch_rejects_sibling_tool(tmp_path: Path):
-    load_ref = LoadSkillReferenceTool()
-    echo = EchoTool()
-    registry = _make_registry(load_ref, echo)
-    client = FakeStreamingApiClient(
-        [
-            [
-                ApiToolUseDeltaEvent(
-                    id="tc1",
-                    name="load_skill_reference",
-                    input={
-                        "skill_name": "team-planner-playbook",
-                        "reference_name": "plan-json-contract",
-                    },
-                ),
-                ApiToolUseDeltaEvent(id="tc2", name="echo", input={"message": "hi"}),
-                ApiMessageCompleteEvent(
-                    message=ConversationMessage(
-                        role="assistant",
-                        content=[
-                            ToolUseBlock(
-                                id="tc1",
-                                name="load_skill_reference",
-                                input={
-                                    "skill_name": "team-planner-playbook",
-                                    "reference_name": "plan-json-contract",
-                                },
-                            ),
-                            ToolUseBlock(id="tc2", name="echo", input={"message": "hi"}),
-                        ],
-                    ),
-                    usage=UsageSnapshot(input_tokens=1, output_tokens=1),
-                    stop_reason=None,
-                ),
-            ],
-            [
-                ApiMessageCompleteEvent(
-                    message=ConversationMessage(
-                        role="assistant",
-                        content=[TextBlock(text="Recovered.")],
-                    ),
-                    usage=UsageSnapshot(input_tokens=1, output_tokens=1),
-                    stop_reason=None,
-                ),
-            ],
-        ]
-    )
-    context = _make_context(client, registry, tmp_path)
-
-    events = await _collect_events(context, "load the plan contract and batch another tool")
-
-    tool_starts = [e for e in events if isinstance(e, ToolExecutionStarted)]
-    tool_completes = [e for e in events if isinstance(e, ToolExecutionCompleted)]
-
-    assert tool_starts == []
-    assert len(tool_completes) == 2
-    assert all(event.is_error for event in tool_completes)
-    assert all("must be loaded alone" in event.output for event in tool_completes)
-    assert load_ref.calls == 0
 
 
 @pytest.mark.asyncio
