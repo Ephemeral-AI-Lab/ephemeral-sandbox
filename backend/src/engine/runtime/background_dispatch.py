@@ -101,10 +101,7 @@ def launch_background_tool(
             ToolExecutionCompleted(tool_name=tool_use.name, output=msg, is_error=True),
         )
 
-    sandbox = tool_metadata.daytona_sandbox if tool_metadata else None
-    clean_input, kill_callback = prepare_background_launch(
-        tool_use.name, clean_input, tool_use.id, sandbox
-    )
+    kill_callback = None
     preflight_result, preflight_metadata = run_background_preflight(
         cwd=cwd,
         tool_registry=tool_registry,

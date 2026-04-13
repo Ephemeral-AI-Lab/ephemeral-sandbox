@@ -1,8 +1,8 @@
 """Database engine factory and session management.
 
-Provides a single shared engine and session factory, initialised once during
-application bootstrap.  When no database is configured the helpers return
-``None`` so callers can fall back to file-based storage.
+Provides a single shared sync engine + optional async engine, initialised
+once during application bootstrap. When no database is configured the helpers
+return ``None`` so callers can fall back to file-based storage.
 """
 
 from __future__ import annotations
@@ -18,11 +18,15 @@ from db.base import Base
 
 if TYPE_CHECKING:
     from config.settings import DatabaseSettings
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 logger = logging.getLogger(__name__)
 
 _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
+_async_engine: "AsyncEngine | None" = None
+_async_session_factory: "async_sessionmaker[AsyncSession] | None" = None
+
 _INDEX_DDL: tuple[tuple[str, str, str], ...] = (
     (
         "token_usage",
@@ -31,15 +35,24 @@ _INDEX_DDL: tuple[tuple[str, str, str], ...] = (
     ),
 )
 
-
 def get_engine() -> Engine | None:
     """Return the shared engine (None if DB is not configured)."""
     return _engine
 
 
 def get_session_factory() -> sessionmaker[Session] | None:
-    """Return the shared session factory (None if DB is not configured)."""
+    """Return the shared sync session factory (None if DB is not configured)."""
     return _session_factory
+
+
+def get_async_engine() -> "AsyncEngine | None":
+    """Return the shared async engine (None if DB is not configured)."""
+    return _async_engine
+
+
+def get_async_session_factory() -> "async_sessionmaker[AsyncSession] | None":
+    """Return the shared async session factory (None if DB is not configured)."""
+    return _async_session_factory
 
 
 def _add_missing_columns(engine: Engine) -> None:
@@ -73,10 +86,25 @@ def _ensure_indexes(engine: Engine) -> None:
             conn.execute(text(ddl))
 
 
+def _async_database_url(url: str) -> "URL":
+    """Convert a sync database URL to an async-compatible driver."""
+    from sqlalchemy.engine import URL, make_url
+    parsed = make_url(url)
+    if parsed.drivername in {"postgresql+psycopg", "postgresql+asyncpg"}:
+        return parsed
+    if parsed.drivername in {"postgresql", "postgresql+psycopg2"}:
+        return parsed.set(drivername="postgresql+psycopg")
+    if parsed.drivername == "sqlite":
+        return parsed.set(drivername="sqlite+aiosqlite")
+    return parsed
+
+
 def initialize_db(
-    db_settings: DatabaseSettings | None = None,
+    db_settings: "DatabaseSettings | None" = None,
 ) -> sessionmaker[Session] | None:
     """Create the engine, run DDL, and return a session factory.
+
+    Sets up both sync and async engines from a single database URL.
 
     Args:
         db_settings: A ``DatabaseSettings`` instance.  When ``None`` or when
@@ -87,7 +115,7 @@ def initialize_db(
         A ``sessionmaker`` bound to the engine, or ``None`` when no URL is
         available.
     """
-    global _engine, _session_factory
+    global _engine, _session_factory, _async_engine, _async_session_factory
 
     url = (db_settings.url if db_settings and db_settings.url else None) or os.environ.get(
         "EPHEMERALOS_DATABASE_URL"
@@ -116,11 +144,32 @@ def initialize_db(
     Base.metadata.create_all(_engine)
 
     # Patch existing tables with columns added after initial creation.
-    # create_all only creates missing *tables*, not missing *columns*.
     _add_missing_columns(_engine)
     _ensure_indexes(_engine)
 
     logger.info("Database tables created / verified")
 
     _session_factory = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)
+
+    # Create async engine from the same URL for DispatcherStore.
+    import importlib.util
+    if importlib.util.find_spec("greenlet") is not None:
+        from sqlalchemy.ext.asyncio import (
+            create_async_engine,
+            async_sessionmaker as _asm,
+        )
+        _async_engine = create_async_engine(
+            _async_database_url(url),
+            pool_pre_ping=pool_pre_ping,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+            echo=echo,
+        )
+        _async_session_factory = _asm(
+            bind=_async_engine,
+            autoflush=False,
+            expire_on_commit=False,
+        )
+        logger.info("Async engine initialised")
+
     return _session_factory

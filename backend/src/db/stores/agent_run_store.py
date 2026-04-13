@@ -7,7 +7,7 @@ from datetime import datetime, UTC
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from db.models.agent_run import AgentResponseChunkRecord, AgentRunRecord
+from db.models.agent_run import AgentRunRecord
 from db.stores.base import SyncStoreMixin
 
 logger = logging.getLogger(__name__)
@@ -144,24 +144,8 @@ class AgentRunStore(SyncStoreMixin):
             )
             return [_serialize_run_summary(r) for r in q.all()]
 
-    # -- chunk CRUD ------------------------------------------------------------
+    # -- chunk CRUD (deprecated — table removed) --------------------------------
 
     def list_chunks(self, run_id: str, limit: int = 500) -> list[dict]:
-        with self._sf() as db:
-            q = (
-                db.query(AgentResponseChunkRecord)
-                .filter(AgentResponseChunkRecord.run_id == run_id)
-                .order_by(AgentResponseChunkRecord.seq.asc())
-                .limit(limit)
-            )
-            return [
-                {
-                    "seq": c.seq,
-                    "event_kind": c.event_kind,
-                    "content": c.content,
-                    "tool_name": c.tool_name,
-                    "tool_call_id": c.tool_call_id,
-                    "created_at": c.created_at.isoformat() if c.created_at else None,
-                }
-                for c in q.all()
-            ]
+        """Return empty list — agent_response_chunks table has been removed."""
+        return []

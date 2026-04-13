@@ -1,6 +1,6 @@
 """TeamRunStore — pluggable durability layer for the Dispatcher.
 
-Three implementations ship in-tree:
+Two implementations ship in-tree:
 
 * :class:`NullTeamRunStore` — default, drops every event. Preserves the
   existing in-memory-only behaviour so nothing breaks when persistence
@@ -8,10 +8,8 @@ Three implementations ship in-tree:
 * :class:`JsonlTeamRunStore` — append-only ``events.jsonl`` per run
   under a base directory. Zero dependencies, crash-safe via ``fsync``,
   ideal for dev and tests.
-* :class:`SqlTeamRunStore` — one JSONB row per event in the shared
-  Postgres/SQLite engine, reusing the existing session factory.
 
-All three implement the :class:`TeamRunStore` Protocol. Callers (the
+Both implement the :class:`TeamRunStore` Protocol. Callers (the
 Dispatcher) hold the store reference and call ``append`` while already
 holding ``Dispatcher.lock`` — so ordering and atomicity come for free.
 
@@ -172,83 +170,6 @@ class JsonlTeamRunStore:
             p.name for p in self._base.iterdir()
             if p.is_dir() and (p / "events.jsonl").exists()
         )
-
-
-# =========================================================================
-# SqlTeamRunStore — reuses the shared SQLAlchemy engine
-# =========================================================================
-
-
-class SqlTeamRunStore:
-    """SQL-backed event store.
-
-    One table (``team_run_events``) with a JSONB ``data`` column. Works
-    with Postgres (JSONB) and SQLite (JSON fallback). Reuses the shared
-    ``session_factory`` built by ``db.engine.initialize_db``.
-
-    Construct via :func:`build_default_store` below — it picks jsonl or
-    sql depending on environment.
-    """
-
-    def __init__(self, session_factory: object) -> None:  # sessionmaker
-        self._sf = session_factory
-
-    def append(self, event: TeamRunEvent) -> None:
-        from team.persistence.run_event_model import TeamRunEventRecord
-
-        with self._sf() as db:  # type: ignore[misc, operator]
-            # Assign seq = max(seq)+1 for this run, inside the txn so
-            # concurrent appenders don't collide.
-            row = (
-                db.query(TeamRunEventRecord)
-                .filter(TeamRunEventRecord.team_run_id == event.team_run_id)
-                .order_by(TeamRunEventRecord.seq.desc())
-                .first()
-            )
-            event.seq = (row.seq + 1) if row is not None else 1
-            db.add(
-                TeamRunEventRecord(
-                    team_run_id=event.team_run_id,
-                    seq=event.seq,
-                    kind=event.kind,
-                    ts=event.ts,
-                    data=event.data,
-                )
-            )
-            db.commit()
-
-    def load_run(self, team_run_id: str) -> list[TeamRunEvent]:
-        from team.persistence.run_event_model import TeamRunEventRecord
-
-        with self._sf() as db:  # type: ignore[misc, operator]
-            rows = (
-                db.query(TeamRunEventRecord)
-                .filter(TeamRunEventRecord.team_run_id == team_run_id)
-                .order_by(TeamRunEventRecord.seq.asc())
-                .all()
-            )
-            return [
-                TeamRunEvent(
-                    team_run_id=r.team_run_id,
-                    kind=r.kind,  # type: ignore[arg-type]
-                    data=dict(r.data or {}),
-                    ts=r.ts,
-                    seq=r.seq,
-                )
-                for r in rows
-            ]
-
-    def list_runs(self) -> list[str]:
-        from team.persistence.run_event_model import TeamRunEventRecord
-
-        with self._sf() as db:  # type: ignore[misc, operator]
-            rows = (
-                db.query(TeamRunEventRecord.team_run_id)
-                .distinct()
-                .order_by(TeamRunEventRecord.team_run_id)
-                .all()
-            )
-            return [r[0] for r in rows]
 
 
 # =========================================================================

@@ -1,4 +1,4 @@
-"""Shared path utilities for scope overlap, path normalization, and ltree conversion."""
+"""Shared path utilities for scope overlap and path normalization."""
 
 from __future__ import annotations
 
@@ -42,52 +42,6 @@ def scope_paths_overlap(path_a: str, path_b: str) -> bool:
         or ("/" + right + "/") in (left + "/")
         or ("/" + left + "/") in (right + "/")
     )
-
-
-# ---------------------------------------------------------------------------
-# ltree conversion for PostgreSQL hierarchical queries
-# ---------------------------------------------------------------------------
-
-_LTREE_UNSAFE = re.compile(r"[^a-zA-Z0-9_]")
-
-
-def _escape_ltree_char(ch: str) -> str:
-    """Reversible character escaping for ltree labels.
-
-    Uses a consistent X{hex} scheme for all unsafe characters.
-    This avoids ambiguity — unescaped labels never contain 'X' followed
-    by two hex digits because 'X' itself is escaped when present in input.
-    """
-    return f"X{ord(ch):02x}"
-
-
-# Characters that are valid in ltree labels but need escaping when they
-# could collide with our X{hex} escape sequences.
-_LTREE_ESCAPE_PREFIX = re.compile(r"X([0-9a-fA-F]{2})")
-
-
-def path_to_ltree(path: str) -> str:
-    """Convert a file path to a PostgreSQL ltree label path.
-
-    Examples:
-        "src/auth/"           -> "src.auth"
-        "src/auth/session.py" -> "src.auth.sessionX2epy"
-        "src/my-module/foo.py"-> "src.myX2dmodule.fooX2epy"
-
-    Raises ValueError if the path produces an empty ltree.
-    """
-    parts = path.strip("/").split("/")
-    labels = []
-    for part in parts:
-        # First escape any existing X{hex} patterns to prevent ambiguity
-        escaped = _LTREE_ESCAPE_PREFIX.sub(lambda m: f"X58{m.group(1)}", part)
-        # Then escape all non-label-safe characters
-        label = _LTREE_UNSAFE.sub(lambda m: _escape_ltree_char(m.group()), escaped)
-        if label:
-            labels.append(label)
-    if not labels:
-        raise ValueError(f"path {path!r} produced an empty ltree label")
-    return ".".join(labels)
 
 
 # ---------------------------------------------------------------------------

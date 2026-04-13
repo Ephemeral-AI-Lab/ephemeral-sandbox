@@ -2,55 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
-
 from team._path_utils import (
     normalize_path_list,
-    path_to_ltree,
     paths_overlap,
 )
-
-
-# ---------------------------------------------------------------------------
-# path_to_ltree
-# ---------------------------------------------------------------------------
-
-
-def test_path_to_ltree_directory_trailing_slash():
-    assert path_to_ltree("src/auth/") == "src.auth"
-
-
-def test_path_to_ltree_file_with_extension():
-    assert path_to_ltree("src/auth/session.py") == "src.auth.sessionX2epy"
-
-
-def test_path_to_ltree_hyphenated_directory():
-    assert path_to_ltree("src/my-module/foo.py") == "src.myX2dmodule.fooX2epy"
-
-
-def test_path_to_ltree_single_segment():
-    assert path_to_ltree("src") == "src"
-
-
-def test_path_to_ltree_leading_slash_stripped():
-    assert path_to_ltree("/src/auth/") == "src.auth"
-
-
-def test_path_to_ltree_empty_string():
-    import pytest
-    with pytest.raises(ValueError):
-        path_to_ltree("")
-
-
-def test_path_to_ltree_dot_in_filename():
-    # dots get escaped as X2e
-    result = path_to_ltree("src/foo.bar")
-    assert "X2e" in result
-
-
-def test_path_to_ltree_nested_deep():
-    result = path_to_ltree("a/b/c/d")
-    assert result == "a.b.c.d"
 
 
 # ---------------------------------------------------------------------------
@@ -133,5 +88,3 @@ def test_paths_overlap_both_none():
 
 def test_paths_overlap_sibling_directories_no_overlap():
     assert paths_overlap("src/auth/login", "src/auth/logout") is False
-
-

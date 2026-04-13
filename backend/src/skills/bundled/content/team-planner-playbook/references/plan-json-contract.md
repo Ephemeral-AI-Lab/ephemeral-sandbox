@@ -12,8 +12,11 @@ Use this reference immediately before emitting final plan JSON.
 - Must keep each task on the runtime `TaskSpec` shape: `id`, `task`, `agent`, `deps`, `scope_paths`, `cascade_policy`.
 - The `task` field is the agent's sole briefing. Put exact owner, retry target, and recovery question there.
 - Must emit each `id` only once.
+- Must keep at most one terminal validator in a submitted plan.
+- If a terminal validator exists, its `deps` must list every terminal non-validator sibling in that plan.
 - Must not submit placeholder scout scaffolds such as `plan-anchor-*`, `*_scout`, or `developer_override`.
 - Planner-role items are expandable. Do not submit an expandable `developer`.
+- Branch-local validators are valid only when they are non-terminal because later work or the terminal validator depends on them.
 - If two exact-file slices arrived through separate scout artifacts, keep them as separate leaves or place them behind one residual child planner.
 
 ## Failure-surface rules
@@ -33,22 +36,17 @@ Use this reference immediately before emitting final plan JSON.
 - Example: the parquet package still needs internal decomposition.
   Use `{"id":"parquet_child","agent":"team_planner",...}` or collapse it to one bounded atomic developer if the scope is already leaf-ready.
   Do not target a developer for work that still needs deeper decomposition.
-- Example: you queued `root-plan-self-check` and this contract together.
-  Reload the ending chain sequentially if the self-check never finished; otherwise keep the literal benchmark ledger and emit the plan tool call next.
 - Example:
   ```json
   {
     "tasks": [
-      {
-        "id": "dev-hdf",
-        "task": "Restore the shared HDF export in pkg/io/hdf.py. Reproduce and keep verification on pytest pkg/tests/test_hdf.py -x.",
-        "agent": "developer",
-        "deps": [],
-        "scope_paths": ["pkg/io/hdf.py"],
-        "cascade_policy": "cancel"
-      }
+      {"id": "dev-hdf", "agent": "developer", "deps": [], "scope_paths": ["pkg/io/hdf.py"], "cascade_policy": "cancel", "task": "Restore the shared HDF export in pkg/io/hdf.py. Reproduce and keep verification on pytest pkg/tests/test_hdf.py -x."},
+      {"id": "plan-parquet", "agent": "team_planner", "deps": [], "scope_paths": ["pkg/io/parquet/"], "cascade_policy": "cancel", "task": "Decompose parquet IO failures across engine backends."},
+      {"id": "val-root", "agent": "validator", "deps": ["dev-hdf", "plan-parquet"], "scope_paths": ["pkg/io/hdf.py", "pkg/io/parquet/"], "cascade_policy": "cancel", "task": "Run the terminal verification gate for the root layer."}
     ],
-    "rationale": "One direct leaf is ready; deeper parquet work stays expandable."
+    "rationale": "One direct leaf is ready, parquet stays expandable, and the single terminal validator depends on every terminal non-validator sibling."
   }
   ```
-  Keep the benchmark path literal in task prose. Do not rewrite it to mirror the owner file path.
+  Do not emit `val-hdf` and `val-parquet` as separate terminal siblings at the same layer.
+- Example: you queued `root-plan-self-check` and this contract together.
+  Reload the ending chain sequentially if the self-check never finished; otherwise keep the literal benchmark ledger and emit the plan tool call next.

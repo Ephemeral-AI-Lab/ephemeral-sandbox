@@ -15,7 +15,7 @@ Use this skill only for stable benchmark policy. Must treat the prompt, payload,
 - Must not label a missing transitive import, helper, or adjacent production module as `benchmark_surface_mismatch` when the prompt-named benchmark files still exist live; that is fixable runtime evidence on the current repository surface.
 - Must keep commands repo-root-relative. Never prepend guessed `cd /workspace`, `cd /home/user`, or similar wrappers.
 - Must fix repository code, not the ambient environment. Never rely on ad hoc package installs as the benchmark fix.
-- Must keep roles separate and trust live CI plus live file state over cached briefs or old reasoning.
+- Must keep roles separate, use the upgraded CI toolkit (`ci_workspace_structure`, `ci_query_symbols`, `ci_query_references`, `ci_hover`, `ci_diagnostics`) for live ownership evidence, and trust live file state over cached briefs or old reasoning.
 - Must preserve exact file paths and exact pytest node ids when they are known.
 - Must treat benchmark test files as failure evidence first, not default implementation ownership.
 - Must treat collection or import failures before the named target loads as still-red verification, not as a reason to trim the scope.
@@ -26,7 +26,7 @@ Use this skill only for stable benchmark policy. Must treat the prompt, payload,
 - Fresh benchmark roots must stay live-first. Must start with a narrow owner-surface pass before broad exploration.
 - On a fresh benchmark root, any plan JSON drafted before one production anchor and one scout wave is invalid, even if the JSON shape looks plausible.
 - Planners must load `team-planner-playbook/exploration-script` before the first non-reference planning tool call on a fresh benchmark root when `load_skill_reference` is available; no `ci_workspace_structure(...)` or test-side scan is valid first.
-- After the root anchor, planners must execute at least one scout wave on unresolved production-owner slices before loading final-plan references or emitting the root DAG.
+- After the root anchor, planners must execute at least one scout wave on unresolved production-owner slices before loading final-plan references or emitting the root DAG; scouts must `post_note` findings and planners must `read_notes` before decomposition or duplicate scouting.
 - Planners must load `team-planner-playbook/task-planning-decomposition` immediately before finalizing the root DAG when `load_skill_reference` is available.
 - Child or scoped benchmark planning must load `team-planner-playbook/non-root-context-reuse` before fresh exploration when `load_skill_reference` is available.
 - Must treat skipped references, early test-file census, optional-dependency guessing, and repeated source-symbol queries before the first scout wave as planning drift. Reset to `team-planner-playbook/exploration-script`, then one production anchor and one scout wave.
@@ -38,11 +38,11 @@ Use this skill only for stable benchmark policy. Must treat the prompt, payload,
 ## Benchmark execution rules
 
 - Developers must start from the exact failing command or exact named retry target. If the payload owns only one or a few exact pytest nodes, reproduce and re-verify those exact nodes before any broader same-file sweep.
-- Developers must keep product-code fixes on the real owner surface first. Never patch unowned tests or runner config just because they fail first.
+- Developers must keep product-code fixes on the real owner surface first, use the current role-appropriate read tool (`daytona_read_file` for worker file reads), `read_notes` before widening into a shared chain, and `post_note` blockers that siblings or replanners need. Never patch unowned tests or runner config just because they fail first.
 - Developers and validators must treat `shell(...)["exit_code"]` as the command verdict. Wrapper success or manifest output does not turn a killed or timed-out shell run green.
 - Validators must start with the exact retry target. After one broader same-surface check, they must stop.
 - Validators must report exact failing ids and exact snippets. Never explain failures away.
-- Replanners must treat validator evidence plus one live owner confirmation as enough to act. Never reopen broad source archaeology once the corrective owner is clear.
+- Replanners must `read_notes` on the failing scope before new archaeology, then treat validator evidence plus one live owner confirmation as enough to act. Never reopen broad source archaeology once the corrective owner is clear.
 
 ## Mandatory benchmark references
 

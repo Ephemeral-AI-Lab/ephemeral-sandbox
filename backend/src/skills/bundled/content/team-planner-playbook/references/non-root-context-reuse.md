@@ -28,7 +28,7 @@ Use this reference only on child planning turns or prompts with `## Scoped Expan
   Emit a direct `developer` lane and, if needed, one sibling `validator` lane for that exact slice.
   Do not emit another `team_planner` child for the same single-file residual.
 - Example: parent hands down one scout for `pkg/groupby.py`, and the child task is to split `cov`, `unique`, and `value_counts`.
-  Use `read_notes(scope_paths=["pkg/groupby.py"])`, then the inherited notes plus live symbol lookup on `pkg/groupby.py` to emit three developer lanes and one validator.
+  Use `read_notes(scope_paths=["pkg/groupby.py"])`, then the inherited notes plus live symbol lookup on `pkg/groupby.py` to emit three developer lanes and one validator whose `deps` list all three developers.
   Do not relaunch region scouts or emit another `team_planner` for `pkg/groupby.py` once the family split is already named.
 - Example: parent hands down parquet scope, but Task Center already includes fresh scout notes for `pkg/io/parquet`.
   Reuse those notes via `read_notes(scope_paths=["pkg/io/parquet"])` if freshness is unclear.

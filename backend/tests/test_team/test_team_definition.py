@@ -28,7 +28,9 @@ from team.runtime.team_run import TeamRun
 @pytest.fixture
 def session_factory():
     engine = create_engine("sqlite:///:memory:", echo=False)
-    Base.metadata.create_all(engine)
+    # Only create tables this test needs (ARRAY columns in TaskRecord
+    # are incompatible with SQLite).
+    TeamDefinitionRecord.__table__.create(engine, checkfirst=True)
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 

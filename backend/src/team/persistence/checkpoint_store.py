@@ -4,7 +4,7 @@ Stores TeamRunCheckpoint snapshots in PostgreSQL so that checkpoints
 survive process restarts. The in-memory deque in Dispatcher remains
 the hot-path read cache; this store handles durability.
 
-Uses async_sessionmaker, matching NoteStore / DispatcherStore patterns.
+Uses async_sessionmaker, matching the DispatcherStore pattern.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ class CheckpointRecord(Base):
 
 
 class CheckpointStore(AsyncStoreMixin):
-    """Async checkpoint persistence. Follows NoteStore/DispatcherStore pattern."""
+    """Async checkpoint persistence. Follows DispatcherStore pattern."""
 
     async def save(self, checkpoint: Any) -> None:
         """Persist a TeamRunCheckpoint snapshot.

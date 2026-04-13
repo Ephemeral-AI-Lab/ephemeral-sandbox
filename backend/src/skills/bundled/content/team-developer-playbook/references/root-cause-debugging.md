@@ -47,10 +47,10 @@ Stop and gather evidence instead of editing when:
 
 ## Few-shot examples
 
-- Example: the verify file fails collection on `from pkg._compatibility import FLAG`, and `pkg/base.py` still imports private names through `pkg.compatibility`.
+- Example: `{"observed_failure":"pytest pkg/tests/test_hdf.py -x dies while parsing warning filters after from pkg._compatibility import FLAG","first_failing_boundary":"startup import chain pkg/base.py -> pkg.compatibility","hypothesis":"a new deprecation hook now fires during package import instead of only on explicit public access"}`
   The first failing boundary is the shared compat/export surface.
   Confirm the importer chain once, then switch startup callers like `pkg/base.py` to a quiet supported path such as `pkg._compat`, or widen one step on that chain.
-  Deprecation hooks belong on explicit public access paths only; do not rewrite the test import or add a module-level deprecation hook on the public wrapper while startup still uses it.
+  Deprecation hooks belong on explicit public access paths only; do not add `-W` or bypass pytest config, and do not rewrite the test import or add a module-level deprecation hook on the public wrapper while startup still uses it.
 - Example: a chmod-based permission test runs as UID 0 and repeated probes still succeed.
   Treat the owned loader or access gate as the first boundary. Read that gate once; do not jump straight to a root-only skip, xfail, or verify-file rewrite.
 - Example: the exact pytest target returns `ERROR: not found`, exit code 4, or `no tests ran`.
