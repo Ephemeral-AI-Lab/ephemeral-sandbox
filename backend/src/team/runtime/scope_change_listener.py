@@ -173,6 +173,27 @@ class ScopeChangeListener:
                 routed_count,
             )
 
+    async def _fire_pg_notify(self, payload_json: str) -> None:
+        """Fire a PostgreSQL NOTIFY on a short-lived pooled connection.
+
+        Uses a separate connection from the LISTEN connection to avoid
+        interfering with the poll loop. The channel name is pre-sanitized
+        at construction time.
+        """
+        try:
+            from sqlalchemy import text
+
+            async with self._engine.connect() as conn:
+                await conn.execute(
+                    text("SELECT pg_notify(:channel, :payload)"),
+                    {"channel": self._channel, "payload": payload_json},
+                )
+                await conn.commit()
+        except Exception:
+            logger.debug(
+                "pg_notify failed for channel %s", self._channel, exc_info=True
+            )
+
     def publish_change(
         self,
         *,
@@ -181,17 +202,27 @@ class ScopeChangeListener:
         agent_run_id: str = "",
         edit_type: str = "edit",
     ) -> None:
-        """Fan out a same-process scope change to subscribed executors."""
+        """Fan out a scope change in-process and via PostgreSQL NOTIFY."""
         if not self._running:
             return
-        self._route_change(
-            {
-                "file_path": file_path,
-                "agent_id": agent_id,
-                "agent_run_id": agent_run_id,
-                "edit_type": edit_type,
-            }
-        )
+        change = {
+            "file_path": file_path,
+            "agent_id": agent_id,
+            "agent_run_id": agent_run_id,
+            "edit_type": edit_type,
+        }
+        # In-process fan-out to subscribed executors.
+        self._route_change(change)
+        # Cross-process: fire pg_notify so other processes' LISTEN picks it up.
+        if self._db_listen_active:
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(
+                    self._fire_pg_notify(json.dumps(change)),
+                    name=f"pg_notify_{self._channel}",
+                )
+            except RuntimeError:
+                pass  # No running event loop — in-process fan-out is sufficient
 
     def subscribe(
         self,

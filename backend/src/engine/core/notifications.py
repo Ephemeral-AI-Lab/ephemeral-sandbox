@@ -50,9 +50,11 @@ def build_budget_warning(
     text = (
         f"[budget warning] Only {remaining} of {limit} tool calls remain "
         f"({context.tool_calls_used} already used). "
-        f"Stop exploring, reuse the evidence you already gathered, and submit "
-        f"your final result now (submit_summary / submit_plan) before the "
-        f"agent run is terminated."
+        f"Stop editing and exploring immediately. Your next actions must be:\n"
+        f"1. Run one final verification command (daytona_codeact) on your most critical test.\n"
+        f"2. Call context_changed_since() if you have not already.\n"
+        f"3. Call submit_summary() with what you accomplished — partial progress is better than termination.\n"
+        f"Do NOT start new edits, file reads, or debugging loops. Submit now."
     )
     return (
         ConversationMessage.from_user_text(text),
