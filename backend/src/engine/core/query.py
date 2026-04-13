@@ -6,7 +6,7 @@ import asyncio
 import logging
 import re
 import time as time_module
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -214,6 +214,44 @@ def _reject_tool_batch(
         ToolResultBlock(tool_use_id=str(tc.id), content=message, is_error=True)
         for tc in tool_calls
     ]
+
+
+def _should_defer_stream_tool_dispatch(
+    context: QueryContext,
+    *,
+    background_manager: BackgroundTaskManager | None,
+) -> Callable[[Any | None, dict[str, Any] | None], bool]:
+    """Return a stream-dispatch predicate that preserves batch guards.
+
+    Streaming execution can start tools before the final tool batch is
+    visible. That is unsafe for:
+
+    - active required-next-tool guards, which must validate the entire
+      next batch before any tool runs; and
+    - terminal skill references such as `plan-json-contract`, which must
+      be loaded alone so the next batch can end with a specific submit.
+
+    Defer those cases to the post-stream batch validator instead of
+    launching them eagerly mid-stream.
+    """
+
+    guarded_batch_seen = False
+
+    def _defer(tool_def: Any | None, tool_input: dict[str, Any] | None) -> bool:
+        nonlocal guarded_batch_seen
+        if background_manager is not None and defer_background_dispatch(tool_def, tool_input):
+            return True
+        if get_required_next_tool(context.tool_metadata) is not None:
+            return True
+        if guarded_batch_seen:
+            return True
+        tool_name = str(getattr(tool_def, "name", "") or "")
+        if get_reference_terminal_action(tool_name, tool_input):
+            guarded_batch_seen = True
+            return True
+        return False
+
+    return _defer
 
 
 def _validate_tool_batch(
@@ -526,7 +564,10 @@ async def _run_query_loop(
                 cwd=context.cwd,
                 metadata=context.tool_metadata,
             ),
-            should_defer=(defer_background_dispatch if background_manager is not None else None),
+            should_defer=_should_defer_stream_tool_dispatch(
+                context,
+                background_manager=background_manager,
+            ),
         )
 
         daytona_toolkit = context.tool_registry.get_toolkit("sandbox_operations")

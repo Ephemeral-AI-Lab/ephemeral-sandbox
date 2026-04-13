@@ -625,6 +625,123 @@ async def test_terminal_reference_guard_persists_across_turns(tmp_path: Path):
 
 
 @pytest.mark.asyncio
+async def test_streaming_terminal_reference_batch_rejects_sibling_tool(tmp_path: Path):
+    load_ref = LoadSkillReferenceTool()
+    echo = EchoTool()
+    registry = _make_registry(load_ref, echo)
+    client = FakeStreamingApiClient(
+        [
+            [
+                ApiToolUseDeltaEvent(
+                    id="tc1",
+                    name="load_skill_reference",
+                    input={
+                        "skill_name": "team-planner-playbook",
+                        "reference_name": "plan-json-contract",
+                    },
+                ),
+                ApiToolUseDeltaEvent(id="tc2", name="echo", input={"message": "hi"}),
+                ApiMessageCompleteEvent(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[
+                            ToolUseBlock(
+                                id="tc1",
+                                name="load_skill_reference",
+                                input={
+                                    "skill_name": "team-planner-playbook",
+                                    "reference_name": "plan-json-contract",
+                                },
+                            ),
+                            ToolUseBlock(id="tc2", name="echo", input={"message": "hi"}),
+                        ],
+                    ),
+                    usage=UsageSnapshot(input_tokens=1, output_tokens=1),
+                    stop_reason=None,
+                ),
+            ],
+            [
+                ApiMessageCompleteEvent(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[TextBlock(text="Recovered.")],
+                    ),
+                    usage=UsageSnapshot(input_tokens=1, output_tokens=1),
+                    stop_reason=None,
+                ),
+            ],
+        ]
+    )
+    context = _make_context(client, registry, tmp_path)
+
+    events = await _collect_events(context, "load the plan contract and batch another tool")
+
+    tool_starts = [e for e in events if isinstance(e, ToolExecutionStarted)]
+    tool_completes = [e for e in events if isinstance(e, ToolExecutionCompleted)]
+
+    assert tool_starts == []
+    assert len(tool_completes) == 2
+    assert all(event.is_error for event in tool_completes)
+    assert all("must be loaded alone" in event.output for event in tool_completes)
+    assert load_ref.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_streaming_pending_terminal_guard_rejects_wrong_tool_without_starting_it(
+    tmp_path: Path,
+):
+    registry = _make_registry(EchoTool())
+    client = FakeStreamingApiClient(
+        [
+            [
+                ApiToolUseDeltaEvent(id="tc1", name="echo", input={"message": "wrong next tool"}),
+                ApiMessageCompleteEvent(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[
+                            ToolUseBlock(
+                                id="tc1",
+                                name="echo",
+                                input={"message": "wrong next tool"},
+                            )
+                        ],
+                    ),
+                    usage=UsageSnapshot(input_tokens=1, output_tokens=1),
+                    stop_reason=None,
+                ),
+            ],
+            [
+                ApiMessageCompleteEvent(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[TextBlock(text="Recovered.")],
+                    ),
+                    usage=UsageSnapshot(input_tokens=1, output_tokens=1),
+                    stop_reason=None,
+                ),
+            ],
+        ]
+    )
+    metadata = ExecutionMetadata()
+    metadata["_required_next_tool"] = {
+        "tool_name": "submit_plan",
+        "reason": "plan-json-contract is active.",
+        "reset_hint": "Reload the ending chain if needed.",
+    }
+    context = _make_context(client, registry, tmp_path, tool_metadata=metadata)
+
+    events = await _collect_events(context, "do the wrong tool under a terminal guard")
+
+    tool_starts = [e for e in events if isinstance(e, ToolExecutionStarted)]
+    tool_completes = [e for e in events if isinstance(e, ToolExecutionCompleted)]
+
+    assert tool_starts == []
+    assert len(tool_completes) == 1
+    assert tool_completes[0].is_error is True
+    assert "Submit only `submit_plan(...)` in the next tool batch." in tool_completes[0].output
+
+
+@pytest.mark.asyncio
 async def test_streaming_tool_calls_respect_planner_soft_limit(tmp_path: Path):
     registry = _make_registry(EchoTool())
     client = FakeStreamingApiClient(
