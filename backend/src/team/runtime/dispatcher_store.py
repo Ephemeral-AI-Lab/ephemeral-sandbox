@@ -163,6 +163,68 @@ class DispatcherStore:
             await db.commit()
             return [r.promoted_id for r in promoted if r.promoted_id is not None]
 
+    async def mark_expanded(self, task_id: str, run_id: str) -> None:
+        """Mark planner as expanded (children pending). Does NOT decrement dependents."""
+        async with self._sf() as db:
+            await db.execute(
+                text(
+                    "UPDATE tasks SET status = 'expanded' "
+                    "WHERE id = :task_id AND team_run_id = :run_id"
+                ),
+                {"task_id": task_id, "run_id": run_id},
+            )
+            await db.commit()
+
+    async def maybe_promote_expanded_parent(
+        self, child_id: str, run_id: str
+    ) -> list[str]:
+        """If child's parent is 'expanded' and all children are terminal, promote
+        parent to done (which decrements *its* dependents). Chains upward.
+
+        Returns IDs of all promoted tasks.
+        """
+        promoted_all: list[str] = []
+        current_child = child_id
+
+        while True:
+            async with self._sf() as db:
+                # Find expanded parent whose children are all terminal
+                row = (
+                    await db.execute(
+                        text("""
+                            WITH child AS (
+                                SELECT parent_id FROM tasks
+                                WHERE id = :child_id AND team_run_id = :run_id
+                            )
+                            SELECT p.id
+                            FROM tasks p, child c
+                            WHERE p.id = c.parent_id
+                              AND p.team_run_id = :run_id
+                              AND p.status = 'expanded'
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM tasks s
+                                  WHERE s.parent_id = p.id
+                                    AND s.team_run_id = :run_id
+                                    AND s.status NOT IN ('done', 'failed', 'cancelled')
+                              )
+                        """),
+                        {"child_id": current_child, "run_id": run_id},
+                    )
+                ).fetchone()
+
+            if row is None:
+                break
+
+            parent_id = str(row.id)
+            # Promote via mark_done (decrements dependents, returns promoted IDs)
+            promoted = await self.mark_done(parent_id, run_id)
+            promoted_all.append(parent_id)
+            promoted_all.extend(promoted)
+            # Chain: check if this parent's parent is also expanded and ready
+            current_child = parent_id
+
+        return promoted_all
+
     async def _mark_terminal(
         self, task_id: str, run_id: str, status: str, reason: str
     ) -> None:
@@ -250,25 +312,34 @@ class DispatcherStore:
     # ---- cascade cancel (recursive) --------------------------------------
 
     async def cascade_cancel_recursive(self, run_id: str, root_task_id: str) -> list[str]:
-        """Recursively cancel all pending/ready tasks that transitively
-        depend on root_task_id. Excludes 'continue' cascade_policy dependents
+        """Recursively cancel all pending/ready/expanded tasks that transitively
+        depend on root_task_id (via deps) or are children of cancelled expanded
+        tasks (via parent_id). Excludes 'continue' cascade_policy dependents
         (those are handled separately in fail_task with warning injection).
         Returns IDs of cancelled tasks."""
         async with self._sf() as db:
             result = await db.execute(
                 text("""
                     WITH RECURSIVE dep_chain AS (
+                        -- seed: direct dep dependents
                         SELECT id, cascade_policy FROM tasks
                         WHERE team_run_id = :run_id
                           AND :task_id = ANY(deps)
-                          AND status IN ('pending', 'ready')
+                          AND status IN ('pending', 'ready', 'expanded')
                           AND cascade_policy != 'continue'
                         UNION
+                        -- follow deps edges
                         SELECT t.id, t.cascade_policy FROM tasks t
                         JOIN dep_chain dc ON dc.id = ANY(t.deps)
                         WHERE t.team_run_id = :run_id
-                          AND t.status IN ('pending', 'ready')
+                          AND t.status IN ('pending', 'ready', 'expanded')
                           AND t.cascade_policy != 'continue'
+                        UNION
+                        -- follow parent_id edges (children of expanded tasks)
+                        SELECT t.id, t.cascade_policy FROM tasks t
+                        JOIN dep_chain dc ON t.parent_id = dc.id
+                        WHERE t.team_run_id = :run_id
+                          AND t.status IN ('pending', 'ready', 'expanded')
                     )
                     UPDATE tasks SET status = 'cancelled', finished_at = NOW(),
                         failure_reason = 'cascaded from ' || :task_id
@@ -312,23 +383,32 @@ class DispatcherStore:
                 await db.commit()
                 return warnings
 
-            # Check retry_first policy on dependents
+            # Auto-retry infrastructure failures (spawn/runner crash) without
+            # requiring a downstream dependent to have 'retry_first' policy.
+            # Config errors like unknown_agent are NOT retryable.
+            _INFRA_PREFIXES = ("worker_exception:", "runner_exception:")
+            is_infra_failure = reason.startswith(_INFRA_PREFIXES)
+
             if rec.retry_count < rec.max_retries:
-                has_retry_first = (
-                    await db.execute(
-                        text("""
-                        SELECT EXISTS (
-                            SELECT 1 FROM tasks
-                            WHERE team_run_id = :run_id
-                              AND :task_id = ANY(deps)
-                              AND cascade_policy = 'retry_first'
-                              AND status NOT IN ('done', 'failed', 'cancelled')
+                should_retry = is_infra_failure
+                if not should_retry:
+                    # Fall back to original logic: retry if a dependent
+                    # has retry_first cascade policy.
+                    should_retry = (
+                        await db.execute(
+                            text("""
+                            SELECT EXISTS (
+                                SELECT 1 FROM tasks
+                                WHERE team_run_id = :run_id
+                                  AND :task_id = ANY(deps)
+                                  AND cascade_policy = 'retry_first'
+                                  AND status NOT IN ('done', 'failed', 'cancelled')
+                            )
+                        """),
+                            {"run_id": run_id, "task_id": task_id},
                         )
-                    """),
-                        {"run_id": run_id, "task_id": task_id},
-                    )
-                ).scalar()
-                if has_retry_first:
+                    ).scalar()
+                if should_retry:
                     # Retry instead of failing
                     await db.execute(
                         text("""
@@ -428,14 +508,14 @@ class DispatcherStore:
     # ---- bulk cancel -----------------------------------------------------
 
     async def cancel_all_pending(self, run_id: str) -> int:
-        """Cancel all pending/ready tasks. Returns count."""
+        """Cancel all pending/ready/expanded tasks. Returns count."""
         async with self._sf() as db:
             result = await db.execute(
                 text("""
                     UPDATE tasks SET status = 'cancelled', finished_at = NOW(),
                         failure_reason = 'team_run cancelled'
                     WHERE team_run_id = :run_id
-                      AND status IN ('pending', 'ready')
+                      AND status IN ('pending', 'ready', 'expanded')
                 """),
                 {"run_id": run_id},
             )
@@ -502,7 +582,7 @@ class DispatcherStore:
                     WHERE team_run_id = :run_id
                       AND parent_id IS NOT DISTINCT FROM :parent_id
                       AND id != :task_id
-                      AND status IN ('pending', 'ready')
+                      AND status IN ('pending', 'ready', 'expanded')
                     RETURNING id
                 """),
                 {"run_id": run_id, "task_id": task_id, "parent_id": rec.parent_id},
@@ -566,7 +646,7 @@ class DispatcherStore:
                         failure_reason = :reason
                     WHERE team_run_id = :run_id
                       AND id = ANY(:ids)
-                      AND status IN ('pending', 'ready')
+                      AND status IN ('pending', 'ready', 'expanded')
                 """),
                 {"run_id": run_id, "ids": task_ids, "reason": reason},
             )
@@ -584,21 +664,6 @@ class DispatcherStore:
             )
             result = await db.execute(stmt)
             return result.scalar_one_or_none()
-
-    async def get_tasks_by_status(
-        self,
-        run_id: str,
-        status: str,
-    ) -> list[TaskRecord]:
-        """Fetch all tasks with a given status."""
-        async with self._sf() as db:
-            stmt = (
-                select(TaskRecord)
-                .where(TaskRecord.team_run_id == run_id, TaskRecord.status == status)
-                .order_by(TaskRecord.depth, TaskRecord.created_at)
-            )
-            result = await db.execute(stmt)
-            return list(result.scalars().all())
 
     async def get_all_tasks(self, run_id: str) -> list[TaskRecord]:
         """Fetch all tasks for a run. Used by checkpoints and metrics."""
@@ -685,15 +750,6 @@ class DispatcherStore:
             )
             return result.scalar() == 0
 
-    async def task_count(self, run_id: str) -> int:
-        """Total task count for budget tracking."""
-        async with self._sf() as db:
-            result = await db.execute(
-                text("SELECT COUNT(*) FROM tasks WHERE team_run_id = :run_id"),
-                {"run_id": run_id},
-            )
-            return result.scalar() or 0
-
     # ---- sibling stats (plan health) ------------------------------------
 
     async def sibling_stats(
@@ -723,7 +779,7 @@ class DispatcherStore:
             stats: dict[str, int] = {
                 "done": 0, "failed": 0, "cancelled": 0,
                 "running": 0, "pending": 0, "ready": 0,
-                "retry_total": 0,
+                "expanded": 0, "retry_total": 0,
             }
             for row in result.fetchall():
                 stats[row.status] = row.cnt

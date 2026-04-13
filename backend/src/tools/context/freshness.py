@@ -32,7 +32,13 @@ async def check_freshness(context: ToolExecutionContext) -> FreshnessReport:
     2. New notes from dependency tasks (via Task Center)
     3. New sibling task completions (via dispatcher)
     """
-    since = context.metadata.get("work_item_started_at", 0)
+    # Use the most recent freshness-check timestamp if available, so we
+    # only report NEW changes since the agent last acknowledged staleness.
+    # Falls back to work_item_started_at for the first check.
+    since = (
+        context.metadata.get("freshness_checked_at")
+        or context.metadata.get("work_item_started_at", 0)
+    )
     task_id = context.metadata.get("work_item_id", "")
     agent_run_id = context.metadata.get("agent_run_id", "")
 

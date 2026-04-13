@@ -21,7 +21,7 @@ def _ci_cwd(context: ToolExecutionContext) -> str | None:
 
 @tool(
     name="ci_hover",
-    description="Get type information and documentation for a symbol at a position.",
+    description="Get type signature, return type, and docstring for a symbol at a file:line position — without reading the whole file. Use to check API contracts and parameter types before diving into implementation.",
     read_only=True,
 )
 async def ci_hover(
@@ -53,7 +53,7 @@ async def ci_hover(
 
 @tool(
     name="ci_diagnostics",
-    description="Check a file for syntax errors, type errors, and warnings.",
+    description="Check a file for syntax errors, type errors, and warnings after edits. Use before running full test suites to catch obvious mistakes early.",
     read_only=True,
 )
 async def ci_diagnostics(

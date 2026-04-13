@@ -248,6 +248,12 @@ class ContextChangedSinceTool(BaseTool):
     ) -> ToolResult:
         context.metadata["checked_context_freshness"] = True
         report = await check_freshness(context)
+        # Update the freshness baseline so subsequent checks (e.g. in
+        # submit_summary posthook) only report changes since THIS check,
+        # not since work_item_started_at.  Fixes the monotonic-count bug
+        # where sibling completions accumulate across the entire run.
+        import time as _time
+        context.metadata["freshness_checked_at"] = _time.time()
         return ToolResult(
             output=json.dumps(
                 {

@@ -273,15 +273,40 @@ class Dispatcher:
                 self._emit(make_work_item_added(self.team_run_id, work_item_to_dict(task)))
             self._emit_budget()
 
-        await self.store.mark_done(wi_id, self.team_run_id)
-        self._emit(
-            make_work_item_status(
-                self.team_run_id,
-                wi_id,
-                "done",
-                finished_at=_utcnow().isoformat(),
+        if result.submitted_plan is not None:
+            # Planner expanded — hold dependents until children finish
+            await self.store.mark_expanded(wi_id, self.team_run_id)
+            self._emit(
+                make_work_item_status(
+                    self.team_run_id,
+                    wi_id,
+                    "expanded",
+                    finished_at=_utcnow().isoformat(),
+                )
             )
-        )
+        else:
+            await self.store.mark_done(wi_id, self.team_run_id)
+            self._emit(
+                make_work_item_status(
+                    self.team_run_id,
+                    wi_id,
+                    "done",
+                    finished_at=_utcnow().isoformat(),
+                )
+            )
+            # Check if completing this task promotes an expanded parent
+            promoted = await self.store.maybe_promote_expanded_parent(
+                wi_id, self.team_run_id
+            )
+            for pid in promoted:
+                self._emit(
+                    make_work_item_status(
+                        self.team_run_id,
+                        pid,
+                        "done",
+                        finished_at=_utcnow().isoformat(),
+                    )
+                )
 
         if result.submitted_replan is not None:
             await self.apply_replan(
@@ -374,9 +399,9 @@ class Dispatcher:
                     f"cancel target {cid} has parent {rec.parent_id!r}, "
                     f"but replan scoped to {target_parent_id!r}"
                 )
-            if rec.status not in ("pending", "ready"):
+            if rec.status not in ("pending", "ready", "expanded"):
                 raise InvalidPlan(
-                    f"cancel target {cid} is {rec.status}; can only cancel PENDING or READY"
+                    f"cancel target {cid} is {rec.status}; can only cancel PENDING, READY, or EXPANDED"
                 )
 
         local_to_new: dict[str, str] = {}

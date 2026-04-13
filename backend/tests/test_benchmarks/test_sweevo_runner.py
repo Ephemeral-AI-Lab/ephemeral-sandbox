@@ -35,7 +35,28 @@ def test_run_sweevo_with_agent_returns_structured_grading(monkeypatch):
     fake_team_runner = ModuleType("benchmarks.sweevo.team_runner")
 
     async def _fake_run_team(*args, **kwargs):
-        return "succeeded", 2
+        return {
+            "status": "succeeded",
+            "work_items": 2,
+            "team_run_id": "TR-test",
+            "sandbox_id": "sbx-1",
+            "session_id": "sess-test",
+            "structured_log_path": None,
+            "usage": None,
+            "usage_by_model": [],
+            "checkpoints": [],
+            "checkpoint_ids": [],
+            "latest_checkpoint_id": None,
+            "latest_checkpoint_label": None,
+            "max_depth_reached": 0,
+            "agent_runs": 0,
+            "agent_counts": {},
+            "retry_count_total": 0,
+            "replans_used": 0,
+            "budgets": {"max_tasks": 40, "max_depth": 5, "max_plan_size": 12},
+            "resumed_from": None,
+            "resumed_from_checkpoint": None,
+        }
 
     fake_team_runner.run_sweevo_team = _fake_run_team
     monkeypatch.setitem(sys.modules, "benchmarks.sweevo.team_runner", fake_team_runner)
@@ -133,7 +154,22 @@ def test_run_sweevo_with_agent_resumes_existing_team_run(monkeypatch):
             "work_items": 3,
             "team_run_id": "TR-1",
             "sandbox_id": "sbx-resume",
+            "session_id": "sess-resume",
+            "structured_log_path": None,
+            "usage": None,
+            "usage_by_model": [],
+            "checkpoints": [{"id": "cp-1", "label": "initial", "sequence": 0}],
             "checkpoint_ids": ["cp-1"],
+            "latest_checkpoint_id": "cp-1",
+            "latest_checkpoint_label": "initial",
+            "max_depth_reached": 1,
+            "agent_runs": 2,
+            "agent_counts": {"developer": 1, "validator": 1},
+            "retry_count_total": 0,
+            "replans_used": 0,
+            "budgets": {"max_tasks": 40, "max_depth": 5, "max_plan_size": 12},
+            "resumed_from": "TR-1",
+            "resumed_from_checkpoint": None,
         }
 
     async def _unexpected_run_team(*args, **kwargs):

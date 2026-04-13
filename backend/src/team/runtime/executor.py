@@ -295,6 +295,36 @@ class Executor:
 
     _extract_result = _posthook
 
+    async def _post_completion_note(self, task: "Task", summary: str) -> None:
+        """Auto-post the agent's work summary as a Task Center note.
+
+        Posted with the completing task's own task_id so downstream
+        dependents see it via the dep filter in context_for().
+        Truncated to max_note_bytes to respect budget limits.
+        """
+        if not summary or summary in (
+            "completed (no explicit submission)",
+            "planner_did_not_submit_plan",
+        ):
+            return
+        budget = getattr(self.team_run, "budgets", None)
+        max_bytes = getattr(budget, "max_note_bytes", 100_000) if budget else 100_000
+        truncated = summary[:max_bytes]
+        from team.models import Note
+        try:
+            await self.team_run.task_center.post(
+                Note(
+                    id=str(uuid.uuid4()),
+                    task_id=task.id,
+                    agent_name=task.agent_name or "unknown",
+                    content=truncated,
+                    timestamp=time.time(),
+                    scope_paths=list(task.scope_paths) if task.scope_paths else [],
+                )
+            )
+        except Exception:
+            logger.debug("completion note: post failed for %s", task.id, exc_info=True)
+
     async def _post_checkpoint_note(self, task: "Task", result: Any) -> str | None:
         """Post a checkpoint note after task completion.
 
@@ -392,6 +422,13 @@ class Executor:
             await self._post_checkpoint_note(task, result)
             return
         new_items = await dispatcher.complete(task_id, result)
+
+        # Auto-post work summary as a Task Center note so sibling and
+        # downstream tasks can read it via dep/scope filters without
+        # requiring the agent to call post_note() explicitly.
+        if isinstance(result, AgentResult) and result.summary:
+            await self._post_completion_note(task, result.summary)
+
         if self.after_dispatch is not None:
             cb = self.after_dispatch(task, result, new_items)
             if isinstance(cb, Awaitable):

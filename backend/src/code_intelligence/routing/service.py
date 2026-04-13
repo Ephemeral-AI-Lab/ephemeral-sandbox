@@ -100,7 +100,12 @@ class CodeIntelligenceService:
         self._lsp_bootstrap_attempted = False
         self._init_lock = threading.Lock()
 
-        self.symbol_index = SymbolIndex(workspace_root=workspace_root, sandbox=sandbox)
+        from code_intelligence.analysis.tree_cache import TreeCache
+
+        self.tree_cache = TreeCache(sandbox=sandbox)
+        self.symbol_index = SymbolIndex(
+            workspace_root=workspace_root, sandbox=sandbox, tree_cache=self.tree_cache,
+        )
 
         # In-memory file change tracking.
         from team.persistence.file_change_store import FileChangeStore

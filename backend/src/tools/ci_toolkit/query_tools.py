@@ -484,7 +484,14 @@ async def ci_workspace_structure(
 
 @tool(
     name="ci_query_symbols",
-    description="Find functions, classes, methods, and variables by name.",
+    description=(
+        "Find where a function, class, method, or variable is defined across the entire codebase. "
+        "Returns file path, line number, and signature. "
+        "ALWAYS prefer this over daytona_grep or manual file reads when you know a symbol name — "
+        "it is faster, cheaper, and searches the full index. "
+        "Example: ci_query_symbols('PANDAS_GT_200') instantly locates the version gate "
+        "instead of grepping file by file."
+    ),
     read_only=True,
 )
 async def ci_query_symbols(
@@ -575,7 +582,14 @@ async def ci_query_symbols(
 
 @tool(
     name="ci_query_references",
-    description="Find all usages of a symbol across the codebase.",
+    description=(
+        "Trace ALL callers, import sites, and usages of a symbol across the entire codebase in one call. "
+        "ALWAYS use this before daytona_grep when tracing how a function/class is used — "
+        "it reveals the full call graph, import chains, and downstream dependents. "
+        "Essential before patching: shows every file that will break if you change a symbol. "
+        "Example: ci_query_references('read_json') reveals the full pipeline "
+        "(blocked vs file-per-partition) and fsspec integration points."
+    ),
     read_only=True,
 )
 async def ci_query_references(

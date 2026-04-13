@@ -149,6 +149,7 @@ class ScopeChangeListener:
             return
         change_agent_run_id = str(change_agent_run_id or "")
 
+        routed_count = 0
         for sub in self._subscribers.values():
             # Don't notify agent about its own edits
             if change_agent_run_id and change_agent_run_id == sub.agent_run_id:
@@ -163,6 +164,14 @@ class ScopeChangeListener:
                         "edit_type": str(change.get("edit_type", "") or "edit"),
                     }
                 )
+                routed_count += 1
+        if routed_count:
+            logger.info(
+                "[scope_listener] routed file=%s editor=%s to %d subscriber(s)",
+                file_path,
+                change_agent_run_id[:12] if change_agent_run_id else "unknown",
+                routed_count,
+            )
 
     def publish_change(
         self,
@@ -196,10 +205,22 @@ class ScopeChangeListener:
             buffer=buffer,
             agent_run_id=agent_run_id,
         )
+        logger.info(
+            "[scope_listener] subscribe agent_run=%s scopes=%s total_subs=%d",
+            agent_run_id[:12],
+            scope_paths,
+            len(self._subscribers),
+        )
 
     def unsubscribe(self, agent_run_id: str) -> None:
         """Unregister an executor's buffer."""
-        self._subscribers.pop(agent_run_id, None)
+        removed = self._subscribers.pop(agent_run_id, None)
+        if removed is not None:
+            logger.info(
+                "[scope_listener] unsubscribe agent_run=%s remaining_subs=%d",
+                agent_run_id[:12],
+                len(self._subscribers),
+            )
 
     async def stop(self) -> None:
         """Stop listening and close the dedicated connection."""

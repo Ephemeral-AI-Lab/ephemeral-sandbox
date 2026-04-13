@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+# Tree cache
+TREE_CACHE_MAX_FILES = 500
+TREE_CACHE_MAX_FILE_SIZE = 1_000_000  # 1 MB
+
 # Symbol index
 SYMBOL_INDEX_MAX_FILES = 10_000
 SYMBOL_INDEX_BATCH_SIZE = 50

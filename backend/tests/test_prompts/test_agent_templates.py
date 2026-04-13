@@ -24,22 +24,18 @@ _BUILTINS_DIR = Path(__file__).resolve().parents[2] / "config" / "agents"
 
 
 class TestBuildTypeSection:
-    @pytest.mark.parametrize("agent_type", ["agent", "subagent", "posthook"])
+    @pytest.mark.parametrize("agent_type", ["agent", "subagent"])
     def test_returns_non_empty_for_known_types(self, agent_type: str) -> None:
         result = build_type_section(agent_type, "test_agent")
         assert result, f"Expected non-empty section for type={agent_type}"
         assert "# Identity" in result
         assert "# Type Constraints" in result
 
-    @pytest.mark.parametrize("agent_type", ["agent", "subagent", "posthook"])
+    @pytest.mark.parametrize("agent_type", ["agent", "subagent"])
     def test_substitutes_agent_name(self, agent_type: str) -> None:
         result = build_type_section(agent_type, "my_custom_agent")
         assert "my_custom_agent" in result
         assert "{{name}}" not in result
-
-    def test_posthook_includes_one_tool_constraint(self) -> None:
-        result = build_type_section("posthook", "submit_plan_agent")
-        assert "exactly ONE tool" in result
 
     def test_subagent_includes_no_spawn_constraint(self) -> None:
         result = build_type_section("subagent", "scout")
@@ -92,7 +88,7 @@ class TestBuildRoleSection:
 
 class TestTemplateCoverage:
     def test_all_agent_types_have_templates(self) -> None:
-        for t in ("agent", "subagent", "posthook"):
+        for t in ("agent", "subagent"):
             assert t in TYPE_TEMPLATES, f"Missing type template for {t}"
 
     def test_all_canonical_roles_have_templates(self) -> None:
@@ -122,13 +118,6 @@ class TestBuiltinIntegration:
         for d in role_agents:
             section = build_role_section(d.role)
             assert section, f"Agent {d.name} (role={d.role}) got empty role section"
-
-    def test_posthooks_have_no_role_section(self, builtin_defs: list[AgentDefinition]) -> None:
-        posthooks = [d for d in builtin_defs if d.agent_type == "posthook"]
-        assert len(posthooks) == 5, f"Expected 5 posthook agents, got {len(posthooks)}"
-        for d in posthooks:
-            assert d.role is None, f"Posthook {d.name} has unexpected role={d.role}"
-            assert build_role_section(d.role) == ""
 
     def test_md_bodies_no_longer_contain_identity_boilerplate(
         self, builtin_defs: list[AgentDefinition]

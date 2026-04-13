@@ -210,10 +210,10 @@ def test_subagent_provider_clamps_via_format_helper():
 
 
 def test_builtin_subagent_is_registered():
-    defn = get_agent_definition("subagent")
+    defn = get_agent_definition("scout")
     assert defn is not None
     assert defn.agent_type == "subagent"
-    assert defn.name == "subagent"
+    assert defn.name == "scout"
     assert defn.system_prompt
     assert "subagent" not in defn.toolkits  # cannot nest
 
@@ -241,7 +241,7 @@ class _StubAgent:
         self._scripted = scripted_messages
         self.total_usage = usage
         self.model = model
-        self.agent_name = "subagent"
+        self.agent_name = "scout"
         # Used by the test to inspect that progress provider sees live state.
         self.peek_calls: list[str] = []
 
@@ -368,7 +368,7 @@ async def test_run_subagent_registers_provider_and_returns_final_text(monkeypatc
     ctx = _make_ctx(bg=bg, task_id="bg_test")
 
     result = await run_subagent.execute(
-        run_subagent.input_model(agent_name="subagent", prompt="task"), ctx
+        run_subagent.input_model(agent_name="scout", prompt="task"), ctx
     )
 
     assert result.is_error is False
@@ -407,7 +407,7 @@ async def test_run_subagent_does_not_inject_scope_packets_into_prompt(monkeypatc
     )
 
     result = await run_subagent.execute(
-        run_subagent.input_model(agent_name="subagent", prompt="inspect auth"),
+        run_subagent.input_model(agent_name="scout", prompt="inspect auth"),
         ctx,
     )
 
@@ -420,7 +420,7 @@ async def test_run_subagent_does_not_inject_scope_packets_into_prompt(monkeypatc
 async def test_run_subagent_missing_session_config_returns_error():
     ctx = ToolExecutionContext(cwd=Path("/tmp"), metadata={})
     result = await run_subagent.execute(
-        run_subagent.input_model(agent_name="subagent", prompt="task"), ctx
+        run_subagent.input_model(agent_name="scout", prompt="task"), ctx
     )
     assert result.is_error is True
     assert "session_config" in result.output
@@ -514,7 +514,7 @@ async def test_run_subagent_persists_run_with_parent_ids(monkeypatch):
     ctx = _make_ctx(bg=bg, task_id="bg_persist")
 
     result = await run_subagent.execute(
-        run_subagent.input_model(agent_name="subagent", prompt="do the thing"), ctx
+        run_subagent.input_model(agent_name="scout", prompt="do the thing"), ctx
     )
 
     assert result.is_error is False
@@ -526,7 +526,7 @@ async def test_run_subagent_persists_run_with_parent_ids(monkeypatch):
     assert create_kwargs["session_id"] == "session_abc"
     assert create_kwargs["parent_run_id"] == "parent_run_xyz"
     assert create_kwargs["parent_task_id"] == "bg_persist"
-    assert create_kwargs["agent_name"] == "subagent"
+    assert create_kwargs["agent_name"] == "scout"
     assert create_kwargs["input_query"] == "do the thing"
 
     # finish_run was called with completed status. The full display history
@@ -543,7 +543,7 @@ async def test_run_subagent_persists_run_with_parent_ids(monkeypatch):
     usage_kwargs = fake_usage_store.records[0]
     assert usage_kwargs["session_id"] == "session_abc"
     assert usage_kwargs["run_id"] == finish_kwargs["run_id"]
-    assert usage_kwargs["agent_name"] == "subagent"
+    assert usage_kwargs["agent_name"] == "scout"
     assert usage_kwargs["model_id"] == getattr(stub_agent, "model", "")
     assert usage_kwargs["prompt_tokens"] == 21
     assert usage_kwargs["completion_tokens"] == 9
@@ -571,7 +571,7 @@ async def test_run_subagent_persists_spawn_failure(monkeypatch):
         },
     )
 
-    result = await run_subagent.execute(run_subagent.input_model(agent_name="subagent", prompt="x"), ctx)
+    result = await run_subagent.execute(run_subagent.input_model(agent_name="scout", prompt="x"), ctx)
 
     assert result.is_error is True
     assert "spawn failed" in result.output
@@ -615,7 +615,7 @@ async def test_run_subagent_persists_failure(monkeypatch):
     bg = _make_bg_manager("bg_fail", prompt="x")
     ctx = _make_ctx(bg=bg, task_id="bg_fail")
 
-    result = await run_subagent.execute(run_subagent.input_model(agent_name="subagent", prompt="x"), ctx)
+    result = await run_subagent.execute(run_subagent.input_model(agent_name="scout", prompt="x"), ctx)
 
     assert result.is_error is True
     assert "inner exploded" in result.output
@@ -660,7 +660,7 @@ async def test_run_subagent_persists_usage_when_cancelled(monkeypatch):
     ctx = _make_ctx(bg=bg, task_id="bg_cancel")
 
     with pytest.raises(asyncio.CancelledError):
-        await run_subagent.execute(run_subagent.input_model(agent_name="subagent", prompt="x"), ctx)
+        await run_subagent.execute(run_subagent.input_model(agent_name="scout", prompt="x"), ctx)
 
     assert len(fake_store.finished) == 1
     assert fake_store.finished[0]["status"] == "cancelled"

@@ -36,6 +36,7 @@ class TaskStatus(str, Enum):
     PENDING = "pending"
     READY = "ready"
     RUNNING = "running"
+    EXPANDED = "expanded"  # planner submitted children, waiting for them to finish
     DONE = "done"
     FAILED = "failed"
     CANCELLED = "cancelled"

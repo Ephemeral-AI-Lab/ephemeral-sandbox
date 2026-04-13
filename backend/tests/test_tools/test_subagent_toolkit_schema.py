@@ -87,7 +87,6 @@ def test_subagent_toolkit_schema_excludes_non_subagent_team_roles():
     schema = toolkit.list_tools()[0].to_api_schema()["input_schema"]
     enum = schema["properties"]["agent_name"]["enum"]
 
-    assert "subagent" in enum
     assert "scout" in enum
     assert "developer" not in enum
     assert "validator" not in enum

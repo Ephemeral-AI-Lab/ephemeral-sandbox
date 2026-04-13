@@ -61,8 +61,9 @@ async def test_read_file_not_found_returns_error(tmp_path):
     assert "not found" in result.output.lower() or "File not found" in result.output
 
 
-async def test_read_file_rejects_team_planner_even_when_file_exists(tmp_path):
-    """Planners may not call ci_read_file."""
+async def test_read_file_not_blocked_at_tool_level_for_planner(tmp_path):
+    """ci_read_file blocking for planners is enforced via blocked_tools in
+    agent definitions, not at the tool level.  The tool itself succeeds."""
     f = tmp_path / "hello.py"
     f.write_text("line one\n")
 
@@ -72,11 +73,11 @@ async def test_read_file_rejects_team_planner_even_when_file_exists(tmp_path):
         ctx,
     )
 
-    assert result.is_error
-    assert "may not read files directly" in result.output
+    assert not result.is_error
 
 
-async def test_read_file_rejects_team_replanner_even_when_file_exists(tmp_path):
+async def test_read_file_not_blocked_at_tool_level_for_replanner(tmp_path):
+    """Same as above — blocking is in agent definitions, not tool code."""
     f = tmp_path / "hello.py"
     f.write_text("line one\n")
 
@@ -86,8 +87,7 @@ async def test_read_file_rejects_team_replanner_even_when_file_exists(tmp_path):
         ctx,
     )
 
-    assert result.is_error
-    assert "may not read files directly" in result.output
+    assert not result.is_error
 
 
 async def test_read_file_binary_returns_error(tmp_path):

@@ -115,6 +115,10 @@ class ScopeChangeBuffer:
                 content=[SystemReminderBlock(category=SCOPE_CHANGE_CATEGORY, text=text)],
             )
         )
+        logger.info(
+            "[scope_buffer] flushed %d file change(s) into agent context",
+            len(changes),
+        )
         return text
 
     @property

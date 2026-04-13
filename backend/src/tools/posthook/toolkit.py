@@ -211,16 +211,10 @@ class SubmitSummaryTool(BaseTool):
             return warning_gate
 
         freshness_warning = await _check_context_freshness(context)
-        already_checked = bool(context.metadata.get("checked_context_freshness"))
-        if freshness_warning and not already_checked:
-            return ToolResult(
-                output=(
-                    "Error: context is stale — call context_changed_since() first, "
-                    "refresh affected files, re-verify, then call submit_summary() again."
-                    + freshness_warning
-                ),
-                is_error=True,
-            )
+        # Never hard-reject here.  submit_summary is a posthook-only tool,
+        # so context_changed_since is NOT in the registry — the agent cannot
+        # call it, and rejecting creates an unbreakable loop.  Instead,
+        # always append the warning so downstream tasks see it.
         if freshness_warning:
             summary += freshness_warning
 

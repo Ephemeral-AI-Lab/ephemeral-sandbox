@@ -23,6 +23,7 @@
 12. [Migration Phases](#12-migration-phases)
 13. [Deletion Inventory](#13-deletion-inventory)
 14. [PostgreSQL Infrastructure](#14-postgresql-infrastructure)
+15. [Benchmark Validation (2026-04-13)](#15-benchmark-validation-2026-04-13)
 
 ---
 
@@ -80,7 +81,7 @@ PLAN A: 2 layers
 | `Briefing` dataclass | DELETE | Replaced by `Note` in Task Center |
 | `DependencyArtifact` dataclass | DELETE | Deps read from Task Center directly |
 | `InMemoryArtifactStore` | DELETE | Task Center stores prose, not binary artifacts |
-| 3-tier briefing renderer | DELETE | Single `task_center.context_for()` replaces 180 lines |
+| 3-tier briefing renderer | DELETE | Single `task_center.context_for()` replaces it |
 | `canonical_scope` + coherence tokens (briefing layer) | DELETE | Tags + scope_paths replace canonical scopes |
 | `scout_briefings.py` (pressure, freshness, auto-promotion) | DELETE | Was briefing-layer concept, not OCC |
 | Atlas service + store + model + freshness | DELETE | Optional `TaskCenterCache` for cross-run reuse |
@@ -221,7 +222,7 @@ The `Note` type is the single context primitive in the Task Center. Each note ha
 
 `TaskCenter` is an in-memory append-only log shared by all executors in a `TeamRun`. It holds a list of `Note` objects and exposes three primary operations: `post(note)` appends a note; `read(authors?, scope_paths?, since?, limit?)` returns filtered notes; and `context_for(task, file_change_store?, task_lookup?, max_context_bytes?)` builds the prioritized context string delivered to each agent at task start (implementation detailed in Section 8.2). It also stores the run's `goal` and `user_request` strings for reference.
 
-**Implementation decision — in-memory notes, no NoteStore:** The original design specified a `NoteStore` for PG-backed note persistence with an in-memory fallback. The implementation chose in-memory only because all executors in a `TeamRun` share the same `TaskCenter` instance — cross-executor visibility is guaranteed without PostgreSQL. This eliminates the dual-path complexity (`_store_backed()`, `NoteStore`, `TaskNoteRecord` conversion) with no loss of functionality in single-process deployments. If multi-process scaling requires cross-process note visibility, a `NoteStore` can be reintroduced at that time.
+**Implementation decision — in-memory notes, no NoteStore:** The original design specified a `NoteStore` for PG-backed note persistence with an in-memory fallback. The implementation chose in-memory only because all executors in a `TeamRun` share the same `TaskCenter` instance — cross-executor visibility is guaranteed without PostgreSQL. This eliminates dual-path complexity with no loss of functionality in single-process deployments. If multi-process scaling requires cross-process note visibility, a `NoteStore` can be reintroduced at that time.
 
 **Implementation note — FileChangeStore replaces Arbiter parameter:** The original design specified an `Arbiter` object for file change awareness. The implementation passes `file_change_store` instead — the durable `FileChangeStore` (sync SQLAlchemy, backed by the `file_changes` table) provides cross-process visibility and crash recovery, while the Arbiter's in-memory ring buffer is limited to the current process. The `task_lookup` callable replaces the raw `pool` parameter for parent chain walks — cleaner than inline SQL.
 
@@ -233,7 +234,7 @@ The `Note` type is the single context primitive in the Task Center. Each note ha
 | No mutation | A note posted at t=1 is still valid at t=100. No invalidation tracking needed. |
 | No dedup | LLMs naturally handle overlapping prose. The 3-tier dedup machinery (canonical scopes, seen_scopes, seen_refs) is deleted. |
 | Monotonic timestamps | `since` filter gives "what's new since I last looked" for free. |
-| Simple checkpoint | `snapshot()` = `list(self._notes)`. No artifact store serialization. |
+| Simple checkpoint | Snapshot is a copy of the note list. No artifact store serialization. |
 | Monotonic knowledge | Agents that start later see strictly more context. Knowledge never decreases — a formal property that append-only + immutable notes guarantee by construction. |
 
 ---
@@ -269,10 +270,10 @@ The `Note` type is the single context primitive in the Task Center. Each note ha
 
 ### 6.2 Single-Pass Plan Validation
 
-Merges current Phase A + Phase B into one pass, run inside `SubmitPlanTool.execute()`:
+Merges current Phase A + Phase B into one pass, run inside the submit-plan tool on execution:
 
 ```
-SubmitPlanTool.execute(arguments, context)
+submit_plan tool execution
   │
   ├── 1. Structural checks
   │     - Plan non-empty (unless sub-planner)
@@ -337,7 +338,7 @@ Executor.run_forever()
   │   └── 5. _dispatch(task_id, result)
   │         │
   │         ├── Plan     → validate + insert TaskSpecs into DAG
-  │         ├── Summary  → mark DONE, post summary note to Task Center
+  │         ├── Summary  → mark DONE, auto-post summary note to Task Center
   │         ├── Retry    → reset PENDING, increment retry_count
   │         ├── Replan   → fail item, spawn replanner
   │         └── Failure  → mark FAILED, cascade-cancel dependents
@@ -496,9 +497,11 @@ The only change to `query.py` is a two-line gate in `_has_submission()`: if `pos
 
 **Rationale:** The posthook is a function call in the executor, not a conditional event handler. It is structurally guaranteed to run. It produces a result in every case. Current system has TWO points of LLM failure (work agent + posthook agent). This design has ONE (work agent) with a deterministic backstop.
 
+**Auto-post completion notes:** After `_posthook()` extracts a summary and `_dispatch()` marks the task as complete, the executor automatically posts the work summary as a Task Center note (via `_post_completion_note()`). The note is posted with the completing task's own `task_id`, making it visible to downstream dependents through the dep filter in `context_for()`. This eliminates the gap where developers never called `post_note()` explicitly — sibling and downstream context sharing now works without agent cooperation. No-op summaries (`"completed (no explicit submission)"`, `"planner_did_not_submit_plan"`) are skipped. The note respects `max_note_bytes` from `BudgetConfig`.
+
 ### 7.4 What Gets Deleted
 
-The posthook agent infrastructure is deleted entirely: the `agent_posthook.py` module with its `execute_with_posthook` entry point, all five posthook agent `.md` definitions (submit plan, submit summary, submit replan, decision retry, decision replan), the legacy posthook toolkit classes, and the `PosthookConfig` field on `AgentDefinition`. The executor's `_run_one()` is rewritten to call the runner directly and then invoke a small deterministic `_posthook()` function. All five submission tools are consolidated into a single toolkit file, keeping the same file path but deleting the per-tool source files and the old toolkit class file.
+The posthook agent infrastructure is deleted entirely: the posthook execution module, all five posthook agent definitions (submit plan, submit summary, submit replan, decision retry, decision replan), the legacy posthook toolkit classes, and the `PosthookConfig` field on `AgentDefinition`. The executor's task-run method is rewritten to call the runner directly and then invoke a small deterministic posthook function. All five submission tools are consolidated into a single toolkit file, with the per-tool source files and old toolkit class file deleted.
 
 ---
 
@@ -538,9 +541,9 @@ The one scenario that *can* bloat is a single dependency posting many incrementa
 
 `context_for()` builds a snapshot at task start that can go stale during long-running tasks. LISTEN/NOTIFY (Section 14.7) handles file-level changes, but dep notes or new sibling completions are invisible after context is built. Two mechanisms close this gap:
 
-1. **`context_changed_since` tool** — registered in the `context` toolkit (available to all roles). Agents call this before committing large changes. Implemented in `tools/context/toolkit.py` as `ContextChangedSinceTool`, which delegates to `tools/context/freshness.py:check_freshness()`.
+1. **`context_changed_since` tool** — registered in the `context` toolkit (available to all roles). Agents call this before committing large changes. It checks for new dep notes, scope file changes, and sibling completions since the task started.
 
-2. **Automatic freshness gate on submission** — the submission tools (`submit_summary`, `submit_plan`, `submit_replan` in `tools/posthook/toolkit.py`) call `_check_context_freshness()` before accepting a submission. If context is stale and the agent hasn't called `context_changed_since()` first, the submission is rejected with an error asking the agent to refresh.
+2. **Automatic freshness gate on submission** — the submission tools call a freshness check before accepting a submission. If context is stale and the agent hasn't called `context_changed_since()` first, the submission is rejected with an error asking the agent to refresh.
 
 This dual approach ensures agents are both informed (pull via tool) and gated (push via submission rejection).
 
@@ -660,7 +663,7 @@ Later, Developer assigned to "Fix auth timeout" (scope_paths=["src/auth"]):
 | Dedup mechanism | 3-tier priority + `seen_scopes` + `seen_refs` + `_claim()` | Dedupe by `note.id` (trivial) |
 | Freshness | `scout_artifact_invalidated()`, coherence tokens, pressure scoring | Notes are immutable. Ledger is ground truth. |
 | Overflow | `max_briefing_bytes` per-item truncation | Priority-based budget with per-section trim |
-| Code size | ~1,420 lines across 9 files | ~250 lines in 1 file |
+| Code size | Many files across the briefing layer | Single `TaskCenter` + `context_for()` |
 
 ### 8.8 Dynamic Environment Awareness (Consolidated View)
 
@@ -797,7 +800,7 @@ The second is more useful to a developer. LLMs consume prose better than JSON sc
 
 ### 9.5 Exploration Cache (Replaces Atlas)
 
-**What Atlas solves:** Don't re-explore unchanged code across runs. The current Atlas achieves this with ~400 lines across 6 files. The actual mechanism is a content-addressed cache. Everything else is overhead.
+**What Atlas solves:** Don't re-explore unchanged code across runs. The current Atlas achieves this across 6 files. The actual mechanism is a content-addressed cache. Everything else is overhead.
 
 **Exploration Cache** — `ExplorationMemory` exposes two operations: `check(scope_paths, sandbox)` hashes the files in the given paths and returns cached notes if the hash matches a prior run, or `None` if re-exploration is needed; and `save(scope_paths, notes, sandbox)` stores notes keyed by a hash of the scope paths plus the current file content hash. The cache key is a SHA-256 digest of sorted scope paths and content hash.
 
@@ -857,15 +860,15 @@ or sequence it explicitly before parallel work.
 
 ### 9.8 Atlas to Exploration Cache Comparison
 
-| Current Atlas (6 files, ~400 lines) | Exploration Cache (~60 lines) |
+| Current Atlas (6 files) | Exploration Cache |
 |------|------|
-| `atlas/service.py` -- lookup_subsystems, persist_scout_brief | `ExplorationMemory.check/save` |
-| `atlas/store.py` -- SQL persistence, chunk storage | Simple key-value store |
-| `atlas/model.py` -- ORM model | Not needed (key-value) |
-| `atlas/persistence.py` -- durable storage | Built into cache |
-| `atlas/freshness.py` -- reuse status, staleness checks | Content hash comparison (3 lines) |
-| `atlas/identity.py` -- project_key_for() | Scope paths are the identity |
-| `tools/atlas/lookup.py` -- planner-facing tool | `CheckExplorationMemoryTool` (~20 lines) |
+| Service layer — lookup subsystems, persist scout briefs | `ExplorationMemory.check/save` |
+| SQL persistence store with chunk storage | Simple key-value store |
+| ORM model | Not needed (key-value) |
+| Durable persistence module | Built into cache |
+| Reuse status and staleness checks | Content hash comparison |
+| Project key identity module | Scope paths are the identity |
+| Planner-facing lookup tool | `check_exploration_memory` tool |
 
 ---
 
@@ -1120,7 +1123,7 @@ All six phases are complete.
 
 **Phase 2 — Query Engine Gate:** A two-line gate was added to `_has_submission()` to check `posthook_enabled` before inspecting submitted output keys. No other changes to the query engine.
 
-**Phase 3 — Executor Rewrite:** The executor's `_run_one()` was rewritten to call the runner directly and then invoke a deterministic `_posthook()` function. The context builder was updated to use `task_center.context_for()`.
+**Phase 3 — Executor Rewrite:** The executor's `_run_one()` was rewritten to call the runner directly and then invoke a deterministic `_posthook()` function. The context builder was updated to use `task_center.context_for()`. The executor auto-posts the agent's work summary as a Task Center note on task completion via `_post_completion_note()`, ensuring downstream dependents see summaries through the dep filter in `context_for()` without requiring agents to call `post_note()` explicitly.
 
 **Phase 4 — Data Model Migration:** The data model was updated with the new `TaskSpec`, simplified `Task` and `Plan`, and `ReplanPlan`. Single-pass plan validation replaced the old Phase A + B split. The dispatcher and its store were rewritten to use PostgreSQL `SKIP LOCKED` (Section 14.6).
 
@@ -1182,16 +1185,9 @@ Each domain gets a Store class, following the existing codebase pattern. Standar
 | `LISTEN/NOTIFY` | **raw asyncpg connection** | No SQLAlchemy abstraction exists |
 | Advisory locks | **`text()`** | `SELECT pg_advisory_lock()` |
 
-**LISTEN/NOTIFY access:** SQLAlchemy async exposes the underlying asyncpg connection for PG-specific features:
+**LISTEN/NOTIFY access:** SQLAlchemy async exposes the underlying asyncpg connection for PostgreSQL-specific features that have no ORM equivalent. A dedicated connection outside the connection pool is used for `LISTEN` to avoid blocking pool connections.
 
-```python
-async with engine.connect() as conn:
-    raw = await conn.get_raw_connection()
-    asyncpg_conn = raw.driver_connection
-    await asyncpg_conn.add_listener(channel, callback)
-```
-
-**Alternative for large swarms:** Instead of one LISTEN connection per worker, use a single shared listener connection with in-process fan-out to workers. This caps LISTEN connections at 1 regardless of concurrency. Trade-off: adds ~20 lines of fan-out code.
+**Alternative for large swarms:** Instead of one LISTEN connection per worker, use a single shared listener connection with in-process fan-out to workers. This caps LISTEN connections at 1 regardless of concurrency, at the cost of a small fan-out routing layer.
 
 ### 14.3 PostgreSQL-Primary Persistence
 
@@ -1246,57 +1242,7 @@ Partition lifecycle is managed by `TeamRun` setup and teardown: `create_partitio
 | Cache lookup | `WHERE cache_key = $1` | Primary key | O(1) |
 | Ready tasks | `WHERE status = 'ready' AND pending_dep_count = 0 FOR UPDATE SKIP LOCKED` | B-tree on `(team_run_id, status)` | Work queue pop — `pending_dep_count = 0` avoids correlated subquery on deps |
 
-**`path_to_ltree()` specification:**
-
-```python
-import re
-
-_LTREE_UNSAFE = re.compile(r'[^a-zA-Z0-9_]')
-
-def _escape_char(ch: str) -> str:
-    """Escape a non-alphanumeric character to a reversible representation.
-    Dots → 'D', hyphens → 'H', others → 'X' + 2-digit hex ordinal.
-    This prevents collisions: 'my-module' → 'myHmodule',
-    'my_module' → 'my_module' (unchanged). Distinct inputs always
-    produce distinct ltree labels."""
-    if ch == '.':
-        return 'D'
-    if ch == '-':
-        return 'H'
-    return f'X{ord(ch):02x}'
-
-def path_to_ltree(path: str) -> str:
-    """Convert a file path to an ltree label path.
-
-    Rules:
-      1. Strip leading/trailing slashes.
-      2. Split on '/'.
-      3. For each path component, replace unsafe characters using
-         reversible escaping (_escape_char). This avoids collisions:
-         'my-module' and 'my_module' map to different labels.
-      4. ltree labels must be [a-zA-Z0-9_], max 256 chars.
-      5. Drop empty labels.
-
-    Examples:
-      "src/auth/"                → "src.auth"
-      "src/auth/session.py"      → "src.auth.sessionDpy"
-      "src/auth/__init__.py"     → "src.auth.__init__Dpy"
-      "src/payment/utils.v2.py"  → "src.payment.utilsDv2Dpy"
-      "src/my-module/foo.py"     → "src.myHmodule.fooDpy"
-      "src/my_module/foo.py"     → "src.my_module.fooDpy"
-      "/leading/slash"           → "leading.slash"
-
-    Collision safety: 'my-module' → 'myHmodule' vs 'my_module' →
-    'my_module'. Distinct paths always produce distinct ltree values.
-    """
-    parts = path.strip('/').split('/')
-    labels = []
-    for part in parts:
-        label = _LTREE_UNSAFE.sub(lambda m: _escape_char(m.group()), part)
-        if label:
-            labels.append(label)
-    return '.'.join(labels)
-```
+**`path_to_ltree()` specification:** Converts a file path to an ltree label path by stripping leading/trailing slashes, splitting on `/`, and replacing unsafe characters with a reversible escape scheme: dots become `D`, hyphens become `H`, and all other non-alphanumeric characters become `X` followed by their two-digit hex ordinal. Empty labels are dropped. Examples: `"src/auth/"` → `"src.auth"`, `"src/auth/session.py"` → `"src.auth.sessionDpy"`, `"src/my-module/foo.py"` → `"src.myHmodule.fooDpy"`. Collision safety is guaranteed: `my-module` and `my_module` produce distinct labels.
 
 **Why `ltree` over `TEXT[]` with `&&`:** The `&&` (overlap) operator only checks if two arrays share an element. It cannot match `src/auth/` against `src/auth/session.py` — those are different strings. `ltree` handles hierarchical containment natively: `'src.auth' @> 'src.auth.sessionDpy'` is `TRUE`. This makes all scope queries correct by construction.
 
@@ -1306,123 +1252,7 @@ def path_to_ltree(path: str) -> str:
 
 ### 14.6 Dispatcher: PostgreSQL-Backed Work Queue
 
-The dispatcher's `pop_ready()` becomes a single PostgreSQL query using `FOR UPDATE SKIP LOCKED` — a purpose-built work queue primitive:
-
-```python
-class PGDispatcher:
-    """Dispatcher backed by PostgreSQL. No in-memory DAG state.
-    Uses async_sessionmaker from the team engine (Section 14.2).
-    ORM for standard CRUD, text() for PG-specific atomic operations."""
-
-    def __init__(self, session_factory: async_sessionmaker):
-        self._sf = session_factory
-
-    async def pop_ready(self, run_id: str) -> TaskRecord | None:
-        """Atomically claim the next ready task. Lock-free under concurrency.
-        Uses text() — the atomic UPDATE+subquery+SKIP LOCKED pattern
-        has no ORM equivalent."""
-        async with self._sf() as db:
-            row = (await db.execute(text("""
-                UPDATE tasks SET status = 'running', started_at = NOW()
-                WHERE id = (
-                    SELECT t.id FROM tasks t
-                    WHERE t.team_run_id = :run_id
-                      AND t.status = 'ready'
-                      AND t.pending_dep_count = 0
-                    ORDER BY t.depth, t.created_at
-                    LIMIT 1
-                    FOR UPDATE SKIP LOCKED
-                )
-                RETURNING *
-            """), {"run_id": run_id})).fetchone()
-            await db.commit()
-            return TaskRecord.from_row(row) if row else None
-
-    async def mark_done(self, task_id: str, run_id: str) -> list[str]:
-        """Mark task done, decrement pending_dep_count on dependents,
-        and promote any that reach zero. Uses text() — conditional
-        arithmetic UPDATE has no ORM equivalent."""
-        async with self._sf() as db:
-            await db.execute(text(
-                "UPDATE tasks SET status = 'done', finished_at = NOW() "
-                "WHERE id = :task_id AND team_run_id = :run_id"),
-                {"task_id": task_id, "run_id": run_id})
-            # Decrement pending_dep_count for all tasks that depend
-            # on the completed task, and promote those that hit zero.
-            promoted = (await db.execute(text("""
-                UPDATE tasks t
-                SET pending_dep_count = pending_dep_count - 1,
-                    status = CASE
-                        WHEN pending_dep_count - 1 = 0 THEN 'ready'
-                        ELSE status
-                    END
-                WHERE t.team_run_id = :run_id
-                  AND t.status = 'pending'
-                  AND :task_id = ANY(t.deps)
-                  AND t.pending_dep_count > 0
-                RETURNING CASE
-                    WHEN pending_dep_count = 0 THEN t.id
-                    ELSE NULL
-                END AS promoted_id
-            """), {"run_id": run_id, "task_id": task_id})).fetchall()
-            await db.commit()
-            return [r.promoted_id for r in promoted
-                    if r.promoted_id is not None]
-
-    async def insert_plan(self, run_id: str, tasks: list[TaskSpec],
-                          parent_id: str | None = None,
-                          parent_depth: int = 0,
-                          parent_root_id: str | None = None) -> None:
-        """Insert plan tasks atomically via ORM bulk insert.
-        Roots start as 'ready', others as 'pending'.
-
-        After insertion, a text() catch-up pass decrements
-        pending_dep_count for any deps that are already done
-        (handles external deps from prior plans whose mark_done()
-        already fired)."""
-        async with self._sf() as db:
-            records = []
-            for spec in tasks:
-                status = "ready" if not spec.deps else "pending"
-                root_id = parent_root_id if parent_id else spec.id
-                records.append(TaskRecord(
-                    id=spec.id, team_run_id=run_id,
-                    agent_name=spec.agent, status=status,
-                    task=spec.task, deps=spec.deps,
-                    scope_paths=spec.scope_paths,
-                    scope_ltree=[path_to_ltree(p) for p in spec.scope_paths],
-                    parent_id=parent_id, root_id=root_id,
-                    depth=(parent_depth + 1) if parent_id else 0,
-                    pending_dep_count=len(spec.deps),
-                ))
-            db.add_all(records)
-            await db.flush()  # IDs visible for catch-up query
-
-            # Catch-up: decrement pending_dep_count for deps already done.
-            # Uses text() — conditional arithmetic UPDATE with CTE.
-            await db.execute(text("""
-                WITH already_done AS (
-                    SELECT id FROM tasks
-                    WHERE team_run_id = :run_id AND status = 'done'
-                )
-                UPDATE tasks t
-                SET pending_dep_count = pending_dep_count - (
-                        SELECT COUNT(*) FROM already_done ad
-                        WHERE ad.id = ANY(t.deps)
-                    ),
-                    status = CASE
-                        WHEN pending_dep_count - (
-                            SELECT COUNT(*) FROM already_done ad
-                            WHERE ad.id = ANY(t.deps)
-                        ) = 0 THEN 'ready'
-                        ELSE status
-                    END
-                WHERE t.team_run_id = :run_id
-                  AND t.status = 'pending'
-                  AND t.deps && (SELECT array_agg(id) FROM already_done)
-            """), {"run_id": run_id})
-            await db.commit()
-```
+The dispatcher's `pop_ready()` is a single atomic PostgreSQL query using `FOR UPDATE SKIP LOCKED` — it selects the next ready task (ordered by depth then creation time), updates its status to `running` in the same statement, and returns it. No application-level lock is needed. `mark_done()` marks the task done and atomically decrements `pending_dep_count` on all dependents, promoting any that reach zero to `ready`. `insert_plan()` bulk-inserts task records via ORM, then runs a catch-up pass to decrement `pending_dep_count` for any deps that were already done before insertion (handling external deps from prior plans).
 
 **What this replaces:**
 
@@ -1438,28 +1268,7 @@ class PGDispatcher:
 
 > **Status: IMPLEMENTED** — Updated 2026-04-13. Uses a buffered flush design where notifications are held in a per-executor `ScopeChangeBuffer` and flushed at the top of each query loop turn, eliminating the need for a timer-based flush loop.
 
-Agents discover concurrent file changes via push, not poll. When the Arbiter records an edit to `file_changes`, a PostgreSQL trigger notifies all listeners:
-
-```sql
-CREATE OR REPLACE FUNCTION notify_scope_change() RETURNS trigger AS $$
-BEGIN
-    PERFORM pg_notify(
-        'scope_change_' || NEW.team_run_id,
-        json_build_object(
-            'file_path', NEW.file_path,
-            'agent_id', NEW.agent_id,
-            'agent_run_id', COALESCE(NEW.agent_run_id, ''),
-            'edit_type', NEW.edit_type
-        )::text
-    );
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_scope_change
-    AFTER INSERT ON file_changes
-    FOR EACH ROW EXECUTE FUNCTION notify_scope_change();
-```
+Agents discover concurrent file changes via push, not poll. When the Arbiter records an edit to `file_changes`, a PostgreSQL trigger fires `pg_notify` on the channel `scope_change_{run_id}`, broadcasting a JSON payload with the file path, agent id, agent run id, and edit type.
 
 #### Architecture: Three Components
 
@@ -1487,70 +1296,11 @@ Query loop top-of-turn flush
 
 #### ScopeChangeListener
 
-One shared instance per `TeamRun`. Uses a single dedicated async connection outside the pool for `LISTEN`. Routes notifications to per-executor `ScopeChangeBuffer` instances based on scope and agent identity filtering.
-
-```python
-class ScopeChangeListener:
-    """Single shared LISTEN connection with in-process fan-out."""
-
-    def __init__(self, engine: AsyncEngine, run_id: str):
-        self._engine = engine
-        self._channel = f"scope_change_{run_id}"
-        self._subscribers: dict[str, _Subscription] = {}  # agent_run_id → sub
-
-    async def start(self) -> None:
-        # Dedicated connection outside pool for LISTEN
-        self._conn = await self._engine.connect()
-        raw = await self._conn.get_raw_connection()
-        # LISTEN via psycopg, poll via notifies() async generator
-        await raw.cursor().execute(f"LISTEN {self._channel}")
-        self._listen_task = asyncio.create_task(self._poll_loop(raw.dbapi_connection))
-
-    def _route_notification(self, payload: str) -> None:
-        change = json.loads(payload)
-        for sub in self._subscribers.values():
-            if change["agent_run_id"] == sub.agent_run_id:
-                continue  # don't notify about own edits
-            if any(change["file_path"].startswith(p.rstrip("/"))
-                   for p in sub.scope_paths):
-                sub.buffer.buffer(change)
-
-    def subscribe(self, agent_run_id, scope_paths, buffer): ...
-    def unsubscribe(self, agent_run_id): ...
-    async def stop(self) -> None: ...
-```
-
-**Files:** `team/runtime/scope_change_listener.py` (~50 lines)
+One shared instance per `TeamRun`. Uses a single dedicated async connection outside the pool for `LISTEN`. It maintains a registry of per-executor subscriptions, each identified by `agent_run_id` with associated `scope_paths` and a `ScopeChangeBuffer`. On each notification, it routes to matching subscribers — filtering out the agent's own edits and only routing if the file path falls within the subscriber's scope paths.
 
 #### ScopeChangeBuffer
 
-Per-executor notification buffer with replacement semantics. Buffers scope change notifications and flushes them as a single `SystemReminderBlock` at the top of each query loop turn. Only one active notification exists in `display_messages` at a time — previous notifications are marked with `category="scope_change_superseded"` so the compactor can drop them.
-
-```python
-class ScopeChangeBuffer:
-    """Per-executor buffer. Flushed at top of each query loop turn."""
-
-    def buffer(self, change: dict) -> None:
-        """Called by ScopeChangeListener. Deduplicates by file_path."""
-        self._pending[change["file_path"]] = change
-
-    def flush_into(self, display_messages: list) -> bool:
-        """Flush ONE SystemReminderBlock, replacing previous notification."""
-        if not self._pending:
-            return False
-        changes = list(self._pending.values())
-        self._pending.clear()
-        # Mark previous notification as superseded
-        if self._last_notification_idx is not None:
-            old = display_messages[self._last_notification_idx]
-            old.content[0].category = "scope_change_superseded"
-        self._last_notification_idx = len(display_messages)
-        display_messages.append(ConversationMessage(role="user", content=[
-            SystemReminderBlock(category="scope_change", text=...)]))
-        return True
-```
-
-**Files:** `team/runtime/scope_change_buffer.py` (~30 lines)
+Per-executor notification buffer with replacement semantics. Deduplicates incoming changes by file path (latest wins). On `flush_into(display_messages)`, it appends a single `SystemReminderBlock` to the display messages and marks any previous scope-change notification as superseded so the compactor can drop it. This ensures the agent sees at most one scope notification at any time, containing only changes since the last flush.
 
 #### Lifecycle Wiring
 
@@ -1596,6 +1346,18 @@ Three filters stack to keep notification volume low:
 3. **File-path dedup** — `ScopeChangeBuffer._pending` deduplicates by file_path (latest wins). Multiple edits to the same file produce one notification line.
 4. **Replacement semantics** — `flush_into()` replaces the previous `SystemReminderBlock` instead of accumulating. The agent sees at most one scope notification at any time, containing only changes since the last flush.
 
+#### Telemetry
+
+> **Status: IMPLEMENTED** — Added 2026-04-13. All three components (`ScopeChangeListener`, `ScopeChangeBuffer`, executor wiring) emit structured `logger.info` lines for observability.
+
+| Component | Log prefix | Events logged |
+|---|---|---|
+| `ScopeChangeListener` | `[scope_listener]` | `subscribe` (agent_run_id, scope_paths, total subscribers), `unsubscribe` (agent_run_id, remaining subscribers), `routed` (file_path, editor agent, subscriber count receiving the notification) |
+| `ScopeChangeBuffer` | `[scope_buffer]` | `flushed` (number of file changes injected into agent context) |
+| `ScopeChangeListener` | existing | `started` / `stopped` on channel (already present) |
+
+This telemetry makes it possible to diagnose whether LISTEN/NOTIFY is active, how many notifications are routed, and whether agents actually receive scope change warnings — gaps that were invisible in prior benchmark runs.
+
 #### Graceful Degradation
 
 If `get_team_engine()` returns `None` (no PG configured) or the LISTEN connection fails, `_start_scope_listener` logs a debug message and returns. The `scope_listener` attribute remains `None`. The executor's `_subscribe_scope_listener` checks `is_running` and skips subscription. All pull-based mechanisms (`_inject_scope_warnings`, `context_changed_since`) continue to work unchanged.
@@ -1612,51 +1374,9 @@ If `get_team_engine()` returns `None` (no PG configured) or the LISTEN connectio
 
 Two tools available to all roles. `search_context` is absorbed into `read_notes` with a `keyword` parameter (in-memory filtering, no PG FTS). `scope_changed_since` delegates to `FileChangeStore`:
 
-> **Implementation note:** The original design specified `SearchContextTool` delegating to `NoteStore.search_fts()` for PostgreSQL full-text search. Since notes are in-memory, search is implemented as keyword filtering inside `ReadNotesTool` in `tools/context/toolkit.py`. The PG-backed FTS design below is retained as reference for multi-process scaling.
+> **Implementation note:** The original design specified a `SearchContextTool` delegating to `NoteStore.search_fts()` for PostgreSQL full-text search. Since notes are in-memory, search is implemented as keyword filtering inside `ReadNotesTool`. The PG-backed FTS design is retained as a reference for future multi-process scaling.
 
-```python
-# REFERENCE DESIGN — not currently used (notes are in-memory)
-class SearchContextTool(BaseTool):
-    """Search notes by keyword and/or scope. Delegates to NoteStore."""
-    name = "search_context"
-
-    async def execute(self, arguments, context):
-        query = arguments.get("query")
-        scope = arguments.get("scope_paths")
-        limit = arguments.get("limit", 10)
-        run_id = context.metadata["team_run_id"]
-        note_store: NoteStore = context.metadata["note_store"]
-
-        ltree_scopes = [path_to_ltree(p) for p in scope] if scope else None
-        rows = await note_store.search_fts(run_id, query, ltree_scopes, limit)
-        return [{"task_id": r.task_id, "agent": r.agent_name,
-                 "summary": r.content[:500], "scope": r.scope_ltree}
-                for r in rows]
-
-
-class ScopeChangedSinceTool(BaseTool):
-    """Check what files changed in scope since a timestamp.
-    Delegates to FileChangeStore."""
-    name = "scope_changed_since"
-
-    async def execute(self, arguments, context):
-        paths = arguments["paths"]
-        since = arguments["since"]
-        run_id = context.metadata["team_run_id"]
-        fc_store: FileChangeStore = context.metadata["file_change_store"]
-
-        ltree_scopes = [path_to_ltree(p) for p in paths]
-        rows = await fc_store.changes_in_scope(run_id, ltree_scopes, since)
-
-        if not rows:
-            return {"changed": False}
-        return {"changed": True, "files": [
-            {"path": r.file_path, "agent": r.agent_id,
-             "type": r.edit_type,
-             "seconds_ago": int(time.time() - r.created_at.timestamp())}
-            for r in rows
-        ]}
-```
+`search_context` (absorbed into `read_notes` with a `keyword` parameter) filters in-memory notes by keyword and optional scope paths. `scope_changed_since` delegates to `FileChangeStore.changes_in_scope()`, converting paths to ltree labels and returning a list of changed files with agent, edit type, and seconds-ago for each.
 
 ### 14.9 How Agents Use Search
 
@@ -1699,34 +1419,7 @@ Developer starts working on src/auth/middleware.py
 
 > **Status: Not yet implemented.** The current Arbiter uses in-process `threading.Lock` for per-file locking, which is correct for single-process deployments. Advisory locks are needed only for multi-process horizontal scaling, which is not the current deployment model.
 
-The current Arbiter uses in-memory `asyncio.Lock` for per-file locking. For multi-process executor deployments (horizontal scaling), PostgreSQL advisory locks provide distributed file-level locking with zero additional infrastructure:
-
-```python
-class PGArbiter:
-    """Arbiter with PostgreSQL advisory locks. Multi-process safe.
-    Uses SQLAlchemy text() — advisory locks are PG-specific."""
-
-    def __init__(self, session_factory: async_sessionmaker):
-        self._sf = session_factory
-
-    async def acquire_file_lock(self, file_path: str) -> None:
-        lock_key = self._path_to_lock_key(file_path)
-        async with self._sf() as db:
-            await db.execute(text("SELECT pg_advisory_lock(:key)"),
-                             {"key": lock_key})
-
-    async def release_file_lock(self, file_path: str) -> None:
-        lock_key = self._path_to_lock_key(file_path)
-        async with self._sf() as db:
-            await db.execute(text("SELECT pg_advisory_unlock(:key)"),
-                             {"key": lock_key})
-
-    def _path_to_lock_key(self, path: str) -> int:
-        """Stable hash of file path to PG advisory lock key (int8)."""
-        return int(hashlib.sha256(path.encode()).hexdigest()[:15], 16)
-```
-
-**When to use:** Optional. Single-process deployments keep the in-memory `asyncio.Lock` (faster, simpler). Switch to advisory locks when running multiple executor processes against the same sandbox.
+The current Arbiter uses in-memory `asyncio.Lock` for per-file locking. For multi-process executor deployments (horizontal scaling), PostgreSQL advisory locks provide distributed file-level locking with zero additional infrastructure: each file path is mapped to a stable `int8` key via SHA-256, and `pg_advisory_lock` / `pg_advisory_unlock` are called before and after each write. Single-process deployments keep the in-memory lock (faster, simpler) and switch to advisory locks only when running multiple executor processes against the same sandbox.
 
 ### 14.12 Updated Toolkit Matrix (Dispatched Roles)
 
@@ -1743,5 +1436,38 @@ Explorer is a subagent (see Section 10.3) — its toolkits are defined in its ag
 See Section 10.4 for toolkit consolidation rationale (2 toolkits instead of 5).
 
 ---
+
+---
+
+## 15. Benchmark Validation (2026-04-13)
+
+### Validated Against: `20260413T110632Z_dask__dask_2023.3.2_2023.4.0`
+
+| Design Feature | Status | Notes |
+|---|---|---|
+| Task Center (append-only notes) | **ACTIVE** | Root planner posts scout notes, sub-planners read via `read_notes(scope_paths=[...])` — 8 parallel reads observed |
+| TaskSpec data model | **ACTIVE** | Plans submitted with `{id, task, agent, deps, scope_paths, cascade_policy}` — matches spec |
+| Single-pass `submit_plan()` | **ACTIVE** | "Plan accepted (9 tasks)" — no Phase A/B split |
+| Explorer subagents | **ACTIVE** | 8 scouts launched in parallel via `run_subagent`, results read via Task Center |
+| PG `SKIP LOCKED` dispatcher | **ACTIVE** | `pop_ready()` in executor loop, multiple agents dispatched concurrently |
+| Deterministic `_posthook()` | **ACTIVE** | No posthook LLM calls — executor calls `_posthook(ctx, defn)` directly |
+| Scope change injection | **WIRED** | `_inject_scope_warnings()` and `_tag_if_scope_drifted()` run per task |
+| LISTEN/NOTIFY | **WIRED** | `ScopeChangeListener` subscribes executors, `ScopeChangeBuffer` flushes at turn boundary |
+| `check_exploration_memory()` | **NOT CALLED** | Expected on fresh runs (no prior cache). Playbooks reference it but agents skip it |
+| `context_changed_since()` | **NOT CALLED** | No agent checks freshness mid-task. Submission freshness gate untested |
+| `query_edit_history()` | **NOT CALLED** | No cross-run edit history on fresh instances |
+| `post_note()` by developers | **NOT CALLED** | Fixed: executor now auto-posts completion summaries via `_post_completion_note()` |
+| LISTEN/NOTIFY telemetry | **NOT LOGGED** | Fixed: `[scope_listener]` and `[scope_buffer]` log lines added for subscribe/route/flush |
+
+### Fixes Applied
+
+1. **Auto-post completion notes** (`executor.py`): `_post_completion_note()` posts the agent's work summary to Task Center on task completion, ensuring downstream dependents see it through the dep filter without requiring agents to call `post_note()`.
+
+2. **LISTEN/NOTIFY telemetry** (`scope_change_listener.py`, `scope_change_buffer.py`): Structured log lines added for subscribe, unsubscribe, route, and flush events, making the feature observable in benchmark logs.
+
+### Open Items (Not Yet Addressed)
+
+- `context_changed_since()` is voluntary — agents never call it. Consider making the executor inject a freshness check automatically before `_posthook()`.
+- Cross-run tools (`check_exploration_memory`, `query_edit_history`) are structurally useless on `fresh_run: true`. Playbooks should conditionally skip these instructions.
 
 *End of document.*

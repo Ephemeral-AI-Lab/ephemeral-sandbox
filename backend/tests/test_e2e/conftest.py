@@ -322,6 +322,7 @@ def get_eval_persistence(agent: EvalAgent) -> dict[str, Any]:
 
 
 if not getattr(EvalAgent, "_tests_e2e_persistence_patched", False):
+    EvalAgent._original_invoke = EvalAgent.invoke
     EvalAgent._ensure_db_ready = staticmethod(_ensure_eval_agent_db_ready)
 
     async def _invoke_with_persistence(self, prompt: str, verbose: bool = True):

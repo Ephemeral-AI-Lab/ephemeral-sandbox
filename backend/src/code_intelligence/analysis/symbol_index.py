@@ -54,10 +54,12 @@ class SymbolIndex:
         workspace_root: str,
         max_files: int = SYMBOL_INDEX_MAX_FILES,
         sandbox: Any = None,
+        tree_cache: Any | None = None,
     ) -> None:
         self._workspace_root = workspace_root
         self._max_files = max_files
         self._sandbox = sandbox
+        self._tree_cache = tree_cache
 
         self._lock = threading.Lock()
         self._symbols: dict[str, _FileSymbols] = {}
@@ -201,17 +203,12 @@ class SymbolIndex:
                 len(files), self._workspace_root,
             )
 
-            batch: list[tuple[str, list[SymbolInfo]]] = []
-            for file_path in files:
-                symbols = self._extract_symbols_from_file(file_path)
-                batch.append((file_path, symbols))
-
-                if len(batch) >= SYMBOL_INDEX_BATCH_SIZE:
-                    self._commit_batch(batch)
-                    batch.clear()
-
-            if batch:
-                self._commit_batch(batch)
+            # For remote sandboxes, download files concurrently to reduce
+            # HTTP round-trips (the main cold-start bottleneck).
+            if self._sandbox is not None:
+                self._build_remote_parallel(files)
+            else:
+                self._build_sequential(files)
 
             with self._lock:
                 self._built = True
@@ -236,6 +233,103 @@ class SymbolIndex:
             with self._lock:
                 self._building = False
                 self._build_event.set()  # unblock waiters
+
+    def _build_sequential(self, files: list[str | Path]) -> None:
+        """Index files one at a time (local filesystem)."""
+        batch: list[tuple[str, list[SymbolInfo]]] = []
+        for file_path in files:
+            symbols = self._extract_symbols_from_file(str(file_path))
+            batch.append((str(file_path), symbols))
+            if len(batch) >= SYMBOL_INDEX_BATCH_SIZE:
+                self._commit_batch(batch)
+                batch.clear()
+        if batch:
+            self._commit_batch(batch)
+
+    def _build_remote_parallel(self, files: list[str]) -> None:
+        """Download remote files via the batch API and index them.
+
+        Uses ``sandbox.fs.download_files`` to fetch all files in a single
+        multipart HTTP stream, eliminating per-file connection overhead
+        that made cold starts take ~20 min for 300 files.
+        """
+        sandbox = self._sandbox
+        fs = getattr(sandbox, "fs", None) if sandbox is not None else None
+        download_files_fn = getattr(fs, "download_files", None)
+
+        # Only use batch API if the sandbox exposes a real download_files
+        # (not an auto-generated MagicMock attribute).
+        has_batch = False
+        if callable(download_files_fn):
+            try:
+                from daytona_sdk.common.filesystem import FileDownloadRequest  # noqa: F401
+
+                # Verify it's from the real SDK, not a mock auto-attr
+                has_batch = hasattr(download_files_fn, "__func__") or hasattr(
+                    download_files_fn, "__wrapped__"
+                )
+                if not has_batch:
+                    # Also accept if the module path looks like daytona_sdk
+                    mod = getattr(type(fs), "__module__", "") or ""
+                    has_batch = "daytona" in mod
+            except ImportError:
+                pass
+
+        if not has_batch:
+            self._build_remote_individual(files)
+            return
+
+        from daytona_sdk.common.filesystem import FileDownloadRequest
+
+        _BATCH_DOWNLOAD_SIZE = 50
+
+        for i in range(0, len(files), _BATCH_DOWNLOAD_SIZE):
+            chunk = files[i : i + _BATCH_DOWNLOAD_SIZE]
+            try:
+                requests = [FileDownloadRequest(source=fp) for fp in chunk]
+                responses = self._resolve(download_files_fn(requests))
+            except Exception:
+                logger.debug(
+                    "Batch download_files failed for chunk %d–%d, falling back",
+                    i, i + len(chunk), exc_info=True,
+                )
+                self._build_remote_individual(chunk)
+                continue
+
+            commit_batch: list[tuple[str, list[SymbolInfo]]] = []
+            for resp in responses or []:
+                fp = getattr(resp, "source", None)
+                if fp is None:
+                    continue
+                if getattr(resp, "error", None) or getattr(resp, "result", None) is None:
+                    logger.debug("Batch download skipped %s: %s", fp, getattr(resp, "error", "no data"))
+                    continue
+                raw = resp.result
+                content = raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
+                symbols = self._extract_symbols_from_file(fp, content)
+                commit_batch.append((fp, symbols))
+
+            if commit_batch:
+                self._commit_batch(commit_batch)
+
+    def _build_remote_individual(self, files: list[str]) -> None:
+        """Fallback: download files individually using a thread pool."""
+        _POOL_SIZE = 8
+
+        def _download_and_extract(fp: str) -> tuple[str, list[SymbolInfo]]:
+            content = self._read_file_content(fp)
+            symbols = self._extract_symbols_from_file(fp, content) if content else []
+            return (fp, symbols)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=_POOL_SIZE) as pool:
+            batch: list[tuple[str, list[SymbolInfo]]] = []
+            for result in pool.map(_download_and_extract, files):
+                batch.append(result)
+                if len(batch) >= SYMBOL_INDEX_BATCH_SIZE:
+                    self._commit_batch(batch)
+                    batch.clear()
+            if batch:
+                self._commit_batch(batch)
 
     def _commit_batch(self, batch: list[tuple[str, list[SymbolInfo]]]) -> None:
         """Commit a batch of indexed files."""
@@ -264,9 +358,60 @@ class SymbolIndex:
         return files
 
     def _collect_remote_files(self, root: str) -> list[str] | None:
-        """Collect indexable files from a sandbox workspace root."""
+        """Collect indexable files from a sandbox workspace root.
+
+        Prefers ``sandbox.fs.search_files`` (single glob API call) when
+        available, falling back to recursive ``list_files`` traversal.
+        """
         sandbox = self._sandbox
         fs = getattr(sandbox, "fs", None) if sandbox is not None else None
+
+        # Try fast path: search_files with glob patterns (1 HTTP call per ext)
+        files = self._collect_remote_files_via_search(fs, root)
+        if files is not None:
+            return files
+
+        # Fallback: recursive directory traversal
+        return self._collect_remote_files_via_list(fs, root)
+
+    def _collect_remote_files_via_search(
+        self, fs: Any, root: str,
+    ) -> list[str] | None:
+        """Use sandbox.fs.search_files to discover files in one call."""
+        search_fn = getattr(fs, "search_files", None)
+        if not callable(search_fn):
+            return None
+        # Verify it's a real SDK method, not a MagicMock auto-attr
+        mod = getattr(type(fs), "__module__", "") or ""
+        if "daytona" not in mod:
+            return None
+
+        try:
+            result = self._resolve(search_fn(root, "*.{py,js,ts,jsx,tsx,java,go,rs,rb,php,c,cpp,h,hpp,cs,swift,kt,scala,sh}"))
+            raw_files = getattr(result, "files", None) or []
+        except Exception:
+            logger.debug("search_files failed, falling back to list_files", exc_info=True)
+            return None
+
+        files: list[str] = []
+        for fp in raw_files:
+            if len(files) >= self._max_files:
+                break
+            if not isinstance(fp, str):
+                continue
+            parts = Path(fp).parts
+            if any(part in SKIP_DIRECTORIES for part in parts):
+                continue
+            if Path(fp).suffix.lower() in SUPPORTED_EXTENSIONS:
+                files.append(fp)
+
+        files.sort()
+        return files
+
+    def _collect_remote_files_via_list(
+        self, fs: Any, root: str,
+    ) -> list[str] | None:
+        """Fallback: recursive list_files directory traversal."""
         list_files_fn = getattr(fs, "list_files", None)
         if not callable(list_files_fn):
             return None
@@ -315,8 +460,172 @@ class SymbolIndex:
         ext = Path(file_path).suffix.lower()
         if ext == ".py":
             return self._extract_python_symbols(file_path, content)
-        # For other languages, extract basic symbols via lightweight patterns.
+        # Try tree-sitter for richer non-Python symbols
+        tree_sitter_symbols = self._extract_tree_sitter_symbols(file_path, content)
+        if tree_sitter_symbols:
+            return tree_sitter_symbols
+        # Fallback to regex patterns
         return self._extract_generic_symbols(file_path, content)
+
+    def _extract_tree_sitter_symbols(self, file_path: str, content: str) -> list[SymbolInfo]:
+        """Extract non-Python symbols from a cached tree-sitter parse when available."""
+        if self._tree_cache is None:
+            return []
+        entry = self._tree_cache.get_tree(file_path, content=content)
+        if entry is None:
+            return []
+        root = getattr(entry.tree, "root_node", None)
+        if root is None:
+            return []
+
+        symbols: list[SymbolInfo] = []
+        self._walk_tree_sitter(root, file_path, content, symbols, container="")
+        return symbols
+
+    def _walk_tree_sitter(
+        self,
+        node: Any,
+        file_path: str,
+        content: str,
+        bucket: list[SymbolInfo],
+        container: str,
+    ) -> None:
+        node_type = str(getattr(node, "type", "") or "")
+        current_container = container
+
+        if node_type in {"class_declaration", "class_definition"}:
+            symbol = self._tree_sitter_symbol(node, file_path, content, SymbolKind.CLASS, container)
+            if symbol is not None:
+                bucket.append(symbol)
+                current_container = symbol.name
+        elif node_type in {"function_declaration", "generator_function_declaration"}:
+            symbol = self._tree_sitter_symbol(node, file_path, content, SymbolKind.FUNCTION, container)
+            if symbol is not None:
+                bucket.append(symbol)
+        elif node_type in {"method_definition", "method_signature"}:
+            symbol = self._tree_sitter_symbol(node, file_path, content, SymbolKind.METHOD, container)
+            if symbol is not None:
+                bucket.append(symbol)
+        elif node_type == "interface_declaration":
+            symbol = self._tree_sitter_symbol(node, file_path, content, SymbolKind.INTERFACE, container)
+            if symbol is not None:
+                bucket.append(symbol)
+                current_container = symbol.name
+        elif node_type == "variable_declarator":
+            kind = (
+                SymbolKind.CONSTANT
+                if self._is_const_declaration(node, content)
+                else SymbolKind.VARIABLE
+            )
+            symbol = self._tree_sitter_symbol(node, file_path, content, kind, container)
+            if symbol is not None:
+                bucket.append(symbol)
+        elif node_type in {"public_field_definition", "field_definition"}:
+            symbol = self._tree_sitter_symbol(node, file_path, content, SymbolKind.PROPERTY, container)
+            if symbol is not None:
+                bucket.append(symbol)
+
+        for child in self._node_children(node):
+            self._walk_tree_sitter(child, file_path, content, bucket, current_container)
+
+    def _tree_sitter_symbol(
+        self,
+        node: Any,
+        file_path: str,
+        content: str,
+        kind: SymbolKind,
+        container: str,
+    ) -> SymbolInfo | None:
+        name_node = self._node_name(node)
+        if name_node is None:
+            return None
+        name = self._node_text(name_node, content).strip()
+        if not name:
+            return None
+        full_name = f"{container}.{name}" if container and kind in {SymbolKind.METHOD, SymbolKind.PROPERTY} else name
+        start_line, start_char = self._node_start(node)
+        end_line, _ = self._node_end(node)
+        signature = self._signature_text(node, content)
+        return SymbolInfo(
+            name=full_name,
+            kind=kind,
+            file_path=file_path,
+            line=start_line,
+            end_line=end_line,
+            character=start_char,
+            signature=signature,
+            container=container,
+        )
+
+    @staticmethod
+    def _node_children(node: Any) -> list[Any]:
+        children = getattr(node, "children", None)
+        if children is None:
+            return []
+        return list(children)
+
+    def _node_name(self, node: Any) -> Any | None:
+        child_by_field = getattr(node, "child_by_field_name", None)
+        if callable(child_by_field):
+            named = child_by_field("name")
+            if named is not None:
+                return named
+        for child in self._node_children(node):
+            child_type = str(getattr(child, "type", "") or "")
+            if child_type in {
+                "identifier",
+                "type_identifier",
+                "property_identifier",
+                "shorthand_property_identifier",
+            }:
+                return child
+        return None
+
+    @staticmethod
+    def _node_text(node: Any, content: str) -> str:
+        start_byte = getattr(node, "start_byte", None)
+        end_byte = getattr(node, "end_byte", None)
+        if isinstance(start_byte, int) and isinstance(end_byte, int):
+            return content[start_byte:end_byte]
+        return str(getattr(node, "text", "") or "")
+
+    @staticmethod
+    def _point_to_position(point: Any) -> tuple[int, int]:
+        if isinstance(point, tuple) and len(point) >= 2:
+            return int(point[0]) + 1, int(point[1])
+        row = getattr(point, "row", None)
+        column = getattr(point, "column", None)
+        if row is not None and column is not None:
+            return int(row) + 1, int(column)
+        return 0, 0
+
+    def _node_start(self, node: Any) -> tuple[int, int]:
+        return self._point_to_position(getattr(node, "start_point", None))
+
+    def _node_end(self, node: Any) -> tuple[int, int]:
+        return self._point_to_position(getattr(node, "end_point", None))
+
+    def _signature_text(self, node: Any, content: str) -> str:
+        text = self._node_text(node, content).strip()
+        if not text:
+            return ""
+        return text.splitlines()[0][:100]
+
+    def _is_const_declaration(self, node: Any, content: str) -> bool:
+        current = getattr(node, "parent", None)
+        while current is not None:
+            current_type = str(getattr(current, "type", "") or "")
+            if current_type == "lexical_declaration":
+                for child in self._node_children(current):
+                    child_type = str(getattr(child, "type", "") or "")
+                    if child_type == "const":
+                        return True
+                    child_text = self._node_text(child, content).strip()
+                    if child_text == "const":
+                        return True
+                return False
+            current = getattr(current, "parent", None)
+        return False
 
     def _extract_python_symbols(self, file_path: str, content: str) -> list[SymbolInfo]:
         """Extract symbols from Python source using ast."""
