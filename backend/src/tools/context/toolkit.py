@@ -168,7 +168,7 @@ class ContextChangedSinceTool(BaseTool):
         context.metadata["checked_context_freshness"] = True
         report = await check_freshness(context)
         # Update the freshness baseline so subsequent checks (e.g. in
-        # submit_summary posthook) only report changes since THIS check,
+        # post_note posthook) only report changes since THIS check,
         # not since work_item_started_at.  Fixes the monotonic-count bug
         # where sibling completions accumulate across the entire run.
         import time as _time
@@ -194,7 +194,6 @@ class ContextChangedSinceTool(BaseTool):
 # ---------------------------------------------------------------------------
 
 _ALL_TOOLS = [
-    PostNoteTool(),
     ReadNotesTool(),
     ContextChangedSinceTool(),
 ]

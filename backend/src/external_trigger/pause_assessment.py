@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from external_trigger.agent import spawn_and_run
+from external_trigger.agent import run_external_trigger
 from tools.external_trigger.pause_verdict import PauseVerdictInput, PauseVerdictTool
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ async def assess_pause(
         "Call the pause_verdict tool with your assessment."
     )
 
-    result = await spawn_and_run(
+    result = await run_external_trigger(
         agent_name=f"pause_assessor:{task_id}",
         messages=messages,
         system_prompt=system_prompt,

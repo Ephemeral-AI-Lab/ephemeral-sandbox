@@ -706,7 +706,7 @@ def _make_runner(
             compacted_before = int(agent.query_context.session_state.compacted)
 
         # Redirect the spawned agent's tool_metadata to the team ctx so
-        # submit_plan / submit_summary tools write into the correct slot.
+        # submit_plan / post_note tools write into the correct slot.
         # Preserve session_config and sandbox_id that spawn_agent installed.
         spawned_meta = agent.query_context.tool_metadata
         if getattr(spawned_meta, "session_config", None) is not None:
@@ -810,9 +810,8 @@ def _make_runner(
                             if event.tool_name in {
                                 "post_note",
                                 "submit_plan",
-                                "submit_summary",
+                                "post_note",
                                 "submit_replan",
-                                "request_retry",
                                 "request_replan",
                                 "add_tasks",
                                 "declare_blocker",

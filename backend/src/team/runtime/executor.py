@@ -9,7 +9,7 @@ import uuid
 from collections.abc import Awaitable
 from typing import TYPE_CHECKING, Any, Callable
 
-from team.models import AgentResult, BlockerDeclaration, Plan, ReplanPlan, ReplanRequest, RetryRequest, SubmittedSummary
+from team.models import AgentResult, BlockerDeclaration, Plan, ReplanPlan, ReplanRequest, RetryRequest
 from team.runtime.context_builder import TeamAgentContext
 
 if TYPE_CHECKING:
@@ -24,8 +24,8 @@ QueryContextBuilder = Callable[["AgentDefinition", "TeamRun", "Task"], Awaitable
 
 
 def _record_to_task(rec: Any) -> "Task":
-    from team.task_center import _record_to_task as _convert
-    return _convert(rec)
+    from team.persistence.task_store import record_to_task
+    return record_to_task(rec)
 
 
 class Executor:
@@ -243,14 +243,12 @@ class Executor:
         # Map RunResult → domain objects
         tool_input = result.tool_input
         match result.tool_name:
-            case "submit_summary":
-                return AgentResult(summary=tool_input.get("summary", ""))
+            case "post_note":
+                return AgentResult(summary=tool_input.get("content", ""))
             case "submit_plan":
                 return AgentResult(summary="", submitted_plan=Plan.from_dict(tool_input))
             case "submit_replan" | "add_tasks" | "cancel_and_redraft":
                 return AgentResult(summary="", submitted_replan=ReplanPlan.from_dict(tool_input))
-            case "request_retry":
-                return RetryRequest(reason=tool_input.get("reason", ""))
             case "request_replan":
                 return ReplanRequest(
                     reason=tool_input.get("reason", ""),
@@ -275,8 +273,6 @@ class Executor:
                 return AgentResult(summary="", submitted_plan=submitted)
             if isinstance(submitted, ReplanPlan):
                 return AgentResult(summary="", submitted_replan=submitted)
-            if isinstance(submitted, SubmittedSummary):
-                return AgentResult(summary=submitted.summary)
             if isinstance(submitted, RetryRequest):
                 return submitted
             if isinstance(submitted, ReplanRequest):
@@ -359,7 +355,7 @@ class Executor:
             f"Reason: {reason}\n"
             f"Do NOT repeat the same approach. If this is your last retry "
             f"(max_retries={task.max_retries}), call `request_replan()` "
-            f"instead of `request_retry()` so a replanner can restructure the work."
+            f"so a replanner can restructure the work."
         )
         from team.models import Note
         try:

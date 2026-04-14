@@ -100,15 +100,14 @@ def test_budget_warning_guides_planner_to_submit_plan():
     ctx.tool_metadata["role"] = "planner"
     _, event = build_budget_warning(ctx)
     assert "submit_plan()" in event.text
-    assert "submit_summary()" not in event.text
 
 
-def test_budget_warning_guides_validator_to_replan_on_red():
+def test_budget_warning_guides_validator_to_wrap_up():
     ctx = _ctx(100, 75)
     ctx.tool_metadata["role"] = "reviewer"
     _, event = build_budget_warning(ctx)
-    assert "request_replan()" in event.text
-    assert "submit_summary()" in event.text
+    assert "verdict" in event.text.lower()
+    assert "Wrap up" in event.text
 
 
 def test_budget_warning_emits_once_per_remaining_count():

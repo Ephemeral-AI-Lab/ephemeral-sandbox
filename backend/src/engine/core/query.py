@@ -125,7 +125,7 @@ def _consume_tool_budget_or_reject(
             content=(
                 f"tool_call_limit exceeded: {context.tool_call_limit} tool "
                 f"calls already used. The agent run will terminate after "
-                f"this turn — call submit_summary / submit_plan now to "
+                f"this turn — wrap up and summarize your progress now to "
                 f"preserve partial work."
             ),
             is_error=True,

@@ -6,6 +6,7 @@ model: inherit
 agent_type: subagent
 tool_call_limit: 100
 toolkits: ["code_intelligence", "context"]
+posthook: ["post_note"]
 skills: ["team-scout-playbook"]
 ---
 # Task

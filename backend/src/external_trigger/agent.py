@@ -16,7 +16,7 @@ from tools.core.base import BaseTool
 logger = logging.getLogger(__name__)
 
 
-async def spawn_and_run(
+async def run_external_trigger(
     *,
     agent_name: str,
     messages: list[dict[str, Any]],

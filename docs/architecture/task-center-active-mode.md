@@ -1,10 +1,10 @@
-# TaskCenter Active Mode — Automatic Note Generation via EphemeralTask
+# TaskCenter Active Mode — Automatic Note Generation via External Trigger
 
-**Status:** PROPOSED  
+**Status:** IMPLEMENTED  
 **Date:** 2026-04-14  
 **Branch:** `codex/pydantic-benchmark-loop`  
 **Author:** Architecture session  
-**Depends on:** Dynamic Replanning Blocker Protocol (dynamic-replanning-blocker-protocol.md), Section 8 (EphemeralTask Module)
+**Depends on:** Dynamic Replanning Blocker Protocol (dynamic-replanning-blocker-protocol.md), External Trigger Module (external_trigger/)
 
 ---
 
@@ -12,7 +12,7 @@
 
 The existing TaskCenter is a passive store — it holds notes and serves them. The existing edit-based nudge in query.py injects a SystemReminderBlock hoping the agent will call post_note. The agent may ignore it.
 
-In active mode, the TaskCenter takes ownership of its own content quality. It tracks agent activity, detects when an agent has been silent too long, and spawns an EphemeralTask to produce a note on the agent's behalf. The agent is never interrupted. The note is guaranteed.
+In active mode, the TaskCenter takes ownership of its own content quality. It tracks agent activity, detects when an agent has been silent too long, and spawns an external_trigger agent to produce a note on the agent's behalf. The agent is never interrupted. The note is guaranteed via `tool_choice="any"` with retry.
 
 ---
 
@@ -28,11 +28,11 @@ In active mode, the TaskCenter takes ownership of its own content quality. It tr
         on_edit(task_id, file_path)     track edit activity
         on_posthook(task_id)            track posthook activity
         tick(task_id)                   track turn activity
-        check(task_id, executor)        spawn EphemeralTask if thresholds crossed
+        check(task_id, executor)        spawn external_trigger agent if thresholds crossed
 
     The active methods are called by the executor (outside the query loop).
-    The TaskCenter decides when to spawn, and uses the EphemeralTask module
-    to execute the snapshot.
+    The TaskCenter decides when to spawn, and uses the external_trigger module
+    (run_external_trigger → runner.run()) to execute the snapshot.
 
 ---
 
@@ -89,10 +89,10 @@ The TaskCenter maintains per-task counters:
     |                    | threshold crossed?               |
     |                    |                                  |
     |              +-----v-----+                            |
-    |              | Ephemeral |  snapshot conversation      |
-    |              | Task      |  single LLM call           |
-    |              | (parallel)|  produces note text         |
-    |              +-----+-----+                            |
+    |              | External  |  spawn ephemeral agent     |
+    |              | Trigger   |  snapshot + PostNoteTool   |
+    |              | Agent     |  tool_choice="any", retry  |
+    |              +-----+-----+  guaranteed tool call      |
     |                    |                                  |
     |                    v                                  |
     |              TaskCenter.post(note)                    |
@@ -252,37 +252,43 @@ The EphemeralTask needs a read-only snapshot of the running agent's conversation
 
 ---
 
-## Integration with EphemeralTask Module
+## Integration with External Trigger Module
 
-    TaskCenter uses the EphemeralTask module, not the other way around.
+    TaskCenter uses the external_trigger module, not the other way around.
 
     TaskCenter.check()
           |
           | threshold crossed
           v
-    Create EphemeralTask instance:
+    Call run_checkpoint_note() from external_trigger.tc_note:
         task_id         = the tracked task's ID
-        snapshot        = executor conversation snapshot (read-only copy)
+        agent_run_id    = original agent's run ID
+        messages        = executor conversation snapshot (read-only copy)
         prompt          = edit prompt or turn prompt (depending on trigger)
-        system_prompt   = "You are a progress reporter..."
         max_tokens      = 500
         model           = cheaper model if configured (e.g. Haiku)
-        timeout_seconds = 30
+        api_client      = from team_run
           |
           v
-    EphemeralTask.run() returns EphemeralTaskResult
+    run_external_trigger() spawns ephemeral agent identity
+          |
+          v
+    runner.run() with [PostNoteTool], tool_choice="any", retry until success
+          |
+          v
+    RunResult(tool_name="post_note", validated=PostNoteInput(...))
           |
           v
     TaskCenter.post(Note(
         task_id     = original task's ID,
         agent_name  = original agent + " (auto)",
-        content     = result.text,
+        content     = result.note_summary,
         scope_paths = original task's scope_paths,
     ))
 
-    The EphemeralTask module is a dependency of TaskCenter.
-    The Conductor also uses EphemeralTask (for PauseAssessmentTask).
-    Both are consumers of the same module.
+    The external_trigger module is a dependency of TaskCenter.
+    The Conductor also uses external_trigger (for pause assessment).
+    Both are consumers of the same runner.run() loop.
 
 ---
 
@@ -292,29 +298,39 @@ The EphemeralTask needs a read-only snapshot of the running agent's conversation
     |    Conductor      |         |    TaskCenter        |
     |                   |         |    (active mode)     |
     |  uses:            |         |                      |
-    |  PauseAssessment  |         |  uses:               |
-    |  Task             |         |  EphemeralTask       |
-    +--------+----------+         |  (for auto notes)    |
-             |                    +----------+-----------+
+    |  assess_pause()   |         |  uses:               |
+    |  (pause_assess-   |         |  run_checkpoint_note |
+    |   ment.py)        |         |  (tc_note.py)        |
+    +--------+----------+         +----------+-----------+
              |                               |
              +---------------+---------------+
                              |
                              v
                  +-----------------------+
-                 |   EphemeralTask       |
-                 |   Module              |
+                 | external_trigger/     |
                  |                       |
-                 |   ephemeral_task/     |
-                 |                       |
-                 |   EphemeralTask       |
-                 |   EphemeralTaskResult |
-                 |   PauseAssessmentTask |
-                 |   PauseVerdict        |
+                 |   runner.run()        |  shared LLM loop
+                 |   run_external_       |  tool_choice="any"
+                 |     trigger()         |  retry until success
+                 |   RunResult           |
+                 +-----------------------+
+                             |
+                             v
+                 +-----------------------+
+                 | tools/external_       |
+                 |   trigger/            |
+                 |   PauseVerdictTool    |
+                 +-----------------------+
+                 | tools/context/        |
+                 |   PostNoteTool        |
+                 |   (multi-type:        |
+                 |    external_trigger   |
+                 |    + post_run)        |
                  +-----------------------+
 
-    EphemeralTask module is standalone.
+    external_trigger module is standalone.
     TaskCenter and Conductor are independent consumers.
-    Neither depends on the other for EphemeralTask usage.
+    Executor also uses runner.run() for post-run submission.
 
 ---
 

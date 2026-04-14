@@ -40,14 +40,12 @@ def _budget_warning_steps(context: "QueryContext") -> str:
         return (
             "1. Run one final exact verification command (daytona_codeact) only if you still need decisive evidence.\n"
             "2. Call context_changed_since() if you have not already.\n"
-            "3. If the result is green, call submit_summary(); if it is red, call request_replan() "
-            "(or request_retry() only for transient runtime faults)."
+            "3. Wrap up — state your verdict clearly (PASS or FAILURE with evidence) in your final message."
         )
     return (
         "1. Run one final verification command (daytona_codeact) on your most critical test.\n"
         "2. Call context_changed_since() if you have not already.\n"
-        "3. If you are green, call submit_summary(); if you are blocked or red, call request_replan() "
-        "(or request_retry() only for transient runtime faults)."
+        "3. Wrap up — summarize what you accomplished and what remains in your final message."
     )
 
 

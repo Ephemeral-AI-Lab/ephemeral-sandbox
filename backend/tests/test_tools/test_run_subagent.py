@@ -30,7 +30,7 @@ from tools.subagent.run_subagent_tool import (
 from team.builtins import register_all as _register_team_builtins
 
 
-if get_agent_definition("submit_summary_agent") is None:
+if get_agent_definition("developer") is None:
     try:
         _register_team_builtins()
     except Exception:

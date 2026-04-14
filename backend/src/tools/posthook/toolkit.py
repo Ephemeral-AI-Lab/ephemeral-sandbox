@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from agents.registry import get_definition
 from team.planning.validation import validate_plan
+from tools.context.toolkit import PostNoteTool
 from tools.core.base import BaseTool, BaseToolkit, ToolExecutionContext, ToolResult
 
 
@@ -200,57 +201,6 @@ def _coordination_warning_gate(
 
 
 # ---------------------------------------------------------------------------
-# DoneTool
-# ---------------------------------------------------------------------------
-
-
-class DoneInput(BaseModel):
-    summary: str = Field(
-        ...,
-        description=(
-            "1-3 sentence summary of what you accomplished, followed by: "
-            "what public interface you exposed (functions, classes, endpoints), "
-            "any breaking changes to existing contracts, "
-            "and new dependencies other agents should know about. "
-            "This summary is posted to the Task Center and becomes the primary "
-            "context for downstream dependent tasks."
-        ),
-        min_length=1,
-    )
-
-
-class SubmitSummaryTool(BaseTool):
-    name = "submit_summary"
-    description = (
-        "Signal task completion with a summary. Must be called exactly once. "
-        "Use this when your task is finished successfully. If you hit a transient "
-        "failure (timeout, sandbox error), use request_retry instead. If the task "
-        "scope is wrong or needs restructuring, use request_replan instead."
-    )
-    input_model = DoneInput
-    tool_types = frozenset({"post_run"})
-
-    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
-        assert isinstance(arguments, DoneInput)
-        from team.models import SubmittedSummary
-
-        summary = arguments.summary.strip()
-        if not summary:
-            return ToolResult(output="Error: summary must be non-empty", is_error=True)
-        warning_gate = _coordination_warning_gate(context, action="submit_summary()")
-        if warning_gate is not None:
-            return warning_gate
-        freshness_gate = await _freshness_submission_gate(context, action="submit_summary()")
-        if freshness_gate is not None:
-            return freshness_gate
-
-        submission = SubmittedSummary(summary=summary)
-        context.metadata["submitted_output"] = submission
-        await _post_submission_note(context, content=summary)
-        return ToolResult(output=f"Summary accepted ({len(summary)} chars).")
-
-
-# ---------------------------------------------------------------------------
 # SubmitPlanTool
 # ---------------------------------------------------------------------------
 
@@ -346,45 +296,6 @@ class SubmitPlanTool(BaseTool):
 
 
 # ---------------------------------------------------------------------------
-# RequestRetryTool
-# ---------------------------------------------------------------------------
-
-
-class RequestRetryInput(BaseModel):
-    reason: str = Field(
-        ...,
-        description=(
-            "Why retry is needed. Include the specific transient error "
-            "(e.g. 'sandbox timeout after 30s', 'network error downloading file'). "
-            "This reason is posted to the Task Center and visible on the next attempt."
-        ),
-    )
-
-
-class RequestRetryTool(BaseTool):
-    name = "request_retry"
-    description = (
-        "Request a retry of the current task. Use for transient failures "
-        "(sandbox timeout, network error, flaky test) where re-running the same "
-        "task with fresh state is likely to succeed. If the task scope itself is "
-        "wrong or needs restructuring, use request_replan instead."
-    )
-    input_model = RequestRetryInput
-    tool_types = frozenset({"post_run"})
-
-    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
-        assert isinstance(arguments, RequestRetryInput)
-        from team.models import RetryRequest
-
-        warning_gate = _coordination_warning_gate(context, action="request_retry()")
-        if warning_gate is not None:
-            return warning_gate
-        context.metadata["submitted_output"] = RetryRequest(reason=arguments.reason)
-        await _post_submission_note(context, content=f"Requested retry: {arguments.reason}")
-        return ToolResult(output="Retry requested.")
-
-
-# ---------------------------------------------------------------------------
 # RequestReplanTool
 # ---------------------------------------------------------------------------
 
@@ -410,8 +321,7 @@ class RequestReplanTool(BaseTool):
         "Request a replan of the current task scope. Use when the task itself is "
         "mis-scoped — wrong files, scope too broad, missing dependencies, or the "
         "decomposition needs restructuring. A replanner agent will create corrective "
-        "sibling tasks. If the failure is transient (timeout, flaky), use "
-        "request_retry instead."
+        "sibling tasks."
     )
     input_model = RequestReplanInput
     tool_types = frozenset({"post_run"})
@@ -590,8 +500,10 @@ class PosthookTools(BaseToolkit):
                 CancelAndRedraftTool(),
                 SubmitReplanTool(),
             ]
+        elif role == "explorer":
+            tools = [PostNoteTool()]
         else:
-            tools = [SubmitSummaryTool(), RequestRetryTool(), RequestReplanTool()]
+            tools = [PostNoteTool(), RequestReplanTool()]
         return cls(
             name="posthook",
             description="Posthook submission tools for the current agent role.",

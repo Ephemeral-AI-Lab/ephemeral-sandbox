@@ -227,21 +227,21 @@ def test_coordination_gate_returns_none_with_warnings():
             {"category": "write_scope", "message": "some warning"},
         ],
     })
-    result = _coordination_warning_gate(ctx, action="submit_summary()")
+    result = _coordination_warning_gate(ctx, action="post_note()")
     assert result is None
 
 
 def test_coordination_gate_returns_none_without_warnings():
     """Gate returns None even with empty warnings list."""
     ctx = _ctx({"coordination_warnings": []})
-    result = _coordination_warning_gate(ctx, action="submit_summary()")
+    result = _coordination_warning_gate(ctx, action="post_note()")
     assert result is None
 
 
 def test_coordination_gate_returns_none_with_no_metadata():
     """Gate returns None when no coordination_warnings key exists."""
     ctx = _ctx({})
-    result = _coordination_warning_gate(ctx, action="request_retry()")
+    result = _coordination_warning_gate(ctx, action="request_replan()")
     assert result is None
 
 
@@ -253,7 +253,7 @@ def test_coordination_gate_returns_none_with_many_warnings():
             for i in range(10)
         ],
     })
-    result = _coordination_warning_gate(ctx, action="submit_summary()")
+    result = _coordination_warning_gate(ctx, action="post_note()")
     assert result is None
 
 

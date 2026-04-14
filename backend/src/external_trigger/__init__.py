@@ -2,10 +2,10 @@
 
 Both external-trigger calls (pause assessment, checkpoint notes) and post-run
 calls (submission) use the same ``runner.run()`` loop. External triggers
-spawn ephemeral agents via ``agent.spawn_and_run()``.
+spawn ephemeral agents via ``agent.run_external_trigger()``.
 """
 
-from external_trigger.agent import spawn_and_run
+from external_trigger.agent import run_external_trigger
 from external_trigger.runner import RunResult, run
 
-__all__ = ["RunResult", "run", "spawn_and_run"]
+__all__ = ["RunResult", "run", "run_external_trigger"]

@@ -66,9 +66,10 @@ This split is artificial. Notes and tasks are two views of the same thing — a 
             TaskCenter methods or DispatchQueue methods.
             No wrapper, no delegation — direct ownership.
 
-    DG-5    query.py untouched
-            The unification is a backend restructuring.
-            The query loop does not change.
+    DG-5    query.py simplified
+            The DAG unification is a backend restructuring.
+            Posthook logic removed from query loop (moved to executor
+            post-run via external_trigger.runner).
 
 ---
 
@@ -673,9 +674,9 @@ The migration is an absorption, not a rewrite. The SQL in DispatcherStore is pro
     PostgreSQL schema          same tasks table, same columns
     SQL queries                same queries, same atomicity
     TaskCenter note API        same post/read/context_for interface
-    Query loop (query.py)      untouched
-    Agent tools                unchanged (they call posthook, not Dispatcher)
-    EphemeralTask module       unchanged (it's standalone)
+    Query loop (query.py)      posthook logic removed, post-run via executor
+    Agent tools                posthook tools tagged tool_types={"post_run"}
+    external_trigger/          replaces ephemeral_task/ (shared runner)
 
 ---
 
@@ -725,9 +726,19 @@ The migration is an absorption, not a rewrite. The SQL in DispatcherStore is pro
         team/models.py                  (Task, TaskSpec, Plan, etc.)
         team/persistence/task_record.py (ORM model)
         team/persistence/schema.sql     (PostgreSQL schema)
-        engine/core/query.py            (query loop)
-        tools/posthook/toolkit.py       (agent tools)
-        ephemeral_task/                 (standalone module)
+
+    MODIFIED (tool type system + post-run)
+        engine/core/query.py            (posthook logic removed)
+        tools/core/base.py              (ToolType, tool_types on BaseTool)
+        tools/posthook/toolkit.py       (tool_types={"post_run"})
+        tools/context/toolkit.py        (PostNoteTool multi-type)
+
+    NEW
+        external_trigger/               (replaces ephemeral_task/)
+        tools/external_trigger/         (PauseVerdictTool)
+
+    DELETED
+        ephemeral_task/                 (replaced by external_trigger/)
 
 ---
 

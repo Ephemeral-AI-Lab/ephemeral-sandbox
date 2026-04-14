@@ -19,7 +19,7 @@
 5. [Data Model](#5-data-model)
 6. [Replanner Decision Tree](#6-replanner-decision-tree)
 7. [Blocker Lifecycle](#7-blocker-lifecycle)
-8. [EphemeralTask Module](#8-ephemeraltask-module)
+8. [External Trigger Module](#8-ephemeraltask-module)
 9. [Conductor](#9-conductor)
 10. [Toolkit Changes](#10-toolkit-changes)
 11. [Dispatcher Changes](#11-dispatcher-changes)
@@ -57,7 +57,7 @@ With this protocol: the replanner detects the systemic pattern, declares a block
 | G-3 | Conductor is deterministic | Conductor executes blocker mechanics. No LLM calls. Fully testable. |
 | G-4 | query.py untouched | Blocker protocol operates outside the query loop. No injection, no halt directives, no buffer flushes. |
 | G-5 | Sibling scoped | Blocker assesses all siblings of the initiating task plus their subtree children. No cross-subtree coordination. Simple and predictable. |
-| G-6 | Zero impact on unaffected agents | EphemeralTask-based assessment means agents that are not affected never see the blocker notification. |
+| G-6 | Zero impact on unaffected agents | External-trigger-based assessment means agents that are not affected never see the blocker notification. |
 | G-7 | Non-running tasks untouched | Only RUNNING agents are assessed and potentially paused. READY/PENDING/FAILED tasks keep their status unchanged. |
 | G-8 | Replanner sees active blockers | Replanner context includes active blocker info so it can merge related failures into existing blockers rather than creating duplicates. |
 | G-9 | Durable blocker state | Blockers are persisted to the database and restored on crash/restart. |
@@ -87,7 +87,7 @@ With this protocol: the replanner detects the systemic pattern, declares a block
          |                                          lift pop_ready guard,
          |                                          spawn replanner for initiator
          v
-    Resumed Agents  "Continuing from checkpoint"    resume from EphemeralTask state
+    Resumed Agents  "Continuing from checkpoint"    resume from external trigger checkpoint state
 
 ### System-Level Flow
 
@@ -145,7 +145,7 @@ With this protocol: the replanner detects the systemic pattern, declares a block
 
 PAUSED is non-terminal. This is the critical property: a parent with a PAUSED child stays EXPANDED. The maybe_promote_expanded_parent function will not promote the parent to DONE while any child is PAUSED. No ancestor chain reopening is needed in the common case.
 
-Only RUNNING tasks can transition to PAUSED (via PauseAssessmentTask YES verdict). Non-running tasks (READY, PENDING, FAILED) are never touched by the blocker protocol — the pop_ready guard prevents dispatch during an active blocker, but their status remains unchanged.
+Only RUNNING tasks can transition to PAUSED (via pause assessment YES verdict). Non-running tasks (READY, PENDING, FAILED) are never touched by the blocker protocol — the pop_ready guard prevents dispatch during an active blocker, but their status remains unchanged.
 
 ### Transition Diagram
 
@@ -169,7 +169,7 @@ Only RUNNING tasks can transition to PAUSED (via PauseAssessmentTask YES verdict
        |                          blocker
        |                          created
        |                             |
-       |                    PAUSED <--- RUNNING (via PauseAssessmentTask+terminate)
+       |                    PAUSED <--- RUNNING (via pause assessment+terminate)
        |                       |
        |                       | blocker resolved
        |                       v
@@ -197,7 +197,7 @@ Only RUNNING tasks can transition to PAUSED (via PauseAssessmentTask YES verdict
         fix_task_id         str or None         the task assigned to fix the root cause
         declared_by         str or None         the replanner task that declared this
         fix_summary         str or None         filled when fix completes
-        pending_assessments  int                 PauseAssessmentTasks still awaiting response
+        pending_assessments  int                 pause assessments still awaiting response
         created_at          float               timestamp
 
     Assessment scope is determined structurally: all siblings of the
@@ -207,7 +207,7 @@ Only RUNNING tasks can transition to PAUSED (via PauseAssessmentTask YES verdict
 
 ### BlockerStatus
 
-    ASSESSING       spawning PauseAssessmentTasks for RUNNING agents, waiting for verdicts
+    ASSESSING       spawning pause assessments for RUNNING agents, waiting for verdicts
     FIXING          all assessments resolved, resolver task is running
     RESOLVED        fix complete, assessed agents resumed, replanner spawned for initiator
     FAILED          resolver could not fix, team run marked FAILED
@@ -215,8 +215,8 @@ Only RUNNING tasks can transition to PAUSED (via PauseAssessmentTask YES verdict
 ### TaskRecord Additions
 
     blocker_id          str or None         which blocker paused this task
-    pause_checkpoint    blob or None        PauseAssessmentTask's display_messages for resume
-    pause_verdict       str or None         PauseAssessmentTask's YES reason
+    pause_checkpoint    blob or None        pause assessment's display_messages for resume
+    pause_verdict       str or None         pause assessment's YES reason
 
     Only tasks paused from RUNNING have these fields populated.
     Non-running tasks (READY, PENDING, FAILED) are never touched by the
@@ -227,7 +227,7 @@ Only RUNNING tasks can transition to PAUSED (via PauseAssessmentTask YES verdict
     Only one resume path exists: PAUSED → READY (from formerly-RUNNING tasks).
 
     Resume: new agent run starting from pause_checkpoint
-    Context: PauseAssessmentTask's full conversation + resume message appended
+    Context: pause assessment's full conversation + resume message appended
     The resumed agent sees everything the original did, plus why it was paused,
     plus what was fixed.
 
@@ -324,7 +324,7 @@ Each attempt is a new task with a clean record. The original stays FAILED with i
                         +------------+
                         | ASSESSING  |
                         |            |
-                        | spawn PauseAssessmentTasks for RUNNING agents
+                        | spawn pause assessments for RUNNING agents
                         | non-running tasks UNTOUCHED (stay as-is)
                         | activate pop_ready guard against blast_radius
                         +-----+------+
@@ -370,14 +370,14 @@ Each attempt is a new task with a clean record. The original stays FAILED with i
     |    UNTOUCHED. Status remains as-is.                       |
     |                                                           |
     |  Running tasks (ALL siblings+descendants):                |
-    |    Spawn PauseAssessmentTask per agent (parallel).        |
-    |    Let the EphemeralTask decide YES or NO.                |
+    |    Spawn pause assessment per agent (parallel).        |
+    |    Let the external trigger decide YES or NO.                |
     |    YES: terminate original, save conversation, PAUSED.    |
     |    NO: discard, original continues unaware.               |
     |    TIMEOUT / error: skip (agent keeps running).           |
     |                                                           |
     |  No tiers. No auto-halt. No scope classification.         |
-    |  One rule: running = EphemeralTask decides.               |
+    |  One rule: running = external trigger decides.               |
     |  Non-running = never touched.                             |
     |                                                           |
     +-----------------------------------------------------------+
@@ -423,64 +423,79 @@ On merge, assess_running re-runs against siblings+descendants. Tasks already PAU
 
 ---
 
-## 8. EphemeralTask Module
+## 8. External Trigger Module
 
-An EphemeralTask is a single-shot LLM call that reads an agent's conversation snapshot, answers one question, and terminates. It is not a full agent run — no tools, no loop, no state. It is the lightest possible unit of work in the system.
+An external trigger spawns an ephemeral agent that inherits a conversation snapshot, has constrained tools, and is guaranteed to produce a valid tool call. It replaces the former external trigger module with a unified tool-call-based design shared with the post-run submission phase.
 
-EphemeralTask is a shared module used by both the Conductor (for pause assessment) and the TaskCenter active mode (for progress reporting). It lives in its own file and provides the common mechanism that both consumers use.
+The external_trigger module is used by both the Conductor (for pause assessment) and the TaskCenter active mode (for progress reporting). Both paths use the same `runner.run()` loop.
 
 ### Core Principle
 
-    The original agent NEVER sees the EphemeralTask.
-    The EphemeralTask sees everything the original saw PLUS one question.
-    The original is never interrupted (unless PauseAssessmentTask says YES).
+    The original agent NEVER sees the external trigger agent.
+    The external trigger agent sees everything the original saw PLUS one question.
+    The original is never interrupted (unless pause assessment says YES).
 
-### EphemeralTask Base
+### External Trigger Runner
 
-    EphemeralTask
-        A single LLM call with a focused purpose.
+    runner.run()
+        Shared LLM loop for both external_trigger and post_run phases.
 
-        Fields
-            task_id             str             the original task this is observing
-            agent_run_id        str             the original agent run
-            snapshot            list of messages display_messages at snapshot time
-            prompt              str             the question to answer
-            system_prompt       str             system prompt for the LLM call
-            max_tokens          int             output cap (default 500)
-            model               str or None     optional cheaper model override
-            timeout_seconds     int             max wait time (default 30)
+        Parameters
+            messages            list of dict    frozen conversation snapshot
+            system_prompt       str             system prompt for the session
+            prompt              str             injected as final user message
+            tools               list of BaseTool constrained tool set
+            api_client          Any             Anthropic-compatible client
+            max_tokens_per_turn int             output cap (default 500)
+            model               str or None     optional model override
 
         Execution
-            run() returns EphemeralTaskResult
-                Builds messages = snapshot + one user message (prompt).
-                Single LLM call. No tools. No loop.
-                Returns the response text.
-                On timeout: returns EphemeralTaskResult with timed_out=True.
+            Always uses tool_choice="any" — every turn produces a tool call.
+            Validates with Pydantic (tool.input_model).
+            Retries indefinitely on validation failure (error fed back).
+            Only exit: successful validated tool call or asyncio cancellation.
 
-    EphemeralTaskResult
-        text                str             the LLM response
-        timed_out           bool            whether the call timed out
-        elapsed_seconds     float           how long the call took
+    run_external_trigger()
+        Agent identity wrapper over runner.run().
+        Adds agent_name + logging for observability.
+        Used by Conductor and TaskCenter (not by Executor post-run).
 
-### Two Concrete Types
+    RunResult
+        tool_name           str             which tool the LLM chose
+        tool_input          dict            raw input
+        validated           BaseModel       Pydantic-validated input
+        conversation        list of dict    full trail for audit/resume
+        turns_used          int             how many turns before success
 
-    PauseAssessmentTask (extends EphemeralTask concept)
+### Tool Type System
+
+    ToolType = Literal["normal", "post_run", "external_trigger"]
+
+    Each BaseTool has tool_types: set[ToolType] (can have multiple).
+    PauseVerdictTool: tool_types = {"external_trigger"}
+    PostNoteTool:     tool_types = {"external_trigger", "post_run"}
+    Posthook tools:   tool_types = {"post_run"}
+
+### Two Concrete Uses
+
+    Pause Assessment (external_trigger/pause_assessment.py)
         Purpose: decide if a running agent is affected by a blocker
         Triggered by: Conductor
+        Tool: PauseVerdictTool (answer: YES/NO, reason: str)
         Prompt: "Based on your work, does your task depend on {broken_files}?"
-        Output: parsed into PauseVerdict (YES/NO/TIMEOUT + reason)
+        Output: RunResult → PauseVerdict (YES/NO + reason)
         Effect: YES → terminate original, save conversation as resume point
                 NO → discard, original unaware
-                TIMEOUT → treat as YES (conservative)
 
-    CheckpointTask (extends EphemeralTask concept)
+    Checkpoint Note (external_trigger/tc_note.py)
         Purpose: produce a progress note on behalf of a running agent
         Triggered by: TaskCenter active mode
+        Tool: PostNoteTool (content: str, scope_paths: list)
         Prompt: "Summarize progress. Report blockers." (varies by trigger)
-        Output: note text posted to TaskCenter
+        Output: RunResult → NoteSummary
         Effect: note posted under original task's ID, original unaware
 
-### PauseAssessmentTask — Blocker Impact Assessment
+### pause assessment — Blocker Impact Assessment
 
 #### Fork Diagram
 
@@ -514,7 +529,7 @@ EphemeralTask is a shared module used by both the Conductor (for pause assessmen
                      |        |        |               | continues...  |
                      |        |        |               +----------------+
 
-The original did tool calls 4 and 5 after the snapshot. Those are lost. The resumed agent starts from the EphemeralTask's conversation (snapshot at tool 3 plus blocker question plus YES answer). This is correct — tool calls 4 and 5 happened against broken code and their results are unreliable.
+The original did tool calls 4 and 5 after the snapshot. Those are lost. The resumed agent starts from the external trigger agent's conversation (snapshot at tool 3 plus blocker question plus YES answer). This is correct — tool calls 4 and 5 happened against broken code and their results are unreliable.
 
 #### Assessment Says NO
 
@@ -533,11 +548,11 @@ The original did tool calls 4 and 5 after the snapshot. Those are lost. The resu
                      |        |        |      discard    |        |
                      |        |        |                  |        |
                      Agent-B finished normally.                    |
-                     Never saw the EphemeralTask. Zero impact.    |
+                     Never saw the external trigger agent. Zero impact.    |
 
-#### PauseAssessmentTask Input
+#### pause assessment Input
 
-The EphemeralTask's input is the original agent's full display_messages plus one new user message:
+The external trigger agent's input is the original agent's full display_messages plus one new user message:
 
     Input:
         system_prompt: same as original agent
@@ -565,7 +580,7 @@ The EphemeralTask's input is the original agent's full display_messages plus one
         "YES: I imported dask.compatibility in tool call 1 to access the
          parse function. My HDF reader depends on it for version string parsing."
 
-The EphemeralTask has full context — it saw every tool call the original agent made, every file read, every import. It knows exactly whether it touched the broken dependency.
+The external trigger agent has full context — it saw every tool call the original agent made, every file read, every import. It knows exactly whether it touched the broken dependency.
 
 #### PauseVerdict
 
@@ -578,7 +593,7 @@ The EphemeralTask has full context — it saw every tool call the original agent
 
 #### Timeout
 
-    EphemeralTask spawned
+    External trigger agent spawned
           |
           +--- LLM responds within 30 seconds ---> normal YES/NO path
           |
@@ -596,7 +611,7 @@ The executor manages the agent run as an asyncio task. The Conductor terminates 
 
 #### Safety Net — Replanner-Based
 
-If a PauseAssessmentTask says NO (or was skipped due to timeout)
+If a pause assessment says NO (or was skipped due to timeout)
 but the original agent later fails, the normal replanner flow handles
 it.  The replanner receives active blocker context (see G-8) and can
 decide whether to merge the failure into the existing blocker via
@@ -661,29 +676,29 @@ No Conductor.on_task_failed method is needed.
 
 ### Module Structure
 
-    ephemeral_task/ (NEW)
+    external_trigger/ (NEW)
 
     Contains:
-        EphemeralTask           base dataclass + run() method
-        EphemeralTaskResult         result dataclass
-        PauseAssessmentTask     blocker assessment (used by Conductor)
+        external trigger           base dataclass + run() method
+        RunResult         result dataclass
+        pause assessment     blocker assessment (used by Conductor)
         PauseVerdict            parsed YES/NO result
         CheckpointTask          progress reporting (used by TaskCenter active mode)
 
     Consumers:
-        Conductor               imports PauseAssessmentTask, PauseVerdict
+        Conductor               imports pause assessment, PauseVerdict
         TaskCenter active mode     imports CheckpointTask
         Executor                provides display_messages snapshots to both
 
     The module is standalone — no dependency on query.py, Conductor,
     or TaskCenter active mode. Those are consumers, not dependencies.
-    The EphemeralTask only needs an API client to make the LLM call.
+    The external trigger agent only needs an API client to make the LLM call.
 
-### EphemeralTask Uses — Complete Map
+### external trigger Uses — Complete Map
 
-    Trigger              EphemeralTask Type       Output             Effect
+    Trigger              external trigger Type       Output             Effect
 
-    Blocker declared     PauseAssessmentTask      YES/NO verdict     terminate if YES
+    Blocker declared     pause assessment      YES/NO verdict     terminate if YES
     (Conductor)                                                      none if NO
 
     5 edits              CheckpointTask           progress note      none on original
@@ -699,7 +714,7 @@ No Conductor.on_task_failed method is needed.
 
 ### What the Conductor Is
 
-The Conductor is a deterministic, non-LLM system actor within the TeamRun. It executes blocker mechanics: pause, assess, terminate, fix, resume. It makes no judgment calls. All judgment comes from the replanner (which declares the blocker) and PauseAssessmentTasks (which answer YES/NO).
+The Conductor is a deterministic, non-LLM system actor within the TeamRun. It executes blocker mechanics: pause, assess, terminate, fix, resume. It makes no judgment calls. All judgment comes from the replanner (which declares the blocker) and pause assessments (which answer YES/NO).
 
 ### What the Conductor Is Not
 
@@ -735,7 +750,7 @@ The Conductor spawns resolver tasks (a dedicated role, not a normal developer) f
             assess_running(blocker)
                 Queries all siblings of the initiating task plus their
                 subtree children.  Filters to RUNNING status only.
-                Spawns one PauseAssessmentTask per RUNNING task via
+                Spawns one pause assessment per RUNNING task via
                 asyncio.gather. Each assessment is a single LLM call.
                 TIMEOUT / error → skip (agent keeps running).
                 Non-running tasks (READY/PENDING/FAILED) are NEVER touched.
@@ -973,7 +988,7 @@ The replanner now sees live siblings. It can assess their state, read their note
         UPDATE tasks SET status = 'paused', blocker_id = blocker_id,
             pause_checkpoint = checkpoint, pause_verdict = verdict
         WHERE id = task_id AND status = 'running'
-        Used only for RUNNING tasks after PauseAssessmentTask says YES.
+        Used only for RUNNING tasks after pause assessment says YES.
         Non-running tasks are never paused.
 
     resume_paused_tasks(run_id, blocker_id) returns int
@@ -1030,7 +1045,7 @@ When a formerly-paused task dispatches, the executor injects a resume message as
         Fix applied: (fix_summary from resolver)
 
         Why you were paused (your own assessment):
-        (pause_verdict — the PauseAssessmentTask's YES reason)
+        (pause_verdict — the pause assessment's YES reason)
 
         Your progress before pause:
         (pause_checkpoint summary)
@@ -1038,18 +1053,18 @@ When a formerly-paused task dispatches, the executor injects a resume message as
         Continue from where you left off.
         Re-read any files from the affected scope that you previously read.
 
-### Resume — From PauseAssessmentTask Checkpoint
+### Resume — From pause assessment Checkpoint
 
-Only formerly-RUNNING tasks are paused and resumed. They resume from the PauseAssessmentTask's conversation, not from scratch:
+Only formerly-RUNNING tasks are paused and resumed. They resume from the pause assessment's conversation, not from scratch:
 
-    1. Load pause_checkpoint (the PauseAssessmentTask's display_messages)
+    1. Load pause_checkpoint (the pause assessment's display_messages)
     2. Append the resume message as a new user message
     3. Start a new agent run with these messages as the conversation history
     4. The query loop runs normally from there
 
 The resumed agent sees:
     - Everything the original did before the snapshot (all tool calls)
-    - The blocker question (injected into the PauseAssessmentTask)
+    - The blocker question (injected into the pause assessment)
     - Its own YES answer (the assessment's reasoning about why it was affected)
     - The resume message (what was fixed, continue working)
 
@@ -1131,13 +1146,13 @@ The replanner reads this and immediately sees: fix-compat broke a shared depende
 
 See separate document: [task-center-active-mode.md](task-center-active-mode.md)
 
-The TaskCenter gains an active mode where it tracks agent activity (edits, turns, posthook calls) and spawns EphemeralTasks to auto-generate progress notes when agents are silent too long. This is an independent feature that complements the blocker protocol by ensuring the replanner has rich sibling context (via read_notes(scope="siblings")).
+The TaskCenter gains an active mode where it tracks agent activity (edits, turns, posthook calls) and spawns external trigger agents to auto-generate progress notes when agents are silent too long. This is an independent feature that complements the blocker protocol by ensuring the replanner has rich sibling context (via read_notes(scope="siblings")).
 
-Key relationship to the blocker protocol: the turn-trigger EphemeralTask prompt explicitly asks about blockers. Auto-generated notes surface blocker evidence early, giving the replanner higher-confidence signals for declare_blocker decisions.
+Key relationship to the blocker protocol: the turn-trigger external trigger prompt explicitly asks about blockers. Auto-generated notes surface blocker evidence early, giving the replanner higher-confidence signals for declare_blocker decisions.
 
 ### 13.3 Conversation Snapshot Mechanism
 
-The EphemeralTask (both PauseAssessmentTask and auto-note generation) needs a read-only snapshot of the running agent's conversation. The current Executor delegates to a QueryRunner callable and does not retain conversation state. This requires a lightweight extension.
+The external trigger module (both pause assessment and auto-note generation) needs a read-only snapshot of the running agent's conversation. The current Executor delegates to a QueryRunner callable and does not retain conversation state. This requires a lightweight extension.
 
 #### Design
 
@@ -1318,8 +1333,8 @@ This is slightly redundant (two fix tasks for the same file) but correct and dra
 ### Blast Radius vs Root Cause Paths
 
     root_cause_paths    The specific broken files. Used by the fix task to know
-                        what to repair. Included in PauseAssessmentTask prompts
-                        so the EphemeralTask can identify direct impact.
+                        what to repair. Included in pause assessment prompts
+                        so the external trigger can identify direct impact.
 
     blast_radius        The broader scope of files that might be affected.
                         Declared by the replanner based on its assessment of
@@ -1409,9 +1424,9 @@ Conductor creates Blocker with initiating_task_id=hdf-02. Begins assess_running:
         hdf-03 to hdf-32: stay READY. Pop_ready guard blocks dispatch.
         hdf-02: stays FAILED. Will be handled by post-fix replanner.
 
-    PauseAssessmentTask (running agents):
+    pause assessment (running agents):
         hdf-01 is RUNNING with scope dask/dataframe/io/hdf.py.
-        Conductor spawns PauseAssessmentTask for hdf-01.
+        Conductor spawns pause assessment for hdf-01.
 
         Assessment sees hdf-01's full conversation.
         Assessment sees: "BLOCKER CHECK: dask/compatibility.py is broken."
@@ -1508,7 +1523,7 @@ hdf-01 resumes and completes. hdf-03 to hdf-32 dispatch and complete. The replan
         team/task_center.py
             + Active mode: on_edit, on_posthook, tick, on_note_posted
               (see task-center-active-mode.md for full spec)
-            + check (spawn EphemeralTask when thresholds crossed)
+            + check (spawn external trigger agent when thresholds crossed)
             read_notes: add scope="siblings" mode (Section 13.1)
             + ActivityCounters per-task internal state
             context_for: add resume message injection at Priority 0
@@ -1527,10 +1542,10 @@ hdf-01 resumes and completes. hdf-03 to hdf-32 dispatch and complete. The replan
             Wire Conductor into lifecycle
 
     NEW
-        ephemeral_task/
-            EphemeralTask base (single LLM call mechanism)
-            EphemeralTaskResult dataclass
-            PauseAssessmentTask (used by Conductor for blocker impact assessment)
+        external_trigger/
+            external trigger base (single LLM call mechanism)
+            RunResult dataclass
+            pause assessment (used by Conductor for blocker impact assessment)
             PauseVerdict (parsed YES/NO result)
 
         team/runtime/conductor.py
@@ -1570,10 +1585,10 @@ Six phases. Phases within the same tier have no dependencies on each other and c
     TIER 0 (foundations — no dependencies, all parallel)
     +------------------+     +------------------+     +------------------+
     | Phase A          |     | Phase B          |     | Phase C          |
-    | EphemeralTask    |     | PAUSED Status    |     | Dispatcher       |
+    | external trigger    |     | PAUSED Status    |     | Dispatcher       |
     | Module           |     | + Blocker Model  |     | request_replan   |
     |                  |     |                  |     | remove auto-     |
-    | ephemeral_task/  |     | team/models.py   |     | cancel           |
+    | external_trigger/  |     | team/models.py   |     | cancel           |
     |                  |     |                  |     |                  |
     | deps: none       |     | deps: none       |     | deps: none       |
     +------------------+     +------------------+     +------------------+
@@ -1592,32 +1607,32 @@ Six phases. Phases within the same tier have no dependencies on each other and c
     | deps: A, B       |     | deps: C          |     | deps: A          |
     +------------------+     +------------------+     +------------------+
 
-### Phase A — EphemeralTask Module
+### Phase A — External Trigger Module
 
     Status: [ ]
     Deps: none
     Parallel with: B, C
 
     Deliverables:
-        [ ] ephemeral_task/__init__.py
-        [ ] EphemeralTask base class
+        [ ] external_trigger/__init__.py
+        [ ] external trigger base class
             - Fields: task_id, snapshot, prompt, system_prompt,
               max_tokens, model, timeout_seconds
-            - run() method: single LLM call, no tools, returns EphemeralTaskResult
-        [ ] EphemeralTaskResult dataclass
+            - run() method: single LLM call, no tools, returns RunResult
+        [ ] RunResult dataclass
             - Fields: text, timed_out, elapsed_seconds
-        [ ] PauseAssessmentTask (extends EphemeralTask concept)
+        [ ] pause assessment (extends external trigger concept)
             - Builds blocker check prompt
             - Parses YES/NO/TIMEOUT from response
         [ ] PauseVerdict dataclass
             - Fields: task_id, answer (YES/NO/TIMEOUT), reason, conversation
 
     Tests:
-        [ ] EphemeralTask.run returns result with mock API client
-        [ ] EphemeralTask.run returns timed_out=True on timeout
-        [ ] PauseAssessmentTask parses YES correctly
-        [ ] PauseAssessmentTask parses NO correctly
-        [ ] PauseAssessmentTask returns TIMEOUT on slow response
+        [ ] external trigger.run returns result with mock API client
+        [ ] external trigger.run returns timed_out=True on timeout
+        [ ] pause assessment parses YES correctly
+        [ ] pause assessment parses NO correctly
+        [ ] pause assessment returns TIMEOUT on slow response
 
 ### Phase B — PAUSED Status + Blocker Model
 
@@ -1670,7 +1685,7 @@ Six phases. Phases within the same tier have no dependencies on each other and c
 ### Phase D — Conductor
 
     Status: [ ]
-    Deps: Phase A (EphemeralTask), Phase B (PAUSED + Blocker model)
+    Deps: Phase A (external trigger), Phase B (PAUSED + Blocker model)
     Parallel with: E, F
 
     Deliverables:
@@ -1678,10 +1693,10 @@ Six phases. Phases within the same tier have no dependencies on each other and c
         [ ] Conductor class with:
             - register_executor / unregister_executor
             - create_blocker (from replanner's declare_blocker verdict)
-            - assess_running (spawn PauseAssessmentTasks for RUNNING agents only;
+            - assess_running (spawn pause assessments for RUNNING agents only;
               non-running tasks are NEVER touched)
             - _spawn_pause_assessments (asyncio.gather, parallel)
-            - _run_pause_assessment (uses PauseAssessmentTask from Phase A)
+            - _run_pause_assessment (uses pause assessment from Phase A)
             - _on_pause_yes (terminate executor, save checkpoint, mark PAUSED)
             - _on_pause_no (discard, log)
             - spawn_resolver (create resolver task at depth=0, dedicated role)
@@ -1700,7 +1715,7 @@ Six phases. Phases within the same tier have no dependencies on each other and c
             - register/unregister with Conductor
 
     Tests:
-        [ ] assess_running spawns PauseAssessmentTask ONLY for RUNNING agents
+        [ ] assess_running spawns pause assessment ONLY for RUNNING agents
         [ ] assess_running does NOT touch READY/PENDING/FAILED tasks
         [ ] YES verdict terminates executor and saves checkpoint
         [ ] NO verdict discards assessment, original continues
@@ -1757,7 +1772,7 @@ Six phases. Phases within the same tier have no dependencies on each other and c
 ### Phase F — TaskCenter Active Mode
 
     Status: [ ]
-    Deps: Phase A (EphemeralTask)
+    Deps: Phase A (external trigger)
     Parallel with: D, E
 
     Deliverables:
@@ -1768,7 +1783,7 @@ Six phases. Phases within the same tier have no dependencies on each other and c
             - on_posthook(task_id)
             - tick(task_id)
             - on_note_posted(task_id) — reset counters, called by post()
-            - check(task_id, executor) — spawn EphemeralTask if threshold crossed
+            - check(task_id, executor) — spawn external trigger agent if threshold crossed
             read_notes: add scope="siblings" mode (Section 13.1)
         [ ] Executor changes:
             - call task_center.on_edit when edit tool completes
@@ -1787,8 +1802,8 @@ Six phases. Phases within the same tier have no dependencies on each other and c
         [ ] on_edit increments edit counter
         [ ] on_posthook resets turn counter
         [ ] tick increments turn counter
-        [ ] check spawns EphemeralTask after 5 edits
-        [ ] check spawns EphemeralTask after 10 turns without posthook
+        [ ] check spawns external trigger after 5 edits
+        [ ] check spawns external trigger after 10 turns without posthook
         [ ] Auto-generated note posted with "(auto)" suffix
         [ ] post() calls on_note_posted to reset counters
         [ ] read_notes scope="siblings" resolves sibling subtree and returns notes
@@ -1800,7 +1815,7 @@ Six phases. Phases within the same tier have no dependencies on each other and c
     Time ---->
 
     Week 1:     Phase A          Phase B          Phase C
-                EphemeralTask    PAUSED + Blocker  Dispatcher change
+                external trigger    PAUSED + Blocker  Dispatcher change
                 (standalone)     (models + store)  (remove auto-cancel)
                     |                |                 |
                     |                |                 |
@@ -1813,7 +1828,7 @@ Six phases. Phases within the same tier have no dependencies on each other and c
                 End-to-end walkthrough of the compatibility.py scenario
 
     3 developers can work in parallel:
-        Dev 1: Phase A then Phase D (EphemeralTask → Conductor)
+        Dev 1: Phase A then Phase D (external trigger → Conductor)
         Dev 2: Phase B then Phase E (Models → Replanner toolkit)
         Dev 3: Phase C then Phase F (Dispatcher → TaskCenter active)
 
@@ -1866,4 +1881,4 @@ The replanner must correctly triage. If it calls add_tasks when it should declar
 
 ### What Earns the 8
 
-Developer is trivially simple. Single decision point for all failure recovery. Conductor is fully testable and deterministic. PauseAssessmentTask is zero-impact when the answer is NO. query.py is completely untouched. PAUSED status solves parent-promotion invariant cleanly. Scoped to siblings means no ancestor reopening in the common case. Maps onto existing models. Three replanner tools have zero semantic overlap.
+Developer is trivially simple. Single decision point for all failure recovery. Conductor is fully testable and deterministic. pause assessment is zero-impact when the answer is NO. query.py is completely untouched. PAUSED status solves parent-promotion invariant cleanly. Scoped to siblings means no ancestor reopening in the common case. Maps onto existing models. Three replanner tools have zero semantic overlap.

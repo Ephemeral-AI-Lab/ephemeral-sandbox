@@ -8,7 +8,7 @@ Use this reference immediately before the first scout wave or whenever scout lau
 3. Queue the whole useful wave before any progress check, wait, or reaction to early output.
 4. Must finish queuing the useful wave before any progress check or reaction to early scout output.
 5. Inspect fresh scouts with `check_background_progress(...)` before any `wait_for_background_task(...)`.
-6. Scouts must `post_note(scope_paths=[...])`. After the wave, planners must `read_notes(scope_paths=[...])`.
+6. Scouts post findings to the Task Center after their work completes. After the wave, planners must `read_notes(scope_paths=[...])`.
 7. Reuse existing Task Center notes when the same scope already has coverage; same-turn overlap is a reuse signal, not a cue to relaunch the same explorer.
 8. If cold CI blocked exact-file confirmation, overwrite any stale guessed aliases in the first-wave ledger and launch the nearest stable production boundary instead of synthesizing a guessed exact path.
 9. Record the exact returned `task_id` for every scout and use only those literal ids in progress checks or waits.

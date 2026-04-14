@@ -9,7 +9,7 @@ Use this skill only after verification fails. Triage failures for retry or repla
 
 ## Conditional references
 
-- Load `triage-format` when you need to produce a manual FAIL summary because `request_retry()` or `request_replan()` is absent.
+- Load `triage-format` when you need to produce a manual FAIL summary because `request_replan()` is absent.
 - Load `triage-format` when multiple failing clusters need to be grouped into one structured report.
 
 ## Workflow
@@ -22,8 +22,7 @@ Use this skill only after verification fails. Triage failures for retry or repla
 
 ## Action rules
 
-- If `request_retry()` is available and the failure is transient, use it first.
-- If `request_replan()` is available and the failure is not transient, use it.
+- If `request_replan()` is available, use it for any failure (transient or structural).
 - If the needed tool is absent, emit the same triage in the final FAIL summary.
 
 ## Required triage block

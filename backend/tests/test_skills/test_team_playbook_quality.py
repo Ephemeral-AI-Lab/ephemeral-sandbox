@@ -34,6 +34,9 @@ _REFERENCES = [
     _CONTENT / "team-posthook-decision-playbook/references/decision-gates.md",
     _CONTENT / "team-validator-playbook/references/cross-surface-guardrails.md",
     _CONTENT / "team-replanner-playbook/references/corrective-fast-path.md",
+    _CONTENT / "team-replanner-playbook/references/action-add-tasks.md",
+    _CONTENT / "team-replanner-playbook/references/action-declare-blocker.md",
+    _CONTENT / "team-replanner-playbook/references/action-cancel-and-redraft.md",
     _CONTENT / "verification-replan/references/triage-format.md",
 ]
 _REFERENCES = [path for path in _REFERENCES if path.exists()]
@@ -389,7 +392,7 @@ def test_scout_playbook_keeps_missing_targets_missing() -> None:
     )
     assert "Never claim code was created, fixed, patched, or refactored." in scout
     assert "The note is the durable contract; downstream planners should rely on `read_notes(...)`" in scout
-    assert "Task Center note should usually cover `Scope`, `Files mapped`, `Entry points`, `Owner seam`, `Suggested subdivisions`, and `Gaps`." in scout
+    assert "The note should usually cover `Scope`, `Files mapped`, `Entry points`, `Owner seam`, `Suggested subdivisions`, and `Gaps`." in scout
     assert "Final assistant message should be one short prose sentence" in scout
     assert "Never dump JSON artifacts" in scout
     assert "Use CI symbol/reference/hover evidence before any file read" in scout
@@ -446,4 +449,5 @@ def test_worker_playbooks_do_not_mention_submitters_or_action_routing() -> None:
         content = _read(path)
         assert "submit_summary" not in content
         assert "submit_replan" not in content
+        assert "request_retry" not in content
         assert "RECOMMENDED_ACTION" not in content
