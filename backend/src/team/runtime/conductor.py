@@ -277,6 +277,12 @@ class Conductor:
 
     async def _spawn_post_fix_replanner(self, blocker: Blocker, fix_summary: str) -> None:
         tc = self._team_run.task_center
+        # Find the root original task — if the initiating task was itself a
+        # replanner, follow fired_by_task_id to the real origin.
+        replan_target = blocker.initiating_task_id
+        initiating_rec = await tc.store.get_record(blocker.initiating_task_id)
+        if initiating_rec and initiating_rec.fired_by_task_id:
+            replan_target = initiating_rec.fired_by_task_id
         request = ReplanRequest(
             reason=(
                 f"Shared blocker resolved for {', '.join(blocker.root_cause_paths)}. "
@@ -285,7 +291,7 @@ class Conductor:
             suggestion="Retry or narrow the original failed task now that the shared root cause is fixed.",
         )
         try:
-            await tc.request_replan(blocker.initiating_task_id, request)
+            await tc.request_replan(replan_target, request)
             return
         except Exception as exc:
             logger.warning("Falling back to manual post-fix replanner spawn: %s", exc)

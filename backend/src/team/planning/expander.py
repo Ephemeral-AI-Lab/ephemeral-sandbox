@@ -236,4 +236,4 @@ class PlanExpander:
                         make_task_added(self._team_run_id, task_to_dict(graph[item.id]))
                     )
 
-        return {"added": len(specs), "cancelled": len(cancel_ids)}
+        return {"added": len(specs), "cancelled": len(cancel_ids), "inserted_ids": [r.id for r in inserted]}

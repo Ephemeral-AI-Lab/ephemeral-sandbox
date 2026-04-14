@@ -294,6 +294,14 @@ class TaskCenter:
         return new_items
 
     async def fail(self, task_id: str, reason: str) -> None:
+        # If a replanner fails, also fail the original task it was fired for
+        rec = await self._store.get_record(task_id)
+        if rec and rec.fired_by_task_id:
+            origin = await self._store.get_record(rec.fired_by_task_id)
+            if origin and origin.status == "replanning":
+                await self._store.fail_with_cascade(
+                    rec.fired_by_task_id, f"replanner_failed: {reason}"
+                )
         before = self._transitions.snapshot()
         warnings = await self._store.fail_task(task_id, reason)
         for dep_id, msg in warnings:
@@ -344,6 +352,23 @@ class TaskCenter:
             target_parent_id=target_parent_id,
             target_root_id=target_root_id,
         )
+
+        # If this replanner was fired by a REPLANNING task, rewire dependents
+        replanner_rec = await self._store.get_record(replan_task_id)
+        if replanner_rec and replanner_rec.fired_by_task_id:
+            original_rec = await self._store.get_record(replanner_rec.fired_by_task_id)
+            if original_rec and original_rec.status == "replanning":
+                new_task_ids = outcome.get("inserted_ids", [])
+                if new_task_ids:
+                    await self._store.rewire_dependents(
+                        replanner_rec.fired_by_task_id, new_task_ids
+                    )
+                else:
+                    await self._store.fail_with_cascade(
+                        replanner_rec.fired_by_task_id,
+                        "replan_produced_no_tasks",
+                    )
+
         await self._transitions.refresh_and_emit(before)
         return outcome
 

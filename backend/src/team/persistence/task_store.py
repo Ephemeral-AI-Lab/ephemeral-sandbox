@@ -13,7 +13,7 @@ from sqlalchemy import and_, case, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import aliased
 
-from team.models import Task, TaskSpec, TaskStatus, _utcnow
+from team.models import TERMINAL_STATUSES, Task, TaskSpec, TaskStatus, _utcnow
 from team.persistence.ltree_utils import path_to_ltree
 from team.persistence.task_graph import TaskGraph
 from team.persistence.task_record import TaskRecord
@@ -41,6 +41,7 @@ def record_to_task(rec: TaskRecord) -> Task:
         finished_at=rec.finished_at,
         failure_reason=rec.failure_reason,
         blocker_id=getattr(rec, "blocker_id", None),
+        fired_by_task_id=getattr(rec, "fired_by_task_id", None),
         pause_checkpoint=getattr(rec, "pause_checkpoint", None),
         pause_verdict=getattr(rec, "pause_verdict", None),
     )
@@ -512,6 +513,88 @@ class TaskStore:
         await self.refresh_graph()
         return cancelled
 
+    async def rewire_dependents(
+        self, original_task_id: str, new_dep_ids: list[str]
+    ) -> list[str]:
+        """Replace *original_task_id* in every dependent's deps with *new_dep_ids*.
+
+        After rewiring, marks the original task FAILED (terminal) — safe because
+        nothing depends on it anymore.  Returns IDs of dependents that were
+        rewired (and any that got promoted to READY).
+        """
+        rid = self._team_run_id
+        rewired: list[str] = []
+        promoted: list[str] = []
+        async with self._sf() as db:
+            # 1. Find all non-terminal tasks that depend on the original
+            rows = (
+                await db.execute(
+                    select(TaskRecord)
+                    .where(
+                        TaskRecord.team_run_id == rid,
+                        TaskRecord.deps.any(original_task_id),
+                        TaskRecord.status.notin_(
+                            [s.value for s in TERMINAL_STATUSES]
+                        ),
+                    )
+                )
+            ).scalars().all()
+
+            if not rows:
+                # No dependents — just mark original failed
+                await self._mark_terminal_sql(db, original_task_id, "failed",
+                                              "replan_completed_no_dependents")
+                await db.commit()
+                await self.refresh_graph()
+                return []
+
+            # 2. Collect all unique dep IDs we need statuses for
+            all_dep_ids: set[str] = set()
+            for dep_rec in rows:
+                new_deps = [d for d in dep_rec.deps if d != original_task_id] + list(new_dep_ids)
+                all_dep_ids.update(new_deps)
+
+            # Bulk-fetch statuses
+            done_ids: set[str] = set()
+            if all_dep_ids:
+                done_rows = (
+                    await db.execute(
+                        select(TaskRecord.id)
+                        .where(
+                            TaskRecord.team_run_id == rid,
+                            TaskRecord.id.in_(all_dep_ids),
+                            TaskRecord.status == "done",
+                        )
+                    )
+                ).scalars().all()
+                done_ids = set(done_rows)
+
+            # 3. Rewire each dependent
+            for dep_rec in rows:
+                new_deps = [d for d in dep_rec.deps if d != original_task_id] + list(new_dep_ids)
+                # Deduplicate while preserving order
+                seen: set[str] = set()
+                unique_deps: list[str] = []
+                for d in new_deps:
+                    if d not in seen:
+                        seen.add(d)
+                        unique_deps.append(d)
+                dep_rec.deps = unique_deps
+                pending = sum(1 for d in unique_deps if d not in done_ids)
+                dep_rec.pending_dep_count = pending
+                if pending == 0 and dep_rec.status == "pending":
+                    dep_rec.status = "ready"
+                    promoted.append(dep_rec.id)
+                rewired.append(dep_rec.id)
+
+            # 4. Mark original as FAILED (nothing depends on it now)
+            await self._mark_terminal_sql(db, original_task_id, "failed",
+                                          "replan_completed_deps_rewired")
+            await db.commit()
+
+        await self.refresh_graph()
+        return rewired + promoted
+
     async def fail_task(self, task_id: str, reason: str) -> list[tuple[str, str]]:
         warnings: list[tuple[str, str]] = []
         rid = self._team_run_id
@@ -890,15 +973,15 @@ class TaskStore:
             ).first()
             if rec is None:
                 raise RuntimeError(f"replan: {task_id} not found")
-            await db.execute(
-                update(TaskRecord)
-                .where(TaskRecord.id == task_id, TaskRecord.team_run_id == rid)
-                .values(
-                    status="failed",
-                    finished_at=func.now(),
-                    failure_reason=f"replan_requested: {reason}",
+            if rec.status != "replanning":
+                await db.execute(
+                    update(TaskRecord)
+                    .where(TaskRecord.id == task_id, TaskRecord.team_run_id == rid)
+                    .values(
+                        status="replanning",
+                        failure_reason=f"replan_requested: {reason}",
+                    )
                 )
-            )
             await db.commit()
         async with self._sf() as db:
             replanner_id = str(uuid.uuid4())
@@ -906,6 +989,9 @@ class TaskStore:
             if suggestion:
                 task_text += f"\nSuggestion: {suggestion}"
             scope_paths = list(rec.scope_paths) if rec.scope_paths else []
+            # fired_by_task_id always points to the root original, not
+            # an intermediate replanner, so chains stay one-hop deep.
+            root_origin = getattr(rec, "fired_by_task_id", None) or task_id
             replanner = TaskRecord(
                 id=replanner_id,
                 team_run_id=rid,
@@ -919,6 +1005,7 @@ class TaskStore:
                 root_id=rec.root_id or "",
                 depth=rec.depth or 0,
                 pending_dep_count=0,
+                fired_by_task_id=root_origin,
             )
             db.add(replanner)
             await db.commit()

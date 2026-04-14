@@ -158,7 +158,7 @@ class TaskGraph:
         """Mark original task FAILED and insert the replanner task."""
         original = self.tasks.get(failed_task_id)
         if original is not None:
-            original.status = TaskStatus.FAILED
+            original.status = TaskStatus.REPLANNING
             original.failure_reason = f"replan_requested: {reason}"
         self.remove_ready(failed_task_id)
         self.tasks[replanner_task.id] = replanner_task

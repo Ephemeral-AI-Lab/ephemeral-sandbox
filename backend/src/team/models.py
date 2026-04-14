@@ -38,6 +38,7 @@ class TaskStatus(str, Enum):
     RUNNING = "running"
     EXPANDED = "expanded"  # planner submitted children, waiting for them to finish
     PAUSED = "paused"
+    REPLANNING = "replanning"
     DONE = "done"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -140,6 +141,7 @@ class Task:
     finished_at: datetime | None = None
     failure_reason: str | None = None
     blocker_id: str | None = None
+    fired_by_task_id: str | None = None
     pause_checkpoint: str | None = None
     pause_verdict: str | None = None
 
