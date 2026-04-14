@@ -43,15 +43,15 @@ The TaskCenter maintains per-task counters:
     Trigger 1: Edit Progress
         Counter: edits since last post_note or auto-generated note
         Threshold: 5
-        Resets on: post_note() call by agent, or EphemeralTask note generated
-        EphemeralTask prompt focus: "what files were edited and why"
+        Resets on: post_note() call by agent, or auto-generated note
+        External trigger prompt focus: "what files were edited and why"
 
     Trigger 2: Turn Checkpoint
         Counter: turns since last posthook call
         Threshold: 10
-        Resets on: ANY posthook call (post_note, submit_summary, request_replan),
-                   or EphemeralTask note generated
-        EphemeralTask prompt focus: "overall status, findings, and blockers"
+        Resets on: ANY posthook call (`post_note`, `request_replan`),
+                   or auto-generated note
+        External trigger prompt focus: "overall status, findings, and blockers"
 
     Why the reset conditions differ:
 
@@ -84,7 +84,7 @@ The TaskCenter maintains per-task counters:
     |          +--- posthook?  ---> task_center.on_posthook()|
     |          +--- any event  ---> task_center.tick()      |
     |          |                                            |
-    |          +--- task_center.check(task_id, executor)    |
+    |          +--- task_center.check(task_id, snapshot=..., api_client=...)  |
     |                    |                                  |
     |                    | threshold crossed?               |
     |                    |                                  |
@@ -100,7 +100,7 @@ The TaskCenter maintains per-task counters:
     |                                                      |
     +------------------------------------------------------+
 
-    Data flow: Executor observes -> TaskCenter decides -> EphemeralTask executes
+    Data flow: Executor observes -> TaskCenter decides -> external_trigger executes
                -> note posted back to TaskCenter
 
     Agent: never interrupted, never aware
@@ -110,33 +110,37 @@ The TaskCenter maintains per-task counters:
 
 ## TaskCenter.check — The Decision Point
 
-    task_center.check(task_id, executor)
+    task_center.check(task_id, *, snapshot=..., api_client=..., model=...)
           |
           v
-    Look up per-task counters for task_id
+    should_checkpoint(task_id) — look up per-task counters
           |
           +--- edits_since_note >= 5?
           |       |
-          |      YES ---> spawn EphemeralTask
-          |               prompt: "summarize edits to {files}"
-          |               snapshot executor conversation
+          |      YES ---> spawn external_trigger agent
+          |               prompt: EDIT_CHECKPOINT_PROMPT
+          |               uses snapshot + api_client
           |               reset edit counter
-          |               return
+          |               return True
           |
           +--- turns_since_posthook >= 10?
           |       |
-          |      YES ---> spawn EphemeralTask
-          |               prompt: "summarize status + report blockers"
-          |               snapshot executor conversation
+          |      YES ---> spawn external_trigger agent
+          |               prompt: TURN_CHECKPOINT_PROMPT
+          |               uses snapshot + api_client
           |               reset turn counter
-          |               return
+          |               return True
           |
           +--- neither threshold crossed
-                    return (no action)
+                    return False
+
+    Fallback: when no api_client is available, check() generates
+    a factual counter-based note (e.g. "Auto-checkpoint (7 edits): a.py, b.py")
+    without an LLM call.
 
 ---
 
-## EphemeralTask Prompts
+## External Trigger Prompts
 
     Edit trigger prompt:
         "Based on this agent's work so far, write a progress note
@@ -157,7 +161,7 @@ The TaskCenter maintains per-task counters:
 
     The turn prompt explicitly asks about blockers. This ensures
     that even if the agent does not recognize a systemic issue, the
-    EphemeralTask surfaces it. The replanner sees it via read_sibling_notes.
+    The external trigger agent surfaces it. The replanner sees it via read_sibling_notes.
 
 ---
 
@@ -180,12 +184,13 @@ The TaskCenter maintains per-task counters:
     TaskCenter (updated)
 
         Existing (passive)
-            post(note)
-            read(authors, scope_paths, since, limit)
-            context_for(task, file_change_store, task_lookup, max_context_bytes)
+            post(note: Note)
+            read(*, authors, scope_paths, since, limit)
+            context_for(task: Task, *, max_context_bytes)
+                No external callbacks needed — TaskCenter owns the DAG.
 
-        New — per-task activity tracking (active)
-            _counters                   dict mapping task_id to ActivityCounters
+        Per-task activity tracking (active)
+            _activity_counters          dict mapping task_id to counter dict
 
             on_edit(task_id, file_path)
                 Increment edit counter for task_id.
@@ -197,35 +202,41 @@ The TaskCenter maintains per-task counters:
             tick(task_id)
                 Increment turn counter for task_id.
 
-            on_note_posted(task_id)
-                Reset both counters for task_id to 0.
-                Called internally by post() when a note arrives
-                for this task (whether agent-authored or auto-generated).
+            on_note_posted(note: Note)
+                Reset both counters for the note's task_id to 0.
+                Called internally by post().
+                Ignores system/checkpoint agent notes (only resets
+                for agent-authored or auto-generated notes).
 
-        New — checkpoint spawning (active)
-            check(task_id, executor) returns bool
-                Check thresholds. If crossed, spawn EphemeralTask.
-                Uses EphemeralTask module for the LLM call.
+        Checkpoint spawning (active)
+            should_checkpoint(task_id) returns str or None
+                Check thresholds. Returns "edit", "turn", or None.
+
+            check(task_id, *, snapshot, api_client, model) returns bool
+                If thresholds crossed:
+                  With api_client: spawn external_trigger agent via
+                  run_checkpoint_note() for rich LLM-generated note.
+                  Without api_client: generate factual counter-based note.
                 Posts result back via self.post().
                 Returns True if a checkpoint was spawned.
 
-        New — sibling note query (for replanner)
-            read_sibling_notes(parent_id, dispatcher_store, keyword, scope_paths)
-                Resolve subtree task IDs via dispatcher_store.
+        Sibling note query (for replanner)
+            read_sibling_notes(parent_id, *, keyword, scope_paths)
+                Resolve subtree task IDs via _sibling_subtree_ids (internal).
                 Read all notes from those tasks.
                 Apply optional filters.
-                Return formatted notes.
+                Return formatted notes string.
 
-    ActivityCounters (per-task internal state)
-        edits_since_note            int
-        turns_since_posthook        int
+    Activity counters (per-task, stored as dict)
+        edits                       int (edits since last note)
+        turns                       int (turns since last posthook)
         files_edited                list of str
 
 ---
 
 ## Conversation Snapshot Mechanism
 
-The EphemeralTask needs a read-only snapshot of the running agent's conversation. The current Executor delegates to a QueryRunner callable and does not retain conversation state. This requires a lightweight extension:
+The external trigger agent needs a read-only snapshot of the running agent's conversation. The Conductor maintains these snapshots via `register_snapshot(task_id, snapshot)` called by the executor after each tool result. This requires a lightweight extension:
 
     The QueryRunner (run_query_loop) maintains display_messages internally.
     To expose a snapshot without modifying query.py internals:
@@ -343,7 +354,7 @@ The existing edit-based nudge in query.py (lines 536-559) and _track_edit_for_no
             + 4 lines of counter reset in PostNoteTool
             Agent may ignore the nudge. query.py is touched.
 
-    After:  TaskCenter active mode (activity tracking + EphemeralTask spawning)
+    After:  TaskCenter active mode (activity tracking + external_trigger spawning)
             Executor calls on_edit/on_posthook/tick/check (outside query loop)
             Note is guaranteed. query.py is untouched.
 

@@ -484,6 +484,8 @@ class PosthookTools(BaseToolkit):
                 DeclareBlockerTool(),
                 CancelAndRedraftTool(),
             ]
+        elif role == "resolver":
+            tools = [PostNoteTool(), RequestReplanTool()]
         elif role == "explorer":
             tools = [PostNoteTool()]
         else:

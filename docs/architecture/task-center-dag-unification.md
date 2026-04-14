@@ -1,6 +1,6 @@
 # TaskCenter + DAG Unification
 
-**Status:** PROPOSED  
+**Status:** IMPLEMENTED  
 **Date:** 2026-04-14  
 **Branch:** `codex/pydantic-benchmark-loop`  
 **Author:** Architecture session  
@@ -227,71 +227,86 @@ between them. The boundary is a liability, not an asset.
 
         Constructor
             session_factory     async_sessionmaker (PostgreSQL, for task persistence)
+            team_run_id         str (owning TeamRun ID — stored internally, so
+                                methods below do not accept a run_id parameter)
+            budgets             BudgetConfig
+            budget_state        BudgetState
+            goal                str (optional)
+            user_request        str (optional)
             file_change_store   FileChangeStore or None
+            max_checkpoints     int (default 10)
+            event_store         TeamRunStore or None
+            checkpoint_store    Any or None
 
-        --- STRUCTURE (from DispatcherStore) ---
+        Internal delegation:
+            self._store = TaskStore(session_factory, team_run_id)
+            SQL persistence lives in TaskStore; TaskCenter delegates to it.
 
-        insert_plan(run_id, specs, parent_id, root_id, depth)
+        --- STRUCTURE (from DispatcherStore, delegated to TaskStore) ---
+
+        insert_plan(specs, parent_id, parent_depth, parent_root_id)
             Insert child tasks atomically. Catch-up pass for
             already-done deps. Sets parent_id, root_id, depth.
 
-        get_task(task_id, run_id) returns Task or None
+        get_task(task_id) returns Task or None
             Fetch a single task by ID.
 
-        get_all_tasks(run_id) returns list of Task
-            Fetch all tasks for a run. Used by checkpoints and metrics.
+        get_all_tasks() returns list of TaskRecord
+            Fetch all tasks for the run. Used by checkpoints and metrics.
 
-        get_adjacency(run_id) returns dict of id to list of deps
+        get_adjacency() returns dict of id to list of deps
             Lightweight: just {id: deps} for cycle detection.
 
-        get_subtree_task_ids(run_id, parent_id) returns set of str
-            Recursive CTE for all task IDs under a parent.
+        get_siblings_and_descendants(initiating_task_id) returns list of TaskRecord
+            All siblings of the given task plus their entire subtrees.
+            Used by Conductor for blocker assessment scope.
+
+        _sibling_subtree_ids(parent_id) returns list of str  [private]
+            All task IDs under a parent. Used by read_sibling_notes.
 
         --- STATE (from Dispatcher + DispatcherStore) ---
 
-        complete_task(run_id, task_id, result)
+        mark_running(task_id, agent_run_id) returns Task
+            Set status to RUNNING. Assign agent_run_id. Charge budget.
+
+        complete_task(task_id, result) returns list of Task
             Mark DONE. Decrement pending_dep_count for dependents.
-            Promote expanded parents. Post completion note.
-            Handle plan expansion if result contains a plan.
-            Notify Conductor (on_fix_complete if blocker fix).
+            Promote expanded parents. Handle plan expansion if
+            result contains a submitted_plan or submitted_replan.
 
-        fail_task(run_id, task_id, reason)
+        fail(task_id, reason)
             Mark FAILED. Cascade cancel dependents (based on
-            cascade_policy). Notify Conductor (on_task_failed).
+            cascade_policy).
 
-        retry_task(run_id, task_id, max_retries) returns bool
+        retry_task(task_id, request: RetryRequest)
             If retries remaining: reset to READY, increment retry_count.
             If exhausted: mark FAILED, cascade.
 
-        block_task(task_id, blocker_id)
-            Set status to PAUSED. Store blocker_id, paused_from.
+        pause_running_task(task_id, blocker_id, checkpoint, verdict) returns bool
+            Set status to PAUSED. Store blocker_id, checkpoint, verdict.
+            Only RUNNING tasks can be paused.
 
-        block_task_with_checkpoint(task_id, blocker_id, checkpoint, verdict)
-            Same as block_task but stores pause_checkpoint and pause_verdict.
+        resume_paused_tasks(blocker_id) returns int
+            Bulk transition PAUSED → READY for all tasks paused by this blocker.
 
-        unblock_tasks(run_id, blocker_id) returns int
-            Bulk transition PAUSED back to resume status.
-            Returns count of unblocked tasks.
+        cancel_paused_tasks(blocker_id) returns int
+            Cancel all tasks paused by this blocker (on fix failure).
 
-        ensure_ancestors_expanded(run_id, task_id)
-            Walk parent chain upward. Reopen any DONE parent to EXPANDED.
-
-        cancel_tasks(run_id, task_ids, reason) returns int
+        cancel_by_ids(task_ids, reason) returns int
             Cancel specific tasks by ID.
 
-        cascade_cancel_recursive(run_id, task_id)
+        cascade_cancel_recursive(root_task_id) returns list of str
             Recursive CTE cancel of all dependents.
 
-        maybe_promote_expanded_parent(run_id, task_id)
-            If all children of parent are terminal, promote parent to DONE.
-            Chain upward recursively.
+        cancel_all_pending() returns int
+        cancel_all_running(reason) returns int
 
         sibling_stats(parent_id) returns dict
             Status counts for all siblings (same parent).
 
         --- PLANNING (from Dispatcher) ---
 
-        request_replan(run_id, task_id, reason, suggestion)
+        request_replan(task_id, request: ReplanRequest) returns Task
             Mark task FAILED. Insert replanner task.
             Siblings are NOT cancelled (replanner decides).
             Returns the replanner Task.
@@ -325,7 +340,14 @@ between them. The boundary is a liability, not an asset.
         on_edit(task_id, file_path)
         on_posthook(task_id)
         tick(task_id)
-        check(task_id, executor) returns bool
+        on_note_posted(note: Note)
+            Reset counters for the note's task_id.
+            Ignores system/checkpoint notes.
+        should_checkpoint(task_id) returns str or None
+            Check thresholds. Returns "edit" or "turn" or None.
+        check(task_id, *, snapshot, api_client, model) returns bool
+            Spawn external_trigger agent if thresholds crossed.
+            Falls back to factual counter-based note when no api_client.
 
         --- QUERIES ---
 
@@ -370,32 +392,24 @@ between them. The boundary is a liability, not an asset.
         Constructor
             session_factory     async_sessionmaker (same PostgreSQL connection)
 
-        pop_ready(run_id, blocker_guard) returns Task or None
+        pop_ready(run_id, blocker_guard) returns TaskRecord or None
             Atomically claim the next READY task.
             Uses FOR UPDATE SKIP LOCKED for concurrent safety.
             Calls blocker_guard(candidate) before returning.
-            If blocked: the guard pauses the candidate, retry next.
+            Guard returns True to ALLOW dispatch, False to SKIP.
+            Skipped candidates are not mutated — just passed over.
 
-            SQL (unchanged from current pop_ready):
-                UPDATE tasks SET status = 'running', started_at = NOW()
-                WHERE (id, team_run_id) = (
-                    SELECT t.id, t.team_run_id FROM tasks t
-                    WHERE t.team_run_id = run_id
-                      AND t.status = 'ready'
-                      AND t.pending_dep_count = 0
-                    ORDER BY t.depth, t.created_at
-                    LIMIT 1
-                    FOR UPDATE SKIP LOCKED
-                )
-                RETURNING ...
+            Implementation: SELECTs up to 32 READY candidates with
+            SKIP LOCKED, iterates until one passes the guard, then
+            UPDATEs that single row to 'running'.
 
-        claim(run_id, task_id, agent_run_id)
-            UPDATE tasks SET agent_run_id = ..., started_at = NOW()
-            WHERE id = task_id AND team_run_id = run_id
-
-    Two methods. Same SQL. Same atomicity guarantees.
+    One method. Same SQL. Same atomicity guarantees.
     The only difference: it is no longer bundled with 800 lines
     of task lifecycle management.
+
+    Note: the former mark_running / claim step is now handled by
+    TaskCenter.mark_running(task_id, agent_run_id) which assigns
+    the agent_run_id after pop_ready returns.
 
 ### Blocker Guard Integration
 
@@ -409,14 +423,12 @@ between them. The boundary is a liability, not an asset.
         )
 
     The guard is a callable:
-        guard(task) returns True if task should be blocked
+        guard(task) returns True if task is ALLOWED to dispatch
+        guard(task) returns False if task should be SKIPPED
 
-    If guard returns True:
-        DispatchQueue calls task_center.block_task
-        DispatchQueue retries pop_ready
-
-    If guard returns False:
-        DispatchQueue returns the task
+    Conductor.guard_pop_ready: allows only resolver fix tasks
+    while any blocker is active. All other candidates are skipped
+    (their status stays READY — no mutation).
 
     This keeps DispatchQueue free of blocker knowledge.
     The Conductor owns the guard logic.
@@ -463,33 +475,33 @@ between them. The boundary is a liability, not an asset.
 
     DispatcherStore method             TaskCenter method
     ────────────────────               ─────────────────
-    mark_done                          complete_task (+ note posting + promotion)
-    fail_task                          fail_task (+ cascade + Conductor notify)
-    retry_task                         retry_task
-    insert_plan                        insert_plan
-    request_replan                     request_replan (no auto-cancel)
-    cancel_by_ids                      cancel_tasks
+    mark_done                          _mark_done (private, called by complete_task)
+    fail_task                          fail (public) / _fail_task_sql (private)
+    retry_task                         retry_task (accepts RetryRequest)
+    insert_plan                        insert_plan (delegates to TaskStore)
+    request_replan                     request_replan (accepts ReplanRequest)
+    cancel_by_ids                      cancel_by_ids
     cascade_cancel_recursive           cascade_cancel_recursive
-    maybe_promote_expanded_parent      promote_parent
+    maybe_promote_expanded_parent      _maybe_promote_expanded_parent (private)
     get_task                           get_task
-    get_all_tasks                      get_all_tasks
+    get_all_tasks                      get_all_tasks (returns TaskRecord list)
     get_adjacency                      get_adjacency
     get_statuses                       get_statuses
     sibling_stats                      sibling_stats
-    get_subtree_task_ids               get_subtree_task_ids
+    get_subtree_task_ids               _sibling_subtree_ids (private)
+    get_siblings_and_descendants       get_siblings_and_descendants (new)
     cancel_all_pending                 cancel_all_pending
     cancel_all_running                 cancel_all_running
-    block_task                         block_task
-    block_task_with_checkpoint         block_task_with_checkpoint
-    unblock_tasks                      unblock_tasks
-    ensure_ancestors_expanded          ensure_ancestors_expanded
+    block_task / block_task_with_chk   pause_running_task (renamed)
+    unblock_tasks                      resume_paused_tasks (renamed)
+    (new)                              cancel_paused_tasks (for fix failure)
 
 ### From DispatcherStore to DispatchQueue
 
-    DispatcherStore method             DispatchQueue method
-    ────────────────────               ────────────────────
-    pop_ready                          pop_ready (with blocker_guard param)
-    mark_running                       claim
+    DispatcherStore method             DispatchQueue / TaskCenter method
+    ────────────────────               ────────────────────────────────
+    pop_ready                          DispatchQueue.pop_ready (with blocker_guard)
+    mark_running                       TaskCenter.mark_running (assigns agent_run_id)
 
 ### From Dispatcher to TaskCenter
 
@@ -541,14 +553,19 @@ between them. The boundary is a liability, not an asset.
         self.team_run.conductor         (Conductor)
 
     Task lifecycle:
-        task = dispatch_queue.pop_ready(run_id, conductor.guard_pop_ready)
+        rec = dispatch_queue.pop_ready(run_id, conductor.guard_pop_ready)
+        task = task_center.mark_running(task.id, agent_run_id)
         ctx = task_center.context_for(task)
-        result = run_agent(ctx)
-        task_center.complete_task(run_id, task.id, result)
-            internally: mark_done, dec deps, promote parent,
-            post completion note, notify conductor
+        run_agent(ctx)                              # query loop
+        result = _run_post_run(task, defn, ctx)     # post-run tool phase
+        _dispatch(task, result)                     # routes to complete/fail/retry/replan/blocker
+            task_center.complete_task(task.id, result)
+                internally: mark_done, dec deps, promote parent,
+                handle plan expansion
 
-    Three calls instead of six. One component for all task operations.
+    Four calls instead of six. One component for all task operations.
+    Post-run phase uses runner.run() with posthook tools when no
+    in-loop submission was captured in metadata.
 
 ### Diagram — Executor Event Flow
 
@@ -604,18 +621,18 @@ between them. The boundary is a liability, not an asset.
 
     AFTER (unified):
         Conductor holds references to:
-            task_center         (for everything)
-            _executor_registry  (for conversation snapshots)
+            _team_run           (for task_center, api_client, cancel_agent_run)
+            _blocker_store      (optional, for durable persistence)
+            _executor_snapshots (dict: task_id → display_messages snapshot)
 
-        Conductor.pause_all calls:
-            task_center.block_task (for non-running)
-            task_center.sibling_stats / get_all_tasks (for candidates)
-            task_center.post (for blocker notes)
-            (all one component)
+        Conductor._assess_running calls:
+            task_center.get_siblings_and_descendants (for candidates)
+            assess_pause (external_trigger) per RUNNING candidate
+            task_center.pause_running_task (for YES verdicts)
+            team_run.cancel_agent_run (terminate the asyncio task)
 
-        Conductor.resume_all calls:
-            task_center.unblock_tasks
-            task_center.post (for resume notes)
+        Conductor._resume_paused calls:
+            task_center.resume_paused_tasks(blocker_id)
             (all one component)
 
 ### Replanner Integration
@@ -774,78 +791,56 @@ Two phases. Phase 1 has no dependencies. Phase 2 depends on Phase 1.
 
 ### Phase 1A — Absorb DispatcherStore into TaskCenter
 
-    Status: [ ]
+    Status: [x] DONE
     Deps: none
     Parallel with: Phase 1B
 
     Deliverables:
-        [ ] TaskCenter gains session_factory parameter
-        [ ] Move SQL methods from DispatcherStore to TaskCenter:
-            - mark_done (becomes internal _mark_done)
-            - fail_task
-            - retry_task
-            - insert_plan
-            - cascade_cancel_recursive
-            - maybe_promote_expanded_parent
-            - request_replan (without auto-cancel)
-            - cancel_by_ids
-            - get_task
-            - get_all_tasks
-            - get_adjacency
-            - get_statuses
-            - sibling_stats
-            - get_subtree_task_ids
-            - cancel_all_pending
-            - cancel_all_running
-            - block_task / block_task_with_checkpoint
-            - unblock_tasks
-            - ensure_ancestors_expanded
-        [ ] context_for: replace task_lookup callback with internal get_task
-        [ ] read_sibling_notes: use internal get_subtree_task_ids
-        [ ] All existing DispatcherStore tests pass against TaskCenter methods
+        [x] TaskCenter gains session_factory parameter
+        [x] SQL methods delegated to TaskStore (extracted persistence layer)
+        [x] TaskCenter delegates to self._store = TaskStore(...)
+        [x] context_for: no task_lookup callback (uses internal get_task)
+        [x] read_sibling_notes: uses internal _sibling_subtree_ids
+        [x] Method names updated: pause_running_task, resume_paused_tasks,
+            cancel_paused_tasks (renamed from block/unblock)
 
 ### Phase 1B — Extract DispatchQueue
 
-    Status: [ ]
+    Status: [x] DONE
     Deps: none
     Parallel with: Phase 1A
 
     Deliverables:
-        [ ] team/runtime/dispatch_queue.py — new file
-        [ ] DispatchQueue class with:
+        [x] team/runtime/dispatch_queue.py — new file
+        [x] DispatchQueue class with:
             - pop_ready(run_id, blocker_guard) — same SQL as current
-            - claim(run_id, task_id, agent_run_id) — same SQL as mark_running
-        [ ] blocker_guard parameter (callable, provided by Conductor)
-        [ ] Tests: pop_ready returns READY task, skips PAUSED,
+            (mark_running moved to TaskCenter instead of DispatchQueue)
+        [x] blocker_guard parameter (callable, provided by Conductor)
+        [x] Tests: pop_ready returns READY task, skips blocked,
             respects SKIP LOCKED, calls blocker_guard
 
 ### Phase 2 — Rewire and Delete
 
-    Status: [ ]
+    Status: [x] DONE
     Deps: Phase 1A, Phase 1B
 
     Deliverables:
-        [ ] Absorb Dispatcher orchestration into TaskCenter:
-            - complete (plan expansion, event emission)
-            - retry_work_item
-            - request_replan
-            - apply_replan
+        [x] Absorb Dispatcher orchestration into TaskCenter:
+            - complete_task (plan expansion, event emission)
+            - retry_task, request_replan
             - Budget tracking (BudgetState, _charge_tasks)
-            - Event emission (_emit, make_work_item_status, etc.)
-        [ ] Rewire Executor:
-            - Replace dispatcher + store + task_center with task_center + dispatch_queue
-            - Simplify _run_one to call TaskCenter.complete_task
-        [ ] Rewire Conductor:
-            - Replace dispatcher reference with task_center
-        [ ] Rewire context_builder:
-            - Remove dispatcher reference
-        [ ] Rewire TeamRun:
-            - Remove Dispatcher instantiation
-            - Add DispatchQueue instantiation
-        [ ] Delete team/runtime/dispatcher.py
-        [ ] Delete team/runtime/dispatcher_store.py
-        [ ] Update all imports
-        [ ] All existing tests pass
+            - Event emission (_emit)
+        [x] Rewire Executor:
+            - Uses task_center + dispatch_queue
+            - _run_one → mark_running → run → _run_post_run → _dispatch
+        [x] Rewire Conductor:
+            - References _team_run (accesses task_center through it)
+        [x] Rewire TeamRun:
+            - DispatchQueue instantiated
+            - No Dispatcher
+        [x] Delete team/runtime/dispatcher.py
+        [x] Delete team/runtime/dispatcher_store.py
+        [x] All imports updated
 
 ### Parallelism Map
 

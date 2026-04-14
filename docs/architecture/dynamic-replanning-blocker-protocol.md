@@ -1,6 +1,6 @@
 # Dynamic Replanning: Blocker-Aware Pause/Fix/Resume Protocol
 
-**Status:** PROPOSED  
+**Status:** IMPLEMENTED  
 **Date:** 2026-04-14  
 **Branch:** `codex/pydantic-benchmark-loop`  
 **Author:** Architecture session  
@@ -22,7 +22,7 @@
 8. [External Trigger Module](#8-ephemeraltask-module)
 9. [Conductor](#9-conductor)
 10. [Toolkit Changes](#10-toolkit-changes)
-11. [Dispatcher Changes](#11-dispatcher-changes)
+11. [TaskCenter Changes](#11-taskcenter-changes-formerly-dispatcher)
 12. [Resume Protocol](#12-resume-protocol)
 13. [Task Center Integration](#13-task-center-integration)
 14. [Scope and Boundaries](#14-scope-and-boundaries)
@@ -52,7 +52,7 @@ With this protocol: the replanner detects the systemic pattern, declares a block
 
 | # | Goal | How |
 |---|------|-----|
-| G-1 | Developer stays simple | Developer has 2 tools: submit_summary and request_replan. No blocker awareness. |
+| G-1 | Developer stays simple | Developer has 2 tools: `post_note` and `request_replan`. No blocker awareness. |
 | G-2 | Single decision point | Replanner owns all failure recovery decisions. Three clear actions, zero overlap. |
 | G-3 | Conductor is deterministic | Conductor executes blocker mechanics. No LLM calls. Fully testable. |
 | G-4 | query.py untouched | Blocker protocol operates outside the query loop. No injection, no halt directives, no buffer flushes. |
@@ -79,9 +79,9 @@ With this protocol: the replanner detects the systemic pattern, declares a block
          |                                          (pause, assess, terminate,
          |                                           fix, resume)
          v
-    Resolver        "Repairing root cause"          dedicated resolver role
+    Resolver        "Repairing root cause"          developer agent (via find_by_role)
          |                                          (scoped to broken files,
-         |                                           submit_fix / abandon_fix)
+         |                                           normal developer posthook tools)
          v
     Conductor       "Post-fix coordination"         resume assessed agents,
          |                                          lift pop_ready guard,
@@ -95,7 +95,7 @@ With this protocol: the replanner detects the systemic pattern, declares a block
           |
           | request_replan()
           v
-    Dispatcher: mark task FAILED, spawn replanner
+    TaskCenter: mark task FAILED, spawn replanner
                 (siblings UNTOUCHED — no auto-cancel)
           |
           v
@@ -105,7 +105,7 @@ With this protocol: the replanner detects the systemic pattern, declares a block
           v
     Replanner decides:
           |
-          +---> add_tasks -----------> Dispatcher inserts new tasks
+          +---> add_tasks -----------> TaskCenter inserts new tasks
           |                            siblings untouched
           |
           +---> declare_blocker -----> Conductor executes:
@@ -118,7 +118,7 @@ With this protocol: the replanner detects the systemic pattern, declares a block
           |                              for initiator
           |                            on fix fail: mark team run FAILED
           |
-          +---> cancel_and_redraft --> Dispatcher cancels all
+          +---> cancel_and_redraft --> TaskCenter cancels all
                                        siblings + children,
                                        inserts new plan
 
@@ -326,7 +326,7 @@ Each attempt is a new task with a clean record. The original stays FAILED with i
                         |            |
                         | spawn pause assessments for RUNNING agents
                         | non-running tasks UNTOUCHED (stay as-is)
-                        | activate pop_ready guard against blast_radius
+                        | pop_ready guard blocks all non-fix dispatch
                         +-----+------+
                               |
                               | all assessments resolved (YES/NO/timeout)
@@ -347,10 +347,10 @@ Each attempt is a new task with a clean record. The original stays FAILED with i
                     | resume   |  | cancel    |
                     | assessed |  | all PAUSED|
                     | agents   |  | tasks     |
-                    | lift     |  | mark team |
-                    | guard    |  | run as    |
-                    | spawn    |  | FAILED    |
-                    | replanner|  |           |
+                    | lift     |  | lift      |
+                    | guard    |  | guard     |
+                    | spawn    |  | log       |
+                    | replanner|  | critical  |
                     | for      |  |           |
                     | initiator|  |           |
                     +----------+  +-----------+
@@ -386,14 +386,18 @@ Each attempt is a new task with a clean record. The original stays FAILED with i
           v
     FIXING phase begins
 
-### Pop-Ready Guard — REMOVED
+### Pop-Ready Guard — Simplified
 
-The pop_ready guard based on blast_radius has been removed.
-Assessment scope is structural (siblings + descendants), not
-file-path based.  Tasks that become READY during a blocker are
-dispatched normally.  If they hit the same broken dependency,
-the replanner receives active blocker context and can merge
-the failure into the existing blocker via declare_blocker.
+The pop_ready guard based on blast_radius file paths has been
+replaced with a simpler structural guard.  Assessment scope is
+structural (siblings + descendants), not file-path based.
+
+During an active blocker, `Conductor.guard_pop_ready` blocks
+dispatch of ALL tasks except the resolver fix task.  The guard
+returns True (allow) only for the fix_task_id of an active blocker;
+all other candidates are skipped (their status stays READY — no
+mutation).  Once the blocker resolves, the guard lifts and normal
+dispatch resumes.
 
 ### Dedup and Merge
 
@@ -555,7 +559,7 @@ The original did tool calls 4 and 5 after the snapshot. Those are lost. The resu
 The external trigger agent's input is the original agent's full display_messages plus one new user message:
 
     Input:
-        system_prompt: same as original agent
+        system_prompt: "You are a blocker assessment assistant."
         messages:
             [all display_messages from original agent — every tool call,
              every tool result, everything the agent has seen and done]
@@ -565,31 +569,39 @@ The external trigger agent's input is the original agent's full display_messages
                  A shared dependency has been reported broken.
                  Broken files: dask/compatibility.py
                  Problem: __getattr__ replaced _EMSCRIPTEN, broke parse import
-                 Reporter: replanner assessing sibling failures
 
                  Based on your work so far in this conversation,
                  does your task depend on any of these files?
-                 Answer exactly one of:
-                   YES: (reason)
-                   NO: (reason)"
+                 Call the pause_verdict tool with your assessment."
 
-        max_tokens: 200
-        tools: none
+        max_tokens_per_turn: 200
+        tools: [PauseVerdictTool]
+        tool_choice: "any" (guaranteed tool call via runner.run())
 
-    Output (example):
-        "YES: I imported dask.compatibility in tool call 1 to access the
-         parse function. My HDF reader depends on it for version string parsing."
+    Output: RunResult → PauseVerdictInput(answer="YES"|"NO", reason="...")
+
+    Example:
+        PauseVerdictInput(
+            answer="YES",
+            reason="I imported dask.compatibility in tool call 1 to access
+                    the parse function. My HDF reader depends on it."
+        )
 
 The external trigger agent has full context — it saw every tool call the original agent made, every file read, every import. It knows exactly whether it touched the broken dependency.
 
 #### PauseVerdict
 
-    PauseVerdict
+    PauseVerdict (dataclass in pause_assessment.py)
         task_id         str                 which task was assessed
-        answer          YES | NO | TIMEOUT  the decision
+        answer          str                 "YES" or "NO" (from PauseVerdictInput)
         reason          str                 the reasoning
-        conversation    list of messages    the full conversation (snapshot + Q + A)
+        conversation    list of dict        the full conversation trail from runner
                                             saved as resume checkpoint if YES
+        turns_used      int                 how many runner turns before success
+
+    PauseVerdictInput (Pydantic model in tools/external_trigger/)
+        answer          Literal["YES", "NO"]    normalized to uppercase
+        reason          str                     reasoning
 
 #### Timeout
 
@@ -666,12 +678,12 @@ No Conductor.on_task_failed method is needed.
 
     The checkpoint note is posted with:
         task_id         original task's ID
-        agent_name      original agent's name + " (checkpoint)"
+        agent_name      original agent's name + " (auto)"
         scope_paths     original task's scope_paths
         timestamp       current time
 
     To siblings and the replanner, it looks like the original agent
-    posted a note. The "(checkpoint)" suffix distinguishes it from
+    posted a note. The "(auto)" suffix distinguishes it from
     agent-authored notes for auditing purposes.
 
 ### Module Structure
@@ -727,9 +739,9 @@ The Conductor spawns resolver tasks (a dedicated role, not a normal developer) f
     Conductor
         Constructor
             team_run            reference to the owning TeamRun
-            blocker_store       BlockerStore for durable persistence
-            _active_blockers    dict mapping blocker_id to Blocker
-            _executor_snapshots dict mapping task_id to display_messages
+            blocker_store       BlockerStore or None (optional durable persistence)
+            _active_blockers    dict mapping blocker_id to Blocker (in-memory)
+            _executor_snapshots dict mapping task_id to display_messages (in-memory)
 
         Snapshot Registry
             register_snapshot(task_id, snapshot)
@@ -773,30 +785,29 @@ The Conductor spawns resolver tasks (a dedicated role, not a normal developer) f
                 Decrements pending_assessments.
 
             spawn_resolver(blocker)
-                Creates a resolver task at depth=0 (top level, no parent).
-                Resolver is a dedicated role (not a normal developer) with
-                its own posthook tools: submit_fix and abandon_fix.
-                Resolver is scoped to root_cause_paths.
-                Resolver context includes: blocker reason, root cause paths,
-                all failure reasons from assessed tasks, replanner's suggestion.
+                Creates a resolver task using the dedicated `resolver` role
+                when available, else falls back to a developer-role agent.
+                The task is scoped to root_cause_paths and is inserted through
+                TaskCenter so budget accounting and task events stay consistent.
+                Resolver instructions explicitly say:
+                    success  -> `post_note(...)`
+                    failure  -> `request_replan(...)`
 
             on_fix_complete(blocker, fix_summary)
-                Called when resolver calls submit_fix.
+                Called when the resolver task completes successfully
+                (typically after `post_note(...)`).
                 Stores fix_summary on blocker.
                 Calls resume_assessed(blocker, fix_summary).
                 Lifts pop_ready guard (blocker no longer active).
-                Spawns a replanner for blocker.initiating_task_id —
-                the replanner reads the fix_summary and original failure,
-                then calls add_tasks with an appropriate retry/adjusted task.
+                Requests a post-fix replanner for blocker.initiating_task_id.
                 Blocker status set to RESOLVED.
 
             on_fix_failed(blocker)
-                If resolver has retries: retry.
-                If retries exhausted:
-                    Cancel all PAUSED tasks (assessed agents that were paused).
-                    Mark team run as FAILED.
-                    failure_reason = blocker.reason + "resolver could not fix"
-                    Blocker status set to FAILED.
+                Called when the resolver task calls `request_replan(...)`
+                or its runner fails outright.
+                Cancels all PAUSED tasks for this blocker.
+                Marks the team run FAILED.
+                Blocker status set to FAILED.
 
             resume_assessed(blocker, fix_summary)
                 Transitions all PAUSED tasks with this blocker_id to READY.
@@ -808,16 +819,10 @@ The Conductor spawns resolver tasks (a dedicated role, not a normal developer) f
         Guards
             guard_pop_ready(task) returns bool
                 Called by pop_ready before dispatching.
-                Returns True if any active blocker's blast_radius
-                overlaps the task's scope_paths.
-                If True: task is skipped (stays READY, not dispatched).
+                Returns True when no blocker is active, or when the
+                candidate task is an active resolver fix task.
+                All other READY tasks are skipped while a blocker is active.
                 Task status is NEVER changed by this guard.
-
-        Intercept
-            intercept_retry_replan(task_id) returns bool
-                When a developer calls request_replan while an active blocker
-                covers its scope: pauses the task instead.
-                Returns "Blocker active, your task is being handled."
 
 ---
 
@@ -826,12 +831,12 @@ The Conductor spawns resolver tasks (a dedicated role, not a normal developer) f
 ### Developer / Reviewer Posthook — Before and After
 
     BEFORE (3 tools):
-        submit_summary     "I'm done, here's what I did"
+        post_note          "I'm done, here's what I did"
         request_retry      "I failed, same task again"
         request_replan     "I failed, need a different approach"
 
     AFTER (2 tools):
-        submit_summary     "I'm done, here's what I did"       (unchanged)
+        post_note          "I'm done, here's what I did"       (unchanged)
         request_replan     "I failed"                           (unchanged interface)
 
     REMOVED:
@@ -869,9 +874,12 @@ The developer no longer distinguishes between "retry" and "replan." It just repo
     declare_blocker
         Parameters:
             root_cause_paths    list of str     the broken files (fix target)
-            blast_radius        list of str     broader scope of consumers
             reason              str             why this is systemic
             suggestion          str or None     how to fix (optional)
+
+        Note: blast_radius has been removed. Assessment scope is
+        structural (siblings + descendants of the initiating task),
+        not file-path based.
 
         Available to: replanner role only
 
@@ -889,7 +897,7 @@ The developer no longer distinguishes between "retry" and "replan." It just repo
 
         Returns: confirmation with count of inserted tasks
 
-        Side effect: Dispatcher inserts tasks as siblings of the failed task.
+        Side effect: TaskCenter inserts tasks as siblings of the failed task.
         Existing siblings are untouched.
 
 ### cancel_and_redraft Tool Definition
@@ -902,47 +910,24 @@ The developer no longer distinguishes between "retry" and "replan." It just repo
 
         Returns: confirmation with cancel count and insert count
 
-        Side effect: Dispatcher cancels all pending/ready/expanded siblings
+        Side effect: TaskCenter cancels specified siblings (by cancel_ids)
         and their dependents, then inserts the new tasks.
 
-### Resolver Posthook — New Role
+### Resolver Posthook — Dedicated Role, Shared Terminal Tools
 
-    RESOLVER ROLE (NEW):
-        submit_fix         "Root cause repaired, here's what I did"
-        abandon_fix        "Cannot fix, here's why"
+    RESOLVER TASK:
+        Dedicated role: `resolver`
+        Terminal tools: `post_note`, `request_replan`
+        Executor identifies fix tasks via conductor.blocker_for_fix_task().
 
-    The resolver is a dedicated role, NOT a normal developer.
-    It does NOT have submit_summary, request_replan, or any developer tools.
-    Its only job is to fix the root cause files and signal completion.
+    Semantics:
+        `post_note`       resolver succeeded -> Conductor.on_fix_complete
+        `request_replan`  resolver failed    -> Conductor.on_fix_failed
 
-    submit_fix signals success to Conductor.on_fix_complete.
-    abandon_fix signals failure to Conductor.on_fix_failed.
-
-### submit_fix Tool Definition
-
-    submit_fix
-        Parameters:
-            fix_summary         str             what was fixed and how
-
-        Available to: resolver role only
-
-        Returns: confirmation
-
-        Side effect: Conductor receives on_fix_complete, resumes assessed
-        agents, lifts pop_ready guard, spawns replanner for initiator.
-
-### abandon_fix Tool Definition
-
-    abandon_fix
-        Parameters:
-            reason              str             why the fix could not be applied
-
-        Available to: resolver role only
-
-        Returns: confirmation
-
-        Side effect: Conductor receives on_fix_failed. If retries remain,
-        retry. If exhausted, cancel PAUSED tasks and mark team run FAILED.
+    The resolver is a dedicated role because the dispatch guard and the
+    Conductor treat it specially, but it intentionally reuses the same
+    terminal submission tools as developers. No separate `submit_fix` or
+    `abandon_fix` tools exist in the current implementation.
 
 ### Infrastructure Retry — Preserved at Executor Level
 
@@ -963,11 +948,11 @@ Agent-level request_retry is removed, but infrastructure failures (OOM, timeout,
 
 ---
 
-## 11. Dispatcher Changes
+## 11. TaskCenter Changes (formerly Dispatcher)
 
-### request_replan — Remove Auto-Cancel
+### request_replan — No Auto-Cancel
 
-The current request_replan in dispatcher_store.py auto-cancels all pending/ready/expanded siblings and cascade-cancels their dependents BEFORE the replanner runs. This is too aggressive — it destroys work before anyone assesses whether that work should be destroyed.
+The former request_replan in dispatcher_store.py auto-cancelled all pending/ready/expanded siblings and cascade-cancelled their dependents BEFORE the replanner ran. This was too aggressive — it destroyed work before anyone assessed whether that work should be destroyed.
 
     CURRENT request_replan flow:
         1. Mark failing task FAILED
@@ -982,7 +967,7 @@ The current request_replan in dispatcher_store.py auto-cancels all pending/ready
 
 The replanner now sees live siblings. It can assess their state, read their notes, and decide: add alongside them, pause them, or cancel them.
 
-### New DispatcherStore Methods
+### TaskStore SQL Methods (delegated from TaskCenter)
 
     pause_running_task(task_id, blocker_id, pause_checkpoint, pause_verdict)
         UPDATE tasks SET status = 'paused', blocker_id = blocker_id,
@@ -1092,41 +1077,22 @@ Non-running tasks (READY, PENDING, FAILED) are never paused by the blocker proto
 
 The Task Center is the shared context backbone of the coordination system. The following additions strengthen it for the replanner and improve note discipline across all agents.
 
-### 13.1 read_notes — Extended with Scope Mode
+### 13.1 read_sibling_notes — Structural Sibling Context
 
-The existing `read_notes` tool gains a `scope` parameter that controls which tasks' notes are returned. This replaces the need for a separate `read_sibling_notes` tool — the replanner calls `read_notes(scope="siblings")` instead.
+The current implementation keeps `read_notes(...)` generic and provides a
+separate TaskCenter helper:
 
-#### Current Parameters (unchanged)
+    read_sibling_notes(parent_id, *, keyword=None, scope_paths=None)
 
-    authors         list[str] | None    filter by task IDs
-    scope_paths     list[str] | None    filter by file/dir prefix overlap
-    keyword         str | None          case-insensitive substring match
-    limit           int | None          max notes (most recent first)
-
-#### New Parameter
-
-    scope           "all" | "siblings"  which tasks' notes to include
-                    default: "all"
-
-    "all"       — entire Task Center (current behavior, unchanged)
-    "siblings"  — the calling task's siblings and their descendants only.
-                  Resolves parent_id from the caller's metadata, collects
-                  sibling + child task IDs, filters notes to those authors.
-                  Combinable with keyword, scope_paths, and limit.
-
-#### Why a Parameter, Not a Separate Tool
-
-The replanner needs the same filtering capabilities as any other `read_notes` caller (keyword, scope_paths, limit). Adding `scope` to the existing tool avoids duplicating those parameters on a second tool. The sibling resolution is a ~5-line addition to `ReadNotesTool.execute`:
-
-    if arguments.scope == "siblings":
-        parent_id = context.metadata["parent_id"]
-        sibling_ids = dispatcher.get_children(run_id, parent_id)
-        # union with descendants if needed
-        arguments.authors = sibling_ids
+`read_sibling_notes(...)` resolves the sibling subtree internally via
+`_sibling_subtree_ids`, then delegates to the existing note store with the
+same keyword and scope-path filtering rules. This keeps the general-purpose
+`read_notes(...)` API stable while giving replanners a single sibling-aware
+entry point.
 
 #### What the Replanner Sees
 
-    read_notes(scope="siblings") returns:
+    read_sibling_notes(parent_id=...) returns:
 
     --- task hdf-01 (developer) [scope: dask/dataframe/io/hdf.py] ---
     "Hit ImportError on dask.compatibility.parse — file was changed
@@ -1140,13 +1106,19 @@ The replanner needs the same filtering capabilities as any other `read_notes` ca
     "Replaced _EMSCRIPTEN with __getattr__ mechanism. Removed direct
      parse import in favor of lazy attribute lookup."
 
-The replanner reads this and immediately sees: fix-compat broke a shared dependency, hdf-01 and hdf-02 both report the same ImportError. This is the evidence it needs to call declare_blocker versus add_tasks.
+The replanner reads this and immediately sees: fix-compat broke a shared
+dependency, hdf-01 and hdf-02 both report the same ImportError. This is the
+evidence it needs to call declare_blocker versus add_tasks.
 
 ### 13.2 TaskCenter Active Mode
 
 See separate document: [task-center-active-mode.md](task-center-active-mode.md)
 
-The TaskCenter gains an active mode where it tracks agent activity (edits, turns, posthook calls) and spawns external trigger agents to auto-generate progress notes when agents are silent too long. This is an independent feature that complements the blocker protocol by ensuring the replanner has rich sibling context (via read_notes(scope="siblings")).
+The TaskCenter gains an active mode where it tracks agent activity (edits,
+turns, posthook calls) and spawns external trigger agents to auto-generate
+progress notes when agents are silent too long. This complements the blocker
+protocol by ensuring the replanner has rich sibling context via
+`read_sibling_notes(...)`.
 
 Key relationship to the blocker protocol: the turn-trigger external trigger prompt explicitly asks about blockers. Auto-generated notes surface blocker evidence early, giving the replanner higher-confidence signals for declare_blocker decisions.
 
@@ -1763,7 +1735,7 @@ Six phases. Phases within the same tier have no dependencies on each other and c
         [ ] AddTasksTool inserts tasks without cancelling siblings
         [ ] DeclareBlockerTool triggers Conductor
         [ ] CancelAndRedraftTool cancels siblings then inserts new tasks
-        [ ] Developer posthook only has submit_summary + request_replan
+        [ ] Developer posthook only has `post_note` + `request_replan`
         [ ] Replanner posthook has add_tasks + declare_blocker + cancel_and_redraft
         [ ] Resolver posthook has submit_fix + abandon_fix (nothing else)
         [ ] SubmitFixTool triggers Conductor.on_fix_complete

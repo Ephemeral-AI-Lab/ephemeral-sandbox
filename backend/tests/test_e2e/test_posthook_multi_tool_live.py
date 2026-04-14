@@ -224,11 +224,19 @@ async def test_replanner_picks_declare_blocker_for_shared_break(api_client):
     result = await run_trigger(
         messages=[],
         system_prompt=(
-            "You are a replanner agent. A task has failed. Call exactly ONE action:\n"
-            "  add_tasks — isolated failure, just needs a retry or follow-up.\n"
-            "  declare_blocker — shared dependency is broken, pause siblings.\n"
-            "  cancel_and_redraft — tasks are stale, cancel and replace.\n"
-            "Choose based on the evidence."
+            "You are a replanner agent. A task has failed. Read the failure context, "
+            "sibling statuses, and notes, then call exactly ONE action:\n\n"
+            "  add_tasks — the failure is ISOLATED to one task. Other siblings are "
+            "healthy and unaffected. Just retry or add follow-up work.\n\n"
+            "  declare_blocker — a SHARED dependency is broken and RUNNING siblings "
+            "will hit the SAME error. The root cause file must be fixed before "
+            "siblings can proceed. Use this when multiple tasks import from or "
+            "depend on the same broken file.\n\n"
+            "  cancel_and_redraft — tasks are stale or mis-scoped (wrong files, "
+            "wrong approach). Cancel them and replace with corrected work.\n\n"
+            "CRITICAL: If the notes show that RUNNING siblings import the same "
+            "broken symbol/file that caused the failure, that is a SHARED blocker — "
+            "call declare_blocker, NOT add_tasks."
         ),
         prompt=prompt,
         tools=REPLANNER_TOOLS,
@@ -277,12 +285,21 @@ async def test_replanner_picks_cancel_and_redraft_for_wrong_decomposition(api_cl
     result = await run_trigger(
         messages=[],
         system_prompt=(
-            "You are a replanner agent. A task has failed. Call exactly ONE action:\n"
-            "  add_tasks — isolated failure, just needs a retry or follow-up.\n"
-            "  declare_blocker — shared dependency is broken, pause siblings.\n"
-            "  cancel_and_redraft — tasks are stale (wrong files, wrong approach), "
-            "cancel them and replace with corrected work.\n"
-            "Choose based on the evidence."
+            "You are a replanner agent. A task has failed. Read the failure context, "
+            "sibling statuses, and notes, then call exactly ONE action:\n\n"
+            "  add_tasks — the failure is ISOLATED to one task. Other siblings are "
+            "healthy and unaffected. Just retry or add follow-up work.\n\n"
+            "  declare_blocker — a shared dependency is broken and RUNNING siblings "
+            "will hit the same error. Use when the root cause file must be fixed.\n\n"
+            "  cancel_and_redraft — the plan DECOMPOSITION is wrong. Tasks are scoped "
+            "to the wrong files, or all tasks share the same structural flaw. "
+            "Cancel the mis-scoped tasks and replace with corrected work that "
+            "targets the right files.\n\n"
+            "CRITICAL: When ALL sibling tasks failed with the SAME root cause "
+            "because the plan split work by consumer instead of by source, "
+            "and no task owns the file that actually needs fixing — that is a "
+            "WRONG DECOMPOSITION. Call cancel_and_redraft with the failed task IDs "
+            "in cancel_ids and provide replacement tasks that target the correct file."
         ),
         prompt=prompt,
         tools=REPLANNER_TOOLS,

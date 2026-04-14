@@ -221,6 +221,21 @@ class TeamRun:
         await self.task_center.cancel_all_pending()
         await self._stop_scope_listener()
 
+    async def fail_due_to_blocker(self, reason: str) -> None:
+        """Abort the run after an unrecoverable shared blocker failure."""
+        if self.status == TeamRunStatus.FAILED and self.cancel_event.is_set():
+            return
+        self.status = TeamRunStatus.FAILED
+        self.event_store.append(make_team_run_status(self.id, self.status.value, reason=reason))
+        self.cancel_event.set()
+        for task_id, runner_task in list(self._active_agent_runs.items()):
+            if runner_task.done():
+                continue
+            runner_task.cancel()
+        await self.task_center.cancel_all_running(reason)
+        await self.task_center.cancel_all_pending()
+        await self._stop_scope_listener()
+
     async def _start_scope_listener(self) -> None:
         try:
             from team.persistence.team_engine import get_team_engine

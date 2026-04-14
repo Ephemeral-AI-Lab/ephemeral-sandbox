@@ -29,6 +29,7 @@ RESERVED_BUILTIN_AGENT_NAMES = frozenset(
         "developer",
         "validator",
         "scout",
+        "resolver",
         "team_replanner",
         "submit_plan_agent",
         "decision_submit_retry",
@@ -121,4 +122,3 @@ def _ensure_external_loaded() -> None:
             _DEFINITIONS[defn.name] = defn
     except Exception:
         logger.debug("Failed to load external agent definitions", exc_info=True)
-

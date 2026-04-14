@@ -252,6 +252,64 @@ class TaskCenter:
             replans_used=self.budget_state.replans_used,
         ))
 
+    @staticmethod
+    def _iso(value: Any) -> str | None:
+        return value.isoformat() if value is not None else None
+
+    @classmethod
+    def _task_status_payload(cls, task: Task) -> dict[str, Any]:
+        return {
+            "agent_run_id": task.agent_run_id,
+            "started_at": cls._iso(task.started_at),
+            "finished_at": cls._iso(task.finished_at),
+            "failure_reason": task.failure_reason,
+            "retry_count": task.retry_count,
+            "max_retries": task.max_retries,
+            "blocker_id": task.blocker_id,
+            "pause_checkpoint": task.pause_checkpoint,
+            "pause_verdict": task.pause_verdict,
+        }
+
+    @classmethod
+    def _task_state_signature(cls, task: Task | None) -> tuple[Any, ...] | None:
+        if task is None:
+            return None
+        return (
+            task.status.value,
+            task.agent_run_id,
+            cls._iso(task.started_at),
+            cls._iso(task.finished_at),
+            task.failure_reason,
+            task.retry_count,
+            task.max_retries,
+            task.blocker_id,
+            task.pause_checkpoint,
+            task.pause_verdict,
+        )
+
+    def _task_state_snapshot(self, task_ids: set[str] | None = None) -> dict[str, tuple[Any, ...] | None]:
+        source_ids = task_ids or set(self.graph)
+        return {
+            task_id: self._task_state_signature(self.graph.get(task_id))
+            for task_id in source_ids
+        }
+
+    async def _refresh_graph_and_emit_transitions(self, before: dict[str, tuple[Any, ...] | None]) -> None:
+        await self.refresh_graph()
+        for task_id, prior in before.items():
+            task = self.graph.get(task_id)
+            if task is None:
+                continue
+            current = self._task_state_signature(task)
+            if current == prior:
+                continue
+            self._emit(make_task_status(
+                self._team_run_id,
+                task.id,
+                task.status.value,
+                **self._task_status_payload(task),
+            ))
+
     def _charge_tasks(self, n: int = 1) -> None:
         self.budget_state.tasks_used += n
         self._emit_budget()
@@ -561,21 +619,58 @@ class TaskCenter:
         return await self._store.retry_task(task_id, max_retries)
 
     async def cancel_all_pending(self) -> int:
-        return await self._store.cancel_all_pending()
+        before = self._task_state_snapshot()
+        count = await self._store.cancel_all_pending()
+        if count:
+            await self._refresh_graph_and_emit_transitions(before)
+        return count
 
     async def cancel_all_running(self, reason: str) -> int:
-        return await self._store.cancel_all_running(reason)
+        before = self._task_state_snapshot()
+        count = await self._store.cancel_all_running(reason)
+        if count:
+            await self._refresh_graph_and_emit_transitions(before)
+        return count
 
     async def pause_running_task(
         self, task_id: str, blocker_id: str, checkpoint: str, verdict: str,
     ) -> bool:
-        return await self._store.pause_running_task(task_id, blocker_id, checkpoint, verdict)
+        paused = await self._store.pause_running_task(task_id, blocker_id, checkpoint, verdict)
+        if not paused:
+            return False
+        task = await self.get_task(task_id)
+        if task is not None:
+            self._emit(make_task_status(
+                self._team_run_id,
+                task.id,
+                task.status.value,
+                **self._task_status_payload(task),
+            ))
+        return True
 
     async def resume_paused_tasks(self, blocker_id: str) -> int:
-        return await self._store.resume_paused_tasks(blocker_id)
+        affected_ids = {
+            task_id
+            for task_id, task in self.graph.items()
+            if task.blocker_id == blocker_id and task.status == TaskStatus.PAUSED
+        }
+        before = self._task_state_snapshot(affected_ids)
+        count = await self._store.resume_paused_tasks(blocker_id)
+        if count and affected_ids:
+            await self._refresh_graph_and_emit_transitions(before)
+        return count
 
     async def cancel_paused_tasks(self, blocker_id: str) -> int:
-        return await self._store.cancel_paused_tasks(blocker_id)
+        affected_ids = {
+            task_id
+            for task_id, task in self.graph.items()
+            if task.blocker_id == blocker_id and task.status == TaskStatus.PAUSED
+        }
+        before = self._task_state_snapshot(affected_ids)
+        count = await self._store.cancel_paused_tasks(blocker_id)
+        if count and affected_ids:
+            await self._refresh_graph_and_emit_transitions(before)
+        return count
 
     async def get_siblings_and_descendants(self, initiating_task_id: str) -> list[TaskRecord]:
         return await self._store.get_siblings_and_descendants(initiating_task_id)
@@ -621,7 +716,7 @@ class TaskCenter:
     async def add_task(self, t: Task) -> None:
         if self.budget_state.tasks_used >= self.budgets.max_tasks:
             raise BudgetExceeded(f"max_tasks={self.budgets.max_tasks} reached")
-        await self.insert_plan(
+        records = await self.insert_plan(
             [TaskSpec(id=t.id, task=t.task, agent=t.agent_name,
                       deps=list(t.deps), scope_paths=list(t.scope_paths),
                       cascade_policy=t.cascade_policy)],
@@ -630,7 +725,10 @@ class TaskCenter:
             parent_root_id=t.root_id or None,
         )
         self.budget_state.tasks_used += 1
-        t.status = TaskStatus.READY if not t.deps else TaskStatus.PENDING
+        if records:
+            actual = record_to_task(records[0])
+            t.status = actual.status
+            t.pending_dep_count = actual.pending_dep_count
         self.graph[t.id] = t
         if t.status == TaskStatus.READY and t.id not in self._ready_order:
             self._ready_order.append(t.id)
@@ -638,9 +736,10 @@ class TaskCenter:
         self._emit_budget()
 
     async def _mark_failed_and_cascade(self, task_id: str, reason: str) -> None:
+        before = self._task_state_snapshot()
         await self._mark_terminal(task_id, "failed", reason)
         await self.cascade_cancel_recursive(task_id)
-        await self.refresh_graph()
+        await self._refresh_graph_and_emit_transitions(before)
 
     async def complete_task(self, task_id: str, result: AgentResult) -> list[Task]:
         new_items: list[Task] = []
@@ -692,21 +791,42 @@ class TaskCenter:
             if self.budget_state.tasks_used + len(new_items) > self.budgets.max_tasks:
                 await self._mark_failed_and_cascade(task_id, "BudgetExceeded: max_tasks")
                 return []
-            await self.insert_plan(specs, parent_id=task_id, parent_depth=rec.depth or 0,
-                                   parent_root_id=rec.root_id or task_id)
+            inserted = await self.insert_plan(specs, parent_id=task_id, parent_depth=rec.depth or 0,
+                                              parent_root_id=rec.root_id or task_id)
             self.budget_state.tasks_used += len(new_items)
-            for t in new_items:
-                self._emit(make_task_added(self._team_run_id, task_to_dict(t)))
+            actual_items = [record_to_task(item) for item in inserted]
+            if actual_items:
+                new_items = actual_items
+            for item in new_items:
+                self._emit(make_task_added(self._team_run_id, task_to_dict(item)))
             self._emit_budget()
 
         if result.submitted_plan is not None:
             await self._mark_expanded(task_id)
             self._emit(make_task_status(self._team_run_id, task_id, "expanded", finished_at=_utcnow().isoformat()))
         else:
-            await self._mark_done(task_id)
+            promoted_ready = await self._mark_done(task_id)
             self._emit(make_task_status(self._team_run_id, task_id, "done", finished_at=_utcnow().isoformat()))
-            for pid in await self._maybe_promote_expanded_parent(task_id):
-                self._emit(make_task_status(self._team_run_id, pid, "done", finished_at=_utcnow().isoformat()))
+            for dep_id in promoted_ready:
+                dep_task = await self.get_task(dep_id)
+                if dep_task is None:
+                    continue
+                self._emit(make_task_status(
+                    self._team_run_id,
+                    dep_task.id,
+                    dep_task.status.value,
+                    **self._task_status_payload(dep_task),
+                ))
+            for promoted_id in await self._maybe_promote_expanded_parent(task_id):
+                promoted_task = await self.get_task(promoted_id)
+                if promoted_task is None:
+                    continue
+                self._emit(make_task_status(
+                    self._team_run_id,
+                    promoted_task.id,
+                    promoted_task.status.value,
+                    **self._task_status_payload(promoted_task),
+                ))
 
         if result.submitted_replan is not None:
             await self.apply_replan(
@@ -719,21 +839,23 @@ class TaskCenter:
         return new_items
 
     async def fail(self, task_id: str, reason: str) -> None:
+        before = self._task_state_snapshot()
         warnings = await self._fail_task_sql(task_id, reason)
         for dep_id, msg in warnings:
             try:
                 await self.post(Note(id=self.new_id(), task_id=dep_id, agent_name="system", content=msg))
             except Exception:
                 logger.debug("Failed to post warning note for %s", dep_id, exc_info=True)
-        await self.refresh_graph()
+        await self._refresh_graph_and_emit_transitions(before)
 
     async def retry_task(self, task_id: str, request: RetryRequest) -> None:
         rec = await self._get_record(task_id)
         if rec is None:
             raise RuntimeError(f"retry: {task_id} not found")
+        before = self._task_state_snapshot({task_id})
         success = await self._retry_task_sql(task_id, rec.max_retries)
-        await self.refresh_graph()
-        if not success:
+        await self._refresh_graph_and_emit_transitions(before)
+        if not success and task_id not in self.graph:
             self._emit(make_task_status(self._team_run_id, task_id, "failed", failure_reason="retry_exhausted"))
 
     async def request_replan(self, task_id: str, request: ReplanRequest) -> Task:
@@ -743,6 +865,7 @@ class TaskCenter:
         replanners = find_by_role("replanner")
         if not replanners:
             raise RuntimeError("no agent with role='replanner' is registered")
+        before = self._task_state_snapshot({task_id})
         rec = await self._request_replan_sql(task_id, reason=request.reason,
                                              suggestion=request.suggestion,
                                              replanner_agent=replanners[0].name)
@@ -751,13 +874,14 @@ class TaskCenter:
         task = _record_to_task(rec)
         self._emit(make_task_added(self._team_run_id, task_to_dict(task)))
         self._emit_budget()
-        await self.refresh_graph()
+        await self._refresh_graph_and_emit_transitions(before)
         return task
 
     async def apply_replan(
         self, replan_task_id: str, add_tasks: list[TaskSpec], cancel_ids: list[str],
         target_depth: int, target_parent_id: str | None, target_root_id: str,
     ) -> dict[str, int]:
+        before = self._task_state_snapshot()
         from team.planning.validation import _has_cycle
         for cid in cancel_ids:
             rec = await self._get_record(cid)
@@ -802,11 +926,13 @@ class TaskCenter:
         for cid in cancel_ids:
             await self.cascade_cancel_recursive(cid)
         if specs:
-            await self.insert_plan(specs, parent_id=target_parent_id,
-                                   parent_depth=max(0, target_depth - 1),
-                                   parent_root_id=target_root_id or None)
+            inserted = await self.insert_plan(specs, parent_id=target_parent_id,
+                                              parent_depth=max(0, target_depth - 1),
+                                              parent_root_id=target_root_id or None)
             self._charge_tasks(len(specs))
-        await self.refresh_graph()
+            for item in inserted:
+                self._emit(make_task_added(self._team_run_id, task_to_dict(record_to_task(item))))
+        await self._refresh_graph_and_emit_transitions(before)
         return {"added": len(specs), "cancelled": len(cancel_ids)}
 
     async def compute_final_statuses(self) -> set[str]:

@@ -296,8 +296,21 @@ class TaskStore:
                 WHERE t.team_run_id=:rid AND t.status='pending'
                   AND t.deps && (SELECT array_agg(id) FROM already_done)
             """), {"rid": self._team_run_id})
+            inserted_ids = [record.id for record in records]
+            rows = []
+            if inserted_ids:
+                rows = (
+                    await db.execute(
+                        text(
+                            f"SELECT {TASK_RETURNING} FROM tasks "
+                            "WHERE team_run_id=:rid AND id = ANY(:ids) "
+                            "ORDER BY depth, created_at"
+                        ),
+                        {"rid": self._team_run_id, "ids": inserted_ids},
+                    )
+                ).fetchall()
             await db.commit()
-            return records
+            return [row_to_record(row) for row in rows]
 
     async def cascade_cancel_recursive(self, root_task_id: str) -> list[str]:
         async with self._sf() as db:
@@ -491,6 +504,9 @@ class TaskStore:
                     agent_run_id=t.agent_run_id, created_at=t.created_at,
                     started_at=t.started_at, finished_at=t.finished_at,
                     failure_reason=t.failure_reason,
+                    blocker_id=t.blocker_id,
+                    pause_checkpoint=t.pause_checkpoint,
+                    pause_verdict=t.pause_verdict,
                 )
                 for t in tasks
             ])

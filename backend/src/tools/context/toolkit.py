@@ -1,9 +1,11 @@
 """Task Center tools — notes + staleness.
 
-Tools:
-- post_note                — post a note for other agents
+Tools exposed in the main loop:
 - read_notes               — read/search notes with optional keyword filter
 - context_changed_since    — check if context is stale (other agents' edits)
+
+`post_note` is still defined in this module, but is exposed via the post-run and
+external-trigger phases rather than the main-loop context toolkit.
 
 Role-based restrictions are handled via ``blocked_tools`` in agent definitions
 rather than separate read/write toolkit variants.
@@ -211,6 +213,6 @@ class TaskCenterToolkit(BaseToolkit):
     def from_context(cls, ctx: object) -> TaskCenterToolkit:
         return cls(
             name="task_center",
-            description="Post/read notes and check scope changes.",
+            description="Read notes and check scope changes.",
             tools=list(_ALL_TOOLS),
         )

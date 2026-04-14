@@ -9,7 +9,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
-from team.models import Blocker, BlockerStatus, TaskSpec, TaskStatus
+from team.models import Blocker, BlockerStatus, ReplanRequest, Task, TaskSpec, TaskStatus, TeamRunStatus
 
 if TYPE_CHECKING:
     from team.persistence.blocker_store import BlockerStore
@@ -192,21 +192,78 @@ class Conductor:
 
     async def _spawn_resolver(self, blocker: Blocker) -> None:
         from agents.registry import find_by_role
-        developers = find_by_role("developer")
-        agent_name = developers[0].name if developers else "developer"
+        resolvers = find_by_role("resolver")
+        if resolvers:
+            agent_name = resolvers[0].name
+        else:
+            developers = find_by_role("developer")
+            agent_name = developers[0].name if developers else "developer"
 
         resolver_id = str(uuid.uuid4())
-        spec = TaskSpec(
+        task = Task(
             id=resolver_id,
-            task=f"RESOLVER: Fix broken files {blocker.root_cause_paths}. Problem: {blocker.reason}",
-            agent=agent_name,
+            team_run_id=self._team_run.id,
+            agent_name=agent_name,
+            status=TaskStatus.READY,
+            task=(
+                "Resolve the shared blocker once for all affected tasks.\n"
+                f"Root cause paths: {', '.join(blocker.root_cause_paths)}\n"
+                f"Problem: {blocker.reason}\n"
+                "Repair the shared surface directly. When fixed, use `post_note` with the exact fix summary. "
+                "If the blocker cannot be repaired within this scope, use `request_replan` with the concrete reason."
+            ),
             deps=[],
-            scope_paths=blocker.root_cause_paths,
+            scope_paths=list(blocker.root_cause_paths),
         )
         tc = self._team_run.task_center
-        await tc.insert_plan([spec])
+        try:
+            from team.task_center import TaskCenter
+
+            if isinstance(tc, TaskCenter):
+                await tc.add_task(task)
+            else:
+                raise TypeError("fallback to insert_plan")
+        except Exception:
+            spec = TaskSpec(
+                id=resolver_id,
+                task=task.task,
+                agent=agent_name,
+                deps=[],
+                scope_paths=task.scope_paths,
+            )
+            await tc.insert_plan([spec])
         blocker.fix_task_id = resolver_id
         logger.info("Spawned resolver task %s for blocker %s", resolver_id, blocker.id)
+        await self._persist(blocker)
+
+    async def _spawn_post_fix_replanner(self, blocker: Blocker, fix_summary: str) -> None:
+        tc = self._team_run.task_center
+        request = ReplanRequest(
+            reason=(
+                f"Shared blocker resolved for {', '.join(blocker.root_cause_paths)}. "
+                f"Revisit the initiating task with this fix in place: {fix_summary}"
+            ),
+            suggestion="Retry or narrow the original failed task now that the shared root cause is fixed.",
+        )
+        try:
+            await tc.request_replan(blocker.initiating_task_id, request)
+            return
+        except Exception as exc:
+            logger.warning("Falling back to manual post-fix replanner spawn: %s", exc)
+
+        from agents.registry import find_by_role
+
+        replanners = find_by_role("replanner")
+        replanner_agent = replanners[0].name if replanners else "replanner"
+        replanner_id = str(uuid.uuid4())
+        spec = TaskSpec(
+            id=replanner_id,
+            task=f"Replan after blocker resolved: {fix_summary}",
+            agent=replanner_agent,
+            deps=[],
+            scope_paths=list(blocker.root_cause_paths),
+        )
+        await tc.insert_plan([spec])
 
     # ------------------------------------------------------------------
     # Fix outcome handlers
@@ -226,21 +283,8 @@ class Conductor:
         resumed = await self._resume_paused(blocker)
         logger.info("Blocker %s resolved; resumed %d paused tasks", blocker_id, resumed)
 
-        # Spawn a replanner for the initiating task
         try:
-            from agents.registry import find_by_role
-            replanners = find_by_role("replanner")
-            replanner_agent = replanners[0].name if replanners else "replanner"
-            replanner_id = str(uuid.uuid4())
-            spec = TaskSpec(
-                id=replanner_id,
-                task=f"Replan after blocker resolved: {fix_summary}",
-                agent=replanner_agent,
-                deps=[],
-                scope_paths=[],
-            )
-            tc = self._team_run.task_center
-            await tc.insert_plan([spec])
+            await self._spawn_post_fix_replanner(blocker, fix_summary)
         except Exception as exc:
             logger.warning("Failed to spawn replanner after fix: %s", exc)
 
@@ -258,6 +302,12 @@ class Conductor:
         logger.critical(
             "Blocker %s FAILED (%s); cancelled %d paused tasks", blocker_id, reason, cancelled
         )
+        if hasattr(self._team_run, "fail_due_to_blocker"):
+            await self._team_run.fail_due_to_blocker(
+                f"{blocker.reason}; resolver could not fix shared root cause: {reason}"
+            )
+        elif hasattr(self._team_run, "status"):
+            self._team_run.status = TeamRunStatus.FAILED
 
         del self._active_blockers[blocker_id]
 

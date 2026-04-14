@@ -65,13 +65,18 @@ def task_from_dict(data: dict[str, Any]) -> Task:
         scope_paths=list(data.get("scope_paths") or []),
         cascade_policy=data.get("cascade_policy", "cancel"),
         parent_id=data.get("parent_id"), root_id=data.get("root_id") or "",
-        depth=int(data.get("depth") or 0), agent_run_id=data.get("agent_run_id"),
+        depth=int(data.get("depth") or 0),
+        pending_dep_count=int(data.get("pending_dep_count") or 0),
+        agent_run_id=data.get("agent_run_id"),
         created_at=_parse_dt(data.get("created_at")) or datetime.now(),
         started_at=_parse_dt(data.get("started_at")),
         finished_at=_parse_dt(data.get("finished_at")),
         failure_reason=data.get("failure_reason"),
         retry_count=int(data.get("retry_count") or 0),
         max_retries=int(data.get("max_retries") or 2),
+        blocker_id=data.get("blocker_id"),
+        pause_checkpoint=data.get("pause_checkpoint"),
+        pause_verdict=data.get("pause_verdict"),
     )
 
 
@@ -102,6 +107,12 @@ def apply_replayed_event(
                 t.retry_count = int(event.data.get("retry_count") or 0)
             if "max_retries" in event.data:
                 t.max_retries = int(event.data.get("max_retries") or t.max_retries)
+            if "blocker_id" in event.data:
+                t.blocker_id = event.data.get("blocker_id")
+            if "pause_checkpoint" in event.data:
+                t.pause_checkpoint = event.data.get("pause_checkpoint")
+            if "pause_verdict" in event.data:
+                t.pause_verdict = event.data.get("pause_verdict")
     elif event.kind == "budget_update":
         last_budget = (
             int(event.data.get("tasks_used") or 0),

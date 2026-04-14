@@ -71,7 +71,7 @@ class AgentDefinition(BaseModel):
     # --- team role category ---
     # Freeform tag used by team-mode validation and dispatch instead of
     # hard-coded agent-name comparisons.  Canonical values: "planner",
-    # "developer", "reviewer", "explorer", "replanner".
+    # "developer", "reviewer", "explorer", "replanner", "resolver".
     role: str | None = None
 
     # --- metadata ---

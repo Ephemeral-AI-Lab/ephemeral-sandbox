@@ -14,6 +14,8 @@ from tools.posthook.toolkit import (
     AddTasksTool,
     CancelAndRedraftTool,
     DeclareBlockerTool,
+    PosthookTools,
+    RequestReplanTool,
 )
 
 
@@ -98,3 +100,14 @@ def test_cancel_and_redraft_sets_replan_submission():
     assert isinstance(submitted, ReplanPlan)
     assert [task.id for task in submitted.add_tasks] == ["fix-2"]
     assert submitted.cancel_ids == ["old-1"]
+
+
+def test_posthook_tools_resolver_role_gets_terminal_submission_tools():
+    ctx = _ctx({"role": "resolver"})
+
+    toolkit = PosthookTools.from_context(ctx)
+
+    assert [tool.name for tool in toolkit.list_tools()] == [
+        PostNoteTool.name,
+        RequestReplanTool.name,
+    ]

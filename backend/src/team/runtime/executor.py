@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import time
 import uuid
@@ -56,12 +57,17 @@ class Executor:
         tc = self.team_run.task_center
         dq = self.team_run.dispatch_queue
         conductor = getattr(self.team_run, "conductor", None)
+        pop_ready = dq.pop_ready
+        pop_ready_accepts_guard = "blocker_guard" in inspect.signature(pop_ready).parameters
         while not self.team_run.cancel_event.is_set():
             try:
-                rec = await dq.pop_ready(
-                    self.team_run.id,
-                    blocker_guard=getattr(conductor, "guard_pop_ready", None),
-                )
+                if pop_ready_accepts_guard:
+                    rec = await pop_ready(
+                        self.team_run.id,
+                        blocker_guard=getattr(conductor, "guard_pop_ready", None),
+                    )
+                else:
+                    rec = await pop_ready(self.team_run.id)
             except Exception as exc:
                 logger.exception("DispatchQueue pop_ready failed: %s", exc)
                 await asyncio.sleep(0.2)
@@ -87,6 +93,15 @@ class Executor:
         agent_run_id = str(uuid.uuid4())
         task = await tc.mark_running(task.id, agent_run_id)
 
+        async def _current_task_state() -> Task | None:
+            get_task = getattr(tc, "get_task", None)
+            if callable(get_task):
+                return await get_task(task.id)
+            graph = getattr(tc, "graph", None)
+            if isinstance(graph, dict):
+                return graph.get(task.id, task)
+            return task
+
         defn = self.agent_lookup(task.agent_name)
         if defn is None:
             await tc.fail(task.id, f"unknown_agent: {task.agent_name}")
@@ -108,11 +123,13 @@ class Executor:
                 ctx.tool_metadata.extras["scope_change_buffer"] = scope_buffer
 
         runner_task: asyncio.Task[object] = asyncio.create_task(self.runner(defn, ctx))
-        self.team_run.register_agent_run(task.id, runner_task)
+        register_agent_run = getattr(self.team_run, "register_agent_run", None)
+        if callable(register_agent_run):
+            register_agent_run(task.id, runner_task)
         try:
             await runner_task
         except asyncio.CancelledError:
-            current = await tc.get_task(task.id)
+            current = await _current_task_state()
             if current is not None and current.status == TaskStatus.PAUSED:
                 logger.info("Task %s paused during execution; dropping in-flight runner", task.id)
                 return
@@ -125,11 +142,13 @@ class Executor:
                     await conductor.on_fix_failed(blocker.id, f"runner_exception: {exc}")
             return
         finally:
-            self.team_run.unregister_agent_run(task.id, runner_task)
+            unregister_agent_run = getattr(self.team_run, "unregister_agent_run", None)
+            if callable(unregister_agent_run):
+                unregister_agent_run(task.id, runner_task)
             if listener is not None:
                 listener.unsubscribe(agent_run_id)
 
-        current = await tc.get_task(task.id)
+        current = await _current_task_state()
         if current is not None and current.status == TaskStatus.PAUSED:
             logger.info("Task %s completed after pause; ignoring stale result", task.id)
             return
