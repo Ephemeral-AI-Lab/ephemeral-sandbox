@@ -139,6 +139,7 @@ class ActivityTracker:
         )
 
         content: str | None = None
+        note_tags: list[str] | None = None
         posted = False
         try:
             if api_client and snapshot is not None:
@@ -170,6 +171,10 @@ class ActivityTracker:
                 else:
                     if result.content:
                         content = result.content
+                    if result.tags:
+                        note_tags = result.tags
+                    if result.paths:
+                        scope_paths = list(set(scope_paths + result.paths))
 
             if content is None:
                 if trigger == "edit":
@@ -191,7 +196,7 @@ class ActivityTracker:
                 content=content,
                 timestamp=time.time(),
                 paths=scope_paths,
-                tags=[NoteTag.IMPLEMENTATION.value],
+                tags=note_tags or [NoteTag.IMPLEMENTATION.value],
             )
             if post_note_cb is not None:
                 await post_note_cb(note)

@@ -487,20 +487,9 @@ def test_build_context_uses_override_when_provided():
     build_query_context.assert_awaited_once_with(defn, team_run, task)
 
 
-def test_run_one_subscribes_and_unsubscribes_scope_listener():
+def test_run_one_does_not_set_up_scope_buffer():
+    """After Option B unification, executor no longer creates ScopeChangeBuffer."""
     import asyncio
-
-    class FakeScopeListener:
-        def __init__(self):
-            self.is_running = True
-            self.subscribed: list[tuple[str, list[str]]] = []
-            self.unsubscribed: list[str] = []
-
-        def subscribe(self, agent_run_id: str, scope_paths: list[str], _buffer) -> None:
-            self.subscribed.append((agent_run_id, scope_paths))
-
-        def unsubscribe(self, agent_run_id: str) -> None:
-            self.unsubscribed.append(agent_run_id)
 
     task = _make_task(status="pending")
     tc = FakeTaskCenter()
@@ -510,10 +499,9 @@ def test_run_one_subscribes_and_unsubscribes_scope_listener():
     tc.complete_task = AsyncMock(return_value=[])
     tc.sibling_stats = AsyncMock(return_value={"done": 0, "failed": 0, "retry_total": 0})
     team_run = FakeTeamRun(task_center=tc)
-    team_run.scope_listener = FakeScopeListener()
 
     async def runner(_defn, ctx):
-        assert "scope_change_buffer" in ctx.tool_metadata.extras
+        assert "scope_change_buffer" not in ctx.tool_metadata.extras
 
     executor = Executor(
         team_run=team_run,
@@ -523,10 +511,6 @@ def test_run_one_subscribes_and_unsubscribes_scope_listener():
     )
 
     asyncio.run(executor._run_one(task))
-
-    assert len(team_run.scope_listener.subscribed) == 1
-    assert team_run.scope_listener.subscribed[0][1] == ["src/auth/"]
-    assert len(team_run.scope_listener.unsubscribed) == 1
     tc.fail.assert_not_called()
 
 

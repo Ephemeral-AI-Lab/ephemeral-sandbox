@@ -24,6 +24,7 @@ async def _post_submission_note(
     *,
     content: str,
     scope_paths: list[str] | None = None,
+    tags: list[str] | None = None,
 ) -> None:
     tc = context.metadata.get("task_center")
     if tc is None:
@@ -38,6 +39,7 @@ async def _post_submission_note(
             content=content,
             timestamp=time.time(),
             paths=list(scope_paths or context.metadata.get("write_scope") or []),
+            tags=tags or [],
         )
     )
 
@@ -98,7 +100,7 @@ async def _accept_replan_submission(
     freshness_gate = await _freshness_submission_gate(context, action="replan_submission()")
     if freshness_gate is not None:
         return freshness_gate
-    await _post_submission_note(context, content=note_content)
+    await _post_submission_note(context, content=note_content, tags=["refactor"])
     return ToolResult(
         output=f"Replan accepted ({len(replan.add_tasks)} new tasks, {len(replan.cancel_ids)} cancelled).",
         metadata={"resolved_replan": replan},
@@ -280,7 +282,7 @@ class SubmitPlanTool(BaseTool):
         summary = f"Submitted plan with {len(plan.tasks)} task(s)."
         if arguments.rationale:
             summary += f"\nRationale: {arguments.rationale.strip()}"
-        await _post_submission_note(context, content=summary)
+        await _post_submission_note(context, content=summary, tags=["architecture"])
         return ToolResult(
             output=f"Plan accepted ({len(plan.tasks)} tasks).",
             metadata={"resolved_plan": plan},
@@ -323,7 +325,7 @@ class RequestReplanTool(BaseTool):
         note = f"Requested replan: {arguments.reason}"
         if arguments.suggestion:
             note += f"\nSuggestion: {arguments.suggestion}"
-        await _post_submission_note(context, content=note)
+        await _post_submission_note(context, content=note, tags=["warning"])
         return ToolResult(output="Replan requested.")
 
 
@@ -405,7 +407,7 @@ class DeclareBlockerTool(BaseTool):
         note = f"Declared blocker on {', '.join(arguments.root_cause_paths)}: {arguments.reason}"
         if arguments.suggestion:
             note += f"\nSuggestion: {arguments.suggestion}"
-        await _post_submission_note(context, content=note)
+        await _post_submission_note(context, content=note, tags=["blocker"])
         return ToolResult(output="Blocker declared.")
 
 

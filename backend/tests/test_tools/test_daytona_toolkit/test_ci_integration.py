@@ -159,14 +159,13 @@ def test_finalize_ci_write_enriches_prepared_write_with_symbol_boundaries():
     assert getattr(enriched, "operation_type", None) == "replace"
 
 
-def test_finalize_ci_write_mirrors_team_edit_and_notifies_listener():
+def test_finalize_ci_write_mirrors_team_edit():
     svc = MagicMock()
     svc.commit_prepared_write.return_value = SimpleNamespace(success=True)
     svc.arbiter = SimpleNamespace(file_change_store=object())
     team_store = MagicMock()
     team_store.initialized = True
-    listener = SimpleNamespace(publish_change=MagicMock())
-    team_run = SimpleNamespace(file_change_store=team_store, scope_listener=listener)
+    team_run = SimpleNamespace(file_change_store=team_store)
     ctx = _ctx(
         {
             "ci_service": svc,
@@ -200,12 +199,6 @@ def test_finalize_ci_write_mirrors_team_edit_and_notifies_listener():
         old_hash="old-hash",
         new_hash=hashlib.sha256("after\n".encode("utf-8")).hexdigest()[:16],
         description="update file",
-    )
-    listener.publish_change.assert_called_once_with(
-        file_path="/repo/file.py",
-        agent_id="developer",
-        agent_run_id="agent-run-1",
-        edit_type="write",
     )
 
 
@@ -275,13 +268,12 @@ def test_record_edit_default_args():
     )
 
 
-def test_record_edit_mirrors_team_store_and_scope_listener():
+def test_record_edit_mirrors_team_store():
     svc = MagicMock()
     svc.arbiter.file_change_store = object()
     team_store = MagicMock()
     team_store.initialized = True
-    listener = SimpleNamespace(publish_change=MagicMock())
-    team_run = SimpleNamespace(file_change_store=team_store, scope_listener=listener)
+    team_run = SimpleNamespace(file_change_store=team_store)
     ctx = _ctx(
         {
             "ci_service": svc,
@@ -311,12 +303,6 @@ def test_record_edit_mirrors_team_store_and_scope_listener():
         old_hash="",
         new_hash="",
         description="",
-    )
-    listener.publish_change.assert_called_once_with(
-        file_path="/file.py",
-        agent_id="developer",
-        agent_run_id="agent-run-1",
-        edit_type="edit",
     )
 
 

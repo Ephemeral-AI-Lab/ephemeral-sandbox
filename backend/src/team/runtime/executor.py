@@ -390,6 +390,7 @@ class Executor:
                 agent_name=task.agent_name or "unknown",
                 content=summary[:max_bytes], timestamp=time.time(),
                 paths=list(task.scope_paths) if task.scope_paths else [],
+                tags=["implementation"],
             ))
         except Exception:
             logger.debug("completion note: post failed for %s", task.id, exc_info=True)

@@ -8,12 +8,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from message.messages import SystemReminderBlock
-from team.runtime.scope_change_buffer import (
-    SCOPE_CHANGE_CATEGORY,
-    SCOPE_CHANGE_SUPERSEDED,
-    ScopeChangeBuffer,
-)
 from tools.context.toolkit import ContextChangedSinceTool
 from tools.core.base import ToolExecutionContext
 
@@ -55,28 +49,6 @@ async def test_context_changed_since_marks_checked_and_excludes_own_run_changes(
     assert payload["scope_changes_by_others"] == 1
     assert payload["stale"] is True
     assert ctx.metadata["checked_context_freshness"] is True
-
-
-def test_scope_change_buffer_returns_text_and_supersedes_old_message():
-    buf = ScopeChangeBuffer(min_turns_between=1)
-    display_messages = []
-
-    buf.buffer({"file_path": "src/auth/a.py", "edit_type": "edit", "agent_id": "peer"})
-    first_text = buf.flush_into(display_messages)
-
-    assert first_text is not None
-    assert len(display_messages) == 1
-    first_block = display_messages[0].content[0]
-    assert isinstance(first_block, SystemReminderBlock)
-    assert first_block.category == SCOPE_CHANGE_CATEGORY
-
-    buf.buffer({"file_path": "src/auth/b.py", "edit_type": "write", "agent_id": "peer-2"})
-    second_text = buf.flush_into(display_messages)
-
-    assert second_text is not None
-    assert len(display_messages) == 2
-    assert display_messages[0].content[0].category == SCOPE_CHANGE_SUPERSEDED
-    assert display_messages[1].content[0].category == SCOPE_CHANGE_CATEGORY
 
 
 @pytest.mark.asyncio

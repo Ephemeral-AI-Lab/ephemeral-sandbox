@@ -10,28 +10,24 @@ from tools.context.toolkit import PostNoteTool, PostNoteInput
 
 
 TC_NOTE_EDIT_PROMPT = (
-    "Based on this agent's work so far, write a progress note "
-    "for the Task Center.\n"
+    "Write a progress note for the Task Center about this agent's edits.\n"
     "Focus on: what files were edited and why.\n"
-    "Include file paths and specific changes made.\n"
-    "Keep under 300 words.\n"
-    "Call the post_note tool with your note. Include a 'tags' field "
-    "with one or more of: implementation, bug_fix, refactor, blocker, warning. "
-    "Use 'blocker' if the agent appears stuck."
+    "Call post_note with:\n"
+    "- content: name specific files, errors, and changes (under 300 words)\n"
+    "- paths: list every file/dir path edited or investigated\n"
+    "- tags: one or more of implementation, bug_fix, refactor, blocker, warning "
+    "(use 'blocker' if stuck)"
 )
 
 TC_NOTE_TURN_PROMPT = (
-    "Based on this agent's work so far, write a progress note "
-    "for the Task Center.\n"
-    "Include:\n"
-    "1. What the agent has accomplished\n"
-    "2. Current status (working / stuck / nearly done)\n"
-    "3. Whether the agent appears blocked by code that another "
-    "task broke (include the file path and error if so)\n"
-    "Keep under 300 words.\n"
-    "Call the post_note tool with your note. Include a 'tags' field "
-    "with one or more of: implementation, bug_fix, blocker, warning, discovery. "
-    "Use 'blocker' if the agent appears stuck or blocked by another task's changes."
+    "Write a progress note for the Task Center about this agent's work.\n"
+    "Include: accomplishments, status (working/stuck/done), and whether "
+    "blocked by another task's changes (name the file and error).\n"
+    "Call post_note with:\n"
+    "- content: name specific files, errors, and scope paths (under 300 words)\n"
+    "- paths: list every file/dir path relevant to the work\n"
+    "- tags: one or more of implementation, bug_fix, blocker, warning, discovery "
+    "(use 'blocker' if stuck or blocked by another task)"
 )
 
 TC_NOTE_SYSTEM_PROMPT = (
@@ -49,6 +45,8 @@ class NoteSummary:
     trigger: str  # "edit" or "turn"
     content: str
     turns_used: int = 0
+    tags: list[str] | None = None
+    paths: list[str] | None = None
 
 
 async def run_tc_note(
@@ -90,4 +88,6 @@ async def run_tc_note(
         trigger=trigger,
         content=validated.content,
         turns_used=result.turns_used,
+        tags=validated.tags,
+        paths=validated.paths,
     )
