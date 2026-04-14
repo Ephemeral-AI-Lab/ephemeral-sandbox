@@ -187,9 +187,9 @@ async def build_query_context(
     if posthook_tools:
         meta["posthook_tool_names"] = list(posthook_tools)
         meta["posthook_prompt"] = (
-            "Your main work is complete. You must now submit your results "
-            f"by calling one of: {', '.join(posthook_tools)}. "
-            "Summarize what you accomplished and call the appropriate tool."
+            "Your main work is complete. Submit results by calling one of: "
+            f"{', '.join(posthook_tools)}. "
+            "If using post_note, include paths (files touched) and tags."
         )
     user_message = await build_initial_user_message(team_run, task)
     roster = getattr(team_run, "roster", None)

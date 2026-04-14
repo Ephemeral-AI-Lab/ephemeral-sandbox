@@ -60,11 +60,7 @@ async def run_tc_note(
     model: str | None = None,
     api_client: Any,
 ) -> NoteSummary:
-    """Spawn an ephemeral agent to generate a task-center progress note.
-
-    The agent inherits the task's conversation snapshot and has only the
-    post_note tool available. Uses runner.run() for guaranteed tool call.
-    """
+    """Spawn an ephemeral agent to generate a task-center progress note."""
     result = await run(
         agent_name=f"tc_note:{task_id}",
         messages=messages,
@@ -78,10 +74,7 @@ async def run_tc_note(
 
     validated = result.validated
     if not isinstance(validated, PostNoteInput):
-        raise RuntimeError(
-            f"run_tc_note (task={task_id}): runner returned unexpected "
-            f"validated type {type(validated).__name__}, expected PostNoteInput"
-        )
+        raise RuntimeError(f"run_tc_note ({task_id}): expected PostNoteInput, got {type(validated).__name__}")
 
     return NoteSummary(
         task_id=task_id,

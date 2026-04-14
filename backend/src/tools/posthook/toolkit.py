@@ -44,14 +44,8 @@ async def _post_submission_note(
     )
 
 
-async def _check_context_freshness(
-    context: ToolExecutionContext,
-) -> str:
-    """Check if context has gone stale since task started.
-
-    Returns a warning string if context is stale, otherwise empty string.
-    This is called before submission to attach staleness metadata.
-    """
+async def _check_context_freshness(context: ToolExecutionContext) -> str:
+    """Return a warning string if context is stale, otherwise empty string."""
     from tools.context.freshness import check_freshness
 
     report = await check_freshness(context)
@@ -67,11 +61,7 @@ async def _check_context_freshness(
     )
 
 
-async def _freshness_submission_gate(
-    context: ToolExecutionContext,
-    *,
-    action: str,
-) -> ToolResult | None:
+async def _freshness_submission_gate(context: ToolExecutionContext, *, action: str) -> ToolResult | None:
     """Reject terminal submissions when the task context has gone stale."""
     freshness_warning = await _check_context_freshness(context)
     if not freshness_warning:
