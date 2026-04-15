@@ -82,6 +82,7 @@ class QueryContext:
     tool_metadata: ExecutionMetadata | None = None
     session_state: Any = None
     enable_background_tasks: bool = False
+    user_context_message: str | None = None
     on_turn: Callable[[list[ConversationMessage]], None] | None = None
     api_messages_snapshot: list[ConversationMessage] | None = None
     terminal_tools: set[str] = field(default_factory=set)
@@ -340,15 +341,27 @@ async def _run_query_loop(
             system_prompt=context.system_prompt,
             state=compact_state,
         )
+        provider_messages = list(api_messages)
+        context_message = (context.user_context_message or "").strip()
+        if context_message:
+            provider_messages = [
+                ConversationMessage.from_user_text(context_message),
+                *provider_messages,
+            ]
         context.api_messages_snapshot = [
             ConversationMessage.from_user_text(context.system_prompt),
+            *(
+                [ConversationMessage.from_user_text(context_message)]
+                if context_message
+                else []
+            ),
             *api_messages,
         ]
 
         async for event in context.api_client.stream_message(
             ApiMessageRequest(
                 model=context.model,
-                messages=api_messages,
+                messages=provider_messages,
                 system_prompt=context.system_prompt,
                 max_tokens=context.max_tokens,
                 tools=decorate_schemas_for_background(

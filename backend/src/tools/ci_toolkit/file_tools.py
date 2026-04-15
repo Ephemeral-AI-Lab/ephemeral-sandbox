@@ -135,6 +135,7 @@ def _benchmark_ci_read_guard(
         "coordinated benchmark lanes this is confirmatory only after CI symbol "
         "queries narrowed the seam."
     ),
+    short_description="Read a file with line numbers.",
     read_only=True,
 )
 async def ci_read_file(

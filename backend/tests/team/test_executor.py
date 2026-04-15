@@ -158,7 +158,7 @@ def test_read_result_fail_triggers_replan():
 def test_read_result_planner_submit_task_plan():
     """When resolved_plan is a Plan, _read_result returns AgentResult with plan."""
     executor, _ = _make_executor()
-    plan = Plan.from_dict({"tasks": [{"id": "t1", "task": "fix it", "agent": "developer"}]})
+    plan = Plan.from_dict({"tasks": [{"id": "t1", "objective": "fix it", "agent": "developer"}]})
     ctx = TeamAgentContext(
         tool_metadata={
             "resolved_plan": plan,
@@ -176,7 +176,7 @@ def test_read_result_replanner_submit_replan():
     """When resolved_plan is a ReplanPlan, _read_result returns AgentResult with replan."""
     executor, _ = _make_executor()
     replan = ReplanPlan.from_dict({
-        "add_tasks": [{"id": "t1", "task": "retry fix", "agent": "developer"}],
+        "add_tasks": [{"id": "t1", "objective": "retry fix", "agent": "developer"}],
         "cancel_ids": ["old-task-1"],
     })
     ctx = TeamAgentContext(

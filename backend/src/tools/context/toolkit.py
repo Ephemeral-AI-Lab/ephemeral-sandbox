@@ -89,6 +89,7 @@ class SubmitTaskNoteTool(BaseTool):
         "tasks need, and exploration findings (scouts). Notes are append-only "
         "and immutable — post a new note to update, don't try to edit."
     )
+    short_description = "Post a Task Center note."
     input_model = PostNoteInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
@@ -160,6 +161,7 @@ class ContextChangedSinceInput(BaseModel):
 class ContextChangedSinceTool(BaseTool):
     name = "context_changed_since"
     description = "Check if your context has changed since task started. Call before committing multi-file changes."
+    short_description = "Check whether task context is stale."
     input_model = ContextChangedSinceInput
 
     async def execute(
@@ -229,6 +231,7 @@ class ReadTaskNoteTool(BaseTool):
         "scope='sibling' for sibling tasks. ALWAYS include paths=[<your_scope_paths>] "
         "to scope reads. Also use tags= and keyword= for filtering."
     )
+    short_description = "Read Task Center notes."
     input_model = ReadTaskNoteInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
@@ -319,6 +322,7 @@ class ReadTaskDetailsTool(BaseTool):
         "scope_paths, summary, and recent notes. Use read_task_graph first "
         "to discover task IDs."
     )
+    short_description = "Read task details by ID."
     input_model = ReadTaskDetailsInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
@@ -401,6 +405,7 @@ class ReadTaskGraphTool(BaseTool):
         "Use scope='parent' to see your peer tasks, scope='global' for the full tree. "
         "Follow up with read_task_details(task_ids=[...]) for full info on specific tasks."
     )
+    short_description = "Read the task graph."
     input_model = ReadTaskGraphInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:

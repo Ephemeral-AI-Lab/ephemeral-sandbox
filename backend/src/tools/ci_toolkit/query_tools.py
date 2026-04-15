@@ -386,6 +386,7 @@ async def _remote_query_symbols(
 @tool(
     name="ci_status",
     description="Check code intelligence readiness: cache, index, LSP, and edit activity.",
+    short_description="Check code intelligence status.",
     read_only=True,
 )
 async def ci_status(*, context: ToolExecutionContext) -> ToolResult:
@@ -403,6 +404,7 @@ async def ci_status(*, context: ToolExecutionContext) -> ToolResult:
 @tool(
     name="ci_workspace_structure",
     description="List files and directories in the workspace, sorted by path.",
+    short_description="List workspace files and directories.",
     read_only=True,
 )
 async def ci_workspace_structure(
@@ -626,6 +628,7 @@ def _file_query_symbols(
         "so you can continue with real symbol names. ALWAYS prefer this over daytona_read_file "
         "and daytona_grep — it is cheaper, faster, and returns structured data."
     ),
+    short_description="Find symbol definitions and references.",
     read_only=True,
 )
 async def ci_query_symbol(
@@ -832,6 +835,7 @@ async def ci_query_symbol(
 @tool(
     name="ci_edit_hotspots",
     description="Return files edited most frequently, optionally filtered by scope. Use cross_run for cross-run contention data.",
+    short_description="Show frequently edited files.",
     read_only=True,
 )
 async def ci_edit_hotspots(

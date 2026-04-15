@@ -178,6 +178,7 @@ def make_skills_toolkit(
     @tool(
         name="load_skill",
         description="Load the full instructions for a skill. Call this when a task matches a skill's description.",
+        short_description="Load a skill's instructions.",
         read_only=True,
     )
     async def load_skill(
@@ -224,6 +225,7 @@ def make_skills_toolkit(
     @tool(
         name="load_skill_reference",
         description="Load a reference document from a skill. References provide supplementary guidance, schemas, rubrics, or examples.",
+        short_description="Load a skill reference.",
         read_only=True,
     )
     async def load_skill_reference(
@@ -306,9 +308,17 @@ def make_skills_toolkit(
         else None
     )
 
-    return BaseToolkit(
+    toolkit = BaseToolkit(
         name="skills",
         description="Lazy-loaded skill instructions and reference documents",
         tools=[load_skill, load_skill_reference],
         instructions=instructions,
     )
+    toolkit.available_skills = [
+        {
+            "name": str(info["name"]),
+            "description": str(info["description"] or ""),
+        }
+        for info in sorted(available.values(), key=lambda item: str(item["name"]))
+    ]
+    return toolkit

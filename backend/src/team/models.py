@@ -218,11 +218,15 @@ def _taskspec_list_from_field(
 def _taskspec_from_dict(it: dict[str, Any]) -> TaskDefinition:
     """Build a TaskDefinition from a dict, raising ValueError on missing required fields."""
     task_id = str(it.get("id") or "")
-    objective = str(it.get("objective") or it.get("task") or "")
+    objective = str(it.get("objective") or "")
     agent = str(it.get("agent") or "")
     if not task_id:
         raise ValueError("TaskDefinition requires a non-empty 'id'")
     if not objective:
+        if "task" in it:
+            raise ValueError(
+                f"TaskDefinition '{task_id}' uses legacy 'task'; use 'objective'"
+            )
         raise ValueError(f"TaskDefinition '{task_id}' requires a non-empty 'objective'")
     if not agent:
         raise ValueError(f"TaskDefinition '{task_id}' requires a non-empty 'agent'")

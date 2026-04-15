@@ -334,7 +334,7 @@ class TestChatSkillAwareness:
             client, mock_client, agent_name="aware-agent"
         )
 
-        assert "# Toolkit Instructions" in system_prompt
+        assert "<Toolkit Instructions>" in system_prompt
         assert "sandbox_operations" in system_prompt
 
     def test_agent_with_custom_system_prompt_gets_awareness(self, app_client):
@@ -354,8 +354,9 @@ class TestChatSkillAwareness:
             client, mock_client, agent_name="custom-prompt-agent"
         )
 
-        assert system_prompt.startswith("You are a specialized coding assistant.")
-        assert "# Toolkit Instructions" in system_prompt
+        assert system_prompt.startswith("You are a test assistant.")
+        assert "You are a specialized coding assistant." in system_prompt
+        assert "<Toolkit Instructions>" in system_prompt
 
     def test_default_agent_has_skills_toolkit_awareness(self, app_client):
         client, mock_client = app_client
@@ -363,7 +364,7 @@ class TestChatSkillAwareness:
         system_prompt = self._chat_and_get_system_prompt(client, mock_client)
 
         # Skills toolkit is always registered, so toolkit instructions section appears
-        assert "# Toolkit Instructions" in system_prompt
+        assert "<Toolkit Instructions>" in system_prompt
         assert "skills" in system_prompt.lower()
 
     def test_agent_without_skills_no_skills_section(self, app_client):

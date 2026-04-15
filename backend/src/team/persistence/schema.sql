@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     team_run_id     TEXT NOT NULL,
     agent_name      TEXT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'pending',
-    task            TEXT NOT NULL,
+    objective       TEXT NOT NULL,
+    description     TEXT DEFAULT '',
     deps            TEXT[] DEFAULT '{}',
     scope_paths     TEXT[] DEFAULT '{}',
     scope_ltree     TEXT[] DEFAULT '{}',
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     finished_at     TIMESTAMPTZ,
     failure_reason  TEXT,
     blocker_id      TEXT,
+    fired_by_task_id TEXT,
     pause_checkpoint TEXT,
     pause_verdict   TEXT,
     PRIMARY KEY (id, team_run_id)

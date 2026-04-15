@@ -9,7 +9,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db.base import Base
 # Importing the model registers the table on ``Base.metadata`` so
 # ``create_all`` picks it up below.
 from team.models import TaskStatus, TeamDefinition, TeamRunStatus
@@ -310,6 +309,7 @@ async def test_start_with_team_definition_spawns_root_with_planner(
             executor_factory=_noop_executor_factory,
         )
         assert run.status == TeamRunStatus.RUNNING
+        assert run.team_definition == team_def
         assert run.root_task_id is not None
         root = run.task_center.graph[run.root_task_id]
         assert root.agent_name == "my_planner"
@@ -317,6 +317,29 @@ async def test_start_with_team_definition_spawns_root_with_planner(
         assert getattr(root, "payload") == {"k": "v"}
     finally:
         await _cleanup_run(run)
+
+
+@pytest.mark.asyncio
+async def test_start_with_team_definition_rejects_legacy_task_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_registry({"my_planner"}, monkeypatch)
+    team_def = TeamDefinition(
+        id="tdef-legacy",
+        name="default",
+        description="",
+        entry_planner="my_planner",
+        roster={"planner": ["my_planner"]},
+    )
+    run = TeamRun(session_id="s", user_request="do stuff", services=_fake_services())
+    with pytest.raises(ValueError, match="Root payload uses legacy 'task'; use 'objective'"):
+        await run.start_with_team_definition(
+            team_def,
+            payload={"task": "legacy prompt"},
+            executor_factory=_noop_executor_factory,
+        )
+    assert run.root_task_id is None
+    assert len(run.task_center.graph) == 0
 
 
 @pytest.mark.asyncio

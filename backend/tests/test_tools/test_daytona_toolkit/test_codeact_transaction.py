@@ -90,7 +90,6 @@ async def test_create_codeact_transaction_seeds_dirty_workspace(tmp_path: Path):
 
     sandbox = _LocalSandbox()
     tx = await create_codeact_transaction(
-        ToolExecutionContext(cwd=repo, metadata={"daytona_cwd": str(repo)}),
         sandbox,
         str(repo),
     )
@@ -111,7 +110,6 @@ async def test_collect_transaction_changes_detects_create_modify_delete(tmp_path
     repo = _make_repo(tmp_path)
     sandbox = _LocalSandbox()
     tx = await create_codeact_transaction(
-        ToolExecutionContext(cwd=repo, metadata={"daytona_cwd": str(repo)}),
         sandbox,
         str(repo),
     )
@@ -141,7 +139,6 @@ async def test_collect_transaction_changes_marks_binary_files_unsupported(tmp_pa
     repo = _make_repo(tmp_path)
     sandbox = _LocalSandbox()
     tx = await create_codeact_transaction(
-        ToolExecutionContext(cwd=repo, metadata={"daytona_cwd": str(repo)}),
         sandbox,
         str(repo),
     )
@@ -171,13 +168,13 @@ async def test_commit_transaction_changes_applies_repo_diff_via_ci(tmp_path: Pat
             ),
         },
     )
-    tx = await create_codeact_transaction(ctx, sandbox, str(repo))
+    tx = await create_codeact_transaction(sandbox, str(repo))
     try:
         scratch = Path(tx.scratch_root)
         (scratch / "app.py").write_text("value = 4\n", encoding="utf-8")
         (scratch / "delete_me.py").unlink()
         changes = await collect_transaction_changes(sandbox, tx)
-        report = await commit_transaction_changes(ctx, sandbox, tx, changes)
+        report = await commit_transaction_changes(ctx, tx, changes)
     finally:
         from tools.daytona_toolkit.codeact_transaction import cleanup_codeact_transaction
 

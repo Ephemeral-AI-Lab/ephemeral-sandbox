@@ -14,6 +14,9 @@ cd "$(dirname "$0")/.."
 
 PYTEST=".venv/bin/python -m pytest"
 E2E_DIR="backend/tests/test_e2e"
+COMMON_OPTS=(-o addopts= -v -s --tb=short)
+LIVE_OPTS=(-m live --log-cli-level=INFO)
+MOCK_OPTS=(-m "e2e and not live" --log-cli-level=INFO)
 
 # Live tests (hit real APIs via EvalAgent/DB registry)
 LIVE_TESTS=(
@@ -45,6 +48,8 @@ LIVE_TESTS=(
     test_live_nextjs_sandbox.py         # Next.js sandbox agent
     test_live_minimax_comprehensive.py  # MiniMax comprehensive tests
     test_live_codeact_edge_cases.py     # CodeAct: pip install, CWD, team constraints
+    test_live_codeact_occ_transactions.py # Direct CodeAct OCC transaction tool tests
+    test_live_daytona_tool_occ_calls.py # Direct daytona_write_file/edit_file/codeact OCC tests
 )
 
 # Mock/unit tests (no real API needed)
@@ -64,9 +69,15 @@ MOCK_TESTS=(
 
 _run_batch() {
     local label="$1"
-    shift
+    local mode="$2"
+    shift 2
     local tests=("$@")
     local passed=0 failed=0 skipped=0
+    local mode_opts=("${MOCK_OPTS[@]}")
+
+    if [[ "$mode" == "live" ]]; then
+        mode_opts=("${LIVE_OPTS[@]}")
+    fi
 
     for test_file in "${tests[@]}"; do
         echo ""
@@ -74,7 +85,7 @@ _run_batch() {
         echo "  Running: $test_file"
         echo "================================================================"
 
-        if $PYTEST "$E2E_DIR/$test_file" -v -s --tb=short --log-cli-level=INFO; then
+        if $PYTEST "$E2E_DIR/$test_file" "${COMMON_OPTS[@]}" "${mode_opts[@]}"; then
             ((passed++))
         else
             exit_code=$?
@@ -133,20 +144,30 @@ case "$NAME" in
         exit 0
         ;;
     all)
-        _run_batch "Live E2E" "${LIVE_TESTS[@]}"
+        _run_batch "Live E2E" "live" "${LIVE_TESTS[@]}"
         exit $?
         ;;
     mock)
-        _run_batch "Mock E2E" "${MOCK_TESTS[@]}"
+        _run_batch "Mock E2E" "mock" "${MOCK_TESTS[@]}"
         exit $?
         ;;
 esac
 
 # Find matching test file across both lists
 MATCH=""
+MATCH_MODE=""
 for t in "${LIVE_TESTS[@]}" "${MOCK_TESTS[@]}"; do
     if [[ "$t" == *"$NAME"* ]]; then
         MATCH="$t"
+        for live_t in "${LIVE_TESTS[@]}"; do
+            if [[ "$live_t" == "$t" ]]; then
+                MATCH_MODE="live"
+                break
+            fi
+        done
+        if [[ -z "$MATCH_MODE" ]]; then
+            MATCH_MODE="mock"
+        fi
         break
     fi
 done
@@ -157,4 +178,8 @@ if [[ -z "$MATCH" ]]; then
 fi
 
 echo "Running: $MATCH"
-$PYTEST "$E2E_DIR/$MATCH" -v -s --tb=short --log-cli-level=WARNING
+if [[ "$MATCH_MODE" == "live" ]]; then
+    $PYTEST "$E2E_DIR/$MATCH" "${COMMON_OPTS[@]}" "${LIVE_OPTS[@]}"
+else
+    $PYTEST "$E2E_DIR/$MATCH" "${COMMON_OPTS[@]}" "${MOCK_OPTS[@]}"
+fi

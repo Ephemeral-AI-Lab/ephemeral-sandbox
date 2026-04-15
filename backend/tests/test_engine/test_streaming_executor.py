@@ -8,11 +8,10 @@ import json
 import pytest
 from pydantic import BaseModel, Field
 
-from message import ConversationMessage, TextBlock
+from message import ConversationMessage
 from message.stream_events import (
     ToolExecutionCancelled,
     ToolExecutionCompleted,
-    ToolExecutionProgress,
 )
 from engine.core.streaming_executor import (
     StreamingToolExecutor,
@@ -20,6 +19,7 @@ from engine.core.streaming_executor import (
     defer_background_dispatch,
 )
 from providers.types import ApiToolUseDeltaEvent
+from team.models import Plan
 from tools.core.base import BaseTool, BaseToolkit, ToolExecutionContext, ToolRegistry, ToolResult
 
 
@@ -430,6 +430,69 @@ class SubmitTaskPlanTool(BaseTool):
         return ToolResult(output="Plan accepted")
 
 
+class SubmitTaskSummaryInput(BaseModel):
+    type: str = Field(description="Summary type")
+    content: str = Field(description="Summary content")
+
+
+class SubmitTaskSummaryTool(BaseTool):
+    """A tool that simulates terminal summary submission metadata."""
+
+    name = "submit_task_summary"
+    description = "Submit a task summary."
+    input_model = SubmitTaskSummaryInput
+
+    async def execute(
+        self, arguments: SubmitTaskSummaryInput, context: ToolExecutionContext
+    ) -> ToolResult:
+        context.metadata["task_summary_type"] = arguments.type
+        context.metadata["task_summary"] = arguments.content
+        return ToolResult(output="Summary accepted")
+
+
+class SubmitResolvedPlanInput(BaseModel):
+    objective: str = Field(description="Objective for a single planned task")
+
+
+class SubmitResolvedPlanTool(BaseTool):
+    """A tool that simulates planner submission metadata."""
+
+    name = "submit_resolved_plan"
+    description = "Submit resolved plan metadata."
+    input_model = SubmitResolvedPlanInput
+
+    async def execute(
+        self, arguments: SubmitResolvedPlanInput, context: ToolExecutionContext
+    ) -> ToolResult:
+        context.metadata["resolved_plan"] = Plan.from_dict(
+            {"tasks": [{"id": "dev-1", "objective": arguments.objective, "agent": "developer"}]}
+        )
+        context.metadata["plan_is_replan"] = False
+        return ToolResult(output="Plan accepted")
+
+
+class DeclareBlockerInput(BaseModel):
+    root_cause_paths: list[str] = Field(description="Root cause paths")
+    reason: str = Field(description="Blocker reason")
+
+
+class DeclareBlockerTool(BaseTool):
+    """A tool that simulates blocker declaration metadata."""
+
+    name = "declare_blocker"
+    description = "Declare a blocker."
+    input_model = DeclareBlockerInput
+
+    async def execute(
+        self, arguments: DeclareBlockerInput, context: ToolExecutionContext
+    ) -> ToolResult:
+        context.metadata["blocker_declaration"] = {
+            "root_cause_paths": arguments.root_cause_paths,
+            "reason": arguments.reason,
+        }
+        return ToolResult(output="Blocker declared")
+
+
 @pytest.mark.asyncio
 async def test_add_tool_skips_background_tool():
     """add_tool skips tools with background=True when tool supports background."""
@@ -551,4 +614,71 @@ async def test_submit_tool_propagates_submission_metadata_to_live_context():
 
     assert context.metadata["submitted_plan"] == {
         "items": [{"agent_name": "developer"}]
+    }
+
+
+@pytest.mark.asyncio
+async def test_submit_task_summary_metadata_propagates_to_live_context():
+    registry = _make_registry(SubmitTaskSummaryTool())
+    context = _make_context()
+    executor = StreamingToolExecutor(registry, context)
+
+    event = ApiToolUseDeltaEvent(
+        id="tool_summary",
+        name="submit_task_summary",
+        input={"type": "success", "content": "Implemented the fix"},
+    )
+
+    executor.add_tool(event, _make_assistant_msg())
+
+    await asyncio.sleep(0.1)
+    await executor.get_remaining()
+
+    assert context.metadata["task_summary_type"] == "success"
+    assert context.metadata["task_summary"] == "Implemented the fix"
+
+
+@pytest.mark.asyncio
+async def test_resolved_plan_metadata_propagates_to_live_context():
+    registry = _make_registry(SubmitResolvedPlanTool())
+    context = _make_context()
+    executor = StreamingToolExecutor(registry, context)
+
+    event = ApiToolUseDeltaEvent(
+        id="tool_plan",
+        name="submit_resolved_plan",
+        input={"objective": "Fix the discriminator pipeline"},
+    )
+
+    executor.add_tool(event, _make_assistant_msg())
+
+    await asyncio.sleep(0.1)
+    await executor.get_remaining()
+
+    resolved_plan = context.metadata["resolved_plan"]
+    assert isinstance(resolved_plan, Plan)
+    assert resolved_plan.tasks[0].objective == "Fix the discriminator pipeline"
+    assert context.metadata["plan_is_replan"] is False
+
+
+@pytest.mark.asyncio
+async def test_blocker_declaration_metadata_propagates_to_live_context():
+    registry = _make_registry(DeclareBlockerTool())
+    context = _make_context()
+    executor = StreamingToolExecutor(registry, context)
+
+    event = ApiToolUseDeltaEvent(
+        id="tool_blocker",
+        name="declare_blocker",
+        input={"root_cause_paths": ["pkg/shared.py"], "reason": "Shared import surface is broken"},
+    )
+
+    executor.add_tool(event, _make_assistant_msg())
+
+    await asyncio.sleep(0.1)
+    await executor.get_remaining()
+
+    assert context.metadata["blocker_declaration"] == {
+        "root_cause_paths": ["pkg/shared.py"],
+        "reason": "Shared import surface is broken",
     }

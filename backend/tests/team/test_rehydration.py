@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import pytest
+
 from team.models import Task, TaskStatus
 from team.persistence.events import make_task_status, task_to_dict
 from team.runtime.rehydration import apply_replayed_event, task_from_dict
@@ -38,6 +40,19 @@ def test_task_serialization_round_trip_preserves_blocker_pause_fields():
     assert restored.blocker_id == "blocker-1"
     assert restored.pause_checkpoint == '[{"role":"assistant","content":"paused"}]'
     assert restored.pause_verdict == "Shared import break requires pause."
+
+
+def test_task_from_dict_rejects_legacy_task_field():
+    with pytest.raises(ValueError, match="Task payload uses legacy 'task'; use 'objective'"):
+        task_from_dict(
+            {
+                "id": "task-1",
+                "team_run_id": "run-1",
+                "agent_name": "developer",
+                "status": "pending",
+                "task": "repair shared import",
+            }
+        )
 
 
 def test_apply_replayed_event_updates_blocker_pause_fields():

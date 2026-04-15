@@ -58,6 +58,7 @@ class RestrictedRunSubagentTool(BaseTool):
         self._delegate = run_subagent
         self.name = run_subagent.name
         self.description = run_subagent.description
+        self.short_description = run_subagent.short_description
         self.input_model = _build_restricted_input_model(allowed_agent_names)
         self.background = run_subagent.background
         self.task_type = run_subagent.task_type

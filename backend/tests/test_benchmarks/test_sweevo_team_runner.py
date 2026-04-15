@@ -670,7 +670,7 @@ def test_make_runner_persists_work_result_and_final_snapshot(monkeypatch):
             return None
 
     final_text = (
-        '{"tasks":[{"id":"dev-1","task":"Fix auth","agent":"developer","deps":[],'
+        '{"tasks":[{"id":"dev-1","objective":"Fix auth","agent":"developer","deps":[],'
         '"scope_paths":["src/auth"],"cascade_policy":"cancel"}],"rationale":"split by owner"}'
     )
 

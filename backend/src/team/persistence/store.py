@@ -131,6 +131,15 @@ class TeamDefinitionStore:
             )
             return self._record_to_definition(record) if record is not None else None
 
+    def get_by_id(self, team_id: str) -> TeamDefinition | None:
+        with self._sf() as db:
+            record = (
+                db.query(TeamDefinitionRecord)
+                .filter(TeamDefinitionRecord.id == team_id)
+                .first()
+            )
+            return self._record_to_definition(record) if record is not None else None
+
     def list_all(self) -> list[TeamDefinition]:
         with self._sf() as db:
             records = (

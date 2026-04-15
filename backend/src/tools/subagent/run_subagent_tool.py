@@ -437,6 +437,7 @@ def _snapshot_messages(messages: list[Any] | None) -> list[dict[str, Any]]:
         "multiple disjoint calls in one turn only when live scope status "
         "still admits parallel fan-out."
     ),
+    short_description="Spawn a subagent in the background.",
     background="always",
     task_type="subagent",
 )

@@ -1,16 +1,17 @@
-"""CodeAct tool — shell or Python execution in the Daytona sandbox."""
+"""CodeAct tool - shell or Python execution in the Daytona sandbox."""
 
 from __future__ import annotations
 
-import ast
 import base64
 import json
-import logging
 import re
 import shlex
 import uuid
 from collections import OrderedDict
-from typing import Literal
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+from pydantic.json_schema import GenerateJsonSchema
 
 from tools.core.base import ToolExecutionContext, ToolResult
 from tools.core.decorator import tool
@@ -31,115 +32,92 @@ from tools.daytona_toolkit.codeact_transaction import (
     create_codeact_transaction,
 )
 
-logger = logging.getLogger(__name__)
-
-_BLOCKED_CODEACT_MODULES = frozenset({"subprocess", "shutil"})
-_BLOCKED_CODEACT_CALLS = frozenset(
-    {
-        "subprocess.run",
-        "subprocess.Popen",
-        "subprocess.call",
-        "subprocess.check_call",
-        "subprocess.check_output",
-        "os.system",
-        "os.popen",
-    }
-)
 _DESTRUCTIVE_GIT_PATTERN = re.compile(
     r"git\s+(stash|reset\s+--hard|checkout\s+--\s|checkout\s+\.\s*$|clean\s+-[fd])",
     flags=re.IGNORECASE,
 )
-_READ_ONLY_PYTEST_PATTERN = re.compile(
-    r"^\s*(?:python(?:\d+(?:\.\d+)*)?\s+-m\s+)?(?:pytest|py\.test)\b",
-    flags=re.IGNORECASE,
-)
-_READ_ONLY_COORDINATED_SHELL_PATTERNS = (
-    _READ_ONLY_PYTEST_PATTERN,
-    re.compile(r"^\s*git\s+(?:status|diff)\b", flags=re.IGNORECASE),
-    re.compile(r"^\s*pwd(?:\s|$)", flags=re.IGNORECASE),
-    re.compile(r"^\s*ls(?:\s|$)", flags=re.IGNORECASE),
-)
-_SHELL_META_PATTERN = re.compile(r"[;&|><]")
 
 
-def _dotted_name(node: ast.AST) -> str:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        base = _dotted_name(node.value)
-        return f"{base}.{node.attr}" if base else node.attr
-    return ""
+class DaytonaCodeActInput(BaseModel):
+    """Custom CodeAct input schema.
 
+    Keep runtime parsing permissive so existing callers still flow through
+    ``_resolve_mode()``, but publish a stricter JSON schema to the model.
+    Anthropic-compatible models will otherwise happily emit explicit JSON
+    ``null`` for optional string params and spin on empty CodeAct calls.
+    """
 
-def _string_literal(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    if isinstance(node, ast.JoinedStr):
-        parts: list[str] = []
-        for value in node.values:
-            if isinstance(value, ast.Constant) and isinstance(value.value, str):
-                parts.append(value.value)
-            else:
-                return None
-        return "".join(parts)
-    return None
-
-
-def _detect_blocked_codeact_usage(code: str) -> list[str]:
-    """Return shell-policy violations in *code* before sandbox execution."""
-    try:
-        tree = ast.parse(code)
-    except SyntaxError:
-        return []
-
-    violations: list[str] = []
-    seen: set[str] = set()
-
-    def _note(message: str) -> None:
-        if message not in seen:
-            seen.add(message)
-            violations.append(message)
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                root = alias.name.split(".", 1)[0]
-                if root in _BLOCKED_CODEACT_MODULES:
-                    _note(f"import {root}")
-        elif isinstance(node, ast.ImportFrom):
-            root = (node.module or "").split(".", 1)[0]
-            if root in _BLOCKED_CODEACT_MODULES:
-                _note(f"from {root} import ...")
-        elif isinstance(node, ast.Call):
-            func_name = _dotted_name(node.func)
-            if func_name in _BLOCKED_CODEACT_CALLS:
-                _note(f"{func_name}(...)")
-                continue
-            if func_name == "shell" and node.args:
-                command = _string_literal(node.args[0])
-                if command and "2>&1" in command:
-                    _note("shell(... 2>&1 ...)")
-            if func_name in {"__import__", "builtins.__import__", "importlib.import_module"}:
-                if node.args and isinstance(node.args[0], ast.Constant):
-                    value = node.args[0].value
-                    if isinstance(value, str) and value.split(".", 1)[0] in _BLOCKED_CODEACT_MODULES:
-                        _note(f"{func_name}({value!r})")
-    return violations
-
-
-def _codeact_shell_policy_error(violations: list[str]) -> ToolResult:
-    preview = ", ".join(violations[:3])
-    if len(violations) > 3:
-        preview += ", ..."
-    return ToolResult(
-        output=(
-            "CodeAct policy error: coordinated team lanes must use `daytona_codeact` shell mode "
-            "or `shell(\"...\")` inside Python mode for repo commands. "
-            f"Blocked pattern(s): {preview}. Replace subprocess/os process wrappers and remove `2>&1`."
+    mode: Literal["python", "shell"] | None = Field(
+        default=None,
+        description=(
+            "Optional explicit mode. Omit unless you need to force shell or "
+            "python execution."
         ),
-        is_error=True,
-        metadata={"status": "blocked_shell_policy"},
     )
+    code: str | None = Field(
+        default=None,
+        description=(
+            "Python code to execute. Use for multi-step helper flows; do not "
+            "set alongside `command`."
+        ),
+    )
+    command: str | None = Field(
+        default=None,
+        description=(
+            "Shell command to execute directly. Preferred for tests, builds, "
+            "and verification; do not set alongside `code`."
+        ),
+    )
+    timeout: int = Field(
+        default=900,
+        description="Timeout in seconds for shell mode execution.",
+    )
+
+    @classmethod
+    def model_json_schema(
+        cls,
+        by_alias: bool = True,
+        ref_template: str = "#/$defs/{model}",
+        schema_generator: type[GenerateJsonSchema] = GenerateJsonSchema,
+        mode: str = "validation",
+    ) -> dict[str, Any]:
+        schema = super().model_json_schema(
+            by_alias=by_alias,
+            ref_template=ref_template,
+            schema_generator=schema_generator,
+            mode=mode,
+        )
+        props = schema.get("properties", {})
+
+        def _strip_null_variant(name: str, expected_type: str) -> None:
+            prop = props.get(name)
+            if not isinstance(prop, dict):
+                return
+            cleaned: dict[str, Any] | None = None
+            for variant in prop.get("anyOf", []):
+                if isinstance(variant, dict) and variant.get("type") == expected_type:
+                    cleaned = dict(variant)
+                    break
+            if cleaned is None:
+                return
+            if "title" in prop:
+                cleaned["title"] = prop["title"]
+            if "description" in prop:
+                cleaned["description"] = prop["description"]
+            cleaned.pop("default", None)
+            if expected_type == "string":
+                cleaned["minLength"] = max(int(cleaned.get("minLength", 1) or 1), 1)
+            props[name] = cleaned
+
+        _strip_null_variant("mode", "string")
+        _strip_null_variant("code", "string")
+        _strip_null_variant("command", "string")
+
+        schema["oneOf"] = [
+            {"required": ["command"]},
+            {"required": ["code"]},
+        ]
+        return schema
 
 
 def _destructive_git_command_error(command: str) -> str | None:
@@ -150,13 +128,6 @@ def _destructive_git_command_error(command: str) -> str | None:
             "Use targeted edit tools instead."
         )
     return None
-
-
-def _command_is_read_only_allowlisted(command: str) -> bool:
-    stripped = (command or "").strip()
-    if not stripped or _SHELL_META_PATTERN.search(stripped):
-        return False
-    return any(pattern.match(stripped) for pattern in _READ_ONLY_COORDINATED_SHELL_PATTERNS)
 
 
 def _format_codeact_error(
@@ -177,11 +148,12 @@ def _format_codeact_error(
 
 
 _WRAPPER_TEMPLATE = r'''
-import base64, hashlib, json, os, re, subprocess, traceback
+import base64, hashlib, importlib, json, os, re, subprocess, traceback
 
 _RUN_ID = "{run_id}"
 _MANIFEST = {{"reads": [], "writes": [], "shells": [], "status": "ok", "error": ""}}
 _CODEACT_CWD = {codeact_cwd}
+_ENFORCE_TEAM_SHELL_POLICY = {enforce_team_shell_policy}
 _USER_LOCAL_BIN_EXPORT = 'export PATH="$HOME/.local/bin:$PATH"'
 _PROJECT_VENV_BIN_EXPORT = 'if [ -d .venv/bin ]; then export PATH="$PWD/.venv/bin:$PATH"; fi'
 _PYTHON3_SHIM = 'if command -v python3 >/dev/null 2>&1; then python() {{ command python3 "$@"; }}; fi'
@@ -225,38 +197,37 @@ def write(path, content):
     _MANIFEST["writes"].append({{"path": resolved, "content": content}})
     return resolved
 
+def _block_shell_command(command, message):
+    _MANIFEST["shells"].append(
+        {{
+            "command": command,
+            "stdout": "",
+            "stderr": message,
+            "exit_code": -1,
+            "blocked": True,
+        }}
+    )
+    raise RuntimeError(message)
+
 def shell(command, timeout=900):
+    if _ENFORCE_TEAM_SHELL_POLICY and "2>&1" in (command or ""):
+        _block_shell_command(
+            command,
+            "CodeAct policy error: do not append `2>&1`; stdout/stderr are already captured.",
+        )
     if _DESTRUCTIVE_GIT_PATTERN.search(command or ""):
-        message = (
+        _block_shell_command(
+            command,
             "BLOCKED: destructive git commands (stash, reset --hard, checkout --, clean) "
             "are forbidden. They destroy other agents' work and bypass OCC. "
-            "Use targeted edit tools instead."
+            "Use targeted edit tools instead.",
         )
-        _MANIFEST["shells"].append(
-            {{
-                "command": command,
-                "stdout": "",
-                "stderr": message,
-                "exit_code": -1,
-                "blocked": True,
-            }}
-        )
-        raise RuntimeError(message)
     if _DESTRUCTIVE_SHELL_PATTERN.search(command or ""):
-        message = (
+        _block_shell_command(
+            command,
             "BLOCKED: destructive shell command that targets workspace or system "
-            "directories is forbidden. Use targeted file operations instead."
+            "directories is forbidden. Use targeted file operations instead.",
         )
-        _MANIFEST["shells"].append(
-            {{
-                "command": command,
-                "stdout": "",
-                "stderr": message,
-                "exit_code": -1,
-                "blocked": True,
-            }}
-        )
-        raise RuntimeError(message)
     try:
         wrapped = f"{{_USER_LOCAL_BIN_EXPORT}} && {{_PROJECT_VENV_BIN_EXPORT}} && {{_PYTHON3_SHIM}} && {{command}}"
         proc = subprocess.run(
@@ -304,6 +275,30 @@ def _guarded_import(name, *args, **kwargs):
 _sandbox_builtins = dict(vars(_builtins_mod))
 _sandbox_builtins["__import__"] = _guarded_import
 
+_real_import_module = importlib.import_module
+
+def _guarded_import_module(name, package=None):
+    top = name.split(".")[0]
+    if top in _BLOCKED_MODULES:
+        raise ImportError(
+            f"import {{name!r}} is blocked in codeact. "
+            "Use daytona_codeact shell mode for commands and read()/write() for file I/O."
+        )
+    return _real_import_module(name, package)
+
+importlib.import_module = _guarded_import_module
+
+if _ENFORCE_TEAM_SHELL_POLICY:
+    def _blocked_os_process(*args, **kwargs):
+        raise RuntimeError(
+            "CodeAct policy error: coordinated team lanes must use `daytona_codeact` shell mode "
+            "or `shell(\"...\")` inside Python mode for repo commands. Replace `os.system()`/"
+            "`os.popen()` wrappers."
+        )
+
+    os.system = _blocked_os_process
+    os.popen = _blocked_os_process
+
 try:
     _CODE = base64.b64decode("{code_b64}").decode("utf-8")
     exec(
@@ -324,6 +319,7 @@ print(json.dumps({{"manifest": "/tmp/codeact-{run_id}.json", "status": _MANIFEST
 def _build_wrapper(
     code: str,
     *,
+    enforce_team_shell_policy: bool,
     run_id: str,
     cwd: str | None,
 ) -> str:
@@ -332,6 +328,7 @@ def _build_wrapper(
         run_id=run_id,
         code_b64=code_b64,
         codeact_cwd=json.dumps(cwd) if cwd else "None",
+        enforce_team_shell_policy="True" if enforce_team_shell_policy else "False",
     )
 
 
@@ -509,9 +506,15 @@ async def _execute_python_wrapper(
     *,
     code: str,
     cwd: str | None,
+    enforce_team_shell_policy: bool,
 ) -> tuple[str | None, object, ToolResult | None]:
     run_id = uuid.uuid4().hex[:8]
-    wrapper = _build_wrapper(code, run_id=run_id, cwd=cwd)
+    wrapper = _build_wrapper(
+        code,
+        run_id=run_id,
+        cwd=cwd,
+        enforce_team_shell_policy=enforce_team_shell_policy,
+    )
     script_path = f"/tmp/codeact-wrapper-{run_id}.py"
     exec_command = _build_exec_command(script_path, cwd=cwd)
     try:
@@ -545,6 +548,48 @@ def _shell_error_result(message: str) -> ToolResult:
     return ToolResult(output=message, is_error=True)
 
 
+def _shell_result_error_detail(shell_result: dict[str, object]) -> str:
+    return str(shell_result.get("stderr", "") or shell_result.get("stdout", "") or "")
+
+
+async def _open_transaction(
+    context: ToolExecutionContext,
+    sandbox: object,
+    *,
+    enabled: bool,
+) -> tuple[object | None, object, ToolResult | None]:
+    if not enabled:
+        return None, sandbox, None
+    repo_root, sandbox, root_error = await _resolve_repo_root(context, sandbox)
+    if root_error is not None:
+        return None, sandbox, root_error
+    assert repo_root is not None
+    try:
+        return await create_codeact_transaction(sandbox, repo_root), sandbox, None
+    except Exception as exc:
+        return None, sandbox, ToolResult(
+            output=f"Failed to create codeact transaction: {exc}",
+            is_error=True,
+        )
+
+
+async def _commit_transaction(
+    context: ToolExecutionContext,
+    sandbox: object,
+    tx: object | None,
+) -> tuple[int, list[str], list[str], list[str]]:
+    if tx is None:
+        return 0, [], [], []
+    changes = await collect_transaction_changes(sandbox, tx)
+    report = await commit_transaction_changes(context, tx, changes)
+    return (
+        len(report.committed),
+        [result.message or result.path for result in report.errors],
+        [str(tx.repo_root + "/" + result.path) for result in report.conflicts],
+        list(report.warnings),
+    )
+
+
 @tool(
     name="daytona_codeact",
     description=(
@@ -552,6 +597,7 @@ def _shell_error_result(message: str) -> ToolResult:
         "Use `command` for tests, builds, and verification; use `code` for multi-step "
         "Python with read()/write()/shell() helpers."
     ),
+    short_description="Run shell commands or Python in the sandbox.",
     background="optional",
 )
 async def daytona_codeact(
@@ -584,11 +630,6 @@ async def daytona_codeact(
 
     assert resolved_mode is not None
 
-    if resolved_mode == "python" and is_coordinated_team_agent(context):
-        violations = _detect_blocked_codeact_usage(code or "")
-        if violations:
-            return _codeact_shell_policy_error(violations)
-
     if resolved_mode == "shell":
         direct_command = command or ""
         destructive_error = _destructive_git_command_error(direct_command)
@@ -607,103 +648,68 @@ async def daytona_codeact(
         return ToolResult(output=str(exc), is_error=True)
 
     repo_cwd = _get_cwd(context)
-    warnings: list[str] = []
 
     if resolved_mode == "shell":
-        coordinated_mutation = is_coordinated_team_agent(context) and not _command_is_read_only_allowlisted(
-            command or ""
+        tx, sandbox, tx_error = await _open_transaction(
+            context,
+            sandbox,
+            enabled=is_coordinated_team_agent(context),
         )
-        if not coordinated_mutation:
-            direct_result, sandbox, tool_error = await _run_shell_with_recovery(
-                context,
-                sandbox,
-                command=command or "",
-                cwd=repo_cwd,
-                timeout=timeout,
-            )
-            if tool_error is not None:
-                return tool_error
-            assert direct_result is not None
-            exit_code = int(direct_result.get("exit_code", 1))
-            status = "ok" if exit_code == 0 else "error"
-            error = str(direct_result.get("stderr", "") or direct_result.get("stdout", "") or "")
-            return _build_tool_output(
-                context=context,
-                status=status,
-                files_written=0,
-                shells=[direct_result],
-                script_stdout="",
-                write_errors=[],
-                write_conflicts=[],
-                warnings=[],
-                error=error if status == "error" else "",
-            )
-
-        repo_root, sandbox, root_error = await _resolve_repo_root(context, sandbox)
-        if root_error is not None:
-            return root_error
-        assert repo_root is not None
-
-        tx = await create_codeact_transaction(context, sandbox, repo_root)
+        if tx_error is not None:
+            return tx_error
         try:
             shell_result, sandbox, tool_error = await _run_shell_with_recovery(
                 context,
                 sandbox,
                 command=command or "",
-                cwd=tx.scratch_root,
+                cwd=tx.scratch_root if tx is not None else repo_cwd,
                 timeout=timeout,
             )
             if tool_error is not None:
                 return tool_error
             assert shell_result is not None
             exit_code = int(shell_result.get("exit_code", 1))
-            if exit_code != 0:
-                return _build_tool_output(
-                    context=context,
-                    status="error",
-                    files_written=0,
-                    shells=[shell_result],
-                    script_stdout="",
-                    write_errors=[],
-                    write_conflicts=[],
-                    warnings=[],
-                    error=str(shell_result.get("stderr", "") or shell_result.get("stdout", "") or ""),
-                )
-
-            changes = await collect_transaction_changes(sandbox, tx)
-            report = await commit_transaction_changes(context, sandbox, tx, changes)
-            warnings.extend(report.warnings)
-            write_errors = [result.message or result.path for result in report.errors]
-            write_conflicts = [str(repo_root + "/" + result.path) for result in report.conflicts]
+            files_written = 0
+            write_errors: list[str] = []
+            write_conflicts: list[str] = []
+            warnings: list[str] = []
+            if exit_code == 0:
+                (
+                    files_written,
+                    write_errors,
+                    write_conflicts,
+                    warnings,
+                ) = await _commit_transaction(context, sandbox, tx)
             return _build_tool_output(
                 context=context,
-                status="ok" if not write_errors else "error",
-                files_written=len(report.committed),
+                status="ok" if exit_code == 0 and not write_errors else "error",
+                files_written=files_written,
                 shells=[shell_result],
                 script_stdout="",
                 write_errors=write_errors,
                 write_conflicts=write_conflicts,
                 warnings=warnings,
+                error=_shell_result_error_detail(shell_result) if exit_code != 0 else "",
             )
         finally:
-            await cleanup_codeact_transaction(sandbox, tx)
+            if tx is not None:
+                await cleanup_codeact_transaction(sandbox, tx)
 
-    active_cwd = repo_cwd
-    tx = None
-    if is_coordinated_team_agent(context):
-        repo_root, sandbox, root_error = await _resolve_repo_root(context, sandbox)
-        if root_error is not None:
-            return root_error
-        assert repo_root is not None
-        tx = await create_codeact_transaction(context, sandbox, repo_root)
-        active_cwd = tx.scratch_root
+    tx, sandbox, tx_error = await _open_transaction(
+        context,
+        sandbox,
+        enabled=is_coordinated_team_agent(context),
+    )
+    if tx_error is not None:
+        return tx_error
 
     try:
         stdout, sandbox, tool_error = await _execute_python_wrapper(
             context,
             sandbox,
             code=code or "",
-            cwd=active_cwd,
+            cwd=tx.scratch_root if tx is not None else repo_cwd,
+            enforce_team_shell_policy=is_coordinated_team_agent(context),
         )
         if tool_error is not None:
             return tool_error
@@ -756,14 +762,15 @@ async def daytona_codeact(
         files_written = len(_coalesce_manifest_writes(list(manifest.get("writes", []) or [])))
         write_errors: list[str] = []
         write_conflicts: list[str] = []
+        warnings: list[str] = []
 
         if tx is not None:
-            changes = await collect_transaction_changes(sandbox, tx)
-            report = await commit_transaction_changes(context, sandbox, tx, changes)
-            warnings.extend(report.warnings)
-            files_written = len(report.committed)
-            write_errors.extend(result.message or result.path for result in report.errors)
-            write_conflicts.extend(str(tx.repo_root + "/" + result.path) for result in report.conflicts)
+            (
+                files_written,
+                write_errors,
+                write_conflicts,
+                warnings,
+            ) = await _commit_transaction(context, sandbox, tx)
 
         return _build_tool_output(
             context=context,
@@ -779,3 +786,6 @@ async def daytona_codeact(
     finally:
         if tx is not None:
             await cleanup_codeact_transaction(sandbox, tx)
+
+
+daytona_codeact.input_model = DaytonaCodeActInput

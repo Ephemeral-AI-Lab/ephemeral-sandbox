@@ -1,25 +1,16 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
-from agents.registry import get_definition
 from agents.types import AgentDefinition
 from engine.runtime import agent as runtime_agent
-from team.builtins import DEVELOPER, TEAM_PLANNER, VALIDATOR, register_all
-
-_BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
-def setup_module() -> None:
-    register_all()
-
-
-def test_declared_skills_are_prepended_before_base_prompt(monkeypatch):
+def test_agent_system_prompt_includes_runtime_base_and_agent_body_only(monkeypatch):
     monkeypatch.setattr(
         runtime_agent,
-        "_build_declared_skill_preamble",
-        lambda *_args, **_kwargs: "# Preloaded Skills\n\nskill body",
+        "build_runtime_system_prompt",
+        lambda *_args, **_kwargs: "runtime base",
     )
 
     prompt = runtime_agent._build_agent_system_prompt(
@@ -29,17 +20,34 @@ def test_declared_skills_are_prepended_before_base_prompt(monkeypatch):
         latest_user_prompt=None,
     )
 
-    assert prompt.startswith("# Preloaded Skills")
-    assert prompt.endswith("base prompt")
+    assert prompt.startswith("runtime base")
+    assert "base prompt" in prompt
+    assert "# Declared Skills" not in prompt
+    assert "# Identity" not in prompt
+    assert "# Type Constraints" not in prompt
+    assert "# Role Boundary" not in prompt
+    assert "# Skill Bootstrap" not in prompt
 
 
-def test_team_agent_preambles_surface_scope_and_search_guidance() -> None:
-    config = SimpleNamespace(cwd=str(_BACKEND_ROOT))
+def test_agent_system_prompt_ignores_declared_skills(monkeypatch) -> None:
+    monkeypatch.setattr(
+        runtime_agent,
+        "build_runtime_system_prompt",
+        lambda *_args, **_kwargs: "",
+    )
+    agent = AgentDefinition(
+        name="minimal",
+        description="d",
+        system_prompt="agent body",
+        skills=["team-planner-playbook"],
+        include_skills=True,
+    )
 
-    developer = runtime_agent._build_declared_skill_preamble(config, get_definition(DEVELOPER))
-    assert "daytona_grep" in developer
+    prompt = runtime_agent._build_agent_system_prompt(
+        SimpleNamespace(cwd="/tmp"),
+        agent,
+        settings=None,
+        latest_user_prompt=None,
+    )
 
-    validator = runtime_agent._build_declared_skill_preamble(config, get_definition(VALIDATOR))
-    assert "daytona_codeact" in validator
-
-    planner = runtime_agent._build_declared_skill_preamble(config, get_definition(TEAM_PLANNER))
+    assert prompt == "agent body"

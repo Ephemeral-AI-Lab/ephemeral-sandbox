@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from agents.registry import get_definition
 from external_trigger.runner import run
 from tools.context.toolkit import SubmitTaskNoteTool, PostNoteInput
 
@@ -28,7 +29,7 @@ TC_NOTE_TURN_PROMPT = (
     "(use 'blocker' if stuck or blocked by another task)"
 )
 
-TC_NOTE_SYSTEM_PROMPT = (
+_DEFAULT_TC_NOTE_SYSTEM_PROMPT = (
     "You are a progress reporter. Read the agent's conversation and "
     "produce a concise progress note. Report facts only — do not "
     "instruct the agent or suggest next steps."
@@ -47,6 +48,16 @@ class NoteSummary:
     paths: list[str] | None = None
 
 
+def _resolve_note_taker_prompt() -> tuple[str, str | None]:
+    defn = get_definition("note_taker")
+    if defn is None:
+        return _DEFAULT_TC_NOTE_SYSTEM_PROMPT, None
+
+    prompt = (defn.system_prompt or "").strip() or _DEFAULT_TC_NOTE_SYSTEM_PROMPT
+    model = str(defn.model).strip() if defn.model else ""
+    return prompt, (model if model and model != "inherit" else None)
+
+
 async def run_tc_note(
     *,
     task_id: str,
@@ -59,15 +70,16 @@ async def run_tc_note(
     api_client: Any,
 ) -> NoteSummary:
     """Spawn an ephemeral agent to generate a task-center progress note."""
+    system_prompt, default_model = _resolve_note_taker_prompt()
     result = await run(
-        agent_name=f"tc_note:{task_id}",
+        agent_name=f"note_taker:{task_id}",
         messages=messages,
-        system_prompt=TC_NOTE_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         prompt=prompt,
         tools=[SubmitTaskNoteTool()],
         api_client=api_client,
         max_tokens_per_turn=max_tokens,
-        model=model,
+        model=model or default_model,
     )
 
     validated = result.validated

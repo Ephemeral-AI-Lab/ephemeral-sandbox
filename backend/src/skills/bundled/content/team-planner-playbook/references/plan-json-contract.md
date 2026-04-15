@@ -29,7 +29,7 @@ Use this reference immediately before calling `submit_task_plan(...)`.
 - Keep only those exact nodes or broaden to that same prompt file path; never substitute a same-family sibling node.
 - If validation rejects a guessed benchmark node, keep only the validator-backed file path or remove that narrow node entirely.
 - If no exact prompt, parent, scout, or validator-backed benchmark surface exists for one narrow lane after repair, omit that uncertain node instead of guessing another sibling.
-- If a scout disproved an exact file, that file cannot appear in `tasks`, `scope_paths`, `task`, or `rationale`.
+- If a scout disproved an exact file, that file cannot appear in `tasks`, `scope_paths`, `objective`, or `rationale`.
 - If a scout disproved a benchmark-import path, do not emit a task whose main job is to create a compat/re-export file at that missing path unless live production references also name it.
 - A structure-only listing or import intuition is not "live-confirmed" owner evidence. If a scout disproved an exact file or marked a directory tests-only, do not replace that branch with a sibling exact file; broaden to the last confirmed parent boundary and keep it on `team_planner`.
 

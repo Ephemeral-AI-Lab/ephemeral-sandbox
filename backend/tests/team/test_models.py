@@ -98,8 +98,8 @@ def test_plan_from_dict_reports_invalid_task_index_for_missing_id():
         Plan.from_dict(
             {
                 "tasks": [
-                    {"id": "ok", "task": "do work", "agent": "developer"},
-                    {"task": "missing id", "agent": "developer"},
+                    {"id": "ok", "objective": "do work", "agent": "developer"},
+                    {"objective": "missing id", "agent": "developer"},
                 ]
             }
         )
@@ -110,8 +110,22 @@ def test_replan_from_dict_reports_non_object_index():
         ReplanPlan.from_dict(
             {
                 "add_tasks": [
-                    {"id": "ok", "task": "do work", "agent": "developer"},
+                    {"id": "ok", "objective": "do work", "agent": "developer"},
                     "not-a-task",
+                ]
+            }
+        )
+
+
+def test_plan_from_dict_rejects_legacy_task_field():
+    with pytest.raises(
+        ValueError,
+        match=r"tasks\[0\]: TaskDefinition 't1' uses legacy 'task'; use 'objective'",
+    ):
+        Plan.from_dict(
+            {
+                "tasks": [
+                    {"id": "t1", "task": "do work", "agent": "developer"},
                 ]
             }
         )
@@ -207,7 +221,7 @@ def test_plan_from_dict_round_trip():
         "tasks": [
             {
                 "id": "t1",
-                "task": "implement login",
+                "objective": "implement login",
                 "agent": "developer",
                 "deps": [],
                 "scope_paths": ["src/auth/"],
@@ -215,7 +229,7 @@ def test_plan_from_dict_round_trip():
             },
             {
                 "id": "t2",
-                "task": "verify login",
+                "objective": "verify login",
                 "agent": "validator",
                 "deps": ["t1"],
                 "scope_paths": [],
@@ -253,7 +267,7 @@ def test_plan_from_dict_missing_tasks_key():
 
 
 def test_plan_from_dict_numeric_ids_coerced_to_str():
-    data = {"tasks": [{"id": 42, "task": "do it", "agent": "developer"}]}
+    data = {"tasks": [{"id": 42, "objective": "do it", "agent": "developer"}]}
     plan = Plan.from_dict(data)
     assert plan.tasks[0].id == "42"
 
@@ -268,7 +282,7 @@ def test_replan_plan_from_dict_round_trip():
         "add_tasks": [
             {
                 "id": "fix1",
-                "task": "fix the bug",
+                "objective": "fix the bug",
                 "agent": "developer",
                 "deps": [],
                 "scope_paths": ["src/"],
@@ -290,7 +304,7 @@ def test_replan_plan_from_dict_empty():
 
 
 def test_replan_plan_from_dict_cascade_policy_default():
-    data = {"add_tasks": [{"id": "x", "task": "t", "agent": "developer"}]}
+    data = {"add_tasks": [{"id": "x", "objective": "t", "agent": "developer"}]}
     replan = ReplanPlan.from_dict(data)
     assert replan.add_tasks[0].cascade_policy == "cancel"
 

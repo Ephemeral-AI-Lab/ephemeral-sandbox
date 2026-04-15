@@ -52,7 +52,6 @@ class CodeActTransaction:
     scratch_root: str
     base_tree: str
     patch_path: str
-    active: bool = True
 
 
 async def _sandbox_exec(
@@ -141,11 +140,9 @@ async def _read_git_object_text(
 
 
 async def create_codeact_transaction(
-    context: ToolExecutionContext,
     sandbox: Any,
     repo_root: str,
 ) -> CodeActTransaction:
-    del context
     scratch_root = ""
     patch_path = ""
     try:
@@ -210,9 +207,8 @@ GIT_INDEX_FILE="$base_index" git -C "$scratch_root" write-tree
             scratch_root=scratch_root,
             base_tree=base_tree,
             patch_path=patch_path,
-            active=True,
         )
-    except Exception:
+    except Exception as exc:
         if scratch_root:
             await cleanup_codeact_transaction(
                 sandbox,
@@ -221,8 +217,13 @@ GIT_INDEX_FILE="$base_index" git -C "$scratch_root" write-tree
                     scratch_root=scratch_root,
                     base_tree="",
                     patch_path=patch_path,
-                    active=True,
                 ),
+            )
+            logger.warning(
+                "create_codeact_transaction failed (%s), cleaned up scratch_root=%s: %s",
+                type(exc).__name__,
+                scratch_root,
+                exc,
             )
         raise
 
@@ -354,11 +355,9 @@ GIT_INDEX_FILE="$tmp_index" git -C "$scratch_root" diff --cached --numstat --no-
 
 async def commit_transaction_changes(
     context: ToolExecutionContext,
-    sandbox: Any,
     tx: CodeActTransaction,
     changes: list[RepoChange],
 ) -> CommitReport:
-    del sandbox
     report = CommitReport()
     if not changes:
         return report
@@ -424,7 +423,9 @@ async def commit_transaction_changes(
 
         message = str(getattr(result, "message", "") or "")
         if bool(getattr(result, "success", False)):
-            report.committed.append(FileCommitResult(path=change.path, status="ok", message=message))
+            report.committed.append(
+                FileCommitResult(path=change.path, status="ok", message=message)
+            )
             continue
         if bool(getattr(result, "conflict", False)):
             report.conflicts.append(
@@ -440,7 +441,6 @@ async def cleanup_codeact_transaction(
     sandbox: Any,
     tx: CodeActTransaction,
 ) -> None:
-    tx.active = False
     commands: list[str] = []
     if tx.scratch_root:
         commands.append(

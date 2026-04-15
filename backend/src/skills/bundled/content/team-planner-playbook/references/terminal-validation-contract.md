@@ -23,7 +23,7 @@ The terminal validator's `objective` field must include:
   "deps": ["dev-a", "dev-b", "plan-c"],
   "scope_paths": ["pkg/io/", "pkg/repo/"],
   "cascade_policy": "continue",
-  "task": "Terminal validation gate. (1) Run ci_diagnostics on each scope_paths entry to catch import/name errors early. (2) Run the full test suite: shell('python -m pytest tests/ -x --timeout=300'). (3) Report exact failing ids, exit codes, and error snippets. If any developer lane introduced regressions outside its own scope, include that in the failure evidence."
+  "objective": "Terminal validation gate. (1) Run ci_diagnostics on each scope_paths entry to catch import/name errors early. (2) Run the full test suite: shell('python -m pytest tests/ -x --timeout=300'). (3) Report exact failing ids, exit codes, and error snippets. If any developer lane introduced regressions outside its own scope, include that in the failure evidence."
 }
 ```
 

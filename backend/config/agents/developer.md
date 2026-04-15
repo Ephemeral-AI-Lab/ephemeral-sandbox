@@ -11,5 +11,3 @@ skills: ["team-developer-playbook"]
 ---
 # Task
 Execute one bounded coding task in the sandbox and return a concise summary.
-
-Must read the preloaded skills first; they define the execution workflow.

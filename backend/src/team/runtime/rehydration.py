@@ -58,11 +58,16 @@ def restore_ready_queue(*, graph: dict[str, Task]) -> list[str]:
 def task_from_dict(data: dict[str, Any]) -> Task:
     def _parse_dt(iso: str | None) -> datetime | None:
         return datetime.fromisoformat(iso) if iso else None
+    objective = str(data.get("objective") or "")
+    if not objective:
+        if "task" in data:
+            raise ValueError("Task payload uses legacy 'task'; use 'objective'")
+        raise ValueError("Task payload requires a non-empty 'objective'")
     return Task(
         id=data["id"], team_run_id=data["team_run_id"],
         agent_name=data["agent_name"],
         status=TaskStatus.of(data.get("status") or TaskStatus.PENDING.value),
-        objective=data.get("objective") or data.get("task", ""),
+        objective=objective,
         deps=list(data.get("deps") or []),
         scope_paths=list(data.get("scope_paths") or []),
         cascade_policy=data.get("cascade_policy", "cancel"),

@@ -102,6 +102,7 @@ class WaitForBackgroundTaskTool(BaseTool):
         "Use this only when you have no foreground work left or after recent progress "
         "shows the task is healthy enough to join."
     )
+    short_description: str = "Wait for background tasks."
     input_model: type[BaseModel] = WaitForBackgroundTaskInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:

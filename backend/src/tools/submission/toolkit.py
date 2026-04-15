@@ -3,7 +3,7 @@
 Tools write structured data to ``context.metadata``; the executor reads
 it after the runner returns.
 
-Tool surface (per design-draft-plan-submit-plan.md):
+Tool surface:
   - draft_task_plan      (non-terminal) — validate proposed plan, render ASCII diff
   - submit_task_plan     (terminal)     — commit plan to task model
   - declare_blocker      (terminal)     — escalate to conductor
@@ -12,6 +12,7 @@ Tool surface (per design-draft-plan-submit-plan.md):
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from typing import Any, Literal
@@ -21,6 +22,8 @@ from pydantic import BaseModel, Field
 from agents.registry import get_definition
 from team.planning.validation import validate_plan
 from tools.core.base import BaseTool, BaseToolkit, ToolExecutionContext, ToolResult
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -53,12 +56,20 @@ async def _post_submission_note(
     )
 
 
-async def _freshness_submission_gate(context: ToolExecutionContext, *, action: str) -> ToolResult | None:
+async def _freshness_submission_gate(
+    context: ToolExecutionContext, *, action: str
+) -> ToolResult | None:
     """Reject terminal submissions when the task context has gone stale."""
     from tools.context.freshness import check_freshness
 
     report = await check_freshness(context)
     if not report.stale:
+        task_id = context.metadata.get("work_item_id", "?")
+        logger.debug(
+            "Freshness check passed for %s [task=%s]",
+            action,
+            task_id,
+        )
         return None
     return ToolResult(
         output=(
@@ -82,6 +93,13 @@ def _resolve_agent_name(agent_value: str, roster: dict[str, list[str]]) -> str:
         return candidate
     role_matches = roster.get(candidate)
     if role_matches:
+        if len(role_matches) > 1:
+            logger.warning(
+                "Role '%s' resolved to multiple agents (%s); using first: %s",
+                candidate,
+                len(role_matches),
+                role_matches[0],
+            )
         return str(role_matches[0])
     return candidate
 
@@ -126,8 +144,8 @@ def _note_budget_issues(
     issues: list[str] = []
     for item in tasks:
         task_id = str(item.get("id") or "<unknown>")
-        task_text = str(item.get("objective") or item.get("task") or "")
-        size = len(task_text.encode("utf-8"))
+        objective = str(item.get("objective") or "")
+        size = len(objective.encode("utf-8"))
         if size > max_note_bytes:
             issues.append(
                 f"task '{task_id}' is {size} bytes, exceeds max_note_bytes={max_note_bytes}"
@@ -166,6 +184,7 @@ class SubmitTaskSummaryTool(BaseTool):
         "or type='fail' when the task cannot be completed and needs replanning. "
         "This is your terminal action — the agent loop ends after this call."
     )
+    short_description = "Submit task outcome."
     input_model = SubmitTaskSummaryInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
@@ -182,18 +201,20 @@ class SubmitTaskSummaryTool(BaseTool):
 
 
 # ---------------------------------------------------------------------------
-# Planning tool input models (per design-draft-plan-submit-plan.md)
+# Planning tool input models
 # ---------------------------------------------------------------------------
 
 
 class ExistingTaskRef(BaseModel):
     """Reference to a task already in the graph. Only deps can be rewired."""
+
     id: str = Field(..., description="Must match an existing task ID")
     deps: list[str] = Field(default_factory=list, description="Updated dependency list")
 
 
 class NewTaskSpec(BaseModel):
     """Full spec for a task the agent is creating."""
+
     id: str = Field(..., description="Unique ID for the new task")
     name: str = Field(
         ...,
@@ -230,6 +251,7 @@ class DraftTaskPlanInput(BaseModel):
 
 class SubmitTaskPlanInput(BaseModel):
     """Same schema as DraftTaskPlanInput."""
+
     existing_tasks: list[ExistingTaskRef] = Field(
         default_factory=list,
         description=(
@@ -260,10 +282,7 @@ def _get_graph(context: ToolExecutionContext) -> dict[str, Any] | None:
 
 def _get_sibling_ids(graph: dict[str, Any], parent_id: str | None) -> set[str]:
     """Return IDs of tasks sharing the same parent."""
-    return {
-        t.id for t in graph.values()
-        if getattr(t, "parent_id", None) == parent_id
-    }
+    return {t.id for t in graph.values() if getattr(t, "parent_id", None) == parent_id}
 
 
 def _validate_plan_input(
@@ -292,6 +311,11 @@ def _validate_plan_input(
     # Sibling IDs for scope checking
     sibling_ids = _get_sibling_ids(graph, parent_id) if graph is not None else set()
 
+    # 0. Reject existing_tasks rewiring — not supported yet
+    if arguments.existing_tasks:
+        errors.append(_EXISTING_TASKS_UNSUPPORTED)
+        return errors  # Full rejection — do not proceed with any other validation
+
     # 1. Validate new_tasks IDs don't collide with existing
     new_ids: set[str] = set()
     for spec in arguments.new_tasks:
@@ -315,6 +339,7 @@ def _validate_plan_input(
 
     # 3. Validate remove_tasks exist
     from team.models import TERMINAL_STATUSES
+
     for rid in arguments.remove_tasks:
         if rid not in graph_ids:
             errors.append(f"remove target '{rid}' not found in graph")
@@ -323,7 +348,9 @@ def _validate_plan_input(
             if target is not None:
                 status = getattr(target, "status", None)
                 if status is not None and status in TERMINAL_STATUSES:
-                    errors.append(f"remove target '{rid}' is {status.value}; cannot cancel terminal tasks")
+                    errors.append(
+                        f"remove target '{rid}' is {status.value}; cannot cancel terminal tasks"
+                    )
 
     # 4. Validate deps reference valid IDs
     all_valid_ids = graph_ids | new_ids
@@ -395,6 +422,7 @@ class DraftTaskPlanTool(BaseTool):
         "Does NOT write to the task model. Call this first to preview, "
         "then call submit_task_plan to commit."
     )
+    short_description = "Validate a draft task plan."
     input_model = DraftTaskPlanInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
@@ -418,10 +446,7 @@ class DraftTaskPlanTool(BaseTool):
             own_task = graph.get(task_id)
             if own_task is not None:
                 parent_id = getattr(own_task, "parent_id", None)
-            siblings = [
-                t for t in graph.values()
-                if getattr(t, "parent_id", None) == parent_id
-            ]
+            siblings = [t for t in graph.values() if getattr(t, "parent_id", None) == parent_id]
 
         remove_ids = set(arguments.remove_tasks)
 
@@ -455,10 +480,7 @@ class DraftTaskPlanTool(BaseTool):
                 if status is not None and status.value == "running":
                     warnings.append(f"Warning: {rid} is RUNNING — will be terminated")
                 # Check for descendants
-                children = [
-                    t for t in graph.values()
-                    if getattr(t, "parent_id", None) == rid
-                ]
+                children = [t for t in graph.values() if getattr(t, "parent_id", None) == rid]
                 if children:
                     warnings.append(
                         f"Warning: {rid} has {len(children)} descendants — will cascade cancel"
@@ -486,6 +508,7 @@ class SubmitTaskPlanTool(BaseTool):
         "Each task's 'objective' field is the agent's sole briefing — write "
         "clear, actionable prose."
     )
+    short_description = "Submit a task plan."
     input_model = SubmitTaskPlanInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
@@ -514,23 +537,27 @@ class SubmitTaskPlanTool(BaseTool):
             # Auto-set cascade_policy for validators (must be 'continue')
             agent_def = get_definition(resolved_agent)
             cascade = "continue" if agent_def and agent_def.role == "reviewer" else "cancel"
-            resolved_tasks.append({
-                "id": spec.id,
-                "objective": spec.objective,
-                "agent": resolved_agent,
-                "description": description,
-                "deps": list(spec.deps),
-                "scope_paths": list(spec.scope_paths),
-                "cascade_policy": cascade,
-            })
+            resolved_tasks.append(
+                {
+                    "id": spec.id,
+                    "objective": spec.objective,
+                    "agent": resolved_agent,
+                    "description": description,
+                    "deps": list(spec.deps),
+                    "scope_paths": list(spec.scope_paths),
+                    "cascade_policy": cascade,
+                }
+            )
 
         if is_replanner:
             # Replanner path: build ReplanPlan
             try:
-                replan = ReplanPlan.from_dict({
-                    "add_tasks": resolved_tasks,
-                    "cancel_ids": arguments.remove_tasks,
-                })
+                replan = ReplanPlan.from_dict(
+                    {
+                        "add_tasks": resolved_tasks,
+                        "cancel_ids": arguments.remove_tasks,
+                    }
+                )
             except (TypeError, ValueError) as exc:
                 return ToolResult(output=f"Error: invalid replan payload: {exc}", is_error=True)
 
@@ -575,23 +602,27 @@ class SubmitTaskPlanTool(BaseTool):
             max_tasks = int(context.metadata.get("max_tasks", 0) or 0)
             tasks_used = int(context.metadata.get("tasks_used", 0) or 0)
             if max_tasks and tasks_used + len(plan.tasks) > max_tasks:
-                issues.append({
-                    "field": "tasks",
-                    "msg": (
-                        f"plan would exceed max_tasks={max_tasks} "
-                        f"(used={tasks_used}, adding={len(plan.tasks)})"
-                    ),
-                })
+                issues.append(
+                    {
+                        "field": "tasks",
+                        "msg": (
+                            f"plan would exceed max_tasks={max_tasks} "
+                            f"(used={tasks_used}, adding={len(plan.tasks)})"
+                        ),
+                    }
+                )
             max_depth = int(context.metadata.get("max_depth", 0) or 0)
             task_depth = int(context.metadata.get("task_depth", 0) or 0)
             if max_depth and plan.tasks and (task_depth + 1) > max_depth:
-                issues.append({
-                    "field": "tasks",
-                    "msg": (
-                        f"plan would exceed max_depth={max_depth} "
-                        f"from current depth={task_depth}"
-                    ),
-                })
+                issues.append(
+                    {
+                        "field": "tasks",
+                        "msg": (
+                            f"plan would exceed max_depth={max_depth} "
+                            f"from current depth={task_depth}"
+                        ),
+                    }
+                )
 
             note_budget_issues = _note_budget_issues(
                 resolved_tasks,
@@ -600,14 +631,10 @@ class SubmitTaskPlanTool(BaseTool):
             issues.extend({"field": "tasks", "msg": msg} for msg in note_budget_issues)
 
             if issues:
-                message = "; ".join(
-                    str(issue.get("msg") or "invalid plan") for issue in issues
-                )
+                message = "; ".join(str(issue.get("msg") or "invalid plan") for issue in issues)
                 return ToolResult(output=f"Error: {message}", is_error=True)
 
-            freshness_gate = await _freshness_submission_gate(
-                context, action="submit_task_plan()"
-            )
+            freshness_gate = await _freshness_submission_gate(context, action="submit_task_plan()")
             if freshness_gate is not None:
                 return freshness_gate
 
@@ -648,6 +675,7 @@ class DeclareBlockerTool(BaseTool):
         "Declare a shared blocker so the conductor can pause affected running siblings, "
         "spawn one resolver, and resume work after the fix lands."
     )
+    short_description = "Report a shared blocker."
     input_model = DeclareBlockerInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:

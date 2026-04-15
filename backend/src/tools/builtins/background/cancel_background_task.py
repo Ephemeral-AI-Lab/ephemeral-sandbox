@@ -33,6 +33,7 @@ class CancelBackgroundTaskTool(BaseTool):
         "task_id is REQUIRED — pass the exact id string (e.g. \"bg_1\"). "
         "Pass \"auto\" to cancel the sole running task when exactly one is running."
     )
+    short_description: str = "Cancel a background task."
     input_model: type[BaseModel] = CancelBackgroundTaskInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:

@@ -11,5 +11,3 @@ skills: ["team-developer-playbook"]
 ---
 # Task
 Repair the shared blocker root cause in the named files so paused sibling work can resume.
-
-Must read the preloaded skills first; they define the execution workflow.

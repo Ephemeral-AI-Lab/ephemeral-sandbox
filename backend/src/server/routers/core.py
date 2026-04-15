@@ -26,7 +26,6 @@ from message.stream_events import (
     ToolExecutionCompleted,
     ToolExecutionStarted,
 )
-from prompts import build_runtime_system_prompt
 from server.protocol import BackendEvent, TranscriptItem
 from token_tracker.runtime import persist_run_usage
 
@@ -187,25 +186,14 @@ async def execute_ephemeral_agent_run(
                 session_id=config.session_id,
                 cwd=config.cwd,
                 model=agent.model,
-                system_prompt=build_runtime_system_prompt(
-                    agent.settings,
-                    cwd=config.cwd,
-                    latest_user_prompt=input_message,
-                ),
+                system_prompt=agent.query_context.system_prompt,
                 messages=[m.model_dump(mode="json") for m in agent._display_messages],
                 full_messages=full_history,
                 usage=agent.total_usage.model_dump() if agent.total_usage else {},
                 session_state=agent.query_context.session_state.to_dict()
                 if agent.query_context.session_state
                 else None,
-                summary=next(
-                    (
-                        m.text.strip()[:80]
-                        for m in agent._display_messages
-                        if m.role == "user" and m.text.strip()
-                    ),
-                    "",
-                ),
+                summary=input_message.strip()[:80],
                 message_count=len(agent._display_messages),
             )
         except Exception:

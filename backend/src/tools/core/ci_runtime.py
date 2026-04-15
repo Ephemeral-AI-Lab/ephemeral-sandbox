@@ -23,6 +23,14 @@ def get_ci_service(context: ToolExecutionContext) -> Any | None:
     return context.metadata.get("ci_service")
 
 
+def _team_edit_ids(context: ToolExecutionContext) -> tuple[str, str, str]:
+    return (
+        str(context.metadata.get("team_run_id") or ""),
+        str(context.metadata.get("agent_run_id") or ""),
+        str(context.metadata.get("work_item_id") or ""),
+    )
+
+
 def _update_prepared_write(prepared: Any, **fields: Any) -> Any:
     """Return a shallow copy of *prepared* with updated fields."""
     if dataclasses.is_dataclass(prepared) and not isinstance(prepared, type):
@@ -201,28 +209,16 @@ def finalize_ci_write(
         edit_type=edit_type,
         description=description,
     )
-    if bool(getattr(result, "success", False)):
-        _propagate_team_edit(
-            context,
-            file_path=str(getattr(prepared, "file_path", "") or ""),
-            agent_run_id=str(context.metadata.get("agent_run_id") or ""),
-            task_id=str(context.metadata.get("work_item_id") or ""),
-            edit_type=edit_type,
-            old_hash=str(getattr(prepared, "current_hash", "") or ""),
-            new_hash=_content_hash(content),
-            description=description,
-            ci_arbiter=getattr(svc, "arbiter", None),
-        )
-    if bool(getattr(result, "conflict", False)):
-        _note_team_memory_conflict(
-            context,
-            file_path=str(getattr(prepared, "file_path", "") or ""),
-            reason=str(
-                getattr(result, "conflict_reason", "")
-                or getattr(result, "message", "")
-                or "write conflict"
-            ),
-        )
+    _finalize_ci_commit_result(
+        context,
+        result=result,
+        file_path=str(getattr(prepared, "file_path", "") or ""),
+        edit_type=edit_type,
+        old_hash=str(getattr(prepared, "current_hash", "") or ""),
+        new_hash=_content_hash(content),
+        description=description,
+        ci_arbiter=getattr(svc, "arbiter", None),
+    )
     return result
 
 
@@ -246,28 +242,16 @@ def commit_ci_change_against_base(
         edit_type=edit_type,
         description=description,
     )
-    if bool(getattr(result, "success", False)):
-        _propagate_team_edit(
-            context,
-            file_path=file_path,
-            agent_run_id=str(context.metadata.get("agent_run_id") or ""),
-            task_id=str(context.metadata.get("work_item_id") or ""),
-            edit_type=edit_type,
-            old_hash=_content_hash(base_content or "") if base_content is not None else "",
-            new_hash=_content_hash(final_content) if final_content is not None else "",
-            description=description,
-            ci_arbiter=getattr(svc, "arbiter", None),
-        )
-    if bool(getattr(result, "conflict", False)):
-        _note_team_memory_conflict(
-            context,
-            file_path=file_path,
-            reason=str(
-                getattr(result, "conflict_reason", "")
-                or getattr(result, "message", "")
-                or "write conflict"
-            ),
-        )
+    _finalize_ci_commit_result(
+        context,
+        result=result,
+        file_path=file_path,
+        edit_type=edit_type,
+        old_hash=_content_hash(base_content or "") if base_content is not None else "",
+        new_hash=_content_hash(final_content) if final_content is not None else "",
+        description=description,
+        ci_arbiter=getattr(svc, "arbiter", None),
+    )
     return result
 
 
@@ -312,14 +296,13 @@ def record_edit_in_arbiter(
     svc = get_ci_service(context)
     if svc is None:
         return
-    agent_run_id = str(context.metadata.get("agent_run_id") or "")
-    task_id = str(context.metadata.get("work_item_id") or "")
+    team_run_id, agent_run_id, task_id = _team_edit_ids(context)
     try:
         arbiter = getattr(svc, "arbiter", None)
         if arbiter is not None:
             arbiter.record_edit(
                 file_path=file_path,
-                team_run_id=str(context.metadata.get("team_run_id") or ""),
+                team_run_id=team_run_id,
                 agent_run_id=agent_run_id,
                 task_id=task_id,
                 edit_type=edit_type,
@@ -416,6 +399,43 @@ def _resolved_agent_id(context: ToolExecutionContext, *, preferred: str = "") ->
     if agent_name:
         return agent_name
     return str(context.metadata.get("agent_run_id") or "").strip()
+
+
+def _finalize_ci_commit_result(
+    context: ToolExecutionContext,
+    *,
+    result: Any,
+    file_path: str,
+    edit_type: str,
+    old_hash: str,
+    new_hash: str,
+    description: str,
+    ci_arbiter: Any | None,
+) -> None:
+    if bool(getattr(result, "success", False)):
+        _, agent_run_id, task_id = _team_edit_ids(context)
+        _propagate_team_edit(
+            context,
+            file_path=file_path,
+            agent_run_id=agent_run_id,
+            task_id=task_id,
+            edit_type=edit_type,
+            old_hash=old_hash,
+            new_hash=new_hash,
+            description=description,
+            ci_arbiter=ci_arbiter,
+        )
+        return
+    if bool(getattr(result, "conflict", False)):
+        _note_team_memory_conflict(
+            context,
+            file_path=file_path,
+            reason=str(
+                getattr(result, "conflict_reason", "")
+                or getattr(result, "message", "")
+                or "write conflict"
+            ),
+        )
 
 
 def _propagate_team_edit(

@@ -31,6 +31,7 @@ RESERVED_BUILTIN_AGENT_NAMES = frozenset(
         "scout",
         "resolver",
         "team_replanner",
+        "note_taker",
         "submit_plan_agent",
         "decision_submit_retry",
         "decision_submit_replan",

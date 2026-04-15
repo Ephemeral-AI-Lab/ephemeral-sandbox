@@ -877,11 +877,12 @@ class TestToolSelectionAndOrdering:
                 f"{tool.name} input_schema missing 'properties': {input_schema}"
             )
 
-    def test_bash_requires_command(self):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+    def test_codeact_exposes_non_null_command_schema(self):
+        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaCodeActTool
 
-        schema = DaytonaBashTool.to_api_schema()["input_schema"]
-        assert "command" in schema.get("required", [])
+        schema = DaytonaCodeActTool.to_api_schema()["input_schema"]
+        assert schema["properties"]["command"]["type"] == "string"
+        assert schema["properties"]["command"]["minLength"] == 1
 
     def test_read_file_requires_file_path(self):
         from tools.daytona_toolkit.tools import daytona_read_file as DaytonaFileReadTool
@@ -921,11 +922,11 @@ class TestToolSelectionAndOrdering:
         assert "file_path" in required
         assert "line" not in required
 
-    def test_codeact_requires_code(self):
+    def test_codeact_requires_command_or_code(self):
         from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaCodeActTool
 
         schema = DaytonaCodeActTool.to_api_schema()["input_schema"]
-        assert "code" in schema.get("required", [])
+        assert schema["oneOf"] == [{"required": ["command"]}, {"required": ["code"]}]
 
 
 # ===========================================================================

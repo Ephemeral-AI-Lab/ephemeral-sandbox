@@ -121,6 +121,7 @@ def _scope_overlap_warning(
         "(2) `edits=[{\"strategy\":\"search_replace\",\"search\":\"...\",\"replace\":\"...\"}]` "
         "for batched replacements. Never send `new_text` together with `edits`."
     ),
+    short_description="Apply atomic file edits.",
 )
 async def daytona_edit_file(
     file_path: str,

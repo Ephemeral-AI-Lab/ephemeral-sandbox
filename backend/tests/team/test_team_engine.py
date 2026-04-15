@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from team.persistence import team_engine
 
 
@@ -33,7 +35,7 @@ class _FakeEngine:
         return _FakeBegin(self.conn)
 
 
-def test_normalize_legacy_ltree_columns_rewrites_legacy_types(monkeypatch):
+def test_reject_unsupported_legacy_ltree_columns(monkeypatch):
     engine = _FakeEngine()
     legacy_types = {
         ("tasks", "scope_ltree"): "ltree[]",
@@ -44,14 +46,13 @@ def test_normalize_legacy_ltree_columns_rewrites_legacy_types(monkeypatch):
         lambda _engine, table_name, column_name: legacy_types.get((table_name, column_name)),
     )
 
-    team_engine._normalize_legacy_ltree_columns(engine)
+    with pytest.raises(RuntimeError, match="Unsupported legacy schema detected at tasks.scope_ltree"):
+        team_engine._reject_unsupported_legacy_columns(engine)
 
-    assert engine.conn.statements == [
-        "ALTER TABLE tasks ALTER COLUMN scope_ltree TYPE TEXT[] USING COALESCE(scope_ltree::text[], ARRAY[]::text[])",
-    ]
+    assert engine.conn.statements == []
 
 
-def test_normalize_legacy_ltree_columns_skips_non_postgres(monkeypatch):
+def test_reject_unsupported_legacy_columns_skips_non_postgres(monkeypatch):
     engine = _FakeEngine(dialect_name="sqlite")
     called = False
 
@@ -62,7 +63,37 @@ def test_normalize_legacy_ltree_columns_skips_non_postgres(monkeypatch):
 
     monkeypatch.setattr(team_engine, "_legacy_column_type", _unexpected)
 
-    team_engine._normalize_legacy_ltree_columns(engine)
+    team_engine._reject_unsupported_legacy_columns(engine)
 
     assert called is False
+    assert engine.conn.statements == []
+
+
+def test_reject_unsupported_legacy_task_columns(monkeypatch):
+    engine = _FakeEngine()
+    legacy_types = {
+        ("tasks", "task"): "text",
+    }
+    monkeypatch.setattr(
+        team_engine,
+        "_legacy_column_type",
+        lambda _engine, table_name, column_name: legacy_types.get((table_name, column_name)),
+    )
+
+    with pytest.raises(RuntimeError, match="Unsupported legacy schema detected at tasks.task"):
+        team_engine._reject_unsupported_legacy_columns(engine)
+
+    assert engine.conn.statements == []
+
+
+def test_reject_unsupported_legacy_columns_skips_missing_column(monkeypatch):
+    engine = _FakeEngine()
+    monkeypatch.setattr(
+        team_engine,
+        "_legacy_column_type",
+        lambda *_args, **_kwargs: None,
+    )
+
+    team_engine._reject_unsupported_legacy_columns(engine)
+
     assert engine.conn.statements == []

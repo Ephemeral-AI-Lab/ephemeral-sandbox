@@ -93,7 +93,6 @@ def _tx() -> CodeActTransaction:
         scratch_root="/scratch",
         base_tree="deadbeef",
         patch_path="/tmp/codeact.patch",
-        active=True,
     )
 
 
@@ -141,11 +140,31 @@ async def test_codeact_input_model_accepts_shell_contract():
     assert inp.mode is None
 
 
+async def test_codeact_api_schema_requires_one_of_command_or_code():
+    schema = daytona_codeact.to_api_schema()["input_schema"]
+
+    assert schema["oneOf"] == [{"required": ["command"]}, {"required": ["code"]}]
+    assert schema["properties"]["command"]["type"] == "string"
+    assert schema["properties"]["command"]["minLength"] == 1
+    assert "anyOf" not in schema["properties"]["command"]
+    assert schema["properties"]["code"]["type"] == "string"
+    assert schema["properties"]["code"]["minLength"] == 1
+    assert "anyOf" not in schema["properties"]["code"]
+    assert schema["properties"]["mode"]["enum"] == ["python", "shell"]
+    assert "anyOf" not in schema["properties"]["mode"]
+
+
 async def test_build_wrapper_uses_write_through_and_guarded_imports():
-    wrapper = _build_wrapper("write('file.txt', 'ok')", run_id="abcd1234", cwd="/repo")
+    wrapper = _build_wrapper(
+        "write('file.txt', 'ok')",
+        run_id="abcd1234",
+        cwd="/repo",
+        enforce_team_shell_policy=True,
+    )
     assert 'with open(resolved, "w", encoding="utf-8")' in wrapper
     assert "_guarded_import" in wrapper
     assert "_BLOCKED_MODULES" in wrapper
+    assert "_ENFORCE_TEAM_SHELL_POLICY = True" in wrapper
 
 
 async def test_build_exec_command_runs_wrapper_from_repo_cwd():
@@ -185,7 +204,7 @@ async def test_shell_mode_reports_nonzero_exit_as_error():
     assert data["shells_run"] == 1
 
 
-async def test_coordinated_read_only_shell_stays_on_fast_path(monkeypatch):
+async def test_coordinated_read_only_shell_uses_transaction_without_writes(monkeypatch):
     sb = _make_sandbox(exec_stdout=_shell_exec_output("ok", 0))
     ctx = _ctx(
         {
@@ -195,8 +214,20 @@ async def test_coordinated_read_only_shell_stays_on_fast_path(monkeypatch):
             "team_mode_enabled": True,
         }
     )
-    create_tx = AsyncMock(side_effect=AssertionError("transaction should not be used"))
+    tx = _tx()
+    monkeypatch.setattr(
+        codeact_tool_module,
+        "_resolve_repo_root",
+        AsyncMock(return_value=("/repo", sb, None)),
+    )
+    create_tx = AsyncMock(return_value=tx)
+    collect_changes = AsyncMock(return_value=[])
+    commit_changes = AsyncMock(return_value=CommitReport())
+    cleanup = AsyncMock()
     monkeypatch.setattr(codeact_tool_module, "create_codeact_transaction", create_tx)
+    monkeypatch.setattr(codeact_tool_module, "collect_transaction_changes", collect_changes)
+    monkeypatch.setattr(codeact_tool_module, "commit_transaction_changes", commit_changes)
+    monkeypatch.setattr(codeact_tool_module, "cleanup_codeact_transaction", cleanup)
 
     result = await daytona_codeact.execute(
         daytona_codeact.input_model(command="pytest tests/unit/test_x.py -q"),
@@ -205,7 +236,11 @@ async def test_coordinated_read_only_shell_stays_on_fast_path(monkeypatch):
 
     data = _assert_ok(result)
     assert data["status"] == "ok"
-    assert create_tx.await_count == 0
+    assert data["files_written"] == 0
+    create_tx.assert_awaited_once()
+    collect_changes.assert_awaited_once()
+    commit_changes.assert_awaited_once()
+    cleanup.assert_awaited_once()
 
 
 async def test_coordinated_mutating_shell_uses_transaction(monkeypatch):
@@ -363,26 +398,85 @@ async def test_python_mode_error_uses_updated_guidance():
     assert "daytona_codeact(command=" in result.output
 
 
-async def test_python_mode_blocks_subprocess_patterns_for_team_agents():
-    sb = _make_sandbox()
+def _patch_coordinated_transaction(monkeypatch, sb):
+    tx = _tx()
+    monkeypatch.setattr(
+        codeact_tool_module,
+        "_resolve_repo_root",
+        AsyncMock(return_value=("/repo", sb, None)),
+    )
+    monkeypatch.setattr(codeact_tool_module, "create_codeact_transaction", AsyncMock(return_value=tx))
+    collect_changes = AsyncMock()
+    commit_changes = AsyncMock()
+    cleanup = AsyncMock()
+    monkeypatch.setattr(codeact_tool_module, "collect_transaction_changes", collect_changes)
+    monkeypatch.setattr(codeact_tool_module, "commit_transaction_changes", commit_changes)
+    monkeypatch.setattr(codeact_tool_module, "cleanup_codeact_transaction", cleanup)
+    return collect_changes, commit_changes, cleanup
+
+
+@pytest.mark.parametrize(
+    ("code", "manifest_error", "expected_fragment", "expect_guidance"),
+    [
+        (
+            "import subprocess\nsubprocess.run(['python', '-m', 'pytest'])",
+            "ImportError: import 'subprocess' is blocked in codeact.",
+            "ImportError",
+            True,
+        ),
+        (
+            "import os\nos.system('pwd')",
+            (
+                "RuntimeError: CodeAct policy error: coordinated team lanes must use "
+                "`daytona_codeact` shell mode or `shell(\"...\")` inside Python mode "
+                "for repo commands. Replace `os.system()`/`os.popen()` wrappers."
+            ),
+            "os.system",
+            True,
+        ),
+        (
+            "shell('pytest -q 2>&1')",
+            "RuntimeError: CodeAct policy error: do not append `2>&1`; stdout/stderr are already captured.",
+            "2>&1",
+            False,
+        ),
+    ],
+)
+async def test_coordinated_python_mode_enforces_runtime_shell_policy(
+    monkeypatch,
+    code,
+    manifest_error,
+    expected_fragment,
+    expect_guidance,
+):
+    error_result = json.dumps({"manifest": "/tmp/codeact-xxx.json", "status": "error"})
+    sb = _make_sandbox(
+        exec_stdout=error_result,
+        manifest=_make_manifest(status="error", error=manifest_error),
+    )
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
+            "daytona_cwd": "/repo",
             "agent_name": "developer",
             "team_mode_enabled": True,
         }
     )
+    collect_changes, commit_changes, cleanup = _patch_coordinated_transaction(monkeypatch, sb)
 
     result = await daytona_codeact.execute(
-        daytona_codeact.input_model(
-            code="import subprocess\nsubprocess.run(['python', '-m', 'pytest'])"
-        ),
+        daytona_codeact.input_model(code=code),
         ctx,
     )
 
     assert result.is_error
-    assert "blocked pattern" in result.output.lower()
-    sb.fs.upload_file.assert_not_called()
+    assert expected_fragment in result.output
+    if expect_guidance:
+        assert "daytona_codeact(command=" in result.output
+    collect_changes.assert_not_awaited()
+    commit_changes.assert_not_awaited()
+    cleanup.assert_awaited_once()
+    sb.fs.upload_file.assert_awaited_once()
 
 
 async def test_shell_mode_blocks_stderr_merge_for_team_agents():

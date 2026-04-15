@@ -217,6 +217,7 @@ print("\\n".join(matches))
         "benchmark lanes, run the exact runtime repro first and do not use this "
         "to open benchmark test files."
     ),
+    short_description="Read a file from the sandbox.",
     read_only=True,
 )
 async def daytona_read_file(
@@ -284,6 +285,7 @@ async def _do_raw_write(
 @tool(
     name="daytona_write_file",
     description="Create a new file or overwrite an existing file with the given content.",
+    short_description="Create or overwrite a file.",
 )
 async def daytona_write_file(
     file_path: str,
@@ -384,6 +386,7 @@ async def daytona_write_file(
 @tool(
     name="daytona_grep",
     description="Search file contents for a text pattern and return matching lines.",
+    short_description="Search file contents by pattern.",
     read_only=True,
 )
 async def daytona_grep(
@@ -427,6 +430,7 @@ async def daytona_grep(
 @tool(
     name="daytona_glob",
     description="Find files by name using a glob pattern (e.g. '*.py', 'test_*').",
+    short_description="Find files by glob.",
     read_only=True,
 )
 async def daytona_glob(

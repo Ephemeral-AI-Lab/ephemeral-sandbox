@@ -183,7 +183,7 @@ def _task_base_prompt(task_text: Any) -> str:
     if isinstance(task_text, dict) and task_text:
         rendered = json.dumps(task_text, indent=2, default=str)
         primary: list[str] = []
-        for key in ("task", "prompt", "description", "instructions"):
+        for key in ("objective", "prompt", "description", "instructions"):
             value = task_text.get(key)
             if isinstance(value, str) and value.strip():
                 primary.append(value.strip())
@@ -539,7 +539,7 @@ async def run_sweevo_team(
     await tr.start_with_team_definition(
         team_def,
         payload={
-            "task": "Produce the initial root plan for this SWE-EVO benchmark instance.",
+            "objective": "Produce the initial root plan for this SWE-EVO benchmark instance.",
             "prompt": root_prompt,
             "instance_id": instance.instance_id, "repo": instance.repo,
             "repo_dir": repo_dir, "test_cmds": instance.test_cmds,

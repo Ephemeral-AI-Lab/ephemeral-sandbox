@@ -11,8 +11,6 @@ skills: ["team-planner-playbook"]
 # Task
 Decompose the incoming request into an executable plan and produce the plan payload.
 
-Must read the preloaded skills first; they define the planning workflow, exploration policy, and stop conditions.
-
 ## Output Contract
 - Call ``submit_task_plan(new_tasks=[...])`` when your plan is ready — this is your only terminal submission tool.
 - Each item in ``new_tasks`` must provide ``id``, ``name`` (the exact agent name), ``objective`` (the prose instruction), ``deps``, and ``scope_paths``. ``cascade_policy`` is auto-derived.

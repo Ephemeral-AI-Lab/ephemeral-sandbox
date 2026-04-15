@@ -2,7 +2,7 @@
 
 Delegates engine creation to db.engine which manages both sync and async
 engines. This module handles team-specific concerns: registering team
-ORM models, creating team tables, and migrating legacy ltree columns.
+ORM models, creating team tables, and rejecting unsupported legacy schemas.
 """
 
 from __future__ import annotations
@@ -30,13 +30,22 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_LEGACY_LTREE_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
+_UNSUPPORTED_LEGACY_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
     (
         "tasks",
         "scope_ltree",
         "ltree[]",
-        "ALTER TABLE tasks ALTER COLUMN scope_ltree TYPE TEXT[] "
-        "USING COALESCE(scope_ltree::text[], ARRAY[]::text[])",
+        "Legacy tasks.scope_ltree uses ltree[] storage. "
+        "EphemeralOS now requires TEXT[] scope_ltree columns; "
+        "migrate or recreate the tasks table before startup.",
+    ),
+    (
+        "tasks",
+        "task",
+        "text",
+        "Legacy tasks.task columns are no longer auto-migrated. "
+        "Backfill objective/description and drop the legacy task column "
+        "before starting EphemeralOS.",
     ),
 )
 
@@ -63,28 +72,23 @@ def _legacy_column_type(engine: Engine, table_name: str, column_name: str) -> st
         ).scalar()
 
 
-def _normalize_legacy_ltree_columns(engine: Engine) -> None:
-    """Migrate legacy ltree columns to plain TEXT storage."""
+def _reject_unsupported_legacy_columns(engine: Engine) -> None:
+    """Fail fast when the database still uses unsupported legacy team columns."""
     if engine.dialect.name != "postgresql":
         return
-    for table_name, column_name, legacy_type, ddl in _LEGACY_LTREE_COLUMNS:
+    for table_name, column_name, legacy_type, message in _UNSUPPORTED_LEGACY_COLUMNS:
         if _legacy_column_type(engine, table_name, column_name) != legacy_type:
             continue
-        logger.info(
-            "Converting legacy column %s.%s from %s to TEXT storage",
-            table_name,
-            column_name,
-            legacy_type,
+        raise RuntimeError(
+            f"Unsupported legacy schema detected at {table_name}.{column_name}: {message}"
         )
-        with engine.begin() as conn:
-            conn.execute(text(ddl))
 
 
 def _ensure_team_schema(engine: Engine) -> None:
     """Register team models and backfill any missing team columns/indexes."""
     _ensure_team_models_registered()
     Base.metadata.create_all(engine)
-    _normalize_legacy_ltree_columns(engine)
+    _reject_unsupported_legacy_columns(engine)
     _add_missing_columns(engine)
     _ensure_indexes(engine)
 
@@ -104,7 +108,7 @@ def create_team_engine(
 ) -> "tuple[AsyncEngine, async_sessionmaker[AsyncSession]]":
     """Ensure the team coordination tables exist and return the async engine.
 
-    Registers team ORM models, creates tables, and migrates legacy columns.
+    Registers team ORM models, creates tables, and validates the live schema.
     Delegates engine creation to db.engine.initialize_db.
     """
     factory = get_async_session_factory()

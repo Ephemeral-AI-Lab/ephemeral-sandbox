@@ -127,6 +127,7 @@ def _build_input_model(
 def tool(
     name: str | None = None,
     description: str | None = None,
+    short_description: str | None = None,
     *,
     read_only: bool = False,
     stop_after_tool_call: bool = False,
@@ -138,6 +139,7 @@ def tool(
     Args:
         name: Tool name (defaults to function name).
         description: Tool description (defaults to first docstring line).
+        short_description: Concise prompt-facing description for toolkit summaries.
         read_only: Whether the tool is read-only.
         stop_after_tool_call: Whether the agent loop should stop after this tool.
         background: Background dispatch policy.
@@ -211,6 +213,7 @@ def tool(
         instance = FunctionTool()
         instance.name = tool_name
         instance.description = tool_description
+        instance.short_description = short_description
         instance.input_model = input_model
         instance._stop_after_tool_call = stop_after_tool_call
         instance.background = background

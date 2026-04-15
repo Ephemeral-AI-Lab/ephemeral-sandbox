@@ -14,55 +14,13 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from types import SimpleNamespace
 
-# Allow imports from backend/src
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend", "src"))
-
-from agents import get_definition  # type: ignore[attr-defined]
-from agents.types import AgentDefinition  # type: ignore[attr-defined]
-from config.settings import load_settings  # type: ignore[attr-defined]
-from engine.runtime.agent import (  # type: ignore[attr-defined]
-    _build_agent_system_prompt,
-    _build_agent_tool_registry,
-    finalize_tool_registry_and_prompt,
+from prompt_helpers import (  # type: ignore[attr-defined]
+    build_agent_system_prompt_text,
+    current_settings,
+    load_agent_definition,
+    register_builtins,
 )
-from team.builtins import register_all as register_team_builtins  # type: ignore[attr-defined]
-
-
-def _load_from_db(name: str, settings) -> AgentDefinition | None:
-    """Try to load an agent definition from the database."""
-    try:
-        from db.engine import initialize_db  # type: ignore[attr-defined]
-        from agents.db.store import AgentDefinitionStore  # type: ignore[attr-defined]
-
-        sf = initialize_db(settings.database)
-        if sf is None:
-            return None
-
-        store = AgentDefinitionStore()
-        store.initialize(sf)
-        record = store.get_by_name(name)
-        if record is None:
-            return None
-
-        return AgentDefinition(
-            name=record.name,
-            description=record.description,
-            system_prompt=record.system_prompt,
-            model=record.model,
-            effort=record.effort,
-            tool_call_limit=record.tool_call_limit,
-            toolkits=record.toolkits or [],
-            skills=record.skills or [],
-            hooks=record.hooks,
-            background=record.background,
-            initial_prompt=record.initial_prompt,
-            source="user",
-        )
-    except Exception as exc:
-        print(f"Warning: DB lookup failed: {exc}", file=sys.stderr)
-        return None
 
 
 def main() -> None:
@@ -77,39 +35,22 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    register_team_builtins()
-    settings = load_settings()
+    register_builtins()
+    settings = current_settings()
 
     # Try file-based lookup first, then fall back to DB
-    agent_def = get_definition(args.agent_name)
-    if agent_def is None:
-        agent_def = _load_from_db(args.agent_name, settings)
+    agent_def = load_agent_definition(args.agent_name, settings)
     if agent_def is None:
         print(f"Error: agent '{args.agent_name}' not found.", file=sys.stderr)
         sys.exit(1)
 
-    # --- Build system prompt the same way spawn_agent does ---
-    config = SimpleNamespace(cwd=args.cwd)
-    system_prompt = _build_agent_system_prompt(
-        config,
+    system_prompt = build_agent_system_prompt_text(
         agent_def,
-        settings,
-        latest_user_prompt=None,
+        cwd=args.cwd,
+        settings=settings,
+        sandbox_id=args.sandbox_id,
+        include_capabilities=not args.no_capabilities,
     )
-
-    # --- Tool registry (mirrors spawn_agent lines 105-150) ---
-    if not args.no_capabilities:
-        tool_registry = _build_agent_tool_registry(
-            config,
-            agent_def,
-            args.sandbox_id or None,
-            args.agent_name,
-        )
-        system_prompt, _ = finalize_tool_registry_and_prompt(
-            tool_registry,
-            system_prompt,
-            can_spawn_subagents=agent_def.can_spawn_subagents,
-        )
 
     print(system_prompt)
 

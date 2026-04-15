@@ -11,5 +11,3 @@ skills: ["team-validator-playbook"]
 ---
 # Task
 Verify the developer's task output and report truthfully.
-
-Must read the preloaded skills first; they define the validation workflow.

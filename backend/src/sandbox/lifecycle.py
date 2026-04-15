@@ -47,11 +47,10 @@ def shutdown_cached_client() -> None:
     from sandbox import async_client as async_client_mod
 
     with async_client_mod._client_lock:
-        client = async_client_mod._cached_client
-        async_client_mod._cached_client = None
-        async_client_mod._cached_client_key = None
-        async_client_mod._cached_loop_id = None
-    close_client(client)
+        clients = [client for _, client in async_client_mod._cached_clients.values()]
+        async_client_mod._cached_clients.clear()
+    for client in clients:
+        close_client(client)
 
 
 atexit.register(shutdown_cached_client)

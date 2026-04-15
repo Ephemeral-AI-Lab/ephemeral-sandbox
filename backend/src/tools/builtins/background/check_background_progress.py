@@ -37,6 +37,7 @@ class CheckBackgroundProgressTool(BaseTool):
         "whether to keep waiting, act on the result, or cancel. Pass an exact task_id like "
         "\"bg_1\" or \"all\"."
     )
+    short_description: str = "Inspect background task status."
     input_model: type[BaseModel] = CheckBackgroundProgressInput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:

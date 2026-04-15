@@ -114,7 +114,9 @@ def _make_ci_service(sandbox: Any, workspace: str = "/workspace") -> CodeIntelli
     # Real patcher, time machine, symbol index (empty)
     from code_intelligence.editing.patcher import Patcher
     from code_intelligence.editing.time_machine import TimeMachine
+    from code_intelligence.editing.write_coordinator import WriteCoordinator
     from code_intelligence.analysis.symbol_index import SymbolIndex
+    from code_intelligence.routing.content_manager import ContentManager
 
     svc.patcher = Patcher()
     svc.time_machine = TimeMachine()
@@ -130,6 +132,15 @@ def _make_ci_service(sandbox: Any, workspace: str = "/workspace") -> CodeIntelli
 
     # Query router stub
     svc.query_router = MagicMock()
+    svc._content = ContentManager(workspace, sandbox=sandbox)
+    svc._write_coordinator = WriteCoordinator(
+        arbiter=svc.arbiter,
+        time_machine=svc.time_machine,
+        patcher=svc.patcher,
+        symbol_index=svc.symbol_index,
+        lsp_client=svc.lsp_client,
+        content=svc._content,
+    )
 
     return svc
 
@@ -142,6 +153,23 @@ def _ctx(sandbox: Any, ci_service: Any = None) -> ToolExecutionContext:
     if ci_service is not None:
         metadata["ci_service"] = ci_service
     return ToolExecutionContext(cwd=Path("/workspace"), metadata=metadata)
+
+
+def _ctx_for_agent(
+    sandbox: Any,
+    ci_service: Any,
+    *,
+    agent_run_id: str,
+) -> ToolExecutionContext:
+    return ToolExecutionContext(
+        cwd=Path("/workspace"),
+        metadata={
+            "daytona_sandbox": sandbox,
+            "daytona_cwd": "/workspace",
+            "ci_service": ci_service,
+            "agent_run_id": agent_run_id,
+        },
+    )
 
 
 _test_loop: asyncio.AbstractEventLoop | None = None
@@ -864,6 +892,153 @@ class TestEditToolOccRoundTrip:
         assert "beta" in final  # untouched
 
 
+class TestConcurrentEditToolSearchReplace:
+    """Concurrent daytona_edit_file coverage for same-file search/replace OCC."""
+
+    @staticmethod
+    def _run_concurrent_search_replace(
+        *,
+        sandbox: Any,
+        svc: Any,
+        monkeypatch: pytest.MonkeyPatch,
+        file_path: str,
+        agent_edits: list[tuple[str, str, str]],
+    ) -> dict[str, Any]:
+        import tools.daytona_toolkit.edit_tool as edit_tool_module
+
+        barrier = threading.Barrier(len(agent_edits), timeout=5)
+        original_prepare_ci_write = edit_tool_module.prepare_ci_write
+
+        def _prepare_ci_write_barrier(*args, **kwargs):
+            prepared, scope_packet, err = original_prepare_ci_write(*args, **kwargs)
+            if prepared is not None and err is None:
+                try:
+                    barrier.wait(timeout=5)
+                except threading.BrokenBarrierError as exc:  # pragma: no cover - defensive
+                    raise AssertionError("Concurrent edit test barrier broke before all writers prepared") from exc
+            return prepared, scope_packet, err
+
+        monkeypatch.setattr(edit_tool_module, "prepare_ci_write", _prepare_ci_write_barrier)
+
+        def _worker(agent_id: str, search: str, replace: str):
+            ctx = _ctx_for_agent(sandbox, svc, agent_run_id=agent_id)
+            return asyncio.run(
+                daytona_edit_file.execute(
+                    daytona_edit_file.input_model(
+                        file_path=file_path,
+                        edits=[
+                            {
+                                "strategy": "search_replace",
+                                "search": search,
+                                "replace": replace,
+                            }
+                        ],
+                        description=f"{agent_id}: replace {search!r}",
+                    ),
+                    ctx,
+                )
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(agent_edits)) as pool:
+            futures = {
+                agent_id: pool.submit(_worker, agent_id, search, replace)
+                for agent_id, search, replace in agent_edits
+            }
+            return {agent_id: future.result(timeout=10) for agent_id, future in futures.items()}
+
+    def test_five_agents_same_file_search_replace_merge_via_tool(self, monkeypatch):
+        """Five concurrent same-file tool edits on different lines should all land."""
+        original = "\n\n".join(
+            f"def func_{i}():\n    return {i}\n" for i in range(5)
+        ) + "\n"
+        sandbox = _make_mock_sandbox(files={"/workspace/same_file.py": original})
+        svc = _make_ci_service(sandbox)
+        edits = [
+            (f"agent-{i}", f"return {i}", f"return {i + 100}")
+            for i in range(5)
+        ]
+
+        results = self._run_concurrent_search_replace(
+            sandbox=sandbox,
+            svc=svc,
+            monkeypatch=monkeypatch,
+            file_path="/workspace/same_file.py",
+            agent_edits=edits,
+        )
+
+        for agent_id, result in results.items():
+            assert not result.is_error, f"{agent_id} failed: {result.output}"
+            payload = json.loads(result.output)
+            assert payload["occ"] is True, f"{agent_id} should use OCC"
+
+        final = sandbox._file_store["/workspace/same_file.py"]
+        for i in range(5):
+            assert f"return {i + 100}" in final, f"Agent {i} edit missing from final file"
+            assert f"return {i}\n" not in final, f"Original value {i} still present"
+
+    def test_eight_agents_same_file_search_replace_detects_conflicts(self, monkeypatch):
+        """Eight concurrent tool edits on one file merge disjoint regions and reject overlap."""
+        original = (
+            "\n\n".join(
+                f"def unique_{i}():\n    return {i}\n" for i in range(5)
+            )
+            + "\n\n"
+            + "def shared_conflict():\n    return 'base'\n"
+        )
+        sandbox = _make_mock_sandbox(files={"/workspace/mixed.py": original})
+        svc = _make_ci_service(sandbox)
+        edits = [
+            (f"unique-{i}", f"return {i}", f"return {i + 1000}")
+            for i in range(5)
+        ] + [
+            ("conflict-a", "return 'base'", "return 'A_WON'"),
+            ("conflict-b", "return 'base'", "return 'B_WON'"),
+            ("conflict-c", "return 'base'", "return 'C_WON'"),
+        ]
+
+        results = self._run_concurrent_search_replace(
+            sandbox=sandbox,
+            svc=svc,
+            monkeypatch=monkeypatch,
+            file_path="/workspace/mixed.py",
+            agent_edits=edits,
+        )
+
+        unique_results = {agent_id: results[agent_id] for agent_id, _, _ in edits[:5]}
+        conflict_results = {agent_id: results[agent_id] for agent_id, _, _ in edits[5:]}
+
+        for agent_id, result in unique_results.items():
+            assert not result.is_error, f"{agent_id} should merge cleanly: {result.output}"
+            payload = json.loads(result.output)
+            assert payload["occ"] is True
+
+        conflict_successes = [
+            agent_id for agent_id, result in conflict_results.items() if not result.is_error
+        ]
+        conflict_failures = [
+            agent_id for agent_id, result in conflict_results.items()
+            if result.is_error and result.metadata.get("conflict") is True
+        ]
+
+        assert len(conflict_successes) == 1, (
+            f"Expected exactly one overlapping winner, got {conflict_successes}. "
+            f"Outputs: { {k: v.output for k, v in conflict_results.items()} }"
+        )
+        assert len(conflict_failures) == 2, (
+            f"Expected two overlapping conflicts, got {conflict_failures}. "
+            f"Outputs: { {k: v.output for k, v in conflict_results.items()} }"
+        )
+
+        final = sandbox._file_store["/workspace/mixed.py"]
+        for i in range(5):
+            assert f"return {i + 1000}" in final, f"Unique edit {i} missing"
+
+        landed_overlap_values = [token for token in ("A_WON", "B_WON", "C_WON") if token in final]
+        assert len(landed_overlap_values) == 1, (
+            f"Overlapping search/replace edits must not merge. File:\n{final}"
+        )
+
+
 # ===========================================================================
 # 9. Live sandbox tests (require Daytona credentials)
 # ===========================================================================
@@ -1132,6 +1307,57 @@ class TestLiveLLMParallelEdits:
     def _write_file(self, rel_path: str, content: str) -> None:
         self.raw_sandbox.fs.upload_file(content.encode("utf-8"), f"{self.home}/{rel_path}")
 
+    @staticmethod
+    def _daytona_edit_completions(result: Any, *, is_error: bool | None = None) -> list[Any]:
+        completions = [
+            event
+            for event in result.tools_completed()
+            if getattr(event, "tool_name", "") == "daytona_edit_file"
+        ]
+        if is_error is None:
+            return completions
+        return [event for event in completions if bool(getattr(event, "is_error", False)) is is_error]
+
+    def _run_eval_prompts(
+        self,
+        prompts: list[str],
+        *,
+        tool_call_limit: int,
+        timeout: int = 180,
+    ) -> tuple[dict[int, Any], list[str]]:
+        from tests.test_e2e.conftest import create_eval_agent
+
+        agents = [
+            create_eval_agent(sandbox_id=self.sandbox_id, tool_call_limit=tool_call_limit)
+            for _ in prompts
+        ]
+        results: dict[int, Any] = {}
+        invocation_errors: list[str] = []
+
+        def _invoke_agent(idx: int, prompt: str):
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                results[idx] = loop.run_until_complete(agents[idx].invoke(prompt, verbose=True))
+            except Exception as exc:
+                invocation_errors.append(f"agent-{idx}: {exc}")
+            finally:
+                try:
+                    loop.close()
+                except Exception:
+                    pass
+
+        threads = [
+            threading.Thread(target=_invoke_agent, args=(idx, prompt))
+            for idx, prompt in enumerate(prompts)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=timeout)
+
+        return results, invocation_errors
+
     # ------------------------------------------------------------------
     # Test 1: Sequential baseline — two edits, both succeed
     # ------------------------------------------------------------------
@@ -1166,7 +1392,79 @@ class TestLiveLLMParallelEdits:
         assert "count -= 5" in text, f"Second edit missing. File:\n{text}"
 
     # ------------------------------------------------------------------
-    # Test 2: 10 concurrent LLM agents edit 10 different functions
+    # Test 2: 5 concurrent LLM agents edit different regions of one file
+    # ------------------------------------------------------------------
+
+    def test_llm_5_concurrent_edits_different_functions_no_conflict(self):
+        """Five one-shot EvalAgents on disjoint lines should mostly land.
+
+        Live contention can still surface a per-file lock timeout even when
+        the edit windows do not overlap. This test records that behavior while
+        ensuring the file is not corrupted and nearly all edits land.
+        """
+        self._skip_if_no_credentials()
+
+        workers = "\n\n".join(
+            f"def worker_{i}():\n    result_{i} = {i}\n    return result_{i}\n"
+            for i in range(5)
+        ) + "\n"
+        self._write_file("workers_5.py", workers)
+        fp = f"{self.home}/workers_5.py"
+
+        prompts = [
+            (
+                f"Make exactly one tool call: daytona_edit_file on {fp}. "
+                f"Use old_text exactly `    result_{i} = {i}` and new_text exactly "
+                f"`    result_{i} = {i}00`. Do not read the file first. "
+                f"Do not verify. Do not retry."
+            )
+            for i in range(5)
+        ]
+
+        results, invocation_errors = self._run_eval_prompts(
+            prompts,
+            tool_call_limit=1,
+            timeout=180,
+        )
+
+        assert not invocation_errors, f"Unexpected invocation errors: {invocation_errors}"
+        assert len(results) == 5, f"Expected 5 EvalAgent results, got {len(results)}"
+
+        unrecovered_edit_errors = {
+            idx: [
+                event.output
+                for event in result.unrecovered_error_events
+                if getattr(event, "tool_name", "") == "daytona_edit_file"
+            ]
+            for idx, result in results.items()
+        }
+        unrecovered_edit_errors = {
+            idx: outputs for idx, outputs in unrecovered_edit_errors.items() if outputs
+        }
+
+        text = self._read_file("workers_5.py")
+        landed = [i for i in range(5) if f"result_{i} = {i}00" in text]
+        print(f"\n[5-nonoverlap landed] {landed}")
+        print(f"[5-nonoverlap unrecovered_edit_errors] {unrecovered_edit_errors}")
+        print(f"[5-nonoverlap final file]\n{text}")
+
+        assert len(landed) >= 4, (
+            f"Expected at least 4/5 disjoint edits to land. Landed={landed}. File:\n{text}"
+        )
+        assert len(unrecovered_edit_errors) <= 1, (
+            "Expected at most one unrecovered same-file contention error in the one-shot run. "
+            f"Got: {unrecovered_edit_errors}"
+        )
+        assert all(
+            any("Could not acquire file lock (timeout)" in output for output in outputs)
+            for outputs in unrecovered_edit_errors.values()
+        ), (
+            "Disjoint one-shot EvalAgent failures should only be lock-timeout conflicts. "
+            f"Got: {unrecovered_edit_errors}"
+        )
+
+    # ------------------------------------------------------------------
+    # Test 3: 10 concurrent LLM agents edit 10 different functions
     # ------------------------------------------------------------------
 
     def test_llm_10_concurrent_edits_different_functions(self):
@@ -1241,7 +1539,81 @@ class TestLiveLLMParallelEdits:
         )
 
     # ------------------------------------------------------------------
-    # Test 3: 5 concurrent LLM agents edit the SAME function → conflict
+    # Test 4: overlapping line races with 2/3/4/5 agents
+    # ------------------------------------------------------------------
+
+    def test_llm_overlap_agent_counts_have_single_winner(self):
+        """Overlapping EvalAgent races on one line should yield exactly one winner."""
+        self._skip_if_no_credentials()
+
+        for count in (2, 3, 4, 5):
+            rel_path = f"overlap_{count}.py"
+            self._write_file(
+                rel_path,
+                (
+                    '"""Overlap target."""\n\n'
+                    "def compute():\n"
+                    "    shared_val = 0\n"
+                    "    return shared_val\n"
+                ),
+            )
+            fp = f"{self.home}/{rel_path}"
+            attempted_values = [(idx + 1) * 111 for idx in range(count)]
+            prompts = [
+                (
+                    f"Make exactly one tool call: daytona_edit_file on {fp}. "
+                    f"Use old_text exactly `    shared_val = 0` and new_text exactly "
+                    f"`    shared_val = {new_val}`. Do not read the file first. "
+                    f"Do not verify. Do not retry."
+                )
+                for new_val in attempted_values
+            ]
+
+            results, invocation_errors = self._run_eval_prompts(
+                prompts,
+                tool_call_limit=1,
+                timeout=180,
+            )
+
+            assert not invocation_errors, (
+                f"Unexpected invocation errors for count={count}: {invocation_errors}"
+            )
+            assert len(results) == count, (
+                f"Expected {count} EvalAgent results, got {len(results)} for count={count}"
+            )
+
+            text = self._read_file(rel_path)
+            landed_values = [value for value in attempted_values if f"shared_val = {value}" in text]
+            successful_edit_agents = [
+                idx
+                for idx, result in results.items()
+                if self._daytona_edit_completions(result, is_error=False)
+            ]
+            failed_edit_agents = {
+                idx: [
+                    event.output
+                    for event in self._daytona_edit_completions(result, is_error=True)
+                ]
+                for idx, result in results.items()
+                if self._daytona_edit_completions(result, is_error=True)
+            }
+
+            print(f"\n[overlap-{count} successful_edit_agents] {successful_edit_agents}")
+            print(f"[overlap-{count} failed_edit_agents] {failed_edit_agents}")
+            print(f"[overlap-{count} landed_values] {landed_values}")
+            print(f"[overlap-{count} final file]\n{text}")
+
+            assert len(landed_values) == 1, (
+                f"Expected exactly one final overlap winner for count={count}. "
+                f"Landed={landed_values}. File:\n{text}"
+            )
+            assert len(successful_edit_agents) == 1, (
+                f"Expected exactly one successful daytona_edit_file completion for count={count}. "
+                f"Successes={successful_edit_agents}, failures={failed_edit_agents}"
+            )
+
+    # ------------------------------------------------------------------
+    # Test 5: 5 concurrent LLM agents edit the SAME function → conflict
     # ------------------------------------------------------------------
 
     def test_llm_5_concurrent_edits_same_function_conflict(self):

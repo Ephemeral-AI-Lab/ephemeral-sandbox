@@ -70,6 +70,7 @@ class TeamRun:
         self._num_executors: int = _default_num_executors()
         self.coordination_metadata: dict[str, Any] = {}
         self.roster: dict[str, list[str]] = {}
+        self.team_definition: Any | None = None
         self.arbiter: Any = getattr(runtime_services, "arbiter", None)
         self.api_client: Any = self._resolve_api_client()
         from team.persistence.blocker_store import BlockerStore
@@ -118,10 +119,12 @@ class TeamRun:
         num_executors: int | None = None,
     ) -> None:
         from team.models import Task, TaskStatus
+        if "task" in payload and not payload.get("objective"):
+            raise ValueError("Root payload uses legacy 'task'; use 'objective'")
         root = Task(
             id=str(uuid.uuid4()), team_run_id=self.id, agent_name=agent_name,
             status=TaskStatus.PENDING,
-            objective=payload.get("task", payload.get("user_request", str(payload))),
+            objective=str(payload.get("objective") or payload.get("user_request") or payload),
             scope_paths=list(payload.get("scope_paths", [])), depth=0,
         )
         root.payload = dict(payload)
@@ -153,6 +156,7 @@ class TeamRun:
                 f"team_definition '{team_def.name}' entry_planner "
                 f"'{team_def.entry_planner}' does not exist"
             )
+        self.team_definition = team_def
         self.roster = dict(team_def.roster)
         await self.start(
             agent_name=team_def.entry_planner, payload=payload,

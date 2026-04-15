@@ -126,6 +126,7 @@ class BaseTool(ABC):
 
     name: str
     description: str
+    short_description: str | None = None
     input_model: type[BaseModel]
     # Background dispatch policy:
     #   "forbidden" — tool cannot run in background (default)

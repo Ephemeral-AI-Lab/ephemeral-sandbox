@@ -25,8 +25,7 @@ from message.stream_events import StreamEvent
 from hooks import make_hook_executor
 from providers.provider import make_api_client
 from providers.types import UsageSnapshot
-from prompts import build_runtime_system_prompt
-from prompts.agent_templates import build_role_section, build_type_section
+from prompts import build_runtime_context_message, build_runtime_system_prompt
 from tools import create_default_tool_registry
 from tools.core.factory import create_toolkit, has_factory, ToolkitContext
 
@@ -263,90 +262,19 @@ def _build_agent_system_prompt(
     settings: Settings,
     latest_user_prompt: str | None,
 ) -> str:
-    """Return the base system prompt for *agent_def*.
-
-    If the definition provides its own prompt, compose the structured
-    layers (type section + role section + agent body); otherwise build the
-    runtime prompt (memory, issue context, PR comments, etc.) that the
-    server-side path normally produces.
-    """
-    if agent_def and agent_def.system_prompt:
-        parts: list[str] = []
-        type_section = build_type_section(agent_def.agent_type, agent_def.name)
-        if type_section:
-            parts.append(type_section)
-        role_section = build_role_section(agent_def.role)
-        if role_section:
-            parts.append(role_section)
-        parts.append(agent_def.system_prompt)
-        base = "\n\n".join(parts)
-    else:
-        base = build_runtime_system_prompt(
-            settings,
-            cwd=config.cwd,
-            latest_user_prompt=latest_user_prompt,
-        )
-
-    skill_preamble = _build_declared_skill_preamble(config, agent_def)
-    if skill_preamble:
-        return f"{skill_preamble}\n\n{base}"
-    return base
-
-
-def _build_declared_skill_preamble(
-    config: SessionConfig,
-    agent_def: AgentDefinition | None,
-) -> str:
-    """Preload declared agent skills into the system prompt for turn-1 guidance."""
-    if agent_def is None or not agent_def.skills:
-        return ""
-    try:
-        from skills.core.loader import load_skill_registry
-
-        skill_registry = load_skill_registry(config.cwd)
-    except Exception:
-        logger.debug("Failed to load declared skills for agent %r", agent_def.name, exc_info=True)
-        return ""
-
-    loaded: list[str] = []
-    reference_hints: list[str] = []
-    include_skills = bool(agent_def.include_skills)
-    for skill_name in agent_def.skills:
-        skill = skill_registry.get(skill_name)
-        if skill is None or not skill.content.strip():
-            logger.debug(
-                "Declared skill %r unavailable for agent %r",
-                skill_name,
-                agent_def.name,
-            )
-            continue
-        loaded.append(f"## Skill: {skill.name}\n{skill.content.strip()}")
-        if include_skills and skill.references:
-            ref_list = ", ".join(f"`{ref}`" for ref in sorted(skill.references))
-            reference_hints.append(
-                "- "
-                f"`{skill.name}` references available via "
-                f"`load_skill_reference(\"{skill.name}\", \"<reference>\")`: {ref_list}"
-            )
-
-    if not loaded:
-        return ""
-    reference_block = ""
-    if reference_hints:
-        reference_block = (
-            "\n\n## Declared Skill References\n\n"
-            "When a preloaded skill tells you to read a reference, use "
-            "`load_skill_reference(...)` for that specific document before proceeding.\n"
-            + "\n".join(reference_hints)
-        )
-    return (
-        "# Preloaded Skills\n\n"
-        "Read and follow these declared skills first. They are the authoritative task workflow for "
-        "this run. Do not spend a turn calling `load_skill` unless you need an additional "
-        "reference beyond what is already preloaded.\n\n"
-        + "\n\n".join(loaded)
-        + reference_block
+    """Return the instruction-only system prompt for *agent_def*."""
+    parts: list[str] = []
+    base = build_runtime_system_prompt(
+        settings,
+        cwd=config.cwd,
+        latest_user_prompt=latest_user_prompt,
     )
+    if base:
+        parts.append(base)
+    if agent_def is not None:
+        if agent_def.system_prompt:
+            parts.append(agent_def.system_prompt)
+    return "\n\n".join(part for part in parts if part.strip())
 
 
 def spawn_agent(
@@ -414,6 +342,7 @@ def spawn_agent(
         tool_metadata=initial_tool_metadata,
         session_state=session_state,
         enable_background_tasks=has_background_tools,
+        user_context_message=build_runtime_context_message(cwd=config.cwd),
         agent_name=agent_name,
     )
 
