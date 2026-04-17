@@ -154,7 +154,7 @@ class CiRenameSymbolInput(BaseModel):
     )
     dry_run: bool = Field(
         default=False,
-        description="Preview the per-file diffs without writing anything.",
+        description="Resolve and validate the rename plan without writing anything.",
     )
 
 
@@ -167,20 +167,6 @@ def _validate_new_name(new_name: str) -> str | None:
     if new_name in {"None", "True", "False"}:
         return f"Cannot rename to Python keyword: {new_name!r}."
     return None
-
-
-def _unified_diff(old: str, new: str, path: str) -> str:
-    diff = "".join(
-        difflib.unified_diff(
-            old.splitlines(keepends=True),
-            new.splitlines(keepends=True),
-            fromfile=f"a/{path}",
-            tofile=f"b/{path}",
-        )
-    )
-    if len(diff) > _DIFF_MAX_CHARS:
-        diff = diff[:_DIFF_MAX_CHARS] + "\n... (truncated)"
-    return diff
 
 
 def _candidate_payload(sym: Any) -> dict[str, Any]:
@@ -243,13 +229,11 @@ def _resolve_symbol(
     return matches
 
 
-def _rename_process_command(changes: tuple[OperationChange, ...]) -> str:
+def _rename_process_command(changes: tuple[Any, ...]) -> str:
     payload = {
-        "changes": [
+        "files": [
             {
                 "file_path": change.file_path,
-                "base_hash": change.base_hash,
-                "base_existed": change.base_existed,
                 "final_content": change.final_content,
             }
             for change in changes
@@ -259,167 +243,6 @@ def _rename_process_command(changes: tuple[OperationChange, ...]) -> str:
     return _wrap_bash_command(
         f"python3 -c {shlex.quote(_PROCESS_RENAME_SCRIPT)} {shlex.quote(encoded)}"
     )
-
-
-def _edit_result(
-    file_path: str,
-    message: str,
-    *,
-    success: bool = False,
-    conflict: bool = False,
-    conflict_reason: str = "",
-    snapshot_id: str = "",
-) -> EditResult:
-    return EditResult(
-        success=success,
-        file_path=file_path,
-        message=message,
-        conflict=conflict,
-        conflict_reason=conflict_reason,
-        snapshot_id=snapshot_id,
-    )
-
-
-async def _commit_rename_via_process(
-    *,
-    svc: Any,
-    context: ToolExecutionContext,
-    changes: tuple[OperationChange, ...],
-    agent_id: str,
-    description: str,
-) -> OperationResult:
-    sandbox = await _require_sandbox(context)
-    command = _rename_process_command(changes)
-    try:
-        response = await exec_ci_process_operation(
-            context,
-            sandbox,
-            command,
-            timeout=_PROCESS_RENAME_TIMEOUT,
-            description=description,
-            edit_type="rename",
-            audit=False,
-        )
-    except Exception as exc:
-        return OperationResult(
-            success=False,
-            status="failed",
-            files=tuple(_edit_result(change.file_path, str(exc)) for change in changes),
-            conflict_file=None,
-            conflict_reason=str(exc),
-        )
-
-    raw = str(getattr(response, "result", "") or "")
-    cleaned, exit_code = _extract_exit_code(
-        raw,
-        fallback_exit_code=getattr(response, "exit_code", None),
-    )
-    try:
-        payload = json.loads(cleaned or "{}")
-    except json.JSONDecodeError:
-        return OperationResult(
-            success=False,
-            status="failed",
-            files=tuple(
-                _edit_result(change.file_path, cleaned or "rename process failed")
-                for change in changes
-            ),
-            conflict_file=None,
-            conflict_reason=cleaned or "rename process failed",
-        )
-
-    status = str(payload.get("status") or ("committed" if exit_code == 0 else "failed"))
-    if exit_code != 0 or status != "committed":
-        conflict_file = str(payload.get("conflict_file") or "")
-        conflict_reason = str(payload.get("conflict_reason") or status or "rename process failed")
-        if status.startswith("aborted"):
-            try:
-                svc.arbiter.record_conflict(status)
-            except Exception:
-                logger.debug("rename process conflict record failed", exc_info=True)
-        result = OperationResult(
-            success=False,
-            status=(
-                status
-                if status in {"aborted_version", "aborted_overlap", "aborted_lock"}
-                else "failed"
-            ),  # type: ignore[arg-type]
-            files=tuple(
-                _edit_result(
-                    change.file_path,
-                    conflict_reason,
-                    conflict=status.startswith("aborted"),
-                    conflict_reason=status if status.startswith("aborted") else "",
-                )
-                for change in changes
-            ),
-            conflict_file=conflict_file or None,
-            conflict_reason=conflict_reason,
-        )
-        finalize_ci_operation_result(
-            context,
-            result=result,
-            changes=changes,
-            edit_type="rename",
-            description=description,
-            ci_arbiter=getattr(svc, "arbiter", None),
-        )
-        return result
-
-    returned_files = payload.get("files") if isinstance(payload, dict) else None
-    by_path = {
-        str(item.get("file_path")): item
-        for item in (returned_files or [])
-        if isinstance(item, dict) and item.get("file_path")
-    }
-    results: list[EditResult] = []
-    for change in changes:
-        item = by_path.get(change.file_path, {})
-        old_hash = str(item.get("old_hash") or change.base_hash)
-        new_hash = str(item.get("new_hash") or "")
-        if not new_hash and change.final_content is not None:
-            new_hash = hashlib.sha256(change.final_content.encode("utf-8")).hexdigest()[:16]
-        gen = svc.arbiter.record_edit(
-            file_path=change.file_path,
-            actor_label=agent_id,
-            edit_type="rename",
-            old_hash=old_hash,
-            new_hash=new_hash,
-            description=description,
-        )
-        try:
-            svc.symbol_index.refresh(change.file_path, change.final_content or "")
-        except Exception:
-            logger.debug("symbol refresh failed after process rename for %s", change.file_path, exc_info=True)
-        try:
-            svc.lsp_client.invalidate(change.file_path)
-        except Exception:
-            logger.debug("lsp invalidate failed after process rename for %s", change.file_path, exc_info=True)
-        results.append(
-            _edit_result(
-                change.file_path,
-                "Wrote file",
-                success=True,
-                snapshot_id=str(gen),
-            )
-        )
-
-    result = OperationResult(
-        success=True,
-        status="committed",
-        files=tuple(results),
-        conflict_file=None,
-        conflict_reason="",
-    )
-    finalize_ci_operation_result(
-        context,
-        result=result,
-        changes=changes,
-        edit_type="rename",
-        description=description,
-        ci_arbiter=getattr(svc, "arbiter", None),
-    )
-    return result
 
 
 async def _perform_rename(
@@ -433,7 +256,7 @@ async def _perform_rename(
     dry_run: bool,
     extra_warnings: list[str] | None = None,
 ) -> ToolResult:
-    """Shared body: build a SemanticRenamePlan and dispatch the operation commit."""
+    """Shared body: build a SemanticRenamePlan and run one audited process command."""
     try:
         planner = svc.rename_symbol_plan
         preview_planner = getattr(svc, "preview_rename_symbol_plan", None)
@@ -490,9 +313,6 @@ async def _perform_rename(
             {
                 "file_path": change.file_path,
                 "status": "dry_run",
-                "diff": _unified_diff(
-                    change.base_content, change.final_content, change.file_path,
-                ),
             }
             for change in changes
         ]
@@ -508,84 +328,84 @@ async def _perform_rename(
             metadata={"dry_run": True, "file_count": len(file_summaries)},
         )
 
-    agent_id = str(
-        context.metadata.get("agent_run_id")
-        or context.metadata.get("agent_id")
-        or "",
-    )
     operation_changes = tuple(changes)
     description = f"rename to {new_name}"
-    if context.metadata.get("daytona_sandbox") is not None or context.metadata.get("sandbox_id"):
-        result = await _commit_rename_via_process(
-            svc=svc,
-            context=context,
-            changes=operation_changes,
-            agent_id=agent_id,
-            description=description,
-        )
-    else:
-        result = commit_ci_operation(
+    try:
+        sandbox = await _require_sandbox(context)
+        response = await exec_ci_process_operation(
             context,
-            operation_changes,
-            agent_id=agent_id,
+            sandbox,
+            _rename_process_command(operation_changes),
+            timeout=_PROCESS_RENAME_TIMEOUT,
             edit_type="rename",
             description=description,
         )
-
-    if result.success:
-        files = [
-            {"file_path": f.file_path, "status": "renamed"}
-            for f in result.files
-        ]
+    except Exception as exc:
         return ToolResult(
             output=json.dumps(
                 {
-                    "status": "renamed",
+                    "status": "failed",
                     "new_name": new_name,
-                    "files": files,
+                    "files": [
+                        {"file_path": change.file_path, "status": "failed", "message": str(exc)}
+                        for change in operation_changes
+                    ],
                     "warnings": soft_warnings,
-                    "message": None,
+                    "message": f"Rename failed during process execution: {exc}",
                 }
             ),
-            metadata={
-                "file_count": len(files),
-                "success_count": len(files),
-            },
+            is_error=True,
         )
 
-    aborted = result.status.startswith("aborted")
-    top_status = "aborted" if aborted else "failed"
-    message = (
-        f"Rename aborted ({result.status}): {result.conflict_reason}. "
-        "Re-read the affected file(s) and retry."
-        if aborted
-        else f"Rename failed during commit: {result.conflict_reason}."
+    raw = str(getattr(response, "result", "") or "")
+    cleaned, exit_code = _extract_exit_code(
+        raw,
+        fallback_exit_code=getattr(response, "exit_code", None),
     )
-    files_out = [
-        {
-            "file_path": f.file_path,
-            "status": "failed",
-            "message": f.message or result.conflict_reason,
-        }
-        for f in result.files
+    try:
+        payload = json.loads(cleaned or "{}")
+    except json.JSONDecodeError:
+        payload = {"ok": False, "status": "failed", "error": cleaned or "rename process failed"}
+
+    if exit_code not in (0, None) or not bool(payload.get("ok", False)):
+        message = str(payload.get("error") or cleaned or "rename process failed")
+        return ToolResult(
+            output=json.dumps(
+                {
+                    "status": "failed",
+                    "new_name": new_name,
+                    "files": [
+                        {"file_path": change.file_path, "status": "failed", "message": message}
+                        for change in operation_changes
+                    ],
+                    "warnings": soft_warnings,
+                    "message": message,
+                }
+            ),
+            is_error=True,
+            metadata={"file_count": len(operation_changes), "success_count": 0},
+        )
+
+    files = [
+        {"file_path": str(item.get("file_path") or ""), "status": "renamed"}
+        for item in (payload.get("files") or [])
+        if isinstance(item, dict) and item.get("file_path")
     ]
+    if not files:
+        files = [{"file_path": change.file_path, "status": "renamed"} for change in operation_changes]
     return ToolResult(
         output=json.dumps(
             {
-                "status": top_status,
+                "status": "renamed",
                 "new_name": new_name,
-                "files": files_out,
+                "files": files,
                 "warnings": soft_warnings,
-                "message": message,
+                "message": None,
             }
         ),
-        is_error=True,
         metadata={
-            "file_count": len(files_out),
-            "success_count": 0,
-            "conflict_file": result.conflict_file,
-            "conflict_reason": result.conflict_reason,
-            "operation_status": result.status,
+            "file_count": len(files),
+            "success_count": len(files),
         },
     )
 
@@ -600,10 +420,10 @@ async def _perform_rename(
         "using LSP semantics. Resolves `symbol` via the workspace symbol index, "
         "supports dotted names (`Foo.bar` narrows to the `bar` method on class "
         "`Foo`), and returns `status=\"ambiguous\"` with candidates when the "
-        "name is not unique. Atomic: the whole rename commits or none of it does. "
-        "Python-only for now."
+        "name is not unique. Executes the resulting rewrite as one audited "
+        "process operation. Python-only for now."
     ),
-    short_description="Rename a symbol by name across every referencing file (atomic).",
+    short_description="Rename a symbol by name across every referencing file.",
     input_model=CiRenameSymbolInput,
     output_model=CiRenameSymbolOutput,
 )

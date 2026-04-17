@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import base64
-import difflib
-import hashlib
 import json
 import re
 from pathlib import Path
@@ -14,7 +12,6 @@ from unittest.mock import AsyncMock, MagicMock
 from tools.core.base import ToolExecutionContext
 from tools.daytona_toolkit import edit_tool as edit_tool_module
 from tools.daytona_toolkit.edit_tool import (
-    _content_hash,
     _scope_overlap_warning,
     daytona_edit_file,
 )
@@ -31,8 +28,14 @@ def _ctx(metadata=None) -> ToolExecutionContext:
 
 def _make_sandbox(*, download_content: str = "original content"):
     sb = MagicMock()
-    sb.fs.download_file = AsyncMock(return_value=download_content.encode("utf-8"))
+    state = {"content": download_content}
+
+    async def download_file(_path: str):
+        return state["content"].encode("utf-8")
+
+    sb.fs.download_file = AsyncMock(side_effect=download_file)
     sb.fs.upload_file = AsyncMock()
+    sb._content_state = state
 
     async def exec_side_effect(command: str, timeout=None):
         payload_match = re.search(r"DAYTONA_EDIT_PAYLOAD=([^ ]+)", command)
@@ -41,8 +44,7 @@ def _make_sandbox(*, download_content: str = "original content"):
             return MagicMock(result="", exit_code=0)
         file_path = file_match.group(1).strip("'")
         try:
-            raw = await sb.fs.download_file(file_path)
-            current = raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
+            current = state["content"]
         except FileNotFoundError:
             return MagicMock(
                 result=json.dumps(
@@ -72,21 +74,16 @@ def _make_sandbox(*, download_content: str = "original content"):
 
         payload = {
             "ok": True,
-            "content": current,
-            "final_content": result,
-            "expected_hash": hashlib.sha256(current.encode("utf-8")).hexdigest()[:16],
+            "file_path": file_path,
+            "applied_edits": len(edits),
             "warnings": [],
         }
         if "DAYTONA_EDIT_DRY_RUN=1" in command:
-            payload["diff"] = "".join(
-                difflib.unified_diff(
-                    current.splitlines(keepends=True),
-                    result.splitlines(keepends=True),
-                    fromfile=f"a/{file_path}",
-                    tofile=f"b/{file_path}",
-                    lineterm="",
-                )
-            )
+            payload["status"] = "dry_run"
+            payload["would_edit"] = True
+        else:
+            state["content"] = result
+            payload["status"] = "edited"
         return MagicMock(result=json.dumps(payload), exit_code=0)
 
     sb.process.exec = AsyncMock(side_effect=exec_side_effect)
@@ -94,31 +91,8 @@ def _make_sandbox(*, download_content: str = "original content"):
 
 
 def _ci_service_for_content(content: str, *, file_path: str = "/file.py"):
-    from code_intelligence.types import EditResult, OperationResult
-    svc = MagicMock()
-    svc.commit_operation_against_base.return_value = OperationResult(
-        success=True,
-        status="committed",
-        files=(EditResult(success=True, file_path=file_path, message="ok"),),
-    )
-    return svc
-
-
-# ---------------------------------------------------------------------------
-# _content_hash
-# ---------------------------------------------------------------------------
-
-def test_content_hash_returns_16_chars():
-    h = _content_hash("hello world")
-    assert len(h) == 16
-
-
-def test_content_hash_deterministic():
-    assert _content_hash("abc") == _content_hash("abc")
-
-
-def test_content_hash_different_for_different_content():
-    assert _content_hash("abc") != _content_hash("xyz")
+    del content, file_path
+    return SimpleNamespace()
 
 
 # ---------------------------------------------------------------------------
@@ -143,8 +117,13 @@ async def test_edit_no_sandbox_returns_error():
 
 async def test_edit_file_read_failure():
     sb = _make_sandbox()
-    sb.fs.download_file = AsyncMock(side_effect=FileNotFoundError("gone"))
-    ctx = _ctx({"daytona_sandbox": sb})
+    sb.process.exec = AsyncMock(
+        return_value=MagicMock(
+            result=json.dumps({"ok": False, "error": "Path does not exist: /missing.py"}),
+            exit_code=1,
+        )
+    )
+    ctx = _ctx({"daytona_sandbox": sb, "ci_service": _ci_service_for_content("")})
     result = await daytona_edit_file.execute(
         daytona_edit_file.input_model(
             file_path="/missing.py", old_text="old", new_text="new", dry_run=True
@@ -157,8 +136,13 @@ async def test_edit_file_read_failure():
 
 async def test_edit_file_read_generic_exception():
     sb = _make_sandbox()
-    sb.fs.download_file = AsyncMock(side_effect=RuntimeError("network"))
-    ctx = _ctx({"daytona_sandbox": sb})
+    sb.process.exec = AsyncMock(
+        return_value=MagicMock(
+            result=json.dumps({"ok": False, "error": "Cannot read file: network"}),
+            exit_code=1,
+        )
+    )
+    ctx = _ctx({"daytona_sandbox": sb, "ci_service": _ci_service_for_content("")})
     result = await daytona_edit_file.execute(
         daytona_edit_file.input_model(
             file_path="/file.py", old_text="old", new_text="new", dry_run=True
@@ -190,9 +174,15 @@ async def test_edit_old_text_not_found():
 # Dry run
 # ---------------------------------------------------------------------------
 
-async def test_edit_dry_run_shows_diff():
+async def test_edit_dry_run_reports_validation_without_diff():
     sb = _make_sandbox(download_content="def foo():\n    pass\n")
-    ctx = _ctx({"daytona_sandbox": sb, "daytona_cwd": "/ws"})
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/ws",
+            "ci_service": _ci_service_for_content(""),
+        }
+    )
     result = await daytona_edit_file.execute(
         daytona_edit_file.input_model(
             file_path="/ws/file.py",
@@ -205,15 +195,17 @@ async def test_edit_dry_run_shows_diff():
     assert not result.is_error
     data = json.loads(result.output)
     assert data["status"] == "dry_run"
-    assert "diff" in data
+    assert "diff" not in data
+    assert data["applied_edits"] == 1
     assert result.metadata.get("dry_run") is True
     # File should NOT have been written
     sb.fs.upload_file.assert_not_called()
+    assert sb._content_state["content"] == "def foo():\n    pass\n"
 
 
 async def test_edit_dry_run_no_actual_write():
     sb = _make_sandbox(download_content="original text here")
-    ctx = _ctx({"daytona_sandbox": sb})
+    ctx = _ctx({"daytona_sandbox": sb, "ci_service": _ci_service_for_content("")})
     await daytona_edit_file.execute(
         daytona_edit_file.input_model(
             file_path="/file.py",
@@ -224,34 +216,11 @@ async def test_edit_dry_run_no_actual_write():
         ctx,
     )
     sb.fs.upload_file.assert_not_called()
-
-
-async def test_edit_dry_run_truncates_large_diff():
-    # Each changed line must be long enough that the diff output itself
-    # exceeds _OUTPUT_MAX_CHARS (8000). Use 40 lines each ~210 chars
-    # → diff output ~ 40 * 210 * 2 (old+new) + headers > 8000 chars.
-    old_text = "\n".join("old_" + "x" * 200 for _ in range(40)) + "\n"
-    new_text = "\n".join("new_" + "y" * 200 for _ in range(40)) + "\n"
-    content = old_text  # whole file is old_text
-    sb = _make_sandbox(download_content=content)
-    ctx = _ctx({"daytona_sandbox": sb})
-    result = await daytona_edit_file.execute(
-        daytona_edit_file.input_model(
-            file_path="/file.py",
-            old_text=old_text,
-            new_text=new_text,
-            dry_run=True,
-        ),
-        ctx,
-    )
-    assert not result.is_error
-    data = json.loads(result.output)
-    assert data["status"] == "dry_run"
-    assert "(truncated)" in data["diff"]
+    assert sb._content_state["content"] == "original text here"
 
 
 # ---------------------------------------------------------------------------
-# OCC-required writes
+# CI-required writes
 # ---------------------------------------------------------------------------
 
 async def test_edit_requires_ci_service_for_write():
@@ -329,7 +298,7 @@ async def test_edit_allows_write_inside_write_scope():
     assert not result.is_error
     data = json.loads(result.output)
     assert data["status"] == "edited"
-    ctx.metadata["ci_service"].commit_operation_against_base.assert_called_once()
+    assert sb._content_state["content"] == "patched"
 
 
 async def test_edit_rejects_test_suite_write():
@@ -486,7 +455,7 @@ async def test_edit_replaces_only_first_occurrence():
         ctx,
     )
     # Only first x replaced → "y x x"
-    assert svc.commit_operation_against_base.call_args.args[0][0].final_content == "y x x"
+    assert sb._content_state["content"] == "y x x"
 
 
 async def test_edit_line_range_rejected():
@@ -510,7 +479,7 @@ async def test_edit_line_range_rejected():
     assert "unknown strategy" in result.output
 
 
-async def test_edit_multi_replace_occ_success():
+async def test_edit_multi_replace_process_success():
     sb = _make_sandbox(download_content="alpha\nbeta\ngamma\n")
     svc = _ci_service_for_content("alpha\nbeta\ngamma\n")
     ctx = _ctx({"daytona_sandbox": sb, "ci_service": svc})
@@ -525,7 +494,7 @@ async def test_edit_multi_replace_occ_success():
         ctx,
     )
     assert not result.is_error
-    assert svc.commit_operation_against_base.call_args.args[0][0].final_content == "ALPHA\nbeta\nGAMMA\n"
+    assert sb._content_state["content"] == "ALPHA\nbeta\nGAMMA\n"
 
 
 async def test_edit_batch_runs_through_exec_ci_process_operation(monkeypatch):
@@ -542,9 +511,8 @@ async def test_edit_batch_runs_through_exec_ci_process_operation(monkeypatch):
         timeout=None,
         description,
         edit_type="process",
-        audit=True,
     ):
-        del edit_type, audit
+        del edit_type
         calls.append((command, description))
         return await sandbox.process.exec(command, timeout=timeout)
 
@@ -588,10 +556,10 @@ async def test_edit_rejects_mixed_legacy_and_batch_inputs():
 
 
 # ---------------------------------------------------------------------------
-# OCC path (with CI arbiter)
+# Audited process path
 # ---------------------------------------------------------------------------
 
-async def test_edit_occ_path_success():
+async def test_edit_process_path_success():
     sb = _make_sandbox(download_content="old content\n")
     svc = _ci_service_for_content("old content\n")
     ctx = _ctx({"daytona_sandbox": sb, "ci_service": svc})
@@ -606,45 +574,21 @@ async def test_edit_occ_path_success():
     )
     assert not result.is_error
     data = json.loads(result.output)
-    assert data["occ"] is True
-    svc.commit_operation_against_base.assert_called_once()
-
-
-async def test_edit_occ_no_operation_commit_returns_error():
-    """A coordinated team edit must not fall back when OCC is unavailable."""
-    sb = _make_sandbox(download_content="content here")
-    svc = SimpleNamespace(arbiter=None)
-    ctx = _ctx(
-        {
-            "daytona_sandbox": sb,
-            "ci_service": svc,
-            "agent_name": "developer",
-        }
-    )
-
-    result = await daytona_edit_file.execute(
-        daytona_edit_file.input_model(
-            file_path="/file.py", old_text="content here", new_text="replaced"
-        ),
-        ctx,
-    )
-    assert result.is_error
-    assert result.metadata["occ_required"] is True
-    sb.fs.upload_file.assert_not_called()
+    assert data["status"] == "edited"
+    assert data["applied_edits"] == 1
+    assert sb._content_state["content"] == "new content\n"
 
 
 async def test_edit_resolves_relative_path():
     sb = _make_sandbox(download_content="stuff")
     svc = _ci_service_for_content("stuff", file_path="/workspace/relative.py")
     ctx = _ctx({"daytona_sandbox": sb, "daytona_cwd": "/workspace", "ci_service": svc})
-    await daytona_edit_file.execute(
+    result = await daytona_edit_file.execute(
         daytona_edit_file.input_model(
             file_path="relative.py", old_text="stuff", new_text="other"
         ),
         ctx,
     )
-    svc.commit_operation_against_base.assert_called_once()
-    assert (
-        svc.commit_operation_against_base.call_args.args[0][0].file_path
-        == "/workspace/relative.py"
-    )
+    assert not result.is_error
+    command = sb.process.exec.call_args.args[0]
+    assert "DAYTONA_EDIT_FILE=/workspace/relative.py" in command

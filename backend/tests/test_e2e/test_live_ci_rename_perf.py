@@ -827,7 +827,7 @@ def _run_occ_capture_checks(
     env: LiveRenameEnv,
     stats: list[dict[str, Any]],
 ) -> None:
-    """Verify public write/edit/rename/codeact tools all land in the OCC ledger."""
+    """Verify public write/edit/rename/codeact tools all land in the audit ledger."""
     occ_root = f"{env.root_dir}/occ_capture_{uuid.uuid4().hex[:8]}"
     occ_core, _occ_uses, _occ_more = _write_perf_project(env, occ_root)
     env.exec_checked(
@@ -899,7 +899,6 @@ def _run_occ_capture_checks(
         assert not write_result.is_error, write_result.output
         write_data = json.loads(write_result.output)
         assert write_data["ci_sync"] is True
-        assert "validate_token" in write_data.get("timings", {})
 
         edit_result = _measure(
             "occ.daytona_edit_file",
@@ -921,8 +920,6 @@ def _run_occ_capture_checks(
         assert not edit_result.is_error, edit_result.output
         edit_data = json.loads(edit_result.output)
         assert edit_data["status"] == "edited"
-        assert edit_data["occ"] is True
-        assert "validate_token" in edit_data.get("timings", {}).get("occ", {})
 
         rename_result = _measure(
             "occ.ci_rename_symbol(alpha commit)",
@@ -972,24 +969,24 @@ def _run_occ_capture_checks(
             )
         payload = {
             "label": "occ.capture_write_edit_rename_codeact",
-            "occ_path": "operation_occ_for_write_edit_rename; codeact_process_exec_audit",
-            "write_occ_validated": "validate_token" in write_data.get("timings", {}),
-            "edit_occ_validated": "validate_token" in edit_data.get("timings", {}).get("occ", {}),
+            "audit_path": "exec_ci_process_operation_for_write_edit_rename_codeact",
+            "write_audited": counts.get("write", 0) >= 1,
+            "edit_audited": counts.get("edit", 0) >= 1,
+            "rename_audited": counts.get("rename", 0) >= 1,
             "codeact_audited": counts.get("codeact", 0) >= 1,
             "counts": dict(sorted(counts.items())),
             "paths_by_type": {key: sorted(value) for key, value in paths_by_type.items()},
             "arbiter_generation": occ_svc.arbiter.generation,
             "total_edits": occ_svc.arbiter.metrics.total_edits,
-            "tokens_issued": occ_svc.arbiter.metrics.tokens_issued,
             "health": _service_health_payload(occ_svc, env),
         }
         print("[ci-lsp-live-occ] " + json.dumps(payload, sort_keys=True), flush=True)
         assert {"write", "edit", "rename", "codeact"}.issubset(counts)
-        assert payload["write_occ_validated"] is True
-        assert payload["edit_occ_validated"] is True
+        assert payload["write_audited"] is True
+        assert payload["edit_audited"] is True
+        assert payload["rename_audited"] is True
         assert payload["codeact_audited"] is True
         assert occ_svc.arbiter.metrics.total_edits >= 4
-        assert occ_svc.arbiter.metrics.tokens_issued >= 2
     finally:
         occ_svc.dispose()
 

@@ -1,4 +1,4 @@
-"""Tests for the ci_rename_symbol tool (atomic operation rename)."""
+"""Tests for the ci_rename_symbol tool."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from code_intelligence.types import (
-    EditResult,
-    OperationResult,
     SemanticFileChange,
     SemanticRenamePlan,
     SymbolInfo,
@@ -22,6 +20,9 @@ from tools.core.base import ToolExecutionContext
 
 
 def _ctx(metadata=None) -> ToolExecutionContext:
+    metadata = dict(metadata or {})
+    if "ci_service" in metadata and "daytona_sandbox" not in metadata:
+        metadata["daytona_sandbox"] = SimpleNamespace()
     return ToolExecutionContext(cwd=Path("/tmp"), metadata=metadata or {})
 
 
@@ -46,11 +47,28 @@ def _plan(changes) -> SemanticRenamePlan:
     )
 
 
-def _make_svc(
-    *,
-    plan: SemanticRenamePlan | None,
-    commit_result: OperationResult | None = None,
-):
+def _rename_response(plan: SemanticRenamePlan | None, *, ok: bool = True, error: str = ""):
+    if not ok:
+        return SimpleNamespace(
+            result=json.dumps({"ok": False, "status": "failed", "error": error}),
+            exit_code=1,
+        )
+    return SimpleNamespace(
+        result=json.dumps(
+            {
+                "ok": True,
+                "status": "renamed",
+                "files": [
+                    {"file_path": c.file_path, "status": "renamed"}
+                    for c in (plan.changes if plan else ())
+                ],
+            }
+        ),
+        exit_code=0,
+    )
+
+
+def _make_svc(*, plan: SemanticRenamePlan | None):
     svc = MagicMock()
     svc.symbol_index.ensure_built.return_value = True
     svc.symbol_index.find.return_value = [
@@ -69,14 +87,7 @@ def _make_svc(
     else:
         svc.rename_symbol_plan.return_value = plan
     svc.preview_rename_symbol_plan.return_value = svc.rename_symbol_plan.return_value
-    svc.commit_operation_against_base.return_value = commit_result or OperationResult(
-        success=True,
-        status="committed",
-        files=tuple(
-            EditResult(success=True, file_path=c.file_path, message="Wrote file")
-            for c in (plan.changes if plan else ())
-        ),
-    )
+    svc.exec_process_operation = AsyncMock(return_value=_rename_response(plan))
     return svc
 
 
@@ -119,13 +130,13 @@ def test_no_changes_returns_status_no_changes():
     data = json.loads(result.output)
     assert data["status"] == "no_changes"
     assert data["files"] == []
-    svc.commit_operation_against_base.assert_not_called()
+    svc.exec_process_operation.assert_not_called()
 
 
 # -- Happy path -------------------------------------------------------------
 
 
-def test_rename_commits_atomically_via_operation_primitive():
+def test_rename_runs_via_single_process_operation():
     changes = [
         _change("/ws/a.py", base="old_a", final="new_a"),
         _change("/ws/b.py", base="old_b", final="new_b"),
@@ -140,34 +151,26 @@ def test_rename_commits_atomically_via_operation_primitive():
     data = json.loads(result.output)
     assert data["status"] == "renamed"
     assert {f["file_path"] for f in data["files"]} == {"/ws/a.py", "/ws/b.py"}
-    svc.commit_operation_against_base.assert_called_once()
-    kwargs = svc.commit_operation_against_base.call_args.kwargs
+    svc.exec_process_operation.assert_awaited_once()
+    kwargs = svc.exec_process_operation.await_args.kwargs
     assert kwargs["edit_type"] == "rename"
 
 
-def test_sandbox_rename_commits_via_single_process_operation():
+def test_sandbox_rename_uses_one_wrapped_command():
     changes = [
         _change("/ws/a.py", base="old_a", final="new_a"),
         _change("/ws/b.py", base="old_b", final="new_b"),
     ]
     plan = _plan(changes)
     svc = _make_svc(plan=plan)
-    svc.arbiter.record_edit.side_effect = [1, 2]
     response = SimpleNamespace(
         result=json.dumps(
             {
-                "status": "committed",
+                "ok": True,
+                "status": "renamed",
                 "files": [
-                    {
-                        "file_path": "/ws/a.py",
-                        "old_hash": _hash("old_a"),
-                        "new_hash": _hash("new_a"),
-                    },
-                    {
-                        "file_path": "/ws/b.py",
-                        "old_hash": _hash("old_b"),
-                        "new_hash": _hash("new_b"),
-                    },
+                    {"file_path": "/ws/a.py", "status": "renamed"},
+                    {"file_path": "/ws/b.py", "status": "renamed"},
                 ],
             }
         ),
@@ -187,20 +190,16 @@ def test_sandbox_rename_commits_via_single_process_operation():
     assert not result.is_error, result.output
     data = json.loads(result.output)
     assert data["status"] == "renamed"
-    svc.commit_operation_against_base.assert_not_called()
     exec_op.assert_awaited_once()
     command = exec_op.await_args.args[2]
     assert "bash" in command
     assert "python3 -c" in command
-    assert svc.arbiter.record_edit.call_count == 2
 
 
-# -- Dry run uses plan base, not re-read -----------------------------------
+# -- Dry run uses plan without writing -------------------------------------
 
 
-def test_dry_run_diffs_against_plan_base_not_reread():
-    # plan.base_content is the Jedi-time snapshot. Even if the file has
-    # since drifted, the dry-run diff must reflect the planned transform.
+def test_dry_run_reports_files_without_diff_or_process_exec():
     changes = [_change("/ws/a.py", base="def foo():\n    pass\n", final="def bar():\n    pass\n")]
     svc = _make_svc(plan=_plan(changes))
     result = _run(
@@ -211,54 +210,35 @@ def test_dry_run_diffs_against_plan_base_not_reread():
     data = json.loads(result.output)
     assert data["status"] == "dry_run"
     assert len(data["files"]) == 1
-    diff = data["files"][0]["diff"]
-    assert "-def foo()" in diff
-    assert "+def bar()" in diff
+    assert "diff" not in data["files"][0]
     svc.preview_rename_symbol_plan.assert_called_once()
     svc.rename_symbol_plan.assert_not_called()
-    # Dry run must NEVER invoke the commit primitive.
-    svc.commit_operation_against_base.assert_not_called()
+    svc.exec_process_operation.assert_not_called()
 
 
-# -- Abort semantics (the bug we are fixing) -------------------------------
+# -- Process failure -------------------------------------------------------
 
 
-def test_operation_abort_surfaces_as_aborted_status_with_no_partial_success():
+def test_process_failure_surfaces_failed_status():
     changes = [
         _change("/ws/a.py", base="old_a", final="new_a"),
         _change("/ws/b.py", base="old_b", final="new_b"),
         _change("/ws/c.py", base="old_c", final="new_c"),
     ]
     plan = _plan(changes)
-    abort = OperationResult(
-        success=False,
-        status="aborted_overlap",
-        files=tuple(
-            EditResult(
-                success=False,
-                file_path=c.file_path,
-                message="concurrent edit overlaps the rename window",
-                conflict=True,
-                conflict_reason="aborted_overlap",
-            )
-            for c in changes
-        ),
-        conflict_file="/ws/b.py",
-        conflict_reason="concurrent edit overlaps the rename window",
+    svc = _make_svc(plan=plan)
+    svc.exec_process_operation = AsyncMock(
+        return_value=_rename_response(plan, ok=False, error="rename process failed")
     )
-    svc = _make_svc(plan=plan, commit_result=abort)
     result = _run(
         {"symbol": "foo", "new_name": "bar"},
         _ctx({"ci_service": svc}),
     )
     assert result.is_error
     data = json.loads(result.output)
-    # No "partially applied": every file reports failed.
-    assert data["status"] == "aborted"
+    assert data["status"] == "failed"
     assert all(f["status"] == "failed" for f in data["files"])
-    assert "overlap" in data["message"].lower()
-    assert result.metadata["conflict_file"] == "/ws/b.py"
-    assert result.metadata["operation_status"] == "aborted_overlap"
+    assert "rename process failed" in data["message"]
     assert result.metadata["success_count"] == 0
 
 
@@ -277,7 +257,6 @@ def _make_facade_svc(
     *,
     matches,
     plan: SemanticRenamePlan | None = None,
-    commit_result: OperationResult | None = None,
 ):
     svc = MagicMock()
     svc.symbol_index.ensure_built.return_value = True
@@ -289,14 +268,7 @@ def _make_facade_svc(
             new_name="bar", origin=("", 0, 0), changes=(),
         )
     svc.preview_rename_symbol_plan.return_value = svc.rename_symbol_plan.return_value
-    svc.commit_operation_against_base.return_value = commit_result or OperationResult(
-        success=True,
-        status="committed",
-        files=tuple(
-            EditResult(success=True, file_path=c.file_path)
-            for c in (plan.changes if plan else ())
-        ),
-    )
+    svc.exec_process_operation = AsyncMock(return_value=_rename_response(plan))
     return svc
 
 
@@ -402,12 +374,9 @@ def test_facade_disambiguates_by_kind():
     # ensure only class match survives — symbol_index.find with kind filter does that
     svc = _make_facade_svc(matches=[matches[1]])
     changes = [_change("/ws/b.py", base="old", final="new")]
-    svc.rename_symbol_plan.return_value = _plan(changes)
-    svc.commit_operation_against_base.return_value = OperationResult(
-        success=True,
-        status="committed",
-        files=(EditResult(success=True, file_path="/ws/b.py"),),
-    )
+    plan = _plan(changes)
+    svc.rename_symbol_plan.return_value = plan
+    svc.exec_process_operation = AsyncMock(return_value=_rename_response(plan))
     result = _run_facade(
         {"symbol": "thing", "new_name": "thang", "kind": "class"},
         _ctx({"ci_service": svc}),

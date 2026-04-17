@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import json
+import shlex
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -34,13 +36,12 @@ def _sb(*, exec_result=None, download=None, list_result=None, find_result=None):
 
 
 def _write_exec_result(*, base_existed: bool = False):
+    del base_existed
     return MagicMock(
         result=json.dumps(
             {
                 "ok": True,
-                "base_existed": base_existed,
-                "old_hash": "",
-                "new_hash": "newhash",
+                "bytes_written": 5,
             }
         ),
         exit_code=0,
@@ -48,10 +49,19 @@ def _write_exec_result(*, base_existed: bool = False):
 
 
 def _ci_service_mock(*, file_path: str = "/ws/new.txt"):
+    del file_path
     svc = MagicMock()
-    svc.file_path = file_path
-    svc.arbiter.record_edit.return_value = 1
     return svc
+
+
+def _write_payload_from_command(command: str) -> dict[str, str]:
+    script = shlex.split(command)[-1]
+    for token in reversed(shlex.split(script)):
+        try:
+            return json.loads(base64.b64decode(token).decode("utf-8"))
+        except Exception:
+            continue
+    raise AssertionError("write payload not found in process command")
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +234,7 @@ async def test_write_file_syncs_ci_state():
     )
 
     assert not result.is_error
-    svc.arbiter.record_edit.assert_called_once()
+    sb.process.exec.assert_called_once()
     assert json.loads(result.output)["ci_sync"] is True
 
 
@@ -237,8 +247,8 @@ async def test_write_file_resolves_relative_path():
         daytona_write_file.input_model(file_path="subdir/file.txt", content="data"), ctx
     )
     assert not result.is_error
-    svc.arbiter.record_edit.assert_called_once()
-    assert svc.arbiter.record_edit.call_args.kwargs["file_path"] == "/workspace/subdir/file.txt"
+    payload = _write_payload_from_command(sb.process.exec.call_args.args[0])
+    assert payload["file_path"] == "/workspace/subdir/file.txt"
 
 
 async def test_write_file_warns_write_outside_write_scope():
@@ -293,7 +303,7 @@ async def test_write_file_allows_write_inside_write_scope():
     )
 
     assert not result.is_error
-    svc.arbiter.record_edit.assert_called_once()
+    sb.process.exec.assert_called_once()
 
 
 async def test_write_file_rejects_test_suite_write():

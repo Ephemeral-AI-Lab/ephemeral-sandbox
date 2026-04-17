@@ -1,7 +1,7 @@
 """Live load test for mixed concurrent Daytona writes, edits, and CodeAct.
 
 This suite runs 100 real tool calls against one live sandbox and one shared CI
-service so OCC behavior is exercised under mixed contention:
+service so audited process behavior is exercised under mixed contention:
 
 1. 50 concurrent ``daytona_write_file`` calls on unique files.
 2. 40 concurrent ``daytona_edit_file`` calls:
@@ -14,7 +14,7 @@ The test verifies:
 - disjoint edits mostly land,
 - overlapping edits permit at most one winner per target file,
 - arbiter stats are sane after the burst,
-- active OCC reservations are cleaned up after completion.
+- active reservations are cleaned up after completion.
 """
 
 from __future__ import annotations
@@ -470,11 +470,10 @@ def test_live_occ_load_100_mixed_operations(live_load_env: LiveLoadEnv):
     for idx in range(10):
         assert live_load_env.read_text(f"tx/unique_{idx}.txt") == f"codeact {idx}\n"
 
-    # OCC stats sanity. conflicts_detected is currently not wired up, so use
-    # result-level conflict tallies plus arbiter totals/tokens/hotspots here.
+    # Audit ledger sanity. conflicts_detected is currently not wired up, so use
+    # result-level conflict tallies plus arbiter totals/hotspots here.
     total_successes = write_successes + disjoint_successes + overlap_successes + codeact_successes
     assert arbiter_status["total_edits"] == total_successes
-    assert arbiter_status["tokens_issued"] >= write_successes + disjoint_successes + overlap_successes + codeact_successes
     assert arbiter_status["active_tokens"] == 0
     assert arbiter_status["active_intents"] == 0
     assert arbiter_status["conflicts_detected"] >= 0
@@ -777,17 +776,12 @@ def test_live_occ_load_20_non_overlapping_operations_profile(
             kind: round(max(item["elapsed_s"] for item in items), 6)
             for kind, items in sorted(by_kind.items())
         },
-        "write_occ_commit_s": [
+        "write_process_s": [
             round(float(item["payload"].get("timings", {}).get("commit_total", 0.0)), 6)
             for item in by_kind.get("write", [])
         ],
         "edit_tool_total_s": [
             round(float(item["payload"].get("timings", {}).get("tool", {}).get("tool_total", 0.0)), 6)
-            for item in by_kind.get("edit-disjoint", [])
-            if item["payload"].get("timings")
-        ],
-        "edit_occ_commit_s": [
-            round(float(item["payload"].get("timings", {}).get("occ", {}).get("commit_total", 0.0)), 6)
             for item in by_kind.get("edit-disjoint", [])
             if item["payload"].get("timings")
         ],
@@ -920,17 +914,12 @@ def test_live_occ_load_30_non_overlapping_operations_profile(
             kind: round(max(item["elapsed_s"] for item in items), 6)
             for kind, items in sorted(by_kind.items())
         },
-        "write_occ_commit_s": [
+        "write_process_s": [
             round(float(item["payload"].get("timings", {}).get("commit_total", 0.0)), 6)
             for item in by_kind.get("write", [])
         ],
         "edit_tool_total_s": [
             round(float(item["payload"].get("timings", {}).get("tool", {}).get("tool_total", 0.0)), 6)
-            for item in by_kind.get("edit-disjoint", [])
-            if item["payload"].get("timings")
-        ],
-        "edit_occ_commit_s": [
-            round(float(item["payload"].get("timings", {}).get("occ", {}).get("commit_total", 0.0)), 6)
             for item in by_kind.get("edit-disjoint", [])
             if item["payload"].get("timings")
         ],
@@ -1069,11 +1058,6 @@ def test_live_occ_load_50_non_overlapping_operations_profile(
         ],
         "edit_tool_total_s": [
             round(float(item["payload"].get("timings", {}).get("tool", {}).get("tool_total", 0.0)), 6)
-            for item in by_kind.get("edit-disjoint", [])
-            if item["payload"].get("timings")
-        ],
-        "edit_occ_commit_s": [
-            round(float(item["payload"].get("timings", {}).get("occ", {}).get("commit_total", 0.0)), 6)
             for item in by_kind.get("edit-disjoint", [])
             if item["payload"].get("timings")
         ],
