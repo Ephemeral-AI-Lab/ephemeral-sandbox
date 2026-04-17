@@ -166,6 +166,11 @@ async def test_exec_process_operation_issues_single_remote_exec(tmp_path) -> Non
         workspace_root=str(tmp_path),
         sandbox=sandbox,
     )
+    # Silence the post-audit symbol-index content read so we isolate the
+    # auditor's own exec accounting from ContentManager read-backs.
+    svc.symbol_index.refresh = MagicMock()  # type: ignore[method-assign]
+    svc.lsp_client.invalidate = MagicMock()  # type: ignore[method-assign]
+    svc._content.read = MagicMock(return_value=("", False))  # type: ignore[method-assign]
     file_path = tmp_path / "payload.txt"
 
     await svc.exec_process_operation(
@@ -174,6 +179,7 @@ async def test_exec_process_operation_issues_single_remote_exec(tmp_path) -> Non
         description="single-exec check",
     )
 
+    # ProcessAuditor must issue exactly one remote exec for the audit pipeline.
     assert len(process.commands) == 1
 
 
