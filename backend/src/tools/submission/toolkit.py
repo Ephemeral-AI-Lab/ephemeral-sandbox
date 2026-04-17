@@ -19,7 +19,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from agents.registry import get_definition, has_role
+from agents.registry import get_definition
 from team.planning.validation import validate_plan
 from tools.core.base import BaseTool, BaseToolkit, ToolExecutionContext, ToolResult
 
@@ -361,7 +361,7 @@ def _cascade_ids_for_cancel_root(
                 queue.append(child_id)
         for dependent_id in dependents_by_dep.get(current, []):
             dependent = active.get(dependent_id)
-            if dependent is None or has_role(getattr(dependent, "agent_name", ""), "reviewer"):
+            if dependent is None:
                 continue
             if dependent_id not in cascaded:
                 cascaded.add(dependent_id)

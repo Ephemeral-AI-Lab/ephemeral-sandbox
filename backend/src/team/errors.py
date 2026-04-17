@@ -13,3 +13,7 @@ class CheckpointNotFound(Exception):
 
 class BudgetExceeded(Exception):
     """Raised when adding a Task would exceed a configured budget."""
+
+
+class GraphInvariantViolation(RuntimeError):
+    """Raised when persisted task graph state violates scheduler invariants."""

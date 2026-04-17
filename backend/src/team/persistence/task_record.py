@@ -13,6 +13,7 @@ from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
+from config.defaults import DEFAULT_MAX_RETRIES_PER_ITEM
 from db.base import Base
 
 
@@ -45,7 +46,7 @@ class TaskRecord(Base):
     depth: Mapped[int] = mapped_column(Integer, default=0)
     pending_dep_count: Mapped[int] = mapped_column(Integer, default=0)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
-    max_retries: Mapped[int] = mapped_column(Integer, default=2)
+    max_retries: Mapped[int] = mapped_column(Integer, default=DEFAULT_MAX_RETRIES_PER_ITEM)
     agent_run_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow

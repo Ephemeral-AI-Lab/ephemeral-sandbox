@@ -189,7 +189,7 @@ class PlanExpander:
                         queue.append(child_id)
                 for dependent_id in dependents_by_dep.get(current, []):
                     dependent = active_tasks.get(dependent_id)
-                    if dependent is None or has_role(dependent.agent_name, "reviewer"):
+                    if dependent is None:
                         continue
                     if dependent_id not in cascaded:
                         cascaded.add(dependent_id)

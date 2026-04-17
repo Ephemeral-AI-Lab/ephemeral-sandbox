@@ -52,6 +52,7 @@ class TeamRun:
         self.budgets = budgets or BudgetConfig()
         self.budget_state = BudgetState()
         self.status = TeamRunStatus.PENDING
+        self._fatal_failure_reason: str | None = None
         runtime_services = services or build_team_runtime_services(
             team_run_id=self.id,
             budgets=self.budgets,
@@ -214,6 +215,17 @@ class TeamRun:
         self.cancel_event.clear()
 
     async def _compute_final_status(self) -> None:
+        if self._fatal_failure_reason:
+            self.status = TeamRunStatus.FAILED
+            self.event_store.append(
+                make_team_run_status(
+                    self.id,
+                    self.status.value,
+                    reason=self._fatal_failure_reason,
+                )
+            )
+            return
+
         # Safety net: force-fail any tasks still stuck in REPLANNING before
         # computing final status — prevents silent success on orphaned replans.
         await self.task_center.fail_orphaned_replanning()
@@ -225,6 +237,19 @@ class TeamRun:
         else:
             self.status = TeamRunStatus.SUCCEEDED
         self.event_store.append(make_team_run_status(self.id, self.status.value))
+
+    async def fail_fast(self, reason: str) -> None:
+        """Stop execution and mark the whole team run failed immediately."""
+        if self._fatal_failure_reason is None:
+            self._fatal_failure_reason = reason
+            self.status = TeamRunStatus.FAILED
+            self.event_store.append(make_team_run_status(self.id, self.status.value, reason=reason))
+        self.cancel_event.set()
+        for runner_task in list(self._active_agent_runs.values()):
+            if not runner_task.done():
+                runner_task.cancel()
+        await self.task_center.cancel_all_pending()
+        await self.task_center.cancel_all_running(reason)
 
     async def cancel(self) -> None:
         self.cancel_event.set()

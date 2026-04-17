@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from team.errors import GraphInvariantViolation
 from team.models import (
     AgentResult,
     Plan,
@@ -481,6 +482,195 @@ def test_run_forever_survives_transient_pop_ready_error():
 
     assert fake_queue.calls >= 2
     executor._run_one.assert_awaited_once()
+
+
+def test_run_forever_fails_team_run_on_queue_graph_invariant_violation():
+    import asyncio
+
+    class FakeQueue:
+        async def pop_ready(self, run_id: str) -> Any:
+            raise GraphInvariantViolation("ready task has unfinished deps")
+
+    tc = FakeTaskCenter()
+    team_run = FakeTeamRun(task_center=tc, dispatch_queue=FakeQueue())
+    team_run.cancel_event = asyncio.Event()
+    team_run.fail_fast = AsyncMock()
+    executor = Executor(
+        team_run=team_run,
+        runner=AsyncMock(),
+        agent_lookup=lambda name: FakeDefn(),
+    )
+
+    asyncio.run(executor.run_forever())
+
+    team_run.fail_fast.assert_awaited_once()
+    assert "ready task has unfinished deps" in team_run.fail_fast.await_args.args[0]
+
+
+def test_run_forever_fails_team_run_on_worker_graph_invariant_violation():
+    import asyncio
+    from types import SimpleNamespace
+
+    class FakeQueue:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def pop_ready(self, run_id: str) -> Any:
+            self.calls += 1
+            return SimpleNamespace(
+                id="task-1",
+                team_run_id=run_id,
+                agent_name="dev",
+                status="running",
+                objective="t",
+                description="",
+                deps=[],
+                scope_paths=[],
+                scope_ltree=[],
+                parent_id=None,
+                root_id="",
+                depth=0,
+                pending_dep_count=0,
+                retry_count=0,
+                max_retries=2,
+                agent_run_id=None,
+                created_at=None,
+                started_at=None,
+                finished_at=None,
+                failure_reason=None,
+            )
+
+    tc = FakeTaskCenter()
+    tc.graph = {}
+    team_run = FakeTeamRun(task_center=tc, dispatch_queue=FakeQueue())
+    team_run.cancel_event = asyncio.Event()
+    team_run.fail_fast = AsyncMock()
+    executor = Executor(
+        team_run=team_run,
+        runner=AsyncMock(),
+        agent_lookup=lambda name: FakeDefn(),
+    )
+    executor._run_one = AsyncMock(
+        side_effect=GraphInvariantViolation("request_replan dependent is ready")
+    )
+
+    asyncio.run(executor.run_forever())
+
+    team_run.fail_fast.assert_awaited_once()
+    assert "request_replan dependent is ready" in team_run.fail_fast.await_args.args[0]
+
+
+def test_run_forever_fails_team_run_when_runner_raises_graph_invariant_violation():
+    import asyncio
+    from types import SimpleNamespace
+
+    class FakeQueue:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def pop_ready(self, run_id: str) -> Any:
+            self.calls += 1
+            if self.calls > 1:
+                team_run.cancel_event.set()
+                return None
+            return SimpleNamespace(
+                id="task-1",
+                team_run_id=run_id,
+                agent_name="dev",
+                status="running",
+                objective="t",
+                description="",
+                deps=[],
+                scope_paths=[],
+                scope_ltree=[],
+                parent_id=None,
+                root_id="",
+                depth=0,
+                pending_dep_count=0,
+                retry_count=0,
+                max_retries=2,
+                agent_run_id=None,
+                created_at=None,
+                started_at=None,
+                finished_at=None,
+                failure_reason=None,
+            )
+
+    task = _make_task(status="running", parent_id=None, agent_run_id="")
+    tc = FakeTaskCenter()
+    tc.graph = {}
+    tc.mark_running = AsyncMock(return_value=task)
+    tc.fail_task = AsyncMock()
+    team_run = FakeTeamRun(task_center=tc, dispatch_queue=FakeQueue())
+    team_run.cancel_event = asyncio.Event()
+    team_run.fail_fast = AsyncMock()
+
+    async def runner(_defn, _ctx) -> None:
+        raise GraphInvariantViolation("runner invariant")
+
+    executor = Executor(
+        team_run=team_run,
+        runner=runner,
+        agent_lookup=lambda name: FakeDefn(),
+        build_query_context=AsyncMock(return_value=TeamAgentContext(user_message="ctx")),
+    )
+
+    asyncio.run(executor.run_forever())
+
+    tc.fail_task.assert_not_awaited()
+    team_run.fail_fast.assert_awaited_once()
+    assert "runner invariant" in team_run.fail_fast.await_args.args[0]
+
+
+def test_run_forever_fails_team_run_when_worker_error_cleanup_hits_graph_invariant():
+    import asyncio
+    from types import SimpleNamespace
+
+    class FakeQueue:
+        async def pop_ready(self, run_id: str) -> Any:
+            return SimpleNamespace(
+                id="task-1",
+                team_run_id=run_id,
+                agent_name="dev",
+                status="running",
+                objective="t",
+                description="",
+                deps=[],
+                scope_paths=[],
+                scope_ltree=[],
+                parent_id=None,
+                root_id="",
+                depth=0,
+                pending_dep_count=0,
+                retry_count=0,
+                max_retries=2,
+                agent_run_id=None,
+                created_at=None,
+                started_at=None,
+                finished_at=None,
+                failure_reason=None,
+            )
+
+    tc = FakeTaskCenter()
+    tc.graph = {}
+    tc.fail_task = AsyncMock(
+        side_effect=GraphInvariantViolation("retry would run before deps done")
+    )
+    team_run = FakeTeamRun(task_center=tc, dispatch_queue=FakeQueue())
+    team_run.cancel_event = asyncio.Event()
+    team_run.fail_fast = AsyncMock()
+    executor = Executor(
+        team_run=team_run,
+        runner=AsyncMock(),
+        agent_lookup=lambda name: FakeDefn(),
+    )
+    executor._run_one = AsyncMock(side_effect=RuntimeError("worker blew up"))
+
+    asyncio.run(executor.run_forever())
+
+    tc.fail_task.assert_awaited_once()
+    team_run.fail_fast.assert_awaited_once()
+    assert "retry would run before deps done" in team_run.fail_fast.await_args.args[0]
 
 
 # ---------------------------------------------------------------------------

@@ -10,15 +10,26 @@ import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 
-from sqlalchemy import case, delete, func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import aliased
 
-from agents.registry import has_role as _has_role
+from config.defaults import DEFAULT_MAX_RETRIES_PER_ITEM
+from team.errors import GraphInvariantViolation
 from team.models import TERMINAL_STATUSES, Task, TaskDefinition, TaskStatus, _utcnow
 from team.persistence.ltree_utils import path_to_ltree
 from team.persistence.task_graph import TaskGraph
 from team.persistence.task_record import TaskRecord
+
+_STATUSES_REQUIRING_DONE_DEPS = frozenset(
+    {
+        TaskStatus.READY,
+        TaskStatus.RUNNING,
+        TaskStatus.EXPANDED,
+        TaskStatus.REPLANNING,
+        TaskStatus.DONE,
+    }
+)
 
 
 def record_to_task(rec: TaskRecord) -> Task:
@@ -36,7 +47,11 @@ def record_to_task(rec: TaskRecord) -> Task:
         root_id=rec.root_id or "",
         depth=rec.depth or 0,
         retry_count=rec.retry_count or 0,
-        max_retries=rec.max_retries or 2,
+        max_retries=(
+            rec.max_retries
+            if rec.max_retries is not None
+            else DEFAULT_MAX_RETRIES_PER_ITEM
+        ),
         agent_run_id=rec.agent_run_id,
         created_at=rec.created_at or _utcnow(),
         started_at=rec.started_at,
@@ -44,10 +59,6 @@ def record_to_task(rec: TaskRecord) -> Task:
         failure_reason=rec.failure_reason,
         fired_by_task_id=getattr(rec, "fired_by_task_id", None),
     )
-
-
-def _allows_failed_dependencies(agent_name: str) -> bool:
-    return _has_role(agent_name, "reviewer")
 
 
 class TaskStore:
@@ -59,9 +70,11 @@ class TaskStore:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         team_run_id: str,
+        max_retries_per_item: int = DEFAULT_MAX_RETRIES_PER_ITEM,
     ) -> None:
         self._sf = session_factory
         self._team_run_id = team_run_id
+        self._max_retries_per_item = max_retries_per_item
         self._tg = TaskGraph()
 
     # ---- in-memory graph proxy --------------------------------------------
@@ -265,27 +278,32 @@ class TaskStore:
                 )
                 .values(status="done", finished_at=func.now())
             )
-            promote_stmt = (
-                update(TaskRecord)
-                .where(
-                    TaskRecord.team_run_id == self._team_run_id,
-                    TaskRecord.status == "pending",
-                    TaskRecord.deps.any(task_id),
-                    TaskRecord.pending_dep_count > 0,
+            dependents = list(
+                (
+                    await db.execute(
+                        select(TaskRecord)
+                        .where(
+                            TaskRecord.team_run_id == self._team_run_id,
+                            TaskRecord.status == "pending",
+                            TaskRecord.deps.any(task_id),
+                        )
+                        .with_for_update()
+                    )
                 )
-                .values(
-                    pending_dep_count=TaskRecord.pending_dep_count - 1,
-                    status=case(
-                        ((TaskRecord.pending_dep_count - 1) == 0, "ready"),
-                        else_=TaskRecord.status,
-                    ),
-                )
-                .returning(TaskRecord.id, TaskRecord.pending_dep_count)
-                .execution_options(synchronize_session=False)
+                .scalars()
+                .all()
             )
-            promoted_rows = (await db.execute(promote_stmt)).all()
+            promoted_ids: list[str] = []
+            for dep in dependents:
+                unsatisfied = await self._unsatisfied_dep_ids_sql(
+                    db,
+                    list(dep.deps or []),
+                )
+                dep.pending_dep_count = len(unsatisfied)
+                if not unsatisfied:
+                    dep.status = "ready"
+                    promoted_ids.append(dep.id)
             await db.commit()
-            promoted_ids = [r.id for r in promoted_rows if r.pending_dep_count == 0]
         self._tg.mark_done(task_id, promoted_ids)
         return promoted_ids
 
@@ -380,51 +398,72 @@ class TaskStore:
         )
         return {str(row) for row in rows}
 
-    async def _set_task_deps_sql(
+    async def _unsatisfied_dep_ids_sql(
         self,
         db: AsyncSession,
-        dep_updates: dict[str, list[str]],
+        dep_ids: list[str],
     ) -> list[str]:
-        if not dep_updates:
+        if not dep_ids:
             return []
-
-        rows = list(
+        rows = (
             (
                 await db.execute(
-                    select(TaskRecord).where(
+                    select(TaskRecord.id, TaskRecord.status).where(
                         TaskRecord.team_run_id == self._team_run_id,
-                        TaskRecord.id.in_(set(dep_updates)),
-                        TaskRecord.status.notin_([s.value for s in TERMINAL_STATUSES]),
+                        TaskRecord.id.in_(set(dep_ids)),
                     )
                 )
             )
-            .scalars()
             .all()
         )
-        if not rows:
-            return []
+        statuses = {str(row.id): str(row.status) for row in rows}
+        unsatisfied: list[str] = []
+        for dep_id in dep_ids:
+            status = statuses.get(dep_id)
+            if status == "done":
+                continue
+            unsatisfied.append(dep_id)
+        return unsatisfied
 
-        all_dep_ids = {dep for deps in dep_updates.values() for dep in deps}
-        done_ids = await self._done_ids_for_deps_sql(db, all_dep_ids)
-        updated: list[str] = []
+    async def _assert_deps_satisfied_sql(
+        self,
+        db: AsyncSession,
+        *,
+        task_id: str,
+        dep_ids: list[str],
+        transition: str,
+    ) -> None:
+        unsatisfied = await self._unsatisfied_dep_ids_sql(
+            db,
+            dep_ids,
+        )
+        if unsatisfied:
+            raise GraphInvariantViolation(
+                f"task {task_id!r} cannot transition to {transition}; "
+                f"unsatisfied dependencies: {', '.join(unsatisfied)}"
+            )
+
+    @staticmethod
+    def _pending_dependency_rewrite_updates(
+        rows: list[TaskRecord],
+        *,
+        old_dep_id: str,
+        new_dep_ids: list[str],
+    ) -> dict[str, list[str]]:
+        invalid = [row for row in rows if row.status != "pending"]
+        if invalid:
+            details = ", ".join(f"{row.id}:{row.status}" for row in invalid)
+            raise GraphInvariantViolation(
+                "replan dependency invariant violated: "
+                f"tasks depending on {old_dep_id!r} must be pending; found {details}"
+            )
+
+        updates: dict[str, list[str]] = {}
         for row in rows:
-            seen: set[str] = set()
-            unique_deps: list[str] = []
-            for dep_id in dep_updates.get(row.id, []):
-                if dep_id not in seen:
-                    seen.add(dep_id)
-                    unique_deps.append(dep_id)
-            row.deps = unique_deps
-            pending = sum(1 for dep_id in unique_deps if dep_id not in done_ids)
-            row.pending_dep_count = pending
-            if row.status in ("pending", "ready"):
-                row.status = "ready" if pending == 0 else "pending"
-                if row.status == "pending":
-                    row.started_at = None
-                    row.agent_run_id = None
-            updated.append(row.id)
-        await db.flush()
-        return updated
+            deps = [dep_id for dep_id in row.deps if dep_id != old_dep_id]
+            deps.extend(new_dep_ids)
+            updates[row.id] = deps
+        return updates
 
     async def _replace_dependency_sql(
         self,
@@ -436,22 +475,44 @@ class TaskStore:
         rows = list(
             (
                 await db.execute(
-                    select(TaskRecord).where(
+                    select(TaskRecord)
+                    .where(
                         TaskRecord.team_run_id == self._team_run_id,
                         TaskRecord.deps.any(old_dep_id),
-                        TaskRecord.status.notin_([s.value for s in TERMINAL_STATUSES]),
                     )
+                    .order_by(TaskRecord.id)
+                    .with_for_update()
                 )
             )
             .scalars()
             .all()
         )
-        updates: dict[str, list[str]] = {}
+        updates = self._pending_dependency_rewrite_updates(
+            rows,
+            old_dep_id=old_dep_id,
+            new_dep_ids=new_dep_ids,
+        )
+        if not updates:
+            return []
+
+        all_dep_ids = {dep for deps in updates.values() for dep in deps}
+        done_ids = await self._done_ids_for_deps_sql(db, all_dep_ids)
+        updated: list[str] = []
         for row in rows:
-            deps = [dep_id for dep_id in row.deps if dep_id != old_dep_id]
-            deps.extend(new_dep_ids)
-            updates[row.id] = deps
-        return await self._set_task_deps_sql(db, updates)
+            seen: set[str] = set()
+            unique_deps: list[str] = []
+            for dep_id in updates[row.id]:
+                if dep_id not in seen:
+                    seen.add(dep_id)
+                    unique_deps.append(dep_id)
+            row.deps = unique_deps
+            row.pending_dep_count = sum(1 for dep_id in unique_deps if dep_id not in done_ids)
+            row.status = "pending"
+            row.started_at = None
+            row.agent_run_id = None
+            updated.append(row.id)
+        await db.flush()
+        return updated
 
     async def _insert_plan_sql(
         self,
@@ -482,6 +543,7 @@ class TaskStore:
                     root_id=root_id or "",
                     depth=(parent_depth + 1) if parent_id else 0,
                     pending_dep_count=len(spec.deps),
+                    max_retries=self._max_retries_per_item,
                 )
             )
         db.add_all(records)
@@ -576,7 +638,7 @@ class TaskStore:
                     queue.append(child_id)
             for dep_id in dependents_by_dep.get(current, []):
                 record = records_by_id.get(dep_id)
-                if record is None or _allows_failed_dependencies(record.agent_name):
+                if record is None:
                     continue
                 if dep_id not in cancelled:
                     cancelled.add(dep_id)
@@ -699,6 +761,7 @@ class TaskStore:
                         TaskRecord.status,
                         TaskRecord.retry_count,
                         TaskRecord.max_retries,
+                        TaskRecord.deps,
                     ).where(TaskRecord.id == task_id, TaskRecord.team_run_id == rid)
                 )
             ).first()
@@ -707,6 +770,12 @@ class TaskStore:
                 return warnings
             is_infra = reason.startswith(("worker_exception:", "runner_exception:"))
             if is_infra and rec.retry_count < rec.max_retries:
+                await self._assert_deps_satisfied_sql(
+                    db,
+                    task_id=task_id,
+                    dep_ids=list(rec.deps or []),
+                    transition="ready",
+                )
                 await db.execute(
                     update(TaskRecord)
                     .where(
@@ -730,32 +799,6 @@ class TaskStore:
                 .where(TaskRecord.id == task_id, TaskRecord.team_run_id == rid)
                 .values(status="failed", finished_at=func.now(), failure_reason=reason)
             )
-            dependents = list(
-                (
-                    await db.execute(
-                        select(TaskRecord).where(
-                            TaskRecord.team_run_id == rid,
-                            TaskRecord.deps.any(task_id),
-                            TaskRecord.status.notin_(("done", "failed", "cancelled")),
-                        )
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            for dep in dependents:
-                if not _allows_failed_dependencies(dep.agent_name):
-                    continue
-                if dep.status == "pending" and dep.pending_dep_count > 0:
-                    dep.pending_dep_count -= 1
-                    if dep.pending_dep_count == 0:
-                        dep.status = "ready"
-                warnings.append(
-                    (
-                        dep.id,
-                        f"Warning: dependency {task_id} failed: {reason}. Proceed with caution.",
-                    )
-                )
             await db.commit()
         await self.cascade_cancel_recursive(task_id)
         await self.refresh_graph()
@@ -764,16 +807,20 @@ class TaskStore:
     async def retry_task(self, task_id: str, max_retries: int) -> bool:
         rid = self._team_run_id
         async with self._sf() as db:
-            retry_count = (
+            rec = (
                 await db.execute(
-                    select(TaskRecord.retry_count).where(
-                        TaskRecord.id == task_id, TaskRecord.team_run_id == rid
+                    select(
+                        TaskRecord.retry_count,
+                        TaskRecord.deps,
+                    ).where(
+                        TaskRecord.id == task_id,
+                        TaskRecord.team_run_id == rid,
                     )
                 )
-            ).scalar_one_or_none()
-            if retry_count is None:
+            ).first()
+            if rec is None:
                 return False
-            if retry_count >= max_retries:
+            if rec.retry_count >= max_retries:
                 await db.execute(
                     update(TaskRecord)
                     .where(TaskRecord.id == task_id, TaskRecord.team_run_id == rid)
@@ -785,6 +832,12 @@ class TaskStore:
                 )
                 await db.commit()
             else:
+                await self._assert_deps_satisfied_sql(
+                    db,
+                    task_id=task_id,
+                    dep_ids=list(rec.deps or []),
+                    transition="ready",
+                )
                 await db.execute(
                     update(TaskRecord)
                     .where(TaskRecord.id == task_id, TaskRecord.team_run_id == rid)
@@ -921,6 +974,13 @@ class TaskStore:
                 .execution_options(synchronize_session=False)
             )
             rec = (await db.execute(stmt)).scalar_one_or_none()
+            if rec is not None:
+                await self._assert_deps_satisfied_sql(
+                    db,
+                    task_id=rec.id,
+                    dep_ids=list(rec.deps or []),
+                    transition="running",
+                )
             await db.commit()
         if rec is None:
             return None
@@ -929,6 +989,27 @@ class TaskStore:
 
     async def recover_running(self) -> list[TaskRecord]:
         async with self._sf() as db:
+            running = list(
+                (
+                    await db.execute(
+                        select(TaskRecord)
+                        .where(
+                            TaskRecord.team_run_id == self._team_run_id,
+                            TaskRecord.status == "running",
+                        )
+                        .with_for_update()
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for rec in running:
+                await self._assert_deps_satisfied_sql(
+                    db,
+                    task_id=rec.id,
+                    dep_ids=list(rec.deps or []),
+                    transition="ready",
+                )
             stmt = (
                 update(TaskRecord)
                 .where(
@@ -946,6 +1027,19 @@ class TaskStore:
 
     async def replace_run_tasks(self, tasks: list[Task]) -> None:
         done_ids = {t.id for t in tasks if t.status == TaskStatus.DONE}
+        for task in tasks:
+            if task.status not in _STATUSES_REQUIRING_DONE_DEPS:
+                continue
+            unsatisfied = [
+                dep_id
+                for dep_id in task.deps
+                if dep_id not in done_ids
+            ]
+            if unsatisfied:
+                raise GraphInvariantViolation(
+                    f"snapshot task {task.id!r} is {task.status.value} with "
+                    f"unsatisfied dependencies: {', '.join(unsatisfied)}"
+                )
         async with self._sf() as db:
             await db.execute(delete(TaskRecord).where(TaskRecord.team_run_id == self._team_run_id))
             db.add_all(

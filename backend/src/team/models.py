@@ -145,7 +145,7 @@ class Task:
     depth: int = 0
     pending_dep_count: int = 0
     retry_count: int = 0
-    max_retries: int = 2
+    max_retries: int = DEFAULT_MAX_RETRIES_PER_ITEM
     agent_run_id: str | None = None
     created_at: datetime = field(default_factory=_utcnow)
     started_at: datetime | None = None

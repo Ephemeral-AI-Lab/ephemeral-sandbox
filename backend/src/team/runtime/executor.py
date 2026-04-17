@@ -14,6 +14,7 @@ import uuid
 from collections.abc import Awaitable
 from typing import TYPE_CHECKING, Any, Callable
 
+from team.errors import BudgetExceeded, GraphInvariantViolation
 from team.models import AgentResult, Plan, ReplanPlan, ReplanRequest
 from team.runtime.context_builder import TeamAgentContext
 from team.runtime.plan_health_monitor import PlanHealthMonitor
@@ -96,6 +97,9 @@ class Executor:
         while not self.team_run.cancel_event.is_set():
             try:
                 rec = await pop_ready(self.team_run.id)
+            except GraphInvariantViolation as exc:
+                await self._fail_team_run_for_invariant(exc)
+                break
             except Exception as exc:
                 logger.exception("DispatchQueue pop_ready failed: %s", exc)
                 await asyncio.sleep(0.2)
@@ -115,9 +119,25 @@ class Executor:
             tc.graph[task.id] = task
             try:
                 await self._run_one(task)
+            except GraphInvariantViolation as exc:
+                await self._fail_team_run_for_invariant(exc)
+                break
             except Exception as exc:
                 logger.exception("Worker error on %s: %s", task.id, exc)
-                await self._handle_worker_exception(task, f"worker_exception: {exc}")
+                try:
+                    await self._handle_worker_exception(task, f"worker_exception: {exc}")
+                except GraphInvariantViolation as invariant:
+                    await self._fail_team_run_for_invariant(invariant)
+                    break
+
+    async def _fail_team_run_for_invariant(self, exc: GraphInvariantViolation) -> None:
+        reason = f"graph_invariant_violation: {exc}"
+        logger.critical(reason)
+        fail_fast = getattr(self.team_run, "fail_fast", None)
+        if callable(fail_fast):
+            await fail_fast(reason)
+        else:
+            self.team_run.cancel_event.set()
 
     async def _run_one(self, task: "Task") -> None:
         self.team_run._dispatching = getattr(self.team_run, "_dispatching", 0) + 1
@@ -150,6 +170,8 @@ class Executor:
         try:
             await runner_task
         except asyncio.CancelledError:
+            raise
+        except GraphInvariantViolation:
             raise
         except Exception as exc:
             await self._handle_worker_exception(task, f"runner_exception: {exc}")
@@ -236,7 +258,7 @@ class Executor:
         if isinstance(result, ReplanRequest):
             try:
                 await tc.request_replan(task.id, result)
-            except Exception as exc:
+            except BudgetExceeded as exc:
                 # Replan budget exhausted — gracefully complete the task
                 # instead of failing+retrying in an infinite loop.
                 logger.warning(

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from team.models import (
+    DEFAULT_MAX_RETRIES_PER_ITEM,
     BudgetConfig,
     BudgetState,
     Task,
@@ -89,7 +90,11 @@ def task_from_dict(data: dict[str, Any]) -> Task:
         failure_reason=data.get("failure_reason"),
         fired_by_task_id=data.get("fired_by_task_id"),
         retry_count=int(data.get("retry_count") or 0),
-        max_retries=int(data.get("max_retries") or 2),
+        max_retries=(
+            int(data["max_retries"])
+            if data.get("max_retries") is not None
+            else DEFAULT_MAX_RETRIES_PER_ITEM
+        ),
     )
 
 

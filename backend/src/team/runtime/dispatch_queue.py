@@ -9,6 +9,7 @@ from __future__ import annotations
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from team.errors import GraphInvariantViolation
 from team.persistence.task_record import TaskRecord
 
 
@@ -50,5 +51,28 @@ class DispatchQueue:
                 .execution_options(synchronize_session=False)
             )
             rec = (await db.execute(stmt)).scalar_one_or_none()
+            if rec is not None and rec.deps:
+                rows = (
+                    (
+                        await db.execute(
+                            select(TaskRecord.id, TaskRecord.status).where(
+                                TaskRecord.team_run_id == run_id,
+                                TaskRecord.id.in_(set(rec.deps)),
+                            )
+                        )
+                    )
+                    .all()
+                )
+                statuses = {str(row.id): str(row.status) for row in rows}
+                unsatisfied = [
+                    dep_id
+                    for dep_id in rec.deps
+                    if statuses.get(dep_id) != "done"
+                ]
+                if unsatisfied:
+                    raise GraphInvariantViolation(
+                        f"task {rec.id!r} cannot transition to running; "
+                        f"unsatisfied dependencies: {', '.join(unsatisfied)}"
+                    )
             await db.commit()
             return rec

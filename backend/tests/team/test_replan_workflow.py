@@ -6,7 +6,7 @@ import pytest
 
 from agents.registry import get_definition
 from team.builtins import register_all as register_team_builtins
-from team.errors import InvalidPlan
+from team.errors import GraphInvariantViolation, InvalidPlan
 from team.models import (
     AgentResult,
     BudgetConfig,
@@ -18,6 +18,7 @@ from team.models import (
     TaskStatus,
 )
 from team.planning.expander import PlanExpander
+from team.persistence.task_store import TaskStore
 from team.task_center import TaskCenter
 from tools.core.base import ToolExecutionContext
 from tools.submission.toolkit import SubmitReplanTool
@@ -70,6 +71,82 @@ def _spec(text: str = "Do the work.") -> str:
         "4. Context: Created by a replanner.\n"
         "5. Acceptance Criteria: Submit the terminal outcome."
     )
+
+
+def test_request_replan_dependency_rewrite_requires_pending_dependents():
+    for status in ("ready", "running", "expanded", "replanning", "done", "failed", "cancelled"):
+        with pytest.raises(GraphInvariantViolation, match="must be pending"):
+            TaskStore._pending_dependency_rewrite_updates(
+                [SimpleNamespace(id=f"{status}-dependent", status=status, deps=["failed"])],
+                old_dep_id="failed",
+                new_dep_ids=["replanner"],
+            )
+
+
+def test_request_replan_dependency_rewrite_updates_pending_dependents():
+    updates = TaskStore._pending_dependency_rewrite_updates(
+        [
+            SimpleNamespace(id="pending-dependent", status="pending", deps=["dep-1", "failed"]),
+            SimpleNamespace(id="duplicate-dependent", status="pending", deps=["failed", "dep-2"]),
+        ],
+        old_dep_id="failed",
+        new_dep_ids=["replanner"],
+    )
+
+    assert updates == {
+        "pending-dependent": ["dep-1", "replanner"],
+        "duplicate-dependent": ["dep-2", "replanner"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_replace_run_tasks_rejects_ready_snapshot_with_failed_dependency():
+    store = TaskStore(_FakeSessionFactory(), "run-1")
+
+    with pytest.raises(GraphInvariantViolation, match="failed"):
+        await store.replace_run_tasks(
+            [
+                _task("failed", status=TaskStatus.FAILED),
+                _task(
+                    "reviewer-dependent",
+                    agent_name="reviewer",
+                    status=TaskStatus.READY,
+                    deps=["failed"],
+                ),
+            ]
+        )
+
+
+@pytest.mark.asyncio
+async def test_replace_run_tasks_rejects_running_snapshot_with_pending_dependency():
+    store = TaskStore(_FakeSessionFactory(), "run-1")
+
+    with pytest.raises(GraphInvariantViolation, match="pending"):
+        await store.replace_run_tasks(
+            [
+                _task("pending", status=TaskStatus.PENDING),
+                _task("running-dependent", status=TaskStatus.RUNNING, deps=["pending"]),
+            ]
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status",
+    [TaskStatus.EXPANDED, TaskStatus.REPLANNING, TaskStatus.DONE],
+)
+async def test_replace_run_tasks_rejects_post_ready_snapshot_statuses_with_pending_dependency(
+    status: TaskStatus,
+):
+    store = TaskStore(_FakeSessionFactory(), "run-1")
+
+    with pytest.raises(GraphInvariantViolation, match="pending"):
+        await store.replace_run_tasks(
+            [
+                _task("pending", status=TaskStatus.PENDING),
+                _task("dependent", status=status, deps=["pending"]),
+            ]
+        )
 
 
 @pytest.mark.asyncio
@@ -508,6 +585,47 @@ async def test_replan_cancels_active_runner_before_marking_running_task_cancelle
     )
 
     assert store.calls == ["cancel:running-target", "apply_replan_atomic"]
+
+
+@pytest.mark.asyncio
+async def test_replan_cancel_cascade_includes_reviewer_dependents():
+    graph = {
+        "replanner": _task(
+            "replanner",
+            agent_name="team_replanner",
+            status=TaskStatus.RUNNING,
+        ),
+        "running-target": _task("running-target", status=TaskStatus.RUNNING),
+        "reviewer-dependent": _task(
+            "reviewer-dependent",
+            agent_name="reviewer",
+            status=TaskStatus.RUNNING,
+            deps=["running-target"],
+        ),
+    }
+    store = _ExpanderStore(graph)
+    expander = PlanExpander(
+        team_run_id="run-1",
+        store=store,
+        budget=_Budget(),
+        graph_getter=lambda: graph,
+        emit_cb=lambda event: None,
+        cascade_fail_cb=lambda task_id, reason: None,
+        cancel_active_task_cb=lambda task_id: store.calls.append(f"cancel:{task_id}") is None,
+    )
+
+    await expander.apply_replan(
+        replan_task_id="replanner",
+        add_tasks=[],
+        cancel_ids=["running-target"],
+        target_parent_id="parent",
+    )
+
+    assert store.calls == [
+        "cancel:reviewer-dependent",
+        "cancel:running-target",
+        "apply_replan_atomic",
+    ]
 
 
 @pytest.mark.asyncio

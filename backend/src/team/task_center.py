@@ -66,7 +66,11 @@ class TaskCenter:
         event_store: TeamRunStore | None = None,
     ) -> None:
         self._team_run_id = team_run_id
-        self._store = TaskStore(session_factory, team_run_id)
+        self._store = TaskStore(
+            session_factory,
+            team_run_id,
+            max_retries_per_item=budgets.max_retries_per_item,
+        )
         self._events: TeamRunStore = event_store or NullTeamRunStore()
         self._resume_snapshot: list[Task] | None = None
 
