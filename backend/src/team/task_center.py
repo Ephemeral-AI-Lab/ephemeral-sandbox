@@ -92,14 +92,26 @@ class TaskCenter:
             budget=self._budget,
             graph_getter=lambda: self._store.graph,
             emit_cb=self._emit,
-            cascade_fail_cb=self._mark_failed_and_cascade,
+            cascade_fail_cb=self._fail_leaf,
             cancel_active_task_cb=lambda task_id: self._cancel_active_task(task_id),
         )
         self._cancel_active_task_cb: Callable[[str], bool] | None = None
+        self._activity: ActivityTracker
+        self._notes: NoteManager
+
+        def _on_note_posted(note: Note) -> None:
+            self._activity.on_note_posted(note)
+
+        self._activity = ActivityTracker(
+            team_run_id=team_run_id,
+            graph_getter=lambda: self._store.graph,
+            post_note_cb=lambda note: self._notes.post(note),
+        )
 
         self._notes = NoteManager(
             team_run_id=team_run_id,
             event_store_cb=self._emit,
+            note_posted_cb=_on_note_posted,
             get_task_fn=lambda tid: self.get_task(tid),
             task_store=self._store,
         )
@@ -109,16 +121,6 @@ class TaskCenter:
             get_task_fn=lambda tid: self.get_task(tid),
             task_store=self._store,
             arbiter=arbiter,
-        )
-
-        def _on_note_posted(note: Note) -> None:
-            self._activity.on_note_posted(note)
-
-        self._activity = ActivityTracker(
-            team_run_id=team_run_id,
-            note_posted_cb=_on_note_posted,
-            graph_getter=lambda: self._store.graph,
-            post_note_cb=self._notes.post,
         )
 
         self._checkpoints = CheckpointManager(
@@ -235,11 +237,6 @@ class TaskCenter:
             if promoted_task.fired_by_task_id:
                 await self._emit_replanned_origin_if_finalized(promoted_id)
 
-    async def _mark_failed_and_cascade(self, task_id: str, reason: str) -> None:
-        before = self._transitions.snapshot()
-        await self._store.fail_with_cascade(task_id, reason)
-        await self._transitions.refresh_and_emit(before)
-
     async def _with_transitions(
         self,
         op: Callable[[], Awaitable[Any]],
@@ -315,13 +312,23 @@ class TaskCenter:
         await self._store.refresh_graph()
         return new_items
 
+    async def _fail_leaf(self, task_id: str, reason: str) -> None:
+        """Mark a leaf task FAILED and emit transitions.
+
+        Only leaf workers may fail; `TaskStore.fail_task` raises on EXPANDED.
+        """
+        before = self._transitions.snapshot()
+        await self._store.fail_task(task_id, reason)
+        await self._transitions.refresh_and_emit(before)
+
     async def fail_task(self, task_id: str, reason: str) -> None:
-        # If a replanner fails, also fail the original task it was fired for
+        # If a replanner fails, also fail the original task it was fired for.
+        # A is a leaf worker (REQUEST_REPLAN), so plain fail_task suffices.
         rec = await self._store.get_record(task_id)
         if rec and rec.fired_by_task_id:
             origin = await self._store.get_record(rec.fired_by_task_id)
             if origin and origin.status == "request_replan":
-                await self._store.fail_with_cascade(
+                await self._store.fail_task(
                     rec.fired_by_task_id, f"replanner_failed: {reason}"
                 )
         before = self._transitions.snapshot()
@@ -388,11 +395,11 @@ class TaskCenter:
                 target_parent_id=target_parent_id,
             )
         except (BudgetExceeded, InvalidPlan) as exc:
-            # Replan expansion failed — cascade-fail the original REPLANNING
-            # task so it doesn't stay stuck in a non-terminal state forever.
+            # Replan expansion failed — fail the origin (REQUEST_REPLAN leaf)
+            # so it doesn't stay stuck in a non-terminal state forever.
             replanner_rec = await self._store.get_record(replan_task_id)
             if replanner_rec and replanner_rec.fired_by_task_id:
-                await self._store.fail_with_cascade(
+                await self._store.fail_task(
                     replanner_rec.fired_by_task_id,
                     f"replan_apply_failed: {exc}",
                 )
@@ -425,7 +432,7 @@ class TaskCenter:
         return await self._with_transitions(lambda: self._store.cancel_all_running(reason))
 
     async def mark_running(self, task_id: str, agent_run_id: str) -> Task:
-        rec = await self._store.mark_running_sql(task_id, agent_run_id)
+        rec = await self._store.mark_running(task_id, agent_run_id)
         if rec is None:
             raise RuntimeError(f"mark_running: {task_id} not found")
         task = self.graph[task_id]
@@ -446,6 +453,7 @@ class TaskCenter:
             project_context=project_context,
             tasks=self.graph,
             ready_queue_order=self.ready_queue_order,
+            notes=self._notes.snapshot(),
             budget_state=self.budget_state,
             emit_checkpoint_cb=lambda run_id, cp_id, seq, lbl: self._emit(
                 make_checkpoint_taken(run_id, checkpoint_id=cp_id, sequence=seq, label=lbl)
@@ -462,6 +470,7 @@ class TaskCenter:
             checkpoint_id=checkpoint_id,
             project_context_setter=project_context_setter,
             replace_run_tasks_fn=self._store.replace_run_tasks,
+            notes_restore_fn=self._notes.restore,
             ready_queue_order_setter=lambda order: setattr(self._store, "ready_queue_order", order),
         )
         if cp is None:

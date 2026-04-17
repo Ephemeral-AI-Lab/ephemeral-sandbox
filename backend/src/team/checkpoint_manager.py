@@ -13,7 +13,7 @@ import uuid
 from collections import deque
 from typing import Any, Callable
 
-from team.models import BudgetState, Task, _utcnow
+from team.models import BudgetState, Note, Task, _utcnow
 from team.runtime.checkpoint import TeamRunCheckpoint
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ class CheckpointManager:
         project_context: Any,
         tasks: dict[str, Task],
         ready_queue_order: list[str],
+        notes: list[Note],
         budget_state: BudgetState,
         emit_checkpoint_cb: Callable[[str, str, int, str | None], None] | None = None,
     ) -> TeamRunCheckpoint:
@@ -51,6 +52,7 @@ class CheckpointManager:
                 label=label,
                 tasks=copy.deepcopy(tasks),
                 ready_queue_order=list(ready_queue_order),
+                notes=copy.deepcopy(notes),
                 project_context=copy.deepcopy(project_context),
                 budget_state=copy.deepcopy(budget_state),
             )
@@ -70,6 +72,7 @@ class CheckpointManager:
         checkpoint_id: str,
         project_context_setter: Callable[[Any], None],
         replace_run_tasks_fn: Callable[[list[Task]], Any],
+        notes_restore_fn: Callable[[list[Note]], None],
         ready_queue_order_setter: Callable[[list[str]], None] | None = None,
     ) -> TeamRunCheckpoint | None:
         cp = self._get_checkpoint(checkpoint_id)
@@ -78,6 +81,7 @@ class CheckpointManager:
         await replace_run_tasks_fn(list(cp.tasks.values()))
         if ready_queue_order_setter is not None:
             ready_queue_order_setter(list(cp.ready_queue_order))
+        notes_restore_fn(copy.deepcopy(cp.notes))
         project_context_setter(copy.deepcopy(cp.project_context))
         return cp
 

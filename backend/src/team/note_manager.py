@@ -37,12 +37,14 @@ class NoteManager:
         self,
         team_run_id: str,
         event_store_cb: Callable[[TeamRunEvent], None] | None = None,
+        note_posted_cb: Callable[[Note], None] | None = None,
         get_task_fn: Callable[[str], Any] | None = None,
         task_store: Any = None,
     ) -> None:
         self._notes: list[Note] = []
         self._team_run_id = team_run_id
         self._event_store_cb = event_store_cb
+        self._note_posted_cb = note_posted_cb
         self._get_task_fn = get_task_fn
         self._task_store = task_store
 
@@ -93,6 +95,8 @@ class NoteManager:
                     content_bytes=len(note.content.encode("utf-8")),
                 )
             )
+        if self._note_posted_cb is not None:
+            self._note_posted_cb(note)
 
     async def read(
         self,

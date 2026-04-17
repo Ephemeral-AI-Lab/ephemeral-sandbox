@@ -22,7 +22,6 @@ class ActivityTracker:
     def __init__(
         self,
         team_run_id: str,
-        note_posted_cb: Callable[[Note], None] | None = None,
         graph_getter: Callable[[], dict[str, Any]] | None = None,
         post_note_cb: Callable[[Note], Any] | None = None,
     ) -> None:
@@ -30,7 +29,6 @@ class ActivityTracker:
         self._note_inflight: set[str] = set()
         self._note_snapshots: dict[str, dict[str, int]] = {}
         self._team_run_id = team_run_id
-        self._note_posted_cb = note_posted_cb
         self._graph_getter = graph_getter
         self._post_note_cb = post_note_cb
         self._skipped_resets: dict[str, int] = {
@@ -106,7 +104,7 @@ class ActivityTracker:
         self,
         task_id: str,
         *,
-        snapshot: list[dict] | None = None,
+        snapshot: list[dict[str, Any]] | None = None,
         api_client: Any = None,
         model: str | None = None,
     ) -> bool:
@@ -201,8 +199,6 @@ class ActivityTracker:
             )
             if post_note_cb is not None:
                 await post_note_cb(note)
-            if self._note_posted_cb is not None:
-                self._note_posted_cb(note)
             posted = True
             return True
         finally:

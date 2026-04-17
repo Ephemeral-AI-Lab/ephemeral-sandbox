@@ -400,19 +400,6 @@ async def set_status_failed_if_active(
     )
 
 
-async def set_pending_dependent_ready(
-    db: AsyncSession, team_run_id: str, task_id: str
-) -> None:
-    await db.execute(
-        update(TaskRecord)
-        .where(
-            TaskRecord.id == task_id,
-            TaskRecord.team_run_id == team_run_id,
-        )
-        .values(status="ready")
-    )
-
-
 async def replace_dependency(
     db: AsyncSession,
     team_run_id: str,

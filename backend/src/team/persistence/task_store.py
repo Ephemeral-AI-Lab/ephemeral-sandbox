@@ -239,25 +239,11 @@ class TaskStore:
         self._tg.mark_cancelled(cancelled)
         return cancelled
 
-    async def fail_with_cascade(self, task_id: str, reason: str) -> list[str]:
-        """Mark task failed AND cascade-cancel descendants in one transaction.
-
-        Returns the list of cascaded descendant ids. Caller should refresh
-        the graph to pick up the in-memory state changes.
-        """
-        async with self._sf() as db:
-            await q.set_status_terminal(
-                db, self._team_run_id, task_id, "failed", reason
-            )
-            cancelled = await q.cascade_cancel_recursive(
-                db, self._team_run_id, task_id
-            )
-            await db.commit()
-        await self.refresh_graph()
-        return cancelled
-
     async def fail_orphaned_replanning(self) -> int:
-        """Force-fail all REPLANNING tasks whose replanner is terminal or missing."""
+        """Force-fail all REQUEST_REPLAN tasks whose replanner is terminal or missing.
+
+        Origin tasks (A) are leaves — no subtree to cascade.
+        """
         async with self._sf() as db:
             task_ids = await q.fetch_request_replan_ids(db, self._team_run_id)
             if not task_ids:
@@ -269,9 +255,6 @@ class TaskStore:
                     task_id,
                     "failed",
                     "orphaned_replanning_timeout",
-                )
-                await q.cascade_cancel_recursive(
-                    db, self._team_run_id, task_id
                 )
             await db.commit()
         await self.refresh_graph()
@@ -297,17 +280,27 @@ class TaskStore:
         return origin_id
 
     async def fail_task(self, task_id: str, reason: str) -> list[tuple[str, str]]:
+        """Mark a leaf task FAILED.
+
+        Invariant: only leaf workers are allowed to fail. Non-leaf (EXPANDED)
+        tasks only enter terminal states via promotion over their children.
+        If an EXPANDED task somehow fails here, that is a team-run-level bug
+        and callers should escalate via team_run.fail_fast.
+        """
         warnings: list[tuple[str, str]] = []
         async with self._sf() as db:
             status = await q.fetch_task_status(db, self._team_run_id, task_id)
             if status is None or status in ("done", "failed", "cancelled"):
                 await db.commit()
                 return warnings
+            if status == "expanded":
+                raise GraphInvariantViolation(
+                    f"fail_task: task {task_id} is EXPANDED; only leaf tasks may fail"
+                )
             await q.set_status_failed_if_active(
                 db, self._team_run_id, task_id, reason
             )
             await db.commit()
-        await self.cascade_cancel_recursive(task_id)
         await self.refresh_graph()
         return warnings
 
@@ -384,7 +377,7 @@ class TaskStore:
         await self.refresh_graph()
         return cancelled_count, inserted
 
-    async def mark_running_sql(
+    async def mark_running(
         self, task_id: str, agent_run_id: str
     ) -> TaskRecord | None:
         async with self._sf() as db:

@@ -50,3 +50,7 @@ After the replan:
 ## Notes
 
 Notes are scoped by task and path. `NoteManager` owns note state, posting, reads, and scope filtering. `TaskContextBuilder` owns agent-facing context injection: the assigned task, dependency notes, parent context, replanner failure packets, and recent overlapping scope changes.
+
+## Checkpoints
+
+TaskCenter checkpoints capture the task graph, ready queue order, note state, project context, and budget state. Rollback restores all of those runtime surfaces together so task context and Task Center note reads match the restored task graph.
