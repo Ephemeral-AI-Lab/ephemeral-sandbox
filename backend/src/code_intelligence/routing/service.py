@@ -194,11 +194,15 @@ class CodeIntelligenceService:
             file_path, int(line), int(character), new_name,
         )
         changes: list[SemanticFileChange] = []
+        try:
+            base_by_path = self._content.read_many(
+                list(final_by_path.keys()),
+                allow_missing=True,
+            )
+        except Exception:  # pragma: no cover - defensive I/O
+            base_by_path = {}
         for path, final_content in final_by_path.items():
-            try:
-                base_content, existed = self._content.read(path, allow_missing=True)
-            except Exception:  # pragma: no cover - defensive I/O
-                base_content, existed = "", False
+            base_content, existed = base_by_path.get(path, ("", False))
             # Missing files are skipped: Jedi would not have produced a
             # rewrite against a file it could not see.
             if not existed and not base_content:

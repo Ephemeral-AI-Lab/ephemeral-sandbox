@@ -32,6 +32,7 @@ from code_intelligence.lsp._jedi_worker_client import (
     SandboxJediWorkerClient,
     WorkerUnavailable,
     is_enabled as jedi_worker_enabled,
+    rename_is_enabled as jedi_worker_rename_enabled,
 )
 from code_intelligence.types import (
     Diagnostic,
@@ -492,19 +493,20 @@ class LspClient:
         character = self._resolve_column(file_path, line, character)
         resolved_path = self._resolve_path(file_path)
 
-        used, result = self._try_worker(
-            "rename",
-            {
-                "path": resolved_path,
-                "line": int(line),
-                "column": int(character),
-                "new_name": str(new_name),
-            },
-        )
-        if used:
-            if isinstance(result, dict):
-                return {str(k): str(v) for k, v in result.items() if isinstance(v, str)}
-            return {}
+        if jedi_worker_rename_enabled():
+            used, result = self._try_worker(
+                "rename",
+                {
+                    "path": resolved_path,
+                    "line": int(line),
+                    "column": int(character),
+                    "new_name": str(new_name),
+                },
+            )
+            if used:
+                if isinstance(result, dict):
+                    return {str(k): str(v) for k, v in result.items() if isinstance(v, str)}
+                return {}
 
         path_literal = json.dumps(resolved_path)
         new_name_literal = json.dumps(str(new_name))

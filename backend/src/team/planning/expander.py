@@ -105,27 +105,30 @@ class PlanExpander:
         specs: list[TaskDefinition] = []
         new_items: list[Task] = []
         for spec in result.submitted_plan.tasks:
-            nid = local_to_global.get(spec.id) or self.new_id()
-            rdeps = [local_to_global[d] if d in local_to_global else d for d in spec.deps]
+            new_task_id = local_to_global.get(spec.id) or self.new_id()
+            resolved_deps = [
+                local_to_global[dep_id] if dep_id in local_to_global else dep_id
+                for dep_id in spec.deps
+            ]
             specs.append(
                 TaskDefinition(
-                    id=nid,
+                    id=new_task_id,
                     objective=spec.objective,
                     agent=spec.agent,
                     description=spec.description or "",
-                    deps=rdeps,
+                    deps=resolved_deps,
                     scope_paths=list(spec.scope_paths),
                 )
             )
             new_items.append(
                 Task(
-                    id=nid,
+                    id=new_task_id,
                     team_run_id=self._team_run_id,
                     agent_name=spec.agent,
-                    status=TaskStatus.READY if not rdeps else TaskStatus.PENDING,
+                    status=TaskStatus.READY if not resolved_deps else TaskStatus.PENDING,
                     objective=spec.objective,
                     description=spec.description or "",
-                    deps=rdeps,
+                    deps=resolved_deps,
                     scope_paths=list(spec.scope_paths),
                     parent_id=task_id,
                     root_id=rec.root_id or task_id,
@@ -209,35 +212,35 @@ class PlanExpander:
                     raise InvalidPlan(f"duplicate id '{spec.id}'")
                 local_to_new[spec.id] = self.new_id()
 
-        adj = await self._store.get_adjacency()
-        clean_adj = {k: v for k, v in adj.items() if k not in cancelled}
+        adjacency = await self._store.get_adjacency()
+        clean_adjacency = {k: v for k, v in adjacency.items() if k not in cancelled}
         specs: list[TaskDefinition] = []
         for spec in add_tasks:
-            nid = local_to_new.get(spec.id, self.new_id()) if spec.id else self.new_id()
-            rdeps: list[str] = []
-            for d in spec.deps:
-                if d in local_to_new:
-                    rdeps.append(local_to_new[d])
-                elif d in allowed_existing_dep_ids:
-                    rdeps.append(d)
+            new_task_id = local_to_new.get(spec.id, self.new_id()) if spec.id else self.new_id()
+            resolved_deps: list[str] = []
+            for dep_id in spec.deps:
+                if dep_id in local_to_new:
+                    resolved_deps.append(local_to_new[dep_id])
+                elif dep_id in allowed_existing_dep_ids:
+                    resolved_deps.append(dep_id)
                 else:
                     raise InvalidPlan(
-                        f"replan dep '{d}' is not a local alias or a schedulable existing task"
+                        f"replan dep '{dep_id}' is not a local alias or a schedulable existing task"
                     )
-            clean_adj[nid] = rdeps
+            clean_adjacency[new_task_id] = resolved_deps
             specs.append(
                 TaskDefinition(
-                    id=nid,
+                    id=new_task_id,
                     objective=spec.objective,
                     agent=spec.agent,
                     description=spec.description or "",
-                    deps=rdeps,
+                    deps=resolved_deps,
                     scope_paths=list(spec.scope_paths),
                     parent_id=spec.parent_id,
                 )
             )
 
-        if _has_cycle(clean_adj):
+        if _has_cycle(clean_adjacency):
             raise InvalidPlan("replan would create a cycle")
 
         if not self._budget.has_capacity_for(len(specs)):

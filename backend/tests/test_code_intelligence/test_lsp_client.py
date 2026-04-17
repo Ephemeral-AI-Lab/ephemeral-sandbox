@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from code_intelligence.lsp._jedi_worker_client import ENV_FLAG, WorkerUnavailable
+from code_intelligence.lsp._jedi_worker_client import (
+    ENV_FLAG,
+    RENAME_ENV_FLAG,
+    WorkerUnavailable,
+)
 from code_intelligence.lsp.client import LspClient
 from code_intelligence.types import SymbolKind
 
@@ -119,6 +123,32 @@ def test_worker_telemetry_tracks_success_and_fallback(monkeypatch) -> None:
     assert used is False
     assert result is None
     assert lsp.telemetry.worker_fallbacks == 1
+
+
+def test_python_rename_bypasses_worker_without_rename_flag(monkeypatch) -> None:
+    monkeypatch.setenv(ENV_FLAG, "1")
+    monkeypatch.delenv(RENAME_ENV_FLAG, raising=False)
+    captured_scripts: list[str] = []
+
+    class _UnexpectedWorker:
+        def request(self, op, args=None):
+            raise AssertionError("rename worker should be disabled by default")
+
+        def shutdown(self):
+            pass
+
+    lsp = LspClient(workspace_root="/workspace")
+    lsp._worker = _UnexpectedWorker()  # type: ignore[assignment]
+
+    def _capture(script: str) -> str:
+        captured_scripts.append(script)
+        return "{}"
+
+    monkeypatch.setattr(lsp, "_run_python_script", _capture)
+
+    assert lsp._python_rename("/workspace/pkg/core.py", 5, 4, "beta_v2") == {}
+    assert captured_scripts
+    assert lsp.telemetry.worker_successes == 0
 
 
 def test_resolve_path_prepends_workspace_root() -> None:

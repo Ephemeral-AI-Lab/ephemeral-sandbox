@@ -17,6 +17,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from prompts.message_recorder import append_prompt_report_event
 from providers.types import ApiMessageRequest, ApiToolUseDeltaEvent, ApiMessageCompleteEvent
 from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
 
@@ -96,6 +97,10 @@ async def run(
     max_turns: int = 10,
     execution_context: ToolExecutionContext | None = None,
     execute_tools: bool = False,
+    prompt_report_messages_path: str | None = None,
+    team_run_id: str | None = None,
+    work_item_id: str | None = None,
+    agent_run_id: str | None = None,
 ) -> RunResult:
     """Execute the LLM loop until a valid tool call succeeds.
 
@@ -154,6 +159,22 @@ async def run(
             tool_choice=tool_choice,
             raw_messages=conversation,
         )
+        append_prompt_report_event(
+            prompt_report_messages_path,
+            {
+                "event": "llm_request",
+                "seq": turn,
+                "team_run_id": team_run_id,
+                "work_item_id": work_item_id,
+                "agent_run_id": agent_run_id,
+                "agent": agent_name,
+                "model": request.model,
+                "system_prompt": system_prompt,
+                "messages": conversation,
+                "tools": api_tools,
+                "external_trigger": True,
+            },
+        )
 
         try:
             response = await _stream_to_response(api_client, request)
@@ -197,20 +218,50 @@ async def run(
             "name": tool_name,
             "input": tool_input,
         })
-        conversation.append({"role": "assistant", "content": assistant_content})
+        assistant_message = {"role": "assistant", "content": assistant_content}
+        conversation.append(assistant_message)
+        append_prompt_report_event(
+            prompt_report_messages_path,
+            {
+                "event": "assistant",
+                "seq": turn,
+                "team_run_id": team_run_id,
+                "work_item_id": work_item_id,
+                "agent_run_id": agent_run_id,
+                "agent": agent_name,
+                "model": request.model,
+                "message": assistant_message,
+                "external_trigger": True,
+            },
+        )
 
         # Check tool is in our set
         tool = tool_map.get(tool_name)
         if tool is None:
             tool_names = list(tool_map.keys())
             _emit(f"{agent_name} (run={run_id}) turn {turn}: unknown tool '{tool_name}' (available: {tool_names})")
-            conversation.append({
+            tool_result_message = {
                 "role": "user",
                 "content": [{"type": "tool_result", "tool_use_id": tool_id,
                              "content": f"Error: unknown tool '{tool_name}'. "
                                         f"Use one of: {', '.join(tool_names)}",
                              "is_error": True}],
-            })
+            }
+            conversation.append(tool_result_message)
+            append_prompt_report_event(
+                prompt_report_messages_path,
+                {
+                    "event": "tool_result",
+                    "seq": turn,
+                    "team_run_id": team_run_id,
+                    "work_item_id": work_item_id,
+                    "agent_run_id": agent_run_id,
+                    "agent": agent_name,
+                    "model": request.model,
+                    "message": tool_result_message,
+                    "external_trigger": True,
+                },
+            )
             continue
 
         # Pydantic validation
@@ -225,12 +276,27 @@ async def run(
                 else ""
             )
             _emit(f"{agent_name} (run={run_id}) turn {turn}: pydantic validation failed for {tool_name}: {exc}")
-            conversation.append({
+            tool_result_message = {
                 "role": "user",
                 "content": [{"type": "tool_result", "tool_use_id": tool_id,
                              "content": f"Validation error: {exc}.{required_hint} Fix and retry.",
                              "is_error": True}],
-            })
+            }
+            conversation.append(tool_result_message)
+            append_prompt_report_event(
+                prompt_report_messages_path,
+                {
+                    "event": "tool_result",
+                    "seq": turn,
+                    "team_run_id": team_run_id,
+                    "work_item_id": work_item_id,
+                    "agent_run_id": agent_run_id,
+                    "agent": agent_name,
+                    "model": request.model,
+                    "message": tool_result_message,
+                    "external_trigger": True,
+                },
+            )
             continue
 
         tool_result: ToolResult | None = None
@@ -247,7 +313,7 @@ async def run(
                     output=f"Tool execution failed: {exc}",
                     is_error=True,
                 )
-            conversation.append({
+            tool_result_message = {
                 "role": "user",
                 "content": [{
                     "type": "tool_result",
@@ -255,7 +321,22 @@ async def run(
                     "content": tool_result.output,
                     "is_error": tool_result.is_error,
                 }],
-            })
+            }
+            conversation.append(tool_result_message)
+            append_prompt_report_event(
+                prompt_report_messages_path,
+                {
+                    "event": "tool_result",
+                    "seq": turn,
+                    "team_run_id": team_run_id,
+                    "work_item_id": work_item_id,
+                    "agent_run_id": agent_run_id,
+                    "agent": agent_name,
+                    "model": request.model,
+                    "message": tool_result_message,
+                    "external_trigger": True,
+                },
+            )
             if tool_result.is_error:
                 _emit(f"{agent_name} (run={run_id}) turn {turn}: tool {tool_name} returned error: {tool_result.output}")
                 continue

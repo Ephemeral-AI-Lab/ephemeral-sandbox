@@ -291,7 +291,7 @@ class TaskStore:
         await self.refresh_graph()
         return origin_id
 
-    async def fail_task(self, task_id: str, reason: str) -> list[tuple[str, str]]:
+    async def fail_task(self, task_id: str, reason: str) -> None:
         """Mark a leaf task FAILED.
 
         Invariant: only leaf workers are allowed to fail. Non-leaf (EXPANDED)
@@ -299,12 +299,11 @@ class TaskStore:
         If an EXPANDED task somehow fails here, that is a team-run-level bug
         and callers should escalate via team_run.fail_fast.
         """
-        warnings: list[tuple[str, str]] = []
         async with self._sf() as db:
             status = await q.fetch_task_status(db, self._team_run_id, task_id)
             if status is None or status in ("done", "failed", "cancelled"):
                 await db.commit()
-                return warnings
+                return
             if status == "expanded":
                 raise GraphInvariantViolation(
                     f"fail_task: task {task_id} is EXPANDED; only leaf tasks may fail"
@@ -314,7 +313,6 @@ class TaskStore:
             )
             await db.commit()
         await self.refresh_graph()
-        return warnings
 
     async def cancel_all_pending(self) -> int:
         async with self._sf() as db:

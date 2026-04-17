@@ -425,7 +425,7 @@ async def replace_dependency(
     old_dep_id: str,
     new_dep_ids: list[str],
 ) -> list[str]:
-    bad = (
+    violations = (
         await db.execute(
             select(TaskRecord.id, TaskRecord.status).where(
                 TaskRecord.team_run_id == team_run_id,
@@ -434,13 +434,13 @@ async def replace_dependency(
             )
         )
     ).all()
-    if bad:
-        details = ", ".join(f"{r.id}:{r.status}" for r in bad)
+    if violations:
+        details = ", ".join(f"{r.id}:{r.status}" for r in violations)
         raise GraphInvariantViolation(
             "replan dependency invariant violated: "
             f"tasks depending on {old_dep_id!r} must be pending; found {details}"
         )
-    new_deps_expr = func.array_cat(
+    updated_deps = func.array_cat(
         func.array_remove(TaskRecord.deps, old_dep_id),
         cast(new_dep_ids, ARRAY(Text)),
     )
@@ -451,7 +451,7 @@ async def replace_dependency(
             TaskRecord.deps.any(old_dep_id),
         )
         .values(
-            deps=new_deps_expr,
+            deps=updated_deps,
             started_at=None,
             agent_run_id=None,
         )
@@ -527,12 +527,12 @@ async def cascade_cancel_recursive(
 
     records_by_id = {row.id: row for row in active_rows}
     children_by_parent: dict[str, list[str]] = defaultdict(list)
-    dependents_by_dep: dict[str, list[str]] = defaultdict(list)
+    dependents_by_task_id: dict[str, list[str]] = defaultdict(list)
     for row in active_rows:
         if row.parent_id:
             children_by_parent[row.parent_id].append(row.id)
         for dep_id in row.deps or []:
-            dependents_by_dep[dep_id].append(row.id)
+            dependents_by_task_id[dep_id].append(row.id)
 
     cancelled: set[str] = set()
     queue: deque[str] = deque([root_task_id])
@@ -542,12 +542,12 @@ async def cascade_cancel_recursive(
             if child_id not in cancelled:
                 cancelled.add(child_id)
                 queue.append(child_id)
-        for dep_id in dependents_by_dep.get(current, []):
-            if records_by_id.get(dep_id) is None:
+        for dependent_id in dependents_by_task_id.get(current, []):
+            if records_by_id.get(dependent_id) is None:
                 continue
-            if dep_id not in cancelled:
-                cancelled.add(dep_id)
-                queue.append(dep_id)
+            if dependent_id not in cancelled:
+                cancelled.add(dependent_id)
+                queue.append(dependent_id)
 
     if not cancelled:
         return []

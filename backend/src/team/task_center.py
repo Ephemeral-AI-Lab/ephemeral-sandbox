@@ -30,7 +30,6 @@ from team.models import (
     BudgetConfig,
     BudgetState,
     Note,
-    NoteTag,
     ReplanRequest,
     Task,
     TaskDefinition,
@@ -333,7 +332,7 @@ class TaskCenter:
                     rec.fired_by_task_id, f"replanner_failed: {reason}"
                 )
         before = self._transitions.snapshot()
-        warnings = await self._store.fail_task(task_id, reason)
+        await self._store.fail_task(task_id, reason)
         # FAILED children are now detached; parent may become promotable.
         for promoted_id in await self._store.maybe_promote_expanded_parent(task_id):
             promoted_task = self.graph.get(promoted_id)
@@ -341,19 +340,6 @@ class TaskCenter:
                 self._transitions.emit_full_status(promoted_task)
                 if promoted_task.fired_by_task_id:
                     await self._emit_replanned_origin_if_finalized(promoted_id)
-        for dep_id, msg in warnings:
-            try:
-                await self._notes.post(
-                    Note(
-                        id=self._new_id(),
-                        task_id=dep_id,
-                        agent_name="system",
-                        content=msg,
-                        tags=[NoteTag.WARNING.value],
-                    )
-                )
-            except Exception:
-                logger.debug("Failed to post warning note for %s", dep_id, exc_info=True)
         await self._transitions.refresh_and_emit(before)
 
     async def fail(self, task_id: str, reason: str) -> None:

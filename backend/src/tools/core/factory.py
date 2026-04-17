@@ -80,10 +80,6 @@ def _register_builtins() -> None:
     from tools.submission.toolkit import SubmissionToolkit
 
     register_toolkit_class("submission", SubmissionToolkit)
-    # NOTE: Submission tools (submit_plan, submit_replan, submit_task_summary)
-    # are ordinary tools called inside the main query loop. They are declared
-    # in QueryContext.terminal_tools so that a successful call ends the run.
-    # The legacy post-run submission phase has been removed.
 
 
 _register_builtins()

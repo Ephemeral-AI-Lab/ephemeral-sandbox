@@ -22,9 +22,11 @@ for path in (_BACKEND_SRC, _SCRIPTS_DIR):
         sys.path.insert(0, str(path))
 
 from prompt_helpers import (
+    build_team_role_prompt_report_text_sync,
     build_team_run_user_prompt_report_text_sync,
     build_team_user_prompt_report_text_sync,
     current_settings,
+    default_team_role_prompt_report_path,
     default_team_run_dir,
     default_team_run_prompt_report_path,
     default_team_user_prompt_report_path,
@@ -56,6 +58,21 @@ def main() -> int:
         "--team-run-dir",
         default="",
         help="Directory containing TeamRun event logs. Defaults to .ephemeralos/team-runs.",
+    )
+    parser.add_argument(
+        "--role",
+        action="append",
+        default=[],
+        help=(
+            "Roster role, agent role, or agent name to render. May be repeated. "
+            "Use 'workers' for all non-planner/replanner roles. When provided, "
+            "the report includes system prompt, user prompt, and skill-bundle content."
+        ),
+    )
+    parser.add_argument(
+        "--sandbox-id",
+        default="",
+        help="Synthetic sandbox id used for role-scoped capability rendering.",
     )
     parser.add_argument(
         "--user-request",
@@ -100,17 +117,36 @@ def main() -> int:
         if team_def is None:
             print(f"Error: team {args.team!r} not found by id or name.", file=sys.stderr)
             return 1
-        report, missing = build_team_user_prompt_report_text_sync(
-            team_def,
-            user_request=args.user_request,
-            cwd=str(_ROOT),
-            settings=settings,
-        )
-        output_path = (
-            Path(args.output)
-            if args.output
-            else default_team_user_prompt_report_path(team_def, output_dir=str(output_dir))
-        )
+        if args.role:
+            report, missing = build_team_role_prompt_report_text_sync(
+                team_def,
+                roles=list(args.role),
+                user_request=args.user_request,
+                cwd=str(_ROOT),
+                settings=settings,
+                sandbox_id=args.sandbox_id,
+            )
+            output_path = (
+                Path(args.output)
+                if args.output
+                else default_team_role_prompt_report_path(
+                    team_def,
+                    list(args.role),
+                    output_dir=str(output_dir),
+                )
+            )
+        else:
+            report, missing = build_team_user_prompt_report_text_sync(
+                team_def,
+                user_request=args.user_request,
+                cwd=str(_ROOT),
+                settings=settings,
+            )
+            output_path = (
+                Path(args.output)
+                if args.output
+                else default_team_user_prompt_report_path(team_def, output_dir=str(output_dir))
+            )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(report, encoding="utf-8")

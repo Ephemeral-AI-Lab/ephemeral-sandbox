@@ -58,7 +58,7 @@ def _sanitize_scout_gap_paths(content: str, note_paths: list[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# PostNoteTool
+# SubmitTaskNoteTool
 # ---------------------------------------------------------------------------
 
 
@@ -170,14 +170,6 @@ class SubmitTaskNoteTool(BaseTool):
             parent_note_id=note.parent_note_id,
         )
         return ToolResult(output=payload.model_dump_json())
-
-
-# Backward-compat alias — used by tc_note.py during transition
-PostNoteTool = SubmitTaskNoteTool
-
-
-
-
 
 
 # ---------------------------------------------------------------------------

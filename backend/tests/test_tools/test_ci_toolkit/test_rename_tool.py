@@ -262,6 +262,23 @@ def test_facade_resolves_unique_symbol_and_delegates():
     assert call.args[2] == 4   # character
 
 
+def test_facade_uses_name_column_for_indexed_python_declarations():
+    match = _sym("foo", line=10, character=0, file_path="/ws/a.py", signature="def foo()")
+    changes = [_change("/ws/a.py", base="def foo():\n    pass\n", final="def bar():\n    pass\n")]
+    plan = _plan(changes, arbiter_generation=3)
+    svc = _make_facade_svc(matches=[match], plan=plan)
+
+    result = _run_facade(
+        {"symbol": "foo", "new_name": "bar"},
+        _ctx({"ci_service": svc}),
+    )
+
+    assert not result.is_error, result.output
+    call = svc.rename_symbol_plan.call_args
+    assert call.args[1] == 10
+    assert call.args[2] == 4
+
+
 def test_facade_returns_ambiguous_for_multiple_matches():
     matches = [
         _sym("Client", kind=SymbolKind.CLASS, file_path="/ws/a.py"),

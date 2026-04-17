@@ -30,7 +30,10 @@ import pytest
 from dotenv import load_dotenv
 
 from code_intelligence.routing.service import CodeIntelligenceService
-from code_intelligence.lsp._jedi_worker_client import ENV_FLAG as JEDI_WORKER_ENV_FLAG
+from code_intelligence.lsp._jedi_worker_client import (
+    ENV_FLAG as JEDI_WORKER_ENV_FLAG,
+    RENAME_ENV_FLAG as JEDI_WORKER_RENAME_ENV_FLAG,
+)
 from tools.ci_toolkit.rename_tool import ci_rename, ci_rename_symbol
 from tools.core.base import ToolExecutionContext
 from tools.daytona_toolkit._daytona_utils import _extract_exit_code, _wrap_bash_command
@@ -406,6 +409,7 @@ def test_live_ci_lsp_jedi_tool_traces_and_perf(
 ) -> None:
     """Trace direct LSP calls and rename tool calls inside a real Daytona sandbox."""
     monkeypatch.setenv(JEDI_WORKER_ENV_FLAG, "0")
+    monkeypatch.setenv(JEDI_WORKER_RENAME_ENV_FLAG, "0")
     all_stats: list[dict[str, Any]] = []
     env = live_rename_env
     pkg = f"{env.root_dir}/pkg"
@@ -734,7 +738,7 @@ def test_live_ci_lsp_jedi_tool_traces_and_perf(
             assert not worker_dry.is_error, worker_dry.output
             assert json.loads(worker_dry.output)["status"] == "dry_run"
             worker_tel = worker_svc.lsp_client.telemetry
-            assert worker_tel.worker_successes >= 4
+            assert worker_tel.worker_successes >= 3
             assert worker_tel.worker_fallbacks == 0
 
             _print_mode_comparison(all_stats)
@@ -915,7 +919,6 @@ def _run_concurrent_ci_load(
     assert not failures, json.dumps(failures, sort_keys=True)
     assert payload["worker_fallbacks_delta"] == 0
     assert payload["worker_errors_delta"] == 0
-    assert payload["worker_successes_delta"] >= 8
 
 
 def _print_mode_comparison(stats: list[dict[str, Any]]) -> None:

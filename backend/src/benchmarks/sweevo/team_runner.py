@@ -76,6 +76,13 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 _SWEEVO_TEAM_NAME = "sweevo_benchmark"
 
 
+def _prompt_report_messages_path(team_run_id: str) -> Path:
+    path = _PROJECT_ROOT / ".ephemeralos" / "prompt-reports" / f"team-run-{team_run_id}-messages.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch(exist_ok=True)
+    return path
+
+
 def _load_or_create_team_definition(session_factory: object) -> TeamDefinition:
     """Load the sweevo team definition from the DB, seeding from the file
     registry on first run. Raises if neither source provides the definition."""
@@ -469,10 +476,12 @@ async def run_sweevo_team(
         user_request=root_prompt, budgets=budgets,
         sandbox_id=sandbox_id, repo_root=repo_dir, event_store=event_store,
     )
+    prompt_messages_path = _prompt_report_messages_path(tr.id)
     tr.coordination_metadata = {
         "team_mode_enabled": True,
         "require_declared_shell_outputs": True,
         "verification_surface_write_enforcement": "warn",
+        "prompt_report_messages_path": str(prompt_messages_path),
         "external_hook_emitter": _make_external_hook_emitter(
             printer=printer, team_metrics=team_metrics,
         ),
@@ -484,11 +493,13 @@ async def run_sweevo_team(
             f"session_id={getattr(session_config, 'session_id', 'sweevo')} "
             f"sandbox_id={sandbox_id}",
         )
+        printer.raw_line("team", f"[prompt_report] messages={prompt_messages_path}")
     append_event(team_metrics, {
         "event": "team_start", "team_run_id": tr.id,
         "session_id": getattr(session_config, "session_id", "sweevo"),
         "sandbox_id": sandbox_id, "instance_id": instance.instance_id,
         "repo": instance.repo, "repo_dir": repo_dir,
+        "prompt_report_messages_path": str(prompt_messages_path),
         "budgets": {
             "max_tasks": budgets.max_tasks,
             "max_depth": budgets.max_depth,
@@ -569,6 +580,11 @@ async def resume_sweevo_team(
     team_metrics = _build_team_metrics()
     team_metrics["structured_log_path"] = structured_log_path
     _emit_team_runtime_banner(printer, budgets=budgets)
+    prompt_messages_path = _prompt_report_messages_path(tr.id)
+    tr.coordination_metadata = {
+        **getattr(tr, "coordination_metadata", {}),
+        "prompt_report_messages_path": str(prompt_messages_path),
+    }
 
     replans = int(getattr(getattr(tr, "budget_state", None), "replans_used", 0) or 0)
     resume_tag = resume_id or "<latest-state>"
@@ -589,12 +605,14 @@ async def resume_sweevo_team(
             f"session_id={getattr(session_config, 'session_id', 'sweevo')} "
             f"sandbox_id={tr.sandbox_id}",
         )
+        printer.raw_line("team", f"[prompt_report] messages={prompt_messages_path}")
     append_event(team_metrics, {
         "event": "resume", "team_run_id": team_run_id,
         "sandbox_id": tr.sandbox_id, "instance_id": instance.instance_id,
         "checkpoint_id": resume_id,
         "durable_checkpoint_count": len(available_ids),
         "replans_used": replans,
+        "prompt_report_messages_path": str(prompt_messages_path),
     })
 
     await tr.resume(

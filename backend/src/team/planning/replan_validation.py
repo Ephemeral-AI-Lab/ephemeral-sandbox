@@ -43,13 +43,13 @@ def _cascade_ids_for_cancel_root(
 ) -> set[str]:
     active = _active_tasks(graph)
     children_by_parent: dict[str, list[str]] = {}
-    dependents_by_dep: dict[str, list[str]] = {}
+    dependents_by_task_id: dict[str, list[str]] = {}
     for tid, task in active.items():
         parent_id = getattr(task, "parent_id", None)
         if parent_id:
             children_by_parent.setdefault(str(parent_id), []).append(tid)
         for dep_id in getattr(task, "deps", []) or []:
-            dependents_by_dep.setdefault(str(dep_id), []).append(tid)
+            dependents_by_task_id.setdefault(str(dep_id), []).append(tid)
 
     cascaded: set[str] = set()
     queue = [cancel_root_id]
@@ -59,10 +59,10 @@ def _cascade_ids_for_cancel_root(
             if child_id not in cascaded:
                 cascaded.add(child_id)
                 queue.append(child_id)
-        for dep_id in dependents_by_dep.get(current, []):
-            if dep_id in active and dep_id not in cascaded:
-                cascaded.add(dep_id)
-                queue.append(dep_id)
+        for dependent_id in dependents_by_task_id.get(current, []):
+            if dependent_id in active and dependent_id not in cascaded:
+                cascaded.add(dependent_id)
+                queue.append(dependent_id)
     cascaded.discard(cancel_root_id)
     return cascaded
 

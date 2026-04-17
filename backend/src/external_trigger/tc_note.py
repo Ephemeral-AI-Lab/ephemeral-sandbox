@@ -76,6 +76,22 @@ def _resolve_note_taker_prompt(team_run_id: str | None = None) -> tuple[str, str
     return prompt, model
 
 
+def _prompt_report_messages_path(team_run_id: str | None) -> str | None:
+    if not team_run_id:
+        return None
+    try:
+        from team.runtime.registry import get as get_team_run
+
+        team_run = get_team_run(team_run_id)
+    except Exception:
+        return None
+    if team_run is None:
+        return None
+    metadata = getattr(team_run, "coordination_metadata", {}) or {}
+    value = metadata.get("prompt_report_messages_path")
+    return str(value) if value else None
+
+
 async def run_tc_note(
     *,
     task_id: str,
@@ -100,6 +116,10 @@ async def run_tc_note(
         api_client=api_client,
         max_tokens_per_turn=max_tokens,
         model=model or default_model,
+        prompt_report_messages_path=_prompt_report_messages_path(team_run_id),
+        team_run_id=team_run_id,
+        work_item_id=task_id,
+        agent_run_id=agent_run_id,
     )
 
     validated = result.validated

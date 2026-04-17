@@ -180,6 +180,18 @@ def _candidate_payload(sym: Any) -> dict[str, Any]:
     }
 
 
+def _symbol_name_column(sym: Any) -> int:
+    """Best-effort column for the symbol name, not the declaration keyword."""
+    indexed_column = int(getattr(sym, "character", 0) or 0)
+    kind = getattr(sym, "kind", None)
+    signature = str(getattr(sym, "signature", "") or "")
+    if kind in {SymbolKind.FUNCTION, SymbolKind.METHOD} and signature.startswith("def "):
+        return indexed_column + len("def ")
+    if kind is SymbolKind.CLASS and signature.startswith("class "):
+        return indexed_column + len("class ")
+    return indexed_column
+
+
 def _resolve_symbol(
     svc: Any,
     *,
@@ -498,7 +510,7 @@ async def ci_rename(
     sym = matches[0]
     resolved_path = resolve_daytona_path(str(getattr(sym, "file_path", "")), context)
     pivot_line = int(getattr(sym, "line", 0) or 0)
-    pivot_char = int(getattr(sym, "character", 0) or 0)
+    pivot_char = _symbol_name_column(sym)
     return _perform_rename(
         svc=svc,
         context=context,

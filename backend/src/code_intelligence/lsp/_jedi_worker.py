@@ -93,12 +93,16 @@ def _op_references(jedi_mod, project, args: dict[str, Any]) -> Any:
     return out
 
 
-def _op_rename(jedi_mod, project, args: dict[str, Any]) -> Any:
+def _op_rename(jedi_mod, _project, args: dict[str, Any]) -> Any:
     path = str(args["path"])
     line = int(args["line"])
     column = int(args["column"])
     new_name = str(args["new_name"])
-    script = _make_script(jedi_mod, project, path)
+    # Match the subprocess-per-call path for rename. In live Daytona runs,
+    # forcing the shared Project here caused sporadic multi-second cold
+    # rename plans for otherwise tiny workspaces; Jedi can infer the project
+    # from an absolute path and still benefits from the hot worker import.
+    script = _make_script(jedi_mod, None, path)
     refactoring = script.rename(line=line, column=column, new_name=new_name)
     out: dict[str, str] = {}
     for p, cf in refactoring.get_changed_files().items():

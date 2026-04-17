@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shlex
 from pathlib import Path
 from typing import Any
@@ -17,23 +18,52 @@ from tools.daytona_toolkit._daytona_utils import (
 
 from code_intelligence._async_bridge import run_sync
 
+FileReadResult = tuple[str, bool]
+FileReadResults = dict[str, FileReadResult]
+
 
 class ContentManager:
     """Read and write file content, routing to a sandbox when one is bound."""
 
     def __init__(self, workspace_root: str, sandbox: Any = None) -> None:
-        self._workspace_root = workspace_root
+        del workspace_root
         self._sandbox = sandbox
 
     def bind_sandbox(self, sandbox: Any) -> None:
         """Update the sandbox handle for subsequent reads/writes."""
         self._sandbox = sandbox
 
-    def read(self, file_path: str, *, allow_missing: bool = False) -> tuple[str, bool]:
+    def read(self, file_path: str, *, allow_missing: bool = False) -> FileReadResult:
         """Read *file_path* returning ``(content, existed)``."""
         if self._sandbox is None:
             return self._read_local(file_path, allow_missing=allow_missing)
         return self._read_remote(file_path, allow_missing=allow_missing)
+
+    def read_many(
+        self,
+        file_paths: list[str],
+        *,
+        allow_missing: bool = False,
+    ) -> FileReadResults:
+        """Read multiple files, batching remote sandbox reads when possible."""
+        unique_paths = list(dict.fromkeys(file_paths))
+        if not unique_paths:
+            return {}
+        if self._sandbox is None:
+            return {
+                path: self._read_local(path, allow_missing=allow_missing)
+                for path in unique_paths
+            }
+        if _supports_exec_transport(self._sandbox):
+            try:
+                return self._read_remote_batch(unique_paths, allow_missing=allow_missing)
+            except Exception:
+                if not allow_missing:
+                    raise
+        return {
+            path: self._read_remote(path, allow_missing=allow_missing)
+            for path in unique_paths
+        }
 
     def write(self, file_path: str, content: str) -> None:
         """Write *content* to *file_path*, preferring the sandbox when bound."""
@@ -58,7 +88,7 @@ class ContentManager:
     # -- Private --------------------------------------------------------------
 
     @staticmethod
-    def _read_local(file_path: str, *, allow_missing: bool) -> tuple[str, bool]:
+    def _read_local(file_path: str, *, allow_missing: bool) -> FileReadResult:
         path = Path(file_path)
         if not path.exists():
             if allow_missing:
@@ -66,7 +96,7 @@ class ContentManager:
             raise FileNotFoundError(file_path)
         return path.read_text(encoding="utf-8"), True
 
-    def _read_remote(self, file_path: str, *, allow_missing: bool) -> tuple[str, bool]:
+    def _read_remote(self, file_path: str, *, allow_missing: bool) -> FileReadResult:
         process = getattr(self._sandbox, "process", None)
         if _supports_exec_transport(self._sandbox):
             try:
@@ -76,8 +106,6 @@ class ContentManager:
                     fallback_exit_code=getattr(response, "exit_code", None),
                 )
                 if exit_code in (0, None):
-                    import json
-
                     payload = json.loads(cleaned or "{}")
                     if not payload.get("exists"):
                         if allow_missing:
@@ -101,6 +129,52 @@ class ContentManager:
                 return raw.decode("utf-8"), True
             return str(raw), True
         raise RuntimeError("Sandbox process.exec text read is unavailable")
+
+    def _read_remote_batch(
+        self,
+        file_paths: list[str],
+        *,
+        allow_missing: bool,
+    ) -> FileReadResults:
+        process = getattr(self._sandbox, "process", None)
+        script = """
+import json
+import pathlib
+import sys
+
+files = {}
+for raw_path in sys.argv[1:]:
+    path = pathlib.Path(raw_path)
+    try:
+        content = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        files[raw_path] = {"exists": False, "content": ""}
+    else:
+        files[raw_path] = {"exists": True, "content": content}
+print(json.dumps(files))
+"""
+        command = (
+            f"python3 -c {shlex.quote(script)} "
+            + " ".join(shlex.quote(path) for path in file_paths)
+        )
+        response = run_sync(process.exec(_wrap_bash_command(command)))
+        cleaned, exit_code = _extract_exit_code(
+            getattr(response, "result", "") or "",
+            fallback_exit_code=getattr(response, "exit_code", None),
+        )
+        if exit_code not in (0, None):
+            raise RuntimeError(cleaned or "batch read failed")
+        payload = json.loads(cleaned or "{}")
+        results: FileReadResults = {}
+        for path in file_paths:
+            item = payload.get(path) if isinstance(payload, dict) else None
+            if not isinstance(item, dict) or not item.get("exists"):
+                if allow_missing:
+                    results[path] = ("", False)
+                    continue
+                raise FileNotFoundError(path)
+            results[path] = (str(item.get("content", "") or ""), True)
+        return results
 
     def _write_remote(self, file_path: str, payload: bytes) -> None:
         process = getattr(self._sandbox, "process", None)

@@ -29,6 +29,7 @@ from external_trigger.tc_note import (  # type: ignore[attr-defined]
     TC_NOTE_EDIT_PROMPT,
     TC_NOTE_TURN_PROMPT,
 )
+from skills.core.loader import load_skill_registry  # type: ignore[attr-defined]
 from team.models import (  # type: ignore[attr-defined]
     BudgetConfig,
     BudgetState,
@@ -222,6 +223,26 @@ def default_team_user_prompt_report_path(
     return base_dir / f"{stem}.md"
 
 
+def default_team_role_prompt_report_path(
+    team_def: TeamDefinition,
+    roles: list[str],
+    output_dir: str | None = None,
+) -> Path:
+    """Return a stable default output path for a role-scoped prompt report."""
+    safe_name = "".join(
+        ch if ch.isalnum() or ch in {"-", "_"} else "-"
+        for ch in team_def.name
+    ).strip("-")
+    role_part = "-".join(
+        "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in role).strip("-")
+        for role in roles
+        if role.strip()
+    )
+    stem = f"team-role-prompts-{safe_name or 'team'}-{role_part or 'all'}-{team_def.id[:8]}"
+    base_dir = Path(output_dir) if output_dir else Path(os.getcwd())
+    return base_dir / f"{stem}.md"
+
+
 def default_team_run_prompt_report_path(
     team_run_id: str, output_dir: str | None = None,
 ) -> Path:
@@ -343,6 +364,125 @@ def _make_task_context(
     return SimpleNamespace(context=task_context, graph=tasks)
 
 
+def _sweevo_extra_skills(agent_name: str, team_def: TeamDefinition) -> list[str]:
+    """Return benchmark runner skill overrides used by the SWE-EVO team."""
+    if team_def.name != "sweevo_benchmark":
+        return []
+    extras_by_agent = {
+        "team_planner": ["sweevo-project-context"],
+        "developer": ["sweevo-project-context"],
+        "scout": ["sweevo-project-context"],
+        "validator": ["sweevo-project-context", "verification-replan"],
+        "team_replanner": ["sweevo-project-context"],
+    }
+    return extras_by_agent.get(agent_name, [])
+
+
+def effective_agent_definition_for_team_report(
+    agent_def: AgentDefinition,
+    team_def: TeamDefinition,
+) -> AgentDefinition:
+    """Apply known benchmark-time prompt-affecting overrides for reports."""
+    merged_skills = list(agent_def.skills)
+    changed = False
+    for skill_name in _sweevo_extra_skills(agent_def.name, team_def):
+        if skill_name not in merged_skills:
+            merged_skills.append(skill_name)
+            changed = True
+    if not changed:
+        return agent_def
+    return agent_def.model_copy(update={"skills": merged_skills})
+
+
+def _role_filter_matches(
+    *,
+    agent_name: str,
+    roster_roles: list[str],
+    agent_def: AgentDefinition | None,
+    requested_roles: set[str],
+) -> bool:
+    if not requested_roles:
+        return True
+    if "all" in requested_roles:
+        return True
+    if "worker" in requested_roles or "workers" in requested_roles:
+        if "planner" not in roster_roles and "replanner" not in roster_roles:
+            return True
+    values = {agent_name, *roster_roles}
+    if agent_def is not None and agent_def.role:
+        values.add(str(agent_def.role))
+    return bool(values & requested_roles)
+
+
+def _rendered_skill_content(skill: object) -> str:
+    content = str(getattr(skill, "content", "") or "")
+    references = getattr(skill, "references", {}) or {}
+    if not references:
+        return content
+    ref_names = list(references.keys())
+    footer = (
+        "\n\n---\n"
+        f"This skill has {len(ref_names)} reference document(s) available: "
+        + ", ".join(f"`{name}`" for name in ref_names)
+        + "\nUse `load_skill_reference` to load any of them."
+    )
+    return content + footer
+
+
+def _append_skill_bundle(
+    lines: list[str],
+    *,
+    agent_def: AgentDefinition,
+    cwd: str,
+) -> None:
+    lines.extend(["", "### Skill Bundle"])
+    if not agent_def.include_skills:
+        lines.extend(["", "_Skill toolkit disabled for this agent._"])
+        return
+
+    registry = load_skill_registry(cwd)
+    skill_names = list(agent_def.skills)
+    if not skill_names:
+        skill_names = [skill.name for skill in registry.list_skills()]
+    if not skill_names:
+        lines.extend(["", "_No skills attached._"])
+        return
+
+    for skill_name in skill_names:
+        skill = registry.get(skill_name)
+        lines.extend(["", f"#### Skill: {skill_name}"])
+        if skill is None:
+            lines.append("")
+            lines.append("_Skill not found in registry._")
+            continue
+        rendered = _rendered_skill_content(skill)
+        references = getattr(skill, "references", {}) or {}
+        path = str(getattr(skill, "path", "") or "")
+        source = str(getattr(skill, "source", "") or "")
+        lines.extend(
+            [
+                "",
+                f"- Source: `{source or '(unknown)'}`",
+                f"- Path: `{path or '(unknown)'}`",
+                f"- Rendered content length: `{len(rendered)}` chars / `{len(rendered.encode('utf-8'))}` bytes",
+                f"- Reference count: `{len(references)}`",
+                "",
+                "##### Rendered SKILL.md",
+            ]
+        )
+        _append_text_block(lines, rendered)
+        for reference_name, reference_content in references.items():
+            lines.extend(
+                [
+                    "",
+                    f"##### Reference: {reference_name}",
+                    "",
+                    f"- Rendered content length: `{len(reference_content)}` chars / `{len(reference_content.encode('utf-8'))}` bytes",
+                ]
+            )
+            _append_text_block(lines, reference_content)
+
+
 async def build_team_user_prompt_report_text(
     team_def: TeamDefinition,
     *,
@@ -449,6 +589,127 @@ async def build_team_user_prompt_report_text(
             ]
         )
         _append_text_block(lines, ctx.user_message)
+
+    return "\n".join(lines).rstrip() + "\n", missing
+
+
+async def build_team_role_prompt_report_text(
+    team_def: TeamDefinition,
+    *,
+    roles: list[str],
+    user_request: str,
+    cwd: str,
+    settings,
+    sandbox_id: str = "",
+) -> tuple[str, list[str]]:
+    """Build system, user, and skill-bundle prompt artifacts for roles."""
+    team_run_id = "prompt-inspection"
+    members = _member_roles(team_def.roster, team_def.entry_planner)
+    requested_roles = {role.strip() for role in roles if role.strip()}
+    missing: list[str] = []
+
+    tasks: dict[str, Task] = {}
+    for agent_name, roster_roles in members.items():
+        task = _example_task_for_agent(
+            team_run_id=team_run_id,
+            entry_planner=team_def.entry_planner,
+            agent_name=agent_name,
+            roles=roster_roles,
+            user_request=user_request,
+        )
+        tasks[task.id] = task
+    task_center = _make_task_context(team_run_id=team_run_id, tasks=tasks)
+    team_run = SimpleNamespace(
+        id=team_run_id,
+        root_task_id="root",
+        task_center=task_center,
+        roster=dict(team_def.roster),
+        team_definition=team_def,
+        project_context=SimpleNamespace(repo_root=cwd),
+        coordination_metadata={},
+        budgets=BudgetConfig(),
+        budget_state=BudgetState(),
+        sandbox_id=sandbox_id,
+    )
+
+    lines = [
+        f"# Team Role Prompt Report: {team_def.name}",
+        "",
+        f"- Team id: `{team_def.id}`",
+        f"- Entry planner: `{team_def.entry_planner}`",
+        f"- Role filter: `{', '.join(sorted(requested_roles)) or 'all'}`",
+        f"- Working directory: `{cwd}`",
+        f"- Sandbox id: `{sandbox_id or '(none)'}`",
+        "- Source: representative synthetic task graph rendered through production prompt assembly.",
+        "- Includes benchmark-time SWE-EVO skill overrides when rendering `sweevo_benchmark`.",
+        "",
+        "## Roster",
+        "",
+    ]
+    for role, agent_names in team_def.roster.items():
+        joined = ", ".join(f"`{name}`" for name in agent_names) or "(none)"
+        lines.append(f"- `{role}`: {joined}")
+
+    matched = 0
+    for agent_name, roster_roles in members.items():
+        base_agent_def = load_agent_definition(agent_name, settings)
+        if not _role_filter_matches(
+            agent_name=agent_name,
+            roster_roles=roster_roles,
+            agent_def=base_agent_def,
+            requested_roles=requested_roles,
+        ):
+            continue
+        matched += 1
+        lines.extend(
+            [
+                "",
+                f"## Agent: {agent_name}",
+                "",
+                f"- Roster roles: {', '.join(f'`{role}`' for role in roster_roles)}",
+            ]
+        )
+        if base_agent_def is None:
+            missing.append(agent_name)
+            lines.extend(["", "_Agent definition not found in registry or database._"])
+            continue
+
+        agent_def = effective_agent_definition_for_team_report(base_agent_def, team_def)
+        terminal_tools = resolve_terminal_tools_for_role(team_def, getattr(agent_def, "role", None))
+        lines.extend(
+            [
+                f"- Agent role: `{getattr(agent_def, 'role', '') or '(none)'}`",
+                f"- Attached skills: `{', '.join(agent_def.skills) or '(all registered skills)'}`",
+                f"- Terminal tools: `{', '.join(sorted(terminal_tools)) or '(none)'}`",
+                "",
+                "### System Prompt",
+            ]
+        )
+        system_prompt = build_agent_system_prompt_text(
+            agent_def,
+            cwd=cwd,
+            settings=settings,
+            sandbox_id=sandbox_id,
+            include_capabilities=True,
+            terminal_tools=terminal_tools,
+        )
+        _append_text_block(lines, system_prompt)
+        lines.extend(["", "### User Prompt"])
+        if getattr(agent_def, "role", None) == "note_taker" or any(
+            "note_taker" in role for role in roster_roles
+        ):
+            lines.extend(["", "#### Edit Trigger"])
+            _append_text_block(lines, TC_NOTE_EDIT_PROMPT)
+            lines.extend(["", "#### Turn Trigger"])
+            _append_text_block(lines, TC_NOTE_TURN_PROMPT)
+        else:
+            task = tasks["root"] if agent_name == team_def.entry_planner else tasks[f"sample-{agent_name}"]
+            ctx = await build_query_context(agent_def, team_run, task)
+            _append_text_block(lines, ctx.user_message)
+        _append_skill_bundle(lines, agent_def=agent_def, cwd=cwd)
+
+    if matched == 0:
+        lines.extend(["", "_No roster agents matched the requested role filter._"])
 
     return "\n".join(lines).rstrip() + "\n", missing
 
@@ -614,6 +875,28 @@ def build_team_user_prompt_report_text_sync(
             user_request=user_request,
             cwd=cwd,
             settings=settings,
+        )
+    )
+
+
+def build_team_role_prompt_report_text_sync(
+    team_def: TeamDefinition,
+    *,
+    roles: list[str],
+    user_request: str,
+    cwd: str,
+    settings,
+    sandbox_id: str = "",
+) -> tuple[str, list[str]]:
+    """Synchronous wrapper for role-scoped team prompt reports."""
+    return asyncio.run(
+        build_team_role_prompt_report_text(
+            team_def,
+            roles=roles,
+            user_request=user_request,
+            cwd=cwd,
+            settings=settings,
+            sandbox_id=sandbox_id,
         )
     )
 

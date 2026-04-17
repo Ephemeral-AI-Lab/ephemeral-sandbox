@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 WORKER_SCRIPT = str(Path(__file__).with_name("_jedi_worker.py"))
 ENV_FLAG = "CI_JEDI_WORKER_ENABLED"
+RENAME_ENV_FLAG = "CI_JEDI_WORKER_RENAME_ENABLED"
 _CRASH_BACKOFF_SEC = 30.0
 _RPC_CLIENT_SOURCE = r"""
 from __future__ import annotations
@@ -78,6 +79,11 @@ print(data.strip())
 def is_enabled() -> bool:
     """Check the env-var kill-switch (default off)."""
     return os.environ.get(ENV_FLAG, "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def rename_is_enabled() -> bool:
+    """Check the worker-backed rename kill-switch (default off)."""
+    return os.environ.get(RENAME_ENV_FLAG, "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 class WorkerUnavailable(RuntimeError):
