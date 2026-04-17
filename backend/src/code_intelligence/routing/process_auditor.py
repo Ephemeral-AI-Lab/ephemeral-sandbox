@@ -189,11 +189,11 @@ def _build_process_audit_combined_bash(
 
     outer_script = (
         "set -u\n"
-        '_OUT_DIR="$(mktemp -d)"\n'
+        '_OUT_DIR="$(mktemp -d)" || exit 1\n'
         "trap 'rm -rf \"$_OUT_DIR\"' EXIT\n"
         f"printf '%s\\n' {quoted_script_b64} | base64 -d > \"$_OUT_DIR/snapshot.py\"\n"
         f"printf '\\n%s\\n' {shlex.quote(before_open)}\n"
-        f"python3 \"$_OUT_DIR/snapshot.py\" {quoted_workspace} | base64 | tr -d '\\n'\n"
+        f"python3 \"$_OUT_DIR/snapshot.py\" {quoted_workspace} 2>/dev/null | base64 | tr -d '\\n'\n"
         f"printf '\\n%s\\n' {shlex.quote(before_close)}\n"
         "set +e\n"
         f"bash -c {quoted_command} > \"$_OUT_DIR/exec.out\" 2>&1\n"
@@ -206,7 +206,7 @@ def _build_process_audit_combined_bash(
         'cat "$_OUT_DIR/exec.code"\n'
         f"printf '\\n%s\\n' {shlex.quote(exit_close)}\n"
         f"printf '%s\\n' {shlex.quote(after_open)}\n"
-        f"python3 \"$_OUT_DIR/snapshot.py\" {quoted_workspace} | base64 | tr -d '\\n'\n"
+        f"python3 \"$_OUT_DIR/snapshot.py\" {quoted_workspace} 2>/dev/null | base64 | tr -d '\\n'\n"
         f"printf '\\n%s\\n' {shlex.quote(after_close)}\n"
         "exit 0\n"
     )
@@ -244,6 +244,7 @@ def _decode_b64_payload(raw: str, section: str) -> bytes:
 def _decode_snapshot(payload: bytes, section: str) -> dict[str, dict[str, Any]]:
     text = payload.decode("utf-8", errors="replace").strip()
     if not text:
+        logger.debug("process audit %s snapshot payload was empty", section)
         return {}
     try:
         parsed = json.loads(text)
@@ -257,6 +258,10 @@ def _decode_snapshot(payload: bytes, section: str) -> dict[str, dict[str, Any]]:
         )
     files = parsed.get("files")
     if not isinstance(files, dict):
+        logger.debug(
+            "process audit %s snapshot had no 'files' mapping -- mutations will not be audited",
+            section,
+        )
         return {}
     return {
         str(path): dict(item)
