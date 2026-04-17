@@ -38,6 +38,12 @@ from code_intelligence.routing.backend_protocol import (
     SymbolIndexBackendAdapter,
 )
 from code_intelligence.routing.content_manager import ContentManager
+from code_intelligence.routing.overlay_auditor import (
+    OverlayAuditor,
+    OverlayAuditorConfig,
+)
+from code_intelligence.routing.overlay_exec import OverlayMountError
+from code_intelligence.routing.overlay_probe import OverlayCapabilityCache
 from code_intelligence.routing.process_auditor import ProcessAuditor
 from code_intelligence.routing.query_router import IntelligenceQueryRouter
 from code_intelligence.routing.registry import (
@@ -132,6 +138,10 @@ class CodeIntelligenceService:
             symbol_index=self.symbol_index,
             lsp_client=self.lsp_client,
         )
+        self._overlay_capability = OverlayCapabilityCache()
+        self._overlay_auditor: OverlayAuditor | None = None
+        self._overlay_lowerdir: str | None = None
+        self._overlay_init_lock = threading.Lock()
         self._write_coordinator = WriteCoordinator(
             arbiter=self.arbiter,
             time_machine=self.time_machine,
@@ -230,6 +240,124 @@ class CodeIntelligenceService:
             agent_run_id=agent_run_id,
             task_id=task_id,
         )
+
+    async def exec_process_operation_overlay(
+        self,
+        sandbox: Any,
+        command: str,
+        *,
+        timeout: int | None = None,
+        description: str = "",
+        agent_id: str = "",
+        team_run_id: str = "",
+        agent_run_id: str = "",
+        task_id: str = "",
+    ) -> Any:
+        """Audited exec using per-run overlayfs isolation.
+
+        Opt-in peer of :meth:`exec_process_operation`. Probes the
+        sandbox for overlay capability on first call; if unavailable or
+        the overlay mount fails at runtime, transparently falls back to
+        :class:`ProcessAuditor` with a log warning.
+
+        Same return contract as :meth:`exec_process_operation`.
+        """
+        self.rebind_sandbox(sandbox)
+        probe = await self._overlay_capability.probe(
+            self.sandbox_id,
+            sandbox,
+            self._exec_sandbox_process,
+        )
+        if not probe.supported:
+            logger.info(
+                "overlay unavailable on sandbox %s (%s); using ProcessAuditor",
+                self.sandbox_id,
+                probe.reason,
+            )
+            return await self._process_auditor.execute(
+                sandbox,
+                command,
+                timeout=timeout,
+                description=description,
+                agent_id=agent_id,
+                team_run_id=team_run_id,
+                agent_run_id=agent_run_id,
+                task_id=task_id,
+            )
+
+        auditor = await self._ensure_overlay_auditor(sandbox)
+        try:
+            return await auditor.execute(
+                sandbox,
+                command,
+                timeout=timeout,
+                description=description,
+                agent_id=agent_id,
+                team_run_id=team_run_id,
+                agent_run_id=agent_run_id,
+                task_id=task_id,
+            )
+        except OverlayMountError as exc:
+            logger.warning(
+                "overlay mount failed mid-run on %s (%s); falling back "
+                "to ProcessAuditor for this call",
+                self.sandbox_id,
+                exc,
+            )
+            return await self._process_auditor.execute(
+                sandbox,
+                command,
+                timeout=timeout,
+                description=description,
+                agent_id=agent_id,
+                team_run_id=team_run_id,
+                agent_run_id=agent_run_id,
+                task_id=task_id,
+            )
+
+    async def _ensure_overlay_auditor(self, sandbox: Any) -> OverlayAuditor:
+        with self._overlay_init_lock:
+            if self._overlay_auditor is not None:
+                return self._overlay_auditor
+
+        lowerdir = await self._ensure_overlay_lowerdir(sandbox)
+
+        async def _provider(_repo_root: str) -> str:
+            return lowerdir
+
+        auditor = OverlayAuditor(
+            workspace_root=self.workspace_root,
+            exec_process=self._exec_sandbox_process,
+            arbiter=self.arbiter,
+            content=self._content,
+            symbol_index=self.symbol_index,
+            lsp_client=self.lsp_client,
+            lowerdir_provider=_provider,
+            config=OverlayAuditorConfig(),
+        )
+        with self._overlay_init_lock:
+            if self._overlay_auditor is None:
+                self._overlay_auditor = auditor
+            return self._overlay_auditor
+
+    async def _ensure_overlay_lowerdir(self, sandbox: Any) -> str:
+        if self._overlay_lowerdir is not None:
+            return self._overlay_lowerdir
+
+        import shlex
+
+        lowerdir = f"/tmp/overlay-lower-{self.sandbox_id}"
+        # Create a detached scratch worktree of HEAD as the shared,
+        # immutable base for every overlay run on this sandbox. Skip
+        # the create if the directory already exists (idempotent).
+        probe_cmd = (
+            f"[ -d {shlex.quote(lowerdir)} ] && echo exists || "
+            f"git -C {shlex.quote(self.workspace_root)} worktree add --detach "
+            f"{shlex.quote(lowerdir)} HEAD"
+        )
+        await self._exec_sandbox_process(sandbox, probe_cmd, timeout=60)
+        self._overlay_lowerdir = lowerdir
+        return lowerdir
 
     async def _exec_sandbox_process(
         self,
