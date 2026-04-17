@@ -19,7 +19,7 @@ from team.models import (
     TaskDefinition,
     TaskStatus,
 )
-from team.planning.expander import PlanExpander
+from team.planning.expander import PlanExpander, PlanExpansionOutcome, ReplanApplyOutcome
 from team.persistence.task_store import TaskStore
 from team.task_center import TaskCenter
 from tools.core.base import ToolExecutionContext
@@ -360,14 +360,29 @@ async def test_submit_replan_rejects_dep_on_rewired_downstream_task():
 
 
 class _FakeExpander:
-    def __init__(self, outcome: dict[str, int | list[str]]) -> None:
+    def __init__(self, outcome: ReplanApplyOutcome) -> None:
         self.outcome = outcome
 
     async def expand_submitted_plan(self, rec, result):
-        return [], True
+        return PlanExpansionOutcome.accepted_with()
 
     async def apply_replan(self, **kwargs):
-        return dict(self.outcome)
+        return self.outcome
+
+
+def _replan_outcome(
+    *,
+    added: int = 0,
+    cancelled: int = 0,
+    inserted_ids: tuple[str, ...] = (),
+    replanner_child_count: int = 0,
+) -> ReplanApplyOutcome:
+    return ReplanApplyOutcome(
+        added=added,
+        cancelled=cancelled,
+        inserted_ids=inserted_ids,
+        replanner_child_count=replanner_child_count,
+    )
 
 
 class _FakeStore:
@@ -494,7 +509,7 @@ async def test_request_replan_double_call_emits_task_added_once():
     event_store = _RecordingEventStore()
     tc = _task_center_with_store(
         store,
-        _FakeExpander({"added": 0, "cancelled": 0, "inserted_ids": [], "replanner_child_count": 0}),
+        _FakeExpander(_replan_outcome()),
     )
     tc._events = event_store
 
@@ -525,7 +540,7 @@ async def test_replanner_done_immediately_when_replan_has_no_children():
     store = _FakeStore(graph)
     tc = _task_center_with_store(
         store,
-        _FakeExpander({"added": 0, "cancelled": 0, "inserted_ids": [], "replanner_child_count": 0}),
+        _FakeExpander(_replan_outcome()),
     )
 
     await tc.complete_task("replanner", AgentResult(summary="", submitted_replan=ReplanPlan()))
@@ -551,7 +566,7 @@ async def test_replanner_expanded_when_replan_creates_direct_children():
     tc = _task_center_with_store(
         store,
         _FakeExpander(
-            {"added": 1, "cancelled": 0, "inserted_ids": ["child"], "replanner_child_count": 1}
+            _replan_outcome(added=1, inserted_ids=("child",), replanner_child_count=1)
         ),
     )
 
@@ -576,7 +591,7 @@ async def test_expanded_replanner_finalizes_origin_after_successful_child_comple
     }
     store = _FakeStore(graph)
     store.expanded_promotions["child"] = ["replanner"]
-    tc = _task_center_with_store(store, _FakeExpander({"added": 0, "cancelled": 0}))
+    tc = _task_center_with_store(store, _FakeExpander(_replan_outcome()))
 
     await tc.complete_task("child", AgentResult(summary="done"))
 
@@ -607,7 +622,7 @@ async def test_finalized_replan_origin_can_promote_ancestor_parent():
     store = _FakeStore(graph)
     store.expanded_promotions["child"] = ["replanner"]
     store.expanded_promotions["failed"] = ["parent"]
-    tc = _task_center_with_store(store, _FakeExpander({"added": 0, "cancelled": 0}))
+    tc = _task_center_with_store(store, _FakeExpander(_replan_outcome()))
 
     await tc.complete_task("child", AgentResult(summary="done"))
 
@@ -625,6 +640,10 @@ class _ExpanderStore:
     async def get_adjacency(self):
         return {task_id: list(task.deps) for task_id, task in self.graph.items()}
 
+    async def insert_plan(self, specs, **kwargs):
+        self.calls.append("insert_plan")
+        return []
+
     async def apply_replan_atomic(self, **kwargs):
         self.calls.append("apply_replan_atomic")
         return len(kwargs["cancel_ids"]), []
@@ -633,6 +652,7 @@ class _ExpanderStore:
 class _Budget:
     def __init__(self) -> None:
         self.charged = 0
+        self.added = 0
         self.budgets = BudgetConfig()
 
     def has_capacity_for(self, count: int) -> bool:
@@ -641,8 +661,14 @@ class _Budget:
     def charge_tasks(self, count: int) -> None:
         self.charged += count
 
+    def add_tasks_used(self, count: int) -> None:
+        self.added += count
+
     def within_depth_limit(self, new_depth: int) -> bool:
         return new_depth <= self.budgets.max_depth
+
+    def emit_update(self) -> None:
+        return None
 
 
 @pytest.mark.asyncio

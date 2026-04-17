@@ -44,7 +44,7 @@ from team.persistence.events import (
 )
 from team.persistence.run_store import NullTeamRunStore, TeamRunStore
 from team.persistence.task_store import TaskStore
-from team.planning.expander import PlanExpander
+from team.planning.expander import PlanExpander, ReplanApplyOutcome
 from team.runtime.checkpoint import TeamRunCheckpoint
 from team.runtime.transitions import TransitionTracker
 from team.task_context_builder import TaskContextBuilder
@@ -286,9 +286,10 @@ class TaskCenter:
                 f"complete: {task_id} is {rec.status if rec else 'missing'}, not RUNNING"
             )
 
-        new_items, ok = await self._expander.expand_submitted_plan(rec, result)
-        if not ok:
+        expansion = await self._expander.expand_submitted_plan(rec, result)
+        if not expansion.accepted:
             return []
+        new_items = list(expansion.new_items)
 
         if result.submitted_replan is not None:
             outcome = await self.apply_replan(
@@ -296,10 +297,7 @@ class TaskCenter:
                 add_tasks=result.submitted_replan.add_tasks,
                 cancel_ids=result.submitted_replan.cancel_ids,
             )
-            replanner_child_count = outcome.get("replanner_child_count", 0)
-            if not isinstance(replanner_child_count, int):
-                replanner_child_count = 0
-            if replanner_child_count > 0:
+            if outcome.replanner_child_count > 0:
                 await self._store.mark_expanded(task_id)
                 self._transitions.emit_status(
                     task_id,
@@ -380,7 +378,7 @@ class TaskCenter:
         replan_task_id: str,
         add_tasks: list[TaskDefinition],
         cancel_ids: list[str],
-    ) -> dict[str, int | list[str]]:
+    ) -> ReplanApplyOutcome:
         before = self._transitions.snapshot()
         try:
             outcome = await self._expander.apply_replan(
