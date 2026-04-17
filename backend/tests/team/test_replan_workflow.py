@@ -3,11 +3,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from pydantic import ValidationError
 
 from agents.registry import get_definition
 from team.builtins import register_all as register_team_builtins
-from team.errors import GraphInvariantViolation, InvalidPlan
+from team.errors import GraphInvariantViolation
 from team.models import (
     AgentResult,
     BudgetConfig,
@@ -16,10 +15,10 @@ from team.models import (
     ReplanPlan,
     ReplanRequest,
     Task,
-    TaskDefinition,
     TaskStatus,
 )
-from team.planning.expander import PlanExpander, PlanExpansionOutcome, ReplanApplyOutcome
+from .helpers import make_task as _task
+from .helpers import structured_spec as _spec
 from team.persistence.task_store import TaskStore
 from team.task_center import TaskCenter
 from tools.core.base import ToolExecutionContext
@@ -40,39 +39,6 @@ class _FakeSessionFactory:
                 return False
 
         return _Ctx()
-
-
-def _task(
-    task_id: str,
-    *,
-    agent_name: str = "developer",
-    status: TaskStatus = TaskStatus.PENDING,
-    parent_id: str | None = "parent",
-    deps: list[str] | None = None,
-    fired_by_task_id: str | None = None,
-) -> Task:
-    return Task(
-        id=task_id,
-        team_run_id="run-1",
-        agent_name=agent_name,
-        status=status,
-        objective=f"task {task_id}",
-        deps=deps or [],
-        parent_id=parent_id,
-        root_id="root",
-        depth=1 if parent_id else 0,
-        fired_by_task_id=fired_by_task_id,
-    )
-
-
-def _spec(text: str = "Do the work.") -> str:
-    return (
-        f"1. Goal: {text}\n"
-        "2. Environment: Use the current repository workspace.\n"
-        "3. Scope: Stay within scope_paths.\n"
-        "4. Context: Created by a replanner.\n"
-        "5. Acceptance Criteria: Submit the terminal outcome."
-    )
 
 
 @pytest.mark.asyncio
@@ -288,27 +254,6 @@ async def test_submit_replan_rejects_self_original_and_terminal_cancel_ids():
     assert "cancel target 'done' is done; cannot cancel" in result.output
 
 
-def test_submit_replan_rejects_unknown_fields():
-    # Sibling buckets are no longer accepted; pydantic should
-    # reject it via ConfigDict(extra="forbid").
-    with pytest.raises(ValidationError):
-        SubmitReplanTool.input_model(new_sibling_tasks=[])
-    with pytest.raises(ValidationError):
-        SubmitReplanTool.input_model(new_children_tasks=[])
-    with pytest.raises(ValidationError):
-        SubmitReplanTool.input_model(
-            new_tasks=[
-                {
-                    "id": "legacy-parent",
-                    "name": "developer",
-                    "description": "Legacy parent placement",
-                    "spec": _spec("Legacy parent placement should be rejected."),
-                    "parent_id": "parent",
-                }
-            ]
-        )
-
-
 @pytest.mark.asyncio
 async def test_submit_replan_rejects_dep_on_rewired_downstream_task():
     task_center = SimpleNamespace(
@@ -360,27 +305,23 @@ async def test_submit_replan_rejects_dep_on_rewired_downstream_task():
 
 
 class _FakeExpander:
-    def __init__(self, outcome: ReplanApplyOutcome) -> None:
+    def __init__(self, outcome: SimpleNamespace) -> None:
         self.outcome = outcome
 
     async def expand_submitted_plan(self, rec, result):
-        return PlanExpansionOutcome.accepted_with()
+        del rec, result
+        return SimpleNamespace(accepted=True, new_items=())
 
     async def apply_replan(self, **kwargs):
+        del kwargs
         return self.outcome
 
 
 def _replan_outcome(
     *,
-    added: int = 0,
-    cancelled: int = 0,
-    inserted_ids: tuple[str, ...] = (),
     replanner_child_count: int = 0,
-) -> ReplanApplyOutcome:
-    return ReplanApplyOutcome(
-        added=added,
-        cancelled=cancelled,
-        inserted_ids=inserted_ids,
+) -> SimpleNamespace:
+    return SimpleNamespace(
         replanner_child_count=replanner_child_count,
     )
 
@@ -566,7 +507,7 @@ async def test_replanner_expanded_when_replan_creates_direct_children():
     tc = _task_center_with_store(
         store,
         _FakeExpander(
-            _replan_outcome(added=1, inserted_ids=("child",), replanner_child_count=1)
+            _replan_outcome(replanner_child_count=1)
         ),
     )
 
@@ -630,118 +571,6 @@ async def test_finalized_replan_origin_can_promote_ancestor_parent():
     assert graph["replanner"].status == TaskStatus.DONE
     assert graph["failed"].status == TaskStatus.FAILED
     assert graph["parent"].status == TaskStatus.DONE
-
-
-class _ExpanderStore:
-    def __init__(self, graph: dict[str, Task]) -> None:
-        self.graph = graph
-        self.calls: list[str] = []
-
-    async def get_adjacency(self):
-        return {task_id: list(task.deps) for task_id, task in self.graph.items()}
-
-    async def insert_plan(self, specs, **kwargs):
-        self.calls.append("insert_plan")
-        return []
-
-    async def apply_replan_atomic(self, **kwargs):
-        self.calls.append("apply_replan_atomic")
-        return len(kwargs["cancel_ids"]), []
-
-
-class _Budget:
-    def __init__(self) -> None:
-        self.charged = 0
-        self.added = 0
-        self.budgets = BudgetConfig()
-
-    def has_capacity_for(self, count: int) -> bool:
-        return True
-
-    def charge_tasks(self, count: int) -> None:
-        self.charged += count
-
-    def add_tasks_used(self, count: int) -> None:
-        self.added += count
-
-    def within_depth_limit(self, new_depth: int) -> bool:
-        return new_depth <= self.budgets.max_depth
-
-    def emit_update(self) -> None:
-        return None
-
-
-@pytest.mark.asyncio
-async def test_replan_cancels_active_runner_after_apply_replan_atomic_commits():
-    graph = {
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-        ),
-        "running-target": _task("running-target", status=TaskStatus.RUNNING),
-    }
-    store = _ExpanderStore(graph)
-    expander = PlanExpander(
-        team_run_id="run-1",
-        store=store,
-        budget=_Budget(),
-        graph_getter=lambda: graph,
-        emit_cb=lambda event: None,
-        fail_cb=lambda task_id, reason: None,
-        cancel_running_task_cb=lambda task_id: store.calls.append(f"cancel:{task_id}"),
-    )
-
-    await expander.apply_replan(
-        replan_task_id="replanner",
-        add_tasks=[],
-        cancel_ids=["running-target"],
-    )
-
-    # DB transaction commits BEFORE runtime cancellation so a rollback
-    # cannot leave the graph saying the task is RUNNING while its runner
-    # has already been killed.
-    assert store.calls == ["apply_replan_atomic", "cancel:running-target"]
-
-
-@pytest.mark.asyncio
-async def test_replan_cancel_cascade_includes_reviewer_dependents():
-    graph = {
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-        ),
-        "running-target": _task("running-target", status=TaskStatus.RUNNING),
-        "reviewer-dependent": _task(
-            "reviewer-dependent",
-            agent_name="reviewer",
-            status=TaskStatus.RUNNING,
-            deps=["running-target"],
-        ),
-    }
-    store = _ExpanderStore(graph)
-    expander = PlanExpander(
-        team_run_id="run-1",
-        store=store,
-        budget=_Budget(),
-        graph_getter=lambda: graph,
-        emit_cb=lambda event: None,
-        fail_cb=lambda task_id, reason: None,
-        cancel_running_task_cb=lambda task_id: store.calls.append(f"cancel:{task_id}"),
-    )
-
-    await expander.apply_replan(
-        replan_task_id="replanner",
-        add_tasks=[],
-        cancel_ids=["running-target"],
-    )
-
-    assert store.calls == [
-        "apply_replan_atomic",
-        "cancel:reviewer-dependent",
-        "cancel:running-target",
-    ]
 
 
 @pytest.mark.asyncio
@@ -885,188 +714,6 @@ async def test_request_replan_inserts_new_replanner_when_none_exists(monkeypatch
     assert replaces == [
         {"old": "failed-task", "new": [replanner.id]}
     ]
-
-
-@pytest.mark.asyncio
-async def test_replan_does_not_cancel_runner_when_apply_replan_atomic_raises():
-    """If apply_replan_atomic fails, no live runner cancellation happens,
-    so graph state and runner state stay consistent under rollback."""
-
-    class _RaisingStore(_ExpanderStore):
-        async def apply_replan_atomic(self, **kwargs):
-            self.calls.append("apply_replan_atomic")
-            raise RuntimeError("db commit failed")
-
-    graph = {
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-        ),
-        "running-target": _task("running-target", status=TaskStatus.RUNNING),
-    }
-    store = _RaisingStore(graph)
-    expander = PlanExpander(
-        team_run_id="run-1",
-        store=store,
-        budget=_Budget(),
-        graph_getter=lambda: graph,
-        emit_cb=lambda event: None,
-        fail_cb=lambda task_id, reason: None,
-        cancel_running_task_cb=lambda task_id: store.calls.append(f"cancel:{task_id}"),
-    )
-
-    with pytest.raises(RuntimeError, match="db commit failed"):
-        await expander.apply_replan(
-            replan_task_id="replanner",
-            add_tasks=[],
-            cancel_ids=["running-target"],
-        )
-
-    assert store.calls == ["apply_replan_atomic"]
-
-
-@pytest.mark.asyncio
-async def test_replan_expander_rejects_original_task_cancellation():
-    graph = {
-        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-            fired_by_task_id="failed",
-        ),
-    }
-    expander = PlanExpander(
-        team_run_id="run-1",
-        store=_ExpanderStore(graph),
-        budget=_Budget(),
-        graph_getter=lambda: graph,
-        emit_cb=lambda event: None,
-        fail_cb=lambda task_id, reason: None,
-    )
-
-    with pytest.raises(InvalidPlan, match="original request_replan task"):
-        await expander.apply_replan(
-            replan_task_id="replanner",
-            add_tasks=[],
-            cancel_ids=["failed"],
-        )
-
-
-@pytest.mark.asyncio
-async def test_replan_expander_rejects_insertion_under_original_task():
-    graph = {
-        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-            fired_by_task_id="failed",
-        ),
-    }
-    expander = PlanExpander(
-        team_run_id="run-1",
-        store=_ExpanderStore(graph),
-        budget=_Budget(),
-        graph_getter=lambda: graph,
-        emit_cb=lambda event: None,
-        fail_cb=lambda task_id, reason: None,
-    )
-
-    with pytest.raises(InvalidPlan, match="must be direct children of the replanner"):
-        await expander.apply_replan(
-            replan_task_id="replanner",
-            add_tasks=[
-                TaskDefinition(
-                    id="bad-child",
-                    objective=_spec("Invalid repair under original failed task."),
-                    agent="developer",
-                    parent_id="failed",
-                )
-            ],
-            cancel_ids=[],
-        )
-
-
-@pytest.mark.asyncio
-async def test_replan_expander_applies_plan_policy_to_added_tasks():
-    graph = {
-        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-            fired_by_task_id="failed",
-        ),
-    }
-    expander = PlanExpander(
-        team_run_id="run-1",
-        store=_ExpanderStore(graph),
-        budget=_Budget(),
-        graph_getter=lambda: graph,
-        emit_cb=lambda event: None,
-        fail_cb=lambda task_id, reason: None,
-    )
-
-    with pytest.raises(InvalidPlan, match="submitted plans cannot include replanner agent"):
-        await expander.apply_replan(
-            replan_task_id="replanner",
-            add_tasks=[
-                TaskDefinition(
-                    id="bad-replanner",
-                    objective=_spec("Invalid replanner target."),
-                    agent="team_replanner",
-                    description="invalid replanner target",
-                    scope_paths=["src/a.py"],
-                    parent_id="replanner",
-                )
-            ],
-            cancel_ids=[],
-        )
-
-
-@pytest.mark.asyncio
-async def test_replan_expander_rejects_dep_on_rewired_downstream_task():
-    graph = {
-        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-            fired_by_task_id="failed",
-        ),
-        "downstream": _task(
-            "downstream",
-            status=TaskStatus.PENDING,
-            deps=["replanner"],
-        ),
-    }
-    expander = PlanExpander(
-        team_run_id="run-1",
-        store=_ExpanderStore(graph),
-        budget=_Budget(),
-        graph_getter=lambda: graph,
-        emit_cb=lambda event: None,
-        fail_cb=lambda task_id, reason: None,
-    )
-
-    with pytest.raises(InvalidPlan, match="unknown dep reference 'downstream'"):
-        await expander.apply_replan(
-            replan_task_id="replanner",
-            add_tasks=[
-                TaskDefinition(
-                    id="repair",
-                    objective=_spec("Invalidly wait for downstream work blocked on R."),
-                    agent="developer",
-                    description="invalid downstream dependency",
-                    deps=["downstream"],
-                    scope_paths=["src/a.py"],
-                    parent_id="replanner",
-                )
-            ],
-            cancel_ids=[],
-        )
 
 
 @pytest.mark.asyncio

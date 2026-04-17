@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from agents.registry import get_definition
 from team.builtins import register_all as register_team_builtins
+from .helpers import structured_spec as _spec
 from team.models import BudgetConfig, BudgetState, Task, TaskStatus
 from team.runtime.context_builder import build_query_context, build_task_metadata
 from tools.core.base import ToolExecutionContext
@@ -16,23 +17,6 @@ from tools.submission.toolkit import SubmitPlanTool, SubmitReplanTool
 
 if get_definition("developer") is None:
     register_team_builtins()
-
-
-def _spec(
-    goal: str = "Complete the assigned task.",
-    *,
-    environment: str = "Use the current repository workspace and configured team runtime.",
-    scope: str = "Stay within the listed scope_paths.",
-    context: str = "This task was created by submit_plan.",
-    acceptance: str = "Submit the appropriate terminal summary when complete.",
-) -> str:
-    return (
-        f"1. Goal: {goal}\n"
-        f"2. Environment: {environment}\n"
-        f"3. Scope: {scope}\n"
-        f"4. Context: {context}\n"
-        f"5. Acceptance Criteria: {acceptance}"
-    )
 
 
 class _AsyncTaskCenterStub:

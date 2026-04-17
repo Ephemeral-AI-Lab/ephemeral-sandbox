@@ -20,45 +20,14 @@ from team.models import (
     TaskDefinition,
     TaskStatus,
 )
+from .helpers import make_task as _task
+from .helpers import structured_spec as _spec
 from team.planning.expander import PlanExpander, PlanExpansionOutcome, ReplanApplyOutcome
 from team.planning.replan_validation import ALLOWED_REPLAN_DEP_STATUSES, validate_replan_rules
 
 
 if get_definition("developer") is None:
     register_team_builtins()
-
-
-def _task(
-    task_id: str,
-    *,
-    agent_name: str = "developer",
-    status: TaskStatus = TaskStatus.PENDING,
-    parent_id: str | None = "parent",
-    deps: list[str] | None = None,
-    fired_by_task_id: str | None = None,
-) -> Task:
-    return Task(
-        id=task_id,
-        team_run_id="run-1",
-        agent_name=agent_name,
-        status=status,
-        objective=f"task {task_id}",
-        deps=deps or [],
-        parent_id=parent_id,
-        root_id="root",
-        depth=1 if parent_id else 0,
-        fired_by_task_id=fired_by_task_id,
-    )
-
-
-def _spec(text: str = "Do the work.") -> str:
-    return (
-        f"1. Goal: {text}\n"
-        "2. Environment: Use the current repository workspace.\n"
-        "3. Scope: Stay within scope_paths.\n"
-        "4. Context: Created by a replanner.\n"
-        "5. Acceptance Criteria: Submit the terminal outcome."
-    )
 
 
 class _ExpanderStore:
@@ -109,6 +78,14 @@ class _Budget:
 
     def emit_update(self) -> None:
         return None
+
+
+def _ignore_event(event: object) -> None:
+    del event
+
+
+async def _ignore_fail(task_id: str, reason: str) -> None:
+    del task_id, reason
 
 
 @pytest.mark.asyncio
@@ -223,6 +200,265 @@ async def test_expander_replan_returns_typed_outcome_and_raises_invalid_plan():
         )
 
     assert failures == []
+
+
+@pytest.mark.asyncio
+async def test_replan_cancels_active_runner_after_apply_replan_atomic_commits():
+    graph = {
+        "replanner": _task(
+            "replanner",
+            agent_name="team_replanner",
+            status=TaskStatus.RUNNING,
+        ),
+        "running-target": _task("running-target", status=TaskStatus.RUNNING),
+    }
+    store = _ExpanderStore(graph)
+    expander = PlanExpander(
+        team_run_id="run-1",
+        store=store,
+        budget=_Budget(),
+        graph_getter=lambda: graph,
+        emit_cb=_ignore_event,
+        fail_cb=_ignore_fail,
+        cancel_running_task_cb=lambda task_id: store.calls.append(f"cancel:{task_id}"),
+    )
+
+    await expander.apply_replan(
+        replan_task_id="replanner",
+        add_tasks=[],
+        cancel_ids=["running-target"],
+    )
+
+    # DB transaction commits BEFORE runtime cancellation so a rollback
+    # cannot leave the graph saying the task is RUNNING while its runner
+    # has already been killed.
+    assert store.calls == ["apply_replan_atomic", "cancel:running-target"]
+
+
+@pytest.mark.asyncio
+async def test_replan_cancel_cascade_includes_reviewer_dependents():
+    graph = {
+        "replanner": _task(
+            "replanner",
+            agent_name="team_replanner",
+            status=TaskStatus.RUNNING,
+        ),
+        "running-target": _task("running-target", status=TaskStatus.RUNNING),
+        "reviewer-dependent": _task(
+            "reviewer-dependent",
+            agent_name="reviewer",
+            status=TaskStatus.RUNNING,
+            deps=["running-target"],
+        ),
+    }
+    store = _ExpanderStore(graph)
+    expander = PlanExpander(
+        team_run_id="run-1",
+        store=store,
+        budget=_Budget(),
+        graph_getter=lambda: graph,
+        emit_cb=_ignore_event,
+        fail_cb=_ignore_fail,
+        cancel_running_task_cb=lambda task_id: store.calls.append(f"cancel:{task_id}"),
+    )
+
+    await expander.apply_replan(
+        replan_task_id="replanner",
+        add_tasks=[],
+        cancel_ids=["running-target"],
+    )
+
+    assert store.calls == [
+        "apply_replan_atomic",
+        "cancel:reviewer-dependent",
+        "cancel:running-target",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_replan_does_not_cancel_runner_when_apply_replan_atomic_raises():
+    """If apply_replan_atomic fails, no live runner cancellation happens,
+    so graph state and runner state stay consistent under rollback."""
+
+    class _RaisingStore(_ExpanderStore):
+        async def apply_replan_atomic(
+            self,
+            **kwargs: object,
+        ) -> tuple[int, list[TaskDefinition]]:
+            del kwargs
+            self.calls.append("apply_replan_atomic")
+            raise RuntimeError("db commit failed")
+
+    graph = {
+        "replanner": _task(
+            "replanner",
+            agent_name="team_replanner",
+            status=TaskStatus.RUNNING,
+        ),
+        "running-target": _task("running-target", status=TaskStatus.RUNNING),
+    }
+    store = _RaisingStore(graph)
+    expander = PlanExpander(
+        team_run_id="run-1",
+        store=store,
+        budget=_Budget(),
+        graph_getter=lambda: graph,
+        emit_cb=_ignore_event,
+        fail_cb=_ignore_fail,
+        cancel_running_task_cb=lambda task_id: store.calls.append(f"cancel:{task_id}"),
+    )
+
+    with pytest.raises(RuntimeError, match="db commit failed"):
+        await expander.apply_replan(
+            replan_task_id="replanner",
+            add_tasks=[],
+            cancel_ids=["running-target"],
+        )
+
+    assert store.calls == ["apply_replan_atomic"]
+
+
+@pytest.mark.asyncio
+async def test_replan_expander_rejects_original_task_cancellation():
+    graph = {
+        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
+        "replanner": _task(
+            "replanner",
+            agent_name="team_replanner",
+            status=TaskStatus.RUNNING,
+            fired_by_task_id="failed",
+        ),
+    }
+    expander = PlanExpander(
+        team_run_id="run-1",
+        store=_ExpanderStore(graph),
+        budget=_Budget(),
+        graph_getter=lambda: graph,
+        emit_cb=_ignore_event,
+        fail_cb=_ignore_fail,
+    )
+
+    with pytest.raises(InvalidPlan, match="original request_replan task"):
+        await expander.apply_replan(
+            replan_task_id="replanner",
+            add_tasks=[],
+            cancel_ids=["failed"],
+        )
+
+
+@pytest.mark.asyncio
+async def test_replan_expander_rejects_insertion_under_original_task():
+    graph = {
+        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
+        "replanner": _task(
+            "replanner",
+            agent_name="team_replanner",
+            status=TaskStatus.RUNNING,
+            fired_by_task_id="failed",
+        ),
+    }
+    expander = PlanExpander(
+        team_run_id="run-1",
+        store=_ExpanderStore(graph),
+        budget=_Budget(),
+        graph_getter=lambda: graph,
+        emit_cb=_ignore_event,
+        fail_cb=_ignore_fail,
+    )
+
+    with pytest.raises(InvalidPlan, match="must be direct children of the replanner"):
+        await expander.apply_replan(
+            replan_task_id="replanner",
+            add_tasks=[
+                TaskDefinition(
+                    id="bad-child",
+                    objective=_spec("Invalid repair under original failed task."),
+                    agent="developer",
+                    parent_id="failed",
+                )
+            ],
+            cancel_ids=[],
+        )
+
+
+@pytest.mark.asyncio
+async def test_replan_expander_applies_plan_policy_to_added_tasks():
+    graph = {
+        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
+        "replanner": _task(
+            "replanner",
+            agent_name="team_replanner",
+            status=TaskStatus.RUNNING,
+            fired_by_task_id="failed",
+        ),
+    }
+    expander = PlanExpander(
+        team_run_id="run-1",
+        store=_ExpanderStore(graph),
+        budget=_Budget(),
+        graph_getter=lambda: graph,
+        emit_cb=_ignore_event,
+        fail_cb=_ignore_fail,
+    )
+
+    with pytest.raises(InvalidPlan, match="submitted plans cannot include replanner agent"):
+        await expander.apply_replan(
+            replan_task_id="replanner",
+            add_tasks=[
+                TaskDefinition(
+                    id="bad-replanner",
+                    objective=_spec("Invalid replanner target."),
+                    agent="team_replanner",
+                    description="invalid replanner target",
+                    scope_paths=["src/a.py"],
+                    parent_id="replanner",
+                )
+            ],
+            cancel_ids=[],
+        )
+
+
+@pytest.mark.asyncio
+async def test_replan_expander_rejects_dep_on_rewired_downstream_task():
+    graph = {
+        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
+        "replanner": _task(
+            "replanner",
+            agent_name="team_replanner",
+            status=TaskStatus.RUNNING,
+            fired_by_task_id="failed",
+        ),
+        "downstream": _task(
+            "downstream",
+            status=TaskStatus.PENDING,
+            deps=["replanner"],
+        ),
+    }
+    expander = PlanExpander(
+        team_run_id="run-1",
+        store=_ExpanderStore(graph),
+        budget=_Budget(),
+        graph_getter=lambda: graph,
+        emit_cb=_ignore_event,
+        fail_cb=_ignore_fail,
+    )
+
+    with pytest.raises(InvalidPlan, match="unknown dep reference 'downstream'"):
+        await expander.apply_replan(
+            replan_task_id="replanner",
+            add_tasks=[
+                TaskDefinition(
+                    id="repair",
+                    objective=_spec("Invalidly wait for downstream work blocked on R."),
+                    agent="developer",
+                    description="invalid downstream dependency",
+                    deps=["downstream"],
+                    scope_paths=["src/a.py"],
+                    parent_id="replanner",
+                )
+            ],
+            cancel_ids=[],
+        )
 
 
 @dataclass(frozen=True)

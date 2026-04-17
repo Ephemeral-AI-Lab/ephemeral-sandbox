@@ -167,7 +167,7 @@ def _build_overlay_bash(
         f"INNER_SCRIPT={quoted_run}/inner.sh\n"
         f"printf '%s' {shlex.quote(inner_b64)} | base64 -d > \"$INNER_SCRIPT\"\n"
         f"chmod +x \"$INNER_SCRIPT\"\n"
-        f"unshare -Urm --propagation private bash \"$INNER_SCRIPT\"\n"
+        f"unshare -Urm bash \"$INNER_SCRIPT\"\n"
         f"OUTER_RC=$?\n"
         # EXEC: user command stdout+stderr, base64 for safety.
         f"printf '%s\\n' {shlex.quote(exec_open)}\n"
