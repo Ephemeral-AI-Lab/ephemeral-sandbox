@@ -25,7 +25,11 @@ without changes.
 
 from __future__ import annotations
 
+import base64
 import logging
+import os
+import shlex
+import tempfile
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -93,6 +97,7 @@ class OverlayAuditor:
         self._lsp_client = lsp_client
         self._lowerdir_provider = lowerdir_provider
         self._config = config or OverlayAuditorConfig()
+        self._exec_process = exec_process
         self._overlay = OverlayExec(
             exec_process=exec_process,
             tmpfs_size=self._config.tmpfs_size,
@@ -134,8 +139,9 @@ class OverlayAuditor:
         except OverlayExecError:
             raise
 
+        local_tar = await self._download_remote_tar(sandbox, run.audit_tar_path)
         try:
-            changes = list(iter_upperdir_changes(run.audit_tar_path))
+            changes = list(iter_upperdir_changes(local_tar))
             changed_paths = await self._apply_and_record(
                 run,
                 changes=changes,
@@ -148,7 +154,8 @@ class OverlayAuditor:
                 task_id=task_id,
             )
         finally:
-            cleanup_tar(run.audit_tar_path)
+            cleanup_tar(local_tar)
+            await self._cleanup_remote_run_dir(sandbox, run.run_dir)
 
         return SimpleNamespace(
             result=run.stdout,
@@ -281,6 +288,48 @@ class OverlayAuditor:
                 new_hash = ""
             return "", new_hash
         return "", ""
+
+    async def _download_remote_tar(
+        self,
+        sandbox: Any,
+        remote_path: str,
+    ) -> str:
+        """Fetch ``remote_path`` from the sandbox to a local temp file.
+
+        ``OverlayExec`` produces the audit tar on the sandbox filesystem
+        (container-fs, outside the namespace's tmpfs). The walker runs
+        host-side against :mod:`tarfile`, so we stream the tar over the
+        exec transport as base64 and decode locally.
+        """
+        cmd = (
+            f"if [ -f {shlex.quote(remote_path)} ]; then "
+            f"base64 < {shlex.quote(remote_path)} | tr -d '\\n'; fi"
+        )
+        response = await self._exec_process(sandbox, cmd, timeout=60)
+        raw = str(getattr(response, "result", "") or "").strip()
+        data = base64.b64decode(raw) if raw else b""
+        fd, local_path = tempfile.mkstemp(prefix="overlay-audit-", suffix=".tar")
+        try:
+            with os.fdopen(fd, "wb") as out:
+                out.write(data)
+        except Exception:
+            os.close(fd) if fd else None  # best-effort
+            raise
+        return local_path
+
+    async def _cleanup_remote_run_dir(self, sandbox: Any, run_dir: str) -> None:
+        try:
+            await self._exec_process(
+                sandbox,
+                f"rm -rf {shlex.quote(run_dir)}",
+                timeout=30,
+            )
+        except Exception:
+            logger.debug(
+                "overlay_auditor: failed to clean up remote %s",
+                run_dir,
+                exc_info=True,
+            )
 
     def _invalidate_caches(self, change: UpperdirChange, file_path: str) -> None:
         if change.kind is ChangeKind.MODIFY and change.content is not None:

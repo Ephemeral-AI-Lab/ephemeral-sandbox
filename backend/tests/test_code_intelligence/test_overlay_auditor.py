@@ -92,11 +92,19 @@ async def test_execute_applies_modify_and_records_ledger(tmp_path: Path) -> None
     captured: dict[str, Any] = {}
 
     async def fake_exec(sandbox: Any, command: str, *, timeout: Any) -> Any:
-        prefix = "__OVERLAYAUDIT_"
-        start = command.index(prefix) + len(prefix)
-        run_id = command[start : start + 32]
-        captured["run_id"] = run_id
-        return SimpleNamespace(result=_build_exec_reply(run_id, str(tar_path)))
+        if "__OVERLAYAUDIT_" in command:
+            prefix = "__OVERLAYAUDIT_"
+            start = command.index(prefix) + len(prefix)
+            run_id = command[start : start + 32]
+            captured["run_id"] = run_id
+            return SimpleNamespace(result=_build_exec_reply(run_id, str(tar_path)))
+        if command.startswith("if [ -f") and "base64 <" in command:
+            # Host-side download of the remote tar. Stream real bytes.
+            with open(tar_path, "rb") as fh:
+                return SimpleNamespace(result=base64.b64encode(fh.read()).decode("ascii"))
+        if command.startswith("rm -rf"):
+            return SimpleNamespace(result="")
+        return SimpleNamespace(result="")
 
     arbiter = _FakeArbiter()
     content = _FakeContent()
@@ -142,8 +150,9 @@ async def test_execute_applies_modify_and_records_ledger(tmp_path: Path) -> None
     ) in symbol_index.refreshed
     assert lsp.invalidated == ["/workspace/pkg/new.py"]
 
-    # Tar is cleaned up after use.
-    assert not tar_path.exists()
+    # The local downloaded copy gets cleaned; the simulated "remote" tar
+    # is the test fixture and persists in tmp_path until teardown.
+    assert tar_path.exists()
 
 
 @pytest.mark.asyncio
@@ -154,12 +163,21 @@ async def test_execute_two_agents_different_files_attributes_separately(
     tar_a = _make_tar(tmp_path, "a.tar", [("./pkg/agent_a.py", b"a=1\n")])
     tar_b = _make_tar(tmp_path, "b.tar", [("./pkg/agent_b.py", b"b=2\n")])
     tars = iter([str(tar_a), str(tar_b)])
+    current_tar = {"path": ""}
 
     async def fake_exec(sandbox: Any, command: str, *, timeout: Any) -> Any:
-        prefix = "__OVERLAYAUDIT_"
-        start = command.index(prefix) + len(prefix)
-        run_id = command[start : start + 32]
-        return SimpleNamespace(result=_build_exec_reply(run_id, next(tars)))
+        if "__OVERLAYAUDIT_" in command:
+            prefix = "__OVERLAYAUDIT_"
+            start = command.index(prefix) + len(prefix)
+            run_id = command[start : start + 32]
+            current_tar["path"] = next(tars)
+            return SimpleNamespace(result=_build_exec_reply(run_id, current_tar["path"]))
+        if command.startswith("if [ -f") and "base64 <" in command:
+            with open(current_tar["path"], "rb") as fh:
+                return SimpleNamespace(result=base64.b64encode(fh.read()).decode("ascii"))
+        if command.startswith("rm -rf"):
+            return SimpleNamespace(result="")
+        return SimpleNamespace(result="")
 
     arbiter = _FakeArbiter()
     content = _FakeContent()
