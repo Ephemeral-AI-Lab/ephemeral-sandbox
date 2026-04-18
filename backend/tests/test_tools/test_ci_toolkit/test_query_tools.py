@@ -891,21 +891,33 @@ async def test_query_references_bootstraps_python_lsp_for_remote_refs():
     svc.find_references.assert_called_once()
 
 
-async def test_query_references_uses_lsp_for_async_sandbox_refs():
+async def test_query_references_rebinds_async_sandbox_to_sync_lsp_handle():
     defn = _make_symbol_info("Engine", "/testbed/src/engine.py", 10, "class")
     ref = MagicMock(file_path="/testbed/src/main.py", line=20, text="engine = Engine(config)")
 
     async def _exec(_command: str, timeout: int = 0):
-        return SimpleNamespace(exit_code=0, result="")
+        raise AssertionError("async sandbox exec should not be used for LSP readiness")
 
     svc = _svc_with_index(symbols=[defn], refs=[ref], initialized=False, is_built=True)
     svc.query_symbols.return_value = [defn]
-    svc.lsp_client._sandbox = SimpleNamespace(process=SimpleNamespace(exec=_exec))
+    async_sandbox = SimpleNamespace(process=SimpleNamespace(exec=_exec))
+    sync_sandbox = SimpleNamespace(process=SimpleNamespace(exec=MagicMock()))
+    svc.lsp_client._sandbox = async_sandbox
+
+    def _rebind(sandbox):
+        svc.lsp_client._sandbox = sandbox
+
+    svc.rebind_sandbox.side_effect = _rebind
 
     ctx = _ctx_with_svc(svc)
-    ctx.metadata["daytona_sandbox"] = svc.lsp_client._sandbox
+    ctx.metadata["sandbox_id"] = "sb-123"
+    ctx.metadata["daytona_sandbox"] = async_sandbox
 
-    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+    with (
+        patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc),
+        patch("sandbox.service.SandboxService") as service_cls,
+    ):
+        service_cls.return_value.get_sandbox_object.return_value = sync_sandbox
         result = await ci_query_symbol.execute(
             ci_query_symbol.input_model(query="Engine", references=True),
             ctx,
@@ -919,7 +931,39 @@ async def test_query_references_uses_lsp_for_async_sandbox_refs():
         install_missing=True,
         languages=("python",),
     )
+    svc.rebind_sandbox.assert_called_once_with(sync_sandbox)
     svc.find_references.assert_called_once()
+
+
+async def test_query_references_reports_async_sandbox_when_sync_lsp_handle_missing():
+    defn = _make_symbol_info("Engine", "/testbed/src/engine.py", 10, "class")
+
+    async def _exec(_command: str, timeout: int = 0):
+        return SimpleNamespace(exit_code=0, result="")
+
+    svc = _svc_with_index(symbols=[defn], refs=[])
+    svc.query_symbols.return_value = [defn]
+    svc.lsp_client._sandbox = SimpleNamespace(process=SimpleNamespace(exec=_exec))
+
+    ctx = _ctx_with_svc(svc)
+    ctx.metadata["sandbox_id"] = "sb-123"
+
+    with (
+        patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc),
+        patch("sandbox.service.SandboxService") as service_cls,
+    ):
+        service_cls.return_value.get_sandbox_object.side_effect = RuntimeError("no sync")
+        result = await ci_query_symbol.execute(
+            ci_query_symbol.input_model(query="Engine", references=True),
+            ctx,
+        )
+
+    data = json.loads(result.output)
+    assert data["confidence"] == "unavailable"
+    assert data["reference_status"] == "definition_fallback"
+    assert data["lsp_reason"] == "async_sandbox_lsp_unavailable"
+    svc.lsp_client.ensure_ready.assert_not_called()
+    svc.find_references.assert_not_called()
 
 
 async def test_query_references_reports_python_lsp_unavailable():

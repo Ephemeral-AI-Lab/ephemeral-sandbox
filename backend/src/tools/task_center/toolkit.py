@@ -63,7 +63,15 @@ def _sanitize_scout_gap_paths(content: str, note_paths: list[str]) -> str:
 
 
 class PostNoteInput(BaseModel):
-    content: str = Field(..., description="Note content to post", min_length=1)
+    content: str = Field(
+        ...,
+        description=(
+            "REQUIRED. Put the entire Task Center note here as a non-empty string. "
+            "Never leave the tool input empty, and never put the note only in "
+            "assistant text."
+        ),
+        min_length=1,
+    )
     paths: list[str] | None = Field(
         default=None,
         description=(
@@ -104,6 +112,7 @@ class SubmitTaskNoteTool(BaseTool):
     name = "submit_task_note"
     description = (
         "Post a note to the Task Center for other agents to read. "
+        "The input must include non-empty `content`; never call with `{}`. "
         "Use for: blockers that siblings should know about, partial progress "
         "updates on long tasks, discoveries about the codebase that downstream "
         "tasks need, and exploration findings (scouts). Notes are append-only "

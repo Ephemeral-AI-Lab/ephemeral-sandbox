@@ -120,6 +120,9 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must load `task-planning-decomposition`" in planner.lower()
     assert "final submit helper" in planner.lower()
     assert "submit_plan` tool schema is enough" in planner
+    assert "top-level `deps` field lists every terminal non-validator sibling id" in planner
+    assert "prose inside `spec` does not create task dependencies" in planner
+    assert "never submit a `validator` task with `deps: []`" in planner.lower()
     assert "never guess an exact owner" in planner.lower()
     assert "never make non-submission tool calls after loading `plan-json-contract`" in planner.lower()
     assert "split unrelated scout targets" in planner.lower()
@@ -186,6 +189,8 @@ def test_reference_files_hold_specialized_detail() -> None:
     assert "Do not include `task_note`" in planner_json
     assert "`1. Goal:`" in planner_json
     assert "Do not use Markdown headings" in planner_json
+    assert "Mentioning dependencies inside `spec` does not set task deps" in planner_json
+    assert "Never submit it with `deps: []`" in planner_json
     assert "Example task graph" in planner_decomposition
     assert '"id": "dev-hdf"' in planner_decomposition
     assert '"id": "dev-shared-config"' in planner_decomposition

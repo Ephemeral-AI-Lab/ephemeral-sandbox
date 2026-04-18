@@ -91,7 +91,10 @@ async def test_submit_task_note_allows_scout_correct_path_content():
 def test_submit_task_note_schema_is_pydantic_native():
     schema = SubmitTaskNoteTool().to_api_schema()
 
-    assert schema["input_schema"]["properties"]["content"]["description"]
+    content_description = schema["input_schema"]["properties"]["content"]["description"]
+    assert "REQUIRED" in content_description
+    assert "Never leave the tool input empty" in content_description
+    assert "never call with `{}`" in schema["description"]
     assert schema["output_schema"]["properties"]["task_id"]["description"]
 
 

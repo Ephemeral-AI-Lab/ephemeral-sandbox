@@ -26,6 +26,13 @@ def _decode_sandbox_python_payload(command: str) -> str:
     return base64.b64decode(match.group("payload")).decode("utf-8")
 
 
+def _sandbox_exit_result(exit_code: int, stdout: str = "") -> SimpleNamespace:
+    return SimpleNamespace(
+        exit_code=None,
+        result=f"{stdout}\n__CODEX_EXIT_CODE__={exit_code}\n",
+    )
+
+
 def test_python_definitions_maps_known_symbol_kind(monkeypatch) -> None:
     lsp = LspClient(workspace_root="/workspace")
     monkeypatch.setattr(
@@ -328,8 +335,8 @@ def test_ensure_ready_can_probe_only_python_backend() -> None:
 
         def exec(self, command: str, timeout: int = 0):
             self.calls.append(command)
-            if command == "python3 -c 'import jedi'":
-                return SimpleNamespace(exit_code=0, result="")
+            if "import jedi" in command:
+                return _sandbox_exit_result(0)
             raise AssertionError(f"unexpected command: {command}")
 
     process = _SandboxProcess()
@@ -338,7 +345,9 @@ def test_ensure_ready_can_probe_only_python_backend() -> None:
     readiness = lsp.ensure_ready(languages=("python",))
 
     assert readiness == {"python": True, "typescript": False}
-    assert process.calls == ["python3 -c 'import jedi'"]
+    assert len(process.calls) == 1
+    assert "import jedi" in process.calls[0]
+    assert "__CODEX_EXIT_CODE__" in process.calls[0]
 
 
 def test_connected_does_not_probe_typescript_backend() -> None:
@@ -348,15 +357,17 @@ def test_connected_does_not_probe_typescript_backend() -> None:
 
         def exec(self, command: str, timeout: int = 0):
             self.calls.append(command)
-            if command == "python3 -c 'import jedi'":
-                return SimpleNamespace(exit_code=0, result="")
+            if "import jedi" in command:
+                return _sandbox_exit_result(0)
             raise AssertionError(f"unexpected command: {command}")
 
     process = _SandboxProcess()
     lsp = LspClient(workspace_root="/workspace", sandbox=SimpleNamespace(process=process))
 
     assert lsp.connected is True
-    assert process.calls == ["python3 -c 'import jedi'"]
+    assert len(process.calls) == 1
+    assert "import jedi" in process.calls[0]
+    assert "__CODEX_EXIT_CODE__" in process.calls[0]
 
 
 def test_python_hover_uses_resolved_path(monkeypatch) -> None:
@@ -384,16 +395,16 @@ def test_ensure_ready_installs_missing_sandbox_deps() -> None:
 
         def exec(self, command: str, timeout: int = 0):
             self.calls.append(command)
-            if command == "python3 -c 'import jedi'":
-                return SimpleNamespace(exit_code=1, result="")
-            if command == "npx tsc --version":
-                return SimpleNamespace(exit_code=1, result="")
-            if command == "python3 -m pip install --quiet --no-cache-dir jedi":
-                return SimpleNamespace(exit_code=0, result="")
+            if "import jedi" in command:
+                return _sandbox_exit_result(1)
+            if "npx tsc --version" in command:
+                return _sandbox_exit_result(1)
+            if "python3 -m pip install --quiet --no-cache-dir jedi" in command:
+                return _sandbox_exit_result(0)
             if "node -e \"require('typescript')\"" in command:
                 return SimpleNamespace(exit_code=0, result="missing\n")
-            if command == "npm install --global --quiet typescript":
-                return SimpleNamespace(exit_code=0, result="")
+            if "npm install --global --quiet typescript" in command:
+                return _sandbox_exit_result(0)
             raise AssertionError(f"unexpected command: {command}")
 
     class _SandboxFs:
@@ -406,4 +417,8 @@ def test_ensure_ready_installs_missing_sandbox_deps() -> None:
     readiness = lsp.ensure_ready(install_missing=True)
 
     assert readiness == {"python": True, "typescript": True}
-    assert "python3 -m pip install --quiet --no-cache-dir jedi" in sandbox.process.calls
+    assert any(
+        "python3 -m pip install --quiet --no-cache-dir jedi" in command
+        and "__CODEX_EXIT_CODE__" in command
+        for command in sandbox.process.calls
+    )

@@ -14,6 +14,15 @@ from tools.task_center.toolkit import SubmitTaskNoteTool, PostNoteInput
 
 TC_NOTE_EDIT_PROMPT = load_note_taker_prompt("edit")
 TC_NOTE_TURN_PROMPT = load_note_taker_prompt("turn")
+TC_NOTE_FINAL_TOOL_CALL_REMINDER = """\
+## Final note-taker instruction
+
+Call `submit_task_note` now with a non-empty `content` string.
+Do not write analysis or a prose note outside the tool call.
+Do not call `submit_task_note` with `{}`.
+If you drafted text while reading the transcript, put that text inside
+`content` and send exactly one tool call.
+"""
 
 _DEFAULT_TC_NOTE_SYSTEM_PROMPT = (
     "You are a progress reporter. Read the frozen worker transcript as "
@@ -25,7 +34,11 @@ _DEFAULT_TC_NOTE_SYSTEM_PROMPT = (
 
 def build_tc_note_user_prompt(prompt: str, messages: list[dict[str, Any]]) -> str:
     """Append structured snapshot history to a tc_note trigger prompt."""
-    return f"{prompt.strip()}\n\n{format_snapshot_history(messages)}".strip()
+    return (
+        f"{prompt.strip()}\n\n"
+        f"{format_snapshot_history(messages)}\n\n"
+        f"{TC_NOTE_FINAL_TOOL_CALL_REMINDER.strip()}"
+    ).strip()
 
 
 @dataclass

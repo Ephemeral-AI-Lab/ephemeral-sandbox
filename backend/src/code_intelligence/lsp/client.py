@@ -716,8 +716,8 @@ class LspClient:
     def _check_backend(self, *, local_cmd: list[str], sandbox_cmd: str) -> bool:
         try:
             if self._sandbox:
-                resp = run_sync(self._sandbox.process.exec(sandbox_cmd, timeout=10))
-                return getattr(resp, "exit_code", 1) == 0
+                exit_code = self._run_sandbox_command_exit_code(sandbox_cmd, timeout=10)
+                return exit_code == 0
             proc = subprocess.run(
                 local_cmd,
                 capture_output=True, timeout=10,
@@ -754,11 +754,26 @@ class LspClient:
 
     def _run_sandbox_install(self, command: str) -> bool:
         try:
-            resp = run_sync(self._sandbox.process.exec(command, timeout=120))
-            return getattr(resp, "exit_code", 1) in (0, None)
+            exit_code = self._run_sandbox_command_exit_code(command, timeout=120)
+            return exit_code == 0
         except Exception:
             logger.debug("LSP backend install failed: %s", command, exc_info=True)
             return False
+
+    def _run_sandbox_command_exit_code(self, command: str, *, timeout: int) -> int:
+        """Run a sandbox command and recover its shell exit code."""
+        response = run_sync(
+            self._sandbox.process.exec(
+                _wrap_bash_command(command),
+                timeout=timeout,
+            )
+        )
+        result = str(getattr(response, "result", "") or "")
+        _cleaned, exit_code = _extract_exit_code(
+            result,
+            fallback_exit_code=getattr(response, "exit_code", None),
+        )
+        return exit_code
 
     # -- Cache ----------------------------------------------------------------
 

@@ -68,6 +68,10 @@ def test_note_taker_prompts_load_from_markdown_file() -> None:
 
     assert "Write a progress note for the Task Center" in edit_prompt
     assert "Call submit_task_note now" in turn_prompt
+    assert "exactly one `submit_task_note(...)` tool" in turn_prompt
+    assert "Do not write visible analysis" in turn_prompt
+    assert "Do not write the note in assistant text and then call an empty tool" in turn_prompt
+    assert "put that text inside `content`" in turn_prompt
     assert edit_prompt.startswith("Use the frozen worker transcript below only as evidence")
     assert "- submit_task_note: Post a Task Center note." in edit_prompt
     assert "not a conversation with you" in edit_prompt

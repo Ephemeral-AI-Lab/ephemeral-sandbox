@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -799,11 +800,69 @@ def _resolve_symbol_column(svc: Any, file_path: str, line: int, symbol_name: str
     return idx if idx >= 0 else 0
 
 
-def _ensure_reference_lsp_ready(svc: Any) -> tuple[bool | None, str | None]:
+def _sandbox_uses_async_exec(sandbox: Any) -> bool:
+    process = getattr(sandbox, "process", None)
+    exec_fn = getattr(process, "exec", None) if process is not None else None
+    return bool(exec_fn) and inspect.iscoroutinefunction(exec_fn)
+
+
+def _ensure_sync_lsp_sandbox(
+    context: ToolExecutionContext,
+    svc: Any,
+    lsp: Any,
+) -> tuple[Any, str | None]:
+    sandbox = getattr(lsp, "_sandbox", None)
+    if not _sandbox_uses_async_exec(sandbox):
+        return lsp, None
+
+    sandbox_id = str((context.metadata or {}).get("sandbox_id") or "").strip()
+    if not sandbox_id:
+        return lsp, "async_sandbox_lsp_unavailable"
+
+    try:
+        from sandbox.service import SandboxService
+
+        sync_sandbox = SandboxService().get_sandbox_object(sandbox_id)
+    except Exception:
+        logger.debug(
+            "Could not resolve sync sandbox handle for LSP reference tracing on %s",
+            sandbox_id,
+            exc_info=True,
+        )
+        return lsp, "async_sandbox_lsp_unavailable"
+
+    if _sandbox_uses_async_exec(sync_sandbox):
+        return lsp, "async_sandbox_lsp_unavailable"
+
+    rebind = getattr(svc, "rebind_sandbox", None)
+    if callable(rebind):
+        rebind(sync_sandbox)
+        rebound_lsp = getattr(svc, "lsp_client", lsp)
+        return rebound_lsp, None
+
+    try:
+        lsp._sandbox = sync_sandbox
+        reset = getattr(lsp, "reset_backend_availability", None)
+        if callable(reset):
+            reset()
+    except Exception:
+        logger.debug("Could not bind sync sandbox handle for LSP", exc_info=True)
+        return lsp, "async_sandbox_lsp_unavailable"
+    return lsp, None
+
+
+def _ensure_reference_lsp_ready(
+    context: ToolExecutionContext,
+    svc: Any,
+) -> tuple[bool | None, str | None]:
     """Best-effort readiness gate before reference tracing."""
     lsp = getattr(svc, "lsp_client", None)
     if lsp is None:
         return False, "lsp_client_missing"
+
+    lsp, sandbox_reason = _ensure_sync_lsp_sandbox(context, svc, lsp)
+    if sandbox_reason is not None:
+        return False, sandbox_reason
 
     ensure_ready = getattr(lsp, "ensure_ready", None)
     if not callable(ensure_ready):
@@ -1014,7 +1073,7 @@ async def ci_query_symbol(
 
     ref_list: list[dict[str, Any]] = []
     used_lsp = False
-    lsp_ready, lsp_reason = _ensure_reference_lsp_ready(svc)
+    lsp_ready, lsp_reason = _ensure_reference_lsp_ready(context, svc)
     if lsp_ready is not False:
         for defn in sorted_defs:
             try:
