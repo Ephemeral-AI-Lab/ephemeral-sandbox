@@ -9,12 +9,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContext, run_tool_safely
 from tools.daytona_toolkit import codeact_tool as codeact_tool_module
+from tools.daytona_toolkit._shell_policy import _normalize_team_shell_command
 from tools.daytona_toolkit.codeact_tool import (
     _build_exec_command,
     _build_wrapper,
-    _normalize_team_shell_command,
     daytona_codeact,
 )
 
@@ -298,7 +298,7 @@ async def test_shell_mode_reports_nonzero_exit_as_error():
     assert data["shells_run"] == 1
 
 
-async def test_shell_mode_allows_audited_test_suite_write_with_warning():
+async def test_shell_mode_blocks_audited_test_suite_write_with_policy_message():
     sb = _make_sandbox()
     svc = MagicMock()
     svc.exec_process_operation = AsyncMock(
@@ -319,16 +319,19 @@ async def test_shell_mode_allows_audited_test_suite_write_with_warning():
         }
     )
 
-    result = await daytona_codeact.execute(
-        daytona_codeact.input_model(command="sed -i s/old/new/ dask/tests/test_cli.py"),
+    result = await run_tool_safely(
+        daytona_codeact,
+        {"command": "sed -i s/old/new/ dask/tests/test_cli.py"},
         ctx,
     )
 
-    assert not result.is_error
+    assert result.is_error
     data = json.loads(result.output)
-    assert data["status"] == "ok"
+    assert data["status"] == "error"
     assert data["files_written"] == 1
-    assert any("outside write_scope" in warning for warning in data["warnings"])
+    assert "BLOCKED_TEST_FILE_EDIT" in data["error"]
+    assert "dask/tests/test_cli.py" in data["error"]
+    assert "read/verify-only" in data["error"]
 
 
 @pytest.mark.parametrize(
@@ -364,8 +367,9 @@ async def test_team_shell_mode_blocks_file_edit_side_channels_before_exec(
         }
     )
 
-    result = await daytona_codeact.execute(
-        daytona_codeact.input_model(command=command),
+    result = await run_tool_safely(
+        daytona_codeact,
+        {"command": command},
         ctx,
     )
 
@@ -563,8 +567,9 @@ async def test_team_shell_mode_treats_audited_changes_as_ambient():
         }
     )
 
-    result = await daytona_codeact.execute(
-        daytona_codeact.input_model(command="python -c 'print(\"ujson ok\")'"),
+    result = await run_tool_safely(
+        daytona_codeact,
+        {"command": "python -c 'print(\"ujson ok\")'"},
         ctx,
     )
 
@@ -595,8 +600,9 @@ async def test_shell_mode_warns_for_audited_outside_scope_write():
         }
     )
 
-    result = await daytona_codeact.execute(
-        daytona_codeact.input_model(command="python - <<'PY'\nprint('patched')\nPY"),
+    result = await run_tool_safely(
+        daytona_codeact,
+        {"command": "python - <<'PY'\nprint('patched')\nPY"},
         ctx,
     )
 
@@ -627,8 +633,9 @@ async def test_team_python_mode_blocks_file_edits_before_upload(code, expected_f
         }
     )
 
-    result = await daytona_codeact.execute(
-        daytona_codeact.input_model(code=code),
+    result = await run_tool_safely(
+        daytona_codeact,
+        {"code": code},
         ctx,
     )
 
@@ -758,8 +765,9 @@ async def test_shell_mode_normalizes_stderr_merge_for_team_agents():
         }
     )
 
-    result = await daytona_codeact.execute(
-        daytona_codeact.input_model(command="cd /testbed && pytest tests/unit/test_x.py -q 2>&1"),
+    result = await run_tool_safely(
+        daytona_codeact,
+        {"command": "cd /testbed && pytest tests/unit/test_x.py -q 2>&1"},
         ctx,
     )
 

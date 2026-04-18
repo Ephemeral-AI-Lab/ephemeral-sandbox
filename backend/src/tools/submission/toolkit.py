@@ -175,9 +175,16 @@ class SubmitTaskSummaryInput(BaseModel):
         description=(
             "Summary of work done. For success: describe what was accomplished "
             "and files changed. For fail: describe what went wrong and why "
-            "a replan is needed."
+            "a replan is needed. Must contain non-whitespace text."
         ),
     )
+
+    @field_validator("content")
+    @classmethod
+    def _content_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("content must contain non-whitespace text")
+        return value
 
 
 class SubmitTaskSummaryOutput(BaseModel):

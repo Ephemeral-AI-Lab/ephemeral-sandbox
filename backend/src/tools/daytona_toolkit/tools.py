@@ -23,10 +23,7 @@ from tools.daytona_toolkit._daytona_utils import (
     _exec_command,
     _read_text_file_via_exec,
     _resolve_path,
-    _team_repo_write_error,
-    _team_repo_write_warning,
     _wrap_bash_command,
-    record_coordination_warning,
 )
 from tools.core.ci_runtime import (
     ci_write_required_result,
@@ -559,7 +556,9 @@ async def daytona_read_file(
         "call this tool; submit `submit_task_summary(type='fail')` so replanning can widen "
         "or resequence the task. Test imports, collection errors, and target counts naming "
         "the path are not exceptions, and `scope_paths` alone is not enough to create an "
-        "absent test-derived module path. This is workflow guidance, not a runtime hard gate."
+        "absent test-derived module path. In coordinated team lanes, test files are read/verify-only "
+        "and this tool blocks test-file writes unless explicit authorization is present. "
+        "This outside-scope guidance is not a runtime hard gate."
     ),
     short_description="Create or overwrite a file.",
     input_model=DaytonaWriteFileInput,
@@ -573,16 +572,10 @@ async def daytona_write_file(
 ) -> ToolResult:
     """Write/create a file in the Daytona sandbox."""
     file_path = _resolve_path(file_path, context)
-    contract_error = _team_repo_write_error(context, file_path, tool_name="daytona_write_file")
-    if contract_error is not None:
-        return ToolResult(output=contract_error, is_error=True)
-    contract_warning = _team_repo_write_warning(context, file_path, tool_name="daytona_write_file")
-    if contract_warning is not None:
-        record_coordination_warning(
-            context,
-            category="write_scope",
-            message=contract_warning,
-        )
+    # Write-scope policy runs as a pre-phase tool guard; any emitted
+    # advisory is surfaced via ``guard_pre_warnings`` in the context.
+    guard_warnings = list(context.metadata.get("guard_pre_warnings") or [])
+    contract_warning = guard_warnings[0] if guard_warnings else None
     if get_ci_service(context) is None:
         return ci_write_required_result("daytona_write_file", file_path)
 

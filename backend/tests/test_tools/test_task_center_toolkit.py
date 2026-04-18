@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from tools.task_center.toolkit import (
     ReadTaskNoteTool,
@@ -88,14 +89,22 @@ async def test_submit_task_note_allows_scout_correct_path_content():
     assert notes.posted[0].content == "Missing target; correct path appears to be src/session.py."
 
 
+def test_submit_task_note_rejects_whitespace_only_content():
+    with pytest.raises(ValidationError, match="content must contain non-whitespace text"):
+        SubmitTaskNoteTool.input_model(content=" \n\t")
+
+
 def test_submit_task_note_schema_is_pydantic_native():
     schema = SubmitTaskNoteTool().to_api_schema()
 
     content_description = schema["input_schema"]["properties"]["content"]["description"]
     assert "REQUIRED" in content_description
+    assert "non-whitespace" in content_description
     assert "Always send this field in the tool input object" in content_description
     assert '{"content":"<concise Task Center note>"' in content_description
-    assert "The input object must include non-empty `content`" in schema["description"]
+    assert "The input object must include non-empty, non-whitespace `content`" in schema[
+        "description"
+    ]
     assert "put the note in the `content` field" in schema["description"]
     assert "{}" not in schema["description"]
     assert schema["output_schema"]["properties"]["task_id"]["description"]

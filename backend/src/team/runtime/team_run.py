@@ -255,6 +255,21 @@ class TeamRun:
         await self.task_center.cancel_all_pending()
         await self.task_center.cancel_all_running(reason)
 
+    async def fail_after_active_work(self, reason: str) -> None:
+        """Fail the run without cancelling agent turns already in flight.
+
+        Use this for budget exhaustion discovered after an agent made a
+        terminal submission. New work should stop, but active agent loops must
+        still get a chance to reach their own terminal submission path.
+        """
+        logger.critical(reason)
+        if self._fatal_failure_reason is None:
+            self._fatal_failure_reason = reason
+            self.status = TeamRunStatus.FAILED
+            self.event_store.append(make_team_run_status(self.id, self.status.value, reason=reason))
+        self.cancel_event.set()
+        await self.task_center.cancel_all_pending()
+
     async def cancel(self) -> None:
         self.cancel_event.set()
         await self.task_center.cancel_all_pending()

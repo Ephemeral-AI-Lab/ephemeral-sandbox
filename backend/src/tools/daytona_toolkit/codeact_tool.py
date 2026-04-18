@@ -35,11 +35,7 @@ from tools.daytona_toolkit._daytona_utils import (
     _wrap_bash_command,
     is_coordinated_team_agent,
 )
-from tools.daytona_toolkit.ci_integration import destructive_shell_command_error
-from tools.daytona_toolkit._shell_policy import (
-    _normalize_team_shell_command,
-    shell_policy_source,
-)
+from tools.daytona_toolkit._shell_policy import shell_policy_source
 
 _DESTRUCTIVE_GIT_PATTERN = re.compile(
     r"git\s+(stash|reset\s+--hard|checkout\s+--\s|checkout\s+\.\s*$|clean\s+-[fd])",
@@ -944,10 +940,6 @@ async def _execute_python_wrapper(
             )
 
 
-def _shell_error_result(message: str) -> ToolResult:
-    return ToolResult(output=message, is_error=True)
-
-
 def _ci_required_result() -> ToolResult:
     return ci_required_result(
         "daytona_codeact",
@@ -1079,27 +1071,15 @@ async def daytona_codeact(
     repo_cwd = _get_cwd(context)
     disable_codeact_file_edits = _enforce_codeact_file_edit_policy(context)
 
+    # Pre-flight policy (shell normalization, destructive-git/shell blocks,
+    # file-edit side-channel blocks) is enforced by pre-phase tool guards —
+    # see tools.daytona_toolkit.guards. The in-sandbox wrapper applies the
+    # same checks in a second line of defense inside the sandbox process.
     if resolved_mode == "shell":
         direct_command = command or ""
-        normalization_warnings: list[str] = []
-        if is_coordinated_team_agent(context):
-            direct_command, normalization_warnings = _normalize_team_shell_command(
-                direct_command,
-                repo_root=repo_cwd,
-            )
-        destructive_error = _destructive_git_command_error(direct_command)
-        if destructive_error is None:
-            destructive_error = destructive_shell_command_error(direct_command)
-        if destructive_error is not None:
-            return _shell_error_result(destructive_error)
-        if disable_codeact_file_edits:
-            file_edit_error = _shell_file_edit_policy_error(direct_command)
-            if file_edit_error is not None:
-                return _shell_error_result(file_edit_error)
-    elif disable_codeact_file_edits:
-        file_edit_error = _python_file_edit_policy_error(code or "")
-        if file_edit_error is not None:
-            return ToolResult(output=file_edit_error, is_error=True)
+        normalization_warnings: list[str] = list(
+            context.metadata.get("guard_pre_warnings") or []
+        )
 
     try:
         sandbox = await _require_sandbox(context)

@@ -9,7 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContext, run_tool_safely
 from tools.daytona_toolkit import edit_tool as edit_tool_module
 from tools.daytona_toolkit.edit_tool import (
     _scope_overlap_warning,
@@ -274,12 +274,13 @@ async def test_edit_warns_write_outside_write_scope():
         }
     )
 
-    result = await daytona_edit_file.execute(
-        daytona_edit_file.input_model(
-            file_path="/testbed/dask/_compatibility.py",
-            old_text="original",
-            new_text="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_edit_file,
+        {
+            "file_path": "/testbed/dask/_compatibility.py",
+            "old_text": "original",
+            "new_text": "patched",
+        },
         ctx,
     )
 
@@ -300,11 +301,12 @@ async def test_edit_invalid_input_includes_outside_scope_warning():
         }
     )
 
-    result = await daytona_edit_file.execute(
-        daytona_edit_file.input_model(
-            file_path="/testbed/dask/_compatibility.py",
-            new_text="from dask.compatibility import *\n",
-        ),
+    result = await run_tool_safely(
+        daytona_edit_file,
+        {
+            "file_path": "/testbed/dask/_compatibility.py",
+            "new_text": "from dask.compatibility import *\n",
+        },
         ctx,
     )
 
@@ -330,12 +332,13 @@ async def test_edit_allows_write_inside_write_scope():
         }
     )
 
-    result = await daytona_edit_file.execute(
-        daytona_edit_file.input_model(
-            file_path="/testbed/dask/config.py",
-            old_text="original",
-            new_text="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_edit_file,
+        {
+            "file_path": "/testbed/dask/config.py",
+            "old_text": "original",
+            "new_text": "patched",
+        },
         ctx,
     )
 
@@ -345,16 +348,50 @@ async def test_edit_allows_write_inside_write_scope():
     assert sb._content_state["content"] == "patched"
 
 
-async def test_edit_allows_test_suite_write_with_warning():
+async def test_edit_blocks_test_file_with_policy_message():
     sb = _make_sandbox(download_content="original")
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
             "daytona_cwd": "/testbed",
             "agent_name": "developer",
-            "write_scope": ["dask/cli.py"],
-            "owned_failures": ["dask/tests/test_cli.py"],
-            "verify": ["pytest dask/tests/test_cli.py -q"],
+            "write_scope": ["dask/dataframe/io/tests/test_hdf.py"],
+            "team_run_id": "run-1",
+            "work_item_id": "task-1",
+            "ci_service": _ci_service_for_content(
+                "original",
+                file_path="/testbed/dask/dataframe/io/tests/test_hdf.py",
+            ),
+        }
+    )
+
+    result = await run_tool_safely(
+        daytona_edit_file,
+        {
+            "file_path": "/testbed/dask/dataframe/io/tests/test_hdf.py",
+            "old_text": "original",
+            "new_text": "patched",
+        },
+        ctx,
+    )
+
+    assert result.is_error
+    assert "BLOCKED_TEST_FILE_EDIT" in result.output
+    assert "dask/dataframe/io/tests/test_hdf.py" in result.output
+    assert "read/verify-only" in result.output
+    assert "submit_task_summary(type='fail'" in result.output
+    sb.process.exec.assert_not_awaited()
+
+
+async def test_edit_allows_authorized_test_file_edit():
+    sb = _make_sandbox(download_content="original")
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "write_scope": ["dask/tests/test_cli.py"],
+            "allow_test_file_edits": True,
             "ci_service": _ci_service_for_content(
                 "original",
                 file_path="/testbed/dask/tests/test_cli.py",
@@ -362,19 +399,19 @@ async def test_edit_allows_test_suite_write_with_warning():
         }
     )
 
-    result = await daytona_edit_file.execute(
-        daytona_edit_file.input_model(
-            file_path="/testbed/dask/tests/test_cli.py",
-            old_text="original",
-            new_text="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_edit_file,
+        {
+            "file_path": "/testbed/dask/tests/test_cli.py",
+            "old_text": "original",
+            "new_text": "patched",
+        },
         ctx,
     )
 
     assert not result.is_error
     data = json.loads(result.output)
     assert data["status"] == "edited"
-    assert any("outside write_scope" in warning for warning in data["warnings"])
 
 
 async def test_edit_warns_non_verify_surface_write_in_warn_mode():
@@ -396,12 +433,13 @@ async def test_edit_warns_non_verify_surface_write_in_warn_mode():
         }
     )
 
-    result = await daytona_edit_file.execute(
-        daytona_edit_file.input_model(
-            file_path="/testbed/dask/_compatibility.py",
-            old_text="original",
-            new_text="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_edit_file,
+        {
+            "file_path": "/testbed/dask/_compatibility.py",
+            "old_text": "original",
+            "new_text": "patched",
+        },
         ctx,
     )
 
@@ -458,12 +496,13 @@ async def test_edit_allows_repo_write_from_validator():
         }
     )
 
-    result = await daytona_edit_file.execute(
-        daytona_edit_file.input_model(
-            file_path="/testbed/dask/config.py",
-            old_text="original",
-            new_text="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_edit_file,
+        {
+            "file_path": "/testbed/dask/config.py",
+            "old_text": "original",
+            "new_text": "patched",
+        },
         ctx,
     )
 

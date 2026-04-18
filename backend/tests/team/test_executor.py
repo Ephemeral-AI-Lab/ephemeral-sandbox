@@ -3,6 +3,7 @@ injection in team.runtime.executor.Executor."""
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
@@ -10,7 +11,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from team.errors import GraphInvariantViolation
+from team.errors import BudgetExceeded, GraphInvariantViolation
 from team.models import (
     AgentResult,
     Plan,
@@ -21,6 +22,7 @@ from team.models import (
 )
 from team.runtime.context_builder import TeamAgentContext
 from team.runtime.executor import Executor
+from team.runtime.team_run import TeamRun
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +80,9 @@ class FakeTeamRun:
             self._active_agent_runs.pop(task_id, None)
 
     async def checkpoint(self, label: str = "") -> None:
+        pass
+
+    async def fail_after_active_work(self, reason: str) -> None:
         pass
 
 
@@ -216,6 +221,66 @@ async def test_validator_fail_summary_dispatches_replan_request():
     assert "needs replanning" in request.reason
     assert task.status == TaskStatus.REQUEST_REPLAN
     assert task.failure_reason == request.reason
+
+
+@pytest.mark.asyncio
+async def test_replan_budget_exhaustion_fails_task_without_fail_fast():
+    """Replan budget exhaustion must not cancel unrelated active agent turns."""
+    task = _make_task(status="running")
+    tc = FakeTaskCenter()
+    tc.request_replan = AsyncMock(side_effect=BudgetExceeded("max_replans_per_run reached"))
+    tc.fail_task = AsyncMock()
+
+    team_run = FakeTeamRun(task_center=tc)
+    team_run.fail_fast = AsyncMock()
+    team_run.fail_after_active_work = AsyncMock()
+
+    executor = Executor(
+        team_run=team_run,
+        runner=AsyncMock(),
+        agent_lookup=lambda name: FakeDefn(),
+    )
+
+    await executor._dispatch(task, ReplanRequest(reason="needs corrective work"))
+
+    tc.request_replan.assert_awaited_once()
+    tc.fail_task.assert_awaited_once_with(
+        task.id,
+        "replan_budget_exhausted: max_replans_per_run reached",
+    )
+    team_run.fail_after_active_work.assert_awaited_once_with(
+        "replan_budget_exhausted: max_replans_per_run reached"
+    )
+    team_run.fail_fast.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fail_after_active_work_does_not_cancel_active_runners():
+    """Graceful run failure stops new work while preserving active submissions."""
+    sleeper = asyncio.create_task(asyncio.sleep(60))
+    task_center = SimpleNamespace(cancel_all_pending=AsyncMock())
+    event_store: list[Any] = []
+    team_run = TeamRun.__new__(TeamRun)
+    team_run.id = "run-1"
+    team_run._fatal_failure_reason = None
+    team_run.status = None
+    team_run.event_store = event_store
+    team_run.cancel_event = asyncio.Event()
+    team_run._active_agent_runs = {"task-1": sleeper}
+    team_run.task_center = task_center
+
+    try:
+        await team_run.fail_after_active_work("replan_budget_exhausted: max")
+
+        assert team_run.cancel_event.is_set()
+        assert not sleeper.done()
+        task_center.cancel_all_pending.assert_awaited_once()
+        assert event_store[-1].kind == "team_run_status"
+        assert event_store[-1].data["status"] == "failed"
+    finally:
+        sleeper.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await sleeper
 
 
 def test_read_result_planner_submit_plan():

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from prompts.message_recorder import append_prompt_report_event
 from providers.types import ApiMessageRequest, ApiToolUseDeltaEvent, ApiMessageCompleteEvent
-from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, ToolExecutionContext, ToolResult, run_tool_safely
 
 logger = logging.getLogger(__name__)
 
@@ -293,16 +293,11 @@ async def run(
         if execute_tools:
             if execution_context is None:
                 raise RuntimeError("external_trigger runner: execute_tools=True requires execution_context")
-            try:
-                tool_result = await tool.execute(validated, execution_context)
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                _emit(f"{agent_name} (run={run_id}) turn {turn}: tool {tool_name} raised: {exc}")
-                tool_result = ToolResult(
-                    output=f"Tool execution failed: {exc}",
-                    is_error=True,
-                )
+            # Route through run_tool_safely so the tool-guard pipeline and
+            # output-validation run uniformly with the streaming executor.
+            # The pre-validation above still runs for the execute_tools=False
+            # path and to surface the "Required fields" hint on bad input.
+            tool_result = await run_tool_safely(tool, tool_input, execution_context)
             tool_result_message = {
                 "role": "user",
                 "content": [{

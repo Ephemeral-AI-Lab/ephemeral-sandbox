@@ -16,7 +16,7 @@ import time
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from team._path_utils import normalize_scope_paths, scope_paths_overlap
 from tools.task_center.freshness import check_freshness
@@ -66,7 +66,8 @@ class PostNoteInput(BaseModel):
     content: str = Field(
         ...,
         description=(
-            "REQUIRED. Put the entire Task Center note here as a non-empty string. "
+            "REQUIRED. Put the entire Task Center note here as a non-empty, "
+            "non-whitespace string. "
             "Always send this field in the tool input object, and never put the "
             "note only in assistant text. The tool input JSON must look like "
             '{"content":"<concise Task Center note>","paths":["<path>"],'
@@ -95,6 +96,13 @@ class PostNoteInput(BaseModel):
         description="ID of a prior note this is a follow-up to (threading).",
     )
 
+    @field_validator("content")
+    @classmethod
+    def _content_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("content must contain non-whitespace text")
+        return value
+
 
 class TaskNoteOutput(BaseModel):
     note_id: str = Field(..., description="Created Task Center note id.")
@@ -114,7 +122,7 @@ class SubmitTaskNoteTool(BaseTool):
     name = "submit_task_note"
     description = (
         "Post a note to the Task Center for other agents to read. "
-        "The input object must include non-empty `content`. "
+        "The input object must include non-empty, non-whitespace `content`. "
         'Use JSON like {"content":"<concise Task Center note>","paths":["<path>"],'
         '"tags":["discovery"]}; put the note in the `content` field rather than '
         "assistant text. "

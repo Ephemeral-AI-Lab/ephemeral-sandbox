@@ -35,6 +35,14 @@ _USER_LOCAL_BIN_EXPORT = 'export PATH="$HOME/.local/bin:$PATH"'
 _PROJECT_VENV_BIN_EXPORT = 'if [ -d .venv/bin ]; then export PATH="$PWD/.venv/bin:$PATH"; fi'
 _PYTHON3_SHIM = 'if command -v python3 >/dev/null 2>&1; then python() { command python3 "$@"; }; fi'
 _TRAILING_TERM_NOISE_RE = re.compile(r"(?:\x1b\[[0-9;]*[A-Za-z]|TERM environment variable not set\.)+\s*$")
+_TEST_PATH_COMPONENTS = {"test", "tests", "__tests__"}
+_TEST_FILE_ALLOW_METADATA_KEYS = ("allow_test_file_edits", "allow_test_file_writes")
+_TEST_FILE_SUFFIXES = (
+    "_test.py",
+    "_spec.py",
+    "-test.py",
+    "-spec.py",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +403,39 @@ def _path_under_write_scope(rel_path: str, write_scope: list[str]) -> bool:
     return False
 
 
+def _metadata_flag_enabled(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def _test_file_edits_allowed(context: ToolExecutionContext) -> bool:
+    return any(
+        _metadata_flag_enabled(context.metadata.get(key))
+        for key in _TEST_FILE_ALLOW_METADATA_KEYS
+    )
+
+
+def _is_test_file_path(rel_path: str) -> bool:
+    parts = [part for part in rel_path.replace("\\", "/").split("/") if part]
+    if not parts:
+        return False
+    lowered_parts = {part.lower() for part in parts[:-1]}
+    if lowered_parts & _TEST_PATH_COMPONENTS:
+        return True
+    basename = parts[-1].lower()
+    return (
+        basename == "conftest.py"
+        or basename.startswith("test_")
+        or basename.startswith("test-")
+        or basename.endswith(_TEST_FILE_SUFFIXES)
+        or ".test." in basename
+        or ".spec." in basename
+    )
+
+
 def _write_scope_covers(context: ToolExecutionContext, file_path: str) -> bool:
     """Return True when *file_path* is covered by the active write_scope.
 
@@ -443,12 +484,24 @@ def _team_repo_write_error(
 ) -> str | None:
     """Return a hard policy error for unsafe repo writes.
 
-    Workflow-level write preferences, including production-vs-test ownership,
-    are prompt/playbook guidance. The tool layer only hard-blocks writes that
-    bypass the audited mutation path elsewhere.
+    Outside-scope ownership remains advisory, but coordinated team lanes keep
+    test files read-only evidence unless a caller explicitly authorizes
+    test-file edits in metadata.
     """
-    del context, file_path, tool_name
-    return None
+    if not is_coordinated_team_agent(context) or _test_file_edits_allowed(context):
+        return None
+    repo_root = str(_get_repo_root(context) or "")
+    rel_path = _normalize_repo_relative_path(file_path, repo_root)
+    if not rel_path or not _is_test_file_path(rel_path):
+        return None
+    return (
+        f"BLOCKED_TEST_FILE_EDIT: {tool_name} cannot modify test file {rel_path} "
+        "in coordinated team lanes. Test files are read/verify-only evidence; "
+        "fix the production owner instead. If this task genuinely requires a "
+        "test-file change, stop and submit_task_summary(type='fail', "
+        "content='test-file edit required: ...') so replanning can explicitly "
+        "authorize test-file edits."
+    )
 
 
 def _team_repo_write_warning(

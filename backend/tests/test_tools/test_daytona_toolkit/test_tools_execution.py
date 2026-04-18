@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContext, run_tool_safely
 from tools.daytona_toolkit.tools import (
     daytona_read_file,
     daytona_write_file,
@@ -324,11 +324,9 @@ async def test_write_file_warns_write_outside_write_scope():
         }
     )
 
-    result = await daytona_write_file.execute(
-        daytona_write_file.input_model(
-            file_path="/testbed/dask/_compatibility.py",
-            content="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_write_file,
+        {"file_path": "/testbed/dask/_compatibility.py", "content": "patched"},
         ctx,
     )
 
@@ -352,11 +350,9 @@ async def test_write_file_allows_write_inside_write_scope():
         }
     )
 
-    result = await daytona_write_file.execute(
-        daytona_write_file.input_model(
-            file_path="/testbed/dask/config.py",
-            content="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_write_file,
+        {"file_path": "/testbed/dask/config.py", "content": "patched"},
         ctx,
     )
 
@@ -364,7 +360,7 @@ async def test_write_file_allows_write_inside_write_scope():
     sb.process.exec.assert_called_once()
 
 
-async def test_write_file_allows_test_suite_write_with_warning():
+async def test_write_file_blocks_test_file_with_policy_message():
     sb = _sb()
     sb.process.exec = AsyncMock(return_value=_write_exec_result())
     svc = _ci_service_mock(file_path="/testbed/dask/tests/test_cli.py")
@@ -380,19 +376,17 @@ async def test_write_file_allows_test_suite_write_with_warning():
         }
     )
 
-    result = await daytona_write_file.execute(
-        daytona_write_file.input_model(
-            file_path="/testbed/dask/tests/test_cli.py",
-            content="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_write_file,
+        {"file_path": "/testbed/dask/tests/test_cli.py", "content": "patched"},
         ctx,
     )
 
-    assert not result.is_error
-    data = json.loads(result.output)
-    assert data["file_path"] == "/testbed/dask/tests/test_cli.py"
-    assert any("outside write_scope" in warning for warning in data["warnings"])
-    sb.process.exec.assert_called_once()
+    assert result.is_error
+    assert "BLOCKED_TEST_FILE_EDIT" in result.output
+    assert "dask/tests/test_cli.py" in result.output
+    assert "read/verify-only" in result.output
+    sb.process.exec.assert_not_awaited()
 
 
 async def test_write_file_warns_non_verify_surface_write_in_warn_mode():
@@ -413,11 +407,9 @@ async def test_write_file_warns_non_verify_surface_write_in_warn_mode():
         }
     )
 
-    result = await daytona_write_file.execute(
-        daytona_write_file.input_model(
-            file_path="/testbed/dask/_compatibility.py",
-            content="patched",
-        ),
+    result = await run_tool_safely(
+        daytona_write_file,
+        {"file_path": "/testbed/dask/_compatibility.py", "content": "patched"},
         ctx,
     )
 

@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from code_intelligence.types import EditResult, OperationResult
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContext, run_tool_safely
 from tools.daytona_toolkit.delete_move_tool import (
     daytona_delete_file,
     daytona_move_file,
@@ -22,7 +22,7 @@ def _ctx(metadata=None) -> ToolExecutionContext:
 
 
 def _run(tool, payload, ctx):
-    return asyncio.run(tool.execute(tool.input_model(**payload), ctx))
+    return asyncio.run(run_tool_safely(tool, payload, ctx))
 
 
 def _operation_result(

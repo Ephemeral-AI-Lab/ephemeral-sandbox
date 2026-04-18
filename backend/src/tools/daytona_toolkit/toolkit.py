@@ -21,6 +21,9 @@ from tools.daytona_toolkit.delete_move_tool import (
     daytona_move_file,
 )
 
+# Guard registration happens in tools.daytona_toolkit.__init__.py (imported
+# transitively by any daytona_toolkit module).
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,9 +71,11 @@ def _build_instructions(*, include_codeact: bool) -> str:
         "- `daytona_edit_file` — atomic file edits. Use exactly one mode: "
         "`old_text` + `new_text` for a single replacement, or "
         "`edits=[{\"strategy\":\"search_replace\",\"search\":\"...\",\"replace\":\"...\"}]` for batched replacements. "
-        "Never send `new_text` together with `edits`.\n"
+        "Never send `new_text` together with `edits`. In coordinated team lanes, test files are "
+        "read/verify-only and test-file writes are blocked unless explicit authorization is present.\n"
         "- `daytona_write_file` — create or overwrite a file. Use for new files. "
-        "The tool is named exactly `daytona_write_file`; do not call `write_file`, `Write`, or any unprefixed file tool.\n"
+        "The tool is named exactly `daytona_write_file`; do not call `write_file`, `Write`, or any unprefixed file tool. "
+        "In coordinated team lanes, do not create or overwrite test files unless explicit authorization is present.\n"
         "- `daytona_rename_symbol` — rename a Python function, class, method, or import binding "
         "across definitions, call sites, and imports as one audited process operation. "
         "Use this instead of chained `daytona_edit_file` calls for multi-file renames; "

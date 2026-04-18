@@ -35,7 +35,6 @@ from tools.daytona_toolkit._daytona_utils import (
     _team_repo_write_error,
     _team_repo_write_warning,
     _wrap_bash_command,
-    record_coordination_warning,
 )
 
 logger = logging.getLogger(__name__)
@@ -298,9 +297,6 @@ async def _perform_rename(
         warn = _team_repo_write_warning(context, path, tool_name="daytona_rename_symbol")
         if warn is not None:
             soft_warnings.append(warn)
-            record_coordination_warning(
-                context, category="write_scope", message=warn,
-            )
     if hard_errors:
         return ToolResult(
             output=(

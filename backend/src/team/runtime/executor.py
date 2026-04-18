@@ -210,9 +210,13 @@ class Executor:
             try:
                 await tc.request_replan(task.id, result)
             except BudgetExceeded as exc:
-                # Replan budget is a team-run-level guarantee. Exhaustion is
-                # terminal for the whole run, not a localized failure.
-                await self.team_run.fail_fast(f"replan_budget_exhausted: {exc}")
+                reason = f"replan_budget_exhausted: {exc}"
+                await tc.fail_task(task.id, reason)
+                await self.team_run.fail_after_active_work(reason)
+                await self._checkpoint_after_transition(
+                    task,
+                    outcome="replan_budget_exhausted",
+                )
                 return
             await self._checkpoint_after_transition(task, outcome="replan_request")
             return

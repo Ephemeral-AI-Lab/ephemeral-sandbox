@@ -253,7 +253,14 @@ async def run_tool_safely(
     so validation and error framing stay consistent across the engine's
     tool invocation sites. ``asyncio.CancelledError`` is intentionally
     not caught — callers decide how to handle cancellation.
+
+    Registered tool guards (see :mod:`tools.core.guards`) run after pydantic
+    input validation and again after successful output validation. An empty
+    registry makes this path a no-op.
     """
+    from tools.core.guards import run_post as _run_post_guards
+    from tools.core.guards import run_pre as _run_pre_guards
+
     clean_input = _strip_runtime_control_fields(tool, raw_input)
     try:
         parsed_input = tool.input_model.model_validate(clean_input)
@@ -274,14 +281,51 @@ async def run_tool_safely(
             is_error=True,
         )
 
+    pre = await _run_pre_guards(tool.name, parsed_input, context)
+    if pre.deny is not None:
+        return ToolResult(
+            output=pre.deny.message,
+            is_error=pre.deny.is_error,
+            metadata=_guard_warnings_metadata({}, pre.warnings),
+        )
+    parsed_input = pre.args
+    # Bridge pre-phase warnings into the tool's execution context so tool
+    # bodies that fold warnings into their output payload (e.g.
+    # ``daytona_edit_file``'s ``warnings`` field) can read them.
+    context.metadata["guard_pre_warnings"] = list(pre.warnings)
+
     try:
         result = await tool.execute(parsed_input, context)
     except Exception as exc:
         return ToolResult(
             output=f"Tool execution failed: {exc}",
             is_error=True,
+            metadata=_guard_warnings_metadata({}, pre.warnings),
         )
-    return validate_tool_output(tool, result)
+    validated = validate_tool_output(tool, result)
+    post = await _run_post_guards(tool.name, parsed_input, context, validated)
+    all_warnings = [*pre.warnings, *post.warnings]
+    if all_warnings:
+        return ToolResult(
+            output=validated.output,
+            is_error=validated.is_error,
+            metadata=_guard_warnings_metadata(validated.metadata, all_warnings),
+        )
+    return validated
+
+
+def _guard_warnings_metadata(
+    base: dict[str, Any],
+    warnings: list[str],
+) -> dict[str, Any]:
+    """Fold guard-pipeline warnings into a tool-result metadata dict."""
+    if not warnings:
+        return dict(base)
+    merged = dict(base)
+    existing = list(merged.get("guard_warnings", []))
+    existing.extend(warnings)
+    merged["guard_warnings"] = existing
+    return merged
 
 
 def _format_validation_errors(exc: ValidationError) -> str:

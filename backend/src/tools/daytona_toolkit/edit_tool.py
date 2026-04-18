@@ -25,9 +25,6 @@ from tools.daytona_toolkit.tools import (
     _recover_sandbox,
     _require_sandbox,
     _resolve_path,
-    _team_repo_write_error,
-    _team_repo_write_warning,
-    record_coordination_warning,
 )
 from tools.daytona_toolkit._daytona_utils import (
     _extract_exit_code,
@@ -319,7 +316,9 @@ def _scope_overlap_warning(
         "call this tool; submit `submit_task_summary(type='fail')` so replanning can widen "
         "or resequence the task. Test imports, collection errors, and target counts naming "
         "the path are not exceptions, and `scope_paths` alone is not enough to create an "
-        "absent test-derived module path. This is workflow guidance, not a runtime hard gate."
+        "absent test-derived module path. In coordinated team lanes, test files are read/verify-only "
+        "and this tool blocks test-file writes unless explicit authorization is present. "
+        "This outside-scope guidance is not a runtime hard gate."
     ),
     short_description="Apply atomic file edits.",
     input_model=DaytonaEditFileInput,
@@ -344,18 +343,9 @@ async def daytona_edit_file(
     tool_timings: dict[str, float] = {}
 
     file_path = _resolve_path(file_path, context)
-    contract_error = _team_repo_write_error(context, file_path, tool_name="daytona_edit_file")
-    if contract_error is not None:
-        return ToolResult(output=contract_error, is_error=True)
-    warnings: list[str] = []
-    contract_warning = _team_repo_write_warning(context, file_path, tool_name="daytona_edit_file")
-    if contract_warning is not None:
-        warnings.append(contract_warning)
-        record_coordination_warning(
-            context,
-            category="write_scope",
-            message=contract_warning,
-        )
+    # Write-scope policy runs as a pre-phase tool guard; the advisory
+    # (if any) is already on ``context.metadata["guard_pre_warnings"]``.
+    warnings: list[str] = list(context.metadata.get("guard_pre_warnings") or [])
 
     normalized_edits, edit_error, legacy_not_found = _normalize_edits(
         old_text=old_text,

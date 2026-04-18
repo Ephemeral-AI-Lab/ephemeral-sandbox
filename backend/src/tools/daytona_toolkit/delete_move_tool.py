@@ -32,7 +32,6 @@ from tools.daytona_toolkit._daytona_utils import (
     _team_repo_write_error,
     _team_repo_write_warning,
     _write_scope_covers,
-    record_coordination_warning,
 )
 
 logger = logging.getLogger(__name__)
@@ -271,18 +270,8 @@ async def daytona_delete_file(
 ) -> ToolResult:
     """Delete a file through the code-intelligence OCC commit path."""
     file_path = _normalized_path(_resolve_path(file_path, context))
-    hard_error, soft_warning = _scope_checks(
-        context, file_path, tool_name="daytona_delete_file",
-    )
-    if hard_error is not None:
-        return ToolResult(output=hard_error, is_error=True)
-
-    warnings: list[str] = []
-    if soft_warning is not None:
-        warnings.append(soft_warning)
-        record_coordination_warning(
-            context, category="write_scope", message=soft_warning,
-        )
+    # Write-scope policy runs as a pre-phase tool guard.
+    warnings: list[str] = list(context.metadata.get("guard_pre_warnings") or [])
 
     svc = get_ci_service(context)
     if svc is None:
@@ -460,9 +449,6 @@ async def daytona_move_file(
             return ToolResult(output=hard_error, is_error=True)
         if soft_warning is not None:
             warnings.append(soft_warning)
-            record_coordination_warning(
-                context, category="write_scope", message=soft_warning,
-            )
 
     svc = get_ci_service(context)
     if svc is None:

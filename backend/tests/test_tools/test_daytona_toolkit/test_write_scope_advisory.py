@@ -1,9 +1,9 @@
 """Tests for coordinated Daytona repo-write enforcement.
 
 Write-scope was changed from hard-blocking to advisory: developers can write
-outside their assigned scope_paths with a warning instead of an error. Workflow
-preferences, including test-vs-production ownership, are prompt guidance rather
-than tool-layer hard blocks.
+outside their assigned scope_paths with a warning instead of an error. Test-file
+mutations are still blocked in coordinated team lanes so verification surfaces
+remain read-only unless explicitly authorized.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def _ctx(metadata=None) -> ToolExecutionContext:
 
 
 # ---------------------------------------------------------------------------
-# _team_repo_write_error: workflow policy does not hard-block coordinated writes
+# _team_repo_write_error: only test-file writes hard-block coordinated writes
 # ---------------------------------------------------------------------------
 
 
@@ -84,24 +84,66 @@ def test_write_error_allows_validator_without_scope():
     assert result is None
 
 
-def test_write_error_allows_test_suite_without_team_mode_flag():
-    """Test-suite ownership is advisory, not a tool-layer hard block."""
+def _assert_test_file_write_error(result: str | None, rel_path: str) -> None:
+    assert result is not None
+    assert "BLOCKED_TEST_FILE_EDIT" in result
+    assert rel_path in result
+    assert "read/verify-only" in result
+    assert "production owner" in result
+    assert "submit_task_summary(type='fail'" in result
+    assert "explicitly authorize test-file edits" in result
+
+
+def test_write_error_blocks_test_file_even_inside_scope():
+    """Test files in scope_paths remain verification evidence, not edit owners."""
     ctx = _ctx({
         "agent_name": "developer",
         "daytona_cwd": "/testbed",
-        "write_scope": ["dask/config.py"],
+        "write_scope": ["dask/tests/test_config.py"],
     })
     result = _team_repo_write_error(ctx, "/testbed/dask/tests/test_config.py", tool_name="edit")
+    _assert_test_file_write_error(result, "dask/tests/test_config.py")
+
+
+def test_write_error_blocks_nested_test_file_without_separate_mode_flag():
+    ctx = _ctx({
+        "agent_name": "developer",
+        "daytona_cwd": "/testbed",
+        "write_scope": ["dask/"],
+    })
+    result = _team_repo_write_error(
+        ctx,
+        "/testbed/dask/dataframe/io/tests/test_hdf.py",
+        tool_name="daytona_edit_file",
+    )
+    _assert_test_file_write_error(result, "dask/dataframe/io/tests/test_hdf.py")
+
+
+def test_write_error_allows_test_file_outside_team_lane():
+    ctx = _ctx({
+        "daytona_cwd": "/testbed",
+        "write_scope": ["dask/tests/test_cli.py"],
+    })
+    result = _team_repo_write_error(
+        ctx,
+        "/testbed/dask/tests/test_cli.py",
+        tool_name="daytona_edit_file",
+    )
     assert result is None
 
 
-def test_write_error_allows_test_suite_path():
+def test_write_error_allows_explicitly_authorized_test_file_edit():
     ctx = _ctx({
         "agent_name": "developer",
         "daytona_cwd": "/testbed",
-        "write_scope": ["dask/cli.py"],
+        "write_scope": ["dask/tests/test_cli.py"],
+        "allow_test_file_edits": True,
     })
-    result = _team_repo_write_error(ctx, "/testbed/dask/tests/test_cli.py", tool_name="edit")
+    result = _team_repo_write_error(
+        ctx,
+        "/testbed/dask/tests/test_cli.py",
+        tool_name="daytona_edit_file",
+    )
     assert result is None
 
 
@@ -210,8 +252,10 @@ def test_write_and_edit_schema_redirects_outside_scope_shims_without_runtime_gat
         assert "attempt itself is a failed lane" in description
         assert "Test imports, collection errors, and target counts" in description
         assert "absent test-derived module path" in description
+        assert "test files are read/verify-only" in description
+        assert "explicit authorization" in description
         assert "submit `submit_task_summary(type='fail')`" in description
-        assert "workflow guidance, not a runtime hard gate" in description
+        assert "outside-scope guidance is not a runtime hard gate" in description
 
 
 def test_write_warning_none_for_in_scope_write():
