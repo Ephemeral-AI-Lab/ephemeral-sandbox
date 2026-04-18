@@ -27,10 +27,11 @@ Tool input checklist:
 - `name` is an exact registered agent name such as `developer`, `validator`, or `team_planner`.
 - `description` is a short label under about 10 words.
 - `deps` is a top-level task field and every `id` is unique.
-- For a `validator` task, `deps` must be non-empty and contain every terminal non-validator sibling id. Mentioning dependencies inside `spec` does not set task deps.
+- For a `validator` task, `deps` must be non-empty and contain every same-layer non-validator sibling id in this `submit_plan` payload, including `developer` lanes and child `team_planner` lanes. Mentioning dependencies inside `spec` does not set task deps.
 - `spec` is the briefing and uses numbered colon labels in this exact order: `1. Goal:`, `2. Environment:`, `3. Scope:`, `4. Context:`, `5. Acceptance Criteria:`. Do not use Markdown headings.
-- `scope_paths` uses live-confirmed paths, or a broader boundary on `team_planner` when exact ownership is still uncertain.
+- `scope_paths` uses live-confirmed production owner paths, or a broader production boundary on `team_planner` when exact ownership is still uncertain. Keep verification-only test targets in `spec` context or acceptance criteria unless the task explicitly owns a test-only bug.
 - At most one terminal validator is present. Never submit it with `deps: []` when the plan has non-validator siblings.
+- If the plan includes child planners like `plan-parquet` or `plan-groupby`, the terminal validator's `deps` must include those ids as well as direct developer ids.
 
 ## Expected Outcome
 

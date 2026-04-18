@@ -418,6 +418,40 @@ def test_validate_run_subagent_allows_mixed_prod_and_test_scout():
     ]
 
 
+def test_run_subagent_schema_guides_scout_targets_without_runtime_gate():
+    schema = run_subagent.to_api_schema()
+
+    assert "scrub ``target_paths`` to live production owner files/directories" in (
+        schema["description"]
+    )
+    assert "missing test-derived paths belong in task prose or task_note" in (
+        schema["description"]
+    )
+    input_description = schema["input_schema"]["properties"]["input"]["description"]
+    assert "with live production owner paths only" in input_description
+    assert "keep benchmark tests and missing test-derived paths in task prose" in (
+        input_description
+    )
+
+    ctx = ToolExecutionContext(
+        cwd=Path("/tmp"),
+        metadata={"session_config": _StubCfg()},
+    )
+    result = _validate_run_subagent_request(
+        agent_name="scout",
+        prompt=None,
+        input={
+            "target_paths": [
+                "dvc/command/diff.py",
+                "tests/unit/command/test_diff.py",
+            ]
+        },
+        context=ctx,
+    )
+
+    assert not isinstance(result, ToolResult)
+
+
 @pytest.mark.asyncio
 async def test_run_subagent_registers_provider_and_returns_final_text(monkeypatch):
     scripted = [
@@ -524,8 +558,10 @@ async def test_run_subagent_injects_read_free_exact_file_scout_contract(monkeypa
     )
 
     assert result.is_error is False
-    assert "stay read-free and finish from CI evidence" in captured["prompt"]
+    assert "exactly one `submit_task_note(...)` call with non-empty `content`" in captured["prompt"]
+    assert "stay read-free and post `submit_task_note(...)` from CI evidence" in captured["prompt"]
     assert "exact-file and short fixed-file scouts stay read-free" in captured["prompt"]
+    assert "say only `Posted.`" in captured["prompt"]
 
 
 @pytest.mark.asyncio

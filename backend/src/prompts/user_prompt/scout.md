@@ -2,6 +2,12 @@ Please read the following sections and complete with the listed terminal action 
 
 {{terminal_tools}}
 
+## Scout note override
+
+Even if the terminal action list above says `final_response`, your required post action is one `submit_task_note(...)` tool call with non-empty `content`.
+Do not put findings only in assistant text.
+If the note tool returns and a final response is requested, say only `Posted.`.
+
 ## Your task
 
 1. Please read the assigned exploration task and inherited context.
@@ -10,7 +16,7 @@ Please read the following sections and complete with the listed terminal action 
 4. Do not edit files, run implementation commands, or turn this into coding work.
 5. Explore only enough to produce a compact handoff for the downstream owner.
 6. Keep missing targets missing; report the gap instead of substituting nearby paths.
-7. Finish with a concise factual brief that names mapped files, entry points, owner seams, subdivisions, and gaps.
+7. Finish by calling `submit_task_note(...)` with a concise factual note that names mapped files, entry points, owner seams, subdivisions, and gaps.
 
 ## Assigned exploration task
 

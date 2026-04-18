@@ -25,10 +25,13 @@ def test_tc_note_prompts_reference_submit_task_note() -> None:
     for prompt in prompts:
         assert "submit_task_note" in prompt
         assert "post_note" not in prompt
-        assert "Never call `submit_task_note({})`" in prompt
+        assert "tool input must include `content`" in prompt
         assert "content" in prompt
         assert "Do not write visible analysis" in prompt
-        assert "Do not write the note in assistant text and then call an empty tool" in prompt
+        assert "the note text belongs in the tool's `content` field" in prompt
+        assert "Valid input JSON" in prompt
+        assert "tool input that omits `content`" in prompt
+        assert "submit_task_note({})" not in prompt
 
 
 def test_format_snapshot_history_structures_snapshot() -> None:
@@ -207,8 +210,12 @@ def test_build_tc_note_user_prompt_appends_snapshot_history() -> None:
     assert "<worker_assistant_activity>" in prompt
     assert "Still working" in prompt
     assert prompt.endswith(TC_NOTE_FINAL_TOOL_CALL_REMINDER.strip())
-    assert prompt.rfind("Call `submit_task_note` now") > prompt.rfind("Still working")
-    assert "Do not call `submit_task_note` with `{}`" in prompt
+    assert prompt.rfind("Make exactly one tool call named `submit_task_note`") > prompt.rfind(
+        "Still working"
+    )
+    assert "There is no valid no-argument form of this tool" in prompt
+    assert "Your assistant message must contain no text block" in prompt
+    assert '{"content":"<concise Task Center note>"' in prompt
 
 
 async def test_run_tc_note_sends_structured_snapshot_as_prompt(monkeypatch) -> None:
@@ -250,8 +257,11 @@ def test_tc_note_uses_builtin_note_taker_prompt_when_available() -> None:
     assert "Your only output is one `submit_task_note(...)` tool call" in prompt
     assert "Your first and only output is one `submit_task_note(...)` tool call" in prompt
     assert "Do not write analysis" in prompt
-    assert "Never call `submit_task_note({})`" in prompt
+    assert "tool input must include non-empty `content`" in prompt
     assert "writing a long analysis or note in visible text" in prompt
+    assert 'Valid shape: `{"content":"<concise Task Center note>"' in prompt
+    assert "There is no valid no-argument form of this tool" in prompt
+    assert "submit_task_note({})" not in prompt
     assert "# Identity" not in prompt
     assert "# Role Boundary" not in prompt
     assert model is None

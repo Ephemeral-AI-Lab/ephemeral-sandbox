@@ -21,6 +21,8 @@ Please read the following sections and call the listed terminal tool when your w
 {{#if scope_paths}}
 ## scope_paths
 {{scope_paths}}
+
+Benchmark and verification test files in this list are read/verify-only unless the task explicitly says the bug is in tests. Do not edit `*/tests/*`, `test_*.py`, or verification targets just because they appear here; patch the production owner or submit a failure for replanning when tests are the only apparent edit.
 {{/if}}
 
 {{#if context_from_dependencies}}

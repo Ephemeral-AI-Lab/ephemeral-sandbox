@@ -253,7 +253,11 @@ class NewTaskSpec(BaseModel):
     deps: list[str] = Field(default_factory=list, description="Task IDs this depends on")
     scope_paths: list[str] = Field(
         default_factory=list,
-        description="File/dir hints for coordination and note scoping",
+        description=(
+            "File/dir hints for coordination and note scoping. For coding/planning lanes, "
+            "use implementation owner paths; keep verification-only test targets in spec "
+            "unless the task explicitly owns a test-only bug."
+        ),
     )
 
     @field_validator("description")
@@ -523,7 +527,9 @@ class SubmitPlanTool(BaseTool):
         "scope_paths. Optional output may hold a concise rationale. Do not include "
         "task_note, background, parent_id, or other fields. Each spec must use "
         "numbered colon labels in order: 1. Goal, 2. Environment, 3. Scope, "
-        "4. Context, 5. Acceptance Criteria."
+        "4. Context, 5. Acceptance Criteria. For developer and child-planner lanes, "
+        "scope_paths should name implementation owner paths; put verification-only "
+        "test targets in spec unless tests are explicitly the owned bug surface."
     )
     short_description = "Submit a child plan."
     input_model = SubmitPlanInput

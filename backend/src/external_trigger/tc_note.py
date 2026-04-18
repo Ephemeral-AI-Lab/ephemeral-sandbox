@@ -15,13 +15,20 @@ from tools.task_center.toolkit import SubmitTaskNoteTool, PostNoteInput
 TC_NOTE_EDIT_PROMPT = load_note_taker_prompt("edit")
 TC_NOTE_TURN_PROMPT = load_note_taker_prompt("turn")
 TC_NOTE_FINAL_TOOL_CALL_REMINDER = """\
-## Final note-taker instruction
+## Final note-taker tool-call instruction
 
-Call `submit_task_note` now with a non-empty `content` string.
-Do not write analysis or a prose note outside the tool call.
-Do not call `submit_task_note` with `{}`.
-If you drafted text while reading the transcript, put that text inside
-`content` and send exactly one tool call.
+Your assistant message must contain no text block.
+Make exactly one tool call named `submit_task_note`.
+The tool input JSON must include `content` as a non-empty string.
+
+Required shape:
+`{"content":"<concise Task Center note>","paths":["<path>"],"tags":["discovery"]}`
+
+There is no valid no-argument form of this tool.
+
+Incorrect behavior: writing the note as visible assistant text and then sending
+a tool input that omits `content`. If you drafted note text while reading the
+transcript, put that text inside the JSON `content` field.
 """
 
 _DEFAULT_TC_NOTE_SYSTEM_PROMPT = (

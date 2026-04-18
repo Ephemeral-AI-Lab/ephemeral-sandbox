@@ -67,8 +67,10 @@ class PostNoteInput(BaseModel):
         ...,
         description=(
             "REQUIRED. Put the entire Task Center note here as a non-empty string. "
-            "Never leave the tool input empty, and never put the note only in "
-            "assistant text."
+            "Always send this field in the tool input object, and never put the "
+            "note only in assistant text. The tool input JSON must look like "
+            '{"content":"<concise Task Center note>","paths":["<path>"],'
+            '"tags":["discovery"]}.'
         ),
         min_length=1,
     )
@@ -112,7 +114,10 @@ class SubmitTaskNoteTool(BaseTool):
     name = "submit_task_note"
     description = (
         "Post a note to the Task Center for other agents to read. "
-        "The input must include non-empty `content`; never call with `{}`. "
+        "The input object must include non-empty `content`. "
+        'Use JSON like {"content":"<concise Task Center note>","paths":["<path>"],'
+        '"tags":["discovery"]}; put the note in the `content` field rather than '
+        "assistant text. "
         "Use for: blockers that siblings should know about, partial progress "
         "updates on long tasks, discoveries about the codebase that downstream "
         "tasks need, and exploration findings (scouts). Notes are append-only "
@@ -245,7 +250,11 @@ class TaskCenterChangedSinceTool(BaseTool):
 class ReadTaskNoteInput(BaseModel):
     scope: Literal["own", "sibling"] = Field(
         default="own",
-        description="'own' reads notes from your own task. 'sibling' reads from sibling tasks and descendants.",
+        description=(
+            "'own' reads notes from your own task. Background scout/subagent notes "
+            "created by run_subagent are own-scope notes. 'sibling' reads from true "
+            "sibling team tasks and descendants."
+        ),
     )
     task_ids: list[str] | None = Field(
         default=None,
@@ -274,8 +283,10 @@ class ReadTaskNoteTool(BaseTool):
     name = "read_task_note"
     description = (
         "Read notes from the Task Center. Use scope='own' for your task's notes, "
-        "scope='sibling' for sibling tasks. ALWAYS include paths=[<your_scope_paths>] "
-        "to scope reads. Also use tags= and keyword= for filtering."
+        "including notes posted by run_subagent scouts; omit scope or keep scope='own' "
+        "after a background scout wave. Use scope='sibling' only for true sibling "
+        "team tasks. ALWAYS include paths=[<your_scope_paths>] to scope reads. "
+        "Also use tags= and keyword= for filtering."
     )
     short_description = "Read Task Center notes."
     input_model = ReadTaskNoteInput

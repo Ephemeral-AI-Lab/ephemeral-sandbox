@@ -56,6 +56,8 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
     assert "## Assigned coding task" in rendered
     assert "Goal\nImplement retry handling." in rendered
     assert "## scope_paths\n- backend/src/retry.py" in rendered
+    assert "Benchmark and verification test files in this list are read/verify-only" in rendered
+    assert "patch the production owner or submit a failure for replanning" in rendered
     assert "## Context from dependencies" not in rendered
     assert "Tool-name contract" not in rendered
     assert "stdout and stderr are already captured separately" not in rendered
@@ -70,8 +72,12 @@ def test_note_taker_prompts_load_from_markdown_file() -> None:
     assert "Call submit_task_note now" in turn_prompt
     assert "exactly one `submit_task_note(...)` tool" in turn_prompt
     assert "Do not write visible analysis" in turn_prompt
-    assert "Do not write the note in assistant text and then call an empty tool" in turn_prompt
+    assert "Your assistant message must contain no text block" in turn_prompt
+    assert "the note text belongs in the tool's `content` field" in turn_prompt
     assert "put that text inside `content`" in turn_prompt
+    assert "Valid input JSON" in turn_prompt
+    assert "tool input that omits `content`" in turn_prompt
+    assert "submit_task_note({})" not in turn_prompt
     assert edit_prompt.startswith("Use the frozen worker transcript below only as evidence")
     assert "- submit_task_note: Post a Task Center note." in edit_prompt
     assert "not a conversation with you" in edit_prompt
@@ -80,6 +86,26 @@ def test_note_taker_prompts_load_from_markdown_file() -> None:
     assert "not a conversation with you" in turn_prompt
     assert "post_note" not in edit_prompt
     assert "post_note" not in turn_prompt
+
+
+def test_scout_prompt_overrides_final_response_fallback() -> None:
+    rendered = render_user_prompt_template(
+        "scout",
+        {
+            "task_spec": "Map retry ownership.",
+            "scope_paths": "- backend/src/retry.py",
+            "context_from_dependencies": "",
+            "recent_scope_changes": "",
+            "parent_context": "",
+            "terminal_tools": "- final_response: No terminal tool is configured for this role.",
+        },
+    )
+
+    assert "## Scout note override" in rendered
+    assert "your required post action is one `submit_task_note(...)` tool call" in rendered
+    assert "Do not put findings only in assistant text." in rendered
+    assert "say only `Posted.`" in rendered
+    assert "Finish by calling `submit_task_note(...)`" in rendered
 
 
 async def _make_task_center(
@@ -140,6 +166,7 @@ async def test_build_query_context_uses_developer_markdown_template() -> None:
     assert "Please read the assigned coding task" in ctx.user_message
     assert "Goal\nImplement retry handling." in ctx.user_message
     assert "## scope_paths\n- backend/src/retry.py" in ctx.user_message
+    assert "Benchmark and verification test files in this list are read/verify-only" in ctx.user_message
 
 
 @pytest.mark.asyncio
@@ -178,6 +205,12 @@ async def test_build_query_context_uses_root_planner_markdown_template() -> None
     assert "Fix retry handling." in ctx.user_message
     assert "## Benchmark targets" in ctx.user_message
     assert "tests/test_retry.py::test_retry" in ctx.user_message
+    assert "Keep benchmark or verification test targets in task prose" in ctx.user_message
+    assert "not developer or child-planner `scope_paths`" in ctx.user_message
+    assert "Before `run_subagent`, scrub scout `target_paths`" in ctx.user_message
+    assert "keep benchmark tests and missing test-derived paths in task prose" in ctx.user_message
+    assert "After `run_subagent` scouts, read their notes with default scope" in ctx.user_message
+    assert 'do not set `scope="sibling"` for those same-task scout notes' in ctx.user_message
     assert _SUBMIT_PLAN_SCHEMA_SNIPPET in ctx.user_message
     assert _SUBMIT_PLAN_SPEC_SNIPPET in ctx.user_message
     assert "Submit the final plan with `submit_plan(new_tasks=[...])`" not in ctx.user_message
@@ -227,6 +260,12 @@ async def test_build_query_context_uses_child_planner_structured_spec_contract()
     assert "- submit_plan:" in ctx.user_message
     assert "## Assigned planner task" in ctx.user_message
     assert "Decompose retry handling." in ctx.user_message
+    assert "Keep benchmark or verification test targets in task prose" in ctx.user_message
+    assert "not developer or child-planner `scope_paths`" in ctx.user_message
+    assert "Before `run_subagent`, scrub scout `target_paths`" in ctx.user_message
+    assert "keep benchmark tests and missing test-derived paths in task prose" in ctx.user_message
+    assert "After `run_subagent` scouts, read their notes with default scope" in ctx.user_message
+    assert 'do not set `scope="sibling"` for those same-task scout notes' in ctx.user_message
     assert _SUBMIT_PLAN_SCHEMA_SNIPPET in ctx.user_message
     assert _SUBMIT_PLAN_SPEC_SNIPPET in ctx.user_message
     assert "Submit the final child plan with `submit_plan(new_tasks=[...])`" not in ctx.user_message
@@ -317,6 +356,9 @@ async def test_build_query_context_uses_scout_markdown_template() -> None:
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- final_response:" in ctx.user_message
+    assert "## Scout note override" in ctx.user_message
+    assert "your required post action is one `submit_task_note(...)` tool call" in ctx.user_message
+    assert "Do not put findings only in assistant text." in ctx.user_message
     assert "## Assigned exploration task" in ctx.user_message
     assert "Do not edit files" in ctx.user_message
     assert "Map retry module ownership." in ctx.user_message

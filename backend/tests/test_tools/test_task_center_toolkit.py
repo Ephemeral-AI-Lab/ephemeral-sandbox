@@ -93,9 +93,26 @@ def test_submit_task_note_schema_is_pydantic_native():
 
     content_description = schema["input_schema"]["properties"]["content"]["description"]
     assert "REQUIRED" in content_description
-    assert "Never leave the tool input empty" in content_description
-    assert "never call with `{}`" in schema["description"]
+    assert "Always send this field in the tool input object" in content_description
+    assert '{"content":"<concise Task Center note>"' in content_description
+    assert "The input object must include non-empty `content`" in schema["description"]
+    assert "put the note in the `content` field" in schema["description"]
+    assert "{}" not in schema["description"]
     assert schema["output_schema"]["properties"]["task_id"]["description"]
+
+
+def test_read_task_note_schema_explains_background_scout_scope():
+    schema = ReadTaskNoteTool().to_api_schema()
+
+    assert "notes posted by run_subagent scouts" in schema["description"]
+    assert "omit scope or keep scope='own' after a background scout wave" in schema[
+        "description"
+    ]
+    scope_description = schema["input_schema"]["properties"]["scope"]["description"]
+    assert "Background scout/subagent notes created by run_subagent are own-scope notes" in (
+        scope_description
+    )
+    assert "true sibling team tasks" in scope_description
 
 
 @pytest.mark.asyncio

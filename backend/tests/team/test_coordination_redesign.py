@@ -191,6 +191,32 @@ def test_submit_plan_requires_planner_authored_description():
         )
 
 
+def test_submit_plan_schema_guides_test_targets_without_runtime_gate():
+    tool = SubmitPlanTool()
+    schema = tool.to_api_schema()
+
+    assert "implementation owner paths" in schema["description"]
+    assert "verification-only test targets in spec" in schema["description"]
+    scope_desc = schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]["scope_paths"][
+        "description"
+    ]
+    assert "implementation owner paths" in scope_desc
+    assert "verification-only test targets in spec" in scope_desc
+
+    payload = tool.input_model(
+        new_tasks=[
+            {
+                "id": "dev-owner",
+                "description": "Repair owner",
+                "name": "developer",
+                "spec": _spec("Repair the production owner."),
+                "scope_paths": ["pkg/tests/test_owner.py"],
+            }
+        ]
+    )
+    assert payload.new_tasks[0].scope_paths == ["pkg/tests/test_owner.py"]
+
+
 @pytest.mark.asyncio
 async def test_submit_plan_rejects_overlong_description_without_truncating():
     ctx = ToolExecutionContext(

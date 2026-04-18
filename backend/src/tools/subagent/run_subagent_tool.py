@@ -118,7 +118,10 @@ class RunSubagentInput(BaseModel):
         default=None,
         description=(
             "Structured subagent payload. For scout, use "
-            "{\"target_paths\": [...]}. Mutually exclusive with prompt."
+            "{\"target_paths\": [...]} with live production owner paths only; "
+            "keep benchmark tests and missing test-derived paths in task prose "
+            "or task_note unless tests are explicitly the owned surface. "
+            "Mutually exclusive with prompt."
         ),
     )
 
@@ -490,7 +493,11 @@ def _snapshot_messages(messages: list[Any] | None) -> list[dict[str, Any]]:
         "planners should use this only for exploration subagents such as "
         "``scout``; never pass ``developer`` or ``validator`` here. Emit "
         "multiple disjoint calls in one turn only when live scope status "
-        "still admits parallel fan-out."
+        "still admits parallel fan-out. For ``scout`` structured input, "
+        "scrub ``target_paths`` to live production owner files/directories; "
+        "benchmark tests, ``*/tests/*``, ``test_*.py``, and missing "
+        "test-derived paths belong in task prose or task_note unless tests "
+        "are explicitly the owned surface."
     ),
     short_description="Spawn a subagent in the background.",
     input_model=RunSubagentInput,
@@ -538,8 +545,10 @@ async def run_subagent(
             "- Do not suggest an 'intended' or 'correct' nearby path when the assigned target is missing.",
             "- Do not inspect already-named benchmark test files or guessed owner files unless they are inside `target_paths`.",
             "- Start source-code scouting with `ci_query_symbol(...)`.",
-            "- If `ci_query_symbol(...)` already returned definitions for an exact file target, stay read-free and finish from CI evidence.",
+            "- The durable handoff must be exactly one `submit_task_note(...)` call with non-empty `content`; never put findings only in final text.",
+            "- If `ci_query_symbol(...)` already returned definitions for an exact file target, stay read-free and post `submit_task_note(...)` from CI evidence.",
             "- On coordinated benchmark lanes, exact-file and short fixed-file scouts stay read-free; if CI stays cold, report the gap instead.",
+            "- If the note tool returns and the loop asks for final text, say only `Posted.`",
         ]
         strict_scope_block = "\n".join(strict_scope_lines)
         final_prompt = f"{strict_scope_block}\n\n{final_prompt}"

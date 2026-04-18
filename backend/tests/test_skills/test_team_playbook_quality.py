@@ -120,9 +120,19 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must load `task-planning-decomposition`" in planner.lower()
     assert "final submit helper" in planner.lower()
     assert "submit_plan` tool schema is enough" in planner
-    assert "top-level `deps` field lists every terminal non-validator sibling id" in planner
+    assert "top-level `deps` field lists every same-layer non-validator sibling id" in planner
+    assert "child `team_planner` decomposition lanes" in planner
     assert "prose inside `spec` does not create task dependencies" in planner
+    assert "run_subagent scout notes are current-task notes" in planner
+    assert 'do not use `scope="sibling"` for them' in planner
+    assert "scrub each scout `target_paths` list before calling `run_subagent`" in planner
+    assert "live production owner files/directories only" in planner
     assert "never submit a `validator` task with `deps: []`" in planner.lower()
+    assert "never omit same-layer `team_planner` siblings from validator `deps`" in planner.lower()
+    assert "do not put those paths in `scope_paths` for developer or child-planner lanes" in planner
+    assert "scope_paths` to production owner paths" in planner
+    assert "never put verification-only benchmark tests in developer or child-planner `scope_paths`" in planner.lower()
+    assert "never pass `*/tests/*`, `test_*.py`, or unconfirmed test-derived paths in scout `target_paths`" in planner.lower()
     assert "never guess an exact owner" in planner.lower()
     assert "never make non-submission tool calls after loading `plan-json-contract`" in planner.lower()
     assert "split unrelated scout targets" in planner.lower()
@@ -139,6 +149,8 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must not use `daytona_codeact` for file edits" in developer.lower()
     assert "must not use `daytona_codeact` for file-content reads" in developer.lower()
     assert "writes to test files as off-policy" in developer.lower()
+    assert "test files in `scope_paths` as read/verify-only" in developer.lower()
+    assert "never treat test paths in `scope_paths` as edit permission" in developer.lower()
     assert "uid 0 bypassing" not in developer.lower()
     assert "pkg._compatibility" not in developer
 
@@ -163,6 +175,9 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must not edit files" in scout.lower()
     assert "must keep missing targets missing" in scout.lower()
     assert "unconfirmed adjacent evidence" in scout.lower()
+    assert "must call exactly one `submit_task_note(...)`" in scout.lower()
+    assert "never use final prose instead of `submit_task_note(...)`" in scout.lower()
+    assert "must not end with only visible findings" in scout.lower()
 
 
 def test_reference_files_hold_specialized_detail() -> None:
@@ -184,12 +199,15 @@ def test_reference_files_hold_specialized_detail() -> None:
     )
 
     assert "Never keep a guessed exact leaf once live evidence disproves it." in planner_ref
+    assert "read_task_note(paths=[...])` with default scope" in planner_ref
     assert "optional final helper" in planner_json
     assert "submit_plan(new_tasks=[...])" in planner_json
     assert "Do not include `task_note`" in planner_json
     assert "`1. Goal:`" in planner_json
     assert "Do not use Markdown headings" in planner_json
     assert "Mentioning dependencies inside `spec` does not set task deps" in planner_json
+    assert "verification-only test targets in `spec` context or acceptance criteria" in planner_json
+    assert "child planners like `plan-parquet` or `plan-groupby`" in planner_json
     assert "Never submit it with `deps: []`" in planner_json
     assert "Example task graph" in planner_decomposition
     assert '"id": "dev-hdf"' in planner_decomposition
@@ -200,6 +218,13 @@ def test_reference_files_hold_specialized_detail() -> None:
     assert "Use `team_planner` for expandable tasks" in planner_decomposition
     assert "Use `validator` for validation tasks" in planner_decomposition
     assert "first-wave scout has been launched and its notes reviewed" in planner_decomposition
+    scout_launch = _read(
+        _CONTENT / "team-planner-playbook/references/scout-launch-contract.md"
+    )
+    assert "Notes from `run_subagent` scouts live on the current planner task" in scout_launch
+    assert 'do not use `scope="sibling"` for them' in scout_launch
+    assert "Scrub `target_paths` first" in scout_launch
+    assert "missing test-derived path in scout `target_paths`" in scout_launch
     assert 'daytona_codeact(command="...", timeout=N)' in developer_runtime
     assert "Must not append shell capture plumbing" in developer_runtime
     assert "Must not edit files through CodeAct" in developer_runtime
@@ -208,6 +233,8 @@ def test_reference_files_hold_specialized_detail() -> None:
     assert "cd /testbed" in developer_runtime
     assert "pkg._compat" in developer_root_cause
     assert "The Task Center note is the durable handoff." in scout_ref
+    assert "Make exactly one `submit_task_note(...)` call" in scout_ref
+    assert "assistant text with no `submit_task_note(...)` call" in scout_ref
     assert "check_background_progress" in validator_ref
     assert "Must not inspect source through CodeAct" in validator_ref
 
