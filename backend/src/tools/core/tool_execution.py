@@ -8,27 +8,9 @@ from hooks import HookEvent
 from message.messages import ToolResultBlock
 from tools.core.base import ExecutionMetadata, ToolExecutionContext, run_tool_safely
 from tools.core.runtime import merge_runtime_metadata
-from tools.builtins.skills.toolkit import (
-    clear_required_next_tool,
-    get_required_next_tool,
-)
 
 if TYPE_CHECKING:
     from engine.core.query import QueryContext
-
-
-def _build_required_guard_error(
-    tool_name: str,
-    tool_use_id: str,
-    pending: dict[str, Any],
-) -> ToolResultBlock:
-    message = (
-        f"{pending.get('reason') or 'A terminal tool-call guard is active.'} "
-        f"The next tool must be `{pending['tool_name']}(...)`. "
-        f"You called `{tool_name}` instead. "
-        f"{pending.get('reset_hint') or ''}"
-    ).strip()
-    return ToolResultBlock(tool_use_id=tool_use_id, content=message, is_error=True)
 
 
 def _build_budget_exceeded_error(
@@ -69,12 +51,6 @@ async def execute_tool_call(
     tool_input: dict[str, object],
     extra_metadata: ExecutionMetadata | dict[str, Any] | None = None,
 ) -> ToolResultBlock:
-    pending = get_required_next_tool(context.tool_metadata)
-    if pending is not None and tool_name != pending["tool_name"]:
-        return _build_required_guard_error(tool_name, tool_use_id, pending)
-    if pending is not None and tool_name == pending["tool_name"]:
-        clear_required_next_tool(context.tool_metadata)
-
     budget_rejection = _consume_tool_budget_or_reject(context, tool_name, tool_use_id)
     if budget_rejection is not None:
         return budget_rejection

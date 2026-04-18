@@ -145,3 +145,79 @@ async def test_process_auditor_records_changed_files_and_refreshes_indexes(
     ]
     assert symbol_index.refreshed == [(file_path, "value = 2\n")]
     assert lsp_client.invalidated == [file_path]
+
+
+@pytest.mark.asyncio
+async def test_process_auditor_can_report_unattributed_changes(monkeypatch) -> None:
+    file_path = "/workspace/app.py"
+    before = {
+        file_path: {
+            "rel": "app.py",
+            "exists": True,
+            "hash": "old-hash",
+            "head_hash": "head-hash",
+        }
+    }
+    after = {
+        file_path: {
+            "rel": "app.py",
+            "exists": True,
+            "hash": "new-hash",
+            "head_hash": "head-hash",
+        }
+    }
+    fixed_run_id = "fedcba9876543210fedcba9876543210"
+    monkeypatch.setattr(
+        "code_intelligence.routing.process_auditor.uuid.uuid4",
+        lambda: SimpleNamespace(hex=fixed_run_id),
+    )
+
+    async def exec_process(sandbox, command: str, *, timeout: int | None = None):
+        del sandbox, command, timeout
+        return SimpleNamespace(
+            result=_framed(
+                fixed_run_id,
+                before=before,
+                exec_stdout=b"ok",
+                exit_code=0,
+                after=after,
+            ),
+            exit_code=0,
+        )
+
+    arbiter = SimpleNamespace(recorded=[])
+    arbiter.record_edit = lambda **kwargs: arbiter.recorded.append(kwargs)
+    content = SimpleNamespace(read=lambda path, *, allow_missing=False: ("", False))
+    symbol_index = SimpleNamespace(refreshed=[])
+    symbol_index.refresh = lambda path, content_text: symbol_index.refreshed.append(
+        (path, content_text)
+    )
+    lsp_client = SimpleNamespace(invalidated=[])
+    lsp_client.invalidate = lambda path: lsp_client.invalidated.append(path)
+
+    auditor = ProcessAuditor(
+        workspace_root="/workspace",
+        exec_process=exec_process,
+        arbiter=arbiter,
+        content=content,
+        symbol_index=symbol_index,
+        lsp_client=lsp_client,
+    )
+
+    result = await auditor.execute(
+        SimpleNamespace(),
+        "runtime-only command",
+        description="test process",
+        agent_id="developer",
+        team_run_id="team-1",
+        agent_run_id="agent-1",
+        task_id="task-1",
+        attribute_changes=False,
+    )
+
+    assert result.changed_paths == []
+    assert result.ambient_changed_paths == [file_path]
+    assert result.files_written == 0
+    assert arbiter.recorded == []
+    assert symbol_index.refreshed == []
+    assert lsp_client.invalidated == []

@@ -65,8 +65,9 @@ async def _exec_process_operation(
     team_run_id="",
     agent_run_id="",
     task_id="",
+    attribute_changes=True,
 ):
-    del description, agent_id, team_run_id, agent_run_id, task_id
+    del description, agent_id, team_run_id, agent_run_id, task_id, attribute_changes
     return await sandbox.process.exec(command, timeout=timeout)
 
 
@@ -151,8 +152,8 @@ async def test_read_file_str_content():
     assert not result.is_error
 
 
-async def test_read_file_blocks_benchmark_lane_before_first_repro():
-    sb = _sb(download=b"should not read")
+async def test_read_file_allows_benchmark_lane_before_first_repro():
+    sb = _sb(download=b"ok")
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
@@ -168,13 +169,12 @@ async def test_read_file_blocks_benchmark_lane_before_first_repro():
         ctx,
     )
 
-    assert result.is_error
-    assert "run the exact repro first" in result.output
-    sb.fs.download_file.assert_not_called()
+    assert not result.is_error
+    sb.fs.download_file.assert_awaited_once()
 
 
-async def test_read_file_blocks_benchmark_test_files_after_repro():
-    sb = _sb(download=b"should not read")
+async def test_read_file_allows_benchmark_test_files_after_repro():
+    sb = _sb(download=b"ok")
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
@@ -191,13 +191,12 @@ async def test_read_file_blocks_benchmark_test_files_after_repro():
         ctx,
     )
 
-    assert result.is_error
-    assert "do not open benchmark test files" in result.output
-    sb.fs.download_file.assert_not_called()
+    assert not result.is_error
+    sb.fs.download_file.assert_awaited_once()
 
 
-async def test_read_file_blocks_team_lane_until_notes_and_ci_context():
-    sb = _sb(download=b"should not read")
+async def test_read_file_allows_team_lane_without_runtime_workflow_gate():
+    sb = _sb(download=b"ok")
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
@@ -213,10 +212,8 @@ async def test_read_file_blocks_team_lane_until_notes_and_ci_context():
         ctx,
     )
 
-    assert result.is_error
-    assert "read_task_note(paths=[...])" in result.output
-    assert "ci_workspace_structure" in result.output
-    sb.fs.download_file.assert_not_called()
+    assert not result.is_error
+    sb.fs.download_file.assert_awaited_once()
 
 
 async def test_read_file_allows_team_lane_after_notes_and_ci_context():
@@ -367,8 +364,10 @@ async def test_write_file_allows_write_inside_write_scope():
     sb.process.exec.assert_called_once()
 
 
-async def test_write_file_rejects_test_suite_write():
+async def test_write_file_allows_test_suite_write_with_warning():
     sb = _sb()
+    sb.process.exec = AsyncMock(return_value=_write_exec_result())
+    svc = _ci_service_mock(file_path="/testbed/dask/tests/test_cli.py")
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
@@ -377,6 +376,7 @@ async def test_write_file_rejects_test_suite_write():
             "write_scope": ["dask/cli.py"],
             "owned_failures": ["dask/tests/test_cli.py"],
             "verify": ["pytest dask/tests/test_cli.py -q"],
+            "ci_service": svc,
         }
     )
 
@@ -388,10 +388,11 @@ async def test_write_file_rejects_test_suite_write():
         ctx,
     )
 
-    assert result.is_error
-    assert "test suite" in result.output
-    sb.fs.upload_file.assert_not_called()
-    sb.process.exec.assert_not_called()
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["file_path"] == "/testbed/dask/tests/test_cli.py"
+    assert any("outside write_scope" in warning for warning in data["warnings"])
+    sb.process.exec.assert_called_once()
 
 
 async def test_write_file_warns_non_verify_surface_write_in_warn_mode():

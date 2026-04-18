@@ -112,6 +112,10 @@ class OperationChange:
     ``final_content`` is the
     tool's proposed post-transform content, or ``None`` to delete the file.
     ``base_existed`` is ``False`` when the plan expects to create a new file.
+    ``strict_base`` requires ``current_hash == base_hash`` in the modify branch
+    and skips the non-overlapping merge fallback; set for whole-file rewrites
+    (e.g. ``move --overwrite``) where tolerating concurrent edits would
+    silently drop them.
     """
 
     file_path: str
@@ -119,6 +123,7 @@ class OperationChange:
     base_hash: str
     final_content: str | None
     base_existed: bool = True
+    strict_base: bool = False
 
 
 SemanticFileChange = OperationChange

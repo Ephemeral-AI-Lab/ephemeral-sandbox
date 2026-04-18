@@ -190,36 +190,6 @@ def launch_and_collect_bg_events(
     task_note: str,
     tool_results: list[ToolResultBlock],
 ) -> list[tuple[StreamEvent, UsageSnapshot | None]]:
-    from tools.builtins.skills.toolkit import (
-        clear_required_next_tool,
-        get_required_next_tool,
-    )
-
-    tool_name = str(getattr(tc, "name", "") or "")
-    tool_id = str(getattr(tc, "id", "") or "")
-    pending = get_required_next_tool(context.tool_metadata)
-    if pending is not None and tool_name != pending["tool_name"]:
-        message = (
-            f"{pending.get('reason') or 'A terminal tool-call guard is active.'} "
-            f"The next tool must be `{pending['tool_name']}(...)`. "
-            f"You called `{tool_name}` instead. "
-            f"{pending.get('reset_hint') or ''}"
-        ).strip()
-        tool_results.append(ToolResultBlock(tool_use_id=tool_id, content=message, is_error=True))
-        return [
-            (
-                ToolExecutionCompleted(
-                    tool_name=tool_name,
-                    output=message,
-                    is_error=True,
-                    tool_id=tool_id,
-                ),
-                None,
-            )
-        ]
-    if pending is not None and tool_name == pending["tool_name"]:
-        clear_required_next_tool(context.tool_metadata)
-
     async def _execute_in_context(
         tool_name: str,
         tool_use_id: str,

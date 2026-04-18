@@ -41,8 +41,9 @@ async def _exec_process_operation(
     team_run_id="",
     agent_run_id="",
     task_id="",
+    attribute_changes=True,
 ):
-    del description, agent_id, team_run_id, agent_run_id, task_id
+    del description, agent_id, team_run_id, agent_run_id, task_id, attribute_changes
     return await sandbox.process.exec(command, timeout=timeout)
 
 
@@ -207,6 +208,13 @@ async def test_build_wrapper_can_disable_python_file_edits():
     assert '_sandbox_builtins["open"] = _guarded_open' in wrapper
     assert "_codeact_shell_file_edit_error" in wrapper
     assert "_CODEACT_SHELL_FILE_EDIT_PATTERNS" in wrapper
+    assert "_codeact_shell_file_read_error" not in wrapper
+    assert "CodeAct read() helper" not in wrapper
+    assert "Python open() file inspection" not in wrapper
+    assert "linecache.getlines" not in wrapper
+    assert "inspect.getsource" not in wrapper
+    assert "pathlib.Path.read_text" not in wrapper
+    assert "io.open = _guarded_io_open" in wrapper
 
 
 async def test_build_exec_command_runs_wrapper_from_repo_cwd():
@@ -290,7 +298,7 @@ async def test_shell_mode_reports_nonzero_exit_as_error():
     assert data["shells_run"] == 1
 
 
-async def test_shell_mode_blocks_audited_test_suite_write_for_team_agents():
+async def test_shell_mode_allows_audited_test_suite_write_with_warning():
     sb = _make_sandbox()
     svc = MagicMock()
     svc.exec_process_operation = AsyncMock(
@@ -316,11 +324,11 @@ async def test_shell_mode_blocks_audited_test_suite_write_for_team_agents():
         ctx,
     )
 
-    assert result.is_error
+    assert not result.is_error
     data = json.loads(result.output)
-    assert data["status"] == "error"
+    assert data["status"] == "ok"
     assert data["files_written"] == 1
-    assert "test suite" in data["error"]
+    assert any("outside write_scope" in warning for warning in data["warnings"])
 
 
 @pytest.mark.parametrize(
@@ -365,6 +373,75 @@ async def test_team_shell_mode_blocks_file_edit_side_channels_before_exec(
     sb.process.exec.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat /testbed/dask/dataframe/io/tests/test_hdf.py | head -50",
+        "head -50 dask/dataframe/io/json.py",
+        "sed -n '1,20p' dask/dataframe/io/json.py",
+        "grep -n read_json dask/dataframe/io/json.py",
+        "python -c \"print(open('dask/dataframe/io/json.py').read())\"",
+        "python -c \"import inspect; print(inspect.getsource(object))\"",
+    ],
+)
+async def test_team_shell_mode_allows_file_read_side_channels(command):
+    sb = _make_sandbox(exec_stdout=_shell_exec_output("contents", 0))
+    svc = _ci_service()
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "team_run_id": "run-1",
+            "work_item_id": "task-1",
+            "ci_service": svc,
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(command=command),
+        ctx,
+    )
+
+    data = _assert_ok(result)
+    assert data["shell_outputs"][0]["stdout"] == "contents"
+    svc.exec_process_operation.assert_awaited_once()
+    sb.process.exec.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "import inspect\nprint(inspect.getsource(object))",
+        "import linecache\nprint(linecache.getlines('dask/dataframe/io/json.py'))",
+        "from pathlib import Path\nPath('dask/dataframe/io/json.py').read_text()",
+        "import io\nio.open('dask/dataframe/io/json.py').read()",
+    ],
+)
+async def test_team_python_mode_allows_file_read_side_channels(code):
+    sb = _make_sandbox()
+    svc = _ci_service()
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "team_run_id": "run-1",
+            "work_item_id": "task-1",
+            "ci_service": svc,
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(code=code),
+        ctx,
+    )
+
+    _assert_ok(result)
+    sb.fs.upload_file.assert_awaited_once()
+    svc.exec_process_operation.assert_awaited_once()
+
+
 async def test_team_shell_mode_still_allows_runtime_commands():
     sb = _make_sandbox(exec_stdout=_shell_exec_output("ok", 0))
     svc = _ci_service()
@@ -387,6 +464,82 @@ async def test_team_shell_mode_still_allows_runtime_commands():
     data = _assert_ok(result)
     assert data["shell_outputs"][0]["stdout"] == "ok"
     svc.exec_process_operation.assert_awaited_once()
+
+
+async def test_team_shell_mode_still_allows_pytest_file_arguments():
+    sb = _make_sandbox(exec_stdout=_shell_exec_output("1 passed", 0))
+    svc = _ci_service()
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "team_run_id": "run-1",
+            "work_item_id": "task-1",
+            "ci_service": svc,
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(
+            command="pytest dask/dataframe/io/tests/test_json.py::test_read_json_engine_str -q"
+        ),
+        ctx,
+    )
+
+    data = _assert_ok(result)
+    assert data["shell_outputs"][0]["stdout"] == "1 passed"
+    svc.exec_process_operation.assert_awaited_once()
+
+
+async def test_team_shell_mode_treats_audited_changes_as_ambient():
+    sb = _make_sandbox()
+
+    async def exec_process_operation(
+        sandbox,
+        command,
+        *,
+        timeout=None,
+        description="",
+        agent_id="",
+        team_run_id="",
+        agent_run_id="",
+        task_id="",
+        attribute_changes=True,
+    ):
+        del sandbox, command, timeout, description, agent_id, team_run_id, agent_run_id, task_id
+        assert attribute_changes is False
+        return SimpleNamespace(
+            result=_shell_exec_output("ujson ok", 0),
+            exit_code=0,
+            changed_paths=[],
+            ambient_changed_paths=["/testbed/dask/_compatibility.py"],
+            files_written=0,
+        )
+
+    svc = MagicMock()
+    svc.exec_process_operation = AsyncMock(side_effect=exec_process_operation)
+    ctx = _ctx(
+        {
+            "daytona_sandbox": sb,
+            "daytona_cwd": "/testbed",
+            "agent_name": "developer",
+            "team_run_id": "run-1",
+            "work_item_id": "task-1",
+            "write_scope": ["dask/dataframe/io/json.py"],
+            "ci_service": svc,
+        }
+    )
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(command="python -c 'print(\"ujson ok\")'"),
+        ctx,
+    )
+
+    data = _assert_ok(result)
+    assert data["files_written"] == 0
+    assert any("ambient concurrent edits" in warning for warning in data["warnings"])
+    assert not any("outside write_scope" in warning for warning in data["warnings"])
 
 
 async def test_shell_mode_warns_for_audited_outside_scope_write():

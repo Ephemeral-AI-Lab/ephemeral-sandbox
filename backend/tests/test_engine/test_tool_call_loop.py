@@ -288,7 +288,7 @@ async def _collect_events(context: QueryContext, user_text: str) -> list:
 
 
 @pytest.mark.asyncio
-async def test_execute_tool_call_rejects_wrong_tool_when_terminal_guard_active(tmp_path: Path):
+async def test_execute_tool_call_ignores_stale_next_tool_guard_metadata(tmp_path: Path):
     registry = _make_registry(EchoTool())
     client = FakeApiClient([_text_reply()])
     metadata = ExecutionMetadata()
@@ -297,31 +297,13 @@ async def test_execute_tool_call_rejects_wrong_tool_when_terminal_guard_active(t
         "reason": "plan-json-contract is active.",
         "reset_hint": "Reload the ending chain if needed.",
     }
-    context = _make_context(client, registry, tmp_path, tool_metadata=metadata)
-
-    result = await _execute_tool_call(
-        context,
-        "echo",
-        "tool-1",
-        {"message": "hi"},
+    context = _make_context(
+        client,
+        registry,
+        tmp_path,
+        tool_metadata=metadata,
+        terminal_tools={"submit_plan"},
     )
-
-    assert result.is_error is True
-    assert "submit_plan" in result.content
-    assert context.tool_metadata is not None
-    assert context.tool_metadata.get("_required_next_tool") is not None
-
-
-@pytest.mark.asyncio
-async def test_execute_tool_call_clears_terminal_guard_on_expected_tool(tmp_path: Path):
-    registry = _make_registry(EchoTool())
-    client = FakeApiClient([_text_reply()])
-    metadata = ExecutionMetadata()
-    metadata["_required_next_tool"] = {
-        "tool_name": "echo",
-        "reason": "terminal echo required.",
-    }
-    context = _make_context(client, registry, tmp_path, tool_metadata=metadata)
 
     result = await _execute_tool_call(
         context,
@@ -331,8 +313,39 @@ async def test_execute_tool_call_clears_terminal_guard_on_expected_tool(tmp_path
     )
 
     assert result.is_error is False
+    assert json.loads(result.content) == {"echoed": "hi"}
     assert context.tool_metadata is not None
-    assert context.tool_metadata.get("_required_next_tool") is None
+    assert context.tool_metadata.get("_required_next_tool") is not None
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_call_does_not_require_expected_next_tool(tmp_path: Path):
+    registry = _make_registry(EchoTool())
+    client = FakeApiClient([_text_reply()])
+    metadata = ExecutionMetadata()
+    metadata["_required_next_tool"] = {
+        "tool_name": "echo",
+        "reason": "terminal echo required.",
+    }
+    context = _make_context(
+        client,
+        registry,
+        tmp_path,
+        tool_metadata=metadata,
+        terminal_tools={"submit_plan"},
+    )
+
+    result = await _execute_tool_call(
+        context,
+        "echo",
+        "tool-1",
+        {"message": "hi"},
+    )
+
+    assert result.is_error is False
+    assert json.loads(result.content) == {"echoed": "hi"}
+    assert context.tool_metadata is not None
+    assert context.tool_metadata.get("_required_next_tool") is not None
 
 
 @pytest.mark.asyncio
@@ -597,7 +610,7 @@ async def test_parallel_tool_calls(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_parallel_batch_rejects_sibling_tool_when_terminal_guard_is_active(tmp_path: Path):
+async def test_parallel_batch_still_rejects_terminal_tool_with_sibling(tmp_path: Path):
     submit_plan = SubmitPlanTool()
     echo = EchoTool()
     registry = _make_registry(submit_plan, echo)
@@ -620,7 +633,13 @@ async def test_parallel_batch_rejects_sibling_tool_when_terminal_guard_is_active
         "reason": "plan-json-contract is active.",
         "reset_hint": "Reload the ending chain if needed.",
     }
-    context = _make_context(client, registry, tmp_path, tool_metadata=metadata)
+    context = _make_context(
+        client,
+        registry,
+        tmp_path,
+        tool_metadata=metadata,
+        terminal_tools={"submit_plan"},
+    )
 
     events = await _collect_events(context, "submit the plan")
 
@@ -631,7 +650,7 @@ async def test_parallel_batch_rejects_sibling_tool_when_terminal_guard_is_active
     assert len(tool_completes) == 2
     assert all(event.is_error for event in tool_completes)
     assert all(
-        "Submit only `submit_plan(...)` in the next tool batch." in event.output
+        "Terminal tool `submit_plan` must be called alone." in event.output
         for event in tool_completes
     )
     assert submit_plan.calls == 0
@@ -744,7 +763,7 @@ async def test_exhausted_budget_still_allows_successful_terminal_tool_call(tmp_p
 
 
 @pytest.mark.asyncio
-async def test_streaming_pending_terminal_guard_rejects_wrong_tool_without_starting_it(
+async def test_streaming_ignores_stale_next_tool_guard_metadata(
     tmp_path: Path,
 ):
     registry = _make_registry(EchoTool())
@@ -787,15 +806,15 @@ async def test_streaming_pending_terminal_guard_rejects_wrong_tool_without_start
     }
     context = _make_context(client, registry, tmp_path, tool_metadata=metadata)
 
-    events = await _collect_events(context, "do the wrong tool under a terminal guard")
+    events = await _collect_events(context, "run echo with stale next-tool metadata")
 
     tool_starts = [e for e in events if isinstance(e, ToolExecutionStarted)]
     tool_completes = [e for e in events if isinstance(e, ToolExecutionCompleted)]
 
-    assert tool_starts == []
+    assert len(tool_starts) == 1
     assert len(tool_completes) == 1
-    assert tool_completes[0].is_error is True
-    assert "Submit only `submit_plan(...)` in the next tool batch." in tool_completes[0].output
+    assert tool_completes[0].is_error is False
+    assert json.loads(tool_completes[0].output) == {"echoed": "wrong next tool"}
 
 
 @pytest.mark.asyncio

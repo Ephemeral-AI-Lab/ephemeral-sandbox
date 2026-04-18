@@ -20,7 +20,6 @@ from typing import Any, ClassVar
 MERGED_RUNTIME_METADATA_KEYS: tuple[str, ...] = (
     "scope_packet",
     "coherence_token",
-    "_required_next_tool",
     "_loaded_skill_references_by_skill_this_turn",
     "checked_context_freshness",
     "freshness_checked_at",

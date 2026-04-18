@@ -15,10 +15,11 @@ Use this reference before the first `daytona_codeact` verification or reproducti
 
 - The preferred benchmark-lane repo-command form is direct `daytona_codeact(command="...", timeout=N)`.
 - Must not append shell capture plumbing such as `2>&1`, `2>/dev/null`, or `1>/tmp/out`; `daytona_codeact` already captures stdout and stderr.
-- Must not edit files through CodeAct. Avoid `sed -i`, `tee file`, output redirects, `touch`/`cp`/`mv`/`rm`, and inline Python writes; use `daytona_edit_file`, `daytona_write_file`, or `daytona_rename_symbol`.
+- Must not edit files through CodeAct. Avoid `sed -i`, `tee file`, output redirects, `touch`/`cp`/`mv`/`rm`, and inline Python writes; use `daytona_edit_file`, `daytona_write_file`, `daytona_rename_symbol`, `daytona_delete_file`, or `daytona_move_file`. The shell policy blocks `rm`/`mv` precisely because those two tools are the sanctioned OCC-gated path for deletes and moves — bypassing them via shell would skip the base-hash check.
+- Must not inspect source through CodeAct. Avoid `cat`, `sed -n`, `grep`/`rg`, `head`/`tail`/`nl`, Python file reads, and `inspect.getsource`; use notes and CI first, then `daytona_read_file` or `daytona_grep`.
 - If you truly need multi-step Python mode, keep repo commands inside `shell("...")` and still avoid `subprocess`.
 - Must keep repo commands repo-root-relative; do not prefix commands with `cd /testbed &&`, `cd /workspace &&`, or another repo-root `cd`.
-- Must not call unprefixed tools like `write_file`, `edit_file`, `read_file`, `bash`, or `grep`; the valid tools are the exact names in the tool list, such as `daytona_write_file` and `daytona_rename_symbol`.
+- Must not call unprefixed tools like `write_file`, `edit_file`, `read_file`, `bash`, or `grep`; the valid tools are the exact names in the tool list, such as `daytona_write_file`, `daytona_rename_symbol`, `daytona_delete_file`, and `daytona_move_file`.
 - If `Unknown tool` appears, treat it as your own Daytona tool-name defect and retry once with the exact tool name before continuing.
 - Must judge pass/fail from `shell(...)["exit_code"]`, not wrapper metadata.
 - If a probe returns manifest `status: error`, traceback text, or no trustworthy exit code, simplify the next probe instead of broadening.

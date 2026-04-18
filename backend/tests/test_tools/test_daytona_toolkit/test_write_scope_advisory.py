@@ -1,8 +1,9 @@
 """Tests for coordinated Daytona repo-write enforcement.
 
 Write-scope was changed from hard-blocking to advisory: developers can write
-outside their assigned scope_paths with a warning instead of an error.
-Test-suite paths are always hard-blocked for coordinated agents.
+outside their assigned scope_paths with a warning instead of an error. Workflow
+preferences, including test-vs-production ownership, are prompt guidance rather
+than tool-layer hard blocks.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ def _ctx(metadata=None) -> ToolExecutionContext:
 
 
 # ---------------------------------------------------------------------------
-# _team_repo_write_error: developers stay advisory except on test-suite paths
+# _team_repo_write_error: workflow policy does not hard-block coordinated writes
 # ---------------------------------------------------------------------------
 
 
@@ -81,28 +82,25 @@ def test_write_error_allows_validator_without_scope():
     assert result is None
 
 
-def test_write_error_blocks_test_suite_without_team_mode_flag():
-    """Developer coordination safeguards no longer require a separate mode flag."""
+def test_write_error_allows_test_suite_without_team_mode_flag():
+    """Test-suite ownership is advisory, not a tool-layer hard block."""
     ctx = _ctx({
         "agent_name": "developer",
         "daytona_cwd": "/testbed",
         "write_scope": ["dask/config.py"],
     })
     result = _team_repo_write_error(ctx, "/testbed/dask/tests/test_config.py", tool_name="edit")
-    assert result is not None
-    assert "test suite" in result
+    assert result is None
 
 
-def test_write_error_blocks_test_suite_path():
+def test_write_error_allows_test_suite_path():
     ctx = _ctx({
         "agent_name": "developer",
         "daytona_cwd": "/testbed",
         "write_scope": ["dask/cli.py"],
     })
     result = _team_repo_write_error(ctx, "/testbed/dask/tests/test_cli.py", tool_name="edit")
-    assert result is not None
-    assert "test suite" in result
-    assert "dask/tests/test_cli.py" in result
+    assert result is None
 
 
 def test_write_error_returns_none_for_absolute_path_outside_repo():

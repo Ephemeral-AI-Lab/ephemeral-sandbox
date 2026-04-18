@@ -329,7 +329,7 @@ def _python_literal_or_none(value: str | None) -> str:
 
 
 _WRAPPER_TEMPLATE = r'''
-import base64, hashlib, importlib, json, os, pathlib, re, shlex, subprocess, traceback
+import base64, hashlib, importlib, io, json, os, pathlib, re, shlex, subprocess, traceback
 
 _RUN_ID = "{run_id}"
 _MANIFEST = {{"reads": [], "writes": [], "shells": [], "status": "ok", "error": ""}}
@@ -536,6 +536,8 @@ def shell(command, timeout={codeact_default_timeout}):
 import builtins as _builtins_mod
 _real_import = _builtins_mod.__import__
 _real_open = _builtins_mod.open
+_real_io_open = io.open
+_real_path_open = pathlib.Path.open
 
 def _is_write_mode(mode):
     text = str(mode or "r")
@@ -545,6 +547,16 @@ def _guarded_open(file, mode="r", *args, **kwargs):
     if _DISABLE_CODEACT_FILE_EDITS and _is_write_mode(mode):
         raise RuntimeError(_CODEACT_FILE_EDIT_POLICY_MESSAGE)
     return _real_open(file, mode, *args, **kwargs)
+
+def _guarded_io_open(file, mode="r", *args, **kwargs):
+    if _DISABLE_CODEACT_FILE_EDITS and _is_write_mode(mode):
+        raise RuntimeError(_CODEACT_FILE_EDIT_POLICY_MESSAGE)
+    return _real_io_open(file, mode, *args, **kwargs)
+
+def _guarded_path_open(self, mode="r", *args, **kwargs):
+    if _DISABLE_CODEACT_FILE_EDITS and _is_write_mode(mode):
+        raise RuntimeError(_CODEACT_FILE_EDIT_POLICY_MESSAGE)
+    return _real_path_open(self, mode, *args, **kwargs)
 
 def _guarded_import(name, *args, **kwargs):
     top = name.split(".")[0]
@@ -605,6 +617,8 @@ if _DISABLE_CODEACT_FILE_EDITS:
     ):
         if hasattr(pathlib.Path, _name):
             setattr(pathlib.Path, _name, _blocked_file_edit_call)
+    pathlib.Path.open = _guarded_path_open
+    io.open = _guarded_io_open
 
 if _ENFORCE_TEAM_SHELL_POLICY:
     def _blocked_os_process(*args, **kwargs):
@@ -696,6 +710,7 @@ async def _exec_shell_command(
     command: str,
     cwd: str | None,
     timeout: int,
+    attribute_changes: bool,
 ) -> dict[str, object]:
     wrapped_command = command if not cwd else f"cd {shlex.quote(cwd)} && {command}"
     response = await exec_ci_process_operation(
@@ -704,6 +719,7 @@ async def _exec_shell_command(
         _wrap_bash_command(wrapped_command),
         timeout=timeout,
         description="daytona_codeact shell",
+        attribute_changes=attribute_changes,
     )
     stdout = getattr(response, "result", "") or ""
     fallback_exit_code = getattr(response, "exit_code", None)
@@ -717,6 +733,7 @@ async def _exec_shell_command(
         "stderr": cleaned_stdout if exit_code != 0 else "",
         "exit_code": exit_code,
         "changed_paths": _changed_paths_from_response(response),
+        "ambient_changed_paths": _ambient_changed_paths_from_response(response),
     }
 
 
@@ -727,6 +744,7 @@ async def _run_shell_with_recovery(
     command: str,
     cwd: str | None,
     timeout: int,
+    attribute_changes: bool,
 ) -> tuple[dict[str, object] | None, object, ToolResult | None]:
     try:
         return (
@@ -736,6 +754,7 @@ async def _run_shell_with_recovery(
                 command=command,
                 cwd=cwd,
                 timeout=timeout,
+                attribute_changes=attribute_changes,
             ),
             sandbox,
             None,
@@ -750,6 +769,7 @@ async def _run_shell_with_recovery(
                     command=command,
                     cwd=cwd,
                     timeout=timeout,
+                    attribute_changes=attribute_changes,
                 ),
                 sandbox,
                 None,
@@ -925,11 +945,36 @@ def _changed_paths_from_response(response: object) -> list[str]:
     return sorted({str(path) for path in raw if str(path or "").strip()})
 
 
+def _ambient_changed_paths_from_response(response: object) -> list[str]:
+    raw = getattr(response, "ambient_changed_paths", None)
+    if not isinstance(raw, list):
+        return []
+    return sorted({str(path) for path in raw if str(path or "").strip()})
+
+
 def _changed_paths_from_shell(shell_result: dict[str, object]) -> list[str]:
     raw = shell_result.get("changed_paths")
     if not isinstance(raw, list):
         return []
     return sorted({str(path) for path in raw if str(path or "").strip()})
+
+
+def _ambient_changed_paths_from_shell(shell_result: dict[str, object]) -> list[str]:
+    raw = shell_result.get("ambient_changed_paths")
+    if not isinstance(raw, list):
+        return []
+    return sorted({str(path) for path in raw if str(path or "").strip()})
+
+
+def _ambient_change_warning(paths: list[str]) -> str:
+    rendered = ", ".join(paths[:5])
+    if len(paths) > 5:
+        rendered += f", ... ({len(paths)} total)"
+    return (
+        "Workspace changed during this shell command, but coordinated CodeAct "
+        "shell commands are runtime-only; treating changed paths as ambient "
+        f"concurrent edits: {rendered}"
+    )
 
 
 def _audited_write_policy(
@@ -1045,20 +1090,25 @@ async def daytona_codeact(
             command=direct_command,
             cwd=repo_cwd,
             timeout=timeout,
+            attribute_changes=not disable_codeact_file_edits,
         )
         if tool_error is not None:
             return tool_error
         assert shell_result is not None
         exit_code = int(shell_result.get("exit_code", 1))
         changed_paths = _changed_paths_from_shell(shell_result)
+        ambient_changed_paths = _ambient_changed_paths_from_shell(shell_result)
         policy_warnings, policy_error = _audited_write_policy(context, changed_paths)
+        ambient_warnings = (
+            [_ambient_change_warning(ambient_changed_paths)] if ambient_changed_paths else []
+        )
         return _build_tool_output(
             context=context,
             status="ok" if exit_code == 0 and not policy_error else "error",
             files_written=len(changed_paths),
             shells=[shell_result],
             script_stdout="",
-            warnings=list(normalization_warnings) + policy_warnings,
+            warnings=list(normalization_warnings) + policy_warnings + ambient_warnings,
             error=(
                 policy_error
                 or (_shell_result_error_detail(shell_result) if exit_code != 0 else "")

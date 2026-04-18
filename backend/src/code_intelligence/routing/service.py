@@ -223,6 +223,7 @@ class CodeIntelligenceService:
         team_run_id: str = "",
         agent_run_id: str = "",
         task_id: str = "",
+        attribute_changes: bool = True,
     ) -> Any:
         """Execute one sandbox process command and audit workspace mutations.
 
@@ -240,6 +241,7 @@ class CodeIntelligenceService:
             team_run_id=team_run_id,
             agent_run_id=agent_run_id,
             task_id=task_id,
+            attribute_changes=attribute_changes,
         )
 
     async def exec_process_operation_overlay(
@@ -253,6 +255,7 @@ class CodeIntelligenceService:
         team_run_id: str = "",
         agent_run_id: str = "",
         task_id: str = "",
+        attribute_changes: bool = True,
     ) -> Any:
         """Audited exec using per-run overlayfs isolation.
 
@@ -284,6 +287,7 @@ class CodeIntelligenceService:
                 team_run_id=team_run_id,
                 agent_run_id=agent_run_id,
                 task_id=task_id,
+                attribute_changes=attribute_changes,
             )
 
         auditor = await self._ensure_overlay_auditor(sandbox)
@@ -297,6 +301,7 @@ class CodeIntelligenceService:
                 team_run_id=team_run_id,
                 agent_run_id=agent_run_id,
                 task_id=task_id,
+                attribute_changes=attribute_changes,
             )
         except OverlayMountError as exc:
             logger.warning(
@@ -314,6 +319,7 @@ class CodeIntelligenceService:
                 team_run_id=team_run_id,
                 agent_run_id=agent_run_id,
                 task_id=task_id,
+                attribute_changes=attribute_changes,
             )
 
     async def _ensure_overlay_auditor(self, sandbox: Any) -> OverlayAuditor:
@@ -638,6 +644,155 @@ class CodeIntelligenceService:
             changes,
             agent_id=agent_id,
             edit_type=edit_type,
+            description=description,
+        )
+
+    # -- Delete / Move APIs (OCC-gated) --------------------------------------
+
+    def delete_file(
+        self,
+        file_path: str,
+        *,
+        agent_id: str = "",
+        description: str = "",
+    ) -> OperationResult:
+        """Delete *file_path* through the OCC-gated commit path.
+
+        Reads the current content through :class:`ContentManager`, captures a
+        ``base_hash`` from that read, and submits a single
+        ``OperationChange(final_content=None)``. The coordinator's delete
+        branch requires ``current_hash == base_hash`` exactly and aborts
+        with ``aborted_version`` on any drift — there is no merge fallback
+        for deletes.
+        """
+        current, existed = self._content.read(file_path, allow_missing=True)
+        if not existed:
+            return OperationResult(
+                success=False,
+                status="failed",
+                files=(
+                    EditResult(
+                        success=False,
+                        file_path=file_path,
+                        message=f"Path does not exist: {file_path}",
+                    ),
+                ),
+                conflict_file=None,
+                conflict_reason="not_found",
+                timings={},
+            )
+        change = OperationChange(
+            file_path=file_path,
+            base_content=current,
+            base_hash=content_hash(current),
+            final_content=None,
+            base_existed=True,
+        )
+        return self._write_coordinator.commit_operation_against_base(
+            [change],
+            agent_id=agent_id,
+            edit_type="delete_file",
+            description=description,
+        )
+
+    def move_file(
+        self,
+        src_path: str,
+        dst_path: str,
+        *,
+        overwrite: bool = False,
+        agent_id: str = "",
+        description: str = "",
+    ) -> OperationResult:
+        """Atomically move *src_path* → *dst_path* through the OCC-gated path.
+
+        Submits two :class:`OperationChange` entries — delete-src and
+        create-dst (or overwrite-dst when ``overwrite=True``) — in one
+        ``commit_operation_against_base`` call so sorted-path locks, the
+        two-pass resolve-then-apply, and TimeMachine rollback make the
+        move atomic: either both slots commit or neither touches disk.
+        When ``overwrite=True``, the dst change is marked ``strict_base``
+        so the merge fallback is skipped and any dst drift aborts with
+        ``aborted_version``.
+        """
+        if src_path == dst_path:
+            return OperationResult(
+                success=False,
+                status="failed",
+                files=(
+                    EditResult(
+                        success=False,
+                        file_path=src_path,
+                        message="src_path and dst_path are identical",
+                    ),
+                ),
+                conflict_file=None,
+                conflict_reason="identical_paths",
+                timings={},
+            )
+        src_content, src_existed = self._content.read(src_path, allow_missing=True)
+        if not src_existed:
+            return OperationResult(
+                success=False,
+                status="failed",
+                files=(
+                    EditResult(
+                        success=False,
+                        file_path=src_path,
+                        message=f"Path does not exist: {src_path}",
+                    ),
+                ),
+                conflict_file=None,
+                conflict_reason="not_found",
+                timings={},
+            )
+        dst_content, dst_existed = self._content.read(dst_path, allow_missing=True)
+        if dst_existed and not overwrite:
+            return OperationResult(
+                success=False,
+                status="failed",
+                files=(
+                    EditResult(
+                        success=False,
+                        file_path=dst_path,
+                        message=(
+                            f"Destination exists: {dst_path} "
+                            "(pass overwrite=True to replace)"
+                        ),
+                    ),
+                ),
+                conflict_file=dst_path,
+                conflict_reason="dst_exists",
+                timings={},
+            )
+        delete_src = OperationChange(
+            file_path=src_path,
+            base_content=src_content,
+            base_hash=content_hash(src_content),
+            final_content=None,
+            base_existed=True,
+        )
+        if dst_existed:
+            create_dst = OperationChange(
+                file_path=dst_path,
+                base_content=dst_content,
+                base_hash=content_hash(dst_content),
+                final_content=src_content,
+                base_existed=True,
+                strict_base=True,
+            )
+        else:
+            create_dst = OperationChange(
+                file_path=dst_path,
+                base_content="",
+                base_hash="",
+                final_content=src_content,
+                base_existed=False,
+            )
+        return self._write_coordinator.commit_operation_against_base(
+            [delete_src, create_dst],
+            agent_id=agent_id,
+            edit_type="move_file",
             description=description,
         )
 

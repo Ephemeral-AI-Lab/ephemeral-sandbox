@@ -95,30 +95,20 @@ def _should_defer_stream_tool_dispatch(
     context: QueryContext,
     background_manager: BackgroundTaskManager | None,
 ) -> Callable[[Any | None, dict[str, Any] | None], bool]:
-    from tools.builtins.skills.toolkit import (
-        get_reference_terminal_action,
-        get_required_next_tool,
-    )
-
-    guarded_batch_seen = False
+    terminal_batch_seen = False
 
     def _defer(tool_def: Any | None, tool_input: dict[str, Any] | None) -> bool:
-        nonlocal guarded_batch_seen
+        nonlocal terminal_batch_seen
         if background_manager is not None and defer_background_dispatch(tool_def, tool_input):
             return True
-        if get_required_next_tool(context.tool_metadata) is not None:
-            return True
-        if guarded_batch_seen:
+        if terminal_batch_seen:
             return True
         tool_name = str(getattr(tool_def, "name", "") or "")
         # Terminal tools must not execute mid-stream alongside siblings;
         # defer so validate_tool_batch can enforce exclusivity after the
         # full tool_uses list is known.
         if tool_name and tool_name in context.terminal_tools:
-            guarded_batch_seen = True
-            return True
-        if get_reference_terminal_action(tool_name, tool_input):
-            guarded_batch_seen = True
+            terminal_batch_seen = True
             return True
         return False
 

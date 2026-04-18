@@ -69,6 +69,7 @@ async def test_exec_ci_process_operation_encapsulates_execution_context():
         team_run_id="team-1",
         agent_run_id="agent-1",
         task_id="task-1",
+        attribute_changes=True,
     )
 
 

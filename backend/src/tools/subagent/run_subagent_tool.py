@@ -24,7 +24,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 import time
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any
@@ -93,25 +92,6 @@ def _normalize_target_paths(value: Any) -> list[str]:
             if stripped:
                 out.append(stripped)
     return out
-
-
-def _scout_owner_buckets(paths: list[str]) -> list[str]:
-    buckets: set[str] = set()
-    for path in paths:
-        cleaned = path.strip().replace("\\", "/").strip("/")
-        if not cleaned:
-            continue
-        parts = [part for part in cleaned.split("/") if part]
-        if len(parts) >= 2:
-            buckets.add("/".join(parts[:2]))
-        else:
-            buckets.add(cleaned)
-    return sorted(buckets)
-
-
-_TEST_FILE_RE = re.compile(
-    r"(^|/)tests?/|(^|/)test_[^/]+\.py$|_test\.py$|(^|/)conftest\.py$",
-)
 
 
 class RunSubagentInput(BaseModel):
@@ -218,12 +198,6 @@ class RunSubagentOutput(BaseModel):
     )
 
 
-def _all_paths_are_test_files(paths: list[str]) -> bool:
-    """Return True when every path in the list looks like a test file/directory."""
-    if not paths:
-        return False
-    return all(_TEST_FILE_RE.search(p.replace("\\", "/")) for p in paths)
-
 def _validate_run_subagent_request(
     *,
     agent_name: str,
@@ -285,33 +259,7 @@ def _validate_run_subagent_request(
     subagent_scope_paths: list[str] = []
     if agent_name == "scout" and isinstance(input, dict):
         target_paths = input.get("target_paths")
-        valid_paths = _normalize_target_paths(target_paths)
-        if _all_paths_are_test_files(valid_paths):
-            preview = ", ".join(f"`{p}`" for p in valid_paths[:3])
-            return ToolResult(
-                output=(
-                    "run_subagent: scout `target_paths` must target production "
-                    "source boundaries, not benchmark test files. All paths in "
-                    f"this call are test files: {preview}. "
-                    "Keep benchmark test paths as evidence in task prose and "
-                    "scout the corresponding production owner (e.g. "
-                    "`dvc/command/diff.py` instead of "
-                    "`tests/unit/command/test_diff.py`)."
-                ),
-                is_error=True,
-            )
-        owner_buckets = _scout_owner_buckets(valid_paths)
-        if len(owner_buckets) > 1:
-            preview = ", ".join(f"`{bucket}`" for bucket in owner_buckets[:4])
-            return ToolResult(
-                output=(
-                    "run_subagent: scout `target_paths` must stay inside one unresolved "
-                    "owner slice per call. Split this request into separate scout "
-                    f"launches; detected multiple owner buckets: {preview}."
-                ),
-                is_error=True,
-            )
-        subagent_scope_paths = valid_paths
+        subagent_scope_paths = _normalize_target_paths(target_paths)
     elif isinstance(input, dict):
         subagent_scope_paths = scope_paths_from_payload(input)
 

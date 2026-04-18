@@ -1,9 +1,9 @@
 # Plan JSON Contract
-Use this reference immediately before calling `submit_plan(...)`.
+Use this reference as an optional final helper immediately before calling `submit_plan(...)`.
 
 ## Task/Goal
 
-- You already have the owner ledger, deps, and task prose, and the next terminal action should be submit.
+- You already have the owner ledger, deps, and task prose. Use the `submit_plan` tool schema directly if you do not need this final helper.
 
 ## Avoid
 

@@ -56,35 +56,6 @@ async def _post_submission_note(
     )
 
 
-async def _freshness_submission_gate(
-    context: ToolExecutionContext, *, action: str
-) -> ToolResult | None:
-    """Reject terminal submissions when the task context has gone stale."""
-    from tools.task_center.freshness import check_freshness
-
-    report = await check_freshness(context)
-    if not report.stale:
-        task_id = context.metadata.get("work_item_id", "?")
-        logger.debug(
-            "Freshness check passed for %s [task=%s]",
-            action,
-            task_id,
-        )
-        return None
-    return ToolResult(
-        output=(
-            f"Error: `{action}` is blocked because your task context changed since the "
-            "last acknowledged baseline. Call `task_center_changed_since()` now, refresh with "
-            "`read_task_note(...)` or targeted rereads if needed, then either retry the "
-            f"submission or call `submit_task_summary(type='fail')`. "
-            f"Scope changes by others: {report.scope_changes_by_others}, "
-            f"New dependency notes: {report.new_dep_notes}, "
-            f"New sibling completions: {report.new_sibling_completions}."
-        ),
-        is_error=True,
-    )
-
-
 def _resolve_agent_name(agent_value: str, roster: dict[str, list[str]]) -> str:
     candidate = agent_value.strip()
     if not candidate:
@@ -622,10 +593,6 @@ class SubmitPlanTool(BaseTool):
             message = "; ".join(str(issue.get("msg") or "invalid plan") for issue in issues)
             return ToolResult(output=f"Error: {message}", is_error=True)
 
-        freshness_gate = await _freshness_submission_gate(context, action="submit_plan()")
-        if freshness_gate is not None:
-            return freshness_gate
-
         summary = f"Submitted plan with {len(plan.tasks)} task(s)."
         if arguments.output:
             summary += f"\n\n{arguments.output}"
@@ -691,10 +658,6 @@ class SubmitReplanTool(BaseTool):
             )
         except (TypeError, ValueError) as exc:
             return ToolResult(output=f"Error: invalid replan payload: {exc}", is_error=True)
-
-        freshness_gate = await _freshness_submission_gate(context, action="submit_replan()")
-        if freshness_gate is not None:
-            return freshness_gate
 
         note_content = (
             f"Replanner submitted replan: {len(replan.add_tasks)} new task(s), "

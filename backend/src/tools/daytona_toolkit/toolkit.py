@@ -16,6 +16,10 @@ from tools.daytona_toolkit.tools import (
 from tools.daytona_toolkit.edit_tool import daytona_edit_file
 from tools.daytona_toolkit.codeact_tool import daytona_codeact
 from tools.daytona_toolkit.rename_tool import daytona_rename_symbol
+from tools.daytona_toolkit.delete_move_tool import (
+    daytona_delete_file,
+    daytona_move_file,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +32,8 @@ def _build_tools(*, include_codeact: bool) -> list[Any]:
         daytona_write_file,
         daytona_edit_file,
         daytona_rename_symbol,
+        daytona_delete_file,
+        daytona_move_file,
     ]
     if include_codeact:
         tools.append(daytona_codeact)
@@ -41,10 +47,12 @@ def _build_instructions(*, include_codeact: bool) -> str:
             "- `daytona_codeact` — execute direct shell commands or Python in the repo workspace. "
             "Use `daytona_codeact(command=\"pytest ...\", timeout=N)` for tests, builds, and "
             "verification, and `daytona_codeact(code=\"...\")` for multi-step Python that needs "
-            "read/shell in one operation. Do not use CodeAct for file edits: no `sed -i`, "
-            "output redirects, `tee`, or inline Python writes. Use `daytona_edit_file`, "
-            "`daytona_write_file`, or `daytona_rename_symbol` instead. Keep commands repo-root-relative; "
-            "do not import `subprocess` and do not append stdout/stderr capture plumbing such as `2>&1` or `2>/dev/null`.\n"
+            "read/shell in one operation. Do not use CodeAct for file mutations: no `sed -i`, "
+            "output redirects, `tee`, inline Python writes, `rm`, or `mv`. Use `daytona_edit_file`, "
+            "`daytona_write_file`, `daytona_rename_symbol`, `daytona_delete_file`, or "
+            "`daytona_move_file` instead — those route through the OCC-gated commit path. "
+            "Keep commands repo-root-relative; do not import `subprocess` and do not append "
+            "stdout/stderr capture plumbing such as `2>&1` or `2>/dev/null`.\n"
         )
     return (
         "Interact with a remote Daytona sandbox for file operations, "
@@ -66,6 +74,12 @@ def _build_instructions(*, include_codeact: bool) -> str:
         "across definitions, call sites, and imports as one audited process operation. "
         "Use this instead of chained `daytona_edit_file` calls for multi-file renames; "
         "try `dry_run=true` first when the blast radius is unclear.\n"
+        "- `daytona_delete_file` — delete a file through the OCC-gated commit path. "
+        "Use this instead of `rm` in CodeAct; the shell policy blocks `rm` for that reason. "
+        "Any drift between read and commit aborts with `aborted_version` — deletes have no merge fallback.\n"
+        "- `daytona_move_file` — atomically move (delete src + write dst) through the OCC-gated commit path. "
+        "Use this instead of `mv` in CodeAct. By default `dst` must not exist; pass `overwrite=true` to "
+        "replace it (the dst slot is `strict_base`, so any concurrent edit aborts rather than being merged).\n"
         f"{codeact_line}\n"
         "**Execute**\n"
         "- Use `daytona_codeact` for all runtime execution (tests, builds, verification).\n"

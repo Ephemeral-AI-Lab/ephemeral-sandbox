@@ -56,6 +56,38 @@ async def test_submit_task_note_returns_structured_note_output():
     assert notes.posted[0].id == payload["note_id"]
 
 
+@pytest.mark.asyncio
+async def test_submit_task_note_allows_scout_correct_path_content():
+    class _Notes:
+        def __init__(self) -> None:
+            self.posted = []
+
+        async def post(self, note) -> None:
+            self.posted.append(note)
+
+    notes = _Notes()
+    ctx = _ctx(
+        {
+            "task_center": SimpleNamespace(notes=notes),
+            "work_item_id": "task-1",
+            "agent_name": "scout",
+        }
+    )
+
+    tool = SubmitTaskNoteTool()
+    result = await tool.execute(
+        tool.input_model(
+            content="Missing target; correct path appears to be src/session.py.",
+            paths=["src/auth.py"],
+            tags=["discovery"],
+        ),
+        ctx,
+    )
+
+    assert result.is_error is False
+    assert notes.posted[0].content == "Missing target; correct path appears to be src/session.py."
+
+
 def test_submit_task_note_schema_is_pydantic_native():
     schema = SubmitTaskNoteTool().to_api_schema()
 

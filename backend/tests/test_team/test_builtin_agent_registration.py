@@ -29,6 +29,14 @@ def test_builtin_team_agents_preload_skills_without_lazy_skill_toolkit() -> None
         assert defn.skills, f"{name} should still declare its preloaded playbook"
 
 
+def test_team_planner_prompt_loads_playbook_before_planning_tools() -> None:
+    defn = get_definition(TEAM_PLANNER)
+    assert defn is not None
+    assert defn.system_prompt is not None
+    assert "load `team-planner-playbook` before code-intelligence" in defn.system_prompt
+    assert "Use that playbook to choose and order references" in defn.system_prompt
+
+
 def test_builtin_team_agents_use_default_tool_call_limits() -> None:
     for name in (TEAM_PLANNER, TEAM_REPLANNER, DEVELOPER, VALIDATOR, SCOUT):
         defn = get_definition(name)

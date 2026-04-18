@@ -1,6 +1,7 @@
 # Task Planning Decomposition
 
 Use this reference only after ownership is already clear enough to draft the DAG.
+On a fresh root, use it only after a first-wave scout has been launched and its notes reviewed, or after existing Task Center scout notes already cover the owner slices.
 If any nameable first-wave explorer is still unlaunched, stop and return to launcher reconciliation instead of shaping the DAG.
 
 ## Task/Goal

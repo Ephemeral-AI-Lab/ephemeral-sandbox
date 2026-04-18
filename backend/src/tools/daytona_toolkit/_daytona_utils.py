@@ -395,36 +395,19 @@ def _path_under_write_scope(rel_path: str, write_scope: list[str]) -> bool:
     return False
 
 
-def _is_test_suite_path(rel_path: str) -> bool:
-    """Return True when *rel_path* points into the repository test suite."""
-    normalized = str(rel_path or "").strip().replace("\\", "/")
-    if not normalized:
-        return False
-    lowered = normalized.lower()
-    if lowered.startswith("tests/") or "/tests/" in lowered:
-        return True
-    name = lowered.rsplit("/", 1)[-1]
-    return name.startswith("test_") or name.endswith("_test.py")
-
-
 def _team_repo_write_error(
     context: ToolExecutionContext,
     file_path: str,
     *,
     tool_name: str,
 ) -> str | None:
-    """Return a hard policy error for repo writes that coordinated agents must not perform."""
-    if not is_coordinated_team_agent(context):
-        return None
-    repo_root = str(_get_repo_root(context) or "")
-    rel_path = _normalize_repo_relative_path(file_path, repo_root)
-    if not rel_path:
-        return None
-    if _is_test_suite_path(rel_path):
-        return (
-            f"{tool_name}: write to {rel_path} touches the test suite and is blocked "
-            "in team coordination mode. Fix production code instead of editing tests."
-        )
+    """Return a hard policy error for unsafe repo writes.
+
+    Workflow-level write preferences, including production-vs-test ownership,
+    are prompt/playbook guidance. The tool layer only hard-blocks writes that
+    bypass the audited mutation path elsewhere.
+    """
+    del context, file_path, tool_name
     return None
 
 

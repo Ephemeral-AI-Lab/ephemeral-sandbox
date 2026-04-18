@@ -107,8 +107,9 @@ async def _exec_process_operation(
     team_run_id="",
     agent_run_id="",
     task_id="",
+    attribute_changes=True,
 ):
-    del description, agent_id, team_run_id, agent_run_id, task_id
+    del description, agent_id, team_run_id, agent_run_id, task_id, attribute_changes
     return await sandbox.process.exec(command, timeout=timeout)
 
 
@@ -318,7 +319,7 @@ async def test_edit_allows_write_inside_write_scope():
     assert sb._content_state["content"] == "patched"
 
 
-async def test_edit_rejects_test_suite_write():
+async def test_edit_allows_test_suite_write_with_warning():
     sb = _make_sandbox(download_content="original")
     ctx = _ctx(
         {
@@ -328,6 +329,10 @@ async def test_edit_rejects_test_suite_write():
             "write_scope": ["dask/cli.py"],
             "owned_failures": ["dask/tests/test_cli.py"],
             "verify": ["pytest dask/tests/test_cli.py -q"],
+            "ci_service": _ci_service_for_content(
+                "original",
+                file_path="/testbed/dask/tests/test_cli.py",
+            ),
         }
     )
 
@@ -340,9 +345,10 @@ async def test_edit_rejects_test_suite_write():
         ctx,
     )
 
-    assert result.is_error
-    assert "test suite" in result.output
-    sb.fs.upload_file.assert_not_called()
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["status"] == "edited"
+    assert any("outside write_scope" in warning for warning in data["warnings"])
 
 
 async def test_edit_warns_non_verify_surface_write_in_warn_mode():

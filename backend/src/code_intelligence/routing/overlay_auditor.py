@@ -115,6 +115,7 @@ class OverlayAuditor:
         team_run_id: str = "",
         agent_run_id: str = "",
         task_id: str = "",
+        attribute_changes: bool = True,
     ) -> Any:
         """Drop-in replacement for :meth:`ProcessAuditor.execute`.
 
@@ -142,17 +143,24 @@ class OverlayAuditor:
         local_tar = await self._download_remote_tar(sandbox, run.audit_tar_path)
         try:
             changes = list(iter_upperdir_changes(local_tar))
-            changed_paths = await self._apply_and_record(
-                run,
-                changes=changes,
-                sandbox=sandbox,
-                lowerdir=lowerdir,
-                description=description or self._config.audit_description_prefix,
-                agent_id=agent_id,
-                team_run_id=team_run_id,
-                agent_run_id=agent_run_id,
-                task_id=task_id,
-            )
+            ambient_changed_paths: list[str] = []
+            if attribute_changes:
+                changed_paths = await self._apply_and_record(
+                    run,
+                    changes=changes,
+                    sandbox=sandbox,
+                    lowerdir=lowerdir,
+                    description=description or self._config.audit_description_prefix,
+                    agent_id=agent_id,
+                    team_run_id=team_run_id,
+                    agent_run_id=agent_run_id,
+                    task_id=task_id,
+                )
+            else:
+                changed_paths = []
+                ambient_changed_paths = [
+                    f"{self._workspace_root.rstrip('/')}/{change.path}" for change in changes
+                ]
         finally:
             cleanup_tar(local_tar)
             await self._cleanup_remote_run_dir(sandbox, run.run_dir)
@@ -161,6 +169,7 @@ class OverlayAuditor:
             result=run.stdout,
             exit_code=run.exit_code,
             changed_paths=changed_paths,
+            ambient_changed_paths=ambient_changed_paths,
             files_written=len(changed_paths),
         )
 

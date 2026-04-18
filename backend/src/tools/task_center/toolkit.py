@@ -138,16 +138,6 @@ class SubmitTaskNoteTool(BaseTool):
         if str(context.metadata.get("agent_name") or "").strip() == "scout" and note_paths:
             if "intended path" not in content.lower() and "correct path" not in content.lower():
                 content = _sanitize_scout_gap_paths(content, note_paths)
-            repaired = _scout_scope_repair_paths(content, note_paths)
-            if repaired:
-                return ToolResult(
-                    output=(
-                        "Scout note scope guard: keep missing targets missing. "
-                        "Do not rename them to nearby paths such as "
-                        f"{', '.join(repaired[:3])}."
-                    ),
-                    is_error=True,
-                )
         note = Note(
             id=str(uuid.uuid4()),
             task_id=context.metadata.get("work_item_id", ""),

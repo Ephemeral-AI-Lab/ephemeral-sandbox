@@ -68,6 +68,8 @@ def test_toolkit_registers_expected_tools():
         "daytona_glob",
         "daytona_edit_file",
         "daytona_rename_symbol",
+        "daytona_delete_file",
+        "daytona_move_file",
     }
     assert names == expected
     assert not any(name.startswith("daytona_lsp_") for name in names)
@@ -86,6 +88,11 @@ async def test_registered_write_capable_tools_require_ci_service():
         },
         "daytona_codeact": {"command": "echo hi"},
         "daytona_rename_symbol": {"symbol": "foo", "new_name": "bar"},
+        "daytona_delete_file": {"file_path": "/repo/app.py"},
+        "daytona_move_file": {
+            "src_path": "/repo/src.py",
+            "dst_path": "/repo/dst.py",
+        },
     }
 
     assert set(write_inputs).issubset(tools_by_name)
@@ -136,7 +143,7 @@ def test_toolkit_get_missing_tool():
 def test_toolkit_list_tools_length():
     tk = DaytonaToolkit()
     tools = tk.list_tools()
-    assert len(tools) == 7
+    assert len(tools) == 9
 
 
 def test_toolkit_instructions_prioritize_ci_before_raw_file_reads():

@@ -141,6 +141,42 @@ async def test_submit_plan_resolves_roster_role_hints():
     assert "Submitted plan with 2 task(s)." in task_center.posted[0].content
 
 
+@pytest.mark.asyncio
+async def test_submit_plan_allows_stale_freshness_context():
+    task_center = _AsyncTaskCenterStub()
+    ctx = ToolExecutionContext(
+        cwd="/tmp",
+        metadata={
+            "task_center": task_center,
+            "work_item_id": "planner-task",
+            "agent_name": "team_planner",
+            "allow_empty_plan": True,
+            "work_item_started_at": 1.0,
+            "agent_run_id": "run-1",
+            "write_scope": ["src/auth/"],
+            "arbiter": SimpleNamespace(
+                initialized=True,
+                changes_since=lambda _since, team_run_id=None: [
+                    SimpleNamespace(
+                        file_path="src/auth/session.py",
+                        agent_run_id="run-2",
+                    )
+                ],
+            ),
+        },
+    )
+
+    result = await SubmitPlanTool().execute(
+        SubmitPlanTool.input_model(new_tasks=[]),
+        ctx,
+    )
+
+    assert result.is_error is False, result.output
+    payload = json.loads(result.output)
+    assert payload["task_id"] == "planner-task"
+    assert payload["new_tasks"] == []
+
+
 def test_submit_plan_requires_planner_authored_description():
     with pytest.raises(ValidationError):
         SubmitPlanTool.input_model(

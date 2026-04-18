@@ -119,7 +119,9 @@ class WriteCoordinator:
             ``base_hash`` the operation takes ``final_content`` verbatim; otherwise
             it tries a non-overlapping merge (same policy as a single-file merge).
             Any unmergeable mismatch aborts the *whole* operation — no partial
-            rename is ever left on disk.
+            rename is ever left on disk. Setting ``strict_base=True`` on a
+            change skips the merge fallback entirely and aborts on any hash
+            mismatch (used for whole-file rewrites like ``move --overwrite``).
           * **Two-pass commit** — resolved contents are staged in memory
             first, then written + recorded + refreshed. A write failure
             during the commit pass triggers best-effort TimeMachine
@@ -220,6 +222,20 @@ class WriteCoordinator:
                 # --- Modify branch ---
                 if existed_now and current_hash == change.base_hash:
                     resolved_content: str = change.final_content
+                elif change.strict_base:
+                    self._arbiter.record_conflict("aborted_version")
+                    timings["resolve"] = round(time.perf_counter() - resolve_started, 6)
+                    timings["total"] = round(time.perf_counter() - started, 6)
+                    return self._operation_abort(
+                        changes,
+                        status="aborted_version",
+                        conflict_file=change.file_path,
+                        conflict_reason=(
+                            "file content changed since base was captured "
+                            "(strict_base=True)"
+                        ),
+                        timings=timings,
+                    )
                 else:
                     resolved_content, conflict = self._resolve_semantic_change(
                         change, current_now, existed_now,

@@ -338,7 +338,7 @@ async def test_run_subagent_rejects_non_subagent_targets_with_plan_guidance(
     assert "emit `developer` / `validator` tasks" in result.output
 
 
-def test_validate_run_subagent_rejects_multi_bucket_scout_bundle():
+def test_validate_run_subagent_allows_multi_bucket_scout_bundle():
     ctx = ToolExecutionContext(
         cwd=Path("/tmp"),
         metadata={"session_config": _StubCfg()},
@@ -351,11 +351,8 @@ def test_validate_run_subagent_rejects_multi_bucket_scout_bundle():
         context=ctx,
     )
 
-    assert isinstance(result, ToolResult)
-    assert result.is_error is True
-    assert "one unresolved owner slice" in result.output
-    assert "`dvc/command`" in result.output
-    assert "`dvc/repo`" in result.output
+    assert not isinstance(result, ToolResult)
+    assert result.subagent_scope_paths == ["dvc/command/diff.py", "dvc/repo/diff.py"]
 
 
 def test_validate_run_subagent_allows_same_bucket_scout_list():
@@ -375,7 +372,7 @@ def test_validate_run_subagent_allows_same_bucket_scout_list():
     assert result.subagent_scope_paths == ["dvc/command/run.py", "dvc/command/repro.py"]
 
 
-def test_validate_run_subagent_rejects_all_test_file_scout():
+def test_validate_run_subagent_allows_all_test_file_scout():
     ctx = ToolExecutionContext(
         cwd=Path("/tmp"),
         metadata={"session_config": _StubCfg()},
@@ -391,10 +388,11 @@ def test_validate_run_subagent_rejects_all_test_file_scout():
         context=ctx,
     )
 
-    assert isinstance(result, ToolResult)
-    assert result.is_error is True
-    assert "production source boundaries" in result.output
-    assert "test files" in result.output
+    assert not isinstance(result, ToolResult)
+    assert result.subagent_scope_paths == [
+        "tests/unit/command/test_diff.py",
+        "tests/unit/command/test_plots.py",
+    ]
 
 
 def test_validate_run_subagent_allows_mixed_prod_and_test_scout():
@@ -413,10 +411,11 @@ def test_validate_run_subagent_allows_mixed_prod_and_test_scout():
         context=ctx,
     )
 
-    # Mixed paths pass the test-file guard (scout playbook handles mixed separately)
-    # but may fail the multi-bucket check — either way, not the test-file error
-    if isinstance(result, ToolResult):
-        assert "test files" not in result.output
+    assert not isinstance(result, ToolResult)
+    assert result.subagent_scope_paths == [
+        "dvc/command/diff.py",
+        "tests/unit/command/test_diff.py",
+    ]
 
 
 @pytest.mark.asyncio

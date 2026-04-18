@@ -16,7 +16,7 @@ Use this reference before signaling completion when you have made source edits.
 
 - Before your final message, run `ci_diagnostics(file_path)` on **every file you edited** during this task. This catches import errors, undefined names, syntax errors, and type mismatches before the validator or any parallel sibling sees your changes.
 
-1. Collect the list of files you edited (from your `daytona_edit_file`, `daytona_write_file`, and `daytona_rename_symbol` calls).
+1. Collect the list of files you edited (from your `daytona_edit_file`, `daytona_write_file`, `daytona_rename_symbol`, `daytona_delete_file`, and `daytona_move_file` calls). A deleted file has no diagnostics to run; a moved file should be checked at its destination path.
 2. For each file, call `ci_diagnostics(file_path)`.
 3. If any diagnostic has severity `error`:
    - Fix the error immediately with `daytona_edit_file`.

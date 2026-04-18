@@ -353,3 +353,183 @@ def test_mid_operation_write_failure_rolls_back_prior_files(tmp_path) -> None:
     assert result.status == "failed"
     # First file should be rolled back to its original content
     assert a.read_text(encoding="utf-8") == "a = 1\n"
+
+
+# ---------------------------------------------------------------------------
+# strict_base (skip merge fallback on hash mismatch)
+# ---------------------------------------------------------------------------
+
+
+def test_strict_base_aborts_when_merge_would_succeed(tmp_path) -> None:
+    """strict_base=True skips merge_non_overlapping_edit on drift."""
+    a = tmp_path / "strict.py"
+    base = "def foo():\n    return 1\n\nZ = 0\n"
+    a.write_text(base, encoding="utf-8")
+    svc = _svc(tmp_path)
+
+    # Non-overlapping drift — without strict_base this merges successfully
+    # (see test_base_mismatch_non_overlapping_merges above).
+    a.write_text(base + "NEW = 1\n", encoding="utf-8")
+    final = "def bar():\n    return 1\n\nZ = 0\n"
+
+    result = svc.commit_operation_against_base(
+        [
+            OperationChange(
+                file_path=str(a),
+                base_content=base,
+                base_hash=content_hash(base),
+                final_content=final,
+                strict_base=True,
+            ),
+        ],
+        edit_type="move_overwrite",
+    )
+    assert result.success is False
+    assert result.status == "aborted_version"
+    # Concurrent edit preserved verbatim — the strict write never ran.
+    assert "NEW = 1" in a.read_text(encoding="utf-8")
+    assert "def bar" not in a.read_text(encoding="utf-8")
+
+
+def test_strict_base_commits_when_hash_matches(tmp_path) -> None:
+    a = tmp_path / "strict_ok.py"
+    a.write_text("x = 1\n", encoding="utf-8")
+    svc = _svc(tmp_path)
+
+    result = svc.commit_operation_against_base(
+        [
+            OperationChange(
+                file_path=str(a),
+                base_content="x = 1\n",
+                base_hash=content_hash("x = 1\n"),
+                final_content="x = 2\n",
+                strict_base=True,
+            ),
+        ],
+        edit_type="move_overwrite",
+    )
+    assert result.success is True
+    assert a.read_text(encoding="utf-8") == "x = 2\n"
+
+
+# ---------------------------------------------------------------------------
+# Service-level delete_file / move_file (OCC-gated facade)
+# ---------------------------------------------------------------------------
+
+
+def test_delete_file_removes_existing_file(tmp_path) -> None:
+    a = tmp_path / "d.py"
+    a.write_text("x = 1\n", encoding="utf-8")
+    svc = _svc(tmp_path)
+
+    result = svc.delete_file(str(a))
+    assert result.success is True
+    assert result.status == "committed"
+    assert not a.exists()
+
+
+def test_delete_file_reports_not_found(tmp_path) -> None:
+    svc = _svc(tmp_path)
+    result = svc.delete_file(str(tmp_path / "missing.py"))
+    assert result.success is False
+    assert result.status == "failed"
+    assert result.conflict_reason == "not_found"
+
+
+def test_move_file_creates_new_destination(tmp_path) -> None:
+    src = tmp_path / "src.py"
+    dst = tmp_path / "dst.py"
+    src.write_text("payload\n", encoding="utf-8")
+    svc = _svc(tmp_path)
+
+    result = svc.move_file(str(src), str(dst))
+    assert result.success is True
+    assert result.status == "committed"
+    assert not src.exists()
+    assert dst.read_text(encoding="utf-8") == "payload\n"
+
+
+def test_move_file_rejects_existing_dst_without_overwrite(tmp_path) -> None:
+    src = tmp_path / "src.py"
+    dst = tmp_path / "dst.py"
+    src.write_text("one\n", encoding="utf-8")
+    dst.write_text("two\n", encoding="utf-8")
+    svc = _svc(tmp_path)
+
+    result = svc.move_file(str(src), str(dst))
+    assert result.success is False
+    assert result.conflict_reason == "dst_exists"
+    # No partial move
+    assert src.read_text(encoding="utf-8") == "one\n"
+    assert dst.read_text(encoding="utf-8") == "two\n"
+
+
+def test_move_file_overwrites_when_allowed(tmp_path) -> None:
+    src = tmp_path / "src.py"
+    dst = tmp_path / "dst.py"
+    src.write_text("one\n", encoding="utf-8")
+    dst.write_text("two\n", encoding="utf-8")
+    svc = _svc(tmp_path)
+
+    result = svc.move_file(str(src), str(dst), overwrite=True)
+    assert result.success is True
+    assert not src.exists()
+    assert dst.read_text(encoding="utf-8") == "one\n"
+
+
+def test_move_file_overwrite_aborts_on_dst_drift(tmp_path) -> None:
+    """strict_base on the dst change forbids silent merges of concurrent dst edits."""
+    src = tmp_path / "src.py"
+    dst = tmp_path / "dst.py"
+    src.write_text("one\n", encoding="utf-8")
+    dst.write_text("two\n", encoding="utf-8")
+    svc = _svc(tmp_path)
+
+    # Read base content (what move_file will capture internally), then drift the dst.
+    # Use a ContentManager-style read to grab the same snapshot semantics.
+    # We inject drift by making the read happen first then corrupting dst.
+    import code_intelligence.routing.service as service_mod
+
+    original_read = svc._content.read
+
+    reads: list[str] = []
+
+    def _drift_read(file_path: str, *, allow_missing: bool = False):
+        result = original_read(file_path, allow_missing=allow_missing)
+        reads.append(file_path)
+        # After the move_file helper reads dst, corrupt it before commit acquires locks
+        if file_path == str(dst):
+            dst.write_text("drift!\n", encoding="utf-8")
+        return result
+
+    svc._content.read = _drift_read  # type: ignore[assignment]
+    try:
+        result = svc.move_file(str(src), str(dst), overwrite=True)
+    finally:
+        svc._content.read = original_read  # type: ignore[assignment]
+
+    assert result.success is False
+    assert result.status == "aborted_version"
+    # Neither src nor dst mutated: src preserved, dst has the drifted content.
+    assert src.read_text(encoding="utf-8") == "one\n"
+    assert dst.read_text(encoding="utf-8") == "drift!\n"
+    del service_mod  # silence unused import linter if any
+
+
+def test_move_file_identical_paths_rejected(tmp_path) -> None:
+    svc = _svc(tmp_path)
+    a = tmp_path / "same.py"
+    a.write_text("x\n", encoding="utf-8")
+    result = svc.move_file(str(a), str(a))
+    assert result.success is False
+    assert result.conflict_reason == "identical_paths"
+
+
+def test_move_file_missing_src_reports_not_found(tmp_path) -> None:
+    svc = _svc(tmp_path)
+    result = svc.move_file(
+        str(tmp_path / "missing.py"),
+        str(tmp_path / "dst.py"),
+    )
+    assert result.success is False
+    assert result.conflict_reason == "not_found"

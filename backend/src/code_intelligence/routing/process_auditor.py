@@ -333,6 +333,7 @@ class ProcessAuditor:
         team_run_id: str = "",
         agent_run_id: str = "",
         task_id: str = "",
+        attribute_changes: bool = True,
     ) -> Any:
         """Run one audited sandbox process operation in a single remote exec.
 
@@ -360,32 +361,36 @@ class ProcessAuditor:
         )
         raw = str(getattr(combined_response, "result", "") or "")
         parsed = _parse_process_audit_combined_output(raw, run_id=run_id)
-        changed_paths = self._record_audit(
-            before=parsed.before,
-            after=parsed.after,
-            description=description,
-            agent_id=agent_id,
-            team_run_id=team_run_id,
-            agent_run_id=agent_run_id,
-            task_id=task_id,
-        )
+        ambient_changed_paths: list[str] = []
+        if attribute_changes:
+            changed_paths = self._record_audit(
+                before=parsed.before,
+                after=parsed.after,
+                description=description,
+                agent_id=agent_id,
+                team_run_id=team_run_id,
+                agent_run_id=agent_run_id,
+                task_id=task_id,
+            )
+        else:
+            changed_paths = []
+            ambient_changed_paths = self._changed_paths_from_snapshots(
+                before=parsed.before,
+                after=parsed.after,
+            )
         return SimpleNamespace(
             result=parsed.exec_stdout,
             exit_code=parsed.exec_exit_code,
             changed_paths=changed_paths,
+            ambient_changed_paths=ambient_changed_paths,
             files_written=len(changed_paths),
         )
 
-    def _record_audit(
+    def _changed_paths_from_snapshots(
         self,
         *,
         before: dict[str, dict[str, Any]],
         after: dict[str, dict[str, Any]],
-        description: str,
-        agent_id: str,
-        team_run_id: str,
-        agent_run_id: str,
-        task_id: str,
     ) -> list[str]:
         changed_paths = sorted(set(before) | set(after))
         recorded_paths: list[str] = []
@@ -402,6 +407,30 @@ class ProcessAuditor:
             if old_exists == new_exists and old_hash == new_hash:
                 continue
             recorded_paths.append(file_path)
+        return recorded_paths
+
+    def _record_audit(
+        self,
+        *,
+        before: dict[str, dict[str, Any]],
+        after: dict[str, dict[str, Any]],
+        description: str,
+        agent_id: str,
+        team_run_id: str,
+        agent_run_id: str,
+        task_id: str,
+    ) -> list[str]:
+        recorded_paths = self._changed_paths_from_snapshots(before=before, after=after)
+        for file_path in recorded_paths:
+            old = before.get(file_path, {})
+            new = after.get(file_path, {})
+            old_exists = bool(old.get("exists", False))
+            new_exists = bool(new.get("exists", False))
+            old_hash = str(old.get("hash") or old.get("head_hash") or new.get("head_hash") or "")
+            new_hash = str(new.get("hash") or "")
+            if not new and old.get("head_hash"):
+                new_exists = True
+                new_hash = str(old.get("head_hash") or "")
             self._arbiter.record_edit(
                 file_path=file_path,
                 actor_label=agent_id or agent_run_id,

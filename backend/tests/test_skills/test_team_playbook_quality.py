@@ -118,9 +118,11 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must load `exploration-script`" in planner.lower()
     assert "must load `scout-launch-contract`" in planner.lower()
     assert "must load `task-planning-decomposition`" in planner.lower()
-    assert "must load `plan-json-contract`" in planner.lower()
+    assert "final submit helper" in planner.lower()
+    assert "submit_plan` tool schema is enough" in planner
     assert "never guess an exact owner" in planner.lower()
     assert "never make non-submission tool calls after loading `plan-json-contract`" in planner.lower()
+    assert "split unrelated scout targets" in planner.lower()
     assert "compat/re-export" not in planner
     assert "utils_dataframe.py" not in planner
 
@@ -132,6 +134,8 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "Empty note reads are successful freshness checks." in developer
     assert "never rewrite benchmark tests" in developer.lower()
     assert "must not use `daytona_codeact` for file edits" in developer.lower()
+    assert "must not use `daytona_codeact` for file-content reads" in developer.lower()
+    assert "writes to test files as off-policy" in developer.lower()
     assert "uid 0 bypassing" not in developer.lower()
     assert "pkg._compatibility" not in developer
 
@@ -141,6 +145,8 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must not paraphrase failure evidence" in validator.lower()
     assert "small local corrective patch" in validator.lower()
     assert "must not use `daytona_codeact` for corrective edits" in validator.lower()
+    assert "must not use `daytona_codeact` for file-content reads" in validator.lower()
+    assert "writes to test files as off-policy" in validator.lower()
     assert 'submit_task_summary(type="fail", content=...)' in validator
     assert "repeated repair attempts" in validator.lower()
 
@@ -148,10 +154,12 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must load `action-add-tasks`" in replanner.lower()
     assert "must load `action-cancel-and-redraft`" in replanner.lower()
     assert 'read_task_note(paths=[...], scope="sibling")' in replanner
+    assert "final-action ordering" in replanner.lower()
 
     assert "must load `completion-contract`" in scout.lower()
     assert "must not edit files" in scout.lower()
     assert "must keep missing targets missing" in scout.lower()
+    assert "unconfirmed adjacent evidence" in scout.lower()
 
 
 def test_reference_files_hold_specialized_detail() -> None:
@@ -173,6 +181,7 @@ def test_reference_files_hold_specialized_detail() -> None:
     )
 
     assert "Never keep a guessed exact leaf once live evidence disproves it." in planner_ref
+    assert "optional final helper" in planner_json
     assert "submit_plan(new_tasks=[...])" in planner_json
     assert "Do not include `task_note`" in planner_json
     assert "`1. Goal:`" in planner_json
@@ -185,14 +194,17 @@ def test_reference_files_hold_specialized_detail() -> None:
     assert "Use `developer` for atomic tasks" in planner_decomposition
     assert "Use `team_planner` for expandable tasks" in planner_decomposition
     assert "Use `validator` for validation tasks" in planner_decomposition
+    assert "first-wave scout has been launched and its notes reviewed" in planner_decomposition
     assert 'daytona_codeact(command="...", timeout=N)' in developer_runtime
     assert "Must not append shell capture plumbing" in developer_runtime
     assert "Must not edit files through CodeAct" in developer_runtime
+    assert "Must not inspect source through CodeAct" in developer_runtime
     assert "cd /testbed" in developer_playbook
     assert "cd /testbed" in developer_runtime
     assert "pkg._compat" in developer_root_cause
     assert "The Task Center note is the durable handoff." in scout_ref
     assert "check_background_progress" in validator_ref
+    assert "Must not inspect source through CodeAct" in validator_ref
 
 
 def test_replanner_references_spell_valid_submit_replan_payload_shape() -> None:
@@ -244,8 +256,11 @@ def test_sweevo_context_stays_shared_and_runtime_focused() -> None:
     )
     assert "Must not derive an exact production file from benchmark filename resemblance alone" in sweevo
     assert "Must use `read_task_note(paths=[...])` before opening source files" in sweevo
+    assert "Must not use `daytona_codeact` for source inspection" in sweevo
     assert "Must treat scope-change notifications and `task_center_changed_since()` as freshness signals." in sweevo
+    assert "workflow rules are prompt/playbook obligations" in sweevo
     assert "Must keep `scope_paths` as soft coordination hints" in sweevo
+    assert "Must treat test-file writes as off-policy" in sweevo
     assert "Must treat any advisory outside-scope write as a tainted packet" in sweevo
     assert "Use `daytona_read_file(...)` only after notes plus CI identify a narrow line range" in sweevo
 

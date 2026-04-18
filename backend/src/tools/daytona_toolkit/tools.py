@@ -23,12 +23,9 @@ from tools.daytona_toolkit._daytona_utils import (
     _exec_command,
     _read_text_file_via_exec,
     _resolve_path,
-    _normalize_repo_relative_path,
-    _normalize_string_list,
     _team_repo_write_error,
     _team_repo_write_warning,
     _wrap_bash_command,
-    is_coordinated_team_agent,
     record_coordination_warning,
 )
 from tools.core.ci_runtime import (
@@ -80,14 +77,6 @@ except Exception as exc:
     print(json.dumps({"ok": False, "error": str(exc), "file_path": file_path}))
     raise SystemExit(1)
 """
-
-
-def _metadata_int(metadata: Any, key: str, default: int = 0) -> int:
-    try:
-        return int(metadata.get(key, default))
-    except (TypeError, ValueError):
-        return default
-
 
 class DaytonaReadFileInput(BaseModel):
     file_path: str = Field(..., description="Path to the file in the sandbox.")
@@ -298,50 +287,6 @@ def _build_glob_result(
     )
 
 
-def _benchmark_read_guard(context: ToolExecutionContext, file_path: str) -> str | None:
-    if not is_coordinated_team_agent(context):
-        return None
-    repo_root = str(_get_cwd(context) or "").strip()
-    benchmark_files = _normalize_string_list(
-        context.metadata.get("benchmark_test_files"),
-        repo_root,
-    )
-    has_benchmark_targets = bool(benchmark_files or context.metadata.get("benchmark_test_ids"))
-    rel_path = _normalize_repo_relative_path(file_path, repo_root) or ""
-    if has_benchmark_targets and rel_path and rel_path in benchmark_files:
-        return (
-            "Benchmark read guard: do not open benchmark test files with "
-            "`daytona_read_file(...)` on coordinated lanes. Use the named pytest "
-            "ids, scout notes, and runtime traceback instead."
-        )
-    required_steps: list[str] = []
-    has_team_task_context = bool(
-        context.metadata.get("task_center")
-        or context.metadata.get("team_run_id")
-        or context.metadata.get("work_item_id")
-    )
-    if not has_benchmark_targets and not has_team_task_context:
-        return None
-    if has_team_task_context and _metadata_int(context.metadata, "_read_task_note_calls") <= 0:
-        required_steps.append("call `read_task_note(paths=[...])` for the owned scope")
-    if has_team_task_context and _metadata_int(context.metadata, "_ci_context_calls") <= 0:
-        required_steps.append(
-            "use `ci_workspace_structure(...)`, `ci_query_symbol(...)`, or "
-            "`ci_diagnostics(...)` to locate the boundary"
-        )
-    if has_benchmark_targets and _metadata_int(context.metadata, "_daytona_codeact_calls") <= 0:
-        required_steps.append(
-            "run the exact repro first via `daytona_codeact(command=\"pytest ...\", timeout=N)`"
-        )
-    if required_steps:
-        return (
-            "Coordination read guard: before `daytona_read_file(...)`, "
-            + "; ".join(required_steps)
-            + "."
-        )
-    return None
-
-
 def _build_glob_command(*, root: str, pattern: str) -> str:
     patterns = [pattern]
     if pattern.startswith("**/"):
@@ -446,11 +391,10 @@ print(json.dumps({
 @tool(
     name="daytona_read_file",
     description=(
-        "Fallback file-content read with optional line range. On coordinated "
-        "team lanes, use `read_task_note(paths=[...])` and CI tools "
-        "(`ci_workspace_structure`, `ci_query_symbol`, or `ci_diagnostics`) "
-        "before this tool; on benchmark lanes, run the exact runtime repro first "
-        "and do not use this to open benchmark test files."
+        "File-content read with optional line range. On coordinated team lanes, "
+        "prompts and playbooks should guide agents to read Task Center notes and "
+        "use CI navigation before opening files; this tool does not enforce that "
+        "workflow ordering."
     ),
     short_description="Read a file from the sandbox.",
     input_model=DaytonaReadFileInput,
@@ -465,9 +409,6 @@ async def daytona_read_file(
 ) -> ToolResult:
     """Read a file from the Daytona sandbox."""
     file_path = _resolve_path(file_path, context)
-    contract_error = _benchmark_read_guard(context, file_path)
-    if contract_error is not None:
-        return ToolResult(output=contract_error, is_error=True)
     try:
         sandbox = await _require_sandbox(context)
         try:

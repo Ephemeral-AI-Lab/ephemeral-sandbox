@@ -22,7 +22,6 @@ Usage::
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -32,8 +31,6 @@ from tools.core.decorator import tool
 from skills.core.registry import SkillRegistry
 
 _LOADED_SKILL_REFERENCES_KEY = "_loaded_skill_references_by_skill_this_turn"
-_REQUIRED_NEXT_TOOL_KEY = "_required_next_tool"
-_REFERENCE_TERMINAL_ACTIONS: dict[tuple[str, str], dict[str, str]] = {}
 
 
 class LoadSkillInput(BaseModel):
@@ -55,83 +52,6 @@ class LoadSkillReferenceInput(BaseModel):
             "load_skill(skill_name) for the main skill instructions."
         ),
     )
-
-
-def get_reference_terminal_action(
-    tool_name: str,
-    tool_input: dict[str, object] | None,
-) -> dict[str, str] | None:
-    """Return terminal-action metadata for a terminal skill reference load."""
-    if tool_name != "load_skill_reference" or not isinstance(tool_input, dict):
-        return None
-    skill_name = str(tool_input.get("skill_name") or "").strip()
-    reference_name = str(tool_input.get("reference_name") or "").strip()
-    if not skill_name or not reference_name:
-        return None
-    action = _REFERENCE_TERMINAL_ACTIONS.get((skill_name, reference_name))
-    if action is None:
-        return None
-    out = {
-        "tool_name": action["tool_name"],
-        "skill_name": skill_name,
-        "reference_name": reference_name,
-        "reason": action["reason"],
-    }
-    reset_hint = str(action.get("reset_hint") or "").strip()
-    if reset_hint:
-        out["reset_hint"] = reset_hint
-    return out
-
-
-def get_required_next_tool(metadata: Any) -> dict[str, str] | None:
-    """Return the active next-tool guard stored in runtime metadata."""
-    if metadata is None:
-        return None
-    raw = metadata.get(_REQUIRED_NEXT_TOOL_KEY)
-    if not isinstance(raw, dict):
-        return None
-    tool_name = str(raw.get("tool_name") or "").strip()
-    if not tool_name:
-        return None
-    out = {"tool_name": tool_name}
-    for key in ("skill_name", "reference_name", "reason", "reset_hint"):
-        value = str(raw.get(key) or "").strip()
-        if value:
-            out[key] = value
-    return out
-
-
-def clear_required_next_tool(metadata: Any) -> None:
-    """Clear any active next-tool guard from runtime metadata."""
-    if metadata is None:
-        return
-    extras = getattr(metadata, "extras", None)
-    if isinstance(extras, dict):
-        extras.pop(_REQUIRED_NEXT_TOOL_KEY, None)
-        return
-    if isinstance(metadata, dict):
-        metadata.pop(_REQUIRED_NEXT_TOOL_KEY, None)
-
-
-def set_required_next_tool(
-    context: ToolExecutionContext,
-    *,
-    tool_name: str,
-    skill_name: str,
-    reference_name: str,
-    reason: str,
-    reset_hint: str | None = None,
-) -> None:
-    """Arm a next-tool guard after a terminal skill reference loads."""
-    payload = {
-        "tool_name": tool_name,
-        "skill_name": skill_name,
-        "reference_name": reference_name,
-        "reason": reason,
-    }
-    if reset_hint:
-        payload["reset_hint"] = reset_hint
-    context.metadata[_REQUIRED_NEXT_TOOL_KEY] = payload
 
 
 def make_skills_toolkit(
@@ -295,19 +215,6 @@ def make_skills_toolkit(
             skill_name=skill_name,
             reference_name=reference_name,
         )
-        terminal_action = get_reference_terminal_action(
-            "load_skill_reference",
-            {"skill_name": skill_name, "reference_name": reference_name},
-        )
-        if terminal_action is not None:
-            set_required_next_tool(
-                context,
-                tool_name=terminal_action["tool_name"],
-                skill_name=skill_name,
-                reference_name=reference_name,
-                reason=terminal_action["reason"],
-                reset_hint=terminal_action.get("reset_hint"),
-            )
         return ToolResult(output=content)
 
     # Build skill catalog for instructions

@@ -21,6 +21,7 @@ class _ProcessExecutionContext:
     team_run_id: str
     agent_run_id: str
     task_id: str
+    attribute_changes: bool
 
 
 def get_ci_service(context: ToolExecutionContext) -> Any | None:
@@ -69,6 +70,7 @@ async def exec_ci_process_operation(
     *,
     timeout: int | None = None,
     description: str,
+    attribute_changes: bool = True,
 ) -> Any:
     """Run one process command through the audited CI execution boundary.
 
@@ -82,6 +84,7 @@ async def exec_ci_process_operation(
     process_context = _build_process_execution_context(
         context,
         description=description,
+        attribute_changes=attribute_changes,
     )
     return await _execute_ci_process_operation(
         svc,
@@ -96,6 +99,7 @@ def _build_process_execution_context(
     context: ToolExecutionContext,
     *,
     description: str,
+    attribute_changes: bool,
 ) -> _ProcessExecutionContext:
     return _ProcessExecutionContext(
         description=description,
@@ -103,6 +107,7 @@ def _build_process_execution_context(
         team_run_id=str(context.metadata.get("team_run_id") or ""),
         agent_run_id=str(context.metadata.get("agent_run_id") or ""),
         task_id=str(context.metadata.get("work_item_id") or ""),
+        attribute_changes=attribute_changes,
     )
 
 
@@ -133,6 +138,7 @@ async def _execute_ci_process_operation(
         team_run_id=process_context.team_run_id,
         agent_run_id=process_context.agent_run_id,
         task_id=process_context.task_id,
+        attribute_changes=process_context.attribute_changes,
     )
 
 
