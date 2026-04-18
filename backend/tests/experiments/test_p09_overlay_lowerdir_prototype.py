@@ -70,18 +70,22 @@ class AbortedVersionError(RuntimeError):
 
 
 def snapshot_lowerdir(workspace: Path, lowerdir: Path) -> None:
-    """Prototype of P0.7's ``cp -al`` lowerdir.
+    """Prototype of P0.7's CoW lowerdir snapshot.
 
-    Hardlink-copies the live workspace — tracked, untracked, and dirty content
-    included. Hardlinks are fine for the OCC compare because we never mutate
-    the lowerdir after snapshot; any write to the workspace creates a new
-    inode at that path, so the lowerdir inode remains the snapshot.
+    Copies the live workspace — tracked, untracked, and dirty content
+    included — giving lowerdir its own inodes. macOS ``cp -a`` uses
+    ``clonefile(2)`` on APFS (CoW, no byte copy); Linux/btrfs/XFS will
+    CoW via ``--reflink`` in the real auditor. On other filesystems this
+    degrades to a byte copy — still correct, just costlier.
+
+    We cannot use ``cp -al`` (hardlinks): Python's ``Path.write_bytes``
+    opens ``O_WRONLY|O_TRUNC`` on the existing inode, so a hardlinked
+    lowerdir would alias subsequent workspace writes and silently leak
+    peer mutations into the OCC base_hash, defeating drift detection.
     """
     lowerdir.mkdir(parents=True, exist_ok=True)
-    # -a preserves attrs, -l hardlinks files instead of copying bytes.
-    # Exclude the overlay dirs themselves if they happen to be inside.
     subprocess.run(
-        ["cp", "-a", "-l", f"{workspace}/.", str(lowerdir)],
+        ["cp", "-a", f"{workspace}/.", str(lowerdir)],
         check=True,
     )
 
