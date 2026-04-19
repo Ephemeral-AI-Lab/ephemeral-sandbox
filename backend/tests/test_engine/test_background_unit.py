@@ -273,6 +273,27 @@ class TestWaitForBackgroundTaskExecute:
         assert result.metadata["background_snapshot"]["kind"] == "wait_no_tasks"
         assert result.metadata["background_snapshot"]["statuses"] == []
 
+    async def test_wait_no_tasks_with_delivered_posted_subagent_points_to_notes(self) -> None:
+        tool = WaitForBackgroundTaskTool()
+        mgr = BackgroundTaskManager()
+
+        async def fast() -> ToolResult:
+            return ToolResult(output='{"summary": "Posted."}')
+
+        mgr.launch("bg_1", "run_subagent", {}, fast(), task_type="subagent")
+        await asyncio.sleep(0.01)
+        mgr.collect_completed()
+
+        result = await tool.execute(
+            WaitForBackgroundTaskInput(task_id="all", timeout=1),
+            _ctx(mgr),
+        )
+
+        assert "[NO TASKS RUNNING]" in result.output
+        assert "the useful content is in Task Center notes" in result.output
+        assert 'read_task_note(scope="own", paths=None, task_note="Read posted scout notes")' in result.output
+        assert result.metadata["background_snapshot"]["kind"] == "wait_no_tasks"
+
 
 class TestBackgroundSnapshotHelpers:
     def test_progress_render_matches_metadata_shape(self) -> None:
@@ -289,6 +310,23 @@ class TestBackgroundSnapshotHelpers:
         statuses = [{"task_id": "bg_1", "status": "completed", "output": "done"}]
         output = render_background_snapshot("wait_completed", statuses)
         assert output.startswith("[COMPLETED]\n[")
+        assert "Read posted scout notes" not in output
+
+    def test_wait_completed_with_posted_subagent_points_to_notes(self) -> None:
+        statuses = [
+            {
+                "task_id": "bg_1",
+                "tool_name": "run_subagent",
+                "task_type": "subagent",
+                "status": "delivered",
+                "output": '{"summary": "Posted.", "payload": {"final_text": "Posted."}}',
+            }
+        ]
+        output = render_background_snapshot("wait_completed", statuses)
+        assert output.startswith("[COMPLETED]\n[")
+        assert "the useful content is in Task Center notes" in output
+        assert "Do not call `wait_for_background_task`" in output
+        assert 'read_task_note(scope="own", paths=None, task_note="Read posted scout notes")' in output
 
     def test_wait_timed_out_render_matches_tool_branch(self) -> None:
         statuses = [{"task_id": "bg_1", "status": "running", "output": "still"}]

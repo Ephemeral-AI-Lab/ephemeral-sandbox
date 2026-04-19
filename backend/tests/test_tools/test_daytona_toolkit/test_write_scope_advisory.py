@@ -197,11 +197,10 @@ def test_write_warning_emitted_for_developer_outside_scope():
     assert "advisory" in result
     assert "outside write_scope" in result
     assert "adjacent shim" not in result
+    assert "not a hard failure" in result
+    assert "justified adjacent production owner" in result
     assert "submit_task_summary(type='request_replan')" in result
-    assert "compatibility shim" in result
-    assert "your next tool call must be submit_task_summary(type='request_replan')" in result
-    assert "Do not read, edit, inspect, run tests, or verify" in result
-    assert "need to make tests collect is not an exception" in result
+    assert "widened path, rationale, and verification" in result
 
 
 def test_write_warning_repeated_scope_mismatch_redirects_without_blocking():
@@ -229,8 +228,8 @@ def test_write_warning_repeated_scope_mismatch_redirects_without_blocking():
 
     assert result is not None
     assert "3+ outside-scope warnings" in result
-    assert "your next tool call must be submit_task_summary(type='request_replan')" in result
-    assert "Do not read, edit, inspect, run tests, or verify" in result
+    assert "Request replanning unless" in result
+    assert "one coherent production owner" in result
     assert _team_repo_write_error(
         ctx,
         "/testbed/dask/base.py",
@@ -244,18 +243,18 @@ def test_write_and_edit_schema_redirects_outside_scope_shims_without_runtime_gat
 
     for schema in (write_schema, edit_schema):
         description = schema["description"]
-        assert "outside-scope owner" in description
+        assert "outside-scope writes are advisory" in description
         assert (
             "missing module, compatibility shim, re-export, or import bridge" in description
         )
-        assert "do not attempt the" in description
-        assert "attempt itself is a failed lane" in description
+        assert "make an explicit widened-edit decision" in description
+        assert "advisory, not a hard gate" in description
         assert "Test imports, collection errors, and target counts" in description
-        assert "absent test-derived module path" in description
+        assert "evidence, not sufficient ownership by themselves" in description
         assert "test files are read/verify-only" in description
         assert "explicit authorization" in description
         assert "submit `submit_task_summary(type='request_replan')`" in description
-        assert "outside-scope guidance is not a runtime hard gate" in description
+        assert "widened path, rationale, and verification" in description
 
 
 def test_write_warning_none_for_in_scope_write():

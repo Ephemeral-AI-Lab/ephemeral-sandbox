@@ -470,16 +470,15 @@ async def daytona_read_file(
         "Create a new file or overwrite an existing file with the given content. "
         "Use the exact tool name `daytona_write_file`; there is no `write_file` tool. "
         "Before calling, compare `file_path` to your `scope_paths`; if it is outside "
-        "scope, do not attempt the write to see whether the tool allows it, because the "
-        "attempt itself is a failed lane. "
-        "In coordinated team lanes, if live evidence says the target is an outside-scope "
-        "owner, missing module, compatibility shim, re-export, or import bridge, do not "
-        "call this tool; submit `submit_task_summary(type='request_replan')` so replanning can widen "
+        "scope, make an explicit widened-edit decision. "
+        "In coordinated team lanes, outside-scope writes are advisory, not a hard gate. "
+        "Proceed only when the target is a justified adjacent production owner for the same bug, "
+        "including a missing module, compatibility shim, re-export, or import bridge when production ownership is clear; "
+        "otherwise submit `submit_task_summary(type='request_replan')` so replanning can widen "
         "or resequence the task. Test imports, collection errors, and target counts naming "
-        "the path are not exceptions, and `scope_paths` alone is not enough to create an "
-        "absent test-derived module path. In coordinated team lanes, test files are read/verify-only "
+        "the path are evidence, not sufficient ownership by themselves. In coordinated team lanes, test files are read/verify-only "
         "and this tool blocks test-file writes unless explicit authorization is present. "
-        "This outside-scope guidance is not a runtime hard gate."
+        "If you continue after an outside-scope warning, include the widened path, rationale, and verification in the terminal summary."
     ),
     short_description="Create or overwrite a file.",
     input_model=DaytonaWriteFileInput,

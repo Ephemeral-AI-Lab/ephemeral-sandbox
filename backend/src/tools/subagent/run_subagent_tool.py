@@ -487,8 +487,8 @@ def _snapshot_messages(messages: list[Any] | None) -> list[dict[str, Any]]:
         "Spawn a named subagent (e.g. ``scout``) as a background task. "
         "Returns a task_id immediately. Continue foreground work when useful; "
         "join with wait_for_background_task(task_id=...) when blocked on the "
-        "result, optionally use check_background_progress(task_id=...) when "
-        "live status changes the next action, or stop stale work with "
+        "result. Call check_background_progress(task_id=...) only when live "
+        "status changes the next action; stop stale work with "
         "cancel_background_task(task_id=...). Pass exactly one of ``prompt`` "
         "(free-form text) or ``input`` (structured payload). In team mode, "
         "planners should use this only for exploration subagents such as "
@@ -498,7 +498,10 @@ def _snapshot_messages(messages: list[Any] | None) -> list[dict[str, Any]]:
         "scrub ``target_paths`` to live production owner files/directories; "
         "benchmark tests, ``*/tests/*``, ``test_*.py``, and missing "
         "test-derived paths belong in task prose or task_note unless tests "
-        "are explicitly the owned surface."
+        "are explicitly the owned surface. If a completed scout result says "
+        "``Posted.``, read current-task notes next; omit note paths if exact "
+        "scout paths are unclear. Later background status calls only repeat "
+        "that delivery envelope."
     ),
     short_description="Spawn a subagent in the background.",
     input_model=RunSubagentInput,

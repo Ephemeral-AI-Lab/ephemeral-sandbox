@@ -66,9 +66,9 @@ def record_coordination_warning(
 ) -> None:
     """Persist a coordination warning on the live tool context.
 
-    Warnings are advisory, but they taint the current task packet so the
-    agent can steer toward ``submit_task_summary(type='request_replan')`` instead of
-    reporting success after a scope mismatch.
+    Warnings are advisory coordination evidence. They are recorded so the
+    agent can either document a justified widened edit or request replanning
+    after repeated or ownership-changing scope mismatches.
     """
     raw = context.metadata.get("coordination_warnings")
     warnings: list[dict[str, Any]]
@@ -547,14 +547,13 @@ def _team_repo_write_warning(
         return (
             f"{tool_name}: write to {rel_path} is outside write_scope {write_scope} (advisory). "
             "You have 3+ outside-scope warnings — your assigned scope likely does not match what this task requires. "
-            "Stop now: your next tool call must be submit_task_summary(type='request_replan'). Do not read, edit, inspect, run tests, or verify from this state."
+            "Request replanning unless these paths are one coherent production owner for the same bug and you can verify the widened change."
         )
     return (
         f"{tool_name}: write to {rel_path} is outside write_scope {write_scope} (advisory). "
-        "Stop now: your next tool call must be submit_task_summary(type='request_replan'). "
-        "Do not read, edit, inspect, run tests, or verify from an outside-scope write. "
-        "If this path is the real owner, a missing module, a compatibility shim, a re-export, or an import bridge, replanning must widen or resequence the task. "
-        "A test import, collection error, target count, or need to make tests collect is not an exception."
+        "This is not a hard failure. Continue only if this is a justified adjacent production owner for the same bug; "
+        "otherwise submit_task_summary(type='request_replan') so replanning can widen or resequence the task. "
+        "If you continue, include the widened path, rationale, and verification in the terminal summary."
     )
 
 

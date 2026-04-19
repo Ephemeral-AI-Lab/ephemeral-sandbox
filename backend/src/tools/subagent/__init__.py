@@ -97,9 +97,9 @@ class SubagentToolkit(BaseToolkit):
                 "- After spawning a worker, keep doing disjoint foreground work or launch other independent workers. Do not immediately block on the new task unless its result is the only remaining blocker.\n"
                 f"- Valid `agent_name` values for this caller: {allowed_text}.\n"
                 "- Only dispatchable subagent targets are valid.\n"
-                "- Use `check_background_progress(task_id=...)` only when live status will change your next action; do not poll for reassurance or to satisfy an ordering ritual.\n"
-                "- Use `wait_for_background_task(task_id=...)` to join a worker when you are ready for its final answer.\n"
-                "- When a subagent result is `delivered` or reports `Posted.`, stop polling that task id; consume the posted note or artifact instead.\n"
+                "- Prefer foreground work or `wait_for_background_task(task_id=...)` when blocked; call `check_background_progress(task_id=...)` only when live status will change your next action. Do not poll for reassurance or to satisfy an ordering ritual.\n"
+                "- Use `wait_for_background_task(task_id=...)` to join a worker when you are ready for its final answer and it has not already reached a terminal status.\n"
+                "- When a subagent result is `delivered`, `[COMPLETED]`, or reports `Posted.`, stop polling that task id; consume the posted note or artifact instead. Background status tools will only repeat the delivery envelope.\n"
                 "- Cancel stale or low-value workers with `cancel_background_task(task_id=...).`\n"
                 "- Workers cannot spawn subagents or launch their own background tasks."
             ),

@@ -35,7 +35,11 @@ class CheckBackgroundProgressTool(BaseTool):
     description: str = (
         "Check background task status without blocking. Use this to inspect live output and decide "
         "whether to keep waiting, act on the result, or cancel. Pass an exact task_id like "
-        "\"bg_1\" or \"all\"."
+        "\"bg_1\" or \"all\". Do not use this to recover final content from delivered "
+        "`run_subagent` tasks; if the result says `Posted.`, read the posted note or artifact "
+        "next because background status calls only repeat the delivery envelope. In "
+        "team-planner contexts, read current-task notes with paths omitted if exact "
+        "scout paths are unclear."
     )
     short_description: str = "Inspect background task status."
     input_model: type[BaseModel] = CheckBackgroundProgressInput

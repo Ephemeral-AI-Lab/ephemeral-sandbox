@@ -1,6 +1,6 @@
 # Action Reference: submit_replan (cancel and redraft)
 
-Use `submit_replan(new_tasks=[...], cancel_ids=[...])` when one or more of your direct siblings are stale and must be replaced. Cancelling a sibling cancels the entire node and its subtree automatically. Replacement tasks go into `new_tasks` and are inserted as direct children of this replanner, so downstream work remains blocked until recovery finishes.
+Use `submit_replan(new_tasks=[...], cancel_ids=[...])` when one or more non-terminal direct siblings are stale and must be replaced. Cancelling a sibling cancels the entire node and its subtree automatically. Replacement tasks go into `new_tasks` and are inserted as direct children of this replanner, so downstream work remains blocked until recovery finishes.
 
 ## Task/Goal
 
@@ -21,8 +21,8 @@ Use `submit_replan(new_tasks=[...], cancel_ids=[...])` when one or more of your 
 
 ## Workflow
 
-- Must confirm which direct siblings are actually stale before adding to `cancel_ids`.
-- `cancel_ids` accepts only direct siblings of this replanner (same `parent_id`). The replanner cannot cancel itself or the original `request_replan` task. If the only failed neighbor is the original request-replan task, use `cancel_ids=[]`.
+- Must confirm which non-terminal direct siblings are actually stale before adding to `cancel_ids`.
+- `cancel_ids` accepts only non-terminal direct siblings of this replanner (same `parent_id`). The replanner cannot cancel itself, the original `request_replan` task, or terminal failed/done/cancelled siblings. If the only failed neighbor is the original request-replan task or another terminal sibling, use `cancel_ids=[]`.
 - If a failure names a missing import path, keep it as evidence unless non-test production evidence proves the absent path is the intended repository surface. Prefer an existing live owner or live boundary for the replacement.
 - If the missing import path is named only by tests and no non-test production owner was already proven before the stop signal, do not replace anything with a missing-path task; use `submit_replan(new_tasks=[], cancel_ids=[])` unless you have a stale direct sibling to cancel for a separate reason.
 - If the only apparent replacement edits a benchmark test file, use a live production boundary or child `team_planner` task instead of a test-edit developer task.

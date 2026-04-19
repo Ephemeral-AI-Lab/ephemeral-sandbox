@@ -12,19 +12,19 @@ Use `submit_replan(new_tasks=[...], cancel_ids=[])` when the plan structure is s
 
 - Never submit corrective tasks without reading sibling notes first.
 - Do not add tasks that duplicate work already covered by existing siblings.
-- Do not add a new-file, rename, move, shim, or re-export task for a missing module, shim, re-export module, or import bridge whose only evidence is a test import or collection error. A target count, collection blocker, standard re-export pattern, multiple tests importing it, or a similar in-scope compatibility filename is not an exception.
+- Do not add a new-file, rename, move, shim, or re-export task for a missing module, shim, re-export module, or import bridge unless production ownership evidence or clear adjacent ownership shows the path is the intended repository surface.
 - Do not add a developer task whose `scope_paths` are benchmark or verification tests because the failure packet suggests the test is wrong. Test imports, decorators, parametrization, and assertions are evidence unless the user prompt explicitly owns a test-only bug.
-- Do not read benchmark test files, query benchmark test symbols, inspect git history, or run archaeology to overturn a failed developer's outside-scope missing-module stop signal.
-- Do not inspect similarly named live modules, package aliases, or adjacent compatibility files after an outside-scope missing-module stop signal just to justify a test-derived missing path.
+- Do not read benchmark test files, query benchmark test symbols, inspect git history, or run archaeology to justify a benchmark-test edit.
+- Do not inspect similarly named live modules, package aliases, or adjacent compatibility files just to justify a test-derived missing path; use targeted CI only to assign a production owner boundary.
 
 ## Workflow
 
 - Must confirm owner paths live with CI before submitting.
 - Must read sibling notes before deciding corrective scope.
-- If a failure names a missing import path, first target an existing live production owner or broader live boundary. Only create a new-file, rename, move, shim, or re-export corrective task when non-test production evidence proves the absent path is the intended repository surface.
-- If the missing import path is named only by tests and no non-test production owner was already proven before the stop signal, do not add tasks; use `submit_replan(new_tasks=[], cancel_ids=[])`.
+- If a failure names a missing import path, target an existing live production owner, the exact missing production path plus an adjacent live owner, or a broader live boundary. Create a new-file, rename, move, shim, or re-export corrective task only when the absent path is justified as a production surface.
+- If no production owner can be identified and the only remaining edit would be a benchmark-test change or unjustified test-derived alias, do not add tasks; use `submit_replan(new_tasks=[], cancel_ids=[])`.
 - If the only apparent edit is to a benchmark test file, target a production owner or add a `team_planner` task scoped to the nearest live production boundary; do not add a test-edit developer task.
-- For corrective file moves, file renames, compatibility shims, and re-export bridges, verify both source and destination ownership. An in-scope source file is not enough; do not add a task that writes an absent outside-scope destination named only by tests.
+- For corrective file moves, file renames, compatibility shims, and re-export bridges, verify both source and destination ownership. An in-scope source file is not enough; the destination needs production ownership evidence.
 - Each new task must have: `id`, `description`, `name` (agent), `spec`, `deps`, `scope_paths`. Do not set `parent_id`; every new task is inserted as a direct child of this replanner.
 - Keep each `description` as a planner-authored short label under about 10 words; put full instructions in `spec`.
 - Put all corrective work in `new_tasks`.
@@ -38,7 +38,7 @@ Use `submit_replan(new_tasks=[...], cancel_ids=[])` when the plan structure is s
 - Do not include `task_note`, `output`, `background`, `parent_id`, or any top-level field besides `new_tasks` and `cancel_ids`.
 - Self-check the final payload before the single terminal call; do not use a failed `submit_replan(...)` attempt as a validation pass.
 - If `submit_replan(...)` is rejected anyway, do not call CI, file, graph, note, or CodeAct tools. Retry only a mechanical correction from the validation message and prior evidence.
-- Self-check `cancel_ids=[]` for this action and verify that no task creates, renames, moves, or re-exports a test-derived missing path without non-test production evidence, even when the source file is in scope, and that no task scopes benchmark tests unless the prompt explicitly owns a test-only bug.
+- Self-check `cancel_ids=[]` for this action and verify that no task creates, renames, moves, or re-exports a test-derived missing path without production ownership evidence or a clear adjacent live owner, even when the source file is in scope, and that no task scopes benchmark tests unless the prompt explicitly owns a test-only bug.
 - Must call `context_changed_since()` before submitting if freshness moved.
 - For layered failures, emit a two-phase corrective plan (see Hard Rule 10 in main playbook).
 - Corrective developer tasks must instruct the developer to run `ci_diagnostics(file_path)` on affected files first.

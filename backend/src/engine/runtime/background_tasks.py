@@ -563,7 +563,8 @@ def build_background_reminder(
         text += (
             "\nKeep working on any other ready analysis or tool tasks first. "
             "Only wait when this background task is the remaining blocker. "
-            "Use one progress check when you need live detail; do not recheck "
+            "A progress check is optional and only useful when live detail "
+            "changes your next action; do not recheck "
             "task ids after a terminal status."
         )
         content.append(

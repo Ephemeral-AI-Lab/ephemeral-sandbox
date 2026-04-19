@@ -86,7 +86,9 @@ _BACKGROUND_SNAPSHOT_TOOLS: frozenset[str] = frozenset(
     {"check_background_progress", "wait_for_background_task"}
 )
 _REDUCIBLE_RUNNING_STATUSES: frozenset[str] = frozenset({"running"})
-_REDUCIBLE_TERMINAL_STATUSES: frozenset[str] = frozenset({"completed", "failed", "cancelled"})
+_REDUCIBLE_TERMINAL_STATUSES: frozenset[str] = frozenset(
+    {"completed", "failed", "cancelled", "delivered"}
+)
 _REDUCIBLE_STATUSES: frozenset[str] = _REDUCIBLE_RUNNING_STATUSES | _REDUCIBLE_TERMINAL_STATUSES
 
 

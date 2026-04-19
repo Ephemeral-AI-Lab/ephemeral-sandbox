@@ -201,10 +201,13 @@ def build_agent_capabilities_prompt(
                     "Background-capable tools: " + ", ".join(f"`{name}`" for name in capable) + "."
                 )
             background_lines.append(
-                "Use progress checks sparingly, only when live status will change your next action; otherwise keep working or wait once when blocked on the result."
+                "Prefer foreground work or a single wait when blocked; call `check_background_progress` only when live status will change your next action."
             )
             background_lines.append(
-                "`delivered`, `[ALREADY_COMPLETED]`, and `[NO TASKS RUNNING]` are terminal signals; retire those task ids and act on the result instead of polling or waiting again."
+                "`delivered`, `[COMPLETED]`, `[ALREADY_COMPLETED]`, and `[NO TASKS RUNNING]` are terminal signals; retire those task ids and act on the result instead of polling or waiting again."
+            )
+            background_lines.append(
+                "For `run_subagent` results that say `Posted.`, background tools will only repeat the delivery envelope; use the relevant note/artifact reader next. In team-planner contexts, read current-task notes with `read_task_note(scope=\"own\", paths=None, task_note=\"Read posted scout notes\")` when exact scout paths are unclear, or `read_task_note(paths=[...])` for known scout scopes."
             )
             background_lines.append(
                 "Cancel stale or low-value work promptly."

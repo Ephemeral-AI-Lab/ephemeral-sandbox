@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContext, ToolResult
 
 from ._common import (
+    POSTED_SUBAGENT_RESULT_GUIDANCE,
     TASK_ID_FIELD,
     apply_last_n_lines,
     build_background_snapshot_metadata,
@@ -46,7 +47,10 @@ class WaitForBackgroundTaskTool(BaseTool):
     description: str = (
         "Block server-side until background task(s) complete or the timeout expires. "
         "Use this only when you have no foreground work left or after recent progress "
-        "shows the task is healthy enough to join."
+        "shows the task is healthy enough to join. After a task is delivered, do not "
+        "wait on it again; for `run_subagent` results that say `Posted.`, read the "
+        "posted note or artifact next. In team-planner contexts, read current-task "
+        "notes with paths omitted if exact scout paths are unclear."
     )
     short_description: str = "Wait for background tasks."
     input_model: type[BaseModel] = WaitForBackgroundTaskInput
@@ -126,7 +130,8 @@ class WaitForBackgroundTaskTool(BaseTool):
                     "before this wait call was issued — no waiting occurred. "
                     "Your assumption that it was still running is stale; update "
                     "your mental model from the status payload below and do "
-                    "not poll or wait on this task id again."
+                    "not poll or wait on this task id again. "
+                    f"{POSTED_SUBAGENT_RESULT_GUIDANCE}"
                 )
                 return ToolResult(
                     output=f"{notice}\n{render_background_snapshot('progress', task_statuses)}",

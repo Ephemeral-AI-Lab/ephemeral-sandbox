@@ -59,24 +59,18 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
     assert "Benchmark and verification test files in this list are read/verify-only" in rendered
     assert "patch the production owner or submit a failure for replanning" in rendered
     assert "If live evidence identifies a missing module, compatibility shim" in rendered
-    assert "do not create, rename, move, or re-export it from test evidence alone" in rendered
-    assert "Needed to make tests collect" in rendered
-    assert "standard re-export pattern" in rendered
+    assert "treat it as a widened edit decision" in rendered
+    assert "adjacent production owner for the same objective" in rendered
     assert "ModuleNotFoundError" in rendered
-    assert "do not inspect tests, glob/grep for the module" in rendered
-    assert "daytona_glob" in rendered
-    assert "ci_query_symbol" in rendered
+    assert "use live production evidence to decide" in rendered
+    assert "scope_paths" in rendered
     assert "do not retry the same delete/move tool" in rendered
-    assert "inspect git history" in rendered
-    assert "create, rename, move, or re-export" in rendered
-    assert "multiple tests import it" in rendered
-    assert "similar in-scope compatibility file" in rendered
-    assert "both source and destination must be in `scope_paths`" in rendered
-    assert "in-scope source file is not permission" in rendered
-    assert "Never call `daytona_move_file(...)` just to test" in rendered
-    assert "scope_paths` names a new file that is absent" in rendered
-    assert "confirm non-test production evidence" in rendered
-    assert "the out-of-scope attempt itself is a failed lane" in rendered
+    assert "create or edit the missing production path" in rendered
+    assert "check both endpoints" in rendered
+    assert "source path inside `scope_paths` does not by itself authorize" in rendered
+    assert "destination needs live production evidence" in rendered
+    assert "make the widened-edit decision explicitly" in rendered
+    assert "observability evidence" in rendered
     assert 'submit_task_summary(type="request_replan", content=...)' in rendered
     assert "## Context from dependencies" not in rendered
     assert "Tool-name contract" not in rendered
@@ -191,20 +185,17 @@ async def test_build_query_context_uses_developer_markdown_template() -> None:
     assert "## scope_paths\n- backend/src/retry.py" in ctx.user_message
     assert "Benchmark and verification test files in this list are read/verify-only" in ctx.user_message
     assert "missing module, compatibility shim, re-export, import bridge" in ctx.user_message
-    assert "stop signal, never permission to create, rename, move, or re-export" in ctx.user_message
-    assert "Your next tool call must be `submit_task_summary" in ctx.user_message
-    assert "standard re-export pattern" in ctx.user_message
+    assert "widened edit decision" in ctx.user_message
+    assert "adjacent production owner" in ctx.user_message
     assert "ModuleNotFoundError" in ctx.user_message
-    assert "do not inspect tests, glob/grep for the module" in ctx.user_message
+    assert "use live production evidence to decide" in ctx.user_message
     assert "daytona_write_file" in ctx.user_message
-    assert "daytona_rename_symbol" in ctx.user_message
-    assert "create, rename, move, or re-export" in ctx.user_message
-    assert "multiple tests import it" in ctx.user_message
-    assert "similar in-scope compatibility file" in ctx.user_message
-    assert "both source and destination must be in `scope_paths`" in ctx.user_message
-    assert "in-scope source file is not permission" in ctx.user_message
-    assert "scope_paths` names a new file that is absent" in ctx.user_message
-    assert "Do not attempt an out-of-scope edit or write" in ctx.user_message
+    assert "daytona_move_file" in ctx.user_message
+    assert "create or edit the missing production path" in ctx.user_message
+    assert "check both endpoints" in ctx.user_message
+    assert "source path inside `scope_paths` does not by itself authorize" in ctx.user_message
+    assert "make the widened-edit decision explicitly" in ctx.user_message
+    assert "observability evidence" in ctx.user_message
 
 
 @pytest.mark.asyncio
@@ -250,13 +241,11 @@ async def test_build_query_context_uses_root_planner_markdown_template() -> None
     assert "Never launch `run_subagent` scouts on benchmark test paths" in ctx.user_message
     assert "use scouts to locate or correct benchmark test paths" in ctx.user_message
     assert "scout the production owner path instead" in ctx.user_message
-    assert "Do not promote a missing module, compatibility shim" in ctx.user_message
-    assert "A new-file owner needs non-test production evidence" in ctx.user_message
+    assert "Make `scope_paths` broad enough for the likely production edit set" in ctx.user_message
+    assert "include the exact new path plus its adjacent live owner" in ctx.user_message
     assert "no indexed symbols for an exact file" in ctx.user_message
     assert "use the live directory boundary or confirmed nested production files" in ctx.user_message
-    assert "standard re-export pattern" in ctx.user_message
     assert "Pairwise-check every concrete non-planner task in `new_tasks`" in ctx.user_message
-    assert "similar in-scope filename is not an exception" in ctx.user_message
     assert "After `run_subagent` scouts, read their notes with default scope" in ctx.user_message
     assert 'do not set `scope="sibling"` for those same-task scout notes' in ctx.user_message
     assert _SUBMIT_PLAN_SCHEMA_SNIPPET in ctx.user_message
@@ -376,19 +365,13 @@ async def test_build_query_context_uses_replanner_template_with_failure_context(
     assert "submit_replan(new_tasks=[...], cancel_ids=[...])" in ctx.user_message
     assert "No two parallel concrete tasks may share a `scope_paths` file" in ctx.user_message
     assert "file renames, or file moves" in ctx.user_message
-    assert "new-file, rename, move, shim, or re-export task requires non-test production evidence" in ctx.user_message
-    assert "both source and destination must be justified" in ctx.user_message
-    assert "in-scope source compatibility file is not permission" in ctx.user_message
-    assert "multiple tests importing it" in ctx.user_message
-    assert "similar in-scope compatibility filename" in ctx.user_message
-    assert "A benchmark test import is never production evidence for an absent module" in ctx.user_message
-    assert "submit_replan(new_tasks=[], cancel_ids=[])" in ctx.user_message
-    assert "do not call `ci_query_symbol`, `ci_workspace_structure`, `ci_diagnostics`" in ctx.user_message
+    assert "include both the exact path and adjacent live owner" in ctx.user_message
+    assert "outside-scope warning or missing-module request for replan" in ctx.user_message
+    assert "empty replan is appropriate only" in ctx.user_message
     assert "Never turn a benchmark or verification test file into `scope_paths`" in ctx.user_message
     assert "appears broken, keep the test path as evidence" in ctx.user_message
     assert "not a test-edit developer task" in ctx.user_message
-    assert "inspect git history" in ctx.user_message
-    assert "outside-scope missing-module stop signal" in ctx.user_message
+    assert "targeted CI only enough to assign the correct owner boundary" in ctx.user_message
     assert "no new task has benchmark or verification test files in `scope_paths`" in ctx.user_message
     assert "If `submit_replan(...)` returns a validation error anyway" in ctx.user_message
     assert "never switch strategy to a test-derived shim" in ctx.user_message

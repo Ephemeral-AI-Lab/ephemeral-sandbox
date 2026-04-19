@@ -141,14 +141,19 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "locate/correct benchmark test paths" in planner
     assert "never guess an exact owner" in planner.lower()
     assert "never make non-submission tool calls after loading `plan-json-contract`" in planner.lower()
-    assert "missing modules, compatibility shims, re-export modules, and import bridges named only by tests" in planner
-    assert "new-file owner needs non-test production evidence" in planner
+    assert "scope_paths` broad enough for the likely production edit set" in planner
+    assert "exact new path plus its adjacent live owner" in planner
     assert "no indexed symbols for that file" in planner
     assert "Do not keep the exact file in scout `target_paths` or any `scope_paths`" in planner
     assert "Never carry a disproved exact file into `scope_paths`" in planner
     assert "read the posted Task Center notes instead of checking or waiting on that id again" in planner
     assert "Never call `check_background_progress(...)` or `wait_for_background_task(...)` again" in planner
-    assert "standard re-export pattern" in planner
+    assert (
+        "the next non-submission tool for that wave is "
+        '`read_task_note(scope="own", paths=None, task_note="Read posted scout notes")`'
+    ) in planner
+    assert "Never use background tools to recover content from a `Posted.` scout result" in planner
+    assert "clear adjacent live owner" in planner
     assert "split unrelated scout targets" in planner.lower()
     assert "compat/re-export" not in planner
     assert "utils_dataframe.py" not in planner
@@ -165,29 +170,27 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must not use `daytona_codeact` for file-content reads" in developer.lower()
     assert "writes to test files as off-policy" in developer.lower()
     assert "test files in `scope_paths` as read/verify-only" in developer.lower()
-    assert "must not create, rename, move, or re-export a path outside `scope_paths`" in developer.lower()
+    assert "may edit one adjacent production path outside `scope_paths`" in developer.lower()
     assert "must not create a new file from test-import evidence alone" in developer.lower()
     assert "scope_paths` names an absent module" in developer
-    assert "compatibility shim, re-export module, or import bridge" in developer
-    assert "missing module named by tests or collection is a stop signal" in developer
+    assert "compatibility shim, or re-export bridge" in developer.lower()
+    assert "coordination decision point" in developer
     assert "ModuleNotFoundError" in developer
-    assert "daytona_glob" in developer
-    assert "daytona_grep" in developer
+    assert "live production evidence" in developer
+    assert "assigned objective" in developer
     assert "ci_query_symbol" in developer
-    assert "multiple tests import it" in developer
-    assert "similar in-scope compatibility file" in developer
+    assert "widened-edit decision" in developer
     assert "check both source and destination" in developer.lower()
     assert "in-scope source path is not permission" in developer.lower()
-    assert "Never keep working after an outside-scope missing-module import or collection failure" in developer
+    assert "Never keep widening after repeated outside-scope warnings" in developer
     assert "Never treat a similar in-scope compatibility module" in developer
     assert "must not retry the same delete/move tool" in developer.lower()
-    assert "git-history inspection" in developer
+    assert "test-source archaeology" in developer
     assert "Never retry a failed `daytona_delete_file` or `daytona_move_file` call" in developer
     assert "Never use git history, test-source archaeology, or another search" in developer
-    assert "needed to make tests collect" in developer.lower()
-    assert "similar in-scope compatibility file" in developer.lower()
-    assert "attempt itself is a failed lane" in developer.lower()
-    assert "do not read, inspect, edit, run tests, or verify after the warning" in developer.lower()
+    assert "current lane collect" in developer.lower()
+    assert "production ownership evidence" in developer.lower()
+    assert "widened path, rationale, and verification" in developer.lower()
     assert "submit_task_summary(type=\"request_replan\", content=...)" in developer
     assert "never treat test paths in `scope_paths` as edit permission" in developer.lower()
     assert "never create an outside-scope compatibility shim" in developer.lower()
@@ -211,17 +214,16 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must load `action-cancel-and-redraft`" in replanner.lower()
     assert 'read_task_note(paths=[...], scope="sibling")' in replanner
     assert "final-action ordering" in replanner.lower()
-    assert "missing modules, compatibility shims, re-export modules, import bridges, file renames, and file moves named only by tests" in replanner
-    assert "non-test production evidence proves the absent path" in replanner
-    assert "similar in-scope compatibility filename is not an exception" in replanner
+    assert "scope-quality evidence" in replanner
+    assert "production ownership evidence or clear adjacent ownership" in replanner
     assert "check both source and destination" in replanner.lower()
     assert "in-scope source compatibility file is not permission" in replanner.lower()
-    assert "Never treat a similar in-scope compatibility module" in replanner
+    assert "destination must be justified as a production owner" in replanner
     assert "tests out of corrective `scope_paths`" in replanner
     assert "looks wrong is evidence, not permission" in replanner
     assert "inspect git history" in replanner
-    assert "outside-scope missing-module stop signal" in replanner
-    assert "benchmark test import as non-production evidence" in replanner
+    assert "outside-scope missing-module request" in replanner
+    assert "benchmark test import as evidence" in replanner
     assert "submit_replan(new_tasks=[], cancel_ids=[])" in replanner
     assert "do not call CI, file, graph, note, or CodeAct tools afterward" in replanner
     assert "Must not convert a coordinated write-tool failure into instructions to bypass coordination" in replanner
@@ -272,7 +274,7 @@ def test_reference_files_hold_specialized_detail() -> None:
     assert "Do not use Markdown headings" in planner_json
     assert "Mentioning dependencies inside `spec` does not set task deps" in planner_json
     assert "verification-only test targets in `spec` context or acceptance criteria" in planner_json
-    assert "Missing modules, compatibility shims, re-export modules, and import bridges named only by tests" in planner_json
+    assert "Missing modules, compatibility shims, re-export modules, and import bridges named by tests" in planner_json
     assert "workspace structure shows a directory or nested files" in planner_json
     assert "child planners like `plan-parquet` or `plan-groupby`" in planner_json
     assert "Pairwise overlap check" in planner_json
@@ -306,18 +308,17 @@ def test_reference_files_hold_specialized_detail() -> None:
     assert "cd /testbed" in developer_runtime
     assert "pkg._compat" in developer_root_cause
     assert "missing module, compatibility shim, re-export module, or import bridge" in developer_widening
-    assert "not permission to create it" in developer_widening
+    assert "one adjacent production owner for the same bug" in developer_widening
     assert "scope_paths` itself names an absent module" in developer_widening
     assert "source and destination are separate ownership checks" in developer_widening
     assert "in-scope source file does not authorize an absent outside-scope destination path" in developer_widening
     assert "ModuleNotFoundError" in developer_widening
-    assert "Do not read tests, glob/grep for the module" in developer_widening
-    assert "query symbols for the missing import" in developer_widening
+    assert "classify it before writing" in developer_widening
     assert "similar in-scope compatibility module is not provenance" in developer_widening
-    assert "needed to make tests collect" in developer_widening.lower()
-    assert "do not attempt an out-of-scope edit or write" in developer_widening.lower()
-    assert "do not read, inspect, continue verifying" in developer_widening.lower()
-    assert "a missing outside-scope owner becomes replan evidence" in developer_widening
+    assert "intended repository surface" in developer_widening.lower()
+    assert "explicit widened-edit decision" in developer_widening.lower()
+    assert "not a runtime hard gate" in developer_widening.lower()
+    assert "a real production surface" in developer_widening
     assert "The Task Center note is the durable handoff." in scout_ref
     assert "Make exactly one `submit_task_note(...)` call" in scout_ref
     assert "assistant text with no `submit_task_note(...)` call" in scout_ref
@@ -345,7 +346,7 @@ def test_replanner_references_spell_valid_submit_replan_payload_shape() -> None:
     assert "replacement creates, renames, moves, or re-exports a test-derived missing path" in cancel_redraft
     assert "even when the source file is in scope" in add_tasks
     assert "even when the source file is in scope" in cancel_redraft
-    assert "standard re-export pattern" in add_tasks
+    assert "production ownership evidence or clear adjacent ownership" in add_tasks
     assert "similar in-scope compatibility filename is not an exception" in cancel_redraft
     assert "Never create, rename, move, or re-export a missing compatibility module" in corrective_fast_path
     assert "live parent package or in-scope source file is not enough" in corrective_fast_path
@@ -408,17 +409,15 @@ def test_sweevo_context_stays_shared_and_runtime_focused() -> None:
     assert "workflow rules are prompt/playbook obligations" in sweevo
     assert "Must keep `scope_paths` as soft coordination hints" in sweevo
     assert "Must treat test-file writes as off-policy" in sweevo
-    assert "Must treat any advisory outside-scope write as a tainted packet" in sweevo
-    assert "The exact missing import path from tests does not grant permission" in sweevo
-    assert "Must stop immediately when CodeAct, diagnostics, or pytest collection output names a missing outside-scope module" in sweevo
+    assert "Must treat any advisory outside-scope write as coordination evidence" in sweevo
+    assert "The exact missing import path from tests does not grant permission by itself" in sweevo
+    assert "a coordinated widened write may proceed" in sweevo
     assert "An in-scope source file does not authorize an outside-scope destination path" in sweevo
     assert "retrying the same delete/move tool" in sweevo
-    assert "inspect git history" in sweevo
-    assert "glob/grep for shims" in sweevo
-    assert "multiple tests importing it" in sweevo
-    assert "similar in-scope compatibility filename" in sweevo
-    assert "scope_paths` alone is not enough for an absent test-derived path" in sweevo
-    assert "standard re-export pattern" in sweevo
+    assert "clear objective ownership" in sweevo
+    assert "production evidence" in sweevo
+    assert "clear objective ownership" in sweevo
+    assert "materially wrong owner brief" in sweevo
     assert "replanners must not convert that blocker into a benchmark-test edit task" in sweevo
     assert "Use `daytona_read_file(...)` only after notes plus CI identify a narrow line range" in sweevo
 

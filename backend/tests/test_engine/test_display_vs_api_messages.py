@@ -393,7 +393,8 @@ class TestBuildBackgroundReminder:
         assert "halfway there" in reminder_text
         assert "Keep working on any other ready analysis or tool tasks first" in reminder_text
         assert "Only wait when this background task is the remaining blocker" in reminder_text
-        assert "Use one progress check when you need live detail" in reminder_text
+        assert "A progress check is optional" in reminder_text
+        assert "only useful when live detail changes your next action" in reminder_text
         assert msg.background_task_states[0].status == "running"
         api_param = msg.to_api_param()
         assert "<background-task" in api_param["content"][0]["text"]
@@ -698,6 +699,69 @@ class TestCompactForApiState:
         )
         assert all(
             not any(isinstance(block, ToolUseBlock) and block.id == "toolu_1" for block in msg.content)
+            for msg in api
+        )
+
+    def test_reduce_for_api_preserves_delivered_wait_snapshot_over_stale_running_state(
+        self,
+    ) -> None:
+        statuses = [
+            {
+                "task_id": "bg_1",
+                "tool_name": "run_subagent",
+                "task_type": "subagent",
+                "status": "delivered",
+                "output": '{"summary": "Posted."}',
+            }
+        ]
+        display = [
+            _tool_use("toolu_wait", "wait_for_background_task", {"task_id": "all"}),
+            ConversationMessage(
+                role="user",
+                content=[
+                    ToolResultBlock(
+                        tool_use_id="toolu_wait",
+                        content=render_background_snapshot("wait_no_tasks", statuses),
+                        metadata=build_background_snapshot_metadata(
+                            "wait_no_tasks",
+                            "all",
+                            statuses,
+                        ),
+                    )
+                ],
+            ),
+            _bg_state(
+                "bg_1",
+                "run_subagent",
+                "subagent",
+                "running",
+                "engine_progress",
+                "Running for 0s",
+            ),
+        ]
+
+        api = reduce_for_api(display)
+
+        assert any(
+            isinstance(block, ToolUseBlock) and block.id == "toolu_wait"
+            for msg in api
+            for block in msg.content
+        )
+        result_contents = [
+            block.content
+            for msg in api
+            for block in msg.content
+            if isinstance(block, ToolResultBlock)
+        ]
+        assert any("[NO TASKS RUNNING]" in content for content in result_contents)
+        assert any("Read posted scout notes" in content for content in result_contents)
+        assert all(
+            not any(
+                isinstance(block, BackgroundTaskStateBlock)
+                and block.task_id == "bg_1"
+                and block.status == "running"
+                for block in msg.content
+            )
             for msg in api
         )
 

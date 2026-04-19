@@ -839,6 +839,8 @@ async def test_wait_tool_already_completed_returns_stale_notice() -> None:
     assert result.is_error is False
     assert "ALREADY_COMPLETED" in result.output
     assert "do not poll or wait on this task id again" in result.output
+    assert "the useful content is in Task Center notes" in result.output
+    assert "background status snapshot" in result.output
 
 
 # ---------------------------------------------------------------------------
