@@ -125,7 +125,8 @@ class WaitForBackgroundTaskTool(BaseTool):
                     f"[ALREADY_COMPLETED] Task {target_id} had already finished "
                     "before this wait call was issued — no waiting occurred. "
                     "Your assumption that it was still running is stale; update "
-                    "your mental model from the status payload below."
+                    "your mental model from the status payload below and do "
+                    "not poll or wait on this task id again."
                 )
                 return ToolResult(
                     output=f"{notice}\n{render_background_snapshot('progress', task_statuses)}",

@@ -838,6 +838,7 @@ async def test_wait_tool_already_completed_returns_stale_notice() -> None:
     result = await tool.execute(args, _make_ctx(mgr))
     assert result.is_error is False
     assert "ALREADY_COMPLETED" in result.output
+    assert "do not poll or wait on this task id again" in result.output
 
 
 # ---------------------------------------------------------------------------

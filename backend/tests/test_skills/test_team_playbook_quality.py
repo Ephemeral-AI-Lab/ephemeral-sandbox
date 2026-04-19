@@ -146,6 +146,8 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "no indexed symbols for that file" in planner
     assert "Do not keep the exact file in scout `target_paths` or any `scope_paths`" in planner
     assert "Never carry a disproved exact file into `scope_paths`" in planner
+    assert "read the posted Task Center notes instead of checking or waiting on that id again" in planner
+    assert "Never call `check_background_progress(...)` or `wait_for_background_task(...)` again" in planner
     assert "standard re-export pattern" in planner
     assert "split unrelated scout targets" in planner.lower()
     assert "compat/re-export" not in planner
@@ -186,7 +188,7 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "similar in-scope compatibility file" in developer.lower()
     assert "attempt itself is a failed lane" in developer.lower()
     assert "do not read, inspect, edit, run tests, or verify after the warning" in developer.lower()
-    assert "submit_task_summary(type=\"fail\", content=...)" in developer
+    assert "submit_task_summary(type=\"request_replan\", content=...)" in developer
     assert "never treat test paths in `scope_paths` as edit permission" in developer.lower()
     assert "never create an outside-scope compatibility shim" in developer.lower()
     assert "uid 0 bypassing" not in developer.lower()

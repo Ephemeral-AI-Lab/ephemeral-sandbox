@@ -104,12 +104,15 @@ def render_background_snapshot(
                 "[NO TASKS RUNNING] 0 background tasks are pending. "
                 "All previously launched tasks have already finished; "
                 "their results were (or will be) delivered as "
-                "[BACKGROUND <task_id> COMPLETED] messages.\n"
+                "[BACKGROUND <task_id> COMPLETED] messages. Do not poll "
+                "or wait on those task ids again; act on the delivered "
+                "results instead.\n"
                 f"{json.dumps(statuses, indent=2)}"
             )
         return (
             "[NO TASKS RUNNING] 0 background tasks are pending and "
-            "none have ever been launched in this session."
+            "none have ever been launched in this session. Do not poll "
+            "or wait unless you launch new background work."
         )
 
     raise ValueError(f"Unknown background snapshot kind: {kind}")

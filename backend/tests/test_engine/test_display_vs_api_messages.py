@@ -393,6 +393,7 @@ class TestBuildBackgroundReminder:
         assert "halfway there" in reminder_text
         assert "Keep working on any other ready analysis or tool tasks first" in reminder_text
         assert "Only wait when this background task is the remaining blocker" in reminder_text
+        assert "Use one progress check when you need live detail" in reminder_text
         assert msg.background_task_states[0].status == "running"
         api_param = msg.to_api_param()
         assert "<background-task" in api_param["content"][0]["text"]

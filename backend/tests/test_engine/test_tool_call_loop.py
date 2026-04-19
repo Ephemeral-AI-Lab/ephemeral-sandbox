@@ -639,6 +639,9 @@ async def test_parallel_batch_still_rejects_terminal_tool_with_sibling(tmp_path:
                 ToolUseBlock(id="tc2", name="echo", input={"message": "extra"}),
             ),
             _text_reply("Recovered."),
+            _text_reply("still thinking"),
+            _text_reply("still thinking"),
+            _text_reply("still thinking"),
         ]
     )
     metadata = ExecutionMetadata()

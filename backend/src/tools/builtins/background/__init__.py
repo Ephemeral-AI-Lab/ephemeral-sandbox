@@ -23,8 +23,9 @@ def make_background_toolkit(bg_tool_names: list[str]) -> BaseToolkit:
             f"Background-capable tools: {tools_list}\n"
             '- Launch long work with `"background": true` so you can keep moving.\n'
             "- After launching background work, keep using the foreground turn on remaining analysis or other ready tasks; do not immediately block on the new task unless it is the only blocker left.\n"
-            "- Prefer `check_background_progress` to inspect live output and decide whether to continue, wait, or cancel.\n"
-            "- Use `wait_for_background_task` only when you are otherwise idle and ready to join a healthy task.\n"
+            "- Use `check_background_progress` sparingly, only when live status will change whether you continue, wait, or cancel; do not poll for reassurance.\n"
+            "- Treat `delivered`, `[ALREADY_COMPLETED]`, and `[NO TASKS RUNNING]` as terminal signals; retire those task ids and act on the result instead of polling or waiting again.\n"
+            "- Use `wait_for_background_task` when you are otherwise idle or blocked on the result.\n"
             "- If progress shows failure, fatal output, or low-value work, cancel it immediately with `cancel_background_task`.\n"
             "- `check_background_progress` and `wait_for_background_task` accept `task_id=\"all\"`; `cancel_background_task` does not."
         ),

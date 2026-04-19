@@ -29,7 +29,8 @@ class CancelBackgroundTaskTool(BaseTool):
     name: str = "cancel_background_task"
     description: str = (
         "Cancel a running background task by its task ID. "
-        "Use check_background_progress first to find the task ID. "
+        "Use a known task ID, or check background progress only if you need "
+        "to discover which task should be cancelled. "
         "task_id is REQUIRED — pass the exact id string (e.g. \"bg_1\"). "
         "Pass \"auto\" to cancel the sole running task when exactly one is running."
     )

@@ -485,9 +485,10 @@ def _snapshot_messages(messages: list[Any] | None) -> list[dict[str, Any]]:
     name="run_subagent",
     description=(
         "Spawn a named subagent (e.g. ``scout``) as a background task. "
-        "Returns a task_id immediately. Inspect progress with "
-        "check_background_progress(task_id=...), join with "
-        "wait_for_background_task(task_id=...), or stop stale work with "
+        "Returns a task_id immediately. Continue foreground work when useful; "
+        "join with wait_for_background_task(task_id=...) when blocked on the "
+        "result, optionally use check_background_progress(task_id=...) when "
+        "live status changes the next action, or stop stale work with "
         "cancel_background_task(task_id=...). Pass exactly one of ``prompt`` "
         "(free-form text) or ``input`` (structured payload). In team mode, "
         "planners should use this only for exploration subagents such as "

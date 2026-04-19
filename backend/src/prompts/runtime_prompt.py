@@ -201,7 +201,10 @@ def build_agent_capabilities_prompt(
                     "Background-capable tools: " + ", ".join(f"`{name}`" for name in capable) + "."
                 )
             background_lines.append(
-                "Check progress before waiting. Wait only when you are blocked on the result."
+                "Use progress checks sparingly, only when live status will change your next action; otherwise keep working or wait once when blocked on the result."
+            )
+            background_lines.append(
+                "`delivered`, `[ALREADY_COMPLETED]`, and `[NO TASKS RUNNING]` are terminal signals; retire those task ids and act on the result instead of polling or waiting again."
             )
             background_lines.append(
                 "Cancel stale or low-value work promptly."

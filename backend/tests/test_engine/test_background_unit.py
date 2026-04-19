@@ -302,7 +302,8 @@ class TestBackgroundSnapshotHelpers:
         output = render_background_snapshot("wait_no_tasks", [])
         assert output == (
             "[NO TASKS RUNNING] 0 background tasks are pending and "
-            "none have ever been launched in this session."
+            "none have ever been launched in this session. Do not poll "
+            "or wait unless you launch new background work."
         )
 
 

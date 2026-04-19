@@ -70,15 +70,20 @@ def test_subagent_toolkit_treats_spawned_workers_as_background():
 
     assert "workers always run in the background" in toolkit.instructions
     assert "Do not immediately block on the new task" in toolkit.instructions
-    assert "inspect that exact `task_id` with `check_background_progress` before the first `wait_for_background_task`" in toolkit.instructions
+    assert "Use `check_background_progress(task_id=...)` only when live status will change your next action" in toolkit.instructions
+    assert "do not poll for reassurance or to satisfy an ordering ritual" in toolkit.instructions
+    assert "stop polling that task id" in toolkit.instructions
     assert toolkit.get("run_subagent").short_description == "Spawn a subagent in the background."
 
 
-def test_background_toolkit_says_wait_only_after_foreground_work():
+def test_background_toolkit_says_progress_checks_are_decision_driven():
     toolkit = make_background_toolkit(["run_subagent"])
 
     assert "do not immediately block on the new task unless it is the only blocker left" in toolkit.instructions
-    assert "Use `wait_for_background_task` only when you are otherwise idle" in toolkit.instructions
+    assert "Use `check_background_progress` sparingly" in toolkit.instructions
+    assert "do not poll for reassurance" in toolkit.instructions
+    assert "Treat `delivered`, `[ALREADY_COMPLETED]`, and `[NO TASKS RUNNING]` as terminal signals" in toolkit.instructions
+    assert "Use `wait_for_background_task` when you are otherwise idle or blocked on the result" in toolkit.instructions
 
 
 def test_agent_capabilities_prompt_omits_tool_call_notes_and_background_tasks():
@@ -92,6 +97,8 @@ def test_agent_capabilities_prompt_omits_tool_call_notes_and_background_tasks():
     assert "Tool Call Notes" not in prompt
     assert "<Background Tasks>" in prompt
     assert "Background-capable tools: `run_subagent`." in prompt
+    assert "Use progress checks sparingly, only when live status will change your next action" in prompt
+    assert "`delivered`, `[ALREADY_COMPLETED]`, and `[NO TASKS RUNNING]` are terminal signals" in prompt
     assert "1. check_background_progress - Inspect background task status." in prompt
     assert "</Background Tasks>" in prompt
     assert "<Termination Condition>" in prompt
