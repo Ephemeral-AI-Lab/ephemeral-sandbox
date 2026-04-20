@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar
@@ -278,6 +279,7 @@ async def submit_codeact_cmd(
     sandbox: Any | None = None,
     stdin: str | None = None,
     attribute_changes: bool = True,
+    on_progress_line: Callable[[str], None] | None = None,
 ) -> FileChangeResult[SimpleNamespace]:
     """Run a CodeAct shell/python command through ``svc.cmd`` and return the audit slice.
 
@@ -315,18 +317,19 @@ async def submit_codeact_cmd(
         )
 
     attribution = agent_attribution_from_context(context)
-    response = await svc.cmd(
-        resolved_sandbox,
-        command,
-        timeout=timeout,
-        description=description,
-        agent_id=attribution.agent_id,
-        team_run_id=attribution.team_run_id,
-        agent_run_id=attribution.agent_run_id,
-        task_id=attribution.task_id,
-        stdin=stdin,
-        attribute_changes=attribute_changes,
-    )
+    cmd_kwargs: dict[str, Any] = {
+        "timeout": timeout,
+        "description": description,
+        "agent_id": attribution.agent_id,
+        "team_run_id": attribution.team_run_id,
+        "agent_run_id": attribution.agent_run_id,
+        "task_id": attribution.task_id,
+        "stdin": stdin,
+        "attribute_changes": attribute_changes,
+    }
+    if on_progress_line is not None:
+        cmd_kwargs["on_progress_line"] = on_progress_line
+    response = await svc.cmd(resolved_sandbox, command, **cmd_kwargs)
 
     changed = _dedup_sorted(getattr(response, "changed_paths", None))
     ambient = _dedup_sorted(getattr(response, "ambient_changed_paths", None))

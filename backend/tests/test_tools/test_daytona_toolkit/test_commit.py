@@ -277,3 +277,25 @@ async def test_submit_codeact_cmd_forwards_stdin() -> None:
 
     assert change.success is True
     assert svc.cmd.await_args.kwargs["stdin"] == "print('hi')"
+
+
+async def test_submit_codeact_cmd_forwards_progress_callback() -> None:
+    response = SimpleNamespace(
+        result="ok", exit_code=0, changed_paths=[], ambient_changed_paths=[],
+    )
+    svc = MagicMock()
+    svc.cmd = AsyncMock(return_value=response)
+    ctx = _ctx({"ci_service": svc, "ci_sandbox": object()})
+
+    def on_progress(line: str) -> None:
+        del line
+
+    change = await submit_codeact_cmd(
+        ctx,
+        command="echo hi",
+        description="test",
+        on_progress_line=on_progress,
+    )
+
+    assert change.success is True
+    assert svc.cmd.await_args.kwargs["on_progress_line"] is on_progress

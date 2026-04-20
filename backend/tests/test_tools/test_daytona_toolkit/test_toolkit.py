@@ -152,6 +152,8 @@ def test_toolkit_instructions_prioritize_ci_before_raw_file_reads():
     assert "after CI/search narrowed the target" in tk.instructions
     assert "Use exactly one mode" in tk.instructions
     assert "do not append stdout/stderr capture plumbing" in tk.instructions
+    assert "progress is line/chunk-based and depends on command stdout/stderr flushing" in tk.instructions
+    assert "python -u" in tk.instructions
     assert "daytona_rename_symbol" in tk.instructions
 
 

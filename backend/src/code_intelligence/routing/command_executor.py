@@ -48,6 +48,7 @@ class AuditedCommandExecutor:
         task_id: str = "",
         stdin: str | None = None,
         attribute_changes: bool = True,
+        on_progress_line: Callable[[str], None] | None = None,
     ) -> Any:
         """Run one command through the fail-closed OCC audit path."""
         self._rebind_sandbox(sandbox)
@@ -63,6 +64,7 @@ class AuditedCommandExecutor:
             task_id=task_id,
             stdin=stdin,
             attribute_changes=attribute_changes,
+            on_progress_line=on_progress_line,
         )
 
     async def warmup(self, sandbox: Any) -> None:

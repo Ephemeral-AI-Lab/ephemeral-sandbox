@@ -140,6 +140,37 @@ class DaytonaCodeActOutput(BaseModel):
 BuildToolOutput = Callable[..., ToolResult]
 
 
+def _format_transport_exception(exc: Exception) -> str:
+    detail = str(exc).strip()
+    if not detail:
+        detail = repr(exc)
+    if detail.rstrip().endswith(":"):
+        detail = f"{detail} (no additional detail from Daytona SDK)"
+    return f"{detail} [exception_type={type(exc).__name__}]"
+
+
+def _format_execution_failure(
+    exc: Exception,
+    *,
+    operation: str,
+    command: str | None = None,
+    timeout: int | None = None,
+) -> str:
+    parts = [
+        "Execution failed:",
+        _format_transport_exception(exc),
+        f"operation={operation}",
+    ]
+    if timeout is not None:
+        parts.append(f"timeout={timeout}s")
+    if command:
+        preview = " ".join(command.split())
+        if len(preview) > 240:
+            preview = f"{preview[:237]}..."
+        parts.append(f"command={preview!r}")
+    return " ".join(parts)
+
+
 def _format_codeact_error(
     *,
     stdout: str,
@@ -268,6 +299,11 @@ def _build_exec_command(*, cwd: str | None) -> str:
     return _wrap_bash_command(command)
 
 
+def _progress_callback(context: ToolExecutionContext) -> Callable[[str], None] | None:
+    callback = context.metadata.get("on_progress_line")
+    return callback if callable(callback) else None
+
+
 async def _execute_python_wrapper(
     context: ToolExecutionContext,
     sandbox: object,
@@ -303,6 +339,7 @@ async def _execute_python_wrapper(
             timeout=_CODEACT_DEFAULT_TIMEOUT,
             sandbox=active_sandbox,
             stdin=wrapper,
+            on_progress_line=_progress_callback(context),
         )
 
     try:
@@ -316,7 +353,12 @@ async def _execute_python_wrapper(
                 None,
                 sandbox,
                 ToolResult(
-                    output=f"Execution failed: {recovery_exc}",
+                    output=_format_execution_failure(
+                        recovery_exc,
+                        operation="daytona_codeact python",
+                        command=exec_command,
+                        timeout=_CODEACT_DEFAULT_TIMEOUT,
+                    ),
                     is_error=True,
                 ),
                 [],
@@ -474,6 +516,7 @@ async def _exec_shell_command(
         timeout=timeout,
         sandbox=sandbox,
         attribute_changes=attribute_changes,
+        on_progress_line=_progress_callback(context),
     )
     response = change.raw
     stdout = getattr(response, "result", "") or ""
@@ -533,7 +576,19 @@ async def _run_shell_with_recovery(
                 None,
             )
         except Exception as recovery_exc:
-            return None, sandbox, ToolResult(output=f"Execution failed: {recovery_exc}", is_error=True)
+            return (
+                None,
+                sandbox,
+                ToolResult(
+                    output=_format_execution_failure(
+                        recovery_exc,
+                        operation="daytona_codeact shell",
+                        command=command,
+                        timeout=timeout,
+                    ),
+                    is_error=True,
+                ),
+            )
 
 
 def _build_tool_output(

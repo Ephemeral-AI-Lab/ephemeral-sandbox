@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shlex
 from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import BaseModel, Field
@@ -32,11 +35,130 @@ from tools.builtins.background.check_background_progress import (
     CheckBackgroundProgressInput,
     CheckBackgroundProgressTool,
 )
+from tools.builtins.background.wait_for_background_task import (
+    WaitForBackgroundTaskInput,
+    WaitForBackgroundTaskTool,
+)
 from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
 
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.e2e
+
+
+def _daytona_codeact_metadata(
+    *,
+    sandbox_id: str,
+    async_sandbox: object,
+    progress_callback: object,
+    background_task_id: str,
+) -> dict[str, Any]:
+    """Build direct daytona_codeact metadata with the same CI wiring as app runs."""
+    from sandbox.service import SandboxService
+    from sandbox.workspace import discover_workspace, inject_code_intelligence
+    from tools.daytona_toolkit._daytona_utils import _wrap_bash_command
+
+    sync_sandbox = SandboxService().get_sandbox_object(sandbox_id)
+    workspace_root = discover_workspace(sync_sandbox) or "/home/daytona"
+    quoted_workspace = shlex.quote(workspace_root)
+    init_resp = sync_sandbox.process.exec(
+        _wrap_bash_command(
+            f"mkdir -p {quoted_workspace}\n"
+            f"cd {quoted_workspace}\n"
+            "git rev-parse --git-dir >/dev/null 2>&1 || git init >/dev/null"
+        ),
+        timeout=20,
+    )
+    assert init_resp.exit_code == 0, init_resp.result
+
+    bootstrap_context = MagicMock()
+    bootstrap_context.metadata = {}
+    inject_code_intelligence(
+        bootstrap_context,
+        sandbox_id,
+        sync_sandbox,
+        workspace_root,
+    )
+    ci_service = bootstrap_context.metadata.get("ci_service")
+    assert ci_service is not None, "expected CI service for direct Daytona CodeAct test"
+
+    return {
+        "daytona_sandbox": async_sandbox,
+        "daytona_cwd": workspace_root,
+        "repo_root": workspace_root,
+        "sandbox_id": sandbox_id,
+        "ci_service": ci_service,
+        "on_progress_line": progress_callback,
+        "background_task_id": background_task_id,
+    }
+
+
+async def _wait_for_running_progress(
+    *,
+    manager: BackgroundTaskManager,
+    task_id: str,
+    expected_token: str,
+    timeout: float = 15.0,
+) -> ToolResult:
+    check_tool = CheckBackgroundProgressTool()
+    check_ctx = ToolExecutionContext(
+        cwd=Path("/tmp"),
+        metadata={"background_task_manager": manager},
+    )
+
+    deadline = asyncio.get_running_loop().time() + timeout
+    last_result: ToolResult | None = None
+    while asyncio.get_running_loop().time() < deadline:
+        result = await check_tool.execute(
+            CheckBackgroundProgressInput(task_id=task_id, last_n_lines=20),
+            check_ctx,
+        )
+        last_result = result
+        if (
+            not result.is_error
+            and '"status": "running"' in result.output
+            and expected_token in result.output
+        ):
+            return result
+        if not result.is_error and (
+            '"status": "completed"' in result.output
+            or '"status": "delivered"' in result.output
+            or '"status": "failed"' in result.output
+        ):
+            break
+        await asyncio.sleep(0.5)
+
+    pytest.fail(
+        "Expected live Daytona progress before task completion. "
+        f"Last check_background_progress output:\n"
+        f"{last_result.output if last_result is not None else '<no result>'}"
+    )
+
+
+async def _wait_for_background_completion(
+    *,
+    manager: BackgroundTaskManager,
+    task_id: str,
+    timeout: float = 30.0,
+) -> ToolResult:
+    wait_tool = WaitForBackgroundTaskTool()
+    wait_ctx = ToolExecutionContext(
+        cwd=Path("/tmp"),
+        metadata={"background_task_manager": manager},
+    )
+    result = await wait_tool.execute(
+        WaitForBackgroundTaskInput(
+            task_id=task_id,
+            timeout=timeout,
+            last_n_lines=20,
+        ),
+        wait_ctx,
+    )
+    assert not result.is_error, result.output
+    assert '"status": "completed"' in result.output or '"status": "delivered"' in result.output, (
+        result.output
+    )
+    return result
 
 
 class _StreamingInput(BaseModel):
@@ -106,18 +228,12 @@ async def test_live_tail_visible_while_running() -> None:
     assert "line 1" not in mid_result.output, mid_result.output
     assert any(f"line {i}" in mid_result.output for i in (2, 3, 4)), mid_result.output
 
-    # Now wait for completion and re-check.
-    completed = await mgr.wait_for(alias, timeout=5.0)
-    assert completed is not None, "task should complete within timeout"
-    assert completed.status in ("completed", "delivered")
-
-    final_result = await check_tool.execute(
-        CheckBackgroundProgressInput(task_id=alias, last_n_lines=20),
-        check_ctx,
+    # Now wait for completion through the public wait_for_background_task tool.
+    final_result = await _wait_for_background_completion(
+        manager=mgr,
+        task_id=alias,
+        timeout=5.0,
     )
-    assert not final_result.is_error
-    assert '"status":' in final_result.output
-    assert "completed" in final_result.output or "delivered" in final_result.output
     assert f"line {n_lines}" in final_result.output
 
 
@@ -182,53 +298,90 @@ class TestDaytonaBashLiveStreaming:
         async def _coro() -> ToolResult:
             ctx = ToolExecutionContext(
                 cwd=Path("/tmp"),
-                metadata={
-                    "daytona_sandbox": sb,
-                    "daytona_cwd": "/home/daytona",
-                    "on_progress_line": mgr.make_progress_callback(alias),
-                    "background_task_id": alias,
-                },
+                metadata=_daytona_codeact_metadata(
+                    sandbox_id=sandbox["id"],
+                    async_sandbox=sb,
+                    progress_callback=mgr.make_progress_callback(alias),
+                    background_task_id=alias,
+                ),
             )
             args = daytona_codeact.input_model(
-                command='for i in $(seq 1 8); do echo "step_$i"; sleep 2; done',
+                command='for i in $(seq 1 5); do echo "step_$i"; sleep 2; done',
                 timeout=60,
             )
             return await daytona_codeact.execute(args, ctx)
 
         mgr.launch(alias, "daytona_codeact", {}, _coro())
 
-        # Allow time for session creation + WebSocket connect + ~3 lines
-        # to stream through (~6s of command output).
-        await asyncio.sleep(8.0)
-
-        check_tool = CheckBackgroundProgressTool()
-        check_ctx = ToolExecutionContext(
-            cwd=Path("/tmp"),
-            metadata={"background_task_manager": mgr},
-        )
-        mid_result = await check_tool.execute(
-            CheckBackgroundProgressInput(task_id=alias, last_n_lines=10),
-            check_ctx,
+        mid_result = await _wait_for_running_progress(
+            manager=mgr,
+            task_id=alias,
+            expected_token="step_",
         )
         logger.info("[livestream] mid-flight check:\n%s", mid_result.output)
-        assert not mid_result.is_error, mid_result.output
-        assert '"status": "running"' in mid_result.output, mid_result.output
-        assert '"output"' in mid_result.output, (
-            f"Expected live tail in mid-flight check, got:\n{mid_result.output}"
-        )
         # At least one of the early steps should have streamed through.
         assert any(f"step_{i}" in mid_result.output for i in (1, 2, 3)), mid_result.output
-        # The final step (~16s in) cannot have arrived yet (we waited ~8s).
-        assert "step_8" not in mid_result.output, mid_result.output
+        assert "step_5" not in mid_result.output, mid_result.output
 
-        completed = await mgr.wait_for(alias, timeout=30.0)
-        assert completed is not None and completed.status in ("completed", "delivered")
-        final_result = await check_tool.execute(
-            CheckBackgroundProgressInput(task_id=alias, last_n_lines=20),
-            check_ctx,
+        final_result = await _wait_for_background_completion(
+            manager=mgr,
+            task_id=alias,
         )
-        logger.info("[livestream] final check:\n%s", final_result.output)
-        assert "step_8" in final_result.output, final_result.output
+        logger.info("[livestream] wait_for_background_task:\n%s", final_result.output)
+        assert "step_5" in final_result.output, final_result.output
+
+    @pytest.mark.asyncio
+    async def test_python_script_streaming_visible_via_background_manager(self, sandbox) -> None:
+        """A Python process with explicit flushing must stream lines mid-run."""
+        from sandbox.async_client import get_async_daytona_client
+        from tools.daytona_toolkit.codeact_tool import daytona_codeact
+
+        client = get_async_daytona_client()
+        sb = await client.get(sandbox["id"])
+
+        mgr = BackgroundTaskManager()
+        alias = mgr.next_alias()
+
+        async def _coro() -> ToolResult:
+            ctx = ToolExecutionContext(
+                cwd=Path("/tmp"),
+                metadata=_daytona_codeact_metadata(
+                    sandbox_id=sandbox["id"],
+                    async_sandbox=sb,
+                    progress_callback=mgr.make_progress_callback(alias),
+                    background_task_id=alias,
+                ),
+            )
+            args = daytona_codeact.input_model(
+                command=(
+                    "python3 -u - <<'PY'\n"
+                    "import time\n"
+                    "for i in range(1, 6):\n"
+                    "    print(f\"step_{i}\", flush=True)\n"
+                    "    time.sleep(2)\n"
+                    "PY"
+                ),
+                timeout=60,
+            )
+            return await daytona_codeact.execute(args, ctx)
+
+        mgr.launch(alias, "daytona_codeact", {}, _coro())
+
+        mid_result = await _wait_for_running_progress(
+            manager=mgr,
+            task_id=alias,
+            expected_token="step_",
+        )
+        logger.info("[livestream-python] mid-flight check:\n%s", mid_result.output)
+        assert any(f"step_{i}" in mid_result.output for i in (1, 2, 3)), mid_result.output
+        assert "step_5" not in mid_result.output, mid_result.output
+
+        final_result = await _wait_for_background_completion(
+            manager=mgr,
+            task_id=alias,
+        )
+        logger.info("[livestream-python] wait_for_background_task:\n%s", final_result.output)
+        assert "step_5" in final_result.output, final_result.output
 
 
 # ===========================================================================

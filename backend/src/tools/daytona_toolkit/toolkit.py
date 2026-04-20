@@ -57,7 +57,9 @@ def _build_instructions(*, include_codeact: bool) -> str:
             "`daytona_write_file`, `daytona_rename_symbol`, `daytona_delete_file`, or "
             "`daytona_move_file` instead; those tools own the audited write path. "
             "Keep commands repo-root-relative; do not import `subprocess` and do not append "
-            "stdout/stderr capture plumbing such as `2>&1` or `2>/dev/null`.\n"
+            "stdout/stderr capture plumbing such as `2>&1` or `2>/dev/null`. "
+            "When run in the background, progress is line/chunk-based and depends on "
+            "command stdout/stderr flushing; for Python use `python -u` or `print(..., flush=True)`.\n"
         )
     return (
         "Interact with a remote Daytona sandbox for file operations, "

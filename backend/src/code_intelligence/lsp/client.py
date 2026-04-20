@@ -37,6 +37,17 @@ from code_intelligence.types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _format_transport_exception(exc: Exception) -> str:
+    detail = str(exc).strip()
+    if not detail:
+        detail = repr(exc)
+    if detail.rstrip().endswith(":"):
+        detail = f"{detail} (no additional detail from Daytona SDK)"
+    return f"{detail} [exception_type={type(exc).__name__}]"
+
+
 _LANGUAGE_BY_EXTENSION = {
     ".py": "python",
     ".js": "javascript",
@@ -676,7 +687,13 @@ class LspClient:
         except Exception as e:
             self._record_error()
             self._record_script_error()
-            logger.debug("LSP Python query failed: %s", e)
+            logger.debug(
+                "LSP Python query failed: %s operation=python lsp query "
+                "timeout=%ss workspace_root=%r",
+                _format_transport_exception(e),
+                int(LSP_QUERY_TIMEOUT),
+                self._workspace_root,
+            )
             return ""
 
     # -- Backend availability -------------------------------------------------

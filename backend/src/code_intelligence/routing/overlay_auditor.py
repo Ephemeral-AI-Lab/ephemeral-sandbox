@@ -71,6 +71,8 @@ from code_intelligence.routing.telemetry import record_overlay_op
 logger = logging.getLogger(__name__)
 
 _RUN_DIR_PREFIX = "/tmp/eos-codeact-overlay"
+_PROGRESS_POLL_INTERVAL_SECONDS = 2.0
+_PROGRESS_READ_CHUNK_BYTES = 64 * 1024
 
 
 class OverlayAuditor:
@@ -114,6 +116,7 @@ class OverlayAuditor:
         task_id: str = "",
         stdin: str | None = None,
         attribute_changes: bool = True,
+        on_progress_line: Callable[[str], None] | None = None,
     ) -> SimpleNamespace:
         """Run *command* under overlay and return the downstream result shape."""
         del team_run_id, agent_run_id, task_id  # reserved for ledger enrichment
@@ -129,13 +132,23 @@ class OverlayAuditor:
                     if stdin is not None
                     else ""
                 )
-                stdout_text, script_exit = await self._run_overlay(
-                    sandbox,
-                    lease=lease,
-                    user_cmd_b64=user_cmd_b64,
-                    stdin_b64=stdin_b64,
-                    timeout=timeout,
-                )
+                if on_progress_line is None:
+                    stdout_text, script_exit = await self._run_overlay(
+                        sandbox,
+                        lease=lease,
+                        user_cmd_b64=user_cmd_b64,
+                        stdin_b64=stdin_b64,
+                        timeout=timeout,
+                    )
+                else:
+                    stdout_text, script_exit = await self._run_overlay_with_progress(
+                        sandbox,
+                        lease=lease,
+                        user_cmd_b64=user_cmd_b64,
+                        stdin_b64=stdin_b64,
+                        timeout=timeout,
+                        on_progress_line=on_progress_line,
+                    )
                 stdout_text = await self._read_stdout(
                     sandbox, lease, fallback=stdout_text
                 )
@@ -259,6 +272,94 @@ class OverlayAuditor:
         )
         return cleaned, exit_code
 
+    async def _run_overlay_with_progress(
+        self,
+        sandbox: Any,
+        *,
+        lease: OverlayLease,
+        user_cmd_b64: str,
+        stdin_b64: str,
+        timeout: int | None,
+        on_progress_line: Callable[[str], None],
+    ) -> tuple[str, int]:
+        task = asyncio.create_task(
+            self._run_overlay(
+                sandbox,
+                lease=lease,
+                user_cmd_b64=user_cmd_b64,
+                stdin_b64=stdin_b64,
+                timeout=timeout,
+            )
+        )
+        offset = 0
+        partial = ""
+        try:
+            while not task.done():
+                await asyncio.sleep(_PROGRESS_POLL_INTERVAL_SECONDS)
+                offset, partial = await self._emit_stdout_progress_delta(
+                    sandbox,
+                    lease,
+                    offset=offset,
+                    partial=partial,
+                    on_progress_line=on_progress_line,
+                )
+            stdout_text, exit_code = await task
+            offset, partial = await self._emit_stdout_progress_delta(
+                sandbox,
+                lease,
+                offset=offset,
+                partial=partial,
+                on_progress_line=on_progress_line,
+            )
+            if partial:
+                on_progress_line(partial)
+            return stdout_text, exit_code
+        except BaseException:
+            if not task.done():
+                task.cancel()
+            raise
+
+    async def _emit_stdout_progress_delta(
+        self,
+        sandbox: Any,
+        lease: OverlayLease,
+        *,
+        offset: int,
+        partial: str,
+        on_progress_line: Callable[[str], None],
+    ) -> tuple[int, str]:
+        try:
+            chunk, new_offset = await self._read_stdout_delta(
+                sandbox,
+                lease,
+                offset=offset,
+                max_bytes=_PROGRESS_READ_CHUNK_BYTES,
+            )
+        except Exception:
+            logger.debug(
+                "overlay stdout progress read failed for %s",
+                lease.run_dir,
+                exc_info=True,
+            )
+            return offset, partial
+        if not chunk:
+            return new_offset, partial
+        text = partial + chunk.decode("utf-8", "replace")
+        if text.endswith(("\n", "\r")):
+            emit_text = text
+            partial = ""
+        else:
+            lines = text.splitlines(keepends=True)
+            if lines:
+                partial = lines[-1]
+                emit_text = "".join(lines[:-1])
+            else:
+                partial = text
+                emit_text = ""
+        if emit_text:
+            on_progress_line(emit_text)
+        return new_offset, partial
+
     async def _read_stdout(
         self, sandbox: Any, lease: OverlayLease, *, fallback: str
     ) -> str:
@@ -284,6 +385,48 @@ class OverlayAuditor:
                 "overlay stdout decode failed for %s", stdout_path, exc_info=True
             )
             return fallback
+
+    async def _read_stdout_delta(
+        self,
+        sandbox: Any,
+        lease: OverlayLease,
+        *,
+        offset: int,
+        max_bytes: int,
+    ) -> tuple[bytes, int]:
+        stdout_path = posixpath.join(lease.run_dir, "stdout.bin")
+        script = (
+            "import base64,json,pathlib,sys; "
+            "path=pathlib.Path(sys.argv[1]); "
+            "offset=max(0,int(sys.argv[2])); "
+            "limit=max(1,int(sys.argv[3])); "
+            "data=path.read_bytes() if path.exists() else b''; "
+            "size=len(data); "
+            "start=offset if offset <= size else 0; "
+            "start=max(start, size-limit); "
+            "chunk=data[start:size]; "
+            "print(json.dumps({'start': start, 'size': size, "
+            "'chunk': base64.b64encode(chunk).decode('ascii')}))"
+        )
+        cmd = (
+            f"python3 -c {shlex.quote(script)} "
+            f"{shlex.quote(stdout_path)} {offset} {max_bytes}"
+        )
+        response = await self._exec_process(
+            sandbox, _wrap_bash_command(cmd), timeout=60
+        )
+        raw, exit_code = _extract_exit_code(
+            str(getattr(response, "result", "") or ""),
+            fallback_exit_code=getattr(response, "exit_code", None),
+        )
+        if exit_code != 0:
+            return b"", offset
+        payload = json.loads(raw or "{}")
+        size = int(payload.get("size") or 0)
+        chunk_b64 = str(payload.get("chunk") or "")
+        if not chunk_b64:
+            return b"", size
+        return base64.b64decode(chunk_b64), size
 
     async def _read_diff(
         self,

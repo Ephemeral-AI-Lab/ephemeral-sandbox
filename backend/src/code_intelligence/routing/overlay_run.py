@@ -948,7 +948,7 @@ class OverlayMountError(RuntimeError):
 
 
 def run_user_command(
-    *, user_cmd: str, stdin_bytes: bytes | None, cwd: str
+    *, user_cmd: str, stdin_bytes: bytes | None, cwd: str, stdout_path: str
 ) -> tuple[bytes, int]:
     """Run the user command under the merged overlay view.
 
@@ -961,14 +961,29 @@ def run_user_command(
     stdout and stderr are merged (the orchestrator already expects one
     combined stream via ``_extract_exit_code``).
     """
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         ["bash", "-o", "pipefail", "-lc", user_cmd],
-        input=stdin_bytes,
+        stdin=subprocess.PIPE if stdin_bytes is not None else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         cwd=cwd,
     )
-    return proc.stdout, proc.returncode
+    if stdin_bytes is not None:
+        assert proc.stdin is not None
+        proc.stdin.write(stdin_bytes)
+        proc.stdin.close()
+    assert proc.stdout is not None
+    chunks: list[bytes] = []
+    with open(stdout_path, "wb") as stdout_file:
+        while True:
+            chunk = os.read(proc.stdout.fileno(), 8192)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            stdout_file.write(chunk)
+            stdout_file.flush()
+    exit_code = proc.wait()
+    return b"".join(chunks), exit_code
 
 
 # ---------------------------------------------------------------------------
@@ -1029,15 +1044,14 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - exercised 
     _record_timing(run_timings, "decode_command", decode_started)
 
     user_started = time.perf_counter()
+    stdout_path = os.path.join(run_dir, "stdout.bin")
     stdout_bytes, exit_code = run_user_command(
-        user_cmd=user_cmd, stdin_bytes=stdin_bytes, cwd=workspace_root
+        user_cmd=user_cmd,
+        stdin_bytes=stdin_bytes,
+        cwd=workspace_root,
+        stdout_path=stdout_path,
     )
     _record_timing(run_timings, "user_command", user_started)
-    # Write the stdout stream to a sibling file for the orchestrator.
-    stdout_started = time.perf_counter()
-    with open(os.path.join(run_dir, "stdout.bin"), "wb") as fh:
-        fh.write(stdout_bytes)
-    _record_timing(run_timings, "write_stdout", stdout_started)
 
     # Walk upperdir (always, regardless of user exit code — plan §1 step 4).
     walk_started = time.perf_counter()

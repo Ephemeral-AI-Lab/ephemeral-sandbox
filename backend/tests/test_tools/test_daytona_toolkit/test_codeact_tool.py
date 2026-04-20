@@ -344,6 +344,27 @@ async def test_shell_mode_reports_nonzero_exit_as_error():
     assert data["shells_run"] == 1
 
 
+async def test_shell_mode_transport_failure_includes_fallback_context():
+    sb = _make_sandbox(exec_exc=RuntimeError("Failed to execute command: "))
+    ctx = _ctx({"daytona_sandbox": sb, "daytona_cwd": "/repo", "ci_service": _ci_service()})
+
+    result = await daytona_codeact.execute(
+        daytona_codeact.input_model(command="pytest -q", timeout=600),
+        ctx,
+    )
+
+    assert result.is_error
+    assert "Execution failed:" in result.output
+    assert (
+        "Failed to execute command: (no additional detail from Daytona SDK)"
+        in result.output
+    )
+    assert "[exception_type=RuntimeError]" in result.output
+    assert "operation=daytona_codeact shell" in result.output
+    assert "timeout=600s" in result.output
+    assert "command='pytest -q'" in result.output
+
+
 async def test_python_mode_reports_sandbox_commit_abort_as_error():
     manifest = _make_manifest()
     exec_stdout = _inline_manifest_output(manifest)

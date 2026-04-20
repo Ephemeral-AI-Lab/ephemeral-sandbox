@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import concurrent.futures
+import logging
 import re
 import threading
 import time
@@ -164,6 +165,27 @@ def test_sandbox_exec_runs_script_with_base64_pipe() -> None:
     assert _decode_sandbox_python_payload(captured_cmds[0]) == "print('hello')"
     assert lsp.telemetry.script_runs == 1
     assert lsp.telemetry.script_successes == 1
+
+
+def test_sandbox_exec_logs_empty_daytona_exception_context(caplog) -> None:
+    class _SandboxProcess:
+        def exec(self, command: str, timeout: int = 0):
+            raise RuntimeError("Failed to execute command: ")
+
+    sandbox = SimpleNamespace(process=_SandboxProcess())
+    lsp = LspClient(workspace_root="/testbed", sandbox=sandbox)
+    caplog.set_level(logging.DEBUG, logger="code_intelligence.lsp.client")
+
+    assert lsp._run_python_script("print('hello')") == ""
+
+    assert lsp.telemetry.script_errors == 1
+    assert (
+        "Failed to execute command: (no additional detail from Daytona SDK)"
+        in caplog.text
+    )
+    assert "[exception_type=RuntimeError]" in caplog.text
+    assert "operation=python lsp query" in caplog.text
+    assert "workspace_root='/testbed'" in caplog.text
 
 
 def test_sandbox_exec_no_cd_without_workspace_root() -> None:

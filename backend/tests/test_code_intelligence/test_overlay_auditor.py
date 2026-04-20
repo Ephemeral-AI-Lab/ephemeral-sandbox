@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from code_intelligence.routing import overlay_auditor as overlay_auditor_module
 from code_intelligence.routing.overlay_auditor import (
     OverlayAuditor,
     parse_diff_ndjson,
@@ -372,6 +373,48 @@ class _ScriptedSandbox:
         )
 
 
+class _StreamingScriptedSandbox(_ScriptedSandbox):
+    def __init__(
+        self,
+        *,
+        repo_root: Path,
+        diff_contents: str,
+        user_exit: int,
+        first_progress_seen,
+    ) -> None:
+        super().__init__(
+            repo_root=repo_root,
+            diff_contents=diff_contents,
+            user_exit=user_exit,
+        )
+        self._first_progress_seen = first_progress_seen
+
+    async def exec(self, command: str, timeout: int | None = None):
+        if "unshare -Urm" not in command:
+            return await super().exec(command, timeout=timeout)
+
+        import asyncio
+        import re
+
+        match = re.search(r"--run-dir\s+(\S+)", command)
+        if match is None:
+            return SimpleNamespace(result="missing run-dir", exit_code=1)
+        run_dir = match.group(1)
+        Path(run_dir).mkdir(parents=True, exist_ok=True)
+        stdout_path = Path(run_dir, "stdout.bin")
+        stdout_path.write_text("first\n", encoding="utf-8")
+        try:
+            await asyncio.wait_for(self._first_progress_seen.wait(), timeout=1.0)
+        except asyncio.TimeoutError:
+            pass
+        stdout_path.write_text("first\nsecond\n", encoding="utf-8")
+        Path(run_dir, "diff.ndjson").write_text(
+            self._diff_contents, encoding="utf-8"
+        )
+        self._run_dir = run_dir
+        return SimpleNamespace(result="", exit_code=self._user_exit)
+
+
 def _init_fixture_repo(path: Path) -> None:
     import subprocess
 
@@ -482,6 +525,61 @@ async def test_auditor_returns_user_command_stdout_from_overlay_run_dir(
     result = await auditor.execute(sandbox, "echo hello from overlay", timeout=60)
 
     assert result.result == "hello from overlay\n"
+
+
+@pytest.mark.asyncio
+async def test_auditor_forwards_live_stdout_progress(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    monkeypatch.setattr(
+        overlay_auditor_module,
+        "_PROGRESS_POLL_INTERVAL_SECONDS",
+        0.01,
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _init_fixture_repo(repo)
+    (repo / "app.py").write_text("old\n", encoding="utf-8")
+    _commit_all(repo)
+
+    first_progress_seen = asyncio.Event()
+    sandbox = _StreamingScriptedSandbox(
+        repo_root=repo,
+        diff_contents=_meta_line(exit_code=0),
+        user_exit=0,
+        first_progress_seen=first_progress_seen,
+    )
+    svc = CodeIntelligenceService(
+        sandbox_id=f"overlay-progress-{tmp_path.name}",
+        workspace_root=str(repo),
+    )
+    auditor = OverlayAuditor(
+        sandbox_id=f"overlay-progress-{tmp_path.name}",
+        workspace_root=str(repo),
+        exec_process=_noop_exec,
+        write_coordinator=svc._write_coordinator,
+        max_concurrent=2,
+    )
+    progress: list[str] = []
+
+    def on_progress(line: str) -> None:
+        progress.append(line)
+        if "first" in line:
+            first_progress_seen.set()
+
+    result = await auditor.execute(
+        sandbox,
+        "echo first && sleep 1 && echo second",
+        timeout=60,
+        on_progress_line=on_progress,
+    )
+
+    assert result.result == "first\nsecond\n"
+    assert first_progress_seen.is_set()
+    assert any("first" in line for line in progress)
 
 
 @pytest.mark.asyncio
