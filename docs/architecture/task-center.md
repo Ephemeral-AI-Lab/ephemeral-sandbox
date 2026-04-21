@@ -13,9 +13,11 @@ TaskCenter owns the team task graph, notes, status transitions, budget counters,
 
 ## Statuses
 
-Task statuses are `pending`, `ready`, `running`, `expanded`, `request_replan`, `done`, `failed`, and `cancelled`.
+Task statuses are `pending`, `ready`, `running`, `expanded`,
+`expanded_awaiting_summary`, `request_replan`, `done`, `failed`, and
+`cancelled`.
 
-`done`, `failed`, and `cancelled` are terminal.
+`done`, `failed`, `cancelled`, and `request_replan` are terminal.
 
 ## Replanning
 
@@ -37,18 +39,18 @@ work states (`ready`, `running`, `expanded`, `request_replan`, or `done`) only w
 all dependency tasks are `done`. Failed, cancelled, missing, `request_replan`,
 expanded, running, ready, or pending dependencies are unsatisfied.
 
-The replanner submits `submit_replan(new_tasks=[...], cancel_ids=[...], summary=...)`.
+The replanner submits `submit_replan(new_tasks=[...], cancel_ids=[...])`.
 
 After the replan:
 
 - `new_tasks` are inserted as direct children of the replanner. The replanner never sets `parent_id` per task.
 - Each `new_tasks` item carries a required short `description` label; the full task briefing remains in `spec`.
-- `summary` preserves the failure evidence, corrective mapping, preserved work, cancellations, and uncertainty for Task Center notes.
+- The full corrective task JSON is appended to the replanner detail as `Initial Replan`; the replanner does not submit a free-text summary.
 - `cancel_ids` may target only direct siblings of the replanner. Cancelled tasks are marked `cancelled`, including cascaded descendants and dependents.
 - New replan tasks may depend on local new-task IDs or schedulable existing tasks (`done`, `ready`, `pending`) that do not already depend on the replanner or the original failed task.
 - The replanner is marked `done` immediately when it has no new child tasks, or `expanded` when it created direct child tasks.
-- Expanded replanners are marked `done` only after all direct children finish successfully.
-- The original failed task is marked `failed` without cascading after the replanner succeeds, because pending dependents have already been rewired to the replanner.
+- Expanded replanners transition to `expanded_awaiting_summary` after all direct children are terminal; `parent_summarizer` then reads every child detail, posts the roll-up, and finalizes the replanner as `done`.
+- The original failed task stays `request_replan` after the replanner succeeds. The origin is terminal from recovery start; success records `replanned_by:<replanner_id>` on its failure reason while pending dependents remain rewired to the replanner.
 
 ## Notes
 

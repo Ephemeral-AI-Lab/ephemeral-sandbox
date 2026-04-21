@@ -210,21 +210,26 @@ class SubmitTaskSummaryInput(BaseModel):
     type: Literal["success", "request_replan"] = Field(
         ...,
         description=(
-            "Outcome type. 'success' = task completed successfully. "
-            "'request_replan' = task cannot be completed and needs replanning."
+            "Outcome type. Use 'success' only when all assigned acceptance "
+            "criteria are satisfied by live evidence. Use 'request_replan' "
+            "when the task is blocked, still red, assigned to the wrong owner, "
+            "or needs a different scope or sequence."
         ),
     )
     content: str = Field(
         ...,
         min_length=1,
         description=(
-            "Evidence-rich terminal summary for Task Center notes. For success: "
-            "describe what changed, key paths touched, verification commands and "
-            "outcomes, and any residual risk or follow-up. For request_replan: "
-            "start with the blocking evidence, failing command or tool result, "
-            "affected paths or owners, and why a different owner, scope, sequence, "
-            "or budget is needed; do not title the summary as complete/success. "
-            "Must contain non-whitespace text."
+            "Evidence-rich terminal summary for Task Center notes. Developers: "
+            "state the concrete API or behavior delta, verification commands "
+            "and outcomes, and known gaps or deferred items. Validators: list "
+            "each acceptance criterion with pass/fail plus the command, probe, "
+            "exit code, or key assertion used; on failure include the minimal "
+            "repro and hypothesized root cause. For request_replan: start with "
+            "blocking evidence, failing command or tool result, affected paths "
+            "or owners, and why a different owner, scope, sequence, or budget "
+            "is needed. Do not submit placeholders such as 'task completed', "
+            "'all checks passed', or a filename-only list."
         ),
     )
 
@@ -248,10 +253,12 @@ class SubmitTaskSummaryOutput(BaseModel):
 class SubmitTaskSummaryTool(BaseTool):
     name = "submit_task_summary"
     description = (
-        "Submit your task outcome. Call with type='success' when work is done, "
-        "or type='request_replan' when the task cannot be completed and needs "
-        "replanning. This is your terminal action — the agent loop ends after "
-        "this call."
+        "Submit the evidence-rich terminal outcome for a developer, validator, "
+        "or parent_summarizer task. Use type='success' only for satisfied "
+        "acceptance criteria with concrete verification evidence; use "
+        "type='request_replan' for blockers, red checks, wrong ownership, or "
+        "needed scope/sequence changes. This is terminal: the agent loop ends "
+        "after this call."
     )
     short_description = "Submit task outcome."
     input_model = SubmitTaskSummaryInput

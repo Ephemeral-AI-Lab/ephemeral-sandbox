@@ -86,7 +86,7 @@ until they are rewired, per the `GraphInvariantViolation` rule.
                    T3, T4 cannot schedule
 ```
 
-### Frame 3 — Create `REPLAN_T2`, rewire deps, finalize T2 as FAILED
+### Frame 3 — Create `REPLAN_T2`, rewire deps, keep T2 as REQUEST_REPLAN
 
 ```
                  ┌─────────────┐
@@ -97,7 +97,7 @@ until they are rewired, per the `GraphInvariantViolation` rule.
          ║              ║               ║              ║
          ▼              ▼               ▼              ▼
       ┌─────┐       ┌─────┐         ┌─────────┐     ┌─────┐
-      │ T1  │ ◑    │ T2  │ ✕ ╳    │REPLAN_T2│ ◐  │ T3  │ ●
+      │ T1  │ ◑    │ T2  │ ⟲ ╳    │REPLAN_T2│ ◐  │ T3  │ ●
       │ dev │      │ dev │detach  │ replnr  │ready│ dev │pend
       └─────┘      └─────┘         └────┬────┘     └─────┘
                                         │
@@ -111,7 +111,7 @@ until they are rewired, per the `GraphInvariantViolation` rule.
 ```
 
 Key moves:
-- T2 advances `REQUEST_REPLAN → FAILED` (terminal, detached).
+- T2 enters and stays `REQUEST_REPLAN` (terminal, detached). When recovery succeeds, the runtime records `replanned_by:<replanner_id>` on T2's failure reason rather than changing its status.
 - `REPLAN_T2` is inserted as a sibling of T2 under ROOT.
 - Every dependent of T2 has its `deps` rewritten to point at
   `REPLAN_T2`, restoring the "dependents must be pending" invariant

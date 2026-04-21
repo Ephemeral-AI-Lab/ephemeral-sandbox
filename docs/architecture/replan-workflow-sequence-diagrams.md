@@ -5,7 +5,6 @@ The current `submit_replan` payload is:
 
 - `new_tasks`
 - `cancel_ids`
-- `summary`
 
 `team_replanner` is a normal expandable task. When original task `A` fails, `A`
 moves to `REQUEST_REPLAN`, replanner task `R` is created, and pending task
@@ -21,12 +20,17 @@ An `EXPANDED` parent's children fall into two sets:
 
 - **Detached**: `FAILED`, `CANCELLED`, `REQUEST_REPLAN`. All three are terminal
   and are ignored for promotion — treated as resolved but not successful.
-- **Non-detached / live**: `PENDING`, `READY`, `RUNNING`, `EXPANDED`, `DONE`.
+- **Non-detached / live**: `PENDING`, `READY`, `RUNNING`, `EXPANDED`,
+  `EXPANDED_AWAITING_SUMMARY`, `DONE`.
 
 Promotion rule: the parent transitions out of `EXPANDED` when every
 non-detached child is `DONE`.
 
-- If at least one child is `DONE`: parent → `DONE`.
+- If at least one child is `DONE` and the parent is a planner/replanner:
+  parent → `EXPANDED_AWAITING_SUMMARY`; `parent_summarizer` reads the parent
+  and every direct child detail, posts the roll-up, then parent → `DONE`.
+- If at least one child is `DONE` and the parent is not expandable:
+  parent → `DONE`.
 - If every child is detached (no `DONE`): parent → `FAILED` with reason
   `all_children_detached`, and itself enters the detached set of *its* parent
   — propagates up naturally.
@@ -50,8 +54,8 @@ sequenceDiagram
     participant G as Task Graph
     participant R as Replanner Task R
 
-    W->>Ex: submit_task_summary(type="fail", reason)
-    Note over W,Ex: Tool only writes task_summary + type="fail"<br/>into tool_metadata. Executor._read_result<br/>promotes that into a ReplanRequest.
+    W->>Ex: submit_task_summary(type="request_replan", content)
+    Note over W,Ex: Tool writes task_summary + type="request_replan"<br/>into tool_metadata. Executor._read_result<br/>promotes that into a ReplanRequest.
     Ex->>TC: request_replan(A, reason)
     TC->>TC: require_replan_capacity()
     alt replan budget exhausted
@@ -110,7 +114,7 @@ sequenceDiagram
     participant D as Downstream Tasks
     participant A as Original Task A
 
-    R->>Tool: submit_replan(new_tasks=[], cancel_ids=[...], summary=...)
+    R->>Tool: submit_replan(new_tasks=[], cancel_ids=[...])
     Tool->>Tool: validate cancel_ids (direct siblings of R only)
     Tool-->>Ex: AgentResult(submitted_replan)
 
@@ -156,6 +160,9 @@ sequenceDiagram
     TS->>TS: maybe_promote_expanded_parent(child)
 
     alt every non-detached child of R is DONE (≥1 DONE)
+        TS->>R: mark R EXPANDED_AWAITING_SUMMARY
+        TC->>R: parent_summarizer reads R + every direct child
+        R->>TC: submit_task_summary(type="success", content=roll-up)
         TS->>R: mark R DONE
         TS->>D: promote downstream dependents
         TC->>TS: finalize_replanned_origin(R)
@@ -169,8 +176,9 @@ sequenceDiagram
 ```
 
 With the detached-set promotion rule, `CANCELLED` and `FAILED` children do
-*not* wedge `R` — they are detached and ignored. `R` goes DONE when every
-non-detached child is DONE, or FAILED if all children are detached. A failed
+*not* wedge `R` — they are detached and ignored. `R` goes
+`EXPANDED_AWAITING_SUMMARY` when every non-detached child is DONE, then DONE
+after `parent_summarizer` posts the roll-up, or FAILED if all children are detached. A failed
 direct child still does not trigger a cascading replan (`fail_task` only
 cascades cancels to its descendants and doesn't call `request_replan`), but
 the failure propagates upward via the detach/promotion chain rather than
@@ -234,7 +242,7 @@ sequenceDiagram
     participant TS as TaskStore
     participant X as Running Task X
 
-    R->>PE: submit_replan(cancel_ids=[X], summary=...)
+    R->>PE: submit_replan(cancel_ids=[X])
     PE->>PE: validate X is a non-terminal direct sibling
     PE->>PE: compute cascaded descendants and dependency dependents
 

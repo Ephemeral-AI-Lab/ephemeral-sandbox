@@ -505,11 +505,48 @@ class ReadTaskDetailsTool(BaseTool):
                     ),
                     None,
                 )
+                initial_plan_note = next(
+                    (
+                        n
+                        for n in reversed(task_notes)
+                        if "initial_planned_tasks" in (n.tags or [])
+                    ),
+                    None,
+                )
+                if initial_plan_note is not None:
+                    lines.append("**Initial Plan:**")
+                    lines.append("```json")
+                    lines.append(initial_plan_note.content)
+                    lines.append("```")
+
+                initial_replan_note = next(
+                    (
+                        n
+                        for n in reversed(task_notes)
+                        if "initial_replanned_tasks" in (n.tags or [])
+                    ),
+                    None,
+                )
+                if initial_replan_note is not None:
+                    lines.append("**Initial Replan:**")
+                    lines.append("```json")
+                    lines.append(initial_replan_note.content)
+                    lines.append("```")
+
                 if summary_note is not None:
                     lines.append("**Summary:**")
                     lines.append(summary_note.content)
 
-                recent = task_notes[-3:]
+                structured_plan_tags = {
+                    "initial_planned_tasks",
+                    "initial_replanned_tasks",
+                }
+                recent_candidates = [
+                    n
+                    for n in task_notes
+                    if not structured_plan_tags.intersection(n.tags or [])
+                ]
+                recent = recent_candidates[-3:]
                 if recent:
                     lines.append("**Recent notes:**")
                     for n in recent:

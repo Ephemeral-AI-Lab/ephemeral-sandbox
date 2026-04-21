@@ -18,7 +18,7 @@ from tools.task_center.toolkit import (
     TaskCenterChangedSinceTool,
 )
 from tools.core.base import ToolExecutionContext, parse_tool_input
-from team.models import Task, TaskStatus
+from team.models import Note, Task, TaskStatus
 
 
 def _ctx(metadata=None) -> ToolExecutionContext:
@@ -389,6 +389,58 @@ async def test_read_task_details_reads_single_task():
     assert "**Deps:** dep-1" in result.output
     assert "**Scope:** src/parser.py" in result.output
     assert "task-2" not in result.output
+
+
+@pytest.mark.asyncio
+async def test_read_task_details_labels_initial_plan_and_replan_json():
+    class _Notes:
+        async def read(self, **_kwargs):
+            return [
+                Note(
+                    id="plan-note",
+                    task_id="task-1",
+                    agent_name="team_planner",
+                    content='[{"id": "dev-1", "agent": "developer"}]',
+                    tags=["initial_planned_tasks"],
+                ),
+                Note(
+                    id="replan-note",
+                    task_id="task-1",
+                    agent_name="team_replanner",
+                    content='[{"id": "fix-1", "agent": "developer"}]',
+                    tags=["initial_replanned_tasks"],
+                ),
+                Note(
+                    id="summary-note",
+                    task_id="task-1",
+                    agent_name="parent_summarizer",
+                    content="dev-1 delivered parser retry behavior.",
+                    tags=["implementation", "parent_summary"],
+                ),
+            ]
+
+    graph = {
+        "task-1": _task(
+            "task-1",
+            parent_id=None,
+            status=TaskStatus.EXPANDED_AWAITING_SUMMARY,
+            agent="team_planner",
+            description="Plan parser work",
+        ),
+    }
+    ctx = _ctx({"task_center": SimpleNamespace(graph=graph, notes=_Notes())})
+
+    result = await ReadTaskDetailsTool().execute(
+        ReadTaskDetailsTool.input_model(task_id="task-1"),
+        ctx,
+    )
+
+    assert result.is_error is False
+    assert "**Initial Plan:**\n```json\n[{\"id\": \"dev-1\", \"agent\": \"developer\"}]\n```" in result.output
+    assert "**Initial Replan:**\n```json\n[{\"id\": \"fix-1\", \"agent\": \"developer\"}]\n```" in result.output
+    assert "**Summary:**\ndev-1 delivered parser retry behavior." in result.output
+    assert "### team_planner [initial_planned_tasks]" not in result.output
+    assert "### team_replanner [initial_replanned_tasks]" not in result.output
 
 
 @pytest.mark.asyncio

@@ -248,7 +248,7 @@ Three distinct layers orchestrate the transition from disk/database to runtime e
 
 - **`team_runs`** (durable): Team execution instances. Tracks `team_definition_id`, `session_id`, `status` (pending | running | succeeded | failed), replan count.
 
-- **`tasks`** (partitioned by `team_run_id`): Task queue for a single team run. Fields: `status` (pending | ready | running | expanded | request_replan | done | failed | cancelled), `agent_name` (assigned worker), `deps` (task IDs), `parent_id` (parent task for expansion), `depth`, `agent_run_id` (link to agent execution), `fired_by_task_id` (for replanner tasks, points to original task).
+- **`tasks`** (partitioned by `team_run_id`): Task queue for a single team run. Fields: `status` (pending | ready | running | expanded | expanded_awaiting_summary | request_replan | done | failed | cancelled), `agent_name` (assigned worker), `deps` (task IDs), `parent_id` (parent task for expansion), `depth`, `agent_run_id` (link to agent execution), `fired_by_task_id` (for replanner tasks, points to original task).
 
 - **`agent_runs`** (durable): Every individual agent invocation (ephemeral or team). Links task to agent execution via `parent_task_id`.
 

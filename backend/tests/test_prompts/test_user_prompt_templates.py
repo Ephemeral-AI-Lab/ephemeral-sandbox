@@ -56,12 +56,12 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
 
     assert rendered.startswith("Please read the following sections")
     assert "- submit_task_summary: Submit task outcome." in rendered
-    assert "Your task id:" not in rendered
-    assert "Your dependency task ids:" not in rendered
-    assert "Your parent task id:" not in rendered
-    assert "Task id: `dev-uuid-1234`" in rendered
-    assert "Dependency task ids: `dep-a`, `dep-b`" in rendered
-    assert "Parent task id: `parent-uuid`" in rendered
+    assert "Your task id: `dev-uuid-1234`" in rendered
+    assert "Your dependency task ids: `dep-a`, `dep-b`" in rendered
+    assert "Your parent task id: `parent-uuid`" in rendered
+    assert "Task id: `dev-uuid-1234`" not in rendered
+    assert "Dependency task ids: `dep-a`, `dep-b`" not in rendered
+    assert "Parent task id: `parent-uuid`" not in rendered
     assert "Follow the bundled developer playbook for workflow and rules" in rendered
     assert "## Rule to Follow" not in rendered
     assert "## Assigned coding task" in rendered
@@ -168,12 +168,12 @@ async def test_build_query_context_uses_developer_markdown_template() -> None:
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- submit_task_summary:" in ctx.user_message
-    assert "Your task id:" not in ctx.user_message
-    assert "Your dependency task ids:" not in ctx.user_message
-    assert "Your parent task id:" not in ctx.user_message
-    assert "Task id: `dev-1`" in ctx.user_message
-    assert "Dependency task ids: `dep-1`" in ctx.user_message
-    assert "Parent task id: `root`" in ctx.user_message
+    assert "Your task id: `dev-1`" in ctx.user_message
+    assert "Your dependency task ids: `dep-1`" in ctx.user_message
+    assert "Your parent task id: `root`" in ctx.user_message
+    assert "Task id: `dev-1`" not in ctx.user_message
+    assert "Dependency task ids: `dep-1`" not in ctx.user_message
+    assert "Parent task id: `root`" not in ctx.user_message
     assert "Follow the bundled developer playbook for workflow and rules" in ctx.user_message
     assert "## Rule to Follow" not in ctx.user_message
     assert "## Assigned coding task" in ctx.user_message
@@ -232,12 +232,12 @@ async def test_build_query_context_uses_validator_markdown_template_with_task_id
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- submit_task_summary:" in ctx.user_message
-    assert "Your task id:" not in ctx.user_message
-    assert "Your dependency task ids:" not in ctx.user_message
-    assert "Your parent task id:" not in ctx.user_message
-    assert "Task id: `validator-1`" in ctx.user_message
-    assert "Dependency task ids: `dev-1`" in ctx.user_message
-    assert "Parent task id: `root`" in ctx.user_message
+    assert "Your task id: `validator-1`" in ctx.user_message
+    assert "Your dependency task ids: `dev-1`" in ctx.user_message
+    assert "Your parent task id: `root`" in ctx.user_message
+    assert "Task id: `validator-1`" not in ctx.user_message
+    assert "Dependency task ids: `dev-1`" not in ctx.user_message
+    assert "Parent task id: `root`" not in ctx.user_message
     assert "Follow the bundled validator playbook for workflow and rules" in ctx.user_message
     assert "## Rule to Follow" not in ctx.user_message
     assert "## Assigned validation task" in ctx.user_message
@@ -348,12 +348,12 @@ async def test_build_query_context_uses_child_planner_structured_spec_contract()
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- submit_plan:" in ctx.user_message
-    assert "Your task id:" not in ctx.user_message
-    assert "Your dependency task ids:" not in ctx.user_message
-    assert "Your parent task id:" not in ctx.user_message
-    assert "Task id: `planner-1`" in ctx.user_message
-    assert "Dependency task ids: `prep-1`" in ctx.user_message
-    assert "Parent task id: `root`" in ctx.user_message
+    assert "Your task id: `planner-1`" in ctx.user_message
+    assert "Your dependency task ids: `prep-1`" in ctx.user_message
+    assert "Your parent task id: `root`" in ctx.user_message
+    assert "Task id: `planner-1`" not in ctx.user_message
+    assert "Dependency task ids: `prep-1`" not in ctx.user_message
+    assert "Parent task id: `root`" not in ctx.user_message
     assert "Follow the bundled team-planner playbook for workflow and rules" in ctx.user_message
     assert "## Rule to Follow" not in ctx.user_message
     assert "## Assigned planner task" in ctx.user_message
@@ -430,13 +430,13 @@ async def test_build_query_context_uses_replanner_template_with_task_ids() -> No
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- submit_replan:" in ctx.user_message
-    assert "Your task id:" not in ctx.user_message
-    assert "Your dependency task ids:" not in ctx.user_message
-    assert "Your parent task id:" not in ctx.user_message
-    assert "Task id: `replanner-1`" in ctx.user_message
+    assert "Your task id: `replanner-1`" in ctx.user_message
+    assert "Your dependency task ids: `prep-1`" in ctx.user_message
+    assert "Your parent task id: `root`" in ctx.user_message
+    assert "Task id: `replanner-1`" not in ctx.user_message
     assert "Failed task id: `failed-1`" in ctx.user_message
-    assert "Dependency task ids: `prep-1`" in ctx.user_message
-    assert "Parent task id: `root`" in ctx.user_message
+    assert "Dependency task ids: `prep-1`" not in ctx.user_message
+    assert "Parent task id: `root`" not in ctx.user_message
     assert "Follow the bundled team-replanner playbook for workflow and rules" in ctx.user_message
     assert "## Rule to Follow" not in ctx.user_message
     assert "## Assigned replanning task" in ctx.user_message

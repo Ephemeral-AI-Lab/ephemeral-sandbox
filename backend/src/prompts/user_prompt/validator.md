@@ -6,12 +6,12 @@ Follow the bundled validator playbook for workflow and rules; this message suppl
 
 ## Assigned validation task
 
-Task id: `{{your_task_id}}`
+Your task id: `{{your_task_id}}`
 {{#if your_parent_task_id}}
-Parent task id: `{{your_parent_task_id}}`
+Your parent task id: `{{your_parent_task_id}}`
 {{/if}}
 {{#if your_deps_ids}}
-Dependency task ids: {{your_deps_ids}}
+Your dependency task ids: {{your_deps_ids}}
 {{/if}}
 
 ```markdown

@@ -17,7 +17,9 @@ sequenceDiagram
     TaskCenter-->>DispatchQueue: ready task
     DispatchQueue->>Worker: run task with notes and dependencies
     Worker->>TaskCenter: submit_task_summary(type="success")
-    TaskCenter->>TaskCenter: mark done and promote dependents
+    TaskCenter->>TaskCenter: mark child done
+    TaskCenter->>TaskCenter: planner/replanner parent awaits parent_summarizer
+    TaskCenter->>TaskCenter: parent_summarizer posts roll-up, parent becomes done
 ```
 
 ## Failure Recovery
@@ -28,11 +30,11 @@ sequenceDiagram
     participant TaskCenter
     participant Replanner
 
-    Worker->>TaskCenter: submit_task_summary(type="fail")
+    Worker->>TaskCenter: submit_task_summary(type="request_replan")
     TaskCenter->>TaskCenter: mark original REQUEST_REPLAN
     TaskCenter->>TaskCenter: rewire pending dependents from original to replanner
     TaskCenter->>Replanner: spawn replanner with failure context
-    Replanner->>TaskCenter: submit_replan(new_tasks=[...], cancel_ids=[...], summary=...)
+    Replanner->>TaskCenter: submit_replan(new_tasks=[...], cancel_ids=[...])
     TaskCenter->>TaskCenter: apply replan and complete or expand replanner
 ```
 
@@ -45,7 +47,7 @@ dependencies are `done`; failed or cancelled dependencies are not satisfied.
 For the broader run-failure taxonomy, see
 [`team-failure-conditions.md`](team-failure-conditions.md).
 
-The replanner is the recovery gate for downstream work. Corrective work goes into `new_tasks`, every new task is inserted as a direct child of the replanner, and `summary` captures the failure evidence, corrective mapping, preserved work, cancellations, and uncertainty for downstream context. `cancel_ids` may target only the replanner's direct siblings, and their subtrees cancel by cascade. New replan tasks may depend on local new tasks or schedulable existing tasks that do not already depend on the replanner/original failure pair. If the replanner has no new child tasks after `submit_replan`, it becomes `DONE` immediately; otherwise it becomes `EXPANDED` and reaches `DONE` only after all direct children succeed.
+The replanner is the recovery gate for downstream work. Corrective work goes into `new_tasks`, every new task is inserted as a direct child of the replanner, and `cancel_ids` may target only the replanner's direct siblings; their subtrees cancel by cascade. The submitted corrective task JSON is appended to the replanner detail as `Initial Replan`, while downstream context is produced by the parent summarizer after the replanner's children terminate. New replan tasks may depend on local new tasks or schedulable existing tasks that do not already depend on the replanner/original failure pair. If the replanner has no new child tasks after `submit_replan`, it becomes `DONE` immediately; otherwise it becomes `EXPANDED`, then `EXPANDED_AWAITING_SUMMARY` after all direct children are terminal, and reaches `DONE` only after `parent_summarizer` posts the roll-up.
 
 ## Status Model
 
@@ -55,18 +57,20 @@ Task statuses are:
 - `ready`
 - `running`
 - `expanded`
+- `expanded_awaiting_summary`
 - `request_replan`
 - `done`
 - `failed`
 - `cancelled`
 
-Terminal statuses are `done`, `failed`, and `cancelled`.
+Terminal statuses are `done`, `failed`, `cancelled`, and `request_replan`.
 
 ## Design Principles
 
-- Worker agents do not change the graph directly; they submit success or failure summaries.
+- Worker agents do not change the graph directly; they submit success summaries or request replanning with evidence.
 - Replanners are the only agents that mutate the recovery graph through `submit_replan`.
 - Planner and replanner `new_tasks` items carry `description` as a required short, planner-authored label; full instructions belong in `spec`.
+- Planner and replanner submissions carry structured task JSON only. They do not author free-text outcome summaries; their `Initial Plan` / `Initial Replan` JSON is stored on the parent detail, and `parent_summarizer` later writes the outcome roll-up.
 - Ready tasks dispatch as soon as dependencies are satisfied.
 - Scope freshness checks protect terminal submissions from stale context.
 - Developer and validator lanes read Task Center notes and use CI ownership/diagnostic tools before falling back to raw sandbox file reads.

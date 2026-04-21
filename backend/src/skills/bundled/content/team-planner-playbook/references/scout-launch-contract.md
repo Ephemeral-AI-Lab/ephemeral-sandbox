@@ -21,7 +21,7 @@ Use this reference immediately before the first scout wave. For the entry/root p
 1. Scrub `target_paths` first: every entry should be a live production owner file/directory unless tests are explicitly the owner surface; do not use scouts to repair benchmark test paths.
 2. Call `run_subagent(agent_name="scout", input={"target_paths": [...]}, task_note="...")` with one unresolved owner slice per scout.
 3. Queue the whole useful wave before any progress check or wait.
-4. After the wave, read scout findings with `read_file_note(file_path="...")` for the scout target paths. Scouts/subagents are not Task Center tasks. Do not call `read_task_graph()` or `read_task_details(...)` to retrieve scout results, and do not pass `bg_*` background ids, planner slugs, short prefixes, or fabricated ids as task ids.
+4. After the wave, read scout findings with `read_file_note(file_path="...")` for each exact scout `target_paths` entry you launched. Do not drop file extensions, reuse an unrelated prior path, or skip a scout path. Scouts/subagents are not Task Center tasks. Do not call `read_task_graph()` or `read_task_details(...)` to retrieve scout results, and do not pass `bg_*` background ids, planner slugs, short prefixes, or fabricated ids as task ids.
 5. On cold CI or a disproved exact file, fall back to the nearest stable production boundary instead of preserving a guessed exact path.
 
 ## Expected Outcome

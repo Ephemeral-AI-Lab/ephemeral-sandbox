@@ -14,9 +14,9 @@ final status computation sees the root task in `failed`.
 | Root task terminal failure | Root task reaches `failed` | `failed` at `TeamRun.wait()` finalization | The final status reflects the root task outcome unless an earlier fatal failure reason exists. |
 | Root task direct execution failure | Root agent is unknown, the root runner crashes, context construction raises, or root cleanup fails into task failure | Usually `failed` | These first mark the root task failed or request replanning. The run fails if recovery does not produce a successful root outcome. |
 | Invalid root plan | Root planner submits no plan or an invalid plan | `failed` | `PlanExpander` marks the planner task failed with `InvalidPlan: ...`; because the task is the root, final run status is failed. |
-| Failed recovery path | Replanner task fails or crashes | `failed` if this failure reaches the root | `TaskCenter.fail_task()` fails the original `request_replan` task with `replanner_failed: ...` when the replanner was fired for it. |
-| Invalid runtime replan | Runtime `apply_replan(...)` rejects a submitted replan | `failed` if this failure reaches the root | The original `request_replan` task is failed with `replan_apply_failed: ...`; the replanner error then follows normal task failure handling. |
-| Orphaned replan request | A task remains stuck in `request_replan` with no live recovery path at finalization | `failed` if this includes or propagates to root | `TeamRun._compute_final_status()` calls `fail_orphaned_replanning()` before reading the root status. |
+| Failed recovery path | Replanner task fails or crashes | `failed` if this failure reaches the root | The original task stays terminal at `request_replan`; the replanner task fails, and detached-child propagation decides whether the failure reaches the root. |
+| Invalid runtime replan | Runtime `apply_replan(...)` rejects a submitted replan | `failed` if this failure reaches the root | The original task stays terminal at `request_replan`; the replanner error follows normal task failure handling. |
+| Orphaned replan request | Historical category for `request_replan` tasks with no live recovery path | not run-fatal by itself | `request_replan` is terminal in the current model, and `fail_orphaned_replanning()` is a compatibility no-op. Recovery success or failure is represented by the replanner branch. |
 | Detached-child propagation | Every child of an expanded parent is `failed` or `cancelled`, with no successful child | `failed` if propagation reaches root | The parent is marked `failed` with `all_children_detached`, then participates as a detached child of its own parent. |
 
 ## Task-Local Failure
@@ -24,8 +24,8 @@ final status computation sees the root task in `failed`.
 The following conditions fail or replan a task but do not by themselves fail the
 team run:
 
-- A worker calls `submit_task_summary(type="fail")`; the executor converts this
-  into `TaskCenter.request_replan(...)`.
+- A worker calls `submit_task_summary(type="request_replan")`; the executor
+  converts this into `TaskCenter.request_replan(...)`.
 - An agent exits without calling a terminal submission tool; the runner writes a
   failure summary and the executor treats it as a replan request.
 - A non-root planner submits an invalid plan; the planner task fails and parent
