@@ -222,6 +222,9 @@ async def _render_template_user_message(
         return None
 
     parts = await template_context_for(task)
+    deps_line = ", ".join(f"`{dep}`" for dep in task.deps if dep)
+    parent_id = str(task.parent_id) if task.parent_id else ""
+    failed_id = str(task.fired_by_task_id) if task.fired_by_task_id else ""
     variables: dict[str, object] = {
         "task_spec": parts.task_spec,
         "scope_paths": parts.scope_paths,
@@ -232,6 +235,10 @@ async def _render_template_user_message(
         "user_request": str(getattr(team_run, "user_request", "") or task.objective).strip(),
         "benchmark_targets": _format_benchmark_targets(team_run),
         "terminal_tools": _format_terminal_tools(terminal_tools),
+        "your_task_id": str(task.id),
+        "your_deps_ids": deps_line,
+        "your_parent_task_id": parent_id,
+        "your_failed_task_id": failed_id,
     }
     return render_user_prompt_template(template_name, variables)
 

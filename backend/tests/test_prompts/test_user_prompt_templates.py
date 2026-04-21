@@ -47,11 +47,17 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
             "recent_scope_changes": "",
             "parent_context": "",
             "terminal_tools": "- submit_task_summary: Submit task outcome.",
+            "your_task_id": "dev-uuid-1234",
+            "your_deps_ids": "`dep-a`, `dep-b`",
+            "your_parent_task_id": "parent-uuid",
         },
     )
 
     assert rendered.startswith("Please read the following sections")
     assert "- submit_task_summary: Submit task outcome." in rendered
+    assert "Your task id: `dev-uuid-1234`" in rendered
+    assert "Your dependency task ids: `dep-a`, `dep-b`" in rendered
+    assert "Your parent task id: `parent-uuid`" in rendered
     assert "Please read the assigned coding task" in rendered
     assert "## Assigned coding task" in rendered
     assert "Goal\nImplement retry handling." in rendered
@@ -180,6 +186,8 @@ async def test_build_query_context_uses_developer_markdown_template() -> None:
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- submit_task_summary:" in ctx.user_message
+    assert "Your task id: `dev-1`" in ctx.user_message
+    assert "Your parent task id: `root`" in ctx.user_message
     assert "## Assigned coding task" in ctx.user_message
     assert "Please read the assigned coding task" in ctx.user_message
     assert "Goal\nImplement retry handling." in ctx.user_message
@@ -231,6 +239,7 @@ async def test_build_query_context_uses_root_planner_markdown_template() -> None
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- submit_plan:" in ctx.user_message
+    assert "Your task id: `root`" in ctx.user_message
     assert "## Available Agents" not in ctx.user_message
     assert "## User request" in ctx.user_message
     assert "Fix retry handling." in ctx.user_message
@@ -298,6 +307,7 @@ async def test_build_query_context_uses_child_planner_structured_spec_contract()
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- submit_plan:" in ctx.user_message
+    assert "Your task id: `planner-1`" in ctx.user_message
     assert "## Assigned planner task" in ctx.user_message
     assert "Decompose retry handling." in ctx.user_message
     assert "Keep benchmark or verification test targets in task prose" in ctx.user_message
@@ -362,6 +372,7 @@ async def test_build_query_context_uses_replanner_template_with_failure_context(
 
     assert ctx.user_message.startswith("Please read the following sections")
     assert "- submit_replan:" in ctx.user_message
+    assert "Your task id: `replanner-1`" in ctx.user_message
     assert "## Assigned replanning task" in ctx.user_message
     assert "## Failure context" in ctx.user_message
     assert "Original task: failed-1" in ctx.user_message

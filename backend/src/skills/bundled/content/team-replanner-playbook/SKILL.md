@@ -39,7 +39,9 @@ If the failed lane already identified a small in-scope edit and no owner or poli
 
 ## Workflow
 
-1. Read the validator packet and preserve exact failing ids, exit code, snippet, and cited owner paths. Keep facts and hypotheses separate. If a cause is not verified from live evidence, write the child task as "investigate whether ..." rather than as a fact.
+Before step 1, load the full task graph neighbourhood from the prompt header. The user prompt exposes `Your task id`, `Your parent task id`, and `Failed task id`. Call `read_task_details(task_id=<your task id>)` for your own replan scope and inherited notes, `read_task_details(task_id=<your parent task id>)` for the parent plan and validator coverage, `read_task_details(task_id=<failed task id>)` for the failing task's scope, failure reason, and recent notes, and `read_task_graph()` to enumerate same-parent sibling tasks; call `read_task_details(task_id=<sibling id>)` on any sibling you may preserve, cancel, or rewire.
+
+1. First step: `read_task_details(task_id="<failed_task>")` plus `read_task_details(task_id=<dep>)` for every declared dep you may preserve, cancel, or rewire. The appended `Initial Plan` / `Initial Replan` JSON and each task's final summary are your hand-off; `read_task_graph()` alone is not enough. Preserve exact failing ids, exit code, snippet, and cited owner paths from the packet. Keep facts and hypotheses separate. If a cause is not verified from live evidence, write the child task as "investigate whether ..." rather than as a fact.
 2. Reuse sibling notes, then parent graph context before deciding.
 3. Confirm the owner surface still lives with CI tools.
 4. Decide exactly one action: add corrective tasks under this replanner, or cancel stale non-terminal direct siblings and redraft replacement work under this replanner. Cancelling a sibling cascades to its subtree automatically — do not try to reach into deeper layers. Cancel candidates must be same-parent peers of this replanner, not ids found only in global or nested graph context. The original failed `request_replan` task and terminal failed/done/cancelled siblings are not cancellable.

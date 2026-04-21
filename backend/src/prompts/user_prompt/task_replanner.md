@@ -2,6 +2,17 @@ Please read the following sections and call the listed terminal tool when your w
 
 {{terminal_tools}}
 
+Your task id: `{{your_task_id}}` — pass this exact id to `read_task_details(task_id=...)` when you need your own scope or inherited context.
+{{#if your_failed_task_id}}
+Failed task id (the task you are recovering from): `{{your_failed_task_id}}` — always call `read_task_details(task_id=...)` on this id first to load the failure reason, scope, and recent notes.
+{{/if}}
+{{#if your_deps_ids}}
+Your dependency task ids: {{your_deps_ids}} — call `read_task_details(task_id=<dep>)` on each dep to load its hand-off.
+{{/if}}
+{{#if your_parent_task_id}}
+Your parent task id: `{{your_parent_task_id}}` — call `read_task_details(task_id=...)` on the parent for the full parent plan, sibling scope, or coordination notes.
+{{/if}}
+
 ## Your task
 
 1. Please read the assigned replanning task and failure context.

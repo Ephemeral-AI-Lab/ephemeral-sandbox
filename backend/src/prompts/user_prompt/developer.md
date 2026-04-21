@@ -2,9 +2,17 @@ Please read the following sections and call the listed terminal tool when your w
 
 {{terminal_tools}}
 
+Your task id: `{{your_task_id}}` — pass this exact id to `read_task_details(task_id=...)` to load your own scout notes, inherited context, or parent plan.
+{{#if your_deps_ids}}
+Your dependency task ids: {{your_deps_ids}} — call `read_task_details(task_id=<dep>)` on each dep to load the hand-off summary and notes.
+{{/if}}
+{{#if your_parent_task_id}}
+Your parent task id: `{{your_parent_task_id}}` — call `read_task_details(task_id=...)` on the parent if you need the full parent plan, sibling scope, or coordination notes.
+{{/if}}
+
 ## Your task
 
-1. Please read the assigned coding task and inherited context.
+1. Please read the assigned coding task and inherited context. Before any substantive work, enumerate the declared dependencies and call `read_task_details(task_id=<dep>)` on each one — the appended `Initial Plan` / `Initial Replan` JSON and the dep's final summary are your hand-off. If a dep's summary is missing or boilerplate, surface that gap in your terminal summary rather than guessing.
 2. Before any sandbox file read, call `read_file_note(file_path="...")`, then use `ci_workspace_structure(...)`, `ci_query_symbol(...)`, or `ci_diagnostics(...)` to locate the owner boundary.
 3. Treat `daytona_read_file(...)` as a fallback for narrow line ranges after notes and CI evidence, not as the opening move.
 4. Analyze the implementation objective, expected behavior, and owned scope.
@@ -15,7 +23,7 @@ Please read the following sections and call the listed terminal tool when your w
 9. Never use `daytona_codeact` for path moves or git-index mutation tokens such as `mv`, `shutil.move`, `os.rename`, `git rm`, or `git mv`; use `daytona_move_file` for repo path moves. Pure removals such as `rm`, `unlink`, `os.remove`, `Path.unlink`, and `shutil.rmtree` may run through CodeAct because the overlay audit path converts tracked removals into OCC-gated deletes and rejects unsupported removal shapes. If `daytona_delete_file` or `daytona_move_file` fails, do not retry the same delete/move tool; submit a failure with the tool error.
 10. Use repo-relative paths or `/testbed/...` sandbox paths in Daytona and CI tools. Never pass host workspace paths such as `/Users/...` into sandbox tools, and never search host directories from CodeAct.
 11. If any tool result warns about `outside write_scope`, treat it as a coordination warning, not a hard failure: refresh notes, confirm the edit still belongs to the same bug and does not collide with sibling work, then either continue with the widened production owner or submit `submit_task_summary(type="request_replan", content=...)` if the task needs a different owner, unrelated owners, sequencing, or explicit test-file authorization. If a post-hook notification adds the path to `scope_paths`, continue from the updated scope. If a tool reports `verification-surface write allowed`, revert or avoid the test edit unless the task explicitly owns a test-only bug. If any test, CodeAct, or diagnostic output shows `ModuleNotFoundError`, `ImportError`, or collection failure naming a missing module outside `scope_paths`, you may create or edit the missing production path when live non-test evidence or the assigned objective shows it is the intended repository surface; otherwise summarize the missing-path evidence for replanning. For path moves, file renames, shims, and re-exports, check both source and destination and proceed when the destination is a justified production owner, not just a benchmark-test spelling.
-12. End this lane with exactly one `submit_task_summary(...)` call. For success, `content` must name changed paths, the behavior repaired, verification commands and outcomes, widened-scope rationale if any, and residual risk. If verification is incomplete, the tool budget is low, the owner is wrong, or the task is still red, call `submit_task_summary(type="request_replan", content=...)` with the exact evidence instead of continuing without a terminal submission.
+12. End this lane with exactly one `submit_task_summary(...)` call. The `content` is the hand-off that every downstream reader (validator, replanner, parent summarizer) will see. It must carry (a) the concrete change — API or behavior delta, not just a filename list, (b) the verification commands you ran and their outcomes, including failing ids when red, and (c) any widened-scope rationale plus residual risk or follow-up. If verification is incomplete, the tool budget is low, the owner is wrong, or the task is still red, call `submit_task_summary(type="request_replan", content=...)` with the same concrete evidence. A summary that restates the task title, says "task completed successfully", or lists files touched without explaining what changed is not a summary — treat that as an unfinished turn.
 
 ## Assigned coding task
 
