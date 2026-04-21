@@ -24,7 +24,7 @@ Child planner pre-step: consume the ids printed in the assigned planner task sec
 2. If the assigned task already names concrete owner files and child lanes, skip scouts and shape the DAG from that inherited evidence. When ownership is unresolved, launch one useful scout wave early on production-owner slices; one wave plus CI/file notes is enough when the owner split is defensible.
 3. Reuse inherited notes and same-turn findings. If evidence conflicts but still identifies owner boundaries, submit with uncertainty in task specs instead of relaunching explorers. If a cold exact file sits under a live package directory or symbol query reveals the nested owner, use that stable boundary; do not launch another scout just to prove the missing exact path.
 4. Split ready exact owners into direct `developer` lanes; keep broad, shared, or multi-family surfaces on child `team_planner` lanes.
-5. When the layer has non-validator tasks, add exactly one terminal `validator` end-of-chain guard. Its top-level `deps` field lists every same-layer non-validator sibling id, including `developer` lanes and child `team_planner` decomposition lanes. Child planners still need their own same-layer validator; parent validators do not replace child-layer validation. Mentioning dependencies in prose inside `spec` does not create task dependencies.
+5. When the layer has non-validator tasks, add exactly one terminal `validator` end-of-chain guard. Its top-level `deps` field lists every same-layer non-validator sibling id, including `developer` lanes and child `team_planner` decomposition lanes. A same-layer sibling is an exact `id` in this `new_tasks` payload, not a future child id the planner might create later. If this payload delegates a lane to `team_planner`, the terminal validator depends on that planner id, not guessed `dev-*` or `val-*` children. Child planners still need their own same-layer validator; parent validators do not replace child-layer validation. Mentioning dependencies in prose inside `spec` does not create task dependencies.
 6. Submit with `new_tasks` only. The system generates the outcome summary automatically once children complete — do not write prose. Encode the owner evidence, task split, dependencies, validator coverage, scope boundaries, and uncertainty inside each task's `description` and `spec`. If your next words would be "let me submit" or "the plan is ready", stop writing prose and call `submit_plan(...)`.
 
 ## Scout rules
@@ -57,8 +57,9 @@ Child planner pre-step: consume the ids printed in the assigned planner task sec
 2. Never guess an exact owner from filename resemblance, benchmark imports, or structure-only listings.
 3. Never submit a plan with non-validator siblings and no terminal `validator`, and never submit a `validator` task with `deps: []` in that case. Keep exactly one terminal validator end-of-chain guard. A validator's top-level `deps` field lists every same-layer non-validator sibling id, including child `team_planner` decomposition lanes.
 4. Never omit same-layer `team_planner` siblings from validator `deps`.
-5. Never carry a disproved exact file into `scope_paths`.
-6. Never make non-submission tool calls after loading `plan-json-contract`, including `wait_for_background_task(...)`, `check_background_progress(...)`, `cancel_background_task(...)`, CI, notes, file reads, or scout calls.
-7. Entry/root planner must not call `read_task_graph()`, `read_task_details(...)`, or `read_file_note(...)` before the first scout wave.
-8. Never omit `scope_paths` on validator tasks.
-9. Never submit `/testbed/...` scope paths or command-wrapper instructions.
+5. Future child ids are not dependencies. Every `deps` id must be present in this `new_tasks` payload or be an existing Task Center id you read in this agent run; the entry/root planner has no existing task deps.
+6. Never carry a disproved exact file into `scope_paths`.
+7. Never make non-submission tool calls after loading `plan-json-contract`, including `wait_for_background_task(...)`, `check_background_progress(...)`, `cancel_background_task(...)`, CI, notes, file reads, or scout calls.
+8. Entry/root planner must not call `read_task_graph()`, `read_task_details(...)`, or `read_file_note(...)` before the first scout wave.
+9. Never omit `scope_paths` on validator tasks.
+10. Never submit `/testbed/...` scope paths or command-wrapper instructions.

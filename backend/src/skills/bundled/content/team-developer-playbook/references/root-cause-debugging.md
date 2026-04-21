@@ -20,4 +20,5 @@ Use this reference when the first reproduction still leaves the bug ambiguous, t
 
 ## Expected Outcome
 
-- The first failing boundary is the shared compat/export surface. Deprecation hooks belong on explicit public access paths only. Confirm the importer chain once, then switch startup callers like `pkg/base.py` to a quiet supported path such as `pkg._compat`; do not rewrite the test import or add a module-level deprecation hook on the public wrapper while startup still uses it.
+- If the first failing boundary is a shared compat/export surface, prove both the public access path and any package-startup import path before editing. Deprecation hooks belong on explicit public access paths only; do not emit warnings at module import time, from module-level `__getattr__`, or from a wrapper still used during startup. Route startup callers like `pkg/base.py` to a quiet supported path such as `pkg._compat`, or request replanning when that path is outside scope.
+- If a failing test names a missing private module, shim, re-export, or import bridge, do not create it from the test spelling alone. Confirm the package structure or adjacent production import chain shows that surface is real; otherwise submit the collection/import failure for replanning with the missing module and owner evidence.

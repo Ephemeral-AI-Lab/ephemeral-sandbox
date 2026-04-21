@@ -118,6 +118,8 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "Then call `read_task_graph()` to enumerate same-parent sibling tasks" in planner
     assert "Never substitute planner slugs, short prefixes, or fabricated ids" in planner
     assert "top-level `deps` field lists every same-layer non-validator sibling id" in planner
+    assert "Future child ids are not dependencies" in planner
+    assert "entry/root planner has no existing task deps" in planner
     assert "child `team_planner` decomposition lanes" in planner
     assert "exactly one terminal `validator` end-of-chain guard" in planner
     assert "including validators. A validator's `scope_paths`" in planner
@@ -190,12 +192,20 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "must not use `daytona_codeact` for file writes or moves" in developer.lower()
     assert "pure removals such as `rm`, `unlink`, `os.remove`" in developer.lower()
     assert "must not use `daytona_codeact` for file-content reads" in developer.lower()
+    assert "Code mode is not an escape hatch around command rules" in developer
+    assert "Never import or call `subprocess`" in developer
     assert "writes to test files as off-policy" in developer.lower()
     assert "test files in `scope_paths` as read/verify-only" in developer.lower()
     assert "may create or edit an outside-`scope_paths` production path" in developer.lower()
     assert "adds the target to the lane's current scope" in developer
     assert "system notification listing the updated `scope_paths`" in developer
     assert "must not create a new file from test-import evidence alone" in developer.lower()
+    assert "test-only production surface" in developer.lower()
+    assert "Audit the task objective for test-derived production surface requests" in developer
+    assert "stop before CI, notes, file reads, or edits" in developer
+    assert "task prose is not production evidence" in developer
+    assert "live production evidence independent of task prose" in developer
+    assert "solely because a benchmark or verification test imports, names, or could be changed to call it" in developer
     assert "absent module, shim, re-export module, or import bridge" in developer
     assert "compatibility shim, or re-export bridge" in developer.lower()
     assert "coordination decision point" in developer
@@ -225,6 +235,7 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "submit_task_summary(type=\"request_replan\", content=...)" in developer
     assert "never treat test paths in `scope_paths` as edit permission" in developer.lower()
     assert "never create an outside-scope compatibility shim" in developer.lower()
+    assert "Never treat task prose, an Initial Replan, or a parent note as production ownership evidence" in developer
     assert "uid 0 bypassing" not in developer.lower()
     assert "pkg._compatibility" not in developer
 
@@ -262,6 +273,20 @@ def test_team_playbooks_load_references_for_detail_and_keep_top_level_generic() 
     assert "for every dependent you may preserve, cancel, or rewire" in replanner
     assert "`read_task_graph()` alone is not enough" in replanner
     assert "final-action ordering" in replanner.lower()
+    assert "left same-scope edits unfinished" in replanner
+    assert "Do not create a same-owner continuation task" in replanner
+    assert "invalid same-scope continuation" in replanner
+    assert "Never add a same-scope retry or continuation developer" in replanner
+    assert "Never bundle independent same-parent sibling failures" in replanner
+    assert "uncancelled sibling scope" in replanner
+    assert "path is already owned by a non-terminal same-parent sibling" in replanner
+    assert "same-parent pending dependents that now depend on this replanner as expected Task Center rewire" in replanner
+    assert "Preserve already-rewired downstream validators/dependents" in replanner
+    assert "Never duplicate a preserved downstream validator/dependent" in replanner
+    assert "test-derived helper" in replanner
+    assert "solely so a benchmark or verification test could call it" in replanner
+    assert "Merge same-file corrective seams into one developer task" in replanner
+    assert "do not split one exact owner file into parallel microtasks" in replanner.lower()
     assert "scope-quality evidence" in replanner
     assert "repo-relative corrective `scope_paths`" in replanner
     assert "never submit `/testbed/...` prefixes" in replanner
@@ -325,6 +350,8 @@ def test_reference_files_hold_specialized_detail() -> None:
     assert "`1. Goal:`" in planner_json
     assert "Do not use Markdown headings" in planner_json
     assert "Mentioning dependencies inside `spec` does not set task deps" in planner_json
+    assert "Every `deps` value must name either an `id` in this same `new_tasks` payload" in planner_json
+    assert "future child ids are not dependencies" in planner_json
     assert "verification-only test targets in `spec` context or acceptance criteria" in planner_json
     assert "Missing modules, compatibility shims, re-export modules, and import bridges named by tests" in planner_json
     assert "workspace structure shows a directory or nested files" in planner_json
@@ -357,13 +384,18 @@ def test_reference_files_hold_specialized_detail() -> None:
     assert "Rewrite any planned command containing `2>&1`" in developer_runtime
     assert "commands actually run after the final edit" in developer_runtime
     assert "Must not append shell capture plumbing" in developer_runtime
+    assert "If you think you need `head` or `tail`, the preflight is not complete" in developer_runtime
     assert "Must not write or move files through CodeAct" in developer_runtime
     assert "Pure removals such as `rm`, `unlink`, `os.remove`" in developer_runtime
     assert "Must not inspect source through CodeAct" in developer_runtime
+    assert "Code mode is not an escape hatch" in developer_runtime
+    assert "Do not import or call `subprocess`" in developer_runtime
     assert "cd /testbed" in developer_playbook
     assert "cd /testbed" in developer_runtime
     assert "If the command contains `|` or `>`" in developer_playbook
     assert "pkg._compat" in developer_root_cause
+    assert "do not emit warnings at module import time" in developer_root_cause.lower()
+    assert "missing private module, shim, re-export, or import bridge" in developer_root_cause
     assert "missing module, compatibility shim, re-export module, or import bridge" in developer_widening
     assert "required for the same bug" in developer_widening
     assert "adds the target to current `scope_paths`" in developer_widening
@@ -403,6 +435,18 @@ def test_replanner_references_spell_valid_submit_replan_payload_shape() -> None:
 
     assert "check `new_tasks` for real sequencing needs" in replanner
     assert "Scope overlap is allowed" in add_tasks
+    assert "ran out of budget" in add_tasks
+    assert "same-scope continuation developer" in add_tasks
+    assert "continues unfinished same-owner work" in add_tasks
+    assert "Task Center rewired it to depend on this replanner" in add_tasks
+    assert "Do not add a duplicate local dev->validator chain" in add_tasks
+    assert "preserved downstream validator already covers the surface" in add_tasks
+    assert "independent same-parent sibling failures" in add_tasks
+    assert "repairs a live sibling's unrelated failure" in add_tasks
+    assert "production helper/API task" in add_tasks
+    assert "add helper/function so the test can call it" in add_tasks
+    assert "Do not split one exact owner file into parallel developer microtasks" in add_tasks
+    assert "one corrective developer task with a checklist of those seams" in add_tasks
     assert "new-file, rename, move, shim, or re-export task" in add_tasks
     assert "Self-check `cancel_ids=[]`" in add_tasks
     assert "replacement" in cancel_redraft and "test-derived" in cancel_redraft
@@ -422,6 +466,8 @@ def test_replanner_references_spell_valid_submit_replan_payload_shape() -> None:
     assert "must not say `cd /testbed`" in add_tasks
     assert "CodeAct starts at repo root and captures output automatically" in add_tasks
     assert "Replacement `scope_paths` must be repo-relative" in cancel_redraft
+    assert "uncancelled sibling's scope" in cancel_redraft
+    assert "only when that sibling id is in `cancel_ids`" in cancel_redraft
     assert "must not say `cd /testbed`" in cancel_redraft
     assert "CodeAct starts at repo root and captures output automatically" in cancel_redraft
 
