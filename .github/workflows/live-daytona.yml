@@ -1,0 +1,49 @@
+name: Live Daytona
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  ci-diagnostics:
+    name: ci_diagnostics live sandbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
+      DAYTONA_API_URL: ${{ secrets.DAYTONA_API_URL }}
+      DAYTONA_TARGET: ${{ secrets.DAYTONA_TARGET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Check Daytona configuration
+        id: daytona
+        run: |
+          if [ -z "$DAYTONA_API_KEY" ] || [ -z "$DAYTONA_API_URL" ]; then
+            echo "::warning::DAYTONA_API_KEY and DAYTONA_API_URL secrets are required for live Daytona tests."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run ci_diagnostics live regression
+        if: steps.daytona.outputs.configured == 'true'
+        run: uv run pytest backend/tests/test_e2e/test_live_ci_diagnostics.py -m live -q
