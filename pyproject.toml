@@ -51,12 +51,13 @@ dev = [
 ]
 
 [project.scripts]
-build-system-prompt = "prompt_cli:build_system_prompt_main"
-dump-team-system-prompts = "prompt_cli:dump_team_system_prompts_main"
-dump-team-user-prompts = "prompt_cli:dump_team_user_prompts_main"
+build-system-prompt = "prompt.prompt_cli:build_system_prompt_main"
+dump-team-system-prompts = "prompt.prompt_cli:dump_team_system_prompts_main"
+dump-team-user-prompts = "prompt.prompt_cli:dump_team_user_prompts_main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["backend/src"]
+only-include = ["backend/src"]
+sources = ["backend/src"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]

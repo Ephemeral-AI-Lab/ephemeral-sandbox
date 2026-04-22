@@ -55,8 +55,6 @@ Validator tasks are optional. Add one only when a distinct verification lane is 
 
 `3. Acceptance Criteria:` should name concrete verification commands or pytest ids and require reporting command output, exit codes, changed behavior, and residual risk.
 
-Do not tell children to `cd /testbed`, run from `/testbed`, or wrap commands with `2>&1`, redirects, `| head`, or `| tail`.
-
 ## Examples
 
 ### Empty Replan

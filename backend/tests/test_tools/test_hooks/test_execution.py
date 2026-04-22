@@ -114,7 +114,7 @@ async def test_execute_tool_with_hooks_mutates_and_emits_advisory() -> None:
     assert tool.seen == ["HELLO"]
     assert [type(event) for event in events] == [SystemNotification, ToolExecutionStarted]
     assert isinstance(events[0], SystemNotification)
-    assert events[0].text == "[pre-hook advisory] echo_tool: normalized"
+    assert events[0].text == "[pre-hook tip] echo_tool: normalized"
     assert isinstance(events[1], ToolExecutionStarted)
     assert events[1].tool_input == {"value": "HELLO"}
 

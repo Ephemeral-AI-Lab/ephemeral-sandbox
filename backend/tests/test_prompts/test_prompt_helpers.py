@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -34,45 +32,6 @@ from prompt.helpers import (  # noqa: E402
     register_builtins,
 )
 from prompt.prompt_cli import _render_team_prompt_report  # noqa: E402
-
-
-def test_legacy_prompt_cli_shim_reexports_prompt_package_entrypoints() -> None:
-    shim_path = _ROOT / "backend" / "prompt_cli.py"
-    code = f"""
-import importlib.util
-import json
-from pathlib import Path
-
-spec = importlib.util.spec_from_file_location("legacy_prompt_cli", Path({str(shim_path)!r}))
-module = importlib.util.module_from_spec(spec)
-assert spec.loader is not None
-spec.loader.exec_module(module)
-print(json.dumps({{
-    "all": module.__all__,
-    "build_system_prompt_main": module.build_system_prompt_main.__module__,
-    "dump_team_system_prompts_main": module.dump_team_system_prompts_main.__module__,
-    "dump_team_user_prompts_main": module.dump_team_user_prompts_main.__module__,
-}}))
-"""
-
-    completed = subprocess.run(
-        [sys.executable, "-c", code],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    payload = json.loads(completed.stdout)
-
-    assert payload == {
-        "all": [
-            "build_system_prompt_main",
-            "dump_team_system_prompts_main",
-            "dump_team_user_prompts_main",
-        ],
-        "build_system_prompt_main": "prompt.prompt_cli",
-        "dump_team_system_prompts_main": "prompt.prompt_cli",
-        "dump_team_user_prompts_main": "prompt.prompt_cli",
-    }
 
 
 def test_build_team_user_prompt_report_uses_runtime_context_path(tmp_path: Path) -> None:

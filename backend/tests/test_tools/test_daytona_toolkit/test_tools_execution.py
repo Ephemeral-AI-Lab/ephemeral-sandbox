@@ -128,21 +128,18 @@ def _notification_texts(events: list[StreamEvent]) -> list[str]:
     return [event.text for event in events if isinstance(event, SystemNotification)]
 
 
-async def test_codeact_schema_shows_safe_output_bounding_examples():
+async def test_codeact_schema_describes_command_and_code_modes():
     schema = daytona_codeact.to_api_schema()
     description = schema["description"]
     code_desc = schema["input_schema"]["properties"]["code"]["description"]
     command_desc = schema["input_schema"]["properties"]["command"]["description"]
 
-    assert "Do not include pipes, redirects, `2>&1`, `head`, or `tail`" in description
-    assert "pytest flags like `-q --tb=short -x`" in description
     assert "never shell commands such as `python -m pytest ...`" in description
-    assert "pre-hook may sanitize unsupported output shaping" in description
+    assert "Output is captured automatically" in description
     assert "Python source only" in code_desc
     assert "Do not pass shell commands such as `python -m pytest tests -q`" in code_desc
-    assert "pre-hook may sanitize unsupported output shaping" in command_desc
-    assert "Bad: `python -m pytest tests -q 2>&1 | head -200`" in command_desc
-    assert "Good: `python -m pytest tests -q --tb=short -x`" in command_desc
+    assert "Shell command to run from the repo root" in command_desc
+    assert "Output is captured automatically" in command_desc
 
 
 # ---------------------------------------------------------------------------

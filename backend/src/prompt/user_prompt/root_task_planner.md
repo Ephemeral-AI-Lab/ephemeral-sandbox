@@ -24,5 +24,4 @@ For your first tool call please call `load_skill(skill_name="team-root-planner-p
 {{benchmark_targets}}
 ```
 Benchmark targets are verification evidence only. Do not put `*/tests/*`, `test_*.py`, or benchmark test paths in scout `target_paths`; scout live production owners and mention tests in scout input context or child specs.
-Child and validator verification commands in specs must be CodeAct-safe repo-root commands: no `cd`, `|`, `>`, `2>&1`, `head`, or `tail`. Prefer `python -m pytest ... -q --tb=short` over `-v`; use narrower node ids, `-k`, or split commands to bound output.
 {{/if}}

@@ -33,6 +33,19 @@ def test_builder_validation_rejects_reserved_builtin_agent_names():
     assert any("reserved for a builtin runtime agent" in err for err in result.errors)
 
 
+def test_reserved_builtin_agent_names_match_current_team_runtime():
+    assert registry.RESERVED_BUILTIN_AGENT_NAMES == {
+        "root_planner",
+        "team_planner",
+        "developer",
+        "validator",
+        "scout",
+        "team_replanner",
+        "note_taker",
+        "parent_summarizer",
+    }
+
+
 def test_registry_ignores_external_reserved_builtin_overrides(monkeypatch):
     monkeypatch.setattr(registry, "_external_loaded", False)
     monkeypatch.setattr(

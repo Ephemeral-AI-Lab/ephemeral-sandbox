@@ -107,9 +107,9 @@ async def test_pre_advisories_emit_immediately_and_separately() -> None:
         SystemNotification,
     ]
     assert [event.text for event in events if isinstance(event, SystemNotification)] == [
-        "[pre-hook advisory] daytona_codeact: one",
-        "[pre-hook advisory] daytona_codeact: two",
-        "[pre-hook advisory] daytona_codeact: three",
+        "[pre-hook tip] daytona_codeact: one",
+        "[pre-hook tip] daytona_codeact: two",
+        "[pre-hook tip] daytona_codeact: three",
     ]
 
 
@@ -145,7 +145,7 @@ async def test_pre_denial_short_circuits_without_advisory_batch() -> None:
     assert result.error_message == "blocked"
     assert called_after is False
     assert [event.text for event in events if isinstance(event, SystemNotification)] == [
-        "[pre-hook advisory] tool: before"
+        "[pre-hook tip] tool: before"
     ]
 
 

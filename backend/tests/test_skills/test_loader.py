@@ -125,15 +125,15 @@ def test_team_root_planner_playbook_uses_plural_task_details_label() -> None:
     assert "`Task Detail`" not in skill
 
 
-def test_team_root_planner_playbook_requires_codeact_safe_commands() -> None:
+def test_team_root_planner_playbook_keeps_acceptance_criteria_evidence_focused() -> None:
     skill = (
         _BUNDLED_SKILLS_DIR / "team-root-planner-playbook" / "SKILL.md"
     ).read_text(encoding="utf-8")
 
-    assert "Write CodeAct-safe verification commands" in skill
-    assert "no `cd`, `|`, `>`, `2>&1`, `head`, or `tail`" in skill
-    assert "prefer `python -m pytest ... -q --tb=short` over `-v`" in skill
-    assert "Every child/validator command is CodeAct-safe" in skill
+    assert "Put benchmark tests and verification commands in `spec`, not `scope_paths`" in skill
+    assert "Acceptance Criteria` must be test-suite focused with concrete commands" in skill
+    assert "Every `Acceptance Criteria` is test-suite focused" in skill
+    assert "CodeAct-safe" not in skill
 
 
 def test_team_validator_playbook_uses_developer_style_contract() -> None:
@@ -217,21 +217,16 @@ def test_developer_playbook_allows_new_file_scope_expansion_only_via_posthook() 
     )
 
 
-def test_developer_and_validator_playbooks_rewrite_verbose_codeact_commands() -> None:
+def test_developer_and_validator_playbooks_keep_codeact_api_boundary() -> None:
     for playbook_name in ("team-developer-playbook", "team-validator-playbook"):
         skill = (_BUNDLED_SKILLS_DIR / playbook_name / "SKILL.md").read_text(
             encoding="utf-8"
         )
 
-        assert "prefer `-q --tb=short` over `-v`" in skill.lower()
-        assert "For first-failure capture, use `-x`, a focused node id, `-k`, or split suites" in skill
-        assert "A sanitizer advisory is not a failure" in skill
-        assert "cite the sanitized command that actually ran" in skill
-        assert "rewrite it to a workflow-valid equivalent before retrying" in skill
+        assert "use `command` only for Python source snippets" not in skill
+        assert "use `code` only for Python source snippets" in skill
         assert "only when no valid equivalent can preserve the needed evidence" in skill
         assert "A pre-hook block after sanitization or another policy denial is terminal tooling evidence" not in skill
-        assert "CodeAct-safe" in skill or "direct repo-root commands" in skill
-        assert "Do not put shell, build, or test commands in `code`; `code` is Python source only." in skill
         assert "never pass a shell command string in `code`" in skill
 
 

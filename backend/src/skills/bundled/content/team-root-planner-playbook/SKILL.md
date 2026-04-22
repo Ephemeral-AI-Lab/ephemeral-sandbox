@@ -117,10 +117,9 @@ Steps:
 1. Build one `new_tasks` JSON list from the decided DAG.
 2. Use repo-relative production `scope_paths` for every task, including validators.
 3. Put benchmark tests and verification commands in `spec`, not `scope_paths`, unless tests are explicitly the owned surface. Put owner evidence and sequencing in `2. Task Details:`; put concrete test-suite expectations in `3. Acceptance Criteria:`.
-4. Write CodeAct-safe verification commands: repo-root commands only, no `cd`, `|`, `>`, `2>&1`, `head`, or `tail`; prefer `python -m pytest ... -q --tb=short` over `-v`, and use node ids, `-k`, or split commands to bound output.
-5. Use `deps` only for real output ordering, known same-file edit ordering, or a child `team_planner` id in this payload. Every `deps` entry must resolve to another id in this `new_tasks` list — root/entry planners have no pre-existing Task Center ids to reference.
-6. Check the Terminal Tool Contract below.
-7. Submit with `new_tasks` only; the runtime generates the outcome summary after children terminate, so the payload must not carry a summary field or trailing prose.
+4. Use `deps` only for real output ordering, known same-file edit ordering, or a child `team_planner` id in this payload. Every `deps` entry must resolve to another id in this `new_tasks` list — root/entry planners have no pre-existing Task Center ids to reference.
+5. Check the Terminal Tool Contract below.
+6. Submit with `new_tasks` only; the runtime generates the outcome summary after children terminate, so the payload must not carry a summary field or trailing prose.
 
 
 ## Terminal Tool Contract
@@ -151,7 +150,7 @@ type NewTaskSpec = {
 | `id` | Unique lower-kebab id in this payload (e.g. `dev-runtime-policy`). Other tasks reference this exact string in `deps`. |
 | `description` | Short non-blank label naming the owner and outcome. Blank strings are rejected. |
 | `name` | Use only `developer`, `team_planner`, or `validator`: `developer` for exact owner work, `team_planner` for decomposition, `validator` for a distinct verification lane. Never put `scout` or `team_replanner` in `new_tasks`; scouts run via `run_subagent(...)`, replanners are spawned reactively by the runtime. |
-| `spec` | One string with three numbered colon labels in order, each on its own line with body continuing after the colon: `1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:`. `Task Details` must describe owner evidence, exact production scope, important constraints, and dependency context. `Acceptance Criteria` must be test-suite focused with CodeAct-safe repo-root commands: no `cd`, pipes, redirects, `2>&1`, `head`, or `tail`; prefer `python -m pytest ... -q --tb=short` over `-v`; use focused pytest ids, `-k`, or split suites when output would be large. Markdown headings, one-liners that cram every label together, and labels whose body starts on the next line are rejected. |
+| `spec` | One string with three numbered colon labels in order, each on its own line with body continuing after the colon: `1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:`. `Task Details` must describe owner evidence, exact production scope, important constraints, and dependency context. `Acceptance Criteria` must be test-suite focused with concrete commands, focused pytest ids, broadened suites, and evidence expected in the final summary. Markdown headings, one-liners that cram every label together, and labels whose body starts on the next line are rejected. |
 | `deps` | JSON list of task ids that must finish first. Each id must name another task in this same `new_tasks` payload. Independent work uses `[]`. Validators must depend on at least one upstream same-payload task; terminal validators list every same-payload terminal non-validator id they validate. |
 | `scope_paths` | Non-empty JSON list of repo-relative production paths the task owns or verifies. Use directories for broad planner/validator scopes. |
 
@@ -249,5 +248,4 @@ type NewTaskSpec = {
 - Every task has a non-blank `description` and non-empty production `scope_paths`.
 - Every `spec` contains the three numbered colon labels in order (`1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:`), each on its own line with body after the colon on the same line.
 - Every `Acceptance Criteria` is test-suite focused, with concrete commands or pytest ids and expected evidence.
-- Every child/validator command is CodeAct-safe: repo-root, no `cd`, no pipes or redirects, no `2>&1`, `head`, or `tail`, and normally uses `-q --tb=short` instead of `-v`.
 - The final assistant action is the `submit_plan(...)` tool call, not prose.

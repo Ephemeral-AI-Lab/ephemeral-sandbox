@@ -21,18 +21,16 @@ if "anthropic" not in sys.modules:
 if "anthropic.types" not in sys.modules:
     sys.modules["anthropic.types"] = types.ModuleType("anthropic.types")
 
-from agents import get_definition as get_agent_definition
 from tools.core.base import ToolExecutionContext
 from tools.subagent import SubagentToolkit
 from tools.subagent.run_subagent_tool import run_subagent
 from team.builtins import register_all as _register_team_builtins
 
 
-if get_agent_definition("submit_plan_agent") is None:
-    try:
-        _register_team_builtins()
-    except Exception:
-        pass
+try:
+    _register_team_builtins()
+except Exception:
+    pass
 
 
 class _StubConfig:
@@ -59,20 +57,20 @@ def _assert_run_subagent_payload_schema_matches_runtime_xor(
 
 
 @pytest.mark.asyncio
-async def test_run_subagent_rejects_internal_subagent_targets():
+async def test_run_subagent_rejects_non_subagent_team_role_targets():
     ctx = ToolExecutionContext(
         cwd=Path("/tmp"),
         metadata={"session_config": _StubConfig()},
     )
 
     result = await run_subagent.execute(
-        run_subagent.input_model(agent_name="submit_plan_agent", prompt="serialize"),
+        run_subagent.input_model(agent_name="developer", prompt="serialize"),
         ctx,
     )
 
     assert result.is_error is True
-    assert "submit_plan_agent" in result.output
-    assert result.is_error is True
+    assert "developer" in result.output
+    assert "is not a subagent" in result.output
 
 
 def test_run_subagent_api_schema_requires_one_of_prompt_or_input():
@@ -116,4 +114,3 @@ def test_subagent_toolkit_schema_excludes_non_subagent_team_roles():
     assert "developer" not in enum
     assert "validator" not in enum
     assert "team_planner" not in enum
-    assert "submit_plan_agent" not in enum

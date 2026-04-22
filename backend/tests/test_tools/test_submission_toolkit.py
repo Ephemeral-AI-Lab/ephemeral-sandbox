@@ -22,13 +22,13 @@ def test_submit_task_summary_schema_requests_evidence_rich_content():
     assert "affected paths or owners" in content_desc
 
 
-def test_submit_plan_schema_requires_codeact_safe_verification_commands():
+def test_submit_plan_schema_requests_concrete_acceptance_evidence():
     schema = SubmitPlanTool().to_api_schema()
     description = schema["description"]
     spec_desc = schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]["spec"][
         "description"
     ]
 
-    assert "prefer `python -m pytest ... -q --tb=short` over `-v`" in description
-    assert "Acceptance Criteria commands must be CodeAct-safe" in spec_desc
-    assert "prefer `-q --tb=short` over `-v`" in spec_desc
+    assert "Use validator tasks when a distinct verification lane is useful" in description
+    assert "should name concrete commands" in spec_desc
+    assert "expected evidence" in spec_desc

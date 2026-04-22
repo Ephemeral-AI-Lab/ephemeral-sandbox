@@ -64,15 +64,11 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
     )
     assert "call `read_task_details` with only one input key, `task_id`" in rendered
     assert "Do not pass `skill_name`, planner slugs" in rendered
-    assert "Mandatory CodeAct preflight" in rendered
-    assert "Use `command` for every shell, build, or test command" in rendered
-    assert "never put shell command text such as `python -m pytest ...` in `code`" in rendered
-    assert "Remove shell redirects and output filters entirely" in rendered
-    assert "use pytest flags such as `-q --tb=short`, `-x`, a node id, or `-k`" in rendered
-    assert "Do not rely on sanitizer behavior as your normal workflow" in rendered
-    assert "record the sanitized command that actually ran" in rendered
-    assert "treat the advisory as workflow guidance" in rendered
-    assert "only when no valid equivalent can preserve the needed evidence" in rendered
+    assert "Use `daytona_codeact(command=\"...\")` for shell, build, and test commands" in rendered
+    assert "Use `code` only for Python source snippets" in rendered
+    assert "Mandatory CodeAct preflight" not in rendered
+    assert "Remove shell redirects and output filters entirely" not in rendered
+    assert "Do not rely on sanitizer behavior as your normal workflow" not in rendered
     assert "Acceptance criteria, benchmark/test outcomes, and import errors do not by themselves expand them" in rendered
     assert "Creating a new production file with `daytona_write_file` may extend scope" in rendered
     assert "rely on the write-scope posthook to approve and record the expansion" in rendered
@@ -195,8 +191,9 @@ async def test_build_query_context_uses_developer_markdown_template() -> None:
     )
     assert "call `read_task_details` with only one input key, `task_id`" in ctx.user_message
     assert "Do not pass `skill_name`, planner slugs" in ctx.user_message
-    assert "treat the advisory as workflow guidance" in ctx.user_message
-    assert "only when no valid equivalent can preserve the needed evidence" in ctx.user_message
+    assert "Use `daytona_codeact(command=\"...\")` for shell, build, and test commands" in ctx.user_message
+    assert "Use `code` only for Python source snippets" in ctx.user_message
+    assert "treat the advisory as workflow guidance" not in ctx.user_message
     assert "Acceptance criteria, benchmark/test outcomes, and import errors do not by themselves expand them" in ctx.user_message
     assert "Creating a new production file with `daytona_write_file` may extend scope" in ctx.user_message
     assert "rely on the write-scope posthook to approve and record the expansion" in ctx.user_message
@@ -266,15 +263,11 @@ async def test_build_query_context_uses_validator_markdown_template_with_task_id
     assert "Your dependency task ids: `dev-1`" in ctx.user_message
     assert "Your parent task id: `root`" in ctx.user_message
     assert "Context-read pre-step: after loading the validator playbook" in ctx.user_message
-    assert "Mandatory CodeAct preflight" in ctx.user_message
-    assert "Use `command` for every shell, build, or test command" in ctx.user_message
-    assert "never put shell command text such as `python -m pytest ...` in `code`" in ctx.user_message
-    assert "Remove shell redirects and output filters entirely" in ctx.user_message
-    assert "use pytest flags such as `-q --tb=short`, `-x`, a node id, or `-k`" in ctx.user_message
-    assert "Do not rely on sanitizer behavior as your normal workflow" in ctx.user_message
-    assert "record the sanitized command that actually ran" in ctx.user_message
-    assert "treat the advisory as workflow guidance" in ctx.user_message
-    assert "only when no valid equivalent can preserve the needed evidence" in ctx.user_message
+    assert "Use `daytona_codeact(command=\"...\")` for shell, build, and test commands" in ctx.user_message
+    assert "Use `code` only for Python source snippets" in ctx.user_message
+    assert "Mandatory CodeAct preflight" not in ctx.user_message
+    assert "Remove shell redirects and output filters entirely" not in ctx.user_message
+    assert "Do not rely on sanitizer behavior as your normal workflow" not in ctx.user_message
     assert "correction surface for existing files, renames, moves, and deletes" in ctx.user_message
     assert "Creating a new production file with `daytona_write_file` may extend scope" in ctx.user_message
     assert "rely on the write-scope posthook to approve and record the expansion" in ctx.user_message
@@ -339,8 +332,8 @@ async def test_build_query_context_uses_root_planner_markdown_template() -> None
     assert "tests/test_retry.py::test_retry" in ctx.user_message
     assert "Benchmark targets are verification evidence only" in ctx.user_message
     assert "not put `*/tests/*`, `test_*.py`, or benchmark test paths in scout `target_paths`" in ctx.user_message
-    assert "Child and validator verification commands in specs must be CodeAct-safe" in ctx.user_message
-    assert "Prefer `python -m pytest ... -q --tb=short` over `-v`" in ctx.user_message
+    assert "Child and validator verification commands in specs must be CodeAct-safe" not in ctx.user_message
+    assert "Prefer `python -m pytest ... -q --tb=short` over `-v`" not in ctx.user_message
     assert _SUBMIT_PLAN_SCHEMA_SNIPPET in ctx.user_message
     assert _SUBMIT_PLAN_SPEC_SNIPPET in ctx.user_message
     assert "Submit the final plan with `submit_plan(new_tasks=[...])`" not in ctx.user_message

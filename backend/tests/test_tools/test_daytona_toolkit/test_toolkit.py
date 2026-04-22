@@ -135,7 +135,7 @@ def test_toolkit_get_tool():
     assert tool.name == "daytona_codeact"
 
 
-def test_codeact_schema_describes_direct_repo_root_commands():
+def test_codeact_schema_describes_command_mode():
     tk = DaytonaToolkit()
     tool = tk.get("daytona_codeact")
     assert tool is not None
@@ -143,10 +143,7 @@ def test_codeact_schema_describes_direct_repo_root_commands():
     schema = tool.to_api_schema()["input_schema"]
     command_description = schema["properties"]["command"]["description"]
     assert "run from the repo root" in command_description
-    assert "Do not include `|`, `>`" in command_description
-    assert "`2>&1`, `2>/dev/null`, `head`, or `tail`" in command_description
-    assert "output is captured automatically" in command_description
-    assert "Do not start with `cd /testbed &&`" in command_description
+    assert "Output is captured automatically" in command_description
 
     assert tool.short_description == "Run shell or Python from the repo root."
 
@@ -167,7 +164,6 @@ def test_toolkit_instructions_prioritize_ci_before_raw_file_reads():
     assert "Use CI/navigation tools first" in tk.instructions
     assert "after you know the target path or line range" in tk.instructions
     assert "Use exactly one mode" in tk.instructions
-    assert "must not contain `|`, `>`, `2>&1`, `2>/dev/null`, `head`, or `tail`" in tk.instructions
     assert "output is captured automatically" in tk.instructions
     assert "python -u" in tk.instructions
     assert "daytona_rename_symbol" in tk.instructions

@@ -217,8 +217,6 @@ class SubmitTaskSummaryInput(BaseModel):
             "wrong_owner_or_role, or unresolved_blocker; then include blocking "
             "evidence, failing command or tool result, affected paths or owners, "
             "and why a different owner, scope, sequence, or budget is needed. "
-            "Do not cite benchmark CodeAct commands containing '|' or '>' as "
-            "success evidence; rerun directly or name the gap. "
             "Do not submit placeholders such as 'task completed', "
             "'all checks passed', or a filename-only list."
         ),
@@ -308,8 +306,8 @@ class NewTaskSpec(BaseModel):
             "3. Acceptance Criteria: ...'. Markdown headings "
             "like '## Goal', one-line specs with every label, and labels whose "
             "body starts on the next line are not accepted. Acceptance Criteria "
-            "commands must be CodeAct-safe repo-root commands: no cd, pipes, "
-            "redirects, 2>&1, head, or tail; prefer `-q --tb=short` over `-v`."
+            "should name concrete commands, expected evidence, or specific "
+            "pytest ids where applicable."
         ),
     )
     deps: list[str] = Field(default_factory=list, description="Task IDs this depends on")
@@ -610,9 +608,7 @@ class SubmitPlanTool(BaseTool):
         "other fields. Each spec must use numbered colon labels in order, "
         "each at the start of its own line with body text after the colon "
         "on the same line: 1. Goal, 2. Task Details, "
-        "3. Acceptance Criteria. Do not tell children to `cd /testbed`, run from "
-        "`/testbed`, or wrap CodeAct commands with `2>&1`, redirects, `| head`, "
-        "or `| tail`; prefer `python -m pytest ... -q --tb=short` over `-v`. "
+        "3. Acceptance Criteria. "
         "Use validator tasks when a distinct verification lane is useful. "
         "Scope paths name implementation owner paths "
         "for developer/planner lanes and production paths being verified for "
@@ -742,9 +738,7 @@ class SubmitReplanTool(BaseTool):
         "numbered colon labels in order, each at the start of its own line "
         "with body text after the colon on the same line: 1. Goal, "
         "2. Task Details, 3. Acceptance Criteria. "
-        "Do not tell children to `cd /testbed`, run from `/testbed`, or wrap "
-        "CodeAct commands with `2>&1`, redirects, `| head`, or `| tail`. If "
-        "validator tasks are present, give them non-empty repo-relative "
+        "When validator tasks are present, give them non-empty repo-relative "
         "production scope_paths."
     )
     short_description = "Submit a corrective replan."

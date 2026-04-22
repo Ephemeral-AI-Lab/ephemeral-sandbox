@@ -23,13 +23,11 @@ Read the following sections to verify the assigned developer or child-planner ou
 
 1. Do not batch `load_skill` with any other tool call.
 2. Do not use `daytona_codeact` for file reads, writes, moves, deletes, introspection, or wrapper health checks. Use the Daytona read, search, or mutation tools above.
-3. Do not put `|`, `>`, `>>`, `2>&1`, `2>/dev/null`, `head`, `tail`, shell-output wrappers, verdict-shaping helper scripts, or a leading repo-root `cd` in CodeAct commands. Do not put shell, build, or test commands in `code`; `code` is Python source only. If you want the first error only, use `-x`, a focused node id, or `-q --tb=short`; never add shell output filters.
-4. Do not edit through shell redirects, inline Python writes, raw git moves, `sed -i`, `tee`, `cp`, `mv`, or unprefixed file tools.
-5. Do not skip, xfail, rewrite verification, change pytest config, install packages, or patch around root/OS permission behavior to turn a command green.
-6. Do not edit test files unless the task explicitly owns a test-only bug.
-7. Do not launch duplicate equivalent verification commands in parallel. One exact command per suite is enough unless sharding after a transient no-output failure.
-8. Do not claim success from stale, partial, indirect, or wrapper evidence.
-9. If a CodeAct pre-hook sanitizes a non-destructive command anyway, record the sanitized command that actually ran and cite the advisory as workflow guidance. If a command is blocked as destructive or unsanitizable, rewrite it to a workflow-valid equivalent before retrying; request replanning only when no valid equivalent can preserve the needed evidence.
+3. Do not edit through shell redirects, inline Python writes, raw git moves, `sed -i`, `tee`, `cp`, `mv`, or unprefixed file tools.
+4. Do not skip, xfail, rewrite verification, change pytest config, install packages, or patch around root/OS permission behavior to turn a command green.
+5. Do not edit test files unless the task explicitly owns a test-only bug.
+6. Do not launch duplicate equivalent verification commands in parallel. One exact command per suite is enough unless sharding after a transient no-output failure.
+7. Do not claim success from stale, partial, indirect, or wrapper evidence.
 
 ## Route
 
@@ -55,7 +53,7 @@ Do this before CodeAct, CI, notes, file reads, edits, diagnostics, references, o
 1. Call `read_task_details(task_id="<uuid>")` for your task, parent task, and every dependency id from the prompt header.
 2. Use exact UUIDs only. Do not use planner slugs, short prefixes, fabricated ids, or scout ids.
 3. Treat your task spec as the validation contract. Treat dependency final summaries, appended `Initial Plan` / `Initial Replan` JSON, and parent details as the implementation handoff.
-4. Read `read_file_note(file_path="...")` for each touched or owned production file before diagnostics and tests. Empty notes are valid freshness checks.
+4. After those required UUID reads, call `read_file_note(file_path="...")` for each touched or owned production file before file reads, diagnostics, tests, or corrective edits. Empty notes are valid freshness checks. Do not batch file-note reads with source file reads.
 5. If a dependency summary is missing, boilerplate, stale, or does not name verification evidence, preserve that as a validation gap instead of guessing what landed.
 
 Exit with: objective, acceptance criteria, parent guidance, dependency handoff status, touched files, scope paths, and file-note freshness.
@@ -69,7 +67,7 @@ Write a validation-focused plan before the first diagnostic, runtime command, or
 3. Name the owned files that need `ci_diagnostics(file_path="...")`.
 4. Decide whether the touched change affects public serialization, schema shape, API-visible output, CLI-visible output, docs-visible output, or prompts. If yes, add one nearby guardrail in the same behavior family.
 5. Keep guardrails bounded. Do not widen to the full test suite only because the changed surface is public.
-6. Reject invalid verification commands before running them (see Never rule 3). A CodeAct command that violates those rules is not evidence.
+6. Keep verification commands tied to the acceptance criteria and dependency handoff.
 7. Acceptance criteria, dependency handoffs, and test outcomes never expand `scope_paths` or touched production files by themselves. A new production file may extend scope only through `daytona_write_file` when live evidence proves a missing module, shim, re-export, or bridge and no other worker owns that exact path.
 
 Submit `type="request_replan"` now if any of these hold:
@@ -89,11 +87,11 @@ Prove the current repo state.
 
 1. Run `ci_diagnostics(file_path="...")` on every owned or touched production file before terminal completion.
 2. Treat error-severity diagnostics on owned files as red evidence unless the task explicitly says they are pre-existing and irrelevant.
-3. Run the exact required runtime command first after rewriting any workflow-invalid or overly verbose command to a CodeAct-safe equivalent. For `daytona_codeact(...)`, use `command` for every shell, build, or test command; never pass a shell command string in `code`. Use direct repo-root commands such as `python -m pytest path/to/test.py::test_name -q --tb=short`; before the tool call, remove `2>&1`, `>`, pipes, `head`, `tail`, and leading `cd`; split chained suites; prefer `-q --tb=short` over `-v`. For first-failure capture, use `-x`, a focused node id, `-k`, or split suites rather than shell filters.
-4. Use CodeAct only for runtime commands (see Never rules 3 and 4).
+3. Run the exact required runtime command first. For `daytona_codeact(...)`, use `command` for every shell, build, or test command; never pass a shell command string in `code`.
+4. Use CodeAct only for runtime commands.
 5. For broad or slow suites, use background execution, continue useful foreground review, and check progress only when live status changes whether you wait, cancel, or report.
 6. Judge runtime pass/fail from the command exit code and failing ids. If pytest exits `4`, collects `0` items, or the named node is missing, treat that as red evidence.
-7. Capture exact command, exit code, failing ids, diagnostics, and the shortest useful output snippet. A sanitizer advisory is not a failure; cite the sanitized command that actually ran. If a command is blocked as destructive or unsanitizable, rewrite it to a workflow-valid equivalent before retrying; submit `type="request_replan"` with trigger `unresolved_blocker` only when no valid equivalent can preserve the needed evidence.
+7. Capture exact command, exit code, failing ids, diagnostics, and the shortest useful output snippet. If a command is blocked by policy, submit `type="request_replan"` with trigger `unresolved_blocker` only when no valid equivalent can preserve the needed evidence.
 
 Exit with: command/probe results mapped to criteria, diagnostics status, guardrail result when applicable, and red evidence when present. Green evidence for every acceptance criterion → Stage 6 (`type="success"`). Any red, invalid, partial, unmet, or absent evidence → Stage 4.
 

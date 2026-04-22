@@ -59,11 +59,13 @@ async def _emit_advisories(
     advisories: tuple[str, ...],
     emit: EmitStreamEvent,
 ) -> None:
+    label = "tip" if phase == "pre" else "advisory"
+    category = f"{phase}_hook_{label}"
     for advisory in advisories:
         await emit(
             SystemNotification(
-                text=f"[{phase}-hook advisory] {tool_name}: {advisory}",
-                category=f"{phase}_hook_advisory",
+                text=f"[{phase}-hook {label}] {tool_name}: {advisory}",
+                category=category,
             )
         )
 

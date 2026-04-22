@@ -254,8 +254,8 @@ def test_submit_replan_schema_keeps_new_tasks_and_drops_prose_fields():
 
     assert "new_tasks" in schema["input_schema"]["properties"]
     assert "repo-relative production scope_paths" in schema["description"]
-    assert "Do not tell children to `cd /testbed`" in schema["description"]
-    assert "wrap CodeAct commands" in schema["description"]
+    assert "validator tasks are present" in schema["description"]
+    assert "numbered colon labels" in schema["description"]
     assert "summary" not in schema["input_schema"]["properties"]
     assert "output" not in schema["input_schema"]["properties"]
 

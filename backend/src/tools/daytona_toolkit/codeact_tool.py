@@ -1,4 +1,4 @@
-"""Run shell commands or Python in Daytona."""
+"""Run shell commands or Python in the Daytona repo root."""
 
 from __future__ import annotations
 
@@ -46,13 +46,8 @@ class DaytonaCodeActInput(BaseModel):
         default=None,
         description=(
             "Shell command to run from the repo root. Use for tests, builds, "
-            "and verification. Do not also set code. Do not include `|`, `>`, "
-            "`2>&1`, `2>/dev/null`, `head`, or `tail`; output is captured "
-            "automatically. Do not start with `cd /testbed &&` or `cd /workspace &&`. "
-            "The pre-hook may sanitize unsupported output shaping before execution, "
-            "but author commands in the safe form. "
-            "Bad: `python -m pytest tests -q 2>&1 | head -200`. Good: "
-            "`python -m pytest tests -q --tb=short -x`."
+            "and verification. Do not also set code. Output is captured "
+            "automatically."
         ),
     )
     timeout: int = Field(
@@ -722,10 +717,7 @@ def _files_written_count(
         "Run a shell command or Python source in Daytona. Use `command` for tests, "
         "builds, and verification. Use `code` only for Python source snippets, "
         "never shell commands such as `python -m pytest ...`. Commands "
-        "start at the repo root. Do not include pipes, redirects, `2>&1`, `head`, "
-        "or `tail`; use pytest flags like `-q --tb=short -x` to bound output. "
-        "The pre-hook may sanitize unsupported output shaping before execution, "
-        "but author commands in the safe form. "
+        "start at the repo root. Output is captured automatically. "
         "Do not use this for file writes, moves, deletes, or file-content reads; "
         "use the file, search, rename, delete, or move tools instead."
     ),
