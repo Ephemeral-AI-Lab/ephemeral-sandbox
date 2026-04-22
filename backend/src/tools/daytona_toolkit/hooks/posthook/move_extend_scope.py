@@ -1,14 +1,4 @@
-"""Post-hook: widen write_scope to the move destination when src was owned.
-
-A move whose src lives inside the caller's ``write_scope`` is a rename-like
-operation — ownership should follow the path. Before the platform-hook
-migration the tool body captured ``src_in_scope`` before commit and applied
-the extension on success. Now that OCC commit results surface
-``changed_paths`` in the tool result metadata, the policy fits naturally as
-a post-hook on ``daytona_move_file``: observe success, re-check ``src`` is in
-scope, extend ``write_scope`` to the resolved destination, and emit an advisory
-so the agent sees the updated scope in a system notification.
-"""
+"""Add move destinations to write_scope after successful owned moves."""
 
 from __future__ import annotations
 

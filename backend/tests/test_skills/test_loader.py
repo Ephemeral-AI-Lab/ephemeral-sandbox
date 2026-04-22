@@ -50,9 +50,26 @@ def test_team_replanner_playbook_uses_planner_style_contract() -> None:
         / "references"
         / "action-add-tasks.md"
     ).read_text(encoding="utf-8")
+    action_cancel = (
+        _BUNDLED_SKILLS_DIR
+        / "team-replanner-playbook"
+        / "references"
+        / "action-cancel-and-redraft.md"
+    ).read_text(encoding="utf-8")
+    reference_names = {
+        path.name
+        for path in (_BUNDLED_SKILLS_DIR / "team-replanner-playbook" / "references").glob("*.md")
+    }
 
-    assert len(skill.splitlines()) <= 150
+    assert reference_names == {
+        "action-add-tasks.md",
+        "action-cancel-and-redraft.md",
+        "terminal-contract.md",
+    }
+    assert len(skill.splitlines()) <= 170
     assert len(action_add.splitlines()) <= 45
+    assert len(action_cancel.splitlines()) <= 45
+    assert len(contract.splitlines()) <= 160
     assert "## Workflow" in skill
     assert "```mermaid" in skill
     assert "Reference Map" in skill
@@ -61,13 +78,22 @@ def test_team_replanner_playbook_uses_planner_style_contract() -> None:
     assert "Direct replan" in skill
     assert "Diagnostics" in skill
     assert "No production repair surface" in skill
+    assert "trace-gap triplets" in skill
+    assert "Launch one scout per remaining triplet" in skill
+    assert "Keep failing tests in scout `context`, not `target_paths`" in skill
 
     assert "## Call Shape" in contract
     assert "submit_replan({ new_tasks: NewTaskSpec[], cancel_ids: string[] })" in contract
     assert "## Examples" in contract
     assert "## Final Checklist" in contract
     assert "Final payload shape lives in `terminal-contract`" in action_add
+    assert "Final payload shape lives in `terminal-contract`" in action_cancel
+    assert "3 or more concrete non-planner replacements" in action_cancel
+    assert "terminal validator" in action_cancel
     assert "Example terminal payload" not in action_add
+    assert "Example terminal payload" not in action_cancel
+    assert "numbered colon labels" not in action_add
+    assert "numbered colon labels" not in action_cancel
 
     assert "2. Task Details:" in skill
     assert "2. Task Details:" in contract
@@ -75,6 +101,28 @@ def test_team_replanner_playbook_uses_planner_style_contract() -> None:
     assert "2. Task Detail:" not in contract
     assert "Valid replan trigger" not in skill
     assert "Replan trigger gate" not in skill
+
+
+def test_team_planner_playbook_uses_plural_task_details_label() -> None:
+    skill = (
+        _BUNDLED_SKILLS_DIR / "team-planner-playbook" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+
+    assert "2. Task Details:" in skill
+    assert "2. Task Detail:" not in skill
+    assert "`Task Details`" in skill
+    assert "`Task Detail`" not in skill
+
+
+def test_team_root_planner_playbook_uses_plural_task_details_label() -> None:
+    skill = (
+        _BUNDLED_SKILLS_DIR / "team-root-planner-playbook" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+
+    assert "2. Task Details:" in skill
+    assert "2. Task Detail:" not in skill
+    assert "`Task Details`" in skill
+    assert "`Task Detail`" not in skill
 
 
 def test_team_validator_playbook_uses_developer_style_contract() -> None:

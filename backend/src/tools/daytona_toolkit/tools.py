@@ -1,4 +1,4 @@
-"""Daytona tool implementations — @tool-decorated functions for sandbox operations."""
+"""Simple file read, write, and search tools for Daytona."""
 
 from __future__ import annotations
 
@@ -36,19 +36,18 @@ class DaytonaReadFileInput(BaseModel):
     file_path: str = Field(
         ...,
         description=(
-            "Repo-relative path or /testbed path to the file in the sandbox. "
-            "Do not pass host workspace paths such as /Users/..."
+            "Repo-relative or /testbed file path. Do not use host paths like /Users/..."
         ),
     )
     start_line: int = Field(
         default=1,
         ge=1,
-        description="First line to read, using one-based numbering.",
+        description="First line to return. Lines are 1-based.",
     )
     end_line: int | None = Field(
         default=None,
         ge=1,
-        description="Last line to read, using one-based inclusive numbering.",
+        description="Last line to return. The line is included.",
     )
 
 
@@ -65,19 +64,17 @@ class DaytonaWriteFileInput(BaseModel):
     file_path: str = Field(
         ...,
         description=(
-            "Path to create or overwrite in the sandbox. In team mode, a successful "
-            "outside-scope write is added to current scope_paths and a system "
-            "notification lists the updated scope."
+            "Repo-relative or /testbed path to create or overwrite in the sandbox."
         ),
     )
-    content: str = Field(..., description="UTF-8 text content to write.")
+    content: str = Field(..., description="Text to write.")
 
 
 class DaytonaWriteFileOutput(BaseModel):
     cwd: str = Field(..., description="Current sandbox working directory.")
     file_path: str = Field(..., description="Resolved file path that was written.")
     bytes_written: int = Field(..., description="Number of UTF-8 bytes written.")
-    ci_sync: bool = Field(..., description="Whether the write was synchronized to code intelligence.")
+    ci_sync: bool = Field(..., description="Whether code intelligence saw the write.")
     warnings: list[str] = Field(default_factory=list, description="Non-fatal write warnings.")
     timings: dict[str, Any] | None = Field(
         default=None,
@@ -86,10 +83,10 @@ class DaytonaWriteFileOutput(BaseModel):
 
 
 class DaytonaGrepInput(BaseModel):
-    pattern: str = Field(..., description="Text pattern to search for in file contents.")
+    pattern: str = Field(..., description="Regex pattern to search for in file contents.")
     path: str = Field(
         default=".",
-        description="File or directory path to search.",
+        description="File or directory to search. Defaults to the repo root.",
     )
 
 
@@ -112,10 +109,10 @@ class DaytonaGrepOutput(BaseModel):
 
 
 class DaytonaGlobInput(BaseModel):
-    pattern: str = Field(..., description="Glob pattern to match file names.")
+    pattern: str = Field(..., description="Glob pattern for file names, such as **/*.py.")
     path: str = Field(
         default=".",
-        description="Directory path to search from.",
+        description="Directory to search from. Defaults to the repo root.",
     )
 
 
@@ -433,14 +430,9 @@ print(json.dumps({
 @tool(
     name="daytona_read_file",
     description=(
-        "Read a sandbox file or bounded line range. In coordinated team lanes, "
-        "never call this in the same assistant action as `load_skill`, and do "
-        "not call it until the required `read_task_details` calls for own task, "
-        "parent, and dependencies have completed. Use this as a narrow fallback "
-        "after Task Center notes and CI/navigation tools identify the target. "
-        "Use repo-relative or /testbed paths only, never host /Users/... paths. "
-        "Prefer bounded start_line/end_line on large files; avoid EOF reads for "
-        "broad source browsing."
+        "Read one sandbox file. Use repo-relative or /testbed paths, never host "
+        "/Users paths. Use start_line and end_line for large files. In team lanes, "
+        "read task details first and do not call this with load_skill in the same action."
     ),
     short_description="Read a file from the sandbox.",
     input_model=DaytonaReadFileInput,
@@ -453,7 +445,7 @@ async def daytona_read_file(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Read a file from the Daytona sandbox."""
+    """Read a file from Daytona."""
     file_path = _resolve_path(file_path, context)
     try:
         sandbox = await _require_sandbox(context)
@@ -484,20 +476,12 @@ async def daytona_read_file(
 @tool(
     name="daytona_write_file",
     description=(
-        "Create a new file or overwrite an existing file with the given content. "
-        "Use the exact tool name `daytona_write_file`; there is no `write_file` tool. "
-        "`scope_paths` are the default ownership context, not a hard limit for this tool. "
-        "In coordinated team lanes, outside-scope writes are allowed when justified, "
-        "and a successful write extends the lane's in-memory write scope to the target; "
-        "a system notification will list the updated scope_paths. "
-        "Proceed when the target is a justified production owner for the same bug, "
-        "including a missing module, compatibility shim, re-export, or import bridge when production ownership is clear; "
-        "otherwise submit `submit_task_summary(type='request_replan')` so replanning can widen "
-        "or resequence the task. Test imports, collection errors, and target counts naming "
-        "the path are evidence, not sufficient ownership by themselves. In coordinated team lanes, test files are read/verify-only "
-        "and this tool blocks test-file writes unless runtime metadata explicitly enables "
-        "test-file edits. Task prose alone cannot bypass this block. "
-        "If you continue outside scope, include the widened path, rationale, and verification in the terminal summary."
+        "Create or overwrite a sandbox file. Use the exact tool name "
+        "`daytona_write_file`; there is no `write_file` tool, so do not call "
+        "`write_file`. Use repo-relative or /testbed paths. In team lanes, "
+        "test-file writes are blocked unless runtime metadata allows them. "
+        "Outside-scope production writes need a clear ownership reason and "
+        "verification. If scope is unclear, request replanning."
     ),
     short_description="Create or overwrite a file.",
     input_model=DaytonaWriteFileInput,
@@ -509,7 +493,7 @@ async def daytona_write_file(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Write/create a file through ``svc.write_file`` (OCC-gated)."""
+    """Create or overwrite a file."""
     file_path = _resolve_path(file_path, context)
     warnings: list[str] = []
 
@@ -551,7 +535,7 @@ async def daytona_write_file(
 
 @tool(
     name="daytona_grep",
-    description="Search file contents for a text pattern and return matching lines.",
+    description="Search file contents with a regex and return matching lines.",
     short_description="Search file contents by pattern.",
     input_model=DaytonaGrepInput,
     output_model=DaytonaGrepOutput,
@@ -562,7 +546,7 @@ async def daytona_grep(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Search file contents in the Daytona sandbox."""
+    """Search file contents in Daytona."""
     cwd = _get_cwd(context) or ""
     path = _resolve_path(path, context) if path != "." else (cwd or ".")
     try:
@@ -614,7 +598,7 @@ async def daytona_grep(
 
 @tool(
     name="daytona_glob",
-    description="Find files by name using a glob pattern (e.g. '*.py', 'test_*').",
+    description="Find files by glob pattern, such as **/*.py or test_*.py.",
     short_description="Find files by glob.",
     input_model=DaytonaGlobInput,
     output_model=DaytonaGlobOutput,
@@ -625,7 +609,7 @@ async def daytona_glob(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Find files by glob pattern in the Daytona sandbox."""
+    """Find files in Daytona by glob pattern."""
     cwd = _get_cwd(context) or ""
     path = _resolve_path(path, context) if path != "." else (cwd or ".")
     try:

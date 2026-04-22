@@ -64,12 +64,7 @@ def record_coordination_warning(
     category: str,
     message: str,
 ) -> None:
-    """Persist a coordination warning on the live tool context.
-
-    Warnings are advisory coordination evidence. They are recorded so the
-    agent can either document a justified widened edit or request replanning
-    after repeated or ownership-changing scope mismatches.
-    """
+    """Save one coordination warning in metadata."""
     raw = context.metadata.get("coordination_warnings")
     warnings: list[dict[str, Any]]
     if isinstance(raw, list):
@@ -119,12 +114,7 @@ def _truncate_tail(text: str, max_chars: int = _OUTPUT_MAX_CHARS) -> str:
 
 
 def _format_shell_stdout(text: str, *, exit_code: int, max_chars: int = _OUTPUT_MAX_CHARS) -> str:
-    """Format shell stdout for model consumption.
-
-    Successful commands keep head+tail context, but failing commands keep the
-    tail because test runners typically print the actionable failure details at
-    the end of stdout.
-    """
+    """Trim shell output for the model."""
     if exit_code != 0:
         return _truncate_tail(text, max_chars=max_chars)
     return _truncate(text, max_chars=max_chars)
@@ -300,11 +290,7 @@ def _get_cwd(context: ToolExecutionContext) -> str | None:
 
 
 def _resolve_path(path: str, context: ToolExecutionContext) -> str:
-    """Resolve a relative path against the sandbox cwd.
-
-    Absolute paths are returned as-is. Relative paths are joined
-    with the sandbox cwd (detected via pwd on first connect).
-    """
+    """Resolve a relative path against the sandbox repo root."""
     if path.startswith("/"):
         return path
     repo_root = _get_repo_root(context)
@@ -447,11 +433,7 @@ def _is_test_file_path(rel_path: str) -> bool:
 
 
 def _write_scope_covers(context: ToolExecutionContext, file_path: str) -> bool:
-    """Return True when *file_path* is covered by the active write_scope.
-
-    Also returns True when no scope is configured — callers can use this to
-    decide whether a source path is "in scope" for a rename-and-extend flow.
-    """
+    """Return True if file_path is inside the current write_scope."""
     repo_root = str(_get_repo_root(context) or "")
     rel = _normalize_repo_relative_path(file_path, repo_root)
     if not rel:
@@ -465,13 +447,7 @@ def _write_scope_covers(context: ToolExecutionContext, file_path: str) -> bool:
 def _extend_write_scope(
     context: ToolExecutionContext, file_path: str,
 ) -> str | None:
-    """Append *file_path* (repo-relative) to ``write_scope`` if not already covered.
-
-    Returns the appended entry, or ``None`` when no extension happened (no
-    write_scope configured, path already covered, or path can't be normalized).
-    The list is replaced rather than mutated in place, since it may be aliased
-    from ``task.scope_paths`` and we don't want to taint the task object.
-    """
+    """Add file_path to write_scope when needed."""
     repo_root = str(_get_repo_root(context) or "")
     rel = _normalize_repo_relative_path(file_path, repo_root)
     if not rel:
@@ -492,12 +468,7 @@ def _team_repo_write_error(
     *,
     tool_name: str,
 ) -> str | None:
-    """Return a hard policy error for unsafe repo writes.
-
-    Outside-scope ownership remains advisory, but coordinated team lanes keep
-    test files read-only evidence unless a caller explicitly authorizes
-    test-file edits in metadata.
-    """
+    """Return a blocking error for forbidden team writes."""
     if not is_coordinated_team_agent(context) or _test_file_edits_allowed(context):
         return None
     repo_root = str(_get_repo_root(context) or "")
@@ -563,17 +534,7 @@ def _team_repo_scope_deny_errors(
     *,
     tool_name: str,
 ) -> list[tuple[str, str]]:
-    """Return ``(path, message)`` for each path outside ``write_scope``.
-
-    Shared policy helper for tools whose outside-scope writes are hard
-    denies (``daytona_delete_file``, ``daytona_move_file`` src,
-    ``daytona_rename_symbol``). Returns an empty list when the call is
-    not in a coordinated team lane or no ``write_scope`` is configured.
-
-    Test-file edits are handled separately by ``_team_repo_write_error``
-    (higher-priority block); this helper skips paths that would already
-    be caught there to avoid duplicate messaging.
-    """
+    """Return one error for each path outside write_scope."""
     if not is_coordinated_team_agent(context):
         return []
     repo_root = str(_get_repo_root(context) or "")
@@ -604,12 +565,7 @@ def _scope_deny_message(
     tool_name: str,
     role: str | None = None,
 ) -> str:
-    """Format a write-scope Deny message listing only offending paths.
-
-    ``role`` qualifies which side of a multi-path tool tripped the check
-    (e.g. ``"src_path"`` for ``daytona_move_file``, ``"folder members"``
-    for folder-mode member checks). Omit for single-path tools.
-    """
+    """Format a write-scope block message."""
     header = f"{tool_name} blocked by write-scope policy"
     if role:
         header += f" on {role}"
@@ -727,13 +683,7 @@ def _build_write_text_file_commands(
     *,
     chunk_bytes: int = _REMOTE_WRITE_CHUNK_BYTES,
 ) -> tuple[list[str], str | None]:
-    """Build remote write commands without embedding large payloads in one argv.
-
-    Daytona's process transport can fail silently when a single command carries
-    a large base64 file payload. Small files keep the existing one-shot path,
-    while larger writes stage chunks into a same-directory temp file and atomically
-    replace the target at the end.
-    """
+    """Build remote write commands for small or large files."""
     data = content.encode("utf-8")
     if len(data) <= chunk_bytes:
         return [_build_write_text_file_command(file_path, content)], None

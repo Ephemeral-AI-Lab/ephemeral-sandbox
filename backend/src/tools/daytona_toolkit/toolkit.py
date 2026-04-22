@@ -1,4 +1,4 @@
-"""Daytona sandbox tools — file I/O, editing, and CodeAct execution."""
+"""Daytona sandbox tools for search, file changes, and commands."""
 
 from __future__ import annotations
 
@@ -44,89 +44,47 @@ def _build_tools(*, include_codeact: bool) -> list[Any]:
 
 
 def _build_instructions(*, include_codeact: bool) -> str:
-    codeact_line = ""
+    codeact_section = ""
     if include_codeact:
-        codeact_line = (
-            "- `daytona_codeact` — execute direct shell commands or Python in the repo workspace. "
-            "Use `daytona_codeact(command=\"pytest ...\", timeout=N)` for tests, builds, and "
-            "verification, and `daytona_codeact(code=\"...\")` for multi-step Python that needs "
-            "read/shell in one operation. Benchmark/test command strings must contain no `|` "
-            "and no `>` anywhere; using either is a workflow failure even if the shell succeeds. "
-            "Rewrite pipes, redirects, `2>&1`, `| head`, and `| tail` before calling. "
-            "Do not use CodeAct for file writes or moves: no `sed -i`, "
-            "output redirects, `tee`, inline Python writes, `mv`, `shutil.move`, `os.rename`, "
-            "`git rm`, or `git mv`. Pure removals such as `rm`, `unlink`, `os.remove`, "
-            "`Path.unlink`, and `shutil.rmtree` are audited by the overlay path. Use `daytona_edit_file`, "
-            "`daytona_write_file`, `daytona_rename_symbol`, `daytona_delete_file`, or "
-            "`daytona_move_file` instead; those tools own the audited write path. "
-            "Keep commands repo-root-relative; do not import `subprocess` and do not append "
-            "stdout/stderr capture plumbing such as `2>&1` or `2>/dev/null`. "
-            "Do not use CodeAct for file-content reads such as `git diff`, `cat`, `sed -n`, "
-            "`grep`, `head`, `tail`, or `nl`; use CI/search/read-file tools instead. "
-            "When run in the background, progress is line/chunk-based and depends on "
-            "command stdout/stderr flushing; for Python use `python -u` or `print(..., flush=True)`.\n"
+        codeact_section = (
+            "\n**Run Commands**\n"
+            "- `daytona_codeact`: run tests, builds, and other runtime commands.\n"
+            "- Use `command=\"pytest ...\"` for shell commands.\n"
+            "- Use `code=\"...\"` only for multi-step Python.\n"
+            "- Commands already start at the repo root; do not prefix `cd /testbed &&` or `cd /workspace &&`.\n"
+            "- Test and benchmark commands must not contain `|`, `>`, `2>&1`, `2>/dev/null`, `head`, or `tail`; output is captured automatically.\n"
+            "- Do not use CodeAct for file writes, moves, deletes, or file-content reads.\n"
+            "- Use the edit, write, rename, delete, move, read, grep, or glob tools for file work.\n"
+            "- Background Python should use `python -u` or `print(..., flush=True)`.\n"
         )
     return (
-        "Interact with a remote Daytona sandbox for file operations, "
-        "code analysis, editing, and command execution. "
-        "In coordinated team lanes, do not call any Daytona tool in the same "
-        "assistant action as `load_skill`, and do not call Daytona tools before "
-        "the required `read_task_details` calls for own task, parent, and "
-        "dependencies have completed. Use repo-relative or /testbed paths only; "
-        "never pass host workspace paths such as /Users/... into Daytona tools. "
-        "Use CI/navigation tools first when they are available; use sandbox "
-        "file reads only after CI or search narrowed the seam.\n\n"
-        "**Explore & Search**\n"
-        "- `daytona_glob` — find files by pattern (e.g. `**/*.py`). Use to locate files.\n"
-        "- `daytona_grep` — search file contents by regex. Use to find code patterns.\n"
-        "- `daytona_read_file` — read a file. Use after CI/search narrowed the target and before editing exact lines.\n\n"
-        "**Edit**\n"
-        "- `daytona_edit_file` — atomic file edits. Use exactly one mode: "
-        "`old_text` + `new_text` for a single replacement, or "
-        "`edits=[{\"strategy\":\"search_replace\",\"search\":\"...\",\"replace\":\"...\"}]` for batched replacements. "
-        "Never send `new_text` together with `edits`. In coordinated team lanes, test files are "
-        "read/verify-only and test-file writes are blocked unless runtime metadata enables them; "
-        "task prose alone cannot bypass this block.\n"
-        "- `daytona_write_file` — create or overwrite a file. Use for new files. "
-        "The tool is named exactly `daytona_write_file`; do not call `write_file`, `Write`, or any unprefixed file tool. "
-        "In coordinated team lanes, do not create or overwrite test files unless runtime metadata enables them; "
-        "task prose alone cannot bypass this block.\n"
-        "- `daytona_rename_symbol` — rename a Python function, class, method, or import binding "
-        "across definitions, call sites, and imports as one audited process operation. "
-        "Use this instead of chained `daytona_edit_file` calls for multi-file renames; "
-        "try `dry_run=true` first when the blast radius is unclear.\n"
-        "- `daytona_delete_file` — delete a file (default) or a folder tree (`is_folder=true`) through the "
-        "OCC-gated code-intelligence commit path. Folder deletes enumerate every descendant file and submit "
-        "them as one OCC batch; base-hash drift on any member returns `aborted_version` with no merge fallback. "
-        "Prefer this for explicit folder deletes; pure CodeAct removals are also audited by the overlay path.\n"
-        "- `daytona_move_file` — move a file (default) or a folder tree (`is_folder=true`) through the "
-        "OCC-gated code-intelligence commit path. Folder moves enumerate every descendant file, remap the "
-        "src prefix to the target prefix, and submit the whole batch atomically. Base-hash drift on any "
-        "member returns `aborted_version` with no merge fallback. Overwrite semantics are enforced by the "
-        "platform pre-hook. Use this instead of `mv` in CodeAct.\n"
-        f"{codeact_line}\n"
-        "**Execute**\n"
-        "- Use `daytona_codeact` for all runtime execution (tests, builds, verification).\n"
-        "- Do not use `daytona_codeact` to write or move files; this includes `mv`, `shutil.move`, `os.rename`, `git rm`, and `git mv`. Pure removals are allowed through CodeAct because the overlay audit path converts tracked removals into OCC-gated deletes and rejects unsupported removal shapes.\n"
-        "- Do not use `daytona_codeact` for file-content reads such as `git diff`, `cat`, `sed -n`, `grep`, `head`, `tail`, or `nl`; use CI/search/read-file tools instead.\n"
-        "- When an injected sandbox cwd/repo root is configured, shell and file tools already run relative to that root. Prefer relative repo paths."
+        "Use these tools inside the remote Daytona sandbox.\n"
+        "Use repo-relative paths or `/testbed/...` paths. Never use host paths such as `/Users/...`.\n"
+        "In team lanes, call the required Task Center tools before any Daytona tool.\n"
+        "Do not call a Daytona tool in the same assistant action as `load_skill`.\n"
+        "Use CI/navigation tools first when available; use file reads after you know the target path or line range.\n\n"
+        "**Find And Read**\n"
+        "- `daytona_glob`: find files by glob, such as `**/*.py`.\n"
+        "- `daytona_grep`: search file contents by regex.\n"
+        "- `daytona_read_file`: read one file or a bounded line range.\n\n"
+        "**Change Files**\n"
+        "- `daytona_edit_file`: replace exact text. Use exactly one mode: `old_text` + `new_text`, or an `edits` list.\n"
+        "- `daytona_write_file`: create or overwrite a file. There is no `write_file` tool; do not call `write_file`.\n"
+        "- `daytona_rename_symbol`: rename a Python symbol across references. Add `kind` or `file_hint` if the name is ambiguous.\n"
+        "- `daytona_delete_file`: delete a file. Set `is_folder=true` to delete a folder tree.\n"
+        "- `daytona_move_file`: move a file. Set `is_folder=true` to move a folder tree. Use this instead of `mv`.\n"
+        "- Team lanes block test-file writes unless runtime metadata allows them.\n"
+        "- Outside-scope production edits need a clear ownership reason and verification.\n"
+        "- If scope is unclear, request replanning instead of guessing.\n"
+        f"{codeact_section}"
     )
 
 
 class DaytonaToolkit(BaseToolkit):
-    """Daytona sandbox toolkit — file I/O, editing, and CodeAct.
+    """Toolkit for running Daytona sandbox tools.
 
-    Requires a pre-created sandbox_id. The sandbox is fetched lazily
-    on first tool invocation and injected into ToolExecutionContext.metadata
-    via the ``prepare_context`` helper.
-
-    Usage::
-
-        toolkit = DaytonaToolkit(sandbox_id="sb-abc123")
-        registry.register_toolkit(toolkit)
-
-        # Before executing tools, inject sandbox into context:
-        toolkit.prepare_context(context)
+    Pass a sandbox id. The toolkit fetches the sandbox lazily and stores it in
+    execution metadata before tools run.
     """
 
     @classmethod
@@ -142,7 +100,7 @@ class DaytonaToolkit(BaseToolkit):
     ) -> None:
         super().__init__(
             name="sandbox_operations",
-            description="Remote sandbox operations: files, search, editing, and CodeAct execution",
+            description="Remote Daytona sandbox tools for search, file changes, and commands.",
             tools=_build_tools(include_codeact=include_codeact),
             instructions=_build_instructions(include_codeact=include_codeact),
         )
@@ -151,7 +109,7 @@ class DaytonaToolkit(BaseToolkit):
         self._sandbox_loop_id: int | None = None
 
     def _get_sandbox(self) -> Any:
-        """Lazily fetch the sandbox on first access."""
+        """Fetch the sandbox once and cache it."""
         if self._sandbox is not None:
             return self._sandbox
         if not self.sandbox_id:
@@ -166,11 +124,7 @@ class DaytonaToolkit(BaseToolkit):
         return self._sandbox
 
     async def _get_sandbox_async(self) -> Any:
-        """Lazily fetch the async sandbox on first access.
-
-        Invalidates the cached sandbox when the event loop changes
-        (e.g. pytest-asyncio creates a new loop per test).
-        """
+        """Fetch the async sandbox once per event loop."""
         import asyncio
 
         loop_id = id(asyncio.get_running_loop())
@@ -204,12 +158,7 @@ class DaytonaToolkit(BaseToolkit):
         return await discover_workspace_async(sandbox)
 
     def prepare_context(self, context: Any) -> None:
-        """Inject sandbox, repo root, and optional CI service into a ToolExecutionContext.
-
-        Call this before executing any Daytona tool so it can access
-        the sandbox via ``context.metadata['daytona_sandbox']`` and
-        the resolved repo root via ``context.metadata['repo_root']``.
-        """
+        """Add the sandbox and repo root to tool execution metadata."""
         sandbox = self._get_sandbox()
         repo_root = context.metadata.get("repo_root") or self._resolve_cwd_sync(sandbox)
         from sandbox.workspace import ensure_code_intelligence_runtime
@@ -222,11 +171,7 @@ class DaytonaToolkit(BaseToolkit):
         )
 
     async def prepare_context_async(self, context: Any) -> None:
-        """Inject async sandbox, repo root, and optional CI service into a ToolExecutionContext.
-
-        Use this for streaming tool execution where cancellation support is needed.
-        The async sandbox supports asyncio.CancelledError propagation.
-        """
+        """Add the async sandbox and repo root to tool execution metadata."""
         sandbox = await self._get_sandbox_async()
         repo_root = context.metadata.get("repo_root") or await self._resolve_cwd_async(sandbox)
         from sandbox.workspace import ensure_code_intelligence_runtime

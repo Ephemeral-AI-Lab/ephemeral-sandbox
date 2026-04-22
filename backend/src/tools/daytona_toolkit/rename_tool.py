@@ -1,12 +1,4 @@
-"""Daytona-backed cross-file symbol rename tool.
-
-``daytona_rename_symbol(symbol, new_name, kind=?, file_hint=?)`` resolves
-a symbol via the workspace :class:`SymbolIndex`, returns
-``status="ambiguous"`` with candidates when a name matches multiple
-places, and otherwise runs the rename through the OCC-gated
-code-intelligence commit path (``svc.rename_symbol``). No shell, no
-dry-run, no audit-only side path.
-"""
+"""Rename Python symbols across files in Daytona."""
 
 from __future__ import annotations
 
@@ -291,25 +283,19 @@ class DaytonaRenameSymbolsInput(BaseModel):
         ...,
         min_length=1,
         description=(
-            "Target symbol name; may be dotted (e.g. `Foo.bar`, "
-            "`module.func`) to disambiguate a method from a module-level "
-            "function with the same leaf name."
+            "Symbol to rename. Use a dotted name like `Foo.bar` to choose a method."
         ),
     )
     new_name: str = Field(..., min_length=1, description="New identifier to rename to.")
     kind: SymbolKind | None = Field(
         default=None,
         description=(
-            "Optional disambiguator: `function`, `class`, `method`, "
-            "`variable`. Narrows candidates before the ambiguity check."
+            "Optional filter: `function`, `class`, `method`, or `variable`."
         ),
     )
     file_hint: str | None = Field(
         default=None,
-        description=(
-            "Optional substring match against the absolute file path "
-            "(e.g. `backend/src/foo/`) to narrow candidates."
-        ),
+        description="Optional path text used to choose one matching symbol.",
     )
 
 
@@ -354,11 +340,7 @@ def _resolve_symbol(
     kind: SymbolKind | None,
     file_hint: str | None,
 ) -> list[Any]:
-    """Resolve *symbol* via the workspace symbol index.
-
-    Supports dotted names (``Foo.bar`` — leaf ``bar`` filtered by
-    container ``Foo``) and optional ``kind``/``file_hint`` narrowing.
-    """
+    """Find matching symbols in the workspace index."""
     parent: str | None = None
     leaf = symbol
     if "." in symbol:
@@ -395,12 +377,7 @@ async def _perform_rename(
     extra_warnings: list[str] | None = None,
     plan: Any | None = None,
 ) -> ToolResult:
-    """Run a rename through the OCC-gated service primitive.
-
-    Uses a pre-hook cached plan when available, otherwise resolves the plan
-    through :meth:`rename_symbol_plan`, then submits the whole rename as one
-    OCC batch.
-    """
+    """Run one planned symbol rename."""
     if plan is None:
         try:
             plan = await _rename_plan_batcher_for(svc).submit(
@@ -492,12 +469,9 @@ def _preplanned_rename(
 @tool(
     name="daytona_rename_symbol",
     description=(
-        "Rename a Python symbol by name across every file where it is referenced "
-        "inside the Daytona sandbox, using LSP semantics. Resolves `symbol` via "
-        "the workspace symbol index, supports dotted names (`Foo.bar` narrows to "
-        "the `bar` method on class `Foo`), and returns `status=\"ambiguous\"` "
-        "with candidates when the name is not unique. Commits the rewrite as one "
-        "OCC batch. Python-only for now."
+        "Rename a Python symbol across files. If the name matches more than one "
+        "symbol, the tool returns candidates. Call again with `kind` or `file_hint` "
+        "to choose one. Python only."
     ),
     short_description="Rename a symbol by name across every referencing file.",
     input_model=DaytonaRenameSymbolsInput,
@@ -511,7 +485,7 @@ async def daytona_rename_symbol(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Resolve *symbol* then run the rename through the OCC commit path."""
+    """Find one symbol and rename it."""
     svc = get_ci_service(context)
     if svc is None:
         return ci_required_result(

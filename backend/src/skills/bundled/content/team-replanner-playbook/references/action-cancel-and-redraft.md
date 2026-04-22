@@ -1,41 +1,43 @@
-# Action Reference: submit_replan (cancel and redraft)
+# Action Reference: Cancel And Redraft
 
-Use this reference for `submit_replan(new_tasks=[...], cancel_ids=[...])` only when one or more stale non-terminal direct siblings other than the original failed `request_replan` task must be replaced after the replanner playbook's failure-mode classification and any required diagnostics have produced a corrective mapping. Cancelling a sibling cascades to its subtree automatically; replacements go in `new_tasks` as direct children of this replanner.
+Use this after failure-mode classification and any diagnostics have produced a corrective mapping that requires replacing stale same-layer work. Final payload shape lives in `terminal-contract`; this reference only decides cancellation boundaries.
 
-If the only obsolete task is the original failed `request_replan` task, do not use this action. Use `action-add-tasks` and submit `cancel_ids=[]`; the runtime finalizes the failed task after a valid replan.
+If no stale direct sibling remains after excluding the failed task, switch to `action-add-tasks` and submit `cancel_ids=[]`.
 
-## Task/Goal
+## Allow
 
-- A live direct sibling other than the original failed task is working on invalidated assumptions, a shared dependency changed, or adding corrective tasks alone would leave stale work running.
+- Cancel a non-terminal direct sibling of this replanner when it is stale because:
+  - it is working from invalidated assumptions
+  - a shared dependency changed
+  - leaving it running would duplicate or conflict with replanner-owned repair
+- Put replacement work in `new_tasks` as direct children of this replanner.
+- Include a cancelled sibling's scope in replacement tasks only when that sibling id is in `cancel_ids`.
 
-## Avoid
+## Never Cancel
 
-- Never cancel DONE, FAILED, or CANCELLED tasks; terminal records are immutable.
-- Never cancel the original failed `request_replan` task; it is immutable failure evidence.
-- Never try to cancel a non-sibling (a nested task inside a sibling's subtree). Cancel the sibling root and let cascade handle the subtree.
-- Do not cancel tasks without confirming they are actually stale.
-- Do not repair an uncancelled sibling's scope inside a replacement task. Cancel stale siblings first, or leave valid sibling assignments alone.
-- Do not replace a failed same-scope developer with another developer, validator, planner, or replanner just to continue unfinished work in the same file.
-- Do not replace a failed task with a benchmark-test edit task because the root cause trace suggests the test is wrong; use a live production boundary or submit an empty replan when no production code path is justified.
-- Do not use a replacement that creates, renames, moves, or re-exports a test-derived missing path whose only evidence is a test import or collection error. A similar in-scope compatibility filename is not an exception.
+- The failed task or original `request_replan` task.
+- This replanner.
+- `done`, `failed`, or `cancelled` tasks.
+- Nested descendants or dependents directly; cancel the stale sibling root and let cascade handle them.
+- Tasks that are merely inconvenient but not stale.
 
-## Workflow
+## Drop
 
-- `cancel_ids` accepts only non-terminal direct siblings of this replanner (same `parent_id`) after excluding the `Failed task id`. Use same-parent peer context for cancel candidates; do not promote ids from global or nested graph rows.
-- If excluding the `Failed task id` leaves no stale sibling to cancel, switch to `action-add-tasks` and submit `cancel_ids=[]`.
-- Replacement work belongs in `new_tasks`. The replanner owns synthesis; do not create a child `team_planner` or `team_replanner` merely to decide what the corrective tasks should be.
-- Replacement `scope_paths` may include a sibling's code path only when that sibling id is in `cancel_ids`; otherwise the sibling still owns that work.
-- If the missing import path is named only by tests and no non-test production code path was proven, do not replace with a missing-path task; use `submit_replan(new_tasks=[], cancel_ids=[])` unless a stale sibling must still be cancelled for another reason.
-- For replacement file moves, renames, shims, and re-export bridges, verify both source and destination production evidence; do not write an absent outside-scope destination named only by tests, even when the source file is in scope.
-- Replacement specs relocating or renaming a path must name `daytona_move_file`. Pure removals may run through CodeAct or `daytona_delete_file`. Do not tell children to bypass coordinated tools with standard Python file I/O, CodeAct writes, shell redirects, or whole-file overwrite fallback instructions.
-- Replacement tasks must not depend on downstream tasks already blocked on this replanner (cycle).
-- Prefer `deps` ids local to this payload; validator deps must be local. Existing-task deps must be freshly proven schedulable and not downstream of this replanner or the original failed task.
-- If `new_tasks` has 3+ concrete non-planner replacements, add one terminal `validator` whose `deps` cover them.
-- Replacement `scope_paths` must be repo-relative with no `/testbed/...` prefixes, and specs must not say `cd /testbed`, "run from /testbed", or add `2>&1`, output redirects, `| head`, or `| tail`; CodeAct starts at repo root and captures output automatically.
-- Each replacement `spec` uses numbered colon labels in exact order: `1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:`. Each label starts its own line and has body text on that same line. Do not put all labels on one line. Do not put the body on the next line after the colon. Do not use Markdown headings. Do not include `output`, `summary`, `background`, `parent_id`, or any top-level field besides `new_tasks` and `cancel_ids`. The system generates the outcome summary automatically once the corrective children complete.
-- Self-check that `cancel_ids` excludes the literal `Failed task id` from the header, the original failed task, and terminal siblings; also verify no replacement scopes benchmark tests unless the prompt explicitly owns a test-only bug.
-- Self-check the final payload before the single terminal call. If `submit_replan(...)` is rejected, do not call CI, file, graph, note, or CodeAct tools; retry only a mechanical correction from the validation message.
+- Same-scope continuation of the failed task.
+- Benchmark-test edits or missing paths proven only by tests.
+- Replacement work for an uncancelled sibling's scope.
+- Replacement moves, shims, bridges, or re-exports without production evidence for both source and destination.
+- Dependencies on downstream tasks already blocked on this replanner.
+
+## Build
+
+1. Confirm each `cancel_ids` item is a non-terminal direct sibling with the same `parent_id` as this replanner.
+2. Exclude the failed task id, this replanner id, terminal tasks, and nested graph ids.
+3. Keep replacement work under this replanner; do not create a child `team_planner` or `team_replanner` to decide the repair.
+4. Prefer local deps; existing deps require fresh graph proof that they are schedulable and not downstream of this replanner or the failed task.
+5. If `new_tasks` has 3 or more concrete non-planner replacements and no preserved downstream validator covers the surface, add one terminal validator whose `deps` cover them. This matches the shared Terminal Validator Rule in `terminal-contract`.
+6. Load `terminal-contract`, self-check the payload, then submit exactly one `submit_replan(...)` call.
 
 ## Expected Outcome
 
-- Stale sibling work is replaced cleanly at this layer without duplicate or dangling work; deeper subtrees are cleaned up by cascade.
+Stale sibling work is replaced cleanly at this layer; cascade handles deeper cleanup without duplicate or dangling work.

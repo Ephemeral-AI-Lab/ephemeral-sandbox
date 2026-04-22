@@ -254,7 +254,6 @@ def test_agent_overrides_attach_validator_skill_without_prompt_duplication():
     assert "system_prompt" not in overrides[SCOUT]
     assert overrides[SCOUT]["tool_call_limit"] == 50
     assert "system_prompt" not in overrides[VALIDATOR]
-    assert "verification-replan" in overrides[VALIDATOR]["skills"]
     assert overrides[VALIDATOR]["tool_call_limit"] == 50
     assert "system_prompt" not in overrides[TEAM_REPLANNER]
     assert overrides[TEAM_REPLANNER]["tool_call_limit"] == 50

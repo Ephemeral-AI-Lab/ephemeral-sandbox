@@ -1,15 +1,4 @@
-"""Daytona-backed file and folder delete/move tools.
-
-These tools validate requested paths under the repo root and submit the
-operation through the code-intelligence OCC commit path. ``is_folder=True`` is
-passed as service-level intent; the code-intelligence mutation service expands
-folder members and applies the OCC gate to each member file. Overwrite
-semantics are enforced by the platform pre-hook, not by this tool.
-
-CodeAct's shell policy blocks path moves; pure removals may also flow through
-the overlay-audited CodeAct path, which converts tracked whiteouts into
-OCC-gated deletes and rejects unsupported removal shapes.
-"""
+"""Delete or move files and folders in Daytona."""
 
 from __future__ import annotations
 
@@ -107,15 +96,12 @@ class DaytonaDeleteFileInput(BaseModel):
     path: str = Field(
         ...,
         min_length=1,
-        description="Path to delete. Must exist at call time.",
+        description="File or folder path to delete. It must exist.",
     )
     is_folder: bool = Field(
         default=False,
         description=(
-            "Set True to delete a directory tree. The tool enumerates every "
-            "descendant regular file under the folder and submits them as a "
-            "single OCC batch; base-hash drift on any member aborts the "
-            "whole batch. False (default) deletes a single file."
+            "False deletes one file. True deletes a folder tree."
         ),
     )
 
@@ -129,7 +115,7 @@ class DaytonaDeleteFileOutput(BaseModel):
     )
     paths: list[str] = Field(
         default_factory=list,
-        description="Paths affected by the OCC commit.",
+        description="Paths changed by the delete.",
     )
     warnings: list[str] = Field(
         default_factory=list,
@@ -148,14 +134,10 @@ class DaytonaDeleteFileOutput(BaseModel):
 @tool(
     name="daytona_delete_file",
     description=(
-        "Delete a file (default) or a folder tree (`is_folder=True`) through "
-        "the OCC-gated code-intelligence commit path. Folder deletes "
-        "enumerate every descendant file and submit them as one OCC batch; "
-        "base-hash drift on any member aborts the whole batch with "
-        "`aborted_version`. Prefer this for explicit folder deletes; CodeAct "
-        "removals are also audited by the overlay path."
+        "Delete a sandbox file. Set `is_folder=True` to delete a folder tree. "
+        "Use this instead of shell delete commands."
     ),
-    short_description="Delete a file or folder through the OCC commit path.",
+    short_description="Delete a file or folder.",
     input_model=DaytonaDeleteFileInput,
     output_model=DaytonaDeleteFileOutput,
 )
@@ -165,7 +147,7 @@ async def daytona_delete_file(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Delete a file or folder through the code-intelligence OCC commit path."""
+    """Delete a file or folder."""
     resolved = _normalized_path(_resolve_path(path, context))
     warnings: list[str] = []
 
@@ -229,24 +211,17 @@ class DaytonaMoveFileInput(BaseModel):
     src_path: str = Field(
         ...,
         min_length=1,
-        description="Source path. Must exist at call time.",
+        description="Source file or folder path. It must exist.",
     )
     target_path: str = Field(
         ...,
         min_length=1,
-        description=(
-            "Destination path. When the source is already in scope, a successful "
-            "move adds this destination to current scope_paths and a system "
-            "notification lists the updated scope."
-        ),
+        description="Destination path.",
     )
     is_folder: bool = Field(
         default=False,
         description=(
-            "Set True to move a directory tree. The tool enumerates every "
-            "descendant regular file under src, remaps src-prefix to "
-            "target-prefix, and submits the whole remapping as one OCC "
-            "batch. False (default) moves a single file."
+            "False moves one file. True moves a folder tree."
         ),
     )
 
@@ -263,7 +238,7 @@ class DaytonaMoveFileOutput(BaseModel):
     target_path: str = Field(..., description="Resolved destination path.")
     paths: list[str] = Field(
         default_factory=list,
-        description="Paths affected by the OCC commit.",
+        description="Paths changed by the move.",
     )
     warnings: list[str] = Field(
         default_factory=list,
@@ -282,18 +257,10 @@ class DaytonaMoveFileOutput(BaseModel):
 @tool(
     name="daytona_move_file",
     description=(
-        "Move a file (default) or a folder tree (`is_folder=True`) through "
-        "the OCC-gated code-intelligence commit path. Folder moves "
-        "enumerate every descendant file, remap the src prefix to the "
-        "target prefix, and submit the whole batch atomically. Base-hash "
-        "drift on any member aborts with `aborted_version`. Overwrite "
-        "semantics are enforced by the platform pre-hook. Use this "
-        "instead of `mv` in CodeAct; CodeAct `mv` is blocked. When the "
-        "source is already in scope, a successful move extends the lane's "
-        "in-memory write scope to the destination and emits a system "
-        "notification listing the updated scope_paths."
+        "Move a sandbox file. Set `is_folder=True` to move a folder tree. "
+        "Use this instead of `mv` or other shell move commands."
     ),
-    short_description="Move a file or folder through the OCC commit path.",
+    short_description="Move a file or folder.",
     input_model=DaytonaMoveFileInput,
     output_model=DaytonaMoveFileOutput,
 )
@@ -304,7 +271,7 @@ async def daytona_move_file(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Move a file or folder through the code-intelligence OCC commit path."""
+    """Move a file or folder."""
     src_resolved = _normalized_path(_resolve_path(src_path, context))
     dst_resolved = _normalized_path(_resolve_path(target_path, context))
     warnings: list[str] = []

@@ -354,32 +354,6 @@ def _make_task_context(
     return SimpleNamespace(context=task_context, graph=tasks)
 
 
-def _sweevo_extra_skills(agent_name: str, team_def: TeamDefinition) -> list[str]:
-    """Return benchmark runner skill overrides used by the SWE-EVO team."""
-    if team_def.name != "sweevo_benchmark":
-        return []
-    extras_by_agent = {
-        "validator": ["verification-replan"],
-    }
-    return extras_by_agent.get(agent_name, [])
-
-
-def effective_agent_definition_for_team_report(
-    agent_def: AgentDefinition,
-    team_def: TeamDefinition,
-) -> AgentDefinition:
-    """Apply known benchmark-time prompt-affecting overrides for reports."""
-    merged_skills = list(agent_def.skills)
-    changed = False
-    for skill_name in _sweevo_extra_skills(agent_def.name, team_def):
-        if skill_name not in merged_skills:
-            merged_skills.append(skill_name)
-            changed = True
-    if not changed:
-        return agent_def
-    return agent_def.model_copy(update={"skills": merged_skills})
-
-
 def _role_filter_matches(
     *,
     agent_name: str,
@@ -660,7 +634,7 @@ async def build_team_role_prompt_report_text(
             lines.extend(["", "_Agent definition not found in registry or database._"])
             continue
 
-        agent_def = effective_agent_definition_for_team_report(base_agent_def, team_def)
+        agent_def = base_agent_def
         terminal_tools = resolve_terminal_tools_for_role(team_def, getattr(agent_def, "role", None))
         lines.extend(
             [

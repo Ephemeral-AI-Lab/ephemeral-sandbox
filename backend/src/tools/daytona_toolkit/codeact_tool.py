@@ -1,4 +1,4 @@
-"""CodeAct tool - shell or Python execution in the Daytona sandbox."""
+"""Run shell commands or Python in Daytona."""
 
 from __future__ import annotations
 
@@ -27,44 +27,28 @@ from tools.daytona_toolkit._daytona_utils import (
 _CODEACT_DEFAULT_TIMEOUT = CODE_INTELLIGENCE_TUNING.codeact_default_timeout
 
 class DaytonaCodeActInput(BaseModel):
-    """Custom CodeAct input schema.
-
-    Keep runtime parsing permissive so existing callers still flow through
-    ``_resolve_mode()``, but publish a stricter JSON schema to the model.
-    Anthropic-compatible models will otherwise happily emit explicit JSON
-    ``null`` for optional string params and spin on empty CodeAct calls.
-    """
+    """Input schema that asks the model for either command or code."""
 
     mode: Literal["python", "shell"] | None = Field(
         default=None,
-        description=(
-            "Optional explicit mode. Omit unless you need to force shell or "
-            "python execution."
-        ),
+        description="Optional. Set to shell or python. Usually omit this.",
     )
     code: str | None = Field(
         default=None,
-        description=(
-            "Python code to execute. Use for multi-step helper flows; do not "
-            "set alongside `command`."
-        ),
+        description="Python code to run. Do not also set command.",
     )
     command: str | None = Field(
         default=None,
         description=(
-            "Shell command to execute directly from repo root for tests, builds, "
-            "or verification; do not set alongside `code`. Benchmark/test commands "
-            "must contain no `|` and no `>` anywhere; using either is a workflow "
-            "failure even if the shell succeeds. Rewrite pipes, redirects, `2>&1`, "
-            "`2>/dev/null`, `| head`, and `| tail` before calling this "
-            "tool; stdout and stderr are captured and truncated automatically. Do "
-            "not prefix `cd /testbed &&` or `cd /workspace &&`. Invalid: "
-            "`python -m pytest ... 2>&1 | head -80`."
+            "Shell command to run from the repo root. Use for tests, builds, "
+            "and verification. Do not also set code. Do not include `|`, `>`, "
+            "`2>&1`, `2>/dev/null`, `head`, or `tail`; output is captured "
+            "automatically. Do not start with `cd /testbed &&` or `cd /workspace &&`."
         ),
     )
     timeout: int = Field(
         default=_CODEACT_DEFAULT_TIMEOUT,
-        description="Timeout in seconds for shell mode execution.",
+        description="Shell command timeout in seconds.",
     )
 
     @classmethod
@@ -710,26 +694,13 @@ def _files_written_count(
 @tool(
     name="daytona_codeact",
     description=(
-        "Execute either Python code or a direct shell command in the Daytona sandbox. "
-        "Use repo-root-relative commands such as `python -m pytest ...`; do not prefix "
-        "commands with `cd /testbed &&` or `cd /workspace &&`. Benchmark/test command strings "
-        "must contain no `|` and no `>` anywhere; using either is a workflow "
-        "failure even if the shell succeeds. Rewrite pipes, redirects, `2>&1`, "
-        "`2>/dev/null`, `| head`, and `| tail` before calling because stdout and stderr "
-        "are already captured. Invalid: `python -m pytest ... 2>&1 | head -80`. "
-        "Use `command` for tests, builds, and verification; use `code` for multi-step "
-        "Python with read()/shell() helpers. Do not use CodeAct for file writes or moves; "
-        "use daytona_edit_file, daytona_write_file, daytona_rename_symbol, "
-        "daytona_delete_file, or daytona_move_file instead. Pure removals such as "
-        "`rm`, `unlink`, `os.remove`, `Path.unlink`, and `shutil.rmtree` are allowed "
-        "because the overlay audit path converts tracked removals into OCC-gated deletes "
-        "and rejects unsupported removal shapes. Never include move or git-index mutation "
-        "tokens such as `mv`, `shutil.move`, `os.rename`, `git rm`, or `git mv`; path "
-        "moves must use daytona_move_file. Do not use CodeAct for file-content reads "
-        "such as `cat`, `sed -n`, `grep`, `head`, `tail`, `nl`, or `git diff`; use "
-        "CI/search/read-file tools instead. "
+        "Run a shell command or Python code in Daytona. Use `command` for tests, "
+        "builds, and verification. Use `code` only for multi-step Python. Commands "
+        "start at the repo root. Do not include pipes, redirects, head, or tail. "
+        "Do not use this for file writes, moves, deletes, or file-content reads; "
+        "use the file, search, rename, delete, or move tools instead."
     ),
-    short_description="Run repo-root shell/Python; no pipes, redirects, cd, head, or tail.",
+    short_description="Run shell or Python from the repo root.",
     input_model=DaytonaCodeActInput,
     output_model=DaytonaCodeActOutput,
     background="optional",
@@ -742,7 +713,7 @@ async def daytona_codeact(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Execute shell commands or Python code in the Daytona sandbox."""
+    """Run shell commands or Python code."""
     resolved_mode, mode_error = _resolve_mode(mode=mode, code=code, command=command)
     if mode_error is not None:
         return ToolResult(output=mode_error, is_error=True)

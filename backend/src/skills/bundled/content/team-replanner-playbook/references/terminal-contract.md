@@ -12,7 +12,7 @@ submit_replan({ new_tasks: NewTaskSpec[], cancel_ids: string[] })
 type NewTaskSpec = {
   id: string;
   description: string;
-  name: "developer" | "validator" | "team_planner";
+  name: "developer" | "validator"; // team_planner is accepted by the runtime but the replanner owns synthesis — do not spawn one
   spec: string;
   deps: string[];
   scope_paths: string[];
@@ -29,7 +29,7 @@ Never include `output`, `summary`, `background`, `parent_id`, `new_sibling_tasks
 | --- | --- |
 | `id` | Unique lower-kebab id in this payload. Local deps reference this exact string. |
 | `description` | Short non-blank corrective outcome label. |
-| `name` | Prefer `developer` or terminal `validator`. Avoid `team_planner`; the replanner owns synthesis. Never use `scout` or `team_replanner`. |
+| `name` | Use `developer` or terminal `validator`. Never use `scout` or `team_replanner`. `team_planner` is accepted by the schema but the replanner owns synthesis — do not spawn one. |
 | `spec` | Must contain `1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:` in order, each on its own line with body text after the colon. |
 | `deps` | Prefer local payload ids. Existing ids require fresh graph proof that they are schedulable and not downstream of this replanner or the failed task. Validators depend on local payload ids. |
 | `scope_paths` | Non-empty repo-relative production paths. Verification-only tests stay in `spec` unless tests are explicitly the owned bug surface. |
@@ -37,6 +37,10 @@ Never include `output`, `summary`, `background`, `parent_id`, `new_sibling_tasks
 `cancel_ids` may include only stale non-terminal direct siblings of this replanner. Never include the failed task id, the original `request_replan` task, this replanner id, terminal tasks, or nested descendants. Cancel the stale sibling root only; cascade handles descendants and dependents.
 
 Replacement tasks may include a sibling's scope only when that sibling id appears in `cancel_ids`.
+
+## Terminal Validator Rule
+
+If `new_tasks` has 3 or more concrete non-planner tasks and no preserved downstream validator already covers the repair surface, add exactly one terminal validator whose `deps` cover every concrete repair id in this payload. This rule applies to both the add-only and the cancel-and-redraft paths. Skip the validator only when a downstream validator already rewired to this replanner covers the surface, or when fewer than 3 concrete tasks are being added.
 
 ## Spec Contents
 
@@ -73,7 +77,7 @@ Do not tell children to `cd /testbed`, run from `/testbed`, or wrap commands wit
       "id": "repair-config-path",
       "description": "Repair config loader path",
       "name": "developer",
-      "spec": "1. Goal: Repair the config regression in the production loader path identified by the failed task.\n2. Task Details: Classification: scope_expansion. The failed task proved the original assigned file was not the source of the wrong value; the root cause mechanism is the config lookup branch in pkg/config.py. Own pkg/config.py, run ci_diagnostics(file_path=\"pkg/config.py\") first, preserve the named failing test evidence in the summary, and do not edit benchmark tests.\n3. Acceptance Criteria: Run uv run pytest tests/test_config.py -q and the focused failing test id from the failed summary; report commands, exit codes, and whether the config lookup branch now matches the expected production behavior.",
+      "spec": "1. Goal: Repair the config regression in the production loader path identified by the failed task.\n2. Task Details: Classification: scope_expansion. The failed task proved the original assigned file was not the source of the wrong value; the root cause mechanism is the config lookup branch in pkg/config.py. Own pkg/config.py, run ci_diagnostics(file_path=\"pkg/config.py\") first, preserve the named failing test evidence in the summary, and do not edit benchmark tests. Verification test paths appear in acceptance only; scope_paths stays on the production file.\n3. Acceptance Criteria: Run uv run pytest tests/test_config.py -q and the focused failing test id from the failed summary; report commands, exit codes, and whether the config lookup branch now matches the expected production behavior.",
       "deps": [],
       "scope_paths": ["pkg/config.py"]
     }

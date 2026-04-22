@@ -1,12 +1,4 @@
-"""Advisory post-hook for ambient changed paths produced by CodeAct shells.
-
-CodeAct's ``svc.cmd`` Git workspace audit distinguishes files the command was
-expected to write (``changed_paths``) from files it touched as a side
-effect (``ambient_changed_paths``). Coordinated CodeAct shells are
-runtime-only — ambient changes to the workspace are concurrent drift, not
-authorised edits. Surface them as a user-only advisory so operators can
-see the drift without interrupting the agent.
-"""
+"""Warn when CodeAct changes files outside its audited target paths."""
 
 from __future__ import annotations
 

@@ -349,7 +349,6 @@ Bundled packaged skills:
 - team-validator-playbook
 - team-scout-playbook
 - team-replanner-playbook
-- verification-replan
 - task-decompose
 - changelog-decompose
 ```

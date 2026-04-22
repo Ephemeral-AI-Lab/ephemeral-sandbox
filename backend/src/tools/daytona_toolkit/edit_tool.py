@@ -1,10 +1,4 @@
-"""File editing tool for Daytona sandboxes.
-
-Atomic search/replace edits flow through the code-intelligence OCC commit
-path (``svc.edit_file``) so every tool call = one OCC batch = atomic
-across its edits, with drift detection handled by the coordinator's
-strict-base branch.
-"""
+"""Search/replace editing for Daytona files."""
 
 from __future__ import annotations
 
@@ -33,22 +27,22 @@ class DaytonaEditFileInput(BaseModel):
     file_path: str = Field(..., description="Path to the file to edit.")
     old_text: str = Field(
         default="",
-        description="Exact text to find in single-edit mode. Pair only with new_text.",
+        description="Exact text to replace. Use only with new_text.",
     )
     new_text: str = Field(
         default="",
-        description="Replacement text for single-edit mode. Do not send with edits.",
+        description="Replacement text. Do not send this with edits.",
     )
     edits: list[dict[str, Any]] | None = Field(
         default=None,
         description=(
-            "Optional batch of edit objects. Supported shape: "
+            "Batch replacements. Each item should look like "
             "{\"strategy\":\"search_replace\",\"search\":\"...\",\"replace\":\"...\"}."
         ),
     )
     description: str = Field(
         default="",
-        description="Optional human-readable description of the edit.",
+        description="Optional short note about the edit.",
     )
 
 
@@ -73,12 +67,9 @@ def _normalize_edits(
     new_text: str,
     edits: list[dict[str, Any]] | None,
 ) -> tuple[list[SearchReplaceEdit], str | None, bool]:
-    """Validate and normalize tool inputs into patcher edit objects.
+    """Turn tool input into search/replace edits.
 
-    Returns ``(normalized_edits, error_message, legacy_single_edit)``.
-    ``legacy_single_edit`` is ``True`` when the caller used the
-    top-level ``old_text``/``new_text`` pair rather than the ``edits``
-    list, so the error path can mimic the historical message shape.
+    The boolean is true when the caller used old_text/new_text mode.
     """
     if edits is not None:
         if old_text or new_text:
@@ -121,22 +112,11 @@ def _normalize_edits(
 @tool(
     name="daytona_edit_file",
     description=(
-        "Edit a file atomically through the OCC-gated code-intelligence "
-        "commit path. Use exactly one mode: "
-        "(1) `old_text` + `new_text` for a single replacement or "
-        "(2) `edits=[{\"strategy\":\"search_replace\",\"search\":\"...\",\"replace\":\"...\"}]` "
-        "for batched replacements. Never send `new_text` together with `edits`. "
-        "Before calling, compare `file_path` to your `scope_paths`; if it is outside "
-        "scope, make an explicit widened-edit decision. "
-        "In coordinated team lanes, outside-scope writes are advisory, not a hard gate. "
-        "Proceed when the target is a justified production owner for the same bug, "
-        "including a missing module, compatibility shim, re-export, or import bridge when production ownership is clear; "
-        "otherwise submit `submit_task_summary(type='request_replan')` so replanning can widen "
-        "or resequence the task. Test imports, collection errors, and target counts naming "
-        "the path are evidence, not sufficient ownership by themselves. In coordinated team lanes, test files are "
-        "read/verify-only and this tool blocks test-file writes unless runtime metadata "
-        "explicitly enables test-file edits. Task prose alone cannot bypass this block. "
-        "If you continue after an outside-scope warning, include the widened path, rationale, and verification in the terminal summary."
+        "Edit a sandbox file with exact search/replace. Use exactly one mode: "
+        "`old_text` + `new_text` for one replacement, or `edits=[...]` for many. "
+        "Do not send `new_text` with `edits`. In team lanes, test-file writes are "
+        "blocked unless runtime metadata allows them. Outside-scope production edits "
+        "need a clear ownership reason and verification. If scope is unclear, request replanning."
     ),
     short_description="Apply atomic file edits.",
     input_model=DaytonaEditFileInput,
@@ -151,7 +131,7 @@ async def daytona_edit_file(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Edit a file atomically through ``svc.edit_file``."""
+    """Edit a file with search/replace."""
     tool_started = time.perf_counter()
     tool_timings: dict[str, float] = {}
 
@@ -222,12 +202,7 @@ def _edit_failure_result(
     legacy_single_edit: bool,
     metadata_extra: dict[str, Any] | None = None,
 ) -> ToolResult:
-    """Translate a failed :class:`OperationResult` into a tool-facing error.
-
-    ``legacy_single_edit`` preserves the pre-migration error text for the
-    common "search text not found" case so callers that match on the
-    message keep working.
-    """
+    """Return the user-facing error for a failed edit."""
     if (
         legacy_single_edit
         and result.conflict_reason == "patch_failed"

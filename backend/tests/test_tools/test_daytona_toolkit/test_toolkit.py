@@ -142,17 +142,13 @@ def test_codeact_schema_describes_direct_repo_root_commands():
 
     schema = tool.to_api_schema()["input_schema"]
     command_description = schema["properties"]["command"]["description"]
-    assert "execute directly from repo root" in command_description
-    assert "literal `|` or `>` characters mean the command is invalid input" in command_description
-    assert "Do not prefix `cd /testbed &&`" in command_description
-    assert "`2>&1`, `2>/dev/null`, `| head`, `| tail`" in command_description
-    assert "captured and truncated automatically" in command_description
-    assert "`python -m pytest ... 2>&1 | head -80`" in command_description
-    assert "`python -m pytest ... | tail -60`" in command_description
+    assert "run from the repo root" in command_description
+    assert "Do not include `|`, `>`" in command_description
+    assert "`2>&1`, `2>/dev/null`, `head`, or `tail`" in command_description
+    assert "output is captured automatically" in command_description
+    assert "Do not start with `cd /testbed &&`" in command_description
 
-    assert "Run repo-root shell/Python; no pipes, redirects, cd, head, or tail." in (
-        tool.short_description
-    )
+    assert tool.short_description == "Run shell or Python from the repo root."
 
 
 def test_toolkit_get_missing_tool():
@@ -169,11 +165,10 @@ def test_toolkit_list_tools_length():
 def test_toolkit_instructions_prioritize_ci_before_raw_file_reads():
     tk = DaytonaToolkit()
     assert "Use CI/navigation tools first" in tk.instructions
-    assert "after CI/search narrowed the target" in tk.instructions
+    assert "after you know the target path or line range" in tk.instructions
     assert "Use exactly one mode" in tk.instructions
-    assert "a literal `|` or `>` in `command` is invalid" in tk.instructions
-    assert "do not append stdout/stderr capture plumbing" in tk.instructions
-    assert "progress is line/chunk-based and depends on command stdout/stderr flushing" in tk.instructions
+    assert "must not contain `|`, `>`, `2>&1`, `2>/dev/null`, `head`, or `tail`" in tk.instructions
+    assert "output is captured automatically" in tk.instructions
     assert "python -u" in tk.instructions
     assert "daytona_rename_symbol" in tk.instructions
 

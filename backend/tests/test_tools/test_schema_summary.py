@@ -106,7 +106,7 @@ def test_daytona_summary_rejects_unprefixed_write_file_alias(tmp_path):
     assert "Toolkit: sandbox_operations" in summary
     assert "there is no `write_file` tool" in summary
     assert "do not call `write_file`" in summary
-    assert "stdout/stderr capture plumbing" in summary
+    assert "output is captured automatically" in summary
     assert "2>/dev/null" in summary
 
 

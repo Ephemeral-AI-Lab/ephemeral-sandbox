@@ -180,7 +180,8 @@ def test_register_is_idempotent() -> None:
     assert len(registry.matching("daytona_move_file", "post")) == 1
 
 
-def test_move_schema_mentions_scope_added_notification() -> None:
+def test_move_schema_is_short_and_actionable() -> None:
     description = daytona_move_file.to_api_schema()["description"]
-    assert "successful move extends the lane's in-memory write scope" in description
-    assert "system notification listing the updated scope_paths" in description
+    assert "Move a sandbox file" in description
+    assert "Set `is_folder=True` to move a folder tree" in description
+    assert "Use this instead of `mv`" in description

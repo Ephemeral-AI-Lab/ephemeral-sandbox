@@ -14,16 +14,18 @@ flowchart TD
     A{"1. Load recovery context"} --> B{"2. Classify failure mode"}
     B -- "Production owner already proven" --> C["Direct replan"]
     B -- "Concrete blocker, trace gap remains" --> D["Diagnostics"]
-    B -- "No production repair surface" --> E["submit_replan({ new_tasks: [], cancel_ids: [] })"]
     D --> F["Scout narrow trace gaps"]
     F --> G["Synthesize repair mapping"]
     C --> H{"Cancel stale direct sibling?"}
     G --> H
     H -- "Yes" --> I["load action-cancel-and-redraft"]
     H -- "No" --> J["load action-add-tasks"]
-    I --> K["load terminal-contract -> submit_replan"]
+    I --> K["load terminal-contract"]
     J --> K
+    K --> L["submit_replan(...)"]
 ```
+
+Every branch must load `terminal-contract` before drafting the payload.
 
 ## 1. Load Recovery Context
 
@@ -36,7 +38,7 @@ Read live Task Center evidence before diagnosis or planning:
 5. `read_task_graph()` to inspect same-parent siblings and rewired dependents
 6. `read_task_details(task_id=<sibling id>)` only for siblings you may preserve, cancel, depend on, or avoid
 
-Use only exact UUIDs from the assigned replanning header. Do not substitute planner slugs, short ids, background ids, or graph-only guesses.
+Skip any read whose id equals one you already fetched (common case: the replanner's parent is the failed task). Use only exact UUIDs from the assigned replanning header. Do not substitute planner slugs, short ids, background ids, or graph-only guesses.
 
 Extract from the failed task: final summary, failure reason, root cause trace, failing command, exit code, snippet, trace path, production mechanism, and candidate fix location. Keep verified facts separate from unresolved gaps.
 
@@ -49,7 +51,6 @@ Choose one:
 | `scope_expansion` | The failed task proved the repair belongs to a different live production code path outside its assigned scope. | Direct replan |
 | `wrong_owner_or_role` | The failed task proved a different production owner or agent role owns the repair. | Direct replan |
 | `unresolved_blocker` | A concrete blocker remains and can be stated as a production trace gap. | Diagnostics |
-| `no_corrective_surface` | Evidence leaves only same-scope continuation, unfinished edits, failed attempts, budget exhaustion, incomplete verification, ambient sibling drift, test-derived work, or no live production path. | Empty replan |
 
 Direct replan evidence must name both:
 
@@ -70,33 +71,47 @@ Use this path for `scope_expansion` or `wrong_owner_or_role` when evidence alrea
 - Leave live sibling scopes alone unless you cancel a stale direct sibling.
 - Drop candidates that only continue unfinished same-scope work.
 - Drop candidates whose only evidence is a benchmark test path, test import, or test-derived helper.
-- Load `action-add-tasks` if `cancel_ids=[]`.
-- Load `action-cancel-and-redraft` only for stale non-terminal direct siblings.
+- If `cancel_ids=[]`, load `action-add-tasks` before drafting:
+
+  ```text
+  load_skill_reference(skill_name="team-replanner-playbook", reference_name="action-add-tasks")
+  ```
+
+- If you must cancel a stale non-terminal direct sibling, load `action-cancel-and-redraft` instead:
+
+  ```text
+  load_skill_reference(skill_name="team-replanner-playbook", reference_name="action-cancel-and-redraft")
+  ```
 
 ### Diagnostics
 
 Use this path for `unresolved_blocker` only.
 
-1. Load `scout-launch-contract`.
-2. Read file notes for production paths already named by the trace.
-3. Launch one scout per statable trace-gap triplet.
-4. Wait for terminal envelopes.
-5. Read `read_file_note(...)` for every exact scout target path.
-6. Synthesize the repair mapping yourself.
+1. Read file notes for production paths already named by the trace. If a note already contains root-cause-grade evidence, skip scouting that path.
+2. Enumerate distinct trace-gap triplets: one failing test id or cluster, one suspected production path, and one named symbol or seam. Drop gaps that cannot be stated this way.
+3. Launch one scout per remaining triplet: `run_subagent(agent_name="scout", input={"target_paths": ["<production path>"], "context": "Diagnostic for <triplet>; confirm or rule out <seam>; post evidence via submit_file_note."})`.
+4. Queue the whole scout wave before checking progress or waiting.
+5. Wait for terminal envelopes, then read `read_file_note(...)` for every exact scout target path.
+6. Synthesize the repair mapping yourself, including partial findings and disproved hypotheses.
+7. After synthesis, load the action reference that matches your mapping (same decision as Direct replan):
 
-Do not load action references while scouts are running. Do not delegate synthesis to a child `team_planner`.
+   ```text
+   load_skill_reference(skill_name="team-replanner-playbook", reference_name="action-add-tasks")
+   ```
 
-### Empty replan
+   Or, if a stale non-terminal direct sibling must be cancelled:
 
-Use this when the mode is `no_corrective_surface`, or diagnostics disprove every production repair path:
+   ```text
+   load_skill_reference(skill_name="team-replanner-playbook", reference_name="action-cancel-and-redraft")
+   ```
 
-```json
-{ "new_tasks": [], "cancel_ids": [] }
-```
+Scout only live production files or directories. Never scout benchmark tests, `*/tests/*`, `test_*.py`, unconfirmed test-derived paths, missing test-derived paths, or broad/vague boundaries. Keep failing tests in scout `context`, not `target_paths`.
+
+Do not load action references while scouts are running. Do not delegate synthesis to a child `team_planner`. Always produce at least one corrective task; partial scout findings still require a best-effort repair mapping.
 
 ## 4. Submit
 
-Before any non-empty or cancellation payload, load `terminal-contract`:
+Before drafting the payload, load `terminal-contract`:
 
 ```text
 load_skill_reference(skill_name="team-replanner-playbook", reference_name="terminal-contract")
@@ -115,7 +130,6 @@ Then self-check:
 
 ## Reference Map
 
-- `terminal-contract`: schema, payload examples, and final checklist. Load before drafting any non-empty or cancellation payload.
+- `terminal-contract`: schema, payload examples, and final checklist. Load before drafting the payload.
 - `action-add-tasks`: add corrective children with `cancel_ids=[]`.
 - `action-cancel-and-redraft`: cancel stale direct siblings and add replacements.
-- `scout-launch-contract`: run diagnostic scouts for unresolved production trace gaps.

@@ -67,8 +67,8 @@ Steps:
 1. Scrub `target_paths`: each entry must be a live production file/directory unless tests are explicitly the owned surface.
 2. Put benchmark tests, failing ids, missing test-derived paths, and verification commands in scout `context`, not `target_paths`.
 3. Launch all useful scouts for the wave before checking progress.
-4. Call `check_background_progress(task_id="all")` after launch, then `wait_for_background_task(task_id="all")`; repeat progress/wait until scouts are terminal or clearly unusable.
-5. If progress shows a scout is halted, blocked, or not producing useful output, call `cancel_background_task(task_id="<that bg id>")` and carry the missing evidence as uncertainty.
+4. Call `check_background_progress(task_id="all")` after launch, then `wait_for_background_task(task_id="all")` to join. Any status other than `running` (`completed`, `failed`, `cancelled`, `delivered`) is terminal; loop progress/wait only while at least one scout is still `running`.
+5. If `check_background_progress` shows a scout still `running` with an unchanged peek buffer across two consecutive checks, or off-scope wandering, call `cancel_background_task(task_id="<that bg id>")` and carry the missing evidence as uncertainty.
 6. When scouts are terminal or canceled, call `read_file_note(file_path="...")` for every exact launched target path that produced a note.
 7. On cold CI, a canceled scout, or a disproved exact file, fall back to the nearest stable production boundary instead of preserving a guessed exact path.
 
@@ -122,7 +122,7 @@ Steps:
 1. Build one `new_tasks` JSON list from the decided DAG.
 2. Use repo-relative production `scope_paths` for every task, including validators; never submit `/testbed/...` paths.
 3. Put benchmark tests and verification commands in `spec`, not `scope_paths`, unless tests are explicitly the owned surface.
-4. Put owner evidence, dependency context, and uncertainty in `2. Task Detail:`.
+4. Put owner evidence, dependency context, and uncertainty in `2. Task Details:`.
 5. Put concrete test-suite expectations in `3. Acceptance Criteria:`.
 6. Use `deps` only for valid same-payload ids.
 7. Check the Terminal Tool Contract below.
@@ -158,7 +158,7 @@ type NewTaskSpec = {
 | `id` | Unique lower-kebab id in this payload (e.g. `dev-runtime-policy`). Other tasks reference this exact string in `deps`. |
 | `description` | Short non-blank label naming the owner and outcome. Blank strings are rejected. |
 | `name` | Use only `developer`, `team_planner`, or `validator`: `developer` for exact owner work, `team_planner` for decomposition, `validator` for the terminal guard. Never put `scout` or `team_replanner` in `new_tasks`; scouts run via `run_subagent(...)`, replanners are spawned reactively by the runtime. |
-| `spec` | One string with three numbered colon labels in order, each on its own line with body continuing after the colon: `1. Goal:`, `2. Task Detail:`, `3. Acceptance Criteria:`. `Task Detail` must describe owner evidence, exact production scope, important constraints, and dependency context. `Acceptance Criteria` must be test-suite focused (named commands, focused pytest ids, broadened suites, and evidence expected in the final summary). Markdown headings, one-liners that cram every label together, and labels whose body starts on the next line are rejected. |
+| `spec` | One string with three numbered colon labels in order, each on its own line with body continuing after the colon: `1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:`. `Task Details` must describe owner evidence, exact production scope, important constraints, and dependency context. `Acceptance Criteria` must be test-suite focused (named commands, focused pytest ids, broadened suites, and evidence expected in the final summary). Markdown headings, one-liners that cram every label together, and labels whose body starts on the next line are rejected. |
 | `deps` | JSON list of task ids that must finish first. Each id must name another task in this same `new_tasks` payload. Independent work uses `[]`. The terminal validator lists every same-payload non-validator id, including every `developer` and child `team_planner` lane. |
 | `scope_paths` | Non-empty JSON list of repo-relative production paths the task owns or verifies. Use directories for broad planner/validator scopes. |
 
@@ -173,7 +173,7 @@ type NewTaskSpec = {
       "id": "dev-replan-rewire",
       "description": "Fix replan dependency rewiring",
       "name": "developer",
-      "spec": "1. Goal: Rewire pending downstream dependents through the spawned replanner after a worker failure.\n2. Task Detail: Own backend/src/team/task_center.py. Preserve executor and DispatchQueue boundaries, keep the original failed-task terminal path unchanged, and carry benchmark evidence from backend/tests/team/test_replan_workflow.py into the implementation summary.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_replan_workflow.py -q; the suite proves pending dependents point at the replanner, non-pending dependents raise invariant failures, and all commands plus exit codes are reported.",
+      "spec": "1. Goal: Rewire pending downstream dependents through the spawned replanner after a worker failure.\n2. Task Details: Own backend/src/team/task_center.py. Preserve executor and DispatchQueue boundaries, keep the original failed-task terminal path unchanged, and carry benchmark evidence from backend/tests/team/test_replan_workflow.py into the implementation summary.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_replan_workflow.py -q; the suite proves pending dependents point at the replanner, non-pending dependents raise invariant failures, and all commands plus exit codes are reported.",
       "deps": [],
       "scope_paths": ["backend/src/team/task_center.py"]
     },
@@ -181,7 +181,7 @@ type NewTaskSpec = {
       "id": "plan-submission-policy",
       "description": "Decompose submission policy updates",
       "name": "team_planner",
-      "spec": "1. Goal: Decompose submission policy work across schema, runtime policy, and prompts.\n2. Task Detail: Own decomposition under backend/src/tools/submission, backend/src/team/runtime, and backend/src/prompt. Scout evidence shows multiple owner families; the child planner must preserve production-only scopes and avoid future child ids in this root payload.\n3. Acceptance Criteria: Child plan includes exact owner lanes, one child-layer validator, and test-suite coverage for uv run pytest backend/tests/test_engine backend/tests/team -q plus any focused prompt or submission-tool tests named by child evidence.",
+      "spec": "1. Goal: Decompose submission policy work across schema, runtime policy, and prompts.\n2. Task Details: Own decomposition under backend/src/tools/submission, backend/src/team/runtime, and backend/src/prompt. Scout evidence shows multiple owner families; the child planner must preserve production-only scopes and avoid future child ids in this root payload.\n3. Acceptance Criteria: Child plan includes exact owner lanes, one child-layer validator, and test-suite coverage for uv run pytest backend/tests/test_engine backend/tests/team -q plus any focused prompt or submission-tool tests named by child evidence.",
       "deps": [],
       "scope_paths": ["backend/src/tools/submission", "backend/src/team/runtime", "backend/src/prompt"]
     },
@@ -189,7 +189,7 @@ type NewTaskSpec = {
       "id": "dev-skill-registration",
       "description": "Update bundled skill registration",
       "name": "developer",
-      "spec": "1. Goal: Keep bundled team playbook registration aligned with the root planner changes.\n2. Task Detail: Own backend/src/skills and related registration surfaces. This lane is independent from the TaskCenter and submission-policy lanes, so it runs in parallel while still being covered by the terminal validator.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_team/test_builtin_agent_registration.py -q and uv run pytest backend/tests/test_skills/test_team_playbook_quality.py -q; both suites pass and registration failures include exact missing skill ids.",
+      "spec": "1. Goal: Keep bundled team playbook registration aligned with the root planner changes.\n2. Task Details: Own backend/src/skills and related registration surfaces. This lane is independent from the TaskCenter and submission-policy lanes, so it runs in parallel while still being covered by the terminal validator.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_team/test_builtin_agent_registration.py -q and uv run pytest backend/tests/test_skills/test_team_playbook_quality.py -q; both suites pass and registration failures include exact missing skill ids.",
       "deps": [],
       "scope_paths": ["backend/src/skills"]
     },
@@ -197,7 +197,7 @@ type NewTaskSpec = {
       "id": "val-parallel-root-plan",
       "description": "Validate parallel root plan outputs",
       "name": "validator",
-      "spec": "1. Goal: Verify all parallel implementation and decomposition outputs.\n2. Task Detail: Verify backend/src/team/task_center.py, backend/src/tools/submission, backend/src/team/runtime, backend/src/prompt, and backend/src/skills after all parallel lanes finish. This terminal validator depends on every same-payload non-validator task.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_replan_workflow.py -q, uv run pytest backend/tests/test_engine backend/tests/team -q, uv run pytest backend/tests/test_team/test_builtin_agent_registration.py -q, and uv run pytest backend/tests/test_skills/test_team_playbook_quality.py -q; all suites pass or failures identify the owning scope.",
+      "spec": "1. Goal: Verify all parallel implementation and decomposition outputs.\n2. Task Details: Verify backend/src/team/task_center.py, backend/src/tools/submission, backend/src/team/runtime, backend/src/prompt, and backend/src/skills after all parallel lanes finish. This terminal validator depends on every same-payload non-validator task.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_replan_workflow.py -q, uv run pytest backend/tests/test_engine backend/tests/team -q, uv run pytest backend/tests/test_team/test_builtin_agent_registration.py -q, and uv run pytest backend/tests/test_skills/test_team_playbook_quality.py -q; all suites pass or failures identify the owning scope.",
       "deps": ["dev-replan-rewire", "plan-submission-policy", "dev-skill-registration"],
       "scope_paths": ["backend/src/team/task_center.py", "backend/src/tools/submission", "backend/src/team/runtime", "backend/src/prompt", "backend/src/skills"]
     }
@@ -214,7 +214,7 @@ type NewTaskSpec = {
       "id": "dev-agent-runtime-state",
       "description": "Update agent runtime state",
       "name": "developer",
-      "spec": "1. Goal: Update agent runtime state handling for the new planner contract.\n2. Task Detail: Own backend/src/engine/runtime/agent.py. Runs in parallel with prompt-helper work; downstream prompt rendering waits on this output.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_engine/test_spawn_agent.py -q; all pass and the summary names the state fields changed.",
+      "spec": "1. Goal: Update agent runtime state handling for the new planner contract.\n2. Task Details: Own backend/src/engine/runtime/agent.py. Runs in parallel with prompt-helper work; downstream prompt rendering waits on this output.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_engine/test_spawn_agent.py -q; all pass and the summary names the state fields changed.",
       "deps": [],
       "scope_paths": ["backend/src/engine/runtime/agent.py"]
     },
@@ -222,7 +222,7 @@ type NewTaskSpec = {
       "id": "dev-prompt-helpers",
       "description": "Update prompt helper formatting",
       "name": "developer",
-      "spec": "1. Goal: Update prompt helper formatting for the new task detail and acceptance criteria text.\n2. Task Detail: Own backend/src/prompt/helpers.py and backend/src/prompt/__init__.py. Parallel with runtime state work; the final prompt renderer depends on both outputs.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_prompts/test_prompt_helpers.py -q; the suite passes and formatting snapshots reflect the current labels.",
+      "spec": "1. Goal: Update prompt helper formatting for the new task detail and acceptance criteria text.\n2. Task Details: Own backend/src/prompt/helpers.py and backend/src/prompt/__init__.py. Parallel with runtime state work; the final prompt renderer depends on both outputs.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_prompts/test_prompt_helpers.py -q; the suite passes and formatting snapshots reflect the current labels.",
       "deps": [],
       "scope_paths": ["backend/src/prompt/helpers.py", "backend/src/prompt/__init__.py"]
     },
@@ -230,7 +230,7 @@ type NewTaskSpec = {
       "id": "dev-runtime-prompt",
       "description": "Update runtime prompt rendering",
       "name": "developer",
-      "spec": "1. Goal: Integrate runtime state and prompt helper outputs into runtime prompt rendering.\n2. Task Detail: Own backend/src/prompt/runtime_prompt.py. Depends on dev-agent-runtime-state and dev-prompt-helpers because this renderer consumes state and helper wording from those parallel lanes.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_prompts/test_runtime_prompt.py -q and uv run pytest backend/tests/test_prompts -q; both pass and failures include exact prompt sections.",
+      "spec": "1. Goal: Integrate runtime state and prompt helper outputs into runtime prompt rendering.\n2. Task Details: Own backend/src/prompt/runtime_prompt.py. Depends on dev-agent-runtime-state and dev-prompt-helpers because this renderer consumes state and helper wording from those parallel lanes.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_prompts/test_runtime_prompt.py -q and uv run pytest backend/tests/test_prompts -q; both pass and failures include exact prompt sections.",
       "deps": ["dev-agent-runtime-state", "dev-prompt-helpers"],
       "scope_paths": ["backend/src/prompt/runtime_prompt.py"]
     },
@@ -238,7 +238,7 @@ type NewTaskSpec = {
       "id": "val-mixed-rollout",
       "description": "Validate mixed rollout",
       "name": "validator",
-      "spec": "1. Goal: Verify the parallel helper/runtime work and dependent prompt rendering.\n2. Task Detail: Verify same-layer outputs from dev-agent-runtime-state, dev-prompt-helpers, and dev-runtime-prompt. Confirm the parallel starts and the dependent renderer used valid same-payload ids.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_engine/test_spawn_agent.py -q and uv run pytest backend/tests/test_prompts -q; all pass or failures are reported with command, exit code, and owning scope.",
+      "spec": "1. Goal: Verify the parallel helper/runtime work and dependent prompt rendering.\n2. Task Details: Verify same-layer outputs from dev-agent-runtime-state, dev-prompt-helpers, and dev-runtime-prompt. Confirm the parallel starts and the dependent renderer used valid same-payload ids.\n3. Acceptance Criteria: Run uv run pytest backend/tests/test_engine/test_spawn_agent.py -q and uv run pytest backend/tests/test_prompts -q; all pass or failures are reported with command, exit code, and owning scope.",
       "deps": ["dev-agent-runtime-state", "dev-prompt-helpers", "dev-runtime-prompt"],
       "scope_paths": ["backend/src/engine/runtime/agent.py", "backend/src/prompt"]
     }
@@ -254,6 +254,6 @@ type NewTaskSpec = {
 - If any non-validator task exists, the plan has exactly one terminal validator whose `deps` include every other same-payload id, including every `developer` and child `team_planner` lane.
 - Every `name` is `developer`, `team_planner`, or `validator` — never `scout` or `team_replanner`.
 - Every task has a non-blank `description` and non-empty production `scope_paths`.
-- Every `spec` contains the three numbered colon labels in order (`1. Goal:`, `2. Task Detail:`, `3. Acceptance Criteria:`), each on its own line with body after the colon on the same line.
+- Every `spec` contains the three numbered colon labels in order (`1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:`), each on its own line with body after the colon on the same line.
 - Every `Acceptance Criteria` is test-suite focused, with concrete commands or pytest ids and expected evidence.
 - The final assistant action is the `submit_plan(...)` tool call, not prose.

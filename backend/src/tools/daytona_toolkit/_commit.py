@@ -1,23 +1,4 @@
-"""Unified entry point for OCC-gated tool calls.
-
-Every Daytona tool that commits file changes (``daytona_write_file``,
-``daytona_edit_file``, ``daytona_delete_file``, ``daytona_move_file``,
-``daytona_codeact``) funnels through one of two façades here:
-
-* :func:`submit_commit` wraps the sync ``svc.{write,edit,delete,move}_file``
-  path (``OperationResult``).
-* :func:`submit_codeact_cmd` wraps the async ``svc.cmd`` audit path
-  (auditor ``SimpleNamespace``).
-
-Both return :class:`FileChangeResult` so downstream post-hooks can read one
-uniform shape regardless of which service call produced it. Tool-specific
-payload fields (e.g. ``aborted_version`` status, per-spec errors, stdout)
-stay available through the typed ``raw`` attribute.
-
-Callers are responsible for the ci-unavailable short-circuit (``svc is None``)
-before entering the façade — see ``ci_write_required_result`` in
-:mod:`tools.core.ci_runtime`.
-"""
+"""Shared commit helpers for Daytona write tools."""
 
 from __future__ import annotations
 
@@ -49,16 +30,7 @@ _BATCHERS: dict[tuple[int, int], "_CommitBatcher"] = {}
 
 @dataclass(frozen=True, kw_only=True)
 class FileChangeResult(Generic[T]):
-    """Commit-audit slice returned by every OCC-gated tool façade.
-
-    ``changed_paths`` is the authoritative set the service actually committed.
-    Post-hooks read this key (plus ``ambient_changed_paths`` for cmd) to run
-    scope and audit checks uniformly across tools.
-
-    ``raw`` is the service-level return object and carries details that are
-    tool-specific (per-spec errors, stdout, abort-kind status). Kept typed so
-    callers that need it don't fall back to ``Any``.
-    """
+    """Normalized result for Daytona file-changing tools."""
 
     success: bool
     changed_paths: tuple[str, ...]
@@ -237,12 +209,7 @@ async def submit_commit(
     fallback_paths: Sequence[str],
     description: str,
 ) -> FileChangeResult["OperationResult"]:
-    """Run an OCC commit through ``svc.{op}_file`` and return the audit slice.
-
-    Caller must ensure ``get_ci_service(context)`` is non-None before calling.
-    The façade does the sync-in-thread wrap, sandbox I/O loop binding, and
-    ci-service rebind that every commit tool previously duplicated.
-    """
+    """Submit one write/edit/delete/move commit through the CI service."""
     from tools.core.ci_runtime import get_ci_service
 
     svc = get_ci_service(context)
@@ -281,22 +248,7 @@ async def submit_codeact_cmd(
     attribute_changes: bool = True,
     on_progress_line: Callable[[str], None] | None = None,
 ) -> FileChangeResult[SimpleNamespace]:
-    """Run a CodeAct shell/python command through ``svc.cmd`` and return the audit slice.
-
-    Python code is wrapped into a bash invocation by the caller before it
-    reaches here — the façade only sees the final bash ``command`` string.
-    When *sandbox* is ``None`` the façade reads it from ``context.metadata``;
-    pass an explicit handle when the caller already performed sandbox recovery
-    and holds a fresher handle than the context knows about.
-
-    Attribution (agent_id, team_run_id, agent_run_id, task_id) is pulled from
-    the context via :func:`agent_attribution_from_context` — callers do not
-    build it themselves.
-
-    Success is ``exit_code == 0 AND git_commit_status in (None, 'committed',
-    'noop')``. Overlay gitignore-only runs report ``noop`` because ignored
-    files are direct-merged before the tracked-file OCC phase.
-    """
+    """Run a CodeAct command through the CI service."""
     from tools.core.ci_runtime import get_ci_service
 
     svc = get_ci_service(context)

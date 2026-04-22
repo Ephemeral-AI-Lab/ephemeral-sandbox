@@ -1,12 +1,4 @@
-"""Post-hook: widen write_scope to successful write targets.
-
-Outside-scope ``daytona_write_file`` calls are allowed when justified. Once a
-call succeeds and the OCC commit reports changed paths, the widened edit should
-become part of the lane's in-memory write scope so follow-up writes to the same
-new file do not trip downstream scope checks. When a path is added, the hook
-also emits an advisory so the agent sees the updated scope in a system
-notification.
-"""
+"""Add successful write targets to write_scope."""
 
 from __future__ import annotations
 

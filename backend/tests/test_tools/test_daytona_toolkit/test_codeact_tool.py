@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import base64
 import json
-import re
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -136,12 +134,6 @@ def _make_sandbox(
 def _assert_ok(result) -> dict:
     assert not result.is_error, result.output
     return json.loads(result.output)
-
-
-def _submitted_wrapper(svc) -> str:
-    wrapper = svc.cmd.await_args.kwargs.get("stdin")
-    assert isinstance(wrapper, str)
-    return wrapper
 
 
 async def _capture_emit(events: list[StreamEvent], event: StreamEvent) -> None:
@@ -432,25 +424,91 @@ async def test_shell_mode_blocks_audited_test_suite_write_with_policy_message():
 
 
 @pytest.mark.parametrize(
-    ("command", "expected_fragment"),
+    ("command", "expected_fragments"),
     [
-        ("sed -i s/old/new/ dask/core.py", "in-place sed"),
+        (
+            "sed -i s/old/new/ dask/core.py",
+            [
+                "BLOCKED: daytona_codeact is for runtime commands",
+                "in-place sed",
+                "daytona_edit_file",
+                "daytona_delete_file",
+                "daytona_move_file",
+            ],
+        ),
         (
             "python -c \"from pathlib import Path; Path('dask/core.py').write_text('x')\"",
-            "inline Python file mutation",
+            [
+                "BLOCKED: daytona_codeact is for runtime commands",
+                "inline Python file mutation",
+                "daytona_edit_file",
+                "daytona_delete_file",
+                "daytona_move_file",
+            ],
         ),
-        ("printf x > dask/core.py", "shell output redirection"),
-        ("pytest 2>/tmp/errors.log", "shell output redirection"),
-        ("printf x >/dev/null.log", "shell output redirection"),
-        ("printf x | tee dask/core.py", "tee file write"),
-        ("mv dask/core.py dask/new_core.py", "filesystem mutation command"),
-        ("git rm dask/core.py", "filesystem mutation command"),
-        ("git mv dask/core.py dask/new_core.py", "filesystem mutation command"),
+        (
+            "printf x > dask/core.py",
+            [
+                "CodeAct policy error: commands must not contain",
+                "`daytona_codeact` already captures stdout/stderr",
+            ],
+        ),
+        (
+            "pytest 2>/tmp/errors.log",
+            [
+                "CodeAct policy error: commands must not contain",
+                "`daytona_codeact` already captures stdout/stderr",
+            ],
+        ),
+        (
+            "printf x >/dev/null.log",
+            [
+                "CodeAct policy error: commands must not contain",
+                "`daytona_codeact` already captures stdout/stderr",
+            ],
+        ),
+        (
+            "printf x | tee dask/core.py",
+            [
+                "CodeAct policy error: commands must not contain",
+                "`daytona_codeact` already captures stdout/stderr",
+            ],
+        ),
+        (
+            "mv dask/core.py dask/new_core.py",
+            [
+                "BLOCKED: daytona_codeact is for runtime commands",
+                "filesystem mutation command",
+                "daytona_edit_file",
+                "daytona_delete_file",
+                "daytona_move_file",
+            ],
+        ),
+        (
+            "git rm dask/core.py",
+            [
+                "BLOCKED: daytona_codeact is for runtime commands",
+                "filesystem mutation command",
+                "daytona_edit_file",
+                "daytona_delete_file",
+                "daytona_move_file",
+            ],
+        ),
+        (
+            "git mv dask/core.py dask/new_core.py",
+            [
+                "BLOCKED: daytona_codeact is for runtime commands",
+                "filesystem mutation command",
+                "daytona_edit_file",
+                "daytona_delete_file",
+                "daytona_move_file",
+            ],
+        ),
     ],
 )
 async def test_team_shell_mode_blocks_file_edit_side_channels_before_exec(
     command,
-    expected_fragment,
+    expected_fragments,
 ):
     sb = _make_sandbox(exec_stdout=_shell_exec_output("patched", 0))
     svc = _ci_service()
@@ -472,11 +530,8 @@ async def test_team_shell_mode_blocks_file_edit_side_channels_before_exec(
     )
 
     assert result.is_error
-    assert "BLOCKED: daytona_codeact is for runtime commands" in result.output
-    assert expected_fragment in result.output
-    assert "daytona_edit_file" in result.output
-    assert "daytona_delete_file" in result.output
-    assert "daytona_move_file" in result.output
+    for fragment in expected_fragments:
+        assert fragment in result.output
     svc.cmd.assert_not_awaited()
     sb.process.exec.assert_not_awaited()
 
@@ -490,7 +545,7 @@ async def test_team_shell_mode_blocks_file_edit_side_channels_before_exec(
         "optional-probe &>/dev/null",
     ],
 )
-async def test_team_shell_mode_blocks_stderr_suppression_before_exec(command):
+async def test_team_shell_mode_blocks_output_pipeline_before_stderr_suppression(command):
     sb = _make_sandbox(exec_stdout=_shell_exec_output("ok", 0))
     svc = _ci_service()
     ctx = _ctx(
@@ -511,12 +566,13 @@ async def test_team_shell_mode_blocks_stderr_suppression_before_exec(command):
     )
 
     assert result.is_error
-    assert "CodeAct policy error: CodeAct commands must preserve stderr" in result.output
+    assert "CodeAct policy error: commands must not contain" in result.output
+    assert "`daytona_codeact` already captures stdout/stderr" in result.output
     svc.cmd.assert_not_awaited()
     sb.process.exec.assert_not_awaited()
 
 
-async def test_team_python_mode_blocks_shell_helper_stderr_suppression_before_exec():
+async def test_team_python_mode_blocks_output_pipeline_before_stderr_suppression():
     sb = _make_sandbox(exec_stdout=_shell_exec_output("ok", 0))
     svc = _ci_service()
     ctx = _ctx(
@@ -537,7 +593,8 @@ async def test_team_python_mode_blocks_shell_helper_stderr_suppression_before_ex
     )
 
     assert result.is_error
-    assert "CodeAct policy error: CodeAct commands must preserve stderr" in result.output
+    assert "CodeAct policy error: commands must not contain" in result.output
+    assert "`daytona_codeact` already captures stdout/stderr" in result.output
     svc.cmd.assert_not_awaited()
     sb.process.exec.assert_not_awaited()
 
@@ -998,14 +1055,15 @@ async def test_coordinated_python_mode_blocks_os_process_wrappers_before_runtime
         assert sb.process.exec.await_count >= 1
 
 
-async def test_shell_mode_preserves_command_for_team_agents():
+async def test_shell_mode_blocks_legacy_cd_and_stderr_merge_for_team_agents():
     sb = _make_sandbox(exec_stdout=_shell_exec_output("ok", 0))
+    svc = _ci_service()
     ctx = _ctx(
         {
             "daytona_sandbox": sb,
             "daytona_cwd": "/testbed",
             "agent_name": "developer",
-            "ci_service": _ci_service(),
+            "ci_service": svc,
         }
     )
 
@@ -1015,29 +1073,18 @@ async def test_shell_mode_preserves_command_for_team_agents():
         ctx,
     )
 
-    data = _assert_ok(result)
-    assert (
-        data["shell_outputs"][0]["command"]
-        == "cd /testbed && pytest tests/unit/test_x.py -q 2>&1"
-    )
-    assert data["warnings"] == []
+    assert result.is_error
+    assert "CodeAct policy error: commands must not contain" in result.output
+    assert "leading `cd /testbed &&`" in result.output
+    svc.cmd.assert_not_awaited()
+    sb.process.exec.assert_not_awaited()
     texts = _notification_texts(events)
     assert not any("pre-hook advisory" in text for text in texts)
 
 
-async def test_python_mode_preserves_literal_shell_calls_for_team_agents():
+async def test_python_mode_blocks_legacy_shell_calls_for_team_agents():
     original_code = 'shell("cd /testbed && pytest tests/unit/test_x.py -q 2>&1")'
-    manifest = _make_manifest(
-        shells=[
-            {
-                "command": "cd /testbed && pytest tests/unit/test_x.py -q 2>&1",
-                "stdout": "ok",
-                "stderr": "",
-                "exit_code": 0,
-            }
-        ]
-    )
-    sb = _make_sandbox(manifest=manifest)
+    sb = _make_sandbox()
     svc = _ci_service()
     ctx = _ctx(
         {
@@ -1054,15 +1101,10 @@ async def test_python_mode_preserves_literal_shell_calls_for_team_agents():
         ctx,
     )
 
-    data = _assert_ok(result)
-    assert (
-        data["shell_outputs"][0]["command"]
-        == "cd /testbed && pytest tests/unit/test_x.py -q 2>&1"
-    )
+    assert result.is_error
+    assert "CodeAct policy error: commands must not contain" in result.output
+    assert "leading `cd /testbed &&`" in result.output
+    svc.cmd.assert_not_awaited()
+    sb.process.exec.assert_not_awaited()
     texts = _notification_texts(events)
     assert not any("pre-hook advisory" in text for text in texts)
-    wrapper = _submitted_wrapper(svc)
-    match = re.search(r'_CODE = base64\.b64decode\("([^"]+)"\)', wrapper)
-    assert match is not None
-    submitted_code = base64.b64decode(match.group(1)).decode("utf-8")
-    assert submitted_code == original_code

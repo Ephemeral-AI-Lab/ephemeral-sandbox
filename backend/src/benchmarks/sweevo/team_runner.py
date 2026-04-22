@@ -389,27 +389,24 @@ def _make_executor_factory(
 
 
 def _build_agent_overrides(instance: SWEEvoInstance) -> dict[str, dict[str, Any]]:
-    """Attach SWE-EVO runtime limits and validator skills to each builtin agent."""
+    """Attach SWE-EVO runtime limits to each builtin agent."""
     exec_limits = _derive_execution_runtime_limits(instance)
-    # (agent_name, extra_skills, limits, include_toolkits)
-    spec: list[tuple[str, tuple[str, ...], dict[str, int], bool]] = [
-        (ROOT_PLANNER, (), _derive_planner_runtime_limits(instance), True),
-        (TEAM_PLANNER, (), _derive_planner_runtime_limits(instance), True),
-        (DEVELOPER, (), exec_limits, False),
-        (SCOUT, (), exec_limits, False),
-        (VALIDATOR, ("verification-replan",), exec_limits, False),
-        (TEAM_REPLANNER, (), exec_limits, False),
+    planner_limits = _derive_planner_runtime_limits(instance)
+    # (agent_name, limits, include_toolkits)
+    spec: list[tuple[str, dict[str, int], bool]] = [
+        (ROOT_PLANNER, planner_limits, True),
+        (TEAM_PLANNER, planner_limits, True),
+        (DEVELOPER, exec_limits, False),
+        (SCOUT, exec_limits, False),
+        (VALIDATOR, exec_limits, False),
+        (TEAM_REPLANNER, exec_limits, False),
     ]
     overrides: dict[str, dict[str, Any]] = {}
-    for name, extra_skills, limits, include_toolkits in spec:
+    for name, limits, include_toolkits in spec:
         defn = get_definition(name)
         if defn is None:
             continue
-        merged_skills = list(defn.skills)
-        for s in extra_skills:
-            if s and s not in merged_skills:
-                merged_skills.append(s)
-        entry: dict[str, Any] = {"skills": merged_skills, **limits}
+        entry: dict[str, Any] = {"skills": list(defn.skills), **limits}
         if include_toolkits:
             entry["toolkits"] = list(defn.toolkits or [])
         overrides[name] = entry

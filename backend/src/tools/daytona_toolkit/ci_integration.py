@@ -18,11 +18,7 @@ _DESTRUCTIVE_SHELL_PATTERN = re.compile(
 
 
 def destructive_shell_command_error(command: str) -> str | None:
-    """Return an error if the command is an unconditionally blocked destructive operation.
-
-    This is checked before narrower coordination safeguards; destructive
-    commands are always blocked regardless of declared output paths.
-    """
+    """Return an error for always-blocked destructive shell commands."""
     if _DESTRUCTIVE_SHELL_PATTERN.search(command or ""):
         return (
             "BLOCKED: destructive shell command that targets workspace or system "
