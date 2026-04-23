@@ -19,6 +19,42 @@ Treat inherited benchmark, fail-to-pass, migration, compatibility, and broad upg
 - Use another child `team_planner` for broad decomposition. Keep current-layer `developer` lanes for small leaf fixes with a single narrow production surface, one coherent failure mechanism, and a coherent verification command.
 - Do not flatten independent failure mechanisms into one developer lane because they share nearby files or verification commands; overlapping `scope_paths` are allowed, split by mechanism when the work is otherwise independent.
 
+### Atomic vs. Expandable Decision
+
+Clustering Guidance above is a payload-level signal. The test below runs per owner slice: atomic slices become current-layer `developer` lanes; expandable slices route to another child `team_planner` when `grandchild_depth <= max_depth`, else to broader direct `developer` + `validator` tasks split by failure mechanism. A slice is atomic only when **every** atomic test holds; **any** expandable signal routes it to the expandable path.
+
+Atomic tests — all must hold:
+
+1. **Single production owner.** The fix lives in one file, symbol, or tight production surface that inherited evidence and live scout evidence pinned. Not a shortlist, not a guess, not "start here and see what else breaks".
+2. **Single coherent verification.** One focused pytest file or a tight cluster of ids under one suite exercises the change. The acceptance command is one line, not a matrix.
+3. **No cross-module spread.** Edits stay inside one module boundary. Multiple files inside the same module are fine when they share one coherent change.
+4. **Bounded blast radius.** The slice touches one invariant, one API boundary, or one behavior — a reviewer can hold the whole repair in their head.
+5. **Ownership settled.** Inherited evidence and scout notes do not leave ownership as "could also be X", "between A and B", or "depends on Y". The owner is identified, not shortlisted.
+6. **One failure mechanism.** Every named failing test in the slice traces to the same root cause. Multiple independent root causes under one file is still expandable.
+
+Expandable signals — any one routes to the expandable path:
+
+- **Multi-family failure span.** Failing clusters cross production families, layers, or modules.
+- **Matrix shape.** Inherited context or scout notes name multi-engine, multi-dtype, multi-format, multi-API, multi-backend, or multi-version coverage.
+- **Four-plus leaf fixes.** The slice requires four or more independent edits, even when each edit is narrow.
+- **Unresolved ownership.** Inherited evidence or scout left ownership as a shortlist or gated it on further investigation.
+- **Broad inherited surface.** Inherited benchmark, migration, compatibility, or framework upgrade slices; the parent framing is clustering, regardless of how many owners scouts named.
+- **Catch-all drafting.** The draft `2. Task Details:` would have to say "repair everything in module X" or list more than one independent production surface.
+- **Cross-cutting invariant.** The fix must be enforced at multiple independent call sites that each need their own verification.
+- **Mixed intent.** A single slice bundles a bugfix with a refactor, a migration with a feature, or policy with plumbing.
+- **Multiple failure mechanisms.** Inherited evidence or scout notes name two or more independent root causes under one scope; split by mechanism even when files overlap. At `grandchild_depth > max_depth`, emit one `developer` per mechanism with widened `scope_paths` and a spec that names the mechanism — a four-or-more-mechanism fusion into one catch-all `developer` is a routing bug, not an acceptable collapse.
+
+Borderline cases:
+
+- One named file with three independent failures that touch different APIs inside it → **expandable**; the file is a scope coincidence, not a coherent fix. Split by mechanism.
+- Three files in one module that all consume one shared contract change → **atomic**; sibling files are incidental scope, not independent owners.
+- Inherited benchmark slice where live scout evidence *disproves* the clustering signal at the slice level (stronger than a merely named owner) and reduces it to one failing helper in one production file → **atomic**; a terminal validator, if included, still covers the full suite.
+- "Touches every provider" cleanup where each change is mechanical but each provider is an independent owner with independent verification → **expandable**.
+- Scout named an exact symbol but the failing tests span two unrelated behaviors of that symbol → **expandable**; one owner is not the same as one coherent change.
+- Two named files where the second is a thin adapter that only re-exports or forwards to the first → **atomic**; the adapter is not an independent owner.
+
+When unsure, prefer the expandable path. A mis-routed `developer` that grows into a catch-all multi-owner fix under-covers the inherited surface and forces a replan. An extra planner layer (when `grandchild_depth <= max_depth`) or a wider per-mechanism split (when `grandchild_depth > max_depth`) adds structure but keeps decomposition correct.
+
 ### Lane Selection
 
 Lane selection is advisory, but apply it in this order. A single payload may mix lane names.
@@ -385,5 +421,6 @@ Rationale: `backend/src/tools/submission` is nested inside `backend/src/tools`, 
 | 9 | No fail-to-pass acceptance criterion treats skipped tests, expected failures, clear `ImportError`, or missing optional dependencies as passing closure for a named target. |
 | 10 | No named fail-to-pass cluster is covered only by a validator without a repair/decomposition owner. |
 | 11 | Any clustering job includes at least one child `team_planner` when `grandchild_depth <= max_depth`; no flat all-developer fan-out is submitted for multi-cluster benchmark repair unless `grandchild_depth > max_depth`. |
-| 12 | When a terminal validator is included, its `deps` list every same-payload non-validator id, including `team_planner` ids. |
-| 13 | The final assistant action is the `submit_plan(...)` tool call, not prose. |
+| 12 | Every non-validator task passed the atomic tests or was routed to the expandable path (child `team_planner` when `grandchild_depth <= max_depth`, else per-mechanism broader `developer` + `validator`) under a named expandable signal. |
+| 13 | When a terminal validator is included, its `deps` list every same-payload non-validator id, including `team_planner` ids. |
+| 14 | The final assistant action is the `submit_plan(...)` tool call, not prose. |
