@@ -45,6 +45,8 @@ Expandable signals — any one routes to `team_planner`:
 - **Cross-cutting invariant.** The fix must be enforced at multiple independent call sites that each need their own verification.
 - **Mixed intent.** A single slice bundles a bugfix with a refactor, a migration with a feature, or policy with plumbing.
 
+Multi-API family gate: trigger -> the request or scout notes for one family list multiple public APIs, backend implementations, or helper surfaces such as read, write, metadata, wrappers, adapters, or engines; required action -> classify the family as expandable and route it to `team_planner`; failure signal -> a `developer` spec calls the family coherent while its `Task Details` lists those APIs or surfaces.
+
 Self-consistency gate: trigger -> your synthesis notes call any slice expandable or say no slice passed the atomic tests; required action -> every named expandable slice is submitted with `name: "team_planner"`; failure signal -> notes say "expandable", "team_planner required", or "no slice passes atomic tests" but the final payload gives that slice `name: "developer"`. If that mismatch appears in your draft, change the `name` to `"team_planner"`; do not rewrite the rationale to make the developer assignment look acceptable.
 
 Borderline cases:

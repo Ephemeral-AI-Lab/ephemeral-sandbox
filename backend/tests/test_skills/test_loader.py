@@ -212,6 +212,21 @@ def test_team_replanner_playbook_uses_planner_style_contract() -> None:
     assert "Replan trigger gate" not in skill
 
 
+def test_team_replanner_playbook_defers_references_until_action_and_submit_stages() -> None:
+    skill = _read_bundled_skill("team-replanner-playbook")
+
+    assert "Reference boundary: action references belong only to Stage 3" in skill
+    assert "`terminal-contract` belongs only to Stage 4" in skill
+    assert "A `load_skill_reference(...)` call immediately after `load_skill(...)` is invalid" in skill
+    assert "Reference load gates: action reference trigger -> classification is final" in skill
+    assert "`terminal-contract` trigger -> the matching action reference has been loaded" in skill
+    assert "Failure signal -> `load_skill_reference(...)` appears before context reads" in skill
+    assert "before the classification line" in skill
+    assert "before diagnostics/scout harvesting finishes" in skill
+    assert "loads `terminal-contract` before the matching action reference" in skill
+    assert "The action reference load is the stage transition" in skill
+
+
 def test_team_planner_playbook_uses_plural_task_details_label() -> None:
     skill = (
         _BUNDLED_SKILLS_DIR / "team-planner-playbook" / "SKILL.md"
@@ -285,10 +300,29 @@ def test_team_root_planner_playbook_defers_synthesis_reference_until_stage_three
         _BUNDLED_SKILLS_DIR / "team-root-planner-playbook" / "SKILL.md"
     ).read_text(encoding="utf-8")
 
+    assert "Stage boundary: `load_skill_reference(...)` belongs only to Stage 3" in skill
     assert "Catalog only. Do not load references from this map during Stage 1 or Stage 2." in skill
+    assert "A `load_skill_reference(...)` call immediately after `load_skill(...)` is invalid" in skill
     assert "Reference load gate: trigger -> owner ledger exists" in skill
     assert "load `synthesize-and-submit` as the first Stage 3 action" in skill
     assert 'reference_name="synthesize-and-submit")` appears before Analyze/Scout evidence' in skill
+    assert "in the same action that first analyzes failing tests" in skill
+    assert "benchmark test paths are verification evidence, not owner proof" in skill
+    assert "The reference load is the stage transition" in skill
+
+
+def test_team_planner_playbook_defers_submit_child_reference_until_stage_three() -> None:
+    skill = (
+        _BUNDLED_SKILLS_DIR / "team-planner-playbook" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+
+    assert "Stage boundary: `load_skill_reference(...)` belongs only to Stage 3" in skill
+    assert "Catalog only. Do not load references from this map during Stage 1 or Stage 2." in skill
+    assert "Reference load gate: trigger -> own task, parent task, dependency context" in skill
+    assert "load `submit-child-plan` as the first Stage 3 action" in skill
+    assert 'reference_name="submit-child-plan")` appears before context reads' in skill
+    assert "immediately after `load_skill(...)`" in skill
+    assert "The reference load is the stage transition" in skill
 
 
 def test_team_root_planner_playbook_loads_synthesize_submit_reference() -> None:
@@ -383,6 +417,10 @@ def test_team_root_planner_playbook_prefers_top_down_decomposition() -> None:
             "Use child `team_planner` for broad decomposition",
             "Name-field lock: after classifying a slice, write the `name` field",
             'the only valid `name` is `"team_planner"`',
+            "Atomic grouping gate: trigger -> two or more atomic slices have different owner files",
+            "one `developer` task spec lists multiple independent fixes across unrelated owners",
+            "Multi-API family gate: trigger -> the request or scout notes for one family list multiple public APIs",
+            "a `developer` spec calls the family coherent while its `Task Details` lists those APIs or surfaces",
             "Self-consistency gate: trigger -> your synthesis notes call any slice expandable",
             'but the final payload gives that slice `name: "developer"`',
             "## TaskSpec Examples",
@@ -439,6 +477,10 @@ def test_team_planner_playbook_prefers_recursive_decomposition() -> None:
             "use broader direct `developer` and `validator` tasks instead",
             "Name-field lock: after classifying a slice, write the `name` field",
             'must use `name: "team_planner"`, never `name: "developer"`',
+            "Atomic grouping gate: trigger -> two or more atomic slices have different owner files",
+            "submit separate current-layer `developer` lanes",
+            "Multi-API family gate: trigger -> inherited evidence or scout notes for one family list multiple public APIs",
+            "classify the family as expandable and use `team_planner` while `grandchild_depth <= max_depth`",
             "Self-consistency gate: trigger -> your synthesis notes call any slice expandable",
             "## TaskSpec Examples",
             "## Dependency DAG Examples",

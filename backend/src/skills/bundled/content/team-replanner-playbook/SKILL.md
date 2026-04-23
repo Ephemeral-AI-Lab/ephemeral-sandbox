@@ -18,6 +18,8 @@ Replanner-created tasks are limited to `developer` repair lanes and `validator` 
 | 3. Act | Corrective mapping, cancel-vs-add decision, matching action reference loaded. |
 | 4. Submit | `terminal-contract` loaded, payload self-checked, one `submit_replan({ new_tasks, cancel_ids })`. |
 
+Reference boundary: action references belong only to Stage 3, and `terminal-contract` belongs only to Stage 4. Do not call `load_skill_reference(...)` while the next action is still to read recovery context, classify the failure, decide diagnostics, run scouts, wait for scouts, or harvest scout notes.
+
 Decision flow:
 
 ```text
@@ -38,6 +40,10 @@ Load references with `load_skill_reference(skill_name="team-replanner-playbook",
 - `action-add-tasks`: use when the final payload has `cancel_ids=[]`.
 - `action-cancel-and-redraft`: use when a stale non-terminal direct sibling must be cancelled and replaced.
 - `terminal-contract`: use immediately before drafting and submitting the payload.
+
+Post-load rule: after `load_skill(...)`, load recovery context and classify before loading any reference. A `load_skill_reference(...)` call immediately after `load_skill(...)` is invalid unless a prior assistant action already completed Stage 1 context loading, Stage 2 classification, and any required diagnostics.
+
+Reference load gates: action reference trigger -> classification is final, diagnostics are complete or explicitly skipped, and the add-only vs cancel-and-redraft decision is final; `terminal-contract` trigger -> the matching action reference has been loaded and the corrective payload is ready for self-check. Failure signal -> `load_skill_reference(...)` appears before context reads, before the classification line, immediately after `load_skill(...)`, before diagnostics/scout harvesting finishes, or loads `terminal-contract` before the matching action reference.
 
 ## Workflow Details
 
@@ -93,6 +99,8 @@ Never treat another function, line range, or checklist item in the same owner fi
 
 ### 3. Act
 
+Enter this stage only after Stage 1 context is loaded, Stage 2 classification is written, and required diagnostics are complete or explicitly skipped. The action reference load is the stage transition; if the cancel-vs-add decision is not final, do not load it yet.
+
 #### Direct replan
 
 Use for `scope_expansion`, `wrong_owner_or_role`, and `unresolved_blocker` with `trivial_direct_replan`.
@@ -118,6 +126,8 @@ Use for `unresolved_blocker` with `deep_diagnostics`.
 7. Load the action reference matching the final cancel-vs-add decision.
 
 ### 4. Submit
+
+Enter this stage only after the matching Stage 3 action reference has been loaded and the corrective mapping is ready to self-check.
 
 1. Load `terminal-contract`.
 2. Self-check against its checklist: top-level keys are only `new_tasks` and `cancel_ids`; `new_tasks` is non-empty; every `name` is `developer` or `validator`; every spec uses `1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:`; `cancel_ids` contains only stale non-terminal direct siblings; no `cancel_ids` entry equals the failed task id from the prompt.

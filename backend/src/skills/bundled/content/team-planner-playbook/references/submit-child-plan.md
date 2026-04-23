@@ -34,6 +34,8 @@ Atomic tests — all must hold:
 5. **Ownership settled.** Inherited evidence and scout notes do not leave ownership as "could also be X", "between A and B", or "depends on Y". The owner is identified, not shortlisted.
 6. **One failure mechanism.** Every named failing test in the slice traces to the same root cause. Multiple independent root causes under one file is still expandable.
 
+Atomic grouping gate: trigger -> two or more atomic slices have different owner files, symbols, or verification commands; required action -> submit separate current-layer `developer` lanes, route the group to `team_planner` when `grandchild_depth <= max_depth`, or split by mechanism at max depth; failure signal -> one `developer` task spec lists multiple independent fixes across unrelated owners because each item looked atomic alone.
+
 Expandable signals — any one routes to the expandable path:
 
 - **Multi-family failure span.** Failing clusters cross production families, layers, or modules.
@@ -45,6 +47,8 @@ Expandable signals — any one routes to the expandable path:
 - **Cross-cutting invariant.** The fix must be enforced at multiple independent call sites that each need their own verification.
 - **Mixed intent.** A single slice bundles a bugfix with a refactor, a migration with a feature, or policy with plumbing.
 - **Multiple failure mechanisms.** Inherited evidence or scout notes name two or more independent root causes under one scope; split by mechanism even when files overlap. At `grandchild_depth > max_depth`, emit one `developer` per mechanism with widened `scope_paths` and a spec that names the mechanism — a four-or-more-mechanism fusion into one catch-all `developer` is a routing bug, not an acceptable collapse.
+
+Multi-API family gate: trigger -> inherited evidence or scout notes for one family list multiple public APIs, backend implementations, or helper surfaces such as read, write, metadata, wrappers, adapters, or engines; required action -> classify the family as expandable and use `team_planner` while `grandchild_depth <= max_depth`, else split by API or mechanism at max depth; failure signal -> a `developer` spec calls the family coherent while its `Task Details` lists those APIs or surfaces.
 
 Self-consistency gate: trigger -> your synthesis notes call any slice expandable or say no slice passed the atomic tests; required action -> when `grandchild_depth <= max_depth`, every named expandable slice is submitted with `name: "team_planner"`; failure signal -> notes say "expandable", "team_planner required", or "no slice passes atomic tests" but the final payload gives that slice `name: "developer"`. If that mismatch appears in your draft, change the `name` to `"team_planner"`; do not rewrite the rationale to make the developer assignment look acceptable.
 
