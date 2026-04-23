@@ -72,7 +72,8 @@ def test_parent_summarizer_prompt_requests_replan_for_unresolved_rollups() -> No
     defn = get_definition(PARENT_SUMMARIZER)
     assert defn is not None
     assert defn.system_prompt is not None
-    assert 'Use `type="request_replan"`' in defn.system_prompt
+    assert "`submit_task_success(summary=...)`" in defn.system_prompt
+    assert "`request_replan(reason=...)`" in defn.system_prompt
     assert "replan_trigger: unresolved_blocker" in defn.system_prompt
     assert "open risk`, not `delivered`" in defn.system_prompt
     assert "success evidence is invalid when it depends on pytest configuration" in defn.system_prompt

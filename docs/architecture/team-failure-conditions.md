@@ -24,7 +24,7 @@ final status computation sees the root task in `failed`.
 The following conditions fail or replan a task but do not by themselves fail the
 team run:
 
-- A worker calls `submit_task_summary(type="request_replan")`; the executor
+- A worker calls `request_replan(reason=...)`; the executor
   converts this into `TaskCenter.request_replan(...)`.
 - An agent exits without calling a terminal submission tool; the runner writes a
   failure summary and the executor treats it as a replan request.

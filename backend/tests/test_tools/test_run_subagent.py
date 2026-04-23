@@ -77,12 +77,6 @@ def _make_messages() -> list[ConversationMessage]:
     ]
 
 
-def _touch_rel(repo_root: Path, rel_path: str) -> None:
-    path = repo_root / rel_path
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch()
-
-
 def test_format_last_n_messages_renders_each_block_type():
     out = format_last_n_messages(_make_messages(), n=PEEK_MESSAGE_MAX)
     assert "[text]" in out
@@ -343,323 +337,43 @@ async def test_run_subagent_rejects_non_subagent_targets_with_plan_guidance(
     assert "emit `developer` / `validator` tasks" in result.output
 
 
-def test_validate_run_subagent_allows_multi_bucket_scout_bundle():
-    ctx = ToolExecutionContext(
-        cwd=Path("/tmp"),
-        metadata={"session_config": _StubCfg()},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={"target_paths": ["dvc/command/diff.py", "dvc/repo/diff.py"]},
-        context=ctx,
-    )
-
-    assert not isinstance(result, ToolResult)
-    assert result.subagent_scope_paths == ["dvc/command/diff.py", "dvc/repo/diff.py"]
-
-
-def test_validate_run_subagent_allows_same_bucket_scout_list():
-    ctx = ToolExecutionContext(
-        cwd=Path("/tmp"),
-        metadata={"session_config": _StubCfg()},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={"target_paths": ["dvc/command/run.py", "dvc/command/repro.py"]},
-        context=ctx,
-    )
-
-    assert not isinstance(result, ToolResult)
-    assert result.subagent_scope_paths == ["dvc/command/run.py", "dvc/command/repro.py"]
-
-
 @pytest.mark.parametrize(
     "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
 )
-def test_validate_run_subagent_rejects_planner_multi_path_scout_bundle(
+def test_validate_run_subagent_allows_planner_scout_bundle(
     parent_agent_name: str,
 ):
     ctx = ToolExecutionContext(
         cwd=Path("/tmp"),
         metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
     )
-    target_paths = [
-        "dask/dataframe/utils.py",
+
+    result = _validate_run_subagent_request(
+        agent_name="scout",
+        prompt=None,
+        input={"target_paths": ["dask/dataframe/utils.py", "dask/dataframe/_compat.py"]},
+        context=ctx,
+    )
+
+    assert not isinstance(result, ToolResult)
+    assert result.sub_def.name == "scout"
+    assert result.subagent_scope_paths == [
         "dask/dataframe/_compat.py",
-        "dask/dataframe/__init__.py",
-    ]
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={"target_paths": target_paths},
-        context=ctx,
-    )
-
-    assert isinstance(result, ToolResult)
-    assert result.is_error is True
-    assert "must pass exactly one production owner path" in result.output
-    assert "Split fan-out across multiple `run_subagent(...)` calls" in result.output
-
-
-@pytest.mark.parametrize(
-    "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
-)
-def test_validate_run_subagent_allows_single_path_planner_scout(
-    parent_agent_name: str, tmp_path: Path
-):
-    _touch_rel(tmp_path, "dask/dataframe/io/json.py")
-    ctx = ToolExecutionContext(
-        cwd=tmp_path,
-        metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={"target_paths": ["dask/dataframe/io/json.py"]},
-        context=ctx,
-    )
-
-    assert not isinstance(result, ToolResult)
-    assert result.subagent_scope_paths == ["dask/dataframe/io/json.py"]
-
-
-@pytest.mark.parametrize(
-    "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
-)
-def test_validate_run_subagent_rejects_planner_test_path_target(
-    parent_agent_name: str, tmp_path: Path
-):
-    _touch_rel(tmp_path, "dask/tests/test_cli.py")
-    ctx = ToolExecutionContext(
-        cwd=tmp_path,
-        metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={"target_paths": ["dask/tests/test_cli.py"]},
-        context=ctx,
-    )
-
-    assert isinstance(result, ToolResult)
-    assert result.is_error is True
-    assert "must name one live production owner path" in result.output
-    assert "Move benchmark tests" in result.output
-
-
-@pytest.mark.parametrize(
-    "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
-)
-def test_validate_run_subagent_rejects_planner_missing_target_path(
-    parent_agent_name: str, tmp_path: Path
-):
-    ctx = ToolExecutionContext(
-        cwd=tmp_path,
-        metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={"target_paths": ["dask/dataframe/io/parquet.py"]},
-        context=ctx,
-    )
-
-    assert isinstance(result, ToolResult)
-    assert result.is_error is True
-    assert "must name one live production owner path in the repo" in result.output
-    assert "Missing path: dask/dataframe/io/parquet.py" in result.output
-
-
-@pytest.mark.parametrize(
-    "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
-)
-def test_validate_run_subagent_rejects_planner_context_with_other_owner_paths(
-    parent_agent_name: str, tmp_path: Path
-):
-    for rel_path in (
-        "dask/dataframe/io/parquet.py",
-        "dask/dataframe/groupby.py",
         "dask/dataframe/utils.py",
-        "dask/dataframe/io/json.py",
-    ):
-        _touch_rel(tmp_path, rel_path)
-    ctx = ToolExecutionContext(
-        cwd=tmp_path,
-        metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={
-            "target_paths": ["dask/dataframe/io/parquet.py"],
-            "context": (
-                "Confirm parquet, then also check dask/dataframe/groupby.py, "
-                "dask/dataframe/utils.py, and dask/dataframe/io/json.py."
-            ),
-        },
-        context=ctx,
-    )
-
-    assert isinstance(result, ToolResult)
-    assert result.is_error is True
-    assert "may not name other production owner paths" in result.output
-    assert "dask/dataframe/groupby.py" in result.output
-
-
-@pytest.mark.parametrize(
-    "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
-)
-def test_validate_run_subagent_allows_planner_context_with_tests_only(
-    parent_agent_name: str, tmp_path: Path
-):
-    _touch_rel(tmp_path, "dask/dataframe/io/hdf.py")
-    ctx = ToolExecutionContext(
-        cwd=tmp_path,
-        metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={
-            "target_paths": ["dask/dataframe/io"],
-            "context": (
-                "Failing tests include dask/dataframe/io/tests/test_hdf.py::test_to_hdf "
-                "and dask/dataframe/io/tests/test_json.py::test_read_json_engine_str[ujson]. "
-                "Confirm whether dask/dataframe/io/hdf.py exists under this directory."
-            ),
-        },
-        context=ctx,
-    )
-
-    assert not isinstance(result, ToolResult)
-    assert result.subagent_scope_paths == ["dask/dataframe/io"]
-
-
-@pytest.mark.parametrize(
-    "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
-)
-def test_validate_run_subagent_ignores_benchmark_variants_in_planner_context(
-    parent_agent_name: str, tmp_path: Path
-):
-    _touch_rel(tmp_path, "dask/dataframe/groupby.py")
-    ctx = ToolExecutionContext(
-        cwd=tmp_path,
-        metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={
-            "target_paths": ["dask/dataframe/groupby.py"],
-            "context": (
-                "Failing variants include disk/tasks, disk/tasks-uint8, "
-                "disk/tasks-uint8-by1/foo, 1/4/10-processes/sync/threads, "
-                "fastparquet/pyarrow, pyarrow-pandas/pyarrow, and "
-                "config_get/config_list."
-            ),
-        },
-        context=ctx,
-    )
-
-    assert not isinstance(result, ToolResult)
-    assert result.subagent_scope_paths == ["dask/dataframe/groupby.py"]
-
-
-def test_validate_run_subagent_allows_all_test_file_scout():
-    ctx = ToolExecutionContext(
-        cwd=Path("/tmp"),
-        metadata={"session_config": _StubCfg()},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={"target_paths": [
-            "tests/unit/command/test_diff.py",
-            "tests/unit/command/test_plots.py",
-        ]},
-        context=ctx,
-    )
-
-    assert not isinstance(result, ToolResult)
-    assert result.subagent_scope_paths == [
-        "tests/unit/command/test_diff.py",
-        "tests/unit/command/test_plots.py",
-    ]
-
-
-def test_validate_run_subagent_allows_mixed_prod_and_test_scout():
-    ctx = ToolExecutionContext(
-        cwd=Path("/tmp"),
-        metadata={"session_config": _StubCfg()},
-    )
-
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={"target_paths": [
-            "dvc/command/diff.py",
-            "tests/unit/command/test_diff.py",
-        ]},
-        context=ctx,
-    )
-
-    assert not isinstance(result, ToolResult)
-    assert result.subagent_scope_paths == [
-        "dvc/command/diff.py",
-        "tests/unit/command/test_diff.py",
     ]
 
 
 def test_run_subagent_schema_is_agent_agnostic():
-    """The tool schema must not hardcode scout-specific payload prose; each
-    dispatchable subagent owns its own contract documentation."""
+    """The tool schema must stay generic — each dispatchable subagent owns
+    its own contract documentation."""
     schema = run_subagent.to_api_schema()
 
-    # Outer description stays generic — no scout-only terminology.
     description = schema["description"]
-    assert "scout" not in description.lower()
-    assert "target_paths" not in description
-    assert "benchmark" not in description.lower()
-    # It still names the high-level dispatch contract.
     assert "dispatchable subagent" in description
     assert "prompt" in description and "input" in description
 
     input_description = schema["input_schema"]["properties"]["input"]["description"]
-    assert "scout" not in input_description.lower()
-    assert "target_paths" not in input_description
     assert "subagent's own contract" in input_description
-
-    # Non-planner callers can still mix a production path and a test path
-    # for a scout call — the runtime gate only fires for planner-tier callers.
-    ctx = ToolExecutionContext(
-        cwd=Path("/tmp"),
-        metadata={"session_config": _StubCfg()},
-    )
-    result = _validate_run_subagent_request(
-        agent_name="scout",
-        prompt=None,
-        input={
-            "target_paths": [
-                "dvc/command/diff.py",
-                "tests/unit/command/test_diff.py",
-            ]
-        },
-        context=ctx,
-    )
-
-    assert not isinstance(result, ToolResult)
 
 
 @pytest.mark.asyncio
@@ -708,9 +422,9 @@ async def test_run_subagent_registers_provider_and_returns_final_text(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_run_subagent_does_not_inject_scout_preamble(monkeypatch):
+async def test_run_subagent_passes_payload_verbatim(monkeypatch):
     """The dispatcher must pass the caller's payload through verbatim;
-    scope/scout rules belong to the scout's own playbook, not to
+    agent-specific rules belong to the subagent's own playbook, not to
     ``run_subagent``."""
     import json
 
@@ -731,26 +445,15 @@ async def test_run_subagent_does_not_inject_scout_preamble(monkeypatch):
     bg = _make_bg_manager("bg_no_preamble")
     ctx = _make_ctx(bg=bg, task_id="bg_no_preamble")
 
-    payload = {"target_paths": ["pkg/config.py"]}
+    payload = {"task": "inspect pkg/config.py"}
     result = await run_subagent.execute(
         run_subagent.input_model(agent_name="scout", input=payload),
         ctx,
     )
 
     assert result.is_error is False
-    # The final prompt handed to spawn_agent is the serialized input with
-    # no dispatcher-side scope contract prepended.
     expected = json.dumps(payload, separators=(",", ":"), default=str)
     assert captured["prompt"] == expected
-    # And specifically none of the old scout-preamble phrases leak through.
-    forbidden = [
-        "Scout scope contract",
-        "stay read-free and post `submit_file_notes(...)` from CI evidence",
-        "do not fan out into generic symbol hunts",
-        "exact-file and short fixed-file scouts stay read-free",
-    ]
-    for phrase in forbidden:
-        assert phrase not in captured["prompt"], f"leaked scout preamble: {phrase!r}"
 
 
 @pytest.mark.asyncio

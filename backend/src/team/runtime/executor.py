@@ -73,15 +73,6 @@ class Executor:
         status = getattr(task, "status", None)
         return getattr(status, "value", status)
 
-    async def _checkpoint_after_transition(self, task: "Task", *, outcome: str) -> None:
-        try:
-            label = f"durable:{outcome}:{task.agent_name}:{task.id}"
-            await self.team_run.checkpoint(label=label)
-        except Exception:
-            logger.debug(
-                "Failed to checkpoint after %s transition for %s", outcome, task.id, exc_info=True
-            )
-
     async def _handle_worker_exception(
         self,
         task: "Task",
@@ -299,21 +290,11 @@ class Executor:
                         reason = f"replan_budget_exhausted: {exc}"
                         await tc.fail_task(task.id, reason)
                         await self.team_run.fail_fast(reason)
-                        await self._checkpoint_after_transition(
-                            task,
-                            outcome="replan_budget_exhausted",
-                        )
                         return
                     await tc.complete_task(task.id, AgentResult(summary=result.reason))
-                    await self._checkpoint_after_transition(
-                        task, outcome="parent_summary_request_replan"
-                    )
                     return
                 await tc.fail_task(
                     task.id, "parent_summary_no_terminal_call"
-                )
-                await self._checkpoint_after_transition(
-                    task, outcome="parent_summary_no_terminal_call"
                 )
                 return
             try:
@@ -322,12 +303,7 @@ class Executor:
                 reason = f"replan_budget_exhausted: {exc}"
                 await tc.fail_task(task.id, reason)
                 await self.team_run.fail_fast(reason)
-                await self._checkpoint_after_transition(
-                    task,
-                    outcome="replan_budget_exhausted",
-                )
                 return
-            await self._checkpoint_after_transition(task, outcome="replan_request")
             return
 
         new_items = await tc.complete_task(task.id, result)
@@ -337,4 +313,3 @@ class Executor:
             cb = self.after_dispatch(task, result, new_items)
             if isinstance(cb, Awaitable):
                 await cb
-        await self._checkpoint_after_transition(task, outcome="complete")

@@ -31,17 +31,13 @@ from team.builtins import (
 )
 from team.models import BudgetConfig, TeamDefinition
 from team.persistence.store import TeamDefinitionStore
-from team.persistence.events import make_checkpoint_repo_state
 from team.persistence.run_store import build_default_store
-from team.runtime.context_builder import TeamAgentContext
 from team.runtime.executor import Executor
 from team.runtime.runner import AgentRunState, TeamAgentRunner
 from team.runtime.team_run import TeamRun
 from team.runtime.telemetry import (
     BenchmarkTelemetry,
     append_event,
-    checkpoint_records_from_store as _checkpoint_records_from_store,
-    checkpoint_repo_patch_from_store as _checkpoint_repo_patch_from_store,
     default_team_metrics,
     emit_dispatcher_dag as _emit_dispatcher_dag,
     emit_planning_budget_banner as _emit_team_runtime_banner,
@@ -52,12 +48,6 @@ from team.runtime.telemetry import (
 
 from benchmarks.sweevo.dataset import summarize_sweevo_instance
 from benchmarks.sweevo.models import SWEEvoInstance, _REPO_DIR
-from benchmarks.sweevo.sandbox import (
-    apply_sweevo_repo_patch,
-    capture_sweevo_repo_patch,
-    ensure_sweevo_test_patch,
-    setup_sweevo_sandbox,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -240,8 +230,7 @@ def _make_runner(
     *,
     repo_dir: str = _REPO_DIR,
 ):
-    """Wire :class:`TeamAgentRunner` with :class:`BenchmarkTelemetry` hooks and
-    append a sweevo-specific durable repo checkpoint after each run."""
+    """Wire :class:`TeamAgentRunner` with :class:`BenchmarkTelemetry` hooks."""
     telemetry = BenchmarkTelemetry(
         printer=printer,
         team_metrics=team_metrics,
@@ -249,90 +238,14 @@ def _make_runner(
         banner_agent=ROOT_PLANNER,
         success_hook=_enforce_validation_evidence,
     )
-    core_runner = TeamAgentRunner(
+    return TeamAgentRunner(
         session_config=session_config,
         sandbox_id=sandbox_id,
         agent_overrides=agent_overrides,
         on_spawned=telemetry.on_spawned,
         on_event=telemetry.on_event,
         on_complete=telemetry.on_complete,
-        on_checkpoint_event=telemetry.on_checkpoint_event,
     )
-
-    async def _run(defn, ctx: TeamAgentContext):
-        result = await core_runner(defn, ctx)
-        result["checkpoint_id"] = await _capture_post_run_repo_checkpoint(
-            agent_name=result["agent"],
-            ctx=ctx,
-            tracker_run_id=result.get("agent_run_id"),
-            sandbox_id=sandbox_id,
-            repo_dir=repo_dir,
-            printer=printer,
-            team_metrics=team_metrics,
-        )
-        return result
-
-    return _run
-
-
-async def _capture_post_run_repo_checkpoint(
-    *,
-    agent_name: str,
-    ctx: TeamAgentContext,
-    tracker_run_id: str | None,
-    sandbox_id: str,
-    repo_dir: str,
-    printer: MultiAgentEventPrinter | None,
-    team_metrics: dict[str, Any] | None,
-) -> str | None:
-    """Capture a sweevo repo patch after planner/developer/validator runs so
-    resume_sweevo_team can rehydrate the working tree."""
-    if agent_name not in {ROOT_PLANNER, TEAM_PLANNER, "developer", "validator"}:
-        return None
-    try:
-        from team.runtime.registry import get as get_team_run
-
-        team_run_id = ctx.tool_metadata.get("team_run_id")
-        team_run = get_team_run(team_run_id) if team_run_id else None
-        if team_run is None:
-            return None
-        work_item_id = ctx.tool_metadata.get("work_item_id")
-        label = f"{agent_name}:{work_item_id or tracker_run_id or 'run'}"
-        checkpoint_id = await team_run.checkpoint(label=label)
-        replans = int(getattr(team_run.budget_state, "replans_used", 0) or 0)
-        try:
-            repo_patch = await capture_sweevo_repo_patch(
-                team_run.sandbox_id or sandbox_id, repo_dir=repo_dir,
-            )
-            team_run.event_store.append(make_checkpoint_repo_state(
-                team_run.id, checkpoint_id=checkpoint_id, repo_patch=repo_patch,
-            ))
-        except Exception:
-            logger.debug("Failed repo patch for checkpoint %s", checkpoint_id, exc_info=True)
-        record = {
-            "id": checkpoint_id, "label": label, "parent_run": team_run.id,
-            "replans_used": replans,
-        }
-        if team_metrics is not None:
-            team_metrics.setdefault("checkpoint_ids", []).append(checkpoint_id)
-            team_metrics.setdefault("checkpoints", []).append(record)
-        append_event(team_metrics, {
-            "event": "checkpoint", "team_run_id": team_run.id,
-            "checkpoint_id": checkpoint_id, "agent": agent_name,
-            "work_item_id": work_item_id, "agent_run_id": tracker_run_id,
-            **record,
-        })
-        if printer is not None:
-            printer.raw_line(
-                agent_name,
-                f"[checkpoint] id={checkpoint_id} label={label} "
-                f"parent_run={team_run.id} replans={replans}",
-            )
-        return checkpoint_id
-    except Exception:
-        logger.debug("Failed to checkpoint after %s", agent_name, exc_info=True)
-        return None
-
 
 
 def _make_context_builders(
@@ -565,111 +478,4 @@ async def run_sweevo_team(
     return _finalize_team_result(
         tr=tr, session_config=session_config, team_metrics=team_metrics,
         budgets=budgets, printer=printer,
-        checkpoint_records=_checkpoint_records_from_store(event_store, tr.id),
-    )
-
-
-async def resume_sweevo_team(
-    instance: SWEEvoInstance,
-    team_run_id: str,
-    *,
-    repo_dir: str = _REPO_DIR,
-    printer: MultiAgentEventPrinter | None = None,
-    num_executors: int = _DEFAULT_NUM_EXECUTORS,
-    checkpoint_id: str | None = None,
-    use_latest_checkpoint: bool = False,
-    structured_log_path: str | None = None,
-) -> dict[str, Any]:
-    """Resume a persisted SWE-EVO TeamRun in a fresh process."""
-    _ensure_team_builtins()
-    from server.app_factory import ensure_runtime_stores_ready
-
-    ensure_runtime_stores_ready()
-    event_store = _build_benchmark_event_store()
-    initial_records = _checkpoint_records_from_store(event_store, team_run_id)
-    available_ids = [r["id"] for r in initial_records]
-    resume_id = checkpoint_id or (available_ids[-1] if use_latest_checkpoint and available_ids else None)
-    tr = (
-        TeamRun.resume_from(event_store, team_run_id, checkpoint_id=resume_id)
-        if resume_id else TeamRun.resume_from(event_store, team_run_id)
-    )
-    if not tr.sandbox_id:
-        raise ValueError(
-            f"team run {team_run_id!r} cannot be resumed: missing sandbox_id in persisted header"
-        )
-    if resume_id:
-        await setup_sweevo_sandbox(instance, tr.sandbox_id, repo_dir)
-        await ensure_sweevo_test_patch(instance, tr.sandbox_id, repo_dir)
-        repo_patch = _checkpoint_repo_patch_from_store(event_store, team_run_id, resume_id)
-        if repo_patch:
-            await apply_sweevo_repo_patch(tr.sandbox_id, repo_patch, repo_dir)
-        if printer is not None:
-            patch_info = (
-                f"repo_patch_bytes={len(repo_patch.encode('utf-8'))}"
-                if repo_patch else "repo_patch=<missing>"
-            )
-            printer.raw_line(
-                "team",
-                f"[resume_restore] checkpoint={resume_id} {patch_info} benchmark_patch=reapplied",
-            )
-
-    session_config, _ = _prepare_benchmark_session(repo_dir=repo_dir, session_id=tr.session_id or None)
-    budgets = tr.budgets
-    team_metrics = _build_team_metrics()
-    team_metrics["structured_log_path"] = structured_log_path
-    _emit_team_runtime_banner(printer, budgets=budgets)
-    prompt_messages_path = _prompt_report_messages_path(tr.id)
-    agent_run_log_dir = _agent_run_log_dir(tr.id)
-    team_metrics["agent_run_log_dir"] = str(agent_run_log_dir)
-    tr.coordination_metadata = {
-        **getattr(tr, "coordination_metadata", {}),
-        "prompt_report_messages_path": str(prompt_messages_path),
-    }
-
-    replans = int(getattr(getattr(tr, "budget_state", None), "replans_used", 0) or 0)
-    resume_tag = resume_id or "<latest-state>"
-    if printer is not None:
-        label = next(
-            (str(r.get("label") or "") for r in initial_records if r.get("id") == resume_id), "",
-        )
-        printer.raw_line(
-            "team",
-            f"[resume] team_run_id={team_run_id} sandbox_id={tr.sandbox_id} "
-            f"durable_checkpoints={len(available_ids)} checkpoint={resume_tag} "
-            f"resumed_from={team_run_id} resumed_from_checkpoint={resume_tag} "
-            f"replans={replans}{f' label={label}' if label else ''}",
-        )
-        printer.raw_line(
-            "team",
-            f"[run_ids] team_run_id={tr.id} "
-            f"session_id={getattr(session_config, 'session_id', 'sweevo')} "
-            f"sandbox_id={tr.sandbox_id}",
-        )
-        printer.raw_line("team", f"[prompt_report] messages={prompt_messages_path}")
-        printer.raw_line("team", f"[agent_run_logs] dir={agent_run_log_dir}")
-    append_event(team_metrics, {
-        "event": "resume", "team_run_id": team_run_id,
-        "sandbox_id": tr.sandbox_id, "instance_id": instance.instance_id,
-        "checkpoint_id": resume_id,
-        "durable_checkpoint_count": len(available_ids),
-        "replans_used": replans,
-        "prompt_report_messages_path": str(prompt_messages_path),
-        "agent_run_log_dir": str(agent_run_log_dir),
-    })
-
-    await tr.resume(
-        executor_factory=_make_executor_factory(
-            session_config, tr.sandbox_id, printer, repo_dir=repo_dir,
-            team_metrics=team_metrics, agent_overrides=_build_agent_overrides(instance),
-        ),
-        num_executors=num_executors,
-        resumed_from=team_run_id,
-        resumed_from_checkpoint=resume_id,
-    )
-    await tr.wait()
-    return _finalize_team_result(
-        tr=tr, session_config=session_config, team_metrics=team_metrics,
-        budgets=budgets, printer=printer,
-        checkpoint_records=_checkpoint_records_from_store(event_store, tr.id),
-        resumed_from=team_run_id, resumed_from_checkpoint=resume_id,
     )

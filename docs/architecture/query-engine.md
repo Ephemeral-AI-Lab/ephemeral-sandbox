@@ -301,7 +301,7 @@ The query loop exits when: (1) the LLM sends no tool calls and no background tas
 
 ## Integration Points: Platform Hooks, External Triggers, and Snapshots
 
-The query loop integrates with external systems via platform-owned tool hooks, `on_turn` callbacks for live progress, and `api_messages_snapshot` for compaction state inspection. Pre-hooks run after input validation and before `ToolExecutionStarted`; they may mutate parsed args, emit user-visible `SystemNotification` advisories, or return a failed tool result. Post-hooks run after the tool body and can emit advisories or replace the final tool result with an error. Terminal submission (e.g. `submit_task_summary`) is now a regular in-loop tool governed by `QueryContext.terminal_tools`; the legacy post-run submission phase has been removed.
+The query loop integrates with external systems via platform-owned tool hooks, `on_turn` callbacks for live progress, and `api_messages_snapshot` for compaction state inspection. Pre-hooks run after input validation and before `ToolExecutionStarted`; they may mutate parsed args, emit user-visible `SystemNotification` advisories, or return a failed tool result. Post-hooks run after the tool body and can emit advisories or replace the final tool result with an error. Terminal submission (for example `submit_task_success` or `request_replan`) is now a regular in-loop tool governed by `QueryContext.terminal_tools`; the legacy post-run submission phase has been removed.
 
 ```
                         ┌─────────────────────────────┐

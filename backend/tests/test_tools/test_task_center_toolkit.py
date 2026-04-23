@@ -439,3 +439,4 @@ async def test_read_task_details_labels_initial_plan_and_replan_json():
     assert "**Summary:**\ndev-1 delivered parser retry behavior." in result.output
     assert "### team_planner [initial_planned_tasks]" not in result.output
     assert "### team_replanner [initial_replanned_tasks]" not in result.output
+    assert result.output.count("dev-1 delivered parser retry behavior.") == 1

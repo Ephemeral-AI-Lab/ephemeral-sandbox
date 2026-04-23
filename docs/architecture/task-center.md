@@ -50,7 +50,7 @@ After the replan:
 - New replan tasks may depend on local new-task IDs or schedulable existing tasks (`done`, `ready`, `pending`) that do not already depend on the replanner or the original failed task.
 - The replanner is marked `done` immediately when it has no new child tasks, or `expanded` when it created direct child tasks.
 - Expanded replanners transition to `expanded_awaiting_summary` after all direct children are terminal; `parent_summarizer` then reads every child detail, posts the roll-up, and finalizes the replanner as `done` only when the roll-up has no unresolved child evidence.
-- A `parent_summarizer` may submit `type="request_replan"` for unresolved roll-ups; the executor targets that replan at the summarized parent.
+- A `parent_summarizer` may call `request_replan(reason=...)` for unresolved roll-ups; the executor targets that replan at the summarized parent.
 - The original failed task stays `request_replan` after the replanner succeeds. The origin is terminal from recovery start; success records `replanned_by:<replanner_id>` on its failure reason while pending dependents remain rewired to the replanner.
 
 ## Notes

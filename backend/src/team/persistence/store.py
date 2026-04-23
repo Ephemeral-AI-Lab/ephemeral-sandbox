@@ -164,7 +164,6 @@ class TeamDefinitionStore:
             if existing is not None:
                 return self._record_to_definition(existing)
             normalized_roster = self._normalize_roster(defn.roster)
-            normalized_terminal_tools = self._normalize_terminal_tools(defn.terminal_tools)
             record = TeamDefinitionRecord(
                 id=str(uuid4()),
                 name=defn.name,
@@ -176,7 +175,6 @@ class TeamDefinitionStore:
                 ),
                 entry_planner=defn.entry_planner,
                 roster=normalized_roster,
-                terminal_tools={k: sorted(v) for k, v in normalized_terminal_tools.items()},
             )
             db.add(record)
             db.commit()

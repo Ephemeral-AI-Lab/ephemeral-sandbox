@@ -13,11 +13,42 @@ from typing import TYPE_CHECKING, Iterable
 from message import ConversationMessage
 from prompt.user_prompt_templates import render_user_prompt_template
 from team.models import Task
+from team.runtime.tool_policy import get_role_tool_policy
 from tools.core.runtime import ExecutionMetadata
 
 if TYPE_CHECKING:
     from agents.types import AgentDefinition
     from team.runtime.team_run import TeamRun
+
+
+DEFAULT_TERMINAL_TOOLS: dict[str, set[str]] = {
+    role: set(policy.allowed_submission_tools)
+    for role, policy in (
+        (name, get_role_tool_policy(name))
+        for name in (
+            "planner",
+            "replanner",
+            "developer",
+            "parent_summarizer",
+            "reviewer",
+            "explorer",
+            "scout",
+        )
+    )
+    if policy is not None
+}
+
+
+def _resolve_terminal_tools(defn: "AgentDefinition") -> set[str]:
+    explicit = {
+        str(name).strip()
+        for name in getattr(defn, "terminal_tools", []) or []
+        if str(name).strip()
+    }
+    if explicit:
+        return explicit
+    role = str(getattr(defn, "role", "") or "").strip()
+    return set(DEFAULT_TERMINAL_TOOLS.get(role, set()))
 
 
 @dataclass
@@ -264,7 +295,7 @@ async def build_query_context(
     meta = build_task_metadata(team_run, task)
     meta["role"] = getattr(defn, "role", "")
 
-    terminal_set = {str(name) for name in getattr(defn, "terminal_tools", []) or [] if str(name).strip()}
+    terminal_set = _resolve_terminal_tools(defn)
     meta["terminal_tools"] = set(terminal_set)
     user_message = await build_initial_user_message(
         team_run,

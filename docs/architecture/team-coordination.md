@@ -16,7 +16,7 @@ sequenceDiagram
     DispatchQueue->>TaskCenter: pop_ready()
     TaskCenter-->>DispatchQueue: ready task
     DispatchQueue->>Worker: run task with notes and dependencies
-    Worker->>TaskCenter: submit_task_summary(type="success")
+    Worker->>TaskCenter: submit_task_success(summary)
     TaskCenter->>TaskCenter: mark child done
     TaskCenter->>TaskCenter: planner/replanner parent awaits parent_summarizer
     TaskCenter->>TaskCenter: parent_summarizer posts roll-up, parent becomes done
@@ -30,7 +30,7 @@ sequenceDiagram
     participant TaskCenter
     participant Replanner
 
-    Worker->>TaskCenter: submit_task_summary(type="request_replan")
+    Worker->>TaskCenter: request_replan(reason)
     TaskCenter->>TaskCenter: mark original REQUEST_REPLAN
     TaskCenter->>TaskCenter: rewire pending dependents from original to replanner
     TaskCenter->>Replanner: spawn replanner with root cause trace and failure context
@@ -71,9 +71,9 @@ Terminal statuses are `done`, `failed`, `cancelled`, and `request_replan`.
 - Replanners are the only agents that mutate the recovery graph through `submit_replan`.
 - Planner and replanner `new_tasks` items carry `description` as a required short, planner-authored label; full instructions belong in `spec`.
 - Planner and replanner submissions carry structured task JSON only. They do not author free-text outcome summaries; their `Initial Plan` / `Initial Replan` JSON is stored on the parent detail, and `parent_summarizer` later writes the outcome roll-up.
-- Parent summarizers finalize parents only when the child evidence is actually delivered; unresolved roll-ups use `submit_task_summary(type="request_replan")` so the summarized parent is replanned instead of marked `done`.
+- Parent summarizers finalize parents only when the child evidence is actually delivered; unresolved roll-ups use `request_replan(reason=...)` so the summarized parent is replanned instead of marked `done`.
 - Ready tasks dispatch as soon as dependencies are satisfied.
 - Scope change auto-checks warn workers when another agent edits overlapping paths.
 - Developer and validator lanes read Task Center notes and use CI ownership/diagnostic tools before falling back to raw sandbox file reads.
 - `daytona_shell` is runtime-only on coordinated lanes. File edits go through `daytona_edit_file`, `daytona_write_file`, or `daytona_rename_symbol`; shell/Python edit side channels such as `sed -i`, standalone `tee`, and inline Python writes are rejected before sandbox execution. The global daytona_shell prehook sanitizes output-shaping syntax such as pipes, `head`/`tail`, output redirects, stderr merges/suppression, and leading repo-root `cd` before execution so runtime output remains visible in the captured tool result.
-- Every team task exits through a terminal submission tool: `submit_plan`, `submit_replan`, or `submit_task_summary`.
+- Every team task exits through a terminal submission tool: `submit_plan`, `submit_replan`, `submit_task_success`, or `request_replan`.

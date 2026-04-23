@@ -3,8 +3,8 @@
 Bundles the per-agent and per-run observability code that is shared by
 benchmarks and the hosted team runner: printer banners, structured JSONL
 events, token/compaction stats, external-hook formatting, and the default
-``on_complete`` / ``on_event`` / ``on_spawned`` / ``on_checkpoint_event``
-callbacks for :class:`TeamAgentRunner`.
+``on_complete`` / ``on_event`` / ``on_spawned`` callbacks for
+:class:`TeamAgentRunner`.
 
 Callers instantiate :class:`BenchmarkTelemetry` and pass its methods into
 :class:`TeamAgentRunner`. Benchmark-specific work (domain prompts, repo
@@ -138,8 +138,6 @@ def default_team_metrics() -> dict[str, Any]:
     return {
         "agent_runs": 0,
         "agent_counts": Counter(),
-        "checkpoint_ids": [],
-        "checkpoints": [],
         "structured_log_path": None,
         "agent_run_log_dir": None,
         "agent_run_log_paths": [],
@@ -307,43 +305,6 @@ def make_external_hook_emitter(
     return _emit
 
 
-def checkpoint_records_from_store(store: Any, team_run_id: str) -> list[dict[str, Any]]:
-    """Read ``checkpoint_taken`` events from an event store."""
-    records: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    load_run = getattr(store, "load_run", None)
-    if not callable(load_run):
-        return records
-    for event in load_run(team_run_id):
-        if event.kind != "checkpoint_taken":
-            continue
-        cid = str(event.data.get("checkpoint_id") or "").strip()
-        if not cid or cid in seen:
-            continue
-        seen.add(cid)
-        records.append({
-            "id": cid,
-            "label": event.data.get("label"),
-            "sequence": int(event.data.get("sequence") or 0),
-        })
-    return records
-
-
-def checkpoint_repo_patch_from_store(store: Any, team_run_id: str, checkpoint_id: str) -> str:
-    """Read the persisted repo patch associated with a checkpoint."""
-    load_run = getattr(store, "load_run", None)
-    if not callable(load_run):
-        return ""
-    repo_patch = ""
-    for event in load_run(team_run_id):
-        if event.kind != "checkpoint_repo_state":
-            continue
-        if str(event.data.get("checkpoint_id") or "").strip() != checkpoint_id:
-            continue
-        repo_patch = str(event.data.get("repo_patch") or "")
-    return repo_patch
-
-
 def emit_planning_budget_banner(printer: Any, *, budgets: Any) -> None:
     """Print a ``[planning_budget] …`` banner."""
     if printer is None:
@@ -421,11 +382,6 @@ class BenchmarkTelemetry:
                     f"limit={state.agent.query_context.tool_call_limit}"
                 ),
             )
-
-    def on_checkpoint_event(self, payload: dict[str, Any]) -> None:
-        append_event(self.team_metrics, payload)
-        if self.printer is not None:
-            self.printer.raw_line("team", format_external_hook_line(payload))
 
     async def on_complete(self, state: AgentRunState) -> None:
         agent, ctx = state.agent, state.ctx
@@ -553,9 +509,7 @@ def finalize_team_run(
     team_metrics: dict[str, Any],
     budgets: Any,
     printer: Any = None,
-    checkpoint_records: list[dict[str, Any]] | None = None,
     resumed_from: str | None = None,
-    resumed_from_checkpoint: str | None = None,
 ) -> dict[str, Any]:
     """Emit the closing banners + team_result event and return a result dict.
 
@@ -585,15 +539,6 @@ def finalize_team_run(
                     f"reason={wi.failure_reason or 'unknown'}",
                 )
 
-    records = checkpoint_records or [
-        {"id": cp.id, "label": cp.label, "sequence": cp.sequence}
-        for cp in tr.task_center.list_checkpoints()
-    ]
-    checkpoint_ids = [
-        str(r.get("id") or "").strip() for r in records if str(r.get("id") or "").strip()
-    ]
-    latest_id = checkpoint_ids[-1] if checkpoint_ids else None
-    latest_label = records[-1].get("label") if records else None
     max_depth = max((wi.depth for wi in tr.task_center.graph.values()), default=0)
     replans = int(getattr(tr.budget_state, "replans_used", 0) or 0)
     usage_summary = None
@@ -619,7 +564,7 @@ def finalize_team_run(
             "team",
             f"[team_stats] tasks={task_count} max_depth={max_depth} "
             f"agent_runs={team_metrics['agent_runs']} "
-            f"checkpoints={len(checkpoint_ids)} replans={replans}",
+            f"replans={replans}",
         )
 
     common = {
@@ -631,13 +576,10 @@ def finalize_team_run(
         "max_depth_reached": max_depth,
         "agent_runs": int(team_metrics["agent_runs"]),
         "agent_counts": dict(team_metrics["agent_counts"]),
-        "checkpoint_ids": checkpoint_ids,
-        "latest_checkpoint_id": latest_id,
         "replans_used": replans,
         "usage": usage_summary,
         "usage_by_model": usage_by_model,
         "resumed_from": resumed_from,
-        "resumed_from_checkpoint": resumed_from_checkpoint,
         "agent_run_log_dir": team_metrics.get("agent_run_log_dir"),
         "agent_run_log_paths": list(team_metrics.get("agent_run_log_paths") or []),
     }
@@ -648,8 +590,6 @@ def finalize_team_run(
     return {
         "status": status,
         "structured_log_path": team_metrics.get("structured_log_path"),
-        "checkpoints": records,
-        "latest_checkpoint_label": latest_label,
         "budgets": {
             "max_tasks": budgets.max_tasks,
             "max_depth": budgets.max_depth,

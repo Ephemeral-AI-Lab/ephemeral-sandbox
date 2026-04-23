@@ -56,6 +56,20 @@ def _sanitize_scout_gap_paths(content: str, note_paths: list[str]) -> str:
     return _BACKTICK_PATH_RE.sub(_rewrite, content)
 
 
+def _select_summary_note(task_notes: list[object], *, is_success: bool) -> object | None:
+    for note in reversed(task_notes):
+        tags = getattr(note, "tags", None) or []
+        if "parent_summary" in tags:
+            return note
+    if not is_success:
+        return None
+    for note in reversed(task_notes):
+        tags = getattr(note, "tags", None) or []
+        if "implementation" in tags:
+            return note
+    return None
+
+
 # ---------------------------------------------------------------------------
 # SubmitFileNotesTool
 # ---------------------------------------------------------------------------
@@ -439,32 +453,13 @@ class ReadTaskDetailsTool(BaseTool):
         if is_failure and task.failure_reason:
             lines.append(f"**Failure Reason:** {task.failure_reason}")
 
-        # Notes for this task — full content, last 3, plus the success summary
-        # (posted as an `implementation` note by the runtime) only when the
-        # task is DONE. For failed/replan/cancelled tasks we show only the
-        # failure reason above, never an implementation note.
+        # Notes for this task — full content, initial plan/replan artifacts,
+        # the terminal summary note when present, and the last three remaining
+        # notes without re-printing the summary block.
         try:
             task_notes = await tc.notes.read(authors=[tid])
             if task_notes:
-                summary_note = None
-                if is_success:
-                    summary_note = next(
-                        (
-                            n
-                            for n in reversed(task_notes)
-                            if "parent_summary" in (n.tags or [])
-                        ),
-                        None,
-                    )
-                    if summary_note is None:
-                        summary_note = next(
-                            (
-                                n
-                                for n in reversed(task_notes)
-                                if "implementation" in (n.tags or [])
-                            ),
-                            None,
-                        )
+                summary_note = _select_summary_note(task_notes, is_success=is_success)
                 initial_plan_note = next(
                     (
                         n
@@ -494,17 +489,26 @@ class ReadTaskDetailsTool(BaseTool):
                     lines.append("```")
 
                 if summary_note is not None:
-                    lines.append("**Success Summary:**")
+                    if "parent_summary" in (summary_note.tags or []):
+                        lines.append("**Summary:**")
+                    else:
+                        lines.append("**Success Summary:**")
                     lines.append(summary_note.content)
 
                 structured_plan_tags = {
                     "initial_planned_tasks",
                     "initial_replanned_tasks",
                 }
+                excluded_note_ids = {
+                    note.id
+                    for note in (summary_note, initial_plan_note, initial_replan_note)
+                    if note is not None
+                }
                 recent_candidates = [
                     n
                     for n in task_notes
-                    if not structured_plan_tags.intersection(n.tags or [])
+                    if n.id not in excluded_note_ids
+                    and not structured_plan_tags.intersection(n.tags or [])
                 ]
                 recent = recent_candidates[-3:]
                 if recent:

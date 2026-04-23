@@ -1624,7 +1624,7 @@ def test_parent_summary_prompt_lists_completed_children_to_read_first():
     assert "Only after every listed child has been read" in prompt
     assert "pytest config or warning overrides" in prompt
     assert "`--override-ini`" in prompt
-    assert 'submit `type="request_replan"`' in prompt
+    assert "`request_replan(reason=...)`" in prompt
     assert "This terminal submission is the completion signal for the parent task" in prompt
     assert "## Direct child task details" not in prompt
     assert "## Child terminal notes" not in prompt
@@ -1745,12 +1745,18 @@ async def test_build_query_context_parent_summarizer_terminal_tools():
     )
 
     ctx = await build_query_context(
-        SimpleNamespace(role="parent_summarizer", terminal_tools=["submit_task_success"]),
+        SimpleNamespace(
+            role="parent_summarizer",
+            terminal_tools=["submit_task_success", "request_replan"],
+        ),
         team_run,
         task,
     )
 
-    assert ctx.tool_metadata["terminal_tools"] == {"submit_task_success"}
+    assert ctx.tool_metadata["terminal_tools"] == {
+        "request_replan",
+        "submit_task_success",
+    }
 
 
 @pytest.mark.asyncio
@@ -1784,3 +1790,39 @@ async def test_build_query_context_uses_agent_terminal_tools_for_developer():
     )
 
     assert ctx.tool_metadata["terminal_tools"] == {"request_replan"}
+
+
+@pytest.mark.asyncio
+async def test_build_query_context_uses_role_defaults_without_legacy_team_override():
+    task = Task(
+        id="dev-task",
+        team_run_id="run-1",
+        agent_name="developer",
+        status=TaskStatus.READY,
+        objective="implement retry handling",
+    )
+    task_center = _AsyncTaskCenterStub()
+    team_run = SimpleNamespace(
+        id="run-1",
+        sandbox_id="sbx-1",
+        project_context=SimpleNamespace(repo_root="/repo"),
+        coordination_metadata={},
+        task_center=task_center,
+        arbiter=None,
+        budgets=None,
+        budget_state=None,
+        root_task_id="planner-task",
+        roster={"developer": ["developer"]},
+        team_definition=SimpleNamespace(terminal_tools={"developer": ["submit_plan"]}),
+    )
+
+    ctx = await build_query_context(
+        SimpleNamespace(role="developer", terminal_tools=[]),
+        team_run,
+        task,
+    )
+
+    assert ctx.tool_metadata["terminal_tools"] == {
+        "request_replan",
+        "submit_task_success",
+    }

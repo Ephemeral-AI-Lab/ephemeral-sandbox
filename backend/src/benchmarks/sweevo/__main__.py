@@ -209,22 +209,6 @@ def _build_parser() -> argparse.ArgumentParser:
             f"(default: {_SWEEVO_TEAM_NAME})"
         ),
     )
-    p.add_argument(
-        "--resume-team-run-id",
-        default=None,
-        help="Resume a persisted TeamRun in the existing sandbox instead of starting a fresh team run.",
-    )
-    resume_group = p.add_mutually_exclusive_group()
-    resume_group.add_argument(
-        "--resume-checkpoint-id",
-        default=None,
-        help="When resuming a team run, restore state at this checkpoint id before continuing.",
-    )
-    resume_group.add_argument(
-        "--resume-latest-checkpoint",
-        action="store_true",
-        help="When resuming a team run, restore state at the latest durable checkpoint before continuing.",
-    )
     snapshot_group = p.add_mutually_exclusive_group()
     snapshot_group.add_argument(
         "--register-snapshot",
@@ -324,10 +308,6 @@ async def _cmd_run(args: argparse.Namespace, *, team_run_id: str) -> int:
             "size": args.size,
             "target_bullets": args.target_bullets,
             "team_name": args.team_name,
-            "resume_team_run_id": args.resume_team_run_id,
-            "resume_checkpoint_id": args.resume_checkpoint_id,
-            "resume_latest_checkpoint": bool(args.resume_latest_checkpoint),
-            "fresh_run": not bool(args.resume_team_run_id),
             "run_log_path": str(run_log_path) if run_log_path is not None else None,
             "structured_log_path": str(structured_log_path) if structured_log_path is not None else None,
             "code_intelligence_log_path": str(ci_log_path) if ci_log_path is not None else None,
@@ -348,9 +328,6 @@ async def _cmd_run(args: argparse.Namespace, *, team_run_id: str) -> int:
             cpu=args.cpu,
             disk=args.disk,
             repo_dir=args.repo_dir,
-            resume_team_run_id=args.resume_team_run_id,
-            resume_checkpoint_id=args.resume_checkpoint_id,
-            resume_latest_checkpoint=args.resume_latest_checkpoint,
             team_run_id=team_run_id,
             structured_log_path=(
                 str(structured_log_path) if structured_log_path is not None else None
@@ -363,7 +340,6 @@ async def _cmd_run(args: argparse.Namespace, *, team_run_id: str) -> int:
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "event": "run_error",
                 "instance_id": args.instance_id,
-                "resume_team_run_id": args.resume_team_run_id,
                 "error": str(exc),
             },
         )
@@ -391,8 +367,6 @@ async def _cmd_run(args: argparse.Namespace, *, team_run_id: str) -> int:
             "team": {
                 "work_items": team.get("work_items"),
                 "agent_runs": team.get("agent_runs"),
-                "checkpoint_ids": team.get("checkpoint_ids"),
-                "latest_checkpoint_id": team.get("latest_checkpoint_id"),
                 "replans_used": team.get("replans_used"),
                 "usage": team.get("usage"),
                 "usage_by_model": team.get("usage_by_model"),
@@ -426,8 +400,7 @@ async def _cmd_run(args: argparse.Namespace, *, team_run_id: str) -> int:
             print(
                 f"  team: work_items={team.get('work_items', result.get('team_work_items', 0))}  "
                 f"max_depth={team.get('max_depth_reached', 0)}  "
-                f"agent_runs={team.get('agent_runs', 0)}  "
-                f"checkpoints={len(team.get('checkpoint_ids') or [])}",
+                f"agent_runs={team.get('agent_runs', 0)}",
                 flush=True,
             )
             print(
@@ -435,27 +408,14 @@ async def _cmd_run(args: argparse.Namespace, *, team_run_id: str) -> int:
                 f"session_id={team.get('session_id') or '-'}",
                 flush=True,
             )
-            if team.get("latest_checkpoint_id"):
-                print(
-                    f"  checkpoint: latest={team.get('latest_checkpoint_id')}",
-                    flush=True,
-                )
             if team.get("agent_run_log_dir"):
                 print(
                     f"  agent_run_logs: {team.get('agent_run_log_dir')}",
                     flush=True,
                 )
-            if team.get("resumed_from") or team.get("resumed_from_checkpoint"):
+            if team.get("resumed_from"):
                 print(
-                    f"  resume: from_team_run={team.get('resumed_from') or '-'}  "
-                    f"checkpoint={team.get('resumed_from_checkpoint') or '-'}",
-                    flush=True,
-                )
-            checkpoint_ids = team.get("checkpoint_ids") or []
-            if checkpoint_ids:
-                print(
-                    "  checkpoint_tail: "
-                    + " ".join(str(checkpoint_id) for checkpoint_id in checkpoint_ids[-3:]),
+                    f"  resume: from_team_run={team.get('resumed_from')}",
                     flush=True,
                 )
             print(
@@ -513,7 +473,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return _cmd_list(args.source)
     time = _utc_run_time()
-    team_run_id = args.resume_team_run_id or f"{time}_{_team_run_suffix(args.team_name)}"
+    team_run_id = f"{time}_{_team_run_suffix(args.team_name)}"
     with _capture_run_output(team_run_id, time) as log_path:
         with _capture_code_intelligence_logs(team_run_id, time, verbose=args.verbose) as ci_log_path:
             root_handler = _build_file_handler(log_path, level=logging.DEBUG if args.verbose else logging.INFO)

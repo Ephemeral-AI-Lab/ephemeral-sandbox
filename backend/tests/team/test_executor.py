@@ -1,5 +1,5 @@
-"""Unit tests for the Executor post-run, checkpoint, dispatch, and scope
-injection in team.runtime.executor.Executor."""
+"""Unit tests for the Executor post-run, dispatch, and scope injection in
+team.runtime.executor.Executor."""
 
 from __future__ import annotations
 
@@ -79,9 +79,6 @@ class FakeTeamRun:
         current = self._active_agent_runs.get(task_id)
         if current is runner_task:
             self._active_agent_runs.pop(task_id, None)
-
-    async def checkpoint(self, label: str = "") -> None:
-        pass
 
     async def fail_after_active_work(self, reason: str) -> None:
         pass

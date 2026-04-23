@@ -25,7 +25,7 @@ import asyncio
 import json
 import logging
 import time
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
@@ -41,9 +41,9 @@ from message.messages import (
     ToolUseBlock,
 )
 from token_tracker.runtime import persist_run_usage
+from team._path_utils import scope_paths_from_payload
 from tools.core.base import ToolExecutionContext, ToolResult
 from tools.core.decorator import tool
-from team._path_utils import scope_paths_from_payload
 
 logger = logging.getLogger(__name__)
 
@@ -77,22 +77,6 @@ def _compact_args(inp: Any) -> str:
     except Exception:
         s = str(inp)
     return _truncate(s)
-
-
-def _normalize_target_paths(value: Any) -> list[str]:
-    """Coerce a ``target_paths``-style value into a deduped list preserving order."""
-    if isinstance(value, str):
-        stripped = value.strip()
-        return [stripped] if stripped else []
-    if not isinstance(value, list):
-        return []
-    out: list[str] = []
-    for item in value:
-        if isinstance(item, str):
-            stripped = item.strip()
-            if stripped:
-                out.append(stripped)
-    return out
 
 
 class RunSubagentInput(BaseModel):
@@ -169,7 +153,7 @@ class RunSubagentInput(BaseModel):
 class RunSubagentOutput(BaseModel):
     kind: str = Field(
         ...,
-        description="Envelope kind: brief, plan, summary, or raw.",
+        description="Envelope kind — always 'raw' for the generic dispatcher.",
     )
     run_id: str | None = Field(
         default=None,
@@ -205,7 +189,6 @@ def _validate_run_subagent_request(
     context: ToolExecutionContext,
 ) -> ToolResult | _ValidatedRunSubagentRequest:
     from agents import get_definition
-    from tools.subagent.dispatch_validators import get_dispatch_validator
 
     parent_cfg = context.metadata.session_config
     if parent_cfg is None:
@@ -253,19 +236,7 @@ def _validate_run_subagent_request(
             is_error=True,
         )
 
-    validator = get_dispatch_validator(agent_name)
-    if validator is not None:
-        validation_error = validator(prompt, input, context)
-        if isinstance(validation_error, ToolResult):
-            return validation_error
-
-    subagent_scope_paths: list[str] = []
-    if isinstance(input, dict):
-        target_paths = input.get("target_paths")
-        if target_paths is not None:
-            subagent_scope_paths = _normalize_target_paths(target_paths)
-        else:
-            subagent_scope_paths = scope_paths_from_payload(input)
+    subagent_scope_paths = scope_paths_from_payload(input)
 
     return _ValidatedRunSubagentRequest(
         sub_def=sub_def,
@@ -314,125 +285,15 @@ def format_last_n_messages(messages: list[ConversationMessage], n: int) -> str:
 _ENVELOPE_SUMMARY_CAP = 500
 
 
-def _coerce_payload_object(value: Any) -> dict[str, Any]:
-    """Best-effort conversion of arbitrary structured output into a JSON object."""
-    if value is None:
-        return {}
-    if isinstance(value, dict):
-        return value
-    if is_dataclass(value):
-        dumped = asdict(value)
-        return dumped if isinstance(dumped, dict) else {"value": dumped}
-    model_dump = getattr(value, "model_dump", None)
-    if callable(model_dump):
-        dumped = model_dump(mode="json")
-        return dumped if isinstance(dumped, dict) else {"value": dumped}
-    try:
-        dumped = json.loads(json.dumps(value, default=str))
-    except Exception:
-        return {"value": str(value)}
-    return dumped if isinstance(dumped, dict) else {"value": dumped}
-
-
-def _derive_submission_summary(submitted: Any, final_text: str) -> str:
-    summary: str | None = None
-    if isinstance(submitted, dict):
-        candidate = submitted.get("summary")
-        if isinstance(candidate, str):
-            summary = candidate.strip()
-    else:
-        candidate = getattr(submitted, "summary", None)
-        if isinstance(candidate, str):
-            summary = candidate.strip()
-    if summary:
-        return summary[:_ENVELOPE_SUMMARY_CAP]
-    if final_text:
-        return final_text[:_ENVELOPE_SUMMARY_CAP]
-    return str(submitted)[:_ENVELOPE_SUMMARY_CAP]
-
-
-def _build_subagent_envelope(
-    submitted: Any | None,
-    sub_run_id: str | None,
-    final_text: str,
-    *,
-    artifact_ref: str | None = None,
-) -> dict[str, Any]:
-    """Project the subagent submission into the typed envelope.
-
-    Per plan §7:
-        - ``Plan``               → kind="plan",    payload={items, rationale}
-        - ``SubmittedSummary``   → kind="summary", artifact_ref present if
-                                   the runtime stored a real team artifact; if
-                                   its artifact carries a ``target_paths`` field,
-                                   kind is promoted to ``"brief"``.
-        - other structured data  → kind="summary", payload=best-effort JSON
-                                   object, summary derived from the submission
-                                   or final_text.
-        - no submission          → kind="raw",    payload={"final_text": ...}
-    """
-    # Lazy imports — avoid pulling team into tools at import time.
-    from team.models import Plan, SubmittedSummary
-
-    if isinstance(submitted, Plan):
-        envelope = {
-            "kind": "plan",
-            "run_id": sub_run_id,
-            "summary": (
-                f"submitted {len(submitted.items)} work item(s)"
-                if submitted.items
-                else "empty plan"
-            )[:_ENVELOPE_SUMMARY_CAP],
-            "artifact_ref": None,
-            "payload": {
-                "items": [
-                    {
-                        "agent_name": it.agent_name,
-                        "local_id": it.local_id,
-                        "kind": it.kind.value,
-                        "deps": list(it.deps),
-                    }
-                    for it in submitted.items
-                ],
-                "rationale": submitted.rationale,
-            },
-        }
-
-        return envelope
-
-    if isinstance(submitted, SubmittedSummary):
-        artifact = submitted.artifact
-        kind = "brief" if (isinstance(artifact, dict) and "target_paths" in artifact) else "summary"
-        envelope = {
-            "kind": kind,
-            "run_id": sub_run_id,
-            "summary": (submitted.summary or "")[:_ENVELOPE_SUMMARY_CAP],
-            "artifact_ref": artifact_ref,
-            "payload": artifact if isinstance(artifact, dict) else {},
-        }
-
-        return envelope
-
-    if submitted is not None:
-        envelope = {
-            "kind": "summary",
-            "run_id": sub_run_id,
-            "summary": _derive_submission_summary(submitted, final_text),
-            "artifact_ref": artifact_ref,
-            "payload": _coerce_payload_object(submitted),
-        }
-
-        return envelope
-
-    # No submission — fall back to raw final text.
-    envelope = {
+def _build_raw_envelope(sub_run_id: str | None, final_text: str) -> dict[str, Any]:
+    """Build the ``kind="raw"`` delivery envelope from the subagent's final text."""
+    return {
         "kind": "raw",
         "run_id": sub_run_id,
         "summary": (final_text or "")[:_ENVELOPE_SUMMARY_CAP],
         "artifact_ref": None,
         "payload": {"final_text": final_text},
     }
-    return envelope
 
 
 def _fallback_run_id() -> str:
@@ -463,23 +324,6 @@ def _clear_current_task_cancellation() -> None:
     remaining = int(cancelling() or 0) if callable(cancelling) else 1
     for _ in range(max(1, remaining)):
         uncancel()
-
-
-def _snapshot_messages(messages: list[Any] | None) -> list[dict[str, Any]]:
-    if not messages:
-        return []
-    out: list[dict[str, Any]] = []
-    for msg in messages:
-        if isinstance(msg, dict):
-            out.append(msg)
-            continue
-        dump = getattr(msg, "model_dump", None)
-        if callable(dump):
-            dumped = dump(mode="json")
-            if isinstance(dumped, dict):
-                out.append(dumped)
-    return out
-
 
 
 @tool(
@@ -536,8 +380,7 @@ async def run_subagent(
     sub_def = validation.sub_def
     subagent_scope_paths = validation.subagent_scope_paths
 
-    body = prompt if prompt is not None else json.dumps(input, separators=(",", ":"), default=str)
-    final_prompt = body
+    final_prompt = prompt if prompt is not None else json.dumps(input, separators=(",", ":"), default=str)
 
     # Persist a subagent run record FIRST, before spawn_agent — so spawn
     # failures still leave an audit trail that the parent can list / inspect
@@ -714,12 +557,7 @@ async def run_subagent(
         return ToolResult(output=f"run_subagent: subagent crashed: {run_error}", is_error=True)
 
 
-    envelope = _build_subagent_envelope(
-        None,
-        sub_run_id,
-        final_text,
-        artifact_ref=None,
-    )
+    envelope = _build_raw_envelope(sub_run_id, final_text)
     if early_stopped:
         envelope["completion_mode"] = "early_stopped"
         if cancel_reason:

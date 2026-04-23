@@ -59,7 +59,6 @@ tool_call_limit: 100
 toolkits: ["sandbox_operations", "code_intelligence"]
 allowed_tools: ["daytona_shell", "ci_query_symbol", "ci_diagnostics"]
 blocked_tools: []
-allowed_triggers: ["tc_note"]
 ---
 # System Prompt (body of the file)
 Execute one bounded coding task...
@@ -70,7 +69,7 @@ Execute one bounded coding task...
 - `system_prompt` (optional; overridden by body text)
 - `model`, `effort`, `tool_call_limit`
 - `toolkits`, `skills`, `allowed_tools`, `blocked_tools`
-- `allowed_triggers`, `background`, `role`, `agent_type` (agent | subagent)
+- `background`, `role`, `agent_type` (agent | subagent)
 - `source` (builtin | user | plugin), capability flags
 
 ### REST API Surface
@@ -181,7 +180,6 @@ Three distinct layers orchestrate the transition from disk/database to runtime e
 │  skills              json           │
 │  allowed_tools       json           │
 │  blocked_tools       json           │
-│  allowed_triggers    json           │
 │  hooks               json           │
 │  background          boolean        │
 │  role                string         │
@@ -405,7 +403,6 @@ Sequence showing a team run from start through task dispatch to completion, inte
 | `can_spawn_subagents` | Whether agent can spawn background work | true (default) |
 | `background` | Run without awaiting completion | false (default) |
 | `initial_prompt` | First-turn user message override | "Start by reading..." |
-| `allowed_triggers` | External trigger types (tc_note) | ["tc_note"] |
 
 ---
 

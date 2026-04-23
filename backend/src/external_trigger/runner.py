@@ -111,7 +111,7 @@ async def run(
     Parameters
     ----------
     agent_name:
-        Identity for logging/observability (e.g. "checkpoint:task_123").
+        Identity for logging/observability (e.g. "trigger:task_123").
     messages:
         Frozen worker transcript evidence (read-only context for the LLM).
     system_prompt:

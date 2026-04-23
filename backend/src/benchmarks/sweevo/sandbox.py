@@ -478,8 +478,8 @@ async def setup_sweevo_sandbox(
     await _exec(sandbox_id, f"test -d {repo_dir} && test -d {repo_dir}/.git")
     await _exec(sandbox_id, f"{_CONDA_ACTIVATE} && python --version")
     # Retry runs may reuse the same named sandbox. Always restore the repo to
-    # a clean benchmark checkpoint before reapplying the SWE-EVO test patch so
-    # failed edits from earlier attempts do not contaminate the next run.
+    # the base commit before reapplying the SWE-EVO test patch so failed edits
+    # from earlier attempts do not contaminate the next run.
     await _exec(sandbox_id, f"cd {repo_dir} && git reset --hard HEAD 2>/dev/null")
     await _exec(sandbox_id, f"cd {repo_dir} && git clean -fd 2>/dev/null")
     await _exec(sandbox_id, f"cd {repo_dir} && git checkout -f {instance.base_commit} 2>/dev/null")
@@ -566,58 +566,6 @@ async def ensure_sweevo_test_patch(
         )
 
     _dispose_code_intelligence_quietly(sandbox_id, "test patch")
-
-
-async def capture_sweevo_repo_patch(
-    sandbox_id: str,
-    repo_dir: str = _REPO_DIR,
-) -> str:
-    """Capture a binary-safe patch for the current SWE-EVO worktree without mutating the real index."""
-    script = (
-        "set -e\n"
-        f"cd {shlex.quote(repo_dir)}\n"
-        "tmp_index=$(mktemp)\n"
-        "cleanup() { rm -f \"$tmp_index\"; }\n"
-        "trap cleanup EXIT\n"
-        "index_path=$(git rev-parse --git-path index 2>/dev/null || printf .git/index)\n"
-        "if [ -f \"$index_path\" ]; then cp \"$index_path\" \"$tmp_index\"; "
-        "else : > \"$tmp_index\"; GIT_INDEX_FILE=\"$tmp_index\" git read-tree HEAD >/dev/null 2>&1 || true; fi\n"
-        "GIT_INDEX_FILE=\"$tmp_index\" git add -A >/dev/null 2>&1 || true\n"
-        "GIT_INDEX_FILE=\"$tmp_index\" git diff --cached --binary HEAD 2>/dev/null || true\n"
-    )
-    patch = await _exec(sandbox_id, script, check=False)
-    return patch.strip()
-
-
-async def apply_sweevo_repo_patch(
-    sandbox_id: str,
-    repo_patch: str,
-    repo_dir: str = _REPO_DIR,
-) -> None:
-    """Apply a captured SWE-EVO repo patch onto a clean checkout."""
-    if not repo_patch.strip():
-        return
-
-    patch_path = "/tmp/sweevo_repo_state.patch"
-    await _upload_file_with_fallback(sandbox_id, patch_path, repo_patch.encode("utf-8"))
-
-    check_out = await _exec(
-        sandbox_id,
-        f"cd {repo_dir} && git apply --check --binary {patch_path} 2>&1",
-        check=False,
-    )
-    if "error:" in check_out.lower():
-        raise RuntimeError(f"checkpoint repo patch is not applyable: {check_out[:300]}")
-
-    apply_out = await _exec(
-        sandbox_id,
-        f"cd {repo_dir} && git apply --binary {patch_path} 2>&1",
-        check=False,
-    )
-    if "error:" in apply_out.lower():
-        raise RuntimeError(f"failed to apply checkpoint repo patch: {apply_out[:300]}")
-
-    _dispose_code_intelligence_quietly(sandbox_id, "repo patch restore")
 
 
 async def create_sweevo_test_sandbox(

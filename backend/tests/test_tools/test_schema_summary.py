@@ -50,12 +50,13 @@ def test_schema_summary_prints_live_input_and_output_models(tmp_path):
     assert "Toolkit: task_center" in summary
     assert "  submit_file_notes\n" in summary
     assert "      - notes: list[FileNoteInput] [required]" in summary
-    assert "      - note_id: str [required]" in summary
-    assert "      - path: str [required]" in summary
+    assert "      - notes: list[FileNoteItemOutput] [default []]" in summary
 
     assert "Toolkit: submission" in summary
     assert "  submit_task_success\n" in summary
-    assert "      - type: \"success\" | \"request_replan\" [required]" in summary
+    assert "      - summary: str [required]" in summary
+    assert "  request_replan\n" in summary
+    assert "      - reason: str [required]" in summary
 
 
 def test_schema_summary_has_input_and_output_section_for_every_tool(tmp_path):

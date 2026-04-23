@@ -203,10 +203,6 @@ class TeamRun:
     async def _join_executors(self) -> None:
         await self._stop_executors()
 
-    async def _drain_executors(self) -> None:
-        await self._stop_executors()
-        await self.task_center.cancel_all_running("drained by rollback/cancel")
-
     async def _stop_executors(self) -> None:
         self.cancel_event.set()
         for t in self._executor_tasks:
@@ -299,30 +295,12 @@ class TeamRun:
             stale_hint="validator result captured during live execution",
         )
 
-    # ---- checkpoint API --------------------------------------------------
-
-    async def checkpoint(self, label: str | None = None) -> str:
-        cp = await self.task_center.checkpoint(label=label, project_context=self.project_context)
-        return cp.id
-
-    async def rollback_to(self, checkpoint_id: str) -> None:
-        self.cancel_event.set()
-        await self._drain_executors()
-        await self.task_center.rollback_to(
-            checkpoint_id,
-            project_context_setter=lambda pc: setattr(self, "project_context", pc),
-        )
-        self.cancel_event.clear()
-        if self._executor_factory is not None:
-            self._spawn_executors()
-
     async def resume(
         self,
         *,
         executor_factory: Callable[["TeamRun"], Executor],
         num_executors: int | None = None,
         resumed_from: str | None = None,
-        resumed_from_checkpoint: str | None = None,
     ) -> None:
         if await self._is_all_terminal():
             return
@@ -337,7 +315,6 @@ class TeamRun:
                 self.id,
                 self.status.value,
                 resumed_from=resumed_from,
-                resumed_from_checkpoint=resumed_from_checkpoint,
             )
         )
         _register_team_run(self)
@@ -346,27 +323,10 @@ class TeamRun:
     # ---- crash recovery --------------------------------------------------
 
     @classmethod
-    def resume_from(
-        cls, store: TeamRunStore, team_run_id: str, *, checkpoint_id: str | None = None
-    ) -> "TeamRun":
+    def resume_from(cls, store: TeamRunStore, team_run_id: str) -> "TeamRun":
         events = store.load_run(team_run_id)
         if not events:
             raise ValueError(f"no events for team_run_id={team_run_id!r}")
-        if checkpoint_id is not None:
-            cp_event = next(
-                (
-                    ev
-                    for ev in events
-                    if ev.kind == "checkpoint_taken"
-                    and str(ev.data.get("checkpoint_id") or "") == checkpoint_id
-                ),
-                None,
-            )
-            if cp_event is None:
-                raise ValueError(
-                    f"checkpoint_id={checkpoint_id!r} not found for team_run_id={team_run_id!r}"
-                )
-            events = [ev for ev in events if ev.seq <= cp_event.seq]
         created = next((e for e in events if e.kind == "team_run_created"), None)
         if created is None:
             raise ValueError(f"event log for {team_run_id!r} missing team_run_created header")

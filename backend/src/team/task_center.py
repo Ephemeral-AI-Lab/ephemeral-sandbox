@@ -9,7 +9,6 @@ the runtime:
 - ``TransitionTracker`` — diff/emit task state-change events
 - ``NoteManager``     — note posting, scope filtering
 - ``TaskContextBuilder`` — agent prompt context assembly
-- ``CheckpointManager`` — snapshot ring buffer + rollback
 """
 
 from __future__ import annotations
@@ -21,8 +20,7 @@ from typing import Any, Awaitable, Callable, TypeVar
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from team.budget_manager import BudgetManager
-from team.checkpoint_manager import CheckpointManager
-from team.errors import CheckpointNotFound, InvalidPlan
+from team.errors import InvalidPlan
 from team.models import (
     AgentResult,
     BudgetConfig,
@@ -37,7 +35,6 @@ from team.models import (
 from team.note_manager import NoteManager
 from team.persistence.events import (
     TeamRunEvent,
-    make_checkpoint_taken,
     make_replace_dependency,
     make_task_added,
     task_to_dict,
@@ -45,7 +42,6 @@ from team.persistence.events import (
 from team.persistence.run_store import NullTeamRunStore, TeamRunStore
 from team.persistence.task_store import TaskStore, _has_parent_summarizer_role
 from team.planning.expander import PlanExpander, ReplanApplyOutcome
-from team.runtime.checkpoint import TeamRunCheckpoint
 from team.runtime.transitions import TransitionTracker
 from team.task_context_builder import TaskContextBuilder
 
@@ -64,7 +60,6 @@ class TaskCenter:
         budgets: BudgetConfig,
         budget_state: BudgetState,
         arbiter: Any = None,
-        max_checkpoints: int = 10,
         event_store: TeamRunStore | None = None,
     ) -> None:
         self._team_run_id = team_run_id
@@ -111,11 +106,6 @@ class TaskCenter:
             arbiter=arbiter,
         )
 
-        self._checkpoints = CheckpointManager(
-            team_run_id=team_run_id,
-            max_checkpoints=max_checkpoints,
-        )
-
     # ---- manager access (public) ----------------------------------------
 
     @property
@@ -129,10 +119,6 @@ class TaskCenter:
     @property
     def context(self) -> TaskContextBuilder:
         return self._context
-
-    @property
-    def checkpoints(self) -> CheckpointManager:
-        return self._checkpoints
 
     @property
     def budget(self) -> BudgetManager:
@@ -741,46 +727,11 @@ class TaskCenter:
         )
         return task
 
-    # ---- checkpointing ---------------------------------------------------
-
-    async def checkpoint(self, label: str | None, project_context: Any) -> TeamRunCheckpoint:
-        await self._store.refresh_graph()
-        return await self._checkpoints.checkpoint(
-            label=label,
-            project_context=project_context,
-            tasks=self.graph,
-            ready_queue_order=self.ready_queue_order,
-            notes=self._notes.snapshot(),
-            budget_state=self.budget_state,
-            emit_checkpoint_cb=lambda run_id, cp_id, seq, lbl: self._emit(
-                make_checkpoint_taken(run_id, checkpoint_id=cp_id, sequence=seq, label=lbl)
-            ),
-        )
-
-    def list_checkpoints(self) -> list[TeamRunCheckpoint]:
-        return self._checkpoints.list_checkpoints()
-
-    async def rollback_to(
-        self, checkpoint_id: str, project_context_setter: Any
-    ) -> TeamRunCheckpoint:
-        cp = await self._checkpoints.rollback_to(
-            checkpoint_id=checkpoint_id,
-            project_context_setter=project_context_setter,
-            replace_run_tasks_fn=self._store.replace_run_tasks,
-            notes_restore_fn=self._notes.restore,
-            ready_queue_order_setter=lambda order: setattr(self._store, "ready_queue_order", order),
-        )
-        if cp is None:
-            raise CheckpointNotFound(checkpoint_id)
-        await self._store.refresh_graph()
-        self._budget.budget_state = cp.budget_state
-        return cp
-
     async def prepare_for_resume(self) -> None:
-        await self._checkpoints.prepare_for_resume(
-            resume_snapshot=self._resume_snapshot,
-            recover_running_fn=self._store.recover_running,
-            replace_run_tasks_fn=self._store.replace_run_tasks,
-        )
+        if self._resume_snapshot is not None:
+            await self._store.replace_run_tasks(self._resume_snapshot)
+        recovered = await self._store.recover_running()
+        if recovered:
+            logger.info("Recovered %d running tasks to ready", len(recovered))
         self._resume_snapshot = None
         await self._store.refresh_graph()

@@ -9,7 +9,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-__all__ = ["Executor", "TeamRun", "TeamRunCheckpoint", "DispatchQueue"]
+__all__ = ["Executor", "TeamRun", "DispatchQueue"]
 
 
 def __getattr__(name: str) -> Any:
@@ -17,8 +17,6 @@ def __getattr__(name: str) -> Any:
         return import_module("team.runtime.executor").Executor
     if name == "TeamRun":
         return import_module("team.runtime.team_run").TeamRun
-    if name == "TeamRunCheckpoint":
-        return import_module("team.runtime.checkpoint").TeamRunCheckpoint
     if name == "DispatchQueue":
         return import_module("team.runtime.dispatch_queue").DispatchQueue
     raise AttributeError(name)

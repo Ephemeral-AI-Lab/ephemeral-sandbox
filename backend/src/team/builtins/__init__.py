@@ -17,12 +17,6 @@ from agents.registry import register_definition
 from agents.types import AgentDefinition
 from team.models import TeamDefinition
 
-# Side-effect import: registers per-agent run_subagent dispatch validators
-# at module load so the validator is available regardless of whether
-# ``register_all()`` is ultimately called (tests and some boot paths may
-# skip the call when builtins are already seeded).
-from team import scout_dispatch as _scout_dispatch  # noqa: F401
-
 if TYPE_CHECKING:
     from agents.db.store import AgentDefinitionStore
     from team.persistence.store import TeamDefinitionStore

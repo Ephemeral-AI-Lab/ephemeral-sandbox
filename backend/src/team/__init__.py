@@ -14,7 +14,6 @@ from typing import Any
 
 from team.errors import (
     BudgetExceeded,
-    CheckpointNotFound,
     GraphInvariantViolation,
     InvalidPlan,
 )
@@ -36,7 +35,6 @@ __all__ = [
     "BudgetConfig",
     "BudgetExceeded",
     "BudgetState",
-    "CheckpointNotFound",
     "GraphInvariantViolation",
     "InvalidPlan",
     "Plan",

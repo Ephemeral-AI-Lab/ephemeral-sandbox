@@ -19,8 +19,6 @@ EventKind = Literal[
     "note_posted",
     "budget_update",
     "replace_dependency",
-    "checkpoint_taken",
-    "checkpoint_repo_state",
     "file_changed",
 ]
 
@@ -155,37 +153,6 @@ def make_budget_update(
             "tasks_used": tasks_used,
             "note_bytes_used": note_bytes_used,
             "replans_used": replans_used,
-        },
-    )
-
-
-def make_checkpoint_taken(
-    team_run_id: str,
-    *,
-    checkpoint_id: str,
-    sequence: int,
-    label: str | None,
-) -> TeamRunEvent:
-    return TeamRunEvent(
-        team_run_id=team_run_id,
-        kind="checkpoint_taken",
-        data={"checkpoint_id": checkpoint_id, "sequence": sequence, "label": label},
-    )
-
-
-def make_checkpoint_repo_state(
-    team_run_id: str,
-    *,
-    checkpoint_id: str,
-    repo_patch: str,
-) -> TeamRunEvent:
-    return TeamRunEvent(
-        team_run_id=team_run_id,
-        kind="checkpoint_repo_state",
-        data={
-            "checkpoint_id": checkpoint_id,
-            "repo_patch": repo_patch,
-            "repo_patch_bytes": len(repo_patch.encode("utf-8")),
         },
     )
 

@@ -328,7 +328,7 @@ Current runtime inventory:
 | `context_read` / `context_write` | 3 / 4 | Task Center notes plus scope and staleness checks |
 | `memory` | 3 | Exploration cache reuse and edit-history conflict prediction |
 | `subagent` | 1 | `run_subagent` for bounded scout/delegation work |
-| `submission` | 3 tools | `submit_plan`, `submit_replan`, `submit_task_summary` |
+| `submission` | 4 tools | `submit_plan`, `submit_replan`, `submit_task_success`, `request_replan` |
 | Runtime `skills` | 2 | `load_skill`, `load_skill_reference` |
 | Runtime `background` | 3 | `check_background_progress`, `wait_for_background_task`, `cancel_background_task` |
 

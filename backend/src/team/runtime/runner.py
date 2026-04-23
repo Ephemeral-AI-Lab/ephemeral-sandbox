@@ -9,6 +9,7 @@ and surfaces stream events to optional hooks.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -23,7 +24,6 @@ from engine.core.query import (
     build_terminal_nudge_text,
 )
 from engine.runtime.agent import spawn_agent
-from message.stream_events import ToolExecutionCompleted
 from team.runtime.context_builder import TeamAgentContext
 
 logger = logging.getLogger(__name__)

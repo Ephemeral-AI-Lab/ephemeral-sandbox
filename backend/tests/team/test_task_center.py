@@ -632,76 +632,18 @@ def test_prepare_for_resume_uses_primed_snapshot():
     tc.prime_resume_state(snapshot=snapshot, ready_queue_order=["task-1"])
     snapshot.append(_task("task-3"))
 
-    captured: dict[str, object] = {}
+    replaced: list[list[object]] = []
 
-    async def _capture_prepare_for_resume(
-        *,
-        resume_snapshot,
-        recover_running_fn,
-        replace_run_tasks_fn,
-    ) -> None:
-        captured["resume_snapshot"] = resume_snapshot
-        captured["recover_running_fn"] = recover_running_fn
-        captured["replace_run_tasks_fn"] = replace_run_tasks_fn
+    async def _replace(tasks):
+        replaced.append(list(tasks))
 
-    tc._checkpoints.prepare_for_resume = AsyncMock(side_effect=_capture_prepare_for_resume)
+    tc.store.replace_run_tasks = AsyncMock(side_effect=_replace)
+    tc.store.recover_running = AsyncMock(return_value=[])
     tc.store.refresh_graph = AsyncMock(return_value=tc.graph)
 
     _run(tc.prepare_for_resume())
 
-    assert [task.id for task in captured["resume_snapshot"]] == ["task-1", "task-2"]
+    assert [task.id for task in replaced[0]] == ["task-1", "task-2"]
     assert tc._resume_snapshot is None
-    tc._checkpoints.prepare_for_resume.assert_awaited_once()
+    tc.store.recover_running.assert_awaited_once()
     tc.store.refresh_graph.assert_awaited_once()
-
-
-def test_rollback_to_restores_ready_queue_order_from_checkpoint():
-    tc = _tc()
-    task_one = _task("task-1")
-    task_two = _task("task-2")
-    tc.store.graph = {task_one.id: task_one, task_two.id: task_two}
-    tc.store.ready_queue_order = ["task-2", "task-1"]
-    tc.store.refresh_graph = AsyncMock(return_value=tc.graph)
-
-    checkpoint = _run(tc.checkpoint(label="before", project_context={"branch": {"name": "main"}}))
-
-    tc.store.ready_queue_order = ["task-1"]
-
-    async def _replace(tasks):
-        tc.store.graph = {task.id: task for task in tasks}
-
-    tc.store.replace_run_tasks = AsyncMock(side_effect=_replace)
-    restored_project_context: dict[str, object] = {}
-
-    _run(
-        tc.rollback_to(
-            checkpoint.id,
-            project_context_setter=lambda value: restored_project_context.update(value),
-        )
-    )
-
-    assert tc.store.ready_queue_order == ["task-2", "task-1"]
-    assert restored_project_context == {"branch": {"name": "main"}}
-
-
-def test_rollback_to_restores_notes_from_checkpoint():
-    tc = _tc()
-    task_one = _task("task-1")
-    tc.store.graph = {task_one.id: task_one}
-    tc.store.ready_queue_order = ["task-1"]
-    tc.store.refresh_graph = AsyncMock(return_value=tc.graph)
-    _run(tc.notes.post(_note("n1", "task-1", "before checkpoint")))
-
-    checkpoint = _run(tc.checkpoint(label="before", project_context={}))
-
-    _run(tc.notes.post(_note("n2", "task-1", "after checkpoint")))
-    assert [note.id for note in _run(tc.notes.read())] == ["n1", "n2"]
-
-    async def _replace(tasks):
-        tc.store.graph = {task.id: task for task in tasks}
-
-    tc.store.replace_run_tasks = AsyncMock(side_effect=_replace)
-
-    _run(tc.rollback_to(checkpoint.id, project_context_setter=lambda value: None))
-
-    assert [note.id for note in _run(tc.notes.read())] == ["n1"]

@@ -54,8 +54,8 @@ sequenceDiagram
     participant G as Task Graph
     participant R as Replanner Task R
 
-    W->>Ex: submit_task_summary(type="request_replan", content)
-    Note over W,Ex: Tool writes task_summary + type="request_replan"<br/>into tool_metadata. Executor._read_result<br/>promotes that into a ReplanRequest.
+    W->>Ex: request_replan(reason)
+    Note over W,Ex: Tool writes task_summary + task_summary_type="request_replan"<br/>into tool_metadata. Executor._read_result<br/>promotes that into a ReplanRequest.
     Ex->>TC: request_replan(A, reason)
     TC->>TC: require_replan_capacity()
     alt replan budget exhausted
@@ -147,7 +147,7 @@ sequenceDiagram
     alt every non-detached child of R is DONE (≥1 DONE)
         TS->>R: mark R EXPANDED_AWAITING_SUMMARY
         TC->>R: parent_summarizer reads R + every direct child
-        R->>TC: submit_task_summary(type="success", content=roll-up)
+        R->>TC: submit_task_success(summary=roll-up)
         TS->>R: mark R DONE
         TS->>D: promote downstream dependents
         TC->>TS: finalize_replanned_origin(R)

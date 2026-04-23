@@ -46,7 +46,7 @@ class NoteManager:
         self._note_posted_cb = note_posted_cb
 
     def snapshot(self) -> list[Note]:
-        """Return a copy of all notes (for checkpointing)."""
+        """Return a copy of all notes."""
         return list(self._notes)
 
     def restore(self, notes: list[Note]) -> None:

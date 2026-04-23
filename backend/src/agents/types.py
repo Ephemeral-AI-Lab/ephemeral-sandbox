@@ -63,9 +63,6 @@ class AgentDefinition(BaseModel):
         description="Tool names that end the agent's query loop when invoked.",
     )
 
-    # --- external triggers ---
-    allowed_triggers: list[str] = Field(default_factory=list)
-
     # --- hooks ---
     hooks: dict[str, Any] | None = None
 
