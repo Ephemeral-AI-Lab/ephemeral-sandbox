@@ -32,7 +32,6 @@ class TeamDefinitionRecord(Base):
     planner_agent: Mapped[str] = mapped_column(String(128))
     worker_agents: Mapped[list[str]] = mapped_column(JSON, default=list)
     roster: Mapped[dict[str, list[str]] | None] = mapped_column(JSON, default=dict, nullable=True)
-    terminal_tools: Mapped[dict[str, list[str]] | None] = mapped_column(JSON, default=dict, nullable=True)
     entry_planner: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

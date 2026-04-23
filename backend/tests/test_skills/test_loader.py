@@ -289,7 +289,7 @@ def test_team_root_planner_playbook_keeps_acceptance_criteria_evidence_focused()
         "No named fail-to-pass cluster is covered only by a validator without a repair/decomposition owner"
         in content
     )
-    assert "CodeAct-safe" not in content
+    assert "daytona_shell-safe" not in content
 
 
 def test_team_root_planner_playbook_requires_parallel_scout_fanout() -> None:
@@ -721,8 +721,66 @@ def test_planner_and_scout_playbooks_keep_benchmark_tests_as_evidence() -> None:
         assert "pytest configuration" in skill
 
     assert "use at most one file-path `ci_query_symbol(...)` per assigned path" in scout_skill
-    assert "the next tool must be `submit_file_note(...)`" in scout_skill
+    assert "the next tool must be `submit_file_notes(...)`" in scout_skill
+    assert "Missing exact-target gate" in scout_skill
+    assert "report zero coverage for that exact path in the note and stop" in scout_skill
     assert "do not call `ci_workspace_structure(...)` or extra symbol/test queries" in scout_contract
+    assert "the next tool must be `submit_file_notes(...)`" in scout_contract
+    assert "For a missing exact file, the note should say the scout recorded zero coverage" in scout_contract
+
+
+def test_planner_and_scout_playbooks_lock_single_file_scout_scope() -> None:
+    planner_skill = _read_bundled_skill("team-planner-playbook")
+    scout_skill = _read_bundled_skill("team-scout-playbook")
+    scout_contract = _read_bundled_reference(
+        "team-scout-playbook", "completion-contract.md"
+    )
+
+    _assert_contains_all(
+        planner_skill,
+        (
+            "Do not use scout `context` to ask for source reads, symbol queries, or ownership checks",
+            "If `groupby.py` is the scout target and `core.py` is only a hypothesis",
+            "either launch a separate scout on `core.py` or carry that adjacent owner as uncertainty",
+        ),
+    )
+    _assert_contains_all(
+        scout_skill,
+        (
+            "Context may mention benchmark ids, hypotheses, or adjacent production files, but it does not widen scope.",
+            "If `context` asks you to inspect `core.py` while `target_paths` contains only `groupby.py`",
+            "only `target_paths` authorize file or directory exploration",
+            "Do not hunt for nearby files, sibling modules, or package structure",
+        ),
+    )
+    _assert_contains_all(
+        scout_contract,
+        (
+            "Context hypotheses do not widen the handed file set.",
+            'If `target_paths` is `["pkg/groupby.py"]`, do not query `pkg/core.py`',
+            "record the adjacent path as an unresolved gap instead",
+            "run `ci_query_symbol(...)` on nearby helper names like `read_*` or `to_*`",
+        ),
+    )
+
+
+def test_team_planner_reference_requires_live_proof_for_scope_paths() -> None:
+    reference = _read_bundled_reference(
+        "team-planner-playbook", "submit-child-plan.md"
+    )
+
+    _assert_contains_all(
+        reference,
+        (
+            "Cold/disproved path gate",
+            "read_file_note(file_path=\"<launched target>\")` produced no scout note",
+            "replacement path discovered only by ad hoc CI/workspace/symbol exploration",
+            "Scope-path proof gate",
+            "keep that path out of child `scope_paths` unless live scout evidence proved it",
+            "guessed owners such as `pkg/distributed/cli`",
+            "`scope_paths` must be live proven owner paths",
+        ),
+    )
 
 
 def test_team_validator_playbook_uses_root_planner_style_contract() -> None:
@@ -740,9 +798,8 @@ def test_team_validator_playbook_uses_root_planner_style_contract() -> None:
     assert "### 2. Build validation plan" in skill
     assert "### 3. Run diagnostics and exact verification" in skill
     assert "### 6. Submit terminal summary" in skill
-    assert "submit_task_summary({" in skill
-    assert 'type: "success" | "request_replan"' in skill
-    assert "content: string" in skill
+    assert "submit_task_success({ summary: string })" in skill
+    assert "request_replan({ reason: string })" in skill
     assert "public-surface guardrail" in skill
 
     assert reference_files == []
@@ -767,11 +824,10 @@ def test_team_developer_playbook_uses_root_planner_style_contract() -> None:
     assert "### 4. Verify" in skill
     assert "### 5. Root cause analysis" in skill
     assert "### 6. Submit terminal summary" in skill
-    assert "submit_task_summary({" in skill
-    assert 'type: "success" | "request_replan"' in skill
-    assert "content: string" in skill
+    assert "submit_task_success({ summary: string })" in skill
+    assert "request_replan({ reason: string })" in skill
     assert "Trigger -> budget warning appears" in skill
-    assert "make the next tool call `submit_task_summary(...)`" in skill
+    assert "make the next tool call `submit_task_success(...)` or `request_replan(...)`" in skill
     assert "one more edit or command to chase a known next fix" in skill
 
 
@@ -789,15 +845,14 @@ def test_developer_and_validator_playbooks_do_not_include_depth_gate_policy() ->
         assert "grandchild_depth" not in skill
 
 
-def test_terminal_summary_playbooks_do_not_require_explicit_residual_risk() -> None:
+def test_terminal_summary_playbooks_require_explicit_residual_risk() -> None:
     for playbook_name in ("team-developer-playbook", "team-validator-playbook"):
         skill = (_BUNDLED_SKILLS_DIR / playbook_name / "SKILL.md").read_text(
             encoding="utf-8"
         )
 
         assert "Do not omit a line because the answer is \"none\"" in skill
-        assert "Residual Risk:" not in skill
-        assert "residual risk" not in skill
+        assert "Residual risk" in skill
 
 
 def test_developer_playbook_rejects_success_without_runtime_verification() -> None:
@@ -927,22 +982,25 @@ def test_developer_playbook_allows_advisory_out_of_scope_production_edits() -> N
         in skill
     )
     assert (
+        "if a benchmark test imports `dask._compatibility` but the assigned evidence only names `dask/compatibility.py`"
+        in skill
+    )
+    assert "request replan instead of creating `dask/_compatibility.py`" in skill
+    assert (
         "The next required edit is outside `scope_paths`, even when production evidence proves that path is required."
         not in skill
     )
 
 
-def test_developer_and_validator_playbooks_keep_codeact_api_boundary() -> None:
+def test_developer_and_validator_playbooks_keep_shell_api_boundary() -> None:
     for playbook_name in ("team-developer-playbook", "team-validator-playbook"):
         skill = (_BUNDLED_SKILLS_DIR / playbook_name / "SKILL.md").read_text(
             encoding="utf-8"
         )
 
         assert "use `command` only for Python source snippets" not in skill
-        assert "use `code` only for Python source snippets" in skill
         assert "only when no valid equivalent can preserve the needed evidence" in skill
         assert "A pre-hook block after sanitization or another policy denial is terminal tooling evidence" not in skill
-        assert "never pass a shell command string in `code`" in skill
         assert "commands already start at the sandbox repo root" in skill
         assert "never `cd` to a host/local workspace path" in skill
         assert "Never prefix commands with `cd /testbed &&`" in skill

@@ -57,13 +57,11 @@ class AgentDefinition(BaseModel):
         validation_alias=AliasChoices("blocked_tools", "blockedTools"),
         description="Tool names to remove after toolkit assembly. Use for role-based restrictions.",
     )
-
-    # --- external triggers ---
-    # Trigger types this agent is allowed to receive.  Currently supported:
-    # "tc_note" — checkpoint note generation via TaskCenter.
-    # Defaults to empty (no triggers).  Developers and validators should
-    # set ``["tc_note"]``.
-    allowed_triggers: list[str] = Field(default_factory=list)
+    terminal_tools: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("terminal_tools", "terminalTools"),
+        description="Tool names that end the agent's query loop when invoked.",
+    )
 
     # --- hooks ---
     hooks: dict[str, Any] | None = None
@@ -128,6 +126,7 @@ class AgentDefinition(BaseModel):
         "permissions",
         "allowed_tools",
         "blocked_tools",
+        "terminal_tools",
         "allowed_triggers",
         mode="before",
     )

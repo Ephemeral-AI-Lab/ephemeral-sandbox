@@ -2,7 +2,7 @@
 
 Tools write structured data to ``ctx.tool_metadata`` during the main run.
 The executor reads that state after the runner returns and dispatches:
-complete, submit_plan, submit_replan, or submit_task_summary.
+complete, submit_plan, submit_replan, submit_task_success, or request_replan.
 """
 
 from __future__ import annotations

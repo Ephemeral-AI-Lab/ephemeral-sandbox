@@ -16,18 +16,17 @@ from tools.daytona_toolkit.delete_move_tool import (
     DaytonaMoveFileInput,
 )
 from tools.daytona_toolkit.hooks.prehook import (
-    codeact_destructive_git,
-    codeact_destructive_shell,
-    codeact_output_pipeline_policy,
-    codeact_package_mutation_policy,
-    codeact_python_process_policy,
-    codeact_stderr_suppression_policy,
+    shell_destructive_git,
+    shell_destructive_shell,
+    shell_output_pipeline_policy,
+    shell_package_mutation_policy,
+    shell_stderr_suppression_policy,
     move_src_scope_deny,
     rename_scope_policy,
     repo_operation_guard,
     write_scope_deny,
 )
-from tools.daytona_toolkit.codeact_tool import DaytonaCodeActInput
+from tools.daytona_toolkit.shell_tool import DaytonaShellInput
 from tools.daytona_toolkit.rename_tool import DaytonaRenameSymbolsInput
 
 
@@ -232,41 +231,41 @@ def test_rename_scope_policy_blocks_planned_out_of_scope_file() -> None:
     assert "_daytona_rename_preplan" not in ctx.metadata
 
 
-def test_codeact_stderr_suppression_policy_blocks_dev_null_stderr() -> None:
+def test_shell_stderr_suppression_policy_blocks_dev_null_stderr() -> None:
     ctx = _ctx()
-    args = DaytonaCodeActInput(command="find . -name '*.py' 2>/dev/null|head -1")
+    args = DaytonaShellInput(command="find . -name '*.py' 2>/dev/null|head -1")
 
     outcome = _run(
-        codeact_stderr_suppression_policy.hook("daytona_codeact", args, ctx)
+        shell_stderr_suppression_policy.hook("daytona_shell", args, ctx)
     )
 
     assert outcome.has_error is True
-    assert "CodeAct commands must preserve stderr" in (outcome.error_message or "")
+    assert "daytona_shell commands must preserve stderr" in (outcome.error_message or "")
     assert "2>/dev/null" in (outcome.error_message or "")
 
 
-def test_codeact_output_pipeline_policy_sanitizes_shell_command() -> None:
+def test_shell_output_pipeline_policy_sanitizes_shell_command() -> None:
     ctx = _ctx()
-    args = DaytonaCodeActInput(
+    args = DaytonaShellInput(
         command="cd /testbed && pytest tests/unit/test_x.py -q 2>&1 | head -200"
     )
 
     outcome = _run(
-        codeact_output_pipeline_policy.hook("daytona_codeact", args, ctx)
+        shell_output_pipeline_policy.hook("daytona_shell", args, ctx)
     )
 
     assert outcome.has_error is False
     assert outcome.tool_input is not None
     assert outcome.tool_input.command == "pytest tests/unit/test_x.py -q"
-    assert "sanitized CodeAct command" in outcome.advisories[0]
+    assert "sanitized daytona_shell command" in outcome.advisories[0]
 
 
-def test_codeact_output_pipeline_policy_sanitizes_head_tail_command() -> None:
+def test_shell_output_pipeline_policy_sanitizes_head_tail_command() -> None:
     ctx = _ctx()
-    args = DaytonaCodeActInput(command="tail -n 40 logs/test.log > /tmp/out")
+    args = DaytonaShellInput(command="tail -n 40 logs/test.log > /tmp/out")
 
     outcome = _run(
-        codeact_output_pipeline_policy.hook("daytona_codeact", args, ctx)
+        shell_output_pipeline_policy.hook("daytona_shell", args, ctx)
     )
 
     assert outcome.has_error is False
@@ -274,14 +273,14 @@ def test_codeact_output_pipeline_policy_sanitizes_head_tail_command() -> None:
     assert outcome.tool_input.command == "cat logs/test.log"
 
 
-def test_codeact_output_pipeline_policy_sanitizes_command_substitution_pipeline() -> None:
+def test_shell_output_pipeline_policy_sanitizes_command_substitution_pipeline() -> None:
     ctx = _ctx()
-    args = DaytonaCodeActInput(
+    args = DaytonaShellInput(
         command="files=$(find . -name '*.py' 2>/dev/null | head -1); printf '%s\\n' \"$files\""
     )
 
     outcome = _run(
-        codeact_output_pipeline_policy.hook("daytona_codeact", args, ctx)
+        shell_output_pipeline_policy.hook("daytona_shell", args, ctx)
     )
 
     assert outcome.has_error is False
@@ -292,12 +291,12 @@ def test_codeact_output_pipeline_policy_sanitizes_command_substitution_pipeline(
     )
 
 
-def test_codeact_output_pipeline_policy_ignores_arithmetic_expansion() -> None:
+def test_shell_output_pipeline_policy_ignores_arithmetic_expansion() -> None:
     ctx = _ctx()
-    args = DaytonaCodeActInput(command='count=$((1 + 2)); echo "$count"')
+    args = DaytonaShellInput(command='count=$((1 + 2)); echo "$count"')
 
     outcome = _run(
-        codeact_output_pipeline_policy.hook("daytona_codeact", args, ctx)
+        shell_output_pipeline_policy.hook("daytona_shell", args, ctx)
     )
 
     assert outcome.has_error is False
@@ -305,12 +304,12 @@ def test_codeact_output_pipeline_policy_ignores_arithmetic_expansion() -> None:
     assert outcome.advisories == ()
 
 
-def test_codeact_output_pipeline_policy_keeps_arithmetic_inside_substitution() -> None:
+def test_shell_output_pipeline_policy_keeps_arithmetic_inside_substitution() -> None:
     ctx = _ctx()
-    args = DaytonaCodeActInput(command='value=$(echo $((1 + 2)) | tail -1); echo "$value"')
+    args = DaytonaShellInput(command='value=$(echo $((1 + 2)) | tail -1); echo "$value"')
 
     outcome = _run(
-        codeact_output_pipeline_policy.hook("daytona_codeact", args, ctx)
+        shell_output_pipeline_policy.hook("daytona_shell", args, ctx)
     )
 
     assert outcome.has_error is False
@@ -318,25 +317,14 @@ def test_codeact_output_pipeline_policy_keeps_arithmetic_inside_substitution() -
     assert outcome.tool_input.command == 'value=$(echo $((1 + 2))); echo "$value"'
 
 
-def test_codeact_output_pipeline_policy_sanitizes_constant_shell_variable() -> None:
-    ctx = _ctx()
-    args = DaytonaCodeActInput(code='cmd = "cat a.py | head"\nshell(cmd)')
-
-    outcome = _run(
-        codeact_output_pipeline_policy.hook("daytona_codeact", args, ctx)
-    )
-
-    assert outcome.has_error is False
-    assert outcome.tool_input is not None
-    assert outcome.tool_input.code == "cmd = 'cat a.py'\nshell(cmd)"
 
 
-def test_codeact_destructive_git_blocks_common_clean_forms() -> None:
+def test_shell_destructive_git_blocks_common_clean_forms() -> None:
     for command in ("git clean -xdf", "git clean -x -d -f"):
-        assert codeact_destructive_git.destructive_git_command_error(command) is not None
+        assert shell_destructive_git.destructive_git_command_error(command) is not None
 
 
-def test_codeact_destructive_git_blocks_metadata_mutation_commands() -> None:
+def test_shell_destructive_git_blocks_metadata_mutation_commands() -> None:
     commands = [
         "git add dask/core.py",
         "git -C /testbed update-index --refresh",
@@ -348,32 +336,16 @@ def test_codeact_destructive_git_blocks_metadata_mutation_commands() -> None:
     ]
 
     for command in commands:
-        err = codeact_destructive_git.destructive_git_command_error(command)
+        err = shell_destructive_git.destructive_git_command_error(command)
         assert err is not None, command
         assert "git mutation commands" in err
 
 
-def test_codeact_destructive_git_blocks_python_shell_clean() -> None:
-    ctx = _ctx()
-    args = DaytonaCodeActInput(code='cmd = "git clean -xdf"\nshell(cmd)')
-
-    outcome = _run(codeact_destructive_git.hook("daytona_codeact", args, ctx))
-
-    assert outcome.has_error is True
-    assert "destructive git commands" in (outcome.error_message or "")
 
 
-def test_codeact_destructive_shell_blocks_python_shell_command() -> None:
-    ctx = _ctx()
-    args = DaytonaCodeActInput(code='cmd = "rm -rf /testbed/tmp"\nshell(cmd)')
-
-    outcome = _run(codeact_destructive_shell.hook("daytona_codeact", args, ctx))
-
-    assert outcome.has_error is True
-    assert "destructive shell command" in (outcome.error_message or "")
 
 
-def test_codeact_package_mutation_policy_blocks_package_manager_mutations() -> None:
+def test_shell_package_mutation_policy_blocks_package_manager_mutations() -> None:
     ctx = _ctx()
     commands = [
         "pip install ujson -q",
@@ -395,9 +367,9 @@ def test_codeact_package_mutation_policy_blocks_package_manager_mutations() -> N
     ]
 
     for command in commands:
-        args = DaytonaCodeActInput(command=command)
+        args = DaytonaShellInput(command=command)
         outcome = _run(
-            codeact_package_mutation_policy.hook("daytona_codeact", args, ctx)
+            shell_package_mutation_policy.hook("daytona_shell", args, ctx)
         )
         assert outcome.has_error is True, command
         assert "package and environment mutation commands are forbidden" in (
@@ -405,19 +377,9 @@ def test_codeact_package_mutation_policy_blocks_package_manager_mutations() -> N
         )
 
 
-def test_codeact_package_mutation_policy_blocks_python_shell_command() -> None:
-    ctx = _ctx()
-    args = DaytonaCodeActInput(code='cmd = "pip install ujson"\nshell(cmd)')
-
-    outcome = _run(
-        codeact_package_mutation_policy.hook("daytona_codeact", args, ctx)
-    )
-
-    assert outcome.has_error is True
-    assert "Blocked `pip install`" in (outcome.error_message or "")
 
 
-def test_codeact_package_mutation_policy_allows_read_only_or_quoted_mentions() -> None:
+def test_shell_package_mutation_policy_allows_read_only_or_quoted_mentions() -> None:
     ctx = _ctx()
     commands = [
         "pip list",
@@ -431,19 +393,19 @@ def test_codeact_package_mutation_policy_allows_read_only_or_quoted_mentions() -
     ]
 
     for command in commands:
-        args = DaytonaCodeActInput(command=command)
+        args = DaytonaShellInput(command=command)
         outcome = _run(
-            codeact_package_mutation_policy.hook("daytona_codeact", args, ctx)
+            shell_package_mutation_policy.hook("daytona_shell", args, ctx)
         )
         assert outcome.has_error is False, command
 
 
-def test_codeact_destructive_git_allows_clean_dry_run() -> None:
+def test_shell_destructive_git_allows_clean_dry_run() -> None:
     for command in ("git clean -ndf", "git clean --dry-run -xdf"):
-        assert codeact_destructive_git.destructive_git_command_error(command) is None
+        assert shell_destructive_git.destructive_git_command_error(command) is None
 
 
-def test_codeact_destructive_git_allows_read_only_git_commands() -> None:
+def test_shell_destructive_git_allows_read_only_git_commands() -> None:
     commands = [
         "git status --short",
         "git diff --cached",
@@ -455,41 +417,38 @@ def test_codeact_destructive_git_allows_read_only_git_commands() -> None:
     ]
 
     for command in commands:
-        assert codeact_destructive_git.destructive_git_command_error(command) is None, command
+        assert shell_destructive_git.destructive_git_command_error(command) is None, command
 
 
-def test_codeact_stderr_suppression_policy_blocks_equivalent_forms() -> None:
+def test_shell_stderr_suppression_policy_blocks_equivalent_forms() -> None:
     ctx = _coord_ctx(team_run_id="run-1", work_item_id="task-1")
     args_list = [
-        DaytonaCodeActInput(command="find . -name '*.py' 2> /dev/null"),
-        DaytonaCodeActInput(command="pytest 2>>/dev/null"),
-        DaytonaCodeActInput(command="command -v rg >/dev/null 2>&1"),
-        DaytonaCodeActInput(command="optional-probe &>/dev/null"),
-        DaytonaCodeActInput(command="pytest 2>&-"),
-        DaytonaCodeActInput(code='shell("find . -name *.py 2>/dev/null")'),
-        DaytonaCodeActInput(code='cmd = "pytest 2>/dev/null"\nshell(cmd)'),
+        DaytonaShellInput(command="find . -name '*.py' 2> /dev/null"),
+        DaytonaShellInput(command="pytest 2>>/dev/null"),
+        DaytonaShellInput(command="command -v rg >/dev/null 2>&1"),
+        DaytonaShellInput(command="optional-probe &>/dev/null"),
+        DaytonaShellInput(command="pytest 2>&-"),
     ]
 
     for args in args_list:
         outcome = _run(
-            codeact_stderr_suppression_policy.hook("daytona_codeact", args, ctx)
+            shell_stderr_suppression_policy.hook("daytona_shell", args, ctx)
         )
         assert outcome.has_error is True, args
 
 
-def test_codeact_stderr_suppression_policy_ignores_quoted_text_and_plain_merge() -> None:
+def test_shell_stderr_suppression_policy_ignores_quoted_text_and_plain_merge() -> None:
     ctx = _coord_ctx(team_run_id="run-1", work_item_id="task-1")
     args_list = [
-        DaytonaCodeActInput(command="python -c \"print('2>/dev/null')\""),
-        DaytonaCodeActInput(command="printf '%s\\n' '2>/dev/null'"),
-        DaytonaCodeActInput(command="pytest 2>&1"),
-        DaytonaCodeActInput(command="pytest 2>/tmp/errors.log"),
-        DaytonaCodeActInput(code='shell("pytest 2>&1")'),
+        DaytonaShellInput(command="python -c \"print('2>/dev/null')\""),
+        DaytonaShellInput(command="printf '%s\\n' '2>/dev/null'"),
+        DaytonaShellInput(command="pytest 2>&1"),
+        DaytonaShellInput(command="pytest 2>/tmp/errors.log"),
     ]
 
     for args in args_list:
         outcome = _run(
-            codeact_stderr_suppression_policy.hook("daytona_codeact", args, ctx)
+            shell_stderr_suppression_policy.hook("daytona_shell", args, ctx)
         )
         assert outcome.has_error is False, args
 
@@ -501,14 +460,12 @@ def test_new_pre_hooks_register_once() -> None:
     repo_operation_guard.register(registry)
     rename_scope_policy.register(registry)
     rename_scope_policy.register(registry)
-    codeact_python_process_policy.register(registry)
-    codeact_python_process_policy.register(registry)
-    codeact_package_mutation_policy.register(registry)
-    codeact_package_mutation_policy.register(registry)
-    codeact_stderr_suppression_policy.register(registry)
-    codeact_stderr_suppression_policy.register(registry)
+    shell_package_mutation_policy.register(registry)
+    shell_package_mutation_policy.register(registry)
+    shell_stderr_suppression_policy.register(registry)
+    shell_stderr_suppression_policy.register(registry)
 
     assert len(registry.matching("daytona_delete_file", "pre")) == 1
     assert len(registry.matching("daytona_move_file", "pre")) == 1
     assert len(registry.matching("daytona_rename_symbol", "pre")) == 1
-    assert len(registry.matching("daytona_codeact", "pre")) == 3
+    assert len(registry.matching("daytona_shell", "pre")) == 2

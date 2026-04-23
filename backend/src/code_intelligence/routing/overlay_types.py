@@ -1,4 +1,4 @@
-"""Dataclasses and exceptions for the overlay CodeAct sandbox.
+"""Dataclasses and exceptions for the overlay shell sandbox.
 
 See ``docs/architecture/overlay-sandbox-plan.md`` §4.1. These types form
 the frozen interface between the sandbox-side ``overlay_run.py`` script
@@ -120,7 +120,7 @@ class OverlayDiff:
 class OverlayAuditResult:
     """Full orchestrator-side result, before the ``SimpleNamespace`` adapter.
 
-    Downstream code (``codeact_tool`` etc.) reads through the
+    Downstream code (``shell_tool`` etc.) reads through the
     ``SimpleNamespace`` the auditor returns, so this record is internal.
     It carries the additive fields called out in plan §4.5 that the
     auditor surfaces on the response.

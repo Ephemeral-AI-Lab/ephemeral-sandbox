@@ -34,9 +34,9 @@ async def hook(
 def register(registry: ToolHookRegistry | None = None) -> None:
     reg = registry or default_registry()
     reg.register(
-        "daytona_codeact",
+        "daytona_shell",
         "post",
         10,
         hook,
-        name="daytona_codeact:audited_write_policy",
+        name="daytona_shell:audited_write_policy",
     )

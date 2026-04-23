@@ -290,7 +290,7 @@ Use `developer` for a narrow exact-owner implementation task.
 Use `team_planner` when the root identifies an owner family but that family must be decomposed below this layer.
 
 ```text
-1. Goal: Decompose codeact toolkit compatibility failures into per-owner lanes across the overlay commit path, the sandbox command execution path, and the remote run cleanup path so each owner family is repaired on its own production boundary.
+1. Goal: Decompose daytona_shell toolkit compatibility failures into per-owner lanes across the overlay commit path, the sandbox command execution path, and the remote run cleanup path so each owner family is repaired on its own production boundary.
 2. Task Details: Own decomposition under backend/src/tools/daytona_toolkit. Stage 1 raised a clustering flag because the failing surface spans overlay commits (_commit_changes), svc.cmd latency regressions in overlay_run, and remote run cleanup behavior, which map to at least three distinct production owners rather than one coherent fix. Flattening this into sibling developer lanes at the root would be catch-all hiding. Benchmark ids and overlay crash traces from the user request are routing evidence for the child planner, not test-edit instructions. The child planner must preserve the existing invariant that _cleanup_remote_run_dir stays on the foreground path (moving it to a background task has already been rejected for throughput reasons).
 3. Acceptance Criteria: The child plan emits exact owner lanes for each decomposed slice, a single child-layer validator, and coverage for uv run pytest backend/tests/tools/daytona_toolkit -q plus any focused overlay or cleanup tests the child evidence identifies. No child acceptance criterion may close a named failing target through skip, xfail, ImportError handling, or by declaring a missing optional dependency as passing closure.
 ```
@@ -396,7 +396,7 @@ dev-tool-schema  ──▶  dev-tool-runtime  ───┐
        │                                   ▼
        └─────────────────────────▶ val-mixed-root-dag
                                            ▲
-dev-codeact-fallback  ─────────────────────┤
+dev-shell-fallback  ─────────────────────┤
                                            │
 plan-routing-cluster  ─────────────────────┘
 ```
@@ -406,10 +406,10 @@ Edges:
 - `dev-tool-schema` → `dev-tool-runtime`
 - `dev-tool-schema` → `val-mixed-root-dag`
 - `dev-tool-runtime` → `val-mixed-root-dag`
-- `dev-codeact-fallback` → `val-mixed-root-dag`
+- `dev-shell-fallback` → `val-mixed-root-dag`
 - `plan-routing-cluster` → `val-mixed-root-dag`
 
-Rationale: only `dev-tool-runtime` consumes schema output, so only it depends on `dev-tool-schema`. `dev-codeact-fallback` and `plan-routing-cluster` touch unrelated surfaces and stay on `deps: []` — adding edges between them just to "order" the payload would serialize independent work. The validator still lists every same-payload non-validator id it verifies.
+Rationale: only `dev-tool-runtime` consumes schema output, so only it depends on `dev-tool-schema`. `dev-shell-fallback` and `plan-routing-cluster` touch unrelated surfaces and stay on `deps: []` — adding edges between them just to "order" the payload would serialize independent work. The validator still lists every same-payload non-validator id it verifies.
 
 ### Overlapping Scopes Without Scope-Hygiene Deps
 

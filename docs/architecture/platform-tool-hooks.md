@@ -267,7 +267,7 @@ Diagram: advisory path.
 
 | Producer | User stream | Model API |
 | --- | --- | --- |
-| Pre-hook returns advisory for `daytona_codeact`. | Emits `SystemNotification` naming `daytona_codeact`. | No message is added. |
+| Pre-hook returns advisory for `daytona_shell`. | Emits `SystemNotification` naming `daytona_shell`. | No message is added. |
 | Pre-hook later allows execution. | Tool starts normally. | Still no advisory message is added. |
 | Tool result is finalized. | Tool completion is shown normally. | One tool result is sent. |
 
@@ -423,7 +423,7 @@ Responsibilities:
 
 Policy hooks should live with the toolkit that owns the policy. They are hook
 modules, not tools. The generic framework belongs in `tools.core.hooks`; Daytona
-write-scope and CodeAct policy belongs in `tools.daytona_toolkit.hooks`.
+write-scope and daytona_shell policy belongs in `tools.daytona_toolkit.hooks`.
 
 Current Daytona layout:
 
@@ -434,18 +434,19 @@ backend/src/tools/daytona_toolkit/hooks/
 
   prehook/
     __init__.py
-    _codeact_common.py
+    _shell_common.py
     write_scope_hard_block.py
     write_scope_advisory.py
     write_scope_deny.py
     move_src_hard_block.py
     move_src_scope_deny.py
     move_dst_scope_advisory.py
-    codeact_destructive_git.py
-    codeact_destructive_shell.py
-    codeact_python_process_policy.py
-    codeact_stderr_suppression_policy.py
-    codeact_file_edit_policy.py
+    shell_destructive_git.py
+    shell_destructive_shell.py
+    shell_stderr_suppression_policy.py
+    shell_file_edit_policy.py
+    shell_output_pipeline_policy.py
+    shell_package_mutation_policy.py
 
   posthook/
     __init__.py
@@ -461,7 +462,7 @@ Each hook module should expose a registration function and keep its policy
 implementation local. The package initializer should be the central place that
 invokes those registration functions.
 
-Underscore-prefixed modules (for example `_common.py`, `_codeact_common.py`) are
+Underscore-prefixed modules (for example `_common.py`, `_shell_common.py`) are
 package-internal helpers and must not be re-exported from the package
 `__init__`. The Daytona hooks package auto-registers its modules at import time;
 tests that need isolation must clear the process-global registry or pass a
@@ -475,7 +476,7 @@ fresh `ToolHookRegistry` instance.
   `move_src_hard_block.py` vs `write_scope_hard_block.py`).
 - Registration name: `{tool_name}:{policy_suffix}`. The suffix should drop
   redundant tool-family prefixes already implied by the tool name (for example
-  `daytona_move_file:src_hard_block`, `daytona_codeact:destructive_shell`)
+  `daytona_move_file:src_hard_block`, `daytona_shell:destructive_shell`)
   but keep policy-area prefixes that are not redundant (for example
   `daytona_write_file:write_scope_hard_block` — `write_scope_` is the policy
   area, not a rename of the tool).
@@ -551,11 +552,12 @@ The initial Daytona pre-hook set should be split into one module per policy:
 | `move_src_scope_deny.py` | pre | `daytona_move_file` | Blocks move operations whose source is outside write scope, including enumerated folder members. |
 | `move_dst_scope_advisory.py` | pre | `daytona_move_file` | Emits advisory for destination outside write scope when policy allows the move. |
 | `rename_scope_policy.py` | pre | `daytona_rename_symbol` | Builds the rename plan once, applies test-file and write-scope policy to planned paths, and caches the approved plan for the tool body. |
-| `codeact_destructive_git.py` | pre | `daytona_codeact` | Blocks destructive git commands and other git metadata/worktree mutation commands that bypass OCC/write-scope audit. |
-| `codeact_destructive_shell.py` | pre | `daytona_codeact` | Blocks destructive shell commands against workspace roots and dangerous devices. |
-| `codeact_python_process_policy.py` | pre | `daytona_codeact` | Blocks `os.system()` and `os.popen()` wrappers in coordinated CodeAct Python mode. |
-| `codeact_stderr_suppression_policy.py` | pre | `daytona_codeact` | Blocks shell commands and literal Python `shell(...)` calls that suppress stderr with `/dev/null`. |
-| `codeact_file_edit_policy.py` | pre | `daytona_codeact` | Blocks shell and Python file-edit side channels when CodeAct edit policy is active. |
+| `shell_destructive_git.py` | pre | `daytona_shell` | Blocks destructive git commands and other git metadata/worktree mutation commands that bypass OCC/write-scope audit. |
+| `shell_destructive_shell.py` | pre | `daytona_shell` | Blocks destructive shell commands against workspace roots and dangerous devices. |
+| `shell_stderr_suppression_policy.py` | pre | `daytona_shell` | Blocks shell commands that suppress stderr with `/dev/null`. |
+| `shell_file_edit_policy.py` | pre | `daytona_shell` | Blocks shell file-edit side channels (`sed -i`, `tee`, redirect writes) when `daytona_shell` edit policy is active. |
+| `shell_output_pipeline_policy.py` | pre | `daytona_shell` | Sanitizes output-shaping syntax (pipes, `head`/`tail`, output redirects, leading repo-root `cd`) before execution. |
+| `shell_package_mutation_policy.py` | pre | `daytona_shell` | Blocks package or environment mutation commands (`pip install`, `uv sync`, `npm install`, etc.) on coordinated lanes. |
 
 The move hooks are intentionally split by source and destination behavior. The
 destination advisory has different semantics from source denial because a move
@@ -568,8 +570,8 @@ Post-hooks should live in `tools.daytona_toolkit.hooks.posthook`.
 
 | Module | Phase | Tools | Purpose |
 | --- | --- | --- | --- |
-| `audited_write_policy.py` | post | `daytona_codeact` | Inspects changed paths and can replace the API-facing result when audited write policy fails. |
-| `ambient_change_warning.py` | post | `daytona_codeact` | Emits a user-only advisory when the shell command touched paths outside its declared write set. |
+| `audited_write_policy.py` | post | `daytona_shell` | Inspects changed paths and can replace the API-facing result when audited write policy fails. |
+| `ambient_change_warning.py` | post | `daytona_shell` | Emits a user-only advisory when the shell command touched paths outside its declared write set. |
 | `move_extend_scope.py` | post | `daytona_move_file` | Extends in-memory write scope to the move destination after a successful owned-source move. |
 | `write_extend_scope.py` | post | `daytona_write_file` | Extends in-memory write scope to a successful write target. |
 
@@ -579,7 +581,7 @@ writes uniformly for every OCC-gated tool. The shared audit primitive lives in
 ``tools.daytona_toolkit._audit`` and accepts ``tool_name`` so the same helper
 can back multiple registrations.
 
-``audited_write_policy`` is registered only on ``daytona_codeact`` by design.
+``audited_write_policy`` is registered only on ``daytona_shell`` by design.
 Codeact commits paths its input does not name (shell side effects, ambient
 edits), so a post-commit audit is the only layer that can see the actual
 changed set. The pure OCC tools
@@ -977,18 +979,17 @@ backend/src/tools/core/hooks/execution.py
 backend/src/tools/daytona_toolkit/hooks/__init__.py
 backend/src/tools/daytona_toolkit/hooks/_common.py
 backend/src/tools/daytona_toolkit/hooks/prehook/__init__.py
-backend/src/tools/daytona_toolkit/hooks/prehook/_codeact_common.py
+backend/src/tools/daytona_toolkit/hooks/prehook/_shell_common.py
 backend/src/tools/daytona_toolkit/hooks/prehook/write_scope_hard_block.py
 backend/src/tools/daytona_toolkit/hooks/prehook/write_scope_advisory.py
 backend/src/tools/daytona_toolkit/hooks/prehook/write_scope_deny.py
 backend/src/tools/daytona_toolkit/hooks/prehook/move_src_hard_block.py
 backend/src/tools/daytona_toolkit/hooks/prehook/move_src_scope_deny.py
 backend/src/tools/daytona_toolkit/hooks/prehook/move_dst_scope_advisory.py
-backend/src/tools/daytona_toolkit/hooks/prehook/codeact_destructive_git.py
-backend/src/tools/daytona_toolkit/hooks/prehook/codeact_destructive_shell.py
-backend/src/tools/daytona_toolkit/hooks/prehook/codeact_python_process_policy.py
-backend/src/tools/daytona_toolkit/hooks/prehook/codeact_stderr_suppression_policy.py
-backend/src/tools/daytona_toolkit/hooks/prehook/codeact_file_edit_policy.py
+backend/src/tools/daytona_toolkit/hooks/prehook/shell_destructive_git.py
+backend/src/tools/daytona_toolkit/hooks/prehook/shell_destructive_shell.py
+backend/src/tools/daytona_toolkit/hooks/prehook/shell_stderr_suppression_policy.py
+backend/src/tools/daytona_toolkit/hooks/prehook/shell_file_edit_policy.py
 backend/src/tools/daytona_toolkit/hooks/posthook/__init__.py
 backend/src/tools/daytona_toolkit/hooks/posthook/audited_write_policy.py
 backend/src/tools/daytona_toolkit/hooks/posthook/ambient_change_warning.py
@@ -1068,7 +1069,7 @@ backend/src/tools/daytona_toolkit/toolkit.py
 ```
 
 These now register platform hooks through `tools.core.hooks`, preserving the
-current Daytona write-scope and CodeAct behavior. The monolithic `guards.py`
+current Daytona write-scope and daytona_shell behavior. The monolithic `guards.py`
 file was replaced by the per-hook module layout under
 `tools.daytona_toolkit.hooks`.
 
@@ -1252,7 +1253,7 @@ backend/tests/test_external_trigger/test_runner.py
 
 Deliverables:
 
-- Move Daytona write-scope and CodeAct policy registrations to
+- Move Daytona write-scope and daytona_shell policy registrations to
   `tools.core.hooks`.
 - Split the current monolithic Daytona guard module into one file per hook under
   `tools.daytona_toolkit.hooks.prehook` and `tools.daytona_toolkit.hooks.posthook`.
@@ -1263,7 +1264,7 @@ Deliverables:
 Exit criteria:
 
 - Existing Daytona write-scope behavior is unchanged.
-- CodeAct destructive command and file-edit side-channel policy hooks still run.
+- daytona_shell destructive command and file-edit side-channel policy hooks still run.
 - Re-importing Daytona hook packages does not duplicate registry entries.
 - Existing coordination-warning side effects remain correct where they are still
   part of product behavior.
@@ -1274,7 +1275,7 @@ Suggested tests:
 backend/tests/test_tools/test_daytona_toolkit/test_edit_tool.py
 backend/tests/test_tools/test_daytona_toolkit/test_tools_execution.py
 backend/tests/test_tools/test_daytona_toolkit/test_delete_move_tool.py
-backend/tests/test_tools/test_daytona_toolkit/test_codeact_tool.py
+backend/tests/test_tools/test_daytona_toolkit/test_shell_tool.py
 backend/tests/test_tools/test_daytona_toolkit/test_write_scope_advisory.py
 ```
 

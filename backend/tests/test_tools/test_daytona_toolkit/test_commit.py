@@ -12,7 +12,7 @@ from code_intelligence.types import OperationResult
 from tools.core.base import ToolExecutionContext
 from tools.daytona_toolkit._commit import (
     FileChangeResult,
-    submit_codeact_cmd,
+    submit_shell_cmd,
     submit_commit,
 )
 
@@ -136,7 +136,7 @@ async def test_submit_commit_dispatches_on_op_name() -> None:
     assert change.changed_paths == ("/ws/b",)
 
 
-async def test_submit_codeact_cmd_normalizes_changed_paths() -> None:
+async def test_submit_shell_cmd_normalizes_changed_paths() -> None:
     response = SimpleNamespace(
         result="ok",
         exit_code=0,
@@ -147,7 +147,7 @@ async def test_submit_codeact_cmd_normalizes_changed_paths() -> None:
     svc.cmd = AsyncMock(return_value=response)
     ctx = _ctx({"ci_service": svc, "ci_sandbox": object()})
 
-    change = await submit_codeact_cmd(
+    change = await submit_shell_cmd(
         ctx,
         command="echo hi",
         description="test",
@@ -160,7 +160,7 @@ async def test_submit_codeact_cmd_normalizes_changed_paths() -> None:
     assert change.raw is response
 
 
-async def test_submit_codeact_cmd_marks_nonzero_exit_as_failure() -> None:
+async def test_submit_shell_cmd_marks_nonzero_exit_as_failure() -> None:
     response = SimpleNamespace(
         result="",
         exit_code=1,
@@ -171,7 +171,7 @@ async def test_submit_codeact_cmd_marks_nonzero_exit_as_failure() -> None:
     svc.cmd = AsyncMock(return_value=response)
     ctx = _ctx({"ci_service": svc, "ci_sandbox": object()})
 
-    change = await submit_codeact_cmd(
+    change = await submit_shell_cmd(
         ctx,
         command="false",
         description="test",
@@ -180,7 +180,7 @@ async def test_submit_codeact_cmd_marks_nonzero_exit_as_failure() -> None:
     assert change.success is False
 
 
-async def test_submit_codeact_cmd_treats_noop_commit_status_as_success() -> None:
+async def test_submit_shell_cmd_treats_noop_commit_status_as_success() -> None:
     response = SimpleNamespace(
         result="ok",
         exit_code=0,
@@ -192,7 +192,7 @@ async def test_submit_codeact_cmd_treats_noop_commit_status_as_success() -> None
     svc.cmd = AsyncMock(return_value=response)
     ctx = _ctx({"ci_service": svc, "ci_sandbox": object()})
 
-    change = await submit_codeact_cmd(
+    change = await submit_shell_cmd(
         ctx,
         command="python3 -m venv .venv",
         description="test",
@@ -202,7 +202,7 @@ async def test_submit_codeact_cmd_treats_noop_commit_status_as_success() -> None
     assert change.changed_paths == ()
 
 
-async def test_submit_codeact_cmd_treats_sandbox_commit_abort_as_failure() -> None:
+async def test_submit_shell_cmd_treats_sandbox_commit_abort_as_failure() -> None:
     response = SimpleNamespace(
         result="",
         exit_code=0,
@@ -215,7 +215,7 @@ async def test_submit_codeact_cmd_treats_sandbox_commit_abort_as_failure() -> No
     svc.cmd = AsyncMock(return_value=response)
     ctx = _ctx({"ci_service": svc, "ci_sandbox": object()})
 
-    change = await submit_codeact_cmd(
+    change = await submit_shell_cmd(
         ctx,
         command="echo hi",
         description="test",
@@ -225,20 +225,20 @@ async def test_submit_codeact_cmd_treats_sandbox_commit_abort_as_failure() -> No
     assert change.conflict_reason == "version_drift"
 
 
-async def test_submit_codeact_cmd_rejects_when_no_sandbox_available() -> None:
+async def test_submit_shell_cmd_rejects_when_no_sandbox_available() -> None:
     svc = MagicMock()
     svc.cmd = AsyncMock()
     ctx = _ctx({"ci_service": svc})
 
     with pytest.raises(RuntimeError, match="requires a sandbox"):
-        await submit_codeact_cmd(
+        await submit_shell_cmd(
             ctx,
             command="echo hi",
             description="test",
         )
 
 
-async def test_submit_codeact_cmd_uses_explicit_sandbox_override() -> None:
+async def test_submit_shell_cmd_uses_explicit_sandbox_override() -> None:
     response = SimpleNamespace(
         result="ok", exit_code=0, changed_paths=[], ambient_changed_paths=[],
     )
@@ -248,7 +248,7 @@ async def test_submit_codeact_cmd_uses_explicit_sandbox_override() -> None:
     # No sandbox in context metadata — caller passes an explicit override.
     ctx = _ctx({"ci_service": svc})
 
-    change = await submit_codeact_cmd(
+    change = await submit_shell_cmd(
         ctx,
         command="echo hi",
         description="test",
@@ -260,26 +260,7 @@ async def test_submit_codeact_cmd_uses_explicit_sandbox_override() -> None:
     assert called_sandbox is recovered_sandbox
 
 
-async def test_submit_codeact_cmd_forwards_stdin() -> None:
-    response = SimpleNamespace(
-        result="ok", exit_code=0, changed_paths=[], ambient_changed_paths=[],
-    )
-    svc = MagicMock()
-    svc.cmd = AsyncMock(return_value=response)
-    ctx = _ctx({"ci_service": svc, "ci_sandbox": object()})
-
-    change = await submit_codeact_cmd(
-        ctx,
-        command="python3 -",
-        description="test",
-        stdin="print('hi')",
-    )
-
-    assert change.success is True
-    assert svc.cmd.await_args.kwargs["stdin"] == "print('hi')"
-
-
-async def test_submit_codeact_cmd_forwards_progress_callback() -> None:
+async def test_submit_shell_cmd_forwards_progress_callback() -> None:
     response = SimpleNamespace(
         result="ok", exit_code=0, changed_paths=[], ambient_changed_paths=[],
     )
@@ -290,7 +271,7 @@ async def test_submit_codeact_cmd_forwards_progress_callback() -> None:
     def on_progress(line: str) -> None:
         del line
 
-    change = await submit_codeact_cmd(
+    change = await submit_shell_cmd(
         ctx,
         command="echo hi",
         description="test",

@@ -45,7 +45,7 @@ class AgentDefinitionStore(DefinitionStoreBase[AgentDefinitionRecord]):
                 skills=defn.skills or [],
                 allowed_tools=defn.allowed_tools or [],
                 blocked_tools=defn.blocked_tools or [],
-                allowed_triggers=defn.allowed_triggers or [],
+                terminal_tools=defn.terminal_tools or [],
                 hooks=defn.hooks,
                 background=defn.background,
                 initial_prompt=defn.initial_prompt,

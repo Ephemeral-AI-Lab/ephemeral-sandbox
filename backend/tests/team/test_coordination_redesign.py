@@ -1750,7 +1750,7 @@ async def test_build_query_context_parent_summarizer_terminal_tools():
         task,
     )
 
-    assert ctx.tool_metadata["terminal_tools"] == {"submit_task_summary"}
+    assert ctx.tool_metadata["terminal_tools"] == {"submit_task_success"}
 
 
 @pytest.mark.asyncio

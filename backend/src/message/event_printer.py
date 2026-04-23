@@ -75,12 +75,12 @@ def _subagent_completion_detail_lines(output: str) -> list[str]:
     return []
 
 
-def _parse_codeact_structured_error(
+def _parse_shell_structured_error(
     tool_name: str,
     output: str,
     is_error: bool,
 ) -> dict[str, Any] | None:
-    if tool_name != "daytona_codeact" or not is_error:
+    if tool_name != "daytona_shell" or not is_error:
         return None
     try:
         payload = json.loads(output)
@@ -102,7 +102,7 @@ def _append_detail(lines: list[str], value: object) -> None:
         lines.append(text)
 
 
-def _format_codeact_structured_error(payload: dict[str, Any]) -> str:
+def _format_shell_structured_error(payload: dict[str, Any]) -> str:
     lines: list[str] = []
     shell_outputs = payload.get("shell_outputs")
     if isinstance(shell_outputs, list):
@@ -141,9 +141,9 @@ def _format_tool_completion_output(
     is_error: bool,
     limit: int | None,
 ) -> str:
-    payload = _parse_codeact_structured_error(tool_name, output, is_error)
+    payload = _parse_shell_structured_error(tool_name, output, is_error)
     if payload is not None:
-        output = _format_codeact_structured_error(payload)
+        output = _format_shell_structured_error(payload)
     rendered = _truncate(output, limit)
     return f" {rendered}" if rendered else ""
 

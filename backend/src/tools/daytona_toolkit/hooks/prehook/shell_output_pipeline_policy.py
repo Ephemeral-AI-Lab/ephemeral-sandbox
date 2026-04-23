@@ -1,8 +1,7 @@
-"""Sanitize CodeAct commands that route output through pipes, redirects, or repo-root cd."""
+"""Sanitize daytona_shell commands that route output through pipes, redirects, or repo-root cd."""
 
 from __future__ import annotations
 
-import ast
 import re
 from dataclasses import dataclass
 
@@ -10,22 +9,19 @@ from pydantic import BaseModel
 
 from tools.core.base import ToolExecutionContext
 from tools.core.hooks import PreHookOutcome, ToolHookRegistry, default_registry
-from tools.daytona_toolkit.hooks.prehook._codeact_common import (
-    python_code,
-    shell_command,
-)
+from tools.daytona_toolkit.hooks.prehook._shell_common import shell_command
 
 PIPELINE_POLICY_MESSAGE = (
-    "CodeAct policy error: command could not be sanitized to a runnable command. "
+    "daytona_shell policy error: command could not be sanitized to a runnable command. "
     "Commands must not contain `|`, `>`, `2>&1`, `head`, `tail`, or a leading "
     "`cd /testbed &&` / `cd /workspace &&`. "
-    "`daytona_codeact` already captures stdout/stderr and starts at the repo root. "
+    "`daytona_shell` already captures stdout/stderr and starts at the repo root. "
     "Use pytest flags (`-x`, `-k`, `--tb=short`), a narrower node id, "
     "or background execution to limit output."
 )
 
 PIPELINE_POLICY_ADVISORY = (
-    "sanitized CodeAct command before execution; removed unsupported output "
+    "sanitized daytona_shell command before execution; removed unsupported output "
     "piping/redirection, head/tail filtering, or a leading repo-root cd."
 )
 
@@ -416,107 +412,16 @@ def _sanitize_shell_command(command: str) -> _SanitizedCommand:
     return _SanitizedCommand(sanitized, changed=changed)
 
 
-class _ShellCommandTransformer(ast.NodeTransformer):
-    def __init__(self, shell_arg_names: set[str]) -> None:
-        self.shell_arg_names = shell_arg_names
-        self.changed = False
-        self.error: str | None = None
-
-    def _sanitize_literal(self, value: str) -> ast.Constant:
-        sanitized = _sanitize_shell_command(value)
-        if sanitized.error is not None:
-            self.error = sanitized.error
-            return ast.Constant(value=value)
-        if sanitized.changed:
-            self.changed = True
-            return ast.Constant(value=sanitized.command)
-        return ast.Constant(value=value)
-
-    def visit_Call(self, node: ast.Call) -> ast.AST:
-        self.generic_visit(node)
-        if (
-            isinstance(node.func, ast.Name)
-            and node.func.id == "shell"
-            and node.args
-            and isinstance(node.args[0], ast.Constant)
-            and isinstance(node.args[0].value, str)
-        ):
-            node.args[0] = self._sanitize_literal(node.args[0].value)
-        return node
-
-    def visit_Assign(self, node: ast.Assign) -> ast.AST:
-        self.generic_visit(node)
-        if not isinstance(node.value, ast.Constant) or not isinstance(node.value.value, str):
-            return node
-        if any(
-            isinstance(target, ast.Name) and target.id in self.shell_arg_names
-            for target in node.targets
-        ):
-            node.value = self._sanitize_literal(node.value.value)
-        return node
-
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> ast.AST:
-        self.generic_visit(node)
-        if (
-            isinstance(node.target, ast.Name)
-            and node.target.id in self.shell_arg_names
-            and isinstance(node.value, ast.Constant)
-            and isinstance(node.value.value, str)
-        ):
-            node.value = self._sanitize_literal(node.value.value)
-        return node
-
-
-def _shell_name_args(tree: ast.AST) -> set[str]:
-    names: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        if not isinstance(node.func, ast.Name) or node.func.id != "shell":
-            continue
-        if node.args and isinstance(node.args[0], ast.Name):
-            names.add(node.args[0].id)
-    return names
-
-
-def _sanitize_python_shell_calls(code: str) -> _SanitizedCommand:
-    try:
-        tree = ast.parse(code or "")
-    except SyntaxError:
-        return _SanitizedCommand(code, changed=False)
-
-    transformer = _ShellCommandTransformer(_shell_name_args(tree))
-    transformed = transformer.visit(tree)
-    if transformer.error is not None:
-        return _SanitizedCommand(code, changed=transformer.changed, error=transformer.error)
-    if not transformer.changed:
-        return _SanitizedCommand(code, changed=False)
-    ast.fix_missing_locations(transformed)
-    return _SanitizedCommand(ast.unparse(transformed), changed=True)
-
-
-def sanitize_codeact_pipeline_policy(args: BaseModel) -> PreHookOutcome:
+def sanitize_shell_pipeline_policy(args: BaseModel) -> PreHookOutcome:
     command = shell_command(args)
-    if command is not None:
-        sanitized = _sanitize_shell_command(command)
-        if sanitized.error is not None:
-            return PreHookOutcome(has_error=True, error_message=sanitized.error)
-        if sanitized.changed:
-            return PreHookOutcome(
-                tool_input=args.model_copy(update={"command": sanitized.command}),
-                advisories=(PIPELINE_POLICY_ADVISORY,),
-            )
+    if command is None:
         return PreHookOutcome()
-
-    code = python_code(args)
-    if code is None:
-        return PreHookOutcome()
-    sanitized = _sanitize_python_shell_calls(code)
+    sanitized = _sanitize_shell_command(command)
     if sanitized.error is not None:
         return PreHookOutcome(has_error=True, error_message=sanitized.error)
     if sanitized.changed:
         return PreHookOutcome(
-            tool_input=args.model_copy(update={"code": sanitized.command}),
+            tool_input=args.model_copy(update={"command": sanitized.command}),
             advisories=(PIPELINE_POLICY_ADVISORY,),
         )
     return PreHookOutcome()
@@ -528,15 +433,15 @@ async def hook(
     context: ToolExecutionContext,
 ) -> PreHookOutcome:
     del context
-    return sanitize_codeact_pipeline_policy(args)
+    return sanitize_shell_pipeline_policy(args)
 
 
 def register(registry: ToolHookRegistry | None = None) -> None:
     reg = registry or default_registry()
     reg.register(
-        "daytona_codeact",
+        "daytona_shell",
         "pre",
         27,
         hook,
-        name="daytona_codeact:output_pipeline_policy",
+        name="daytona_shell:output_pipeline_policy",
     )

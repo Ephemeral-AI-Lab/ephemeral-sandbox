@@ -5,7 +5,8 @@ role: planner
 model: inherit
 tool_call_limit: 100
 toolkits: ["code_intelligence", "task_center", "subagent", "submission"]
-blocked_tools: ["submit_task_note", "submit_file_note", "read_task_graph", "ci_status", "ci_diagnostics", "read_task_details"]
+blocked_tools: ["submit_task_note", "submit_file_notes", "read_task_graph", "ci_status", "ci_diagnostics", "read_task_details"]
+terminal_tools: ["submit_plan"]
 skills: ["team-root-planner-playbook"]
 ---
 <Role>

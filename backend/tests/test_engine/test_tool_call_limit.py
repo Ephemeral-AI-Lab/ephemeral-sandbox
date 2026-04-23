@@ -113,8 +113,8 @@ def test_budget_warning_guides_validator_to_wrap_up():
     ctx = _ctx(100, 75)
     ctx.tool_metadata["role"] = "reviewer"
     _, event = build_budget_warning(ctx)
-    assert "submit_task_summary(type='success')" in event.text
-    assert "submit_task_summary(type='request_replan')" in event.text
+    assert "submit_task_success()" in event.text
+    assert "request_replan()" in event.text
     assert "diagnostics status" in event.text
     assert "Residual Risk line" not in event.text
 
@@ -187,14 +187,14 @@ async def test_execute_tool_call_allows_terminal_tool_when_budget_exhausted():
 
 @pytest.mark.asyncio
 async def test_execute_tool_call_reserves_last_call_for_terminal_tool():
-    ctx = _ctx(limit=2, used=1, terminal_tools={"submit_task_summary"})
+    ctx = _ctx(limit=2, used=1, terminal_tools={"submit_task_success"})
     ctx.tool_registry.get = lambda _name: None  # type: ignore[method-assign]
 
     result = await execute_tool_call(ctx, "daytona_read_file", "id1", {})
 
     assert result.is_error
     assert "terminal call reserved" in result.content
-    assert "submit_task_summary" in result.content
+    assert "submit_task_success" in result.content
     assert ctx.tool_calls_used == 1
 
 

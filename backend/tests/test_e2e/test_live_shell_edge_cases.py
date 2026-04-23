@@ -1,11 +1,11 @@
 # ruff: noqa
-"""Live E2E: CodeAct tool edge cases -- pip install, CWD, team-agnostic execution.
+"""Live E2E: daytona_shell tool edge cases -- pip install, CWD, team-agnostic execution.
 
-Verifies the codeact tool end-to-end using a real Daytona sandbox and a real LLM.
+Verifies the daytona_shell tool end-to-end using a real Daytona sandbox and a real LLM.
 
-CodeAct is team-agnostic: it enforces NO team-mode constraints (subprocess bans,
+daytona_shell is team-agnostic: it enforces NO team-mode constraints (subprocess bans,
 write restrictions, install bans). Those constraints live at the daytona_write_file /
-daytona_edit_file layer. These tests verify codeact is truly unconstrained.
+daytona_edit_file layer. These tests verify daytona_shell is truly unconstrained.
 
 Edge cases tested:
 - pip install works (solo and team mode)
@@ -14,7 +14,7 @@ Edge cases tested:
 - read/write/shell helpers work correctly
 - Error handling (exceptions, timeouts, exit codes, stderr)
 
-Run with: pytest tests/test_e2e/test_live_codeact_edge_cases.py -m live -v
+Run with: pytest tests/test_e2e/test_live_shell_edge_cases.py -m live -v
 """
 
 from __future__ import annotations
@@ -35,8 +35,8 @@ pytestmark = [pytest.mark.e2e, pytest.mark.live, pytest.mark.asyncio]
 
 CODEACT_PROMPT = (
     "You are a developer with a remote Daytona sandbox. "
-    "You MUST use daytona_codeact for every action -- never just describe what you'd do. "
-    "When asked to run code, use the daytona_codeact tool with the Python code provided. "
+    "You MUST use daytona_shell for every action -- never just describe what you'd do. "
+    "When asked to run code, use the daytona_shell tool with the Python code provided. "
     "Be concise. Do exactly what is asked."
 )
 
@@ -49,7 +49,7 @@ CODEACT_PROMPT = (
 def sandbox_id():
     if not EvalAgent.has_all():
         pytest.skip("LLM + Daytona credentials required")
-    sb = create_test_sandbox("codeact-edge")
+    sb = create_test_sandbox("shell-edge")
     yield sb["id"]
     delete_test_sandbox(sb["id"])
 
@@ -66,41 +66,41 @@ def agent(sandbox_id):
 
 
 async def test_pip_install_allowed_solo_mode(agent):
-    """Solo-mode agent can run pip install via codeact without error."""
+    """Solo-mode agent can run pip install via daytona_shell without error."""
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         "result = shell('pip install --dry-run requests 2>&1 || true')\n"
         "print(result['exit_code'])"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     assert len(completed) >= 1, "No tool completions"
 
     for ev in completed:
-        if ev.tool_name == "daytona_codeact":
+        if ev.tool_name == "daytona_shell":
             assert "ambient runtime environment" not in ev.output, (
                 f"pip install should be allowed: {ev.output}"
             )
 
 
 async def test_pip_install_allowed_with_team_metadata(agent):
-    """Even with team metadata injected, pip install is allowed (codeact is team-agnostic)."""
+    """Even with team metadata injected, pip install is allowed (daytona_shell is team-agnostic)."""
     meta = agent._query_context.tool_metadata
     meta.agent_name = "developer"
     try:
         result = await agent.invoke(
-            "Use daytona_codeact with this Python code:\n"
+            "Use daytona_shell with this Python code:\n"
             "result = shell('pip install --dry-run requests 2>&1 || true')\n"
             "print(result['exit_code'])"
         )
-        assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+        assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
         completed = result.tools_completed()
         assert len(completed) >= 1, "No tool completions"
 
         for ev in completed:
-            if ev.tool_name == "daytona_codeact":
+            if ev.tool_name == "daytona_shell":
                 assert "ambient runtime environment" not in ev.output, (
                     f"pip install should be allowed in team mode: {ev.output}"
                 )
@@ -116,32 +116,32 @@ async def test_pip_install_allowed_with_team_metadata(agent):
 async def test_cwd_is_set_in_shell_helper(agent):
     """shell() commands execute from the configured daytona_cwd."""
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         "result = shell('pwd')\n"
         "print('CWD:', result['stdout'].strip())"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
-    codeact_outputs = [ev.output for ev in completed if ev.tool_name == "daytona_codeact"]
+    shell_outputs_list = [ev.output for ev in completed if ev.tool_name == "daytona_shell"]
 
-    all_output = " ".join(codeact_outputs) + " " + result.text
+    all_output = " ".join(shell_outputs_list) + " " + result.text
     assert any(c in all_output for c in ("/home", "/workspace", "/testbed", "/")), (
         f"Expected a real cwd path in output: {all_output[:500]}"
     )
 
 
 async def test_cwd_consistent_across_shell_calls(agent):
-    """Multiple shell() calls in one codeact invocation share the same cwd."""
+    """Multiple shell() calls in one daytona_shell invocation share the same cwd."""
     marker = uuid.uuid4().hex[:8]
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         f"shell('echo {marker} > __cwd_test.txt')\n"
         "result = shell('cat __cwd_test.txt')\n"
         "print('CONTENT:', result['stdout'].strip())\n"
         "shell('rm -f __cwd_test.txt')"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     all_output = " ".join(ev.output for ev in completed) + " " + result.text
@@ -151,60 +151,60 @@ async def test_cwd_consistent_across_shell_calls(agent):
 
 
 # ===========================================================================
-# AREA 3: CodeAct is team-agnostic -- no constraints enforced
+# AREA 3: daytona_shell is team-agnostic -- no constraints enforced
 # ===========================================================================
 
 
-async def test_codeact_allows_subprocess_with_team_metadata(agent):
-    """CodeAct does not block subprocess calls even with team metadata."""
+async def test_shell_allows_subprocess_with_team_metadata(agent):
+    """daytona_shell does not block subprocess calls even with team metadata."""
     meta = agent._query_context.tool_metadata
     meta.agent_name = "developer"
     try:
         result = await agent.invoke(
-            "Use daytona_codeact with this exact Python code:\n"
+            "Use daytona_shell with this exact Python code:\n"
             "import subprocess\n"
             "proc = subprocess.run(['echo', 'SUBPROCESS_OK'], capture_output=True, text=True)\n"
             "print(proc.stdout.strip())"
         )
-        assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+        assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
         completed = result.tools_completed()
-        codeact_results = [ev for ev in completed if ev.tool_name == "daytona_codeact"]
+        shell_results = [ev for ev in completed if ev.tool_name == "daytona_shell"]
 
         has_subprocess_rejection = any(
             ev.is_error and "shell(\"...\")" in ev.output
-            for ev in codeact_results
+            for ev in shell_results
         )
         assert not has_subprocess_rejection, (
-            "CodeAct should allow subprocess (team-agnostic). Outputs: "
-            + "; ".join(ev.output[:300] for ev in codeact_results)
+            "daytona_shell should allow subprocess (team-agnostic). Outputs: "
+            + "; ".join(ev.output[:300] for ev in shell_results)
         )
     finally:
         meta.agent_name = ""
 
 
-async def test_codeact_allows_writes_with_validator_metadata(agent):
-    """CodeAct does not block writes even with validator team metadata."""
+async def test_shell_allows_writes_with_validator_metadata(agent):
+    """daytona_shell does not block writes even with validator team metadata."""
     meta = agent._query_context.tool_metadata
     meta.agent_name = "validator"
     try:
         marker = f"VALIDATOR_{uuid.uuid4().hex[:8]}"
         result = await agent.invoke(
-            "Use daytona_codeact with this Python code:\n"
+            "Use daytona_shell with this Python code:\n"
             f"write('/tmp/validator_write_{marker}.txt', '{marker}')\n"
         )
-        assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+        assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
         completed = result.tools_completed()
-        codeact_results = [ev for ev in completed if ev.tool_name == "daytona_codeact"]
+        shell_results = [ev for ev in completed if ev.tool_name == "daytona_shell"]
 
         has_write_rejection = any(
             ev.is_error and "must not write" in ev.output
-            for ev in codeact_results
+            for ev in shell_results
         )
         assert not has_write_rejection, (
-            "CodeAct should allow validator writes (team-agnostic). Outputs: "
-            + "; ".join(ev.output[:300] for ev in codeact_results)
+            "daytona_shell should allow validator writes (team-agnostic). Outputs: "
+            + "; ".join(ev.output[:300] for ev in shell_results)
         )
     finally:
         meta.agent_name = ""
@@ -216,16 +216,16 @@ async def test_codeact_allows_writes_with_validator_metadata(agent):
 
 
 async def test_read_write_shell_roundtrip(agent):
-    """Full codeact helper roundtrip: write() -> shell(cat) -> verify content."""
+    """Full daytona_shell helper roundtrip: write() -> shell(cat) -> verify content."""
     marker = f"ROUNDTRIP_{uuid.uuid4().hex[:8]}"
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
-        f"write('/tmp/codeact_rt_{marker}.txt', '{marker}')\n"
-        f"result = shell('cat /tmp/codeact_rt_{marker}.txt')\n"
+        "Use daytona_shell with this Python code:\n"
+        f"write('/tmp/shell_rt_{marker}.txt', '{marker}')\n"
+        f"result = shell('cat /tmp/shell_rt_{marker}.txt')\n"
         "print('CONTENT:', result['stdout'].strip())\n"
-        f"shell('rm -f /tmp/codeact_rt_{marker}.txt')"
+        f"shell('rm -f /tmp/shell_rt_{marker}.txt')"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     all_output = " ".join(ev.output for ev in completed) + " " + result.text
@@ -237,11 +237,11 @@ async def test_read_write_shell_roundtrip(agent):
 async def test_shell_captures_exit_code(agent):
     """shell() helper captures non-zero exit codes correctly."""
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         "result = shell('exit 42')\n"
         "print('EXIT_CODE:', result['exit_code'])"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     all_output = " ".join(ev.output for ev in completed) + " " + result.text
@@ -253,11 +253,11 @@ async def test_shell_captures_exit_code(agent):
 async def test_shell_captures_stderr(agent):
     """shell() helper captures stderr output."""
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         "result = shell('echo STDERR_MARKER >&2')\n"
         "print('STDERR:', result['stderr'].strip())"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     all_output = " ".join(ev.output for ev in completed) + " " + result.text
@@ -271,13 +271,13 @@ async def test_shell_captures_stderr(agent):
 # ===========================================================================
 
 
-async def test_codeact_reports_python_exceptions(agent):
+async def test_shell_reports_python_exceptions(agent):
     """Python exceptions in user code are captured and reported."""
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         "raise ValueError('INTENTIONAL_ERROR_42')"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     all_output = " ".join(ev.output for ev in completed) + " " + result.text
@@ -286,15 +286,15 @@ async def test_codeact_reports_python_exceptions(agent):
     )
 
 
-async def test_codeact_handles_shell_timeout(agent):
+async def test_shell_handles_timeout(agent):
     """shell() with a short timeout correctly reports timeout."""
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         "result = shell('sleep 10', timeout=2)\n"
         "print('EXIT_CODE:', result['exit_code'])\n"
         "print('STDERR:', result['stderr'])"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     all_output = " ".join(ev.output for ev in completed) + " " + result.text
@@ -309,16 +309,16 @@ async def test_codeact_handles_shell_timeout(agent):
 
 
 async def test_multi_step_write_execute_verify(agent):
-    """Agent performs write -> execute -> verify in a single codeact call."""
+    """Agent performs write -> execute -> verify in a single daytona_shell call."""
     marker = f"MULTI_{uuid.uuid4().hex[:8]}"
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         f"write('/tmp/multi_{marker}.py', 'print(\"{marker}\")')\n"
         f"result = shell('python3 /tmp/multi_{marker}.py')\n"
         "print('OUTPUT:', result['stdout'].strip())\n"
         f"shell('rm -f /tmp/multi_{marker}.py')"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     all_output = " ".join(ev.output for ev in completed) + " " + result.text
@@ -331,13 +331,13 @@ async def test_read_helper_returns_file_content(agent):
     """read() helper returns file content and tracks the read in manifest."""
     marker = f"READ_{uuid.uuid4().hex[:8]}"
     result = await agent.invoke(
-        "Use daytona_codeact with this Python code:\n"
+        "Use daytona_shell with this Python code:\n"
         f"shell('echo {marker} > /tmp/read_test_{marker}.txt')\n"
         f"content = read('/tmp/read_test_{marker}.txt')\n"
         "print('READ:', content.strip())\n"
         f"shell('rm -f /tmp/read_test_{marker}.txt')"
     )
-    assert result.has_tool("daytona_codeact"), f"Expected daytona_codeact, got: {result.tool_names}"
+    assert result.has_tool("daytona_shell"), f"Expected daytona_shell, got: {result.tool_names}"
 
     completed = result.tools_completed()
     all_output = " ".join(ev.output for ev in completed) + " " + result.text

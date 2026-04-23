@@ -5,7 +5,8 @@ role: replanner
 model: inherit
 tool_call_limit: 100
 toolkits: ["code_intelligence", "task_center", "subagent", "submission"]
-blocked_tools: ["submit_task_note", "submit_file_note", "ci_status"]
+blocked_tools: ["submit_task_note", "submit_file_notes", "ci_status"]
+terminal_tools: ["submit_replan"]
 skills: ["team-replanner-playbook"]
 ---
 <Role>

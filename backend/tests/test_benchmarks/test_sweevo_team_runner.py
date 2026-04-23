@@ -238,7 +238,7 @@ async def test_query_ctx_seeds_repo_root_for_daytona_and_ci():
     assert ctx.tool_metadata["ci_workspace_root"] == "/testbed"
     assert ctx.tool_metadata["role"] == "developer"
     assert ctx.user_message.startswith("Please read the following sections")
-    assert "- submit_task_summary:" in ctx.user_message
+    assert "- submit_task_success:" in ctx.user_message
     assert "Fix it" in ctx.user_message
     assert "Repo root inside the sandbox: /testbed" not in ctx.user_message
     assert "Do not prepend guessed roots" not in ctx.user_message
@@ -463,7 +463,7 @@ def test_checkpoint_repo_patch_from_store_returns_latest_matching_patch():
     assert _checkpoint_repo_patch_from_store(store, "T1", "cp-2") == "patch-b"
     assert _checkpoint_repo_patch_from_store(store, "T1", "missing") == ""
 
-def test_enforce_validation_evidence_requires_daytona_codeact():
+def test_enforce_validation_evidence_requires_daytona_shell():
     def _state(messages):
         return SimpleNamespace(
             defn=SimpleNamespace(name="validator"),
@@ -482,7 +482,7 @@ def test_enforce_validation_evidence_requires_daytona_codeact():
                 content=[
                     ToolUseBlock(
                         id="tc1",
-                        name="daytona_codeact",
+                        name="daytona_shell",
                         input={"code": "shell('pytest -q')"},
                     )
                 ],
@@ -955,7 +955,7 @@ def test_make_runner_marks_cancelled_agent_run_log(monkeypatch, tmp_path: Path):
         session_state=None,
         api_messages_snapshot=[],
         exit_reason=None,
-        terminal_tools={"submit_task_summary"},
+        terminal_tools={"submit_task_success"},
         system_prompt="Runtime system prompt",
     )
     agent = SimpleNamespace(

@@ -24,7 +24,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 import time
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any
@@ -57,8 +56,6 @@ PEEK_MESSAGE_MAX = 10
 _PEEK_BLOCK_CHAR_CAP = 200
 # Total character cap for the peek view.
 _PEEK_TOTAL_CHAR_CAP = 2048
-_SCOUT_SINGLE_TARGET_CALLERS = {"root_planner", "team_planner", "team_replanner"}
-_REPO_PATH_RE = re.compile(r"(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+(?:\.py)?")
 
 
 @dataclass
@@ -83,6 +80,7 @@ def _compact_args(inp: Any) -> str:
 
 
 def _normalize_target_paths(value: Any) -> list[str]:
+    """Coerce a ``target_paths``-style value into a deduped list preserving order."""
     if isinstance(value, str):
         stripped = value.strip()
         return [stripped] if stripped else []
@@ -97,51 +95,6 @@ def _normalize_target_paths(value: Any) -> list[str]:
     return out
 
 
-def _is_test_path(path: str) -> bool:
-    normalized = path.strip("/")
-    if "/tests/" in f"/{normalized}/":
-        return True
-    tail = normalized.rsplit("/", 1)[-1]
-    return tail.startswith("test_")
-
-
-def _candidate_exists_in_repo(candidate: str, repo_root: Path) -> bool:
-    try:
-        root = repo_root.resolve()
-        resolved = (root / candidate).resolve()
-    except Exception:
-        return False
-    try:
-        resolved.relative_to(root)
-    except ValueError:
-        return False
-    return resolved.exists()
-
-
-def _extract_repoish_paths(value: Any, *, repo_root: Path | None = None) -> list[str]:
-    if not isinstance(value, str) or not value.strip():
-        return []
-    seen: set[str] = set()
-    out: list[str] = []
-    for match in _REPO_PATH_RE.findall(value):
-        candidate = match.strip("`'\".,;:()[]{}<>")
-        if not candidate or candidate in seen:
-            continue
-        if repo_root is not None and not _candidate_exists_in_repo(candidate, repo_root):
-            continue
-        seen.add(candidate)
-        out.append(candidate)
-    return out
-
-
-def _path_related_to_target(path: str, target_path: str) -> bool:
-    path_norm = path.strip("/")
-    target_norm = target_path.strip("/")
-    if path_norm == target_norm:
-        return True
-    return path_norm.startswith(target_norm + "/") or target_norm.startswith(path_norm + "/")
-
-
 class RunSubagentInput(BaseModel):
     """Runtime input model for run_subagent.
 
@@ -153,10 +106,7 @@ class RunSubagentInput(BaseModel):
 
     agent_name: str = Field(
         ...,
-        description=(
-            "Name of a registered dispatchable subagent. In team mode this is "
-            "normally `scout`."
-        ),
+        description="Name of a registered dispatchable subagent.",
     )
     prompt: str | None = Field(
         default=None,
@@ -165,16 +115,9 @@ class RunSubagentInput(BaseModel):
     input: dict[str, Any] | None = Field(
         default=None,
         description=(
-            "Structured subagent payload. For scout, use "
-            "{\"target_paths\": [...], \"context\": \"...\"} with live "
-            "production owner paths only; keep benchmark tests and missing "
-            "test-derived paths in the context text unless tests are "
-            "explicitly the owned surface. "
-            "For planner-dispatched scouts, pass exactly one production owner "
-            "path per call; split fan-out across multiple run_subagent calls. "
-            "Invalid: mixing `pkg/mod.py` with `pkg/tests/test_mod.py` in "
-            "`target_paths`; put the test in `context` instead. "
-            "Mutually exclusive with prompt."
+            "Structured subagent payload. The shape is defined by the target "
+            "subagent's own contract (see the agent's description and "
+            "playbook). Mutually exclusive with prompt."
         ),
     )
 
@@ -262,6 +205,7 @@ def _validate_run_subagent_request(
     context: ToolExecutionContext,
 ) -> ToolResult | _ValidatedRunSubagentRequest:
     from agents import get_definition
+    from tools.subagent.dispatch_validators import get_dispatch_validator
 
     parent_cfg = context.metadata.session_config
     if parent_cfg is None:
@@ -275,9 +219,7 @@ def _validate_run_subagent_request(
         return ToolResult(
             output=(
                 "run_subagent: must supply exactly one of `prompt` (str) or "
-                "`input` (dict). For team planners, prefer "
-                "`agent_name=\"scout\"` with `input={\"target_paths\": [...]}`; "
-                "do not retry with `prompt=null`."
+                "`input` (dict); do not retry with both set or both null."
             ),
             is_error=True,
         )
@@ -306,53 +248,24 @@ def _validate_run_subagent_request(
             output=(
                 f"run_subagent: agent '{agent_name}' is an internal subagent and "
                 "may not be dispatched via `run_subagent`. Use a dispatchable "
-                "worker subagent such as `scout`, or emit `developer` / "
-                "`validator` tasks in the plan."
+                "worker subagent, or emit a regular team work item instead."
             ),
             is_error=True,
         )
 
-    subagent_scope_paths: list[str] = []
-    caller_agent = str((context.metadata or {}).get("agent_name") or "").strip()
+    validator = get_dispatch_validator(agent_name)
+    if validator is not None:
+        validation_error = validator(prompt, input, context)
+        if isinstance(validation_error, ToolResult):
+            return validation_error
 
-    if agent_name == "scout" and isinstance(input, dict):
+    subagent_scope_paths: list[str] = []
+    if isinstance(input, dict):
         target_paths = input.get("target_paths")
-        subagent_scope_paths = _normalize_target_paths(target_paths)
-        if caller_agent in _SCOUT_SINGLE_TARGET_CALLERS and len(subagent_scope_paths) != 1:
-            return ToolResult(
-                output=(
-                    "run_subagent: planner/replanner scout calls must pass exactly "
-                    "one production owner path in `target_paths`. Split fan-out "
-                    "across multiple `run_subagent(...)` calls and keep tests, "
-                    "missing test-derived paths, and verification evidence in "
-                    "`context`."
-                ),
-                is_error=True,
-            )
-        if caller_agent in _SCOUT_SINGLE_TARGET_CALLERS and len(subagent_scope_paths) == 1:
-            target_path = subagent_scope_paths[0]
-            context_paths = _extract_repoish_paths(
-                input.get("context"), repo_root=context.cwd
-            )
-            extra_production_paths = [
-                path
-                for path in context_paths
-                if not _is_test_path(path) and not _path_related_to_target(path, target_path)
-            ]
-            if extra_production_paths:
-                extra_preview = ", ".join(extra_production_paths[:3])
-                return ToolResult(
-                    output=(
-                        "run_subagent: planner/replanner scout context may not name "
-                        "other production owner paths outside the single declared "
-                        f"`target_paths` entry. Extra paths: {extra_preview}. "
-                        "Launch separate scout calls for those owner families and "
-                        "keep benchmark tests or failing ids in `context`."
-                    ),
-                    is_error=True,
-                )
-    elif isinstance(input, dict):
-        subagent_scope_paths = scope_paths_from_payload(input)
+        if target_paths is not None:
+            subagent_scope_paths = _normalize_target_paths(target_paths)
+        else:
+            subagent_scope_paths = scope_paths_from_payload(input)
 
     return _ValidatedRunSubagentRequest(
         sub_def=sub_def,
@@ -572,29 +485,21 @@ def _snapshot_messages(messages: list[Any] | None) -> list[dict[str, Any]]:
 @tool(
     name="run_subagent",
     description=(
-        "Spawn a named subagent (e.g. ``scout``) as a background task. "
-        "Returns a background task_id immediately. Continue foreground work when useful; "
-        "join with wait_for_background_task(task_id=...) when blocked on the "
-        "result. Call check_background_progress(task_id=...) only when live "
-        "status changes the next action; stop stale work with "
+        "Spawn a named dispatchable subagent as a background task. "
+        "Returns a background task_id immediately. Continue foreground work "
+        "when useful; join with wait_for_background_task(task_id=...) when "
+        "blocked on the result. Call check_background_progress(task_id=...) "
+        "only when live status changes the next action; stop stale work with "
         "cancel_background_task(task_id=...). Pass exactly one of ``prompt`` "
-        "(free-form text) or ``input`` (structured payload). In team mode, "
-        "planners should use this only for exploration subagents such as "
-        "``scout``; never pass ``developer`` or ``validator`` here. Emit "
+        "(free-form text) or ``input`` (structured payload). Only agents "
+        "marked dispatchable via ``run_subagent`` may be dispatched here; "
+        "the ``input`` shape is defined by the target subagent's own "
+        "contract — consult the agent's description and playbook. Emit "
         "multiple disjoint calls in one turn only when live scope status "
-        "still admits parallel fan-out. For ``scout`` structured input, "
-        "scrub ``target_paths`` to live production owner files/directories; "
-        "root/team planners must pass exactly one production owner path per "
-        "scout call and use multiple calls for fan-out; "
-        "benchmark tests, ``*/tests/*``, ``test_*.py``, and missing "
-        "test-derived paths belong in the structured ``context`` text unless "
-        "tests are explicitly the owned surface. Never pair a production owner and "
-        "its benchmark test in one scout ``target_paths`` list. If a "
-        "completed scout result says "
-        "``Posted.``, read file notes for the scout target paths next. Scouts "
-        "and subagents are not Task Center tasks; do not use task graph/detail "
-        "tools or ``bg_*`` ids to retrieve scout results. Later background "
-        "status calls only repeat that delivery envelope."
+        "still admits parallel fan-out. Subagents are not Task Center "
+        "tasks; do not use task graph/detail tools or ``bg_*`` ids to "
+        "retrieve their results. Later background status calls only repeat "
+        "the delivery envelope."
     ),
     short_description="Spawn a subagent in the background.",
     input_model=RunSubagentInput,
@@ -633,27 +538,6 @@ async def run_subagent(
 
     body = prompt if prompt is not None else json.dumps(input, separators=(",", ":"), default=str)
     final_prompt = body
-    if agent_name == "scout" and subagent_scope_paths:
-        strict_scope_lines = [
-            "## Scout scope contract",
-            "- Explore only the assigned `target_paths`.",
-            "- If a target path is a file, do not widen to sibling files or the whole package unless the target itself is a directory.",
-            "- If a target path does not exist, report zero coverage for that missing path instead of correcting it to a nearby file.",
-            "- Do not suggest an 'intended' or 'correct' nearby path when the assigned target is missing.",
-            "- The first assistant message that calls tools may contain only the required `read_file_note(...)` calls for the assigned target paths. Do not batch CI, symbol, diagnostics, source-read, or submission tools in that same first tool message.",
-            "- Do not inspect already-named benchmark test files or guessed owner files unless they are inside `target_paths`.",
-            "- Start source-code scouting with `ci_query_symbol(...)`.",
-            "- For a single-file or short fixed file-list scout, after the note reads use at most one file-path `ci_query_symbol(...)` per assigned path. If those queries return definitions for every assigned path, the next tool must be `submit_file_note(...)`.",
-            "- The durable handoff must be exactly one `submit_file_note(...)` call with non-empty `content` and at least one `paths` entry; never put findings only in final text.",
-            "- If `ci_query_symbol(...)` already returned definitions for an exact file target, stay read-free and post `submit_file_note(...)` from CI evidence.",
-            "- Trigger: exact-file or short fixed-file scout already has CI definitions for the assigned path. Required action: stop after that bootstrap result and post `submit_file_note(...)`; do not fan out into generic symbol hunts like helper names, test names, or literals. Failure signal: more `ci_query_symbol(...)` calls appear after the file-path result for broad terms instead of posting the gap.",
-            "- If exact-file bootstrap definitions exist, do not call `ci_workspace_structure(...)` or extra symbol/test queries to elaborate the same seam; capture uncertainty in `submit_file_note(...)` under gaps instead.",
-            "- After an exact-file bootstrap result, do not query benchmark tests, parametrized ids, helper names, or adjacent files unless they are literally inside `target_paths`; post the gap instead.",
-            "- On coordinated benchmark lanes, exact-file and short fixed-file scouts stay read-free; if CI stays cold, report the gap instead.",
-            "- If the note tool returns and the loop asks for final text, say only `Posted.`",
-        ]
-        strict_scope_block = "\n".join(strict_scope_lines)
-        final_prompt = f"{strict_scope_block}\n\n{final_prompt}"
 
     # Persist a subagent run record FIRST, before spawn_agent — so spawn
     # failures still leave an audit trail that the parent can list / inspect

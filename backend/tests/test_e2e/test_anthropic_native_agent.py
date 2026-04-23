@@ -42,7 +42,7 @@ AGENT_TOOLKITS = ["sandbox_operations"]
 AGENT_PROMPT = (
     "You are test-anthropic-native-agent, a developer with a remote Daytona sandbox. "
     "You MUST use tools for every action — never just describe what you'd do. "
-    "Use daytona_write_file to create files, daytona_codeact to run commands, "
+    "Use daytona_write_file to create files, daytona_shell to run commands, "
     "daytona_read_file to read files. "
     "Always execute every step using tools. Be concise."
 )
@@ -164,7 +164,7 @@ async def test_agent_responds_to_simple_prompt(sandbox_id):
 
 
 @pytest.mark.asyncio
-async def test_agent_uses_daytona_codeact_tool(sandbox_id):
+async def test_agent_uses_daytona_shell_tool(sandbox_id):
     agent = create_eval_agent(sandbox_id=sandbox_id, system_prompt=AGENT_PROMPT, tool_call_limit=10)
     result = await agent.invoke("Run this exact command in the sandbox: echo 'ANTHROPIC_BASH_OK'")
     assert len(result.assistant_turns()) > 0, "Missing assistant response"
@@ -177,7 +177,7 @@ async def test_agent_uses_daytona_codeact_tool(sandbox_id):
 @pytest.mark.asyncio
 async def test_agent_multi_tool_interaction(sandbox_id):
     agent = create_eval_agent(sandbox_id=sandbox_id, system_prompt=AGENT_PROMPT, tool_call_limit=10)
-    result = await agent.invoke("Use daytona_codeact to run: pwd")
+    result = await agent.invoke("Use daytona_shell to run: pwd")
     assert len(result.assistant_turns()) > 0, "Missing assistant response"
 
     tool_started = result.tools_started()
@@ -192,7 +192,7 @@ async def test_agent_multi_step_pipeline(sandbox_id):
     result = await agent.invoke(
         "Do these steps in the sandbox:\n"
         "1. Use daytona_write_file to create /workspace/anthro_pipeline.py with: print('ANTHRO_PIPELINE_OK')\n"
-        "2. Use daytona_codeact to run: python3 /workspace/anthro_pipeline.py\n"
+        "2. Use daytona_shell to run: python3 /workspace/anthro_pipeline.py\n"
         "3. Report the output"
     )
     assert len(result.assistant_turns()) > 0, "Missing assistant response"
@@ -223,7 +223,7 @@ async def test_agent_multi_step_pipeline(sandbox_id):
 @pytest.mark.asyncio
 async def test_tool_started_has_correct_structure(sandbox_id):
     agent = create_eval_agent(sandbox_id=sandbox_id, system_prompt=AGENT_PROMPT, tool_call_limit=10)
-    result = await agent.invoke("Use daytona_codeact to run: echo 'ANTHRO_STRUCTURE_OK'")
+    result = await agent.invoke("Use daytona_shell to run: echo 'ANTHRO_STRUCTURE_OK'")
     tool_started = result.tools_started()
     assert len(tool_started) >= 1, f"No tool_started events."
 
@@ -235,7 +235,7 @@ async def test_tool_started_has_correct_structure(sandbox_id):
 @pytest.mark.asyncio
 async def test_event_lifecycle_complete(sandbox_id):
     agent = create_eval_agent(sandbox_id=sandbox_id, system_prompt=AGENT_PROMPT, tool_call_limit=10)
-    result = await agent.invoke("Use daytona_codeact to run: echo 'LIFECYCLE_OK'")
+    result = await agent.invoke("Use daytona_shell to run: echo 'LIFECYCLE_OK'")
 
     assert len(result.assistant_turns()) > 0, "Missing assistant response"
     tool_started = result.tools_started()

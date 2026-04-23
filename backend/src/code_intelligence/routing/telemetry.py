@@ -11,7 +11,7 @@ from code_intelligence.types import CITelemetry
 
 @dataclass
 class OverlayCounters:
-    """Per-process counters for the overlay CodeAct backend.
+    """Per-process counters for the overlay shell backend.
 
     See ``docs/architecture/overlay-sandbox-plan.md`` §6. Incremented by
     :class:`OverlayAuditor` when it finishes one op; surfaced on the

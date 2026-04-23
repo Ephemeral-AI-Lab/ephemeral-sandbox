@@ -34,15 +34,6 @@ def load_teams_dir(directory: Path) -> list[TeamDefinition]:
                 for role, agents in raw_roster.items()
                 if isinstance(agents, list)
             }
-            raw_terminal_tools = fm.get("terminal_tools") or {}
-            if raw_terminal_tools and not isinstance(raw_terminal_tools, dict):
-                logger.debug("Skipping terminal_tools in %s — not a mapping", path)
-                raw_terminal_tools = {}
-            terminal_tools: dict[str, set[str]] = {
-                str(role): {str(tool) for tool in tools if str(tool)}
-                for role, tools in raw_terminal_tools.items()
-                if isinstance(tools, list)
-            }
             description = body.strip() or str(fm.get("description") or f"Team: {name}")
             teams.append(
                 TeamDefinition(
@@ -51,7 +42,6 @@ def load_teams_dir(directory: Path) -> list[TeamDefinition]:
                     description=description,
                     entry_planner=entry_planner,
                     roster=roster,
-                    terminal_tools=terminal_tools,
                 )
             )
         except Exception:

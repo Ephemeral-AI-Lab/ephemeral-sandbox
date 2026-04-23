@@ -5,7 +5,7 @@ description: Authoritative playbook for the validator agent. Read task context, 
 
 # Team Validator Playbook
 
-Verify the assigned developer or child-planner outcome from live repo evidence. Finish with exactly one `submit_task_summary(...)` call, then stop.
+Verify the assigned developer or child-planner outcome from live repo evidence. Finish with exactly one `submit_task_success(...)` or `request_replan(...)` call, then stop.
 
 Read the handoff first, plan exact evidence, verify before substitutes, and apply at most one obvious local correction only when red evidence proves it belongs inside validator scope.
 
@@ -18,7 +18,7 @@ Read the handoff first, plan exact evidence, verify before substitutes, and appl
 | 3. Run diagnostics and exact verification | Prove the current repo state from live diagnostics and direct commands. | Green evidence for Stage 6 or red evidence for Stage 4. |
 | 4. Analyze red evidence | Trace red or invalid evidence to a local correction target or a replan decision. | Root-cause packet and next action. |
 | 5. Apply one scoped correction | Patch only when the correction is obvious, small, local, and supported by red evidence. | One validator correction plus fresh verification path, or terminal replan decision. |
-| 6. Submit terminal summary | Emit the only terminal outcome for this validation task. | One `submit_task_summary({ type, content })` call and no later tools. |
+| 6. Submit terminal summary | Emit the only terminal outcome for this validation task. | One `submit_task_success({ summary })` or `request_replan({ reason })` call and no later tools. |
 
 **Diagram caption:** Full validator route from assigned task to terminal verdict. Success requires fresh green evidence; red or invalid evidence must be traced before one local correction or replanning.
 
@@ -80,19 +80,20 @@ No loadable references. Use this playbook directly.
 | Read a known task by UUID | `read_task_details(task_id="<uuid>")` |
 | Read notes for a path | `read_file_note(file_path="...")` |
 | Diagnose one file | `ci_diagnostics(file_path="...")` |
-| Run tests or shell | `daytona_codeact(command="...")`; use `code` only for Python source snippets |
+| Run tests or shell | `daytona_shell(command="...")` |
 | Edit by exact text | `daytona_edit_file(file_path=..., old_text=..., new_text=...)` or `(file_path, edits=[...])` |
-| Terminal submission | `submit_task_summary({ type: "success" \| "request_replan", content: string })` |
+| Terminal success | `submit_task_success({ summary: string })` |
+| Terminal replan request | `request_replan({ reason: string })` |
 
 ## Never
 
-1. Do not use `daytona_codeact` for file reads, writes, moves, deletes, introspection, or wrapper health checks. Use the Daytona read, search, or mutation tools above.
+1. Do not use `daytona_shell` for file reads, writes, moves, deletes, introspection, or wrapper health checks. Use the Daytona read, search, or mutation tools above.
 2. Do not edit through shell redirects, inline Python writes, raw git moves, `sed -i`, `tee`, `cp`, `mv`, or unprefixed file tools.
 3. Do not skip, xfail, rewrite verification, change pytest config, install packages, or patch around root/OS permission behavior to turn a command green.
 4. Do not edit test files unless the task explicitly owns a test-only bug.
 5. Do not launch duplicate equivalent verification commands in parallel. One exact command per suite is enough unless sharding after a transient no-output failure.
 6. Do not claim success from stale, partial, indirect, or wrapper evidence.
-7. Do not prefix CodeAct commands with host paths like `/Users/...` or sandbox-root hops like `cd /testbed &&`; commands already start at the sandbox repo root. Use repo-relative commands such as `python -m pytest ...`.
+7. Do not prefix daytona_shell commands with host paths like `/Users/...` or sandbox-root hops like `cd /testbed &&`; commands already start at the sandbox repo root. Use repo-relative commands such as `python -m pytest ...`.
 8. Do not suppress or alter pytest configuration with `-o`, `--override-ini`, `filterwarnings=`, `addopts=`, `-W ignore`, `--disable-warnings`, `PYTHONWARNINGS`, or `-p no:...`. Those commands are invalid verification evidence.
 
 ## Workflow Details
@@ -103,7 +104,7 @@ No loadable references. Use this playbook directly.
 | --- | --- |
 | **Input** | The assigned validation task header with own UUID, parent UUID, and dependency UUIDs. |
 | **Output** | Objective, acceptance criteria, parent guidance, dependency handoff status, touched files, scope paths, and file-note freshness. |
-| **Forbidden** | CodeAct, CI, notes, file reads, edits, diagnostics, references, or graph reads before required context reads; fabricated, short, slug, or scout ids. |
+| **Forbidden** | daytona_shell, CI, notes, file reads, edits, diagnostics, references, or graph reads before required context reads; fabricated, short, slug, or scout ids. |
 
 **Diagram caption:** Stage 1 context-gathering order. Required task reads come first; file notes follow and must precede all source reads, diagnostics, tests, or edits.
 
@@ -135,7 +136,7 @@ Rules:
 1. Call `read_task_details(task_id="<uuid>")` for your task, parent task, and every dependency from the prompt header.
 2. Use exact UUIDs only; never planner slugs, short prefixes, fabricated ids, or scout ids.
 3. Treat your task spec as the validation contract. Treat dependency summaries, appended `Initial Plan` / `Initial Replan` JSON, and parent details as the implementation handoff.
-4. After required UUID reads, call `read_file_note(file_path="...")` once for each touched or owned production file before source reads, diagnostics, tests, or edits. Empty notes count. Do not batch note reads with source reads, diagnostics, CodeAct, or edits.
+4. After required UUID reads, call `read_file_note(file_path="...")` once for each touched or owned production file before source reads, diagnostics, tests, or edits. Empty notes count. Do not batch note reads with source reads, diagnostics, daytona_shell, or edits.
 5. Record missing, boilerplate, stale, or evidence-free dependency summaries as validation gaps.
 
 ### 2. Build validation plan
@@ -170,7 +171,7 @@ Rules:
     |
     +--> handoff or validation surface invalid?
             |
-            +-- yes --> submit_task_summary(type="request_replan", ...)
+            +-- yes --> request_replan(...)
             |
             +-- no --> Stage 3
 ```
@@ -185,7 +186,7 @@ Plan before the first diagnostic, runtime command, or corrective edit:
 6. Acceptance criteria, dependency handoffs, and test outcomes never expand `scope_paths` by themselves. A new production file may extend scope only through `daytona_write_file` when live production evidence proves a missing module, serialization lane, engine bridge, shim, re-export, or bridge and no other worker owns that path.
 7. Prefer a proven production fix over a test rewrite. Do not edit tests unless explicitly assigned a test-only bug.
 
-Submit `type="request_replan"` now if any of these hold:
+Call `request_replan` now if any of these hold:
 
 1. A dependency is not `done` or its handoff does not identify what to validate.
 2. The required verification belongs to another owner, asks for broad redesign, or has no workflow-valid evidence path.
@@ -212,12 +213,12 @@ Submit `type="request_replan"` now if any of these hold:
     Diagnose every owned or touched production file before terminal completion.
     |
     v
-(2) Run exact required command first        -> daytona_codeact(command="...")
-    Use CodeAct only for runtime commands and judge by command exit code and
+(2) Run exact required command first        -> daytona_shell(command="...")
+    Use daytona_shell only for runtime commands and judge by command exit code and
     failing ids.
     |
     v
-(3) Run bounded guardrail if planned        -> daytona_codeact(command="...")
+(3) Run bounded guardrail if planned        -> daytona_shell(command="...")
     Keep guardrails tied to the same behavior family.
     |
     v
@@ -234,9 +235,9 @@ Submit `type="request_replan"` now if any of these hold:
 
 1. Run `ci_diagnostics(file_path="...")` on every owned or touched production file before terminal completion.
 2. Treat error-severity diagnostics on owned files as red evidence unless explicitly pre-existing and irrelevant.
-3. Run the exact required runtime command first. Use `daytona_codeact(command="...")` for shell, build, and test commands; never pass a shell command string in `code`.
-4. Run CodeAct from the sandbox repo root with repo-relative paths, or `cd frontend/web && ...` for a subdirectory. Never prefix commands with `cd /testbed &&`, and never `cd` to a host/local workspace path.
-5. Use CodeAct only for runtime commands. For broad or slow suites, run in background, continue useful foreground review, and check progress only when live status changes the next action.
+3. Run the exact required runtime command first. Use `daytona_shell(command="...")` for shell, build, and test commands.
+4. Run daytona_shell from the sandbox repo root with repo-relative paths, or `cd frontend/web && ...` for a subdirectory. Never prefix commands with `cd /testbed &&`, and never `cd` to a host/local workspace path.
+5. Use daytona_shell only for runtime commands. For broad or slow suites, run in background, continue useful foreground review, and check progress only when live status changes the next action.
 6. Judge pass/fail by exit code and failing ids. Pytest exit `4`, `0` collected items, or a missing named node is red evidence.
 7. Warning suppression, plugin disabling, or pytest-config overrides are invalid evidence unless the task owns pytest config. Re-run the raw command, repair in-scope production import/config, or request replanning.
 8. Capture exact command, exit code, failing ids, diagnostics, and the shortest useful output snippet. If policy blocks the command, request replanning with trigger `unresolved_blocker` only when no valid equivalent can preserve the needed evidence.
@@ -263,7 +264,7 @@ Submit `type="request_replan"` now if any of these hold:
     exception, warning, assertion, and shortest useful output.
     |
     v
-(2) Trace boundary                          -> diagnostics | CodeAct probe |
+(2) Trace boundary                          -> diagnostics | daytona_shell probe |
                                               source inspection
     Identify whether the first wrong mechanism is owned local surface,
     dependency handoff, outside scope, environment/tooling, or unclear.
@@ -350,23 +351,23 @@ Rules:
     v
 (3) Refresh and re-verify                   -> read_file_note |
                                               ci_diagnostics |
-                                              daytona_codeact
+                                              daytona_shell
     Re-run diagnostics and the same owned verification surface via Stage 3.
 ```
 
-1. Before every mutation, verify the target file is inside an assigned `scope_paths` entry or a touched production file handed off by a dependency. For a new production file required by live evidence, use `daytona_write_file` and let the write-scope posthook approve and record expansion. If an existing-file mutation is outside scope or the posthook blocks expansion, submit `type="request_replan"` with trigger `scope_expansion`.
+1. Before every mutation, verify the target file is inside an assigned `scope_paths` entry or a touched production file handed off by a dependency. For a new production file required by live evidence, use `daytona_write_file` and let the write-scope posthook approve and record expansion. If an existing-file mutation is outside scope or the posthook blocks expansion, call `request_replan` with trigger `scope_expansion`.
 2. Coordinated Daytona mutation tools only: `daytona_edit_file` or `daytona_write_file`.
 3. Exactly one mutation tool per change.
 4. Refresh file notes after edits or surprising tool/runtime results.
 5. Never create or edit test files.
-6. If a mutation reports an outside-scope warning for an existing file, stop immediately and submit `type="request_replan"` with trigger `scope_expansion`; an advisory warning is workflow evidence, not permission to continue editing.
+6. If a mutation reports an outside-scope warning for an existing file, stop immediately and call `request_replan` with trigger `scope_expansion`; an advisory warning is workflow evidence, not permission to continue editing.
 7. Re-run `ci_diagnostics` and the same owned verification surface after the correction (→ Stage 3).
 
 Do not:
 
 1. Perform broad refactors, multi-cluster fixes, speculative owner changes, or repeated repair attempts.
 2. Rewrite tests, add xfails, change pytest config, or apply environment workarounds.
-3. Edit through CodeAct, shell redirects, inline Python writes, raw git moves, `sed -i`, `tee`, `cp`, `mv`, or unprefixed file tools.
+3. Edit through daytona_shell, shell redirects, inline Python writes, raw git moves, `sed -i`, `tee`, `cp`, `mv`, or unprefixed file tools.
 4. Retry or bypass a mutation tool that reports an outside-scope or verification-surface warning; request replanning for existing-file scope violations.
 
 ### 6. Submit terminal summary
@@ -374,8 +375,8 @@ Do not:
 | Section | Contract |
 | --- | --- |
 | **Input** | Green Stage 3 evidence, or a Stage 4/5 trace and replan decision. |
-| **Output** | Exactly one terminal `submit_task_summary(...)` call. |
-| **Forbidden** | Any later tool call; a separate `summary` key; success with nonzero, missing, stale, partial, invalid, outside-scope, or diagnostics-only evidence. |
+| **Output** | Exactly one terminal `submit_task_success(...)` or `request_replan(...)` call. |
+| **Forbidden** | Any later tool call; success with nonzero, missing, stale, partial, invalid, outside-scope, or diagnostics-only evidence. |
 
 **Diagram caption:** Stage 6 terminal submission route. The summary is the final tool call: success only for workflow-valid green evidence, otherwise request replanning.
 
@@ -386,27 +387,24 @@ Do not:
     |
     +--> every criterion satisfied by workflow-valid evidence?
     |       |
-    |       +-- yes --> submit_task_summary({
-    |                       type: "success",
-    |                       content: "..."
+    |       +-- yes --> submit_task_success({
+    |                       summary: "..."
     |                    })
     |
-    +--> otherwise --> submit_task_summary({
-                            type: "request_replan",
-                            content: "..."
+    +--> otherwise --> request_replan({
+                            reason: "..."
                          })
 ```
 
-Final action must be exactly one:
+Final action must be exactly one of:
 
 ```ts
-submit_task_summary({
-  type: "success" | "request_replan",
-  content: string
-})
+submit_task_success({ summary: string })
+// or
+request_replan({ reason: string })
 ```
 
-The `content` field is the entire terminal payload; there is no separate `summary` key.
+The `summary` (success) or `reason` (replan) field is the entire terminal payload.
 
 Success checklist. Do not omit a line because the answer is "none":
 
@@ -418,19 +416,20 @@ Success checklist. Do not omit a line because the answer is "none":
 | Diagnostics | Owned-file diagnostics status. |
 | Guardrail | Public-surface guardrail result, or "none" if no guardrail was planned. |
 | Widening rationale | Investigation or guardrail widening rationale, or "none". |
+| Residual risk | `Residual risk:` plus the remaining validation caveat, follow-up risk, or "none". |
 
 Tiny success example:
 
 ```ts
-submit_task_summary({
-  type: "success",
-  content: [
+submit_task_success({
+  summary: [
     "Acceptance criteria: Criterion A passed via python -m pytest backend/tests/test_runtime.py -q.",
     "Verification: python -m pytest backend/tests/test_runtime.py -q passed after the final validator edit.",
     "Exit evidence: exit 0; 3 passed.",
     "Diagnostics: backend/src/runtime.py clean.",
     "Guardrail: none.",
     "Widening rationale: none.",
+    "Residual risk: none.",
   ].join("\n"),
 })
 ```
@@ -449,9 +448,8 @@ Request-replan checklist:
 Tiny request-replan example:
 
 ```ts
-submit_task_summary({
-  type: "request_replan",
-  content: [
+request_replan({
+  reason: [
     "Trigger: scope_expansion.",
     "Root-cause packet: {\"failing_command_or_probe\":\"python -m pytest backend/tests/test_runtime.py -q, exit 1\",\"failing_test_diagnostic_or_error\":\"test_runtime_imports missing module\",\"expected_vs_actual\":\"expected import to resolve; actual ModuleNotFoundError\",\"boundary\":\"outside scope\",\"trace\":[\"test_runtime_imports\",\"runtime imports backend.src.bridge\",\"bridge module absent\"],\"hypothesized_root_cause\":\"required compatibility bridge is missing\",\"candidate_fix\":\"backend/src/bridge.py outside assigned scope\",\"next_action\":\"request_replan\"}",
     "Failing evidence: python -m pytest backend/tests/test_runtime.py -q, exit 1.",
@@ -464,4 +462,4 @@ submit_task_summary({
 
 Use `scope_expansion` when the verified repair is outside the assigned `scope_paths`. Use `wrong_owner_or_role` when another agent role, dependency, or production owner must act before validation can pass. Use `unresolved_blocker` when verification, diagnostics, tooling, or root-cause tracing is still blocked but no different owner/scope is proven.
 
-Use `type="success"` only when the latest required verification passed and every acceptance criterion is satisfied by workflow-valid evidence. Use `type="request_replan"` for any nonzero command, error diagnostic, invalid command, pytest-config-overridden command, missing command, collection failure, partial pass, unmet criterion, ambiguous root cause, outside-scope fix, non-local repair, stale evidence, or summary that would otherwise say "partial".
+Call `submit_task_success` only when the latest required verification passed and every acceptance criterion is satisfied by workflow-valid evidence. Call `request_replan` for any nonzero command, error diagnostic, invalid command, pytest-config-overridden command, missing command, collection failure, partial pass, unmet criterion, ambiguous root cause, outside-scope fix, non-local repair, stale evidence, or summary that would otherwise say "partial".

@@ -45,7 +45,7 @@ class OverlayCommandCommitter:
         *,
         agent_id: str = "",
         edit_type: str = "svc_cmd_overlay",
-        description: str = "daytona_codeact overlay",
+        description: str = "daytona_shell overlay",
     ) -> OperationResult:
         op_changes = self.to_operation_changes(changes)
         if not op_changes:

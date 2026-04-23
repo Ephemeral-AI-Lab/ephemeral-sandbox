@@ -49,7 +49,7 @@ def test_team_agent_runner_autofails_missing_terminal_submission(monkeypatch):
         team_run_id="team-run-1",
         work_item_id="task-1",
     )
-    tool_metadata["terminal_tools"] = {"submit_task_summary"}
+    tool_metadata["terminal_tools"] = {"submit_task_success"}
     ctx = TeamAgentContext(user_message="Do the task", tool_metadata=tool_metadata)
 
     result = asyncio.run(
@@ -145,7 +145,7 @@ def test_team_agent_runner_injects_terminal_nudges_after_budget_exhaustion(monke
         sandbox_id="sbx-1",
     )
     tool_metadata = ExecutionMetadata()
-    tool_metadata["terminal_tools"] = {"submit_task_summary"}
+    tool_metadata["terminal_tools"] = {"submit_task_success"}
     ctx = TeamAgentContext(user_message="Do the task", tool_metadata=tool_metadata)
 
     result = asyncio.run(
@@ -157,7 +157,7 @@ def test_team_agent_runner_injects_terminal_nudges_after_budget_exhaustion(monke
 
     assert run_prompts[0] == "Do the task"
     assert run_prompts[1].startswith("[terminal-tool reminder]")
-    assert "submit_task_summary" in run_prompts[1]
+    assert "submit_task_success" in run_prompts[1]
     assert run_prompts[2].startswith("[terminal-tool reminder]")
     assert "nudge 2/" in run_prompts[2]
     assert len(spawn_calls) == 3

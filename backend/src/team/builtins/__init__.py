@@ -17,6 +17,12 @@ from agents.registry import register_definition
 from agents.types import AgentDefinition
 from team.models import TeamDefinition
 
+# Side-effect import: registers per-agent run_subagent dispatch validators
+# at module load so the validator is available regardless of whether
+# ``register_all()`` is ultimately called (tests and some boot paths may
+# skip the call when builtins are already seeded).
+from team import scout_dispatch as _scout_dispatch  # noqa: F401
+
 if TYPE_CHECKING:
     from agents.db.store import AgentDefinitionStore
     from team.persistence.store import TeamDefinitionStore
@@ -32,7 +38,6 @@ DEVELOPER = "developer"
 VALIDATOR = "validator"
 SCOUT = "scout"
 TEAM_REPLANNER = "team_replanner"
-NOTE_TAKER = "note_taker"
 PARENT_SUMMARIZER = "parent_summarizer"
 
 _BACKEND_SRC = Path(__file__).resolve().parents[2]
@@ -43,7 +48,7 @@ _TEAMS_BUILTIN_DIR = _CONFIG_ROOT / "teams"
 # Expected number of builtin agents.  If a seed file fails to parse,
 # ``load_agents_dir`` silently skips it — this constant lets us detect
 # that early rather than discovering a missing agent at dispatch time.
-_EXPECTED_BUILTIN_COUNT = 8
+_EXPECTED_BUILTIN_COUNT = 7
 _EXPECTED_BUILTIN_TEAM_COUNT = 1
 
 

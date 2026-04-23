@@ -4,7 +4,7 @@
 Covers sandbox and CI concerns:
   Audited Editing:     daytona_edit_file with Arbiter ledger/lock/conflict
   CI toolkit:  ci_query_symbol, ci_query_symbol, ci_query_symbol, ci_diagnostics
-  CodeAct:             daytona_codeact multi-step execution
+  daytona_shell:             daytona_shell multi-step execution
   Tool Selection:      ordering, schema validation, completeness
   Code Intelligence:   CI service, LSP client, registry, types
   Conflict Resolution: Arbiter, TimeMachine, Ledger, audited edit flow
@@ -107,7 +107,7 @@ def _make_mock_sandbox(
             result.exit_code = 0
             return result
 
-        # Default: echo-style for codeact and miscellaneous shell tests.
+        # Default: echo-style for shell.and miscellaneous shell tests.
         result.result = f"mock output for: {command}"
         result.exit_code = exec_exit_code
         return result
@@ -528,67 +528,10 @@ class TestDaytonaCiTools:
 
 
 # ===========================================================================
-# 12. DaytonaCodeActTool
+# 12. DaytonaShellTool
 # ===========================================================================
 
 
-class TestDaytonaCodeActTool:
-    """Test daytona_codeact: multi-step code execution with atomic I/O."""
-
-    def _tool(self):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact
-
-        return daytona_codeact
-
-    def test_codeact_no_sandbox(self):
-        ctx = ToolExecutionContext(cwd=Path("/workspace"), metadata={})
-        tool = self._tool()
-        result = _run(tool.execute(tool.input_model(code="print('hi')"), ctx))
-        assert result.is_error
-
-    def test_codeact_upload_failure(self):
-        sandbox = MagicMock()
-        sandbox.fs.upload_file = MagicMock(side_effect=OSError("no space"))
-        ctx = _make_context(sandbox)
-        tool = self._tool()
-        result = _run(tool.execute(tool.input_model(code="print('hi')"), ctx))
-        assert result.is_error
-        assert result.metadata["ci_required"] is True
-        assert "Code intelligence service is unavailable" in result.output
-
-    def test_codeact_execution_failure(self):
-        sandbox = _make_mock_sandbox()
-        sandbox.process.exec = MagicMock(side_effect=TimeoutError("timed out"))
-        ctx = _make_context(sandbox)
-        tool = self._tool()
-        result = _run(tool.execute(tool.input_model(code="while True: pass"), ctx))
-        assert result.is_error
-
-    def test_codeact_bad_json_output(self):
-        """Without CI service, CodeAct does not reach wrapper JSON parsing."""
-        sandbox = _make_mock_sandbox(exec_results={"python3": "not json at all"})
-        ctx = _make_context(sandbox)
-        tool = self._tool()
-        result = _run(tool.execute(tool.input_model(code="print('hello')"), ctx))
-        assert result.is_error
-        assert result.metadata["ci_required"] is True
-        assert "Code intelligence service is unavailable" in result.output
-
-    def test_codeact_error_status_in_manifest(self):
-        """When script reports error status, result should be is_error."""
-        error_output = json.dumps({"manifest": "/tmp/codeact-test.json", "status": "error"})
-        sandbox = _make_mock_sandbox(exec_results={"python3": f"some traceback\n{error_output}"})
-        ctx = _make_context(sandbox)
-        tool = self._tool()
-        result = _run(tool.execute(tool.input_model(code="raise ValueError('oops')"), ctx))
-        assert result.is_error
-
-    def test_codeact_input_model_accepts_multiline_code(self):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact
-
-        inp = daytona_codeact.input_model(code="import os\nprint(os.getcwd())\nresult = 42")
-        assert "import os" in inp.code
-        assert "result = 42" in inp.code
 
 
 # ===========================================================================
@@ -612,7 +555,7 @@ class TestDaytonaToolkitIntegration:
         assert len(tools) == 6, f"Expected 6 tools, got {len(tools)}: {names}"
 
         expected = {
-            "daytona_codeact",
+            "daytona_shell",
             "daytona_read_file",
             "daytona_write_file",
             "daytona_grep",
@@ -638,7 +581,7 @@ class TestDaytonaToolkitIntegration:
 
     def test_toolkit_get_tool_by_name(self):
         toolkit = self._toolkit()
-        for name in ["daytona_codeact", "daytona_edit_file"]:
+        for name in ["daytona_shell", "daytona_edit_file"]:
             tool = toolkit.get(name)
             assert tool is not None, f"Tool {name} not found"
             assert tool.name == name
@@ -662,8 +605,8 @@ class TestDaytonaToolkitIntegration:
         registry.register_toolkit(toolkit)
 
         assert registry.get_toolkit("sandbox_operations") is toolkit
-        assert registry.get("daytona_codeact") is not None
-        assert registry.get("daytona_codeact") is not None
+        assert registry.get("daytona_shell") is not None
+        assert registry.get("daytona_shell") is not None
         assert len(registry.to_api_schema()) == 6
 
     def test_toolkit_restrict_preserves_sandbox_tools(self):
@@ -676,7 +619,7 @@ class TestDaytonaToolkitIntegration:
         registry.restrict_to_toolkits(["sandbox_operations"])
 
         assert len(registry.list_tools()) == 6
-        assert registry.get("daytona_codeact") is not None
+        assert registry.get("daytona_shell") is not None
 
 
 # ===========================================================================
@@ -768,7 +711,7 @@ class TestDaytonaToolkitLive:
     # -- Live bash --
 
     def test_live_bash_echo(self, live_sandbox):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaBashTool
 
         tool = DaytonaBashTool
         ctx = self._ctx(live_sandbox)
@@ -777,7 +720,7 @@ class TestDaytonaToolkitLive:
         assert "LIVE_BASH_OK" in result.output
 
     def test_live_bash_python_version(self, live_sandbox):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaBashTool
 
         tool = DaytonaBashTool
         ctx = self._ctx(live_sandbox)
@@ -786,7 +729,7 @@ class TestDaytonaToolkitLive:
         assert "Python" in result.output
 
     def test_live_bash_nonzero_exit(self, live_sandbox):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaBashTool
 
         tool = DaytonaBashTool
         ctx = self._ctx(live_sandbox)
@@ -800,7 +743,7 @@ class TestDaytonaToolkitLive:
     # so we use bash for write+read in a single call where needed.
 
     def test_live_write_then_read(self, live_sandbox):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaBashTool
 
         ctx = self._ctx(live_sandbox)
         bash_tool = DaytonaBashTool
@@ -821,7 +764,7 @@ class TestDaytonaToolkitLive:
     # -- Live list files --
 
     def test_live_list_tmp(self, live_sandbox):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaBashTool
 
         ctx = self._ctx(live_sandbox)
         tool = DaytonaBashTool
@@ -831,7 +774,7 @@ class TestDaytonaToolkitLive:
     # -- Live grep --
 
     def test_live_grep_etc(self, live_sandbox):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaBashTool
 
         tool = DaytonaBashTool
         ctx = self._ctx(live_sandbox)
@@ -850,7 +793,7 @@ class TestDaytonaToolkitLive:
     # -- Live glob --
 
     def test_live_glob_tmp(self, live_sandbox):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaBashTool
 
         ctx = self._ctx(live_sandbox)
         bash_tool = DaytonaBashTool
@@ -870,7 +813,7 @@ class TestDaytonaToolkitLive:
     # -- Live edit --
 
     def test_live_edit_file(self, live_sandbox):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaBashTool
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaBashTool
 
         ctx = self._ctx(live_sandbox)
         bash_tool = DaytonaBashTool
@@ -902,7 +845,7 @@ class TestToolSelectionAndOrdering:
     """
 
     EXPECTED_TOOLS = {
-        "daytona_codeact",
+        "daytona_shell",
         "daytona_read_file",
         "daytona_write_file",
         "daytona_grep",
@@ -947,7 +890,7 @@ class TestToolSelectionAndOrdering:
     def test_bash_is_last(self):
         """Shell execution should be the last tool (most dangerous)."""
         names = self._get_tool_names()
-        assert names[-1] == "daytona_codeact"
+        assert names[-1] == "daytona_shell"
 
     # -- Schema validation --
 
@@ -967,10 +910,10 @@ class TestToolSelectionAndOrdering:
                 f"{tool.name} input_schema missing 'properties': {input_schema}"
             )
 
-    def test_codeact_exposes_non_null_command_schema(self):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaCodeActTool
+    def test_shell_exposes_non_null_command_schema(self):
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaShellTool
 
-        schema = DaytonaCodeActTool.to_api_schema()["input_schema"]
+        schema = DaytonaShellTool.to_api_schema()["input_schema"]
         assert schema["properties"]["command"]["type"] == "string"
         assert schema["properties"]["command"]["minLength"] == 1
 
@@ -1012,10 +955,10 @@ class TestToolSelectionAndOrdering:
         assert "file_path" in required
         assert "line" not in required
 
-    def test_codeact_requires_command_or_code(self):
-        from tools.daytona_toolkit.codeact_tool import daytona_codeact as DaytonaCodeActTool
+    def test_shell_requires_command(self):
+        from tools.daytona_toolkit.shell_tool import daytona_shell as DaytonaShellTool
 
-        schema = DaytonaCodeActTool.to_api_schema()["input_schema"]
+        schema = DaytonaShellTool.to_api_schema()["input_schema"]
         assert schema["oneOf"] == [{"required": ["command"]}, {"required": ["code"]}]
 
 

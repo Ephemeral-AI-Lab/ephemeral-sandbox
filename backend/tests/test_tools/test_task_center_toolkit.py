@@ -13,7 +13,7 @@ from tools.task_center.toolkit import (
     ReadFileNoteTool,
     ReadTaskDetailsTool,
     ReadTaskGraphTool,
-    SubmitFileNoteTool,
+    SubmitFileNotesTool,
     SubmitTaskNoteTool,
 )
 from tools.core.base import ToolExecutionContext, parse_tool_input
@@ -50,7 +50,7 @@ def _task(
 
 
 @pytest.mark.asyncio
-async def test_submit_file_note_stores_without_task_id():
+async def test_submit_file_notes_store_one_note_per_item():
     class _Notes:
         def __init__(self) -> None:
             self.posted = []
@@ -67,29 +67,34 @@ async def test_submit_file_note_stores_without_task_id():
         }
     )
 
-    tool = SubmitFileNoteTool()
+    tool = SubmitFileNotesTool()
     result = await tool.execute(
         tool.input_model(
-            content="Mapped auth surface.",
-            paths=["src/auth.py"],
-            tags=["discovery"],
+            notes=[
+                {"path": "./src/auth.py/", "content": "Mapped auth surface."},
+                {"path": "src/session.py", "content": "Mapped session surface."},
+            ],
         ),
         ctx,
     )
 
     assert result.is_error is False
     payload = json.loads(result.output)
-    assert payload["note_id"]
-    assert payload["task_id"] == ""
-    assert payload["agent_name"] == "scout"
-    assert payload["content"] == "Mapped auth surface."
-    assert payload["paths"] == ["src/auth.py"]
-    assert payload["tags"] == ["discovery"]
-    assert notes.posted[0].id == payload["note_id"]
+    assert [item["path"] for item in payload["notes"]] == ["src/auth.py", "src/session.py"]
+    assert [item["content"] for item in payload["notes"]] == [
+        "Mapped auth surface.",
+        "Mapped session surface.",
+    ]
+    assert len(notes.posted) == 2
+    assert notes.posted[0].task_id == ""
+    assert notes.posted[0].paths == ["src/auth.py"]
+    assert notes.posted[1].paths == ["src/session.py"]
+    assert notes.posted[0].id == payload["notes"][0]["note_id"]
+    assert notes.posted[1].id == payload["notes"][1]["note_id"]
 
 
 @pytest.mark.asyncio
-async def test_submit_file_note_allows_scout_correct_path_content():
+async def test_submit_file_notes_preserve_order_and_allow_scout_correct_path_content():
     class _Notes:
         def __init__(self) -> None:
             self.posted = []
@@ -105,18 +110,25 @@ async def test_submit_file_note_allows_scout_correct_path_content():
         }
     )
 
-    tool = SubmitFileNoteTool()
+    tool = SubmitFileNotesTool()
     result = await tool.execute(
         tool.input_model(
-            content="Missing target; correct path appears to be src/session.py.",
-            paths=["src/auth.py"],
-            tags=["discovery"],
+            notes=[
+                {"path": "src/auth.py", "content": "Mapped auth surface first."},
+                {
+                    "path": "src/missing.py",
+                    "content": "Missing target; correct path appears to be src/session.py.",
+                },
+            ],
         ),
         ctx,
     )
 
     assert result.is_error is False
-    assert notes.posted[0].content == "Missing target; correct path appears to be src/session.py."
+    payload = json.loads(result.output)
+    assert [item["path"] for item in payload["notes"]] == ["src/auth.py", "src/missing.py"]
+    assert notes.posted[0].content == "Mapped auth surface first."
+    assert notes.posted[1].content == "Missing target; correct path appears to be src/session.py."
 
 
 @pytest.mark.asyncio
@@ -158,9 +170,26 @@ def test_submit_task_note_rejects_whitespace_only_content():
         SubmitTaskNoteTool.input_model(content=" \n\t", task_id="task-1", paths=["src/a.py"])
 
 
-def test_submit_file_note_rejects_missing_paths():
+def test_submit_file_notes_reject_whitespace_only_content():
+    with pytest.raises(ValidationError, match="content must contain non-whitespace text"):
+        SubmitFileNotesTool.input_model(
+            notes=[{"path": "src/a.py", "content": " \n\t"}],
+        )
+
+
+def test_submit_file_notes_reject_empty_batch():
     with pytest.raises(ValidationError):
-        SubmitFileNoteTool.input_model(content="note")
+        SubmitFileNotesTool.input_model(notes=[])
+
+
+def test_submit_file_notes_reject_duplicate_normalized_paths():
+    with pytest.raises(ValidationError, match="duplicate normalized paths"):
+        SubmitFileNotesTool.input_model(
+            notes=[
+                {"path": "./src/a.py", "content": "first"},
+                {"path": "src/a.py/", "content": "second"},
+            ],
+        )
 
 
 def test_submit_task_note_rejects_missing_task_id():
@@ -169,13 +198,25 @@ def test_submit_task_note_rejects_missing_task_id():
 
 
 def test_submit_note_schemas_are_pydantic_native():
-    file_schema = SubmitFileNoteTool().to_api_schema()
+    file_schema = SubmitFileNotesTool().to_api_schema()
     task_schema = SubmitTaskNoteTool().to_api_schema()
 
-    assert "REQUIRED" in file_schema["input_schema"]["properties"]["content"]["description"]
-    assert "paths" in file_schema["input_schema"]["properties"]
-    assert "task_id" not in file_schema["input_schema"]["properties"]
-    assert "file-scoped note" in file_schema["description"]
+    assert "notes" in file_schema["input_schema"]["properties"]
+    assert file_schema["input_schema"]["additionalProperties"] is False
+    assert file_schema["input_schema"]["required"] == ["notes"]
+    note_item_schema = file_schema["input_schema"]["$defs"][
+        file_schema["input_schema"]["properties"]["notes"]["items"]["$ref"].split("/")[-1]
+    ]
+    assert "path" in note_item_schema["properties"]
+    assert "content" in note_item_schema["properties"]
+    assert note_item_schema["additionalProperties"] is False
+    assert "batched file-scoped notes" in file_schema["description"]
+    assert "notes" in file_schema["output_schema"]["properties"]
+    item_output = file_schema["output_schema"]["$defs"][
+        file_schema["output_schema"]["properties"]["notes"]["items"]["$ref"].split("/")[-1]
+    ]
+    assert "path" in item_output["properties"]
+    assert "paths" not in item_output["properties"]
 
     assert "task_id" in task_schema["input_schema"]["properties"]
     assert "paths" in task_schema["input_schema"]["properties"]

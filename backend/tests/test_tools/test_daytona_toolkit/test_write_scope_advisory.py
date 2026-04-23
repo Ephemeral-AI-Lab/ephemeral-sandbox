@@ -90,7 +90,7 @@ def _assert_test_file_write_error(result: str | None, rel_path: str) -> None:
     assert rel_path in result
     assert "read/verify-only" in result
     assert "production owner" in result
-    assert "submit_task_summary(type='request_replan'" in result
+    assert "request_replan(" in result
     assert "runtime-authorized test-edit lane" in result
 
 

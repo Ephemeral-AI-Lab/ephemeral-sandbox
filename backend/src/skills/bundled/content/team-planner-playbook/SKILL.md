@@ -72,9 +72,11 @@ Keep `2. Task Details:` wording intact when carrying parent or dependency contex
 | --- | --- |
 | Shape wave | Launch one scout per `scout_required` or unresolved production owner family with `target_paths: ["<one production owner path>"]`. Split target paths from different owner-ledger rows into separate calls in the same wave; for a package family, use one directory path rather than several sibling files. Keep tests, `test_*.py`, benchmark harnesses, verification paths, missing test-derived files, skipped variants, optional-dependency errors, and verification commands in scout `context`, not `target_paths`. For restructured package/directory scopes, do not route `core.py`/`arrow.py`-style sibling ownership from test parameters or backend names before live scout evidence names that file. |
 | Launch and supervise | Fire every useful scout before polling. Poll while scouts are `running`; cancel halted, blocked, off-scope, or unchanged scouts and carry that slice as explicit uncertainty. |
-| Harvest notes | Read every available note for exact launched target paths. On cold CI, canceled scouts, or disproved exact files, fall back to the nearest stable production boundary. |
+| Harvest notes | Read every available note for exact launched target paths. On cold CI, canceled scouts, or disproved exact files, treat the launched target as unresolved coverage: either launch one fresh scout on a single stable production boundary before Stage 3 or carry explicit uncertainty. Do not keep the disproved exact path or replace it via ad hoc CI/workspace/symbol exploration in the same layer. |
 
 If any candidate target matches `*/tests/*`, `test_*.py`, a benchmark harness, or a verification-only path, do not launch a scout on it. Move that path into scout `context` and keep `target_paths` production-only.
+Do not use scout `context` to ask for source reads, symbol queries, or ownership checks on files or directories outside the assigned `target_paths`. If `groupby.py` is the scout target and `core.py` is only a hypothesis, either launch a separate scout on `core.py` or carry that adjacent owner as uncertainty; do not smuggle it through one single-file scout prompt.
+If `read_file_note(file_path="<launched target>")` returns no scout note after a delivered scout, treat that target as unresolved scout coverage, not as permission to keep the path or self-correct it with direct CI/workspace/symbol exploration. Relaunch one scout on a stable boundary or carry uncertainty.
 
 ### 3. Synthesize and submit
 

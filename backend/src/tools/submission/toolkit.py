@@ -6,7 +6,8 @@ it after the runner returns.
 Tool surface:
   - submit_plan          (terminal)     — commit child plan to task model
   - submit_replan        (terminal)     — commit corrective replan to task model
-  - submit_task_summary  (terminal)     — submit success/fail outcome
+  - submit_task_success  (terminal)     — report successful completion with a summary
+  - request_replan       (terminal)     — request a replan with a reason
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import logging
 import re
 import time
 import uuid
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -229,86 +230,121 @@ def _format_plan_note(
 
 
 # ---------------------------------------------------------------------------
-# SubmitTaskSummaryTool — terminal for non-planner agents
+# SubmitTaskSuccessTool / RequestReplanTool — terminal for non-planner agents
 # ---------------------------------------------------------------------------
 
 
-class SubmitTaskSummaryInput(BaseModel):
-    type: Literal["success", "request_replan"] = Field(
-        ...,
-        description=(
-            "Outcome type. Use 'success' only when all assigned acceptance "
-            "criteria are satisfied by live evidence. Use 'request_replan' "
-            "when the task is blocked, still red, assigned to the wrong owner, "
-            "or needs a different scope or sequence."
-        ),
-    )
-    content: str = Field(
+class SubmitTaskSuccessInput(BaseModel):
+    summary: str = Field(
         ...,
         min_length=1,
         description=(
-            "Evidence-rich terminal summary for Task Center notes. Developers: "
+            "Evidence-rich success summary for Task Center notes. Developers: "
             "state the concrete API or behavior delta, verification commands and outcomes "
-            "observed after the final edit, and known gaps or deferred items. Validators: list "
-            "each acceptance criterion with pass/fail plus the command, probe, "
-            "exit code, or key assertion used; on failure include the minimal "
-            "repro and hypothesized root cause. For request_replan: start with "
-            "a replan trigger, exactly one of scope_expansion, "
-            "wrong_owner_or_role, or unresolved_blocker; then include blocking "
-            "evidence, failing command or tool result, affected paths or owners, "
-            "and why a different owner, scope, sequence, or budget is needed. "
-            "Do not submit placeholders such as 'task completed', "
-            "'all checks passed', or a filename-only list."
+            "observed after the final edit, and known gaps or deferred items. Validators: "
+            "list each acceptance criterion with pass/fail plus the command, probe, "
+            "exit code, or key assertion used. Do not submit placeholders such as "
+            "'task completed', 'all checks passed', or a filename-only list."
         ),
     )
 
-    @field_validator("content")
+    @field_validator("summary")
     @classmethod
-    def _content_must_not_be_blank(cls, value: str) -> str:
+    def _summary_must_not_be_blank(cls, value: str) -> str:
         if not value.strip():
-            raise ValueError("content must contain non-whitespace text")
+            raise ValueError("summary must contain non-whitespace text")
         return value
 
 
-class SubmitTaskSummaryOutput(BaseModel):
+class SubmitTaskSuccessOutput(BaseModel):
     task_id: str = Field(..., description="Runtime-stamped task id.")
     agent_name: str = Field(..., description="Runtime-stamped submitting agent name.")
-    type: Literal["success", "request_replan"] = Field(
-        ..., description="Submitted outcome type."
-    )
-    content: str = Field(..., description="Submitted task outcome content.")
+    summary: str = Field(..., description="Submitted success summary.")
 
 
-class SubmitTaskSummaryTool(BaseTool):
-    name = "submit_task_summary"
+class SubmitTaskSuccessTool(BaseTool):
+    name = "submit_task_success"
     description = (
-        "Submit the evidence-rich terminal outcome for a developer, validator, "
-        "or parent_summarizer task. Use type='success' only for satisfied "
-        "acceptance criteria with concrete verification evidence; use "
-        "type='request_replan' for blockers, red checks, wrong ownership, or "
-        "needed scope/sequence changes, classified as scope_expansion, "
-        "wrong_owner_or_role, or unresolved_blocker. This is terminal: the "
-        "agent loop ends after this call."
+        "Report successful completion of a developer, validator, or "
+        "parent_summarizer task. Use only when all assigned acceptance "
+        "criteria are satisfied by live evidence. Provide a concrete "
+        "summary with verification commands, outcomes, and any known gaps. "
+        "This is terminal: the agent loop ends after this call."
     )
-    short_description = "Submit task outcome."
-    input_model = SubmitTaskSummaryInput
-    output_model = SubmitTaskSummaryOutput
+    short_description = "Report task success."
+    input_model = SubmitTaskSuccessInput
+    output_model = SubmitTaskSuccessOutput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
-        assert isinstance(arguments, SubmitTaskSummaryInput)
+        assert isinstance(arguments, SubmitTaskSuccessInput)
 
-        # Write to metadata for executor to read after runner returns
-        context.metadata["task_summary"] = arguments.content
-        context.metadata["task_summary_type"] = arguments.type
+        context.metadata["task_summary"] = arguments.summary
+        context.metadata["task_summary_type"] = "success"
 
-        # Audit trail note
-        tag = "implementation" if arguments.type == "success" else "warning"
-        await _post_submission_note(context, content=arguments.content, tags=[tag])
-        payload = SubmitTaskSummaryOutput(
+        await _post_submission_note(
+            context, content=arguments.summary, tags=["implementation"]
+        )
+        payload = SubmitTaskSuccessOutput(
             task_id=str(context.metadata.get("work_item_id") or ""),
             agent_name=str(context.metadata.get("agent_name") or ""),
-            type=arguments.type,
-            content=arguments.content,
+            summary=arguments.summary,
+        )
+        return ToolResult(output=payload.model_dump_json())
+
+
+class RequestReplanInput(BaseModel):
+    reason: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Evidence-rich replan request for Task Center notes. Start with "
+            "a replan trigger, exactly one of scope_expansion, "
+            "wrong_owner_or_role, or unresolved_blocker; then include blocking "
+            "evidence, failing command or tool result, affected paths or owners, "
+            "and why a different owner, scope, sequence, or budget is needed."
+        ),
+    )
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("reason must contain non-whitespace text")
+        return value
+
+
+class RequestReplanOutput(BaseModel):
+    task_id: str = Field(..., description="Runtime-stamped task id.")
+    agent_name: str = Field(..., description="Runtime-stamped submitting agent name.")
+    reason: str = Field(..., description="Submitted replan reason.")
+
+
+class RequestReplanTool(BaseTool):
+    name = "request_replan"
+    description = (
+        "Request a replan when the task is blocked, still red, assigned to "
+        "the wrong owner, or needs a different scope or sequence. Classify "
+        "the trigger as scope_expansion, wrong_owner_or_role, or "
+        "unresolved_blocker on the first line of reason, then cite blocking "
+        "evidence. This is terminal: the agent loop ends after this call."
+    )
+    short_description = "Request a replan."
+    input_model = RequestReplanInput
+    output_model = RequestReplanOutput
+
+    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
+        assert isinstance(arguments, RequestReplanInput)
+
+        context.metadata["task_summary"] = arguments.reason
+        context.metadata["task_summary_type"] = "request_replan"
+
+        await _post_submission_note(
+            context, content=arguments.reason, tags=["warning"]
+        )
+        payload = RequestReplanOutput(
+            task_id=str(context.metadata.get("work_item_id") or ""),
+            agent_name=str(context.metadata.get("agent_name") or ""),
+            reason=arguments.reason,
         )
         return ToolResult(output=payload.model_dump_json())
 
@@ -921,7 +957,8 @@ class SubmissionToolkit(BaseToolkit):
             name="submission",
             description="Terminal submission tools for team-mode agents.",
             tools=[
-                SubmitTaskSummaryTool(),
+                SubmitTaskSuccessTool(),
+                RequestReplanTool(),
                 SubmitPlanTool(),
                 SubmitReplanTool(),
             ],

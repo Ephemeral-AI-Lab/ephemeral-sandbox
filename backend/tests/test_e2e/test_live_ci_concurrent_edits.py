@@ -6,10 +6,10 @@ subprocess-backed Jedi/LSP paths under true racing conditions:
 
 * Non-overlapping concurrent edits across all 4 public write paths
   (``daytona_write_file``, ``daytona_edit_file``, ``daytona_rename_symbol``,
-  ``daytona_codeact``) on disjoint files — every write must land and
+  ``daytona_shell``) on disjoint files — every write must land and
   the process audit must record all edit types.
 * Overlapping concurrent edits pairing *different* tool types
-  (edit×edit, edit×codeact, codeact×codeact) — final files must remain
+  (edit×edit, edit×shell, shell×shell) — final files must remain
   coherent, even though unconditional process writes are last-writer-wins
   rather than reservation conflicts.
 All concurrency knobs come from environment variables; none are
@@ -43,7 +43,7 @@ from dotenv import load_dotenv
 from code_intelligence.routing.service import CodeIntelligenceService
 from tools.daytona_toolkit.rename_tool import daytona_rename_symbol
 from tools.core.base import ToolExecutionContext
-from tools.daytona_toolkit.codeact_tool import daytona_codeact
+from tools.daytona_toolkit.shell_tool import daytona_shell
 from tools.daytona_toolkit.edit_tool import daytona_edit_file
 from tools.daytona_toolkit.tools import daytona_write_file
 
@@ -337,17 +337,17 @@ def test_concurrent_nonoverlap_edits_across_tools(
 
             return _run
 
-        def _codeact_worker(index: int) -> Callable[[], dict[str, Any]]:
-            rel_path = f"pkg/generated/codeact_{index}.py"
+        def _shell_worker(index: int) -> Callable[[], dict[str, Any]]:
+            rel_path = f"pkg/generated/shell_{index}.py"
 
             def _run() -> dict[str, Any]:
                 started = time.perf_counter()
                 code = (
-                    f'write({rel_path!r}, "codeact_value_{index} = {index}\\n")'
+                    f'write({rel_path!r}, "shell_value_{index} = {index}\\n")'
                 )
                 result = asyncio.run(
-                    daytona_codeact.execute(
-                        daytona_codeact.input_model(
+                    daytona_shell.execute(
+                        daytona_shell.input_model(
                             mode="python",
                             code=code,
                             timeout=180,
@@ -357,7 +357,7 @@ def test_concurrent_nonoverlap_edits_across_tools(
                 )
                 return {
                     "index": index,
-                    "op": "codeact",
+                    "op": "shell",
                     "outcome": "ok" if not result.is_error else "error",
                     "metadata": dict(result.metadata or {}),
                     "duration_ms": round(
@@ -372,7 +372,7 @@ def test_concurrent_nonoverlap_edits_across_tools(
             _write_worker,
             _edit_worker,
             _rename_worker,
-            _codeact_worker,
+            _shell_worker,
         ]
         workers: list[Callable[[], dict[str, Any]]] = []
         for index in range(NONOVERLAP_SLOTS):
@@ -394,7 +394,7 @@ def test_concurrent_nonoverlap_edits_across_tools(
         counts = Counter(
             str(getattr(item, "edit_type", "") or "") for item in edits
         )
-        expected_types = {"write", "edit", "rename", "codeact"}
+        expected_types = {"write", "edit", "rename", "shell"}
         assert expected_types.issubset(counts), dict(counts)
 
         conflicts_delta = (
@@ -495,7 +495,7 @@ def test_concurrent_overlap_edits_preserve_process_integrity(
 
                 return _run
 
-            def _codeact_variant(
+            def _shell_variant(
                 pair: int, attempt: int, seed: str, path: str
             ) -> Callable[[], dict[str, Any]]:
                 rel_path = f"pkg/shared_{pair}.py"
@@ -505,8 +505,8 @@ def test_concurrent_overlap_edits_preserve_process_integrity(
                     new_content = f"{seed} = {pair}{attempt}\n"
                     code = f"write({rel_path!r}, {new_content!r})"
                     result = asyncio.run(
-                        daytona_codeact.execute(
-                            daytona_codeact.input_model(
+                        daytona_shell.execute(
+                            daytona_shell.input_model(
                                 mode="python",
                                 code=code,
                                 timeout=180,
@@ -517,7 +517,7 @@ def test_concurrent_overlap_edits_preserve_process_integrity(
                     return {
                         "pair": pair,
                         "attempt": attempt,
-                        "op": "codeact",
+                        "op": "shell",
                         "is_error": result.is_error,
                         "metadata": dict(result.metadata or {}),
                         "duration_ms": round(
@@ -535,8 +535,8 @@ def test_concurrent_overlap_edits_preserve_process_integrity(
             # prepare/commit conflict rejection.
             combos = [
                 (_edit_variant, _edit_variant),
-                (_edit_variant, _codeact_variant),
-                (_codeact_variant, _codeact_variant),
+                (_edit_variant, _shell_variant),
+                (_shell_variant, _shell_variant),
             ]
             left_builder, right_builder = combos[pair_index % len(combos)]
             workers = [

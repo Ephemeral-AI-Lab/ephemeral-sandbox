@@ -80,15 +80,15 @@ async def test_write_then_bash_sequential(sandbox_id):
     tool_names = [e.tool_name for e in tool_started]
 
     has_write = "daytona_write_file" in tool_names
-    has_bash = "daytona_codeact" in tool_names
+    has_bash = "daytona_shell" in tool_names
 
     assert has_write or has_bash, (
-        f"Should use daytona_write_file or daytona_codeact. Tools: {tool_names}"
+        f"Should use daytona_write_file or daytona_shell. Tools: {tool_names}"
     )
 
     if has_write and has_bash:
         write_idx = tool_names.index("daytona_write_file")
-        bash_idx = tool_names.index("daytona_codeact")
+        bash_idx = tool_names.index("daytona_shell")
         assert write_idx < bash_idx, f"Write should come before bash. Order: {tool_names}"
 
 
@@ -108,9 +108,9 @@ async def test_multiple_bash_commands(sandbox_id):
     tool_started = result.tools_started()
     tool_names = [e.tool_name for e in tool_started]
 
-    daytona_codeact_count = tool_names.count("daytona_codeact")
-    assert daytona_codeact_count >= 2, (
-        f"Should have at least 2 bash calls. Got {daytona_codeact_count}. Tools: {tool_names}"
+    daytona_shell_count = tool_names.count("daytona_shell")
+    assert daytona_shell_count >= 2, (
+        f"Should have at least 2 bash calls. Got {daytona_shell_count}. Tools: {tool_names}"
     )
 
 
@@ -207,7 +207,7 @@ async def test_build_python_script_workflow(sandbox_id):
     tool_names = [e.tool_name for e in tool_started]
 
     assert "daytona_write_file" in tool_names, f"Should write files. Tools: {tool_names}"
-    assert "daytona_codeact" in tool_names, f"Should run scripts. Tools: {tool_names}"
+    assert "daytona_shell" in tool_names, f"Should run scripts. Tools: {tool_names}"
     assert len(result.assistant_turns()) > 0, "Should complete"
 
     text = result.text
@@ -270,7 +270,7 @@ async def test_data_processing_workflow(sandbox_id):
     tool_names = [e.tool_name for e in tool_started]
 
     assert "daytona_write_file" in tool_names, f"Should write file. Tools: {tool_names}"
-    assert "daytona_codeact" in tool_names, f"Should run commands. Tools: {tool_names}"
+    assert "daytona_shell" in tool_names, f"Should run commands. Tools: {tool_names}"
     assert len(result.assistant_turns()) > 0, "Should complete"
 
     text = result.text.lower()
@@ -303,6 +303,6 @@ async def test_error_recovery_workflow(sandbox_id):
     tool_names = [e.tool_name for e in tool_started]
 
     assert "daytona_write_file" in tool_names, f"Should write file. Tools: {tool_names}"
-    has_bash_or_read = "daytona_codeact" in tool_names or "daytona_read_file" in tool_names
+    has_bash_or_read = "daytona_shell" in tool_names or "daytona_read_file" in tool_names
     assert has_bash_or_read, f"Should attempt bash or read commands. Tools: {tool_names}"
     assert len(result.assistant_turns()) > 0, "Should complete even with errors"

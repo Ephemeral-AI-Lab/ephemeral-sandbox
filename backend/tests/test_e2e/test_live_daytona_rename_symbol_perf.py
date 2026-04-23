@@ -5,7 +5,7 @@ path plus direct OCC commit path:
 
     daytona_rename_symbol -> rename_symbol_plan -> commit_rename_plan
 
-It must not route through ``CodeIntelligenceService.cmd`` / CodeAct's Git
+It must not route through ``CodeIntelligenceService.cmd`` / daytona_shell's Git
 workspace auditor.
 
 Run with:

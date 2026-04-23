@@ -237,24 +237,23 @@ async def submit_commit(
     )
 
 
-async def submit_codeact_cmd(
+async def submit_shell_cmd(
     context: "ToolExecutionContext",
     *,
     command: str,
     description: str,
     timeout: int | None = None,
     sandbox: Any | None = None,
-    stdin: str | None = None,
     attribute_changes: bool = True,
     on_progress_line: Callable[[str], None] | None = None,
 ) -> FileChangeResult[SimpleNamespace]:
-    """Run a CodeAct command through the CI service."""
+    """Run a daytona_shell command through the CI service."""
     from tools.core.ci_runtime import get_ci_service
 
     svc = get_ci_service(context)
     if svc is None:
         raise RuntimeError(
-            "submit_codeact_cmd requires an active ci_service; "
+            "submit_shell_cmd requires an active ci_service; "
             "caller must short-circuit before entering the façade",
         )
     resolved_sandbox = sandbox
@@ -264,7 +263,7 @@ async def submit_codeact_cmd(
         )
     if resolved_sandbox is None:
         raise RuntimeError(
-            "submit_codeact_cmd requires a sandbox in context.metadata "
+            "submit_shell_cmd requires a sandbox in context.metadata "
             "(ci_sandbox or daytona_sandbox) or as an explicit argument",
         )
 
@@ -276,7 +275,6 @@ async def submit_codeact_cmd(
         "team_run_id": attribution.team_run_id,
         "agent_run_id": attribution.agent_run_id,
         "task_id": attribution.task_id,
-        "stdin": stdin,
         "attribute_changes": attribute_changes,
     }
     if on_progress_line is not None:
@@ -302,6 +300,6 @@ async def submit_codeact_cmd(
 __all__ = [
     "CommitOp",
     "FileChangeResult",
-    "submit_codeact_cmd",
+    "submit_shell_cmd",
     "submit_commit",
 ]

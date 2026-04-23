@@ -32,9 +32,7 @@ class AgentDefinitionRecord(Base):
     skills: Mapped[list[str]] = mapped_column(JSON, default=list)
     allowed_tools: Mapped[list[str]] = mapped_column(JSON, default=list)
     blocked_tools: Mapped[list[str]] = mapped_column(JSON, default=list)
-
-    # External triggers (JSON array)
-    allowed_triggers: Mapped[list[str]] = mapped_column(JSON, default=list)
+    terminal_tools: Mapped[list[str]] = mapped_column(JSON, default=list)
 
     # Hooks (JSON object)
     hooks: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)

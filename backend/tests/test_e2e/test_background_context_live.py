@@ -68,8 +68,8 @@ class TestReminderDoesNotAccumulate:
         log_result(result, "reminder_accumulation")
 
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
         assert len(result.tools_started()) >= 5, \
@@ -121,8 +121,8 @@ class TestLargeOutputWithBackground:
         log_result(result, "large_output")
 
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
         assert len(result.tools_completed()) >= 2, \
@@ -174,13 +174,13 @@ class TestSustainedBackgroundStress:
             "11. Cancel the background task with reason 'stress test complete'\n"
             "12. Summarize: how many foreground steps completed? "
             "What was the background task status when you checked?\n\n"
-            "Use background: true for step 1 ONLY. Execute each step with daytona_codeact."
+            "Use background: true for step 1 ONLY. Execute each step with daytona_shell."
         )
         log_result(result, "stress_test")
 
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
         assert len(result.tools_started()) >= 6, \

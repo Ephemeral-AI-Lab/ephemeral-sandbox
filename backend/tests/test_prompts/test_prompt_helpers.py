@@ -15,7 +15,14 @@ from team.persistence.model import TeamDefinitionRecord
 from team.persistence.store import TeamDefinitionStore
 from team.models import BudgetConfig, Task, TaskStatus, TeamDefinition
 from team.persistence.events import make_note_posted, make_task_added, make_team_run_created, task_to_dict
-from team.runtime.tool_policy import default_terminal_tools_for_role
+from team.runtime.tool_policy import get_role_tool_policy
+
+
+def default_terminal_tools_for_role(role: str | None) -> set[str]:
+    policy = get_role_tool_policy(role)
+    if policy is None:
+        return set()
+    return set(policy.allowed_submission_tools)
 
 _ROOT = Path(__file__).resolve().parents[3]
 _SCRIPTS_DIR = _ROOT / "scripts"
@@ -99,26 +106,26 @@ def test_team_system_prompts_include_only_terminal_guidance(tmp_path: Path) -> N
         assert "daytona_" not in prompt
 
     assert "submit_plan" in planner
-    assert "submit_task_summary" not in planner
+    assert "submit_task_success" not in planner
     assert "submit_replan" not in planner
     assert "submit_task_note" not in planner
 
     assert "submit_replan" in replanner
-    assert "submit_task_summary" not in replanner
+    assert "submit_task_success" not in replanner
     assert "submit_plan" not in replanner
     assert "submit_task_note" not in replanner
 
     assert "<Termination Condition>" not in scout
-    assert "submit_file_note" not in scout
+    assert "submit_file_notes" in scout
     assert "submit_task_note" not in scout
-    assert "submit_task_summary" not in scout
+    assert "submit_task_success" not in scout
     assert "submit_plan" not in scout
     assert "submit_replan" not in scout
 
     assert "sandbox_operations" not in validator
     assert "daytona_edit_file" not in validator
-    assert "daytona_codeact" not in validator
-    assert "submit_task_summary" in validator
+    assert "daytona_shell" not in validator
+    assert "submit_task_success" in validator
 
 
 def _agent_section(report: str, agent_name: str) -> str:
@@ -165,7 +172,7 @@ def test_db_seeded_custom_team_system_prompts_hide_forbidden_tools(
         AgentDefinition(
             name="db_scout",
             description="DB scout",
-            system_prompt="Explore without editing and post `submit_file_note(...)`.",
+            system_prompt="Explore without editing and post `submit_file_notes(...)`.",
             role="explorer",
             model="inherit",
             agent_type="subagent",
@@ -222,24 +229,24 @@ def test_db_seeded_custom_team_system_prompts_hide_forbidden_tools(
         assert "daytona_" not in section
 
     assert "submit_plan" in planner
-    assert "submit_task_summary" not in planner
+    assert "submit_task_success" not in planner
     assert "submit_replan" not in planner
     assert "submit_task_note" not in planner
 
     assert "submit_replan" in replanner
-    assert "submit_task_summary" not in replanner
+    assert "submit_task_success" not in replanner
     assert "submit_plan" not in replanner
     assert "submit_task_note" not in replanner
 
-    assert "submit_file_note" in scout
-    assert "submit_task_summary" not in scout
+    assert "submit_file_notes" in scout
+    assert "submit_task_success" not in scout
     assert "submit_plan" not in scout
     assert "submit_replan" not in scout
 
     assert "sandbox_operations" not in validator
     assert "daytona_edit_file" not in validator
-    assert "daytona_codeact" not in validator
-    assert "submit_task_summary" in validator
+    assert "daytona_shell" not in validator
+    assert "submit_task_success" in validator
 
 
 def test_default_team_user_prompt_report_path_uses_team_prefix() -> None:

@@ -1,4 +1,4 @@
-# Overlay CodeAct Sandbox — Canonical Plan
+# Overlay daytona_shell Sandbox — Canonical Plan
 
 Status: implemented
 Replaces: `docs/architecture/overlay-codeact-plan.md`,
@@ -45,18 +45,18 @@ first-writer-wins via OCC." Routing decisions are made entirely from
 | Mount model | **Rootless, per-op `unshare -Urm`** with `userxattr` overlay. No pool, no persistent bind mount. | Chosen for namespace-scoped cleanup (kernel releases every mount when the ns exits — no stale-mount sweep, no leak on crash), no sudo in the user-command path, and per-op tmpfs that dies with the op. `sudo mount -t overlay` with a cross-fs live lower **also** works on Daytona (§9 probe A), so Design A from the prior implementation plan is technically viable; rejected on *operational* grounds above, not capability grounds. |
 | Baseline | **`SNAP = git commit-tree`** over live tracked + staged + unstaged + untracked via a redirected `GIT_INDEX_FILE`. | Only primitive that captures the full dirty tree without moving a ref or firing hooks. `git rev-parse HEAD` is **not** sufficient — dirty/staged/untracked files would be invisible. |
 | Diff + merge location | **Inside the unshare namespace, before exit.** One sandbox-side Python script walks `upperdir`, classifies, direct-merges gitignore paths into the live workspace via the lower bind, and emits an NDJSON payload of gitinclude changes for the orchestrator. | Upperdir is tmpfs inside the ns; it is gone the moment the ns exits. An orchestrator-side walker would see nothing. |
-| `.git/**` writes | **REJECT whole run** with `git_conflict_reason = "overlay_rejected_dotgit_writes: <paths>"`. `success=False`, exit code preserved. Exception: `.git/index` / `.git/index.lock` refresh artifacts are ignored. | Agents should not mutate `.git` from inside CodeAct. Failing loud surfaces misbehavior; silent-skip hides it. The index exception covers benign Git read probes whose copied-up index is discarded with the overlay upperdir and never reaches the live repository. |
+| `.git/**` writes | **REJECT whole run** with `git_conflict_reason = "overlay_rejected_dotgit_writes: <paths>"`. `success=False`, exit code preserved. Exception: `.git/index` / `.git/index.lock` refresh artifacts are ignored. | Agents should not mutate `.git` from inside daytona_shell. Failing loud surfaces misbehavior; silent-skip hides it. The index exception covers benign Git read probes whose copied-up index is discarded with the overlay upperdir and never reaches the live repository. |
 | Whiteouts on gitignore paths | **Refuse by default.** Surface as `git_conflict_reason = "overlay_refused_gitignore_whiteout: <paths>"`. Agents that legitimately want to rebuild deps use `daytona_delete_file` (OCC-aware) or a future explicit rebuild tool. | Ecosystem-specific allowlists (`.venv/`, `node_modules/`, `target/`, `.next/`, `.gradle/`, `dist/`, …) rot. Refuse-all is the only policy that does not drift. |
 | Whiteouts on gitinclude paths | **Emit as DELETE to OCC** (normal path). | OCC already handles this correctly via strict-base. |
 | Mode-only changes on gitinclude paths | **Ignore.** Overlay copies up on mode change with identical content; classifier short-circuits on content equality with the SNAP base. | OCC does not track mode. Avoids spurious no-op changes. |
 | Symlinks / opaque-dir markers on gitinclude paths | **REJECT.** | Matches current V1 OCC policy. Defer until OCC represents them. |
 | Non-UTF-8 content on gitinclude paths | **REJECT.** | Matches current OCC policy. |
 | Non-UTF-8 content on gitignore paths | **Direct-merge as bytes.** | Binary deps (`.whl`, `.so`, `.pyc`) must pass through. |
-| Mixed gitinclude + gitignore writes | **ACCEPT; non-atomic across routes by design.** Gitinclude writes go through strict OCC and may abort (first-writer-wins). Gitignore writes direct-merge independently per file (per-file last-writer-wins) and are not rolled back if the OCC pass aborts. | CodeAct is a live shell runner. Real commands inevitably touch source/config (gitinclude) plus runtime state (`.venv/`, `node_modules/`, caches, build outputs — gitignore). Rejecting mixed writes would make normal install/test/build workflows brittle. The contract is explicit metadata/warnings, not transactional rollback. |
+| Mixed gitinclude + gitignore writes | **ACCEPT; non-atomic across routes by design.** Gitinclude writes go through strict OCC and may abort (first-writer-wins). Gitignore writes direct-merge independently per file (per-file last-writer-wins) and are not rolled back if the OCC pass aborts. | daytona_shell is a live shell runner. Real commands inevitably touch source/config (gitinclude) plus runtime state (`.venv/`, `node_modules/`, caches, build outputs — gitignore). Rejecting mixed writes would make normal install/test/build workflows brittle. The contract is explicit metadata/warnings, not transactional rollback. |
 | Tmpfs upper full (`ENOSPC`) | Surface as `git_conflict_reason = "overlay_upper_full"` and fail the run. Tmpfs size set via `EOS_OVERLAY_UPPER_SIZE_MB` (default 512). | Fail-fast beats silent truncation of writes. |
-| Multi-shell-per-CodeAct | **One overlay per `svc.cmd`.** N `shell()` calls inside the wrapper share the same merged view; classifier sees cumulative upperdir after wrapper exits. | Matches how `_WRAPPER_TEMPLATE` already works — `shell()` invocations happen inside a single wrapper process. |
+| Multi-shell-per-daytona_shell | **One overlay per `svc.cmd`.** N `shell()` calls inside the wrapper share the same merged view; classifier sees cumulative upperdir after wrapper exits. | Matches how `_WRAPPER_TEMPLATE` already works — `shell()` invocations happen inside a single wrapper process. |
 | Concurrency | **Per-sandbox `asyncio.Semaphore(N)`** (`EOS_OVERLAY_MAX_CONCURRENT`, default 20). No pool, no slot state machine. | Pool existed only to amortize `git clone --shared`. Per-op unshare has nothing to amortize. |
-| Read isolation / live lower mutation | **No full read isolation; live changes are accepted.** Concurrent ops share live as lower; peer writes to live (via OCC commits or gitignore direct-merges) can mutate another op's active lower while its overlay is mounted. Per kernel docs this lower mutation is "undefined behavior" but explicitly "will not result in a crash or deadlock." | CodeAct is a live-workspace execution tool, not a snapshot-isolated runner. Practical surface is **weak read consistency inside the running command**: live peer changes may be visible, stale, partially visible through directory caches, or missed by a command that already read inputs. `SNAP` is only the gitinclude-write OCC base; it is not a read snapshot contract. Callers that require stable inputs must serialize above CodeAct or rerun. |
+| Read isolation / live lower mutation | **No full read isolation; live changes are accepted.** Concurrent ops share live as lower; peer writes to live (via OCC commits or gitignore direct-merges) can mutate another op's active lower while its overlay is mounted. Per kernel docs this lower mutation is "undefined behavior" but explicitly "will not result in a crash or deadlock." | daytona_shell is a live-workspace execution tool, not a snapshot-isolated runner. Practical surface is **weak read consistency inside the running command**: live peer changes may be visible, stale, partially visible through directory caches, or missed by a command that already read inputs. `SNAP` is only the gitinclude-write OCC base; it is not a read snapshot contract. Callers that require stable inputs must serialize above daytona_shell or rerun. |
 | Env-var | `EOS_OVERLAY_MAX_CONCURRENT`, `EOS_OVERLAY_UPPER_SIZE_MB`. | Picked one naming scheme (`EOS_OVERLAY_*`). `CI_CODEACT_*` retired. |
 
 ### Workspace invariants
@@ -174,7 +174,7 @@ Invariants:
 - `git add -A` honors `.gitignore` → SNAP does not contain dep trees.
 - `SNAP` is reachable via `git show $SNAP:path` for classifier base lookups.
 - `SNAP` is GC-eligible after `gc.pruneExpire` (default 2w) — never run
-  `git gc` from inside CodeAct against live.
+  `git gc` from inside daytona_shell against live.
 - The snapshot source is the canonical repository checkout with a real `.git`
   directory. Linked Git worktrees are rejected because this baseline is copied
   from the repository workspace, not from an auxiliary worktree.
@@ -375,7 +375,7 @@ backend/src/code_intelligence/routing/
 - `service.py` — remove `_git_workspace_pool` shim property; expose no
   pool (there isn't one).
 - `telemetry.py` — add overlay counters (§6).
-- `tools/daytona_toolkit/codeact_tool.py` — error-string sweep;
+- `tools/daytona_toolkit/shell_tool.py` — error-string sweep;
   `FileChangeResult.git_commit_status` / `git_conflict_reason` /
   `ambient_changed_paths` shape preserved.
 
@@ -420,7 +420,7 @@ fields the git-workspace auditor emitted:
 `result`, `exit_code`, `changed_paths`, `ambient_changed_paths`,
 `git_commit_status`, `git_conflict_reason`, `git_conflict_file`.
 
-That keeps `codeact_tool.py`'s `FileChangeResult` assembly untouched.
+That keeps `shell_tool.py`'s `FileChangeResult` assembly untouched.
 
 Overlay may also include additive metadata fields on the raw response:
 
@@ -443,7 +443,7 @@ existing write-scope hooks do not treat runtime artifacts as source edits.
 
 ## 5. Concurrency and write correctness
 
-Overlay CodeAct intentionally does **not** provide snapshot read isolation.
+Overlay daytona_shell intentionally does **not** provide snapshot read isolation.
 Each command reads through an overlay lowerdir bound to the live workspace.
 While the command is running, peer OCC commits and gitignore direct-merges may
 become visible, remain stale, or be observed inconsistently through lowerdir
@@ -486,7 +486,7 @@ source-file commit success. The tool reports the partial outcome with
 **Read visibility is weak by design.** A test/build command may observe peer
 changes that land mid-run, may continue seeing older lowerdir state, or may see
 mixed directory contents. Callers that need deterministic inputs must avoid
-concurrent CodeAct runs against the same workspace or rerun after peer writes
+concurrent daytona_shell runs against the same workspace or rerun after peer writes
 settle.
 
 ### 5.1 Throughput and scaling characteristics
@@ -548,7 +548,7 @@ friction. "High concurrency" claims are workload-bounded, not universal.
 - `git check-ignore` batched stdin: chunk at 1 MiB for ops writing
   >10k paths (already noted in §3.2).
 
-**Workloads that should NOT run concurrently in CodeAct:**
+**Workloads that should NOT run concurrently in daytona_shell:**
 - Filesystem watchers (`pytest-watch`, `nodemon`): re-read mid-run,
   exposed to the weak-read-consistency surface above.
 - Build tools that hash inputs and rely on consistent reads (some
@@ -557,7 +557,7 @@ friction. "High concurrency" claims are workload-bounded, not universal.
   actually saw).
 - Detached background processes via `nohup ... &`: killed on ns exit.
   Not strictly a concurrency issue but worth flagging in the same
-  context — CodeAct ops are namespace-scoped lifetimes, not container
+  context — daytona_shell ops are namespace-scoped lifetimes, not container
   lifetimes.
 
 **Capacity baseline** (extrapolating from prior `git-workspace` at
@@ -607,16 +607,16 @@ Threshold alarm when `overlay.upper_bytes` exceeds 80% of
 |---|---|---|---|
 | 1 | HIGH | Rootless overlay + userxattr probe regresses on a new Daytona image | Re-run `probe_overlay_capability.py` + `probe_overlay_followup.py` as CI smoke on every base-image pin bump; fail the build if either regresses. |
 | 2 | HIGH | Copy-up amplification (`sed -i` on a huge file) fills tmpfs | Tmpfs `size=` cap + fail-fast ENOSPC surfaced as `overlay_upper_full`. Default 512 MB, overridable per-env. |
-| 3 | HIGH | Shape drift in `FileChangeResult` / downstream tools | Golden-output test comparing `codeact_tool` shape before/after the cutover for a fixed set of fixture commands. |
-| 4 | HIGH | SNAP GC mid-op | Rely on `gc.pruneExpire=2.weeks` default; CodeAct ops complete in seconds. Do not invoke `git gc` from inside a CodeAct command against live — enforced by `.git/**` reject policy. |
+| 3 | HIGH | Shape drift in `FileChangeResult` / downstream tools | Golden-output test comparing `shell_tool` shape before/after the cutover for a fixed set of fixture commands. |
+| 4 | HIGH | SNAP GC mid-op | Rely on `gc.pruneExpire=2.weeks` default; daytona_shell ops complete in seconds. Do not invoke `git gc` from inside a daytona_shell command against live — enforced by `.git/**` reject policy. |
 | 5 | MED | `git check-ignore` stdin size on huge dep installs | Chunk at 1 MiB stdin. Monitored via `overlay.gitignore_changes` count; page on outliers. |
 | 6 | MED | Concurrent dep installs race on the same gitignore prefix | Accepted (per-file last-writer-wins). Documented in §3.4 and §5.1. Same-version concurrent installs are content-equivalent. **Different-version concurrent installs can interleave at the file level into a Frankenstein tree — silent, non-deterministic.** No sandbox-side coordination is introduced; callers that need coherent dep trees must serialize at the agent layer, or limit one install-style command per prefix per `svc.cmd`. |
 | 7 | MED | Whiteout-refuse too strict for real workflows | Observable via `overlay.whiteouts_gitignore_refused`. If agents hit it frequently, add an explicit `rebuild-env` tool rather than relaxing the policy. |
 | 8 | LOW | Namespace signal / uid semantics shift breaks `pytest`, `npm` | Downgraded. §9 probe F confirmed `unshare -Urm` does **not** create a new PID ns (inside-pid inode == host-pid inode), so `ps`, `/proc` walking, and PID-based tools behave identically to the host. Mount ns changes as expected; uid remapping is the standard rootless pattern already exercised by probes A and B. Residual risk is edge-case tools that walk `/proc/mounts` (risk 9); Phase 1 E2E catches those. |
-| 9 | LOW | `.git/**` writes in upperdir because the user command ran `git commit` | REJECT is intentional. CodeAct is not a git client. Agents that want to commit use a different tool. |
+| 9 | LOW | `.git/**` writes in upperdir because the user command ran `git commit` | REJECT is intentional. daytona_shell is not a git client. Agents that want to commit use a different tool. |
 | 10 | LOW | Mount leakage on crash | Per-op ns owns every mount; kernel releases on exit. No persistent state, no stale-mount sweep needed. |
 | 11 | LOW | Tmpfs OOM across parallel sandboxes | Bounded by `semaphore × upper_size_mb`. Default 20 × 512 MB = 10 GB RAM ceiling per sandbox. Documented. |
-| 12 | LOW | Concurrent ops mutate each other's overlay lower (kernel docs: "undefined behavior") | **Accepted weak read semantics** — see §0 row "Read isolation / live lower mutation." CodeAct commands run against a live lowerdir, so peer writes may be visible, stale, partially visible, or missed. `SNAP` only protects gitinclude write commit, not command reads. If a future workload needs defined-behavior reads, serialize above CodeAct or swap to a per-op hardlink-clone lower (`cp -al $WORKSPACE_ROOT $RUN_DIR/lower`). |
+| 12 | LOW | Concurrent ops mutate each other's overlay lower (kernel docs: "undefined behavior") | **Accepted weak read semantics** — see §0 row "Read isolation / live lower mutation." daytona_shell commands run against a live lowerdir, so peer writes may be visible, stale, partially visible, or missed. `SNAP` only protects gitinclude write commit, not command reads. If a future workload needs defined-behavior reads, serialize above daytona_shell or swap to a per-op hardlink-clone lower (`cp -al $WORKSPACE_ROOT $RUN_DIR/lower`). |
 | 13 | LOW | Mixed gitinclude + gitignore writes are non-atomic | **Accepted by contract.** The script direct-merges gitignore writes into live inside the ns, then emits gitinclude changes to NDJSON for orchestrator-side OCC. If OCC aborts, gitignore writes remain live while gitinclude writes are skipped. Coupled work like `pip install foo && echo foo >> requirements.txt` can update `.venv/` while `requirements.txt` aborts. Surface this via separated path metadata, `mixed_partial_apply=true`, a tool warning, and `overlay.mixed_partial_apply_ops`. |
 
 ---
@@ -652,7 +652,7 @@ TDD: RED → GREEN → optional refactor, per project discipline.
   opaque-dir reject, symlink reject, tmpfs-full).
 - E2E tests on live sandbox:
   - `pip install requests && python -c "import requests"` across two
-    consecutive CodeAct ops → second op sees `requests` (capability
+    consecutive daytona_shell ops → second op sees `requests` (capability
     gate that git-workspace fails).
   - Concurrent peer edit to the same gitinclude path during overlay run aborts
     this op's gitinclude commit with `aborted_version`; the peer edit remains
@@ -741,7 +741,7 @@ Acceptance:
 ## 10. What this plan does *not* do
 
 - Does not change `WriteCoordinator` or OCC engine semantics.
-- Does not provide snapshot read isolation for CodeAct commands. `SNAP` is an
+- Does not provide snapshot read isolation for daytona_shell commands. `SNAP` is an
   OCC write base only; commands run against a live lowerdir and may observe
   concurrent workspace activity.
 - Does not make mixed gitinclude + gitignore writes transactional.

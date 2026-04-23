@@ -36,15 +36,15 @@ def _budget_warning_steps(context: "QueryContext") -> str:
         )
     if role == "reviewer":
         return (
-            "1. Reserve one call for submit_task_summary; never spend the last tool call on CodeAct, reads, diagnostics, or cleanup.\n"
-            "2. Run one final exact verification command (daytona_codeact) only if you can still reserve the terminal summary call.\n"
-            "3. Call submit_task_summary(type='success') for PASS with exact commands, exit codes, and diagnostics status, or submit_task_summary(type='request_replan') with exact evidence for FAILURE."
+            "1. Reserve one call for submit_task_success or request_replan; never spend the last tool call on daytona_shell, reads, diagnostics, or cleanup.\n"
+            "2. Run one final exact verification command (daytona_shell) only if you can still reserve the terminal submission call.\n"
+            "3. Call submit_task_success() for PASS with exact commands, exit codes, and diagnostics status, or request_replan() with exact evidence for FAILURE."
         )
     return (
-        "1. Reserve one call for submit_task_summary; never spend the last tool call on CodeAct, reads, diagnostics, or cleanup.\n"
+        "1. Reserve one call for submit_task_success or request_replan; never spend the last tool call on daytona_shell, reads, diagnostics, or cleanup.\n"
         "2. Use only evidence already gathered before this warning; do not run one more verification, diagnostic, read, or edit.\n"
-            "3. If evidence is incomplete, diagnostics-only, verification was not already green, verification still fails, or diagnostics are absent, call submit_task_summary(type='request_replan') with the exact evidence now; this includes collection, import, pytest-config, or environment failures even if they look unrelated.\n"
-        "4. If the latest required verification was already green after the final edit and diagnostics were already clean, call submit_task_summary(type='success') with behavior/API delta, exact commands and exit codes, and diagnostics status."
+            "3. If evidence is incomplete, diagnostics-only, verification was not already green, verification still fails, or diagnostics are absent, call request_replan() with the exact evidence now; this includes collection, import, pytest-config, or environment failures even if they look unrelated.\n"
+        "4. If the latest required verification was already green after the final edit and diagnostics were already clean, call submit_task_success() with behavior/API delta, exact commands and exit codes, and diagnostics status."
     )
 
 
@@ -83,7 +83,7 @@ def build_budget_warning(
         f"Prepare to enter the terminal summarization flow soon. Your next actions must be:\n"
         f"{_budget_warning_steps(context)}\n"
         f"Do NOT start new edits, file reads, probes, diagnostics, alternate tests, or debugging loops. "
-        f"A known next fix is not an exception; preserve it in submit_task_summary(type='request_replan'). "
+        f"A known next fix is not an exception; preserve it in request_replan(). "
         f"Any non-terminal mutation or investigation after this warning is a contract violation. Submit now."
     )
     return (

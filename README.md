@@ -323,7 +323,7 @@ Current runtime inventory:
 
 | Surface | Count | Description |
 |--------|------:|-------------|
-| `sandbox_operations` | 7 | Remote sandbox file I/O, atomic edits, semantic rename, and `daytona_codeact` execution |
+| `sandbox_operations` | 7 | Remote sandbox file I/O, atomic edits, semantic rename, and `daytona_shell` execution |
 | `code_intelligence` | 4 | Workspace structure, symbol lookup, references, and diagnostics |
 | `context_read` / `context_write` | 3 / 4 | Task Center notes plus scope and staleness checks |
 | `memory` | 3 | Exploration cache reuse and edit-history conflict prediction |

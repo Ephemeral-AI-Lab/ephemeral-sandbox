@@ -319,4 +319,3 @@ class TeamDefinition:
     description: str
     entry_planner: str
     roster: dict[str, list[str]] = field(default_factory=dict)
-    terminal_tools: dict[str, set[str]] = field(default_factory=dict)

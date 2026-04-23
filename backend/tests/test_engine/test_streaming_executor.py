@@ -396,7 +396,7 @@ class BgBashInput(BaseModel):
 class BgBashTool(BaseTool):
     """A tool that supports background execution."""
 
-    name = "daytona_codeact"
+    name = "daytona_shell"
     description = "Run a command in the sandbox."
     input_model = BgBashInput
     background = "optional"  # LLM may opt in via input.background=true
@@ -432,7 +432,7 @@ class SubmitTaskSummaryInput(BaseModel):
 class SubmitTaskSummaryTool(BaseTool):
     """A tool that simulates terminal summary submission metadata."""
 
-    name = "submit_task_summary"
+    name = "submit_task_success"
     description = "Submit a task summary."
     input_model = SubmitTaskSummaryInput
 
@@ -476,7 +476,7 @@ async def test_add_tool_skips_background_tool():
 
     event = ApiToolUseDeltaEvent(
         id="tool_bg",
-        name="daytona_codeact",
+        name="daytona_shell",
         input={"command": "sleep 10", "background": True},
     )
 
@@ -496,7 +496,7 @@ async def test_add_tool_runs_foreground_when_background_false():
 
     event = ApiToolUseDeltaEvent(
         id="tool_fg",
-        name="daytona_codeact",
+        name="daytona_shell",
         input={"command": "echo hello", "background": False},
     )
 
@@ -544,7 +544,7 @@ async def test_mixed_foreground_and_background_tools():
 
     bg_event = ApiToolUseDeltaEvent(
         id="tool_bg",
-        name="daytona_codeact",
+        name="daytona_shell",
         input={"command": "sleep 10", "background": True},
     )
     fg_event = ApiToolUseDeltaEvent(
@@ -598,14 +598,14 @@ async def test_submit_tool_propagates_submission_metadata_to_live_context():
 
 
 @pytest.mark.asyncio
-async def test_submit_task_summary_metadata_propagates_to_live_context():
+async def test_submit_task_success_metadata_propagates_to_live_context():
     registry = _make_registry(SubmitTaskSummaryTool())
     context = _make_context()
     executor = StreamingToolExecutor(registry, context)
 
     event = ApiToolUseDeltaEvent(
         id="tool_summary",
-        name="submit_task_summary",
+        name="submit_task_success",
         input={"type": "success", "content": "Implemented the fix"},
     )
 

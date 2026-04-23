@@ -69,7 +69,7 @@ class TestLLMBackgroundDecision:
         agent = self._make_agent(sandbox)
         result = await agent.invoke(
             "Do TWO things:\n"
-            "1. Run 'sleep 10 && echo LONG_DONE' in the sandbox using daytona_codeact "
+            "1. Run 'sleep 10 && echo LONG_DONE' in the sandbox using daytona_shell "
             "with background: true (this takes a long time)\n"
             "2. While waiting, run 'echo FOREGROUND_DONE' in foreground\n\n"
             "You MUST use background: true for the sleep command."
@@ -77,8 +77,8 @@ class TestLLMBackgroundDecision:
         log_result(result, "long_background")
 
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
 
@@ -108,7 +108,7 @@ class TestForegroundAndIdleWait:
         )
         result = await agent.invoke(
             "Please do these tasks:\n"
-            "1. Run 'sleep 5 && echo BUILD_COMPLETE' in background using daytona_codeact "
+            "1. Run 'sleep 5 && echo BUILD_COMPLETE' in background using daytona_shell "
             "with background: true\n"
             "2. While waiting, run 'echo FOREGROUND_TASK_1' in the sandbox (foreground)\n"
             "3. Then run 'echo FOREGROUND_TASK_2' in the sandbox (foreground)\n"
@@ -118,8 +118,8 @@ class TestForegroundAndIdleWait:
         log_result(result, "foreground_idle")
 
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
         assert len(result.tools_started()) >= 2, \
@@ -153,7 +153,7 @@ class TestProactiveProgressCheck:
         )
         result = await agent.invoke(
             "Do the following:\n"
-            "1. Run 'sleep 8 && echo INSTALL_DONE' in background using daytona_codeact "
+            "1. Run 'sleep 8 && echo INSTALL_DONE' in background using daytona_shell "
             "with background: true\n"
             "2. Run 'echo doing_other_work' in foreground\n"
             "3. Call check_background_progress to see the background task status\n"
@@ -163,8 +163,8 @@ class TestProactiveProgressCheck:
         log_result(result, "progress_check")
 
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
         assert result.has_tool("check_background_progress"), \
@@ -196,7 +196,7 @@ class TestCancelFailingTask:
         )
         result = await agent.invoke(
             "Do the following steps in order:\n"
-            "1. Run 'sleep 30 && echo TESTS_DONE' in background using daytona_codeact "
+            "1. Run 'sleep 30 && echo TESTS_DONE' in background using daytona_shell "
             "with background: true\n"
             "2. Run 'echo doing_foreground_fix' in foreground\n"
             "3. Call check_background_progress to check the background task\n"
@@ -209,8 +209,8 @@ class TestCancelFailingTask:
         log_result(result, "cancel_failing")
 
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
         assert result.has_tool("check_background_progress"), \
@@ -244,7 +244,7 @@ class TestCancelHangingTask:
         )
         result = await agent.invoke(
             "Do the following steps:\n"
-            "1. Run 'sleep 60 && echo INSTALL_DONE' in background using daytona_codeact "
+            "1. Run 'sleep 60 && echo INSTALL_DONE' in background using daytona_shell "
             "with background: true (simulating a hanging npm install)\n"
             "2. Call check_background_progress to check status\n"
             "3. Call check_background_progress again — it's still running\n"
@@ -256,8 +256,8 @@ class TestCancelHangingTask:
         log_result(result, "cancel_hanging")
 
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
 

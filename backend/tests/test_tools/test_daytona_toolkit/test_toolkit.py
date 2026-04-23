@@ -61,7 +61,7 @@ def test_toolkit_registers_expected_tools():
     tk = DaytonaToolkit()
     names = set(tk.tool_names())
     expected = {
-        "daytona_codeact",
+        "daytona_shell",
         "daytona_read_file",
         "daytona_write_file",
         "daytona_grep",
@@ -86,7 +86,7 @@ async def test_registered_write_capable_tools_require_ci_service():
             "old_text": "old",
             "new_text": "new",
         },
-        "daytona_codeact": {"command": "echo hi"},
+        "daytona_shell": {"command": "echo hi"},
         "daytona_rename_symbol": {"symbol": "foo", "new_name": "bar"},
         "daytona_delete_file": {"path": "/repo/app.py"},
         "daytona_move_file": {
@@ -112,7 +112,7 @@ async def test_registered_write_capable_tools_require_ci_service():
         assert result.metadata.get("ci_required") is True, tool_name
 
 
-def test_toolkit_from_context_includes_codeact():
+def test_toolkit_from_context_includes_shell():
     developer_tk = DaytonaToolkit.from_context(
         ToolkitContext(metadata={"sandbox_id": "sb-dev", "agent_name": "developer"})
     )
@@ -120,8 +120,8 @@ def test_toolkit_from_context_includes_codeact():
         ToolkitContext(metadata={"sandbox_id": "sb-val", "agent_name": "validator"})
     )
 
-    assert "daytona_codeact" in developer_tk.tool_names()
-    assert "daytona_codeact" in validator_tk.tool_names()
+    assert "daytona_shell" in developer_tk.tool_names()
+    assert "daytona_shell" in validator_tk.tool_names()
     assert "daytona_edit_file" in developer_tk.tool_names()
     assert "daytona_rename_symbol" in developer_tk.tool_names()
     assert "daytona_list_files" not in developer_tk.tool_names()
@@ -130,14 +130,14 @@ def test_toolkit_from_context_includes_codeact():
 
 def test_toolkit_get_tool():
     tk = DaytonaToolkit()
-    tool = tk.get("daytona_codeact")
+    tool = tk.get("daytona_shell")
     assert tool is not None
-    assert tool.name == "daytona_codeact"
+    assert tool.name == "daytona_shell"
 
 
-def test_codeact_schema_describes_command_mode():
+def test_shell_schema_describes_command():
     tk = DaytonaToolkit()
-    tool = tk.get("daytona_codeact")
+    tool = tk.get("daytona_shell")
     assert tool is not None
 
     schema = tool.to_api_schema()["input_schema"]
@@ -146,7 +146,7 @@ def test_codeact_schema_describes_command_mode():
     assert "Do not prefix with host paths like /Users/..." in command_description
     assert "Output is captured automatically" in command_description
 
-    assert tool.short_description == "Run shell or Python from the repo root."
+    assert tool.short_description == "Run a shell command from the repo root."
 
 
 def test_toolkit_get_missing_tool():
@@ -414,4 +414,4 @@ def test_toolkit_has_description():
 def test_toolkit_has_instructions():
     tk = DaytonaToolkit()
     assert tk.instructions
-    assert "daytona_codeact" in tk.instructions
+    assert "daytona_shell" in tk.instructions

@@ -1,4 +1,4 @@
-"""Orchestrator-side overlay CodeAct auditor.
+"""Orchestrator-side overlay shell auditor.
 
 Coordinates one ``svc.cmd`` op per plan §1:
 
@@ -23,7 +23,7 @@ last-writer-wins, not per-tree atomic). Git index membership is never
 consulted; brand-new files absent from the index still go through the
 gitinclude route as long as no ``.gitignore`` rule matches them.
 
-Downstream callers (``codeact_tool``, ``_commit.submit_codeact_cmd``) read
+Downstream callers (``shell_tool``, ``_commit.submit_shell_cmd``) read
 through a fixed ``SimpleNamespace`` shape:
 
     result, exit_code, changed_paths, ambient_changed_paths,
@@ -71,7 +71,7 @@ from code_intelligence.routing.telemetry import record_overlay_op
 
 logger = logging.getLogger(__name__)
 
-_RUN_DIR_PREFIX = "/tmp/eos-codeact-overlay"
+_RUN_DIR_PREFIX = "/tmp/eos-shell-overlay"
 _PROGRESS_POLL_INTERVAL_SECONDS = 2.0
 _PROGRESS_READ_CHUNK_BYTES = 64 * 1024
 
@@ -195,7 +195,7 @@ class OverlayAuditor:
                     stdout=stdout_text,
                     diff=diff,
                     agent_id=agent_id,
-                    description=description or "daytona_codeact overlay",
+                    description=description or "daytona_shell overlay",
                     attribute_changes=attribute_changes,
                     git_snapshot_timings=diff.snapshot_timings or snapshot.timings,
                 )
@@ -224,7 +224,7 @@ class OverlayAuditor:
             if self._script_uploaded:
                 return
             # Read the sandbox-side script from the orchestrator package
-            # and ship it to /tmp/eos-codeact-overlay/overlay_run.py.
+            # and ship it to /tmp/eos-shell-overlay/overlay_run.py.
             script_path = Path(__file__).with_name("overlay_run.py")
             script_bytes = script_path.read_bytes()
             encoded = base64.b64encode(script_bytes).decode("ascii")

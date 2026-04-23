@@ -9,7 +9,6 @@ the runtime:
 - ``TransitionTracker`` — diff/emit task state-change events
 - ``NoteManager``     — note posting, scope filtering
 - ``TaskContextBuilder`` — agent prompt context assembly
-- ``ActivityTracker`` — edit/turn counters, auto note triggers
 - ``CheckpointManager`` — snapshot ring buffer + rollback
 """
 
@@ -21,7 +20,6 @@ from typing import Any, Awaitable, Callable, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from team.activity_tracker import ActivityTracker
 from team.budget_manager import BudgetManager
 from team.checkpoint_manager import CheckpointManager
 from team.errors import CheckpointNotFound, InvalidPlan
@@ -99,22 +97,11 @@ class TaskCenter:
         )
         self._cancel_running_task_cb: Callable[[str], None] | None = None
         self._fail_fast_cb: Callable[[str], Awaitable[None]] | None = None
-        self._activity: ActivityTracker
         self._notes: NoteManager
-
-        def _on_note_posted(note: Note) -> None:
-            self._activity.on_note_posted(note)
-
-        self._activity = ActivityTracker(
-            team_run_id=team_run_id,
-            graph_getter=lambda: self._store.graph,
-            post_note_cb=lambda note: self._notes.post(note),
-        )
 
         self._notes = NoteManager(
             team_run_id=team_run_id,
             event_store_cb=self._emit,
-            note_posted_cb=_on_note_posted,
         )
         self._context = TaskContextBuilder(
             team_run_id=team_run_id,
@@ -142,10 +129,6 @@ class TaskCenter:
     @property
     def context(self) -> TaskContextBuilder:
         return self._context
-
-    @property
-    def activity(self) -> ActivityTracker:
-        return self._activity
 
     @property
     def checkpoints(self) -> CheckpointManager:

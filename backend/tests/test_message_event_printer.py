@@ -48,13 +48,13 @@ def test_printer_keeps_work_id_for_flushed_thinking() -> None:
     assert lines == ["[team_planner  ] [b88848c71234425a] [thinking] working"]
 
 
-def test_printer_renders_structured_codeact_error_detail() -> None:
+def test_printer_renders_structured_shell_error_detail() -> None:
     lines: list[str] = []
     printer = MultiAgentEventPrinter(color=False, sink=lines.append)
 
     printer.emit(
         ToolExecutionCompleted(
-            tool_name="daytona_codeact",
+            tool_name="daytona_shell",
             output=(
                 '{"cwd": "/testbed", "status": "error", "files_written": 0, '
                 '"shells_run": 1, "shell_summaries": [], "shell_outputs": [], '
@@ -67,17 +67,17 @@ def test_printer_renders_structured_codeact_error_detail() -> None:
     )
 
     assert lines == [
-        "[developer     ] [1234567890abcdef1234] <- tool_done:  daytona_codeact [ERROR] failed"
+        "[developer     ] [1234567890abcdef1234] <- tool_done:  daytona_shell [ERROR] failed"
     ]
 
 
-def test_printer_renders_structured_codeact_shell_error_detail() -> None:
+def test_printer_renders_structured_shell_cmd_error_detail() -> None:
     lines: list[str] = []
     printer = MultiAgentEventPrinter(color=False, sink=lines.append)
 
     printer.emit(
         ToolExecutionCompleted(
-            tool_name="daytona_codeact",
+            tool_name="daytona_shell",
             output=(
                 '{"cwd": "/testbed", "status": "error", "files_written": 0, '
                 '"shells_run": 1, "shell_summaries": ["$ pytest -q -> exit 2"], '
@@ -93,18 +93,18 @@ def test_printer_renders_structured_codeact_shell_error_detail() -> None:
 
     assert lines == [
         "[developer     ] [1234567890abcdef1234] "
-        "<- tool_done:  daytona_codeact [ERROR] $ pytest -q -> exit 2",
+        "<- tool_done:  daytona_shell [ERROR] $ pytest -q -> exit 2",
         "[developer     ] [1234567890abcdef1234] │ failed to collect tests",
     ]
 
 
-def test_printer_keeps_plain_codeact_error_payload() -> None:
+def test_printer_keeps_plain_shell_error_payload() -> None:
     lines: list[str] = []
     printer = MultiAgentEventPrinter(color=False, sink=lines.append)
 
     printer.emit(
         ToolExecutionCompleted(
-            tool_name="daytona_codeact",
+            tool_name="daytona_shell",
             output="Execution failed: sandbox unavailable",
             is_error=True,
             agent_name="developer",
@@ -114,18 +114,18 @@ def test_printer_keeps_plain_codeact_error_payload() -> None:
 
     assert lines == [
         "[developer     ] [1234567890abcdef1234] "
-        "<- tool_done:  daytona_codeact [ERROR] Execution failed: sandbox unavailable"
+        "<- tool_done:  daytona_shell [ERROR] Execution failed: sandbox unavailable"
     ]
 
 
-def test_printer_renders_background_codeact_error_fallback() -> None:
+def test_printer_renders_background_shell_error_fallback() -> None:
     lines: list[str] = []
     printer = MultiAgentEventPrinter(color=False, sink=lines.append)
 
     printer.emit(
         BackgroundTaskCompleted(
             task_id="bg_1",
-            tool_name="daytona_codeact",
+            tool_name="daytona_shell",
             output='{"cwd": "/testbed", "status": "error", "shells_run": 1}',
             is_error=True,
             agent_name="developer",
@@ -135,7 +135,7 @@ def test_printer_renders_background_codeact_error_fallback() -> None:
 
     assert lines == [
         "[developer     ] [1234567890abcdef1234] "
-        "<< bg_done:    daytona_codeact [ERROR] status=error shells_run=1"
+        "<< bg_done:    daytona_shell [ERROR] status=error shells_run=1"
     ]
 
 

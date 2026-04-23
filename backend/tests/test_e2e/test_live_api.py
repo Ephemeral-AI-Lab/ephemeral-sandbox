@@ -175,7 +175,7 @@ class TestLiveSandboxLifecycle:
 
 SANDBOX_AGENT_PROMPT = (
     "You are a coding assistant with access to a remote sandbox. "
-    "When asked to run commands, use the daytona_codeact tool. "
+    "When asked to run commands, use the daytona_shell tool. "
     "When asked to read files, use daytona_read_file. "
     "Always respond concisely."
 )
@@ -215,12 +215,12 @@ async def test_live_agent_sandbox_chat(sandbox_for_agent):
 @pytest.mark.skipif(not HAS_BOTH, reason="MiniMax + Daytona both required")
 @pytest.mark.asyncio
 async def test_live_agent_sandbox_bash_tool(sandbox_for_agent):
-    """Verify the model can invoke daytona_codeact and get results."""
+    """Verify the model can invoke daytona_shell and get results."""
     agent = create_eval_agent(
         sandbox_id=sandbox_for_agent,
         system_prompt=(
-            "You have access to a remote sandbox via daytona_codeact. "
-            "When I ask you to run a command, use the daytona_codeact tool. "
+            "You have access to a remote sandbox via daytona_shell. "
+            "When I ask you to run a command, use the daytona_shell tool. "
             "Always use tools, never just describe what you would do."
         ),
     )
@@ -346,7 +346,7 @@ async def test_live_complex_multi_tool_task(sandbox_for_complex):
         sandbox_id=sandbox_for_complex,
         system_prompt=(
             "You are a coding assistant with sandbox access. "
-            "Use daytona_codeact to run commands, daytona_write_file to write files, "
+            "Use daytona_shell to run commands, daytona_write_file to write files, "
             "and daytona_read_file to read files. Execute ALL steps."
         ),
     )
@@ -376,7 +376,7 @@ async def test_live_complex_multi_tool_task(sandbox_for_complex):
 MULTI_TOOL_WRITE_PROMPT = (
     "You are a coding assistant with sandbox tools. "
     "When creating files, use daytona_write_file. "
-    "When reading or checking output, use daytona_read_file or daytona_codeact. "
+    "When reading or checking output, use daytona_read_file or daytona_shell. "
     "Do every required step and then report results."
 )
 
@@ -407,7 +407,7 @@ async def test_live_multiple_tools_with_model_key(sandbox_for_model_key):
         assert len(tool_started) >= 1, "No tool_started payloads"
         assert "daytona_write_file" in tool_names, f"Missing write tool. Tools: {tool_names}"
         assert any(
-            name in tool_names for name in ("daytona_read_file", "daytona_codeact")
+            name in tool_names for name in ("daytona_read_file", "daytona_shell")
         ), f"Missing read/exec follow-up tool. Tools: {tool_names}"
         assert len(tool_completed) >= 1 or result.has_errors, (
             "Expected at least one tool completion or explicit error."
@@ -448,14 +448,14 @@ async def test_live_tool_call_chain_with_model_key(sandbox_for_model_key):
         assert tool_names.count("daytona_write_file") >= 2, (
             f"Expected two writes. Tools: {tool_names}"
         )
-        if "daytona_codeact" not in tool_names and "daytona_read_file" not in tool_names:
+        if "daytona_shell" not in tool_names and "daytona_read_file" not in tool_names:
             # Recovery turn: ask the agent to run the ls command
             recovery_result = await agent.invoke(
                 "Now run: ls /workspace/modelkey_* | cat "
                 "and report the output."
             )
             recovery_tools = [e.tool_name for e in recovery_result.tools_started()]
-            assert "daytona_codeact" in recovery_tools or "daytona_read_file" in recovery_tools, (
+            assert "daytona_shell" in recovery_tools or "daytona_read_file" in recovery_tools, (
                 f"Expected follow-up command/read in recovery. Initial tools: {tool_names}"
             )
         else:
@@ -515,8 +515,8 @@ async def test_live_parallel_tool_batch_bash_and_write_with_model_key(sandbox_fo
         "Run these actions in one turn:\n"
         "1. Create /workspace/modelkey_parallel_mix_a.txt with content: MIX_A\n"
         "2. Create /workspace/modelkey_parallel_mix_b.txt with content: MIX_B\n"
-        "3. Run daytona_codeact with command: echo BASH_A\n"
-        "4. Run daytona_codeact with command: echo BASH_B\n"
+        "3. Run daytona_shell with command: echo BASH_A\n"
+        "4. Run daytona_shell with command: echo BASH_B\n"
         "Return only a short acknowledgement."
     )
 
@@ -524,7 +524,7 @@ async def test_live_parallel_tool_batch_bash_and_write_with_model_key(sandbox_fo
     if not validation_error:
         tool_names = [e.tool_name for e in result.tools_started()]
         assert tool_names.count("daytona_write_file") >= 2, f"Expected writes. Tools: {tool_names}"
-        assert tool_names.count("daytona_codeact") >= 2, f"Expected bash calls. Tools: {tool_names}"
+        assert tool_names.count("daytona_shell") >= 2, f"Expected bash calls. Tools: {tool_names}"
 
 
 # ===========================================================================

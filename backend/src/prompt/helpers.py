@@ -15,10 +15,6 @@ from engine.runtime.agent import (
     _build_agent_tool_registry,
     finalize_tool_registry_and_prompt,
 )
-from external_trigger.tc_note import (
-    TC_NOTE_EDIT_PROMPT,
-    TC_NOTE_TURN_PROMPT,
-)
 from skills.core.loader import load_skill_registry
 from team.models import (
     BudgetConfig,
@@ -36,7 +32,6 @@ from team.builtins import register_all as register_team_builtins
 from team.models import TeamDefinition
 from team.registry import get_team_definition, list_team_definitions
 from team.runtime.context_builder import build_query_context
-from team.runtime.context_builder import DEFAULT_TERMINAL_TOOLS
 
 
 def register_builtins() -> None:
@@ -79,6 +74,7 @@ def load_agent_definition(name: str, settings) -> AgentDefinition | None:
             toolkits=record.toolkits or [],
             skills=record.skills or [],
             blocked_tools=record.blocked_tools or [],
+            terminal_tools=record.terminal_tools or [],
             allowed_triggers=record.allowed_triggers or [],
             hooks=record.hooks,
             background=record.background,
@@ -133,16 +129,11 @@ def build_agent_system_prompt_text(
     return system_prompt
 
 
-def resolve_terminal_tools_for_role(team_def: TeamDefinition | None, role: str | None) -> set[str]:
-    """Resolve terminal tools for a team role using team overrides or defaults."""
-    role_name = str(role or "").strip()
-    if not role_name:
+def resolve_terminal_tools(agent_def: AgentDefinition | None) -> set[str]:
+    """Return the agent's configured terminal tools as a set."""
+    if agent_def is None:
         return set()
-    td_map = getattr(team_def, "terminal_tools", None) or {}
-    terminal_set = td_map.get(role_name) if td_map else None
-    if not terminal_set:
-        terminal_set = DEFAULT_TERMINAL_TOOLS.get(role_name, set())
-    return set(terminal_set)
+    return {str(name) for name in agent_def.terminal_tools or [] if str(name).strip()}
 
 
 def _member_roles(roster: dict[str, list[str]], entry_planner: str) -> dict[str, list[str]]:
@@ -509,26 +500,6 @@ async def build_team_user_prompt_report_text(
             lines.extend(["", "_Agent definition not found in registry or database._"])
             continue
 
-        if getattr(agent_def, "role", None) == "note_taker" or any(
-            "note_taker" in role for role in roles
-        ):
-            lines.extend(
-                [
-                    "",
-                    "_This agent is invoked by the external `tc_note` trigger, not normal task dispatch._",
-                    "",
-                    "### Edit Trigger",
-                ]
-            )
-            _append_text_block(lines, TC_NOTE_EDIT_PROMPT)
-            lines.extend(
-                [
-                    "### Turn Trigger",
-                ]
-            )
-            _append_text_block(lines, TC_NOTE_TURN_PROMPT)
-            continue
-
         task = tasks["root"] if agent_name == team_def.entry_planner else tasks[f"sample-{agent_name}"]
         ctx = await build_query_context(agent_def, team_run, task)
         lines.extend(
@@ -624,7 +595,7 @@ async def build_team_role_prompt_report_text(
             continue
 
         agent_def = base_agent_def
-        terminal_tools = resolve_terminal_tools_for_role(team_def, getattr(agent_def, "role", None))
+        terminal_tools = resolve_terminal_tools(agent_def)
         lines.extend(
             [
                 f"- Agent role: `{getattr(agent_def, 'role', '') or '(none)'}`",
@@ -644,17 +615,9 @@ async def build_team_role_prompt_report_text(
         )
         _append_text_block(lines, system_prompt)
         lines.extend(["", "### User Prompt"])
-        if getattr(agent_def, "role", None) == "note_taker" or any(
-            "note_taker" in role for role in roster_roles
-        ):
-            lines.extend(["", "#### Edit Trigger"])
-            _append_text_block(lines, TC_NOTE_EDIT_PROMPT)
-            lines.extend(["", "#### Turn Trigger"])
-            _append_text_block(lines, TC_NOTE_TURN_PROMPT)
-        else:
-            task = tasks["root"] if agent_name == team_def.entry_planner else tasks[f"sample-{agent_name}"]
-            ctx = await build_query_context(agent_def, team_run, task)
-            _append_text_block(lines, ctx.user_message)
+        task = tasks["root"] if agent_name == team_def.entry_planner else tasks[f"sample-{agent_name}"]
+        ctx = await build_query_context(agent_def, team_run, task)
+        _append_text_block(lines, ctx.user_message)
         _append_skill_bundle(lines, agent_def=agent_def, cwd=cwd)
 
     if matched == 0:

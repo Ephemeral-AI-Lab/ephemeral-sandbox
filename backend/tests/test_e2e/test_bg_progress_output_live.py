@@ -26,10 +26,10 @@ You are test-progress-agent, a developer with a remote Daytona sandbox.
 
 IMPORTANT RULES:
 - You MUST use tools for every action — never just describe what you'd do.
-- Use daytona_codeact to run commands, daytona_write_file to create files.
+- Use daytona_shell to run commands, daytona_write_file to create files.
 - You have background task support: add "background": true to tool input for long-running operations.
 - Use check_background_progress to get an instant status snapshot of background tasks.
-  For streaming-capable tools (like daytona_codeact), check_background_progress now also
+  For streaming-capable tools (like daytona_shell), check_background_progress now also
   returns a LIVE TAIL of stdout lines emitted so far while the task is still running.
   Use this live tail to make autonomous decisions: cancel early if you spot a fatal
   error line, or keep waiting if the task is still making progress.
@@ -238,7 +238,7 @@ class TestCheckProgressMultipleTasks:
         log_result(result,"multi_tasks")
 
         bg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and tc.input.get("background") is True]
+                   if tc.name == "daytona_shell" and tc.input.get("background") is True]
         assert len(bg_bash) >= 2, \
             f"Expected 2+ background launches. Got {len(bg_bash)}: {result.tool_names}"
         checks = result.tool_count("check_background_progress")
@@ -293,7 +293,7 @@ class TestCheckProgressFilterByTaskId:
         log_result(result,"filter_by_taskid")
 
         bg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and tc.input.get("background") is True]
+                   if tc.name == "daytona_shell" and tc.input.get("background") is True]
         assert len(bg_bash) >= 2, \
             f"Expected 2+ background launches. Got {len(bg_bash)}: {result.tool_names}"
         checks = result.tool_count("check_background_progress")
@@ -387,7 +387,7 @@ class TestLiveTailAutonomousDecision:
             "  for i in $(seq 1 5); do echo \"step_$i ok\"; sleep 2; done; "
             "echo 'FATAL: disk full'; for i in $(seq 6 20); do echo \"step_$i ok\"; sleep 2; done\n\n"
             "Your job: poll check_background_progress periodically (insert short "
-            "'sleep 3' foreground daytona_codeact calls between polls). As soon as you "
+            "'sleep 3' foreground daytona_shell calls between polls). As soon as you "
             "see a line containing the word FATAL in the live tail, IMMEDIATELY "
             "cancel the task with cancel_background_task and stop. Do NOT call "
             "wait_for_background_task — that would block for the full ~45s. "

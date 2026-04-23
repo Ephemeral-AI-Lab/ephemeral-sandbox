@@ -1,7 +1,6 @@
 """External trigger module.
 
-The shared ``runner.run()`` loop is used by external-trigger callers such as
-pause assessment and task-center checkpoint notes.
+The shared ``runner.run()`` loop is used by short-lived helper callers.
 """
 
 from external_trigger.runner import RunResult, run

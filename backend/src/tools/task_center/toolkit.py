@@ -1,8 +1,7 @@
 """Task Center tools — notes + task graph reads.
 
 Tools exposed in the main loop:
-- submit_file_note              — post a file-scoped note (scouts, file-surface notes)
-- submit_task_note              — post a task-scoped note (note_taker, task updates)
+- submit_file_notes             — post batched file-scoped notes
 - read_task_details             — task spec + recent notes by task id / scope
 - read_file_note                — search notes by file path
 
@@ -17,7 +16,7 @@ import re
 import time
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from team._path_utils import normalize_scope_paths, scope_paths_overlap
 from tools.core.base import (
@@ -58,7 +57,7 @@ def _sanitize_scout_gap_paths(content: str, note_paths: list[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# SubmitFileNoteTool / SubmitTaskNoteTool
+# SubmitFileNotesTool
 # ---------------------------------------------------------------------------
 
 
@@ -68,7 +67,24 @@ def _non_blank_content(value: str) -> str:
     return value
 
 
-class SubmitFileNoteInput(BaseModel):
+def _normalize_single_path(value: str) -> str:
+    normalized = normalize_scope_paths([value])
+    if len(normalized) != 1:
+        raise ValueError("path must resolve to exactly one normalized path")
+    return normalized[0]
+
+
+class FileNoteInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "REQUIRED. One file or directory path this note is about. Use exactly "
+            "one path per note item."
+        ),
+    )
     content: str = Field(
         ...,
         description=(
@@ -77,26 +93,11 @@ class SubmitFileNoteInput(BaseModel):
         ),
         min_length=1,
     )
-    paths: list[str] = Field(
-        ...,
-        min_length=1,
-        description=(
-            "REQUIRED. File/dir paths this note relates to. Can be existing or "
-            "planned paths. Other agents find the note via read_file_note."
-        ),
-    )
-    tags: list[str] | None = Field(
-        default=None,
-        description=(
-            "Classify the note with one or more tags: discovery, implementation, "
-            "bug_fix, blocker, proposal, verification, architecture, dependency, "
-            "warning, refactor. Use 'proposal' for notes about paths not yet created."
-        ),
-    )
-    parent_note_id: str | None = Field(
-        default=None,
-        description="ID of a prior note this is a follow-up to (threading).",
-    )
+
+    @field_validator("path")
+    @classmethod
+    def _path_must_normalize_to_one_path(cls, value: str) -> str:
+        return _normalize_single_path(value)
 
     @field_validator("content")
     @classmethod
@@ -104,48 +105,30 @@ class SubmitFileNoteInput(BaseModel):
         return _non_blank_content(value)
 
 
-class SubmitTaskNoteInput(BaseModel):
-    content: str = Field(
-        ...,
-        description=(
-            "REQUIRED. The note body as a non-empty, non-whitespace string. "
-            "Put the entire note here rather than in assistant text."
-        ),
-        min_length=1,
-    )
-    task_id: str = Field(
+class SubmitFileNotesInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    notes: list[FileNoteInput] = Field(
         ...,
         min_length=1,
         description=(
-            "REQUIRED. ID of the task this note is about. "
-            "Get IDs from read_task_graph or your deps."
+            "REQUIRED. Batched file or directory notes to post. Each item must "
+            "contain exactly one normalized `path` and non-empty `content`."
         ),
-    )
-    paths: list[str] = Field(
-        ...,
-        min_length=1,
-        description=(
-            "REQUIRED. File/dir paths this note relates to. "
-            "Other agents find the note via read_file_note."
-        ),
-    )
-    tags: list[str] | None = Field(
-        default=None,
-        description=(
-            "Classify the note with one or more tags: discovery, implementation, "
-            "bug_fix, blocker, proposal, verification, architecture, dependency, "
-            "warning, refactor."
-        ),
-    )
-    parent_note_id: str | None = Field(
-        default=None,
-        description="ID of a prior note this is a follow-up to (threading).",
     )
 
-    @field_validator("content")
-    @classmethod
-    def _content_must_not_be_blank(cls, value: str) -> str:
-        return _non_blank_content(value)
+    @model_validator(mode="after")
+    def _reject_duplicate_paths(self) -> "SubmitFileNotesInput":
+        seen: set[str] = set()
+        duplicates: list[str] = []
+        for note in self.notes:
+            if note.path in seen and note.path not in duplicates:
+                duplicates.append(note.path)
+            seen.add(note.path)
+        if duplicates:
+            dupes = ", ".join(sorted(duplicates))
+            raise ValueError(f"notes contains duplicate normalized paths: {dupes}")
+        return self
 
 
 class TaskNoteOutput(BaseModel):
@@ -159,6 +142,20 @@ class TaskNoteOutput(BaseModel):
     parent_note_id: str | None = Field(
         default=None,
         description="Parent note id when the note is part of a thread.",
+    )
+
+
+class FileNoteItemOutput(BaseModel):
+    note_id: str = Field(..., description="Created Task Center note id.")
+    path: str = Field(..., description="Normalized file or directory path for this note.")
+    content: str = Field(..., description="Stored note content.")
+    timestamp: float = Field(..., description="Unix timestamp when the note was posted.")
+
+
+class FileNotesOutput(BaseModel):
+    notes: list[FileNoteItemOutput] = Field(
+        default_factory=list,
+        description="Created file-scoped notes in the same order they were submitted.",
     )
 
 
@@ -215,51 +212,69 @@ async def _post_note(
     return ToolResult(output=payload.model_dump_json())
 
 
-class SubmitFileNoteTool(BaseTool):
-    name = "submit_file_note"
-    description = (
-        "Post a file-scoped note to the Task Center. Use for scout discoveries "
-        "and any note about file surfaces that is not tied to a specific task. "
-        "Requires non-empty `content` and at least one file/dir path in `paths`. "
-        "The note is stored without a task_id so it surfaces on file-based "
-        "lookups via read_file_note. Notes are append-only and immutable."
+async def _create_file_note_output(
+    *,
+    content: str,
+    path: str,
+    context: ToolExecutionContext,
+) -> FileNoteItemOutput | ToolResult:
+    result = await _post_note(
+        content=content,
+        paths=[path],
+        tags=None,
+        parent_note_id=None,
+        task_id="",
+        context=context,
     )
-    short_description = "Post a file-scoped note."
-    input_model = SubmitFileNoteInput
-    output_model = TaskNoteOutput
+    if result.is_error:
+        return result
 
-    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
-        assert isinstance(arguments, SubmitFileNoteInput)
-        return await _post_note(
-            content=arguments.content,
-            paths=arguments.paths,
-            tags=arguments.tags,
-            parent_note_id=arguments.parent_note_id,
-            task_id="",
+    note = TaskNoteOutput.model_validate_json(result.output)
+    return FileNoteItemOutput(
+        note_id=note.note_id,
+        path=note.paths[0] if note.paths else "",
+        content=note.content,
+        timestamp=note.timestamp,
+    )
+
+
+async def _post_file_notes(
+    *,
+    notes: list[FileNoteInput],
+    context: ToolExecutionContext,
+) -> ToolResult:
+    posted: list[FileNoteItemOutput] = []
+    for entry in notes:
+        result = await _create_file_note_output(
+            content=entry.content,
+            path=entry.path,
             context=context,
         )
+        if isinstance(result, ToolResult):
+            return result
+        posted.append(result)
+    payload = FileNotesOutput(notes=posted)
+    return ToolResult(output=payload.model_dump_json())
 
 
-class SubmitTaskNoteTool(BaseTool):
-    name = "submit_task_note"
+class SubmitFileNotesTool(BaseTool):
+    name = "submit_file_notes"
     description = (
-        "Post a task-scoped note to the Task Center. Use for note_taker lanes "
-        "and any update tied to a specific task. Requires non-empty `content`, "
-        "a `task_id` (get it from read_task_graph or your deps), and at least "
-        "one file/dir path in `paths`. Notes are append-only and immutable."
+        "Post batched file-scoped notes to the Task Center. Use for scout "
+        "discoveries and any note about file surfaces that is not tied to a "
+        "specific task. Requires non-empty batched `notes`, with exactly one "
+        "normalized `path` and non-empty `content` per item. Each item is stored "
+        "without a task_id so it surfaces on file-based lookups via "
+        "`read_file_note`. Notes are append-only and immutable."
     )
-    short_description = "Post a task-scoped note."
-    input_model = SubmitTaskNoteInput
-    output_model = TaskNoteOutput
+    short_description = "Post batched file-scoped notes."
+    input_model = SubmitFileNotesInput
+    output_model = FileNotesOutput
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
-        assert isinstance(arguments, SubmitTaskNoteInput)
-        return await _post_note(
-            content=arguments.content,
-            paths=arguments.paths,
-            tags=arguments.tags,
-            parent_note_id=arguments.parent_note_id,
-            task_id=arguments.task_id,
+        assert isinstance(arguments, SubmitFileNotesInput)
+        return await _post_file_notes(
+            notes=arguments.notes,
             context=context,
         )
 
@@ -417,32 +432,39 @@ class ReadTaskDetailsTool(BaseTool):
             lines.append(f"**Deps:** {', '.join(task.deps)}")
         if task.scope_paths:
             lines.append(f"**Scope:** {', '.join(task.scope_paths)}")
-        if task.failure_reason:
-            lines.append(f"**Failure:** {task.failure_reason}")
 
-        # Notes for this task — full content, last 3, plus the latest
-        # completion summary if present (posted as an `implementation` note
-        # by the runtime when a task reports success).
+        status_value = getattr(task.status, "value", str(task.status))
+        is_success = status_value == "done"
+        is_failure = status_value in {"request_replan", "failed", "cancelled"}
+        if is_failure and task.failure_reason:
+            lines.append(f"**Failure Reason:** {task.failure_reason}")
+
+        # Notes for this task — full content, last 3, plus the success summary
+        # (posted as an `implementation` note by the runtime) only when the
+        # task is DONE. For failed/replan/cancelled tasks we show only the
+        # failure reason above, never an implementation note.
         try:
             task_notes = await tc.notes.read(authors=[tid])
             if task_notes:
-                summary_note = next(
-                    (
-                        n
-                        for n in reversed(task_notes)
-                        if "parent_summary" in (n.tags or [])
-                    ),
-                    None,
-                )
-                if summary_note is None:
+                summary_note = None
+                if is_success:
                     summary_note = next(
                         (
                             n
                             for n in reversed(task_notes)
-                            if "implementation" in (n.tags or [])
+                            if "parent_summary" in (n.tags or [])
                         ),
                         None,
                     )
+                    if summary_note is None:
+                        summary_note = next(
+                            (
+                                n
+                                for n in reversed(task_notes)
+                                if "implementation" in (n.tags or [])
+                            ),
+                            None,
+                        )
                 initial_plan_note = next(
                     (
                         n
@@ -472,7 +494,7 @@ class ReadTaskDetailsTool(BaseTool):
                     lines.append("```")
 
                 if summary_note is not None:
-                    lines.append("**Summary:**")
+                    lines.append("**Success Summary:**")
                     lines.append(summary_note.content)
 
                 structured_plan_tags = {
@@ -605,8 +627,7 @@ class ReadTaskGraphTool(BaseTool):
 # ---------------------------------------------------------------------------
 
 _ALL_TOOLS = [
-    SubmitFileNoteTool(),
-    SubmitTaskNoteTool(),
+    SubmitFileNotesTool(),
     ReadFileNoteTool(),
     ReadTaskDetailsTool(),
     ReadTaskGraphTool(),
@@ -616,9 +637,8 @@ _ALL_TOOLS = [
 class TaskCenterToolkit(BaseToolkit):
     """Task Center tools: notes, task graph, and task details.
 
-    All tools are registered; role-based restrictions (e.g. blocking
-    ``submit_task_note`` for planners) are handled via ``blocked_tools`` in
-    agent definitions.
+    All tools are registered; role-based restrictions are handled via
+    ``blocked_tools`` in agent definitions.
     """
 
     @classmethod

@@ -1,4 +1,4 @@
-"""Shared role-based tool visibility policy for team-mode agents."""
+"""Shared role-based submission tool visibility policy for team-mode agents."""
 
 from __future__ import annotations
 
@@ -7,40 +7,32 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class RoleToolPolicy:
-    """Role-level policy for visible submission and terminal tools."""
+    """Role-level policy for visible submission tools."""
 
     allowed_submission_tools: frozenset[str]
-    terminal_tools: frozenset[str]
 
 
 _ROLE_TOOL_POLICIES: dict[str, RoleToolPolicy] = {
     "planner": RoleToolPolicy(
         allowed_submission_tools=frozenset({"submit_plan"}),
-        terminal_tools=frozenset({"submit_plan"}),
     ),
     "replanner": RoleToolPolicy(
         allowed_submission_tools=frozenset({"submit_replan"}),
-        terminal_tools=frozenset({"submit_replan"}),
     ),
     "developer": RoleToolPolicy(
-        allowed_submission_tools=frozenset({"submit_task_summary"}),
-        terminal_tools=frozenset({"submit_task_summary"}),
+        allowed_submission_tools=frozenset({"submit_task_success", "request_replan"}),
     ),
     "parent_summarizer": RoleToolPolicy(
-        allowed_submission_tools=frozenset({"submit_task_summary"}),
-        terminal_tools=frozenset({"submit_task_summary"}),
+        allowed_submission_tools=frozenset({"submit_task_success"}),
     ),
     "reviewer": RoleToolPolicy(
-        allowed_submission_tools=frozenset({"submit_task_summary"}),
-        terminal_tools=frozenset({"submit_task_summary"}),
+        allowed_submission_tools=frozenset({"submit_task_success", "request_replan"}),
     ),
     "explorer": RoleToolPolicy(
         allowed_submission_tools=frozenset(),
-        terminal_tools=frozenset(),
     ),
     "scout": RoleToolPolicy(
         allowed_submission_tools=frozenset(),
-        terminal_tools=frozenset(),
     ),
 }
 
@@ -51,22 +43,6 @@ def get_role_tool_policy(role: str | None) -> RoleToolPolicy | None:
     if not role_name:
         return None
     return _ROLE_TOOL_POLICIES.get(role_name)
-
-
-def default_terminal_tools_for_role(role: str | None) -> set[str]:
-    """Return the default terminal tool set for a role."""
-    policy = get_role_tool_policy(role)
-    if policy is None:
-        return set()
-    return set(policy.terminal_tools)
-
-
-def default_terminal_tools_by_role() -> dict[str, set[str]]:
-    """Return default terminal tools for every known team role."""
-    return {
-        role: set(policy.terminal_tools)
-        for role, policy in _ROLE_TOOL_POLICIES.items()
-    }
 
 
 def blocked_submission_tools_for_role(

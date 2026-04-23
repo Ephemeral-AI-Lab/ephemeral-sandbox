@@ -41,7 +41,7 @@ class TestInfrastructure:
         assert data["toolkits"] is not None
         toolkits = {entry["name"]: entry["tools"] for entry in data["toolkits"]}
         assert set(toolkits["submission"]) == {
-            "submit_task_summary",
+            "submit_task_success",
             "submit_plan",
             "submit_replan",
         }
@@ -136,7 +136,7 @@ class TestAgentCRUD:
         resp = client.get("/api/agents/tools/available")
         assert resp.status_code == 200
         tools = {entry["name"] for entry in resp.json()}
-        assert "daytona_codeact" in tools
+        assert "daytona_shell" in tools
         assert "submit_plan" in tools
         assert "submit_replan" in tools
         assert "load_skill" in tools

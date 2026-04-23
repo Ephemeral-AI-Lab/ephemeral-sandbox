@@ -93,7 +93,7 @@ async def test_pre_advisories_emit_immediately_and_separately() -> None:
     reg.register("*", "pre", 20, second, name="second")
 
     result = await run_pre_hooks(
-        "daytona_codeact",
+        "daytona_shell",
         _Args(),
         _context(),
         emit=lambda event: _capture_emit(events, event),
@@ -107,9 +107,9 @@ async def test_pre_advisories_emit_immediately_and_separately() -> None:
         SystemNotification,
     ]
     assert [event.text for event in events if isinstance(event, SystemNotification)] == [
-        "[pre-hook tip] daytona_codeact: one",
-        "[pre-hook tip] daytona_codeact: two",
-        "[pre-hook tip] daytona_codeact: three",
+        "[pre-hook tip] daytona_shell: one",
+        "[pre-hook tip] daytona_shell: two",
+        "[pre-hook tip] daytona_shell: three",
     ]
 
 

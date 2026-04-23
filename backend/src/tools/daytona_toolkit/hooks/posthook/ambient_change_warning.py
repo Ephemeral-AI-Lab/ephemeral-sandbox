@@ -1,4 +1,4 @@
-"""Warn when CodeAct changes files outside its audited target paths."""
+"""Warn when daytona_shell changes files outside its audited target paths."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def _format(paths: list[str]) -> str:
     if len(paths) > _MAX_RENDERED:
         rendered += f", ... ({len(paths)} total)"
     return (
-        "Workspace changed during this shell command, but coordinated CodeAct "
+        "Workspace changed during this shell command, but coordinated daytona_shell "
         "shell commands are runtime-only; treating changed paths as ambient "
         f"concurrent edits: {rendered}"
     )
@@ -40,9 +40,9 @@ async def hook(
 def register(registry: ToolHookRegistry | None = None) -> None:
     reg = registry or default_registry()
     reg.register(
-        "daytona_codeact",
+        "daytona_shell",
         "post",
         20,
         hook,
-        name="daytona_codeact:ambient_change_warning",
+        name="daytona_shell:ambient_change_warning",
     )

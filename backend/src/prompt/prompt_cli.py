@@ -20,7 +20,7 @@ from prompt.helpers import (
     load_agent_definition,
     load_team_definition,
     register_builtins,
-    resolve_terminal_tools_for_role,
+    resolve_terminal_tools,
 )
 
 
@@ -124,7 +124,7 @@ def _render_team_prompt_report(
             settings=settings,
             sandbox_id=sandbox_id,
             include_runtime_sections=include_runtime_sections,
-            terminal_tools=resolve_terminal_tools_for_role(team_def, getattr(agent_def, "role", None)),
+            terminal_tools=resolve_terminal_tools(agent_def),
         )
         lines.extend(
             [

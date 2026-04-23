@@ -13,20 +13,11 @@ from typing import TYPE_CHECKING, Iterable
 from message import ConversationMessage
 from prompt.user_prompt_templates import render_user_prompt_template
 from team.models import Task
-from team.runtime.tool_policy import default_terminal_tools_by_role
 from tools.core.runtime import ExecutionMetadata
 
 if TYPE_CHECKING:
     from agents.types import AgentDefinition
     from team.runtime.team_run import TeamRun
-
-# Default terminal_tools mapping — used when TeamDefinition.terminal_tools is empty.
-# Which tools are terminal is a team-level policy: the team decides when an agent's
-# job is done. The query loop exits when any of these tools are called.
-DEFAULT_TERMINAL_TOOLS: dict[str, set[str]] = {
-    role: set(tools)
-    for role, tools in default_terminal_tools_by_role().items()
-}
 
 
 @dataclass
@@ -168,13 +159,11 @@ def _format_benchmark_targets(team_run: "TeamRun") -> str:
 @lru_cache(maxsize=1)
 def _terminal_tool_descriptions() -> dict[str, str]:
     from tools.submission.toolkit import SubmitPlanTool, SubmitReplanTool, SubmitTaskSummaryTool
-    from tools.task_center.toolkit import SubmitTaskNoteTool
 
     tools = [
         SubmitPlanTool(),
         SubmitReplanTool(),
         SubmitTaskSummaryTool(),
-        SubmitTaskNoteTool(),
     ]
     return {
         tool.name: (tool.description or tool.short_description or tool.name).strip()
@@ -269,14 +258,7 @@ async def build_query_context(
     meta = build_task_metadata(team_run, task)
     meta["role"] = getattr(defn, "role", "")
 
-    # Resolve terminal_tools for this role.
-    # Prefer TeamDefinition.terminal_tools if populated; fall back to defaults.
-    role = getattr(defn, "role", "") or ""
-    team_def = getattr(team_run, "team_definition", None)
-    td_map = getattr(team_def, "terminal_tools", None) or {}
-    terminal_set = td_map.get(role) if td_map else None
-    if not terminal_set:
-        terminal_set = DEFAULT_TERMINAL_TOOLS.get(role, set())
+    terminal_set = {str(name) for name in getattr(defn, "terminal_tools", []) or [] if str(name).strip()}
     meta["terminal_tools"] = set(terminal_set)
     user_message = await build_initial_user_message(
         team_run,

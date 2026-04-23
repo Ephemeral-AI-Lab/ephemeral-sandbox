@@ -1,4 +1,4 @@
-"""Block package and environment mutation commands in CodeAct."""
+"""Block package and environment mutation commands in daytona_shell."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from tools.core.base import ToolExecutionContext
 from tools.core.hooks import PreHookOutcome, ToolHookRegistry, default_registry
-from tools.daytona_toolkit.hooks.prehook._codeact_common import codeact_shell_commands
+from tools.daytona_toolkit.hooks.prehook._shell_common import shell_commands
 
 _CONTROL_TOKENS = {";", "&&", "||", "|", "&", "(", ")"}
 _BLOCKED_PAIRS = {
@@ -27,9 +27,9 @@ _PYTHON_COMMAND_RE = re.compile(r"^python(?:[0-9.]+)?$", flags=re.IGNORECASE)
 _PYTHON_OPTIONS_WITH_VALUES = {"-W", "-X"}
 _ENV_OPTIONS_WITH_VALUES = {"-u", "--unset"}
 _BLOCKED_PACKAGE_MUTATION_MESSAGE = (
-    "CodeAct policy error: package and environment mutation commands are "
+    "daytona_shell policy error: package and environment mutation commands are "
     "forbidden. Blocked `{command}`. Do not install, add, sync, update, or "
-    "upgrade dependencies from CodeAct; capture the command/error evidence and "
+    "upgrade dependencies from daytona_shell; capture the command/error evidence and "
     "request replanning instead."
 )
 
@@ -193,7 +193,7 @@ async def hook(
     context: ToolExecutionContext,
 ) -> PreHookOutcome:
     del context
-    for command in codeact_shell_commands(args):
+    for command in shell_commands(args):
         err = package_mutation_command_error(command)
         if err is not None:
             return PreHookOutcome(has_error=True, error_message=err)
@@ -203,9 +203,9 @@ async def hook(
 def register(registry: ToolHookRegistry | None = None) -> None:
     reg = registry or default_registry()
     reg.register(
-        "daytona_codeact",
+        "daytona_shell",
         "pre",
         24,
         hook,
-        name="daytona_codeact:package_mutation_policy",
+        name="daytona_shell:package_mutation_policy",
     )

@@ -14,7 +14,7 @@ from tools.daytona_toolkit.tools import (
     daytona_write_file,
 )
 from tools.daytona_toolkit.edit_tool import daytona_edit_file
-from tools.daytona_toolkit.codeact_tool import daytona_codeact
+from tools.daytona_toolkit.shell_tool import daytona_shell
 from tools.daytona_toolkit.rename_tool import daytona_rename_symbol
 from tools.daytona_toolkit.delete_move_tool import (
     daytona_delete_file,
@@ -27,7 +27,7 @@ from tools.daytona_toolkit.delete_move_tool import (
 logger = logging.getLogger(__name__)
 
 
-def _build_tools(*, include_codeact: bool) -> list[Any]:
+def _build_tools(*, include_shell: bool) -> list[Any]:
     tools: list[Any] = [
         daytona_grep,
         daytona_glob,
@@ -38,24 +38,22 @@ def _build_tools(*, include_codeact: bool) -> list[Any]:
         daytona_delete_file,
         daytona_move_file,
     ]
-    if include_codeact:
-        tools.append(daytona_codeact)
+    if include_shell:
+        tools.append(daytona_shell)
     return tools
 
 
-def _build_instructions(*, include_codeact: bool) -> str:
-    codeact_section = ""
-    if include_codeact:
-        codeact_section = (
+def _build_instructions(*, include_shell: bool) -> str:
+    shell_section = ""
+    if include_shell:
+        shell_section = (
             "\n**Run Commands**\n"
-            "- `daytona_codeact`: run tests, builds, and other runtime commands.\n"
-            "- Use `command=\"pytest ...\"` for shell commands.\n"
-            "- Use `code=\"...\"` only for multi-step Python.\n"
+            "- `daytona_shell`: run tests, builds, and other runtime commands via `command=\"...\"`.\n"
             "- Commands already start at the sandbox repo root, usually `/testbed`, and output is captured automatically.\n"
             "- Do not suppress stderr with `2>/dev/null`, `&>/dev/null`, or `>/dev/null 2>&1`.\n"
             "- Never prefix commands with host paths like `/Users/...`; use repo-relative paths or repo subdirectories.\n"
             "- In coordinated team lanes, do not run package or environment mutation commands such as `pip install`, `uv sync`, `npm install`, or equivalent install/add/sync/update operations.\n"
-            "- Do not use CodeAct for file writes, moves, deletes, or file-content reads.\n"
+            "- Do not use `daytona_shell` for file writes, moves, deletes, or file-content reads.\n"
             "- Use the edit, write, rename, delete, move, read, grep, or glob tools for file work.\n"
             "- Background Python should use `python -u` or `print(..., flush=True)`.\n"
         )
@@ -78,7 +76,7 @@ def _build_instructions(*, include_codeact: bool) -> str:
         "- Team lanes block test-file writes unless runtime metadata allows them.\n"
         "- Developer out-of-scope production writes/copies are allowed when tied to the assigned task; write-scope advisories are notifications to summarize, not automatic replan conditions.\n"
         "- New production files must be created with daytona_write_file.\n"
-        f"{codeact_section}"
+        f"{shell_section}"
     )
 
 
@@ -98,13 +96,13 @@ class DaytonaToolkit(BaseToolkit):
         self,
         sandbox_id: str | None = None,
         *,
-        include_codeact: bool = True,
+        include_shell: bool = True,
     ) -> None:
         super().__init__(
             name="sandbox_operations",
             description="Remote Daytona sandbox tools for search, file changes, and commands.",
-            tools=_build_tools(include_codeact=include_codeact),
-            instructions=_build_instructions(include_codeact=include_codeact),
+            tools=_build_tools(include_shell=include_shell),
+            instructions=_build_instructions(include_shell=include_shell),
         )
         self.sandbox_id = sandbox_id
         self._sandbox: Any | None = None

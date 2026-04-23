@@ -49,7 +49,7 @@ class TestEphemeralBackgroundReminder:
         result = await agent.invoke(
             "Do these steps:\n"
             "1. Run 'sleep 15 && echo REMINDER_TEST_DONE' in background "
-            "(use daytona_codeact with background: true)\n"
+            "(use daytona_shell with background: true)\n"
             "2. Run 'echo STEP_2_DONE' in foreground\n"
             "3. Run 'echo STEP_3_DONE' in foreground\n"
             "4. Now check on the background task status\n\n"
@@ -60,8 +60,8 @@ class TestEphemeralBackgroundReminder:
         assert len(result.assistant_turns()) >= 1, "Missing assistant turn"
         assert len(result.tools_started()) >= 3, \
             f"Expected 3+ tool calls. Got: {result.tool_names}"
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact called with background: true. Got tool calls: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell called with background: true. Got tool calls: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got tools: {result.tool_names}"
         assert result.has_tool("check_background_progress"), \
@@ -113,7 +113,7 @@ class TestEphemeralBackgroundReminder:
             enable_background_tasks=True,
         )
         result = await agent.invoke(
-            "Run 'echo NO_BACKGROUND_HERE' using daytona_codeact. "
+            "Run 'echo NO_BACKGROUND_HERE' using daytona_shell. "
             "Do NOT use background. Keep it simple."
         )
         log_result(result, "no_reminder")

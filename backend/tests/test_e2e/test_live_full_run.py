@@ -59,7 +59,7 @@ def _print_result(result) -> None:
 AGENT_PROMPT = (
     "You are a senior fullstack developer with a remote Daytona sandbox. "
     "You MUST use tools for every action — never just describe what you'd do. "
-    "Use daytona_write_file to create files, daytona_codeact to run commands, "
+    "Use daytona_write_file to create files, daytona_shell to run commands, "
     "daytona_read_file to read files. Always execute every step using tools. "
     "Be concise in your text responses."
 )
@@ -232,7 +232,7 @@ async def test_phase1_scaffold_project(agent):
     # Step 1: Create directory structure
     print("\n--- Step 1: Create directory structure ---")
     result = await agent.invoke(
-        "Use daytona_codeact to create these directories:\n"
+        "Use daytona_shell to create these directories:\n"
         "mkdir -p /workspace/fullrun/src/app/api/health\n"
         "mkdir -p /workspace/fullrun/src/lib\n"
         "mkdir -p /workspace/fullrun/src/components"
@@ -284,7 +284,7 @@ async def test_phase2_verify_files_exist(agent):
     """Verify all project files were created with correct content."""
     print("\n--- Phase 2: Verify files exist ---")
     result = await agent.invoke(
-        "Use daytona_codeact to run this command and show the output:\n"
+        "Use daytona_shell to run this command and show the output:\n"
         "find /workspace/fullrun -type f \\( -name '*.ts' -o -name '*.tsx' -o -name '*.json' \\) | sort"
     )
     _print_result(result)
@@ -546,7 +546,7 @@ async def test_phase8_edit_workflow_with_streaming(agent):
     # Turn 2: Append a new function
     print("\n  Turn 2: Append function")
     r2 = await agent.invoke(
-        "Use daytona_codeact to append this to /workspace/fullrun/src/lib/utils.ts:\n"
+        "Use daytona_shell to append this to /workspace/fullrun/src/lib/utils.ts:\n"
         "echo '' >> /workspace/fullrun/src/lib/utils.ts && "
         "echo 'export function slugify(str: string): string {' >> /workspace/fullrun/src/lib/utils.ts && "
         'echo \'  return str.toLowerCase().replace(/\\\\s+/g, "-").replace(/[^a-z0-9-]/g, "");\' >> /workspace/fullrun/src/lib/utils.ts && '
@@ -586,7 +586,7 @@ async def test_phase9_final_summary(agent):
     """Final summary: list all files, print streaming, report results."""
     print("\n--- Phase 9: Final Project Summary ---")
     result = await agent.invoke(
-        "Use daytona_codeact to run: "
+        "Use daytona_shell to run: "
         "echo '=== Project Files ===' && "
         "find /workspace/fullrun -type f | sort && "
         "echo '=== Line Counts ===' && "

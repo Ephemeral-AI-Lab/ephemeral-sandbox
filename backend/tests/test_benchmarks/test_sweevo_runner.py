@@ -34,9 +34,9 @@ def test_background_tool_names_from_messages_only_keeps_explicit_background_call
         ConversationMessage(
             role="assistant",
             content=[
-                ToolUseBlock(name="daytona_codeact", input={"code": "print(1)"}),
+                ToolUseBlock(name="daytona_shell", input={"code": "print(1)"}),
                 ToolUseBlock(
-                    name="daytona_codeact",
+                    name="daytona_shell",
                     input={"code": "print(2)", "background": True},
                 ),
                 ToolUseBlock(
@@ -44,7 +44,7 @@ def test_background_tool_names_from_messages_only_keeps_explicit_background_call
                     input={"agent_name": "scout", "background": True},
                 ),
                 ToolUseBlock(
-                    name="daytona_codeact",
+                    name="daytona_shell",
                     input={"code": "print(3)", "background": False},
                 ),
             ],
@@ -52,7 +52,7 @@ def test_background_tool_names_from_messages_only_keeps_explicit_background_call
     ]
 
     assert _background_tool_names_from_messages(messages) == [
-        "daytona_codeact",
+        "daytona_shell",
         "run_subagent",
     ]
 

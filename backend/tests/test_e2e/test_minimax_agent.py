@@ -29,7 +29,7 @@ pytestmark = [pytest.mark.e2e, pytest.mark.live]
 MINIMAX_AGENT_PROMPT = (
     "You are test-minimax-agent, a developer with a remote Daytona sandbox. "
     "You MUST use tools for every action — never just describe what you'd do. "
-    "Use daytona_write_file to create files, daytona_codeact to run commands, "
+    "Use daytona_write_file to create files, daytona_shell to run commands, "
     "daytona_read_file to read files, "
     "daytona_grep to search content, daytona_glob to find files. "
     "Always execute every step using tools. Be concise."
@@ -74,7 +74,7 @@ async def test_agent_responds_to_simple_prompt(sandbox_id):
 
 
 @pytest.mark.asyncio
-async def test_agent_uses_daytona_codeact_tool(sandbox_id):
+async def test_agent_uses_daytona_shell_tool(sandbox_id):
     agent = create_eval_agent(sandbox_id=sandbox_id, system_prompt=MINIMAX_AGENT_PROMPT)
     result = await agent.invoke("Run this exact command in the sandbox: echo 'MINIMAX_BASH_OK'")
 
@@ -91,7 +91,7 @@ async def test_agent_write_and_read_file(sandbox_id):
     marker = f"MINIMAX_READBACK_{uuid.uuid4().hex[:8]}"
     result = await agent.invoke(
         f"Write '{marker}' to /workspace/minimax_test.txt using daytona_write_file, "
-        f"then read it back using daytona_codeact: cat /workspace/minimax_test.txt"
+        f"then read it back using daytona_shell: cat /workspace/minimax_test.txt"
     )
 
     assert len(result.assistant_turns()) > 0
@@ -109,14 +109,14 @@ async def test_agent_write_and_read_file(sandbox_id):
 @pytest.mark.asyncio
 async def test_agent_lists_files(sandbox_id):
     agent = create_eval_agent(sandbox_id=sandbox_id, system_prompt=MINIMAX_AGENT_PROMPT)
-    result = await agent.invoke("Use daytona_codeact to run 'ls /workspace'")
+    result = await agent.invoke("Use daytona_shell to run 'ls /workspace'")
 
     assert len(result.assistant_turns()) > 0
 
     tool_started = result.tools_started()
     tool_names = [ev.tool_name for ev in tool_started]
-    assert any("daytona_codeact" in t for t in tool_names), (
-        f"Expected listing via codeact. Got: {tool_names}"
+    assert any("daytona_shell" in t for t in tool_names), (
+        f"Expected listing via daytona_shell. Got: {tool_names}"
     )
 
 
@@ -126,7 +126,7 @@ async def test_agent_grep_search(sandbox_id):
 
     # Setup: create the file to search
     await agent.invoke(
-        "Use daytona_codeact to run: echo 'GREP_TARGET_MINIMAX' > /workspace/searchable.txt"
+        "Use daytona_shell to run: echo 'GREP_TARGET_MINIMAX' > /workspace/searchable.txt"
     )
 
     # Search for the content
@@ -139,7 +139,7 @@ async def test_agent_grep_search(sandbox_id):
 
     tool_started = result.tools_started()
     tool_names = [ev.tool_name for ev in tool_started]
-    assert any("daytona_grep" in t or "daytona_codeact" in t for t in tool_names), (
+    assert any("daytona_grep" in t or "daytona_shell" in t for t in tool_names), (
         f"Expected grep or bash tool. Got: {tool_names}"
     )
 
@@ -150,7 +150,7 @@ async def test_agent_glob_find(sandbox_id):
 
     # Setup: create files to glob
     await agent.invoke(
-        "Use daytona_codeact to run: touch /workspace/glob_test_1.txt /workspace/glob_test_2.txt"
+        "Use daytona_shell to run: touch /workspace/glob_test_1.txt /workspace/glob_test_2.txt"
     )
 
     # Glob for .txt files
@@ -168,7 +168,7 @@ async def test_agent_multi_step_pipeline(sandbox_id):
     result = await agent.invoke(
         "Do these steps in the sandbox:\n"
         "1. Use daytona_write_file to create /workspace/pipeline.py with: print('PIPELINE_OK')\n"
-        "2. Use daytona_codeact to run: python3 /workspace/pipeline.py\n"
+        "2. Use daytona_shell to run: python3 /workspace/pipeline.py\n"
         "3. Report the output"
     )
 
@@ -199,7 +199,7 @@ async def test_agent_multi_step_pipeline(sandbox_id):
 @pytest.mark.asyncio
 async def test_tool_started_has_correct_structure(sandbox_id_events):
     agent = create_eval_agent(sandbox_id=sandbox_id_events, system_prompt=MINIMAX_AGENT_PROMPT)
-    result = await agent.invoke("Use daytona_codeact to run: echo 'STRUCTURE_OK'")
+    result = await agent.invoke("Use daytona_shell to run: echo 'STRUCTURE_OK'")
 
     tool_started = result.tools_started()
     assert len(tool_started) >= 1, f"No tool_started events. Tool names: {result.tool_names}"
@@ -210,14 +210,14 @@ async def test_tool_started_has_correct_structure(sandbox_id_events):
         assert isinstance(tool_input, dict), f"tool_input should be dict: {type(tool_input)}"
 
         name = ev.tool_name
-        if name == "daytona_codeact":
-            assert "command" in tool_input, f"daytona_codeact missing 'command': {tool_input}"
+        if name == "daytona_shell":
+            assert "command" in tool_input, f"daytona_shell missing 'command': {tool_input}"
 
 
 @pytest.mark.asyncio
 async def test_tool_completed_has_output(sandbox_id_events):
     agent = create_eval_agent(sandbox_id=sandbox_id_events, system_prompt=MINIMAX_AGENT_PROMPT)
-    result = await agent.invoke("Use daytona_codeact to run: echo 'OUTPUT_CHECK'")
+    result = await agent.invoke("Use daytona_shell to run: echo 'OUTPUT_CHECK'")
 
     tool_completed = result.tools_completed()
     if tool_completed:
@@ -230,7 +230,7 @@ async def test_tool_completed_has_output(sandbox_id_events):
 @pytest.mark.asyncio
 async def test_event_lifecycle_complete(sandbox_id_events):
     agent = create_eval_agent(sandbox_id=sandbox_id_events, system_prompt=MINIMAX_AGENT_PROMPT)
-    result = await agent.invoke("Use daytona_codeact to run: echo 'LIFECYCLE_OK'")
+    result = await agent.invoke("Use daytona_shell to run: echo 'LIFECYCLE_OK'")
 
     assert len(result.assistant_turns()) > 0, "Missing assistant_complete turn"
 

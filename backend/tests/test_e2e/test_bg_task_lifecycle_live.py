@@ -62,8 +62,8 @@ class TestRepeatedProgressChecks:
         log_result(result, "repeated_checks")
 
         # Strict: background task must use background: true
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact with background: true. Got: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell with background: true. Got: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got: {result.tool_names}"
         # Strict: at least 3 progress checks (steps 3, 5, 7)
@@ -72,7 +72,7 @@ class TestRepeatedProgressChecks:
             f"Expected 3+ progress checks (requested 3). Got {checks}: {result.tool_names}"
         # Strict: 3 foreground bash calls interspersed with checks
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert len(fg_bash) >= 3, \
             f"Expected 3+ foreground bash calls (WORK_A/B/C). Got {len(fg_bash)}"
         # Strict: cancel must happen AFTER progress checks
@@ -128,9 +128,9 @@ class TestSelectiveCancellation:
 
         # Strict: exactly 2 background launches with background: true
         bg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and tc.input.get("background") is True]
+                   if tc.name == "daytona_shell" and tc.input.get("background") is True]
         assert len(bg_bash) >= 2, \
-            f"Expected 2+ daytona_codeact with background: true. Got {len(bg_bash)}"
+            f"Expected 2+ daytona_shell with background: true. Got {len(bg_bash)}"
         assert len(result.background_started()) >= 2, \
             f"Expected 2 BackgroundTaskStarted events. Got {len(result.background_started())}"
         # Strict: cancel must provide a reason
@@ -145,7 +145,7 @@ class TestSelectiveCancellation:
             f"Expected 2+ progress checks (before + after cancel). Got {checks}"
         # Strict: foreground work happened
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert len(fg_bash) >= 1, \
             f"Expected foreground bash call. Got {len(fg_bash)}"
         # Strict: fg work must happen WHILE bg tasks are running (true concurrency)
@@ -194,9 +194,9 @@ class TestBatchCancellation:
 
         # Strict: 3 background launches with background: true
         bg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and tc.input.get("background") is True]
+                   if tc.name == "daytona_shell" and tc.input.get("background") is True]
         assert len(bg_bash) >= 3, \
-            f"Expected 3+ daytona_codeact with background: true. Got {len(bg_bash)}"
+            f"Expected 3+ daytona_shell with background: true. Got {len(bg_bash)}"
         assert len(result.background_started()) >= 3, \
             f"Expected 3 BackgroundTaskStarted events. Got {len(result.background_started())}"
         # Strict: 3 cancellations (one per task)
@@ -214,7 +214,7 @@ class TestBatchCancellation:
             f"Expected 2+ progress checks (before + after cancels). Got {checks}"
         # Strict: foreground work happened
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert len(fg_bash) >= 1, \
             f"Expected foreground bash call. Got {len(fg_bash)}"
         assert not result.has_non_cancel_errors, \
@@ -259,13 +259,13 @@ class TestBackgroundCompletion:
         log_result(result, "bg_completion")
 
         # Strict: background task must use background: true
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact with background: true. Got: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell with background: true. Got: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got: {result.tool_names}"
         # Strict: 5 foreground bash calls (FG_1 through FG_5)
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert len(fg_bash) >= 5, \
             f"Expected 5+ foreground bash calls (FG_1-FG_5). Got {len(fg_bash)}"
         assert result.has_tool("check_background_progress"), \
@@ -328,13 +328,13 @@ class TestProgressCheckRevealsError:
         log_result(result, "bg_error")
 
         # Strict: background task must use background: true
-        assert result.has_tool_with_background("daytona_codeact"), \
-            f"Expected daytona_codeact with background: true. Got: {result.tool_calls}"
+        assert result.has_tool_with_background("daytona_shell"), \
+            f"Expected daytona_shell with background: true. Got: {result.tool_calls}"
         assert len(result.background_started()) >= 1, \
             f"Expected BackgroundTaskStarted event. Got: {result.tool_names}"
         # Strict: 2 foreground bash calls
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert len(fg_bash) >= 2, \
             f"Expected 2+ foreground bash calls. Got {len(fg_bash)}"
         assert result.has_tool("check_background_progress"), \

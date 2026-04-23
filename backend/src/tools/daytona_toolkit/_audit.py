@@ -1,4 +1,4 @@
-"""Write-scope audit helper for Daytona CodeAct commits."""
+"""Write-scope audit helper for Daytona daytona_shell commits."""
 
 from __future__ import annotations
 

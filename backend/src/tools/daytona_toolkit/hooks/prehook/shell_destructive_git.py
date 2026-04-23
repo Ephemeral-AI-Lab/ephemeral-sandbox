@@ -1,4 +1,4 @@
-"""Block git mutation commands in CodeAct shell mode."""
+"""Block git mutation commands in daytona_shell shell mode."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from tools.core.base import ToolExecutionContext
 from tools.core.hooks import PreHookOutcome, ToolHookRegistry, default_registry
-from tools.daytona_toolkit.hooks.prehook._codeact_common import codeact_shell_commands
+from tools.daytona_toolkit.hooks.prehook._shell_common import shell_commands
 
 _GIT_COMMAND_PATTERN = re.compile(
     r"(?:^|[;&|]\s*)(?:command\s+)?git\b(?P<args>[^;&|]*)",
@@ -57,7 +57,7 @@ _BLOCKED_GIT_SUBCOMMANDS = {
     "update-index",
 }
 _DESTRUCTIVE_GIT_MESSAGE = (
-    "BLOCKED: daytona_codeact is for runtime commands, tests, and inspection. "
+    "BLOCKED: daytona_shell is for runtime commands, tests, and inspection. "
     "destructive git commands and other git mutation commands are forbidden. "
     "Detected filesystem mutation command or git metadata mutation. They mutate "
     "repository metadata or working-tree files outside the OCC/write-scope audit "
@@ -143,7 +143,7 @@ async def hook(
     context: ToolExecutionContext,
 ) -> PreHookOutcome:
     del context
-    for command in codeact_shell_commands(args):
+    for command in shell_commands(args):
         err = destructive_git_command_error(command)
         if err is not None:
             return PreHookOutcome(has_error=True, error_message=err)
@@ -153,9 +153,9 @@ async def hook(
 def register(registry: ToolHookRegistry | None = None) -> None:
     reg = registry or default_registry()
     reg.register(
-        "daytona_codeact",
+        "daytona_shell",
         "pre",
         10,
         hook,
-        name="daytona_codeact:destructive_git",
+        name="daytona_shell:destructive_git",
     )

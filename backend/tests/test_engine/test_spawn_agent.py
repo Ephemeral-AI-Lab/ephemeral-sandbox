@@ -385,14 +385,14 @@ class TestToolkitInstantiation:
             registry,
             "Base prompt.",
             role="developer",
-            terminal_tools={"submit_task_summary"},
+            terminal_tools={"submit_task_success"},
         )
 
-        assert registry.get("submit_task_summary") is not None
+        assert registry.get("submit_task_success") is not None
         assert registry.get("draft_task_plan") is None
         assert registry.get("submit_plan") is None
         assert registry.get("submit_replan") is None
-        assert "- `submit_task_summary`" in prompt
+        assert "- `submit_task_success`" in prompt
         assert "<Toolkit Instructions>" not in prompt
         assert "1. submit_plan - Submit a child plan." not in prompt
         assert "1. draft_task_plan - Validate a draft task plan." not in prompt
@@ -409,13 +409,13 @@ class TestToolkitInstantiation:
         )
 
         assert registry.get("submit_plan") is not None
-        assert registry.get("submit_task_summary") is None
+        assert registry.get("submit_task_success") is None
         assert registry.get("submit_replan") is None
         assert registry.get("draft_task_plan") is None
         assert "- `submit_plan`" in prompt
         assert "<Toolkit Instructions>" not in prompt
         assert "draft_task_plan" not in prompt
-        assert "1. submit_task_summary - Submit task outcome." not in prompt
+        assert "1. submit_task_success - Submit task outcome." not in prompt
 
     def test_blocked_tools_apply_after_role_policy(self):
         registry = ToolRegistry()
@@ -431,7 +431,7 @@ class TestToolkitInstantiation:
 
         assert registry.get("submit_plan") is not None
         assert registry.get("draft_task_plan") is None
-        assert registry.get("submit_task_summary") is None
+        assert registry.get("submit_task_success") is None
         assert "- `submit_plan`" in prompt
         assert "<Toolkit Instructions>" not in prompt
         assert "1. draft_task_plan - Validate a draft task plan." not in prompt

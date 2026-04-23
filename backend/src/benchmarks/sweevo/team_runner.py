@@ -216,14 +216,14 @@ def _build_root_prompt(instance: SWEEvoInstance, repo_dir: str) -> str:
 
 
 def _enforce_validation_evidence(state: AgentRunState) -> None:
-    """BenchmarkTelemetry success hook — validator must run daytona_codeact."""
+    """BenchmarkTelemetry success hook — validator must run daytona_shell."""
     if state.defn.name != VALIDATOR:
         return
-    if "daytona_codeact" in _tool_names_from_messages(list(state.agent.display_messages)):
+    if "daytona_shell" in _tool_names_from_messages(list(state.agent.display_messages)):
         return
     raise RuntimeError(
         "validator_missing_tool_evidence: validator must execute at least one "
-        "daytona_codeact verification command before returning a verdict"
+        "daytona_shell verification command before returning a verdict"
     )
 
 

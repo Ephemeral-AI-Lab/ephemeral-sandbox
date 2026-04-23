@@ -1,4 +1,4 @@
-"""Configuration for the overlay CodeAct sandbox.
+"""Configuration for the overlay shell sandbox.
 
 See ``docs/architecture/overlay-sandbox-plan.md`` §0. Two knobs:
 

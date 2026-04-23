@@ -46,17 +46,6 @@ class TeamDefinitionStore:
                 roster[str(role)] = names
         return roster
 
-    @staticmethod
-    def _normalize_terminal_tools(raw_terminal_tools: object) -> dict[str, set[str]]:
-        if not isinstance(raw_terminal_tools, dict):
-            return {}
-        terminal_tools: dict[str, set[str]] = {}
-        for role, tools in raw_terminal_tools.items():
-            names = {str(tool) for tool in (tools or []) if str(tool)}
-            if names:
-                terminal_tools[str(role)] = names
-        return terminal_tools
-
     @classmethod
     def _worker_agents_from_roster(
         cls,
@@ -78,14 +67,6 @@ class TeamDefinitionStore:
     def _record_to_definition(cls, record: TeamDefinitionRecord) -> TeamDefinition:
         raw_roster = record.roster if isinstance(record.roster, dict) else None
         roster = cls._normalize_roster(raw_roster) if raw_roster is not None else {}
-        raw_terminal_tools = (
-            record.terminal_tools if isinstance(record.terminal_tools, dict) else None
-        )
-        terminal_tools = (
-            cls._normalize_terminal_tools(raw_terminal_tools)
-            if raw_terminal_tools is not None
-            else {}
-        )
         entry_planner = str(
             record.entry_planner
             or record.planner_agent
@@ -102,7 +83,6 @@ class TeamDefinitionStore:
             description=record.description or "",
             entry_planner=entry_planner,
             roster=roster,
-            terminal_tools=terminal_tools,
         )
 
     # ---- CRUD ------------------------------------------------------------
@@ -113,7 +93,6 @@ class TeamDefinitionStore:
         name: str,
         entry_planner: str,
         roster: dict[str, list[str]],
-        terminal_tools: dict[str, set[str]] | None = None,
         description: str = "",
     ) -> TeamDefinition:
         """Insert a new team definition. Raises if the name already exists."""
@@ -126,7 +105,6 @@ class TeamDefinitionStore:
             if existing is not None:
                 raise ValueError(f"team_definition '{name}' already exists")
             normalized_roster = self._normalize_roster(roster)
-            normalized_terminal_tools = self._normalize_terminal_tools(terminal_tools or {})
             record = TeamDefinitionRecord(
                 id=str(uuid4()),
                 name=name,
@@ -138,7 +116,6 @@ class TeamDefinitionStore:
                 ),
                 entry_planner=entry_planner,
                 roster=normalized_roster,
-                terminal_tools={k: sorted(v) for k, v in normalized_terminal_tools.items()},
             )
             db.add(record)
             db.commit()

@@ -113,7 +113,7 @@ def test_register_does_not_match_other_tools() -> None:
     registry = ToolHookRegistry()
     write_extend_scope.register(registry)
     assert registry.matching("daytona_delete_file", "post") == []
-    assert registry.matching("daytona_codeact", "post") == []
+    assert registry.matching("daytona_shell", "post") == []
 
 
 def test_register_is_idempotent() -> None:

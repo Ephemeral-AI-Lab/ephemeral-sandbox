@@ -112,7 +112,7 @@ write-capable Daytona tool now calls directly. Edits / writes / renames flow
 through `svc.write_file(specs)`, `svc.edit_file(specs)`, `svc.rename_symbol(...)`,
 `svc.delete_file(paths)`, and `svc.move_file(specs)` — each call is one
 `commit_operation_against_base` batch, so a single tool invocation is one OCC
-boundary. Shell-style commands (codeact, tests, builds) use `svc.cmd(sandbox,
+boundary. Shell-style commands (daytona_shell, tests, builds) use `svc.cmd(sandbox,
 command, ...)`, which runs the command inside a leased Git workspace slot and
 commits the resulting Git diff through the same coordinator with
 `strict_base=True`.
@@ -211,7 +211,7 @@ Shell-style commands run through `CodeIntelligenceService.cmd(...)`:
    workspace. On `aborted_version`, tracked writes are skipped; gitignored
    direct-merges may already be live and are surfaced in overlay metadata.
 
-CodeAct, the test/build runners, and other shell-executing tools all go through
+daytona_shell, the test/build runners, and other shell-executing tools all go through
 this one path. Repository diffs, transactions, and audit path hints no longer
 live in the tool layer.
 

@@ -19,7 +19,7 @@ Failed task id: `{{your_failed_task_id}}`
 Your dependency task ids: {{your_deps_ids}}
 {{/if}}
 
-Context-read pre-step: after loading the replanner playbook, use the UUIDs above exactly with `read_task_details(...)` for your task, parent, failed task, and each dependency, then call `read_task_graph()` to enumerate siblings before CI, notes, diagnosis, corrective planning, or `submit_replan(...)`. Each `read_task_details` input must contain only `task_id`; do not pass `skill_name`, planner slugs, short prefixes, or fabricated ids. Do not batch those required context reads with CodeAct, CI, note, file, edit, diagnostics, reference, or submission tools.
+Context-read pre-step: after loading the replanner playbook, use the UUIDs above exactly with `read_task_details(...)` for your task, parent, failed task, and each dependency, then call `read_task_graph()` to enumerate siblings before CI, notes, diagnosis, corrective planning, or `submit_replan(...)`. Each `read_task_details` input must contain only `task_id`; do not pass `skill_name`, planner slugs, short prefixes, or fabricated ids. Do not batch those required context reads with daytona_shell, CI, note, file, edit, diagnostics, reference, or submission tools.
 
 Benchmark tests are evidence only. Do not create `new_tasks` that own, edit, skip, xfail, rewrite, or reconfigure tests, benchmark harness files, or pytest configuration unless the original user request explicitly asks to repair tests rather than production behavior. Put test paths only in acceptance criteria commands.
 

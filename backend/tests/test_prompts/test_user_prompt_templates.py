@@ -46,7 +46,7 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
             "context_from_dependencies": "",
             "recent_scope_changes": "",
             "parent_context": "",
-            "terminal_tools": "- submit_task_summary: Submit task outcome.",
+            "terminal_tools": "- submit_task_success: Submit task outcome.",
             "your_task_id": "dev-uuid-1234",
             "your_deps_ids": "`dep-a`, `dep-b`",
             "your_parent_task_id": "parent-uuid",
@@ -54,7 +54,7 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
     )
 
     assert rendered.startswith("Please read the following sections")
-    assert "- submit_task_summary: Submit task outcome." in rendered
+    assert "- submit_task_success: Submit task outcome." in rendered
     assert "Your task id: `dev-uuid-1234`" in rendered
     assert "Your dependency task ids: `dep-a`, `dep-b`" in rendered
     assert "Your parent task id: `parent-uuid`" in rendered
@@ -64,14 +64,13 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
     )
     assert "call `read_task_details` with only one input key, `task_id`" in rendered
     assert "Do not pass `skill_name`, planner slugs" in rendered
-    assert "Use `daytona_codeact(command=\"...\")` for shell, build, and test commands" in rendered
-    assert "Use `code` only for Python source snippets" in rendered
-    assert "CodeAct commands already start at the sandbox repo root" in rendered
+    assert "Use `daytona_shell(command=\"...\")` for shell, build, and test commands" in rendered
+    assert "daytona_shell commands already start at the sandbox repo root" in rendered
     assert "never prefix them with a host/local workspace path" in rendered
     assert "Use repo-relative paths" in rendered
     assert "Package/environment mutation is forbidden" in rendered
     assert "Do not run `pip install`, `uv add`, `uv sync`" in rendered
-    assert "Mandatory CodeAct preflight" not in rendered
+    assert "Mandatory daytona_shell preflight" not in rendered
     assert "Remove shell redirects and output filters entirely" not in rendered
     assert "Do not rely on sanitizer behavior as your normal workflow" not in rendered
     assert "`scope_paths` are the primary ownership surface, not a hard mutation sandbox" in rendered
@@ -95,12 +94,12 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
     assert "If live evidence identifies a missing module, compatibility shim" not in rendered
     assert "source path inside `scope_paths` does not by itself authorize" not in rendered
     assert "compatibility shim, re-export, bridge, test edit, or other unassigned path outside `scope_paths`" not in rendered
-    assert 'submit_task_summary(type="request_replan", content=...)' not in rendered
+    assert 'request_replan(, content=...)' not in rendered
     assert "## Context from dependencies" not in rendered
     assert "## Recent changes in your scope" not in rendered
     assert "## Parent context" not in rendered
     assert "Tool-name contract" not in rendered
-    assert "Run CodeAct commands directly from repo root" not in rendered
+    assert "Run daytona_shell commands directly from repo root" not in rendered
 
 
 def test_note_taker_prompts_load_from_markdown_file() -> None:
@@ -191,7 +190,7 @@ async def test_build_query_context_uses_developer_markdown_template() -> None:
     ctx = await build_query_context(get_definition("developer"), team_run, task)
 
     assert ctx.user_message.startswith("Please read the following sections")
-    assert "- submit_task_summary:" in ctx.user_message
+    assert "- submit_task_success:" in ctx.user_message
     assert "Your task id: `dev-1`" in ctx.user_message
     assert "Your dependency task ids: `dep-1`" in ctx.user_message
     assert "Your parent task id: `root`" in ctx.user_message
@@ -201,9 +200,8 @@ async def test_build_query_context_uses_developer_markdown_template() -> None:
     )
     assert "call `read_task_details` with only one input key, `task_id`" in ctx.user_message
     assert "Do not pass `skill_name`, planner slugs" in ctx.user_message
-    assert "Use `daytona_codeact(command=\"...\")` for shell, build, and test commands" in ctx.user_message
-    assert "Use `code` only for Python source snippets" in ctx.user_message
-    assert "CodeAct commands already start at the sandbox repo root" in ctx.user_message
+    assert "Use `daytona_shell(command=\"...\")` for shell, build, and test commands" in ctx.user_message
+    assert "daytona_shell commands already start at the sandbox repo root" in ctx.user_message
     assert "never prefix them with a host/local workspace path" in ctx.user_message
     assert "Use repo-relative paths" in ctx.user_message
     assert "Package/environment mutation is forbidden" in ctx.user_message
@@ -281,14 +279,13 @@ async def test_build_query_context_uses_validator_markdown_template_with_task_id
     ctx = await build_query_context(get_definition("validator"), team_run, task)
 
     assert ctx.user_message.startswith("Please read the following sections")
-    assert "- submit_task_summary:" in ctx.user_message
+    assert "- submit_task_success:" in ctx.user_message
     assert "Your task id: `validator-1`" in ctx.user_message
     assert "Your dependency task ids: `dev-1`" in ctx.user_message
     assert "Your parent task id: `root`" in ctx.user_message
     assert "Context-read pre-step: after loading the validator playbook" in ctx.user_message
-    assert "Use `daytona_codeact(command=\"...\")` for shell, build, and test commands" in ctx.user_message
-    assert "Use `code` only for Python source snippets" in ctx.user_message
-    assert "Mandatory CodeAct preflight" not in ctx.user_message
+    assert "Use `daytona_shell(command=\"...\")` for shell, build, and test commands" in ctx.user_message
+    assert "Mandatory daytona_shell preflight" not in ctx.user_message
     assert "Remove shell redirects and output filters entirely" not in ctx.user_message
     assert "Do not rely on sanitizer behavior as your normal workflow" not in ctx.user_message
     assert "correction surface for existing files, renames, moves, and deletes" in ctx.user_message
@@ -362,7 +359,7 @@ async def test_build_query_context_uses_root_planner_markdown_template() -> None
     assert "tests/test_retry.py::test_retry" in ctx.user_message
     assert "Benchmark targets are verification evidence only" in ctx.user_message
     assert "not put `*/tests/*`, `test_*.py`, or benchmark test paths in scout `target_paths`" in ctx.user_message
-    assert "Child and validator verification commands in specs must be CodeAct-safe" not in ctx.user_message
+    assert "Child and validator verification commands in specs must be daytona_shell-safe" not in ctx.user_message
     assert "Prefer `python -m pytest ... -q --tb=short` over `-v`" not in ctx.user_message
     assert _SUBMIT_PLAN_SCHEMA_SNIPPET in ctx.user_message
     assert _SUBMIT_PLAN_SPEC_SNIPPET in ctx.user_message
@@ -600,7 +597,7 @@ async def test_build_query_context_does_not_use_removed_scout_task_template() ->
     ctx = await build_query_context(get_definition("scout"), team_run, task)
 
     assert "## Scout note override" not in ctx.user_message
-    assert "your required post action is one `submit_file_note(...)` tool call" not in ctx.user_message
+    assert "your required post action is one `submit_file_notes(...)` tool call" not in ctx.user_message
     assert "Your task id:" not in ctx.user_message
     assert "read_task_details" not in ctx.user_message
     assert "read_task_graph" not in ctx.user_message

@@ -42,6 +42,12 @@ def test_team_planner_prompt_loads_playbook_before_planning_tools() -> None:
     assert "do not route sibling ownership from failing test names" in defn.system_prompt
     assert "concrete pytest ids or test files" in defn.system_prompt
     assert "Do not substitute sibling or similarly named test modules" in defn.system_prompt
+    assert "Do not convert adjacent, external, or \"likely from X\" hypotheses" in defn.system_prompt
+    assert "without live scout evidence that proved the path as a repo owner" in defn.system_prompt
+    assert "If a launched scout shows that an inherited exact file is missing" in defn.system_prompt
+    assert "only live scout evidence may prove the replacement `scope_paths`" in defn.system_prompt
+    assert "Do not ask a single-file scout to inspect additional files or directories" in defn.system_prompt
+    assert "launch a separate scout for that path or carry it as uncertainty" in defn.system_prompt
 
 
 def test_developer_prompt_requires_live_path_proof_for_new_modules() -> None:
@@ -51,6 +57,7 @@ def test_developer_prompt_requires_live_path_proof_for_new_modules() -> None:
     assert "Do not create missing modules, shims, bridges, or re-exports" in defn.system_prompt
     assert "failing test imports, grep hits, or similarly named sibling paths alone" in defn.system_prompt
     assert "replan instead of writing it" in defn.system_prompt
+    assert "benchmark import of `dask._compatibility` does not prove" in defn.system_prompt
 
 
 def test_team_replanner_prompt_loads_playbook_before_planning_tools() -> None:
@@ -97,6 +104,10 @@ def test_scout_prompt_loads_playbook_before_exploration_tools() -> None:
     assert "before your first Task Center or code-intelligence tool call" in defn.system_prompt
     assert "first assistant message that calls tools may contain only `read_file_note" in defn.system_prompt
     assert "stop after exact-file CI evidence" in defn.system_prompt
+    assert "Only `target_paths` authorize exploration" in defn.system_prompt
+    assert "treat them as hypotheses to report under gaps" in defn.system_prompt
+    assert "If an assigned exact file is missing, CI-cold, or disproved by a package/directory boundary" in defn.system_prompt
+    assert "Do not search sibling modules, package structure, or helper-symbol names" in defn.system_prompt
 
 
 def test_builtin_team_agents_use_default_tool_call_limits() -> None:
@@ -135,7 +146,7 @@ def test_toolkit_instructions_surface_scope_and_search_tools() -> None:
     assert "daytona_grep" in sandbox_ops.instructions
 
 
-def test_team_worker_sandbox_toolkit_includes_codeact() -> None:
+def test_team_worker_sandbox_toolkit_includes_shell() -> None:
     developer_sandbox = create_toolkit(
         "sandbox_operations",
         ToolkitContext(metadata={"agent_name": DEVELOPER, "sandbox_id": "sb-dev"}),
@@ -145,11 +156,11 @@ def test_team_worker_sandbox_toolkit_includes_codeact() -> None:
         ToolkitContext(metadata={"agent_name": VALIDATOR, "sandbox_id": "sb-val"}),
     )
 
-    assert "daytona_codeact" in developer_sandbox.tool_names()
-    assert "daytona_codeact" in validator_sandbox.tool_names()
+    assert "daytona_shell" in developer_sandbox.tool_names()
+    assert "daytona_shell" in validator_sandbox.tool_names()
     assert "daytona_edit_file" in developer_sandbox.tool_names()
     assert "daytona_rename_symbol" in developer_sandbox.tool_names()
-    # daytona_bash has been removed — all agents use daytona_codeact
+    # daytona_bash has been removed — all agents use daytona_shell
     assert "daytona_bash" not in developer_sandbox.tool_names()
     assert "daytona_bash" not in validator_sandbox.tool_names()
 
@@ -204,7 +215,7 @@ def test_planner_and_replanner_do_not_expose_sandbox_tools(tmp_path: Path) -> No
             "daytona_write_file",
             "daytona_edit_file",
             "daytona_rename_symbol",
-            "daytona_codeact",
+            "daytona_shell",
         ):
             assert tool_name not in tool_names
 
@@ -212,7 +223,7 @@ def test_planner_and_replanner_do_not_expose_sandbox_tools(tmp_path: Path) -> No
 def test_scout_tool_surface_matches_note_handoff_contract(tmp_path: Path) -> None:
     tool_names = _final_tool_names(SCOUT, tmp_path)
 
-    assert "submit_file_note" in tool_names
+    assert "submit_file_notes" in tool_names
     for name in (
         "daytona_grep",
         "daytona_glob",
@@ -220,9 +231,9 @@ def test_scout_tool_surface_matches_note_handoff_contract(tmp_path: Path) -> Non
         "daytona_write_file",
         "daytona_edit_file",
         "daytona_rename_symbol",
-        "daytona_codeact",
+        "daytona_shell",
         "submit_task_note",
-        "submit_task_summary",
+        "submit_task_success",
         "submit_plan",
         "submit_replan",
         "read_task_details",
@@ -236,10 +247,10 @@ def test_parent_summarizer_tool_surface_is_read_only_except_terminal_summary(
 ) -> None:
     tool_names = _final_tool_names(PARENT_SUMMARIZER, tmp_path)
 
-    assert {"read_task_details", "read_task_graph", "submit_task_summary"} <= tool_names
+    assert {"read_task_details", "read_task_graph", "submit_task_success"} <= tool_names
     for name in (
         "submit_task_note",
-        "submit_file_note",
+        "submit_file_notes",
         "submit_plan",
         "submit_replan",
     ):

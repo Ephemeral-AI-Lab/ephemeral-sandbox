@@ -37,7 +37,7 @@ _DEFAULT_EXECUTOR_READY = False
 def _ensure_default_executor_raised() -> None:
     """Raise the running loop's default ThreadPoolExecutor once per process.
 
-    Bulk sandbox-bound svc ops (delete/move/write/edit/rename/codeact)
+    Bulk sandbox-bound svc ops (delete/move/write/edit/rename/shell)
     fan out via ``asyncio.to_thread``; Python's default executor is
     ``min(32, cpu+4)`` which becomes the bottleneck under team-parallel
     load. The loop-aware ``run_sync`` bridge (see
@@ -57,7 +57,8 @@ def _ensure_default_executor_raised() -> None:
 
 # Tools whose completion should tick ``ActivityTracker.on_submission`` for coordination.
 SUBMISSION_TOOL_NAMES = frozenset({
-    "submit_task_summary",
+    "submit_task_success",
+    "request_replan",
     "submit_task_note",
     "submit_plan",
     "submit_replan",
@@ -194,7 +195,7 @@ class TeamAgentRunner:
 
         def _wire_agent(next_agent: Any, previous_qc: Any | None = None) -> None:
             # Merge spawn_agent's tool_metadata into ctx and redirect agent to ctx's metadata
-            # so team tools (submit_plan / submit_replan / submit_task_summary / …)
+            # so team tools (submit_plan / submit_replan / submit_task_success / request_replan / …)
             # write into the correct slot.
             spawned_meta = next_agent.query_context.tool_metadata
             if (

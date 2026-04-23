@@ -149,7 +149,7 @@ def validate_plan(
                         "field": f"tasks[{idx}].agent",
                         "msg": (
                             f"submitted plans cannot include replanner agent '{item.agent}'; "
-                            "replanners are spawned reactively via submit_task_summary(type='request_replan'), not planned"
+                            "replanners are spawned reactively via request_replan, not planned"
                         ),
                     }
                 )

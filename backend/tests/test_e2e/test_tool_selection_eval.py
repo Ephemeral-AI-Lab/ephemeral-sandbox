@@ -50,8 +50,8 @@ EVAL_CASES = [
     EvalCase(
         name="list_directory",
         prompt="Show me what files are in the src directory.",
-        expected_tools=["daytona_codeact"],
-        required_params={"daytona_codeact": ["command"]},
+        expected_tools=["daytona_shell"],
+        required_params={"daytona_shell": ["command"]},
     ),
     EvalCase(
         name="read_file",
@@ -94,14 +94,14 @@ EVAL_CASES = [
     EvalCase(
         name="run_command",
         prompt="Run 'python -m pytest tests/ -v' in the sandbox.",
-        expected_tools=["daytona_codeact"],
-        required_params={"daytona_codeact": ["command"]},
+        expected_tools=["daytona_shell"],
+        required_params={"daytona_shell": ["command"]},
     ),
     EvalCase(
         name="install_package",
         prompt="Install the requests library using pip.",
-        expected_tools=["daytona_codeact"],
-        required_params={"daytona_codeact": ["command"]},
+        expected_tools=["daytona_shell"],
+        required_params={"daytona_shell": ["command"]},
     ),
     # -- Code intelligence operations --
     EvalCase(

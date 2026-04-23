@@ -22,7 +22,7 @@ DEFAULT_MAX_REPLANS_PER_RUN: int = 25
 DEFAULT_MAX_NOTE_BYTES: int = 100_000
 DEFAULT_MAX_TOTAL_NOTE_BYTES: int = 5_000_000
 
-# Agent names that use team-safe (CodeAct) execution instead of raw bash
+# Agent names that use team-safe (daytona_shell) execution instead of raw bash
 DEFAULT_TEAM_SAFE_AGENT_NAMES: frozenset[str] = frozenset({"developer", "validator"})
 
 # ---------------------------------------------------------------------------

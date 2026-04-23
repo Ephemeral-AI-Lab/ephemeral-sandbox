@@ -4,7 +4,7 @@ This suite exercises the actual tool implementations, not just CI service
 helpers:
   1. `daytona_write_file` seeds live files in a real Daytona sandbox.
   2. `daytona_edit_file` performs concurrent same-file search/replace edits.
-  3. `daytona_codeact` verifies final on-disk state via real sandbox commands.
+  3. `daytona_shell` verifies final on-disk state via real sandbox commands.
 
 Run with:
     .venv/bin/python -m pytest backend/tests/test_e2e/test_live_daytona_tool_occ_calls.py -m live -v -s
@@ -32,7 +32,7 @@ from dotenv import load_dotenv
 from code_intelligence.routing.service import CodeIntelligenceService
 from tools.core.base import ToolExecutionContext
 from tools.daytona_toolkit._daytona_utils import _extract_exit_code, _wrap_bash_command
-from tools.daytona_toolkit.codeact_tool import daytona_codeact
+from tools.daytona_toolkit.shell_tool import daytona_shell
 from tools.daytona_toolkit.edit_tool import daytona_edit_file
 from tools.daytona_toolkit.tools import daytona_write_file
 
@@ -181,7 +181,7 @@ def _json_output(result) -> dict[str, Any]:
     return json.loads(result.output)
 
 
-def test_live_tool_roundtrip_write_edit_codeact(live_tool_env: LiveToolEnv):
+def test_live_tool_roundtrip_write_edit_shell(live_tool_env: LiveToolEnv):
     svc = live_tool_env.make_ci_service()
     file_path = f"{live_tool_env.root_dir}/roundtrip_{uuid.uuid4().hex[:8]}.py"
 
@@ -212,23 +212,23 @@ def test_live_tool_roundtrip_write_edit_codeact(live_tool_env: LiveToolEnv):
     edit_payload = _json_output(edit_result)
     assert edit_payload["status"] == "edited"
 
-    codeact_ctx = live_tool_env.make_ctx(svc, agent_run_id=f"verify-{uuid.uuid4().hex[:8]}")
-    codeact_result = asyncio.run(
-        daytona_codeact.execute(
-            daytona_codeact.input_model(command=f"cat {shlex.quote(file_path)}"),
-            codeact_ctx,
+    shell_ctx = live_tool_env.make_ctx(svc, agent_run_id=f"verify-{uuid.uuid4().hex[:8]}")
+    shell_result = asyncio.run(
+        daytona_shell.execute(
+            daytona_shell.input_model(command=f"cat {shlex.quote(file_path)}"),
+            shell_ctx,
         )
     )
-    codeact_payload = _json_output(codeact_result)
-    assert codeact_payload["status"] == "ok"
-    stdout = codeact_payload["shell_outputs"][0]["stdout"]
+    shell_payload = _json_output(shell_result)
+    assert shell_payload["status"] == "ok"
+    stdout = shell_payload["shell_outputs"][0]["stdout"]
     assert "VALUE = 'edited'" in stdout
     counts = Counter(
         str(getattr(item, "edit_type", "") or "")
         for item in svc.arbiter.recent_edits(seconds=300)
     )
     assert {"write", "edit"}.issubset(counts)
-    assert counts["codeact"] == 0
+    assert counts["shell"] == 0
 
 
 def test_live_two_concurrent_same_file_overlap_has_single_winner(
@@ -300,11 +300,11 @@ def test_live_two_concurrent_same_file_overlap_has_single_winner(
     assert successes, f"Expected at least one overlapping process write to land, got {results}"
     assert len(successes) + len(expected_errors) == len(edits)
 
-    codeact_ctx = live_tool_env.make_ctx(svc, agent_run_id=f"verify-{uuid.uuid4().hex[:8]}")
+    shell_ctx = live_tool_env.make_ctx(svc, agent_run_id=f"verify-{uuid.uuid4().hex[:8]}")
     verify_result = asyncio.run(
-        daytona_codeact.execute(
-            daytona_codeact.input_model(command=f"cat {shlex.quote(file_path)}"),
-            codeact_ctx,
+        daytona_shell.execute(
+            daytona_shell.input_model(command=f"cat {shlex.quote(file_path)}"),
+            shell_ctx,
         )
     )
     verify_payload = _json_output(verify_result)
@@ -406,16 +406,16 @@ def test_live_five_concurrent_same_file_edit_tool_calls(live_tool_env: LiveToolE
         f"Expected at least one overlapping process edit to complete. successes={overlap_successes}"
     )
 
-    codeact_ctx = live_tool_env.make_ctx(svc, agent_run_id=f"verify-{uuid.uuid4().hex[:8]}")
+    shell_ctx = live_tool_env.make_ctx(svc, agent_run_id=f"verify-{uuid.uuid4().hex[:8]}")
     verify_result = asyncio.run(
-        daytona_codeact.execute(
-            daytona_codeact.input_model(
+        daytona_shell.execute(
+            daytona_shell.input_model(
                 command=(
                     f"python3 -m py_compile {shlex.quote(file_path)} && "
                     f"cat {shlex.quote(file_path)}"
                 )
             ),
-            codeact_ctx,
+            shell_ctx,
         )
     )
     verify_payload = _json_output(verify_result)

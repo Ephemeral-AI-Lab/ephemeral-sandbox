@@ -21,7 +21,7 @@ from tools.core.base import (
 from tools.core.hooks.execution import execute_tool_with_hooks
 from tools.core.runtime import ExecutionMetadata
 from tools.core.tool_execution import execute_tool_call_streaming
-from tools.daytona_toolkit.codeact_tool import daytona_codeact
+from tools.daytona_toolkit.shell_tool import daytona_shell
 from tools.daytona_toolkit.tools import (
     daytona_read_file,
     daytona_write_file,
@@ -128,18 +128,17 @@ def _notification_texts(events: list[StreamEvent]) -> list[str]:
     return [event.text for event in events if isinstance(event, SystemNotification)]
 
 
-async def test_codeact_schema_describes_command_and_code_modes():
-    schema = daytona_codeact.to_api_schema()
+async def test_shell_schema_describes_command():
+    schema = daytona_shell.to_api_schema()
     description = schema["description"]
-    code_desc = schema["input_schema"]["properties"]["code"]["description"]
-    command_desc = schema["input_schema"]["properties"]["command"]["description"]
+    properties = schema["input_schema"]["properties"]
+    command_desc = properties["command"]["description"]
 
-    assert "never shell commands such as `python -m pytest ...`" in description
-    assert "sandbox repo root" in description
+    assert "code" not in properties
+    assert "mode" not in properties
+    assert "Run a shell command in the Daytona sandbox" in description
     assert "host paths like `/Users/...`" in description
     assert "Output is captured automatically" in description
-    assert "Python source only" in code_desc
-    assert "Do not pass shell commands such as `python -m pytest tests -q`" in code_desc
     assert "Shell command to run from the repo root" in command_desc
     assert "Do not prefix with host paths like /Users/..." in command_desc
     assert "Output is captured automatically" in command_desc
@@ -246,7 +245,7 @@ async def test_read_file_allows_benchmark_test_files_after_repro():
             "agent_name": "developer",
             "benchmark_test_ids": ["tests/unit/command/test_update.py::test_update"],
             "benchmark_test_files": ["tests/unit/command/test_update.py"],
-            "_daytona_codeact_calls": 1,
+            "_daytona_shell_calls": 1,
         }
     )
 
@@ -311,7 +310,7 @@ async def test_read_file_allows_production_reads_after_repro():
             "agent_name": "developer",
             "benchmark_test_ids": ["tests/unit/command/test_update.py::test_update"],
             "benchmark_test_files": ["tests/unit/command/test_update.py"],
-            "_daytona_codeact_calls": 1,
+            "_daytona_shell_calls": 1,
         }
     )
 

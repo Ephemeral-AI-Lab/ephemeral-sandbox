@@ -54,7 +54,7 @@ def test_schema_summary_prints_live_input_and_output_models(tmp_path):
     assert "      - task_id: str [required]" in summary
 
     assert "Toolkit: submission" in summary
-    assert "  submit_task_summary\n" in summary
+    assert "  submit_task_success\n" in summary
     assert "      - type: \"success\" | \"request_replan\" [required]" in summary
 
 

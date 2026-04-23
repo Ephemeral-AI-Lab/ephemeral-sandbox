@@ -479,8 +479,8 @@ def _team_repo_write_error(
         f"BLOCKED_TEST_FILE_EDIT: {tool_name} cannot modify test file {rel_path} "
         "in coordinated team lanes. Test files are read/verify-only evidence; "
         "fix the production owner instead. If this task genuinely requires a "
-        "test-file change, stop and submit_task_summary(type='request_replan', "
-        "content='test-file edit required: ...') so replanning can choose a production "
+        "test-file change, stop and request_replan("
+        "reason='test-file edit required: ...') so replanning can choose a production "
         "owner, surface a tool-policy issue, or route to a runtime-authorized test-edit lane."
     )
 
@@ -532,7 +532,7 @@ def _team_repo_write_warning(
     return (
         f"{tool_name}: write to {rel_path} is outside write_scope {write_scope} (advisory). "
         "Existing files outside scope are not an authorized edit surface for this task. "
-        "Stop editing and submit_task_summary(type='request_replan') with trigger scope_expansion, "
+        "Stop editing and request_replan() with trigger scope_expansion, "
         "including this path and the command or diagnostic that proved it was needed. "
         "Only a new production file created through daytona_write_file may extend scope, and only when the posthook approves it."
     )
@@ -597,8 +597,7 @@ def _scope_deny_message(
     lines = "\n  - ".join(f"{path}: {msg}" for path, msg in offenders)
     return (
         f"{header}:\n  - {lines}\n"
-        "Stop now: your next tool call must be "
-        "submit_task_summary(type='request_replan')."
+        "Stop now: your next tool call must be request_replan()."
     )
 
 

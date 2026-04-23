@@ -1,4 +1,4 @@
-"""Live load tests for mixed concurrent Daytona writes, edits, and CodeAct.
+"""Live load tests for mixed concurrent Daytona writes, edits, and daytona_shell.
 
 This suite runs real tool calls against one live sandbox and one shared CI
 service so audited process behavior is exercised under mixed contention:
@@ -9,7 +9,7 @@ service so audited process behavior is exercised under mixed contention:
    - overlapping same-line edits across a few files.
 3. Concurrent ``daytona_rename_symbol`` calls on unique symbols.
 4. Concurrent ``daytona_move_file`` and ``daytona_delete_file`` calls.
-5. Concurrent coordinated ``daytona_codeact`` shell commands on unique files.
+5. Concurrent coordinated ``daytona_shell`` shell commands on unique files.
 
 The test verifies:
 - successful writes are persisted,
@@ -57,8 +57,8 @@ from code_intelligence.routing import command_executor as command_executor_modul
 from code_intelligence.routing import overlay_auditor as overlay_auditor_module
 from code_intelligence.routing import overlay_command_committer as overlay_committer_module
 from code_intelligence.routing import service as ci_service_module
-import tools.daytona_toolkit.codeact_tool as codeact_tool_module
-from tools.daytona_toolkit.codeact_tool import daytona_codeact
+import tools.daytona_toolkit.shell_tool as shell_tool_module
+from tools.daytona_toolkit.shell_tool import daytona_shell
 from tools.daytona_toolkit.delete_move_tool import (
     daytona_delete_file,
     daytona_move_file,
@@ -242,14 +242,12 @@ async def _invoke_tool(tool: Any, kwargs: dict[str, Any], ctx: ToolExecutionCont
     return await tool.execute(tool.input_model(**kwargs), ctx)
 
 
-def _install_codeact_phase_probe(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[float]]:
+def _install_shell_phase_probe(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[float]]:
     stats: dict[str, list[float]] = {
         "shell_exec_s": [],
-        "python_wrapper_s": [],
     }
 
-    original_shell = codeact_tool_module._run_shell_with_recovery
-    original_python = codeact_tool_module._execute_python_wrapper
+    original_shell = shell_tool_module._run_shell_with_recovery
 
     async def _timed_shell(*args, **kwargs):
         started = time.perf_counter()
@@ -258,15 +256,7 @@ def _install_codeact_phase_probe(monkeypatch: pytest.MonkeyPatch) -> dict[str, l
         finally:
             stats["shell_exec_s"].append(round(time.perf_counter() - started, 6))
 
-    async def _timed_python(*args, **kwargs):
-        started = time.perf_counter()
-        try:
-            return await original_python(*args, **kwargs)
-        finally:
-            stats["python_wrapper_s"].append(round(time.perf_counter() - started, 6))
-
-    monkeypatch.setattr(codeact_tool_module, "_run_shell_with_recovery", _timed_shell)
-    monkeypatch.setattr(codeact_tool_module, "_execute_python_wrapper", _timed_python)
+    monkeypatch.setattr(shell_tool_module, "_run_shell_with_recovery", _timed_shell)
     return stats
 
 
@@ -604,7 +594,7 @@ def _install_rename_phase_probe(monkeypatch: pytest.MonkeyPatch) -> dict[str, li
 
 
 def _install_svc_cmd_phase_probe(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[float]]:
-    """Probe the sub-phases of ``CodeIntelligenceService.cmd`` for codeact.
+    """Probe the sub-phases of ``CodeIntelligenceService.cmd`` for shell.
 
     This probe measures service-level cost around the overlay auditor
     and samples an in-flight gauge on entry to tell single-call cost from
@@ -781,7 +771,7 @@ def _install_content_phase_probe(monkeypatch: pytest.MonkeyPatch) -> dict[str, l
 
 
 def _install_commit_phase_probe(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[float]]:
-    """Probe WriteCoordinator phases across all typed and CodeAct commits.
+    """Probe WriteCoordinator phases across all typed and daytona_shell commits.
 
     Records per-call timings + a shared in-flight concurrency gauge so the
     summary can show (a) how apply-pass time decomposes (snapshot / remote
@@ -1171,8 +1161,8 @@ def _log_occ_event(label: str, payload: dict[str, Any]) -> None:
 def _tool_for_operation_kind(kind: str) -> Any:
     if kind == "write":
         return daytona_write_file
-    if kind == "codeact":
-        return daytona_codeact
+    if kind == "shell":
+        return daytona_shell
     if kind in {"edit-disjoint", "edit-overlap", "edit"}:
         return daytona_edit_file
     if kind == "rename":
@@ -1257,7 +1247,7 @@ def test_live_occ_load_72_all_mutators_high_concurrency_profile(
     This intentionally uses disjoint files/symbols so failures point to
     transport, snapshot, locking, or routing regressions rather than expected
     write conflicts. It exercises write, edit, rename, move, delete, and
-    coordinated CodeAct against one shared ``CodeIntelligenceService``.
+    coordinated daytona_shell against one shared ``CodeIntelligenceService``.
     """
     log_label = "occ-load-72-all-mutators-high-concurrency"
     _log_occ_event(
@@ -1271,7 +1261,7 @@ def test_live_occ_load_72_all_mutators_high_concurrency_profile(
         },
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     lsp_stats = _install_lsp_phase_probe(monkeypatch)
     rename_stats = _install_rename_phase_probe(monkeypatch)
@@ -1303,7 +1293,7 @@ def test_live_occ_load_72_all_mutators_high_concurrency_profile(
         )
         live_load_env.write_text(f"moves/src_{idx}.txt", f"move source {idx}\n")
         live_load_env.write_text(f"deletes/delete_{idx}.txt", f"delete target {idx}\n")
-        live_load_env.write_text(f"codeact/high_{idx}.txt", f"codeact base {idx}\n")
+        live_load_env.write_text(f"shell/high_{idx}.txt", f"shell base {idx}\n")
     _log_occ_event(
         log_label,
         {
@@ -1404,15 +1394,15 @@ def test_live_occ_load_72_all_mutators_high_concurrency_profile(
                     },
                 },
                 {
-                    "kind": "codeact",
-                    "name": f"codeact-{idx}",
-                    "path": f"{live_load_env.repo_root}/codeact/high_{idx}.txt",
+                    "kind": "shell",
+                    "name": f"shell-{idx}",
+                    "path": f"{live_load_env.repo_root}/shell/high_{idx}.txt",
                     "kwargs": {
                         "mode": "shell",
                         "command": (
                             "python3 - <<'PY'\n"
                             "from pathlib import Path\n"
-                            f"Path('codeact/high_{idx}.txt').write_text('codeact high {idx}\\n', encoding='utf-8')\n"
+                            f"Path('shell/high_{idx}.txt').write_text('shell high {idx}\\n', encoding='utf-8')\n"
                             "PY"
                         ),
                         "timeout": 180,
@@ -1471,7 +1461,7 @@ def test_live_occ_load_72_all_mutators_high_concurrency_profile(
             results,
             wall_elapsed_s=wall_elapsed_s,
         ),
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "lsp_phase_s": _phase_summary(lsp_stats),
         "rename_phase_s": _phase_summary(rename_stats),
@@ -1547,20 +1537,20 @@ def test_live_occ_load_72_all_mutators_high_concurrency_profile(
             timeout=30,
         )
 
-        assert live_load_env.read_text(f"codeact/high_{idx}.txt") == f"codeact high {idx}\n"
+        assert live_load_env.read_text(f"shell/high_{idx}.txt") == f"shell high {idx}\n"
 
     assert svc.status()["arbiter"]["total_edits"] >= len(operations)
 
 
 @pytest.mark.parametrize("op_count", [10, 20, 30, 40, 50])
-def test_live_occ_load_codeact_only_high_concurrency_profile(
+def test_live_occ_load_shell_only_high_concurrency_profile(
     live_load_env: LiveLoadEnv,
     monkeypatch: pytest.MonkeyPatch,
     op_count: int,
 ):
-    """High-concurrency CodeAct-only load against unique tracked files."""
+    """High-concurrency daytona_shell-only load against unique tracked files."""
     _set_live_load_overlay_concurrency(monkeypatch)
-    log_label = f"occ-load-{op_count}-codeact-only-high-concurrency"
+    log_label = f"occ-load-{op_count}-shell-only-high-concurrency"
     _log_occ_event(
         log_label,
         {
@@ -1573,7 +1563,7 @@ def test_live_occ_load_codeact_only_high_concurrency_profile(
         },
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     content_stats = _install_content_phase_probe(monkeypatch)
     commit_stats = _install_commit_phase_probe(monkeypatch)
@@ -1581,11 +1571,11 @@ def test_live_occ_load_codeact_only_high_concurrency_profile(
     executor_depth_stats: dict[str, list[float]] = {}
 
     for idx in range(op_count):
-        live_load_env.write_text(f"codeact/only_{idx}.txt", f"base {idx}\n")
+        live_load_env.write_text(f"shell/only_{idx}.txt", f"base {idx}\n")
 
     live_load_env.exec_checked(f"git -C {shlex.quote(live_load_env.repo_root)} add -A")
     live_load_env.exec_checked(
-        f"git -C {shlex.quote(live_load_env.repo_root)} commit -m seed-codeact-only-load",
+        f"git -C {shlex.quote(live_load_env.repo_root)} commit -m seed-shell-only-load",
         timeout=180,
     )
 
@@ -1594,15 +1584,15 @@ def test_live_occ_load_codeact_only_high_concurrency_profile(
 
     operations = [
         {
-            "kind": "codeact",
-            "name": f"codeact-{idx}",
-            "path": f"{live_load_env.repo_root}/codeact/only_{idx}.txt",
+            "kind": "shell",
+            "name": f"shell-{idx}",
+            "path": f"{live_load_env.repo_root}/shell/only_{idx}.txt",
             "kwargs": {
                 "mode": "shell",
                 "command": (
                     "python3 - <<'PY'\n"
                     "from pathlib import Path\n"
-                    f"Path('codeact/only_{idx}.txt').write_text('codeact only {idx}\\n', encoding='utf-8')\n"
+                    f"Path('shell/only_{idx}.txt').write_text('shell only {idx}\\n', encoding='utf-8')\n"
                     "PY"
                 ),
                 "timeout": 180,
@@ -1641,16 +1631,16 @@ def test_live_occ_load_codeact_only_high_concurrency_profile(
         if item["is_error"]
     ]
     summary = {
-        "operation_counts": {"codeact": len(results)},
+        "operation_counts": {"shell": len(results)},
         "success_counts": {
-            "codeact": sum(not item["is_error"] for item in results),
+            "shell": sum(not item["is_error"] for item in results),
         },
-        "elapsed_profile_s": {"codeact": _elapsed_profile(results)},
+        "elapsed_profile_s": {"shell": _elapsed_profile(results)},
         "timing": _operation_timing_summary(
             results,
             wall_elapsed_s=wall_elapsed_s,
         ),
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "content_phase_s": _phase_summary(content_stats),
         "commit_phase_s": _phase_summary(commit_stats),
@@ -1684,7 +1674,7 @@ def test_live_occ_load_codeact_only_high_concurrency_profile(
     print(json.dumps(summary, indent=2, sort_keys=True), flush=True)
 
     assert not failures, json.dumps(failures, indent=2, sort_keys=True)
-    assert summary["success_counts"]["codeact"] == op_count
+    assert summary["success_counts"]["shell"] == op_count
     assert summary["timing"]["parallelism_ratio"] >= 4.0, summary["timing"]
     assert svc.arbiter.active_lock_count == 0
     assert svc.status()["arbiter"]["conflicts_detected"] == 0
@@ -1706,22 +1696,22 @@ def test_live_occ_load_codeact_only_high_concurrency_profile(
     }
 
     for idx in range(op_count):
-        assert live_load_env.read_text(f"codeact/only_{idx}.txt") == (
-            f"codeact only {idx}\n"
+        assert live_load_env.read_text(f"shell/only_{idx}.txt") == (
+            f"shell only {idx}\n"
         )
 
     assert svc.status()["arbiter"]["total_edits"] >= op_count
 
 
 @pytest.mark.parametrize("op_count", [20, 50])
-def test_live_occ_load_codeact_gitignore_only_high_concurrency_profile(
+def test_live_occ_load_shell_gitignore_only_high_concurrency_profile(
     live_load_env: LiveLoadEnv,
     monkeypatch: pytest.MonkeyPatch,
     op_count: int,
 ):
-    """High-concurrency CodeAct-only load against ignored files."""
+    """High-concurrency daytona_shell-only load against ignored files."""
     _set_live_load_overlay_concurrency(monkeypatch)
-    log_label = f"occ-load-{op_count}-codeact-gitignore-only-high-concurrency"
+    log_label = f"occ-load-{op_count}-shell-gitignore-only-high-concurrency"
     _log_occ_event(
         log_label,
         {
@@ -1734,7 +1724,7 @@ def test_live_occ_load_codeact_gitignore_only_high_concurrency_profile(
         },
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     content_stats = _install_content_phase_probe(monkeypatch)
     commit_stats = _install_commit_phase_probe(monkeypatch)
@@ -1745,7 +1735,7 @@ def test_live_occ_load_codeact_gitignore_only_high_concurrency_profile(
     live_load_env.write_text("README.md", "seed\n")
     live_load_env.exec_checked(f"git -C {shlex.quote(live_load_env.repo_root)} add -A")
     live_load_env.exec_checked(
-        f"git -C {shlex.quote(live_load_env.repo_root)} commit -m seed-codeact-ignored-load",
+        f"git -C {shlex.quote(live_load_env.repo_root)} commit -m seed-shell-ignored-load",
         timeout=180,
     )
 
@@ -1754,8 +1744,8 @@ def test_live_occ_load_codeact_gitignore_only_high_concurrency_profile(
 
     operations = [
         {
-            "kind": "codeact",
-            "name": f"codeact-ignored-{idx}",
+            "kind": "shell",
+            "name": f"shell-ignored-{idx}",
             "path": f"{live_load_env.repo_root}/runtime/only_{idx}.txt",
             "kwargs": {
                 "mode": "shell",
@@ -1763,7 +1753,7 @@ def test_live_occ_load_codeact_gitignore_only_high_concurrency_profile(
                     "python3 - <<'PY'\n"
                     "from pathlib import Path\n"
                     "Path('runtime').mkdir(exist_ok=True)\n"
-                    f"Path('runtime/only_{idx}.txt').write_text('ignored codeact {idx}\\n', encoding='utf-8')\n"
+                    f"Path('runtime/only_{idx}.txt').write_text('ignored shell {idx}\\n', encoding='utf-8')\n"
                     "PY"
                 ),
                 "timeout": 180,
@@ -1808,16 +1798,16 @@ def test_live_occ_load_codeact_gitignore_only_high_concurrency_profile(
         timeout=30,
     )
     summary = {
-        "operation_counts": {"codeact": len(results)},
+        "operation_counts": {"shell": len(results)},
         "success_counts": {
-            "codeact": sum(not item["is_error"] for item in results),
+            "shell": sum(not item["is_error"] for item in results),
         },
-        "elapsed_profile_s": {"codeact": _elapsed_profile(results)},
+        "elapsed_profile_s": {"shell": _elapsed_profile(results)},
         "timing": _operation_timing_summary(
             results,
             wall_elapsed_s=wall_elapsed_s,
         ),
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "content_phase_s": _phase_summary(content_stats),
         "commit_phase_s": _phase_summary(commit_stats),
@@ -1853,7 +1843,7 @@ def test_live_occ_load_codeact_gitignore_only_high_concurrency_profile(
     print(json.dumps(summary, indent=2, sort_keys=True), flush=True)
 
     assert not failures, json.dumps(failures, indent=2, sort_keys=True)
-    assert summary["success_counts"]["codeact"] == op_count
+    assert summary["success_counts"]["shell"] == op_count
     assert svc.arbiter.active_lock_count == 0
     assert svc.status()["arbiter"]["conflicts_detected"] == 0
     assert {
@@ -1877,7 +1867,7 @@ def test_live_occ_load_codeact_gitignore_only_high_concurrency_profile(
 
     for idx in range(op_count):
         assert live_load_env.read_text(f"runtime/only_{idx}.txt") == (
-            f"ignored codeact {idx}\n"
+            f"ignored shell {idx}\n"
         )
 
 
@@ -1896,7 +1886,7 @@ def test_live_occ_load_50_mixed_operations(
         },
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     lsp_stats = _install_lsp_phase_probe(monkeypatch)
     content_stats = _install_content_phase_probe(monkeypatch)
@@ -1917,7 +1907,7 @@ def test_live_occ_load_50_mixed_operations(
             '"""Overlap target."""\n\nSHARED = 0\n',
         )
 
-    # Seed CodeAct unique targets: 4 independent command writes.
+    # Seed daytona_shell unique targets: 4 independent command writes.
     for idx in range(4):
         live_load_env.write_text(f"tx/unique_{idx}.txt", "base\n")
 
@@ -1985,20 +1975,20 @@ def test_live_occ_load_50_mixed_operations(
                 }
             )
 
-    # 4 coordinated CodeAct shell commands on unique files.
+    # 4 coordinated daytona_shell shell commands on unique files.
     for idx in range(4):
         rel_path = f"tx/unique_{idx}.txt"
         operations.append(
             {
-                "kind": "codeact",
-                "name": f"codeact-{idx}",
+                "kind": "shell",
+                "name": f"shell-{idx}",
                 "path": f"{live_load_env.repo_root}/{rel_path}",
                 "kwargs": {
                     "mode": "shell",
                     "command": (
                         "python3 - <<'PY'\n"
                         "from pathlib import Path\n"
-                        f"Path({rel_path!r}).write_text('codeact {idx}\\n', encoding='utf-8')\n"
+                        f"Path({rel_path!r}).write_text('shell {idx}\\n', encoding='utf-8')\n"
                         "PY"
                     ),
                     "timeout": 120,
@@ -2026,7 +2016,7 @@ def test_live_occ_load_50_mixed_operations(
     write_results = [item for item in results if item["kind"] == "write"]
     disjoint_results = [item for item in results if item["kind"] == "edit-disjoint"]
     overlap_results = [item for item in results if item["kind"] == "edit-overlap"]
-    codeact_results = [item for item in results if item["kind"] == "codeact"]
+    shell_results = [item for item in results if item["kind"] == "shell"]
 
     write_successes = sum(not item["is_error"] for item in write_results)
     disjoint_successes = sum(not item["is_error"] for item in disjoint_results)
@@ -2035,7 +2025,7 @@ def test_live_occ_load_50_mixed_operations(
         bool(item["metadata"].get("conflict")) or bool(item["payload"].get("conflict"))
         for item in overlap_results
     )
-    codeact_successes = sum(not item["is_error"] for item in codeact_results)
+    shell_successes = sum(not item["is_error"] for item in shell_results)
 
     arbiter_status = svc.status()["arbiter"]
     scope_status = svc.scope_status([live_load_env.repo_root])
@@ -2064,7 +2054,7 @@ def test_live_occ_load_50_mixed_operations(
                 "overlap_successes": overlap_successes,
                 "overlap_conflicts": overlap_conflicts,
                 "overlap_persisted_winners": overlap_persisted_winners,
-                "codeact_successes": codeact_successes,
+                "shell_successes": shell_successes,
                 "elapsed_profile_s": {
                     kind: _elapsed_profile(items)
                     for kind, items in sorted(by_kind.items())
@@ -2073,7 +2063,7 @@ def test_live_occ_load_50_mixed_operations(
                     results,
                     wall_elapsed_s=wall_elapsed_s,
                 ),
-                "codeact_phase_s": _phase_summary(codeact_stats),
+                "shell_phase_s": _phase_summary(shell_stats),
                 "overlay_phase_s": _phase_summary(overlay_stats),
                 "lsp_phase_s": _phase_summary(lsp_stats),
                 "content_phase_s": _phase_summary(content_stats),
@@ -2089,8 +2079,8 @@ def test_live_occ_load_50_mixed_operations(
     # Writes should all succeed because they target unique files.
     assert write_successes == 25
 
-    # CodeAct targets unique files too; these should all run and audit cleanly.
-    assert codeact_successes == 4
+    # daytona_shell targets unique files too; these should all run and audit cleanly.
+    assert shell_successes == 4
 
     # Disjoint edits should mostly land. Allow a small amount of live contention noise.
     assert disjoint_successes >= 12
@@ -2105,11 +2095,11 @@ def test_live_occ_load_50_mixed_operations(
     for idx in range(25):
         assert live_load_env.read_text(f"writes/write_{idx}.txt") == f"write {idx}\n"
     for idx in range(4):
-        assert live_load_env.read_text(f"tx/unique_{idx}.txt") == f"codeact {idx}\n"
+        assert live_load_env.read_text(f"tx/unique_{idx}.txt") == f"shell {idx}\n"
 
     # Audit ledger sanity. conflicts_detected is currently not wired up, so use
     # result-level conflict tallies plus arbiter totals/hotspots here.
-    expected_min_edits = write_successes + codeact_successes + disjoint_successes
+    expected_min_edits = write_successes + shell_successes + disjoint_successes
     assert arbiter_status["total_edits"] >= expected_min_edits
     assert arbiter_status["active_locks"] >= 0
     assert arbiter_status["conflicts_detected"] >= 0
@@ -2127,7 +2117,7 @@ def test_live_occ_load_20_non_overlapping_operations_profile(
         {"event": "setup", "phase": "init_repo", "sandbox_id": live_load_env.sandbox_id},
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     lsp_stats = _install_lsp_phase_probe(monkeypatch)
     content_stats = _install_content_phase_probe(monkeypatch)
@@ -2307,15 +2297,15 @@ def test_live_occ_load_20_non_overlapping_operations_profile(
             "coordinated": False,
         },
         {
-            "kind": "codeact",
-            "name": "codeact-0",
+            "kind": "shell",
+            "name": "shell-0",
             "path": f"{live_load_env.repo_root}/tx/small_0.txt",
             "kwargs": {
                 "mode": "shell",
                 "command": (
                     "python3 - <<'PY'\n"
                     "from pathlib import Path\n"
-                    "Path('tx/small_0.txt').write_text('codeact 0\\n', encoding='utf-8')\n"
+                    "Path('tx/small_0.txt').write_text('shell 0\\n', encoding='utf-8')\n"
                     "PY"
                 ),
                 "timeout": 120,
@@ -2323,15 +2313,15 @@ def test_live_occ_load_20_non_overlapping_operations_profile(
             "coordinated": True,
         },
         {
-            "kind": "codeact",
-            "name": "codeact-1",
+            "kind": "shell",
+            "name": "shell-1",
             "path": f"{live_load_env.repo_root}/tx/small_1.txt",
             "kwargs": {
                 "mode": "shell",
                 "command": (
                     "python3 - <<'PY'\n"
                     "from pathlib import Path\n"
-                    "Path('tx/small_1.txt').write_text('codeact 1\\n', encoding='utf-8')\n"
+                    "Path('tx/small_1.txt').write_text('shell 1\\n', encoding='utf-8')\n"
                     "PY"
                 ),
                 "timeout": 120,
@@ -2339,15 +2329,15 @@ def test_live_occ_load_20_non_overlapping_operations_profile(
             "coordinated": True,
         },
         {
-            "kind": "codeact",
-            "name": "codeact-2",
+            "kind": "shell",
+            "name": "shell-2",
             "path": f"{live_load_env.repo_root}/tx/small_2.txt",
             "kwargs": {
                 "mode": "shell",
                 "command": (
                     "python3 - <<'PY'\n"
                     "from pathlib import Path\n"
-                    "Path('tx/small_2.txt').write_text('codeact 2\\n', encoding='utf-8')\n"
+                    "Path('tx/small_2.txt').write_text('shell 2\\n', encoding='utf-8')\n"
                     "PY"
                 ),
                 "timeout": 120,
@@ -2355,15 +2345,15 @@ def test_live_occ_load_20_non_overlapping_operations_profile(
             "coordinated": True,
         },
         {
-            "kind": "codeact",
-            "name": "codeact-3",
+            "kind": "shell",
+            "name": "shell-3",
             "path": f"{live_load_env.repo_root}/tx/small_3.txt",
             "kwargs": {
                 "mode": "shell",
                 "command": (
                     "python3 - <<'PY'\n"
                     "from pathlib import Path\n"
-                    "Path('tx/small_3.txt').write_text('codeact 3\\n', encoding='utf-8')\n"
+                    "Path('tx/small_3.txt').write_text('shell 3\\n', encoding='utf-8')\n"
                     "PY"
                 ),
                 "timeout": 120,
@@ -2432,7 +2422,7 @@ def test_live_occ_load_20_non_overlapping_operations_profile(
             for item in by_kind.get("edit-disjoint", [])
             if item["payload"].get("timings")
         ],
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "lsp_phase_s": _phase_summary(lsp_stats),
         "content_phase_s": _phase_summary(content_stats),
@@ -2445,7 +2435,7 @@ def test_live_occ_load_20_non_overlapping_operations_profile(
 
     assert len(operations) == 20
     assert sum(not item["is_error"] for item in by_kind["write"]) == 6
-    assert sum(not item["is_error"] for item in by_kind["codeact"]) == 4
+    assert sum(not item["is_error"] for item in by_kind["shell"]) == 4
     assert sum(not item["is_error"] for item in by_kind["edit-disjoint"]) >= 8
     assert summary["timing"]["parallelism_ratio"] >= 3.0, summary["timing"]
 
@@ -2461,7 +2451,7 @@ def test_live_occ_load_30_non_overlapping_operations_profile(
         {"event": "setup", "phase": "init_repo", "sandbox_id": live_load_env.sandbox_id},
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     lsp_stats = _install_lsp_phase_probe(monkeypatch)
     content_stats = _install_content_phase_probe(monkeypatch)
@@ -2530,15 +2520,15 @@ def test_live_occ_load_30_non_overlapping_operations_profile(
     for idx in range(6):
         operations.append(
             {
-                "kind": "codeact",
-                "name": f"codeact-{idx}",
+                "kind": "shell",
+                "name": f"shell-{idx}",
                 "path": f"{live_load_env.repo_root}/tx/medium_{idx}.txt",
                 "kwargs": {
                     "mode": "shell",
                     "command": (
                         "python3 - <<'PY'\n"
                         "from pathlib import Path\n"
-                        f"Path('tx/medium_{idx}.txt').write_text('codeact {idx}\\n', encoding='utf-8')\n"
+                        f"Path('tx/medium_{idx}.txt').write_text('shell {idx}\\n', encoding='utf-8')\n"
                         "PY"
                     ),
                     "timeout": 120,
@@ -2587,7 +2577,7 @@ def test_live_occ_load_30_non_overlapping_operations_profile(
             for item in by_kind.get("edit-disjoint", [])
             if item["payload"].get("timings")
         ],
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "lsp_phase_s": _phase_summary(lsp_stats),
         "content_phase_s": _phase_summary(content_stats),
@@ -2600,7 +2590,7 @@ def test_live_occ_load_30_non_overlapping_operations_profile(
 
     assert len(operations) == 30
     assert sum(not item["is_error"] for item in by_kind["write"]) == 9
-    assert sum(not item["is_error"] for item in by_kind["codeact"]) == 6
+    assert sum(not item["is_error"] for item in by_kind["shell"]) == 6
     assert sum(not item["is_error"] for item in by_kind["edit-disjoint"]) >= 12
 
 
@@ -2615,7 +2605,7 @@ def test_live_occ_load_50_non_overlapping_operations_profile(
         {"event": "setup", "phase": "init_repo", "sandbox_id": live_load_env.sandbox_id},
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     lsp_stats = _install_lsp_phase_probe(monkeypatch)
     content_stats = _install_content_phase_probe(monkeypatch)
@@ -2684,15 +2674,15 @@ def test_live_occ_load_50_non_overlapping_operations_profile(
     for idx in range(10):
         operations.append(
             {
-                "kind": "codeact",
-                "name": f"codeact-{idx}",
+                "kind": "shell",
+                "name": f"shell-{idx}",
                 "path": f"{live_load_env.repo_root}/tx/large_{idx}.txt",
                 "kwargs": {
                     "mode": "shell",
                     "command": (
                         "python3 - <<'PY'\n"
                         "from pathlib import Path\n"
-                        f"Path('tx/large_{idx}.txt').write_text('codeact {idx}\\n', encoding='utf-8')\n"
+                        f"Path('tx/large_{idx}.txt').write_text('shell {idx}\\n', encoding='utf-8')\n"
                         "PY"
                     ),
                     "timeout": 120,
@@ -2741,7 +2731,7 @@ def test_live_occ_load_50_non_overlapping_operations_profile(
             for item in by_kind.get("edit-disjoint", [])
             if item["payload"].get("timings")
         ],
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "lsp_phase_s": _phase_summary(lsp_stats),
         "content_phase_s": _phase_summary(content_stats),
@@ -2754,7 +2744,7 @@ def test_live_occ_load_50_non_overlapping_operations_profile(
 
     assert len(operations) == 50
     assert sum(not item["is_error"] for item in by_kind["write"]) == 15
-    assert sum(not item["is_error"] for item in by_kind["codeact"]) == 10
+    assert sum(not item["is_error"] for item in by_kind["shell"]) == 10
     assert sum(not item["is_error"] for item in by_kind["edit-disjoint"]) >= 20
 
 
@@ -2762,7 +2752,7 @@ def test_live_occ_load_svc_cmd_overlay_amortization(
     live_load_env: LiveLoadEnv,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """svc.cmd / codeact repeated calls must keep overlay setup bounded.
+    """svc.cmd / shell repeated calls must keep overlay setup bounded.
 
     This is the performance claim for the overlay auditor: repeated calls on
     the same sandbox should avoid expensive one-time setup and keep per-call
@@ -2779,7 +2769,7 @@ def test_live_occ_load_svc_cmd_overlay_amortization(
         {"event": "setup", "phase": "init_repo", "sandbox_id": live_load_env.sandbox_id},
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     live_load_env.write_text("shared/counter.txt", "v0\n")
     live_load_env.exec_checked(f"git -C {shlex.quote(live_load_env.repo_root)} add -A")
@@ -2790,7 +2780,7 @@ def test_live_occ_load_svc_cmd_overlay_amortization(
 
     svc = live_load_env.make_ci_service()
 
-    async def _invoke_codeact(label: str, target_value: str) -> dict[str, Any]:
+    async def _invoke_shell(label: str, target_value: str) -> dict[str, Any]:
         ctx = live_load_env.make_ctx(
             svc,
             agent_run_id=f"{label}-{uuid.uuid4().hex[:8]}",
@@ -2808,15 +2798,15 @@ def test_live_occ_load_svc_cmd_overlay_amortization(
         }
         _log_occ_event(
             log_label,
-            {"event": "codeact_start", "label": label, "target_value": target_value},
+            {"event": "shell_start", "label": label, "target_value": target_value},
         )
         started = time.perf_counter()
-        result = await _invoke_tool(daytona_codeact, kwargs, ctx)
+        result = await _invoke_tool(daytona_shell, kwargs, ctx)
         elapsed_s = round(time.perf_counter() - started, 6)
         _log_occ_event(
             log_label,
             {
-                "event": "codeact_finish",
+                "event": "shell_finish",
                 "label": label,
                 "is_error": result.is_error,
                 "elapsed_s": elapsed_s,
@@ -2826,9 +2816,9 @@ def test_live_occ_load_svc_cmd_overlay_amortization(
                     for phase, values in overlay_stats.items()
                     if values
                 },
-                "codeact_phase_snapshot_s": {
+                "shell_phase_snapshot_s": {
                     phase: round(values[-1], 6)
-                    for phase, values in codeact_stats.items()
+                    for phase, values in shell_stats.items()
                     if values
                 },
             },
@@ -2854,10 +2844,10 @@ def test_live_occ_load_svc_cmd_overlay_amortization(
     async def _scenario() -> list[dict[str, Any]]:
         results = []
         # Cold start: first svc.cmd pays overlay setup cost.
-        results.append(await _invoke_codeact("cold", "cold-0"))
+        results.append(await _invoke_shell("cold", "cold-0"))
         # Steady-state: 5 sequential calls exercise the bounded overlay path.
         for i in range(5):
-            results.append(await _invoke_codeact(f"steady-{i}", f"steady-{i}"))
+            results.append(await _invoke_shell(f"steady-{i}", f"steady-{i}"))
         return results
 
     started = time.perf_counter()
@@ -2892,7 +2882,7 @@ def test_live_occ_load_svc_cmd_overlay_amortization(
                 ),
                 "final_content": final_content,
                 "arbiter": arbiter_status,
-                "codeact_phase_s": _phase_summary(codeact_stats),
+                "shell_phase_s": _phase_summary(shell_stats),
                 "overlay_phase_s": _phase_summary(overlay_stats),
                 "per_call": [
                     {
@@ -2939,7 +2929,7 @@ def test_live_occ_load_svc_cmd_overlay_amortization(
         f"{cold['elapsed_s']:.3f}s."
     )
 
-    # Arbiter ledger must reflect 6 codeact-side commits (one per svc.cmd).
+    # Arbiter ledger must reflect 6 shell-side commits (one per svc.cmd).
     assert arbiter_status["total_edits"] >= 6, arbiter_status
 
 
@@ -2970,7 +2960,7 @@ def test_live_occ_load_sequential_per_op_baseline(
         },
     )
     live_load_env.init_repo()
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     lsp_stats = _install_lsp_phase_probe(monkeypatch)
     content_stats = _install_content_phase_probe(monkeypatch)
@@ -2994,7 +2984,7 @@ def test_live_occ_load_sequential_per_op_baseline(
         )
         live_load_env.write_text(f"moves/src_{idx}.txt", f"src {idx}\n")
         live_load_env.write_text(f"deletes/del_{idx}.txt", f"del {idx}\n")
-        live_load_env.write_text(f"codeact/ca_{idx}.txt", f"base {idx}\n")
+        live_load_env.write_text(f"shell/ca_{idx}.txt", f"base {idx}\n")
 
     live_load_env.exec_checked(f"git -C {shlex.quote(live_load_env.repo_root)} add -A")
     live_load_env.exec_checked(
@@ -3092,14 +3082,14 @@ def test_live_occ_load_sequential_per_op_baseline(
                 coordinated=False,
             )
             await _run_single(
-                "codeact",
-                f"codeact-{idx}",
+                "shell",
+                f"shell-{idx}",
                 {
                     "mode": "shell",
                     "command": (
                         "python3 - <<'PY'\n"
                         "from pathlib import Path\n"
-                        f"Path('codeact/ca_{idx}.txt').write_text('codeact {idx}\\n', encoding='utf-8')\n"
+                        f"Path('shell/ca_{idx}.txt').write_text('shell {idx}\\n', encoding='utf-8')\n"
                         "PY"
                     ),
                     "timeout": 120,
@@ -3130,7 +3120,7 @@ def test_live_occ_load_sequential_per_op_baseline(
             kind: round(times[0], 6)
             for kind, times in sorted(timings_by_kind.items())
         },
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "lsp_phase_s": _phase_summary(lsp_stats),
         "content_phase_s": _phase_summary(content_stats),
@@ -3141,7 +3131,7 @@ def test_live_occ_load_sequential_per_op_baseline(
     print(f"\n[{log_label}]")
     print(json.dumps(summary, indent=2, sort_keys=True))
 
-    expected_kinds = {"write", "edit-disjoint", "rename", "move", "delete", "codeact"}
+    expected_kinds = {"write", "edit-disjoint", "rename", "move", "delete", "shell"}
     assert set(timings_by_kind.keys()) == expected_kinds, timings_by_kind.keys()
     for kind, times in timings_by_kind.items():
         assert len(times) == N, (kind, times)
@@ -3159,7 +3149,7 @@ def test_live_occ_load_sequential_per_op_baseline(
         assert f"def renamed_{idx}(x):" in renamed
         assert f"target_{idx}(x)" not in renamed or f"renamed_{idx}(x)" in renamed
         assert live_load_env.read_text(f"moves/dst_{idx}.txt") == f"src {idx}\n"
-        assert live_load_env.read_text(f"codeact/ca_{idx}.txt") == f"codeact {idx}\n"
+        assert live_load_env.read_text(f"shell/ca_{idx}.txt") == f"shell {idx}\n"
 
 
 def test_live_daytona_transport_parallelism_isolation(live_load_env: LiveLoadEnv) -> None:
@@ -3318,7 +3308,7 @@ def test_live_daytona_transport_parallelism_isolation(live_load_env: LiveLoadEnv
         arm_g_wall = round(time.perf_counter() - wall_t0, 6)
 
         # Arm H: AsyncDaytona + snapshot-like git plumbing. This isolates the
-        # command shape used by overlay snapshots from the rest of CodeAct.
+        # command shape used by overlay snapshots from the rest of daytona_shell.
         h_repo = "/tmp/arm_h_snapshot_repo"
         await async_real.process.exec(
             "rm -rf /tmp/arm_h_snapshot_repo && "
@@ -4058,10 +4048,10 @@ def test_live_occ_parallelism_gating_sweep(
 
 
 # ---------------------------------------------------------------------------
-# Scenario C: CodeAct overlay contention
+# Scenario C: daytona_shell overlay contention
 # ---------------------------------------------------------------------------
 
-def _extract_codeact_conflict(item: dict[str, Any]) -> str:
+def _extract_shell_conflict(item: dict[str, Any]) -> str:
     meta = item.get("metadata") or {}
     payload = item.get("payload") or {}
     for bag in (meta, payload):
@@ -4076,16 +4066,16 @@ def _extract_codeact_conflict(item: dict[str, Any]) -> str:
     return ""
 
 
-def test_live_occ_contention_codeact_overlay_gates_concurrent_appends(
+def test_live_occ_contention_shell_overlay_gates_concurrent_appends(
     live_load_env: LiveLoadEnv,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """N concurrent codeact appends to the same file.
+    """N concurrent shell appends to the same file.
 
     Ground truth is disk state, not tool self-report. Overlay tracked commits
     should reject stale same-file writes through strict-base OCC.
     """
-    log_label = "occ-contention-codeact-overlay"
+    log_label = "occ-contention-shell-overlay"
     env = live_load_env
     _log_occ_event(
         log_label,
@@ -4108,13 +4098,13 @@ def test_live_occ_contention_codeact_overlay_gates_concurrent_appends(
         },
     )
 
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     commit_stats = _install_commit_phase_probe(monkeypatch)
     svc_cmd_stats = _install_svc_cmd_phase_probe(monkeypatch)
     executor_depth_stats: dict[str, list[float]] = {}
 
-    target_rel = "contend/codeact_target.txt"
+    target_rel = "contend/shell_target.txt"
     target_abs = f"{env.repo_root}/{target_rel}"
     seed_started = time.perf_counter()
     _log_occ_event(log_label, {"event": "setup", "phase": "seed_start"})
@@ -4132,7 +4122,7 @@ def test_live_occ_contention_codeact_overlay_gates_concurrent_appends(
     _log_occ_event(log_label, {"event": "setup", "phase": "git_commit_start"})
     env.exec_checked(f"git -C {shlex.quote(env.repo_root)} add -A")
     env.exec_checked(
-        f"git -C {shlex.quote(env.repo_root)} commit -m seed-codeact-contend",
+        f"git -C {shlex.quote(env.repo_root)} commit -m seed-shell-contend",
         timeout=60,
     )
     _log_occ_event(
@@ -4179,8 +4169,8 @@ def test_live_occ_contention_codeact_overlay_gates_concurrent_appends(
             f">> {shlex.quote(target_abs)}"
         )
         ops.append({
-            "kind": "codeact",
-            "name": f"codeact-contend-{i}",
+            "kind": "shell",
+            "name": f"shell-contend-{i}",
             "path": target_abs,
             "group": target_abs,
             "winner_value": token,
@@ -4237,7 +4227,7 @@ def test_live_occ_contention_codeact_overlay_gates_concurrent_appends(
             continue
         if item.get("is_error"):
             continue
-        if _extract_codeact_conflict(item):
+        if _extract_shell_conflict(item):
             continue
         silent_drops.append({
             "token": token,
@@ -4260,7 +4250,7 @@ def test_live_occ_contention_codeact_overlay_gates_concurrent_appends(
             results,
             wall_elapsed_s=wall_s,
         ),
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "commit_phase_s": _phase_summary(commit_stats),
         "svc_cmd_phase_s": _phase_summary(svc_cmd_stats),
@@ -4270,19 +4260,19 @@ def test_live_occ_contention_codeact_overlay_gates_concurrent_appends(
     print(f"\n[{log_label}] {json.dumps(summary, sort_keys=True)}", flush=True)
 
 
-def test_live_codeact_gitignore_dependency_writes_persist(
+def test_live_shell_gitignore_dependency_writes_persist(
     live_load_env: LiveLoadEnv,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """CodeAct writes under dependency gitignore prefixes persist on live disk.
+    """daytona_shell writes under dependency gitignore prefixes persist on live disk.
 
     Overlay routes ignored dependency trees outside tracked-file OCC. This
     profile covers the production shape for commands that populate ``.venv/``
     or ``node_modules/``: the tool should return success, the ignored files
-    should remain in the live workspace, and a later CodeAct invocation should
+    should remain in the live workspace, and a later daytona_shell invocation should
     be able to read them through the live lowerdir.
     """
-    log_label = "codeact-gitignore-dependency-persistence"
+    log_label = "shell-gitignore-dependency-persistence"
     env = live_load_env
     env.init_repo()
     env.write_text(".gitignore", ".venv/\nnode_modules/\n")
@@ -4294,7 +4284,7 @@ def test_live_codeact_gitignore_dependency_writes_persist(
     svc = env.make_ci_service()
     svc.ensure_initialized(wait=True)
 
-    codeact_stats = _install_codeact_phase_probe(monkeypatch)
+    shell_stats = _install_shell_phase_probe(monkeypatch)
     overlay_stats = _install_overlay_phase_probe(monkeypatch)
     svc_cmd_stats = _install_svc_cmd_phase_probe(monkeypatch)
 
@@ -4326,14 +4316,14 @@ def test_live_codeact_gitignore_dependency_writes_persist(
     )
     create_result = asyncio.run(
         _invoke_tool(
-            daytona_codeact,
+            daytona_shell,
             {"mode": "shell", "command": create_command, "timeout": 180},
             create_ctx,
         )
     )
     read_result = asyncio.run(
         _invoke_tool(
-            daytona_codeact,
+            daytona_shell,
             {"mode": "shell", "command": read_command, "timeout": 180},
             read_ctx,
         )
@@ -4362,7 +4352,7 @@ def test_live_codeact_gitignore_dependency_writes_persist(
         "read_payload": read_payload,
         "status_short": status_short.strip(),
         "ignored_status": ignored_status.strip().splitlines()[:10],
-        "codeact_phase_s": _phase_summary(codeact_stats),
+        "shell_phase_s": _phase_summary(shell_stats),
         "overlay_phase_s": _phase_summary(overlay_stats),
         "svc_cmd_phase_s": _phase_summary(svc_cmd_stats),
     }

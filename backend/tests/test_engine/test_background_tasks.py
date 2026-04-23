@@ -213,7 +213,7 @@ def test_record_tool_trace_counts_note_ci_and_daytona_reads() -> None:
     _record_tool_trace(meta, "ci_query_symbol", {"query": "Git"})
     _record_tool_trace(meta, "ci_workspace_structure", {"path": "pkg"})
     _record_tool_trace(meta, "ci_diagnostics", {"file_path": "pkg/core.py"})
-    _record_tool_trace(meta, "daytona_codeact", {"code": "shell('pytest -q')"})
+    _record_tool_trace(meta, "daytona_shell", {"code": "shell('pytest -q')"})
     _record_tool_trace(meta, "daytona_read_file", {"file_path": "pkg/core.py"})
 
     assert meta["_read_file_note_calls"] == 1
@@ -222,7 +222,7 @@ def test_record_tool_trace_counts_note_ci_and_daytona_reads() -> None:
     assert meta["_ci_query_symbol_calls"] == 1
     assert meta["_ci_workspace_structure_calls"] == 1
     assert meta["_ci_diagnostics_calls"] == 1
-    assert meta["_daytona_codeact_calls"] == 1
+    assert meta["_daytona_shell_calls"] == 1
     assert meta["_daytona_read_file_calls"] == 1
     assert meta["_read_paths_this_turn"] == ["pkg/core.py"]
 
@@ -925,7 +925,7 @@ async def test_wait_tool_allows_immediate_join_for_non_subagent_task() -> None:
     mgr = BackgroundTaskManager()
     mgr.launch(
         task_id="bg_1",
-        tool_name="daytona_codeact",
+        tool_name="daytona_shell",
         tool_input={"command": "sleep 1"},
         coro=_make_tool_coro(delay=10),
         task_type="agent",

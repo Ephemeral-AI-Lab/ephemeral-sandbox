@@ -125,7 +125,7 @@ async def test_model_can_explicitly_cancel(sandbox_id):
             "If a command is not needed, you can cancel it by outputting: "
             "[CANCEL:tool_id reason='not needed'] "
             "where tool_id is from the tool call header. "
-            "Use the daytona_codeact tool to run commands."
+            "Use the daytona_shell tool to run commands."
         ),
     )
 
@@ -152,7 +152,7 @@ async def test_cancel_signal_appears_in_assistant_text(sandbox_id):
         sandbox_id=sandbox_id,
         system_prompt=(
             "You can cancel tools by outputting: [CANCEL:tool_id reason='...'] "
-            "Use daytona_codeact for commands."
+            "Use daytona_shell for commands."
         ),
     )
 

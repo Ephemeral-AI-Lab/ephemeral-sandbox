@@ -1,6 +1,6 @@
 """Build a git snapshot of the live workspace without moving refs or firing hooks.
 
-The sandbox-side primitive for overlay CodeAct auditing (see
+The sandbox-side primitive for overlay shell auditing (see
 ``docs/architecture/overlay-sandbox-plan.md`` §2). One ``git commit-tree``
 call produces a dangling commit whose tree captures tracked + staged +
 unstaged + untracked content, honoring ``.gitignore`` so gitignored dep

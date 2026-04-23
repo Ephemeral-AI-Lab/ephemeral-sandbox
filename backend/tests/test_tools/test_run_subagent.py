@@ -432,6 +432,55 @@ def test_validate_run_subagent_allows_single_path_planner_scout(
 @pytest.mark.parametrize(
     "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
 )
+def test_validate_run_subagent_rejects_planner_test_path_target(
+    parent_agent_name: str, tmp_path: Path
+):
+    _touch_rel(tmp_path, "dask/tests/test_cli.py")
+    ctx = ToolExecutionContext(
+        cwd=tmp_path,
+        metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
+    )
+
+    result = _validate_run_subagent_request(
+        agent_name="scout",
+        prompt=None,
+        input={"target_paths": ["dask/tests/test_cli.py"]},
+        context=ctx,
+    )
+
+    assert isinstance(result, ToolResult)
+    assert result.is_error is True
+    assert "must name one live production owner path" in result.output
+    assert "Move benchmark tests" in result.output
+
+
+@pytest.mark.parametrize(
+    "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
+)
+def test_validate_run_subagent_rejects_planner_missing_target_path(
+    parent_agent_name: str, tmp_path: Path
+):
+    ctx = ToolExecutionContext(
+        cwd=tmp_path,
+        metadata={"session_config": _StubCfg(), "agent_name": parent_agent_name},
+    )
+
+    result = _validate_run_subagent_request(
+        agent_name="scout",
+        prompt=None,
+        input={"target_paths": ["dask/dataframe/io/parquet.py"]},
+        context=ctx,
+    )
+
+    assert isinstance(result, ToolResult)
+    assert result.is_error is True
+    assert "must name one live production owner path in the repo" in result.output
+    assert "Missing path: dask/dataframe/io/parquet.py" in result.output
+
+
+@pytest.mark.parametrize(
+    "parent_agent_name", ["root_planner", "team_planner", "team_replanner"]
+)
 def test_validate_run_subagent_rejects_planner_context_with_other_owner_paths(
     parent_agent_name: str, tmp_path: Path
 ):
@@ -573,29 +622,27 @@ def test_validate_run_subagent_allows_mixed_prod_and_test_scout():
     ]
 
 
-def test_run_subagent_schema_guides_scout_targets_without_runtime_gate():
+def test_run_subagent_schema_is_agent_agnostic():
+    """The tool schema must not hardcode scout-specific payload prose; each
+    dispatchable subagent owns its own contract documentation."""
     schema = run_subagent.to_api_schema()
 
-    assert "scrub ``target_paths`` to live production owner files/directories" in (
-        schema["description"]
-    )
-    assert "missing test-derived paths belong in the structured ``context`` text" in (
-        schema["description"]
-    )
-    assert "Never pair a production owner and its benchmark test" in schema["description"]
-    assert "root/team planners must pass exactly one production owner path per scout call" in (
-        schema["description"]
-    )
-    input_description = schema["input_schema"]["properties"]["input"]["description"]
-    assert "with live production owner paths only" in input_description
-    assert "keep benchmark tests and missing test-derived paths in the context text" in (
-        input_description
-    )
-    assert "For planner-dispatched scouts, pass exactly one production owner path per call" in (
-        input_description
-    )
-    assert "Invalid: mixing `pkg/mod.py` with `pkg/tests/test_mod.py`" in input_description
+    # Outer description stays generic — no scout-only terminology.
+    description = schema["description"]
+    assert "scout" not in description.lower()
+    assert "target_paths" not in description
+    assert "benchmark" not in description.lower()
+    # It still names the high-level dispatch contract.
+    assert "dispatchable subagent" in description
+    assert "prompt" in description and "input" in description
 
+    input_description = schema["input_schema"]["properties"]["input"]["description"]
+    assert "scout" not in input_description.lower()
+    assert "target_paths" not in input_description
+    assert "subagent's own contract" in input_description
+
+    # Non-planner callers can still mix a production path and a test path
+    # for a scout call — the runtime gate only fires for planner-tier callers.
     ctx = ToolExecutionContext(
         cwd=Path("/tmp"),
         metadata={"session_config": _StubCfg()},
@@ -661,7 +708,12 @@ async def test_run_subagent_registers_provider_and_returns_final_text(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_run_subagent_injects_read_free_exact_file_scout_contract(monkeypatch):
+async def test_run_subagent_does_not_inject_scout_preamble(monkeypatch):
+    """The dispatcher must pass the caller's payload through verbatim;
+    scope/scout rules belong to the scout's own playbook, not to
+    ``run_subagent``."""
+    import json
+
     scripted = [
         ConversationMessage(role="assistant", content=[TextBlock(text="DONE: scoped read complete")]),
     ]
@@ -676,38 +728,29 @@ async def test_run_subagent_injects_read_free_exact_file_scout_contract(monkeypa
         "engine.runtime.agent.spawn_agent", _fake_spawn_agent, raising=True
     )
 
-    bg = _make_bg_manager("bg_exact_file_contract")
-    ctx = _make_ctx(bg=bg, task_id="bg_exact_file_contract")
+    bg = _make_bg_manager("bg_no_preamble")
+    ctx = _make_ctx(bg=bg, task_id="bg_no_preamble")
 
+    payload = {"target_paths": ["pkg/config.py"]}
     result = await run_subagent.execute(
-        run_subagent.input_model(
-            agent_name="scout",
-            input={"target_paths": ["pkg/config.py"]},
-        ),
+        run_subagent.input_model(agent_name="scout", input=payload),
         ctx,
     )
 
     assert result.is_error is False
-    assert (
-        "exactly one `submit_file_note(...)` call with non-empty `content` "
-        "and at least one `paths` entry"
-    ) in captured["prompt"]
-    assert (
-        "first assistant message that calls tools may contain only the required "
-        "`read_file_note(...)` calls"
-    ) in captured["prompt"]
-    assert (
-        "after the note reads use at most one file-path `ci_query_symbol(...)` "
-        "per assigned path"
-    ) in captured["prompt"]
-    assert "stay read-free and post `submit_file_note(...)` from CI evidence" in captured["prompt"]
-    assert "stop after that bootstrap result and post `submit_file_note(...)`" in captured["prompt"]
-    assert "do not fan out into generic symbol hunts like helper names, test names, or literals" in captured["prompt"]
-    assert "do not call `ci_workspace_structure(...)` or extra symbol/test queries" in captured["prompt"]
-    assert "do not query benchmark tests, parametrized ids, helper names, or adjacent files" in captured["prompt"]
-    assert "submit_task_note" not in captured["prompt"]
-    assert "exact-file and short fixed-file scouts stay read-free" in captured["prompt"]
-    assert "say only `Posted.`" in captured["prompt"]
+    # The final prompt handed to spawn_agent is the serialized input with
+    # no dispatcher-side scope contract prepended.
+    expected = json.dumps(payload, separators=(",", ":"), default=str)
+    assert captured["prompt"] == expected
+    # And specifically none of the old scout-preamble phrases leak through.
+    forbidden = [
+        "Scout scope contract",
+        "stay read-free and post `submit_file_notes(...)` from CI evidence",
+        "do not fan out into generic symbol hunts",
+        "exact-file and short fixed-file scouts stay read-free",
+    ]
+    for phrase in forbidden:
+        assert phrase not in captured["prompt"], f"leaked scout preamble: {phrase!r}"
 
 
 @pytest.mark.asyncio

@@ -83,7 +83,7 @@ class LoadTestReport:
 async def _exec(sandbox, command: str, timeout: int = 30) -> ExecResult:
     """Execute a command and capture result with timing.
 
-    Wraps in bash -c like the real daytona_codeact tool does (tools.py:104),
+    Wraps in bash -c like the real daytona_shell tool does (tools.py:104),
     so shell operators like && work correctly.
     """
     import shlex

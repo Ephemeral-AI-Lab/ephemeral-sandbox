@@ -56,7 +56,7 @@ class TestIdleTransitionFromFgToBgWait:
 
         # 1 background launch
         bg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and tc.input.get("background") is True]
+                   if tc.name == "daytona_shell" and tc.input.get("background") is True]
         assert len(bg_bash) >= 1, \
             f"Expected 1+ background launch. Got {len(bg_bash)}"
         assert len(result.background_started()) >= 1, \
@@ -64,7 +64,7 @@ class TestIdleTransitionFromFgToBgWait:
 
         # fg bash >= 3
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert len(fg_bash) >= 3, \
             f"Expected 3+ foreground bash calls (TASK_1/2/3). Got {len(fg_bash)}"
 
@@ -192,7 +192,7 @@ class TestIdleNoFgWorkPureWait:
 
         # 2 background launches
         bg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and tc.input.get("background") is True]
+                   if tc.name == "daytona_shell" and tc.input.get("background") is True]
         assert len(bg_bash) >= 2, \
             f"Expected 2+ background launches. Got {len(bg_bash)}"
         assert len(result.background_started()) >= 2, \
@@ -200,7 +200,7 @@ class TestIdleNoFgWorkPureWait:
 
         # fg bash == 0 (no foreground bash work)
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert len(fg_bash) == 0, \
             f"Expected NO foreground bash calls (pure idle mode). Got {len(fg_bash)}: {[tc.input for tc in fg_bash]}"
 
@@ -263,7 +263,7 @@ class TestIdleWaitThenResumeFg:
 
         # 1 background launch
         bg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and tc.input.get("background") is True]
+                   if tc.name == "daytona_shell" and tc.input.get("background") is True]
         assert len(bg_bash) >= 1, \
             f"Expected 1+ background launch. Got {len(bg_bash)}"
         assert len(result.background_started()) >= 1, \
@@ -291,7 +291,7 @@ class TestIdleWaitThenResumeFg:
 
         # fg bash includes "cat" and "config.json"
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert any("cat" in str(tc.input) and "config.json" in str(tc.input) for tc in fg_bash), \
             f"Expected 'cat config.json' verification. Got fg calls: {[tc.input for tc in fg_bash]}"
 
@@ -405,7 +405,7 @@ class TestIdleMultipleBgStaggeredWait:
 
         # 3 background launches
         bg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and tc.input.get("background") is True]
+                   if tc.name == "daytona_shell" and tc.input.get("background") is True]
         assert len(bg_bash) >= 3, \
             f"Expected 3+ background launches. Got {len(bg_bash)}"
         assert len(result.background_started()) >= 3, \
@@ -413,7 +413,7 @@ class TestIdleMultipleBgStaggeredWait:
 
         # fg bash == 0 (pure idle)
         fg_bash = [tc for tc in result.tool_calls
-                   if tc.name == "daytona_codeact" and not tc.input.get("background")]
+                   if tc.name == "daytona_shell" and not tc.input.get("background")]
         assert len(fg_bash) == 0, \
             f"Expected NO foreground bash calls (pure idle mode). Got {len(fg_bash)}: {[tc.input for tc in fg_bash]}"
 

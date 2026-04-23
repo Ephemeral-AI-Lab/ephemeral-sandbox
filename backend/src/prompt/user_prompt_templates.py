@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal, Mapping
+from typing import Mapping
 
 
 _PROMPT_DIR = Path(__file__).resolve().parent / "user_prompt"
@@ -83,18 +83,3 @@ def render_user_prompt_template(name: str, variables: Mapping[str, object]) -> s
 
     rendered = _PLACEHOLDER_RE.sub(replace_placeholder, rendered)
     return re.sub(r"\n{3,}", "\n\n", rendered).strip()
-
-
-@lru_cache(maxsize=None)
-def load_note_taker_prompt(trigger: Literal["edit", "turn"]) -> str:
-    """Load an external-trigger note-taker user prompt from ``note_taker.md``."""
-    heading = "Edit trigger" if trigger == "edit" else "Turn trigger"
-    content = _read_prompt_file("note_taker")
-    pattern = re.compile(
-        rf"##\s+{re.escape(heading)}\s*\n+```text\s*\n(?P<body>.*?)\n```",
-        re.DOTALL,
-    )
-    match = pattern.search(content)
-    if match is None:
-        raise UserPromptTemplateError(f"note_taker.md missing {heading!r} fenced prompt")
-    return match.group("body").strip()

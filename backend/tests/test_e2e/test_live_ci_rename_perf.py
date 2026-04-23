@@ -34,7 +34,7 @@ from code_intelligence.routing.service import CodeIntelligenceService
 from tools.daytona_toolkit.rename_tool import daytona_rename_symbol
 from tools.core.base import ToolExecutionContext
 from tools.daytona_toolkit._daytona_utils import _extract_exit_code, _wrap_bash_command
-from tools.daytona_toolkit.codeact_tool import daytona_codeact
+from tools.daytona_toolkit.shell_tool import daytona_shell
 from tools.daytona_toolkit.edit_tool import daytona_edit_file
 from tools.daytona_toolkit.tools import daytona_write_file
 
@@ -805,7 +805,7 @@ def _run_occ_capture_checks(
     env: LiveRenameEnv,
     stats: list[dict[str, Any]],
 ) -> None:
-    """Verify public write/edit/rename/codeact tools all land in the audit ledger."""
+    """Verify public write/edit/rename/shell tools all land in the audit ledger."""
     occ_root = f"{env.root_dir}/occ_capture_{uuid.uuid4().hex[:8]}"
     occ_core, _occ_uses, _occ_more = _write_perf_project(env, occ_root)
     env.exec_checked(
@@ -917,15 +917,15 @@ def _run_occ_capture_checks(
         assert not rename_result.is_error, rename_result.output
         assert json.loads(rename_result.output)["status"] == "renamed"
 
-        codeact_result = _measure(
-            "occ.daytona_codeact_python_write",
+        shell_result = _measure(
+            "occ.daytona_shell_python_write",
             env.trace,
             occ_svc,
             lambda: asyncio.run(
-                daytona_codeact.execute(
-                    daytona_codeact.input_model(
+                daytona_shell.execute(
+                    daytona_shell.input_model(
                         mode="python",
-                        code='write("pkg/codeact_file.py", "codeact_value = 4\\n")',
+                        code='write("pkg/shell_file.py", "shell_value = 4\\n")',
                         timeout=180,
                     ),
                     occ_ctx,
@@ -933,10 +933,10 @@ def _run_occ_capture_checks(
             ),
             stats=stats,
         )
-        assert not codeact_result.is_error, codeact_result.output
-        codeact_data = json.loads(codeact_result.output)
-        assert codeact_data["status"] == "ok"
-        assert codeact_data["files_written"] >= 1
+        assert not shell_result.is_error, shell_result.output
+        shell_data = json.loads(shell_result.output)
+        assert shell_data["status"] == "ok"
+        assert shell_data["files_written"] >= 1
 
         edits = occ_svc.arbiter.recent_edits(seconds=300)
         counts = Counter(str(getattr(item, "edit_type", "") or "") for item in edits)
@@ -946,12 +946,12 @@ def _run_occ_capture_checks(
                 str(getattr(item, "file_path", "") or "")
             )
         payload = {
-            "label": "occ.capture_write_edit_rename_codeact",
+            "label": "occ.capture_write_edit_rename_shell",
             "audit_path": "ci_audited_mutation_path",
             "write_audited": counts.get("write", 0) >= 1,
             "edit_audited": counts.get("edit", 0) >= 1,
             "rename_audited": counts.get("rename", 0) >= 1,
-            "codeact_audited": counts.get("codeact", 0) >= 1,
+            "shell_audited": counts.get("shell", 0) >= 1,
             "counts": dict(sorted(counts.items())),
             "paths_by_type": {key: sorted(value) for key, value in paths_by_type.items()},
             "arbiter_generation": occ_svc.arbiter.generation,
@@ -959,11 +959,11 @@ def _run_occ_capture_checks(
             "health": _service_health_payload(occ_svc, env),
         }
         print("[ci-lsp-live-occ] " + json.dumps(payload, sort_keys=True), flush=True)
-        assert {"write", "edit", "rename", "codeact"}.issubset(counts)
+        assert {"write", "edit", "rename", "shell"}.issubset(counts)
         assert payload["write_audited"] is True
         assert payload["edit_audited"] is True
         assert payload["rename_audited"] is True
-        assert payload["codeact_audited"] is True
+        assert payload["shell_audited"] is True
         assert occ_svc.arbiter.metrics.total_edits >= 4
     finally:
         occ_svc.dispose()

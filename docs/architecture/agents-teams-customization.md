@@ -57,7 +57,7 @@ role: developer
 model: inherit
 tool_call_limit: 100
 toolkits: ["sandbox_operations", "code_intelligence"]
-allowed_tools: ["daytona_codeact", "ci_query_symbol", "ci_diagnostics"]
+allowed_tools: ["daytona_shell", "ci_query_symbol", "ci_diagnostics"]
 blocked_tools: []
 allowed_triggers: ["tc_note"]
 ---
@@ -397,7 +397,7 @@ Sequence showing a team run from start through task dispatch to completion, inte
 | `effort` | Heuristic budget; low/medium/high | High = larger tool_call_limit |
 | `tool_call_limit` | Max tool calls before agent stops | 50, 100, unlimited (None) |
 | `toolkits` | Allowed tool groups (sandbox, code_intelligence, search) | ["sandbox_operations", "code_intelligence"] |
-| `allowed_tools` | Optional allowlist inside the assembled toolkits | ["daytona_codeact", "ci_query_symbol"] |
+| `allowed_tools` | Optional allowlist inside the assembled toolkits | ["daytona_shell", "ci_query_symbol"] |
 | `blocked_tools` | Tool names to remove after assembly | [] |
 | `skills` | Skill playbooks to inject | ["team-developer-playbook"] |
 | `role` | Team dispatch label (planner, developer, reviewer) | "developer" |

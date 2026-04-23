@@ -1,4 +1,4 @@
-"""Block CodeAct commands that hide stderr from runtime evidence."""
+"""Block daytona_shell commands that hide stderr from runtime evidence."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from pydantic import BaseModel
 
 from tools.core.base import ToolExecutionContext
 from tools.core.hooks import PreHookOutcome, ToolHookRegistry, default_registry
-from tools.daytona_toolkit.hooks.prehook._codeact_common import (
-    codeact_shell_commands,
+from tools.daytona_toolkit.hooks.prehook._shell_common import (
+    shell_commands,
 )
 
 STDERR_SUPPRESSION_POLICY_MESSAGE = (
-    "CodeAct policy error: CodeAct commands must preserve stderr. "
+    "daytona_shell policy error: daytona_shell commands must preserve stderr. "
     "Do not suppress stderr with `2>/dev/null`, `&>/dev/null`, or "
-    "`>/dev/null 2>&1`; `daytona_codeact` already captures stdout and stderr."
+    "`>/dev/null 2>&1`; `daytona_shell` already captures stdout and stderr."
 )
 
 
@@ -152,8 +152,8 @@ def _has_stderr_suppression(command: str) -> bool:
     return False
 
 
-def codeact_stderr_suppression_policy_error(args: BaseModel) -> str | None:
-    for command in codeact_shell_commands(args):
+def shell_stderr_suppression_policy_error(args: BaseModel) -> str | None:
+    for command in shell_commands(args):
         if _has_stderr_suppression(command):
             return STDERR_SUPPRESSION_POLICY_MESSAGE
     return None
@@ -165,7 +165,7 @@ async def hook(
     context: ToolExecutionContext,
 ) -> PreHookOutcome:
     del context
-    err = codeact_stderr_suppression_policy_error(args)
+    err = shell_stderr_suppression_policy_error(args)
     if err is not None:
         return PreHookOutcome(has_error=True, error_message=err)
     return PreHookOutcome()
@@ -174,9 +174,9 @@ async def hook(
 def register(registry: ToolHookRegistry | None = None) -> None:
     reg = registry or default_registry()
     reg.register(
-        "daytona_codeact",
+        "daytona_shell",
         "pre",
         28,
         hook,
-        name="daytona_codeact:stderr_suppression_policy",
+        name="daytona_shell:stderr_suppression_policy",
     )

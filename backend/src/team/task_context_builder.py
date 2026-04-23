@@ -66,24 +66,10 @@ class TaskContextBuilder:
         return "\n".join(lines)
 
     @staticmethod
-    def _is_low_information_context_note(note: Note) -> bool:
-        agent_name = note.agent_name.strip().lower()
-        content = " ".join(note.content.split()).strip().lower()
-        return agent_name == "checkpoint" or content.startswith("**checkpoint:") or content.startswith("checkpoint:")
-
-    @staticmethod
     def _preferred_notes_per_task(notes: list[Note]) -> list[Note]:
         preferred: dict[str, Note] = {}
         for note in notes:
-            current = preferred.get(note.task_id)
-            if current is None:
-                preferred[note.task_id] = note
-                continue
-            if TaskContextBuilder._is_low_information_context_note(current) and not TaskContextBuilder._is_low_information_context_note(note):
-                preferred[note.task_id] = note
-                continue
-            if TaskContextBuilder._is_low_information_context_note(current) == TaskContextBuilder._is_low_information_context_note(note):
-                preferred[note.task_id] = note
+            preferred[note.task_id] = note
         return list(preferred.values())
 
     @staticmethod

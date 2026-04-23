@@ -1,4 +1,4 @@
-"""Sandbox-side overlay CodeAct runner.
+"""Sandbox-side overlay shell runner.
 
 Runs inside ``unshare -Urm`` on the sandbox (see
 ``docs/architecture/overlay-sandbox-plan.md`` §3). Responsibilities in
@@ -800,12 +800,12 @@ def reject_exit_code(reason: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-_NS_ROOT = "/tmp/eos-codeact-ns"
-_NS_TMP = "/tmp/eos-codeact-ns/tmp"
-_NS_UPPER = "/tmp/eos-codeact-ns/tmp/upper"
-_NS_WORK = "/tmp/eos-codeact-ns/tmp/work"
-_NS_LOWER = "/tmp/eos-codeact-ns/lower"
-_NS_MERGED = "/tmp/eos-codeact-ns/merged"
+_NS_ROOT = "/tmp/eos-shell-ns"
+_NS_TMP = "/tmp/eos-shell-ns/tmp"
+_NS_UPPER = "/tmp/eos-shell-ns/tmp/upper"
+_NS_WORK = "/tmp/eos-shell-ns/tmp/work"
+_NS_LOWER = "/tmp/eos-shell-ns/lower"
+_NS_MERGED = "/tmp/eos-shell-ns/merged"
 
 
 def _run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
