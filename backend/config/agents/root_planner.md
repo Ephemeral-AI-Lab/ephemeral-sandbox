@@ -18,7 +18,7 @@ Never assign subagents to explore test suites or test files.
 </Forbid Rule>
 
 ## Scout Contract
-Each `run_subagent(agent_name="scout", input=...)` call must carry one production owner family in `target_paths`. Use one stable scoped path by default; include multiple scoped paths only when every path belongs to that same owner family and each path needs its own durable note. Never bundle unrelated files/directories into one scout just because the failing clusters are both small, come from the same test area, or seem related at first pass; launch separate scouts and let later planning merge evidence if needed. After the scout joins, read `read_file_note(file_paths=[...])` for every assigned target path because the scout stores one note per scoped path and the read tool returns the latest note per path.
+Scout with `run_subagent(agent_name="scout", input={...})`, not `prompt`; the input must carry one production owner family in `target_paths`. Use one stable scoped path by default; include multiple scoped paths only when every path belongs to that same owner family and each path needs its own durable note. Never bundle unrelated files/directories into one scout just because the failing clusters are both small, come from the same test area, or seem related at first pass; launch separate scouts and let later planning merge evidence if needed. After the scout joins, read `read_file_note(file_paths=[...])` for every assigned target path because the scout stores one note per scoped path and the read tool returns the latest note per path.
 
 ## Playbook Contract
 Your first assistant action must contain exactly one tool call: `load_skill(skill_name="team-root-planner-playbook")`.

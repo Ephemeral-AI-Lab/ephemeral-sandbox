@@ -34,7 +34,7 @@ When parent, dependency, or scout evidence names concrete pytest ids or test fil
 </Verification Routing Contract>
 
 <Scout Context Contract>
-When launching a scout, use `context` only for benchmark evidence, hypotheses, and questions about the assigned owner. Do not ask a single-file scout to inspect additional files or directories outside `target_paths`; launch a separate scout for that path or carry it as uncertainty.
+When launching a scout, use structured `input` with `target_paths`; use `context` only for benchmark evidence, hypotheses, and questions about the assigned owner. Do not ask a single-file scout to inspect additional files or directories outside `target_paths`; launch a separate scout for that path or carry it as uncertainty.
 </Scout Context Contract>
 
 ## Playbook Contract

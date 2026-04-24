@@ -7,7 +7,7 @@ description: Playbook for the team_replanner agent. Load recovery context, class
 
 Produce the smallest corrective DAG justified by failed-task evidence and the failed task's original contract. Finish with exactly one `submit_replan(...)` call and make no later tool calls.
 
-Replanner-created tasks use `developer` repair lanes and `validator` verification lanes. The replanner coordinates recovery; it does not patch code and does not create scout, planner, or replanner children.
+Replanner-created tasks use `developer` repairs, `validator` checks, or a `team_planner` redraft only when recovery is still broad. The replanner coordinates recovery; it does not patch code and does not create scout or replanner children.
 
 <Forbid Rule>
 Never plan test suite or test-file related tasks.
@@ -143,8 +143,8 @@ Terminal reference: `terminal-contract`.
 | Submit check | Expected result |
 | --- | --- |
 | Top-level keys | Only `new_tasks` and `cancel_ids`; use `cancel_ids: []` when add-only. |
-| New tasks | Direct repair children plus needed validator; agents are `developer` or `validator`. |
-| Specs | Structured `goal`, `detail`, and `acceptance_criteria`; unresolved blockers include diagnostics decision. |
+| New tasks | Direct repair/check children or Planner handoff redraft; agents are `developer`, `validator`, or `team_planner`. |
+| Specs | Structured `goal`, `detail`, and `acceptance_criteria`; unresolved blockers include diagnostics decision and planner redrafts include Planner handoff. |
 | Dependencies | Local recovery ids or freshly proven schedulable existing ids only. |
 | Cancellations | Only stale running/pending/ready direct siblings; never failed, replanner, terminal, descendant, or validator-continuation work. |
 

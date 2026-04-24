@@ -22,7 +22,7 @@ Never assign subagents to explore test suites or test files.
 | Gate | Action |
 | --- | --- |
 | Owner questions change this DAG | Scout by production mechanism. |
-| Several owner/mechanism rows | Launch a scout row wave before local CI; synthesize sibling lanes. |
+| Several owner/mechanism rows | Launch one scout per independent row; synthesize sibling lanes. |
 
 ## Stage Flow
 
@@ -49,7 +49,7 @@ assigned planner task
 | --- | --- |
 | 1. Load context | Owner ledger: inherited owners, scout candidates, unresolved clusters, deps, verification evidence. |
 | 2. Scout | Superficial directory/multi-file maps or deep tight-seam checks; production `target_paths` only. |
-| 3. Synthesize | Child local DAG with `developer`, `team_planner`, and optional `validator` nodes. |
+| 3. Synthesize | After scouts or no-scout decision, load reference and emit local DAG. |
 
 ## 1. Load Context
 
@@ -75,29 +75,28 @@ Planner exploration stops at routing; use scouts for owner maps and preserve unc
 
 ## 2. Scout
 
-Use this stage for route-changing exploration. Start useful row scouts before local CI probing or progress polling.
-
 ```text
 Caption: scout fan-out supports the next sibling wave.
 
-row: HDF family     -> scout(["pkg/io/hdf"])     -> read_file_note(["pkg/io/hdf"])
-row: parquet/json   -> scout(["pkg/io/parquet", "pkg/io/json"])
-row: groupby dtype  -> scout(["pkg/dataframe/groupby"])
-row: config/compat  -> scout(["pkg/config", "pkg/compat"])
+HDF row           -> run_subagent(agent_name="scout", input={"target_paths":["pkg/io/hdf.py"], "context":"Objective: map HDF owner."})
+parquet package   -> run_subagent(agent_name="scout", input={"target_paths":["pkg/io/parquet"], "context":"Depth: superficial package map."})
+groupby row       -> run_subagent(agent_name="scout", input={"target_paths":["pkg/dataframe/groupby.py"], "context":"Objective: map dtype owner."})
+config row        -> run_subagent(agent_name="scout", input={"target_paths":["pkg/config.py"], "context":"Objective: map config owner."})
+compatibility row -> run_subagent(agent_name="scout", input={"target_paths":["pkg/compatibility.py"], "context":"Objective: map compatibility owner."})
 ```
 
 | Scout shape | Use when |
 | --- | --- |
 | Single path | Deep scout when one file or module is the likely owner. |
 | Multi-path | Deep scout when paths form one tight dependency, entrypoint, adapter, or shared mechanism. |
-| Directory | Superficial scout when owner is a package/subsystem and exact files are unknown. |
-| Wave size | Row-wave first: one scout per changelog/mechanism row; split large owners, avoid one-per-test. |
+| Directory | Superficial scout when owner is a package/subsystem, engine matrix, or package-like import path. |
+| Wave size | One scout per independent row; avoid unrelated bundles and one-per-test. |
 
-Keep `target_paths` production-only: one directory or short file list. Put commands/repro steps in developer or validator specs. Missing/cold notes become uncertainty for that path only.
+Use `input`, not `prompt`, so assigned `target_paths` reach the scout. Keep paths production-only: one directory or short coupled file list. If a guessed file is missing or becomes a package, do one superficial directory scout or hand off to `team_planner`.
 
 ## 3. Synthesize
 
-Enter after context is loaded, the ledger is complete, and scouts are done or intentionally skipped.
+Enter after context is loaded and the first useful row wave is done or intentionally skipped; do not load the Stage 3 reference to decide whether to scout.
 
 ```text
 Caption: child routing with depth.

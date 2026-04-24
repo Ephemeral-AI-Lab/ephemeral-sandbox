@@ -1,6 +1,6 @@
 # Root Planner Submit Plan Reference
 
-Load this reference in Stage 3 only, after the owner ledger is complete and useful scouts have joined or been skipped.
+Do not load this reference to decide whether to scout. Load it in Stage 3 only, after the owner ledger is complete and useful scouts have joined or been skipped.
 
 ## Routing Flow
 
@@ -26,7 +26,7 @@ owner slice
 | --- | --- |
 | Crowded level | Group by changelog/mechanism row. |
 | One broad `developer` | Make it expandable (`team_planner`) unless exact-owner evidence makes it atomic. |
-| Many scout candidates | Scout superficially by boundary, then split into expandable tasks. |
+| Many scout candidates or package row | One superficial boundary scout, then split into expandable tasks. |
 | Many tiny variants under one mechanism | One task or one expandable task, not many thin siblings. |
 | Unrelated mechanisms | Several siblings, grouped by boundary. |
 
