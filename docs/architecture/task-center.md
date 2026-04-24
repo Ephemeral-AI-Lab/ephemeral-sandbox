@@ -2,7 +2,7 @@
 
 TaskCenter is the composition facade for team coordination: task graph
 persistence, notes, budgets, context assembly, event emission, and runtime
-wiring. Runtime status transitions flow through `TaskStatusHandler`, while
+wiring. Runtime status transitions flow through `TaskCoordinator`, while
 `TaskQueue` dispatches ready task ids to the executor.
 
 ## Responsibilities
@@ -10,15 +10,14 @@ wiring. Runtime status transitions flow through `TaskStatusHandler`, while
 - Insert validated plans into the task DAG.
 - Track task status and dependency readiness.
 - Build injected task context through `TaskContextBuilder` from the assigned task, replanner root cause traces, and recent scope changes.
-- Route work completion, failure, cancellation, parent-summary finalization, and replan requests through `TaskStatusHandler`.
+- Route work completion, failure, cancellation, parent roll-up synthesis, and replan requests through `TaskCoordinator`.
 - Spawn replanner tasks when a worker submits `request_replan`.
-- Apply replanner output by inserting new tasks, cancelling stale tasks, and completing or expanding the replanner through the unified status handler.
+- Apply replanner output by inserting new tasks, cancelling stale tasks, and completing or expanding the replanner through the unified coordinator.
 
 ## Statuses
 
 Task statuses are `pending`, `ready`, `running`, `expanded`,
-`expanded_awaiting_summary`, `request_replan`, `done`, `failed`, and
-`cancelled`.
+`request_replan`, `done`, `failed`, and `cancelled`.
 
 `done`, `failed`, `cancelled`, and `request_replan` are terminal.
 
@@ -26,17 +25,17 @@ Task statuses are `pending`, `ready`, `running`, `expanded`,
 
 When a worker reports failure, the executor returns
 `TaskStatusUpdate(REQUEST_REPLAN, summary=...)`. The executor only interprets
-terminal tool metadata; `TaskStatusHandler` owns the lifecycle mutation, budget
+terminal tool metadata; `TaskCoordinator` owns the lifecycle mutation, budget
 accounting, event emission, and persistence transaction.
 
-`TaskStatusHandler` marks the original task `request_replan`, creates a replanner
+`TaskCoordinator` marks the original task `request_replan`, creates a replanner
 task, and rewires each `pending` dependent from the failed task to the replanner. A
 dependent with any other status is a task graph invariant violation: downstream
 work that depends on the failed task should not be `ready`, `running`,
 `expanded`, `request_replan`, or terminal.
 
 `GraphInvariantViolation` is fatal to the team run. The failed status update
-routes through `TaskStatusHandler`, which fail-fasts the run so the corrupted
+routes through `TaskCoordinator`, which fail-fasts the run so the corrupted
 task graph cannot continue dispatching.
 
 Dependency readiness is strict: a task can leave `pending` for scheduler-owned
@@ -53,9 +52,8 @@ After the replan:
 - The replanner does not submit a free-text summary.
 - `cancel_ids` may target only direct siblings of the replanner. Cancelled tasks are marked `cancelled`, including cascaded descendants and dependents.
 - New replan tasks may depend on local new-task IDs or schedulable existing tasks (`done`, `ready`, `pending`) that do not already depend on the replanner or the original failed task.
-- The replanner is marked `done` immediately when it has no new child tasks, or `expanded` when it created direct child tasks.
-- Expanded replanners transition to `expanded_awaiting_summary` after all direct children are terminal; `parent_summarizer` then reads every child detail, submits the roll-up, and finalizes the replanner as `done` only when the roll-up has no unresolved child evidence.
-- A `parent_summarizer` may call `request_replan(reason=...)` for unresolved roll-ups; the executor targets that replan at the summarized parent.
+- A replanner that produces no corrective child tasks is failed as an invalid recovery result.
+- Expanded replanners become `done` after all direct children are terminal and `TaskCoordinator` synthesizes the roll-up from child submissions.
 - The original failed task stays `request_replan` after the replanner succeeds. The origin is terminal from recovery start; success records `replanned_by:<replanner_id>` on its failure reason while pending dependents remain rewired to the replanner.
 
 ## Notes

@@ -16,7 +16,7 @@ final status computation sees the root task in `failed`.
 | Invalid root plan | Root planner submits no plan or an invalid plan | `failed` | `PlanExpander` marks the planner task failed with `InvalidPlan: ...`; because the task is the root, final run status is failed. |
 | Failed recovery path | Replanner task fails or crashes | `failed` through fail-fast | The original task stays terminal at `request_replan`; the replanner task failure is a normal `FAILED` outcome and aborts the run. |
 | Invalid runtime replan | Runtime `apply_replan(...)` rejects a submitted replan | `failed` if this failure reaches the root | The original task stays terminal at `request_replan`; the replanner error follows normal task failure handling. |
-| Detached-child roll-up | Every child of an expanded parent is detached, with no successful child | parent summary decides | Detached children do not synthesize parent failure. Expandable parents still enter `expanded_awaiting_summary`; the parent summarizer submits the authoritative roll-up or requests replanning. |
+| Detached-child roll-up | Every child of an expanded parent is detached, with no successful child | parent roll-up synthesis | Detached children do not synthesize parent failure. Expanded parents promote once every live child is terminal; the coordinator synthesizes the authoritative roll-up from available child submissions. |
 
 ## Task-Local Failure
 
@@ -25,7 +25,7 @@ team run:
 
 - A worker calls `request_replan(reason=...)`; the executor
   converts this into `TaskStatusUpdate(REQUEST_REPLAN, ...)` for
-  `TaskStatusHandler`.
+  `TaskCoordinator`.
 - An agent exits without calling a terminal submission tool; the runner writes a
   failure summary and the executor treats it as a replan request.
 - A non-root planner submits an invalid plan; the planner task fails and parent
@@ -33,9 +33,8 @@ team run:
 - A non-root worker runner raises a normal exception; the task fails or enters
   replanning through normal executor cleanup.
 
-These failures become run failures when recovery produces a `FAILED` outcome,
-the parent summarizer requests another replan that later fails, or the root task
-ultimately becomes `failed`.
+These failures become run failures when recovery produces a `FAILED` outcome or
+the root task ultimately becomes `failed`.
 
 ## Non-Fatal Conditions
 

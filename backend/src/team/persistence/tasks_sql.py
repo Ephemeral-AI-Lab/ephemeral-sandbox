@@ -249,8 +249,8 @@ async def find_live_tasks_by_fired_origin(
 ) -> list[TaskRecord]:
     """Return non-terminal tasks whose fired_by_task_id matches the origin.
 
-    ``fired_by_task_id`` links both recovery replanners and parent-summary
-    sidecars back to their trigger task, so callers must filter by role.
+    ``fired_by_task_id`` identifies recovery replanners. Callers still filter by
+    role to avoid reusing any historical non-replanner trigger task.
     """
     terminal = {s.value for s in TERMINAL_STATUSES}
     stmt = select(TaskRecord).where(

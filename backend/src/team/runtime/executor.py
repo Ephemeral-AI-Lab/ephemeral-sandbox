@@ -12,7 +12,6 @@ executor does not write task status directly.
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections.abc import Awaitable, Coroutine
 from typing import TYPE_CHECKING, Any, Callable
@@ -29,8 +28,6 @@ if TYPE_CHECKING:
     from agents.types import AgentDefinition
     from team.core.models import Task
     from team.runtime.team_run import TeamRun
-
-logger = logging.getLogger(__name__)
 
 QueryRunner = Callable[["AgentDefinition", Any], Coroutine[Any, Any, Any]]
 QueryContextBuilder = Callable[["AgentDefinition", "TeamRun", "Task"], Awaitable[TeamAgentContext]]

@@ -19,7 +19,6 @@ Re-entry from inside a ``_dispatch`` case calls ``self._dispatch`` directly
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
@@ -48,11 +47,6 @@ from team.planning.expander import PlanExpander
 if TYPE_CHECKING:
     from team.runtime.task_queue import TaskQueue
 
-logger = logging.getLogger(__name__)
-
-
-RosterGetter = Callable[[], dict[str, list[str]] | None]
-
 
 class TaskCoordinator:
     """Single owner for every task status transition."""
@@ -68,7 +62,6 @@ class TaskCoordinator:
         fail_fast: Callable[[str], Awaitable[None]],
         cancel_running_task: Callable[[str], None] | None = None,
         cancel_event: asyncio.Event | None = None,
-        roster_getter: RosterGetter | None = None,
     ) -> None:
         self._team_run_id = team_run_id
         self._store = store
@@ -78,7 +71,6 @@ class TaskCoordinator:
         self._fail_fast = fail_fast
         self._cancel_running_task = cancel_running_task
         self._cancel_event = cancel_event
-        self._roster_getter = roster_getter
         self._queue: "TaskQueue | None" = None
         self._lock = asyncio.Lock()
 
@@ -86,9 +78,6 @@ class TaskCoordinator:
 
     def bind_queue(self, queue: "TaskQueue") -> None:
         self._queue = queue
-
-    def bind_cancel_event(self, event: asyncio.Event) -> None:
-        self._cancel_event = event
 
     # ---- public entry points --------------------------------------------
 

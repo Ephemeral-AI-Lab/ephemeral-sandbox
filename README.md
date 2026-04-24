@@ -279,7 +279,7 @@ frontend/
 Detailed team-runtime notes: [`team-coordination`](docs/architecture/team-coordination.md),
 [`task-center`](docs/architecture/task-center.md),
 [`team-failure-conditions`](docs/architecture/team-failure-conditions.md),
-[`terminal-submission-and-external-trigger`](docs/architecture/terminal-submission-and-external-trigger.md),
+[`terminal-submission`](docs/architecture/terminal-submission.md),
 and [`replan-workflow-sequence-diagrams`](docs/architecture/replan-workflow-sequence-diagrams.md).
 
 ### The Agent Loop

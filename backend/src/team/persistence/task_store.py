@@ -1,6 +1,6 @@
 """TaskStore — SQL persistence layer for tasks.
 
-Owns session lifecycle + in-memory ``TaskGraph`` bookkeeping. All SQLAlchemy
+Owns session lifecycle plus in-memory task and ready-queue mirrors. All SQLAlchemy
 queries and the ``TaskRecord`` ORM live in :mod:`team.persistence.tasks_sql`.
 """
 
@@ -22,7 +22,6 @@ from team.core.models import (
 )
 from team.persistence import tasks_sql as q
 from team.persistence.ltree_utils import path_to_ltree
-from team.persistence.task_graph import TaskGraph
 from team.persistence.tasks_sql import TaskRecord
 
 
@@ -60,8 +59,7 @@ def record_to_task(rec: TaskRecord) -> Task:
 
 class TaskStore:
     """SQL persistence for tasks. Owns session_factory and team_run_id; delegates
-    raw queries to :mod:`tasks_sql` and in-memory graph / ready-queue
-    bookkeeping to :class:`TaskGraph`.
+    raw queries to :mod:`tasks_sql` and mirrors the live graph in memory.
     """
 
     def __init__(
@@ -71,31 +69,50 @@ class TaskStore:
     ) -> None:
         self._sf = session_factory
         self._team_run_id = team_run_id
-        self._tg = TaskGraph()
+        self._tasks: dict[str, Task] = {}
+        self._ready_order: list[str] = []
 
     # ---- in-memory graph proxy --------------------------------------------
 
     @property
     def graph(self) -> dict[str, Task]:
-        return self._tg.tasks
+        return self._tasks
 
     @graph.setter
     def graph(self, value: dict[str, Task]) -> None:
-        self._tg.tasks = value
+        self._tasks = value
+        self._ready_order = [
+            task.id for task in value.values() if task.status == TaskStatus.READY
+        ]
 
     @property
     def ready_queue_order(self) -> list[str]:
-        return list(self._tg.ready_order)
+        return list(self._ready_order)
 
     def get_task(self, task_id: str) -> Task | None:
         """Fast in-memory lookup — no DB call."""
-        return self._tg.tasks.get(task_id)
+        return self._tasks.get(task_id)
 
     async def refresh_graph(self) -> dict[str, Task]:
         """Sync in-memory graph from DB. Returns the graph."""
         records = await self.get_all_tasks()
-        self._tg.load(record_to_task(r) for r in records)
-        return self._tg.tasks
+        tasks = [record_to_task(r) for r in records]
+        self._tasks = {task.id: task for task in tasks}
+        self._ready_order = [
+            task.id for task in tasks if task.status == TaskStatus.READY
+        ]
+        return self._tasks
+
+    def _add_ready(self, task_id: str) -> None:
+        if task_id not in self._ready_order:
+            self._ready_order.append(task_id)
+
+    def _remove_ready(self, task_id: str) -> None:
+        if task_id in self._ready_order:
+            self._ready_order.remove(task_id)
+
+    def _upsert(self, task: Task) -> None:
+        self._tasks[task.id] = task
 
     # ---- queries -------------------------------------------------------------
 
@@ -132,14 +149,24 @@ class TaskStore:
                     dep.status = "ready"
                     promoted_ids.append(dep.id)
             await db.commit()
-        self._tg.mark_done(task_id, promoted_ids)
+        task = self._tasks.get(task_id)
+        if task is not None:
+            task.status = TaskStatus.DONE
+        self._remove_ready(task_id)
+        for pid in promoted_ids:
+            promoted = self._tasks.get(pid)
+            if promoted is not None:
+                promoted.status = TaskStatus.READY
+            self._add_ready(pid)
         return promoted_ids
 
     async def mark_expanded(self, task_id: str) -> None:
         async with self._sf() as db:
             await q.set_status_expanded(db, self._team_run_id, task_id)
             await db.commit()
-        self._tg.mark_expanded(task_id)
+        task = self._tasks.get(task_id)
+        if task is not None:
+            task.status = TaskStatus.EXPANDED
 
     async def fetch_promotable_parent(self, child_id: str) -> str | None:
         """Return the id of an EXPANDED parent of ``child_id`` ready to promote.
@@ -162,7 +189,7 @@ class TaskStore:
         """
         return [
             task.id
-            for task in self._tg.tasks.values()
+            for task in self._tasks.values()
             if task.parent_id is not None and task.status in TERMINAL_STATUSES
         ]
 
@@ -172,7 +199,11 @@ class TaskStore:
                 db, self._team_run_id, task_id, status, reason
             )
             await db.commit()
-        self._tg.mark_terminal(task_id, status, reason)
+        task = self._tasks.get(task_id)
+        if task is not None:
+            task.status = TaskStatus.of(status, default=TaskStatus.FAILED)
+            task.failure_reason = reason
+        self._remove_ready(task_id)
 
     async def insert_plan(
         self,
@@ -191,7 +222,11 @@ class TaskStore:
                 parent_root_id,
             )
             await db.commit()
-        self._tg.insert_tasks(record_to_task(rec) for rec in result_records)
+        for rec in result_records:
+            task = record_to_task(rec)
+            self._upsert(task)
+            if task.status == TaskStatus.READY:
+                self._add_ready(task.id)
         return result_records
 
     async def cascade_cancel_recursive(self, root_task_id: str) -> list[str]:
@@ -200,7 +235,11 @@ class TaskStore:
                 db, self._team_run_id, root_task_id
             )
             await db.commit()
-        self._tg.mark_cancelled(cancelled)
+        for cid in cancelled:
+            task = self._tasks.get(cid)
+            if task is not None:
+                task.status = TaskStatus.CANCELLED
+            self._remove_ready(cid)
         return cancelled
 
     async def finalize_replanned_origin(
@@ -318,8 +357,8 @@ class TaskStore:
             await db.commit()
         if rec is None:
             return None
-        self._tg.upsert(record_to_task(rec))
-        self._tg.remove_ready(task_id)
+        self._upsert(record_to_task(rec))
+        self._remove_ready(task_id)
         return rec
 
     async def request_replan(
@@ -342,7 +381,8 @@ class TaskStore:
             root_origin = getattr(rec, "fired_by_task_id", None) or task_id
             # Idempotent per origin: if a live replanner already exists for this
             # failed origin, reuse it instead of spawning a parallel recovery branch.
-            # fired_by_task_id is shared with parent-summary tasks, so filter by role.
+            # fired_by_task_id can also identify historical non-replanner trigger tasks,
+            # so filter by role before reusing a live recovery task.
             candidates = await q.find_live_tasks_by_fired_origin(
                 db, self._team_run_id, root_origin
             )

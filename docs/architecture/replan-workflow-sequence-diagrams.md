@@ -20,17 +20,13 @@ An `EXPANDED` parent's children fall into two sets:
 
 - **Detached**: `FAILED`, `CANCELLED`, `REQUEST_REPLAN`. All three are terminal
   and are ignored for promotion — treated as resolved but not successful.
-- **Non-detached / live**: `PENDING`, `READY`, `RUNNING`, `EXPANDED`,
-  `EXPANDED_AWAITING_SUMMARY`, `DONE`.
+- **Non-detached / live**: `PENDING`, `READY`, `RUNNING`, `EXPANDED`, `DONE`.
 
 Promotion rule: the parent transitions out of `EXPANDED` when every
 non-detached child is `DONE`.
 
-- If the parent is a planner/replanner:
-  parent → `EXPANDED_AWAITING_SUMMARY`; `parent_summarizer` reads the parent
-  and every direct child detail, posts the roll-up, then parent → `DONE`.
-- If the parent is not expandable:
-  parent → `DONE`.
+When every non-detached child is `DONE`, `TaskCoordinator` synthesizes a
+roll-up from child terminal summaries and marks the parent `DONE`.
 
 This means cancel-cascades no longer wedge ancestor chains: detached children
 simply fall out of the counting set. (Replan-budget exhaustion is a separate
@@ -47,7 +43,7 @@ sequenceDiagram
     participant Ex as Executor
     participant Q as TaskQueue
     participant Run as TeamRun
-    participant H as TaskStatusHandler
+    participant H as TaskCoordinator
     participant TS as TaskStore
     participant G as Task Graph
     participant R as Replanner Task R
@@ -85,7 +81,7 @@ sequenceDiagram
 
 The executor routes failure through `TaskStatusUpdate(REQUEST_REPLAN, ...)`
 because the executor only interprets the agent's terminal submission.
-`TaskStatusHandler` owns the task lifecycle boundary: replan budget checks,
+`TaskCoordinator` owns the task lifecycle boundary: replan budget checks,
 replanner selection, event
 emission, and the atomic TaskStore mutation that creates `R` and rewires
 pending dependents. A graph invariant violation is fatal; `TaskQueue` converts
@@ -93,7 +89,7 @@ the handler failure into a `FAILED` update and the handler fail-fasts the run.
 
 ### 1a. Replan Budget Exhausted
 
-`TaskStatusHandler` calls `require_replan_capacity()` before creating `R`. If
+`TaskCoordinator` calls `require_replan_capacity()` before creating `R`. If
 the budget is exhausted, it dispatches a `FAILED` update for the task and
 fail-fasts the run. The replan budget is a run-level guarantee, not a
 per-branch one — once it's gone, no further recovery is possible anywhere in
@@ -121,7 +117,7 @@ work instead of closing recovery with no new tasks.
 ```mermaid
 sequenceDiagram
     participant R as Replanner Task R
-    participant H as TaskStatusHandler
+    participant H as TaskCoordinator
     participant PE as PlanExpander
     participant TS as TaskStore
     participant C as Children Of R
@@ -141,19 +137,17 @@ sequenceDiagram
 
     C->>H: TaskStatusUpdate(DONE)
     H->>TS: mark child DONE
-    TS->>TS: maybe_promote_expanded_parent(child)
+    TS->>TS: fetch_promotable_parent(child)
 
     alt every non-detached child of R is DONE (≥1 DONE)
-        TS->>R: mark R EXPANDED_AWAITING_SUMMARY
-        H->>R: parent_summarizer reads R + every direct child
-        R->>H: TaskStatusUpdate(DONE, summary=roll-up)
-        TS->>R: mark R DONE
+        H->>H: synthesize roll-up from child summaries
+        H->>TS: mark R DONE
         TS->>D: promote downstream dependents
         H->>TS: finalize_replanned_origin(R)
         TS->>A: record replanned_by on A (A stays REQUEST_REPLAN; terminal)
     else every child is detached (0 DONE, all FAILED/CANCELLED)
-        TS->>R: mark R EXPANDED_AWAITING_SUMMARY
-        H->>R: parent_summarizer reads R + every direct child
+        H->>H: synthesize empty or available roll-up
+        H->>TS: mark R DONE
         Note over D,A: Detached children do not synthesize parent failure.
     else some child still live
         TS->>R: keep R EXPANDED
@@ -162,17 +156,17 @@ sequenceDiagram
 
 With the detached-set promotion rule, `CANCELLED` and `FAILED` children do
 *not* wedge `R` — they are detached and ignored. `R` goes
-`EXPANDED_AWAITING_SUMMARY` when every non-detached child is DONE, then DONE
-after `parent_summarizer` posts the roll-up. A failed direct child still does
-not trigger a cascading replan by itself; the parent summarizer decides whether
-the detached-child outcome is deliverable or needs `request_replan`.
+`DONE` when every non-detached child is DONE and the coordinator synthesizes the
+roll-up. A failed direct child still does not trigger a cascading replan by
+itself; recovery failure is handled through normal task failure and replanning
+paths.
 
 ## 4. Replanner Adds Child Tasks Only
 
 ```mermaid
 sequenceDiagram
     participant R as Replanner Task R
-    participant H as TaskStatusHandler
+    participant H as TaskCoordinator
     participant PE as PlanExpander
     participant TS as TaskStore
     participant C as Children Of R

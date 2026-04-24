@@ -81,7 +81,6 @@ class TeamRun:
             fail_fast=self.fail_fast,
             cancel_running_task=self.cancel_running_task,
             cancel_event=self.cancel_event,
-            roster_getter=lambda: self.roster,
         )
         self.task_queue: TaskQueue | None = None
 
