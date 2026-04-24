@@ -20,7 +20,7 @@ from team.core.models import (
     BudgetConfig,
     BudgetState,
     Task,
-    TaskDefinition,
+    TaskStatus,
 )
 from team.persistence.events import (
     TeamRunEvent,
@@ -30,7 +30,7 @@ from team.persistence.events import (
 from team.persistence.run_store import TeamRunStore
 from team.persistence.task_store import TaskStore
 from team.planning.expander import PlanExpander
-from team.runtime.task_graph import TaskGraph
+from team.runtime.task_graph import GraphMutation, TaskGraph, TaskInsert
 from team.task_center.budget import BudgetManager
 from team.task_center.prompts import TaskContextBuilder
 from team.task_center.notes import NoteManager
@@ -62,7 +62,6 @@ class TaskCenter:
             emit_cb=self.emit_event,
         )
         self._expander = PlanExpander(
-            team_run_id=team_run_id,
             graph=self._task_graph,
             budget=self._budget,
         )
@@ -136,43 +135,31 @@ class TaskCenter:
     # ---- initial task insertion ----------------------------------------
 
     async def add_task(self, t: Task) -> None:
-        """Insert ``t`` as a root task (or standalone) and emit task_added."""
+        """Insert ``t`` as the root task and emit ``task_added``.
+
+        Only called from ``TeamRun.start`` for the single root of the graph.
+        Every other task enters the graph through a ``PlanExpander`` flow.
+        """
+        if t.parent_id is not None:
+            raise ValueError(
+                f"add_task is for the root only; task {t.id!r} has parent {t.parent_id!r}"
+            )
         self._budget.require_capacity_for(1)
-        spec = TaskDefinition(
+        root = Task(
             id=t.id,
+            team_run_id=t.team_run_id,
             spec=t.spec,
             agent=t.agent,
+            status=TaskStatus.READY if not t.deps else TaskStatus.PENDING,
             deps=list(t.deps),
             scope_paths=list(t.scope_paths),
-            parent_id=t.parent_id,
+            parent_id=None,
+            root_id=t.root_id or t.id,
+            depth=0,
         )
-        if t.parent_id is None:
-            # Root insertion: bypass TaskGraph.insert_plan_children (which
-            # requires a parent) and just build + persist the single Task.
-            from team.runtime.task_graph import GraphMutation, TaskInsert
-            from team.core.models import TaskStatus
-
-            root_task = Task(
-                id=t.id,
-                team_run_id=t.team_run_id,
-                spec=t.spec,
-                agent=t.agent,
-                status=TaskStatus.READY if not t.deps else TaskStatus.PENDING,
-                deps=list(t.deps),
-                scope_paths=list(t.scope_paths),
-                parent_id=None,
-                root_id=t.root_id or t.id,
-                depth=0,
-            )
-            mutation = GraphMutation(inserts=(TaskInsert(root_task),))
-        else:
-            mutation = self._task_graph.insert_plan_children(
-                parent_id=t.parent_id, specs=[spec]
-            )
+        mutation = GraphMutation(inserts=(TaskInsert(root),))
         await self._store.persist(mutation)
         self._task_graph.apply(mutation)
         self._budget.add_tasks_used(1)
-        inserted = self._task_graph.get(t.id)
-        if inserted is not None:
-            self.emit_event(make_task_added(self._team_run_id, task_to_dict(inserted)))
+        self.emit_event(make_task_added(self._team_run_id, task_to_dict(root)))
         self._budget.emit_update()

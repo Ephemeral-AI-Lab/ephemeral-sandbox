@@ -64,7 +64,7 @@ def _make_expander(
 ) -> tuple[PlanExpander, TaskGraph, _Budget]:
     graph = TaskGraph(graph_map)
     b = budget or _Budget()
-    expander = PlanExpander(team_run_id="run-1", graph=graph, budget=b)
+    expander = PlanExpander(graph=graph, budget=b)
     return expander, graph, b
 
 

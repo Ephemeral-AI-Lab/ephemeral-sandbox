@@ -95,10 +95,18 @@ Different rows stay in different scout calls.
 
 | Step | Action |
 | --- | --- |
-| Shape wave | Launch scouts only for high-value `scout_required` or unresolved owner families. A useful wave is usually 1-3 families; avoid one scout per failing test and one broad catch-all scout. Multi-path scouts are valid only when every path belongs to the same owner-ledger row. |
+| Shape wave | Launch scouts only for high-value `scout_required` or unresolved owner families. A useful wave is usually 1-3 families; avoid one scout per failing test and one broad catch-all scout. Pick scout shape by dependency hypothesis; a reasonable guess is enough before launching. |
 | Keep scope clean | Keep `target_paths` production-only. Put tests, `test_*.py`, benchmark harnesses, verification paths, missing test-derived files, skipped variants, optional-dependency errors, and verification commands in scout `context`. |
 | Launch and supervise | Fire every useful scout before polling. Poll while scouts are `running`; cancel halted, blocked, off-scope, or unchanged scouts and carry that slice as explicit uncertainty. |
 | Harvest notes | Call `read_file_note(file_paths=[...])` with every path in every launched scout's `target_paths`. Missing notes, cold CI, canceled scouts, or disproved exact files create uncertainty only for the affected path. |
+
+| Scout shape | Use when |
+| --- | --- |
+| Single path | One file or module is the likely owner. |
+| Multi-path, one row | Paths are coupled by dependency, entrypoint, adapter, or shared mechanism. |
+| Directory | Owner is a package/subsystem, or exact files are not knowable without mapping. |
+| Separate scouts | Paths belong to different owner families. |
+| No scout, route to `team_planner` | Boundary is broad enough that exploration becomes decomposition. |
 
 If an adjacent owner is only a hypothesis, launch a separate scout for that path when it changes current-layer routing, or carry it as uncertainty; do not ask one scout to inspect files outside its `target_paths`.
 

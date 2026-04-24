@@ -591,23 +591,6 @@ class TaskGraph:
                 task.failure_reason = change.reason
 
 
-# ---------------------------------------------------------------------------
-# Module-level helpers — shared between TaskGraph and persist code
-# ---------------------------------------------------------------------------
-
-
-def is_terminal_status(status: TaskStatus) -> bool:
-    return status in TERMINAL_STATUSES
-
-
-def is_detached_child_status(status: TaskStatus) -> bool:
-    """Whether a child in this status no longer blocks its parent's promotion.
-
-    Mirrors the SQL policy in ``tasks_sql.fetch_expanded_parent_candidate``.
-    """
-    return status in TERMINAL_STATUSES
-
-
 __all__ = [
     "DepRewire",
     "FailureReasonPatch",
@@ -617,6 +600,4 @@ __all__ = [
     "StatusChange",
     "TaskGraph",
     "TaskInsert",
-    "is_detached_child_status",
-    "is_terminal_status",
 ]

@@ -49,6 +49,17 @@ max-depth cluster -> split by mechanism with uncertainty in detail
 
 When uncertain and depth remains, use `team_planner`. At max depth, keep the uncertainty visible in `spec.detail` and avoid one catch-all developer task.
 
+## DAG Level Size
+
+Each level should be easy to scan and schedule.
+
+| Situation at this level | Action |
+| --- | --- |
+| Crowded with many siblings | Group by owner family or mechanism; delegate the cluster to a child `team_planner` when depth remains. |
+| One broad `developer` task alone | Check whether it should be a `team_planner` instead. |
+| Many tiny variants under one mechanism | One atomic task or one child planner — not many thin-wrapper siblings. |
+| Unrelated owner families | Several siblings or child planners, grouped by boundary. |
+
 ## Coverage And Evidence
 
 | Item | Rule |

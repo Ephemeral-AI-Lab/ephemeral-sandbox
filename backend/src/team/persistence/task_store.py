@@ -65,12 +65,9 @@ class TaskStore:
 
     @property
     def graph(self) -> dict[str, Task]:
-        """Backward-compat dict view. New code should use ``task_graph``."""
+        """Dict view of the in-memory tasks. Callers that mutate the graph
+        should use ``task_graph`` directly."""
         return self._task_graph.tasks
-
-    @graph.setter
-    def graph(self, value: dict[str, Task]) -> None:
-        self._task_graph.replace_all(value.values())
 
     def get_task(self, task_id: str) -> Task | None:
         """Fast in-memory lookup — no DB call."""

@@ -90,12 +90,20 @@ Do not merge unrelated rows into one scout. Multi-path scout = same row only.
 ```
 
 - Launch scouts only for high-value `scout_required` or unresolved production owner families with `run_subagent(agent_name="scout", input={"target_paths": ["<one or more scoped production paths for that one owner family>"], "context": "..."})`.
-- Prefer one stable boundary path. Use multiple paths only when every path belongs to the same owner-ledger row.
+- Pick scout shape by dependency hypothesis; a reasonable guess is enough before launching.
 - Route low-value uncertainty to a child `team_planner` or diagnostic lane instead of widening root exploration.
 - Keep `target_paths` production-only. Put tests, `test_*.py`, benchmark harnesses, verification paths, missing test-derived files, skipped variants, optional-dependency errors, and verification commands in scout `context`.
 - Fire the useful scout wave before polling. Use `check_background_progress(task_id="all")` and `wait_for_background_task(task_id="all")` until no scout is running.
 - Track every launched scout's `target_paths`. After the wave joins, call `read_file_note(file_paths=[...])` with all assigned paths; `submit_file_notes(...)` stores one note per scoped path.
 - If a delivered scout leaves one assigned path without a note, carry missing-note uncertainty for that path without discarding sibling path notes.
+
+| Scout shape | Use when |
+| --- | --- |
+| Single path | One file or module is the likely owner. |
+| Multi-path, one row | Paths are coupled by dependency, entrypoint, adapter, or shared mechanism. |
+| Directory | Owner is a package/subsystem, or exact files are not knowable without mapping. |
+| Separate scouts | Paths belong to different owner families. |
+| No scout, route to `team_planner` | Boundary is broad enough that exploration becomes decomposition. |
 
 ### 3. Synthesize and submit
 

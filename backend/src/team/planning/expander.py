@@ -53,11 +53,9 @@ class PlanExpander:
     def __init__(
         self,
         *,
-        team_run_id: str,
         graph: TaskGraph,
         budget: "BudgetManager",
     ) -> None:
-        self._team_run_id = team_run_id
         self._graph = graph
         self._budget = budget
 
