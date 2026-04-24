@@ -413,6 +413,49 @@ async def test_query_symbols_file_path_bootstrap_returns_file_definitions():
     assert ctx.metadata["_ci_symbol_navigation_calls"] == 1
 
 
+async def test_query_symbols_extensionless_file_path_bootstrap_returns_python_file():
+    svc = _svc_with_index(symbols=[])
+    sym = _make_symbol_info("parse_config", "pkg/config.py", 4, "function")
+    svc.symbol_index.file_symbols.side_effect = lambda path: [sym] if path == "pkg/config.py" else []
+
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        result = await ci_query_symbol.execute(
+            ci_query_symbol.input_model(query="pkg/config"),
+            _ctx_with_svc(svc),
+        )
+
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["file"] == "pkg/config.py"
+    assert data["definitions"][0]["name"] == "parse_config"
+
+
+async def test_query_symbols_package_path_bootstrap_returns_indexed_child_definitions():
+    from code_intelligence.analysis.symbol_index import SymbolIndex
+
+    symbol_index = SymbolIndex(workspace_root="/repo")
+    symbol_index.refresh(
+        "/repo/dask/dataframe/io/parquet/core.py",
+        "def read_parquet(path):\n    return path\n",
+    )
+    svc = MagicMock()
+    svc.is_initialized = True
+    svc.workspace_root = "/repo"
+    svc.symbol_index = symbol_index
+    svc.query_symbols.return_value = []
+
+    with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        result = await ci_query_symbol.execute(
+            ci_query_symbol.input_model(query="dask/dataframe/io/parquet"),
+            _ctx_with_svc(svc),
+        )
+
+    assert not result.is_error
+    data = json.loads(result.output)
+    assert data["file"] == "dask/dataframe/io/parquet"
+    assert data["definitions"][0]["name"] == "read_parquet"
+
+
 async def test_query_symbols_file_path_bootstrap_errors_when_file_has_no_indexed_symbols():
     svc = _svc_with_index(symbols=[])
     svc.symbol_index.file_symbols.return_value = []

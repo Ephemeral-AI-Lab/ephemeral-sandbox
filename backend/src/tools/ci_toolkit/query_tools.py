@@ -896,7 +896,39 @@ def _file_query_symbols(
     file_symbols = getattr(symbol_index, "file_symbols", None)
     if not rel_path or not callable(file_symbols):
         return rel_path, []
-    matches = file_symbols(rel_path)
+
+    candidates = [rel_path]
+    if not Path(rel_path).suffix:
+        candidates.extend([f"{rel_path}.py", f"{rel_path}/__init__.py"])
+
+    matches = []
+    matched_path = rel_path
+    for candidate in candidates:
+        matches = file_symbols(candidate)
+        if matches:
+            matched_path = candidate
+            break
+
+    if not matches and not Path(rel_path).suffix:
+        from code_intelligence.analysis.symbol_index import SymbolIndex
+
+        if isinstance(symbol_index, SymbolIndex):
+            prefix = rel_path.rstrip("/") + "/"
+            with symbol_index._lock:
+                indexed_paths = sorted(symbol_index._symbols.keys())
+            for indexed_path in indexed_paths:
+                indexed_rel = _normalize_workspace_path(
+                    indexed_path,
+                    workspace_root=workspace_root,
+                )
+                if not indexed_rel.startswith(prefix):
+                    continue
+                if Path(indexed_rel).suffix.lower() not in SUPPORTED_EXTENSIONS:
+                    continue
+                matches.extend(file_symbols(indexed_path))
+                if len(matches) >= 100:
+                    break
+
     definitions = [
         {
             "name": symbol.name,
@@ -909,7 +941,7 @@ def _file_query_symbols(
         }
         for symbol in matches[:100]
     ]
-    return rel_path, definitions
+    return matched_path, definitions
 
 
 @tool(

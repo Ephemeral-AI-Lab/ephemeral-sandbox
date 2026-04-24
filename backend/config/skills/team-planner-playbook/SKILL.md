@@ -17,8 +17,8 @@ Produce a child task DAG from inherited Task Center context. Finish with exactly
 | Gate | Action |
 | --- | --- |
 | Owner questions change this DAG | Scout by production mechanism. |
-| Several owner/mechanism rows | Fan out routing scouts per row; synthesize sibling lanes. |
-| Test or benchmark path | Keep as evidence in `spec`, not `target_paths`. |
+| Several owner/mechanism rows | Launch a scout row wave before local CI; synthesize sibling lanes. |
+| Test or benchmark path | Keep as evidence in `spec`, not `target_paths` or `scope_paths`. |
 
 ## Stage Flow
 
@@ -32,8 +32,8 @@ assigned planner task
   | task + parent + deps + graph topology -> owner ledger
   |
   | owner questions would change this level's routing?
-  |-- yes --> [2 Scout] -> harvest notes -> update ledger
-  |-- several rows -> [2 Scout] -> sibling lanes
+  |-- yes --> [2 Scout row wave] -> harvest notes -> update ledger
+  |-- several rows -> [2 Scout row wave] -> sibling lanes
   |-- no / test-only -> carry uncertainty in expandable spec
   |
   v
@@ -71,7 +71,7 @@ Planner exploration stops at routing; use scouts for owner maps and preserve unc
 
 ## 2. Scout
 
-Use this stage for route-changing exploration: superficial directory/multi-file maps for broad clusters, deep checks for single files or tight call chains.
+Use this stage for route-changing exploration. Start useful row scouts before local CI probing or progress polling.
 
 ```text
 Caption: scout fan-out supports the next sibling wave.
@@ -87,9 +87,9 @@ row: config/compat  -> scout(["pkg/config", "pkg/compat"])
 | Single path | Deep scout when one file or module is the likely owner. |
 | Multi-path | Deep scout when paths form one tight dependency, entrypoint, adapter, or shared mechanism. |
 | Directory | Superficial scout when owner is a package/subsystem and exact files are unknown. |
-| Wave size | One scout per changelog/mechanism row; split large owners, avoid one-per-test. |
+| Wave size | Row-wave first: one scout per changelog/mechanism row; split large owners, avoid one-per-test. |
 
-Keep `target_paths` production-only: one directory or short file list. Put tests, benchmark ids, optional-dependency signals, and hypotheses in scout context; put commands/repro steps in developer or validator specs. Launch before polling; missing notes, cold CI, canceled scouts, or disproved exact files become uncertainty for that path only.
+Keep `target_paths` production-only: one directory or short file list. Put tests, benchmark ids, optional-dependency signals, and hypotheses in scout context; put commands/repro steps in developer or validator specs. Missing notes, cold CI, canceled scouts, or disproved exact files become uncertainty for that path only.
 
 ## 3. Synthesize
 
