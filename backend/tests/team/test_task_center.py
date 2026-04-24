@@ -439,13 +439,3 @@ def test_context_for_task_section_never_trimmed():
 # ---------------------------------------------------------------------------
 # TaskCenter initialization
 # ---------------------------------------------------------------------------
-
-
-def test_ready_queue_order_returns_copy():
-    tc = _tc()
-    tc.store._add_ready("task-1")
-
-    observed = tc.ready_queue_order
-    observed.append("task-2")
-
-    assert tc.ready_queue_order == ["task-1"]

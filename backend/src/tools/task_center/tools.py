@@ -260,17 +260,21 @@ class FileNotesOutput(BaseModel):
     )
 
 
-async def _post_note(
+class _TaskCenterUnavailable(RuntimeError):
+    pass
+
+
+async def _create_note_output(
     *,
     content: str,
     paths: list[str],
     context: ToolExecutionContext,
-) -> ToolResult:
+) -> NoteOutput:
     from team.core.models import Note
 
     tc = context.metadata.get("task_center")
     if tc is None:
-        return ToolResult(output="Error: Task Center not available", is_error=True)
+        raise _TaskCenterUnavailable("Task Center not available")
 
     note_paths = normalize_scope_paths(paths)
     if str(context.metadata.get("agent_name") or "").strip() == "scout" and note_paths:
@@ -285,14 +289,13 @@ async def _post_note(
         paths=note_paths,
     )
     await tc.notes.post(note)
-    payload = NoteOutput(
+    return NoteOutput(
         note_id=note.id,
         agent_name=note.agent_name,
         content=note.content,
         timestamp=note.timestamp,
         paths=note.paths,
     )
-    return ToolResult(output=payload.model_dump_json())
 
 
 async def _create_file_note_output(
@@ -300,16 +303,12 @@ async def _create_file_note_output(
     content: str,
     path: str,
     context: ToolExecutionContext,
-) -> FileNoteItemOutput | ToolResult:
-    result = await _post_note(
+) -> FileNoteItemOutput:
+    note = await _create_note_output(
         content=content,
         paths=[path],
         context=context,
     )
-    if result.is_error:
-        return result
-
-    note = NoteOutput.model_validate_json(result.output)
     return FileNoteItemOutput(
         note_id=note.note_id,
         path=note.paths[0] if note.paths else "",
@@ -324,15 +323,17 @@ async def _post_file_notes(
     context: ToolExecutionContext,
 ) -> ToolResult:
     posted: list[FileNoteItemOutput] = []
-    for entry in notes:
-        result = await _create_file_note_output(
-            content=entry.content,
-            path=entry.path,
-            context=context,
-        )
-        if isinstance(result, ToolResult):
-            return result
-        posted.append(result)
+    try:
+        for entry in notes:
+            posted.append(
+                await _create_file_note_output(
+                    content=entry.content,
+                    path=entry.path,
+                    context=context,
+                )
+            )
+    except _TaskCenterUnavailable as exc:
+        return ToolResult(output=f"Error: {exc}", is_error=True)
     payload = FileNotesOutput(notes=posted)
     return ToolResult(output=payload.model_dump_json())
 

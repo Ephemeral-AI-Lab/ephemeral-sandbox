@@ -13,12 +13,22 @@ handles their descendants and dependents.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
-from team.core.models import TERMINAL_STATUSES
+from team.core.models import TERMINAL_STATUSES, TaskSpec
+from team.planning.validation import Issue
 
 ALLOWED_REPLAN_DEP_STATUSES = {"done", "ready", "pending"}
+
+_UNRESOLVED_BLOCKER_RE = re.compile(
+    r"(?i)\bClassification\s*:\s*unresolved_blocker\b"
+)
+_DIAGNOSTICS_DECISION_RE = re.compile(
+    r"(?i)\bDiagnostics decision\s*:\s*"
+    r"(?:trivial_direct_replan|deep_diagnostics)\b"
+)
 
 
 @dataclass
@@ -69,6 +79,35 @@ def _cascade_ids_for_cancel_root(
 
 def _status_value(status: Any) -> Any:
     return getattr(status, "value", status)
+
+
+def _replan_spec_contract_errors(spec: TaskSpec) -> list[str]:
+    if (
+        _UNRESOLVED_BLOCKER_RE.search(spec.detail)
+        and not _DIAGNOSTICS_DECISION_RE.search(spec.detail)
+    ):
+        return [
+            "unresolved_blocker requires Diagnostics decision: "
+            "trivial_direct_replan or deep_diagnostics"
+        ]
+    return []
+
+
+def replan_spec_contract_issues(items: list[Any]) -> list[Issue]:
+    """Validate replanner-only task spec contracts."""
+    issues: list[Issue] = []
+    for idx, item in enumerate(items):
+        spec = getattr(item, "spec", None)
+        if not isinstance(spec, TaskSpec):
+            continue
+        issues.extend(
+            {
+                "field": f"tasks[{idx}].spec.detail",
+                "msg": f"task '{getattr(item, 'id', '')}': {error}",
+            }
+            for error in _replan_spec_contract_errors(spec)
+        )
+    return issues
 
 
 def _depends_on_any(

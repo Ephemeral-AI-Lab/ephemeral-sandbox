@@ -54,7 +54,6 @@ class FakeStore:
 
     def __init__(self) -> None:
         self.graph: dict[str, Task] = {}
-        self.ready_queue_order: list[str] = []
 
         # Async methods with configurable return values
         self.mark_done = AsyncMock(return_value=[])

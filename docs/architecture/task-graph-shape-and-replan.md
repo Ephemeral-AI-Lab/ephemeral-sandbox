@@ -183,7 +183,8 @@ the replanner's allowed region.
 - `backend/src/team/planning/expander.py` — `expand_submitted_plan`,
   `apply_replan`.
 - `backend/src/team/planning/replan_validation.py` — allowed-region rules.
-- `backend/src/team/persistence/task_graph.py` — adjacency + atomic
-  replan commit.
+- `backend/src/team/persistence/task_store.py` and
+  `backend/src/team/persistence/tasks_sql.py` — task graph persistence,
+  in-memory mirrors, and atomic replan commit.
 - `docs/architecture/replan-workflow-sequence-diagrams.md` — companion
   sequence diagrams.

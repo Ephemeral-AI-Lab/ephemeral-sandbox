@@ -18,7 +18,6 @@ from tools.task_center.tools import (
 from tools.core.base import ToolExecutionContext, parse_tool_input
 from team.core.models import (
     LeafSubmission,
-    Note,
     Plan,
     PlannerSubmission,
     SubmittedSummary,
@@ -480,5 +479,4 @@ async def test_read_task_details_renders_expandable_plan_and_outcome():
     assert '"goal": "Repair parser"' in result.output
     assert "# Outcome" in result.output
     assert "Parser repair and validation completed." in result.output
-
 

@@ -1,6 +1,6 @@
 """TaskStore — SQL persistence layer for tasks.
 
-Owns session lifecycle plus in-memory task and ready-queue mirrors. All SQLAlchemy
+Owns session lifecycle plus an in-memory task mirror. All SQLAlchemy
 queries and the ``TaskRecord`` ORM live in :mod:`team.persistence.tasks_sql`.
 """
 
@@ -70,7 +70,6 @@ class TaskStore:
         self._sf = session_factory
         self._team_run_id = team_run_id
         self._tasks: dict[str, Task] = {}
-        self._ready_order: list[str] = []
 
     # ---- in-memory graph proxy --------------------------------------------
 
@@ -81,9 +80,6 @@ class TaskStore:
     @graph.setter
     def graph(self, value: dict[str, Task]) -> None:
         self._tasks = value
-        self._ready_order = [
-            task.id for task in value.values() if task.status == TaskStatus.READY
-        ]
 
     def get_task(self, task_id: str) -> Task | None:
         """Fast in-memory lookup — no DB call."""
@@ -94,18 +90,7 @@ class TaskStore:
         records = await self.get_all_tasks()
         tasks = [record_to_task(r) for r in records]
         self._tasks = {task.id: task for task in tasks}
-        self._ready_order = [
-            task.id for task in tasks if task.status == TaskStatus.READY
-        ]
         return self._tasks
-
-    def _add_ready(self, task_id: str) -> None:
-        if task_id not in self._ready_order:
-            self._ready_order.append(task_id)
-
-    def _remove_ready(self, task_id: str) -> None:
-        if task_id in self._ready_order:
-            self._ready_order.remove(task_id)
 
     def _upsert(self, task: Task) -> None:
         self._tasks[task.id] = task
@@ -132,7 +117,7 @@ class TaskStore:
 
     async def mark_done(self, task_id: str) -> list[str]:
         async with self._sf() as db:
-            await q.set_status_done(db, self._team_run_id, task_id)
+            await q.set_status(db, self._team_run_id, task_id, "done")
             dependents = await q.fetch_pending_dependents_for_update(
                 db, self._team_run_id, task_id
             )
@@ -148,17 +133,15 @@ class TaskStore:
         task = self._tasks.get(task_id)
         if task is not None:
             task.status = TaskStatus.DONE
-        self._remove_ready(task_id)
         for pid in promoted_ids:
             promoted = self._tasks.get(pid)
             if promoted is not None:
                 promoted.status = TaskStatus.READY
-            self._add_ready(pid)
         return promoted_ids
 
     async def mark_expanded(self, task_id: str) -> None:
         async with self._sf() as db:
-            await q.set_status_expanded(db, self._team_run_id, task_id)
+            await q.set_status(db, self._team_run_id, task_id, "expanded")
             await db.commit()
         task = self._tasks.get(task_id)
         if task is not None:
@@ -191,15 +174,12 @@ class TaskStore:
 
     async def mark_terminal(self, task_id: str, status: str, reason: str) -> None:
         async with self._sf() as db:
-            await q.set_status_terminal(
-                db, self._team_run_id, task_id, status, reason
-            )
+            await q.set_status(db, self._team_run_id, task_id, status, reason)
             await db.commit()
         task = self._tasks.get(task_id)
         if task is not None:
             task.status = TaskStatus.of(status, default=TaskStatus.FAILED)
             task.failure_reason = reason
-        self._remove_ready(task_id)
 
     async def insert_plan(
         self,
@@ -221,8 +201,6 @@ class TaskStore:
         for rec in result_records:
             task = record_to_task(rec)
             self._upsert(task)
-            if task.status == TaskStatus.READY:
-                self._add_ready(task.id)
         return result_records
 
     async def cascade_cancel_recursive(self, root_task_id: str) -> list[str]:
@@ -235,7 +213,6 @@ class TaskStore:
             task = self._tasks.get(cid)
             if task is not None:
                 task.status = TaskStatus.CANCELLED
-            self._remove_ready(cid)
         return cancelled
 
     async def finalize_replanned_origin(
@@ -243,9 +220,10 @@ class TaskStore:
     ) -> str | None:
         """Mark the original REQUEST_REPLAN task terminal after its replanner succeeds."""
         async with self._sf() as db:
-            origin_id = await q.fetch_replan_origin(
+            replanner = await q.fetch_record(
                 db, self._team_run_id, replanner_task_id
             )
+            origin_id = replanner.fired_by_task_id if replanner else None
             if origin_id is None:
                 return None
             rowcount = await q.finalize_replanned_origin(
@@ -266,26 +244,27 @@ class TaskStore:
         FAILED updates remain idempotent.
         """
         async with self._sf() as db:
-            status = await q.fetch_task_status(db, self._team_run_id, task_id)
+            rec = await q.fetch_record(db, self._team_run_id, task_id)
+        status = rec.status if rec else None
         if status is None or status in ("done", "failed", "cancelled"):
             return
         await self.mark_terminal(task_id, "failed", reason)
 
     async def cancel_all_pending(self) -> int:
         async with self._sf() as db:
-            count = await q.cancel_statuses(
+            count = await q.bulk_cancel(
                 db,
                 self._team_run_id,
-                ("pending", "ready", "expanded"),
-                "team_run cancelled",
+                statuses=("pending", "ready", "expanded"),
+                reason="team_run cancelled",
             )
             await db.commit()
             return count
 
     async def cancel_all_running(self, reason: str) -> int:
         async with self._sf() as db:
-            count = await q.cancel_statuses(
-                db, self._team_run_id, ("running",), reason
+            count = await q.bulk_cancel(
+                db, self._team_run_id, statuses=("running",), reason=reason
             )
             await db.commit()
             return count
@@ -302,8 +281,11 @@ class TaskStore:
         rolls back. Caller's in-memory graph is refreshed before return.
         """
         async with self._sf() as db:
-            cancelled_count = await q.cancel_by_ids(
-                db, self._team_run_id, cancel_ids, cancel_reason
+            cancelled_count = await q.bulk_cancel(
+                db,
+                self._team_run_id,
+                task_ids=cancel_ids,
+                reason=cancel_reason,
             )
             for cid in cancel_ids:
                 await q.cascade_cancel_recursive(db, self._team_run_id, cid)
@@ -315,11 +297,11 @@ class TaskStore:
                 parent_depth = 0
                 parent_root_id: str | None = None
                 if parent_id is not None:
-                    parent_depth, parent_root_id = (
-                        await q.fetch_parent_depth_and_root(
-                            db, self._team_run_id, parent_id
-                        )
-                    )
+                    parent = await q.fetch_record(db, self._team_run_id, parent_id)
+                    if parent is None:
+                        raise ValueError(f"replan parent '{parent_id}' not found")
+                    parent_depth = parent.depth or 0
+                    parent_root_id = parent.root_id or parent.id
                 inserted.extend(
                     await q.insert_plan_records(
                         db,
@@ -343,18 +325,18 @@ class TaskStore:
                 db, self._team_run_id, task_id, agent_run_id
             )
             if rec is not None:
-                await q.assert_deps_satisfied(
-                    db,
-                    self._team_run_id,
-                    task_id=rec.id,
-                    dep_ids=list(rec.deps or []),
-                    transition="running",
+                unsatisfied = await q.fetch_unsatisfied_dep_ids(
+                    db, self._team_run_id, list(rec.deps or [])
                 )
+                if unsatisfied:
+                    raise GraphInvariantViolation(
+                        f"task {rec.id!r} cannot transition to running; "
+                        f"unsatisfied dependencies: {', '.join(unsatisfied)}"
+                    )
             await db.commit()
         if rec is None:
             return None
         self._upsert(record_to_task(rec))
-        self._remove_ready(task_id)
         return rec
 
     async def request_replan(
@@ -365,7 +347,7 @@ class TaskStore:
         replanner_agent: str,
     ) -> tuple[TaskRecord, bool]:
         async with self._sf() as db:
-            rec = await q.fetch_replan_source(db, self._team_run_id, task_id)
+            rec = await q.fetch_record(db, self._team_run_id, task_id)
             if rec is None:
                 raise RuntimeError(f"replan: {task_id} not found")
             if rec.status in {s.value for s in TERMINAL_STATUSES}:
@@ -374,7 +356,7 @@ class TaskStore:
                 )
             # fired_by_task_id always points to the root original, not an
             # intermediate replanner, so recovery chains stay one-hop deep.
-            root_origin = getattr(rec, "fired_by_task_id", None) or task_id
+            root_origin = rec.fired_by_task_id or task_id
             # Idempotent per origin: if a live replanner already exists for this
             # failed origin, reuse it instead of spawning a parallel recovery branch.
             # fired_by_task_id can also identify historical non-replanner trigger tasks,
@@ -393,8 +375,8 @@ class TaskStore:
                 return existing_replanner, False
             replanner_id = str(uuid.uuid4())
             if rec.status != "request_replan":
-                await q.set_status_request_replan(
-                    db, self._team_run_id, task_id, reason
+                await q.set_status(
+                    db, self._team_run_id, task_id, "request_replan", reason
                 )
             task_text = f"Replan: {rec.agent_name} failed on task {task_id}: {reason}"
             if suggestion:

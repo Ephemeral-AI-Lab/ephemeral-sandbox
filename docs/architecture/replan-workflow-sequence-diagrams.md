@@ -242,7 +242,7 @@ sequenceDiagram
     participant R as Replanner Task R
     participant Tool as submit_replan
     participant PE as PlanExpander
-    participant H as TaskStatusHandler
+    participant H as TaskCoordinator
     participant Run as TeamRun
     participant A as Original Task A
 
@@ -269,7 +269,7 @@ sequenceDiagram
 Tool-layer validation is recoverable inside the replanner turn. Runtime apply
 failure becomes a `FAILED` update for `R`; A is already terminal at
 REQUEST_REPLAN so no origin-side transition is needed. Task-budget exhaustion
-is handled like other run-level budget exhaustion: `TaskStatusHandler`
+is handled like other run-level budget exhaustion: `TaskCoordinator`
 terminates the team run via `fail_fast`.
 
 ### Idempotency
@@ -282,7 +282,7 @@ terminates the team run via `fail_fast`.
   task IDs raises a database integrity error.
 
 Callers must ensure at-most-once delivery of `apply_replan` from the status
-handler to persistence. A crash between `apply_replan_atomic` commit and the executor's
+coordinator to persistence. A crash between `apply_replan_atomic` commit and the executor's
 acknowledgement cannot be safely retried with the same spec set.
 
 ## 7. Replanner Fails
@@ -291,7 +291,7 @@ acknowledgement cannot be safely retried with the same spec set.
 sequenceDiagram
     participant R as Replanner Task R
     participant Ex as Executor
-    participant H as TaskStatusHandler
+    participant H as TaskCoordinator
     participant TS as TaskStore
     participant A as Original Task A
     participant D as Downstream Tasks
