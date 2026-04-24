@@ -37,7 +37,7 @@ user request
   |
   v
 [3 Synthesize]
-  Stage 2 closed -> draft -> checklist -> submit_plan(...)
+  Stage 2 closed -> load synthesize-and-submit -> submit_plan(...)
 ```
 
 | Stage | Output |
@@ -84,8 +84,7 @@ row: config seam    -> scout(["pkg/config", "pkg/options"])
 | Single path | Deep scout when one file or module is the likely owner. |
 | Multi-path | Deep scout when paths form one tight dependency, entrypoint, adapter, or shared mechanism. |
 | Directory | Superficial scout when owner is a package/subsystem and exact files are unknown. |
-| Wave size | Keep the wave route-changing; cluster variants by mechanism. |
-| Test path | Context only, never `target_paths`; commands go to child specs. |
+| Wave size | Cluster by mechanism; avoid one-per-test and all-purpose scouts. |
 | No scout | Leaf-only detail; preserve uncertainty in expandable task specs. |
 
 Keep `target_paths` production-only: one directory or short file list. Put tests, benchmark ids, optional-dependency signals, and hypotheses in scout context; put commands/repro steps in developer or validator specs. Launch before polling; missing notes become uncertainty for that path only.

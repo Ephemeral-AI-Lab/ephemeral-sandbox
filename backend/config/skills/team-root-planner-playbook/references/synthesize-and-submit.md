@@ -1,4 +1,4 @@
-# Root Planner Synthesize And Submit Reference
+# Root Planner Submit Plan Reference
 
 Load this reference in Stage 3 only, after the owner ledger is complete and useful scouts have joined or been skipped.
 

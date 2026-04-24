@@ -51,8 +51,8 @@ handoff UUIDs
 | --- | --- |
 | Shared sandbox | Treat it as shared evidence; avoid setup or cleanup churn. |
 | Dependency/env mutation | Do not mutate packages, interpreters, lockfiles, virtualenvs, site-packages, OS packages, global tooling, generated caches, tests, pytest config, or verification itself. |
-| Shell boundary | Use `daytona_shell` only for tests, builds, or runtime probes, not reads, writes, moves, deletes, redirects, inline file writes, or cleanup commands. |
-| Verification integrity | A failed raw command stays red; pytest overrides, wrappers, helper scripts, filters, or inner-exit-code tricks are RCA-only. |
+| Shell boundary | Use `daytona_shell` for tests/probes from sandbox cwd; avoid host paths, reads/writes, redirects, cleanup. |
+| Verification integrity | Latest red raw command controls status; pytest overrides, wrappers, filters, or inner-exit-code tricks are RCA-only. |
 | Graph reads | Developers work from prompt UUIDs and task details, not `read_task_graph()`. |
 
 ## 1. Read Context
@@ -98,7 +98,7 @@ bounded edit plan -> prove file/symbol/rename target -> one Daytona mutation -> 
 | --- | --- |
 | Assigned or proven adjacent production path | Edit with the narrowest Daytona mutation tool. |
 | A few light outside-scope operations tied to the same mechanism | Continue with evidence and record in the terminal payload. |
-| Multiple outside-scope files, repeated outside-scope mutation, blocked move/delete, broad change, or unclear boundary | `request_replan` with `scope_expansion`. |
+| Multiple outside-scope files, blocked move/delete, broad change, or unclear boundary | `request_replan` with `scope_expansion`. |
 | Test edit, dependency edit, environment edit, or verification rewrite | `request_replan` with the fitting trigger. |
 
 After a red command, write a compact value table, then complete Stage 4 RCA before another edit:
@@ -187,7 +187,7 @@ Replan reason includes:
 | Part | Required content |
 | --- | --- |
 | Trigger | First line: `replan_trigger: <scope_expansion|wrong_owner_or_role|unresolved_blocker>`. |
-| Trace | Stage 4 RCA packet embedded verbatim. |
+| Trace | Stage 4 RCA when available; otherwise blocker/scope evidence. |
 | Last evidence | Last command or diagnostic plus failing ids. |
 | Needed decision | Owner, scope, sequence, or code path for the replanner. |
 | Remaining contract | Uncompleted parts of this task: unmet acceptance criteria, unfinished scope paths, and behavior the replanner must continue covering beyond the blocker fix. |
@@ -196,6 +196,6 @@ Trigger guide:
 
 | Trigger | Use when |
 | --- | --- |
-| `scope_expansion` | Next repair is broad, ambiguous, or requires multiple outside-scope mutations. |
+| `scope_expansion` | Next repair is broad, ambiguous, or requires multiple outside-scope files. |
 | `wrong_owner_or_role` | A dependency is not done or another owner/role must act. |
 | `unresolved_blocker` | Tooling, diagnostics, spent budget, verification, or trace evidence is blocked with no proven different owner. |

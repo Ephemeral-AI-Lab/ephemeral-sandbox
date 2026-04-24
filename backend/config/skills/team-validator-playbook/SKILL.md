@@ -53,7 +53,7 @@ validation UUIDs
 | Shell boundary | Use `daytona_shell` only for tests, builds, or runtime probes, not reads, writes, moves, deletes, introspection, redirects, or wrapper health checks. |
 | Verification integrity | A failed raw command stays red; skips, xfails, pytest config, warnings/plugins, wrappers, or installs are RCA-only. |
 | Evidence freshness | Stale, partial, indirect, wrapper, altered-command, or missing evidence is red. |
-| Correction scope | One correction only; single light write/move/delete can continue, while broad or repeated correction paths go to replan. |
+| Correction scope | One correction only; a few light outside-scope ops can continue, while multiple files, broad, or repeated paths go to replan. |
 
 ## 1. Read Context
 
@@ -145,7 +145,7 @@ local correction -> allowed target? -> one Daytona mutation -> notes/diagnostics
 | Correction gate | Route |
 | --- | --- |
 | Existing file inside assigned `scope_paths` or dependency-touched production file | One `daytona_edit_file`. |
-| Proven new production file, or one light outside-scope write/move/delete tied to the same mechanism | Apply once and record it in the terminal payload. |
+| Proven new production file, or a few light outside-scope ops tied to the same mechanism | Apply the correction and record it in the terminal payload. |
 | Multiple outside-scope files, repeated outside-scope mutation, blocked expansion, test edit, broad refactor, or second correction | `request_replan` with `scope_expansion` or fitting trigger. |
 
 ## 6. Submit Terminal Summary
@@ -177,7 +177,7 @@ Replan reason includes:
 | Line | Content |
 | --- | --- |
 | Trigger | `scope_expansion`, `wrong_owner_or_role`, or `unresolved_blocker`. |
-| Root-cause packet | Stage 4 packet embedded verbatim. |
+| Root-cause packet | Stage 4 packet when available; otherwise blocker/scope evidence. |
 | Failing evidence | Exact failing command, diagnostic, or probe and exit code. |
 | Failing ids | Test ids, diagnostic ids, or `none available`. |
 | Output snippet | Shortest useful output and minimal reproduction. |

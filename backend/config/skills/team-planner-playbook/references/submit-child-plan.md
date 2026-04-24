@@ -1,4 +1,4 @@
-# Team Planner Submit Child Plan Reference
+# Team Planner Submit Plan Reference
 
 Load this reference in Stage 3 only, after task context is loaded, the owner ledger is complete, and useful scouts have joined or been skipped.
 
