@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, UTC
 
 from db.models.agent_run import AgentRunRecord
 from db.stores.base import SyncStoreMixin
-
-logger = logging.getLogger(__name__)
 
 
 def _serialize_run_summary(r: AgentRunRecord) -> dict:
@@ -30,7 +27,7 @@ def _serialize_run_summary(r: AgentRunRecord) -> dict:
 
 
 class AgentRunStore(SyncStoreMixin):
-    """CRUD operations for agent run records and response chunks."""
+    """CRUD operations for agent run records."""
 
     # -- run CRUD --------------------------------------------------------------
 
@@ -141,9 +138,3 @@ class AgentRunStore(SyncStoreMixin):
                 .limit(limit)
             )
             return [_serialize_run_summary(r) for r in q.all()]
-
-    # -- chunk CRUD (deprecated — table removed) --------------------------------
-
-    def list_chunks(self, run_id: str, limit: int = 500) -> list[dict]:
-        """Return empty list — agent_response_chunks table has been removed."""
-        return []

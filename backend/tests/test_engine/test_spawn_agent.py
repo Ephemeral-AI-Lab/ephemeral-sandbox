@@ -384,7 +384,6 @@ class TestToolkitInstantiation:
         prompt, _ = finalize_tool_registry_and_prompt(
             registry,
             "Base prompt.",
-            role="developer",
             terminal_tools={"submit_task_success"},
         )
 
@@ -404,7 +403,6 @@ class TestToolkitInstantiation:
         prompt, _ = finalize_tool_registry_and_prompt(
             registry,
             "Base prompt.",
-            role="planner",
             terminal_tools={"submit_plan"},
         )
 
@@ -424,7 +422,6 @@ class TestToolkitInstantiation:
         prompt, _ = finalize_tool_registry_and_prompt(
             registry,
             "Base prompt.",
-            role="planner",
             blocked_tools=["draft_task_plan"],
             terminal_tools={"submit_plan"},
         )

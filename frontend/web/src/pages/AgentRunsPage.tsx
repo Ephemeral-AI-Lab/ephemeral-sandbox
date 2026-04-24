@@ -1,11 +1,10 @@
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { fetchDbSession, fetchSessionRuns, fetchSessionUsage, fetchRunChunks, fetchRunDetail, fetchSessionMessages } from '../lib/api'
+import { fetchDbSession, fetchSessionRuns, fetchSessionUsage, fetchRunDetail, fetchSessionMessages } from '../lib/api'
 import { ErrorBox, EmptyState, StatusBadge } from '../lib/components'
 import type {
   AgentRunSummary,
   AgentRunDetail,
-  AgentResponseChunk,
   ConversationMessagePayload,
   RunUsageSummary,
   SessionDetail,
@@ -52,13 +51,6 @@ type MessageBlock = {
   name?: string
   input?: Record<string, unknown>
   content?: string
-}
-
-const EVENT_KIND_COLORS: Record<string, string> = {
-  text_delta: 'text-zinc-300',
-  tool_start: 'text-blue-400',
-  tool_result: 'text-emerald-400',
-  error: 'text-red-400',
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -431,12 +423,11 @@ function SubagentRunsTable({ runs }: { runs: SubagentRunSummary[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Expandable Run Detail (message_history, compacted_history, reasoning, response, event log)
+// Expandable Run Detail (message_history, compacted_history, reasoning, response)
 // ---------------------------------------------------------------------------
 
 function RunDetailPanel({ runId }: { runId: string }) {
   const [detail, setDetail] = useState<AgentRunDetail | null>(null)
-  const [chunks, setChunks] = useState<AgentResponseChunk[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -444,11 +435,10 @@ function RunDetailPanel({ runId }: { runId: string }) {
     let cancelled = false
     setLoading(true)
     setError(null)
-    Promise.all([fetchRunDetail(runId), fetchRunChunks(runId)])
-      .then(([d, c]) => {
+    fetchRunDetail(runId)
+      .then((d) => {
         if (!cancelled) {
           setDetail(d)
-          setChunks(c)
         }
       })
       .catch((err) => {
@@ -496,8 +486,7 @@ function RunDetailPanel({ runId }: { runId: string }) {
     (messageHistory && messageHistory.length > 0) ||
     (compactedHistory && compactedHistory.length > 0) ||
     (response && response.length > 0) ||
-    reasoning ||
-    chunks.length > 0
+    reasoning
   )
 
   if (!hasContent) {
@@ -544,49 +533,6 @@ function RunDetailPanel({ runId }: { runId: string }) {
               accentColor="emerald"
               defaultOpen={true}
             />
-          )}
-          {chunks.length > 0 && (
-            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50">
-              <div className="px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500 border-b border-zinc-800">
-                Event Log ({chunks.length} events)
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-zinc-950 text-[10px] text-zinc-600">
-                    <tr>
-                      <th className="w-12 px-3 py-1.5 text-left">#</th>
-                      <th className="px-3 py-1.5 text-left">Event</th>
-                      <th className="px-3 py-1.5 text-left">Tool</th>
-                      <th className="px-3 py-1.5 text-left">Content</th>
-                      <th className="px-3 py-1.5 text-right">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/30">
-                    {chunks.map((c) => (
-                      <tr key={c.seq} className="hover:bg-zinc-800/30">
-                        <td className="px-3 py-1.5 font-mono text-zinc-600">{c.seq}</td>
-                        <td className={`px-3 py-1.5 font-mono ${EVENT_KIND_COLORS[c.event_kind] ?? 'text-zinc-400'}`}>
-                          {c.event_kind}
-                        </td>
-                        <td className="px-3 py-1.5 font-mono text-zinc-500">
-                          {c.tool_name || '\u2014'}
-                        </td>
-                        <td className="max-w-md truncate px-3 py-1.5 text-zinc-400">
-                          {c.content
-                            ? c.content.length > 120
-                              ? c.content.slice(0, 120) + '...'
-                              : c.content
-                            : '\u2014'}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-1.5 text-right text-zinc-600">
-                          {c.created_at ? new Date(c.created_at).toLocaleTimeString() : '\u2014'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           )}
         </div>
       </td>

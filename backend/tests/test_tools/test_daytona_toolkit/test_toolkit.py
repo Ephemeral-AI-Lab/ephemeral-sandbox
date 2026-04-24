@@ -67,7 +67,6 @@ def test_toolkit_registers_expected_tools():
         "daytona_grep",
         "daytona_glob",
         "daytona_edit_file",
-        "daytona_rename_symbol",
         "daytona_delete_file",
         "daytona_move_file",
     }
@@ -87,7 +86,6 @@ async def test_registered_write_capable_tools_require_ci_service():
             "new_text": "new",
         },
         "daytona_shell": {"command": "echo hi"},
-        "daytona_rename_symbol": {"symbol": "foo", "new_name": "bar"},
         "daytona_delete_file": {"path": "/repo/app.py"},
         "daytona_move_file": {
             "src_path": "/repo/src.py",
@@ -123,7 +121,6 @@ def test_toolkit_from_context_includes_shell():
     assert "daytona_shell" in developer_tk.tool_names()
     assert "daytona_shell" in validator_tk.tool_names()
     assert "daytona_edit_file" in developer_tk.tool_names()
-    assert "daytona_rename_symbol" in developer_tk.tool_names()
     assert "daytona_list_files" not in developer_tk.tool_names()
     assert "daytona_list_files" not in validator_tk.tool_names()
 
@@ -142,9 +139,7 @@ def test_shell_schema_describes_command():
 
     schema = tool.to_api_schema()["input_schema"]
     command_description = schema["properties"]["command"]["description"]
-    assert "run from the repo root" in command_description
-    assert "Do not prefix with host paths like /Users/..." in command_description
-    assert "Output is captured automatically" in command_description
+    assert command_description == "Shell command to run for tests, builds, or verification."
 
     assert tool.short_description == "Run a shell command from the repo root."
 
@@ -157,18 +152,12 @@ def test_toolkit_get_missing_tool():
 def test_toolkit_list_tools_length():
     tk = DaytonaToolkit()
     tools = tk.list_tools()
-    assert len(tools) == 9
+    assert len(tools) == 8
 
 
-def test_toolkit_instructions_prioritize_ci_before_raw_file_reads():
+def test_toolkit_omits_instruction_block():
     tk = DaytonaToolkit()
-    assert "Use CI/navigation tools first" in tk.instructions
-    assert "after you know the target path or line range" in tk.instructions
-    assert "Use exactly one mode" in tk.instructions
-    assert "output is captured automatically" in tk.instructions
-    assert "Never prefix commands with host paths like `/Users/...`" in tk.instructions
-    assert "python -u" in tk.instructions
-    assert "daytona_rename_symbol" in tk.instructions
+    assert not hasattr(tk, "instructions")
 
 
 # ---------------------------------------------------------------------------
@@ -401,7 +390,7 @@ async def test_resolve_cwd_async_calls_discover_workspace_async():
 
 
 # ---------------------------------------------------------------------------
-# Toolkit description/instructions present
+# Toolkit description present
 # ---------------------------------------------------------------------------
 
 
@@ -411,7 +400,6 @@ def test_toolkit_has_description():
     assert "sandbox" in tk.description.lower()
 
 
-def test_toolkit_has_instructions():
+def test_toolkit_has_no_instructions():
     tk = DaytonaToolkit()
-    assert tk.instructions
-    assert "daytona_shell" in tk.instructions
+    assert not hasattr(tk, "instructions")

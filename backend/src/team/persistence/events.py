@@ -1,8 +1,8 @@
 """Event schema for TeamRun persistence.
 
 Events are append-only and self-describing. ``TeamRunEvent.to_json`` /
-``from_json`` form the wire format shared by every ``TeamRunStore``
-implementation (jsonl file, SQL row, in-memory null sink).
+``from_json`` form the wire format used by the TeamRun event log, whether it
+is file-backed or disabled.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ EventKind = Literal[
     "note_posted",
     "budget_update",
     "replace_dependency",
-    "file_changed",
 ]
 
 
@@ -157,20 +156,6 @@ def make_budget_update(
     )
 
 
-def make_file_changed(
-    team_run_id: str,
-    *,
-    task_id: str | None,
-    path: str,
-    op: str,
-) -> TeamRunEvent:
-    return TeamRunEvent(
-        team_run_id=team_run_id,
-        kind="file_changed",
-        data={"task_id": task_id, "path": path, "op": op},
-    )
-
-
 # ---- serialisation helpers -----------------------------------------------
 
 
@@ -198,3 +183,34 @@ def task_to_dict(task: Any) -> dict[str, Any]:
         "failure_reason": task.failure_reason,
         "fired_by_task_id": task.fired_by_task_id,
     }
+
+
+def task_from_dict(data: dict[str, Any]) -> Any:
+    """Deserialise a ``Task`` dataclass from a JSON-safe dict (inverse of ``task_to_dict``)."""
+    from team.models import Task, TaskStatus
+
+    def _parse_dt(iso: str | None) -> datetime | None:
+        return datetime.fromisoformat(iso) if iso else None
+
+    objective = str(data.get("objective") or "")
+    if not objective:
+        raise ValueError("Task payload requires a non-empty 'objective'")
+    return Task(
+        id=data["id"],
+        team_run_id=data["team_run_id"],
+        agent_name=data["agent_name"],
+        status=TaskStatus.of(data.get("status") or TaskStatus.PENDING.value),
+        objective=objective,
+        description=str(data.get("description") or ""),
+        deps=list(data.get("deps") or []),
+        scope_paths=list(data.get("scope_paths") or []),
+        parent_id=data.get("parent_id"),
+        root_id=data.get("root_id") or "",
+        depth=int(data.get("depth") or 0),
+        agent_run_id=data.get("agent_run_id"),
+        created_at=_parse_dt(data.get("created_at")) or datetime.now(),
+        started_at=_parse_dt(data.get("started_at")),
+        finished_at=_parse_dt(data.get("finished_at")),
+        failure_reason=data.get("failure_reason"),
+        fired_by_task_id=data.get("fired_by_task_id"),
+    )

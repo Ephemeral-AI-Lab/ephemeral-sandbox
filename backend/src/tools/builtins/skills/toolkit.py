@@ -1,7 +1,7 @@
-"""Skills toolkit — lazy-loaded skill access via meta-tools.
+"""Skill loading tools.
 
 Instead of injecting full skill content into the system prompt (which
-can consume 10-50K+ tokens), this toolkit provides tools that let the
+can consume 10-50K+ tokens), these tools let the
 agent load skill content on demand.  The system prompt only contains
 skill name + one-line description (~20 tokens each).
 
@@ -13,10 +13,9 @@ Follows Agno's progressive discovery pattern:
 
 Usage::
 
-    from tools.builtins.skills import make_skills_toolkit
+    from tools.builtins.skills import make_skills_tools
 
-    toolkit = make_skills_toolkit(skill_registry, allowed_slugs=["skill-a", "skill-b"])
-    tool_registry.register_toolkit(toolkit)
+    tool_registry.register_many(make_skills_tools(skill_registry, allowed_slugs=["skill-a", "skill-b"]))
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ import json
 from pydantic import BaseModel, Field
 
 from config.defaults import SKILL_REFERENCE_TRACE_LIMIT
-from tools.core.base import BaseToolkit, TextToolOutput, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContext, ToolResult
 from tools.core.decorator import tool
 from skills.core.registry import SkillRegistry
 
@@ -63,15 +62,15 @@ class LoadSkillReferenceInput(BaseModel):
     )
 
 
-def make_skills_toolkit(
+def make_skills_tools(
     skill_registry: SkillRegistry,
     allowed_slugs: list[str] | None = None,
-) -> BaseToolkit:
-    """Create a skills toolkit scoped to the given skill slugs.
+) -> list[BaseTool]:
+    """Create skill loading tools scoped to the given skill slugs.
 
     If *allowed_slugs* is None, all registered skills are available.
 
-    The toolkit provides two tools:
+    This provides two tools:
 
     - ``load_skill`` — load the full instructions (SKILL.md) of a skill
     - ``load_skill_reference`` — load a specific reference document from a skill
@@ -251,37 +250,4 @@ def make_skills_toolkit(
         )
         return ToolResult(output=content)
 
-    # Build skill catalog for instructions
-    skill_entries = []
-    for info in available.values():
-        refs = info.get("references", [])
-        ref_note = f" ({len(refs)} references)" if refs else ""
-        skill_entries.append(f'- `load_skill("{info["name"]}")` — {info["description"]}{ref_note}')
-
-    instructions = (
-        (
-            "Lazy-loaded skill system. Use `load_skill(skill_name)` when a task "
-            "matches a skill's domain. Use `load_skill_reference(skill_name, ref)` "
-            "for supplementary docs.\n\n"
-            "**Available skills:**\n" + "\n".join(skill_entries)
-        )
-        if skill_entries
-        else None
-    )
-
-    toolkit = BaseToolkit(
-        name="skills",
-        description="Lazy-loaded skill instructions and reference documents",
-        tools=[load_skill, load_skill_reference],
-        instructions=instructions,
-    )
-    if allowed_slugs is not None:
-        toolkit.available_skills = [
-            {
-                "name": str(info["name"]),
-                "description": str(info["description"] or ""),
-                "references": [str(ref) for ref in info.get("references", [])],
-            }
-            for info in sorted(available.values(), key=lambda item: str(item["name"]))
-        ]
-    return toolkit
+    return [load_skill, load_skill_reference]

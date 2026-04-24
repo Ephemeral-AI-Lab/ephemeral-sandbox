@@ -1,4 +1,4 @@
-"""Delete or move files and folders in Daytona."""
+"""Daytona delete and move tools."""
 
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ class DaytonaDeleteFileInput(BaseModel):
     path: str = Field(
         ...,
         min_length=1,
-        description="File or folder path to delete. It must exist.",
+        description="Repo-relative or sandbox-root file or folder path.",
     )
     is_folder: bool = Field(
         default=False,
@@ -133,10 +133,7 @@ class DaytonaDeleteFileOutput(BaseModel):
 
 @tool(
     name="daytona_delete_file",
-    description=(
-        "Delete a sandbox file. Set `is_folder=True` to delete a folder tree. "
-        "Use this instead of shell delete commands."
-    ),
+    description="Delete a sandbox file or folder.",
     short_description="Delete a file or folder.",
     input_model=DaytonaDeleteFileInput,
     output_model=DaytonaDeleteFileOutput,
@@ -211,12 +208,12 @@ class DaytonaMoveFileInput(BaseModel):
     src_path: str = Field(
         ...,
         min_length=1,
-        description="Source file or folder path. It must exist.",
+        description="Repo-relative or sandbox-root source path.",
     )
     target_path: str = Field(
         ...,
         min_length=1,
-        description="Destination path.",
+        description="Repo-relative or sandbox-root destination path.",
     )
     is_folder: bool = Field(
         default=False,
@@ -256,10 +253,7 @@ class DaytonaMoveFileOutput(BaseModel):
 
 @tool(
     name="daytona_move_file",
-    description=(
-        "Move a sandbox file. Set `is_folder=True` to move a folder tree. "
-        "Use this instead of `mv` or other shell move commands."
-    ),
+    description="Move a sandbox file or folder.",
     short_description="Move a file or folder.",
     input_model=DaytonaMoveFileInput,
     output_model=DaytonaMoveFileOutput,

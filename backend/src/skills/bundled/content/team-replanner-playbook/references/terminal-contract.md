@@ -11,7 +11,6 @@ submit_replan({ new_tasks: NewTaskSpec[], cancel_ids: string[] })
 ```ts
 type NewTaskSpec = {
   id: string;
-  description: string;
   name: "developer" | "validator";
   spec: string;
   deps: string[];
@@ -28,7 +27,6 @@ Never include `output`, `summary`, `background`, `parent_id`, `new_sibling_tasks
 | Field | Rule |
 | --- | --- |
 | `id` | Unique lower-kebab id in this payload. Local deps reference this exact string. |
-| `description` | Short non-blank corrective outcome label. |
 | `name` | Use only `developer` or terminal `validator`. Never use `team_planner`, `root_planner`, `scout`, `team_replanner`, or any other role. |
 | `spec` | Must contain `1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:` in order. If `Task Details` uses `Classification: unresolved_blocker`, it must also include the exact field `Diagnostics decision: trivial_direct_replan` or `Diagnostics decision: deep_diagnostics`. |
 | `deps` | Prefer local payload ids. Existing ids require fresh graph proof that they are schedulable and not downstream of this replanner or the failed task. Validators depend on local payload ids. |
@@ -64,7 +62,6 @@ Add-only direct repair:
   "new_tasks": [
     {
       "id": "repair-config-path",
-      "description": "Repair config loader path",
       "name": "developer",
       "spec": "1. Goal: Repair the config regression in the production loader path.\n2. Task Details: Classification: scope_expansion. The failed task proved the root cause is pkg/config.py, not the original assigned file. Run ci_diagnostics(file_path=\"pkg/config.py\") first and preserve named failing test evidence; test paths remain acceptance-only.\n3. Acceptance Criteria: Run uv run pytest tests/test_config.py -q and the focused failing test id; report commands, exit codes, changed behavior, and residual risk.",
       "deps": [],
@@ -83,7 +80,7 @@ Cancel-and-redraft uses the same shape but sets `cancel_ids` to stale direct sib
 |---|---|
 | 1 | Top-level input has only required `new_tasks` and required `cancel_ids`, with `cancel_ids: []` when no sibling should be cancelled. |
 | 2 | `new_tasks` contains at least one corrective task; if no task is justified yet, look deeper into the issues and come back with a concrete corrective task. |
-| 3 | Every task has only `id`, `description`, `name`, `spec`, `deps`, and `scope_paths`. |
+| 3 | Every task has only `id`, `name`, `spec`, `deps`, and `scope_paths`. |
 | 4 | Every `name` is exactly `developer` or `validator`. |
 | 5 | Every id is unique. |
 | 6 | Every local dep names another task in this payload; any existing dep is freshly proven schedulable and not downstream of this replanner or the failed task. |

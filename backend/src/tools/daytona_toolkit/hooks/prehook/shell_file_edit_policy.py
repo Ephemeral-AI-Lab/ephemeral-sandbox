@@ -14,8 +14,7 @@ from tools.daytona_toolkit.hooks.prehook._shell_common import shell_command
 FILE_EDIT_POLICY_MESSAGE = (
     "BLOCKED: daytona_shell is for runtime commands, tests, and inspection in "
     "coordinated team lanes. Repo writes, explicit deletes, and moves must use daytona_edit_file, "
-    "daytona_write_file, daytona_rename_symbol, daytona_delete_file, or "
-    "daytona_move_file so write-scope, OCC, and invalid-edit guardrails run "
+    "daytona_write_file, daytona_delete_file, or daytona_move_file so write-scope, OCC, and invalid-edit guardrails run "
     "before mutation. Pure file removals may run through daytona_shell because the "
     "overlay audit path converts tracked whiteouts into OCC-gated deletes and "
     "rejects unsupported removal shapes. Use daytona_move_file for path moves. "

@@ -242,18 +242,8 @@ def test_write_and_edit_schema_keeps_scope_rules_simple():
     write_schema = daytona_write_file.to_api_schema()
     edit_schema = daytona_edit_file.to_api_schema()
 
-    write_description = write_schema["description"]
-    assert "there is no `write_file` tool" in write_description
-    assert "test-file writes are blocked unless runtime metadata allows them" in write_description
-    assert "Use this for in-scope writes and developer out-of-scope production" in write_description
-    assert "Write-scope advisories are notifications, not automatic replan conditions" in write_description
-
-    edit_description = edit_schema["description"]
-    assert "Use exactly one mode" in edit_description
-    assert "Do not send `new_text` with `edits`" in edit_description
-    assert "test-file writes are blocked unless runtime metadata allows them" in edit_description
-    assert "Developer out-of-scope production edits are allowed when tied to the assigned task" in edit_description
-    assert "Write-scope advisories are notifications to summarize, not automatic" in edit_description
+    assert write_schema["description"] == "Create or overwrite a sandbox file."
+    assert edit_schema["description"] == "Edit a sandbox file with exact search/replace."
 
 
 def test_write_warning_none_for_in_scope_write():

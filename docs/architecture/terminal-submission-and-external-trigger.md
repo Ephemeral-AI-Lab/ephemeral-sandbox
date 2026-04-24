@@ -10,7 +10,7 @@ Team-mode agents finish by calling a terminal submission tool. The query loop st
 - Parent summarizers: `submit_task_success` or `request_replan`
 
 `submit_plan` and `submit_replan` write `resolved_plan` and `plan_is_replan`. `submit_task_success` and `request_replan` write `task_summary` and `task_summary_type`.
-For `submit_plan` and `submit_replan`, every `new_tasks` item includes a required short `description` label authored by the planner or replanner; the full task briefing stays in `spec`.
+For `submit_plan` and `submit_replan`, every `new_tasks` item carries the full task briefing in `spec`; no separate short `description` label is required.
 Planners call `submit_plan(new_tasks=[...])` only; replanners call `submit_replan(new_tasks=[...], cancel_ids=[...])` only. They do not submit free-text `output` or `summary` fields. The submission tools append the full structured task JSON to the parent detail as `Initial Plan` or `Initial Replan`, including ids, assignments, acceptance criteria, dependencies, and scope paths.
 Developers and reviewers should use `submit_task_success(summary=...)` for evidence-rich completion notes and `request_replan(reason=...)` when the lane is blocked or still red. Parent summarizers use the same two-tool surface to either write the planner/replanner roll-up or replan the summarized parent when child evidence stays unresolved.
 

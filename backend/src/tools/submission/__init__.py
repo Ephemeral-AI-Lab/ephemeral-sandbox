@@ -1,8 +1,8 @@
 """Submission tools — terminal actions for team-mode agents."""
 
 from tools.submission.toolkit import (
+    make_submission_tools,
     RequestReplanTool,
-    SubmissionToolkit,
     SubmitPlanTool,
     SubmitReplanTool,
     SubmitTaskSuccessTool,
@@ -13,8 +13,8 @@ from tools.submission.toolkit import (
 from tools.submission import hooks as _hooks  # noqa: F401
 
 __all__ = [
+    "make_submission_tools",
     "RequestReplanTool",
-    "SubmissionToolkit",
     "SubmitPlanTool",
     "SubmitReplanTool",
     "SubmitTaskSuccessTool",

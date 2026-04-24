@@ -423,7 +423,7 @@ def test_team_root_planner_playbook_loads_synthesize_submit_reference() -> None:
     assert 'scope_paths: ["backend/tests/team/test_task_center.py"]' in reference
     assert 'spec: "1. Goal:\\nRepair the owner.' in reference
     assert 'id: "val-root"' in reference
-    assert 'description: "Validate the owner"' in reference
+    assert 'description: "Validate the owner"' not in reference
     assert "validator tasks must depend on at least one upstream sibling" in reference
     assert "## TaskSpec Examples" in reference
     assert "### Developer TaskSpec" in reference

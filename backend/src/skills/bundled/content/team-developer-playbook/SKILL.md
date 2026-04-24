@@ -46,7 +46,6 @@ References: none. Use this playbook directly.
 | Diagnose one file | `ci_diagnostics(file_path="...")` |
 | Edit by exact text | `daytona_edit_file(file_path=..., old_text=..., new_text=...)` or `(file_path, edits=[...])` |
 | Create or overwrite | `daytona_write_file(file_path=..., content=...)` |
-| Rename a Python symbol | `daytona_rename_symbol(old_name=..., new_name=..., kind?=..., file_hint?=...)` |
 | Delete file or folder | `daytona_delete_file(file_path=..., is_folder?=false)` |
 | Move file or folder | `daytona_move_file(src_path=..., dst_path=..., is_folder?=false)` |
 | Run tests, builds, or runtime probes | `daytona_shell(command="...")`; never use daytona_shell for package or environment mutation |
@@ -106,11 +105,11 @@ Call `request_replan` when dependencies are not done, artifacts are missing, ano
 
 | Check | Rule |
 | --- | --- |
-| Production proof | Before every mutation, verify the target file path, source path, destination path, or rename file hint is a production path tied to the traced root cause. |
+| Production proof | Before every mutation, verify the target file path or destination path is a production path tied to the traced root cause. |
 | Out-of-scope writes | Out-of-scope production writes, copies, and new files are allowed for developers when production evidence ties them to this task; use Daytona mutation tools so write-scope notifications are recorded. |
 | Mutation size | Use exactly one Daytona mutation tool per change. Keep each pass to one behavior fix, import fix, compatibility adjustment, or config correction. |
 | Freshness | Refresh file notes after edits or surprising runtime/tool output. |
-| Failed delete, move, or rename | Do not retry or bypass the failed tool; preserve the tool error for the terminal summary. |
+| Failed delete or move | Do not retry or bypass the failed tool; preserve the tool error for the terminal summary. |
 | Tests | Never create or edit test files. |
 | Scope notification | If an outside-scope notification appears, treat it as coordination context and keep working when the production change is still tied to this task. Call `request_replan` with trigger `scope_expansion` only when the repair becomes broad or ambiguous. |
 | Repeated red assertion | Before another edit, write a compact value table: input keys/state, current value, expected value, and the production rule that selects old vs. new/raise/warn/return. |

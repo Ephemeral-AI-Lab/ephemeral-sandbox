@@ -18,20 +18,19 @@ from team.errors import (
     InvalidPlan,
 )
 from team.models import (
-    AgentResult,
     BudgetConfig,
     BudgetState,
     Plan,
     Task,
     TaskDefinition,
     TaskStatus,
+    TaskStatusUpdate,
     TERMINAL_STATUSES,
     TeamDefinition,
     TeamRunStatus,
 )
 
 __all__ = [
-    "AgentResult",
     "BudgetConfig",
     "BudgetExceeded",
     "BudgetState",
@@ -41,6 +40,7 @@ __all__ = [
     "Task",
     "TaskDefinition",
     "TaskStatus",
+    "TaskStatusUpdate",
     "TERMINAL_STATUSES",
     "TeamDefinition",
     "TeamRun",

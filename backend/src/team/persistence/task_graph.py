@@ -28,19 +28,6 @@ class TaskGraph:
         self.tasks: dict[str, Task] = {}
         self.ready_order: list[str] = []
 
-    # ---- queries ----------------------------------------------------------
-
-    def children_of(self, parent_id: str) -> list[Task]:
-        return [t for t in self.tasks.values() if t.parent_id == parent_id]
-
-    def detached_children(self, parent_id: str) -> list[Task]:
-        """Children of ``parent_id`` whose status is failed or cancelled."""
-        return [t for t in self.children_of(parent_id) if t.detached]
-
-    def live_children(self, parent_id: str) -> list[Task]:
-        """Children of ``parent_id`` that are not detached."""
-        return [t for t in self.children_of(parent_id) if not t.detached]
-
     # ---- load / replace ---------------------------------------------------
 
     def load(self, tasks: Iterable[Task]) -> dict[str, Task]:
@@ -142,8 +129,3 @@ class TaskGraph:
         if enqueue_if_ready and task.status == TaskStatus.READY:
             self.add_ready(task.id)
 
-    def recover_running(self, tasks: Iterable[Task]) -> None:
-        """Restore crashed-running tasks to ready state in memory."""
-        for task in tasks:
-            self.tasks[task.id] = task
-            self.add_ready(task.id)

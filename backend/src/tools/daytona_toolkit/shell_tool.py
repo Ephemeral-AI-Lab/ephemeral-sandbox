@@ -1,8 +1,4 @@
-"""Run shell commands in the Daytona repo root.
-
-Coordinated team lanes must not use daytona_shell to mutate package or
-environment state; missing dependencies are workflow evidence for replanning.
-"""
+"""Daytona shell tool."""
 
 from __future__ import annotations
 
@@ -30,19 +26,12 @@ _SHELL_DEFAULT_TIMEOUT = CODE_INTELLIGENCE_TUNING.shell_default_timeout
 
 
 class DaytonaShellInput(BaseModel):
-    """Input schema for the daytona_shell tool."""
+    """Input for daytona_shell."""
 
     command: str = Field(
         ...,
         min_length=1,
-        description=(
-            "Shell command to run from the repo root. Use for tests, builds, "
-            "and verification. Do not prefix with host paths like /Users/...; "
-            "the sandbox repo root is usually /testbed. Output is captured "
-            "automatically. In coordinated team lanes, do not run package or "
-            "environment mutation commands such as pip install, uv sync, "
-            "npm install, or equivalent install/add/sync/update operations."
-        ),
+        description="Shell command to run for tests, builds, or verification.",
     )
     timeout: int = Field(
         default=_SHELL_DEFAULT_TIMEOUT,
@@ -299,17 +288,7 @@ def _ambient_changed_paths_from_shell(shell_result: dict[str, object]) -> list[s
 
 @tool(
     name="daytona_shell",
-    description=(
-        "Run a shell command in the Daytona sandbox. Use for tests, builds, "
-        "and verification. Commands start at the sandbox repo root, usually "
-        "`/testbed`; never prefix with host paths like `/Users/...`. Output "
-        "is captured automatically. In coordinated team lanes, do not use "
-        "this for package or environment mutation commands such as "
-        "`pip install`, `uv sync`, `npm install`, or equivalent "
-        "install/add/sync/update operations. Do not use this for file writes, "
-        "moves, deletes, or file-content reads; use the file, search, rename, "
-        "delete, or move tools instead."
-    ),
+    description="Run a shell command in the sandbox.",
     short_description="Run a shell command from the repo root.",
     input_model=DaytonaShellInput,
     output_model=DaytonaShellOutput,
@@ -321,7 +300,7 @@ async def daytona_shell(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Run a shell command in the Daytona sandbox."""
+    """Run a shell command."""
     if not command or not command.strip():
         return ToolResult(output="`command` must be a non-empty string.", is_error=True)
 

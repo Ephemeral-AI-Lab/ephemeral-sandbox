@@ -59,6 +59,7 @@ tool_call_limit: 100
 toolkits: ["sandbox_operations", "code_intelligence"]
 allowed_tools: ["daytona_shell", "ci_query_symbol", "ci_diagnostics"]
 blocked_tools: []
+terminal_tools: ["submit_task_success", "request_replan"]
 ---
 # System Prompt (body of the file)
 Execute one bounded coding task...
@@ -68,9 +69,13 @@ Execute one bounded coding task...
 - `name`, `description` (required)
 - `system_prompt` (optional; overridden by body text)
 - `model`, `effort`, `tool_call_limit`
-- `toolkits`, `skills`, `allowed_tools`, `blocked_tools`
+- `toolkits`, `skills`, `allowed_tools`, `blocked_tools`, `terminal_tools`
 - `background`, `role`, `agent_type` (agent | subagent)
 - `source` (builtin | user | plugin), capability flags
+
+`terminal_tools` is the runtime source of truth for tools that may end the
+agent's loop. For team-mode agents using the `submission` toolkit, it also
+determines which submission tools remain visible after toolkit assembly.
 
 ### REST API Surface
 
@@ -85,6 +90,7 @@ POST /api/agents
   "toolkits": ["search", "note_taking"],
   "allowed_tools": ["search_web", "read_note"],
   "blocked_tools": [],
+  "terminal_tools": [],
   "effort": "high",
   "tool_call_limit": 50
 }

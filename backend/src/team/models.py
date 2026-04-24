@@ -259,24 +259,26 @@ class SubmittedSummary:
     submission_kind: str = field(default="summary", init=False, repr=False)
 
 
-@dataclass
-class ReplanRequest:
-    reason: str
-    suggestion: str | None = None
-    explicit: bool = False
-    submission_kind: str = field(default="replan", init=False, repr=False)
-
-
 # ---------------------------------------------------------------------------
-# Result type for executor dispatch
+# Unified task status update — the single object handed to TaskStatusHandler
 # ---------------------------------------------------------------------------
 
 
 @dataclass
-class AgentResult:
-    summary: str
-    submitted_plan: Plan | None = None
-    submitted_replan: ReplanPlan | None = None
+class TaskStatusUpdate:
+    """One outcome emitted for a task — the single dispatch input to the handler.
+
+    Exactly one of ``plan`` / ``replan`` is set for ``EXPANDED`` updates; both
+    are ``None`` for every other status. ``summary`` carries the success
+    summary for ``SUCCESS``, the reason for ``REQUEST_REPLAN`` / ``FAILED`` /
+    ``CANCELLED``, and is ignored elsewhere.
+    """
+
+    task_id: str
+    status: TaskStatus
+    summary: str = ""
+    plan: Plan | None = None
+    replan: ReplanPlan | None = None
 
 
 # ---------------------------------------------------------------------------

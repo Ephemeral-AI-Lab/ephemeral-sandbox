@@ -123,7 +123,6 @@ Task object:
 ```ts
 type NewTaskSpec = {
   id: string;
-  description: string;
   name: "developer" | "validator" | "team_planner";
   spec: string;
   deps: string[];
@@ -136,7 +135,6 @@ Field contract:
 | Field | Contract |
 | --- | --- |
 | `id` | Unique lower-kebab id in this payload. Other tasks reference this exact string in `deps`. |
-| `description` | Short non-blank owner/outcome label. |
 | `name` | Exactly `developer`, `team_planner`, or `validator`. `developer` means the slice passed every atomic test and no expandable signal fired; expandable slices must use `team_planner`. |
 | `spec` | One string with `1. Goal:`, `2. Task Details:`, and `3. Acceptance Criteria:` in order. Each label starts its own line and has body text after the colon on that same line. |
 | `deps` | List of ids from this same payload. Independent work uses `[]`. Validators must depend on at least one upstream same-payload task. |
@@ -155,7 +153,6 @@ submit_plan({
   new_tasks: [
     {
       id: "dev-task-center",
-      description: "Repair task center invariant",
       name: "developer",
       spec: "1. Goal: Repair the focused TaskCenter invariant so dependent task state remains coherent after graph mutation.\n2. Task Details: Own backend/src/team/task_center.py. The failure evidence points at TaskCenter graph mutation behavior, not executor or DispatchQueue ownership. Preserve existing terminal submission tool names and do not change replan task spawning policy.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_task_center.py -q and uv run pytest backend/tests/team/test_replan_workflow.py -q; the suites prove the invariant holds without skip, xfail, or test reconfiguration.",
       deps: [],
@@ -163,7 +160,6 @@ submit_plan({
     },
     {
       id: "plan-team-runtime-cluster",
-      description: "Decompose team runtime follow-up",
       name: "team_planner",
       spec: "1. Goal: Decompose related team runtime failures across graph persistence, dispatch readiness, and executor handoff so each owner family is routed below this root layer.\n2. Task Details: Own decomposition under backend/src/team. The request spans multiple production families, so the child planner must emit exact owner lanes instead of one catch-all developer task. Treat failing pytest ids as evidence in child specs, not as test-edit instructions.\n3. Acceptance Criteria: The child plan emits owner-specific developer lanes, one child-layer validator, and coverage for uv run pytest backend/tests/team -q with no closure by skip, xfail, ImportError, or missing optional dependency.",
       deps: [],
@@ -171,7 +167,6 @@ submit_plan({
     },
     {
       id: "val-root-team-runtime",
-      description: "Validate root team runtime coverage",
       name: "validator",
       spec: "1. Goal: Verify the focused TaskCenter repair and the decomposed team runtime follow-up after all root producer lanes complete.\n2. Task Details: Verify backend/src/team after dev-task-center and plan-team-runtime-cluster finish. This validator does not own implementation work and must report any uncovered failing cluster back to the responsible producer lane.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_task_center.py -q, uv run pytest backend/tests/team/test_replan_workflow.py -q, and uv run pytest backend/tests/team -q; report exact failing pytest ids and owner gaps if any remain.",
       deps: ["dev-task-center", "plan-team-runtime-cluster"],
@@ -199,7 +194,6 @@ submit_plan({
   new_tasks: [
     {
       id: "dev-owner",
-      description: "Repair owner",
       name: "developer",
       spec: "1. Goal: Repair the owner.\n2. Task Details: Own backend/src/team/task_center.py.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_task_center.py -q.",
       deps: [],
@@ -217,7 +211,6 @@ submit_plan({
   new_tasks: [
     {
       id: "dev-test-file",
-      description: "Repair failing test",
       name: "developer",
       spec: "1. Goal: Repair production behavior covered by the failing test.\n2. Task Details: Own backend/src/team/task_center.py; keep the test path as evidence only.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_task_center.py -q.",
       deps: [],
@@ -234,7 +227,6 @@ submit_plan({
   new_tasks: [
     {
       id: "dev-bad-spec",
-      description: "Repair malformed spec",
       name: "developer",
       spec: "1. Goal:\nRepair the owner.\n2. Task Details: Own backend/src/team/task_center.py.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_task_center.py -q.",
       deps: [],
@@ -251,7 +243,6 @@ submit_plan({
   new_tasks: [
     {
       id: "dev-owner",
-      description: "Repair the owner",
       name: "developer",
       spec: "1. Goal: Repair the owner.\n2. Task Details: Own backend/src/team/task_center.py.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_task_center.py -q.",
       deps: [],
@@ -259,7 +250,6 @@ submit_plan({
     },
     {
       id: "val-root",
-      description: "Validate the owner",
       name: "validator",
       spec: "1. Goal: Verify the repair after the producer lane completes.\n2. Task Details: Verify backend/src/team after dev-owner finishes.\n3. Acceptance Criteria: Run uv run pytest backend/tests/team/test_task_center.py -q.",
       deps: [],
@@ -273,7 +263,7 @@ Invalid because the terminal validator must depend on every same-payload non-val
 
 ## TaskSpec Examples
 
-These examples show the detailed `spec` body each lane should carry in a real payload. Use them as a shape guide for `1. Goal:`, `2. Task Details:`, and `3. Acceptance Criteria:` wording. Only the `spec` string is shown; real payloads must also carry `id`, `description`, `name`, `deps`, and `scope_paths` per the Terminal Tool Contract. The dependency DAG examples further down abstract full payloads into diagrams so graph shape stays readable.
+These examples show the detailed `spec` body each lane should carry in a real payload. Use them as a shape guide for `1. Goal:`, `2. Task Details:`, and `3. Acceptance Criteria:` wording. Only the `spec` string is shown; real payloads must also carry `id`, `name`, `deps`, and `scope_paths` per the Terminal Tool Contract. The dependency DAG examples further down abstract full payloads into diagrams so graph shape stays readable.
 
 ### Developer TaskSpec
 
@@ -426,11 +416,11 @@ Rationale: `backend/src/tools/submission` is nested inside `backend/src/tools`, 
 | # | Check |
 |---|---|
 | 1 | Top-level input is only `new_tasks`. |
-| 2 | Every task has only `id`, `description`, `name`, `spec`, `deps`, and `scope_paths`. |
+| 2 | Every task has only `id`, `name`, `spec`, `deps`, and `scope_paths`. |
 | 3 | Every `id` is unique; every `deps` entry resolves to another id in this same payload. |
 | 4 | No `deps` edge exists solely to serialize independent work or to keep scopes disjoint; chains appear only where real output consumption or terminal validator coverage requires them. |
 | 5 | Every `name` is exactly `developer`, `team_planner`, or `validator`. |
-| 6 | Every `description` is non-blank; every `scope_paths` is non-empty and uses repo-relative production paths. |
+| 6 | Every `scope_paths` is non-empty and uses repo-relative production paths. |
 | 7 | Every `spec` contains `1. Goal:`, `2. Task Details:`, and `3. Acceptance Criteria:` in order, each label starting its own line. |
 | 8 | Every `Acceptance Criteria` is test-suite focused with concrete commands or pytest ids. |
 | 9 | No fail-to-pass acceptance criterion treats skipped tests, expected failures, clear `ImportError`, or missing optional dependencies as passing closure. |

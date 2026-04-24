@@ -8,6 +8,7 @@ store callback.
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -50,8 +51,30 @@ class NoteManager:
         return list(self._notes)
 
     def restore(self, notes: list[Note]) -> None:
-        """Restore notes from a snapshot (for resume)."""
+        """Replace in-memory notes with the given list."""
         self._notes = list(notes)
+
+    async def submit_summary(
+        self,
+        *,
+        task_id: str,
+        agent_name: str,
+        content: str,
+        paths: list[str] | None = None,
+        tags: list[str] | None = None,
+    ) -> Note:
+        """Submit a terminal task summary through the note stream."""
+        summary_tags = ["implementation", *(tags or [])]
+        note = Note(
+            id=str(uuid.uuid4()),
+            task_id=task_id,
+            agent_name=agent_name,
+            content=content,
+            paths=list(paths or []),
+            tags=list(dict.fromkeys(summary_tags)),
+        )
+        await self.post(note)
+        return note
 
     async def post(self, note: Note) -> None:
         """Append a note and emit the posted event."""

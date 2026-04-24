@@ -70,7 +70,6 @@ def _fake_team_run(**overrides) -> SimpleNamespace:
         session_id="sess-1",
         budgets=SimpleNamespace(),
         task_center=SimpleNamespace(graph={}),
-        resume=AsyncMock(),
         wait=AsyncMock(),
     )
     for k, v in overrides.items():
@@ -170,7 +169,11 @@ async def test_query_ctx_seeds_repo_root_for_daytona_and_ci():
     build_query_ctx = _make_context_builders("sbx-1", repo_dir="/testbed")
     template_context_for = AsyncMock(return_value=UserPromptContextParts(task_spec="Fix it"))
     ctx = await build_query_ctx(
-        SimpleNamespace(name="developer", role="developer"),
+        SimpleNamespace(
+            name="developer",
+            role="developer",
+            terminal_tools=["submit_task_success", "request_replan"],
+        ),
             SimpleNamespace(
                 id="TR1",
                 sandbox_id="sbx-1",
@@ -292,7 +295,11 @@ async def test_root_planner_runtime_prompt_hides_legacy_plan_tool_name():
         return_value=UserPromptContextParts(task_spec="Root planning task")
     )
     ctx = await build_query_ctx(
-        SimpleNamespace(name="root_planner", role="planner"),
+        SimpleNamespace(
+            name="root_planner",
+            role="planner",
+            terminal_tools=["submit_plan"],
+        ),
             SimpleNamespace(
                 id="TR1",
                 sandbox_id="sbx-1",
@@ -527,8 +534,8 @@ def test_make_runner_persists_full_compaction_delta(monkeypatch):
 
     monkeypatch.setattr("team.runtime.runner.AgentRunTracker", SimpleNamespace(create=lambda **_: _Tracker()))
     monkeypatch.setattr("team.runtime.runner.spawn_agent", lambda *_args, **_kwargs: agent)
-    monkeypatch.setattr("team.runtime.telemetry.estimate_final_context", lambda _messages: 321)
-    monkeypatch.setattr("team.runtime.telemetry.persist_session_snapshot", lambda **_: None)
+    monkeypatch.setattr("benchmarks.sweevo.telemetry.estimate_final_context", lambda _messages: 321)
+    monkeypatch.setattr("benchmarks.sweevo.telemetry.persist_session_snapshot", lambda **_: None)
 
     runner = _make_runner(
         session_config=SimpleNamespace(session_id="sess-1"),
@@ -603,8 +610,8 @@ def test_make_runner_persists_work_result(monkeypatch):
 
     monkeypatch.setattr("team.runtime.runner.AgentRunTracker", SimpleNamespace(create=lambda **_: _Tracker()))
     monkeypatch.setattr("team.runtime.runner.spawn_agent", lambda *_args, **_kwargs: agent)
-    monkeypatch.setattr("team.runtime.telemetry.estimate_final_context", lambda _messages: 0)
-    monkeypatch.setattr("team.runtime.telemetry.persist_session_snapshot", lambda **_: None)
+    monkeypatch.setattr("benchmarks.sweevo.telemetry.estimate_final_context", lambda _messages: 0)
+    monkeypatch.setattr("benchmarks.sweevo.telemetry.persist_session_snapshot", lambda **_: None)
     monkeypatch.setattr("team.runtime.registry.get", lambda _team_run_id: None)
 
     runner = _make_runner(
@@ -671,8 +678,8 @@ def test_make_runner_writes_agent_run_log_artifact(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr("team.runtime.runner.AgentRunTracker", SimpleNamespace(create=lambda **_: _Tracker()))
     monkeypatch.setattr("team.runtime.runner.spawn_agent", lambda *_args, **_kwargs: agent)
-    monkeypatch.setattr("team.runtime.telemetry.estimate_final_context", lambda _messages: 456)
-    monkeypatch.setattr("team.runtime.telemetry.persist_session_snapshot", lambda **_: None)
+    monkeypatch.setattr("benchmarks.sweevo.telemetry.estimate_final_context", lambda _messages: 456)
+    monkeypatch.setattr("benchmarks.sweevo.telemetry.persist_session_snapshot", lambda **_: None)
     monkeypatch.setattr("team.runtime.registry.get", lambda _team_run_id: None)
 
     runner = _make_runner(
@@ -765,8 +772,8 @@ def test_make_runner_marks_cancelled_agent_run_log(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr("team.runtime.runner.AgentRunTracker", SimpleNamespace(create=lambda **_: _Tracker()))
     monkeypatch.setattr("team.runtime.runner.spawn_agent", lambda *_args, **_kwargs: agent)
-    monkeypatch.setattr("team.runtime.telemetry.estimate_final_context", lambda _messages: 0)
-    monkeypatch.setattr("team.runtime.telemetry.persist_session_snapshot", lambda **_: None)
+    monkeypatch.setattr("benchmarks.sweevo.telemetry.estimate_final_context", lambda _messages: 0)
+    monkeypatch.setattr("benchmarks.sweevo.telemetry.persist_session_snapshot", lambda **_: None)
     monkeypatch.setattr("team.runtime.registry.get", lambda _team_run_id: None)
 
     runner = _make_runner(
@@ -855,11 +862,9 @@ def test_finalize_team_result_surfaces_retry_replan_metadata(monkeypatch):
             max_plan_size=6,
         ),
         printer=SimpleNamespace(raw_line=lambda who, body: printed.append((who, body))),
-        resumed_from="TR0",
     )
 
     assert result["replans_used"] == 2
-    assert result["resumed_from"] == "TR0"
     assert any(
         body == "[team_stats] tasks=2 max_depth=1 agent_runs=4 replans=2"
         for _, body in printed

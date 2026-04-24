@@ -1,4 +1,4 @@
-"""Search/replace editing for Daytona files."""
+"""Daytona edit tool."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class DaytonaEditFileInput(BaseModel):
-    file_path: str = Field(..., description="Path to the file to edit.")
+    file_path: str = Field(..., description="Repo-relative or sandbox-root file path.")
     old_text: str = Field(
         default="",
         description="Exact text to replace. Use only with new_text.",
@@ -111,15 +111,7 @@ def _normalize_edits(
 
 @tool(
     name="daytona_edit_file",
-    description=(
-        "Edit a sandbox file with exact search/replace. Use exactly one mode: "
-        "`old_text` + `new_text` for one replacement, or `edits=[...]` for many. "
-        "Do not send `new_text` with `edits`. In team lanes, test-file writes are "
-        "blocked unless runtime metadata allows them. Developer out-of-scope "
-        "production edits are allowed when tied to the assigned task. "
-        "Write-scope advisories are notifications to summarize, not automatic "
-        "replan conditions. New production files must be created with daytona_write_file."
-    ),
+    description="Edit a sandbox file with exact search/replace.",
     short_description="Apply atomic file edits.",
     input_model=DaytonaEditFileInput,
     output_model=DaytonaEditFileOutput,
@@ -133,7 +125,7 @@ async def daytona_edit_file(
     *,
     context: ToolExecutionContext,
 ) -> ToolResult:
-    """Edit a file with search/replace."""
+    """Edit a file."""
     tool_started = time.perf_counter()
     tool_timings: dict[str, float] = {}
 

@@ -10,7 +10,6 @@ from team.persistence.run_store import TeamRunStore, build_default_store
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-    from team.runtime.dispatch_queue import DispatchQueue
     from team.task_center import TaskCenter
 
 
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
 class TeamRuntimeServices:
     project_context: ProjectContext
     task_center: "TaskCenter"
-    dispatch_queue: "DispatchQueue"
     event_store: TeamRunStore
     arbiter: Arbiter | None = None
 
@@ -35,7 +33,6 @@ def build_team_runtime_services(
     session_factory: "async_sessionmaker[AsyncSession] | None" = None,
 ) -> TeamRuntimeServices:
     from team.persistence.team_engine import create_team_engine
-    from team.runtime.dispatch_queue import DispatchQueue
     from team.task_center import TaskCenter
 
     project_context = ProjectContext(
@@ -66,12 +63,10 @@ def build_team_runtime_services(
         arbiter=arbiter,
         event_store=store,
     )
-    dispatch_queue = DispatchQueue(task_session_factory)
 
     return TeamRuntimeServices(
         project_context=project_context,
         task_center=task_center,
-        dispatch_queue=dispatch_queue,
         event_store=store,
         arbiter=arbiter,
     )

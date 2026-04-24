@@ -26,14 +26,11 @@ An `EXPANDED` parent's children fall into two sets:
 Promotion rule: the parent transitions out of `EXPANDED` when every
 non-detached child is `DONE`.
 
-- If at least one child is `DONE` and the parent is a planner/replanner:
+- If the parent is a planner/replanner:
   parent → `EXPANDED_AWAITING_SUMMARY`; `parent_summarizer` reads the parent
   and every direct child detail, posts the roll-up, then parent → `DONE`.
-- If at least one child is `DONE` and the parent is not expandable:
+- If the parent is not expandable:
   parent → `DONE`.
-- If every child is detached (no `DONE`): parent → `FAILED` with reason
-  `all_children_detached`, and itself enters the detached set of *its* parent
-  — propagates up naturally.
 
 This means cancel-cascades no longer wedge ancestor chains: detached children
 simply fall out of the counting set. (Replan-budget exhaustion is a separate
@@ -153,8 +150,9 @@ sequenceDiagram
         TC->>TS: finalize_replanned_origin(R)
         TS->>A: record replanned_by on A (A stays REQUEST_REPLAN; terminal)
     else every child is detached (0 DONE, all FAILED/CANCELLED)
-        TS->>R: mark R FAILED (all_children_detached)
-        Note over D,A: R joins parent's detached set; propagates up.
+        TS->>R: mark R EXPANDED_AWAITING_SUMMARY
+        TC->>R: parent_summarizer reads R + every direct child
+        Note over D,A: Detached children do not synthesize parent failure.
     else some child still live
         TS->>R: keep R EXPANDED
     end
@@ -163,12 +161,9 @@ sequenceDiagram
 With the detached-set promotion rule, `CANCELLED` and `FAILED` children do
 *not* wedge `R` — they are detached and ignored. `R` goes
 `EXPANDED_AWAITING_SUMMARY` when every non-detached child is DONE, then DONE
-after `parent_summarizer` posts the roll-up, or FAILED if all children are detached. A failed
-direct child still does not trigger a cascading replan (`fail_task` only
-cascades cancels to its descendants and doesn't call `request_replan`), but
-the failure propagates upward via the detach/promotion chain rather than
-wedging state. Recovery at a higher level still requires an ancestor
-replanner.
+after `parent_summarizer` posts the roll-up. A failed direct child still does
+not trigger a cascading replan by itself; the parent summarizer decides whether
+the detached-child outcome is deliverable or needs `request_replan`.
 
 ## 4. Replanner Adds Child Tasks Only
 

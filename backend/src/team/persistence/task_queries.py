@@ -8,17 +8,16 @@ those belong to :class:`team.persistence.task_store.TaskStore`.
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from datetime import datetime, timezone
 from typing import Any, cast as type_cast
 
-from sqlalchemy import Text, cast, delete, func, select, update
+from sqlalchemy import Text, cast, func, select, update
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.engine import CursorResult, Row
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from team.errors import GraphInvariantViolation
-from team.models import TERMINAL_STATUSES, Task, TaskDefinition
+from team.models import TERMINAL_STATUSES, TaskDefinition
 from team.persistence.ltree_utils import path_to_ltree
 from team.persistence.task_record import TaskRecord
 
@@ -58,88 +57,12 @@ async def fetch_adjacency(
     return {r.id: list(r.deps) if r.deps else [] for r in rows}
 
 
-async def fetch_statuses(db: AsyncSession, team_run_id: str) -> dict[str, str]:
-    stmt = select(TaskRecord.id, TaskRecord.status).where(
-        TaskRecord.team_run_id == team_run_id
-    )
-    rows = (await db.execute(stmt)).all()
-    return {r.id: r.status for r in rows}
-
-
-async def fetch_task_ids(db: AsyncSession, team_run_id: str) -> set[str]:
-    stmt = select(TaskRecord.id).where(TaskRecord.team_run_id == team_run_id)
-    return {str(tid) for tid in (await db.execute(stmt)).scalars().all()}
-
-
-async def fetch_done_sibling_ids(
-    db: AsyncSession,
-    team_run_id: str,
-    *,
-    task_id: str,
-    parent_id: str | None,
-    since: float | None = None,
-) -> list[str]:
-    stmt = (
-        select(TaskRecord.id)
-        .where(
-            TaskRecord.team_run_id == team_run_id,
-            TaskRecord.parent_id.is_not_distinct_from(parent_id),
-            TaskRecord.id != task_id,
-            TaskRecord.status == "done",
-        )
-        .order_by(TaskRecord.finished_at, TaskRecord.created_at)
-    )
-    if since is not None:
-        stmt = stmt.where(
-            TaskRecord.finished_at >= datetime.fromtimestamp(since, tz=timezone.utc)
-        )
-    return [str(tid) for tid in (await db.execute(stmt)).scalars().all()]
-
-
 async def count_non_terminal(db: AsyncSession, team_run_id: str) -> int:
     stmt = select(func.count()).where(
         TaskRecord.team_run_id == team_run_id,
         TaskRecord.status.notin_([status.value for status in TERMINAL_STATUSES]),
     )
     return int((await db.execute(stmt)).scalar() or 0)
-
-
-async def fetch_siblings_and_descendants(
-    db: AsyncSession, team_run_id: str, initiating_task_id: str
-) -> list[TaskRecord]:
-    initiator = aliased(TaskRecord, name="initiator")
-    parent_of_initiator = (
-        select(initiator.parent_id)
-        .where(
-            initiator.id == initiating_task_id,
-            initiator.team_run_id == team_run_id,
-        )
-        .scalar_subquery()
-    )
-    subtree = (
-        select(TaskRecord.id)
-        .where(
-            TaskRecord.team_run_id == team_run_id,
-            TaskRecord.parent_id.is_not_distinct_from(parent_of_initiator),
-            TaskRecord.id != initiating_task_id,
-        )
-        .cte("subtree", recursive=True)
-    )
-    child = aliased(TaskRecord, name="child")
-    subtree = subtree.union_all(
-        select(child.id)
-        .join(subtree, child.parent_id == subtree.c.id)
-        .where(child.team_run_id == team_run_id)
-    )
-    stmt = (
-        select(TaskRecord)
-        .where(
-            TaskRecord.team_run_id == team_run_id,
-            TaskRecord.id.in_(select(subtree.c.id)),
-        )
-        .order_by(TaskRecord.depth, TaskRecord.created_at)
-    )
-    return list((await db.execute(stmt)).scalars().all())
 
 
 async def fetch_pending_dependents_for_update(
@@ -203,8 +126,11 @@ async def assert_deps_satisfied(
 async def fetch_expanded_parent_candidate(
     db: AsyncSession, team_run_id: str, current_id: str
 ) -> Row[Any] | None:
-    """Return (id, all_detached) for the parent of ``current_id`` if that parent
-    is ``expanded`` and every non-detached child is ``done``. Otherwise None.
+    """Return an expanded parent of ``current_id`` if live children are resolved.
+
+    ``all_detached`` is true when the parent has no successful child, but this
+    is not a failure signal; the caller still resolves the parent through the
+    normal summary/finalization path.
     """
     child = aliased(TaskRecord, name="child")
     parent_id_sub = (
@@ -307,34 +233,6 @@ async def fetch_task_status(
     return None if row is None else str(row.status)
 
 
-async def fetch_request_replan_ids(
-    db: AsyncSession, team_run_id: str
-) -> list[str]:
-    rows = (
-        await db.execute(
-            select(TaskRecord.id).where(
-                TaskRecord.team_run_id == team_run_id,
-                TaskRecord.status == "request_replan",
-            )
-        )
-    ).scalars().all()
-    return [str(r) for r in rows]
-
-
-async def fetch_running_records_for_update(
-    db: AsyncSession, team_run_id: str
-) -> list[TaskRecord]:
-    stmt = (
-        select(TaskRecord)
-        .where(
-            TaskRecord.team_run_id == team_run_id,
-            TaskRecord.status == "running",
-        )
-        .with_for_update()
-    )
-    return list((await db.execute(stmt)).scalars().all())
-
-
 async def fetch_parent_depth_and_root(
     db: AsyncSession, team_run_id: str, parent_id: str
 ) -> tuple[int, str | None]:
@@ -417,16 +315,6 @@ async def set_status_terminal(
             TaskRecord.team_run_id == team_run_id,
         )
         .values(status=status, finished_at=func.now(), failure_reason=reason)
-    )
-
-
-async def set_status_failed_if_active(
-    db: AsyncSession, team_run_id: str, task_id: str, reason: str
-) -> None:
-    await db.execute(
-        update(TaskRecord)
-        .where(TaskRecord.id == task_id, TaskRecord.team_run_id == team_run_id)
-        .values(status="failed", finished_at=func.now(), failure_reason=reason)
     )
 
 
@@ -632,14 +520,16 @@ async def mark_running(
     task_id: str,
     agent_run_id: str,
 ) -> TaskRecord | None:
+    """Atomically claim a READY task (or re-claim an already-RUNNING one)."""
     stmt = (
         update(TaskRecord)
         .where(
             TaskRecord.id == task_id,
             TaskRecord.team_run_id == team_run_id,
-            TaskRecord.status == "running",
+            TaskRecord.status.in_(("ready", "running")),
         )
         .values(
+            status="running",
             agent_run_id=agent_run_id,
             started_at=func.coalesce(TaskRecord.started_at, func.now()),
         )
@@ -647,58 +537,6 @@ async def mark_running(
         .execution_options(synchronize_session=False)
     )
     return (await db.execute(stmt)).scalar_one_or_none()
-
-
-async def reset_running_to_ready(
-    db: AsyncSession, team_run_id: str
-) -> list[TaskRecord]:
-    stmt = (
-        update(TaskRecord)
-        .where(
-            TaskRecord.team_run_id == team_run_id,
-            TaskRecord.status == "running",
-        )
-        .values(status="ready", started_at=None, agent_run_id=None)
-        .returning(TaskRecord)
-        .execution_options(synchronize_session=False)
-    )
-    return list((await db.execute(stmt)).scalars().all())
-
-
-async def delete_all_tasks(db: AsyncSession, team_run_id: str) -> None:
-    await db.execute(
-        delete(TaskRecord).where(TaskRecord.team_run_id == team_run_id)
-    )
-
-
-async def insert_snapshot_tasks(
-    db: AsyncSession, team_run_id: str, tasks: list[Task]
-) -> None:
-    db.add_all(
-        [
-            TaskRecord(
-                id=t.id,
-                team_run_id=team_run_id,
-                agent_name=t.agent_name,
-                status=t.status.value,
-                objective=t.objective,
-                description=t.description or "",
-                deps=list(t.deps),
-                scope_paths=list(t.scope_paths),
-                scope_ltree=[path_to_ltree(p) for p in t.scope_paths],
-                parent_id=t.parent_id,
-                root_id=t.root_id or "",
-                depth=t.depth,
-                agent_run_id=t.agent_run_id,
-                created_at=t.created_at,
-                started_at=t.started_at,
-                finished_at=t.finished_at,
-                failure_reason=t.failure_reason,
-                fired_by_task_id=t.fired_by_task_id,
-            )
-            for t in tasks
-        ]
-    )
 
 
 async def set_status_request_replan(

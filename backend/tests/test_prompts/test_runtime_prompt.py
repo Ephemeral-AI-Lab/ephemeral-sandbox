@@ -44,31 +44,24 @@ def test_termination_condition_prompt_returns_empty_without_terminal_tools():
     assert "<Background Tasks>" not in prompt
 
 
-def test_subagent_toolkit_treats_spawned_workers_as_background():
+def test_subagent_toolkit_exposes_run_subagent_without_instruction_block():
     toolkit = SubagentToolkit()
 
-    assert "workers always run in the background" in toolkit.instructions
-    assert "Do not immediately block on the new task" in toolkit.instructions
-    assert "call `check_background_progress(task_id=...)` only when live status will change your next action" in toolkit.instructions
-    assert "Do not poll for reassurance or to satisfy an ordering ritual" in toolkit.instructions
-    assert "stop polling that task id" in toolkit.instructions
-    assert "Background status tools will only repeat the delivery envelope" in toolkit.instructions
+    assert not hasattr(toolkit, "instructions")
+    assert toolkit.tool_names() == ["run_subagent"]
     assert toolkit.get("run_subagent").short_description == "Spawn a subagent in the background."
 
 
-def test_background_toolkit_says_progress_checks_are_decision_driven():
+def test_background_toolkit_tracks_background_capable_tools_without_instruction_block():
     toolkit = make_background_toolkit(["run_subagent"])
 
-    assert "do not immediately block on the new task unless it is the only blocker left" in toolkit.instructions
-    assert "call `check_background_progress` only when live status will change" in toolkit.instructions
-    assert "Do not poll for reassurance" in toolkit.instructions
-    assert (
-        "Treat `delivered`, `[COMPLETED]`, `[ALREADY_COMPLETED]`, and `[NO TASKS RUNNING]` "
-        "as terminal signals"
-    ) in toolkit.instructions
-    assert "background tools will only repeat the delivery envelope" in toolkit.instructions
-    assert 'read_file_note(file_path="...")' in toolkit.instructions
-    assert "Use `wait_for_background_task` when you are otherwise idle or blocked on the result" in toolkit.instructions
+    assert not hasattr(toolkit, "instructions")
+    assert toolkit.background_capable_tools == ["run_subagent"]
+    assert toolkit.tool_names() == [
+        "check_background_progress",
+        "cancel_background_task",
+        "wait_for_background_task",
+    ]
 
 
 def test_termination_condition_prompt_omits_tool_call_notes_and_background_section():

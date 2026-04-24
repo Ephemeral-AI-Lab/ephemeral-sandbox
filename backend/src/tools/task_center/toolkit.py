@@ -21,7 +21,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from team._path_utils import normalize_scope_paths, scope_paths_overlap
 from tools.core.base import (
     BaseTool,
-    BaseToolkit,
     TextToolOutput,
     ToolExecutionContext,
     ToolResult,
@@ -274,12 +273,9 @@ async def _post_file_notes(
 class SubmitFileNotesTool(BaseTool):
     name = "submit_file_notes"
     description = (
-        "Post batched file-scoped notes to the Task Center. Use for scout "
-        "discoveries and any note about file surfaces that is not tied to a "
-        "specific task. Requires non-empty batched `notes`, with exactly one "
-        "normalized `path` and non-empty `content` per item. Each item is stored "
-        "without a task_id so it surfaces on file-based lookups via "
-        "`read_file_note`. Notes are append-only and immutable."
+        "Use for scout discoveries and durable observations about file "
+        "surfaces that are not tied to a specific Task Center task. Notes "
+        "are append-only and later surface through file-based lookups."
     )
     short_description = "Post batched file-scoped notes."
     input_model = SubmitFileNotesInput
@@ -326,12 +322,10 @@ class ReadFileNoteInput(BaseModel):
 class ReadFileNoteTool(BaseTool):
     name = "read_file_note"
     description = (
-        "Search Task Center notes by file path. Developers and validators must "
-        "call this before reading or editing files that may have notes. "
-        "Entry/root planners should not use it during initial setup; read file "
-        "notes after scouts post findings or when the prompt names a known note "
-        "path. Pass file_path=\"<path>\"; never put the searched path only in "
-        "free-form context."
+        "Use to search Task Center notes for a file or directory path. "
+        "Developers and validators use this before reading or editing files "
+        "that may have notes; planners use it after scouts post findings or "
+        "when the prompt names a known note path."
     )
     short_description = "Search notes by file path."
     input_model = ReadFileNoteInput
@@ -409,11 +403,10 @@ class ReadTaskDetailsInput(BaseModel):
 class ReadTaskDetailsTool(BaseTool):
     name = "read_task_details"
     description = (
-        "Read full details for one known task id: spec, deps, status, "
-        "scope_paths, failure reason, completion summary, and recent notes. "
-        "Input must be exactly {'task_id': '<uuid>'}. Non-entry developers, "
-        "validators, child planners, and replanners must read their prompt "
-        "header ids first, then may use read_task_graph for graph-wide "
+        "Use to inspect one known Task Center task, including its spec, deps, "
+        "status, scope paths, failure reason, completion summary, and recent "
+        "notes. Non-entry developers, validators, child planners, and "
+        "replanners use this for prompt-header tasks before broader graph "
         "orientation."
     )
     short_description = "Read one task's details + recent notes by ID."
@@ -545,13 +538,10 @@ class ReadTaskGraphInput(BaseModel):
 class ReadTaskGraphTool(BaseTool):
     name = "read_task_graph"
     description = (
-        "View the task DAG as a JSON tree for sibling/dependent enumeration. "
-        "Use this for child planners and replanners that need same-parent peer "
-        "context. Entry/root planners have no parent, deps, or siblings and "
-        "should not call this as initial setup. Nodes include id, agent, status, "
-        "description, deps, scope_paths, failure_reason, is_you, and children. "
-        "Default returns peers under your parent; set global_scope=true only "
-        "when local peer context is insufficient."
+        "Use to inspect the Task Center DAG when child planners or replanners "
+        "need same-parent peer context, sibling enumeration, or dependency "
+        "orientation. Entry/root planners have no parent, deps, or siblings "
+        "and should not use this as initial setup."
     )
     short_description = "Read the task graph as JSON."
     input_model = ReadTaskGraphInput
@@ -627,10 +617,10 @@ class ReadTaskGraphTool(BaseTool):
 
 
 # ---------------------------------------------------------------------------
-# Toolkit
+# Tool exports
 # ---------------------------------------------------------------------------
 
-_ALL_TOOLS = [
+TASK_CENTER_TOOLS: list[BaseTool] = [
     SubmitFileNotesTool(),
     ReadFileNoteTool(),
     ReadTaskDetailsTool(),
@@ -638,17 +628,6 @@ _ALL_TOOLS = [
 ]
 
 
-class TaskCenterToolkit(BaseToolkit):
-    """Task Center tools: notes, task graph, and task details.
-
-    All tools are registered; role-based restrictions are handled via
-    ``blocked_tools`` in agent definitions.
-    """
-
-    @classmethod
-    def from_context(cls, ctx: object) -> TaskCenterToolkit:
-        return cls(
-            name="task_center",
-            description="Task Center tools: notes, task graph, and task details.",
-            tools=list(_ALL_TOOLS),
-        )
+def make_task_center_tools() -> list[BaseTool]:
+    """Return Task Center tools."""
+    return list(TASK_CENTER_TOOLS)

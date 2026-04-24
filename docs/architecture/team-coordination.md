@@ -69,11 +69,11 @@ Terminal statuses are `done`, `failed`, `cancelled`, and `request_replan`.
 
 - Worker agents do not change the graph directly; they submit success summaries or request replanning with evidence. Verification failures should include a root cause trace deep enough to name the first production mechanism that created the wrong result.
 - Replanners are the only agents that mutate the recovery graph through `submit_replan`.
-- Planner and replanner `new_tasks` items carry `description` as a required short, planner-authored label; full instructions belong in `spec`.
+- Planner and replanner `new_tasks` items carry full task instructions in `spec`; they do not require a separate short `description` field.
 - Planner and replanner submissions carry structured task JSON only. They do not author free-text outcome summaries; their `Initial Plan` / `Initial Replan` JSON is stored on the parent detail, and `parent_summarizer` later writes the outcome roll-up.
 - Parent summarizers finalize parents only when the child evidence is actually delivered; unresolved roll-ups use `request_replan(reason=...)` so the summarized parent is replanned instead of marked `done`.
 - Ready tasks dispatch as soon as dependencies are satisfied.
 - Scope change auto-checks warn workers when another agent edits overlapping paths.
 - Developer and validator lanes read Task Center notes and use CI ownership/diagnostic tools before falling back to raw sandbox file reads.
-- `daytona_shell` is runtime-only on coordinated lanes. File edits go through `daytona_edit_file`, `daytona_write_file`, or `daytona_rename_symbol`; shell/Python edit side channels such as `sed -i`, standalone `tee`, and inline Python writes are rejected before sandbox execution. The global daytona_shell prehook sanitizes output-shaping syntax such as pipes, `head`/`tail`, output redirects, stderr merges/suppression, and leading repo-root `cd` before execution so runtime output remains visible in the captured tool result.
+- `daytona_shell` is runtime-only on coordinated lanes. File edits go through `daytona_edit_file` or `daytona_write_file`; shell/Python edit side channels such as `sed -i`, standalone `tee`, and inline Python writes are rejected before sandbox execution. The global daytona_shell prehook sanitizes output-shaping syntax such as pipes, `head`/`tail`, output redirects, stderr merges/suppression, and leading repo-root `cd` before execution so runtime output remains visible in the captured tool result.
 - Every team task exits through a terminal submission tool: `submit_plan`, `submit_replan`, `submit_task_success`, or `request_replan`.

@@ -46,6 +46,6 @@ def test_submit_plan_schema_requests_concrete_acceptance_evidence():
         "description"
     ]
 
-    assert "Use validator tasks when a distinct verification lane is useful" in description
+    assert "Use when a planner has finished decomposing its assigned work" in description
     assert "should name concrete commands" in spec_desc
     assert "expected evidence" in spec_desc

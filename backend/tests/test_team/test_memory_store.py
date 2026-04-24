@@ -5,14 +5,9 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from team.context.project import ProjectContext
 from team.memory.model import TeamMemoryRecordModel  # noqa: F401
 from team.memory.runtime import persist_memory_record
 from team.memory.store import TeamMemoryRecord, TeamMemoryStore
-from team.models import BudgetConfig, BudgetState, Task, TaskStatus
-from team.persistence.run_store import NullTeamRunStore
-from team.runtime.services import TeamRuntimeServices
-from team.runtime.team_run import TeamRun
 
 
 def _memory_store() -> TeamMemoryStore:
@@ -24,57 +19,6 @@ def _memory_store() -> TeamMemoryStore:
     store = TeamMemoryStore()
     store.initialize(factory)
     return store
-
-
-class _FakeTaskCenter:
-    def __init__(self) -> None:
-        self.budgets = BudgetConfig()
-        self.budget_state = BudgetState()
-        self.graph = {}
-        self._notes = []
-        self._events = NullTeamRunStore()
-        self._cancel_running_task_callback = None
-        self._fail_fast_callback = None
-
-    def set_cancel_running_task_callback(self, callback) -> None:
-        self._cancel_running_task_callback = callback
-
-    def set_fail_fast_callback(self, callback) -> None:
-        self._fail_fast_callback = callback
-
-
-class _FakeDispatchQueue:
-    async def pop_ready(self, run_id: str):
-        return None
-
-
-def _fake_services() -> TeamRuntimeServices:
-    return TeamRuntimeServices(
-        project_context=ProjectContext(goal="", user_request="", project_key="", repo_root=""),
-        task_center=_FakeTaskCenter(),  # type: ignore[arg-type]
-        dispatch_queue=_FakeDispatchQueue(),  # type: ignore[arg-type]
-        event_store=NullTeamRunStore(),
-    )
-
-
-def _make_run_with_context(monkeypatch, store: TeamMemoryStore) -> tuple[TeamRun, Task]:
-    """Return a (run, task) pair wired to *store* via monkeypatch."""
-    monkeypatch.setattr("team.memory.runtime.get_default_store", lambda: store)
-    run = TeamRun(
-        session_id="S1", user_request="hello", repo_root="/repo", services=_fake_services()
-    )
-    run.project_context = ProjectContext(
-        goal="g", user_request="u", project_key="P1", repo_root="/repo"
-    )
-    task = Task(
-        id="W1",
-        team_run_id=run.id,
-        agent_name="validator",
-        status=TaskStatus.DONE,
-        objective="verify src/runtime/dispatcher.py",
-        scope_paths=["src/runtime/dispatcher.py"],
-    )
-    return run, task
 
 
 def test_team_memory_store_roundtrip_and_query(monkeypatch) -> None:
@@ -98,59 +42,6 @@ def test_team_memory_store_roundtrip_and_query(monkeypatch) -> None:
     )
     assert len(results) == 1
     assert results[0].content["decision"] == "publish from worker directly"
-
-
-def test_team_run_persists_validator_outcome(monkeypatch) -> None:
-    store = _memory_store()
-    run, task = _make_run_with_context(monkeypatch, store)
-
-    persisted = run.note_validator_outcome(task=task, summary="PASS: targeted pytest node passed")
-
-    assert persisted is True
-    results = store.query(
-        project_key="P1",
-        kinds=["validation_outcome"],
-        scope_paths=["src/runtime/dispatcher.py"],
-    )
-    assert len(results) == 1
-    assert results[0].content["summary"] == "PASS: targeted pytest node passed"
-
-
-def test_team_run_persists_validator_outcome_with_failure_summary(monkeypatch) -> None:
-    store = _memory_store()
-    run, task = _make_run_with_context(monkeypatch, store)
-
-    persisted = run.note_validator_outcome(task=task, summary="FAIL: command timed out")
-
-    assert persisted is True
-    results = store.query(
-        project_key="P1",
-        kinds=["validation_outcome"],
-        scope_paths=["src/runtime/dispatcher.py"],
-    )
-    assert len(results) == 1
-    assert results[0].content["summary"] == "FAIL: command timed out"
-
-
-def test_team_run_persists_conflict_event(monkeypatch) -> None:
-    store = _memory_store()
-    run, _ = _make_run_with_context(monkeypatch, store)
-
-    persisted = run.note_conflict_event(
-        file_path="src/runtime/dispatcher.py",
-        reason="Scope coherence changed since the work item started.",
-        work_item_id="W2",
-        agent_name="developer",
-    )
-
-    assert persisted is True
-    results = store.query(
-        project_key="P1",
-        kinds=["conflict_event"],
-        scope_paths=["src/runtime/dispatcher.py"],
-    )
-    assert len(results) == 1
-    assert results[0].content["reason"].startswith("Scope coherence changed")
 
 
 def test_team_memory_query_applies_scope_filter_before_limit() -> None:

@@ -9,14 +9,15 @@ from __future__ import annotations
 
 import asyncio
 import re
+from types import SimpleNamespace
 
 from sqlalchemy import Text
 
-from team.models import BudgetConfig, BudgetState, TERMINAL_STATUSES, TaskStatus
+from team.models import BudgetConfig, BudgetState, TERMINAL_STATUSES, Task, TaskStatus
 from team.persistence.ltree_utils import _escape_char, path_to_ltree
 from team.persistence import task_queries
 from team.persistence.task_record import TaskRecord
-from team.runtime.dispatch_queue import DispatchQueue
+from team.runtime.task_queue import TaskQueue
 from team.task_center import TaskCenter
 
 # ---------------------------------------------------------------------------
@@ -112,25 +113,23 @@ class TestTaskRecord:
 
 class TestTaskCenterStructure:
     def test_has_required_methods(self):
-        """Verify the unified TaskCenter API has all required methods."""
-        assert callable(getattr(TaskCenter, "mark_running", None))
+        """Facade surface: add_task + manager property accessors."""
+        assert callable(getattr(TaskCenter, "add_task", None))
         assert callable(getattr(TaskCenter, "get_task", None))
-        assert callable(getattr(TaskCenter, "fail", None))
-        assert callable(getattr(TaskCenter, "cancel_all_pending", None))
-        assert callable(getattr(TaskCenter, "cancel_all_running", None))
-        assert callable(getattr(TaskCenter, "request_replan", None))
-        # Orchestration
-        assert callable(getattr(TaskCenter, "complete_task", None))
-        assert callable(getattr(TaskCenter, "apply_replan", None))
-        # Manager accessors (notes/store/activity exposed as properties)
+        assert callable(getattr(TaskCenter, "emit_event", None))
+        # Manager accessors exposed as properties
         assert isinstance(getattr(TaskCenter, "notes", None), property)
         assert isinstance(getattr(TaskCenter, "store", None), property)
-        assert isinstance(getattr(TaskCenter, "activity", None), property)
+        assert isinstance(getattr(TaskCenter, "budget", None), property)
+        assert isinstance(getattr(TaskCenter, "expander", None), property)
+        assert isinstance(getattr(TaskCenter, "context", None), property)
 
 
-class TestDispatchQueueStructure:
-    def test_has_pop_ready(self):
-        assert callable(getattr(DispatchQueue, "pop_ready", None))
+class TestTaskQueueStructure:
+    def test_has_required_surface(self):
+        assert callable(getattr(TaskQueue, "enqueue", None))
+        assert callable(getattr(TaskQueue, "start", None))
+        assert callable(getattr(TaskQueue, "drain_and_stop", None))
 
 
 class _FakeCascadeResult:
@@ -216,3 +215,60 @@ def test_cascade_cancel_recursive_loads_non_terminal_task_graph():
     sql = session.statements[0]
     assert "SELECT tasks.id" in sql
     assert "tasks.status NOT IN" in sql
+
+
+def test_all_detached_expandable_parent_awaits_summary_instead_of_failing(
+    monkeypatch,
+):
+    session = _FakeCascadeSession()
+    tc = TaskCenter(
+        session_factory=_FakeSessionFactory(session),
+        team_run_id="run-1",
+        budgets=BudgetConfig(),
+        budget_state=BudgetState(),
+    )
+    parent = Task(
+        id="parent",
+        team_run_id="run-1",
+        agent_name="team_planner",
+        status=TaskStatus.EXPANDED,
+        objective="parent",
+    )
+    child = Task(
+        id="child",
+        team_run_id="run-1",
+        agent_name="developer",
+        status=TaskStatus.CANCELLED,
+        objective="child",
+        parent_id="parent",
+    )
+    tc.store.graph = {"parent": parent, "child": child}
+    marked_awaiting: list[str] = []
+
+    async def _fake_parent_candidate(db, team_run_id, current_id):
+        del db, team_run_id
+        if current_id == "child":
+            return SimpleNamespace(id="parent", all_detached=True)
+        return None
+
+    async def _mark_awaiting(task_id: str) -> None:
+        marked_awaiting.append(task_id)
+        parent.status = TaskStatus.EXPANDED_AWAITING_SUMMARY
+
+    async def _unexpected_failed(task_id: str, status: str, reason: str) -> None:
+        raise AssertionError(f"detached parent must not be marked {status}: {task_id} {reason}")
+
+    monkeypatch.setattr(
+        task_queries,
+        "fetch_expanded_parent_candidate",
+        _fake_parent_candidate,
+    )
+    monkeypatch.setattr(tc.store, "mark_expanded_awaiting_summary", _mark_awaiting)
+    monkeypatch.setattr(tc.store, "mark_terminal", _unexpected_failed)
+
+    promoted, awaiting = asyncio.run(tc.store.maybe_promote_expanded_parent("child"))
+
+    assert promoted == []
+    assert awaiting == ["parent"]
+    assert marked_awaiting == ["parent"]
+    assert parent.status == TaskStatus.EXPANDED_AWAITING_SUMMARY

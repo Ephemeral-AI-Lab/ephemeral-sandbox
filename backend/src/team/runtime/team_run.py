@@ -9,19 +9,15 @@ import uuid
 from dataclasses import asdict
 from typing import Any, Callable
 
-from team.memory.runtime import persist_memory_record
+from team.models import BudgetConfig, BudgetState, TeamRunStatus
 from team.persistence.events import make_team_run_created, make_team_run_status
-from team.persistence.run_store import NullTeamRunStore, TeamRunStore
-from team.models import BudgetConfig, BudgetState, Task, TeamRunStatus
+from team.persistence.run_store import TeamRunStore
 from team.runtime.executor import Executor
-from team.runtime.rehydration import (
-    apply_replayed_event,
-    build_resumed_run,
-    restore_ready_queue,
-)
 from team.runtime.registry import register as _register_team_run
 from team.runtime.registry import unregister as _unregister_team_run
 from team.runtime.services import TeamRuntimeServices, build_team_runtime_services
+from team.runtime.status_handler import TaskStatusHandler
+from team.runtime.task_queue import TaskQueue
 
 
 def _default_num_executors() -> int:
@@ -68,25 +64,32 @@ class TeamRun:
         )
         self._active_agent_runs: dict[str, asyncio.Task[object]] = {}
         self.task_center = runtime_services.task_center
-        self.task_center.set_cancel_running_task_callback(self.cancel_running_task)
-        self.task_center.set_fail_fast_callback(self.fail_fast)
-        self.dispatch_queue = runtime_services.dispatch_queue
         self.budgets = self.task_center.budgets
         self.budget_state = self.task_center.budget_state
         self.project_context = runtime_services.project_context
         self.event_store: TeamRunStore = getattr(
-            runtime_services, "event_store", NullTeamRunStore()
+            runtime_services, "event_store", TeamRunStore()
         )
         self.cancel_event = asyncio.Event()
         self.root_task_id: str | None = None
-        self._executor_tasks: list[asyncio.Task[None]] = []
-        self._executor_factory: Callable[["TeamRun"], Executor] | None = None
         self._num_executors: int = _default_num_executors()
-        self._dispatching = 0
         self.coordination_metadata: dict[str, Any] = {}
         self.roster: dict[str, list[str]] = {}
         self.team_definition: Any | None = None
         self.arbiter: Any = getattr(runtime_services, "arbiter", None)
+        self.status_handler = TaskStatusHandler(
+            team_run_id=self.id,
+            store=self.task_center.store,
+            notes=self.task_center.notes,
+            budget=self.task_center.budget,
+            expander=self.task_center.expander,
+            emit_event=self.task_center.emit_event,
+            fail_fast=self.fail_fast,
+            cancel_running_task=self.cancel_running_task,
+            cancel_event=self.cancel_event,
+            roster_getter=lambda: self.roster,
+        )
+        self.task_queue: TaskQueue | None = None
 
     # ---- live agent run registry ----------------------------------------
 
@@ -104,7 +107,7 @@ class TeamRun:
             return
         runner_task.cancel()
 
-    # ---- lifecycle -------------------------------------------------------
+    # ---- lifecycle ------------------------------------------------------
 
     async def start(
         self,
@@ -142,14 +145,25 @@ class TeamRun:
                 roster=dict(self.roster) if self.roster else None,
             )
         )
-        await self.task_center.add_task(root)
         self.status = TeamRunStatus.RUNNING
         self.event_store.append(make_team_run_status(self.id, self.status.value))
         _register_team_run(self)
-        self._executor_factory = executor_factory
+
         if num_executors is not None:
             self._num_executors = max(1, int(num_executors))
-        self._spawn_executors()
+        executor = executor_factory(self)
+        self.task_queue = TaskQueue(
+            num_workers=self._num_executors,
+            executor=executor,
+            handler=self.status_handler,
+        )
+        self.status_handler.bind_queue(self.task_queue)
+        await self.task_queue.start()
+        # Restart recovery must happen after the queue is bound so any
+        # re-injected sidecars land on the push queue.
+        await self.status_handler.recover_awaiting_summary_parents()
+        await self.task_center.add_task(root)
+        await self.status_handler.on_task_added(root)
 
     async def start_with_team_definition(
         self,
@@ -175,12 +189,6 @@ class TeamRun:
             num_executors=num_executors,
         )
 
-    def _spawn_executors(self) -> None:
-        assert self._executor_factory is not None
-        for _ in range(self._num_executors):
-            executor = self._executor_factory(self)
-            self._executor_tasks.append(asyncio.create_task(executor.run_forever()))
-
     async def _is_all_terminal(self) -> bool:
         return await self.task_center.store.all_terminal()
 
@@ -188,29 +196,23 @@ class TeamRun:
         try:
             elapsed = 0.0
             while not await self._is_all_terminal():
-                if self._executor_tasks and all(t.done() for t in self._executor_tasks):
+                queue = self.task_queue
+                if queue is not None and queue.workers and all(w.done() for w in queue.workers):
                     break
                 await asyncio.sleep(0.05)
                 elapsed += 0.05
                 if timeout is not None and elapsed >= timeout:
                     break
-            await self._join_executors()
+            await self._stop_workers()
             await self._compute_final_status()
             return self.status
         finally:
             _unregister_team_run(self.id)
 
-    async def _join_executors(self) -> None:
-        await self._stop_executors()
-
-    async def _stop_executors(self) -> None:
+    async def _stop_workers(self) -> None:
         self.cancel_event.set()
-        for t in self._executor_tasks:
-            try:
-                await asyncio.wait_for(t, timeout=2.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                t.cancel()
-        self._executor_tasks = []
+        if self.task_queue is not None:
+            await self.task_queue.drain_and_stop()
         self.cancel_event.clear()
 
     async def _compute_final_status(self) -> None:
@@ -218,13 +220,9 @@ class TeamRun:
             self.status = TeamRunStatus.FAILED
             return
 
-        # Safety net: force-fail any tasks still stuck in REQUEST_REPLAN before
-        # computing final status — prevents silent success on orphaned replans.
-        await self.task_center.fail_orphaned_replanning()
-
-        # Run status reflects the root task outcome. Leaf failures are absorbed
-        # by replan/detach semantics; they only propagate to the run when the
-        # failure cascade reaches the root (all_children_detached).
+        # Run status reflects the root task outcome. Any FAILED update aborts
+        # via fail_fast before reaching this path, so non-fatal completions
+        # leave the root at done / cancelled.
         root_status: str | None = None
         if self.root_task_id:
             rec = await self.task_center.store.get_record(self.root_task_id)
@@ -249,120 +247,9 @@ class TeamRun:
         for runner_task in list(self._active_agent_runs.values()):
             if not runner_task.done():
                 runner_task.cancel()
-        await self.task_center.cancel_all_pending()
-        await self.task_center.cancel_all_running(reason)
-
-    async def fail_after_active_work(self, reason: str) -> None:
-        """Fail the run without cancelling agent turns already in flight.
-
-        Use this for budget exhaustion discovered after an agent made a
-        terminal submission. New work should stop, but active agent loops must
-        still get a chance to reach their own terminal submission path.
-        """
-        logger.critical(reason)
-        if self._fatal_failure_reason is None:
-            self._fatal_failure_reason = reason
-            self.status = TeamRunStatus.FAILED
-            self.event_store.append(make_team_run_status(self.id, self.status.value, reason=reason))
-        self.cancel_event.set()
-        await self.task_center.cancel_all_pending()
+        await self.task_center.store.cancel_all_pending()
+        await self.task_center.store.cancel_all_running(reason)
 
     async def cancel(self) -> None:
         self.cancel_event.set()
-        await self.task_center.cancel_all_pending()
-
-    def note_conflict_event(
-        self, *, file_path: str, reason: str, work_item_id: str = "", agent_name: str = ""
-    ) -> bool:
-        return persist_memory_record(
-            project_key=self.project_context.project_key,
-            repo_root=self.project_context.repo_root,
-            kind="conflict_event",
-            scope={"paths": [file_path] if file_path else []},
-            content={"file_path": file_path, "reason": reason},
-            source={"team_run_id": self.id, "work_item_id": work_item_id, "agent": agent_name},
-            stale_hint="coordination conflict observed during live execution",
-        )
-
-    def note_validator_outcome(self, *, task: Task, summary: str) -> bool:
-        return persist_memory_record(
-            project_key=self.project_context.project_key,
-            repo_root=self.project_context.repo_root,
-            kind="validation_outcome",
-            scope={"paths": list(task.scope_paths)},
-            content={"task_id": task.id, "summary": summary},
-            source={"team_run_id": self.id, "work_item_id": task.id, "agent": task.agent_name},
-            stale_hint="validator result captured during live execution",
-        )
-
-    async def resume(
-        self,
-        *,
-        executor_factory: Callable[["TeamRun"], Executor],
-        num_executors: int | None = None,
-        resumed_from: str | None = None,
-    ) -> None:
-        if await self._is_all_terminal():
-            return
-        await self.task_center.prepare_for_resume()
-        self.cancel_event.clear()
-        self._executor_factory = executor_factory
-        if num_executors is not None:
-            self._num_executors = max(1, int(num_executors))
-        self.status = TeamRunStatus.RUNNING
-        self.event_store.append(
-            make_team_run_status(
-                self.id,
-                self.status.value,
-                resumed_from=resumed_from,
-            )
-        )
-        _register_team_run(self)
-        self._spawn_executors()
-
-    # ---- crash recovery --------------------------------------------------
-
-    @classmethod
-    def resume_from(cls, store: TeamRunStore, team_run_id: str) -> "TeamRun":
-        events = store.load_run(team_run_id)
-        if not events:
-            raise ValueError(f"no events for team_run_id={team_run_id!r}")
-        created = next((e for e in events if e.kind == "team_run_created"), None)
-        if created is None:
-            raise ValueError(f"event log for {team_run_id!r} missing team_run_created header")
-        services, run = build_resumed_run(
-            team_run_cls=cls, store=store, team_run_id=team_run_id, created_event=created
-        )
-        tc = services.task_center
-        graph = tc.graph
-        last_budget: tuple[int, int, int] | None = None
-        final_status: str | None = None
-        root_id: str | None = None
-        for ev in events:
-            root_id, replayed_budget, replayed_status = apply_replayed_event(
-                event=ev,
-                graph=graph,
-                services=services,
-                root_id=root_id,
-            )
-            if replayed_budget is not None:
-                last_budget = replayed_budget
-            if replayed_status is not None:
-                final_status = replayed_status
-        if last_budget is not None:
-            run.budget_state.tasks_used = last_budget[0]
-            run.budget_state.note_bytes_used = last_budget[1]
-            run.budget_state.replans_used = last_budget[2]
-        else:
-            run.budget_state.tasks_used = len(graph)
-        tc.prime_resume_state(
-            snapshot=list(graph.values()),
-            ready_queue_order=restore_ready_queue(graph=graph),
-        )
-        run.root_task_id = root_id
-        if final_status:
-            try:
-                run.status = TeamRunStatus(final_status)
-            except ValueError:
-                pass
-        return run
+        await self.task_center.store.cancel_all_pending()

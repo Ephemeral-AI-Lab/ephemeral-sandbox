@@ -78,7 +78,7 @@ Reduce duplicate exploration during high-parallelism team runs by making direct 
 - Planners can reuse fresh scout `artifact_ref` values directly.
 - High-quality scout results auto-populate same-run shared context.
 - Sibling subagents inherit that shared context automatically.
-- CI toolkit instructions now explicitly distinguish:
+- CI guidance now explicitly distinguishes:
   - Atlas for cross-run structure
   - shared briefings for same-run scout reuse
   - CI for live truth
@@ -131,7 +131,7 @@ Remove legacy instructions that told planners scout results were not real artifa
 Changes:
 - update planner playbook and exploration reference to treat scout `artifact_ref` as reusable
 - update `share_briefing` guidance so `run_id` is treated as audit-only and scout `artifact_ref` as shareable
-- update CI toolkit instructions to call out stable same-run scout refs explicitly
+- update CI guidance to call out stable same-run scout refs explicitly
 
 Acceptance criteria:
 - planner instructions no longer prohibit reuse of fresh scout `artifact_ref`
@@ -200,6 +200,6 @@ Status:
 - reusable scout results automatically populate shared same-run context
 - wide scout fanout does not regress to manual-only promotion
 - older scout completions cannot clobber a newer stable scope view
-- planner, toolkit, and sharing instructions agree on the new ref contract
+- planner, CI, and sharing guidance agree on the new ref contract
 - fresh SWE-EVO continues to avoid Atlas-owned duplicate exploration on the critical path
 - the design and runtime agree on the implemented live scope awareness stack

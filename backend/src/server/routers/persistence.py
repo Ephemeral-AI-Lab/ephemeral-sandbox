@@ -125,16 +125,6 @@ def create_persistence_router(
             ],
         })
 
-    @router.get("/runs/{run_id}/chunks")
-    async def list_run_chunks(run_id: str, limit: int = 500):
-        if not _db_available():
-            return JSONResponse(
-                status_code=503,
-                content={"error": "Database not configured"},
-            )
-        chunks = agent_run_store.list_chunks(run_id, limit=limit)
-        return JSONResponse(content={"chunks": chunks})
-
     # -- usage -----------------------------------------------------------------
 
     @router.get("/usage")

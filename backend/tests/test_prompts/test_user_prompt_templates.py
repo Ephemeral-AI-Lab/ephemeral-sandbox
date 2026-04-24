@@ -16,10 +16,8 @@ from team.task_context_builder import TaskContextBuilder
 
 _PROMPT_DIR = Path(__file__).resolve().parents[2] / "src" / "prompt" / "user_prompt"
 _SUBMIT_PLAN_SCHEMA_SNIPPET = (
-    "Provide new_tasks with id, description, name, spec, deps, and "
-    "non-empty repo-relative scope_paths"
+    "ready to commit the initial child task DAG as its terminal action"
 )
-_SUBMIT_PLAN_SPEC_SNIPPET = "Each spec must use numbered colon labels in order"
 
 
 def test_user_prompt_markdown_files_start_at_runtime_template() -> None:
@@ -77,7 +75,7 @@ def test_render_user_prompt_template_uses_markdown_file_conditionals() -> None:
     assert "clearly a different owner or too broad/ambiguous for this lane" in rendered
     assert "latest required runtime verification command was run after the final edit and passed" in rendered
     assert "not run due to budget" in rendered
-    assert "means `type=\"request_replan\"`, not success" in rendered
+    assert "means `request_replan(reason=...)`, not success" in rendered
     assert "Task id: `dev-uuid-1234`" not in rendered
     assert "Dependency task ids: `dep-a`, `dep-b`" not in rendered
     assert "Parent task id: `parent-uuid`" not in rendered
@@ -189,7 +187,7 @@ async def test_build_query_context_uses_developer_markdown_template() -> None:
         in ctx.user_message
     )
     assert "not run due to budget" in ctx.user_message
-    assert "means `type=\"request_replan\"`, not success" in ctx.user_message
+    assert "means `request_replan(reason=...)`, not success" in ctx.user_message
     assert "Task id: `dev-1`" not in ctx.user_message
     assert "Dependency task ids: `dep-1`" not in ctx.user_message
     assert "Parent task id: `root`" not in ctx.user_message
@@ -334,7 +332,6 @@ async def test_build_query_context_uses_root_planner_markdown_template() -> None
     assert "Child and validator verification commands in specs must be daytona_shell-safe" not in ctx.user_message
     assert "Prefer `python -m pytest ... -q --tb=short` over `-v`" not in ctx.user_message
     assert _SUBMIT_PLAN_SCHEMA_SNIPPET in ctx.user_message
-    assert _SUBMIT_PLAN_SPEC_SNIPPET in ctx.user_message
     assert "Submit the final plan with `submit_plan(new_tasks=[...])`" not in ctx.user_message
     assert "## Parent context" not in ctx.user_message
 
@@ -446,7 +443,6 @@ async def test_build_query_context_uses_child_planner_structured_spec_contract()
     assert "## Assigned planner task" in ctx.user_message
     assert "Decompose retry handling." in ctx.user_message
     assert _SUBMIT_PLAN_SCHEMA_SNIPPET in ctx.user_message
-    assert _SUBMIT_PLAN_SPEC_SNIPPET in ctx.user_message
     assert "Submit the final child plan with `submit_plan(new_tasks=[...])`" not in ctx.user_message
     assert "## Context from dependencies" not in ctx.user_message
     assert "## Recent changes in your scope" not in ctx.user_message

@@ -15,6 +15,7 @@ from team.builtins import (
     VALIDATOR,
     register_all,
 )
+from prompt.helpers import resolve_terminal_tools
 from tools.core.base import ToolRegistry
 from tools.core.factory import ToolkitContext, create_toolkit
 
@@ -131,7 +132,7 @@ def test_team_agents_share_same_code_intelligence_toolkit_surface() -> None:
     assert set(planner_ci.tool_names()) == set(developer_ci.tool_names())
 
 
-def test_toolkit_instructions_surface_scope_and_search_tools() -> None:
+def test_toolkits_do_not_expose_instruction_blocks() -> None:
     developer_ci = create_toolkit(
         "code_intelligence",
         ToolkitContext(metadata={"agent_name": DEVELOPER}),
@@ -141,10 +142,9 @@ def test_toolkit_instructions_surface_scope_and_search_tools() -> None:
         ToolkitContext(metadata={"sandbox_id": "sb-test"}),
     )
 
-    assert developer_ci.instructions is not None
-
-    assert sandbox_ops.instructions is not None
-    assert "daytona_grep" in sandbox_ops.instructions
+    assert not hasattr(developer_ci, "instructions")
+    assert not hasattr(sandbox_ops, "instructions")
+    assert "daytona_grep" in sandbox_ops.tool_names()
 
 
 def test_team_worker_sandbox_toolkit_includes_shell() -> None:
@@ -160,7 +160,6 @@ def test_team_worker_sandbox_toolkit_includes_shell() -> None:
     assert "daytona_shell" in developer_sandbox.tool_names()
     assert "daytona_shell" in validator_sandbox.tool_names()
     assert "daytona_edit_file" in developer_sandbox.tool_names()
-    assert "daytona_rename_symbol" in developer_sandbox.tool_names()
     # daytona_bash has been removed — all agents use daytona_shell
     assert "daytona_bash" not in developer_sandbox.tool_names()
     assert "daytona_bash" not in validator_sandbox.tool_names()
@@ -179,9 +178,8 @@ def _final_tool_names(name: str, tmp_path: Path) -> set[str]:
         registry,
         defn.system_prompt or "",
         can_spawn_subagents=defn.can_spawn_subagents,
-        role=defn.role,
         blocked_tools=defn.blocked_tools,
-        terminal_tools=set(),
+        terminal_tools=resolve_terminal_tools(defn),
     )
     return {tool.name for tool in registry.list_tools()}
 
@@ -199,9 +197,8 @@ def _final_prompt(name: str, tmp_path: Path) -> str:
         registry,
         defn.system_prompt or "",
         can_spawn_subagents=defn.can_spawn_subagents,
-        role=defn.role,
         blocked_tools=defn.blocked_tools,
-        terminal_tools={"submit_plan"},
+        terminal_tools=resolve_terminal_tools(defn),
     )
     return prompt
 
@@ -215,7 +212,6 @@ def test_planner_and_replanner_do_not_expose_sandbox_tools(tmp_path: Path) -> No
             "daytona_read_file",
             "daytona_write_file",
             "daytona_edit_file",
-            "daytona_rename_symbol",
             "daytona_shell",
         ):
             assert tool_name not in tool_names
@@ -231,7 +227,6 @@ def test_scout_tool_surface_matches_note_handoff_contract(tmp_path: Path) -> Non
         "daytona_read_file",
         "daytona_write_file",
         "daytona_edit_file",
-        "daytona_rename_symbol",
         "daytona_shell",
         "submit_task_success",
         "submit_plan",

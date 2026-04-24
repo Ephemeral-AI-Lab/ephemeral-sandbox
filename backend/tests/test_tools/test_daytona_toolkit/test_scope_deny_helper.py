@@ -1,8 +1,8 @@
 """Tests for the shared ``_team_repo_scope_deny_errors`` helper.
 
-Used by the write-scope guards (delete/move) and inline by
-``daytona_rename_symbol``. The helper is pure — it returns only the
-offending subset so callers can build an offender-only deny message.
+Used by the Daytona write-scope guards for delete and move operations. The
+helper is pure — it returns only the offending subset so callers can build an
+offender-only deny message.
 """
 
 from __future__ import annotations

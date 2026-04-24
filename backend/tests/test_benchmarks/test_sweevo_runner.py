@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 from benchmarks.sweevo.__main__ import _collect_health_issues
 from benchmarks.sweevo.models import SWEEvoInstance
 from benchmarks.sweevo.runner import run_sweevo_with_agent
-from team.runtime.telemetry import (
+from benchmarks.sweevo.telemetry import (
     background_tool_names_from_messages as _background_tool_names_from_messages,
 )
 from message.messages import ConversationMessage, ToolUseBlock
@@ -84,7 +84,6 @@ def test_run_sweevo_with_agent_returns_structured_grading(monkeypatch):
             "agent_counts": {},
             "replans_used": 0,
             "budgets": {"max_tasks": 40, "max_depth": 5, "max_plan_size": 12},
-            "resumed_from": None,
         }
 
     fake_team_runner.run_sweevo_team = _fake_run_team

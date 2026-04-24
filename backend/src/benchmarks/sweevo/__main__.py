@@ -413,11 +413,6 @@ async def _cmd_run(args: argparse.Namespace, *, team_run_id: str) -> int:
                     f"  agent_run_logs: {team.get('agent_run_log_dir')}",
                     flush=True,
                 )
-            if team.get("resumed_from"):
-                print(
-                    f"  resume: from_team_run={team.get('resumed_from')}",
-                    flush=True,
-                )
             print(
                 f"  stream: agents={stream_summary['totals']['agents']}  "
                 f"tool_calls={stream_summary['totals']['tool_calls']}  "

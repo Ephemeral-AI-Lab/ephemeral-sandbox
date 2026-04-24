@@ -151,15 +151,6 @@ export type ConversationMessagePayload = {
   }>
 }
 
-export type AgentResponseChunk = {
-  seq: number
-  event_kind: string
-  content: string | null
-  tool_name: string | null
-  tool_call_id: string | null
-  created_at: string | null
-}
-
 export type AgentRunSummary = {
   id: string
   agent_name: string

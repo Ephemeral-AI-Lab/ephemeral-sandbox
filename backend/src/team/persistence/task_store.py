@@ -18,16 +18,6 @@ from team.persistence.ltree_utils import path_to_ltree
 from team.persistence.task_graph import TaskGraph
 from team.persistence.task_record import TaskRecord
 
-_STATUSES_REQUIRING_DONE_DEPS = frozenset(
-    {
-        TaskStatus.READY,
-        TaskStatus.RUNNING,
-        TaskStatus.EXPANDED,
-        TaskStatus.EXPANDED_AWAITING_SUMMARY,
-        TaskStatus.DONE,
-    }
-)
-
 
 def _has_replanner_role(agent_name: str) -> bool:
     from agents.registry import get_role
@@ -101,18 +91,6 @@ class TaskStore:
         """Fast in-memory lookup — no DB call."""
         return self._tg.tasks.get(task_id)
 
-    def children_of(self, parent_id: str) -> list[Task]:
-        """All in-memory children of ``parent_id``."""
-        return self._tg.children_of(parent_id)
-
-    def detached_children(self, parent_id: str) -> list[Task]:
-        """Children of ``parent_id`` whose status is failed or cancelled."""
-        return self._tg.detached_children(parent_id)
-
-    def live_children(self, parent_id: str) -> list[Task]:
-        """Children of ``parent_id`` that are not detached."""
-        return self._tg.live_children(parent_id)
-
     async def refresh_graph(self) -> dict[str, Task]:
         """Sync in-memory graph from DB. Returns the graph."""
         records = await self.get_all_tasks()
@@ -133,46 +111,9 @@ class TaskStore:
         async with self._sf() as db:
             return await q.fetch_adjacency(db, self._team_run_id)
 
-    async def get_statuses(self) -> dict[str, str]:
-        async with self._sf() as db:
-            return await q.fetch_statuses(db, self._team_run_id)
-
-    async def get_task_ids(self) -> set[str]:
-        async with self._sf() as db:
-            return await q.fetch_task_ids(db, self._team_run_id)
-
-    async def get_done_sibling_ids(
-        self,
-        *,
-        task_id: str,
-        parent_id: str | None,
-        since: float | None = None,
-    ) -> list[str]:
-        async with self._sf() as db:
-            return await q.fetch_done_sibling_ids(
-                db,
-                self._team_run_id,
-                task_id=task_id,
-                parent_id=parent_id,
-                since=since,
-            )
-
     async def all_terminal(self) -> bool:
         async with self._sf() as db:
             return await q.count_non_terminal(db, self._team_run_id) == 0
-
-    async def get_siblings_and_descendants(
-        self, initiating_task_id: str
-    ) -> list[TaskRecord]:
-        """Return all siblings of the initiating task plus their entire subtrees.
-
-        Siblings share the same parent_id. Descendants are found via recursive
-        CTE on parent_id. The initiating task itself is excluded.
-        """
-        async with self._sf() as db:
-            return await q.fetch_siblings_and_descendants(
-                db, self._team_run_id, initiating_task_id
-            )
 
     # ---- mutations -----------------------------------------------------------
 
@@ -253,15 +194,10 @@ class TaskStore:
             pid = str(row.id)
             parent = self._tg.tasks.get(pid)
             parent_agent = parent.agent_name if parent is not None else ""
-            if row.all_detached:
-                await self.mark_terminal(pid, "failed", "all_children_detached")
-                promoted_all.append(pid)
-                # Failed parent: grandparent check continues via the failure
-                # path (ancestor chain above also expanded).
-                current = pid
-                continue
             if self._is_expandable_parent_agent(parent_agent):
                 # Don't mark DONE yet — a parent-summary sidecar must run.
+                # Detached children still need an authoritative roll-up; they
+                # are not a synthetic parent failure.
                 await self.mark_expanded_awaiting_summary(pid)
                 awaiting_all.append(pid)
                 # Stop the chain walk; grandparents must wait until this
@@ -417,16 +353,6 @@ class TaskStore:
         self._tg.mark_cancelled(cancelled)
         return cancelled
 
-    async def fail_orphaned_replanning(self) -> int:
-        """No-op: REQUEST_REPLAN is terminal, so A cannot be stuck.
-
-        Historically this swept REQUEST_REPLAN tasks whose replanner was
-        terminal or missing. Under the current model A is already terminal
-        at REQUEST_REPLAN, so there is nothing to force-fail. Kept as a
-        no-op for call-site compatibility.
-        """
-        return 0
-
     async def finalize_replanned_origin(
         self, replanner_task_id: str
     ) -> str | None:
@@ -446,28 +372,19 @@ class TaskStore:
         await self.refresh_graph()
         return origin_id
 
-    async def fail_task(self, task_id: str, reason: str) -> None:
-        """Mark a leaf task FAILED.
+    async def mark_failed(self, task_id: str, reason: str) -> None:
+        """Mark ``task_id`` FAILED regardless of its non-terminal status.
 
-        Invariant: only leaf workers are allowed to fail. Non-leaf (EXPANDED)
-        tasks only enter terminal states via promotion over their children.
-        If an EXPANDED task somehow fails here, that is a team-run-level bug
-        and callers should escalate via team_run.fail_fast.
+        Unified failure mutation for ``TaskStatusHandler``: accepts
+        RUNNING / EXPANDED / EXPANDED_AWAITING_SUMMARY / REQUEST_REPLAN /
+        READY / PENDING. Already-terminal tasks are a no-op so repeated
+        FAILED updates remain idempotent.
         """
         async with self._sf() as db:
             status = await q.fetch_task_status(db, self._team_run_id, task_id)
-            if status is None or status in ("done", "failed", "cancelled"):
-                await db.commit()
-                return
-            if status in ("expanded", "expanded_awaiting_summary"):
-                raise GraphInvariantViolation(
-                    f"fail_task: task {task_id} is {status.upper()}; only leaf tasks may fail"
-                )
-            await q.set_status_failed_if_active(
-                db, self._team_run_id, task_id, reason
-            )
-            await db.commit()
-        await self.refresh_graph()
+        if status is None or status in ("done", "failed", "cancelled"):
+            return
+        await self.mark_terminal(task_id, "failed", reason)
 
     async def cancel_all_pending(self) -> int:
         async with self._sf() as db:
@@ -562,44 +479,8 @@ class TaskStore:
         if rec is None:
             return None
         self._tg.upsert(record_to_task(rec))
+        self._tg.remove_ready(task_id)
         return rec
-
-    async def recover_running(self) -> list[TaskRecord]:
-        async with self._sf() as db:
-            running = await q.fetch_running_records_for_update(
-                db, self._team_run_id
-            )
-            for rec in running:
-                await q.assert_deps_satisfied(
-                    db,
-                    self._team_run_id,
-                    task_id=rec.id,
-                    dep_ids=list(rec.deps or []),
-                    transition="ready",
-                )
-            recs = await q.reset_running_to_ready(db, self._team_run_id)
-            await db.commit()
-            self._tg.recover_running(record_to_task(rec) for rec in recs)
-            return recs
-
-    async def replace_run_tasks(self, tasks: list[Task]) -> None:
-        done_ids = {t.id for t in tasks if t.status == TaskStatus.DONE}
-        for task in tasks:
-            if task.status not in _STATUSES_REQUIRING_DONE_DEPS:
-                continue
-            unsatisfied = [
-                dep_id for dep_id in task.deps if dep_id not in done_ids
-            ]
-            if unsatisfied:
-                raise GraphInvariantViolation(
-                    f"snapshot task {task.id!r} is {task.status.value} with "
-                    f"unsatisfied dependencies: {', '.join(unsatisfied)}"
-                )
-        async with self._sf() as db:
-            await q.delete_all_tasks(db, self._team_run_id)
-            await q.insert_snapshot_tasks(db, self._team_run_id, tasks)
-            await db.commit()
-        self._tg.load(tasks)
 
     async def request_replan(
         self,

@@ -5,17 +5,16 @@ from __future__ import annotations
 import pytest
 
 from team.models import (
-    AgentResult,
     BudgetConfig,
     BudgetState,
     Note,
     Plan,
     ReplanPlan,
-    ReplanRequest,
     SubmittedSummary,
     Task,
     TaskDefinition,
     TaskStatus,
+    TaskStatusUpdate,
     TERMINAL_STATUSES,
 )
 from config.defaults import (
@@ -350,37 +349,43 @@ def test_submitted_summary_creation():
     assert s.submission_kind == "summary"
 
 
-def test_replan_request_creation_with_suggestion():
-    r = ReplanRequest(reason="scope too broad", suggestion="split into 3 tasks")
-    assert r.reason == "scope too broad"
-    assert r.suggestion == "split into 3 tasks"
-    assert r.submission_kind == "replan"
-
-
-def test_replan_request_no_suggestion():
-    r = ReplanRequest(reason="needs rework")
-    assert r.suggestion is None
-
-
 # ---------------------------------------------------------------------------
-# AgentResult
+# TaskStatusUpdate
 # ---------------------------------------------------------------------------
 
 
-def test_agent_result_with_summary_only():
-    result = AgentResult(summary="done")
-    assert result.summary == "done"
-    assert result.submitted_plan is None
-    assert result.submitted_replan is None
+def test_task_status_update_done_carries_summary_only():
+    update = TaskStatusUpdate(task_id="t1", status=TaskStatus.DONE, summary="all green")
+    assert update.status is TaskStatus.DONE
+    assert update.summary == "all green"
+    assert update.plan is None and update.replan is None
 
 
-def test_agent_result_with_plan():
+def test_task_status_update_expanded_with_plan():
     plan = Plan(tasks=[])
-    result = AgentResult(summary="", submitted_plan=plan)
-    assert result.submitted_plan is plan
+    update = TaskStatusUpdate(task_id="t1", status=TaskStatus.EXPANDED, plan=plan)
+    assert update.plan is plan
+    assert update.replan is None
 
 
-def test_agent_result_with_replan():
+def test_task_status_update_expanded_with_replan():
     replan = ReplanPlan()
-    result = AgentResult(summary="", submitted_replan=replan)
-    assert result.submitted_replan is replan
+    update = TaskStatusUpdate(task_id="t1", status=TaskStatus.EXPANDED, replan=replan)
+    assert update.replan is replan
+    assert update.plan is None
+
+
+def test_task_status_update_request_replan_carries_reason():
+    update = TaskStatusUpdate(
+        task_id="t1", status=TaskStatus.REQUEST_REPLAN, summary="owner mismatch"
+    )
+    assert update.status is TaskStatus.REQUEST_REPLAN
+    assert update.summary == "owner mismatch"
+
+
+def test_task_status_update_failed_carries_reason():
+    update = TaskStatusUpdate(
+        task_id="t1", status=TaskStatus.FAILED, summary="runner_exception: x"
+    )
+    assert update.status is TaskStatus.FAILED
+    assert "runner_exception" in update.summary

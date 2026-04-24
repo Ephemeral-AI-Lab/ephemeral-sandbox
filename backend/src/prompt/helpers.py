@@ -24,9 +24,8 @@ from team.models import (
     TaskStatus,
 )
 from team.note_manager import NoteManager
-from team.persistence.events import TeamRunEvent
-from team.persistence.run_store import JsonlTeamRunStore
-from team.runtime.rehydration import budget_config_from_event, task_from_dict
+from team.persistence.events import TeamRunEvent, task_from_dict
+from team.persistence.run_store import TeamRunStore
 from team.task_context_builder import TaskContextBuilder
 from team.builtins import register_all as register_team_builtins
 from team.models import TeamDefinition
@@ -120,7 +119,6 @@ def build_agent_system_prompt_text(
             tool_registry,
             system_prompt,
             can_spawn_subagents=agent_def.can_spawn_subagents,
-            role=agent_def.role,
             blocked_tools=agent_def.blocked_tools,
             terminal_tools=terminal_tools,
         )
@@ -637,6 +635,13 @@ def _normalize_task_event_payload(data: dict[str, object]) -> dict[str, object]:
     return payload
 
 
+def _budget_config_from_event(meta: dict[str, object]) -> BudgetConfig:
+    valid_keys = set(BudgetConfig.__dataclass_fields__.keys())
+    return BudgetConfig(
+        **{k: v for k, v in dict(meta.get("budgets") or {}).items() if k in valid_keys}
+    )
+
+
 def _replay_team_run_events(
     *,
     team_run_id: str,
@@ -708,7 +713,7 @@ async def build_team_run_user_prompt_report_text(
     task_center = _make_task_context(team_run_id=team_run_id, tasks=tasks, notes=notes)
     root = next((task for task in tasks.values() if task.depth == 0), None)
     roster = meta.get("roster") if isinstance(meta.get("roster"), dict) else {}
-    budgets = budget_config_from_event(meta)
+    budgets = _budget_config_from_event(meta)
     team_run = SimpleNamespace(
         id=team_run_id,
         session_id=str(meta.get("session_id") or ""),
@@ -831,6 +836,6 @@ def build_team_run_user_prompt_report_text_sync(
 
 
 def load_team_run_events(team_run_id: str, *, team_run_dir: str | Path) -> list[TeamRunEvent]:
-    """Load persisted TeamRun events from a JSONL TeamRun store."""
-    store = JsonlTeamRunStore(team_run_dir)
+    """Load persisted TeamRun events from the TeamRun event log."""
+    store = TeamRunStore(team_run_dir)
     return store.load_run(team_run_id)

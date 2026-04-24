@@ -6,14 +6,10 @@ import pytest
 
 from agents.registry import get_definition
 from team.builtins import register_all as register_team_builtins
-from team.errors import GraphInvariantViolation
 from team.models import (
-    AgentResult,
     BudgetConfig,
     BudgetState,
     Note,
-    ReplanPlan,
-    ReplanRequest,
     Task,
     TaskDefinition,
     TaskStatus,
@@ -40,56 +36,6 @@ class _FakeSessionFactory:
                 return False
 
         return _Ctx()
-
-
-@pytest.mark.asyncio
-async def test_replace_run_tasks_rejects_ready_snapshot_with_failed_dependency():
-    store = TaskStore(_FakeSessionFactory(), "run-1")
-
-    with pytest.raises(GraphInvariantViolation, match="failed"):
-        await store.replace_run_tasks(
-            [
-                _task("failed", status=TaskStatus.FAILED),
-                _task(
-                    "reviewer-dependent",
-                    agent_name="reviewer",
-                    status=TaskStatus.READY,
-                    deps=["failed"],
-                ),
-            ]
-        )
-
-
-@pytest.mark.asyncio
-async def test_replace_run_tasks_rejects_running_snapshot_with_pending_dependency():
-    store = TaskStore(_FakeSessionFactory(), "run-1")
-
-    with pytest.raises(GraphInvariantViolation, match="pending"):
-        await store.replace_run_tasks(
-            [
-                _task("pending", status=TaskStatus.PENDING),
-                _task("running-dependent", status=TaskStatus.RUNNING, deps=["pending"]),
-            ]
-        )
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "status",
-    [TaskStatus.EXPANDED, TaskStatus.DONE],
-)
-async def test_replace_run_tasks_rejects_post_ready_snapshot_statuses_with_pending_dependency(
-    status: TaskStatus,
-):
-    store = TaskStore(_FakeSessionFactory(), "run-1")
-
-    with pytest.raises(GraphInvariantViolation, match="pending"):
-        await store.replace_run_tasks(
-            [
-                _task("pending", status=TaskStatus.PENDING),
-                _task("dependent", status=status, deps=["pending"]),
-            ]
-        )
 
 
 @pytest.mark.asyncio
@@ -400,8 +346,6 @@ def _task_center_with_store(store: _FakeStore, expander: _FakeExpander) -> TaskC
     )
     tc._store = store
     tc._expander = expander
-    tc._transitions._graph_getter = lambda: store.graph
-    tc._transitions._refresh_graph_fn = store.refresh_graph
     return tc
 
 
@@ -447,27 +391,6 @@ class _ReusingReplanStore(_FakeStore):
         return self.graph["replanner"], False
 
 
-@pytest.mark.asyncio
-async def test_request_replan_double_call_emits_task_added_once():
-    graph = {"failed": _task("failed", status=TaskStatus.RUNNING)}
-    store = _ReusingReplanStore(graph)
-    event_store = _RecordingEventStore()
-    tc = _task_center_with_store(
-        store,
-        _FakeExpander(_replan_outcome()),
-    )
-    tc._events = event_store
-
-    request = ReplanRequest(reason="boom", suggestion=None)
-    first = await tc.request_replan("failed", request)
-    second = await tc.request_replan("failed", request)
-
-    assert first.id == "replanner"
-    assert second.id == "replanner"
-    task_added_events = [event for event in event_store.events if event.kind == "task_added"]
-    assert len(task_added_events) == 1
-    assert task_added_events[0].data["task"]["id"] == "replanner"
-    assert [event.kind for event in event_store.events].count("budget_update") == 1
 
 
 class _RewiringReplanStore(_FakeStore):
@@ -493,143 +416,6 @@ class _RewiringReplanStore(_FakeStore):
             if task.status == TaskStatus.PENDING and task_id in task.deps:
                 task.deps = ["replanner" if dep == task_id else dep for dep in task.deps]
         return replanner, True
-
-
-@pytest.mark.asyncio
-async def test_request_replan_emits_dependency_rewire_event_after_status_before_run():
-    graph = {
-        "failed": _task("failed", status=TaskStatus.RUNNING),
-        "downstream": _task("downstream", status=TaskStatus.PENDING, deps=["failed"]),
-    }
-    store = _RewiringReplanStore(graph)
-    event_store = _RecordingEventStore()
-    tc = _task_center_with_store(store, _FakeExpander(_replan_outcome()))
-    tc._events = event_store
-
-    await tc.request_replan("failed", ReplanRequest(reason="boom"))
-
-    kinds = [event.kind for event in event_store.events]
-    assert kinds[:4] == [
-        "task_status",
-        "task_added",
-        "replace_dependency",
-        "budget_update",
-    ]
-    assert event_store.events[0].data["task_id"] == "failed"
-    assert event_store.events[0].data["status"] == "request_replan"
-    rewire = event_store.events[2]
-    assert rewire.data == {
-        "old_dep_id": "failed",
-        "new_dep_ids": ["replanner"],
-        "task_ids": ["downstream"],
-    }
-
-
-@pytest.mark.asyncio
-async def test_replanner_done_immediately_when_replan_has_no_children():
-    graph = {
-        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-            fired_by_task_id="failed",
-        ),
-        "downstream": _task("downstream", deps=["replanner"]),
-    }
-    store = _FakeStore(graph)
-    tc = _task_center_with_store(
-        store,
-        _FakeExpander(_replan_outcome()),
-    )
-
-    await tc.complete_task("replanner", AgentResult(summary="", submitted_replan=ReplanPlan()))
-
-    assert graph["replanner"].status == TaskStatus.DONE
-    assert graph["failed"].status == TaskStatus.REQUEST_REPLAN
-    assert graph["downstream"].status == TaskStatus.READY
-    assert store.marked_expanded == []
-
-
-@pytest.mark.asyncio
-async def test_replanner_expanded_when_replan_creates_direct_children():
-    graph = {
-        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.RUNNING,
-            fired_by_task_id="failed",
-        ),
-    }
-    store = _FakeStore(graph)
-    tc = _task_center_with_store(
-        store,
-        _FakeExpander(
-            _replan_outcome(replanner_child_count=1)
-        ),
-    )
-
-    await tc.complete_task("replanner", AgentResult(summary="", submitted_replan=ReplanPlan()))
-
-    assert graph["replanner"].status == TaskStatus.EXPANDED
-    assert graph["failed"].status == TaskStatus.REQUEST_REPLAN
-    assert store.marked_done == []
-
-
-@pytest.mark.asyncio
-async def test_expanded_replanner_finalizes_origin_after_successful_child_completion():
-    graph = {
-        "failed": _task("failed", status=TaskStatus.REQUEST_REPLAN),
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.EXPANDED,
-            fired_by_task_id="failed",
-        ),
-        "child": _task("child", status=TaskStatus.RUNNING, parent_id="replanner"),
-    }
-    store = _FakeStore(graph)
-    store.expanded_promotions["child"] = ["replanner"]
-    tc = _task_center_with_store(store, _FakeExpander(_replan_outcome()))
-
-    await tc.complete_task("child", AgentResult(summary="done"))
-
-    assert graph["child"].status == TaskStatus.DONE
-    assert graph["replanner"].status == TaskStatus.DONE
-    assert graph["failed"].status == TaskStatus.REQUEST_REPLAN
-
-
-@pytest.mark.asyncio
-async def test_finalized_replan_origin_can_promote_ancestor_parent():
-    graph = {
-        "parent": _task("parent", status=TaskStatus.EXPANDED, parent_id=None),
-        "failed": _task(
-            "failed",
-            status=TaskStatus.REQUEST_REPLAN,
-            parent_id="parent",
-        ),
-        "sibling": _task("sibling", status=TaskStatus.DONE, parent_id="parent"),
-        "replanner": _task(
-            "replanner",
-            agent_name="team_replanner",
-            status=TaskStatus.EXPANDED,
-            parent_id="parent",
-            fired_by_task_id="failed",
-        ),
-        "child": _task("child", status=TaskStatus.RUNNING, parent_id="replanner"),
-    }
-    store = _FakeStore(graph)
-    store.expanded_promotions["child"] = ["replanner"]
-    store.expanded_promotions["failed"] = ["parent"]
-    tc = _task_center_with_store(store, _FakeExpander(_replan_outcome()))
-
-    await tc.complete_task("child", AgentResult(summary="done"))
-
-    assert graph["child"].status == TaskStatus.DONE
-    assert graph["replanner"].status == TaskStatus.DONE
-    assert graph["failed"].status == TaskStatus.REQUEST_REPLAN
-    assert graph["parent"].status == TaskStatus.DONE
 
 
 @pytest.mark.asyncio

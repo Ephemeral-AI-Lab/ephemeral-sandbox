@@ -1,10 +1,9 @@
-"""Reusable telemetry for :class:`TeamAgentRunner`.
+"""Benchmark telemetry for :class:`TeamAgentRunner` (SweeVO harness).
 
-Bundles the per-agent and per-run observability code that is shared by
-benchmarks and the hosted team runner: printer banners, structured JSONL
-events, token/compaction stats, external-hook formatting, and the default
-``on_complete`` / ``on_event`` / ``on_spawned`` callbacks for
-:class:`TeamAgentRunner`.
+Bundles the per-agent and per-run observability code used by the SweeVO
+benchmark runner: printer banners, structured JSONL events, token/compaction
+stats, external-hook formatting, and the default ``on_complete`` /
+``on_event`` / ``on_spawned`` callbacks for :class:`TeamAgentRunner`.
 
 Callers instantiate :class:`BenchmarkTelemetry` and pass its methods into
 :class:`TeamAgentRunner`. Benchmark-specific work (domain prompts, repo
@@ -509,7 +508,6 @@ def finalize_team_run(
     team_metrics: dict[str, Any],
     budgets: Any,
     printer: Any = None,
-    resumed_from: str | None = None,
 ) -> dict[str, Any]:
     """Emit the closing banners + team_result event and return a result dict.
 
@@ -579,7 +577,6 @@ def finalize_team_run(
         "replans_used": replans,
         "usage": usage_summary,
         "usage_by_model": usage_by_model,
-        "resumed_from": resumed_from,
         "agent_run_log_dir": team_metrics.get("agent_run_log_dir"),
         "agent_run_log_paths": list(team_metrics.get("agent_run_log_paths") or []),
     }

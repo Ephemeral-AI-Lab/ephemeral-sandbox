@@ -6,7 +6,7 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Literal, Sequence
+from typing import Any, Iterable, Literal
 
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
@@ -15,7 +15,6 @@ from tools.core.runtime import ExecutionMetadata
 __all__ = [
     "BackgroundMode",
     "BaseTool",
-    "BaseToolkit",
     "ExecutionMetadata",
     "TextToolOutput",
     "ToolInputParseResult",
@@ -135,124 +134,38 @@ class BaseTool(ABC):
         return schema
 
 
-class BaseToolkit:
-    """Named collection of related tools."""
-
-    def __init__(
-        self,
-        name: str = "",
-        description: str = "",
-        tools: Sequence[BaseTool] | None = None,
-        instructions: str | None = None,
-    ) -> None:
-        self.name = name
-        self.description = description
-        self.instructions = instructions
-        self._tools: dict[str, BaseTool] = {}
-        for tool in tools or []:
-            self.register(tool)
-
-    @classmethod
-    def from_context(cls, ctx: Any) -> BaseToolkit:
-        """Construct an instance from a ToolkitContext.
-
-        Default implementation calls ``cls()`` with no arguments. Override
-        in subclasses that need to pull values out of ``ctx.metadata``.
-        """
-        del ctx
-        return cls()
-
-    def register(self, tool: BaseTool) -> None:
-        """Add a tool to this toolkit."""
-        self._tools[tool.name] = tool
-
-    def get(self, name: str) -> BaseTool | None:
-        """Return a tool by name."""
-        return self._tools.get(name)
-
-    def list_tools(self) -> list[BaseTool]:
-        """Return all tools in this toolkit."""
-        return list(self._tools.values())
-
-    def tool_names(self) -> list[str]:
-        """Return names of all tools in this toolkit."""
-        return list(self._tools.keys())
-
-    async def prepare_context_async(self, context: Any) -> None:
-        """Override in subclass to inject async sandbox into context."""
-
-    def prepare_context(self, context: Any) -> None:
-        """Override in subclass to inject sandbox into context."""
-
-
 class ToolRegistry:
-    """Map tool names to implementations, with optional toolkit grouping."""
+    """Map tool names to implementations."""
 
     def __init__(self) -> None:
         self._tools: dict[str, BaseTool] = {}
-        self._toolkits: dict[str, BaseToolkit] = {}
 
     def register(self, tool: BaseTool) -> None:
         """Register a tool instance."""
         self._tools[tool.name] = tool
 
-    def register_toolkit(self, toolkit: BaseToolkit) -> None:
-        """Register a toolkit and all its tools individually."""
-        self._toolkits[toolkit.name] = toolkit
-        for tool in toolkit.list_tools():
-            self._tools[tool.name] = tool
+    def register_many(self, tools: Iterable[BaseTool]) -> None:
+        """Register multiple tool instances."""
+        for tool in tools:
+            self.register(tool)
 
     def get(self, name: str) -> BaseTool | None:
         """Return a registered tool by name."""
         return self._tools.get(name)
 
-    def get_toolkit(self, name: str) -> BaseToolkit | None:
-        """Return a registered toolkit by name."""
-        return self._toolkits.get(name)
-
     def list_tools(self) -> list[BaseTool]:
         """Return all registered tools."""
         return list(self._tools.values())
 
-    def list_toolkits(self) -> list[BaseToolkit]:
-        """Return all registered toolkits."""
-        return list(self._toolkits.values())
-
-    def restrict_to_toolkits(self, toolkit_names: list[str]) -> None:
-        """Remove all tools and toolkits not in *toolkit_names*."""
-        allowed = set(toolkit_names)
-        allowed_tools: set[str] = set()
-        kept_toolkits: dict[str, BaseToolkit] = {}
-        for name, tk in self._toolkits.items():
-            if name in allowed:
-                kept_toolkits[name] = tk
-                allowed_tools.update(tk.tool_names())
-        self._toolkits = kept_toolkits
-        self._tools = {k: v for k, v in self._tools.items() if k in allowed_tools}
-
     def remove_tools(self, tool_names: list[str]) -> None:
-        """Remove specific tools by name (blocklist). Toolkits are kept."""
+        """Remove specific tools by name."""
         blocked = set(tool_names)
         self._tools = {k: v for k, v in self._tools.items() if k not in blocked}
-        for toolkit in self._toolkits.values():
-            toolkit._tools = {
-                name: tool for name, tool in toolkit._tools.items() if name not in blocked
-            }
 
     def restrict_to_tools(self, tool_names: list[str]) -> None:
-        """Keep only the named tools and prune toolkit contents to match."""
+        """Keep only the named tools."""
         allowed = set(tool_names)
         self._tools = {k: v for k, v in self._tools.items() if k in allowed}
-        kept_toolkits: dict[str, BaseToolkit] = {}
-        for name, toolkit in self._toolkits.items():
-            toolkit._tools = {
-                tool_name: tool
-                for tool_name, tool in toolkit._tools.items()
-                if tool_name in allowed
-            }
-            if toolkit._tools:
-                kept_toolkits[name] = toolkit
-        self._toolkits = kept_toolkits
 
     def to_api_schema(self) -> list[dict[str, Any]]:
         """Return all tool schemas in API format.

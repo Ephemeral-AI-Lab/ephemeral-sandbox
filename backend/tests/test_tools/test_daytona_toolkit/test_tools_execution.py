@@ -136,12 +136,8 @@ async def test_shell_schema_describes_command():
 
     assert "code" not in properties
     assert "mode" not in properties
-    assert "Run a shell command in the Daytona sandbox" in description
-    assert "host paths like `/Users/...`" in description
-    assert "Output is captured automatically" in description
-    assert "Shell command to run from the repo root" in command_desc
-    assert "Do not prefix with host paths like /Users/..." in command_desc
-    assert "Output is captured automatically" in command_desc
+    assert description == "Run a shell command in the sandbox."
+    assert command_desc == "Shell command to run for tests, builds, or verification."
 
 
 # ---------------------------------------------------------------------------

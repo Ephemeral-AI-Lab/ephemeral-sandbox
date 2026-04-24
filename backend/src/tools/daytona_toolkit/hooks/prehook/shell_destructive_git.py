@@ -62,7 +62,7 @@ _DESTRUCTIVE_GIT_MESSAGE = (
     "Detected filesystem mutation command or git metadata mutation. They mutate "
     "repository metadata or working-tree files outside the OCC/write-scope audit "
     "path. Use daytona_edit_file, daytona_write_file, daytona_delete_file, "
-    "daytona_move_file, or daytona_rename_symbol instead."
+    "or daytona_move_file instead."
 )
 
 

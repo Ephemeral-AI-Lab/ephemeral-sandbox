@@ -7,7 +7,7 @@ from typing import ClassVar
 from pydantic import Field, field_validator
 
 from agents.registry import list_dispatchable_subagent_names
-from tools.core.base import BaseTool, BaseToolkit, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
 from tools.subagent.run_subagent_tool import run_subagent
 
 
@@ -71,44 +71,21 @@ class RestrictedRunSubagentTool(BaseTool):
         return self._delegate.background_preflight(arguments, context)
 
 
-class SubagentToolkit(BaseToolkit):
-    """Spawn focused worker subagents that run as background tasks."""
-
-    def __init__(
-        self,
-        *,
-        caller_agent: str = "",
-        allowed_agent_names: tuple[str, ...] | None = None,
-    ) -> None:
-        allowed = (
-            allowed_agent_names
-            if allowed_agent_names is not None
-            else _allowed_subagent_names_for_caller(caller_agent)
-        )
-        allowed_text = ", ".join(allowed) if allowed else "(none)"
-        super().__init__(
-            name="subagent",
-            description="Spawn focused worker subagents.",
-            tools=[RestrictedRunSubagentTool(allowed_agent_names=allowed)],
-            instructions=(
-                "Use `run_subagent` to delegate bounded work to a subagent.\n"
-                "- Each call returns a background `task_id` immediately; workers always run in the background.\n"
-                "- Emit multiple `run_subagent` calls in one turn only for disjoint work and only when live scope status still admits parallel fan-out.\n"
-                "- After spawning a worker, keep doing disjoint foreground work or launch other independent workers. Do not immediately block on the new task unless its result is the only remaining blocker.\n"
-                f"- Valid `agent_name` values for this caller: {allowed_text}.\n"
-                "- Only dispatchable subagent targets are valid.\n"
-                "- Prefer foreground work or `wait_for_background_task(task_id=...)` when blocked; call `check_background_progress(task_id=...)` only when live status will change your next action. Do not poll for reassurance or to satisfy an ordering ritual.\n"
-                "- Use `wait_for_background_task(task_id=...)` to join a worker when you are ready for its final answer and it has not already reached a terminal status.\n"
-                "- When a subagent result is `delivered`, `[COMPLETED]`, or reports `Posted.`, stop polling that task id; consume the posted note or artifact instead. Background status tools will only repeat the delivery envelope.\n"
-                "- Cancel stale or low-value workers with `cancel_background_task(task_id=...).`\n"
-                "- Workers cannot spawn subagents or launch their own background tasks."
-            ),
-        )
-
-    @classmethod
-    def from_context(cls, ctx):  # type: ignore[override]
-        caller_agent = str((ctx.metadata or {}).get("agent_name") or "").strip()
-        return cls(caller_agent=caller_agent)
+def make_subagent_tools(*, caller_agent: str = "") -> list[BaseTool]:
+    """Return caller-scoped subagent dispatch tools."""
+    allowed = _allowed_subagent_names_for_caller(caller_agent)
+    return [RestrictedRunSubagentTool(allowed_agent_names=allowed)]
 
 
-__all__ = ["SubagentToolkit"]
+def make_subagent_tool_from_context(ctx: object) -> BaseTool:
+    """Return the caller-scoped ``run_subagent`` tool for a factory context."""
+    metadata = getattr(ctx, "metadata", {}) or {}
+    caller_agent = str(metadata.get("agent_name") or "").strip()
+    return make_subagent_tools(caller_agent=caller_agent)[0]
+
+
+__all__ = [
+    "RestrictedRunSubagentTool",
+    "make_subagent_tool_from_context",
+    "make_subagent_tools",
+]

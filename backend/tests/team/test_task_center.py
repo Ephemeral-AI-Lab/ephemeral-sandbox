@@ -6,7 +6,6 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 from team.models import BudgetConfig, BudgetState, Note, Task, TaskStatus
 from team.task_center import TaskCenter
@@ -149,6 +148,25 @@ def test_post_emits_note_posted_event():
     assert event.data["auto"] is True
     assert event.data["scope_paths"] == ["src/auth"]
     assert event.data["content_preview"] == "first line second line"
+
+
+def test_submit_summary_posts_implementation_summary_note():
+    tc = _tc()
+
+    note = _run(
+        tc.notes.submit_summary(
+            task_id="task-1",
+            agent_name="parent_summarizer",
+            content="parent roll-up",
+            paths=["src/auth"],
+            tags=["parent_summary"],
+        )
+    )
+
+    assert note.task_id == "task-1"
+    assert note.content == "parent roll-up"
+    assert note.tags == ["implementation", "parent_summary"]
+    assert _run(tc.notes.read(authors=["task-1"])) == [note]
 
 
 def test_post_logs_auto_note(caplog):
@@ -612,38 +630,3 @@ def test_ready_queue_order_returns_copy():
 
     assert tc.ready_queue_order == ["task-1"]
 
-
-def test_prime_resume_state_copies_inputs():
-    tc = _tc()
-    snapshot = [_task("task-1"), _task("task-2")]
-    ready_queue_order = ["task-2", "task-1"]
-
-    tc.prime_resume_state(snapshot=snapshot, ready_queue_order=ready_queue_order)
-    snapshot.append(_task("task-3"))
-    ready_queue_order.append("task-3")
-
-    assert tc.ready_queue_order == ["task-2", "task-1"]
-    assert [task.id for task in tc._resume_snapshot or []] == ["task-1", "task-2"]
-
-
-def test_prepare_for_resume_uses_primed_snapshot():
-    tc = _tc()
-    snapshot = [_task("task-1"), _task("task-2")]
-    tc.prime_resume_state(snapshot=snapshot, ready_queue_order=["task-1"])
-    snapshot.append(_task("task-3"))
-
-    replaced: list[list[object]] = []
-
-    async def _replace(tasks):
-        replaced.append(list(tasks))
-
-    tc.store.replace_run_tasks = AsyncMock(side_effect=_replace)
-    tc.store.recover_running = AsyncMock(return_value=[])
-    tc.store.refresh_graph = AsyncMock(return_value=tc.graph)
-
-    _run(tc.prepare_for_resume())
-
-    assert [task.id for task in replaced[0]] == ["task-1", "task-2"]
-    assert tc._resume_snapshot is None
-    tc.store.recover_running.assert_awaited_once()
-    tc.store.refresh_graph.assert_awaited_once()

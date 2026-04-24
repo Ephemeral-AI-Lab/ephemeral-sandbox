@@ -11,9 +11,9 @@ from sqlalchemy.orm import sessionmaker
 
 # Importing the model registers the table on ``Base.metadata`` so
 # ``create_all`` picks it up below.
-from team.models import TaskStatus, TeamDefinition, TeamRunStatus
+from team.models import TaskStatus, TaskStatusUpdate, TeamDefinition, TeamRunStatus
 from team.persistence.model import TeamDefinitionRecord  # noqa: F401
-from team.persistence.run_store import NullTeamRunStore
+from team.persistence.run_store import TeamRunStore
 from team.persistence.store import TeamDefinitionStore
 from team.runtime.services import TeamRuntimeServices
 from team.runtime.team_run import TeamRun
@@ -209,7 +209,10 @@ class _NoopWorker:
     def __init__(self, team_run: TeamRun) -> None:
         self.team_run = team_run
 
-    async def run_forever(self) -> None:
+    async def run(self, task_id: str) -> TaskStatusUpdate:
+        return TaskStatusUpdate(task_id=task_id, status=TaskStatus.CANCELLED, summary="noop")
+
+    async def post_dispatch(self, update: TaskStatusUpdate) -> None:
         return None
 
 
@@ -217,28 +220,23 @@ def _noop_executor_factory(team_run: TeamRun) -> _NoopWorker:
     return _NoopWorker(team_run)
 
 
-class _FakeTaskCenter:
-    def __init__(self) -> None:
-        from team.models import BudgetConfig, BudgetState
+class _FakeStore:
+    """Sync TaskStore surface (matches production ``TaskStore`` API)."""
 
-        self.budgets = BudgetConfig()
-        self.budget_state = BudgetState()
-        self.graph = {}
-        self._events = NullTeamRunStore()
-        self._notes = []
-        self.store = self  # production reads all_terminal/get_statuses via tc.store
-        self._cancel_running_task_callback = None
-        self._fail_fast_callback = None
+    def __init__(self, graph: dict) -> None:
+        self.graph = graph
 
-    def set_cancel_running_task_callback(self, callback) -> None:
-        self._cancel_running_task_callback = callback
+    def get_task(self, task_id: str):
+        return self.graph.get(task_id)
 
-    def set_fail_fast_callback(self, callback) -> None:
-        self._fail_fast_callback = callback
+    async def get_record(self, task_id: str):
+        return self.graph.get(task_id)
 
-    async def add_task(self, task) -> None:
-        self.budget_state.tasks_used += 1
-        self.graph[task.id] = task
+    async def get_statuses(self) -> dict[str, str]:
+        return {"task-1": "cancelled"}
+
+    async def all_terminal(self) -> bool:
+        return True
 
     async def cancel_all_pending(self) -> int:
         for task in self.graph.values():
@@ -248,23 +246,29 @@ class _FakeTaskCenter:
     async def cancel_all_running(self, reason: str) -> int:
         return 0
 
-    async def all_terminal(self) -> bool:
-        return True
 
-    async def get_record(self, task_id: str):
-        return self.graph.get(task_id)
+class _FakeTaskCenter:
+    def __init__(self) -> None:
+        from team.models import BudgetConfig, BudgetState
 
-    async def get_statuses(self) -> dict[str, str]:
-        return {"task-1": "cancelled"}
+        self.budgets = BudgetConfig()
+        self.budget_state = BudgetState()
+        self.graph = {}
+        self._events = TeamRunStore()
+        self.notes = []
+        self.budget = None
+        self.expander = None
+        self.store = _FakeStore(self.graph)
 
-    async def fail_orphaned_replanning(self) -> None:
+    def emit_event(self, event) -> None:
         pass
 
+    async def add_task(self, task) -> None:
+        self.budget_state.tasks_used += 1
+        self.graph[task.id] = task
 
-class _FakeDispatchQueue:
-    async def pop_ready(self, run_id: str):
-        return None
-
+    async def get_task(self, task_id: str):
+        return self.graph.get(task_id)
 
 def _fake_services() -> TeamRuntimeServices:
     from team.context.project import ProjectContext
@@ -273,8 +277,7 @@ def _fake_services() -> TeamRuntimeServices:
     return TeamRuntimeServices(
         project_context=ProjectContext(goal="", user_request="", project_key="", repo_root=""),
         task_center=tc,  # type: ignore[arg-type]
-        dispatch_queue=_FakeDispatchQueue(),  # type: ignore[arg-type]
-        event_store=NullTeamRunStore(),
+        event_store=TeamRunStore(),
     )
 
 

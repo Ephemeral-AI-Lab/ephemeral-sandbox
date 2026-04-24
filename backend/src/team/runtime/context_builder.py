@@ -20,48 +20,12 @@ if TYPE_CHECKING:
     from team.runtime.team_run import TeamRun
 
 
-ROLE_SUBMISSION_TOOLS: dict[str, frozenset[str]] = {
-    "planner": frozenset({"submit_plan"}),
-    "replanner": frozenset({"submit_replan"}),
-    "developer": frozenset({"submit_task_success", "request_replan"}),
-    "parent_summarizer": frozenset({"submit_task_success", "request_replan"}),
-    "reviewer": frozenset({"submit_task_success", "request_replan"}),
-    "explorer": frozenset(),
-    "scout": frozenset(),
-}
-
-
-def terminal_tools_for_role(role: str | None) -> set[str]:
-    role_name = str(role or "").strip()
-    if not role_name:
-        return set()
-    return set(ROLE_SUBMISSION_TOOLS.get(role_name, frozenset()))
-
-
-def blocked_submission_tools_for_role(
-    role: str | None,
-    available_submission_tools: list[str] | set[str] | tuple[str, ...],
-) -> set[str]:
-    role_name = str(role or "").strip()
-    if not role_name or role_name not in ROLE_SUBMISSION_TOOLS:
-        return set()
-    available = {
-        str(name).strip()
-        for name in available_submission_tools
-        if str(name).strip()
-    }
-    return available - set(ROLE_SUBMISSION_TOOLS[role_name])
-
-
 def _resolve_terminal_tools(defn: "AgentDefinition") -> set[str]:
-    explicit = {
+    return {
         str(name).strip()
         for name in getattr(defn, "terminal_tools", []) or []
         if str(name).strip()
     }
-    if explicit:
-        return explicit
-    return terminal_tools_for_role(getattr(defn, "role", None))
 
 
 @dataclass

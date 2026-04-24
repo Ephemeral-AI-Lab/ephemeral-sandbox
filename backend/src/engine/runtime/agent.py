@@ -84,7 +84,6 @@ def finalize_tool_registry_and_prompt(
     system_prompt: str,
     *,
     can_spawn_subagents: bool = True,
-    role: str | None = None,
     blocked_tools: list[str] | None = None,
     terminal_tools: set[str] | list[str] | None = None,
 ) -> tuple[str, bool]:
@@ -121,11 +120,18 @@ def finalize_tool_registry_and_prompt(
         tool_registry.register_toolkit(make_background_toolkit(bg_tool_names))
     submission_toolkit = tool_registry.get_toolkit("submission")
     if submission_toolkit is not None:
-        from team.runtime.context_builder import blocked_submission_tools_for_role
-
-        role_blocked_tools = blocked_submission_tools_for_role(role, submission_toolkit.tool_names())
-        if role_blocked_tools:
-            tool_registry.remove_tools(sorted(role_blocked_tools))
+        allowed_terminal_tools = {
+            str(name).strip()
+            for name in (terminal_tools or [])
+            if str(name).strip()
+        }
+        blocked_submission_tools = {
+            str(name).strip()
+            for name in submission_toolkit.tool_names()
+            if str(name).strip() and str(name).strip() not in allowed_terminal_tools
+        }
+        if blocked_submission_tools:
+            tool_registry.remove_tools(sorted(blocked_submission_tools))
     if blocked_tools:
         tool_registry.remove_tools(blocked_tools)
 
@@ -296,7 +302,6 @@ def _register_additional_allowed_tools(
                 name=source_toolkit.name,
                 description=source_toolkit.description,
                 tools=matching_tools,
-                instructions=source_toolkit.instructions,
             )
             tool_registry.register_toolkit(filtered_toolkit)
         else:
@@ -369,7 +374,6 @@ def spawn_agent(
         tool_registry,
         base_system_prompt,
         can_spawn_subagents=can_spawn,
-        role=(agent_def.role if agent_def else None),
         blocked_tools=(agent_def.blocked_tools if agent_def else None),
         terminal_tools=terminal_tools,
     )

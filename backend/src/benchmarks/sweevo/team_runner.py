@@ -35,7 +35,7 @@ from team.persistence.run_store import build_default_store
 from team.runtime.executor import Executor
 from team.runtime.runner import AgentRunState, TeamAgentRunner
 from team.runtime.team_run import TeamRun
-from team.runtime.telemetry import (
+from benchmarks.sweevo.telemetry import (
     BenchmarkTelemetry,
     append_event,
     default_team_metrics,
@@ -304,8 +304,8 @@ def _make_executor_factory(
     )
 
     def factory(team_run):
-        def after_dispatch(wi, result, _new_items):
-            if result.submitted_plan is None or wi.agent_name not in {ROOT_PLANNER, TEAM_PLANNER}:
+        def after_dispatch(wi, update):
+            if update.plan is None or wi.agent_name not in {ROOT_PLANNER, TEAM_PLANNER}:
                 return
             _emit_dispatcher_dag(printer, team_run, trigger_agent=wi.agent_name)
 

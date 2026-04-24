@@ -154,11 +154,6 @@ def validate_plan(
                     }
                 )
 
-        # Planner-authored short label.
-        if not item.description:
-            issues.append(
-                {"field": f"tasks[{idx}].description", "msg": "description is required"}
-            )
         # scope_paths is required
         if not item.scope_paths:
             issues.append(

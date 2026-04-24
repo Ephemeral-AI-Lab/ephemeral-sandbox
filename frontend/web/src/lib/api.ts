@@ -14,7 +14,6 @@ import type {
   SessionDetail,
   AgentRunSummary,
   AgentRunDetail,
-  AgentResponseChunk,
   ConversationMessagePayload,
   SessionUsage,
   ModelUsage,
@@ -318,13 +317,6 @@ export async function fetchRunDetail(runId: string): Promise<AgentRunDetail | nu
   const res = await fetch(`${DB_BASE}/runs/${runId}`)
   if (!res.ok) return null
   return res.json()
-}
-
-export async function fetchRunChunks(runId: string, limit = 500): Promise<AgentResponseChunk[]> {
-  const res = await fetch(`${DB_BASE}/runs/${runId}/chunks?limit=${limit}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.chunks ?? []
 }
 
 // ---------------------------------------------------------------------------

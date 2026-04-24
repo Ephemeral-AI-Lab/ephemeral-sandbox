@@ -55,7 +55,6 @@ def format_tool_schema_summary(
     toolkits: Sequence[BaseToolkit],
     *,
     include_descriptions: bool = True,
-    include_instructions: bool = False,
 ) -> str:
     """Render a human-readable input/output schema summary for each tool."""
     sections: list[str] = []
@@ -63,9 +62,6 @@ def format_tool_schema_summary(
         lines = [f"Toolkit: {toolkit.name}"]
         if include_descriptions and toolkit.description:
             lines.append(f"  {toolkit.description}")
-        if include_instructions and toolkit.instructions:
-            lines.append("  instructions:")
-            lines.extend(f"    {line}" for line in toolkit.instructions.splitlines())
         for tool in toolkit.list_tools():
             lines.extend(_format_tool(tool, include_descriptions=include_descriptions))
         sections.append("\n".join(lines))

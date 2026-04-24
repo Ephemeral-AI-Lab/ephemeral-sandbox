@@ -6,24 +6,21 @@ Extracted from TaskCenter. Owns:
 - Inserting expanded children into the task graph
 - Applying replans (cancel allowed graph-region tasks + add new tasks)
 
-Validation failures during plan expansion fail the parent (a still-RUNNING
-leaf) via ``fail_cb`` and return ``PlanExpansionOutcome(accepted=False)``;
-they do not raise. Replan validation failures (apply_replan) raise
-InvalidPlan so the caller can surface them to the requester. BudgetExceeded
-(max_tasks) is a team-run level guarantee — it always raises and is handled
-by the executor via ``fail_fast``, never locally.
+Validation failures raise ``InvalidPlan``. Budget overruns raise
+``BudgetExceeded``. Callers (``TaskStatusHandler``) translate either into a
+``FAILED`` update on the submitting task so the run aborts cleanly.
 """
 
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Iterable
+from typing import Callable, Iterable
 
 from agents.registry import has_role
 from team.budget_manager import BudgetManager
 from team.errors import BudgetExceeded, InvalidPlan
-from team.models import AgentResult, Plan, Task, TaskDefinition, TaskStatus
+from team.models import Plan, Task, TaskDefinition, TaskStatus
 from team.persistence.events import TeamRunEvent, make_task_added, task_to_dict
 from team.persistence.task_record import TaskRecord
 from team.persistence.task_store import TaskStore
@@ -33,23 +30,13 @@ from team.planning.validation import _has_cycle, validate_plan
 
 @dataclass(frozen=True)
 class PlanExpansionOutcome:
-    """Typed result for submitted-plan expansion.
-
-    Rejected submitted plans are reported through ``fail_cb`` and returned as
-    ``accepted=False``; callers should not expect ``InvalidPlan`` from this
-    path.
-    """
+    """Typed result for submitted-plan expansion."""
 
     new_items: tuple[Task, ...] = ()
-    accepted: bool = True
 
     @classmethod
-    def rejected(cls) -> PlanExpansionOutcome:
-        return cls(accepted=False)
-
-    @classmethod
-    def accepted_with(cls, items: Iterable[Task] = ()) -> PlanExpansionOutcome:
-        return cls(new_items=tuple(items), accepted=True)
+    def with_items(cls, items: Iterable[Task] = ()) -> PlanExpansionOutcome:
+        return cls(new_items=tuple(items))
 
 
 @dataclass(frozen=True)
@@ -60,13 +47,14 @@ class ReplanApplyOutcome:
     """
 
     added: int
-    cancelled: int
+    cancelled_ids: tuple[str, ...] = ()
+    cancelled_running_ids: tuple[str, ...] = ()
     inserted_ids: tuple[str, ...] = ()
     replanner_child_count: int = 0
 
 
 class PlanExpander:
-    """Validates and applies submitted plans + replans for TaskCenter."""
+    """Validates and applies submitted plans + replans."""
 
     def __init__(
         self,
@@ -76,16 +64,12 @@ class PlanExpander:
         budget: BudgetManager,
         graph_getter: Callable[[], dict[str, Task]],
         emit_cb: Callable[[TeamRunEvent], None],
-        fail_cb: Callable[[str, str], Awaitable[None]],
-        cancel_running_task_cb: Callable[[str], None] | None = None,
     ) -> None:
         self._team_run_id = team_run_id
         self._store = store
         self._budget = budget
         self._graph_getter = graph_getter
         self._emit = emit_cb
-        self._fail = fail_cb
-        self._cancel_running_task = cancel_running_task_cb
 
     @staticmethod
     def new_id() -> str:
@@ -94,47 +78,45 @@ class PlanExpander:
     async def expand_submitted_plan(
         self,
         rec: TaskRecord,
-        result: AgentResult,
+        plan: Plan | None,
     ) -> PlanExpansionOutcome:
         """Validate and insert children for a submitted plan.
 
-        Rejections fail the parent via ``fail_cb`` and return
-        ``accepted=False``. When the agent submitted no plan and no plan was
-        required, returns an accepted empty outcome.
+        Raises ``InvalidPlan`` when the submission fails validation (planner
+        submitted nothing, depth overrun, cycles, invalid deps). Raises
+        ``BudgetExceeded`` when the plan would push ``max_tasks`` over the
+        limit. Callers translate either into a ``FAILED`` status update.
         """
         task_id = rec.id
 
-        if has_role(rec.agent_name, "planner") and result.submitted_plan is None:
-            await self._fail(task_id, "InvalidPlan: expandable task did not submit a plan")
-            return PlanExpansionOutcome.rejected()
+        if has_role(rec.agent_name, "planner") and plan is None:
+            raise InvalidPlan("expandable task did not submit a plan")
 
-        if result.submitted_plan is None:
-            return PlanExpansionOutcome.accepted_with()
+        if plan is None:
+            return PlanExpansionOutcome.with_items()
 
         new_depth = (rec.depth or 0) + 1
         if not self._budget.within_depth_limit(new_depth):
-            await self._fail(
-                task_id,
-                f"InvalidPlan: plan would exceed max_depth={self._budget.budgets.max_depth} "
+            raise InvalidPlan(
+                f"plan would exceed max_depth={self._budget.budgets.max_depth} "
                 f"(current depth={rec.depth or 0}). Planners at the depth limit must "
-                f"emit developer tasks with broader scopes instead of nested team_planner tasks.",
+                f"emit developer tasks with broader scopes instead of nested "
+                f"team_planner tasks."
             )
-            return PlanExpansionOutcome.rejected()
 
         issues = validate_plan(
-            result.submitted_plan,
+            plan,
             max_plan_size=self._budget.budgets.max_plan_size,
         )
         if issues:
-            await self._fail(task_id, "InvalidPlan: " + "; ".join(i["msg"] for i in issues))
-            return PlanExpansionOutcome.rejected()
+            raise InvalidPlan("; ".join(i["msg"] for i in issues))
 
         local_to_global: dict[str, str] = {
-            spec.id: self.new_id() for spec in result.submitted_plan.tasks if spec.id
+            spec.id: self.new_id() for spec in plan.tasks if spec.id
         }
         specs: list[TaskDefinition] = []
         new_items: list[Task] = []
-        for spec in result.submitted_plan.tasks:
+        for spec in plan.tasks:
             new_task_id = local_to_global.get(spec.id) or self.new_id()
             resolved_deps = [
                 local_to_global[dep_id] if dep_id in local_to_global else dep_id
@@ -183,7 +165,7 @@ class PlanExpander:
         for item in materialized:
             self._emit(make_task_added(self._team_run_id, task_to_dict(item)))
         self._budget.emit_update()
-        return PlanExpansionOutcome.accepted_with(materialized)
+        return PlanExpansionOutcome.with_items(materialized)
 
     async def apply_replan(
         self,
@@ -289,6 +271,18 @@ class PlanExpander:
         if not self._budget.has_capacity_for(len(specs)):
             raise BudgetExceeded("max_tasks would be exceeded by replan")
 
+        # Snapshot running IDs from the graph *before* we mutate the DB so
+        # the handler can cancel live runner tasks for the tasks this replan
+        # is cancelling (post-commit, the DB/graph shows them as CANCELLED).
+        cancelled_running_ids = tuple(
+            sorted(
+                cid
+                for cid in cancelled
+                if graph.get(cid) is not None
+                and graph[cid].status == TaskStatus.RUNNING
+            )
+        )
+
         # Commit the graph mutation FIRST. If apply_replan_atomic raises,
         # no live runner cancellation has happened yet — state stays consistent
         # (graph still says task is RUNNING, runner is still alive). Cancelling
@@ -299,12 +293,6 @@ class PlanExpander:
             specs=specs,
         )
 
-        if self._cancel_running_task is not None:
-            for cancelled_id in sorted(cancelled):
-                task = graph.get(cancelled_id)
-                if task is not None and task.status == TaskStatus.RUNNING:
-                    self._cancel_running_task(cancelled_id)
-
         if specs:
             self._budget.charge_tasks(len(specs))
             graph = self._graph_getter()
@@ -314,7 +302,8 @@ class PlanExpander:
 
         return ReplanApplyOutcome(
             added=len(specs),
-            cancelled=len(cancel_ids),
+            cancelled_ids=tuple(sorted(cancelled)),
+            cancelled_running_ids=cancelled_running_ids,
             inserted_ids=tuple(r.id for r in inserted),
             replanner_child_count=sum(1 for spec in specs if spec.parent_id == replan_task_id),
         )

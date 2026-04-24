@@ -81,34 +81,24 @@ def test_schema_summary_has_input_and_output_section_for_every_tool(tmp_path):
             assert "    output:" in block
 
 
-def test_schema_summary_can_include_toolkit_instructions(tmp_path):
+def test_schema_summary_omits_toolkit_instructions(tmp_path):
     toolkits = collect_schema_toolkits(cwd=tmp_path)
 
-    summary = format_tool_schema_summary(
-        toolkits,
-        include_descriptions=False,
-        include_instructions=True,
-    )
+    summary = format_tool_schema_summary(toolkits, include_descriptions=False)
 
     assert "Toolkit: code_intelligence" in summary
-    assert "  instructions:" in summary
-    assert "    Code intelligence for grounding same-run work." in summary
+    assert "  instructions:" not in summary
 
 
-def test_daytona_summary_rejects_unprefixed_write_file_alias(tmp_path):
+def test_daytona_summary_lists_prefixed_tools_without_instruction_block(tmp_path):
     toolkits = collect_schema_toolkits(cwd=tmp_path)
 
-    summary = format_tool_schema_summary(
-        toolkits,
-        include_descriptions=True,
-        include_instructions=True,
-    )
+    summary = format_tool_schema_summary(toolkits, include_descriptions=True)
 
     assert "Toolkit: sandbox_operations" in summary
-    assert "there is no `write_file` tool" in summary
-    assert "do not call `write_file`" in summary
-    assert "output is captured automatically" in summary
-    assert "2>/dev/null" in summary
+    assert "  daytona_write_file" in summary
+    assert "  daytona_shell" in summary
+    assert "  write_file\n" not in summary
 
 
 def test_schema_summary_formats_literals_defaults_and_root_models():
