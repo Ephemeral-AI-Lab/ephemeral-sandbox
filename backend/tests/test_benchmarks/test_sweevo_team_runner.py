@@ -256,13 +256,13 @@ def test_agent_overrides_attach_validator_skill_without_prompt_duplication():
     assert "read_task_details" in overrides[TEAM_PLANNER]["tools"]
     assert overrides[TEAM_PLANNER]["tool_call_limit"] == 100
     assert "system_prompt" not in overrides[DEVELOPER]
-    assert overrides[DEVELOPER]["tool_call_limit"] == 50
+    assert overrides[DEVELOPER]["tool_call_limit"] == 75
     assert "system_prompt" not in overrides[SCOUT]
-    assert overrides[SCOUT]["tool_call_limit"] == 50
+    assert overrides[SCOUT]["tool_call_limit"] == 75
     assert "system_prompt" not in overrides[VALIDATOR]
-    assert overrides[VALIDATOR]["tool_call_limit"] == 50
+    assert overrides[VALIDATOR]["tool_call_limit"] == 75
     assert "system_prompt" not in overrides[TEAM_REPLANNER]
-    assert overrides[TEAM_REPLANNER]["tool_call_limit"] == 50
+    assert overrides[TEAM_REPLANNER]["tool_call_limit"] == 75
 
 
 @pytest.mark.asyncio
@@ -367,7 +367,7 @@ def test_execution_runtime_limits_tighten_bounded_lanes():
     )
 
     assert sweevo_team_runner._derive_execution_runtime_limits(instance) == {
-        "tool_call_limit": 50,
+        "tool_call_limit": 75,
     }
 
 

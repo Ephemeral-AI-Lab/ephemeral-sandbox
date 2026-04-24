@@ -156,7 +156,7 @@ def _derive_planner_runtime_limits(instance: SWEEvoInstance) -> dict[str, int]:
 def _derive_execution_runtime_limits(instance: SWEEvoInstance) -> dict[str, int]:
     """Return tighter runtime limits for execution lanes on SWE-EVO."""
     del instance
-    tool_call_limit = 50
+    tool_call_limit = 100
     return {
         "tool_call_limit": tool_call_limit,
     }
