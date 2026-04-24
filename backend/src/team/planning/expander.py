@@ -15,10 +15,9 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import TYPE_CHECKING, Callable, Iterable
 
 from agents.registry import has_role
-from team.task_center.budget import BudgetManager
 from team.errors import BudgetExceeded, InvalidPlan
 from team.models import Plan, Task, TaskDefinition, TaskStatus
 from team.persistence.events import TeamRunEvent, make_task_added, task_to_dict
@@ -26,6 +25,9 @@ from team.persistence.task_record import TaskRecord
 from team.persistence.task_store import TaskStore
 from team.planning.replan_validation import validate_replan_rules
 from team.planning.validation import _has_cycle, validate_plan
+
+if TYPE_CHECKING:
+    from team.task_center.budget import BudgetManager
 
 
 @dataclass(frozen=True)
@@ -188,6 +190,16 @@ class PlanExpander:
                     f"replan would exceed max_depth={self._budget.budgets.max_depth} "
                     f"from current depth={replan_depth}"
                 )
+            misplaced = [
+                spec.id or "<unknown>"
+                for spec in add_tasks
+                if spec.parent_id not in (None, replan_task_id)
+            ]
+            if misplaced:
+                raise InvalidPlan(
+                    "replan add_tasks must be direct children of the replanner; "
+                    f"invalid task ids: {', '.join(misplaced)}"
+                )
 
         plan_issues: list[dict[str, str]] = []
         if add_tasks:
@@ -241,6 +253,7 @@ class PlanExpander:
                     description=spec.description or "",
                     deps=resolved_deps,
                     scope_paths=list(spec.scope_paths),
+                    parent_id=replan_task_id,
                 )
             )
 

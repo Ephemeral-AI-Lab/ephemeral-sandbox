@@ -302,10 +302,9 @@ class TaskStatusHandler:
             await self._finalize_replanned_origin_chain(rec.id)
             self._enqueue_many(outcome.inserted_ids)
         else:
-            promoted_ready = await self._store.mark_done(rec.id)
-            self._enqueue_many(promoted_ready)
-            await self._cascade_expanded_parent(rec.id)
-            await self._finalize_replanned_origin_chain(rec.id)
+            # Empty replan (no corrective tasks): the replanner did not do
+            # its job, so fail it rather than synthesizing a success summary.
+            await self._dispatch(_fail(rec.id, "replan_produced_no_corrective_tasks"))
         # Replan cancels may have detached whole subtrees; sweep parents.
         promoted, awaiting = await self._store.sweep_expanded_promotions()
         await self._apply_promotions(promoted, awaiting)

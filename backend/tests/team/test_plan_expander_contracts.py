@@ -165,6 +165,7 @@ async def test_expander_replan_returns_typed_outcome_and_raises_invalid_plan():
                     id="bad-child",
                     objective=_spec("Invalid repair under original failed task."),
                     agent="developer",
+                    scope_paths=["src/repair.py"],
                     parent_id="failed",
                 )
             ],
@@ -381,6 +382,7 @@ async def test_replan_expander_rejects_insertion_under_original_task():
                     id="bad-child",
                     objective=_spec("Invalid repair under original failed task."),
                     agent="developer",
+                    scope_paths=["src/repair.py"],
                     parent_id="failed",
                 )
             ],
