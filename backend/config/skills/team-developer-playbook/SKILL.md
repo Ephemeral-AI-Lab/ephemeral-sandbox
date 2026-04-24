@@ -11,7 +11,7 @@ Complete one bounded coding task from the Task Center handoff. Finish with exact
 
 | Stage | Gate | Exit |
 | --- | --- | --- |
-| 1. Read task details | Own task, parent, dependencies, and expected file notes are loaded before source work. | Exact objective, acceptance criteria, scope paths, dependency status, and file-note freshness. |
+| 1. Read task details | Own task, parent, dependencies, and expected file notes are loaded before source work. | Exact goal, detail, acceptance criteria, scope paths, dependency status, and file-note freshness. |
 | 2. Plan | The repair lane is valid and the production path is concrete. | Bounded edit plan plus exact diagnostics and runtime verification, or replan. |
 | 3. Implement | The mutation is the smallest production change justified by the plan or root-cause trace. | One scoped change, then verification. |
 | 4. Verify | Diagnostics and direct runtime evidence describe the latest edit. | Success evidence or red evidence for root-cause analysis. |
@@ -78,7 +78,7 @@ References: none. Use this playbook directly.
 1. Use exact UUIDs only: call `read_task_details(task_id=...)` for own task, parent task, and each dependency id from the prompt header.
 2. Treat the task spec and dependency task details as the handoff.
 3. Read each distinct expected file note once before any source read, diagnostic, daytona_shell command, or edit. Empty notes are valid.
-4. Exit with objective, acceptance criteria, scope paths, dependency status, expected code files, and file-note freshness.
+4. Exit with goal, detail, acceptance criteria, scope paths, dependency status, expected code files, and file-note freshness.
 
 ### 2. Plan
 
@@ -105,7 +105,7 @@ Call `request_replan` when dependencies are not done, artifacts are missing, ano
 
 | Check | Rule |
 | --- | --- |
-| Production proof | Before every mutation, verify the target file path or destination path is a production path tied to the traced root cause. |
+| Production proof | Before every mutation, verify the target file path, source path, destination path, or rename file hint is a production path tied to the traced root cause. |
 | Out-of-scope writes | Out-of-scope production writes, copies, and new files are allowed for developers when production evidence ties them to this task; use Daytona mutation tools so write-scope notifications are recorded. |
 | Mutation size | Use exactly one Daytona mutation tool per change. Keep each pass to one behavior fix, import fix, compatibility adjustment, or config correction. |
 | Freshness | Refresh file notes after edits or surprising runtime/tool output. |

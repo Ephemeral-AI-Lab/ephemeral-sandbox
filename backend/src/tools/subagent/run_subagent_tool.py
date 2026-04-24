@@ -41,7 +41,7 @@ from message.messages import (
     ToolUseBlock,
 )
 from token_tracker.runtime import persist_run_usage
-from team._path_utils import scope_paths_from_payload
+from team.core.scope import scope_paths_from_payload
 from tools.core.base import ToolExecutionContext, ToolResult
 from tools.core.decorator import tool
 

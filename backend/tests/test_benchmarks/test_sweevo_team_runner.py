@@ -23,9 +23,9 @@ from benchmarks.sweevo.team_runner import (
 )
 from agents.types import AgentDefinition
 from engine.core.query import QueryExitReason
-from team.runtime.context_builder import TeamAgentContext
+from team.runtime.agent_context import TeamAgentContext
 from message import ConversationMessage, TextBlock, ToolUseBlock
-from team.builtins import (
+from team.definitions import (
     DEVELOPER,
     ROOT_PLANNER,
     SCOUT,
@@ -33,14 +33,22 @@ from team.builtins import (
     TEAM_REPLANNER,
     VALIDATOR,
 )
-from team.models import Task, TaskStatus, TeamDefinition, TeamRunStatus
-from team.task_center.context_builder import UserPromptContextParts
+from team.core.models import Task, TaskStatus, TeamDefinition, TeamRunStatus
+from team.task_center.prompts import UserPromptContextParts
 from tools.core.runtime import ExecutionMetadata
 
 
 # ---------------------------------------------------------------------------
 # Shared factories
 # ---------------------------------------------------------------------------
+
+def _spec(goal: str) -> dict[str, str]:
+    return {
+        "goal": goal,
+        "detail": f"Detail for {goal}",
+        "acceptance_criteria": f"Acceptance for {goal}",
+    }
+
 
 def _pydantic_instance(**overrides) -> SimpleNamespace:
     """Return a minimal pydantic SWE-EVO instance namespace."""
@@ -77,23 +85,16 @@ def _fake_team_run(**overrides) -> SimpleNamespace:
     return base
 
 
-def test_load_or_create_team_definition_uses_requested_db_name(monkeypatch):
-    target = SimpleNamespace(name="sweevo-team-glm5.1")
-    captured: dict[str, object] = {}
-
-    class _Store:
-        def initialize(self, session_factory):
-            captured["session_factory"] = session_factory
-
-        def seed_builtin(self, _defn):
-            raise AssertionError("custom DB team should not seed builtin definition")
-
-        def get_by_name(self, name):
-            captured["team_name"] = name
-            return target
-
-    monkeypatch.setattr(sweevo_team_runner, "TeamDefinitionStore", _Store)
-    monkeypatch.setattr("team.registry.get_team_definition", lambda _name: None)
+def test_load_or_create_team_definition_uses_config_registry(monkeypatch):
+    target = TeamDefinition(
+        id="config-team",
+        name="sweevo-team-glm5.1",
+        description="config team",
+        entry_planner=ROOT_PLANNER,
+        roster={"planner": [ROOT_PLANNER]},
+    )
+    monkeypatch.setattr("team.definitions.get_team_definition", lambda _name: None)
+    monkeypatch.setattr("team.definitions.get_team_definition", lambda name: target if name == target.name else None)
 
     session_factory = object()
     result = sweevo_team_runner._load_or_create_team_definition(
@@ -102,13 +103,19 @@ def test_load_or_create_team_definition_uses_requested_db_name(monkeypatch):
     )
 
     assert result is target
-    assert captured == {
-        "session_factory": session_factory,
-        "team_name": "sweevo-team-glm5.1",
-    }
 
 
-def test_load_or_create_team_definition_uses_current_builtin_over_stale_db(monkeypatch):
+def test_load_or_create_team_definition_rejects_missing_config(monkeypatch):
+    monkeypatch.setattr("team.definitions.get_team_definition", lambda _name: None)
+
+    with pytest.raises(RuntimeError, match="backend/config/teams/sweevo_benchmark.md"):
+        sweevo_team_runner._load_or_create_team_definition(
+            object(),
+            team_name="sweevo_benchmark",
+        )
+
+
+def test_load_or_create_team_definition_uses_current_builtin(monkeypatch):
     builtin = TeamDefinition(
         id="builtin-sweevo",
         name="sweevo_benchmark",
@@ -121,33 +128,7 @@ def test_load_or_create_team_definition_uses_current_builtin_over_stale_db(monke
             "explorer": [SCOUT],
         },
     )
-    stale_db = TeamDefinition(
-        id="stale-sweevo",
-        name="sweevo_benchmark",
-        description="old builtin team",
-        entry_planner=TEAM_PLANNER,
-        roster={
-            "planner": [TEAM_PLANNER],
-            "developer": [DEVELOPER],
-            "reviewer": [VALIDATOR],
-            "explorer": [SCOUT],
-        },
-    )
-    captured: dict[str, object] = {}
-
-    class _Store:
-        def initialize(self, session_factory):
-            captured["session_factory"] = session_factory
-
-        def seed_builtin(self, defn):
-            captured["seeded"] = defn
-            return stale_db
-
-        def get_by_name(self, name):
-            raise AssertionError(f"built-in registry should handle {name}")
-
-    monkeypatch.setattr(sweevo_team_runner, "TeamDefinitionStore", _Store)
-    monkeypatch.setattr("team.registry.get_team_definition", lambda _name: builtin)
+    monkeypatch.setattr("team.definitions.get_team_definition", lambda _name: builtin)
 
     session_factory = object()
     result = sweevo_team_runner._load_or_create_team_definition(
@@ -156,10 +137,6 @@ def test_load_or_create_team_definition_uses_current_builtin_over_stale_db(monke
     )
 
     assert result is builtin
-    assert captured == {
-        "session_factory": session_factory,
-        "seeded": builtin,
-    }
 
 
 
@@ -197,7 +174,7 @@ async def test_query_ctx_seeds_repo_root_for_daytona_and_ci():
             team_run_id="T1",
             agent_name="developer",
             status=TaskStatus.PENDING,
-            objective="Fix it",
+            spec=_spec("Fix it"),
         ),
     )
 
@@ -324,7 +301,7 @@ async def test_root_planner_runtime_prompt_hides_legacy_plan_tool_name():
             team_run_id="T1",
             agent_name="root_planner",
             status=TaskStatus.PENDING,
-            objective="Root planning task",
+            spec=_spec("Root planning task"),
             depth=0,
         ),
     )
@@ -579,7 +556,8 @@ def test_make_runner_persists_work_result(monkeypatch):
             return None
 
     final_text = (
-        '{"tasks":[{"id":"dev-1","objective":"Fix auth","agent":"developer","deps":[],'
+        '{"tasks":[{"id":"dev-1","spec":{"goal":"Fix auth","detail":"Repair auth.",'
+        '"acceptance_criteria":"Run auth tests."},"agent":"developer","deps":[],'
         '"scope_paths":["src/auth"]}],"rationale":"split by owner"}'
     )
 
@@ -612,7 +590,7 @@ def test_make_runner_persists_work_result(monkeypatch):
     monkeypatch.setattr("team.runtime.runner.spawn_agent", lambda *_args, **_kwargs: agent)
     monkeypatch.setattr("benchmarks.sweevo.telemetry.estimate_final_context", lambda _messages: 0)
     monkeypatch.setattr("benchmarks.sweevo.telemetry.persist_session_snapshot", lambda **_: None)
-    monkeypatch.setattr("team.runtime.registry.get", lambda _team_run_id: None)
+    monkeypatch.setattr("team.runtime.run_registry.get", lambda _team_run_id: None)
 
     runner = _make_runner(
         session_config=SimpleNamespace(session_id="sess-1"),
@@ -680,7 +658,7 @@ def test_make_runner_writes_agent_run_log_artifact(monkeypatch, tmp_path: Path):
     monkeypatch.setattr("team.runtime.runner.spawn_agent", lambda *_args, **_kwargs: agent)
     monkeypatch.setattr("benchmarks.sweevo.telemetry.estimate_final_context", lambda _messages: 456)
     monkeypatch.setattr("benchmarks.sweevo.telemetry.persist_session_snapshot", lambda **_: None)
-    monkeypatch.setattr("team.runtime.registry.get", lambda _team_run_id: None)
+    monkeypatch.setattr("team.runtime.run_registry.get", lambda _team_run_id: None)
 
     runner = _make_runner(
         session_config=SimpleNamespace(session_id="sess-1"),
@@ -774,7 +752,7 @@ def test_make_runner_marks_cancelled_agent_run_log(monkeypatch, tmp_path: Path):
     monkeypatch.setattr("team.runtime.runner.spawn_agent", lambda *_args, **_kwargs: agent)
     monkeypatch.setattr("benchmarks.sweevo.telemetry.estimate_final_context", lambda _messages: 0)
     monkeypatch.setattr("benchmarks.sweevo.telemetry.persist_session_snapshot", lambda **_: None)
-    monkeypatch.setattr("team.runtime.registry.get", lambda _team_run_id: None)
+    monkeypatch.setattr("team.runtime.run_registry.get", lambda _team_run_id: None)
 
     runner = _make_runner(
         session_config=SimpleNamespace(session_id="sess-1"),
@@ -838,14 +816,14 @@ def test_finalize_team_result_surfaces_retry_replan_metadata(monkeypatch):
                         team_run_id="TR1",
                         agent_name="developer",
                         status=TaskStatus.DONE,
-                        objective="task",
+                        spec=_spec("task"),
                     ),
                     "B": Task(
                         id="B",
                         team_run_id="TR1",
                         agent_name="validator",
                         status=TaskStatus.DONE,
-                        objective="task",
+                        spec=_spec("task"),
                         depth=1,
                     ),
                 },
@@ -879,7 +857,7 @@ def test_emit_dispatcher_dag_logs_graph_lines():
         team_run_id="TR1",
         agent_name="team_planner",
         status=TaskStatus.DONE,
-        objective="plan",
+        spec=_spec("plan"),
         depth=0,
     )
     child = Task(
@@ -887,7 +865,7 @@ def test_emit_dispatcher_dag_logs_graph_lines():
         team_run_id="TR1",
         agent_name="developer",
         status=TaskStatus.READY,
-        objective="child task",
+        spec=_spec("child task"),
         deps=["root-1"],
         depth=1,
     )

@@ -9,12 +9,12 @@ import uuid
 from dataclasses import asdict
 from typing import Any, Callable
 
-from team.models import BudgetConfig, BudgetState, TeamRunStatus
+from team.core.models import BudgetConfig, BudgetState, TeamRunStatus
 from team.persistence.events import make_team_run_created, make_team_run_status
 from team.persistence.run_store import TeamRunStore
 from team.runtime.executor import Executor
-from team.runtime.registry import register as _register_team_run
-from team.runtime.registry import unregister as _unregister_team_run
+from team.runtime.run_registry import register as _register_team_run
+from team.runtime.run_registry import unregister as _unregister_team_run
 from team.runtime.services import TeamRuntimeServices, build_team_runtime_services
 from team.runtime.status_handler import TaskStatusHandler
 from team.runtime.task_queue import TaskQueue
@@ -116,7 +116,7 @@ class TeamRun:
         executor_factory: Callable[["TeamRun"], Executor],
         num_executors: int | None = None,
     ) -> None:
-        from team.models import Task, TaskDefinition, TaskStatus
+        from team.core.models import Task, TaskDefinition, TaskStatus
 
         spec = payload.get("spec")
         if spec is None:

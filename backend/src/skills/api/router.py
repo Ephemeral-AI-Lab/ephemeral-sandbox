@@ -1,19 +1,16 @@
-"""Skills API router — DB-backed CRUD with packaged skill file browsing."""
+"""Skills API router for config-backed skill definitions."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
-from collections.abc import Callable
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from config.paths import get_builtin_skills_dir
-
-if TYPE_CHECKING:
-    from skills.db.store import SkillDefinitionStore
+from skills.bundled import get_bundled_skills
 
 # Packaged skills directory — read-only skill content shipped with the codebase
 _PACKAGED_SKILLS_DIR = get_builtin_skills_dir()
@@ -74,86 +71,47 @@ class SkillUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def create_skills_router(
-    get_skill_store: Callable[[], SkillDefinitionStore | None],
-) -> APIRouter:
-    router = APIRouter(prefix="/api/skills", tags=["skills"])
+_READ_ONLY_DETAIL = "Skill definitions are file-backed under backend/config/skills."
 
-    def _require_store() -> SkillDefinitionStore:
-        store = get_skill_store()
-        if store is None:
-            raise HTTPException(status_code=503, detail="Skill store not available (database not configured)")
-        return store
+
+def create_skills_router() -> APIRouter:
+    router = APIRouter(prefix="/api/skills", tags=["skills"])
 
     @router.get("")
     @router.get("/")
     async def list_skills() -> list[dict[str, Any]]:
-        store = _require_store()
-        records = store.list_active()
         return [
             {
-                "name": r.name,
-                "description": r.description,
+                "name": skill.name,
+                "description": skill.description,
             }
-            for r in records
+            for skill in get_bundled_skills()
         ]
 
     @router.get("/{name}")
     async def get_skill(name: str) -> dict[str, Any]:
-        store = _require_store()
-        record = store.get_by_name(name)
-        if record is None:
+        skill = next((item for item in get_bundled_skills() if item.name == name), None)
+        if skill is None:
             raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
         return {
-            "name": record.name,
-            "description": record.description,
-            "content": record.content,
-            "version": record.version,
-            "created_at": record.created_at.isoformat() if record.created_at else None,
-            "updated_at": record.updated_at.isoformat() if record.updated_at else None,
+            "name": skill.name,
+            "description": skill.description,
+            "content": skill.content,
+            "source": skill.source,
+            "path": skill.path,
         }
 
     @router.post("/", status_code=201)
-    async def create_skill(body: SkillCreate) -> dict[str, Any]:
-        store = _require_store()
-        from uuid import uuid4
-        from skills.db.model import SkillDefinitionRecord
-
-        if store.get_by_name(body.name) is not None:
-            raise HTTPException(status_code=400, detail=f"Skill '{body.name}' already exists")
-
-        record = SkillDefinitionRecord(
-            id=str(uuid4()),
-            name=body.name,
-            description=body.description,
-            content=body.content,
-        )
-        record = store.create(record)
-        return {"name": record.name, "message": f"Skill '{record.name}' created"}
+    async def create_skill(body: SkillCreate) -> dict[str, str]:
+        raise HTTPException(status_code=405, detail=_READ_ONLY_DETAIL)
 
     @router.put("/{name}")
-    async def update_skill(name: str, body: SkillUpdate) -> dict[str, Any]:
-        store = _require_store()
-        updates = body.model_dump(exclude_unset=True)
-        if not updates:
-            raise HTTPException(status_code=400, detail="No fields to update")
-        try:
-            record = store.update(name, updates)
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return {
-            "name": record.name,
-            "description": record.description,
-            "version": record.version,
-        }
+    async def update_skill(name: str, body: SkillUpdate) -> dict[str, str]:
+        raise HTTPException(status_code=405, detail=_READ_ONLY_DETAIL)
 
     @router.delete("/{name}")
     async def delete_skill(name: str) -> dict[str, str]:
-        store = _require_store()
-        ok = store.soft_delete(name)
-        if not ok:
-            raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
-        return {"deleted": name}
+        raise HTTPException(status_code=405, detail=_READ_ONLY_DETAIL)
 
     @router.get("/{name}/files")
     async def list_packaged_skill_files(name: str) -> dict[str, Any]:

@@ -25,7 +25,7 @@ def extract_benchmark_targets_from_team_run(
     if not team_run_id:
         return None, None
     try:
-        from team.runtime.registry import get as get_team_run
+        from team.runtime.run_registry import get as get_team_run
 
         team_run = get_team_run(team_run_id)
     except Exception:

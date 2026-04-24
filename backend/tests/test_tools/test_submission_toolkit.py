@@ -42,7 +42,7 @@ def test_request_replan_schema_requests_trigger_and_evidence():
 def test_submit_plan_schema_requests_concrete_acceptance_evidence():
     schema = SubmitPlanTool().to_api_schema()
     description = schema["description"]
-    spec_desc = schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]["spec"][
+    spec_desc = schema["input_schema"]["$defs"]["NewTaskDefinition"]["properties"]["spec"][
         "description"
     ]
 

@@ -7,10 +7,10 @@ import pytest
 from pydantic import ValidationError
 
 from agents.registry import get_definition
-from team.builtins import register_all as register_team_builtins
+from team.definitions import register_all as register_team_builtins
 from .helpers import structured_spec as _spec
-from team.models import BudgetConfig, BudgetState, Task, TaskStatus
-from team.runtime.context_builder import build_query_context, build_task_metadata
+from team.core.models import BudgetConfig, BudgetState, Task, TaskStatus
+from team.runtime.agent_context import build_query_context, build_task_metadata
 from tools.core.base import ToolExecutionContext
 from tools.submission import SubmitPlanTool, SubmitReplanTool
 from prompt.external_trigger_prompts import build_parent_summary_prompt as _build_parent_summary_prompt
@@ -31,7 +31,7 @@ class _AsyncTaskCenterStub:
         self.posted.append(note)
 
     async def context_for(self, task: Task) -> str:
-        return f"## Task\n{task.definition.objective}"
+        return f"## Task\n{task.definition.spec.goal}"
 
 
 def test_build_task_metadata_enables_team_runtime_flags():
@@ -180,15 +180,14 @@ def test_submit_plan_schema_keeps_new_tasks_and_drops_prose_fields():
     assert "new_tasks" in schema["input_schema"]["properties"]
     assert "output" not in schema["input_schema"]["properties"]
     assert "summary" not in schema["input_schema"]["properties"]
-    assert "description" not in schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]
-    spec_desc = schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]["spec"][
+    task_def_schema = schema["input_schema"]["$defs"]["NewTaskDefinition"]
+    assert "description" not in task_def_schema["properties"]
+    spec_desc = task_def_schema["properties"]["spec"][
         "description"
     ]
-    assert "1. Goal" in spec_desc
-    assert "2. Task Details" in spec_desc
-    assert "3. Acceptance Criteria" in spec_desc
-    assert "2. Environment" not in spec_desc
-    scope_desc = schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]["scope_paths"][
+    assert "goal, detail, and acceptance_criteria" in spec_desc
+    assert "numbered colon labels" not in spec_desc
+    scope_desc = task_def_schema["properties"]["scope_paths"][
         "description"
     ]
     assert "implementation owner paths" in scope_desc
@@ -225,15 +224,16 @@ def test_submit_replan_schema_keeps_new_tasks_and_drops_prose_fields():
     assert "non-empty repo-relative scope_paths" in new_tasks_desc
     cancel_ids_desc = schema["input_schema"]["properties"]["cancel_ids"]["description"]
     assert "use [] when no sibling should be cancelled" in cancel_ids_desc
-    spec_desc = schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]["spec"][
+    task_def_schema = schema["input_schema"]["$defs"]["NewTaskDefinition"]
+    spec_desc = task_def_schema["properties"]["spec"][
         "description"
     ]
-    assert "numbered colon labels" in spec_desc
-    scope_desc = schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]["scope_paths"][
+    assert "goal, detail, and acceptance_criteria" in spec_desc
+    scope_desc = task_def_schema["properties"]["scope_paths"][
         "description"
     ]
     assert "test files and test directories are rejected" in scope_desc
-    name_schema = schema["input_schema"]["$defs"]["NewTaskSpec"]["properties"]["name"]
+    name_schema = task_def_schema["properties"]["name"]
     assert name_schema["enum"] == ["developer", "validator"]
     assert "team_planner" not in name_schema["enum"]
     assert "summary" not in schema["input_schema"]["properties"]
@@ -350,20 +350,9 @@ async def test_submit_plan_accepts_large_task_specs_within_plan_limits():
 
 
 @pytest.mark.asyncio
-async def test_submit_plan_rejects_malformed_spec_sections():
-    task_center = _AsyncTaskCenterStub()
-    ctx = ToolExecutionContext(
-        cwd="/tmp",
-        metadata={
-            "task_center": task_center,
-            "work_item_id": "planner-task",
-            "agent_name": "team_planner",
-            "max_plan_size": 8,
-        },
-    )
-
+async def test_submit_plan_rejects_legacy_string_spec():
     tool = SubmitPlanTool()
-    result = await tool.execute(
+    with pytest.raises(ValidationError):
         tool.input_model(
             new_tasks=[
                 {
@@ -373,13 +362,7 @@ async def test_submit_plan_rejects_malformed_spec_sections():
                     "scope_paths": ["src/api.py"],
                 }
             ],
-        ),
-        ctx,
-    )
-
-    assert result.is_error is True
-    assert "missing spec section(s): Task Details, Acceptance Criteria" in result.output
-    assert ctx.metadata.get("resolved_plan") is None
+        )
 
 
 @pytest.mark.asyncio

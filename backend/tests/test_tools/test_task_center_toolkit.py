@@ -16,7 +16,16 @@ from tools.task_center.tools import (
     SubmitFileNotesTool,
 )
 from tools.core.base import ToolExecutionContext, parse_tool_input
-from team.models import Note, Task, TaskDefinition, TaskStatus
+from team.core.models import (
+    LeafSubmission,
+    Note,
+    Plan,
+    PlannerSubmission,
+    SubmittedSummary,
+    Task,
+    TaskDefinition,
+    TaskStatus,
+)
 
 
 def _ctx(metadata=None) -> ToolExecutionContext:
@@ -396,9 +405,81 @@ async def test_read_task_details_reads_single_task():
     assert result.is_error is False
     assert "## task-1 (developer) [running]" in result.output
     assert "**Description:** Patch parser" in result.output
+    assert "# Goal {Status: Running}" in result.output
+    assert "Goal for task-1" in result.output
+    assert "# Detail" in result.output
+    assert "# Acceptance Criteria" in result.output
     assert "**Deps:** dep-1" in result.output
     assert "**Scope:** src/parser.py" in result.output
     assert "task-2" not in result.output
+
+
+@pytest.mark.asyncio
+async def test_read_task_details_renders_leaf_success_outcome():
+    task = _task("task-1", parent_id=None, status=TaskStatus.DONE)
+    task.submission = LeafSubmission(
+        summary=SubmittedSummary(summary="Implemented parser retry behavior.")
+    )
+    ctx = _ctx({"task_center": SimpleNamespace(graph={"task-1": task})})
+
+    result = await ReadTaskDetailsTool().execute(
+        ReadTaskDetailsTool.input_model(task_id="task-1"),
+        ctx,
+    )
+
+    assert "# Goal {Status: Success}" in result.output
+    assert "# Outcome" in result.output
+    assert "Implemented parser retry behavior." in result.output
+
+
+@pytest.mark.asyncio
+async def test_read_task_details_renders_terminal_reason():
+    task = _task(
+        "task-1",
+        parent_id=None,
+        status=TaskStatus.REQUEST_REPLAN,
+        failure_reason="scope_expansion: owner moved",
+    )
+    ctx = _ctx({"task_center": SimpleNamespace(graph={"task-1": task})})
+
+    result = await ReadTaskDetailsTool().execute(
+        ReadTaskDetailsTool.input_model(task_id="task-1"),
+        ctx,
+    )
+
+    assert "# Goal {Status: Request Replan}" in result.output
+    assert "# Request Replan Reason" in result.output
+    assert "scope_expansion: owner moved" in result.output
+
+
+@pytest.mark.asyncio
+async def test_read_task_details_renders_expandable_plan_and_outcome():
+    task = _task("planner", parent_id=None, status=TaskStatus.DONE, agent="team_planner")
+    task.submission = PlannerSubmission(
+        plan=Plan(
+            tasks=[
+                TaskDefinition(
+                    id="dev-1",
+                    spec=_spec("Repair parser"),
+                    agent="developer",
+                    scope_paths=["src/parser.py"],
+                )
+            ]
+        ),
+        summary=SubmittedSummary(summary="Parser repair and validation completed."),
+    )
+    ctx = _ctx({"task_center": SimpleNamespace(graph={"planner": task})})
+
+    result = await ReadTaskDetailsTool().execute(
+        ReadTaskDetailsTool.input_model(task_id="planner"),
+        ctx,
+    )
+
+    assert "# Initial Plan" in result.output
+    assert '"spec": {' in result.output
+    assert '"goal": "Repair parser"' in result.output
+    assert "# Outcome" in result.output
+    assert "Parser repair and validation completed." in result.output
 
 
 @pytest.mark.asyncio

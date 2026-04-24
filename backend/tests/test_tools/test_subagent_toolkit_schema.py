@@ -24,7 +24,7 @@ if "anthropic.types" not in sys.modules:
 from tools.core.base import ToolExecutionContext
 from tools.subagent import make_subagent_tool_from_context
 from tools.subagent.run_subagent_tool import run_subagent
-from team.builtins import register_all as _register_team_builtins
+from team.definitions import register_all as _register_team_builtins
 
 
 try:

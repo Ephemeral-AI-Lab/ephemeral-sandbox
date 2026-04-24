@@ -11,8 +11,8 @@ from collections import defaultdict
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from team.errors import GraphInvariantViolation
-from team.models import (
+from team.core.errors import GraphInvariantViolation
+from team.core.models import (
     TERMINAL_STATUSES,
     Task,
     TaskDefinition,

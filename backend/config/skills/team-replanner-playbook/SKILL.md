@@ -130,5 +130,5 @@ Use for `unresolved_blocker` with `deep_diagnostics`.
 Enter this stage only after the matching Stage 3 action reference has been loaded and the corrective mapping is ready to self-check.
 
 1. Load `terminal-contract`.
-2. Self-check against its checklist: top-level keys are only `new_tasks` and `cancel_ids`; `new_tasks` is non-empty; every `name` is `developer` or `validator`; every spec uses `1. Goal:`, `2. Task Details:`, `3. Acceptance Criteria:`; `cancel_ids` contains only stale non-terminal direct siblings; no `cancel_ids` entry equals the failed task id from the prompt.
+2. Self-check against its checklist: top-level keys are only `new_tasks` and `cancel_ids`; `new_tasks` is non-empty; every `name` is `developer` or `validator`; every spec is a structured object with non-empty `goal`, `detail`, and `acceptance_criteria`; `cancel_ids` contains only stale non-terminal direct siblings; no `cancel_ids` entry equals the failed task id from the prompt.
 3. Emit exactly one `submit_replan({ new_tasks, cancel_ids })` call. Make no further tool calls.

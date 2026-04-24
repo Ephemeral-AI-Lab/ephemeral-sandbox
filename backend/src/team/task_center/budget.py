@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 from typing import Callable
 
-from team.errors import BudgetExceeded
-from team.models import BudgetConfig, BudgetState
+from team.core.errors import BudgetExceeded
+from team.core.models import BudgetConfig, BudgetState
 from team.persistence.events import TeamRunEvent, make_budget_update
 
 logger = logging.getLogger(__name__)

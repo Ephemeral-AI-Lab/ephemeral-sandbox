@@ -2,47 +2,35 @@
 
 ## Overview
 
-EphemeralOS agents are customizable runtime units defined through Markdown files or API endpoints. Teams orchestrate multiple agents in coordinated workflows with persistent task queues, scoped coordination notes, and replanning. This document describes the customization surface, loading pipeline, persistence model, and team run lifecycle.
+EphemeralOS agents are configurable runtime units defined through Markdown files under `backend/config`. Teams orchestrate multiple agents in coordinated workflows with persistent task queues, scoped coordination notes, and replanning. This document describes the config surface, loading pipeline, runtime persistence model, and team run lifecycle.
 
 ---
 
 ## 1. Customization Surface
 
-Agents are customized via two complementary paths: **Markdown frontmatter** (for builtin agents and disk-based definitions) and **REST API** (for user-created agents stored in the database).
+Agent, team, and skill definitions are customized by editing checked-in config files under `backend/config`.
 
 ```
-┌─────────────────────────────────┐        ┌─────────────────────────┐
-│  Markdown Agent Definitions     │        │  REST API               │
-│  backend/config/agents/*.md         │        │  POST /api/agents       │
-└────────────────┬────────────────┘        └───────────┬─────────────┘
-                 │ YAML frontmatter + body              │ JSON payload
-                 ▼                                      ▼
-        ┌─────────────────┐               ┌────────────────────────┐
-        │ AgentDefinition │               │  AgentDefinitionCreate │
-        └────────┬────────┘               └───────────┬────────────┘
-                 │                                     │ validation
-                 │                                     ▼
-                 │                        ┌────────────────────────┐
-                 │                        │  AgentBuilderService   │
-                 │                        └───────────┬────────────┘
-                 │                                     │ insert/update
-                 │                                     ▼
-                 │                        ┌────────────────────────────┐
-                 │                        │  AgentDefinitionRecord     │
-                 │                        │  SQL: agent_definitions    │
-                 │                        └───────────┬────────────────┘
-                 │ loader                              │ builder
-                 └──────────────┬──────────────────────┘
-                                ▼
-                    ┌─────────────────────┐
-                    │    AgentRegistry    │
-                    └──────────┬──────────┘
-                               │ lookup at runtime
-                               ▼
-                    ┌─────────────────────┐
-                    │   AgentDefinition   │
-                    │     (in memory)     │
-                    └─────────────────────┘
+┌─────────────────────────────────┐
+│  backend/config/agents/*.md     │
+│  backend/config/teams/*.md      │
+│  backend/config/skills/*        │
+└────────────────┬────────────────┘
+                 │ YAML frontmatter + Markdown body
+                 ▼
+        ┌────────────────────────┐
+        │ Agent/Team/Skill models│
+        └────────┬───────────────┘
+                 │ register_all / loaders
+                 ▼
+        ┌────────────────────────┐
+        │ In-memory registries   │
+        └────────┬───────────────┘
+                 │ lookup at runtime
+                 ▼
+        ┌────────────────────────┐
+        │ Runtime definitions    │
+        └────────────────────────┘
 ```
 
 ### Markdown Format
@@ -75,67 +63,40 @@ Execute one bounded coding task...
 agent's loop. For team-mode agents it also determines which submission tools
 remain visible after tool registration.
 
-### REST API Surface
+### API Surface
 
-**Create custom agent:**
-```
-POST /api/agents
-{
-  "name": "my-researcher",
-  "description": "...",
-  "model": "claude-opus",
-  "system_prompt": "...",
-  "tools": ["search_web", "read_note"],
-  "terminal_tools": [],
-  "effort": "high",
-  "tool_call_limit": 50
-}
-```
+The API can list, fetch, and validate definitions. Mutating definition endpoints are read-only because config files are the source of truth.
 
-**Update agent:**
 ```
-PATCH /api/agents/{name}
-{
-  "system_prompt": "...",
-  "tools": ["new_tool"]
-}
-```
-
-**List & get:**
-```
-GET /api/agents?source=user
+GET /api/agents
 GET /api/agents/{name}
+POST /api/agents/validate
+GET /api/skills
+GET /api/skills/{name}
 ```
 
 ---
 
 ## 2. Loader → Registry → Runtime Flow
 
-Three distinct layers orchestrate the transition from disk/database to runtime execution:
+Three distinct layers orchestrate the transition from config files to runtime execution:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    Disk & Database                       │
+│                    Config Files                         │
 │  ┌────────────────────────┐  ┌──────────────────────┐   │
-│  │  Builtin Agent         │  │  Agent Definition    │   │
-│  │  Markdown Files        │  │  Database Records    │   │
+│  │  backend/config/agents │  │ backend/config/teams │   │
 │  └───────────┬────────────┘  └──────────┬───────────┘   │
-└──────────────┼───────────────────────────┼───────────────┘
-               │ _parse_frontmatter        │ seed_builtin /
-               ▼                           │ load_all_from_db
-┌──────────────────────────────────────────┼───────────────┐
-│  Load Phase                              │               │
-│  ┌──────────────────────────────┐        ▼               │
-│  │  load_agents_dir             │  ┌──────────────────┐  │
-│  │  Parse YAML frontmatter      │  │ AgentBuilderSvc  │  │
-│  └──────────────┬───────────────┘  │ record_to_defn   │  │
-│                 │ AgentDefinition   └────────┬─────────┘  │
-│                 ▼ .model_validate            │            │
-│  ┌──────────────────────────────┐           │            │
-│  │  load_external_agents        │◀──────────┘            │
-│  │  User + plugin agents        │                        │
-│  └──────────────┬───────────────┘                        │
-└─────────────────┼──────────────────────────────────────  ┘
+└──────────────┼───────────────────────────┼──────────────┘
+               │ _parse_frontmatter        │ _parse_frontmatter
+               ▼                           ▼
+┌─────────────────────────────────────────────────────────┐
+│  Load Phase                                             │
+│  ┌──────────────────────────────┐  ┌──────────────────┐ │
+│  │  load_agents_dir             │  │  load_teams_dir  │ │
+│  │  Parse YAML frontmatter      │  │  Parse roster    │ │
+│  └──────────────┬───────────────┘  └────────┬─────────┘ │
+└─────────────────┼────────────────────────────┼──────────┘
                   │ AgentDefinition
                   ▼
 ┌─────────────────────────────────────────────────────────┐
@@ -144,7 +105,7 @@ Three distinct layers orchestrate the transition from disk/database to runtime e
 │  │  AgentRegistry  ─  in-memory map  _DEFINITIONS   │  │
 │  └───────────────────────┬──────────────────────────┘  │
 └───────────────────────────┼─────────────────────────────┘
-                            │ lazy load on first access
+                            │ lookup
           ┌─────────────────┼──────────────────┐
           ▼                 ▼                  ▼
 ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
@@ -155,94 +116,52 @@ Three distinct layers orchestrate the transition from disk/database to runtime e
 
 **Key components:**
 
-- **`AgentLoader`** (`backend/src/agents/loader.py`): Parses Markdown frontmatter via `_parse_frontmatter()`, calls `load_agents_dir()` to scan disk, calls `load_external_agents()` to gather user/plugin definitions.
+- **`AgentLoader`** (`backend/src/agents/loader.py`): Parses Markdown frontmatter via `_parse_frontmatter()` and calls `load_agents_dir()` to scan `backend/config/agents`.
 
-- **`AgentRegistry`** (`backend/src/agents/registry.py`): Single in-memory `_DEFINITIONS` dict holding all registered `AgentDefinition` objects. Lazily loads external agents on first `get_definition()` or `list_definitions()` call. Provides lookup functions: `get_definition(name)`, `find_by_role(role)`, `has_role(agent_name, role)`.
-
-- **`AgentBuilderService`** (`backend/src/agents/builder/service.py`): Converts database `AgentDefinitionRecord` ↔ runtime `AgentDefinition` via `record_to_definition()`. Seeds builtin definitions into DB via `seed_builtin()`.
+- **`AgentRegistry`** (`backend/src/agents/registry.py`): Single in-memory `_DEFINITIONS` dict holding registered `AgentDefinition` objects from config files. Provides lookup functions: `get_definition(name)`, `find_by_role(role)`, `has_role(agent_name, role)`.
 
 ---
 
 ## 3. Persistence Model
 
-### Entity-Relationship Diagram
+### Runtime Storage Diagram
 
 ```
-┌─────────────────────────────────────┐
-│           AGENT_DEFINITIONS         │
-│─────────────────────────────────────│
-│  id              PK  string         │
-│  name            UK  string         │
-│  description         string         │
-│  system_prompt       string         │
-│  model               string         │
-│  effort              string         │
-│  tool_call_limit     int            │
-│  skills              json           │
-│  tools               json           │
-│  hooks               json           │
-│  background          boolean        │
-│  role                string         │
-│  agent_type          string         │
-│  can_spawn_subagents boolean        │
-│  require_fresh_client boolean       │
-│  source              string         │
-│  version             int            │
-│  is_active           boolean        │
-│  created_at          timestamp      │
-│  updated_at          timestamp      │
-└──────────────────┬──────────────────┘
-                   │ spawns (1 to 0..*)
-                   ▼
 ┌─────────────────────────────────────┐
 │             AGENT_RUNS              │
 │─────────────────────────────────────│
 │  id              PK  string         │
-│  agent_name      FK  string         │
+│  agent_name          string         │
 │  session_id      FK  string         │
-│  parent_task_id  FK  string         │
+│  parent_task_id      string         │
 │  status              string         │
 │  created_at          timestamp      │
 │  finished_at         timestamp      │
 └──────────────────┬──────────────────┘
-                   │ assigned_to (0..1 to 1)
-                   │
+                   │ assigned_to
                    ▼
-┌─────────────────────────────────────┐      ┌──────────────────────────────────┐
-│               TASKS                 │      │         TEAM_DEFINITIONS         │
-│─────────────────────────────────────│      │──────────────────────────────────│
-│  id              PK  string         │      │  id           PK  string         │
-│  team_run_id     FK  string         │      │  name         UK  string         │
-│  agent_name      FK  string         │      │  description      string         │
-│  status              string         │      │  planner_agent FK string         │
-│  objective           string         │      │  worker_agents    json           │
-│  description         string         │      │  roster           json           │
-│  deps                json           │      │  created_at       timestamp      │
-│  scope_paths         json           │      │  updated_at       timestamp      │
-│  parent_id       FK  string         │      │                                  │
-│  root_id             string         │      └────────────────┬─────────────────┘
-│  depth               int            │                       │ starts (1 to 0..*)
-│  agent_run_id    FK  string         │      ┌──────────────────────────────────┐
-│  created_at          timestamp      │      │           TEAM_RUNS              │
-│  started_at          timestamp      │      │──────────────────────────────────│
-│  finished_at         timestamp      │◀─────│  id           PK  string         │
-└─────────┬───────────────────────────┘      │  team_def_id  FK  string         │
-          │ parent-child (self FK)           │  session_id   FK  string         │
-          └──────────┐                       │  status           string         │
-                     ▼ (Tasks.parent_id)     │  replan_count     int            │
-                                            │  created_at       timestamp      │
-                                            │  finished_at      timestamp      │
-              ┌────────────┐                 └──────────────────────────────────┘
-              │  (TASKS)   │
-              │  sub-tasks │
-              └────────────┘
+┌─────────────────────────────────────┐
+│               TASKS                 │
+│─────────────────────────────────────│
+│  id, team_run_id PK                 │
+│  agent_name                         │
+│  status                             │
+│  spec                               │
+│  deps, scope_paths                  │
+│  parent_id, root_id, depth          │
+│  agent_run_id                       │
+└─────────┬───────────────────────────┘
+          │ parent-child
+          ▼
+     ┌────────────┐
+     │  (TASKS)   │
+     │  sub-tasks │
+     └────────────┘
 ```
 
 **Key tables:**
 
-- **`agent_definitions`** (durable): User-created agents, seeded builtin definitions. Tracks `source` (user | builtin | plugin), `version`, `is_active`.
-
-- **`team_definitions`** (durable): Team rosters mapping roles to agent names. `planner_agent` is the entry point; `worker_agents` list eligible task executors. Mirrors legacy `roster` JSON for backward compatibility.
+- Agent, team, and skill definitions are not SQL-backed. They are loaded from `backend/config` into in-memory registries.
 
 - **`team_runs`** (durable): Team execution instances. Tracks `team_definition_id`, `session_id`, `status` (pending | running | succeeded | failed), replan count.
 
@@ -254,58 +173,29 @@ Three distinct layers orchestrate the transition from disk/database to runtime e
 
 | Layer | Ephemeral | Durable |
 |-------|-----------|---------|
-| **Agent Definition** | In-memory registry (`_DEFINITIONS` dict) | Database table `agent_definitions` |
-| **Team Definition** | In-memory registry | Database table `team_definitions` |
+| **Agent Definition** | In-memory registry (`_DEFINITIONS` dict) | `backend/config/agents/*.md` |
+| **Team Definition** | In-memory registry | `backend/config/teams/*.md` |
+| **Skill Definition** | In-memory registry | `backend/config/skills/*` |
 | **Run Execution** | Task graph snapshot | `team_runs`, `tasks`, `agent_runs` rows |
 | **Task Notes** | Task Center in-memory cache | Note records in `team_runs` (persisted asynchronously) |
 
 ---
 
-## 4. Creating a Custom Agent via API
+## 4. Editing Definitions
 
-Sequence showing the builder service integrating user input with database persistence:
+Definition changes go through checked-in config files:
 
 ```
-  User            /api/agents      AgentBuilderSvc   AgentDefnStore    PostgreSQL       AgentRegistry
-REST Client         Router                                            agent_definitions   in-memory
-    │                 │                  │                 │                 │                │
-    │─POST /api/agents─▶                 │                 │                 │                │
-    │  {name,model,    │                 │                 │                 │                │
-    │   system_prompt} │                 │                 │                 │                │
-    │                 │──create_agent()──▶                 │                 │                │
-    │                 │                  │                 │                 │                │
-    │                 │                  │─AgentDefinitionCreate.validate()  │                │
-    │                 │                  │─_record_payload_from_request()    │                │
-    │                 │                  │                 │                 │                │
-    │                 │                  │──insert(name, payload)──▶         │                │
-    │                 │                  │                 │──INSERT INTO─────▶               │
-    │                 │                  │                 │  agent_definitions               │
-    │                 │                  │                 │◀─AgentDefinitionRecord───────────│
-    │                 │                  │◀────record──────│                 │                │
-    │                 │                  │                 │                 │                │
-    │                 │                  │─record_to_definition(record)      │                │
-    │                 │◀─AgentDefinition─│                 │                 │                │
-    │                 │                  │                 │                 │                │
-    │                 │─────────────────────────────────────────────────register_definition()─▶
-    │                 │                  │                 │                 │  _DEFINITIONS  │
-    │                 │                  │                 │                 │  [name] = defn │
-    │◀─200 OK─────────│                  │                 │                 │                │
-    │  AgentDefinition│                  │                 │                 │                │
-    │  Response       │                  │                 │                 │                │
-
-  NOTE: Validation includes effort levels, model keys, and tool names.
-  NOTE: Next get_definition(name) lookup returns immediately from registry.
+backend/config/agents/*.md
+backend/config/teams/*.md
+backend/config/skills/*/SKILL.md
 ```
 
 **Steps:**
 
-1. **API** receives `AgentDefinitionCreate` payload.
-2. **Validation** checks effort levels, model keys, and tool names.
-3. **Builder** converts payload → `_record_payload_from_request()`.
-4. **Store** inserts `AgentDefinitionRecord` into DB.
-5. **Builder** converts record back → `AgentDefinition` via `record_to_definition()`.
-6. **Registry** stores `AgentDefinition` in `_DEFINITIONS` map.
-7. **Response** sent to user; registry is now hot for lookups.
+1. Edit the Markdown config file.
+2. Restart the runtime.
+3. `register_all()` and the skill loaders rebuild in-memory registries from `backend/config`.
 
 ---
 
@@ -434,9 +324,6 @@ This team coordinates...
 ### Agents Module
 
 - **`AgentDefinition`** (`types.py`): Full runtime agent config (Pydantic model).
-- **`AgentDefinitionRecord`** (`db/model.py`): SQLAlchemy ORM row (durable).
-- **`AgentBuilderService`** (`builder/service.py`): Converts records ↔ definitions.
-- **`AgentDefinitionStore`** (`db/store.py`): CRUD on `agent_definitions` table.
 - **`AgentLoader`** (`loader.py`): Parses Markdown, loads from disk.
 - **`AgentRegistry`** (`registry.py`): In-memory lookup map.
 - **`AgentRunTracker`** (`run_tracker.py`): Wraps agent execution lifecycle.
@@ -444,7 +331,6 @@ This team coordinates...
 ### Teams Module
 
 - **`TeamDefinition`** (`models.py`): Roster + entry planner.
-- **`TeamDefinitionRecord`** (`persistence/model.py`): SQLAlchemy ORM row.
 - **`TeamLoader`** (`loader.py`): Parses Markdown, loads team definitions.
 - **`TeamRegistry`** (`registry.py`): In-memory lookup.
 - **`Task`** / **`TaskSpec`** (`models.py`): Execution units and plan items.
@@ -480,12 +366,10 @@ backend/config/skills/
   └── team-validator-playbook/
 ```
 
-User-created agents are:
-- **Defined via API** → stored in `agent_definitions` table
-- **Loaded at startup** via `AgentLoader.load_external_agents()` → stored in `AgentRegistry`
+Definition APIs are read-only; edit these files to change agent, team, or skill definitions.
 
 ---
 
 ## Summary
 
-**Customization** flows through Markdown frontmatter (builtin) and REST API (user-created) into a unified database. **Loading** parses disk files and DB records into `AgentDefinition` objects, which populate the in-memory `AgentRegistry`. **Runtime** lookups are O(1) after lazy initialization. **Teams** compose agents by role and use a persistent task queue backed by PostgreSQL. **Persistence** separates ephemeral state (in-memory graphs) from durable state (DB tables), enabling crash recovery via `TaskStore.refresh_graph()`.
+**Customization** flows through Markdown frontmatter under `backend/config`. **Loading** parses disk files into runtime definition objects, which populate in-memory registries. **Runtime** lookups are O(1) after registration. **Teams** compose agents by role and use a persistent task queue backed by PostgreSQL. Definition persistence is file-backed, while run/task persistence remains database-backed.

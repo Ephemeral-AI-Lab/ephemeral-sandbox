@@ -4,7 +4,7 @@ import asyncio
 import os
 
 from server.entrypoint import run_web
-from team.builtins import register_all as _register_team_builtins
+from team.definitions import register_all as _register_team_builtins
 
 _register_team_builtins()
 

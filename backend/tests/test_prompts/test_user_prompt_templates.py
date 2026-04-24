@@ -7,10 +7,10 @@ import pytest
 
 from agents.registry import get_definition
 from prompt.user_prompt_templates import render_user_prompt_template
-from team.builtins import register_all
-from team.models import BudgetConfig, Task, TaskStatus
-from team.runtime.context_builder import build_query_context
-from team.task_center.context_builder import TaskContextBuilder
+from team.definitions import register_all
+from team.core.models import BudgetConfig, Task, TaskStatus
+from team.runtime.agent_context import build_query_context
+from team.task_center.prompts import TaskContextBuilder
 
 
 _PROMPT_DIR = Path(__file__).resolve().parents[2] / "src" / "prompt" / "user_prompt"
@@ -280,7 +280,7 @@ async def test_build_query_context_uses_root_planner_markdown_template() -> None
         team_run_id="run-1",
         agent_name="root_planner",
         status=TaskStatus.READY,
-        spec=_spec("Root planner task objective."),
+        spec=_spec("Root planner task goal."),
         root_id="root",
         depth=0,
     )
@@ -339,7 +339,7 @@ async def test_build_query_context_omits_planning_depth_without_budget() -> None
         team_run_id="run-1",
         agent_name="root_planner",
         status=TaskStatus.READY,
-        spec=_spec("Root planner task objective."),
+        spec=_spec("Root planner task goal."),
         root_id="root",
         depth=0,
     )

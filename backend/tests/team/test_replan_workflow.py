@@ -5,8 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from agents.registry import get_definition
-from team.builtins import register_all as register_team_builtins
-from team.models import (
+from team.definitions import register_all as register_team_builtins
+from team.core.models import (
     BudgetConfig,
     BudgetState,
     Task,

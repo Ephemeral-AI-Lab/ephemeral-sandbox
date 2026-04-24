@@ -180,8 +180,6 @@ def _reset_runtime_store_singletons() -> None:
             _af.agent_run_store,
             _af.usage_store,
             _af.model_store,
-            _af.agent_definition_store,
-            _af.skill_definition_store,
         ):
             if hasattr(store, "_session_factory"):
                 store._session_factory = None
@@ -608,8 +606,6 @@ def _patch_server_database(monkeypatch, session_factory) -> None:
             _af.agent_run_store,
             _af.usage_store,
             _af.model_store,
-            _af.agent_definition_store,
-            _af.skill_definition_store,
         ):
             store.initialize(session_factory)
         return session_factory
@@ -845,7 +841,6 @@ def db_session_factory(tmp_path):
     )
 
     import db.models  # noqa: F401
-    import agents.db.model  # noqa: F401
 
     Base.metadata.create_all(engine)
     sf = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

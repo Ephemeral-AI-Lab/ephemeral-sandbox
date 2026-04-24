@@ -155,7 +155,7 @@ def make_budget_update(
 
 def task_to_dict(task: Any) -> dict[str, Any]:
     """Serialise a ``Task`` dataclass to a JSON-safe dict."""
-    from team.models import Task
+    from team.core.models import Task
 
     assert isinstance(task, Task)
     defn = task.definition
@@ -182,7 +182,7 @@ def task_to_dict(task: Any) -> dict[str, Any]:
 
 def task_from_dict(data: dict[str, Any]) -> Any:
     """Deserialise a ``Task`` dataclass from a JSON-safe dict (inverse of ``task_to_dict``)."""
-    from team.models import Task, TaskDefinition, TaskStatus
+    from team.core.models import Task, TaskDefinition, TaskStatus
 
     def _parse_dt(iso: str | None) -> datetime | None:
         return datetime.fromisoformat(iso) if iso else None

@@ -15,11 +15,11 @@ from tools.submission.tools import SubmitPlanTool, SubmitReplanTool
 pytestmark = pytest.mark.asyncio
 
 
-_TASK_SPEC = (
-    "1. Goal: Implement the production change.\n"
-    "2. Task Details: Edit only the production owner file.\n"
-    "3. Acceptance Criteria: Run the named verification command."
-)
+_TASK_SPEC = {
+    "goal": "Implement the production change.",
+    "detail": "Edit only the production owner file.",
+    "acceptance_criteria": "Run the named verification command.",
+}
 
 
 async def _capture_emit(events: list[StreamEvent], event: StreamEvent) -> None:
@@ -50,7 +50,6 @@ async def test_submit_plan_prehook_rejects_test_file_scope_paths() -> None:
         new_tasks=[
             {
                 "id": "impl",
-                "description": "Implement API",
                 "name": "developer",
                 "spec": _TASK_SPEC,
                 "scope_paths": ["src/api.py", "pkg/tests/test_owner.py"],
@@ -72,7 +71,6 @@ async def test_submit_replan_prehook_rejects_test_directory_scope_paths() -> Non
         new_tasks=[
             {
                 "id": "repair",
-                "description": "Repair API",
                 "name": "developer",
                 "spec": _TASK_SPEC,
                 "scope_paths": ["backend/tests"],
@@ -92,7 +90,6 @@ async def test_submission_prehook_allows_production_scope_paths() -> None:
         new_tasks=[
             {
                 "id": "impl",
-                "description": "Implement API",
                 "name": "developer",
                 "spec": _TASK_SPEC,
                 "scope_paths": ["src/api.py", "src/service/auth.ts"],

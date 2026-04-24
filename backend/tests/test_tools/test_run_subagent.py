@@ -24,7 +24,7 @@ from tools.subagent.run_subagent_tool import (
     format_last_n_messages,
     run_subagent,
 )
-from team.builtins import register_all as _register_team_builtins
+from team.definitions import register_all as _register_team_builtins
 
 
 if get_agent_definition("developer") is None:

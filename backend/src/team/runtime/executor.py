@@ -17,18 +17,18 @@ import uuid
 from collections.abc import Awaitable, Coroutine
 from typing import TYPE_CHECKING, Any, Callable
 
-from team.models import (
+from team.core.models import (
     Plan,
     ReplanPlan,
     TaskStatus,
     TaskStatusUpdate,
 )
 from team.persistence.events import make_task_status
-from team.runtime.context_builder import TeamAgentContext
+from team.runtime.agent_context import TeamAgentContext
 
 if TYPE_CHECKING:
     from agents.types import AgentDefinition
-    from team.models import Task
+    from team.core.models import Task
     from team.runtime.team_run import TeamRun
 
 logger = logging.getLogger(__name__)
@@ -173,6 +173,6 @@ class Executor:
     async def _build_context(self, defn: "AgentDefinition", task: "Task") -> TeamAgentContext:
         if self.build_query_context is not None:
             return await self.build_query_context(defn, self.team_run, task)
-        from team.runtime.context_builder import build_query_context
+        from team.runtime.agent_context import build_query_context
 
         return await build_query_context(defn, self.team_run, task)

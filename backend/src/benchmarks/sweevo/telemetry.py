@@ -514,7 +514,7 @@ def finalize_team_run(
     Generic team-run summary. Works with any TeamRun that exposes ``task_center``,
     ``budget_state``, ``id``, ``sandbox_id``, ``status`` (enum with ``.value``).
     """
-    from team.models import TeamRunStatus
+    from team.core.models import TeamRunStatus
 
     status = tr.status
     task_count = len(tr.task_center.graph)

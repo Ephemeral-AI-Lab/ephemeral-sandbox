@@ -4,45 +4,34 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config.paths import get_config_dir
+from config.paths import get_builtin_skills_dir
 from skills.bundled import get_bundled_skills
 from skills.core.registry import SkillRegistry
 from skills.core.types import SkillDefinition
 
 
 def get_user_skills_dir() -> Path:
-    """Return the user skills directory."""
-    path = get_config_dir() / "skills"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    """Return the config-backed skills directory.
+
+    Kept for compatibility with callers that need the on-disk skill root.
+    """
+    return get_builtin_skills_dir()
 
 
 def load_skill_registry(cwd: str | Path | None = None) -> SkillRegistry:
-    """Load bundled and user-defined skills."""
+    """Load config-backed skills."""
     registry = SkillRegistry()
     for skill in get_bundled_skills():
-        registry.register(skill)
-    for skill in load_user_skills():
         registry.register(skill)
     return registry
 
 
 def load_user_skills() -> list[SkillDefinition]:
-    """Load markdown skills from the user config directory."""
-    skills: list[SkillDefinition] = []
-    for path in sorted(get_user_skills_dir().glob("*.md")):
-        content = path.read_text(encoding="utf-8")
-        name, description = _parse_skill_markdown(path.stem, content)
-        skills.append(
-            SkillDefinition(
-                name=name,
-                description=description,
-                content=content,
-                source="user",
-                path=str(path),
-            )
-        )
-    return skills
+    """Return user skill definitions.
+
+    Skill definitions are now loaded from ``backend/config/skills`` only.
+    """
+    return []
 
 
 def _parse_skill_markdown(default_name: str, content: str) -> tuple[str, str]:

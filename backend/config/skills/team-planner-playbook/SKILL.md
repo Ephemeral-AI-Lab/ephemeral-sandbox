@@ -38,7 +38,7 @@ Catalog only. Do not load references from this map during Stage 1 or Stage 2.
 
 Loadable reference used in Stage 3 via `load_skill_reference(skill_name="team-planner-playbook", reference_name="...")`:
 
-- `submit-child-plan`: synthesis and submission rules, `submit_plan` contract plus `NewTaskSpec` field table, valid and invalid payload examples, task-spec examples for `developer`, `team_planner`, and `validator`, dependency DAG examples with rationale, and the final checklist. Load in Stage 3 before drafting any `submit_plan(...)` payload.
+- `submit-child-plan`: synthesis and submission rules, `submit_plan` contract plus `NewTaskDefinition` and nested `TaskSpec` field tables, valid and invalid payload examples, task-spec examples for `developer`, `team_planner`, and `validator`, dependency DAG examples with rationale, and the final checklist. Load in Stage 3 before drafting any `submit_plan(...)` payload.
 
 Reference load gate: trigger -> own task, parent task, dependency context, graph topology, and owner ledger are loaded, every `scout_required` or unresolved production owner has either completed scout evidence or explicit uncertainty, every scout wave has been joined, and every available scout note has been read; required action -> load `submit-child-plan` as the first Stage 3 action via `load_skill_reference(skill_name="team-planner-playbook", reference_name="submit-child-plan")` and then only draft/check/submit; failure signal -> `load_skill_reference(..., reference_name="submit-child-plan")` appears before context reads, before owner-ledger evidence, immediately after `load_skill(...)`, while scouts are running, or before later scout/CI exploration.
 
@@ -64,7 +64,7 @@ Any No means the load is premature. Stay in Stage 1 or Stage 2 and do not load t
 | Build owner ledger | Group inherited owner slices, unresolved owner slices, dependency outputs, and evidence to pass to children. |
 | Mark scout-required | For inherited benchmark/fail-to-pass/migration/compatibility clusters, put each broad family, matrix family, or likely expandable first-pass owner in `scout_required`; failure signal: only unknown families are scouted while clear-looking families enter synthesis with no live scout evidence. For a restructured package/directory scope with multiple plausible owner files, keep the slice `scout_required`; do not assign sibling-file owners from failing test names, backend labels, or file-name affinity alone. |
 
-Keep `2. Task Details:` wording intact when carrying parent or dependency context. The output of this stage is an owner ledger plus any clustering signal; `scout_required` and unresolved slices drive Stage 2, and empty `scout_required` plus unresolved groups route straight to Stage 3.
+Keep inherited detail wording intact when carrying parent or dependency context. The output of this stage is an owner ledger plus any clustering signal; `scout_required` and unresolved slices drive Stage 2, and empty `scout_required` plus unresolved groups route straight to Stage 3.
 
 ### 2. Scout
 
@@ -91,9 +91,9 @@ Enter this stage only after Stage 1 context and owner-ledger output exists and S
 | Step | Action |
 | --- | --- |
 | Load synthesis reference | Per the Reference Map gate above; do not duplicate the call here before the gate is satisfied. |
-| Draft tasks | Use id, name, deps, scope_paths, and a `spec` with `1. Goal:`, `2. Task Details:`, and `3. Acceptance Criteria:`. When parent, dependency, or scout evidence names concrete pytest ids or test files, preserve those targets verbatim in child specs; do not swap in sibling or similarly named test modules, directories, or broad suite aliases. |
+| Draft tasks | Use id, name, deps, scope_paths, and a structured `spec` with non-empty `goal`, `detail`, and `acceptance_criteria`. When parent, dependency, or scout evidence names concrete pytest ids or test files, preserve those targets verbatim in child specs; do not swap in sibling or similarly named test modules, directories, or broad suite aliases. |
 | Route lanes | Use child `team_planner` lanes for broad, shared, unresolved, multi-family, clustered, or large benchmark/test-matrix work only when `grandchild_depth <= max_depth`; otherwise emit broader direct `developer` or `validator` tasks. Name-field lock: when `grandchild_depth <= max_depth`, any slice you call expandable, clustered, broad, multi-family, matrix-shaped, unresolved, mixed, or not atomic must have `name: "team_planner"`, never `name: "developer"`. |
 | Close gaps | If a new distinct production owner slice would require exploration after the reference load, carry it as uncertainty and route it to another child `team_planner` when allowed, or to a max-depth diagnostic/repair lane; do not call scouts or CI/workspace/symbol tools after the Stage 3 transition. |
 | Submit | Walk the Final Checklist in the reference, then submit top-level `new_tasks` only: no summary, output, parent ids, trailing prose, or later tools. |
 
-Put owner evidence, exact production scope, constraints, and dependency context inside each `Task Details` body so downstream workers inherit the routing you decided at this layer. Before submit, audit every `developer` task: it either passed every atomic test, or it is an explicit max-depth per-mechanism exception from the reference.
+Put owner evidence, exact production scope, constraints, and dependency context inside each `spec.detail` body so downstream workers inherit the routing you decided at this layer. Before submit, audit every `developer` task: it either passed every atomic test, or it is an explicit max-depth per-mechanism exception from the reference.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from team.models import Task, TaskDefinition, TaskStatus
+from team.core.models import Task, TaskDefinition, TaskStatus
 
 
 def make_task(

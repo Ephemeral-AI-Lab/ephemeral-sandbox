@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from team.models import TaskStatus, TaskStatusUpdate
+from team.core.models import TaskStatus, TaskStatusUpdate
 from team.runtime.task_queue import TaskQueue
 
 

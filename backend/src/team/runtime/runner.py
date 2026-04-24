@@ -24,7 +24,7 @@ from engine.core.query import (
     build_terminal_nudge_text,
 )
 from engine.runtime.agent import spawn_agent
-from team.runtime.context_builder import TeamAgentContext
+from team.runtime.agent_context import TeamAgentContext
 
 logger = logging.getLogger(__name__)
 

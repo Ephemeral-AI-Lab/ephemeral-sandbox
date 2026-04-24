@@ -10,8 +10,8 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from team._path_utils import ScopePath
-from team.models import Note
+from team.core.scope import scope_paths_overlap
+from team.core.models import Note
 
 if TYPE_CHECKING:
     from team.persistence.events import TeamRunEvent
@@ -84,9 +84,11 @@ class NoteManager:
         """Filter and return notes by paths, keyword, timestamp, and last_n."""
         results = list(self._notes)
         if paths:
+            normalized = [s.rstrip("/") for s in paths if s]
             results = [
                 n for n in results
-                if n.paths and ScopePath.matches_scopes(n.paths, paths)
+                if n.paths
+                and any(scope_paths_overlap(np, qp) for np in n.paths for qp in normalized)
             ]
         if keyword:
             keywords = [k.strip().lower() for k in keyword.split("|") if k.strip()]

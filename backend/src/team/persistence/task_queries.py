@@ -16,8 +16,8 @@ from sqlalchemy.engine import CursorResult, Row
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from team.errors import GraphInvariantViolation
-from team.models import TERMINAL_STATUSES, TaskDefinition
+from team.core.errors import GraphInvariantViolation
+from team.core.models import TERMINAL_STATUSES, TaskDefinition
 from team.persistence.ltree_utils import path_to_ltree
 from team.persistence.task_record import TaskRecord
 

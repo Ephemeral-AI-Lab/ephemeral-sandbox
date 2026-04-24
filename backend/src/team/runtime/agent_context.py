@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Iterable
 
 from message import ConversationMessage
 from prompt.user_prompt_templates import render_user_prompt_template
-from team.models import Task
+from team.core.models import Task
 from tools.core.runtime import ExecutionMetadata
 
 if TYPE_CHECKING:

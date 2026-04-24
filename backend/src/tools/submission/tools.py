@@ -19,7 +19,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from agents.registry import get_definition
-from team.models import TaskSpec
+from team.core.models import TaskSpec
 from team.planning.validation import validate_plan
 from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
 
@@ -410,7 +410,7 @@ def _validate_submit_replan_input(
     arguments: SubmitReplanInput,
     context: ToolExecutionContext,
 ) -> list[str]:
-    from team.models import Plan
+    from team.core.models import Plan
     from team.planning.replan_validation import validate_replan_rules
 
     graph = _get_graph(context)
@@ -546,7 +546,7 @@ class SubmitPlanTool(BaseTool):
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
         assert isinstance(arguments, SubmitPlanInput)
-        from team.models import Plan
+        from team.core.models import Plan
 
         errors = _validate_submit_plan_input(arguments, context)
         if errors:
@@ -644,7 +644,7 @@ class SubmitReplanTool(BaseTool):
 
     async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
         assert isinstance(arguments, SubmitReplanInput)
-        from team.models import ReplanPlan
+        from team.core.models import ReplanPlan
 
         errors = _validate_submit_replan_input(arguments, context)
         if errors:

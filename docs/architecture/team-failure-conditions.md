@@ -54,7 +54,7 @@ Several errors are intentionally not run-fatal:
 Some validation errors happen before a team run becomes active and should not be
 counted as failed team runs:
 
-- Starting a root task without a non-empty `objective`.
+- Starting a root task without a non-empty `spec`.
 - Starting from a team definition whose `entry_planner` is not registered.
 - Starting with budgets too small to create the root task.
 - Rehydrating an event log that is missing or malformed.

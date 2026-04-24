@@ -484,3 +484,13 @@ class TeamDefinition:
     description: str
     entry_planner: str
     roster: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass
+class ProjectContext:
+    """Minimal project-level context for a TeamRun."""
+
+    goal: str = ""
+    user_request: str = ""
+    project_key: str = ""
+    repo_root: str = ""

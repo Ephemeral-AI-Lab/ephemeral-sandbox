@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from code_intelligence.editing.arbiter import Arbiter
-from team.context.project import ProjectContext
-from team.models import BudgetConfig, BudgetState
+from team.core.models import ProjectContext
+from team.core.models import BudgetConfig, BudgetState
 from team.persistence.run_store import TeamRunStore
 
 if TYPE_CHECKING:

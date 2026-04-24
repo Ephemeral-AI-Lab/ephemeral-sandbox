@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
-from team.models import TERMINAL_STATUSES
+from team.core.models import TERMINAL_STATUSES
 
 ALLOWED_REPLAN_DEP_STATUSES = {"done", "ready", "pending"}
 

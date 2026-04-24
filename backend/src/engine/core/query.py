@@ -42,7 +42,7 @@ from engine.runtime.background_tasks import (
     deliver_completed_background_task,
 )
 from prompt.prompt_report_recorder import PromptReportRecorder
-from team._path_utils import scope_paths_overlap
+from team.core.scope import scope_paths_overlap
 from tools.core.base import (
     ExecutionMetadata,
     ToolExecutionContext,

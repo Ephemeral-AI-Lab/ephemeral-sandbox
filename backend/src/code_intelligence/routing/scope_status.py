@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from team._path_utils import normalize_scope_paths, scope_paths_overlap
+from team.core.scope import normalize_scope_paths, scope_paths_overlap
 
 from code_intelligence.tuning import CODE_INTELLIGENCE_TUNING
 

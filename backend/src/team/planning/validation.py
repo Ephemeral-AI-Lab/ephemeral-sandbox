@@ -6,7 +6,7 @@ from typing import Callable, Iterator
 
 from agents.registry import get_definition as _get_definition, has_role as _has_role
 
-from team.models import Plan, TaskDefinition
+from team.core.models import Plan, TaskDefinition
 
 Issue = dict[str, str]
 

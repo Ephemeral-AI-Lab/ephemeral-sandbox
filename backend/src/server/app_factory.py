@@ -14,10 +14,6 @@ import mimetypes
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from agents.builder.service import AgentBuilderService
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -27,8 +23,7 @@ load_dotenv()
 
 from config import Settings, load_settings
 from db.engine import get_session_factory, initialize_db
-from db.stores import AgentDefinitionStore, AgentRunStore, ModelStore, SessionStore, UsageStore
-from skills.db.store import SkillDefinitionStore
+from db.stores import AgentRunStore, ModelStore, SessionStore, UsageStore
 from server.protocol import BackendEvent, BackendHostConfig, ToolSnapshot
 from server.logging_config import configure_runtime_logging
 from providers.types import SupportsStreamingMessages
@@ -172,15 +167,12 @@ class SessionState:
 # ---------------------------------------------------------------------------
 
 _session: SessionState | None = None
-_builder_service: AgentBuilderService | None = None
 
 # Database stores — module-level singletons, initialised during lifespan
 session_store = SessionStore()
 agent_run_store = AgentRunStore()
 usage_store = UsageStore()
 model_store = ModelStore()
-agent_definition_store = AgentDefinitionStore()
-skill_definition_store = SkillDefinitionStore()
 
 
 def _model_registry_path() -> Path:
@@ -213,28 +205,13 @@ def ensure_runtime_stores_ready(settings: Settings | None = None):
     return sf
 
 
-def _initialize_database(session: SessionState) -> AgentBuilderService | None:
-    """Initialize DB stores and agent builder. Returns builder service or None."""
+def _initialize_runtime_stores() -> None:
+    """Initialize DB-backed runtime stores when a database is configured."""
     settings = load_settings()
     sf = ensure_runtime_stores_ready(settings)
     if sf is None:
-        return None
-
-    if getattr(agent_definition_store, "_session_factory", None) is None:
-        agent_definition_store.initialize(sf)
-    if getattr(skill_definition_store, "_session_factory", None) is None:
-        skill_definition_store.initialize(sf)
-
-    # Bootstrap agent builder service and load DB agents
-    from agents.builder import AgentBuilderService, AgentDefinitionValidator
-
-    validator = AgentDefinitionValidator(session._tool_registry)
-    builder = AgentBuilderService(agent_definition_store, validator)
-
-    db_agents = builder.load_all_from_db()
-    logger.info("Loaded %d user agents from DB", len(db_agents))
-    logger.info("Database stores initialised")
-    return builder
+        return
+    logger.info("Runtime database stores initialised")
 
 
 def create_app(config: BackendHostConfig) -> FastAPI:
@@ -242,12 +219,15 @@ def create_app(config: BackendHostConfig) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        global _session, _builder_service
+        global _session
         _session = SessionState()
         await _session.initialize(config)
         configure_runtime_logging(verbose=_session.current_settings().verbose)
 
-        _builder_service = _initialize_database(_session)
+        from team.definitions import register_all as register_team_builtins
+
+        register_team_builtins()
+        _initialize_runtime_stores()
 
         yield
         # Close any externally-injected API client to avoid "Event loop is
@@ -257,7 +237,6 @@ def create_app(config: BackendHostConfig) -> FastAPI:
             if hasattr(client, "aclose"):
                 await client.aclose()
         _session = None
-        _builder_service = None
 
     app = FastAPI(title="EphemeralOS", lifespan=lifespan)
 
@@ -269,19 +248,11 @@ def create_app(config: BackendHostConfig) -> FastAPI:
     app.include_router(create_models_router(model_store))
     app.include_router(
         create_agents_router(
-            get_builder_service=lambda: _builder_service,
             get_tool_registry=lambda: _session._tool_registry if _session else None,
         )
     )
 
-    # Skills API — DB-backed
-    app.include_router(
-        create_skills_router(
-            get_skill_store=lambda: skill_definition_store
-            if skill_definition_store._session_factory
-            else None,
-        )
-    )
+    app.include_router(create_skills_router())
 
     # Static file serving (SPA fallback) — must be last
     @app.get("/{full_path:path}")

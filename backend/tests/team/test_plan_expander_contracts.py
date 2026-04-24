@@ -9,9 +9,9 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agents.registry import get_definition
-from team.builtins import register_all as register_team_builtins
-from team.errors import InvalidPlan
-from team.models import (
+from team.definitions import register_all as register_team_builtins
+from team.core.errors import InvalidPlan
+from team.core.models import (
     BudgetConfig,
     Plan,
     TERMINAL_STATUSES,

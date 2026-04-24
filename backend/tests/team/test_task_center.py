@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 
-from team.models import BudgetConfig, BudgetState, Note, Task, TaskDefinition, TaskStatus
+from team.core.models import BudgetConfig, BudgetState, Note, Task, TaskDefinition, TaskStatus
 from team.task_center import TaskCenter
 
 

@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Iterable
 
 from agents.registry import has_role
-from team.errors import BudgetExceeded, InvalidPlan
-from team.models import Plan, Task, TaskDefinition, TaskStatus
+from team.core.errors import BudgetExceeded, InvalidPlan
+from team.core.models import Plan, Task, TaskDefinition, TaskStatus
 from team.persistence.events import TeamRunEvent, make_task_added, task_to_dict
 from team.persistence.task_record import TaskRecord
 from team.persistence.task_store import TaskStore

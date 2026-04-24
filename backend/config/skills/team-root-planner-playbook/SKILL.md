@@ -41,7 +41,7 @@ User request
 
 Catalog only. Do not load references from this map during Stage 1 or Stage 2.
 
-- `synthesize-and-submit`: clustering and lane selection, coverage/evidence rules, `submit_plan` contract plus `NewTaskSpec` field table, valid and invalid payload examples, task-spec examples for `developer`, `team_planner`, and `validator`, and dependency DAG examples with rationale. Load in Stage 3 before drafting any `submit_plan(...)` payload.
+- `synthesize-and-submit`: clustering and lane selection, coverage/evidence rules, `submit_plan` contract plus `NewTaskDefinition` and nested `TaskSpec` field tables, valid and invalid payload examples, task-spec examples for `developer`, `team_planner`, and `validator`, and dependency DAG examples with rationale. Load in Stage 3 before drafting any `submit_plan(...)` payload.
 
 Post-load rule: after `load_skill(...)`, build the Stage 1 owner ledger first. A `load_skill_reference(...)` call immediately after `load_skill(...)` is invalid unless a prior assistant action already completed Stage 1 and any required Stage 2 scout work.
 
@@ -97,8 +97,8 @@ Enter this stage only after Stage 1 output exists and Stage 2 is complete or exp
 
 - Use the reference's clustering, lane selection, coverage/evidence, dependency DAG, and submission rules to route each slice to `developer`, `team_planner`, or `validator`.
 - Name-field lock: if your synthesis calls a slice expandable, clustered, broad, multi-family, matrix-shaped, unresolved, mixed, or not atomic, the task's `name` must be `team_planner`, never `developer`.
-- Draft each task with `id`, `name`, `deps`, `scope_paths`, and a `spec` containing `1. Goal:`, `2. Task Details:`, and `3. Acceptance Criteria:`.
-- Before submit, audit every `developer` task: it must have passed every atomic test in the reference, and its own `Goal` / `Task Details` must not describe the same slice with any expandable signal.
+- Draft each task with `id`, `name`, `deps`, `scope_paths`, and a structured `spec` containing non-empty `goal`, `detail`, and `acceptance_criteria`.
+- Before submit, audit every `developer` task: it must have passed every atomic test in the reference, and its own `goal` / `detail` must not describe the same slice with any expandable signal.
 - If a new production owner slice would require exploration after the reference load, keep it unresolved and route it to a child `team_planner` or scoped diagnostic task; do not call scouts or CI/workspace/symbol tools after the Stage 3 transition.
 - Run the reference's Final Checklist, then emit `submit_plan({ "new_tasks": [...] })` as the final assistant action. Submit top-level `new_tasks` only: no summary, output, parent ids, trailing prose, or later tool calls.
 

@@ -2,7 +2,7 @@
 
 Drives :class:`team.runtime.team_run.TeamRun` with the builtin
 ``root_planner`` / ``team_planner`` / ``developer`` / ``validator`` agents from
-``team.builtins``. Each Task's agent is spawned through
+``team.definitions``. Each Task's agent is spawned through
 :func:`engine.runtime.agent.spawn_agent` so it runs with its full
 production tool surface (``sandbox_operations``, ``code_intelligence``,
 ``context``, skills) against the Daytona sandbox that was already
@@ -20,7 +20,7 @@ from agents.registry import get_definition
 from config.paths import get_project_config_dir
 from message.event_printer import MultiAgentEventPrinter
 from code_intelligence.routing.service import get_code_intelligence
-from team.builtins import (
+from team.definitions import (
     DEVELOPER,
     ROOT_PLANNER,
     SCOUT,
@@ -29,8 +29,7 @@ from team.builtins import (
     VALIDATOR,
     register_all as _register_team_builtins,
 )
-from team.models import BudgetConfig, TeamDefinition
-from team.persistence.store import TeamDefinitionStore
+from team.core.models import BudgetConfig, TeamDefinition
 from team.persistence.run_store import TeamRunStore
 from team.runtime.executor import Executor
 from team.runtime.runner import AgentRunState, TeamAgentRunner
@@ -85,39 +84,16 @@ def _load_or_create_team_definition(
     *,
     team_name: str = _SWEEVO_TEAM_NAME,
 ) -> TeamDefinition:
-    """Load the sweevo team definition, preferring checked-in builtins.
+    """Load the sweevo team definition from checked-in config."""
+    del session_factory
+    from team.definitions import get_team_definition
 
-    The benchmark should run against the current built-in team contract. Older
-    DB rows can predate root_planner and must not shadow the file definition.
-    Custom team names still resolve through the DB when no built-in is loaded.
-    """
-    from team.registry import get_team_definition
-
-    store = TeamDefinitionStore()
-    store.initialize(session_factory)  # type: ignore[arg-type]
     file_defn = get_team_definition(team_name)
     if file_defn is not None:
-        seeded = store.seed_builtin(file_defn)  # dual-write, idempotent
-        if (
-            seeded.entry_planner != file_defn.entry_planner
-            or seeded.roster != file_defn.roster
-        ):
-            logger.warning(
-                "Ignoring stale DB team definition %s: db entry_planner=%s, "
-                "builtin entry_planner=%s",
-                team_name,
-                seeded.entry_planner,
-                file_defn.entry_planner,
-            )
-            return file_defn
-        return seeded
-    existing = store.get_by_name(team_name)
-    if existing is not None:
-        return existing
+        return file_defn
     raise RuntimeError(
         f"Team definition {team_name!r} not found — "
-        "ensure backend/config/teams/sweevo_benchmark.md exists "
-        "or seed the database via the CRUD API."
+        "ensure backend/config/teams/sweevo_benchmark.md exists."
     )
 
 
@@ -252,7 +228,7 @@ def _make_context_builders(
     sandbox_id: str,
     repo_dir: str = _REPO_DIR,
 ):
-    """Wrap the default :func:`team.runtime.context_builder.build_query_context`
+    """Wrap the default :func:`team.runtime.agent_context.build_query_context`
     with benchmark coordination flags and a code-intelligence warm-up for the
     SWE-EVO sandbox.
 
@@ -260,7 +236,7 @@ def _make_context_builders(
     default builder; the sweevo team definition loaded from the DB carries
     everything else.
     """
-    from team.runtime.context_builder import build_query_context as _default_ctx
+    from team.runtime.agent_context import build_query_context as _default_ctx
 
     async def build_query_ctx(defn, team_run, wi):
         ctx = await _default_ctx(defn, team_run, wi)

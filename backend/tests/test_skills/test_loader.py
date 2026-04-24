@@ -41,17 +41,10 @@ def test_load_skill_registry_includes_bundled(tmp_path: Path, monkeypatch):
     assert "team-developer-playbook" in names
 
 
-def test_load_skill_registry_includes_user_skills(tmp_path: Path, monkeypatch):
+def test_skill_root_is_backend_config(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("EPHEMERALOS_CONFIG_DIR", str(tmp_path / "config"))
-    skills_dir = get_user_skills_dir()
-    (skills_dir / "deploy.md").write_text("# Deploy\nDeployment workflow guidance\n", encoding="utf-8")
 
-    registry = load_skill_registry()
-    deploy = registry.get("Deploy")
-
-    assert deploy is not None
-    assert deploy.source == "user"
-    assert "Deployment workflow guidance" in deploy.content
+    assert get_user_skills_dir() == get_builtin_skills_dir()
 
 
 def test_team_replanner_playbook_uses_planner_style_contract() -> None:
@@ -130,7 +123,7 @@ def test_team_replanner_playbook_uses_planner_style_contract() -> None:
     assert "Do not submit an empty or no-op replan" in skill
 
     assert "## Call Shape" in contract
-    assert "submit_replan({ new_tasks: NewTaskSpec[], cancel_ids: string[] })" in contract
+    assert "submit_replan({ new_tasks: NewTaskDefinition[], cancel_ids: string[] })" in contract
     assert "Top-level input has only required `new_tasks` and required `cancel_ids`" in contract
     assert "include `cancel_ids: []` when no cancellation is needed" in contract
     assert "Compare every `cancel_ids` entry against the failed task id from the prompt" in contract
@@ -421,7 +414,7 @@ def test_team_root_planner_playbook_loads_synthesize_submit_reference() -> None:
     assert 'summary: "I made a plan."' in reference
     assert 'parent_id: "root"' in reference
     assert 'scope_paths: ["backend/tests/team/test_task_center.py"]' in reference
-    assert 'spec: "1. Goal:\\nRepair the owner.' in reference
+    assert 'spec: { goal: "Repair the owner."' in reference
     assert 'id: "val-root"' in reference
     assert 'description: "Validate the owner"' not in reference
     assert "validator tasks must depend on at least one upstream sibling" in reference

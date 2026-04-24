@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +10,6 @@ import yaml
 from pydantic import ValidationError
 
 from agents.types import AgentDefinition
-from config.paths import get_config_dir
 
 logger = logging.getLogger(__name__)
 
@@ -59,20 +57,9 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
 
 
 def load_external_agents() -> list[AgentDefinition]:
-    """Load all user-directory and plugin-provided agent definitions."""
-    out: dict[str, AgentDefinition] = {}
-    for defn in load_agents_dir(get_config_dir() / "agents"):
-        out[defn.name] = defn
-    try:
-        from config.settings import load_settings
-        from plugins.loader import load_plugins
+    """Return external agent definitions.
 
-        for plugin in load_plugins(load_settings(), os.getcwd()):
-            if not plugin.enabled:
-                continue
-            for defn in getattr(plugin, "agents", []):
-                if isinstance(defn, AgentDefinition):
-                    out[defn.name] = defn
-    except Exception:
-        logger.debug("Failed to load plugin agent definitions", exc_info=True)
-    return list(out.values())
+    Agent definitions are config-file backed.  The canonical definitions are
+    loaded from ``backend/config/agents`` by ``team.definitions.register_all``.
+    """
+    return []

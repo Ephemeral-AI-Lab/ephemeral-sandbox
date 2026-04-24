@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from agents.registry import get_definition
 from engine.runtime.agent import _build_agent_tool_registry, finalize_tool_registry_and_prompt
-from team.builtins import (
+from team.definitions import (
     DEVELOPER,
     PARENT_SUMMARIZER,
     ROOT_PLANNER,

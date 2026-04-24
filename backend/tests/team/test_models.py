@@ -1,10 +1,10 @@
-"""Unit tests for team.models — core dataclasses and enums."""
+"""Unit tests for team.core.models — core dataclasses and enums."""
 
 from __future__ import annotations
 
 import pytest
 
-from team.models import (
+from team.core.models import (
     BudgetConfig,
     BudgetState,
     Note,

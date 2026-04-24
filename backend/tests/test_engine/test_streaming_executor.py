@@ -19,7 +19,7 @@ from engine.core.streaming_executor import (
     defer_background_dispatch,
 )
 from providers.types import ApiToolUseDeltaEvent
-from team.models import Plan
+from team.core.models import Plan
 from tools.core.base import BaseTool, ToolExecutionContext, ToolRegistry, ToolResult
 
 
@@ -441,7 +441,7 @@ class SubmitTaskSummaryTool(BaseTool):
 
 
 class SubmitResolvedPlanInput(BaseModel):
-    objective: str = Field(description="Objective for a single planned task")
+    spec: dict[str, str] = Field(description="Spec for a single planned task")
 
 
 class SubmitResolvedPlanTool(BaseTool):
@@ -455,7 +455,7 @@ class SubmitResolvedPlanTool(BaseTool):
         self, arguments: SubmitResolvedPlanInput, context: ToolExecutionContext
     ) -> ToolResult:
         context.metadata["resolved_plan"] = Plan.from_dict(
-            {"tasks": [{"id": "dev-1", "objective": arguments.objective, "agent": "developer"}]}
+            {"tasks": [{"id": "dev-1", "spec": arguments.spec, "agent": "developer"}]}
         )
         context.metadata["plan_is_replan"] = False
         return ToolResult(output="Plan accepted")
@@ -623,7 +623,13 @@ async def test_resolved_plan_metadata_propagates_to_live_context():
     event = ApiToolUseDeltaEvent(
         id="tool_plan",
         name="submit_resolved_plan",
-        input={"objective": "Fix the discriminator pipeline"},
+        input={
+            "spec": {
+                "goal": "Fix the discriminator pipeline",
+                "detail": "Repair the discriminator pipeline.",
+                "acceptance_criteria": "Run the focused pipeline tests.",
+            }
+        },
     )
 
     executor.add_tool(event)
@@ -633,5 +639,5 @@ async def test_resolved_plan_metadata_propagates_to_live_context():
 
     resolved_plan = context.metadata["resolved_plan"]
     assert isinstance(resolved_plan, Plan)
-    assert resolved_plan.tasks[0].objective == "Fix the discriminator pipeline"
+    assert resolved_plan.tasks[0].spec.goal == "Fix the discriminator pipeline"
     assert context.metadata["plan_is_replan"] is False

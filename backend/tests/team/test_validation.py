@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from team.models import Plan, TaskDefinition
+from team.core.models import Plan, TaskDefinition
 from team.planning.validation import validate_plan
 
 

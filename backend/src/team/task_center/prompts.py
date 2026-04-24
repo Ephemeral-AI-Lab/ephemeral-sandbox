@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from team.models import Task, render_task_spec
+from team.core.models import Task, render_task_spec
 
 if TYPE_CHECKING:
     from team.persistence.task_store import TaskStore

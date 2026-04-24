@@ -16,7 +16,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from team.models import (
+from team.core.models import (
     BudgetConfig,
     BudgetState,
     Task,
@@ -30,7 +30,7 @@ from team.persistence.run_store import TeamRunStore
 from team.persistence.task_store import TaskStore
 from team.planning.expander import PlanExpander
 from team.task_center.budget import BudgetManager
-from team.task_center.context_builder import TaskContextBuilder
+from team.task_center.prompts import TaskContextBuilder
 from team.task_center.notes import NoteManager
 
 logger = logging.getLogger(__name__)
@@ -56,18 +56,18 @@ class TaskCenter:
             team_run_id=team_run_id,
             budgets=budgets,
             budget_state=budget_state,
-            emit_cb=self._emit,
+            emit_cb=self.emit_event,
         )
         self._expander = PlanExpander(
             team_run_id=team_run_id,
             store=self._store,
             budget=self._budget,
             graph_getter=lambda: self._store.graph,
-            emit_cb=self._emit,
+            emit_cb=self.emit_event,
         )
         self._notes = NoteManager(
             team_run_id=team_run_id,
-            event_store_cb=self._emit,
+            event_store_cb=self.emit_event,
         )
         self._context = TaskContextBuilder(
             team_run_id=team_run_id,
@@ -96,10 +96,6 @@ class TaskCenter:
     @property
     def expander(self) -> PlanExpander:
         return self._expander
-
-    def emit_event(self, event: TeamRunEvent) -> None:
-        """Public event emission hook (delegates to the private ``_emit``)."""
-        self._emit(event)
 
     # ---- budget attribute aliases --------------------------------------
 
@@ -130,7 +126,7 @@ class TaskCenter:
 
     # ---- event emission ------------------------------------------------
 
-    def _emit(self, event: TeamRunEvent) -> None:
+    def emit_event(self, event: TeamRunEvent) -> None:
         try:
             self._events.append(event)
         except Exception:
@@ -148,5 +144,5 @@ class TaskCenter:
             parent_root_id=t.root_id or None,
         )
         self._budget.add_tasks_used(1)
-        self._emit(make_task_added(self._team_run_id, task_to_dict(t)))
+        self.emit_event(make_task_added(self._team_run_id, task_to_dict(t)))
         self._budget.emit_update()

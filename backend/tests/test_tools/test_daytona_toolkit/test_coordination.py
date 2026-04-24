@@ -1,6 +1,6 @@
-"""Tests for team._path_utils scope-extraction helpers."""
+"""Tests for team.core.scope scope-extraction helpers."""
 
-from team._path_utils import scope_paths_from_payload
+from team.core.scope import scope_paths_from_payload
 
 
 def test_scope_paths_from_payload_includes_owned_files_and_verify_paths():

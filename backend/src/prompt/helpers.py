@@ -16,7 +16,7 @@ from engine.runtime.agent import (
     finalize_tool_registry_and_prompt,
 )
 from skills.core.loader import load_skill_registry
-from team.models import (
+from team.core.models import (
     BudgetConfig,
     BudgetState,
     Task,
@@ -25,11 +25,11 @@ from team.models import (
 )
 from team.persistence.events import TeamRunEvent, task_from_dict
 from team.persistence.run_store import TeamRunStore
-from team.task_center.context_builder import TaskContextBuilder
-from team.builtins import register_all as register_team_builtins
-from team.models import TeamDefinition
-from team.registry import get_team_definition, list_team_definitions
-from team.runtime.context_builder import build_query_context
+from team.task_center.prompts import TaskContextBuilder
+from team.definitions import register_all as register_team_builtins
+from team.core.models import TeamDefinition
+from team.definitions import get_team_definition, list_team_definitions
+from team.runtime.agent_context import build_query_context
 
 
 def register_builtins() -> None:
@@ -43,49 +43,9 @@ def current_settings():
 
 
 def load_agent_definition(name: str, settings) -> AgentDefinition | None:
-    """Load an agent definition by name from memory first, then DB."""
-    agent_def = get_definition(name)
-    if agent_def is not None:
-        return agent_def
-
-    try:
-        from db.engine import initialize_db  # type: ignore[attr-defined]
-        from agents.db.store import AgentDefinitionStore  # type: ignore[attr-defined]
-
-        sf = initialize_db(settings.database)
-        if sf is None:
-            return None
-
-        store = AgentDefinitionStore()
-        store.initialize(sf)
-        record = store.get_by_name(name)
-        if record is None:
-            return None
-
-        return AgentDefinition(
-            name=record.name,
-            description=record.description,
-            system_prompt=record.system_prompt,
-            model=record.model,
-            effort=record.effort,
-            tool_call_limit=record.tool_call_limit,
-            tools=record.tools or [],
-            skills=record.skills or [],
-            terminal_tools=record.terminal_tools or [],
-            hooks=record.hooks,
-            background=record.background,
-            initial_prompt=record.initial_prompt,
-            role=record.role,
-            agent_type=record.agent_type or "agent",
-            supported_kinds=record.supported_kinds or ["atomic", "expandable"],
-            source=record.source or "user",
-            can_spawn_subagents=record.can_spawn_subagents,
-            require_fresh_client=record.require_fresh_client,
-            include_skills=record.include_skills,
-            dispatchable_via_run_subagent=record.dispatchable_via_run_subagent,
-        )
-    except Exception:
-        return None
+    """Load an agent definition by name from the config-backed registry."""
+    del settings
+    return get_definition(name)
 
 
 def build_agent_system_prompt_text(
@@ -149,24 +109,8 @@ def _append_text_block(lines: list[str], text: str) -> None:
 
 
 def load_team_definition(identifier: str, settings) -> TeamDefinition | None:
-    """Resolve a team by DB id first, then by name from DB or builtin registry."""
-    try:
-        from db.engine import initialize_db  # type: ignore[attr-defined]
-        from team.persistence.store import TeamDefinitionStore  # type: ignore[attr-defined]
-
-        sf = initialize_db(settings.database)
-        if sf is not None:
-            store = TeamDefinitionStore()
-            store.initialize(sf)
-            team_def = store.get_by_id(identifier)
-            if team_def is not None:
-                return team_def
-            team_def = store.get_by_name(identifier)
-            if team_def is not None:
-                return team_def
-    except Exception:
-        pass
-
+    """Resolve a team by name or id from the config-backed registry."""
+    del settings
     team_def = get_team_definition(identifier)
     if team_def is not None:
         return team_def
@@ -493,7 +437,7 @@ async def build_team_user_prompt_report_text(
         )
         if agent_def is None:
             missing.append(agent_name)
-            lines.extend(["", "_Agent definition not found in registry or database._"])
+            lines.extend(["", "_Agent definition not found in backend/config registry._"])
             continue
 
         task = tasks["root"] if agent_name == team_def.entry_planner else tasks[f"sample-{agent_name}"]
@@ -587,7 +531,7 @@ async def build_team_role_prompt_report_text(
         )
         if base_agent_def is None:
             missing.append(agent_name)
-            lines.extend(["", "_Agent definition not found in registry or database._"])
+            lines.extend(["", "_Agent definition not found in backend/config registry._"])
             continue
 
         agent_def = base_agent_def
@@ -743,7 +687,7 @@ async def build_team_run_user_prompt_report_text(
             lines.append(f"- Scope: `{', '.join(defn.scope_paths)}`")
         if agent_def is None:
             missing.append(defn.agent)
-            lines.extend(["", "_Agent definition not found in registry or database._"])
+            lines.extend(["", "_Agent definition not found in backend/config registry._"])
             continue
         ctx = await build_query_context(agent_def, team_run, task)
         _append_text_block(lines, ctx.user_message)

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from team.models import (
+from team.core.models import (
     BudgetConfig,
     BudgetState,
     Plan,

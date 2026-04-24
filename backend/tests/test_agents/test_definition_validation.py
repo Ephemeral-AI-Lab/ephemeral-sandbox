@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from agents.builder.validation import AgentDefinitionValidator
 from agents.registry import get_definition
 from agents.types import AgentDefinition
-from team.builtins import register_all as _register_team_builtins
+from team.definitions import register_all as _register_team_builtins
 
 
 if get_definition("team_planner") is None:

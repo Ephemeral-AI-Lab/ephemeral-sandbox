@@ -13,7 +13,7 @@ Read the handoff first, plan exact evidence, verify before substitutes, and appl
 
 | Stage | Purpose | Output contract |
 | --- | --- | --- |
-| 1. Read task details | Load the validation task, parent, dependencies, and file notes before diagnostics or commands. | Objective, acceptance criteria, handoff status, touched files, scope paths, and file-note freshness. |
+| 1. Read task details | Load the validation task, parent, dependencies, and file notes before diagnostics or commands. | Goal, detail, acceptance criteria, handoff status, touched files, scope paths, and file-note freshness. |
 | 2. Build validation plan | Map every criterion to diagnostics, exact commands, and bounded guardrails. | Acceptance-criterion map, command order, diagnostics list, guardrail decision, and handoff gaps. |
 | 3. Run diagnostics and exact verification | Prove the current repo state from live diagnostics and direct commands. | Green evidence for Stage 6 or red evidence for Stage 4. |
 | 4. Analyze red evidence | Trace red or invalid evidence to a local correction target or a replan decision. | Root-cause packet and next action. |
@@ -31,7 +31,7 @@ Decision flow:
 [1. Read task details]
   - read own, parent, and dep details
   - read notes for touched or owned production files
-  - extract objective, acceptance criteria, handoff, and freshness
+  - extract goal, detail, acceptance criteria, handoff, and freshness
   |
   v
 [2. Build validation plan]
@@ -103,7 +103,7 @@ No loadable references. Use this playbook directly.
 | Section | Contract |
 | --- | --- |
 | **Input** | The assigned validation task header with own UUID, parent UUID, and dependency UUIDs. |
-| **Output** | Objective, acceptance criteria, parent guidance, dependency handoff status, touched files, scope paths, and file-note freshness. |
+| **Output** | Goal, detail, acceptance criteria, parent guidance, dependency handoff status, touched files, scope paths, and file-note freshness. |
 | **Forbidden** | daytona_shell, CI, notes, file reads, edits, diagnostics, references, or graph reads before required context reads; fabricated, short, slug, or scout ids. |
 
 **Diagram caption:** Stage 1 context-gathering order. Required task reads come first; file notes follow and must precede all source reads, diagnostics, tests, or edits.
@@ -115,7 +115,7 @@ No loadable references. Use this playbook directly.
     |
     v
 (1) Read own detail                         -> read_task_details(task_id=<own uuid>)
-    Load the validation objective, acceptance criteria, and scope paths.
+    Load the validation goal, detail, acceptance criteria, and scope paths.
     |
     v
 (2) Read parent detail                      -> read_task_details(task_id=<parent uuid>)

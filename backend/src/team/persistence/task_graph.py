@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from team.models import Task, TaskStatus
+from team.core.models import Task, TaskStatus
 
 if TYPE_CHECKING:
     pass
@@ -83,31 +83,6 @@ class TaskGraph:
             if task is not None:
                 task.status = TaskStatus.CANCELLED
             self.remove_ready(cid)
-
-    def mark_failed(self, task_id: str, reason: str | None = None) -> None:
-        """Mark task FAILED and drop from ready_order.
-
-        ``reason`` may be omitted when the caller only wants to update status.
-        """
-        task = self.tasks.get(task_id)
-        if task is not None:
-            task.status = TaskStatus.FAILED
-            if reason is not None:
-                task.failure_reason = reason
-        self.remove_ready(task_id)
-
-    def set_ready_status(self, task_id: str) -> None:
-        """Update status to READY without touching ready_order."""
-        task = self.tasks.get(task_id)
-        if task is not None:
-            task.status = TaskStatus.READY
-
-    def requeue_ready(self, task_id: str) -> None:
-        """Set task status to READY and ensure it is in ready_order."""
-        task = self.tasks.get(task_id)
-        if task is not None:
-            task.status = TaskStatus.READY
-        self.add_ready(task_id)
 
     # ---- insertion --------------------------------------------------------
 

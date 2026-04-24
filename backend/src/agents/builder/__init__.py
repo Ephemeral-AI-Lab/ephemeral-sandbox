@@ -1,15 +1,11 @@
-"""Agent builder exports with lazy imports for optional heavy dependencies."""
+"""Agent definition validation exports."""
 
 from __future__ import annotations
 
-__all__ = ["AgentBuilderService", "AgentDefinitionValidator"]
+__all__ = ["AgentDefinitionValidator"]
 
 
 def __getattr__(name: str) -> object:
-    if name == "AgentBuilderService":
-        from agents.builder.service import AgentBuilderService
-
-        return AgentBuilderService
     if name == "AgentDefinitionValidator":
         from agents.builder.validation import AgentDefinitionValidator
 

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from team.models import Task, TaskDefinition, TaskStatus
+from team.core.models import Task, TaskDefinition, TaskStatus
 from team.persistence.events import task_from_dict, task_to_dict
 
 

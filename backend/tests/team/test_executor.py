@@ -8,14 +8,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from team.models import (
+from team.core.models import (
     Plan,
     ReplanPlan,
     Task,
     TaskStatus,
     TaskStatusUpdate,
 )
-from team.runtime.context_builder import TeamAgentContext
+from team.runtime.agent_context import TeamAgentContext
 from team.runtime.executor import Executor, translate_tool_metadata
 
 

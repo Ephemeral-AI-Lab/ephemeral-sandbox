@@ -113,7 +113,7 @@ def _render_team_prompt_report(
             lines.extend(
                 [
                     "",
-                    "_Agent definition not found in registry or database._",
+                    "_Agent definition not found in backend/config registry._",
                 ]
             )
             continue

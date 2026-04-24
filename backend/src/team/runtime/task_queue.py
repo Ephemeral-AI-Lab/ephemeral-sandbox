@@ -20,7 +20,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from team.models import TaskStatus, TaskStatusUpdate
+from team.core.models import TaskStatus, TaskStatusUpdate
 
 if TYPE_CHECKING:
     from team.runtime.executor import Executor

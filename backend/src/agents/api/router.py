@@ -1,4 +1,4 @@
-"""Agent definition CRUD API router."""
+"""Agent definition API router for config-backed definitions."""
 
 from __future__ import annotations
 
@@ -12,33 +12,25 @@ from fastapi.responses import JSONResponse
 from agents.registry import get_definition, list_definitions
 from agents.api.schemas import (
     AgentDefinitionCreate,
-    AgentDefinitionResponse,
     AgentDefinitionUpdate,
     AgentValidationResult,
     CloneRequest,
 )
+from agents.builder.validation import AgentDefinitionValidator
 from tools.core.catalog import collect_tool_catalog
 
 if TYPE_CHECKING:
-    from agents.builder.service import AgentBuilderService
     from tools.core.base import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
+_READ_ONLY_DETAIL = "Agent definitions are file-backed under backend/config/agents."
+
 
 def create_agents_router(
-    get_builder_service: Callable[[], AgentBuilderService | None],
     get_tool_registry: Callable[[], ToolRegistry | None],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/agents", tags=["agents"])
-
-    def _require_builder() -> AgentBuilderService:
-        svc = get_builder_service()
-        if svc is None:
-            raise HTTPException(
-                status_code=503, detail="Agent builder not available (database not configured)"
-            )
-        return svc
 
     @router.get("")
     @router.get("/")
@@ -72,43 +64,24 @@ def create_agents_router(
             raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
         return defn.model_dump()
 
-    @router.post("/", status_code=201, response_model=AgentDefinitionResponse)
-    async def create_agent(body: AgentDefinitionCreate) -> AgentDefinitionResponse:
-        svc = _require_builder()
-        try:
-            return svc.create_agent(body)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    @router.post("/", status_code=201)
+    async def create_agent(body: AgentDefinitionCreate) -> dict[str, str]:
+        raise HTTPException(status_code=405, detail=_READ_ONLY_DETAIL)
 
-    @router.put("/{name}", response_model=AgentDefinitionResponse)
-    async def update_agent(name: str, body: AgentDefinitionUpdate) -> AgentDefinitionResponse:
-        svc = _require_builder()
-        try:
-            return svc.update_agent(name, body)
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    @router.put("/{name}")
+    async def update_agent(name: str, body: AgentDefinitionUpdate) -> dict[str, str]:
+        raise HTTPException(status_code=405, detail=_READ_ONLY_DETAIL)
 
     @router.delete("/{name}")
     async def delete_agent(name: str) -> JSONResponse:
-        svc = _require_builder()
-        ok = svc.delete_agent(name)
-        if not ok:
-            raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
-        return JSONResponse(content={"deleted": name})
+        raise HTTPException(status_code=405, detail=_READ_ONLY_DETAIL)
 
-    @router.post("/{name}/clone", status_code=201, response_model=AgentDefinitionResponse)
-    async def clone_agent(name: str, body: CloneRequest) -> AgentDefinitionResponse:
-        svc = _require_builder()
-        try:
-            return svc.clone_agent(name, body.new_name)
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    @router.post("/{name}/clone", status_code=201)
+    async def clone_agent(name: str, body: CloneRequest) -> dict[str, str]:
+        raise HTTPException(status_code=405, detail=_READ_ONLY_DETAIL)
 
     @router.post("/validate", response_model=AgentValidationResult)
     async def validate_agent(body: AgentDefinitionCreate) -> AgentValidationResult:
-        svc = _require_builder()
-        return svc.validate_agent(body)
+        return AgentDefinitionValidator(get_tool_registry()).validate(body)
 
     return router

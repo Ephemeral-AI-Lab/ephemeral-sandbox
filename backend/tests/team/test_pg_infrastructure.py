@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 from sqlalchemy import Text
 
-from team.models import BudgetConfig, BudgetState, TERMINAL_STATUSES, Task, TaskStatus
+from team.core.models import BudgetConfig, BudgetState, TERMINAL_STATUSES, Task, TaskStatus
 from team.persistence.ltree_utils import _escape_char, path_to_ltree
 from team.persistence import task_queries
 from team.persistence.task_record import TaskRecord

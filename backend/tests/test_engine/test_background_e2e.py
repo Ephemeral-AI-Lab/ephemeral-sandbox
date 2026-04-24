@@ -59,7 +59,7 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(name)s] %(leveln
 pytestmark = pytest.mark.e2e
 
 if _get_agent_def("scout") is None:
-    from team.builtins import register_all as _register_team_builtins
+    from team.definitions import register_all as _register_team_builtins
 
     try:
         _register_team_builtins()
@@ -373,7 +373,7 @@ class TestLLMDecidesToBackground:
             ),
         )
         monkeypatch.setattr(
-            "team.runtime.registry.get",
+            "team.runtime.run_registry.get",
             lambda team_run_id: team_run if team_run_id == "TR_BENCH" else None,
         )
 

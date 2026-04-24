@@ -1,9 +1,4 @@
-"""Runtime registry for agent definitions.
-
-Holds builtin, user-supplied (loaded from disk), and plugin agent definitions
-in a single in-memory map. Builtins are seeded at import time; user/plugin
-agents are loaded lazily on first lookup (and can be reloaded explicitly).
-"""
+"""Runtime registry for config-backed agent definitions."""
 
 from __future__ import annotations
 
@@ -17,12 +12,7 @@ logger = logging.getLogger(__name__)
 # Builtin definitions
 # ---------------------------------------------------------------------------
 
-# Names reserved for agents seeded from the database by
-# ``AgentBuilderService.load_all_from_db()``.  External (user/plugin)
-# agent definitions are blocked from claiming these names so that the
-# DB-seeded builtins are never shadowed.  The definitions themselves are
-# *not* registered here — see ``AgentBuilderService`` for the
-# authoritative seed path.
+# Names reserved for builtins loaded from ``backend/config/agents``.
 RESERVED_BUILTIN_AGENT_NAMES = frozenset(
     {
         "root_planner",
@@ -55,7 +45,7 @@ def unregister_definition(name: str) -> bool:
 
 
 def get_definition(name: str) -> AgentDefinition | None:
-    """Look up an agent definition by name (loads user/plugin agents lazily)."""
+    """Look up an agent definition by name."""
     _ensure_external_loaded()
     return _DEFINITIONS.get(name)
 
@@ -106,16 +96,8 @@ def _ensure_external_loaded() -> None:
         from agents.loader import load_external_agents
 
         for defn in load_external_agents():
-            if defn.name in RESERVED_BUILTIN_AGENT_NAMES:
-                logger.warning(
-                    "Ignoring external agent definition %r because the name is reserved for a builtin agent",
-                    defn.name,
-                )
-                continue
-            # External definitions may replace earlier external definitions,
-            # but never a builtin reserved name.
             existing = _DEFINITIONS.get(defn.name)
-            if existing is not None and existing.source != "builtin":
+            if existing is not None and existing.source == "builtin":
                 continue
             _DEFINITIONS[defn.name] = defn
     except Exception:

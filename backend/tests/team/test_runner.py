@@ -4,7 +4,7 @@ import asyncio
 from types import SimpleNamespace
 
 from engine.core.query import QueryExitReason
-from team.runtime.context_builder import TeamAgentContext
+from team.runtime.agent_context import TeamAgentContext
 from team.runtime.runner import TeamAgentRunner
 from tools.core.runtime import ExecutionMetadata
 

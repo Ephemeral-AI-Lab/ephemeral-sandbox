@@ -17,14 +17,14 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from team.models import (
+from team.core.models import (
     LeafSubmission,
     PlannerSubmission,
     ReplanPlan,
     TaskSpec,
     TaskStatus,
 )
-from team._path_utils import normalize_scope_paths, scope_paths_overlap
+from team.core.scope import normalize_scope_paths, scope_paths_overlap
 from tools.core.base import (
     BaseTool,
     TextToolOutput,
@@ -268,7 +268,7 @@ async def _post_note(
     paths: list[str],
     context: ToolExecutionContext,
 ) -> ToolResult:
-    from team.models import Note
+    from team.core.models import Note
 
     tc = context.metadata.get("task_center")
     if tc is None:

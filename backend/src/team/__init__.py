@@ -12,12 +12,12 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-from team.errors import (
+from team.core.errors import (
     BudgetExceeded,
     GraphInvariantViolation,
     InvalidPlan,
 )
-from team.models import (
+from team.core.models import (
     BudgetConfig,
     BudgetState,
     Plan,

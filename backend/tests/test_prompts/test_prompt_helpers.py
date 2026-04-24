@@ -4,17 +4,12 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from agents.db.model import AgentDefinitionRecord
-from agents.db.store import AgentDefinitionStore
+from agents.registry import register_definition, unregister_definition
 from agents.types import AgentDefinition
 from config.settings import Settings
-from team.persistence.model import TeamDefinitionRecord
-from team.persistence.store import TeamDefinitionStore
-from team.models import BudgetConfig, Task, TaskStatus, TeamDefinition
+from team.core.models import BudgetConfig, Task, TaskStatus, TeamDefinition
 from team.persistence.events import make_task_added, make_team_run_created, task_to_dict
+from team.definitions import register_team_definition, unregister_team_definition
 _ROOT = Path(__file__).resolve().parents[3]
 _SCRIPTS_DIR = _ROOT / "scripts"
 if str(_SCRIPTS_DIR) not in sys.path:
@@ -70,8 +65,8 @@ def test_build_team_user_prompt_report_uses_runtime_context_path(tmp_path: Path)
     assert "## Available Agents" not in report
     assert "Fix the login retry behavior." in report
     assert "## Agent: developer" in report
-    assert "Goal\nImplement the bounded code change" in report
-    assert "Acceptance Criteria\n- Keep edits inside the assigned scope." in report
+    assert "# Goal\n\nImplement the bounded code change" in report
+    assert "# Acceptance Criteria\n\n- Keep edits inside the assigned scope." in report
     assert "## Agent: validator" in report
     assert "Verify the implementation evidence and report pass or fail." in report
 
@@ -128,24 +123,13 @@ def _agent_section(report: str, agent_name: str) -> str:
     return report[start:] if end == -1 else report[start:end]
 
 
-def test_db_seeded_custom_team_system_prompts_hide_forbidden_tools(
+def test_config_registered_custom_team_system_prompts_hide_forbidden_tools(
     tmp_path: Path,
-    monkeypatch,
 ) -> None:
-    engine = create_engine("sqlite:///:memory:", echo=False)
-    AgentDefinitionRecord.__table__.create(engine, checkfirst=True)
-    TeamDefinitionRecord.__table__.create(engine, checkfirst=True)
-    session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-
-    agent_store = AgentDefinitionStore()
-    agent_store.initialize(session_factory)
-    team_store = TeamDefinitionStore()
-    team_store.initialize(session_factory)
-
-    for defn in (
+    custom_agents = (
         AgentDefinition(
-            name="db_planner",
-            description="DB planner",
+            name="config_planner",
+            description="Config planner",
             system_prompt="Plan only. Call `submit_plan(...)` when ready.",
             role="planner",
             model="inherit",
@@ -154,8 +138,8 @@ def test_db_seeded_custom_team_system_prompts_hide_forbidden_tools(
             include_skills=False,
         ),
         AgentDefinition(
-            name="db_replanner",
-            description="DB replanner",
+            name="config_replanner",
+            description="Config replanner",
             system_prompt="Replan only. Call `submit_replan(...)` when ready.",
             role="replanner",
             model="inherit",
@@ -164,8 +148,8 @@ def test_db_seeded_custom_team_system_prompts_hide_forbidden_tools(
             include_skills=False,
         ),
         AgentDefinition(
-            name="db_scout",
-            description="DB scout",
+            name="config_scout",
+            description="Config scout",
             system_prompt="Explore without editing and post `submit_file_notes(...)`.",
             role="explorer",
             model="inherit",
@@ -174,8 +158,8 @@ def test_db_seeded_custom_team_system_prompts_hide_forbidden_tools(
             include_skills=False,
         ),
         AgentDefinition(
-            name="db_validator",
-            description="DB validator",
+            name="config_validator",
+            description="Config validator",
             system_prompt="Verify, apply small local fixes when obvious, otherwise fail.",
             role="reviewer",
             model="inherit",
@@ -189,37 +173,44 @@ def test_db_seeded_custom_team_system_prompts_hide_forbidden_tools(
             terminal_tools=["submit_task_success", "request_replan"],
             include_skills=False,
         ),
-    ):
-        agent_store.seed_builtin(defn)
+    )
+    for defn in custom_agents:
+        register_definition(defn)
 
-    stored_team = team_store.create(
-        name="db-custom-team",
-        entry_planner="db_planner",
+    team_def = TeamDefinition(
+        id="config-custom-team-id",
+        name="config-custom-team",
         roster={
-            "planner": ["db_planner"],
-            "replanner": ["db_replanner"],
-            "explorer": ["db_scout"],
-            "reviewer": ["db_validator"],
+            "planner": ["config_planner"],
+            "replanner": ["config_replanner"],
+            "explorer": ["config_scout"],
+            "reviewer": ["config_validator"],
         },
-        description="DB-backed custom prompt report team",
+        entry_planner="config_planner",
+        description="Config-backed custom prompt report team",
     )
-    monkeypatch.setattr("db.engine.initialize_db", lambda *_args, **_kwargs: session_factory)
+    register_team_definition(team_def)
 
-    loaded_team = load_team_definition(stored_team.id, Settings())
-    assert loaded_team is not None
-    report, missing = _render_team_prompt_report(
-        team_def=loaded_team,
-        cwd=str(tmp_path),
-        sandbox_id="sb-test",
-        include_runtime_sections=True,
-        settings=Settings(),
-    )
+    try:
+        loaded_team = load_team_definition(team_def.id, Settings())
+        assert loaded_team is not None
+        report, missing = _render_team_prompt_report(
+            team_def=loaded_team,
+            cwd=str(tmp_path),
+            sandbox_id="sb-test",
+            include_runtime_sections=True,
+            settings=Settings(),
+        )
+    finally:
+        unregister_team_definition(team_def.name)
+        for defn in custom_agents:
+            unregister_definition(defn.name)
 
     assert missing == []
-    planner = _agent_section(report, "db_planner")
-    replanner = _agent_section(report, "db_replanner")
-    scout = _agent_section(report, "db_scout")
-    validator = _agent_section(report, "db_validator")
+    planner = _agent_section(report, "config_planner")
+    replanner = _agent_section(report, "config_replanner")
+    scout = _agent_section(report, "config_scout")
+    validator = _agent_section(report, "config_validator")
 
     for section in (planner, replanner, scout, validator):
         assert "<Available Skills>" not in section
