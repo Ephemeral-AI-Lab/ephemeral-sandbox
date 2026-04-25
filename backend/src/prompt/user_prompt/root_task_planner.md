@@ -29,5 +29,5 @@ For broad benchmark, fail-to-pass, migration, compatibility, or other clustering
 ```markdown
 {{benchmark_targets}}
 ```
-Benchmark targets are verification evidence only. Do not inspect or scout `*/tests/*`, `test_*.py`, or benchmark test paths; scout live production owner rows and mention tests as context inside the scout prompt or in child specs.
+Benchmark targets are verification evidence only. Do not inspect, scout, or mention `*/tests/*`, `test_*.py`, benchmark paths, or test ids in scout prompts; keep them only in task specs and acceptance criteria. Verify any inferred production filename with `ci_workspace_structure` on its parent before using it as a scout target or `scope_paths`; absent files stay directory/package rows.
 {{/if}}

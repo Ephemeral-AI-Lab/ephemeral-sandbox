@@ -80,11 +80,11 @@ production clues
 
 | Check | Root-planner action |
 | --- | --- |
-| Clustering axes | Group by changelog axes (owner, mechanism, API, engine, format). F2P/P2P ids are acceptance criteria, not grouping axes. |
+| Clustering axes | Make one row per owner family, then tag changelog axes (owner, mechanism, API, engine, format). F2P/P2P ids cannot join rows. |
 | Cluster name | One row = one owner family. Slash/plus names like "CLI/Config/Compat" or "Storage I/O" signal unrelated owners; split now. |
-| Benchmark evidence | Keep tests and ids in evidence/spec. Never invent `<test-stem>.py`; package/engine clues such as parquet stay directory rows until proven exact. |
+| Benchmark evidence | Exact means explicit production path/symbol from user/notes or `ci_workspace_structure` on the parent dir. Before scouting or scoping a test-derived filename, verify it; if absent or replaced by a package directory, use the directory row. |
 
-Routing stops at owner rows; HDF, JSON, parquet, groupby, utils, CLI, config, and compatibility are separate rows unless live evidence proves a tight producer-consumer pair.
+Routing stops at owner rows; HDF, JSON, parquet, groupby, utils, CLI, config, and compatibility are separate rows unless live evidence proves one tight producer-consumer pair. If several appear in one row, split it.
 
 **Exit:** every owner row has a single owner family and recorded changelog axes.
 
@@ -106,11 +106,11 @@ owner ledger
 | Scout shape | Use when |
 | --- | --- |
 | Trivial deep | One proven exact file/symbol; ask for line-level functions, likely edit seam, and concrete gaps. |
-| Bundled superficial | Several paths in one owner family or tight pair; ask only for relationship map, ownership boundaries, and handoff seams. |
+| Bundled superficial | Several paths in one owner family or one tight pair; same parent directory or call chain alone is not enough. Ask only for relationship map and handoff seams. |
 | Directory superficial | Package, subsystem, engine matrix, or package-like import path; map files and relationships without deep leaf RCA. |
-| Row wave | Independent families; dispatch separate scouts in one wave. Never batch `cli.py`+`config.py`+`compat.py`, HDF+JSON/parquet, groupby+utils, or HDF+parquet+groupby. |
+| Row wave | Independent families; issue one `run_subagent` per row in one wave. Never batch `cli.py`+`config.py`+`compat.py`, HDF+JSON/parquet, groupby+utils, or HDF+parquet+groupby. |
 
-Dispatch each scout with `run_subagent(agent_name="scout", prompt="<scout prompt>")`; `prompt` is the only channel. State the scout mode in `## Task`. Missing/disproved exact targets become directory scouts in Stage 3 or unresolved handoff. Never name test paths or ids anywhere in the prompt.
+Dispatch each scout with `run_subagent(agent_name="scout", prompt="<scout prompt>")`; `prompt` is the only channel. State the scout mode in `## Task`. Missing/disproved exact targets become directory scouts in Stage 3 or unresolved handoff. Rewrite every scout prompt as production-only; test paths, benchmark filenames, and F2P/P2P ids stay out.
 
 ### Scout Prompt Format
 

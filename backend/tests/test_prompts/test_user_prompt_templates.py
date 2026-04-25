@@ -324,7 +324,8 @@ async def test_build_query_context_uses_root_planner_markdown_template() -> None
     assert "## Benchmark targets" in ctx.user_message
     assert "tests/test_retry.py::test_retry" in ctx.user_message
     assert "Benchmark targets are verification evidence only" in ctx.user_message
-    assert "Do not inspect or scout `*/tests/*`, `test_*.py`, or benchmark test paths" in ctx.user_message
+    assert "Do not inspect, scout, or mention `*/tests/*`, `test_*.py`, benchmark paths, or test ids" in ctx.user_message
+    assert "Verify any inferred production filename with `ci_workspace_structure`" in ctx.user_message
     assert "Child and validator verification commands in specs must be daytona_shell-safe" not in ctx.user_message
     assert "Prefer `python -m pytest ... -q --tb=short` over `-v`" not in ctx.user_message
     assert _SUBMIT_PLAN_SCHEMA_SNIPPET in ctx.user_message
