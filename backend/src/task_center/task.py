@@ -31,7 +31,6 @@ class Status(str, Enum):
 
 
 TaskRole = Literal["executor", "evaluator"]
-SubtreeKind = Literal["handoff", "continuation"]
 
 
 @dataclass
@@ -56,7 +55,7 @@ class Task:
     handoff_note: str | None = None
     summary: str | None = None
     children: list[TaskId] = field(default_factory=list)
-    subtree_kind: SubtreeKind | None = None
+    evaluator_id: TaskId | None = None
     created_at: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:

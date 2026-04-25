@@ -16,7 +16,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from task_center.dag import compile_dag, sinks
+from task_center.dag import compile_dag
 from task_center.errors import TaskCenterError
 from task_center.graph import TaskGraph
 from task_center.propagation import close_with_summary
@@ -109,7 +109,11 @@ class TaskCenter:
         task_specs: dict[str, dict[str, Any]],
         acceptance_criteria: str,
     ) -> None:
-        """Validate plan, materialize child tasks + evaluator, mark parent AWAITING."""
+        """Validate plan, materialize child executors, mark parent AWAITING.
+
+        The evaluator is NOT created here — it is materialized by the
+        dispatcher only after every child executor reaches DONE.
+        """
         deps = compile_dag(tasks, task_specs)
 
         parent = self._graph.get(executor_id)
@@ -134,28 +138,6 @@ class TaskCenter:
             self._graph.add(child)
             parent.children.append(tid)
 
-        # Evaluator depends on the DAG sinks. When all sinks are DONE, every
-        # ancestor is necessarily DONE — i.e. all children completed.
-        sink_ids = sinks(deps)
-        eval_id = f"{executor_id}-eval"
-        evaluator = Task(
-            id=eval_id,
-            role="evaluator",
-            title=f"Evaluator for {executor_id}",
-            spec=(
-                "Validate the parent task's acceptance_criteria against direct "
-                "child summaries."
-            ),
-            status=Status.PENDING,
-            parent_id=executor_id,
-            closes_for=executor_id,
-            needs=sink_ids,
-            acceptance_criteria=acceptance_criteria,
-            subtree_kind="handoff",
-        )
-        self._graph.add(evaluator)
-        parent.children.append(eval_id)
-
         # Parent transitions RUNNING -> AWAITING.
         self._graph.transition(executor_id, Status.AWAITING)
         self._wakeup.set()
@@ -168,10 +150,12 @@ class TaskCenter:
         acceptance_criteria: str,
         handoff_note: str,
     ) -> None:
-        """Same as full handoff, plus stash handoff_note on the evaluator."""
+        """Same as full handoff, plus stash handoff_note on the parent.
+
+        The evaluator (created later by the dispatcher) inherits
+        ``handoff_note`` from the parent at materialization time.
+        """
         self.submit_full_handoff(executor_id, tasks, task_specs, acceptance_criteria)
-        eval_id = f"{executor_id}-eval"
-        self._graph.get(eval_id).handoff_note = handoff_note
         self._graph.get(executor_id).handoff_note = handoff_note
 
     def submit_continue_to_work(self, evaluator_id: TaskId, summary: str) -> None:
@@ -195,7 +179,6 @@ class TaskCenter:
             parent_id=evaluator_id,
             closes_for=evaluator_id,
             acceptance_criteria=evaluator.acceptance_criteria,
-            subtree_kind="continuation",
         )
         self._graph.add(cont)
         evaluator.children.append(cont_id)
@@ -205,10 +188,47 @@ class TaskCenter:
         self._wakeup.set()
 
     # ------------------------------------------------------------------ #
-    # Promote PENDING -> READY when all deps are DONE                    #
+    # Materialize evaluator after all handoff children are DONE          #
     # ------------------------------------------------------------------ #
 
-    # (PENDING->READY promotion happens inside graph.ready_tasks; no separate method)
+    def _materialize_pending_evaluators(self) -> None:
+        """Spawn a READY evaluator for any AWAITING executor whose children all DONE.
+
+        Handoff submissions create only child executors. Once every child
+        reaches DONE, the parent still sits in AWAITING with
+        ``evaluator_id is None`` — that's the signal to create its evaluator.
+        """
+        for parent in list(self._graph.tasks.values()):
+            if parent.role != "executor":
+                continue
+            if parent.status is not Status.AWAITING:
+                continue
+            if parent.evaluator_id is not None:
+                continue
+            if not all(
+                self._graph.get(child_id).status is Status.DONE
+                for child_id in parent.children
+            ):
+                continue
+
+            eval_id = f"{parent.id}-eval"
+            evaluator = Task(
+                id=eval_id,
+                role="evaluator",
+                title=f"Evaluator for {parent.id}",
+                spec=(
+                    "Validate the parent task's acceptance_criteria against direct "
+                    "child summaries."
+                ),
+                status=Status.READY,
+                parent_id=parent.id,
+                closes_for=parent.id,
+                acceptance_criteria=parent.acceptance_criteria,
+                handoff_note=parent.handoff_note,
+            )
+            self._graph.add(evaluator)
+            parent.children.append(eval_id)
+            parent.evaluator_id = eval_id
 
     # ------------------------------------------------------------------ #
     # Dispatcher loop                                                    #
@@ -232,6 +252,7 @@ class TaskCenter:
         running: dict[TaskId, asyncio.Task[None]] = {}
 
         def _spawn_for_ready() -> None:
+            self._materialize_pending_evaluators()
             for task in self._graph.ready_tasks():
                 if task.id in running:
                     continue

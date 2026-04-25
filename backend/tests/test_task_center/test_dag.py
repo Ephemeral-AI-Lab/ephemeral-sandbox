@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from task_center import PlanValidationError
-from task_center.dag import compile_dag, sinks
+from task_center.dag import compile_dag
 
 
 def _specs(*ids: str) -> dict[str, dict[str, str]]:
@@ -126,30 +126,3 @@ def test_explicit_empty_deps_means_no_deps() -> None:
     assert deps["A"] == frozenset()
 
 
-def test_sinks_single_root() -> None:
-    deps = compile_dag(
-        [{"id": "A"}, {"id": "B", "deps": ["A"]}],
-        _specs("A", "B"),
-    )
-    assert sinks(deps) == frozenset({"B"})
-
-
-def test_sinks_multiple() -> None:
-    # A -> B, A -> C: two sinks (B, C).
-    deps = compile_dag(
-        [
-            {"id": "A"},
-            {"id": "B", "deps": ["A"]},
-            {"id": "C", "deps": ["A"]},
-        ],
-        _specs("A", "B", "C"),
-    )
-    assert sinks(deps) == frozenset({"B", "C"})
-
-
-def test_sinks_isolated_node() -> None:
-    deps = compile_dag(
-        [{"id": "A"}, {"id": "B"}],
-        _specs("A", "B"),
-    )
-    assert sinks(deps) == frozenset({"A", "B"})

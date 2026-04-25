@@ -79,14 +79,6 @@ def compile_dag(
     return deps
 
 
-def sinks(deps: dict[str, frozenset[str]]) -> frozenset[str]:
-    """Return the set of ids that no other task depends on."""
-    has_dependent: set[str] = set()
-    for dep_set in deps.values():
-        has_dependent.update(dep_set)
-    return frozenset(tid for tid in deps if tid not in has_dependent)
-
-
 def _check_no_cycles(deps: dict[str, frozenset[str]]) -> None:
     WHITE, GRAY, BLACK = 0, 1, 2
     color: dict[str, int] = dict.fromkeys(deps, WHITE)

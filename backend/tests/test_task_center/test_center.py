@@ -133,7 +133,7 @@ async def test_continue_to_work_propagates_through_evaluator() -> None:
     assert tc.graph.get("t1-eval").summary == "filled the gap"
     cont = tc.graph.get("t2")
     assert cont.status is Status.DONE
-    assert cont.subtree_kind == "continuation"
+    assert tc.graph.get(cont.parent_id).role == "evaluator"
     assert cont.closes_for == "t1-eval"
 
 

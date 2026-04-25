@@ -41,7 +41,7 @@ def test_task_constructs_with_minimum_fields() -> None:
     assert task.handoff_note is None
     assert task.summary is None
     assert task.children == []
-    assert task.subtree_kind is None
+    assert task.evaluator_id is None
     assert isinstance(task.created_at, float)
 
 

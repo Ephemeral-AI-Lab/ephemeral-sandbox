@@ -2,8 +2,8 @@
 
 Public surface:
 
-- :class:`Task`, :class:`Status`, :data:`TaskRole`, :data:`TaskId`,
-  :data:`SubtreeKind` — the data model.
+- :class:`Task`, :class:`Status`, :data:`TaskRole`, :data:`TaskId` —
+  the data model.
 - :class:`TaskCenterError`, :class:`PlanValidationError` — error hierarchy.
 - :func:`compile_dag` — DAG plan validator + dep compiler.
 """
@@ -14,7 +14,6 @@ from task_center.dag import compile_dag
 from task_center.errors import PlanValidationError, TaskCenterError
 from task_center.task import (
     Status,
-    SubtreeKind,
     Task,
     TaskId,
     TaskRole,
@@ -23,7 +22,6 @@ from task_center.task import (
 __all__ = [
     "PlanValidationError",
     "Status",
-    "SubtreeKind",
     "Task",
     "TaskCenterError",
     "TaskId",
