@@ -310,7 +310,7 @@ class TestBackgroundSnapshotHelpers:
         statuses = [{"task_id": "bg_1", "status": "completed", "output": "done"}]
         output = render_background_snapshot("wait_completed", statuses)
         assert output.startswith("[COMPLETED]\n[")
-        assert "Read posted scout notes" not in output
+        assert "posted subagent" not in output
 
     def test_wait_completed_with_posted_subagent_points_to_notes(self) -> None:
         statuses = [
@@ -381,7 +381,7 @@ class TestCancelBackgroundTaskExecute:
         mgr.launch(
             task_id="bg_sub",
             tool_name="run_subagent",
-            tool_input={"agent_name": "scout"},
+            tool_input={"agent_name": "test_subagent"},
             coro=_subagent(),
             task_type="subagent",
         )

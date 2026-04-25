@@ -17,15 +17,7 @@ from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, ClassVar
 
-MERGED_RUNTIME_METADATA_KEYS: tuple[str, ...] = (
-    "coordination_warning_present",
-    "coordination_warnings",
-    "task_summary",
-    "task_summary_type",
-    "resolved_plan",
-    "plan_is_replan",
-    "write_scope",
-)
+MERGED_RUNTIME_METADATA_KEYS: tuple[str, ...] = ()
 
 
 @dataclass
@@ -69,12 +61,6 @@ class ExecutionMetadata:
     # can be attributed back to their originating tool use).
     tool_id: str | None = None
 
-    # Team-mode plumbing. ``team_run_id`` lets tools that need run-scoped
-    # state look up their owning ``TeamRun`` via the in-process registry
-    # without holding a hard reference.
-    team_run_id: str | None = None
-    work_item_id: str | None = None
-
     # Escape hatch for tool-specific values the engine does not know
     # about. Prefer adding a typed field above when a value is used by
     # more than one tool.
@@ -98,8 +84,6 @@ class ExecutionMetadata:
             "ci_service",
             "arbiter",
             "tool_id",
-            "team_run_id",
-            "work_item_id",
         }
     )
 

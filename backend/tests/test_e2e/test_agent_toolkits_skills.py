@@ -1,4 +1,4 @@
-"""E2E tests for config-backed agent and skill APIs."""
+"""E2E tests for empty-by-default agent and skill APIs."""
 
 from __future__ import annotations
 
@@ -37,7 +37,9 @@ class TestInfrastructure:
         assert data["type"] == "ready"
         assert data["state"] is not None
         tool_names = {entry["name"] for entry in data["tools"]}
-        assert {"submit_task_success", "submit_plan", "submit_replan"} <= tool_names
+        assert "submit_task_success" not in tool_names
+        assert "submit_plan" not in tool_names
+        assert "submit_replan" not in tool_names
         assert "submit_task_plan" not in tool_names
         assert "declare_blocker" not in tool_names
         assert "load_skill" in tool_names
@@ -52,18 +54,13 @@ class TestConfigBackedAgentApi:
         resp = client.get("/api/agents/")
 
         assert resp.status_code == 200
-        names = {agent["name"] for agent in resp.json()}
-        assert {"root_planner", "team_planner", "developer", "validator", "scout"} <= names
+        assert resp.json() == []
 
-    def test_get_config_agent_returns_tools_and_skills(self, app_client):
+    def test_get_removed_config_agent_returns_not_found(self, app_client):
         client, _ = app_client
         resp = client.get("/api/agents/developer")
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "daytona_shell" in data["tools"]
-        assert "ci_query_symbol" in data["tools"]
-        assert "team-developer-playbook" in data["skills"]
+        assert resp.status_code == 404
 
     def test_list_available_tools(self, app_client):
         client, _ = app_client
@@ -72,8 +69,10 @@ class TestConfigBackedAgentApi:
         assert resp.status_code == 200
         tools = {entry["name"] for entry in resp.json()}
         assert "daytona_shell" in tools
-        assert "submit_plan" in tools
-        assert "submit_replan" in tools
+        assert "submit_plan" not in tools
+        assert "submit_replan" not in tools
+        assert "submit_task_success" not in tools
+        assert "request_replan" not in tools
         assert "load_skill" in tools
         assert "check_background_progress" in tools
 
@@ -93,7 +92,8 @@ class TestConfigBackedAgentApi:
         path: str,
     ):
         client, _ = app_client
-        resp = getattr(client, method)(
+        resp = client.request(
+            method.upper(),
             path,
             json={
                 "name": "ignored",
@@ -106,7 +106,7 @@ class TestConfigBackedAgentApi:
         assert resp.status_code == 405
         assert "file-backed under backend/config/agents" in resp.json()["detail"]
 
-    def test_validate_agent_rejects_reserved_name(self, app_client):
+    def test_validate_agent_allows_former_builtin_name(self, app_client):
         client, _ = app_client
         resp = client.post(
             "/api/agents/validate",
@@ -120,8 +120,8 @@ class TestConfigBackedAgentApi:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["valid"] is False
-        assert any("reserved for a builtin runtime agent" in err for err in data["errors"])
+        assert data["valid"] is True
+        assert data["errors"] == []
 
     def test_validate_agent_rejects_unknown_tool(self, app_client):
         client, _ = app_client
@@ -147,29 +147,20 @@ class TestConfigBackedSkillApi:
         resp = client.get("/api/skills/")
 
         assert resp.status_code == 200
-        names = {skill["name"] for skill in resp.json()}
-        assert {
-            "team-developer-playbook",
-            "team-planner-playbook",
-            "team-replanner-playbook",
-        } <= names
+        assert resp.json() == []
 
-    def test_get_skill_returns_content(self, app_client):
+    def test_get_removed_skill_returns_not_found(self, app_client):
         client, _ = app_client
-        resp = client.get("/api/skills/team-developer-playbook")
+        resp = client.get("/api/skills/removed-playbook")
 
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["name"] == "team-developer-playbook"
-        assert "content" in data
-        assert data["path"].endswith("backend/config/skills/team-developer-playbook")
+        assert resp.status_code == 404
 
     @pytest.mark.parametrize(
         ("method", "path"),
         [
             ("post", "/api/skills/"),
-            ("put", "/api/skills/team-developer-playbook"),
-            ("delete", "/api/skills/team-developer-playbook"),
+            ("put", "/api/skills/removed-playbook"),
+            ("delete", "/api/skills/removed-playbook"),
         ],
     )
     def test_mutating_skill_definition_endpoints_are_read_only(
@@ -179,7 +170,8 @@ class TestConfigBackedSkillApi:
         path: str,
     ):
         client, _ = app_client
-        resp = getattr(client, method)(
+        resp = client.request(
+            method.upper(),
             path,
             json={"name": "ignored", "description": "ignored", "content": "ignored"},
         )
@@ -187,14 +179,12 @@ class TestConfigBackedSkillApi:
         assert resp.status_code == 405
         assert "file-backed under backend/config/skills" in resp.json()["detail"]
 
-    def test_skill_files_are_served_from_config_dir(self, app_client):
+    def test_removed_skill_files_return_not_found(self, app_client):
         client, _ = app_client
-        resp = client.get("/api/skills/team-developer-playbook/files")
+        resp = client.get("/api/skills/removed-playbook/files")
 
         assert resp.status_code == 200
-        tree = resp.json()["tree"]
-        assert any(item["name"] == "SKILL.md" for item in tree)
+        assert resp.json()["tree"] == []
 
-        file_resp = client.get("/api/skills/team-developer-playbook/files/SKILL.md")
-        assert file_resp.status_code == 200
-        assert "team-developer-playbook" in file_resp.text
+        file_resp = client.get("/api/skills/removed-playbook/files/SKILL.md")
+        assert file_resp.status_code == 404

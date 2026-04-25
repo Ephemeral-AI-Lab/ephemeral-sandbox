@@ -259,7 +259,7 @@ EphemeralOS implements the core Agent Harness pattern across the live backend an
 ```
 backend/src/
   engine/          # 🧠 Agent loop, streaming executor, background task lifecycle
-  tools/           # 🔧 Built-in tools: sandbox, CI, context, memory, subagent, submission
+  tools/           # 🔧 Built-in tools: sandbox, CI, context, memory, subagent
   skills/          # 📚 Skill loading, registry, DB store, and API
   agents/          # 🤖 Agent definition loading, builder, registry, CRUD API
   team/            # 🤝 Task Center, dispatcher, persistence, planner runtime
@@ -268,9 +268,9 @@ backend/src/
   prompts/         # 📝 Runtime/system prompt assembly and capability awareness
   config/          # ⚙️ Settings, model resolution, paths
 backend/config/
-  agents/          # 🤖 Bundled agent definitions
+  agents/          # 🤖 Optional local agent definitions (empty by default)
   teams/           # 🤝 Bundled team rosters
-  skills/          # 📚 Bundled markdown skill playbooks
+  skills/          # 📚 Optional local markdown skills (empty by default)
 frontend/
   web/             # 🖥️ React dashboard (agents, tools, sessions, sandboxes)
   terminal/        # 💬 Terminal UI components and backend session hooks
@@ -280,10 +280,7 @@ Detailed team-runtime notes: [`team-coordination`](docs/architecture/team-coordi
 [`task-center`](docs/architecture/task-center.md),
 [`team-failure-conditions`](docs/architecture/team-failure-conditions.md),
 [`terminal-submission`](docs/architecture/terminal-submission.md),
-[`replan-workflow-sequence-diagrams`](docs/architecture/replan-workflow-sequence-diagrams.md),
-[`planner/root-planner playbook guide`](docs/architecture/playbook-guide/planner-root-planner.md),
-[`developer playbook guide`](docs/architecture/playbook-guide/developer.md),
-and [`replanner playbook guide`](docs/architecture/playbook-guide/replanner.md).
+and [`replan-workflow-sequence-diagrams`](docs/architecture/replan-workflow-sequence-diagrams.md).
 
 ### The Agent Loop
 
@@ -334,8 +331,7 @@ Current runtime inventory:
 | `code_intelligence` | 4 | Workspace structure, symbol lookup, references, and diagnostics |
 | `context_read` / `context_write` | 3 / 4 | File notes plus scope and staleness checks |
 | `memory` | 3 | Exploration cache reuse and edit-history conflict prediction |
-| `subagent` | 1 | `run_subagent` for bounded scout/delegation work |
-| `submission` | 4 tools | `submit_plan`, `submit_replan`, `submit_task_success`, `request_replan` |
+| `subagent` | 1 | `run_subagent` for bounded configured subagent work |
 | Runtime `skills` | 2 | `load_skill`, `load_skill_reference` |
 | Runtime `background` | 3 | `check_background_progress`, `wait_for_background_task`, `cancel_background_task` |
 
@@ -349,18 +345,7 @@ Every tool has:
 
 Skills are **on-demand knowledge** — loaded only when the model needs them:
 
-```
-Bundled packaged skills:
-- team-planner-playbook
-- team-developer-playbook
-- team-validator-playbook
-- team-scout-playbook
-- team-replanner-playbook
-- task-decompose
-- changelog-decompose
-```
-
-Repo-bundled skill playbooks live under `backend/config/skills/`.
+The repo no longer ships built-in agent playbook skills under `backend/config/skills/`.
 User-defined markdown skills are loaded from `~/.ephemeralos/skills/`, and the lazy `skills` tools load them only when an agent asks for them.
 
 ### 🔌 Plugin System

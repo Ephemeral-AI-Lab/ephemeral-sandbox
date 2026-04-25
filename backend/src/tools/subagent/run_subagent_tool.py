@@ -353,8 +353,8 @@ async def run_subagent(
         qc.tool_metadata.agent_name = sub_def.name
         task_center = context.metadata.get("task_center")
         if task_center is not None:
-            # Dispatchable scouts are not Task Center tasks, but their note
-            # tools must read from and post to the parent run's note store.
+            # Dispatchable subagents are not Task Center tasks, but tools
+            # that need the parent run's note store can use this channel.
             qc.tool_metadata["task_center"] = task_center
         qc.tool_metadata["work_item_started_at"] = time.time()
         sub_role = getattr(sub_def, "role", None)

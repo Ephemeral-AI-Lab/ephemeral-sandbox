@@ -30,11 +30,11 @@ POSTED_SUBAGENT_RESULT_GUIDANCE = (
     "For `run_subagent` results whose summary is `Posted.`, the useful content "
     "is in file notes or the referenced artifact, not in another "
     "background status snapshot. Do not call `wait_for_background_task` or "
-    "`check_background_progress` again for this delivered scout wave. In "
-    "team-planner contexts, read scout findings with "
-    '`read_file_note(file_paths=[...])` for the scout target paths. Scouts and '
-    "subagents are not Task Center tasks; do not use `read_task_graph()` or "
-    "`read_task_details(...)` to retrieve scout results, and never pass `bg_*` "
+    "`check_background_progress` again for this delivered subagent result. "
+    "When file notes are referenced, read them with "
+    "`read_file_note(file_paths=[...])`. Subagents are not Task Center tasks; "
+    "do not use `read_task_graph()` or `read_task_details(...)` to retrieve "
+    "subagent results, and never pass `bg_*` "
     "background ids as task ids."
 )
 

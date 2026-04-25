@@ -61,15 +61,15 @@ async def test_load_skill_reference_still_loads_named_references() -> None:
 
 
 @pytest.mark.asyncio
-async def test_planner_references_can_load_without_stage_gate() -> None:
+async def test_skill_references_can_load_without_stage_gate() -> None:
     registry = SkillRegistry()
     registry.register(
         SkillDefinition(
-            name="team-root-planner-playbook",
-            description="Planner skill.",
-            content="# Planner",
+            name="demo-skill",
+            description="Demo skill.",
+            content="# Demo",
             source="test",
-            references={"synthesize-and-submit": "Synthesis contract."},
+            references={"extra": "Supplementary guidance."},
         )
     )
     tools = {tool.name: tool for tool in make_skills_tools(registry)}
@@ -80,18 +80,18 @@ async def test_planner_references_can_load_without_stage_gate() -> None:
 
     context = ToolExecutionContext(cwd=Path("/tmp"))
     load_result = await load_skill.execute(
-        load_skill.input_model(skill_name="team-root-planner-playbook"),
+        load_skill.input_model(skill_name="demo-skill"),
         context,
     )
     assert load_result.is_error is False
 
     result = await load_reference.execute(
         load_reference.input_model(
-            skill_name="team-root-planner-playbook",
-            reference_name="synthesize-and-submit",
+            skill_name="demo-skill",
+            reference_name="extra",
         ),
         context,
     )
 
     assert result.is_error is False
-    assert result.output == "Synthesis contract."
+    assert result.output == "Supplementary guidance."

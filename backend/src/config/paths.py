@@ -42,11 +42,6 @@ def get_config_agents_dir() -> Path:
     return get_repo_config_dir() / "agents"
 
 
-def get_config_teams_dir() -> Path:
-    """Return the repository config team-definition directory."""
-    return get_repo_config_dir() / "teams"
-
-
 def get_config_skills_dir() -> Path:
     """Return the repository config skill-definition directory."""
     return get_repo_config_dir() / "skills"

@@ -119,7 +119,7 @@ class TestToolCallingAndSkillLoading:
         assert len(result.assistant_turns()) >= 1
 
     def test_skill_registry_loads(self):
-        """Skill registry should load config-backed skills."""
+        """Skill registry should load even when no bundled skills are present."""
         from skills.core.loader import load_skill_registry
 
         registry = load_skill_registry()

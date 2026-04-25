@@ -3,17 +3,9 @@
 from __future__ import annotations
 
 from tools.core.hooks import ToolHookRegistry
-from tools.daytona_toolkit.hooks.posthook import (
-    audited_write_policy,
-    move_extend_scope,
-    write_extend_scope,
-)
+from tools.daytona_toolkit.hooks.posthook import audited_write_policy
 
-_MODULES = (
-    audited_write_policy,
-    move_extend_scope,
-    write_extend_scope,
-)
+_MODULES = (audited_write_policy,)
 
 
 def register_all(registry: ToolHookRegistry | None = None) -> None:

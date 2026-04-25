@@ -108,7 +108,6 @@ def finalize_tool_registry_and_prompt(
     """
     from prompt.runtime_prompt import build_termination_condition_prompt
     from tools.builtins.background import make_background_tools
-    from tools.submission import make_submission_tools
 
     bg_tool_names = [
         t.name
@@ -119,21 +118,6 @@ def finalize_tool_registry_and_prompt(
     if has_background_tools:
         tool_registry.register_many(make_background_tools(bg_tool_names))
 
-    registered_tool_names = {tool.name for tool in tool_registry.list_tools()}
-    submission_tool_names = {tool.name for tool in make_submission_tools()}
-    if registered_tool_names & submission_tool_names:
-        allowed_terminal_tools = {
-            str(name).strip()
-            for name in (terminal_tools or [])
-            if str(name).strip()
-        }
-        blocked_submission_tools = {
-            name
-            for name in submission_tool_names
-            if name in registered_tool_names and name not in allowed_terminal_tools
-        }
-        if blocked_submission_tools:
-            tool_registry.remove_tools(sorted(blocked_submission_tools))
     termination_prompt = build_termination_condition_prompt(
         terminal_tools=terminal_tools,
     )
@@ -212,10 +196,6 @@ def _build_agent_tool_registry(
 
         tool_registry.register_many(make_daytona_tools())
         logger.info("Registered Daytona sandbox tools for sandbox %s", sandbox_id)
-
-    # Submission tools are registered from explicit agent tool lists.
-    # Team-mode terminal submissions are handled by the executor reading
-    # ``tool_metadata`` after the query loop stops.
 
     # Skill loading tools — opt-out via ``include_skills=False``.
     include_skills = agent_def.include_skills if agent_def else True

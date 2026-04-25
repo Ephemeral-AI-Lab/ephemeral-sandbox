@@ -44,7 +44,7 @@ class AgentAttribution:
     """Identifiers the service needs to attribute a mutation to an actor."""
 
     agent_id: str
-    team_run_id: str
+    run_id: str
     agent_run_id: str
     task_id: str
 
@@ -79,7 +79,7 @@ def agent_attribution_from_context(
     """Build an :class:`AgentAttribution` from a tool execution context."""
     return AgentAttribution(
         agent_id=resolved_agent_id(context, preferred=preferred_agent_id),
-        team_run_id=str(context.metadata.get("team_run_id") or ""),
+        run_id=str(context.metadata.get("run_id") or ""),
         agent_run_id=str(context.metadata.get("agent_run_id") or ""),
         task_id=str(context.metadata.get("work_item_id") or ""),
     )

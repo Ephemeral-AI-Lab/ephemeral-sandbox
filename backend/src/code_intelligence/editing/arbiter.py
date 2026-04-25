@@ -102,7 +102,7 @@ class Arbiter:
         file_path: str,
         actor_label: str = "",
         *,
-        team_run_id: str = "",
+        run_id: str = "",
         agent_run_id: str = "",
         task_id: str = "",
         agent_id: str | None = None,
@@ -122,7 +122,7 @@ class Arbiter:
 
         try:
             self._edit_history.record(
-                team_run_id=team_run_id,
+                run_id=run_id,
                 file_path=file_path,
                 agent_run_id=agent_run_id,
                 task_id=task_id,
@@ -170,21 +170,21 @@ class Arbiter:
 
     def changes_in_scope(
         self,
-        team_run_id: str,
+        run_id: str,
         scope_prefixes: list[str],
         since: float,
     ) -> list[Any]:
-        return self._edit_history.changes_in_scope(team_run_id, scope_prefixes, since)
+        return self._edit_history.changes_in_scope(run_id, scope_prefixes, since)
 
     def external_changes_in_scope(
         self,
-        team_run_id: str,
+        run_id: str,
         scope_prefixes: list[str],
         since: float,
         exclude_run_id: str | None = None,
     ) -> list[Any]:
         return self._edit_history.external_changes_in_scope(
-            team_run_id,
+            run_id,
             scope_prefixes,
             since,
             exclude_run_id=exclude_run_id,
@@ -193,50 +193,50 @@ class Arbiter:
     def changes_since(
         self,
         since: float,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[Any]:
-        return self._edit_history.changes_since(since, team_run_id=team_run_id)
+        return self._edit_history.changes_since(since, run_id=run_id)
 
     def recent_edits(
         self,
         seconds: float = 60.0,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[Any]:
-        return self._edit_history.recent_edits(seconds=seconds, team_run_id=team_run_id)
+        return self._edit_history.recent_edits(seconds=seconds, run_id=run_id)
 
     def hotspots(
         self,
         limit: int = 10,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[tuple[str, int]]:
-        return self._edit_history.hotspots(limit=limit, team_run_id=team_run_id)
+        return self._edit_history.hotspots(limit=limit, run_id=run_id)
 
     def who_changed(
         self,
         file_path: str,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[Any]:
-        return self._edit_history.who_changed(file_path, team_run_id=team_run_id)
+        return self._edit_history.who_changed(file_path, run_id=run_id)
 
     def changes_by_agent_run(
         self,
-        team_run_id: str,
+        run_id: str,
         agent_run_id: str,
     ) -> list[Any]:
-        return self._edit_history.changes_by_agent_run(team_run_id, agent_run_id)
+        return self._edit_history.changes_by_agent_run(run_id, agent_run_id)
 
     def contention_hotspots(
         self,
         scope_prefixes: list[str] | None = None,
         limit: int = 10,
         days: int = 7,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[Any]:
         return self._edit_history.contention_hotspots(
             scope_prefixes,
             limit=limit,
             days=days,
-            team_run_id=team_run_id,
+            run_id=run_id,
         )
 
     def status(self) -> dict[str, Any]:

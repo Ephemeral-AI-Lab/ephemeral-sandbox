@@ -95,17 +95,17 @@ async def test_subagent_peek_returns_live_snapshot(monkeypatch) -> None:
     must update as the inner agent makes progress."""
     bg = BackgroundTaskManager()
     stub = _StubAgent(_scripted_messages(), delay=0.08)
-    registered_scout = False
-    if get_definition("scout") is None:
+    registered_test_subagent = False
+    if get_definition("test_subagent") is None:
         register_definition(
             AgentDefinition(
-                name="scout",
-                description="test scout",
+                name="test_subagent",
+                description="test subagent",
                 agent_type="subagent",
                 include_skills=False,
             )
         )
-        registered_scout = True
+        registered_test_subagent = True
 
     def _fake_spawn_agent(*args, **kwargs):
         return stub
@@ -130,14 +130,14 @@ async def test_subagent_peek_returns_live_snapshot(monkeypatch) -> None:
             },
         )
         return await run_subagent.execute(
-            run_subagent.input_model(agent_name="scout", prompt="task"), ctx
+            run_subagent.input_model(agent_name="test_subagent", prompt="task"), ctx
         )
 
     try:
         bg.launch(
             task_id=alias,
             tool_name="run_subagent",
-            tool_input={"agent_name": "scout", "prompt": "task"},
+            tool_input={"agent_name": "test_subagent", "prompt": "task"},
             coro=_subagent_coro(),
         )
 
@@ -177,8 +177,8 @@ async def test_subagent_peek_returns_live_snapshot(monkeypatch) -> None:
         assert "DONE" in final_status[0]["output"]
         assert "completed task" in final_status[0]["output"]
     finally:
-        if registered_scout:
-            unregister_definition("scout")
+        if registered_test_subagent:
+            unregister_definition("test_subagent")
 
 
 @pytest.mark.asyncio

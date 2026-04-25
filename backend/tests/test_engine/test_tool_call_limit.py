@@ -101,35 +101,33 @@ def test_budget_warning_fires_at_one_call_remaining():
     assert "1 of 5" in event.text
 
 
-def test_budget_warning_guides_planner_to_finalize_plan_handoff():
-    ctx = _ctx(100, 75)
+def test_budget_warning_names_configured_terminal_tool():
+    ctx = _ctx(100, 75, terminal_tools={"finish_task"})
     ctx.tool_metadata["role"] = "planner"
     _, event = build_budget_warning(ctx)
-    assert "submit_plan()" in event.text
-    assert "strongest plan you can defend" in event.text
+    assert "finish_task" in event.text
+    assert "role-correct terminal tool" in event.text
 
 
-def test_budget_warning_guides_validator_to_wrap_up():
-    ctx = _ctx(100, 75)
+def test_budget_warning_avoids_removed_submission_tool_names():
+    ctx = _ctx(100, 75, terminal_tools={"finish_task"})
     ctx.tool_metadata["role"] = "reviewer"
     _, event = build_budget_warning(ctx)
-    assert "submit_task_success()" in event.text
-    assert "request_replan()" in event.text
-    assert "diagnostics status" in event.text
+    assert "submit_task_success()" not in event.text
+    assert "request_replan()" not in event.text
+    assert "finish_task" in event.text
     assert "Residual Risk line" not in event.text
 
 
 def test_budget_warning_default_success_summary_requires_evidence():
-    ctx = _ctx(100, 75)
+    ctx = _ctx(100, 75, terminal_tools={"finish_task"})
     _, event = build_budget_warning(ctx)
     assert "advisory warning, not a terminal trigger" in event.text
     assert "bounded known fix, required diagnostic, or exact verification" in event.text
     assert "still leaves a terminal call" in event.text
-    assert "evidence is incomplete when only the terminal call remains" in event.text
-    assert "latest required verification is green" in event.text
-    assert "diagnostics are clean" in event.text
+    assert "role-correct terminal tool" in event.text
+    assert "finish_task" in event.text
     assert "final reserved call" in event.text
-    assert "partial or red work belongs in request_replan" in event.text
     assert "Residual Risk line" not in event.text
 
 

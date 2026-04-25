@@ -272,7 +272,7 @@ async def submit_shell_cmd(
         "timeout": timeout,
         "description": description,
         "agent_id": attribution.agent_id,
-        "team_run_id": attribution.team_run_id,
+        "run_id": attribution.run_id,
         "agent_run_id": attribution.agent_run_id,
         "task_id": attribution.task_id,
         "attribute_changes": attribute_changes,

@@ -41,10 +41,6 @@ class CiStatusInput(BaseModel):
         ge=1,
         description="Maximum edit hotspot results when included.",
     )
-    hotspot_scope_paths: list[str] | None = Field(
-        default=None,
-        description="Optional path-prefix filter for edit hotspots.",
-    )
     hotspot_cross_run: bool = Field(
         default=False,
         description="Query arbiter-backed cross-run contention history.",
@@ -570,7 +566,6 @@ async def _remote_query_symbols(
 async def ci_status(
     include_edit_hotspots: bool = True,
     hotspot_limit: int = 10,
-    hotspot_scope_paths: list[str] | None = None,
     hotspot_cross_run: bool = False,
     *,
     context: ToolExecutionContext,
@@ -585,7 +580,6 @@ async def ci_status(
             svc,
             context,
             limit=hotspot_limit,
-            scope_paths=hotspot_scope_paths,
             cross_run=hotspot_cross_run,
         )
     return ToolResult(output=json.dumps(status, indent=2, default=str))
@@ -1162,19 +1156,17 @@ def _edit_hotspots_payload(
     context: ToolExecutionContext,
     *,
     limit: int = 10,
-    scope_paths: list[str] | None = None,
     cross_run: bool = False,
 ) -> dict[str, Any]:
     """Return same-run or cross-run edit hotspot metadata for ci_status."""
     # Cross-run path: use arbiter-backed history for contention data.
     if cross_run:
         arbiter = context.metadata.get("arbiter") or (svc.arbiter if svc.arbiter else None)
-        team_run_id = str(context.metadata.get("team_run_id") or "") or None
+        run_id = str(context.metadata.get("run_id") or "") or None
         if arbiter is not None and getattr(arbiter, "initialized", False):
             hotspots = arbiter.contention_hotspots(
-                scope_prefixes=scope_paths or None,
                 limit=limit,
-                team_run_id=team_run_id,
+                run_id=run_id,
             )
             if hotspots:
                 return {
@@ -1195,22 +1187,12 @@ def _edit_hotspots_payload(
     if arbiter is None or not getattr(arbiter, "initialized", False):
         return {"hotspots": [], "note": "Arbiter history not available"}
 
-    # When scope filtering is needed, fetch a larger candidate set so that
-    # post-filter doesn't return empty when matching entries exist beyond
-    # the initial limit.
-    fetch_limit = limit * 5 if scope_paths else limit
     hotspots = arbiter.hotspots(
-        limit=fetch_limit,
-        team_run_id=str(context.metadata.get("team_run_id") or "") or None,
+        limit=limit,
+        run_id=str(context.metadata.get("run_id") or "") or None,
     )
     if not hotspots:
         return {"hotspots": [], "note": "No edit hotspots recorded"}
 
     items = [{"file": fp, "edit_count": count} for fp, count in hotspots]
-    if scope_paths:
-        items = [
-            item
-            for item in items
-            if any(item["file"].startswith(p.rstrip("/")) for p in scope_paths)
-        ]
     return {"hotspots": items[:limit]}

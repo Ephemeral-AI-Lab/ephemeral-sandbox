@@ -76,11 +76,11 @@ def _launch_subagent(
     delay: float = 10.0,
     coro=None,
 ):
-    """Launch a subagent-typed task (run_subagent / scout pattern)."""
+    """Launch a subagent-typed task."""
     return mgr.launch(
         task_id=task_id,
         tool_name="run_subagent",
-        tool_input={"agent_name": "scout"},
+        tool_input={"agent_name": "test_subagent"},
         coro=coro if coro is not None else _make_tool_coro(delay=delay),
         task_type="subagent",
     )
@@ -185,24 +185,23 @@ async def test_wait_any_returns_on_completion() -> None:
     assert elapsed < 1.0
 
 
-def test_record_tool_trace_dedupes_background_scout_launch_by_tool_use_id() -> None:
+def test_record_tool_trace_ignores_subagent_launches() -> None:
     meta = ExecutionMetadata()
 
     _record_tool_trace(
         meta,
         "run_subagent",
-        {"agent_name": "scout", "prompt": "explore pkg/core.py"},
+        {"agent_name": "test_subagent", "prompt": "explore pkg/core.py"},
         tool_use_id="toolu_1",
     )
     _record_tool_trace(
         meta,
         "run_subagent",
-        {"agent_name": "scout", "prompt": "explore pkg/core.py"},
+        {"agent_name": "test_subagent", "prompt": "explore pkg/core.py"},
         tool_use_id="toolu_1",
     )
 
-    assert meta["_scout_launches_this_turn"] == 1
-    assert meta["_scout_launch_order_by_tool_use_id"] == {"toolu_1": 1}
+    assert meta.extras == {}
 
 
 def test_record_tool_trace_counts_note_ci_and_daytona_reads() -> None:

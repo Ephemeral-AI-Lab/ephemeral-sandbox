@@ -8,17 +8,8 @@ from agents.types import AgentDefinition
 # Builtin definitions
 # ---------------------------------------------------------------------------
 
-# Names reserved for builtins loaded from ``backend/config/agents``.
-RESERVED_BUILTIN_AGENT_NAMES = frozenset(
-    {
-        "root_planner",
-        "team_planner",
-        "developer",
-        "validator",
-        "scout",
-        "team_replanner",
-    }
-)
+# No repository-bundled agent names are reserved by default.
+RESERVED_BUILTIN_AGENT_NAMES = frozenset()
 
 
 # ---------------------------------------------------------------------------

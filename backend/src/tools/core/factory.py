@@ -79,13 +79,9 @@ def _register_builtins() -> None:
     from tools.ci_toolkit import make_code_intelligence_tools
     from tools.daytona_toolkit import make_daytona_tools
     from tools.subagent import make_subagent_tool_from_context
-    from tools.submission import make_submission_tools
-    from tools.task_center import make_task_center_tools
 
     _register_many(make_daytona_tools())
     _register_many(make_code_intelligence_tools())
-    _register_many(make_task_center_tools())
-    _register_many(make_submission_tools())
     register_tool_factory("run_subagent", make_subagent_tool_from_context)
 
 

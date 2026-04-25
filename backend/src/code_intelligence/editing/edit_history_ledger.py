@@ -17,7 +17,7 @@ class EditRecord:
     """Durable-ish in-memory record of a file edit."""
 
     file_path: str
-    team_run_id: str = ""
+    run_id: str = ""
     agent_run_id: str = ""
     task_id: str = ""
     edit_type: str = "edit"
@@ -30,7 +30,7 @@ class EditRecord:
     def __repr__(self) -> str:
         return (
             f"<EditRecord {self.file_path!r} "
-            f"run={self.team_run_id!r} task={self.task_id!r} type={self.edit_type!r}>"
+            f"run={self.run_id!r} task={self.task_id!r} type={self.edit_type!r}>"
         )
 
 
@@ -53,7 +53,7 @@ class EditHistoryLedger:
     def record(
         self,
         *,
-        team_run_id: str,
+        run_id: str,
         file_path: str,
         agent_run_id: str = "",
         task_id: str = "",
@@ -64,7 +64,7 @@ class EditHistoryLedger:
     ) -> EditRecord:
         rec = EditRecord(
             id=self._next_id,
-            team_run_id=team_run_id,
+            run_id=run_id,
             file_path=file_path,
             agent_run_id=agent_run_id,
             task_id=task_id,
@@ -79,7 +79,7 @@ class EditHistoryLedger:
 
     def changes_in_scope(
         self,
-        team_run_id: str,
+        run_id: str,
         scope_prefixes: list[str],
         since: float,
     ) -> list[EditRecord]:
@@ -89,19 +89,19 @@ class EditHistoryLedger:
         normalized = [p.rstrip("/") for p in scope_prefixes]
         return [
             r for r in self._records
-            if r.team_run_id == team_run_id
+            if r.run_id == run_id
             and r.created_at > cutoff
             and any(r.file_path.startswith(prefix) for prefix in normalized)
         ]
 
     def external_changes_in_scope(
         self,
-        team_run_id: str,
+        run_id: str,
         scope_prefixes: list[str],
         since: float,
         exclude_run_id: str | None = None,
     ) -> list[EditRecord]:
-        changes = self.changes_in_scope(team_run_id, scope_prefixes, since)
+        changes = self.changes_in_scope(run_id, scope_prefixes, since)
         if exclude_run_id:
             changes = [c for c in changes if c.agent_run_id != exclude_run_id]
         return changes
@@ -109,53 +109,53 @@ class EditHistoryLedger:
     def changes_since(
         self,
         since: float,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[EditRecord]:
         cutoff = datetime.fromtimestamp(since, tz=timezone.utc)
         results = [r for r in self._records if r.created_at > cutoff]
-        if team_run_id is not None:
-            results = [r for r in results if r.team_run_id == team_run_id]
+        if run_id is not None:
+            results = [r for r in results if r.run_id == run_id]
         return results
 
     def recent_edits(
         self,
         seconds: float = 60.0,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[EditRecord]:
         since = time.time() - seconds
-        return self.changes_since(since, team_run_id=team_run_id)
+        return self.changes_since(since, run_id=run_id)
 
     def hotspots(
         self,
         limit: int = 10,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[tuple[str, int]]:
         records = self._records
-        if team_run_id is not None:
-            records = [r for r in records if r.team_run_id == team_run_id]
+        if run_id is not None:
+            records = [r for r in records if r.run_id == run_id]
         counter: Counter[str] = Counter(r.file_path for r in records)
         return counter.most_common(limit)
 
     def who_changed(
         self,
         file_path: str,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[EditRecord]:
         results = [r for r in self._records if r.file_path == file_path]
-        if team_run_id is not None:
-            results = [r for r in results if r.team_run_id == team_run_id]
+        if run_id is not None:
+            results = [r for r in results if r.run_id == run_id]
         return results
 
     def changes_by_agent_run(
         self,
-        team_run_id: str,
+        run_id: str,
         agent_run_id: str,
     ) -> list[EditRecord]:
         if not agent_run_id:
             return []
         return [
             r for r in self._records
-            if r.team_run_id == team_run_id and r.agent_run_id == agent_run_id
+            if r.run_id == run_id and r.agent_run_id == agent_run_id
         ]
 
     def contention_hotspots(
@@ -163,14 +163,14 @@ class EditHistoryLedger:
         scope_prefixes: list[str] | None = None,
         limit: int = 10,
         days: int = 7,
-        team_run_id: str | None = None,
+        run_id: str | None = None,
     ) -> list[ContentionHotspot]:
         cutoff = _utcnow() - timedelta(days=days)
         normalized = [p.rstrip("/") for p in (scope_prefixes or []) if p]
         scoped = [
             r for r in self._records
             if r.created_at > cutoff
-            and (team_run_id is None or r.team_run_id == team_run_id)
+            and (run_id is None or r.run_id == run_id)
             and (
                 not normalized
                 or any(r.file_path.startswith(prefix) for prefix in normalized)

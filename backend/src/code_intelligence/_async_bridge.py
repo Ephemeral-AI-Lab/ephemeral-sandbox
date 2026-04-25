@@ -27,7 +27,7 @@ Public surface:
 * :func:`current_sandbox_io_loop` — accessor (useful in tests).
 * :func:`configure_default_executor` — raise the default
   ``ThreadPoolExecutor`` size so bulk svc ops aren't capped at ~32
-  workers. Called once at team runtime startup.
+  workers. Called once at runtime startup.
 """
 
 from __future__ import annotations
@@ -215,7 +215,7 @@ def configure_default_executor(
 ) -> concurrent.futures.ThreadPoolExecutor:
     """Raise the event loop's default executor for bulk sandbox I/O.
 
-    Called once at team runtime startup. Python's default is
+    Called once at runtime startup. Python's default is
     ``min(32, (os.cpu_count() or 1) + 4)`` which throttles concurrent
     ``asyncio.to_thread`` dispatches when many tool calls fan out in
     parallel. The returned executor is also attached to *loop* (or the

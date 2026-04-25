@@ -39,7 +39,7 @@ def test_agent_system_prompt_ignores_declared_skills(monkeypatch) -> None:
         name="minimal",
         description="d",
         system_prompt="agent body",
-        skills=["team-planner-playbook"],
+        skills=["demo-skill"],
         include_skills=True,
     )
 
@@ -51,5 +51,4 @@ def test_agent_system_prompt_ignores_declared_skills(monkeypatch) -> None:
     )
 
     assert prompt == "agent body"
-
 

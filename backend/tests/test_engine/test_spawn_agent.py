@@ -19,7 +19,6 @@ from tools.core.factory import (
     has_tool,
     register_tool_factory,
 )
-from tools.submission import make_submission_tools
 
 
 class _EmptyInput(BaseModel):
@@ -128,23 +127,6 @@ def test_build_agent_tool_registry_skips_unknown_tools() -> None:
     registry = _build_agent_tool_registry(_make_config(), agent_def, None, "agent")
 
     assert registry.list_tools() == []
-
-
-def test_finalize_filters_submission_tools_to_terminal_set() -> None:
-    registry = ToolRegistry()
-    registry.register_many(make_submission_tools())
-
-    prompt, has_background = finalize_tool_registry_and_prompt(
-        registry,
-        "base",
-        terminal_tools={"submit_plan"},
-    )
-
-    assert has_background is False
-    assert registry.get("submit_plan") is not None
-    assert registry.get("submit_replan") is None
-    assert registry.get("submit_task_success") is None
-    assert "submit_plan" in prompt
 
 
 def test_finalize_adds_background_management_tools_for_background_capable_tool() -> None:

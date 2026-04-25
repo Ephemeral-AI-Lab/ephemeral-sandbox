@@ -72,12 +72,12 @@ def _register_model(client) -> dict:
     return resp.json()
 
 # ===========================================================================
-# Test: Model Registration and Config-backed Agent API
+# Test: Model Registration and Read-only Agent API
 # ===========================================================================
 
 
 class TestAnthropicNativeModelSetup:
-    """Tests model registration with config-backed agent definitions."""
+    """Tests model registration with read-only agent definition endpoints."""
 
     @pytest.fixture()
     def client(self, db_session_factory, tmp_path, monkeypatch):

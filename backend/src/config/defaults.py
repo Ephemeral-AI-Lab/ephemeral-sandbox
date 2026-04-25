@@ -8,22 +8,6 @@ overridden via Settings or environment variables.
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# Team Coordination Defaults
-# ---------------------------------------------------------------------------
-
-DEFAULT_TEAM_TOOL_CALL_LIMIT: int = 100
-OWNED_FAILURES_PREVIEW_LIMIT: int = 64
-
-# Default budget limits for team runs
-DEFAULT_MAX_TASKS: int = 50
-DEFAULT_MAX_DEPTH: int = 6
-DEFAULT_MAX_PLAN_SIZE: int = 50
-DEFAULT_MAX_REPLANS_PER_RUN: int = 25
-
-# Agent names that use team-safe (daytona_shell) execution instead of raw bash
-DEFAULT_TEAM_SAFE_AGENT_NAMES: frozenset[str] = frozenset({"developer", "validator"})
-
-# ---------------------------------------------------------------------------
 # Provider/Retry Defaults
 # ---------------------------------------------------------------------------
 

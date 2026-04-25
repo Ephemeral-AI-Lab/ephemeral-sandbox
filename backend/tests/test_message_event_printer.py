@@ -145,7 +145,7 @@ def test_printer_keeps_full_background_progress_notification_text() -> None:
     long_text = (
         'Background task_id="bg_1" status="running" source="engine_progress"\n'
         "Tool: run_subagent\n"
-        "Note: Scout pydantic/networks.py to understand URL and network type implementations\n"
+        "Note: Inspect pydantic/networks.py to understand URL and network type implementations\n"
         "Run ID: 84a5dde276554528\n"
         "Running for 19s\n"
         "No new output in the last 7s\n"
@@ -169,7 +169,7 @@ def test_printer_keeps_full_background_progress_notification_text() -> None:
         "[team_planner  ] [1a0578d4c4dd7f1f14dd] "
         '[system:background_progress] Background task_id="bg_1" status="running" source="engine_progress"',
         "[team_planner  ] [1a0578d4c4dd7f1f14dd] │ Tool: run_subagent",
-        "[team_planner  ] [1a0578d4c4dd7f1f14dd] │ Note: Scout pydantic/networks.py to understand URL and network type implementations",
+        "[team_planner  ] [1a0578d4c4dd7f1f14dd] │ Note: Inspect pydantic/networks.py to understand URL and network type implementations",
         "[team_planner  ] [1a0578d4c4dd7f1f14dd] │ Run ID: 84a5dde276554528",
         "[team_planner  ] [1a0578d4c4dd7f1f14dd] │ Running for 19s",
         "[team_planner  ] [1a0578d4c4dd7f1f14dd] │ No new output in the last 7s",

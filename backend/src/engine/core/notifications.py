@@ -20,38 +20,18 @@ if TYPE_CHECKING:
 
 
 def _budget_warning_steps(context: "QueryContext") -> str:
-    role = ""
-    if context.tool_metadata is not None:
-        role = str(context.tool_metadata.get("role", "") or "")
+    terminal_tools = ", ".join(sorted(context.terminal_tools)) or "the configured terminal tool"
 
-    if role == "planner":
-        return (
-            "1. Stop exploring and shaping new lanes immediately.\n"
-            "2. Call submit_plan() with the strongest plan you can defend right now. If the budget is nearly gone, submit_plan() is your next call."
-        )
-    if role == "replanner":
-        return (
-            "1. Stop reopening ownership questions immediately.\n"
-            "2. Call submit_replan() with the corrective action you can already justify. If the budget is nearly gone, submit_replan() is your next call."
-        )
-    if role == "reviewer":
-        return (
-            "1. Reserve one call for submit_task_success or request_replan; never spend the last tool call on daytona_shell, reads, diagnostics, or cleanup.\n"
-            "2. Run one final exact verification command (daytona_shell) only if you can still reserve the terminal submission call.\n"
-            "3. Call submit_task_success() for PASS with exact commands, exit codes, and diagnostics status, or request_replan() with exact evidence for FAILURE."
-        )
     remaining = context.tool_call_limit - context.tool_calls_used if context.tool_call_limit else 0
     if remaining <= 1:
         return (
-            "1. Use this last call for submit_task_success or request_replan.\n"
-            "2. If evidence is incomplete, diagnostics-only, red, absent, or invalid, call request_replan() with exact evidence.\n"
-            "3. Call submit_task_success() only when latest required verification is green and diagnostics are clean."
+            f"1. Use this last call for {terminal_tools}.\n"
+            "2. Do not spend the final call on more investigation, mutation, or cleanup."
         )
     return (
-        "1. Reserve one call for submit_task_success or request_replan; never spend the last tool call on daytona_shell, reads, diagnostics, or cleanup.\n"
+        f"1. Reserve one call for {terminal_tools}; never spend the last tool call on investigation, mutation, or cleanup.\n"
         "2. Continue only with a bounded known fix, required diagnostic, or exact verification that still leaves a terminal call.\n"
-        "3. If evidence is incomplete when only the terminal call remains, call request_replan() with exact evidence.\n"
-        "4. Call submit_task_success() only when latest required verification is green and diagnostics are clean."
+        "3. When only the terminal call remains, call the role-correct terminal tool with the best available evidence."
     )
 
 
@@ -89,8 +69,7 @@ def build_budget_warning(
         f"keep one call reserved for the role-correct terminal tool. "
         f"Prepare the terminal path while using any remaining safe calls deliberately:\n"
         f"{_budget_warning_steps(context)}\n"
-        f"Do not spend the final reserved call on non-terminal mutation or investigation. "
-        f"Once only the terminal call remains, partial or red work belongs in request_replan()."
+        f"Do not spend the final reserved call on non-terminal mutation or investigation."
     )
     return (
         ConversationMessage.from_user_text(text),

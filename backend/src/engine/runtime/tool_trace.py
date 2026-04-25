@@ -90,20 +90,4 @@ def record_tool_trace(
             _normalize_trace_paths(tool_input.get("file_path")),
         )
         return
-    if tool_name != "run_subagent" or tool_input.get("agent_name") != "scout":
-        return
-    current_launches = metadata.get("_scout_launches_this_turn", 0)
-    if tool_use_id:
-        seen_ids = _normalize_trace_paths(metadata.get("_scout_trace_tool_use_ids_this_turn", []))
-        if tool_use_id in seen_ids:
-            return
-        launch_order = int(current_launches) + 1 if isinstance(current_launches, (int, float)) else 1
-        seen_ids.append(tool_use_id)
-        if len(seen_ids) > _TOOL_TRACE_LIMIT:
-            seen_ids = seen_ids[-_TOOL_TRACE_LIMIT:]
-        metadata["_scout_trace_tool_use_ids_this_turn"] = seen_ids
-        launch_order_raw = metadata.get("_scout_launch_order_by_tool_use_id", {})
-        launch_order_map = launch_order_raw.copy() if isinstance(launch_order_raw, dict) else {}
-        launch_order_map[tool_use_id] = launch_order
-        metadata["_scout_launch_order_by_tool_use_id"] = launch_order_map
-    metadata["_scout_launches_this_turn"] = int(current_launches) + 1 if isinstance(current_launches, (int, float)) else 1
+    return

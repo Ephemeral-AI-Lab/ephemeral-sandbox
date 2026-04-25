@@ -52,10 +52,8 @@ class AgentDefinition(BaseModel):
     background: bool = False
     initial_prompt: str | None = None
 
-    # --- team role category ---
-    # Freeform tag used by team-mode validation and dispatch instead of
-    # hard-coded agent-name comparisons.  Canonical values: "planner",
-    # "developer", "reviewer", "explorer", "replanner".
+    # --- role metadata ---
+    # Optional freeform label for UI display and tool-factory context.
     role: str | None = None
 
     # --- metadata ---
@@ -69,14 +67,6 @@ class AgentDefinition(BaseModel):
     # Descriptive label kept for logging / UI. Engine behaviour is driven
     # by the explicit capability flags below, not by this string.
     agent_type: AgentType = "agent"
-
-    # --- team-mode work item kinds this agent is allowed to serve ---
-    # Values: "atomic", "expandable". Defaults to both so existing
-    # builtin agents remain compatible. Phase B validation rejects any
-    # TaskDefinition whose ``kind`` is not in the target agent's list.
-    supported_kinds: list[str] = Field(
-        default_factory=lambda: ["atomic", "expandable"]
-    )
 
     # Capability flags (authoritative for engine behaviour).
     # ``can_spawn_subagents`` gates registration of background management tools

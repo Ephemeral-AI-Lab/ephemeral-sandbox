@@ -112,7 +112,7 @@ class OverlayAuditor:
         timeout: int | None = None,
         description: str = "",
         agent_id: str = "",
-        team_run_id: str = "",
+        run_id: str = "",
         agent_run_id: str = "",
         task_id: str = "",
         stdin: str | None = None,
@@ -120,7 +120,7 @@ class OverlayAuditor:
         on_progress_line: Callable[[str], None] | None = None,
     ) -> SimpleNamespace:
         """Run *command* under overlay and return the downstream result shape."""
-        del team_run_id, agent_run_id, task_id  # reserved for ledger enrichment
+        del run_id, agent_run_id, task_id  # reserved for ledger enrichment
 
         async with self._semaphore:
             lease = self._new_lease()

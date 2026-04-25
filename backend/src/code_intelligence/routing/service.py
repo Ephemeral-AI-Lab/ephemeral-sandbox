@@ -34,9 +34,7 @@ from code_intelligence.routing.registry import (
     get_code_intelligence_if_exists,
 )
 from code_intelligence.routing.rename_planner import RenamePlanner
-from code_intelligence.routing.scope_status import build_scope_status
 from code_intelligence.routing.telemetry import build_status, build_telemetry
-from code_intelligence.tuning import CODE_INTELLIGENCE_TUNING
 
 __all__ = [
     "CodeIntelligenceService",
@@ -223,21 +221,6 @@ class CodeIntelligenceService:
 
     def undo_last_edit(self, file_path: str):
         return self._mutations.undo_last_edit(file_path)
-
-    def scope_status(
-        self,
-        scope_paths,
-        *,
-        team_run_id: str | None = None,
-        recent_seconds: float = CODE_INTELLIGENCE_TUNING.scope_recent_seconds,
-    ):
-        return build_scope_status(
-            arbiter=self.arbiter,
-            symbol_index=self.symbol_index,
-            scope_paths=scope_paths,
-            team_run_id=team_run_id,
-            recent_seconds=recent_seconds,
-        )
 
     def status(self):
         return build_status(

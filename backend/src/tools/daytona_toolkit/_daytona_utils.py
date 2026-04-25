@@ -9,11 +9,9 @@ import json
 import logging
 import re
 import shlex
-import time
 import uuid
 from typing import Any
 
-from config.defaults import DEFAULT_TEAM_SAFE_AGENT_NAMES
 from tools.core.base import ToolExecutionContext
 
 logger = logging.getLogger(__name__)
@@ -48,54 +46,6 @@ _TEST_FILE_SUFFIXES = (
     "-spec.py",
 )
 _REMOTE_WRITE_CHUNK_BYTES = 24 * 1024
-
-
-# ---------------------------------------------------------------------------
-# Coordination helpers
-# ---------------------------------------------------------------------------
-
-
-def is_coordinated_team_agent(context: ToolExecutionContext) -> bool:
-    """True when the current agent should use team coordination safeguards."""
-    agent_name = str(context.metadata.get("agent_name") or "").strip()
-    return agent_name in DEFAULT_TEAM_SAFE_AGENT_NAMES
-
-
-def record_coordination_warning(
-    context: ToolExecutionContext,
-    *,
-    category: str,
-    message: str,
-) -> None:
-    """Save one coordination warning in metadata."""
-    raw = context.metadata.get("coordination_warnings")
-    warnings: list[dict[str, Any]]
-    if isinstance(raw, list):
-        warnings = raw
-    else:
-        warnings = []
-        context.metadata["coordination_warnings"] = warnings
-
-    normalized_category = str(category or "").strip() or "coordination"
-    normalized_message = str(message or "").strip()
-    if not normalized_message:
-        return
-    for item in warnings:
-        if not isinstance(item, dict):
-            continue
-        if (
-            str(item.get("category") or "").strip() == normalized_category
-            and str(item.get("message") or "").strip() == normalized_message
-        ):
-            return
-    warnings.append(
-        {
-            "category": normalized_category,
-            "message": normalized_message,
-            "timestamp": time.time(),
-        }
-    )
-    context.metadata["coordination_warning_present"] = True
 
 
 # ---------------------------------------------------------------------------
@@ -363,11 +313,6 @@ def _extract_verify_paths(value: Any, repo_root: str) -> list[str]:
     return out
 
 
-# ---------------------------------------------------------------------------
-# Write-scope helpers
-# ---------------------------------------------------------------------------
-
-
 def _verification_surface_enforcement_mode(context: ToolExecutionContext) -> str:
     raw = (
         str(
@@ -381,28 +326,6 @@ def _verification_surface_enforcement_mode(context: ToolExecutionContext) -> str
     if raw in {"warn", "warning", "soft", "advisory"}:
         return "warn"
     return "error"
-
-
-def _normalize_write_scope(raw: Any, repo_root: str) -> list[str]:
-    """Normalize a ``write_scope`` list to repo-relative prefixes."""
-    if not isinstance(raw, list):
-        return []
-    out: list[str] = []
-    for item in raw:
-        if not isinstance(item, str):
-            continue
-        normed = _normalize_repo_relative_path(item.rstrip("/"), repo_root)
-        if normed:
-            out.append(normed)
-    return out
-
-
-def _path_under_write_scope(rel_path: str, write_scope: list[str]) -> bool:
-    """Return True if *rel_path* falls under any prefix in *write_scope*."""
-    for prefix in write_scope:
-        if rel_path == prefix or rel_path.startswith(prefix.rstrip("/") + "/"):
-            return True
-    return False
 
 
 def _metadata_flag_enabled(value: Any) -> bool:
@@ -439,175 +362,6 @@ def _is_test_file_path(rel_path: str) -> bool:
         or basename.endswith(_TEST_FILE_SUFFIXES)
         or ".test." in basename
         or ".spec." in basename
-    )
-
-
-def _write_scope_covers(context: ToolExecutionContext, file_path: str) -> bool:
-    """Return True if file_path is inside the current write_scope."""
-    repo_root = str(_get_repo_root(context) or "")
-    rel = _normalize_repo_relative_path(file_path, repo_root)
-    if not rel:
-        return True
-    scope = _normalize_write_scope(context.metadata.get("write_scope"), repo_root)
-    if not scope:
-        return True
-    return _path_under_write_scope(rel, scope)
-
-
-def _extend_write_scope(
-    context: ToolExecutionContext, file_path: str,
-) -> str | None:
-    """Add file_path to write_scope when needed."""
-    repo_root = str(_get_repo_root(context) or "")
-    rel = _normalize_repo_relative_path(file_path, repo_root)
-    if not rel:
-        return None
-    raw = context.metadata.get("write_scope")
-    if not isinstance(raw, list) or not raw:
-        return None
-    existing = _normalize_write_scope(raw, repo_root)
-    if _path_under_write_scope(rel, existing):
-        return None
-    context.metadata["write_scope"] = list(raw) + [rel]
-    return rel
-
-
-def _team_repo_write_error(
-    context: ToolExecutionContext,
-    file_path: str,
-    *,
-    tool_name: str,
-) -> str | None:
-    """Return a blocking error for forbidden team writes."""
-    if not is_coordinated_team_agent(context) or _test_file_edits_allowed(context):
-        return None
-    repo_root = str(_get_repo_root(context) or "")
-    rel_path = _normalize_repo_relative_path(file_path, repo_root)
-    if not rel_path or not _is_test_file_path(rel_path):
-        return None
-    return (
-        f"BLOCKED_TEST_FILE_EDIT: {tool_name} cannot modify test file {rel_path} "
-        "in coordinated team lanes. Test files are read/verify-only evidence; "
-        "fix the production owner instead. If this task genuinely requires a "
-        "test-file change, stop and request_replan("
-        "reason='test-file edit required: ...') so replanning can choose a production "
-        "owner, surface a tool-policy issue, or route to a runtime-authorized test-edit lane."
-    )
-
-
-def _team_repo_write_warning(
-    context: ToolExecutionContext,
-    file_path: str,
-    *,
-    tool_name: str,
-) -> str | None:
-    """Return an advisory warning for risky-but-allowed coordinated repo writes."""
-    if not is_coordinated_team_agent(context):
-        return None
-    repo_root = str(_get_repo_root(context) or "")
-    rel_path = _normalize_repo_relative_path(file_path, repo_root)
-    if not rel_path:
-        return None
-    write_scope = _normalize_write_scope(context.metadata.get("write_scope"), repo_root)
-    if not write_scope:
-        return None  # no write_scope set — unconstrained
-    if _path_under_write_scope(rel_path, write_scope):
-        return None
-    record_coordination_warning(
-        context,
-        category="outside_write_scope",
-        message=f"{tool_name}: {rel_path} outside {write_scope}",
-    )
-    warnings = context.metadata.get("coordination_warnings") or []
-    scope_warnings = sum(
-        1
-        for w in warnings
-        if isinstance(w, dict) and w.get("category") == "outside_write_scope"
-    )
-    if scope_warnings >= 3:
-        return (
-            f"{tool_name}: write to {rel_path} is outside write_scope {write_scope} (advisory). "
-            "You have 3+ outside-scope warnings. Stop now: your next tool call must be "
-            "request_replan() with trigger scope_expansion, including each out-of-scope path, "
-            "why it was needed, and the latest verification or diagnostic evidence."
-        )
-    agent_name = str(context.metadata.get("agent_name") or "").strip()
-    if agent_name == "developer":
-        return (
-            f"{tool_name}: write to {rel_path} is outside write_scope {write_scope} (advisory). "
-            "Developers may write or copy out-of-scope production files when the change is tied to "
-            "the assigned task. Treat this as a notification, verify the change, and include an "
-            "Out-of-scope mutation line with the path, rationale, and verification."
-        )
-    return (
-        f"{tool_name}: write to {rel_path} is outside write_scope {write_scope} (advisory). "
-        "Existing files outside scope are not an authorized edit surface for this task. "
-        "Stop editing and request_replan() with trigger scope_expansion, "
-        "including this path and the command or diagnostic that proved it was needed. "
-        "Only a new production file created through daytona_write_file may extend scope, and only when the posthook approves it."
-    )
-
-
-def _team_repo_scope_deny_errors(
-    context: ToolExecutionContext,
-    paths: list[str] | tuple[str, ...],
-    *,
-    tool_name: str,
-    include_test_file_blocks: bool = False,
-) -> list[tuple[str, str]]:
-    """Return policy errors for path lists before bulk delete/move operations.
-
-    Most callers need only write-scope denials. Folder operations can also ask
-    this helper to apply the coordinated test-file write block to expanded
-    member paths before the tool mutates the tree.
-    """
-    if not is_coordinated_team_agent(context):
-        return []
-    repo_root = str(_get_repo_root(context) or "")
-    write_scope = _normalize_write_scope(context.metadata.get("write_scope"), repo_root)
-    offenders: list[tuple[str, str]] = []
-    for path in paths:
-        rel_path = _normalize_repo_relative_path(path, repo_root)
-        if not rel_path:
-            continue
-        if include_test_file_blocks:
-            test_file_error = _team_repo_write_error(
-                context,
-                path,
-                tool_name=tool_name,
-            )
-            if test_file_error is not None:
-                offenders.append((path, test_file_error))
-                continue
-        if not write_scope:
-            continue
-        if _is_test_file_path(rel_path) and not _test_file_edits_allowed(context):
-            continue
-        if _path_under_write_scope(rel_path, write_scope):
-            continue
-        offenders.append(
-            (
-                path,
-                f"{tool_name}: {rel_path} is outside write_scope {write_scope}",
-            )
-        )
-    return offenders
-
-
-def _scope_deny_message(
-    offenders: list[tuple[str, str]],
-    *,
-    tool_name: str,
-    role: str | None = None,
-) -> str:
-    """Format a write-scope block message."""
-    header = f"{tool_name} blocked by write-scope policy"
-    if role:
-        header += f" on {role}"
-    lines = "\n  - ".join(f"{path}: {msg}" for path, msg in offenders)
-    return (
-        f"{header}:\n  - {lines}\n"
-        "Stop now: your next tool call must be request_replan()."
     )
 
 

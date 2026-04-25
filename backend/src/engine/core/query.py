@@ -11,7 +11,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from code_intelligence.editing.change_labels import change_actor_label
 from providers.types import (
     ApiCancelEvent,
     ApiMessageCompleteEvent,
@@ -22,12 +21,11 @@ from providers.types import (
     SupportsStreamingMessages,
     UsageSnapshot,
 )
-from message.messages import ConversationMessage, SystemReminderBlock, ToolResultBlock, ToolUseBlock
+from message.messages import ConversationMessage, ToolResultBlock, ToolUseBlock
 from message.stream_events import (
     AssistantTextDelta,
     AssistantTurnComplete,
     StreamEvent,
-    SystemNotification,
     ThinkingDelta,
     ToolExecutionCancelled,
     ToolExecutionCompleted,
@@ -42,7 +40,6 @@ from engine.runtime.background_tasks import (
     deliver_completed_background_task,
 )
 from prompt.prompt_report_recorder import PromptReportRecorder
-from team.core.scope import scope_paths_overlap
 from tools.core.base import (
     ExecutionMetadata,
     ToolExecutionContext,
@@ -102,7 +99,7 @@ def build_terminal_nudge_text(terminal_tools: Iterable[str], attempt: int) -> st
     tool_list = ", ".join(sorted(terminal_tools))
     return (
         "[terminal-tool reminder] Your previous turn ended without a terminal tool. "
-        "Your next assistant message must contain exactly one terminal submission "
+        "Your next assistant message must contain exactly one terminal "
         f"tool call: {tool_list}. Do not call non-terminal tools or add narration. "
         "If a terminal payload was rejected, fix only the reported schema issue "
         "and resubmit. "
@@ -134,110 +131,6 @@ def _should_defer_stream_tool_dispatch(
     return _defer
 
 # ---------------------------------------------------------------------------
-# Scope-change auto-check
-# ---------------------------------------------------------------------------
-
-SCOPE_CHANGE_CATEGORY = "scope_change"
-SCOPE_CHANGE_SUPERSEDED = "scope_change_superseded"
-
-_MIN_TURNS_BETWEEN_NOTIFICATIONS = 1
-
-
-def _scope_change_auto_check(
-    metadata: ExecutionMetadata,
-    display_messages: list[ConversationMessage],
-) -> str | None:
-    """Check arbiter history for scope changes by other agents.
-
-    Called at the top of each query loop turn. Returns notification text
-    when changes are found (and the turn-gate allows), otherwise None.
-    Uses a pull from current arbiter history.
-    """
-    arbiter = metadata.get("arbiter")
-    if arbiter is None or not getattr(arbiter, "initialized", False):
-        return None
-
-    scope_paths = metadata.get("write_scope") or []
-    if not scope_paths:
-        return None
-
-    agent_run_id = metadata.get("agent_run_id", "")
-
-    # Turn-gating state
-    turn_state = metadata.extras.setdefault(
-        "_scope_change_turn_state",
-        {"turns_since_last_notification": 0},
-    )
-    turn_state["turns_since_last_notification"] += 1
-
-    if turn_state["turns_since_last_notification"] < _MIN_TURNS_BETWEEN_NOTIFICATIONS:
-        return None
-
-    # Use the most recent baseline: auto-check or task start
-    since = max(
-        float(metadata.get("_scope_change_checked_at") or 0),
-        float(metadata.get("work_item_started_at") or 0),
-    )
-
-    changes = arbiter.changes_since(
-        since,
-        team_run_id=str(metadata.get("team_run_id") or "") or None,
-    )
-    # Filter to scope and exclude self
-    relevant = [
-        c for c in changes
-        if c.agent_run_id != agent_run_id
-        and any(scope_paths_overlap(c.file_path, p) for p in scope_paths)
-    ]
-
-    if not relevant:
-        return None
-
-    # Build notification text with per-file detail
-    lines = [
-        f"- {c.file_path} ({c.edit_type} by {change_actor_label(c)})"
-        for c in relevant
-    ]
-    text = (
-        "Files in your scope were edited by other agents. "
-        "Re-read before editing:\n" + "\n".join(lines)
-    )
-
-    # Mark previous scope_change notification as superseded for compaction
-    last_idx = metadata.extras.get("_scope_change_last_msg_idx")
-    if last_idx is not None:
-        try:
-            old_msg = display_messages[last_idx]
-            if (
-                old_msg.content
-                and hasattr(old_msg.content[0], "category")
-                and old_msg.content[0].category == SCOPE_CHANGE_CATEGORY
-            ):
-                old_msg.content[0].category = SCOPE_CHANGE_SUPERSEDED
-        except (IndexError, AttributeError):
-            pass  # display_messages may have been compacted
-
-    metadata.extras["_scope_change_last_msg_idx"] = len(display_messages)
-    display_messages.append(
-        ConversationMessage(
-            role="user",
-            content=[SystemReminderBlock(category=SCOPE_CHANGE_CATEGORY, text=text)],
-        )
-    )
-
-    # Update baseline and reset turn counter
-    import time
-    metadata["_scope_change_checked_at"] = time.time()
-    turn_state["turns_since_last_notification"] = 0
-
-    logger.info(
-        "[scope_auto_check] injected %d file change(s) into agent context",
-        len(relevant),
-    )
-    return text
-
-
-# ---------------------------------------------------------------------------
 # Query loop
 # ---------------------------------------------------------------------------
 
@@ -250,8 +143,6 @@ def _prompt_report_recorder(context: QueryContext) -> PromptReportRecorder:
         metadata.get("prompt_report_messages_path") if metadata is not None else None,
         base_event=(
             {
-                "team_run_id": metadata.get("team_run_id"),
-                "work_item_id": metadata.get("work_item_id"),
                 "agent_run_id": metadata.get("agent_run_id"),
                 "agent": context.agent_name or metadata.get("agent_name"),
                 "model": context.model,
@@ -320,11 +211,6 @@ async def _run_query_loop(
                 reminder_event = append_and_emit_reminder(background_manager, display_messages)
                 if reminder_event is not None:
                     yield reminder_event, None
-
-        if context.tool_metadata is not None:
-            scope_notification = _scope_change_auto_check(context.tool_metadata, display_messages)
-            if scope_notification is not None:
-                yield SystemNotification(text=scope_notification, category="scope_change"), None
 
         if context.on_turn is not None:
             try:
@@ -706,7 +592,7 @@ async def _run_query_loop(
             }
         )
 
-        # Check for a successful terminal tool. A rejected terminal submission
+        # Check for a successful terminal tool. A rejected terminal call
         # is feedback for the next model turn, not a completed terminal result.
         if _successful_terminal_tool_called(
             context.terminal_tools,

@@ -119,7 +119,7 @@ class DaytonaDeleteFileOutput(BaseModel):
     )
     warnings: list[str] = Field(
         default_factory=list,
-        description="Advisory warnings (e.g., files outside write_scope).",
+        description="Advisory warnings emitted by platform hooks.",
     )
     conflict_reason: str | None = Field(
         default=None,
@@ -239,7 +239,7 @@ class DaytonaMoveFileOutput(BaseModel):
     )
     warnings: list[str] = Field(
         default_factory=list,
-        description="Advisory warnings (e.g., files outside write_scope).",
+        description="Advisory warnings emitted by platform hooks.",
     )
     conflict_reason: str | None = Field(
         default=None,

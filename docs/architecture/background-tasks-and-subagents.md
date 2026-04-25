@@ -225,7 +225,7 @@ Unlike ephemeral agents (one-shot snapshots), subagents have a complete task loo
 
 ### Control Flow for Subagents
 
-1. **Parent decision**: LLM emits `run_subagent(agent_name="scout", ...)` block
+1. **Parent decision**: LLM emits a `run_subagent(...)` block for a configured subagent
 2. **Dispatch**: `launch_background_tool()` wraps it and calls `asyncio.create_task()`
 3. **Immediate return**: Parent gets task_id and system message `[BACKGROUND LAUNCHED] task_id="bg_2"`
 4. **Execution**: Subagent runs its own query loop asynchronously
