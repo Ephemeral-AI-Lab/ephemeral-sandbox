@@ -51,13 +51,11 @@ def test_schema_summary_prints_live_input_and_output_models(tmp_path):
     assert "Tool: submit_plan" not in summary
     assert "Tool: submit_replan" not in summary
 
-    # New phased executor-evaluator tree submission/accessor tools.
+    # Executor-evaluator tree submission tools.
     assert "Tool: submit_task_completion" in summary
     assert "Tool: submit_full_plan_handoff" in summary
     assert "Tool: submit_partial_plan_handoff" in summary
     assert "Tool: submit_continue_to_work" in summary
-    assert "Tool: read_task_details" in summary
-    assert "Tool: read_task_graph" in summary
 
 
 def test_schema_summary_has_input_and_output_section_for_every_tool(tmp_path):

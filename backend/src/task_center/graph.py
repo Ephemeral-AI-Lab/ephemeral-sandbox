@@ -1,8 +1,7 @@
 """TaskGraph — in-memory container for the per-session task tree.
 
 Holds the ``{task_id: Task}`` map and exposes the orchestrator-facing
-operations: insertion, lookup, children traversal, readiness check,
-status transitions, and final-phase-passed check for evaluator launch.
+operations: insertion, lookup, readiness check, and status transitions.
 """
 
 from __future__ import annotations
@@ -49,10 +48,6 @@ class TaskGraph:
             raise TaskCenterError(f"task id {task_id!r} not in graph")
         return task
 
-    def children_of(self, task_id: TaskId) -> list[Task]:
-        parent = self.get(task_id)
-        return [self.tasks[cid] for cid in parent.children if cid in self.tasks]
-
     # ------------------------------------------------------------------ #
     # Readiness                                                          #
     # ------------------------------------------------------------------ #
@@ -91,21 +86,3 @@ class TaskGraph:
                 f"{new_status.value!r} for task {task_id!r}"
             )
         task.status = new_status
-
-    # ------------------------------------------------------------------ #
-    # Evaluator launch gate                                              #
-    # ------------------------------------------------------------------ #
-
-    def all_final_phase_passed(self, parent_executor_id: TaskId) -> bool:
-        """True iff every direct child of ``parent_executor_id`` whose phase
-        equals the maximum phase has status DONE.
-        """
-        children = self.children_of(parent_executor_id)
-        if not children:
-            return False
-        phased = [c for c in children if c.phase is not None]
-        if not phased:
-            return False
-        max_phase = max(c.phase for c in phased)  # type: ignore[type-var]
-        final_phase_children = [c for c in phased if c.phase == max_phase]
-        return all(c.status is Status.DONE for c in final_phase_children)

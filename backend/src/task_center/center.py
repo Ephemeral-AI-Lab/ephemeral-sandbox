@@ -1,4 +1,4 @@
-"""TaskCenter — per-session orchestrator for the phased executor-evaluator tree.
+"""TaskCenter — per-session orchestrator for the executor-evaluator tree.
 
 All user queries route through ``TaskCenter.run_query``. The class owns:
 
@@ -16,9 +16,9 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from task_center.dag import compile_dag, sinks
 from task_center.errors import TaskCenterError
 from task_center.graph import TaskGraph
-from task_center.phases import compile_phases
 from task_center.propagation import close_with_summary
 from task_center.task import Status, Task, TaskId
 
@@ -68,7 +68,7 @@ class TaskCenter:
 
     @property
     def graph(self) -> TaskGraph:
-        """Read-mostly access to the task graph (also used by accessor tools)."""
+        """Read-mostly access to the task graph."""
         return self._graph
 
     def _new_id(self) -> TaskId:
@@ -105,40 +105,38 @@ class TaskCenter:
     def submit_full_handoff(
         self,
         executor_id: TaskId,
-        phases: list[list[dict[str, Any]]],
+        tasks: list[dict[str, Any]],
         task_specs: dict[str, dict[str, Any]],
         acceptance_criteria: str,
     ) -> None:
-        """Validate phases, materialize child tasks + evaluator, mark parent AWAITING."""
-        deps = compile_phases(phases, task_specs)
+        """Validate plan, materialize child tasks + evaluator, mark parent AWAITING."""
+        deps = compile_dag(tasks, task_specs)
 
         parent = self._graph.get(executor_id)
         parent.acceptance_criteria = acceptance_criteria
 
-        # Materialize child executor tasks. Phase 1 entries have empty deps
-        # (so they're ready immediately); later phases stay PENDING until
-        # their deps reach DONE.
-        for phase_idx, phase in enumerate(phases, start=1):
-            for entry in phase:
-                tid = entry["id"]
-                spec = task_specs[tid]
-                child_status = Status.READY if not deps[tid] else Status.PENDING
-                child = Task(
-                    id=tid,
-                    role="executor",
-                    title=spec["title"],
-                    spec=spec["spec"],
-                    status=child_status,
-                    parent_id=executor_id,
-                    needs=deps[tid],
-                    phase=phase_idx,
-                    closes_for=None,
-                )
-                self._graph.add(child)
-                parent.children.append(tid)
+        # Materialize child executor tasks. Tasks with no deps are READY
+        # immediately; the rest stay PENDING until their direct deps are DONE.
+        for entry in tasks:
+            tid = entry["id"]
+            spec = task_specs[tid]
+            child_status = Status.READY if not deps[tid] else Status.PENDING
+            child = Task(
+                id=tid,
+                role="executor",
+                title=spec["title"],
+                spec=spec["spec"],
+                status=child_status,
+                parent_id=executor_id,
+                needs=deps[tid],
+                closes_for=None,
+            )
+            self._graph.add(child)
+            parent.children.append(tid)
 
-        # The single final evaluator depends on every task in the final phase.
-        final_phase_ids = frozenset(entry["id"] for entry in phases[-1])
+        # Evaluator depends on the DAG sinks. When all sinks are DONE, every
+        # ancestor is necessarily DONE — i.e. all children completed.
+        sink_ids = sinks(deps)
         eval_id = f"{executor_id}-eval"
         evaluator = Task(
             id=eval_id,
@@ -146,12 +144,12 @@ class TaskCenter:
             title=f"Evaluator for {executor_id}",
             spec=(
                 "Validate the parent task's acceptance_criteria against direct "
-                "child summaries. Use read_task_details and read_task_graph."
+                "child summaries."
             ),
             status=Status.PENDING,
             parent_id=executor_id,
             closes_for=executor_id,
-            needs=final_phase_ids,
+            needs=sink_ids,
             acceptance_criteria=acceptance_criteria,
             subtree_kind="handoff",
         )
@@ -165,13 +163,13 @@ class TaskCenter:
     def submit_partial_handoff(
         self,
         executor_id: TaskId,
-        phases: list[list[dict[str, Any]]],
+        tasks: list[dict[str, Any]],
         task_specs: dict[str, dict[str, Any]],
         acceptance_criteria: str,
         handoff_note: str,
     ) -> None:
         """Same as full handoff, plus stash handoff_note on the evaluator."""
-        self.submit_full_handoff(executor_id, phases, task_specs, acceptance_criteria)
+        self.submit_full_handoff(executor_id, tasks, task_specs, acceptance_criteria)
         eval_id = f"{executor_id}-eval"
         self._graph.get(eval_id).handoff_note = handoff_note
         self._graph.get(executor_id).handoff_note = handoff_note
@@ -190,8 +188,7 @@ class TaskCenter:
             role="executor",
             title=f"Continuation under {evaluator_id}",
             spec=(
-                "Continue the parent task. Read the evaluator's continuation summary "
-                "via read_task_details and address the gap.\n\n"
+                "Continue the parent task and address the evaluator's gap.\n\n"
                 f"Continuation summary:\n{summary}"
             ),
             status=Status.READY,

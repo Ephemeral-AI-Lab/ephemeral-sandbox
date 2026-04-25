@@ -1,4 +1,4 @@
-"""Production ``SpawnFunc`` that drives a real EphemeralAgent per task.
+"""TaskCenter ``SpawnFunc`` adapter that drives a real EphemeralAgent per task.
 
 The dispatcher in :mod:`task_center.center` calls
 ``spawn_func(task_id, tc, sandbox_id)`` for each ``READY`` task. In production
@@ -32,6 +32,7 @@ def make_production_spawn(
     async def spawn(task_id: str, tc: "TaskCenter", sandbox_id: str | None) -> None:
         from agents.registry import get_definition
         from server.routers.core import execute_ephemeral_agent_run
+        from task_center.context import build_task_prompt
         from task_center.errors import TaskCenterError
         from tools.core.base import ExecutionMetadata
 
@@ -51,7 +52,7 @@ def make_production_spawn(
         try:
             await execute_ephemeral_agent_run(
                 session_config,
-                task.spec,
+                build_task_prompt(task, tc.graph),
                 on_agent_event=tc._emit_event,
                 agent_def=agent_def,
                 sandbox_id=sandbox_id,
@@ -59,7 +60,7 @@ def make_production_spawn(
                 extra_tool_metadata=meta,
             )
         except Exception:
-            logger.exception("production spawn: agent for %r crashed", task_id)
+            logger.exception("agent spawn: agent for %r crashed", task_id)
             raise
 
     return spawn

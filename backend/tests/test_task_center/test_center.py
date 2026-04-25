@@ -53,11 +53,12 @@ async def test_trivial_task_closes_with_summary() -> None:
 
 @pytest.mark.asyncio
 async def test_full_handoff_happy_path() -> None:
-    """Root submits 2-phase plan; evaluator runs once and closes the root."""
+    """Root submits a DAG plan; evaluator runs once and closes the root."""
 
-    phases = [
-        [{"id": "p1a"}, {"id": "p1b"}],
-        [{"id": "p2"}],
+    tasks = [
+        {"id": "p1a"},
+        {"id": "p1b"},
+        {"id": "p2", "deps": ["p1a", "p1b"]},
     ]
     specs = {
         "p1a": {"title": "P1A", "spec": "..."},
@@ -66,7 +67,7 @@ async def test_full_handoff_happy_path() -> None:
     }
 
     async def root_action(tc, tid):
-        tc.submit_full_handoff(tid, phases, specs, "Both children produce evidence.")
+        tc.submit_full_handoff(tid, tasks, specs, "Both children produce evidence.")
 
     async def child_done(tc, tid):
         tc.submit_task_completion(tid, f"done {tid}")
@@ -82,7 +83,7 @@ async def test_full_handoff_happy_path() -> None:
         "t1-eval": eval_action,
     }
     tc = TaskCenter(spawn_func=_scripted_spawn(scripts))
-    root = await tc.run_query("Do a 2-phase task.")
+    root = await tc.run_query("Do a DAG task.")
 
     assert root.status is Status.DONE
     assert root.summary == "all criteria satisfied"
@@ -100,11 +101,11 @@ async def test_full_handoff_happy_path() -> None:
 async def test_continue_to_work_propagates_through_evaluator() -> None:
     """Evaluator calls submit_continue_to_work; continuation closes the chain."""
 
-    phases = [[{"id": "p1"}]]
+    tasks = [{"id": "p1"}]
     specs = {"p1": {"title": "P1", "spec": "..."}}
 
     async def root_action(tc, tid):
-        tc.submit_full_handoff(tid, phases, specs, "ac")
+        tc.submit_full_handoff(tid, tasks, specs, "ac")
 
     async def p1_action(tc, tid):
         tc.submit_task_completion(tid, "done p1")
@@ -145,19 +146,19 @@ async def test_continue_to_work_propagates_through_evaluator() -> None:
 async def test_recursive_opacity_parent_only_sees_direct_children() -> None:
     """A child's nested handoff stays opaque to the parent's evaluator."""
 
-    phases_root = [[{"id": "a"}, {"id": "b"}]]
+    tasks_root = [{"id": "a"}, {"id": "b"}]
     specs_root = {
         "a": {"title": "A", "spec": "..."},
         "b": {"title": "B", "spec": "..."},
     }
-    phases_a = [[{"id": "a1"}]]
+    tasks_a = [{"id": "a1"}]
     specs_a = {"a1": {"title": "A1", "spec": "..."}}
 
     async def root_action(tc, tid):
-        tc.submit_full_handoff(tid, phases_root, specs_root, "ac")
+        tc.submit_full_handoff(tid, tasks_root, specs_root, "ac")
 
     async def a_action(tc, tid):
-        tc.submit_full_handoff(tid, phases_a, specs_a, "a's ac")
+        tc.submit_full_handoff(tid, tasks_a, specs_a, "a's ac")
 
     async def b_action(tc, tid):
         tc.submit_task_completion(tid, "b done")
@@ -183,8 +184,7 @@ async def test_recursive_opacity_parent_only_sees_direct_children() -> None:
     assert root.status is Status.DONE
 
     # The parent's direct children are exactly {a, b, t1-eval}, never a1 or a-eval.
-    direct_kids = tc.graph.children_of("t1")
-    direct_ids = {c.id for c in direct_kids}
+    direct_ids = set(tc.graph.get("t1").children)
     assert direct_ids == {"a", "b", "t1-eval"}
     # a's nested children are not in t1's children list.
     assert "a1" not in direct_ids
@@ -197,15 +197,14 @@ async def test_recursive_opacity_parent_only_sees_direct_children() -> None:
 
 
 @pytest.mark.asyncio
-async def test_skip_back_pipelining_launches_phase3_while_phase2_runs() -> None:
-    """Phase-3 task with needs=[phase_1_id] launches as soon as that phase-1
-    task is DONE — even though a phase-2 sibling is still RUNNING.
-    """
+async def test_dag_pipelining_launches_unblocked_task_while_sibling_runs() -> None:
+    """Task d launches as soon as dependency a is DONE while sibling b runs."""
 
-    phases = [
-        [{"id": "a"}, {"id": "b"}],
-        [{"id": "c"}],
-        [{"id": "d", "needs": ["a"]}],
+    tasks = [
+        {"id": "a"},
+        {"id": "b"},
+        {"id": "c", "deps": ["a", "b"]},
+        {"id": "d", "deps": ["a"]},
     ]
     specs = {tid: {"title": tid, "spec": "..."} for tid in ("a", "b", "c", "d")}
 
@@ -214,7 +213,7 @@ async def test_skip_back_pipelining_launches_phase3_while_phase2_runs() -> None:
     d_observed: dict[str, str] = {}
 
     async def root_action(tc, tid):
-        tc.submit_full_handoff(tid, phases, specs, "ac")
+        tc.submit_full_handoff(tid, tasks, specs, "ac")
 
     async def a_action(tc, tid):
         tc.submit_task_completion(tid, "a done")
@@ -229,8 +228,8 @@ async def test_skip_back_pipelining_launches_phase3_while_phase2_runs() -> None:
         tc.submit_task_completion(tid, "c done")
 
     async def d_action(tc, tid):
-        # When d gets to run, b should still be RUNNING (skip-back proves that
-        # d does not wait on unrelated phase-2 siblings).
+        # When d gets to run, b should still be RUNNING; d does not wait on
+        # unrelated sibling tasks.
         d_observed["b_status"] = tc.graph.get("b").status.value
         d_observed["c_status"] = tc.graph.get("c").status.value
         tc.submit_task_completion(tid, "d done")
@@ -250,15 +249,14 @@ async def test_skip_back_pipelining_launches_phase3_while_phase2_runs() -> None:
         "t1-eval": eval_action,
     }
     tc = TaskCenter(spawn_func=_scripted_spawn(scripts))
-    root = await tc.run_query("skip-back scenario")
+    root = await tc.run_query("DAG pipelining scenario")
 
     assert root.status is Status.DONE
-    # When d ran, b had not yet completed (skip-back proved).
+    # When d ran, b had not yet completed.
     # b was either RUNNING or PENDING depending on dispatcher timing — but
     # crucially NOT DONE when d started.
     assert d_observed["b_status"] != "done"
-    # c (phase 2) which needs both a and b implicitly — c had not yet started
-    # (still PENDING because b not DONE) or was waiting.
+    # c needs both a and b, so it had not yet started or was waiting.
     assert d_observed["c_status"] in ("pending", "running")
 
 
@@ -286,11 +284,11 @@ async def test_agent_without_terminal_call_is_marked_failed() -> None:
 async def test_child_failure_fails_whole_team_run() -> None:
     """Any child failure closes the active root as FAILED instead of hanging."""
 
-    phases = [[{"id": "child"}]]
+    tasks = [{"id": "child"}]
     specs = {"child": {"title": "Child", "spec": "..."}}
 
     async def root_action(tc, tid):
-        tc.submit_full_handoff(tid, phases, specs, "child must succeed")
+        tc.submit_full_handoff(tid, tasks, specs, "child must succeed")
 
     async def child_returns_without_terminal(tc, tid):
         del tc, tid
@@ -330,11 +328,11 @@ async def test_run_query_passes_sandbox_id_to_spawned_tasks() -> None:
 
 @pytest.mark.asyncio
 async def test_each_query_gets_fresh_graph_for_agent_supplied_child_ids() -> None:
-    phases = [[{"id": "a"}]]
+    tasks = [{"id": "a"}]
     specs = {"a": {"title": "A", "spec": "..."}}
 
     async def root_action(tc, tid):
-        tc.submit_full_handoff(tid, phases, specs, "a completes")
+        tc.submit_full_handoff(tid, tasks, specs, "a completes")
 
     async def child_action(tc, tid):
         tc.submit_task_completion(tid, "a done")

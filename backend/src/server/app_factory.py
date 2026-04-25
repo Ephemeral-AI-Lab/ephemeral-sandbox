@@ -135,10 +135,10 @@ class SessionState:
             register_definition(defn)
             logger.info("Registered agent definition %r", defn.name)
 
-        # Build the per-session TaskCenter with a production spawn function
-        # that drives a real EphemeralAgent for each task.
+        # Build the per-session TaskCenter with a spawn function that drives a
+        # real EphemeralAgent for each task.
         from task_center.center import TaskCenter
-        from task_center.production_spawn import make_production_spawn
+        from task_center.agent_spawn import make_production_spawn
 
         spawn_fn = make_production_spawn(self.config)
         self.task_center = TaskCenter(self.config, spawn_func=spawn_fn)

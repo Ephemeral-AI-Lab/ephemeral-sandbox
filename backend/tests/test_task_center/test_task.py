@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from task_center import (
-    PhaseValidationError,
+    PlanValidationError,
     Status,
     Task,
     TaskCenterError,
@@ -37,7 +37,6 @@ def test_task_constructs_with_minimum_fields() -> None:
     assert task.parent_id is None
     assert task.closes_for is None
     assert task.needs == frozenset()
-    assert task.phase is None
     assert task.acceptance_criteria is None
     assert task.handoff_note is None
     assert task.summary is None
@@ -110,5 +109,5 @@ def test_other_fields_remain_mutable() -> None:
 
 
 def test_error_hierarchy() -> None:
-    assert issubclass(PhaseValidationError, TaskCenterError)
+    assert issubclass(PlanValidationError, TaskCenterError)
     assert issubclass(TaskCenterError, Exception)

@@ -1,4 +1,4 @@
-"""Terminal tool: executor hands off a partial phased plan with handoff_note."""
+"""Terminal tool: executor hands off a partial DAG plan with handoff_note."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import Field
 
-from task_center.errors import PhaseValidationError
+from task_center.errors import PlanValidationError
 from tools.core.base import ToolExecutionContext, ToolResult
 from tools.core.decorator import tool
 from tools.submission._models import SubmissionOutput
@@ -18,7 +18,7 @@ class PartialPlanHandoffInput(FullPlanHandoffInput):
         ...,
         min_length=1,
         description=(
-            "Required explanation of: what the phased plan covers, what remains "
+            "Required explanation of: what the plan covers, what remains "
             "uncertain, which parts of acceptance_criteria may stay unsatisfied, "
             "and what evidence the evaluator should inspect."
         ),
@@ -28,7 +28,7 @@ class PartialPlanHandoffInput(FullPlanHandoffInput):
 @tool(
     name="submit_partial_plan_handoff",
     description=(
-        "Terminal: hand off useful phased work that does NOT fully cover the "
+        "Terminal: hand off useful DAG work that does NOT fully cover the "
         "acceptance_criteria. handoff_note is required; the evaluator reads it "
         "before deciding whether to complete or continue."
     ),
@@ -36,7 +36,7 @@ class PartialPlanHandoffInput(FullPlanHandoffInput):
     output_model=SubmissionOutput,
 )
 async def submit_partial_plan_handoff(
-    phases: list[list[dict[str, Any]]],
+    tasks: list[dict[str, Any]],
     task_specs: dict[str, dict[str, Any]],
     acceptance_criteria: str,
     handoff_note: str,
@@ -52,8 +52,8 @@ async def submit_partial_plan_handoff(
         )
     try:
         tc.submit_partial_handoff(
-            task_id, phases, task_specs, acceptance_criteria, handoff_note
+            task_id, tasks, task_specs, acceptance_criteria, handoff_note
         )
-    except PhaseValidationError as exc:
+    except PlanValidationError as exc:
         return ToolResult(output=f"plan rejected: {exc}", is_error=True)
     return ToolResult(output="accepted")

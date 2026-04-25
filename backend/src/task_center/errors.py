@@ -7,7 +7,5 @@ class TaskCenterError(Exception):
     """Base class for all task_center errors."""
 
 
-class PhaseValidationError(TaskCenterError):
-    """Raised by ``compile_phases`` when an executor's submitted phased plan
-    fails validation.
-    """
+class PlanValidationError(TaskCenterError):
+    """Raised by ``compile_dag`` when an executor's submitted plan fails validation."""

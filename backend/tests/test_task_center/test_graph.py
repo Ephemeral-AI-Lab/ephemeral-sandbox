@@ -9,7 +9,7 @@ from task_center.graph import TaskGraph
 
 
 def _t(id_: str, *, role: str = "executor", status: Status = Status.PENDING,
-       needs: frozenset[str] | None = None, phase: int | None = None,
+       needs: frozenset[str] | None = None,
        parent_id: str | None = None, closes_for: str | None = None,
        children: list[str] | None = None) -> Task:
     return Task(
@@ -19,7 +19,6 @@ def _t(id_: str, *, role: str = "executor", status: Status = Status.PENDING,
         spec="...",
         status=status,
         needs=needs or frozenset(),
-        phase=phase,
         parent_id=parent_id,
         closes_for=closes_for,
         children=list(children or []),
@@ -44,17 +43,6 @@ def test_get_missing_raises() -> None:
     g = TaskGraph()
     with pytest.raises(TaskCenterError, match="not in graph"):
         g.get("ghost")
-
-
-def test_children_of_returns_direct_children_only() -> None:
-    g = TaskGraph()
-    parent = _t("p", children=["c1", "c2"])
-    g.add(parent)
-    g.add(_t("c1", parent_id="p"))
-    g.add(_t("c2", parent_id="p"))
-    g.add(_t("grand", parent_id="c1"))
-    kids = g.children_of("p")
-    assert {c.id for c in kids} == {"c1", "c2"}
 
 
 def test_ready_tasks_no_deps() -> None:
@@ -112,25 +100,3 @@ def test_transition_rejects_done_to_anything() -> None:
     with pytest.raises(ValueError, match="illegal transition"):
         g.transition("a", Status.RUNNING)
 
-
-def test_all_final_phase_passed_true_when_max_phase_done() -> None:
-    g = TaskGraph()
-    g.add(_t("p", children=["c1", "c2", "c3"]))
-    g.add(_t("c1", phase=1, status=Status.DONE, parent_id="p"))
-    g.add(_t("c2", phase=2, status=Status.DONE, parent_id="p"))
-    g.add(_t("c3", phase=2, status=Status.DONE, parent_id="p"))
-    assert g.all_final_phase_passed("p") is True
-
-
-def test_all_final_phase_passed_false_when_max_phase_running() -> None:
-    g = TaskGraph()
-    g.add(_t("p", children=["c1", "c2"]))
-    g.add(_t("c1", phase=1, status=Status.DONE, parent_id="p"))
-    g.add(_t("c2", phase=2, status=Status.RUNNING, parent_id="p"))
-    assert g.all_final_phase_passed("p") is False
-
-
-def test_all_final_phase_passed_false_when_no_children() -> None:
-    g = TaskGraph()
-    g.add(_t("p"))
-    assert g.all_final_phase_passed("p") is False

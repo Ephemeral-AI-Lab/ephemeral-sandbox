@@ -1,7 +1,6 @@
-"""Task and Status — the core data model for the phased executor-evaluator tree.
+"""Task and Status — the core data model for the executor-evaluator tree.
 
-The model follows ``docs/architecture/phased-executor-evaluator-tree.md``:
-each task is a node owned by either an executor or an evaluator, lives in
+Each task is a node owned by either an executor or an evaluator, lives in
 exactly one of six statuses, and carries a single immutable ``closes_for``
 pointer used for summary propagation along the closure chain.
 """
@@ -53,7 +52,6 @@ class Task:
     parent_id: TaskId | None = None
     closes_for: TaskId | None = None
     needs: frozenset[TaskId] = field(default_factory=frozenset)
-    phase: int | None = None
     acceptance_criteria: str | None = None
     handoff_note: str | None = None
     summary: str | None = None

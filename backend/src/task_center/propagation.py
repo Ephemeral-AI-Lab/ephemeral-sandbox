@@ -1,8 +1,6 @@
 """Summary propagation along the closes_for chain.
 
-Mirrors the pseudocode in
-``docs/architecture/phased-executor-evaluator-tree.md`` § Summary Propagation:
-when a leaf in the closure chain calls ``submit_task_completion(summary)``,
+When a leaf in the closure chain calls ``submit_task_completion(summary)``,
 walk ``closes_for`` from the leaf upward, copying ``summary`` and setting
 ``status=DONE`` on every node in the chain.
 """

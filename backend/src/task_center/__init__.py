@@ -1,20 +1,17 @@
-"""Per-session task graph orchestrator for the phased executor-evaluator tree.
+"""Per-session task graph orchestrator for the executor-evaluator tree.
 
 Public surface:
 
 - :class:`Task`, :class:`Status`, :data:`TaskRole`, :data:`TaskId`,
   :data:`SubtreeKind` — the data model.
-- :class:`TaskCenterError`, :class:`PhaseValidationError` — error hierarchy.
-- :func:`compile_phases` — phase plan validator + dep compiler.
-
-Higher-level types (``TaskGraph``, ``TaskCenter``) will be re-exported here
-as the corresponding modules land.
+- :class:`TaskCenterError`, :class:`PlanValidationError` — error hierarchy.
+- :func:`compile_dag` — DAG plan validator + dep compiler.
 """
 
 from __future__ import annotations
 
-from task_center.errors import PhaseValidationError, TaskCenterError
-from task_center.phases import compile_phases
+from task_center.dag import compile_dag
+from task_center.errors import PlanValidationError, TaskCenterError
 from task_center.task import (
     Status,
     SubtreeKind,
@@ -24,12 +21,12 @@ from task_center.task import (
 )
 
 __all__ = [
-    "PhaseValidationError",
+    "PlanValidationError",
     "Status",
     "SubtreeKind",
     "Task",
     "TaskCenterError",
     "TaskId",
     "TaskRole",
-    "compile_phases",
+    "compile_dag",
 ]

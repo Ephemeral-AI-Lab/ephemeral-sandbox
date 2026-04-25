@@ -1,4 +1,4 @@
-"""Terminal tool: executor hands off a full phased plan."""
+"""Terminal tool: executor hands off a full DAG plan."""
 
 from __future__ import annotations
 
@@ -6,20 +6,23 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from task_center.errors import PhaseValidationError
+from task_center.errors import PlanValidationError
 from tools.core.base import ToolExecutionContext, ToolResult
 from tools.core.decorator import tool
-from tools.submission._models import PhaseEntry, SubmissionOutput, TaskSpec
+from tools.submission._models import SubmissionOutput, TaskDependencyEntry, TaskSpec
 
 
 class FullPlanHandoffInput(BaseModel):
-    phases: list[list[PhaseEntry]] = Field(
+    tasks: list[TaskDependencyEntry] = Field(
         ...,
-        description="Ordered phases; each phase is a list of entries.",
+        description=(
+            "Flat DAG plan: each entry is {id, deps}. List only DIRECT deps; "
+            "transitive predecessors are implicit."
+        ),
     )
     task_specs: dict[str, TaskSpec] = Field(
         ...,
-        description="Map of task id -> {title, spec}. Every phase entry id must be a key here.",
+        description="Map of task id -> {title, spec}. Every entry id must be a key here.",
     )
     acceptance_criteria: str = Field(
         ...,
@@ -34,16 +37,16 @@ class FullPlanHandoffInput(BaseModel):
 @tool(
     name="submit_full_plan_handoff",
     description=(
-        "Terminal: hand off the full task as a phased plan. Use when the phases "
-        "fully cover the acceptance_criteria. TaskCenter compiles the phases, "
-        "spawns child executors, and runs one final evaluator after the final "
-        "phase passes."
+        "Terminal: hand off the full task as a DAG plan. Use when the plan "
+        "fully covers the acceptance_criteria. TaskCenter compiles the DAG, "
+        "spawns child executors as deps complete, and runs one final evaluator "
+        "after every sink task is DONE."
     ),
     input_model=FullPlanHandoffInput,
     output_model=SubmissionOutput,
 )
 async def submit_full_plan_handoff(
-    phases: list[list[dict[str, Any]]],
+    tasks: list[dict[str, Any]],
     task_specs: dict[str, dict[str, Any]],
     acceptance_criteria: str,
     *,
@@ -57,7 +60,7 @@ async def submit_full_plan_handoff(
             is_error=True,
         )
     try:
-        tc.submit_full_handoff(task_id, phases, task_specs, acceptance_criteria)
-    except PhaseValidationError as exc:
+        tc.submit_full_handoff(task_id, tasks, task_specs, acceptance_criteria)
+    except PlanValidationError as exc:
         return ToolResult(output=f"plan rejected: {exc}", is_error=True)
     return ToolResult(output="accepted")
