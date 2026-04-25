@@ -1,0 +1,494 @@
+# Phased Executor-Evaluator Tree v1
+
+Status: in progress (TaskCenter US-009 era). Companion to `overlay-sandbox-plan.md`
+(OCC) and `background-tasks-and-subagents.md`.
+
+This doc describes the EphemeralOS approach to long-horizon, high-concurrency
+multi-agent execution and contrasts it with three contemporary alternatives:
+**Claude Code teams**, **Qoder expert teams**, and **oh-my-claudecode** (OMC).
+The goal is to make the design choices defensible, not to declare a winner.
+
+---
+
+## Architecture at a glance
+
+```
+═══════════════════════ TASK GRAPH (per session) ═══════════════════════
+
+                          ┌─────────┐
+                          │  root   │  status: AWAITING
+                          │executor │  acceptance_criteria
+                          └────┬────┘
+              full_handoff     │
+        ┌──────┬───────┬───────┴───────┬─────────┐
+        ▼      ▼       ▼               ▼         ▼
+   ┌────────┐┌──────┐┌──────┐      ┌──────┐ ┌──────────┐
+   │ exec A ││exec B││exec C│      │exec D│ │evaluator │
+   │ READY  ││PEND. ││PEND. │      │PEND. │ │closes_for│
+   │needs:∅ ││needs:││needs:│      │needs:│ │  = root  │
+   │        ││ {A}  ││ {A}  │      │{B,C} │ │needs:    │
+   └───┬────┘└──┬───┘└──┬───┘      └──┬───┘ │ sinks(D) │
+       │        │       │             │     └────┬─────┘
+       └────────┴───────┴─────────────┘          │ fires when
+                  DAG (typed needs)              │ sinks DONE
+                                                 ▼
+                              ──── summary propagates up closes_for ───
+                                  evaluator → root → DONE
+
+
+═════════════════ WORKSPACE LAYER (OCC controlled sharing) ═════════════════
+
+   ┌─ A overlay ─┐ ┌─ B overlay ─┐ ┌─ C overlay ─┐ ┌─ D overlay ─┐
+   │ buffered    │ │ buffered    │ │ buffered    │ │ buffered    │
+   │ writes      │ │ writes      │ │ writes      │ │ writes      │
+   └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘
+          │ commit at     │ commit        │ commit        │
+          │ terminal-tool │               │               │
+          ▼ boundary      ▼               ▼               ▼
+   ┌─────────────────────────────────────────────────────────────────┐
+   │              CANONICAL SANDBOX (shared filesystem)              │
+   │  reads from overlay fall through here                           │
+   │  siblings see each other's committed edits on next read         │
+   └─────────────────────────────────────────────────────────────────┘
+
+
+══════════════════════════════ STATUS FSM ══════════════════════════════
+
+  PENDING ──▶ READY ──▶ RUNNING ──┬──▶ AWAITING ──(propagation)──▶ DONE
+     │           │         │      ├──▶ DONE       (terminal tool)
+     └───────────┴─────────┴──────┴──▶ FAILED                       ▲
+                                                                    │
+              AWAITING → DONE only via summary propagation ─────────┘
+              (invariant 14: bypasses transition())
+```
+
+Two channels: the **task graph** carries planning + verification (typed
+`needs`, sink-bound evaluator, summary propagation). The **workspace
+layer** carries collaboration (OCC overlays committing to a shared
+sandbox at terminal-tool boundaries). They are orthogonal but
+co-designed: parallel siblings in the DAG only run safely because
+OCC keeps their writes structured.
+
+## Comparison at a glance
+
+| Dimension | EphemeralOS v1 | Claude Code teams | Qoder expert team | oh-my-claudecode |
+|---|---|---|---|---|
+| Concurrency unit | Sibling executors in DAG phase | `Agent()`-spawned subagents | Role-specialized agents | tmux panes / worker pool |
+| Dependency model | Typed `needs` (validated DAG) | None — strings returned to parent | Implicit via roles | Task-list ordering |
+| Verification gate | Sink-bound evaluator (single-shot) | Parent's prose check | Reviewer role | `/ralph` loop / operator |
+| Workspace sharing | OCC overlays, **terminal-tool granularity** | Worktrees, **session granularity** | Shared FS (uncontrolled) | Shared repo, operator-disciplined |
+| Cross-sibling visibility | Committed edits visible at next read | None (worktree-isolated) | Yes, but racy | Yes, but racy |
+| Iteration primitive | `submit_continue_to_work` (typed) | Re-spawn from parent | Reviewer round-trip | Self-loop until verifier passes |
+| Failure mode | Typed `FAILED`, propagates to root | Parent gets error string | Reviewer rejects | Loop guard / cancel |
+| Audit trail | Closure chain + summaries (reconstructible) | Parent's transcript | Operator-driven | Task list + git history |
+| Best fit | Long-horizon unattended | Bounded fan-out, short tasks | Role-driven quality | Operator-in-the-loop work |
+
+See §3 for the per-axis prose argument and §3.5 for the weighted score.
+
+---
+
+## 1. The three load-bearing pieces
+
+The v1 architecture rests on three independent primitives that compose:
+
+### 1.1 Phased executor-evaluator DAG (the "tree")
+
+Implemented in `backend/src/task_center/`.
+
+- Every node is a `Task` with role `executor | evaluator`, a status
+  `PENDING / READY / RUNNING / AWAITING / DONE / FAILED`, an optional
+  `closes_for` pointer, a `needs: frozenset[TaskId]` direct-dep set, and a
+  `subtree_kind ∈ {handoff, continuation}`.
+- An executor closes one of three ways:
+  1. `submit_task_completion(summary)` — leaf closure.
+  2. `submit_full_handoff(tasks, task_specs, acceptance_criteria)` — fan
+     out a child DAG plus a sink-bound evaluator; parent goes `AWAITING`.
+  3. `submit_partial_handoff(...)` — same, plus a `handoff_note`
+     describing what the parent already did.
+- An evaluator runs **only after every sink of the child DAG is `DONE`**
+  (`needs = sinks(deps)`), then either:
+  - `submit_task_completion` — the parent's acceptance criteria is met;
+    summary propagates up the `closes_for` chain.
+  - `submit_continue_to_work(summary)` — spawn a continuation executor
+    under the evaluator (a new fan-in point on the same parent).
+- The DAG is per-task (not per-session): each handoff produces its own
+  isolated subgraph. The session graph is the union, rooted at one task.
+- The plan is a **flat list of `{id, deps}` entries** validated by
+  `dag.compile_dag` — direct deps only, no cycles, no self-deps,
+  duplicates rejected. Producing deeper DAGs is delegated to recursive
+  handoffs rather than asking the model to emit a transitive plan.
+
+This is the "tree" in the name: it is a tree of DAGs, not a tree of tasks.
+The DAG layer gives parallelism inside a phase; the tree layer gives
+phase-by-phase verification via evaluators.
+
+### 1.2 OCC as the controlled-sharing primitive
+
+Implemented in `backend/src/code_intelligence/routing/` (overlay_run,
+mutation_service, overlay_command_committer, overlay_auditor) and the
+daytona overlay sandbox.
+
+The thesis: **OCC is not an isolation primitive — it is a controlled
+sharing primitive at terminal-tool granularity.** The point is not to
+keep agents apart; it is to let them see each other's work at the
+finest granularity that still composes with LLM reasoning.
+
+| Model | Sibling visibility | Failure mode |
+|---|---|---|
+| Worktree isolation (Claude-team-style) | per-session — agents fly blind until merge | merge conflicts at handoff time, out-of-band |
+| Raw shared FS | per-syscall — visible everywhere | races, undefined ordering, silent corruption |
+| **v1 OCC overlays** | **per-terminal-tool-call** | typed `FAILED` at commit when same region touched |
+
+How it works in v1:
+
+- Each executor runs against an **overlay snapshot** of the project
+  workspace; reads fall through overlay → canonical sandbox.
+- Writes are buffered in the overlay; at the terminal-tool boundary
+  the overlay is **committed** back to the canonical sandbox via the
+  arbiter (`code_intelligence/editing/arbiter.py`) and the overlay
+  command committer.
+- Sibling B reading a file *after* sibling A commits sees A's edits.
+  Reading *during* A's run does not. The visibility unit is the
+  agent's reasoning unit, by construction.
+- Conflicts (two executors editing the same region) are detected at
+  commit time and surfaced as a typed task failure — not silently
+  merged. The conflict is a structural signal that the planner
+  should have made the two siblings dependent, not parallel.
+
+This is the property that makes v1 viable for long-horizon work:
+agents collaborate on a shared codebase without being either blind
+(worktrees) or chaotic (raw FS).
+
+### 1.3 Blackboard via summary propagation
+
+Implemented in `backend/src/task_center/propagation.py` and the
+`closes_for` invariant on `Task`.
+
+The summary blackboard is the **verification channel**, distinct from
+the workspace which is the **collaboration channel** (§1.2). Siblings
+collaborate by writing to the shared workspace; evaluators verify by
+reading typed summaries.
+
+- The "blackboard" is the `summary` field on each task, plus the
+  `acceptance_criteria` and `handoff_note` fields wired through the
+  evaluator.
+- The summary's *shape* is not a schema — it is **skill-guided**.
+  Agents emit prose; the skill prompt for each role conditions that
+  prose to be consistently shaped without crystallizing a typed
+  contract. This trades programmatic accessors for migration freedom.
+- When a leaf calls `submit_task_completion(summary)`, the summary
+  propagates up the `closes_for` chain — leaf → evaluator → parent —
+  all transitioning to `DONE`. This is invariant 14: `AWAITING →
+  DONE` only happens via propagation, never via `transition()`.
+- Downstream siblings read upstream summaries via the prompt builder
+  (`task_center/context/task_prompt.py`) **and** see upstream code
+  changes via the OCC-shared workspace. Summaries are for the
+  evaluator's verification budget; the workspace is for live
+  collaboration.
+
+This is a *structured* blackboard for verification — write-once-per-task,
+propagation-routed — combined with a *free-form* shared workspace for
+collaboration. It trades schema rigor for skill-driven evolution and a
+clean audit trail.
+
+---
+
+## 2. Why this combination, for long-horizon high-concurrency work
+
+Long-horizon agent runs fail in three characteristic ways:
+
+1. **Context rot.** The single agent's context window fills with
+   exploration noise; later decisions get worse.
+2. **Coordination drift.** Sibling agents make incompatible
+   assumptions because they were briefed at slightly different
+   moments and never reconciled.
+3. **Workspace corruption.** Two agents edit the same file, last write
+   wins, silent regression.
+
+The phased executor-evaluator tree addresses (1) and (2): each
+executor sees a fresh prompt scoped to *its* spec plus the typed
+summaries of its `needs`; the evaluator is the explicit reconciliation
+point that runs *after* every sink, so siblings are checked against
+the parent's `acceptance_criteria` before any further work is allowed.
+
+OCC addresses (3) *and* contributes to (2): siblings can run in
+parallel without corrupting the workspace, and crucially they can
+*see each other's committed work at terminal-tool granularity* —
+they are not flying blind, the way worktree-isolated agents would
+be. Conflicts are typed `FAILED` signals, not silent merges, and
+their existence is a planner-quality signal (those siblings should
+have been dependent).
+
+The summary-propagation blackboard lets evaluators reason without
+re-reading every child's full transcript: it caps the cost of
+verification at O(direct children) instead of O(tree).
+
+---
+
+## 3. The comparison
+
+The three reference systems differ in concurrency primitive,
+coordination point, and workspace discipline. The table summarizes;
+the prose below justifies the cells.
+
+| Axis | EphemeralOS v1 | Claude Code teams | Qoder expert team | oh-my-claudecode |
+|---|---|---|---|---|
+| Primary unit of parallelism | Sibling tasks in a DAG phase | Spawned subagents | Expert roles | tmux panes / worker pool |
+| Decomposition shape | Flat DAG per phase, recursive | Coordinator → leaf subagents | Role specialization | Flat task list per run |
+| Synchronization point | Sink-bound evaluator | Coordinator awaits subagent return | Coordinator polling/merge | Quality gate / loop check |
+| Workspace sharing model | OCC overlays per executor (terminal-tool granularity) | Worktree isolation (session granularity) | Shared workspace (per docs) | Shared repo + tmux discipline |
+| Long-horizon mechanism | Continuation under evaluator | Re-spawn from coordinator | Round-trip with reviewer | `/ralph` self-referential loop |
+| State sharing | Typed summary blackboard | Subagent returns final string | Implicit via shared FS | Shared task list + filesystem |
+| Failure containment | Per-task `FAILED`, root fails | Subagent error returned | Reviewer can reject | Loop guard / cancel |
+
+### 3.1 Claude Code teams (spawned-subagent / Agent tool model)
+
+What it gives you:
+- Explicit hierarchy: a parent agent calls `Agent(...)` and gets a
+  string back. Worktree isolation is available with `isolation:
+  "worktree"`.
+- Strong context hygiene — each subagent has a fresh context.
+
+What it does *not* give you that v1 needs:
+- **No DAG between siblings.** Subagents are independent leaves; the
+  parent serializes results. To express "B depends on A's output" you
+  must finish A in the parent's turn before launching B, which
+  serializes work that is logically parallelizable.
+- **No persistent evaluator role.** The "did the children meet
+  acceptance" check is whatever the parent agent decides to do in
+  prose; it is not a typed gate with a typed continuation primitive.
+- **No OCC.** Worktrees give isolation but merging back is
+  out-of-band; conflicts surface as git problems, not as a structured
+  signal a parent can react to.
+- **Shallow long-horizon support.** The continuation under an
+  evaluator (with the prior summary attached) is the v1 answer to
+  "the result was close but not quite there." The Claude teams answer
+  is "the parent re-prompts" — same idea, but the state lives in the
+  parent's context (which rots) instead of in a typed task node.
+
+When Claude teams wins: bounded fan-out, short tasks, where the
+parent's prose summary is enough and you don't need a phase-level
+quality gate. The v1 tree is overkill for "search the repo three
+ways."
+
+### 3.2 Qoder expert team
+
+Qoder's "expert team" concept (per the public docs as I understand
+them — flag this if my read is dated) leans on **role
+specialization**: PM, architect, dev, reviewer agents that round-trip
+on a shared workspace with a coordinator.
+
+Mapping to v1:
+- "Reviewer" ≈ v1 evaluator. v1's evaluator differs in two ways: it is
+  *bound to the closing of a specific subtree* (not a free-floating
+  reviewer), and its failure path is a typed `submit_continue_to_work`
+  primitive rather than a prose handoff.
+- "Architect" / "PM" ≈ v1 root executor. v1 doesn't fix the role; the
+  decomposition is done by whichever executor calls `submit_*_handoff`,
+  and the role is just `executor`. v1 trades role specialization for
+  uniform reentrance — every executor can recursively decompose.
+- Workspace: Qoder operates on a shared FS. v1's OCC layer is the
+  thing that lets *concurrent* siblings run; without OCC, expert
+  teams typically serialize or single-thread the dev role.
+
+When Qoder-style wins: tasks where role expertise is the dominant
+axis of quality (e.g., "make the architect think hard before code is
+written"). v1 sacrifices that for parallelism inside a phase.
+
+### 3.3 oh-my-claudecode (`/team`, `/ralph`, `/ultrawork`, dmux)
+
+OMC's strongest concurrency primitive is the **tmux-pane worker pool**
+(dmux-workflows): N panes share a task list and a repo, with manual
+or scripted coordination. `/ralph` is a self-referential loop until
+verification passes; `/ultrawork` is a parallel batch executor.
+
+Mapping to v1:
+- `/ralph` ≈ v1 evaluator + continuation, but loop-based and per-task
+  rather than tree-structured. It is great for converging a single
+  task; it does not give you DAG parallelism inside a phase.
+- `/ultrawork` ≈ v1 sibling fan-out, but without typed `needs`
+  between siblings; ordering is by task list position, not by data
+  dependency. v1's `compile_dag` rejects cycles and self-deps and
+  forces direct-only deps — `/ultrawork` punts that to the operator.
+- Workspace discipline in OMC is operator-enforced (one pane edits
+  one slice of the repo at a time, by convention). v1 enforces it
+  programmatically with OCC overlays.
+- Blackboard: OMC uses the shared task list + filesystem; v1 uses
+  typed `summary` fields with propagation invariants.
+
+When OMC wins: interactive, operator-in-the-loop runs where the human
+is the final coordinator. v1 is built for the case where the human is
+*not* watching every step and the system needs to fail loud, fail
+typed, and fail at a gate.
+
+---
+
+## 3.5 Scored comparison
+
+Scores are 1–5 (1 = absent / operator-supplied, 3 = adequate, 5 = native
+and enforced by the system). They are the author's calibrated read for
+**unattended long-horizon multi-agent runs**, which is v1's target
+workload — a different workload (e.g., interactive single-agent edits)
+would re-rank these.
+
+| Capability | Weight | EphemeralOS v1 | Claude Code teams | Qoder expert team | oh-my-claudecode |
+|---|---:|---:|---:|---:|---:|
+| Sibling parallelism inside a phase | 5 | 5 | 3 | 2 | 4 |
+| Typed dependency between siblings | 4 | 5 | 1 | 2 | 2 |
+| Phase-level verification gate | 5 | 5 | 2 | 4 | 3 |
+| Long-horizon continuation primitive | 5 | 5 | 2 | 3 | 4 |
+| Workspace conflict isolation (OCC / worktree) | 5 | 5 | 4 | 2 | 2 |
+| Typed structured blackboard | 3 | 5 | 2 | 2 | 2 |
+| Failure containment / typed FAILED | 4 | 5 | 3 | 3 | 2 |
+| Replan-on-partial-failure semantics | 3 | 4 | 2 | 3 | 3 |
+| Operator ergonomics (dev-time) | 2 | 2 | 4 | 3 | 5 |
+| Time-to-first-result on small tasks | 2 | 2 | 5 | 4 | 4 |
+| Auditability (post-hoc, what happened) | 4 | 5 | 3 | 3 | 3 |
+| Context-rot resistance | 5 | 5 | 4 | 3 | 3 |
+| **Weighted total (Σ weight × score)** | **47** | **221** | **129** | **130** | **141** |
+| **Normalized (÷ 47, max 5.0)** |  | **4.70** | **2.74** | **2.77** | **3.00** |
+
+How to read this:
+
+- v1 dominates on the *long-horizon, unattended* axes: typed deps,
+  phase gates, OCC, structured blackboard, auditability. That is the
+  workload it was designed for, so a high score here is unsurprising
+  rather than vindicating.
+- v1 *loses* on the operator-ergonomics and time-to-first-result
+  rows. Standing up a typed plan + acceptance criteria + evaluator
+  has fixed overhead; for a five-minute fix it is the wrong tool.
+- **Claude Code teams** scores well on isolation (worktrees) and
+  small-task latency but is structurally thin on phase gates and
+  typed deps — it is a parent-child *spawn* primitive, not a
+  coordination primitive.
+- **Qoder expert team** scores adequately on phase gates (the
+  "reviewer" role) but loses on OCC and parallelism — the role-based
+  decomposition tends to serialize the dev role.
+- **oh-my-claudecode** scores well on operator ergonomics and
+  long-horizon (`/ralph`) but the discipline is operator-supplied,
+  not enforced by the system — fine when a human is in the loop,
+  fragile when not.
+
+The weights are deliberately tilted toward v1's target workload. If
+you re-weight for "single-developer pair-coding" (operator ergonomics
+× 5, time-to-first-result × 5, typed deps × 1) the ranking flips and
+OMC wins. The scoring is therefore a statement about *fitness for a
+specific workload class*, not a global ranking.
+
+### Per-axis sanity check
+
+A few cells worth defending explicitly because they're the load-bearing
+ones:
+
+- **v1 = 5 on typed deps**: enforced by `dag.compile_dag` — direct
+  deps only, cycles rejected, duplicates rejected, self-deps rejected.
+  Not aspirational; it is in the validator.
+- **Claude teams = 1 on typed deps**: the Agent tool returns a string;
+  there is no first-class "B needs A's output" edge. You serialize in
+  the parent's turn or you don't.
+- **v1 = 5 on phase-level gate**: the evaluator's `needs = sinks(deps)`
+  *forces* every sink to `DONE` before the gate fires. It is not "the
+  parent decides to call a reviewer" — it is graph topology.
+- **OMC = 4 on long-horizon continuation**: `/ralph` is a real
+  primitive, not just a prose loop. Knocked from 5 because the
+  termination criterion is verifier-defined per skill, not
+  structurally tied to acceptance criteria the way v1's evaluator is.
+- **v1 = 2 on operator ergonomics**: writing `acceptance_criteria` +
+  a flat task plan up front is friction. v2 should consider letting
+  the root executor synthesize trivial criteria for one-shot tasks.
+
+---
+
+## 4. What v1 is intentionally *not* doing
+
+To keep the design defensible:
+
+- **No phases as first-class objects.** The previous design (PhaseEntry)
+  was dropped in favor of `TaskDependencyEntry` because deeper DAGs
+  emerge naturally from chained `deps`, and the planner only has to
+  emit direct deps.
+- **No max depth cap.** Cycle detection is mandatory; depth is not.
+  Recursive handoffs are how depth happens, and they are bounded by
+  the evaluator's willingness to accept.
+- **No coordinator-spawned evaluators.** Evaluators are
+  **sink-driven**: when every sink of a subgraph is `DONE`, the
+  evaluator becomes ready. The executor that submitted the handoff
+  does not orchestrate evaluator timing; the graph does.
+- **No streaming / re-runnable evaluators.** The evaluator runs once,
+  when its sink-deps are all `DONE`. Re-running it as sinks complete
+  would overload it from "verdict" into "progress monitor" — and the
+  legitimate iteration case is already covered by
+  `submit_continue_to_work`, which spawns a fresh executor with full
+  planning power.
+- **No mutation of the closed DAG.** Once a sibling closes and its
+  summary propagates, it is fact. The evaluator cannot revise prior
+  child tasks; it can only accept or spawn a continuation. Continuation
+  is the *only* iteration primitive, and it always extends — never
+  rewrites.
+- **No typed artifact schema.** The shape of `summary` is guided by
+  per-role skills, not by a Pydantic-style contract. This trades
+  programmatic accessors for prompt-level evolution; new task types
+  do not require schema migrations.
+- **No cross-task summary references.** Siblings do not read each
+  other's summaries; they collaborate through the OCC-shared
+  workspace (§1.2). The summary blackboard is for evaluator
+  verification, not for inter-sibling communication.
+- **No live cross-sibling tool-call streaming.** Siblings see each
+  other's *committed* edits in the workspace, not their in-flight
+  tool calls or scratch state. The terminal-tool boundary is the
+  visibility boundary, by design.
+
+---
+
+## 5. Open questions tracked for v2
+
+- **Replan semantics under partial failure.** The
+  `replan_dependents_must_be_pending` invariant is asserted; v2 should
+  formalize *who* triggers replans. The current answer is
+  "continuation-only" — but a sibling failure mid-DAG creates a
+  partially-completed subtree the evaluator cannot fully judge until
+  it closes. Open: should evaluator-on-partial-failure be allowed to
+  fail the subtree fast, or always wait for sinks?
+- **OCC conflict surface to the evaluator.** Today, conflicts at
+  commit fail the executor with a generic `FAILED`. Should the
+  evaluator see a typed `conflict_with: [task_id]` field so a
+  continuation can re-plan around the contention rather than retry
+  blindly?
+- **Throughput ceiling under shared OCC.** Empirically, how many
+  concurrent executors per session before commit-conflict rate
+  dominates parallelism gain? Needs a load test analogous to the
+  100-load number cited for git-workspace. The OCC-as-collaboration
+  thesis (§1.2) predicts conflict rate is a *planner-quality* metric,
+  not a system limit — measure to confirm.
+- **Rubric-form acceptance criteria.** Acceptance is currently prose
+  judged by the evaluator. Replacing it with a typed rubric (list of
+  pass/fail checks) would reduce LLM-as-judge variance without
+  expanding the evaluator's role. Tradeoff: rubric authorship cost
+  vs. judgment stability.
+
+---
+
+## 6. TL;DR
+
+v1 = **DAG inside a phase** (parallelism) + **evaluator at every
+sink** (verification gate, single-shot) + **OCC as controlled
+sharing** (collaboration at terminal-tool granularity) +
+**skill-guided summary propagation** (auditable verification
+channel).
+
+Two channel split is the design center: the **workspace is the
+collaboration channel** (siblings see each other's committed edits
+via OCC); the **summary chain is the verification channel**
+(evaluators read typed summaries, not transcripts). Continuation
+under an evaluator is the only iteration primitive; closed tasks are
+facts, never revised.
+
+Claude teams give you worktree isolation but not in-phase
+collaboration or phase gates. Qoder gives you roles but not
+structural parallelism or controlled sharing. OMC gives you
+operator-driven concurrency but no programmatic conflict story. v1
+is the bet that *long-horizon, unattended, multi-agent runs need
+DAG parallelism, sink-bound gates, and terminal-tool-granularity
+sharing all at once* — and that the cost is paid back by the
+evaluator reasoning in O(direct children) over typed summaries
+while siblings collaborate live in the shared workspace.
