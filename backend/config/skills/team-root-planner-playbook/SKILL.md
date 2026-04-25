@@ -105,7 +105,7 @@ same-payload evidence  -> validator with production scopes
 | Draft check | Expected result |
 | --- | --- |
 | Coverage | Every named cluster has a producer owner or sibling `team_planner`; tiny slices stay separate. |
-| Developer lanes | Exactly one production owner file (or one tight coupled pair within one mechanism); ≥2 unrelated owner files in `scope_paths` force a `team_planner` lane instead. |
+| Developer lanes | Exactly one production owner file (or one tight coupled pair within one mechanism); ≥2 unrelated owner files in `scope_paths` (e.g. `cli.py`+`config.py`+`compat.py`, HDF+parquet+groupby) force a `team_planner` lane instead — a CLI→config→compat call chain is not "one mechanism". |
 | Planner lanes | Preserve uncertainty and evidence without leaf-level overexploration. |
 | Validators | Required when any producer lane writes a same-payload suite; depend on every such producer; `scope_paths` are production surfaces. |
 | Payload | `id`, `agent`, `spec`, `deps`, and `scope_paths` only. |
