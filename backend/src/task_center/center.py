@@ -25,12 +25,11 @@ from task_center.task import Status, Task, TaskId
 logger = logging.getLogger(__name__)
 
 
-# A spawn function takes a task_id and a TaskCenter, runs the agent for that
-# task, and returns when the agent loop exits. The default production spawn
-# uses ``engine.runtime.agent.spawn_agent`` (TODO: wire in US-009). Tests
+# A spawn function takes a task_id, a TaskCenter, and the request sandbox id,
+# runs the agent for that task, and returns when the agent loop exits. Tests
 # inject a scripted coroutine so the dispatcher can be exercised without a
 # real LLM.
-SpawnFunc = Callable[[TaskId, "TaskCenter"], Awaitable[None]]
+SpawnFunc = Callable[[TaskId, "TaskCenter", str | None], Awaitable[None]]
 
 
 _TERMINAL_STATUSES: frozenset[Status] = frozenset({Status.DONE, Status.FAILED})
@@ -218,12 +217,12 @@ class TaskCenter:
     # Dispatcher loop                                                    #
     # ------------------------------------------------------------------ #
 
-    async def run_query(self, prompt: str) -> Task:
+    async def run_query(self, prompt: str, *, sandbox_id: str | None = None) -> Task:
         """Drive a user query end-to-end. Returns the closed root task.
 
         Spawns one ``asyncio.Task`` per ready task. Each spawn calls
-        ``self._spawn_func(task_id, self)``. The loop exits when the root
-        task's status is DONE or FAILED.
+        ``self._spawn_func(task_id, self, sandbox_id)``. The loop exits when
+        the root task's status is DONE or FAILED.
         """
         if self._spawn_func is None:
             raise TaskCenterError(
@@ -231,8 +230,9 @@ class TaskCenter:
                 "the constructor (or wire production spawn in US-009)."
             )
 
+        self._graph = TaskGraph()
         root = self._create_root_executor(prompt)
-        running: dict[TaskId, asyncio.Task] = {}
+        running: dict[TaskId, asyncio.Task[None]] = {}
 
         def _spawn_for_ready() -> None:
             for task in self._graph.ready_tasks():
@@ -241,7 +241,7 @@ class TaskCenter:
                 if task.status is Status.PENDING:
                     self._graph.transition(task.id, Status.READY)
                 self._graph.transition(task.id, Status.RUNNING)
-                coro = self._run_one(task.id, running)
+                coro = self._run_one(task.id, root.id, sandbox_id)
                 running[task.id] = asyncio.create_task(coro)
 
         try:
@@ -270,24 +270,44 @@ class TaskCenter:
 
         return self._graph.get(root.id)
 
+    def _fail_team_run(
+        self,
+        root_id: TaskId,
+        failed_task_id: TaskId,
+        reason: str,
+    ) -> None:
+        """Fail the active root when any task in its tree fails."""
+        root = self._graph.get(root_id)
+        if root.status in _TERMINAL_STATUSES:
+            return
+        if root.id == failed_task_id:
+            root.summary = reason
+        else:
+            root.summary = f"team run failed because task {failed_task_id!r} failed: {reason}"
+        self._graph.transition(root_id, Status.FAILED)
+        self._wakeup.set()
+
     async def _run_one(
-        self, task_id: TaskId, running: dict[TaskId, asyncio.Task]
+        self,
+        task_id: TaskId,
+        root_id: TaskId,
+        sandbox_id: str | None,
     ) -> None:
         """Run one agent. Mark FAILED if it returns without a terminal."""
         assert self._spawn_func is not None
         try:
-            await self._spawn_func(task_id, self)
+            await self._spawn_func(task_id, self, sandbox_id)
         except Exception:
             logger.exception("agent for task %r crashed", task_id)
             task = self._graph.get(task_id)
             if task.status is Status.RUNNING:
                 self._graph.transition(task.id, Status.FAILED)
                 task.summary = "agent crashed"
-                self._wakeup.set()
+            self._fail_team_run(root_id, task_id, "agent crashed")
             return
         # If the agent returned without calling a terminal tool, mark FAILED.
         task = self._graph.get(task_id)
         if task.status is Status.RUNNING:
             self._graph.transition(task.id, Status.FAILED)
             task.summary = "agent exited without a terminal tool call"
-            self._wakeup.set()
+            self._fail_team_run(root_id, task_id, task.summary)

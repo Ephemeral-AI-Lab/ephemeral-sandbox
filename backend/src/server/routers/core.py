@@ -6,7 +6,7 @@ import logging
 import asyncio
 import json
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from collections.abc import Awaitable
 
 from fastapi import APIRouter, HTTPException
@@ -28,6 +28,7 @@ from message.stream_events import (
 )
 from server.protocol import BackendEvent, TranscriptItem
 from token_tracker.runtime import persist_run_usage
+from tools.core.base import ExecutionMetadata
 
 if TYPE_CHECKING:
     from server.app_factory import SessionConfig, SessionState
@@ -65,6 +66,8 @@ async def execute_ephemeral_agent_run(
     on_agent_event: AgentStreamEmitter,
     agent_def: AgentDefinition | None = None,
     sandbox_id: str | None = None,
+    terminal_tools: set[str] | list[str] | None = None,
+    extra_tool_metadata: ExecutionMetadata | dict[str, Any] | None = None,
 ) -> bool:
     """Spawn an ephemeral agent, run it, let it die.
 
@@ -90,6 +93,7 @@ async def execute_ephemeral_agent_run(
         agent_def=agent_def,
         session_state=session_state,
         sandbox_id=sandbox_id,
+        terminal_tools=terminal_tools,
     )
     logger.info(
         "Spawned agent %r (model=%s, session=%s)", agent.agent_name, agent.model, config.session_id
@@ -118,11 +122,11 @@ async def execute_ephemeral_agent_run(
     # Plumb the parent run id into tool_metadata so subagent dispatches
     # (and any other tool that wants attribution) can persist themselves
     # under this run as their parent.
+    if agent.query_context.tool_metadata is None:
+        agent.query_context.tool_metadata = ExecutionMetadata()
+    if extra_tool_metadata:
+        agent.query_context.tool_metadata.update(extra_tool_metadata)
     if run_id is not None:
-        from tools.core.base import ExecutionMetadata
-
-        if agent.query_context.tool_metadata is None:
-            agent.query_context.tool_metadata = ExecutionMetadata()
         agent.query_context.tool_metadata.agent_run_id = run_id
 
     # 5. Run the agent
@@ -357,7 +361,10 @@ def create_core_router(get_session: Callable[[], SessionState]) -> APIRouter:
                 if session.task_center is not None:
                     session.task_center.set_event_callback(_on_agent_event)
                     try:
-                        root = await session.task_center.run_query(req.line)
+                        root = await session.task_center.run_query(
+                            req.line,
+                            sandbox_id=req.sandbox_id,
+                        )
                     finally:
                         session.task_center.set_event_callback(None)
                     # Surface the final root summary as a transcript item so

@@ -1,20 +1,21 @@
 """Production ``SpawnFunc`` that drives a real EphemeralAgent per task.
 
-The dispatcher in :mod:`task_center.center` calls ``spawn_func(task_id, tc)``
-for each ``READY`` task. In production this needs to:
+The dispatcher in :mod:`task_center.center` calls
+``spawn_func(task_id, tc, sandbox_id)`` for each ``READY`` task. In production
+this needs to:
 
 1. Look up the agent definition by ``task.role`` (executor / evaluator).
-2. Spawn a fresh ``EphemeralAgent`` via ``engine.runtime.agent.spawn_agent``.
+2. Spawn/run via the server's ``execute_ephemeral_agent_run`` wrapper.
 3. Inject ``task_center``, ``task_id``, ``role`` into the agent's tool
    metadata so the submission tools can call back into TaskCenter.
-4. Drive ``agent.run(spec)`` to completion, forwarding events to the
-   TaskCenter-owned event callback (which the chat router connects to its
-   SSE stream).
+4. Forward events to the TaskCenter-owned callback (which the chat router
+   connects to its SSE stream).
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -23,12 +24,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def make_production_spawn(session_config: Any, sandbox_id: str | None = None):
+def make_production_spawn(
+    session_config: Any,
+) -> Callable[[str, "TaskCenter", str | None], Awaitable[None]]:
     """Build a ``SpawnFunc`` bound to a session config and optional sandbox."""
 
-    async def spawn(task_id: str, tc: "TaskCenter") -> None:
+    async def spawn(task_id: str, tc: "TaskCenter", sandbox_id: str | None) -> None:
         from agents.registry import get_definition
-        from engine.runtime.agent import spawn_agent
+        from server.routers.core import execute_ephemeral_agent_run
         from task_center.errors import TaskCenterError
         from tools.core.base import ExecutionMetadata
 
@@ -40,26 +43,21 @@ def make_production_spawn(session_config: Any, sandbox_id: str | None = None):
                 f"{task.role!r} (expected 'executor' or 'evaluator')"
             )
 
-        agent = spawn_agent(
-            session_config,
-            messages=[],
-            agent_def=agent_def,
-            sandbox_id=sandbox_id,
-            terminal_tools=set(agent_def.terminal_tools),
-        )
-
-        # Inject TaskCenter handle so submission tools can call back.
-        if agent.query_context.tool_metadata is None:
-            agent.query_context.tool_metadata = ExecutionMetadata()
-        meta = agent.query_context.tool_metadata
+        meta = ExecutionMetadata()
         meta["task_center"] = tc
         meta["task_id"] = task_id
         meta["role"] = task.role
 
-        # Drive the agent loop. Forward each event to TaskCenter's callback.
         try:
-            async for event in agent.run(task.spec):
-                await tc._emit_event(event)
+            await execute_ephemeral_agent_run(
+                session_config,
+                task.spec,
+                on_agent_event=tc._emit_event,
+                agent_def=agent_def,
+                sandbox_id=sandbox_id,
+                terminal_tools=set(agent_def.terminal_tools),
+                extra_tool_metadata=meta,
+            )
         except Exception:
             logger.exception("production spawn: agent for %r crashed", task_id)
             raise

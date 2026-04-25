@@ -16,7 +16,8 @@ Action = Callable[[TaskCenter, str], Awaitable[None]]
 
 
 def _scripted_spawn(scripts: dict[str, Action]):
-    async def spawn(task_id: str, tc: TaskCenter) -> None:
+    async def spawn(task_id: str, tc: TaskCenter, sandbox_id: str | None) -> None:
+        del sandbox_id
         action = scripts.get(task_id)
         if action is not None:
             await action(tc, task_id)
@@ -279,3 +280,83 @@ async def test_agent_without_terminal_call_is_marked_failed() -> None:
 
     assert root.status is Status.FAILED
     assert root.summary == "agent exited without a terminal tool call"
+
+
+@pytest.mark.asyncio
+async def test_child_failure_fails_whole_team_run() -> None:
+    """Any child failure closes the active root as FAILED instead of hanging."""
+
+    phases = [[{"id": "child"}]]
+    specs = {"child": {"title": "Child", "spec": "..."}}
+
+    async def root_action(tc, tid):
+        tc.submit_full_handoff(tid, phases, specs, "child must succeed")
+
+    async def child_returns_without_terminal(tc, tid):
+        del tc, tid
+        return
+
+    tc = TaskCenter(
+        spawn_func=_scripted_spawn(
+            {
+                "t1": root_action,
+                "child": child_returns_without_terminal,
+            }
+        )
+    )
+    root = await asyncio.wait_for(tc.run_query("handoff"), timeout=1)
+
+    assert tc.graph.get("child").status is Status.FAILED
+    assert root.status is Status.FAILED
+    assert root.summary == (
+        "team run failed because task 'child' failed: "
+        "agent exited without a terminal tool call"
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_query_passes_sandbox_id_to_spawned_tasks() -> None:
+    seen: list[tuple[str, str | None]] = []
+
+    async def spawn(task_id: str, tc: TaskCenter, sandbox_id: str | None) -> None:
+        seen.append((task_id, sandbox_id))
+        tc.submit_task_completion(task_id, "done")
+
+    tc = TaskCenter(spawn_func=spawn)
+    await tc.run_query("use selected sandbox", sandbox_id="sandbox-123")
+
+    assert seen == [("t1", "sandbox-123")]
+
+
+@pytest.mark.asyncio
+async def test_each_query_gets_fresh_graph_for_agent_supplied_child_ids() -> None:
+    phases = [[{"id": "a"}]]
+    specs = {"a": {"title": "A", "spec": "..."}}
+
+    async def root_action(tc, tid):
+        tc.submit_full_handoff(tid, phases, specs, "a completes")
+
+    async def child_action(tc, tid):
+        tc.submit_task_completion(tid, "a done")
+
+    async def eval_action(tc, tid):
+        tc.submit_task_completion(tid, "ok")
+
+    tc = TaskCenter(
+        spawn_func=_scripted_spawn(
+            {
+                "t1": root_action,
+                "t2": root_action,
+                "a": child_action,
+                "t1-eval": eval_action,
+                "t2-eval": eval_action,
+            }
+        )
+    )
+
+    first = await tc.run_query("first")
+    second = await tc.run_query("second")
+
+    assert first.status is Status.DONE
+    assert second.status is Status.DONE
+    assert tc.graph.get("a").summary == "a done"
