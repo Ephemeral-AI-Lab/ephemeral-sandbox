@@ -54,6 +54,10 @@ class ExecutionMetadata:
     # can be attributed back to their originating tool use).
     tool_id: str | None = None
 
+    # Optional notification service injected by the execution pipeline. Tools
+    # and hooks use it through ToolExecutionContextService.notify_system().
+    system_notification_service: Any | None = None
+
     # Escape hatch for tool-specific values the engine does not know
     # about. Prefer adding a typed field above when a value is used by
     # more than one tool.
@@ -75,6 +79,7 @@ class ExecutionMetadata:
             "daytona_sandbox",
             "ci_service",
             "tool_id",
+            "system_notification_service",
         }
     )
 
@@ -115,14 +120,14 @@ class ExecutionMetadata:
                 yield name
         yield from self.extras
 
-    def keys(self) -> Iterator[str]:  # type: ignore[override]
+    def keys(self) -> Iterator[str]:
         return iter(self)
 
-    def items(self) -> Iterator[tuple[str, Any]]:  # type: ignore[override]
+    def items(self) -> Iterator[tuple[str, Any]]:
         for key in self:
             yield key, self[key]
 
-    def values(self) -> Iterator[Any]:  # type: ignore[override]
+    def values(self) -> Iterator[Any]:
         for key in self:
             yield self[key]
 

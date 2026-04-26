@@ -32,11 +32,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import inspect
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 
 from tools.core.base import BaseTool, ToolExecutionContextService, ToolResult
+from tools.core.hooks import validate_hook_targets
 
 
 def tool(
@@ -51,11 +52,20 @@ def tool(
     task_type: str = "agent",
     is_terminal_tool: bool = False,
     is_mode_entry_tool: bool = False,
+    pre_hooks: list[object] | tuple[object, ...] = (),
+    post_hooks: list[object] | tuple[object, ...] = (),
 ) -> Callable[[Callable[..., Any]], BaseTool]:
     """Decorator that converts a function into a ``BaseTool`` instance."""
 
     def decorator(func: Callable[..., Any]) -> BaseTool:
         tool_name = name or func.__name__
+        normalized_pre_hooks = tuple(pre_hooks)
+        normalized_post_hooks = tuple(post_hooks)
+        validate_hook_targets(
+            tool_name=tool_name,
+            pre_hooks=normalized_pre_hooks,
+            post_hooks=normalized_post_hooks,
+        )
         docstring = inspect.getdoc(func) or ""
 
         # Extract description from first non-empty docstring line
@@ -81,9 +91,10 @@ def tool(
                 kwargs = arguments.model_dump()
                 kwargs["context"] = context
                 if is_async:
-                    return await func(**kwargs)
+                    result = await func(**kwargs)
                 else:
-                    return func(**kwargs)
+                    result = func(**kwargs)
+                return cast(ToolResult, result)
 
         instance = FunctionTool()
         instance.name = tool_name
@@ -96,6 +107,8 @@ def tool(
         instance.task_type = task_type
         instance.is_terminal_tool = is_terminal_tool
         instance.is_mode_entry_tool = is_mode_entry_tool
+        instance.pre_hooks = normalized_pre_hooks
+        instance.post_hooks = normalized_post_hooks
         # Preserve the original function for testing/introspection
         instance._entrypoint = func
 

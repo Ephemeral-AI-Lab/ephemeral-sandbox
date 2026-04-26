@@ -5,6 +5,7 @@ from typing import Any
 
 from providers.types import UsageSnapshot
 from message.messages import ConversationMessage
+from notification.events import SystemNotification
 
 
 # Identity fields carried by every StreamEvent:
@@ -117,16 +118,6 @@ class BackgroundTaskCompleted:
     tool_name: str
     output: str
     is_error: bool = False
-    agent_name: str = ""
-    work_id: str = ""
-
-
-@dataclass(frozen=True)
-class SystemNotification:
-    """Engine-generated notification visible to the user and the agent."""
-
-    text: str
-    category: str = ""
     agent_name: str = ""
     work_id: str = ""
 

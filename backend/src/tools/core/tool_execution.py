@@ -17,6 +17,7 @@ from tools.core.base import (
     parse_tool_input,
     validate_tool_output,
 )
+from tools.core.hook_execution import ToolHookExecutionHelper
 
 if TYPE_CHECKING:
     from agents.types import ModeDefinition
@@ -199,7 +200,7 @@ async def execute_tool_call_streaming(
         record_tool_trace(
             context.tool_metadata,
             tool_name,
-            tool_input,
+            _trace_input_from_result(result, tool_input),
             tool_use_id=tool_use_id,
         )
 
@@ -214,6 +215,14 @@ async def execute_tool_call_streaming(
     return tool_result
 
 
+def _trace_input_from_result(
+    result: ToolResult,
+    fallback: dict[str, object],
+) -> dict[str, object]:
+    raw = result.metadata.get("effective_tool_input")
+    return raw if isinstance(raw, dict) else fallback
+
+
 async def execute_tool_once(
     tool: BaseTool,
     raw_input: dict[str, Any],
@@ -223,21 +232,29 @@ async def execute_tool_once(
     emit_started: bool = True,
 ) -> ToolResult:
     """Validate input, emit start, execute the tool, and validate output."""
+    hook_executor = ToolHookExecutionHelper(tool, context, emit)
     parsed = parse_tool_input(tool, raw_input)
     if parsed.error is not None:
         return parsed.error
     assert parsed.args is not None
 
+    parsed_input, hook_failure = await hook_executor.run_pre_hooks(parsed.args)
+    if hook_failure is not None:
+        return hook_failure
+    assert parsed_input is not None
+
     if emit_started:
         await emit(
             ToolExecutionStarted(
                 tool_name=tool.name,
-                tool_input=parsed.args.model_dump(mode="json"),
+                tool_input=parsed_input.model_dump(mode="json"),
             )
         )
 
-    result = await execute_tool_body(tool, parsed.args, context)
+    result = await execute_tool_body(tool, parsed_input, context)
     validated = validate_tool_output(tool, result)
-    if tool.is_terminal_tool and not validated.is_error:
-        return replace(validated, does_terminate=True)
-    return validated
+    hooked = await hook_executor.run_post_hooks(parsed_input, validated)
+    final = hook_executor.finalize_result(hooked, effective_input=parsed_input)
+    if tool.is_terminal_tool and not final.is_error:
+        return replace(final, does_terminate=True)
+    return final

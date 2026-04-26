@@ -31,7 +31,6 @@ from message.stream_events import (
     ToolExecutionCancelled,
     ToolExecutionCompleted,
 )
-from engine.core.notifications import build_budget_warning
 from engine.core.provider_history import prepare_provider_messages
 from engine.core.tool_batch import validate_tool_batch
 from engine.core.streaming_executor import StreamingToolExecutor, defer_background_dispatch
@@ -41,6 +40,8 @@ from engine.runtime.background_tasks import (
     append_background_reminder,
     deliver_completed_background_task,
 )
+from notification.budget import build_budget_warning
+from notification.reminders import system_reminders_from_metadata
 from prompt.prompt_report_recorder import PromptReportRecorder
 from tools.core.base import (
     ExecutionMetadata,
@@ -609,6 +610,19 @@ async def _run_query_loop(
                 "message": tool_result_message.model_dump(mode="json"),
             }
         )
+        system_reminders = []
+        for result in tool_results:
+            system_reminders.extend(system_reminders_from_metadata(dict(result.metadata or {})))
+        if system_reminders:
+            reminder_message = ConversationMessage(role="user", content=system_reminders)
+            display_messages.append(reminder_message)
+            prompt_report.record(
+                {
+                    "event": "hook_system_reminder",
+                    "seq": prompt_report.next_seq(),
+                    "message": reminder_message.model_dump(mode="json"),
+                }
+            )
 
         # Apply any mode transition reported by a mode-entry tool this turn.
         # Entry tools are batch-exclusive (validate_tool_batch enforces it),

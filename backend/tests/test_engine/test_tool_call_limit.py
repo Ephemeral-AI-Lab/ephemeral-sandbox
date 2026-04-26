@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from agents.types import AgentDefinition
-from engine.core.notifications import build_budget_warning
+from notification.budget import build_budget_warning
 from engine.core.query import QueryContext
 from tools.core.tool_execution import execute_tool_call
 from tools.core.runtime import ExecutionMetadata

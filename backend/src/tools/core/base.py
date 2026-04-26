@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, replace
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
+from inspect import isawaitable
 from pathlib import Path
 from typing import Any, Literal
-from collections.abc import Iterable, Mapping
 
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
@@ -110,6 +111,21 @@ class ToolExecutionContextService:
     def __contains__(self, key: object) -> bool:
         return key in self._metadata
 
+    async def notify_system(self, text: str, *, category: str = "") -> None:
+        """Emit a system notification through the injected notification service."""
+
+        service = self.get("system_notification_service")
+        if service is None:
+            return
+        notify = getattr(service, "notify_system", None)
+        if notify is None:
+            notify = getattr(service, "notify", None)
+        if notify is None:
+            return
+        result = notify(text, category=category)
+        if isawaitable(result):
+            await result
+
 
 @dataclass(frozen=True)
 class ToolResult:
@@ -182,6 +198,10 @@ class BaseTool(ABC):
     # ``validate_tool_batch``) so the same turn cannot mutate the active
     # mode and dispatch siblings under conflicting gates.
     is_mode_entry_tool: bool = False
+    # Tool-specific hooks. These are intentionally explicit per tool and do
+    # not affect the LLM-facing schema.
+    pre_hooks: tuple[Any, ...] = ()
+    post_hooks: tuple[Any, ...] = ()
 
     @abstractmethod
     async def execute(self, arguments: BaseModel, context: ToolExecutionContextService) -> ToolResult:
@@ -257,16 +277,18 @@ async def run_tool_safely(
     tool invocation sites. ``asyncio.CancelledError`` is intentionally
     not caught — callers decide how to handle cancellation.
     """
-    parsed = parse_tool_input(tool, raw_input)
-    if parsed.error is not None:
-        return parsed.error
-    assert parsed.args is not None
+    async def _noop_emit(_event: Any) -> None:
+        return None
 
-    result = await execute_tool_body(tool, parsed.args, context)
-    validated = validate_tool_output(tool, result)
-    if tool.is_terminal_tool and not validated.is_error:
-        return replace(validated, does_terminate=True)
-    return validated
+    from tools.core.tool_execution import execute_tool_once
+
+    return await execute_tool_once(
+        tool,
+        raw_input,
+        context,
+        emit=_noop_emit,
+        emit_started=False,
+    )
 
 
 def parse_tool_input(
