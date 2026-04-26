@@ -18,7 +18,6 @@ from code_intelligence.core.types import (
     MoveSpec,
     OperationChange,
     OperationResult,
-    SemanticFileChange,
     WriteSpec,
 )
 
@@ -74,7 +73,7 @@ class MutationService:
         new_content = current.replace(request.old_text, request.new_text, 1)
         operation = self._write_coordinator.commit_operation_against_base(
             [
-                SemanticFileChange(
+                OperationChange(
                     file_path=request.file_path,
                     base_content=current,
                     base_hash=content_hash(current),

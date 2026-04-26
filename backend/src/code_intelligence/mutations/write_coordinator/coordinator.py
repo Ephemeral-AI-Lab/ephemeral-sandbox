@@ -82,8 +82,8 @@ class WriteCoordinator:
           * **Modify branch** — if a file's current hash equals its
             ``base_hash`` the operation takes ``final_content`` verbatim; otherwise
             it tries a non-overlapping merge (same policy as a single-file merge).
-            Any unmergeable mismatch aborts the *whole* operation — no partial
-            rename is ever left on disk. Setting ``strict_base=True`` on a
+            Any unmergeable mismatch aborts the *whole* operation, so partial
+            multi-file edits are never left on disk. Setting ``strict_base=True`` on a
             change skips the merge fallback entirely and aborts on any hash
             mismatch (used for whole-file rewrites like ``move --overwrite``).
           * **Two-pass commit** — resolved contents are staged in memory

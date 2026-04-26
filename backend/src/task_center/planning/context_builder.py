@@ -12,6 +12,10 @@ def build_planner_launch_context(
     graph: TaskGraph, caller: Task, task_detail: str
 ) -> PlannerLaunchContext:
     """Assemble the planner input for a caller that just invoked ``launch_plan_handoff``."""
+    if caller.role not in ("executor", "evaluator"):
+        raise ValueError(
+            "build_planner_launch_context requires an executor or evaluator caller"
+        )
     upstream: list[TaskSummary] = []
     prior_handoff: list[TaskSummary] = []
     completed: list[TaskSummary] = []

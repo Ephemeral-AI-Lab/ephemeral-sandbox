@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import threading
+
+from code_intelligence.language_server.models import LspTelemetry
+
 
 class LspTelemetryMixin:
+    _counter_lock: threading.Lock
+    _telemetry: LspTelemetry
+
     def _record_query(self) -> None:
         with self._counter_lock:
             self._telemetry.queries += 1
@@ -27,4 +34,3 @@ class LspTelemetryMixin:
     def _record_script_error(self) -> None:
         with self._counter_lock:
             self._telemetry.script_errors += 1
-

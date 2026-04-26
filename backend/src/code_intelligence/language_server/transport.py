@@ -6,6 +6,7 @@ import base64
 import logging
 import shlex
 import subprocess
+from typing import TYPE_CHECKING, Any
 
 from tools.daytona_toolkit._daytona_utils import (
     _extract_exit_code,
@@ -20,6 +21,16 @@ logger = logging.getLogger("code_intelligence.language_server.client")
 
 
 class LspTransportMixin:
+    _workspace_root: str
+    _sandbox: Any
+
+    if TYPE_CHECKING:
+        def _record_success(self) -> None: ...
+        def _record_error(self) -> None: ...
+        def _record_script_run(self) -> None: ...
+        def _record_script_success(self) -> None: ...
+        def _record_script_error(self) -> None: ...
+
     def _run_python_script(self, script: str) -> str:
         """Run a Python script locally or in the sandbox.
 
@@ -119,5 +130,4 @@ class LspTransportMixin:
             fallback_exit_code=getattr(response, "exit_code", None),
         )
         return exit_code
-
 

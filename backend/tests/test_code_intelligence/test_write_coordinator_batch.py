@@ -11,7 +11,7 @@ from code_intelligence.service import (
     dispose_all_code_intelligence,
 )
 from code_intelligence.mutations.write_coordinator import CommitOperation
-from code_intelligence.core.types import MoveSpec, OperationChange, SemanticFileChange
+from code_intelligence.core.types import MoveSpec, OperationChange
 
 
 @pytest.fixture(autouse=True)
@@ -28,8 +28,8 @@ def _svc(tmp_path) -> CodeIntelligenceService:
     )
 
 
-def _change(path: str, base: str, final: str) -> SemanticFileChange:
-    return SemanticFileChange(
+def _change(path: str, base: str, final: str) -> OperationChange:
+    return OperationChange(
         file_path=path,
         base_content=base,
         base_hash=content_hash(base),
@@ -49,7 +49,7 @@ def test_commits_full_operation_on_clean_bases(tmp_path) -> None:
             _change(str(a), "x = 1\n", "x = 11\n"),
             _change(str(b), "y = 2\n", "y = 22\n"),
         ],
-        edit_type="rename",
+        edit_type="semantic_edit",
         description="test",
     )
     assert result.success is True
@@ -70,11 +70,11 @@ def test_aborts_on_overlapping_concurrent_edit(tmp_path) -> None:
 
     result = svc.commit_operation_against_base(
         [_change(str(a), base, final)],
-        edit_type="rename",
+        edit_type="semantic_edit",
     )
     assert result.success is False
     assert result.status in {"aborted_overlap", "aborted_version"}
-    # Concurrent edit preserved, rename not applied.
+    # Concurrent edit preserved, semantic edit not applied.
     assert "foo_drift" in a.read_text(encoding="utf-8")
 
 
@@ -84,14 +84,14 @@ def test_merges_non_overlapping_concurrent_edit(tmp_path) -> None:
     a.write_text(base, encoding="utf-8")
     svc = _svc(tmp_path)
 
-    # Jedi renamed foo → bar at the top; someone else appended an
-    # unrelated line at the bottom after Jedi's snapshot.
+    # A semantic edit changed foo to bar at the top; someone else appended
+    # an unrelated line at the bottom after the snapshot.
     final = "def bar():\n    return 1\n\nZ = 0\n"
     a.write_text(base + "NEW = 1\n", encoding="utf-8")
 
     result = svc.commit_operation_against_base(
         [_change(str(a), base, final)],
-        edit_type="rename",
+        edit_type="semantic_edit",
     )
     assert result.success is True, result.conflict_reason
     text = a.read_text(encoding="utf-8")
@@ -116,7 +116,7 @@ def test_lsp_invalidate_and_symbol_index_refresh_per_committed_path(tmp_path) ->
             _change(str(a), "x=1\n", "x=10\n"),
             _change(str(b), "y=2\n", "y=20\n"),
         ],
-        edit_type="rename",
+        edit_type="semantic_edit",
     )
     assert result.success
     invalidated = sorted(call.args[0] for call in svc.lsp_client.invalidate.call_args_list)
@@ -148,7 +148,7 @@ def test_locks_acquired_in_sorted_order(tmp_path) -> None:
             _change(str(b), "x=1\n", "x=3\n"),
             _change(str(c), "x=1\n", "x=4\n"),
         ],
-        edit_type="rename",
+        edit_type="semantic_edit",
     )
     assert result.success
     assert order == sorted([str(a), str(b), str(c)])
@@ -156,7 +156,7 @@ def test_locks_acquired_in_sorted_order(tmp_path) -> None:
 
 def test_empty_changes_returns_committed_no_op(tmp_path) -> None:
     svc = _svc(tmp_path)
-    result = svc.commit_operation_against_base([], edit_type="rename")
+    result = svc.commit_operation_against_base([], edit_type="semantic_edit")
     assert result.success is True
     assert result.status == "committed"
     assert result.files == ()
@@ -325,7 +325,7 @@ def test_base_mismatch_non_overlapping_merges(tmp_path) -> None:
 
     result = svc.commit_operation_against_base(
         [_change(str(a), base, final)],
-        edit_type="rename",
+        edit_type="semantic_edit",
     )
     assert result.success is True, result.conflict_reason
     text = a.read_text(encoding="utf-8")
@@ -346,7 +346,7 @@ def test_base_mismatch_overlap_aborts_overlap(tmp_path) -> None:
 
     result = svc.commit_operation_against_base(
         [_change(str(a), base, final)],
-        edit_type="rename",
+        edit_type="semantic_edit",
     )
     assert result.success is False
     assert result.status == "aborted_overlap"
@@ -425,7 +425,7 @@ def test_commit_many_checked_apply_falls_back_to_merge_on_drift(tmp_path) -> Non
                         final_content="def bar():\n    return 1\n\nZ = 0\n",
                     ),
                 ),
-                edit_type="rename",
+                edit_type="semantic_edit",
             ),
             CommitOperation(
                 changes=(
@@ -474,7 +474,7 @@ def test_mid_operation_write_failure_rolls_back_prior_files(tmp_path) -> None:
             _change(str(a), "a = 1\n", "a = 10\n"),
             _change(str(b), "b = 2\n", "b = 20\n"),
         ],
-        edit_type="rename",
+        edit_type="semantic_edit",
     )
     assert result.success is False
     assert result.status == "failed"

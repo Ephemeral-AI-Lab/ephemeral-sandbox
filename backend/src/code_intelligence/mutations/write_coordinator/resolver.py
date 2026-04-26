@@ -121,7 +121,7 @@ class ChangeResolver:
         if not existed_now:
             return "", (
                 "aborted_version",
-                "file was deleted since rename plan was built",
+                "file was deleted since operation plan was built",
             )
         assert change.final_content is not None
         merged, reason_kind = self.merge_against_base(
@@ -135,7 +135,7 @@ class ChangeResolver:
         if reason_kind == "overlap":
             return "", (
                 "aborted_overlap",
-                "concurrent edit overlaps the rename window",
+                "concurrent edit overlaps the operation window",
             )
         return "", (
             "aborted_version",

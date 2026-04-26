@@ -166,7 +166,6 @@ This keeps shell, test, and build commands on one audited mutation path.
 - symbol index size, generation, and indexed file count,
 - LSP connected state, query count, and cache hits,
 - Arbiter active locks, total edits, and conflicts,
-- rename preview cache stats,
 - overlay counters.
 
 ## Cleanup Notes

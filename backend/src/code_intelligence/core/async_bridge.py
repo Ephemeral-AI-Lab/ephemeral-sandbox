@@ -193,7 +193,7 @@ async def run_sync_in_executor(func: Any, /, *args: Any, **kwargs: Any) -> Any:
     parallelism; this helper → 45x.
 
     Use everywhere a sandbox-bound sync call is dispatched from an async
-    caller (``submit_commit``, Git workspace commit, rename).
+    caller, such as command commits or Git workspace commits.
     """
     loop = asyncio.get_running_loop()
 

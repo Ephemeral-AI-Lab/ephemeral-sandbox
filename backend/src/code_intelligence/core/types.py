@@ -127,9 +127,6 @@ class OperationChange:
     strict_base: bool = False
 
 
-SemanticFileChange = OperationChange
-
-
 @dataclass(frozen=True)
 class WriteSpec:
     """One file slot inside a :meth:`svc.write_file` batch.

@@ -4,15 +4,28 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any, TypeVar, cast
 
-from code_intelligence.language_server.models import _CacheEntry, _InflightQuery
+from code_intelligence.language_server.models import (
+    LspTelemetry,
+    _CacheEntry,
+    _InflightQuery,
+)
 
 _T = TypeVar("_T")
 
 
 class LspCacheMixin:
+    _cache_lock: threading.Lock
+    _counter_lock: threading.Lock
+    _cache: OrderedDict[str, _CacheEntry]
+    _inflight: dict[str, _InflightQuery]
+    _cache_ttl: float
+    _cache_max: int
+    _telemetry: LspTelemetry
+
     def _run_cached_query(
         self,
         key: str,
@@ -73,5 +86,4 @@ class LspCacheMixin:
             if entry:
                 del self._cache[key]
         return None
-
 
