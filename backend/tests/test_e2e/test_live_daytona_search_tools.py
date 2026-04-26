@@ -19,7 +19,7 @@ from sandbox.async_client import get_async_sandbox
 from sandbox.lifecycle import shutdown_cached_client_async
 from sandbox.testing import create_test_sandbox, delete_test_sandbox
 from tools.core.base import ToolExecutionContextService
-from tools.daytona_toolkit._daytona_utils import (
+from sandbox.daytona_utils import (
     _build_write_text_file_command,
     _wrap_bash_command,
 )

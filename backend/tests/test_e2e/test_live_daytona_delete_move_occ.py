@@ -33,7 +33,7 @@ from code_intelligence.service import (
 )
 from tests.test_e2e.daytona_exec_io import read_text_via_exec, write_text_via_exec
 from tools.core.base import ToolExecutionContextService, ToolResult
-from tools.daytona_toolkit._daytona_utils import (
+from sandbox.daytona_utils import (
     _extract_exit_code,
     _wrap_bash_command,
 )

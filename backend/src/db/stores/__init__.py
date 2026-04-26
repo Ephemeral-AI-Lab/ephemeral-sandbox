@@ -5,14 +5,10 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-__all__ = ["AgentRunStore", "FileMemoryNoteStore", "ModelStore", "TaskCenterStore"]
+__all__ = ["AgentRunStore", "ModelStore", "TaskCenterStore"]
 
 _EXPORTS = {
     "AgentRunStore": ("db.stores.agent_run_store", "AgentRunStore"),
-    "FileMemoryNoteStore": (
-        "db.stores.file_memory_note_store",
-        "FileMemoryNoteStore",
-    ),
     "ModelStore": ("db.stores.model_store", "ModelStore"),
     "TaskCenterStore": ("db.stores.task_center_store", "TaskCenterStore"),
 }

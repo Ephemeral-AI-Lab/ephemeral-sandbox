@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
-from tools.daytona_toolkit._daytona_utils import (
+from sandbox.daytona_utils import (
     _exec_command,
     _get_repo_root,
     _path_error,

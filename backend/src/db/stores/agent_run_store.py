@@ -72,15 +72,6 @@ class AgentRunStore(SyncStoreMixin):
         with self._sf() as db:
             return db.get(AgentRunRecord, run_id)
 
-    def get_run_for_task(self, task_id: str) -> dict | None:
-        with self._sf() as db:
-            record = (
-                db.query(AgentRunRecord)
-                .filter(AgentRunRecord.task_id == task_id)
-                .one_or_none()
-            )
-            return _serialize_run_summary(record) if record is not None else None
-
     def list_runs_for_tasks(self, task_ids: list[str]) -> list[dict]:
         if not task_ids:
             return []

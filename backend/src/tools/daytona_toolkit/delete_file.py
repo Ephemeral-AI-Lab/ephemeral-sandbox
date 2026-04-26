@@ -6,10 +6,10 @@ from pydantic import BaseModel, Field
 
 from code_intelligence.core.types import DeleteSpec
 from tools.core.base import ToolExecutionContextService, ToolResult
-from tools.core.ci_runtime import ci_write_required_result, get_ci_service
 from tools.core.decorator import tool
 from tools.daytona_toolkit._commit import submit_commit
-from tools.daytona_toolkit._daytona_utils import _resolve_path
+from tools.daytona_toolkit._mutation_helpers import ci_write_guard, commit_metadata
+from sandbox.daytona_utils import _resolve_path
 from tools.daytona_toolkit._delete_move_helpers import (
     failure_status,
     normalized_path,
@@ -69,9 +69,8 @@ async def delete_file(
     resolved = normalized_path(_resolve_path(path, context))
     warnings: list[str] = []
 
-    svc = get_ci_service(context)
-    if svc is None:
-        return ci_write_required_result("delete_file", resolved)
+    if guard := ci_write_guard(context, tool_name="delete_file", path=resolved):
+        return guard
 
     specs = [DeleteSpec(path=resolved, is_folder=is_folder)]
 
@@ -83,11 +82,7 @@ async def delete_file(
         description=f"delete {resolved}",
     )
     paths = list(change.changed_paths)
-    common_metadata = {
-        "changed_paths": paths,
-        "ambient_changed_paths": list(change.ambient_changed_paths),
-        "conflict_reason": change.conflict_reason,
-    }
+    common_metadata = commit_metadata(change, paths)
     if change.success:
         return ToolResult(
             output=operation_payload(

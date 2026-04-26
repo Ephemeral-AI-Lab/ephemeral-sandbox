@@ -92,9 +92,6 @@ class OverlayCommandCommitter:
             )
         return op_changes
 
-    def live_paths(self, changes: Sequence[OverlayChange]) -> list[str]:
-        return sorted(self._live_path(c.path) for c in changes)
-
     def _live_path(self, rel: str) -> str:
         rel = rel.replace("\\", "/").lstrip("/")
         return f"{self._workspace_root}/{rel}"

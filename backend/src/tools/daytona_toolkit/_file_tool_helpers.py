@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from tools.core.base import ToolExecutionContextService, ToolResult
-from tools.daytona_toolkit._daytona_utils import (
+from sandbox.daytona_utils import (
     _get_repo_root,
     _recover_sandbox,
     _require_sandbox,

@@ -8,7 +8,7 @@ import shlex
 import subprocess
 from typing import TYPE_CHECKING, Any
 
-from tools.daytona_toolkit._daytona_utils import (
+from sandbox.daytona_utils import (
     _extract_exit_code,
     _wrap_bash_command,
 )

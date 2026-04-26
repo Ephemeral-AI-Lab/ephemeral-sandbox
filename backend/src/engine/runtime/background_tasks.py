@@ -12,7 +12,7 @@ from typing import Any
 
 from tools.core.base import ToolResult
 from message.messages import BackgroundTaskStateBlock, ConversationMessage
-from message.stream_events import BackgroundTaskCompleted, BackgroundTaskStarted
+from message.stream_events import BackgroundTaskStarted
 
 logger = logging.getLogger(__name__)
 
@@ -461,45 +461,6 @@ class BackgroundTaskManager:
 # ---------------------------------------------------------------------------
 # Helpers extracted from engine/core/query.py
 # ---------------------------------------------------------------------------
-
-
-def deliver_completed_background_task(
-    task: TrackedBackgroundTask,
-    messages: list[ConversationMessage],
-) -> BackgroundTaskCompleted:
-    """Append a completion message to *messages* and return the event."""
-    output = task.result.output if task.result else "No output"
-    terminal_status = (
-        "cancelled"
-        if str(task.status) == "cancelled"
-        else "failed"
-        if str(task.status) == "failed"
-        else "completed"
-    )
-    messages.append(
-        ConversationMessage(
-            role="user",
-            content=[
-                BackgroundTaskStateBlock(
-                    task_id=task.task_id,
-                    tool_name=task.tool_name,
-                    task_type=task.task_type,
-                    status=terminal_status,
-                    source="engine_terminal",
-                    text=output,
-                    run_id=task.run_id,
-                    cancel_reason=task.cancel_reason,
-                    completion_mode=getattr(task, "completion_mode", None),
-                )
-            ],
-        )
-    )
-    return BackgroundTaskCompleted(
-        task_id=task.task_id,
-        tool_name=task.tool_name,
-        output=output,
-        is_error=task.result.is_error if task.result else False,
-    )
 
 
 def build_background_reminder(

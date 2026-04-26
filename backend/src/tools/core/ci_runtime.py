@@ -9,15 +9,40 @@ service is unavailable. Actor attribution lives in
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from tools.core.base import ToolExecutionContextService, ToolResult
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "ci_required_result",
     "ci_write_required_result",
     "get_ci_service",
+    "resolve_sandbox",
 ]
+
+
+async def resolve_sandbox(context: ToolExecutionContextService) -> Any | None:
+    """Return the bound Daytona sandbox, lazily attaching from ``sandbox_id``."""
+    from tools.core.sandbox_runtime import get_daytona_sandbox
+
+    sandbox = get_daytona_sandbox(context)
+    if sandbox is not None:
+        return sandbox
+    sandbox_id = str(context.get("sandbox_id") or "").strip()
+    if not sandbox_id:
+        return None
+    try:
+        from sandbox.async_client import get_async_sandbox
+
+        sandbox = await get_async_sandbox(sandbox_id)
+        context["daytona_sandbox"] = sandbox
+        return sandbox
+    except Exception:
+        logger.debug("Lazy sandbox attach failed for %s", sandbox_id, exc_info=True)
+        return None
 
 
 def get_ci_service(context: ToolExecutionContextService) -> Any | None:

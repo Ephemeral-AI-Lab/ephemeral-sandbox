@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from config.defaults import DEFAULT_SANDBOX_CI_ROOT
-from tools.daytona_toolkit._daytona_utils import _build_write_text_file_command, _wrap_bash_command
+from sandbox.daytona_utils import _build_write_text_file_command, _wrap_bash_command
 
 
 EVAL_SANDBOX_FILES: dict[str, str] = {

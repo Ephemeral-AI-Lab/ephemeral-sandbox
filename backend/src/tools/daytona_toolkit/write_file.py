@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from code_intelligence.core.types import WriteSpec
 from tools.core.base import ToolExecutionContextService, ToolResult
-from tools.core.ci_runtime import ci_write_required_result, get_ci_service
 from tools.core.decorator import tool
 from tools.core.op_result_to_tool_result import operation_result_to_tool_result
 from tools.daytona_toolkit._commit import submit_commit
-from tools.daytona_toolkit._daytona_utils import _get_repo_root, _resolve_path
+from tools.daytona_toolkit._mutation_helpers import ci_write_guard, commit_metadata
+from sandbox.daytona_utils import _get_repo_root, _resolve_path
 from tools.daytona_toolkit._file_tool_helpers import (
     WriteFileInput,
     WriteFileOutput,
@@ -32,8 +32,8 @@ async def write_file(
     file_path = _resolve_path(file_path, context)
     warnings: list[str] = []
 
-    if get_ci_service(context) is None:
-        return ci_write_required_result("write_file", file_path)
+    if guard := ci_write_guard(context, tool_name="write_file", path=file_path):
+        return guard
 
     change = await submit_commit(
         context,
@@ -55,11 +55,7 @@ async def write_file(
             "bytes_written": len(content.encode("utf-8")),
             "ci_sync": True,
         },
-        metadata_extra={
-            "changed_paths": list(change.changed_paths),
-            "ambient_changed_paths": list(change.ambient_changed_paths),
-            "conflict_reason": change.conflict_reason,
-        },
+        metadata_extra=commit_metadata(change),
     )
 
 

@@ -12,7 +12,7 @@ from typing import Any
 
 from code_intelligence.core.hashing import content_hash
 from code_intelligence.core.path_utils import resolve_workspace_path
-from tools.daytona_toolkit._daytona_utils import (
+from sandbox.daytona_utils import (
     _build_read_text_file_command,
     _build_remove_file_command,
     _build_write_text_file_commands,

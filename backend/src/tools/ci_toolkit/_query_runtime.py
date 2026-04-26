@@ -13,17 +13,23 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from code_intelligence.core.constants import SKIP_DIRECTORIES, SUPPORTED_EXTENSIONS
+from code_intelligence.core.constants import SUPPORTED_EXTENSIONS, SYMBOL_INDEX_MAX_FILES
+from code_intelligence.core.path_utils import relativize_workspace_path
 from code_intelligence.core.query_helpers import (
     _build_fallback_specs,
     _dedupe_matches,
     _parse_rg_matches,
     _python_fallback_query_symbols,
 )
+from code_intelligence.core.types import SymbolKind
+from code_intelligence.indexing.file_discovery import (
+    collect_local_files,
+    collect_remote_files,
+)
 from tools.core.base import ToolExecutionContextService, ToolResult
-from tools.core.ci_runtime import get_ci_service
-from tools.core.sandbox_runtime import get_daytona_sandbox, resolve_daytona_path
-from tools.daytona_toolkit._daytona_utils import _exec_command
+from tools.core.ci_runtime import get_ci_service, resolve_sandbox
+from tools.core.sandbox_runtime import resolve_daytona_path
+from sandbox.daytona_utils import _exec_command
 
 logger = logging.getLogger(__name__)
 
@@ -171,14 +177,7 @@ class CiQuerySymbolOutput(BaseModel):
     message: str | None = Field(default=None, description="Human-readable status message.")
 
 
-def _normalize_workspace_path(path: str, *, workspace_root: str = "") -> str:
-    normalized = str(path or "").replace("\\", "/").strip()
-    root = str(workspace_root or "").replace("\\", "/").rstrip("/")
-    if root and normalized == root:
-        return ""
-    if root and normalized.startswith(root + "/"):
-        normalized = normalized[len(root) + 1 :]
-    return normalized.lstrip("./").strip("/")
+# -- Query normalization ------------------------------------------------------
 
 
 def _normalize_symbol_query(query: str) -> str:
@@ -214,18 +213,22 @@ def _record_symbol_navigation(context: ToolExecutionContextService) -> None:
     )
 
 
-def _indexed_workspace_paths(
+# -- Workspace structure ------------------------------------------------------
+
+
+def _depth_filtered_paths(
     paths: list[str],
     *,
     workspace_root: str,
     path_prefix: str,
     max_depth: int,
 ) -> list[str]:
-    normalized_prefix = _normalize_workspace_path(path_prefix, workspace_root=workspace_root)
+    """Filter *paths* (workspace-relative or absolute) to those under *path_prefix* within *max_depth*."""
+    normalized_prefix = relativize_workspace_path(path_prefix, workspace_root=workspace_root)
     depth_limit = max(0, int(max_depth))
     rendered: list[str] = []
     for path in paths:
-        rel_path = _normalize_workspace_path(path, workspace_root=workspace_root)
+        rel_path = relativize_workspace_path(path, workspace_root=workspace_root)
         if not rel_path:
             continue
         relative_to_prefix = rel_path
@@ -246,10 +249,6 @@ def _indexed_workspace_paths(
     return rendered
 
 
-def _render_workspace_paths(paths: list[str]) -> str:
-    return "\n".join(paths)
-
-
 def _workspace_structure_result(
     *,
     path: str,
@@ -268,54 +267,75 @@ def _workspace_structure_result(
         path=path,
         max_depth=max_depth,
         paths=resolved_paths,
-        rendered=_render_workspace_paths(resolved_paths) if resolved_paths else "",
+        rendered="\n".join(resolved_paths) if resolved_paths else "",
         message=message,
     )
     return ToolResult(output=payload.model_dump_json())
 
 
-def _maybe_warm_service(context: ToolExecutionContextService, svc: Any, *, label: str) -> None:
-    if getattr(svc, "is_initialized", True):
-        return
-    workspace_root = str(getattr(svc, "workspace_root", "") or "")
-    has_remote_sandbox = get_daytona_sandbox(context) is not None
-    is_remote_only = bool(
-        has_remote_sandbox and workspace_root and not Path(workspace_root).is_dir()
+def _local_workspace_structure(
+    *,
+    workspace_root: str,
+    path_prefix: str,
+    max_depth: int,
+) -> list[str] | None:
+    root = Path(workspace_root)
+    if not root.is_dir():
+        return None
+    normalized_prefix = relativize_workspace_path(path_prefix, workspace_root=workspace_root)
+    start_root = root / normalized_prefix if normalized_prefix else root
+    if not start_root.is_dir():
+        return []
+    files = collect_local_files(start_root, SYMBOL_INDEX_MAX_FILES)
+    abs_paths = [str(p) for p in files]
+    return _depth_filtered_paths(
+        abs_paths,
+        workspace_root=workspace_root,
+        path_prefix=path_prefix,
+        max_depth=max_depth,
     )
-    if is_remote_only:
-        # Full ensure_initialized is unsafe for remote-only sandboxes (LSP
-        # bootstrap requires a local filesystem).  However the symbol index
-        # build runs in its own daemon thread and can safely be awaited.
-        si = getattr(svc, "symbol_index", None)
-        if si is not None and not getattr(si, "is_built", False):
-            try:
-                si.ensure_built(wait=True, timeout=60.0)
-            except Exception:
-                logger.debug("%s remote symbol index warmup failed", label, exc_info=True)
-        return
-    try:
-        svc.ensure_initialized(wait=True)
-    except Exception:
-        logger.debug("%s warmup failed", label, exc_info=True)
 
 
-async def _resolve_sandbox(context: ToolExecutionContextService) -> Any | None:
-    """Get sandbox, lazily attaching from sandbox_id if needed."""
-    sandbox = get_daytona_sandbox(context)
-    if sandbox is not None:
-        return sandbox
-    sandbox_id = str(context.get("sandbox_id") or "").strip()
-    if not sandbox_id:
+async def _remote_workspace_structure(
+    context: ToolExecutionContextService,
+    *,
+    workspace_root: str,
+    path_prefix: str,
+    max_depth: int,
+) -> list[str] | None:
+    target = resolve_daytona_path(path_prefix, context) or workspace_root
+    if not target:
         return None
-    try:
-        from sandbox.async_client import get_async_sandbox
-
-        sandbox = await get_async_sandbox(sandbox_id)
-        context["daytona_sandbox"] = sandbox
-        return sandbox
-    except Exception:
-        logger.debug("Lazy sandbox attach failed for %s", sandbox_id, exc_info=True)
+    sandbox = await resolve_sandbox(context)
+    if sandbox is None:
         return None
+    files = collect_remote_files(sandbox, target, SYMBOL_INDEX_MAX_FILES)
+    if files is None:
+        return None
+    return _depth_filtered_paths(
+        files,
+        workspace_root=workspace_root,
+        path_prefix=path_prefix,
+        max_depth=max_depth,
+    )
+
+
+# -- Service plumbing ---------------------------------------------------------
+
+
+def _svc_or_error(context: ToolExecutionContextService) -> tuple[Any | None, ToolResult | None]:
+    """Get CI service or return an error ToolResult."""
+    svc = get_ci_service(context)
+    if svc is None:
+        return None, ToolResult(
+            output=json.dumps(
+                {"status": "unavailable", "reason": "Code intelligence not configured"}
+            ),
+        )
+    return svc, None
+
+
+# -- Symbol query fallback (rg/python) ----------------------------------------
 
 
 async def _exec_remote(
@@ -325,7 +345,7 @@ async def _exec_remote(
     timeout: int = 30,
     log_label: str,
 ) -> tuple[Any | None, str]:
-    sandbox = await _resolve_sandbox(context)
+    sandbox = await resolve_sandbox(context)
     if sandbox is None:
         return None, ""
     try:
@@ -337,7 +357,6 @@ async def _exec_remote(
 
 
 def _run_rg_local(pattern: str, root: str) -> tuple[int, str] | None:
-    """Run ripgrep locally, return (exit_code, stdout) or None on error."""
     try:
         response = subprocess.run(
             ["rg", "-n", "--no-heading", "--color", "never", "-e", pattern, root],
@@ -360,7 +379,6 @@ async def _run_rg_remote(
     target: str,
     label: str,
 ) -> tuple[int, str] | None:
-    """Run ripgrep on the remote sandbox, return (exit_code, stdout) or None."""
     command = f"rg -n --no-heading --color never -e {shlex.quote(pattern)} {shlex.quote(target)}"
     response, output = await _exec_remote(context, command, log_label=label)
     if response is None:
@@ -373,7 +391,6 @@ def _fallback_query_symbols(
     specs: list[Any],
     query: str,
 ) -> list[dict[str, Any]]:
-    """Parse ripgrep results from multiple fallback specs into symbol matches."""
     collected: list[dict[str, Any]] = []
     for rg_result, spec in zip(rg_results, specs):
         if rg_result is None:
@@ -391,7 +408,6 @@ def _local_query_symbols(
     query: str,
     kind: str = "",
 ) -> list[dict[str, Any]] | None:
-    """Search the local workspace when the symbol index is cold or incomplete."""
     root = Path(workspace_root)
     if not root.is_dir():
         return None
@@ -408,130 +424,12 @@ def _local_query_symbols(
     return _dedupe_matches(collected) or None
 
 
-def _local_workspace_structure(
-    *,
-    workspace_root: str,
-    path_prefix: str,
-    max_depth: int,
-) -> list[str] | None:
-    root = Path(workspace_root)
-    if not root.is_dir():
-        return None
-
-    normalized_prefix = _normalize_workspace_path(path_prefix, workspace_root=workspace_root)
-    start_root = root / normalized_prefix if normalized_prefix else root
-    if not start_root.is_dir():
-        return []
-
-    depth_limit = max(0, int(max_depth))
-    collected: list[str] = []
-    for dirpath, dirnames, filenames in os.walk(start_root):
-        dirnames[:] = [name for name in dirnames if name not in SKIP_DIRECTORIES]
-
-        rel_dir = os.path.relpath(dirpath, start_root)
-        dir_depth = 0 if rel_dir == "." else len([part for part in rel_dir.split(os.sep) if part])
-        if dir_depth >= depth_limit:
-            dirnames[:] = []
-
-        for filename in sorted(filenames):
-            if Path(filename).suffix.lower() not in SUPPORTED_EXTENSIONS:
-                continue
-            full_path = Path(dirpath) / filename
-            rel_path = _normalize_workspace_path(str(full_path), workspace_root=workspace_root)
-            relative_to_prefix = (
-                rel_path[len(normalized_prefix) + 1 :] if normalized_prefix else rel_path
-            )
-            file_depth = len([part for part in relative_to_prefix.split("/") if part])
-            if file_depth <= depth_limit:
-                collected.append(rel_path)
-    return collected
-
-
-async def _remote_workspace_structure(
-    context: ToolExecutionContextService,
-    *,
-    workspace_root: str,
-    path_prefix: str,
-    max_depth: int,
-) -> list[str] | None:
-    target = resolve_daytona_path(path_prefix, context)
-    if not target:
-        return None
-
-    script = """
-import json
-import os
-import sys
-
-root = sys.argv[1]
-workspace_root = sys.argv[2]
-max_depth = int(sys.argv[3])
-skip_dirs = set(json.loads(sys.argv[4]))
-extensions = set(json.loads(sys.argv[5]))
-
-if not os.path.isdir(root):
-    sys.exit(0)
-
-matches = []
-for dirpath, dirnames, filenames in os.walk(root):
-    dirnames[:] = [name for name in dirnames if name not in skip_dirs]
-
-    rel_dir = os.path.relpath(dirpath, root)
-    dir_depth = 0 if rel_dir == "." else len([part for part in rel_dir.split(os.sep) if part])
-    if dir_depth >= max_depth:
-        dirnames[:] = []
-
-    for filename in sorted(filenames):
-        if os.path.splitext(filename)[1].lower() not in extensions:
-            continue
-        full_path = os.path.join(dirpath, filename)
-        rel_path = os.path.relpath(full_path, workspace_root).replace(os.sep, "/")
-        rel_from_root = os.path.relpath(full_path, root)
-        file_depth = len([part for part in rel_from_root.split(os.sep) if part])
-        if file_depth <= max_depth:
-            matches.append(rel_path)
-
-print("\\n".join(matches))
-"""
-    command = (
-        f"python3 -c {shlex.quote(script)} "
-        f"{shlex.quote(target)} "
-        f"{shlex.quote(workspace_root)} "
-        f"{shlex.quote(str(max(0, int(max_depth))))} "
-        f"{shlex.quote(json.dumps(sorted(SKIP_DIRECTORIES)))} "
-        f"{shlex.quote(json.dumps(sorted(SUPPORTED_EXTENSIONS)))}"
-    )
-    response, output = await _exec_remote(
-        context,
-        command,
-        log_label=f"Remote workspace structure for {path_prefix or workspace_root}",
-    )
-    if response is None:
-        return None
-    if getattr(response, "exit_code", 0) not in (0, 1):
-        return None
-    return [line.strip() for line in output.splitlines() if line.strip()]
-
-
-def _svc_or_error(context: ToolExecutionContextService) -> tuple[Any | None, ToolResult | None]:
-    """Get CI service or return an error ToolResult."""
-    svc = get_ci_service(context)
-    if svc is None:
-        return None, ToolResult(
-            output=json.dumps(
-                {"status": "unavailable", "reason": "Code intelligence not configured"}
-            ),
-        )
-    return svc, None
-
-
 async def _remote_query_symbols(
     context: ToolExecutionContextService,
     *,
     query: str,
     kind: str = "",
 ) -> list[dict[str, Any]] | None:
-    """Best-effort remote fallback for symbol search on cold starts."""
     target = resolve_daytona_path("", context)
     specs = _build_fallback_specs(query, kind=kind)
     rg_results = [
@@ -541,6 +439,9 @@ async def _remote_query_symbols(
     if any(r is None for r in rg_results):
         return None
     return _dedupe_matches(_fallback_query_symbols(rg_results, specs, query)) or None
+
+
+# -- Tool: ci_status ----------------------------------------------------------
 
 
 async def run_ci_status(
@@ -556,13 +457,20 @@ async def run_ci_status(
         return err
     status = svc.status()
     if include_edit_hotspots:
-        status["edit_hotspots"] = _edit_hotspots_payload(
-            svc,
-            context,
-            limit=hotspot_limit,
-            cross_run=hotspot_cross_run,
-        )
+        arbiter = getattr(svc, "arbiter", None)
+        run_id = str(context.get("run_id") or "") or None
+        if arbiter is not None and hasattr(arbiter, "hotspots_summary"):
+            status["edit_hotspots"] = arbiter.hotspots_summary(
+                limit=hotspot_limit,
+                run_id=run_id,
+                cross_run=hotspot_cross_run,
+            )
+        else:
+            status["edit_hotspots"] = {"hotspots": [], "note": "Arbiter history not available"}
     return ToolResult(output=json.dumps(status, indent=2, default=str))
+
+
+# -- Tool: ci_workspace_structure --------------------------------------------
 
 
 async def run_ci_workspace_structure(
@@ -587,32 +495,23 @@ async def run_ci_workspace_structure(
         )
     workspace_root = str(getattr(svc, "workspace_root", "") or "")
 
-    # If the symbol index is still building (e.g. kicked off by
-    # inject_code_intelligence for an async sandbox), wait for it so the
-    # first ci_workspace_structure call returns indexed paths instead of
-    # falling through to the slower remote-listing fallback.
+    # Wait for in-flight builds so first-call returns indexed paths.
     if not si.is_built:
         try:
             si.ensure_built(wait=True, timeout=60.0)
         except Exception:
             logger.debug("ci_workspace_structure: symbol index wait failed", exc_info=True)
 
-    # Get indexed file paths
-    from code_intelligence.indexing.symbol_index import SymbolIndex
-
-    if isinstance(si, SymbolIndex):
-        with si._lock:
-            paths = sorted(si._symbols.keys())
+    if hasattr(si, "paths_with_prefix"):
+        indexed_paths = si.paths_with_prefix(path)
     else:
-        paths = []
-
-    paths = _indexed_workspace_paths(
-        paths,
+        indexed_paths = []
+    paths = _depth_filtered_paths(
+        indexed_paths,
         workspace_root=workspace_root,
         path_prefix=path,
         max_depth=max_depth,
     )
-
     if paths:
         return _workspace_structure_result(
             path=path,
@@ -659,7 +558,7 @@ async def run_ci_workspace_structure(
     )
 
 
-# -- Symbol Query (unified) ---------------------------------------------------
+# -- Tool: ci_query_symbol ----------------------------------------------------
 
 
 def _reference_definition_priority(workspace_root: str, definition: Any) -> tuple[int, int, int]:
@@ -676,12 +575,7 @@ def _symbol_leaf_name(name: str) -> str:
 
 
 def _symbol_match_rank(name: str, query: str) -> tuple[int, int, int, str]:
-    """Rank symbol matches by exactness, then by specificity.
-
-    Exact matches win on either the full symbol path or the leaf symbol name.
-    This keeps queries like ``Git`` focused on ``Git`` rather than unrelated
-    symbols such as ``CheckoutErrorSuggestGit``.
-    """
+    """Rank symbol matches by exactness, then specificity."""
     lowered_name = str(name or "").strip().lower()
     lowered_query = str(query or "").strip().lower()
     leaf = _symbol_leaf_name(lowered_name)
@@ -719,10 +613,7 @@ def _prioritize_symbol_matches(
 
 
 def _resolve_symbol_column(svc: Any, file_path: str, line: int, symbol_name: str) -> int:
-    """Best-effort 0-based column for *symbol_name* on *line*.
-
-    Uses the LSP client's ``_read_line`` helper when available.
-    """
+    """Best-effort 0-based column for *symbol_name* on *line* via LSP's line cache."""
     lsp = getattr(svc, "lsp_client", None)
     read_line = getattr(lsp, "_read_line", None)
     if not callable(read_line):
@@ -825,7 +716,7 @@ def _file_query_symbols(
     if not _looks_like_file_query(query):
         return None
     resolved = resolve_daytona_path(query, context)
-    rel_path = _normalize_workspace_path(resolved or query, workspace_root=workspace_root)
+    rel_path = relativize_workspace_path(resolved or query, workspace_root=workspace_root)
     symbol_index = getattr(svc, "symbol_index", None)
     file_symbols = getattr(symbol_index, "file_symbols", None)
     if not rel_path or not callable(file_symbols):
@@ -844,22 +735,22 @@ def _file_query_symbols(
             break
 
     if not matches and not Path(rel_path).suffix:
-        from code_intelligence.indexing.symbol_index import SymbolIndex
-
-        if isinstance(symbol_index, SymbolIndex):
-            prefix = rel_path.rstrip("/") + "/"
-            with symbol_index._lock:
-                indexed_paths = sorted(symbol_index._symbols.keys())
-            for indexed_path in indexed_paths:
-                indexed_rel = _normalize_workspace_path(
-                    indexed_path,
-                    workspace_root=workspace_root,
-                )
-                if not indexed_rel.startswith(prefix):
-                    continue
-                if Path(indexed_rel).suffix.lower() not in SUPPORTED_EXTENSIONS:
-                    continue
-                matches.extend(file_symbols(indexed_path))
+        prefix = rel_path.rstrip("/") + "/"
+        indexed_paths = (
+            symbol_index.indexed_paths()
+            if hasattr(symbol_index, "indexed_paths")
+            else []
+        )
+        for indexed_path in indexed_paths:
+            indexed_rel = relativize_workspace_path(
+                indexed_path,
+                workspace_root=workspace_root,
+            )
+            if not indexed_rel.startswith(prefix):
+                continue
+            if Path(indexed_rel).suffix.lower() not in SUPPORTED_EXTENSIONS:
+                continue
+            matches.extend(file_symbols(indexed_path))
 
     definitions = [
         {
@@ -872,6 +763,11 @@ def _file_query_symbols(
         for symbol in matches
     ]
     return matched_path, definitions
+
+
+def _kind_value(symbol: Any) -> str:
+    kind = getattr(symbol, "kind", None)
+    return getattr(kind, "value", None) or str(kind or "")
 
 
 async def run_ci_query_symbol(
@@ -887,8 +783,6 @@ async def run_ci_query_symbol(
     if err:
         return err
 
-    from code_intelligence.core.types import SymbolKind
-
     kind_filter = None
     if kind:
         try:
@@ -897,7 +791,12 @@ async def run_ci_query_symbol(
             pass
 
     workspace_root = str(getattr(svc, "workspace_root", "") or "")
-    _maybe_warm_service(context, svc, label="ci_query_symbol")
+    warmup = getattr(svc, "warmup", None)
+    if callable(warmup):
+        try:
+            warmup()
+        except Exception:
+            logger.debug("ci warmup failed", exc_info=True)
 
     file_query = _file_query_symbols(
         svc,
@@ -932,28 +831,16 @@ async def run_ci_query_symbol(
             )
         return ToolResult(output=json.dumps(payload, indent=2))
 
-    drop_text_matches = False
     _record_symbol_navigation(context)
 
     results = svc.query_symbols(query)
     if kind_filter:
         results = [s for s in results if s.kind == kind_filter]
-    if drop_text_matches:
-        results = [
-            s
-            for s in results
-            if (
-                (getattr(getattr(s, "kind", None), "value", None) or str(getattr(s, "kind", "")))
-                != "text_match"
-            )
-        ]
     results = _prioritize_symbol_matches(
         results,
         query,
         get_name=lambda s: str(s.name or ""),
-        get_kind=lambda s: (
-            getattr(getattr(s, "kind", None), "value", None) or str(getattr(s, "kind", ""))
-        ),
+        get_kind=_kind_value,
     )
 
     if not results:
@@ -969,10 +856,6 @@ async def run_ci_query_symbol(
         if remote_matches:
             fallback_matches.extend(remote_matches)
         fallback_matches = _dedupe_matches(fallback_matches)
-        if drop_text_matches:
-            fallback_matches = [
-                match for match in fallback_matches if str(match.get("kind") or "") != "text_match"
-            ]
         fallback_matches = _prioritize_symbol_matches(
             fallback_matches,
             query,
@@ -994,22 +877,21 @@ async def run_ci_query_symbol(
         )
         return ToolResult(output=payload.model_dump_json())
 
-    definitions = []
-    for s in results:
-        definitions.append(
-            {
-                "name": s.name,
-                "kind": s.kind.value if hasattr(s.kind, "value") else str(s.kind),
-                "file": s.file_path,
-                "line": s.line,
-                "signature": s.signature,
-            }
-        )
+    definitions = [
+        {
+            "name": s.name,
+            "kind": _kind_value(s),
+            "file": s.file_path,
+            "line": s.line,
+            "signature": s.signature,
+        }
+        for s in results
+    ]
 
     if not references:
         return ToolResult(output=json.dumps({"definitions": definitions}, indent=2))
 
-    # -- Trace references via LSP ---------------------------------------------
+    # -- Reference tracing via LSP -------------------------------------------
 
     sorted_defs = sorted(
         results,
@@ -1022,18 +904,8 @@ async def run_ci_query_symbol(
     if lsp_ready is not False:
         for defn in sorted_defs:
             try:
-                col = _resolve_symbol_column(
-                    svc,
-                    defn.file_path,
-                    defn.line,
-                    defn.name,
-                )
-                lsp_refs = svc.find_references(
-                    defn.file_path,
-                    defn.name,
-                    defn.line,
-                    col,
-                )
+                col = _resolve_symbol_column(svc, defn.file_path, defn.line, defn.name)
+                lsp_refs = svc.find_references(defn.file_path, defn.name, defn.line, col)
                 if lsp_refs:
                     used_lsp = True
                     for ref in lsp_refs:
@@ -1057,7 +929,7 @@ async def run_ci_query_symbol(
                 {
                     "file": defn.file_path,
                     "line": defn.line,
-                    "text": f"definition: {defn.kind.value if hasattr(defn.kind, 'value') else defn.kind} {defn.name}",
+                    "text": f"definition: {_kind_value(defn)} {defn.name}",
                 }
             )
 
@@ -1071,56 +943,6 @@ async def run_ci_query_symbol(
     if not used_lsp and lsp_reason:
         payload["lsp_reason"] = lsp_reason
     return ToolResult(output=json.dumps(payload, indent=2))
-
-
-# -- Edit Hotspots ------------------------------------------------------------
-
-
-def _edit_hotspots_payload(
-    svc: Any,
-    context: ToolExecutionContextService,
-    *,
-    limit: int = 10,
-    cross_run: bool = False,
-) -> dict[str, Any]:
-    """Return same-run or cross-run edit hotspot metadata for ci_status."""
-    # Cross-run path: use arbiter-backed history for contention data.
-    if cross_run:
-        arbiter = svc.arbiter if svc.arbiter else None
-        run_id = str(context.get("run_id") or "") or None
-        if arbiter is not None and getattr(arbiter, "initialized", False):
-            hotspots = arbiter.contention_hotspots(
-                limit=limit,
-                run_id=run_id,
-            )
-            if hotspots:
-                return {
-                    "hotspots": [
-                        {
-                            "file": h.file_path,
-                            "runs_touched": h.contributor_count,
-                            "total_edits": h.edit_count,
-                        }
-                        for h in hotspots
-                    ],
-                }
-            return {"hotspots": [], "note": "No cross-run contention history found."}
-        return {"hotspots": [], "note": "Arbiter history not available for cross-run queries."}
-
-    # Same-run path: use arbiter via CI service
-    arbiter = svc.arbiter if svc.arbiter else None
-    if arbiter is None or not getattr(arbiter, "initialized", False):
-        return {"hotspots": [], "note": "Arbiter history not available"}
-
-    hotspots = arbiter.hotspots(
-        limit=limit,
-        run_id=str(context.get("run_id") or "") or None,
-    )
-    if not hotspots:
-        return {"hotspots": [], "note": "No edit hotspots recorded"}
-
-    items = [{"file": fp, "edit_count": count} for fp, count in hotspots]
-    return {"hotspots": items[:limit]}
 
 
 __all__ = [

@@ -239,6 +239,50 @@ class Arbiter:
             run_id=run_id,
         )
 
+    def hotspots_summary(
+        self,
+        *,
+        limit: int = 10,
+        run_id: str | None = None,
+        cross_run: bool = False,
+    ) -> dict[str, Any]:
+        """Return a JSON-shaped hotspots payload for status responses.
+
+        ``cross_run=True`` uses ``contention_hotspots`` (multi-run history);
+        otherwise it uses same-run ``hotspots``.
+        """
+        if not self.initialized:
+            note = (
+                "Arbiter history not available for cross-run queries."
+                if cross_run
+                else "Arbiter history not available"
+            )
+            return {"hotspots": [], "note": note}
+
+        if cross_run:
+            entries = self.contention_hotspots(limit=limit, run_id=run_id)
+            if not entries:
+                return {"hotspots": [], "note": "No cross-run contention history found."}
+            return {
+                "hotspots": [
+                    {
+                        "file": h.file_path,
+                        "runs_touched": h.contributor_count,
+                        "total_edits": h.edit_count,
+                    }
+                    for h in entries
+                ],
+            }
+
+        same_run = self.hotspots(limit=limit, run_id=run_id)
+        if not same_run:
+            return {"hotspots": [], "note": "No edit hotspots recorded"}
+        return {
+            "hotspots": [
+                {"file": fp, "edit_count": count} for fp, count in same_run[:limit]
+            ],
+        }
+
     def status(self) -> dict[str, Any]:
         """Return arbiter status summary."""
         m = self.metrics

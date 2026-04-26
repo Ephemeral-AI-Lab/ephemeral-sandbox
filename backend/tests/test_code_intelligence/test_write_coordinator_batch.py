@@ -448,8 +448,10 @@ def test_commit_many_checked_apply_falls_back_to_merge_on_drift(tmp_path) -> Non
     assert b.read_text(encoding="utf-8") == "b = 20\n"
 
 
-def test_mid_operation_write_failure_rolls_back_prior_files(tmp_path) -> None:
+def test_mid_operation_write_failure_rolls_back_prior_files(tmp_path, monkeypatch) -> None:
     """A write failure on the second file rolls back the first file."""
+    from pathlib import Path
+
     a = tmp_path / "first.py"
     b = tmp_path / "second.py"
     a.write_text("a = 1\n", encoding="utf-8")
@@ -457,17 +459,22 @@ def test_mid_operation_write_failure_rolls_back_prior_files(tmp_path) -> None:
 
     svc = _svc(tmp_path)
 
-    call_count = 0
-    original_write = svc._write_coordinator._content.write
+    real_write_text = Path.write_text
+    apply_calls = 0
 
-    def _failing_write(path: str, content: str) -> None:
-        nonlocal call_count
-        call_count += 1
-        if call_count == 2:
+    def _failing_write_text(self, data, *args, **kwargs):
+        nonlocal apply_calls
+        # Only fail forward writes inside the checked batch apply, not the
+        # subsequent rollback restores. The applier writes target files in
+        # order; we fail the second forward write.
+        if str(self).endswith("second.py") and apply_calls < 2:
+            apply_calls += 1
             raise OSError("simulated write failure")
-        original_write(path, content)
+        if str(self).endswith(("first.py", "second.py")):
+            apply_calls += 1
+        return real_write_text(self, data, *args, **kwargs)
 
-    svc._write_coordinator._content.write = _failing_write  # type: ignore[assignment]
+    monkeypatch.setattr(Path, "write_text", _failing_write_text)
 
     result = svc.commit_operation_against_base(
         [
@@ -480,6 +487,7 @@ def test_mid_operation_write_failure_rolls_back_prior_files(tmp_path) -> None:
     assert result.status == "failed"
     # First file should be rolled back to its original content
     assert a.read_text(encoding="utf-8") == "a = 1\n"
+    assert b.read_text(encoding="utf-8") == "b = 2\n"
 
 
 # ---------------------------------------------------------------------------

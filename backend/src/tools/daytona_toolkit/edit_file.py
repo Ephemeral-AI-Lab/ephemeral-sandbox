@@ -11,11 +11,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from code_intelligence.mutations.patcher import SearchReplaceEdit
 from code_intelligence.core.types import EditSpec
 from tools.core.base import ToolExecutionContextService, ToolResult
-from tools.core.ci_runtime import ci_write_required_result, get_ci_service
 from tools.core.decorator import tool
 from tools.core.op_result_to_tool_result import operation_result_to_tool_result
 from tools.daytona_toolkit._commit import submit_commit
-from tools.daytona_toolkit._daytona_utils import (
+from tools.daytona_toolkit._mutation_helpers import ci_write_guard, commit_metadata
+from sandbox.daytona_utils import (
     _get_repo_root,
     _resolve_path,
 )
@@ -99,8 +99,8 @@ async def edit_file(
         )
         return ToolResult(output=body, is_error=True)
 
-    if get_ci_service(context) is None:
-        return ci_write_required_result("edit_file", file_path)
+    if guard := ci_write_guard(context, tool_name="edit_file", path=file_path):
+        return guard
 
     commit_started = time.perf_counter()
     change = await submit_commit(
@@ -112,11 +112,7 @@ async def edit_file(
     )
     tool_timings["commit"] = round(time.perf_counter() - commit_started, 6)
 
-    metadata_extra = {
-        "changed_paths": list(change.changed_paths),
-        "ambient_changed_paths": list(change.ambient_changed_paths),
-        "conflict_reason": change.conflict_reason,
-    }
+    metadata_extra = commit_metadata(change)
 
     if not change.success:
         return _edit_failure_result(

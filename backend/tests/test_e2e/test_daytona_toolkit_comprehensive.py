@@ -1410,16 +1410,6 @@ class TestTimeMachine:
         assert tm.rollback("/ws/a.py") is None  # evicted
         assert tm.rollback("/ws/c.py") is not None
 
-    def test_discard_snapshot(self):
-        tm = self._make_tm()
-        tm.save("/ws/app.py", "content")
-        assert tm.discard_snapshot("/ws/app.py") is True
-        assert tm.rollback("/ws/app.py") is None  # discarded
-
-    def test_discard_empty_returns_false(self):
-        tm = self._make_tm()
-        assert tm.discard_snapshot("/ws/nonexistent.py") is False
-
     def test_clear_file(self):
         tm = self._make_tm()
         tm.save("/ws/a.py", "v1")

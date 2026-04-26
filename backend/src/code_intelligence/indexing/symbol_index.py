@@ -138,17 +138,28 @@ class SymbolIndex:
                     return list(fs.symbols)
             return []
 
-    def symbol_boundaries_for_file(self, file_path: str) -> list[tuple[str, int, int]]:
-        """Return ``(symbol_name, start_line, end_line)`` for indexed symbols."""
+    def indexed_paths(self) -> list[str]:
+        """Return all indexed file paths, sorted."""
         with self._lock:
-            fs = self._symbols.get(file_path)
-            if fs is None:
-                return []
-            return [
-                (symbol.name, symbol.line, symbol.end_line or symbol.line)
-                for symbol in fs.symbols
-                if symbol.line > 0
-            ]
+            return sorted(self._symbols.keys())
+
+    def paths_with_prefix(self, prefix: str = "") -> list[str]:
+        """Return indexed paths beginning with *prefix* (workspace-relative match)."""
+        from code_intelligence.core.path_utils import relativize_workspace_path
+
+        root = self._workspace_root
+        normalized_prefix = relativize_workspace_path(prefix, workspace_root=root)
+        with self._lock:
+            paths = sorted(self._symbols.keys())
+        if not normalized_prefix:
+            return paths
+        prefix_with_slash = normalized_prefix.rstrip("/") + "/"
+        out: list[str] = []
+        for path in paths:
+            rel = relativize_workspace_path(path, workspace_root=root)
+            if rel == normalized_prefix or rel.startswith(prefix_with_slash):
+                out.append(path)
+        return out
 
     @property
     def is_built(self) -> bool:

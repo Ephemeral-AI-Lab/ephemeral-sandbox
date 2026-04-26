@@ -6,10 +6,10 @@ from pydantic import BaseModel, Field
 
 from code_intelligence.core.types import MoveSpec
 from tools.core.base import ToolExecutionContextService, ToolResult
-from tools.core.ci_runtime import ci_write_required_result, get_ci_service
 from tools.core.decorator import tool
 from tools.daytona_toolkit._commit import submit_commit
-from tools.daytona_toolkit._daytona_utils import _resolve_path
+from tools.daytona_toolkit._mutation_helpers import ci_write_guard, commit_metadata
+from sandbox.daytona_utils import _resolve_path
 from tools.daytona_toolkit._delete_move_helpers import (
     failure_status,
     move_payload,
@@ -81,9 +81,8 @@ async def move_file(
     dst_resolved = normalized_path(_resolve_path(target_path, context))
     warnings: list[str] = []
 
-    svc = get_ci_service(context)
-    if svc is None:
-        return ci_write_required_result("move_file", src_resolved)
+    if guard := ci_write_guard(context, tool_name="move_file", path=src_resolved):
+        return guard
 
     specs = [
         MoveSpec(
@@ -103,11 +102,7 @@ async def move_file(
         description=f"move {src_resolved} -> {dst_resolved}",
     )
     paths = list(change.changed_paths)
-    common_metadata = {
-        "changed_paths": paths,
-        "ambient_changed_paths": list(change.ambient_changed_paths),
-        "conflict_reason": change.conflict_reason,
-    }
+    common_metadata = commit_metadata(change, paths)
 
     if change.success:
         return ToolResult(

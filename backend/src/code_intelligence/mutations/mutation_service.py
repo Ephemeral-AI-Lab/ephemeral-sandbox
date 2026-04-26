@@ -529,23 +529,6 @@ class MutationService:
         return self._write_coordinator.undo_last_edit(file_path)
 
 
-def _not_found_result(file_path: str) -> OperationResult:
-    return OperationResult(
-        success=False,
-        status="failed",
-        files=(
-            EditResult(
-                success=False,
-                file_path=file_path,
-                message=f"Path does not exist: {file_path}",
-            ),
-        ),
-        conflict_file=None,
-        conflict_reason="not_found",
-        timings={},
-    )
-
-
 def _delete_spec_path(spec: Any) -> str:
     return str(spec.path) if isinstance(spec, DeleteSpec) else str(spec)
 
@@ -564,73 +547,61 @@ def _request_has_folder_spec(req: _CommitSpecRequest) -> bool:
     return False
 
 
-def _not_a_directory_result(file_path: str) -> OperationResult:
+def _error_result(
+    file_path: str,
+    message: str,
+    *,
+    conflict_reason: str,
+    conflict_file: str | None = None,
+) -> OperationResult:
     return OperationResult(
         success=False,
         status="failed",
-        files=(
-            EditResult(
-                success=False,
-                file_path=file_path,
-                message=f"Path is not a directory: {file_path}",
-            ),
-        ),
-        conflict_file=file_path,
-        conflict_reason="not_a_directory",
+        files=(EditResult(success=False, file_path=file_path, message=message),),
+        conflict_file=conflict_file,
+        conflict_reason=conflict_reason,
         timings={},
+    )
+
+
+def _not_found_result(file_path: str) -> OperationResult:
+    return _error_result(
+        file_path,
+        f"Path does not exist: {file_path}",
+        conflict_reason="not_found",
+    )
+
+
+def _not_a_directory_result(file_path: str) -> OperationResult:
+    return _error_result(
+        file_path,
+        f"Path is not a directory: {file_path}",
+        conflict_reason="not_a_directory",
+        conflict_file=file_path,
     )
 
 
 def _identical_paths_result(file_path: str) -> OperationResult:
-    return OperationResult(
-        success=False,
-        status="failed",
-        files=(
-            EditResult(
-                success=False,
-                file_path=file_path,
-                message="src_path and dst_path are identical",
-            ),
-        ),
-        conflict_file=None,
+    return _error_result(
+        file_path,
+        "src_path and dst_path are identical",
         conflict_reason="identical_paths",
-        timings={},
     )
 
 
 def _dst_exists_result(dst_path: str) -> OperationResult:
-    return OperationResult(
-        success=False,
-        status="failed",
-        files=(
-            EditResult(
-                success=False,
-                file_path=dst_path,
-                message=(
-                    f"Destination exists: {dst_path} "
-                    "(pass overwrite=True to replace)"
-                ),
-            ),
-        ),
-        conflict_file=dst_path,
+    return _error_result(
+        dst_path,
+        f"Destination exists: {dst_path} (pass overwrite=True to replace)",
         conflict_reason="dst_exists",
-        timings={},
+        conflict_file=dst_path,
     )
 
 
 def _patch_failed_result(file_path: str, errors: list[str]) -> OperationResult:
-    detail = "; ".join(errors) if errors else "edit apply failed"
-    return OperationResult(
-        success=False,
-        status="failed",
-        files=(
-            EditResult(
-                success=False,
-                file_path=file_path,
-                message=detail,
-            ),
-        ),
-        conflict_file=file_path,
+    return _error_result(
+        file_path,
+        "; ".join(errors) if errors else "edit apply failed",
         conflict_reason="patch_failed",
-        timings={},
+        conflict_file=file_path,
     )

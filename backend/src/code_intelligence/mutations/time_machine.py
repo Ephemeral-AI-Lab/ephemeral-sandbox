@@ -97,18 +97,6 @@ class TimeMachine:
                 del self._stacks[file_path]
             return snapshot
 
-    def discard_snapshot(self, file_path: str) -> bool:
-        """Discard the most recent snapshot (e.g. after successful edit)."""
-        with self._lock:
-            stack = self._stacks.get(file_path, [])
-            if not stack:
-                return False
-            removed = stack.pop()
-            self._total_bytes -= len(removed.content.encode("utf-8"))
-            if not stack:
-                del self._stacks[file_path]
-            return True
-
     def clear(self, file_path: str | None = None) -> None:
         """Clear snapshots for a file, or all files if None."""
         with self._lock:

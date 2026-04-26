@@ -1,4 +1,4 @@
-"""Tests for pure helpers in tools.daytona_toolkit._daytona_utils."""
+"""Tests for pure helpers in sandbox.daytona_utils."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from tools.daytona_toolkit._file_tool_helpers import (
     build_find_result,
     build_read_file_result,
 )
-from tools.daytona_toolkit._daytona_utils import (
+from sandbox.daytona_utils import (
     _get_repo_root,
     _path_error,
     _resolve_path,

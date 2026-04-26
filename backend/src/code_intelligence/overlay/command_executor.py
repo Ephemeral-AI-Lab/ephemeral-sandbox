@@ -68,16 +68,6 @@ class AuditedCommandExecutor:
             on_progress_line=on_progress_line,
         )
 
-    async def warmup(self, sandbox: Any) -> None:
-        """Pre-upload the overlay runner script so the first ``cmd()`` burst
-
-        does not serialize 50-way concurrency behind a cold Daytona exec.
-        Safe to call repeatedly; subsequent calls are ~free.
-        """
-        self._rebind_sandbox(sandbox)
-        overlay = await self._ensure_overlay_auditor()
-        await overlay._ensure_script_uploaded(sandbox)
-
     async def _ensure_overlay_auditor(self) -> OverlayAuditor:
         cached = self._overlay_auditor
         if cached is not None:

@@ -87,7 +87,6 @@ class CodeIntelligenceService:
         self._write_coordinator = WriteCoordinator(
             arbiter=self.arbiter,
             time_machine=self.time_machine,
-            patcher=self.patcher,
             symbol_index=self.symbol_index,
             lsp_client=self.lsp_client,
             content=self._content,
@@ -135,6 +134,34 @@ class CodeIntelligenceService:
             return True
         return False
 
+    def warmup(self) -> None:
+        """Best-effort initialization for query tools.
+
+        On remote-only sandboxes (workspace_root is not a local dir and a
+        sandbox is bound), the LSP bootstrap is unsafe so we only warm
+        the symbol index. Otherwise we run full ``ensure_initialized``.
+        """
+        if self.is_initialized:
+            return
+        workspace_root = str(self.workspace_root or "")
+        is_remote_only = bool(
+            self._sandbox is not None
+            and workspace_root
+            and not Path(workspace_root).is_dir()
+        )
+        if is_remote_only:
+            si = self.symbol_index
+            if si is not None and not si.is_built:
+                try:
+                    si.ensure_built(wait=True, timeout=60.0)
+                except Exception:
+                    logger.debug("warmup remote symbol index failed", exc_info=True)
+            return
+        try:
+            self.ensure_initialized(wait=True)
+        except Exception:
+            logger.debug("warmup full init failed", exc_info=True)
+
     def rebind_sandbox(self, sandbox: Any) -> None:
         """Refresh the sandbox handle on this service and its collaborators."""
         if sandbox is None:
@@ -149,10 +176,6 @@ class CodeIntelligenceService:
 
     async def cmd(self, sandbox: Any, command: str, **kwargs: Any) -> Any:
         return await self._command_executor.cmd(sandbox, command, **kwargs)
-
-    async def warmup_overlay(self, sandbox: Any) -> None:
-        """Pre-upload the overlay runner script to avoid first-burst stall."""
-        await self._command_executor.warmup(sandbox)
 
     def find_definitions(
         self,
