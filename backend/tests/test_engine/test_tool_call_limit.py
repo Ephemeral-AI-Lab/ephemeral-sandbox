@@ -101,9 +101,9 @@ async def test_execute_tool_call_increments_counter_on_unknown_tool():
 
 @pytest.mark.asyncio
 async def test_execute_tool_call_allows_terminal_tool_when_budget_exhausted():
-    ctx = _ctx(limit=2, used=2, terminal_tools={"submit_plan"})
+    ctx = _ctx(limit=2, used=2, terminal_tools={"submit_plan_handoff"})
     ctx.tool_registry.get = lambda _name: None  # type: ignore[method-assign]
-    result = await execute_tool_call(ctx, "submit_plan", "id1", {})
+    result = await execute_tool_call(ctx, "submit_plan_handoff", "id1", {})
 
     assert result.is_error
     assert "Unknown tool" in result.content
@@ -113,14 +113,14 @@ async def test_execute_tool_call_allows_terminal_tool_when_budget_exhausted():
 
 @pytest.mark.asyncio
 async def test_execute_tool_call_reserves_last_call_for_terminal_tool():
-    ctx = _ctx(limit=2, used=1, terminal_tools={"submit_task_success"})
+    ctx = _ctx(limit=2, used=1, terminal_tools={"submit_task_completion"})
     ctx.tool_registry.get = lambda _name: None  # type: ignore[method-assign]
 
     result = await execute_tool_call(ctx, "read_file", "id1", {})
 
     assert result.is_error
     assert "terminal call reserved" in result.content
-    assert "submit_task_success" in result.content
+    assert "submit_task_completion" in result.content
     assert ctx.tool_calls_used == 1
 
 
@@ -131,3 +131,75 @@ async def test_execute_tool_call_unlimited_budget_does_not_count():
     await execute_tool_call(ctx, "ghost", "id1", {})
     # ``None`` limit short-circuits the budget gate; counter stays put.
     assert ctx.tool_calls_used == 0
+
+
+# ---------- 75% budget warning notification ---------------------------------
+
+
+def _ctx_with_notifications(limit: int, used: int = 0) -> tuple[QueryContext, list]:
+    """Build a context wired to a SystemNotificationService and capture emits."""
+    from notification.service import SystemNotificationService
+
+    captured: list = []
+
+    async def _emit(event):
+        captured.append(event)
+
+    service = SystemNotificationService(emit=_emit)
+    ctx = _ctx(limit=limit, used=used)
+    assert ctx.tool_metadata is not None
+    ctx.tool_metadata.system_notification_service = service
+    ctx.tool_registry.get = lambda _name: None  # type: ignore[method-assign]
+    return ctx, captured
+
+
+@pytest.mark.asyncio
+async def test_budget_warning_fires_once_when_crossing_75_percent():
+    ctx, captured = _ctx_with_notifications(limit=4, used=2)
+    # 2 -> 3 puts us at 75% exactly; warning fires.
+    await execute_tool_call(ctx, "any_tool", "id1", {})
+    assert ctx.tool_calls_used == 3
+    assert ctx.tool_budget_warning_fired is True
+    assert len(captured) == 1
+    assert "75%" in captured[0].text
+    assert "3/4" in captured[0].text
+    assert captured[0].category == "tool_budget"
+
+
+@pytest.mark.asyncio
+async def test_budget_warning_does_not_refire_on_subsequent_calls():
+    ctx, captured = _ctx_with_notifications(limit=4, used=2)
+    await execute_tool_call(ctx, "a", "id1", {})  # crosses 75%
+    await execute_tool_call(ctx, "b", "id2", {})  # 4/4 — at cap, but already fired
+    assert len(captured) == 1
+
+
+@pytest.mark.asyncio
+async def test_budget_warning_silent_below_threshold():
+    ctx, captured = _ctx_with_notifications(limit=10, used=0)
+    # 0 -> 1 -> 2 -> ... only fires once we hit ceil(10*0.75)=8.
+    for i in range(7):
+        await execute_tool_call(ctx, "t", f"id{i}", {})
+    assert ctx.tool_calls_used == 7
+    assert captured == []
+    await execute_tool_call(ctx, "t", "id8", {})  # 8/10 = 0.8
+    assert len(captured) == 1
+
+
+@pytest.mark.asyncio
+async def test_budget_warning_skipped_when_no_service():
+    # Default _ctx has no notification service attached.
+    ctx = _ctx(limit=4, used=2)
+    ctx.tool_registry.get = lambda _name: None  # type: ignore[method-assign]
+    await execute_tool_call(ctx, "any_tool", "id1", {})
+    # No crash, flag stays False since nothing was fired.
+    assert ctx.tool_budget_warning_fired is False
+
+
+@pytest.mark.asyncio
+async def test_budget_warning_skipped_when_no_limit():
+    ctx, captured = _ctx_with_notifications(limit=4, used=0)
+    ctx.tool_call_limit = None
+    await execute_tool_call(ctx, "any_tool", "id1", {})
+    assert captured == []
+    assert ctx.tool_budget_warning_fired is False

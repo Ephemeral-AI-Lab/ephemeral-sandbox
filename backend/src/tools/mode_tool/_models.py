@@ -30,7 +30,7 @@ class TaskSpec(BaseModel):
 
 
 class SubmissionOutput(BaseModel):
-    """Generic output for mode-entry and terminal tools."""
+    """Generic output for terminal tools."""
 
     status: str = Field(..., description="'accepted' on success, 'rejected' on validation failure.")
     detail: str | None = Field(default=None, description="Optional explanatory message.")

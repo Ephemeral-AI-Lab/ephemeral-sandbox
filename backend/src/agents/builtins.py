@@ -3,8 +3,7 @@
 Builtin agents are Python literals so their tool lists can be derived from
 named constants and kept aligned with the terminal-tool contracts. The current
 runtime is single-response: agents choose their terminal submission directly in
-that response instead of entering a secondary mode and receiving another model
-request.
+that response.
 
 The legacy ``backend/config/agents/executor.md`` and ``evaluator.md`` were
 removed when this module was introduced; user-defined agents continue to load
@@ -21,9 +20,9 @@ from agents.types import AgentDefinition, ModeDefinition
 # Tool surfaces
 # ---------------------------------------------------------------------------
 
-# Read-only tools available inside the secondary modes. The list intentionally
-# excludes ``shell`` (which can run arbitrary writes) and any
-# subagent-spawning tool — secondary modes are deliberately read-only.
+# Read-only tools available to explorer subagents. The list intentionally
+# excludes ``shell`` (which can run arbitrary writes) and any subagent-spawning
+# tool.
 _READ_ONLY_INVESTIGATION_TOOLS: list[str] = [
     "grep",
     "glob",

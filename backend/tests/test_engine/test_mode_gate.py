@@ -81,6 +81,7 @@ class _StubContext:
     cwd: Path
     tool_call_limit: int | None
     tool_calls_used: int = 0
+    tool_budget_warning_fired: bool = False
     terminal_tools: set = None  # type: ignore[assignment]
     tool_metadata: ExecutionMetadata = None  # type: ignore[assignment]
     active_mode: ModeDefinition | None = None

@@ -237,7 +237,7 @@ async def _consume_provider_stream(
                     None,
                 )
                 continue
-            budget_rejection = _consume_tool_budget_or_reject(
+            budget_rejection = await _consume_tool_budget_or_reject(
                 context,
                 event.name,
                 event.id,

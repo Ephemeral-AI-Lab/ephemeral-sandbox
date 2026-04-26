@@ -103,7 +103,7 @@ def evaluate_mode_gate(
     return _build_mode_deny(tool_name, tool_use_id, active_mode)
 
 
-def _consume_tool_budget_or_reject(
+async def _consume_tool_budget_or_reject(
     context: QueryContext,
     tool_name: str,
     tool_use_id: str,
@@ -125,7 +125,31 @@ def _consume_tool_budget_or_reject(
             context.terminal_tools,
         )
     context.tool_calls_used += 1
+    await _maybe_fire_budget_warning(context)
     return None
+
+
+async def _maybe_fire_budget_warning(context: QueryContext) -> None:
+    """Notify once when tool_calls_used first crosses 75% of tool_call_limit."""
+    if context.tool_budget_warning_fired:
+        return
+    limit = context.tool_call_limit
+    if limit is None:
+        return
+    if context.tool_calls_used / limit < 0.75:
+        return
+    metadata = context.tool_metadata
+    if metadata is None:
+        return
+    service = metadata.system_notification_service
+    if service is None:
+        return
+    context.tool_budget_warning_fired = True
+    await service.notify_system(
+        f"Tool budget at 75%: {context.tool_calls_used}/{limit} calls used. "
+        "Wrap up soon — terminate cleanly before exhausting the budget.",
+        category="tool_budget",
+    )
 
 
 async def execute_tool_call(
@@ -167,7 +191,7 @@ async def execute_tool_call_streaming(
     if mode_rejection is not None:
         return mode_rejection
     if consume_budget:
-        budget_rejection = _consume_tool_budget_or_reject(context, tool_name, tool_use_id)
+        budget_rejection = await _consume_tool_budget_or_reject(context, tool_name, tool_use_id)
         if budget_rejection is not None:
             return budget_rejection
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from message.messages import ToolResultBlock
+
 if TYPE_CHECKING:
     from engine.core.query import QueryContext
 
@@ -14,7 +15,8 @@ def reject_tool_batch(
     message: str,
 ) -> list[ToolResultBlock]:
     return [
-        ToolResultBlock(tool_use_id=str(tc.id), content=message, is_error=True) for tc in tool_calls
+        ToolResultBlock(tool_use_id=str(tc.id), content=message, is_error=True)
+        for tc in tool_calls
     ]
 
 
