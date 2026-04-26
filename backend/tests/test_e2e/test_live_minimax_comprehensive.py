@@ -229,14 +229,14 @@ class TestMultiTurnConversation:
         assert "200" in text2, f"Should compute 200. Got: {text2}"
 
     @pytest.mark.asyncio
-    async def test_multiturn_session_isolation(self):
-        """Each test agent should have an independent session."""
+    async def test_multiturn_conversation_isolation(self):
+        """Each test agent should have independent conversation state."""
         agent = create_eval_agent()
 
         result = await agent.invoke("Reply with exactly one word: ISOLATED")
         text = result.text
         assert text, "Should get a response"
-        # This test verifies that sessions don't bleed state from other tests
+        # This test verifies that conversation state does not bleed from other tests.
 
     @pytest.mark.asyncio
     async def test_multiturn_error_recovery(self):

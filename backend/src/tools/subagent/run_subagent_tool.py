@@ -201,8 +201,6 @@ async def run_subagent(
 
     parent_cfg = context.metadata.runtime_config
     sandbox_id = context.metadata.sandbox_id or None
-    parent_run_id = context.metadata.agent_run_id
-    parent_task_id = context.metadata.get("task_id")
     bg_manager = context.metadata.background_task_manager
     bg_task_id = context.metadata.background_task_id
 
@@ -228,8 +226,6 @@ async def run_subagent(
         agent_def=sub_def,
         sandbox_id=sandbox_id,
         persist_agent_run=False,
-        parent_run_id=parent_run_id if isinstance(parent_run_id, str) else None,
-        parent_task_id=parent_task_id if isinstance(parent_task_id, str) else None,
         extra_tool_metadata=sub_meta,
         on_agent_spawned=_on_spawned,
     )

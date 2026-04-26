@@ -265,13 +265,8 @@ def test_live_two_concurrent_same_file_overlap_has_single_winner(
             daytona_edit_file.execute(
                 daytona_edit_file.input_model(
                     file_path=file_path,
-                    edits=[
-                        {
-                            "strategy": "search_replace",
-                            "search": search,
-                            "replace": replace,
-                        }
-                    ],
+                    old_text=search,
+                    new_text=replace,
                     description=f"{agent_id}: replace {search!r}",
                 ),
                 ctx,
@@ -359,13 +354,8 @@ def test_live_five_concurrent_same_file_edit_tool_calls(live_tool_env: LiveToolE
             daytona_edit_file.execute(
                 daytona_edit_file.input_model(
                     file_path=file_path,
-                    edits=[
-                        {
-                            "strategy": "search_replace",
-                            "search": search,
-                            "replace": replace,
-                        }
-                    ],
+                    old_text=search,
+                    new_text=replace,
                     description=f"{agent_id}: replace {search!r}",
                 ),
                 ctx,

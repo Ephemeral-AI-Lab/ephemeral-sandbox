@@ -87,8 +87,6 @@ async def run_ephemeral_agent(
     initial_messages: list[ConversationMessage] | None = None,
     persist_agent_run: bool = True,
     task_id: str | None = None,
-    parent_run_id: str | None = None,
-    parent_task_id: str | None = None,
     on_event: AgentStreamEmitter | None = None,
     on_agent_spawned: Callable[[Any], None] | None = None,
     extra_tool_metadata: ExecutionMetadata | dict[str, Any] | None = None,
@@ -128,20 +126,15 @@ async def run_ephemeral_agent(
         except Exception:
             logger.debug("on_agent_spawned hook raised", exc_info=True)
     logger.info(
-        "Spawned agent %r (model=%s, task_id=%s, parent_run=%s, parent_task=%s)",
+        "Spawned agent %r (model=%s, task_id=%s)",
         agent.agent_name,
         agent.model,
         task_id,
-        parent_run_id,
-        parent_task_id,
     )
 
     tracker = AgentRunTracker.create(
         task_id=task_id if db_available else None,
         agent_name=agent.agent_name,
-        input_query=prompt,
-        parent_run_id=parent_run_id,
-        parent_task_id=parent_task_id,
     )
     run_id = tracker.run_id
 
@@ -189,13 +182,10 @@ async def run_ephemeral_agent(
         token_count = agent.total_usage.input_tokens + agent.total_usage.output_tokens
 
     tracker.finish(
-        status="failed" if run_error else "completed",
         display_messages=list(agent._display_messages),
         terminal_tool_result=terminal_payload,
         token_count=token_count,
-        reasoning=reasoning,
         error=run_error,
-        event_count=event_count,
     )
 
     return EphemeralRunResult(

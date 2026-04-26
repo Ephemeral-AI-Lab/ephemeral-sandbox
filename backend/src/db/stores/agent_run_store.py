@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, UTC
-from typing import Any
 
 from db.models.agent_run import AgentRunRecord
 from db.stores.base import SyncStoreMixin
@@ -33,7 +32,6 @@ class AgentRunStore(SyncStoreMixin):
         run_id: str,
         task_id: str,
         agent_name: str,
-        **_: Any,
     ) -> AgentRunRecord:
         """Create a new agent run record for one TaskCenter task."""
         with self._sf() as db:
@@ -56,8 +54,6 @@ class AgentRunStore(SyncStoreMixin):
         terminal_tool_result: dict | None = None,
         token_count: int = 0,
         error: str | None = None,
-        cancellation_reason: str | None = None,
-        **_: Any,
     ) -> AgentRunRecord | None:
         with self._sf() as db:
             record = db.get(AgentRunRecord, run_id)
@@ -66,7 +62,7 @@ class AgentRunStore(SyncStoreMixin):
             record.message_history = message_history
             record.terminal_tool_result = terminal_tool_result
             record.token_count = token_count
-            record.error = error or cancellation_reason
+            record.error = error
             record.finished_at = datetime.now(UTC)
             db.commit()
             db.refresh(record)

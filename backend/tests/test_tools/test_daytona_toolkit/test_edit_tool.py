@@ -13,8 +13,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pytest
-
 from code_intelligence.types import EditSpec, EditResult, OperationResult
 from tools.core.base import ToolExecutionContext, run_tool_safely
 from tools.daytona_toolkit.edit_tool import daytona_edit_file
@@ -82,7 +80,13 @@ def test_missing_ci_service_returns_write_required_error() -> None:
     assert result.metadata.get("ci_required") is True
 
 
-def test_both_edits_and_old_text_is_rejected() -> None:
+def test_edits_schema_is_not_exposed() -> None:
+    schema = daytona_edit_file.to_api_schema()["input_schema"]
+
+    assert "edits" not in schema.get("properties", {})
+
+
+def test_extra_edits_input_does_not_create_batch_edit() -> None:
     svc = _svc()
     ctx = _ctx({"ci_service": svc, "repo_root": "/ws"})
 
@@ -97,18 +101,19 @@ def test_both_edits_and_old_text_is_rejected() -> None:
     )
 
     assert result.is_error
-    assert "not both" in result.output
+    assert "Invalid input for daytona_edit_file" in result.output
+    assert "edits" in result.output
     svc.edit_file.assert_not_called()
 
 
-def test_empty_edits_list_is_rejected() -> None:
+def test_missing_old_text_is_rejected() -> None:
     svc = _svc()
     ctx = _ctx({"ci_service": svc, "repo_root": "/ws"})
 
-    result = _run({"file_path": "/ws/f.py", "edits": []}, ctx)
+    result = _run({"file_path": "/ws/f.py"}, ctx)
 
     assert result.is_error
-    assert "At least one edit" in result.output
+    assert "Provide `old_text`" in result.output
     svc.edit_file.assert_not_called()
 
 
@@ -130,46 +135,6 @@ def test_single_old_new_text_edit_succeeds() -> None:
     payload = json.loads(result.output)
     assert payload["status"] == "edited"
     assert payload["applied_edits"] == 1
-
-
-def test_search_replace_batch_variants_normalize_correctly() -> None:
-    svc = _svc(_success_op("/ws/file.py"))
-    ctx = _ctx({"ci_service": svc, "repo_root": "/ws"})
-
-    result = _run(
-        {
-            "file_path": "/ws/file.py",
-            "edits": [
-                {"strategy": "search_replace", "search": "a", "replace": "b"},
-                {"strategy": "search_replace", "old_text": "c", "new_text": "d"},
-                {"strategy": "search_replace", "old_string": "e", "new_string": "f"},
-            ],
-        },
-        ctx,
-    )
-
-    assert not result.is_error
-    specs = svc.edit_file.call_args.args[0]
-    assert len(specs[0].edits) == 3
-    payload = json.loads(result.output)
-    assert payload["applied_edits"] == 3
-
-
-def test_unknown_edit_strategy_is_rejected() -> None:
-    svc = _svc()
-    ctx = _ctx({"ci_service": svc, "repo_root": "/ws"})
-
-    result = _run(
-        {
-            "file_path": "/ws/f.py",
-            "edits": [{"strategy": "rocket", "search": "a", "replace": "b"}],
-        },
-        ctx,
-    )
-
-    assert result.is_error
-    assert "unknown strategy" in result.output
-    svc.edit_file.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -201,27 +166,6 @@ def test_patch_failed_in_single_edit_mode_uses_structured_payload() -> None:
 
     result = _run(
         {"file_path": "/ws/file.py", "old_text": "missing", "new_text": "x"},
-        ctx,
-    )
-
-    assert result.is_error
-    payload = json.loads(result.output)
-    assert payload["status"] == "failed"
-    assert payload["conflict_reason"] == "patch_failed"
-
-
-def test_patch_failed_in_batch_mode_uses_structured_payload() -> None:
-    """Batch mode doesn't pretend to be single-edit; it surfaces the structured failure."""
-    svc = _svc(
-        _failed_op("/ws/file.py", status="failed", conflict_reason="patch_failed"),
-    )
-    ctx = _ctx({"ci_service": svc, "repo_root": "/ws"})
-
-    result = _run(
-        {
-            "file_path": "/ws/file.py",
-            "edits": [{"strategy": "search_replace", "search": "m", "replace": "n"}],
-        },
         ctx,
     )
 
@@ -263,18 +207,3 @@ def test_description_flows_through_to_svc() -> None:
     )
 
     assert svc.edit_file.call_args.kwargs["description"] == "tidy imports"
-
-
-@pytest.mark.parametrize(
-    "field,value",
-    [("edits", [{"strategy": "", "search": "a", "replace": "b"}])],
-)
-def test_ambiguous_edit_shapes_are_tolerated(field: str, value) -> None:
-    """Missing strategy with recognizable keys is treated as search_replace."""
-    svc = _svc(_success_op("/ws/file.py"))
-    ctx = _ctx({"ci_service": svc, "repo_root": "/ws"})
-
-    result = _run({"file_path": "/ws/file.py", field: value}, ctx)
-
-    assert not result.is_error
-    svc.edit_file.assert_called_once()

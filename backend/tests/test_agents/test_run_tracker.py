@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from agents.run_tracker import AgentRunTracker
 
 
-def test_create_retries_on_duplicate_auto_run_id(monkeypatch):
+def test_create_does_not_retry_on_duplicate_auto_run_id(monkeypatch):
     class DuplicateKeyError(Exception):
         pass
 
@@ -20,21 +18,16 @@ def test_create_retries_on_duplicate_auto_run_id(monkeypatch):
                 raise DuplicateKeyError("duplicate key value violates unique constraint")
             return None
 
-    ids = iter(
-        [
-            SimpleNamespace(hex="duplicate000000"),
-            SimpleNamespace(hex="fresh-run-id-01"),
-        ]
-    )
-
     monkeypatch.setattr("agents.run_tracker._get_agent_run_store", lambda: FakeStore())
-    monkeypatch.setattr("agents.run_tracker.uuid4", lambda: next(ids))
+    monkeypatch.setattr(
+        "agents.run_tracker.uuid4",
+        lambda: type("UUID", (), {"hex": "duplicate000000"})(),
+    )
 
     tracker = AgentRunTracker.create(
         task_id="run-1:t1",
         agent_name="developer",
-        input_query="payload",
     )
 
-    assert tracker.run_id == "fresh-run-id-01"[:16]
-    assert calls == ["duplicate000000"[:16], "fresh-run-id-01"[:16]]
+    assert tracker.run_id is None
+    assert calls == ["duplicate000000"[:16]]

@@ -45,7 +45,6 @@ from message.stream_events import (
     ToolExecutionStarted,
 )
 from providers.types import SupportsStreamingMessages, UsageSnapshot
-from tools.core.base import ExecutionMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -491,22 +490,6 @@ class EvalAgent:
 
         total_usage = UsageSnapshot()
 
-        # EvalAgent invocations are not TaskCenter tasks, so they are not
-        # persisted into the minimal agent_runs table.
-        from agents.run_tracker import AgentRunTracker
-
-        tracker = AgentRunTracker.create(
-            task_id=None,
-            agent_name="eval_agent",
-            input_query=prompt,
-        )
-        run_id = tracker.run_id
-
-        if run_id is not None:
-            if self._query_context.tool_metadata is None:
-                self._query_context.tool_metadata = ExecutionMetadata()
-            self._query_context.tool_metadata.agent_run_id = run_id
-
         messages, event_iter = await run_query(self._query_context, self._display_messages)
         self._display_messages = messages
         async for event, usage in event_iter:
@@ -550,10 +533,6 @@ class EvalAgent:
             _out(f"    [thinking] {_truncate(''.join(thinking_buf), 500)}")
         if text_buf:
             _out(f"    [text] {_truncate(''.join(text_buf), 500)}")
-
-        # Finalise the top-level agent_run row so listings/inspectors see it
-        # in a terminal state (mirrors execute_ephemeral_agent_run).
-        tracker.finish(status="completed", event_count=len(events))
 
         latency_ms = (time.monotonic() - start) * 1000
 

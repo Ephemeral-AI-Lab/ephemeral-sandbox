@@ -12,17 +12,6 @@ class _DummyClient:
         return None
 
 
-class _DummyTracker:
-    run_id = "run-123"
-
-    @classmethod
-    def create(cls, **kwargs):
-        return cls()
-
-    def finish(self, **kwargs) -> None:
-        return None
-
-
 async def _fake_event_iter(events):
     for event in events:
         yield event, None
@@ -56,10 +45,6 @@ def test_eval_agent_verbose_logging_keeps_full_background_and_system_messages(
 
     monkeypatch.setattr("engine.testing.eval_agent.run_query", _fake_run_query)
     monkeypatch.setattr("engine.core.query.run_query", _fake_run_query)
-    monkeypatch.setattr("agents.run_tracker.AgentRunTracker", _DummyTracker)
-    # Restore original invoke if test_e2e conftest patched it at import time
-    if hasattr(EvalAgent, "_original_invoke"):
-        monkeypatch.setattr(EvalAgent, "invoke", EvalAgent._original_invoke)
 
     query_context = SimpleNamespace(
         tool_metadata=None,
