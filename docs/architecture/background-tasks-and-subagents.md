@@ -296,6 +296,6 @@ Unlike ephemeral agents (one-shot snapshots), subagents have a complete task loo
 
 - `/backend/src/engine/runtime/background_dispatch.py`: Dispatch plumbing
 - `/backend/src/engine/runtime/background_tasks.py`: BackgroundTaskManager lifecycle
-- `/backend/src/tools/subagent/run_subagent_tool.py`: Subagent spawning & execution
+- `/backend/src/tools/subagent/run_subagent.py`: Subagent spawning & execution
 - `/backend/src/engine/runtime/agent.py`: spawn_agent() and EphemeralAgent
 - `/backend/src/engine/core/query.py`: Query loop integration (calls launch_and_collect_bg_events)

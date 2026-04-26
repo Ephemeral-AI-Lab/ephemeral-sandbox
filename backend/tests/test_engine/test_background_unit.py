@@ -35,7 +35,7 @@ from tools.builtins.background.cancel_background_task import (
     CancelBackgroundTaskInput,
     CancelBackgroundTaskTool,
 )
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from engine.runtime.background_tasks import BackgroundTaskManager
 
 
@@ -44,9 +44,9 @@ from engine.runtime.background_tasks import BackgroundTaskManager
 # ---------------------------------------------------------------------------
 
 
-def _ctx(manager: BackgroundTaskManager | None) -> ToolExecutionContext:
+def _ctx(manager: BackgroundTaskManager | None) -> ToolExecutionContextService:
     metadata = {"background_task_manager": manager} if manager else {}
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=metadata)
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=metadata)
 
 
 # ---------------------------------------------------------------------------

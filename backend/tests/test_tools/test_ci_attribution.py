@@ -15,12 +15,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 from tools.core.ci_attribution import rebind_ci_service
 
 
-def _context(**metadata) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/tmp/rebind-test"), metadata=metadata)
+def _context(**metadata) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/tmp/rebind-test"), services=metadata)
 
 
 def test_rebind_ci_service_forwards_sandbox_to_service() -> None:

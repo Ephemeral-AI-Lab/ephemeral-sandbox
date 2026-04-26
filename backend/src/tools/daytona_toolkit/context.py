@@ -61,7 +61,7 @@ class DaytonaContextPreparer:
     def prepare_context(self, context: Any) -> None:
         """Add the sandbox and repo root to tool execution metadata."""
         sandbox = self._get_sandbox()
-        repo_root = context.metadata.get("repo_root") or self._resolve_cwd_sync(sandbox)
+        repo_root = context.get("repo_root") or self._resolve_cwd_sync(sandbox)
         from sandbox.workspace import ensure_code_intelligence_runtime
 
         ensure_code_intelligence_runtime(
@@ -74,7 +74,7 @@ class DaytonaContextPreparer:
     async def prepare_context_async(self, context: Any) -> None:
         """Add the async sandbox and repo root to tool execution metadata."""
         sandbox = await self._get_sandbox_async()
-        repo_root = context.metadata.get("repo_root") or await self._resolve_cwd_async(sandbox)
+        repo_root = context.get("repo_root") or await self._resolve_cwd_async(sandbox)
         from sandbox.workspace import ensure_code_intelligence_runtime
 
         ensure_code_intelligence_runtime(

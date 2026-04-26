@@ -375,7 +375,7 @@ backend/src/code_intelligence/routing/
 - `service.py` — remove `_git_workspace_pool` shim property; expose no
   pool (there isn't one).
 - `telemetry.py` — add overlay counters (§6).
-- `tools/daytona_toolkit/shell_tool.py` — error-string sweep;
+- `tools/daytona_toolkit/shell.py` — error-string sweep;
   `FileChangeResult.git_commit_status` / `git_conflict_reason` /
   `ambient_changed_paths` shape preserved.
 
@@ -420,7 +420,7 @@ fields the git-workspace auditor emitted:
 `result`, `exit_code`, `changed_paths`, `ambient_changed_paths`,
 `git_commit_status`, `git_conflict_reason`, `git_conflict_file`.
 
-That keeps `shell_tool.py`'s `FileChangeResult` assembly untouched.
+That keeps `shell.py`'s `FileChangeResult` assembly untouched.
 
 Overlay may also include additive metadata fields on the raw response:
 
@@ -607,7 +607,7 @@ Threshold alarm when `overlay.upper_bytes` exceeds 80% of
 |---|---|---|---|
 | 1 | HIGH | Rootless overlay + userxattr probe regresses on a new Daytona image | Re-run `probe_overlay_capability.py` + `probe_overlay_followup.py` as CI smoke on every base-image pin bump; fail the build if either regresses. |
 | 2 | HIGH | Copy-up amplification (`sed -i` on a huge file) fills tmpfs | Tmpfs `size=` cap + fail-fast ENOSPC surfaced as `overlay_upper_full`. Default 512 MB, overridable per-env. |
-| 3 | HIGH | Shape drift in `FileChangeResult` / downstream tools | Golden-output test comparing `shell_tool` shape before/after the cutover for a fixed set of fixture commands. |
+| 3 | HIGH | Shape drift in `FileChangeResult` / downstream tools | Golden-output test comparing `shell` shape before/after the cutover for a fixed set of fixture commands. |
 | 4 | HIGH | SNAP GC mid-op | Rely on `gc.pruneExpire=2.weeks` default; shell ops complete in seconds. Do not invoke `git gc` from inside a shell command against live — enforced by `.git/**` reject policy. |
 | 5 | MED | `git check-ignore` stdin size on huge dep installs | Chunk at 1 MiB stdin. Monitored via `overlay.gitignore_changes` count; page on outliers. |
 | 6 | MED | Concurrent dep installs race on the same gitignore prefix | Accepted (per-file last-writer-wins). Documented in §3.4 and §5.1. Same-version concurrent installs are content-equivalent. **Different-version concurrent installs can interleave at the file level into a Frankenstein tree — silent, non-deterministic.** No sandbox-side coordination is introduced; callers that need coherent dep trees must serialize at the agent layer, or limit one install-style command per prefix per `svc.cmd`. |

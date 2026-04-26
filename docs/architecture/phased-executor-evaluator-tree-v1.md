@@ -16,7 +16,7 @@ The goal is to make the design choices defensible, not to declare a winner.
 ═══════════════════════ TASK GRAPH (per session) ═══════════════════════
 
                           ┌─────────┐
-                          │  root   │  status: AWAITING
+                          │  root   │  status: HANDOFF
                           │executor │  acceptance_criteria
                           └────┬────┘
               full_handoff     │
@@ -55,11 +55,9 @@ The goal is to make the design choices defensible, not to declare a winner.
 
 ══════════════════════════════ STATUS FSM ══════════════════════════════
 
-  PENDING ──▶ READY ──▶ RUNNING ──┬──▶ AWAITING ──(propagation)──▶ DONE
+  PENDING ──▶ READY ──▶ RUNNING ──┬──▶ HANDOFF ──(propagation)──▶ DONE
      │           │         │      ├──▶ DONE       (terminal tool)
-     └───────────┴─────────┴──────┴──▶ FAILED                       ▲
-                                                                    │
-              AWAITING → DONE only via summary propagation ─────────┘
+     └───────────┴─────────┴──────┴──▶ FAILED
               (invariant 14: bypasses transition())
 ```
 
@@ -82,7 +80,7 @@ without coordinating manually.
 | Verification gate | Sink-bound evaluator (single-shot) | Parent's prose check | Reviewer role | `/ralph` loop / operator |
 | Workspace sharing | One shared sandbox; OCC overlay per tool call | Worktree per agent (session-isolated) | Shared FS (uncontrolled) | Shared repo, operator-disciplined |
 | Cross-sibling visibility | Next tool call sees all prior sibling commits | None (worktree-isolated) | Yes, but racy | Yes, but racy |
-| Iteration primitive | `submit_continue_to_work` (typed) | Re-spawn from parent | Reviewer round-trip | Self-loop until verifier passes |
+| Iteration primitive | `submit_continue_work_handoff` (typed) | Re-spawn from parent | Reviewer round-trip | Self-loop until verifier passes |
 | Failure mode | Typed `FAILED`, propagates to root | Parent gets error string | Reviewer rejects | Loop guard / cancel |
 | Audit trail | Closure chain + summaries (reconstructible) | Parent's transcript | Operator-driven | Task list + git history |
 | Best fit | Long-horizon unattended | Bounded fan-out, short tasks | Role-driven quality | Operator-in-the-loop work |
@@ -100,20 +98,20 @@ The v1 architecture rests on three independent primitives that compose:
 Implemented in `backend/src/task_center/`.
 
 - Every node is a `Task` with role `executor | evaluator`, a status
-  `PENDING / READY / RUNNING / AWAITING / DONE / FAILED`, an optional
+  `PENDING / READY / RUNNING / HANDOFF / DONE / FAILED`, an optional
   `closes_for` pointer, a `needs: frozenset[TaskId]` direct-dep set, and a
   `subtree_kind ∈ {handoff, continuation}`.
 - An executor closes one of three ways:
   1. `submit_task_completion(summary)` — leaf closure.
   2. `submit_full_handoff(tasks, task_specs, acceptance_criteria)` — fan
-     out a child DAG plus a sink-bound evaluator; parent goes `AWAITING`.
+     out a child DAG plus a sink-bound evaluator; parent goes `HANDOFF`.
   3. `submit_partial_handoff(...)` — same, plus a `handoff_note`
      describing what the parent already did.
 - An evaluator runs **only after every sink of the child DAG is `DONE`**
   (`needs = sinks(deps)`), then either:
   - `submit_task_completion` — the parent's acceptance criteria is met;
     summary propagates up the `closes_for` chain.
-  - `submit_continue_to_work(summary)` — spawn a continuation executor
+  - `submit_continue_work_handoff(summary)` — spawn a continuation executor
     under the evaluator (a new fan-in point on the same parent).
 - The DAG is per-task (not per-session): each handoff produces its own
   isolated subgraph. The session graph is the union, rooted at one task.
@@ -192,8 +190,8 @@ reading typed summaries.
   migration freedom.
 - When a leaf calls `submit_task_completion(summary)`, the summary
   propagates up the `closes_for` chain — leaf → evaluator → parent —
-  all transitioning to `DONE`. This is invariant 14: `AWAITING →
-  DONE` only happens via propagation, never via `transition()`.
+  all transitioning to `DONE`. This is invariant 14: waiting-state →
+  `DONE` only happens via propagation, never via `transition()`.
 - Downstream siblings read upstream summaries via the prompt builder
   (`task_center/context/task_prompt.py`) **and** see upstream code
   changes via the OCC-shared workspace. Summaries are for the
@@ -297,7 +295,7 @@ on a shared workspace with a coordinator.
 Mapping to v1:
 - "Reviewer" ≈ v1 evaluator. v1's evaluator differs in two ways: it is
   *bound to the closing of a specific subtree* (not a free-floating
-  reviewer), and its failure path is a typed `submit_continue_to_work`
+  reviewer), and its failure path is a typed `submit_continue_work_handoff`
   primitive rather than a prose handoff.
 - "Architect" / "PM" ≈ v1 root executor. v1 doesn't fix the role; the
   decomposition is done by whichever executor calls `submit_*_handoff`,
@@ -434,7 +432,7 @@ To keep the design defensible:
   when its sink-deps are all `DONE`. Re-running it as sinks complete
   would overload it from "verdict" into "progress monitor" — and the
   legitimate iteration case is already covered by
-  `submit_continue_to_work`, which spawns a fresh executor with full
+  `submit_continue_work_handoff`, which spawns a fresh executor with full
   planning power.
 - **No mutation of the closed DAG.** Once a sibling closes and its
   summary propagates, it is fact. The evaluator cannot revise prior

@@ -162,7 +162,7 @@ async def test_multiple_tools_different_purposes(sandbox_id):
 @pytest.mark.skip(
     reason="load_skill tool not available via EvalAgent — requires HTTP agent creation path"
 )
-async def test_skill_load_skill_tool_invoked(sandbox_id):
+async def test_skill_load_skill_invoked(sandbox_id):
     """Agent should invoke load_skill tool when given a skill-dependent task.
 
     Skipped: EvalAgent registers Daytona tools only; load_skill is not available.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContextService, ToolResult
 
 from ._common import TASK_ID_FIELD
 
@@ -34,8 +34,8 @@ class CancelBackgroundTaskTool(BaseTool):
     input_model: type[BaseModel] = CancelBackgroundTaskInput
     output_model: type[BaseModel] = TextToolOutput
 
-    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
-        manager = context.metadata.get("background_task_manager")
+    async def execute(self, arguments: BaseModel, context: ToolExecutionContextService) -> ToolResult:
+        manager = context.get("background_task_manager")
         if manager is None:
             return ToolResult(
                 output="No background task manager available.",

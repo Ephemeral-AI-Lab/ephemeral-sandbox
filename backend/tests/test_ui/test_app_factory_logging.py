@@ -11,7 +11,7 @@ def test_configure_runtime_logging_suppresses_noisy_loggers_when_not_verbose():
         "httpcore",
         "engine.core.query",
         "engine.core.streaming_executor",
-        "tools.daytona_toolkit.all_tools",
+        "tools.daytona_toolkit.registry",
     )
     loggers = [logging.getLogger(name) for name in logger_names]
     original_levels = [logger.level for logger in loggers]
@@ -32,7 +32,7 @@ def test_configure_runtime_logging_keeps_existing_levels_in_verbose_mode():
     logger_names = (
         "httpx",
         "engine.core.query",
-        "tools.daytona_toolkit.all_tools",
+        "tools.daytona_toolkit.registry",
     )
     loggers = [logging.getLogger(name) for name in logger_names]
     original_levels = [logger.level for logger in loggers]

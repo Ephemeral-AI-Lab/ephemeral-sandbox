@@ -16,7 +16,7 @@ from message.stream_events import (
 )
 from tools.core.base import (
     BaseTool,
-    ToolExecutionContext,
+    ToolExecutionContextService,
     ToolRegistry,
     ToolResult,
 )
@@ -84,7 +84,7 @@ class StreamingToolExecutor:
     def __init__(
         self,
         tool_registry: ToolRegistry,
-        context: ToolExecutionContext,
+        context: ToolExecutionContextService,
         should_defer: DeferPredicate | None = None,
     ):
         self._tool_registry = tool_registry
@@ -237,9 +237,9 @@ class StreamingToolExecutor:
                 tool.status = "completed"
                 return
 
-            context_with_id = ToolExecutionContext(
+            context_with_id = ToolExecutionContextService(
                 cwd=self._context.cwd,
-                metadata=self._context.metadata.with_overrides(tool_id=tool.id),
+                services=self._context.services_with_overrides(tool_id=tool.id),
             )
 
             tool.result = await execute_tool_once(

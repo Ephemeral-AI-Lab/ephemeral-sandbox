@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from code_intelligence.tuning import CODE_INTELLIGENCE_TUNING
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.daytona_toolkit._daytona_utils import (
     _get_repo_root,
     _recover_sandbox,
@@ -108,7 +108,7 @@ class GlobOutput(BaseModel):
 
 
 async def run_with_recovery(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     operation: Any,
 ) -> Any:
     """Run an operation once, then retry after sandbox recovery."""
@@ -121,7 +121,7 @@ async def run_with_recovery(
 
 def build_read_file_result(
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     file_path: str,
     content: str,
     start_line: int,

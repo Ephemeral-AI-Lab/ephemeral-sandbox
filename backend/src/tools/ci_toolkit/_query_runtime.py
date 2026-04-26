@@ -1,4 +1,4 @@
-"""Query-oriented CI tools for code intelligence queries."""
+"""Shared runtime for CI query tool implementations."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from code_intelligence.query_helpers import (
     _parse_rg_matches,
     _python_fallback_query_symbols,
 )
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.ci_runtime import get_ci_service
 from tools.core.sandbox_runtime import get_daytona_sandbox, resolve_daytona_path
 from tools.daytona_toolkit._daytona_utils import _exec_command
@@ -207,7 +207,7 @@ def _looks_like_file_query(query: str) -> bool:
     return any(lowered.endswith(ext) for ext in SUPPORTED_EXTENSIONS)
 
 
-def _record_symbol_navigation(context: ToolExecutionContext) -> None:
+def _record_symbol_navigation(context: ToolExecutionContextService) -> None:
     metadata = getattr(context, "metadata", None)
     if metadata is None:
         return
@@ -282,7 +282,7 @@ def _workspace_structure_result(
     return ToolResult(output=payload.model_dump_json())
 
 
-def _maybe_warm_service(context: ToolExecutionContext, svc: Any, *, label: str) -> None:
+def _maybe_warm_service(context: ToolExecutionContextService, svc: Any, *, label: str) -> None:
     if getattr(svc, "is_initialized", True):
         return
     workspace_root = str(getattr(svc, "workspace_root", "") or "")
@@ -309,19 +309,19 @@ def _maybe_warm_service(context: ToolExecutionContext, svc: Any, *, label: str) 
         logger.debug("%s warmup failed", label, exc_info=True)
 
 
-async def _resolve_sandbox(context: ToolExecutionContext) -> Any | None:
+async def _resolve_sandbox(context: ToolExecutionContextService) -> Any | None:
     """Get sandbox, lazily attaching from sandbox_id if needed."""
     sandbox = get_daytona_sandbox(context)
     if sandbox is not None:
         return sandbox
-    sandbox_id = str((context.metadata or {}).get("sandbox_id") or "").strip()
+    sandbox_id = str(context.get("sandbox_id") or "").strip()
     if not sandbox_id:
         return None
     try:
         from sandbox.async_client import get_async_sandbox
 
         sandbox = await get_async_sandbox(sandbox_id)
-        context.metadata["daytona_sandbox"] = sandbox
+        context["daytona_sandbox"] = sandbox
         return sandbox
     except Exception:
         logger.debug("Lazy sandbox attach failed for %s", sandbox_id, exc_info=True)
@@ -329,7 +329,7 @@ async def _resolve_sandbox(context: ToolExecutionContext) -> Any | None:
 
 
 async def _exec_remote(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     command: str,
     *,
     timeout: int = 30,
@@ -362,7 +362,7 @@ def _run_rg_local(pattern: str, root: str) -> tuple[int, str] | None:
 
 
 async def _run_rg_remote(
-    context: ToolExecutionContext, pattern: str, target: str, label: str,
+    context: ToolExecutionContextService, pattern: str, target: str, label: str,
 ) -> tuple[int, str] | None:
     """Run ripgrep on the remote sandbox, return (exit_code, stdout) or None."""
     command = f"rg -n --no-heading --color never -e {shlex.quote(pattern)} {shlex.quote(target)}"
@@ -454,7 +454,7 @@ def _local_workspace_structure(
 
 
 async def _remote_workspace_structure(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     *,
     workspace_root: str,
     path_prefix: str,
@@ -524,7 +524,7 @@ print("\\n".join(matches))
     return [line.strip() for line in output.splitlines() if line.strip()]
 
 
-def _svc_or_error(context: ToolExecutionContext) -> tuple[Any | None, ToolResult | None]:
+def _svc_or_error(context: ToolExecutionContextService) -> tuple[Any | None, ToolResult | None]:
     """Get CI service or return an error ToolResult."""
     svc = get_ci_service(context)
     if svc is None:
@@ -537,7 +537,7 @@ def _svc_or_error(context: ToolExecutionContext) -> tuple[Any | None, ToolResult
 
 
 async def _remote_query_symbols(
-    context: ToolExecutionContext, *, query: str, kind: str = "",
+    context: ToolExecutionContextService, *, query: str, kind: str = "",
 ) -> list[dict[str, Any]] | None:
     """Best-effort remote fallback for symbol search on cold starts."""
     target = resolve_daytona_path("", context)
@@ -557,7 +557,7 @@ async def run_ci_status(
     hotspot_limit: int = 10,
     hotspot_cross_run: bool = False,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Check code intelligence service readiness."""
     svc, err = _svc_or_error(context)
@@ -578,7 +578,7 @@ async def run_ci_workspace_structure(
     path: str = "",
     max_depth: int = 3,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """List workspace file structure."""
     svc, err = _svc_or_error(context)
@@ -780,7 +780,7 @@ def _sandbox_uses_async_exec(sandbox: Any) -> bool:
 
 
 def _ensure_sync_lsp_sandbox(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     svc: Any,
     lsp: Any,
 ) -> tuple[Any, str | None]:
@@ -788,7 +788,7 @@ def _ensure_sync_lsp_sandbox(
     if not _sandbox_uses_async_exec(sandbox):
         return lsp, None
 
-    sandbox_id = str((context.metadata or {}).get("sandbox_id") or "").strip()
+    sandbox_id = str(context.get("sandbox_id") or "").strip()
     if not sandbox_id:
         return lsp, "async_sandbox_lsp_unavailable"
 
@@ -825,7 +825,7 @@ def _ensure_sync_lsp_sandbox(
 
 
 def _ensure_reference_lsp_ready(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     svc: Any,
 ) -> tuple[bool | None, str | None]:
     """Best-effort readiness gate before reference tracing."""
@@ -858,7 +858,7 @@ def _file_query_symbols(
     svc: Any,
     *,
     query: str,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     workspace_root: str,
 ) -> tuple[str, list[dict[str, Any]]] | None:
     if not _looks_like_file_query(query):
@@ -922,7 +922,7 @@ async def run_ci_query_symbol(
     kind: str = "",
     references: bool = False,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Search for symbol definitions and optionally trace references."""
     query = _normalize_symbol_query(query)
@@ -1121,7 +1121,7 @@ async def run_ci_query_symbol(
 
 def _edit_hotspots_payload(
     svc: Any,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     *,
     limit: int = 10,
     cross_run: bool = False,
@@ -1129,8 +1129,8 @@ def _edit_hotspots_payload(
     """Return same-run or cross-run edit hotspot metadata for ci_status."""
     # Cross-run path: use arbiter-backed history for contention data.
     if cross_run:
-        arbiter = context.metadata.get("arbiter") or (svc.arbiter if svc.arbiter else None)
-        run_id = str(context.metadata.get("run_id") or "") or None
+        arbiter = svc.arbiter if svc.arbiter else None
+        run_id = str(context.get("run_id") or "") or None
         if arbiter is not None and getattr(arbiter, "initialized", False):
             hotspots = arbiter.contention_hotspots(
                 limit=limit,
@@ -1151,13 +1151,13 @@ def _edit_hotspots_payload(
         return {"hotspots": [], "note": "Arbiter history not available for cross-run queries."}
 
     # Same-run path: use arbiter via CI service
-    arbiter = context.metadata.get("arbiter") or (svc.arbiter if svc.arbiter else None)
+    arbiter = svc.arbiter if svc.arbiter else None
     if arbiter is None or not getattr(arbiter, "initialized", False):
         return {"hotspots": [], "note": "Arbiter history not available"}
 
     hotspots = arbiter.hotspots(
         limit=limit,
-        run_id=str(context.metadata.get("run_id") or "") or None,
+        run_id=str(context.get("run_id") or "") or None,
     )
     if not hotspots:
         return {"hotspots": [], "note": "No edit hotspots recorded"}

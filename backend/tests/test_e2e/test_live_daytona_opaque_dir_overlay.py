@@ -40,9 +40,9 @@ import pytest
 from dotenv import load_dotenv
 
 from code_intelligence.routing.service import CodeIntelligenceService
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 from tools.daytona_toolkit._daytona_utils import _extract_exit_code, _wrap_bash_command
-from tools.daytona_toolkit.shell_tool import shell
+from tools.daytona_toolkit.shell import shell
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_PROJECT_ROOT / ".env")
@@ -143,10 +143,10 @@ class _OpaqueEnv:
 
     def make_ctx(
         self, ci_service: CodeIntelligenceService, *, agent_run_id: str
-    ) -> ToolExecutionContext:
-        return ToolExecutionContext(
+    ) -> ToolExecutionContextService:
+        return ToolExecutionContextService(
             cwd=Path(self.workspace_root),
-            metadata={
+            services={
                 "daytona_sandbox": self.async_sandbox,
                 "repo_root": self.workspace_root,
                 "ci_service": ci_service,

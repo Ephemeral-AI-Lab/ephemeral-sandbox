@@ -1,4 +1,4 @@
-"""Tests for tools.daytona_toolkit.edit_tool.
+"""Tests for tools.daytona_toolkit.edit_file.
 
 The tool now delegates to ``svc.edit_file`` directly, so these tests
 mock the service instead of framing a shell payload. Behaviour checked:
@@ -14,12 +14,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from code_intelligence.types import EditSpec, EditResult, OperationResult
-from tools.core.base import ToolExecutionContext, run_tool_safely
-from tools.daytona_toolkit.edit_tool import edit_file
+from tools.core.base import ToolExecutionContextService, run_tool_safely
+from tools.daytona_toolkit.edit_file import edit_file
 
 
-def _ctx(metadata=None) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=metadata or {})
+def _ctx(services=None) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=services or {})
 
 
 def _success_op(file_path: str) -> OperationResult:
@@ -62,7 +62,7 @@ def _svc(result: OperationResult | None = None) -> SimpleNamespace:
     return svc
 
 
-def _run(args: dict, ctx: ToolExecutionContext):
+def _run(args: dict, ctx: ToolExecutionContextService):
     return asyncio.run(run_tool_safely(edit_file, args, context=ctx))
 
 

@@ -23,7 +23,7 @@ last-writer-wins, not per-tree atomic). Git index membership is never
 consulted; brand-new files absent from the index still go through the
 gitinclude route as long as no ``.gitignore`` rule matches them.
 
-Downstream callers (``shell_tool``, ``_commit.submit_shell_cmd``) read
+Downstream callers (``shell``, ``_commit.submit_shell_cmd``) read
 through a fixed ``SimpleNamespace`` shape:
 
     result, exit_code, changed_paths, ambient_changed_paths,

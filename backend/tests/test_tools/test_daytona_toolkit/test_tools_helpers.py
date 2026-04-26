@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 from tools.daytona_toolkit._daytona_utils import (
     _format_shell_stdout,
     _get_repo_root,
@@ -15,8 +15,8 @@ from tools.daytona_toolkit._daytona_utils import (
 )
 
 
-def _ctx(metadata=None) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=metadata or {})
+def _ctx(services=None) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=services or {})
 
 
 # ---------------------------------------------------------------------------

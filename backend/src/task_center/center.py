@@ -159,7 +159,7 @@ class TaskCenter:
     def submit_task_completion(self, task_id: TaskId, summary: str) -> None:
         """Close ``task_id`` with ``summary`` and propagate up the closes_for chain."""
         # close_with_summary writes status=DONE directly (bypassing transition
-        # guards) — required because AWAITING -> DONE only happens via
+        # guards) — required because waiting states -> DONE only happens via
         # propagation, not via the transition() method (invariant 14).
         close_with_summary(self._graph.tasks, task_id, summary)
         self._persist_all_tasks()
@@ -173,7 +173,7 @@ class TaskCenter:
         acceptance_criteria: str,
         handoff_note: str,
     ) -> None:
-        """Validate plan, materialize child executors, mark parent AWAITING.
+        """Validate plan, materialize child executors, mark parent HANDOFF.
 
         Every handoff carries a ``handoff_note`` — the evaluator validates
         children against ``acceptance_criteria`` regardless, and the note is
@@ -212,17 +212,17 @@ class TaskCenter:
             parent.children.append(tid)
             self._persist_task(child)
 
-        # Parent transitions RUNNING -> AWAITING.
-        self._graph.transition(executor_id, Status.AWAITING)
+        # Parent transitions RUNNING -> HANDOFF while child executors run.
+        self._graph.transition(executor_id, Status.HANDOFF)
         self._persist_task(parent)
         self._wakeup.set()
 
-    def submit_continue_to_work(self, evaluator_id: TaskId, task_input: str) -> None:
-        """Spawn a continuation executor under the evaluator; evaluator -> AWAITING."""
+    def submit_continue_work_handoff(self, evaluator_id: TaskId, task_input: str) -> None:
+        """Spawn a continuation executor under the evaluator; evaluator -> HANDOFF."""
         evaluator = self._graph.get(evaluator_id)
         if evaluator.role != "evaluator":
             raise TaskCenterError(
-                f"submit_continue_to_work: task {evaluator_id!r} is not an evaluator"
+                f"submit_continue_work_handoff: task {evaluator_id!r} is not an evaluator"
             )
 
         cont_id = self._new_id()
@@ -243,8 +243,8 @@ class TaskCenter:
         evaluator.children.append(cont_id)
         self._persist_task(cont)
 
-        # Evaluator was RUNNING; now AWAITING continuation closure.
-        self._graph.transition(evaluator_id, Status.AWAITING)
+        # Evaluator was RUNNING; now HANDOFF until continuation closure.
+        self._graph.transition(evaluator_id, Status.HANDOFF)
         self._persist_task(evaluator)
         self._wakeup.set()
 
@@ -253,16 +253,16 @@ class TaskCenter:
     # ------------------------------------------------------------------ #
 
     def _materialize_pending_evaluators(self) -> None:
-        """Spawn a READY evaluator for any AWAITING executor whose children all DONE.
+        """Spawn a READY evaluator for any handoff executor whose children all DONE.
 
         Handoff submissions create only child executors. Once every child
-        reaches DONE, the parent still sits in AWAITING with
+        reaches DONE, the parent still sits in HANDOFF with
         ``evaluator_id is None`` — that's the signal to create its evaluator.
         """
         for parent in list(self._graph.tasks.values()):
             if parent.role != "executor":
                 continue
-            if parent.status is not Status.AWAITING:
+            if parent.status is not Status.HANDOFF:
                 continue
             if parent.evaluator_id is not None:
                 continue

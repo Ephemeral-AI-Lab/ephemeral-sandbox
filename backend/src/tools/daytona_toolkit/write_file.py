@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from code_intelligence.types import WriteSpec
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.ci_runtime import ci_write_required_result, get_ci_service
 from tools.core.decorator import tool
 from tools.core.op_result_to_tool_result import operation_result_to_tool_result
@@ -26,7 +26,7 @@ async def write_file(
     file_path: str,
     content: str,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Create or overwrite a file."""
     file_path = _resolve_path(file_path, context)

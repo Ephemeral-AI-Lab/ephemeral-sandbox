@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from task_center.errors import PlanValidationError
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.mode_tool._models import SubmissionOutput, TaskDependencyEntry, TaskSpec
 
@@ -66,10 +66,10 @@ async def submit_plan_handoff(
     acceptance_criteria: str,
     handoff_note: str,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
-    tc = context.metadata.get("task_center")
-    task_id = context.metadata.get("task_id")
+    tc = context.get("task_center")
+    task_id = context.get("task_id")
     if tc is None or task_id is None:
         return ToolResult(
             output="submit_plan_handoff: missing task_center or task_id in metadata",

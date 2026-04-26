@@ -31,7 +31,7 @@ from message.messages import (
     ToolResultBlock,
     ToolUseBlock,
 )
-from tools.core.base import ExecutionMetadata, TextToolOutput, ToolExecutionContext, ToolResult
+from tools.core.base import ExecutionMetadata, TextToolOutput, ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 
 logger = logging.getLogger(__name__)
@@ -119,11 +119,11 @@ def _validate_run_subagent_request(
     *,
     agent_name: str,
     prompt: str | None,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult | _ValidatedRunSubagentRequest:
     from agents import get_definition
 
-    parent_cfg = context.metadata.runtime_config
+    parent_cfg = context.runtime_config
     if parent_cfg is None:
         return ToolResult(
             output="run_subagent: missing runtime_config in execution context",
@@ -136,7 +136,7 @@ def _validate_run_subagent_request(
             is_error=True,
         )
 
-    caller_agent_type = context.metadata.get("agent_type")
+    caller_agent_type = context.get("agent_type")
     if caller_agent_type == "subagent":
         return ToolResult(
             output=(
@@ -185,7 +185,7 @@ async def run_subagent(
     agent_name: str,
     prompt: str,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Spawn a named subagent and rejoin via the background-task lifecycle."""
     from engine.runtime.lifecycle import run_ephemeral_agent
@@ -199,10 +199,10 @@ async def run_subagent(
         return validation
     sub_def = validation.sub_def
 
-    parent_cfg = context.metadata.runtime_config
-    sandbox_id = context.metadata.sandbox_id or None
-    bg_manager = context.metadata.background_task_manager
-    bg_task_id = context.metadata.background_task_id
+    parent_cfg = context.runtime_config
+    sandbox_id = context.sandbox_id or None
+    bg_manager = context.background_task_manager
+    bg_task_id = context.background_task_id
 
     sub_meta = ExecutionMetadata()
     sub_meta["agent_type"] = "subagent"

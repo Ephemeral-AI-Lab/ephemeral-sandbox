@@ -13,13 +13,13 @@ from task_center import (
 
 
 def test_status_enum_has_exactly_six_values() -> None:
-    expected = ["pending", "ready", "running", "awaiting", "done", "failed"]
+    expected = ["pending", "ready", "running", "handoff", "done", "failed"]
     assert [s.value for s in Status] == expected
 
 
 def test_status_string_membership() -> None:
     assert Status.PENDING == "pending"
-    assert Status.AWAITING == "awaiting"
+    assert Status.HANDOFF == "handoff"
     assert Status.DONE.value == "done"
 
 

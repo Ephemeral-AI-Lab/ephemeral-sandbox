@@ -101,7 +101,7 @@ async def test_full_handoff_happy_path() -> None:
 
 @pytest.mark.asyncio
 async def test_continue_to_work_propagates_through_evaluator() -> None:
-    """Evaluator calls submit_continue_to_work; continuation closes the chain."""
+    """Evaluator calls submit_continue_work_handoff; continuation closes the chain."""
 
     tasks = [{"id": "p1"}]
     specs = {"p1": {"title": "P1", "task_input": "..."}}
@@ -113,7 +113,7 @@ async def test_continue_to_work_propagates_through_evaluator() -> None:
         tc.submit_task_completion(tid, "done p1")
 
     async def eval_action(tc, tid):
-        tc.submit_continue_to_work(tid, "gap remains: missing X")
+        tc.submit_continue_work_handoff(tid, "gap remains: missing X")
 
     async def cont_action(tc, tid):
         tc.submit_task_completion(tid, "filled the gap")

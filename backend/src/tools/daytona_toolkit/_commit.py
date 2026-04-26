@@ -19,7 +19,7 @@ from tools.core.ci_attribution import (
 
 if TYPE_CHECKING:
     from code_intelligence.types import OperationResult
-    from tools.core.base import ToolExecutionContext
+    from tools.core.base import ToolExecutionContextService
 
 
 T = TypeVar("T")
@@ -42,7 +42,7 @@ class FileChangeResult(Generic[T]):
 
 @dataclass
 class _CommitBatchEntry:
-    context: "ToolExecutionContext"
+    context: "ToolExecutionContextService"
     op: CommitOp
     specs: Sequence[Any]
     fallback_paths: Sequence[str]
@@ -59,7 +59,7 @@ class _CommitBatcher:
 
     async def submit(
         self,
-        context: "ToolExecutionContext",
+        context: "ToolExecutionContextService",
         *,
         op: CommitOp,
         specs: Sequence[Any],
@@ -174,7 +174,7 @@ def _operation_paths(result: Any, fallback: Sequence[str]) -> tuple[str, ...]:
 
 
 async def _run_direct_commit(
-    context: "ToolExecutionContext",
+    context: "ToolExecutionContextService",
     svc: Any,
     *,
     op: CommitOp,
@@ -203,7 +203,7 @@ def _batcher_for(svc: Any) -> _CommitBatcher:
 
 
 async def submit_commit(
-    context: "ToolExecutionContext",
+    context: "ToolExecutionContextService",
     *,
     op: CommitOp,
     specs: Sequence[Any],
@@ -239,7 +239,7 @@ async def submit_commit(
 
 
 async def submit_shell_cmd(
-    context: "ToolExecutionContext",
+    context: "ToolExecutionContextService",
     *,
     command: str,
     description: str,
@@ -259,12 +259,12 @@ async def submit_shell_cmd(
         )
     resolved_sandbox = sandbox
     if resolved_sandbox is None:
-        resolved_sandbox = context.metadata.get("ci_sandbox") or context.metadata.get(
+        resolved_sandbox = context.get("ci_sandbox") or context.get(
             "daytona_sandbox",
         )
     if resolved_sandbox is None:
         raise RuntimeError(
-            "submit_shell_cmd requires a sandbox in context.metadata "
+            "submit_shell_cmd requires a sandbox in tool execution context "
             "(ci_sandbox or daytona_sandbox) or as an explicit argument",
         )
 

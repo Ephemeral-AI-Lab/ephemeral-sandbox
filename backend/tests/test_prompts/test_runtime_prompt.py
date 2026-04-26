@@ -13,7 +13,7 @@ from prompt.runtime_prompt import (
     build_termination_condition_prompt,
 )
 from tools.builtins.background import make_background_tools
-from tools.core.base import BaseTool, ToolExecutionContext, ToolRegistry, ToolResult
+from tools.core.base import BaseTool, ToolExecutionContextService, ToolRegistry, ToolResult
 from tools.subagent import make_subagent_tools
 
 
@@ -30,7 +30,7 @@ class _DemoTool(BaseTool):
     short_description = "Inspect the current target."
     input_model = _EmptyInput
 
-    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
+    async def execute(self, arguments: BaseModel, context: ToolExecutionContextService) -> ToolResult:
         del arguments, context
         return ToolResult(output="ok")
 

@@ -6,8 +6,8 @@ import pytest
 
 from skills.core.registry import SkillRegistry
 from skills.core.types import SkillDefinition
-from tools.builtins.skills.tools import make_skills_tools
-from tools.core.base import ToolExecutionContext
+from tools.builtins.skills.factory import make_skills_tools
+from tools.core.base import ToolExecutionContextService
 
 
 @pytest.mark.asyncio
@@ -28,7 +28,7 @@ async def test_load_skill_does_not_append_reference_footer() -> None:
     assert load_skill is not None
     result = await load_skill.execute(
         load_skill.input_model(skill_name="demo-skill"),
-        ToolExecutionContext(cwd=Path("/tmp")),
+        ToolExecutionContextService(cwd=Path("/tmp")),
     )
 
     assert result.output == "# Demo\n\nUse the main workflow."
@@ -54,7 +54,7 @@ async def test_load_skill_reference_still_loads_named_references() -> None:
     assert load_reference is not None
     result = await load_reference.execute(
         load_reference.input_model(skill_name="demo-skill", reference_name="extra"),
-        ToolExecutionContext(cwd=Path("/tmp")),
+        ToolExecutionContextService(cwd=Path("/tmp")),
     )
 
     assert result.output == "Supplementary guidance."
@@ -78,7 +78,7 @@ async def test_skill_references_can_load_without_stage_gate() -> None:
     assert load_skill is not None
     assert load_reference is not None
 
-    context = ToolExecutionContext(cwd=Path("/tmp"))
+    context = ToolExecutionContextService(cwd=Path("/tmp"))
     load_result = await load_skill.execute(
         load_skill.input_model(skill_name="demo-skill"),
         context,

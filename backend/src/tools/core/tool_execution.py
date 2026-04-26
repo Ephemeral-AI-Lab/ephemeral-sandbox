@@ -11,7 +11,7 @@ from message.stream_events import StreamEvent, ToolExecutionStarted
 from tools.core.base import (
     BaseTool,
     ExecutionMetadata,
-    ToolExecutionContext,
+    ToolExecutionContextService,
     ToolResult,
     execute_tool_body,
     parse_tool_input,
@@ -189,7 +189,7 @@ async def execute_tool_call_streaming(
     result = await execute_tool_once(
         tool,
         tool_input,
-        ToolExecutionContext(cwd=context.cwd, metadata=metadata),
+        ToolExecutionContextService(cwd=context.cwd, services=metadata),
         emit=emit,
         emit_started=emit_started,
     )
@@ -217,7 +217,7 @@ async def execute_tool_call_streaming(
 async def execute_tool_once(
     tool: BaseTool,
     raw_input: dict[str, Any],
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     *,
     emit: EmitStreamEvent,
     emit_started: bool = True,

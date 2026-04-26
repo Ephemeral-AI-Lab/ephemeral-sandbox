@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from code_intelligence.types import OperationResult
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 from tools.daytona_toolkit._commit import (
     FileChangeResult,
     submit_shell_cmd,
@@ -19,8 +19,8 @@ from tools.daytona_toolkit._commit import (
 pytestmark = pytest.mark.asyncio
 
 
-def _ctx(metadata: dict | None = None) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/ws"), metadata=metadata or {})
+def _ctx(metadata: dict | None = None) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/ws"), services=metadata or {})
 
 
 def _op_result(

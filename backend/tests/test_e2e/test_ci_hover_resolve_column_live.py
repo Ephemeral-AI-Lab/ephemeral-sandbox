@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tools.core.base import ToolExecutionContext
-from tools.ci_toolkit.ci_query_symbol_tool import ci_query_symbol
+from tools.core.base import ToolExecutionContextService
+from tools.ci_toolkit.ci_query_symbol import ci_query_symbol
 
 pytestmark = [pytest.mark.e2e]
 
@@ -28,8 +28,8 @@ pytestmark = [pytest.mark.e2e]
 # ---------------------------------------------------------------------------
 
 
-def _ctx(metadata: dict | None = None) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=metadata or {})
+def _ctx(metadata: dict | None = None) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=metadata or {})
 
 
 def _svc_stub(*, workspace_root: str = "/testbed", initialized: bool = True) -> MagicMock:
@@ -66,7 +66,7 @@ class TestReferencesResolveColumnUnit:
         svc.lsp_client._read_line = MagicMock(return_value=None)
         ctx = _ctx({"ci_service": svc})
 
-        with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        with patch("tools.ci_toolkit._query_runtime.get_ci_service", return_value=svc):
             await ci_query_symbol.execute(
                 ci_query_symbol.input_model(query="Engine", references=True),
                 ctx,
@@ -109,7 +109,7 @@ def live_sandbox_id():
     delete_test_sandbox(sb["id"])
 
 
-def _build_ci_context(sandbox_id: str) -> tuple[Any, ToolExecutionContext]:
+def _build_ci_context(sandbox_id: str) -> tuple[Any, ToolExecutionContextService]:
     """Build a CI service and tool context for a live sandbox."""
     from sandbox.service import SandboxService
     from sandbox.workspace import discover_workspace, inject_code_intelligence
@@ -118,11 +118,10 @@ def _build_ci_context(sandbox_id: str) -> tuple[Any, ToolExecutionContext]:
     sandbox = svc_client.get_sandbox_object(sandbox_id)
     workspace_root = discover_workspace(sandbox) or "/home/daytona"
 
-    context = MagicMock()
-    context.metadata = {}
+    context = ToolExecutionContextService(cwd=Path("/tmp"))
     inject_code_intelligence(context, sandbox_id, sandbox, workspace_root)
 
-    ci_svc = context.metadata.get("ci_service")
+    ci_svc = context.get("ci_service")
     assert ci_svc is not None
     ci_svc.symbol_index.ensure_built(wait=True, timeout=60.0)
 
@@ -147,7 +146,7 @@ class TestLiveReferencesResolveColumn:
         """References for 'start' method should find app.start() calls via symbol index."""
         ci_svc, ctx = _build_ci_context(live_sandbox_id)
 
-        with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=ci_svc):
+        with patch("tools.ci_toolkit._query_runtime.get_ci_service", return_value=ci_svc):
             result = await ci_query_symbol.execute(
                 ci_query_symbol.input_model(query="start", references=True),
                 ctx,
@@ -164,7 +163,7 @@ class TestLiveReferencesResolveColumn:
         """References for 'App' class should find usages via symbol index."""
         ci_svc, ctx = _build_ci_context(live_sandbox_id)
 
-        with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=ci_svc):
+        with patch("tools.ci_toolkit._query_runtime.get_ci_service", return_value=ci_svc):
             result = await ci_query_symbol.execute(
                 ci_query_symbol.input_model(query="App", references=True),
                 ctx,

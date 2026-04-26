@@ -287,7 +287,7 @@ class BackgroundTaskManager:
         """Return a callable that appends progress lines for *task_id*.
 
         Convenience for wiring into a tool's execution context — the tool
-        can call ``ctx.metadata['on_progress_line']('hello')`` without ever
+        can call ``ctx['on_progress_line']('hello')`` without ever
         knowing about the manager.
         """
         return lambda line: self.append_progress(task_id, line)

@@ -1,4 +1,4 @@
-"""Tests for diagnostics tool in tools.ci_toolkit.lsp_tools."""
+"""Tests for diagnostics tool in tools.ci_toolkit.ci_diagnostics."""
 
 from __future__ import annotations
 
@@ -11,15 +11,15 @@ from unittest.mock import MagicMock
 import pytest
 from code_intelligence._async_bridge import current_sandbox_io_loop
 from code_intelligence.lsp.client import LspClient
-from tools.ci_toolkit.lsp_tools import ci_diagnostics
-from tools.core.base import ToolExecutionContext
+from tools.ci_toolkit.ci_diagnostics import ci_diagnostics
+from tools.core.base import ToolExecutionContextService
 
 
-def _ctx(metadata=None) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=metadata or {})
+def _ctx(services=None) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=services or {})
 
 
-def _ctx_with_svc(svc) -> ToolExecutionContext:
+def _ctx_with_svc(svc) -> ToolExecutionContextService:
     return _ctx({"ci_service": svc})
 
 

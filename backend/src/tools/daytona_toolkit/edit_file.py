@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from code_intelligence.editing.patcher import SearchReplaceEdit
 from code_intelligence.types import EditSpec
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.ci_runtime import ci_write_required_result, get_ci_service
 from tools.core.decorator import tool
 from tools.core.op_result_to_tool_result import operation_result_to_tool_result
@@ -80,7 +80,7 @@ async def edit_file(
     new_text: str = "",
     description: str = "",
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Edit a file."""
     tool_started = time.perf_counter()

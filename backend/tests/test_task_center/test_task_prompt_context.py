@@ -30,7 +30,7 @@ def test_child_task_prompt_includes_parent_and_completed_dependencies() -> None:
         role="executor",
         title="Parent",
         spec="Parent spec",
-        status=Status.AWAITING,
+        status=Status.HANDOFF,
         acceptance_criteria="Criteria",
         handoff_note="Note",
     )

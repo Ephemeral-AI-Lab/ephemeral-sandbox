@@ -33,7 +33,7 @@ from dotenv import load_dotenv
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_PROJECT_ROOT / ".env")
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 
 pytestmark = [pytest.mark.e2e]
 
@@ -233,15 +233,15 @@ def _decode_write_payload(command: str) -> dict[str, Any] | None:
 
 def _make_context(
     sandbox: Any, *, cwd: str = "/workspace", ci_service: Any = None
-) -> ToolExecutionContext:
-    """Create a ToolExecutionContext with sandbox injected."""
+) -> ToolExecutionContextService:
+    """Create a ToolExecutionContextService with sandbox injected."""
     metadata: dict[str, Any] = {
         "daytona_sandbox": sandbox,
         "repo_root": cwd,
     }
     if ci_service is not None:
         metadata["ci_service"] = ci_service
-    return ToolExecutionContext(cwd=Path(cwd), metadata=metadata)
+    return ToolExecutionContextService(cwd=Path(cwd), services=metadata)
 
 
 def _make_ci_service_for_sandbox(sandbox: Any, *, workspace: str = "/workspace"):
@@ -308,7 +308,7 @@ class TestDaytonaEditTool:
     """Test edit_file: audited search-and-replace."""
 
     def _tool(self):
-        from tools.daytona_toolkit.edit_tool import edit_file
+        from tools.daytona_toolkit.edit_file import edit_file
 
         return edit_file
 
@@ -403,7 +403,7 @@ class TestDaytonaEditTool:
         assert result.is_error
 
     def test_edit_no_sandbox(self):
-        ctx = ToolExecutionContext(cwd=Path("/workspace"), metadata={})
+        ctx = ToolExecutionContextService(cwd=Path("/workspace"), services={})
         tool = self._tool()
         result = _run(
             tool.execute(
@@ -489,14 +489,14 @@ class TestDaytonaCiTools:
     # -- Diagnostics --
 
     def test_lsp_diagnostics_no_ci(self):
-        from tools.ci_toolkit.lsp_tools import ci_diagnostics
+        from tools.ci_toolkit.ci_diagnostics import ci_diagnostics
 
         ctx = _make_context(_make_mock_sandbox())
         result = _run(ci_diagnostics.execute(ci_diagnostics.input_model(file_path="/test.py"), ctx))
         assert result.is_error
 
     def test_lsp_diagnostics_clean(self):
-        from tools.ci_toolkit.lsp_tools import ci_diagnostics
+        from tools.ci_toolkit.ci_diagnostics import ci_diagnostics
 
         svc = MagicMock()
         svc.diagnostics.return_value = []
@@ -506,7 +506,7 @@ class TestDaytonaCiTools:
         assert "clean" in result.output
 
     def test_lsp_diagnostics_with_errors(self):
-        from tools.ci_toolkit.lsp_tools import ci_diagnostics
+        from tools.ci_toolkit.ci_diagnostics import ci_diagnostics
         from code_intelligence.types import Diagnostic
 
         svc = MagicMock()
@@ -623,14 +623,14 @@ class TestCIIntegrationHelpers:
     def test_get_ci_service_returns_none_when_missing(self):
         from tools.core.ci_runtime import get_ci_service
 
-        ctx = ToolExecutionContext(cwd=Path("/ws"), metadata={})
+        ctx = ToolExecutionContextService(cwd=Path("/ws"), services={})
         assert get_ci_service(ctx) is None
 
     def test_get_ci_service_returns_service(self):
         from tools.core.ci_runtime import get_ci_service
 
         svc = MagicMock()
-        ctx = ToolExecutionContext(cwd=Path("/ws"), metadata={"ci_service": svc})
+        ctx = ToolExecutionContextService(cwd=Path("/ws"), services={"ci_service": svc})
         assert get_ci_service(ctx) is svc
 
     def test_ci_required_result_marks_ci_requirement(self):
@@ -680,14 +680,14 @@ class TestDaytonaToolLive:
         except Exception:
             pass
 
-    def _ctx(self, live_sandbox) -> ToolExecutionContext:
+    def _ctx(self, live_sandbox) -> ToolExecutionContextService:
         from code_intelligence.routing.service import CodeIntelligenceService
 
         sandbox = live_sandbox["raw"]
         cwd = "/home/daytona"
-        return ToolExecutionContext(
+        return ToolExecutionContextService(
             cwd=Path("/workspace"),
-            metadata={
+            services={
                 "daytona_sandbox": sandbox,
                 "repo_root": cwd,
                 "ci_service": CodeIntelligenceService(
@@ -701,7 +701,7 @@ class TestDaytonaToolLive:
     # -- Live bash --
 
     def test_live_bash_echo(self, live_sandbox):
-        from tools.daytona_toolkit.shell_tool import shell as DaytonaBashTool
+        from tools.daytona_toolkit.shell import shell as DaytonaBashTool
 
         tool = DaytonaBashTool
         ctx = self._ctx(live_sandbox)
@@ -710,7 +710,7 @@ class TestDaytonaToolLive:
         assert "LIVE_BASH_OK" in result.output
 
     def test_live_bash_python_version(self, live_sandbox):
-        from tools.daytona_toolkit.shell_tool import shell as DaytonaBashTool
+        from tools.daytona_toolkit.shell import shell as DaytonaBashTool
 
         tool = DaytonaBashTool
         ctx = self._ctx(live_sandbox)
@@ -719,7 +719,7 @@ class TestDaytonaToolLive:
         assert "Python" in result.output
 
     def test_live_bash_nonzero_exit(self, live_sandbox):
-        from tools.daytona_toolkit.shell_tool import shell as DaytonaBashTool
+        from tools.daytona_toolkit.shell import shell as DaytonaBashTool
 
         tool = DaytonaBashTool
         ctx = self._ctx(live_sandbox)
@@ -733,7 +733,7 @@ class TestDaytonaToolLive:
     # so we use bash for write+read in a single call where needed.
 
     def test_live_write_then_read(self, live_sandbox):
-        from tools.daytona_toolkit.shell_tool import shell as DaytonaBashTool
+        from tools.daytona_toolkit.shell import shell as DaytonaBashTool
 
         ctx = self._ctx(live_sandbox)
         bash_tool = DaytonaBashTool
@@ -754,7 +754,7 @@ class TestDaytonaToolLive:
     # -- Live list files --
 
     def test_live_list_tmp(self, live_sandbox):
-        from tools.daytona_toolkit.shell_tool import shell as DaytonaBashTool
+        from tools.daytona_toolkit.shell import shell as DaytonaBashTool
 
         ctx = self._ctx(live_sandbox)
         tool = DaytonaBashTool
@@ -764,7 +764,7 @@ class TestDaytonaToolLive:
     # -- Live grep --
 
     def test_live_grep_etc(self, live_sandbox):
-        from tools.daytona_toolkit.shell_tool import shell as DaytonaBashTool
+        from tools.daytona_toolkit.shell import shell as DaytonaBashTool
 
         tool = DaytonaBashTool
         ctx = self._ctx(live_sandbox)
@@ -783,7 +783,7 @@ class TestDaytonaToolLive:
     # -- Live glob --
 
     def test_live_glob_tmp(self, live_sandbox):
-        from tools.daytona_toolkit.shell_tool import shell as DaytonaBashTool
+        from tools.daytona_toolkit.shell import shell as DaytonaBashTool
 
         ctx = self._ctx(live_sandbox)
         bash_tool = DaytonaBashTool
@@ -803,7 +803,7 @@ class TestDaytonaToolLive:
     # -- Live edit --
 
     def test_live_edit_file(self, live_sandbox):
-        from tools.daytona_toolkit.shell_tool import shell as DaytonaBashTool
+        from tools.daytona_toolkit.shell import shell as DaytonaBashTool
 
         ctx = self._ctx(live_sandbox)
         bash_tool = DaytonaBashTool
@@ -899,20 +899,20 @@ class TestToolSelectionAndOrdering:
             )
 
     def test_shell_exposes_non_null_command_schema(self):
-        from tools.daytona_toolkit.shell_tool import shell as ShellTool
+        from tools.daytona_toolkit.shell import shell as ShellTool
 
         schema = ShellTool.to_api_schema()["input_schema"]
         assert schema["properties"]["command"]["type"] == "string"
         assert schema["properties"]["command"]["minLength"] == 1
 
     def test_read_file_requires_file_path(self):
-        from tools.daytona_toolkit.read_file_tool import read_file as FileReadTool
+        from tools.daytona_toolkit.read_file import read_file as FileReadTool
 
         schema = FileReadTool.to_api_schema()["input_schema"]
         assert "file_path" in schema.get("required", [])
 
     def test_write_file_requires_file_path_and_content(self):
-        from tools.daytona_toolkit.write_file_tool import write_file as FileWriteTool
+        from tools.daytona_toolkit.write_file import write_file as FileWriteTool
 
         schema = FileWriteTool.to_api_schema()["input_schema"]
         required = schema.get("required", [])
@@ -920,23 +920,23 @@ class TestToolSelectionAndOrdering:
         assert "content" in required
 
     def test_edit_requires_file_path_old_text_new_text(self):
-        from tools.daytona_toolkit.edit_tool import edit_file as _edit_tool
+        from tools.daytona_toolkit.edit_file import edit_file as _edit_file
 
-        schema = _edit_tool.to_api_schema()["input_schema"]
+        schema = _edit_file.to_api_schema()["input_schema"]
         required = schema.get("required", [])
         assert "file_path" in required
         assert "old_text" in schema.get("properties", {})
         assert "new_text" in schema.get("properties", {})
 
     def test_ci_query_symbol_requires_query(self):
-        from tools.ci_toolkit.ci_query_symbol_tool import ci_query_symbol
+        from tools.ci_toolkit.ci_query_symbol import ci_query_symbol
 
         schema = ci_query_symbol.to_api_schema()["input_schema"]
         required = schema.get("required", [])
         assert "query" in required
 
     def test_lsp_diagnostics_requires_file_path_only(self):
-        from tools.ci_toolkit.lsp_tools import ci_diagnostics as DaytonaDiagnosticsTool
+        from tools.ci_toolkit.ci_diagnostics import ci_diagnostics as DaytonaDiagnosticsTool
 
         schema = DaytonaDiagnosticsTool.to_api_schema()["input_schema"]
         required = schema.get("required", [])
@@ -944,7 +944,7 @@ class TestToolSelectionAndOrdering:
         assert "line" not in required
 
     def test_shell_requires_command(self):
-        from tools.daytona_toolkit.shell_tool import shell as ShellTool
+        from tools.daytona_toolkit.shell import shell as ShellTool
 
         schema = ShellTool.to_api_schema()["input_schema"]
         assert schema["oneOf"] == [{"required": ["command"]}, {"required": ["code"]}]
@@ -1464,11 +1464,11 @@ class TestAuditedEditFlow:
         return ctx, sandbox, ci_service.arbiter, ci_service.time_machine
 
     def _edit(self, ctx, file_path, old_text, new_text, **kwargs):
-        from tools.daytona_toolkit.edit_tool import edit_file as _edit_tool
+        from tools.daytona_toolkit.edit_file import edit_file as _edit_file
 
         return _run(
-            _edit_tool.execute(
-                _edit_tool.input_model(
+            _edit_file.execute(
+                _edit_file.input_model(
                     file_path=file_path,
                     old_text=old_text,
                     new_text=new_text,
@@ -1514,15 +1514,15 @@ class TestAuditedEditFlow:
 
     def test_audited_edit_without_ci_returns_error(self):
         """Coordinated edits must fail instead of raw-writing without CI."""
-        from tools.daytona_toolkit.edit_tool import edit_file as _edit_tool
+        from tools.daytona_toolkit.edit_file import edit_file as _edit_file
 
         sandbox = _make_mock_sandbox(files={"/ws/app.py": "old"})
         ctx = _make_context(sandbox)  # no ci_service
-        ctx.metadata["agent_name"] = "developer"
+        ctx["agent_name"] = "developer"
 
         result = _run(
-            _edit_tool.execute(
-                _edit_tool.input_model(file_path="/ws/app.py", old_text="old", new_text="new"),
+            _edit_file.execute(
+                _edit_file.input_model(file_path="/ws/app.py", old_text="old", new_text="new"),
                 ctx,
             )
         )

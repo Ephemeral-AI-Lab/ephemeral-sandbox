@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.daytona_toolkit._daytona_utils import (
     _exec_command,
@@ -31,7 +31,7 @@ async def glob(
     pattern: str,
     path: str = ".",
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Find files by glob pattern."""
     cwd = _get_repo_root(context) or ""

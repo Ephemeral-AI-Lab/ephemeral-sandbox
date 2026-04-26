@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tools.ci_toolkit.query_tools import (
+from tools.ci_toolkit._query_runtime import (
     CiWorkspaceStructureInput,
     CiWorkspaceStructureOutput,
     run_ci_workspace_structure,
 )
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 
 
@@ -22,7 +22,7 @@ async def ci_workspace_structure(
     path: str = "",
     max_depth: int = 3,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """List workspace file structure."""
     return await run_ci_workspace_structure(

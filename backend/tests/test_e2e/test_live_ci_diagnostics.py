@@ -17,10 +17,10 @@ import pytest
 
 from code_intelligence.routing.service import CodeIntelligenceService
 from engine.testing.eval_agent import EvalAgent
-from tools.ci_toolkit.lsp_tools import ci_diagnostics
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.ci_toolkit.ci_diagnostics import ci_diagnostics
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.daytona_toolkit._daytona_utils import _extract_exit_code, _wrap_bash_command
-from tools.daytona_toolkit.write_file_tool import write_file
+from tools.daytona_toolkit.write_file import write_file
 
 pytestmark = [pytest.mark.e2e, pytest.mark.live]
 
@@ -53,10 +53,10 @@ class LiveCiDiagnosticsEnv:
             sandbox=self.raw_sandbox,
         )
 
-    def make_ctx(self, ci_service: CodeIntelligenceService) -> ToolExecutionContext:
-        return ToolExecutionContext(
+    def make_ctx(self, ci_service: CodeIntelligenceService) -> ToolExecutionContextService:
+        return ToolExecutionContextService(
             cwd=Path(self.root_dir),
-            metadata={
+            services={
                 "sandbox_id": self.sandbox_id,
                 "repo_root": self.root_dir,
                 "ci_sandbox": self.raw_sandbox,
@@ -144,7 +144,7 @@ def _json_output(result: ToolResult) -> dict[str, Any]:
 
 
 async def _write_file(
-    ctx: ToolExecutionContext,
+    ctx: ToolExecutionContextService,
     *,
     file_path: str,
     content: str,

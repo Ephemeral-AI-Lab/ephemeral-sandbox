@@ -1,9 +1,9 @@
 """Typed runtime metadata threaded through tool execution.
 
-``ExecutionMetadata`` replaces the ad-hoc ``dict[str, Any]`` that used to
-ride along on ``ToolExecutionContext``. It exposes the well-known fields
-as typed attributes (so tools can read them with IDE support) while
-still behaving like a mutable mapping so the engine can keep using
+``ExecutionMetadata`` is the shared mapping object used by runtime plumbing.
+``ToolExecutionContextService`` unfolds it for tools by exposing well-known services and
+identifiers directly while still behaving like a mutable mapping so the engine
+can keep using
 ``metadata.get("key")``, ``metadata["key"] = value``, and
 ``{**metadata, ...}`` without a big-bang rewrite.
 
@@ -49,7 +49,6 @@ class ExecutionMetadata:
     # Daytona sandbox plumbing, injected by Daytona context preparation.
     daytona_sandbox: Any | None = None
     ci_service: Any | None = None
-    arbiter: Any | None = None
 
     # Per-call tool id (set by the streaming executor so progress events
     # can be attributed back to their originating tool use).
@@ -75,7 +74,6 @@ class ExecutionMetadata:
             "on_progress_line",
             "daytona_sandbox",
             "ci_service",
-            "arbiter",
             "tool_id",
         }
     )

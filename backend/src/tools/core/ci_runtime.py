@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 
 __all__ = [
     "ci_required_result",
@@ -20,9 +20,9 @@ __all__ = [
 ]
 
 
-def get_ci_service(context: ToolExecutionContext) -> Any | None:
+def get_ci_service(context: ToolExecutionContextService) -> Any | None:
     """Return the :class:`CodeIntelligenceService` bound to *context*, if any."""
-    return context.metadata.get("ci_service")
+    return context.ci_service
 
 
 def ci_required_result(tool_name: str, detail: str) -> ToolResult:

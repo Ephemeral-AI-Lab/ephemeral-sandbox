@@ -3,7 +3,7 @@
 from tools.core.base import (
     BaseTool,
     TextToolOutput,
-    ToolExecutionContext,
+    ToolExecutionContextService,
     ToolRegistry,
     ToolResult,
     decorate_schemas_for_background,
@@ -14,7 +14,7 @@ from tools.core.decorator import tool
 __all__ = [
     "BaseTool",
     "TextToolOutput",
-    "ToolExecutionContext",
+    "ToolExecutionContextService",
     "ToolRegistry",
     "ToolResult",
     "decorate_schemas_for_background",

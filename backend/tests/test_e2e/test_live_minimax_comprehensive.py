@@ -81,7 +81,7 @@ class TestToolCallingAndSkillLoading:
     # -- 1a: Sandbox tool execution --
 
     @pytest.mark.asyncio
-    async def test_shell_tool_executes(self, sandbox):
+    async def test_shell_executes(self, sandbox):
         """Model should invoke shell and return real output."""
         result = await _invoke_with_sandbox_agent(
             sandbox,

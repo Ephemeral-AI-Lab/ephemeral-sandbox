@@ -75,8 +75,8 @@ def test_transition_legal_move() -> None:
     g.transition("a", Status.READY)
     assert g.get("a").status is Status.READY
     g.transition("a", Status.RUNNING)
-    g.transition("a", Status.AWAITING)
-    assert g.get("a").status is Status.AWAITING
+    g.transition("a", Status.HANDOFF)
+    assert g.get("a").status is Status.HANDOFF
 
 
 def test_transition_rejects_pending_to_done() -> None:
@@ -86,10 +86,10 @@ def test_transition_rejects_pending_to_done() -> None:
         g.transition("a", Status.DONE)
 
 
-def test_transition_rejects_awaiting_to_done() -> None:
-    """Invariant 14: AWAITING can only close via summary propagation."""
+def test_transition_rejects_handoff_to_done() -> None:
+    """Handoff tasks also close only via summary propagation."""
     g = TaskGraph()
-    g.add(_t("a", status=Status.AWAITING))
+    g.add(_t("a", status=Status.HANDOFF))
     with pytest.raises(ValueError, match="illegal transition"):
         g.transition("a", Status.DONE)
 
@@ -99,4 +99,3 @@ def test_transition_rejects_done_to_anything() -> None:
     g.add(_t("a", status=Status.DONE))
     with pytest.raises(ValueError, match="illegal transition"):
         g.transition("a", Status.RUNNING)
-

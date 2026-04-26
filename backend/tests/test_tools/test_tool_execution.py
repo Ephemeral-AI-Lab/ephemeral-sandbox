@@ -11,7 +11,12 @@ from engine.core.query import QueryContext
 from engine.core.streaming_executor import StreamingToolExecutor
 from message.stream_events import StreamEvent, ToolExecutionStarted
 from providers.types import ApiToolUseDeltaEvent, SupportsStreamingMessages
-from tools.core.base import BaseTool, ToolExecutionContext, ToolRegistry, ToolResult
+from tools.core.base import (
+    BaseTool,
+    ToolExecutionContextService,
+    ToolRegistry,
+    ToolResult,
+)
 from tools.core.tool_execution import execute_tool_call_streaming, execute_tool_once
 
 pytestmark = pytest.mark.asyncio
@@ -34,7 +39,7 @@ class _EchoTool(BaseTool):
     def __init__(self) -> None:
         self.seen: list[str] = []
 
-    async def execute(self, arguments: _Args, context: ToolExecutionContext) -> ToolResult:
+    async def execute(self, arguments: _Args, context: ToolExecutionContextService) -> ToolResult:
         del context
         self.seen.append(arguments.value)
         return ToolResult(output=arguments.value)
@@ -46,7 +51,7 @@ class _FailingTool(BaseTool):
     input_model = _Args
     output_model = _Out
 
-    async def execute(self, arguments: _Args, context: ToolExecutionContext) -> ToolResult:
+    async def execute(self, arguments: _Args, context: ToolExecutionContextService) -> ToolResult:
         del arguments, context
         return ToolResult(output="tool failed", is_error=True, metadata={"status": "failed"})
 
@@ -71,8 +76,28 @@ async def _capture_emit(events: list[StreamEvent], event: StreamEvent) -> None:
     events.append(event)
 
 
-def _context() -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/tmp"))
+def _context() -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/tmp"))
+
+
+async def test_tool_execution_context_service_unfolds_metadata_fields() -> None:
+    svc = object()
+    context = ToolExecutionContextService(
+        cwd="/tmp",
+        services={"ci_service": svc, "agent_name": "worker", "custom": "value"},
+    )
+
+    assert context.cwd == Path("/tmp")
+    assert context.ci_service is svc
+    assert context.agent_name == "worker"
+    assert context.get("custom") == "value"
+
+    context.sandbox_id = "sandbox-1"
+    context["task_id"] = "task-1"
+
+    assert context.sandbox_id == "sandbox-1"
+    assert context["task_id"] == "task-1"
+    assert isinstance(context, ToolExecutionContextService)
 
 
 def _query_context(tool: BaseTool) -> QueryContext:
@@ -181,7 +206,7 @@ async def test_streaming_executor_propagates_terminal_completion_marker() -> Non
     registry.register(_TerminalEchoTool())
     executor = StreamingToolExecutor(
         registry,
-        ToolExecutionContext(cwd=Path("/tmp")),
+        ToolExecutionContextService(cwd=Path("/tmp")),
     )
 
     executor.add_tool(

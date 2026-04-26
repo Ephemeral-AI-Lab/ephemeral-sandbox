@@ -72,7 +72,7 @@ acceptance criteria, and available evidence.
 
 **Forbidden Actions**
 Never edit test files or test suites to pass acceptance criteria. Never call \
-`submit_continue_to_work` — that is evaluator-only.
+`submit_continue_work_handoff` — that is evaluator-only.
 
 **Task Completion**
 End your turn with exactly one terminal tool call. In the default `direct` mode, \
@@ -133,7 +133,7 @@ the executor's handoff tools — those are executor-only.
 End your turn with exactly one terminal tool call. In the default `direct` mode, \
 that is `submit_task_completion` (criteria satisfied). When a gap remains, call \
 `enter_prepare_continue_to_work` to switch into preparation mode; from \
-preparation mode the only exit is `submit_continue_to_work`.
+preparation mode the only exit is `submit_continue_work_handoff`.
 """
 
 
@@ -158,7 +158,7 @@ EVALUATOR = AgentDefinition(
         ModeDefinition(
             name="prepare_continue_to_work",
             allowed_tools=list(_READ_ONLY_INVESTIGATION_TOOLS),
-            terminals=["submit_continue_to_work"],
+            terminals=["submit_continue_work_handoff"],
             entry_tool="enter_prepare_continue_to_work",
             briefing=PREPARE_CONTINUE_TO_WORK_BRIEFING,
         ),

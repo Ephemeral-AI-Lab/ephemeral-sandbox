@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.mode_tool._mode_entry import enter_secondary_mode
 from tools.mode_tool._models import SubmissionOutput
@@ -28,7 +28,7 @@ class EnterPlanForHandoffInput(BaseModel):
     output_model=SubmissionOutput,
     is_mode_entry_tool=True,
 )
-async def enter_plan_for_handoff(*, context: ToolExecutionContext) -> ToolResult:
+async def enter_plan_for_handoff(*, context: ToolExecutionContextService) -> ToolResult:
     return enter_secondary_mode(
         context,
         target_mode="plan_for_handoff",

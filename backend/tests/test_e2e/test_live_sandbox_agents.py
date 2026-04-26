@@ -89,7 +89,7 @@ async def test_bash_tool_invocation(agent):
         assert len(success) >= 1, f"No successful tool completions: {completed}"
 
 
-async def test_write_file_tool(agent):
+async def test_write_file(agent):
     """Agent uses write_file to create a file in the sandbox."""
     result = await agent.invoke(
         "Use write_file to write 'WRITE_TOOL_MARKER' to /workspace/write_test.txt"

@@ -32,13 +32,13 @@ from code_intelligence.routing.service import (
     dispose_all_code_intelligence,
 )
 from tests.test_e2e.daytona_exec_io import read_text_via_exec, write_text_via_exec
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.daytona_toolkit._daytona_utils import (
     _extract_exit_code,
     _wrap_bash_command,
 )
-from tools.daytona_toolkit.delete_file_tool import delete_file
-from tools.daytona_toolkit.move_file_tool import move_file
+from tools.daytona_toolkit.delete_file import delete_file
+from tools.daytona_toolkit.move_file import move_file
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_PROJECT_ROOT / ".env")
@@ -158,7 +158,7 @@ class LiveEnv:
         ci_service: CodeIntelligenceService,
         *,
         agent_run_id: str,
-    ) -> ToolExecutionContext:
+    ) -> ToolExecutionContextService:
         metadata: dict[str, Any] = {
             "daytona_sandbox": self.async_sandbox,
             "repo_root": self.repo_root,
@@ -166,7 +166,7 @@ class LiveEnv:
             "ci_service": ci_service,
             "agent_run_id": agent_run_id,
         }
-        return ToolExecutionContext(cwd=Path(self.repo_root), metadata=metadata)
+        return ToolExecutionContextService(cwd=Path(self.repo_root), services=metadata)
 
 
 @pytest.fixture(autouse=True)
@@ -211,7 +211,7 @@ def _json_output(result: ToolResult) -> dict[str, Any]:
     return json.loads(result.output)
 
 
-async def _invoke(tool: Any, kwargs: dict[str, Any], ctx: ToolExecutionContext) -> ToolResult:
+async def _invoke(tool: Any, kwargs: dict[str, Any], ctx: ToolExecutionContextService) -> ToolResult:
     return await tool.execute(tool.input_model(**kwargs), ctx)
 
 

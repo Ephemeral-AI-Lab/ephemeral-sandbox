@@ -18,13 +18,13 @@ from dotenv import load_dotenv
 from sandbox.async_client import get_async_sandbox
 from sandbox.lifecycle import shutdown_cached_client_async
 from sandbox.testing import create_test_sandbox, delete_test_sandbox
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 from tools.daytona_toolkit._daytona_utils import (
     _build_write_text_file_command,
     _wrap_bash_command,
 )
-from tools.daytona_toolkit.glob_tool import glob
-from tools.daytona_toolkit.grep_tool import grep
+from tools.daytona_toolkit.glob import glob
+from tools.daytona_toolkit.grep import grep
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_PROJECT_ROOT / ".env")
@@ -91,9 +91,9 @@ async def test_live_grep_and_glob_direct_tools() -> None:
                 timeout=10,
             )
 
-        ctx = ToolExecutionContext(
+        ctx = ToolExecutionContextService(
             cwd=Path("/tmp"),
-            metadata={
+            services={
                 "sandbox_id": sandbox_id,
                 "daytona_sandbox": async_sandbox,
                 "repo_root": cwd,

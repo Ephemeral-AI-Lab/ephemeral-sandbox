@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.daytona_toolkit._daytona_utils import (
     _path_error,
@@ -30,7 +30,7 @@ async def read_file(
     start_line: int = 1,
     end_line: int | None = None,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Read a file."""
     file_path = _resolve_path(file_path, context)

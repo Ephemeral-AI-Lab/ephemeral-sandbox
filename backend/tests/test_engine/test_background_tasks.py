@@ -14,7 +14,7 @@ from tools.builtins.background.cancel_background_task import (
     CancelBackgroundTaskInput,
     CancelBackgroundTaskTool,
 )
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.runtime import ExecutionMetadata
 
 
@@ -73,8 +73,8 @@ def _launch_subagent(
     )
 
 
-def _make_ctx(mgr: BackgroundTaskManager) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd="/tmp", metadata={"background_task_manager": mgr})
+def _make_ctx(mgr: BackgroundTaskManager) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd="/tmp", services={"background_task_manager": mgr})
 
 
 # ---------------------------------------------------------------------------

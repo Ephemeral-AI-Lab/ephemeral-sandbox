@@ -1,4 +1,4 @@
-"""Skill loading tools.
+"""Skill loading tool factory.
 
 Instead of injecting full skill content into the system prompt (which
 can consume 10-50K+ tokens), these tools let the
@@ -21,10 +21,10 @@ Usage::
 from __future__ import annotations
 
 from skills.core.registry import SkillRegistry
-from tools.builtins.skills.load_skill_reference_tool import (
-    make_load_skill_reference_tool,
+from tools.builtins.skills.load_skill_reference import (
+    make_load_skill_reference,
 )
-from tools.builtins.skills.load_skill_tool import make_load_skill_tool
+from tools.builtins.skills.load_skill import make_load_skill
 from tools.core.base import BaseTool
 
 
@@ -59,8 +59,8 @@ def make_skills_tools(
             }
 
     return [
-        make_load_skill_tool(skill_registry=skill_registry, available=available),
-        make_load_skill_reference_tool(
+        make_load_skill(skill_registry=skill_registry, available=available),
+        make_load_skill_reference(
             skill_registry=skill_registry,
             available=available,
         ),

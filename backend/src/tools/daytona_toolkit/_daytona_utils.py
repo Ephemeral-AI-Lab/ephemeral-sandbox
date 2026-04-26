@@ -12,7 +12,7 @@ import shlex
 import uuid
 from typing import Any
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 
 logger = logging.getLogger(__name__)
 
@@ -140,9 +140,9 @@ def _is_recoverable_sandbox_error(exc: Exception) -> bool:
     return any(pattern in text for pattern in _SANDBOX_RECOVERY_PATTERNS)
 
 
-async def _attach_sandbox_to_context(context: ToolExecutionContext) -> Any:
+async def _attach_sandbox_to_context(context: ToolExecutionContextService) -> Any:
     """Lazily attach sandbox + CI when prepare_context did not complete."""
-    sandbox_id = str(context.metadata.get("sandbox_id") or "").strip()
+    sandbox_id = str(context.get("sandbox_id") or "").strip()
     if not sandbox_id:
         raise RuntimeError(_sandbox_context_error())
     try:
@@ -153,7 +153,7 @@ async def _attach_sandbox_to_context(context: ToolExecutionContext) -> Any:
         )
 
         sandbox = await get_async_sandbox(sandbox_id)
-        repo_root = context.metadata.get("repo_root")
+        repo_root = context.get("repo_root")
         if not repo_root:
             project_dir = getattr(sandbox, "project_dir", None)
             repo_root = project_dir or await discover_workspace_async(sandbox)
@@ -168,28 +168,28 @@ async def _attach_sandbox_to_context(context: ToolExecutionContext) -> Any:
         raise RuntimeError(_sandbox_context_error(str(exc))) from exc
 
 
-async def _require_sandbox(context: ToolExecutionContext) -> Any:
-    sandbox = context.metadata.get("daytona_sandbox")
+async def _require_sandbox(context: ToolExecutionContextService) -> Any:
+    sandbox = context.get("daytona_sandbox")
     if sandbox is not None:
         return sandbox
     return await _attach_sandbox_to_context(context)
 
 
-async def _recover_sandbox(context: ToolExecutionContext, exc: Exception) -> Any:
+async def _recover_sandbox(context: ToolExecutionContextService, exc: Exception) -> Any:
     """Restart/rebind the sandbox once after container-loss style failures."""
     if not _is_recoverable_sandbox_error(exc):
         raise exc
-    attempts_value = context.metadata.get(_SANDBOX_RECOVERY_KEY, 0)
+    attempts_value = context.get(_SANDBOX_RECOVERY_KEY, 0)
     try:
         attempts = int(attempts_value)
     except (TypeError, ValueError):
         attempts = 0
     if attempts >= 1:
         raise exc
-    sandbox_id = str(context.metadata.get("sandbox_id") or "").strip()
+    sandbox_id = str(context.get("sandbox_id") or "").strip()
     if not sandbox_id:
         raise exc
-    context.metadata[_SANDBOX_RECOVERY_KEY] = attempts + 1
+    context[_SANDBOX_RECOVERY_KEY] = attempts + 1
     logger.warning(
         "Recovering sandbox %s after tool failure: %s",
         sandbox_id,
@@ -200,8 +200,8 @@ async def _recover_sandbox(context: ToolExecutionContext, exc: Exception) -> Any
 
         await asyncio.to_thread(SandboxService().ensure_sandbox_running, sandbox_id)
     finally:
-        context.metadata["daytona_sandbox"] = None
-        context.metadata["ci_service"] = None
+        context["daytona_sandbox"] = None
+        context["ci_service"] = None
     recovered = await _attach_sandbox_to_context(context)
     logger.warning("Recovered sandbox %s and retrying tool once", sandbox_id)
     return recovered
@@ -224,20 +224,20 @@ def _path_error(exc: Exception, path: str) -> str | None:
     return None
 
 
-def _get_repo_root(context: ToolExecutionContext) -> str | None:
+def _get_repo_root(context: ToolExecutionContextService) -> str | None:
     """Return the canonical sandbox repo root for file-oriented tools."""
-    return context.metadata.get("repo_root")
+    return context.get("repo_root")
 
 
-def _get_exec_cwd(context: ToolExecutionContext) -> str | None:
+def _get_exec_cwd(context: ToolExecutionContextService) -> str | None:
     """Return the working directory for shell execution."""
     return (
-        context.metadata.get("exec_cwd")
+        context.get("exec_cwd")
         or _get_repo_root(context)
     )
 
 
-def _resolve_path(path: str, context: ToolExecutionContext) -> str:
+def _resolve_path(path: str, context: ToolExecutionContextService) -> str:
     """Resolve a relative path against the sandbox repo root."""
     if path.startswith("/"):
         return path
@@ -305,11 +305,11 @@ def _extract_verify_paths(value: Any, repo_root: str) -> list[str]:
     return out
 
 
-def _verification_surface_enforcement_mode(context: ToolExecutionContext) -> str:
+def _verification_surface_enforcement_mode(context: ToolExecutionContextService) -> str:
     raw = (
         str(
-            context.metadata.get("verification_surface_write_enforcement")
-            or context.metadata.get("verification_surface_policy")
+            context.get("verification_surface_write_enforcement")
+            or context.get("verification_surface_policy")
             or ""
         )
         .strip()
@@ -328,9 +328,9 @@ def _metadata_flag_enabled(value: Any) -> bool:
     return bool(value)
 
 
-def _test_file_edits_allowed(context: ToolExecutionContext) -> bool:
+def _test_file_edits_allowed(context: ToolExecutionContextService) -> bool:
     return any(
-        _metadata_flag_enabled(context.metadata.get(key))
+        _metadata_flag_enabled(context.get(key))
         for key in _TEST_FILE_ALLOW_METADATA_KEYS
     )
 

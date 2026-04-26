@@ -25,7 +25,7 @@ class Status(str, Enum):
     PENDING = "pending"
     READY = "ready"
     RUNNING = "running"
-    AWAITING = "awaiting"
+    HANDOFF = "handoff"
     DONE = "done"
     FAILED = "failed"
 

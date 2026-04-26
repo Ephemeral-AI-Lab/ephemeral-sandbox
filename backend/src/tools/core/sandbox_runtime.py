@@ -5,19 +5,19 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 
 
-def get_daytona_sandbox(context: ToolExecutionContext) -> Any | None:
+def get_daytona_sandbox(context: ToolExecutionContextService) -> Any | None:
     """Get the injected Daytona sandbox object, if available."""
-    return context.metadata.get("daytona_sandbox")
+    return context.daytona_sandbox
 
 
-def _sandbox_repo_root(context: ToolExecutionContext) -> str:
-    return context.metadata.get("repo_root") or ""
+def _sandbox_repo_root(context: ToolExecutionContextService) -> str:
+    return context.repo_root or ""
 
 
-def resolve_daytona_path(path: str, context: ToolExecutionContext) -> str:
+def resolve_daytona_path(path: str, context: ToolExecutionContextService) -> str:
     """Resolve *path* against the injected sandbox repo root."""
     if not path:
         return _sandbox_repo_root(context) or "."

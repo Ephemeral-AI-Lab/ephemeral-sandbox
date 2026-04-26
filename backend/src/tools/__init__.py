@@ -2,7 +2,7 @@
 
 from tools.core import (
     BaseTool,
-    ToolExecutionContext,
+    ToolExecutionContextService,
     ToolRegistry,
     ToolResult,
     tool,
@@ -16,7 +16,7 @@ def create_default_tool_registry() -> ToolRegistry:
 
 __all__ = [
     "BaseTool",
-    "ToolExecutionContext",
+    "ToolExecutionContextService",
     "ToolRegistry",
     "ToolResult",
     "create_default_tool_registry",

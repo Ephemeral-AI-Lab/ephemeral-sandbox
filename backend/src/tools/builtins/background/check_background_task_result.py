@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContextService, ToolResult
 
 from ._common import TASK_ID_FIELD, normalize_status, render_tool_command
 
@@ -87,8 +87,8 @@ class CheckBackgroundTaskResultTool(BaseTool):
     input_model: type[BaseModel] = CheckBackgroundTaskResultInput
     output_model: type[BaseModel] = TextToolOutput
 
-    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
-        manager = context.metadata.get("background_task_manager")
+    async def execute(self, arguments: BaseModel, context: ToolExecutionContextService) -> ToolResult:
+        manager = context.get("background_task_manager")
         if manager is None:
             return ToolResult(
                 output="ERROR: background task manager is not available.",

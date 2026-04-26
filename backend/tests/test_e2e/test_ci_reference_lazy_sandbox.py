@@ -16,8 +16,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tools.core.base import ToolExecutionContext
-from tools.ci_toolkit.ci_query_symbol_tool import ci_query_symbol
+from tools.core.base import ToolExecutionContextService
+from tools.ci_toolkit.ci_query_symbol import ci_query_symbol
 
 pytestmark = [pytest.mark.e2e]
 
@@ -27,8 +27,8 @@ pytestmark = [pytest.mark.e2e]
 # ---------------------------------------------------------------------------
 
 
-def _ctx(metadata: dict | None = None) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=metadata or {})
+def _ctx(metadata: dict | None = None) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=metadata or {})
 
 
 def _make_defn(name: str, file_path: str, line: int, kind_value: str = "function"):
@@ -87,7 +87,7 @@ class TestCIQueryReferencesSymbolIndex:
             "agent_name": "analysis_agent",
         })
 
-        with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        with patch("tools.ci_toolkit._query_runtime.get_ci_service", return_value=svc):
             result = await ci_query_symbol.execute(
                 ci_query_symbol.input_model(query="Engine", references=True),
                 ctx,
@@ -114,7 +114,7 @@ class TestCIQueryReferencesSymbolIndex:
             "agent_name": "analysis_agent",
         })
 
-        with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        with patch("tools.ci_toolkit._query_runtime.get_ci_service", return_value=svc):
             result = await ci_query_symbol.execute(
                 ci_query_symbol.input_model(query="fs_copy", references=True),
                 ctx,
@@ -136,7 +136,7 @@ class TestCIQueryReferencesSymbolIndex:
             "repo_root": "/testbed",
         })
 
-        with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        with patch("tools.ci_toolkit._query_runtime.get_ci_service", return_value=svc):
             result = await ci_query_symbol.execute(
                 ci_query_symbol.input_model(query="nonexistent", references=True),
                 ctx,
@@ -151,7 +151,7 @@ class TestCIQueryReferencesSymbolIndex:
             "repo_root": "/testbed",
         })
 
-        with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=None):
+        with patch("tools.ci_toolkit._query_runtime.get_ci_service", return_value=None):
             result = await ci_query_symbol.execute(
                 ci_query_symbol.input_model(query="Engine", references=True),
                 ctx,
@@ -174,7 +174,7 @@ class TestCIQueryReferencesSymbolIndex:
             "repo_root": "/testbed",
         })
 
-        with patch("tools.ci_toolkit.query_tools.get_ci_service", return_value=svc):
+        with patch("tools.ci_toolkit._query_runtime.get_ci_service", return_value=svc):
             result = await ci_query_symbol.execute(
                 ci_query_symbol.input_model(query="CmdDiff", references=True),
                 ctx,
@@ -225,11 +225,10 @@ class TestLiveSymbolIndexReferences:
         sandbox = svc_client.get_sandbox_object(live_sandbox_id)
         workspace_root = discover_workspace(sandbox) or "/home/daytona"
 
-        context = MagicMock()
-        context.metadata = {}
+        context = ToolExecutionContextService(cwd=Path("/tmp"))
         inject_code_intelligence(context, live_sandbox_id, sandbox, workspace_root)
 
-        ci_svc = context.metadata.get("ci_service")
+        ci_svc = context.get("ci_service")
         assert ci_svc is not None
         ci_svc.symbol_index.ensure_built(wait=True, timeout=60.0)
 

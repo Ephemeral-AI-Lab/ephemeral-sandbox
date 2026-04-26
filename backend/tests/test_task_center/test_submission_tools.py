@@ -9,11 +9,11 @@ from pathlib import Path
 import pytest
 
 from task_center.graph import TaskGraph
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.runtime import ExecutionMetadata
-from tools.mode_tool.submit_continue_to_work import (
-    ContinueToWorkInput,
-    submit_continue_to_work,
+from tools.mode_tool.submit_continue_work_handoff import (
+    ContinueWorkHandoffInput,
+    submit_continue_work_handoff,
 )
 from tools.mode_tool.submit_plan_handoff import (
     PlanHandoffInput,
@@ -45,16 +45,16 @@ class _FakeTC:
         compile_dag(tasks, task_specs)  # raises PlanValidationError on bad input
         self.calls.append(("handoff", task_id, tasks, task_specs, ac, note))
 
-    def submit_continue_to_work(self, evaluator_id, summary):
+    def submit_continue_work_handoff(self, evaluator_id, summary):
         self.calls.append(("continue", evaluator_id, summary))
 
 
-def _ctx(tc: _FakeTC, *, task_id: str = "self", role: str = "executor") -> ToolExecutionContext:
+def _ctx(tc: _FakeTC, *, task_id: str = "self", role: str = "executor") -> ToolExecutionContextService:
     meta = ExecutionMetadata()
     meta["task_center"] = tc
     meta["task_id"] = task_id
     meta["role"] = role
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=meta)
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=meta)
 
 
 # --------------------------------------------------------------------------- #
@@ -75,7 +75,7 @@ async def test_completion_calls_task_center() -> None:
 
 @pytest.mark.asyncio
 async def test_completion_missing_metadata() -> None:
-    bad_ctx = ToolExecutionContext(cwd=Path("/tmp"), metadata=ExecutionMetadata())
+    bad_ctx = ToolExecutionContextService(cwd=Path("/tmp"), services=ExecutionMetadata())
     res = await submit_task_completion.execute(
         TaskCompletionInput(summary="x"), bad_ctx
     )
@@ -143,15 +143,15 @@ async def test_plan_handoff_rejects_cycle() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# submit_continue_to_work                                                     #
+# submit_continue_work_handoff                                               #
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.asyncio
 async def test_continue_rejects_executor_role() -> None:
     tc = _FakeTC()
-    arg = ContinueToWorkInput(task_input="gap")
-    res = await submit_continue_to_work.execute(
+    arg = ContinueWorkHandoffInput(task_input="gap")
+    res = await submit_continue_work_handoff.execute(
         arg, _ctx(tc, task_id="x", role="executor")
     )
     assert res.is_error is True
@@ -162,8 +162,8 @@ async def test_continue_rejects_executor_role() -> None:
 @pytest.mark.asyncio
 async def test_continue_accepts_evaluator_role() -> None:
     tc = _FakeTC()
-    arg = ContinueToWorkInput(task_input="gap")
-    res = await submit_continue_to_work.execute(
+    arg = ContinueWorkHandoffInput(task_input="gap")
+    res = await submit_continue_work_handoff.execute(
         arg, _ctx(tc, task_id="ev", role="evaluator")
     )
     assert res.is_error is False

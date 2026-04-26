@@ -114,10 +114,72 @@ def _graph_json(store: TaskCenterStore, run_id: str) -> str:
     return json.dumps(_graph_snapshot(store, run_id), indent=2)
 
 
+def _row_graph_snapshots(store: TaskCenterStore, run_id: str) -> dict[str, Any]:
+    tasks = {task["id"]: task for task in store.list_tasks_for_run(run_id)}
+    nodes = {node["task_id"]: node for node in store.list_graph_for_run(run_id)}
+
+    return {
+        "run_id": run_id,
+        "row_graphs": [
+            {
+                "row": index,
+                "task_id": node_id,
+                "parent_task_id": nodes[node_id]["parent_task_id"],
+                "entry_id": node_id,
+                "sink_id": node_id,
+                "role": tasks[node_id]["role"],
+                "status": tasks[node_id]["status"],
+                "children_ids": nodes[node_id]["children_ids"],
+                "evaluator_id": nodes[node_id]["evaluator_id"],
+                "acceptance_criteria": nodes[node_id]["acceptance_criteria"],
+                "handoff_note": nodes[node_id]["handoff_note"],
+            }
+            for index, node_id in enumerate(_ordered_graph_ids(nodes), start=1)
+        ],
+    }
+
+
+def _row_graphs_json(store: TaskCenterStore, run_id: str) -> str:
+    return json.dumps(_row_graph_snapshots(store, run_id), indent=2)
+
+
+def _row_graphs_ascii(store: TaskCenterStore, run_id: str) -> str:
+    tasks = {task["id"]: task for task in store.list_tasks_for_run(run_id)}
+    nodes = {node["task_id"]: node for node in store.list_graph_for_run(run_id)}
+    lines: list[str] = []
+
+    for index, node_id in enumerate(_ordered_graph_ids(nodes), start=1):
+        task = tasks[node_id]
+        node = nodes[node_id]
+        parent = node["parent_task_id"] or "<entry>"
+        lines.append(f"[row {index:02d}] task_id={node_id} parent={parent}")
+        lines.append(f"{node_id} ({task['role']}, {task['status']}) [entry=sink]")
+        children = node["children_ids"]
+        if children:
+            for child_index, child_id in enumerate(children):
+                connector = "`- " if child_index == len(children) - 1 else "|- "
+                lines.append(f"{connector}child={child_id}")
+        else:
+            lines.append("`- children=<none>")
+        if node["evaluator_id"] is not None:
+            lines.append(f"evaluator={node['evaluator_id']}")
+        if node["acceptance_criteria"] is not None:
+            lines.append(f"acceptance_criteria={node['acceptance_criteria']!r}")
+        if node["handoff_note"] is not None:
+            lines.append(f"handoff_note={node['handoff_note']!r}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
+
+
 def _print_graph_outputs(store: TaskCenterStore, run_id: str) -> None:
-    print(f"\n=== {run_id} graph json ===")
+    print(f"\n=== {run_id} task_center_graph row graphs json ===")
+    print(_row_graphs_json(store, run_id))
+    print(f"=== {run_id} task_center_graph row graphs ascii ===")
+    print(_row_graphs_ascii(store, run_id))
+    print(f"=== {run_id} final graph json ===")
     print(_graph_json(store, run_id))
-    print(f"=== {run_id} graph ascii ===")
+    print(f"=== {run_id} final graph ascii ===")
     print(_graph_ascii(store, run_id))
 
 
@@ -264,7 +326,7 @@ def test_plan_handoff_persists_children_acceptance_criteria_and_note() -> None:
             _node(
                 "run-plan:t1",
                 "executor",
-                "awaiting",
+                "handoff",
                 None,
                 ["run-plan:left", "run-plan:right"],
                 acceptance_criteria="children pass",
@@ -276,7 +338,7 @@ def test_plan_handoff_persists_children_acceptance_criteria_and_note() -> None:
     }
     assert _graph_ascii(store, "run-plan") == dedent(
         """\
-        run-plan:t1 (executor, awaiting) ac='children pass' handoff='handoff note'
+        run-plan:t1 (executor, handoff) ac='children pass' handoff='handoff note'
         |- run-plan:left (executor, ready)
         `- run-plan:right (executor, pending)
         """

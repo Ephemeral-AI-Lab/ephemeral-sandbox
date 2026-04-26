@@ -44,7 +44,7 @@ from engine.runtime.background_tasks import (
 from prompt.prompt_report_recorder import PromptReportRecorder
 from tools.core.base import (
     ExecutionMetadata,
-    ToolExecutionContext,
+    ToolExecutionContextService,
     ToolRegistry,
     decorate_schemas_for_background,
 )
@@ -227,9 +227,9 @@ async def _run_query_loop(
 
         executor = StreamingToolExecutor(
             tool_registry=context.tool_registry,
-            context=ToolExecutionContext(
+            context=ToolExecutionContextService(
                 cwd=context.cwd,
-                metadata=context.tool_metadata,
+                services=context.tool_metadata,
             ),
             should_defer=_should_defer_stream_tool_dispatch(
                 context,
@@ -264,7 +264,7 @@ async def _run_query_loop(
                 await preparer.prepare_context_async(executor._context)
                 if context.tool_metadata is None:
                     context.tool_metadata = ExecutionMetadata()
-                context.tool_metadata.update(executor._context.metadata)
+                context.tool_metadata.update(executor._context.services_copy())
             except Exception as exc:
                 logger.debug(
                     "Sandbox context injection skipped (sandbox may not be configured): %s",

@@ -8,7 +8,7 @@ from collections.abc import Callable
 from pydantic import BaseModel, Field
 
 from code_intelligence.tuning import CODE_INTELLIGENCE_TUNING
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.ci_runtime import ci_required_result, get_ci_service
 from tools.core.decorator import tool
 from tools.daytona_toolkit._commit import submit_shell_cmd
@@ -96,13 +96,13 @@ def _format_execution_failure(
     return " ".join(parts)
 
 
-def _progress_callback(context: ToolExecutionContext) -> Callable[[str], None] | None:
-    callback = context.metadata.get("on_progress_line")
+def _progress_callback(context: ToolExecutionContextService) -> Callable[[str], None] | None:
+    callback = context.get("on_progress_line")
     return callback if callable(callback) else None
 
 
 async def _exec_shell_command(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     sandbox: object,
     *,
     command: str,
@@ -143,7 +143,7 @@ async def _exec_shell_command(
 
 
 async def _run_shell_with_recovery(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     sandbox: object,
     *,
     command: str,
@@ -197,7 +197,7 @@ async def _run_shell_with_recovery(
 
 def _build_tool_output(
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     status: str,
     files_written: int,
     shells: list[dict[str, object]],
@@ -296,7 +296,7 @@ async def shell(
     command: str,
     timeout: int = _SHELL_DEFAULT_TIMEOUT,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Run a shell command."""
     if not command or not command.strip():

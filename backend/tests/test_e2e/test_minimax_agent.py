@@ -74,7 +74,7 @@ async def test_agent_responds_to_simple_prompt(sandbox_id):
 
 
 @pytest.mark.asyncio
-async def test_agent_uses_shell_tool(sandbox_id):
+async def test_agent_uses_shell(sandbox_id):
     agent = create_eval_agent(sandbox_id=sandbox_id, system_prompt=MINIMAX_AGENT_PROMPT)
     result = await agent.invoke("Run this exact command in the sandbox: echo 'MINIMAX_BASH_OK'")
 

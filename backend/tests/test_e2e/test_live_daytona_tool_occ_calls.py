@@ -30,11 +30,11 @@ import pytest
 from dotenv import load_dotenv
 
 from code_intelligence.routing.service import CodeIntelligenceService
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 from tools.daytona_toolkit._daytona_utils import _extract_exit_code, _wrap_bash_command
-from tools.daytona_toolkit.shell_tool import shell
-from tools.daytona_toolkit.edit_tool import edit_file
-from tools.daytona_toolkit.write_file_tool import write_file
+from tools.daytona_toolkit.shell import shell
+from tools.daytona_toolkit.edit_file import edit_file
+from tools.daytona_toolkit.write_file import write_file
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_PROJECT_ROOT / ".env")
@@ -136,10 +136,10 @@ class LiveToolEnv:
         ci_service: CodeIntelligenceService,
         *,
         agent_run_id: str,
-    ) -> ToolExecutionContext:
-        return ToolExecutionContext(
+    ) -> ToolExecutionContextService:
+        return ToolExecutionContextService(
             cwd=Path(self.home),
-            metadata={
+            services={
                 "daytona_sandbox": self.async_sandbox,
                 "repo_root": self.home,
                 "ci_service": ci_service,
@@ -314,7 +314,7 @@ def test_live_two_concurrent_same_file_overlap_has_single_winner(
     )
 
 
-def test_live_five_concurrent_same_file_edit_tool_calls(live_tool_env: LiveToolEnv):
+def test_live_five_concurrent_same_file_edit_file_calls(live_tool_env: LiveToolEnv):
     svc = live_tool_env.make_ci_service()
     file_path = f"{live_tool_env.root_dir}/concurrent_{uuid.uuid4().hex[:8]}.py"
     original = (

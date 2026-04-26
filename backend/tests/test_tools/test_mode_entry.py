@@ -21,7 +21,7 @@ import pytest
 from engine.core.tool_batch import validate_tool_batch
 from message.messages import ToolUseBlock
 from task_center.task import Status, Task
-from tools.core.base import ToolExecutionContext, ToolRegistry
+from tools.core.base import ToolExecutionContextService, ToolRegistry
 from tools.core.runtime import ExecutionMetadata
 from tools.mode_tool.enter_plan_for_handoff import enter_plan_for_handoff
 from tools.mode_tool.enter_prepare_continue_to_work import (
@@ -64,14 +64,14 @@ def _ctx(
     role: str = "executor",
     agent_type: str = "agent",
     task: Task | None = None,
-) -> ToolExecutionContext:
+) -> ToolExecutionContextService:
     meta = ExecutionMetadata()
     meta["role"] = role
     meta["agent_type"] = agent_type
     if task is not None:
         meta["task_center"] = _FakeTC(graph=_FakeGraph(task=task))
         meta["task_id"] = "t1"
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=meta)
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=meta)
 
 
 # --------------------------------------------------------------------------- #
@@ -152,7 +152,7 @@ async def test_prepare_entry_happy_path_mutates_mode() -> None:
     assert not res.is_error
     assert res.mode_transition == "prepare_continue_to_work"
     assert "You have entered prepare_continue_to_work mode" in res.output
-    assert "submit_continue_to_work with continuation input" in res.output
+    assert "submit_continue_work_handoff with continuation input" in res.output
     assert task.mode == "prepare_continue_to_work"
 
 
@@ -279,7 +279,7 @@ async def test_cross_secondary_deny_lists_current_mode_terminals() -> None:
             ModeDefinition(
                 name="prepare_continue_to_work",
                 allowed_tools=[],
-                terminals=["submit_continue_to_work"],
+                terminals=["submit_continue_work_handoff"],
                 entry_tool="enter_prepare_continue_to_work",
                 briefing="b2",
             ),
@@ -293,7 +293,7 @@ async def test_cross_secondary_deny_lists_current_mode_terminals() -> None:
     meta["task_center"] = _FakeTC(graph=_FakeGraph(task=task))
     meta["task_id"] = "t1"
     meta["agent_def"] = synthetic
-    ctx = ToolExecutionContext(cwd=Path("/tmp"), metadata=meta)
+    ctx = ToolExecutionContextService(cwd=Path("/tmp"), services=meta)
 
     res = await enter_prepare_continue_to_work._entrypoint(context=ctx)
     assert res.is_error

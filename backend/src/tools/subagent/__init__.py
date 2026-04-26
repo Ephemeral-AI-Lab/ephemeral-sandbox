@@ -7,8 +7,8 @@ from typing import ClassVar
 from pydantic import Field, field_validator
 
 from agents.registry import list_dispatchable_subagent_names
-from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
-from tools.subagent.run_subagent_tool import run_subagent
+from tools.core.base import BaseTool, ToolExecutionContextService, ToolResult
+from tools.subagent.run_subagent import run_subagent
 
 
 def _allowed_subagent_names_for_caller(caller_agent: str) -> tuple[str, ...]:
@@ -64,7 +64,7 @@ class RestrictedRunSubagentTool(BaseTool):
         self.background = run_subagent.background
         self.task_type = run_subagent.task_type
 
-    async def execute(self, arguments, context: ToolExecutionContext) -> ToolResult:  # type: ignore[override]
+    async def execute(self, arguments, context: ToolExecutionContextService) -> ToolResult:  # type: ignore[override]
         return await self._delegate.execute(arguments, context)
 
 

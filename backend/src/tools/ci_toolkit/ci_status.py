@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tools.ci_toolkit.query_tools import (
+from tools.ci_toolkit._query_runtime import (
     CiStatusInput,
     CiStatusOutput,
     run_ci_status,
 )
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 
 
@@ -23,7 +23,7 @@ async def ci_status(
     hotspot_limit: int = 10,
     hotspot_cross_run: bool = False,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Check code intelligence service readiness."""
     return await run_ci_status(

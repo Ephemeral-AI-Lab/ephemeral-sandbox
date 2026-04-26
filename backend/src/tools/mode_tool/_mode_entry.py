@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 
 
 def enter_secondary_mode(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     *,
     target_mode: str,
     required_role: str,
@@ -23,7 +23,7 @@ def enter_secondary_mode(
     ``mode_transition=target_mode``. The dispatcher reads the latter to update
     ``QueryContext.active_mode`` after the turn.
     """
-    if context.metadata.get("agent_type") == "subagent":
+    if context.get("agent_type") == "subagent":
         return ToolResult(
             output=(
                 f"{tool_name}: rejected — subagent contexts cannot toggle "
@@ -33,7 +33,7 @@ def enter_secondary_mode(
             is_error=True,
         )
 
-    role = context.metadata.get("role")
+    role = context.get("role")
     if role != required_role:
         return ToolResult(
             output=(
@@ -43,8 +43,8 @@ def enter_secondary_mode(
             is_error=True,
         )
 
-    tc = context.metadata.get("task_center")
-    task_id = context.metadata.get("task_id")
+    tc = context.get("task_center")
+    task_id = context.get("task_id")
     if tc is None or task_id is None:
         return ToolResult(
             output=f"{tool_name}: missing task_center or task_id in metadata",
@@ -72,7 +72,7 @@ def enter_secondary_mode(
     return ToolResult(output=briefing, mode_transition=target_mode)
 
 
-def _terminals_for_mode(context: ToolExecutionContext, mode_name: str) -> list[str]:
+def _terminals_for_mode(context: ToolExecutionContextService, mode_name: str) -> list[str]:
     """Best-effort lookup of *mode_name*'s terminals via the agent definition.
 
     The deny payload for cross-secondary attempts must name the current mode's
@@ -80,7 +80,7 @@ def _terminals_for_mode(context: ToolExecutionContext, mode_name: str) -> list[s
     Falls back to an empty list when the metadata is incomplete — the caller
     formats a generic "(none registered)" string in that case.
     """
-    agent_def = context.metadata.get("agent_def")
+    agent_def = context.get("agent_def")
     if agent_def is None:
         return []
     try:

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tools.ci_toolkit.query_tools import (
+from tools.ci_toolkit._query_runtime import (
     CiQuerySymbolInput,
     CiQuerySymbolOutput,
     run_ci_query_symbol,
 )
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 
 
@@ -26,7 +26,7 @@ async def ci_query_symbol(
     kind: str = "",
     references: bool = False,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Search for symbol definitions and optionally trace references."""
     return await run_ci_query_symbol(

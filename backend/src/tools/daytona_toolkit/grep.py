@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.daytona_toolkit._daytona_utils import (
     _exec_command,
@@ -35,7 +35,7 @@ async def grep(
     pattern: str,
     path: str = ".",
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Search file contents with a regex."""
     cwd = _get_repo_root(context) or ""

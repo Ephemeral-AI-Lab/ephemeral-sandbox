@@ -7,16 +7,16 @@ import json
 from code_intelligence._async_bridge import run_sync_in_executor, use_sandbox_io_loop
 from pydantic import BaseModel, Field
 
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.ci_runtime import get_ci_service
 from tools.core.decorator import tool
 
 
-def _ci_cwd(context: ToolExecutionContext) -> str | None:
+def _ci_cwd(context: ToolExecutionContextService) -> str | None:
     """Return the effective workspace root exposed to CI-backed tools."""
     return str(
-        context.metadata.get("repo_root")
-        or context.metadata.get("ci_workspace_root")
+        context.get("repo_root")
+        or context.get("ci_workspace_root")
         or context.cwd
         or ""
     ).strip() or None
@@ -57,7 +57,7 @@ class CiDiagnosticsOutput(BaseModel):
 async def ci_diagnostics(
     file_path: str,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     """Get syntax and semantic diagnostics for a file."""
     svc = get_ci_service(context)

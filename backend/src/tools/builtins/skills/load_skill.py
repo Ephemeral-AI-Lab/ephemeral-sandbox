@@ -7,7 +7,7 @@ import json
 from pydantic import BaseModel, Field
 
 from skills.core.registry import SkillRegistry
-from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 
 
@@ -18,7 +18,7 @@ class LoadSkillInput(BaseModel):
     )
 
 
-def make_load_skill_tool(
+def make_load_skill(
     *,
     skill_registry: SkillRegistry,
     available: dict[str, dict[str, object]],
@@ -33,7 +33,7 @@ def make_load_skill_tool(
     async def load_skill(
         skill_name: str,
         *,
-        context: ToolExecutionContext,
+        context: ToolExecutionContextService,
     ) -> ToolResult:
         """Load full skill instructions by name."""
         if skill_name not in available:
@@ -59,4 +59,4 @@ def make_load_skill_tool(
     return load_skill
 
 
-__all__ = ["make_load_skill_tool"]
+__all__ = ["make_load_skill"]

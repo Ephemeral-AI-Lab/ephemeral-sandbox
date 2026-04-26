@@ -20,7 +20,7 @@ Usage::
         query: str,
         limit: int = 10,
         *,
-        context: ToolExecutionContext,
+        context: ToolExecutionContextService,
     ) -> ToolResult:
         ...
 
@@ -36,7 +36,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, ToolExecutionContextService, ToolResult
 
 
 def tool(
@@ -76,7 +76,7 @@ def tool(
             _entrypoint: Callable[..., Any]
 
             async def execute(
-                self, arguments: BaseModel, context: ToolExecutionContext
+                self, arguments: BaseModel, context: ToolExecutionContextService
             ) -> ToolResult:
                 kwargs = arguments.model_dump()
                 kwargs["context"] = context

@@ -1,4 +1,4 @@
-"""Resolve CI attribution metadata from a :class:`ToolExecutionContext`.
+"""Resolve CI attribution metadata from a :class:`ToolExecutionContextService`.
 
 Tools that dispatch through the code-intelligence service (``svc.cmd``,
 ``svc.edit_file``, etc.) need stable actor/run identifiers so the arbiter
@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from tools.core.base import ToolExecutionContext
+from tools.core.base import ToolExecutionContextService
 
 __all__ = [
     "AgentAttribution",
@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 
-def rebind_ci_service(context: ToolExecutionContext, svc: Any) -> None:
+def rebind_ci_service(context: ToolExecutionContextService, svc: Any) -> None:
     """Point *svc* at the sandbox on *context* before a sync OCC call.
 
     Typed ``svc.*`` APIs run sync inside a worker thread; they read through
@@ -32,7 +32,7 @@ def rebind_ci_service(context: ToolExecutionContext, svc: Any) -> None:
 
     No-op when the context has no sandbox or *svc* cannot be rebound.
     """
-    sandbox = context.metadata.get("ci_sandbox") or context.metadata.get("daytona_sandbox")
+    sandbox = context.get("ci_sandbox") or context.daytona_sandbox
     rebind = getattr(svc, "rebind_sandbox", None)
     if sandbox is None or not callable(rebind):
         return
@@ -49,7 +49,7 @@ class AgentAttribution:
     task_id: str
 
 
-def resolved_agent_id(context: ToolExecutionContext, *, preferred: str = "") -> str:
+def resolved_agent_id(context: ToolExecutionContextService, *, preferred: str = "") -> str:
     """Return a non-empty actor label for ledger attribution.
 
     Priority: caller-supplied *preferred* → ``agent_run_id`` → ``agent_name``.
@@ -65,21 +65,21 @@ def resolved_agent_id(context: ToolExecutionContext, *, preferred: str = "") -> 
     explicit = str(preferred or "").strip()
     if explicit:
         return explicit
-    agent_run_id = str(context.metadata.get("agent_run_id") or "").strip()
+    agent_run_id = str(context.agent_run_id or "").strip()
     if agent_run_id:
         return agent_run_id
-    return str(context.metadata.get("agent_name") or "").strip()
+    return str(context.agent_name or "").strip()
 
 
 def agent_attribution_from_context(
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
     *,
     preferred_agent_id: str = "",
 ) -> AgentAttribution:
     """Build an :class:`AgentAttribution` from a tool execution context."""
     return AgentAttribution(
         agent_id=resolved_agent_id(context, preferred=preferred_agent_id),
-        run_id=str(context.metadata.get("run_id") or ""),
-        agent_run_id=str(context.metadata.get("agent_run_id") or ""),
-        task_id=str(context.metadata.get("task_id") or ""),
+        run_id=str(context.get("run_id") or ""),
+        agent_run_id=str(context.agent_run_id or ""),
+        task_id=str(context.get("task_id") or ""),
     )

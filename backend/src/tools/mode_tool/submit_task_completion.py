@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from tools.core.base import ToolExecutionContext, ToolResult
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.mode_tool._models import SubmissionOutput
 
@@ -35,10 +35,10 @@ class TaskCompletionInput(BaseModel):
 async def submit_task_completion(
     summary: str,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
-    tc = context.metadata.get("task_center")
-    task_id = context.metadata.get("task_id")
+    tc = context.get("task_center")
+    task_id = context.get("task_id")
     if tc is None or task_id is None:
         return ToolResult(
             output="submit_task_completion: missing task_center or task_id in metadata",

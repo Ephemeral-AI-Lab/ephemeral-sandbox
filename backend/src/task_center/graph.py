@@ -13,14 +13,14 @@ from task_center.errors import TaskCenterError
 from task_center.task import Status, Task, TaskId
 
 
-# Allowed status transitions. AWAITING -> DONE is intentionally absent
-# (invariant 14: AWAITING can only close via summary propagation, which
+# Allowed status transitions. HANDOFF -> DONE is intentionally absent
+# (invariant 14: handoff tasks can only close via summary propagation, which
 # bypasses transition() and writes status directly).
 _ALLOWED_TRANSITIONS: dict[Status, set[Status]] = {
     Status.PENDING: {Status.READY, Status.FAILED},
     Status.READY: {Status.RUNNING, Status.FAILED},
-    Status.RUNNING: {Status.AWAITING, Status.DONE, Status.FAILED},
-    Status.AWAITING: {Status.FAILED},
+    Status.RUNNING: {Status.HANDOFF, Status.DONE, Status.FAILED},
+    Status.HANDOFF: {Status.FAILED},
     Status.DONE: set(),
     Status.FAILED: set(),
 }

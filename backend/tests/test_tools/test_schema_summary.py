@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, RootModel
 
-from tools.core.base import BaseTool, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, ToolExecutionContextService, ToolResult
 from tools.core.schema_summary import collect_schema_tools, format_tool_schema_summary
 
 
@@ -29,7 +29,7 @@ class _SyntheticTool(BaseTool):
     async def execute(
         self,
         arguments: BaseModel,
-        context: ToolExecutionContext,
+        context: ToolExecutionContextService,
     ) -> ToolResult:
         del arguments, context
         return ToolResult(output="ok")
@@ -57,7 +57,7 @@ def test_schema_summary_prints_live_input_and_output_models(tmp_path):
     # Executor-evaluator tree submission + mode-entry tools.
     assert "Tool: submit_task_completion" in summary
     assert "Tool: submit_plan_handoff" in summary
-    assert "Tool: submit_continue_to_work" in summary
+    assert "Tool: submit_continue_work_handoff" in summary
     assert "Tool: enter_plan_for_handoff" in summary
     assert "Tool: enter_prepare_continue_to_work" in summary
 

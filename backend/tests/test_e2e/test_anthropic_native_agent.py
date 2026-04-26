@@ -151,7 +151,7 @@ async def test_agent_responds_to_simple_prompt(sandbox_id):
 
 
 @pytest.mark.asyncio
-async def test_agent_uses_shell_tool(sandbox_id):
+async def test_agent_uses_shell(sandbox_id):
     agent = create_eval_agent(sandbox_id=sandbox_id, system_prompt=AGENT_PROMPT, tool_call_limit=10)
     result = await agent.invoke("Run this exact command in the sandbox: echo 'ANTHROPIC_BASH_OK'")
     assert len(result.assistant_turns()) > 0, "Missing assistant response"

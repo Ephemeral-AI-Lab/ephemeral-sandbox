@@ -7,7 +7,7 @@ import json
 from pydantic import BaseModel, Field
 
 from skills.core.registry import SkillRegistry
-from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContext, ToolResult
+from tools.core.base import BaseTool, TextToolOutput, ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 
 
@@ -25,7 +25,7 @@ class LoadSkillReferenceInput(BaseModel):
     )
 
 
-def make_load_skill_reference_tool(
+def make_load_skill_reference(
     *,
     skill_registry: SkillRegistry,
     available: dict[str, dict[str, object]],
@@ -41,7 +41,7 @@ def make_load_skill_reference_tool(
         skill_name: str,
         reference_name: str,
         *,
-        context: ToolExecutionContext,
+        context: ToolExecutionContextService,
     ) -> ToolResult:
         """Load a specific reference document from a skill."""
         if skill_name not in available:
@@ -79,4 +79,4 @@ def make_load_skill_reference_tool(
     return load_skill_reference
 
 
-__all__ = ["make_load_skill_reference_tool"]
+__all__ = ["make_load_skill_reference"]

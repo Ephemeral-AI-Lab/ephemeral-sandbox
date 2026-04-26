@@ -105,7 +105,7 @@ def inject_code_intelligence(
     sandbox: Any,
     workspace_root: str,
 ) -> None:
-    if sandbox_id and context.metadata.get("ci_service") is None:
+    if sandbox_id and context.get("ci_service") is None:
         try:
             from code_intelligence.routing.service import get_code_intelligence
 
@@ -147,7 +147,7 @@ def inject_code_intelligence(
                 logger.debug(
                     "CI service warmup skipped for sandbox %s", sandbox_id, exc_info=True
                 )
-            context.metadata["ci_service"] = svc
+            context["ci_service"] = svc
         except Exception:
             logger.debug("CI service not available for sandbox %s", sandbox_id)
 
@@ -166,27 +166,26 @@ def ensure_code_intelligence_runtime(
     ``workspace_root`` differently (sync context prepare, async context prepare,
     lazy attach), but this helper owns the metadata contract and CI attachment.
     """
-    metadata = context.metadata
     if sandbox is not None:
-        metadata["daytona_sandbox"] = sandbox
+        context["daytona_sandbox"] = sandbox
 
-    repo_root = str(metadata.get("repo_root") or "").strip()
+    repo_root = str(context.get("repo_root") or "").strip()
     if not repo_root:
         candidate = str(workspace_root or "").strip()
         if not candidate and sandbox is not None:
             candidate = _sandbox_project_root(sandbox) or ""
         if candidate:
             repo_root = candidate
-            metadata["repo_root"] = repo_root
+            context["repo_root"] = repo_root
 
-    if not metadata.get("exec_cwd") and repo_root:
-        metadata["exec_cwd"] = repo_root
+    if not context.get("exec_cwd") and repo_root:
+        context["exec_cwd"] = repo_root
 
     ci_root = (
-        str(metadata.get("ci_workspace_root") or "").strip()
+        str(context.get("ci_workspace_root") or "").strip()
         or repo_root
         or str(workspace_root or "").strip()
         or default_ci_root
     )
-    if not metadata.get("skip_code_intelligence"):
+    if not context.get("skip_code_intelligence"):
         inject_code_intelligence(context, sandbox_id, sandbox, ci_root)

@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from agents.types import AgentDefinition, ModeDefinition
 from engine.runtime.agent import _build_agent_tool_registry, finalize_tool_registry_and_prompt
-from tools.core.base import BaseTool, ToolExecutionContext, ToolRegistry, ToolResult
+from tools.core.base import BaseTool, ToolExecutionContextService, ToolRegistry, ToolResult
 from tools.core.factory import (
     ToolFactoryContext,
     _factories,
@@ -30,7 +30,7 @@ class _DummyTool(BaseTool):
     description = "Dummy tool."
     input_model = _EmptyInput
 
-    async def execute(self, arguments: BaseModel, context: ToolExecutionContext) -> ToolResult:
+    async def execute(self, arguments: BaseModel, context: ToolExecutionContextService) -> ToolResult:
         del arguments, context
         return ToolResult(output="ok")
 

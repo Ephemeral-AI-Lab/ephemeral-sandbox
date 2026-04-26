@@ -1,42 +1,52 @@
-"""Delete file tool."""
+"""Move file tool."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from code_intelligence.types import DeleteSpec
-from tools.core.base import ToolExecutionContext, ToolResult
+from code_intelligence.types import MoveSpec
+from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.ci_runtime import ci_write_required_result, get_ci_service
 from tools.core.decorator import tool
 from tools.daytona_toolkit._commit import submit_commit
 from tools.daytona_toolkit._daytona_utils import _resolve_path
 from tools.daytona_toolkit._delete_move_helpers import (
     failure_status,
+    move_payload,
     normalized_path,
-    operation_payload,
 )
 
 
-class DeleteFileInput(BaseModel):
-    path: str = Field(
+class MoveFileInput(BaseModel):
+    src_path: str = Field(
         ...,
         min_length=1,
-        description="Repo-relative or sandbox-root file or folder path.",
+        description="Repo-relative or sandbox-root source path.",
+    )
+    target_path: str = Field(
+        ...,
+        min_length=1,
+        description="Repo-relative or sandbox-root destination path.",
     )
     is_folder: bool = Field(
         default=False,
-        description="False deletes one file. True deletes a folder tree.",
+        description="False moves one file. True moves a folder tree.",
     )
 
 
-class DeleteFileOutput(BaseModel):
+class MoveFileOutput(BaseModel):
     status: str = Field(
         ...,
-        description="`deleted`, `not_found`, `aborted_version`, `aborted_lock`, or `failed`.",
+        description=(
+            "`moved`, `dst_exists`, `not_found`, `aborted_version`, "
+            "`aborted_overlap`, `aborted_lock`, or `failed`."
+        ),
     )
+    src_path: str = Field(..., description="Resolved source path.")
+    target_path: str = Field(..., description="Resolved destination path.")
     paths: list[str] = Field(
         default_factory=list,
-        description="Paths changed by the delete.",
+        description="Paths changed by the move.",
     )
     warnings: list[str] = Field(
         default_factory=list,
@@ -53,34 +63,44 @@ class DeleteFileOutput(BaseModel):
 
 
 @tool(
-    name="delete_file",
-    description="Delete a sandbox file or folder.",
-    short_description="Delete a file or folder.",
-    input_model=DeleteFileInput,
-    output_model=DeleteFileOutput,
+    name="move_file",
+    description="Move a sandbox file or folder.",
+    short_description="Move a file or folder.",
+    input_model=MoveFileInput,
+    output_model=MoveFileOutput,
 )
-async def delete_file(
-    path: str,
+async def move_file(
+    src_path: str,
+    target_path: str,
     is_folder: bool = False,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
-    """Delete a file or folder."""
-    resolved = normalized_path(_resolve_path(path, context))
+    """Move a file or folder."""
+    src_resolved = normalized_path(_resolve_path(src_path, context))
+    dst_resolved = normalized_path(_resolve_path(target_path, context))
     warnings: list[str] = []
 
     svc = get_ci_service(context)
     if svc is None:
-        return ci_write_required_result("delete_file", resolved)
+        return ci_write_required_result("move_file", src_resolved)
 
-    specs = [DeleteSpec(path=resolved, is_folder=is_folder)]
+    specs = [
+        MoveSpec(
+            src_path=src_resolved,
+            dst_path=dst_resolved,
+            overwrite=False,
+            is_folder=is_folder,
+        ),
+    ]
+    fallback_paths = [s.src_path for s in specs] + [s.dst_path for s in specs]
 
     change = await submit_commit(
         context,
-        op="delete",
+        op="move",
         specs=specs,
-        fallback_paths=[resolved],
-        description=f"delete {resolved}",
+        fallback_paths=fallback_paths,
+        description=f"move {src_resolved} -> {dst_resolved}",
     )
     paths = list(change.changed_paths)
     common_metadata = {
@@ -88,10 +108,13 @@ async def delete_file(
         "ambient_changed_paths": list(change.ambient_changed_paths),
         "conflict_reason": change.conflict_reason,
     }
+
     if change.success:
         return ToolResult(
-            output=operation_payload(
-                status="deleted",
+            output=move_payload(
+                status="moved",
+                src=src_resolved,
+                dst=dst_resolved,
                 paths=paths,
                 warnings=warnings,
             ),
@@ -102,10 +125,12 @@ async def delete_file(
             },
         )
 
-    payload_status, conflict_reason = failure_status(change.raw, move=False)
+    payload_status, conflict_reason = failure_status(change.raw, move=True)
     return ToolResult(
-        output=operation_payload(
+        output=move_payload(
             status=payload_status,
+            src=src_resolved,
+            dst=dst_resolved,
             paths=paths,
             warnings=warnings,
             conflict_reason=conflict_reason,
@@ -120,4 +145,4 @@ async def delete_file(
     )
 
 
-__all__ = ["delete_file"]
+__all__ = ["move_file"]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from tools.core.base import TextToolOutput, ToolExecutionContext, ToolResult
+from tools.core.base import TextToolOutput, ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 
 
@@ -34,7 +34,7 @@ class ExplorationResultInput(BaseModel):
 async def submit_exploration_result(
     findings: str,
     *,
-    context: ToolExecutionContext,
+    context: ToolExecutionContextService,
 ) -> ToolResult:
     del context
     return ToolResult(output=findings)

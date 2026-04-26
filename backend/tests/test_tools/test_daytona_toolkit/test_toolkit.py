@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tools.core.base import ToolExecutionContext, ToolRegistry
+from tools.core.base import ToolExecutionContextService, ToolRegistry
 from tools.daytona_toolkit import DaytonaContextPreparer, make_daytona_tools
 
 
@@ -17,8 +17,8 @@ from tools.daytona_toolkit import DaytonaContextPreparer, make_daytona_tools
 # emit a warning for every *sync* test in the file.
 
 
-def _ctx(metadata=None) -> ToolExecutionContext:
-    return ToolExecutionContext(cwd=Path("/tmp"), metadata=metadata or {})
+def _ctx(services=None) -> ToolExecutionContextService:
+    return ToolExecutionContextService(cwd=Path("/tmp"), services=services or {})
 
 
 def _sandbox_with_noop_io():
@@ -232,9 +232,9 @@ def test_prepare_context_injects_sandbox_and_cwd():
     ):
         tk.prepare_context(ctx)
 
-    assert ctx.metadata["daytona_sandbox"] is fake_sb
-    assert ctx.metadata["repo_root"] == "/workspace"
-    assert ctx.metadata["exec_cwd"] == "/workspace"
+    assert ctx["daytona_sandbox"] is fake_sb
+    assert ctx["repo_root"] == "/workspace"
+    assert ctx["exec_cwd"] == "/workspace"
 
 
 def test_prepare_context_no_cwd_skips_metadata_key():
@@ -249,9 +249,9 @@ def test_prepare_context_no_cwd_skips_metadata_key():
     ):
         tk.prepare_context(ctx)
 
-    assert ctx.metadata["daytona_sandbox"] is fake_sb
-    assert "repo_root" not in ctx.metadata
-    assert "exec_cwd" not in ctx.metadata
+    assert ctx["daytona_sandbox"] is fake_sb
+    assert "repo_root" not in ctx
+    assert "exec_cwd" not in ctx
 
 
 def test_prepare_context_respects_preseeded_workspace_root_override():
@@ -270,9 +270,9 @@ def test_prepare_context_respects_preseeded_workspace_root_override():
 
     resolve_mock.assert_not_called()
     inject_mock.assert_called_once_with(ctx, "sb-test", fake_sb, "/testbed")
-    assert ctx.metadata["daytona_sandbox"] is fake_sb
-    assert ctx.metadata["repo_root"] == "/testbed"
-    assert ctx.metadata["exec_cwd"] == "/testbed"
+    assert ctx["daytona_sandbox"] is fake_sb
+    assert ctx["repo_root"] == "/testbed"
+    assert ctx["exec_cwd"] == "/testbed"
 
 
 # ---------------------------------------------------------------------------
@@ -302,9 +302,9 @@ async def test_prepare_context_async_injects_sandbox_and_cwd():
     ):
         await tk.prepare_context_async(ctx)
 
-    assert ctx.metadata["daytona_sandbox"] is fake_sb
-    assert ctx.metadata["repo_root"] == "/async/workspace"
-    assert ctx.metadata["exec_cwd"] == "/async/workspace"
+    assert ctx["daytona_sandbox"] is fake_sb
+    assert ctx["repo_root"] == "/async/workspace"
+    assert ctx["exec_cwd"] == "/async/workspace"
 
 
 async def test_prepare_context_async_no_cwd():
@@ -323,9 +323,9 @@ async def test_prepare_context_async_no_cwd():
     ):
         await tk.prepare_context_async(ctx)
 
-    assert ctx.metadata["daytona_sandbox"] is fake_sb
-    assert "repo_root" not in ctx.metadata
-    assert "exec_cwd" not in ctx.metadata
+    assert ctx["daytona_sandbox"] is fake_sb
+    assert "repo_root" not in ctx
+    assert "exec_cwd" not in ctx
 
 
 async def test_prepare_context_async_respects_preseeded_workspace_root_override():
@@ -344,9 +344,9 @@ async def test_prepare_context_async_respects_preseeded_workspace_root_override(
 
     resolve_mock.assert_not_called()
     inject_mock.assert_called_once_with(ctx, "sb-test", fake_sb, "/testbed")
-    assert ctx.metadata["daytona_sandbox"] is fake_sb
-    assert ctx.metadata["repo_root"] == "/testbed"
-    assert ctx.metadata["exec_cwd"] == "/testbed"
+    assert ctx["daytona_sandbox"] is fake_sb
+    assert ctx["repo_root"] == "/testbed"
+    assert ctx["exec_cwd"] == "/testbed"
 
 
 # ---------------------------------------------------------------------------

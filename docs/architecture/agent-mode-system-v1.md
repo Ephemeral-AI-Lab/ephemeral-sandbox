@@ -151,7 +151,7 @@ EVALUATOR = AgentDefinition(
         ModeDefinition(
             name="prepare_continue_to_work",
             allowed_tools=["read", "grep", "glob", "ls", "ask_user"],
-            terminals=["submit_continue_to_work"],
+            terminals=["submit_continue_work_handoff"],
             entry_tool="enter_prepare_continue_to_work",
             briefing="...",                        # inline; see Briefing Mechanism
         ),
@@ -184,8 +184,8 @@ a `ModeDefinition` literal, not a code path.
 | Tool | Owner mode | Effect |
 |---|---|---|
 | `submit_task_completion` | both `direct` modes | Marks task DONE with summary; propagates up the `closes_for` chain. |
-| `submit_plan_handoff` | `plan_for_handoff` only | TaskCenter validates DAG, materializes child tasks, transitions parent to AWAITING. Required `handoff_note` articulates coverage and risks. |
-| `submit_continue_to_work` | `prepare_continue_to_work` only | Re-spawns the executor with the evaluator's gap analysis and feedback as input. |
+| `submit_plan_handoff` | `plan_for_handoff` only | TaskCenter validates DAG, materializes child tasks, transitions parent to HANDOFF. Required `handoff_note` articulates coverage and risks. |
+| `submit_continue_work_handoff` | `prepare_continue_to_work` only | Re-spawns the executor with the evaluator's gap analysis and feedback as input. |
 
 ### Authorization gate
 
@@ -279,7 +279,7 @@ context cost scales with drift, not with turn count.
                                             error tool_result  TaskCenter    │
                                             (loop) ◄───┐       materializes  │
                                                        │       children;     │
-                                                       │       parent → AWAITING
+                                                       │       parent → HANDOFF
                                                        └───────────────────────┘
 ```
 
@@ -310,12 +310,12 @@ context cost scales with drift, not with turn count.
                                      │              └─────────┬────────────┘ │   (loop back)
                                      │                        │              │
                                      ▼                        ▼              │
-                       submit_task_completion         submit_continue_to_work │
+                       submit_task_completion         submit_continue_work_handoff │
                                      │                        │              │
                                      ▼                        ▼              │
                             verdict applied;     executor re-spawned with    │
                             propagate up         feedback; parent stays      │
-                                                 AWAITING                    │
+                                                 HANDOFF                     │
                                                                               │
                                                                               ┘
 ```
