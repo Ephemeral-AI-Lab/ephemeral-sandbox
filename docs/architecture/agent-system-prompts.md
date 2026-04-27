@@ -34,12 +34,20 @@ closure summaries, etc.), the caller must fold that material into
 Every payload that crosses a role boundary is a single string with
 `## ALLCAPS_LABEL` sections.
 
+Every role-specific user prompt starts with a generated `## INSTRUCTIONS`
+section that tells the agent to read the supplied context and complete the
+role's target payload. The remaining sections carry graph/task data.
+
 ### PlannerLaunchContext
 
 Built once when `request_plan` creates a new harness graph, then stored as
 the planner's task input.
 
 ```text
+## INSTRUCTIONS
+Read ROOT_GOAL as context and anti-drift anchor. Complete the work described
+in REQUEST_PLAN_NOTE by producing the required planner handoff.
+
 ## ROOT_GOAL
 <the input of the task that called request_plan; the anti-drift anchor>
 
@@ -61,6 +69,10 @@ Rebuilt at executor dispatch time. Executors see only their own task input
 and DONE direct-dependency summaries.
 
 ```text
+## INSTRUCTIONS
+Read DEPENDENCY_SUMMARIES as locked-in context, then complete the work
+described in TASK_INPUT. TASK_INPUT is the task you own.
+
 ## TASK_INPUT
 <executor task input — raw user prompt for the entry-root executor, a
 planner-emitted TaskSpec for executors spawned by submit_plan_handoff, or
@@ -84,6 +96,11 @@ Rebuilt at evaluator dispatch time after every executor child in the harness
 graph is terminal.
 
 ```text
+## INSTRUCTIONS
+Read ROOT_GOAL, REQUEST_PLAN_NOTE, PLAN_HANDOFF_NOTE, and child summaries as
+context. Complete TASK_INPUT, which is the planner's evaluator_note, by
+verifying whether REQUEST_PLAN_NOTE was satisfied.
+
 ## ROOT_GOAL
 <harness.root_goal>
 

@@ -9,6 +9,12 @@ from task_center.harness_agents.formatting import render_summaries
 from task_center.model import HarnessGraphId, Task, TaskId, TaskSummary
 from task_center.summaries import child_summary_groups
 
+_EVALUATOR_PROMPT_INSTRUCTIONS = (
+    "Read ROOT_GOAL, REQUEST_PLAN_NOTE, PLAN_HANDOFF_NOTE, and child summaries "
+    "as context. Complete TASK_INPUT, which is the planner's evaluator_note, "
+    "by verifying whether REQUEST_PLAN_NOTE was satisfied."
+)
+
 
 @dataclass
 class EvaluatorLaunchContext:
@@ -33,6 +39,7 @@ class EvaluatorLaunchContext:
     def to_evaluator_prompt(self) -> str:
         return "\n\n".join(
             [
+                f"## INSTRUCTIONS\n{_EVALUATOR_PROMPT_INSTRUCTIONS}",
                 f"## ROOT_GOAL\n{self.root_goal}",
                 f"## REQUEST_PLAN_NOTE\n{self.request_plan_note}",
                 f"## PLAN_HANDOFF_NOTE\n{self.handoff_plan_note}",

@@ -7,6 +7,11 @@ from dataclasses import dataclass, field
 from task_center.graph.store import TaskGraph
 from task_center.model import HarnessGraphId, Status, Task, TaskId, TaskSummary
 
+_EXECUTOR_PROMPT_INSTRUCTIONS = (
+    "Read DEPENDENCY_SUMMARIES as locked-in context, then complete the work "
+    "described in TASK_INPUT. TASK_INPUT is the task you own."
+)
+
 
 @dataclass
 class DependencyBundle:
@@ -42,6 +47,7 @@ class ExecutorLaunchContext:
                 )
             deps_block = "\n\n".join(parts)
         return (
+            f"## INSTRUCTIONS\n{_EXECUTOR_PROMPT_INSTRUCTIONS}\n\n"
             f"## TASK_INPUT\n{self.task_input}\n\n"
             f"## DEPENDENCY_SUMMARIES\n{deps_block}"
         )

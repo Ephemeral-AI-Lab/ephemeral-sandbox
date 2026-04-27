@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 from pydantic import BaseModel
 
-from prompt.environment import EnvironmentInfo
 from prompt.runtime_prompt import (
     build_runtime_context_message,
     build_runtime_system_prompt,
@@ -101,32 +100,24 @@ def test_tool_registry_restrict_to_tools_filters_registered_tools():
     assert registry.get("demo_tool") is None
 
 
-def test_runtime_context_message_contains_environment(monkeypatch):
-    monkeypatch.setattr(
-        "prompt.runtime_prompt.get_environment_info",
-        lambda cwd=None: EnvironmentInfo(
-            os_name="Linux",
-            os_version="6.8.0",
-            platform_machine="x86_64",
-            shell="zsh",
-            cwd=str(cwd or "/tmp/project"),
-            home_dir="/home/user",
-            date="2026-04-16",
-            python_version="3.12.0",
-            is_git_repo=True,
-            git_branch="main",
-            hostname="testhost",
-        ),
-    )
+def test_runtime_context_message_omits_environment(tmp_path):
+    prompt = build_runtime_context_message(cwd=tmp_path)
 
-    prompt = build_runtime_context_message(cwd="/tmp/project")
+    assert prompt == ""
+    assert "# Environment" not in prompt
+    assert "Local host working directory" not in prompt
 
-    assert "# Environment" in prompt
-    assert "Linux 6.8.0" in prompt
-    assert "- Local host working directory: /tmp/project" in prompt
-    assert "use the tool-reported cwd for sandbox commands" in prompt
-    assert "- Working directory: /tmp/project" not in prompt
-    assert "branch: main" in prompt
+
+def test_runtime_context_message_preserves_project_context_files(tmp_path):
+    issue_file = tmp_path / ".ephemeralos" / "issue.md"
+    issue_file.parent.mkdir(parents=True)
+    issue_file.write_text("fix the persisted bug", encoding="utf-8")
+
+    prompt = build_runtime_context_message(cwd=tmp_path)
+
+    assert "# Issue Context" in prompt
+    assert "fix the persisted bug" in prompt
+    assert "# Environment" not in prompt
 
 
 def test_runtime_system_prompt_omits_reasoning_settings():

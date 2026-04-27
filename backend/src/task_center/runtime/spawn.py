@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 
 if TYPE_CHECKING:
     from task_center.runtime.orchestrator import TaskCenter
@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 def build_production_spawn(
     runtime_config: Any,
+    *,
+    extra_tool_metadata: Mapping[str, Any] | None = None,
 ) -> Callable[[str, "TaskCenter", str | None], Awaitable[None]]:
     """Build a ``SpawnFunc`` bound to runtime config and optional sandbox."""
 
@@ -54,6 +56,8 @@ def build_production_spawn(
             meta["task_center_run_id"] = tc.run_id
         meta["role"] = task.role
         meta["agent_type"] = agent_def.agent_type
+        if extra_tool_metadata:
+            meta.update(extra_tool_metadata)
 
         try:
             await execute_ephemeral_agent_run(

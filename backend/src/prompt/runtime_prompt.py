@@ -7,7 +7,6 @@ from typing import Any
 
 from config.paths import get_project_issue_file, get_project_pr_comments_file
 from config.settings import Settings
-from prompt.environment import EnvironmentInfo, get_environment_info
 from prompt.system_prompt import build_system_prompt
 
 __all__ = [
@@ -78,30 +77,9 @@ def build_runtime_system_prompt(
 
     return "\n\n".join(section for section in sections if section.strip())
 
-
-def _format_environment_context(env: EnvironmentInfo) -> str:
-    """Render environment details as runtime user context."""
-    lines = [
-        "# Environment",
-        f"- OS: {env.os_name} {env.os_version}",
-        f"- Architecture: {env.platform_machine}",
-        f"- Shell: {env.shell}",
-        f"- Local host working directory: {env.cwd}",
-        "- Sandbox tools may use a different working directory; use the tool-reported cwd for sandbox commands.",
-        f"- Date: {env.date}",
-        f"- Python: {env.python_version}",
-    ]
-    if env.is_git_repo:
-        git_line = "- Git: yes"
-        if env.git_branch:
-            git_line += f" (branch: {env.git_branch})"
-        lines.append(git_line)
-    return "\n".join(lines)
-
-
 def build_runtime_context_message(*, cwd: str | Path) -> str:
     """Build runtime context to append to the system prompt."""
-    sections = [_format_environment_context(get_environment_info(cwd=str(cwd)))]
+    sections: list[str] = []
 
     for title, path in (
         ("Issue Context", get_project_issue_file(cwd)),

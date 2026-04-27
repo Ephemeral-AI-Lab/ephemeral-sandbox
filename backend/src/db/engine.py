@@ -7,6 +7,7 @@ return ``None`` so callers can fall back to file-based storage.
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 import os
 from typing import TYPE_CHECKING, Any
@@ -49,6 +50,17 @@ def get_async_session_factory() -> "async_sessionmaker[AsyncSession] | None":
 
 
 _DROPPED_COLUMNS: dict[str, set[str]] = {
+    "agent_runs": {
+        "compacted_history",
+        "event_count",
+        "input_query",
+        "metadata",
+        "reasoning",
+        "response",
+        "session_id",
+        "started_at",
+        "status",
+    },
     "task_center_tasks": {
         "acceptance_criteria",
         "children",
@@ -63,6 +75,74 @@ _DROPPED_COLUMNS: dict[str, set[str]] = {
 }
 
 
+def _drop_indexes_for_columns(engine: Engine, table_name: str, columns: set[str]) -> None:
+    insp = inspect(engine)
+    for index in insp.get_indexes(table_name):
+        index_columns = set(index.get("column_names") or [])
+        if not index_columns & columns:
+            continue
+        index_name = index["name"]
+        logger.info("Dropping obsolete index %s on %s", index_name, table_name)
+        with engine.begin() as conn:
+            conn.execute(text(f'DROP INDEX IF EXISTS "{index_name}"'))
+
+
+def _rebuild_sqlite_table(engine: Engine, table: Any) -> None:
+    """Rebuild a SQLite table from ORM metadata, dropping legacy constraints."""
+    table_name = table.name
+    backup_name = f"__{table_name}_legacy"
+
+    with engine.begin() as conn:
+        existing = {col["name"] for col in inspect(conn).get_columns(table_name)}
+        copy_columns = [col.name for col in table.columns if col.name in existing]
+        required_columns = [
+            col.name
+            for col in table.columns
+            if not col.nullable and col.default is None and col.server_default is None
+        ]
+
+        row_count = conn.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar_one()
+        invalid_required_rows = 0
+        valid_required_filter = ""
+        if row_count and required_columns:
+            valid_required_filter = " AND ".join(
+                f'"{col}" IS NOT NULL' for col in required_columns
+            )
+            null_checks = " OR ".join(f'"{col}" IS NULL' for col in required_columns)
+            invalid_required_rows = conn.execute(
+                text(f'SELECT COUNT(*) FROM "{table_name}" WHERE {null_checks}')
+            ).scalar_one()
+
+        for index in inspect(conn).get_indexes(table_name):
+            conn.execute(text(f'DROP INDEX IF EXISTS "{index["name"]}"'))
+
+        conn.execute(text(f'DROP TABLE IF EXISTS "{backup_name}"'))
+        conn.execute(text(f'ALTER TABLE "{table_name}" RENAME TO "{backup_name}"'))
+        table.create(conn)
+
+        if copy_columns:
+            column_sql = ", ".join(f'"{col}"' for col in copy_columns)
+            where_sql = (
+                f" WHERE {valid_required_filter}"
+                if invalid_required_rows and valid_required_filter
+                else ""
+            )
+            conn.execute(
+                text(
+                    f'INSERT INTO "{table_name}" ({column_sql}) '
+                    f'SELECT {column_sql} FROM "{backup_name}"{where_sql}'
+                )
+            )
+        if invalid_required_rows:
+            logger.warning(
+                "Skipping copy of %s incompatible legacy rows from %s",
+                invalid_required_rows,
+                table_name,
+            )
+
+        conn.execute(text(f'DROP TABLE "{backup_name}"'))
+
+
 def _add_missing_columns(engine: Engine) -> None:
     """Add columns from the ORM, drop columns no longer in the model."""
     insp = inspect(engine)
@@ -70,6 +150,9 @@ def _add_missing_columns(engine: Engine) -> None:
         if not insp.has_table(table.name):
             continue
         existing = {col["name"] for col in insp.get_columns(table.name)}
+        stale_columns = _DROPPED_COLUMNS.get(table.name, set()) & existing
+        if stale_columns:
+            _drop_indexes_for_columns(engine, table.name, stale_columns)
         for col in table.columns:
             if col.name not in existing:
                 col_type = col.type.compile(dialect=engine.dialect)
@@ -87,12 +170,26 @@ def _add_missing_columns(engine: Engine) -> None:
                                     'WHERE "task_input" IS NULL'
                                 )
                             )
-        for stale in _DROPPED_COLUMNS.get(table.name, set()) & existing:
+        for stale in stale_columns:
             logger.info("Dropping obsolete column %s.%s", table.name, stale)
-            with engine.begin() as conn:
-                conn.execute(
-                    text(f'ALTER TABLE "{table.name}" DROP COLUMN IF EXISTS "{stale}"')
-                )
+        if stale_columns:
+            if engine.dialect.name == "sqlite":
+                _rebuild_sqlite_table(engine, table)
+            else:
+                for stale in stale_columns:
+                    with engine.begin() as conn:
+                        conn.execute(text(f'ALTER TABLE "{table.name}" DROP COLUMN "{stale}"'))
+
+
+def _async_driver_module(async_url: Any) -> str | None:
+    drivername = async_url.drivername
+    if drivername == "sqlite+aiosqlite":
+        return "aiosqlite"
+    if drivername == "postgresql+asyncpg":
+        return "asyncpg"
+    if drivername == "postgresql+psycopg":
+        return "psycopg"
+    return None
 
 
 def _async_database_url(url: str) -> Any:
@@ -161,16 +258,23 @@ def initialize_db(
     _session_factory = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)
 
     # Create async engine from the same URL for DispatcherStore.
-    import importlib.util
-
     if importlib.util.find_spec("greenlet") is not None:
         from sqlalchemy.ext.asyncio import (
             create_async_engine,
             async_sessionmaker as _asm,
         )
 
+        async_url = _async_database_url(url)
+        async_driver = _async_driver_module(async_url)
+        if async_driver is not None and importlib.util.find_spec(async_driver) is None:
+            logger.info(
+                "Async engine skipped — async DB driver %s is not installed",
+                async_driver,
+            )
+            return _session_factory
+
         _async_engine = create_async_engine(
-            _async_database_url(url),
+            async_url,
             pool_pre_ping=pool_pre_ping,
             pool_size=pool_size,
             max_overflow=max_overflow,

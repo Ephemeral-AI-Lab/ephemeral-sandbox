@@ -6,6 +6,11 @@ from dataclasses import dataclass
 
 from task_center.model import HarnessGraph
 
+_PLANNER_PROMPT_INSTRUCTIONS = (
+    "Read ROOT_GOAL as context and anti-drift anchor. Complete the work "
+    "described in REQUEST_PLAN_NOTE by producing the required planner handoff."
+)
+
 
 @dataclass
 class PlannerLaunchContext:
@@ -22,6 +27,7 @@ class PlannerLaunchContext:
     def to_planner_input(self) -> str:
         return "\n\n".join(
             [
+                f"## INSTRUCTIONS\n{_PLANNER_PROMPT_INSTRUCTIONS}",
                 f"## ROOT_GOAL\n{self.root_goal}",
                 f"## REQUEST_PLAN_NOTE\n{self.request_plan_note}",
             ]
