@@ -11,8 +11,8 @@ Pure read-only queries over the graph live in :mod:`task_center.graph.queries`
 and :mod:`task_center.graph.readiness`. Role-specific lifecycle operations live
 under :mod:`task_center.harness_agents`. Thin method wrappers on ``TaskCenter``
 delegate to those free functions so callers can keep using
-``tc.parent_goal(...)``-style attribute access and the public mode-tool entry
-points.
+``tc.dependency_blocked_descendants(...)``-style attribute access and the
+public mode-tool entry points.
 """
 
 from __future__ import annotations
@@ -28,8 +28,6 @@ from task_center.graph import (
     TaskGraph,
     dependency_blocked_descendants as _q_dependency_blocked_descendants,
     is_harness_graph_ready_for_evaluation as _q_is_harness_graph_ready_for_evaluation,
-    parent_goal as _q_parent_goal,
-    planner_handoff as _q_planner_handoff,
 )
 from task_center.harness_agents.evaluator import lifecycle as evaluator_lifecycle
 from task_center.harness_agents.executor import lifecycle as executor_lifecycle
@@ -40,7 +38,6 @@ from task_center.model import (
     Status,
     Task,
     TaskId,
-    TaskSummary,
 )
 
 if TYPE_CHECKING:
@@ -174,12 +171,6 @@ class TaskCenter:
     # ------------------------------------------------------------------ #
     # Graph queries — thin wrappers over task_center.graph.queries       #
     # ------------------------------------------------------------------ #
-
-    def parent_goal(self, task_id: TaskId) -> str | None:
-        return _q_parent_goal(self._graph, task_id)
-
-    def planner_handoff(self, task_id: TaskId) -> list[TaskSummary]:
-        return _q_planner_handoff(self._graph, task_id)
 
     def dependency_blocked_descendants(self, task_id: TaskId) -> list[Task]:
         return _q_dependency_blocked_descendants(self._graph, task_id)
