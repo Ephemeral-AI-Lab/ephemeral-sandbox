@@ -26,21 +26,40 @@ def test_executor_definition_loads_role_local_markdown() -> None:
     assert EXECUTOR.system_prompt == expected
 
 
-def test_executor_prompt_routes_composite_work_to_planner_before_tools() -> None:
+def test_executor_prompt_frames_atomicity_as_working_hypothesis() -> None:
     prompt = load_executor_prompt()
-    assert "SCOPE CHECK BEFORE TOOLS" in prompt
-    assert "Composite =>\n   request_plan now" in prompt
-    assert "multiple PRs/issues" in prompt
-    assert "release-note bullets" in prompt
-    assert "before repository exploration" in prompt
+    # Atomicity is a hypothesis revised by exploration, not a one-shot gate.
+    assert "atomicity as a working hypothesis" in prompt
+    assert "Thought → Action → Observation, in the ReAct sense" in prompt
+    assert "not enforced per step" in prompt
+    # The three named beats are the floor.
+    assert "Beat 1 — Initial estimate" in prompt
+    assert "Beat 2 — After exploration converges, before the first mutation" in prompt
+    assert "Beat 3 — On surprise" in prompt
+    # Beat 1 is allowed to be a hypothesis, not a commitment.
+    assert "hypothesis, not a commitment" in prompt
 
 
-def test_executor_prompt_requires_scouts_for_direct_unclear_work() -> None:
+def test_executor_prompt_anti_momentum_policy_blocks_sunk_cost() -> None:
     prompt = load_executor_prompt()
-    assert "SCOUT WHEN DIRECT BUT UNCLEAR" in prompt
-    assert "2+ independent read-heavy unknowns" in prompt
-    assert "fan out 2–4 explorers via\n   run_subagent" in prompt
-    assert "Do not serially explore many\n  unrelated facets yourself" in prompt
+    # The policy that turns checkpoints into action.
+    assert "Anti-momentum policy" in prompt
+    assert "escalate on the\nnext tool boundary" in prompt
+    assert "Do not finish the current edit cluster" in prompt
+    assert "evidence for the planner" in prompt
+    # Anti-rationalizations are named with their counter-argument.
+    assert "Count surfaces, not themes" in prompt
+    assert "Cross-surface scouting is request_plan, not run_subagent" in prompt
+
+
+def test_executor_prompt_mode_table_lists_plan_handoff_first() -> None:
+    prompt = load_executor_prompt()
+    handoff_idx = prompt.index("| Plan handoff   | request_plan")
+    success_idx = prompt.index("| Direct success | submit_task_success")
+    assert handoff_idx < success_idx, (
+        "Plan handoff must appear before Direct success in the Mode "
+        "Decision Table so escalation is the default framing for composite work."
+    )
 
 
 def test_planner_definition_loads_role_local_markdown() -> None:
