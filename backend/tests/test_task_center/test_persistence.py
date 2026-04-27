@@ -100,7 +100,7 @@ async def test_task_center_persists_request_run_tasks_and_harness_graph() -> Non
     harness_graphs = store.list_harness_graphs_for_run("run1")
     assert len(harness_graphs) == 1
     g = harness_graphs[0]
-    assert g["parent_task_id"] == "run1:t1"
+    assert g["root_task_id"] == "run1:t1"
     assert g["planner_task_id"] == "run1:t2"
     assert g["evaluator_task_id"] == "run1:t2-eval"
     assert g["executor_task_ids"] == ["run1:child"]

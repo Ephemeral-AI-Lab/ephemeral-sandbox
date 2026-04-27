@@ -35,7 +35,7 @@ def request_plan(tc: "TaskCenter", task_id: TaskId, request_plan_note: str) -> N
     graph = HarnessGraph(
         id=graph_id,
         run_id=tc.run_id or "",
-        parent_task_id=caller.id,
+        root_task_id=caller.id,
         planner_task_id=planner_id,
         root_goal=caller.input,
         request_plan_note=request_plan_note,

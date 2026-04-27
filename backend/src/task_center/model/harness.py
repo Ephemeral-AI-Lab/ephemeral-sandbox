@@ -11,7 +11,7 @@ from task_center.model.task import HarnessGraphId, TaskId
 class HarnessGraph:
     """One planner-led decomposition: planner + executor children + evaluator.
 
-    The graph's ``parent_task_id`` points at the executor or evaluator that
+    The graph's ``root_task_id`` points at the executor or evaluator that
     launched the planner via ``request_plan``. The root executor is not
     inside any harness graph.
 
@@ -31,7 +31,7 @@ class HarnessGraph:
 
     id: HarnessGraphId
     run_id: str
-    parent_task_id: TaskId
+    root_task_id: TaskId
     planner_task_id: TaskId
     root_goal: str = ""
     request_plan_note: str = ""

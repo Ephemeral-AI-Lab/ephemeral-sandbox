@@ -9,7 +9,7 @@ Every decomposition is represented by a `TaskCenterHarnessGraph`:
 - one planner task
 - one or more executor child tasks
 - one evaluator task
-- a `parent_task_id` pointing at the executor or evaluator that launched the planner
+- a `root_task_id` pointing at the executor or evaluator that launched the planner
 
 Tasks no longer carry `parent_id` or `closes_for`. A task belongs to at most one harness graph through `task_center_harness_graph_id`; only the root executor has no harness graph. Dependencies between executor tasks are represented only by `needs`.
 
@@ -76,13 +76,13 @@ This avoids overwriting one semantic summary with another. A planner can append 
 
 ### TaskCenterHarnessGraph
 
-`task_center_graph` is renamed to `task_center_harness_graph`. Use `parent_task_id` for the requested graph parent pointer so it is clear that the parent is a task, not another graph.
+`task_center_graph` is renamed to `task_center_harness_graph`. Use `root_task_id` for the requested graph parent pointer so it is clear that the parent is a task, not another graph.
 
 ```python
 TaskCenterHarnessGraph:
     id: HarnessGraphId
     run_id: str
-    parent_task_id: TaskId
+    root_task_id: TaskId
     planner_task_id: TaskId
     evaluator_task_id: TaskId | None
     executor_task_ids: list[TaskId]
@@ -95,13 +95,13 @@ The root executor is not inside any harness graph. Every planner-created executo
 | Tool | Caller | Effect |
 |---|---|---|
 | `submit_task_success(summary)` | executor | Append `success`; mark executor DONE; notify the owning harness graph that child terminal state changed. |
-| `submit_task_success(summary)` | evaluator | Append `success`; mark evaluator DONE; close the owning harness graph successfully. That marks the graph planner DONE, appends `child_success` to the graph's `parent_task_id`, and marks that parent task DONE. |
+| `submit_task_success(summary)` | evaluator | Append `success`; mark evaluator DONE; close the owning harness graph successfully. That marks the graph planner DONE, appends `child_success` to the graph's `root_task_id`, and marks that parent task DONE. |
 | `submit_task_failure(summary)` | executor only | Append `failure`; mark executor FAILED. Mark dependency-blocked descendants FAILED with `dependency_blocked` summaries. Notify the owning harness graph that child terminal state changed. |
-| `submit_evaluation_failure(summary)` | evaluator only | Append `evaluation_failure`; mark evaluator FAILED; close the owning harness graph as failed. That marks the graph planner FAILED, appends `child_failure` to the graph's `parent_task_id`, and marks that parent task FAILED. |
-| `launch_plan_handoff(task_detail)` | executor or evaluator | Append `handoff` with the task detail; mark caller HANDOFF; build a structured planner launch context from the caller role; create a `TaskCenterHarnessGraph(parent_task_id=caller.id)` and a planner task inside it with `input=planner_launch_context(caller.id, task_detail)`. |
+| `submit_evaluation_failure(summary)` | evaluator only | Append `evaluation_failure`; mark evaluator FAILED; close the owning harness graph as failed. That marks the graph planner FAILED, appends `child_failure` to the graph's `root_task_id`, and marks that parent task FAILED. |
+| `launch_plan_handoff(task_detail)` | executor or evaluator | Append `handoff` with the task detail; mark caller HANDOFF; build a structured planner launch context from the caller role; create a `TaskCenterHarnessGraph(root_task_id=caller.id)` and a planner task inside it with `input=planner_launch_context(caller.id, task_detail)`. |
 | `submit_plan_handoff(tasks, task_inputs, handoff_summary)` | planner only | Append `handoff`; materialize executor children and evaluator inside the planner's harness graph. |
 
-When a harness graph closes and marks its `parent_task_id` terminal, TaskCenter also notifies the parent task's owning harness graph. This is the replacement for `closes_for` propagation and is the mechanism that wakes outer evaluators in nested graphs.
+When a harness graph closes and marks its `root_task_id` terminal, TaskCenter also notifies the parent task's owning harness graph. This is the replacement for `closes_for` propagation and is the mechanism that wakes outer evaluators in nested graphs.
 
 ### Planner Launch Context
 
@@ -145,7 +145,7 @@ caller task
         |
         v
 TaskCenterHarnessGraph H
-  parent_task_id = caller task
+  root_task_id = caller task
   planner_task_id = P
   evaluator_task_id = E
 
@@ -237,8 +237,8 @@ TaskCenter.submit_evaluation_failure(E):
 `close_harness_graph_failed(graph_id)`:
 
 1. Mark the graph planner FAILED.
-2. Append `child_failure` to `graph.parent_task_id`.
-3. Mark `graph.parent_task_id` FAILED.
+2. Append `child_failure` to `graph.root_task_id`.
+3. Mark `graph.root_task_id` FAILED.
 4. If the parent task belongs to another harness graph, notify child terminal state change for that outer graph.
 5. If the parent task is the root executor, terminate the run FAILED.
 
@@ -257,8 +257,8 @@ TaskCenter.submit_task_success(E):
 `close_harness_graph_success(graph_id)`:
 
 1. Mark the graph planner DONE.
-2. Append `child_success` to `graph.parent_task_id`.
-3. Mark `graph.parent_task_id` DONE.
+2. Append `child_success` to `graph.root_task_id`.
+3. Mark `graph.root_task_id` DONE.
 4. If the parent task belongs to another harness graph, notify child terminal state change for that outer graph.
 5. If the parent task is the root executor, terminate the run DONE.
 
@@ -290,7 +290,7 @@ Audit and update:
 
 - Rename `task_center_graph` to `task_center_harness_graph`.
 - Store one row per harness graph, not one graph row per task.
-- Add `parent_task_id`, `planner_task_id`, `evaluator_task_id`, and `executor_task_ids`.
+- Add `root_task_id`, `planner_task_id`, `evaluator_task_id`, and `executor_task_ids`.
 - Move task-level topology out of persisted task rows except `task_center_harness_graph_id` and `needs`.
 
 ### 4. Add graph helpers
@@ -338,7 +338,7 @@ End-to-end tests in `backend/tests/test_task_center/`:
 4. Soft fail: one child fails; dependency-blocked descendants become FAILED; evaluator schedules once no executor child remains unfinished.
 5. Hard fail: evaluator -> `submit_evaluation_failure`; harness graph planner and parent task become FAILED; outer graph child terminal state change is notified.
 6. Nested graph recovery: inner evaluator hard-fails; the outer graph sees its child task FAILED and can schedule the outer evaluator.
-7. Evaluator-driven replan: evaluator -> `launch_plan_handoff`; new harness graph has `parent_task_id` equal to the evaluator task, and the spawned planner input includes parent goal, prior planner handoff, DONE child summaries, FAILED child summaries, dependency-blocked summaries, and evaluator recovery task detail.
+7. Evaluator-driven replan: evaluator -> `launch_plan_handoff`; new harness graph has `root_task_id` equal to the evaluator task, and the spawned planner input includes parent goal, prior planner handoff, DONE child summaries, FAILED child summaries, dependency-blocked summaries, and evaluator recovery task detail.
 8. Graph helpers: planner/evaluator see correct parent input and handoff summaries; executor children see only dependency summaries.
 9. Evaluator dispatch under partial failure: DONE children plus FAILED children schedules evaluator when no executor child remains unfinished.
 10. Role rejection: executor cannot call `submit_evaluation_failure`; evaluator cannot call `submit_task_failure`.

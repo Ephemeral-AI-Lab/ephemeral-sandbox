@@ -6,6 +6,7 @@ import base64
 import logging
 import shlex
 import time
+from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
@@ -34,6 +35,17 @@ from benchmarks.sweevo.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[str], None]
+
+
+def _progress(on_progress: ProgressCallback | None, message: str) -> None:
+    if on_progress is None:
+        return
+    try:
+        on_progress(message)
+    except Exception:
+        logger.debug("SWE-EVO progress callback failed", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -472,18 +484,24 @@ async def setup_sweevo_sandbox(
     instance: SWEEvoInstance,
     sandbox_id: str,
     repo_dir: str = _REPO_DIR,
+    *,
+    on_progress: ProgressCallback | None = None,
 ) -> str:
     """Prepare the sandbox by checking out the repo at the base commit."""
+    _progress(on_progress, f"[setup] waiting for sandbox exec readiness sandbox_id={sandbox_id}")
     await _wait_for_sandbox_exec_ready(sandbox_id)
+    _progress(on_progress, f"[setup] checking repository at {repo_dir}")
     await _exec(sandbox_id, f"test -d {repo_dir} && test -d {repo_dir}/.git")
     await _exec(sandbox_id, f"{_CONDA_ACTIVATE} && python --version")
     # Retry runs may reuse the same named sandbox. Always restore the repo to
     # the base commit before reapplying the SWE-EVO test patch so failed edits
     # from earlier attempts do not contaminate the next run.
+    _progress(on_progress, f"[setup] resetting checkout to {instance.base_commit[:12]}")
     await _exec(sandbox_id, f"cd {repo_dir} && git reset --hard HEAD 2>/dev/null")
     await _exec(sandbox_id, f"cd {repo_dir} && git clean -fd 2>/dev/null")
     await _exec(sandbox_id, f"cd {repo_dir} && git checkout -f {instance.base_commit} 2>/dev/null")
     await _exec(sandbox_id, f"cd {repo_dir} && git checkout -B sweevo-work {instance.base_commit} 2>/dev/null")
+    _progress(on_progress, "[setup] installing repository in editable mode")
     await _exec(
         sandbox_id,
         f"{_CONDA_ACTIVATE} && cd {repo_dir} && pip install -e . -q 2>/dev/null || true",
@@ -505,6 +523,11 @@ async def setup_sweevo_sandbox(
         sandbox_id,
         instance.repo,
         instance.base_commit[:12],
+    )
+    _progress(
+        on_progress,
+        f"[setup] sandbox ready sandbox_id={sandbox_id} repo={instance.repo} "
+        f"base={instance.base_commit[:12]}",
     )
     return repo_dir
 
@@ -577,6 +600,7 @@ async def create_sweevo_test_sandbox(
     cpu: int = 2,
     disk: int = 10,
     repo_dir: str = _REPO_DIR,
+    on_progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """Create and prepare a Daytona sandbox for direct SWE-EVO test execution."""
     service = _service()
@@ -609,7 +633,17 @@ async def create_sweevo_test_sandbox(
                 resolved_name,
                 existing.get("id", ""),
             )
-            await setup_sweevo_sandbox(instance, existing["id"], repo_dir)
+            _progress(
+                on_progress,
+                f"[setup] reusing sandbox name={resolved_name} "
+                f"sandbox_id={existing.get('id', '')}",
+            )
+            await setup_sweevo_sandbox(
+                instance,
+                existing["id"],
+                repo_dir,
+                on_progress=on_progress,
+            )
             return {
                 "sandbox_id": existing["id"],
                 "sandbox": existing,
@@ -631,6 +665,11 @@ async def create_sweevo_test_sandbox(
     fallback_reason = ""
     if register_snapshot:
         if _has_explicit_sweevo_image_version(instance.docker_image):
+            _progress(
+                on_progress,
+                f"[setup] registering snapshot "
+                f"image={_normalize_sweevo_image_ref(instance.docker_image)}",
+            )
             resolved_snapshot = resolve_sweevo_snapshot(
                 instance,
                 snapshot_name=snapshot_name,
@@ -639,6 +678,7 @@ async def create_sweevo_test_sandbox(
                 disk=disk,
             )
             create_kwargs["snapshot"] = resolved_snapshot
+            _progress(on_progress, f"[setup] snapshot ready name={resolved_snapshot}")
         else:
             fallback_reason = "snapshot_requires_explicit_image_version"
             logger.info(
@@ -648,13 +688,20 @@ async def create_sweevo_test_sandbox(
                 instance.docker_image,
             )
             create_kwargs["image"] = _normalize_sweevo_image_ref(instance.docker_image)
+            _progress(
+                on_progress,
+                f"[setup] using image directly image={create_kwargs['image']}",
+            )
     elif snapshot_name:
         resolved_snapshot = snapshot_name
         create_kwargs["snapshot"] = resolved_snapshot
+        _progress(on_progress, f"[setup] using snapshot name={resolved_snapshot}")
     else:
         create_kwargs["image"] = _normalize_sweevo_image_ref(instance.docker_image)
+        _progress(on_progress, f"[setup] using image directly image={create_kwargs['image']}")
 
     try:
+        _progress(on_progress, f"[setup] creating sandbox name={resolved_name}")
         result = service.create_sandbox(
             name=resolved_name,
             language="python",
@@ -680,7 +727,17 @@ async def create_sweevo_test_sandbox(
                 resolved_name,
                 fresh.get("id", ""),
             )
-            await setup_sweevo_sandbox(instance, fresh["id"], repo_dir)
+            _progress(
+                on_progress,
+                f"[setup] recovered sandbox name={resolved_name} "
+                f"sandbox_id={fresh.get('id', '')}",
+            )
+            await setup_sweevo_sandbox(
+                instance,
+                fresh["id"],
+                repo_dir,
+                on_progress=on_progress,
+            )
             recover_reason = "fresh_create_recovered_started_sandbox"
             if fallback_reason:
                 recover_reason = f"{fallback_reason};{recover_reason}"
@@ -695,7 +752,8 @@ async def create_sweevo_test_sandbox(
         _cleanup_failed_sandbox(service, fresh)
         raise
     sandbox_id = result["id"]
-    await setup_sweevo_sandbox(instance, sandbox_id, repo_dir)
+    _progress(on_progress, f"[setup] created sandbox sandbox_id={sandbox_id}")
+    await setup_sweevo_sandbox(instance, sandbox_id, repo_dir, on_progress=on_progress)
     sandbox_info = service.get_sandbox(sandbox_id)
     return {
         "sandbox_id": sandbox_id,

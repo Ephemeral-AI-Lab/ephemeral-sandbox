@@ -21,6 +21,20 @@ from benchmarks.sweevo.models import (
 )
 
 
+def _configure_benchmark_logging() -> None:
+    """Keep the SWE-EVO CLI stream focused on benchmark progress.
+
+    Agent, TaskCenter, and sandbox setup output for this command is emitted
+    through ``MultiAgentEventPrinter``. Suppress lower-severity stdlib logging
+    so SDK/backend logger noise does not interleave with that stream.
+    """
+    logging.basicConfig(
+        level=logging.ERROR,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    logging.disable(logging.WARNING)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m benchmarks.sweevo",
@@ -47,7 +61,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-evaluate", action="store_true", help="Skip F2P/P2P grading")
     parser.add_argument("--no-stream", action="store_true", help="Print JSON only after completion")
     parser.add_argument("--no-color", action="store_true")
-    parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Deprecated no-op; benchmark output is filtered by default.",
+    )
     return parser
 
 
@@ -127,10 +146,7 @@ async def _cmd_run(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    _configure_benchmark_logging()
     if args.list:
         return _cmd_list(args.source)
     try:

@@ -116,7 +116,7 @@ async def test_plan_handoff_persists_harness_graph_with_planner_executors_and_ev
     graphs = store.list_harness_graphs_for_run("run")
     assert len(graphs) == 1
     g = graphs[0]
-    assert g["parent_task_id"] == "run:t1"
+    assert g["root_task_id"] == "run:t1"
     assert g["planner_task_id"] == "run:t2"
     assert g["evaluator_task_id"] == "run:t2-eval"
     assert sorted(g["executor_task_ids"]) == ["run:left", "run:right"]
@@ -168,5 +168,5 @@ async def test_nested_plan_handoffs_persist_two_harness_graphs() -> None:
     graphs = {g["id"]: g for g in store.list_harness_graphs_for_run("run")}
     # Two harness graphs: outer (parent=t1, planner=t2) and inner (parent=x, planner=t3).
     assert len(graphs) == 2
-    parents = {g["parent_task_id"] for g in graphs.values()}
+    parents = {g["root_task_id"] for g in graphs.values()}
     assert parents == {"run:t1", "run:x"}

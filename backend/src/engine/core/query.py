@@ -290,13 +290,14 @@ async def _drain_executor_after_stream(
 
 async def _handle_tool_dispatch_branch(
     context: QueryContext,
+    messages: list[ConversationMessage],
     executor: StreamingToolExecutor,
     run_request: QueryRunRequest,
     state: _StreamRunState,
     background_manager: BackgroundTaskManager | None,
     notification_service: SystemNotificationService,
 ) -> AsyncIterator[tuple[StreamEvent, UsageSnapshot | None]]:
-    """Dispatch tool calls from the assistant message and end the run."""
+    """Dispatch tool calls from the assistant message and append their results."""
     final_message = state.final_message
     assert final_message is not None  # narrowed by _consume_provider_stream
 
@@ -340,9 +341,9 @@ async def _handle_tool_dispatch_branch(
             yield event
         return
 
-    if background_manager is not None:
-        await background_manager.cancel_all()
-    context.exit_reason = QueryExitReason.TEXT_RESPONSE
+    if tool_results:
+        messages.append(ConversationMessage(role="user", content=list(tool_results)))
+    context.exit_reason = None
 
 
 async def _run_query_loop(
@@ -351,27 +352,34 @@ async def _run_query_loop(
 ) -> AsyncIterator[tuple[StreamEvent, UsageSnapshot | None]]:
     background_manager, notification_service = _initialize_loop_state(context)
 
-    executor = await _build_stream_executor(context, background_manager)
+    while True:
+        executor = await _build_stream_executor(context, background_manager)
 
-    state = _StreamRunState()
-    run_request = build_query_run_request(context, messages)
-    async for event, event_usage in _consume_provider_stream(
-        context, executor, run_request, state
-    ):
-        yield event, event_usage
+        state = _StreamRunState()
+        run_request = build_query_run_request(context, messages)
+        async for event, event_usage in _consume_provider_stream(
+            context, executor, run_request, state
+        ):
+            yield event, event_usage
 
-    async for event, event_usage in _drain_executor_after_stream(executor, state):
-        yield event, event_usage
+        async for event, event_usage in _drain_executor_after_stream(executor, state):
+            yield event, event_usage
 
-    final_message = state.final_message
-    assert final_message is not None  # narrowed by _consume_provider_stream
-    messages.append(final_message)
-    record_assistant_message(run_request, final_message, state.usage)
-    yield AssistantMessageComplete(message=final_message, usage=state.usage), state.usage
+        final_message = state.final_message
+        assert final_message is not None  # narrowed by _consume_provider_stream
+        messages.append(final_message)
+        record_assistant_message(run_request, final_message, state.usage)
+        yield AssistantMessageComplete(message=final_message, usage=state.usage), state.usage
 
-    if final_message.tool_uses:
+        if not final_message.tool_uses:
+            for event, event_usage in flush_system_notifications(notification_service):
+                yield event, event_usage
+            context.exit_reason = QueryExitReason.TEXT_RESPONSE
+            break
+
         async for event, event_usage in _handle_tool_dispatch_branch(
             context,
+            messages,
             executor,
             run_request,
             state,
@@ -379,10 +387,12 @@ async def _run_query_loop(
             notification_service,
         ):
             yield event, event_usage
-    else:
-        for event, event_usage in flush_system_notifications(notification_service):
-            yield event, event_usage
-        context.exit_reason = QueryExitReason.TEXT_RESPONSE
+
+        if context.exit_reason in {
+            QueryExitReason.TOOL_STOP,
+            QueryExitReason.RESOURCE_LIMIT,
+        }:
+            break
 
     if background_manager is not None and background_manager.has_pending():
         await background_manager.cancel_all()

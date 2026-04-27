@@ -115,7 +115,7 @@ evaluator E (in graph H)
 [E HANDOFF]
    │
    ▼
-new harness graph H'    parent_task_id = E
+new harness graph H'    root_task_id = E
    │
    ▼
 recovery planner P' input = PlannerLaunchContext{
@@ -207,7 +207,7 @@ class TaskSummary:
 class TaskCenterHarnessGraph:
     id: HarnessGraphId
     run_id: str
-    parent_task_id: TaskId       # the executor or evaluator that launched the planner
+    root_task_id: TaskId       # the executor or evaluator that launched the planner
     planner_task_id: TaskId
     evaluator_task_id: TaskId | None     # populated by submit_plan_handoff
     executor_task_ids: list[TaskId]      # populated by submit_plan_handoff
@@ -366,7 +366,7 @@ The deleted `submit_continue_work_handoff` could only spawn a single continuatio
 
 ### 8.4 Graph closure is local to the decomposition unit
 
-The old `closes_for` chain threaded a hidden pointer through every leaf task; closure walked that chain bottom-up across multiple parent levels. The new `TaskCenterHarnessGraph` makes the unit of closure explicit: one planner + executor DAG + one evaluator close as a unit. Cross-graph propagation happens only through `parent_task_id` on the harness graph, and the rules for what happens when a graph closes (planner DONE/FAILED, parent_task receives `child_success`/`child_failure`, outer graph notified) are written down in five short methods on `TaskCenter` instead of distributed across propagation walkers.
+The old `closes_for` chain threaded a hidden pointer through every leaf task; closure walked that chain bottom-up across multiple parent levels. The new `TaskCenterHarnessGraph` makes the unit of closure explicit: one planner + executor DAG + one evaluator close as a unit. Cross-graph propagation happens only through `root_task_id` on the harness graph, and the rules for what happens when a graph closes (planner DONE/FAILED, parent_task receives `child_success`/`child_failure`, outer graph notified) are written down in five short methods on `TaskCenter` instead of distributed across propagation walkers.
 
 ### 8.5 Append-only summary history
 
@@ -378,7 +378,7 @@ Because evaluator dispatch is gated on `is_harness_graph_ready_for_evaluation` (
 
 ### 8.7 Persistence is one-row-per-decomposition
 
-The old `task_center_graph` table stored one row per task with parent/children/evaluator pointers and acceptance criteria/handoff notes. Reconstructing a decomposition required walking parent pointers and collating columns scattered across rows. The new `task_center_harness_graph` table stores one row per harness graph with `parent_task_id`, `planner_task_id`, `evaluator_task_id`, and `executor_task_ids`. Querying "which tasks form one decomposition" is a single row lookup, not a graph traversal.
+The old `task_center_graph` table stored one row per task with parent/children/evaluator pointers and acceptance criteria/handoff notes. Reconstructing a decomposition required walking parent pointers and collating columns scattered across rows. The new `task_center_harness_graph` table stores one row per harness graph with `root_task_id`, `planner_task_id`, `evaluator_task_id`, and `executor_task_ids`. Querying "which tasks form one decomposition" is a single row lookup, not a graph traversal.
 
 ### 8.8 Smaller blast radius for executor changes
 

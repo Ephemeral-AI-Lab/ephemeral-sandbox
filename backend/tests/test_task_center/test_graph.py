@@ -102,7 +102,7 @@ def test_harness_graph_storage() -> None:
     harness = HarnessGraph(
         id="g1",
         run_id="r1",
-        parent_task_id="caller",
+        root_task_id="caller",
         planner_task_id="planner",
     )
     g.add_harness_graph(harness)
@@ -112,7 +112,7 @@ def test_harness_graph_storage() -> None:
 def test_add_harness_graph_duplicate_raises() -> None:
     g = TaskGraph()
     h = HarnessGraph(
-        id="g1", run_id="r", parent_task_id="p", planner_task_id="pl"
+        id="g1", run_id="r", root_task_id="p", planner_task_id="pl"
     )
     g.add_harness_graph(h)
     with pytest.raises(TaskCenterError, match="already in graph"):

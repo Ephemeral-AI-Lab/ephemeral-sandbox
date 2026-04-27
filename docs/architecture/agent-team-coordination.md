@@ -12,12 +12,12 @@ A **`TaskCenterHarnessGraph`** is the unit of decomposition. It bundles exactly:
 - **N executors** — *do the work* (DAG via `needs`)
 - **1 evaluator** — judges *whether the goal was met*
 
-The graph has a `parent_task_id` pointing back to whichever task (executor or evaluator) requested the decomposition. The **root executor** is the only task that lives *outside* any harness graph.
+The graph has a `root_task_id` pointing back to whichever task (executor or evaluator) requested the decomposition. The **root executor** is the only task that lives *outside* any harness graph.
 
 ```
 ┌──────────────────────── TaskCenterHarnessGraph H ─────────────────────────┐
 │                                                                            │
-│   parent_task_id ──► (caller task in HANDOFF state, lives outside H)      │
+│   root_task_id ──► (caller task in HANDOFF state, lives outside H)      │
 │                                                                            │
 │   ┌─────────┐      ┌────────────┐   ┌────────────┐    ┌──────────────┐    │
 │   │ planner │ ───► │ executor 1 │──►│ executor 2 │───►│  evaluator   │    │
@@ -107,7 +107,7 @@ Notes:
 | `submit_task_success` | evaluator | `status=DONE`, append `success` summary | **Close graph as success**: planner→DONE, append `child_success` to `parent_task`, parent_task→DONE, bubble up |
 | `submit_task_failure` | executor | `status=FAILED`, append `failure` summary | Cascade-FAIL all dependency-blocked descendants with `dependency_blocked` summaries; notify graph |
 | `submit_evaluation_failure` | evaluator | `status=FAILED`, append `evaluation_failure` summary | **Close graph as failure**: planner→FAILED, append `child_failure` to `parent_task`, parent_task→FAILED, bubble up |
-| `launch_plan_handoff(task_detail)` | executor or evaluator | `status=HANDOFF`, append `handoff` summary | Spawn a new harness graph with `parent_task_id = caller.id`, build `PlannerLaunchContext` |
+| `launch_plan_handoff(task_detail)` | executor or evaluator | `status=HANDOFF`, append `handoff` summary | Spawn a new harness graph with `root_task_id = caller.id`, build `PlannerLaunchContext` |
 | `submit_plan_handoff(...)` | planner | append `handoff` summary | Materialize executor children + evaluator inside this graph |
 
 **Key invariant:** *Graph closure (success or failure) is the only mechanism that propagates state across the harness boundary.* No hidden parent pointers, no `closes_for` chains.
@@ -263,7 +263,7 @@ flowchart TD
 
 ## 6. Workflow: Nested Recovery (evaluator-driven replan)
 
-When an evaluator calls `launch_plan_handoff`, a **new harness graph** is born with `parent_task_id = evaluator.id`. The recovery planner inherits full evidence via `PlannerLaunchContext`.
+When an evaluator calls `launch_plan_handoff`, a **new harness graph** is born with `root_task_id = evaluator.id`. The recovery planner inherits full evidence via `PlannerLaunchContext`.
 
 ```
 Outer graph H_outer
@@ -273,7 +273,7 @@ Outer graph H_outer
                                           │ launch_plan_handoff(task_detail)
                                           ▼
                             Inner graph H_recover
-                            parent_task_id = evaluator_outer
+                            root_task_id = evaluator_outer
                             ├── planner_recover
                             │     input includes:
                             │       • evaluator_outer.input
@@ -349,7 +349,7 @@ The most important diagram for understanding why the roles stay decoupled:
 
  executor DONE/FAILED summaries ──────────────────────────► evaluator (all siblings)
 
- evaluator/graph closure ── child_success / child_failure ► caller task (parent_task_id)
+ evaluator/graph closure ── child_success / child_failure ► caller task (root_task_id)
 ```
 
 **What each role can NOT see:**

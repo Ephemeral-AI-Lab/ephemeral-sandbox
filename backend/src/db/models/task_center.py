@@ -121,7 +121,7 @@ class TaskCenterHarnessGraphRecord(Base):
         ForeignKey("task_center_runs.id", ondelete="CASCADE"),
         index=True,
     )
-    parent_task_id: Mapped[str] = mapped_column(String(96))
+    root_task_id: Mapped[str] = mapped_column(String(96))
     planner_task_id: Mapped[str] = mapped_column(String(96))
     evaluator_task_id: Mapped[str | None] = mapped_column(String(96), nullable=True)
     executor_task_ids: Mapped[list[str]] = mapped_column(JSON, default=list)

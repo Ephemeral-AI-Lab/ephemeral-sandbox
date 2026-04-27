@@ -55,7 +55,7 @@ def close_harness_graph_success(
     planner = tc.graph.get(graph.planner_task_id)
     tc._mark_terminal(planner, Status.DONE)
     source_task = tc.graph.get(source_task_id)
-    parent = tc.graph.get(graph.parent_task_id)
+    parent = tc.graph.get(graph.root_task_id)
     parent.summaries.append(
         TaskSummary(
             kind="child_success",
@@ -75,7 +75,7 @@ def close_harness_graph_failed(
     planner = tc.graph.get(graph.planner_task_id)
     tc._mark_terminal(planner, Status.FAILED)
     source_task = tc.graph.get(source_task_id)
-    parent = tc.graph.get(graph.parent_task_id)
+    parent = tc.graph.get(graph.root_task_id)
     parent.summaries.append(
         TaskSummary(
             kind="child_failure",

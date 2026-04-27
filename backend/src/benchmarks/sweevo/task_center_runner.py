@@ -198,6 +198,7 @@ async def run_sweevo_with_task_center(
             cpu=cpu,
             disk=disk,
             repo_dir=repo_dir,
+            on_progress=lambda line: _emit_progress(printer, line),
         )
         sandbox_id = str(sandbox_result["sandbox_id"])
         _emit_progress(

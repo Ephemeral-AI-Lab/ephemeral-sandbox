@@ -15,6 +15,7 @@ from engine.runtime.background_dispatch import launch_background_tool
 from engine.runtime.background_tasks import BackgroundTaskManager
 from message.messages import (
     ConversationMessage,
+    ToolResultBlock,
     ToolUseBlock,
 )
 from message.stream_events import (
@@ -533,8 +534,9 @@ async def test_query_loop_emits_hook_notification_without_history_prompt() -> No
         isinstance(event, SystemNotification) and event.text == "hook note"
         for event in events
     )
-    assert len(client.requests) == 1
-    assert [message.role for message in messages] == ["assistant"]
+    assert len(client.requests) == 2
+    assert [message.role for message in messages] == ["assistant", "user", "assistant"]
+    assert any(isinstance(block, ToolResultBlock) for block in messages[1].content)
 
 
 async def test_query_loop_registers_run_notification_service_for_tool_body() -> None:
@@ -587,8 +589,9 @@ async def test_query_loop_registers_run_notification_service_for_tool_body() -> 
         isinstance(event, SystemNotification) and event.text == "tool note"
         for event in events
     )
-    assert len(client.requests) == 1
-    assert [message.role for message in messages] == ["assistant"]
+    assert len(client.requests) == 2
+    assert [message.role for message in messages] == ["assistant", "user", "assistant"]
+    assert any(isinstance(block, ToolResultBlock) for block in messages[1].content)
 
 
 async def test_query_loop_runs_generic_context_preparers() -> None:
@@ -648,6 +651,75 @@ async def test_query_loop_runs_generic_context_preparers() -> None:
     assert completed[-1].output == "prepared"
     assert context.tool_metadata is metadata
     assert context.tool_metadata.get("prepared_by_test") == "prepared"
+
+
+async def test_query_loop_continues_after_non_terminal_tool_result() -> None:
+    class _LoopClient(SupportsStreamingMessages):
+        def __init__(self) -> None:
+            self.requests = []
+
+        async def stream_message(self, request):
+            self.requests.append(request)
+            if len(self.requests) == 1:
+                yield ApiToolUseDeltaEvent(
+                    id="toolu_echo",
+                    name="echo_tool",
+                    input={"value": "observed"},
+                )
+                yield ApiMessageCompleteEvent(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[
+                            ToolUseBlock(
+                                id="toolu_echo",
+                                name="echo_tool",
+                                input={"value": "observed"},
+                            )
+                        ],
+                    ),
+                    usage=UsageSnapshot(),
+                )
+            else:
+                yield ApiMessageCompleteEvent(
+                    message=ConversationMessage(
+                        role="assistant",
+                        content=[
+                            ToolUseBlock(
+                                id="toolu_term",
+                                name="terminal_echo",
+                                input={"value": "done"},
+                            )
+                        ],
+                    ),
+                    usage=UsageSnapshot(),
+                )
+
+    registry = ToolRegistry()
+    registry.register(_EchoTool())
+    registry.register(_TerminalEchoTool())
+    client = _LoopClient()
+    context = QueryContext(
+        api_client=client,
+        tool_registry=registry,
+        cwd=Path("/tmp"),
+        model="test",
+        system_prompt="",
+        max_tokens=100,
+    )
+
+    messages, stream = await run_query(context, [])
+    async for _event, _usage in stream:
+        pass
+
+    assert len(client.requests) == 2
+    assert [message.role for message in messages] == [
+        "assistant",
+        "user",
+        "assistant",
+    ]
+    assert context.exit_reason is QueryExitReason.TOOL_STOP
+    assert context.terminal_result is not None
+    assert context.terminal_result.output == "done"
 
 
 async def test_execute_tool_once_stamps_does_terminate_on_terminal_success() -> None:

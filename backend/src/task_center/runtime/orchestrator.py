@@ -138,7 +138,7 @@ class TaskCenter:
         self._task_center_store.upsert_harness_graph(
             graph_id=self.persisted_graph_id(graph.id),
             run_id=self.run_id,
-            parent_task_id=self.persisted_task_id(graph.parent_task_id),
+            root_task_id=self.persisted_task_id(graph.root_task_id),
             planner_task_id=self.persisted_task_id(graph.planner_task_id),
             evaluator_task_id=(
                 self.persisted_task_id(graph.evaluator_task_id)
