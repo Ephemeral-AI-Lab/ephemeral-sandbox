@@ -13,7 +13,18 @@ if TYPE_CHECKING:
 
 
 def submit_task_success(tc: "TaskCenter", task_id: TaskId, summary: str) -> None:
-    """Mark an evaluator done and close its harness graph successfully."""
+    """Evaluator's success terminal — branches on the graph's ``plan_shape``.
+
+    - ``plan_shape == 'partial'`` → Stage 5 partial-chain continuation.
+      :meth:`Orchestrator.close_partial_success` marks planner DONE,
+      appends a ``segment_success`` summary to root_task (which stays
+      HANDOFF), and spawns the continuation graph carrying
+      ``prior_graph_id``.
+    - Anything else (``'full'`` / unset) → existing full-plan closure
+      via :func:`close_harness_graph_success`.
+    """
+    from task_center.runtime.orchestrator import Orchestrator
+
     task = tc.graph.get(task_id)
     if task.role != "evaluator":
         raise TaskCenterError(
@@ -24,7 +35,12 @@ def submit_task_success(tc: "TaskCenter", task_id: TaskId, summary: str) -> None
     )
     tc._mark_terminal(task, Status.DONE)
     assert task.task_center_harness_graph_id is not None
-    close_harness_graph_success(tc, task.task_center_harness_graph_id, task_id)
+
+    graph = tc.graph.get_harness_graph(task.task_center_harness_graph_id)
+    if graph.plan_shape == "partial":
+        Orchestrator(graph_id=graph.id, tc=tc).close_partial_success(summary)
+    else:
+        close_harness_graph_success(tc, task.task_center_harness_graph_id, task_id)
     tc._persist_all()
     tc._wakeup.set()
 

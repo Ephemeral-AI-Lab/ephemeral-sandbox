@@ -42,6 +42,9 @@ SummaryKind = Literal[
     "dependency_blocked",
     "child_success",
     "child_failure",
+    # Stage 5: appended onto a partial-plan graph's root_task when the
+    # segment evaluator approves; the chain continues with a new graph.
+    "segment_success",
 ]
 
 

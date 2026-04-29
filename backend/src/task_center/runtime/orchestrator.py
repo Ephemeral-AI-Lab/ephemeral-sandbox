@@ -235,7 +235,94 @@ class Orchestrator:
         graph.evaluator_task_id = evaluator.id
 
     # ------------------------------------------------------------------ #
-    # Stage 5–7 stubs (filled by later stages)                           #
+    # Stage 5 — Partial-plan continuation chain                          #
+    # ------------------------------------------------------------------ #
+
+    def close_partial_success(self, summary: str) -> "Orchestrator":
+        """Close a partial-plan graph successfully and spawn the continuation.
+
+        Pre-condition: the evaluator's terminal handler has already marked
+        the evaluator DONE. This method:
+
+        - marks the planner DONE,
+        - appends a ``segment_success`` summary to the graph's root task
+          (which **stays in HANDOFF** — the chain is not yet terminal),
+        - spawns the continuation graph rooted at the same root task,
+          carrying ``prior_graph_id=self.graph_id``.
+
+        Returns the new continuation orchestrator.
+        """
+        from task_center.model import TaskSummary  # local: avoid module cycle
+
+        graph = self.graph
+        root_task = self.root_task
+        planner = self.planner
+
+        self.tc._mark_terminal(planner, Status.DONE)
+        root_task.summaries.append(
+            TaskSummary(
+                kind="segment_success",
+                text=summary,
+                source_task_id=graph.evaluator if graph.evaluator else planner.id,
+            )
+        )
+        # root_task stays in HANDOFF — explicitly NOT transitioned. The
+        # continuation graph that follows will eventually close the chain
+        # via ``close_harness_graph_success`` (Stage 5 reuses the existing
+        # full-plan closure for that final hop).
+        continuation = Orchestrator.spawn(
+            self.tc,
+            root_task_id=graph.root_task_id,
+            request_plan_note=self.build_continuation_note(),
+            prior_graph_id=self.graph_id,
+        )
+        self.tc._persist_all()
+        self.tc._wakeup.set()
+        return continuation
+
+    def build_continuation_note(self) -> str:
+        """Walk the chain via ``prior_graph_id`` and assemble the note.
+
+        Format mirrors design doc §8.4::
+
+            ROOT_GOAL: {root_task.input}
+            PRIOR SEGMENTS:
+              [each prior graph's what_to_do_next + evaluator success summary]
+            CURRENT REQUEST:
+              {graph.what_to_do_next}
+        """
+        graph = self.graph
+        root_task = self.root_task
+
+        chain: list[HarnessGraph] = []
+        current_id = graph.prior_graph_id
+        while current_id is not None:
+            prior = self.tc.graph.get_harness_graph(current_id)
+            chain.append(prior)
+            current_id = prior.prior_graph_id
+        chain.reverse()  # oldest first
+
+        parts = [f"ROOT_GOAL: {root_task.input}"]
+        if chain:
+            parts.append("PRIOR SEGMENTS:")
+            for i, prior in enumerate(chain, start=1):
+                eval_summary = ""
+                if prior.evaluator is not None:
+                    ev = self.tc.graph.get(prior.evaluator)
+                    if ev.summaries:
+                        eval_summary = ev.summaries[-1].text
+                directive = prior.what_to_do_next or "(no follow-up directive)"
+                parts.append(
+                    f"  Segment {i}: {directive}\n"
+                    f"    Evaluator summary: {eval_summary}"
+                )
+        parts.append(
+            f"CURRENT REQUEST: {graph.what_to_do_next or '(no directive)'}"
+        )
+        return "\n".join(parts)
+
+    # ------------------------------------------------------------------ #
+    # Stage 6/7 stubs (filled by later stages)                           #
     # ------------------------------------------------------------------ #
 
     def create_harness_fix_executor(
@@ -249,23 +336,13 @@ class Orchestrator:
 
     def close_success(self, summary: str) -> None:
         raise NotImplementedError(
-            "Orchestrator.close_success lands in Stage 5/7 (closure rewire). "
+            "Orchestrator.close_success lands in Stage 7 (evaluator narrows). "
             "Until then, evaluator_lifecycle.close_harness_graph_success handles closure."
-        )
-
-    def close_partial_success(self, summary: str) -> None:
-        raise NotImplementedError(
-            "Orchestrator.close_partial_success lands in Stage 5 (partial chain)."
         )
 
     def close_failure(self, summary: str) -> None:
         raise NotImplementedError(
-            "Orchestrator.close_failure lands in Stage 5/7 (closure rewire)."
-        )
-
-    def build_continuation_note(self) -> str:
-        raise NotImplementedError(
-            "Orchestrator.build_continuation_note lands in Stage 5 (partial chain)."
+            "Orchestrator.close_failure lands in Stage 7 (closure rewire)."
         )
 
 
