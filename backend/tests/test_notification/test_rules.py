@@ -116,3 +116,28 @@ async def test_dispatch_iterates_in_list_order() -> None:
 
     blocks = service.pop_pending_notifications()
     assert [b.text for b in blocks] == ["A", "B"]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_does_not_expose_same_turn_notifications_to_later_rules() -> None:
+    service = SystemNotificationService()
+    fired: set[str] = set()
+    messages = []
+    rules = [
+        _rule("first", body="A"),
+        NotificationRule(
+            name="second",
+            body=lambda _msgs, _ctx: "B",
+            trigger=lambda msgs, _ctx: any(
+                block.text == "A"
+                for message in msgs
+                for block in message.content
+            ),
+        ),
+    ]
+
+    await dispatch_rules(rules, messages, _StubContext(), service, fired)
+
+    blocks = service.pop_pending_notifications()
+    assert [b.text for b in blocks] == ["A"]
+    assert fired == {"first"}
