@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from code_intelligence.core.async_bridge import current_sandbox_io_loop
+from sandbox.async_bridge import current_sandbox_io_loop
 from code_intelligence.language_server.client import LspClient
 from tools.ci_toolkit.ci_diagnostics import ci_diagnostics
 from tools.core.base import ToolExecutionContextService

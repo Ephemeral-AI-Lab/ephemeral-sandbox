@@ -11,7 +11,7 @@ from typing import Any
 
 from sandbox.daytona_utils import _extract_exit_code, _wrap_bash_command
 
-from code_intelligence.core.async_bridge import run_sync
+from sandbox.async_bridge import run_sync
 from code_intelligence.core.constants import SKIP_DIRECTORIES, SUPPORTED_EXTENSIONS
 
 logger = logging.getLogger(__name__)

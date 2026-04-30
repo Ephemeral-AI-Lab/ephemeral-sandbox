@@ -39,7 +39,7 @@ sandbox_io_loop: contextvars.ContextVar[asyncio.AbstractEventLoop | None] = (
 
 
 def run_sync(awaitable: Any) -> Any:
-    """Proposed D6a replacement for ``code_intelligence.core.async_bridge.run_sync``."""
+    """Proposed D6a replacement for ``sandbox.async_bridge.run_sync``."""
     if not inspect.isawaitable(awaitable):
         return awaitable
     parent_loop = sandbox_io_loop.get()

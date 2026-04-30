@@ -15,7 +15,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from code_intelligence.core.async_bridge import run_sync_in_executor, use_sandbox_io_loop
+from sandbox.async_bridge import run_sync_in_executor, use_sandbox_io_loop
 from code_intelligence.core.hashing import content_hash
 from code_intelligence.overlay.types import OverlayChange
 from code_intelligence.core.types import OperationChange, OperationResult

@@ -181,7 +181,7 @@ async def run_sync_in_executor(func: Any, /, *args: Any, **kwargs: Any) -> Any:
 
     This helper dispatches via ``loop.run_in_executor(None, ...)`` — which
     does NOT copy contextvars by default — but explicitly re-seeds the
-    one contextvar :mod:`code_intelligence.core.async_bridge` *does* need in
+    one contextvar :mod:`sandbox.async_bridge` *does* need in
     the worker thread: :data:`sandbox_io_loop`. Without that seed,
     :func:`run_sync` (called transitively from ``ContentManager``) would
     fall through to ``asyncio.run(coro)`` in the worker, creating a
