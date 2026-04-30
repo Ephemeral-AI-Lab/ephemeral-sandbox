@@ -54,7 +54,8 @@ assembly; Phase 04 wires the actual delivery to `requested_by_task_id`.
 - A `deliver_close_report` callable that attaches the report to the
   executor task identified by `requested_by_task_id` and unblocks its
   outer agent run.
-- The `request_complex_task_solution` tool handler that calls
+- The `request_complex_task_solution` tool handler delegates an accepted call
+  to `ComplexTaskHandoffCoordinator`, which calls
   `ComplexTaskRequestHandler.create_complex_task_request` followed by
   `create_initial_segment`, then exits the executor agent run pending the
   close report (the Phase 03 tool gate guards the same entry point).
@@ -102,6 +103,9 @@ Executor task E is running inside some harness graph
 E calls request_complex_task_solution(goal)
     |
     v
+ComplexTaskHandoffCoordinator starts delegated request handoff
+    |
+    v
 ComplexTaskRequestHandler creates ComplexTaskRequest C
   requested_by_task_id = E
   goal                 = goal
@@ -121,6 +125,7 @@ TaskSegmentManager(S1) retries inside S1, or closes S1 and emits TaskSegmentClos
     +-- success_continue(goal)
     |     ComplexTaskRequestHandler creates continuation TaskSegment S2
     |     and a fresh TaskSegmentManager(S2)
+    |     TaskSegmentManager(S2) creates and starts HarnessGraph S2.H1
     |
     v
 eventually:
@@ -214,15 +219,16 @@ complex request open and creates the next segment.
 
 ## Implementation tasks
 
-1. Implement `request_complex_task_solution` creation of `ComplexTaskRequest`
-   through `ComplexTaskRequestHandler`.
+1. Implement `request_complex_task_solution` as a thin tool handler that
+   delegates complex-request creation to `ComplexTaskHandoffCoordinator`.
 2. Treat `request_complex_task_solution` as a delegated request start whose
    final result is supplied by the complex-task close report.
 3. Create initial `TaskSegment` through `ComplexTaskRequestHandler`, spawn
    `TaskSegmentManager(S1)`, then have the manager create the initial
    `HarnessGraph`.
 4. Implement continuation segment creation when a segment closes with
-   `success_continue(goal)`.
+   `success_continue(goal)`, and ensure the fresh `TaskSegmentManager` creates
+   and starts the continuation segment's initial `HarnessGraph`.
 5. Route final complex-task close reports back to the requesting executor task.
 6. Add close-report persistence or delivery semantics robust enough for process
    restart if the surrounding runtime supports it.

@@ -127,7 +127,7 @@ flowchart TD
     Outcome -->|"failed + budget exhausted"| Failed["TaskSegmentClosureReport<br/>attempt_plan_failed"]
 
     Continue --> HandlerContinue["ComplexTaskRequestHandler creates S_next<br/>and fresh TaskSegmentManager"]
-    HandlerContinue --> NextGraph["TaskSegmentManager creates S_next.H1"]
+    HandlerContinue --> NextGraph["TaskSegmentManager creates and starts S_next.H1"]
     NextGraph --> DelegatedGraph
 
     Terminal --> CloseOK["ComplexTaskRequestHandler closes request success"]
@@ -145,6 +145,16 @@ flowchart TD
 
 Retry and continuation never return to the requesting executor. Only the final
 `ComplexTaskRequest` close report resumes the parent generator task.
+
+Continuation startup is mandatory. When
+`ComplexTaskRequestHandler.handle_segment_closed(...)` receives
+`success_continue(goal)`, it must create the next `TaskSegment`, obtain the fresh
+`TaskSegmentManager`, create that segment's initial `HarnessGraph` through the
+manager, and start the graph. A continuation must not leave an open request with
+a fresh segment but no running graph. If continuation graph creation or startup
+fails, the implementation must close the delegated request through a durable,
+tested failure path and deliver a failed close report to the waiting parent; the
+parent executor run is not resumed inline.
 
 ### 3c. Durable Close-Report Replay
 
@@ -420,8 +430,8 @@ Delivery algorithm:
 1. Load `report.requested_by_task_id` from `runtime.task_store`.
 2. If the task does not exist, raise `GraphInvariantViolation`.
 3. Read `task_center_harness_graph_id` from the parent task.
-4. If the parent task is `done` or `failed` and its summaries already contain
-   this `complex_task_request_id`, return `already_delivered`.
+4. If the parent task is `done` or `failed`, return `already_delivered`.
+   Delivery idempotency does not scan summary payloads.
 5. If the parent task is not `waiting_complex_task`, raise
    `GraphInvariantViolation` because the report is not applicable.
 6. If no parent orchestrator is registered for the graph id, return
@@ -777,11 +787,10 @@ risk and lets profile-gate coverage land before the larger refactor.
 
 ### Wave 2 - Safe Startup and Compensation
 
-1. Decide the minimal safe seam:
-   - preferred: `TaskSegmentManager.create_initial_harness_graph(start_orchestrator=False)`
-     plus `start_harness_graph(...)`;
-   - acceptable: a coordinator-level compensation path with explicit cancel
-     tests.
+1. Implement the `HarnessGraphStartHandle` seam from §6a:
+   `TaskSegmentManager.create_initial_harness_graph()` returns a one-shot handle
+   whose `start()` begins the orchestrator and whose `cancel()` is used only by
+   compensation.
 2. Ensure startup failure returns an inline tool error and leaves the parent
    task `running`.
 3. Ensure no orphan open request is left without an initial graph.
