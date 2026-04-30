@@ -4,7 +4,7 @@
 > Scope: TaskCenter roles, terminal tools, recovery model, retry mechanic,
 > and runtime tool gating.
 
----
+***
 
 ## §1. Architecture (new world)
 
@@ -47,29 +47,52 @@
             close success                 retry continuation OR
             (root DONE)                   close failed (root FAILED)
 
-   ─── Helpers (NOT in TaskCenter, run inline via ask_*) ───────────────────
-       advisor   ── ask_advisor(...)  → {verdict, reason}        no edits
-       resolver  ── ask_resolver(...) → {resolved, summaries}    can edit
+   ─── Subagent (NOT in TaskCenter; non-blocking) ─────────────────────────
+       explorer  ── run_subagent(name="explorer", prompt) → future result
+
+   ─── Helpers (NOT in TaskCenter; blocking ask_* calls) ──────────────────
+       advisor   ── ask_advisor(tool_name, tool_payloads, prompt)
+                    → {verdict, reason}                         no edits
+       resolver  ── ask_resolver(issues_to_resolve)
+                    → {resolved, summaries}                      can edit
 ```
 
----
+***
 
-## §2. Component table
+## §3. Agent roles, helper semantics, and state policy
 
-| Role | Lives in TaskCenter? | Spawned by | Spawn primitive | Terminal tools | Work tools | Helpers it can call |
-|---|---|---|---|---|---|---|
-| **generator / executor (root)** | yes | `RunController.start` | `_create_generator(kind="executor")` | `submit_execution_success`, `submit_execution_failure`, `submit_request_plan` | DIRECT_WORK + `run_subagent` | advisor, resolver |
-| **generator / executor (DAG)** | yes | planner (materialize) | `_create_generator(kind="executor")` | same | DIRECT_WORK + `run_subagent` | advisor, resolver |
-| **planner** | yes | generator/executor `submit_request_plan` *or* retry continuation | `_create_planner` | `submit_full_plan`, `submit_partial_plan` | PLANNER_TOOLS (read-only + run_subagent) | advisor |
-| **generator / verifier** | yes | planner (materialize as generator task) | `_create_generator(kind="verifier")` | `submit_verification_success`, `submit_verification_failure` | READ_ONLY + `run_subagent` (no edit) | advisor, resolver |
-| **evaluator** | yes | orchestrator after all generator tasks have passed (DONE) | `_create_evaluator` (NEW) | `submit_evaluation_success`, `submit_evaluation_failure` | READ_ONLY + `run_subagent` (no edit) | advisor, resolver |
-| **advisor** | no — inline | `ask_advisor` tool | `execute_ephemeral_agent_run` | `submit_advisor_feedback` (in-tool callback) | none | none |
-| **resolver** | no — inline | `ask_resolver` tool | `execute_ephemeral_agent_run` | `submit_resolver_result(resolved, summaries)` (in-tool callback) | DIRECT_WORK + READ_ONLY | none |
-| **explorer** | no — subagent | `run_subagent` (non-blocking) | subagent runtime | `submit_exploration_result` | READ_ONLY | none |
+### §3.1 Role model
 
----
+TaskCenter owns three main agent roles:
 
+- **Planner**: decomposes a request into either a full plan or a gated partial plan.
+- **Generator**: performs generation work. This role has two kinds: **executor** for direct work and **verifier** for checking generator output. Verifiers are still generator tasks, not evaluator sinks.
+- **Evaluator**: runs only after every generator task in the graph has passed. It provides the finahl graph-level acceptance decision.
 
+There is one subagent role:
+
+- **Explorer**: launched with `run_subagent(name="explorer", prompt)`. This call is non-blocking and multiple explorer runs may be launched in parallel. Explorer work is read-only and reports back through its subagent result path.
+
+There are two helper roles:
+
+- **Advisor**: called with `ask_advisor(tool_name, tool_payloads, prompt)` before terminal tool submission. It checks whether the agent is choosing the right terminal tool, whether the payload is shaped correctly, and whether the rationale is sufficient. Advisor calls are blocking, inline, and do not edit.
+- **Resolver**: called with `ask_resolver(issues_to_resolve)` when a verifier or evaluator finds issues that it cannot resolve through its own read-only checks. Resolver calls are blocking, and only one helper call may run at a time. Resolver can edit and must return `resolved` plus summaries.
+
+### §3.2 State-dependent tool policy
+
+Agent tool availability is state-dependent. The relevant state includes graph
+depth, graph lineage, task role, and tool step history. The runtime does not
+enforce these changes by mutating the system prompt or dynamically changing tool
+registration. Instead, it composes two layers:
+
+- **Soft layer**: system reminders tell the agent which terminal tools are currently disabled or required.
+- **Hard layer**: terminal tool prehooks enforce the same policy before the terminal handler runs.
+
+Only roles that own a `submit_*_failure` terminal tool may declare failure. This
+authority is role-based: planner has no failure terminal; executor, verifier,
+and evaluator do.
+
+***
 
 ## §4. Workflows
 
@@ -81,7 +104,7 @@
    ▼
 [ROOT generator/executor] ──submit_request_plan(note)──► open G1; spawn planner
                                                  │
-[planner G1] ──submit_full_plan(dag,details)────► materialize DAG; planner→HANDOFF
+[planner G1] ──submit_full_plan(dag,details)────► build DAG; planner→HANDOFF
                                                  │
         ┌────────────────────────────────────────┘
         │
@@ -91,7 +114,7 @@
    │                                            │
    └─────────────►[generator/verifier]◄─────────┘
                        │
-                       │  may call ask_resolver(issue) inline
+                       │  may call ask_resolver(issue) 
                        │  if 5x resolved=False → forced submit_verification_failure
                        │
                        └──submit_verification_success──► verifier DONE
@@ -114,7 +137,7 @@
                                               child_success summary and resumes
 ```
 
-### §4.2 Generator/verifier or evaluator with inline resolver loop
+### §4.2 Generator/verifier or evaluator with  resolver loop
 
 ```
                 ┌─────────────────────────────────────────────────────┐
@@ -129,7 +152,7 @@
                 │   ┌─────────┘                                        │
                 │   ▼                                                  │
                 │  ┌─────────────────────────────────────────────────┐ │
-                │  │ resolver — inline ephemeral run (no Task)       │ │
+                │  │ resolver —  ephemeral run (no Task)       │ │
                 │  │   - reads files                                 │ │
                 │  │   - edits files (DIRECT_WORK)                   │ │
                 │  │   - submit_resolver_result(resolved, summaries) │ │
@@ -160,23 +183,28 @@
 [generator/executor 2] ──submit_execution_failure(summary)──► executor FAILED
                                                   │
                                                   ▼
-                                  dependents cascade FAILED
-                                  (existing dependency_blocked logic)
+                                  dependent generator tasks become BLOCKED
+                                  (dependency_blocked by failed upstream)
                                                   │
-                                  remaining generator tasks keep running
-                                                  │
-                                                  ▼
-                                  generators quiescent (all ∈ {DONE, FAILED})
+                                  remaining non-blocked generator tasks
+                                  keep running
                                                   │
                                                   ▼
-                                  any generator FAILED?
+                                  generators quiescent
+                                  (all ∈ {DONE, FAILED, BLOCKED})
+                                                  │
+                                                  ▼
+                                  any generator FAILED or BLOCKED?
                                                   │
                                             yes ──┘
                                                   │
                                                   ▼
-                                  request_retry_or_fail(G1, failure_summaries)
+                                  mark G1 REQUESTING_RETRY
+                                  fail_count = G1.fail_count + 1
                                                   │
-                                  G1.chain_fail_count + 1 ≤ G1.retry_budget?
+                                  TaskCenter observes retry request
+                                                  │
+                                  G1.fail_count ≤ G1.retry_budget?
                                                   │
                               ┌───────────────────┴─────────────────────┐
                               ▼ yes                                     ▼ no
@@ -184,7 +212,7 @@
                       G2 = Orchestrator.spawn(                root_task FAILED,
                           root=G1.root,                        propagate up
                           prior_graph_id=G1,
-                          chain_fail_count=G1.chain_fail_count+1,
+                          fail_count=G1.fail_count,
                           request_plan_note=<retry note>)
                               │
                               ▼
@@ -195,17 +223,18 @@
                           OUTCOMES:
                             generator/executor 1: SUCCESS — <summary>
                             generator/executor 2: FAILURE — <summary>
-                            generator/verifier: did not run (dep blocked)
+                            generator/verifier: blocked by failed dependency
                         RETRY ATTEMPT 1/1
 ```
 
 ### §4.4 Evaluator failure → retry (or close)
 
 ```
-[evaluator] ──submit_evaluation_failure(summary)──► evaluator FAILED
+[evaluator] ──submit_evaluation_failure(summaries)──► evaluator FAILED
                                                        │
                                                        ▼
-                                       request_retry_or_fail(G1, [eval_summary])
+                                       mark G1 REQUESTING_RETRY with
+                                       evaluator failure summaries
                                                        │
                                               (same branch as §4.3)
                                                        │
@@ -225,19 +254,20 @@
               └────────────────────┬──────────────────────┘
                                    ▼
                        are generator tasks quiescent?
-                       (every generator ∈ {DONE, FAILED})
+                       (every generator ∈ {DONE, FAILED, BLOCKED})
                                    │
                           ┌────────┴────────┐
                          no                yes
                           │                 │
                           ▼                 ▼
-                    keep running     any generator FAILED?
+                    keep running     any generator FAILED or BLOCKED?
                                             │
                                    ┌────────┴────────┐
                                   yes              no
                                    │                 │
                                    ▼                 ▼
-                         request_retry_or_fail   spawn evaluator sink (READY)
+                         mark REQUESTING_RETRY  spawn evaluator sink (READY)
+                         then retry_or_fail
                                                        │
                                                        ▼
                                                 [evaluator runs]
@@ -249,22 +279,25 @@
                                          success               failure
                                             │                     │
                                             ▼                     ▼
-                                  close_harness_graph_   request_retry_or_fail
-                                  success
+                                  close_harness_graph_success   request_retry_or_fail
 ```
 
----
+***
 
 ## §5. Tool gating matrix
 
-| Terminal | Block when | State source | Soft (notification) | Hard (prehook) |
-|---|---|---|---|---|
-| `submit_partial_plan` | planner's graph chain has any ancestor with `plan_shape='partial'` | TaskCenter graph (`ctx.task_center.graph.get_harness_graph(...)` + walk `prior_graph_id`) | opening reminder injects "this is a continuation graph; only `submit_full_plan` is permitted" when chain says so | prehook walks chain; returns block on recursive partial |
-| `submit_request_plan` | this generator/executor has called any tool ∈ EDIT_TOOLS ≥ 1 | agent message history (`ToolExecutionContextService.get("conversation_messages")`) | inject after first edit: "edits made; `submit_request_plan` is now disabled" | prehook counts EDIT_TOOLS calls; block if ≥1 |
-| `submit_evaluation_success` | this evaluator has ≥5 `ask_resolver` calls returning `resolved=False` | agent message history | warn at 4: "4/5 resolver calls used; next outcome must be `submit_evaluation_failure`" | prehook counts qualifying ask_resolver calls; block if ≥5 |
-| `submit_verification_success` | same shape as evaluator | agent message history | same | same |
-| (evaluator spawn) | any generator task FAILED | TaskCenter graph | n/a — structural | not a terminal; orchestrator spawns the evaluator only after all generator tasks have passed (DONE) |
-| `submit_evaluation_failure`, `submit_verification_failure`, `submit_execution_*` | never blocked | — | — | — |
+Terminal tools remain registered for the agent role, but availability is
+state-dependent. The reminder layer is advisory and the prehook layer is the
+source of truth.
+
+| Terminal                                                                         | Block when                                                                 | State source                                                                              | Soft (notification)                                                                                              | Hard (prehook)                                                                                      |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `submit_partial_plan`                                                            | planner's parent/prior graph chain already contains `plan_shape='partial'` | TaskCenter graph (`ctx.task_center.graph.get_harness_graph(...)` + walk `prior_graph_id`) | opening reminder injects "this is a continuation graph; only `submit_full_plan` is permitted" when chain says so | prehook walks chain; returns block on recursive partial                                             |
+| `submit_request_plan`                                                            | this generator/executor has called any tool ∈ EDIT\_TOOLS ≥ 1              | agent message history (`ToolExecutionContextService.get("conversation_messages")`)        | inject after first edit: "edits made; `submit_request_plan` is now disabled"                                     | prehook counts EDIT\_TOOLS calls; block if ≥1                                                       |
+| `submit_evaluation_success`                                                      | this evaluator has ≥5 `ask_resolver` calls returning `resolved=False`      | agent message history                                                                     | warn at 4: "4/5 resolver calls used; next outcome must be `submit_evaluation_failure`"                           | prehook counts qualifying ask\_resolver calls; block if ≥5                                          |
+| `submit_verification_success`                                                    | this verifier has ≥5 `ask_resolver` calls returning `resolved=False`       | agent message history                                                                     | warn at 4: "4/5 resolver calls used; next outcome must be `submit_verification_failure`"                         | prehook counts qualifying ask\_resolver calls; block if ≥5                                          |
+| (evaluator spawn)                                                                | any generator task is not DONE                                             | TaskCenter graph                                                                          | n/a — structural                                                                                                 | not a terminal; orchestrator spawns the evaluator only after all generator tasks have passed (DONE) |
+| `submit_evaluation_failure`, `submit_verification_failure`, `submit_execution_*` | never blocked for roles that own those terminals                           | —                                                                                         | —                                                                                                                | —                                                                                                   |
 
 ### Gate enforcement runtime
 
@@ -302,20 +335,29 @@
 ```
 
 The two layers compose:
+
 - **Notification** = the agent *sees* the constraint in-context, on the turn it matters.
 - **Prehook** = the harness *enforces* the constraint even if the agent ignores the notification.
 
----
+***
 
 ## §6. Retry mechanic — single mechanism
 
-**Key insight:** retry = continuation graph with a failure-flavored launch context. Same `prior_graph_id` chain, two branches in `build_continuation_note`:
+**Key insight:** retry = continuation graph with a failure-flavored launch
+context. A generator or evaluator failure first marks the graph
+`REQUESTING_RETRY`; TaskCenter then consumes that request and either spawns the
+next planner attempt or closes the graph as failed when the retry budget is
+exhausted.
+
+The retry launch context uses the same `prior_graph_id` chain as partial-plan
+continuation, with two branches in `build_continuation_note`:
 
 ```
 build_continuation_note(graph G):
     walk prior_graph_id chain → [G_old_oldest ... G_old_newest, G]
     for each prior in chain:
-        if prior was retry-trigger (any generator FAILED OR evaluator failed):
+        if prior was retry-trigger:
+            # any generator FAILED, generator BLOCKED, or evaluator FAILED
             render as RETRY ATTEMPT block
               - prior's plan
               - per-task outcomes
@@ -325,18 +367,22 @@ build_continuation_note(graph G):
     render CURRENT REQUEST
 ```
 
-`request_retry_or_fail(G, summaries)` is the only new closure helper:
+`request_retry_or_fail(G, summaries)` is the single retry/close pivot:
 
 ```
 request_retry_or_fail(G, summaries):
-    if G.chain_fail_count + 1 ≤ G.retry_budget:
+    G.status = REQUESTING_RETRY
+    G.failure_summaries = summaries
+    G.fail_count = G.fail_count + 1
+
+    if G.fail_count ≤ G.retry_budget:
         Orchestrator.spawn(
             tc,
             root_task_id=G.root_task_id,
             request_plan_note=build_continuation_note(G with retry flavor),
             prior_graph_id=G.id,
         )
-        new_graph.chain_fail_count = G.chain_fail_count + 1
+        new_graph.fail_count = G.fail_count
         new_graph.retry_budget = G.retry_budget
     else:
         close_harness_graph_failed(G, source_task_id=G.evaluator_task_id or last_failed_generator_task)
@@ -344,11 +390,11 @@ request_retry_or_fail(G, summaries):
 
 Failure-trigger routing table:
 
-| Source terminal | Wait point | Calls |
-|---|---|---|
-| generator/executor `submit_execution_failure` | generators quiescent (after dep_blocked + sibling completion) | `request_retry_or_fail(G, summaries)` |
-| generator/verifier `submit_verification_failure` | generators quiescent | same |
-| evaluator `submit_evaluation_failure` | immediate (generators already passed) | same |
+| Source terminal                                  | Wait point                                                           | Calls                                 |
+| ------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------- |
+| generator/executor `submit_execution_failure`    | generators quiescent (after dependent blocking + sibling completion) | `request_retry_or_fail(G, summaries)` |
+| generator/verifier `submit_verification_failure` | generators quiescent                                                 | same                                  |
+| evaluator `submit_evaluation_failure`            | immediate (generators already passed)                                | same                                  |
 
----
+***
 
