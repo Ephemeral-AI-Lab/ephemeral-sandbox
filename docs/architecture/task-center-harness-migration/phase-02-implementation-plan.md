@@ -23,26 +23,33 @@ Deliverables:
 1. `HarnessGraphOrchestrator` implementation for planning, generating,
    evaluating, and graph close.
 2. Process-local lookup/routing for active orchestrators by `HarnessGraph.id`.
-3. A small typed terminal-call read model used by tests now and written by
-   terminal tools in Phase 03.
-4. Task record helpers for planner, generator, and evaluator task
+3. Public `HarnessGraphOrchestrator.apply_*` methods called directly by
+   terminal tool handlers after public validation succeeds.
+4. Private mutation helpers and private dispatch helpers inside
+   `HarnessGraphOrchestrator`.
+5. Typed submission DTOs for planner, executor, verifier, and evaluator
+   mutation calls.
+6. Task record helpers for planner, generator, and evaluator task
    lifecycle under the current `HarnessGraph`.
-5. Generator DAG scheduling: root launch, dependent launch after dependencies
+7. Generator DAG scheduling: root launch, dependent launch after dependencies
    pass, failure blocking, and quiescence detection.
-6. Recursive complex-task handoff state for generator tasks: the outer
+8. Recursive complex-task handoff state for generator tasks: the outer
    generator task can wait on a nested `ComplexTaskRequest` and later resume
    from that request's close report.
-7. `TaskSegmentManager` wiring so newly created graphs start their orchestrator
+9. `TaskSegmentManager` wiring so newly created graphs start their orchestrator
    when an orchestrator factory is configured.
-8. `ComplexTaskRequestHandler` wiring so every spawned segment manager receives
+10. `ComplexTaskRequestHandler` wiring so every spawned segment manager receives
    that orchestrator factory.
-9. Focused tests covering all Phase 02 exit criteria.
+11. Focused tests covering all Phase 02 exit criteria.
 
 Not in scope:
 
 - Public tool hard gates for `submit_full_plan`, `submit_partial_plan`,
   `request_complex_task_solution`, resolver limits, and after-edit blocking
   (Phase 03).
+- Generator `submit_request_plan` handling. Phase 02 must not add this legacy
+  request-plan surface to `HarnessGraphOrchestrator`; Phase 03/04 can reject,
+  rename, or translate it before orchestration.
 - Creation of the nested `ComplexTaskRequest` and durable final report delivery
   to `requested_by_task_id` beyond the existing
   `ComplexTaskRequestHandler.deliver_close_report` seam (Phase 04). Phase 02
@@ -52,11 +59,12 @@ Not in scope:
 - Context-engine launch packets, durable graph summaries, and
   `failure_landscape` payload population (Phase 06).
 
-Phase 02 may create the terminal-call view and reconciliation protocol that
-Phase 03 terminal tools write to after validation, but the Phase 03 tool
-modules remain the public enforcement layer. Terminal tools own tool schemas,
-role gates, user-facing errors, and agent-run termination. The orchestrator
-owns only graph state transitions and follow-up scheduling.
+Phase 02 defines the direct call protocol that Phase 03 terminal tools use
+after validation. Phase 03 tool modules remain the public enforcement layer:
+terminal tools own schemas, role gates, user-facing errors, and agent-run
+termination. After a terminal call is accepted, the tool handler calls the
+matching `HarnessGraphOrchestrator.apply_*` method. The orchestrator owns graph
+state transitions and follow-up scheduling.
 
 ---
 
@@ -70,9 +78,12 @@ report.
 | --- | --- | --- | --- |
 | `HarnessGraphOrchestrator` owns exactly one graph execution | Phase 00, workflow overview, Phase 02 | Orchestrator never creates requests, segments, sibling graphs, or continuation segments | OK |
 | Retry is segment-level | Phase 00/01/02 | Orchestrator closes the graph and calls `on_graph_closed`; `TaskSegmentManager` decides retry | OK |
-| Planner success creates generator DAG | Phase 02/03 | Orchestrator consumes a typed, already accepted plan and persists generator task ids | OK |
+| Planner success creates generator DAG | Phase 02/03 | Terminal tool handlers call `HarnessGraphOrchestrator.apply_plan_submission` with a typed, already accepted plan; mutation then persists generator task ids | OK |
+| Full and partial planner submissions share one state path | Phase 02/03 | `apply_plan_submission` receives `kind = full | partial`; partial only adds `continuation_goal` | OK |
 | Malformed plan rejection is inline | Phase 02/03 | Phase 02 includes minimal structural assertions needed to schedule; Phase 03 owns public tool validation and prehook UX | OK |
 | Generator failure waits for quiescence | Phase 02 | Orchestrator blocks dependents, lets independent running generators finish, and closes only when all generator tasks are terminal | OK |
+| Executor and verifier are generator outcomes | Phase 00/02/03 | Separate mutation entries append role-specific summaries, then converge on generator task status and quiescence rules | OK |
+| Generator request-plan is not a task outcome | Phase 00/02/04 | `submit_request_plan` never enters mutation handling; request handoff is handled by request-boundary code | OK |
 | Evaluator starts only after every generator passes | Phase 01/02/03 | Orchestrator uses task status checks before creating evaluator | OK |
 | Evaluator failure closes immediately | Phase 02 | No extra wait point exists because generator quiescence already happened | OK |
 | Continuation goal belongs to the graph that submitted it | Phase 01/02 | Orchestrator stores `continuation_goal` during planner success and never copies it across failed graphs | OK |
@@ -100,16 +111,18 @@ Two seams need explicit handling:
 ```mermaid
 flowchart TD
     Start["HarnessGraphOrchestrator.start"] --> Planner["Create planner task"]
-    Planner --> PlanEvent{"Planner terminal-call view?"}
-    PlanEvent -->|"valid plan"| Contract["Persist plan contract"]
+    Planner --> PlanTool["Planner submit_full_plan or submit_partial_plan"]
+    PlanTool --> PlanMutation["HarnessGraphOrchestrator.apply_plan_submission"]
+    PlanMutation --> Contract["Persist plan contract"]
     Contract --> GenRecords["Create generator task records"]
     GenRecords --> GenStage["Set graph stage = generating"]
     GenStage --> LaunchRoots["Launch dependency-free generators"]
 
-    PlanEvent -->|"planner exhausted"| PlannerFail["Close graph failed: planner_step_budget_exhausted"]
+    Planner -->|"planner exhausted"| PlannerFail["Close graph failed: planner_step_budget_exhausted"]
 
-    LaunchRoots --> GenEvent["Generator terminal-call view"]
-    GenEvent --> GenFailed{"Failed?"}
+    LaunchRoots --> GenEvent["Executor or verifier terminal submission"]
+    GenEvent --> GenMutation["HarnessGraphOrchestrator.apply_executor/verifier_submission"]
+    GenMutation --> GenFailed{"Failed?"}
     GenFailed -->|"yes"| BlockDeps["Block pending downstream dependents"]
     GenFailed -->|"no"| LaunchReady["Launch newly ready dependents"]
 
@@ -122,9 +135,10 @@ flowchart TD
     AnyBad -->|"no"| Eval["Create evaluator task"]
 
     Eval --> EvalStage["Set graph stage = evaluating"]
-    EvalStage --> EvalEvent{"Evaluator terminal-call view"}
-    EvalEvent -->|"success"| Passed["Close graph passed"]
-    EvalEvent -->|"failure"| EvalFail["Close graph failed: evaluator_failed"]
+    EvalStage --> EvalEvent{"Evaluator terminal submission"}
+    EvalEvent --> EvalMutation["HarnessGraphOrchestrator.apply_evaluator_submission"]
+    EvalMutation -->|"success"| Passed["Close graph passed"]
+    EvalMutation -->|"failure"| EvalFail["Close graph failed: evaluator_failed"]
 
     PlannerFail --> Callback["on_graph_closed(graph_id)"]
     GenFail --> Callback
@@ -140,7 +154,7 @@ sequenceDiagram
     participant Manager as TaskSegmentManager
     participant Orch as HarnessGraphOrchestrator
     participant Store as Stores
-    participant Calls as TerminalCallView
+    participant Tools as Terminal tool handlers
     participant Agents as Agent launcher
 
     Handler->>Manager: spawn manager(segment, orchestrator_factory)
@@ -148,15 +162,18 @@ sequenceDiagram
     Manager->>Orch: factory(H1)
     Orch->>Store: set_planner_task_id
     Orch->>Agents: launch planner
-    Agents->>Calls: planner terminal tool output
-    Orch->>Calls: read unprocessed calls during reconcile
+    Agents->>Tools: planner terminal tool call
+    Tools->>Orch: apply_plan_submission
     Orch->>Store: set_plan_contract + generator task ids
+    Orch->>Orch: _dispatch_ready_work
     Orch->>Agents: launch ready generators
-    Agents->>Calls: generator terminal tool outputs
-    Orch->>Calls: read unprocessed calls during reconcile
+    Agents->>Tools: executor/verifier terminal calls
+    Tools->>Orch: apply_executor/verifier_submission
+    Orch->>Orch: _dispatch_ready_work
     Orch->>Agents: launch evaluator after all generators pass
-    Agents->>Calls: evaluator terminal tool output
-    Orch->>Calls: read unprocessed calls during reconcile
+    Agents->>Tools: evaluator terminal tool call
+    Tools->>Orch: apply_evaluator_submission
+    Orch->>Orch: _dispatch_ready_work
     Orch->>Store: close HarnessGraph
     Orch->>Manager: on_graph_closed(H1)
 
@@ -192,34 +209,39 @@ If any generator task is failed or blocked after quiescence:
   close graph failed with generator_failed.
 ```
 
-### 3d. Terminal-call view reconciliation
+### 3d. Direct terminal mutation flow
 
 ```text
 agent terminal tool or runtime close-report delivery
   |
   | validates input, applies role/tool gates, terminates agent run
   v
-persisted TerminalToolCallView
+HarnessGraphOrchestrator.apply_*
   |
-  | graph_id is recorded from task.task_center_harness_graph_id
+  | mutates graph-owned task or graph state
   v
-HarnessGraphOrchestrator.reconcile()
+HarnessGraphOrchestrator._dispatch_ready_work()
   |
-  +-- mutate task state from new terminal-call rows
+  +-- launch newly ready task rows
   +-- close graph if graph-level outcome is now known
-  `-- dispatch newly ready task rows
+  `-- notify TaskSegmentManager on graph close
 ```
 
-The registry is process-local. Durable state remains in the stores. If an
-orchestrator is missing from memory but the graph is still running, the runtime
-can rebuild it from `HarnessGraphStore.get(graph_id)` and call `reconcile()`.
+The registry is process-local. Durable state remains in the stores. Terminal
+tool handlers resolve the active graph from the current task's
+`task_center_harness_graph_id`, fetch the registered orchestrator, and call its
+public `apply_*` method. If an orchestrator is missing from memory but the graph is
+still running, the runtime can rebuild it from `HarnessGraphStore.get(graph_id)`
+before invoking the `apply_*` method.
 
 The key boundary is:
 
-- Terminal tools decide whether a tool call is allowed and persist the
-  normalized terminal-call view.
-- `HarnessGraphOrchestrator` decides how that view mutates graph task state and
-  which task should dispatch next.
+- Terminal tools decide whether a tool call is allowed, normalize their public
+  input into typed submission DTOs, and call `HarnessGraphOrchestrator.apply_*`.
+- `HarnessGraphOrchestrator.apply_*` methods mutate graph-owned task and graph
+  state.
+- `HarnessGraphOrchestrator._dispatch_ready_work()` decides which task should
+  dispatch next or whether the graph should close.
 - `TaskSegmentManager` still decides retry after the graph closes.
 
 ### 3e. Recursive complex-task handoff
@@ -294,7 +316,7 @@ existing harness-graph lifecycle package.
 backend/src/task_center/
 |-- domain/
 |   |-- harness_graph.py                    # EDIT: optional convenience helpers
-|   `-- harness_task.py                     # NEW: task role/status + terminal-call view
+|   `-- harness_task.py                     # NEW: task role/status + submission DTOs
 |
 `-- complex_task_request/
     |-- handler.py                          # EDIT: accept/pass orchestrator_factory
@@ -302,14 +324,12 @@ backend/src/task_center/
         |-- manager.py                      # EDIT: start orchestrators after graph create
         `-- harness_graph/
             |-- __init__.py                 # EDIT: re-export new Phase 02 helpers
-            |-- invariants.py               # EDIT: stage/reconciliation invariants
+            |-- invariants.py               # EDIT: stage/submission invariants
             |-- orchestrator.py             # EDIT: Phase 02 state machine
             |-- orchestrator_registry.py    # NEW: process-local graph -> orchestrator map
             |-- runtime.py                  # NEW: runtime deps + launcher protocol
-            |-- terminal_call_view.py       # NEW: normalized terminal-call read model
             |-- task_graph.py               # NEW: DAG/status helper functions
-            |-- task_ids.py                 # NEW: stable planner/generator/evaluator ids
-            `-- reconciler.py               # DISCUSS: optional extraction for reconcile loop
+            `-- task_ids.py                 # NEW: stable planner/generator/evaluator ids
 ```
 
 Persistence and task helpers:
@@ -326,7 +346,6 @@ backend/tests/task_center/
 |-- lifecycle/
 |   |-- test_harness_graph_orchestrator.py
 |   |-- test_harness_graph_generator_quiescence.py
-|   |-- test_harness_graph_terminal_call_view.py
 |   |-- test_harness_graph_orchestrator_registry.py
 |   `-- test_integration_phase02.py
 `-- persistence/
@@ -344,21 +363,22 @@ backend/src/tools/submission/main_agent/
 |-- generator/executor/submit_request_plan.py
 |-- generator/verifier/submit_verification_success.py
 |-- generator/verifier/submit_verification_failure.py
-`-- evaluator/submit_evaluation_success.py
+|-- evaluator/submit_evaluation_success.py
+`-- evaluator/submit_evaluation_failure.py
 ```
 
 ---
 
 ## 5. Files and functions
 
-### 5a. Domain task roles and terminal-call view
+### 5a. Domain task roles and submission DTOs
 
 **`backend/src/task_center/domain/harness_task.py`** - new
 
 ```python
 from dataclasses import dataclass
-from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 
 class HarnessTaskRole(StrEnum):
@@ -396,22 +416,39 @@ class PlannedGeneratorTask:
 
 
 @dataclass(frozen=True, slots=True)
-class TerminalToolCallView:
-    """Validated, persisted view of a terminal tool call.
+class PlanSubmission:
+    """Validated planner submission from submit_full_plan or submit_partial_plan."""
 
-    Terminal tools own Pydantic input parsing, role gates, user-facing errors,
-    and agent-run termination. The orchestrator reads this normalized view only
-    to decide how task state should mutate and what should dispatch next.
-    """
-
-    terminal_call_id: str
-    harness_graph_id: str
-    task_id: str
-    tool_name: str
-    payload: dict
-    is_success: bool
+    graph_id: str
+    planner_task_id: str
+    kind: Literal["full", "partial"]
+    task_specification: str
+    evaluation_criteria: tuple[str, ...]
+    tasks: tuple[PlannedGeneratorTask, ...]
+    continuation_goal: str | None
     summary: str
-    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratorSubmission:
+    """Validated executor or verifier terminal outcome for one generator task."""
+
+    graph_id: str
+    task_id: str
+    outcome: Literal["success", "failure"]
+    summary: str
+    payload: dict
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluatorSubmission:
+    """Validated evaluator terminal outcome for one harness graph."""
+
+    graph_id: str
+    task_id: str
+    outcome: Literal["success", "failure"]
+    summary: str
+    payload: dict
 ```
 
 Notes:
@@ -419,13 +456,14 @@ Notes:
 - `HarnessTaskRole` is structural and intentionally has no executor/verifier
   split. Executor and verifier are generator agent profiles, represented by
   `PlannedGeneratorTask.agent_name` and launch metadata.
-- Phase 03 public terminal tools validate their own inputs and persist or emit
-  `TerminalToolCallView`.
-- Phase 02 tests can construct `TerminalToolCallView` directly to discuss and
-  verify state-transition policy without coupling tests to tool classes.
+- Phase 03 public terminal tools validate their own inputs and then call
+  `HarnessGraphOrchestrator.apply_*` with `PlanSubmission`,
+  `GeneratorSubmission`, or `EvaluatorSubmission`.
+- Phase 02 tests can construct these DTOs directly to verify state-transition
+  policy without coupling tests to tool classes.
 - Planner exhaustion does not need a fake terminal type. It is a runtime
-  observation that the planner agent run ended without a valid planner terminal
-  call in the terminal-call view.
+  observation that the planner agent run ended without a valid planner
+  submission.
 - `WAITING_COMPLEX_TASK` is intentionally not in
   `TERMINAL_GENERATOR_STATUSES`; the outer graph remains in `generating` until
   the nested request close report marks the waiting generator task `done` or
@@ -490,8 +528,8 @@ class HarnessAgentLauncher(Protocol):
     """Launches one harness agent task.
 
     Production implementation owns how to call EphemeralAgent/background
-    runtime. Tests use a fake that records launches and later writes
-    terminal-call rows consumed by `reconcile()`.
+    runtime. Tests use a fake that records launches and later calls
+    HarnessGraphOrchestrator.apply_* with validated submission DTOs.
     """
 
     def launch(self, launch: HarnessAgentLaunch) -> None: ...
@@ -651,85 +689,107 @@ If restart recovery is needed before Phase 05 cutover, add a separate
 `HarnessGraphOrchestratorProvider` that rebuilds from durable state. Do not put
 store/factory concerns into this registry.
 
-### 5g. Terminal-call view and open design discussion
+### 5g. Orchestrator public entries and private helper groups
 
-The orchestrator should not expose one public method per terminal tool or per
-terminal outcome. That would make terminal tool semantics leak into graph
-orchestration and would invite tool handlers to call graph internals directly.
-
-Instead, introduce a terminal-call view that terminal tools write and the
-orchestrator reads during reconciliation.
-
-Open design question: should the terminal-call view be a new persisted table, a
-field on `TaskCenterTaskRecord.summaries`, or an in-memory event queue backed by
-the existing agent-run transcript?
-
-| Option | Shape | Pros | Risks |
-| --- | --- | --- | --- |
-| Persisted `task_terminal_calls` table | one row per accepted terminal tool call | durable, idempotent, replayable after restart | new migration and store |
-| `TaskCenterTaskRecord.summaries` entry | append normalized terminal-call summary to existing task row | no schema change | harder to distinguish unprocessed calls from ordinary summaries |
-| In-memory event queue | terminal tool handler enqueues a normalized call | simplest runtime path | not restart-safe and harder to test against persistence |
-
-Preferred direction for Phase 02 planning: define `TerminalToolCallView` and a
-reader protocol first, then decide the backing store during implementation.
-
-```python
-from typing import Protocol
-
-
-class TerminalToolCallReader(Protocol):
-    """Read normalized terminal calls for one HarnessGraph."""
-
-    def list_unprocessed_for_graph(
-        self, harness_graph_id: str
-    ) -> tuple[TerminalToolCallView, ...]: ...
-
-    def mark_processed(self, terminal_call_id: str) -> None: ...
-```
+Terminal tools should not call graph-store methods directly and should not write
+an intermediate event/read model. After public validation succeeds, they call
+one `HarnessGraphOrchestrator.apply_*` entry with a typed submission DTO.
 
 Terminal tool responsibilities:
 
 - Parse and validate public tool input.
 - Enforce role/tool gates.
 - Return user-facing tool errors on malformed calls.
-- Persist or enqueue one normalized `TerminalToolCallView` on accepted calls.
+- Resolve the active `HarnessGraphOrchestrator` from the current task's
+  `task_center_harness_graph_id`.
+- Call the matching `HarnessGraphOrchestrator.apply_*` method.
 - End the agent run when the terminal call succeeds.
-- Trigger or schedule `HarnessGraphOrchestrator.reconcile()` for the owning
-  graph.
 
-Orchestrator responsibilities:
+`HarnessGraphOrchestrator` public entry responsibilities:
 
-- Read the terminal-call view for its `HarnessGraph`.
-- Mutate task state from accepted terminal calls and close reports.
-- Dispatch newly ready planner/generator/evaluator tasks.
-- Close the current `HarnessGraph` when graph-level outcome is known.
+- Persist graph-owned task and graph state for accepted submissions.
+- Keep `submit_full_plan` and `submit_partial_plan` on one
+  `apply_plan_submission(...)` entry.
+- Keep executor and verifier outcomes on separate entries, while converging
+  both to generator task status.
+- Never accept generator `submit_request_plan`.
+- Call `_dispatch_ready_work()` after a successful mutation.
 
-This keeps the terminal tool layer as the public contract and the orchestrator
-as the state-transition and dispatch policy owner.
+Private dispatch helper responsibilities:
 
-The discussion to open before implementation is not whether each terminal tool
-should call a matching orchestrator method. It should not. The discussion is
-which terminal-call backing store gives the reconcile loop enough durability
-and idempotency while keeping Phase 02 small.
+- Read persisted graph/task state after mutations.
+- Launch newly ready generator/evaluator tasks.
+- Block pending generator descendants after generator failure.
+- Hold generator-failure escalation until all non-blocked generator work is
+  terminal.
+- Close the graph through `_close_graph(...)` and call
+  `on_graph_closed(graph_id)` when the graph outcome is known.
 
-Recommended first design:
+This keeps terminal tools as the public contract while avoiding extra lifecycle
+classes in Phase 02. The orchestrator is the graph-scoped owner; the split is
+kept as method groups instead of separate objects.
 
-1. Terminal tools persist accepted calls as append-only facts with
-   `terminal_call_id`, `harness_graph_id`, `task_id`, `tool_name`, `payload`,
-   `created_at`, and `processed_at`.
-2. `HarnessGraphOrchestrator.reconcile()` reads unprocessed facts for its graph
-   and calls one internal `_reconcile_*` method based on current task role and
-   tool name.
-3. The orchestrator mutates only task and graph state it owns, then marks the
-   fact processed after the mutation succeeds.
-4. Dispatch is computed from persisted task state after reconciliation, so a
-   retry of `reconcile()` is safe.
+**`backend/src/task_center/complex_task_request/segment/harness_graph/orchestrator.py`** - edit
+
+```python
+class HarnessGraphOrchestrator:
+    def start(self) -> None: ...
+
+    def notify_planner_run_exhausted(self) -> None: ...
+
+    def apply_plan_submission(self, submission: PlanSubmission) -> None: ...
+
+    def apply_executor_submission(
+        self, submission: GeneratorSubmission
+    ) -> None: ...
+
+    def apply_verifier_submission(
+        self, submission: GeneratorSubmission
+    ) -> None: ...
+
+    def apply_evaluator_submission(
+        self, submission: EvaluatorSubmission
+    ) -> None: ...
+
+    def apply_nested_close_report(
+        self, report: ComplexTaskCloseReport
+    ) -> None: ...
+
+    # mutation helpers
+    def _persist_plan_contract(self, submission: PlanSubmission) -> None: ...
+    def _persist_generator_tasks(
+        self, tasks: tuple[PlannedGeneratorTask, ...]
+    ) -> tuple[str, ...]: ...
+    def _mark_generator_done(self, submission: GeneratorSubmission) -> None: ...
+    def _mark_generator_failed(self, submission: GeneratorSubmission) -> None: ...
+    def _mark_evaluator_done(self, submission: EvaluatorSubmission) -> None: ...
+    def _mark_evaluator_failed(self, submission: EvaluatorSubmission) -> None: ...
+    def _block_failed_generator_descendants(self, failed_task_id: str) -> None: ...
+
+    # dispatch helpers
+    def _dispatch_ready_work(self) -> None: ...
+    def _launch_ready_generators(self) -> None: ...
+    def _maybe_start_evaluator(self) -> None: ...
+    def _maybe_close_after_generator_quiescence(self) -> None: ...
+
+    def _close_graph(
+        self,
+        *,
+        status: HarnessGraphStatus,
+        fail_reason: HarnessGraphFailReason | None,
+    ) -> None: ...
+```
 
 ### 5h. Orchestrator implementation
 
 **`backend/src/task_center/complex_task_request/segment/harness_graph/orchestrator.py`** - edit
 
-Preserve existing mandatory constructor arguments and add one optional runtime:
+The orchestrator is one graph-scoped state machine. It exposes only bootstrap,
+planner-exhaustion, and accepted-submission entries; all launch and close
+policy stays in private helper methods.
+
+Preserve existing mandatory constructor arguments and add one optional
+runtime:
 
 ```python
 class HarnessGraphOrchestrator:
@@ -747,31 +807,26 @@ External entry points:
 
 ```python
 def start(self) -> None:
-    """Bootstrap the graph by creating and dispatching the planner task."""
+    """Create the planner task row, persist planner_task_id, mark RUNNING,
+    launch the planner agent, and call _dispatch_ready_work() once.
+
+    Requires graph status RUNNING and stage PLANNING.
+    """
 
 
-def reconcile(self) -> None:
-    """Read terminal-call/close-report views, mutate tasks, and dispatch work."""
+def notify_planner_run_exhausted(self) -> None:
+    """Runtime signal: planner agent run ended without a valid plan
+    submission. Delegates to _close_graph(status=FAILED,
+    fail_reason=PLANNER_STEP_BUDGET_EXHAUSTED) after asserting
+    stage = planning.
+    """
 ```
 
-Internal state and dispatch primitives:
+Terminal tool handlers call `apply_*` methods after validation. Phase 04
+nested close-report delivery calls `apply_nested_close_report(report)`.
 
-```python
-def _mutate_task_state(
-    self, *, task_id: str, status: HarnessTaskStatus, summary: dict | None = None
-) -> None:
-    """Persist one task-state mutation owned by this graph."""
-
-
-def _dispatch_ready_tasks(self) -> None:
-    """Launch runnable tasks after state has been reconciled."""
-```
-
-`reconcile()` is a coordination loop over those two primitives. It should be
-the only outside entry point for terminal-call facts; terminal tools do not
-call `_mutate_task_state()` or `_dispatch_ready_tasks()` directly.
-
-Internal methods:
+Internal helpers (kept on the façade only because they are graph-scoped
+plumbing, not policy):
 
 ```python
 def _require_runtime(self) -> HarnessGraphRuntime: ...
@@ -780,77 +835,54 @@ def _fresh_graph(self) -> HarnessGraph: ...
 
 def _assert_stage(self, expected: HarnessGraphStage) -> HarnessGraph: ...
 
-def _start_planner(self) -> None: ...
-
-def _read_unprocessed_terminal_calls(self) -> tuple[TerminalToolCallView, ...]: ...
-
-def _reconcile_terminal_call(self, call: TerminalToolCallView) -> None: ...
-
-def _reconcile_planner_call(self, call: TerminalToolCallView) -> None: ...
-
-def _reconcile_generator_call(self, call: TerminalToolCallView) -> None: ...
-
-def _reconcile_evaluator_call(self, call: TerminalToolCallView) -> None: ...
-
-def _reconcile_nested_close_report(self, report: ComplexTaskCloseReport) -> None: ...
-
-def _persist_generator_tasks(
-    self, tasks: tuple[PlannedGeneratorTask, ...]
-) -> tuple[str, ...]: ...
-
-def _launch_ready_generators(self) -> None: ...
-
-def _pause_generator_for_complex_task(
-    self, *, task_id: str, complex_task_request_id: str
-) -> None: ...
-
-def _block_failed_generator_descendants(self, failed_task_id: str) -> None: ...
-
-def _resume_generator_from_complex_task_close(
-    self, *, close_report: ComplexTaskCloseReport
-) -> None: ...
-
-def _maybe_finish_generating(self) -> None: ...
-
-def _start_evaluator(self) -> None: ...
-
-def _state_summary(self, *, kind: str, summary: str) -> dict: ...
-
-def _close_graph(
-    self,
-    *,
-    status: HarnessGraphStatus,
-    fail_reason: HarnessGraphFailReason | None,
-) -> None: ...
+def _on_graph_closed_with_deregister(self, graph_id: str) -> None:
+    """Wraps the user callback so the orchestrator deregisters from
+    HarnessGraphOrchestratorRegistry before notifying the segment."""
 ```
+
+Private helper groups:
+
+| Helper group | Responsibility |
+| ------------ | -------------- |
+| mutation helpers | persist generator task rows, block pending descendants, append role-specific summaries |
+| dispatch helpers | launch dependency-free generators, spawn evaluator after quiescence, close graph and call `on_graph_closed` |
 
 Important behavior:
 
-- `start()` requires graph status `running` and stage `planning`.
-- `start()` persists the planner task id before launch.
-- `reconcile()` is the only public entry point for reacting to terminal tool
-  calls and nested close reports.
-- Planner terminal-call success persists `task_specification`,
-  `evaluation_criteria`, and
-  `continuation_goal` before generator tasks launch.
+- `start()` requires graph status `running` and stage `planning`. It
+  persists the planner task id and marks the planner task `running` before
+  the launcher returns.
+- `notify_planner_run_exhausted()` is the only orchestrator-level escape
+  valve for the planner; the planner has no failure terminal.
+- Terminal tool handlers call `HarnessGraphOrchestrator.apply_*` directly after
+  validation. They do not call orchestrator-private methods.
+- `apply_plan_submission` persists `task_specification`, `evaluation_criteria`,
+  and `continuation_goal` before generator tasks launch.
 - Generator tasks are persisted with `task_center_harness_graph_id = graph.id`.
 - Only dependency-free generator tasks are launched immediately.
-- A generator success terminal-call view marks that task `done`, then launches
-  newly ready pending generator tasks.
-- A generator complex-task handoff terminal-call view marks that generator task
-  `waiting_complex_task` and does not launch its dependents.
-- A nested complex-task close report resumes only the generator task named by
-  `requested_by_task_id`; success maps to `done`, failure maps to `failed`.
-- A generator failure terminal-call view marks that task `failed`, blocks
-  pending descendants, and waits for quiescence.
-- Evaluator is created only when all generator task records are `done`.
-- `_close_graph()` calls `graph_store.close(...)` exactly once and then calls
-  `on_graph_closed(graph_id)`.
+- A generator success submission marks that task `done`, then
+  `_dispatch_ready_work` launches newly ready pending generator tasks.
+- A generator failure submission marks that task `failed`, blocks pending
+  descendants, and `_dispatch_ready_work` then waits for quiescence.
+- A nested complex-task close report (delivered via
+  `apply_nested_close_report`) resumes only the generator task named by
+  `requested_by_task_id`; success maps to `done`, failure maps to `failed`
+  plus descendant blocking.
+- The Phase 04 spawn handler — not the orchestrator — transitions the
+  outer generator task to `waiting_complex_task` when
+  `request_complex_task_solution` is accepted. The orchestrator only
+  observes `waiting_complex_task` as a non-terminal generator status during
+  quiescence checks.
+- Evaluator is spawned by `_dispatch_ready_work` only when every generator
+  task record is `done`.
+- `_close_graph(...)` calls `graph_store.close(...)` exactly once and then
+  calls `on_graph_closed(graph_id)`.
 - `_close_graph(status=FAILED, fail_reason=None)` is a hard invariant
   violation.
-- `_close_graph(status=PASSED, fail_reason=...)` is a hard invariant violation.
+- `_close_graph(status=PASSED, fail_reason=...)` is a hard invariant
+  violation.
 
-### 5i. Stage and reconciliation invariants
+### 5i. Stage and submission invariants
 
 **`backend/src/task_center/complex_task_request/segment/harness_graph/invariants.py`** - edit
 
@@ -875,10 +907,10 @@ def assert_valid_graph_close(
 def assert_task_belongs_to_graph(task: dict, graph: HarnessGraph) -> None: ...
 
 
-def assert_generator_task_for_reconcile(task: dict, graph: HarnessGraph) -> None: ...
+def assert_generator_task_for_submission(task: dict, graph: HarnessGraph) -> None: ...
 
 
-def assert_evaluator_task_for_reconcile(task: dict, graph: HarnessGraph) -> None: ...
+def assert_evaluator_task_for_submission(task: dict, graph: HarnessGraph) -> None: ...
 ```
 
 All raise `GraphInvariantViolation`.
@@ -1040,48 +1072,67 @@ Then:
 - Launch pending tasks whose `needs` are empty, marking each launched task
   `running`.
 
-### 6c. Generator terminal-call reconciliation
+### 6c. Generator submission handling
 
-On success:
+`HarnessGraphOrchestrator.apply_executor_submission` and
+`apply_verifier_submission` share these state-transition rules. Both write to
+the same generator task row; the entries differ only in which terminal tool
+routed the validated `GeneratorSubmission`.
+
+On success (`outcome = "success"`):
 
 1. Assert graph is `generating`.
 2. Assert task belongs to graph and has `role = "generator"`.
 3. Mark task `done`, append state summary.
-4. Launch newly ready pending generators.
-5. If all generators are done, start evaluator.
+4. Call `_dispatch_ready_work()`. Dispatch launches newly ready pending
+   generators; if all generators are done, dispatch spawns the evaluator.
 
-On failure:
+On failure (`outcome = "failure"`):
 
 1. Assert graph is `generating`.
 2. Mark task `failed`, append state summary.
 3. Block pending descendants with summary `{ "blocked_by": task_id }`.
-4. If all generators are terminal, close graph failed with
-   `generator_failed`.
+4. Call `_dispatch_ready_work()`. Dispatch keeps
+   independent running generators alive; once all are terminal it closes
+   the graph failed with `generator_failed`.
 
-On complex-task handoff:
+### 6c.1. Complex-task handoff is not a generator submission
 
-1. Assert graph is `generating`.
-2. Assert task belongs to graph, has `role = "generator"`, and is currently
-   `running`.
-3. Mark task `waiting_complex_task`, append a summary with the nested
-   `complex_task_request_id`.
-4. Do not launch dependents.
-5. Do not count the task as terminal for quiescence.
+`request_complex_task_solution` is **not** a `GeneratorSubmission`. The
+orchestrator must not accept it. The Phase 04 spawn handler owns this
+flow:
 
-On nested complex-task close report:
+1. Generator executor calls `request_complex_task_solution(goal)`.
+2. Phase 04 spawn handler validates the call, creates the nested
+   `ComplexTaskRequest` with `requested_by_task_id` set to the outer
+   generator task id, and writes the outer generator task row directly
+   via `task_store.set_task_status(task_id, status=WAITING_COMPLEX_TASK,
+   summary={...})`.
+3. The Phase 04 handler ends the outer generator agent run.
+
+The outer `HarnessGraphOrchestrator` is not in the loop for steps 1-3. It
+observes the outer task as `waiting_complex_task` on the next
+`_dispatch_ready_work()` call and treats it as non-terminal: dependents are
+not launched, evaluator is not spawned, the graph stays in `generating`.
+
+When the nested request closes, Phase 04's
+`ComplexTaskRequestHandler.deliver_close_report` resolves the outer
+orchestrator from the registry and calls
+`apply_nested_close_report(report)`:
 
 1. Load the waiting task from `report.requested_by_task_id`.
 2. Assert the task belongs to this graph and is `waiting_complex_task`.
-3. If `report.outcome == "success"`, mark the task `done`, append the close
-   report summary, then launch newly ready pending generators.
-4. If `report.outcome == "failed"`, mark the task `failed`, append the close
-   report summary, block pending descendants, and wait for generator
-   quiescence.
+3. If `report.outcome == "success"`: mark the task `done`, append the
+   close report summary, then call `_dispatch_ready_work()` (launches newly
+   ready dependents).
+4. If `report.outcome == "failed"`: mark the task `failed`, append the
+   close report summary, block pending descendants, then call
+   `_dispatch_ready_work()` (continues quiescence wait).
 
-The nested request's internal retries and continuation segments are invisible
-to the outer graph. The outer graph only observes the final close report for
-the generator task that requested it. The terminal tool gate, not the
-orchestrator, decides which generator agent profiles may call
+The nested request's internal retries and continuation segments are
+invisible to the outer graph; the outer graph only observes the final
+close report. The terminal tool gate (Phase 03), not the orchestrator,
+decides which generator agent profiles may call
 `request_complex_task_solution`.
 
 ### 6d. Evaluator task
@@ -1109,28 +1160,51 @@ agent_launcher.launch(...)
 and `graph.evaluation_criteria`. Phase 06 can replace it with context-engine
 packets.
 
-### 6e. Graph close
+### 6e. Evaluator submission handling
 
-Close paths:
+On success:
 
-| Path | Status | Fail reason | Wait point |
-| --- | --- | --- | --- |
-| Planner exhausted | `failed` | `planner_step_budget_exhausted` | immediate |
-| Generator failed/blocked after quiescence | `failed` | `generator_failed` | all generators terminal |
-| Evaluator failure | `failed` | `evaluator_failed` | immediate |
-| Evaluator success | `passed` | `None` | immediate |
+1. Assert graph is `evaluating`.
+2. Assert task belongs to graph and has `role = "evaluator"`.
+3. Mark evaluator task `done` and append the evaluator summary.
+4. `_dispatch_ready_work()` closes the graph passed.
 
-`close(...)` should:
+On failure:
 
-1. Re-read graph from the store.
+1. Assert graph is `evaluating`.
+2. Assert task belongs to graph and has `role = "evaluator"`.
+3. Mark evaluator task `failed` and append the evaluator summary.
+4. `_dispatch_ready_work()` closes the graph failed with `evaluator_failed`.
+
+Evaluator failure does not wait for other work. The evaluator only exists after
+all generator work is already quiescent.
+
+### 6f. Graph close
+
+Close paths and triggers:
+
+| Path | Status | Fail reason | Trigger | Wait point |
+| --- | --- | --- | --- | --- |
+| Planner exhausted | `failed` | `planner_step_budget_exhausted` | `HarnessGraphOrchestrator.notify_planner_run_exhausted()` -> `_close_graph(...)` | immediate |
+| Generator failed/blocked after quiescence | `failed` | `generator_failed` | `_dispatch_ready_work()` after every generator is terminal | all generators terminal |
+| Evaluator failure | `failed` | `evaluator_failed` | `_dispatch_ready_work()` after `apply_evaluator_submission` writes failed | immediate |
+| Evaluator success | `passed` | `None` | `_dispatch_ready_work()` after `apply_evaluator_submission` writes done | immediate |
+
+`HarnessGraphOrchestrator._close_graph(status, fail_reason)` is the single
+close helper. It must:
+
+1. Re-read the graph from the store.
 2. Assert it is still running and not closed.
-3. Assert close status/fail-reason pairing is valid.
-4. Persist `graph_store.close(...)`.
-5. Deregister from `HarnessGraphOrchestratorRegistry` if runtime exists.
-6. Call `on_graph_closed(graph.id)`.
+3. Assert close status/fail-reason pairing is valid (use
+   `assert_valid_graph_close`).
+4. Persist `graph_store.close(graph_id, status=status, fail_reason=fail_reason, closed_at=now)`.
+5. Deregister from `HarnessGraphOrchestratorRegistry`.
+6. Call `on_graph_closed(graph_id)` so `TaskSegmentManager` reacts.
 
-The orchestrator must not call `TaskSegmentManager.create_next_harness_graph`
-or inspect segment attempt budget.
+No other orchestrator method should call `graph_store.close(...)` directly.
+The orchestrator must not call
+`TaskSegmentManager.create_next_harness_graph` or inspect segment attempt
+budget.
 
 ---
 
@@ -1141,8 +1215,9 @@ or inspect segment attempt budget.
 | Domain | `HarnessTaskRole` | NEW | Stable role names for persisted task rows |
 | Domain | `HarnessTaskStatus` | NEW | Pending/running/waiting/done/failed/blocked lifecycle |
 | Domain | `PlannedGeneratorTask` | NEW | One normalized planner DAG node |
-| Domain | `TerminalToolCallView` | NEW | Normalized accepted terminal tool call read model |
-| Runtime | `TerminalToolCallReader` | DISCUSS | Backing-store-independent read/mark-processed protocol |
+| Domain | `PlanSubmission` | NEW | Unified planner DTO for full and partial plans |
+| Domain | `GeneratorSubmission` | NEW | Executor/verifier success or failure DTO |
+| Domain | `EvaluatorSubmission` | NEW | Evaluator success or failure DTO |
 | Persistence | `TaskCenterStore.get_task` | EDIT | Load one persisted task dict |
 | Persistence | `TaskCenterStore.list_tasks_for_harness_graph` | EDIT | Graph-scoped task lookup |
 | Persistence | `TaskCenterStore.set_task_status` | EDIT | Status update plus optional summary append |
@@ -1150,11 +1225,14 @@ or inspect segment attempt budget.
 | Runtime | `HarnessAgentLauncher` | NEW | Testable launch protocol |
 | Runtime | `HarnessGraphRuntime` | NEW | Dependency bundle for orchestrator behavior |
 | Lifecycle | `HarnessGraphOrchestratorRegistry` | NEW | Process-local graph -> orchestrator lookup |
-| Lifecycle | `HarnessGraphOrchestrator.reconcile` | EDIT | Read terminal-call view, mutate task state, dispatch ready work |
-| Lifecycle | `HarnessGraphOrchestrator._mutate_task_state` | EDIT | Persist graph-owned task status transitions |
-| Lifecycle | `HarnessGraphOrchestrator._dispatch_ready_tasks` | EDIT | Launch planner/generator/evaluator tasks from current graph state |
+| Lifecycle | `HarnessGraphOrchestrator.start` | EDIT | Bootstrap planner |
+| Lifecycle | `HarnessGraphOrchestrator.apply_*` | EDIT | Direct terminal submission mutation surface (`apply_plan_submission`, `apply_executor_submission`, `apply_verifier_submission`, `apply_evaluator_submission`, `apply_nested_close_report`) |
+| Lifecycle | `HarnessGraphOrchestrator._dispatch_ready_work` | EDIT | Launchability, generator quiescence, evaluator spawn |
+| Lifecycle | `HarnessGraphOrchestrator._close_graph` | EDIT | Single close site that calls `graph_store.close(...)` and `on_graph_closed` |
+| Lifecycle | `HarnessGraphOrchestrator.notify_planner_run_exhausted` | NEW | Runtime signal for planner agent run end without valid submission; delegates to `_close_graph(planner_step_budget_exhausted)` |
 | Lifecycle | `TaskSegmentManager._start_orchestrator_if_configured` | EDIT | Start graph orchestrator after graph creation |
 | Lifecycle | `ComplexTaskRequestHandler.__init__` | EDIT | Accept/pass orchestrator factory |
+| Lifecycle | `ComplexTaskRequestHandler.deliver_close_report` | EDIT (Phase 04 seam) | Resolve outer orchestrator from registry and call `apply_nested_close_report` |
 
 ---
 
@@ -1172,36 +1250,36 @@ keys or live agent runs are needed in Phase 02.
 | `test_set_task_status_updates_status_and_appends_summary` | Lifecycle summaries persist |
 | `test_list_generator_tasks_excludes_planner_and_evaluator` | Quiescence sees only generator-role nodes |
 
-### 8b. Registry and terminal-call view
+### 8b. Registry and direct apply surface
 
 | Test | Purpose |
 | --- | --- |
 | `test_registry_enforces_one_orchestrator_per_graph` | Duplicate active orchestrator is invariant violation |
 | `test_registry_deregister_allows_replacement` | Closed graph cleanup works |
-| `test_terminal_call_view_lists_unprocessed_calls_for_graph` | Orchestrator can read accepted terminal calls for one graph |
-| `test_terminal_call_view_marks_calls_processed_idempotently` | Reconciliation can be retried safely |
-| `test_terminal_call_view_resolves_nested_close_report_by_requested_task_id` | Nested request close report can resume waiting generator task |
-| `test_terminal_call_view_rejects_task_without_graph_id` | Hard invariant for malformed task rows |
+| `test_orchestrator_applies_full_plan_submission` | Full plan and generator task creation share the direct apply path |
+| `test_orchestrator_applies_partial_plan_submission` | Partial plan stores the continuation goal through the same plan entry |
+| `test_orchestrator_rejects_submit_request_plan` | Legacy request-plan calls never mutate graph task state |
+| `test_nested_close_report_resolves_by_requested_task_id` | Nested request close report can resume waiting generator task |
 
 ### 8c. Orchestrator unit tests
 
 | Test | Phase 02 behavior |
 | --- | --- |
 | `test_start_creates_planner_task_and_sets_graph_planner_id` | Start path |
-| `test_reconcile_planner_plan_persists_contract_and_generator_ids` | Planner terminal-call view success |
-| `test_reconcile_planner_exhaustion_closes_graph_failed` | `planner_step_budget_exhausted` |
+| `test_apply_plan_submission_persists_contract_and_generator_ids` | Planner submission success |
+| `test_planner_exhaustion_closes_graph_failed` | `planner_step_budget_exhausted` |
 | `test_generator_roots_launch_after_plan` | DAG root scheduling |
-| `test_reconcile_generator_success_launches_newly_ready_dependents` | Dependency scheduling |
-| `test_reconcile_generator_complex_task_handoff_marks_task_waiting` | Recursive request handoff |
-| `test_reconcile_nested_complex_task_success_marks_generator_done` | Nested close report success path |
-| `test_reconcile_nested_complex_task_failure_marks_generator_failed` | Nested close report failure path |
+| `test_apply_generator_success_launches_newly_ready_dependents` | Dependency scheduling |
+| `test_request_complex_task_handoff_marks_task_waiting` | Recursive request handoff |
+| `test_apply_nested_complex_task_success_marks_generator_done` | Nested close report success path |
+| `test_apply_nested_complex_task_failure_marks_generator_failed` | Nested close report failure path |
 | `test_waiting_complex_task_prevents_generator_quiescence` | Outer graph remains generating while nested request runs |
-| `test_reconcile_generator_failure_blocks_pending_descendants` | Failure propagation |
+| `test_apply_generator_failure_blocks_pending_descendants` | Failure propagation |
 | `test_generator_failure_waits_for_independent_running_tasks` | Quiescence wait |
 | `test_generator_failure_closes_after_quiescence` | `generator_failed` close |
 | `test_all_generators_done_spawns_evaluator` | Evaluator spawn gate |
-| `test_reconcile_evaluator_success_closes_graph_passed` | Passed close |
-| `test_reconcile_evaluator_failure_closes_graph_failed` | `evaluator_failed` close |
+| `test_apply_evaluator_success_closes_graph_passed` | Passed close |
+| `test_apply_evaluator_failure_closes_graph_failed` | `evaluator_failed` close |
 | `test_close_graph_calls_on_graph_closed_once` | Callback contract |
 | `test_orchestrator_never_creates_retry_graph` | Retry remains manager-owned |
 
@@ -1220,9 +1298,9 @@ keys or live agent runs are needed in Phase 02.
 
 Add focused invariant tests for:
 
-- Planner terminal-call view reconciled outside `planning`.
-- Generator terminal-call view reconciled outside `generating`.
-- Evaluator terminal-call view reconciled outside `evaluating`.
+- Planner submission applied outside `planning`.
+- Generator submission applied outside `generating`.
+- Evaluator submission applied outside `evaluating`.
 - Failed graph close without fail reason.
 - Passed graph close with fail reason.
 - Running generator that depends on a failed generator.
@@ -1235,7 +1313,7 @@ Add focused invariant tests for:
 
 Each wave is independently testable.
 
-### Wave 1 - Terminal-call view and task helpers
+### Wave 1 - Submission DTOs and task helpers
 
 1. Add `task_center/domain/harness_task.py`.
 2. Add `task_ids.py`.
@@ -1253,21 +1331,18 @@ Each wave is independently testable.
 1. Add `runtime.py` with `HarnessGraphRuntime`,
    `HarnessAgentLaunch`, and `HarnessAgentLauncher`.
 2. Add `orchestrator_registry.py`.
-3. Add `terminal_call_view.py` read-model DTO/protocol.
-4. Decide whether the first implementation uses a table, task summaries, or an
-   in-memory queue as the backing terminal-call view.
-5. Add registry and terminal-call view tests with fake orchestrators.
+3. Add registry tests with fake orchestrators.
 
 ### Wave 4 - Orchestrator state machine
 
 1. Implement `HarnessGraphOrchestrator.start`.
-2. Implement `HarnessGraphOrchestrator.reconcile`.
-3. Implement planner success and planner exhaustion reconciliation.
-4. Implement generator terminal-call reconciliation, dependency scheduling, and
+2. Implement `HarnessGraphOrchestrator.apply_plan_submission`.
+3. Implement planner exhaustion handling.
+4. Implement generator submission handling, dependency scheduling, and
    quiescence close.
 5. Implement generator complex-task waiting and nested close-report resume.
-6. Implement evaluator spawn and evaluator terminal-call reconciliation.
-7. Implement `_close_graph`.
+6. Implement evaluator spawn and evaluator submission handling.
+7. Implement `_dispatch_ready_work()` and `_close_graph()`.
 8. Run orchestrator unit tests.
 
 ### Wave 5 - Handler/manager wiring
@@ -1279,8 +1354,8 @@ Each wave is independently testable.
 
 ### Wave 6 - Integration smoke
 
-1. Build a fake launcher that records launches and writes terminal-call rows
-   consumed by `HarnessGraphOrchestrator.reconcile`.
+1. Build a fake launcher that records launches and calls
+   `HarnessGraphOrchestrator.apply_*` with validated submission DTOs.
 2. Test successful full-plan graph execution through request success.
 3. Test generator failure quiescence and retry into a passing graph.
 4. Test nested complex-task close report resuming an outer generator task.
@@ -1292,7 +1367,6 @@ Recommended commands:
 uv run pytest backend/tests/task_center/persistence/test_task_center_task_helpers.py -q
 uv run pytest backend/tests/task_center/lifecycle/test_harness_graph_orchestrator.py -q
 uv run pytest backend/tests/task_center/lifecycle/test_harness_graph_generator_quiescence.py -q
-uv run pytest backend/tests/task_center/lifecycle/test_harness_graph_terminal_call_view.py -q
 uv run pytest backend/tests/task_center/lifecycle/test_integration_phase02.py -q
 uv run pytest backend/tests/task_center/ -q
 uv run ruff check backend/src/task_center backend/src/db/stores/task_center_store.py backend/tests/task_center
@@ -1312,7 +1386,9 @@ uv run ruff check backend/src/task_center backend/src/db/stores/task_center_stor
 | No retry path is implemented inside `HarnessGraphOrchestrator` | `test_orchestrator_never_creates_retry_graph` |
 | Retry remains delegated to `TaskSegmentManager` | `test_failed_graph_with_budget_starts_next_graph_orchestrator` |
 | Orchestrator close reports to `TaskSegmentManager` via callback | `test_close_graph_calls_on_graph_closed_once` |
-| Terminal-call view reconciliation resolves current graph work | `test_terminal_call_view_lists_unprocessed_calls_for_graph` |
+| Terminal tools call the direct apply surface after validation | `test_orchestrator_applies_full_plan_submission` |
+| `submit_full_plan` and `submit_partial_plan` share one plan apply entry | `test_orchestrator_applies_partial_plan_submission` |
+| Generator `submit_request_plan` is not handled by orchestration | `test_orchestrator_rejects_submit_request_plan` |
 | Recursive complex-task handoff keeps the outer graph open until nested close | `test_waiting_complex_task_prevents_generator_quiescence` |
 | Nested close report success resumes the requesting generator task | `test_nested_complex_task_success_resumes_generator_as_done` |
 | Nested close report failure fails the requesting generator task and blocks descendants | `test_nested_complex_task_failure_resumes_generator_as_failed` |

@@ -22,13 +22,6 @@ from sandbox.code_intelligence.language_server.client import LspClient
 from sandbox.code_intelligence.overlay.command_executor import AuditedCommandExecutor
 from sandbox.code_intelligence.mutations.content_manager import ContentManager
 from sandbox.code_intelligence.mutations.mutation_service import MutationService
-from sandbox.code_intelligence.registry import (
-    dispose_all_code_intelligence,
-    dispose_code_intelligence,
-    get_all_services_status,
-    get_code_intelligence,
-    get_code_intelligence_if_exists,
-)
 from sandbox.code_intelligence.telemetry import build_status, build_telemetry
 from sandbox.code_intelligence.core.types import (
     CITelemetry,
@@ -46,14 +39,7 @@ from sandbox.code_intelligence.core.types import (
     WriteSpec,
 )
 
-__all__ = [
-    "CodeIntelligenceService",
-    "dispose_all_code_intelligence",
-    "dispose_code_intelligence",
-    "get_all_services_status",
-    "get_code_intelligence",
-    "get_code_intelligence_if_exists",
-]
+__all__ = ["CodeIntelligenceService"]
 
 logger = logging.getLogger(__name__)
 
