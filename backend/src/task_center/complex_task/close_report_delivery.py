@@ -94,7 +94,7 @@ def build_close_report_from_request(
     (open, or cancelled by handoff compensation).
     """
     try:
-        return request.close_report()
+        return ComplexTaskCloseReport.from_request(request)
     except ValueError as exc:
         raise GraphInvariantViolation(str(exc)) from exc
 

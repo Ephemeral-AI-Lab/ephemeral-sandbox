@@ -136,6 +136,7 @@ def test_initialize_db_renames_task_center_child_run_id_columns(
                     planner_task_id VARCHAR(96) NOT NULL,
                     executor_task_ids JSON NOT NULL,
                     dag_nodes JSON NOT NULL,
+                    -- Legacy Phase 05 migration fixture: historical schemas may include plan_shape.
                     plan_shape VARCHAR(16),
                     what_to_do_next TEXT NOT NULL,
                     prior_graph_id VARCHAR(96),

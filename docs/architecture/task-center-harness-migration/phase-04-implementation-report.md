@@ -207,7 +207,7 @@ deliver_pending_complex_task_close_reports(runtime, task_center_run_id?)
 - Parent generator transitions go through
   `TaskCenterStore.set_task_status_if_current(...)`. A CAS miss is the
   idempotency primitive — no second-source-of-truth in summary payloads.
-- Final close-report persistence goes through `ComplexTaskFinalOutcome`; the
+- Final close-report persistence goes through `ComplexTaskCloseReport`; the
   handler and replay path no longer open-code the JSON field names separately.
 - `request_complex_task_solution` rejects whenever the parent already has an
   open delegated `ComplexTaskRequest`.

@@ -23,7 +23,6 @@ from task_center.complex_task.validation import (
 )
 from task_center.complex_task.request import (
     ComplexTaskCloseReport,
-    ComplexTaskFinalOutcome,
     ComplexTaskRequest,
     ComplexTaskRequestStatus,
 )
@@ -177,7 +176,9 @@ class ComplexTaskRequestHandler:
         outcome_label: Literal["success", "failed"] = (
             "success" if succeeded else "failed"
         )
-        final_outcome = ComplexTaskFinalOutcome(
+        close_report = ComplexTaskCloseReport(
+            complex_task_request_id=complex_task_request_id,
+            requested_by_task_id=request.requested_by_task_id,
             outcome=outcome_label,
             final_segment_id=final_segment_id,
             final_harness_graph_id=final_harness_graph_id,
@@ -190,11 +191,11 @@ class ComplexTaskRequestHandler:
         updated = self._request_store.set_status(
             complex_task_request_id,
             status=status,
-            final_outcome=final_outcome.to_payload(),
+            final_outcome=close_report.to_final_outcome(),
             closed_at=datetime.now(UTC),
         )
         if self._deliver_close_report is not None:
-            self._deliver_close_report(final_outcome.to_close_report(updated))
+            self._deliver_close_report(close_report)
         return updated
 
     # ---- internal -------------------------------------------------------
