@@ -3,116 +3,208 @@
 ## Goal
 
 Define the target harness model before changing implementation details.
-The new architecture separates graph depth from retry history:
 
-- A vertical axis of nested `HarnessGraph`s for real scope changes.
-- A horizontal axis of `Attempt`s inside each graph for retry.
-- One in-process local orchestrator per `HarnessGraph`.
+The new architecture separates three different ideas that were previously
+overloaded onto graph and retry state:
+
+- A `ComplexTaskRequest` is the complex delegated goal requested by an
+  executor that cannot solve its current task atomically.
+- A `TaskSegment` is one vertical slice of that complex task. Segment 2+ exists
+  only when the previous segment completed a partial plan.
+- A `HarnessGraph` is one concrete planner-produced graph for one segment.
+  Retry creates another `HarnessGraph` in the same segment.
+
+## Executor tool convention
+
+Executor tools use two naming families:
+
+| Prefix | Meaning |
+| ------ | ------- |
+| `submit_*` | Terminal outcome for the current executor task. |
+| `request_*` | Non-terminal orchestration request that can pause and later resume the executor. |
+
+Executor tool surface:
+
+| Tool | Meaning |
+| ---- | ------- |
+| `submit_execution_success` | The executor completed and verified its assigned task. |
+| `submit_execution_failure` | The executor has a scoped failure that cannot be completed directly. |
+| `request_complex_task_solution` | The assigned task is not atomic; create a planned complex-task workflow and return the result to this executor. |
+
+`request_complex_task_solution` is not a failure terminal. It is a handoff to
+the complex-task harness.
 
 ## Target model
 
-The harness is a tree of `HarnessGraph`s. Each graph owns a scoped goal and
-an ephemeral local orchestrator. Inside each non-root graph, the orchestrator
-runs ordered `Attempt`s: fresh `planner -> DAG -> evaluator` passes until
-one passes or the graph retry budget is exhausted.
-
-```
+```text
 USER QUERY
-    |
-    v
-HARNESS GRAPH G_root
-  - no parent
-  - bound to the session
-  - contains only the root generator/executor
-  - retry_budget = 0
-    |
-    | root executor calls submit_request_plan(note)
-    v
-HARNESS GRAPH G1 (spawn_reason = REQUEST_PLAN)
-  - retry_budget = N
-  - Attempt 1: planner -> DAG -> evaluator, failed
-  - Attempt 2: planner -> DAG -> evaluator, failed
-  - Attempt 3: planner -> DAG -> evaluator, passed
-    |
-    | if final plan_shape == partial
-    v
-HARNESS GRAPH G_next (spawn_reason = CONTINUE_AFTER_PARTIAL_PLAN)
-  - its own retry budget
-  - its own Attempts
+  |
+  v
+EXECUTOR TASK
+  |
+  +-- atomic task
+  |     `-- submit_execution_success / submit_execution_failure
+  |
+  `-- non-atomic task
+        `-- request_complex_task_solution(goal)
+              |
+              v
+COMPLEX TASK REQUEST C1
+  requested_by_task_id = executor
+  goal = requested complex goal
+  |
+  +-- TASK SEGMENT S1
+  |     sequence_no = 1
+  |     previous_segment_id = null
+  |
+  |     +-- HARNESS GRAPH S1.H1
+  |     |     retry_no = 1
+  |     |     status = failed
+  |     |
+  |     `-- HARNESS GRAPH S1.H2
+  |           retry_no = 2
+  |           status = passed
+  |           plan_shape = partial
+  |
+  |     segment closes with plan_shape = partial
+  |     because S1 is partial,
+  |     ComplexTaskOrchestrator creates S2
+  |
+  +-- TASK SEGMENT S2
+  |     sequence_no = 2
+  |     previous_segment_id = S1
+  |     created because S1 closed with plan_shape = partial
+  |
+  |     `-- HARNESS GRAPH S2.H1
+  |           retry_no = 1
+  |           status = passed
+  |           plan_shape = full
+  |
+  |     segment closes with plan_shape = full
+  |
+  `-- final complex-task result returns to requested_by_task_id
 ```
 
-Explorer subagents are not in `TaskCenter`; they are non-blocking,
+The core ownership shape is:
+
+```text
+ComplexTaskRequest
+  requested_by_task_id
+  goal
+  status
+  |
+  `-- TaskSegment
+        sequence_no
+        previous_segment_id
+        retry_budget
+        |
+        `-- HarnessGraph
+              retry_no
+              stage
+              status
+              plan_shape
+              fail_reason
+              |
+              +-- planner task
+              +-- generator DAG tasks
+              |     executors + verifiers
+              `-- evaluator task
+```
+
+Explorer subagents are not TaskCenter nodes; they are non-blocking,
 parallel-safe helper runs. Advisor and resolver helper calls are also not
 TaskCenter graph nodes. Advisor is read-only. Resolver is blocking and may
 edit, but it reports back into the task that called it.
 
-## Two axes of progression
+## Three axes of progression
 
-| Axis       | Entity         | What changes          | Triggered by                                  | Tree shape effect                              |
-| ---------- | -------------- | --------------------- | --------------------------------------------- | ---------------------------------------------- |
-| Vertical   | `HarnessGraph` | new scope             | `REQUEST_PLAN`, `CONTINUE_AFTER_PARTIAL_PLAN` | graph depth increases                          |
-| Horizontal | `Attempt`      | same scope, fresh try | Attempt failure under retry budget            | no new graph depth; retry stays inside graph   |
+| Axis | Entity | What changes | Triggered by | Shape effect |
+| ---- | ------ | ------------ | ------------ | ------------ |
+| Request origin | `ComplexTaskRequest` | new delegated complex goal | `request_complex_task_solution(goal)` | new request chain owned by the calling executor |
+| Vertical | `TaskSegment` | next partial-plan segment | successful partial plan | segment sequence increases |
+| Horizontal | `HarnessGraph` | same segment, fresh try | graph failure under retry budget | retry number increases |
+
+### Request origin
+
+A `ComplexTaskRequest` represents the executor handoff:
+
+- the executor task that requested help,
+- the goal it requested,
+- the eventual result that returns to that executor.
+
+The requesting executor is the stable parent for context management.
+`requested_by_task_id` is the authoritative origin and return link.
 
 ### Vertical axis
 
-A `HarnessGraph` represents a scoped goal. New graphs are created only when
-the pipeline needs new scoped work:
+A `TaskSegment` represents one sequential continuation step in a complex task.
+New segments are created only when a harness graph passes with
+`plan_shape = partial`.
 
-- `REQUEST_PLAN`: an executor delegates a subgoal. The executor's enclosing
-  graph spawns a child graph for that subgoal.
-- `CONTINUE_AFTER_PARTIAL_PLAN`: a graph completed a partial plan and left
-  forward instructions. The completing graph spawns a child graph to continue.
+The segment chain is:
 
-Both cases deepen the graph tree.
+```
+S1 -> S2 -> S3
+```
+
+`previous_segment_id` is only for partial-plan continuation. It is not a retry
+chain.
 
 ### Horizontal axis
 
-An `Attempt` is one full `planner -> DAG -> evaluator` pass at the graph's
-goal. A graph holds an ordered list of Attempts; only the latest Attempt is
-running. When an Attempt fails and retry budget remains, the orchestrator
-spawns the next Attempt inside the same graph.
+A `HarnessGraph` is one full `planner -> DAG -> evaluator` pass for one task
+segment. When a harness graph fails and retry budget remains,
+`ComplexTaskOrchestrator` creates the next `HarnessGraph` in the same
+`TaskSegment`.
 
-Retry never deepens the graph tree.
+Retry never creates a new `ComplexTaskRequest` or `TaskSegment`.
 
 ## Why the split matters
 
-- Tree depth reflects real pipeline depth, not retry count.
-- `prior_graph_id` is reserved for partial-plan segment chains.
-- Retry history lives on `Attempt` rows inside a graph.
-- Retry budget is graph-local.
-- Bubble-up only happens when a child graph closes, never during retry.
-- From a parent graph's perspective, each child graph has one final outcome.
+- Complex-task context starts from the executor that requested the solution.
+- Segment sequence reflects partial-plan continuation, not retry count.
+- Retry history lives as harness graphs inside one task segment.
+- Bubble-up to the requesting executor happens only when the complex task
+  request closes.
+- From the requesting executor's perspective, one request returns one final
+  result.
 
 ## Components
 
-| Component          | Owner / scope                     | Responsibility |
-| ------------------ | --------------------------------- | -------------- |
-| `HarnessGraph`     | `TaskCenter`                      | Container for one scoped goal. Holds lineage, spawn reason, retry budget, and ordered Attempts. |
-| `Attempt`          | `TaskCenter`, owned by a graph    | One pass at the graph goal: planner, DAG edges, generator task ids, evaluator, status, failure reason. |
-| `Orchestrator`     | one per `HarnessGraph`            | Drives local graph lifecycle, creates Attempts, observes terminals, spawns child graphs, closes the graph. |
-| `RootHarnessGraph` | `TaskCenter` singleton/session    | Wraps the root executor only. No Attempts. Closing it ends the session. |
-| Tasks              | per `Attempt`                     | Agent runs scoped to one Attempt of one graph. |
+| Component | Owner / scope | Responsibility |
+| --------- | ------------- | -------------- |
+| `ComplexTaskRequest` | `TaskCenter` | Container for a non-atomic delegated goal. Holds `requested_by_task_id`, goal, status, and final close result. |
+| `TaskSegment` | `ComplexTaskRequest` | One vertical partial-plan segment. Holds sequence, previous segment, retry budget, and current harness graph. |
+| `HarnessGraph` | `TaskSegment` | One concrete planner DAG execution: planner, generator DAG, evaluator, status, plan shape, and failure reason. |
+| `ComplexTaskOrchestrator` | `TaskCenter` service / one active controller per `ComplexTaskRequest` | Owns the complex-task lifecycle. It is the only component that creates `ComplexTaskRequest`, `TaskSegment`, and `HarnessGraph` records; it enforces ids, sequence numbers, retry numbers, parent links, initial state, retry, partial continuation, and final return to the requesting executor. |
+| `HarnessGraphOrchestrator` | one per `HarnessGraph` | Runs one planner-produced graph through planner, generator DAG tasks, and evaluator. It reports the graph outcome back to `ComplexTaskOrchestrator`. |
+| Tasks | per `HarnessGraph` | Planner, executor, verifier, and evaluator agent runs scoped to one harness graph. |
 
-## Root graph rules
+## Complex Task Orchestrator
 
-- `G_root` exists for the lifetime of the session.
-- It contains only the root generator/executor.
-- It has no Attempt list because the root executor is not a
-  `planner -> DAG -> evaluator` pass.
-- Its orchestrator initializes the root executor.
-- It catches root executor terminals:
-  - `submit_request_plan(note)` spawns a `REQUEST_PLAN` child graph and later
-    delivers the child close report back to the root executor.
-  - `submit_execution_success` and `submit_execution_failure` close `G_root`.
-- The root executor uses the same executor tool-gating rules as any other
-  executor.
-- `G_root.retry_budget = 0`.
+All structural creation goes through `ComplexTaskOrchestrator`.
+
+`ComplexTaskOrchestrator` owns:
+
+- `create_complex_task_request(requested_by_task_id, goal, context)`,
+- `create_initial_segment(complex_task_request_id)`,
+- `create_continuation_segment(previous_segment_id, continuation_goal)`,
+- `create_initial_harness_graph(task_segment_id)`,
+- `create_retry_harness_graph(task_segment_id, failed_harness_graph_id)`.
+
+`HarnessGraphOrchestrator` decides the outcome of one harness graph.
+`ComplexTaskOrchestrator` decides whether that outcome closes the segment,
+creates a retry graph, creates a continuation segment, or closes the request.
 
 ## Phase exit criteria
 
-- The team agrees that retry is horizontal and graph-local.
-- The team agrees that `REQUEST_PLAN` and `CONTINUE_AFTER_PARTIAL_PLAN` are
-  the only vertical spawn reasons.
-- The team agrees that `RETRY_ON_FAILURE` is not a graph spawn reason.
-- The context-engine boundary is explicit: planner launch context, evidence
-  storage, and detailed close-report payloads are specified separately.
+- The team agrees that `ComplexTaskRequest` is the executor-requested complex
+  goal.
+- The team agrees that `TaskSegment` is only for partial-plan continuation.
+- The team agrees that `HarnessGraph` is the retryable planner DAG execution.
+- The team agrees that retry is horizontal and creates a new `HarnessGraph`
+  inside the same `TaskSegment`.
+- The team agrees that `ROOT` is not a creation or spawn reason.
+- The context-engine boundary is explicit: planner launch context, per-graph
+  evidence, detailed close-report payloads, and segment visibility are
+  specified separately.

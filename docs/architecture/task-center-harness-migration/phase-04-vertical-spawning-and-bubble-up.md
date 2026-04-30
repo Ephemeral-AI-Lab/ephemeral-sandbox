@@ -1,154 +1,183 @@
-# Phase 04 - Vertical Graph Spawning and Bubble-Up
+# Phase 04 - Complex Task Spawning and Partial Continuation
 
 ## Goal
 
-Implement vertical graph motion after the graph, Attempt, orchestrator, and
-tool-gate foundations are in place.
+Implement complex-task request creation and vertical task-segment continuation
+after the durable model, orchestrators, and tool-gate foundations are in place.
 
-Vertical motion creates new `HarnessGraph`s for new scopes. It is used only
-for:
+Vertical motion creates new `TaskSegment`s inside one `ComplexTaskRequest`.
+Horizontal retry creates new `HarnessGraph`s inside one segment.
 
-- executor delegation through `REQUEST_PLAN`,
-- continuation after a successful partial plan through
-  `CONTINUE_AFTER_PARTIAL_PLAN`.
+All structural creation in this phase goes through
+`ComplexTaskOrchestrator`.
 
-## Child graph spawn paths
+## Creation paths
 
 ```
-parent graph G_p
+executor task E
   |
-  +-- REQUEST_PLAN
-  |     executor in G_p calls submit_request_plan(note)
-  |     G_p orchestrator spawns child G_c
-  |     G_p stays open
-  |     calling executor waits for G_c close report
+  +-- request_complex_task_solution(goal)
+        ComplexTaskOrchestrator creates ComplexTaskRequest C
+        C.requested_by_task_id = E
+        ComplexTaskOrchestrator creates TaskSegment S1
+        ComplexTaskOrchestrator creates HarnessGraph H1
+
+TaskSegment S_n
   |
-  +-- CONTINUE_AFTER_PARTIAL_PLAN
-        G_p latest Attempt passed with plan_shape = partial
-        G_p orchestrator reads continuation instructions
-        G_p orchestrator spawns child G_c
-        G_p stays open
-        G_p adopts G_c final outcome when G_c closes
+  +-- S_n closes with plan_shape = partial
+        ComplexTaskOrchestrator creates TaskSegment S_n+1
+        S_n+1.previous_segment_id = S_n
+        ComplexTaskOrchestrator creates HarnessGraph H1 for S_n+1
 ```
 
-New child graph fields:
+`request_complex_task_solution` starts a new complex-task request. Partial-plan
+continuation extends that same request.
 
-| Spawn reason | `parent_harness_graph_id` | `prior_graph_id` |
-| ------------ | ------------------------- | ---------------- |
-| `REQUEST_PLAN` | graph containing the executor | null |
-| `CONTINUE_AFTER_PARTIAL_PLAN` | completed graph | completed graph |
+## Field mapping
 
-## `REQUEST_PLAN` workflow
+| Creation path | Entity created | Parent / lineage |
+| ------------- | -------------- | ---------------- |
+| `request_complex_task_solution` | `ComplexTaskRequest` | `requested_by_task_id` is the executor that called the tool |
+| initial segment | `TaskSegment` | `complex_task_request_id = C`, `previous_segment_id = null`, `sequence_no = 1` |
+| partial continuation | `TaskSegment` | `complex_task_request_id = C`, `previous_segment_id = S_n`, `sequence_no = n + 1` |
+| initial graph | `HarnessGraph` | `task_segment_id = S`, `retry_no = 1` |
+| retry graph | `HarnessGraph` | same `task_segment_id`, `retry_no = previous + 1` |
+
+There is no `ROOT` spawn reason. Retry is not vertical motion.
+
+## `request_complex_task_solution` workflow
 
 ```
-G1.A_current has generator/executor 7
+Executor task E is running inside some harness graph
 
-executor 7 calls submit_request_plan(note)
+E calls request_complex_task_solution(goal)
     |
     v
-G1.Orch spawns child G1.X
-  parent_harness_graph_id = G1
-  prior_graph_id          = null
-  spawn_reason            = REQUEST_PLAN
+ComplexTaskOrchestrator creates ComplexTaskRequest C
+  requested_by_task_id = E
+  goal                 = goal
     |
     v
-G1.X runs its own Attempts to completion
+ComplexTaskOrchestrator creates TaskSegment S1
     |
     v
-G1.Orch delivers child_success or child_failure report
-back to executor 7 inside G1.A_current
+ComplexTaskOrchestrator creates HarnessGraph S1.H1
     |
     v
-executor 7 resumes inside G1.A_current
+HarnessGraphOrchestrator runs S1.H1 to completion
+    |
+    v
+ComplexTaskOrchestrator handles retry, continuation, or request close
+    |
+    v
+ComplexTaskOrchestrator delivers complex_task_succeeded or
+complex_task_failed report
+back to executor E
+    |
+    v
+executor E resumes and eventually submits execution success or failure
 ```
 
-`REQUEST_PLAN` may happen at any graph depth and during any Attempt. Gating
-predicates that walk `prior_graph_id` reset at this boundary.
+`request_complex_task_solution` may happen at any graph depth and during any
+generator executor task. Gating predicates that inspect partial-continuation
+history use the new complex task request's segment chain, so a new request
+starts with no prior partial segment.
 
 ## Partial-plan continuation workflow
 
 ```
-planner G1.A_k submits submit_partial_plan(
+planner in S1.H_k submits submit_partial_plan(
     dag,
     details,
     instructions_on_what_to_do_after_completion_of_partial_plan
 )
     |
     v
-G1.A_k runs its partial DAG
+S1.H_k runs its partial DAG
     |
     v
 evaluator submits success
     |
     v
-G1.Orch marks A_k passed with plan_shape = partial
+HarnessGraphOrchestrator marks S1.H_k passed with plan_shape = partial
+and reports the graph outcome
     |
     v
-G1.Orch spawns child G_next
-  spawn_reason            = CONTINUE_AFTER_PARTIAL_PLAN
-  parent_harness_graph_id = G1
-  prior_graph_id          = G1
+ComplexTaskOrchestrator closes TaskSegment S1 with plan_shape = partial
     |
     v
-G_next.Orch starts Attempt 1
+ComplexTaskOrchestrator creates TaskSegment S2 because S1 closed partial
+  complex_task_request_id = C
+  previous_segment_id     = S1
+  sequence_no             = 2
+  goal                    = continuation instructions
     |
     v
-planner G_next.A1 sees prior_graph_id chain already contains partial
+ComplexTaskOrchestrator creates HarnessGraph S2.H1
+    |
+    v
+planner in S2.H1 sees previous segment already used partial
 submit_partial_plan is gated; planner must submit_full_plan
 ```
 
-`G1` stays open while `G_next` runs. When `G_next` closes, `G1` closes with
-the same outcome and the close report bubbles to whoever requested `G1`.
+The complex task request stays open while continuation segments run. The
+request closes only after a full-plan segment succeeds or a segment exhausts
+retry budget and fails.
 
-## Bubble-up and close reports
+## Close reports
 
-A graph closes exactly once. Its outcome is the outcome of either:
+A `HarnessGraph` closes exactly once. Its outcome feeds the owning segment.
+A `TaskSegment` closes exactly once. Its outcome either creates a continuation
+segment, closes the request successfully, or closes the request as failed.
 
-- the latest Attempt that passed, or
-- the last Attempt at the retry budget.
-
-When child graph `G_c` closes, its orchestrator hands a close report to the
-parent orchestrator. The harness-owned close report fields are:
+The complex-task close report returned to `requested_by_task_id` has these
+harness-owned fields:
 
 | Field | Meaning |
 | ----- | ------- |
-| `harness_graph_id` | child graph id |
-| `spawn_reason` | `REQUEST_PLAN` or `CONTINUE_AFTER_PARTIAL_PLAN` |
+| `complex_task_request_id` | request id |
+| `requested_by_task_id` | executor task that requested the complex solution |
 | `outcome` | `success` or `failed` |
-| `plan_shape` | `full` or `partial` for the final Attempt when available |
+| `final_segment_id` | segment that produced the final outcome |
+| `final_harness_graph_id` | harness graph that produced the final outcome |
+| `plan_shape` | `full` or `partial` for the final successful graph when available |
 
-Detailed payload such as per-task summaries, planner scratchpads, and
-evidence links belongs to the context engine.
+Detailed payload such as per-task summaries, planner scratchpads, and evidence
+links belongs to the context engine.
 
 ## Close-report routing
 
-| Spawn reason | Routing |
-| ------------ | ------- |
-| `REQUEST_PLAN` | report returns to the executor task that called `submit_request_plan`; that executor resumes inside its own Attempt |
-| `CONTINUE_AFTER_PARTIAL_PLAN` | parent graph adopts the child outcome and closes with the same outcome |
+| Event | Routing |
+| ----- | ------- |
+| `ComplexTaskRequest` closes | report returns to the executor task that called `request_complex_task_solution`; that executor resumes from its paused state |
+| `TaskSegment` closes with partial success | `ComplexTaskOrchestrator` creates the next segment because the previous segment closed partial; no report is returned to the requesting executor yet |
+| `TaskSegment` closes with full success or failure | `ComplexTaskOrchestrator` closes the complex task request and returns one final report |
 
-Retry never bubbles up. Retry is internal motion inside one graph. A parent
-sees one child graph close once with one final outcome.
+Retry never returns a close report to the requesting executor. Retry is
+internal motion inside one task segment.
 
 ## Implementation tasks
 
-1. Implement child graph creation for `REQUEST_PLAN`.
-2. Pause and resume the calling executor around the child graph close report.
-3. Reset `prior_graph_id` on `REQUEST_PLAN` children.
-4. Implement child graph creation for `CONTINUE_AFTER_PARTIAL_PLAN`.
-5. Set `prior_graph_id` on continuation children.
-6. Keep parent graphs open while continuation children run.
-7. Route continuation child close reports by adopting the child outcome.
-8. Route request-plan child close reports back to the calling executor.
+1. Implement `request_complex_task_solution` creation of `ComplexTaskRequest`
+   through `ComplexTaskOrchestrator`.
+2. Pause and resume the calling executor around the complex-task close report.
+3. Create initial `TaskSegment` and initial `HarnessGraph` through
+   `ComplexTaskOrchestrator`.
+4. Implement partial-continuation `TaskSegment` creation through
+   `ComplexTaskOrchestrator`.
+5. Set `previous_segment_id` on continuation segments.
+6. Keep the complex task request open while continuation segments run.
+7. Route continuation by creating the next segment rather than returning to the
+   requesting executor.
+8. Route final complex-task close reports back to the requesting executor.
 9. Add close-report persistence or delivery semantics robust enough for
    process restart if the surrounding runtime supports it.
 
 ## Phase exit criteria
 
-- `REQUEST_PLAN` creates a child graph and resumes the calling executor after
-  child close.
-- `CONTINUE_AFTER_PARTIAL_PLAN` creates a child graph and gates recursive
-  partial plans.
-- Parent graphs close only after their continuation child closes.
-- Retry still stays inside the same graph and does not produce close reports
-  until graph closure.
+- `request_complex_task_solution` creates a complex task request and resumes
+  the calling executor after the request closes.
+- Partial-plan success creates the next task segment in the same request.
+- Recursive partial plans are gated across previous segments.
+- Retry still stays inside the same segment and does not produce executor close
+  reports until the complex task request closes.

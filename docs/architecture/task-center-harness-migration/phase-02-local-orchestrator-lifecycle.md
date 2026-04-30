@@ -1,49 +1,58 @@
-# Phase 02 - Local Orchestrator Lifecycle
+# Phase 02 - Harness Graph Orchestrator Lifecycle
 
 ## Goal
 
-Move graph lifecycle decisions into one local orchestrator per
-`HarnessGraph`. The orchestrator drives both axes:
+Move one-harness-graph execution decisions into `HarnessGraphOrchestrator`.
 
-- horizontal Attempt retry inside its own graph,
-- vertical child graph creation when later phases enable it.
+The orchestration split is:
 
-The orchestrator object is in-process and ephemeral. Durable state lives on
-`HarnessGraph`, `Attempt`, tasks, and task outputs.
+- `ComplexTaskOrchestrator` owns complex-task request lifecycle, task segment
+  lifecycle, structural creation, retry decisions, partial continuation, and
+  final close-report delivery to `requested_by_task_id`.
+- `HarnessGraphOrchestrator` owns one `HarnessGraph` execution:
+  `planner -> generator tasks -> evaluator`.
 
-## Orchestrator responsibilities
+`HarnessGraphOrchestrator` is in-process and ephemeral. Durable state lives on
+`ComplexTaskRequest`, `TaskSegment`, `HarnessGraph`, tasks, and task outputs.
 
-For a non-root graph, the local orchestrator:
+## Responsibility Boundary
 
-1. Creates the first Attempt.
-2. Spawns the Attempt planner.
-3. Materializes the DAG after a valid plan submission.
-4. Spawns generator tasks.
-5. Watches generator terminal transitions.
-6. Spawns the evaluator only after all generators pass.
-7. Marks the Attempt passed or failed.
-8. Spawns the next Attempt when retry budget remains.
-9. Closes the graph when retry is exhausted or a full plan passes.
+`HarnessGraphOrchestrator` never creates `ComplexTaskRequest`, `TaskSegment`,
+or `HarnessGraph` rows. It receives a current `HarnessGraph`, runs it to a
+passed or failed outcome, and reports that outcome to `ComplexTaskOrchestrator`.
 
-For `G_root`, the local orchestrator only:
+`ComplexTaskOrchestrator` then decides whether to:
 
-1. Spawns the root executor.
-2. Handles root executor terminal submissions.
-3. Spawns `REQUEST_PLAN` children in Phase 04.
-4. Closes the session graph.
+- create a retry `HarnessGraph`,
+- create a partial-continuation `TaskSegment`,
+- close the current segment,
+- close the complex task request.
 
-## Attempt stages
+## Harness Graph Orchestrator Responsibilities
+
+For one `HarnessGraph`, `HarnessGraphOrchestrator`:
+
+1. Spawns the harness graph planner.
+2. Materializes generator tasks and task dependencies after a valid plan
+   submission.
+3. Spawns generator tasks.
+4. Watches generator terminal transitions.
+5. Spawns the evaluator only after all generators pass.
+6. Marks the harness graph passed or failed.
+7. Reports the graph outcome to `ComplexTaskOrchestrator`.
+
+## Harness graph stages
 
 | Stage | Running work | Exit condition |
 | ----- | ------------ | -------------- |
 | `planning` | planner task | planner submits valid plan, or planner run ends without valid submission |
 | `generating` | executor and verifier generator tasks | all generators are terminal |
 | `evaluating` | evaluator task | evaluator submits success or failure |
-| `closed` | none | Attempt is passed or failed |
+| `closed` | none | harness graph is passed or failed |
 
-`REQUEST_PLAN` may pause one executor while its child graph runs. That pause
-is not a separate Attempt stage; it is executor-local waiting inside the
-`generating` stage.
+`request_complex_task_solution` may pause one executor while its complex task
+request runs. That pause is executor-local waiting inside the executor's
+current `generating` stage; it is not a separate harness graph stage.
 
 ## Failure escape valves
 
@@ -52,24 +61,25 @@ Failure escape valves:
   - Tool-call-level error from any agent
       prehook or handler returns ToolResult(is_error=True)
       -> agent retries inside its own run
-      -> no Attempt-level escalation
+      -> no harness-graph-level escalation
 
   - Generator or verifier submit_*_failure
       -> wait for generator quiescence
-      -> mark Attempt failed with generator_failed
+      -> mark HarnessGraph failed with generator_failed
 
   - Evaluator submit_evaluation_failure
-      -> mark Attempt failed with evaluator_failed immediately
+      -> mark HarnessGraph failed with evaluator_failed immediately
 
   - Planner agent ends without a successful submit_*_plan
-      -> runtime marks Attempt failed with planner_step_budget_exhausted
+      -> runtime marks HarnessGraph failed with planner_step_budget_exhausted
 ```
 
 The planner has no failure terminal. Its only soft-fail channel is inline
 tool-call rejection. Only a planner run ending without a valid plan submission
-escalates to the orchestrator as `planner_step_budget_exhausted`.
+escalates to `HarnessGraphOrchestrator` as
+`planner_step_budget_exhausted`.
 
-## Orchestrator-visible Attempt failures
+## Harness Graph Failures
 
 | Failure mode | Detected by | Wait point |
 | ------------ | ----------- | ---------- |
@@ -81,54 +91,73 @@ escalates to the orchestrator as `planner_step_budget_exhausted`.
 
 - When a generator fails, its dependents transition to `BLOCKED`.
 - Independent sibling generators keep running.
-- The orchestrator does not retry mid-flight.
-- After all generators are in `DONE`, `FAILED`, or `BLOCKED`, the
-  orchestrator makes one Attempt-level decision.
-- The next Attempt's planner receives the whole failure landscape through the
+- `HarnessGraphOrchestrator` does not retry mid-flight.
+- After all generators are in `DONE`, `FAILED`, or `BLOCKED`,
+  `HarnessGraphOrchestrator` makes one harness-graph-level outcome decision.
+- If retry remains, `ComplexTaskOrchestrator` creates the next harness graph;
+  that graph's planner receives the whole failure landscape through the
   context engine.
 
 ### Evaluator failure
 
-The evaluator is spawned only after every generator is `DONE`, so quiescence
-is already satisfied. Evaluator failure triggers Attempt failure immediately.
+The evaluator is spawned only after every generator is `DONE`, so quiescence is
+already satisfied. Evaluator failure triggers harness graph failure
+immediately.
 
-## Next-Attempt decision
+## Harness Graph Outcome
 
 ```
-try_spawn_next_attempt(G, A_failed, fail_reason):
-    A_failed.status      = failed
-    A_failed.fail_reason = fail_reason
-    A_failed.stage       = closed
+close_harness_graph(H, outcome):
+    H.status      = passed | failed
+    H.stage       = closed
+    H.plan_shape  = full | partial | null
+    H.fail_reason = null
+                  | planner_step_budget_exhausted
+                  | generator_failed
+                  | evaluator_failed
 
-    if G.attempts_used < G.retry_budget:
-        A_next = G.create_attempt(
-            attempt_index    = G.attempts_used + 1,
-            prior_attempt_id = A_failed.id,
-        )
-        G.current_attempt_id = A_next.id
-        spawn planner for A_next
-        return
-
-    close_harness_graph_failed(
-        G,
-        source_task_id = A_failed.evaluator_task_id
-                      or A_failed.last_failed_generator_task_id
-                      or A_failed.planner_task_id,
-    )
+    ComplexTaskOrchestrator.handle_harness_graph_closed(H)
 ```
 
-Retry creates a new Attempt in the same graph. It never creates a child graph
-and never bubbles up until the graph closes.
+`HarnessGraphOrchestrator` does not inspect retry budget and does not create
+the next graph. Retry is a segment-level decision owned by
+`ComplexTaskOrchestrator`.
+
+## Complex Task Reaction
+
+`ComplexTaskOrchestrator` reacts to a closed harness graph:
+
+```
+H.status:
+  passed
+    if H.plan_shape == partial:
+      close current segment with plan_shape = partial.
+      create TaskSegment N+1.
+      create HarnessGraph retry 1 in the new segment.
+    else:
+      close current segment success.
+      close ComplexTaskRequest success.
+      return close report to requested_by_task_id.
+
+  failed
+    if current segment has retry budget remaining:
+      create HarnessGraph retry N+1 in the same segment.
+    else:
+      close current segment failed.
+      close ComplexTaskRequest failed.
+      return close report to requested_by_task_id.
+```
+
+Retry creates a new `HarnessGraph` in the same `TaskSegment`. It never creates
+a new segment or complex task request.
 
 ## Closure decision tree
 
-### Stage 1: decide current Attempt outcome
-
 ```
-Orchestrator_G observes a terminal transition in current Attempt A
+HarnessGraphOrchestrator observes a terminal transition in HarnessGraph H
         |
         v
-   A.stage:
+   H.stage:
         |
    +----+------------+----------------+
    v                 v                v
@@ -140,7 +169,7 @@ without valid      quiescent?       success?
 plan?              |                |
    |           +----+----+       +---+---+
    v           v         v       v       v
-A failed     no        yes    A passed A failed
+H failed     no        yes    H passed H failed
 (planner_    |          |             (evaluator_failed)
  step_...)   v          v
           keep       any FAILED
@@ -148,44 +177,32 @@ A failed     no        yes    A passed A failed
                      |
                 +----+----+
                 v         v
-             A failed  spawn evaluator
+             H failed  spawn evaluator
              (generator_failed)
-```
-
-### Stage 2: react at graph level
-
-```
-A.status:
-  passed
-    if A.plan_shape == partial:
-      Phase 04 handles CONTINUE_AFTER_PARTIAL_PLAN child spawning.
-    else:
-      close G success and bubble up to parent.
-
-  failed
-    if G.attempts_used < G.retry_budget:
-      spawn Attempt N+1 in G.
-    else:
-      close G failed and bubble up to parent.
 ```
 
 ## Implementation tasks
 
-1. Add local orchestrator lookup by `HarnessGraph.id`.
-2. Route terminal handlers through the graph's local orchestrator.
-3. Implement planner success path: valid plan submission creates DAG edges
-   and generator tasks for the current Attempt.
+1. Add `HarnessGraphOrchestrator` lookup by `HarnessGraph.id`.
+2. Route planner, generator, verifier, and evaluator terminal handlers through
+   the current graph's `HarnessGraphOrchestrator`.
+3. Implement planner success path: valid plan submission creates generator
+   tasks and task dependencies for the current `HarnessGraph`.
 4. Implement planner exhaustion path.
 5. Implement generator failure quiescence and dependent blocking.
 6. Implement evaluator spawn after generator success.
 7. Implement evaluator success and failure handling.
-8. Implement next-Attempt retry inside the same graph.
-9. Keep vertical child graph spawning stubbed or feature-gated until Phase 04.
+8. Implement graph close reporting from `HarnessGraphOrchestrator` to
+   `ComplexTaskOrchestrator`.
+9. Keep partial-continuation segment creation stubbed or feature-gated until
+   Phase 04.
 
 ## Phase exit criteria
 
-- A non-root graph can complete a full-plan Attempt successfully.
-- Generator failure waits for quiescence before retry.
-- Evaluator failure retries immediately when budget remains.
-- Planner exhaustion retries or closes according to graph retry budget.
-- No retry path creates a child graph.
+- A harness graph can complete a full-plan execution successfully.
+- Generator failure waits for quiescence before graph failure is reported.
+- Evaluator failure closes the harness graph immediately.
+- Planner exhaustion closes the harness graph with
+  `planner_step_budget_exhausted`.
+- No retry path is implemented inside `HarnessGraphOrchestrator`; retry is
+  delegated to `ComplexTaskOrchestrator`.
