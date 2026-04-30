@@ -13,7 +13,7 @@ def test_create_does_not_retry_on_duplicate_auto_run_id(monkeypatch):
 
     class FakeStore:
         def create_run(self, **kwargs):
-            calls.append(kwargs["run_id"])
+            calls.append(kwargs["agent_run_id"])
             if len(calls) == 1:
                 raise DuplicateKeyError("duplicate key value violates unique constraint")
             return None
@@ -29,5 +29,5 @@ def test_create_does_not_retry_on_duplicate_auto_run_id(monkeypatch):
         agent_name="developer",
     )
 
-    assert tracker.run_id is None
+    assert tracker.agent_run_id is None
     assert calls == ["duplicate000000"[:16]]

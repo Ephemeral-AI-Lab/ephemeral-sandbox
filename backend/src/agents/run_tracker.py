@@ -17,7 +17,7 @@ Lifecycle:
         error=...,
     )
 
-When persistence is unavailable, :attr:`run_id` is ``None`` and every
+When persistence is unavailable, :attr:`agent_run_id` is ``None`` and every
 subsequent call on the tracker is a no-op.
 """
 
@@ -51,12 +51,12 @@ def _get_agent_run_store() -> Any | None:
 class AgentRunTracker:
     """Handle wrapping a persisted ``agent_run`` row.
 
-    ``run_id`` is ``None`` when persistence is unavailable; all methods
+    ``agent_run_id`` is ``None`` when persistence is unavailable; all methods
     handle that case by short-circuiting to a no-op so call sites never
     need to branch on a None run id themselves.
     """
 
-    run_id: str | None
+    agent_run_id: str | None
     agent_name: str
     _finished: bool = field(default=False, init=False)
 
@@ -66,24 +66,24 @@ class AgentRunTracker:
         *,
         task_id: str | None,
         agent_name: str,
-        run_id: str | None = None,
+        agent_run_id: str | None = None,
     ) -> AgentRunTracker:
         """Create a persisted run row and return a tracker wrapping it.
 
-        Returns a no-op tracker (``run_id=None``) if the store is not
+        Returns a no-op tracker (``agent_run_id=None``) if the store is not
         ready, the task_id is missing, or the create call raises.
         """
         if not task_id:
-            return cls(run_id=None, agent_name=agent_name)
+            return cls(agent_run_id=None, agent_name=agent_name)
 
         store = _get_agent_run_store()
         if store is None:
-            return cls(run_id=None, agent_name=agent_name)
+            return cls(agent_run_id=None, agent_name=agent_name)
 
-        resolved_run_id = run_id or uuid4().hex[:_AUTO_RUN_ID_HEX_LEN]
+        resolved_agent_run_id = agent_run_id or uuid4().hex[:_AUTO_RUN_ID_HEX_LEN]
         try:
             store.create_run(
-                run_id=resolved_run_id,
+                agent_run_id=resolved_agent_run_id,
                 task_id=task_id,
                 agent_name=agent_name,
             )
@@ -91,8 +91,8 @@ class AgentRunTracker:
             logger.warning(
                 "AgentRunTracker.create: failed to persist agent_run row", exc_info=True
             )
-            return cls(run_id=None, agent_name=agent_name)
-        return cls(run_id=resolved_run_id, agent_name=agent_name)
+            return cls(agent_run_id=None, agent_name=agent_name)
+        return cls(agent_run_id=resolved_agent_run_id, agent_name=agent_name)
 
     def finish(
         self,
@@ -103,7 +103,7 @@ class AgentRunTracker:
         error: str | None = None,
     ) -> None:
         """Finalise the run row. No-op when persistence is unavailable."""
-        if self.run_id is None or self._finished:
+        if self.agent_run_id is None or self._finished:
             return
         store = _get_agent_run_store()
         if store is None:
@@ -114,7 +114,7 @@ class AgentRunTracker:
                 message_history = [m.model_dump(mode="json") for m in messages]
 
             store.finish_run(
-                self.run_id,
+                self.agent_run_id,
                 message_history=message_history,
                 terminal_tool_result=terminal_tool_result,
                 token_count=token_count,

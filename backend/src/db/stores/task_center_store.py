@@ -13,8 +13,8 @@ from db.models.task_center import (
 from db.stores.base import SyncStoreMixin
 
 
-def persisted_task_id(run_id: str, task_id: str) -> str:
-    return f"{run_id}:{task_id}"
+def persisted_task_id(task_center_run_id: str, task_id: str) -> str:
+    return f"{task_center_run_id}:{task_id}"
 
 
 def _serialize_request(record: TaskCenterRequestRecord) -> dict:
@@ -42,7 +42,7 @@ def _serialize_run(record: TaskCenterRunRecord) -> dict:
 def _serialize_task(record: TaskCenterTaskRecord) -> dict:
     return {
         "id": record.id,
-        "run_id": record.run_id,
+        "task_center_run_id": record.task_center_run_id,
         "role": record.role,
         "task_input": record.task_input,
         "status": record.status,
@@ -59,7 +59,7 @@ def _serialize_task(record: TaskCenterTaskRecord) -> dict:
 def _serialize_harness_graph(record: TaskCenterHarnessGraphRecord) -> dict:
     return {
         "id": record.id,
-        "run_id": record.run_id,
+        "task_center_run_id": record.task_center_run_id,
         "root_task_id": record.root_task_id,
         "planner_task_id": record.planner_task_id,
         "executor_task_ids": record.executor_task_ids or [],
@@ -113,12 +113,12 @@ class TaskCenterStore(SyncStoreMixin):
     def create_run(
         self,
         *,
-        run_id: str,
+        task_center_run_id: str,
         request_id: str,
     ) -> TaskCenterRunRecord:
         with self._sf() as db:
             record = TaskCenterRunRecord(
-                id=run_id,
+                id=task_center_run_id,
                 request_id=request_id,
                 status="running",
                 started_at=datetime.now(UTC),
@@ -128,26 +128,26 @@ class TaskCenterStore(SyncStoreMixin):
             db.refresh(record)
             return record
 
-    def set_run_root(self, run_id: str, root_task_id: str) -> None:
+    def set_run_root(self, task_center_run_id: str, root_task_id: str) -> None:
         with self._sf() as db:
-            record = db.get(TaskCenterRunRecord, run_id)
+            record = db.get(TaskCenterRunRecord, task_center_run_id)
             if record is None:
                 return
             record.root_task_id = root_task_id
             db.commit()
 
-    def finish_run(self, run_id: str, status: str) -> None:
+    def finish_run(self, task_center_run_id: str, status: str) -> None:
         with self._sf() as db:
-            record = db.get(TaskCenterRunRecord, run_id)
+            record = db.get(TaskCenterRunRecord, task_center_run_id)
             if record is None:
                 return
             record.status = status
             record.finished_at = datetime.now(UTC)
             db.commit()
 
-    def get_run(self, run_id: str) -> TaskCenterRunRecord | None:
+    def get_run(self, task_center_run_id: str) -> TaskCenterRunRecord | None:
         with self._sf() as db:
-            return db.get(TaskCenterRunRecord, run_id)
+            return db.get(TaskCenterRunRecord, task_center_run_id)
 
     def list_runs_for_request(self, request_id: str, limit: int = 50) -> list[dict]:
         with self._sf() as db:
@@ -163,7 +163,7 @@ class TaskCenterStore(SyncStoreMixin):
         self,
         *,
         task_id: str,
-        run_id: str,
+        task_center_run_id: str,
         role: str,
         task_input: str,
         status: str,
@@ -179,7 +179,7 @@ class TaskCenterStore(SyncStoreMixin):
             if record is None:
                 record = TaskCenterTaskRecord(
                     id=task_id,
-                    run_id=run_id,
+                    task_center_run_id=task_center_run_id,
                     role=role,
                     task_input=task_input,
                     status=status,
@@ -208,7 +208,7 @@ class TaskCenterStore(SyncStoreMixin):
         self,
         *,
         graph_id: str,
-        run_id: str,
+        task_center_run_id: str,
         root_task_id: str,
         planner_task_id: str,
         executor_task_ids: list[str],
@@ -223,7 +223,7 @@ class TaskCenterStore(SyncStoreMixin):
             if record is None:
                 record = TaskCenterHarnessGraphRecord(
                     id=graph_id,
-                    run_id=run_id,
+                    task_center_run_id=task_center_run_id,
                     root_task_id=root_task_id,
                     planner_task_id=planner_task_id,
                     executor_task_ids=executor_task_ids,
@@ -247,20 +247,23 @@ class TaskCenterStore(SyncStoreMixin):
                 record.updated_at = now
             db.commit()
 
-    def list_tasks_for_run(self, run_id: str) -> list[dict]:
+    def list_tasks_for_run(self, task_center_run_id: str) -> list[dict]:
         with self._sf() as db:
             q = (
                 db.query(TaskCenterTaskRecord)
-                .filter(TaskCenterTaskRecord.run_id == run_id)
+                .filter(TaskCenterTaskRecord.task_center_run_id == task_center_run_id)
                 .order_by(TaskCenterTaskRecord.created_at.asc())
             )
             return [_serialize_task(record) for record in q.all()]
 
-    def list_harness_graphs_for_run(self, run_id: str) -> list[dict]:
+    def list_harness_graphs_for_run(self, task_center_run_id: str) -> list[dict]:
         with self._sf() as db:
             q = (
                 db.query(TaskCenterHarnessGraphRecord)
-                .filter(TaskCenterHarnessGraphRecord.run_id == run_id)
+                .filter(
+                    TaskCenterHarnessGraphRecord.task_center_run_id
+                    == task_center_run_id
+                )
                 .order_by(TaskCenterHarnessGraphRecord.created_at.asc())
             )
             return [_serialize_harness_graph(record) for record in q.all()]

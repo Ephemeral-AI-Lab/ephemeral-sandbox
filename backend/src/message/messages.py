@@ -81,7 +81,7 @@ class BackgroundTaskStateBlock(BaseModel):
     status: Literal["running", "completed", "failed", "cancelled"]
     source: Literal["engine_progress", "engine_terminal", "tool_snapshot"]
     text: str
-    run_id: str | None = None
+    agent_run_id: str | None = None
     cancel_reason: str | None = None
     completion_mode: str | None = None
 
@@ -99,8 +99,8 @@ ContentBlock = Annotated[
 
 def _background_task_state_body(block: BackgroundTaskStateBlock) -> str:
     lines = [f"Tool: {block.tool_name}"]
-    if block.run_id:
-        lines.append(f"Run ID: {block.run_id}")
+    if block.agent_run_id:
+        lines.append(f"Agent Run ID: {block.agent_run_id}")
     if block.completion_mode:
         lines.append(f"Completion Mode: {block.completion_mode}")
     if block.cancel_reason:

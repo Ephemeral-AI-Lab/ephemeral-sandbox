@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Any
 
 from tools.core.base import ToolResult
-from message.messages import BackgroundTaskStateBlock, ConversationMessage
+from message.messages import BackgroundTaskStateBlock, ContentBlock, ConversationMessage
 from message.stream_events import BackgroundTaskStarted
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class TrackedBackgroundTask:
     task_type: str = "agent"
     # Optional back-reference to a persisted AgentRunRecord (set by run_subagent
     # so the audit row and the in-memory bg task can be cross-resolved).
-    run_id: str | None = None
+    agent_run_id: str | None = None
     status: TaskStatus = TaskStatus.RUNNING
     # Reason captured by cancel(); kept on the tracked task so callers (and
     # the subagent finaliser) can persist it to the audit record.
@@ -110,7 +110,7 @@ class BackgroundTaskManager:
         coro: Coroutine[Any, Any, ToolResult],
         kill_callback: KillCallback | None = None,
         task_type: str = "agent",
-        run_id: str | None = None,
+        agent_run_id: str | None = None,
     ) -> BackgroundTaskStarted:
         """Launch *coro* as a background task and return a started event."""
         asyncio_task = asyncio.create_task(coro)
@@ -120,7 +120,7 @@ class BackgroundTaskManager:
             tool_input=tool_input,
             asyncio_task=asyncio_task,
             task_type=task_type,
-            run_id=run_id,
+            agent_run_id=agent_run_id,
             kill_callback=kill_callback,
         )
         start_line = f"[started: {tool_name}]"
@@ -309,7 +309,7 @@ class BackgroundTaskManager:
                 "task_id": tracked.task_id,
                 "tool_name": tracked.tool_name,
                 "task_type": tracked.task_type,
-                "run_id": tracked.run_id,
+                "agent_run_id": tracked.agent_run_id,
                 "status": tracked.status,
                 "elapsed_seconds": round(now - tracked.started_at, 1),
             }
@@ -481,7 +481,7 @@ def build_background_reminder(
     if not pending:
         return None
 
-    content: list[BackgroundTaskStateBlock] = []
+    content: list[ContentBlock] = []
     for t in pending:
         elapsed = time.monotonic() - t.started_at
         new_lines, since = background_manager.get_reminder_diff(t.task_id)
@@ -503,7 +503,7 @@ def build_background_reminder(
                 status="running",
                 source="engine_progress",
                 text=text,
-                run_id=t.run_id,
+                agent_run_id=t.agent_run_id,
             )
         )
 

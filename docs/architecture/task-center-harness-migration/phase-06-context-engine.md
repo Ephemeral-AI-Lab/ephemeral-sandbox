@@ -7,11 +7,10 @@ Define the context engine that sits on top of the migrated
 
 The context engine composes role-specific launch context, stores durable
 summaries, and produces detailed close-report payloads. It must not own
-lifecycle policy. Request creation and close, plus segment-chain decisions
-(initial and continuation segment creation), belong to
+lifecycle policy. Request creation and close belong to
 `ComplexTaskRequestHandler`. Per-segment retry and segment close belong to
-`TaskSegmentManager` (one per segment). Planner, generator, and evaluator
-execution belong to `HarnessGraphOrchestrator`.
+`TaskSegmentManager`. Planner, generator, and evaluator execution belong to
+`HarnessGraphOrchestrator`.
 
 The design target is flexible and structured enough for three layers:
 
@@ -19,15 +18,17 @@ The design target is flexible and structured enough for three layers:
 - task segment management,
 - harness graph orchestration.
 
+Partial-plan continuation is removed. The context engine does not compose
+segment-chain context or propagate planner-supplied continuation goals.
+
 ## Non-goals
 
 The context engine does not:
 
 - decide whether a complex task request should close,
-- decide whether a passing partial graph creates a continuation segment,
 - decide whether a failed graph should retry,
-- mutate `ComplexTaskRequest`, `TaskSegment`, or `HarnessGraph` lifecycle
-  fields except through explicit summary/evidence writes,
+- mutate `ComplexTaskRequest`, `TaskSegment`, or `HarnessGraph` lifecycle fields
+  except through explicit summary/evidence writes,
 - replace canonical lifecycle fields with generated summaries.
 
 Generated summaries are derived context. They can guide agents, but lifecycle
@@ -41,16 +42,17 @@ these sources distinct instead of blending them into one global prompt.
 | Scope | Canonical source | Notes |
 | ----- | ---------------- | ----- |
 | Entry executor | user request or assigned root task input | This is the executor's direct work contract. |
-| Complex task request | `ComplexTaskRequest.goal` | Created from `request_complex_task_solution(goal)` and becomes the direct request-level goal. |
-| Task segment | `TaskSegment.goal` | For segment 1 this starts from the request goal. For segment 2+ it equals the previous segment's `continuation_goal`. |
-| Harness graph | `HarnessGraph.task_specification`, `HarnessGraph.evaluation_criteria`, and `HarnessGraph.continuation_goal` | Emitted by the planner through `submit_full_plan` (continuation_goal null) or `submit_partial_plan(continuation_goal)`. Set per-graph; not inherited by later graphs in the same segment. |
+| Complex task request | `ComplexTaskRequest.goal` | Created from `request_complex_task_solution(goal)` and becomes the request-level goal. |
+| Task segment | `TaskSegment.goal` | Equals the complex task request goal. |
+| Harness graph | `HarnessGraph.task_specification` and `HarnessGraph.evaluation_criteria` | Emitted by the planner through `submit_full_plan`. |
 | Generator task | planned task specification plus dependency summaries | Generators should not need the full complex-task history unless their local task spec explicitly requires it. |
-| Evaluator | graph task specification, completed task summaries, and evaluation criteria | The evaluator judges the current harness graph, not the whole request history. |
+| Evaluator | graph task specification, completed task summaries, and evaluation criteria | The evaluator judges the current harness graph. |
 
-The `goal` passed to `request_complex_task_solution(goal)` is the source of
-truth for the complex task request and every direct segment or harness graph
-under it. Parent executor context can be included as background evidence, but
-it is not the contract for the nested request.
+The `goal` passed to `request_complex_task_solution(goal)` is the direct
+request-level contract. Harness graph execution is governed by the planner's
+`task_specification` and `evaluation_criteria`. Parent executor context can be
+included as background evidence, but it must not override those canonical
+contracts.
 
 ## Context engine contract
 
@@ -70,7 +72,7 @@ class ContextEngine:
         self, harness_graph_id: str
     ) -> ContextPacket: ...
 
-    async def build_request_resume_context(
+    async def build_request_close_context(
         self, complex_task_request_id: str
     ) -> ContextPacket: ...
 
@@ -122,7 +124,7 @@ Suggested block priorities:
 | Priority | Meaning |
 | -------- | ------- |
 | `required` | Must be included. Canonical goals, task specs, evaluation criteria, and hard constraints. |
-| `high` | Include unless impossible. Failure landscape, dependency summaries, accepted prior segment summaries. |
+| `high` | Include unless impossible. Failure landscape and dependency summaries. |
 | `medium` | Useful history. Parent executor background, resolver notes. |
 | `low` | Optional background. Verbose evidence lists, exploratory notes, long logs. |
 
@@ -131,13 +133,11 @@ Suggested block kinds:
 - `entry_request`,
 - `complex_task_goal`,
 - `segment_goal`,
-- `continuation_instruction`,
 - `task_specification`,
 - `evaluation_criteria`,
 - `planned_task_spec`,
 - `dependency_summary`,
 - `completed_task_summary`,
-- `prior_segment_summary`,
 - `prior_harness_graph_summary`,
 - `failed_graph_landscape`,
 - `resolver_summary`,
@@ -165,9 +165,8 @@ Required fields:
 | `residual_risks` | Known risks or follow-ups. |
 | `created_at` | Timestamp. |
 
-Planner task summaries should include the submitted plan's `continuation_goal`
-(null or the supplied goal) and enough context to explain why a full or
-partial plan was chosen, but the canonical segment contract remains on
+Planner task summaries should include the submitted full plan and enough context
+to explain the decomposition, but the canonical segment contract remains on
 `HarnessGraph.task_specification` and `HarnessGraph.evaluation_criteria`.
 
 ### Harness graph summary
@@ -182,7 +181,6 @@ Required fields:
 | `segment_id` | Owning segment. |
 | `graph_sequence_no` | 1-based graph order inside the segment. |
 | `status` | Passed or failed. |
-| `continuation_goal` | Null when the planner submitted a full plan or when the graph never produced a valid plan; the planner-supplied goal when partial. Per-graph; not inherited from prior graphs. |
 | `fail_reason` | Planner exhaustion, generator failure, evaluator failure, or null. |
 | `task_specification` | Planner-emitted graph contract. |
 | `evaluation_criteria` | Planner-emitted evaluation criteria. |
@@ -206,17 +204,17 @@ Required fields:
 | ----- | ------- |
 | `task_segment_id` | Closed segment. |
 | `complex_task_request_id` | Owning request. |
-| `sequence_no` | Segment sequence number. |
+| `sequence_no` | Always `1` in the no-continuation model. |
 | `goal` | Segment goal. |
 | `outcome` | Succeeded or failed. |
-| `continuation_goal` | Inherited from the passing harness graph that closed the segment. Null on terminal close (full plan) or on failure; non-null when the passing graph submitted a partial plan. |
 | `completed_work` | What this segment accomplished. |
-| `closing_harness_graph_summary_id` | Summary for the harness graph that closed the segment (the passing one for success, the last failed one for failed segments). |
-| `failed_harness_graph_summary_ids` | Summaries for prior failed harness graphs in this segment, in graph sequence order. |
+| `final_harness_graph_summary_id` | Summary for the harness graph that produced the final segment outcome: the passing graph for success, or the final attempted failed graph for `attempt_plan_failed`. |
+| `attempted_plan_history` | Ordered digest of every harness graph attempted in the segment. Each entry is derived from its harness graph summary and includes `task_specification`, `evaluation_criteria`, `fail_reason`, and `failure_landscape` for failed graphs. |
 
-Failed graph summaries are useful retry context but are not the source of
-truth for segment closure. Only the passing harness graph's
-`continuation_goal` propagates to the segment.
+For `attempt_plan_failed`, `attempted_plan_history` is the primary failure
+payload. It must include every attempted harness graph, not only the final
+failed graph, so the requester can see what plans were tried and why each
+attempt failed.
 
 ### Complex task summary
 
@@ -227,18 +225,17 @@ Required fields:
 | Field | Meaning |
 | ----- | ------- |
 | `complex_task_request_id` | Closed request. |
-| `requested_by_task_id` | Executor to resume. |
+| `requested_by_task_id` | Executor task receiving the final report. |
 | `goal` | Request goal from `request_complex_task_solution(goal)`. |
 | `outcome` | Succeeded, failed, or cancelled. |
 | `final_segment_id` | Segment that produced the final outcome. |
 | `final_harness_graph_id` | Graph that produced the final outcome. |
-| `segment_summaries` | Ordered digest of segment results. |
-| `final_result` | The payload returned to the requesting executor. |
+| `segment_summary` | Digest of the single segment result. |
+| `final_result` | The payload returned for the requesting executor task. |
 | `artifact_refs` | Final durable evidence references. |
-| `residual_risks` | Follow-ups the requesting executor must know. |
+| `residual_risks` | Follow-ups the requesting executor task must know. |
 
-This summary powers the resume packet delivered back to
-`requested_by_task_id`.
+This summary powers the close packet delivered to `requested_by_task_id`.
 
 ## Role-specific context recipes
 
@@ -247,8 +244,8 @@ This summary powers the resume packet delivered back to
 Entry executor context is the user request or assigned task input plus runtime
 environment details.
 
-It should not include complex-task summaries until the executor has requested a
-complex task and is being resumed.
+It should not include complex-task summaries until a close report has been
+attached for the executor task.
 
 ### Planner context
 
@@ -258,31 +255,14 @@ Required blocks:
 
 - `complex_task_goal`: `ComplexTaskRequest.goal`.
 - `segment_goal`: current `TaskSegment.goal`.
-- `continuation_instruction`: present for segment 2+ and derived from the
-  previous segment's `continuation_goal`.
 - `failed_graph_landscape`: present when this graph follows an earlier failed
-  graph in the same segment and derived from those earlier failed harness
-  graphs.
-- `prior_segment_summary`: present for segment 2+ and derived from previous
-  segments' closing summaries.
+  graph in the same segment and derived from those earlier failed harness graphs.
 
 The planner may receive parent executor background, but it must be marked as
 background. It must not override the complex task request goal.
 
 The planner of a graph launched after a `TaskSegmentManager` retry decision
-decides independently whether to submit a full or partial plan. The
-`continuation_goal` of prior failed graphs in the same segment is not
-inherited and is not part of the planner's contract; the failure landscape is
-the relevant retry input.
-
-Planner context should make partial-plan gating explicit:
-
-- if no prior segment in the request had a non-null `continuation_goal`,
-  both `submit_full_plan` and `submit_partial_plan` are available according
-  to role policy;
-- if any prior segment had a non-null `continuation_goal`, context should
-  remind the planner that only a full plan is valid, while the hard prehook
-  enforces the same rule.
+submits a fresh full plan. The failure landscape is the relevant retry input.
 
 ### Generator executor context
 
@@ -293,12 +273,11 @@ Required blocks:
 - `planned_task_spec`: the exact task assigned by the planner.
 - `task_specification`: the current graph contract, included as framing.
 - `dependency_summary`: summaries of completed dependency tasks.
-- `artifact_reference`: artifacts from dependencies that the generator may
-  need.
+- `artifact_reference`: artifacts from dependencies that the generator may need.
 
-Generators should not receive the whole request or segment history by default.
-Their job is local execution. If the planner wants a generator to account for
-the larger goal, that requirement should appear in the planned task spec.
+Generators should not receive the whole request history by default. Their job is
+local execution. If the planner wants a generator to account for the larger
+goal, that requirement should appear in the planned task spec.
 
 ### Generator verifier context
 
@@ -328,35 +307,32 @@ Required blocks:
 - `resolver_summary`: resolver outputs relevant to completed tasks.
 - `artifact_reference`: final evidence and artifacts.
 
-The evaluator should judge the current harness graph, not the full complex
-task request. Prior segment context can be included only when the current
-segment goal or evaluation criteria explicitly depends on it.
+The evaluator should judge the current harness graph. Request-level background
+can be included only when the current graph contract or evaluation criteria
+explicitly depends on it.
 
-### Request resume context
+### Request close context
 
-When a complex task request closes,
-`ComplexTaskRequestHandler` asks the context engine for a resume packet for
-`requested_by_task_id`.
+When a complex task request closes, `ComplexTaskRequestHandler` asks the context
+engine for a close packet for `requested_by_task_id`.
 
 Required blocks:
 
 - `close_report`: succeeded, failed, or cancelled.
 - `complex_task_goal`: the original request goal.
-- `complex_task_summary`: final result and ordered segment digest.
-- `artifact_reference`: artifacts the requesting executor may use.
+- `complex_task_summary`: final result and segment digest.
+- `artifact_reference`: artifacts attached to the final report.
 - `residual_risks`: risks and follow-ups.
 
-This packet resumes the paused executor. It is not a terminal result for that
-executor; the executor still submits its own execution success or failure.
+This packet becomes the final report for the executor task that requested the
+complex task.
 
 ## Segment retry context rules
 
 Retry is horizontal inside one `TaskSegment` and only follows a failed graph.
-A planner launched after `TaskSegmentManager` retries receives the same
-request goal and segment goal as the prior graph, plus structured failure
-history. It does not receive any `continuation_goal` from prior graphs — those
-are per-graph and stay with their owning graph; the new planner decides
-freshly.
+A planner launched after `TaskSegmentManager` retries receives the same request
+goal and segment goal as the prior graph, plus structured failure history. It
+submits a fresh full plan.
 
 For retry context, include:
 
@@ -368,25 +344,6 @@ For retry context, include:
 - planner exhaustion details when applicable,
 - residual risks and unresolved criteria.
 
-## Partial-continuation context rules
-
-Partial continuation is vertical across `TaskSegment.previous_segment_id`.
-
-For segment 2+ planner context, include:
-
-- original `ComplexTaskRequest.goal`,
-- current `TaskSegment.goal`, which equals the previous segment's
-  `continuation_goal`,
-- ordered summaries of previous closed segments,
-- the previous segment's closing harness graph summary,
-- artifacts and residual risks from previous segments,
-- the partial-plan gate reminder if any prior segment had a non-null
-  `continuation_goal`.
-
-Only the passing harness graph in a segment contributes to that segment's
-`continuation_goal`. Failed harness graphs in the same segment are retry
-context, not continuation history.
-
 ## Integration points
 
 `ComplexTaskRequestHandler`:
@@ -394,20 +351,16 @@ context, not continuation history.
 - records request origin context when creating a request,
 - asks the context engine to record a complex-task summary when the request
   closes,
-- asks for `build_request_resume_context` when closing a request,
-- stores the final complex task summary before resuming the requesting
-  executor,
-- decides continuation strictly from the `SegmentCloseReport.outcome`
-  (never from generated summaries) when creating segment N+1.
+- asks for `build_request_close_context` when closing a request,
+- stores the final complex task summary before reporting to the requesting
+  executor task.
 
-`TaskSegmentManager` (per segment):
+`TaskSegmentManager`:
 
 - asks the context engine to record a segment summary when its owned segment
   closes,
 - passes segment and graph ids to context recipes rather than assembling
-  prompts,
-- never creates the next segment and never derives continuation decisions from
-  generated summaries.
+  prompts.
 
 `HarnessGraphOrchestrator`:
 
@@ -429,12 +382,12 @@ The context engine should compose packets in priority order:
 
 1. required canonical fields,
 2. high-priority summaries and failure landscape,
-3. medium-priority failed-graph and segment history,
+3. medium-priority failed-graph history,
 4. low-priority evidence and verbose notes.
 
-If a packet exceeds its token budget, compress low-priority blocks first.
-Never compress canonical goals, task specifications, evaluation criteria, or
-hard constraints into ambiguous prose.
+If a packet exceeds its token budget, compress low-priority blocks first. Never
+compress canonical goals, task specifications, evaluation criteria, or hard
+constraints into ambiguous prose.
 
 Evidence references should be preferred over pasted logs. Include concise
 summaries inline and attach durable refs for detailed inspection.
@@ -447,7 +400,6 @@ The context engine needs store helpers for:
 - inserting and loading harness graph summaries,
 - inserting and loading task segment summaries,
 - inserting and loading complex task summaries,
-- listing previous segments by `previous_segment_id` lineage,
 - listing harness graphs by `segment_id` and `graph_sequence_no`,
 - loading task dependency summaries,
 - loading artifacts and evidence refs.
@@ -461,18 +413,17 @@ same closed owner should update the existing summary or no-op predictably.
    summary types.
 2. Add summary persistence for task, harness graph, task segment, and complex
    task summaries.
-3. Add context walks for request origin, segment continuation, failed graph
-   history, task dependencies, and completed generator DAG tasks.
-4. Implement `build_planner_context` for initial graph, later graph after
-   failure, and continuation segment cases.
+3. Add context walks for request origin, failed graph history, task dependencies,
+   and completed generator DAG tasks.
+4. Implement `build_planner_context` for initial graph and later graph after
+   failure cases.
 5. Implement `build_generator_context` for executor and verifier tasks.
-6. Implement `build_evaluator_context` from graph contract, evaluation
-   criteria, completed task summaries, resolver summaries, and artifacts.
-7. Implement `build_request_resume_context` for complex-task close reports.
+6. Implement `build_evaluator_context` from graph contract, evaluation criteria,
+   completed task summaries, resolver summaries, and artifacts.
+7. Implement `build_request_close_context` for complex-task close reports.
 8. Connect `HarnessGraphOrchestrator` role launches to context packets.
 9. Connect terminal submissions and helper returns to summary recording.
-10. Keep prompt rendering as a separate adapter from context packet
-    composition.
+10. Keep prompt rendering as a separate adapter from context packet composition.
 11. Add token-budget compression without changing canonical required blocks.
 
 ## Test plan
@@ -480,18 +431,13 @@ same closed owner should update the existing summary or no-op predictably.
 Minimum coverage:
 
 - Planner context for initial segment includes request goal and segment goal.
-- Planner context for a graph launched after failure includes failure
-  landscape and prior failed graph summaries.
-- Retry context does not carry any `continuation_goal` from prior failed
-  graphs in the same segment.
-- Planner context for segment 2 includes previous accepted segment summary,
-  the previous segment's `continuation_goal` as the segment goal, and the
-  passing harness graph summary that produced it.
-- Generator context includes planned task spec and dependency summaries but
-  does not include full request history by default.
+- Planner context for a graph launched after failure includes failure landscape
+  and prior failed graph summaries.
+- Generator context includes planned task spec and dependency summaries but does
+  not include full request history by default.
 - Evaluator context includes task specification, evaluation criteria, and all
   completed generator/verifier summaries.
-- Complex-task resume context returns final complex task summary to
+- Complex-task close context returns final complex task summary to
   `requested_by_task_id`.
 - Summary recording is idempotent per owner id.
 - Token compression preserves canonical goals, task specifications, evaluation
@@ -499,13 +445,9 @@ Minimum coverage:
 
 ## Phase exit criteria
 
-- Every planner, generator, verifier, evaluator, and request-resume launch can
-  be built from a structured `ContextPacket`.
+- Every planner, generator, verifier, evaluator, and request-close packet can be
+  built from a structured `ContextPacket`.
 - Summaries exist at task, harness graph, segment, and complex task levels.
-- Segment retry context surfaces the failure landscape from prior failed graphs
-  and does not propagate any `continuation_goal` between graph executions.
-- Partial-continuation context uses each prior segment's `continuation_goal`
-  (inherited from its passing harness graph) as the source of vertical
-  continuation.
+- Segment retry context surfaces the failure landscape from prior failed graphs.
 - Lifecycle services still make decisions from structural state, not generated
   summaries.

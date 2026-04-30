@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, UTC
+from typing import Any
 
 from db.models.agent_run import AgentRunRecord
 from db.stores.base import SyncStoreMixin
 
 
-def _serialize_run_summary(r: AgentRunRecord) -> dict:
+def _serialize_run_summary(r: AgentRunRecord) -> dict[str, Any]:
     """Small JSON view of an AgentRunRecord for list endpoints."""
     return {
         "id": r.id,
@@ -29,14 +30,14 @@ class AgentRunStore(SyncStoreMixin):
     def create_run(
         self,
         *,
-        run_id: str,
+        agent_run_id: str,
         task_id: str,
         agent_name: str,
     ) -> AgentRunRecord:
         """Create a new agent run record for one TaskCenter task."""
         with self._sf() as db:
             record = AgentRunRecord(
-                id=run_id,
+                id=agent_run_id,
                 task_id=task_id,
                 agent_name=agent_name,
                 created_at=datetime.now(UTC),
@@ -48,15 +49,15 @@ class AgentRunStore(SyncStoreMixin):
 
     def finish_run(
         self,
-        run_id: str,
+        agent_run_id: str,
         *,
-        message_history: list | None = None,
-        terminal_tool_result: dict | None = None,
+        message_history: list[dict[str, Any]] | None = None,
+        terminal_tool_result: dict[str, Any] | None = None,
         token_count: int = 0,
         error: str | None = None,
     ) -> AgentRunRecord | None:
         with self._sf() as db:
-            record = db.get(AgentRunRecord, run_id)
+            record = db.get(AgentRunRecord, agent_run_id)
             if record is None:
                 return None
             record.message_history = message_history
@@ -68,11 +69,11 @@ class AgentRunStore(SyncStoreMixin):
             db.refresh(record)
             return record
 
-    def get_run(self, run_id: str) -> AgentRunRecord | None:
+    def get_run(self, agent_run_id: str) -> AgentRunRecord | None:
         with self._sf() as db:
-            return db.get(AgentRunRecord, run_id)
+            return db.get(AgentRunRecord, agent_run_id)
 
-    def list_runs_for_tasks(self, task_ids: list[str]) -> list[dict]:
+    def list_runs_for_tasks(self, task_ids: list[str]) -> list[dict[str, Any]]:
         if not task_ids:
             return []
         with self._sf() as db:

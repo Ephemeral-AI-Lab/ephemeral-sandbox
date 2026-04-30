@@ -68,12 +68,23 @@ _DROPPED_COLUMNS: dict[str, set[str]] = {
         "evaluator_id",
         "handoff_note",
         "parent_id",
+        "run_id",
         "spec",
         "summary",
         "title",
     },
     "task_center_harness_graph": {
         "evaluator_task_id",
+        "run_id",
+    },
+}
+
+_RENAMED_COLUMNS: dict[str, dict[str, str]] = {
+    "task_center_tasks": {
+        "run_id": "task_center_run_id",
+    },
+    "task_center_harness_graph": {
+        "run_id": "task_center_run_id",
     },
 }
 
@@ -144,6 +155,41 @@ def _rebuild_sqlite_table(engine: Engine, table: Any) -> None:
             )
 
         conn.execute(text(f'DROP TABLE "{backup_name}"'))
+
+
+def _rename_columns(engine: Engine) -> None:
+    """Rename known legacy columns before generic add/drop migration runs."""
+    insp = inspect(engine)
+    for table_name, renames in _RENAMED_COLUMNS.items():
+        if not insp.has_table(table_name):
+            continue
+        existing = {col["name"] for col in insp.get_columns(table_name)}
+        for old_name, new_name in renames.items():
+            if old_name not in existing:
+                continue
+            if new_name in existing:
+                with engine.begin() as conn:
+                    conn.execute(
+                        text(
+                            f'UPDATE "{table_name}" '
+                            f'SET "{new_name}" = "{old_name}" '
+                            f'WHERE "{new_name}" IS NULL'
+                        )
+                    )
+                continue
+            logger.info(
+                "Renaming legacy column %s.%s to %s",
+                table_name,
+                old_name,
+                new_name,
+            )
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        f'ALTER TABLE "{table_name}" '
+                        f'RENAME COLUMN "{old_name}" TO "{new_name}"'
+                    )
+                )
 
 
 def _add_missing_columns(engine: Engine) -> None:
@@ -252,6 +298,9 @@ def initialize_db(
     import db.models  # noqa: F401
 
     Base.metadata.create_all(_engine)
+
+    # Rename legacy columns before patching missing/new columns.
+    _rename_columns(_engine)
 
     # Patch existing tables with columns added after initial creation.
     _add_missing_columns(_engine)

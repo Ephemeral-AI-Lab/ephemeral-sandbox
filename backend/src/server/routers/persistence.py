@@ -59,14 +59,14 @@ def create_persistence_router(
         runs = task_center_store.list_runs_for_request(request_id, limit=limit)
         return JSONResponse(content={"runs": runs})
 
-    @router.get("/task-center-runs/{run_id}/tasks")
-    async def list_task_center_tasks(run_id: str):
+    @router.get("/task-center-runs/{task_center_run_id}/tasks")
+    async def list_task_center_tasks(task_center_run_id: str):
         if not _db_available():
             return JSONResponse(
                 status_code=503,
                 content={"error": "Database not configured"},
             )
-        tasks = task_center_store.list_tasks_for_run(run_id)
+        tasks = task_center_store.list_tasks_for_run(task_center_run_id)
         agent_runs = agent_run_store.list_runs_for_tasks([task["id"] for task in tasks])
         runs_by_task_id = {run["task_id"]: run for run in agent_runs}
         return JSONResponse(
@@ -81,14 +81,16 @@ def create_persistence_router(
             }
         )
 
-    @router.get("/task-center-runs/{run_id}/graph")
-    async def list_task_center_harness_graph(run_id: str):
+    @router.get("/task-center-runs/{task_center_run_id}/graph")
+    async def list_task_center_harness_graph(task_center_run_id: str):
         if not _db_available():
             return JSONResponse(
                 status_code=503,
                 content={"error": "Database not configured"},
             )
-        harness_graphs = task_center_store.list_harness_graphs_for_run(run_id)
+        harness_graphs = task_center_store.list_harness_graphs_for_run(
+            task_center_run_id
+        )
         return JSONResponse(content={"harness_graphs": harness_graphs})
 
     @router.get("/agent-runs/{agent_run_id}")
