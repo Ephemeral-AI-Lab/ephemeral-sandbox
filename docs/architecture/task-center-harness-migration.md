@@ -39,8 +39,9 @@ The migration reshapes the harness around three context axes:
   `request_complex_task_solution(goal)`.
 - Vertical progression: `TaskSegment`s represent partial-plan continuation
   steps inside one complex task request.
-- Horizontal retry: `HarnessGraph`s are planner-produced DAG executions inside
-  one task segment. A retry after failure or after a non-closing partial graph
-  creates a new `HarnessGraph`, not a new segment.
+- Segment retry policy: `HarnessGraph`s are planner-produced DAG executions
+  inside one task segment. A failed graph returns to `TaskSegmentManager`,
+  which decides whether to spend segment retry budget by launching another
+  `HarnessGraph` in the same segment.
 
 The detailed context-composition system is specified separately in Phase 06.

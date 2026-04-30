@@ -102,7 +102,7 @@ registration.
 | `submit_evaluation_success` | evaluator has at least five unresolved resolver calls | agent message history | warn at four unresolved resolver calls | prehook blocks success at five |
 | `submit_verification_success` | verifier has at least five unresolved resolver calls | agent message history | warn at four unresolved resolver calls | prehook blocks success at five |
 | evaluator spawn | any generator in current `HarnessGraph` is not `DONE` | current harness graph task statuses | none | `HarnessGraphOrchestrator` does not spawn evaluator |
-| retry harness graph spawn | `harness_graphs_used >= retry_budget` | current task segment state | none | `TaskSegmentManager` cannot create another graph; it must accept the current successful graph as closing, or close the segment failed if the current graph failed |
+| next harness graph after failed graph | `harness_graphs_used >= retry_budget` | current task segment state | none | `TaskSegmentManager` cannot spend retry budget on another graph; it closes the segment failed if the current graph failed |
 | failure terminals | never blocked for owning roles | role policy | none | allowed |
 
 ## Gate enforcement flow

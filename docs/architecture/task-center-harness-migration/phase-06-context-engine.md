@@ -7,10 +7,11 @@ Define the context engine that sits on top of the migrated
 
 The context engine composes role-specific launch context, stores durable
 summaries, and produces detailed close-report payloads. It must not own
-lifecycle policy. Request creation and close still belong to
-`ComplexTaskRequestHandler`; segment continuation and retry still belong to
-`TaskSegmentManager`; planner, generator, and evaluator execution still belongs
-to `HarnessGraphOrchestrator`.
+lifecycle policy. Request creation and close, plus segment-chain decisions
+(initial and continuation segment creation), belong to
+`ComplexTaskRequestHandler`. Per-segment retry and segment close belong to
+`TaskSegmentManager` (one per segment). Planner, generator, and evaluator
+execution belong to `HarnessGraphOrchestrator`.
 
 The design target is flexible and structured enough for three layers:
 
@@ -42,7 +43,7 @@ these sources distinct instead of blending them into one global prompt.
 | Entry executor | user request or assigned root task input | This is the executor's direct work contract. |
 | Complex task request | `ComplexTaskRequest.goal` | Created from `request_complex_task_solution(goal)` and becomes the direct request-level goal. |
 | Task segment | `TaskSegment.goal` | For segment 1 this starts from the request goal. For segment 2+ it equals the previous segment's `continuation_goal`. |
-| Harness graph | `HarnessGraph.task_specification`, `HarnessGraph.evaluation_criteria`, and `HarnessGraph.continuation_goal` | Emitted by the planner through `submit_full_plan` (continuation_goal null) or `submit_partial_plan(continuation_goal)`. Set per-graph; not shared across retries. |
+| Harness graph | `HarnessGraph.task_specification`, `HarnessGraph.evaluation_criteria`, and `HarnessGraph.continuation_goal` | Emitted by the planner through `submit_full_plan` (continuation_goal null) or `submit_partial_plan(continuation_goal)`. Set per-graph; not inherited by later graphs in the same segment. |
 | Generator task | planned task specification plus dependency summaries | Generators should not need the full complex-task history unless their local task spec explicitly requires it. |
 | Evaluator | graph task specification, completed task summaries, and evaluation criteria | The evaluator judges the current harness graph, not the whole request history. |
 
@@ -138,7 +139,7 @@ Suggested block kinds:
 - `completed_task_summary`,
 - `prior_segment_summary`,
 - `prior_harness_graph_summary`,
-- `retry_failure_landscape`,
+- `failed_graph_landscape`,
 - `resolver_summary`,
 - `artifact_reference`,
 - `close_report`.
@@ -179,9 +180,9 @@ Required fields:
 | ----- | ------- |
 | `harness_graph_id` | Owning harness graph. |
 | `segment_id` | Owning segment. |
-| `retry_no` | Retry number inside the segment. |
+| `graph_sequence_no` | 1-based graph order inside the segment. |
 | `status` | Passed or failed. |
-| `continuation_goal` | Null when the planner submitted a full plan or when the graph never produced a valid plan; the planner-supplied goal when partial. Per-graph; not inherited from prior retries. |
+| `continuation_goal` | Null when the planner submitted a full plan or when the graph never produced a valid plan; the planner-supplied goal when partial. Per-graph; not inherited from prior graphs. |
 | `fail_reason` | Planner exhaustion, generator failure, evaluator failure, or null. |
 | `task_specification` | Planner-emitted graph contract. |
 | `evaluation_criteria` | Planner-emitted evaluation criteria. |
@@ -189,10 +190,11 @@ Required fields:
 | `failure_landscape` | Structured failed, blocked, unresolved, and skipped work. |
 | `artifact_refs` | Durable evidence references. |
 
-For failed graphs, `failure_landscape` is the most important retry input. It
-should distinguish planner exhaustion, failed generators, blocked dependents,
-evaluator failures, unresolved resolver calls, and independent work that still
-completed successfully.
+For failed graphs, `failure_landscape` is the most important input if
+`TaskSegmentManager` retries and launches a later graph. It should distinguish
+planner exhaustion, failed generators, blocked dependents, evaluator failures,
+unresolved resolver calls, and independent work that still completed
+successfully.
 
 ### Task segment summary
 
@@ -210,11 +212,11 @@ Required fields:
 | `continuation_goal` | Inherited from the passing harness graph that closed the segment. Null on terminal close (full plan) or on failure; non-null when the passing graph submitted a partial plan. |
 | `completed_work` | What this segment accomplished. |
 | `closing_harness_graph_summary_id` | Summary for the harness graph that closed the segment (the passing one for success, the last failed one for failed segments). |
-| `retry_history_summary_ids` | Summaries for prior failed harness graphs in this segment, in retry order. |
+| `failed_harness_graph_summary_ids` | Summaries for prior failed harness graphs in this segment, in graph sequence order. |
 
-Retry history summaries are useful as context but are not the source of truth
-for segment closure. Only the passing harness graph's `continuation_goal`
-propagates to the segment.
+Failed graph summaries are useful retry context but are not the source of
+truth for segment closure. Only the passing harness graph's
+`continuation_goal` propagates to the segment.
 
 ### Complex task summary
 
@@ -258,18 +260,20 @@ Required blocks:
 - `segment_goal`: current `TaskSegment.goal`.
 - `continuation_instruction`: present for segment 2+ and derived from the
   previous segment's `continuation_goal`.
-- `retry_failure_landscape`: present for retry graphs and derived from earlier
-  failed harness graphs in the same segment.
+- `failed_graph_landscape`: present when this graph follows an earlier failed
+  graph in the same segment and derived from those earlier failed harness
+  graphs.
 - `prior_segment_summary`: present for segment 2+ and derived from previous
   segments' closing summaries.
 
 The planner may receive parent executor background, but it must be marked as
 background. It must not override the complex task request goal.
 
-The planner of a retry graph decides independently whether to submit a full
-or partial plan. The `continuation_goal` of prior failed graphs in the same
-segment is not inherited and is not part of the planner's contract; the
-failure landscape is the relevant retry input.
+The planner of a graph launched after a `TaskSegmentManager` retry decision
+decides independently whether to submit a full or partial plan. The
+`continuation_goal` of prior failed graphs in the same segment is not
+inherited and is not part of the planner's contract; the failure landscape is
+the relevant retry input.
 
 Planner context should make partial-plan gating explicit:
 
@@ -345,17 +349,18 @@ Required blocks:
 This packet resumes the paused executor. It is not a terminal result for that
 executor; the executor still submits its own execution success or failure.
 
-## Retry context rules
+## Segment retry context rules
 
 Retry is horizontal inside one `TaskSegment` and only follows a failed graph.
-A retry planner receives the same request goal and segment goal as the prior
-graph, plus structured failure history. It does not receive any
-`continuation_goal` from prior graphs — those are per-graph and stay with
-their owning graph; the new planner decides freshly.
+A planner launched after `TaskSegmentManager` retries receives the same
+request goal and segment goal as the prior graph, plus structured failure
+history. It does not receive any `continuation_goal` from prior graphs — those
+are per-graph and stay with their owning graph; the new planner decides
+freshly.
 
 For retry context, include:
 
-- every prior failed graph summary in retry order,
+- every prior failed graph summary in graph sequence order,
 - failed task summaries,
 - blocked dependents,
 - completed independent work that may be reused,
@@ -380,23 +385,29 @@ For segment 2+ planner context, include:
 
 Only the passing harness graph in a segment contributes to that segment's
 `continuation_goal`. Failed harness graphs in the same segment are retry
-history, not continuation history.
+context, not continuation history.
 
 ## Integration points
 
 `ComplexTaskRequestHandler`:
 
 - records request origin context when creating a request,
+- asks the context engine to record a complex-task summary when the request
+  closes,
 - asks for `build_request_resume_context` when closing a request,
 - stores the final complex task summary before resuming the requesting
-  executor.
+  executor,
+- decides continuation strictly from the `SegmentCloseReport.outcome`
+  (never from generated summaries) when creating segment N+1.
 
-`TaskSegmentManager`:
+`TaskSegmentManager` (per segment):
 
-- asks the context engine to record segment summaries when a segment closes,
+- asks the context engine to record a segment summary when its owned segment
+  closes,
 - passes segment and graph ids to context recipes rather than assembling
   prompts,
-- never derives continuation decisions from generated summaries.
+- never creates the next segment and never derives continuation decisions from
+  generated summaries.
 
 `HarnessGraphOrchestrator`:
 
@@ -418,7 +429,7 @@ The context engine should compose packets in priority order:
 
 1. required canonical fields,
 2. high-priority summaries and failure landscape,
-3. medium-priority retry and segment history,
+3. medium-priority failed-graph and segment history,
 4. low-priority evidence and verbose notes.
 
 If a packet exceeds its token budget, compress low-priority blocks first.
@@ -437,7 +448,7 @@ The context engine needs store helpers for:
 - inserting and loading task segment summaries,
 - inserting and loading complex task summaries,
 - listing previous segments by `previous_segment_id` lineage,
-- listing harness graphs by `segment_id` and `retry_no`,
+- listing harness graphs by `segment_id` and `graph_sequence_no`,
 - loading task dependency summaries,
 - loading artifacts and evidence refs.
 
@@ -450,10 +461,10 @@ same closed owner should update the existing summary or no-op predictably.
    summary types.
 2. Add summary persistence for task, harness graph, task segment, and complex
    task summaries.
-3. Add context walks for request origin, segment continuation, graph retry
+3. Add context walks for request origin, segment continuation, failed graph
    history, task dependencies, and completed generator DAG tasks.
-4. Implement `build_planner_context` for initial graph, retry after failure,
-   and continuation segment cases.
+4. Implement `build_planner_context` for initial graph, later graph after
+   failure, and continuation segment cases.
 5. Implement `build_generator_context` for executor and verifier tasks.
 6. Implement `build_evaluator_context` from graph contract, evaluation
    criteria, completed task summaries, resolver summaries, and artifacts.
@@ -469,10 +480,10 @@ same closed owner should update the existing summary or no-op predictably.
 Minimum coverage:
 
 - Planner context for initial segment includes request goal and segment goal.
-- Planner context for retry after failure includes failure landscape and prior
-  failed graph summaries.
-- Retry planner context does not carry any `continuation_goal` from prior
-  failed graphs in the same segment.
+- Planner context for a graph launched after failure includes failure
+  landscape and prior failed graph summaries.
+- Retry context does not carry any `continuation_goal` from prior failed
+  graphs in the same segment.
 - Planner context for segment 2 includes previous accepted segment summary,
   the previous segment's `continuation_goal` as the segment goal, and the
   passing harness graph summary that produced it.
@@ -491,8 +502,8 @@ Minimum coverage:
 - Every planner, generator, verifier, evaluator, and request-resume launch can
   be built from a structured `ContextPacket`.
 - Summaries exist at task, harness graph, segment, and complex task levels.
-- Retry context surfaces the failure landscape from prior failed graphs and
-  does not propagate any `continuation_goal` between retries.
+- Segment retry context surfaces the failure landscape from prior failed graphs
+  and does not propagate any `continuation_goal` between graph executions.
 - Partial-continuation context uses each prior segment's `continuation_goal`
   (inherited from its passing harness graph) as the source of vertical
   continuation.

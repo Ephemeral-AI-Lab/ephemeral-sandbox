@@ -6,12 +6,14 @@ Move single-harness-graph execution decisions into `HarnessGraphOrchestrator`.
 
 The lifecycle split is:
 
-- `ComplexTaskRequestHandler` owns the request boundary:
-  `request_complex_task_solution`, request creation, request close, executor
-  pause/resume, and final close-report delivery to `requested_by_task_id`.
-- `TaskSegmentManager` owns segment lifecycle: initial segment creation,
-  retry-budget decisions, retry harness graph creation, continuation, and
-  segment close.
+- `ComplexTaskRequestHandler` owns the request boundary and the segment chain:
+  `request_complex_task_solution`, request creation, initial-segment creation,
+  continuation-segment creation, executor pause/resume, request close, and
+  final close-report delivery to `requested_by_task_id`.
+- `TaskSegmentManager` is per-`TaskSegment` and owns harness-graph transitions
+  inside one segment: retry-budget decisions, next-harness-graph creation
+  after failed graphs, and segment close. It emits a `SegmentCloseReport` to
+  `ComplexTaskRequestHandler` when its segment closes.
 - `HarnessGraphOrchestrator` owns one `HarnessGraph` execution:
   `planner -> generator tasks -> evaluator`.
 
@@ -22,19 +24,22 @@ The lifecycle split is:
 
 `HarnessGraphOrchestrator` never creates `ComplexTaskRequest`, `TaskSegment`,
 or sibling `HarnessGraph` rows. It receives a current `HarnessGraph`, runs it
-to a passed or failed outcome, and reports that outcome to `TaskSegmentManager`.
+to a passed or failed outcome, and reports that outcome to its owning
+`TaskSegmentManager` (one manager per segment).
 
-`TaskSegmentManager` then decides whether to:
+`TaskSegmentManager` then decides, inside its owned segment, whether to:
 
-- create a retry `HarnessGraph` (after a failed graph),
-- create a continuation `TaskSegment` (after a passed graph with non-null
-  `continuation_goal`),
-- close the current segment,
-- report a final request-level outcome.
+- create another `HarnessGraph` after a failed graph when retry budget remains,
+- close the current segment and emit a `SegmentCloseReport`.
+
+`TaskSegmentManager` never creates a continuation `TaskSegment`. When a
+passing graph closes the segment with a non-null `continuation_goal`, the
+manager emits `success_continue(goal)` and `ComplexTaskRequestHandler`
+creates the next segment (and its new `TaskSegmentManager`).
 
 `ComplexTaskRequestHandler` closes the `ComplexTaskRequest` and resumes the
-requesting executor only after `TaskSegmentManager` reports that the request has
-a final outcome.
+requesting executor only when it receives a `SegmentCloseReport` with
+`success_terminal` or `failed_exhausted`.
 
 ## Harness Graph Orchestrator Responsibilities
 
@@ -107,8 +112,8 @@ escalates to `HarnessGraphOrchestrator` as
 - `HarnessGraphOrchestrator` does not retry mid-flight.
 - After all generators are in `DONE`, `FAILED`, or `BLOCKED`,
   `HarnessGraphOrchestrator` makes one harness-graph-level outcome decision.
-- If retry remains, `TaskSegmentManager` creates the next harness graph;
-  that graph's planner receives the whole failure landscape through the
+- If `TaskSegmentManager` spends retry budget, it creates the next harness
+  graph; that graph's planner receives the whole failure landscape through the
   context engine.
 
 ### Evaluator failure
@@ -136,7 +141,7 @@ close_harness_graph(H, outcome):
 `H.continuation_goal` is set when the planner submits its plan, not at close.
 `submit_full_plan` leaves it null; `submit_partial_plan(continuation_goal)`
 sets it to the supplied goal. On failure paths it remains null. Each harness
-graph's `continuation_goal` belongs to that graph alone — retry graphs in the
+graph's `continuation_goal` belongs to that graph alone — later graphs in the
 same segment do not inherit it from prior graphs.
 
 `HarnessGraphOrchestrator` does not inspect retry budget and does not create
@@ -145,9 +150,10 @@ the next graph. Retry is a segment-level decision owned by
 
 ## Segment Reaction
 
-`TaskSegmentManager` reacts to a closed harness graph. A passed graph always
-closes its segment; a failed graph either retries within the segment or closes
-the segment failed:
+`TaskSegmentManager` (per-segment) reacts to a closed harness graph. A passed
+graph always closes its segment; a failed graph either retries within the
+segment or closes the segment failed. The manager's only output is a
+`SegmentCloseReport`:
 
 ```
 H.status:
@@ -155,29 +161,35 @@ H.status:
     segment.continuation_goal = H.continuation_goal
     close current segment.
 
-    if segment.continuation_goal is not None:
-      create TaskSegment N+1 with goal = segment.continuation_goal.
-      create HarnessGraph retry 1 in the new segment.
+    if segment.continuation_goal is None:
+      emit SegmentCloseReport { outcome = success_terminal }
     else:
-      report request-level success to ComplexTaskRequestHandler.
+      emit SegmentCloseReport { outcome = success_continue(segment.continuation_goal) }
 
   failed
     if current segment has retry budget remaining:
-      create HarnessGraph retry N+1 in the same segment.
+      create HarnessGraph sequence N+1 in the same segment.
     else:
       close current segment failed.
-      report request-level failure to ComplexTaskRequestHandler.
+      emit SegmentCloseReport { outcome = failed_exhausted(reason) }
 ```
 
-Retry creates a new `HarnessGraph` in the same `TaskSegment`. It never creates
-a new segment or complex task request.
+A `TaskSegmentManager` retry creates a new `HarnessGraph` in the same
+`TaskSegment`. The manager never creates a continuation segment, a new complex
+task request, or another manager instance.
 
 There is no policy hook for "spend retry on a passed graph": once a graph
 passes, it closes the segment. Plan quality is enforced by the evaluator's
 pass/fail decision, not by the segment manager.
 
-`ComplexTaskRequestHandler` turns request-level success or failure into the
-single close report returned to `requested_by_task_id`.
+`ComplexTaskRequestHandler` reacts to the `SegmentCloseReport`:
+
+- `success_terminal` or `failed_exhausted` → close the complex task request and
+  return the close report to `requested_by_task_id`.
+- `success_continue(goal)` → create the next `TaskSegment` (with
+  `previous_segment_id` and `goal` set), spawn a fresh `TaskSegmentManager`
+  for it, and let that manager create the next segment's initial harness
+  graph.
 
 ## Closure decision tree
 
