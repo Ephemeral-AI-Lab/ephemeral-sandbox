@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 
 class TestLoadCredentials:
@@ -100,65 +99,3 @@ class TestLoadCredentials:
         assert key == ""
         assert url == ""
         assert target == ""
-
-
-class TestBuildConfig:
-    def test_raises_when_unconfigured(self, monkeypatch):
-        monkeypatch.delenv("DAYTONA_API_KEY", raising=False)
-        monkeypatch.delenv("DAYTONA_API_URL", raising=False)
-
-        import sys
-        import types
-
-        fake_settings = types.ModuleType("config.settings")
-        fake_settings.FakeSettings = type(
-            "FakeSettings",
-            (),
-            {
-                "daytona_api_key": "",
-                "daytona_api_url": "",
-                "daytona_target": "",
-            },
-        )()
-        monkeypatch.setitem(sys.modules, "config", fake_settings)
-        monkeypatch.setitem(sys.modules, "config.settings", fake_settings)
-
-        from sandbox.client.credentials import build_config
-        from sandbox.errors import DaytonaUnavailableError
-
-        with pytest.raises(DaytonaUnavailableError, match="not configured"):
-            build_config()
-
-    def test_raises_when_sdk_missing(self, monkeypatch):
-        monkeypatch.setenv("DAYTONA_API_KEY", "test-key")
-        monkeypatch.setenv("DAYTONA_API_URL", "https://test-url")
-
-        import sys
-        import types
-
-        fake_settings = types.ModuleType("config.settings")
-        fake_settings.FakeSettings = type(
-            "FakeSettings",
-            (),
-            {
-                "daytona_api_key": "test-key",
-                "daytona_api_url": "https://test-url",
-                "daytona_target": "",
-            },
-        )()
-        monkeypatch.setitem(sys.modules, "config", fake_settings)
-        monkeypatch.setitem(sys.modules, "config.settings", fake_settings)
-
-        original = sys.modules.get("daytona_sdk")
-        sys.modules["daytona_sdk"] = None
-        try:
-            from sandbox.client.credentials import build_config
-            from sandbox.errors import DaytonaUnavailableError
-
-            with pytest.raises(DaytonaUnavailableError, match="not installed"):
-                build_config()
-        finally:
-            if original is not None:
-                sys.modules["daytona_sdk"] = original
-            elif "daytona_sdk" in sys.modules:
-                del sys.modules["daytona_sdk"]

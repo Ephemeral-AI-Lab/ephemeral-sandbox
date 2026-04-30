@@ -1,19 +1,9 @@
-"""Sandbox lifecycle service + proxy."""
+"""Sandbox lifecycle — service, proxy, context, workspace, commit submission.
 
-from sandbox.client.async_shutdown import (
-    async_close_client,
-    close_client,
-    shutdown_cached_client,
-    shutdown_cached_client_async,
-)
-from sandbox.lifecycle.proxy import SandboxProxy
-from sandbox.lifecycle.service import SandboxService
-
-__all__ = [
-    "SandboxProxy",
-    "SandboxService",
-    "async_close_client",
-    "close_client",
-    "shutdown_cached_client",
-    "shutdown_cached_client_async",
-]
+Import canonically:
+- :class:`sandbox.lifecycle.service.SandboxService`
+- :class:`sandbox.lifecycle.proxy.SandboxProxy`
+- :class:`sandbox.lifecycle.context.DaytonaContextPreparer`
+- :mod:`sandbox.lifecycle.workspace` — workspace discovery
+- :mod:`sandbox.lifecycle.commit`    — shell/commit submission helpers
+"""

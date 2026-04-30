@@ -16,7 +16,7 @@ def _ctx(services=None) -> ToolExecutionContextService:
 
 
 def test_sandbox_exports_context_preparer() -> None:
-    from sandbox import DaytonaContextPreparer as DCP
+    from sandbox.lifecycle.context import DaytonaContextPreparer as DCP
 
     assert DCP is DaytonaContextPreparer
 

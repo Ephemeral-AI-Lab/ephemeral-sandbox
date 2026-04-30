@@ -102,7 +102,7 @@ def get_async_daytona_client() -> Any:
         _cached_clients[loop] = (current_key, client)
 
     if stale_clients:
-        from sandbox.lifecycle import close_client
+        from sandbox.client.async_shutdown import close_client
 
         for stale_client in stale_clients:
             close_client(stale_client)

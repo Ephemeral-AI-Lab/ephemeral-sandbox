@@ -9,12 +9,12 @@ from unittest.mock import MagicMock
 
 class TestCloseClient:
     def test_does_nothing_when_client_is_none(self):
-        from sandbox.lifecycle import close_client
+        from sandbox.client.async_shutdown import close_client
 
         close_client(None)
 
     def test_calls_close_method(self):
-        from sandbox.lifecycle import close_client
+        from sandbox.client.async_shutdown import close_client
 
         async def fake_close():
             pass
@@ -27,7 +27,7 @@ class TestCloseClient:
         close_mock.close.assert_called_once()
 
     def test_handles_missing_close_method(self):
-        from sandbox.lifecycle import close_client
+        from sandbox.client.async_shutdown import close_client
 
         client = MagicMock(spec=[])
         close_client(client)
@@ -35,7 +35,7 @@ class TestCloseClient:
 
 class TestAsyncCloseClient:
     def test_awaits_close_method(self):
-        from sandbox.lifecycle import async_close_client
+        from sandbox.client.async_shutdown import async_close_client
 
         closed = False
 
@@ -49,7 +49,7 @@ class TestAsyncCloseClient:
         assert closed is True
 
     def test_handles_missing_close_method(self):
-        from sandbox.lifecycle import async_close_client
+        from sandbox.client.async_shutdown import async_close_client
 
         client = MagicMock(spec=[])
         asyncio.run(async_close_client(client))
@@ -58,7 +58,7 @@ class TestAsyncCloseClient:
 class TestShutdownCachedClient:
     def test_clears_async_client_cached_state(self):
         import sandbox.client.async_ as async_client_mod
-        import sandbox.lifecycle as mod
+        import sandbox.client.async_shutdown as mod
 
         async def fake_close():
             pass
@@ -77,7 +77,7 @@ class TestShutdownCachedClient:
 
     def test_async_shutdown_closes_active_loop_client(self):
         import sandbox.client.async_ as async_client_mod
-        import sandbox.lifecycle as mod
+        import sandbox.client.async_shutdown as mod
 
         closed = False
 

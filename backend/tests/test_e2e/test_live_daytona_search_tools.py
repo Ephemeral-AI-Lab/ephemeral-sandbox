@@ -16,7 +16,7 @@ import pytest
 from dotenv import load_dotenv
 
 from sandbox.client.async_ import get_async_sandbox
-from sandbox.lifecycle import shutdown_cached_client_async
+from sandbox.client.async_shutdown import shutdown_cached_client_async
 from sandbox.testing import create_test_sandbox, delete_test_sandbox
 from tools.core.base import ToolExecutionContextService
 from sandbox.daytona.bash import _wrap_bash_command

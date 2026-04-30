@@ -1,20 +1,16 @@
-"""Sandbox service — Daytona sandbox lifecycle management."""
+"""Sandbox package — Daytona transport, lifecycle, code-intelligence, testing.
 
-from sandbox.errors import AsyncDaytonaUnavailableError, DaytonaUnavailableError
-from sandbox.lifecycle.context import DaytonaContextPreparer
-from sandbox.client.sync import (
-    acquire_client,
-    fetch_sandbox,
-)
-from sandbox.lifecycle.proxy import SandboxProxy
-from sandbox.lifecycle.service import SandboxService
+Sub-packages:
+- ``sandbox.client``           — Daytona sync/async client lifecycle and shutdown
+- ``sandbox.lifecycle``        — :class:`SandboxService`, :class:`SandboxProxy`,
+                                  context preparation, workspace discovery, and
+                                  shell/commit submission helpers
+- ``sandbox.daytona``          — bash/exec/path/recovery primitives
+- ``sandbox.code_intelligence``— per-sandbox CI service
+- ``sandbox.testing``          — sandbox factories and eval-file fixtures
+- ``sandbox.errors``           — :class:`DaytonaUnavailableError`,
+                                  :class:`AsyncDaytonaUnavailableError`
 
-__all__ = [
-    "AsyncDaytonaUnavailableError",
-    "DaytonaContextPreparer",
-    "DaytonaUnavailableError",
-    "SandboxProxy",
-    "SandboxService",
-    "acquire_client",
-    "fetch_sandbox",
-]
+Import directly from sub-packages — this top-level ``__init__`` intentionally
+re-exports nothing.
+"""
