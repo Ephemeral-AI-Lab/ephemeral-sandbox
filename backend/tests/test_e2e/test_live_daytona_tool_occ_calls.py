@@ -29,7 +29,7 @@ from typing import Any
 import pytest
 from dotenv import load_dotenv
 
-from code_intelligence.service import CodeIntelligenceService
+from sandbox.code_intelligence.service import CodeIntelligenceService
 from tools.core.base import ToolExecutionContextService
 from sandbox.daytona_utils import _extract_exit_code, _wrap_bash_command
 from tools.daytona_toolkit.shell import shell

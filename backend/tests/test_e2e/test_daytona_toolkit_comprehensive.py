@@ -245,7 +245,7 @@ def _make_context(
 
 
 def _make_ci_service_for_sandbox(sandbox: Any, *, workspace: str = "/workspace"):
-    from code_intelligence.service import CodeIntelligenceService
+    from sandbox.code_intelligence.service import CodeIntelligenceService
 
     return CodeIntelligenceService(
         sandbox_id="daytona-tools-comprehensive",
@@ -507,7 +507,7 @@ class TestDaytonaCiTools:
 
     def test_lsp_diagnostics_with_errors(self):
         from tools.ci_toolkit.ci_diagnostics import ci_diagnostics
-        from code_intelligence.core.types import Diagnostic
+        from sandbox.code_intelligence.core.types import Diagnostic
 
         svc = MagicMock()
         svc.diagnostics.return_value = [
@@ -679,7 +679,7 @@ class TestDaytonaToolLive:
             pass
 
     def _ctx(self, live_sandbox) -> ToolExecutionContextService:
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         sandbox = live_sandbox["raw"]
         cwd = "/home/daytona"
@@ -961,7 +961,7 @@ class TestLspQueryRouting:
 
     def _make_ci_service(self, sandbox=None):
         """Create a real CI service with a mock sandbox."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         return CodeIntelligenceService(
             sandbox_id="lsp-test",
@@ -972,7 +972,7 @@ class TestLspQueryRouting:
     # -- LspClient direct tests --
 
     def test_lsp_client_python_detection(self):
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient(workspace_root="/workspace")
         assert lsp._detect_language("main.py") == "python"
@@ -981,7 +981,7 @@ class TestLspQueryRouting:
 
     def test_lsp_client_cache_ttl(self):
         """Cache entries should expire after TTL."""
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
         import time as _time
 
         lsp = LspClient(workspace_root="/ws", cache_ttl=0.1)
@@ -993,7 +993,7 @@ class TestLspQueryRouting:
 
     def test_lsp_client_cache_max_eviction(self):
         """Cache should evict oldest entries when max is reached."""
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient(workspace_root="/ws", cache_max=3)
         lsp._run_cached_query("a", lambda: 1)
@@ -1006,7 +1006,7 @@ class TestLspQueryRouting:
         assert lsp._get_cached("d") == 4
 
     def test_lsp_telemetry_tracks_queries(self):
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient(workspace_root="/ws")
         assert lsp.telemetry.queries == 0
@@ -1016,7 +1016,7 @@ class TestLspQueryRouting:
         assert lsp.telemetry.queries == 1
 
     def test_lsp_telemetry_tracks_cache_hits(self):
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient(workspace_root="/ws")
         lsp._run_cached_query("def:/test.py:1:0", lambda: [])
@@ -1025,7 +1025,7 @@ class TestLspQueryRouting:
         assert lsp.telemetry.cache_hits == 1
 
     def test_lsp_invalidate_clears_file_entries(self):
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient(workspace_root="/ws")
         lsp._run_cached_query("def:/ws/a.py:1:0", lambda: ["def_a"])
@@ -1063,7 +1063,7 @@ class TestLspQueryRouting:
     # -- CI registry tests --
 
     def test_ci_registry_dispose_removes_service(self):
-        from code_intelligence.service import (
+        from sandbox.code_intelligence.service import (
             get_code_intelligence,
             get_code_intelligence_if_exists,
             dispose_code_intelligence,
@@ -1079,7 +1079,7 @@ class TestLspQueryRouting:
         assert get_code_intelligence_if_exists("disposable") is None
 
     def test_ci_registry_all_status(self):
-        from code_intelligence.service import (
+        from sandbox.code_intelligence.service import (
             get_code_intelligence,
             get_all_services_status,
             dispose_all_code_intelligence,
@@ -1107,7 +1107,7 @@ class TestCITypesDeep:
     """Deep tests for code intelligence types — ported from synthetic-os patterns."""
 
     def test_edit_request_all_fields(self):
-        from code_intelligence.core.types import EditRequest
+        from sandbox.code_intelligence.core.types import EditRequest
 
         req = EditRequest(
             file_path="/ws/app.py",
@@ -1123,28 +1123,28 @@ class TestCITypesDeep:
         assert req.description == "Fix bug"
 
     def test_edit_result_success(self):
-        from code_intelligence.core.types import EditResult
+        from sandbox.code_intelligence.core.types import EditResult
 
         r = EditResult(success=True, file_path="/test.py", message="Applied")
         assert r.success is True
         assert r.conflict is not True
 
     def test_edit_result_conflict(self):
-        from code_intelligence.core.types import EditResult
+        from sandbox.code_intelligence.core.types import EditResult
 
         r = EditResult(success=False, file_path="/test.py", message="Conflict", conflict=True)
         assert r.success is False
         assert r.conflict is True
 
     def test_hover_result_fields(self):
-        from code_intelligence.core.types import HoverResult
+        from sandbox.code_intelligence.core.types import HoverResult
 
         h = HoverResult(content="def foo() -> int", language="python")
         assert h.content == "def foo() -> int"
         assert h.language == "python"
 
     def test_symbol_info_fields(self):
-        from code_intelligence.core.types import SymbolInfo
+        from sandbox.code_intelligence.core.types import SymbolInfo
 
         s = SymbolInfo(name="MyClass", kind="class", file_path="/ws/m.py", line=10, character=0)
         assert s.name == "MyClass"
@@ -1152,13 +1152,13 @@ class TestCITypesDeep:
         assert s.line == 10
 
     def test_reference_info_fields(self):
-        from code_intelligence.core.types import ReferenceInfo
+        from sandbox.code_intelligence.core.types import ReferenceInfo
 
         r = ReferenceInfo(file_path="/ws/a.py", line=5, character=3)
         assert r.file_path == "/ws/a.py"
 
     def test_diagnostic_fields(self):
-        from code_intelligence.core.types import Diagnostic
+        from sandbox.code_intelligence.core.types import Diagnostic
 
         d = Diagnostic(
             file_path="/test.py",
@@ -1172,8 +1172,8 @@ class TestCITypesDeep:
         assert d.source == "pyright"
 
     def test_ci_telemetry_initial_values(self):
-        from code_intelligence.core.types import CITelemetry
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.core.types import CITelemetry
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         svc = CodeIntelligenceService(sandbox_id="tel-test", workspace_root="/ws")
         tel = svc.get_telemetry()
@@ -1192,12 +1192,12 @@ class TestArbiterAuditLedger:
     """Arbiter — per-file locks, edit ledger, and conflict tracking."""
 
     def _make_arbiter(self, **kwargs):
-        from code_intelligence.mutations.arbiter import Arbiter
+        from sandbox.code_intelligence.mutations.arbiter import Arbiter
 
         return Arbiter(workspace_root="/workspace", **kwargs)
 
     def _make_arbiter_with_store(self):
-        from code_intelligence.mutations.arbiter import Arbiter
+        from sandbox.code_intelligence.mutations.arbiter import Arbiter
 
         return Arbiter(workspace_root="/workspace")
 
@@ -1355,7 +1355,7 @@ class TestTimeMachine:
     """TimeMachine — per-file undo snapshots with global LRU capacity."""
 
     def _make_tm(self, **kwargs):
-        from code_intelligence.mutations.time_machine import TimeMachine
+        from sandbox.code_intelligence.mutations.time_machine import TimeMachine
 
         return TimeMachine(**kwargs)
 
@@ -1439,7 +1439,7 @@ class TestAuditedEditFlow:
 
     def _make_audit_context(self, files: dict[str, str]):
         """Create a context with mock sandbox + real arbiter + time_machine."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         sandbox = _make_mock_sandbox(files=files)
         ci_service = CodeIntelligenceService(

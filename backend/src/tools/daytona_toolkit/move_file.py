@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from code_intelligence.core.types import MoveSpec
+from sandbox.code_intelligence.core.types import MoveSpec
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from sandbox.commit import commit_metadata, failure_status, submit_commit

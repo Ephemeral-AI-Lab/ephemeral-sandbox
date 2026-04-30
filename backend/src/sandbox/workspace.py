@@ -107,7 +107,7 @@ def inject_code_intelligence(
 ) -> None:
     if sandbox_id and context.get("ci_service") is None:
         try:
-            from code_intelligence.service import get_code_intelligence
+            from sandbox.code_intelligence.service import get_code_intelligence
 
             ci_sandbox, eager_warmup_safe = _ci_sandbox_handle(sandbox_id, sandbox)
             ci_workspace_root = _ci_workspace_root(workspace_root, ci_sandbox)

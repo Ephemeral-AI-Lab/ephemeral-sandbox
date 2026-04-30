@@ -1,0 +1,54 @@
+"""Tests for ``CodeIntelligenceService.cmd`` fail-closed overlay semantics."""
+
+from __future__ import annotations
+
+import asyncio
+import subprocess
+from types import SimpleNamespace
+
+import pytest
+
+from sandbox.code_intelligence.overlay.git_snapshot import GitSnapshotError
+from sandbox.code_intelligence.service import (
+    CodeIntelligenceService,
+    dispose_all_code_intelligence,
+)
+
+
+@pytest.fixture(autouse=True)
+def _clear_registry() -> None:
+    dispose_all_code_intelligence()
+    yield
+    dispose_all_code_intelligence()
+
+
+@pytest.mark.asyncio
+async def test_cmd_raises_when_overlay_snapshot_prepare_fails(tmp_path) -> None:
+    sandbox = SimpleNamespace(process=_AsyncLocalProcess())
+    svc = CodeIntelligenceService(
+        sandbox_id=f"sandbox-cmd-overlay-fail-{tmp_path.name}",
+        workspace_root=str(tmp_path),
+        sandbox=sandbox,
+    )
+
+    with pytest.raises(GitSnapshotError) as excinfo:
+        await svc.cmd(sandbox, "echo hi")
+
+    assert "git_snapshot" in str(excinfo.value)
+
+
+class _AsyncLocalProcess:
+    async def exec(self, command: str, timeout: int | None = None):
+        completed = await asyncio.to_thread(
+            subprocess.run,
+            command,
+            shell=True,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+        return SimpleNamespace(
+            result=completed.stdout + completed.stderr,
+            exit_code=completed.returncode,
+        )

@@ -33,14 +33,14 @@ class EditRequest(BaseModel):
 
 def _get_service(sandbox_id: str, workspace_root: str = "/workspace") -> Any:
     """Get or create a CI service for a sandbox."""
-    from code_intelligence.service import get_code_intelligence
+    from sandbox.code_intelligence.service import get_code_intelligence
 
     return get_code_intelligence(sandbox_id, workspace_root=workspace_root)
 
 
 def _get_service_if_exists(sandbox_id: str) -> Any:
     """Get existing CI service or raise 404."""
-    from code_intelligence.service import get_code_intelligence_if_exists
+    from sandbox.code_intelligence.service import get_code_intelligence_if_exists
 
     service = get_code_intelligence_if_exists(sandbox_id)
     if service is None:
@@ -56,7 +56,7 @@ def _get_service_if_exists(sandbox_id: str) -> Any:
 @router.get("/health")
 async def health() -> dict:
     """Code intelligence health check."""
-    from code_intelligence.service import get_all_services_status
+    from sandbox.code_intelligence.service import get_all_services_status
 
     statuses = get_all_services_status()
     return {"healthy": True, "active_services": len(statuses)}
@@ -193,7 +193,7 @@ async def query_diagnostics(
 async def apply_edit(sandbox_id: str, request: EditRequest) -> dict:
     """Apply a code-intelligence service edit."""
     service = _get_service_if_exists(sandbox_id)
-    from code_intelligence.core.types import EditRequest as CIEditRequest
+    from sandbox.code_intelligence.core.types import EditRequest as CIEditRequest
 
     result = service.apply_edit(
         CIEditRequest(
@@ -253,7 +253,7 @@ async def telemetry(sandbox_id: str) -> dict:
 @router.post("/{sandbox_id}/dispose")
 async def dispose_service(sandbox_id: str) -> dict:
     """Dispose CI service for a sandbox."""
-    from code_intelligence.service import dispose_code_intelligence
+    from sandbox.code_intelligence.service import dispose_code_intelligence
 
     dispose_code_intelligence(sandbox_id)
     return {"disposed": sandbox_id}

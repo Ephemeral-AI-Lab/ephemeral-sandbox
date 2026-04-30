@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from code_intelligence.core.types import OperationResult
+from sandbox.code_intelligence.core.types import OperationResult
 from tools.core.base import ToolExecutionContextService
 from sandbox.commit import (
     FileChangeResult,

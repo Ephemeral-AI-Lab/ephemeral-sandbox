@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from code_intelligence.core.types import OperationResult
+from sandbox.code_intelligence.core.types import OperationResult
 from tools.core.base import ToolResult
 
 __all__ = ["operation_result_to_tool_result"]

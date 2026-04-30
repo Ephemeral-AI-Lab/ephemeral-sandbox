@@ -318,18 +318,18 @@ class TestCodeIntelligenceDeep:
     """Deep verification of CI service, LSP client, and registry."""
 
     def setup_method(self):
-        from code_intelligence.service import dispose_all_code_intelligence
+        from sandbox.code_intelligence.service import dispose_all_code_intelligence
 
         dispose_all_code_intelligence()
 
     def teardown_method(self):
-        from code_intelligence.service import dispose_all_code_intelligence
+        from sandbox.code_intelligence.service import dispose_all_code_intelligence
 
         dispose_all_code_intelligence()
 
     def test_ci_status_has_all_subsystems(self):
         """CI service status() must have lsp, symbol_index, arbiter, ledger."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         svc = CodeIntelligenceService(sandbox_id="ci-deep-001", workspace_root="/workspace")
         status = svc.status()
@@ -353,8 +353,8 @@ class TestCodeIntelligenceDeep:
 
     def test_ci_telemetry_all_fields(self):
         """CITelemetry must have all expected counters with correct types."""
-        from code_intelligence.service import CodeIntelligenceService
-        from code_intelligence.core.types import CITelemetry
+        from sandbox.code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.core.types import CITelemetry
 
         svc = CodeIntelligenceService(sandbox_id="ci-tel-deep", workspace_root="/ws")
         tel = svc.get_telemetry()
@@ -380,7 +380,7 @@ class TestCodeIntelligenceDeep:
 
     def test_lsp_detects_python_and_typescript(self):
         """LspClient must detect Python for .py and TypeScript for .ts/.tsx."""
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient()
         assert lsp._detect_language("app.py") == "python"
@@ -392,7 +392,7 @@ class TestCodeIntelligenceDeep:
 
     def test_ci_registry_singleton_per_sandbox(self):
         """get_code_intelligence must return same instance for same sandbox_id."""
-        from code_intelligence.service import get_code_intelligence
+        from sandbox.code_intelligence.service import get_code_intelligence
 
         svc1 = get_code_intelligence("singleton-deep", "/ws")
         svc2 = get_code_intelligence("singleton-deep", "/ws")

@@ -13,16 +13,16 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from code_intelligence.core.constants import SUPPORTED_EXTENSIONS, SYMBOL_INDEX_MAX_FILES
-from code_intelligence.core.path_utils import relativize_workspace_path
-from code_intelligence.core.query_helpers import (
+from sandbox.code_intelligence.core.constants import SUPPORTED_EXTENSIONS, SYMBOL_INDEX_MAX_FILES
+from sandbox.code_intelligence.core.path_utils import relativize_workspace_path
+from sandbox.code_intelligence.core.query_helpers import (
     _build_fallback_specs,
     _dedupe_matches,
     _parse_rg_matches,
     _python_fallback_query_symbols,
 )
-from code_intelligence.core.types import SymbolKind
-from code_intelligence.indexing.file_discovery import (
+from sandbox.code_intelligence.core.types import SymbolKind
+from sandbox.code_intelligence.indexing.file_discovery import (
     collect_local_files,
     collect_remote_files,
 )

@@ -101,9 +101,9 @@ class TestInjectCodeIntelligence:
         import sys
         import types
 
-        fake_ci_module = types.ModuleType("code_intelligence.service")
+        fake_ci_module = types.ModuleType("sandbox.code_intelligence.service")
         fake_ci_module.get_code_intelligence = fake_get_ci
-        monkeypatch.setitem(sys.modules, "code_intelligence.service", fake_ci_module)
+        monkeypatch.setitem(sys.modules, "sandbox.code_intelligence.service", fake_ci_module)
 
         inject_code_intelligence(mock_context, "sb-123", mock_sandbox, "/workspace")
 
@@ -125,9 +125,9 @@ class TestInjectCodeIntelligence:
         import sys
         import types
 
-        fake_ci_module = types.ModuleType("code_intelligence.service")
+        fake_ci_module = types.ModuleType("sandbox.code_intelligence.service")
         fake_ci_module.get_code_intelligence = fake_get_ci
-        monkeypatch.setitem(sys.modules, "code_intelligence.service", fake_ci_module)
+        monkeypatch.setitem(sys.modules, "sandbox.code_intelligence.service", fake_ci_module)
 
         inject_code_intelligence(mock_context, "sb-123", mock_sandbox, "/workspace")
 
@@ -142,7 +142,7 @@ class TestInjectCodeIntelligence:
 
         import sys
 
-        monkeypatch.setitem(sys.modules, "code_intelligence.service", None)
+        monkeypatch.setitem(sys.modules, "sandbox.code_intelligence.service", None)
 
         inject_code_intelligence(mock_context, "sb-123", mock_sandbox, "/workspace")
 
@@ -161,9 +161,9 @@ class TestInjectCodeIntelligence:
         import sys
         import types
 
-        fake_ci_module = types.ModuleType("code_intelligence.service")
+        fake_ci_module = types.ModuleType("sandbox.code_intelligence.service")
         fake_ci_module.get_code_intelligence = fake_get_ci
-        monkeypatch.setitem(sys.modules, "code_intelligence.service", fake_ci_module)
+        monkeypatch.setitem(sys.modules, "sandbox.code_intelligence.service", fake_ci_module)
 
         inject_code_intelligence(mock_context, "sb-123", mock_sandbox, "/workspace")
 
@@ -262,9 +262,9 @@ class TestCodeIntelligenceRuntime:
         import sys
         import types
 
-        fake_ci_module = types.ModuleType("code_intelligence.service")
+        fake_ci_module = types.ModuleType("sandbox.code_intelligence.service")
         fake_ci_module.get_code_intelligence = fake_get_ci
-        monkeypatch.setitem(sys.modules, "code_intelligence.service", fake_ci_module)
+        monkeypatch.setitem(sys.modules, "sandbox.code_intelligence.service", fake_ci_module)
 
         class FakeSandboxService:
             def get_sandbox_object(self, sandbox_id):
@@ -303,9 +303,9 @@ class TestCodeIntelligenceRuntime:
         import sys
         import types
 
-        fake_ci_module = types.ModuleType("code_intelligence.service")
+        fake_ci_module = types.ModuleType("sandbox.code_intelligence.service")
         fake_ci_module.get_code_intelligence = fake_get_ci
-        monkeypatch.setitem(sys.modules, "code_intelligence.service", fake_ci_module)
+        monkeypatch.setitem(sys.modules, "sandbox.code_intelligence.service", fake_ci_module)
 
         class FakeSandboxService:
             def get_sandbox_object(self, sandbox_id):
@@ -347,9 +347,9 @@ class TestCodeIntelligenceRuntime:
         import sys
         import types
 
-        fake_ci_module = types.ModuleType("code_intelligence.service")
+        fake_ci_module = types.ModuleType("sandbox.code_intelligence.service")
         fake_ci_module.get_code_intelligence = fake_get_ci
-        monkeypatch.setitem(sys.modules, "code_intelligence.service", fake_ci_module)
+        monkeypatch.setitem(sys.modules, "sandbox.code_intelligence.service", fake_ci_module)
 
         class FakeSandboxService:
             def get_sandbox_object(self, sandbox_id):

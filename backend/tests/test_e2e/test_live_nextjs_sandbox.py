@@ -382,7 +382,7 @@ class TestCodeIntelligenceOnProject:
 
     def test_ci_service_creates_for_sandbox(self, nextjs_sandbox):
         """CodeIntelligenceService can be instantiated for the sandbox."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         svc = CodeIntelligenceService(
             sandbox_id=nextjs_sandbox["id"],
@@ -397,8 +397,8 @@ class TestCodeIntelligenceOnProject:
 
     def test_ci_telemetry_fields(self, nextjs_sandbox):
         """CITelemetry has all expected integer and boolean fields."""
-        from code_intelligence.service import CodeIntelligenceService
-        from code_intelligence.core.types import CITelemetry
+        from sandbox.code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.core.types import CITelemetry
 
         svc = CodeIntelligenceService(
             sandbox_id=f"ci-tel-{nextjs_sandbox['id'][:8]}",
@@ -423,7 +423,7 @@ class TestCodeIntelligenceOnProject:
 
     def test_ci_registry_singleton(self, nextjs_sandbox):
         """get_code_intelligence returns same instance for same sandbox_id."""
-        from code_intelligence.service import (
+        from sandbox.code_intelligence.service import (
             get_code_intelligence,
             dispose_all_code_intelligence,
         )
@@ -454,7 +454,7 @@ class TestCodeIntelligenceOnProject:
 
     def test_lsp_language_detection(self):
         """LspClient detects TypeScript for .tsx/.ts files."""
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient()
         assert lsp._detect_language("page.tsx") == "typescript"

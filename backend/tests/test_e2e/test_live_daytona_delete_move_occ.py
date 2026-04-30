@@ -27,7 +27,7 @@ from typing import Any
 import pytest
 from dotenv import load_dotenv
 
-from code_intelligence.service import (
+from sandbox.code_intelligence.service import (
     CodeIntelligenceService,
     dispose_all_code_intelligence,
 )

@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
-from code_intelligence.core.tuning import CODE_INTELLIGENCE_TUNING
+from sandbox.code_intelligence.core.tuning import CODE_INTELLIGENCE_TUNING
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.ci_adapter import ci_required_result, get_ci_service
 from tools.core.decorator import tool

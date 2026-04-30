@@ -112,7 +112,7 @@ class TestSymbolIndexColdStart:
 
     def _create_ci_service(self, sandbox):
         """Create a real CodeIntelligenceService with the given sandbox."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         return CodeIntelligenceService(
             sandbox_id="test-cold-start",

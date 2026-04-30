@@ -13,7 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from code_intelligence.core.types import EditSpec, EditResult, OperationResult
+from sandbox.code_intelligence.core.types import EditSpec, EditResult, OperationResult
 from tools.core.base import ToolExecutionContextService
 from tools.core.safe_execution import run_tool_safely
 from tools.daytona_toolkit.edit_file import edit_file

@@ -23,7 +23,7 @@ class TestCIServiceCreation:
 
     def test_ci_service_creation(self):
         """Create a CI service and verify basic attributes."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         svc = CodeIntelligenceService(
             sandbox_id="test-sandbox-001",
@@ -36,7 +36,7 @@ class TestCIServiceCreation:
 
     def test_ci_service_status(self):
         """Verify status() returns expected fields."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         svc = CodeIntelligenceService(
             sandbox_id="test-status-001",
@@ -66,8 +66,8 @@ class TestCIServiceCreation:
 
     def test_ci_telemetry(self):
         """Verify get_telemetry() returns CITelemetry with correct types."""
-        from code_intelligence.service import CodeIntelligenceService
-        from code_intelligence.core.types import CITelemetry
+        from sandbox.code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.core.types import CITelemetry
 
         svc = CodeIntelligenceService(
             sandbox_id="test-telemetry-001",
@@ -92,7 +92,7 @@ class TestCIServiceCreation:
 
     def test_ci_service_dispose(self):
         """Verify dispose cleans up without error."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         svc = CodeIntelligenceService(
             sandbox_id="test-dispose-001",
@@ -112,19 +112,19 @@ class TestCIServiceRegistry:
 
     def setup_method(self):
         """Clean up the global registry before each test."""
-        from code_intelligence.service import dispose_all_code_intelligence
+        from sandbox.code_intelligence.service import dispose_all_code_intelligence
 
         dispose_all_code_intelligence()
 
     def teardown_method(self):
         """Clean up after each test."""
-        from code_intelligence.service import dispose_all_code_intelligence
+        from sandbox.code_intelligence.service import dispose_all_code_intelligence
 
         dispose_all_code_intelligence()
 
     def test_ci_service_registry_returns_singleton(self):
         """get_code_intelligence should return the same instance for the same sandbox_id."""
-        from code_intelligence.service import get_code_intelligence
+        from sandbox.code_intelligence.service import get_code_intelligence
 
         svc1 = get_code_intelligence("registry-test-001", "/workspace")
         svc2 = get_code_intelligence("registry-test-001", "/workspace")
@@ -132,7 +132,7 @@ class TestCIServiceRegistry:
 
     def test_ci_service_registry_different_sandboxes(self):
         """Different sandbox_ids should get different instances."""
-        from code_intelligence.service import get_code_intelligence
+        from sandbox.code_intelligence.service import get_code_intelligence
 
         svc1 = get_code_intelligence("sandbox-a", "/workspace")
         svc2 = get_code_intelligence("sandbox-b", "/workspace")
@@ -142,7 +142,7 @@ class TestCIServiceRegistry:
 
     def test_ci_service_if_exists(self):
         """get_code_intelligence_if_exists should return None if not created."""
-        from code_intelligence.service import (
+        from sandbox.code_intelligence.service import (
             get_code_intelligence,
             get_code_intelligence_if_exists,
         )
@@ -156,7 +156,7 @@ class TestCIServiceRegistry:
 
     def test_ci_service_dispose_removes_from_registry(self):
         """dispose_code_intelligence should remove the service from the registry."""
-        from code_intelligence.service import (
+        from sandbox.code_intelligence.service import (
             dispose_code_intelligence,
             get_code_intelligence,
             get_code_intelligence_if_exists,
@@ -170,7 +170,7 @@ class TestCIServiceRegistry:
 
     def test_ci_service_all_status(self):
         """get_all_services_status should return status for all services."""
-        from code_intelligence.service import (
+        from sandbox.code_intelligence.service import (
             get_all_services_status,
             get_code_intelligence,
         )
@@ -195,7 +195,7 @@ class TestCITypes:
 
     def test_edit_request(self):
         """EditRequest should hold all required fields."""
-        from code_intelligence.core.types import EditRequest
+        from sandbox.code_intelligence.core.types import EditRequest
 
         req = EditRequest(
             file_path="/workspace/test.py",
@@ -211,7 +211,7 @@ class TestCITypes:
 
     def test_edit_result(self):
         """EditResult should represent success/failure."""
-        from code_intelligence.core.types import EditResult
+        from sandbox.code_intelligence.core.types import EditResult
 
         success = EditResult(success=True, file_path="/test.py", message="OK")
         assert success.success is True
@@ -223,7 +223,7 @@ class TestCITypes:
 
     def test_hover_result(self):
         """HoverResult should hold documentation text."""
-        from code_intelligence.core.types import HoverResult
+        from sandbox.code_intelligence.core.types import HoverResult
 
         hr = HoverResult(content="def foo() -> int", language="python")
         assert hr.content == "def foo() -> int"
@@ -231,7 +231,7 @@ class TestCITypes:
 
     def test_symbol_info(self):
         """SymbolInfo should hold location data."""
-        from code_intelligence.core.types import SymbolInfo
+        from sandbox.code_intelligence.core.types import SymbolInfo
 
         si = SymbolInfo(
             name="MyClass",
@@ -246,7 +246,7 @@ class TestCITypes:
 
     def test_diagnostic(self):
         """Diagnostic should hold error/warning info."""
-        from code_intelligence.core.types import Diagnostic
+        from sandbox.code_intelligence.core.types import Diagnostic
 
         d = Diagnostic(
             file_path="/test.py",

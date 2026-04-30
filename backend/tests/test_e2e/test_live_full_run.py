@@ -382,8 +382,8 @@ async def test_phase4_read_and_verify_page(agent):
 
 def test_phase5_code_intelligence_metrics(sandbox_id):
     """Verify CI service components work for the sandbox project."""
-    from code_intelligence.service import CodeIntelligenceService
-    from code_intelligence.core.types import CITelemetry
+    from sandbox.code_intelligence.service import CodeIntelligenceService
+    from sandbox.code_intelligence.core.types import CITelemetry
 
     print("\n--- Phase 5: Code Intelligence Metrics ---")
 
@@ -443,7 +443,7 @@ def test_phase5_code_intelligence_metrics(sandbox_id):
 
 def test_phase6_ci_components_individually(sandbox_id):
     """Test each CI component (symbol index, arbiter) individually."""
-    from code_intelligence.service import CodeIntelligenceService
+    from sandbox.code_intelligence.service import CodeIntelligenceService
 
     print("\n--- Phase 6: CI Component Tests ---")
 
@@ -503,7 +503,7 @@ def test_phase6_ci_components_individually(sandbox_id):
 
 def test_phase7_lsp_language_detection():
     """Verify LSP detects correct languages for project file extensions."""
-    from code_intelligence.language_server.client import LspClient
+    from sandbox.code_intelligence.language_server.client import LspClient
 
     print("\n--- Phase 7: LSP Language Detection ---")
     lsp = LspClient()

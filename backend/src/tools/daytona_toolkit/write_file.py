@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from code_intelligence.core.types import WriteSpec
+from sandbox.code_intelligence.core.types import WriteSpec
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.core.op_result_to_tool_result import operation_result_to_tool_result

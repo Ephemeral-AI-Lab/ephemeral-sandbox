@@ -446,12 +446,12 @@ class TestCodeIntelligenceSystem:
 
     def setup_method(self):
         """Clean up the CI service registry."""
-        from code_intelligence.service import dispose_all_code_intelligence
+        from sandbox.code_intelligence.service import dispose_all_code_intelligence
 
         dispose_all_code_intelligence()
 
     def teardown_method(self):
-        from code_intelligence.service import dispose_all_code_intelligence
+        from sandbox.code_intelligence.service import dispose_all_code_intelligence
 
         dispose_all_code_intelligence()
 
@@ -459,7 +459,7 @@ class TestCodeIntelligenceSystem:
 
     def test_ci_service_creation_and_status(self):
         """CI service should initialize with correct defaults."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         svc = CodeIntelligenceService(
             sandbox_id="ci-test-001",
@@ -476,8 +476,8 @@ class TestCodeIntelligenceSystem:
 
     def test_ci_service_telemetry_fields(self):
         """Telemetry should expose all expected counters."""
-        from code_intelligence.service import CodeIntelligenceService
-        from code_intelligence.core.types import CITelemetry
+        from sandbox.code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.core.types import CITelemetry
 
         svc = CodeIntelligenceService(sandbox_id="ci-tel-001", workspace_root="/ws")
         tel = svc.get_telemetry()
@@ -491,7 +491,7 @@ class TestCodeIntelligenceSystem:
 
     def test_ci_service_dispose_safe(self):
         """Dispose should clean up without raising."""
-        from code_intelligence.service import CodeIntelligenceService
+        from sandbox.code_intelligence.service import CodeIntelligenceService
 
         svc = CodeIntelligenceService(sandbox_id="ci-dispose", workspace_root="/ws")
         svc.dispose()  # should not raise
@@ -500,7 +500,7 @@ class TestCodeIntelligenceSystem:
 
     def test_ci_registry_singleton(self):
         """Same sandbox_id should return the same service instance."""
-        from code_intelligence.service import get_code_intelligence
+        from sandbox.code_intelligence.service import get_code_intelligence
 
         svc1 = get_code_intelligence("singleton-test", "/ws")
         svc2 = get_code_intelligence("singleton-test", "/ws")
@@ -508,7 +508,7 @@ class TestCodeIntelligenceSystem:
 
     def test_ci_registry_different_sandboxes(self):
         """Different sandbox_ids should get different instances."""
-        from code_intelligence.service import get_code_intelligence
+        from sandbox.code_intelligence.service import get_code_intelligence
 
         svc_a = get_code_intelligence("ci-a", "/ws")
         svc_b = get_code_intelligence("ci-b", "/ws")
@@ -518,7 +518,7 @@ class TestCodeIntelligenceSystem:
 
     def test_ci_registry_dispose_removes(self):
         """Disposing a service should remove it from the registry."""
-        from code_intelligence.service import (
+        from sandbox.code_intelligence.service import (
             get_code_intelligence,
             get_code_intelligence_if_exists,
             dispose_code_intelligence,
@@ -531,7 +531,7 @@ class TestCodeIntelligenceSystem:
 
     def test_ci_registry_all_status(self):
         """get_all_services_status should return all active services."""
-        from code_intelligence.service import get_code_intelligence, get_all_services_status
+        from sandbox.code_intelligence.service import get_code_intelligence, get_all_services_status
 
         get_code_intelligence("status-x", "/ws")
         get_code_intelligence("status-y", "/ws")
@@ -544,7 +544,7 @@ class TestCodeIntelligenceSystem:
 
     def test_lsp_client_creation(self):
         """LSP client should initialize without error."""
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient(workspace_root="/workspace")
         assert lsp.telemetry.queries == 0
@@ -552,7 +552,7 @@ class TestCodeIntelligenceSystem:
 
     def test_lsp_client_language_detection(self):
         """LSP client should detect file languages correctly."""
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient()
         assert lsp._detect_language("test.py") == "python"
@@ -563,7 +563,7 @@ class TestCodeIntelligenceSystem:
 
     def test_lsp_client_cache_invalidation(self):
         """Cache invalidation should remove entries for a file."""
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient(workspace_root="/workspace")
         # Manually insert a cache entry
@@ -580,7 +580,7 @@ class TestCodeIntelligenceSystem:
 
     def test_lsp_client_ensure_ready(self):
         """ensure_ready should return language availability dict."""
-        from code_intelligence.language_server.client import LspClient
+        from sandbox.code_intelligence.language_server.client import LspClient
 
         lsp = LspClient(workspace_root="/workspace")
         status = lsp.ensure_ready()
@@ -592,7 +592,7 @@ class TestCodeIntelligenceSystem:
 
     def test_edit_request_fields(self):
         """EditRequest should hold all fields."""
-        from code_intelligence.core.types import EditRequest
+        from sandbox.code_intelligence.core.types import EditRequest
 
         req = EditRequest(
             file_path="/ws/test.py",
@@ -606,7 +606,7 @@ class TestCodeIntelligenceSystem:
 
     def test_edit_result_success_and_failure(self):
         """EditResult should represent both success and failure states."""
-        from code_intelligence.core.types import EditResult
+        from sandbox.code_intelligence.core.types import EditResult
 
         success = EditResult(success=True, file_path="/test.py", message="OK")
         assert success.success is True
@@ -617,7 +617,7 @@ class TestCodeIntelligenceSystem:
 
     def test_diagnostic_severity(self):
         """Diagnostic should hold severity and source info."""
-        from code_intelligence.core.types import Diagnostic
+        from sandbox.code_intelligence.core.types import Diagnostic
 
         d = Diagnostic(
             file_path="/test.py",

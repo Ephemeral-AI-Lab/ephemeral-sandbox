@@ -17,7 +17,7 @@ from tools.core.ci_attribution import (
 )
 
 if TYPE_CHECKING:
-    from code_intelligence.core.types import OperationResult
+    from sandbox.code_intelligence.core.types import OperationResult
     from tools.core.base import ToolExecutionContextService
 
 
