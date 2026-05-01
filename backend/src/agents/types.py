@@ -16,6 +16,40 @@ from notification.rules import NotificationRule
 AgentType = Literal["agent", "subagent"]
 
 
+class AgentSelectionBlock(BaseModel):
+    """Frontmatter-safe subset of :class:`ContextBlock`.
+
+    Variants declare these directly on the agent definition; the resolver
+    converts them into real ``ContextBlock`` instances and appends them to the
+    packet after recipe build.
+    """
+
+    kind: str = Field(min_length=1)
+    priority: str = Field(default="required")
+    text: str
+    source_id: str | None = None
+    source_kind: str | None = None
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class AgentVariant(BaseModel):
+    """One frontmatter-declared capability variant.
+
+    Resolution is short-circuit + first-match-wins by declared order. The
+    target ``use:`` agent must be registered, must not declare its own
+    ``variants:`` (no chaining), and must have a ``context_recipe``.
+    """
+
+    when: str = Field(min_length=1)
+    use: str = Field(min_length=1)
+    note: str = ""
+    required_context_blocks: list[AgentSelectionBlock] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class AgentDefinition(BaseModel):
     """Full agent definition with all configuration fields."""
 
@@ -69,6 +103,17 @@ class AgentDefinition(BaseModel):
     # ``notification.rules.dispatch_rules``). Empty list = no notifications.
     # Built via factories in ``notification.library``.
     notification_rules: list[NotificationRule] = Field(default_factory=list)
+
+    # --- context engine (ContextComposer) ---
+    # Recipe id resolved at compose time. Required when the agent is launched
+    # via ``ContextComposer``; helper / subagent definitions that pre-date the
+    # context engine may keep this null.
+    context_recipe: str | None = None
+    # Frontmatter-declared capability variants. Empty list = no variants
+    # (resolver fast-paths). Variant chaining is forbidden — the
+    # ``use:`` target must itself have empty ``variants``; enforced by
+    # ``validate_agent_definitions_resolved``.
+    variants: list[AgentVariant] = Field(default_factory=list)
 
     model_config = ConfigDict(
         populate_by_name=True,

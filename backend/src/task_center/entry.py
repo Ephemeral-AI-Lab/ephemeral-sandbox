@@ -219,6 +219,7 @@ class TaskCenterEntryCoordinator:
             orchestrator_factory=make_harness_graph_orchestrator_factory(
                 runtime=runtime,
             ),
+            task_store=self._task_store,
         )
 
     def _launch_entry_executor(

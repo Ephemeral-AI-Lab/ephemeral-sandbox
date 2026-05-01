@@ -1,4 +1,11 @@
-"""Prehook blocking partial plans below partial-planned ancestor graphs."""
+"""Prehook blocking partial plans below partial-planned ancestor graphs.
+
+The walking logic now lives in :mod:`task_center.harness_graph.ancestry`.
+Both the legacy ``request_has_partial_plan_ancestor`` helper and the
+``PartialPlanAncestorGate`` prehook are one-line shims around the canonical
+implementation so resolvers, predicates, and prehooks all share one function
+object — a property pinned by structural tests via ``inspect.unwrap``.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +16,7 @@ from pydantic import BaseModel
 
 from task_center.complex_task.request import ComplexTaskRequest
 from task_center.exceptions import GraphInvariantViolation
+from task_center.harness_graph.ancestry import has_partial_planned_caller_ancestor
 from task_center.harness_graph.runtime import HarnessGraphRuntime
 from tools.core.context import ToolExecutionContextService
 from tools.core.hooks import HookResult
@@ -22,51 +30,14 @@ def request_has_partial_plan_ancestor(
     request: ComplexTaskRequest,
     runtime: HarnessGraphRuntime,
 ) -> bool:
-    seen_request_ids: set[str] = set()
-    current_request = request
-
-    while True:
-        if current_request.id in seen_request_ids:
-            raise GraphInvariantViolation(
-                "Cycle detected while resolving complex task request ancestry."
-            )
-        seen_request_ids.add(current_request.id)
-
-        parent_task = runtime.task_store.get_task(
-            current_request.requested_by_task_id
-        )
-        if parent_task is None:
-            return False
-
-        parent_graph_id = str(parent_task.get("task_center_harness_graph_id") or "")
-        if not parent_graph_id:
-            return False
-
-        parent_graph = runtime.graph_store.get(parent_graph_id)
-        if parent_graph is None:
-            raise GraphInvariantViolation(
-                f"Parent HarnessGraph {parent_graph_id!r} was not found."
-            )
-
-        if parent_graph.continuation_goal is not None:
-            return True
-
-        parent_segment = runtime.segment_store.get(parent_graph.task_segment_id)
-        if parent_segment is None:
-            raise GraphInvariantViolation(
-                f"Parent TaskSegment {parent_graph.task_segment_id!r} was not found."
-            )
-
-        parent_request = runtime.request_store.get(
-            parent_segment.complex_task_request_id
-        )
-        if parent_request is None:
-            raise GraphInvariantViolation(
-                "Parent ComplexTaskRequest "
-                f"{parent_segment.complex_task_request_id!r} was not found."
-            )
-
-        current_request = parent_request
+    """Back-compat shim — delegates to the canonical ancestry function."""
+    return has_partial_planned_caller_ancestor(
+        request_id=request.id,
+        request_store=runtime.request_store,
+        segment_store=runtime.segment_store,
+        graph_store=runtime.graph_store,
+        task_store=runtime.task_store,
+    )
 
 
 @dataclass(frozen=True, slots=True)

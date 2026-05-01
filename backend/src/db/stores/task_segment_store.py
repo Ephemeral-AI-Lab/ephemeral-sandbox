@@ -159,6 +159,34 @@ class TaskSegmentStore(SyncStoreMixin):
             )
             return self._to_dto(record) if record is not None else None
 
+    def close_succeeded(
+        self,
+        segment_id: str,
+        *,
+        task_specification: str,
+        task_summary: str,
+        closed_at: datetime | None = None,
+    ) -> TaskSegment:
+        """Atomically transition to SUCCEEDED + write denormalized fields.
+
+        All three writes (status, task_specification, task_summary) happen
+        inside one ``db.commit()`` so a mid-write crash leaves the row
+        untouched. Continuation-segment spawn happens *after* this returns
+        and reads the just-closed row's denormalized fields.
+        """
+        with self._sf() as db:
+            record = db.get(TaskSegmentRecord, segment_id)
+            if record is None:
+                raise LookupError(f"TaskSegment {segment_id!r} not found")
+            record.status = TaskSegmentStatus.SUCCEEDED.value
+            record.task_specification = task_specification
+            record.task_summary = task_summary
+            if closed_at is not None:
+                record.closed_at = closed_at
+            db.commit()
+            db.refresh(record)
+            return self._to_dto(record)
+
     def _to_dto(self, record: TaskSegmentRecord) -> TaskSegment:
         return TaskSegment(
             id=record.id,
@@ -173,4 +201,6 @@ class TaskSegmentStore(SyncStoreMixin):
             created_at=record.created_at,
             updated_at=record.updated_at,
             closed_at=record.closed_at,
+            task_specification=record.task_specification,
+            task_summary=record.task_summary,
         )

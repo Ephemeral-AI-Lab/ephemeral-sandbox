@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from db.stores.harness_graph_store import HarnessGraphStore
+from db.stores.task_center_store import TaskCenterStore
 from db.stores.task_segment_store import TaskSegmentStore
 from task_center.exceptions import GraphInvariantViolation
 from task_center.harness_graph.graph import (
@@ -61,12 +62,17 @@ class TaskSegmentManager:
         graph_store: HarnessGraphStore,
         on_segment_closed: ClosureReportSink,
         orchestrator_factory: OrchestratorFactory | None = None,
+        task_store: TaskCenterStore | None = None,
     ) -> None:
         self.task_segment_id = task_segment_id
         self._segment_store = segment_store
         self._graph_store = graph_store
         self._on_segment_closed = on_segment_closed
         self._orchestrator_factory = orchestrator_factory
+        # Optional — when present, the manager denormalizes the evaluator's
+        # pass-summary text onto the segment row at successful close so the
+        # context engine's planner_v1 recipe can read it on retry / chain.
+        self._task_store = task_store
 
     # ---- public API -----------------------------------------------------
 
@@ -180,15 +186,29 @@ class TaskSegmentManager:
         self._segment_store.set_continuation_goal(
             self.task_segment_id, graph.continuation_goal
         )
-        self._segment_store.set_status(
+        # Atomically transition status + write the denormalized
+        # task_specification (from the passing graph) and task_summary
+        # (from the evaluator's pass summary text) onto the segment row.
+        self._segment_store.close_succeeded(
             self.task_segment_id,
-            status=TaskSegmentStatus.SUCCEEDED,
+            task_specification=graph.task_specification or "",
+            task_summary=self._evaluator_pass_summary_for(graph),
             closed_at=datetime.now(UTC),
         )
         if graph.continuation_goal is None:
             self._emit_terminal_success(graph)
         else:
             self._emit_success_continue(graph)
+
+    def _evaluator_pass_summary_for(self, graph: HarnessGraph) -> str:
+        """Resolve the evaluator's success-summary text for *graph*.
+
+        Empty string when the manager is configured without a ``task_store``
+        (test seams) or when the evaluator never recorded a summary.
+        """
+        if self._task_store is None:
+            return ""
+        return self._task_store.get_evaluator_pass_summary(graph.id)
 
     def _retry_or_close_failed(self, graph: HarnessGraph) -> None:
         segment = self._current_segment_snapshot()

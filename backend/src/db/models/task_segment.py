@@ -45,6 +45,14 @@ class TaskSegmentRecord(Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Denormalized projections from this segment's *passing* harness graph at
+    # close time. Both null while open and on failed close. Used by the
+    # context engine's ``planner_v1`` recipe for prior-segment context.
+    task_specification: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+    task_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     __table_args__ = (
         UniqueConstraint(
             "complex_task_request_id",

@@ -8,6 +8,7 @@ from typing import Any
 __all__ = [
     "AgentRunStore",
     "ComplexTaskRequestStore",
+    "ContextPacketStore",
     "HarnessGraphStore",
     "ModelStore",
     "TaskCenterStore",
@@ -19,6 +20,10 @@ _EXPORTS = {
     "ComplexTaskRequestStore": (
         "db.stores.complex_task_request_store",
         "ComplexTaskRequestStore",
+    ),
+    "ContextPacketStore": (
+        "db.stores.context_packet_store",
+        "ContextPacketStore",
     ),
     "HarnessGraphStore": (
         "db.stores.harness_graph_store",

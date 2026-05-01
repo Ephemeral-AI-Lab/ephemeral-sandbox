@@ -255,6 +255,34 @@ class TaskCenterStore(SyncStoreMixin):
             )
             return [_serialize_task(record) for record in q.all()]
 
+    def get_evaluator_pass_summary(self, harness_graph_id: str) -> str:
+        """Return the evaluator's latest success-summary text for *graph*.
+
+        Used by the segment manager to denormalize the closing evaluator's
+        summary onto the segment row at success-close. Returns an empty
+        string when no evaluator task is found for the graph or the
+        evaluator never recorded a summary (defensive fallback — the caller
+        treats empty strings as ``null``-equivalent).
+        """
+        with self._sf() as db:
+            record = (
+                db.query(TaskCenterTaskRecord)
+                .filter(
+                    TaskCenterTaskRecord.task_center_harness_graph_id
+                    == harness_graph_id,
+                    TaskCenterTaskRecord.role == "evaluator",
+                )
+                .order_by(TaskCenterTaskRecord.created_at.desc())
+                .first()
+            )
+            if record is None:
+                return ""
+            summaries = record.summaries or []
+            if not summaries:
+                return ""
+            latest = summaries[-1]
+            return str(latest.get("summary") or "") if isinstance(latest, dict) else ""
+
     def set_task_status(
         self,
         task_id: str,

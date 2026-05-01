@@ -13,6 +13,7 @@ from typing import Literal
 
 from db.stores.complex_task_request_store import ComplexTaskRequestStore
 from db.stores.harness_graph_store import HarnessGraphStore
+from db.stores.task_center_store import TaskCenterStore
 from db.stores.task_segment_store import TaskSegmentStore
 from task_center.complex_task.validation import (
     assert_continuation_segment_predecessor,
@@ -57,6 +58,7 @@ class ComplexTaskRequestHandler:
         config: HarnessLifecycleConfig,
         deliver_close_report: CloseReportSink | None = None,
         orchestrator_factory: OrchestratorFactory | None = None,
+        task_store: TaskCenterStore | None = None,
     ) -> None:
         self._request_store = request_store
         self._segment_store = segment_store
@@ -65,6 +67,7 @@ class ComplexTaskRequestHandler:
         self._config = config
         self._deliver_close_report = deliver_close_report
         self._orchestrator_factory = orchestrator_factory
+        self._task_store = task_store
 
     # ---- public API -----------------------------------------------------
 
@@ -279,6 +282,7 @@ class ComplexTaskRequestHandler:
             graph_store=self._graph_store,
             on_segment_closed=self.handle_segment_closed,
             orchestrator_factory=self._orchestrator_factory,
+            task_store=self._task_store,
         )
         self._manager_registry.register(manager)
         return manager

@@ -35,6 +35,10 @@ class TaskSegment:
     created_at: datetime
     updated_at: datetime
     closed_at: datetime | None
+    # Denormalized from the segment's passing harness graph at close. Both
+    # null while open and on failed close.
+    task_specification: str | None = None
+    task_summary: str | None = None
 
     @property
     def is_open(self) -> bool:
