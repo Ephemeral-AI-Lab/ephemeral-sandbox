@@ -12,14 +12,15 @@ import inspect
 
 import pytest
 
+from task_center.context_engine.predicates import (
+    PredicateRegistry,
+    register_builtin_predicates,
+)
 from task_center.harness_graph.ancestry import (
     has_partial_planned_caller_ancestor,
 )
 from task_center.harness_graph.graph import HarnessGraphStage
 from task_center.segment.segment import TaskSegmentCreationReason
-from tools.submission.hooks.recursive_partial_plan_gate import (
-    request_has_partial_plan_ancestor,
-)
 
 
 def _stores(request_store, segment_store, graph_store, task_store):
@@ -270,67 +271,89 @@ def test_unknown_request_id_raises(
 # ---------------------------------------------------------------------------
 
 
-def test_legacy_shim_dispatches_to_canonical_function():
-    """``request_has_partial_plan_ancestor`` must invoke the canonical
-    function — confirmed via a no-op runtime stub."""
+def test_resolver_predicate_dispatches_to_canonical(
+    request_store, segment_store, graph_store, task_store, task_center_run_id
+):
+    """The registered resolver predicate must call the canonical ancestry
+    function — confirmed by checking the result matches the canonical's."""
+    saved = dict(PredicateRegistry._registry)
+    PredicateRegistry.clear()
+    register_builtin_predicates()
+    try:
+        from task_center.context_engine.engine import ContextEngineDeps
+        from task_center.context_engine.predicates import ResolverContext
+        from task_center.context_engine.scope import ContextScope
 
-    calls: list[str] = []
+        # Seed a partial-plan caller chain.
+        parent_req = _seed_request(
+            request_store, task_center_run_id=task_center_run_id
+        )
+        parent_seg = _seed_segment(segment_store, request_id=parent_req.id)
+        caller_graph = _seed_graph(
+            graph_store,
+            segment_id=parent_seg.id,
+            continuation_goal="next",
+        )
+        _seed_task(
+            task_store,
+            task_id="t-caller",
+            task_center_run_id=task_center_run_id,
+            harness_graph_id=caller_graph.id,
+        )
+        child_req = _seed_request(
+            request_store,
+            task_center_run_id=task_center_run_id,
+            requested_by_task_id="t-caller",
+        )
+        deps = ContextEngineDeps(
+            request_store=request_store,
+            segment_store=segment_store,
+            graph_store=graph_store,
+            task_store=task_store,
+        )
+        ctx = ResolverContext(
+            scope=ContextScope(request_id=child_req.id), deps=deps
+        )
+        predicate = PredicateRegistry.get("partial_plan_caller_ancestor")
+        canonical_result = has_partial_planned_caller_ancestor(
+            request_id=child_req.id,
+            **_stores(request_store, segment_store, graph_store, task_store),
+        )
+        assert predicate(ctx) is True
+        assert predicate(ctx) is canonical_result, (
+            "resolver predicate must yield the same answer as the canonical"
+        )
 
-    class _StubStore:
-        def get(self, _id):
-            calls.append(_id)
-            return None
-
-    class _StubTaskStore:
-        def get_task(self, _id):
-            calls.append(f"task:{_id}")
-            return None
-
-    class _StubRuntime:
-        request_store = _StubStore()
-        segment_store = _StubStore()
-        graph_store = _StubStore()
-        task_store = _StubTaskStore()
-
-    # The canonical function raises if request lookup misses.
-    from task_center.exceptions import GraphInvariantViolation
-    from task_center.complex_task.request import (
-        ComplexTaskRequest,
-        ComplexTaskRequestStatus,
-    )
-    from datetime import UTC, datetime
-
-    fake = ComplexTaskRequest(
-        id="req-x",
-        task_center_run_id="run",
-        requested_by_task_id="t-x",
-        goal="g",
-        status=ComplexTaskRequestStatus.OPEN,
-        task_segment_ids=(),
-        final_outcome=None,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-        closed_at=None,
-    )
-    runtime = _StubRuntime()
-    with pytest.raises(GraphInvariantViolation):
-        request_has_partial_plan_ancestor(fake, runtime)
-    assert "req-x" in calls, "request_store.get must be invoked from canonical walker"
+        # ResolverContext convenience method also delegates to the canonical.
+        assert ctx.has_partial_planned_caller_ancestor() is canonical_result
+    finally:
+        PredicateRegistry.clear()
+        PredicateRegistry._registry.update(saved)
 
 
 def test_canonical_function_unwraps_to_itself():
-    """Pin: ``inspect.unwrap`` resolves the canonical implementation.
-
-    Future call sites (resolver predicate, ResolverContext helper, recipes)
-    will be added to this assertion. For now, confirm the legacy shim
-    resolves to the canonical via attribute inspection.
-    """
+    """Pin: ``inspect.unwrap`` resolves the canonical implementation."""
     canonical = inspect.unwrap(has_partial_planned_caller_ancestor)
     assert canonical is has_partial_planned_caller_ancestor
 
-    # The shim is intentionally a thin wrapper — it does not use functools.wraps,
-    # but it must call into the canonical. Confirm via source reference.
-    src = inspect.getsource(request_has_partial_plan_ancestor)
-    assert "has_partial_planned_caller_ancestor" in src, (
-        "legacy shim must delegate to the canonical function"
+
+def test_resolver_call_sites_reference_canonical_in_source():
+    """Structural enforcement: every shim must call into the canonical via
+    the same name, so a future caller that drifts to a different signature
+    breaks this assertion."""
+    from task_center.context_engine.predicates import (
+        ResolverContext,
+        _partial_plan_caller_ancestor,
+    )
+
+    predicate_src = inspect.getsource(_partial_plan_caller_ancestor)
+    helper_src = inspect.getsource(
+        ResolverContext.has_partial_planned_caller_ancestor
+    )
+    canonical_name = "has_partial_planned_caller_ancestor"
+    assert canonical_name in predicate_src, (
+        "resolver predicate must delegate to the canonical ancestry function"
+    )
+    assert canonical_name in helper_src, (
+        "ResolverContext convenience method must delegate to the canonical"
     )

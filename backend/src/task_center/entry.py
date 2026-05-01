@@ -8,13 +8,19 @@ from typing import TYPE_CHECKING
 
 from db.stores import (
     ComplexTaskRequestStore,
+    ContextPacketStore,
     HarnessGraphStore,
     TaskCenterStore,
     TaskSegmentStore,
 )
+from agents.registry import validate_agent_definitions_resolved
 from task_center.complex_task.handler import ComplexTaskRequestHandler
 from task_center.complex_task.request import ComplexTaskCloseReport
 from task_center.config import HarnessLifecycleConfig
+from task_center.context_engine.composer import ContextComposer
+from task_center.context_engine.engine import ContextEngine, ContextEngineDeps
+from task_center.context_engine.predicates import register_builtin_predicates
+from task_center.context_engine.recipes import register_builtin_recipes
 from task_center.harness_graph.factory import make_harness_graph_orchestrator_factory
 from task_center.harness_graph.graph import (
     HarnessGraphFailReason,
@@ -33,7 +39,7 @@ from task_center.harness_graph.launcher import (
 from task_center.harness_graph.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import HarnessAgentLaunch, HarnessGraphRuntime
+from task_center.harness_graph.runtime import AgentLaunch, HarnessGraphRuntime
 from task_center.segment.registry import SegmentManagerRegistry
 from task_center.task import HarnessTaskRole
 
@@ -63,6 +69,7 @@ def start_task_center_entry_run(
     segment_store: TaskSegmentStore,
     graph_store: HarnessGraphStore,
     runner: HarnessAgentRunner | None = None,
+    context_packet_store: ContextPacketStore | None = None,
 ) -> TaskCenterEntryHandle:
     """Create a graph-scoped executor entry task for a user request."""
     return TaskCenterEntryCoordinator(
@@ -75,6 +82,7 @@ def start_task_center_entry_run(
         segment_store=segment_store,
         graph_store=graph_store,
         runner=runner,
+        context_packet_store=context_packet_store,
     ).start()
 
 
@@ -93,6 +101,7 @@ class TaskCenterEntryCoordinator:
         segment_store: TaskSegmentStore,
         graph_store: HarnessGraphStore,
         runner: HarnessAgentRunner | None = None,
+        context_packet_store: ContextPacketStore | None = None,
     ) -> None:
         self._config = config
         self._prompt = prompt
@@ -103,6 +112,7 @@ class TaskCenterEntryCoordinator:
         self._segment_store = segment_store
         self._graph_store = graph_store
         self._runner = runner
+        self._context_packet_store = context_packet_store
 
     def start(self) -> TaskCenterEntryHandle:
         """Create and launch the entry executor graph."""
@@ -185,6 +195,7 @@ class TaskCenterEntryCoordinator:
             runner=self._runner,
         )
         manager_registry = SegmentManagerRegistry()
+        composer = self._build_composer()
         runtime = HarnessGraphRuntime(
             request_store=self._request_store,
             segment_store=self._segment_store,
@@ -194,9 +205,35 @@ class TaskCenterEntryCoordinator:
             orchestrator_registry=HarnessGraphOrchestratorRegistry(),
             manager_registry=manager_registry,
             lifecycle_config=HarnessLifecycleConfig(),
+            composer=composer,
         )
         runtime_ref = runtime
         return runtime, launcher, manager_registry
+
+    def _build_composer(self) -> ContextComposer:
+        """Construct the composer + register built-in predicates / recipes.
+
+        Predicate and recipe registration are idempotent — safe to call once
+        per entry-coordinator startup. After registration we cross-validate
+        every loaded :class:`AgentDefinition` so a typo in a frontmatter
+        ``variants:`` block, a dangling target, a chained variant, or an
+        unknown ``context_recipe`` fails the spawn here rather than during
+        the first model turn. Helper recipes (advisor / resolver) require a
+        :class:`ContextPacketStore`; if one wasn't supplied, the composer is
+        still built but helper compose calls will raise (the non-helper
+        recipes work without it).
+        """
+        register_builtin_predicates()
+        register_builtin_recipes()
+        validate_agent_definitions_resolved()
+        deps = ContextEngineDeps(
+            request_store=self._request_store,
+            segment_store=self._segment_store,
+            graph_store=self._graph_store,
+            task_store=self._task_store,
+            context_packet_store=self._context_packet_store,
+        )
+        return ContextComposer.default(ContextEngine(deps))
 
     def _create_request_handler(
         self,
@@ -231,7 +268,7 @@ class TaskCenterEntryCoordinator:
     ) -> None:
         try:
             runtime.agent_launcher.launch(
-                HarnessAgentLaunch(
+                AgentLaunch(
                     task_id=entry_graph.task_id,
                     task_center_run_id=task_center_run_id,
                     harness_graph_id=entry_graph.graph_id,

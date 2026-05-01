@@ -101,27 +101,26 @@ come from the previous segment's accepted `continuation_goal`. Parent executor
 context can be included as background evidence, but it is not the contract for
 the delegated request.
 
+> **Amendment (`context-engine-flexible-composition` plan v8).**
+> `TaskSegment.task_specification` and `TaskSegment.task_summary` are
+> denormalized projections from the segment's *passing* harness graph at
+> close, used by the `planner_v1` recipe for prior-segment context. The
+> graph row remains the source of truth; the segment row holds the
+> projection. Both fields are null while the segment is open and on
+> failed close — see plan §3.8 for the atomicity contract on
+> `TaskSegmentStore.close_succeeded`.
+
 ## Context engine contract
 
-Expose a single service with typed read and write operations:
+> **Revised by `context-engine-flexible-composition` plan v8.** The build API
+> is one recipe-id-keyed entry point; the engine is role-agnostic and recipes
+> are registered against string ids in :class:`RecipeRegistry`. New roles or
+> new context shapes are added by registering another :class:`ContextRecipe`
+> — no engine code changes.
 
 ```python
 class ContextEngine:
-    async def build_planner_context(
-        self, harness_graph_id: str
-    ) -> ContextPacket: ...
-
-    async def build_generator_context(
-        self, task_id: str
-    ) -> ContextPacket: ...
-
-    async def build_evaluator_context(
-        self, harness_graph_id: str
-    ) -> ContextPacket: ...
-
-    async def build_request_close_context(
-        self, complex_task_request_id: str
-    ) -> ContextPacket: ...
+    def build(self, recipe_id: str, scope: ContextScope) -> ContextPacket: ...
 
     async def record_task_summary(
         self, task_id: str, summary: TaskSummary
@@ -140,9 +139,12 @@ class ContextEngine:
     ) -> ComplexTaskSummary: ...
 ```
 
-`build_*_context` methods return structured packets. Prompt rendering should be
-a downstream formatting step so tests can assert on context blocks without
-parsing prose.
+The shipped recipes — `planner_v1`, `generator_v1`, `evaluator_v1`,
+`entry_executor_v1`, `advisor_v1`, `resolver_v1` — cover every role
+previously exposed via the role-keyed methods above. Each recipe declares
+`required_scope_fields`; the engine validates the scope before invoking the
+build callable. Prompt rendering remains a downstream formatting step
+(see :class:`MarkdownPromptRenderer`).
 
 ## Context packet model
 
@@ -186,11 +188,14 @@ Suggested block kinds:
 - `planned_task_spec`,
 - `dependency_summary`,
 - `completed_task_summary`,
+- `prior_segment_specification` *(new in flexible-composition plan v4)* — per-prior-segment block carrying `TaskSegment.task_specification`,
 - `prior_segment_summary`,
 - `prior_harness_graph_summary`,
 - `failed_graph_landscape`,
 - `resolver_summary`,
 - `artifact_reference`,
+- `parent_question` *(used by `advisor_v1` / `resolver_v1` helper recipes)*,
+- `capability_note` *(emitted by `AgentSelection.required_context_blocks` when a variant changes the model-facing tool/prose surface — partial-plan disable is the first user)*,
 - `close_report`.
 
 ## Summary model

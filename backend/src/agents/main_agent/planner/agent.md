@@ -62,7 +62,7 @@ Rules for partial plans:
 
 - The partial plan must stand on its own. Its tasks and criteria deliver a finished slice. The continuation is for *additional* work, not for *unfinished* work in this graph.
 - The next segment's planner does not see this graph's task contents, only its summary. Write `continuation_goal` as a self-contained instruction the way you would want a fresh segment goal — not as a diff against this graph.
-- A `PartialPlanAncestorGate` rejects partial plans when this request was spawned recursively from an ancestor graph that itself partial-planned. If `prior_segment_summary` or any context note indicates partial-planning is unavailable in this request, only `submit_full_plan` is valid.
+- If a context note (e.g. `capability_note`) declares partial planning unavailable in this request, only `submit_full_plan` is valid. The agent.md `terminals:` filter on the selected variant is the gate; the model never sees `submit_partial_plan` when the variant fires.
 - If `failed_graph_landscape` is present, you are retrying inside a fixed segment goal. You may still choose full or partial; the choice is yours, but the segment goal does not change.
 
 If you cannot decide yet, keep working with read-only and helper tools. The graph stays in PLANNING until you call exactly one terminal tool.

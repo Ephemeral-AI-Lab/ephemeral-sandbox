@@ -7,12 +7,7 @@ import pytest
 from message.messages import ConversationMessage, ToolResultBlock, ToolUseBlock
 from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
 from task_center.segment.segment import TaskSegmentCreationReason
-from task_center.task import (
-    PlannedGeneratorTask,
-    PlannerSubmission,
-    generator_task_id,
-    planner_task_id,
-)
+from task_center.task import planner_task_id
 from tools.core.tool_execution import execute_tool_once
 from tools.submission.hooks.request_complex_task_before_edit_gate import (
     RequestComplexTaskBeforeEditGate,
@@ -76,61 +71,6 @@ def _resolver_messages(count: int) -> list[ConversationMessage]:
             )
         )
     return messages
-
-
-def _apply_partial_parent_plan(fixture) -> str:
-    planner_id = start_planner(fixture)
-    fixture.orchestrator.apply_plan_submission(
-        PlannerSubmission(
-            graph_id=fixture.graph_id,
-            planner_task_id=planner_id,
-            kind="partial",
-            task_specification="parent partial spec",
-            evaluation_criteria=("parent criterion",),
-            tasks=(
-                PlannedGeneratorTask(
-                    local_id="a",
-                    agent_name="executor",
-                    deps=(),
-                    task_spec="request child work",
-                ),
-            ),
-            continuation_goal="continue parent request later",
-            summary="parent partial plan",
-        )
-    )
-    return generator_task_id(fixture.graph_id, "a")
-
-
-def _create_child_graph(fixture, *, requested_by_task_id: str):
-    child_request = fixture.runtime.request_store.insert(
-        task_center_run_id="run1",
-        requested_by_task_id=requested_by_task_id,
-        goal="child request",
-    )
-    child_segment = fixture.runtime.segment_store.insert(
-        complex_task_request_id=child_request.id,
-        sequence_no=1,
-        creation_reason=TaskSegmentCreationReason.INITIAL,
-        goal="child request",
-        attempt_budget=2,
-    )
-    fixture.runtime.request_store.append_segment_id(
-        child_request.id, child_segment.id
-    )
-    child_graph = fixture.runtime.graph_store.insert(
-        task_segment_id=child_segment.id,
-        graph_sequence_no=1,
-    )
-    fixture.runtime.segment_store.append_graph_id(child_segment.id, child_graph.id)
-    child_orchestrator = HarnessGraphOrchestrator(
-        harness_graph=child_graph,
-        on_graph_closed=lambda graph_id: None,
-        runtime=fixture.runtime,
-    )
-    fixture.runtime.orchestrator_registry.register(child_orchestrator)
-    child_orchestrator.start()
-    return child_graph
 
 
 async def test_request_complex_task_solution_blocks_after_edit() -> None:
@@ -289,41 +229,6 @@ async def test_partial_plan_ancestor_gate_allows_same_request_continuation(
     )
 
     assert not result.is_error
-
-
-async def test_partial_plan_ancestor_gate_blocks_child_of_partial_graph(
-    request_store, segment_store, graph_store, task_store
-) -> None:
-    fixture = build_harness_fixture(
-        request_store=request_store,
-        segment_store=segment_store,
-        graph_store=graph_store,
-        task_store=task_store,
-    )
-    parent_generator_id = _apply_partial_parent_plan(fixture)
-    child_graph = _create_child_graph(
-        fixture, requested_by_task_id=parent_generator_id
-    )
-
-    result = await execute_tool_once(
-        submit_partial_plan,
-        {
-            "task_specification": "child spec",
-            "evaluation_criteria": ["ok"],
-            "tasks": [{"id": "a", "agent_name": "executor", "deps": []}],
-            "task_specs": {"a": "do child work"},
-            "continuation_goal": "continue child later",
-        },
-        make_tool_context_for_graph(
-            fixture,
-            child_graph.id,
-            planner_task_id(child_graph.id),
-        ),
-        emit=_noop_emit,
-    )
-
-    assert result.is_error
-    assert "partial-planned harness graph" in result.output
 
 
 def make_tool_context_stub(*, messages: list[ConversationMessage]):

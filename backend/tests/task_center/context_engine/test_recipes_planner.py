@@ -21,7 +21,6 @@ from task_center.harness_graph.graph import (
     HarnessGraphStatus,
 )
 from task_center.segment.segment import (
-    TaskSegment,
     TaskSegmentCreationReason,
     TaskSegmentStatus,
 )

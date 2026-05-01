@@ -1,21 +1,24 @@
-"""US-014: orchestrator + dispatcher composer wiring.
+"""US-018: end-to-end planner capability fork.
 
-Confirms that when ``HarnessGraphRuntime.composer`` is set, the orchestrator
-asks the composer for the planner agent name and task_input, and that
-``planner_full_only`` is selected when ancestry has a partial-plan caller.
+Builds a parent request whose harness graph submitted a partial plan, spawns
+a child request, then asserts the planner spawned for the child:
+
+* is the ``planner_full_only`` agent (resolver swapped via the variant);
+* receives a ``task_input`` containing the variant's capability_note text;
+* the registered ``planner_full_only`` AgentDefinition has
+  ``terminals`` without ``submit_partial_plan`` (the gate is the agent.md
+  ``terminals:`` filter — the model never sees the tool when the variant
+  fires).
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 
 import pytest
 
 from agents import registry as agents_registry
-from agents.types import (
-    AgentDefinition,
-    AgentSelectionBlock,
-    AgentVariant,
-)
+from agents.loader import load_agents_tree
 from task_center.config import HarnessLifecycleConfig
 from task_center.context_engine.composer import ContextComposer
 from task_center.context_engine.engine import ContextEngine, ContextEngineDeps
@@ -36,9 +39,11 @@ from task_center.harness_graph.runtime import (
 from task_center.segment.segment import TaskSegmentCreationReason
 
 
-class _RecordingLauncher:
-    """Captures launches without actually starting any agent run."""
+REPO_ROOT = Path(__file__).resolve().parents[4]
+AGENTS_ROOT = REPO_ROOT / "backend" / "src" / "agents"
 
+
+class _RecordingLauncher:
     def __init__(self) -> None:
         self.launches: list[AgentLaunch] = []
 
@@ -56,6 +61,9 @@ def _isolate_global_registries():
     agents_registry._DEFINITIONS.clear()
     register_builtin_predicates()
     register_builtin_recipes()
+    # Load every agent.md in the repo so resolver target lookups succeed.
+    for definition in load_agents_tree(AGENTS_ROOT):
+        agents_registry.register_definition(definition)
     yield
     PredicateRegistry.clear()
     RecipeRegistry.clear()
@@ -65,8 +73,7 @@ def _isolate_global_registries():
     agents_registry._DEFINITIONS.update(saved_definitions)
 
 
-@pytest.fixture
-def composer_runtime(
+def _runtime_with_composer(
     request_store, segment_store, graph_store, task_store
 ) -> tuple[HarnessGraphRuntime, _RecordingLauncher]:
     launcher = _RecordingLauncher()
@@ -91,67 +98,13 @@ def composer_runtime(
     return runtime, launcher
 
 
-def _register_planner_agents() -> None:
-    base = AgentDefinition(
-        name="planner",
-        description="planner",
-        context_recipe="planner_v1",
-        terminals=["submit_full_plan", "submit_partial_plan"],
-        variants=[
-            AgentVariant(
-                when="partial_plan_caller_ancestor",
-                use="planner_full_only",
-                required_context_blocks=[
-                    AgentSelectionBlock(
-                        kind="capability_note",
-                        priority="required",
-                        text="Partial planning is disabled.",
-                    )
-                ],
-            )
-        ],
-        system_prompt="PLANNER",
-    )
-    full_only = AgentDefinition(
-        name="planner_full_only",
-        description="planner",
-        context_recipe="planner_v1",
-        terminals=["submit_full_plan"],
-        system_prompt="PLANNER FULL ONLY",
-    )
-    agents_registry.register_definition(base)
-    agents_registry.register_definition(full_only)
-
-
-def _seed_request_segment_graph(
-    request_store, segment_store, graph_store, task_center_run_id
-):
-    request = request_store.insert(
-        task_center_run_id=task_center_run_id,
-        requested_by_task_id="t-entry",
-        goal="overall",
-    )
-    segment = segment_store.insert(
-        complex_task_request_id=request.id,
-        sequence_no=1,
-        creation_reason=TaskSegmentCreationReason.INITIAL,
-        goal="seg goal",
-        attempt_budget=2,
-    )
-    graph = graph_store.insert(
-        task_segment_id=segment.id, graph_sequence_no=1
-    )
-    return request, segment, graph
-
-
-def _setup_partial_plan_ancestor(
+def _seed_partial_plan_caller(
     request_store,
     segment_store,
     graph_store,
     task_store,
     task_center_run_id,
 ):
-    """Ancestor caller submitted a partial plan → child planner should fork."""
     parent_req = request_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="t-entry",
@@ -169,9 +122,9 @@ def _setup_partial_plan_ancestor(
     )
     graph_store.set_plan_contract(
         caller_graph.id,
-        task_specification="caller spec",
+        task_specification="parent spec",
         evaluation_criteria=["c"],
-        continuation_goal="continue here",   # ← partial plan
+        continuation_goal="continue here",
     )
     task_store.upsert_task(
         task_id="t-caller",
@@ -188,49 +141,17 @@ def _setup_partial_plan_ancestor(
     return parent_req
 
 
-def test_planner_launched_via_composer_uses_base_when_no_ancestor(
-    composer_runtime,
-    request_store,
-    segment_store,
-    graph_store,
-    task_store,
-    task_center_run_id,
+def test_partial_plan_caller_forks_child_planner_to_full_only(
+    request_store, segment_store, graph_store, task_store, task_center_run_id
 ):
-    runtime, launcher = composer_runtime
-    _register_planner_agents()
-    request, segment, graph = _seed_request_segment_graph(
-        request_store, segment_store, graph_store, task_center_run_id
+    runtime, launcher = _runtime_with_composer(
+        request_store, segment_store, graph_store, task_store
     )
-    orchestrator = HarnessGraphOrchestrator(
-        harness_graph=graph, on_graph_closed=lambda _id: None, runtime=runtime
+    _seed_partial_plan_caller(
+        request_store, segment_store, graph_store, task_store, task_center_run_id
     )
-    orchestrator.start()
-    assert len(launcher.launches) == 1
-    launched = launcher.launches[0]
-    assert launched.agent_name == "planner"
-    assert launched.system_prompt == "PLANNER"
-    assert launched.context_packet_id is None  # no packet store wired
-    assert "Segment goal" in launched.task_input
 
-
-def test_planner_forked_to_full_only_when_partial_plan_caller_present(
-    composer_runtime,
-    request_store,
-    segment_store,
-    graph_store,
-    task_store,
-    task_center_run_id,
-):
-    runtime, launcher = composer_runtime
-    _register_planner_agents()
-    _setup_partial_plan_ancestor(
-        request_store,
-        segment_store,
-        graph_store,
-        task_store,
-        task_center_run_id,
-    )
-    # Child request is spawned by the partial-plan caller task.
+    # Child request spawned by the partial-plan caller task.
     child_req = request_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="t-caller",
@@ -252,8 +173,17 @@ def test_planner_forked_to_full_only_when_partial_plan_caller_present(
         runtime=runtime,
     )
     orchestrator.start()
+
     assert len(launcher.launches) == 1
     launched = launcher.launches[0]
+
+    # (a) selected agent is planner_full_only.
     assert launched.agent_name == "planner_full_only"
-    assert launched.system_prompt == "PLANNER FULL ONLY"
+    # (b) capability_note text from variant's required_context_blocks present.
     assert "Partial planning is disabled" in launched.task_input
+    # (c) the registered planner_full_only definition's terminals list does
+    #     not include submit_partial_plan (the gate is the agent.md filter).
+    full_only = agents_registry.get_definition("planner_full_only")
+    assert full_only is not None
+    assert "submit_full_plan" in full_only.terminals
+    assert "submit_partial_plan" not in full_only.terminals

@@ -1,13 +1,12 @@
 """Canonical ancestor walks across the request → segment → graph → task chain.
 
 This module owns the **single canonical implementation** of the partial-plan
-ancestor predicate. The legacy ``request_has_partial_plan_ancestor`` helper
-still lives in ``tools.submission.hooks.recursive_partial_plan_gate`` for
-backward compatibility, but it is now a one-line shim around
-``has_partial_planned_caller_ancestor``.
-
-Keeping every caller (resolver predicate, prehook, recipes) on the same
-function object lets a structural test catch drift via ``inspect.unwrap``.
+ancestor predicate. Surviving call sites (resolver predicate +
+``ResolverContext.has_partial_planned_caller_ancestor`` convenience method)
+are one-line shims around this function. The legacy
+``PartialPlanAncestorGate`` prehook + ``recursive_partial_plan`` notification
+trigger were removed in US-016 — the gate now lives in the agent.md
+``terminals:`` filter on ``planner_full_only``.
 """
 
 from __future__ import annotations

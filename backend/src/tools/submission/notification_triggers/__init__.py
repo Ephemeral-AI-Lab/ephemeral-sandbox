@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 from notification.rules import NotificationRule
-from tools.submission.notification_triggers.recursive_partial_plan import (
-    make_recursive_partial_plan_reminder,
-)
 from tools.submission.notification_triggers.request_complex_task_after_edit import (
     make_request_after_edit_reminder,
 )
@@ -18,7 +15,6 @@ def resolve_harness_notification_triggers(
     trigger_ids: list[str],
 ) -> list[NotificationRule]:
     factories = {
-        "recursive_partial_plan": make_recursive_partial_plan_reminder,
         "request_complex_task_after_edit": make_request_after_edit_reminder,
         "resolver_limit": make_resolver_limit_reminder,
     }
@@ -32,7 +28,6 @@ def resolve_harness_notification_triggers(
 
 
 __all__ = [
-    "make_recursive_partial_plan_reminder",
     "make_request_after_edit_reminder",
     "make_resolver_limit_reminder",
     "resolve_harness_notification_triggers",
