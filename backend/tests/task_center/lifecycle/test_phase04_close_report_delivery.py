@@ -229,9 +229,12 @@ def test_router_treats_done_parent_as_already_delivered(
     assert result.status == "already_delivered"
 
 
-def test_router_defers_when_parent_orchestrator_missing(
+def test_router_raises_when_parent_orchestrator_missing(
     request_store, segment_store, graph_store, task_store, task_center_run_id
 ) -> None:
+    """No-restart invariant: while a parent task is in WAITING_COMPLEX_TASK
+    its orchestrator must remain registered. A missing orchestrator at
+    delivery time is a hard ``GraphInvariantViolation``."""
     runtime, parent_graph_id, parent_task_id = _build_runtime_with_open_graph(
         request_store=request_store,
         segment_store=segment_store,
@@ -243,17 +246,17 @@ def test_router_defers_when_parent_orchestrator_missing(
     runtime.orchestrator_registry.deregister(parent_graph_id)
     router = ComplexTaskCloseReportRouter(runtime=runtime)
 
-    result = router.deliver(
-        ComplexTaskCloseReport(
-            complex_task_request_id="delegated-1",
-            requested_by_task_id=parent_task_id,
-            outcome="success",
-            final_segment_id="seg-1",
-            final_harness_graph_id="graph-1",
+    with pytest.raises(GraphInvariantViolation):
+        router.deliver(
+            ComplexTaskCloseReport(
+                complex_task_request_id="delegated-1",
+                requested_by_task_id=parent_task_id,
+                outcome="success",
+                final_segment_id="seg-1",
+                final_harness_graph_id="graph-1",
+            )
         )
-    )
 
-    assert result.status == "deferred_no_orchestrator"
     parent_task = task_store.get_task(parent_task_id)
     assert parent_task is not None
     assert parent_task["status"] == HarnessTaskStatus.WAITING_COMPLEX_TASK.value

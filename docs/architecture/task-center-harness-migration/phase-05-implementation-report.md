@@ -109,7 +109,6 @@ Commands run during verification:
 
 These remain explicitly outside Phase 05:
 
-- Cold-restart resurrection of process-local orchestrators from durable rows.
 - Registry hygiene under `start()` failure, tracked as a Phase 04 known
   limitation.
 - Frontend client work against `/api/db/task-center-runs/{id}/graph`.

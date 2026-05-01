@@ -14,6 +14,10 @@ from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
 from task_center.harness_graph.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
+from task_center.harness_graph.graph import (
+    HarnessGraphFailReason,
+    HarnessGraphStatus,
+)
 from task_center.harness_graph.runtime import HarnessAgentLaunch, HarnessGraphRuntime
 from task_center.segment.registry import SegmentManagerRegistry
 from task_center.segment.segment import (
@@ -40,15 +44,26 @@ class _FakeLauncher:
         self.launches.append(launch)
 
 
+class _FailOnLaunchNumber(_FakeLauncher):
+    def __init__(self, fail_on: int) -> None:
+        super().__init__()
+        self._fail_on = fail_on
+
+    def launch(self, launch: HarnessAgentLaunch) -> None:
+        super().launch(launch)
+        if len(self.launches) == self._fail_on:
+            raise RuntimeError("planned launch failure")
+
+
 def _build_runtime(
-    request_store, segment_store, graph_store, task_store
+    request_store, segment_store, graph_store, task_store, launcher=None
 ) -> HarnessGraphRuntime:
     return HarnessGraphRuntime(
         request_store=request_store,
         segment_store=segment_store,
         graph_store=graph_store,
         task_store=task_store,
-        agent_launcher=_FakeLauncher(),
+        agent_launcher=launcher or _FakeLauncher(),
         orchestrator_registry=HarnessGraphOrchestratorRegistry(),
         manager_registry=SegmentManagerRegistry(),
     )
@@ -280,6 +295,59 @@ def test_delegated_continuation_waits_until_final_segment(
     assert delegated_final.status == ComplexTaskRequestStatus.SUCCEEDED
     assert segment2_final is not None
     assert segment2_final.status == TaskSegmentStatus.SUCCEEDED
+
+
+def test_continuation_startup_failure_reports_continuation_graph(
+    request_store, segment_store, graph_store, task_store, task_center_run_id
+) -> None:
+    launcher = _FailOnLaunchNumber(fail_on=6)
+    runtime = _build_runtime(
+        request_store,
+        segment_store,
+        graph_store,
+        task_store,
+        launcher=launcher,
+    )
+    parent_task_id, parent_graph_id = _seed_outer_running_generator(
+        runtime=runtime,
+        request_store=request_store,
+        segment_store=segment_store,
+        graph_store=graph_store,
+        task_store=task_store,
+        task_center_run_id=task_center_run_id,
+    )
+    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
+    handoff = coordinator.start(
+        task_center_run_id=task_center_run_id,
+        parent_task_id=parent_task_id,
+        parent_harness_graph_id=parent_graph_id,
+        goal="delegated continuation",
+    )
+
+    _drive_delegated_graph_to_pass(
+        runtime=runtime,
+        delegated_graph_id=handoff.initial_harness_graph_id,
+        continuation_goal="continue work",
+    )
+
+    request = request_store.get(handoff.complex_task_request_id)
+    assert request is not None
+    assert request.status == ComplexTaskRequestStatus.FAILED
+    assert request.final_outcome is not None
+    segment2_id = request.task_segment_ids[1]
+    segment2 = segment_store.get(segment2_id)
+    assert segment2 is not None
+    failed_graph_id = segment2.harness_graph_ids[0]
+    failed_graph = graph_store.get(failed_graph_id)
+    assert failed_graph is not None
+    assert failed_graph.status == HarnessGraphStatus.FAILED
+    assert failed_graph.fail_reason == HarnessGraphFailReason.STARTUP_FAILED
+    assert request.final_outcome["final_segment_id"] == segment2_id
+    assert request.final_outcome["final_harness_graph_id"] == failed_graph_id
+
+    parent_final = task_store.get_task(parent_task_id)
+    assert parent_final is not None
+    assert parent_final["status"] == HarnessTaskStatus.FAILED.value
 
 
 def test_delegated_retry_waits_until_final_graph(

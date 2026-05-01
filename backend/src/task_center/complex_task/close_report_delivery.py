@@ -1,10 +1,13 @@
-"""ComplexTaskCloseReport delivery router and replay helpers.
+"""ComplexTaskCloseReport delivery router.
 
 Owns the single delivery path from ``ComplexTaskRequestHandler.close_complex_task_request``
 to the parent ``HarnessGraphOrchestrator.apply_complex_task_close_report``.
-Replay helpers reconstruct reports from durable ``final_outcome`` rows so a
-report dropped during a handoff is delivered the next time the parent
-orchestrator is active.
+
+The runtime assumes no process restart: while a parent generator task is in
+``WAITING_COMPLEX_TASK`` its graph cannot reach quiescence and its
+orchestrator stays registered. Therefore close-report delivery is always
+synchronous against an active parent orchestrator; a missing orchestrator at
+delivery time is a hard ``GraphInvariantViolation``.
 """
 
 from __future__ import annotations
@@ -12,10 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from task_center.complex_task.request import (
-    ComplexTaskCloseReport,
-    ComplexTaskRequest,
-)
+from task_center.complex_task.request import ComplexTaskCloseReport
 from task_center.exceptions import GraphInvariantViolation
 from task_center.harness_graph.runtime import HarnessGraphRuntime
 from task_center.task import HarnessTaskStatus
@@ -23,7 +23,6 @@ from task_center.task import HarnessTaskStatus
 CloseReportDeliveryStatus = Literal[
     "delivered",
     "already_delivered",
-    "deferred_no_orchestrator",
 ]
 
 
@@ -72,10 +71,10 @@ class ComplexTaskCloseReportRouter:
 
         orchestrator = self._runtime.orchestrator_registry.get(graph_id)
         if orchestrator is None:
-            return CloseReportDeliveryResult(
-                status="deferred_no_orchestrator",
-                requested_by_task_id=report.requested_by_task_id,
-                parent_harness_graph_id=graph_id,
+            raise GraphInvariantViolation(
+                f"Parent HarnessGraphOrchestrator for graph {graph_id!r} is "
+                "not registered; close-report delivery requires an active "
+                "parent orchestrator."
             )
         orchestrator.apply_complex_task_close_report(report)
         return CloseReportDeliveryResult(
@@ -83,42 +82,3 @@ class ComplexTaskCloseReportRouter:
             requested_by_task_id=report.requested_by_task_id,
             parent_harness_graph_id=graph_id,
         )
-
-
-def build_close_report_from_request(
-    request: ComplexTaskRequest,
-) -> ComplexTaskCloseReport | None:
-    """Reconstruct a close report from a closed request's ``final_outcome``.
-
-    Returns ``None`` for any request that did not end with a delivered outcome
-    (open, or cancelled by handoff compensation).
-    """
-    try:
-        return ComplexTaskCloseReport.from_request(request)
-    except ValueError as exc:
-        raise GraphInvariantViolation(str(exc)) from exc
-
-
-def deliver_pending_complex_task_close_reports(
-    *,
-    runtime: HarnessGraphRuntime,
-    task_center_run_id: str | None = None,
-) -> list[CloseReportDeliveryResult]:
-    """Replay closed ``ComplexTaskRequest``s whose parent task is still waiting.
-
-    When ``task_center_run_id`` is None, scans every closed request the store
-    knows about. Idempotent: already-delivered reports return
-    ``already_delivered`` rather than re-mutating the parent.
-    """
-    if task_center_run_id is None:
-        closed = runtime.request_store.list_closed()
-    else:
-        closed = runtime.request_store.list_closed_for_run(task_center_run_id)
-    router = ComplexTaskCloseReportRouter(runtime=runtime)
-    results: list[CloseReportDeliveryResult] = []
-    for request in closed:
-        report = build_close_report_from_request(request)
-        if report is None:
-            continue
-        results.append(router.deliver(report))
-    return results

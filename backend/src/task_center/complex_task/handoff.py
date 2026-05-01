@@ -46,6 +46,7 @@ class ComplexTaskHandoffCoordinator:
 
     def __init__(self, *, runtime: HarnessGraphRuntime) -> None:
         self._runtime = runtime
+        self._handler: ComplexTaskRequestHandler | None = None
 
     def start(
         self,
@@ -109,6 +110,8 @@ class ComplexTaskHandoffCoordinator:
     # ---- internal -------------------------------------------------------
 
     def _build_handler(self) -> ComplexTaskRequestHandler:
+        if self._handler is not None:
+            return self._handler
         manager_registry = self._runtime.manager_registry
         if manager_registry is None:
             raise GraphInvariantViolation(
@@ -122,7 +125,7 @@ class ComplexTaskHandoffCoordinator:
         orchestrator_factory = make_harness_graph_orchestrator_factory(
             runtime=self._runtime,
         )
-        return ComplexTaskRequestHandler(
+        self._handler = ComplexTaskRequestHandler(
             request_store=self._runtime.request_store,
             segment_store=self._runtime.segment_store,
             graph_store=self._runtime.graph_store,
@@ -131,6 +134,7 @@ class ComplexTaskHandoffCoordinator:
             deliver_close_report=_deliver,
             orchestrator_factory=orchestrator_factory,
         )
+        return self._handler
 
     def _assert_parent_running_and_no_open_child(
         self,
@@ -234,8 +238,12 @@ class ComplexTaskHandoffCoordinator:
                 status=HarnessTaskStatus.RUNNING.value,
             )
         except Exception:
-            logger.exception(
-                "ComplexTaskHandoffCoordinator: rollback parent status failed",
+            logger.critical(
+                "ComplexTaskHandoffCoordinator: parent status rollback failed; "
+                "task %r will remain in WAITING_COMPLEX_TASK and requires "
+                "manual recovery",
+                parent_task_id,
+                exc_info=True,
             )
         manager_registry = self._runtime.manager_registry
         if manager_registry is not None:

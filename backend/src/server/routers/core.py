@@ -230,12 +230,46 @@ def create_core_router(get_runtime: Callable[[], RuntimeState]) -> APIRouter:
                     if backend_event is not None:
                         await runtime.emit(backend_event)
 
-                await execute_ephemeral_agent_run(
-                    runtime.config,
-                    req.line,
-                    on_agent_event=_on_agent_event,
-                    sandbox_id=req.sandbox_id,
+                from server.app_factory import (
+                    complex_task_request_store,
+                    harness_graph_store,
+                    task_center_store,
+                    task_segment_store,
                 )
+
+                if not (
+                    task_center_store.is_ready
+                    and complex_task_request_store.is_ready
+                    and task_segment_store.is_ready
+                    and harness_graph_store.is_ready
+                ):
+                    raise RuntimeError("TaskCenter stores are not ready.")
+
+                from task_center.entry import start_task_center_entry_run
+
+                entry_run = start_task_center_entry_run(
+                    config=runtime.config,
+                    prompt=req.line,
+                    sandbox_id=req.sandbox_id,
+                    on_agent_event=_on_agent_event,
+                    task_store=task_center_store,
+                    request_store=complex_task_request_store,
+                    segment_store=task_segment_store,
+                    graph_store=harness_graph_store,
+                )
+                await runtime.emit(
+                    BackendEvent(
+                        type="transcript_item",
+                        item=TranscriptItem(
+                            role="system",
+                            text=(
+                                "TaskCenter run "
+                                f"{entry_run.task_center_run_id} started."
+                            ),
+                        ),
+                    )
+                )
+                await entry_run.launcher.wait_for_idle()
                 await runtime.emit(BackendEvent(type="line_complete"))
             except Exception as exc:
                 await runtime.emit(BackendEvent(type="error", message=f"Processing error: {exc}"))

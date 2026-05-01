@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -13,12 +14,9 @@ from config.markdown import parse_markdown_frontmatter
 logger = logging.getLogger(__name__)
 
 
-def load_agents_dir(directory: Path) -> list[AgentDefinition]:
-    """Load agent definitions from .md files in *directory*."""
-    if not directory.is_dir():
-        return []
+def _load_agent_files(paths: Iterable[Path]) -> list[AgentDefinition]:
     agents: list[AgentDefinition] = []
-    for path in sorted(directory.glob("*.md")):
+    for path in sorted(paths):
         try:
             fm, body = parse_markdown_frontmatter(path.read_text(encoding="utf-8"))
             data = dict(fm)
@@ -33,3 +31,17 @@ def load_agents_dir(directory: Path) -> list[AgentDefinition]:
         except Exception:
             logger.debug("Failed to load agent from %s", path, exc_info=True)
     return agents
+
+
+def load_agents_dir(directory: Path) -> list[AgentDefinition]:
+    """Load agent definitions from .md files directly in *directory*."""
+    if not directory.is_dir():
+        return []
+    return _load_agent_files(directory.glob("*.md"))
+
+
+def load_agents_tree(directory: Path) -> list[AgentDefinition]:
+    """Load agent definitions from all .md files under *directory*."""
+    if not directory.is_dir():
+        return []
+    return _load_agent_files(directory.rglob("*.md"))

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agents.loader import load_agents_dir
+from agents.loader import load_agents_dir, load_agents_tree
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -27,6 +27,15 @@ def test_harness_agent_markdown_declares_notification_triggers() -> None:
     assert executor.notification_triggers == ["request_complex_task_after_edit"]
     assert verifier.notification_triggers == ["resolver_limit"]
     assert evaluator.notification_triggers == ["resolver_limit"]
+
+
+def test_recursive_agent_loader_finds_harness_profiles() -> None:
+    loaded = load_agents_tree(AGENTS_ROOT / "main_agent")
+    by_name = {agent.name: agent for agent in loaded}
+
+    assert {"planner", "executor", "verifier", "evaluator"} <= set(by_name)
+    assert by_name["executor"].role == "executor"
+    assert "request_complex_task_solution" in by_name["executor"].terminals
 
 
 def test_executor_agent_uses_complex_task_solution_terminal() -> None:

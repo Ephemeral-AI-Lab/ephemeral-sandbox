@@ -4,7 +4,6 @@ Companion to
 [`phase-05-workflows-and-cutover.md`](./phase-05-workflows-and-cutover.md).
 
 **Out of scope for this phase (explicitly deferred):**
-- Cold-restart resurrection of process-local orchestrators from durable rows.
 - Registry hygiene under `start()` failure (Phase 04 known limitation).
 - Frontend client work against `/api/db/task-center-runs/{id}/graph`.
 - Phase 06 context-engine work (rich helper-agent context, evidence summaries,

@@ -230,15 +230,17 @@ class ComplexTaskRequestHandler:
         handoff coordinator, so continuation startup runs end-to-end.
 
         On startup failure the continuation segment is cancelled and the
-        request is closed as failed. The previous segment's final graph id is
-        used as ``final_harness_graph_id`` because the continuation segment
-        never produced a running graph of its own.
+        request is closed as failed. If graph insertion already happened, the
+        close report points at that failed continuation graph.
         """
         if self._orchestrator_factory is None:
             return
         try:
             next_manager.create_initial_harness_graph()
         except Exception:
+            failed_graph_id = self._latest_graph_id_for_segment(
+                next_segment.id
+            ) or previous_report.final_harness_graph_id
             self._segment_store.cancel_for_compensation(
                 next_segment.id, closed_at=datetime.now(UTC)
             )
@@ -247,7 +249,7 @@ class ComplexTaskRequestHandler:
                 complex_task_request_id=next_segment.complex_task_request_id,
                 succeeded=False,
                 final_segment_id=next_segment.id,
-                final_harness_graph_id=previous_report.final_harness_graph_id,
+                final_harness_graph_id=failed_graph_id,
             )
 
     def _require_request(self, request_id: str) -> ComplexTaskRequest:
@@ -263,6 +265,12 @@ class ComplexTaskRequestHandler:
     ) -> None:
         assert_segment_id_unique_in_list(request, segment.id)
         self._request_store.append_segment_id(request.id, segment.id)
+
+    def _latest_graph_id_for_segment(self, segment_id: str) -> str | None:
+        segment = self._segment_store.get(segment_id)
+        if segment is None:
+            return None
+        return segment.latest_graph_id
 
     def _spawn_segment_manager(self, segment: TaskSegment) -> TaskSegmentManager:
         manager = TaskSegmentManager(

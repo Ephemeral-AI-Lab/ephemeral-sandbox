@@ -122,14 +122,6 @@ class TaskSegmentManager:
         assert_graph_belongs_to_segment(graph, segment)
         assert_fail_reason_present_on_failure(graph)
 
-        if (
-            graph.has_partial_continuation
-            and graph.status != HarnessGraphStatus.PASSED
-        ):
-            raise GraphInvariantViolation(
-                f"HarnessGraph {graph.id!r} has continuation_goal but did not "
-                f"pass (status={graph.status})"
-            )
         if graph.status == HarnessGraphStatus.PASSED:
             self._close_segment_passed(graph)
         else:
@@ -200,15 +192,47 @@ class TaskSegmentManager:
 
     def _retry_or_close_failed(self, graph: HarnessGraph) -> None:
         segment = self._current_segment_snapshot()
-        if segment.has_budget_remaining:
-            self.create_next_harness_graph(previous_harness_graph_id=graph.id)
+        if not segment.has_budget_remaining:
+            self._close_segment_failed(graph)
             return
+        try:
+            self.create_next_harness_graph(previous_harness_graph_id=graph.id)
+        except Exception:
+            # Retry start failed; the new graph was inserted and closed
+            # STARTUP_FAILED before the exception propagated. Re-enter the
+            # retry decision on the new closed graph instead of leaving the
+            # segment open.
+            retry_graph = self._latest_failed_graph_for(previous_id=graph.id)
+            if retry_graph is None:
+                raise
+            logger.warning(
+                "TaskSegmentManager: retry start failure for segment %r; "
+                "treating new graph %r as a failed attempt",
+                self.task_segment_id,
+                retry_graph.id,
+                exc_info=True,
+            )
+            self._retry_or_close_failed(retry_graph)
+
+    def _close_segment_failed(self, graph: HarnessGraph) -> None:
         self._segment_store.set_status(
             self.task_segment_id,
             status=TaskSegmentStatus.FAILED,
             closed_at=datetime.now(UTC),
         )
         self._emit_attempt_plan_failed(graph)
+
+    def _latest_failed_graph_for(
+        self, *, previous_id: str
+    ) -> HarnessGraph | None:
+        segment = self._current_segment_snapshot()
+        latest_id = segment.latest_graph_id
+        if latest_id is None or latest_id == previous_id:
+            return None
+        retry_graph = self._graph_store.get(latest_id)
+        if retry_graph is None or retry_graph.status != HarnessGraphStatus.FAILED:
+            return None
+        return retry_graph
 
     def _emit_terminal_success(self, graph: HarnessGraph) -> None:
         report = TaskSegmentClosureReport(

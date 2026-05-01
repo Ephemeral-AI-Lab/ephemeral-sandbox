@@ -37,21 +37,22 @@ Deliverables:
 6. Close-report delivery through one router that calls
    `HarnessGraphOrchestrator.apply_complex_task_close_report(...)` for the
    parent graph.
-7. Replay semantics for already-closed complex requests whose parent task is
-   still `waiting_complex_task`. Phase 04 must make the report durable and
-   replayable; full process resurrection for missing orchestrators remains
-   Phase 05.
+7. Synchronous close-report delivery for already-closed complex requests whose
+   parent task is still `waiting_complex_task`. Phase 04 assumes no process
+   restart while the parent graph is waiting; missing active orchestrators are
+   invariant violations.
 8. `/api/db/task-center-runs/{id}/graph` backed by
    `complex_task_requests -> task_segments -> harness_graphs`, with task rows
    attached per graph for the UI.
 9. Focused tests covering handoff startup, startup failure, delegated
-   success, delegated failure, continuation, retry, replay, profile gates, and
-   the graph API route.
+   success, delegated failure, continuation, retry, active-orchestrator
+   delivery, profile gates, and the graph API route.
 
 Not in scope:
 
 - Rebuilding process-local orchestrators from only persisted rows after a cold
-  restart. Phase 05 owns cutover and durable recovery of live graph runtimes.
+  restart. The accepted runtime invariant for this phase is no process restart
+  while a parent task is waiting on a delegated request.
 - Rich context packets, evidence summaries, failure landscapes, or
   `harness_graph_summary_id` population. Phase 06 owns that data.
 - Reintroducing `submit_request_plan`, `submit_task_plan`,
@@ -65,11 +66,11 @@ Not in scope:
 
 | Prerequisite                     | Current implementation                                                                                                                           | Phase 04 stance                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Phase 01 durable records         | `ComplexTaskRequestRecord`, `TaskSegmentRecord`, and `HarnessGraphRecord` exist under `backend/src/db/models/`; stores return frozen DTOs.       | Reuse. Add only query helpers needed by delivery and route walking.                                         |
+| Phase 01 durable records         | `ComplexTaskRequestRecord`, `TaskSegmentRecord`, and `HarnessGraphRecord` exist under `backend/src/db/models/`; stores return frozen DTOs.       | Reuse. Add only query helpers needed by route walking.                                                     |
 | Request/segment lifecycle        | `ComplexTaskRequestHandler` creates requests and segments, emits close reports through an optional callback, and spawns `TaskSegmentManager`.    | Reuse. Do not create requests or segments from any other class.                                             |
 | Segment retry lifecycle          | `TaskSegmentManager` is the only creator of graphs inside one segment and already handles retry vs segment closure.                              | Reuse. Add a narrow deferred-start seam only if needed for safe handoff startup.                            |
 | Phase 02 graph orchestration     | `HarnessGraphOrchestrator` starts planner, schedules generators, spawns evaluator, closes graphs, and keeps `waiting_complex_task` non-terminal. | Reuse. Harden close-report idempotency and validation.                                                      |
-| Parent resume entry              | `HarnessGraphOrchestrator.apply_complex_task_close_report(...)` exists and maps delegated success to parent `done`, failure to parent `failed`.  | Keep as the single parent resume method. Add replay/idempotency behavior around it.                         |
+| Parent resume entry              | `HarnessGraphOrchestrator.apply_complex_task_close_report(...)` exists and maps delegated success to parent `done`, failure to parent `failed`.  | Keep as the single parent resume method. Add idempotency behavior around it.                                |
 | Phase 03 public tool             | `request_complex_task_solution` is registered and currently performs delegated request creation inline.                                          | Refactor the body into a coordinator. The tool should validate input and delegate.                              |
 | Phase 03 planner validation      | Nonblank validation is implemented in `planner/_schemas.py`; valid input values are preserved rather than stripped.                               | No Phase 04 work.                                                                                           |
 | Phase 03 executor/verifier split | Current hard gate checks only persisted structural role `generator`; it does not prove executor vs verifier profile.                             | Wave 0 must add profile gates before relying on executor-only handoff behavior.                   |
@@ -160,18 +161,18 @@ parent executor run is not resumed inline.
 
 ```mermaid
 flowchart TD
-    Restart["Runtime or route creates stores"] --> Scan["ComplexTaskCloseReportReplay.scan"]
-    Scan --> Closed["List closed ComplexTaskRequests"]
-    Closed --> Filter{"Parent task status<br/>waiting_complex_task?"}
-    Filter -->|"no"| Skip["Already delivered or not deliverable"]
-    Filter -->|"yes"| Build["Rebuild ComplexTaskCloseReport<br/>from final_outcome + requested_by_task_id"]
-    Build --> Active{"Parent orchestrator active?"}
-    Active -->|"no"| Defer["Leave durable final_outcome<br/>for Phase 05/runtime recovery"]
-    Active -->|"yes"| Deliver["ComplexTaskCloseReportRouter.deliver"]
+    Close["ComplexTaskRequest closes"] --> Build["Build ComplexTaskCloseReport"]
+    Build --> Router["ComplexTaskCloseReportRouter.deliver"]
+    Router --> Filter{"Parent task status"}
+    Filter -->|"done or failed"| Skip["already_delivered"]
+    Filter -->|"waiting_complex_task"| Active{"Parent orchestrator active?"}
+    Filter -->|"other"| Invalid["GraphInvariantViolation"]
+    Active -->|"yes"| Deliver["Apply close report to parent orchestrator"]
+    Active -->|"no"| Missing["GraphInvariantViolation"]
 ```
 
-Phase 04 replay must be idempotent. A report whose parent task is already
-`done` or `failed` should be treated as already delivered, not as an error.
+Close-report delivery must be idempotent. A report whose parent task is already
+`done` or `failed` is treated as already delivered, not as an error.
 
 ### 3d. Persistence Graph Route
 
@@ -213,9 +214,9 @@ The coordinator composes existing owners; it must not bypass them.
 ```text
 backend/src/task_center/complex_task/
 |-- request.py                         # existing DTOs; keep ComplexTaskCloseReport here
-|-- handler.py                         # edit only if callback/replay hook needs shaping
+|-- handler.py                         # edit only if callback hook needs shaping
 |-- handoff.py                   # NEW: ComplexTaskHandoffCoordinator
-|-- close_report_delivery.py           # NEW: ComplexTaskCloseReportRouter + replay helpers
+|-- close_report_delivery.py           # NEW: ComplexTaskCloseReportRouter
 `-- validation.py                      # existing request invariants
 
 backend/src/task_center/segment/
@@ -251,8 +252,7 @@ backend/src/server/
 
 backend/tests/task_center/lifecycle/
 |-- test_phase04_complex_task_handoff.py
-|-- test_phase04_close_report_delivery.py
-`-- test_phase04_replay.py
+`-- test_phase04_close_report_delivery.py
 
 backend/tests/test_tools/
 |-- test_submission_tool_gates.py      # EDIT: executor/verifier profile coverage
@@ -330,8 +330,7 @@ Startup failure handling:
   error.
 - If a delegated request/segment was created before the failure, mark the request
   and segment `cancelled` or otherwise make the compensation explicit in tests.
-- Do not leave an open request with no running graph unless the plan also adds
-  a replay/recovery path for that exact state.
+- Do not leave an open request with no running graph.
 
 Recommended implementation - `StartHandle` seam:
 
@@ -406,7 +405,6 @@ Create one delivery service for final reports.
 CloseReportDeliveryStatus = Literal[
     "delivered",
     "already_delivered",
-    "deferred_no_orchestrator",
 ]
 
 
@@ -434,37 +432,10 @@ Delivery algorithm:
    Delivery idempotency does not scan summary payloads.
 5. If the parent task is not `waiting_complex_task`, raise
    `GraphInvariantViolation` because the report is not applicable.
-6. If no parent orchestrator is registered for the graph id, return
-   `deferred_no_orchestrator`; the durable `final_outcome` remains the replay
-   source.
+6. If no parent orchestrator is registered for the graph id, raise
+   `GraphInvariantViolation`; delivery requires an active parent orchestrator.
 7. Call `orchestrator.apply_complex_task_close_report(report)`.
 8. Return `delivered`.
-
-Replay helper:
-
-```python
-def build_close_report_from_request(
-    request: ComplexTaskRequest,
-) -> ComplexTaskCloseReport | None: ...
-
-
-def deliver_pending_complex_task_close_reports(
-    *,
-    runtime: HarnessGraphRuntime,
-    task_center_run_id: str | None = None,
-) -> list[CloseReportDeliveryResult]: ...
-```
-
-`build_close_report_from_request(...)` reconstructs a report from:
-
-- `ComplexTaskRequest.id`
-- `ComplexTaskRequest.requested_by_task_id`
-- `ComplexTaskRequest.final_outcome["outcome"]`
-- `ComplexTaskRequest.final_outcome["final_segment_id"]`
-- `ComplexTaskRequest.final_outcome["final_harness_graph_id"]`
-
-If `final_outcome` is missing or malformed for a closed request, raise
-`GraphInvariantViolation`.
 
 ### 6c. `task_center/harness_graph/orchestrator.py`
 
@@ -582,21 +553,13 @@ contract.
 ```python
 def list_for_run(self, task_center_run_id: str) -> list[ComplexTaskRequest]: ...
 
-def list_closed_for_run(
-    self, task_center_run_id: str
-) -> list[ComplexTaskRequest]: ...
-
-def list_closed(self) -> list[ComplexTaskRequest]: ...
-
 def set_status(
     ...,
     # existing method remains
 ) -> ComplexTaskRequest: ...
 ```
 
-Use `list_for_run(...)` for the route and `list_closed_for_run(...)` for
-targeted replay. `list_closed()` is useful for process-level replay when a
-runtime has no specific run id.
+Use `list_for_run(...)` for the route.
 
 Compensation helper (package-private — only the coordinator's
 `_compensate_failed_handoff` may call it):
@@ -645,7 +608,6 @@ Phase 04 uses to mutate parent generator task status:
 | handoff entry              | coordinator             | `running`                 | `waiting_complex_task`     | `GraphInvariantViolation`       |
 | handoff rollback           | coordinator             | `waiting_complex_task`    | `running`                  | log + swallow (already moved)   |
 | close-report deliver       | parent orchestrator     | `waiting_complex_task`    | `done` / `failed`          | silent return (already delivered) |
-| replay deliver             | router → orchestrator   | `waiting_complex_task`    | `done` / `failed`          | `already_delivered` status      |
 
 Plain `set_task_status(...)` must not be used for any of the above. The CAS
 miss *is* the idempotency check — no summary-payload scan, no extra
@@ -667,8 +629,7 @@ Initialize them in `ensure_runtime_stores_ready(...)` when a session factory is
 available. Pass them to `create_persistence_router(...)`.
 
 This does not by itself build the TaskCenter runtime used by spawned harness
-agents. It only makes the persistence API route and replay helpers able to use
-the same DB-backed stores.
+agents. It makes the persistence API route use the same DB-backed stores.
 
 ### 6h. Persistence Router
 
@@ -796,20 +757,17 @@ risk and lets profile-gate coverage land before the larger refactor.
 3. Ensure no orphan open request is left without an initial graph.
 4. Add tests using a factory that raises during delegated graph startup.
 
-### Wave 3 - Close-Report Router and Replay
+### Wave 3 - Close-Report Router
 
 1. Add `ComplexTaskCloseReportRouter`.
 2. Wire `ComplexTaskRequestHandler.deliver_close_report` to the router from
    the coordinator-created handler.
 3. Add idempotency to `HarnessGraphOrchestrator.apply_complex_task_close_report`.
-4. Add `build_close_report_from_request(...)` and
-   `deliver_pending_complex_task_close_reports(...)`.
-5. Add tests:
+4. Add tests:
    - final success resumes parent generator and dispatches evaluator
    - final failure blocks descendants and closes/advances parent graph
-   - replay delivers a closed request whose parent is still waiting
-   - replay skips already-delivered reports
-   - replay defers when parent orchestrator is not active
+   - already-delivered reports are idempotent
+   - missing parent orchestrator is rejected
 
 ### Wave 4 - Continuation and Retry Integration
 
@@ -842,7 +800,7 @@ risk and lets profile-gate coverage land before the larger refactor.
 
 ```bash
 uv run pytest backend/tests/test_tools/test_submission_tool_gates.py backend/tests/test_tools/test_submission_terminal_routing.py -q
-uv run pytest backend/tests/task_center/lifecycle/test_phase04_complex_task_handoff.py backend/tests/task_center/lifecycle/test_phase04_close_report_delivery.py backend/tests/task_center/lifecycle/test_phase04_replay.py -q
+uv run pytest backend/tests/task_center/lifecycle/test_phase04_complex_task_handoff.py backend/tests/task_center/lifecycle/test_phase04_close_report_delivery.py -q
 uv run pytest backend/tests/server/test_persistence_graph_route.py -q
 uv run pytest backend/tests/task_center -q
 uv run ruff check backend/src/task_center backend/src/tools/submission backend/src/server backend/tests
@@ -871,9 +829,8 @@ graphify update .
 | `test_delegated_failure_close_report_marks_parent_failed_and_blocks_dependents` | Final delegated failure propagates as generator failure.                                               |
 | `test_delegated_continuation_waits_until_final_segment`                         | `success_continue` creates a later segment and does not resume parent early.                           |
 | `test_delegated_retry_waits_until_final_graph`                                  | Failed first graph with remaining budget retries inside same segment and does not resume parent early. |
-| `test_replay_delivers_closed_request_to_waiting_parent`                         | Durable final outcome can be replayed after callback was missed.                                       |
-| `test_replay_is_idempotent_after_delivery`                                      | Duplicate replay does not append duplicate parent summaries.                                           |
-| `test_replay_defers_without_parent_orchestrator`                                | Phase 04 does not pretend to recover absent process-local orchestrators.                               |
+| `test_router_already_delivered_when_parent_done`                                | Duplicate delivery does not append duplicate parent summaries.                                          |
+| `test_router_rejects_missing_parent_orchestrator`                               | Phase 04 requires the active parent orchestrator while the parent waits.                               |
 | `test_graph_route_walks_request_segment_graph_schema`                           | API returns harness graphs through the new stores.                                                     |
 | `test_graph_route_includes_tasks_per_graph`                                     | UI can render task rows attached to each graph.                                                        |
 
@@ -897,8 +854,8 @@ Phase 04 is complete when:
   the parent until the whole complex request closes.
 - Retry creates later `HarnessGraph` records inside the same segment and does
   not resume the parent until the request closes.
-- Closed request reports can be replayed idempotently when the parent task is
-  still `waiting_complex_task`.
+- Closed request reports deliver idempotently while the parent task is still
+  `waiting_complex_task` and its orchestrator is active.
 - `/api/db/task-center-runs/{id}/graph` returns graph data from
   `complex_task_requests`, `task_segments`, and `harness_graphs` instead of an
   empty stub.

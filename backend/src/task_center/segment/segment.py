@@ -42,6 +42,9 @@ class TaskSegment:
 
     @property
     def attempt_count(self) -> int:
+        # A passing graph closes the segment immediately, so in practice this
+        # equals the number of failed (or startup-failed) attempts. Do not
+        # rely on that elsewhere.
         return len(self.harness_graph_ids)
 
     @property

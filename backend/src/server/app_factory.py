@@ -116,16 +116,21 @@ class RuntimeState:
 
         self._tool_registry = create_default_tool_registry()
 
-        # Seed the agent registry. Builtins are currently empty while the
-        # TaskCenter runtime is rebuilt. User-defined agents continue to load
-        # from ``backend/config/agents/``.
+        # Seed the agent registry. Repository harness agents are bundled under
+        # ``backend/src/agents/main_agent``; user-defined agents continue to
+        # load from ``backend/config/agents/`` and may override by name.
         from agents.builtins import register_builtin_agents
-        from agents.loader import load_agents_dir
+        from agents.loader import load_agents_dir, load_agents_tree
         from agents.registry import register_definition
         from pathlib import Path as _P
 
         register_builtin_agents()
         logger.info("Registered builtin agent definitions")
+
+        harness_agents_dir = _P(__file__).resolve().parent.parent / "agents" / "main_agent"
+        for defn in load_agents_tree(harness_agents_dir):
+            register_definition(defn)
+            logger.info("Registered harness agent definition %r", defn.name)
 
         agents_dir = (
             _P(__file__).resolve().parent.parent.parent.parent

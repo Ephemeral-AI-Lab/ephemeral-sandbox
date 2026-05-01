@@ -108,41 +108,6 @@ class ComplexTaskRequestStore(SyncStoreMixin):
             )
             return [self._to_dto(r) for r in q.all()]
 
-    def list_closed_for_run(
-        self, task_center_run_id: str
-    ) -> list[ComplexTaskRequest]:
-        """Requests that closed with a delivered outcome (SUCCEEDED or FAILED).
-
-        Excludes CANCELLED requests, which carry no ``final_outcome`` and
-        should not appear in close-report replay.
-        """
-        return [
-            r
-            for r in self.list_for_run(task_center_run_id)
-            if r.status
-            in (
-                ComplexTaskRequestStatus.SUCCEEDED,
-                ComplexTaskRequestStatus.FAILED,
-            )
-        ]
-
-    def list_closed(self) -> list[ComplexTaskRequest]:
-        """Requests that closed with a delivered outcome (SUCCEEDED or FAILED)."""
-        with self._sf() as db:
-            q = (
-                db.query(ComplexTaskRequestRecord)
-                .filter(
-                    ComplexTaskRequestRecord.status.in_(
-                        [
-                            ComplexTaskRequestStatus.SUCCEEDED.value,
-                            ComplexTaskRequestStatus.FAILED.value,
-                        ]
-                    )
-                )
-                .order_by(ComplexTaskRequestRecord.created_at.asc())
-            )
-            return [self._to_dto(r) for r in q.all()]
-
     def cancel_for_compensation(
         self, request_id: str, *, closed_at: datetime | None = None
     ) -> ComplexTaskRequest:

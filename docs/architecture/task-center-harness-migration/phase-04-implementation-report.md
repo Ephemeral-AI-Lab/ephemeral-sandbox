@@ -13,10 +13,10 @@ the runtime workflow now live in the codebase.
 **Verdict: Phase 04 ships.**
 
 Phase 04 closes the Phase 03 handoff scope drift, replaces the inline
-delegated-request body with a coordinator, hardens close-report delivery with
-durable replay, surfaces the new request → segment → graph schema through a
-dedicated persistence read model, and adds the executor/verifier profile gate
-that Phase 03 review flagged as missing.
+delegated-request body with a coordinator, hardens close-report delivery as a
+synchronous active-orchestrator path, surfaces the new request → segment → graph
+schema through a dedicated persistence read model, and adds the
+executor/verifier profile gate that Phase 03 review flagged as missing.
 
 The full focused suite, the broader `task_center` and submission suites, ruff,
 and strict mypy are all green.
@@ -30,7 +30,7 @@ and strict mypy are all green.
 | File | Status | Purpose |
 | --- | --- | --- |
 | `backend/src/task_center/complex_task/handoff.py` | new | `ComplexTaskHandoffCoordinator` — orchestrates executor → delegated request handoff with parent-task CAS, deferred orchestrator startup, and compensation rollback |
-| `backend/src/task_center/complex_task/close_report_delivery.py` | new | `ComplexTaskCloseReportRouter`, `build_close_report_from_request`, `deliver_pending_complex_task_close_reports` — single delivery path and durable replay helpers |
+| `backend/src/task_center/complex_task/close_report_delivery.py` | new | `ComplexTaskCloseReportRouter` — single synchronous delivery path to the active parent orchestrator |
 | `backend/src/server/read_models/task_center_graph.py` | new | Bulk request → segment → graph → task response assembly for `/api/db/task-center-runs/{id}/graph` |
 | `backend/src/tools/submission/hooks/harness_agent_profile_gate.py` | new | `HarnessAgentProfileGate` — executor vs verifier profile gate for generator terminals |
 
@@ -40,11 +40,11 @@ and strict mypy are all green.
 | --- | --- | --- |
 | `backend/src/task_center/segment/manager.py` | edited | `HarnessGraphStartHandle` deferred-start seam; `create_initial_harness_graph` now returns the handle so the coordinator can write parent waiting state between graph creation and orchestrator startup; startup failures close the just-created graph as `startup_failed` |
 | `backend/src/task_center/complex_task/handler.py` | edited | Continuation startup is now mandatory: `handle_segment_closed`'s `SuccessContinue` branch creates and starts the next segment's initial graph, and falls back to a tested failure-close path if startup raises |
-| `backend/src/task_center/harness_graph/orchestrator.py` | edited | `apply_complex_task_close_report` is now CAS-idempotent; `start()` owns registry registration, startup rollback, and pending close-report replay |
+| `backend/src/task_center/harness_graph/orchestrator.py` | edited | `apply_complex_task_close_report` is now CAS-idempotent; `start()` owns registry registration and startup rollback |
 | `backend/src/task_center/harness_graph/factory.py` | edited | Factory now constructs orchestrators only; registration happens inside `HarnessGraphOrchestrator.start()` so failed startup can deregister atomically |
 | `backend/src/task_center/harness_graph/graph.py` | edited | Added `startup_failed` fail reason for graphs that fail before a planner launch completes |
 | `backend/src/db/stores/task_center_store.py` | edited | Added `set_task_status_if_current` plus bulk `list_tasks_for_harness_graphs` for parent-task CAS and graph read-model assembly |
-| `backend/src/db/stores/complex_task_request_store.py` | edited | Added `list_for_run`, `list_closed_for_run`, `list_closed`, and the package-private `_cancel_for_compensation` |
+| `backend/src/db/stores/complex_task_request_store.py` | edited | Added `list_for_run` and the package-private `_cancel_for_compensation` |
 | `backend/src/db/stores/task_segment_store.py` | edited | Added package-private `_cancel_for_compensation` and bulk `list_for_requests` |
 | `backend/src/db/stores/harness_graph_store.py` | edited | Added bulk `list_for_segments` |
 | `backend/src/tools/submission/main_agent/generator/request_complex_task_solution.py` | edited | Refactored to thin tool: validate input, resolve submission context, delegate to `ComplexTaskHandoffCoordinator.start`. No handler/factory/store imports remain |
@@ -60,7 +60,6 @@ and strict mypy are all green.
 | --- | ---: | --- |
 | `backend/tests/task_center/lifecycle/test_phase04_complex_task_handoff.py` | 311 | Coordinator happy path, startup-failure rollback (parent → running, request and segment → cancelled), started-orchestrator cleanup, duplicate-open-request rejection, non-running parent rejection |
 | `backend/tests/task_center/lifecycle/test_phase04_close_report_delivery.py` | 322 | Router success/failure delivery, idempotency on done parent, deferred when orchestrator missing, rejection of running parent, repeat-delivery is silent |
-| `backend/tests/task_center/lifecycle/test_phase04_replay.py` | 318 | Replay delivers closed requests to waiting parents, graph startup triggers replay, idempotent replay does not double-mutate, deferred replay when orchestrator missing, `build_close_report_from_request` reconstructs payload |
 | `backend/tests/task_center/lifecycle/test_phase04_continuation_retry.py` | 338 | E2E: continuation segment + final terminal close (parent waits until end), retry inside same segment + final terminal close (parent waits until end) |
 | `backend/tests/test_tools/test_submission_profile_gates.py` | 152 | Verifier-profile blocked from executor terminals + complex-task request; executor-profile blocked from verifier terminals; happy paths pass |
 | `backend/tests/server/test_persistence_graph_route.py` | 215 | Schema walk happy path, sequence ordering, retry-graph nesting, 503 when graph stores unready |
@@ -98,7 +97,7 @@ and strict mypy are all green.
 Commands run during verification:
 
 - `uv run pytest backend/tests/test_tools/test_submission_tool_gates.py backend/tests/test_tools/test_submission_terminal_routing.py backend/tests/test_tools/test_submission_profile_gates.py backend/tests/test_tools/test_submission_planner_tools.py backend/tests/test_tools/test_submission_helper_tools.py backend/tests/test_tools/test_submission_soft_reminders.py backend/tests/test_tools/test_submission_tool_registration.py -q` — clean
-- `uv run pytest backend/tests/task_center/lifecycle/test_phase04_complex_task_handoff.py backend/tests/task_center/lifecycle/test_phase04_close_report_delivery.py backend/tests/task_center/lifecycle/test_phase04_replay.py backend/tests/task_center/lifecycle/test_phase04_continuation_retry.py -q` — **20 passed**
+- `uv run pytest backend/tests/task_center/lifecycle/test_phase04_complex_task_handoff.py backend/tests/task_center/lifecycle/test_phase04_close_report_delivery.py backend/tests/task_center/lifecycle/test_phase04_continuation_retry.py -q` — clean
 - `uv run pytest backend/tests/server/test_persistence_graph_route.py -q` — **4 passed**
 - `uv run pytest backend/tests/task_center -q` — **144 passed**
 - `uv run pytest backend/tests/test_tools backend/tests/task_center backend/tests/server -q` — **298 passed**
@@ -115,7 +114,7 @@ Exit-criteria mapping:
 | Delegated failure becomes parent's final failure and blocks downstream dependents | `test_router_delivers_failure_marks_parent_failed_and_blocks_dependents` |
 | Continuation creates ordered later `TaskSegment` records and does not resume the parent until close | `test_delegated_continuation_waits_until_final_segment` |
 | Retry creates later `HarnessGraph` records inside the same segment and does not resume parent until close | `test_delegated_retry_waits_until_final_graph` |
-| Closed request reports replay idempotently to a still-waiting parent | `test_replay_delivers_closed_request_to_waiting_parent`, `test_graph_start_replays_closed_request_to_active_waiting_parent`, `test_replay_is_idempotent_after_delivery`, `test_replay_defers_without_parent_orchestrator` |
+| Close reports deliver idempotently to a still-waiting parent with an active orchestrator | `test_router_delivers_success_to_waiting_parent`, `test_router_already_delivered_when_parent_done`, `test_router_repeat_delivery_after_done_is_silent`, `test_router_rejects_missing_parent_orchestrator` |
 | `/api/db/task-center-runs/{id}/graph` returns data from the new schema | `test_graph_route_walks_request_segment_graph_schema`, `test_graph_route_orders_by_sequence_no`, `test_graph_route_includes_retry_graphs_in_segment` |
 | Executor/verifier profile gate enforced on the right tools | `test_executor_profile_required_for_complex_task_request`, `test_executor_profile_required_for_execution_terminals`, `test_verifier_profile_required_for_verification_terminals` |
 | Focused tests, ruff, strict mypy green | See above |
@@ -171,28 +170,13 @@ ComplexTaskRequestHandler.close_complex_task_request
 ComplexTaskCloseReportRouter.deliver
   - Already DONE/FAILED parent → already_delivered (idempotent)
   - WAITING parent + active orchestrator → orchestrator.apply_complex_task_close_report
-  - WAITING parent + no orchestrator → deferred_no_orchestrator (durable replay later)
+  - WAITING parent + no orchestrator → GraphInvariantViolation
   |
   v
 HarnessGraphOrchestrator.apply_complex_task_close_report
   - CAS WAITING_COMPLEX_TASK → DONE/FAILED (idempotent: miss → silent return)
   - On FAILED: block descendants
   - dispatch_ready_work
-```
-
-Replay path on process resume:
-
-```text
-HarnessGraphOrchestrator.start
-  - Registers the orchestrator
-  - Starts the planner
-  - Replays pending close reports for the run
-
-deliver_pending_complex_task_close_reports(runtime, task_center_run_id?)
-  - request_store.list_closed[_for_run]
-  - For each: build_close_report_from_request → router.deliver
-  - Already-delivered + deferred-no-orchestrator outcomes are surfaced and
-    returned; nothing is mutated twice.
 ```
 
 ---
@@ -208,7 +192,7 @@ deliver_pending_complex_task_close_reports(runtime, task_center_run_id?)
   `TaskCenterStore.set_task_status_if_current(...)`. A CAS miss is the
   idempotency primitive — no second-source-of-truth in summary payloads.
 - Final close-report persistence goes through `ComplexTaskCloseReport`; the
-  handler and replay path no longer open-code the JSON field names separately.
+  handler no longer open-codes the JSON field names separately.
 - `request_complex_task_solution` rejects whenever the parent already has an
   open delegated `ComplexTaskRequest`.
 - Compensation order on handoff failure is fixed and tested: cancel the unstarted
@@ -299,7 +283,6 @@ Unchanged from the plan:
 
 | Item | Where | Phase |
 | --- | --- | --- |
-| Cold-restart resurrection of process-local orchestrators from durable rows | Phase 05 | 05 |
 | Full launch metadata wiring beyond direct `run_ephemeral_agent` | Phase 05 | 05 |
 | Rich helper-agent context packets, evidence summaries, failure landscapes, `harness_graph_summary_id` | Phase 06 | 06 |
 | Frontend implementation against the new graph route shape | next migration | n/a |
