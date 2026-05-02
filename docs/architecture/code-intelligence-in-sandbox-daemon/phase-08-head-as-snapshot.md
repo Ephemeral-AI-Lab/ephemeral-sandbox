@@ -59,7 +59,6 @@ Replace the git-tree snapshot mechanism with the lowerdir as the snapshot. After
 - Changing OCC's conflict-detection algorithm.
 - Changing the gitignore routing of upperdir merges (gitincluded → OCC, gitignored → direct-merge stays as today).
 - Replay/audit of full historical lowerdir states across many commands. This is a separate concern — Phase 8 makes correct *per-command* base reads possible; multi-command historical replay needs its own snapshot mechanism (e.g., periodic CoW captures) and is deferred.
-- The `result.json` / `diff.ndjson` / `stdout.bin` envelope shapes. Unchanged.
 - Streaming `on_progress_line`. Unchanged.
 
 ## Probes (Task 8.0 series)
@@ -161,4 +160,5 @@ Compare the new lowerdir-as-snapshot OCC outcomes against today's `git add -A` s
 3. Task 8.4 added the daemon-local freshness guard.
 4. Task 8.5 landed through the focused overlay classifier/auditor parity tests, including gitignored lowerdir content coverage.
 5. The live E2E gate passed: per-command OCC base reads come from lowerdir, `svc.cmd` 10x p50 is below the 2.0s ceiling, and no `git_snapshot` stage remains.
-6. `phase-08-implementation-report.md` records the chosen mechanism, code changes, verification, and performance evidence.
+6. The cleanup pass removed the legacy `snap`, `snapshot_timings`, and `git_snapshot_timings` envelope/result fields from the active overlay/RPC path.
+7. `phase-08-implementation-report.md` records the chosen mechanism, code changes, verification, and performance evidence.

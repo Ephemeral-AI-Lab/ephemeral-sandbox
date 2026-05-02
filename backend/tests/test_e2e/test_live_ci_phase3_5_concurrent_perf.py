@@ -141,7 +141,6 @@ class SvcCmdProbeResult:
     exit_code: int | None
     git_commit_status: str | None
     changed_paths: int
-    git_snapshot_timings: dict[str, float]
     overlay_run_timings: dict[str, float]
     overlay_stage_timings: dict[str, float]
     rpc_call_timings: dict[str, float]
@@ -783,13 +782,6 @@ async def _run_svc_cmd_concurrency_batch(
         harness,
         concurrency=concurrency,
         results=results,
-        prefix="git_snapshot",
-        timing_attr="git_snapshot_timings",
-    )
-    _record_stage_distributions(
-        harness,
-        concurrency=concurrency,
-        results=results,
         prefix="overlay_run",
         timing_attr="overlay_run_timings",
     )
@@ -846,9 +838,6 @@ async def _run_one_svc_cmd_probe(
             attribute_changes=True,
         )
         elapsed = time.perf_counter() - started
-        snapshot_timings = _timing_map(
-            getattr(result, "git_snapshot_timings", {})
-        )
         overlay_timings = _timing_map(
             getattr(result, "overlay_run_timings", {})
         )
@@ -865,7 +854,6 @@ async def _run_one_svc_cmd_probe(
             f"  [svc_cmd:{concurrency}] op={op_index:02d} done "
             f"elapsed={elapsed:.3f}s exit={exit_code} status={status} "
             f"changed={changed_paths} "
-            f"{_format_timing_map('snapshot', snapshot_timings)} "
             f"{_format_timing_map('overlay', overlay_timings)} "
             f"{_format_timing_map('stages', overlay_stage_timings)} "
             f"{_format_timing_map('rpc', rpc_call_timings)}"
@@ -877,7 +865,6 @@ async def _run_one_svc_cmd_probe(
             exit_code=exit_code,
             git_commit_status=status,
             changed_paths=changed_paths,
-            git_snapshot_timings=snapshot_timings,
             overlay_run_timings=overlay_timings,
             overlay_stage_timings=overlay_stage_timings,
             rpc_call_timings=rpc_call_timings,
@@ -895,7 +882,6 @@ async def _run_one_svc_cmd_probe(
             exit_code=None,
             git_commit_status=None,
             changed_paths=0,
-            git_snapshot_timings={},
             overlay_run_timings={},
             overlay_stage_timings={},
             rpc_call_timings={},

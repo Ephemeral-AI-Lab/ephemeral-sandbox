@@ -233,11 +233,10 @@ SimpleNamespace(
     mixed_gitinclude_gitignore: bool,
     mixed_partial_apply: bool,
     warnings: list[str],
-    git_snapshot_timings: dict[str, float],
 )
 ```
 
-Phase 4's result-shape parity test (Task 4.3) verifies this. Downstream callers in `backend/src/sandbox/lifecycle/commit.py` rely on the full set — losing any field would break attribution, conflict reporting, or the gitignore direct-merge contract.
+Phase 4's result-shape parity test (Task 4.3) verifies the durable workflow fields. Downstream callers in `backend/src/sandbox/lifecycle/commit.py` rely on attribution, conflict reporting, and the gitignore direct-merge fields.
 
 ## Compatibility & rollout
 
