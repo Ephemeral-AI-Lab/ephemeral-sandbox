@@ -3,8 +3,7 @@
 Covers the four-truth-table selection logic in
 ``CodeIntelligenceService._select_backend`` (env x transport x sandbox_id),
 the InProcessCiBackend behavioral defaults (e.g. empty workspace returns no
-symbols), and that RpcCiBackend still exposes the full protocol while the
-Phase 2+ verbs remain unimplemented.
+symbols), and that RpcCiBackend exposes the full protocol shape.
 """
 
 from __future__ import annotations
@@ -135,7 +134,7 @@ def test_select_inprocess_when_flag_off_with_transport_and_id(tmp_path: Path) ->
 
 
 # ---------------------------------------------------------------------------
-# RpcCiBackend: business methods still raise NotImplementedError
+# RpcCiBackend
 # ---------------------------------------------------------------------------
 
 
@@ -157,13 +156,29 @@ def test_rpc_backend_init_attributes() -> None:
 
 
 @pytest.mark.asyncio
-async def test_rpc_backend_cmd_still_raises_not_implemented() -> None:
-    """``cmd`` is reserved for Phase 4 (svc.cmd hot-path). Phase 3 leaves it
-    raising NotImplementedError so that any accidental wiring fails loud."""
+async def test_rpc_backend_cmd_routes_to_daemon() -> None:
     backend = _build_rpc_backend()
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class _FakeClient:
+        async def call(
+            self,
+            op: str,
+            args: dict[str, object],
+            *,
+            timeout: float = 30.0,
+        ) -> dict[str, object]:
+            del timeout
+            calls.append((op, args))
+            return {"result": "hi\n", "exit_code": 0}
+
+    backend._client = _FakeClient()  # type: ignore[assignment]
     sandbox = MagicMock()
-    with pytest.raises(NotImplementedError):
-        await backend.cmd(sandbox, "echo hi")
+    result = await backend.cmd(sandbox, "echo hi")
+
+    assert result.result == "hi\n"
+    assert result.exit_code == 0
+    assert calls == [("svc_cmd", {"command": "echo hi"})]
 
 
 def test_rpc_backend_rebind_sandbox_is_noop() -> None:

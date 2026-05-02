@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from typing import Any
+import subprocess
 from collections.abc import Callable
+from types import SimpleNamespace
+from typing import Any
 
 from sandbox.api.transport import SandboxTransport
 from sandbox.code_intelligence.overlay.auditor import OverlayAuditor
@@ -95,6 +97,20 @@ class AuditedCommandExecutor:
         *,
         timeout: int | None,
     ) -> Any:
+        if sandbox is None:
+            completed = await asyncio.to_thread(
+                subprocess.run,
+                command,
+                shell=True,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+            return SimpleNamespace(
+                result=completed.stdout + completed.stderr,
+                exit_code=completed.returncode,
+            )
         process = getattr(sandbox, "process", None)
         exec_fn = getattr(process, "exec", None) if process is not None else None
         if not callable(exec_fn):

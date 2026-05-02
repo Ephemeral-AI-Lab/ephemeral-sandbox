@@ -3,7 +3,15 @@
 **Estimated effort:** 5-6 days (3 days engineering + 2-3 days E2E)
 **Risk profile:** HIGH — feature-flag flip is the actual rollout event
 **Status:** Not started
-**Blocks on:** Phase 4 complete and stable in production for at least one canary week
+**Blocks on:** Phase 3.5 / 3.6 closure stable in production for at least one canary week, including `svc_cmd` and the stable `run_sync` fallback loop
+
+> Current implementation note (2026-05-03): the old Phase 4 `svc.cmd`
+> hot-path plan is superseded. `svc_cmd` is wired through the daemon and
+> the ~5.5 s public-call floor was fixed in `sandbox.client.async_bridge`
+> by keeping sync callers on a reusable standalone sandbox I/O loop. Phase 5
+> is therefore a transport/product rollout phase: native `ci_rpc`, default
+> flag flip, cleanup, and optional batching/streaming work if the current
+> stable-loop `transport.exec` floor of roughly 0.3-0.5 s is still too high.
 
 ## Cleanup scope reduction (vs original draft)
 
@@ -17,7 +25,7 @@ Net: cleanup remains ~600 LOC, all in the existing `mutations/`, `indexing/`, `l
 
 Two deliverables:
 
-1. **Promote `ci_rpc` to a first-class verb on `SandboxTransport`** — replaces the `socat`/`nc`/python shim used in Phases 2-4. Drops per-call shell overhead.
+1. **Promote `ci_rpc` to a first-class verb on `SandboxTransport`** — replaces the python socket shim used in Phases 2-3.6. The stable-loop fix already removes the accidental ~5.5 s sync-bridge cost; `ci_rpc` targets the remaining ~0.3-0.5 s per-call `transport.exec` floor.
 2. **Flip `EOS_CI_IN_SANDBOX` default to `1`** — daemon-mode becomes the production path. The flag remains for backout for one release cycle, then is removed.
 
 This phase also performs the cleanup pass: deletes the `_apply_remote_*`, `_read_remote*`, `_write_remote`, `_delete_remote`, `_stage_remote_payload`, `_collect_via_search`, `_collect_via_list`, `_read_text_via_exec`, `_batch_read_text_via_exec` branches that the daemon path makes dead (~600 lines).
@@ -26,8 +34,8 @@ This phase also performs the cleanup pass: deletes the `_apply_remote_*`, `_read
 
 Three reasons:
 
-1. **The shim works; promoting it is purely additive.** Phases 2-4 prove the daemon model with the python shim. Phase 5's `ci_rpc` verb replaces the shim with a native channel — same protocol, same semantics, just less overhead. It can be benchmarked apples-to-apples against the shim.
-2. **Default-on requires production confidence.** Phases 0-4 ship behind a flag (`EOS_CI_IN_SANDBOX=0` default). Production runs in flag-off mode for the entire migration. Phase 5 is the rollout event — needs a canary week and rollback evidence.
+1. **The shim works; promoting it is purely additive.** Phases 2-3.6 prove the daemon model with the python shim plus the stable sync bridge. Phase 5's `ci_rpc` verb replaces the shim with a native channel — same protocol, same semantics, just less overhead. It can be benchmarked apples-to-apples against the stable-loop shim.
+2. **Default-on requires production confidence.** Phases 0-3.6 ship behind a flag (`EOS_CI_IN_SANDBOX=0` default). Production runs in flag-off mode for the entire migration. Phase 5 is the rollout event — needs a canary week and rollback evidence.
 3. **Cleanup is safe only after default-on stabilizes.** Deleting the orchestrator-side `_apply_remote_*` etc. branches is irreversible. Doing it in Phase 5 (after the flag flips and one release passes) ensures we haven't deleted code we'd need to revert to.
 
 ## What ships
@@ -343,7 +351,7 @@ The migration is complete. Future work (out of scope here):
 
 - **Phase 6 (deletion):** After two release cycles of stable default-on, remove the `EOS_CI_IN_SANDBOX` flag entirely; remove the python shim; require all transports to implement `ci_rpc`.
 - **Eager bootstrap (`EOS_CI_EAGER_BOOTSTRAP=1`)** for ralph/codex sessions that pay first-call latency repeatedly.
-- **Streaming `on_progress_line`** if Phase 4's deferred decision needs to be revisited (Phase 4.5).
+- **Streaming `on_progress_line`** as a transport enhancement if final-stdout replay is not enough for CodeAct UX.
 - **`memory/git_workspace_gitignored_deps_blocker.md`** — separate ADR on routing untracked-but-not-ignored paths through a new "runtime overlay" channel.
 
 The plan ends here.

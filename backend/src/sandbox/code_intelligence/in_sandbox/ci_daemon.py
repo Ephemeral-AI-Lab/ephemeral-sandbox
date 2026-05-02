@@ -32,6 +32,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from sandbox.code_intelligence.in_sandbox import ci_storage
@@ -252,11 +253,41 @@ def _to_dict(obj: Any) -> Any:
     """Convert dataclasses (recursively) into JSON/msgpack-safe dicts."""
     if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
         return {k: _to_dict(v) for k, v in dataclasses.asdict(obj).items()}
+    if isinstance(obj, SimpleNamespace):
+        return {str(k): _to_dict(v) for k, v in vars(obj).items()}
     if isinstance(obj, (list, tuple)):
         return [_to_dict(v) for v in obj]
     if isinstance(obj, dict):
         return {str(k): _to_dict(v) for k, v in obj.items()}
     return obj
+
+
+_SVC_CMD_RESULT_DEFAULTS: dict[str, Any] = {
+    "result": "",
+    "exit_code": 1,
+    "changed_paths": [],
+    "ambient_changed_paths": [],
+    "files_written": 0,
+    "git_commit_status": None,
+    "git_conflict_file": None,
+    "git_conflict_reason": None,
+    "gitinclude_changed_paths": [],
+    "gitignore_direct_merged_paths": [],
+    "gitignore_direct_merged_count": 0,
+    "mixed_gitinclude_gitignore": False,
+    "mixed_partial_apply": False,
+    "warnings": [],
+    "git_snapshot_timings": {},
+    "overlay_run_timings": {},
+}
+
+
+def _svc_cmd_result_to_dict(result: Any) -> dict[str, Any]:
+    """Preserve the audited shell ``SimpleNamespace`` contract over msgpack."""
+    return {
+        field: _to_dict(getattr(result, field, default))
+        for field, default in _SVC_CMD_RESULT_DEFAULTS.items()
+    }
 
 
 async def handle_query_symbols(args: dict[str, Any]) -> Any:
@@ -320,6 +351,26 @@ async def handle_get_telemetry(args: dict[str, Any]) -> Any:
     del args
     svc = _require_svc()
     return _to_dict(svc.get_telemetry())
+
+
+async def handle_svc_cmd(args: dict[str, Any]) -> Any:
+    svc = _require_svc()
+    timeout_raw = args.get("timeout")
+    timeout = int(timeout_raw) if timeout_raw is not None else None
+    stdin_raw = args.get("stdin")
+    result = await svc.cmd(
+        None,
+        str(args["command"]),
+        timeout=timeout,
+        description=str(args.get("description", "")),
+        agent_id=str(args.get("agent_id", "")),
+        run_id=str(args.get("run_id", "")),
+        agent_run_id=str(args.get("agent_run_id", "")),
+        task_id=str(args.get("task_id", "")),
+        stdin=str(stdin_raw) if stdin_raw is not None else None,
+        attribute_changes=bool(args.get("attribute_changes", True)),
+    )
+    return _svc_cmd_result_to_dict(result)
 
 
 async def handle_apply_edit(args: dict[str, Any]) -> Any:
@@ -452,6 +503,7 @@ DISPATCH: dict[str, Callable[[dict[str, Any]], Awaitable[Any]]] = {
     "list_folder_files": handle_list_folder_files,
     "status": handle_status,
     "get_telemetry": handle_get_telemetry,
+    "svc_cmd": handle_svc_cmd,
     # Phase 3 — mutations
     "apply_edit": handle_apply_edit,
     "commit_operation_against_base": handle_commit_operation_against_base,

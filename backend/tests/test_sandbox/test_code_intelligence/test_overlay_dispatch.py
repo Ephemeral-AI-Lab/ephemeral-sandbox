@@ -67,3 +67,17 @@ async def test_cmd_delegates_to_overlay_auditor_with_stdin(tmp_path) -> None:
 
     assert result.result == "ok"
     assert calls == [{"sandbox": sandbox, "command": "cat", "stdin": "payload"}]
+
+
+@pytest.mark.asyncio
+async def test_executor_can_run_local_process_without_sandbox(tmp_path) -> None:
+    svc = CodeIntelligenceService(
+        sandbox_id=f"dispatch-local-{tmp_path.name}",
+        workspace_root=str(tmp_path),
+    )
+    executor: AuditedCommandExecutor = svc._command_executor  # type: ignore[attr-defined]
+
+    result = await executor._exec_sandbox_process(None, "printf local", timeout=5)
+
+    assert result.result == "local"
+    assert result.exit_code == 0

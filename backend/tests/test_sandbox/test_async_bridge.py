@@ -85,6 +85,18 @@ def test_run_sync_falls_back_when_no_parent_loop_registered() -> None:
     assert run_sync(_compute()) == 13
 
 
+def test_run_sync_reuses_standalone_loop_without_parent_loop() -> None:
+    """Sync callers should not create a new async sandbox loop per call."""
+    async def _running_loop() -> asyncio.AbstractEventLoop:
+        return asyncio.get_running_loop()
+
+    first = run_sync(_running_loop())
+    second = run_sync(_running_loop())
+
+    assert first is second
+    assert first.is_running()
+
+
 def test_use_sandbox_io_loop_resets_contextvar_on_exit() -> None:
     async def _driver() -> None:
         assert current_sandbox_io_loop() is None

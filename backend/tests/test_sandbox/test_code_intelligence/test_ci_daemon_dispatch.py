@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -77,6 +78,7 @@ def test_dispatch_table_includes_phase3_ops() -> None:
         "list_folder_files",
         "status",
         "get_telemetry",
+        "svc_cmd",
         "apply_edit",
         "commit_operation_against_base",
         "commit_specs_many",
@@ -157,6 +159,86 @@ async def test_write_file_routes_through_service(daemon_state: Path) -> None:
     result = response["result"]
     assert result["success"] is True
     assert Path(target).read_text(encoding="utf-8") == "x = 1\n"
+
+
+@pytest.mark.asyncio
+async def test_svc_cmd_routes_through_service_and_preserves_shape(
+    daemon_state: Path,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    async def _fake_cmd(_sandbox: Any, command: str, **kwargs: Any) -> SimpleNamespace:
+        calls.append({"command": command, **kwargs})
+        return SimpleNamespace(
+            result="ok\n",
+            exit_code=0,
+            changed_paths=[str(daemon_state / "a.py")],
+            ambient_changed_paths=[],
+            files_written=1,
+            git_commit_status="committed",
+            git_conflict_file=None,
+            git_conflict_reason=None,
+            gitinclude_changed_paths=[str(daemon_state / "a.py")],
+            gitignore_direct_merged_paths=[],
+            gitignore_direct_merged_count=0,
+            mixed_gitinclude_gitignore=False,
+            mixed_partial_apply=False,
+            warnings=[],
+            git_snapshot_timings={"total": 0.01},
+            overlay_run_timings={"total": 0.02},
+        )
+
+    ci_daemon._DAEMON_STATE.svc.cmd = _fake_cmd
+
+    response = await _dispatch_request(
+        _make_request(
+            "svc_cmd",
+            {
+                "command": "echo ok",
+                "timeout": 5,
+                "description": "smoke",
+                "agent_id": "agent-a",
+                "run_id": "run-a",
+                "agent_run_id": "agent-run-a",
+                "task_id": "task-a",
+                "stdin": "payload",
+                "attribute_changes": False,
+            },
+        )
+    )
+
+    assert response["ok"] is True, response
+    assert calls == [
+        {
+            "command": "echo ok",
+            "timeout": 5,
+            "description": "smoke",
+            "agent_id": "agent-a",
+            "run_id": "run-a",
+            "agent_run_id": "agent-run-a",
+            "task_id": "task-a",
+            "stdin": "payload",
+            "attribute_changes": False,
+        }
+    ]
+    assert response["result"] == {
+        "result": "ok\n",
+        "exit_code": 0,
+        "changed_paths": [str(daemon_state / "a.py")],
+        "ambient_changed_paths": [],
+        "files_written": 1,
+        "git_commit_status": "committed",
+        "git_conflict_file": None,
+        "git_conflict_reason": None,
+        "gitinclude_changed_paths": [str(daemon_state / "a.py")],
+        "gitignore_direct_merged_paths": [],
+        "gitignore_direct_merged_count": 0,
+        "mixed_gitinclude_gitignore": False,
+        "mixed_partial_apply": False,
+        "warnings": [],
+        "git_snapshot_timings": {"total": 0.01},
+        "overlay_run_timings": {"total": 0.02},
+    }
 
 
 @pytest.mark.asyncio
@@ -315,3 +397,13 @@ def test_to_dict_handles_dataclass_and_nested_lists() -> None:
     assert isinstance(converted, list)
     assert converted[0]["file_path"] == "/x.py"
     assert converted[1]["a"][0]["file_path"] == "/x.py"
+
+
+def test_to_dict_handles_simple_namespace() -> None:
+    converted = ci_daemon._to_dict(
+        SimpleNamespace(
+            result="ok",
+            nested=SimpleNamespace(paths=["/x.py"]),
+        )
+    )
+    assert converted == {"result": "ok", "nested": {"paths": ["/x.py"]}}

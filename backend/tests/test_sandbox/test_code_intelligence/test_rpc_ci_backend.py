@@ -47,14 +47,23 @@ class _FakeRpcClient:
         *,
         index_ready: bool = True,
         query_response: list[dict[str, Any]] | None = None,
+        cmd_response: dict[str, Any] | None = None,
         raise_for_op: dict[str, Exception] | None = None,
     ) -> None:
         self.calls: list[tuple[str, dict[str, Any] | None]] = []
         self._index_ready = index_ready
         self._query_response = query_response or []
+        self._cmd_response = cmd_response or {}
         self._raise_for_op = dict(raise_for_op or {})
 
-    async def call(self, op: str, args: dict[str, Any] | None = None) -> Any:
+    async def call(
+        self,
+        op: str,
+        args: dict[str, Any] | None = None,
+        *,
+        timeout: float = 30.0,
+    ) -> Any:
+        del timeout
         self.calls.append((op, args))
         if op in self._raise_for_op:
             raise self._raise_for_op[op]
@@ -62,6 +71,8 @@ class _FakeRpcClient:
             return {"ready": self._index_ready}
         if op == "query_symbols":
             return self._query_response
+        if op == "svc_cmd":
+            return self._cmd_response
         return None
 
 
@@ -172,24 +183,59 @@ def test_query_symbols_empty_query_returns_empty_via_daemon() -> None:
     assert backend.query_symbols("   ") == []
 
 
-def test_cmd_still_raises_not_implemented() -> None:
-    """``cmd`` is reserved for Phase 4 (svc.cmd hot path). Phase 3
-    intentionally leaves the RPC backend raising NotImplementedError so any
-    accidental wiring fails loud."""
+def test_cmd_routes_through_daemon_and_reconstructs_namespace() -> None:
+    """``cmd`` uses the daemon ``svc_cmd`` op and preserves result fields."""
     import asyncio
     from unittest.mock import MagicMock
 
-    backend = RpcCiBackend(
-        sandbox_id="sb-test",
-        workspace_root="/ws",
-        transport=_NullTransport(),  # type: ignore[arg-type]
+    client = _FakeRpcClient(
+        cmd_response={
+            "result": "hi\n",
+            "exit_code": 0,
+            "changed_paths": ["/ws/a.py"],
+            "ambient_changed_paths": [],
+            "files_written": 1,
+            "git_commit_status": "committed",
+            "git_conflict_file": None,
+            "git_conflict_reason": None,
+            "gitinclude_changed_paths": ["/ws/a.py"],
+            "gitignore_direct_merged_paths": [],
+            "gitignore_direct_merged_count": 0,
+            "mixed_gitinclude_gitignore": False,
+            "mixed_partial_apply": False,
+            "warnings": [],
+            "git_snapshot_timings": {"total": 0.1},
+            "overlay_run_timings": {"total": 0.2},
+        }
     )
+    backend = _backend_with_fake_client(client)
+    progress: list[str] = []
 
     async def _run() -> None:
-        with pytest.raises(NotImplementedError):
-            await backend.cmd(MagicMock(), "echo hi")
+        result = await backend.cmd(
+            MagicMock(),
+            "echo hi",
+            timeout=5,
+            agent_id="agent-a",
+            on_progress_line=progress.append,
+        )
+        assert result.result == "hi\n"
+        assert result.exit_code == 0
+        assert result.changed_paths == ["/ws/a.py"]
+        assert result.overlay_run_timings == {"total": 0.2}
 
     asyncio.run(_run())
+    assert progress == ["hi\n"]
+    assert client.calls == [
+        (
+            "svc_cmd",
+            {
+                "command": "echo hi",
+                "timeout": 5,
+                "agent_id": "agent-a",
+            },
+        )
+    ]
 
 
 def test_rebind_sandbox_is_noop() -> None:

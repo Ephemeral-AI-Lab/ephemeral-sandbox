@@ -1,8 +1,8 @@
 # Code Intelligence — In-Sandbox Daemon Migration
 
-**Status:** Approved (awaiting Phase 0 kickoff)
+**Status:** Phase 3.5 / 3.6 closure documented; Phase 5 transport rollout not started
 **Date approved:** 2026-05-02
-**Last amended:** 2026-05-02 (added Phase 3.6 LSP backend experiment — qualify basedpyright, alternative pyright, no runtime fallback; strengthened Phase 1 compatibility probe with live overlay mount E2E that exercises the production tmpfs+bind+overlay+userxattr stack)
+**Last amended:** 2026-05-03 (recorded the stable `run_sync` fallback-loop fix: the old ~5.5 s public RPC floor was fresh-event-loop churn, not daemon/LSP/SQLite latency)
 **Predecessor:** [`code-intelligence-merged-into-sandbox.md`](../code-intelligence-merged-into-sandbox.md) — CI moved into the `sandbox/` package; still ran orchestrator-side
 **Estimated effort:** ~42-50 engineering days (≈8.5-10 weeks)
 
@@ -26,7 +26,7 @@ Moving the engine into the sandbox eliminates the network for hot paths, lets in
 | [3](./phase-03-overlay-mutations-lsp.md) | Move OCC/overlay/LSP via package reuse + SQLite ledger + socket-first daemon startup | 3 days | 2-3 days | 5-6 days |
 | [3.5](./phase-03-5-concurrency-perf-and-sqlite-index.md) | Concurrency/perf E2E suite + SQLite-backed index storage | 3 days | 2 days | 5 days |
 | [3.6](./phase-03-6-lsp-server-upgrade.md) | LSP backend experiment — qualify basedpyright (alternative pyright); rewire `LspClient` to chosen backend; benchmark vs jedi.Script | 2-3 days (1d spike + 2d eng) | 2-3 days | 5-6 days |
-| [4](./phase-04-svc-cmd-hot-path.md) | `svc.cmd` hot path through the daemon | 2 days | 2-3 days | 4-5 days |
+| [4](./phase-04-svc-cmd-hot-path.md) | `svc.cmd` hot path through the daemon (superseded by 3.5 / 3.6 closure pass) | 2 days | 2-3 days | 4-5 days |
 | [5](./phase-05-ci-rpc-verb-and-flag-flip.md) | First-class `ci_rpc` verb + flag flip + dead-code cleanup | 3 days | 2-3 days | 5-6 days |
 
 Phase order is **strict** (0 → 5, including 3.5 and 3.6). Each phase is independently mergeable because the flag-off path keeps working.
@@ -57,8 +57,8 @@ Phase order is **strict** (0 → 5, including 3.5 and 3.6). Each phase is indepe
 │           │   (CiRpcClient)          │         │   │  CodeIntelligenceService            │   │
 │           ▼                          │         │   │   (sandbox=None, transport=None)    │   │
 │  ci_rpc verb (Phase 5)               │         │   │   — same package, local-FS branches │   │
-│   or socat shim (Phases 2-4)         │         │   │  Owns: SymbolIndex, LspClient,      │   │
-│           │                          │         │   │        Arbiter, WriteCoordinator,   │   │
+│   or python socket shim              │         │   │  Owns: SymbolIndex, LspClient,      │   │
+│   on stable run_sync loop            │         │   │        Arbiter, WriteCoordinator,   │   │
 │           ▼                          │         │   │        OverlayAuditor, …            │   │
 │  Unix socket on sandbox FS  ◄────────────────────────┤   ↓                                │   │
 │                                      │         │   │  ci_storage (sandbox-only adapter)  │   │

@@ -1,0 +1,22 @@
+{
+  "phase": 3.5,
+  "test_name": "concurrent_agents_2x",
+  "timestamp": "2026-05-02T17:28:15.910053+00:00",
+  "steps": [
+    {
+      "name": "agents_2way",
+      "elapsed_s": 16.77749500000209,
+      "count": null,
+      "bytes": null
+    }
+  ],
+  "total_s": 16.77749500000209,
+  "distributions": {},
+  "values": {
+    "rss_at_start": 64.75,
+    "rss_at_end": 65.5,
+    "op_query": 2.0,
+    "op_edit": 2.0,
+    "op_cmd": 2.0
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "phase": 3.5,
+  "test_name": "multi_orchestrator",
+  "timestamp": "2026-05-02T17:28:51.306926+00:00",
+  "steps": [
+    {
+      "name": "two_clients_concurrent_commit",
+      "elapsed_s": 5.832983166998019,
+      "count": null,
+      "bytes": null
+    }
+  ],
+  "total_s": 5.832983166998019,
+  "distributions": {},
+  "values": {}
+}

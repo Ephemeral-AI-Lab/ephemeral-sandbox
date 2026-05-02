@@ -2,12 +2,27 @@
 
 **Estimated effort:** 4-5 days (2 days engineering + 2-3 days E2E)
 **Risk profile:** HIGH — `svc.cmd` is the most-used hot path; any regression hits every shell op
-**Status:** Not started
+**Status:** Superseded by the Phase 3.5 / 3.6 closure pass
 **Blocks on:** Phase 3.5 complete (perf safety net + SQLite-backed index landed)
+
+> Current implementation note (2026-05-03): this plan is retained as
+> historical design context, not an open Phase 4 deferral list.
+> `ci_daemon.DISPATCH["svc_cmd"]` exists, `RpcCiBackend.cmd` routes through
+> it, daemon-local subprocess execution is wired in
+> `overlay/command_executor.py`, and the result-shape contract is covered by
+> `test_rpc_ci_backend.py`, `test_ci_daemon_dispatch.py`, and
+> `test_overlay_dispatch.py`. The first live Phase 3.5 / 3.6 runs exposed a
+> ~5.5 s public-call floor, but follow-up instrumentation traced that to
+> `run_sync(...)` creating a fresh event loop for sync callers without a
+> registered `sandbox_io_loop`. The stable-loop fix in
+> `sandbox.client.async_bridge` drops daemon `status` to p50 0.448 s and
+> `query_symbols("Array")` to p50 0.540 s through the same sync facade.
+> Future work should be framed as transport optimization, explicit batching,
+> or streaming enhancement, not completion of this Phase 4 plan.
 
 ## ⚠️ Result-shape preservation (LOAD-BEARING)
 
-`svc.cmd` returns a `SimpleNamespace` with **15 fields**, not just `(stdout, stderr, exit_code)`. Every field must round-trip through the daemon byte-for-byte. The full set:
+`svc.cmd` returns a `SimpleNamespace` with **16 fields**, not just `(stdout, stderr, exit_code)`. Every field must round-trip through the daemon byte-for-byte. The full set:
 
 | Field | Type | Source |
 |---|---|---|
@@ -26,6 +41,7 @@
 | `mixed_partial_apply` | `bool` | OCC aborted while gitignore writes already landed |
 | `warnings` | `list[str]` | overlay-side warnings |
 | `git_snapshot_timings` | `dict[str, float]` | snapshot-script per-step timings |
+| `overlay_run_timings` | `dict[str, float]` | overlay runtime per-step timings |
 
 **Downstream callers in `backend/src/sandbox/lifecycle/commit.py` rely on the full set.** Losing any field would break attribution, conflict reporting, or the gitignore direct-merge contract. Task 4.3's parity test is the gate.
 
@@ -159,7 +175,7 @@ Assert every attribute on the reconstructed namespace matches the original byte-
 
 This protects Phase 4 from a silent serialization bug where downstream `commit/submit_shell_cmd` relies on a specific field shape.
 
-### Task 4.4 — `on_progress_line` streaming (decision: DEFER)
+### Task 4.4 — `on_progress_line` streaming (historical decision)
 
 **Today's behavior:** `OverlayAuditor.execute` accepts an `on_progress_line: Callable[[str], None]` callback that gets fed lines from the running command's stdout as they appear (via `_run_overlay_with_progress` polling `stdout.bin` on a 2s interval).
 
@@ -168,9 +184,16 @@ This protects Phase 4 from a silent serialization bug where downstream `commit/s
 - **(B)** Stream via a separate RPC op `svc_cmd_progress(request_id)` polled by the orchestrator. Adds complexity.
 - **(C)** Use a server-push pattern over the same socket (push frames mid-request). Requires protocol extension.
 
-**Recommendation: (A) for Phase 4, with explicit `logger.warning` and `decision-pending` doc.** The `on_progress_line` use sites (`grep on_progress_line backend/src/`) all appear to be agent-side log streaming; losing them in Phase 4 means CodeAct sees stdout when the command finishes, not while it runs. A short user-visible delay is acceptable.
+**Current outcome:** `RpcCiBackend.cmd` does not stream mid-command
+progress over the RPC socket, but it does replay final stdout to the
+callback after the daemon response is reconstructed. True streaming should
+be framed as a future transport enhancement, not a Phase 4 completion
+blocker.
 
-If product feedback says it's not, Phase 4.5 can add option (B): orchestrator polls `svc_cmd_progress(req_id)` every 2s in parallel with the main RPC; daemon serves stdout deltas from `stdout.bin`.
+If product feedback says final-stdout replay is not enough, future
+transport work can add option (B): orchestrator polls
+`svc_cmd_progress(req_id)` every 2s in parallel with the main RPC; daemon
+serves stdout deltas from `stdout.bin`.
 
 **Document this decision in the PR description so reviewers don't silently lose a feature.**
 
@@ -306,7 +329,7 @@ After all subtests run, programmatically load each `phase_4_*_<ts>.json` and pro
 - [ ] `svc_cmd` op exists in daemon dispatch; serializes/deserializes the full `SimpleNamespace` shape.
 - [ ] Result-shape parity test (Task 4.3) passes — every field round-trips.
 - [ ] `RpcCiBackend.cmd` ships args + reconstructs `SimpleNamespace`.
-- [ ] `on_progress_line` decision documented in the PR description (DEFER recommended).
+- [x] `on_progress_line` behavior documented: final stdout replay is implemented; true live streaming is future transport enhancement.
 - [ ] **Phase 4 live E2E (all 4 subtests A-D) passes against `dask__dask_2023.3.2_2023.4.0`.**
 - [ ] **HEADLINE PERF ASSERTION (4.5.A): `svc_cmd_via_daemon` < `svc_cmd_baseline_inprocess` for the warm path.** This is the migration's headline win.
 - [ ] Real `pytest` invocation succeeds end-to-end (4.5.B).
@@ -319,9 +342,9 @@ After all subtests run, programmatically load each `phase_4_*_<ts>.json` and pro
 
 | Severity | Risk | Mitigation |
 |---|---|---|
-| **HIGH** | `svc_cmd_via_daemon` is SLOWER than baseline → migration perf claim fails | 4.5.A is a hard assertion. If it fails: profile via the daemon's `daemon.log` per-step timing; identify which step regressed (likely the `socat`/`nc`/python shim — Phase 5 fixes by promoting `ci_rpc` to first-class verb) |
+| **HIGH** | `svc_cmd_via_daemon` is SLOWER than baseline → migration perf claim fails | Historical Phase 4 gate. Follow-up measurements traced the public-call floor to sync-bridge loop churn and fixed it; remaining sub-second transport cost belongs to Phase 5 `ci_rpc` / batching work if needed. |
 | **HIGH** | Result `SimpleNamespace` shape drift → downstream `commit/submit_shell_cmd` callers break in subtle ways | Result-shape parity test (4.3) catches this; downstream callers in `backend/src/sandbox/lifecycle/commit.py` should also have unit tests added |
-| **HIGH** | `on_progress_line` callback silently dropped → CodeAct UI shows blank stdout until command completes | Document explicitly; if product blocks, ship Phase 4.5 with streaming op (B) |
+| **HIGH** | `on_progress_line` loses live streaming → CodeAct UI shows stdout only when the command completes | Current implementation replays final stdout; if product blocks, add a future streaming transport op such as option (B) |
 | **MEDIUM** | Daemon-resident `OverlayAuditor` doesn't share the orchestrator-side `_overlay_runtime_bundle_bytes()` upload | The overlay runtime under `/tmp/eos-shell-overlay/` is sandbox-resident already; no orchestrator dependency. Verify in 4.5.A that `overlay_run.py` is found |
 | **MEDIUM** | `git_snapshot` running locally in daemon disagrees with the orchestrator-shipped snapshot script (different snap SHA) | Drift guard `test_git_snapshot_local_parity.py` (Phase 3 should ship this; verify here) |
 | **MEDIUM** | RPC timeout default (30s in `CiRpcClient.call`) is too short for long-running commands | `cmd` op uses `timeout=kwargs.get("timeout") or 600` — match today's `_DEFAULT_SANDBOX_COMMAND_TIMEOUT` |

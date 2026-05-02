@@ -6,18 +6,17 @@ parent event loop (the async Daytona client). They all need one shim that
 can resolve a coroutine synchronously without destroying the SDK's aiohttp
 session by running it on a different event loop.
 
-The old bridge spun up a fresh ``ThreadPoolExecutor(max_workers=1)`` and
-called ``asyncio.run(coro)`` on every call — a brand-new event loop per
-invocation inside a brand-new worker thread. That corrupts the async
-Daytona SDK (its aiohttp session is bound to the parent loop) and is the
-root cause of the ``_ci_sandbox_for_sync_occ`` workaround that used to
-re-resolve a sync sandbox handle before every OCC file op.
+The old bridge spun up a fresh event loop for calls without a registered
+parent loop. That defeated loop-local async SDK caches and made each sync
+daemon RPC re-enter Daytona's slow client/session setup path.
 
 The fix is **loop-aware**: async tools publish the parent loop to a
 ``ContextVar`` before handing off to ``asyncio.to_thread``; the worker
 thread inherits the contextvar (``to_thread`` copies the current
 ``Context`` automatically on Python 3.9+); ``run_sync`` submits the
 coroutine back to the parent loop via ``run_coroutine_threadsafe``.
+Pure sync callers use one reusable standalone sandbox I/O loop instead of
+creating a loop per call.
 
 Public surface:
 
@@ -33,11 +32,13 @@ Public surface:
 from __future__ import annotations
 
 import asyncio
+import atexit
 import concurrent.futures
 import contextlib
 import contextvars
 import inspect
 import logging
+import threading
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,11 @@ Callers that need longer budgets should pass ``timeout=`` explicitly.
 
 
 _DEFAULT_EXECUTOR_WORKERS = 200
+
+_STANDALONE_LOOP_LOCK = threading.Lock()
+_STANDALONE_LOOP: asyncio.AbstractEventLoop | None = None
+_STANDALONE_THREAD: threading.Thread | None = None
+_STANDALONE_LOOP_READY_TIMEOUT_SECONDS = 5.0
 
 
 def use_sandbox_io_loop(
@@ -118,11 +124,9 @@ def run_sync(result: Any, *, timeout: float | None = None) -> Any:
        ``run_coroutine_threadsafe`` and wait for the result. This is the
        common path for sync CI code (``ContentManager``, ``LspClient``)
        reached from ``asyncio.to_thread``.
-    2. An event loop is already running on **this** thread → schedule on
-       a fresh background loop (rare — indicates a reentrancy bug in the
-       caller, not a sandbox hop). Keep the old behavior for
-       compatibility.
-    3. No running loop anywhere → ``asyncio.run(coro)`` on this thread.
+    2. No parent loop is registered → schedule on a reusable standalone
+       sandbox I/O loop. This keeps loop-local async SDK clients warm for
+       sync callers such as ``RpcCiBackend``.
 
     ``timeout`` bounds the wait on paths 1 and 2; defaults to
     :data:`DEFAULT_RUN_SYNC_TIMEOUT_SECONDS`.
@@ -146,11 +150,7 @@ def run_sync(result: Any, *, timeout: float | None = None) -> Any:
                 f"{wait_timeout:.1f}s"
             ) from exc
 
-    if running_loop is not None:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, _await_any(result)).result(timeout=wait_timeout)
-
-    return asyncio.run(_await_any(result))
+    return _run_on_standalone_loop(result, timeout=wait_timeout)
 
 
 async def _await_any(awaitable: Any) -> Any:
@@ -167,6 +167,107 @@ def _running_loop_on_this_thread() -> asyncio.AbstractEventLoop | None:
         return asyncio.get_running_loop()
     except RuntimeError:
         return None
+
+
+def _run_on_standalone_loop(result: Any, *, timeout: float) -> Any:
+    loop = _ensure_standalone_loop()
+    future = asyncio.run_coroutine_threadsafe(_await_any(result), loop)
+    try:
+        return future.result(timeout=timeout)
+    except concurrent.futures.TimeoutError as exc:
+        future.cancel()
+        raise TimeoutError(
+            f"run_sync: standalone sandbox I/O loop did not complete within "
+            f"{timeout:.1f}s"
+        ) from exc
+
+
+def _ensure_standalone_loop() -> asyncio.AbstractEventLoop:
+    global _STANDALONE_LOOP, _STANDALONE_THREAD
+
+    with _STANDALONE_LOOP_LOCK:
+        if _STANDALONE_LOOP is not None and _STANDALONE_LOOP.is_running():
+            return _STANDALONE_LOOP
+
+        ready = threading.Event()
+        loop_holder: dict[str, asyncio.AbstractEventLoop] = {}
+        error_holder: dict[str, BaseException] = {}
+
+        def _run_loop() -> None:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop_holder["loop"] = loop
+            ready.set()
+            try:
+                loop.run_forever()
+            except BaseException as exc:  # pragma: no cover - catastrophic
+                error_holder["error"] = exc
+                raise
+            finally:
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    loop.run_until_complete(
+                        asyncio.gather(*pending, return_exceptions=True)
+                    )
+                loop.run_until_complete(loop.shutdown_asyncgens())
+                loop.run_until_complete(loop.shutdown_default_executor())
+                loop.close()
+
+        thread = threading.Thread(
+            target=_run_loop,
+            name="sandbox-standalone-io",
+            daemon=True,
+        )
+        thread.start()
+        if not ready.wait(_STANDALONE_LOOP_READY_TIMEOUT_SECONDS):
+            raise RuntimeError("standalone sandbox I/O loop did not start")
+        if error_holder:
+            raise RuntimeError("standalone sandbox I/O loop failed") from error_holder[
+                "error"
+            ]
+        loop = loop_holder.get("loop")
+        if loop is None:
+            raise RuntimeError("standalone sandbox I/O loop did not publish loop")
+        _STANDALONE_LOOP = loop
+        _STANDALONE_THREAD = thread
+        return loop
+
+
+def _shutdown_standalone_loop() -> None:
+    global _STANDALONE_LOOP, _STANDALONE_THREAD
+
+    with _STANDALONE_LOOP_LOCK:
+        loop = _STANDALONE_LOOP
+        thread = _STANDALONE_THREAD
+        _STANDALONE_LOOP = None
+        _STANDALONE_THREAD = None
+
+    if loop is not None and loop.is_running():
+        try:
+            cleanup = asyncio.run_coroutine_threadsafe(
+                _shutdown_standalone_loop_clients(),
+                loop,
+            )
+            cleanup.result(timeout=2.0)
+        except Exception:
+            logger.debug("standalone sandbox I/O client cleanup failed", exc_info=True)
+        loop.call_soon_threadsafe(loop.stop)
+    if thread is not None and thread is not threading.current_thread():
+        thread.join(timeout=2.0)
+
+
+async def _shutdown_standalone_loop_clients() -> None:
+    try:
+        from sandbox.client.async_shutdown import shutdown_cached_client_async
+    except ImportError:
+        return
+
+    await shutdown_cached_client_async()
+
+
+atexit.register(_shutdown_standalone_loop)
 
 
 async def run_sync_in_executor(func: Any, /, *args: Any, **kwargs: Any) -> Any:

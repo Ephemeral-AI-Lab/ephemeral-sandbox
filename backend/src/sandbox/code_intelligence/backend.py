@@ -23,6 +23,7 @@ import logging
 import threading
 from collections.abc import Sequence
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Protocol
 
 from sandbox.api.transport import SandboxTransport
@@ -444,8 +445,8 @@ class RpcCiBackend:
     symbols. ``ensure_initialized`` simply launches the daemon and polls
     ``index_ready``.
 
-    ``cmd`` (overlay-audited shell) is intentionally still raising
-    ``NotImplementedError`` — Phase 4 owns the ``svc.cmd`` hot path collapse.
+    ``cmd`` routes through the same daemon dispatch path as query and mutation
+    verbs so callers do not need a separate shell path.
     """
 
     is_initialized: bool = False
@@ -539,14 +540,18 @@ class RpcCiBackend:
         return run_sync(client.call(op, args or {}))
 
     async def _call_async(
-        self, op: str, args: dict[str, Any] | None = None
+        self,
+        op: str,
+        args: dict[str, Any] | None = None,
+        *,
+        timeout: float = 30.0,
     ) -> Any:
         client = self._ensure_client()
-        return await client.call(op, args or {})
+        return await client.call(op, args or {}, timeout=timeout)
 
     def warmup(self) -> None:
-        # Phase 3: warmup is just "make sure ensure_initialized has run".
-        # Phase 4 may add a dedicated daemon op if needed.
+        # Warmup is just "make sure ensure_initialized has run"; daemon
+        # request handlers initialize their own long-lived children lazily.
         self.ensure_initialized(wait=True)
 
     def rebind_sandbox(self, sandbox: Any) -> None:
@@ -557,11 +562,18 @@ class RpcCiBackend:
         return None
 
     async def cmd(self, sandbox: Any, command: str, **kwargs: Any) -> Any:
-        # Phase 4 is responsible for collapsing svc.cmd into the daemon.
-        del sandbox, command, kwargs
-        raise NotImplementedError(
-            "RpcCiBackend.cmd is reserved for Phase 4 (svc.cmd hot path)"
-        )
+        del sandbox
+        on_progress_line = kwargs.pop("on_progress_line", None)
+        timeout = kwargs.get("timeout")
+        rpc_timeout = float(timeout if timeout is not None else 600) + 30.0
+        payload = {"command": command, **kwargs}
+        raw = await self._call_async("svc_cmd", payload, timeout=rpc_timeout)
+        result = SimpleNamespace(**(raw or {}))
+        if on_progress_line is not None:
+            progress_text = str(getattr(result, "result", "") or "")
+            if progress_text:
+                on_progress_line(progress_text)
+        return result
 
     def find_definitions(
         self,

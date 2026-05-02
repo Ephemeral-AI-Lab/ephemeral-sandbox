@@ -1,0 +1,34 @@
+{
+  "phase": 3.5,
+  "test_name": "sqlite_index_restart_parity",
+  "timestamp": "2026-05-02T17:30:00.944622+00:00",
+  "steps": [
+    {
+      "name": "query_baseline",
+      "elapsed_s": 5.543111249993672,
+      "count": null,
+      "bytes": null
+    },
+    {
+      "name": "daemon_shutdown",
+      "elapsed_s": 6.311395208002068,
+      "count": null,
+      "bytes": null
+    },
+    {
+      "name": "daemon_restart_with_sqlite",
+      "elapsed_s": 22.771025334004662,
+      "count": null,
+      "bytes": null
+    },
+    {
+      "name": "query_post_migration",
+      "elapsed_s": 5.531016583991004,
+      "count": null,
+      "bytes": null
+    }
+  ],
+  "total_s": 40.156548375991406,
+  "distributions": {},
+  "values": {}
+}
