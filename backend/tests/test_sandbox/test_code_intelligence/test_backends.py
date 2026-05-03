@@ -1,9 +1,9 @@
-"""Unit tests for the CiBackend Protocol selection + in-process/daemon backends.
+"""Unit tests for the CodeIntelligenceBackend Protocol selection + in-process/daemon backends.
 
 Covers the four-entry truth table selection logic in
 ``CodeIntelligenceService._select_backend`` (transport x sandbox_id),
-the InProcessCiBackend behavioral defaults (e.g. empty workspace returns no
-symbols), and that DaemonCiBackend exposes the full protocol shape.
+the InProcessBackend behavioral defaults (e.g. empty workspace returns no
+symbols), and that DaemonBackend exposes the full protocol shape.
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sandbox.code_intelligence.backend import (
-    CiBackend,
-    InProcessCiBackend,
-    DaemonCiBackend,
+from sandbox.code_intelligence.backends import (
+    CodeIntelligenceBackend,
+    InProcessBackend,
+    DaemonBackend,
 )
 from sandbox.code_intelligence.registry import (
     dispose_all_code_intelligence,
@@ -34,22 +34,22 @@ def _clear_registry() -> None:
 
 
 # ---------------------------------------------------------------------------
-# InProcessCiBackend behavior
+# InProcessBackend behavior
 # ---------------------------------------------------------------------------
 
 
 def test_inprocess_query_symbols_returns_empty_for_unbuilt_workspace(tmp_path: Path) -> None:
-    backend = InProcessCiBackend(sandbox_id="sb-1", workspace_root=str(tmp_path))
+    backend = InProcessBackend(sandbox_id="sb-1", workspace_root=str(tmp_path))
     assert backend.query_symbols("foo") == []
 
 
 def test_inprocess_is_initialized_starts_false(tmp_path: Path) -> None:
-    backend = InProcessCiBackend(sandbox_id="sb-2", workspace_root=str(tmp_path))
+    backend = InProcessBackend(sandbox_id="sb-2", workspace_root=str(tmp_path))
     assert backend.is_initialized is False
 
 
 def test_inprocess_exposes_required_components(tmp_path: Path) -> None:
-    backend = InProcessCiBackend(sandbox_id="sb-3", workspace_root=str(tmp_path))
+    backend = InProcessBackend(sandbox_id="sb-3", workspace_root=str(tmp_path))
     # Load-bearing attributes for callers that read internals (workspace.py,
     # code_intelligence_api.py, several tests).
     assert backend.symbol_index is not None
@@ -71,7 +71,7 @@ def test_inprocess_exposes_required_components(tmp_path: Path) -> None:
 def test_select_inprocess_with_no_transport(tmp_path: Path) -> None:
     """No transport at all -> InProcess (sandboxless flow)."""
     svc = CodeIntelligenceService(sandbox_id="sb-a", workspace_root=str(tmp_path))
-    assert type(svc._impl) is InProcessCiBackend
+    assert type(svc._impl) is InProcessBackend
 
 
 def test_select_daemon_with_transport_and_id(tmp_path: Path) -> None:
@@ -82,7 +82,7 @@ def test_select_daemon_with_transport_and_id(tmp_path: Path) -> None:
         workspace_root=str(tmp_path),
         transport=transport,
     )
-    assert type(svc._impl) is DaemonCiBackend
+    assert type(svc._impl) is DaemonBackend
 
 
 def test_select_daemon_ignores_legacy_env_flag(
@@ -95,12 +95,12 @@ def test_select_daemon_ignores_legacy_env_flag(
         workspace_root=str(tmp_path),
         transport=transport,
     )
-    assert type(svc._impl) is DaemonCiBackend
+    assert type(svc._impl) is DaemonBackend
 
 
 def test_select_inprocess_with_no_transport_and_sandbox_id(tmp_path: Path) -> None:
     svc = CodeIntelligenceService(sandbox_id="sb-c", workspace_root=str(tmp_path))
-    assert type(svc._impl) is InProcessCiBackend
+    assert type(svc._impl) is InProcessBackend
 
 
 def test_select_inprocess_with_empty_sandbox_id(tmp_path: Path) -> None:
@@ -110,7 +110,7 @@ def test_select_inprocess_with_empty_sandbox_id(tmp_path: Path) -> None:
         workspace_root=str(tmp_path),
         transport=transport,
     )
-    assert type(svc._impl) is InProcessCiBackend
+    assert type(svc._impl) is InProcessBackend
 
 
 # ---------------------------------------------------------------------------
@@ -165,13 +165,13 @@ def test_registry_disposes_service_when_transport_is_removed(
 
 
 # ---------------------------------------------------------------------------
-# DaemonCiBackend
+# DaemonBackend
 # ---------------------------------------------------------------------------
 
 
-def _build_daemon_backend() -> DaemonCiBackend:
+def _build_daemon_backend() -> DaemonBackend:
     transport = MagicMock(name="SandboxTransport")
-    return DaemonCiBackend(
+    return DaemonBackend(
         sandbox_id="sb-daemon",
         workspace_root="/workspace",
         transport=transport,
@@ -220,37 +220,37 @@ def test_daemon_backend_rebind_sandbox_is_noop() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Protocol shape — sanity check that InProcessCiBackend implements every CiBackend op
+# Protocol shape — sanity check that InProcessBackend implements every CodeIntelligenceBackend op
 # ---------------------------------------------------------------------------
 
 
 def test_inprocess_satisfies_protocol_shape() -> None:
-    """Every public method declared on CiBackend exists on InProcessCiBackend."""
+    """Every public method declared on CodeIntelligenceBackend exists on InProcessBackend."""
     declared = {
         name
-        for name, value in inspect.getmembers(CiBackend)
+        for name, value in inspect.getmembers(CodeIntelligenceBackend)
         if not name.startswith("_") and callable(value)
     }
     implemented = {
         name
-        for name, value in inspect.getmembers(InProcessCiBackend)
+        for name, value in inspect.getmembers(InProcessBackend)
         if not name.startswith("_") and callable(value)
     }
     missing = declared - implemented
-    assert missing == set(), f"InProcessCiBackend missing methods: {missing}"
+    assert missing == set(), f"InProcessBackend missing methods: {missing}"
 
 
 def test_daemon_satisfies_protocol_shape() -> None:
-    """Every public method declared on CiBackend exists on DaemonCiBackend."""
+    """Every public method declared on CodeIntelligenceBackend exists on DaemonBackend."""
     declared = {
         name
-        for name, value in inspect.getmembers(CiBackend)
+        for name, value in inspect.getmembers(CodeIntelligenceBackend)
         if not name.startswith("_") and callable(value)
     }
     implemented = {
         name
-        for name, value in inspect.getmembers(DaemonCiBackend)
+        for name, value in inspect.getmembers(DaemonBackend)
         if not name.startswith("_") and callable(value)
     }
     missing = declared - implemented
-    assert missing == set(), f"DaemonCiBackend missing methods: {missing}"
+    assert missing == set(), f"DaemonBackend missing methods: {missing}"

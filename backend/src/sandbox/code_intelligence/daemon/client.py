@@ -1,4 +1,4 @@
-"""Transport-backed backend that talks to the in-sandbox CI daemon."""
+"""Client for the sandbox-local code-intelligence daemon."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from typing import Any
 
 from sandbox.api.transport import SandboxTransport
 from sandbox.client.async_bridge import run_sync
-from sandbox.code_intelligence.backend_wire import (
+from sandbox.code_intelligence.daemon.wire import (
     deletespec_to_dict,
     edit_request_to_dict,
     edit_result_from_dict,
@@ -41,7 +41,7 @@ from sandbox.code_intelligence.core.types import (
     SymbolInfo,
     WriteSpec,
 )
-from sandbox.code_intelligence.in_sandbox.ci_protocol import (
+from sandbox.code_intelligence.daemon.protocol import (
     CI_PROTOCOL_VERSION,
     encode_frame,
     parse_response,
@@ -51,7 +51,7 @@ from sandbox.code_intelligence.in_sandbox.ci_protocol import (
 logger = logging.getLogger(__name__)
 
 
-class CiDaemonCommandError(Exception):
+class DaemonCommandError(Exception):
     """Raised when the daemon returns an ``ok=False`` command envelope."""
 
     def __init__(
@@ -66,8 +66,8 @@ class CiDaemonCommandError(Exception):
         self.details = details or {}
 
 
-class DaemonCiTransportBackend:
-    """Daemon-bound transport backend.
+class DaemonCommandClient:
+    """Transport-backed client for daemon command dispatch.
 
     The daemon owns the canonical SQLite ``IndexStore`` and serves every
     code-intelligence verb through framed msgpack command dispatch.
@@ -144,7 +144,7 @@ class DaemonCiTransportBackend:
         timeout: float = 30.0,
     ) -> Any:
         """Send one framed command to the in-sandbox daemon."""
-        from sandbox.code_intelligence.daemon.launcher import CiDaemonUnavailable
+        from sandbox.code_intelligence.daemon.launcher import DaemonUnavailable
 
         started = time.perf_counter()
         try:
@@ -188,7 +188,7 @@ class DaemonCiTransportBackend:
                 FileNotFoundError,
                 OSError,
             ) as exc:
-                raise CiDaemonUnavailable(
+                raise DaemonUnavailable(
                     f"daemon unreachable after respawn: {exc}"
                 ) from exc
 
@@ -238,7 +238,7 @@ class DaemonCiTransportBackend:
             )
         if not response.ok:
             error = response.error or {}
-            raise CiDaemonCommandError(
+            raise DaemonCommandError(
                 kind=str(error.get("kind") or "InternalError"),
                 message=str(error.get("message") or ""),
                 details=error.get("details")

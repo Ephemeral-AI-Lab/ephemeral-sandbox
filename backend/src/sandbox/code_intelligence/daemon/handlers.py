@@ -13,8 +13,8 @@ from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Any
 
-from sandbox.code_intelligence.in_sandbox.ci_protocol import CI_PROTOCOL_VERSION
-from sandbox.code_intelligence.in_sandbox.ci_state import (
+from sandbox.code_intelligence.daemon.protocol import CI_PROTOCOL_VERSION
+from sandbox.code_intelligence.daemon.state import (
     DAEMON_STATE,
     DAEMON_VERSION,
     STARTED_AT,

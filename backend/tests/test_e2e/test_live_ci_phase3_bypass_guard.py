@@ -67,7 +67,7 @@ def test_workspace_bypass_guard_surfaces_violation(
         try:
             result = _asyncio_run(write_with_bypass())
         except Exception as exc:
-            # CiDaemonCommandError carries the kind in .kind; surface for assertion.
+            # DaemonCommandError carries the kind in .kind; surface for assertion.
             assert "WorkspaceBypass" in str(exc), exc
             result = {"success": False, "error_repr": repr(exc)}
 

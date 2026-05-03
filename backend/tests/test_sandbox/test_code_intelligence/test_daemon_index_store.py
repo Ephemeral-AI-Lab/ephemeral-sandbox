@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 from sandbox.code_intelligence.core.types import SymbolInfo, SymbolKind
-from sandbox.code_intelligence.in_sandbox.ci_storage import (
+from sandbox.code_intelligence.daemon.storage import (
     IndexStore,
     _decode_symbols,
     _encode_symbols,

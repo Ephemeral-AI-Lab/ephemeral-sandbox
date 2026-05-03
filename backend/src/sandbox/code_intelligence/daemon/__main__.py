@@ -1,4 +1,4 @@
-"""Entrypoint for ``python -m sandbox.code_intelligence.in_sandbox``."""
+"""Entrypoint for ``python -m sandbox.code_intelligence.daemon``."""
 
 from __future__ import annotations
 
@@ -7,15 +7,15 @@ import asyncio
 import logging
 import sys
 
-from sandbox.code_intelligence.in_sandbox.ci_daemon import (
+from sandbox.code_intelligence.daemon.server import (
     DaemonAlreadyRunning,
     run_daemon,
 )
-from sandbox.code_intelligence.in_sandbox.ci_storage import CiStorageUnavailable
+from sandbox.code_intelligence.daemon.storage import StorageUnavailable
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="sandbox.code_intelligence.in_sandbox")
+    parser = argparse.ArgumentParser(prog="sandbox.code_intelligence.daemon")
     parser.add_argument("--workspace-root", required=True)
     parser.add_argument("--log-level", default="INFO")
     return parser
@@ -28,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         asyncio.run(run_daemon(args.workspace_root))
-    except CiStorageUnavailable as exc:
+    except StorageUnavailable as exc:
         logging.error(
             "storage unavailable: errno=%s path=%s message=%s",
             exc.errno,

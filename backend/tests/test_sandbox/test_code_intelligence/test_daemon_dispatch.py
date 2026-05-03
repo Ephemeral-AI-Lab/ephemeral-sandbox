@@ -14,14 +14,14 @@ from typing import Any
 
 import pytest
 
-from sandbox.code_intelligence.in_sandbox import ci_daemon
-from sandbox.code_intelligence.in_sandbox.ci_daemon import (
+from sandbox.code_intelligence.daemon import server as daemon_server
+from sandbox.code_intelligence.daemon.server import (
     DISPATCH,
     _dispatch_request,
     _populate_state,
     _reset_daemon_state_for_tests,
 )
-from sandbox.code_intelligence.in_sandbox.ci_storage import LedgerStore
+from sandbox.code_intelligence.daemon.storage import LedgerStore
 from sandbox.code_intelligence.service import CodeIntelligenceService
 
 
@@ -188,7 +188,7 @@ async def test_svc_cmd_routes_through_service_and_preserves_shape(
             overlay_stage_timings={"total": 0.03},
         )
 
-    ci_daemon._DAEMON_STATE.svc.cmd = _fake_cmd
+    daemon_server._DAEMON_STATE.svc.cmd = _fake_cmd
 
     response = await _dispatch_request(
         _make_request(
@@ -285,8 +285,8 @@ async def test_guard_strict_mode_surfaces_workspace_bypass(
         return {"wrote": str(bypass_target)}
 
     # Register in extra_dispatch and enable strict mode.
-    ci_daemon._DAEMON_STATE.extra_dispatch["_test_bypass"] = _bad_handler
-    ci_daemon._DAEMON_STATE.guard_strict = True
+    daemon_server._DAEMON_STATE.extra_dispatch["_test_bypass"] = _bad_handler
+    daemon_server._DAEMON_STATE.guard_strict = True
 
     response = await _dispatch_request(_make_request("_test_bypass"))
     # Detection, not prevention: the file IS written.
@@ -303,7 +303,7 @@ async def test_guard_disabled_when_query_op(daemon_state: Path) -> None:
     # Touch an un-ledgered file ahead of the query so its mtime is fresh.
     (daemon_state / "untracked.txt").write_text("x", encoding="utf-8")
     time.sleep(0.01)
-    ci_daemon._DAEMON_STATE.guard_strict = True
+    daemon_server._DAEMON_STATE.guard_strict = True
     response = await _dispatch_request(
         _make_request("query_symbols", {"query": "anything"})
     )
@@ -323,8 +323,8 @@ async def test_guard_lenient_mode_logs_but_passes_through(
         bypass_target.write_text("planted\n", encoding="utf-8")
         return {"wrote": str(bypass_target)}
 
-    ci_daemon._DAEMON_STATE.extra_dispatch["_test_bypass_lenient"] = _bad_handler
-    ci_daemon._DAEMON_STATE.guard_strict = False
+    daemon_server._DAEMON_STATE.extra_dispatch["_test_bypass_lenient"] = _bad_handler
+    daemon_server._DAEMON_STATE.guard_strict = False
 
     with caplog.at_level("ERROR"):
         response = await _dispatch_request(_make_request("_test_bypass_lenient"))
@@ -344,7 +344,7 @@ def test_writespec_from_dict_round_trips() -> None:
     from sandbox.code_intelligence.core.types import WriteSpec
 
     payload = {"file_path": "/x.py", "content": "y = 1\n", "overwrite": True}
-    spec = ci_daemon._writespec_from_dict(payload)
+    spec = daemon_server._writespec_from_dict(payload)
     assert isinstance(spec, WriteSpec)
     assert spec.file_path == "/x.py"
     assert spec.content == "y = 1\n"
@@ -354,7 +354,7 @@ def test_writespec_from_dict_round_trips() -> None:
 def test_movespec_accepts_legacy_aliases() -> None:
     from sandbox.code_intelligence.core.types import MoveSpec
 
-    spec = ci_daemon._movespec_from_dict({"source": "/a", "destination": "/b"})
+    spec = daemon_server._movespec_from_dict({"source": "/a", "destination": "/b"})
     assert isinstance(spec, MoveSpec)
     assert spec.src_path == "/a"
     assert spec.dst_path == "/b"
@@ -363,7 +363,7 @@ def test_movespec_accepts_legacy_aliases() -> None:
 def test_deletespec_accepts_legacy_field() -> None:
     from sandbox.code_intelligence.core.types import DeleteSpec
 
-    spec = ci_daemon._deletespec_from_dict({"file_path": "/x.py"})
+    spec = daemon_server._deletespec_from_dict({"file_path": "/x.py"})
     assert isinstance(spec, DeleteSpec)
     assert spec.path == "/x.py"
 
@@ -379,7 +379,7 @@ def test_operation_change_round_trip() -> None:
         "base_existed": True,
         "strict_base": True,
     }
-    change = ci_daemon._operation_change_from_dict(payload)
+    change = daemon_server._operation_change_from_dict(payload)
     assert isinstance(change, OperationChange)
     assert change.strict_base is True
 
@@ -393,14 +393,14 @@ def test_to_dict_handles_dataclass_and_nested_lists() -> None:
         base_hash="",
         final_content="x",
     )
-    converted = ci_daemon._to_dict([change, {"a": [change]}])
+    converted = daemon_server._to_dict([change, {"a": [change]}])
     assert isinstance(converted, list)
     assert converted[0]["file_path"] == "/x.py"
     assert converted[1]["a"][0]["file_path"] == "/x.py"
 
 
 def test_to_dict_handles_simple_namespace() -> None:
-    converted = ci_daemon._to_dict(
+    converted = daemon_server._to_dict(
         SimpleNamespace(
             result="ok",
             nested=SimpleNamespace(paths=["/x.py"]),

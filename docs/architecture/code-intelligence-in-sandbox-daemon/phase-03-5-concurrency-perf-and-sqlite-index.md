@@ -24,21 +24,21 @@ Three reasons:
 
 | Artifact | File | Purpose |
 |---|---|---|
-| `IndexStore` SQLite adapter | `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py` (extended) | `index.sqlite3` table with one row per file; `query_by_substring`, `refresh_file`, `delete_file`, `bulk_replace` |
-| `ci_index.py` migration | `backend/src/sandbox/code_intelligence/in_sandbox/ci_index.py` (modified) | Writes to SQLite via `IndexStore.bulk_replace` instead of pickle |
-| Daemon `query_symbols` swap | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` (modified) | Reads from `IndexStore.query_by_substring` instead of in-memory `_symbols` dict |
-| Pickle → SQLite migration | `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py` (one-shot helper) | If `index.snapshot` exists at startup, drain into `index.sqlite3` and unlink the pickle |
+| `IndexStore` SQLite adapter | `backend/src/sandbox/code_intelligence/daemon/storage.py` (extended) | `index.sqlite3` table with one row per file; `query_by_substring`, `refresh_file`, `delete_file`, `bulk_replace` |
+| Daemon index migration | `backend/src/sandbox/code_intelligence/daemon/server.py` (modified) | Writes to SQLite via `IndexStore.bulk_replace` instead of pickle |
+| Daemon `query_symbols` swap | `backend/src/sandbox/code_intelligence/daemon/server.py` (modified) | Reads from `IndexStore.query_by_substring` instead of in-memory `_symbols` dict |
+| Pickle → SQLite migration | `backend/src/sandbox/code_intelligence/daemon/storage.py` (one-shot helper) | If `index.snapshot` exists at startup, drain into `index.sqlite3` and unlink the pickle |
 | `TimingHarness.step_repeat()` | `backend/tests/test_e2e/_timing_harness.py` (extended) | Collects N samples, reports p50/p95/p99 |
 | Resource sampler | `backend/tests/test_e2e/_timing_harness.py` (extended) | `harness.sample_rss(label)` and `harness.sample_fds(label)` via `transport.exec` reading `/proc/<pid>/status`, `/proc/<pid>/fd/` |
 | Phase 3.5 live E2E | `backend/tests/test_e2e/test_live_ci_phase3_5_concurrent_perf.py` | Sustained mixed workload, p50/p95/p99, RSS/FD ceilings |
-| Multi-orchestrator E2E | (same file) | Two `DaemonCiBackend` instances against the same daemon; verify lock arbitration |
-| Index storage unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_ci_storage_index.py` | SQLite schema, migration path, query parity with pickle baseline |
+| Multi-orchestrator E2E | (same file) | Two `DaemonBackend` instances against the same daemon; verify lock arbitration |
+| Index storage unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_storage_index.py` | SQLite schema, migration path, query parity with pickle baseline |
 
 ## Detailed task list
 
 ### Task 3.5.1 — `IndexStore` SQLite adapter
 
-**File:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py` (extended)
+**File:** `backend/src/sandbox/code_intelligence/daemon/storage.py` (extended)
 
 **Schema:**
 
@@ -94,7 +94,7 @@ class IndexStore:
 
 ### Task 3.5.2 — Pickle → SQLite migration helper
 
-**File:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py`
+**File:** `backend/src/sandbox/code_intelligence/daemon/storage.py`
 
 ```python
 def migrate_pickle_to_sqlite(state: Path) -> None:
@@ -113,14 +113,14 @@ def migrate_pickle_to_sqlite(state: Path) -> None:
     store = IndexStore(state_dir=state)
     store.bulk_replace(snapshot)
     pickle_path.unlink(missing_ok=True)
-    logging.info("ci_storage: migrated %d files from pickle to sqlite", len(snapshot))
+    logging.info("storage: migrated %d files from pickle to sqlite", len(snapshot))
 ```
 
 Called once at daemon startup (in `run_daemon`, before `CodeIntelligenceService` construction).
 
 ### Task 3.5.3 — Daemon swaps `query_symbols` to read from `IndexStore`
 
-**File:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py`
+**File:** `backend/src/sandbox/code_intelligence/daemon/server.py`
 
 **Two implementation choices:**
 
@@ -297,13 +297,13 @@ async def test_concurrent_agents_no_pathologies(live_sweevo_env):
 
 ```python
 async def test_multi_orchestrator_single_daemon_arbitration(live_sweevo_env):
-    """Two DaemonCiBackend instances simulate two orchestrator processes hitting
+    """Two DaemonBackend instances simulate two orchestrator processes hitting
     the same daemon. Lock arbitration must be consistent."""
     h = TimingHarness(phase=3.5, test_name="multi_orchestrator")
     env = live_sweevo_env
 
-    daemon_a = DaemonCiBackend(env.transport, env.sandbox_id, env.repo_dir)
-    daemon_b = DaemonCiBackend(env.transport, env.sandbox_id, env.repo_dir)
+    daemon_a = DaemonBackend(env.transport, env.sandbox_id, env.repo_dir)
+    daemon_b = DaemonBackend(env.transport, env.sandbox_id, env.repo_dir)
 
     target = "/testbed/_phase3_5_multi.txt"
     env.exec(f"echo 'v0' > {target}")
@@ -353,7 +353,7 @@ async def test_sqlite_index_parity_with_pickle(live_sweevo_env):
     env.exec(f"rm -f $HOME/.cache/eos-ci/{wh()}/v1/index.sqlite3")
 
     # Need a pickle to migrate from — write one synthesized
-    env.exec(f"... regenerate index.snapshot via ci_index.py legacy mode ...")
+    env.exec(f"... regenerate index.snapshot via daemon indexer legacy mode ...")
 
     # Restart daemon — should auto-migrate
     with h.step("daemon_restart_with_migration"):
@@ -403,7 +403,7 @@ async def test_refresh_file_does_not_rewrite_world(live_sweevo_env):
 
 ### Task 3.5.6 — Index storage unit tests
 
-**File:** `backend/tests/test_sandbox/test_code_intelligence/test_ci_storage_index.py`
+**File:** `backend/tests/test_sandbox/test_code_intelligence/test_storage_index.py`
 
 **Cases:**
 - `IndexStore.bulk_replace` is atomic — interrupted commit doesn't leave partial rows.

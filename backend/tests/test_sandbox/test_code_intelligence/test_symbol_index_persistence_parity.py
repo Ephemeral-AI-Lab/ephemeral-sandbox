@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.code_intelligence.in_sandbox.ci_storage import IndexStore
+from sandbox.code_intelligence.daemon.storage import IndexStore
 from sandbox.code_intelligence.indexing.symbol_index import SymbolIndex
 
 

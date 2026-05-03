@@ -169,10 +169,10 @@ Open exactly one of (a)/(b)/(c) based on Task 7.0.A.
 
 | Artifact | File | Purpose |
 |---|---|---|
-| Daemon TCP bind | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` | bind a TCP listener on a fixed loopback port in addition to the existing unix socket |
+| Daemon TCP bind | `backend/src/sandbox/code_intelligence/daemon/server.py` | bind a TCP listener on a fixed loopback port in addition to the existing unix socket |
 | Daytona port reservation | `backend/src/sandbox/code_intelligence/daemon/launcher.py` | request port-forward at sandbox bring-up; resolve host-visible URL |
-| Persistent HTTP/2 daemon command transport | `backend/src/sandbox/code_intelligence/backend.py` | replace per-command `transport.exec` dispatch with a kept-alive httpx (or h2) client; one connection per sandbox lifetime |
-| Reconnect / fallback | `backend/src/sandbox/code_intelligence/backend.py` | reconnect on EPIPE; fall back to `transport.exec` if 3× consecutive reconnects fail within 1 minute |
+| Persistent HTTP/2 daemon command transport | `backend/src/sandbox/code_intelligence/backends/` | replace per-command `transport.exec` dispatch with a kept-alive httpx (or h2) client; one connection per sandbox lifetime |
+| Reconnect / fallback | `backend/src/sandbox/code_intelligence/backends/` | reconnect on EPIPE; fall back to `transport.exec` if 3× consecutive reconnects fail within 1 minute |
 | Live perf E2E | `backend/tests/test_e2e/test_live_ci_phase7_persistent_transport.py` (new) | 1×/5×/10× `svc.cmd` against the dask fixture; assert 10× p50 < track-(a) target |
 
 #### Track 7.1(b) — Streaming exec proxy
@@ -180,16 +180,16 @@ Open exactly one of (a)/(b)/(c) based on Task 7.0.A.
 | Artifact | File | Purpose |
 |---|---|---|
 | Stream wrapper | `backend/src/sandbox/daytona/transport.py` | `exec_stream()` over Daytona's long-lived exec verb |
-| Daemon stdio loop | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` | newline-delimited JSON requests on stdin → responses on stdout, request_id-tagged |
-| Persistent daemon command transport | `backend/src/sandbox/code_intelligence/backend.py` | one persistent stream; route responses by request_id |
+| Daemon stdio loop | `backend/src/sandbox/code_intelligence/daemon/server.py` | newline-delimited JSON requests on stdin → responses on stdout, request_id-tagged |
+| Persistent daemon command transport | `backend/src/sandbox/code_intelligence/backends/` | one persistent stream; route responses by request_id |
 | E2E | same as 7.1(a) | |
 
 #### Track 7.1(c) — Orchestrator-side batching (fallback)
 
 | Artifact | File | Purpose |
 |---|---|---|
-| Batch dispatch | `backend/src/sandbox/code_intelligence/backend.py` | coalesce concurrent `svc.cmd` calls within a 5–20ms window into one `transport.exec` carrying N requests |
-| Daemon batch handler | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` | receive batch envelope; dispatch each item to `OverlayAuditor.execute` concurrently (existing semaphore still bounds concurrency) |
+| Batch dispatch | `backend/src/sandbox/code_intelligence/backends/` | coalesce concurrent `svc.cmd` calls within a 5–20ms window into one `transport.exec` carrying N requests |
+| Daemon batch handler | `backend/src/sandbox/code_intelligence/daemon/server.py` | receive batch envelope; dispatch each item to `OverlayAuditor.execute` concurrently (existing semaphore still bounds concurrency) |
 | E2E | sequence of 10 commands fired with 0/5/15ms gaps; assert amortized p50 |
 
 ### Task 7.2 — Persistent overlay supervisor
@@ -202,7 +202,7 @@ Conditional on Task 7.0.B confirming feasibility.
 | Request protocol | same | newline-delimited JSON: `{request_id, run_dir, snap, upper_size_mb, user_cmd_b64, stdin_b64, timeout}`; response `{request_id, exit_code, error?}`; result.json/diff.ndjson/stdout.bin under run_dir as today |
 | Per-request fork+unshare | same | parent forks; child closes listener fd, calls `os.unshare(CLONE_NEWUSER\|CLONE_NEWNS)`, then `runtime.runner.main_in_namespace(args)`; child writes result.json, calls `os._exit(rc)` |
 | Crash isolation | same | parent uses `os.waitpid(child, 0)` with timeout; on timeout `os.kill(child, SIGKILL)`; on supervisor-side exception (request parse, fork failure) re-raise to daemon → daemon respawns supervisor |
-| Daemon wiring | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` | start supervisor at daemon boot; one supervisor per daemon lifetime |
+| Daemon wiring | `backend/src/sandbox/code_intelligence/daemon/server.py` | start supervisor at daemon boot; one supervisor per daemon lifetime |
 | Auditor branch | `backend/src/sandbox/code_intelligence/overlay/auditor.py` | new daemon-local-supervisor branch: send request to supervisor over unix socket instead of `subprocess.run([unshare, …])` |
 | Runtime entry refactor | `backend/src/sandbox/code_intelligence/overlay/runtime/runner.py` | extract `main_in_namespace(args: RunnerArgs)` from `main(argv)`; today's argparse path becomes a thin wrapper for the legacy/standalone call site |
 | FD hygiene | supervisor.py | all listener / per-request sockets opened with `O_CLOEXEC`; child explicitly closes the listener pre-unshare |
@@ -258,8 +258,8 @@ on its own and the other track is blocked or deferred.
 |---|---|---|
 | Phase 7 probe reports | `phase-07-probe-A-report.md`, `phase-07-probe-B-report.md` | new, written before any implementation |
 | Phase 7 implementation report | `phase-07-implementation-report.md` | new, written at landing |
-| Persistent daemon command path | one of `backend.py`, `daemon/launcher.py`, `daytona/transport.py`, `in_sandbox/ci_daemon.py` | modified per chosen 7.1 track |
-| Overlay supervisor | `overlay/runtime/supervisor.py` (new), `overlay/runtime/runner.py`, `overlay/auditor.py`, `in_sandbox/ci_daemon.py` | new + modified per Task 7.2 |
+| Persistent daemon command path | one of `daemon/client.py`, `daemon/launcher.py`, `daytona/transport.py`, `daemon/server.py` | modified per chosen 7.1 track |
+| Overlay supervisor | `overlay/runtime/supervisor.py` (new), `overlay/runtime/runner.py`, `overlay/auditor.py`, `daemon/server.py` | new + modified per Task 7.2 |
 | Parity test | `test_sandbox/test_code_intelligence/test_supervisor_parity.py` | new (only if 7.2 lands) |
 | Live perf E2Es | `test_e2e/test_live_ci_phase7_persistent_transport.py`, `test_e2e/test_live_ci_phase7_supervisor.py` | new |
 | Probe harness | `test_sandbox/test_code_intelligence/test_supervisor_fork_probe.py` | new (kept after probe; doubles as a regression guard) |

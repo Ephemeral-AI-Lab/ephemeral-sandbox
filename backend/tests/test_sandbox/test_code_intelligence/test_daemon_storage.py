@@ -1,4 +1,4 @@
-"""Unit tests for ``sandbox.code_intelligence.in_sandbox.ci_storage``."""
+"""Unit tests for ``sandbox.code_intelligence.daemon.storage``."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.code_intelligence.in_sandbox.ci_storage import (
-    CiStoragePathEscape,
-    CiStorageUnavailable,
+from sandbox.code_intelligence.daemon.storage import (
+    StoragePathEscape,
+    StorageUnavailable,
     _confine,
     state_dir,
     workspace_root_hash,
@@ -76,7 +76,7 @@ def test_state_dir_raises_on_unwritable_home(
     workspace = tmp_path / "ws"
     workspace.mkdir()
     try:
-        with pytest.raises(CiStorageUnavailable) as exc:
+        with pytest.raises(StorageUnavailable) as exc:
             state_dir(str(workspace))
         assert exc.value.errno != 0
         assert ".cache/eos-ci" in exc.value.path
@@ -95,14 +95,14 @@ def test_confine_accepts_legal_name(tmp_path: Path) -> None:
 def test_confine_rejects_relative_traversal(tmp_path: Path) -> None:
     state = tmp_path / "state"
     state.mkdir()
-    with pytest.raises(CiStoragePathEscape):
+    with pytest.raises(StoragePathEscape):
         _confine(state, "../escape.bin")
 
 
 def test_confine_rejects_absolute_path(tmp_path: Path) -> None:
     state = tmp_path / "state"
     state.mkdir()
-    with pytest.raises(CiStoragePathEscape):
+    with pytest.raises(StoragePathEscape):
         _confine(state, "/etc/passwd")
 
 
@@ -112,19 +112,19 @@ def test_confine_rejects_symlink_escape(tmp_path: Path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
     (state / "evil").symlink_to(outside / "evil_target")
-    with pytest.raises(CiStoragePathEscape):
+    with pytest.raises(StoragePathEscape):
         _confine(state, "evil")
 
 
 def test_confine_rejects_state_itself(tmp_path: Path) -> None:
     state = tmp_path / "state"
     state.mkdir()
-    with pytest.raises(CiStoragePathEscape):
+    with pytest.raises(StoragePathEscape):
         _confine(state, ".")
 
 
-def test_ci_storage_unavailable_carries_context(tmp_path: Path) -> None:
-    err = CiStorageUnavailable(errno=13, path=str(tmp_path), message="permission denied")
+def test_storage_unavailable_carries_context(tmp_path: Path) -> None:
+    err = StorageUnavailable(errno=13, path=str(tmp_path), message="permission denied")
     assert err.errno == 13
     assert err.path == str(tmp_path)
     assert err.message == "permission denied"

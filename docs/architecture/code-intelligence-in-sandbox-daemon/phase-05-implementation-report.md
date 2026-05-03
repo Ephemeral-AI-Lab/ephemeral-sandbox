@@ -6,7 +6,7 @@ Status: corrected on 2026-05-03.
 
 Phase 5 originally tried to promote code-intelligence daemon command into a first-class sandbox transport verb. That branch has been removed.
 
-The final implementation keeps the simpler and faster path: every code-intelligence daemon request crosses the sandbox boundary through `process.exec`, using the Python Unix-socket bridge owned by `DaemonCiBackend`.
+The final implementation keeps the simpler and faster path: every code-intelligence daemon request crosses the sandbox boundary through `process.exec`, using the Python Unix-socket bridge owned by `DaemonBackend`.
 
 The key finding from Phase 3.5/3.6 and the Phase 5 live comparison is that the retired native verb was not a true transport improvement. In Daytona it still wrapped `process.exec`, added another abstraction layer, and measured slower/noisier than the direct shim.
 
@@ -15,10 +15,10 @@ The key finding from Phase 3.5/3.6 and the Phase 5 live comparison is that the r
 ```mermaid
 flowchart LR
     Service["CodeIntelligenceService"] --> Backend["Sandbox daemon backend"]
-    Backend --> Client["DaemonCiBackend"]
+    Backend --> Client["DaemonBackend"]
     Client --> Exec["SandboxTransport.exec"]
     Exec --> Bridge["python3 Unix-socket bridge in sandbox"]
-    Bridge --> Daemon["ci_daemon Unix socket"]
+    Bridge --> Daemon["CI daemon Unix socket"]
     Daemon --> LocalOps["in-sandbox index, LSP, overlay, OCC"]
 ```
 
@@ -28,8 +28,8 @@ flowchart LR
 | --- | --- |
 | `backend/src/sandbox/api/transport.py` | Removed the code-intelligence-specific daemon command method from the transport protocol. |
 | `backend/src/sandbox/daytona/transport.py` | Removed the Daytona native bridge wrapper and inline bridge template. |
-| `backend/src/sandbox/code_intelligence/backend.py` | Removed provider-capability and forced-shim branching; `_call_once` now always uses the process.exec-backed Python socket bridge. |
-| `backend/tests/test_sandbox/test_code_intelligence/test_daemon_ci_backend_process_exec.py` | Kept daemon command framing, retry, and daemon-unavailable coverage; removed native-verb selection tests. |
+| `backend/src/sandbox/code_intelligence/backends/` | Removed provider-capability and forced-shim branching; `_call_once` now always uses the process.exec-backed Python socket bridge. |
+| `backend/tests/test_sandbox/test_code_intelligence/test_daemon_client_process_exec.py` | Kept daemon command framing, retry, and daemon-unavailable coverage; removed native-verb selection tests. |
 | `backend/tests/test_sandbox/test_daytona_transport.py` | Removed Daytona native-verb tests. |
 | `backend/tests/test_e2e/test_live_ci_phase5_default_on.py` | Removed native-vs-shim live A/B measurement; retained daemon-default, warm query, concurrent query, and cross-phase regression coverage. |
 | `docs/architecture/code-intelligence-in-sandbox-daemon/phase-05-process-exec-daemon-default.md` | Replaced the retired native-verb rollout plan with the process.exec-backed daemon-default contract. |
@@ -37,7 +37,7 @@ flowchart LR
 
 ## Why the deletion is correct
 
-The native verb did not remove the expensive operation. It moved the Python socket bridge from `DaemonCiBackend` into Daytona transport code, but the Daytona implementation still launched a command through `process.exec`. That means the expected optimization target remained in the path while the codebase gained:
+The native verb did not remove the expensive operation. It moved the Python socket bridge from `DaemonBackend` into Daytona transport code, but the Daytona implementation still launched a command through `process.exec`. That means the expected optimization target remained in the path while the codebase gained:
 
 1. A wider transport protocol.
 2. Provider-specific code-intelligence API surface.
@@ -54,7 +54,7 @@ Before this correction, the broader Phase 0-8 review pass ran the targeted unit/
 After this correction, the intended focused verification set is:
 
 ```bash
-uv run pytest backend/tests/test_sandbox/test_code_intelligence/test_daemon_ci_backend_process_exec.py backend/tests/test_sandbox/test_daytona_transport.py -q
+uv run pytest backend/tests/test_sandbox/test_code_intelligence/test_daemon_client_process_exec.py backend/tests/test_sandbox/test_daytona_transport.py -q
 uv run pytest backend/tests/test_e2e/test_live_ci_phase5_default_on.py -q -m live
 ```
 

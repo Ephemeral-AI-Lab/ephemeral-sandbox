@@ -7,10 +7,10 @@
 
 > Current implementation note (2026-05-03): this plan is retained as
 > historical design context, not an open Phase 4 deferral list.
-> `ci_daemon.DISPATCH["svc_cmd"]` exists, `DaemonCiBackend.cmd` routes through
+> `daemon.server.DISPATCH["svc_cmd"]` exists, `DaemonBackend.cmd` routes through
 > it, daemon-local subprocess execution is wired in
 > `overlay/command_executor.py`, and the result-shape contract is covered by
-> `test_daemon_ci_backend.py`, `test_ci_daemon_dispatch.py`, and
+> `test_daemon_backend.py`, `test_daemon_dispatch.py`, and
 > `test_overlay_dispatch.py`. The first live Phase 3.5 / 3.6 runs exposed a
 > ~5.5 s public-call floor, but follow-up instrumentation traced that to
 > `run_sync(...)` creating a fresh event loop for sync callers without a
@@ -63,8 +63,8 @@ Three reasons:
 
 | Artifact | File | Purpose |
 |---|---|---|
-| `svc_cmd` daemon op | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` (extended) | Receives `(command, kwargs)`, runs the full overlay+commit pipeline locally, returns the assembled result dict |
-| `DaemonCiBackend.cmd` | `backend/src/sandbox/code_intelligence/backend.py` (extended) | Async one-line call to the daemon's `svc_cmd` op; reconstructs `SimpleNamespace` |
+| `svc_cmd` daemon op | `backend/src/sandbox/code_intelligence/daemon/server.py` (extended) | Receives `(command, kwargs)`, runs the full overlay+commit pipeline locally, returns the assembled result dict |
+| `DaemonBackend.cmd` | `backend/src/sandbox/code_intelligence/backends/` (extended) | Async one-line call to the daemon's `svc_cmd` op; reconstructs `SimpleNamespace` |
 | Orchestrator-side `AuditedCommandExecutor` | `backend/src/sandbox/code_intelligence/overlay/command_executor.py` (modified) | Flag-on path delegates to backend; flag-off keeps existing |
 | Phase 4 live E2E | `backend/tests/test_e2e/test_live_ci_phase4_svc_cmd.py` | Real shell commands, gitinclude OCC + gitignore direct-merge, byte-identical result |
 | Result-shape parity test | `backend/tests/test_sandbox/test_code_intelligence/test_svc_cmd_shape_parity.py` | Daemon return dict reconstructs to a `SimpleNamespace` byte-identical to in-process baseline |
@@ -73,7 +73,7 @@ Three reasons:
 
 ### Task 4.1 — `svc_cmd` daemon op
 
-**File to modify:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py`
+**File to modify:** `backend/src/sandbox/code_intelligence/daemon/server.py`
 
 **Add to `DISPATCH`:**
 
@@ -143,10 +143,10 @@ async def handle_svc_cmd(args: dict) -> dict:
 
 ### Task 4.2 — Orchestrator-side wiring
 
-**File to modify:** `backend/src/sandbox/code_intelligence/backend.py`
+**File to modify:** `backend/src/sandbox/code_intelligence/backends/`
 
 ```python
-class DaemonCiBackend:
+class DaemonBackend:
     async def cmd(self, sandbox: Any, command: str, **kwargs: Any) -> SimpleNamespace:
         # Filter kwargs to only msgpack-friendly types; on_progress_line is callback (skip)
         on_progress = kwargs.pop("on_progress_line", None)
@@ -180,11 +180,11 @@ This protects Phase 4 from a silent serialization bug where downstream `commit/s
 **Today's behavior:** `OverlayAuditor.execute` accepts an `on_progress_line: Callable[[str], None]` callback that gets fed lines from the running command's stdout as they appear (via `_run_overlay_with_progress` polling `stdout.bin` on a 2s interval).
 
 **Phase 4 problem:** A callback can't cross the daemon command boundary. Three options:
-- **(A)** DROP the callback — `DaemonCiBackend.cmd` ignores it. User loses live progress for `svc.cmd`. Acceptable if all current callers tolerate batched stdout.
+- **(A)** DROP the callback — `DaemonBackend.cmd` ignores it. User loses live progress for `svc.cmd`. Acceptable if all current callers tolerate batched stdout.
 - **(B)** Stream via a separate daemon command op `svc_cmd_progress(request_id)` polled by the orchestrator. Adds complexity.
 - **(C)** Use a server-push pattern over the same socket (push frames mid-request). Requires protocol extension.
 
-**Current outcome:** `DaemonCiBackend.cmd` does not stream mid-command
+**Current outcome:** `DaemonBackend.cmd` does not stream mid-command
 progress over the daemon command socket, but it does replay final stdout to the
 callback after the daemon response is reconstructed. True streaming should
 be framed as a future transport enhancement, not a Phase 4 completion
@@ -328,7 +328,7 @@ After all subtests run, programmatically load each `phase_4_*_<ts>.json` and pro
 
 - [ ] `svc_cmd` op exists in daemon dispatch; serializes/deserializes the full `SimpleNamespace` shape.
 - [ ] Result-shape parity test (Task 4.3) passes — every field round-trips.
-- [ ] `DaemonCiBackend.cmd` ships args + reconstructs `SimpleNamespace`.
+- [ ] `DaemonBackend.cmd` ships args + reconstructs `SimpleNamespace`.
 - [x] `on_progress_line` behavior documented: final stdout replay is implemented; true live streaming is future transport enhancement.
 - [ ] **Phase 4 live E2E (all 4 subtests A-D) passes against `dask__dask_2023.3.2_2023.4.0`.**
 - [ ] **HEADLINE PERF ASSERTION (4.5.A): `svc_cmd_via_daemon` < `svc_cmd_baseline_inprocess` for the warm path.** This is the migration's headline win.
@@ -347,7 +347,7 @@ After all subtests run, programmatically load each `phase_4_*_<ts>.json` and pro
 | **HIGH** | `on_progress_line` loses live streaming → CodeAct UI shows stdout only when the command completes | Current implementation replays final stdout; if product blocks, add a future streaming transport op such as option (B) |
 | **MEDIUM** | Daemon-resident `OverlayAuditor` doesn't share the orchestrator-side `_overlay_runtime_bundle_bytes()` upload | The overlay runtime under `/tmp/eos-shell-overlay/` is sandbox-resident already; no orchestrator dependency. Verify in 4.5.A that `overlay_run.py` is found |
 | **MEDIUM** | `git_snapshot` running locally in daemon disagrees with the orchestrator-shipped snapshot script (different snap SHA) | Drift guard `test_git_snapshot_local_parity.py` (Phase 3 should ship this; verify here) |
-| **MEDIUM** | daemon command timeout default (30s in `DaemonCiBackend._call_daemon_command`) is too short for long-running commands | `cmd` op uses `timeout=kwargs.get("timeout") or 600` — match today's `_DEFAULT_SANDBOX_COMMAND_TIMEOUT` |
+| **MEDIUM** | daemon command timeout default (30s in `DaemonBackend._call_daemon_command`) is too short for long-running commands | `cmd` op uses `timeout=kwargs.get("timeout") or 600` — match today's `_DEFAULT_SANDBOX_COMMAND_TIMEOUT` |
 | **LOW** | `attribute_changes=False` path (ambient-only writes) doesn't go through OCC | Current behavior: `_audit_result` returns ambient-only when `attribute_changes=False`. Same in daemon. 4.5.A asserts gitinclude path implicitly |
 
 ## Hand-off to Phase 5
@@ -355,6 +355,6 @@ After all subtests run, programmatically load each `phase_4_*_<ts>.json` and pro
 Phase 5 picks up with:
 - `svc.cmd` running through the daemon end-to-end.
 - The headline perf claim already validated by 4.5.A.
-- A complete `DaemonCiBackend` — every method routed.
+- A complete `DaemonBackend` — every method routed.
 - The `socat`/`nc`/python shim becoming the obvious next bottleneck (visible in Phase 4's timing reports).
 - Phase 5 keeps the process.exec-backed daemon path as the default, deletes the misleading transport-verb branch, and flips the `EOS_CI_IN_SANDBOX` default to `1`.

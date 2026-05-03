@@ -21,12 +21,12 @@ Three reasons:
 
 ## Design choice — package reuse, not reimplementation
 
-**Rejected approach:** create new `in_sandbox/ci_overlay.py`, `ci_mutations.py`, `ci_lsp.py` files that copy or rewrite the OCC/overlay/LSP logic. Adds drift surface, requires drift-guard tests, doubles the maintenance for every change to `WriteCoordinator` etc.
+**Rejected approach:** create new daemon-local overlay, mutation, and LSP files that copy or rewrite the OCC/overlay/LSP logic. Adds drift surface, requires drift-guard tests, doubles the maintenance for every change to `WriteCoordinator` etc.
 
 **Chosen approach (consistent with Phase 1):** the daemon constructs the existing `CodeIntelligenceService` and routes each daemon command op to the corresponding method. The bundle from Phase 1 already ships the entire `sandbox.code_intelligence` package; Phase 3 just wires more of its methods into the dispatch table.
 
 ```python
-# In ci_daemon.py, at startup:
+# In server.py, at startup:
 from sandbox.code_intelligence.service import CodeIntelligenceService
 _svc = CodeIntelligenceService(
     sandbox_id="local",
@@ -56,27 +56,27 @@ async def handle_write_file(args: dict) -> dict:
 
 | Artifact | File | Purpose |
 |---|---|---|
-| Daemon `CodeIntelligenceService` instance | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` (extended) | Constructed at startup with `sandbox=None`; all dispatch handlers route to its methods |
-| Mutation/query dispatch entries | `ci_daemon.py` (extended) | `apply_edit`, `commit_operation_against_base`, `commit_specs_many`, `write_file`, `edit_file`, `delete_file`, `move_file`, `undo_last_edit`, `find_definitions`, `find_references`, `hover`, `diagnostics`, `query_symbols`, `index_refresh`, `lsp_invalidate`, `list_folder_files`, `status`, `get_telemetry` |
-| SQLite WAL ledger adapter | `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py` (extended) | `LedgerStore` class implementing the existing `EditHistoryLedger` interface, persisting to `ledger.sqlite3` |
+| Daemon `CodeIntelligenceService` instance | `backend/src/sandbox/code_intelligence/daemon/server.py` (extended) | Constructed at startup with `sandbox=None`; all dispatch handlers route to its methods |
+| Mutation/query dispatch entries | `server.py` (extended) | `apply_edit`, `commit_operation_against_base`, `commit_specs_many`, `write_file`, `edit_file`, `delete_file`, `move_file`, `undo_last_edit`, `find_definitions`, `find_references`, `hover`, `diagnostics`, `query_symbols`, `index_refresh`, `lsp_invalidate`, `list_folder_files`, `status`, `get_telemetry` |
+| SQLite WAL ledger adapter | `backend/src/sandbox/code_intelligence/daemon/storage.py` (extended) | `LedgerStore` class implementing the existing `EditHistoryLedger` interface, persisting to `ledger.sqlite3` |
 | Ledger injection | `backend/src/sandbox/code_intelligence/mutations/arbiter.py` (modified) | Accepts an injected `edit_history` ledger; daemon passes the SQLite-backed `LedgerStore`; orchestrator-side keeps the in-memory default |
-| **Workspace-write bypass guard** | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` (new check) | Wrapper around dispatch that asserts no handler writes under `workspace_root` except via the `_svc` instance |
-| Orchestrator passthrough | `backend/src/sandbox/code_intelligence/backend.py` (extended) | Each `DaemonCiBackend` method becomes one `_call_daemon_command(op, args)` |
+| **Workspace-write bypass guard** | `backend/src/sandbox/code_intelligence/daemon/server.py` (new check) | Wrapper around dispatch that asserts no handler writes under `workspace_root` except via the `_svc` instance |
+| Orchestrator passthrough | `backend/src/sandbox/code_intelligence/backends/` (extended) | Each `DaemonBackend` method becomes one `_call_daemon_command(op, args)` |
 | Phase 3 live E2E | `backend/tests/test_e2e/test_live_ci_phase3_invariants.py` | Five HARD INVARIANT subtests + ledger replay + bypass guard |
 | Mutation parity tests | `backend/tests/test_sandbox/test_code_intelligence/test_ci_mutations_parity.py` | Daemon vs in-process backend produce identical results on fixture workspaces |
-| Ledger unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_ci_storage_ledger.py` | WAL config, schema, integrity check, replay, interface conformance |
+| Ledger unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_storage_ledger.py` | WAL config, schema, integrity check, replay, interface conformance |
 
 **Notably NOT shipped (vs original draft):**
-- ~~`in_sandbox/ci_mutations.py`~~ — package reuse instead
-- ~~`in_sandbox/ci_overlay.py`~~ — package reuse instead
-- ~~`in_sandbox/ci_lsp.py`~~ — package reuse instead
-- ~~`test_in_sandbox_drift_guard.py`~~ — no copies, no drift to guard
+- ~~daemon-local mutation copy~~ — package reuse instead
+- ~~daemon-local overlay copy~~ — package reuse instead
+- ~~daemon-local LSP copy~~ — package reuse instead
+- ~~daemon drift-guard test for copied files~~ — no copies, no drift to guard
 
 ## Detailed task list
 
 ### Task 3.1 — SQLite WAL ledger
 
-**File:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py` (extended from Phase 1)
+**File:** `backend/src/sandbox/code_intelligence/daemon/storage.py` (extended from Phase 1)
 
 **Schema:**
 
@@ -121,7 +121,7 @@ def _open_ledger(state_dir: Path) -> sqlite3.Connection:
     # Integrity check
     result = conn.execute("PRAGMA integrity_check").fetchone()
     if result[0] != "ok":
-        logging.warning("ci_storage: ledger corrupt (%s); rotating", result[0])
+        logging.warning("storage: ledger corrupt (%s); rotating", result[0])
         conn.close()
         path.rename(path.with_suffix(f".corrupt.{int(time.time())}.sqlite3"))
         conn = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
@@ -167,7 +167,7 @@ def __init__(
 
 ### Task 3.3 — Daemon constructs `CodeIntelligenceService` (SOCKET-FIRST startup)
 
-**File:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` (extends Phase 2)
+**File:** `backend/src/sandbox/code_intelligence/daemon/server.py` (extends Phase 2)
 
 **Critical change vs original draft:** the daemon must bind the socket BEFORE starting the symbol-index build. Otherwise `create_sandbox`'s eager bootstrap blocks for the full index-build duration (multi-seconds for a 1k-file repo), defeating the eager-bootstrap SLO of <3s cold. The fix: kick the index build into the existing `SymbolIndex._background_build` thread (it already exists per `symbol_index.py:201-211`) and bind the socket immediately.
 
@@ -175,7 +175,7 @@ def __init__(
 
 ```python
 from sandbox.code_intelligence.service import CodeIntelligenceService
-from sandbox.code_intelligence.in_sandbox.ci_storage import state_dir, LedgerStore, IndexStore
+from sandbox.code_intelligence.daemon.storage import state_dir, LedgerStore, IndexStore
 
 async def run_daemon(workspace_root: str) -> None:
     state = state_dir(workspace_root)
@@ -184,7 +184,7 @@ async def run_daemon(workspace_root: str) -> None:
     migrate_pickle_to_sqlite(state)
 
     # Daemon-resident CI service. sandbox=None, transport=None → local-FS branches.
-    # SQLite-backed ledger from ci_storage.
+    # SQLite-backed ledger from storage.
     ledger = LedgerStore(state_dir=state)
     _DAEMON_STATE.svc = CodeIntelligenceService(
         sandbox_id="local",
@@ -230,7 +230,7 @@ async def handle_index_ready(args: dict) -> dict:
 
 ### Task 3.4 — Add daemon dispatch entries
 
-**File:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` (extends Phase 2)
+**File:** `backend/src/sandbox/code_intelligence/daemon/server.py` (extends Phase 2)
 
 **New ops:**
 
@@ -284,7 +284,7 @@ async def handle_query_symbols(args: dict) -> dict:
 
 **Goal:** Make it impossible for an daemon command handler to write directly under `workspace_root` without going through `_DAEMON_STATE.svc` (i.e. without going through `WriteCoordinator`). This enforces the storage-boundary invariant from the overview.
 
-**Implementation:** wrap `handle_client` in `ci_daemon.py` so dispatch is bracketed by an inotify-style mtime sample. After each handler returns, scan `workspace_root` for files mtime'd within the request window that don't appear in the ledger. Any such file is a bypass.
+**Implementation:** wrap `handle_client` in `server.py` so dispatch is bracketed by an inotify-style mtime sample. After each handler returns, scan `workspace_root` for files mtime'd within the request window that don't appear in the ledger. Any such file is a bypass.
 
 ```python
 async def handle_client(reader, writer):
@@ -332,14 +332,14 @@ async def handle_client(reader, writer):
 
 **Test (3.7.G below):** craft a malicious dispatch handler that writes `workspace_root/__bypass__.txt` directly via `pathlib.Path.write_text` (NOT via `_DAEMON_STATE.svc.write_file`). With `guard_strict=True`, the daemon must respond `WorkspaceBypass` and the file must be visible (the guard doesn't prevent the write — it surfaces it).
 
-### Task 3.6 — Wire `DaemonCiBackend` methods
+### Task 3.6 — Wire `DaemonBackend` methods
 
-**File:** `backend/src/sandbox/code_intelligence/backend.py` (extends Phase 1)
+**File:** `backend/src/sandbox/code_intelligence/backends/` (extends Phase 1)
 
 Each method becomes a daemon-command call:
 
 ```python
-class DaemonCiBackend:
+class DaemonBackend:
     async def write_file_async(self, specs, *, agent_id="", description=""):
         args = {"specs": [_writespec_to_dict(s) for s in _normalize(specs)],
                 "agent_id": agent_id, "description": description}
@@ -454,7 +454,7 @@ async def test_workspace_write_bypass_guard_surfaces_violation(live_sweevo_env):
     env.exec("touch $HOME/.cache/eos-ci/<wh>/v1/.allow_test_bypass_op")
     await svc._impl.__call_daemon_command("ping")  # daemon picks up the env on next call
 
-    with pytest.raises(CiDaemonError) as exc_info:
+    with pytest.raises(DaemonCommandError) as exc_info:
         await svc._impl.__call_daemon_command("_test_bypass_handler",
                                       {"path": "/testbed/__bypass_target__.txt",
                                        "content": "this should be flagged"})
@@ -475,7 +475,7 @@ async def test_workspace_write_bypass_guard_surfaces_violation(live_sweevo_env):
     h.dump_json()
 ```
 
-**Implementation note for the `_test_bypass_handler` op:** registered conditionally in `ci_daemon.py` only when the marker file `.allow_test_bypass_op` exists. This keeps it out of production daemons.
+**Implementation note for the `_test_bypass_handler` op:** registered conditionally in `server.py` only when the marker file `.allow_test_bypass_op` exists. This keeps it out of production daemons.
 
 **Run command:** `uv run pytest backend/tests/test_e2e/test_live_ci_phase3_invariants.py -m live -v -s`
 
@@ -483,13 +483,13 @@ async def test_workspace_write_bypass_guard_surfaces_violation(live_sweevo_env):
 
 **File:** `backend/tests/test_sandbox/test_code_intelligence/test_ci_mutations_parity.py`
 
-Parametrize every existing `test_write_coordinator_*.py`, `test_mutation_service_*.py`, `test_arbiter_*.py` over `["inprocess", "daemon"]` backends. Use a fixture that constructs a real daemon in a tmpdir-rooted fake "sandbox" (just `subprocess.Popen` of `python -m sandbox.code_intelligence.in_sandbox --workspace-root <tmpdir>`). Both backends must produce identical results.
+Parametrize every existing `test_write_coordinator_*.py`, `test_mutation_service_*.py`, `test_arbiter_*.py` over `["inprocess", "daemon"]` backends. Use a fixture that constructs a real daemon in a tmpdir-rooted fake "sandbox" (just `subprocess.Popen` of `python -m sandbox.code_intelligence.daemon --workspace-root <tmpdir>`). Both backends must produce identical results.
 
 This is a unit-test-style harness; it runs in CI without Daytona.
 
 ### Task 3.9 — Ledger unit tests
 
-**File:** `backend/tests/test_sandbox/test_code_intelligence/test_ci_storage_ledger.py`
+**File:** `backend/tests/test_sandbox/test_code_intelligence/test_storage_ledger.py`
 
 **Cases:**
 - WAL pragma applied (`PRAGMA journal_mode` returns `wal`).
@@ -513,7 +513,7 @@ This is a unit-test-style harness; it runs in CI without Daytona.
 - [ ] Daemon constructs `CodeIntelligenceService(sandbox=None, transport=None, edit_history=LedgerStore(...))` at startup.
 - [ ] Daemon dispatch table includes all mutation/query/internal ops listed in Task 3.4.
 - [ ] **Workspace-write bypass guard surfaces unledgered writes (3.7.G).**
-- [ ] `DaemonCiBackend` methods all wired through `_call_daemon_command(...)`.
+- [ ] `DaemonBackend` methods all wired through `_call_daemon_command(...)`.
 - [ ] **Phase 3 live E2E: all FIVE INVARIANT subtests + ledger replay + bypass guard pass against `dask__dask_2023.3.2_2023.4.0`.**
 - [ ] Mutation parity tests green (daemon vs in-process).
 - [ ] `apply_edits` and `query_symbols` warm-path latency NOT >50ms slower than Phase 0 baseline.

@@ -23,7 +23,7 @@ import pytest
 
 from engine.testing.eval_agent import EvalAgent
 from sandbox.api.bash import extract_exit_code, wrap_bash_command
-from sandbox.code_intelligence.backend import DaemonCiBackend
+from sandbox.code_intelligence.backends import DaemonBackend
 from sandbox.code_intelligence.daemon.launcher import DaemonLauncher
 
 from ._timing_harness import TimingHarness
@@ -155,8 +155,8 @@ class LivePhase2Env:
         )
         return exit_code, output
 
-    def daemon_backend(self) -> DaemonCiBackend:
-        return DaemonCiBackend(sandbox_id=self.sandbox_id, workspace_root=self.repo_dir, transport=self.transport)
+    def daemon_backend(self) -> DaemonBackend:
+        return DaemonBackend(sandbox_id=self.sandbox_id, workspace_root=self.repo_dir, transport=self.transport)
 
     def launcher(self) -> DaemonLauncher:
         return DaemonLauncher(self.transport, self.sandbox_id, self.repo_dir)
@@ -229,7 +229,7 @@ def test_daemon_ready_after_create_sandbox() -> None:
 
         try:
             with _traced_step(h, "daemon_first_ping_no_retry"):
-                daemon_backend = DaemonCiBackend(sandbox_id=sandbox_id, workspace_root=_DASK_SWEEVO_REPO_DIR, transport=DaytonaTransport())
+                daemon_backend = DaemonBackend(sandbox_id=sandbox_id, workspace_root=_DASK_SWEEVO_REPO_DIR, transport=DaytonaTransport())
                 result = _asyncio_run(daemon_backend._call_daemon_command("ping"))
             assert result["pong"] is True
 
@@ -346,7 +346,7 @@ def test_dispose_sandbox_no_orphan_daemon() -> None:
             sandbox_id = str(sandbox["id"])
 
         with _traced_step(h, "spawn_daemon"):
-            daemon_backend = DaemonCiBackend(sandbox_id=sandbox_id, workspace_root=_DASK_SWEEVO_REPO_DIR, transport=DaytonaTransport())
+            daemon_backend = DaemonBackend(sandbox_id=sandbox_id, workspace_root=_DASK_SWEEVO_REPO_DIR, transport=DaytonaTransport())
             assert _asyncio_run(daemon_backend._call_daemon_command("ping"))["pong"] is True
 
         with _traced_step(h, "dispose_sandbox"):

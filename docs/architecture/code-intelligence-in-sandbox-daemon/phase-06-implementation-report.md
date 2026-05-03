@@ -38,7 +38,7 @@ starts** in the captured daemon log.
 | 6.0 verify stage scope | PASS | Live 10x post-fold stage p50: `read_stdout=0.000049s`, `read_diff=0.000114s`, `cleanup=0.000365s`; these remain pure local file I/O. Scope taken: fold `git_snapshot` into the unshare invocation and keep local read/diff/cleanup. |
 | 6.1 atomic `result.json` | PASS | `overlay/runtime/runner.py` writes `result.json` via temp file + `os.replace` after `diff.ndjson` for both normal and policy-reject outcomes. |
 | 6.2 daemon-local branch | PASS | `OverlayAuditor.execute` branches only when `daemon_local=True`, `sandbox is None`, and `on_progress_line is None`; the multi-stage/streaming path remains available. |
-| 6.3 daemon-side wiring | PASS | `ci_daemon._build_service(...)` passes `daemon_local=True`; `CodeIntelligenceService -> InProcessCiBackend -> AuditedCommandExecutor -> OverlayAuditor` threads the flag explicitly. |
+| 6.3 daemon-side wiring | PASS | `daemon/server.py:_build_service(...)` passes `daemon_local=True`; `CodeIntelligenceService -> InProcessBackend -> AuditedCommandExecutor -> OverlayAuditor` threads the flag explicitly. |
 | 6.4 result-shape parity | PASS | New five-case parity test covers gitinclude, gitignore, mixed, aborted-version, and policy-reject outcomes. |
 | 6.5 internal bash-wrap stripping | PASS for daemon-local hot path | Daemon-local path does not call `_do_exec`; its only subprocess is `subprocess.run([...], shell=False)` for `unshare`. |
 | 6.6 live E2E | PASS | `test_live_ci_phase6_svc_cmd_fold.py` passed in 68.29s with detailed per-op/per-stage logs. |
@@ -55,9 +55,9 @@ starts** in the captured daemon log.
 | `backend/src/sandbox/code_intelligence/overlay/runtime/runner.py` | Adds `_write_result_json(...)` and writes the atomic completion marker after `diff.ndjson`. |
 | `backend/src/sandbox/code_intelligence/overlay/auditor.py` | Adds the daemon-local branch and helpers for one `unshare` subprocess, result-envelope read, local stdout/diff read, OCC commit, cleanup, and DEBUG subprocess-count logs. |
 | `backend/src/sandbox/code_intelligence/overlay/command_executor.py` | Threads `daemon_local` to lazily constructed `OverlayAuditor`. |
-| `backend/src/sandbox/code_intelligence/backend.py` | Adds `daemon_local` to `InProcessCiBackend` and passes it to `AuditedCommandExecutor`. |
+| `backend/src/sandbox/code_intelligence/backends/` | Adds `daemon_local` to `InProcessBackend` and passes it to `AuditedCommandExecutor`. |
 | `backend/src/sandbox/code_intelligence/service.py` | Adds the explicit `daemon_local` constructor path for in-process services. |
-| `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` | Constructs the daemon-resident service with `daemon_local=True`. |
+| `backend/src/sandbox/code_intelligence/daemon/server.py` | Constructs the daemon-resident service with `daemon_local=True`. |
 
 ### Tests and Performance Artifacts
 
@@ -141,9 +141,9 @@ uv run pytest \
 uv run pytest \
   backend/tests/test_sandbox/test_code_intelligence/test_overlay_auditor.py \
   backend/tests/test_sandbox/test_code_intelligence/test_overlay_dispatch.py \
-  backend/tests/test_sandbox/test_code_intelligence/test_backend_inprocess.py \
-  backend/tests/test_sandbox/test_code_intelligence/test_ci_daemon_dispatch.py \
-  backend/tests/test_sandbox/test_code_intelligence/test_ci_daemon_unit.py \
+  backend/tests/test_sandbox/test_code_intelligence/test_backends.py \
+  backend/tests/test_sandbox/test_code_intelligence/test_daemon_dispatch.py \
+  backend/tests/test_sandbox/test_code_intelligence/test_daemon_server.py \
   -q
 # 63 passed
 ```
@@ -157,9 +157,9 @@ uv run pytest backend/tests/test_sandbox/ backend/tests/test_tools/ -q
 uv run ruff check \
   backend/src/sandbox/code_intelligence/overlay/auditor.py \
   backend/src/sandbox/code_intelligence/overlay/command_executor.py \
-  backend/src/sandbox/code_intelligence/backend.py \
+  backend/src/sandbox/code_intelligence/backends/ \
   backend/src/sandbox/code_intelligence/service.py \
-  backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py \
+  backend/src/sandbox/code_intelligence/daemon/server.py \
   backend/src/sandbox/code_intelligence/overlay/runtime/runner.py \
   backend/src/sandbox/code_intelligence/overlay/runtime/__init__.py \
   backend/tests/test_sandbox/test_code_intelligence/test_overlay_daemon_local_parity.py \
@@ -176,7 +176,7 @@ git diff --check
 Targeted mypy over `backend/src/sandbox/code_intelligence` was also tried,
 but that package is outside the repo's strict mypy target and still has
 pre-existing failures unrelated to Phase 6: `SymbolKind.OTHER`, an unused
-ignore, and the `CiBackend.is_initialized` protocol shape.
+ignore, and the `CodeIntelligenceBackend.is_initialized` protocol shape.
 
 ---
 

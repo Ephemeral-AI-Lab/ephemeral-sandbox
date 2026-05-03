@@ -10,7 +10,7 @@ B. ``test_concurrent_agents_no_pathologies`` — asyncio agents looping
    query + edit + cmd through the daemon path; asserts zero errors and at
    least one op per kind per agent; RSS growth < 200 MB.
 C. ``test_multi_orchestrator_single_daemon_arbitration`` — two
-   :class:`DaemonCiBackend` instances commit to the same path; asserts exactly
+   :class:`DaemonBackend` instances commit to the same path; asserts exactly
    1 success + 1 abort.
 D. ``test_sqlite_index_survives_daemon_restart`` — capture symbol counts,
    restart the daemon, assert the SQLite-backed daemon returns identical
@@ -43,7 +43,7 @@ from engine.testing.eval_agent import EvalAgent
 from sandbox.api.bash import extract_exit_code, wrap_bash_command
 from sandbox.client.async_ import get_async_sandbox
 from sandbox.code_intelligence.core.types import WriteSpec
-from sandbox.code_intelligence.in_sandbox.ci_storage import workspace_root_hash
+from sandbox.code_intelligence.daemon.storage import workspace_root_hash
 from sandbox.code_intelligence.service import CodeIntelligenceService
 
 from ._timing_harness import TimingHarness
@@ -384,12 +384,12 @@ async def test_multi_orchestrator_single_daemon_arbitration(
 
     base_hash = content_hash(base_content)
 
-    from sandbox.code_intelligence.backend import DaemonCiBackend
+    from sandbox.code_intelligence.backends import DaemonBackend
     from sandbox.daytona.transport import DaytonaTransport
 
     transport = DaytonaTransport()
-    daemon_a = DaemonCiBackend(sandbox_id=env.sandbox_id, workspace_root=env.root_dir, transport=transport)
-    daemon_b = DaemonCiBackend(sandbox_id=env.sandbox_id, workspace_root=env.root_dir, transport=transport)
+    daemon_a = DaemonBackend(sandbox_id=env.sandbox_id, workspace_root=env.root_dir, transport=transport)
+    daemon_b = DaemonBackend(sandbox_id=env.sandbox_id, workspace_root=env.root_dir, transport=transport)
 
     def _change(value: str, agent: str) -> dict:
         return {
@@ -489,10 +489,10 @@ def test_refresh_file_does_not_rewrite_world(live_phase35_env: LivePhase35Env) -
     svc.ensure_initialized(wait=True)
 
     target = f"{env.root_dir}/dask/__init__.py"
-    from sandbox.code_intelligence.backend import DaemonCiBackend
+    from sandbox.code_intelligence.backends import DaemonBackend
     from sandbox.daytona.transport import DaytonaTransport
 
-    daemon_backend = DaemonCiBackend(sandbox_id=env.sandbox_id, workspace_root=env.root_dir, transport=DaytonaTransport())
+    daemon_backend = DaemonBackend(sandbox_id=env.sandbox_id, workspace_root=env.root_dir, transport=DaytonaTransport())
     for step in h.step_repeat("refresh_file", n=_REFRESH_SAMPLES):
         with step:
             asyncio.run(daemon_backend._call_daemon_command("index_refresh", {"file_path": target}))

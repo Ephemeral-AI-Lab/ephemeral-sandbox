@@ -203,12 +203,12 @@ wrong context. The reviewer was right to flag this.
 and passes it to the lazily-constructed `OverlayAuditor`. No other API
 changes.
 
-**File:** `backend/src/sandbox/code_intelligence/backend.py`
+**File:** `backend/src/sandbox/code_intelligence/backends/`
 
-`InProcessCiBackend` (line 201) constructs `AuditedCommandExecutor` with
+`InProcessBackend` (line 201) constructs `AuditedCommandExecutor` with
 `daemon_local=True` **only when** the constructor receives the daemon
 context (an explicit constructor argument threaded from
-`ci_daemon.run_daemon`). Do not infer the context from `transport is
+`daemon.server.run_daemon`). Do not infer the context from `transport is
 None` — that condition is also satisfied by some test fixtures.
 
 ### Task 6.4 — Result-shape parity test

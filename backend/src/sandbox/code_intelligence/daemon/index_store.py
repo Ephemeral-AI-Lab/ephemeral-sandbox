@@ -9,7 +9,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from sandbox.code_intelligence.in_sandbox.ci_paths import _read_pickle_snapshot
+from sandbox.code_intelligence.daemon.paths import _read_pickle_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def _open_index_db(path: Path) -> sqlite3.Connection:
         integrity = str(exc) or "database error"
     if integrity != "ok":
         logger.warning(
-            "ci_storage: index %s failed integrity check (%s); rotating",
+            "storage: index %s failed integrity check (%s); rotating",
             path,
             integrity,
         )
@@ -249,5 +249,5 @@ def migrate_pickle_to_sqlite(state: Path) -> int:
         pickle_path.unlink()
     except OSError:
         pass
-    logger.info("ci_storage: migrated %d files from pickle to sqlite", len(snapshot))
+    logger.info("storage: migrated %d files from pickle to sqlite", len(snapshot))
     return len(snapshot)

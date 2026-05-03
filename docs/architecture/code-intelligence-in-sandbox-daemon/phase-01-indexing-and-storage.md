@@ -21,11 +21,11 @@ Three reasons:
 
 1. **Biggest network savings, lowest blast radius.** Indexing today downloads every `.py` file to feed `ast.parse`. Moving that into the sandbox eliminates the largest network cost in the migration. It does NOT touch the OCC pipeline, so even a regression here can't break edits.
 2. **Validates the storage-path privilege assumption against real Daytona.** `$HOME/.cache/eos-ci/` is the load-bearing assumption from the overview's gray-area decision #1. Phase 1's E2E asserts `mkdir -p $HOME/.cache/eos-ci/...` works without sudo on a real `dask` swe-evo sandbox. If it doesn't, we discover this BEFORE building a daemon on top of it.
-3. **One-shot script first, daemon later.** A standalone CLI is simpler than an asyncio event-loop server. Proving the bundle-shipping pattern, the storage layer, and the orchestrator-side `DaemonCiBackend.build_index()` integration in Phase 1 reduces Phase 2's surface area to "just" the daemon lifecycle.
+3. **One-shot script first, daemon later.** A standalone CLI is simpler than an asyncio event-loop server. Proving the bundle-shipping pattern, the storage layer, and the orchestrator-side `DaemonBackend.build_index()` integration in Phase 1 reduces Phase 2's surface area to "just" the daemon lifecycle.
 
 ## Design choice — bundle the entire package, not hand-picked copies
 
-**Rejected approach:** copy hand-picked modules into `in_sandbox/_extracted.py`, guard with source-equality drift tests. Adds a maintenance treadmill (every change to `extract_symbols` or `WriteCoordinator` needs a sync), risks subtle drift, and produces two source-of-truth copies of the same logic.
+**Rejected approach:** copy hand-picked modules into daemon-local extracted files, guard with source-equality drift tests. Adds a maintenance treadmill (every change to `extract_symbols` or `WriteCoordinator` needs a sync), risks subtle drift, and produces two source-of-truth copies of the same logic.
 
 **Chosen approach:** ship the **entire** `backend/src/sandbox/code_intelligence/` tree as the bundle. The daemon does:
 
@@ -34,7 +34,7 @@ from sandbox.code_intelligence.service import CodeIntelligenceService
 svc = CodeIntelligenceService(
     sandbox_id="local",
     workspace_root=args.workspace_root,
-    sandbox=None,         # → InProcessCiBackend's local-FS branches
+    sandbox=None,         # → InProcessBackend's local-FS branches
     transport=None,       # → no daemon command roundtrips
 )
 svc.ensure_initialized(wait=True)
@@ -54,15 +54,15 @@ svc.ensure_initialized(wait=True)
 
 | Artifact | File | Purpose |
 |---|---|---|
-| Bundle helper | `backend/src/sandbox/code_intelligence/daemon/launcher.py` | `_ci_runtime_bundle_bytes()` packs `sandbox/code_intelligence/` + `sandbox/client/async_bridge.py` + **vendored `msgpack/`** (~50KB) |
-| Indexing CLI | `backend/src/sandbox/code_intelligence/in_sandbox/ci_index.py` | Thin wrapper: instantiate `CodeIntelligenceService`, call `ensure_initialized`, dump snapshot via `ci_storage` |
-| Storage layer | `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py` | `$HOME/.cache/eos-ci/<wh>/v1/` resolver, atomic snapshot writer, integrity check, **path-confinement guard** |
-| Package init | `backend/src/sandbox/code_intelligence/in_sandbox/__init__.py` | Empty marker |
-| `DaemonCiBackend.build_index()` | `backend/src/sandbox/code_intelligence/backend.py` (extended) | Ships payload, runs CLI, downloads snapshot |
+| Bundle helper | `backend/src/sandbox/code_intelligence/daemon/launcher.py` | `_runtime_bundle_bytes()` packs `sandbox/code_intelligence/` + `sandbox/client/async_bridge.py` + **vendored `msgpack/`** (~50KB) |
+| Indexing runner | `backend/src/sandbox/code_intelligence/daemon/server.py` | Instantiates `CodeIntelligenceService`; index readiness is exposed through daemon command dispatch |
+| Storage layer | `backend/src/sandbox/code_intelligence/daemon/storage.py` | `$HOME/.cache/eos-ci/<wh>/v1/` resolver, atomic snapshot writer, integrity check, **path-confinement guard** |
+| Daemon package | `backend/src/sandbox/code_intelligence/daemon/__init__.py` | Daemon package marker |
+| `DaemonBackend.build_index()` | `backend/src/sandbox/code_intelligence/backends/` (extended) | Ships payload, runs CLI, downloads snapshot |
 | **Eager bootstrap hook** | `backend/src/sandbox/lifecycle/workspace.py` (`bootstrap_in_sandbox_ci_runtime`) | Bundle upload + indexer run, called from `create_sandbox` and `start_sandbox` |
 | **Lifecycle integration** | `backend/src/sandbox/lifecycle/service.py` (modified) | `create_sandbox(...)` and `start_sandbox(...)` call the hook before returning when `EOS_CI_IN_SANDBOX=1` |
 | Phase 1 live E2E | `backend/tests/test_e2e/test_live_ci_phase1_indexing.py` | Privilege probe + **compatibility matrix probe** + indexing + corruption recovery + **eager-bootstrap timing** |
-| Storage unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_ci_storage.py` | Atomic rename, corruption recovery, missing-dir creation, path-confinement guard |
+| Storage unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_storage.py` | Atomic rename, corruption recovery, missing-dir creation, path-confinement guard |
 | Index unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_ci_index_runner.py` | Standalone runner against a fixture workspace |
 | Lifecycle hook unit tests | `backend/tests/test_sandbox/test_eager_ci_bootstrap.py` | Lifecycle bootstrap runs when the flag is set and skips when the flag is unset or workspace resolution fails |
 
@@ -70,7 +70,7 @@ svc.ensure_initialized(wait=True)
 
 ### Task 1.1 — Storage layer
 
-**File to create:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py`
+**File to create:** `backend/src/sandbox/code_intelligence/daemon/storage.py`
 
 **API:**
 
@@ -79,11 +79,11 @@ import os, hashlib, pickle, tempfile, errno, logging
 from pathlib import Path
 from typing import Any
 
-class CiStorageUnavailable(Exception):
+class StorageUnavailable(Exception):
     """Raised when $HOME/.cache/eos-ci/... can't be created (privilege failure)."""
     def __init__(self, errno: int, path: str, message: str) -> None: ...
 
-class CiStoragePathEscape(Exception):
+class StoragePathEscape(Exception):
     """Raised when a write target escapes the state dir confinement."""
 
 def workspace_root_hash(workspace_root: str) -> str:
@@ -91,13 +91,13 @@ def workspace_root_hash(workspace_root: str) -> str:
     return hashlib.sha256(os.path.realpath(workspace_root).encode("utf-8")).hexdigest()[:16]
 
 def state_dir(workspace_root: str) -> Path:
-    """Resolve $HOME/.cache/eos-ci/<wh>/v1/ and mkdir -p. Raises CiStorageUnavailable on EACCES."""
+    """Resolve $HOME/.cache/eos-ci/<wh>/v1/ and mkdir -p. Raises StorageUnavailable on EACCES."""
     home = Path(os.path.expanduser("~"))
     base = home / ".cache" / "eos-ci" / workspace_root_hash(workspace_root) / "v1"
     try:
         base.mkdir(parents=True, exist_ok=True)
     except PermissionError as exc:
-        raise CiStorageUnavailable(
+        raise StorageUnavailable(
             errno=exc.errno or errno.EACCES, path=str(base),
             message=f"Cannot create CI state dir at {base} (errno={exc.errno}); "
                     f"running as user={os.getenv('USER')}, HOME={home}",
@@ -109,7 +109,7 @@ def _confine(state: Path, name: str) -> Path:
     storage boundary — see overview.md."""
     target = (state / name).resolve()
     if state.resolve() not in target.parents and target != state.resolve():
-        raise CiStoragePathEscape(f"path {target} escapes state dir {state}")
+        raise StoragePathEscape(f"path {target} escapes state dir {state}")
     return target
 
 def write_snapshot(state: Path, name: str, payload: Any) -> None:
@@ -138,23 +138,23 @@ def read_snapshot(state: Path, name: str) -> Any | None:
         with open(target, "rb") as f:
             return pickle.load(f)
     except (EOFError, pickle.UnpicklingError, OSError) as exc:
-        logging.warning("ci_storage: corrupt snapshot at %s (%s); unlinking", target, exc)
+        logging.warning("storage: corrupt snapshot at %s (%s); unlinking", target, exc)
         try: target.unlink()
         except OSError: pass
         return None
 ```
 
 **Critical contracts:**
-- DO NOT silently fall back to `/tmp` on `PermissionError`. Surface `CiStorageUnavailable` so the Phase 1 E2E can fail loud with the exact errno + `$HOME` value.
+- DO NOT silently fall back to `/tmp` on `PermissionError`. Surface `StorageUnavailable` so the Phase 1 E2E can fail loud with the exact errno + `$HOME` value.
 - `_confine` is load-bearing: it prevents an daemon command handler from writing `../../../workspace_root/foo` and bypassing the storage boundary. Phase 3 adds a daemon-side bypass-attempt guard test on top of this.
 
-**Note on Phase 3.5 SQLite migration:** the `write_snapshot/read_snapshot` API stays stable. Phase 3.5 swaps the implementation to back onto a SQLite table without changing the call sites in `ci_index.py` or `ci_daemon.py`.
+**Note on Phase 3.5 SQLite migration:** the `write_snapshot/read_snapshot` API stays stable. Phase 3.5 swaps the implementation to back onto a SQLite table without changing the call sites in `daemon indexer` or `server.py`.
 
 ### Task 1.2 — Indexing CLI
 
-**File to create:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_index.py`
+**File to create:** `backend/src/sandbox/code_intelligence/daemon/server.py`
 
-**Contract:** Run as `python -m sandbox.code_intelligence.in_sandbox.ci_index --workspace-root <path> [--file <single>]`. Construct a `CodeIntelligenceService` against `sandbox=None, transport=None` and let the existing local-FS code paths walk the workspace. Persist the resulting symbol index via `ci_storage.write_snapshot`.
+**Contract:** Run as `python -m sandbox.code_intelligence.daemon.ci_index --workspace-root <path> [--file <single>]`. Construct a `CodeIntelligenceService` against `sandbox=None, transport=None` and let the existing local-FS code paths walk the workspace. Persist the resulting symbol index via `storage.write_snapshot`.
 
 **Implementation skeleton:**
 
@@ -163,8 +163,8 @@ import argparse, json, sys, time
 from pathlib import Path
 
 from sandbox.code_intelligence.service import CodeIntelligenceService
-from sandbox.code_intelligence.in_sandbox.ci_storage import (
-    state_dir, write_snapshot, read_snapshot, CiStorageUnavailable,
+from sandbox.code_intelligence.daemon.storage import (
+    state_dir, write_snapshot, read_snapshot, StorageUnavailable,
 )
 
 def main() -> int:
@@ -176,7 +176,7 @@ def main() -> int:
     started = time.perf_counter()
     try:
         state = state_dir(args.workspace_root)
-    except CiStorageUnavailable as exc:
+    except StorageUnavailable as exc:
         print(json.dumps({"ok": False, "error": "storage_unavailable",
                           "errno": exc.errno, "path": exc.path, "message": exc.message}))
         return 13
@@ -233,7 +233,7 @@ if __name__ == "__main__":
 import io, tarfile, hashlib, base64, shlex
 from pathlib import Path
 
-def _ci_runtime_bundle_bytes() -> bytes:
+def _runtime_bundle_bytes() -> bytes:
     """Return tar.gz of the bundle.
     Layout (inside tar):
         msgpack/                                             (vendored — pure Python)
@@ -266,7 +266,7 @@ def _ci_runtime_bundle_bytes() -> bytes:
 async def ensure_runtime_uploaded(transport, sandbox_id: str) -> None:
     """Upload bundle to /tmp/eos-ci-runtime/ once per (transport, sandbox_id) pair.
     Idempotent: subsequent calls no-op if a marker file with matching bundle hash exists."""
-    bundle = _ci_runtime_bundle_bytes()
+    bundle = _runtime_bundle_bytes()
     bundle_hash = hashlib.sha256(bundle).hexdigest()
     marker_check = await transport.exec(
         sandbox_id,
@@ -316,7 +316,7 @@ async def bootstrap_in_sandbox_ci_runtime(
     # Phase 1: run the indexer once. (Phase 2 will replace this with daemon spawn.)
     cmd = (
         "cd /tmp/eos-ci-runtime && "
-        f"python3 -m sandbox.code_intelligence.in_sandbox.ci_index "
+        f"python3 -m sandbox.code_intelligence.daemon.ci_index "
         f"--workspace-root {shlex.quote(workspace_root)}"
     )
     result = await transport.exec(sandbox_id, cmd, timeout=300)
@@ -343,22 +343,22 @@ def create_sandbox(self, ...) -> ...:
 
 **Run command for the indexer (after upload):**
 ```
-cd /tmp/eos-ci-runtime && python3 -m sandbox.code_intelligence.in_sandbox.ci_index --workspace-root <root>
+cd /tmp/eos-ci-runtime && python3 -m sandbox.code_intelligence.daemon.ci_index --workspace-root <root>
 ```
 
-### Task 1.4 — `DaemonCiBackend.build_index()` and `query_symbols`
+### Task 1.4 — `DaemonBackend.build_index()` and `query_symbols`
 
-**File to modify:** `backend/src/sandbox/code_intelligence/backend.py`
+**File to modify:** `backend/src/sandbox/code_intelligence/backends/`
 
 **Implementation:**
 
 ```python
-class DaemonCiBackend:
+class DaemonBackend:
     async def _ensure_initialized_async(self, *, wait: bool = True) -> bool:
         await ensure_runtime_uploaded(self._transport, self._sandbox_id)
         cmd = (
             "cd /tmp/eos-ci-runtime && "
-            f"python3 -m sandbox.code_intelligence.in_sandbox.ci_index "
+            f"python3 -m sandbox.code_intelligence.daemon.ci_index "
             f"--workspace-root {shlex.quote(self._workspace_root)}"
         )
         result = await self._transport.exec(self._sandbox_id, cmd, timeout=300)
@@ -440,7 +440,7 @@ async def test_indexing_readiness(live_sweevo_env):
 
     with h.step("index_build_in_sandbox"):
         with mock.patch.dict(os.environ, {"EOS_CI_IN_SANDBOX": "1"}):
-            svc = env.make_ci_service()  # constructs DaemonCiBackend
+            svc = env.make_ci_service()  # constructs DaemonBackend
             svc.ensure_initialized(wait=True)
     h.record("index_build_in_sandbox",
              count=svc._impl._cached_file_count,
@@ -492,7 +492,7 @@ async def test_corruption_recovery(live_sweevo_env):
 
 ```python
 def test_storage_path_confinement(tmp_path):
-    """Unit-style test (no live sandbox needed): ci_storage._confine rejects path traversal."""
+    """Unit-style test (no live sandbox needed): storage._confine rejects path traversal."""
     state = tmp_path / "state"
     state.mkdir()
 
@@ -501,10 +501,10 @@ def test_storage_path_confinement(tmp_path):
     assert (state / "ok.bin").exists()
 
     # Path traversal attempt MUST raise
-    with pytest.raises(CiStoragePathEscape):
+    with pytest.raises(StoragePathEscape):
         write_snapshot(state, "../escape.bin", {"k": "v"})
 
-    with pytest.raises(CiStoragePathEscape):
+    with pytest.raises(StoragePathEscape):
         write_snapshot(state, "/etc/passwd", {"k": "v"})
 ```
 
@@ -742,11 +742,11 @@ exit $rc
 
 ### Task 1.6 — Storage unit tests
 
-**File:** `backend/tests/test_sandbox/test_code_intelligence/test_ci_storage.py`
+**File:** `backend/tests/test_sandbox/test_code_intelligence/test_storage.py`
 
 **Cases:**
 - `state_dir("/workspace")` creates `$HOME/.cache/eos-ci/<wh>/v1/` and the path exists.
-- `state_dir(...)` raises `CiStorageUnavailable(errno=EACCES, path=...)` when `$HOME` is unwritable.
+- `state_dir(...)` raises `StorageUnavailable(errno=EACCES, path=...)` when `$HOME` is unwritable.
 - `write_snapshot()` is atomic — `os.replace` semantics on POSIX.
 - `read_snapshot()` returns `None` for a corrupt pickle AND unlinks the corrupt file.
 - `read_snapshot()` returns `None` for a missing file (no exception).
@@ -758,9 +758,9 @@ exit $rc
 **File:** `backend/tests/test_sandbox/test_code_intelligence/test_ci_index_runner.py`
 
 **Cases:**
-- Run `python -m sandbox.code_intelligence.in_sandbox.ci_index --workspace-root <fixture>` against a 5-file Python fixture; assert snapshot pickle has expected symbol counts.
+- Run `python -m sandbox.code_intelligence.daemon.ci_index --workspace-root <fixture>` against a 5-file Python fixture; assert snapshot pickle has expected symbol counts.
 - `--file <single>` mode patches a single file's entry without rebuilding all.
-- The CLI returns exit code 13 on `CiStorageUnavailable` (privilege failure) with a structured JSON error on stdout.
+- The CLI returns exit code 13 on `StorageUnavailable` (privilege failure) with a structured JSON error on stdout.
 
 ### Task 1.8 — Regression check
 
@@ -769,12 +769,12 @@ exit $rc
 
 ## Definition of done
 
-- [ ] `ci_storage.py` exists with documented API + `_confine` guard; unit tests pass.
-- [ ] `ci_index.py` instantiates `CodeIntelligenceService` with `sandbox=None, transport=None` and produces a valid snapshot pickle.
-- [ ] `_ci_runtime_bundle_bytes()` produces a tar.gz containing the entire `sandbox/code_intelligence/` tree + `sandbox/client/async_bridge.py` + `sandbox/__init__.py` + **vendored `msgpack/`**.
+- [ ] `storage.py` exists with documented API + `_confine` guard; unit tests pass.
+- [ ] `daemon indexer` instantiates `CodeIntelligenceService` with `sandbox=None, transport=None` and produces a valid snapshot pickle.
+- [ ] `_runtime_bundle_bytes()` produces a tar.gz containing the entire `sandbox/code_intelligence/` tree + `sandbox/client/async_bridge.py` + `sandbox/__init__.py` + **vendored `msgpack/`**.
 - [ ] Bundle size verified: < 1 MB total; reported in PR description.
 - [ ] Bundle hash idempotency: subsequent `ensure_runtime_uploaded` calls no-op when the marker matches.
-- [ ] `DaemonCiBackend.ensure_initialized()` works end-to-end against a real `dask` swe-evo sandbox.
+- [ ] `DaemonBackend.ensure_initialized()` works end-to-end against a real `dask` swe-evo sandbox.
 - [ ] **Eager bootstrap hook wired into `SandboxService.create_sandbox` and `start_sandbox`; flag-off and missing-workspace no-op paths verified.**
 - [ ] **Phase 1 live E2E privilege probe (1.5.A) passes — `mkdir -p $HOME/.cache/eos-ci/...` succeeds without sudo on the sandbox image.**
 - [ ] **Phase 1 live E2E compatibility matrix probe (1.5.E) — all required deps green on `dask__dask_2023.3.2_2023.4.0`.**
@@ -793,7 +793,7 @@ exit $rc
 |---|---|---|
 | **HIGH** | Privilege failure on `$HOME/.cache/eos-ci/` (sandbox runs as a user without `$HOME` write) | Loud failure in 1.5.A with errno + `$HOME` + `whoami`; choose between `/tmp/eos-ci-$USER/` fallback (documented) or amending the storage layout decision before Phase 2 |
 | **HIGH** | Production overlay mount stack (`tmpfs + bind + overlay -o ...,userxattr`) silently broken on the sandbox image despite `unshare -Urm true` succeeding | Task 1.5.G overlay live probe exercises the full stack including write/modify/delete + whiteout + xattr round-trip; fails Phase 1 with structured exit codes (51-56) so the failure mode is identifiable before Phase 4 ships svc.cmd through the same mounts |
-| **MEDIUM** | Bundle size spikes because `code_intelligence/` grows over time | `_ci_runtime_bundle_bytes()` reports its size on first call; alert when bundle > 5 MB (current ~200 KB; would take a major addition to hit the alert) |
+| **MEDIUM** | Bundle size spikes because `code_intelligence/` grows over time | `_runtime_bundle_bytes()` reports its size on first call; alert when bundle > 5 MB (current ~200 KB; would take a major addition to hit the alert) |
 | **MEDIUM** | Bundle hash check (1.3 idempotency) miscomputes → repeated full uploads | Test the marker file mechanism explicitly; include bundle bytes-length in the marker as a sanity check |
 | **MEDIUM** | `read_bytes` on a multi-MB pickle is slow over the transport | Acceptable for Phase 1 (one-shot); Phase 2+ moves the cache into the daemon, so `query_symbols` no longer requires a snapshot transfer; Phase 3.5 swaps to SQLite for incremental updates |
 | **MEDIUM** | Pickle `index.snapshot` fully rewritten on every `refresh(file_path)` | Phase 3.5 migrates to SQLite-backed storage with per-file rows |
@@ -803,8 +803,8 @@ exit $rc
 ## Hand-off to Phase 2
 
 Phase 2 picks up with:
-- A working orchestrator-side `DaemonCiBackend.ensure_initialized()` that ships a payload and runs a script in-sandbox.
+- A working orchestrator-side `DaemonBackend.ensure_initialized()` that ships a payload and runs a script in-sandbox.
 - Storage layout proven on real Daytona (`$HOME/.cache/eos-ci/<wh>/v1/`).
-- Bundle helper (`_ci_runtime_bundle_bytes()`) and `ensure_runtime_uploaded()` ready to be reused for the daemon binary (Phase 2 just adds `__main__.py` to the same bundle).
-- Path-confinement guard already in `ci_storage` — Phase 3 builds a daemon-level workspace-write bypass guard on top.
+- Bundle helper (`_runtime_bundle_bytes()`) and `ensure_runtime_uploaded()` ready to be reused for the daemon binary (Phase 2 just adds `__main__.py` to the same bundle).
+- Path-confinement guard already in `storage` — Phase 3 builds a daemon-level workspace-write bypass guard on top.
 - A baseline for `index_build_in_sandbox` cost — Phase 2 must not regress it when daemon-mediated.

@@ -48,20 +48,20 @@ Phase order is **strict** (1 → 6, including 3.5 and 3.6). During the migration
 │   └─ return sandbox handle           │         │                                             │
 │                                      │         │                                             │
 │  CodeIntelligenceService             │         │  python -m sandbox.code_intelligence        │
-│  (thin facade, unchanged public API) │         │             .in_sandbox  (ci_daemon)        │
+│  (thin facade, unchanged public API) │         │             .daemon                         │
 │           │                          │         │   ┌─────────────────────────────────────┐   │
 │           ▼                          │         │   │ asyncio event loop                  │   │
-│  CiBackend Protocol                  │         │   │  socket bound IMMEDIATELY            │   │
-│   ├─ InProcessCiBackend  (today)     │         │   │  index builds in background thread  │   │
-│   └─ DaemonCiBackend ──────────────────────────────────►   ↓                                 │   │
-│           │   (DaemonCiBackend)          │         │   │  CodeIntelligenceService            │   │
+│  CodeIntelligenceBackend Protocol    │         │   │  socket bound IMMEDIATELY            │   │
+│   ├─ InProcessBackend                │         │   │  index builds in background thread  │   │
+│   └─ DaemonBackend ──────────────────────────────────►   ↓                                 │   │
+│           │   (DaemonBackend)          │         │   │  CodeIntelligenceService            │   │
 │           ▼                          │         │   │   (sandbox=None, transport=None)    │   │
 │  process.exec-backed daemon command (Phase 5)               │         │   │   — same package, local-FS branches │   │
 │   or python socket shim              │         │   │  Owns: SymbolIndex, LspClient,      │   │
 │   on stable run_sync loop            │         │   │        Arbiter, WriteCoordinator,   │   │
 │           ▼                          │         │   │        OverlayAuditor, …            │   │
 │  Unix socket on sandbox FS  ◄────────────────────────┤   ↓                                │   │
-│                                      │         │   │  ci_storage (sandbox-only adapter)  │   │
+│                                      │         │   │  storage (sandbox-only adapter)  │   │
 └──────────────────────────────────────┘         │   │   ↓                                 │   │
                                                  │   │  $HOME/.cache/eos-ci/<wh>/v1/       │   │
                                                  │   │   ├─ daemon.sock                    │   │
@@ -88,7 +88,7 @@ Phase order is **strict** (1 → 6, including 3.5 and 3.6). During the migration
 | `SandboxService.start_sandbox(...)` | `backend/src/sandbox/lifecycle/service.py:174` | Same hook — covers Daytona auto-paused sandboxes coming back up |
 | Restart recovery path | `backend/src/sandbox/lifecycle/service.py:~211` | Existing "probe failed → targeted restart" path also calls `bootstrap_in_sandbox_ci_runtime` after restart |
 | `SandboxService.code_intelligence_for(...)` | (existing) | Returns the per-sandbox service; daemon auto-respawn is handled at the daemon backend layer once Phase 2 lands |
-| Auto-respawn (Phase 2) | `DaemonCiBackend._call_daemon_command → ensure_daemon` | Last-resort safety net for daemon crash between calls — should rarely trigger if eager bootstrap works |
+| Auto-respawn (Phase 2) | `DaemonBackend._call_daemon_command → ensure_daemon` | Last-resort safety net for daemon crash between calls — should rarely trigger if eager bootstrap works |
 
 ### Existing integration point
 
@@ -119,12 +119,12 @@ There are **two distinct storage classes** in this design. Mixing them would be 
 | Class | What lives there | Path | Routed through |
 |---|---|---|---|
 | **Workspace files** | User code, edits, mutations, shell-cmd outputs | `workspace_root` (e.g. `/testbed`, `/workspace`) | `WriteCoordinator` (OCC) and `OverlayAuditor` (overlay) — **always** |
-| **CI internal state** | Symbol index, LSP cache, edit ledger, daemon socket/PID/log | `$HOME/.cache/eos-ci/<wh>/v1/` (XDG) | `ci_storage` adapter only — **never** through OCC/overlay |
+| **CI internal state** | Symbol index, LSP cache, edit ledger, daemon socket/PID/log | `$HOME/.cache/eos-ci/<wh>/v1/` (XDG) | `storage` adapter only — **never** through OCC/overlay |
 
 **Invariants:**
 - The CI internal state path is **outside `workspace_root`** so it never appears in `git status`, never gets versioned, never appears in the overlay lowerdir snapshot, and isn't user work.
 - Workspace writes from daemon command handlers must go through `WriteCoordinator`. **No daemon command handler is allowed to write directly under `workspace_root`.** Phase 3 adds a guard test that attempts a bypass and asserts the daemon refuses it.
-- `ci_storage` writes are restricted to `$HOME/.cache/eos-ci/<wh>/v1/`. Any path outside that subtree raises.
+- `storage` writes are restricted to `$HOME/.cache/eos-ci/<wh>/v1/`. Any path outside that subtree raises.
 
 ## Post-cutover role of `SandboxTransport`
 
@@ -150,7 +150,7 @@ The daemon depends on a specific set of OS primitives. **Phase 1 ships a compati
 |---|---|---|
 | Python ≥ 3.10 | Codebase uses `match`, modern type syntax | ✓ already required |
 | `sqlite3` (stdlib) | `LedgerStore` (Phase 3), `IndexStore` (Phase 3.5) | NEW |
-| `os.path.expanduser("~")` returns writable path | `ci_storage.state_dir` | NEW — Phase 1 privilege probe catches |
+| `os.path.expanduser("~")` returns writable path | `storage.state_dir` | NEW — Phase 1 privilege probe catches |
 | AF_UNIX sockets | Daemon daemon command | NEW |
 | `setsid`, `nohup`, `kill`, `ps` | Daemon spawn + lifecycle | NEW |
 | `tar`, `base64`, `bash` | Bundle extraction | NEW |
@@ -198,8 +198,8 @@ These are the choices that were surfaced before approval. Re-reading them is the
 | 4 | **Bootstrap timing** | **EAGER ALWAYS.** Daemon spawns synchronously on `SandboxService.create_sandbox` and on every sandbox restart (`start_sandbox`, restart recovery, `code_intelligence_for` defensive path). First-call latency disappears; `create_sandbox` cost rises by ~1-2s cold (~100ms warm). Auto-respawn (Phase 2) still handles daemon-crash between calls |
 | 5 | **Daemon transport** | Unix domain socket at `$HOME/.cache/eos-ci/<wh>/v1/daemon.sock`, length-prefixed msgpack frames. No TCP, no HTTP |
 | 6 | **Process model** | Single-process daemon, asyncio event loop, one worker thread per language server. The five HARD INVARIANTS are enforced by the same async locks used today, just resident in the daemon. **Socket binds BEFORE index build starts** — `query_symbols` returns empty until index ready |
-| 7 | **Failure model** | Any daemon command may raise `CiDaemonUnavailable`; `CodeIntelligenceService` retries once after respawn, then surfaces a structured error. Edit-path failures (OCC abort, merge conflict) surface as today |
-| 8 | **Backend selection** | Transport-backed sandboxes select `DaemonCiBackend`; sandboxless/local flows select `InProcessCiBackend`. The old `EOS_CI_IN_SANDBOX=0` backend-selection rollback path is retired after the Phase 5 cleanup. |
+| 7 | **Failure model** | Any daemon command may raise `DaemonUnavailable`; `CodeIntelligenceService` retries once after respawn, then surfaces a structured error. Edit-path failures (OCC abort, merge conflict) surface as today |
+| 8 | **Backend selection** | Transport-backed sandboxes select `DaemonBackend`; sandboxless/local flows select `InProcessBackend`. The old `EOS_CI_IN_SANDBOX=0` backend-selection rollback path is retired after the Phase 5 cleanup. |
 | 9 | **Wire format** | msgpack with explicit schema versioning (`{"v": 1, "op": "...", ...}`); unknown fields rejected, unknown op = `UnsupportedOp`. **msgpack vendored into bundle** (~50KB) for offline-image compatibility |
 
 ## The five HARD INVARIANTS (must NOT regress)
@@ -242,7 +242,7 @@ Phase 4's result-shape parity test (Task 4.3) verifies the durable workflow fiel
 - **Public API stable.** `SandboxService.code_intelligence_for(...)` returns the same `CodeIntelligenceService`. All toolkit callers (`tools/sandbox_toolkit/*`) work unchanged.
 - **Flag-off = byte-identical to today** for in-process behavior. **`create_sandbox` cost differs** even with flag off because the eager bootstrap hook is wired in Phase 1 (it just no-ops when flag is off — no daemon spawned).
 - **No root/sudo at any phase.** Daemon runs as the sandbox's default user. Phase 1 E2E asserts this with an explicit privilege probe.
-- **Tests that bind no sandbox** (the in-process path) keep using `InProcessCiBackend`; daemon-daemon command mode activates only when `transport` and `sandbox_id` are both bound.
+- **Tests that bind no sandbox** (the in-process path) keep using `InProcessBackend`; daemon-daemon command mode activates only when `transport` and `sandbox_id` are both bound.
 - **`pyproject.toml` includes `msgpack`** as a runtime dependency.
 
 ## Cross-phase success criteria
@@ -317,33 +317,56 @@ The orchestrator ships the entire `backend/src/sandbox/code_intelligence/` tree 
   sandbox/lifecycle/commit.py
   sandbox/code_intelligence/                           (FULL existing package)
     __init__.py
-    service.py
+    service.py                                          (public engine facade)
     registry.py
     telemetry.py
+    backends/
+      __init__.py
+      protocol.py                                      (CodeIntelligenceBackend Protocol)
+      in_process.py                                    (local/sandboxless backend)
+      daemon.py                                        (daemon backend composition)
+    daemon/
+      __main__.py
+      client.py                                        (orchestrator command client)
+      launcher.py                                      (bundle upload + daemon spawn)
+      server.py                                        (asyncio server + dispatch)
+      handlers.py                                      (daemon command handlers)
+      guard.py                                         (workspace write guard)
+      protocol.py                                      (frame codec)
+      state.py                                         (process-local service state)
+      storage.py                                       (state-dir facade)
+      index_store.py                                   (SQLite symbol index)
+      ledger_store.py                                  (SQLite edit ledger)
+      paths.py                                         (state path helpers)
+      wire.py                                          (DTO serialization)
     core/
     indexing/
     language_server/
+      daemon_queries.py                                (LSP query adapter over daemon commands)
     mutations/
     overlay/
-    in_sandbox/                                        (NEW, daemon-only)
-      __init__.py
-      __main__.py
-      ci_daemon.py                                     (asyncio server + dispatch; SOCKET-FIRST startup)
-      ci_protocol.py                                   (frame codec)
-      ci_storage.py                                    (state dir + index/ledger SQLite adapters)
 ```
 
-**Note on what's NOT in `in_sandbox/`:** no `ci_index.py`, no `ci_overlay.py`, no `ci_mutations.py`, no `ci_lsp.py`, no `_extracted.py`. The daemon constructs `CodeIntelligenceService` from the shipped package and the existing `sandbox=None, transport=None` paths activate the local-FS branches.
+**Note on what's NOT in `daemon/`:** no copied overlay, mutation, LSP, or extracted engine implementation. The daemon constructs `CodeIntelligenceService` from the shipped package and the existing `sandbox=None, transport=None` paths activate the local-FS branches.
 
-### New files (orchestrator)
-- `backend/src/sandbox/code_intelligence/backend.py` — `CiBackend` Protocol + `InProcessCiBackend` + `DaemonCiBackend`
-- `backend/src/sandbox/code_intelligence/daemon/__init__.py`
-- `backend/src/sandbox/code_intelligence/backend.py` — `DaemonCiBackend` (frame codec, retry, `CiDaemonUnavailable`)
-- `backend/src/sandbox/code_intelligence/daemon/launcher.py` — uploads payload, spawns daemon, waits for socket
+### Current source map
+- `backend/src/server/routers/code_intelligence.py` — HTTP router for public code-intelligence requests.
+- `backend/src/sandbox/api/code_intelligence_api.py` — tool-facing `CodeIntelligenceApi` Protocol.
+- `backend/src/sandbox/api/code_intelligence_impl.py` — adapter from `CodeIntelligenceApi` to `CodeIntelligenceService`.
+- `backend/src/sandbox/code_intelligence/service.py` — per-sandbox facade that exposes public engine methods and selects a backend.
+- `backend/src/sandbox/code_intelligence/backends/protocol.py` — `CodeIntelligenceBackend` Protocol used by the facade.
+- `backend/src/sandbox/code_intelligence/backends/in_process.py` — local/sandboxless backend implementation.
+- `backend/src/sandbox/code_intelligence/backends/daemon.py` — small composition class for the daemon-backed implementation.
+- `backend/src/sandbox/code_intelligence/daemon/client.py` — orchestrator-side daemon command client, retry, and `DaemonCommandError`.
+- `backend/src/sandbox/code_intelligence/daemon/launcher.py` — uploads payload, spawns daemon, waits for socket.
+- `backend/src/sandbox/code_intelligence/language_server/daemon_queries.py` — LSP query methods over the daemon command client.
+- `backend/src/sandbox/code_intelligence/daemon/server.py` — sandbox-local asyncio daemon and dispatch table.
+- `backend/src/sandbox/code_intelligence/daemon/handlers.py` — command handlers that call the sandbox-local `CodeIntelligenceService`.
+- `backend/src/sandbox/code_intelligence/daemon/storage.py`, `index_store.py`, `ledger_store.py`, `paths.py` — daemon state, index, ledger, and path helpers.
 - `backend/src/sandbox/api/transport.py` — process.exec-backed daemon command (Phase 5)
 
 ### Modified (orchestrator)
-- `backend/src/sandbox/code_intelligence/registry.py` — selects `CiBackend` based on flag
+- `backend/src/sandbox/code_intelligence/registry.py` — selects `CodeIntelligenceBackend` based on flag
 - `backend/src/sandbox/code_intelligence/service.py` — delegates to backend; accepts optional `edit_history` kwarg (Phase 3)
 - `backend/src/sandbox/lifecycle/service.py` — `create_sandbox` and `start_sandbox` call the eager bootstrap hook (Phase 1)
 - `backend/src/sandbox/lifecycle/workspace.py` — `bootstrap_in_sandbox_ci_runtime` is the eager-bootstrap entry (Phase 1)
@@ -396,7 +419,7 @@ The orchestrator ships the entire `backend/src/sandbox/code_intelligence/` tree 
 
 - **2026-05-02 (initial):** approved with phases 0-5
 - **2026-05-02 (audit response):**
-  - Switched from "copy hand-picked modules to `in_sandbox/_extracted.py`" approach to "ship the entire `sandbox.code_intelligence` package and instantiate the existing `CodeIntelligenceService` with `sandbox=None`" — eliminates drift risk by construction
+  - Switched from "copy hand-picked modules into daemon-local extracted files" approach to "ship the entire `sandbox.code_intelligence` package and instantiate the existing `CodeIntelligenceService` with `sandbox=None`" — eliminates drift risk by construction
   - Added Phase 3.5 (concurrency/perf E2E + SQLite-backed index storage)
   - Tightened the storage-boundary invariants (workspace files vs CI internal state) into a load-bearing section
   - Added "post-cutover `SandboxTransport` is bootstrap/recovery only" as an explicit table

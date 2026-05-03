@@ -56,7 +56,7 @@ def _open_ledger_db(path: Path) -> sqlite3.Connection:
         integrity = str(exc) or "database error"
     if integrity != "ok":
         logger.warning(
-            "ci_storage: ledger %s failed integrity check (%s); rotating",
+            "storage: ledger %s failed integrity check (%s); rotating",
             path,
             integrity,
         )

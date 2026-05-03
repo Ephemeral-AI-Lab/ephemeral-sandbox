@@ -2,7 +2,7 @@
 
 :class:`LspClient` exposes synchronous methods (``goto_definition`` etc.) but
 the underlying :class:`LspBackendChild` is async. The orchestrator-side
-:class:`InProcessCiBackend` may be invoked from either a sync caller (orchestrator
+:class:`InProcessBackend` may be invoked from either a sync caller (orchestrator
 test, fall-back path) or from inside the daemon's asyncio loop (when the daemon
 constructs the in-process backend with ``sandbox=None`` and a handler awaits
 ``svc.find_definitions``).

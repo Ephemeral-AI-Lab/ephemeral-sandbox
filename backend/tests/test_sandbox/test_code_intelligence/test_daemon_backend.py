@@ -1,4 +1,4 @@
-"""Unit tests for ``DaemonCiBackend.ensure_initialized`` + ``query_symbols``.
+"""Unit tests for ``DaemonBackend.ensure_initialized`` + ``query_symbols``.
 
 Phase 3.5 retired the orchestrator-side pickle-snapshot fallback. These tests
 now exercise the daemon-route contract: ``ensure_initialized`` launches the
@@ -14,9 +14,9 @@ from unittest.mock import patch
 
 import pytest
 
-from sandbox.code_intelligence import daemon_backend as daemon_transport_backend
-from sandbox.code_intelligence.backend import DaemonCiBackend
-from sandbox.code_intelligence.daemon_backend import DaemonCiTransportBackend
+from sandbox.code_intelligence.backends import DaemonBackend
+from sandbox.code_intelligence.daemon import client as daemon_client
+from sandbox.code_intelligence.daemon.client import DaemonCommandClient
 from sandbox.code_intelligence.core.types import SymbolInfo, SymbolKind
 
 
@@ -31,17 +31,17 @@ def _sym(name: str, line: int = 1) -> SymbolInfo:
 
 
 class _NullTransport:
-    """Minimal stub — DaemonCiBackend transport execution is bypassed here by injecting a fake daemon command handler. The daemon launcher is mocked at the boundary."""
+    """Minimal stub — DaemonBackend transport execution is bypassed here by injecting a fake daemon command handler. The daemon launcher is mocked at the boundary."""
 
     name = "null"
 
     async def exec(self, *args: Any, **kwargs: Any) -> Any:
         del args, kwargs
-        raise AssertionError("DaemonCiBackend should not call transport.exec post-3.5")
+        raise AssertionError("DaemonBackend should not call transport.exec post-3.5")
 
 
 class _FakeDaemon:
-    """Stand-in for :class:`DaemonCiBackend` returning canned daemon responses."""
+    """Stand-in for :class:`DaemonBackend` returning canned daemon responses."""
 
     def __init__(
         self,
@@ -77,8 +77,8 @@ class _FakeDaemon:
         return None
 
 
-def _backend_with_fake_daemon(daemon: _FakeDaemon) -> DaemonCiBackend:
-    backend = DaemonCiBackend(
+def _backend_with_fake_daemon(daemon: _FakeDaemon) -> DaemonBackend:
+    backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
         transport=_NullTransport(),  # type: ignore[arg-type]
@@ -243,7 +243,7 @@ def test_cmd_routes_through_daemon_and_reconstructs_namespace() -> None:
 
 
 def test_rebind_sandbox_is_noop() -> None:
-    backend = DaemonCiBackend(
+    backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
         transport=_NullTransport(),  # type: ignore[arg-type]
@@ -254,7 +254,7 @@ def test_rebind_sandbox_is_noop() -> None:
 def test_init_drops_legacy_cache_attributes() -> None:
     """Cleanup invariant: the orchestrator-side snapshot cache attributes
     are gone (Phase 3.5 retirement)."""
-    backend = DaemonCiBackend(
+    backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
         transport=_NullTransport(),  # type: ignore[arg-type]
@@ -266,13 +266,13 @@ def test_init_drops_legacy_cache_attributes() -> None:
         "_snapshot_bytes",
     ):
         assert not hasattr(backend, attr), (
-            f"Phase 3.5 cleanup regression: {attr} still on DaemonCiBackend"
+            f"Phase 3.5 cleanup regression: {attr} still on DaemonBackend"
         )
 
 
-def test_transport_backend_module_has_no_language_server_queries() -> None:
-    """Boundary invariant: daemon_backend.py stays transport-only."""
-    source = Path(daemon_transport_backend.__file__).read_text(encoding="utf-8")
+def test_daemon_client_module_has_no_language_server_queries() -> None:
+    """Boundary invariant: daemon/client.py stays transport-only."""
+    source = Path(daemon_client.__file__).read_text(encoding="utf-8")
     forbidden = (
         "find_definitions",
         "find_references",
@@ -285,4 +285,4 @@ def test_transport_backend_module_has_no_language_server_queries() -> None:
     for token in forbidden:
         assert token not in source
     for method in ("find_definitions", "find_references", "hover", "diagnostics"):
-        assert not hasattr(DaemonCiTransportBackend, method)
+        assert not hasattr(DaemonCommandClient, method)

@@ -13,7 +13,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-class CiStorageUnavailable(Exception):
+class StorageUnavailable(Exception):
     """Raised when ``$HOME/.cache/eos-ci/...`` cannot be created or written."""
 
     def __init__(self, errno: int, path: str, message: str) -> None:
@@ -23,7 +23,7 @@ class CiStorageUnavailable(Exception):
         self.message = message
 
 
-class CiStoragePathEscape(Exception):
+class StoragePathEscape(Exception):
     """Raised when a write target escapes the state-dir confinement."""
 
 
@@ -40,7 +40,7 @@ def state_dir(workspace_root: str) -> Path:
     try:
         base.mkdir(parents=True, exist_ok=True)
     except PermissionError as exc:
-        raise CiStorageUnavailable(
+        raise StorageUnavailable(
             errno=exc.errno or errno.EACCES,
             path=str(base),
             message=(
@@ -49,7 +49,7 @@ def state_dir(workspace_root: str) -> Path:
             ),
         ) from exc
     except OSError as exc:
-        raise CiStorageUnavailable(
+        raise StorageUnavailable(
             errno=exc.errno or errno.EACCES,
             path=str(base),
             message=(
@@ -65,11 +65,11 @@ def _confine(state: Path, name: str) -> Path:
     state_real = state.resolve()
     target = (state / name).resolve()
     if target == state_real:
-        raise CiStoragePathEscape(
+        raise StoragePathEscape(
             f"target {target} resolves to the state dir itself"
         )
     if state_real not in target.parents:
-        raise CiStoragePathEscape(
+        raise StoragePathEscape(
             f"path {target} escapes state dir {state_real}"
         )
     return target
@@ -85,7 +85,7 @@ def _read_pickle_snapshot(state: Path, name: str) -> Any | None:
             return pickle.load(f)
     except (EOFError, pickle.UnpicklingError, OSError) as exc:
         logger.warning(
-            "ci_storage: corrupt snapshot at %s (%s); unlinking",
+            "storage: corrupt snapshot at %s (%s); unlinking",
             target,
             exc,
         )

@@ -126,7 +126,7 @@ def run_sync(result: Any, *, timeout: float | None = None) -> Any:
        reached from ``asyncio.to_thread``.
     2. No parent loop is registered → schedule on a reusable standalone
        sandbox I/O loop. This keeps loop-local async SDK clients warm for
-       sync callers such as ``DaemonCiBackend``.
+       sync callers such as ``DaemonBackend``.
 
     ``timeout`` bounds the wait on paths 1 and 2; defaults to
     :data:`DEFAULT_RUN_SYNC_TIMEOUT_SECONDS`.

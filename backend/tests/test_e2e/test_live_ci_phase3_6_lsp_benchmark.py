@@ -94,7 +94,7 @@ class LivePhase36Env:
         )
 
     def make_ci_service_daemon(self) -> CodeIntelligenceService:
-        """Daemon-path service (DaemonCiBackend) — basedpyright runs IN the sandbox.
+        """Daemon-path service (DaemonBackend) — basedpyright runs IN the sandbox.
 
         Required by Phase 3.6 §6.2: the InProcess path's `LspBackendChild` runs
         on the test host (macOS) where ``basedpyright-langserver`` is missing,
@@ -296,10 +296,10 @@ def test_phase3_6_chosen_backend_benchmark(live_phase36_env: LivePhase36Env) -> 
 def test_phase3_6_chosen_backend_benchmark_daemon_path(
     live_phase36_env: LivePhase36Env,
 ) -> None:
-    """Daemon-path variant: basedpyright runs IN the sandbox via DaemonCiBackend.
+    """Daemon-path variant: basedpyright runs IN the sandbox via DaemonBackend.
 
     The base ``test_phase3_6_chosen_backend_benchmark`` runs against
-    InProcessCiBackend; on a host without ``basedpyright-langserver`` the
+    InProcessBackend; on a host without ``basedpyright-langserver`` the
     LspChildUnavailable fallback kicks in and the numbers reflect the
     symbol-index linear scan, not basedpyright. This variant routes through
     the in-sandbox daemon (``EOS_CI_IN_SANDBOX=1`` + DaytonaTransport) so the

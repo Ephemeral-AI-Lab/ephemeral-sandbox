@@ -75,7 +75,7 @@ Head-to-head benchmark vs today's `jedi.Script`. HARD INVARIANT 5 regression. Ph
 | LSP child manager | `backend/src/sandbox/code_intelligence/language_server/lsp_child.py` (new) | `LspBackendChild`: spawn the **chosen** backend, JSON-RPC framing, request/response correlation, graceful shutdown. **No backend selection logic** — `kind` is hardcoded based on Stage A outcome |
 | JSON-RPC stdio adapter | `backend/src/sandbox/code_intelligence/language_server/jsonrpc.py` (new) | Content-Length framing, `send_request`/`send_notification`, response queue keyed by request id |
 | `LspClient` rewire | `backend/src/sandbox/code_intelligence/language_server/client.py` (modified) | Routes ALL queries to `LspBackendChild`. Today's `python_backend.py` (jedi.Script) is removed in the same commit |
-| Daemon lifecycle integration | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` (modified) | `_DAEMON_STATE.lsp_child` lazy-spawned on first query; torn down on graceful shutdown. Crash → daemon restart (no in-process fallback) |
+| Daemon lifecycle integration | `backend/src/sandbox/code_intelligence/daemon/server.py` (modified) | `_DAEMON_STATE.lsp_child` lazy-spawned on first query; torn down on graceful shutdown. Crash → daemon restart (no in-process fallback) |
 | Compatibility probe extension | `backend/tests/test_e2e/test_live_ci_phase1_indexing.py` (extends Task 1.5.E) | New keys for the **chosen** backend's deps only |
 | Phase 3.6 live E2E benchmark | `backend/tests/test_e2e/test_live_ci_phase3_6_lsp_benchmark.py` (new) | Chosen backend vs `jedi.Script` baseline, p50/p95/p99 distributions, hard SLO assertion |
 | Unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_lsp_child.py` | JSON-RPC framing round-trip; concurrent-request multiplexing; child crash → typed exception |
@@ -295,7 +295,7 @@ The benchmark (Task 3.6.F) compares against today's jedi.Script using a saved ba
 
 ### Task 3.6.E — Daemon lifecycle integration (Stage B)
 
-**File:** `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` (modified)
+**File:** `backend/src/sandbox/code_intelligence/daemon/server.py` (modified)
 
 ```python
 @dataclass

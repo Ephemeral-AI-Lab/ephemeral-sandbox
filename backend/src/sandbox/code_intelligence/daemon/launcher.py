@@ -1,7 +1,7 @@
 """Bundle helper + idempotent uploader for the in-sandbox CI runtime.
 
 The bundle is a tar.gz containing the minimal set of project + vendored
-modules needed to run ``python -m sandbox.code_intelligence.in_sandbox``
+modules needed to run ``python -m sandbox.code_intelligence.daemon``
 inside a sandbox: the entire ``sandbox/code_intelligence/`` tree, the
 transitive ``sandbox.api``/``sandbox.client.async_bridge``/``sandbox.lifecycle.commit``
 imports it pulls in, plus a vendored pure-Python ``msgpack/`` so the
@@ -32,11 +32,11 @@ from sandbox.api.transport import SandboxTransport
 
 __all__ = [
     "BUNDLE_REMOTE_DIR",
-    "CiDaemonUnavailable",
+    "DaemonUnavailable",
     "DaemonLauncher",
     "remote_state_dir",
     "ensure_runtime_uploaded",
-    "_ci_runtime_bundle_bytes",
+    "_runtime_bundle_bytes",
 ]
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ def _normalize_tarinfo(info: tarfile.TarInfo) -> tarfile.TarInfo:
 _BUNDLE_CACHE: bytes | None = None
 
 
-def _ci_runtime_bundle_bytes() -> bytes:
+def _runtime_bundle_bytes() -> bytes:
     """Build the in-sandbox runtime bundle as a gzip tarball.
 
     The result is memoized per orchestrator process — the bundle builds
@@ -198,7 +198,7 @@ def bundle_hash(bundle: bytes | None = None) -> str:
     if bundle is None:
         if _BUNDLE_HASH_CACHE is not None:
             return _BUNDLE_HASH_CACHE
-        bundle = _ci_runtime_bundle_bytes()
+        bundle = _runtime_bundle_bytes()
         _BUNDLE_HASH_CACHE = hashlib.sha256(bundle).hexdigest()
         return _BUNDLE_HASH_CACHE
     return hashlib.sha256(bundle).hexdigest()
@@ -220,13 +220,13 @@ _BUNDLE_REMOTE_TARBALL = f"{BUNDLE_REMOTE_DIR}/bundle.tar.gz"
 _CHUNK_SIZE = 32 * 1024
 
 
-class CiDaemonUnavailable(Exception):
+class DaemonUnavailable(Exception):
     """Raised when the in-sandbox daemon cannot be reached or started."""
 
 
 def remote_state_dir(home: str, workspace_root: str) -> str:
     """Return the daemon state dir path as seen inside the sandbox."""
-    from sandbox.code_intelligence.in_sandbox.ci_storage import (
+    from sandbox.code_intelligence.daemon.storage import (
         workspace_root_hash,
     )
 
@@ -272,7 +272,7 @@ async def ensure_runtime_uploaded(
 
     import base64
 
-    bundle = _ci_runtime_bundle_bytes()
+    bundle = _runtime_bundle_bytes()
     encoded = base64.b64encode(bundle).decode("ascii")
 
     # Stage: ensure dir + truncate target tarball. We append decoded bytes
@@ -357,7 +357,7 @@ class DaemonLauncher:
             if await self._wait_for_socket(timeout_s=timeout_s):
                 logger.info("CI daemon socket is ready for sandbox %s", self._sandbox_id)
                 return
-            raise CiDaemonUnavailable(
+            raise DaemonUnavailable(
                 f"daemon pid is alive but socket did not appear within {timeout_s:.1f}s"
             )
 
@@ -368,7 +368,7 @@ class DaemonLauncher:
         if await self._wait_for_socket(timeout_s=timeout_s):
             logger.info("CI daemon socket became ready for sandbox %s", self._sandbox_id)
             return
-        raise CiDaemonUnavailable(
+        raise DaemonUnavailable(
             f"daemon socket did not become ready within {timeout_s:.1f}s"
         )
 
@@ -391,7 +391,7 @@ class DaemonLauncher:
         cmd = (
             f"mkdir -p {shlex.quote(state)} && "
             f"cd {shlex.quote(BUNDLE_REMOTE_DIR)} && "
-            "setsid nohup python3 -m sandbox.code_intelligence.in_sandbox "
+            "setsid nohup python3 -m sandbox.code_intelligence.daemon "
             f"--workspace-root {shlex.quote(self._workspace_root)} "
             f"--log-level {shlex.quote(log_level)} "
             f">> {shlex.quote(log_path)} 2>&1 </dev/null & echo $!"
@@ -407,7 +407,7 @@ class DaemonLauncher:
             )
             return
         if getattr(result, "exit_code", 1) != 0:
-            raise CiDaemonUnavailable(
+            raise DaemonUnavailable(
                 f"daemon spawn failed for sandbox={self._sandbox_id!r}: "
                 f"{getattr(result, 'stdout', '')}"
             )

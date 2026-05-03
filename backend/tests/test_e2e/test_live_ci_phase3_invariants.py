@@ -31,7 +31,7 @@ import pytest
 from engine.testing.eval_agent import EvalAgent
 from sandbox.api.bash import extract_exit_code, wrap_bash_command
 from sandbox.code_intelligence.core.types import WriteSpec
-from sandbox.code_intelligence.backend import DaemonCiBackend
+from sandbox.code_intelligence.backends import DaemonBackend
 
 from ._timing_harness import TimingHarness
 
@@ -80,8 +80,8 @@ class LivePhase3Env:
         )
         return exit_code, output
 
-    def daemon_backend(self) -> DaemonCiBackend:
-        return DaemonCiBackend(sandbox_id=self.sandbox_id, workspace_root=self.repo_dir, transport=self.transport)
+    def daemon_backend(self) -> DaemonBackend:
+        return DaemonBackend(sandbox_id=self.sandbox_id, workspace_root=self.repo_dir, transport=self.transport)
 
 
 @contextmanager
@@ -96,7 +96,7 @@ def _stream_live_logs() -> Iterator[None]:
     loggers = [
         logging.getLogger("sandbox.lifecycle.service"),
         logging.getLogger("sandbox.code_intelligence.daemon.launcher"),
-        logging.getLogger("sandbox.code_intelligence.in_sandbox.ci_daemon"),
+        logging.getLogger("sandbox.code_intelligence.daemon.server"),
     ]
     old_levels = [logger.level for logger in loggers]
     old_propagate = [logger.propagate for logger in loggers]

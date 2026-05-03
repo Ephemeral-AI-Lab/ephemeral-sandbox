@@ -36,7 +36,7 @@ The post-phase review found one implementation gap and one cleanup seam:
   without a full rebuild: a new `SymbolIndex(..., persistence=IndexStore(...))`
   loads persisted rows into memory and marks the index ready.
 - The active daemon path no longer needs the Phase 1 standalone
-  `ci_index.py` runner, the orchestrator-side remote snapshot downloader, or
+  index runner, the orchestrator-side remote snapshot downloader, or
   the public pickle `write_snapshot/read_snapshot` API. Those paths were
   removed; only a private pickle reader remains for the one-shot
   `index.snapshot` to `index.sqlite3` migration.

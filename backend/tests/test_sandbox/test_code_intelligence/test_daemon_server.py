@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.code_intelligence.in_sandbox.ci_daemon import (
+from sandbox.code_intelligence.daemon.server import (
     DISPATCH,
     DaemonAlreadyRunning,
     _dispatch_request,
@@ -22,7 +22,7 @@ from sandbox.code_intelligence.in_sandbox.ci_daemon import (
     handle_shutdown,
     run_daemon,
 )
-from sandbox.code_intelligence.in_sandbox.ci_protocol import (
+from sandbox.code_intelligence.daemon.protocol import (
     CI_PROTOCOL_VERSION,
     MAX_FRAME_BYTES,
     FrameError,
@@ -31,7 +31,7 @@ from sandbox.code_intelligence.in_sandbox.ci_protocol import (
     parse_request,
     read_frame,
 )
-from sandbox.code_intelligence.in_sandbox.ci_storage import state_dir
+from sandbox.code_intelligence.daemon.storage import state_dir
 
 
 @pytest.fixture
@@ -70,7 +70,7 @@ async def test_frame_round_trip() -> None:
 
 def test_encode_rejects_oversized_frame(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "sandbox.code_intelligence.in_sandbox.ci_protocol.MAX_FRAME_BYTES",
+        "sandbox.code_intelligence.daemon.protocol.MAX_FRAME_BYTES",
         1,
     )
     with pytest.raises(FrameError, match="frame too large"):

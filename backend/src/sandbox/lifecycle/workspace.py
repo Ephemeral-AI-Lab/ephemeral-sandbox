@@ -28,7 +28,7 @@ async def bootstrap_in_sandbox_ci_runtime(
     Called by ``SandboxService.create_sandbox`` and ``start_sandbox`` after
     the underlying Daytona sandbox is provisioned/resumed. Phase 2 makes this
     hook daemon-only; the Phase 1 indexer still runs from
-    ``DaemonCiBackend.ensure_initialized`` when callers need symbol data.
+    ``DaemonBackend.ensure_initialized`` when callers need symbol data.
 
     Short-circuits as a no-op when ``EOS_CI_IN_SANDBOX`` != ``"1"``,
     when ``transport`` is ``None``, or when ``workspace_root`` is empty.

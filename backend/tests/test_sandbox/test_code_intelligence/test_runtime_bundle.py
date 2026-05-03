@@ -20,7 +20,7 @@ import pytest
 
 from sandbox.code_intelligence.daemon.launcher import (
     BUNDLE_REMOTE_DIR,
-    _ci_runtime_bundle_bytes,
+    _runtime_bundle_bytes,
     bundle_hash,
     ensure_runtime_uploaded,
 )
@@ -37,7 +37,7 @@ def _extract_bundle(bundle: bytes, target: Path) -> None:
 
 
 def test_bundle_size_under_budget() -> None:
-    bundle = _ci_runtime_bundle_bytes()
+    bundle = _runtime_bundle_bytes()
     assert len(bundle) > 0
     assert len(bundle) < _BUNDLE_SIZE_BUDGET, (
         f"runtime bundle is {len(bundle)} B, budget is {_BUNDLE_SIZE_BUDGET} B"
@@ -45,7 +45,7 @@ def test_bundle_size_under_budget() -> None:
 
 
 def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
-    bundle = _ci_runtime_bundle_bytes()
+    bundle = _runtime_bundle_bytes()
     extract_dir = tmp_path / "extracted"
     _extract_bundle(bundle, extract_dir)
 
@@ -56,11 +56,11 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/api/models.py",
         "sandbox/client/async_bridge.py",
         "sandbox/code_intelligence/service.py",
-        "sandbox/code_intelligence/backend.py",
-        "sandbox/code_intelligence/in_sandbox/__main__.py",
-        "sandbox/code_intelligence/in_sandbox/ci_daemon.py",
-        "sandbox/code_intelligence/in_sandbox/ci_protocol.py",
-        "sandbox/code_intelligence/in_sandbox/ci_storage.py",
+        "sandbox/code_intelligence/backends/protocol.py",
+        "sandbox/code_intelligence/daemon/__main__.py",
+        "sandbox/code_intelligence/daemon/server.py",
+        "sandbox/code_intelligence/daemon/protocol.py",
+        "sandbox/code_intelligence/daemon/storage.py",
         "msgpack/__init__.py",
     ]
     missing = [p for p in required if not (extract_dir / p).exists()]
@@ -68,7 +68,7 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
 
 
 def test_bundle_excludes_pycache_and_compiled(tmp_path: Path) -> None:
-    bundle = _ci_runtime_bundle_bytes()
+    bundle = _runtime_bundle_bytes()
     with tarfile.open(fileobj=io.BytesIO(bundle), mode="r:gz") as tar:
         names = tar.getnames()
     assert all("__pycache__" not in n for n in names), (
@@ -79,7 +79,7 @@ def test_bundle_excludes_pycache_and_compiled(tmp_path: Path) -> None:
 
 
 def test_bundle_extracted_daemon_imports_clean(tmp_path: Path) -> None:
-    bundle = _ci_runtime_bundle_bytes()
+    bundle = _runtime_bundle_bytes()
     extract_dir = tmp_path / "extracted"
     _extract_bundle(bundle, extract_dir)
 
@@ -88,8 +88,8 @@ def test_bundle_extracted_daemon_imports_clean(tmp_path: Path) -> None:
         "-c",
         (
             f"import sys; sys.path.insert(0, {str(extract_dir)!r}); "
-            "from sandbox.code_intelligence.in_sandbox.__main__ import main; "
-            "from sandbox.code_intelligence.in_sandbox.ci_daemon import DISPATCH; "
+            "from sandbox.code_intelligence.daemon.__main__ import main; "
+            "from sandbox.code_intelligence.daemon.server import DISPATCH; "
             "print('ok:', callable(main), sorted(DISPATCH))"
         ),
     ]

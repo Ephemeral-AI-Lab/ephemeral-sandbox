@@ -1,4 +1,4 @@
-"""Unit tests for ``ci_storage.LedgerStore`` (Phase 3 SQLite WAL ledger)."""
+"""Unit tests for ``storage.LedgerStore`` (Phase 3 SQLite WAL ledger)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.code_intelligence.in_sandbox.ci_storage import LedgerStore
+from sandbox.code_intelligence.daemon.storage import LedgerStore
 from sandbox.code_intelligence.mutations.edit_history_ledger import (
     ContentionHotspot,
     EditHistoryLedger,

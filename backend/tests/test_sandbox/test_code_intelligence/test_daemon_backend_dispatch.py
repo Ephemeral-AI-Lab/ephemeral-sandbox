@@ -1,7 +1,7 @@
-"""Phase 3 — DaemonCiBackend routes business verbs through daemon commands.
+"""Phase 3 — DaemonBackend routes business verbs through daemon commands.
 
 These tests inject a fake daemon command handler whose async method returns
-canned responses, then assert that each :class:`DaemonCiBackend` method
+canned responses, then assert that each :class:`DaemonBackend` method
 serializes args correctly and reconstructs the right dataclass on the way
 out.
 """
@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.code_intelligence.backend import DaemonCiBackend
+from sandbox.code_intelligence.backends import DaemonBackend
 from sandbox.code_intelligence.core.types import (
     DeleteSpec,
     EditRequest,
@@ -38,8 +38,8 @@ class _FakeDaemon:
         return self._responses[op]
 
 
-def _make_backend(response_map: dict[str, Any]) -> tuple[DaemonCiBackend, _FakeDaemon]:
-    backend = DaemonCiBackend(
+def _make_backend(response_map: dict[str, Any]) -> tuple[DaemonBackend, _FakeDaemon]:
+    backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
         transport=object(),  # type: ignore[arg-type]
@@ -145,7 +145,7 @@ def test_query_symbols_uses_daemon_when_initialized() -> None:
 def test_query_symbols_propagates_daemon_error() -> None:
     """Phase 3.5 retired the orchestrator-side snapshot cache fallback.
     A daemon error MUST surface to the caller — no silent stale data."""
-    backend = DaemonCiBackend(
+    backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
         transport=object(),  # type: ignore[arg-type]
@@ -340,12 +340,12 @@ def test_warmup_calls_ensure_initialized(monkeypatch: pytest.MonkeyPatch) -> Non
     """Warmup should bridge to ensure_initialized — no separate daemon op."""
     called: list[bool] = []
 
-    def fake_ensure(self: DaemonCiBackend, wait: bool = True) -> bool:
+    def fake_ensure(self: DaemonBackend, wait: bool = True) -> bool:
         called.append(True)
         return True
 
-    monkeypatch.setattr(DaemonCiBackend, "ensure_initialized", fake_ensure)
-    backend = DaemonCiBackend(
+    monkeypatch.setattr(DaemonBackend, "ensure_initialized", fake_ensure)
+    backend = DaemonBackend(
         sandbox_id="sb",
         workspace_root="/ws",
         transport=object(),  # type: ignore[arg-type]

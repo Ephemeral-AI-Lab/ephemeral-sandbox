@@ -12,13 +12,13 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
-from sandbox.code_intelligence.in_sandbox import ci_storage
-from sandbox.code_intelligence.in_sandbox.ci_guard import (
+from sandbox.code_intelligence.daemon import storage
+from sandbox.code_intelligence.daemon.guard import (
     _dispatch_request,
     _reset_daemon_state_for_tests,
     handle_client,
 )
-from sandbox.code_intelligence.in_sandbox.ci_handlers import (
+from sandbox.code_intelligence.daemon.handlers import (
     DISPATCH,
     _deletespec_from_dict,
     _movespec_from_dict,
@@ -29,7 +29,7 @@ from sandbox.code_intelligence.in_sandbox.ci_handlers import (
     handle_shutdown,
     handle_version,
 )
-from sandbox.code_intelligence.in_sandbox.ci_state import (
+from sandbox.code_intelligence.daemon.state import (
     DAEMON_STATE,
     DAEMON_VERSION,
 )
@@ -82,7 +82,7 @@ def _read_pid(path: Path) -> int | None:
 
 
 def _prepare_state_paths(workspace_root: str) -> tuple[Path, Path, Path, Path]:
-    state = ci_storage.state_dir(workspace_root)
+    state = storage.state_dir(workspace_root)
     socket_path = state / "daemon.sock"
     pid_path = state / "daemon.pid"
     log_path = state / "daemon.log"
@@ -123,7 +123,7 @@ def _configure_file_logging(log_path: Path) -> None:
 
 def _build_service(state: Path, workspace_root: str) -> tuple[Any, Any, Any]:
     """Construct the daemon-resident service, ledger, and symbol index store."""
-    from sandbox.code_intelligence.in_sandbox.ci_storage import (
+    from sandbox.code_intelligence.daemon.storage import (
         IndexStore,
         LedgerStore,
     )
@@ -183,7 +183,7 @@ async def run_daemon(workspace_root: str) -> None:
     _configure_file_logging(log_path)
 
     try:
-        ci_storage.migrate_pickle_to_sqlite(state)
+        storage.migrate_pickle_to_sqlite(state)
     except Exception:  # pragma: no cover - defensive
         logger.debug("migrate_pickle_to_sqlite failed", exc_info=True)
 

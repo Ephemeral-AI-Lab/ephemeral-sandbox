@@ -3,7 +3,7 @@
 Three subtests against the real Daytona ``dask__dask_2023.3.2_2023.4.0`` sandbox:
 
 A. ``test_default_flag_on_smoke`` — every operation works through
-   ``DaemonCiBackend`` over the process.exec socket shim. Asserts ``_select_backend``
+   ``DaemonBackend`` over the process.exec socket shim. Asserts ``_select_backend``
    returns the daemon path for transport-backed sandboxes.
 
 B. ``test_concurrent_query_symbols`` — 8 concurrent ``query_symbols`` calls
@@ -36,7 +36,7 @@ import pytest
 
 from engine.testing.eval_agent import EvalAgent
 from sandbox.api.bash import extract_exit_code, wrap_bash_command
-from sandbox.code_intelligence.backend import DaemonCiBackend
+from sandbox.code_intelligence.backends import DaemonBackend
 from sandbox.code_intelligence.core.types import WriteSpec
 from sandbox.code_intelligence.service import CodeIntelligenceService
 
@@ -143,7 +143,7 @@ def live_phase5_env() -> LivePhase5Env:
 
 
 # ---------------------------------------------------------------------------
-# 5.6.A — daemon-default selector uses DaemonCiBackend; full smoke
+# 5.6.A — daemon-default selector uses DaemonBackend; full smoke
 # ---------------------------------------------------------------------------
 
 
@@ -153,9 +153,9 @@ def test_default_flag_on_smoke(live_phase5_env: LivePhase5Env) -> None:
 
     with _trace(h, "ci_service_construct_default"):
         svc = env.make_ci_service()
-    # Phase 5 assertion: transport+sandbox_id present -> DaemonCiBackend.
-    assert isinstance(svc._impl, DaemonCiBackend), (
-        "transport-backed sandboxes must use DaemonCiBackend"
+    # Phase 5 assertion: transport+sandbox_id present -> DaemonBackend.
+    assert isinstance(svc._impl, DaemonBackend), (
+        "transport-backed sandboxes must use DaemonBackend"
     )
 
     with _trace(h, "ensure_initialized"):
@@ -234,7 +234,7 @@ def test_curated_cross_phase_regression(live_phase5_env: LivePhase5Env) -> None:
     env = live_phase5_env
     svc = env.make_ci_service()
     svc.ensure_initialized(wait=True)
-    assert isinstance(svc._impl, DaemonCiBackend)
+    assert isinstance(svc._impl, DaemonBackend)
 
     # Phase 0/1: query_symbols returns SymbolInfo rows for a known dask name.
     rows = svc.query_symbols("Bag")

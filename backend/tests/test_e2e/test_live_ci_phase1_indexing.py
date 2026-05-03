@@ -33,8 +33,8 @@ import pytest
 
 from engine.testing.eval_agent import EvalAgent
 from sandbox.api.bash import extract_exit_code, wrap_bash_command
-from sandbox.code_intelligence.in_sandbox.ci_storage import (
-    CiStoragePathEscape,
+from sandbox.code_intelligence.daemon.storage import (
+    StoragePathEscape,
     _confine,
     workspace_root_hash,
 )
@@ -192,7 +192,7 @@ def test_privilege_probe_home_cache(live_phase1_env: LivePhase1Env) -> None:
 
 
 def test_indexing_readiness(live_phase1_env: LivePhase1Env) -> None:
-    """Build the index in-sandbox via DaemonCiBackend and assert it is usable."""
+    """Build the index in-sandbox via DaemonBackend and assert it is usable."""
     from sandbox.daytona.transport import DaytonaTransport
 
     h = TimingHarness(phase=1, test_name="indexing_readiness")
@@ -278,10 +278,10 @@ def test_storage_path_confinement(tmp_path: Path) -> None:
     target.write_text("ok", encoding="utf-8")
     assert target.exists()
 
-    with pytest.raises(CiStoragePathEscape):
+    with pytest.raises(StoragePathEscape):
         _confine(state, "../escape.bin")
 
-    with pytest.raises(CiStoragePathEscape):
+    with pytest.raises(StoragePathEscape):
         _confine(state, "/etc/passwd")
 
 

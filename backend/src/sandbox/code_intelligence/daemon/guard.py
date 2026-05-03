@@ -10,8 +10,8 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-from sandbox.code_intelligence.in_sandbox.ci_handlers import DISPATCH
-from sandbox.code_intelligence.in_sandbox.ci_protocol import (
+from sandbox.code_intelligence.daemon.handlers import DISPATCH
+from sandbox.code_intelligence.daemon.protocol import (
     CI_PROTOCOL_VERSION,
     FrameError,
     SchemaError,
@@ -19,7 +19,7 @@ from sandbox.code_intelligence.in_sandbox.ci_protocol import (
     parse_request,
     read_frame,
 )
-from sandbox.code_intelligence.in_sandbox.ci_state import DAEMON_STATE, QUERY_OPS
+from sandbox.code_intelligence.daemon.state import DAEMON_STATE, QUERY_OPS
 
 logger = logging.getLogger(__name__)
 

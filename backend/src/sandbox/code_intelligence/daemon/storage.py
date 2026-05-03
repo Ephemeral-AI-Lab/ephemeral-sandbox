@@ -1,25 +1,25 @@
-"""Compatibility exports for the in-sandbox CI storage layer."""
+"""Daemon storage exports."""
 
 from __future__ import annotations
 
-from sandbox.code_intelligence.in_sandbox.ci_index_store import (
+from sandbox.code_intelligence.daemon.index_store import (
     IndexStore,
     _decode_symbols,
     _encode_symbols,
     migrate_pickle_to_sqlite,
 )
-from sandbox.code_intelligence.in_sandbox.ci_ledger import LedgerStore
-from sandbox.code_intelligence.in_sandbox.ci_paths import (
-    CiStoragePathEscape,
-    CiStorageUnavailable,
+from sandbox.code_intelligence.daemon.ledger_store import LedgerStore
+from sandbox.code_intelligence.daemon.paths import (
+    StoragePathEscape,
+    StorageUnavailable,
     _confine,
     state_dir,
     workspace_root_hash,
 )
 
 __all__ = [
-    "CiStoragePathEscape",
-    "CiStorageUnavailable",
+    "StoragePathEscape",
+    "StorageUnavailable",
     "IndexStore",
     "LedgerStore",
     "_confine",

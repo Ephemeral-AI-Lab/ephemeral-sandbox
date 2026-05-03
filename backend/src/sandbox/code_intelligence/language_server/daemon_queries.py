@@ -1,10 +1,10 @@
-"""Daemon-backed language-server query adapters."""
+"""Daemon-backed language-server query methods."""
 
 from __future__ import annotations
 
 from typing import Any, Protocol
 
-from sandbox.code_intelligence.backend_wire import (
+from sandbox.code_intelligence.daemon.wire import (
     diagnostic_from_dict,
     hover_result_from_dict,
     reference_info_from_dict,
@@ -22,7 +22,7 @@ class _DaemonCommandCaller(Protocol):
     def _call_sync(self, op: str, args: dict[str, Any] | None = None) -> Any: ...
 
 
-class DaemonLanguageServerQueryBackend:
+class DaemonLanguageServerQueries:
     """Language-server query methods for a daemon command caller."""
 
     def find_definitions(

@@ -22,10 +22,10 @@ The Phase 4 spec itself is explicit (see lines 4–21 of
 
 > Status: Superseded by the Phase 3.5 / 3.6 closure pass. […] this plan
 > is retained as historical design context, not an open Phase 4 deferral
-> list. `ci_daemon.DISPATCH["svc_cmd"]` exists, `DaemonCiBackend.cmd` routes
+> list. `daemon.server.DISPATCH["svc_cmd"]` exists, `DaemonBackend.cmd` routes
 > through it, daemon-local subprocess execution is wired in
 > `overlay/command_executor.py`, and the result-shape contract is covered
-> by `test_daemon_ci_backend.py`, `test_ci_daemon_dispatch.py`, and
+> by `test_daemon_backend.py`, `test_daemon_dispatch.py`, and
 > `test_overlay_dispatch.py`. […] Future work should be framed as
 > transport optimization, explicit batching, or streaming enhancement,
 > not completion of this Phase 4 plan.
@@ -59,11 +59,11 @@ and task 4 — this document.
 
 - A new `test_svc_cmd_shape_parity.py`. The Phase 4 spec listed Task 4.3
   as a result-shape parity test; the same coverage already exists in
-  `test_daemon_ci_backend.py::test_cmd_routes_through_daemon_and_reconstructs_namespace`
-  (`backend/tests/test_sandbox/test_code_intelligence/test_daemon_ci_backend.py:186-238`)
+  `test_daemon_backend.py::test_cmd_routes_through_daemon_and_reconstructs_namespace`
+  (`backend/tests/test_sandbox/test_code_intelligence/test_daemon_backend.py:186-238`)
   and
-  `test_ci_daemon_dispatch.py::test_svc_cmd_routes_through_service_and_preserves_shape`
-  (`backend/tests/test_sandbox/test_code_intelligence/test_ci_daemon_dispatch.py:165-238`).
+  `test_daemon_dispatch.py::test_svc_cmd_routes_through_service_and_preserves_shape`
+  (`backend/tests/test_sandbox/test_code_intelligence/test_daemon_dispatch.py:165-238`).
   Adding a third copy of the same round-trip would be theatre.
 - A new `test_live_ci_phase4_svc_cmd.py`. The Phase 4 spec listed
   Task 4.5 as a four-subtest live E2E. The phase-04 spec note explicitly
@@ -73,7 +73,7 @@ and task 4 — this document.
   Ralph prompt did not approve a fresh Phase 4 live run, and the perf
   data needed for "verify performance improvements" already lives in
   `_timings/` from the 3.5/3.6 live execution.
-- Edits to `DaemonCiBackend.cmd` or `handle_svc_cmd`. The wire-up is in
+- Edits to `DaemonBackend.cmd` or `handle_svc_cmd`. The wire-up is in
   place and the contract tests pass.
 
 **The right deliverable for "proceed with Phase 4" given the spec's own
@@ -93,10 +93,10 @@ following items deliberately deferred:
 
 | Phase 3 deferral | Status as of 2026-05-03 | Evidence |
 |---|---|---|
-| `DaemonCiBackend.cmd` raises `NotImplementedError("DaemonCiBackend.cmd is reserved for Phase 4")` (Phase 3 §7.5) | **Closed.** `cmd` now routes through `svc_cmd`. | `backend/src/sandbox/code_intelligence/backend.py:564-576` |
-| `cmd` op missing from daemon dispatch table (Phase 3 §7.5) | **Closed.** Dispatch entry added. | `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py:506` |
+| `DaemonBackend.cmd` raises `NotImplementedError("DaemonBackend.cmd is reserved for Phase 4")` (Phase 3 §7.5) | **Closed.** `cmd` now routes through `svc_cmd`. | `backend/src/sandbox/code_intelligence/daemon/client.py` |
+| `cmd` op missing from daemon dispatch table (Phase 3 §7.5) | **Closed.** Dispatch entry added. | `backend/src/sandbox/code_intelligence/daemon/server.py:506` |
 | Bypass guard is O(remaining_workspace_files) per mutation (Phase 3 §13.1) | **Acknowledged, not closed.** Out of scope per the original spec; the Phase 3.5 sustained-workload E2E exercises the current behavior without rewriting the guard. Architectural fix (inotify or ledger-diff) remains future work. | Phase 3 §13.1; Phase 3.5/3.6 §3 (no architectural change to guard) |
-| daemon backend keeps the Phase 1 cache fallback (Phase 3 §7.4) | **Closed.** Snapshot fallback retired by P35-CLEANUP. `_symbol_cache`, `_cached_file_count`, `_cached_symbol_count`, `_snapshot_bytes` removed; `_ensure_initialized_async` no longer reads pickle. | `backend.py:498` (only doc-comment reference to `_symbol_cache` remains, describing the removal); regression test `test_daemon_ci_backend.py::test_init_drops_legacy_cache_attributes` |
+| daemon backend keeps the Phase 1 cache fallback (Phase 3 §7.4) | **Closed.** Snapshot fallback retired by P35-CLEANUP. `_symbol_cache`, `_cached_file_count`, `_cached_symbol_count`, `_snapshot_bytes` removed; `_ensure_initialized_async` no longer reads pickle. | `daemon/client.py`; regression test `test_daemon_backend.py::test_init_drops_legacy_cache_attributes` |
 | Phase 3 live E2E (`test_live_ci_phase3_invariants.py`) committed but not executed (§7.9) | **Status unchanged.** Still gated under `-m live`; user approval not yet given. | `backend/tests/test_e2e/test_live_ci_phase3_invariants.py` (committed); 3.5/3.6 report §6 only ran the 3.5 + 3.6 suites |
 
 The Phase 3 spec lists five HARD INVARIANTS (sorted-path locks,
@@ -124,16 +124,16 @@ already-merged source + test files (the LoC numbers come from the
 
 | Path | Phase 4 contribution |
 |---|---|
-| `backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py` | `_SVC_CMD_RESULT_DEFAULTS` (`:265-282` covering all 16 fields); `_svc_cmd_result_to_dict` (`:285-290`) — preserves the audited shell `SimpleNamespace` contract over msgpack; `handle_svc_cmd` (`:356-373`) — dispatches `args["command"]` through the daemon-resident `svc.cmd(None, …)`; dispatch wire-up `"svc_cmd": handle_svc_cmd` (`:506`). |
-| `backend/src/sandbox/code_intelligence/backend.py` | `DaemonCiBackend.cmd` (`:564-576`) — async path that ships the kwargs through `_call_async("svc_cmd", payload, timeout=…)` and reconstructs `SimpleNamespace(**(raw or {}))`. The `on_progress_line` callback is replayed once with the final stdout (matches the historical Task 4.4 decision that mid-command streaming is future transport work). |
+| `backend/src/sandbox/code_intelligence/daemon/server.py` | `_SVC_CMD_RESULT_DEFAULTS` (`:265-282` covering all 16 fields); `_svc_cmd_result_to_dict` (`:285-290`) — preserves the audited shell `SimpleNamespace` contract over msgpack; `handle_svc_cmd` (`:356-373`) — dispatches `args["command"]` through the daemon-resident `svc.cmd(None, …)`; dispatch wire-up `"svc_cmd": handle_svc_cmd` (`:506`). |
+| `backend/src/sandbox/code_intelligence/backends/` | `DaemonBackend.cmd` (`:564-576`) — async path that ships the kwargs through `_call_async("svc_cmd", payload, timeout=…)` and reconstructs `SimpleNamespace(**(raw or {}))`. The `on_progress_line` callback is replayed once with the final stdout (matches the historical Task 4.4 decision that mid-command streaming is future transport work). |
 | `backend/src/sandbox/code_intelligence/overlay/command_executor.py` | `_exec_sandbox_process` (`:93-113`) — when the daemon runs in-sandbox without a provider sandbox handle (i.e. `sandbox is None`), executes the command via `subprocess.run` on the daemon thread pool. This is the "daemon-local subprocess execution" the spec note refers to; without it the daemon's `svc.cmd(None, …)` path could not exercise the overlay auditor. |
 
 ### Tests
 
 | Path | Phase 4 contribution |
 |---|---|
-| `backend/tests/test_sandbox/test_code_intelligence/test_daemon_ci_backend.py` | `test_cmd_routes_through_daemon_and_reconstructs_namespace` (`:186-238`) — full 16-field round-trip through a fake `_FakeDaemon`, asserts `svc_cmd` receives only the msgpack-friendly kwargs (callback dropped) and the reconstructed `SimpleNamespace` preserves every field including `git_snapshot_timings` and `overlay_run_timings`. Also asserts the `on_progress_line` callback is invoked once with the final stdout. |
-| `backend/tests/test_sandbox/test_code_intelligence/test_ci_daemon_dispatch.py` | `test_svc_cmd_routes_through_service_and_preserves_shape` (`:165-238+`) — drives `_dispatch_request` with a real msgpack-shaped envelope, monkey-patches `_DAEMON_STATE.svc.cmd` to return a populated `SimpleNamespace`, asserts the response dict contains all 16 fields with their original values. |
+| `backend/tests/test_sandbox/test_code_intelligence/test_daemon_backend.py` | `test_cmd_routes_through_daemon_and_reconstructs_namespace` (`:186-238`) — full 16-field round-trip through a fake `_FakeDaemon`, asserts `svc_cmd` receives only the msgpack-friendly kwargs (callback dropped) and the reconstructed `SimpleNamespace` preserves every field including `git_snapshot_timings` and `overlay_run_timings`. Also asserts the `on_progress_line` callback is invoked once with the final stdout. |
+| `backend/tests/test_sandbox/test_code_intelligence/test_daemon_dispatch.py` | `test_svc_cmd_routes_through_service_and_preserves_shape` (`:165-238+`) — drives `_dispatch_request` with a real msgpack-shaped envelope, monkey-patches `_DAEMON_STATE.svc.cmd` to return a populated `SimpleNamespace`, asserts the response dict contains all 16 fields with their original values. |
 | `backend/tests/test_sandbox/test_code_intelligence/test_overlay_dispatch.py` | Confirms `svc.cmd` reaches the overlay auditor under both code paths: orchestrator-side (with a sandbox handle) and daemon-local (`sandbox=None`, exercising the `_exec_sandbox_process` no-handle branch). |
 
 ### Deleted
@@ -153,16 +153,16 @@ that explicit attribution.
 
 | DoD item | Verdict | Evidence |
 |---|---|---|
-| `svc_cmd` op exists in daemon dispatch; serializes/deserializes the full `SimpleNamespace` shape | PASS | `ci_daemon.py:506` (dispatch entry); `:285-290` (`_svc_cmd_result_to_dict` over the 16-field defaults table at `:265-282`); `:356-373` (`handle_svc_cmd`). |
-| Result-shape parity test (Task 4.3) passes — every field round-trips | PASS — coverage already exists; **the spec note disowns the standalone parity-test file** | `test_daemon_ci_backend.py:186-238` + `test_ci_daemon_dispatch.py:165-238`; both round-trip the full 16-field shape. |
-| `DaemonCiBackend.cmd` ships args + reconstructs `SimpleNamespace` | PASS | `backend.py:564-576`; the synchronous facade also exists via `_call_async` / `run_sync` boundary. |
-| `on_progress_line` behavior documented: final stdout replay implemented; true live streaming is future transport enhancement | PASS | `backend.py:572-575` replays final stdout to the callback; the spec status note + Task 4.4 (lines 178–198) document this as the deliberate decision. |
+| `svc_cmd` op exists in daemon dispatch; serializes/deserializes the full `SimpleNamespace` shape | PASS | `server.py:506` (dispatch entry); `:285-290` (`_svc_cmd_result_to_dict` over the 16-field defaults table at `:265-282`); `:356-373` (`handle_svc_cmd`). |
+| Result-shape parity test (Task 4.3) passes — every field round-trips | PASS — coverage already exists; **the spec note disowns the standalone parity-test file** | `test_daemon_backend.py:186-238` + `test_daemon_dispatch.py:165-238`; both round-trip the full 16-field shape. |
+| `DaemonBackend.cmd` ships args + reconstructs `SimpleNamespace` | PASS | `daemon/client.py`; the synchronous facade also exists via `_call_async` / `run_sync` boundary. |
+| `on_progress_line` behavior documented: final stdout replay implemented; true live streaming is future transport enhancement | PASS | `daemon/client.py` replays final stdout to the callback; the spec status note + Task 4.4 (lines 178–198) document this as the deliberate decision. |
 | Phase 4 live E2E (all 4 subtests A-D) passes | **Disowned by spec note.** | The phase-04 spec note retires Task 4.5 as completion debt: "Future work should be framed as transport optimization, explicit batching, or streaming enhancement, not completion of this Phase 4 plan." Project memory `feedback_parallel_user_commits` plus Phase 3 §7.9 add the operational constraint: live Daytona runs require explicit user approval. Verification of the perf claim is satisfied by aggregating already-committed `_timings/` JSONs (§6 below). |
 | HEADLINE PERF ASSERTION (4.5.A): `svc_cmd_via_daemon < svc_cmd_baseline_inprocess` for the warm path | PASS structurally (§6) | Phase 0 in-process baseline: `svc_cmd_baseline = 8.047 s`; post-stable-loop daemon commands run at p50 < 1 s; sandbox transport floor ≈ 0.336 s. Numbers come from the live `_timings/` JSONs and the 3.5/3.6 §6.4 follow-up. |
 | Real `pytest` invocation succeeds end-to-end (4.5.B) | **Disowned by spec note.** | Same rationale as the Task 4.5 entry. |
-| Gitinclude OCC commit path verified live (4.5.C) — tracked file edit lands via OCC | **Disowned by spec note** at the live-run level; structurally PASS at the unit level. | The OCC commit path is exercised by Phase 3 dispatch coverage (`test_ci_daemon_dispatch.py`) and the 3.5 multi-orchestrator live test, which exercises a real OCC-mediated commit through the `DaemonCiBackend` — see `_timings/phase_3.5_multi_orchestrator_2026-05-02T17-28-51Z.json`. |
+| Gitinclude OCC commit path verified live (4.5.C) — tracked file edit lands via OCC | **Disowned by spec note** at the live-run level; structurally PASS at the unit level. | The OCC commit path is exercised by Phase 3 dispatch coverage (`test_daemon_dispatch.py`) and the 3.5 multi-orchestrator live test, which exercises a real OCC-mediated commit through the `DaemonBackend` — see `_timings/phase_3.5_multi_orchestrator_2026-05-02T17-28-51Z.json`. |
 | Gitignore direct-merge path verified live (4.5.D) — gitignored writes go through direct-merge | **Disowned by spec note.** | Same rationale; covered structurally by the package-reuse approach (Phase 3 §7.1) — daemon and orchestrator share the `OverlayAuditor` and `OverlayCommandCommitter` code. |
-| Regression check: Phases 0, 1, 2, 3 E2Es + full unit suite green | PASS | 3.5/3.6 report §6.1: `pytest backend/tests/test_sandbox/test_code_intelligence -q` → 351 passed. Audit-narrowed run for this report's claims: `pytest backend/tests/test_sandbox/test_code_intelligence/test_daemon_ci_backend.py backend/tests/test_sandbox/test_code_intelligence/test_ci_daemon_dispatch.py backend/tests/test_sandbox/test_code_intelligence/test_overlay_dispatch.py -q` → **29 passed in 0.30 s** (run on 2026-05-03). |
+| Regression check: Phases 0, 1, 2, 3 E2Es + full unit suite green | PASS | 3.5/3.6 report §6.1: `pytest backend/tests/test_sandbox/test_code_intelligence -q` → 351 passed. Audit-narrowed run for this report's claims: `pytest backend/tests/test_sandbox/test_code_intelligence/test_daemon_backend.py backend/tests/test_sandbox/test_code_intelligence/test_daemon_dispatch.py backend/tests/test_sandbox/test_code_intelligence/test_overlay_dispatch.py -q` → **29 passed in 0.30 s** (run on 2026-05-03). |
 | PR description includes: 4 E2E reports + headline perf delta in big bold letters + `on_progress_line` decision note | **Disowned by spec note** at the "4 E2E reports" framing; satisfied by the perf table in §6 + the streaming decision in §5 above. | n/a |
 
 ---
@@ -220,7 +220,7 @@ Source artifacts (committed):
 
 These numbers already beat the 8.047 s in-process baseline. They also
 exposed a sync-bridge bug: every public daemon command paid roughly 5.5 s because
-`DaemonCiBackend._call_sync` entered `run_sync(_call_daemon_command(...))` without
+`DaemonBackend._call_sync` entered `run_sync(_call_daemon_command(...))` without
 a registered `sandbox_io_loop`, so every call created a fresh event
 loop and re-built the AsyncDaytona client. That is documented in §6.4
 of the 3.5/3.6 report and the fix is verified live in §6.3 below.
@@ -294,7 +294,7 @@ JSON, both 2026-05-02 and 2026-05-03 runs). Investigation:
 (`backend/tests/test_e2e/test_live_ci_phase3_5_concurrent_perf.py:450`).
 That `asyncio.run(...)` creates a fresh event loop per call, which is
 exactly the pattern the §6.4 stable-loop fix addressed in the SYNC
-FACADE. Real callers route through `DaemonCiBackend._call_sync` →
+FACADE. Real callers route through `DaemonBackend._call_sync` →
 `run_sync(...)` → registered `sandbox_io_loop`, which DOES benefit from
 the fix (see the 0.450 s `write_file` row above). The 5.5 s
 `refresh_file` number is a test-harness artifact, not a daemon
@@ -370,7 +370,7 @@ and (2) the stable-loop fix removing per-call event-loop churn.
 - `refresh_efficiency` JSONs (`refresh_file` p50 ≈ 5.5 s in both 2026-05-02
   runs) are a test-harness artifact: the test calls
   `asyncio.run(_call_daemon_command(…))` directly per iteration rather than
-  routing through `DaemonCiBackend._call_sync`, so the stable-loop fix
+  routing through `DaemonBackend._call_sync`, so the stable-loop fix
   does not apply at the test layer. See the anomaly note at the end
   of §6.3.
 
@@ -382,7 +382,7 @@ The phase-04 spec lines 178–198 (Task 4.4) and lines 17–21 (status note)
 list three items that were always future work, not Phase 4 completion
 debt:
 
-1. **True mid-command progress streaming.** `DaemonCiBackend.cmd` replays
+1. **True mid-command progress streaming.** `DaemonBackend.cmd` replays
    final stdout to `on_progress_line` once the daemon response arrives.
    Live streaming would require either a separate `svc_cmd_progress`
    poll op (Task 4.4 option B) or a server-push frame extension
@@ -414,8 +414,8 @@ optimizations are Phase 5+ scope.
 
 ```
 .venv/bin/pytest \
-  backend/tests/test_sandbox/test_code_intelligence/test_daemon_ci_backend.py \
-  backend/tests/test_sandbox/test_code_intelligence/test_ci_daemon_dispatch.py \
+  backend/tests/test_sandbox/test_code_intelligence/test_daemon_backend.py \
+  backend/tests/test_sandbox/test_code_intelligence/test_daemon_dispatch.py \
   backend/tests/test_sandbox/test_code_intelligence/test_overlay_dispatch.py \
   -q
 → 29 passed in 0.30s   (2026-05-03)
@@ -441,8 +441,8 @@ the 3.5/3.6 report §6.1.
 
 ```
 .venv/bin/ruff check \
-  backend/src/sandbox/code_intelligence/in_sandbox/ci_daemon.py \
-  backend/src/sandbox/code_intelligence/backend.py \
+  backend/src/sandbox/code_intelligence/daemon/server.py \
+  backend/src/sandbox/code_intelligence/backends/ \
   backend/src/sandbox/code_intelligence/overlay/command_executor.py
 → All checks passed!
 ```
@@ -467,7 +467,7 @@ picks up with:
 - The `python_shim`-shaped `process.exec` boundary visible in the
   perf table (§6.3, ~0.325 s wrapped-bash floor) as the next
   bottleneck batching or true provider-native persistent transport would address.
-- A complete `DaemonCiBackend` — every public method routed; legacy
+- A complete `DaemonBackend` — every public method routed; legacy
   snapshot/cache attributes confirmed gone (regression test
   `test_init_drops_legacy_cache_attributes`).
 - The `EOS_CI_IN_SANDBOX` flag still defaulting to off in production;

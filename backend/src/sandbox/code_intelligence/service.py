@@ -1,9 +1,9 @@
 """Per-sandbox :class:`CodeIntelligenceService` facade.
 
-The facade delegates every public op to a :class:`CiBackend` selected at
+The facade delegates every public op to a :class:`CodeIntelligenceBackend` selected at
 construction time. Transport-backed sandbox services use
-:class:`DaemonCiBackend`; sandboxless/local flows keep using
-:class:`InProcessCiBackend`.
+:class:`DaemonBackend`; sandboxless/local flows keep using
+:class:`InProcessBackend`.
 """
 
 from __future__ import annotations
@@ -13,10 +13,10 @@ from collections.abc import Sequence
 from typing import Any
 
 from sandbox.api.transport import SandboxTransport
-from sandbox.code_intelligence.backend import (
-    CiBackend,
-    InProcessCiBackend,
-    DaemonCiBackend,
+from sandbox.code_intelligence.backends import (
+    CodeIntelligenceBackend,
+    InProcessBackend,
+    DaemonBackend,
 )
 from sandbox.code_intelligence.core.types import (
     CITelemetry,
@@ -48,12 +48,12 @@ def _select_backend(
     edit_history: Any | None = None,
     symbol_index_persistence: Any | None = None,
     daemon_local: bool = False,
-) -> CiBackend:
+) -> CodeIntelligenceBackend:
     """Pick a backend based on transport availability and sandbox identity.
 
     Transport-backed remote sandboxes use the daemon backend. Local
     sandboxless flows (no transport / empty sandbox_id) keep using
-    :class:`InProcessCiBackend`.
+    :class:`InProcessBackend`.
 
     ``edit_history`` and ``symbol_index_persistence`` are only meaningful for
     the in-process backend (the daemon owns the canonical SQLite ledger and
@@ -61,12 +61,12 @@ def _select_backend(
     """
     if transport is not None and sandbox_id:
         assert transport is not None  # narrow for type-checker
-        return DaemonCiBackend(
+        return DaemonBackend(
             sandbox_id=sandbox_id,
             workspace_root=workspace_root,
             transport=transport,
         )
-    return InProcessCiBackend(
+    return InProcessBackend(
         sandbox_id=sandbox_id,
         workspace_root=workspace_root,
         sandbox=sandbox,
@@ -78,7 +78,7 @@ def _select_backend(
 
 
 class CodeIntelligenceService:
-    """Thin facade that forwards every public op to a selected :class:`CiBackend`."""
+    """Thin facade that forwards every public op to a selected :class:`CodeIntelligenceBackend`."""
 
     def __init__(
         self,
@@ -91,7 +91,7 @@ class CodeIntelligenceService:
         symbol_index_persistence: Any | None = None,
         daemon_local: bool = False,
     ) -> None:
-        self._impl: CiBackend = _select_backend(
+        self._impl: CodeIntelligenceBackend = _select_backend(
             sandbox_id,
             workspace_root,
             sandbox,

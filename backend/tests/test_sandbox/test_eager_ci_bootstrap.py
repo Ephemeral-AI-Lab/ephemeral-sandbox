@@ -109,7 +109,7 @@ def test_bootstrap_helper_starts_daemon(flag_on: None) -> None:
         )
     )
     assert any(
-        "setsid nohup python3 -m sandbox.code_intelligence.in_sandbox" in cmd
+        "setsid nohup python3 -m sandbox.code_intelligence.daemon" in cmd
         for _, cmd in calls
     )
     assert any("--workspace-root /ws" in cmd for _, cmd in calls)
@@ -117,16 +117,16 @@ def test_bootstrap_helper_starts_daemon(flag_on: None) -> None:
 
 
 def test_bootstrap_helper_raises_on_daemon_failure(flag_on: None) -> None:
-    from sandbox.code_intelligence.daemon.launcher import CiDaemonUnavailable
+    from sandbox.code_intelligence.daemon.launcher import DaemonUnavailable
     from sandbox.lifecycle.workspace import bootstrap_in_sandbox_ci_runtime
 
     async def fail_ensure(*_: Any, **__: Any) -> None:
-        raise CiDaemonUnavailable("socket timeout")
+        raise DaemonUnavailable("socket timeout")
 
     with patch(
         "sandbox.code_intelligence.daemon.launcher.DaemonLauncher.ensure_daemon",
         new=fail_ensure,
-    ), pytest.raises(CiDaemonUnavailable, match="socket timeout"):
+    ), pytest.raises(DaemonUnavailable, match="socket timeout"):
         asyncio.run(
             bootstrap_in_sandbox_ci_runtime(
                 sandbox_id="sb-1",

@@ -10,15 +10,15 @@ from typing import Any
 import msgpack
 import pytest
 
-from sandbox.code_intelligence.in_sandbox.ci_protocol import (
+from sandbox.code_intelligence.daemon.protocol import (
     CI_PROTOCOL_VERSION,
     encode_frame,
 )
-from sandbox.code_intelligence.backend import (
-    CiDaemonCommandError,
-    DaemonCiBackend,
+from sandbox.code_intelligence.backends import (
+    DaemonCommandError,
+    DaemonBackend,
 )
-from sandbox.code_intelligence.daemon.launcher import CiDaemonUnavailable, bundle_hash
+from sandbox.code_intelligence.daemon.launcher import DaemonUnavailable, bundle_hash
 
 
 class _FakeTransport:
@@ -53,7 +53,7 @@ class _FakeTransport:
             return _result(0 if self.alive else 1, "")
         if ".bundle-hash" in command and "tar -xzf" not in command:
             return _result(0, bundle_hash() + "\n")
-        if "setsid nohup python3 -m sandbox.code_intelligence.in_sandbox" in command:
+        if "setsid nohup python3 -m sandbox.code_intelligence.daemon" in command:
             self.spawn_count += 1
             self.alive = True
             self.socket_ready = True
@@ -101,7 +101,7 @@ async def test_call_returns_success_result() -> None:
     transport = _FakeTransport()
     transport.alive = True
     transport.socket_ready = True
-    backend = DaemonCiBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
+    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
 
     assert await backend._call_daemon_command("ping") == {"pong": True, "op": "ping"}
     assert transport.spawn_count == 0
@@ -110,7 +110,7 @@ async def test_call_returns_success_result() -> None:
 @pytest.mark.asyncio
 async def test_connection_failure_ensures_daemon_then_retries() -> None:
     transport = _FakeTransport(fail_shim_attempts=1)
-    backend = DaemonCiBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
+    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
 
     assert await backend._call_daemon_command("ping") == {"pong": True, "op": "ping"}
     assert transport.spawn_count == 1
@@ -119,9 +119,9 @@ async def test_connection_failure_ensures_daemon_then_retries() -> None:
 @pytest.mark.asyncio
 async def test_second_connection_failure_raises_unavailable() -> None:
     transport = _FakeTransport(fail_shim_attempts=2)
-    backend = DaemonCiBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
+    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
 
-    with pytest.raises(CiDaemonUnavailable, match="daemon unreachable after respawn"):
+    with pytest.raises(DaemonUnavailable, match="daemon unreachable after respawn"):
         await backend._call_daemon_command("ping")
     assert transport.spawn_count == 1
 
@@ -137,9 +137,9 @@ async def test_error_envelope_raises_typed_daemon_command_error() -> None:
     )
     transport.alive = True
     transport.socket_ready = True
-    backend = DaemonCiBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
+    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
 
-    with pytest.raises(CiDaemonCommandError) as exc:
+    with pytest.raises(DaemonCommandError) as exc:
         await backend._call_daemon_command("nope")
     assert exc.value.kind == "UnsupportedOp"
     assert exc.value.details == {"op": "nope"}

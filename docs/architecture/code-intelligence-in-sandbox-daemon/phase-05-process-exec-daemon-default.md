@@ -18,14 +18,14 @@ The active contract is simpler:
 
 Phase 3.5/3.6 isolated the large regression to sync-bridge event-loop churn, not the socket protocol itself. After that was fixed, the remaining floor was the per-call `process.exec` launch and transport round trip.
 
-The attempted native transport verb wrapped the same `process.exec` path inside Daytona transport code. It added protocol surface, tests, feature flags, and A/B branches while preserving the same underlying cost. Live comparison showed it was slower/noisier than the direct `DaemonCiBackend` bridge, so keeping it would make the codebase larger without improving the hot path.
+The attempted native transport verb wrapped the same `process.exec` path inside Daytona transport code. It added protocol surface, tests, feature flags, and A/B branches while preserving the same underlying cost. Live comparison showed it was slower/noisier than the direct `DaemonBackend` bridge, so keeping it would make the codebase larger without improving the hot path.
 
 ## Goal
 
 Make daemon mode the default without adding a special transport verb:
 
 1. Route service calls through the daemon-backed code-intelligence backend by default.
-2. Keep the daemon command bridge explicit and local to the `DaemonCiBackend`.
+2. Keep the daemon command bridge explicit and local to the `DaemonBackend`.
 3. Delete the native transport-verb branch and the forced-shim feature flag.
 4. Keep lifecycle, recovery, telemetry, and overlay behavior unchanged.
 
@@ -35,10 +35,10 @@ Make daemon mode the default without adding a special transport verb:
 | --- | --- | --- |
 | Transport protocol | `backend/src/sandbox/api/transport.py` | Only `exec` is required for command execution. |
 | Daytona transport | `backend/src/sandbox/daytona/transport.py` | No code-intelligence-specific daemon command method; callers use `exec`. |
-| daemon backend | `backend/src/sandbox/code_intelligence/backend.py` | Always sends framed daemon requests through the Python Unix-socket bridge launched by `transport.exec`. |
-| Backend selection | `backend/src/sandbox/code_intelligence/backend.py` | Daemon backend remains the default when sandbox daemon mode is enabled. |
+| daemon backend | `backend/src/sandbox/code_intelligence/backends/` | Always sends framed daemon requests through the Python Unix-socket bridge launched by `transport.exec`. |
+| Backend selection | `backend/src/sandbox/code_intelligence/backends/` | Daemon backend remains the default when sandbox daemon mode is enabled. |
 | Live Phase 5 test | `backend/tests/test_e2e/test_live_ci_phase5_default_on.py` | Verifies daemon-default behavior and warm/concurrent service calls, without native-vs-shim A/B branches. |
-| Unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_daemon_ci_backend_process_exec.py` | Covers framing, retry, daemon-unavailable, and process.exec bridge behavior. |
+| Unit tests | `backend/tests/test_sandbox/test_code_intelligence/test_daemon_client_process_exec.py` | Covers framing, retry, daemon-unavailable, and process.exec bridge behavior. |
 
 ## Tasks
 
@@ -54,12 +54,12 @@ Done criteria:
 
 ### Task 5.2 — Make the daemon backend shim-only
 
-`DaemonCiBackend` owns the daemon wire protocol and process.exec bridge. It should not branch on provider capabilities or environment flags for the retired native verb.
+`DaemonBackend` owns the daemon wire protocol and process.exec bridge. It should not branch on provider capabilities or environment flags for the retired native verb.
 
 Done criteria:
 
 1. `_call_once` sends exactly one framed request through the process.exec bridge.
-2. Retry and `CiDaemonUnavailable` semantics are preserved.
+2. Retry and `DaemonUnavailable` semantics are preserved.
 3. The bridge remains binary-safe through length-prefixed frames.
 
 ### Task 5.3 — Keep live verification focused on product behavior

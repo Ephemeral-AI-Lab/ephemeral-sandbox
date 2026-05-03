@@ -33,15 +33,15 @@ binaries are absent.
 
 | Path | LoC | Purpose |
 |---|---:|---|
-| `backend/src/sandbox/code_intelligence/in_sandbox/__init__.py` | 1 | Package marker |
-| `backend/src/sandbox/code_intelligence/in_sandbox/ci_storage.py` | 165 | `state_dir` resolver + `_confine` guard + atomic `write_snapshot`/`read_snapshot` |
-| `backend/src/sandbox/code_intelligence/in_sandbox/ci_index.py` | 124 | Indexing CLI (full-build + `--file` refresh; exits 13 on `CiStorageUnavailable`) |
+| `backend/src/sandbox/code_intelligence/daemon/__init__.py` | 1 | Daemon package marker |
+| `backend/src/sandbox/code_intelligence/daemon/storage.py` | 165 | `state_dir` resolver + `_confine` guard + atomic `write_snapshot`/`read_snapshot` |
+| `backend/src/sandbox/code_intelligence/daemon/server.py` | 124 | Daemon-side indexing and command dispatch path |
 | `backend/src/sandbox/code_intelligence/daemon/__init__.py` | 1 | Package marker |
-| `backend/src/sandbox/code_intelligence/daemon/launcher.py` | 175 | `_ci_runtime_bundle_bytes` + idempotent `ensure_runtime_uploaded` (chunked-base64 exec upload) |
-| `backend/tests/test_sandbox/test_code_intelligence/test_ci_storage.py` | 192 | 20 storage unit tests |
+| `backend/src/sandbox/code_intelligence/daemon/launcher.py` | 175 | `_runtime_bundle_bytes` + idempotent `ensure_runtime_uploaded` (chunked-base64 exec upload) |
+| `backend/tests/test_sandbox/test_code_intelligence/test_storage.py` | 192 | 20 storage unit tests |
 | `backend/tests/test_sandbox/test_code_intelligence/test_ci_index_runner.py` | 156 | 4 CLI tests (full-build, refresh, error path, snapshot path) |
 | `backend/tests/test_sandbox/test_code_intelligence/test_runtime_bundle.py` | 162 | 9 bundle tests incl. subprocess-import smoke |
-| `backend/tests/test_sandbox/test_code_intelligence/test_daemon_ci_backend.py` | 187 | 7 tests via fake transport |
+| `backend/tests/test_sandbox/test_code_intelligence/test_daemon_backend.py` | 187 | 7 tests via fake transport |
 | `backend/tests/test_sandbox/test_eager_ci_bootstrap.py` | 235 | 9 tests covering flag, missing workspace, and error propagation |
 | `backend/tests/test_e2e/test_live_ci_phase1_indexing.py` | 540 | 7 live cases (1.5.A–G) |
 
@@ -49,10 +49,10 @@ binaries are absent.
 
 | Path | Change |
 |---|---|
-| `backend/src/sandbox/code_intelligence/backend.py` | `DaemonCiBackend.ensure_initialized` + `query_symbols` get real Phase 1 implementations; constructor adds `_init_lock`, `_symbol_cache`, `_cached_*`, `_snapshot_bytes`. Other ops still raise `NotImplementedError`. |
+| `backend/src/sandbox/code_intelligence/backends/` | `DaemonBackend.ensure_initialized` + `query_symbols` get real Phase 1 implementations; constructor adds `_init_lock`, `_symbol_cache`, `_cached_*`, `_snapshot_bytes`. Other ops still raise `NotImplementedError`. |
 | `backend/src/sandbox/lifecycle/workspace.py` | New async `bootstrap_in_sandbox_ci_runtime` (does NOT replace existing sync `ensure_code_intelligence_runtime`). |
 | `backend/src/sandbox/lifecycle/service.py` | `create_sandbox(...)` and `start_sandbox(...)` invoke `_maybe_run_eager_ci_bootstrap` after the existing path when `EOS_CI_IN_SANDBOX=1`; the old `eager_ci` test escape hatch was removed in the cleanup pass. |
-| `backend/tests/test_sandbox/test_code_intelligence/test_backend_inprocess.py` | Removed `ensure_initialized` + `query_symbols` from the not-implemented matrix. |
+| `backend/tests/test_sandbox/test_code_intelligence/test_backends.py` | Removed `ensure_initialized` + `query_symbols` from the not-implemented matrix. |
 
 ### Deleted
 
@@ -64,12 +64,12 @@ None.
 
 | Story | Verdict | Evidence |
 |---|---|---|
-| **P1-001** ci_storage.py | PASS | `ci_storage.py` ships `CiStorageUnavailable`, `CiStoragePathEscape`, `state_dir`, `_confine`, `write_snapshot`, `read_snapshot`, `workspace_root_hash`. Atomic write via `tempfile.mkstemp` + `os.fsync` + `os.replace`; cleans up tmp on raise. |
-| **P1-002** Storage unit tests | PASS | `test_ci_storage.py`: 20/20. Includes EACCES, symlink-traversal, `_confine` rejection, atomicity (no .tmp leftover on success or failure), corrupt+truncated pickle unlink. |
-| **P1-003** Indexing CLI | PASS | `ci_index.py` constructs `CodeIntelligenceService(sandbox=None, transport=None)`, dumps snapshot dict, prints structured JSON. Exits 13 on `CiStorageUnavailable`. |
+| **P1-001** storage.py | PASS | `storage.py` ships `StorageUnavailable`, `StoragePathEscape`, `state_dir`, `_confine`, `write_snapshot`, `read_snapshot`, `workspace_root_hash`. Atomic write via `tempfile.mkstemp` + `os.fsync` + `os.replace`; cleans up tmp on raise. |
+| **P1-002** Storage unit tests | PASS | `test_storage.py`: 20/20. Includes EACCES, symlink-traversal, `_confine` rejection, atomicity (no .tmp leftover on success or failure), corrupt+truncated pickle unlink. |
+| **P1-003** Indexing CLI | PASS | `daemon indexer` constructs `CodeIntelligenceService(sandbox=None, transport=None)`, dumps snapshot dict, prints structured JSON. Exits 13 on `StorageUnavailable`. |
 | **P1-004** CLI runner tests | PASS | `test_ci_index_runner.py`: 4/4. Full-build over 5-file fixture, single-file refresh patch, exit-13 + JSON shape, snapshot path matches `workspace_root_hash`. |
-| **P1-005** Bundle helper | PASS | `launcher.py` ships `_ci_runtime_bundle_bytes` (deterministic gz mtime=0; tarinfo mtime/uid/gid normalized) + `ensure_runtime_uploaded`. **Subprocess-import smoke test** verifies the bundle imports `ci_index.main` cleanly. Bundle size ~250 KB, well under 1 MB budget. |
-| **P1-006** DaemonCiBackend Phase 1 | PASS | `backend.py:DaemonCiBackend.ensure_initialized` calls `ensure_runtime_uploaded` → exec `ci_index` → parse JSON → chunked-base64 snapshot download via exec → `pickle.loads` → cache. `query_symbols` runs case-insensitive substring search of cache. `test_daemon_ci_backend.py`: 7/7 via fake transport. |
+| **P1-005** Bundle helper | PASS | `launcher.py` ships `_runtime_bundle_bytes` (deterministic gz mtime=0; tarinfo mtime/uid/gid normalized) + `ensure_runtime_uploaded`. **Subprocess-import smoke test** verifies the bundle imports `ci_index.main` cleanly. Bundle size ~250 KB, well under 1 MB budget. |
+| **P1-006** DaemonBackend Phase 1 | PASS | Legacy Phase 1 daemon client called `ensure_runtime_uploaded` → exec indexer → parse JSON → chunked-base64 snapshot download via exec → `pickle.loads` → cache. Current code moved daemon command transport to `daemon/client.py`. |
 | **P1-007** Eager hook + lifecycle | PASS | New async helper `bootstrap_in_sandbox_ci_runtime`; `_maybe_run_eager_ci_bootstrap` resolves `DaytonaTransport` + workspace; `create_sandbox(...)` and `start_sandbox(...)` wire it. `test_eager_ci_bootstrap.py`: 9/9 covering flag, missing workspace, and RuntimeError propagation. |
 | **P1-008** Live E2E suite | PASS | `test_live_ci_phase1_indexing.py` collects 7 cases under `[e2e, live]` markers; deselected by default suite. |
 | **P1-009** Live execution | PASS | All 7 live cases passed against a real `dask__dask_2023.3.2_2023.4.0` Daytona sandbox on 2026-05-02. See §5 for results. |
@@ -166,7 +166,7 @@ matches), so the cost is purely indexer + chunked download.
 
 Unit-style coverage: `write_snapshot(state, "../escape.bin", ...)` and
 `write_snapshot(state, "/etc/passwd", ...)` both raise
-`CiStoragePathEscape`. No live infrastructure required.
+`StoragePathEscape`. No live infrastructure required.
 
 ### 1.5.E compatibility matrix — PASSED
 
@@ -212,7 +212,7 @@ Per-step interpretation:
 - `bundle_upload_warm` 5.40s — marker check matches (`.bundle-hash`
   identical sha256), early-returns. The remaining ~5s is dominated by
   the orchestrator-side bundle build (despite memoization, the
-  `_ci_runtime_bundle_bytes` build runs once per bundle_hash call). A
+  `_runtime_bundle_bytes` build runs once per bundle_hash call). A
   follow-up improvement (cache `bundle_hash` alongside the bytes)
   would push warm down to ~0.3s.
 - `indexer_run_cold` 43.52s — full in-sandbox indexer + chunked
@@ -306,7 +306,7 @@ extracts the bundle to a `tmp_path`, then runs
 
 ```bash
 PYTHONPATH=<extracted> python -c \
-  "from sandbox.code_intelligence.in_sandbox.ci_index import main"
+  "from sandbox.code_intelligence.daemon.ci_index import main"
 ```
 
 in a fresh subprocess (so the parent's `sys.modules` cache cannot mask
@@ -425,7 +425,7 @@ the JSON for trend analysis.
 
 Phase 2 picks up with these guarantees from Phase 1:
 
-1. **A working `DaemonCiBackend.ensure_initialized()`** that uploads the
+1. **A working `DaemonBackend.ensure_initialized()`** that uploads the
    runtime bundle, runs the in-sandbox indexer, downloads the snapshot,
    and caches a typed `dict[str, list[SymbolInfo]]` in orchestrator
    memory. Phase 2 replaces the snapshot download + cache with a
@@ -438,10 +438,10 @@ Phase 2 picks up with these guarantees from Phase 1:
 3. **The `bootstrap_in_sandbox_ci_runtime` hook** wired into
    `create_sandbox` and `start_sandbox`. Phase 2 extends the body to
    also spawn the daemon via `setsid nohup python3 -m
-   sandbox.code_intelligence.in_sandbox.ci_daemon &` and wait for the
+   sandbox.code_intelligence.daemon.server &` and wait for the
    AF_UNIX socket to bind.
 
-4. **Path-confinement guard (`_confine`)** in `ci_storage.py` already
+4. **Path-confinement guard (`_confine`)** in `storage.py` already
    rejects path traversal. Phase 3 stacks a daemon-level
    workspace-write bypass guard on top.
 
@@ -459,8 +459,8 @@ Phase 2 picks up with these guarantees from Phase 1:
 
 | Item | Location | Severity |
 |---|---|---|
-| **Trust boundary on `pickle.loads(snapshot)`** at `backend.py:518` — orchestrator deserializes bytes produced inside the (potentially compromised) sandbox. Phase 2's daemon command MUST migrate to a safe wire format (msgpack with schema, or json + reconstructed dataclass) so a malicious sandbox cannot achieve RCE on the orchestrator host | `backend.py:518` (DaemonCiBackend._ensure_initialized_async) | HARD — Phase 2 blocker |
-| **Snapshot-transfer cost erasure** — Phase 1's chunked-base64 download is ~34 s for a 3.2 MB pickle. Phase 2 daemon command must close `index_build_in_sandbox` to ≤ 3x of Phase 0 by serving symbol queries from daemon memory instead of round-tripping the snapshot | `DaemonCiBackend.query_symbols` | HARD — replaces Phase 1's relaxed SLO |
+| **Trust boundary on `pickle.loads(snapshot)`** in the retired Phase 1 daemon client — orchestrator deserialized bytes produced inside the (potentially compromised) sandbox. Phase 2's daemon command MUST migrate to a safe wire format (msgpack with schema, or json + reconstructed dataclass) so a malicious sandbox cannot achieve RCE on the orchestrator host | retired daemon client snapshot path | HARD — Phase 2 blocker |
+| **Snapshot-transfer cost erasure** — Phase 1's chunked-base64 download is ~34 s for a 3.2 MB pickle. Phase 2 daemon command must close `index_build_in_sandbox` to ≤ 3x of Phase 0 by serving symbol queries from daemon memory instead of round-tripping the snapshot | `DaemonBackend.query_symbols` | HARD — replaces Phase 1's relaxed SLO |
 
 ### Non-blocking follow-ups (LOW severity)
 
@@ -473,10 +473,10 @@ Phase 2 picks up with these guarantees from Phase 1:
 ### What Phase 1 explicitly does NOT ship
 
 - No daemon process. `ensure_initialized` does a one-shot indexer run.
-- No `ci_daemon.py` — that's Phase 2.
+- No `server.py` — that's Phase 2.
 - No daemon-side workspace-write bypass guard — Phase 3.
 - No SQLite migration of the snapshot — Phase 3.5.
-- No `DaemonCiBackend.warmup` / mutation methods — they still raise.
+- No `DaemonBackend.warmup` / mutation methods — they still raise.
 
 ---
 
