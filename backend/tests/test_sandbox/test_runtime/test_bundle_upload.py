@@ -57,23 +57,18 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/runtime/bash.py",
         "sandbox/runtime/pipelines.py",
         "sandbox/runtime/setup_orchestrator.py",
-        "sandbox/runtime/command_client.py",
         "sandbox/occ/bootstrap.py",
-        "sandbox/occ/client.py",
         "sandbox/occ/engine.py",
         "sandbox/occ/setup.sh",
         "sandbox/occ/handlers/write.py",
         "sandbox/occ/operations/service.py",
         "sandbox/occ/commit/coordinator.py",
         "sandbox/overlay/bootstrap.py",
-        "sandbox/overlay/client.py",
         "sandbox/overlay/engine/__init__.py",
         "sandbox/overlay/engine/local.py",
         "sandbox/overlay/setup.sh",
         "sandbox/overlay/handlers/run.py",
         "sandbox/overlay/runtime/cli.py",
-        "sandbox/runtime/service.py",
-        "sandbox/runtime/backends/protocol.py",
     ]
     missing = [p for p in required if not (extract_dir / p).exists()]
     assert missing == [], f"bundle is missing required paths: {missing}"
@@ -97,9 +92,54 @@ def test_bundle_excludes_host_only_raw_exec_modules() -> None:
     with tarfile.open(fileobj=io.BytesIO(bundle), mode="r:gz") as tar:
         names = set(tar.getnames())
 
-    assert "sandbox/api/raw_exec.py" not in names
-    assert "sandbox/runtime/bundle.py" not in names
+    excluded = {
+        "sandbox/api/edit.py",
+        "sandbox/api/raw_exec.py",
+        "sandbox/api/read.py",
+        "sandbox/api/shell.py",
+        "sandbox/api/write.py",
+        "sandbox/lifecycle/commit.py",
+        "sandbox/occ/client.py",
+        "sandbox/overlay/client.py",
+        "sandbox/runtime/_server_dispatch.py",
+        "sandbox/runtime/bundle.py",
+        "sandbox/runtime/command_client.py",
+        "sandbox/runtime/registry.py",
+        "sandbox/runtime/service.py",
+        "sandbox/runtime/shell_command_executor.py",
+    }
+    assert excluded.isdisjoint(names)
     assert all(not name.startswith("sandbox/providers/") for name in names)
+    assert all(not name.startswith("sandbox/runtime/backends/") for name in names)
+
+
+def test_bundle_extracted_python_modules_import_clean(tmp_path: Path) -> None:
+    bundle = _runtime_bundle_bytes()
+    extract_dir = tmp_path / "extracted"
+    _extract_bundle(bundle, extract_dir)
+
+    modules = sorted(
+        path.relative_to(extract_dir).with_suffix("").as_posix().replace("/", ".")
+        for path in (extract_dir / "sandbox").rglob("*.py")
+        if path.name != "__init__.py"
+    )
+    script = (
+        "import importlib, sys; "
+        f"sys.path.insert(0, {str(extract_dir)!r}); "
+        f"modules = {modules!r}; "
+        "[importlib.import_module(name) for name in modules]; "
+        "print('imported', len(modules))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={"PATH": "/usr/bin:/bin"},
+    )
+    assert result.returncode == 0, (
+        f"bundle module import failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
 
 
 def test_bundle_includes_peer_setup_scripts(

@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 BUNDLE_REMOTE_DIR = "/tmp/eos-ci-runtime"
 """Remote directory the bundle is extracted into."""
 
+_RUNTIME_EXCLUDE_PARTS = {
+    "_server_dispatch.py",
+    "backends",
+    "command_client.py",
+    "registry.py",
+    "service.py",
+    "shell_command_executor.py",
+}
+_OCC_EXCLUDE_PARTS = {"client.py"}
+_OVERLAY_EXCLUDE_PARTS = {"client.py"}
+
 _BUNDLE_HASH_MARKER = f"{BUNDLE_REMOTE_DIR}/.bundle-hash"
 _BUNDLE_REMOTE_TARBALL = f"{BUNDLE_REMOTE_DIR}/bundle.tar.gz"
 
@@ -132,8 +143,11 @@ def _runtime_bundle_bytes() -> bytes:
                 arcname=f"sandbox/{filename}",
             )
 
-        api_dir = sandbox_dir / "api"
-        _add_python_tree(tar, api_dir, sandbox_dir=sandbox_dir)
+        _add_if_exists(
+            tar,
+            sandbox_dir / "api" / "models.py",
+            arcname="sandbox/api/models.py",
+        )
 
         client_dir = sandbox_dir / "client"
         for filename in ("__init__.py", "async_bridge.py"):
@@ -143,22 +157,29 @@ def _runtime_bundle_bytes() -> bytes:
                 arcname=f"sandbox/client/{filename}",
             )
 
-        lifecycle_dir = sandbox_dir / "lifecycle"
-        for filename in ("__init__.py", "commit.py"):
-            _add_if_exists(
-                tar,
-                lifecycle_dir / filename,
-                arcname=f"sandbox/lifecycle/{filename}",
-            )
-
         runtime_dir = sandbox_dir / "runtime"
-        _add_python_tree(tar, runtime_dir, sandbox_dir=sandbox_dir)
+        _add_python_tree(
+            tar,
+            runtime_dir,
+            sandbox_dir=sandbox_dir,
+            exclude_parts=_RUNTIME_EXCLUDE_PARTS,
+        )
 
         occ_dir = sandbox_dir / "occ"
-        _add_python_tree(tar, occ_dir, sandbox_dir=sandbox_dir)
+        _add_python_tree(
+            tar,
+            occ_dir,
+            sandbox_dir=sandbox_dir,
+            exclude_parts=_OCC_EXCLUDE_PARTS,
+        )
 
         overlay_dir = sandbox_dir / "overlay"
-        _add_python_tree(tar, overlay_dir, sandbox_dir=sandbox_dir)
+        _add_python_tree(
+            tar,
+            overlay_dir,
+            sandbox_dir=sandbox_dir,
+            exclude_parts=_OVERLAY_EXCLUDE_PARTS,
+        )
 
         _add_peer_setup_scripts(tar, sandbox_dir=sandbox_dir)
 

@@ -28,6 +28,7 @@ The `step-XX` filename prefix is the implementation order. The slice ID remains 
 - Step 4 / Slice 3: [Runtime scaffolding report](./step-04-slice-3-implementation-report.md)
 - Step 5 / Slice 4: [OCC peer relocation report](./step-05-slice-4-implementation-report.md)
 - Step 6 / Slice 5b: [Overlay peer relocation report](./step-06-slice-5b-implementation-report.md)
+- Step 7 / Slice 6: [Public verb API report](./step-07-slice-6-implementation-report.md)
 
 ## Ordering invariants
 
