@@ -56,8 +56,7 @@ def _make_executor(
         workspace_root=str(workspace),
         write_coordinator=write_coordinator,
         rebind_sandbox=lambda _sandbox: None,
-        transport=None,
-        daemon_local=False,
+        direct_runtime=False,
     )
 
 

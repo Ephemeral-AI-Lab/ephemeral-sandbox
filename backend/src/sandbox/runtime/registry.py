@@ -6,7 +6,6 @@ import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from sandbox.api.transport import SandboxTransport
     from sandbox.runtime.service import CodeIntelligenceService
 
 _SERVICES: dict[str, "CodeIntelligenceService"] = {}
@@ -18,29 +17,22 @@ def get_code_intelligence(
     sandbox_id: str,
     workspace_root: str = "/workspace",
     sandbox: Any = None,
-    *,
-    transport: "SandboxTransport | None" = None,
 ) -> "CodeIntelligenceService":
     """Get or create a runtime service for *sandbox_id*.
 
-    When ``transport`` is supplied, downstream subsystems route sandbox I/O
-    through the provider-neutral transport. Defaulting to ``None`` preserves
-    local/test callers that construct the service with only ``sandbox=``.
+    Sandboxes with a registered provider adapter use the remote runtime
+    backend; local/test callers without an adapter keep using the in-process
+    backend.
     """
     from sandbox.runtime.service import CodeIntelligenceService
 
-    def _transport_matches(service: CodeIntelligenceService) -> bool:
-        current = getattr(service, "_transport", None)
-        if transport is None:
-            return current is None
-        return current is transport
-
+    wants_provider_backend = _has_provider_adapter(sandbox_id)
     with _SERVICES_LOCK:
         existing = _SERVICES.get(sandbox_id)
         if (
             existing is not None
             and existing.workspace_root == workspace_root
-            and _transport_matches(existing)
+            and _uses_provider_backend(existing) == wants_provider_backend
         ):
             existing.rebind_sandbox(sandbox)
             return existing
@@ -54,7 +46,7 @@ def get_code_intelligence(
             if (
                 existing is not None
                 and existing.workspace_root == workspace_root
-                and _transport_matches(existing)
+                and _uses_provider_backend(existing) == wants_provider_backend
             ):
                 existing.rebind_sandbox(sandbox)
                 return existing
@@ -68,11 +60,28 @@ def get_code_intelligence(
             sandbox_id=sandbox_id,
             workspace_root=workspace_root,
             sandbox=sandbox,
-            transport=transport,
         )
         with _SERVICES_LOCK:
             _SERVICES[sandbox_id] = service
         return service
+
+
+def _has_provider_adapter(sandbox_id: str) -> bool:
+    if not sandbox_id:
+        return False
+    from sandbox.providers.registry import get_adapter
+
+    try:
+        get_adapter(sandbox_id)
+    except KeyError:
+        return False
+    return True
+
+
+def _uses_provider_backend(service: "CodeIntelligenceService") -> bool:
+    from sandbox.runtime.backends import DaemonBackend
+
+    return isinstance(service._impl, DaemonBackend)  # type: ignore[attr-defined]
 
 
 def get_code_intelligence_if_exists(sandbox_id: str) -> "CodeIntelligenceService | None":

@@ -87,7 +87,7 @@ def write_result_json(
     rejected: dict[str, object] | None,
     run_timings: dict[str, float],
 ) -> str:
-    """Write the atomic completion marker consumed by daemon-local callers."""
+    """Write the atomic completion marker consumed by direct-runtime callers."""
     path = os.path.join(run_dir, "result.json")
     tmp_path = f"{path}.tmp-{os.getpid()}"
     payload = {

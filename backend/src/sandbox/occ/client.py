@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import shlex
 from collections.abc import Sequence
 from typing import Any
 
@@ -23,7 +21,7 @@ from sandbox.occ.wire import (
     writespec_to_dict,
 )
 from sandbox.providers.registry import get_adapter
-from sandbox.runtime.bundle import BUNDLE_REMOTE_DIR
+from sandbox.runtime._server_dispatch import RuntimeDispatchError, call_runtime_server
 
 
 class OCCClientError(RuntimeError):
@@ -109,65 +107,16 @@ class OCCClient:
         return changeset_result_from_dict(result)
 
     async def _call(self, op: str, args: dict[str, Any]) -> dict[str, Any]:
-        payload = {
-            "op": op,
-            "args": {
-                "workspace_root": self.workspace_root,
-                **args,
-            },
-        }
-        raw_payload = json.dumps(payload, separators=(",", ":"))
-        command = f"python3 -m sandbox.runtime.server {shlex.quote(raw_payload)}"
-        result = await get_adapter(self.sandbox_id).exec(
-            self.sandbox_id,
-            command,
-            cwd=BUNDLE_REMOTE_DIR,
-            timeout=self.timeout,
-        )
         try:
-            response = _decode_response(result.stdout)
-        except OCCClientError:
-            if result.exit_code != 0:
-                raise OCCClientError(
-                    kind="RuntimeExecFailed",
-                    message=result.stderr or result.stdout,
-                    details={"exit_code": result.exit_code},
-                ) from None
-            raise
-        if "error" in response:
-            error = response.get("error") or {}
-            raise OCCClientError(
-                kind=str(error.get("kind") or "RuntimeError"),
-                message=str(error.get("message") or ""),
-                details=error.get("details")
-                if isinstance(error.get("details"), dict)
-                else {},
+            return await call_runtime_server(
+                exec_fn=get_adapter(self.sandbox_id).exec,
+                sandbox_id=self.sandbox_id,
+                op=op,
+                args={"workspace_root": self.workspace_root, **args},
+                timeout=self.timeout,
             )
-        if result.exit_code != 0:
-            raise OCCClientError(
-                kind="RuntimeExecFailed",
-                message=result.stderr or result.stdout,
-                details={"exit_code": result.exit_code},
-            )
-        return response
-
-
-def _decode_response(stdout: str) -> dict[str, Any]:
-    try:
-        decoded = json.loads((stdout or "").strip())
-    except json.JSONDecodeError as exc:
-        raise OCCClientError(
-            "BadRuntimeResponse",
-            "OCC runtime returned invalid JSON",
-            {"stdout": stdout},
-        ) from exc
-    if not isinstance(decoded, dict):
-        raise OCCClientError(
-            "BadRuntimeResponse",
-            "OCC runtime returned a non-object JSON response",
-            {"response": decoded},
-        )
-    return decoded
+        except RuntimeDispatchError as exc:
+            raise OCCClientError(exc.kind, exc.message, exc.details) from exc
 
 
 __all__ = ["OCCClient", "OCCClientError"]

@@ -28,6 +28,7 @@ import pytest
 
 from engine.testing.eval_agent import EvalAgent
 from sandbox.api.bash import extract_exit_code, wrap_bash_command
+from sandbox.occ.types import OperationChange, OperationResult
 from sandbox.runtime.backends import DaemonBackend
 
 from ._timing_harness import TimingHarness
@@ -64,7 +65,6 @@ class LivePhase3Env:
     sandbox_id: str
     raw_sandbox: Any
     repo_dir: str
-    transport: Any
 
     def exec(self, command: str, *, timeout: int = 60) -> tuple[int, str]:
         response = self.raw_sandbox.process.exec(
@@ -78,7 +78,7 @@ class LivePhase3Env:
         return exit_code, output
 
     def daemon_backend(self) -> DaemonBackend:
-        return DaemonBackend(sandbox_id=self.sandbox_id, workspace_root=self.repo_dir, transport=self.transport)
+        return DaemonBackend(sandbox_id=self.sandbox_id, workspace_root=self.repo_dir)
 
 
 @contextmanager
@@ -123,7 +123,6 @@ def live_phase3_env() -> Iterator[LivePhase3Env]:
     from benchmarks.sweevo.dataset import select_sweevo_instance
     from benchmarks.sweevo.models import _CONDA_ACTIVATE
     from benchmarks.sweevo.sandbox import create_sweevo_test_sandbox
-    from sandbox.daytona.transport import DaytonaTransport
     from sandbox.testing import delete_test_sandbox, get_sandbox_service
 
     instance = select_sweevo_instance(instance_id=_DASK_SWEEVO_INSTANCE_ID)
@@ -143,7 +142,6 @@ def live_phase3_env() -> Iterator[LivePhase3Env]:
             sandbox_id=sandbox_id,
             raw_sandbox=raw_sandbox,
             repo_dir=_DASK_SWEEVO_REPO_DIR,
-            transport=DaytonaTransport(),
         )
         code, output = env.exec(
             f"{_CONDA_ACTIVATE} && cd {_DASK_SWEEVO_REPO_DIR} && python --version",
@@ -172,29 +170,33 @@ def test_invariant_sorted_path_locks(live_phase3_env: LivePhase3Env) -> None:
 
     from sandbox.occ.content.hashing import content_hash
 
-    def _make_change(path: str, base: str, final: str) -> dict[str, Any]:
-        return {
-            "file_path": path,
-            "base_content": base,
-            "base_hash": content_hash(base),
-            "final_content": final,
-            "base_existed": True,
-            "strict_base": True,
-        }
+    def _make_change(path: str, base: str, final: str) -> OperationChange:
+        return OperationChange(
+            file_path=path,
+            base_content=base,
+            base_hash=content_hash(base),
+            final_content=final,
+            base_existed=True,
+            strict_base=True,
+        )
 
-    async def commit_in_order(idx_a: int, idx_b: int, agent: str) -> Any:
-        return await daemon_backend._call_runtime_command(
-            "occ.commit_against_base",
-            {
-                "changes": [
-                    _make_change(files[idx_a], "A\n" if idx_a == 0 else "B\n",
-                                 "A1\n" if idx_a == 0 else "B1\n"),
-                    _make_change(files[idx_b], "A\n" if idx_b == 0 else "B\n",
-                                 "A1\n" if idx_b == 0 else "B1\n"),
-                ],
-                "edit_type": "edit_file",
-                "agent_id": agent,
-            },
+    async def commit_in_order(idx_a: int, idx_b: int, agent: str) -> OperationResult:
+        return await asyncio.to_thread(
+            daemon_backend.commit_operation_against_base,
+            [
+                _make_change(
+                    files[idx_a],
+                    "A\n" if idx_a == 0 else "B\n",
+                    "A1\n" if idx_a == 0 else "B1\n",
+                ),
+                _make_change(
+                    files[idx_b],
+                    "A\n" if idx_b == 0 else "B\n",
+                    "A1\n" if idx_b == 0 else "B1\n",
+                ),
+            ],
+            edit_type="edit_file",
+            agent_id=agent,
         )
 
     async def commit_both_orders() -> Any:
@@ -210,7 +212,7 @@ def test_invariant_sorted_path_locks(live_phase3_env: LivePhase3Env) -> None:
     # At least one commit must succeed; no exception should propagate.
     successes = sum(
         1 for r in results
-        if isinstance(r, dict) and r.get("success")
+        if isinstance(r, OperationResult) and r.success
     )
     assert successes >= 1, f"expected at least one success, got {results}"
     print(h.report())
@@ -236,53 +238,49 @@ def test_invariant_strict_base_occ_aborts_on_drift(
 
     base_v1_hash = content_hash("v1\n")
 
-    async def first_commit() -> Any:
-        return await daemon_backend._call_runtime_command(
-            "occ.commit_against_base",
-            {
-                "changes": [
-                    {
-                        "file_path": target,
-                        "base_content": "v1\n",
-                        "base_hash": base_v1_hash,
-                        "final_content": "v2\n",
-                        "base_existed": True,
-                        "strict_base": True,
-                    }
-                ],
-                "edit_type": "edit_file",
-                "agent_id": "agent-fresh",
-            },
+    async def first_commit() -> OperationResult:
+        return await asyncio.to_thread(
+            daemon_backend.commit_operation_against_base,
+            [
+                OperationChange(
+                    file_path=target,
+                    base_content="v1\n",
+                    base_hash=base_v1_hash,
+                    final_content="v2\n",
+                    base_existed=True,
+                    strict_base=True,
+                )
+            ],
+            edit_type="edit_file",
+            agent_id="agent-fresh",
         )
 
-    async def stale_commit() -> Any:
+    async def stale_commit() -> OperationResult:
         # This second call is using v1 base after target is already v2.
-        return await daemon_backend._call_runtime_command(
-            "occ.commit_against_base",
-            {
-                "changes": [
-                    {
-                        "file_path": target,
-                        "base_content": "v1\n",
-                        "base_hash": base_v1_hash,
-                        "final_content": "v3\n",
-                        "base_existed": True,
-                        "strict_base": True,
-                    }
-                ],
-                "edit_type": "edit_file",
-                "agent_id": "agent-stale",
-            },
+        return await asyncio.to_thread(
+            daemon_backend.commit_operation_against_base,
+            [
+                OperationChange(
+                    file_path=target,
+                    base_content="v1\n",
+                    base_hash=base_v1_hash,
+                    final_content="v3\n",
+                    base_existed=True,
+                    strict_base=True,
+                )
+            ],
+            edit_type="edit_file",
+            agent_id="agent-stale",
         )
 
     with _traced_step(h, "first_commit"):
         first = _asyncio_run(first_commit())
-    assert first.get("success") is True, first
+    assert first.success is True, first
 
     with _traced_step(h, "stale_commit"):
         stale = _asyncio_run(stale_commit())
-    assert stale.get("success") is False, stale
-    assert stale.get("status") in {"aborted_version", "aborted_overlap"}, stale
+    assert stale.success is False, stale
+    assert stale.status in {"aborted_version", "aborted_overlap"}, stale
     print(h.report())
     h.dump_json()
 
@@ -308,52 +306,48 @@ def test_invariant_non_overlap_merge_converges(
     base = "line1\nline2\nline3\n"
     base_hash = content_hash(base)
 
-    async def edit_top() -> Any:
-        return await daemon_backend._call_runtime_command(
-            "occ.commit_against_base",
-            {
-                "changes": [
-                    {
-                        "file_path": target,
-                        "base_content": base,
-                        "base_hash": base_hash,
-                        "final_content": "TOP\nline2\nline3\n",
-                        "base_existed": True,
-                        "strict_base": False,
-                    }
-                ],
-                "edit_type": "edit_file",
-                "agent_id": "agent-top",
-            },
+    async def edit_top() -> OperationResult:
+        return await asyncio.to_thread(
+            daemon_backend.commit_operation_against_base,
+            [
+                OperationChange(
+                    file_path=target,
+                    base_content=base,
+                    base_hash=base_hash,
+                    final_content="TOP\nline2\nline3\n",
+                    base_existed=True,
+                    strict_base=False,
+                )
+            ],
+            edit_type="edit_file",
+            agent_id="agent-top",
         )
 
-    async def edit_bot() -> Any:
-        return await daemon_backend._call_runtime_command(
-            "occ.commit_against_base",
-            {
-                "changes": [
-                    {
-                        "file_path": target,
-                        "base_content": base,
-                        "base_hash": base_hash,
-                        "final_content": "line1\nline2\nBOT\n",
-                        "base_existed": True,
-                        "strict_base": False,
-                    }
-                ],
-                "edit_type": "edit_file",
-                "agent_id": "agent-bot",
-            },
+    async def edit_bot() -> OperationResult:
+        return await asyncio.to_thread(
+            daemon_backend.commit_operation_against_base,
+            [
+                OperationChange(
+                    file_path=target,
+                    base_content=base,
+                    base_hash=base_hash,
+                    final_content="line1\nline2\nBOT\n",
+                    base_existed=True,
+                    strict_base=False,
+                )
+            ],
+            edit_type="edit_file",
+            agent_id="agent-bot",
         )
 
     with _traced_step(h, "first_edit_top"):
         first = _asyncio_run(edit_top())
-    assert first.get("success") is True, first
+    assert first.success is True, first
 
     with _traced_step(h, "non_overlap_edit_bot"):
         second = _asyncio_run(edit_bot())
     # Either the merge fallback succeeds, or the implementation aborts cleanly.
-    assert second.get("status") in {"committed", "aborted_version"}, second
+    assert second.status in {"committed", "aborted_version"}, second
     print(h.report())
     h.dump_json()
 
@@ -375,36 +369,34 @@ def test_invariant_atomic_batch_rollback(live_phase3_env: LivePhase3Env) -> None
     from sandbox.occ.content.hashing import content_hash
 
     # Mismatched base on file B forces the batch to abort mid-flight.
-    async def crash_batch() -> Any:
-        return await daemon_backend._call_runtime_command(
-            "occ.commit_against_base",
-            {
-                "changes": [
-                    {
-                        "file_path": a,
-                        "base_content": "A0\n",
-                        "base_hash": content_hash("A0\n"),
-                        "final_content": "A1\n",
-                        "base_existed": True,
-                        "strict_base": True,
-                    },
-                    {
-                        "file_path": b,
-                        "base_content": "WRONG\n",
-                        "base_hash": content_hash("WRONG\n"),
-                        "final_content": "B1\n",
-                        "base_existed": True,
-                        "strict_base": True,
-                    },
-                ],
-                "edit_type": "edit_file",
-                "agent_id": "agent-tm",
-            },
+    async def crash_batch() -> OperationResult:
+        return await asyncio.to_thread(
+            daemon_backend.commit_operation_against_base,
+            [
+                OperationChange(
+                    file_path=a,
+                    base_content="A0\n",
+                    base_hash=content_hash("A0\n"),
+                    final_content="A1\n",
+                    base_existed=True,
+                    strict_base=True,
+                ),
+                OperationChange(
+                    file_path=b,
+                    base_content="WRONG\n",
+                    base_hash=content_hash("WRONG\n"),
+                    final_content="B1\n",
+                    base_existed=True,
+                    strict_base=True,
+                ),
+            ],
+            edit_type="edit_file",
+            agent_id="agent-tm",
         )
 
     with _traced_step(h, "crash_batch"):
         result = _asyncio_run(crash_batch())
-    assert result.get("success") is False, result
+    assert result.success is False, result
 
     # Both files should be unchanged.
     code_a, content_a = env.exec(f"cat {a}")

@@ -1,4 +1,4 @@
-"""Parity tests for daemon-local and multistage overlay readback."""
+"""Parity tests for direct-runtime and multistage overlay readback."""
 
 from __future__ import annotations
 
@@ -127,7 +127,7 @@ async def _noop_exec(sandbox: _ScriptedSandbox, command: str, *, timeout=None):
 
 async def _should_not_exec(_sandbox: Any, _command: str, *, timeout=None) -> None:
     del timeout
-    raise AssertionError("daemon-local overlay branch should not call _do_exec")
+    raise AssertionError("direct-runtime overlay branch should not call _do_exec")
 
 
 def _make_executor(
@@ -135,7 +135,7 @@ def _make_executor(
     sandbox_id: str,
     workspace_root: str,
     *,
-    daemon_local: bool,
+    direct_runtime: bool,
     bridge,
 ) -> AuditedCommandExecutor:
     executor = AuditedCommandExecutor(
@@ -143,14 +143,17 @@ def _make_executor(
         workspace_root=workspace_root,
         write_coordinator=svc._write_coordinator,
         rebind_sandbox=lambda _sandbox: None,
-        transport=None,
-        daemon_local=daemon_local,
+        direct_runtime=direct_runtime,
     )
     executor._exec_sandbox_process = bridge  # type: ignore[assignment]
     return executor
 
 
-def _install_daemon_subprocess(monkeypatch: pytest.MonkeyPatch, diff: str, stdout: str):
+def _install_direct_runtime_subprocess(
+    monkeypatch: pytest.MonkeyPatch,
+    diff: str,
+    stdout: str,
+) -> None:
     original_run = subprocess.run
 
     def _fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
@@ -192,7 +195,7 @@ async def _run_multistage(repo: Path, case: str) -> dict[str, Any]:
         svc,
         f"multi-{case}-{repo.name}",
         str(repo),
-        daemon_local=False,
+        direct_runtime=False,
         bridge=_noop_exec,
     )
     result = await executor.cmd(sandbox, "echo phase6", timeout=60)
@@ -203,22 +206,22 @@ async def _run_multistage(repo: Path, case: str) -> dict[str, Any]:
     }
 
 
-async def _run_daemon_local(
+async def _run_direct_runtime(
     repo: Path,
     case: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> dict[str, Any]:
     diff, _user_exit, stdout = _diff_for_case(case)
-    _install_daemon_subprocess(monkeypatch, diff, stdout)
+    _install_direct_runtime_subprocess(monkeypatch, diff, stdout)
     svc = CodeIntelligenceService(
-        sandbox_id=f"daemon-{case}-{repo.name}",
+        sandbox_id=f"direct-{case}-{repo.name}",
         workspace_root=str(repo),
     )
     executor = _make_executor(
         svc,
-        f"daemon-{case}-{repo.name}",
+        f"direct-{case}-{repo.name}",
         str(repo),
-        daemon_local=True,
+        direct_runtime=True,
         bridge=_should_not_exec,
     )
     result = await executor.cmd(None, "echo phase6", timeout=60)
@@ -231,15 +234,15 @@ async def _run_daemon_local(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", ["noop", "gitinclude"])
-async def test_daemon_local_branch_matches_multistage_result_shape(
+async def test_direct_runtime_branch_matches_multistage_result_shape(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     case: str,
 ) -> None:
     multistage_repo = _make_repo(tmp_path, f"multi-{case}")
-    daemon_repo = _make_repo(tmp_path, f"daemon-{case}")
+    direct_repo = _make_repo(tmp_path, f"direct-{case}")
 
     multistage = await _run_multistage(multistage_repo, case)
-    daemon = await _run_daemon_local(daemon_repo, case, monkeypatch)
+    direct = await _run_direct_runtime(direct_repo, case, monkeypatch)
 
-    assert daemon == multistage
+    assert direct == multistage

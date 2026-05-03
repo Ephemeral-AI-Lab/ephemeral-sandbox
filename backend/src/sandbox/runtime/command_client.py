@@ -1,12 +1,8 @@
-"""Transport-backed client for the bundled in-sandbox runtime dispatcher."""
+"""Provider-backed client for the bundled in-sandbox runtime dispatcher."""
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
-import shlex
-import textwrap
 import threading
 import time
 from collections.abc import Sequence
@@ -14,10 +10,11 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 from sandbox.client.async_bridge import run_sync
+from sandbox.providers.registry import get_adapter
+from sandbox.runtime.bundle import ensure_runtime_uploaded
+from sandbox.runtime._server_dispatch import RuntimeDispatchError, call_runtime_server
 
 if TYPE_CHECKING:
-    from sandbox.api.models import RawExecResult
-    from sandbox.api.transport import SandboxTransport
     from sandbox.occ.types import (
         EditRequest,
         EditResult,
@@ -28,8 +25,6 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
-
-_BUNDLE_REMOTE_DIR = "/tmp/eos-ci-runtime"
 
 
 class RuntimeCommandError(Exception):
@@ -56,12 +51,9 @@ class RuntimeCommandClient:
         self,
         sandbox_id: str,
         workspace_root: str = "/workspace",
-        *,
-        transport: "SandboxTransport",
     ) -> None:
         self.sandbox_id = sandbox_id
         self.workspace_root = workspace_root
-        self._transport = transport
         self.is_initialized = False
         self._init_lock = threading.Lock()
 
@@ -75,10 +67,7 @@ class RuntimeCommandClient:
             return self.is_initialized
 
     async def _ensure_initialized_async(self) -> None:
-        await _ensure_runtime_uploaded_via_transport(
-            self._transport,
-            self.sandbox_id,
-        )
+        await ensure_runtime_uploaded(self.sandbox_id)
         with self._init_lock:
             self.is_initialized = True
 
@@ -145,71 +134,29 @@ class RuntimeCommandClient:
         *,
         timeout: float,
     ) -> Any:
-        await _ensure_runtime_uploaded_via_transport(
-            self._transport,
-            self.sandbox_id,
-        )
-        response = await self._run_command_via_process_exec(op, args, timeout=timeout)
+        await ensure_runtime_uploaded(self.sandbox_id)
+        try:
+            response = await call_runtime_server(
+                exec_fn=get_adapter(self.sandbox_id).exec,
+                sandbox_id=self.sandbox_id,
+                op=op,
+                args=args,
+                timeout=max(1, int(timeout) + 5),
+            )
+        except RuntimeDispatchError as exc:
+            if exc.kind == "RuntimeExecFailed":
+                raise ConnectionRefusedError(exc.message) from exc
+            raise RuntimeCommandError(
+                kind=exc.kind,
+                message=exc.message,
+                details=exc.details,
+            ) from exc
         logger.debug(
             "sandbox runtime command_once: op=%s success=%s",
             op,
             response.get("success"),
         )
-        if "error" in response:
-            error = response.get("error") or {}
-            raise RuntimeCommandError(
-                kind=str(error.get("kind") or "internal_error"),
-                message=str(error.get("message") or ""),
-                details=error.get("details")
-                if isinstance(error.get("details"), dict)
-                else {},
-            )
         return response
-
-    async def _run_command_via_process_exec(
-        self,
-        op: str,
-        args: dict[str, Any],
-        *,
-        timeout: float,
-    ) -> dict[str, Any]:
-        payload = {"op": op, "args": args}
-        encoded = base64.b64encode(
-            json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        ).decode("ascii")
-        script = textwrap.dedent(
-            f"""
-            import base64
-            import json
-            import sys
-            from sandbox.runtime.server import dispatch_envelope
-
-            payload = json.loads(base64.b64decode({encoded!r}).decode("utf-8"))
-            response = dispatch_envelope(payload)
-            raw = json.dumps(response, separators=(",", ":")).encode("utf-8")
-            sys.stdout.write(base64.b64encode(raw).decode("ascii"))
-            """
-        ).strip()
-        command = f"cd {shlex.quote(_BUNDLE_REMOTE_DIR)} && python3 - <<'PY'\n{script}\nPY"
-        result = await self._transport.exec(
-            self.sandbox_id,
-            command,
-            timeout=max(1, int(timeout) + 5),
-        )
-        stdout = (getattr(result, "stdout", "") or "").strip()
-        if getattr(result, "exit_code", 1) != 0:
-            raise ConnectionRefusedError(stdout)
-        try:
-            decoded = json.loads(base64.b64decode(stdout).decode("utf-8"))
-        except Exception as exc:
-            raise ConnectionRefusedError(
-                f"runtime command produced invalid response: {stdout!r}"
-            ) from exc
-        if not isinstance(decoded, dict):
-            raise ConnectionRefusedError(
-                f"runtime command produced non-object response: {decoded!r}"
-            )
-        return decoded
 
     def warmup(self) -> None:
         self.ensure_initialized(wait=True)
@@ -348,23 +295,6 @@ class RuntimeCommandClient:
 
     def dispose(self) -> None:
         return None
-
-
-async def _ensure_runtime_uploaded_via_transport(
-    transport: "SandboxTransport",
-    sandbox_id: str,
-) -> str:
-    from sandbox.runtime.bundle import _ensure_runtime_uploaded_with_exec
-
-    async def _exec(
-        sid: str,
-        command: str,
-        *,
-        timeout: int | None = None,
-    ) -> "RawExecResult":
-        return await transport.exec(sid, command, timeout=timeout)
-
-    return await _ensure_runtime_uploaded_with_exec(sandbox_id, _exec)
 
 
 def _shell_result_namespace(raw: dict[str, Any]) -> SimpleNamespace:

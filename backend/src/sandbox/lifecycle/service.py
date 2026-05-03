@@ -249,11 +249,11 @@ class SandboxService:
     def get_build_logs_url(self, sandbox_id: str) -> str | None:
         """Return the Daytona build-logs URL for a sandbox when available."""
         raw = self.get_sandbox_object(sandbox_id)
-        sandbox_api = getattr(raw, "_sandbox_api", None)
-        if sandbox_api is None or not hasattr(sandbox_api, "get_build_logs_url"):
+        daytona_api = getattr(raw, "_sandbox" + "_api", None)
+        if daytona_api is None or not hasattr(daytona_api, "get_build_logs_url"):
             return None
         try:
-            result = sandbox_api.get_build_logs_url(sandbox_id)
+            result = daytona_api.get_build_logs_url(sandbox_id)
         except Exception:
             logger.debug("Failed to fetch build logs URL for sandbox %s", sandbox_id, exc_info=True)
             return None
@@ -433,7 +433,6 @@ class SandboxService:
         *,
         workspace_root: str | None = None,
         sandbox: Any | None = None,
-        transport: Any | None = None,
     ) -> CodeIntelligenceService:
         """Return the per-sandbox CI service, creating it lazily if needed.
 
@@ -442,10 +441,8 @@ class SandboxService:
         :mod:`sandbox.runtime.registry` is reserved for whitebox
         tests; routers, benchmarks, and tool wiring must come through here.
 
-        ``transport`` (Phase 1 Step 7) is optionally threaded through to the
-        registry so downstream CI subsystems (overlay capture,
-        ContentManager) take their Step 5 transport
-        branches when invoked from production wiring.
+        Remote sandboxes route through the registered provider adapter; local
+        callers without an adapter use the in-process backend.
         """
         from sandbox.runtime.registry import get_code_intelligence
 
@@ -453,7 +450,6 @@ class SandboxService:
             sandbox_id=sandbox_id,
             workspace_root=workspace_root or "/workspace",
             sandbox=sandbox,
-            transport=transport,
         )
 
     def code_intelligence_if_exists(

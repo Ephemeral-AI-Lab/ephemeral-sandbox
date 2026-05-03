@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from sandbox.api.attribution import build_actor
 from sandbox.api.models import RequestActor
 from tools.core.context import ToolExecutionContextService
 from tools.core.results import ToolResult
@@ -16,11 +13,13 @@ def actor_from_context(
     preferred_agent_id: str = "",
 ) -> RequestActor:
     """Build the audit actor for a tool call."""
-    return build_actor(
-        preferred_agent_id=preferred_agent_id,
-        agent_id=str(context.agent_name or ""),
+    explicit = str(preferred_agent_id or "").strip()
+    agent_run_id = str(context.agent_run_id or "")
+    agent_id = explicit or agent_run_id.strip() or str(context.agent_name or "").strip()
+    return RequestActor(
+        agent_id=agent_id,
         run_id=str(context.get("run_id") or ""),
-        agent_run_id=str(context.agent_run_id or ""),
+        agent_run_id=agent_run_id,
         task_id=str(context.get("task_id") or ""),
     )
 
@@ -66,27 +65,11 @@ def sandbox_id_or_error(context: ToolExecutionContextService) -> tuple[str, Tool
     )
 
 
-def sandbox_api_or_error(
-    context: ToolExecutionContextService,
-    *,
-    tool_name: str,
-) -> tuple[Any | None, ToolResult | None]:
-    api = context.sandbox_api
-    if api is not None:
-        return api, None
-    return None, ToolResult(
-        output=f"{tool_name}: Sandbox API is unavailable.",
-        is_error=True,
-        metadata={"sandbox_api_required": True},
-    )
-
-
 __all__ = [
     "actor_from_context",
     "get_repo_root",
     "normalized_path",
     "path_error",
     "resolve_sandbox_path",
-    "sandbox_api_or_error",
     "sandbox_id_or_error",
 ]

@@ -10,7 +10,6 @@ from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
 
-from sandbox.api.transport import SandboxTransport
 from sandbox.client.async_bridge import run_sync_in_executor, use_sandbox_io_loop
 from sandbox.overlay.engine import LocalOverlayEngine, OverlayEngine
 from sandbox.overlay.types import ShellResult
@@ -29,15 +28,13 @@ class AuditedCommandExecutor:
         workspace_root: str,
         write_coordinator: Any,
         rebind_sandbox: Callable[[Any], None],
-        transport: SandboxTransport | None = None,
-        daemon_local: bool = False,
+        direct_runtime: bool = False,
     ) -> None:
         self.sandbox_id = sandbox_id
         self.workspace_root = workspace_root
         self._write_coordinator = write_coordinator
         self._rebind_sandbox = rebind_sandbox
-        self._transport = transport
-        self._daemon_local = daemon_local
+        self._direct_runtime = direct_runtime
         self._overlay_engine: OverlayEngine | None = None
         self._init_lock = asyncio.Lock()
 
@@ -88,8 +85,7 @@ class AuditedCommandExecutor:
                 sandbox_id=self.sandbox_id,
                 workspace_root=self.workspace_root,
                 exec_process=self._exec_sandbox_process,
-                transport=self._transport,
-                daemon_local=self._daemon_local,
+                direct_runtime=self._direct_runtime,
             )
             return self._overlay_engine
 

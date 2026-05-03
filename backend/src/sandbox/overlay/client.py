@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
-import shlex
 from typing import Any
 
 from sandbox.overlay.types import OverlayRunOutcome, ShellResult
 from sandbox.overlay.wire import overlay_outcome_from_dict, shell_result_from_dict
+from sandbox.providers.registry import get_adapter
+from sandbox.runtime._server_dispatch import RuntimeDispatchError, call_runtime_server
 
 
 class OverlayClientError(RuntimeError):
@@ -82,69 +82,20 @@ class OverlayClient:
         return shell_result_from_dict(result)
 
     async def _call(self, op: str, args: dict[str, Any]) -> dict[str, Any]:
-        payload = {
-            "op": op,
-            "args": {
-                "workspace_root": self.workspace_root,
-                "sandbox_id": self.sandbox_id,
-                **{key: value for key, value in args.items() if value is not None},
-            },
-        }
-        raw_payload = json.dumps(payload, separators=(",", ":"))
-        command = f"python3 -m sandbox.runtime.server {shlex.quote(raw_payload)}"
-        from sandbox.providers.registry import get_adapter
-        from sandbox.runtime.bundle import BUNDLE_REMOTE_DIR
-
-        result = await get_adapter(self.sandbox_id).exec(
-            self.sandbox_id,
-            command,
-            cwd=BUNDLE_REMOTE_DIR,
-            timeout=self.timeout,
-        )
         try:
-            response = _decode_response(result.stdout)
-        except OverlayClientError:
-            if result.exit_code != 0:
-                raise OverlayClientError(
-                    kind="RuntimeExecFailed",
-                    message=result.stderr or result.stdout,
-                    details={"exit_code": result.exit_code},
-                ) from None
-            raise
-        if "error" in response:
-            error = response.get("error") or {}
-            raise OverlayClientError(
-                kind=str(error.get("kind") or "RuntimeError"),
-                message=str(error.get("message") or ""),
-                details=error.get("details")
-                if isinstance(error.get("details"), dict)
-                else {},
+            return await call_runtime_server(
+                exec_fn=get_adapter(self.sandbox_id).exec,
+                sandbox_id=self.sandbox_id,
+                op=op,
+                args={
+                    "workspace_root": self.workspace_root,
+                    "sandbox_id": self.sandbox_id,
+                    **args,
+                },
+                timeout=self.timeout,
             )
-        if result.exit_code != 0:
-            raise OverlayClientError(
-                kind="RuntimeExecFailed",
-                message=result.stderr or result.stdout,
-                details={"exit_code": result.exit_code},
-            )
-        return response
-
-
-def _decode_response(stdout: str) -> dict[str, Any]:
-    try:
-        decoded = json.loads((stdout or "").strip())
-    except json.JSONDecodeError as exc:
-        raise OverlayClientError(
-            "BadRuntimeResponse",
-            "overlay runtime returned invalid JSON",
-            {"stdout": stdout},
-        ) from exc
-    if not isinstance(decoded, dict):
-        raise OverlayClientError(
-            "BadRuntimeResponse",
-            "overlay runtime returned a non-object JSON response",
-            {"response": decoded},
-        )
-    return decoded
+        except RuntimeDispatchError as exc:
+            raise OverlayClientError(exc.kind, exc.message, exc.details) from exc
 
 
 __all__ = ["OverlayClient", "OverlayClientError"]

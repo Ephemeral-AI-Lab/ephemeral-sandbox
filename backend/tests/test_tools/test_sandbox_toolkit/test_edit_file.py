@@ -7,9 +7,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from sandbox.api.models import EditFileResult
 from tools.core.base import ToolExecutionContextService
 from tools.core.safe_execution import run_tool_safely
+import tools.sandbox_toolkit.edit_file as edit_file_module
 from tools.sandbox_toolkit.edit_file import edit_file
 
 
@@ -46,13 +49,13 @@ def _run(args: dict, ctx: ToolExecutionContextService):
     return asyncio.run(run_tool_safely(edit_file, args, context=ctx))
 
 
-def test_missing_sandbox_api_returns_error() -> None:
-    ctx = _ctx({"sandbox_id": "sb-1", "repo_root": "/ws"})
+def test_missing_sandbox_id_returns_error() -> None:
+    ctx = _ctx({"repo_root": "/ws"})
 
     result = _run({"file_path": "/ws/f.py", "old_text": "a", "new_text": "b"}, ctx)
 
     assert result.is_error
-    assert result.metadata.get("sandbox_api_required") is True
+    assert result.metadata.get("sandbox_required") is True
 
 
 def test_edits_schema_is_not_exposed() -> None:
@@ -92,9 +95,10 @@ def test_missing_old_text_is_rejected() -> None:
     assert api.calls == []
 
 
-def test_single_old_new_text_edit_succeeds() -> None:
+def test_single_old_new_text_edit_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
     api = _EditApi(EditFileResult(success=True, changed_paths=("/ws/file.py",), applied_edits=1))
     ctx = _ctx_with_api(api)
+    monkeypatch.setattr(edit_file_module, "sandbox_edit_file", api.edit_file)
 
     result = _run(
         {"file_path": "/ws/file.py", "old_text": "foo", "new_text": "bar"},
@@ -117,15 +121,19 @@ def test_single_old_new_text_edit_succeeds() -> None:
     assert "warnings" not in payload
 
 
-def test_aborted_version_is_surfaced_to_caller() -> None:
+def test_aborted_version_is_surfaced_to_caller(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     api = _EditApi(
         EditFileResult(
             success=False,
             changed_paths=("/ws/file.py",),
+            status="aborted_version",
             conflict_reason="drift",
         )
     )
     ctx = _ctx_with_api(api)
+    monkeypatch.setattr(edit_file_module, "sandbox_edit_file", api.edit_file)
 
     result = _run(
         {"file_path": "/ws/file.py", "old_text": "a", "new_text": "b"},
@@ -137,11 +145,14 @@ def test_aborted_version_is_surfaced_to_caller() -> None:
     assert payload["status"] == "aborted_version"
     assert payload["changed_paths"] == ["/ws/file.py"]
     assert payload["conflict_reason"] == "drift"
-    assert payload["conflict_file"] == "/ws/file.py"
+    assert "conflict_file" not in payload
+    assert "message" not in payload
     assert "warnings" not in payload
 
 
-def test_patch_failed_in_single_edit_mode_uses_structured_payload() -> None:
+def test_patch_failed_in_single_edit_mode_uses_structured_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     api = _EditApi(
         EditFileResult(
             success=False,
@@ -150,6 +161,7 @@ def test_patch_failed_in_single_edit_mode_uses_structured_payload() -> None:
         )
     )
     ctx = _ctx_with_api(api)
+    monkeypatch.setattr(edit_file_module, "sandbox_edit_file", api.edit_file)
 
     result = _run(
         {"file_path": "/ws/file.py", "old_text": "missing", "new_text": "x"},
@@ -162,9 +174,40 @@ def test_patch_failed_in_single_edit_mode_uses_structured_payload() -> None:
     assert payload["conflict_reason"] == "patch_failed"
 
 
-def test_actor_and_description_flow_through_to_api() -> None:
+def test_conflict_status_is_preserved_when_reason_is_human_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api = _EditApi(
+        EditFileResult(
+            success=False,
+            changed_paths=("/ws/file.py",),
+            status="aborted_overlap",
+            conflict_reason="concurrent edit overlaps the operation window",
+        )
+    )
+    ctx = _ctx_with_api(api)
+    monkeypatch.setattr(edit_file_module, "sandbox_edit_file", api.edit_file)
+
+    result = _run(
+        {"file_path": "/ws/file.py", "old_text": "a", "new_text": "b"},
+        ctx,
+    )
+
+    assert result.is_error
+    payload = json.loads(result.output)
+    assert payload == {
+        "status": "aborted_overlap",
+        "changed_paths": ["/ws/file.py"],
+        "conflict_reason": "concurrent edit overlaps the operation window",
+    }
+
+
+def test_actor_and_description_flow_through_to_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     api = _EditApi()
     ctx = _ctx_with_api(api, agent_run_id="run-42")
+    monkeypatch.setattr(edit_file_module, "sandbox_edit_file", api.edit_file)
 
     _run(
         {

@@ -27,45 +27,41 @@ class RequestActor:
     task_id: str = ""
 
 
-# -- Transport-level primitives --------------------------------------------
+# -- Result hierarchy -------------------------------------------------------
 
 @dataclass(frozen=True, kw_only=True)
-class RawExecResult:
-    """Result of a one-shot ``SandboxTransport.exec`` call."""
+class SandboxResultBase:
+    """Base result shape for public sandbox operations."""
+
+    success: bool = True
+
+
+@dataclass(frozen=True, kw_only=True)
+class ConflictInfo:
+    """Structured guarded-operation conflict details."""
+
+    reason: str
+    conflict_file: str | None = None
+    message: str = ""
+
+
+@dataclass(frozen=True, kw_only=True)
+class GuardedResultBase(SandboxResultBase):
+    """Base result for OCC/overlay-guarded operations."""
+
+    changed_paths: tuple[str, ...] = ()
+    status: str = ""
+    conflict: ConflictInfo | None = None
+    conflict_reason: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class RawExecResult(SandboxResultBase):
+    """Result of a one-shot raw provider exec call."""
 
     exit_code: int
     stdout: str
     stderr: str = ""
-
-
-@dataclass(frozen=True, kw_only=True)
-class CheckedWriteSpec:
-    """One file slot in a transport-level checked apply.
-
-    ``content`` semantics:
-      - ``bytes``: write or overwrite ``path`` with this payload.
-      - ``None``: delete ``path``. The apply still verifies the
-        expected hash before unlinking, so a delete of a file that was
-        modified concurrently fails with a ``base_mismatch`` reason.
-
-    ``expected_sha`` semantics:
-      - ``str``: the file's prior content hash that the caller observed.
-      - ``None``: assert the file does not exist (create-only).
-    """
-
-    path: str
-    content: bytes | None
-    expected_sha: str | None
-
-
-@dataclass(frozen=True, kw_only=True)
-class CheckedWriteResult:
-    """Outcome of ``SandboxTransport.apply_diff_batch_checked``."""
-
-    success: bool
-    written_paths: tuple[str, ...] = ()
-    conflict_paths: tuple[str, ...] = ()
-    conflict_reason: str | None = None
 
 
 # -- SandboxApi: file I/O ---------------------------------------------------
@@ -77,7 +73,7 @@ class ReadFileRequest:
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReadFileResult:
+class ReadFileResult(SandboxResultBase):
     content: str
     exists: bool = True
     encoding: str = "utf-8"
@@ -93,10 +89,8 @@ class WriteFileRequest:
 
 
 @dataclass(frozen=True, kw_only=True)
-class WriteFileResult:
-    success: bool
-    changed_paths: tuple[str, ...] = ()
-    conflict_reason: str | None = None
+class WriteFileResult(GuardedResultBase):
+    pass
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -116,11 +110,8 @@ class EditFileRequest:
 
 
 @dataclass(frozen=True, kw_only=True)
-class EditFileResult:
-    success: bool
-    changed_paths: tuple[str, ...] = ()
+class EditFileResult(GuardedResultBase):
     applied_edits: int = 0
-    conflict_reason: str | None = None
 
 
 # -- SandboxApi: search -----------------------------------------------------
@@ -139,25 +130,23 @@ class ShellRequest:
 
 
 @dataclass(frozen=True, kw_only=True)
-class ShellResult:
+class ShellResult(GuardedResultBase):
     exit_code: int
     stdout: str
     stderr: str = ""
-    success: bool = True
-    changed_paths: tuple[str, ...] = ()
-    conflict_reason: str | None = None
     warnings: tuple[str, ...] = ()
 
 
 __all__ = [
-    "CheckedWriteResult",
-    "CheckedWriteSpec",
+    "ConflictInfo",
     "EditFileRequest",
     "EditFileResult",
+    "GuardedResultBase",
     "RawExecResult",
     "ReadFileRequest",
     "ReadFileResult",
     "RequestActor",
+    "SandboxResultBase",
     "SearchReplaceEdit",
     "ShellRequest",
     "ShellResult",

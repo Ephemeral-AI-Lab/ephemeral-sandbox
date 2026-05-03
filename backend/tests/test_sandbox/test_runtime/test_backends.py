@@ -1,7 +1,7 @@
 """Unit tests for the CodeIntelligenceBackend Protocol selection + runtime backends.
 
 Covers the four-entry truth table selection logic in
-``CodeIntelligenceService._select_backend`` (transport x sandbox_id),
+``CodeIntelligenceService._select_backend`` (provider adapter x sandbox_id),
 the InProcessBackend behavioral defaults, and that DaemonBackend exposes
 the full protocol shape.
 """
@@ -19,11 +19,14 @@ from sandbox.runtime.backends import (
     InProcessBackend,
     DaemonBackend,
 )
+from sandbox.providers.registry import dispose_adapter, register_adapter
 from sandbox.runtime.registry import (
     dispose_all_code_intelligence,
     get_code_intelligence,
 )
 from sandbox.runtime.service import CodeIntelligenceService
+
+_REGISTERED_ADAPTERS: list[str] = []
 
 
 @pytest.fixture(autouse=True)
@@ -31,6 +34,14 @@ def _clear_registry() -> None:
     dispose_all_code_intelligence()
     yield
     dispose_all_code_intelligence()
+    for sandbox_id in _REGISTERED_ADAPTERS:
+        dispose_adapter(sandbox_id)
+    _REGISTERED_ADAPTERS.clear()
+
+
+def _register_adapter(sandbox_id: str) -> None:
+    register_adapter(sandbox_id, MagicMock(name=f"adapter-{sandbox_id}"))
+    _REGISTERED_ADAPTERS.append(sandbox_id)
 
 
 # ---------------------------------------------------------------------------
@@ -59,19 +70,18 @@ def test_inprocess_exposes_required_components(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_select_inprocess_with_no_transport(tmp_path: Path) -> None:
-    """No transport at all -> InProcess (sandboxless flow)."""
+def test_select_inprocess_without_provider_adapter(tmp_path: Path) -> None:
+    """No provider adapter -> InProcess (sandboxless flow)."""
     svc = CodeIntelligenceService(sandbox_id="sb-a", workspace_root=str(tmp_path))
     assert type(svc._impl) is InProcessBackend
 
 
-def test_select_daemon_with_transport_and_id(tmp_path: Path) -> None:
-    """Transport + sandbox id always selects the daemon backend."""
-    transport = MagicMock(name="SandboxTransport")
+def test_select_daemon_with_provider_adapter_and_id(tmp_path: Path) -> None:
+    """Provider adapter + sandbox id always selects the daemon backend."""
+    _register_adapter("sb-default")
     svc = CodeIntelligenceService(
         sandbox_id="sb-default",
         workspace_root=str(tmp_path),
-        transport=transport,
     )
     assert type(svc._impl) is DaemonBackend
 
@@ -80,62 +90,59 @@ def test_select_daemon_ignores_legacy_env_flag(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("EOS_CI_IN_SANDBOX", "0")
-    transport = MagicMock(name="SandboxTransport")
+    _register_adapter("sb-d")
     svc = CodeIntelligenceService(
         sandbox_id="sb-d",
         workspace_root=str(tmp_path),
-        transport=transport,
     )
     assert type(svc._impl) is DaemonBackend
 
 
-def test_select_inprocess_with_no_transport_and_sandbox_id(tmp_path: Path) -> None:
+def test_select_inprocess_with_no_adapter_and_sandbox_id(tmp_path: Path) -> None:
     svc = CodeIntelligenceService(sandbox_id="sb-c", workspace_root=str(tmp_path))
     assert type(svc._impl) is InProcessBackend
 
 
 def test_select_inprocess_with_empty_sandbox_id(tmp_path: Path) -> None:
-    transport = MagicMock(name="SandboxTransport")
     svc = CodeIntelligenceService(
         sandbox_id="",
         workspace_root=str(tmp_path),
-        transport=transport,
     )
     assert type(svc._impl) is InProcessBackend
 
 
 # ---------------------------------------------------------------------------
-# Registry transport matching
+# Registry provider-backend matching
 # ---------------------------------------------------------------------------
 
 
-def test_registry_reuses_service_with_same_transport(tmp_path: Path) -> None:
-    transport = MagicMock(name="transport-a")
-    first = get_code_intelligence("registry-reuse", str(tmp_path), transport=transport)
-    second = get_code_intelligence("registry-reuse", str(tmp_path), transport=transport)
+def test_registry_reuses_service_with_same_provider_mode(tmp_path: Path) -> None:
+    _register_adapter("registry-reuse")
+    first = get_code_intelligence("registry-reuse", str(tmp_path))
+    second = get_code_intelligence("registry-reuse", str(tmp_path))
     assert first is second
 
 
-def test_registry_replaces_service_when_transport_changes(tmp_path: Path) -> None:
-    transport_a = MagicMock(name="transport-a")
-    transport_b = MagicMock(name="transport-b")
-    first = get_code_intelligence("registry-replace", str(tmp_path), transport=transport_a)
-    second = get_code_intelligence(
-        "registry-replace",
-        str(tmp_path),
-        transport=transport_b,
-    )
+def test_registry_replaces_service_when_provider_adapter_is_added(
+    tmp_path: Path,
+) -> None:
+    first = get_code_intelligence("registry-replace", str(tmp_path))
+    _register_adapter("registry-replace")
+    second = get_code_intelligence("registry-replace", str(tmp_path))
     assert second is not first
 
 
-def test_registry_replaces_service_when_transport_is_removed(tmp_path: Path) -> None:
-    transport = MagicMock(name="transport")
-    first = get_code_intelligence("registry-remove", str(tmp_path), transport=transport)
+def test_registry_replaces_service_when_provider_adapter_is_removed(
+    tmp_path: Path,
+) -> None:
+    _register_adapter("registry-remove")
+    first = get_code_intelligence("registry-remove", str(tmp_path))
+    dispose_adapter("registry-remove")
     second = get_code_intelligence("registry-remove", str(tmp_path))
     assert second is not first
 
 
-def test_registry_disposes_service_when_transport_is_removed(
+def test_registry_disposes_service_when_provider_adapter_is_removed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     disposed: list[str] = []
@@ -147,8 +154,9 @@ def test_registry_disposes_service_when_transport_is_removed(
 
     monkeypatch.setattr(CodeIntelligenceService, "dispose", _spy_dispose)
 
-    transport = MagicMock(name="transport")
-    first = get_code_intelligence("registry-dispose", str(tmp_path), transport=transport)
+    _register_adapter("registry-dispose")
+    first = get_code_intelligence("registry-dispose", str(tmp_path))
+    dispose_adapter("registry-dispose")
     second = get_code_intelligence("registry-dispose", str(tmp_path))
 
     assert second is not first
@@ -161,11 +169,9 @@ def test_registry_disposes_service_when_transport_is_removed(
 
 
 def _build_daemon_backend() -> DaemonBackend:
-    transport = MagicMock(name="SandboxTransport")
     return DaemonBackend(
         sandbox_id="sb-daemon",
         workspace_root="/workspace",
-        transport=transport,
     )
 
 
@@ -174,7 +180,6 @@ def test_daemon_backend_init_attributes() -> None:
     assert backend.sandbox_id == "sb-daemon"
     assert backend.workspace_root == "/workspace"
     assert backend.is_initialized is False
-    assert backend._transport is not None
 
 
 @pytest.mark.asyncio

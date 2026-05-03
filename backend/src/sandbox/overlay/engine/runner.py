@@ -138,7 +138,7 @@ class OverlayRunnerMixin:
                 task.cancel()
             raise
 
-    async def _run_overlay_daemon_local(
+    async def _run_overlay_direct_runtime(
         self,
         *,
         lease: OverlayLease,
@@ -161,10 +161,10 @@ class OverlayRunnerMixin:
             "-o",
             "pipefail",
             "-lc",
-            self._daemon_local_shell_script(inner),
+            self._direct_runtime_shell_script(inner),
         ]
         logger.debug(
-            "overlay daemon-local subprocess.run start: kind=unshare "
+            "overlay direct-runtime subprocess.run start: kind=unshare "
             "sandbox_id=%s run_dir=%s command=%r",
             self._sandbox_id,
             lease.run_dir,
@@ -180,7 +180,7 @@ class OverlayRunnerMixin:
             check=False,
         )
         logger.debug(
-            "overlay daemon-local subprocess.run done: kind=unshare elapsed=%.3fs "
+            "overlay direct-runtime subprocess.run done: kind=unshare elapsed=%.3fs "
             "exit_code=%s sandbox_id=%s run_dir=%s",
             time.perf_counter() - started,
             completed.returncode,
@@ -210,7 +210,7 @@ class OverlayRunnerMixin:
             args.extend(["--stdin-b64", stdin_b64])
         return args
 
-    def _daemon_local_shell_script(self, command: str) -> str:
+    def _direct_runtime_shell_script(self, command: str) -> str:
         return "\n".join(
             [
                 "unset LC_ALL",

@@ -30,7 +30,7 @@ def test_sandbox_exports_expected_tools():
     assert not any(name.startswith("daytona_") for name in names)
 
 
-async def test_registered_api_backed_tools_require_sandbox_api():
+async def test_registered_api_backed_tools_require_sandbox_id():
     registry = ToolRegistry()
     registry.register_many(make_sandbox_tools())
     tools_by_name = {tool.name: tool for tool in registry.list_tools()}
@@ -48,13 +48,12 @@ async def test_registered_api_backed_tools_require_sandbox_api():
     assert set(tools_by_name) - set(api_inputs) == {"read_file"}
 
     for tool_name, tool_input in api_inputs.items():
-        ctx = _ctx({"sandbox_id": "sb-1", "repo_root": "/repo"})
+        ctx = _ctx({"repo_root": "/repo"})
         tool = tools_by_name[tool_name]
         result = await tool.execute(tool.input_model(**tool_input), ctx)
 
         assert result.is_error, tool_name
-        assert "Sandbox API is unavailable" in result.output
-        assert result.metadata.get("sandbox_api_required") is True, tool_name
+        assert result.metadata.get("sandbox_required") is True, tool_name
 
 
 def test_make_sandbox_tools_includes_shell():

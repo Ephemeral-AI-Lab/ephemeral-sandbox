@@ -62,7 +62,7 @@ def test_overlay_runtime_bundle_contains_capture_runtime_only() -> None:
 
 
 @pytest.mark.asyncio
-async def test_capture_runner_returns_raw_upper_changes(tmp_path: Path) -> None:
+async def test_engine_returns_raw_upper_changes(tmp_path: Path) -> None:
     diff = "\n".join(
         [
             _meta_line(upper_changes=1, upper_files=1, upper_bytes=4),
@@ -112,7 +112,7 @@ async def test_capture_runner_returns_raw_upper_changes(tmp_path: Path) -> None:
     assert outcome.upper_changes[0].upper_bytes == b"new\n"
 
 
-def test_can_use_local_run_dir_requires_no_transport(tmp_path: Path) -> None:
+def test_can_use_local_run_dir_for_direct_runtime(tmp_path: Path) -> None:
     async def _unused(*_args, **_kwargs):
         raise AssertionError("unused")
 
@@ -120,8 +120,7 @@ def test_can_use_local_run_dir_requires_no_transport(tmp_path: Path) -> None:
         sandbox_id=f"capture-local-{tmp_path.name}",
         workspace_root=str(tmp_path),
         exec_process=_unused,
-        transport=object(),  # type: ignore[arg-type]
     )
 
-    assert runner._can_use_local_run_dir(None) is False
+    assert runner._can_use_local_run_dir(None) is True
     assert RUN_DIR_PREFIX == "/tmp/eos-shell-overlay"

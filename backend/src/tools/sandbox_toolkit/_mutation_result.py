@@ -13,11 +13,16 @@ def mutation_tool_result(
     success: bool,
     success_status: str,
     paths: list[str],
+    failure_status: str | None = None,
     conflict_reason: str | None = None,
     success_extra: dict[str, Any] | None = None,
 ) -> ToolResult:
     """Return the common JSON shape for file mutation tools."""
-    status = success_status if success else _failure_status(conflict_reason)
+    status = (
+        success_status
+        if success
+        else failure_status or _failure_status(conflict_reason)
+    )
     metadata: dict[str, Any] = {
         "status": status,
         "changed_paths": paths,
@@ -36,9 +41,7 @@ def mutation_tool_result(
     payload = {
         "status": status,
         "changed_paths": paths,
-        "conflict_file": paths[0] if paths else "",
         "conflict_reason": conflict_reason or "",
-        "message": conflict_reason or "operation failed",
     }
     return ToolResult(
         output=json.dumps(payload),

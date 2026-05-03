@@ -197,7 +197,7 @@ class OverlayReadbackMixin:
                 f"overlay result.json at {path} must be an object: {payload!r}"
             )
         logger.debug(
-            "overlay daemon-local result envelope read: sandbox_id=%s run_dir=%s "
+            "overlay direct-runtime result envelope read: sandbox_id=%s run_dir=%s "
             "exit_code=%s rejected=%s",
             self._sandbox_id,
             lease.run_dir,
@@ -213,7 +213,7 @@ class OverlayReadbackMixin:
         await self._do_exec(sandbox, f"rm -rf {shlex.quote(lease.run_dir)}", timeout=60)
 
     def _can_use_local_run_dir(self, sandbox: Any) -> bool:
-        return sandbox is None and self._transport is None
+        return sandbox is None
 
     async def _do_exec(
         self,
@@ -223,9 +223,6 @@ class OverlayReadbackMixin:
         timeout: int | None,
     ) -> tuple[str, int]:
         """Exec ``command`` and return ``(stdout, exit_code)``."""
-        if self._transport is not None and self._sandbox_id:
-            result = await self._transport.exec(self._sandbox_id, command, timeout=timeout)
-            return result.stdout, result.exit_code
         response = await self._exec_process(
             sandbox, wrap_bash_command(command), timeout=timeout
         )
@@ -333,7 +330,7 @@ class OverlayReadbackMixin:
             command_sample(command),
         )
 
-    async def _local_process_exec(
+    async def _local_exec_process(
         self,
         _sandbox: Any,
         command: str,

@@ -46,7 +46,6 @@ def _make_backend(response_map: dict[str, Any]) -> tuple[DaemonBackend, _FakeRun
     backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
-        transport=object(),  # type: ignore[arg-type]
     )
     runtime = _FakeRuntime(response_map)
     backend._call_runtime_command = runtime._call_runtime_command  # type: ignore[method-assign]
@@ -183,7 +182,6 @@ def test_warmup_calls_ensure_initialized(monkeypatch: pytest.MonkeyPatch) -> Non
     backend = DaemonBackend(
         sandbox_id="sb",
         workspace_root="/ws",
-        transport=object(),  # type: ignore[arg-type]
     )
     backend.warmup()
     assert called == [True]

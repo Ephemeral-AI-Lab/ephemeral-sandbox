@@ -15,7 +15,6 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from sandbox.api.transport import SandboxTransport
 from sandbox.overlay.config import overlay_max_concurrent, overlay_upper_size_mb
 from sandbox.overlay.engine.constants import RUN_DIR_PREFIX, WorkspaceFingerprint
 from sandbox.overlay.engine.helpers import encode_command
@@ -43,14 +42,12 @@ class LocalOverlayEngine(OverlayRunnerMixin, OverlayReadbackMixin):
         exec_process: Callable[..., Awaitable[Any]] | None = None,
         max_concurrent: int | None = None,
         upper_size_mb: int | None = None,
-        transport: SandboxTransport | None = None,
-        daemon_local: bool = True,
+        direct_runtime: bool = True,
     ) -> None:
         self._sandbox_id = sandbox_id
         self._workspace_root = workspace_root.rstrip("/")
-        self._exec_process = exec_process or self._local_process_exec
-        self._transport = transport
-        self._daemon_local = daemon_local
+        self._exec_process = exec_process or self._local_exec_process
+        self._direct_runtime = direct_runtime
         self._semaphore = asyncio.Semaphore(
             max_concurrent if max_concurrent is not None else overlay_max_concurrent()
         )
@@ -79,8 +76,8 @@ class LocalOverlayEngine(OverlayRunnerMixin, OverlayReadbackMixin):
     ) -> OverlayRunOutcome:
         """Run *command* under overlay and hand back an OCC-free outcome."""
         del run_id, agent_run_id, task_id, agent_id, description
-        if self._daemon_local and sandbox is None and on_progress_line is None:
-            return await self._execute_daemon_local(
+        if self._direct_runtime and sandbox is None and on_progress_line is None:
+            return await self._execute_direct_runtime(
                 command,
                 timeout=timeout,
                 stdin=stdin,
@@ -139,7 +136,7 @@ class LocalOverlayEngine(OverlayRunnerMixin, OverlayReadbackMixin):
                     error=error,
                 )
 
-    async def _execute_daemon_local(
+    async def _execute_direct_runtime(
         self,
         command: str,
         *,
@@ -169,7 +166,7 @@ class LocalOverlayEngine(OverlayRunnerMixin, OverlayReadbackMixin):
                     stage_timings=stage_timings,
                     lease=lease,
                     command=command,
-                    awaitable=self._run_overlay_daemon_local(
+                    awaitable=self._run_overlay_direct_runtime(
                         lease=lease,
                         user_cmd_b64=user_cmd_b64,
                         stdin_b64=stdin_b64,
@@ -210,13 +207,13 @@ class LocalOverlayEngine(OverlayRunnerMixin, OverlayReadbackMixin):
                     )
                 except OSError:
                     logger.warning(
-                        "overlay daemon-local run-dir cleanup failed for %s",
+                        "overlay direct-runtime run-dir cleanup failed for %s",
                         lease.run_dir,
                         exc_info=True,
                     )
                 except Exception:
                     logger.debug(
-                        "overlay daemon-local run-dir cleanup failed for %s",
+                        "overlay direct-runtime run-dir cleanup failed for %s",
                         lease.run_dir,
                         exc_info=True,
                     )

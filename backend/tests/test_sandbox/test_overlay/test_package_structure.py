@@ -33,7 +33,7 @@ def test_overlay_root_contains_only_target_layout_entries() -> None:
     actual = {
         path.name
         for path in _overlay_root().iterdir()
-        if path.name not in {"__pycache__"}
+        if path.name not in {"__pycache__", ".DS_Store"}
     }
 
     assert actual == expected

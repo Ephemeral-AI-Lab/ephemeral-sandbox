@@ -1,58 +1,66 @@
-"""Provider-neutral sandbox API contract.
-
-Three Protocols, one shared model module, and an error hierarchy. See
-``docs/architecture/sandbox-api-adapter-migration-plan.md`` for the full
-layering and dependency rules.
-"""
+"""Public sandbox API verbs and request/result models."""
 
 from __future__ import annotations
 
-from sandbox.api.audited_sandbox_api import AuditedSandboxApi
-from sandbox.api.errors import (
-    SandboxApiError,
-    SandboxConflictError,
-    SandboxNotFoundError,
-    SandboxTimeoutError,
-    SandboxTransportError,
-)
 from sandbox.api.models import (
-    CheckedWriteResult,
-    CheckedWriteSpec,
+    ConflictInfo,
     EditFileRequest,
     EditFileResult,
+    GuardedResultBase,
     RawExecResult,
     ReadFileRequest,
     ReadFileResult,
     RequestActor,
+    SandboxResultBase,
     SearchReplaceEdit,
     ShellRequest,
     ShellResult,
     WriteFileRequest,
     WriteFileResult,
 )
-from sandbox.api.sandbox_api import SandboxApi
-from sandbox.api.transport import SandboxTransport
+
+
+def __getattr__(name: str) -> object:
+    if name == "edit_file":
+        from sandbox.api.edit import edit_file
+
+        return edit_file
+    if name == "raw_exec":
+        from sandbox.api.raw_exec import raw_exec
+
+        return raw_exec
+    if name == "read_file":
+        from sandbox.api.read import read_file
+
+        return read_file
+    if name == "shell":
+        from sandbox.api.shell import shell
+
+        return shell
+    if name == "write_file":
+        from sandbox.api.write import write_file
+
+        return write_file
+    raise AttributeError(name)
 
 __all__ = [
-    "AuditedSandboxApi",
-    "CheckedWriteResult",
-    "CheckedWriteSpec",
+    "ConflictInfo",
     "EditFileRequest",
     "EditFileResult",
+    "GuardedResultBase",
     "RawExecResult",
     "ReadFileRequest",
     "ReadFileResult",
     "RequestActor",
-    "SandboxApi",
-    "SandboxApiError",
-    "SandboxConflictError",
-    "SandboxNotFoundError",
-    "SandboxTimeoutError",
-    "SandboxTransport",
-    "SandboxTransportError",
+    "SandboxResultBase",
     "SearchReplaceEdit",
     "ShellRequest",
     "ShellResult",
     "WriteFileRequest",
     "WriteFileResult",
+    "edit_file",
+    "raw_exec",
+    "read_file",
+    "shell",
+    "write_file",
 ]

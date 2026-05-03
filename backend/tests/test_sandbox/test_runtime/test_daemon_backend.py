@@ -15,16 +15,6 @@ from sandbox.runtime import command_client
 from sandbox.runtime.command_client import RuntimeCommandClient
 
 
-class _NullTransport:
-    """Minimal stub for tests that patch the runtime upload boundary."""
-
-    name = "null"
-
-    async def exec(self, *args: Any, **kwargs: Any) -> Any:
-        del args, kwargs
-        raise AssertionError("DaemonBackend should not call transport.exec post-3.5")
-
-
 class _FakeRuntime:
     """Stand-in for :class:`DaemonBackend` returning canned runtime responses."""
 
@@ -58,7 +48,6 @@ def _backend_with_fake_runtime(runtime: _FakeRuntime) -> DaemonBackend:
     backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
-        transport=_NullTransport(),  # type: ignore[arg-type]
     )
     backend._call_runtime_command = runtime._call_runtime_command  # type: ignore[method-assign]
     return backend
@@ -67,20 +56,20 @@ def _backend_with_fake_runtime(runtime: _FakeRuntime) -> DaemonBackend:
 def test_ensure_initialized_uploads_runtime_bundle() -> None:
     runtime = _FakeRuntime()
     backend = _backend_with_fake_runtime(runtime)
-    calls: list[tuple[Any, str]] = []
+    calls: list[str] = []
 
-    async def fake_upload(transport: Any, sandbox_id: str) -> str:
-        calls.append((transport, sandbox_id))
+    async def fake_upload(sandbox_id: str) -> str:
+        calls.append(sandbox_id)
         return "digest"
 
     with patch(
-        "sandbox.runtime.command_client._ensure_runtime_uploaded_via_transport",
+        "sandbox.runtime.command_client.ensure_runtime_uploaded",
         fake_upload,
     ):
         ok = backend.ensure_initialized(wait=True)
     assert ok is True
     assert backend.is_initialized is True
-    assert calls == [(backend._transport, "sb-test")]
+    assert calls == ["sb-test"]
 
 
 def test_ensure_initialized_idempotent() -> None:
@@ -94,7 +83,7 @@ def test_ensure_initialized_idempotent() -> None:
         return "digest"
 
     with patch(
-        "sandbox.runtime.command_client._ensure_runtime_uploaded_via_transport",
+        "sandbox.runtime.command_client.ensure_runtime_uploaded",
         fake_upload,
     ):
         backend.ensure_initialized(wait=True)
@@ -155,7 +144,6 @@ def test_rebind_sandbox_is_noop() -> None:
     backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
-        transport=_NullTransport(),  # type: ignore[arg-type]
     )
     backend.rebind_sandbox(object())
 
@@ -166,7 +154,6 @@ def test_init_drops_snapshot_cache_attributes() -> None:
     backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
-        transport=_NullTransport(),  # type: ignore[arg-type]
     )
     for attr in (
         "_symbol_cache",

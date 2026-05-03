@@ -126,13 +126,13 @@ async def test_shell_prehook_blocks_destructive_shell_before_ci_requirement() ->
 
 
 @pytest.mark.asyncio
-async def test_shell_prehook_allows_safe_command_to_reach_api_requirement() -> None:
+async def test_shell_prehook_allows_safe_command_to_reach_sandbox_requirement() -> None:
     result = await run_tool_safely(
         shell,
         {"command": "git status"},
-        context=_ctx({"sandbox_id": "sb-1"}),
+        context=_ctx(),
     )
 
     assert result.is_error
-    assert result.metadata.get("sandbox_api_required") is True
-    assert "Sandbox API is unavailable" in result.output
+    assert result.metadata.get("sandbox_required") is True
+    assert "Sandbox id is unavailable" in result.output

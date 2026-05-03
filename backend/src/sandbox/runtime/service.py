@@ -1,7 +1,7 @@
 """Per-sandbox runtime service facade.
 
 The facade delegates every public op to a backend selected at construction
-time. Transport-backed sandbox services use :class:`DaemonBackend`;
+time. Sandboxes with a registered provider adapter use :class:`DaemonBackend`;
 sandboxless/local flows keep using :class:`InProcessBackend`.
 """
 
@@ -11,7 +11,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from sandbox.api.transport import SandboxTransport
+from sandbox.providers.registry import get_adapter
 from sandbox.runtime.backends import (
     CodeIntelligenceBackend,
     InProcessBackend,
@@ -36,34 +36,40 @@ def _select_backend(
     workspace_root: str,
     sandbox: Any,
     *,
-    transport: SandboxTransport | None,
     edit_history: Any | None = None,
-    daemon_local: bool = False,
+    direct_runtime: bool = False,
 ) -> CodeIntelligenceBackend:
-    """Pick a backend based on transport availability and sandbox identity.
+    """Pick a backend based on provider-adapter availability.
 
-    Transport-backed remote sandboxes use the daemon backend. Local
-    sandboxless flows (no transport / empty sandbox_id) keep using
+    Provider-backed remote sandboxes use the daemon backend. Local
+    sandboxless flows (no adapter / empty sandbox_id) keep using
     :class:`InProcessBackend`.
 
     ``edit_history`` is only meaningful for the in-process backend. The daemon
     owns the canonical SQLite ledger when the daemon backend is in use.
     """
-    if transport is not None and sandbox_id:
-        assert transport is not None  # narrow for type-checker
+    if _has_provider_adapter(sandbox_id):
         return DaemonBackend(
             sandbox_id=sandbox_id,
             workspace_root=workspace_root,
-            transport=transport,
         )
     return InProcessBackend(
         sandbox_id=sandbox_id,
         workspace_root=workspace_root,
         sandbox=sandbox,
-        transport=transport,
         edit_history=edit_history,
-        daemon_local=daemon_local,
+        direct_runtime=direct_runtime,
     )
+
+
+def _has_provider_adapter(sandbox_id: str) -> bool:
+    if not sandbox_id:
+        return False
+    try:
+        get_adapter(sandbox_id)
+    except KeyError:
+        return False
+    return True
 
 
 class CodeIntelligenceService:
@@ -75,17 +81,15 @@ class CodeIntelligenceService:
         workspace_root: str = "/workspace",
         sandbox: Any = None,
         *,
-        transport: SandboxTransport | None = None,
         edit_history: Any | None = None,
-        daemon_local: bool = False,
+        direct_runtime: bool = False,
     ) -> None:
         self._impl: CodeIntelligenceBackend = _select_backend(
             sandbox_id,
             workspace_root,
             sandbox,
-            transport=transport,
             edit_history=edit_history,
-            daemon_local=daemon_local,
+            direct_runtime=direct_runtime,
         )
 
     # -- Identity / state forwarding -----------------------------------------
@@ -131,10 +135,6 @@ class CodeIntelligenceService:
     @property
     def _sandbox(self) -> Any:
         return getattr(self._impl, "_sandbox", None)
-
-    @property
-    def _transport(self) -> SandboxTransport | None:
-        return getattr(self._impl, "_transport", None)
 
     # -- Public API forwarding -----------------------------------------------
 

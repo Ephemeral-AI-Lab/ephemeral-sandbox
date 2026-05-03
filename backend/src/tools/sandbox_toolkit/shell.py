@@ -7,12 +7,12 @@ import json
 from pydantic import BaseModel, Field
 
 from sandbox.api.models import ShellRequest
+from sandbox.api.shell import shell as sandbox_shell
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.core.sandbox_session import (
     actor_from_context,
     get_repo_root,
-    sandbox_api_or_error,
     sandbox_id_or_error,
 )
 from tools.sandbox_toolkit._shell_prehooks import (
@@ -113,17 +113,6 @@ def _build_tool_output(
     )
 
 
-def _shell_result_error_detail(shell_result: dict[str, object]) -> str:
-    return str(shell_result.get("stderr", "") or shell_result.get("stdout", "") or "")
-
-
-def _paths_from_shell(shell_result: dict[str, object], key: str) -> list[str]:
-    raw = shell_result.get(key)
-    if not isinstance(raw, list):
-        return []
-    return sorted({str(path) for path in raw if str(path or "").strip()})
-
-
 @tool(
     name="shell",
     description=(
@@ -187,12 +176,9 @@ async def shell(
     sandbox_id, sandbox_id_error = sandbox_id_or_error(context)
     if sandbox_id_error is not None:
         return sandbox_id_error
-    api, api_error = sandbox_api_or_error(context, tool_name="shell")
-    if api_error is not None:
-        return api_error
 
     try:
-        result = await api.shell(
+        result = await sandbox_shell(
             sandbox_id,
             ShellRequest(
                 command=command,
@@ -214,23 +200,16 @@ async def shell(
             is_error=True,
         )
 
-    shell_result: dict[str, object] = {
-        "command": command,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
-        "exit_code": result.exit_code,
-        "changed_paths": list(result.changed_paths),
-        "success": result.success,
-        "conflict_reason": result.conflict_reason,
-    }
-    changed_paths = _paths_from_shell(shell_result, "changed_paths")
+    changed_paths = sorted(
+        {str(path) for path in result.changed_paths if str(path or "").strip()}
+    )
     is_error = result.exit_code != 0 or not result.success
     if not result.success and result.exit_code == 0:
         error_detail = (
             f"sandbox commit aborted: {result.conflict_reason or 'unknown reason'}"
         )
     elif result.exit_code != 0:
-        error_detail = _shell_result_error_detail(shell_result)
+        error_detail = result.stderr or result.stdout or ""
     else:
         error_detail = ""
     return _build_tool_output(

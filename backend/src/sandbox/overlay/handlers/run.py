@@ -12,7 +12,7 @@ async def handle(args: dict[str, Any]) -> dict[str, Any]:
     engine = LocalOverlayEngine(
         sandbox_id=str(args.get("sandbox_id") or "local"),
         workspace_root=str(args.get("workspace_root") or "/workspace"),
-        daemon_local=True,
+        direct_runtime=True,
     )
     timeout_raw = args.get("timeout")
     timeout = int(timeout_raw) if timeout_raw is not None else None

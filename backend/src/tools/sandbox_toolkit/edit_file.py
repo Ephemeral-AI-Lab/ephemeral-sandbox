@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import logging
+import json
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from sandbox.api.edit import edit_file as sandbox_edit_file
 from sandbox.api.models import EditFileRequest, SearchReplaceEdit
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
@@ -13,12 +14,8 @@ from tools.core.sandbox_session import (
     actor_from_context,
     get_repo_root,
     resolve_sandbox_path,
-    sandbox_api_or_error,
     sandbox_id_or_error,
 )
-from tools.sandbox_toolkit._mutation_result import mutation_tool_result
-
-logger = logging.getLogger(__name__)
 
 
 class EditFileInput(BaseModel):
@@ -95,11 +92,8 @@ async def edit_file(
     sandbox_id, sandbox_id_error = sandbox_id_or_error(context)
     if sandbox_id_error is not None:
         return sandbox_id_error
-    api, api_error = sandbox_api_or_error(context, tool_name="edit_file")
-    if api_error is not None:
-        return api_error
 
-    result = await api.edit_file(
+    result = await sandbox_edit_file(
         sandbox_id,
         EditFileRequest(
             path=file_path,
@@ -109,21 +103,54 @@ async def edit_file(
         ),
     )
 
-    if not result.success:
-        return mutation_tool_result(
-            success=False,
-            success_status="edited",
-            paths=list(result.changed_paths or (file_path,)),
-            conflict_reason=result.conflict_reason,
+    paths = list(result.changed_paths or (file_path,))
+    if result.success:
+        return ToolResult(
+            output=json.dumps(
+                {
+                    "status": "edited",
+                    "changed_paths": paths,
+                    "conflict_reason": None,
+                    "cwd": get_repo_root(context),
+                    "file_path": file_path,
+                    "applied_edits": result.applied_edits,
+                }
+            ),
+            metadata={
+                "status": "edited",
+                "changed_paths": paths,
+                "conflict_reason": None,
+            },
         )
 
-    return mutation_tool_result(
-        success=True,
-        success_status="edited",
-        paths=list(result.changed_paths or (file_path,)),
-        success_extra={
-            "cwd": get_repo_root(context),
-            "file_path": file_path,
-            "applied_edits": result.applied_edits,
+    status = _failure_status(result.conflict_reason)
+    return ToolResult(
+        output=json.dumps(
+            {
+                "status": status,
+                "changed_paths": paths,
+                "conflict_file": paths[0] if paths else "",
+                "conflict_reason": result.conflict_reason or "",
+                "message": result.conflict_reason or "operation failed",
+            }
+        ),
+        is_error=True,
+        metadata={
+            "status": status,
+            "changed_paths": paths,
+            "conflict_reason": result.conflict_reason,
         },
     )
+
+
+def _failure_status(conflict_reason: str | None) -> str:
+    if conflict_reason in {"base_mismatch", "version_conflict", "drift"}:
+        return "aborted_version"
+    if conflict_reason in {"lock_conflict", "locked"}:
+        return "aborted_lock"
+    if conflict_reason in {"not_found", "missing"}:
+        return "not_found"
+    return "failed"
+
+
+__all__ = ["edit_file"]

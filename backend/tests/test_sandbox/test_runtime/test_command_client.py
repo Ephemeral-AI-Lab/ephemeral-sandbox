@@ -1,9 +1,9 @@
-"""Unit tests for the runtime command backend process.exec path."""
+"""Unit tests for the transport-backed runtime command client."""
 
 from __future__ import annotations
 
-import base64
 import json
+import shlex
 from typing import Any
 
 import pytest
@@ -11,6 +11,7 @@ import pytest
 from sandbox.runtime.backends import DaemonBackend
 from sandbox.runtime.command_client import RuntimeCommandError
 from sandbox.runtime.bundle import bundle_hash
+from sandbox.providers.registry import dispose_adapter, register_adapter
 
 
 class _FakeTransport:
@@ -40,7 +41,7 @@ class _FakeTransport:
             return _result(0, bundle_hash() + "\n")
         if "sandbox.runtime.server" in command:
             if self.bad_response:
-                return _result(0, "not-base64")
+                return _result(0, "not-json")
             if self.response_error is not None:
                 response = {
                     "success": False,
@@ -50,8 +51,7 @@ class _FakeTransport:
                 }
             else:
                 response = {"success": True, "pong": True, "op": _extract_op(command)}
-            raw = json.dumps(response, separators=(",", ":")).encode("utf-8")
-            return _result(0, base64.b64encode(raw).decode("ascii"))
+            return _result(0, json.dumps(response, separators=(",", ":")))
         return _result(0, "")
 
 
@@ -60,28 +60,31 @@ def _result(exit_code: int, stdout: str) -> Any:
 
 
 def _extract_op(command: str) -> str:
-    marker = "base64.b64decode('"
-    start = command.index(marker) + len(marker)
-    end = command.index("'", start)
-    payload = json.loads(base64.b64decode(command[start:end]).decode("utf-8"))
+    argv = shlex.split(command)
+    assert argv[:3] == ["python3", "-m", "sandbox.runtime.server"]
+    payload = json.loads(argv[-1])
     return str(payload["op"])
 
 
 @pytest.mark.asyncio
 async def test_call_returns_success_result() -> None:
     transport = _FakeTransport()
-    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
+    register_adapter("sb-1", transport)
+    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws")
 
-    assert await backend._call_runtime_command("ping") == {
-        "success": True,
-        "pong": True,
-        "op": "ping",
-    }
-    assert any("python3 -" in c for c in transport.exec_calls)
+    try:
+        assert await backend._call_runtime_command("ping") == {
+            "success": True,
+            "pong": True,
+            "op": "ping",
+        }
+    finally:
+        dispose_adapter("sb-1")
+    assert any("python3 -m sandbox.runtime.server" in c for c in transport.exec_calls)
 
 
 @pytest.mark.asyncio
-async def test_error_envelope_raises_typed_daemon_command_error() -> None:
+async def test_error_envelope_raises_typed_runtime_command_error() -> None:
     transport = _FakeTransport(
         response_error={
             "kind": "UnsupportedOp",
@@ -89,18 +92,27 @@ async def test_error_envelope_raises_typed_daemon_command_error() -> None:
             "details": {"op": "nope"},
         }
     )
-    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
+    register_adapter("sb-1", transport)
+    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws")
 
-    with pytest.raises(RuntimeCommandError) as exc:
-        await backend._call_runtime_command("nope")
+    try:
+        with pytest.raises(RuntimeCommandError) as exc:
+            await backend._call_runtime_command("nope")
+    finally:
+        dispose_adapter("sb-1")
     assert exc.value.kind == "UnsupportedOp"
     assert exc.value.details == {"op": "nope"}
 
 
 @pytest.mark.asyncio
-async def test_invalid_process_exec_response_raises_unavailable() -> None:
+async def test_invalid_runtime_server_response_raises_typed_error() -> None:
     transport = _FakeTransport(bad_response=True)
-    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
+    register_adapter("sb-1", transport)
+    backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws")
 
-    with pytest.raises(Exception, match="runtime dispatcher unreachable after retry"):
-        await backend._call_runtime_command("ping")
+    try:
+        with pytest.raises(RuntimeCommandError) as exc:
+            await backend._call_runtime_command("ping")
+    finally:
+        dispose_adapter("sb-1")
+    assert exc.value.kind == "BadRuntimeResponse"

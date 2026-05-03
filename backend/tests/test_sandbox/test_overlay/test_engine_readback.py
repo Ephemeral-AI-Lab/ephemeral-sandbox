@@ -1,4 +1,4 @@
-"""Tests for overlay NDJSON parsing and capture-runner readback."""
+"""Tests for overlay NDJSON parsing and engine readback."""
 
 from __future__ import annotations
 
@@ -132,14 +132,14 @@ async def test_read_diff_error_includes_overlay_output() -> None:
             exit_code=1,
         )
 
-    capture_runner = LocalOverlayEngine(
+    engine = LocalOverlayEngine(
         sandbox_id="overlay-missing-diff",
         workspace_root="/workspace",
         exec_process=_missing_diff_exec,
     )
 
     with pytest.raises(OverlayRunError) as exc_info:
-        await capture_runner._read_diff(
+        await engine._read_diff(
             object(),
             SimpleNamespace(run_dir="/tmp/run"),
             overlay_stdout="mount setup failed",
@@ -152,17 +152,17 @@ async def test_read_diff_error_includes_overlay_output() -> None:
 
 
 @pytest.mark.asyncio
-async def test_local_daemon_readback_uses_filesystem_without_exec(
+async def test_direct_runtime_readback_uses_filesystem_without_exec(
     tmp_path: Path,
 ) -> None:
     async def _should_not_exec(_sandbox, _command, *, timeout=None):
-        raise AssertionError("local daemon readback should not shell out")
+        raise AssertionError("direct runtime readback should not shell out")
 
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     (run_dir / "stdout.bin").write_text("local stdout\n", encoding="utf-8")
     (run_dir / "diff.ndjson").write_text(_meta_line(exit_code=0), encoding="utf-8")
-    capture_runner = LocalOverlayEngine(
+    engine = LocalOverlayEngine(
         sandbox_id="local",
         workspace_root=str(tmp_path),
         exec_process=_should_not_exec,
@@ -170,10 +170,10 @@ async def test_local_daemon_readback_uses_filesystem_without_exec(
     lease = SimpleNamespace(run_dir=str(run_dir))
 
     assert (
-        await capture_runner._read_stdout(None, lease, fallback="fallback")
+        await engine._read_stdout(None, lease, fallback="fallback")
         == "local stdout\n"
     )
-    diff = await capture_runner._read_diff(
+    diff = await engine._read_diff(
         None,
         lease,
         overlay_stdout="local stdout\n",
@@ -181,11 +181,11 @@ async def test_local_daemon_readback_uses_filesystem_without_exec(
     )
     assert isinstance(diff, OverlayCapture)
 
-    await capture_runner._cleanup_run_dir(None, lease)
+    await engine._cleanup_run_dir(None, lease)
     assert not run_dir.exists()
 
 
-def _make_guarded_capture_runner(tmp_path: Path) -> LocalOverlayEngine:
+def _make_guarded_engine(tmp_path: Path) -> LocalOverlayEngine:
     async def _unused_exec(*_args, **_kwargs):
         raise AssertionError("freshness guard test should not execute commands")
 
@@ -193,30 +193,30 @@ def _make_guarded_capture_runner(tmp_path: Path) -> LocalOverlayEngine:
         sandbox_id=f"freshness-{tmp_path.name}",
         workspace_root=str(tmp_path),
         exec_process=_unused_exec,
-        daemon_local=True,
+        direct_runtime=True,
     )
 
 
 @pytest.mark.asyncio
 async def test_freshness_guard_rejects_external_idle_mutation(tmp_path: Path) -> None:
-    capture_runner = _make_guarded_capture_runner(tmp_path)
-    await capture_runner._begin_workspace_fingerprint_guard()
-    await capture_runner._end_workspace_fingerprint_guard()
+    engine = _make_guarded_engine(tmp_path)
+    await engine._begin_workspace_fingerprint_guard()
+    await engine._end_workspace_fingerprint_guard()
 
     (tmp_path / "external.txt").write_text("outside\n", encoding="utf-8")
 
     with pytest.raises(OverlayRunError, match="workspace changed outside"):
-        await capture_runner._begin_workspace_fingerprint_guard()
+        await engine._begin_workspace_fingerprint_guard()
 
 
 @pytest.mark.asyncio
 async def test_freshness_guard_allows_concurrent_active_window(tmp_path: Path) -> None:
-    capture_runner = _make_guarded_capture_runner(tmp_path)
-    await capture_runner._begin_workspace_fingerprint_guard()
-    await capture_runner._end_workspace_fingerprint_guard()
+    engine = _make_guarded_engine(tmp_path)
+    await engine._begin_workspace_fingerprint_guard()
+    await engine._end_workspace_fingerprint_guard()
 
-    await capture_runner._begin_workspace_fingerprint_guard()
+    await engine._begin_workspace_fingerprint_guard()
     (tmp_path / "during-active.txt").write_text("ok\n", encoding="utf-8")
-    await capture_runner._begin_workspace_fingerprint_guard()
-    await capture_runner._end_workspace_fingerprint_guard()
-    await capture_runner._end_workspace_fingerprint_guard()
+    await engine._begin_workspace_fingerprint_guard()
+    await engine._end_workspace_fingerprint_guard()
+    await engine._end_workspace_fingerprint_guard()

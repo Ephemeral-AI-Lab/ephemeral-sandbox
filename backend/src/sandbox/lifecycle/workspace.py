@@ -184,8 +184,6 @@ def _attach_code_intelligence(
     sandbox_id: str,
     sandbox: Any,
     workspace_root: str,
-    *,
-    transport: Any | None = None,
 ) -> None:
     """Internal helper — attach a CI service via SandboxService.
 
@@ -200,21 +198,11 @@ def _attach_code_intelligence(
         ci_sandbox, eager_warmup_safe = _ci_sandbox_handle(sandbox_id, sandbox)
         ci_workspace_root = _ci_workspace_root(workspace_root, ci_sandbox)
         service = SandboxService()
-        resolved_transport = (
-            transport
-            or context.get("sandbox_transport")
-            or _build_sandbox_transport(sandbox_id)
-        )
         method = service.code_intelligence_for
         kwargs: dict[str, Any] = {
             "workspace_root": ci_workspace_root,
             "sandbox": ci_sandbox,
         }
-        if (
-            resolved_transport is not None
-            and "transport" in inspect.signature(method).parameters
-        ):
-            kwargs["transport"] = resolved_transport
         svc = method(sandbox_id, **kwargs)
         try:
             if eager_warmup_safe:
@@ -238,7 +226,7 @@ def ensure_code_intelligence_runtime(
     workspace_root: str | None,
     default_ci_root: str = DEFAULT_SANDBOX_CI_ROOT,
 ) -> None:
-    """Inject Daytona runtime metadata and attach code intelligence if available.
+    """Inject sandbox runtime metadata and attach code intelligence if available.
 
     This is the shared boundary for Daytona-backed tools. Callers may discover
     ``workspace_root`` differently (sync context prepare, async context prepare,
@@ -246,10 +234,8 @@ def ensure_code_intelligence_runtime(
 
     CI services are obtained through :class:`sandbox.service.SandboxService`.
 
-    This constructs the provider-neutral :class:`SandboxApi` /
-    :class:`SandboxTransport` surface and attaches it to the context. The
-    provider-specific handles remain available for runtime construction paths
-    that still own the concrete Daytona sandbox object.
+    This registers the provider adapter and leaves guarded operations to the
+    public ``sandbox.api`` verb modules.
     """
     if sandbox is not None:
         context["daytona_sandbox"] = sandbox
@@ -272,15 +258,13 @@ def ensure_code_intelligence_runtime(
         or str(workspace_root or "").strip()
         or default_ci_root
     )
+    if sandbox_id:
+        _register_provider_adapter_if_missing(sandbox_id)
     if sandbox_id and not context.get("skip_code_intelligence"):
-        transport = _build_sandbox_transport(sandbox_id)
-        if transport is not None:
-            context["sandbox_transport"] = transport
         _attach_code_intelligence(context, sandbox_id, sandbox, ci_root)
-        _attach_provider_neutral_api(context, sandbox_id, sandbox, transport=transport)
 
 
-def _register_provider_adapter_if_missing(sandbox_id: str, transport: Any) -> None:
+def _register_provider_adapter_if_missing(sandbox_id: str) -> None:
     if not sandbox_id:
         return
     try:
@@ -301,64 +285,10 @@ def _register_provider_adapter_if_missing(sandbox_id: str, transport: Any) -> No
         from sandbox.providers.daytona.adapter import DaytonaProviderAdapter
         from sandbox.providers.registry import register_adapter
 
-        register_adapter(sandbox_id, DaytonaProviderAdapter(transport=transport))
+        register_adapter(sandbox_id, DaytonaProviderAdapter())
     except Exception:
         logger.debug(
             "Provider adapter attachment failed for sandbox %s",
-            sandbox_id,
-            exc_info=True,
-        )
-
-
-def _build_sandbox_transport(sandbox_id: str) -> Any | None:
-    try:
-        from sandbox.daytona.transport import DaytonaTransport
-
-        transport = DaytonaTransport()
-        _register_provider_adapter_if_missing(sandbox_id, transport)
-        return transport
-    except Exception:
-        logger.debug(
-            "Sandbox transport attachment failed for sandbox %s",
-            sandbox_id,
-            exc_info=True,
-        )
-        return None
-
-
-def _attach_provider_neutral_api(
-    context: Any,
-    sandbox_id: str,
-    sandbox: Any,
-    *,
-    transport: Any | None = None,
-) -> None:
-    """Attach the provider-neutral ``SandboxApi`` surface.
-
-    Constructs one :class:`DaytonaTransport` and one
-    :class:`AuditedSandboxApi` per context. Failures are swallowed so
-    provider-neutral attachment does not widen the runtime preparation failure
-    surface.
-    """
-    try:
-        from sandbox.api.audited_sandbox_api import AuditedSandboxApi
-
-        svc = context.get("ci_service")
-        resolved_transport = (
-            transport
-            or context.get("sandbox_transport")
-            or _build_sandbox_transport(sandbox_id)
-        )
-        if svc is None or resolved_transport is None:
-            return
-        context["sandbox_transport"] = resolved_transport
-        if sandbox is not None:
-            context["sandbox_api"] = AuditedSandboxApi(
-                transport=resolved_transport, svc=svc, sandbox=sandbox,
-            )
-    except Exception:
-        logger.debug(
-            "Provider-neutral API attachment failed for sandbox %s",
             sandbox_id,
             exc_info=True,
         )

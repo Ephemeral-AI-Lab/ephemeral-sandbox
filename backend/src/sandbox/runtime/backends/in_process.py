@@ -7,7 +7,6 @@ import threading
 from collections.abc import Sequence
 from typing import Any
 
-from sandbox.api.transport import SandboxTransport
 from sandbox.occ.types import (
     EditRequest,
     EditResult,
@@ -37,14 +36,12 @@ class InProcessBackend:
         workspace_root: str = "/workspace",
         sandbox: Any = None,
         *,
-        transport: SandboxTransport | None = None,
         edit_history: Any | None = None,
-        daemon_local: bool = False,
+        direct_runtime: bool = False,
     ) -> None:
         self.sandbox_id = sandbox_id
         self.workspace_root = workspace_root
         self._sandbox = sandbox
-        self._transport = transport
         self._initialized = False
         self._init_lock = threading.Lock()
 
@@ -57,8 +54,6 @@ class InProcessBackend:
         self._content = ContentManager(
             workspace_root,
             sandbox=sandbox,
-            transport=transport,
-            sandbox_id=sandbox_id if transport is not None else "",
         )
         self._write_coordinator = WriteCoordinator(
             arbiter=self.arbiter,
@@ -74,8 +69,7 @@ class InProcessBackend:
             workspace_root=workspace_root,
             write_coordinator=self._write_coordinator,
             rebind_sandbox=self.rebind_sandbox,
-            transport=transport,
-            daemon_local=daemon_local,
+            direct_runtime=direct_runtime,
         )
 
     def ensure_initialized(self, wait: bool = True) -> bool:

@@ -33,6 +33,7 @@ class FileChangeResult(Generic[T]):
     success: bool
     changed_paths: tuple[str, ...]
     raw: T
+    status: str | None = None
     conflict_reason: str | None = None
 
 
@@ -223,9 +224,11 @@ async def submit_commit(
 
     paths = _operation_paths(result, fallback_paths)
     conflict = str(getattr(result, "conflict_reason", "") or "")
+    status = str(getattr(result, "status", "") or "")
     return FileChangeResult(
         success=bool(getattr(result, "success", False)),
         changed_paths=paths,
+        status=status or None,
         conflict_reason=conflict or None,
         raw=result,
     )
@@ -285,6 +288,7 @@ async def submit_shell_cmd(
     return FileChangeResult(
         success=success,
         changed_paths=changed,
+        status="ok" if success else "error",
         conflict_reason=(str(conflict_reason) if conflict_reason else None),
         raw=response,
     )

@@ -69,10 +69,6 @@ def _full_text(text: str) -> str:
 
 
 
-def _subagent_completion_detail_lines(output: str) -> list[str]:
-    return []
-
-
 def _parse_shell_structured_error(
     tool_name: str,
     output: str,

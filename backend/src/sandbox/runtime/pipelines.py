@@ -46,7 +46,7 @@ async def shell_pipeline(
     overlay = overlay_engine or LocalOverlayEngine(
         sandbox_id=sandbox_id,
         workspace_root=workspace_root,
-        daemon_local=True,
+        direct_runtime=True,
     )
     if occ_engine is not None:
         occ = occ_engine

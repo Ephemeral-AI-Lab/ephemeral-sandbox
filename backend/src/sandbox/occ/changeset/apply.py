@@ -7,7 +7,6 @@ import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from sandbox.api.errors import SandboxTransportError
 from sandbox.occ.changeset.types import ChangesetResult, UpperChangeLike
 from sandbox.occ.content.hashing import content_hash
 from sandbox.occ.content.manager import ContentManager
@@ -74,12 +73,6 @@ def apply_changeset(
 
     try:
         operation_result = commit(operation_changes)
-    except SandboxTransportError as exc:
-        return _transport_failure(
-            str(exc),
-            direct_merged=tuple(direct_merged),
-            conflict_file=operation_changes[0].file_path if operation_changes else None,
-        )
     except RuntimeError as exc:
         if _looks_like_argv_overflow(str(exc)):
             return _transport_failure(
