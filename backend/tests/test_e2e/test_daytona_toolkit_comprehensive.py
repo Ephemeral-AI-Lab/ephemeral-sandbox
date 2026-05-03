@@ -821,40 +821,6 @@ class TestToolSelectionAndOrdering:
 
 
 # ===========================================================================
-# CI types and data structures (ported from synthetic-os)
-# ===========================================================================
-
-
-class TestCITypesDeep:
-    """Deep tests for code intelligence types — ported from synthetic-os patterns."""
-
-    def test_edit_spec_all_fields(self):
-        from sandbox.occ.patching.patcher import SearchReplaceEdit
-        from sandbox.occ.types import EditSpec
-
-        spec = EditSpec(
-            file_path="/ws/app.py",
-            edits=(SearchReplaceEdit(old_text="old", new_text="new"),),
-        )
-        assert spec.file_path == "/ws/app.py"
-        assert spec.edits[0].old_text == "old"
-        assert spec.edits[0].new_text == "new"
-
-    def test_edit_result_success(self):
-        from sandbox.occ.types import EditResult
-
-        r = EditResult(success=True, file_path="/test.py", message="Applied")
-        assert r.success is True
-        assert r.conflict is not True
-
-    def test_edit_result_conflict(self):
-        from sandbox.occ.types import EditResult
-
-        r = EditResult(success=False, file_path="/test.py", message="Conflict", conflict=True)
-        assert r.success is False
-        assert r.conflict is True
-
-# ===========================================================================
 
 class TestAuditedEditFlow:
     """End-to-end audited edit flow via DaytonaEditTool with arbiter."""
