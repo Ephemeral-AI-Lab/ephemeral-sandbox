@@ -5,8 +5,8 @@ provider-neutral :class:`CodeIntelligenceApi` Protocol on top of an
 existing ``CodeIntelligenceService`` instance. All sync→async bridging
 is contained here via :func:`run_sync_in_executor`.
 
-Phase 2 will swap this adapter for a sidecar-RPC client without touching
-any tool callers — they only see :class:`CodeIntelligenceApi`.
+Transport-backed sandboxes now route through the daemon backend without
+touching any tool callers — they only see :class:`CodeIntelligenceApi`.
 """
 
 from __future__ import annotations

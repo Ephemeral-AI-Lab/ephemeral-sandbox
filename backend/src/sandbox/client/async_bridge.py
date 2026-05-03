@@ -8,7 +8,7 @@ session by running it on a different event loop.
 
 The old bridge spun up a fresh event loop for calls without a registered
 parent loop. That defeated loop-local async SDK caches and made each sync
-daemon RPC re-enter Daytona's slow client/session setup path.
+daemon command re-enter Daytona's slow client/session setup path.
 
 The fix is **loop-aware**: async tools publish the parent loop to a
 ``ContextVar`` before handing off to ``asyncio.to_thread``; the worker
