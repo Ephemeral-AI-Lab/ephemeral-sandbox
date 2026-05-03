@@ -14,16 +14,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sandbox.code_intelligence.backends import (
+from sandbox.runtime.backends import (
     CodeIntelligenceBackend,
     InProcessBackend,
     DaemonBackend,
 )
-from sandbox.code_intelligence.registry import (
+from sandbox.runtime.registry import (
     dispose_all_code_intelligence,
     get_code_intelligence,
 )
-from sandbox.code_intelligence.service import CodeIntelligenceService
+from sandbox.runtime.service import CodeIntelligenceService
 
 
 @pytest.fixture(autouse=True)

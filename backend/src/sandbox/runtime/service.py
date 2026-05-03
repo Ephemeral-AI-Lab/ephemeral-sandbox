@@ -1,9 +1,8 @@
-"""Per-sandbox :class:`CodeIntelligenceService` facade.
+"""Per-sandbox runtime service facade.
 
-The facade delegates every public op to a :class:`CodeIntelligenceBackend` selected at
-construction time. Transport-backed sandbox services use
-:class:`DaemonBackend`; sandboxless/local flows keep using
-:class:`InProcessBackend`.
+The facade delegates every public op to a backend selected at construction
+time. Transport-backed sandbox services use :class:`DaemonBackend`;
+sandboxless/local flows keep using :class:`InProcessBackend`.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from sandbox.api.transport import SandboxTransport
-from sandbox.code_intelligence.backends import (
+from sandbox.runtime.backends import (
     CodeIntelligenceBackend,
     InProcessBackend,
     DaemonBackend,
@@ -68,7 +67,7 @@ def _select_backend(
 
 
 class CodeIntelligenceService:
-    """Thin facade that forwards every public op to a selected :class:`CodeIntelligenceBackend`."""
+    """Thin facade that forwards every public op to the selected backend."""
 
     def __init__(
         self,

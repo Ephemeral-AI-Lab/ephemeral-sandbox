@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 from pathlib import Path
 
 
@@ -12,7 +13,7 @@ SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 def test_no_forbidden_daytona_imports() -> None:
     forbidden_for_tools = (
         "sandbox.daytona",
-        "sandbox.code_intelligence",
+        "sandbox.runtime",
         "tools.core.ci_adapter",
         "tools.core.sandbox_commit",
         "tools.core.ci_attribution",
@@ -23,6 +24,10 @@ def test_no_forbidden_daytona_imports() -> None:
         _assert_no_imports(module, forbidden_for_tools)
     for module in _python_files(SRC_ROOT / "sandbox" / "code_intelligence"):
         _assert_no_imports(module, forbidden_for_ci_internals)
+
+
+def test_sandbox_code_intelligence_package_is_deleted() -> None:
+    assert importlib.util.find_spec("sandbox.code_intelligence") is None
 
 
 def _python_files(root: Path) -> list[Path]:

@@ -27,7 +27,8 @@ durable API:
 - `sandbox.api.transport.SandboxTransport` and
   `sandbox.daytona.transport.DaytonaTransport`.
 - `sandbox.runtime.legacy_command_client`.
-- `sandbox.code_intelligence.*` facade/backend/registry compatibility paths.
+- old service facade/backend/registry compatibility paths if any remain outside
+  `sandbox/runtime`.
 - tool-side result mappers tied to old shapes:
   `tools/sandbox_toolkit/_mutation_result.py` and
   `tools/core/op_result_to_tool_result.py`.
@@ -157,8 +158,9 @@ should remain in the final structure.
     `SandboxResultBase`; they must not expose `conflict`.
   - `WriteFileResult`, `EditFileResult`, and `ShellResult` inherit
     `GuardedResultBase`.
-  - Replace `changed_paths` / `ambient_changed_paths` on public guarded
-    results with `gitinclude_changed_paths` and `gitignore_changed_paths`.
+  - Public guarded results expose `changed_paths` and `conflict` /
+    `conflict_reason`. They do not expose gitinclude/gitignore routing
+    partitions.
 - `backend/src/sandbox/api/__init__.py`: export only the public verb functions,
   public request/result models, and raw exec primitive. Do not re-export
   `SandboxApi`, `SandboxTransport`, or `AuditedSandboxApi`.
@@ -202,7 +204,8 @@ legacy-delete slice.
 - `backend/src/sandbox/api/transport.py`
 - `backend/src/sandbox/daytona/transport.py`
 - `backend/src/sandbox/runtime/legacy_command_client.py`
-- `backend/src/sandbox/code_intelligence/`
+- any remaining legacy service facade files if Step 6 did not already delete
+  them
 - `backend/src/tools/sandbox_toolkit/_mutation_result.py`
 - `backend/src/tools/core/op_result_to_tool_result.py`
 
@@ -227,8 +230,8 @@ objects with `ConflictInfo`; peer-client exceptions stay peer-local.
 4. Implement `sandbox.api.shell`.
    - Call `OverlayClient.shell`.
    - Map overlay/runtime `ShellResult` into public `ShellResult`.
-   - Preserve `gitinclude_changed_paths` / `gitignore_changed_paths` exactly
-     as returned by the pipeline/OCC verdict.
+   - Preserve `changed_paths` and conflict details exactly as returned by the
+     pipeline/OCC verdict.
 5. Cut agent tools over to public verbs.
    - Tools import verb modules, pass args through, and format `ToolResult`.
    - Tools do not fetch `context.sandbox_api`.
@@ -268,8 +271,7 @@ objects with `ConflictInfo`; peer-client exceptions stay peer-local.
   - Applied edit count and conflict mapping are correct.
 - New `backend/tests/test_sandbox/test_api/test_shell.py`
   - Exactly one adapter exec through `OverlayClient.shell`.
-  - `gitinclude_changed_paths` / `gitignore_changed_paths` round-trip from
-    the runtime result.
+  - `changed_paths` and conflict details round-trip from the runtime result.
   - Overlay/OCC rejection maps to `ConflictInfo`.
 - Updated import-fence tests:
   - Agent tool imports are restricted to public verb modules.
@@ -296,7 +298,7 @@ objects with `ConflictInfo`; peer-client exceptions stay peer-local.
   `runtime`, `daytona`, or `code_intelligence`.
 - `ReadFileResult` and `RawExecResult` cannot carry `ConflictInfo`.
 - `WriteFileResult`, `EditFileResult`, and `ShellResult` use the same guarded
-  shape and expose `gitinclude_changed_paths` / `gitignore_changed_paths`.
+  shape and expose `changed_paths` plus conflict.
 - No production import depends on `AuditedSandboxApi`, `SandboxApi`,
   `SandboxTransport`, `DaytonaTransport`, `legacy_command_client`,
   `sandbox.code_intelligence`, old `OperationResult` tool mappers, or

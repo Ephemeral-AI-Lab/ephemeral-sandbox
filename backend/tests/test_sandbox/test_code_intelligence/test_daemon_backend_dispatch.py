@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.code_intelligence.backends import DaemonBackend
+from sandbox.runtime.backends import DaemonBackend
 from sandbox.occ.types import (
     EditRequest,
     EditSpec,

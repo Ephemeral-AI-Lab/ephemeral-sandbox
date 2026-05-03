@@ -39,7 +39,7 @@ from typing import Any
 import pytest
 from dotenv import load_dotenv
 
-from sandbox.code_intelligence.service import CodeIntelligenceService
+from sandbox.runtime.service import CodeIntelligenceService
 from tools.core.base import ToolExecutionContextService
 from sandbox.api.bash import (
     extract_exit_code,

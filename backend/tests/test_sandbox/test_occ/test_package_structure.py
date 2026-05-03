@@ -36,7 +36,7 @@ def test_occ_root_contains_only_entrypoints_and_subpackages() -> None:
 
 
 def test_occ_does_not_import_code_intelligence_or_overlay() -> None:
-    forbidden = ("sandbox.code_intelligence", "sandbox.overlay")
+    forbidden = ("sandbox.overlay",)
     hits: list[tuple[Path, str]] = []
     for path in _occ_root().rglob("*.py"):
         text = path.read_text(encoding="utf-8")

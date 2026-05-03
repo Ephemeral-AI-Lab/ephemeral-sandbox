@@ -243,7 +243,7 @@ def _make_context(
 
 
 def _make_ci_service_for_sandbox(sandbox: Any, *, workspace: str = "/workspace"):
-    from sandbox.code_intelligence.service import CodeIntelligenceService
+    from sandbox.runtime.service import CodeIntelligenceService
 
     return CodeIntelligenceService(
         sandbox_id="daytona-tools-comprehensive",
@@ -566,7 +566,7 @@ class TestDaytonaToolLive:
             pass
 
     def _ctx(self, live_sandbox) -> ToolExecutionContextService:
-        from sandbox.code_intelligence.service import CodeIntelligenceService
+        from sandbox.runtime.service import CodeIntelligenceService
 
         sandbox = live_sandbox["raw"]
         cwd = "/home/daytona"
@@ -1031,7 +1031,7 @@ class TestAuditedEditFlow:
 
     def _make_audit_context(self, files: dict[str, str]):
         """Create a context with mock sandbox + real arbiter."""
-        from sandbox.code_intelligence.service import CodeIntelligenceService
+        from sandbox.runtime.service import CodeIntelligenceService
 
         sandbox = _make_mock_sandbox(files=files)
         ci_service = CodeIntelligenceService(

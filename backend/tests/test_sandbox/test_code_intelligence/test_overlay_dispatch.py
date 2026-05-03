@@ -6,13 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from sandbox.code_intelligence.shell_command_executor import AuditedCommandExecutor
+from sandbox.runtime.shell_command_executor import AuditedCommandExecutor
 from sandbox.overlay.engine import LocalOverlayEngine
 from sandbox.overlay.types import OverlayRunOutcome
-from sandbox.code_intelligence.service import (
+from sandbox.runtime.service import (
     CodeIntelligenceService,
 )
-from sandbox.code_intelligence.registry import (
+from sandbox.runtime.registry import (
     dispose_all_code_intelligence,
 )
 

@@ -102,7 +102,6 @@ def _build_tool_output(
     warnings: list[str],
     error: str = "",
     changed_paths: list[str] | None = None,
-    ambient_changed_paths: list[str] | None = None,
 ) -> ToolResult:
     shell_summaries: list[str] = []
     shell_outputs: list[dict[str, object]] = []
@@ -140,7 +139,6 @@ def _build_tool_output(
             "files_written": files_written,
             "shells_run": len(shells),
             "changed_paths": list(changed_paths or []),
-            "ambient_changed_paths": list(ambient_changed_paths or []),
         },
     )
 
@@ -251,16 +249,14 @@ async def shell(
         "stderr": result.stderr,
         "exit_code": result.exit_code,
         "changed_paths": list(result.changed_paths),
-        "ambient_changed_paths": list(result.ambient_changed_paths),
-        "audit_success": result.audit_success,
-        "audit_conflict_reason": result.audit_conflict_reason,
+        "success": result.success,
+        "conflict_reason": result.conflict_reason,
     }
     changed_paths = _paths_from_shell(shell_result, "changed_paths")
-    ambient_changed_paths = _paths_from_shell(shell_result, "ambient_changed_paths")
-    is_error = result.exit_code != 0 or not result.audit_success
-    if not result.audit_success and result.exit_code == 0:
+    is_error = result.exit_code != 0 or not result.success
+    if not result.success and result.exit_code == 0:
         error_detail = (
-            f"sandbox commit aborted: {result.audit_conflict_reason or 'unknown reason'}"
+            f"sandbox commit aborted: {result.conflict_reason or 'unknown reason'}"
         )
     elif result.exit_code != 0:
         error_detail = _shell_result_error_detail(shell_result)
@@ -274,7 +270,6 @@ async def shell(
         warnings=list(result.warnings),
         error=error_detail,
         changed_paths=changed_paths,
-        ambient_changed_paths=ambient_changed_paths,
     )
 
 

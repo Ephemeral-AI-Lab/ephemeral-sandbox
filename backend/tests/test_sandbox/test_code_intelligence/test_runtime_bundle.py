@@ -68,19 +68,18 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/occ/commit/coordinator.py",
         "sandbox/overlay/bootstrap.py",
         "sandbox/overlay/client.py",
-        "sandbox/overlay/engine.py",
+        "sandbox/overlay/engine/__init__.py",
+        "sandbox/overlay/engine/local.py",
         "sandbox/overlay/setup.sh",
         "sandbox/overlay/handlers/run.py",
         "sandbox/overlay/runtime/cli.py",
-        "sandbox/code_intelligence/service.py",
-        "sandbox/code_intelligence/backends/protocol.py",
-        "sandbox/code_intelligence/daemon/storage.py",
+        "sandbox/runtime/service.py",
+        "sandbox/runtime/backends/protocol.py",
     ]
     missing = [p for p in required if not (extract_dir / p).exists()]
     assert missing == [], f"bundle is missing required paths: {missing}"
     assert not (extract_dir / "sandbox/runtime/bundle.py").exists()
-    assert not (extract_dir / "sandbox/code_intelligence/daemon/command.py").exists()
-    assert not (extract_dir / "sandbox/code_intelligence/mutations").exists()
+    assert not (extract_dir / "sandbox/code_intelligence").exists()
 
 
 def test_bundle_excludes_pycache_and_compiled(tmp_path: Path) -> None:

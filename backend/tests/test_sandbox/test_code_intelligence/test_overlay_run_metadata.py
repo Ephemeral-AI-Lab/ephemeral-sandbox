@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import tarfile
 
-from sandbox.overlay.engine import _overlay_runtime_bundle_bytes
+from sandbox.overlay.engine.runtime_bundle import overlay_runtime_bundle_bytes
 from sandbox.overlay.runtime.mounts import _NS_ROOT, _NS_TMP, _NS_UPPER
 
 
@@ -16,7 +16,7 @@ def test_namespace_mount_root_uses_writable_tmp_prefix() -> None:
 
 
 def test_runtime_bundle_contains_only_capture_runtime_modules() -> None:
-    raw = _overlay_runtime_bundle_bytes()
+    raw = overlay_runtime_bundle_bytes()
 
     with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as tar:
         names = set(tar.getnames())

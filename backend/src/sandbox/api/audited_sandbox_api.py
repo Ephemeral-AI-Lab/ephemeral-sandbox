@@ -113,11 +113,9 @@ class AuditedSandboxApi:
             exit_code=int(getattr(raw, "exit_code", 1) or 0),
             stdout=str(getattr(raw, "result", "") or ""),
             stderr="",  # Overlay capture merges stderr into result
+            success=change.success,
             changed_paths=tuple(change.changed_paths),
-            ambient_changed_paths=tuple(change.ambient_changed_paths),
-            audit_success=change.success,
-            audit_conflict_reason=change.conflict_reason,
-            git_commit_status=getattr(raw, "git_commit_status", None),
+            conflict_reason=change.conflict_reason,
             warnings=tuple(getattr(raw, "warnings", []) or ()),
         )
 

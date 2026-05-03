@@ -22,7 +22,7 @@ def test_overlay_root_contains_only_target_layout_entries() -> None:
         "bootstrap.py",
         "client.py",
         "config.py",
-        "engine.py",
+        "engine",
         "handlers",
         "runtime",
         "setup.sh",
@@ -60,7 +60,7 @@ def test_overlay_and_occ_do_not_import_each_other() -> None:
 
 
 def test_old_code_intelligence_overlay_package_is_gone() -> None:
-    assert not (_overlay_root().parent / "code_intelligence" / "overlay").exists()
+    assert not (_overlay_root().parent / "code_intelligence").exists()
 
 
 def _grep_imports(root: Path, token: str) -> list[Path]:

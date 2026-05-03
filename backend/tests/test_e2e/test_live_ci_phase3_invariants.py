@@ -28,7 +28,7 @@ import pytest
 
 from engine.testing.eval_agent import EvalAgent
 from sandbox.api.bash import extract_exit_code, wrap_bash_command
-from sandbox.code_intelligence.backends import DaemonBackend
+from sandbox.runtime.backends import DaemonBackend
 
 from ._timing_harness import TimingHarness
 

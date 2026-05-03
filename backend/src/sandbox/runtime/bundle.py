@@ -160,14 +160,6 @@ def _runtime_bundle_bytes() -> bytes:
         overlay_dir = sandbox_dir / "overlay"
         _add_python_tree(tar, overlay_dir, sandbox_dir=sandbox_dir)
 
-        ci_dir = sandbox_dir / "code_intelligence"
-        _add_python_tree(
-            tar,
-            ci_dir,
-            sandbox_dir=sandbox_dir,
-            exclude_parts={"mutations"},
-        )
-
         _add_peer_setup_scripts(tar, sandbox_dir=sandbox_dir)
 
     compressed = io.BytesIO()

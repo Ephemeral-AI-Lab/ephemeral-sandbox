@@ -57,7 +57,6 @@ async def test_submit_commit_success_exposes_changed_paths() -> None:
     assert isinstance(change, FileChangeResult)
     assert change.success is True
     assert change.changed_paths == ("/ws/a.py", "/ws/b.py")
-    assert change.ambient_changed_paths == ()
     assert change.conflict_reason is None
     assert change.raw is svc.write_file.return_value
 
@@ -114,7 +113,6 @@ async def test_submit_shell_cmd_normalizes_changed_paths() -> None:
         result="ok",
         exit_code=0,
         changed_paths=["/ws/b.py", "/ws/a.py", "/ws/a.py", "  "],
-        ambient_changed_paths=["/ws/c.py"],
     )
     svc = MagicMock()
     svc.cmd = AsyncMock(return_value=response)
@@ -130,7 +128,6 @@ async def test_submit_shell_cmd_normalizes_changed_paths() -> None:
     assert change.success is True
     # Sorted + deduped + empty-filtered.
     assert change.changed_paths == ("/ws/a.py", "/ws/b.py")
-    assert change.ambient_changed_paths == ("/ws/c.py",)
     assert change.raw is response
 
 
@@ -139,7 +136,6 @@ async def test_submit_shell_cmd_marks_nonzero_exit_as_failure() -> None:
         result="",
         exit_code=1,
         changed_paths=[],
-        ambient_changed_paths=[],
     )
     svc = MagicMock()
     svc.cmd = AsyncMock(return_value=response)
@@ -160,8 +156,6 @@ async def test_submit_shell_cmd_treats_noop_commit_status_as_success() -> None:
         result="ok",
         exit_code=0,
         changed_paths=[],
-        ambient_changed_paths=[],
-        git_commit_status="noop",
     )
     svc = MagicMock()
     svc.cmd = AsyncMock(return_value=response)
@@ -183,9 +177,7 @@ async def test_submit_shell_cmd_treats_sandbox_commit_abort_as_failure() -> None
         result="",
         exit_code=0,
         changed_paths=[],
-        ambient_changed_paths=[],
-        git_commit_status="aborted_version",
-        git_conflict_reason="version_drift",
+        conflict_reason="version_drift",
     )
     svc = MagicMock()
     svc.cmd = AsyncMock(return_value=response)
@@ -218,7 +210,7 @@ async def test_submit_shell_cmd_rejects_when_no_sandbox_available() -> None:
 
 async def test_submit_shell_cmd_passes_explicit_sandbox_through() -> None:
     response = SimpleNamespace(
-        result="ok", exit_code=0, changed_paths=[], ambient_changed_paths=[],
+        result="ok", exit_code=0, changed_paths=[],
     )
     svc = MagicMock()
     svc.cmd = AsyncMock(return_value=response)
@@ -239,7 +231,7 @@ async def test_submit_shell_cmd_passes_explicit_sandbox_through() -> None:
 
 async def test_submit_shell_cmd_forwards_progress_callback() -> None:
     response = SimpleNamespace(
-        result="ok", exit_code=0, changed_paths=[], ambient_changed_paths=[],
+        result="ok", exit_code=0, changed_paths=[],
     )
     svc = MagicMock()
     svc.cmd = AsyncMock(return_value=response)
@@ -262,7 +254,7 @@ async def test_submit_shell_cmd_forwards_progress_callback() -> None:
 
 async def test_submit_shell_cmd_forwards_attribution_kwargs() -> None:
     response = SimpleNamespace(
-        result="ok", exit_code=0, changed_paths=[], ambient_changed_paths=[],
+        result="ok", exit_code=0, changed_paths=[],
     )
     svc = MagicMock()
     svc.cmd = AsyncMock(return_value=response)

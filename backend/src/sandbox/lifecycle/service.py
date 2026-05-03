@@ -31,7 +31,7 @@ from sandbox.lifecycle.workspace import (
 )
 
 if TYPE_CHECKING:
-    from sandbox.code_intelligence.service import CodeIntelligenceService
+    from sandbox.runtime.service import CodeIntelligenceService
 
 logger = logging.getLogger(__name__)
 
@@ -439,7 +439,7 @@ class SandboxService:
 
         This is the only public way to obtain a :class:`CodeIntelligenceService`
         for code outside the ``sandbox`` package. The internal registry under
-        :mod:`sandbox.code_intelligence.registry` is reserved for whitebox
+        :mod:`sandbox.runtime.registry` is reserved for whitebox
         tests; routers, benchmarks, and tool wiring must come through here.
 
         ``transport`` (Phase 1 Step 7) is optionally threaded through to the
@@ -447,7 +447,7 @@ class SandboxService:
         ContentManager) take their Step 5 transport
         branches when invoked from production wiring.
         """
-        from sandbox.code_intelligence.registry import get_code_intelligence
+        from sandbox.runtime.registry import get_code_intelligence
 
         return get_code_intelligence(
             sandbox_id=sandbox_id,
@@ -460,7 +460,7 @@ class SandboxService:
         self, sandbox_id: str
     ) -> CodeIntelligenceService | None:
         """Return the existing CI service for *sandbox_id*, or ``None``."""
-        from sandbox.code_intelligence.registry import (
+        from sandbox.runtime.registry import (
             get_code_intelligence_if_exists,
         )
 
@@ -468,7 +468,7 @@ class SandboxService:
 
     def dispose_code_intelligence(self, sandbox_id: str) -> None:
         """Dispose the per-sandbox CI service. No-op if nothing exists."""
-        from sandbox.code_intelligence.registry import (
+        from sandbox.runtime.registry import (
             dispose_code_intelligence as _dispose,
         )
 

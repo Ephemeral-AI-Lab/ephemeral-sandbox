@@ -13,10 +13,10 @@ from typing import Any
 
 import pytest
 
-from sandbox.code_intelligence.shell_command_executor import AuditedCommandExecutor
-from sandbox.overlay import engine as overlay_engine
-from sandbox.code_intelligence.registry import dispose_all_code_intelligence
-from sandbox.code_intelligence.service import CodeIntelligenceService
+from sandbox.runtime.shell_command_executor import AuditedCommandExecutor
+from sandbox.overlay.engine import runner as overlay_runner
+from sandbox.runtime.registry import dispose_all_code_intelligence
+from sandbox.runtime.service import CodeIntelligenceService
 
 
 @pytest.fixture(autouse=True)
@@ -173,7 +173,7 @@ def _install_daemon_subprocess(monkeypatch: pytest.MonkeyPatch, diff: str, stdou
         )
         return subprocess.CompletedProcess(argv, 0, "", "")
 
-    monkeypatch.setattr(overlay_engine.subprocess, "run", _fake_run)
+    monkeypatch.setattr(overlay_runner.subprocess, "run", _fake_run)
 
 
 async def _run_multistage(repo: Path, case: str) -> dict[str, Any]:
@@ -199,7 +199,7 @@ async def _run_multistage(repo: Path, case: str) -> dict[str, Any]:
     return {
         "result": result.result,
         "changed_paths": [Path(p).name for p in result.changed_paths],
-        "status": result.git_commit_status,
+        "conflict_reason": result.conflict_reason,
     }
 
 
@@ -225,7 +225,7 @@ async def _run_daemon_local(
     return {
         "result": result.result,
         "changed_paths": [Path(p).name for p in result.changed_paths],
-        "status": result.git_commit_status,
+        "conflict_reason": result.conflict_reason,
     }
 
 

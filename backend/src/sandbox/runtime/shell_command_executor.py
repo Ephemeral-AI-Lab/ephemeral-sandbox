@@ -1,4 +1,4 @@
-"""OCC-gated sandbox command execution for code intelligence services."""
+"""OCC-gated sandbox command execution for runtime services."""
 
 from __future__ import annotations
 
@@ -13,79 +13,10 @@ from typing import Any
 from sandbox.api.transport import SandboxTransport
 from sandbox.client.async_bridge import run_sync_in_executor, use_sandbox_io_loop
 from sandbox.overlay.engine import LocalOverlayEngine, OverlayEngine
-from sandbox.overlay.types import OverlayPolicyReject, ShellResult
+from sandbox.overlay.types import ShellResult
 from sandbox.runtime.pipelines import shell_pipeline
 
 logger = logging.getLogger(__name__)
-
-
-def audit_result(
-    *,
-    result_text: str,
-    exit_code: int,
-    gitinclude_committed: list[str],
-    gitignore_merged: list[str],
-    gitignore_merged_count: int,
-    mixed_gitinclude_gitignore: bool,
-    mixed_partial_apply: bool,
-    ambient: list[str],
-    git_commit_status: str | None,
-    git_conflict_reason: str | None,
-    git_conflict_file: str | None,
-    warnings: list[str],
-    overlay_run_timings: dict[str, float] | None = None,
-) -> SimpleNamespace:
-    """Preserve the downstream SimpleNamespace contract."""
-    return SimpleNamespace(
-        result=result_text,
-        exit_code=exit_code,
-        changed_paths=sorted(gitinclude_committed),
-        ambient_changed_paths=sorted(ambient),
-        files_written=len(gitinclude_committed),
-        git_commit_status=git_commit_status,
-        git_conflict_file=git_conflict_file,
-        git_conflict_reason=git_conflict_reason,
-        gitinclude_changed_paths=sorted(gitinclude_committed),
-        gitignore_changed_paths=sorted(gitignore_merged),
-        gitignore_direct_merged_paths=sorted(gitignore_merged),
-        gitignore_direct_merged_count=gitignore_merged_count,
-        mixed_gitinclude_gitignore=mixed_gitinclude_gitignore,
-        mixed_partial_apply=mixed_partial_apply,
-        warnings=list(warnings),
-        overlay_run_timings=dict(overlay_run_timings or {}),
-    )
-
-
-def reject_result(
-    *,
-    stdout: str,
-    exit_code: int,
-    reject: OverlayPolicyReject,
-    overlay_run_timings: dict[str, float] | None = None,
-) -> SimpleNamespace:
-    detail = (
-        f"{reject.reason}: {','.join(reject.paths)}"
-        if reject.paths
-        else reject.reason
-    )
-    return SimpleNamespace(
-        result=stdout,
-        exit_code=exit_code,
-        changed_paths=[],
-        ambient_changed_paths=[],
-        files_written=0,
-        git_commit_status="rejected",
-        git_conflict_file=reject.paths[0] if reject.paths else None,
-        git_conflict_reason=detail,
-        gitinclude_changed_paths=[],
-        gitignore_changed_paths=[],
-        gitignore_direct_merged_paths=[],
-        gitignore_direct_merged_count=0,
-        mixed_gitinclude_gitignore=False,
-        mixed_partial_apply=False,
-        warnings=[detail],
-        overlay_run_timings=dict(overlay_run_timings or {}),
-    )
 
 
 class AuditedCommandExecutor:
@@ -214,21 +145,19 @@ class _WriteCoordinatorChangeset:
 
 
 def _simple_namespace_from_shell_result(result: ShellResult) -> SimpleNamespace:
+    conflict = result.conflict
+    conflict_reason = None
+    conflict_file = None
+    if conflict is not None:
+        conflict_reason = conflict.message or conflict.reason
+        conflict_file = conflict.conflict_file
     ns = SimpleNamespace(
         result=result.result,
         exit_code=result.exit_code,
         changed_paths=list(result.changed_paths),
-        ambient_changed_paths=list(result.ambient_changed_paths),
-        files_written=result.files_written,
-        git_commit_status=result.git_commit_status,
-        git_conflict_file=result.git_conflict_file,
-        git_conflict_reason=result.git_conflict_reason,
-        gitinclude_changed_paths=list(result.gitinclude_changed_paths),
-        gitignore_changed_paths=list(result.gitignore_changed_paths),
-        gitignore_direct_merged_paths=list(result.gitignore_direct_merged_paths),
-        gitignore_direct_merged_count=result.gitignore_direct_merged_count,
-        mixed_gitinclude_gitignore=result.mixed_gitinclude_gitignore,
-        mixed_partial_apply=result.mixed_partial_apply,
+        files_written=len(result.changed_paths),
+        conflict_file=conflict_file,
+        conflict_reason=conflict_reason,
         warnings=list(result.warnings),
         overlay_run_timings=dict(result.overlay_run_timings),
         overlay_stage_timings=dict(result.overlay_stage_timings),
@@ -236,4 +165,4 @@ def _simple_namespace_from_shell_result(result: ShellResult) -> SimpleNamespace:
     return ns
 
 
-__all__ = ["AuditedCommandExecutor", "audit_result", "reject_result"]
+__all__ = ["AuditedCommandExecutor"]

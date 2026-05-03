@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.code_intelligence.daemon.storage import LedgerStore
+from sandbox.occ.state.ledger_store import LedgerStore
 from sandbox.occ.state.edit_history_ledger import (
     ContentionHotspot,
     EditHistoryLedger,

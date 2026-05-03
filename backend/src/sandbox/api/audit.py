@@ -1,7 +1,7 @@
 """Attribution-aware façade over the lifecycle commit engine.
 
 The OCC machinery (``WriteCoordinator``, ``OCCOperationService``,
-overlay capture, etc.) lives in :mod:`sandbox.code_intelligence` and
+overlay capture, etc.) lives in :mod:`sandbox.runtime` and
 is reached today through a ``CodeIntelligenceService`` handle. This
 module provides the thin attribution-aware façade that the
 ``SandboxApi`` impl will compose: ``submit_commit`` and
@@ -13,7 +13,7 @@ Phase 1 boundary: this module forwards to
 directly; this façade talks to ``svc`` rather than to a transport.
 
 Provider neutrality: this module must not import from
-``sandbox.daytona``, ``sandbox.code_intelligence``, or ``tools.*``.
+``sandbox.daytona``, ``sandbox.runtime``, or ``tools.*``.
 """
 
 from __future__ import annotations

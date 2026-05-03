@@ -16,7 +16,7 @@ from sandbox.overlay.types import (
     OverlayPolicyReject,
     OverlayRunError,
 )
-from sandbox.code_intelligence.registry import dispose_all_code_intelligence
+from sandbox.runtime.registry import dispose_all_code_intelligence
 
 
 @pytest.fixture(autouse=True)

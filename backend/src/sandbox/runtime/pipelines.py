@@ -10,7 +10,7 @@ from typing import Any
 from sandbox.occ.changeset import ChangesetResult
 from sandbox.occ.engine import LocalOCCEngine
 from sandbox.overlay.engine import LocalOverlayEngine, OverlayEngine
-from sandbox.overlay.types import OverlayRunOutcome, ShellResult
+from sandbox.overlay.types import ConflictInfo, OverlayRunOutcome, ShellResult
 from sandbox.occ.types import EditSpec, OperationResult, WriteSpec
 
 
@@ -172,26 +172,16 @@ async def _maybe_await(value: Any) -> Any:
 def _overlay_reject_result(outcome: OverlayRunOutcome) -> ShellResult:
     conflict = outcome.conflict
     reject = outcome.policy_reject
-    reason = conflict.message if conflict and conflict.message else (
-        conflict.reason
-        if conflict
-        else reject.reason
-        if reject is not None
-        else "overlay_rejected"
-    )
-    conflict_file = (
-        conflict.conflict_file
-        if conflict
-        else reject.paths[0]
-        if reject is not None and reject.paths
-        else None
-    )
+    if conflict is None:
+        reason = reject.reason if reject is not None else "overlay_rejected"
+        conflict = ConflictInfo(
+            reason=reason,
+            conflict_file=reject.paths[0] if reject is not None and reject.paths else None,
+            message=reason,
+        )
     return ShellResult(
         result=outcome.stdout,
         exit_code=outcome.exit_code,
-        git_commit_status="rejected",
-        git_conflict_file=conflict_file,
-        git_conflict_reason=reason,
         warnings=tuple(outcome.warnings),
         overlay_run_timings=dict(outcome.overlay_run_timings),
         overlay_stage_timings=dict(outcome.overlay_stage_timings),
@@ -203,50 +193,34 @@ def _changeset_result(
     outcome: OverlayRunOutcome,
     changeset_result: ChangesetResult,
 ) -> ShellResult:
-    direct_merged = tuple(changeset_result.direct_merged)
-    ledgered = tuple(changeset_result.ledgered)
-    mixed = bool(direct_merged) and bool(ledgered or changeset_result.conflict_file)
+    changed_paths = tuple(
+        sorted({*changeset_result.ledgered, *changeset_result.direct_merged})
+    )
 
     if changeset_result.success:
         return ShellResult(
             result=outcome.stdout,
             exit_code=outcome.exit_code,
-            changed_paths=tuple(sorted(ledgered)),
-            files_written=len(ledgered),
-            git_commit_status=changeset_result.status,
-            gitinclude_changed_paths=tuple(sorted(ledgered)),
-            gitignore_changed_paths=tuple(sorted(direct_merged)),
-            gitignore_direct_merged_paths=tuple(sorted(direct_merged)),
-            gitignore_direct_merged_count=len(direct_merged),
-            mixed_gitinclude_gitignore=mixed,
+            changed_paths=changed_paths,
             warnings=tuple(outcome.warnings),
             overlay_run_timings=dict(outcome.overlay_run_timings),
             overlay_stage_timings=dict(outcome.overlay_stage_timings),
         )
 
-    warnings = list(outcome.warnings)
-    partial = bool(direct_merged)
-    if partial:
-        warnings.append(
-            "gitinclude changes aborted by OCC; direct-merged changes were already applied"
-        )
+    message = changeset_result.conflict_reason or changeset_result.status
+    conflict = ConflictInfo(
+        reason=changeset_result.conflict_reason or "occ_conflict",
+        conflict_file=changeset_result.conflict_file,
+        message=message,
+    )
     return ShellResult(
         result=outcome.stdout,
         exit_code=outcome.exit_code,
-        ambient_changed_paths=(
-            (changeset_result.conflict_file,) if changeset_result.conflict_file else ()
-        ),
-        git_commit_status=changeset_result.status,
-        git_conflict_file=changeset_result.conflict_file,
-        git_conflict_reason=changeset_result.conflict_reason,
-        gitignore_changed_paths=tuple(sorted(direct_merged)),
-        gitignore_direct_merged_paths=tuple(sorted(direct_merged)),
-        gitignore_direct_merged_count=len(direct_merged),
-        mixed_gitinclude_gitignore=mixed,
-        mixed_partial_apply=partial,
-        warnings=tuple(warnings),
+        changed_paths=changed_paths,
+        warnings=tuple(outcome.warnings),
         overlay_run_timings=dict(outcome.overlay_run_timings),
         overlay_stage_timings=dict(outcome.overlay_stage_timings),
+        conflict=conflict,
     )
 
 

@@ -432,7 +432,7 @@ def _dispatch_legacy(*, workspace_root: str, op: str, args: dict[str, Any]) -> A
 
 
 def _build_service(workspace_root: str) -> tuple[Any, Any]:
-    from sandbox.code_intelligence.service import CodeIntelligenceService
+    from sandbox.runtime.service import CodeIntelligenceService
     from sandbox.occ.state.ledger_store import LedgerStore, state_dir
 
     ledger = LedgerStore(state_dir_path=state_dir(workspace_root))
@@ -528,16 +528,9 @@ _SVC_CMD_RESULT_DEFAULTS: dict[str, Any] = {
     "result": "",
     "exit_code": 1,
     "changed_paths": [],
-    "ambient_changed_paths": [],
     "files_written": 0,
-    "git_commit_status": None,
-    "git_conflict_file": None,
-    "git_conflict_reason": None,
-    "gitinclude_changed_paths": [],
-    "gitignore_direct_merged_paths": [],
-    "gitignore_direct_merged_count": 0,
-    "mixed_gitinclude_gitignore": False,
-    "mixed_partial_apply": False,
+    "conflict_file": None,
+    "conflict_reason": None,
     "warnings": [],
     "overlay_run_timings": {},
     "overlay_stage_timings": {},

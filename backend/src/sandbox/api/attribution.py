@@ -7,7 +7,7 @@ call sites should accept ``RequestActor`` and translate via
 :func:`actor_from_attribution` / :func:`attribution_from_actor`.
 
 This module is provider-neutral: it must not import from
-``sandbox.daytona``, ``sandbox.code_intelligence``, or ``tools.*``.
+``sandbox.daytona``, ``sandbox.runtime``, or ``tools.*``.
 """
 
 from __future__ import annotations

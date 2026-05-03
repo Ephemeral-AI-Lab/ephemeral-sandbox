@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from sandbox.code_intelligence.backends import DaemonBackend
-from sandbox.code_intelligence.daemon import client as daemon_client
-from sandbox.code_intelligence.daemon.client import DaemonCommandClient
+from sandbox.runtime.backends import DaemonBackend
+from sandbox.runtime import legacy_command_client as daemon_client
+from sandbox.runtime.legacy_command_client import DaemonCommandClient
 
 
 class _NullTransport:
@@ -112,16 +112,9 @@ def test_cmd_routes_through_daemon_and_reconstructs_namespace() -> None:
             "result": "hi\n",
             "exit_code": 0,
             "changed_paths": ["/ws/a.py"],
-            "ambient_changed_paths": [],
             "files_written": 1,
-            "git_commit_status": "committed",
-            "git_conflict_file": None,
-            "git_conflict_reason": None,
-            "gitinclude_changed_paths": ["/ws/a.py"],
-            "gitignore_direct_merged_paths": [],
-            "gitignore_direct_merged_count": 0,
-            "mixed_gitinclude_gitignore": False,
-            "mixed_partial_apply": False,
+            "conflict_file": None,
+            "conflict_reason": None,
             "warnings": [],
             "overlay_run_timings": {"total": 0.2},
         }

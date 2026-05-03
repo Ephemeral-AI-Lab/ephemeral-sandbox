@@ -1,4 +1,4 @@
-"""Unit tests for ``sandbox.code_intelligence.daemon.storage``."""
+"""Unit tests for ``sandbox.occ.state.ledger_store``."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.code_intelligence.daemon.storage import (
+from sandbox.occ.state.ledger_store import (
     StoragePathEscape,
     StorageUnavailable,
     _confine,

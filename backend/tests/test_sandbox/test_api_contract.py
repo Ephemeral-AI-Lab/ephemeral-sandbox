@@ -3,11 +3,11 @@
 These tests enforce the Phase 1 dependency rule for the new API package:
 
 * ``sandbox/api/*`` must not import ``sandbox.daytona.*`` or
-  ``sandbox.code_intelligence.*``.
+  ``sandbox.runtime.*``.
 * ``sandbox/api/*`` must not import ``daytona_sdk`` or anything under
   ``tools.*`` (a tools→api→tools cycle would defeat the layering).
 
-The full import-fence test for ``tools/*`` and ``code_intelligence/*``
+The full import-fence test for ``tools/*`` and runtime internals
 lands in Step 11; this is the narrow Step 1 gate that protects the
 contract layer from regressing while later steps land.
 """
@@ -28,14 +28,14 @@ from sandbox.api import RequestActor, SandboxApi, SandboxTransport
 _API_ROOT = Path(sandbox_api.__file__).parent
 _FORBIDDEN_PREFIXES: tuple[str, ...] = (
     "sandbox.daytona",
-    "sandbox.code_intelligence",
+    "sandbox.runtime",
     "daytona_sdk",
     "tools.",
 )
 # Modules in ``sandbox/api/`` that are the engine bridge are allowed to
 # import engine spec types from ``sandbox.occ.types`` and
 # ``sandbox.occ.patching.patcher``. Everything else under
-# ``sandbox.code_intelligence`` (services, mutations engine internals,
+# ``sandbox.runtime`` (services, mutations engine internals,
 # overlay) stays forbidden.
 _BRIDGE_MODULES: frozenset[str] = frozenset({"audit.py"})
 _BRIDGE_ALLOWED: tuple[str, ...] = (
@@ -71,7 +71,7 @@ def test_no_provider_or_engine_imports(module_path: Path) -> None:
     Engine-bridge modules (currently ``audit.py``) are allowed to import
     the narrow set of engine spec types listed in ``_BRIDGE_ALLOWED`` so
     they can translate API request shapes into the engine's spec types.
-    Everything else under ``sandbox.code_intelligence`` stays forbidden.
+    Everything else under ``sandbox.runtime`` stays forbidden.
     """
     is_bridge = module_path.name in _BRIDGE_MODULES
     source = module_path.read_text(encoding="utf-8")

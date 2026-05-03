@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 from sandbox.occ.content.hashing import content_hash
-from sandbox.code_intelligence.service import (
+from sandbox.runtime.service import (
     CodeIntelligenceService,
 )
-from sandbox.code_intelligence.registry import (
+from sandbox.runtime.registry import (
     dispose_all_code_intelligence,
 )
 from sandbox.occ.commit import CommitOperation

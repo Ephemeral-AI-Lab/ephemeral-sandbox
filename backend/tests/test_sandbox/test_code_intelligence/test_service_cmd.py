@@ -9,10 +9,10 @@ from types import SimpleNamespace
 import pytest
 
 from sandbox.overlay.types import OverlayRunError
-from sandbox.code_intelligence.service import (
+from sandbox.runtime.service import (
     CodeIntelligenceService,
 )
-from sandbox.code_intelligence.registry import (
+from sandbox.runtime.registry import (
     dispose_all_code_intelligence,
 )
 

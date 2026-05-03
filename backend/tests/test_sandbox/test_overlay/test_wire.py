@@ -81,8 +81,6 @@ def test_shell_result_round_trip() -> None:
         result="ok",
         exit_code=0,
         changed_paths=("/workspace/a.txt",),
-        git_commit_status="committed",
-        gitinclude_changed_paths=("/workspace/a.txt",),
         overlay_stage_timings={"total": 0.1},
     )
 

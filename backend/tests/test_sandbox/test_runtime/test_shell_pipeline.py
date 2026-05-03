@@ -72,7 +72,7 @@ async def test_shell_pipeline_overlay_reject_skips_occ() -> None:
     assert overlay.calls == ["echo hi"]
     assert occ.calls == []
     assert result.conflict is not None
-    assert result.git_commit_status == "rejected"
+    assert result.conflict.reason == "overlay_upper_full"
 
 
 async def test_shell_pipeline_projects_occ_verdict_without_classifying() -> None:
@@ -95,10 +95,8 @@ async def test_shell_pipeline_projects_occ_verdict_without_classifying() -> None
 
     assert len(occ.calls) == 1
     assert occ.calls[0][0][0].rel == "app.py"
-    assert result.gitinclude_changed_paths == ("/workspace/app.py",)
-    assert result.gitignore_changed_paths == ("/workspace/.cache/a",)
-    assert result.gitignore_direct_merged_paths == ("/workspace/.cache/a",)
-    assert result.changed_paths == ("/workspace/app.py",)
+    assert result.changed_paths == ("/workspace/.cache/a", "/workspace/app.py")
+    assert result.conflict is None
 
 
 async def test_shell_pipeline_occ_conflict_keeps_direct_merge_projection() -> None:
@@ -119,7 +117,7 @@ async def test_shell_pipeline_occ_conflict_keeps_direct_merge_projection() -> No
         occ_engine=occ,
     )
 
-    assert result.changed_paths == ()
-    assert result.ambient_changed_paths == ("/workspace/app.py",)
-    assert result.gitignore_changed_paths == ("/workspace/.cache/a",)
-    assert result.mixed_partial_apply is True
+    assert result.changed_paths == ("/workspace/.cache/a",)
+    assert result.conflict is not None
+    assert result.conflict.reason == "patch_failed"
+    assert result.conflict.conflict_file == "/workspace/app.py"

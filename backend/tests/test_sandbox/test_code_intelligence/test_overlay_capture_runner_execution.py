@@ -14,8 +14,8 @@ import pytest
 from sandbox.overlay.engine import (
     RUN_DIR_PREFIX,
     LocalOverlayEngine,
-    _overlay_runtime_bundle_bytes,
 )
+from sandbox.overlay.engine.runtime_bundle import overlay_runtime_bundle_bytes
 from sandbox.overlay.types import OverlayRunOutcome
 
 
@@ -48,7 +48,7 @@ def _change_line(rel: str, *, base: bytes | None, upper: bytes) -> str:
 
 
 def test_overlay_runtime_bundle_contains_capture_runtime_only() -> None:
-    raw = _overlay_runtime_bundle_bytes()
+    raw = overlay_runtime_bundle_bytes()
 
     import io
     import tarfile

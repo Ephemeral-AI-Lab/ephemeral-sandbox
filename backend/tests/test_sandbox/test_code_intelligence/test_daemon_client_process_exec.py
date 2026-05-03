@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from sandbox.code_intelligence.backends import DaemonBackend
-from sandbox.code_intelligence.daemon.client import DaemonCommandError
+from sandbox.runtime.backends import DaemonBackend
+from sandbox.runtime.legacy_command_client import DaemonCommandError
 from sandbox.runtime.bundle import bundle_hash
 
 

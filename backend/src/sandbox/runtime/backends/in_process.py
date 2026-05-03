@@ -21,7 +21,7 @@ from sandbox.occ.content.manager import ContentManager
 from sandbox.occ.operations.service import OCCOperationService
 from sandbox.occ.patching.patcher import Patcher
 from sandbox.occ.commit import WriteCoordinator
-from sandbox.code_intelligence.shell_command_executor import AuditedCommandExecutor
+from sandbox.runtime.shell_command_executor import AuditedCommandExecutor
 
 __all__ = ["InProcessBackend"]
 

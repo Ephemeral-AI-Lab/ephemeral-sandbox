@@ -141,7 +141,6 @@ async def test_write_file_dispatches_through_audit(
         return SimpleNamespace(
             success=True,
             changed_paths=("/x",),
-            ambient_changed_paths=(),
             conflict_reason=None,
             raw=None,
         )
@@ -167,7 +166,6 @@ async def test_write_file_surfaces_conflict_reason(
         return SimpleNamespace(
             success=False,
             changed_paths=(),
-            ambient_changed_paths=(),
             conflict_reason="aborted_version",
             raw=None,
         )
@@ -194,7 +192,6 @@ async def test_edit_file_dispatches_through_audit(
         return SimpleNamespace(
             success=True,
             changed_paths=("/x",),
-            ambient_changed_paths=(),
             conflict_reason=None,
             raw=None,
         )
@@ -224,7 +221,6 @@ async def test_shell_unpacks_audit_response(
     raw = SimpleNamespace(
         result="hello",
         exit_code=0,
-        git_commit_status="committed",
         warnings=["w1"],
     )
 
@@ -234,7 +230,6 @@ async def test_shell_unpacks_audit_response(
         return SimpleNamespace(
             success=True,
             changed_paths=("/foo",),
-            ambient_changed_paths=("/bar",),
             conflict_reason=None,
             raw=raw,
         )
@@ -247,10 +242,9 @@ async def test_shell_unpacks_audit_response(
 
     assert result.exit_code == 0
     assert result.stdout == "hello"
+    assert result.success is True
     assert result.changed_paths == ("/foo",)
-    assert result.ambient_changed_paths == ("/bar",)
-    assert result.audit_success is True
-    assert result.git_commit_status == "committed"
+    assert result.conflict_reason is None
     assert result.warnings == ("w1",)
 
 
@@ -265,7 +259,6 @@ async def test_shell_surfaces_audit_conflict(
         return SimpleNamespace(
             success=False,
             changed_paths=(),
-            ambient_changed_paths=(),
             conflict_reason="aborted_version",
             raw=SimpleNamespace(result="", exit_code=0),
         )
@@ -276,8 +269,8 @@ async def test_shell_surfaces_audit_conflict(
         "sb-1", ShellRequest(command="touch x", actor=actor),
     )
 
-    assert result.audit_success is False
-    assert result.audit_conflict_reason == "aborted_version"
+    assert result.success is False
+    assert result.conflict_reason == "aborted_version"
 
 
 def test_audited_sandbox_api_satisfies_protocol_method_set() -> None:

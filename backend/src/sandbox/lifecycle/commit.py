@@ -33,7 +33,6 @@ class FileChangeResult(Generic[T]):
     success: bool
     changed_paths: tuple[str, ...]
     raw: T
-    ambient_changed_paths: tuple[str, ...] = ()
     conflict_reason: str | None = None
 
 
@@ -149,7 +148,7 @@ class _CommitBatcher:
 
 def _dedup_sorted(raw: Any) -> tuple[str, ...]:
     """Normalize a path list from ``svc.cmd``: str, strip empties, sort, dedup."""
-    if not isinstance(raw, list):
+    if not isinstance(raw, (list, tuple, set)):
         return ()
     return tuple(sorted({str(p) for p in raw if str(p or "").strip()}))
 
@@ -272,16 +271,20 @@ async def submit_shell_cmd(
     response = await svc.cmd(sandbox, command, **cmd_kwargs)
 
     changed = _dedup_sorted(getattr(response, "changed_paths", None))
-    ambient = _dedup_sorted(getattr(response, "ambient_changed_paths", None))
     exit_code = int(getattr(response, "exit_code", 1) or 0)
-    commit_status = getattr(response, "git_commit_status", None)
-    conflict_reason = getattr(response, "git_conflict_reason", None)
+    conflict_reason = getattr(response, "conflict_reason", None)
+    if not conflict_reason:
+        conflict = getattr(response, "conflict", None)
+        if conflict is not None:
+            conflict_reason = (
+                getattr(conflict, "message", None)
+                or getattr(conflict, "reason", None)
+            )
 
-    success = exit_code == 0 and (commit_status in (None, "committed", "noop"))
+    success = exit_code == 0 and not conflict_reason
     return FileChangeResult(
         success=success,
         changed_paths=changed,
-        ambient_changed_paths=ambient,
         conflict_reason=(str(conflict_reason) if conflict_reason else None),
         raw=response,
     )
@@ -292,7 +295,6 @@ def commit_metadata(change: Any, paths: list[str] | None = None) -> dict[str, An
     changed_paths = list(change.changed_paths if paths is None else paths)
     return {
         "changed_paths": changed_paths,
-        "ambient_changed_paths": list(change.ambient_changed_paths),
         "conflict_reason": change.conflict_reason,
     }
 

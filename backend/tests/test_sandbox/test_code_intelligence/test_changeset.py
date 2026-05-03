@@ -9,8 +9,8 @@ import pytest
 
 from sandbox.occ.changeset import ChangesetResult
 from sandbox.overlay.types import UpperChange
-from sandbox.code_intelligence.registry import dispose_all_code_intelligence
-from sandbox.code_intelligence.service import CodeIntelligenceService
+from sandbox.runtime.registry import dispose_all_code_intelligence
+from sandbox.runtime.service import CodeIntelligenceService
 
 
 @pytest.fixture(autouse=True)

@@ -1,9 +1,7 @@
 """Request/result models and shared data types for the sandbox API.
 
-This module is the contract surface. It must not import from
-``sandbox.daytona`` or ``sandbox.code_intelligence`` so the API package
-can be re-implemented for any sandbox provider without dragging engine
-internals along. CI engine types and provider primitives live elsewhere.
+This module is the contract surface. It must not import from provider,
+runtime, OCC, or overlay internals.
 """
 
 from __future__ import annotations
@@ -145,11 +143,9 @@ class ShellResult:
     exit_code: int
     stdout: str
     stderr: str = ""
+    success: bool = True
     changed_paths: tuple[str, ...] = ()
-    ambient_changed_paths: tuple[str, ...] = ()
-    audit_success: bool = True
-    audit_conflict_reason: str | None = None
-    git_commit_status: str | None = None
+    conflict_reason: str | None = None
     warnings: tuple[str, ...] = ()
 
 

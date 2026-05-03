@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from sandbox.occ.changeset import ChangesetResult
-from sandbox.code_intelligence.shell_command_executor import AuditedCommandExecutor
+from sandbox.runtime.shell_command_executor import AuditedCommandExecutor
 from sandbox.overlay.types import (
     OverlayPolicyReject,
     OverlayRunOutcome,
@@ -86,8 +86,8 @@ async def test_overlay_reject_skips_occ_changeset(workspace: Path) -> None:
     result = await executor.cmd(SimpleNamespace(), "echo big")
 
     assert write_coordinator.apply_changeset.call_count == 0
-    assert result.git_commit_status == "rejected"
-    assert result.git_conflict_reason == "overlay_upper_full"
+    assert result.conflict_reason == "overlay_upper_full"
+    assert result.conflict_file is None
     assert result.changed_paths == []
 
 
@@ -111,10 +111,8 @@ async def test_overlay_success_then_occ_conflict_surfaces_patch_failed(
 
     result = await executor.cmd(SimpleNamespace(), "echo hi")
 
-    assert result.git_commit_status == "aborted_version"
-    assert result.git_conflict_reason == "patch_failed"
-    assert result.git_conflict_file == str(workspace / "app.py")
-    assert result.ambient_changed_paths == [str(workspace / "app.py")]
+    assert result.conflict_reason == "patch_failed"
+    assert result.conflict_file == str(workspace / "app.py")
     assert result.changed_paths == []
     assert write_coordinator.apply_changeset.call_count == 1
 
@@ -137,9 +135,8 @@ async def test_argv_overflow_surfaces_as_argv_too_large(workspace: Path) -> None
 
     result = await executor.cmd(SimpleNamespace(), "echo hi")
 
-    assert result.git_conflict_reason == "argv_too_large"
-    assert result.git_commit_status == "failed"
-    assert result.git_conflict_file == str(workspace / "app.py")
+    assert result.conflict_reason == "argv_too_large"
+    assert result.conflict_file == str(workspace / "app.py")
     assert result.changed_paths == []
 
 

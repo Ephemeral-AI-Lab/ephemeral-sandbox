@@ -1,4 +1,4 @@
-"""Sandbox package — Daytona transport, lifecycle, code-intelligence, testing.
+"""Sandbox package — Daytona transport, lifecycle, runtime, testing.
 
 Sub-packages:
 - ``sandbox.client``           — Daytona sync/async client lifecycle and shutdown
@@ -6,7 +6,7 @@ Sub-packages:
                                   context preparation, workspace discovery, and
                                   shell/commit submission helpers
 - ``sandbox.daytona``          — Daytona transport/provider primitives
-- ``sandbox.code_intelligence``— per-sandbox CI service
+- ``sandbox.runtime``          — in-sandbox runtime bundle and service adapters
 - ``sandbox.testing``          — sandbox factories and eval-file fixtures
 - ``sandbox.errors``           — :class:`DaytonaUnavailableError`,
                                   :class:`AsyncDaytonaUnavailableError`

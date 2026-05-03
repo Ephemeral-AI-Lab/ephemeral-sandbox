@@ -1,4 +1,4 @@
-"""Global per-sandbox :class:`CodeIntelligenceService` registry."""
+"""Global per-sandbox runtime service registry."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sandbox.api.transport import SandboxTransport
-    from sandbox.code_intelligence.service import CodeIntelligenceService
+    from sandbox.runtime.service import CodeIntelligenceService
 
 _SERVICES: dict[str, "CodeIntelligenceService"] = {}
 _SERVICES_LOCK = threading.Lock()
@@ -21,13 +21,13 @@ def get_code_intelligence(
     *,
     transport: "SandboxTransport | None" = None,
 ) -> "CodeIntelligenceService":
-    """Get or create a CI service for *sandbox_id*.
+    """Get or create a runtime service for *sandbox_id*.
 
     When ``transport`` is supplied, downstream subsystems route sandbox I/O
     through the provider-neutral transport. Defaulting to ``None`` preserves
     local/test callers that construct the service with only ``sandbox=``.
     """
-    from sandbox.code_intelligence.service import CodeIntelligenceService
+    from sandbox.runtime.service import CodeIntelligenceService
 
     def _transport_matches(service: CodeIntelligenceService) -> bool:
         current = getattr(service, "_transport", None)
@@ -76,7 +76,7 @@ def get_code_intelligence(
 
 
 def get_code_intelligence_if_exists(sandbox_id: str) -> "CodeIntelligenceService | None":
-    """Fetch an existing CI service without creating one."""
+    """Fetch an existing runtime service without creating one."""
     with _SERVICES_LOCK:
         return _SERVICES.get(sandbox_id)
 
@@ -90,10 +90,9 @@ def dispose_code_intelligence(sandbox_id: str) -> None:
 
 
 def dispose_all_code_intelligence() -> None:
-    """Dispose all CI services."""
+    """Dispose all runtime services."""
     with _SERVICES_LOCK:
         services = list(_SERVICES.values())
         _SERVICES.clear()
     for service in services:
         service.dispose()
-

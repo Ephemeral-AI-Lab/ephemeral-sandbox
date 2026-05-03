@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.code_intelligence.daemon.client import DaemonCommandClient
+from sandbox.runtime.legacy_command_client import DaemonCommandClient
 
 
 class DaemonBackend(DaemonCommandClient):
