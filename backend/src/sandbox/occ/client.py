@@ -5,12 +5,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from sandbox.occ.changeset.types import Change, ChangesetResult
 from sandbox.occ.types import (
     EditSpec,
     OperationResult,
     WriteSpec,
 )
 from sandbox.occ.wire import (
+    change_to_dict,
+    changeset_result_from_dict,
     editspec_to_dict,
     normalize_edit_specs,
     normalize_write_specs,
@@ -83,6 +86,24 @@ class OCCClient:
             },
         )
         return operation_result_from_dict(result)
+
+    async def apply_changeset(
+        self,
+        changes: Sequence[Change],
+        *,
+        agent_id: str = "",
+        description: str = "",
+    ) -> ChangesetResult:
+        """Apply a typed :class:`Change` batch through the new OCC gate."""
+        result = await self._call(
+            "occ.apply_changeset",
+            {
+                "changes": [change_to_dict(c) for c in changes],
+                "agent_id": agent_id,
+                "description": description,
+            },
+        )
+        return changeset_result_from_dict(result)
 
     async def _call(self, op: str, args: dict[str, Any]) -> dict[str, Any]:
         try:

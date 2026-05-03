@@ -32,19 +32,25 @@ class _Adapter:
     ) -> RawExecResult:
         self.calls.append((sandbox_id, command, cwd, timeout))
         payload = json.loads(shlex.split(command)[-1])
-        assert payload["op"] == "occ.edit"
-        assert payload["args"]["specs"][0]["edits"][0]["old_text"] == "old"
+        assert payload["op"] == "occ.apply_changeset"
+        change = payload["args"]["changes"][0]
+        assert change["kind"] == "edit"
+        assert change["path"] == "/workspace/a.py"
+        assert change["edits"][0]["old_text"] == "old"
         return RawExecResult(exit_code=0, stdout=json.dumps(self.response))
 
 
 async def test_edit_file_delegates_once_and_counts_applied_edits() -> None:
     adapter = _Adapter(
         response={
-            "success": True,
-            "status": "committed",
-            "files": [{"success": True, "file_path": "/workspace/a.py"}],
-            "conflict_file": None,
-            "conflict_reason": "",
+            "files": [
+                {
+                    "path": "/workspace/a.py",
+                    "status": "committed",
+                    "message": "",
+                    "timings": {},
+                }
+            ],
             "timings": {},
         }
     )
@@ -70,11 +76,14 @@ async def test_edit_file_delegates_once_and_counts_applied_edits() -> None:
 async def test_edit_file_guard_failure_maps_conflict_info() -> None:
     adapter = _Adapter(
         response={
-            "success": False,
-            "status": "failed",
-            "files": [],
-            "conflict_file": "/workspace/a.py",
-            "conflict_reason": "patch_failed",
+            "files": [
+                {
+                    "path": "/workspace/a.py",
+                    "status": "aborted_overlap",
+                    "message": "patch_failed",
+                    "timings": {},
+                }
+            ],
             "timings": {},
         }
     )
@@ -93,8 +102,8 @@ async def test_edit_file_guard_failure_maps_conflict_info() -> None:
 
     assert result.success is False
     assert result.applied_edits == 0
-    assert result.status == "failed"
+    assert result.status == "aborted_overlap"
     assert result.conflict is not None
-    assert result.conflict.reason == "failed"
+    assert result.conflict.reason == "aborted_overlap"
     assert result.conflict.message == "patch_failed"
     assert result.conflict_reason == "patch_failed"

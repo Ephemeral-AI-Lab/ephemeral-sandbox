@@ -25,11 +25,14 @@ _MODEL_ONLY_MODULES = {
 }
 _PUBLIC_VERB_IMPORT_ALLOWLIST = {
     "read.py": {"sandbox.api.raw_exec"},
-    "write.py": {"sandbox.occ.client", "sandbox.occ.types"},
+    "write.py": {
+        "sandbox.occ.changeset.types",
+        "sandbox.occ.client",
+    },
     "edit.py": {
+        "sandbox.occ.changeset.types",
         "sandbox.occ.client",
         "sandbox.occ.patching.patcher",
-        "sandbox.occ.types",
     },
     "shell.py": {"sandbox.overlay.client", "sandbox.overlay.types"},
 }

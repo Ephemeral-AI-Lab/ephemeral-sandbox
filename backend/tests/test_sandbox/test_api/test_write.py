@@ -27,19 +27,24 @@ class _Adapter:
     ) -> RawExecResult:
         self.calls.append((sandbox_id, command, cwd, timeout))
         payload = json.loads(shlex.split(command)[-1])
-        assert payload["op"] == "occ.write"
-        assert payload["args"]["specs"][0]["file_path"] == "/workspace/a.py"
+        assert payload["op"] == "occ.apply_changeset"
+        change = payload["args"]["changes"][0]
+        assert change["kind"] == "write"
+        assert change["path"] == "/workspace/a.py"
         return RawExecResult(exit_code=0, stdout=json.dumps(self.response))
 
 
 async def test_write_file_delegates_once_through_occ_client() -> None:
     adapter = _Adapter(
         response={
-            "success": True,
-            "status": "committed",
-            "files": [{"success": True, "file_path": "/workspace/a.py"}],
-            "conflict_file": None,
-            "conflict_reason": "",
+            "files": [
+                {
+                    "path": "/workspace/a.py",
+                    "status": "committed",
+                    "message": "",
+                    "timings": {},
+                }
+            ],
             "timings": {},
         }
     )
@@ -65,11 +70,14 @@ async def test_write_file_delegates_once_through_occ_client() -> None:
 async def test_write_file_guard_failure_maps_conflict_info() -> None:
     adapter = _Adapter(
         response={
-            "success": False,
-            "status": "aborted_version",
-            "files": [],
-            "conflict_file": "/workspace/a.py",
-            "conflict_reason": "base_mismatch",
+            "files": [
+                {
+                    "path": "/workspace/a.py",
+                    "status": "aborted_version",
+                    "message": "base_mismatch",
+                    "timings": {},
+                }
+            ],
             "timings": {},
         }
     )

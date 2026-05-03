@@ -77,18 +77,31 @@ class FileChangeApplier:
         current: str,
         existed: bool,
     ) -> FileResult:
-        if existed != change.base_existed:
-            return FileResult(
-                path=self._path,
-                status=FileStatus.ABORTED_VERSION,
-                message="existence changed",
-            )
-        if existed and content_hash(current) != change.base_hash:
-            return FileResult(
-                path=self._path,
-                status=FileStatus.ABORTED_VERSION,
-                message="content changed",
-            )
+        # Three contracts encoded in (base_existed, base_hash):
+        #   base_existed=False           -> create-only (abort if exists)
+        #   base_existed=True, hash!=""  -> pinned modify (CAS by hash)
+        #   base_existed=True, hash==""  -> blind overwrite/create under lock
+        #                                   (API write path; no host-side base read)
+        if not change.base_existed:
+            if existed:
+                return FileResult(
+                    path=self._path,
+                    status=FileStatus.ABORTED_VERSION,
+                    message="existence changed",
+                )
+        elif change.base_hash:
+            if not existed:
+                return FileResult(
+                    path=self._path,
+                    status=FileStatus.ABORTED_VERSION,
+                    message="existence changed",
+                )
+            if content_hash(current) != change.base_hash:
+                return FileResult(
+                    path=self._path,
+                    status=FileStatus.ABORTED_VERSION,
+                    message="content changed",
+                )
         try:
             self._content.write(self._path, change.final_content)
         except Exception as exc:

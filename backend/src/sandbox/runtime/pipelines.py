@@ -7,23 +7,19 @@ from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from typing import Any
 
-from sandbox.occ.changeset.legacy import LegacyChangesetResult as ChangesetResult
+from sandbox.occ.changeset.builders import overlay_changes_to_changeset
+from sandbox.occ.changeset.legacy import LegacyChangesetResult
+from sandbox.occ.changeset.types import ChangesetResult, FileStatus
+from sandbox.occ.content.gitignore_oracle import GitignoreOracle
+from sandbox.occ.content.manager import ContentManager
+from sandbox.occ.direct.direct_merge_coordinator import DirectMergeCoordinator
 from sandbox.occ.engine import LocalOCCEngine
+from sandbox.occ.gated.gated_coordinator import OCCGatedCoordinator
+from sandbox.occ.orchestrator import ChangesetOrchestrator
+from sandbox.occ.types import EditSpec, OperationResult, WriteSpec
 from sandbox.overlay.engine import OverlayCaptureEngine, OverlayEngine
 from sandbox.overlay.types import OverlayRunOutcome
-from sandbox.occ.types import EditSpec, OperationResult, WriteSpec
 from sandbox.runtime.types import ConflictInfo, ShellResult
-
-
-class _ApplyChangesetEngine:
-    def __init__(self, apply_changeset: Callable[..., Any]) -> None:
-        self._apply_changeset = apply_changeset
-
-    def apply_changeset(self, *args: Any, **kwargs: Any) -> Any:
-        return self._apply_changeset(*args, **kwargs)
-
-    def dispose(self) -> None:
-        return None
 
 
 async def shell_pipeline(
@@ -41,20 +37,13 @@ async def shell_pipeline(
     overlay_sandbox: Any = None,
     on_progress_line: Callable[[str], None] | None = None,
 ) -> ShellResult:
-    """Run shell through overlay capture, then project OCC's changeset verdict."""
+    """Run shell through overlay capture, then project the gate's verdict."""
     owns_overlay = overlay_engine is None
-    owns_occ = occ_engine is None and occ_apply_changeset is None
     overlay = overlay_engine or OverlayCaptureEngine(
         sandbox_id=sandbox_id,
         workspace_root=workspace_root,
         direct_runtime=True,
     )
-    if occ_engine is not None:
-        occ = occ_engine
-    elif occ_apply_changeset is not None:
-        occ = _ApplyChangesetEngine(occ_apply_changeset)
-    else:
-        occ = LocalOCCEngine(workspace_root=workspace_root)
     try:
         outcome = await _execute_overlay(
             overlay,
@@ -67,22 +56,42 @@ async def shell_pipeline(
             on_progress_line=on_progress_line,
         )
 
-        changeset_result = await _maybe_await(
-            occ.apply_changeset(
-                outcome.upper_changes,
-                agent_id=agent_id,
-                edit_type="svc_cmd_overlay",
-                description=description or "shell overlay",
+        # Test injection paths still expect the legacy upper_changes
+        # signature returning LegacyChangesetResult.
+        if occ_engine is not None:
+            legacy = await _maybe_await(
+                occ_engine.apply_changeset(
+                    outcome.upper_changes,
+                    agent_id=agent_id,
+                    edit_type="svc_cmd_overlay",
+                    description=description or "shell overlay",
+                )
             )
+            return _legacy_shell_result(outcome, legacy)
+        if occ_apply_changeset is not None:
+            legacy = await _maybe_await(
+                occ_apply_changeset(
+                    outcome.upper_changes,
+                    agent_id=agent_id,
+                    edit_type="svc_cmd_overlay",
+                    description=description or "shell overlay",
+                )
+            )
+            return _legacy_shell_result(outcome, legacy)
+
+        # Default path: build typed changes and run them through the new gate.
+        typed_changes = overlay_changes_to_changeset(outcome.upper_changes)
+        content = ContentManager(workspace_root)
+        orchestrator = ChangesetOrchestrator(
+            gitignore=GitignoreOracle(workspace_root),
+            direct=DirectMergeCoordinator(content),
+            gated=OCCGatedCoordinator(content),
         )
-        return _changeset_result(outcome, changeset_result)
+        result = await orchestrator.apply(typed_changes)
+        return _shell_result_from_changeset(outcome, result, workspace_root=workspace_root)
     finally:
         if owns_overlay:
             dispose = getattr(overlay, "dispose", None)
-            if callable(dispose):
-                dispose()
-        if owns_occ:
-            dispose = getattr(occ, "dispose", None)
             if callable(dispose):
                 dispose()
 
@@ -157,14 +166,14 @@ async def _maybe_await(value: Any) -> Any:
     return value
 
 
-def _changeset_result(
+def _legacy_shell_result(
     outcome: OverlayRunOutcome,
-    changeset_result: ChangesetResult,
+    changeset_result: LegacyChangesetResult,
 ) -> ShellResult:
+    """Project the legacy ``LegacyChangesetResult`` shape (test-injection path)."""
     changed_paths = tuple(
         sorted({*changeset_result.ledgered, *changeset_result.direct_merged})
     )
-
     if changeset_result.success:
         return ShellResult(
             result=outcome.stdout,
@@ -174,7 +183,6 @@ def _changeset_result(
             overlay_run_timings=dict(outcome.overlay_run_timings),
             overlay_stage_timings=dict(outcome.overlay_stage_timings),
         )
-
     message = changeset_result.conflict_reason or changeset_result.status
     conflict = ConflictInfo(
         reason=changeset_result.conflict_reason or "occ_conflict",
@@ -190,6 +198,65 @@ def _changeset_result(
         overlay_stage_timings=dict(outcome.overlay_stage_timings),
         conflict=conflict,
     )
+
+
+def _shell_result_from_changeset(
+    outcome: OverlayRunOutcome,
+    result: ChangesetResult,
+    *,
+    workspace_root: str,
+) -> ShellResult:
+    """Project the new ``ChangesetResult`` (per-file ``FileResult``) shape."""
+    committed = sorted({
+        _absolutize(f.path, workspace_root)
+        for f in result.files
+        if f.status is FileStatus.COMMITTED and f.path
+    })
+    changed_paths = tuple(committed)
+
+    if result.success:
+        return ShellResult(
+            result=outcome.stdout,
+            exit_code=outcome.exit_code,
+            changed_paths=changed_paths,
+            warnings=tuple(outcome.warnings),
+            overlay_run_timings=dict(outcome.overlay_run_timings),
+            overlay_stage_timings=dict(outcome.overlay_stage_timings),
+        )
+
+    bad = next((f for f in result.files if f.status is not FileStatus.COMMITTED), None)
+    if bad is None:
+        return ShellResult(  # pragma: no cover - success/failure mismatch guard
+            result=outcome.stdout,
+            exit_code=outcome.exit_code,
+            changed_paths=changed_paths,
+            warnings=tuple(outcome.warnings),
+            overlay_run_timings=dict(outcome.overlay_run_timings),
+            overlay_stage_timings=dict(outcome.overlay_stage_timings),
+        )
+    reason = "patch_failed" if bad.status is FileStatus.ABORTED_OVERLAP else bad.status.value
+    return ShellResult(
+        result=outcome.stdout,
+        exit_code=outcome.exit_code,
+        changed_paths=changed_paths,
+        warnings=tuple(outcome.warnings),
+        overlay_run_timings=dict(outcome.overlay_run_timings),
+        overlay_stage_timings=dict(outcome.overlay_stage_timings),
+        conflict=ConflictInfo(
+            reason=reason,
+            conflict_file=_absolutize(bad.path, workspace_root) if bad.path else None,
+            message=bad.message or reason,
+        ),
+    )
+
+
+def _absolutize(rel: str, workspace_root: str) -> str:
+    if not rel:
+        return rel
+    if rel.startswith("/"):
+        return rel
+    root = workspace_root.rstrip("/")
+    return f"{root}/{rel}" if root else rel
 
 
 __all__ = ["edit_pipeline", "shell_pipeline", "write_pipeline"]
