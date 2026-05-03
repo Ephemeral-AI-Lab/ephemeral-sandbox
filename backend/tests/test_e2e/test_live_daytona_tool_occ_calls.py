@@ -224,7 +224,7 @@ def test_live_tool_roundtrip_write_edit_shell(live_tool_env: LiveToolEnv):
     )
     shell_payload = _json_output(shell_result)
     assert shell_payload["status"] == "ok"
-    stdout = shell_payload["shell_outputs"][0]["stdout"]
+    stdout = shell_payload["stdout"]
     assert "VALUE = 'edited'" in stdout
     counts = Counter(
         str(getattr(item, "edit_type", "") or "")
@@ -306,7 +306,7 @@ def test_live_two_concurrent_same_file_overlap_has_single_winner(
         )
     )
     verify_payload = _json_output(verify_result)
-    final = verify_payload["shell_outputs"][0]["stdout"]
+    final = verify_payload["stdout"]
 
     landed_overlap_values = [token for token in ("A_WON", "B_WON") if token in final]
     assert len(landed_overlap_values) == 1, (
@@ -412,7 +412,7 @@ def test_live_five_concurrent_same_file_edit_file_calls(live_tool_env: LiveToolE
         )
     )
     verify_payload = _json_output(verify_result)
-    final = verify_payload["shell_outputs"][0]["stdout"]
+    final = verify_payload["stdout"]
 
     landed_unique_values = [f"return {i + 1000}" for i in range(3) if f"return {i + 1000}" in final]
     assert landed_unique_values, (

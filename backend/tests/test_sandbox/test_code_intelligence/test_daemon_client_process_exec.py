@@ -1,4 +1,4 @@
-"""Unit tests for the CI command backend process.exec path."""
+"""Unit tests for the runtime command backend process.exec path."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from sandbox.runtime.backends import DaemonBackend
-from sandbox.runtime.legacy_command_client import DaemonCommandError
+from sandbox.runtime.command_client import RuntimeCommandError
 from sandbox.runtime.bundle import bundle_hash
 
 
@@ -38,13 +38,18 @@ class _FakeTransport:
         self.exec_calls.append(command)
         if ".bundle-hash" in command and "tar -xzf" not in command:
             return _result(0, bundle_hash() + "\n")
-        if "sandbox.runtime.legacy_command_client" in command:
+        if "sandbox.runtime.server" in command:
             if self.bad_response:
                 return _result(0, "not-base64")
             if self.response_error is not None:
-                response = {"ok": False, "error": self.response_error}
+                response = {
+                    "success": False,
+                    "warnings": [],
+                    "timings": {},
+                    "error": self.response_error,
+                }
             else:
-                response = {"ok": True, "result": {"pong": True, "op": _extract_op(command)}}
+                response = {"success": True, "pong": True, "op": _extract_op(command)}
             raw = json.dumps(response, separators=(",", ":")).encode("utf-8")
             return _result(0, base64.b64encode(raw).decode("ascii"))
         return _result(0, "")
@@ -67,7 +72,11 @@ async def test_call_returns_success_result() -> None:
     transport = _FakeTransport()
     backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
 
-    assert await backend._call_daemon_command("ping") == {"pong": True, "op": "ping"}
+    assert await backend._call_runtime_command("ping") == {
+        "success": True,
+        "pong": True,
+        "op": "ping",
+    }
     assert any("python3 -" in c for c in transport.exec_calls)
 
 
@@ -82,8 +91,8 @@ async def test_error_envelope_raises_typed_daemon_command_error() -> None:
     )
     backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
 
-    with pytest.raises(DaemonCommandError) as exc:
-        await backend._call_daemon_command("nope")
+    with pytest.raises(RuntimeCommandError) as exc:
+        await backend._call_runtime_command("nope")
     assert exc.value.kind == "UnsupportedOp"
     assert exc.value.details == {"op": "nope"}
 
@@ -93,5 +102,5 @@ async def test_invalid_process_exec_response_raises_unavailable() -> None:
     transport = _FakeTransport(bad_response=True)
     backend = DaemonBackend(sandbox_id="sb-1", workspace_root="/ws", transport=transport)  # type: ignore[arg-type]
 
-    with pytest.raises(Exception, match="daemon unreachable after respawn"):
-        await backend._call_daemon_command("ping")
+    with pytest.raises(Exception, match="runtime dispatcher unreachable after retry"):
+        await backend._call_runtime_command("ping")

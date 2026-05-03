@@ -5,8 +5,8 @@ Host-to-guest contract: callers send a JSON object such as
 return JSON-safe values or dataclasses matching the public result types from
 the sandbox API refactor plan. stdout receives that JSON result directly.
 
-This dispatcher intentionally does not emit the old daemon
-``{ok, result, error}`` envelope. Host callers use
+This dispatcher emits direct handler results rather than a nested command
+envelope. Host callers use
 ``sandbox.runtime.command_client`` and receive handler results directly.
 """
 

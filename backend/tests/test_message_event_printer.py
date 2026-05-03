@@ -57,9 +57,10 @@ def test_printer_renders_structured_shell_error_detail() -> None:
         ToolExecutionCompleted(
             tool_name="shell",
             output=(
-                '{"cwd": "/testbed", "status": "error", "files_written": 0, '
-                '"shells_run": 1, "shell_summaries": [], "shell_outputs": [], '
-                '"script_stdout": "", "warnings": [], "error": "failed"}'
+                '{"cwd": "/testbed", "status": "error", '
+                '"changed_paths": [], "conflict_reason": null, '
+                '"command": "pytest -q", "exit_code": 2, '
+                '"stdout": "", "stderr": "", "error": "failed"}'
             ),
             is_error=True,
             agent_name="developer",
@@ -68,7 +69,9 @@ def test_printer_renders_structured_shell_error_detail() -> None:
     )
 
     assert lines == [
-        "[developer     ] [1234567890abcdef1234] <- tool_done:  shell [ERROR] failed"
+        "[developer     ] [1234567890abcdef1234] "
+        "<- tool_done:  shell [ERROR] $ pytest -q -> exit 2",
+        "[developer     ] [1234567890abcdef1234] │ failed",
     ]
 
 
@@ -80,11 +83,11 @@ def test_printer_renders_structured_shell_cmd_error_detail() -> None:
         ToolExecutionCompleted(
             tool_name="shell",
             output=(
-                '{"cwd": "/testbed", "status": "error", "files_written": 0, '
-                '"shells_run": 1, "shell_summaries": ["$ pytest -q -> exit 2"], '
-                '"shell_outputs": [{"command": "pytest -q", "exit_code": 2, '
-                '"stdout": "", "stderr": "failed to collect tests"}], '
-                '"script_stdout": "", "warnings": [], "error": "failed to collect tests"}'
+                '{"cwd": "/testbed", "status": "error", '
+                '"changed_paths": [], "conflict_reason": null, '
+                '"command": "pytest -q", "exit_code": 2, '
+                '"stdout": "", "stderr": "failed to collect tests", '
+                '"error": "failed to collect tests"}'
             ),
             is_error=True,
             agent_name="developer",
@@ -127,7 +130,10 @@ def test_printer_renders_background_shell_error_fallback() -> None:
         BackgroundTaskCompleted(
             task_id="bg_1",
             tool_name="shell",
-            output='{"cwd": "/testbed", "status": "error", "shells_run": 1}',
+            output=(
+                '{"cwd": "/testbed", "status": "error", "changed_paths": [], '
+                '"command": "pytest -q", "exit_code": 2}'
+            ),
             is_error=True,
             agent_name="developer",
             run_id="1234567890abcdef1234",
@@ -136,7 +142,7 @@ def test_printer_renders_background_shell_error_fallback() -> None:
 
     assert lines == [
         "[developer     ] [1234567890abcdef1234] "
-        "<< bg_done:    shell [ERROR] status=error shells_run=1"
+        "<< bg_done:    shell [ERROR] $ pytest -q -> exit 2"
     ]
 
 

@@ -1,4 +1,4 @@
-"""Wire-format helpers for the transport-backed CI daemon backend."""
+"""Wire-format helpers for runtime OCC requests and responses."""
 
 from __future__ import annotations
 
@@ -109,6 +109,17 @@ def operation_change_to_dict(change: OperationChange) -> dict[str, Any]:
     }
 
 
+def operation_change_from_dict(d: dict[str, Any]) -> OperationChange:
+    return OperationChange(
+        file_path=str(d["file_path"]),
+        base_content=str(d.get("base_content", "")),
+        base_hash=str(d.get("base_hash", "")),
+        final_content=d.get("final_content"),
+        base_existed=bool(d.get("base_existed", True)),
+        strict_base=bool(d.get("strict_base", False)),
+    )
+
+
 def edit_request_to_dict(request: EditRequest) -> dict[str, Any]:
     return {
         "file_path": request.file_path,
@@ -117,6 +128,16 @@ def edit_request_to_dict(request: EditRequest) -> dict[str, Any]:
         "agent_id": request.agent_id,
         "description": request.description,
     }
+
+
+def edit_request_from_dict(d: dict[str, Any]) -> EditRequest:
+    return EditRequest(
+        file_path=str(d["file_path"]),
+        old_text=str(d.get("old_text", "")),
+        new_text=str(d.get("new_text", "")),
+        agent_id=str(d.get("agent_id", "")),
+        description=str(d.get("description", "")),
+    )
 
 
 def edit_result_from_dict(d: dict[str, Any]) -> EditResult:

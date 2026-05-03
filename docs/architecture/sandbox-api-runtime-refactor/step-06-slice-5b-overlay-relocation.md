@@ -65,8 +65,8 @@ backend/src/sandbox/
   - On overlay reject: short-circuit. No OCC call. Return `ShellResult` with `conflict` populated.
   - On overlay success: call `occ.apply_changeset` with `upper_changes`.
     Project the OCC verdict onto `ShellResult` as only
-    `changed_paths` plus `conflict`. Do not expose gitinclude/gitignore
-    partitions from this boundary.
+    `changed_paths` plus `conflict`. Do not expose routing partitions from this
+    boundary.
 - `sandbox/runtime/server.py`: import `sandbox.overlay.bootstrap` / handlers so overlay ops register in `OP_TABLE`; the `shell` op now dispatches to `shell_pipeline`. Server dispatch remains table-driven; no per-overlay branch is added.
 - `sandbox/runtime/shell_command_executor.py`: host-side shell compatibility
   adapter for service callers. It must not live under `sandbox/code_intelligence`.
@@ -81,10 +81,10 @@ backend/src/sandbox/
   and `overlay/setup.sh`.
 - `backend/src/sandbox/overlay/daemon_local.py` if it was carried over by the
   directory move. Its in-sandbox execution/read-diff/cleanup responsibilities
-  belong in `overlay/engine.py`, `overlay/handlers/run.py`, and
+  belong in `overlay/engine/`, `overlay/handlers/run.py`, and
   `overlay/runtime/{command,ndjson}.py` behind `runtime/server.py`.
 - `backend/src/sandbox/overlay/capture_runner.py` if it was carried over by the
-  directory move. The durable split is `overlay/engine.py` for orchestration,
+  directory move. The durable split is `overlay/engine/` for orchestration,
   `overlay/runtime/capture.py` for upperdir capture, and `overlay/client.py`
   for host routing.
 - `backend/src/sandbox/overlay/run.py` if it was carried over by the directory
@@ -108,9 +108,9 @@ backend/src/sandbox/
 5. Implement `shell_pipeline` per §1.5. The pipeline does not classify — it
    forwards `upper_changes` to `occ.apply_changeset` and projects the verdict
    onto `ShellResult.changed_paths` and `ShellResult.conflict`. Any
-   `git check-ignore` or `direct_merge` import in `runtime/pipelines.py` is a
-   structural review red flag. Returning gitinclude/gitignore-specific fields is
-   also a review failure.
+   classification or merge-policy import in `runtime/pipelines.py` is a
+   structural review red flag. Returning routing-specific fields is also a
+   review failure.
 6. Register overlay handlers in `server.OP_TABLE` at module import time:
    - `overlay.run` → `overlay/handlers/run.py`.
    - `shell` → `overlay/handlers/shell.py`, which delegates to
@@ -123,14 +123,15 @@ backend/src/sandbox/
      setup/upload logic → `runtime/bundle.py`, `runtime/setup_orchestrator.py`,
      and `overlay/setup.sh`.
    - `daemon_local.py` in-sandbox run/read-diff/cleanup logic →
-     `overlay/engine.py`, `overlay/handlers/run.py`, and
+     `overlay/engine/`, `overlay/handlers/run.py`, and
      `overlay/runtime/{command,ndjson}.py`.
-   - `capture_runner.py` orchestration → `overlay/engine.py`; upperdir walk →
+   - `capture_runner.py` orchestration → `overlay/engine/`; upperdir walk →
      `overlay/runtime/capture.py`.
    - `run.py` script facade → `overlay/runtime/cli.py`.
    - Delete the shim files after those responsibilities are covered. Do not
      preserve old names as compatibility wrappers inside the new package.
-9. Confirm 5a's reshaped overlay package transplants cleanly to `sandbox/overlay/` with no remaining gitignore / check-ignore surfaces.
+9. Confirm 5a's reshaped overlay package transplants cleanly to
+   `sandbox/overlay/` with no remaining classification surfaces.
 
 ## Tests
 
@@ -176,10 +177,10 @@ backend/src/sandbox/
   the split implementation.
 - `process_exec.py` and `daemon_local.py` do not exist under
   `sandbox/overlay/`; their responsibilities are represented by
-  `overlay/client.py`, `overlay/engine.py`, `overlay/handlers/run.py`,
+  `overlay/client.py`, `overlay/engine/`, `overlay/handlers/run.py`,
   `overlay/runtime/{command,ndjson}.py`, and the runtime setup files.
 - `capture_runner.py` and `run.py` do not exist under `sandbox/overlay/`;
-  their responsibilities are represented by `overlay/engine.py`,
+  their responsibilities are represented by `overlay/engine/`,
   `overlay/runtime/capture.py`, and `overlay/runtime/cli.py`.
 - Peer-isolation lint test passes (overlay ↔ OCC mutual non-import).
 - One-wire-trip assertion holds for every `shell_pipeline` test.
@@ -187,7 +188,10 @@ backend/src/sandbox/
 ## Risks
 
 - A refactor mistake reintroduces a second wire trip. Mitigation: explicit one-wire-trip-per-op assertion in pipeline tests.
-- `shell_pipeline` accidentally re-introduces classification at the seam (e.g., a helper that re-runs `git check-ignore` to "enrich" the OCC verdict). Mitigation: peer-isolation lint forbids gitignore-tooling imports inside `sandbox/overlay/` and inside `runtime/pipelines.py`; reviewers reject any classification helper added in this slice.
+- `shell_pipeline` accidentally re-introduces classification at the seam.
+  Mitigation: peer-isolation lint forbids classification imports inside
+  `sandbox/overlay/` and inside `runtime/pipelines.py`; reviewers reject any
+  classification helper added in this slice.
 - 5a's lifted helpers (`direct_merge_factory`, `narrow_prune_opaque_factory`) live under `mutations/` post-5a; 5b's OCC relocation (Slice 4, already merged) means they're now at `sandbox/occ/`. Mitigation: confirm via grep at the start of 5b that the helpers landed in OCC's tree and are not still imported from the old `code_intelligence/mutations/` path before relocating overlay.
 - `OverlayClient` becomes a second public API. Mitigation: importer allowlist
   permits it only from `sandbox.api.shell`, runtime tests, and temporary

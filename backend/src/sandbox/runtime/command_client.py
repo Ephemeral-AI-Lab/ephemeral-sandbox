@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 import logging
@@ -382,7 +381,6 @@ def _shell_result_namespace(raw: dict[str, Any]) -> SimpleNamespace:
         result=str(raw.get("result") or ""),
         exit_code=int(raw.get("exit_code") or 0),
         changed_paths=changed_paths,
-        files_written=len(changed_paths),
         conflict_file=conflict_file,
         conflict_reason=conflict_reason,
         warnings=list(raw.get("warnings") or ()),

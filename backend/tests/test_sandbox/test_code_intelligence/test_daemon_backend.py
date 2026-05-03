@@ -1,7 +1,7 @@
-"""Unit tests for ``DaemonBackend.ensure_initialized`` and daemon commands.
+"""Unit tests for ``DaemonBackend.ensure_initialized`` and runtime commands.
 
-These tests exercise the daemon-route contract: ``ensure_initialized`` launches
-the daemon (mocked); command calls route through the daemon and surface errors.
+These tests exercise the runtime-route contract: ``ensure_initialized`` uploads
+the runtime bundle (mocked); command calls route through the dispatcher.
 """
 
 from __future__ import annotations
@@ -11,12 +11,12 @@ from typing import Any
 from unittest.mock import patch
 
 from sandbox.runtime.backends import DaemonBackend
-from sandbox.runtime import legacy_command_client as daemon_client
-from sandbox.runtime.legacy_command_client import DaemonCommandClient
+from sandbox.runtime import command_client
+from sandbox.runtime.command_client import RuntimeCommandClient
 
 
 class _NullTransport:
-    """Minimal stub — DaemonBackend transport execution is bypassed here by injecting a fake daemon command handler. The daemon launcher is mocked at the boundary."""
+    """Minimal stub for tests that patch the runtime upload boundary."""
 
     name = "null"
 
@@ -25,8 +25,8 @@ class _NullTransport:
         raise AssertionError("DaemonBackend should not call transport.exec post-3.5")
 
 
-class _FakeDaemon:
-    """Stand-in for :class:`DaemonBackend` returning canned daemon responses."""
+class _FakeRuntime:
+    """Stand-in for :class:`DaemonBackend` returning canned runtime responses."""
 
     def __init__(
         self,
@@ -38,7 +38,7 @@ class _FakeDaemon:
         self._cmd_response = cmd_response or {}
         self._raise_for_op = dict(raise_for_op or {})
 
-    async def _call_daemon_command(
+    async def _call_runtime_command(
         self,
         op: str,
         args: dict[str, Any] | None = None,
@@ -49,24 +49,24 @@ class _FakeDaemon:
         self.calls.append((op, args))
         if op in self._raise_for_op:
             raise self._raise_for_op[op]
-        if op == "svc_cmd":
+        if op == "shell":
             return self._cmd_response
         return None
 
 
-def _backend_with_fake_daemon(daemon: _FakeDaemon) -> DaemonBackend:
+def _backend_with_fake_runtime(runtime: _FakeRuntime) -> DaemonBackend:
     backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
         transport=_NullTransport(),  # type: ignore[arg-type]
     )
-    backend._call_daemon_command = daemon._call_daemon_command  # type: ignore[method-assign]
+    backend._call_runtime_command = runtime._call_runtime_command  # type: ignore[method-assign]
     return backend
 
 
-def test_ensure_initialized_launches_daemon() -> None:
-    daemon = _FakeDaemon()
-    backend = _backend_with_fake_daemon(daemon)
+def test_ensure_initialized_uploads_runtime_bundle() -> None:
+    runtime = _FakeRuntime()
+    backend = _backend_with_fake_runtime(runtime)
     calls: list[tuple[Any, str]] = []
 
     async def fake_upload(transport: Any, sandbox_id: str) -> str:
@@ -74,7 +74,7 @@ def test_ensure_initialized_launches_daemon() -> None:
         return "digest"
 
     with patch(
-        "sandbox.runtime.legacy_command_client._ensure_runtime_uploaded_via_transport",
+        "sandbox.runtime.command_client._ensure_runtime_uploaded_via_transport",
         fake_upload,
     ):
         ok = backend.ensure_initialized(wait=True)
@@ -84,8 +84,8 @@ def test_ensure_initialized_launches_daemon() -> None:
 
 
 def test_ensure_initialized_idempotent() -> None:
-    daemon = _FakeDaemon()
-    backend = _backend_with_fake_daemon(daemon)
+    runtime = _FakeRuntime()
+    backend = _backend_with_fake_runtime(runtime)
     calls = 0
 
     async def fake_upload(*_: Any, **__: Any) -> str:
@@ -94,7 +94,7 @@ def test_ensure_initialized_idempotent() -> None:
         return "digest"
 
     with patch(
-        "sandbox.runtime.legacy_command_client._ensure_runtime_uploaded_via_transport",
+        "sandbox.runtime.command_client._ensure_runtime_uploaded_via_transport",
         fake_upload,
     ):
         backend.ensure_initialized(wait=True)
@@ -102,24 +102,23 @@ def test_ensure_initialized_idempotent() -> None:
     assert calls == 1
 
 
-def test_cmd_routes_through_daemon_and_reconstructs_namespace() -> None:
-    """``cmd`` uses the daemon ``svc_cmd`` op and preserves result fields."""
+def test_cmd_routes_through_runtime_and_reconstructs_namespace() -> None:
+    """``cmd`` uses the runtime ``shell`` op and preserves result fields."""
     import asyncio
     from unittest.mock import MagicMock
 
-    daemon = _FakeDaemon(
+    runtime = _FakeRuntime(
         cmd_response={
             "result": "hi\n",
             "exit_code": 0,
             "changed_paths": ["/ws/a.py"],
-            "files_written": 1,
             "conflict_file": None,
             "conflict_reason": None,
             "warnings": [],
             "overlay_run_timings": {"total": 0.2},
         }
     )
-    backend = _backend_with_fake_daemon(daemon)
+    backend = _backend_with_fake_runtime(runtime)
     progress: list[str] = []
 
     async def _run() -> None:
@@ -134,14 +133,16 @@ def test_cmd_routes_through_daemon_and_reconstructs_namespace() -> None:
         assert result.exit_code == 0
         assert result.changed_paths == ["/ws/a.py"]
         assert result.overlay_run_timings == {"total": 0.2}
-        assert result.daemon_call_timings["total"] >= 0.0
+        assert result.runtime_call_timings["total"] >= 0.0
 
     asyncio.run(_run())
     assert progress == ["hi\n"]
-    assert daemon.calls == [
+    assert runtime.calls == [
         (
-            "svc_cmd",
+            "shell",
             {
+                "sandbox_id": "sb-test",
+                "workspace_root": "/ws",
                 "command": "echo hi",
                 "timeout": 5,
                 "agent_id": "agent-a",
@@ -159,7 +160,7 @@ def test_rebind_sandbox_is_noop() -> None:
     backend.rebind_sandbox(object())
 
 
-def test_init_drops_legacy_cache_attributes() -> None:
+def test_init_drops_snapshot_cache_attributes() -> None:
     """Cleanup invariant: the orchestrator-side snapshot cache attributes
     are gone (Phase 3.5 retirement)."""
     backend = DaemonBackend(
@@ -178,9 +179,9 @@ def test_init_drops_legacy_cache_attributes() -> None:
         )
 
 
-def test_daemon_client_module_has_no_semantic_query_methods() -> None:
-    """Boundary invariant: daemon/client.py stays transport-only."""
-    source = Path(daemon_client.__file__).read_text(encoding="utf-8")
+def test_runtime_client_module_has_no_semantic_query_methods() -> None:
+    """Boundary invariant: command_client.py stays runtime-command-only."""
+    source = Path(command_client.__file__).read_text(encoding="utf-8")
     forbidden = (
         "hover_result_from_dict",
         "reference_info_from_dict",
@@ -191,4 +192,4 @@ def test_daemon_client_module_has_no_semantic_query_methods() -> None:
     for token in forbidden:
         assert token not in source
     for method in ("semantic_query", "symbol_query"):
-        assert not hasattr(DaemonCommandClient, method)
+        assert not hasattr(RuntimeCommandClient, method)

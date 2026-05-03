@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -45,11 +43,8 @@ class EditFileOutput(BaseModel):
     cwd: str = Field(..., description="Current sandbox working directory.")
     file_path: str = Field(..., description="Resolved file path that was edited.")
     status: str = Field(..., description="Edit result: edited, aborted_version, or failed.")
-    warnings: list[str] = Field(default_factory=list, description="Non-fatal edit warnings.")
-    timings: dict[str, Any] | None = Field(
-        default=None,
-        description="Optional edit timing metadata.",
-    )
+    changed_paths: list[str] = Field(default_factory=list, description="Files changed by the edit.")
+    conflict_reason: str | None = Field(default=None, description="Conflict reason when edit failed.")
     applied_edits: int = Field(
         default=0,
         description="Number of replacements applied.",
@@ -88,21 +83,14 @@ async def edit_file(
     context: ToolExecutionContextService,
 ) -> ToolResult:
     """Edit a file."""
-    tool_started = time.perf_counter()
-    tool_timings: dict[str, float] = {}
-
     file_path = resolve_sandbox_path(file_path, context)
-    warnings: list[str] = []
 
     normalized_edits, edit_error = _normalize_edits(
         old_text=old_text,
         new_text=new_text,
     )
     if edit_error is not None:
-        body = (
-            f"{edit_error}\n\n" + "\n".join(warnings) if warnings else edit_error
-        )
-        return ToolResult(output=body, is_error=True)
+        return ToolResult(output=edit_error, is_error=True)
 
     sandbox_id, sandbox_id_error = sandbox_id_or_error(context)
     if sandbox_id_error is not None:
@@ -111,7 +99,6 @@ async def edit_file(
     if api_error is not None:
         return api_error
 
-    commit_started = time.perf_counter()
     result = await api.edit_file(
         sandbox_id,
         EditFileRequest(
@@ -121,29 +108,22 @@ async def edit_file(
             description=description or f"edit {file_path}",
         ),
     )
-    tool_timings["commit"] = round(time.perf_counter() - commit_started, 6)
 
     if not result.success:
         return mutation_tool_result(
-            tool_name="edit_file",
             success=False,
             success_status="edited",
             paths=list(result.changed_paths or (file_path,)),
-            warnings=warnings,
             conflict_reason=result.conflict_reason,
         )
 
-    tool_timings["tool_total"] = round(time.perf_counter() - tool_started, 6)
     return mutation_tool_result(
-        tool_name="edit_file",
         success=True,
         success_status="edited",
         paths=list(result.changed_paths or (file_path,)),
-        warnings=warnings,
         success_extra={
             "cwd": get_repo_root(context),
             "file_path": file_path,
             "applied_edits": result.applied_edits,
-            "timings": {"tool": tool_timings},
         },
     )

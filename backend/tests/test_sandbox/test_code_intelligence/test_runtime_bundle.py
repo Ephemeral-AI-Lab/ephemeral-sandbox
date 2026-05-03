@@ -58,7 +58,7 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/runtime/server.py",
         "sandbox/runtime/pipelines.py",
         "sandbox/runtime/setup_orchestrator.py",
-        "sandbox/runtime/legacy_command_client.py",
+        "sandbox/runtime/command_client.py",
         "sandbox/occ/bootstrap.py",
         "sandbox/occ/client.py",
         "sandbox/occ/engine.py",
@@ -135,11 +135,9 @@ def test_bundle_extracted_runtime_modules_import_clean(tmp_path: Path) -> None:
             f"import sys; sys.path.insert(0, {str(extract_dir)!r}); "
             "from sandbox.runtime.server import OP_TABLE, dispatch_envelope, main; "
             "from sandbox.runtime.setup_orchestrator import SetupRegistry, SetupScript; "
-            "from sandbox.runtime.legacy_command_client import run_legacy_command; "
             "print('ok:', callable(main), isinstance(OP_TABLE, dict), "
             "dispatch_envelope({'op':'missing'})['error']['kind'], "
-            "SetupRegistry().scripts, "
-            "run_legacy_command(workspace_root='/w', op='ping', args={})['result']['pong'])"
+            "SetupRegistry().scripts)"
         ),
     ]
     result = subprocess.run(
@@ -152,7 +150,7 @@ def test_bundle_extracted_runtime_modules_import_clean(tmp_path: Path) -> None:
     assert result.returncode == 0, (
         f"runtime import failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert "ok: True True unknown_op () True" in result.stdout
+    assert "ok: True True unknown_op ()" in result.stdout
 
 
 def test_bundle_hash_is_deterministic() -> None:

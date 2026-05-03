@@ -72,9 +72,10 @@ class WriteFileInput(BaseModel):
 class WriteFileOutput(BaseModel):
     cwd: str = Field(..., description="Current sandbox working directory.")
     file_path: str = Field(..., description="Resolved file path that was written.")
+    status: str = Field(..., description="Write result: written, aborted_version, or failed.")
+    changed_paths: list[str] = Field(default_factory=list, description="Files changed by the write.")
+    conflict_reason: str | None = Field(default=None, description="Conflict reason when write failed.")
     bytes_written: int = Field(..., description="Number of UTF-8 bytes written.")
-    ci_sync: bool = Field(..., description="Whether code intelligence saw the write.")
-    warnings: list[str] = Field(default_factory=list, description="Non-fatal write warnings.")
 
 
 class GrepInput(BaseModel):

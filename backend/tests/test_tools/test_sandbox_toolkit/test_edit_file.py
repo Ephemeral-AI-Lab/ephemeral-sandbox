@@ -110,7 +110,11 @@ def test_single_old_new_text_edit_succeeds() -> None:
     assert request.edits[0].new_text == "bar"
     payload = json.loads(result.output)
     assert payload["status"] == "edited"
+    assert payload["changed_paths"] == ["/ws/file.py"]
+    assert payload["conflict_reason"] is None
     assert payload["applied_edits"] == 1
+    assert "timings" not in payload
+    assert "warnings" not in payload
 
 
 def test_aborted_version_is_surfaced_to_caller() -> None:
@@ -131,8 +135,10 @@ def test_aborted_version_is_surfaced_to_caller() -> None:
     assert result.is_error
     payload = json.loads(result.output)
     assert payload["status"] == "aborted_version"
+    assert payload["changed_paths"] == ["/ws/file.py"]
     assert payload["conflict_reason"] == "drift"
     assert payload["conflict_file"] == "/ws/file.py"
+    assert "warnings" not in payload
 
 
 def test_patch_failed_in_single_edit_mode_uses_structured_payload() -> None:

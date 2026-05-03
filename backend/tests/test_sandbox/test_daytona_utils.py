@@ -28,33 +28,29 @@ def _ctx(services=None) -> ToolExecutionContextService:
     return ToolExecutionContextService(cwd=Path("/tmp"), services=services or {})
 
 
-def test_build_tool_output_preserves_all_shell_outputs():
+def test_build_tool_output_preserves_command_output_and_changes():
     long_command = "python -c " + repr("x" * 200)
     long_stdout = "start-" + ("x" * 9_000) + "-end"
     long_error = "error-" + ("y" * 1_000)
-    shells = [
-        {
-            "command": f"{long_command}-{idx}",
-            "exit_code": 0,
-            "stdout": f"{long_stdout}-{idx}",
-            "stderr": "",
-        }
-        for idx in range(4)
-    ]
 
     result = _build_tool_output(
         context=_ctx(),
         status="ok",
-        files_written=0,
-        shells=shells,
-        warnings=[],
+        command=long_command,
+        exit_code=0,
+        stdout=long_stdout,
+        stderr="",
+        changed_paths=["/tmp/a.py"],
+        conflict_reason=None,
         error=long_error,
     )
     payload = json.loads(result.output)
 
     assert payload["error"] == long_error
-    assert payload["shell_summaries"][-1] == f"$ {long_command}-3 -> exit 0"
-    assert payload["shell_outputs"] == shells
+    assert payload["command"] == long_command
+    assert payload["stdout"] == long_stdout
+    assert payload["changed_paths"] == ["/tmp/a.py"]
+    assert "warnings" not in payload
 
 
 def test_build_read_file_result_preserves_full_selected_content():

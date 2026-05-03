@@ -88,7 +88,7 @@ def _parse_shell_structured_error(
         isinstance(payload, dict)
         and payload.get("status") == "error"
         and "cwd" in payload
-        and "shells_run" in payload
+        and {"command", "exit_code"} <= set(payload)
     ):
         return payload
     return None
@@ -102,21 +102,16 @@ def _append_detail(lines: list[str], value: object) -> None:
 
 def _format_shell_structured_error(payload: dict[str, Any]) -> str:
     lines: list[str] = []
-    shell_outputs = payload.get("shell_outputs")
-    if isinstance(shell_outputs, list):
-        for shell_output in shell_outputs[:3]:
-            if not isinstance(shell_output, dict):
-                continue
-            command = str(shell_output.get("command") or "").strip()
-            exit_code = shell_output.get("exit_code", "?")
-            if command:
-                _append_detail(lines, f"$ {command} -> exit {exit_code}")
-            stderr = str(shell_output.get("stderr") or "").strip()
-            stdout = str(shell_output.get("stdout") or "").strip()
-            if stderr and stderr != stdout:
-                _append_detail(lines, stderr)
-            elif stdout:
-                _append_detail(lines, stdout)
+    command = str(payload.get("command") or "").strip()
+    exit_code = payload.get("exit_code", "?")
+    if command:
+        _append_detail(lines, f"$ {command} -> exit {exit_code}")
+    stderr = str(payload.get("stderr") or "").strip()
+    stdout = str(payload.get("stdout") or "").strip()
+    if stderr and stderr != stdout:
+        _append_detail(lines, stderr)
+    elif stdout:
+        _append_detail(lines, stdout)
 
     _append_detail(lines, payload.get("error"))
     _append_detail(lines, payload.get("script_stdout"))
@@ -128,8 +123,10 @@ def _format_shell_structured_error(payload: dict[str, Any]) -> str:
 
     if lines:
         return "\n".join(lines)
-    shells_run = payload.get("shells_run", "?")
-    return f"status=error shells_run={shells_run}"
+    changed = payload.get("changed_paths")
+    if isinstance(changed, list):
+        return f"status=error changed_paths={len(changed)}"
+    return "status=error"
 
 
 def _format_tool_completion_output(

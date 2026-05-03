@@ -1,4 +1,4 @@
-"""Unit tests for the CodeIntelligenceBackend Protocol selection + in-process/daemon backends.
+"""Unit tests for the CodeIntelligenceBackend Protocol selection + runtime backends.
 
 Covers the four-entry truth table selection logic in
 ``CodeIntelligenceService._select_backend`` (transport x sandbox_id),
@@ -182,8 +182,8 @@ async def test_daemon_backend_cmd_routes_to_daemon() -> None:
     backend = _build_daemon_backend()
     calls: list[tuple[str, dict[str, object]]] = []
 
-    class _FakeDaemon:
-        async def _call_daemon_command(
+    class _FakeRuntime:
+        async def _call_runtime_command(
             self,
             op: str,
             args: dict[str, object],
@@ -194,13 +194,22 @@ async def test_daemon_backend_cmd_routes_to_daemon() -> None:
             calls.append((op, args))
             return {"result": "hi\n", "exit_code": 0}
 
-    backend._call_daemon_command = _FakeDaemon()._call_daemon_command  # type: ignore[method-assign]
+    backend._call_runtime_command = _FakeRuntime()._call_runtime_command  # type: ignore[method-assign]
     sandbox = MagicMock()
     result = await backend.cmd(sandbox, "echo hi")
 
     assert result.result == "hi\n"
     assert result.exit_code == 0
-    assert calls == [("svc_cmd", {"command": "echo hi"})]
+    assert calls == [
+        (
+            "shell",
+            {
+                "sandbox_id": "sb-daemon",
+                "workspace_root": "/workspace",
+                "command": "echo hi",
+            },
+        )
+    ]
 
 
 def test_daemon_backend_rebind_sandbox_is_noop() -> None:

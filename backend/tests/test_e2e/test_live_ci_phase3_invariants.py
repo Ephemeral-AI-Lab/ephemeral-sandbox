@@ -93,7 +93,7 @@ def _stream_live_logs() -> Iterator[None]:
     loggers = [
         logging.getLogger("sandbox.lifecycle.service"),
         logging.getLogger("sandbox.runtime.bundle"),
-        logging.getLogger("sandbox.runtime.legacy_command_client"),
+        logging.getLogger("sandbox.runtime.command_client"),
     ]
     old_levels = [logger.level for logger in loggers]
     old_propagate = [logger.propagate for logger in loggers]
@@ -183,8 +183,8 @@ def test_invariant_sorted_path_locks(live_phase3_env: LivePhase3Env) -> None:
         }
 
     async def commit_in_order(idx_a: int, idx_b: int, agent: str) -> Any:
-        return await daemon_backend._call_daemon_command(
-            "commit_operation_against_base",
+        return await daemon_backend._call_runtime_command(
+            "occ.commit_against_base",
             {
                 "changes": [
                     _make_change(files[idx_a], "A\n" if idx_a == 0 else "B\n",
@@ -237,8 +237,8 @@ def test_invariant_strict_base_occ_aborts_on_drift(
     base_v1_hash = content_hash("v1\n")
 
     async def first_commit() -> Any:
-        return await daemon_backend._call_daemon_command(
-            "commit_operation_against_base",
+        return await daemon_backend._call_runtime_command(
+            "occ.commit_against_base",
             {
                 "changes": [
                     {
@@ -257,8 +257,8 @@ def test_invariant_strict_base_occ_aborts_on_drift(
 
     async def stale_commit() -> Any:
         # This second call is using v1 base after target is already v2.
-        return await daemon_backend._call_daemon_command(
-            "commit_operation_against_base",
+        return await daemon_backend._call_runtime_command(
+            "occ.commit_against_base",
             {
                 "changes": [
                     {
@@ -309,8 +309,8 @@ def test_invariant_non_overlap_merge_converges(
     base_hash = content_hash(base)
 
     async def edit_top() -> Any:
-        return await daemon_backend._call_daemon_command(
-            "commit_operation_against_base",
+        return await daemon_backend._call_runtime_command(
+            "occ.commit_against_base",
             {
                 "changes": [
                     {
@@ -328,8 +328,8 @@ def test_invariant_non_overlap_merge_converges(
         )
 
     async def edit_bot() -> Any:
-        return await daemon_backend._call_daemon_command(
-            "commit_operation_against_base",
+        return await daemon_backend._call_runtime_command(
+            "occ.commit_against_base",
             {
                 "changes": [
                     {
@@ -376,8 +376,8 @@ def test_invariant_atomic_batch_rollback(live_phase3_env: LivePhase3Env) -> None
 
     # Mismatched base on file B forces the batch to abort mid-flight.
     async def crash_batch() -> Any:
-        return await daemon_backend._call_daemon_command(
-            "commit_operation_against_base",
+        return await daemon_backend._call_runtime_command(
+            "occ.commit_against_base",
             {
                 "changes": [
                     {

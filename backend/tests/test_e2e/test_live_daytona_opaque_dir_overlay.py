@@ -231,8 +231,7 @@ def _assert_shell_succeeded(result, *, scenario: str) -> dict[str, Any]:
         )
     payload = json.loads(result.output)
     assert payload["status"] == "ok", f"{scenario}: status={payload.get('status')}"
-    shells = payload.get("shell_outputs") or []
-    assert shells, f"{scenario}: no shell output"
+    assert "stdout" in payload, f"{scenario}: no shell output"
     return payload
 
 

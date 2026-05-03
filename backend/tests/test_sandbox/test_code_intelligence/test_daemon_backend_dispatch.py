@@ -1,6 +1,6 @@
-"""Phase 3 — DaemonBackend routes business verbs through daemon commands.
+"""Phase 3 — DaemonBackend routes business verbs through runtime commands.
 
-These tests inject a fake daemon command handler whose async method returns
+These tests inject a fake runtime command handler whose async method returns
 canned responses, then assert that each :class:`DaemonBackend` method
 serializes args correctly and reconstructs the right dataclass on the way
 out.
@@ -21,30 +21,37 @@ from sandbox.occ.types import (
 )
 
 
-class _FakeDaemon:
-    """Minimal stand-in for daemon command handling used by these tests."""
+class _FakeRuntime:
+    """Minimal stand-in for runtime command handling used by these tests."""
 
     def __init__(self, response_map: dict[str, Any]) -> None:
         self._responses = response_map
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
-    async def _call_daemon_command(self, op: str, args: dict[str, Any] | None = None) -> Any:
+    async def _call_runtime_command(
+        self,
+        op: str,
+        args: dict[str, Any] | None = None,
+        *,
+        timeout: float = 30.0,
+    ) -> Any:
+        del timeout
         self.calls.append((op, args or {}))
         if op not in self._responses:
             raise AssertionError(f"unexpected op: {op}")
         return self._responses[op]
 
 
-def _make_backend(response_map: dict[str, Any]) -> tuple[DaemonBackend, _FakeDaemon]:
+def _make_backend(response_map: dict[str, Any]) -> tuple[DaemonBackend, _FakeRuntime]:
     backend = DaemonBackend(
         sandbox_id="sb-test",
         workspace_root="/ws",
         transport=object(),  # type: ignore[arg-type]
     )
-    daemon = _FakeDaemon(response_map)
-    backend._call_daemon_command = daemon._call_daemon_command  # type: ignore[method-assign]
+    runtime = _FakeRuntime(response_map)
+    backend._call_runtime_command = runtime._call_runtime_command  # type: ignore[method-assign]
     backend.is_initialized = True  # short-circuit ensure_initialized
-    return backend, daemon
+    return backend, runtime
 
 
 # ---------------------------------------------------------------------------
@@ -74,14 +81,15 @@ def _operation_result_payload(success: bool = True) -> dict[str, Any]:
 
 
 def test_write_file_serializes_specs() -> None:
-    backend, daemon = _make_backend({"write_file": _operation_result_payload()})
+    backend, runtime = _make_backend({"occ.write": _operation_result_payload()})
     spec = WriteSpec(file_path="/ws/x.py", content="x = 1\n", overwrite=True)
     result = backend.write_file(spec, agent_id="agent-a")
     assert result.success is True
     assert result.status == "committed"
 
-    op, args = daemon.calls[0]
-    assert op == "write_file"
+    op, args = runtime.calls[0]
+    assert op == "occ.write"
+    assert args["workspace_root"] == "/ws"
     assert args["specs"][0] == {
         "file_path": "/ws/x.py",
         "content": "x = 1\n",
@@ -91,17 +99,17 @@ def test_write_file_serializes_specs() -> None:
 
 
 def test_edit_file_serializes_specs() -> None:
-    backend, daemon = _make_backend({"edit_file": _operation_result_payload()})
+    backend, runtime = _make_backend({"occ.edit": _operation_result_payload()})
     spec = EditSpec(file_path="/ws/x.py", edits=())
     backend.edit_file(spec)
-    args = daemon.calls[0][1]
+    args = runtime.calls[0][1]
     assert args["specs"][0]["file_path"] == "/ws/x.py"
 
 
 def test_apply_edit_serializes_request() -> None:
-    backend, daemon = _make_backend(
+    backend, runtime = _make_backend(
         {
-            "apply": {
+            "occ.apply": {
                 "success": True,
                 "file_path": "/ws/x.py",
                 "message": "",
@@ -120,15 +128,16 @@ def test_apply_edit_serializes_request() -> None:
     )
     result = backend.apply(request)
     assert result.success is True
-    args = daemon.calls[0][1]
+    args = runtime.calls[0][1]
+    assert args["workspace_root"] == "/ws"
     assert args["request"]["file_path"] == "/ws/x.py"
     assert args["request"]["old_text"] == "a"
     assert args["request"]["new_text"] == "b"
 
 
 def test_commit_operation_against_base_serializes_changes() -> None:
-    backend, daemon = _make_backend(
-        {"commit_operation_against_base": _operation_result_payload()}
+    backend, runtime = _make_backend(
+        {"occ.commit_against_base": _operation_result_payload()}
     )
     change = OperationChange(
         file_path="/ws/x.py",
@@ -140,18 +149,20 @@ def test_commit_operation_against_base_serializes_changes() -> None:
         [change], agent_id="agent-a", edit_type="write_file"
     )
     assert result.success is True
-    args = daemon.calls[0][1]
+    args = runtime.calls[0][1]
+    assert args["workspace_root"] == "/ws"
     assert args["edit_type"] == "write_file"
     assert args["changes"][0]["file_path"] == "/ws/x.py"
 
 
 def test_commit_specs_many_round_trips() -> None:
-    backend, daemon = _make_backend(
-        {"commit_specs_many": [_operation_result_payload()]}
+    backend, runtime = _make_backend(
+        {"occ.commit_many": [_operation_result_payload()]}
     )
     rows = backend.commit_specs_many([{"foo": "bar"}])
     assert len(rows) == 1
-    args = daemon.calls[0][1]
+    args = runtime.calls[0][1]
+    assert args["workspace_root"] == "/ws"
     assert args["requests"] == [{"foo": "bar"}]
 
 

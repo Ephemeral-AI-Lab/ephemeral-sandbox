@@ -39,7 +39,6 @@ async def write_file(
 ) -> ToolResult:
     """Create or overwrite a file."""
     file_path = resolve_sandbox_path(file_path, context)
-    warnings: list[str] = []
 
     sandbox_id, sandbox_id_error = sandbox_id_or_error(context)
     if sandbox_id_error is not None:
@@ -61,16 +60,13 @@ async def write_file(
 
     paths = list(result.changed_paths or (file_path,))
     return mutation_tool_result(
-        tool_name="write_file",
         success=result.success,
         success_status="written",
         paths=paths,
-        warnings=warnings,
         success_extra={
             "cwd": get_repo_root(context),
             "file_path": file_path,
             "bytes_written": len(content.encode("utf-8")),
-            "ci_sync": True,
         },
         conflict_reason=result.conflict_reason,
     )

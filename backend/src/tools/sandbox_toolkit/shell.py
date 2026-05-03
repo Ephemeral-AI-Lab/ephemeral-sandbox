@@ -37,30 +37,15 @@ class ShellInput(BaseModel):
     )
 
 
-class ShellCommandOutput(BaseModel):
+class ShellOutput(BaseModel):
+    cwd: str = Field(..., description="Current sandbox working directory.")
+    status: str = Field(..., description="Execution status: ok or error.")
+    changed_paths: list[str] = Field(default_factory=list, description="Files changed by the command.")
+    conflict_reason: str | None = Field(default=None, description="Conflict reason when auditing failed.")
     command: str = Field(..., description="Shell command that was run.")
     exit_code: int | str = Field(..., description="Command exit code.")
     stdout: str = Field(..., description="Captured stdout.")
     stderr: str = Field(..., description="Captured stderr.")
-
-
-class ShellOutput(BaseModel):
-    cwd: str = Field(..., description="Current sandbox working directory.")
-    status: str = Field(..., description="Execution status: ok or error.")
-    files_written: int = Field(
-        ...,
-        description="Number of audited process file writes observed.",
-    )
-    shells_run: int = Field(..., description="Number of shell commands executed.")
-    shell_summaries: list[str] = Field(
-        default_factory=list,
-        description="Compact summaries of the shell command.",
-    )
-    shell_outputs: list[ShellCommandOutput] = Field(
-        default_factory=list,
-        description="Captured output for the shell command.",
-    )
-    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings.")
     error: str = Field(default="", description="Error detail when status is error.")
 
 
@@ -97,48 +82,33 @@ def _build_tool_output(
     *,
     context: ToolExecutionContextService,
     status: str,
-    files_written: int,
-    shells: list[dict[str, object]],
-    warnings: list[str],
+    command: str,
+    exit_code: int | str,
+    stdout: str,
+    stderr: str,
+    changed_paths: list[str],
+    conflict_reason: str | None,
     error: str = "",
-    changed_paths: list[str] | None = None,
 ) -> ToolResult:
-    shell_summaries: list[str] = []
-    shell_outputs: list[dict[str, object]] = []
-    for shell_result in shells:
-        command = str(shell_result.get("command", "") or "")
-        exit_code = shell_result.get("exit_code", "?")
-        stdout = str(shell_result.get("stdout", "") or "")
-        stderr = str(shell_result.get("stderr", "") or "")
-        shell_summaries.append(f"$ {command} -> exit {exit_code}")
-        shell_outputs.append(
-            {
-                "command": command,
-                "exit_code": exit_code,
-                "stdout": stdout,
-                "stderr": stderr,
-            }
-        )
-
     return ToolResult(
         output=json.dumps(
             {
                 "cwd": get_repo_root(context),
                 "status": status,
-                "files_written": files_written,
-                "shells_run": len(shells),
-                "shell_summaries": shell_summaries,
-                "shell_outputs": shell_outputs,
-                "warnings": warnings,
+                "changed_paths": changed_paths,
+                "conflict_reason": conflict_reason,
+                "command": command,
+                "exit_code": exit_code,
+                "stdout": stdout,
+                "stderr": stderr,
                 "error": error if error else "",
             }
         ),
         is_error=status == "error",
         metadata={
             "status": status,
-            "files_written": files_written,
-            "shells_run": len(shells),
-            "changed_paths": list(changed_paths or []),
+            "changed_paths": changed_paths,
+            "conflict_reason": conflict_reason,
         },
     )
 
@@ -187,8 +157,9 @@ def _paths_from_shell(shell_result: dict[str, object], key: str) -> list[str]:
         "`--no-input`).\n\n"
         "Output shape:\n"
         '- `status`: "ok" | "error".\n'
-        "- `shell_outputs[0]`: the captured `command`, `exit_code`, `stdout`, `stderr`.\n"
-        "- `files_written`: count of audited writes the command performed.\n"
+        "- `changed_paths`: files changed by the command.\n"
+        "- `conflict_reason`: populated when the audit/commit step conflicts.\n"
+        "- `command`, `exit_code`, `stdout`, `stderr`: captured command output.\n"
         '- `error`: populated when status is "error" — combines exit-code failures and audit '
         "conflicts.\n\n"
         "Common pitfalls:\n"
@@ -265,11 +236,13 @@ async def shell(
     return _build_tool_output(
         context=context,
         status="error" if is_error else "ok",
-        files_written=len(changed_paths),
-        shells=[shell_result],
-        warnings=list(result.warnings),
-        error=error_detail,
+        command=command,
+        exit_code=result.exit_code,
+        stdout=result.stdout,
+        stderr=result.stderr,
         changed_paths=changed_paths,
+        conflict_reason=result.conflict_reason,
+        error=error_detail,
     )
 
 

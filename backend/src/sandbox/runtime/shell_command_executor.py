@@ -151,7 +151,6 @@ def _simple_namespace_from_shell_result(result: ShellResult) -> SimpleNamespace:
         result=result.result,
         exit_code=result.exit_code,
         changed_paths=list(result.changed_paths),
-        files_written=len(result.changed_paths),
         conflict_file=conflict_file,
         conflict_reason=conflict_reason,
         warnings=list(result.warnings),
