@@ -88,21 +88,6 @@ class OCCOperationService:
         self._write_coordinator = write_coordinator
         self.patcher = patcher
 
-    def commit_operation_against_base(
-        self,
-        changes: Sequence[OperationChange],
-        *,
-        agent_id: str = "",
-        edit_type: str,
-        description: str = "",
-    ) -> OperationResult:
-        return self._write_coordinator.commit_operation_against_base(
-            changes,
-            agent_id=agent_id,
-            edit_type=edit_type,
-            description=description,
-        )
-
     def commit_specs_many(
         self,
         requests: Sequence[dict[str, Any]],

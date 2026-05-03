@@ -937,16 +937,7 @@ class TestArbiterAuditLedger:
         arb = self._make_arbiter(on_edit=_boom)
         arb.record_edit("/ws/app.py")  # should not raise
 
-    # -- Status & cleanup --
-
-    def test_status_returns_all_fields(self):
-        arb = self._make_arbiter()
-        arb.record_edit("/a.py")
-        status = arb.status()
-        assert "total_edits" in status
-        assert "conflicts_detected" in status
-        assert "active_locks" in status
-        assert status["total_edits"] == 1
+    # -- Cleanup --
 
     def test_cleanup_locks_removes_unheld(self):
         arb = self._make_arbiter()

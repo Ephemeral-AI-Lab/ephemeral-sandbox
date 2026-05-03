@@ -47,10 +47,7 @@ class InProcessBackend:
             edit_history=history,
         )
         self.arbiter = self._occ.arbiter
-        self.patcher = self._occ.patcher
-        self._content = self._occ.content
         self._write_coordinator = self._occ.write_coordinator
-        self._mutations = self._occ.operations
         self._command_executor = AuditedCommandExecutor(
             sandbox_id=sandbox_id,
             workspace_root=workspace_root,
@@ -101,7 +98,7 @@ class InProcessBackend:
         edit_type: str,
         description: str = "",
     ) -> OperationResult:
-        return self._mutations.commit_operation_against_base(
+        return self._occ.commit_operation_against_base(
             changes,
             agent_id=agent_id,
             edit_type=edit_type,
@@ -112,7 +109,7 @@ class InProcessBackend:
         self,
         requests: Sequence[dict[str, Any]],
     ) -> list[OperationResult]:
-        return self._mutations.commit_specs_many(requests)
+        return self._occ.commit_specs_many(requests)
 
     def write_file(
         self,
@@ -121,7 +118,7 @@ class InProcessBackend:
         agent_id: str = "",
         description: str = "",
     ) -> OperationResult:
-        return self._mutations.write_file(
+        return self._occ.write_file(
             specs,
             agent_id=agent_id,
             description=description,
@@ -134,7 +131,7 @@ class InProcessBackend:
         agent_id: str = "",
         description: str = "",
     ) -> OperationResult:
-        return self._mutations.edit_file(
+        return self._occ.edit_file(
             specs,
             agent_id=agent_id,
             description=description,

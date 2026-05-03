@@ -5,19 +5,16 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from sandbox.occ.changeset.types import ChangesetResult, UpperChangeLike
 from sandbox.occ.types import (
     EditSpec,
     OperationResult,
     WriteSpec,
 )
 from sandbox.occ.wire import (
-    changeset_result_from_dict,
     editspec_to_dict,
     normalize_edit_specs,
     normalize_write_specs,
     operation_result_from_dict,
-    upper_change_to_dict,
     writespec_to_dict,
 )
 from sandbox.providers.registry import get_adapter
@@ -86,25 +83,6 @@ class OCCClient:
             },
         )
         return operation_result_from_dict(result)
-
-    async def apply_changeset(
-        self,
-        upper_changes: Sequence[UpperChangeLike],
-        *,
-        agent_id: str = "",
-        edit_type: str = "apply_changeset",
-        description: str = "",
-    ) -> ChangesetResult:
-        result = await self._call(
-            "occ.apply_changeset",
-            {
-                "upper_changes": [upper_change_to_dict(c) for c in upper_changes],
-                "agent_id": agent_id,
-                "edit_type": edit_type,
-                "description": description,
-            },
-        )
-        return changeset_result_from_dict(result)
 
     async def _call(self, op: str, args: dict[str, Any]) -> dict[str, Any]:
         try:

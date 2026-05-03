@@ -1,11 +1,8 @@
 """Arbiter — edit audit ledger and lightweight file coordination.
 
-Records audited edit operations and exposes coordination metadata for
-code-intelligence consumers. Daytona mutation tools record process-level
-changes through ``CodeIntelligenceService.cmd`` (OCC-gated Git workspace audit).
-
-Queryable edit history is delegated to an internal EditHistoryLedger so
-callers can depend on Arbiter as the public coordination facade.
+Records audited edit operations and exposes lightweight coordination metadata.
+Daytona mutation tools record process-level changes through
+``CodeIntelligenceService.cmd`` (OCC-gated Git workspace audit).
 
 Lock ordering (Group A):
     Arbiter locks < Cache locks < Counter locks
@@ -21,7 +18,6 @@ from typing import Any
 
 from sandbox.occ.state.constants import (
     ARBITER_LOCK_TIMEOUT,
-    ARBITER_MAX_CONCURRENT_EDITS,
 )
 from sandbox.occ.state.edit_history_ledger import EditHistoryLedger
 
@@ -43,8 +39,8 @@ class Arbiter:
     Thread-safe. Uses per-file locks to serialize edits to the same file
     while allowing concurrent edits to different files.
 
-    Edit history is delegated to EditHistoryLedger. The Arbiter also owns
-    lightweight per-file locks for semantic service helpers.
+    Edit history is delegated to EditHistoryLedger. The Arbiter owns lightweight
+    per-file locks for semantic service helpers.
 
     Parameters
     ----------
@@ -54,8 +50,6 @@ class Arbiter:
         Optional callback ``(file_path, actor_label, generation)`` after successful edit.
     edit_history:
         Queryable edit-history ledger used by coordination readers.
-    max_concurrent:
-        Maximum concurrent file edits.
     """
 
     def __init__(
@@ -63,11 +57,9 @@ class Arbiter:
         workspace_root: str = "",
         on_edit: Callable[[str, str, int], None] | None = None,
         edit_history: EditHistoryLedger | None = None,
-        max_concurrent: int = ARBITER_MAX_CONCURRENT_EDITS,
     ) -> None:
         self._workspace_root = workspace_root
         self._on_edit = on_edit
-        self._max_concurrent = max_concurrent
         self._edit_history = edit_history or EditHistoryLedger()
 
         self._lock = threading.Lock()
@@ -155,47 +147,9 @@ class Arbiter:
             )
 
     @property
-    def active_lock_count(self) -> int:
-        with self._lock:
-            return sum(1 for lock in self._file_locks.values() if lock.locked())
-
-    @property
     def generation(self) -> int:
         with self._lock:
             return self._generation
-
-    @property
-    def initialized(self) -> bool:
-        return bool(getattr(self._edit_history, "initialized", False))
-
-    def changes_in_scope(
-        self,
-        run_id: str,
-        scope_prefixes: list[str],
-        since: float,
-    ) -> list[Any]:
-        return self._edit_history.changes_in_scope(run_id, scope_prefixes, since)
-
-    def external_changes_in_scope(
-        self,
-        run_id: str,
-        scope_prefixes: list[str],
-        since: float,
-        exclude_run_id: str | None = None,
-    ) -> list[Any]:
-        return self._edit_history.external_changes_in_scope(
-            run_id,
-            scope_prefixes,
-            since,
-            exclude_run_id=exclude_run_id,
-        )
-
-    def changes_since(
-        self,
-        since: float,
-        run_id: str | None = None,
-    ) -> list[Any]:
-        return self._edit_history.changes_since(since, run_id=run_id)
 
     def recent_edits(
         self,
@@ -203,94 +157,6 @@ class Arbiter:
         run_id: str | None = None,
     ) -> list[Any]:
         return self._edit_history.recent_edits(seconds=seconds, run_id=run_id)
-
-    def hotspots(
-        self,
-        limit: int = 10,
-        run_id: str | None = None,
-    ) -> list[tuple[str, int]]:
-        return self._edit_history.hotspots(limit=limit, run_id=run_id)
-
-    def who_changed(
-        self,
-        file_path: str,
-        run_id: str | None = None,
-    ) -> list[Any]:
-        return self._edit_history.who_changed(file_path, run_id=run_id)
-
-    def changes_by_agent_run(
-        self,
-        run_id: str,
-        agent_run_id: str,
-    ) -> list[Any]:
-        return self._edit_history.changes_by_agent_run(run_id, agent_run_id)
-
-    def contention_hotspots(
-        self,
-        scope_prefixes: list[str] | None = None,
-        limit: int = 10,
-        days: int = 7,
-        run_id: str | None = None,
-    ) -> list[Any]:
-        return self._edit_history.contention_hotspots(
-            scope_prefixes,
-            limit=limit,
-            days=days,
-            run_id=run_id,
-        )
-
-    def hotspots_summary(
-        self,
-        *,
-        limit: int = 10,
-        run_id: str | None = None,
-        cross_run: bool = False,
-    ) -> dict[str, Any]:
-        """Return a JSON-shaped hotspots payload for status responses.
-
-        ``cross_run=True`` uses ``contention_hotspots`` (multi-run history);
-        otherwise it uses same-run ``hotspots``.
-        """
-        if not self.initialized:
-            note = (
-                "Arbiter history not available for cross-run queries."
-                if cross_run
-                else "Arbiter history not available"
-            )
-            return {"hotspots": [], "note": note}
-
-        if cross_run:
-            entries = self.contention_hotspots(limit=limit, run_id=run_id)
-            if not entries:
-                return {"hotspots": [], "note": "No cross-run contention history found."}
-            return {
-                "hotspots": [
-                    {
-                        "file": h.file_path,
-                        "runs_touched": h.contributor_count,
-                        "total_edits": h.edit_count,
-                    }
-                    for h in entries
-                ],
-            }
-
-        same_run = self.hotspots(limit=limit, run_id=run_id)
-        if not same_run:
-            return {"hotspots": [], "note": "No edit hotspots recorded"}
-        return {
-            "hotspots": [
-                {"file": fp, "edit_count": count} for fp, count in same_run[:limit]
-            ],
-        }
-
-    def status(self) -> dict[str, Any]:
-        """Return arbiter status summary."""
-        m = self.metrics
-        return {
-            "total_edits": m.total_edits,
-            "conflicts_detected": m.conflicts_detected,
-            "active_locks": m.active_locks,
-        }
 
     def cleanup_locks(self) -> int:
         """Remove file locks that are not held. Returns count cleaned."""

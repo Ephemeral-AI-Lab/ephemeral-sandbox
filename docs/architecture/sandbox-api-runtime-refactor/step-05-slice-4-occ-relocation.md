@@ -106,7 +106,7 @@ sandbox/occ/
 ### Add
 - `backend/src/sandbox/occ/__init__.py` — light package marker; do not import
   the host client or heavy engine objects here.
-- `backend/src/sandbox/occ/client.py` — `OCCClient`, the host-side typed route for every OCC server request. It serializes the request, invokes `runtime/server.py` through exactly one adapter exec, and returns typed OCC/result objects.
+- `backend/src/sandbox/occ/client.py` — `OCCClient`, the host-side typed route for public OCC write/edit requests. It serializes the request, invokes `runtime/server.py` through exactly one adapter exec, and returns typed OCC/result objects.
 - `backend/src/sandbox/occ/setup.sh` — OCC setup submitted to the runtime/daemon by `occ/bootstrap.py` after bundle upload.
 - `backend/src/sandbox/occ/engine.py` — concrete in-sandbox OCC composition root.
 - `backend/src/sandbox/occ/bootstrap.py` — registers `setup.sh`, bundle contributions, and OCC handlers at import time.

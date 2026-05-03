@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any
 
-from sandbox.occ.changeset.types import ChangesetResult, UpperChangeLike
+from sandbox.occ.changeset.types import UpperChangeLike
 from sandbox.occ.types import (
     EditResult,
     EditSpec,
@@ -153,26 +153,10 @@ class _UpperChange:
     base_existed: bool
 
 
-def _bytes_to_wire(value: bytes | None) -> str | None:
-    if value is None:
-        return None
-    return base64.b64encode(value).decode("ascii")
-
-
 def _bytes_from_wire(value: Any) -> bytes | None:
     if value is None:
         return None
     return base64.b64decode(str(value).encode("ascii"))
-
-
-def upper_change_to_dict(change: UpperChangeLike) -> dict[str, Any]:
-    return {
-        "rel": change.rel,
-        "kind": change.kind,
-        "base_bytes": _bytes_to_wire(change.base_bytes),
-        "upper_bytes": _bytes_to_wire(change.upper_bytes),
-        "base_existed": change.base_existed,
-    }
 
 
 def upper_change_from_dict(d: dict[str, Any]) -> UpperChangeLike:
@@ -182,16 +166,4 @@ def upper_change_from_dict(d: dict[str, Any]) -> UpperChangeLike:
         base_bytes=_bytes_from_wire(d.get("base_bytes")),
         upper_bytes=_bytes_from_wire(d.get("upper_bytes")),
         base_existed=bool(d.get("base_existed", True)),
-    )
-
-
-def changeset_result_from_dict(d: dict[str, Any]) -> ChangesetResult:
-    return ChangesetResult(
-        success=bool(d.get("success", False)),
-        status=str(d.get("status", "failed")),
-        ledgered=tuple(str(p) for p in (d.get("ledgered") or ())),
-        direct_merged=tuple(str(p) for p in (d.get("direct_merged") or ())),
-        conflict_reason=d.get("conflict_reason"),
-        conflict_file=d.get("conflict_file"),
-        timings=dict(d.get("timings") or {}),
     )

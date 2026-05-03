@@ -111,28 +111,12 @@ class CodeIntelligenceService:
         return self._impl.arbiter  # type: ignore[attr-defined]
 
     @property
-    def patcher(self) -> Any:
-        return self._impl.patcher  # type: ignore[attr-defined]
-
-    @property
-    def _content(self) -> Any:
-        return self._impl._content  # type: ignore[attr-defined]
-
-    @property
     def _write_coordinator(self) -> Any:
         return self._impl._write_coordinator  # type: ignore[attr-defined]
 
     @property
-    def _mutations(self) -> Any:
-        return self._impl._mutations  # type: ignore[attr-defined]
-
-    @property
     def _command_executor(self) -> Any:
         return self._impl._command_executor  # type: ignore[attr-defined]
-
-    @property
-    def _sandbox(self) -> Any:
-        return getattr(self._impl, "_sandbox", None)
 
     # -- Public API forwarding -----------------------------------------------
 

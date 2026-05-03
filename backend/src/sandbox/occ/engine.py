@@ -55,20 +55,8 @@ class LocalOCCEngine:
         return self._arbiter
 
     @property
-    def patcher(self) -> Patcher:
-        return self._patcher
-
-    @property
-    def content(self) -> ContentManager:
-        return self._content
-
-    @property
     def write_coordinator(self) -> WriteCoordinator:
         return self._write_coordinator
-
-    @property
-    def operations(self) -> OCCOperationService:
-        return self._operations
 
     def bind_sandbox(self, sandbox: Any) -> None:
         self._content.bind_sandbox(sandbox)
@@ -81,7 +69,7 @@ class LocalOCCEngine:
         edit_type: str,
         description: str = "",
     ) -> OperationResult:
-        return self._operations.commit_operation_against_base(
+        return self._write_coordinator.commit_operation_against_base(
             changes,
             agent_id=agent_id,
             edit_type=edit_type,
