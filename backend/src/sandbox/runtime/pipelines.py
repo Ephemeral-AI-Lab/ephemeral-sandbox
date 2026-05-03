@@ -171,14 +171,26 @@ async def _maybe_await(value: Any) -> Any:
 
 def _overlay_reject_result(outcome: OverlayRunOutcome) -> ShellResult:
     conflict = outcome.conflict
+    reject = outcome.policy_reject
     reason = conflict.message if conflict and conflict.message else (
-        conflict.reason if conflict else "overlay_rejected"
+        conflict.reason
+        if conflict
+        else reject.reason
+        if reject is not None
+        else "overlay_rejected"
+    )
+    conflict_file = (
+        conflict.conflict_file
+        if conflict
+        else reject.paths[0]
+        if reject is not None and reject.paths
+        else None
     )
     return ShellResult(
         result=outcome.stdout,
         exit_code=outcome.exit_code,
         git_commit_status="rejected",
-        git_conflict_file=conflict.conflict_file if conflict else None,
+        git_conflict_file=conflict_file,
         git_conflict_reason=reason,
         warnings=tuple(outcome.warnings),
         overlay_run_timings=dict(outcome.overlay_run_timings),
