@@ -6,9 +6,9 @@ import asyncio
 
 from sandbox.layer_stack.changes import LayerChange
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.occ.changeset.prepared import RouteDecision
+from sandbox.occ.changeset.intent import RouteDecision
 from sandbox.occ.changeset.types import DeleteChange, EditChange, WriteChange
-from sandbox.occ.routing.gitignore import GitignoreOracle, RunOutcome
+from sandbox.occ.content.gitignore_oracle import GitignoreOracle, RunOutcome
 from sandbox.occ.runtime_ops import content_hash_bytes
 from sandbox.occ.service import OccService
 

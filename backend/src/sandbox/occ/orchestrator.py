@@ -1,4 +1,4 @@
-"""Path routing and base-hash preparation for OCC changesets."""
+"""Route OCC changes into direct or gated prepared path groups."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from collections import OrderedDict
 from collections.abc import Callable, Sequence
 
 from sandbox.layer_stack.changes import normalize_layer_path
-from sandbox.occ.changeset.prepared import (
-    ChangesetOptions,
+from sandbox.occ.changeset.intent import (
+    CommitIntent,
     PreparedChangeset,
     PreparedPathGroup,
     RouteDecision,
@@ -19,13 +19,13 @@ from sandbox.occ.changeset.types import (
     DirectChange,
     WriteChange,
 )
-from sandbox.occ.routing.gitignore import GitignoreOracle
+from sandbox.occ.content.gitignore_oracle import GitignoreOracle
 
 BaseHashReader = Callable[[str], str | None]
 
 
-class ChangeRouter:
-    """Prepare path groups for a typed OCC changeset."""
+class OccOrchestrator:
+    """Prepare direct and gated path groups for a typed OCC changeset."""
 
     def __init__(self, gitignore: GitignoreOracle) -> None:
         self._gitignore = gitignore
@@ -35,10 +35,10 @@ class ChangeRouter:
         changes: Sequence[Change],
         *,
         snapshot,
-        options: ChangesetOptions,
+        intent: CommitIntent,
         base_hash_reader: BaseHashReader | None = None,
     ) -> PreparedChangeset:
-        """Route changes and infer tracked base hashes concurrently by path."""
+        """Route changes and infer gated base hashes concurrently by path."""
         grouped = self._group_by_route(changes)
         prepared = await asyncio.gather(
             *(
@@ -56,7 +56,7 @@ class ChangeRouter:
         return PreparedChangeset(
             snapshot=snapshot,
             path_groups=tuple(prepared),
-            atomic=options.atomic,
+            atomic=intent.atomic,
         )
 
     def _group_by_route(
@@ -142,4 +142,4 @@ def _attach_base_hash(change: Change, base_hash: str | None) -> Change:
     return change
 
 
-__all__ = ["ChangeRouter"]
+__all__ = ["OccOrchestrator"]

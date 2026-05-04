@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import asyncio
 
-from sandbox.occ.changeset.prepared import ChangesetOptions, RouteDecision
+from sandbox.occ.changeset.intent import CommitIntent, RouteDecision
 from sandbox.occ.changeset.types import (
     EditChange,
     SymlinkChange,
     WriteChange,
 )
-from sandbox.occ.routing.router import ChangeRouter
+from sandbox.occ.orchestrator import OccOrchestrator
 
 
 class _Gitignore:
@@ -24,12 +24,12 @@ class _Gitignore:
 
 
 def _prepare(changes, *, ignored: set[str] | None = None):
-    router = ChangeRouter(_Gitignore(ignored))
+    router = OccOrchestrator(_Gitignore(ignored))
     return asyncio.run(
         router.prepare(
             changes,
             snapshot=None,
-            options=ChangesetOptions(),
+            options=CommitIntent(),
         )
     )
 
@@ -56,12 +56,12 @@ def test_routes_tracked_direct_drop_and_reject_groups() -> None:
 
 def test_direct_change_kinds_stay_direct_without_gitignore_lookup() -> None:
     gitignore = _Gitignore()
-    router = ChangeRouter(gitignore)
+    router = OccOrchestrator(gitignore)
     prepared = asyncio.run(
         router.prepare(
             [SymlinkChange(path="bin/data.dat", target="/tmp/data")],
             snapshot=None,
-            options=ChangesetOptions(),
+            options=CommitIntent(),
         )
     )
 

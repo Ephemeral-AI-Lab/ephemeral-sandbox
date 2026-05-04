@@ -35,7 +35,7 @@ contains `wire.py`, `handlers/`, `orchestrator.py`, `direct/`, `gated/`,
 | `backend/src/sandbox/occ/service.py` | `OccService.prepare_changeset` and `apply_changeset` entrypoint |
 | `backend/src/sandbox/occ/changeset/types.py` | `Change`, `WriteChange`, `EditChange`, `DeleteChange`, direct shell change types, and result objects |
 | `backend/src/sandbox/occ/changeset/builders.py` | API and shell source builders |
-| `backend/src/sandbox/occ/changeset/prepared.py` | `PreparedChangeset`, `PreparedPathGroup`, `RouteDecision`, and `ChangesetOptions` |
+| `backend/src/sandbox/occ/changeset/prepared.py` | `PreparedChangeset`, `PreparedPathGroup`, `RouteDecision`, and `CommitIntent` |
 | `backend/src/sandbox/occ/routing/gitignore.py` | Cached gitignore oracle |
 | `backend/src/sandbox/occ/routing/router.py` | Path normalization, routing, grouping, and concurrent preparation |
 
@@ -64,7 +64,7 @@ shell_capture
 
 ### Routing And Preparation
 
-`ChangeRouter` normalizes paths and emits ordered `PreparedPathGroup` values:
+`OccOrchestrator` normalizes paths and emits ordered `PreparedPathGroup` values:
 
 - tracked workspace paths route to `tracked`
 - gitignored paths route to `direct`

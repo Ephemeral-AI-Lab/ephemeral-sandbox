@@ -73,7 +73,7 @@ Transaction objects:
 
 ```text
 OccCommitTransaction  # owns revalidate_and_publish
-TrackedMerge          # base_hash and EditChange anchor checks
+GatedMerge          # base_hash and EditChange anchor checks
 DirectMerge           # gitignored/direct last-writer-wins staging
 ContentHasher         # stable content hash helper
 LayerStackTransaction # active-manifest lock and publish boundary

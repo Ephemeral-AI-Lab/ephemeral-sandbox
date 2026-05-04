@@ -37,14 +37,13 @@ until the integration/cutover phase removes or reroutes it.
 
 | File | Purpose |
 | --- | --- |
-| `backend/src/sandbox/overlay/types.py` | Adds `OverlayShellRequest` plus JSON-safe request helpers while preserving the existing overlay capture types |
 | `backend/src/sandbox/overlay/client.py` | Adds `shell_snapshot` and `run_snapshot` client methods backed by `SnapshotOverlayRunner`; existing runtime-server methods stay compatible |
 | `backend/src/sandbox/overlay/handlers/run.py` | Adds an optional `layer_stack_root` handler path for Phase 02 snapshot overlay requests |
 | `backend/src/sandbox/overlay/capture/changes.py` | Defines Phase 02 `UpperChange(path, kind, content_path, final_hash)` values and content hashing |
 | `backend/src/sandbox/overlay/capture/upperdir.py` | Captures writes, deletes, symlinks, and opaque dirs from an upperdir; also supports copy-backed local diff capture |
 | `backend/src/sandbox/overlay/namespace/mounts.py` | Materializes a leased manifest into a per-call lowerdir and prepares upper/work/merged directories |
 | `backend/src/sandbox/overlay/namespace/command.py` | Runs one argv command inside the mounted snapshot view with stdout/stderr refs |
-| `backend/src/sandbox/overlay/runner/snapshot_overlay_runner.py` | Acquires the layer-stack snapshot lease, invokes runtime execution, and releases the lease in `finally` |
+| `backend/src/sandbox/overlay/runner/snapshot_overlay_runner.py` | Defines `OverlayShellRequest`, handles JSON-safe request helpers, acquires the layer-stack snapshot lease, invokes runtime execution, and releases the lease in `finally` |
 | `backend/src/sandbox/overlay/runner/runtime_invoker.py` | Invokes the runtime-local overlay shell command and returns a typed envelope |
 | `backend/src/sandbox/overlay/runner/runtime_bundle.py` | Builds the Phase 02 runtime bundle without NDJSON capture modules |
 | `backend/src/sandbox/runtime/overlay_shell/cli.py` | Runtime entrypoint for one leased snapshot shell request |

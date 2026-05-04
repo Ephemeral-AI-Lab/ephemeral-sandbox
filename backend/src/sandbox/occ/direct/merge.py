@@ -8,7 +8,8 @@ from typing import Literal
 from sandbox.layer_stack.changes import LayerChange, LayerDelta
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.occ.changeset.prepared import PreparedPathGroup
+from sandbox.occ.changeset.intent import PreparedPathGroup
+from sandbox.occ.content.layer_backed_content import LayerBackedContent
 from sandbox.occ.changeset.types import (
     DeleteChange,
     EditChange,
@@ -27,7 +28,7 @@ class DirectMerge:
     """Stage direct changes with last-writer-wins semantics."""
 
     def __init__(self, layer_stack: LayerStackManager) -> None:
-        self._layer_stack = layer_stack
+        self._content = LayerBackedContent(layer_stack)
 
     def stage_group(
         self,
@@ -54,7 +55,7 @@ class DirectMerge:
         active_manifest: Manifest,
         stage_write: StageWrite,
     ) -> tuple[FileResult, LayerDelta | None]:
-        current_content, current_exists = self._layer_stack.read_bytes(
+        current_content, current_exists = self._content.read_bytes(
             group.path,
             active_manifest,
         )

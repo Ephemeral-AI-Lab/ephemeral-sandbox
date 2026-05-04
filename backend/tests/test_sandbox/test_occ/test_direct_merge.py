@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sandbox.layer_stack.changes import LayerChange
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.occ.changeset.prepared import PreparedPathGroup, RouteDecision
+from sandbox.occ.changeset.intent import PreparedPathGroup, RouteDecision
 from sandbox.occ.changeset.types import (
     EditChange,
     FileStatus,
@@ -14,8 +14,8 @@ from sandbox.occ.changeset.types import (
     SymlinkChange,
     WriteChange,
 )
-from sandbox.occ.merge.direct import DirectMerge
-from sandbox.occ.merge.hashing import ContentHasher
+from sandbox.occ.direct.merge import DirectMerge
+from sandbox.occ.content.hashing import ContentHasher
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> Path:

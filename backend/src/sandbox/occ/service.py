@@ -7,11 +7,11 @@ from collections.abc import Sequence
 
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.occ.changeset.prepared import ChangesetOptions, PreparedChangeset
+from sandbox.occ.changeset.intent import CommitIntent, PreparedChangeset
 from sandbox.occ.changeset.types import Change, ChangesetResult
-from sandbox.occ.merge.transaction import OccCommitTransaction
-from sandbox.occ.routing.gitignore import GitignoreOracle
-from sandbox.occ.routing.router import ChangeRouter
+from sandbox.occ.commit_transaction import OccCommitTransaction
+from sandbox.occ.content.gitignore_oracle import GitignoreOracle
+from sandbox.occ.orchestrator import OccOrchestrator
 from sandbox.occ.runtime_ops import infer_manifest_base_hash
 
 
@@ -25,7 +25,7 @@ class OccService:
         layer_stack: LayerStackManager | None = None,
     ) -> None:
         self._layer_stack = layer_stack
-        self._router = ChangeRouter(gitignore)
+        self._orchestrator = OccOrchestrator(gitignore)
         self._transaction = (
             OccCommitTransaction(layer_stack) if layer_stack is not None else None
         )
@@ -35,7 +35,7 @@ class OccService:
         changes: Sequence[Change],
         *,
         snapshot: Manifest | None = None,
-        options: ChangesetOptions | None = None,
+        options: CommitIntent | None = None,
     ) -> ChangesetResult | PreparedChangeset:
         """Prepare a changeset and commit it when a layer stack is configured."""
         prepared = await self.prepare_changeset(
@@ -55,10 +55,10 @@ class OccService:
         changes: Sequence[Change],
         *,
         snapshot: Manifest | None = None,
-        options: ChangesetOptions | None = None,
+        options: CommitIntent | None = None,
     ) -> PreparedChangeset:
         """Route changes and infer leased-snapshot base hashes."""
-        opts = options or ChangesetOptions()
+        intent = options or CommitIntent()
         base_hash_reader = None
         if snapshot is not None and self._layer_stack is not None:
             layer_stack = self._layer_stack
@@ -70,10 +70,10 @@ class OccService:
                     path=path,
                 )
 
-        return await self._router.prepare(
+        return await self._orchestrator.prepare(
             changes,
             snapshot=snapshot,
-            options=opts,
+            intent=intent,
             base_hash_reader=base_hash_reader,
         )
 

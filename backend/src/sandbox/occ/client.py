@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from sandbox.occ.changeset.prepared import ChangesetOptions, PreparedChangeset
+from sandbox.occ.changeset.intent import CommitIntent, PreparedChangeset
 from sandbox.occ.changeset.types import Change, ChangesetResult
 from sandbox.occ.service import OccService
 
@@ -16,7 +16,7 @@ class OccApplyService(Protocol):
         changes: Sequence[Change],
         *,
         snapshot: Any = None,
-        options: ChangesetOptions | None = None,
+        options: CommitIntent | None = None,
     ) -> ChangesetResult | PreparedChangeset: ...
 
 
@@ -92,17 +92,17 @@ class OCCClient:
         agent_id: str = "",
         description: str = "",
         snapshot=None,
-        options: ChangesetOptions | None = None,
+        options: CommitIntent | None = None,
     ) -> ChangesetResult | PreparedChangeset:
         """Apply or prepare a typed :class:`Change` batch through OCC."""
-        opts = options or ChangesetOptions(
+        intent = options or CommitIntent(
             caller_id=agent_id,
             description=description,
         )
         return await self._service.apply_changeset(
             changes,
             snapshot=snapshot,
-            options=opts,
+            options=intent,
         )
 
 

@@ -8,8 +8,8 @@ from pathlib import Path
 from sandbox.layer_stack.changes import LayerChange
 from sandbox.layer_stack.stack_manager import LayerStackManager
 from sandbox.occ.changeset.types import FileStatus, WriteChange
-from sandbox.occ.merge.hashing import ContentHasher
-from sandbox.occ.merge.transaction import OccCommitTransaction
+from sandbox.occ.content.hashing import ContentHasher
+from sandbox.occ.commit_transaction import OccCommitTransaction
 from sandbox.occ.service import OccService
 
 

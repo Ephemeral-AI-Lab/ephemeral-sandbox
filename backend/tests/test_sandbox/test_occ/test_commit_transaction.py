@@ -7,9 +7,9 @@ from pathlib import Path
 
 from sandbox.layer_stack.changes import LayerChange
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.occ.changeset.prepared import ChangesetOptions
+from sandbox.occ.changeset.intent import CommitIntent
 from sandbox.occ.changeset.types import ChangesetResult, FileStatus, WriteChange
-from sandbox.occ.merge.hashing import ContentHasher
+from sandbox.occ.content.hashing import ContentHasher
 from sandbox.occ.service import OccService
 
 
@@ -122,7 +122,7 @@ def test_atomic_option_suppresses_otherwise_accepted_paths_on_failure(
                 WriteChange(path="../escape", final_content=b"x"),
             ],
             snapshot=stack.read_active_manifest(),
-            options=ChangesetOptions(atomic=True),
+            options=CommitIntent(atomic=True),
         )
     )
 

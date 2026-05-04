@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from sandbox.occ.changeset.prepared import PreparedChangeset
+from sandbox.occ.changeset.intent import PreparedChangeset
 from sandbox.occ.changeset.types import (
     Change,
     ChangesetResult,

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.occ.changeset.prepared import PreparedChangeset
+from sandbox.occ.changeset.intent import PreparedChangeset
 from sandbox.occ.changeset.types import WriteChange
 from sandbox.occ.client import (
     OCCClient,

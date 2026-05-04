@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sandbox.occ.routing.gitignore import GitignoreOracle, RunOutcome
+from sandbox.occ.content.gitignore_oracle import GitignoreOracle, RunOutcome
 
 
 def _make_run(ignored_paths: set[str], counter: dict[str, int]):

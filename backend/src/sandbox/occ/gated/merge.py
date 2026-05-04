@@ -7,7 +7,8 @@ from collections.abc import Callable
 from sandbox.layer_stack.changes import LayerChange, LayerDelta
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.occ.changeset.prepared import PreparedPathGroup
+from sandbox.occ.changeset.intent import PreparedPathGroup
+from sandbox.occ.content.layer_backed_content import LayerBackedContent
 from sandbox.occ.changeset.types import (
     DeleteChange,
     EditChange,
@@ -15,13 +16,13 @@ from sandbox.occ.changeset.types import (
     FileStatus,
     WriteChange,
 )
-from sandbox.occ.merge.hashing import ContentHasher
+from sandbox.occ.content.hashing import ContentHasher
 
 StageWrite = Callable[[str, bytes], LayerChange]
 
 
-class TrackedMerge:
-    """Validate tracked changes against the active manifest and stage a delta."""
+class GatedMerge:
+    """Validate gated changes against the active manifest and stage a delta."""
 
     def __init__(
         self,
@@ -29,7 +30,7 @@ class TrackedMerge:
         *,
         hasher: ContentHasher | None = None,
     ) -> None:
-        self._layer_stack = layer_stack
+        self._content = LayerBackedContent(layer_stack)
         self._hasher = hasher or ContentHasher()
 
     def stage_group(
@@ -57,7 +58,7 @@ class TrackedMerge:
         active_manifest: Manifest,
         stage_write: StageWrite,
     ) -> tuple[FileResult, LayerDelta | None]:
-        current_content, current_exists = self._layer_stack.read_bytes(
+        current_content, current_exists = self._content.read_bytes(
             group.path,
             active_manifest,
         )
@@ -185,4 +186,4 @@ def _delta_for_final_state(
     return None
 
 
-__all__ = ["TrackedMerge"]
+__all__ = ["GatedMerge"]

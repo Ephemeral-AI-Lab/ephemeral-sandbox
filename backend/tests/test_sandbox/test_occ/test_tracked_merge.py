@@ -6,10 +6,10 @@ from pathlib import Path
 
 from sandbox.layer_stack.changes import LayerChange
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.occ.changeset.prepared import PreparedPathGroup, RouteDecision
+from sandbox.occ.changeset.intent import PreparedPathGroup, RouteDecision
 from sandbox.occ.changeset.types import EditChange, FileStatus, WriteChange
-from sandbox.occ.merge.hashing import ContentHasher
-from sandbox.occ.merge.tracked import TrackedMerge
+from sandbox.occ.content.hashing import ContentHasher
+from sandbox.occ.gated.merge import GatedMerge
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> Path:
@@ -53,7 +53,7 @@ def _stage_write(tmp_path: Path):
 def test_tracked_write_requires_active_hash_to_match_prepared_base(tmp_path: Path) -> None:
     stack = LayerStackManager(tmp_path / "stack")
     _publish(stack, tmp_path, "src/app.py", b"active\n")
-    merge = TrackedMerge(stack)
+    merge = GatedMerge(stack)
     group = PreparedPathGroup(
         path="src/app.py",
         route=RouteDecision.TRACKED,
@@ -80,7 +80,7 @@ def test_tracked_write_requires_active_hash_to_match_prepared_base(tmp_path: Pat
 def test_tracked_edit_applies_unique_anchor_to_active_content(tmp_path: Path) -> None:
     stack = LayerStackManager(tmp_path / "stack")
     _publish(stack, tmp_path, "src/app.py", b"alpha\nbeta\n")
-    merge = TrackedMerge(stack)
+    merge = GatedMerge(stack)
     group = PreparedPathGroup(
         path="src/app.py",
         route=RouteDecision.TRACKED,
@@ -102,7 +102,7 @@ def test_tracked_edit_applies_unique_anchor_to_active_content(tmp_path: Path) ->
 def test_tracked_edit_aborts_when_anchor_is_ambiguous(tmp_path: Path) -> None:
     stack = LayerStackManager(tmp_path / "stack")
     _publish(stack, tmp_path, "src/app.py", b"x\nx\n")
-    merge = TrackedMerge(stack)
+    merge = GatedMerge(stack)
     group = PreparedPathGroup(
         path="src/app.py",
         route=RouteDecision.TRACKED,

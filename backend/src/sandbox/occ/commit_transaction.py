@@ -9,15 +9,19 @@ from pathlib import Path
 from sandbox.layer_stack.changes import LayerChange, LayerDelta
 from sandbox.layer_stack.manifest import STAGING_DIR
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.occ.changeset.prepared import PreparedChangeset, PreparedPathGroup, RouteDecision
+from sandbox.occ.changeset.intent import (
+    PreparedChangeset,
+    PreparedPathGroup,
+    RouteDecision,
+)
 from sandbox.occ.changeset.types import (
     ChangesetResult,
     FileResult,
     FileStatus,
 )
-from sandbox.occ.merge.direct import DirectMerge
-from sandbox.occ.merge.hashing import ContentHasher
-from sandbox.occ.merge.tracked import TrackedMerge
+from sandbox.occ.direct.merge import DirectMerge
+from sandbox.occ.content.hashing import ContentHasher
+from sandbox.occ.gated.merge import GatedMerge
 
 
 @dataclass(frozen=True)
@@ -33,7 +37,7 @@ class OccCommitTransaction:
     def __init__(self, layer_stack: LayerStackManager) -> None:
         self._layer_stack = layer_stack
         self._hasher = ContentHasher()
-        self._tracked = TrackedMerge(layer_stack, hasher=self._hasher)
+        self._gated = GatedMerge(layer_stack, hasher=self._hasher)
         self._direct = DirectMerge(layer_stack)
 
     def revalidate_and_publish(self, prepared: PreparedChangeset) -> ChangesetResult:
@@ -120,7 +124,7 @@ class OccCommitTransaction:
             )
             return PathValidation(path=group.path, result=result, accepted_delta=delta)
         if group.route is RouteDecision.TRACKED:
-            result, delta = self._tracked.stage_group(
+            result, delta = self._gated.stage_group(
                 group,
                 active_manifest=active_manifest,
                 stage_write=stager.write,

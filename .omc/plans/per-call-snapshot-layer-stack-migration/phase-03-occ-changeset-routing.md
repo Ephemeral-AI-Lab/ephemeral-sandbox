@@ -13,7 +13,7 @@ Implementation scope:
 create occ/client.py as host write/edit/apply client for the typed service path
 create typed changeset data objects
 create builders for API write/edit and shell capture sources
-create ChangeRouter and GitignoreOracle
+create OccOrchestrator and GitignoreOracle
 prepare tracked/direct/drop path groups
 infer tracked base_hash from the leased snapshot manifest
 return PreparedChangeset for the commit transaction phase
@@ -80,7 +80,7 @@ Routing objects:
 PreparedPathGroup  # ordered changes for one normalized path
 RouteDecision      # tracked, direct, drop, reject
 GitignoreOracle    # gitignore checks against the selected view
-ChangesetOptions   # atomic flag and caller/source metadata
+CommitIntent   # atomic flag and caller/source metadata
 ```
 
 ## 3. File/Folder Structure Change
@@ -147,7 +147,7 @@ flowchart TD
   Shell["runtime.overlay_shell.capture_to_changeset"] --> Client
   Client --> Service["occ.service.OccService"]
   Service --> Builder["changeset.builders"]
-  Builder --> Router["routing.router.ChangeRouter"]
+  Builder --> Router["routing.router.OccOrchestrator"]
   Router --> Git["routing.gitignore.GitignoreOracle"]
   Router --> Prep["PreparedChangeset"]
   Prep --> Next["Phase 04 OccCommitTransaction"]

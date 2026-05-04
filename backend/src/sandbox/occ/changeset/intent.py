@@ -1,4 +1,4 @@
-"""Prepared OCC changesets after path routing and base-hash inference."""
+"""Commit intent and prepared OCC path groups."""
 
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ class PreparedPathGroup:
 
 
 @dataclass(frozen=True)
-class ChangesetOptions:
-    """Request-level OCC preparation options."""
+class CommitIntent:
+    """Request-level OCC commit intent."""
 
     atomic: bool = False
     caller_id: str = ""
@@ -46,7 +46,7 @@ class PreparedChangeset:
 
 
 __all__ = [
-    "ChangesetOptions",
+    "CommitIntent",
     "PreparedChangeset",
     "PreparedPathGroup",
     "RouteDecision",
