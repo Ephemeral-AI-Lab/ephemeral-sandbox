@@ -42,6 +42,8 @@ def test_publish_layer_writes_immutable_layer_and_manifest(tmp_path: Path) -> No
                 content_hash=hashlib.sha256(b"created").hexdigest(),
                 source_path=str(source),
             )
+
+
         ]
     )
 
@@ -93,4 +95,3 @@ def test_transaction_detects_manifest_conflict_before_publish(tmp_path: Path) ->
                     )
                 ]
             )
-

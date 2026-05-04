@@ -31,16 +31,16 @@ async def test_run_all_uploads_once_and_executes_setup_scripts_in_order() -> Non
     registry = SetupRegistry()
     registry.register(
         SetupScript(
-            name="overlay_capture_a",
-            package="sandbox.runtime.overlay_capture",
-            relative_path="sandbox/runtime/overlay_capture/setup.sh",
+            name="peer_a",
+            package="sandbox.runtime.peer_a",
+            relative_path="sandbox/runtime/peer_a/setup.sh",
         )
     )
     registry.register(
         SetupScript(
-            name="overlay_capture_b",
-            package="sandbox.runtime.overlay_capture",
-            relative_path="sandbox/runtime/overlay_capture/setup.sh",
+            name="peer_b",
+            package="sandbox.runtime.peer_b",
+            relative_path="sandbox/runtime/peer_b/setup.sh",
         )
     )
     calls: list[tuple[str, str, str | None, int | None]] = []
@@ -66,13 +66,13 @@ async def test_run_all_uploads_once_and_executes_setup_scripts_in_order() -> Non
     assert calls == [
         (
             "sb-1",
-            "bash sandbox/runtime/overlay_capture/setup.sh",
+            "bash sandbox/runtime/peer_a/setup.sh",
             BUNDLE_REMOTE_DIR,
             300,
         ),
         (
             "sb-1",
-            "bash sandbox/runtime/overlay_capture/setup.sh",
+            "bash sandbox/runtime/peer_b/setup.sh",
             BUNDLE_REMOTE_DIR,
             300,
         ),

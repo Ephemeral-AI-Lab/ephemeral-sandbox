@@ -1,4 +1,4 @@
-"""Runtime handler for raw overlay capture requests."""
+"""Runtime handler for layer-stack snapshot overlay requests."""
 
 from __future__ import annotations
 
@@ -6,35 +6,18 @@ from collections.abc import Mapping
 from typing import Any
 
 from sandbox.layer_stack.stack_manager import LayerStackManager
-from sandbox.runtime.overlay_capture import OverlayCaptureEngine
 from sandbox.overlay.runner.snapshot_overlay_runner import (
     SnapshotOverlayRunner,
     overlay_shell_request_from_dict,
 )
-from sandbox.runtime.overlay_capture.wire import overlay_outcome_to_dict
 from sandbox.runtime.overlay_shell.result_envelope import RuntimeResultEnvelope
 
 
 async def handle(args: dict[str, Any]) -> dict[str, Any]:
-    if "layer_stack_root" in args:
-        envelope = await _handle_snapshot_overlay(args)
-        return envelope.to_dict()
-
-    engine = OverlayCaptureEngine(
-        sandbox_id=str(args.get("sandbox_id") or "local"),
-        workspace_root=str(args.get("workspace_root") or "/workspace"),
-        direct_runtime=True,
-    )
-    timeout_raw = args.get("timeout")
-    timeout = int(timeout_raw) if timeout_raw is not None else None
-    outcome = await engine.execute(
-        str(args["command"]),
-        timeout=timeout,
-        stdin=args.get("stdin"),
-        description=str(args.get("description") or ""),
-        agent_id=str(args.get("agent_id") or ""),
-    )
-    return overlay_outcome_to_dict(outcome)
+    if "layer_stack_root" not in args:
+        raise ValueError("overlay.run requires layer_stack_root")
+    envelope = await _handle_snapshot_overlay(args)
+    return envelope.to_dict()
 
 
 async def _handle_snapshot_overlay(args: dict[str, Any]) -> RuntimeResultEnvelope:

@@ -19,8 +19,8 @@ stack manifests, and returns `PreparedChangeset` objects for the Phase 04
 commit transaction.
 
 The `occ/` package now matches the Phase 03/04 target shape. It no longer
-contains `wire.py`, `handlers/`, `orchestrator.py`, `direct/`, `gated/`,
-`content/`, or `patching/` source modules.
+contains `wire.py`, `handlers/`, `routing/`, `merge/`, or `patching/` source
+modules.
 
 ---
 
@@ -35,9 +35,9 @@ contains `wire.py`, `handlers/`, `orchestrator.py`, `direct/`, `gated/`,
 | `backend/src/sandbox/occ/service.py` | `OccService.prepare_changeset` and `apply_changeset` entrypoint |
 | `backend/src/sandbox/occ/changeset/types.py` | `Change`, `WriteChange`, `EditChange`, `DeleteChange`, direct shell change types, and result objects |
 | `backend/src/sandbox/occ/changeset/builders.py` | API and shell source builders |
-| `backend/src/sandbox/occ/changeset/prepared.py` | `PreparedChangeset`, `PreparedPathGroup`, `RouteDecision`, and `CommitIntent` |
-| `backend/src/sandbox/occ/routing/gitignore.py` | Cached gitignore oracle |
-| `backend/src/sandbox/occ/routing/router.py` | Path normalization, routing, grouping, and concurrent preparation |
+| `backend/src/sandbox/occ/changeset/intent.py` | `PreparedChangeset`, `PreparedPathGroup`, `RouteDecision`, and `CommitIntent` |
+| `backend/src/sandbox/occ/content/gitignore_oracle.py` | Cached gitignore oracle |
+| `backend/src/sandbox/occ/orchestrator.py` | Path normalization, direct/gated routing, grouping, and concurrent preparation |
 
 ### Runtime Bridge
 
@@ -101,10 +101,8 @@ backend/src/sandbox/occ/wire.py
 backend/src/sandbox/occ/bootstrap.py
 backend/src/sandbox/occ/setup.sh
 backend/src/sandbox/occ/handlers/
-backend/src/sandbox/occ/orchestrator.py
-backend/src/sandbox/occ/direct/
-backend/src/sandbox/occ/gated/
-backend/src/sandbox/occ/content/
+backend/src/sandbox/occ/routing/
+backend/src/sandbox/occ/merge/
 backend/src/sandbox/occ/patching/
 ```
 
@@ -115,16 +113,16 @@ registers an in-sandbox `occ.apply_changeset` handler.
 
 ## 5. Verification
 
-Focused OCC/API/runtime slice:
+Focused OCC/runtime slice:
 
 ```bash
-uv run pytest backend/tests/test_sandbox/test_occ backend/tests/test_sandbox/test_api/test_write.py backend/tests/test_sandbox/test_api/test_edit.py backend/tests/test_sandbox/test_api_contract.py backend/tests/test_sandbox/test_runtime/test_shell_pipeline.py backend/tests/test_sandbox/test_runtime/test_bundle_upload.py backend/tests/test_sandbox/test_runtime/test_setup_orchestrator.py -q
+uv run pytest backend/tests/test_sandbox/test_occ backend/tests/test_sandbox/test_runtime/test_bundle_upload.py -q
 ```
 
 Result:
 
 ```text
-72 passed in 1.67s
+49 passed in 0.62s
 ```
 
 Full sandbox suite:
@@ -136,7 +134,7 @@ uv run pytest backend/tests/test_sandbox -q
 Result:
 
 ```text
-345 passed in 5.19s
+309 passed in 4.49s
 ```
 
 Sandbox lint:

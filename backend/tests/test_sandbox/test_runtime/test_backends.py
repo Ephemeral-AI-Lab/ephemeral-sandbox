@@ -1,10 +1,4 @@
-"""Unit tests for the CodeIntelligenceBackend Protocol selection + runtime backends.
-
-Covers the four-entry truth table selection logic in
-``CodeIntelligenceService._select_backend`` (provider adapter x sandbox_id),
-the InProcessBackend behavioral defaults, and that DaemonBackend exposes
-the full protocol shape.
-"""
+"""Unit tests for provider-backed runtime service selection."""
 
 from __future__ import annotations
 
@@ -14,15 +8,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from sandbox.providers.registry import dispose_adapter, register_adapter
 from sandbox.runtime.backends import (
     CodeIntelligenceBackend,
-    InProcessBackend,
     DaemonBackend,
 )
-from sandbox.providers.registry import dispose_adapter, register_adapter
 from sandbox.runtime.registry import (
     dispose_all_code_intelligence,
     get_code_intelligence,
+    get_code_intelligence_if_exists,
 )
 from sandbox.runtime.service import CodeIntelligenceService
 
@@ -45,35 +39,18 @@ def _register_adapter(sandbox_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# InProcessBackend behavior
+# CodeIntelligenceService backend-selection contract
 # ---------------------------------------------------------------------------
 
 
-def test_inprocess_is_initialized_starts_false(tmp_path: Path) -> None:
-    backend = InProcessBackend(sandbox_id="sb-2", workspace_root=str(tmp_path))
-    assert backend.is_initialized is False
+def test_service_requires_provider_adapter(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="Provider adapter is required"):
+        CodeIntelligenceService(sandbox_id="sb-missing", workspace_root=str(tmp_path))
 
 
-def test_inprocess_exposes_required_components(tmp_path: Path) -> None:
-    backend = InProcessBackend(sandbox_id="sb-3", workspace_root=str(tmp_path))
-    # Load-bearing attributes after the OCC simplification: the backend owns
-    # the audited shell command executor; write/edit mutations do not live on
-    # backend methods.
-    assert backend._command_executor is not None
-    assert not hasattr(backend, "arbiter")
-    assert not hasattr(backend, "_occ")
-    assert not hasattr(backend, "_write_coordinator")
-
-
-# ---------------------------------------------------------------------------
-# CodeIntelligenceService backend-selection truth table
-# ---------------------------------------------------------------------------
-
-
-def test_select_inprocess_without_provider_adapter(tmp_path: Path) -> None:
-    """No provider adapter -> InProcess (sandboxless flow)."""
-    svc = CodeIntelligenceService(sandbox_id="sb-a", workspace_root=str(tmp_path))
-    assert type(svc._impl) is InProcessBackend
+def test_service_requires_sandbox_id(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="sandbox_id is required"):
+        CodeIntelligenceService(sandbox_id="", workspace_root=str(tmp_path))
 
 
 def test_select_daemon_with_provider_adapter_and_id(tmp_path: Path) -> None:
@@ -98,47 +75,27 @@ def test_select_daemon_ignores_legacy_env_flag(
     assert type(svc._impl) is DaemonBackend
 
 
-def test_select_inprocess_with_no_adapter_and_sandbox_id(tmp_path: Path) -> None:
-    svc = CodeIntelligenceService(sandbox_id="sb-c", workspace_root=str(tmp_path))
-    assert type(svc._impl) is InProcessBackend
-
-
-def test_select_inprocess_with_empty_sandbox_id(tmp_path: Path) -> None:
-    svc = CodeIntelligenceService(
-        sandbox_id="",
-        workspace_root=str(tmp_path),
-    )
-    assert type(svc._impl) is InProcessBackend
-
-
 # ---------------------------------------------------------------------------
-# Registry provider-backend matching
+# Registry provider-backed caching
 # ---------------------------------------------------------------------------
 
 
-def test_registry_reuses_service_with_same_provider_mode(tmp_path: Path) -> None:
+def test_registry_requires_provider_adapter(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="Provider adapter is required"):
+        get_code_intelligence("registry-missing", str(tmp_path))
+
+
+def test_registry_reuses_service_with_same_workspace(tmp_path: Path) -> None:
     _register_adapter("registry-reuse")
     first = get_code_intelligence("registry-reuse", str(tmp_path))
     second = get_code_intelligence("registry-reuse", str(tmp_path))
     assert first is second
 
 
-def test_registry_replaces_service_when_provider_adapter_is_added(
-    tmp_path: Path,
-) -> None:
-    first = get_code_intelligence("registry-replace", str(tmp_path))
-    _register_adapter("registry-replace")
-    second = get_code_intelligence("registry-replace", str(tmp_path))
-    assert second is not first
-
-
-def test_registry_replaces_service_when_provider_adapter_is_removed(
-    tmp_path: Path,
-) -> None:
-    _register_adapter("registry-remove")
-    first = get_code_intelligence("registry-remove", str(tmp_path))
-    dispose_adapter("registry-remove")
-    second = get_code_intelligence("registry-remove", str(tmp_path))
+def test_registry_replaces_service_when_workspace_changes(tmp_path: Path) -> None:
+    _register_adapter("registry-workspace")
+    first = get_code_intelligence("registry-workspace", str(tmp_path / "one"))
+    second = get_code_intelligence("registry-workspace", str(tmp_path / "two"))
     assert second is not first
 
 
@@ -155,11 +112,13 @@ def test_registry_disposes_service_when_provider_adapter_is_removed(
     monkeypatch.setattr(CodeIntelligenceService, "dispose", _spy_dispose)
 
     _register_adapter("registry-dispose")
-    first = get_code_intelligence("registry-dispose", str(tmp_path))
+    get_code_intelligence("registry-dispose", str(tmp_path))
     dispose_adapter("registry-dispose")
-    second = get_code_intelligence("registry-dispose", str(tmp_path))
 
-    assert second is not first
+    with pytest.raises(RuntimeError, match="Provider adapter is required"):
+        get_code_intelligence("registry-dispose", str(tmp_path))
+
+    assert get_code_intelligence_if_exists("registry-dispose") is None
     assert disposed == ["registry-dispose"]
 
 
@@ -225,24 +184,8 @@ def test_daemon_backend_rebind_sandbox_is_noop() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Protocol shape — sanity check that InProcessBackend implements every CodeIntelligenceBackend op
+# Protocol shape
 # ---------------------------------------------------------------------------
-
-
-def test_inprocess_satisfies_protocol_shape() -> None:
-    """Every public method declared on CodeIntelligenceBackend exists on InProcessBackend."""
-    declared = {
-        name
-        for name, value in inspect.getmembers(CodeIntelligenceBackend)
-        if not name.startswith("_") and callable(value)
-    }
-    implemented = {
-        name
-        for name, value in inspect.getmembers(InProcessBackend)
-        if not name.startswith("_") and callable(value)
-    }
-    missing = declared - implemented
-    assert missing == set(), f"InProcessBackend missing methods: {missing}"
 
 
 def test_daemon_satisfies_protocol_shape() -> None:

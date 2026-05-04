@@ -29,7 +29,7 @@ def _prepare(changes, *, ignored: set[str] | None = None):
         router.prepare(
             changes,
             snapshot=None,
-            options=CommitIntent(),
+            intent=CommitIntent(),
         )
     )
 
@@ -61,7 +61,7 @@ def test_direct_change_kinds_stay_direct_without_gitignore_lookup() -> None:
         router.prepare(
             [SymlinkChange(path="bin/data.dat", target="/tmp/data")],
             snapshot=None,
-            options=CommitIntent(),
+            intent=CommitIntent(),
         )
     )
 

@@ -1,4 +1,4 @@
-"""Host-side client for overlay runtime server operations."""
+"""Host-side client for overlay runtime operations."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from sandbox.overlay.runner.snapshot_overlay_runner import (
     OverlayShellRequest,
     SnapshotOverlayRunner,
 )
-from sandbox.runtime.overlay_capture.wire import overlay_outcome_from_dict
-from sandbox.runtime.overlay_capture.types import OverlayRunOutcome
 from sandbox.providers.registry import get_adapter
 from sandbox.runtime._server_dispatch import RuntimeDispatchError, call_runtime_server
 from sandbox.runtime.overlay_shell.result_envelope import RuntimeResultEnvelope
@@ -52,18 +50,7 @@ class OverlayClient:
         self.workspace_root = workspace_root
         self.timeout = timeout
 
-    async def shell_snapshot(
-        self,
-        request: OverlayShellRequest,
-    ) -> RuntimeResultEnvelope:
-        if self._runner is None:
-            raise OverlayClientError(
-                "MissingSnapshotRunner",
-                "shell_snapshot requires a SnapshotOverlayRunner",
-            )
-        return await self._runner.shell(request)
-
-    async def run_snapshot(
+    async def run(
         self,
         command: tuple[str, ...],
         *,
@@ -72,7 +59,12 @@ class OverlayClient:
         env: Mapping[str, str] | None = None,
         timeout_seconds: float | None = None,
     ) -> RuntimeResultEnvelope:
-        return await self.shell_snapshot(
+        if self._runner is None:
+            raise OverlayClientError(
+                "MissingSnapshotRunner",
+                "OverlayClient.run requires a SnapshotOverlayRunner",
+            )
+        return await self._runner.shell(
             OverlayShellRequest(
                 request_id=request_id or uuid.uuid4().hex,
                 command=command,
@@ -81,27 +73,6 @@ class OverlayClient:
                 timeout_seconds=timeout_seconds,
             )
         )
-
-    async def run(
-        self,
-        command: str,
-        *,
-        timeout: int | None = None,
-        stdin: str | None = None,
-        description: str = "",
-        agent_id: str = "",
-    ) -> OverlayRunOutcome:
-        result = await self._call(
-            "overlay.run",
-            {
-                "command": command,
-                "timeout": timeout,
-                "stdin": stdin,
-                "description": description,
-                "agent_id": agent_id,
-            },
-        )
-        return overlay_outcome_from_dict(result)
 
     async def shell(
         self,

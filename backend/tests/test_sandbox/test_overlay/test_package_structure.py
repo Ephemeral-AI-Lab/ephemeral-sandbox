@@ -6,7 +6,6 @@ from pathlib import Path
 
 import sandbox.occ
 import sandbox.overlay.client
-import sandbox.runtime.overlay_capture
 
 
 def _overlay_root() -> Path:
@@ -36,27 +35,11 @@ def test_overlay_contains_only_target_layout_files() -> None:
     assert actual == expected
 
 
-def test_legacy_overlay_capture_runtime_is_outside_overlay_package() -> None:
-    root = Path(sandbox.runtime.overlay_capture.__file__).resolve().parent
-    expected = {
-        "__init__.py",
-        "bootstrap.py",
-        "capture_engine.py",
-        "capture_runtime_bundle.py",
-        "command_codec.py",
-        "config.py",
-        "constants.py",
-        "protocol.py",
-        "run_artifacts.py",
-        "runtime_execution.py",
-        "setup.sh",
-        "types.py",
-        "wire.py",
-    }
+def test_legacy_overlay_capture_runtime_is_removed() -> None:
+    runtime_root = _overlay_root().parent / "runtime"
 
-    actual = _source_entries(root)
-
-    assert actual == expected
+    assert _source_files(runtime_root / "overlay_capture") == set()
+    assert _source_files(runtime_root / "overlay_capture_runtime") == set()
 
 
 def test_overlay_shim_files_do_not_exist() -> None:

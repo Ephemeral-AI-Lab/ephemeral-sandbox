@@ -40,7 +40,6 @@ _RUNTIME_EXCLUDE_PARTS = {
     "command_client.py",
     "registry.py",
     "service.py",
-    "shell_command_executor.py",
 }
 _OCC_EXCLUDE_PARTS = {"client.py"}
 _OVERLAY_EXCLUDE_PARTS = {"client.py"}

@@ -55,31 +55,45 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/client/async_bridge.py",
         "sandbox/runtime/server.py",
         "sandbox/runtime/bash.py",
-        "sandbox/runtime/pipelines.py",
         "sandbox/runtime/setup_orchestrator.py",
+        "sandbox/runtime/types.py",
+        "sandbox/runtime/wire.py",
+        "sandbox/runtime/overlay_shell/__init__.py",
+        "sandbox/runtime/overlay_shell/capture_to_changeset.py",
+        "sandbox/runtime/overlay_shell/cli.py",
+        "sandbox/runtime/overlay_shell/result_envelope.py",
         "sandbox/layer_stack/manifest.py",
         "sandbox/layer_stack/stack_manager.py",
         "sandbox/occ/changeset/builders.py",
+        "sandbox/occ/changeset/intent.py",
         "sandbox/occ/changeset/types.py",
-        "sandbox/occ/merge/transaction.py",
-        "sandbox/occ/merge/tracked.py",
-        "sandbox/occ/merge/direct.py",
-        "sandbox/occ/merge/hashing.py",
-        "sandbox/occ/routing/gitignore.py",
+        "sandbox/occ/commit_transaction.py",
+        "sandbox/occ/orchestrator.py",
+        "sandbox/occ/content/layer_backed_content.py",
+        "sandbox/occ/content/gitignore_oracle.py",
+        "sandbox/occ/content/hashing.py",
+        "sandbox/occ/direct/merge.py",
+        "sandbox/occ/gated/merge.py",
+        "sandbox/overlay/capture/changes.py",
+        "sandbox/overlay/capture/upperdir.py",
         "sandbox/overlay/handlers/run.py",
-        "sandbox/runtime/overlay_capture/bootstrap.py",
-        "sandbox/runtime/overlay_capture/__init__.py",
-        "sandbox/runtime/overlay_capture/capture_engine.py",
-        "sandbox/runtime/overlay_capture/setup.sh",
-        "sandbox/runtime/overlay_capture_runtime/cli.py",
+        "sandbox/overlay/handlers/shell.py",
+        "sandbox/overlay/namespace/command.py",
+        "sandbox/overlay/namespace/mounts.py",
+        "sandbox/overlay/runner/runtime_bundle.py",
+        "sandbox/overlay/runner/runtime_invoker.py",
+        "sandbox/overlay/runner/snapshot_overlay_runner.py",
     ]
     missing = [p for p in required if not (extract_dir / p).exists()]
     assert missing == [], f"bundle is missing required paths: {missing}"
     assert not (extract_dir / "sandbox/runtime/bundle.py").exists()
+    assert not (extract_dir / "sandbox/runtime/pipelines.py").exists()
+    assert not (extract_dir / "sandbox/runtime/overlay_capture").exists()
+    assert not (extract_dir / "sandbox/runtime/overlay_capture_runtime").exists()
     assert not (extract_dir / "sandbox/occ/wire.py").exists()
     assert not (extract_dir / "sandbox/occ/handlers").exists()
-    assert not (extract_dir / "sandbox/occ/direct").exists()
-    assert not (extract_dir / "sandbox/occ/gated").exists()
+    assert not (extract_dir / "sandbox/occ/merge").exists()
+    assert not (extract_dir / "sandbox/occ/routing").exists()
     assert not (extract_dir / "sandbox/code_intelligence").exists()
 
 
@@ -113,7 +127,6 @@ def test_bundle_excludes_host_only_raw_exec_modules() -> None:
         "sandbox/runtime/command_client.py",
         "sandbox/runtime/registry.py",
         "sandbox/runtime/service.py",
-        "sandbox/runtime/shell_command_executor.py",
     }
     assert excluded.isdisjoint(names)
     assert all(not name.startswith("sandbox/providers/") for name in names)
@@ -154,7 +167,7 @@ def test_bundle_includes_peer_setup_scripts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     src_root = tmp_path / "src"
-    setup_script = src_root / "sandbox" / "runtime" / "overlay_capture" / "setup.sh"
+    setup_script = src_root / "sandbox" / "runtime" / "peer" / "setup.sh"
     setup_script.parent.mkdir(parents=True)
     setup_script.write_text("#!/usr/bin/env bash\necho setup\n", encoding="utf-8")
 
@@ -164,7 +177,7 @@ def test_bundle_includes_peer_setup_scripts(
 
     bundle = _runtime_bundle_bytes()
     with tarfile.open(fileobj=io.BytesIO(bundle), mode="r:gz") as tar:
-        member = tar.extractfile("sandbox/runtime/overlay_capture/setup.sh")
+        member = tar.extractfile("sandbox/runtime/peer/setup.sh")
         assert member is not None
         assert member.read().decode("utf-8") == "#!/usr/bin/env bash\necho setup\n"
 

@@ -14,7 +14,7 @@ create occ/client.py as host write/edit/apply client for the typed service path
 create typed changeset data objects
 create builders for API write/edit and shell capture sources
 create OccOrchestrator and GitignoreOracle
-prepare tracked/direct/drop path groups
+prepare gated/direct/drop path groups
 infer tracked base_hash from the leased snapshot manifest
 return PreparedChangeset for the commit transaction phase
 ```
@@ -80,7 +80,7 @@ Routing objects:
 PreparedPathGroup  # ordered changes for one normalized path
 RouteDecision      # tracked, direct, drop, reject
 GitignoreOracle    # gitignore checks against the selected view
-CommitIntent   # atomic flag and caller/source metadata
+CommitIntent       # atomic flag and caller/source metadata
 ```
 
 ## 3. File/Folder Structure Change
@@ -90,22 +90,28 @@ Create:
 ```text
 backend/src/sandbox/
 +-- occ/
-    +-- __init__.py
-    +-- client.py
-    +-- runtime_ops.py
-    +-- service.py
-    +-- changeset/
-    |   +-- types.py
-    |   +-- builders.py
-    |   +-- prepared.py
-    +-- routing/
-        +-- router.py
-        +-- gitignore.py
+|   +-- client.py
+|   +-- service.py
+|   +-- commit_transaction.py
+|   +-- orchestrator.py
+|   +-- runtime_ops.py
+|   +-- changeset/
+|   |   +-- builders.py
+|   |   +-- intent.py
+|   |   +-- types.py
+|   +-- content/
+|   |   +-- layer_backed_content.py
+|   |   +-- gitignore_oracle.py
+|   |   +-- hashing.py
+|   +-- gated/
+|   +-- direct/
 ```
 
 The Phase 03 `occ/` package should contain only entrypoints, changeset objects,
-routing policy, and small runtime helpers. It should not contain runtime
-dispatch codecs, live-root content managers, or alternate apply coordinators.
+routing policy, content-policy helpers, and small runtime helpers. The Phase 03
+implementation fills the typed changeset and routing pieces; Phase 04 fills
+`commit_transaction.py`, `content/layer_backed_content.py`, `direct/`, and
+`gated/` in the same package shape.
 
 Extend runtime bridge from Phase 02:
 
@@ -131,9 +137,8 @@ Do not create:
 backend/src/sandbox/occ/wire.py
 backend/src/sandbox/occ/handlers/
 backend/src/sandbox/occ/runtime/apply_overlay_capture.py
-backend/src/sandbox/occ/orchestrator.py
-backend/src/sandbox/occ/direct/
-backend/src/sandbox/occ/gated/
+backend/src/sandbox/occ/routing/
+backend/src/sandbox/occ/merge/
 ```
 
 If the live tree still has these files from an older path, treat them as
@@ -147,8 +152,8 @@ flowchart TD
   Shell["runtime.overlay_shell.capture_to_changeset"] --> Client
   Client --> Service["occ.service.OccService"]
   Service --> Builder["changeset.builders"]
-  Builder --> Router["routing.router.OccOrchestrator"]
-  Router --> Git["routing.gitignore.GitignoreOracle"]
+  Builder --> Router["occ.orchestrator.OccOrchestrator"]
+  Router --> Git["content.gitignore_oracle.GitignoreOracle"]
   Router --> Prep["PreparedChangeset"]
   Prep --> Next["Phase 04 OccCommitTransaction"]
 ```
@@ -184,8 +189,8 @@ external path    -> reject by explicit policy
 | `OccService` | Generic typed changeset service; not overlay-specific. |
 | `changeset.types` | Separates API-level mutation intent from storage `LayerChange`. |
 | `changeset.builders` | Keeps adapters close to typed changes without moving overlay logic into OCC. |
-| `changeset.prepared` | Names the object after routing and base-hash preparation. |
-| `routing.router` | Names path policy selection directly. |
-| `routing.gitignore` | Keeps gitignore policy under OCC, not overlay or layer_stack. |
-| `tracked` and `direct` routes | Name the policy result, replacing vague `gated` and folder-level `direct/` buckets. |
+| `changeset.intent` | Keeps request intent and prepared path groups together. |
+| `occ.orchestrator` | Names path policy selection directly and routes direct vs gated changes. |
+| `content.gitignore_oracle` | Keeps gitignore policy under OCC, not overlay or layer_stack. |
+| `tracked` and `direct` routes | `tracked` names the CAS-protected workspace path policy; the implementation lives under `gated/` for conflict-gated handling. |
 | no `wire.py` | The service path is in-process and typed; generic JSON codecs belong to obsolete sandbox runtime dispatch, not the Phase 03/04 OCC design. |

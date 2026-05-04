@@ -92,20 +92,22 @@ backend/src/sandbox/
 +-- occ/
 |   +-- __init__.py
 |   +-- client.py
-|   +-- runtime_ops.py
 |   +-- service.py
+|   +-- commit_transaction.py
+|   +-- orchestrator.py
+|   +-- runtime_ops.py
 |   +-- changeset/
-|   |   +-- types.py
 |   |   +-- builders.py
-|   |   +-- prepared.py
-|   +-- routing/
-|   |   +-- router.py
-|   |   +-- gitignore.py
-|   +-- merge/
-|       +-- transaction.py
-|       +-- tracked.py
-|       +-- direct.py
-|       +-- hashing.py
+|   |   +-- intent.py
+|   |   +-- types.py
+|   +-- content/
+|   |   +-- layer_backed_content.py
+|   |   +-- gitignore_oracle.py
+|   |   +-- hashing.py
+|   +-- gated/
+|   |   +-- merge.py
+|   +-- direct/
+|       +-- merge.py
 |
 +-- runtime/
     +-- overlay_shell/
@@ -121,9 +123,8 @@ Production paths to delete or avoid:
 ```text
 backend/src/sandbox/overlay/layer_manager.py
 backend/src/sandbox/occ/runtime/apply_overlay_capture.py
-backend/src/sandbox/occ/orchestrator.py
-backend/src/sandbox/occ/direct/
-backend/src/sandbox/occ/gated/
+backend/src/sandbox/occ/routing/
+backend/src/sandbox/occ/merge/
 backend/src/sandbox/**/wire.py
 backend/src/sandbox/overlay/capture/ndjson.py as primary contract
 ```

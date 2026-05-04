@@ -16,8 +16,11 @@ def test_occ_root_contains_only_entrypoints_and_subpackages() -> None:
         "__init__.py",
         "changeset",
         "client.py",
-        "merge",
-        "routing",
+        "commit_transaction.py",
+        "content",
+        "direct",
+        "gated",
+        "orchestrator.py",
         "runtime_ops.py",
         "service.py",
     }

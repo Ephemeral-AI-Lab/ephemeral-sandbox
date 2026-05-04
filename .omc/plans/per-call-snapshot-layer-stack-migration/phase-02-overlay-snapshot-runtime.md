@@ -73,7 +73,7 @@ class RuntimeResultEnvelope:
 ```
 
 The envelope is runtime-local. OCC results are added in later phases by
-`runtime/overlay_shell/pipeline.py`.
+`runtime/overlay_shell/capture_to_changeset.py` and the shell cutover pipeline.
 
 ## 3. File/Folder Structure Change
 
@@ -82,7 +82,6 @@ Create:
 ```text
 backend/src/sandbox/
 +-- overlay/
-|   +-- __init__.py
 |   +-- client.py
 |   +-- handlers/
 |   |   +-- run.py

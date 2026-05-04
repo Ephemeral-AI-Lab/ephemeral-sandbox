@@ -27,21 +27,23 @@ def test_phase03_occ_preparation_modules_do_not_import_overlay_or_legacy_apply()
         occ_root / "client.py",
         occ_root / "runtime_ops.py",
         occ_root / "changeset" / "builders.py",
-        occ_root / "changeset" / "prepared.py",
+        occ_root / "changeset" / "intent.py",
         occ_root / "changeset" / "types.py",
-        occ_root / "routing" / "router.py",
-        occ_root / "routing" / "gitignore.py",
-        occ_root / "merge" / "direct.py",
-        occ_root / "merge" / "hashing.py",
-        occ_root / "merge" / "tracked.py",
-        occ_root / "merge" / "transaction.py",
+        occ_root / "orchestrator.py",
+        occ_root / "content" / "gitignore_oracle.py",
+        occ_root / "content" / "hashing.py",
+        occ_root / "content" / "layer_backed_content.py",
+        occ_root / "direct" / "merge.py",
+        occ_root / "gated" / "merge.py",
+        occ_root / "commit_transaction.py",
     ]
 
     forbidden = {
         "sandbox.overlay",
-        "sandbox.occ.orchestrator",
         "sandbox.occ.direct.direct_merge_coordinator",
         "sandbox.occ.gated.gated_coordinator",
+        "sandbox.occ.merge",
+        "sandbox.occ.routing",
     }
     hits: list[tuple[str, str]] = []
     for path in phase03_files:

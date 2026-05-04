@@ -26,8 +26,10 @@ The implementation is deliberately policy-blind:
 - no git `check-ignore` calls
 - no primary NDJSON capture contract
 
-The older live-root `OverlayCaptureEngine` remains present for existing callers
-until the integration/cutover phase removes or reroutes it.
+The older live-root `OverlayCaptureEngine` and `overlay_capture_runtime`
+packages have been removed. Runtime shell mutation calls now fail closed until
+the Phase 06 API/runtime cutover routes them through the layer-stack snapshot
+path.
 
 ---
 
@@ -37,8 +39,8 @@ until the integration/cutover phase removes or reroutes it.
 
 | File | Purpose |
 | --- | --- |
-| `backend/src/sandbox/overlay/client.py` | Adds `shell_snapshot` and `run_snapshot` client methods backed by `SnapshotOverlayRunner`; existing runtime-server methods stay compatible |
-| `backend/src/sandbox/overlay/handlers/run.py` | Adds an optional `layer_stack_root` handler path for Phase 02 snapshot overlay requests |
+| `backend/src/sandbox/overlay/client.py` | Provides `OverlayClient.run` backed by `SnapshotOverlayRunner` and `OverlayClient.shell` for the runtime shell route |
+| `backend/src/sandbox/overlay/handlers/run.py` | Handles `layer_stack_root` snapshot overlay requests only |
 | `backend/src/sandbox/overlay/capture/changes.py` | Defines Phase 02 `UpperChange(path, kind, content_path, final_hash)` values and content hashing |
 | `backend/src/sandbox/overlay/capture/upperdir.py` | Captures writes, deletes, symlinks, and opaque dirs from an upperdir; also supports copy-backed local diff capture |
 | `backend/src/sandbox/overlay/namespace/mounts.py` | Materializes a leased manifest into a per-call lowerdir and prepares upper/work/merged directories |
@@ -172,10 +174,10 @@ Result:
 50 passed in 1.74s
 ```
 
-API contract, shell pipeline, and layer-stack compatibility:
+API contract and layer-stack compatibility:
 
 ```bash
-uv run pytest backend/tests/test_sandbox/test_api_contract.py backend/tests/test_sandbox/test_runtime/test_shell_pipeline.py backend/tests/test_sandbox/test_layer_stack -q
+uv run pytest backend/tests/test_sandbox/test_api_contract.py backend/tests/test_sandbox/test_layer_stack -q
 ```
 
 Result:
@@ -205,5 +207,5 @@ All checks passed!
 | OCC changeset routing from `UpperChange` | Phase 03 owns capture-to-changeset conversion and routing |
 | Final active-manifest validation and layer publish | Phase 04 owns atomic OCC commit transactions |
 | Squash, lease budget, and GC | Phase 05 owns layer-stack maintenance |
-| Public API/runtime cutover from old live-root overlay path | Phase 06 owns integration and removal of obsolete production paths |
+| Mutating shell API/runtime cutover to the snapshot overlay path | Phase 06 owns integration with layer-stack and OCC commit transactions |
 | Kernel overlay mount replacement for the copy-backed local runtime | The Phase 02 module boundary supports it, but the portable implementation keeps unit verification independent of host mount privileges |

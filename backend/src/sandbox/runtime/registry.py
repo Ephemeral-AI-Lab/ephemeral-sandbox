@@ -20,20 +20,15 @@ def get_code_intelligence(
 ) -> "CodeIntelligenceService":
     """Get or create a runtime service for *sandbox_id*.
 
-    Sandboxes with a registered provider adapter use the remote runtime
-    backend; local/test callers without an adapter keep using the in-process
-    backend.
+    Runtime services require a registered provider adapter. Missing adapters
+    fail closed instead of falling back to an in-process shell path.
     """
     from sandbox.runtime.service import CodeIntelligenceService
 
-    wants_provider_backend = _has_provider_adapter(sandbox_id)
+    _require_provider_adapter(sandbox_id)
     with _SERVICES_LOCK:
         existing = _SERVICES.get(sandbox_id)
-        if (
-            existing is not None
-            and existing.workspace_root == workspace_root
-            and _uses_provider_backend(existing) == wants_provider_backend
-        ):
+        if existing is not None and existing.workspace_root == workspace_root:
             existing.rebind_sandbox(sandbox)
             return existing
         if sandbox_id not in _CREATION_LOCKS:
@@ -41,13 +36,10 @@ def get_code_intelligence(
         creation_lock = _CREATION_LOCKS[sandbox_id]
 
     with creation_lock:
+        _require_provider_adapter(sandbox_id)
         with _SERVICES_LOCK:
             existing = _SERVICES.get(sandbox_id)
-            if (
-                existing is not None
-                and existing.workspace_root == workspace_root
-                and _uses_provider_backend(existing) == wants_provider_backend
-            ):
+            if existing is not None and existing.workspace_root == workspace_root:
                 existing.rebind_sandbox(sandbox)
                 return existing
             if existing is not None:
@@ -66,22 +58,25 @@ def get_code_intelligence(
         return service
 
 
-def _has_provider_adapter(sandbox_id: str) -> bool:
+def _require_provider_adapter(sandbox_id: str) -> None:
     if not sandbox_id:
-        return False
+        raise ValueError("sandbox_id is required for sandbox runtime services")
     from sandbox.providers.registry import get_adapter
 
     try:
         get_adapter(sandbox_id)
-    except KeyError:
-        return False
-    return True
+    except KeyError as exc:
+        existing = _pop_service(sandbox_id)
+        if existing is not None:
+            existing.dispose()
+        raise RuntimeError(
+            f"Provider adapter is required for sandbox runtime service {sandbox_id!r}"
+        ) from exc
 
 
-def _uses_provider_backend(service: "CodeIntelligenceService") -> bool:
-    from sandbox.runtime.backends import DaemonBackend
-
-    return isinstance(service._impl, DaemonBackend)  # type: ignore[attr-defined]
+def _pop_service(sandbox_id: str) -> "CodeIntelligenceService | None":
+    with _SERVICES_LOCK:
+        return _SERVICES.pop(sandbox_id, None)
 
 
 def get_code_intelligence_if_exists(sandbox_id: str) -> "CodeIntelligenceService | None":

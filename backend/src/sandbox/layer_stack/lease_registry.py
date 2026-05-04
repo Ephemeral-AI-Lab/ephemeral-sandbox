@@ -67,3 +67,7 @@ class LeaseRegistry:
     def pinned_layers(self) -> tuple[LayerRef, ...]:
         with self._lock:
             return tuple(sorted(self._refcounts))
+
+    def active_leases(self) -> tuple[Lease, ...]:
+        with self._lock:
+            return tuple(sorted(self._leases.values(), key=lambda lease: lease.acquired_at))

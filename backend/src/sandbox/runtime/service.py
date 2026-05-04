@@ -1,8 +1,8 @@
 """Per-sandbox runtime service facade.
 
-The facade delegates every public op to a backend selected at construction
-time. Sandboxes with a registered provider adapter use :class:`DaemonBackend`;
-sandboxless/local flows keep using :class:`InProcessBackend`.
+The facade delegates every public op to the provider-backed runtime backend.
+Constructing a runtime service without a registered provider adapter is a
+configuration error; the old in-process fallback is intentionally gone.
 
 After the OCC simplification this surface is intentionally minimal:
 mutation requests flow through typed OCC services, not through service-level
@@ -11,50 +11,37 @@ write/edit methods or runtime OCC wire handlers.
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from sandbox.providers.registry import get_adapter
 from sandbox.runtime.backends import (
     CodeIntelligenceBackend,
     DaemonBackend,
-    InProcessBackend,
 )
 
 __all__ = ["CodeIntelligenceService"]
 
-logger = logging.getLogger(__name__)
-
-
 def _select_backend(
     sandbox_id: str,
     workspace_root: str,
-    sandbox: Any,
-    *,
-    direct_runtime: bool = False,
 ) -> CodeIntelligenceBackend:
-    """Pick a backend based on provider-adapter availability."""
-    if _has_provider_adapter(sandbox_id):
-        return DaemonBackend(
-            sandbox_id=sandbox_id,
-            workspace_root=workspace_root,
-        )
-    return InProcessBackend(
+    """Create the provider-backed backend, failing closed without an adapter."""
+    _require_provider_adapter(sandbox_id)
+    return DaemonBackend(
         sandbox_id=sandbox_id,
         workspace_root=workspace_root,
-        sandbox=sandbox,
-        direct_runtime=direct_runtime,
     )
 
 
-def _has_provider_adapter(sandbox_id: str) -> bool:
+def _require_provider_adapter(sandbox_id: str) -> None:
     if not sandbox_id:
-        return False
+        raise ValueError("sandbox_id is required for sandbox runtime services")
     try:
         get_adapter(sandbox_id)
-    except KeyError:
-        return False
-    return True
+    except KeyError as exc:
+        raise RuntimeError(
+            f"Provider adapter is required for sandbox runtime service {sandbox_id!r}"
+        ) from exc
 
 
 class CodeIntelligenceService:
@@ -65,14 +52,11 @@ class CodeIntelligenceService:
         sandbox_id: str,
         workspace_root: str = "/workspace",
         sandbox: Any = None,
-        *,
-        direct_runtime: bool = False,
     ) -> None:
+        del sandbox
         self._impl: CodeIntelligenceBackend = _select_backend(
             sandbox_id,
             workspace_root,
-            sandbox,
-            direct_runtime=direct_runtime,
         )
 
     @property
@@ -86,10 +70,6 @@ class CodeIntelligenceService:
     @property
     def is_initialized(self) -> bool:
         return self._impl.is_initialized
-
-    @property
-    def _command_executor(self) -> Any:
-        return self._impl._command_executor  # type: ignore[attr-defined]
 
     def ensure_initialized(self, wait: bool = True) -> bool:
         return self._impl.ensure_initialized(wait=wait)

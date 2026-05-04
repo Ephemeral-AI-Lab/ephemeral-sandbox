@@ -441,8 +441,8 @@ class SandboxService:
         :mod:`sandbox.runtime.registry` is reserved for whitebox
         tests; routers, benchmarks, and tool wiring must come through here.
 
-        Remote sandboxes route through the registered provider adapter; local
-        callers without an adapter use the in-process backend.
+        Runtime services require a registered provider adapter. Missing
+        adapters fail closed instead of falling back to an in-process backend.
         """
         from sandbox.runtime.registry import get_code_intelligence
 
