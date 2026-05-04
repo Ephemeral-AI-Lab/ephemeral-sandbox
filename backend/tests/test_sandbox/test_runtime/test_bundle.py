@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from sandbox.api import RawExecResult
-from sandbox.runtime import bundle as bundle_module
+from sandbox.control.daemon import bundle as bundle_module
 
 
 async def test_ensure_runtime_uploaded_uses_raw_exec(monkeypatch) -> None:

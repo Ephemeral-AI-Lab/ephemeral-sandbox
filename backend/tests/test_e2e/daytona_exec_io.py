@@ -6,7 +6,7 @@ import json
 import shlex
 from typing import Any
 
-from sandbox.runtime.bash import extract_exit_code, wrap_bash_command
+from sandbox.bash import extract_exit_code, wrap_bash_command
 
 
 def write_text_via_exec(

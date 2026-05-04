@@ -7,7 +7,7 @@ the sandbox API refactor plan. stdout receives that JSON result directly.
 
 This dispatcher emits direct handler results rather than a nested command
 envelope. Host callers use
-``sandbox.runtime.command_client`` and receive handler results directly.
+``sandbox.control.daemon.command`` and receive handler results directly.
 """
 
 from __future__ import annotations

@@ -11,7 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 from sandbox.providers.daytona.client.async_ import get_async_sandbox
-from sandbox.runtime.bash import wrap_bash_command
+from sandbox.bash import wrap_bash_command
 
 from benchmarks.sweevo.dataset import (
     default_sweevo_snapshot_name,

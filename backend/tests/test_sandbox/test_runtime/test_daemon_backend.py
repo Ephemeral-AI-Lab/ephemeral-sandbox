@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from sandbox.runtime import command_client
-from sandbox.runtime.command_client import RuntimeCommandClient
+from sandbox.control.daemon import command as command_client
+from sandbox.control.daemon.command import RuntimeCommandClient
 
 
 class _FakeRuntime:
@@ -62,7 +62,7 @@ def test_ensure_initialized_uploads_runtime_bundle() -> None:
         return "digest"
 
     with patch(
-        "sandbox.runtime.command_client.ensure_runtime_uploaded",
+        "sandbox.control.daemon.command.ensure_runtime_uploaded",
         fake_upload,
     ):
         ok = backend.ensure_initialized(wait=True)
@@ -82,7 +82,7 @@ def test_ensure_initialized_idempotent() -> None:
         return "digest"
 
     with patch(
-        "sandbox.runtime.command_client.ensure_runtime_uploaded",
+        "sandbox.control.daemon.command.ensure_runtime_uploaded",
         fake_upload,
     ):
         backend.ensure_initialized(wait=True)

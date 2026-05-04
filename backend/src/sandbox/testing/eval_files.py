@@ -7,7 +7,7 @@ import shlex
 from pathlib import Path
 
 from config.defaults import DEFAULT_SANDBOX_CI_ROOT
-from sandbox.runtime.bash import wrap_bash_command
+from sandbox.bash import wrap_bash_command
 
 
 EVAL_SANDBOX_FILES: dict[str, str] = {

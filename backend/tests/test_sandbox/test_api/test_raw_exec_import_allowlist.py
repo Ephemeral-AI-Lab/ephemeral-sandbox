@@ -32,8 +32,8 @@ def _is_allowlisted(path: Path) -> bool:
         path == Path("sandbox/api/__init__.py")
         or path == Path("sandbox/api/read.py")
         or path == Path("sandbox/api/shell.py")
-        or path == Path("sandbox/runtime/bundle.py")
-        or path == Path("sandbox/runtime/setup_orchestrator.py")
+        or path == Path("sandbox/control/daemon/bundle.py")
+        or path == Path("sandbox/control/daemon/install.py")
         or path in {
             Path("sandbox/providers/daytona/lifecycle.py"),
             Path("sandbox/providers/daytona/proxy.py"),

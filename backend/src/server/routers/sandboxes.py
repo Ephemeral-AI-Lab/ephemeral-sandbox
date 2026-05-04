@@ -9,10 +9,11 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from typing import Any
+
 from config.defaults import DEFAULT_SANDBOX_CI_ROOT
 from sandbox.api.raw_exec import raw_exec
 from sandbox.lifecycle.factory import lifecycle_provider_for
-from sandbox.providers.protocol import SandboxLifecycleProvider
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ async def _call(func, *args, status: int = 200, **kwargs) -> JSONResponse:
         return JSONResponse(status_code=500, content={"error": str(exc)})
 
 
-def create_sandbox_router(service: SandboxLifecycleProvider | None = None) -> APIRouter:
+def create_sandbox_router(service: Any | None = None) -> APIRouter:
     """Build the sandbox API router."""
     router = APIRouter(prefix="/api/sandboxes")
     svc = service or lifecycle_provider_for()

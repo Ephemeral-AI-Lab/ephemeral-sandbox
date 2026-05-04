@@ -29,7 +29,7 @@ import pytest
 from dotenv import load_dotenv
 
 from tools.core.base import ToolExecutionContextService
-from sandbox.runtime.bash import extract_exit_code, wrap_bash_command
+from sandbox.bash import extract_exit_code, wrap_bash_command
 from tools.sandbox_toolkit.shell import shell
 from tools.sandbox_toolkit.edit_file import edit_file
 from tools.sandbox_toolkit.write_file import write_file

@@ -52,7 +52,7 @@ def test_bootstrap_helper_uploads_by_sandbox_id(flag_on: None) -> None:
         calls.append(sandbox_id)
         return "deadbeef"
 
-    with patch("sandbox.runtime.bundle.ensure_runtime_uploaded", new=fake_upload):
+    with patch("sandbox.control.daemon.bundle.ensure_runtime_uploaded", new=fake_upload):
         asyncio.run(
             bootstrap_in_sandbox_runtime(
                 sandbox_id="sb-1",
@@ -80,7 +80,7 @@ def test_bootstrap_helper_raises_on_runtime_upload_failure(flag_on: None) -> Non
     async def fail_upload(*_: Any, **__: Any) -> str:
         raise RuntimeError("runtime unavailable")
 
-    with patch("sandbox.runtime.bundle.ensure_runtime_uploaded", new=fail_upload), pytest.raises(
+    with patch("sandbox.control.daemon.bundle.ensure_runtime_uploaded", new=fail_upload), pytest.raises(
         RuntimeError, match="runtime unavailable"
     ):
         asyncio.run(
@@ -218,7 +218,7 @@ def test_upload_helper_uploads_without_running_lifecycle_bootstrap(
         return "deadbeef"
 
     with patch(
-        "sandbox.runtime.bundle.ensure_runtime_uploaded",
+        "sandbox.control.daemon.bundle.ensure_runtime_uploaded",
         new=fake_upload,
     ):
         asyncio.run(

@@ -34,7 +34,7 @@ async def bootstrap_in_sandbox_runtime(
     if not sandbox_id or not str(workspace_root or "").strip():
         return
 
-    from sandbox.runtime.bundle import ensure_runtime_uploaded
+    from sandbox.control.daemon.bundle import ensure_runtime_uploaded
 
     logger.info(
         "eager sandbox-runtime bootstrap starting for sandbox %s at %s",
@@ -72,7 +72,7 @@ async def bootstrap_upload_runtime_bundle(
     if not sandbox_id or not str(workspace_root or "").strip():
         return
 
-    from sandbox.runtime.bundle import ensure_runtime_uploaded
+    from sandbox.control.daemon.bundle import ensure_runtime_uploaded
 
     logger.info(
         "eager sandbox-runtime bundle upload starting for sandbox %s",

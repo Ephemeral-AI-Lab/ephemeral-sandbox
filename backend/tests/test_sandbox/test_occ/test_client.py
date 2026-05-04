@@ -53,7 +53,7 @@ def test_occ_client_does_not_import_handlers_or_overlay() -> None:
 
     assert "sandbox.occ.handlers" not in source
     assert "sandbox.occ.wire" not in source
-    assert "sandbox.runtime._server_dispatch" not in source
+    assert "sandbox.control.daemon.command" not in source
     assert "sandbox.overlay" not in source
 
 

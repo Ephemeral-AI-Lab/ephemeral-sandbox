@@ -8,8 +8,7 @@ from pathlib import PurePosixPath
 from typing import Protocol
 
 from sandbox.api import RawExecResult
-
-_BUNDLE_REMOTE_DIR = "/tmp/eos-sandbox-runtime"
+from sandbox.control.daemon.bundle import BUNDLE_REMOTE_DIR as _BUNDLE_REMOTE_DIR
 
 
 class _RawExecCallable(Protocol):
@@ -118,7 +117,7 @@ async def _raw_exec(
 
 
 async def _ensure_runtime_uploaded(sandbox_id: str) -> str:
-    from sandbox.runtime.bundle import ensure_runtime_uploaded
+    from sandbox.control.daemon.bundle import ensure_runtime_uploaded
 
     return await ensure_runtime_uploaded(sandbox_id)
 

@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 
 from sandbox.api import RawExecResult
 from sandbox.providers.daytona.client.async_ import get_async_sandbox
-from sandbox.runtime.bash import (
+from sandbox.bash import (
     EXIT_MARKER as _EXIT_MARKER,
     extract_exit_code as _extract_exit_code,
     wrap_bash_command as _wrap_bash_command,

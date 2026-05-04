@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from sandbox.runtime.command_client import RuntimeCommandClient, RuntimeCommandError
-from sandbox.runtime.bundle import bundle_hash
+from sandbox.control.daemon.command import RuntimeCommandClient, RuntimeCommandError
+from sandbox.control.daemon.bundle import bundle_hash
 from sandbox.providers.registry import dispose_adapter, register_adapter
 
 

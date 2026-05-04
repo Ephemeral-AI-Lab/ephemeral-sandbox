@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from sandbox.runtime.bundle import (
+from sandbox.control.daemon.bundle import (
     BUNDLE_REMOTE_DIR,
     _ensure_runtime_uploaded_with_exec,
     _runtime_bundle_bytes,
@@ -54,10 +54,9 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/api/__init__.py",
         "sandbox/api/utils/__init__.py",
         "sandbox/api/utils/models.py",
+        "sandbox/bash.py",
         "sandbox/runtime/async_bridge.py",
         "sandbox/runtime/server.py",
-        "sandbox/runtime/bash.py",
-        "sandbox/runtime/setup_orchestrator.py",
         "sandbox/runtime/overlay_shell/__init__.py",
         "sandbox/runtime/overlay_shell/capture_to_changeset.py",
         "sandbox/runtime/overlay_shell/cli.py",
@@ -125,13 +124,14 @@ def test_bundle_excludes_host_only_raw_exec_modules() -> None:
         "sandbox/lifecycle/commit.py",
         "sandbox/occ/client.py",
         "sandbox/overlay/client.py",
-        "sandbox/runtime/_server_dispatch.py",
-        "sandbox/runtime/bundle.py",
-        "sandbox/runtime/command_client.py",
+        "sandbox/control/daemon/bundle.py",
+        "sandbox/control/daemon/command.py",
+        "sandbox/control/daemon/install.py",
         "sandbox/runtime/overlay_shell/pipeline.py",
     }
     assert excluded.isdisjoint(names)
     assert all(not name.startswith("sandbox/providers/") for name in names)
+    assert all(not name.startswith("sandbox/control/") for name in names)
     assert all(not name.startswith("sandbox/runtime/backends/") for name in names)
 
 
@@ -173,9 +173,9 @@ def test_bundle_includes_peer_setup_scripts(
     setup_script.parent.mkdir(parents=True)
     setup_script.write_text("#!/usr/bin/env bash\necho setup\n", encoding="utf-8")
 
-    monkeypatch.setattr("sandbox.runtime.bundle._src_root", lambda: src_root)
-    monkeypatch.setattr("sandbox.runtime.bundle._BUNDLE_CACHE", None)
-    monkeypatch.setattr("sandbox.runtime.bundle._BUNDLE_HASH_CACHE", None)
+    monkeypatch.setattr("sandbox.control.daemon.bundle._src_root", lambda: src_root)
+    monkeypatch.setattr("sandbox.control.daemon.bundle._BUNDLE_CACHE", None)
+    monkeypatch.setattr("sandbox.control.daemon.bundle._BUNDLE_HASH_CACHE", None)
 
     bundle = _runtime_bundle_bytes()
     with tarfile.open(fileobj=io.BytesIO(bundle), mode="r:gz") as tar:
@@ -195,10 +195,8 @@ def test_bundle_extracted_runtime_modules_import_clean(tmp_path: Path) -> None:
         (
             f"import sys; sys.path.insert(0, {str(extract_dir)!r}); "
             "from sandbox.runtime.server import OP_TABLE, dispatch_envelope, main; "
-            "from sandbox.runtime.setup_orchestrator import SetupRegistry, SetupScript; "
             "print('ok:', callable(main), isinstance(OP_TABLE, dict), "
-            "dispatch_envelope({'op':'missing'})['error']['kind'], "
-            "SetupRegistry().scripts)"
+            "dispatch_envelope({'op':'missing'})['error']['kind'])"
         ),
     ]
     result = subprocess.run(
@@ -211,7 +209,7 @@ def test_bundle_extracted_runtime_modules_import_clean(tmp_path: Path) -> None:
     assert result.returncode == 0, (
         f"runtime import failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert "ok: True True unknown_op ()" in result.stdout
+    assert "ok: True True unknown_op" in result.stdout
 
 
 def test_bundle_hash_is_deterministic() -> None:

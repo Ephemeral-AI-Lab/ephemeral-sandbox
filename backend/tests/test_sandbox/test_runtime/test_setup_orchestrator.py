@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 
 from sandbox.api import RawExecResult
-from sandbox.runtime.bundle import BUNDLE_REMOTE_DIR
-from sandbox.runtime.setup_orchestrator import SetupRegistry, SetupScript
+from sandbox.control.daemon.bundle import BUNDLE_REMOTE_DIR
+from sandbox.control.daemon.install import SetupRegistry, SetupScript
 
 
 async def test_run_all_noops_when_registry_empty() -> None:

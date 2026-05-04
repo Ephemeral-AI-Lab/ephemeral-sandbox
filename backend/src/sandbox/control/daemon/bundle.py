@@ -35,9 +35,7 @@ BUNDLE_REMOTE_DIR = "/tmp/eos-sandbox-runtime"
 """Remote directory the bundle is extracted into."""
 
 _RUNTIME_EXCLUDE_PARTS = {
-    "_server_dispatch.py",
     "backends",
-    "command_client.py",
     "pipeline.py",
 }
 _OCC_EXCLUDE_PARTS = {"client.py"}
@@ -63,7 +61,7 @@ class _RawExecCallable(Protocol):
 
 def _src_root() -> Path:
     """Return the orchestrator's ``backend/src/`` directory."""
-    return Path(__file__).resolve().parent.parent.parent
+    return Path(__file__).resolve().parent.parent.parent.parent
 
 
 def _is_excluded(path: Path) -> bool:
@@ -138,6 +136,11 @@ def _runtime_bundle_bytes() -> bytes:
             tar,
             sandbox_dir / "__init__.py",
             arcname="sandbox/__init__.py",
+        )
+        _add_if_exists(
+            tar,
+            sandbox_dir / "bash.py",
+            arcname="sandbox/bash.py",
         )
 
         _add_if_exists(
