@@ -60,3 +60,11 @@ def test_capture_to_changeset_is_the_runtime_overlay_bridge() -> None:
 
     assert "sandbox.overlay.capture.changes" in imports
     assert "sandbox.occ.changeset.builders" in imports
+
+
+def test_pipeline_is_the_only_runtime_bridge_to_occ_client() -> None:
+    runtime_root = Path(sandbox.runtime.overlay_shell.__file__).resolve().parent
+    imports = _imports(runtime_root / "pipeline.py")
+
+    assert "sandbox.occ.client" in imports
+    assert "sandbox.runtime.overlay_shell.capture_to_changeset" in imports

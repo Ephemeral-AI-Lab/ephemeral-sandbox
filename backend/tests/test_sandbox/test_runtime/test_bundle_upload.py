@@ -77,6 +77,7 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/overlay/capture/changes.py",
         "sandbox/overlay/capture/upperdir.py",
         "sandbox/overlay/handlers/run.py",
+        "sandbox/overlay/handlers/shell.py",
         "sandbox/overlay/namespace/command.py",
         "sandbox/overlay/namespace/mounts.py",
         "sandbox/overlay/runner/runtime_bundle.py",
@@ -86,7 +87,10 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
     missing = [p for p in required if not (extract_dir / p).exists()]
     assert missing == [], f"bundle is missing required paths: {missing}"
     assert not (extract_dir / "sandbox/runtime/bundle.py").exists()
+    assert not (extract_dir / "sandbox/runtime/types.py").exists()
+    assert not (extract_dir / "sandbox/runtime/wire.py").exists()
     assert not (extract_dir / "sandbox/runtime/pipelines.py").exists()
+    assert not (extract_dir / "sandbox/runtime/overlay_shell/pipeline.py").exists()
     assert not (extract_dir / "sandbox/runtime/overlay_capture").exists()
     assert not (extract_dir / "sandbox/runtime/overlay_capture_runtime").exists()
     assert not (extract_dir / "sandbox/occ/wire.py").exists()
@@ -124,6 +128,7 @@ def test_bundle_excludes_host_only_raw_exec_modules() -> None:
         "sandbox/runtime/_server_dispatch.py",
         "sandbox/runtime/bundle.py",
         "sandbox/runtime/command_client.py",
+        "sandbox/runtime/overlay_shell/pipeline.py",
     }
     assert excluded.isdisjoint(names)
     allowed_provider_paths = {

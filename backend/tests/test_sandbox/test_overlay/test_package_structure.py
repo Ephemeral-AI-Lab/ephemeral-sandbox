@@ -22,6 +22,7 @@ def test_overlay_contains_only_target_layout_files() -> None:
         "capture/changes.py",
         "capture/upperdir.py",
         "handlers/run.py",
+        "handlers/shell.py",
         "namespace/command.py",
         "namespace/mounts.py",
         "runner/runtime_bundle.py",

@@ -1,4 +1,4 @@
-"""Tests for sandbox.service — SandboxProxy and helpers."""
+"""Tests for the Daytona sandbox proxy and helpers."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from sandbox.providers.daytona.client.sync import (
     _normalize_optional_text,
     _timeout_seconds_from_env,
 )
-from sandbox.lifecycle.proxy import SandboxProxy
+from sandbox.providers.daytona.proxy import SandboxProxy
 
 
 def _make_proxy(**attrs) -> SandboxProxy:

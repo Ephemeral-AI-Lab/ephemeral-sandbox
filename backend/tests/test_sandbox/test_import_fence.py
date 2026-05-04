@@ -73,6 +73,7 @@ def test_deleted_legacy_sandbox_modules_are_unimportable() -> None:
         "sandbox.api.bash",
         "sandbox.api.models",
         "sandbox.api.shell_routing",
+        "sandbox.api.utils.shell_routing",
         "sandbox.api.file_commands",
         "sandbox.api.transport",
         "sandbox.api.audited_sandbox_api",
@@ -83,6 +84,8 @@ def test_deleted_legacy_sandbox_modules_are_unimportable() -> None:
         "sandbox.client.sync",
         "sandbox.daytona",
         "sandbox.daytona.transport",
+        "sandbox.lifecycle.proxy",
+        "sandbox.lifecycle.service",
     ):
         assert _find_spec_or_none(module_name) is None
 

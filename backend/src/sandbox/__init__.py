@@ -1,7 +1,7 @@
 """Sandbox package — public API, lifecycle, runtime, providers, and testing.
 
 Sub-packages:
-- ``sandbox.lifecycle``        — workspace discovery and runtime context metadata
+- ``sandbox.lifecycle``        — workspace discovery and context-preparer factory
 - ``sandbox.providers``        — provider adapter registry and provider implementations
 - ``sandbox.runtime``          — in-sandbox runtime bundle and service adapters
 - ``sandbox.testing``          — sandbox factories and eval-file fixtures

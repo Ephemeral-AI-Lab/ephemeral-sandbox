@@ -34,7 +34,10 @@ def _is_allowlisted(path: Path) -> bool:
         or path == Path("sandbox/api/shell.py")
         or path == Path("sandbox/runtime/bundle.py")
         or path == Path("sandbox/runtime/setup_orchestrator.py")
-        or path.parts[:2] == ("sandbox", "lifecycle")
+        or path in {
+            Path("sandbox/providers/daytona/lifecycle.py"),
+            Path("sandbox/providers/daytona/proxy.py"),
+        }
         or path in _DEBUG_IMPORTERS
     )
 

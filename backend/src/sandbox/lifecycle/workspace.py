@@ -126,22 +126,15 @@ async def discover_workspace_async(sandbox: Any) -> str | None:
 def prepare_sandbox_runtime_context(
     context: Any,
     *,
-    sandbox_id: str | None,
     sandbox: Any,
     workspace_root: str | None,
 ) -> None:
-    """Inject sandbox runtime metadata and register the provider adapter.
+    """Inject provider-neutral sandbox runtime metadata.
 
-    This is the shared boundary for Daytona-backed tools. Callers may discover
-    ``workspace_root`` differently (sync context prepare, async context prepare,
-    lazy attach), but this helper owns the metadata contract.
-
-    This registers the provider adapter and leaves guarded operations to the
-    public ``sandbox.api`` verb modules.
+    Provider implementations own provider-specific context keys and adapter
+    registration. This helper only normalizes workspace metadata shared by
+    sandbox tools.
     """
-    if sandbox is not None:
-        context["daytona_sandbox"] = sandbox
-
     repo_root = str(context.get("repo_root") or "").strip()
     if not repo_root:
         candidate = str(workspace_root or "").strip()
@@ -153,36 +146,3 @@ def prepare_sandbox_runtime_context(
 
     if not context.get("exec_cwd") and repo_root:
         context["exec_cwd"] = repo_root
-
-    if sandbox_id:
-        _register_provider_adapter_if_missing(sandbox_id)
-
-
-def _register_provider_adapter_if_missing(sandbox_id: str) -> None:
-    if not sandbox_id:
-        return
-    try:
-        from sandbox.providers.registry import get_adapter
-
-        get_adapter(sandbox_id)
-        return
-    except KeyError:
-        pass
-    except Exception:
-        logger.debug(
-            "Provider adapter lookup failed for sandbox %s",
-            sandbox_id,
-            exc_info=True,
-        )
-        return
-    try:
-        from sandbox.providers.daytona.adapter import DaytonaProviderAdapter
-        from sandbox.providers.registry import register_adapter
-
-        register_adapter(sandbox_id, DaytonaProviderAdapter())
-    except Exception:
-        logger.debug(
-            "Provider adapter attachment failed for sandbox %s",
-            sandbox_id,
-            exc_info=True,
-        )

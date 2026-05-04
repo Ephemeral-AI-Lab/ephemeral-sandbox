@@ -450,7 +450,7 @@ class TestDaytonaToolIntegration:
         )
 
     def test_context_preparer_no_sandbox_id_raises_on_get(self):
-        from sandbox.lifecycle.context import DaytonaContextPreparer
+        from sandbox.providers.daytona.context import DaytonaContextPreparer
 
         preparer = DaytonaContextPreparer("")
         with pytest.raises(RuntimeError, match="No sandbox_id"):
@@ -506,7 +506,7 @@ class TestDaytonaToolLive:
 
     @pytest.fixture(scope="class")
     def live_sandbox(self):
-        from sandbox.lifecycle.service import SandboxService
+        from sandbox.providers.daytona.lifecycle import SandboxService
 
         svc = SandboxService()
         sb = svc.create_sandbox(

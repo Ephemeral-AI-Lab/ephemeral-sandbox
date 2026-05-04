@@ -88,31 +88,21 @@ class TestDiscoverWorkspaceAsync:
 
 
 class TestSandboxRuntimeContext:
-    def test_sets_runtime_metadata_and_registers_provider_adapter(self, monkeypatch):
+    def test_sets_runtime_metadata(self):
         import sandbox.lifecycle.workspace as workspace_module
 
         mock_context = ToolExecutionContextService(cwd="/tmp")
         mock_sandbox = MagicMock()
-        registered = []
-
-        def fake_register(sandbox_id):
-            registered.append(sandbox_id)
-
-        monkeypatch.setattr(
-            workspace_module, "_register_provider_adapter_if_missing", fake_register
-        )
 
         workspace_module.prepare_sandbox_runtime_context(
             mock_context,
-            sandbox_id="sb-123",
             sandbox=mock_sandbox,
             workspace_root="/workspace",
         )
 
-        assert mock_context["daytona_sandbox"] is mock_sandbox
+        assert "daytona_sandbox" not in mock_context
         assert mock_context["repo_root"] == "/workspace"
         assert mock_context["exec_cwd"] == "/workspace"
-        assert registered == ["sb-123"]
 
     def test_respects_existing_repo_root(self):
         from sandbox.lifecycle.workspace import prepare_sandbox_runtime_context
@@ -125,7 +115,6 @@ class TestSandboxRuntimeContext:
 
         prepare_sandbox_runtime_context(
             mock_context,
-            sandbox_id=None,
             sandbox=mock_sandbox,
             workspace_root="/workspace",
         )
@@ -134,37 +123,17 @@ class TestSandboxRuntimeContext:
         assert mock_context["exec_cwd"] == "/testbed"
 
 
-class TestProviderAdapterRegistration:
-    """Workspace context registers provider adapters without API handles."""
-
-    def test_registers_daytona_provider_adapter(self):
-        from sandbox.lifecycle.workspace import _register_provider_adapter_if_missing
-        from sandbox.providers.daytona.adapter import DaytonaProviderAdapter
-        from sandbox.providers.registry import dispose_adapter, get_adapter
-
-        sandbox_id = "workspace-provider-registration"
-        dispose_adapter(sandbox_id)
-
-        _register_provider_adapter_if_missing(sandbox_id)
-
-        assert isinstance(get_adapter(sandbox_id), DaytonaProviderAdapter)
-        dispose_adapter(sandbox_id)
-
-    def test_context_runtime_does_not_attach_legacy_api_handles(self, monkeypatch):
+class TestProviderNeutralRuntimeContext:
+    def test_context_runtime_does_not_attach_legacy_api_handles(self):
         from sandbox.lifecycle.workspace import prepare_sandbox_runtime_context
-        from sandbox.providers.registry import dispose_adapter
 
-        sandbox_id = "workspace-no-legacy-api"
-        dispose_adapter(sandbox_id)
         mock_context = ToolExecutionContextService(cwd="/tmp")
 
         prepare_sandbox_runtime_context(
             mock_context,
-            sandbox_id=sandbox_id,
             sandbox=MagicMock(),
             workspace_root="/workspace",
         )
 
         assert mock_context.get("sandbox_api") is None
         assert mock_context.get("sandbox_transport") is None
-        dispose_adapter(sandbox_id)

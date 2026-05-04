@@ -1,4 +1,4 @@
-"""SandboxService — Daytona sandbox lifecycle orchestration."""
+"""Daytona sandbox lifecycle orchestration."""
 
 from __future__ import annotations
 
@@ -177,7 +177,7 @@ def _finish_eager_runtime_bundle_upload(
         )
 
 
-class SandboxService:
+class DaytonaSandboxLifecycle:
     """Manages Daytona sandbox lifecycle.
 
     All public methods are synchronous and return plain dicts matching
@@ -499,4 +499,12 @@ class SandboxService:
         return results
 
 
-__all__ = ["SandboxService"]
+SandboxService = DaytonaSandboxLifecycle
+
+__all__ = [
+    "DaytonaSandboxLifecycle",
+    "SandboxService",
+    "_finish_eager_runtime_bundle_upload",
+    "_maybe_run_eager_runtime_bootstrap",
+    "_maybe_start_eager_runtime_bundle_upload",
+]

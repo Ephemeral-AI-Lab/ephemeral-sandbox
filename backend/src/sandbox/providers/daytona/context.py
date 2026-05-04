@@ -1,9 +1,11 @@
-"""Sandbox execution-context preparation."""
+"""Daytona execution-context preparation."""
 
 from __future__ import annotations
 
 import logging
 from typing import Any
+
+from sandbox.providers.daytona.adapter import DaytonaProviderAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +64,8 @@ class DaytonaContextPreparer:
         """Add the sandbox and repo root to tool execution metadata."""
         sandbox = self._get_sandbox()
         repo_root = context.get("repo_root") or self._resolve_cwd_sync(sandbox)
-        from sandbox.lifecycle.workspace import prepare_sandbox_runtime_context
 
-        prepare_sandbox_runtime_context(
+        prepare_daytona_runtime_context(
             context,
             sandbox_id=self.sandbox_id,
             sandbox=sandbox,
@@ -75,11 +76,69 @@ class DaytonaContextPreparer:
         """Add the async sandbox and repo root to tool execution metadata."""
         sandbox = await self._get_sandbox_async()
         repo_root = context.get("repo_root") or await self._resolve_cwd_async(sandbox)
-        from sandbox.lifecycle.workspace import prepare_sandbox_runtime_context
 
-        prepare_sandbox_runtime_context(
+        prepare_daytona_runtime_context(
             context,
             sandbox_id=self.sandbox_id,
             sandbox=sandbox,
             workspace_root=repo_root,
         )
+
+
+def prepare_daytona_runtime_context(
+    context: Any,
+    *,
+    sandbox_id: str | None,
+    sandbox: Any,
+    workspace_root: str | None,
+) -> None:
+    """Inject Daytona runtime metadata and register the Daytona adapter."""
+    if sandbox is not None:
+        context["daytona_sandbox"] = sandbox
+
+    from sandbox.lifecycle.workspace import prepare_sandbox_runtime_context
+
+    prepare_sandbox_runtime_context(
+        context,
+        sandbox=sandbox,
+        workspace_root=workspace_root,
+    )
+
+    if sandbox_id:
+        _register_provider_adapter_if_missing(sandbox_id)
+
+
+def _register_provider_adapter_if_missing(sandbox_id: str) -> None:
+    if not sandbox_id:
+        return
+    try:
+        from sandbox.providers.registry import get_adapter
+
+        get_adapter(sandbox_id)
+        return
+    except KeyError:
+        pass
+    except Exception:
+        logger.debug(
+            "Provider adapter lookup failed for sandbox %s",
+            sandbox_id,
+            exc_info=True,
+        )
+        return
+    try:
+        from sandbox.providers.registry import register_adapter
+
+        register_adapter(sandbox_id, DaytonaProviderAdapter())
+    except Exception:
+        logger.debug(
+            "Provider adapter attachment failed for sandbox %s",
+            sandbox_id,
+            exc_info=True,
+        )
+
+
+__all__ = [
+    "DaytonaContextPreparer",
+    "_register_provider_adapter_if_missing",
+    "prepare_daytona_runtime_context",
+]

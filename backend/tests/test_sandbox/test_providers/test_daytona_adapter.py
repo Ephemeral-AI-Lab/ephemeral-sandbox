@@ -46,7 +46,7 @@ async def test_daytona_provider_adapter_execs_through_daytona_process() -> None:
 
 
 async def test_context_registration_installs_daytona_provider_adapter() -> None:
-    from sandbox.lifecycle.workspace import _register_provider_adapter_if_missing
+    from sandbox.providers.daytona.context import _register_provider_adapter_if_missing
     from sandbox.providers.registry import dispose_adapter, get_adapter
 
     sandbox_id = "test-register-provider-adapter"

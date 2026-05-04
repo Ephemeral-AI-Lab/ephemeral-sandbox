@@ -38,6 +38,7 @@ _RUNTIME_EXCLUDE_PARTS = {
     "_server_dispatch.py",
     "backends",
     "command_client.py",
+    "pipeline.py",
 }
 _OCC_EXCLUDE_PARTS = {"client.py"}
 _OVERLAY_EXCLUDE_PARTS = {"client.py"}

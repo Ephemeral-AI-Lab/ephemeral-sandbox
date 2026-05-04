@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from sandbox.providers.protocol import ProviderAdapter
+from sandbox.providers.protocol import (
+    ProviderAdapter,
+    SandboxContextPreparer,
+    SandboxLifecycleProvider,
+)
 from sandbox.providers.registry import (
     dispose_adapter,
     get_adapter,
@@ -11,6 +15,8 @@ from sandbox.providers.registry import (
 
 __all__ = [
     "ProviderAdapter",
+    "SandboxContextPreparer",
+    "SandboxLifecycleProvider",
     "dispose_adapter",
     "get_adapter",
     "register_adapter",
