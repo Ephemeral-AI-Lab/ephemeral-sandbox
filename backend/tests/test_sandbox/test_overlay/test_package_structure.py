@@ -20,10 +20,13 @@ def test_overlay_root_contains_only_target_layout_entries() -> None:
     expected = {
         "__init__.py",
         "bootstrap.py",
+        "capture",
         "client.py",
         "config.py",
         "engine",
         "handlers",
+        "namespace",
+        "runner",
         "runtime",
         "setup.sh",
         "types.py",
