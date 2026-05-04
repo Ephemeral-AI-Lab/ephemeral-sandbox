@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import time
 
+from sandbox.api import lifecycle as sb_lifecycle
+
 
 def get_sandbox_service():
-    from sandbox.lifecycle.factory import lifecycle_provider_for
-
-    return lifecycle_provider_for()
+    """Return the sandbox.api.lifecycle module — exposes the public verbs."""
+    return sb_lifecycle
 
 
 def create_test_sandbox(name: str = "e2e-test") -> dict:
-    svc = get_sandbox_service()
-    return svc.create_sandbox(
+    return sb_lifecycle.create_sandbox(
         name=f"{name}-{int(time.time())}",
         language="python",
         labels={"purpose": f"e2e-{name}"},
@@ -22,8 +22,7 @@ def create_test_sandbox(name: str = "e2e-test") -> dict:
 
 def delete_test_sandbox(sandbox_id: str) -> None:
     try:
-        svc = get_sandbox_service()
-        svc.delete_sandbox(sandbox_id)
+        sb_lifecycle.delete_sandbox(sandbox_id)
     except Exception:
         pass
 

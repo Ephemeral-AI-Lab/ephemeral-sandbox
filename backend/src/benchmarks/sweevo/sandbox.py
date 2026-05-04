@@ -10,8 +10,10 @@ from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
-from sandbox.providers.daytona.client.async_ import get_async_sandbox
+from sandbox.api import lifecycle as sb_lifecycle
 from sandbox.bash import wrap_bash_command
+from sandbox.providers.daytona.client.async_ import get_async_sandbox
+from sandbox.providers.daytona.client.sync import fetch_sandbox as _fetch_raw_sandbox
 
 from benchmarks.sweevo.dataset import (
     default_sweevo_snapshot_name,
@@ -54,10 +56,14 @@ def _progress(on_progress: ProgressCallback | None, message: str) -> None:
 
 
 def _service() -> Any:
-    """Return the configured sandbox lifecycle provider."""
-    from sandbox.lifecycle.factory import lifecycle_provider_for
+    """Return the public sandbox lifecycle facade module.
 
-    return lifecycle_provider_for()
+    The module exposes the same call shape (``.create_sandbox``,
+    ``.list_sandboxes``, ``.delete_sandbox``, etc.) as the legacy
+    ``DaytonaSandboxLifecycle`` instance — so existing call sites work
+    unchanged.
+    """
+    return sb_lifecycle
 
 
 def _default_sweevo_sandbox_name(instance: SWEEvoInstance) -> str:
@@ -511,11 +517,14 @@ async def setup_sweevo_sandbox(
     )
 
     try:
-        sandbox = _service().get_sandbox_object(sandbox_id)
-        existing_labels = getattr(sandbox, "labels", None) or {}
+        # Daytona-specific direct SDK access for setting labels — no equivalent
+        # primitive on ProviderAdapter today. Best-effort path; failure is
+        # non-fatal and logged.
+        raw_sandbox = _fetch_raw_sandbox(sandbox_id)
+        existing_labels = getattr(raw_sandbox, "labels", None) or {}
         merged_labels = {str(k): str(v) for k, v in dict(existing_labels).items()}
         merged_labels["project_dir"] = repo_dir
-        sandbox.set_labels(merged_labels)
+        raw_sandbox.set_labels(merged_labels)
         logger.info("Set project_dir label to %s", repo_dir)
     except Exception as exc:
         logger.warning("Could not set project_dir label: %s", exc)

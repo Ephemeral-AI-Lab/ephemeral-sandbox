@@ -1,25 +1,9 @@
-"""Tests for sandbox.lifecycle."""
+"""Tests for the daytona client shutdown helpers (post-lifecycle migration)."""
 
 from __future__ import annotations
 
 import asyncio
 from unittest.mock import MagicMock
-
-import pytest
-
-
-class TestLifecycleProviderFactory:
-    def test_defaults_to_daytona_lifecycle_provider(self):
-        from sandbox.lifecycle.factory import lifecycle_provider_for
-        from sandbox.providers.daytona.lifecycle import DaytonaSandboxLifecycle
-
-        assert isinstance(lifecycle_provider_for(), DaytonaSandboxLifecycle)
-
-    def test_rejects_unknown_provider(self):
-        from sandbox.lifecycle.factory import lifecycle_provider_for
-
-        with pytest.raises(ValueError, match="Unsupported sandbox provider"):
-            lifecycle_provider_for(provider="unknown")
 
 
 class TestCloseClient:

@@ -9,11 +9,8 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from typing import Any
-
-from config.defaults import DEFAULT_SANDBOX_CI_ROOT
+from sandbox.api import lifecycle as sb_lifecycle
 from sandbox.api.raw_exec import raw_exec
-from sandbox.lifecycle.factory import lifecycle_provider_for
 
 logger = logging.getLogger(__name__)
 
@@ -42,23 +39,22 @@ async def _call(func, *args, status: int = 200, **kwargs) -> JSONResponse:
         return JSONResponse(status_code=500, content={"error": str(exc)})
 
 
-def create_sandbox_router(service: Any | None = None) -> APIRouter:
+def create_sandbox_router() -> APIRouter:
     """Build the sandbox API router."""
     router = APIRouter(prefix="/api/sandboxes")
-    svc = service or lifecycle_provider_for()
 
     # --- Static path routes MUST be registered before parameterized routes ---
 
     @router.get("/health")
     async def sandbox_health():
         """Check sandbox provider connection health."""
-        return await _call(svc.get_health)
+        return await _call(sb_lifecycle.get_health)
 
     @router.get("/available/snapshots")
     async def list_snapshots():
         """List available sandbox snapshots."""
         try:
-            items = await asyncio.to_thread(svc.list_snapshots)
+            items = await asyncio.to_thread(sb_lifecycle.list_snapshots)
             return JSONResponse(content=items)
         except Exception as exc:
             logger.warning("Failed to list snapshots: %s", exc)
@@ -67,7 +63,7 @@ def create_sandbox_router(service: Any | None = None) -> APIRouter:
     @router.get("")
     async def list_sandboxes():
         """List all sandboxes."""
-        return await _call(svc.list_sandboxes)
+        return await _call(sb_lifecycle.list_sandboxes)
 
     # --- Parameterized routes below ---
 
@@ -75,7 +71,7 @@ def create_sandbox_router(service: Any | None = None) -> APIRouter:
     async def create_sandbox(req: CreateSandboxRequest):
         """Create a new sandbox."""
         return await _call(
-            svc.create_sandbox,
+            sb_lifecycle.create_sandbox,
             name=req.name,
             snapshot=req.snapshot,
             image=req.image,
@@ -87,23 +83,23 @@ def create_sandbox_router(service: Any | None = None) -> APIRouter:
     @router.get("/{sandbox_id}")
     async def get_sandbox(sandbox_id: str):
         """Get a single sandbox."""
-        return await _call(svc.get_sandbox, sandbox_id)
+        return await _call(sb_lifecycle.get_sandbox, sandbox_id)
 
     @router.post("/{sandbox_id}/start")
     async def start_sandbox(sandbox_id: str):
         """Start a stopped sandbox."""
-        return await _call(svc.start_sandbox, sandbox_id)
+        return await _call(sb_lifecycle.start_sandbox, sandbox_id)
 
     @router.post("/{sandbox_id}/stop")
     async def stop_sandbox(sandbox_id: str):
         """Stop a running sandbox."""
-        return await _call(svc.stop_sandbox, sandbox_id)
+        return await _call(sb_lifecycle.stop_sandbox, sandbox_id)
 
     @router.delete("/{sandbox_id}")
     async def delete_sandbox(sandbox_id: str):
         """Delete a sandbox."""
         try:
-            await asyncio.to_thread(svc.delete_sandbox, sandbox_id)
+            await asyncio.to_thread(sb_lifecycle.delete_sandbox, sandbox_id)
             return JSONResponse(status_code=204, content=None)
         except Exception as exc:
             return JSONResponse(status_code=500, content={"error": str(exc)})
@@ -112,7 +108,7 @@ def create_sandbox_router(service: Any | None = None) -> APIRouter:
     async def exec_in_sandbox(sandbox_id: str, req: ExecRequest):
         """Execute a command in a sandbox."""
         try:
-            await asyncio.to_thread(svc.ensure_sandbox_running, sandbox_id)
+            await asyncio.to_thread(sb_lifecycle.ensure_sandbox_running, sandbox_id)
             resp = await raw_exec(sandbox_id, req.command, timeout=req.timeout)
             return JSONResponse(
                 content={
@@ -123,17 +119,12 @@ def create_sandbox_router(service: Any | None = None) -> APIRouter:
         except Exception as exc:
             return JSONResponse(status_code=500, content={"error": str(exc)})
 
-    @router.get("/{sandbox_id}/files")
-    async def list_sandbox_files(sandbox_id: str, path: str = DEFAULT_SANDBOX_CI_ROOT):
-        """List files in a sandbox directory."""
-        return await _call(svc.list_files_recursive, sandbox_id, path)
-
     @router.get("/{sandbox_id}/preview-url")
     async def get_preview_url(
         sandbox_id: str,
         port: int = Query(default=3000, ge=1, le=65535),
     ):
         """Get a preview URL for a sandbox port."""
-        return await _call(svc.get_signed_preview_url, sandbox_id, port)
+        return await _call(sb_lifecycle.get_signed_preview_url, sandbox_id, port)
 
     return router

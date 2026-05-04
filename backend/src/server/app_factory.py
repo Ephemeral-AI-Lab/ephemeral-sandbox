@@ -252,6 +252,10 @@ def create_app(config: BackendHostConfig) -> FastAPI:
         await _runtime.initialize(config)
         configure_runtime_logging(verbose=_runtime.current_settings().verbose)
 
+        from sandbox.providers.daytona.bootstrap import bootstrap_daytona_provider
+
+        bootstrap_daytona_provider()
+
         _initialize_runtime_stores()
 
         yield

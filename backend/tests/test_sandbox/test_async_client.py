@@ -68,7 +68,7 @@ class TestGetAsyncSandbox:
             mod._cached_clients[loop] = (("async-key", "https://async-url", ""), mock_client)
 
         with patch(
-            "sandbox.providers.daytona.lifecycle.DaytonaSandboxLifecycle.ensure_sandbox_running"
+            "sandbox.api.lifecycle.ensure_sandbox_running"
         ) as ensure_mock:
             result = await mod.get_async_sandbox("sb-recoverable")
 
