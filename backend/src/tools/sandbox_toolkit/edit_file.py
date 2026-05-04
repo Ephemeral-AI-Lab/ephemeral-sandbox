@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from sandbox.api import EditFileRequest, SearchReplaceEdit
 from sandbox.api.edit import edit_file as sandbox_edit_file
-from sandbox.api.models import EditFileRequest, SearchReplaceEdit
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
 from tools.core.sandbox_session import (

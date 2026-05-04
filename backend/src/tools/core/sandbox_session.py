@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.api.models import RequestActor
+from sandbox.api import RequestActor
 from tools.core.context import ToolExecutionContextService
 from tools.core.results import ToolResult
 

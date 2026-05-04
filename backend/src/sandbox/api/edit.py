@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from sandbox.api._changeset_projection import committed_paths, conflict_and_status
-from sandbox.api.models import EditFileRequest, EditFileResult
+from sandbox.api.utils.changeset_projection import committed_paths, conflict_and_status
+from sandbox.api.utils.models import EditFileRequest, EditFileResult
 from sandbox.occ.changeset.builders import build_api_edit_change
 from sandbox.occ.client import OCCClient
 

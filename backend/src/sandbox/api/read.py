@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import shlex
 
-from sandbox.api.models import ReadFileRequest, ReadFileResult
+from sandbox.api.utils.models import ReadFileRequest, ReadFileResult
 from sandbox.api.raw_exec import raw_exec
 
 

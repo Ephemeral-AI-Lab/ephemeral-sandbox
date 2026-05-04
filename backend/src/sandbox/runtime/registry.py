@@ -6,9 +6,9 @@ import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from sandbox.runtime.service import CodeIntelligenceService
+    from sandbox.runtime.backends import DaemonBackend
 
-_SERVICES: dict[str, "CodeIntelligenceService"] = {}
+_SERVICES: dict[str, "DaemonBackend"] = {}
 _SERVICES_LOCK = threading.Lock()
 _CREATION_LOCKS: dict[str, threading.Lock] = {}
 
@@ -17,13 +17,13 @@ def get_code_intelligence(
     sandbox_id: str,
     workspace_root: str = "/workspace",
     sandbox: Any = None,
-) -> "CodeIntelligenceService":
+) -> "DaemonBackend":
     """Get or create a runtime service for *sandbox_id*.
 
     Runtime services require a registered provider adapter. Missing adapters
     fail closed instead of falling back to an in-process shell path.
     """
-    from sandbox.runtime.service import CodeIntelligenceService
+    from sandbox.runtime.backends import DaemonBackend
 
     _require_provider_adapter(sandbox_id)
     with _SERVICES_LOCK:
@@ -48,10 +48,9 @@ def get_code_intelligence(
         if existing is not None:
             existing.dispose()
 
-        service = CodeIntelligenceService(
+        service = DaemonBackend(
             sandbox_id=sandbox_id,
             workspace_root=workspace_root,
-            sandbox=sandbox,
         )
         with _SERVICES_LOCK:
             _SERVICES[sandbox_id] = service
@@ -74,12 +73,12 @@ def _require_provider_adapter(sandbox_id: str) -> None:
         ) from exc
 
 
-def _pop_service(sandbox_id: str) -> "CodeIntelligenceService | None":
+def _pop_service(sandbox_id: str) -> "DaemonBackend | None":
     with _SERVICES_LOCK:
         return _SERVICES.pop(sandbox_id, None)
 
 
-def get_code_intelligence_if_exists(sandbox_id: str) -> "CodeIntelligenceService | None":
+def get_code_intelligence_if_exists(sandbox_id: str) -> "DaemonBackend | None":
     """Fetch an existing runtime service without creating one."""
     with _SERVICES_LOCK:
         return _SERVICES.get(sandbox_id)

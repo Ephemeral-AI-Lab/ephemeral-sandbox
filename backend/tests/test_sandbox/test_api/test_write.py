@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.api.models import RequestActor, WriteFileRequest
+from sandbox.api.utils.models import RequestActor, WriteFileRequest
 from sandbox.api.write import write_file
 from sandbox.occ.changeset.types import ChangesetResult, FileResult, FileStatus
 from sandbox.occ.client import dispose_occ_service, register_occ_service

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sandbox.api.shell_routing import is_read_only_pipeline
+from sandbox.api.utils.shell_routing import is_read_only_pipeline
 
 
 @pytest.mark.parametrize(

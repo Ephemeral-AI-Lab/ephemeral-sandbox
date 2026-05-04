@@ -12,8 +12,8 @@ import pytest
 
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 _TOOL_ALLOWED = {
+    "sandbox.api",
     "sandbox.api.edit",
-    "sandbox.api.models",
     "sandbox.api.read",
     "sandbox.api.shell",
     "sandbox.api.write",
@@ -53,7 +53,10 @@ def test_agent_sandbox_tools_import_only_public_api_verbs() -> None:
 def test_deleted_legacy_sandbox_modules_are_unimportable() -> None:
     for module_name in (
         "sandbox.code_intelligence",
+        "sandbox.api._changeset_projection",
         "sandbox.api.bash",
+        "sandbox.api.models",
+        "sandbox.api.shell_routing",
         "sandbox.api.file_commands",
         "sandbox.api.transport",
         "sandbox.api.audited_sandbox_api",

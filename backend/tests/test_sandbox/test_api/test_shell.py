@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import shlex
 
-from sandbox.api.models import RawExecResult, RequestActor, ShellRequest
+from sandbox.api.utils.models import RawExecResult, RequestActor, ShellRequest
 from sandbox.api.shell import shell
 from sandbox.providers.registry import dispose_adapter, register_adapter
 

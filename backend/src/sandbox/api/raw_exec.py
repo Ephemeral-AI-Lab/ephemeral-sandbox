@@ -6,7 +6,7 @@ Agent-visible shell execution must go through the guarded public verbs.
 
 from __future__ import annotations
 
-from sandbox.api.models import RawExecResult
+from sandbox.api.utils.models import RawExecResult
 from sandbox.providers.registry import get_adapter
 
 

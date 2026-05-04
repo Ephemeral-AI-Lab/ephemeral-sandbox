@@ -93,7 +93,7 @@ class TestSandboxProxy:
         assert result["managed_by_app"] is True
 
     def test_ensure_git_skips_when_git_present(self, monkeypatch):
-        from sandbox.api.models import RawExecResult
+        from sandbox.api.utils.models import RawExecResult
 
         calls: list[tuple[str, str, int | None]] = []
 
@@ -114,7 +114,7 @@ class TestSandboxProxy:
         ]
 
     def test_ensure_git_installs_when_missing(self, monkeypatch):
-        from sandbox.api.models import RawExecResult
+        from sandbox.api.utils.models import RawExecResult
 
         calls: list[tuple[str, str, int | None]] = []
 

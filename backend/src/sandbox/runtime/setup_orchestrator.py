@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Protocol
 
-from sandbox.api.models import RawExecResult
+from sandbox.api.utils.models import RawExecResult
 
 _BUNDLE_REMOTE_DIR = "/tmp/eos-ci-runtime"
 

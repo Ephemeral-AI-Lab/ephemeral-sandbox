@@ -19,9 +19,16 @@ from sandbox.api import (
 )
 
 _API_ROOT = Path(sandbox_api.__file__).parent
+_EXPECTED_API_ROOT_MODULES = {
+    "__init__.py",
+    "edit.py",
+    "raw_exec.py",
+    "read.py",
+    "shell.py",
+    "write.py",
+}
 _MODEL_ONLY_MODULES = {
     "__init__.py",
-    "models.py",
 }
 _PUBLIC_VERB_IMPORT_ALLOWLIST = {
     "read.py": {"sandbox.api.raw_exec"},
@@ -56,6 +63,10 @@ def _imported_modules(source: str) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.module:
             names.add(node.module)
     return names
+
+
+def test_api_root_keeps_only_public_verbs() -> None:
+    assert {path.name for path in _API_ROOT.glob("*.py")} == _EXPECTED_API_ROOT_MODULES
 
 
 @pytest.mark.parametrize("module_path", sorted(_API_ROOT.glob("*.py")))
@@ -115,10 +126,13 @@ def test_legacy_api_modules_are_deleted() -> None:
     import importlib.util
 
     for module_name in (
+        "sandbox.api._changeset_projection",
         "sandbox.api.audited_sandbox_api",
         "sandbox.api.sandbox_api",
         "sandbox.api.audit",
         "sandbox.api.attribution",
+        "sandbox.api.models",
+        "sandbox.api.shell_routing",
         "sandbox.api.transport",
         "sandbox.daytona.transport",
         "tools.core.op_result_to_tool_result",

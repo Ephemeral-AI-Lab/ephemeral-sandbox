@@ -18,7 +18,7 @@ import tarfile
 from pathlib import Path
 from typing import Protocol
 
-from sandbox.api.models import RawExecResult
+from sandbox.api.utils.models import RawExecResult
 from sandbox.api.raw_exec import raw_exec
 
 __all__ = [

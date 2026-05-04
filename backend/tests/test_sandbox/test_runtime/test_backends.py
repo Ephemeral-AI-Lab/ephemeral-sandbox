@@ -18,7 +18,6 @@ from sandbox.runtime.registry import (
     get_code_intelligence,
     get_code_intelligence_if_exists,
 )
-from sandbox.runtime.service import CodeIntelligenceService
 
 _REGISTERED_ADAPTERS: list[str] = []
 
@@ -39,40 +38,29 @@ def _register_adapter(sandbox_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# CodeIntelligenceService backend-selection contract
+# Runtime registry backend-selection contract
 # ---------------------------------------------------------------------------
 
 
-def test_service_requires_provider_adapter(tmp_path: Path) -> None:
-    with pytest.raises(RuntimeError, match="Provider adapter is required"):
-        CodeIntelligenceService(sandbox_id="sb-missing", workspace_root=str(tmp_path))
-
-
-def test_service_requires_sandbox_id(tmp_path: Path) -> None:
+def test_registry_requires_sandbox_id(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="sandbox_id is required"):
-        CodeIntelligenceService(sandbox_id="", workspace_root=str(tmp_path))
+        get_code_intelligence("", str(tmp_path))
 
 
-def test_select_daemon_with_provider_adapter_and_id(tmp_path: Path) -> None:
+def test_registry_returns_daemon_with_provider_adapter(tmp_path: Path) -> None:
     """Provider adapter + sandbox id always selects the daemon backend."""
     _register_adapter("sb-default")
-    svc = CodeIntelligenceService(
-        sandbox_id="sb-default",
-        workspace_root=str(tmp_path),
-    )
-    assert type(svc._impl) is DaemonBackend
+    backend = get_code_intelligence("sb-default", str(tmp_path))
+    assert type(backend) is DaemonBackend
 
 
-def test_select_daemon_ignores_legacy_env_flag(
+def test_registry_ignores_legacy_env_flag(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("EOS_CI_IN_SANDBOX", "0")
     _register_adapter("sb-d")
-    svc = CodeIntelligenceService(
-        sandbox_id="sb-d",
-        workspace_root=str(tmp_path),
-    )
-    assert type(svc._impl) is DaemonBackend
+    backend = get_code_intelligence("sb-d", str(tmp_path))
+    assert type(backend) is DaemonBackend
 
 
 # ---------------------------------------------------------------------------
@@ -103,13 +91,13 @@ def test_registry_disposes_service_when_provider_adapter_is_removed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     disposed: list[str] = []
-    original_dispose = CodeIntelligenceService.dispose
+    original_dispose = DaemonBackend.dispose
 
-    def _spy_dispose(self: CodeIntelligenceService) -> None:
+    def _spy_dispose(self: DaemonBackend) -> None:
         disposed.append(self.sandbox_id)
         original_dispose(self)
 
-    monkeypatch.setattr(CodeIntelligenceService, "dispose", _spy_dispose)
+    monkeypatch.setattr(DaemonBackend, "dispose", _spy_dispose)
 
     _register_adapter("registry-dispose")
     get_code_intelligence("registry-dispose", str(tmp_path))
@@ -177,8 +165,7 @@ async def test_daemon_backend_cmd_routes_to_daemon() -> None:
 
 
 def test_daemon_backend_rebind_sandbox_is_noop() -> None:
-    """Daemon's CodeIntelligenceService is constructed with sandbox=None;
-    rebinding from the orchestrator side is a no-op on the daemon backend."""
+    """Rebinding from the orchestrator side is a no-op on the daemon backend."""
     backend = _build_daemon_backend()
     backend.rebind_sandbox(MagicMock(name="sandbox"))
 

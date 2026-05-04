@@ -31,7 +31,7 @@ from sandbox.lifecycle.workspace import (
 )
 
 if TYPE_CHECKING:
-    from sandbox.runtime.service import CodeIntelligenceService
+    from sandbox.runtime.backends import DaemonBackend
 
 logger = logging.getLogger(__name__)
 
@@ -433,13 +433,13 @@ class SandboxService:
         *,
         workspace_root: str | None = None,
         sandbox: Any | None = None,
-    ) -> CodeIntelligenceService:
+    ) -> DaemonBackend:
         """Return the per-sandbox CI service, creating it lazily if needed.
 
-        This is the only public way to obtain a :class:`CodeIntelligenceService`
-        for code outside the ``sandbox`` package. The internal registry under
-        :mod:`sandbox.runtime.registry` is reserved for whitebox
-        tests; routers, benchmarks, and tool wiring must come through here.
+        This is the only public way to obtain the runtime daemon backend for
+        code outside the ``sandbox`` package. The internal registry under
+        :mod:`sandbox.runtime.registry` is reserved for whitebox tests;
+        routers, benchmarks, and tool wiring must come through here.
 
         Runtime services require a registered provider adapter. Missing
         adapters fail closed instead of falling back to an in-process backend.
@@ -454,7 +454,7 @@ class SandboxService:
 
     def code_intelligence_if_exists(
         self, sandbox_id: str
-    ) -> CodeIntelligenceService | None:
+    ) -> DaemonBackend | None:
         """Return the existing CI service for *sandbox_id*, or ``None``."""
         from sandbox.runtime.registry import (
             get_code_intelligence_if_exists,

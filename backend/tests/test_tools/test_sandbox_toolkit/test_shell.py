@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.api.models import ShellResult
+from sandbox.api.utils.models import ShellResult
 from tools.core.base import ToolExecutionContextService
 from tools.core.safe_execution import run_tool_safely
 import tools.sandbox_toolkit.shell as shell_module

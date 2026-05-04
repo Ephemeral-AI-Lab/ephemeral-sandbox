@@ -39,7 +39,7 @@ from typing import Any
 import pytest
 from dotenv import load_dotenv
 
-from sandbox.runtime.service import CodeIntelligenceService
+from sandbox.runtime.backends import DaemonBackend
 from tools.core.base import ToolExecutionContextService
 from sandbox.runtime.bash import extract_exit_code, wrap_bash_command
 from tools.sandbox_toolkit.shell import shell
@@ -134,15 +134,14 @@ class _OpaqueEnv:
             )
         return stdout
 
-    def make_ci_service(self) -> CodeIntelligenceService:
-        return CodeIntelligenceService(
+    def make_ci_service(self) -> DaemonBackend:
+        return DaemonBackend(
             sandbox_id=self.sandbox_id,
             workspace_root=self.workspace_root,
-            sandbox=self.raw_sandbox,
         )
 
     def make_ctx(
-        self, ci_service: CodeIntelligenceService, *, agent_run_id: str
+        self, ci_service: DaemonBackend, *, agent_run_id: str
     ) -> ToolExecutionContextService:
         return ToolExecutionContextService(
             cwd=Path(self.workspace_root),

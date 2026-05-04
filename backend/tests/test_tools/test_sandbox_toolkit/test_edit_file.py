@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.api.models import EditFileResult
+from sandbox.api.utils.models import EditFileResult
 from tools.core.base import ToolExecutionContextService
 from tools.core.safe_execution import run_tool_safely
 import tools.sandbox_toolkit.edit_file as edit_file_module

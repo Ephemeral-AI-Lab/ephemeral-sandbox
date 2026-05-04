@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.api.models import ReadFileRequest
+from sandbox.api import ReadFileRequest
 from sandbox.api.read import read_file as sandbox_read_file
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool

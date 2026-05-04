@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.api.models import RawExecResult, ReadFileRequest, RequestActor
+from sandbox.api.utils.models import RawExecResult, ReadFileRequest, RequestActor
 import sandbox.api.read as read_module
 
 

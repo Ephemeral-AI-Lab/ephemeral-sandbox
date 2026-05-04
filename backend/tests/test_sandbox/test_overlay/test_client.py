@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.api.models import RawExecResult
+from sandbox.api.utils.models import RawExecResult
 from sandbox.overlay.client import OverlayClient
 from sandbox.runtime.overlay_shell.result_envelope import RuntimeResultEnvelope
 from sandbox.providers.registry import dispose_adapter, register_adapter

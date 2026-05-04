@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.api._changeset_projection import committed_paths, conflict_and_status
+from sandbox.api.utils.changeset_projection import committed_paths, conflict_and_status
 from sandbox.occ.changeset.types import FileResult, FileStatus
 
 

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from sandbox.api.models import ConflictInfo, ShellRequest, ShellResult
+from sandbox.api.utils.models import ConflictInfo, ShellRequest, ShellResult
 from sandbox.api.raw_exec import raw_exec
-from sandbox.api.shell_routing import is_read_only_pipeline
+from sandbox.api.utils.shell_routing import is_read_only_pipeline
 from sandbox.overlay.client import OverlayClient
 
 

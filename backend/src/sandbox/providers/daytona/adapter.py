@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar
 
-from sandbox.api.models import RawExecResult
+from sandbox.api.utils.models import RawExecResult
 from sandbox.client.async_ import get_async_sandbox
 from sandbox.runtime.bash import (
     EXIT_MARKER as _EXIT_MARKER,

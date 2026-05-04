@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.api.models import WriteFileResult
+from sandbox.api.utils.models import WriteFileResult
 from tools.core.base import ToolExecutionContextService
 from tools.core.safe_execution import run_tool_safely
 import tools.sandbox_toolkit.write_file as write_file_module

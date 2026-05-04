@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sandbox.api.models import RawExecResult
+from sandbox.api.utils.models import RawExecResult
 from sandbox.api.raw_exec import raw_exec
 from sandbox.providers.registry import dispose_adapter, register_adapter
 

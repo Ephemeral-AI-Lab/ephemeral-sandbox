@@ -1,4 +1,4 @@
-"""Backend protocol for the CodeIntelligenceService facade."""
+"""Backend protocol for sandbox runtime clients."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any, Protocol
 
 
 class CodeIntelligenceBackend(Protocol):
-    """Shape that every code-intelligence backend implements."""
+    """Shape that every code-intelligence runtime backend implements."""
 
     sandbox_id: str
     workspace_root: str
