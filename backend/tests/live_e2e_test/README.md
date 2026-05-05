@@ -28,6 +28,9 @@ Current integrated public-tool smoke (2026-05-05):
 edits, shells, and reads through the public sandbox API, with OCC/overlay
 running from the uploaded sandbox runtime bundle.
 
+Current full sandbox-only live run (2026-05-05): `11 passed, 17 skipped` in
+about 48 s. The skips are pending integrated concurrency/load/failure tests.
+
 ## What's Left
 
 | Bucket | Files | Tests | Blocker |
