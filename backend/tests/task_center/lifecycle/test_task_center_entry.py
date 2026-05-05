@@ -215,8 +215,8 @@ async def test_entry_executor_submit_execution_success_finishes_run(
     from pathlib import Path
 
     from db.stores.complex_task_request_store import ComplexTaskRequestStore  # noqa: F401
-    from task_center.complex_task.request import ComplexTaskRequestStatus
-    from task_center.segment.segment import TaskSegmentStatus
+    from task_center.mission.mission import ComplexTaskRequestStatus
+    from task_center.episode.episode import TaskSegmentStatus
     from task_center.task import HarnessTaskStatus
     from tools.core.context import ToolExecutionContextService
     from tools.core.tool_execution import execute_tool_once

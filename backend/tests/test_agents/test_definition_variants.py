@@ -20,12 +20,12 @@ def test_variant_round_trips_through_pydantic():
             AgentVariant(
                 when="partial_plan_caller_ancestor",
                 use="planner_full_only",
-                note="ancestry contains a partial-planned caller graph",
+                note="ancestry contains a partial-planned caller attempt",
                 required_context_blocks=[
                     AgentSelectionBlock(
-                        kind="capability_note",
+                        kind="launch_notice",
                         priority="required",
-                        text="Partial planning is disabled.",
+                        text="Use the selected terminal surface.",
                     )
                 ],
             )
@@ -35,7 +35,7 @@ def test_variant_round_trips_through_pydantic():
     restored = AgentDefinition.model_validate(payload)
     assert restored.context_recipe == "planner_v1"
     assert restored.variants[0].use == "planner_full_only"
-    assert restored.variants[0].required_context_blocks[0].kind == "capability_note"
+    assert restored.variants[0].required_context_blocks[0].kind == "launch_notice"
 
 
 def test_definition_default_variants_is_empty():
@@ -48,7 +48,7 @@ def test_selection_block_priority_is_validated_at_resolver_time(monkeypatch):
     """The pydantic field accepts any string; ContextPriority enum validation
     happens when the resolver converts it to a real ContextBlock."""
     block = AgentSelectionBlock(
-        kind="capability_note", priority="required", text="t"
+        kind="launch_notice", priority="required", text="t"
     )
     assert block.priority == "required"
 

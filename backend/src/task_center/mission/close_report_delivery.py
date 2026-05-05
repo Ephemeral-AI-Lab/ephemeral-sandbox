@@ -1,6 +1,6 @@
 """ComplexTaskCloseReport delivery router.
 
-Owns the single delivery path from ``ComplexTaskRequestHandler.close_complex_task_request``
+Owns the single delivery path from ``ComplexTaskRequestHandler.close_mission_request``
 to the parent ``HarnessGraphOrchestrator.apply_complex_task_close_report``.
 
 The runtime assumes no process restart: while a parent generator task is in
@@ -15,9 +15,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from task_center.complex_task.request import ComplexTaskCloseReport
+from task_center.mission.mission import ComplexTaskCloseReport
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.runtime import HarnessGraphRuntime
+from task_center.attempt.runtime import HarnessGraphRuntime
 from task_center.task import HarnessTaskStatus
 
 CloseReportDeliveryStatus = Literal[

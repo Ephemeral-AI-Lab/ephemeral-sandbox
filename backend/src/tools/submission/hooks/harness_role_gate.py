@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from task_center.harness_graph.runtime import HarnessGraphRuntime
+from task_center.attempt.runtime import HarnessGraphRuntime
 from task_center.task import HarnessTaskRole
 from tools.core.context import ToolExecutionContextService
 from tools.core.hooks import HookResult

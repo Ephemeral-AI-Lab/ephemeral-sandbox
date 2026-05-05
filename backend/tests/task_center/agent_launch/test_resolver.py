@@ -65,9 +65,9 @@ def planner_with_variant():
                 note="ancestry has partial-plan caller",
                 required_context_blocks=[
                     AgentSelectionBlock(
-                        kind="capability_note",
+                        kind="launch_notice",
                         priority="required",
-                        text="full only.",
+                        text="variant selected.",
                     )
                 ],
             )
@@ -112,7 +112,7 @@ def test_variant_predicate_match_picks_target(deps, planner_with_variant):
     assert sel.agent_def.name == "planner_full_only"
     assert "submit_partial_plan" not in sel.agent_def.terminals
     assert len(sel.required_context_blocks) == 1
-    assert sel.required_context_blocks[0].kind == "capability_note"
+    assert sel.required_context_blocks[0].kind == "launch_notice"
     assert sel.reason == "ancestry has partial-plan caller"
 
 

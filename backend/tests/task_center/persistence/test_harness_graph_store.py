@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from task_center.harness_graph import (
+from task_center.attempt import (
     HarnessGraph,
     HarnessGraphFailReason,
     HarnessGraphStage,
     HarnessGraphStatus,
 )
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.episode.episode import TaskSegmentCreationReason
 
 
 def _seed_segment(

@@ -55,9 +55,7 @@ def test_planner_variants_declare_full_only_target():
     variant = planner.variants[0]
     assert variant.when == "partial_plan_caller_ancestor"
     assert variant.use == "planner_full_only"
-    assert any(
-        b.kind == "capability_note" for b in variant.required_context_blocks
-    )
+    assert variant.required_context_blocks == []
 
 
 def test_planner_no_longer_lists_recursive_partial_plan_trigger():

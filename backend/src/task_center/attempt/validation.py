@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.state import (
+from task_center.attempt.state import (
     HarnessGraph,
     HarnessGraphFailReason,
     HarnessGraphStage,
     HarnessGraphStatus,
 )
-from task_center.segment.segment import TaskSegment
+from task_center.episode.episode import TaskSegment
 from task_center.task import HarnessTaskRole
 
 
@@ -56,7 +56,7 @@ def assert_valid_graph_close(
     fail_reason: HarnessGraphFailReason | None,
 ) -> None:
     if status == HarnessGraphStatus.FAILED and fail_reason is None:
-        raise GraphInvariantViolation("Failed graph close requires fail_reason")
+        raise GraphInvariantViolation("Failed attempt close requires fail_reason")
     if status == HarnessGraphStatus.PASSED and fail_reason is not None:
         raise GraphInvariantViolation("Passed graph close cannot have fail_reason")
     if status == HarnessGraphStatus.RUNNING:

@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.complex_task.request import ComplexTaskCloseReport
+from task_center.mission.mission import ComplexTaskCloseReport
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph import (
+from task_center.attempt import (
     HarnessGraphFailReason,
     HarnessGraphStage,
     HarnessGraphStatus,
 )
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import (
+from task_center.attempt.runtime import (
     AgentLaunch,
     HarnessGraphRuntime,
 )
@@ -31,7 +31,7 @@ from task_center.task import (
     generator_task_id,
     planner_task_id,
 )
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.episode.episode import TaskSegmentCreationReason
 
 
 class _FakeLauncher:

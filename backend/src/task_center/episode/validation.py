@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph import HarnessGraph
-from task_center.segment.segment import TaskSegment
+from task_center.attempt import HarnessGraph
+from task_center.episode.episode import TaskSegment
 
 
-def assert_segment_open(segment: TaskSegment) -> None:
+def assert_episode_open(segment: TaskSegment) -> None:
     if not segment.is_open:
         raise GraphInvariantViolation(
             f"TaskSegment {segment.id!r} is not open (status={segment.status})"
         )
 
 
-def assert_segment_has_budget(segment: TaskSegment) -> None:
+def assert_episode_has_budget(segment: TaskSegment) -> None:
     if not segment.has_budget_remaining:
         raise GraphInvariantViolation(
             f"TaskSegment {segment.id!r} attempt budget exhausted "
@@ -22,7 +22,7 @@ def assert_segment_has_budget(segment: TaskSegment) -> None:
         )
 
 
-def assert_graph_belongs_to_segment(
+def assert_attempt_belongs_to_episode(
     graph: HarnessGraph, segment: TaskSegment
 ) -> None:
     if graph.task_segment_id != segment.id:

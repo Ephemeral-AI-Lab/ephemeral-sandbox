@@ -134,3 +134,36 @@ def test_high_priority_blocks_kept_when_only_low_medium_present_to_truncate():
     )
     out = MarkdownPromptRenderer().render(packet)
     assert ("HIGH-keep_" * 500) in out, "high block must not be truncated"
+
+
+def test_compression_preserves_remaining_packet_order():
+    packet = _packet_with_budget(
+        [
+            ContextBlock(
+                kind="segment_goal",
+                priority=ContextPriority.REQUIRED,
+                text="episode",
+            ),
+            ContextBlock(
+                kind="low_background",
+                priority=ContextPriority.LOW,
+                text="L" * 8_000,
+                source_id="src-low",
+            ),
+            ContextBlock(
+                kind="task_specification",
+                priority=ContextPriority.HIGH,
+                text="attempt",
+            ),
+            ContextBlock(
+                kind="planned_task_spec",
+                priority=ContextPriority.REQUIRED,
+                text="assigned",
+            ),
+        ],
+        budget=100,
+    )
+    out = MarkdownPromptRenderer().render(packet)
+    assert out.find("episode") < out.find("truncated for token budget")
+    assert out.find("truncated for token budget") < out.find("attempt")
+    assert out.find("attempt") < out.find("assigned")

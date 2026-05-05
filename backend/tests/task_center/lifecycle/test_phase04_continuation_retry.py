@@ -8,19 +8,19 @@ delegated request closes terminally.
 
 from __future__ import annotations
 
-from task_center.complex_task.handoff import ComplexTaskHandoffCoordinator
-from task_center.complex_task.request import ComplexTaskRequestStatus
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.mission.starter import MissionRequestStarter
+from task_center.mission.mission import ComplexTaskRequestStatus
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph import (
+from task_center.attempt import (
     HarnessGraphFailReason,
     HarnessGraphStatus,
 )
-from task_center.harness_graph.runtime import AgentLaunch, HarnessGraphRuntime
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import (
+from task_center.attempt.runtime import AgentLaunch, HarnessGraphRuntime
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import (
     TaskSegmentCreationReason,
     TaskSegmentStatus,
 )
@@ -245,15 +245,15 @@ def test_delegated_continuation_waits_until_final_segment(
         task_store=task_store,
         task_center_run_id=task_center_run_id,
     )
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
-    handoff = coordinator.start(
+    coordinator = MissionRequestStarter(runtime=runtime)
+    mission_start = coordinator.start(
         task_center_run_id=task_center_run_id,
         parent_task_id=parent_task_id,
         parent_harness_graph_id=parent_graph_id,
         goal="delegated continuation",
     )
 
-    segment1_initial_graph_id = handoff.initial_harness_graph_id
+    segment1_initial_graph_id = mission_start.initial_harness_graph_id
 
     # Segment 1 passes with continuation goal — parent must remain WAITING.
     _drive_delegated_graph_to_pass(
@@ -268,7 +268,7 @@ def test_delegated_continuation_waits_until_final_segment(
         == HarnessTaskStatus.WAITING_COMPLEX_TASK.value
     )
     delegated_request_after_segment1 = request_store.get(
-        handoff.complex_task_request_id
+        mission_start.complex_task_request_id
     )
     assert delegated_request_after_segment1 is not None
     assert delegated_request_after_segment1.status == ComplexTaskRequestStatus.OPEN
@@ -288,7 +288,7 @@ def test_delegated_continuation_waits_until_final_segment(
     )
 
     parent_final = task_store.get_task(parent_task_id)
-    delegated_final = request_store.get(handoff.complex_task_request_id)
+    delegated_final = request_store.get(mission_start.complex_task_request_id)
     segment2_final = segment_store.get(segment2_id)
     assert parent_final is not None
     assert parent_final["status"] == HarnessTaskStatus.DONE.value
@@ -318,8 +318,8 @@ def test_continuation_startup_failure_reports_continuation_graph(
         task_store=task_store,
         task_center_run_id=task_center_run_id,
     )
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
-    handoff = coordinator.start(
+    coordinator = MissionRequestStarter(runtime=runtime)
+    mission_start = coordinator.start(
         task_center_run_id=task_center_run_id,
         parent_task_id=parent_task_id,
         parent_harness_graph_id=parent_graph_id,
@@ -328,11 +328,11 @@ def test_continuation_startup_failure_reports_continuation_graph(
 
     _drive_delegated_graph_to_pass(
         runtime=runtime,
-        delegated_graph_id=handoff.initial_harness_graph_id,
+        delegated_graph_id=mission_start.initial_harness_graph_id,
         continuation_goal="continue work",
     )
 
-    request = request_store.get(handoff.complex_task_request_id)
+    request = request_store.get(mission_start.complex_task_request_id)
     assert request is not None
     assert request.status == ComplexTaskRequestStatus.FAILED
     assert request.final_outcome is not None
@@ -366,8 +366,8 @@ def test_delegated_retry_waits_until_final_graph(
         task_store=task_store,
         task_center_run_id=task_center_run_id,
     )
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
-    handoff = coordinator.start(
+    coordinator = MissionRequestStarter(runtime=runtime)
+    mission_start = coordinator.start(
         task_center_run_id=task_center_run_id,
         parent_task_id=parent_task_id,
         parent_harness_graph_id=parent_graph_id,
@@ -376,15 +376,15 @@ def test_delegated_retry_waits_until_final_graph(
 
     # Graph 1 fails — manager should retry inside same segment, parent waits.
     _drive_delegated_graph_to_fail(
-        runtime=runtime, delegated_graph_id=handoff.initial_harness_graph_id
+        runtime=runtime, delegated_graph_id=mission_start.initial_harness_graph_id
     )
-    segment1 = segment_store.get(handoff.initial_segment_id)
+    segment1 = segment_store.get(mission_start.initial_segment_id)
     assert segment1 is not None
     assert len(segment1.harness_graph_ids) == 2
     parent_mid = task_store.get_task(parent_task_id)
     assert parent_mid is not None
     assert parent_mid["status"] == HarnessTaskStatus.WAITING_COMPLEX_TASK.value
-    delegated_mid = request_store.get(handoff.complex_task_request_id)
+    delegated_mid = request_store.get(mission_start.complex_task_request_id)
     assert delegated_mid is not None
     assert delegated_mid.status == ComplexTaskRequestStatus.OPEN
 
@@ -397,8 +397,8 @@ def test_delegated_retry_waits_until_final_graph(
     )
 
     parent_final = task_store.get_task(parent_task_id)
-    delegated_final = request_store.get(handoff.complex_task_request_id)
-    refreshed_segment = segment_store.get(handoff.initial_segment_id)
+    delegated_final = request_store.get(mission_start.complex_task_request_id)
+    refreshed_segment = segment_store.get(mission_start.initial_segment_id)
     assert parent_final is not None
     assert parent_final["status"] == HarnessTaskStatus.DONE.value
     assert delegated_final is not None

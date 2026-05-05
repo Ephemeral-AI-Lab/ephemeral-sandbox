@@ -106,7 +106,7 @@ def test_demotion_table_covers_all_priorities():
     assert demote_priority(ContextPriority.LOW) == ContextPriority.LOW
 
 
-def test_advisor_v1_emits_required_parent_question_then_demoted_inherits(
+def test_advisor_v1_emits_only_demoted_inherited_parent_context(
     deps_with_packet_store, packet_store, task_store, task_center_run_id
 ):
     parent_packet = _seed_parent_packet(packet_store)
@@ -124,12 +124,9 @@ def test_advisor_v1_emits_required_parent_question_then_demoted_inherits(
     )
     packet = _advisor_v1_build(scope, deps_with_packet_store)
 
-    assert packet.blocks[0].kind == "parent_question"
-    assert packet.blocks[0].priority == ContextPriority.REQUIRED
-    assert packet.blocks[0].text == "advise me on X"
     assert packet.target_role == "advisor"
 
-    inherited = packet.blocks[1:]
+    inherited = packet.blocks
     assert len(inherited) == 4
     expected_priorities = [
         ContextPriority.HIGH,    # required → high
@@ -160,7 +157,7 @@ def test_resolver_v1_same_shape_target_role_resolver(
     )
     packet = _resolver_v1_build(scope, deps_with_packet_store)
     assert packet.target_role == "resolver"
-    assert packet.blocks[0].kind == "parent_question"
+    assert packet.blocks[0].kind == "segment_goal"
 
 
 def test_missing_parent_packet_raises_context_engine_error(

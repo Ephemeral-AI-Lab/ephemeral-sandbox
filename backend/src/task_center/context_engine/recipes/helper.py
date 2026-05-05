@@ -6,10 +6,10 @@ Helper agents (advisor, resolver) are spawned by parent agents via tools
 isolation. See plan §3.3.8.
 
 Inheritance policy: every parent block is copied with priority demoted by
-exactly one level (``required → high → medium → low → low``). The helper's
-own ``parent_question`` block is the new ``priority=required``. Inherited
-blocks carry ``metadata['inherited_from_parent'] = 'true'`` so the renderer
-can group them under a ``# Parent context`` heading.
+exactly one level (``required → high → medium → low → low``). Inherited blocks
+carry ``metadata['inherited_from_parent'] = 'true'`` so the renderer can group
+them under a ``# Parent context`` heading. The concrete helper request is
+appended by the helper tool after composition.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from task_center.context_engine.engine import ContextEngineDeps
 from task_center.context_engine.errors import ContextEngineError
 from task_center.context_engine.packet import (
     ContextBlock,
-    ContextBlockKind,
     ContextPacket,
     ContextPriority,
     ContextRefs,
@@ -30,7 +29,7 @@ ADVISOR_V1 = "advisor_v1"
 RESOLVER_V1 = "resolver_v1"
 
 _HELPER_REQUIRED_FIELDS = frozenset(
-    {"request_id", "task_id", "parent_packet_id", "parent_task_id"}
+    {"request_id", "task_id", "parent_packet_id"}
 )
 
 _DEMOTION = {
@@ -61,21 +60,7 @@ def _build_helper_packet(
         raise ContextEngineError(
             f"Parent packet {scope.parent_packet_id!r} not found"
         )
-    parent_task = deps.task_store.get_task(scope.parent_task_id)
-    if parent_task is None:
-        raise ContextEngineError(
-            f"Parent task {scope.parent_task_id!r} not found"
-        )
-
-    blocks: list[ContextBlock] = [
-        ContextBlock(
-            kind=ContextBlockKind.PARENT_QUESTION,
-            priority=ContextPriority.REQUIRED,
-            text=str(parent_task.get("task_input") or ""),
-            source_id=scope.parent_task_id,
-            source_kind="task_center_task",
-        )
-    ]
+    blocks: list[ContextBlock] = []
     for parent_block in parent_packet.blocks:
         demoted = demote_priority(parent_block.priority)
         inherited_meta = {

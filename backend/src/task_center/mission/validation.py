@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from task_center.complex_task.request import ComplexTaskRequest
+from task_center.mission.mission import ComplexTaskRequest
 from task_center.exceptions import GraphInvariantViolation
-from task_center.segment.segment import TaskSegment, TaskSegmentStatus
+from task_center.episode.episode import TaskSegment, TaskSegmentStatus
 
 
-def assert_request_open(request: ComplexTaskRequest) -> None:
+def assert_mission_request_open(request: ComplexTaskRequest) -> None:
     if not request.is_open:
         raise GraphInvariantViolation(
             f"ComplexTaskRequest {request.id!r} is not open (status={request.status})"
         )
 
 
-def assert_segment_id_unique_in_list(
+def assert_episode_id_unique_in_mission(
     request: ComplexTaskRequest, segment_id: str
 ) -> None:
     if segment_id in request.task_segment_ids:
@@ -24,7 +24,7 @@ def assert_segment_id_unique_in_list(
         )
 
 
-def assert_segment_sequence_contiguous(
+def assert_episode_sequence_contiguous(
     request: ComplexTaskRequest, new_sequence_no: int
 ) -> None:
     expected = len(request.task_segment_ids) + 1
@@ -35,7 +35,7 @@ def assert_segment_sequence_contiguous(
         )
 
 
-def assert_continuation_segment_predecessor(previous: TaskSegment) -> None:
+def assert_continuation_episode_predecessor(previous: TaskSegment) -> None:
     if previous.status != TaskSegmentStatus.SUCCEEDED:
         raise GraphInvariantViolation(
             f"Continuation requires predecessor segment {previous.id!r} to be "

@@ -1,4 +1,4 @@
-"""Phase 04 handoff coordinator tests.
+"""Phase 04 mission request starter tests.
 
 Covers happy path, startup failure rollback, and duplicate-open-request gating.
 """
@@ -7,22 +7,22 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.complex_task.handoff import (
-    ComplexTaskHandoffCoordinator,
-    ComplexTaskHandoffResult,
+from task_center.mission.starter import (
+    MissionRequestStarter,
+    StartedMissionRequest,
 )
-from task_center.complex_task.request import ComplexTaskRequestStatus
+from task_center.mission.mission import ComplexTaskRequestStatus
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import AgentLaunch, HarnessGraphRuntime
-from task_center.harness_graph import (
+from task_center.attempt.runtime import AgentLaunch, HarnessGraphRuntime
+from task_center.attempt import (
     HarnessGraphFailReason,
     HarnessGraphStatus,
 )
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import (
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import (
     TaskSegmentCreationReason,
     TaskSegmentStatus,
     )
@@ -103,7 +103,7 @@ def _seed_outer_generator_task(
     return parent_task_id, outer_graph.id
 
 
-def test_handoff_creates_request_segment_graph_and_marks_parent_waiting(
+def test_mission_start_creates_request_segment_graph_and_marks_parent_waiting(
     request_store, segment_store, graph_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime = _build_runtime(
@@ -116,9 +116,9 @@ def test_handoff_creates_request_segment_graph_and_marks_parent_waiting(
         graph_store=graph_store,
         task_center_run_id=task_center_run_id,
     )
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
+    coordinator = MissionRequestStarter(runtime=runtime)
 
-    result: ComplexTaskHandoffResult = coordinator.start(
+    result: StartedMissionRequest = coordinator.start(
         task_center_run_id=task_center_run_id,
         parent_task_id=parent_task_id,
         parent_harness_graph_id=parent_graph_id,
@@ -144,7 +144,7 @@ def test_handoff_creates_request_segment_graph_and_marks_parent_waiting(
     assert runtime.orchestrator_registry.get(initial_graph.id) is not None
 
 
-def test_handoff_startup_failure_leaves_parent_running(
+def test_mission_start_startup_failure_leaves_parent_running(
     request_store, segment_store, graph_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime = _build_runtime(
@@ -162,16 +162,16 @@ def test_handoff_startup_failure_leaves_parent_running(
         del graph, on_graph_closed
         raise RuntimeError("delegated startup boom")
 
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
+    coordinator = MissionRequestStarter(runtime=runtime)
     # Patch the factory used by the coordinator's handler builder.
-    original = ComplexTaskHandoffCoordinator._build_handler
+    original = MissionRequestStarter._build_handler
 
     def _patched_build_handler(self):
         handler = original(self)
         handler._orchestrator_factory = _failing_factory  # type: ignore[attr-defined]
         return handler
 
-    ComplexTaskHandoffCoordinator._build_handler = _patched_build_handler  # type: ignore[assignment]
+    MissionRequestStarter._build_handler = _patched_build_handler  # type: ignore[assignment]
     try:
         with pytest.raises(RuntimeError):
             coordinator.start(
@@ -181,7 +181,7 @@ def test_handoff_startup_failure_leaves_parent_running(
                 goal="delegated",
             )
     finally:
-        ComplexTaskHandoffCoordinator._build_handler = original  # type: ignore[assignment]
+        MissionRequestStarter._build_handler = original  # type: ignore[assignment]
 
     parent_task = task_store.get_task(parent_task_id)
     assert parent_task is not None
@@ -207,7 +207,7 @@ def test_handoff_startup_failure_leaves_parent_running(
     assert runtime.manager_registry.get(cancelled_segment[0].id) is None
 
 
-def test_handoff_startup_failure_closes_started_graph_and_deregisters_orchestrator(
+def test_mission_start_startup_failure_closes_started_graph_and_deregisters_orchestrator(
     request_store, segment_store, graph_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime = _build_runtime(
@@ -225,7 +225,7 @@ def test_handoff_startup_failure_closes_started_graph_and_deregisters_orchestrat
         graph_store=graph_store,
         task_center_run_id=task_center_run_id,
     )
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
+    coordinator = MissionRequestStarter(runtime=runtime)
 
     with pytest.raises(RuntimeError):
         coordinator.start(
@@ -252,7 +252,7 @@ def test_handoff_startup_failure_closes_started_graph_and_deregisters_orchestrat
     assert planner_task["status"] == HarnessTaskStatus.FAILED.value
 
 
-def test_handoff_rejects_second_open_child_request_for_same_executor(
+def test_mission_start_rejects_second_open_child_request_for_same_executor(
     request_store, segment_store, graph_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime = _build_runtime(
@@ -265,7 +265,7 @@ def test_handoff_rejects_second_open_child_request_for_same_executor(
         graph_store=graph_store,
         task_center_run_id=task_center_run_id,
     )
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
+    coordinator = MissionRequestStarter(runtime=runtime)
     coordinator.start(
         task_center_run_id=task_center_run_id,
         parent_task_id=parent_task_id,
@@ -290,7 +290,7 @@ def test_handoff_rejects_second_open_child_request_for_same_executor(
     assert "open complex-task request" in str(exc.value)
 
 
-def test_handoff_rejects_non_running_parent(
+def test_mission_start_rejects_non_running_parent(
     request_store, segment_store, graph_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime = _build_runtime(
@@ -307,7 +307,7 @@ def test_handoff_rejects_non_running_parent(
         parent_task_id, status=HarnessTaskStatus.DONE.value
     )
 
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
+    coordinator = MissionRequestStarter(runtime=runtime)
     with pytest.raises(GraphInvariantViolation) as exc:
         coordinator.start(
             task_center_run_id=task_center_run_id,
@@ -318,16 +318,16 @@ def test_handoff_rejects_non_running_parent(
     assert "not running" in str(exc.value)
 
 
-def test_handoff_accepts_entry_mode_caller_with_no_parent_graph(
+def test_mission_start_accepts_entry_mode_caller_with_no_parent_graph(
     request_store, segment_store, graph_store, task_store, task_center_run_id, composer
 ) -> None:
     """Entry-mode caller has ``parent_harness_graph_id=None``.
 
-    The handoff coordinator must accept that and route the parent-waiting
+    The mission starter must accept that and route the parent-waiting
     transition through the runtime's :class:`EntryTaskController` so the
     controller stays the single owner of entry-task state transitions.
     """
-    from task_center.complex_task.handler import ComplexTaskRequestHandler
+    from task_center.mission.handler import ComplexTaskRequestHandler
     from task_center.config import HarnessLifecycleConfig
     from task_center.entry_task_controller import EntryTaskController
 
@@ -345,7 +345,7 @@ def test_handoff_accepts_entry_mode_caller_with_no_parent_graph(
         manager_registry=SegmentManagerRegistry(),
         config=HarnessLifecycleConfig(),
     )
-    entry_segment, _ = handler.create_initial_segment_with_manager(
+    entry_segment, _ = handler.create_initial_episode_with_manager(
         complex_task_request_id=entry_request.id
     )
     task_store.upsert_task(
@@ -382,8 +382,8 @@ def test_handoff_accepts_entry_mode_caller_with_no_parent_graph(
         entry_task_controller=controller,
     )
 
-    coordinator = ComplexTaskHandoffCoordinator(runtime=runtime)
-    result: ComplexTaskHandoffResult = coordinator.start(
+    coordinator = MissionRequestStarter(runtime=runtime)
+    result: StartedMissionRequest = coordinator.start(
         task_center_run_id=task_center_run_id,
         parent_task_id=entry_task_id,
         parent_harness_graph_id=None,

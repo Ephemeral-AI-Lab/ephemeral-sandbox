@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
 

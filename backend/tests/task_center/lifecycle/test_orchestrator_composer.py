@@ -13,7 +13,6 @@ import pytest
 from agents import registry as agents_registry
 from agents.types import (
     AgentDefinition,
-    AgentSelectionBlock,
     AgentVariant,
 )
 from task_center.config import HarnessLifecycleConfig
@@ -25,15 +24,15 @@ from task_center.agent_launch.predicates import (
 )
 from task_center.context_engine.recipes import register_builtin_recipes
 from task_center.context_engine.recipes_registry import RecipeRegistry
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import (
+from task_center.attempt.runtime import (
     AgentLaunch,
     HarnessGraphRuntime,
 )
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.episode.episode import TaskSegmentCreationReason
 
 
 class _RecordingLauncher:
@@ -101,13 +100,6 @@ def _register_planner_agents() -> None:
             AgentVariant(
                 when="partial_plan_caller_ancestor",
                 use="planner_full_only",
-                required_context_blocks=[
-                    AgentSelectionBlock(
-                        kind="capability_note",
-                        priority="required",
-                        text="Partial planning is disabled.",
-                    )
-                ],
             )
         ],
         system_prompt="PLANNER",
@@ -210,7 +202,7 @@ def test_planner_launched_via_composer_uses_base_when_no_ancestor(
     assert launched.agent_name == "planner"
     assert launched.system_prompt == "PLANNER"
     assert launched.context_packet_id is None  # no packet store wired
-    assert "Segment goal" in launched.task_input
+    assert "Mission / Current Episode" in launched.task_input
 
 
 def test_planner_forked_to_full_only_when_partial_plan_caller_present(
@@ -256,4 +248,3 @@ def test_planner_forked_to_full_only_when_partial_plan_caller_present(
     launched = launcher.launches[0]
     assert launched.agent_name == "planner_full_only"
     assert launched.system_prompt == "PLANNER FULL ONLY"
-    assert "Partial planning is disabled" in launched.task_input

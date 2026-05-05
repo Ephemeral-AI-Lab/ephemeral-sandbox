@@ -15,28 +15,28 @@ from db.stores.complex_task_request_store import ComplexTaskRequestStore
 from db.stores.harness_graph_store import HarnessGraphStore
 from db.stores.task_center_store import TaskCenterStore
 from db.stores.task_segment_store import TaskSegmentStore
-from task_center.complex_task.validation import (
-    assert_continuation_segment_predecessor,
-    assert_request_open,
-    assert_segment_id_unique_in_list,
-    assert_segment_sequence_contiguous,
+from task_center.mission.validation import (
+    assert_continuation_episode_predecessor,
+    assert_mission_request_open,
+    assert_episode_id_unique_in_mission,
+    assert_episode_sequence_contiguous,
 )
-from task_center.complex_task.request import (
+from task_center.mission.mission import (
     ComplexTaskCloseReport,
     ComplexTaskRequest,
     ComplexTaskRequestStatus,
 )
 from task_center.config import HarnessLifecycleConfig
 from task_center.exceptions import GraphInvariantViolation
-from task_center.segment.closure_report import (
+from task_center.episode.closure_report import (
     AttemptPlanFailed,
     SuccessContinue,
     TaskSegmentClosureReport,
     TerminalSuccess,
 )
-from task_center.segment.manager import OrchestratorFactory, TaskSegmentManager
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import (
+from task_center.episode.manager import OrchestratorFactory, TaskSegmentManager
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import (
     TaskSegment,
     TaskSegmentCreationReason,
 )
@@ -83,7 +83,7 @@ class ComplexTaskRequestHandler:
         """
         self._orchestrator_factory = factory
 
-    def create_complex_task_request(
+    def create_mission_request(
         self,
         *,
         task_center_run_id: str,
@@ -96,20 +96,20 @@ class ComplexTaskRequestHandler:
             goal=goal,
         )
 
-    def create_initial_segment(
+    def create_initial_episode(
         self, *, complex_task_request_id: str
     ) -> TaskSegment:
-        segment, _ = self.create_initial_segment_with_manager(
+        segment, _ = self.create_initial_episode_with_manager(
             complex_task_request_id=complex_task_request_id
         )
         return segment
 
-    def create_initial_segment_with_manager(
+    def create_initial_episode_with_manager(
         self, *, complex_task_request_id: str
     ) -> tuple[TaskSegment, TaskSegmentManager]:
         request = self._require_request(complex_task_request_id)
-        assert_request_open(request)
-        assert_segment_sequence_contiguous(request, new_sequence_no=1)
+        assert_mission_request_open(request)
+        assert_episode_sequence_contiguous(request, new_sequence_no=1)
         segment = self._segment_store.insert(
             complex_task_request_id=complex_task_request_id,
             sequence_no=1,
@@ -117,26 +117,26 @@ class ComplexTaskRequestHandler:
             goal=request.goal,
             attempt_budget=self._config.default_attempt_budget,
         )
-        self._append_segment_to_request(request, segment)
-        manager = self._spawn_segment_manager(segment)
+        self._append_episode_to_mission(request, segment)
+        manager = self._spawn_episode_manager(segment)
         return segment, manager
 
-    def create_continuation_segment(
+    def create_continuation_episode(
         self, *, previous_segment: TaskSegment
     ) -> TaskSegment:
-        segment, _ = self.create_continuation_segment_with_manager(
+        segment, _ = self.create_continuation_episode_with_manager(
             previous_segment=previous_segment
         )
         return segment
 
-    def create_continuation_segment_with_manager(
+    def create_continuation_episode_with_manager(
         self, *, previous_segment: TaskSegment
     ) -> tuple[TaskSegment, TaskSegmentManager]:
         request = self._require_request(previous_segment.complex_task_request_id)
-        assert_request_open(request)
-        assert_continuation_segment_predecessor(previous_segment)
+        assert_mission_request_open(request)
+        assert_continuation_episode_predecessor(previous_segment)
         new_sequence_no = previous_segment.sequence_no + 1
-        assert_segment_sequence_contiguous(request, new_sequence_no=new_sequence_no)
+        assert_episode_sequence_contiguous(request, new_sequence_no=new_sequence_no)
         # Narrowed by the invariant above.
         assert previous_segment.continuation_goal is not None
         segment = self._segment_store.insert(
@@ -146,11 +146,11 @@ class ComplexTaskRequestHandler:
             goal=previous_segment.continuation_goal,
             attempt_budget=self._config.default_attempt_budget,
         )
-        self._append_segment_to_request(request, segment)
-        manager = self._spawn_segment_manager(segment)
+        self._append_episode_to_mission(request, segment)
+        manager = self._spawn_episode_manager(segment)
         return segment, manager
 
-    def handle_segment_closed(
+    def handle_episode_closed(
         self, report: TaskSegmentClosureReport
     ) -> None:
         segment = self._segment_store.get(report.task_segment_id)
@@ -164,23 +164,23 @@ class ComplexTaskRequestHandler:
                 (
                     next_segment,
                     next_manager,
-                ) = self.create_continuation_segment_with_manager(
+                ) = self.create_continuation_episode_with_manager(
                     previous_segment=segment,
                 )
-                self._start_continuation_segment(
+                self._start_continuation_episode(
                     next_segment=next_segment,
                     next_manager=next_manager,
                     previous_report=report,
                 )
             elif isinstance(outcome, TerminalSuccess):
-                self.close_complex_task_request(
+                self.close_mission_request(
                     complex_task_request_id=segment.complex_task_request_id,
                     succeeded=True,
                     final_segment_id=segment.id,
                     final_harness_graph_id=report.final_harness_graph_id,
                 )
             elif isinstance(outcome, AttemptPlanFailed):
-                self.close_complex_task_request(
+                self.close_mission_request(
                     complex_task_request_id=segment.complex_task_request_id,
                     succeeded=False,
                     final_segment_id=segment.id,
@@ -193,7 +193,7 @@ class ComplexTaskRequestHandler:
         finally:
             self._manager_registry.deregister(segment.id)
 
-    def close_complex_task_request(
+    def close_mission_request(
         self,
         *,
         complex_task_request_id: str,
@@ -202,7 +202,7 @@ class ComplexTaskRequestHandler:
         final_harness_graph_id: str | None,
     ) -> ComplexTaskRequest:
         request = self._require_request(complex_task_request_id)
-        assert_request_open(request)
+        assert_mission_request_open(request)
         outcome_label: Literal["success", "failed"] = (
             "success" if succeeded else "failed"
         )
@@ -230,7 +230,7 @@ class ComplexTaskRequestHandler:
 
     # ---- internal -------------------------------------------------------
 
-    def _start_continuation_segment(
+    def _start_continuation_episode(
         self,
         *,
         next_segment: TaskSegment,
@@ -242,7 +242,7 @@ class ComplexTaskRequestHandler:
         Skipped when no ``orchestrator_factory`` is configured: in that case
         the test or harness driver is responsible for creating and stopping the
         graph manually. Production paths always attach a factory through the
-        handoff coordinator, so continuation startup runs end-to-end.
+        mission starter, so continuation startup runs end-to-end.
 
         On startup failure the continuation segment is cancelled and the
         request is closed as failed. If graph insertion already happened, the
@@ -251,16 +251,16 @@ class ComplexTaskRequestHandler:
         if self._orchestrator_factory is None:
             return
         try:
-            next_manager.create_initial_harness_graph()
+            next_manager.create_initial_attempt()
         except Exception:
-            failed_graph_id = self._latest_graph_id_for_segment(
+            failed_graph_id = self._latest_attempt_id_for_episode(
                 next_segment.id
             ) or previous_report.final_harness_graph_id
             self._segment_store.cancel_for_compensation(
                 next_segment.id, closed_at=datetime.now(UTC)
             )
             self._manager_registry.deregister(next_segment.id)
-            self.close_complex_task_request(
+            self.close_mission_request(
                 complex_task_request_id=next_segment.complex_task_request_id,
                 succeeded=False,
                 final_segment_id=next_segment.id,
@@ -275,24 +275,24 @@ class ComplexTaskRequestHandler:
             )
         return request
 
-    def _append_segment_to_request(
+    def _append_episode_to_mission(
         self, request: ComplexTaskRequest, segment: TaskSegment
     ) -> None:
-        assert_segment_id_unique_in_list(request, segment.id)
+        assert_episode_id_unique_in_mission(request, segment.id)
         self._request_store.append_segment_id(request.id, segment.id)
 
-    def _latest_graph_id_for_segment(self, segment_id: str) -> str | None:
+    def _latest_attempt_id_for_episode(self, segment_id: str) -> str | None:
         segment = self._segment_store.get(segment_id)
         if segment is None:
             return None
         return segment.latest_graph_id
 
-    def _spawn_segment_manager(self, segment: TaskSegment) -> TaskSegmentManager:
+    def _spawn_episode_manager(self, segment: TaskSegment) -> TaskSegmentManager:
         manager = TaskSegmentManager(
             task_segment_id=segment.id,
             segment_store=self._segment_store,
             graph_store=self._graph_store,
-            on_segment_closed=self.handle_segment_closed,
+            on_segment_closed=self.handle_episode_closed,
             orchestrator_factory=self._orchestrator_factory,
             task_store=self._task_store,
         )

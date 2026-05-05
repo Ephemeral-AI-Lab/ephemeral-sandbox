@@ -35,7 +35,7 @@ class ContextBlockKind(StrEnum):
     SEGMENT_GOAL = "segment_goal"
     PRIOR_SEGMENT_SPECIFICATION = "prior_segment_specification"
     PRIOR_SEGMENT_SUMMARY = "prior_segment_summary"
-    FAILED_GRAPH_LANDSCAPE = "failed_graph_landscape"
+    FAILED_ATTEMPT_LANDSCAPE = "failed_attempt_landscape"
     PLANNED_TASK_SPEC = "planned_task_spec"
     TASK_SPECIFICATION = "task_specification"
     EVALUATION_CRITERIA = "evaluation_criteria"
@@ -43,8 +43,6 @@ class ContextBlockKind(StrEnum):
     COMPLETED_TASK_SUMMARY = "completed_task_summary"
     ARTIFACT_REFERENCE = "artifact_reference"
     ENTRY_REQUEST = "entry_request"
-    PARENT_QUESTION = "parent_question"
-    CAPABILITY_NOTE = "capability_note"
 
 
 class ContextRefs(BaseModel):

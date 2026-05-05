@@ -1,6 +1,7 @@
 # TaskCenter Context Semantics and Filesystem Naming Migration Plan
 
-**Status:** Proposed
+**Status:** In progress - prompt semantics and auxiliary block cleanup are
+implemented; documentation path and runtime package/file renames are pending.
 
 **Goal:** migrate the LLM-facing context language and filesystem names from
 `ComplexTaskRequest -> TaskSegment -> HarnessGraph -> Task` to the clearer
@@ -210,6 +211,13 @@ closed episode summary actually records.
 Do not block the prompt semantics migration on that richer model.
 
 ## 6. Migration Phases
+
+Implementation state:
+
+- Phases 1-7 are implemented for the live context-engine, helper-agent, planner
+  variant, and main-agent prompt surfaces.
+- Phases 8-9 are intentionally pending because they move documentation and
+  runtime filesystem paths.
 
 ### Phase 1 - Renderer Contract
 

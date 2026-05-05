@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.harness_graph import HarnessGraphStage
+from task_center.attempt import HarnessGraphStage
 from tools.core.tool_execution import execute_tool_once
 from tools.submission.main_agent.planner import submit_full_plan, submit_partial_plan
 

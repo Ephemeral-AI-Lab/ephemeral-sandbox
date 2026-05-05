@@ -1,4 +1,4 @@
-"""Failed HarnessGraph landscape blocks for planner context."""
+"""Failed attempt landscape blocks for planner context."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from task_center.context_engine.packet import (
     ContextBlockKind,
     ContextPriority,
 )
-from task_center.harness_graph import HarnessGraph, HarnessGraphStatus
+from task_center.attempt import HarnessGraph, HarnessGraphStatus
 
-MAX_FAILED_GRAPHS_RENDERED = 6
+MAX_FAILED_ATTEMPTS_RENDERED = 6
 
 
-def failed_graph_landscape_blocks(
+def failed_attempt_landscape_blocks(
     *,
     current_graph_id: str | None,
     graphs: list[HarnessGraph],
@@ -29,21 +29,25 @@ def failed_graph_landscape_blocks(
     if not failed:
         return []
 
-    if len(failed) <= MAX_FAILED_GRAPHS_RENDERED:
+    if len(failed) <= MAX_FAILED_ATTEMPTS_RENDERED:
         rendered = failed
         truncated: list[HarnessGraph] = []
     else:
-        rendered = failed[-MAX_FAILED_GRAPHS_RENDERED:]
-        truncated = failed[:-MAX_FAILED_GRAPHS_RENDERED]
+        rendered = failed[-MAX_FAILED_ATTEMPTS_RENDERED:]
+        truncated = failed[:-MAX_FAILED_ATTEMPTS_RENDERED]
 
     blocks: list[ContextBlock] = [
         ContextBlock(
-            kind=ContextBlockKind.FAILED_GRAPH_LANDSCAPE,
+            kind=ContextBlockKind.FAILED_ATTEMPT_LANDSCAPE,
             priority=ContextPriority.HIGH,
-            text=_render_failed_graph(g),
+            text=_render_failed_attempt(g),
             source_id=g.id,
             source_kind="harness_graph",
-            metadata={"graph_sequence_no": str(g.graph_sequence_no)},
+            metadata={
+                "graph_sequence_no": str(g.graph_sequence_no),
+                "group_heading": "# Failed Attempts",
+                "subheading": f"Attempt {g.graph_sequence_no}",
+            },
         )
         for g in rendered
     ]
@@ -51,25 +55,29 @@ def failed_graph_landscape_blocks(
     if truncated:
         blocks.append(
             ContextBlock(
-                kind=ContextBlockKind.FAILED_GRAPH_LANDSCAPE,
+                kind=ContextBlockKind.FAILED_ATTEMPT_LANDSCAPE,
                 priority=ContextPriority.MEDIUM,
                 text=(
                     f"{len(truncated)} earlier failed attempts omitted "
                     f"(graph_sequence_no "
                     f"{truncated[0].graph_sequence_no}-"
                     f"{truncated[-1].graph_sequence_no}). "
-                    f"Most recent {MAX_FAILED_GRAPHS_RENDERED} attempts "
+                    f"Most recent {MAX_FAILED_ATTEMPTS_RENDERED} attempts "
                     f"shown above."
                 ),
                 source_id=None,
                 source_kind=None,
-                metadata={"truncated_count": str(len(truncated))},
+                metadata={
+                    "truncated_count": str(len(truncated)),
+                    "group_heading": "# Failed Attempts",
+                    "subheading": "Earlier attempts omitted",
+                },
             )
         )
     return blocks
 
 
-def _render_failed_graph(graph: HarnessGraph) -> str:
+def _render_failed_attempt(graph: HarnessGraph) -> str:
     criteria_block = (
         "\n".join(f"  - {c}" for c in graph.evaluation_criteria) or "  (none)"
     )
@@ -81,6 +89,6 @@ def _render_failed_graph(graph: HarnessGraph) -> str:
 
 
 __all__ = [
-    "MAX_FAILED_GRAPHS_RENDERED",
-    "failed_graph_landscape_blocks",
+    "MAX_FAILED_ATTEMPTS_RENDERED",
+    "failed_attempt_landscape_blocks",
 ]

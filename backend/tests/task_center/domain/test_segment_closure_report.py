@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from task_center.harness_graph import HarnessGraphFailReason
-from task_center.segment.closure_report import (
+from task_center.attempt import HarnessGraphFailReason
+from task_center.episode.closure_report import (
     AttemptedPlanEntry,
     AttemptPlanFailed,
     SuccessContinue,

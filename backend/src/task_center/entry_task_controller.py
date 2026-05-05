@@ -26,11 +26,11 @@ from typing import Any
 
 from db.stores.task_center_store import TaskCenterStore
 from db.stores.task_segment_store import TaskSegmentStore
-from task_center.complex_task.handler import ComplexTaskRequestHandler
-from task_center.complex_task.request import ComplexTaskCloseReport
+from task_center.mission.handler import ComplexTaskRequestHandler
+from task_center.mission.mission import ComplexTaskCloseReport
 from task_center.exceptions import GraphInvariantViolation
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import TaskSegmentStatus
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import TaskSegmentStatus
 from task_center.task import HarnessTaskStatus
 
 
@@ -178,7 +178,7 @@ class EntryTaskController:
     ) -> None:
         """Park the entry task in ``WAITING_COMPLEX_TASK``.
 
-        Called by the handoff coordinator when the entry executor invokes
+        Called by the mission starter when the entry executor invokes
         ``request_complex_task_solution``.
         """
         summary = {
@@ -201,11 +201,11 @@ class EntryTaskController:
         if updated is None:
             raise GraphInvariantViolation(
                 f"Entry task {self.task_id!r} was not running when the "
-                "complex-task handoff tried to mark it waiting."
+                "delegated mission start tried to mark it waiting."
             )
 
-    def restore_running_after_failed_handoff(self) -> None:
-        """Roll the entry task back to RUNNING after a failed handoff.
+    def restore_running_after_failed_mission_start(self) -> None:
+        """Roll the entry task back to RUNNING after a failed mission start.
 
         Mirror image of :meth:`mark_waiting_complex_task` for compensation.
         """
@@ -261,7 +261,7 @@ class EntryTaskController:
             task_summary=task_summary,
         )
         self.manager_registry.deregister(self.task_segment_id)
-        self.request_handler.close_complex_task_request(
+        self.request_handler.close_mission_request(
             complex_task_request_id=self.complex_task_request_id,
             succeeded=succeeded,
             final_segment_id=self.task_segment_id,

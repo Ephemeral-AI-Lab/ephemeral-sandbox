@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from task_center.complex_task.request import (
+from task_center.mission.mission import (
     ComplexTaskCloseReport,
     ComplexTaskRequest,
     ComplexTaskRequestStatus,

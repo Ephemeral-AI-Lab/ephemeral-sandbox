@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.generator_dag import (
+from task_center.attempt.generator_dag import (
     all_generators_done,
     all_generators_quiescent,
     blocked_descendant_ids,

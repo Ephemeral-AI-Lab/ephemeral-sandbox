@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from task_center.segment.segment import (
+from task_center.episode.episode import (
     TaskSegmentCreationReason,
     TaskSegmentStatus,
 )

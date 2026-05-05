@@ -11,7 +11,7 @@ from agents.registry import get_definition
 from engine.runtime.lifecycle import EphemeralRunResult
 from message.stream_events import StreamEvent
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.runtime import (
+from task_center.attempt.runtime import (
     AgentLaunch,
     HarnessGraphRuntime,
 )
@@ -27,7 +27,7 @@ from tools.core.base import ExecutionMetadata
 if TYPE_CHECKING:
     from agents.types import AgentDefinition
     from server.app_factory import RuntimeConfig
-    from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
+    from task_center.attempt.orchestrator import HarnessGraphOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ class EphemeralHarnessAgentLauncher:
         task = runtime.task_store.get_task(launch.task_id)
         if task is None or task.get("status") != HarnessTaskStatus.RUNNING.value:
             # Entry-mode tasks may already be in WAITING_COMPLEX_TASK after a
-            # delegated handoff; or DONE/FAILED via a terminal. Either way,
+            # delegated mission start; or DONE/FAILED via a terminal. Either way,
             # the controller has already moved the task off RUNNING and
             # there's nothing to do.
             return

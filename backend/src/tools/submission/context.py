@@ -15,7 +15,7 @@ for callers that strictly require a graph (gates, evaluator surfaces). The new
 :func:`resolve_executor_submission_context` returns
 :class:`ExecutorSubmissionContext` — a tagged shape exposing graph-shape-agnostic
 operations (``submit_executor_success`` / ``submit_executor_failure`` /
-``start_complex_task_handoff``) that internally branch on which mode applies.
+``start_mission_request``) that internally branch on which mode applies.
 """
 
 from __future__ import annotations
@@ -23,17 +23,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from task_center.complex_task.handoff import (
-    ComplexTaskHandoffCoordinator,
-    ComplexTaskHandoffResult,
+from task_center.mission.starter import (
+    MissionRequestStarter,
+    StartedMissionRequest,
 )
-from task_center.complex_task.request import ComplexTaskRequest
+from task_center.mission.mission import ComplexTaskRequest
 from task_center.entry_task_controller import EntryTaskController
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph import HarnessGraph
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.runtime import HarnessGraphRuntime
-from task_center.segment.segment import TaskSegment
+from task_center.attempt import HarnessGraph
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.runtime import HarnessGraphRuntime
+from task_center.episode.episode import TaskSegment
 from task_center.task import GeneratorSubmission
 from tools.core.context import ToolExecutionContextService
 
@@ -65,7 +65,7 @@ class ExecutorSubmissionContext:
     """Unified context for executor-shaped terminal submissions.
 
     Tools call :meth:`submit_executor_success`,
-    :meth:`submit_executor_failure`, or :meth:`start_complex_task_handoff`
+    :meth:`submit_executor_failure`, or :meth:`start_mission_request`
     without knowing whether the task is graph-bound or entry-mode. The
     context dispatches to the right backend (orchestrator vs entry
     controller) internally.
@@ -134,10 +134,10 @@ class ExecutorSubmissionContext:
             summary=summary, reason=reason, details=details
         )
 
-    def start_complex_task_handoff(
+    def start_mission_request(
         self, *, goal: str
-    ) -> ComplexTaskHandoffResult:
-        coordinator = ComplexTaskHandoffCoordinator(runtime=self.runtime)
+    ) -> StartedMissionRequest:
+        coordinator = MissionRequestStarter(runtime=self.runtime)
         return coordinator.start(
             task_center_run_id=self.task["task_center_run_id"],
             parent_task_id=self.task_center_task_id,

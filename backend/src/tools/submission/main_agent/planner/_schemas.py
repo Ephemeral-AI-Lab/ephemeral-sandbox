@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from agents.registry import get_definition
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.generator_dag import ordered_generator_tasks
+from task_center.attempt.generator_dag import ordered_generator_tasks
 from task_center.task import PlannedGeneratorTask, PlannerSubmission
 from tools.submission.context import HarnessSubmissionContext
 

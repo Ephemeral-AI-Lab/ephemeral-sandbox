@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from task_center.exceptions import GraphInvariantViolation
 
 if TYPE_CHECKING:
-    from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
+    from task_center.attempt.orchestrator import HarnessGraphOrchestrator
 
 
 class HarnessGraphOrchestratorRegistry:

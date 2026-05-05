@@ -4,7 +4,7 @@ Builds a parent request whose harness graph submitted a partial plan, spawns
 a child request, then asserts the planner spawned for the child:
 
 * is the ``planner_full_only`` agent (resolver swapped via the variant);
-* receives a ``task_input`` containing the variant's capability_note text;
+* receives a full-only system prompt from the selected agent definition;
 * the registered ``planner_full_only`` AgentDefinition has
   ``terminals`` without ``submit_partial_plan`` (the gate is the agent.md
   ``terminals:`` filter — the model never sees the tool when the variant
@@ -28,15 +28,15 @@ from task_center.agent_launch.predicates import (
 )
 from task_center.context_engine.recipes import register_builtin_recipes
 from task_center.context_engine.recipes_registry import RecipeRegistry
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import (
+from task_center.attempt.runtime import (
     AgentLaunch,
     HarnessGraphRuntime,
 )
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.episode.episode import TaskSegmentCreationReason
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -179,8 +179,8 @@ def test_partial_plan_caller_forks_child_planner_to_full_only(
 
     # (a) selected agent is planner_full_only.
     assert launched.agent_name == "planner_full_only"
-    # (b) capability_note text from variant's required_context_blocks present.
-    assert "Partial planning is disabled" in launched.task_input
+    # (b) full-only policy text comes from the selected agent definition.
+    assert "Partial planning is disabled" in launched.system_prompt
     # (c) the registered planner_full_only definition's terminals list does
     #     not include submit_partial_plan (the gate is the agent.md filter).
     full_only = agents_registry.get_definition("planner_full_only")

@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.complex_task.close_report_delivery import (
+from task_center.mission.close_report_delivery import (
     ComplexTaskCloseReportRouter,
 )
-from task_center.complex_task.request import ComplexTaskCloseReport
+from task_center.mission.mission import ComplexTaskCloseReport
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import AgentLaunch, HarnessGraphRuntime
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.attempt.runtime import AgentLaunch, HarnessGraphRuntime
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import TaskSegmentCreationReason
 from task_center.task import (
     HarnessTaskStatus,
     PlannedGeneratorTask,
@@ -346,11 +346,11 @@ def test_router_routes_entry_mode_close_report_through_controller(
     instead of the orchestrator registry, and route the close report into
     the controller's ``apply_complex_task_close_report``.
     """
-    from task_center.complex_task.handler import ComplexTaskRequestHandler
-    from task_center.complex_task.request import ComplexTaskRequestStatus
+    from task_center.mission.handler import ComplexTaskRequestHandler
+    from task_center.mission.mission import ComplexTaskRequestStatus
     from task_center.config import HarnessLifecycleConfig
     from task_center.entry_task_controller import EntryTaskController
-    from task_center.segment.segment import TaskSegmentStatus
+    from task_center.episode.episode import TaskSegmentStatus
     from task_center.task import HarnessTaskRole
 
     # Seed entry-mode caller in WAITING_COMPLEX_TASK.
@@ -368,12 +368,12 @@ def test_router_routes_entry_mode_close_report_through_controller(
         config=HarnessLifecycleConfig(),
         deliver_close_report=_finish,
     )
-    entry_request = handler.create_complex_task_request(
+    entry_request = handler.create_mission_request(
         task_center_run_id=task_center_run_id,
         requested_by_task_id=entry_task_id,
         goal="entry goal",
     )
-    entry_segment, _ = handler.create_initial_segment_with_manager(
+    entry_segment, _ = handler.create_initial_episode_with_manager(
         complex_task_request_id=entry_request.id
     )
     task_store.upsert_task(

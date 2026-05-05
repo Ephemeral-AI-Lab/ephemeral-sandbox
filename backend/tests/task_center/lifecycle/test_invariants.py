@@ -6,33 +6,33 @@ from datetime import UTC, datetime
 
 import pytest
 
-from task_center.complex_task.validation import (
-    assert_continuation_segment_predecessor,
-    assert_request_open,
-    assert_segment_id_unique_in_list,
-    assert_segment_sequence_contiguous,
+from task_center.mission.validation import (
+    assert_continuation_episode_predecessor,
+    assert_mission_request_open,
+    assert_episode_id_unique_in_mission,
+    assert_episode_sequence_contiguous,
 )
-from task_center.harness_graph.validation import (
+from task_center.attempt.validation import (
     assert_fail_reason_present_on_failure,
     assert_graph_sequence_contiguous,
 )
-from task_center.segment.validation import (
-    assert_graph_belongs_to_segment,
-    assert_segment_has_budget,
-    assert_segment_open,
+from task_center.episode.validation import (
+    assert_attempt_belongs_to_episode,
+    assert_episode_has_budget,
+    assert_episode_open,
 )
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.complex_task.request import (
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.mission.mission import (
     ComplexTaskRequest,
     ComplexTaskRequestStatus,
 )
-from task_center.harness_graph import (
+from task_center.attempt import (
     HarnessGraph,
     HarnessGraphFailReason,
     HarnessGraphStage,
     HarnessGraphStatus,
 )
-from task_center.segment.segment import (
+from task_center.episode.episode import (
     TaskSegment,
     TaskSegmentCreationReason,
     TaskSegmentStatus,
@@ -114,51 +114,51 @@ def _graph(
 # ---- Request-level ------------------------------------------------------
 
 
-def test_assert_request_open_passes_for_open():
-    assert_request_open(_request(status=ComplexTaskRequestStatus.OPEN))
+def test_assert_mission_request_open_passes_for_open():
+    assert_mission_request_open(_request(status=ComplexTaskRequestStatus.OPEN))
 
 
-def test_assert_request_open_fails_for_closed():
+def test_assert_mission_request_open_fails_for_closed():
     for status in (
         ComplexTaskRequestStatus.SUCCEEDED,
         ComplexTaskRequestStatus.FAILED,
         ComplexTaskRequestStatus.CANCELLED,
     ):
         with pytest.raises(GraphInvariantViolation):
-            assert_request_open(_request(status=status))
+            assert_mission_request_open(_request(status=status))
 
 
-def test_assert_segment_id_unique_in_list():
-    assert_segment_id_unique_in_list(
+def test_assert_episode_id_unique_in_mission():
+    assert_episode_id_unique_in_mission(
         _request(task_segment_ids=("s1", "s2")), "s3"
     )
     with pytest.raises(GraphInvariantViolation):
-        assert_segment_id_unique_in_list(
+        assert_episode_id_unique_in_mission(
             _request(task_segment_ids=("s1",)), "s1"
         )
 
 
-def test_assert_segment_sequence_contiguous():
-    assert_segment_sequence_contiguous(_request(task_segment_ids=()), 1)
-    assert_segment_sequence_contiguous(_request(task_segment_ids=("s1",)), 2)
+def test_assert_episode_sequence_contiguous():
+    assert_episode_sequence_contiguous(_request(task_segment_ids=()), 1)
+    assert_episode_sequence_contiguous(_request(task_segment_ids=("s1",)), 2)
     with pytest.raises(GraphInvariantViolation):
-        assert_segment_sequence_contiguous(_request(task_segment_ids=("s1",)), 1)
+        assert_episode_sequence_contiguous(_request(task_segment_ids=("s1",)), 1)
     with pytest.raises(GraphInvariantViolation):
-        assert_segment_sequence_contiguous(_request(task_segment_ids=("s1",)), 3)
+        assert_episode_sequence_contiguous(_request(task_segment_ids=("s1",)), 3)
 
 
-def test_assert_continuation_segment_predecessor_requires_succeeded_with_goal():
+def test_assert_continuation_episode_predecessor_requires_succeeded_with_goal():
     succeeded_with_goal = _segment(
         status=TaskSegmentStatus.SUCCEEDED, continuation_goal="next"
     )
-    assert_continuation_segment_predecessor(succeeded_with_goal)
+    assert_continuation_episode_predecessor(succeeded_with_goal)
 
     with pytest.raises(GraphInvariantViolation):
-        assert_continuation_segment_predecessor(
+        assert_continuation_episode_predecessor(
             _segment(status=TaskSegmentStatus.OPEN, continuation_goal="next")
         )
     with pytest.raises(GraphInvariantViolation):
-        assert_continuation_segment_predecessor(
+        assert_continuation_episode_predecessor(
             _segment(status=TaskSegmentStatus.SUCCEEDED, continuation_goal=None)
         )
 
@@ -166,29 +166,29 @@ def test_assert_continuation_segment_predecessor_requires_succeeded_with_goal():
 # ---- Segment-level ------------------------------------------------------
 
 
-def test_assert_segment_open():
-    assert_segment_open(_segment(status=TaskSegmentStatus.OPEN))
+def test_assert_episode_open():
+    assert_episode_open(_segment(status=TaskSegmentStatus.OPEN))
     with pytest.raises(GraphInvariantViolation):
-        assert_segment_open(_segment(status=TaskSegmentStatus.SUCCEEDED))
+        assert_episode_open(_segment(status=TaskSegmentStatus.SUCCEEDED))
 
 
-def test_assert_segment_has_budget():
-    assert_segment_has_budget(_segment(attempt_budget=2, harness_graph_ids=()))
-    assert_segment_has_budget(
+def test_assert_episode_has_budget():
+    assert_episode_has_budget(_segment(attempt_budget=2, harness_graph_ids=()))
+    assert_episode_has_budget(
         _segment(attempt_budget=2, harness_graph_ids=("g1",))
     )
     with pytest.raises(GraphInvariantViolation):
-        assert_segment_has_budget(
+        assert_episode_has_budget(
             _segment(attempt_budget=2, harness_graph_ids=("g1", "g2"))
         )
 
 
-def test_assert_graph_belongs_to_segment():
-    assert_graph_belongs_to_segment(
+def test_assert_attempt_belongs_to_episode():
+    assert_attempt_belongs_to_episode(
         _graph(task_segment_id="s1"), _segment(sid="s1")
     )
     with pytest.raises(GraphInvariantViolation):
-        assert_graph_belongs_to_segment(
+        assert_attempt_belongs_to_episode(
             _graph(task_segment_id="s1"), _segment(sid="s2")
         )
 

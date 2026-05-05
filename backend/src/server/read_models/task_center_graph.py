@@ -11,9 +11,9 @@ from db.stores import (
     TaskCenterStore,
     TaskSegmentStore,
 )
-from task_center.complex_task.request import ComplexTaskRequest
-from task_center.harness_graph import HarnessGraph
-from task_center.segment.segment import TaskSegment
+from task_center.mission.mission import ComplexTaskRequest
+from task_center.attempt import HarnessGraph
+from task_center.episode.episode import TaskSegment
 
 
 def build_task_center_graph_response(

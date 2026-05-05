@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from task_center.context_engine.engine import ContextEngineDeps
@@ -12,7 +14,7 @@ from task_center.context_engine.recipes.entry_executor import (
 from task_center.context_engine.recipes.evaluator import _evaluator_v1_build
 from task_center.context_engine.recipes.generator import _generator_v1_build
 from task_center.context_engine.scope import ContextScope
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.episode.episode import TaskSegmentCreationReason
 
 
 @pytest.fixture
@@ -41,6 +43,16 @@ def _seed_segment(segment_store, *, request_id):
         sequence_no=1,
         creation_reason=TaskSegmentCreationReason.INITIAL,
         goal="g",
+        attempt_budget=2,
+    )
+
+
+def _seed_continuation_segment(segment_store, *, request_id):
+    return segment_store.insert(
+        complex_task_request_id=request_id,
+        sequence_no=2,
+        creation_reason=TaskSegmentCreationReason.PARTIAL_CONTINUATION,
+        goal="g2",
         attempt_budget=2,
     )
 
@@ -84,9 +96,9 @@ def test_generator_v1_emits_planned_task_spec_required_block(
         deps,
     )
     kinds = [b.kind for b in packet.blocks]
-    assert kinds[0] == "planned_task_spec"
-    assert packet.blocks[0].priority == ContextPriority.REQUIRED
-    assert packet.blocks[0].text == "do thing X"
+    assert kinds == ["task_specification", "planned_task_spec"]
+    assert packet.blocks[-1].priority == ContextPriority.REQUIRED
+    assert packet.blocks[-1].text == "do thing X"
     assert "task_specification" in kinds
 
 
@@ -131,7 +143,9 @@ def test_generator_v1_dependency_summary_blocks(
     dep_blocks = [b for b in packet.blocks if b.kind == "dependency_summary"]
     assert len(dep_blocks) == 1
     assert dep_blocks[0].metadata["dep_id"] == "t-up"
+    assert dep_blocks[0].metadata["group_heading"] == "# Dependency Results"
     assert "produced X" in dep_blocks[0].text
+    assert packet.blocks[-1].kind == "planned_task_spec"
 
 
 # ---------------------------------------------------------------------------
@@ -165,15 +179,65 @@ def test_evaluator_v1_emits_required_spec_and_criteria(
         spawn_reason="harness_graph_generator",
     )
     packet = _evaluator_v1_build(
-        ContextScope(request_id=req.id, harness_graph_id=graph.id),
+        ContextScope(
+            request_id=req.id, segment_id=seg.id, harness_graph_id=graph.id
+        ),
         deps,
     )
     kinds = [b.kind for b in packet.blocks]
-    assert kinds[0:2] == ["task_specification", "evaluation_criteria"]
+    assert kinds == [
+        "segment_goal",
+        "task_specification",
+        "completed_task_summary",
+        "evaluation_criteria",
+    ]
     assert all(
-        b.priority == ContextPriority.REQUIRED for b in packet.blocks[0:2]
+        b.priority == ContextPriority.REQUIRED
+        for b in [packet.blocks[1], packet.blocks[-1]]
     )
-    assert any(b.kind == "completed_task_summary" for b in packet.blocks)
+    assert packet.blocks[0].metadata["heading"] == "# Mission / Current Episode"
+    assert packet.blocks[2].metadata["group_heading"] == "# Dependency Results"
+
+
+def test_evaluator_v1_episode2_frame_precedes_attempt_contract(
+    deps, request_store, segment_store, graph_store, task_store, task_center_run_id
+):
+    req = _seed_request(request_store, task_center_run_id)
+    seg1 = _seed_segment(segment_store, request_id=req.id)
+    segment_store.close_succeeded(
+        seg1.id,
+        task_specification="accepted plan",
+        task_summary="accepted summary",
+        closed_at=datetime.now(UTC),
+    )
+    seg2 = _seed_continuation_segment(segment_store, request_id=req.id)
+    graph = graph_store.insert(task_segment_id=seg2.id, graph_sequence_no=1)
+    graph_store.set_plan_contract(
+        graph.id,
+        task_specification="attempt plan",
+        evaluation_criteria=["criterion"],
+        continuation_goal=None,
+    )
+
+    packet = _evaluator_v1_build(
+        ContextScope(
+            request_id=req.id, segment_id=seg2.id, harness_graph_id=graph.id
+        ),
+        deps,
+    )
+
+    assert [b.kind for b in packet.blocks] == [
+        "complex_task_goal",
+        "prior_segment_specification",
+        "prior_segment_summary",
+        "segment_goal",
+        "task_specification",
+        "evaluation_criteria",
+    ]
+    assert packet.blocks[0].metadata["heading"] == "# Mission"
+    assert packet.blocks[1].metadata["group_heading"] == "# Previous Episode Results"
+    assert packet.blocks[3].metadata["heading"] == "# Current Episode"
+    assert packet.blocks[-1].kind == "evaluation_criteria"
 
 
 # ---------------------------------------------------------------------------

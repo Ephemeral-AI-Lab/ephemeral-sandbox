@@ -13,18 +13,18 @@ from collections.abc import Callable
 from typing import Any
 
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.state import (
+from task_center.attempt.state import (
     HarnessGraph,
     HarnessGraphFailReason,
     HarnessGraphStage,
     HarnessGraphStatus,
 )
 from task_center.context_engine.scope import ContextScope
-from task_center.harness_graph.runtime import (
+from task_center.attempt.runtime import (
     AgentLaunch,
     HarnessGraphRuntime,
 )
-from task_center.harness_graph.generator_dag import (
+from task_center.attempt.generator_dag import (
     all_generators_done,
     all_generators_quiescent,
     any_generator_failed_or_blocked,

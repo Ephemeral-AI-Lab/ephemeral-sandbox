@@ -1,13 +1,11 @@
-"""``planner_v1`` recipe — context for one HarnessGraph planner spawn.
+"""``planner_v1`` recipe — context for one attempt planner spawn.
 
 See plan §3.3.6 for the full block taxonomy. The recipe reads:
 
-* the current segment row (``segment_goal``);
-* the request row (``complex_task_goal`` for seg>1);
-* every prior closed-succeeded segment row (``prior_segment_*`` blocks,
-  paired and labelled with ``segment_sequence_no``);
-* every failed graph in the current segment except the running one
-  (``failed_graph_landscape`` blocks, ordered by ``graph_sequence_no``).
+* the mission / current episode frame;
+* every prior closed-succeeded episode projection for episode 2+;
+* every failed attempt in the current episode except the running one
+  (``failed_attempt_landscape`` blocks, ordered by ``graph_sequence_no``).
 
 The recipe is a pure builder: it reads stores and returns a
 :class:`ContextPacket`. No renderer calls, no lifecycle mutations.
@@ -18,19 +16,18 @@ from __future__ import annotations
 from task_center.context_engine.engine import ContextEngineDeps
 from task_center.context_engine.errors import ContextEngineError
 from task_center.context_engine.packet import (
-    ContextBlock,
-    ContextBlockKind,
     ContextPacket,
-    ContextPriority,
     ContextRefs,
 )
+from task_center.context_engine.recipes._mission_episode import (
+    mission_episode_blocks,
+)
 from task_center.context_engine.recipes_registry import ContextRecipe
-from task_center.context_engine.recipes.graph_landscape import (
-    MAX_FAILED_GRAPHS_RENDERED,
-    failed_graph_landscape_blocks,
+from task_center.context_engine.recipes.attempt_landscape import (
+    MAX_FAILED_ATTEMPTS_RENDERED,
+    failed_attempt_landscape_blocks,
 )
 from task_center.context_engine.scope import ContextScope
-from task_center.segment.segment import TaskSegment
 
 PLANNER_V1 = "planner_v1"
 _REQUIRED_FIELDS = frozenset(
@@ -52,23 +49,14 @@ def _planner_v1_build(
             f"TaskSegment {scope.segment_id!r} not found"
         )
 
-    blocks: list[ContextBlock] = []
-
-    is_initial = segment.sequence_no == 1
-    if is_initial:
-        blocks.append(_segment_goal_block(segment, is_initial=True))
-    else:
-        blocks.append(_complex_task_goal_block(request))
-        blocks.append(_segment_goal_block(segment))
-        blocks.extend(
-            _prior_segment_blocks(
-                segment,
-                segments=deps.segment_store.list_for_request(request.id),
-            )
-        )
+    blocks = mission_episode_blocks(
+        request=request,
+        current_segment=segment,
+        segments=deps.segment_store.list_for_request(request.id),
+    )
 
     blocks.extend(
-        failed_graph_landscape_blocks(
+        failed_attempt_landscape_blocks(
             current_graph_id=scope.harness_graph_id,
             graphs=deps.graph_store.list_for_segment(segment.id),
         )
@@ -87,81 +75,6 @@ def _planner_v1_build(
     )
 
 
-# ---------------------------------------------------------------------------
-# Block builders — each takes plain DTOs so unit tests can drive them
-# directly without round-tripping the engine.
-# ---------------------------------------------------------------------------
-
-
-def _segment_goal_block(
-    segment: TaskSegment, *, is_initial: bool = False
-) -> ContextBlock:
-    metadata: dict[str, str] = {}
-    if is_initial:
-        metadata["subtitle"] = (
-            "*(first segment — equal to the original request goal)*"
-        )
-    return ContextBlock(
-        kind=ContextBlockKind.SEGMENT_GOAL,
-        priority=ContextPriority.REQUIRED,
-        text=segment.goal,
-        source_id=segment.id,
-        source_kind="task_segment",
-        metadata=metadata,
-    )
-
-
-def _complex_task_goal_block(request) -> ContextBlock:  # type: ignore[no-untyped-def]
-    return ContextBlock(
-        kind=ContextBlockKind.COMPLEX_TASK_GOAL,
-        priority=ContextPriority.REQUIRED,
-        text=request.goal,
-        source_id=request.id,
-        source_kind="complex_task_request",
-    )
-
-
-def _prior_segment_blocks(
-    current: TaskSegment, *, segments: list[TaskSegment]
-) -> list[ContextBlock]:
-    priors = sorted(
-        (s for s in segments if s.sequence_no < current.sequence_no),
-        key=lambda s: s.sequence_no,
-        reverse=True,
-    )
-    out: list[ContextBlock] = []
-    for idx, prior in enumerate(priors):
-        if prior.task_specification is None or prior.task_summary is None:
-            raise ContextEngineError(
-                f"Prior segment {prior.id!r} (seq={prior.sequence_no}) is "
-                "missing task_specification or task_summary; chain "
-                "integrity violated."
-            )
-        priority = ContextPriority.HIGH if idx == 0 else ContextPriority.MEDIUM
-        block_meta = {"segment_sequence_no": str(prior.sequence_no)}
-        out.append(
-            ContextBlock(
-                kind=ContextBlockKind.PRIOR_SEGMENT_SPECIFICATION,
-                priority=priority,
-                text=prior.task_specification,
-                source_id=prior.id,
-                source_kind="task_segment",
-                metadata=block_meta,
-            )
-        )
-        out.append(
-            ContextBlock(
-                kind=ContextBlockKind.PRIOR_SEGMENT_SUMMARY,
-                priority=priority,
-                text=prior.task_summary,
-                source_id=prior.id,
-                source_kind="task_segment",
-                metadata=block_meta,
-            )
-        )
-    return out
-
-
 PLANNER_V1_RECIPE = ContextRecipe(
     id=PLANNER_V1,
     required_scope_fields=_REQUIRED_FIELDS,
@@ -172,5 +85,5 @@ PLANNER_V1_RECIPE = ContextRecipe(
 __all__ = [
     "PLANNER_V1",
     "PLANNER_V1_RECIPE",
-    "MAX_FAILED_GRAPHS_RENDERED",
+    "MAX_FAILED_ATTEMPTS_RENDERED",
 ]

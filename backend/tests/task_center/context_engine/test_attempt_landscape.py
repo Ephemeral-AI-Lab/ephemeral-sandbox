@@ -1,15 +1,15 @@
-"""Direct tests for failed graph landscape helper behavior."""
+"""Direct tests for failed attempt landscape helper behavior."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
 from task_center.context_engine.packet import ContextPriority
-from task_center.context_engine.recipes.graph_landscape import (
-    MAX_FAILED_GRAPHS_RENDERED,
-    failed_graph_landscape_blocks,
+from task_center.context_engine.recipes.attempt_landscape import (
+    MAX_FAILED_ATTEMPTS_RENDERED,
+    failed_attempt_landscape_blocks,
 )
-from task_center.harness_graph import (
+from task_center.attempt import (
     HarnessGraph,
     HarnessGraphFailReason,
     HarnessGraphStage,
@@ -54,7 +54,7 @@ def test_excludes_current_graph_even_if_current_is_failed():
         evaluation_criteria=("current crit",),
         fail_reason=HarnessGraphFailReason.PLANNER_FAILED,
     )
-    blocks = failed_graph_landscape_blocks(
+    blocks = failed_attempt_landscape_blocks(
         current_graph_id=current.id,
         graphs=[
             current,
@@ -79,7 +79,7 @@ def test_excludes_current_graph_even_if_current_is_failed():
 
 
 def test_renders_missing_spec_empty_criteria_and_unknown_reason():
-    blocks = failed_graph_landscape_blocks(
+    blocks = failed_attempt_landscape_blocks(
         current_graph_id=None,
         graphs=[_graph(1)],
     )
@@ -90,8 +90,8 @@ def test_renders_missing_spec_empty_criteria_and_unknown_reason():
     assert "fail_reason: unknown" in blocks[0].text
 
 
-def test_truncation_keeps_most_recent_failed_graphs_and_reports_omitted_range():
-    blocks = failed_graph_landscape_blocks(
+def test_truncation_keeps_most_recent_failed_attempts_and_reports_omitted_range():
+    blocks = failed_attempt_landscape_blocks(
         current_graph_id=None,
         graphs=[
             _graph(
@@ -100,7 +100,7 @@ def test_truncation_keeps_most_recent_failed_graphs_and_reports_omitted_range():
                 evaluation_criteria=(f"crit-{sequence_no}",),
                 fail_reason=HarnessGraphFailReason.GENERATOR_FAILED,
             )
-            for sequence_no in range(MAX_FAILED_GRAPHS_RENDERED + 2, 0, -1)
+            for sequence_no in range(MAX_FAILED_ATTEMPTS_RENDERED + 2, 0, -1)
         ],
     )
 
@@ -110,7 +110,7 @@ def test_truncation_keeps_most_recent_failed_graphs_and_reports_omitted_range():
     assert [block.metadata["graph_sequence_no"] for block in rendered] == [
         str(sequence_no)
         for sequence_no in range(
-            3, MAX_FAILED_GRAPHS_RENDERED + 3
+            3, MAX_FAILED_ATTEMPTS_RENDERED + 3
         )
     ]
     assert all(block.priority == ContextPriority.HIGH for block in rendered)

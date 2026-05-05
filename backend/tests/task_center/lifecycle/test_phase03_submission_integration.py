@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.harness_graph import HarnessGraphStatus
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt import HarnessGraphStatus
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import AgentLaunch, HarnessGraphRuntime
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.attempt.runtime import AgentLaunch, HarnessGraphRuntime
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import TaskSegmentCreationReason
 from task_center.task import evaluator_task_id, generator_task_id, planner_task_id
 from tools.core.context import ToolExecutionContextService
 from tools.core.runtime import ExecutionMetadata

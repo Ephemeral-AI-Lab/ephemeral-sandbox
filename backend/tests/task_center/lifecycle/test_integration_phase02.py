@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from task_center.config import HarnessLifecycleConfig
-from task_center.complex_task.handler import ComplexTaskRequestHandler
-from task_center.complex_task.request import ComplexTaskRequestStatus
-from task_center.harness_graph.factory import (
-    make_harness_graph_orchestrator_factory,
+from task_center.mission.handler import ComplexTaskRequestHandler
+from task_center.mission.mission import ComplexTaskRequestStatus
+from task_center.attempt.factory import (
+    make_attempt_orchestrator_factory,
 )
-from task_center.harness_graph import HarnessGraphStatus
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt import HarnessGraphStatus
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import (
+from task_center.attempt.runtime import (
     AgentLaunch,
     HarnessGraphRuntime,
 )
@@ -25,8 +25,8 @@ from task_center.task import (
     generator_task_id,
     planner_task_id,
 )
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import TaskSegmentStatus
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import TaskSegmentStatus
 
 
 class _FakeLauncher:
@@ -64,7 +64,7 @@ def _build_handler(
         graph_store=graph_store,
         manager_registry=manager_registry,
         config=HarnessLifecycleConfig(default_attempt_budget=2),
-        orchestrator_factory=make_harness_graph_orchestrator_factory(
+        orchestrator_factory=make_attempt_orchestrator_factory(
             runtime=runtime,
         ),
     )
@@ -125,15 +125,15 @@ def test_full_plan_execution_success_closes_request_success(
     handler, manager_registry, orchestrator_registry = _build_handler(
         request_store, segment_store, graph_store, task_store, composer=composer
     )
-    request = handler.create_complex_task_request(
+    request = handler.create_mission_request(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="executor-1",
         goal="g",
     )
-    segment = handler.create_initial_segment(complex_task_request_id=request.id)
+    segment = handler.create_initial_episode(complex_task_request_id=request.id)
     manager = manager_registry.get(segment.id)
     assert manager is not None
-    graph = manager.create_initial_harness_graph()
+    graph = manager.create_initial_attempt()
     orchestrator = orchestrator_registry.get_or_raise(graph.id)
 
     orchestrator.apply_plan_submission(_plan(graph.id))
@@ -162,15 +162,15 @@ def test_generator_failure_retry_then_evaluator_success(
     handler, manager_registry, orchestrator_registry = _build_handler(
         request_store, segment_store, graph_store, task_store, composer=composer
     )
-    request = handler.create_complex_task_request(
+    request = handler.create_mission_request(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="executor-1",
         goal="g",
     )
-    segment = handler.create_initial_segment(complex_task_request_id=request.id)
+    segment = handler.create_initial_episode(complex_task_request_id=request.id)
     manager = manager_registry.get(segment.id)
     assert manager is not None
-    graph1 = manager.create_initial_harness_graph()
+    graph1 = manager.create_initial_attempt()
     orchestrator1 = orchestrator_registry.get_or_raise(graph1.id)
 
     orchestrator1.apply_plan_submission(_plan(graph1.id))

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from task_center.harness_graph import HarnessGraphFailReason
+from task_center.attempt import HarnessGraphFailReason
 
 
 @dataclass(frozen=True, slots=True)

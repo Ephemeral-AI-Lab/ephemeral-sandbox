@@ -6,16 +6,16 @@ from collections.abc import Callable
 
 from db.stores.harness_graph_store import HarnessGraphStore
 from task_center.config import HarnessLifecycleConfig
-from task_center.complex_task.handler import ComplexTaskRequestHandler
-from task_center.segment.manager import TaskSegmentManager
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.complex_task.request import ComplexTaskRequestStatus
-from task_center.harness_graph import (
+from task_center.mission.handler import ComplexTaskRequestHandler
+from task_center.episode.manager import TaskSegmentManager
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.mission.mission import ComplexTaskRequestStatus
+from task_center.attempt import (
     HarnessGraph,
     HarnessGraphFailReason,
     HarnessGraphStatus,
 )
-from task_center.segment.segment import TaskSegmentStatus
+from task_center.episode.episode import TaskSegmentStatus
 
 
 class _StubOrchestrator:
@@ -75,11 +75,11 @@ def _drive_segment(
     registry = handler._manager_registry  # type: ignore[attr-defined]
     mgr: TaskSegmentManager | None = registry.get(segment_id)
     assert mgr is not None
-    g = mgr.create_initial_harness_graph()
+    g = mgr.create_initial_attempt()
     stub = _StubOrchestrator(
         harness_graph=g,
         graph_store=graph_store,
-        on_graph_closed=mgr.handle_harness_graph_closed,
+        on_graph_closed=mgr.handle_attempt_closed,
         verdict=verdict,
     )
     stub.start()
@@ -89,12 +89,12 @@ def test_smoke_terminal_success(
     request_store, segment_store, graph_store, task_center_run_id
 ):
     handler = _build_handler(request_store, segment_store, graph_store)
-    req = handler.create_complex_task_request(
+    req = handler.create_mission_request(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="exec-1",
         goal="solve X",
     )
-    seg = handler.create_initial_segment(complex_task_request_id=req.id)
+    seg = handler.create_initial_episode(complex_task_request_id=req.id)
     _drive_segment(
         handler=handler,
         segment_id=seg.id,
@@ -112,17 +112,17 @@ def test_smoke_attempt_plan_failed(
     request_store, segment_store, graph_store, task_center_run_id
 ):
     handler = _build_handler(request_store, segment_store, graph_store)
-    req = handler.create_complex_task_request(
+    req = handler.create_mission_request(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="exec-1",
         goal="solve X",
     )
-    seg = handler.create_initial_segment(complex_task_request_id=req.id)
+    seg = handler.create_initial_episode(complex_task_request_id=req.id)
     # First attempt: fail with a generator error.
     registry = handler._manager_registry  # type: ignore[attr-defined]
     mgr = registry.get(seg.id)
     assert mgr is not None
-    g1 = mgr.create_initial_harness_graph()
+    g1 = mgr.create_initial_attempt()
     graph_store.set_plan_contract(
         g1.id, task_specification="spec1", evaluation_criteria=["a"], continuation_goal=None
     )
@@ -130,7 +130,7 @@ def test_smoke_attempt_plan_failed(
         g1.id, status=HarnessGraphStatus.FAILED,
         fail_reason=HarnessGraphFailReason.GENERATOR_FAILED,
     )
-    mgr.handle_harness_graph_closed(g1.id)
+    mgr.handle_attempt_closed(g1.id)
     # Second (and budget-final) attempt: also fail.
     seg_after = segment_store.get(seg.id)
     assert seg_after is not None
@@ -142,7 +142,7 @@ def test_smoke_attempt_plan_failed(
         g2_id, status=HarnessGraphStatus.FAILED,
         fail_reason=HarnessGraphFailReason.EVALUATOR_FAILED,
     )
-    mgr.handle_harness_graph_closed(g2_id)
+    mgr.handle_attempt_closed(g2_id)
     final_request = request_store.get(req.id)
     final_segment = segment_store.get(seg.id)
     assert final_request is not None and final_segment is not None
@@ -156,12 +156,12 @@ def test_smoke_success_continue_then_terminal(
     request_store, segment_store, graph_store, task_center_run_id
 ):
     handler = _build_handler(request_store, segment_store, graph_store)
-    req = handler.create_complex_task_request(
+    req = handler.create_mission_request(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="exec-1",
         goal="initial-goal",
     )
-    seg1 = handler.create_initial_segment(complex_task_request_id=req.id)
+    seg1 = handler.create_initial_episode(complex_task_request_id=req.id)
     _drive_segment(
         handler=handler,
         segment_id=seg1.id,

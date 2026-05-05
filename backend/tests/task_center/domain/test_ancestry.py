@@ -16,11 +16,11 @@ from task_center.agent_launch.predicates import (
     PredicateRegistry,
     register_builtin_predicates,
 )
-from task_center.complex_task.ancestry import (
+from task_center.mission.ancestry import (
     has_partial_planned_caller_ancestor,
 )
-from task_center.harness_graph import HarnessGraphStage
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.attempt import HarnessGraphStage
+from task_center.episode.episode import TaskSegmentCreationReason
 
 
 def _stores(request_store, segment_store, graph_store, task_store):

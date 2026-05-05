@@ -11,18 +11,18 @@ from task_center.context_engine.errors import ContextEngineError
 from task_center.context_engine.packet import (
     ContextPriority,
 )
-from task_center.context_engine.recipes.graph_landscape import (
-    MAX_FAILED_GRAPHS_RENDERED,
+from task_center.context_engine.recipes.attempt_landscape import (
+    MAX_FAILED_ATTEMPTS_RENDERED,
 )
 from task_center.context_engine.recipes.planner import (
     _planner_v1_build,
 )
 from task_center.context_engine.scope import ContextScope
-from task_center.harness_graph import (
+from task_center.attempt import (
     HarnessGraphFailReason,
     HarnessGraphStatus,
 )
-from task_center.segment.segment import (
+from task_center.episode.episode import (
     TaskSegmentCreationReason,
     TaskSegmentStatus,
 )
@@ -75,7 +75,7 @@ def _close_segment_succeeded(
     )
 
 
-def _seed_failed_graph(graph_store, segment_id, *, sequence_no: int):
+def _seed_failed_attempt(graph_store, segment_id, *, sequence_no: int):
     g = graph_store.insert(
         task_segment_id=segment_id, graph_sequence_no=sequence_no
     )
@@ -104,7 +104,7 @@ def _seed_running_graph(graph_store, segment_id, *, sequence_no: int):
 # ---------------------------------------------------------------------------
 
 
-def test_seg1_emits_one_segment_goal_block_with_initial_subtitle(
+def test_episode1_emits_one_merged_mission_episode_block(
     deps_with_stores, request_store, segment_store, graph_store,
     task_center_run_id,
 ):
@@ -123,9 +123,7 @@ def test_seg1_emits_one_segment_goal_block_with_initial_subtitle(
     kinds = [b.kind for b in packet.blocks]
     assert kinds == ["segment_goal"]
     segment_goal = packet.blocks[0]
-    assert segment_goal.metadata.get("subtitle", "").startswith(
-        "*(first segment"
-    )
+    assert segment_goal.metadata["heading"] == "# Mission / Current Episode"
     assert packet.target_id == g.id
 
 
@@ -134,7 +132,7 @@ def test_seg1_emits_one_segment_goal_block_with_initial_subtitle(
 # ---------------------------------------------------------------------------
 
 
-def test_seg2_emits_complex_goal_segment_goal_and_one_prior_pair(
+def test_episode2_emits_mission_prior_results_and_current_episode(
     deps_with_stores, request_store, segment_store, graph_store,
     task_center_run_id,
 ):
@@ -159,16 +157,18 @@ def test_seg2_emits_complex_goal_segment_goal_and_one_prior_pair(
     kinds = [b.kind for b in packet.blocks]
     assert kinds == [
         "complex_task_goal",
-        "segment_goal",
         "prior_segment_specification",
         "prior_segment_summary",
+        "segment_goal",
     ]
-    segment_goal = packet.blocks[1]
-    assert "subtitle" not in segment_goal.metadata
-    prior_spec = packet.blocks[2]
+    assert packet.blocks[0].metadata["heading"] == "# Mission"
+    prior_spec = packet.blocks[1]
     assert prior_spec.priority == ContextPriority.HIGH
     assert prior_spec.metadata["segment_sequence_no"] == "1"
+    assert prior_spec.metadata["group_heading"] == "# Previous Episode Results"
     assert prior_spec.text == "seg1 spec"
+    segment_goal = packet.blocks[3]
+    assert segment_goal.metadata["heading"] == "# Current Episode"
 
 
 def test_seg3_emits_two_pairs_with_priority_split(
@@ -195,15 +195,15 @@ def test_seg3_emits_two_pairs_with_priority_split(
         ),
         deps_with_stores,
     )
-    # Two prior segments, most-recent first; immediate (seg-2) HIGH, earlier (seg-1) MEDIUM.
+    # Two prior episodes in sequence order; immediate prior is HIGH.
     prior_specs = [
         b for b in packet.blocks if b.kind == "prior_segment_specification"
     ]
     assert len(prior_specs) == 2
-    assert prior_specs[0].metadata["segment_sequence_no"] == "2"
-    assert prior_specs[0].priority == ContextPriority.HIGH
-    assert prior_specs[1].metadata["segment_sequence_no"] == "1"
-    assert prior_specs[1].priority == ContextPriority.MEDIUM
+    assert prior_specs[0].metadata["segment_sequence_no"] == "1"
+    assert prior_specs[0].priority == ContextPriority.MEDIUM
+    assert prior_specs[1].metadata["segment_sequence_no"] == "2"
+    assert prior_specs[1].priority == ContextPriority.HIGH
 
 
 def test_missing_prior_spec_raises_context_engine_error(
@@ -239,7 +239,7 @@ def test_missing_prior_spec_raises_context_engine_error(
 # ---------------------------------------------------------------------------
 
 
-def test_three_failed_graphs_emit_three_high_priority_blocks(
+def test_three_failed_attempts_emit_three_high_priority_blocks(
     deps_with_stores, request_store, segment_store, graph_store,
     task_center_run_id,
 ):
@@ -248,7 +248,7 @@ def test_three_failed_graphs_emit_three_high_priority_blocks(
         segment_store, request_id=request.id, sequence_no=1, goal="g"
     )
     for n in (1, 2, 3):
-        _seed_failed_graph(graph_store, seg.id, sequence_no=n)
+        _seed_failed_attempt(graph_store, seg.id, sequence_no=n)
     current = _seed_running_graph(graph_store, seg.id, sequence_no=4)
 
     packet = _planner_v1_build(
@@ -260,7 +260,7 @@ def test_three_failed_graphs_emit_three_high_priority_blocks(
         deps_with_stores,
     )
     failed_blocks = [
-        b for b in packet.blocks if b.kind == "failed_graph_landscape"
+        b for b in packet.blocks if b.kind == "failed_attempt_landscape"
     ]
     assert len(failed_blocks) == 3
     for block in failed_blocks:
@@ -272,7 +272,7 @@ def test_three_failed_graphs_emit_three_high_priority_blocks(
     ]
 
 
-def test_more_than_cap_failed_graphs_truncates_with_medium_summary(
+def test_more_than_cap_failed_attempts_truncates_with_medium_summary(
     deps_with_stores, request_store, segment_store, graph_store,
     task_center_run_id,
 ):
@@ -280,9 +280,9 @@ def test_more_than_cap_failed_graphs_truncates_with_medium_summary(
     seg = _seed_segment(
         segment_store, request_id=request.id, sequence_no=1, goal="g"
     )
-    total = MAX_FAILED_GRAPHS_RENDERED + 2
+    total = MAX_FAILED_ATTEMPTS_RENDERED + 2
     for n in range(1, total + 1):
-        _seed_failed_graph(graph_store, seg.id, sequence_no=n)
+        _seed_failed_attempt(graph_store, seg.id, sequence_no=n)
     current = _seed_running_graph(
         graph_store, seg.id, sequence_no=total + 1
     )
@@ -296,9 +296,9 @@ def test_more_than_cap_failed_graphs_truncates_with_medium_summary(
         deps_with_stores,
     )
     failed_blocks = [
-        b for b in packet.blocks if b.kind == "failed_graph_landscape"
+        b for b in packet.blocks if b.kind == "failed_attempt_landscape"
     ]
-    assert len(failed_blocks) == MAX_FAILED_GRAPHS_RENDERED + 1
+    assert len(failed_blocks) == MAX_FAILED_ATTEMPTS_RENDERED + 1
     truncation_block = failed_blocks[-1]
     assert truncation_block.priority == ContextPriority.MEDIUM
     assert truncation_block.metadata["truncated_count"] == "2"

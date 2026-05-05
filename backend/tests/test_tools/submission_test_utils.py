@@ -6,13 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import AgentLaunch, HarnessGraphRuntime
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.attempt.runtime import AgentLaunch, HarnessGraphRuntime
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import TaskSegmentCreationReason
 from task_center.task import (
     GeneratorSubmission,
     PlannedGeneratorTask,

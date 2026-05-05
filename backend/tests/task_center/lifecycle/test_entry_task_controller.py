@@ -2,7 +2,7 @@
 
 Confirms the controller is the single owner of graph-less entry-executor
 lifecycle: terminal submissions, run exhaustion, delegated-close-report
-resume, and waiting-for-handoff transitions. The entry segment never gets a
+resume, and waiting-for-mission-start transitions. The entry segment never gets a
 HarnessGraph row in any of these tests.
 """
 
@@ -10,16 +10,16 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.complex_task.handler import ComplexTaskRequestHandler
-from task_center.complex_task.request import (
+from task_center.mission.handler import ComplexTaskRequestHandler
+from task_center.mission.mission import (
     ComplexTaskCloseReport,
     ComplexTaskRequestStatus,
 )
 from task_center.config import HarnessLifecycleConfig
 from task_center.entry_task_controller import EntryTaskController
 from task_center.exceptions import GraphInvariantViolation
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import TaskSegmentStatus
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import TaskSegmentStatus
 from task_center.task import HarnessTaskRole, HarnessTaskStatus
 
 
@@ -53,7 +53,7 @@ def _build_controller(
         config=HarnessLifecycleConfig(),
         deliver_close_report=lambda report: finished_runs.append(report),
     )
-    segment, _manager = handler.create_initial_segment_with_manager(
+    segment, _manager = handler.create_initial_episode_with_manager(
         complex_task_request_id=request.id
     )
     task_store.upsert_task(
@@ -290,7 +290,7 @@ def test_mark_waiting_rejects_when_task_is_not_running(entry_setup, task_store):
         )
 
 
-def test_restore_running_after_failed_handoff_rolls_back_waiting(
+def test_restore_running_after_failed_mission_start_rolls_back_waiting(
     entry_setup, task_store
 ):
     controller, _segment, _request, _finished = entry_setup
@@ -305,7 +305,7 @@ def test_restore_running_after_failed_handoff_rolls_back_waiting(
         == HarnessTaskStatus.WAITING_COMPLEX_TASK.value
     )
 
-    controller.restore_running_after_failed_handoff()
+    controller.restore_running_after_failed_mission_start()
 
     assert (
         task_store.get_task(controller.task_id)["status"]

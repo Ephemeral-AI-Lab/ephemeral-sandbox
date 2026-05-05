@@ -7,17 +7,17 @@ from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime
 
-from task_center.complex_task.request import ComplexTaskCloseReport
+from task_center.mission.mission import ComplexTaskCloseReport
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.dispatcher import HarnessGraphDispatcher
-from task_center.harness_graph.state import (
+from task_center.attempt.dispatcher import HarnessGraphDispatcher
+from task_center.attempt.state import (
     HarnessGraph,
     HarnessGraphFailReason,
     HarnessGraphStage,
     HarnessGraphStatus,
 )
 from task_center.context_engine.scope import ContextScope
-from task_center.harness_graph.runtime import (
+from task_center.attempt.runtime import (
     AgentLaunch,
     HarnessGraphRuntime,
 )
@@ -32,11 +32,11 @@ from task_center.task import (
     generator_task_id,
     planner_task_id,
 )
-from task_center.harness_graph.generator_dag import (
+from task_center.attempt.generator_dag import (
     dependency_task_ids,
     ordered_generator_tasks,
 )
-from task_center.harness_graph.validation import (
+from task_center.attempt.validation import (
     assert_evaluator_task_for_submission,
     assert_generator_task_for_submission,
     assert_graph_not_closed,

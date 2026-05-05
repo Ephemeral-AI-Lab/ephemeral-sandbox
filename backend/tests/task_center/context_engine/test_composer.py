@@ -126,7 +126,7 @@ def test_compose_threads_calls_in_order(packet_store):
     assert bundle.agent_def.name == "planner"
     assert bundle.system_prompt == "SYSTEM PROMPT"
     assert bundle.context_packet_id is not None
-    assert "Segment goal" in bundle.task_input
+    assert "Current Episode" in bundle.task_input
     # Packet was persisted.
     assert packet_store.get(bundle.context_packet_id) is not None
 
@@ -144,9 +144,9 @@ def test_required_context_blocks_appended_before_render(packet_store):
                 use="planner_full_only",
                 required_context_blocks=[
                     AgentSelectionBlock(
-                        kind="capability_note",
+                        kind="launch_notice",
                         priority="required",
-                        text="full only.",
+                        text="variant selected.",
                     )
                 ],
             )
@@ -171,8 +171,8 @@ def test_required_context_blocks_appended_before_render(packet_store):
     )
     assert bundle.agent_def.name == "planner_full_only"
     kinds = [b.kind for b in bundle.packet.blocks]
-    assert "capability_note" in kinds
-    assert "full only." in bundle.task_input
+    assert "launch_notice" in kinds
+    assert "variant selected." in bundle.task_input
 
 
 def test_compose_persists_packet_only_with_store():

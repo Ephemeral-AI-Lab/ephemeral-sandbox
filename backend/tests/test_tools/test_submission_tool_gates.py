@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from message.messages import ConversationMessage, ToolResultBlock, ToolUseBlock
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.episode.episode import TaskSegmentCreationReason
 from task_center.task import planner_task_id
 from tools.core.tool_execution import execute_tool_once
 from tools.submission.hooks.request_complex_task_before_edit_gate import (

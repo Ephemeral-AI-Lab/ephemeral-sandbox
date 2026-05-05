@@ -10,15 +10,15 @@ from agents.registry import get_definition, register_definition, unregister_defi
 from agents.types import AgentDefinition
 from engine.runtime.lifecycle import EphemeralRunResult
 from server.app_factory import RuntimeConfig
-from task_center.harness_graph import HarnessGraphFailReason, HarnessGraphStatus
-from task_center.harness_graph.launcher import EphemeralHarnessAgentLauncher
-from task_center.harness_graph.orchestrator import HarnessGraphOrchestrator
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt import HarnessGraphFailReason, HarnessGraphStatus
+from task_center.attempt.launcher import EphemeralHarnessAgentLauncher
+from task_center.attempt.orchestrator import HarnessGraphOrchestrator
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import AgentLaunch, HarnessGraphRuntime
-from task_center.segment.registry import SegmentManagerRegistry
-from task_center.segment.segment import TaskSegmentCreationReason
+from task_center.attempt.runtime import AgentLaunch, HarnessGraphRuntime
+from task_center.episode.registry import SegmentManagerRegistry
+from task_center.episode.episode import TaskSegmentCreationReason
 from task_center.task import HarnessTaskRole, HarnessTaskStatus, planner_task_id
 
 

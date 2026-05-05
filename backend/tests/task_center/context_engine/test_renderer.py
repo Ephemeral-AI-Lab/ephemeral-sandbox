@@ -21,7 +21,7 @@ def _packet(blocks: list[ContextBlock], **metadata: str) -> ContextPacket:
     )
 
 
-def test_priority_order_required_first_then_high_medium_low():
+def test_packet_order_is_semantic_order_not_priority_order():
     blocks = [
         ContextBlock(kind="low", priority=ContextPriority.LOW, text="low"),
         ContextBlock(kind="high", priority=ContextPriority.HIGH, text="high"),
@@ -33,10 +33,9 @@ def test_priority_order_required_first_then_high_medium_low():
         ),
     ]
     out = MarkdownPromptRenderer().render(_packet(blocks))
-    # Headings appear in priority order.
-    assert out.find("Required") < out.find("High")
-    assert out.find("High") < out.find("Medium")
-    assert out.find("Medium") < out.find("Low")
+    assert out.find("Low") < out.find("High")
+    assert out.find("High") < out.find("Required")
+    assert out.find("Required") < out.find("Medium")
 
 
 def test_required_blocks_never_compressed_under_budget():
@@ -92,9 +91,9 @@ def test_low_blocks_compressed_before_medium_blocks():
 def test_inherited_blocks_grouped_under_parent_context_section():
     blocks = [
         ContextBlock(
-            kind="parent_question",
+            kind="planned_task_spec",
             priority=ContextPriority.REQUIRED,
-            text="question",
+            text="helper assignment",
         ),
         ContextBlock(
             kind="segment_goal",
@@ -114,8 +113,8 @@ def test_inherited_blocks_grouped_under_parent_context_section():
     assert parent_idx > 0, "expected '# Parent context' section"
     assert out.find("parent goal") > parent_idx
     assert out.find("parent summary") > parent_idx
-    # Helper-owned parent_question renders before the Parent context heading.
-    assert out.find("question") < parent_idx
+    # Helper-owned assignment renders before the Parent context heading.
+    assert out.find("helper assignment") < parent_idx
 
 
 def test_block_subtitle_metadata_renders_under_heading():
@@ -143,6 +142,33 @@ def test_block_heading_metadata_overrides_default_heading():
     out = MarkdownPromptRenderer().render(_packet(blocks))
     assert out.startswith("# Custom heading\n\nbody")
     assert "# Custom kind" not in out
+
+
+def test_dependency_results_render_as_one_grouped_section():
+    blocks = [
+        ContextBlock(
+            kind="dependency_summary",
+            priority=ContextPriority.MEDIUM,
+            text="dep output",
+            metadata={
+                "group_heading": "# Dependency Results",
+                "subheading": "dep-a",
+            },
+        ),
+        ContextBlock(
+            kind="completed_task_summary",
+            priority=ContextPriority.HIGH,
+            text="completed output",
+            metadata={
+                "group_heading": "# Dependency Results",
+                "subheading": "task-b",
+            },
+        ),
+    ]
+    out = MarkdownPromptRenderer().render(_packet(blocks))
+    assert out.count("# Dependency Results") == 1
+    assert "## dep-a\n\ndep output" in out
+    assert "## task-b\n\ncompleted output" in out
 
 
 def test_render_is_deterministic_for_fixed_packet():

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
-from task_center.complex_task.handoff import ComplexTaskHandoffResult
+from task_center.mission.starter import StartedMissionRequest
 from task_center.exceptions import GraphInvariantViolation
 from task_center.task import HarnessTaskRole
 from tools.core.context import ToolExecutionContextService
@@ -61,23 +61,24 @@ async def request_complex_task_solution(
         return ToolResult(output=str(exc), is_error=True)
 
     try:
-        handoff: ComplexTaskHandoffResult = (
-            submission_context.start_complex_task_handoff(goal=goal)
+        started_request: StartedMissionRequest = (
+            submission_context.start_mission_request(goal=goal)
         )
     except GraphInvariantViolation as exc:
         return ToolResult(output=str(exc), is_error=True)
 
     return ToolResult(
         output=(
-            f"Started delegated complex task request {handoff.complex_task_request_id} "
+            "Started delegated mission request "
+            f"{started_request.complex_task_request_id} "
             "for this generator task."
         ),
         metadata={
             "submission_kind": "complex_task_request_start",
-            "task_center_task_id": handoff.parent_task_id,
-            "harness_graph_id": handoff.parent_harness_graph_id,
-            "complex_task_request_id": handoff.complex_task_request_id,
-            "initial_segment_id": handoff.initial_segment_id,
-            "initial_harness_graph_id": handoff.initial_harness_graph_id,
+            "task_center_task_id": started_request.parent_task_id,
+            "harness_graph_id": started_request.parent_harness_graph_id,
+            "complex_task_request_id": started_request.complex_task_request_id,
+            "initial_segment_id": started_request.initial_segment_id,
+            "initial_harness_graph_id": started_request.initial_harness_graph_id,
         },
     )

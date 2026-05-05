@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from db.models.complex_task_request import ComplexTaskRequestRecord
 from db.stores.base import SyncStoreMixin
-from task_center.complex_task.request import (
+from task_center.mission.mission import (
     ComplexTaskRequest,
     ComplexTaskRequestStatus,
 )

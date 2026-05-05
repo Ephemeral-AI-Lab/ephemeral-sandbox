@@ -24,8 +24,8 @@ from db.stores import (
     TaskSegmentStore,
 )
 from agents.registry import validate_agent_definitions_resolved
-from task_center.complex_task.handler import ComplexTaskRequestHandler
-from task_center.complex_task.request import ComplexTaskCloseReport
+from task_center.mission.handler import ComplexTaskRequestHandler
+from task_center.mission.mission import ComplexTaskCloseReport
 from task_center.config import HarnessLifecycleConfig
 from task_center.context_engine.composer import ContextComposer
 from task_center.context_engine.engine import ContextEngine, ContextEngineDeps
@@ -33,21 +33,21 @@ from task_center.agent_launch.predicates import register_builtin_predicates
 from task_center.context_engine.recipes import register_builtin_recipes
 from task_center.context_engine.scope import ContextScope
 from task_center.entry_task_controller import EntryTaskController
-from task_center.harness_graph.factory import make_harness_graph_orchestrator_factory
-from task_center.harness_graph.launcher import (
+from task_center.attempt.factory import make_attempt_orchestrator_factory
+from task_center.attempt.launcher import (
     AgentStreamEmitter,
     EphemeralHarnessAgentLauncher,
     HarnessAgentRunner,
 )
-from task_center.harness_graph.orchestrator_registry import (
+from task_center.attempt.orchestrator_registry import (
     HarnessGraphOrchestratorRegistry,
 )
-from task_center.harness_graph.runtime import AgentLaunch, HarnessGraphRuntime
+from task_center.attempt.runtime import AgentLaunch, HarnessGraphRuntime
 from task_center.sandbox_bridge import (
     TaskCenterSandboxBinding,
     TaskCenterSandboxBridge,
 )
-from task_center.segment.registry import SegmentManagerRegistry
+from task_center.episode.registry import SegmentManagerRegistry
 from task_center.task import HarnessTaskRole, HarnessTaskStatus
 
 if TYPE_CHECKING:
@@ -141,18 +141,18 @@ class TaskCenterEntryCoordinator:
         manager_registry = SegmentManagerRegistry()
         # The handler created here is reused twice: once to seed the entry
         # request + segment, and again — wrapped on the runtime — to drive
-        # delegated complex-task handoffs originating from the entry task.
+        # delegated mission starts originating from the entry task.
         handler = self._build_request_handler(
             manager_registry=manager_registry,
             task_center_run_id=run_id,
         )
-        complex_request = handler.create_complex_task_request(
+        complex_request = handler.create_mission_request(
             task_center_run_id=run_id,
             requested_by_task_id=entry_task_id,
             goal=self._prompt,
         )
         entry_segment, _segment_manager = (
-            handler.create_initial_segment_with_manager(
+            handler.create_initial_episode_with_manager(
                 complex_task_request_id=complex_request.id,
             )
         )
@@ -298,7 +298,7 @@ class TaskCenterEntryCoordinator:
         # Late-bind the orchestrator factory on the controller's handler so
         # delegated complex-task requests can spawn real harness graphs.
         entry_task_controller.request_handler.set_orchestrator_factory(
-            make_harness_graph_orchestrator_factory(runtime=runtime)
+            make_attempt_orchestrator_factory(runtime=runtime)
         )
         return runtime, launcher
 

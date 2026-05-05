@@ -11,14 +11,14 @@ from db.stores.task_center_store import TaskCenterStore
 from db.stores.task_segment_store import TaskSegmentStore
 from task_center.config import HarnessLifecycleConfig
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.state import HarnessGraph
-from task_center.segment.registry import SegmentManagerRegistry
+from task_center.attempt.state import HarnessGraph
+from task_center.episode.registry import SegmentManagerRegistry
 from task_center.task import HarnessTaskRole
 
 if TYPE_CHECKING:
     from task_center.context_engine.composer import ContextComposer
     from task_center.entry_task_controller import EntryTaskController
-    from task_center.harness_graph.orchestrator_registry import (
+    from task_center.attempt.orchestrator_registry import (
         HarnessGraphOrchestratorRegistry,
     )
 
@@ -58,7 +58,7 @@ class HarnessGraphRuntime:
     # Optional so existing tests can continue without composer wiring.
     composer: "ContextComposer | None" = None
     # Lifecycle controller for the graph-less entry executor. ``None`` for
-    # delegated-only runtimes (handoff coordinator builds its own runtime
+    # delegated-only runtimes (mission starter builds its own runtime
     # with no controller because delegated requests always have a graph).
     # The close-report router and launcher use this to dispatch lifecycle
     # events for entry tasks whose ``task_center_harness_graph_id`` is None.
@@ -92,7 +92,7 @@ class HarnessGraphRuntime:
     ) -> "EntryTaskController | None":
         """Return the entry controller iff it's bound to *task_id*.
 
-        Used at the four entry-mode dispatch sites (handoff coordinator
+        Used at the four entry-mode dispatch sites (mission starter
         parent-waiting + compensation + duplicate-child check, close-report
         router, submission resolver) so each site collapses to one call
         instead of duplicating the ``is not None and task_id == X`` guard.

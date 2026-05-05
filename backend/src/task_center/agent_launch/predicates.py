@@ -5,7 +5,7 @@ references them by id — there is no eval/dsl in the markdown.
 
 The canonical ``partial_plan_caller_ancestor`` predicate is registered here
 as a one-line shim around
-:func:`task_center.complex_task.ancestry.has_partial_planned_caller_ancestor`.
+:func:`task_center.mission.ancestry.has_partial_planned_caller_ancestor`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from task_center.context_engine.engine import ContextEngineDeps
 from task_center.context_engine.scope import ContextScope
-from task_center.complex_task.ancestry import has_partial_planned_caller_ancestor
+from task_center.mission.ancestry import has_partial_planned_caller_ancestor
 
 
 @dataclass(frozen=True, slots=True)

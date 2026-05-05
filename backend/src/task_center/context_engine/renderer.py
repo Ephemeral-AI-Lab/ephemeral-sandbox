@@ -1,8 +1,9 @@
 """PromptRenderer — pure function over :class:`ContextPacket`.
 
-The renderer never touches stores or runtime objects. It walks blocks in
-priority order, groups by kind via a per-kind heading template, and respects
-``packet.metadata['token_budget']`` when present.
+The renderer never touches stores or runtime objects. It walks blocks in packet
+order, applies per-block or per-kind headings, and respects
+``packet.metadata['token_budget']`` when present. Priority is a compression
+policy only; it is not a presentation-order policy.
 
 Inherited blocks (``metadata['inherited_from_parent'] == 'true'``) are
 segregated under a single ``# Parent context`` heading so helper agents see
@@ -17,13 +18,6 @@ from task_center.context_engine.packet import (
     ContextBlock,
     ContextPacket,
     ContextPriority,
-)
-
-_PRIORITY_ORDER: tuple[ContextPriority, ...] = (
-    ContextPriority.REQUIRED,
-    ContextPriority.HIGH,
-    ContextPriority.MEDIUM,
-    ContextPriority.LOW,
 )
 
 _INHERITED_FLAG = "inherited_from_parent"
@@ -79,26 +73,24 @@ def default_heading_template() -> HeadingTemplate:
     """Templates that label per-kind blocks with metadata-driven suffixes."""
     return HeadingTemplate(
         defaults={
-            "complex_task_goal": "# Complex task goal",
-            "segment_goal": "# Segment goal",
+            "complex_task_goal": "# Mission",
+            "segment_goal": "# Current Episode",
             "prior_segment_specification": (
-                "# Prior segment specification (segment {segment_sequence_no})"
+                "# Previous Episode Results"
             ),
             "prior_segment_summary": (
-                "# Prior segment summary (segment {segment_sequence_no})"
+                "# Previous Episode Results"
             ),
-            "failed_graph_landscape": (
-                "# Failed graph landscape (attempt {graph_sequence_no})"
+            "failed_attempt_landscape": (
+                "# Failed Attempts"
             ),
-            "planned_task_spec": "# Your task spec",
-            "task_specification": "# Task specification",
-            "evaluation_criteria": "# Evaluation criteria",
-            "dependency_summary": "# Dependency summary ({dep_id})",
-            "completed_task_summary": "# Completed task summary ({task_id})",
+            "planned_task_spec": "# Assigned Task",
+            "task_specification": "# Attempt Plan",
+            "evaluation_criteria": "# Evaluation Criteria",
+            "dependency_summary": "# Dependency Results",
+            "completed_task_summary": "# Dependency Results",
             "artifact_reference": "# Artifact reference",
             "entry_request": "# Entry request",
-            "parent_question": "# Parent question",
-            "capability_note": "# Capability note",
         }
     )
 
@@ -165,24 +157,46 @@ class MarkdownPromptRenderer:
     def _render_blocks(
         self, blocks: list[ContextBlock]
     ) -> list[str]:
-        ordered = self._order_by_priority(blocks)
         out: list[str] = []
-        for block in ordered:
-            heading = self._headings.heading_for(block)
-            subtitle = block.metadata.get("subtitle") or None
-            body = block.text.strip()
-            section = heading
-            if subtitle:
-                section += f"\n{subtitle}"
-            section += f"\n\n{body}"
-            out.append(section)
+        index = 0
+        while index < len(blocks):
+            block = blocks[index]
+            group_heading = block.metadata.get("group_heading")
+            if group_heading:
+                group: list[ContextBlock] = []
+                while (
+                    index < len(blocks)
+                    and blocks[index].metadata.get("group_heading")
+                    == group_heading
+                ):
+                    group.append(blocks[index])
+                    index += 1
+                out.append(self._render_group(group_heading, group))
+                continue
+
+            out.append(self._render_block(block))
+            index += 1
         return out
 
-    @staticmethod
-    def _order_by_priority(blocks: list[ContextBlock]) -> list[ContextBlock]:
-        rank = {p: i for i, p in enumerate(_PRIORITY_ORDER)}
-        # Stable sort preserves insertion order within a priority bucket.
-        return sorted(blocks, key=lambda b: rank.get(b.priority, len(rank)))
+    def _render_block(self, block: ContextBlock) -> str:
+        heading = self._headings.heading_for(block)
+        subtitle = block.metadata.get("subtitle") or None
+        body = block.text.strip()
+        section = heading
+        if subtitle:
+            section += f"\n{subtitle}"
+        section += f"\n\n{body}"
+        return section
+
+    def _render_group(
+        self, heading: str, blocks: list[ContextBlock]
+    ) -> str:
+        parts = [heading]
+        for block in blocks:
+            subheading = block.metadata.get("subheading") or _humanize(block.kind)
+            body = block.text.strip()
+            parts.append(f"## {subheading}\n\n{body}")
+        return "\n\n".join(parts)
 
     def _compress(
         self,
@@ -193,10 +207,10 @@ class MarkdownPromptRenderer:
         if budget is None:
             return list(blocks)
 
-        ordered = self._order_by_priority(blocks)
-        running = sum(_estimate_tokens(b.text) for b in ordered)
+        kept = list(blocks)
+        running = sum(_estimate_tokens(b.text) for b in kept)
         if running <= budget:
-            return ordered
+            return kept
 
         # Drop / truncate priority by priority, longest first within priority.
         for drop_priority in (
@@ -207,7 +221,7 @@ class MarkdownPromptRenderer:
                 break
             droppable = [
                 (idx, b)
-                for idx, b in enumerate(ordered)
+                for idx, b in enumerate(kept)
                 if b.priority == drop_priority
             ]
             droppable.sort(key=lambda pair: -_estimate_tokens(pair[1].text))
@@ -217,8 +231,8 @@ class MarkdownPromptRenderer:
                 replacement = self._truncate(block)
                 running -= _estimate_tokens(block.text)
                 running += _estimate_tokens(replacement.text)
-                ordered[idx] = replacement
-        return ordered
+                kept[idx] = replacement
+        return kept
 
     @staticmethod
     def _truncate(block: ContextBlock) -> ContextBlock:

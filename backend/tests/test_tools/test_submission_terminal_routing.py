@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.complex_task.request import ComplexTaskRequestStatus
-from task_center.harness_graph import HarnessGraphStage, HarnessGraphStatus
+from task_center.mission.mission import ComplexTaskRequestStatus
+from task_center.attempt import HarnessGraphStage, HarnessGraphStatus
 from task_center.task import (
     EvaluatorSubmission,
     GeneratorSubmission,

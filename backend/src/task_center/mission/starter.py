@@ -1,7 +1,7 @@
-"""ComplexTaskHandoffCoordinator — use-case boundary for delegated request start.
+"""MissionRequestStarter — use-case boundary for delegated request start.
 
 Composes the existing request, segment, manager, and parent-task owners into
-the single safe handoff path used by ``request_complex_task_solution``. Owns
+the single safe mission-start path used by ``request_complex_task_solution``. Owns
 parent-task CAS, deferred orchestrator startup, and compensation on failure.
 """
 
@@ -11,28 +11,28 @@ import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from task_center.complex_task.close_report_delivery import (
+from task_center.mission.close_report_delivery import (
     ComplexTaskCloseReportRouter,
 )
-from task_center.complex_task.handler import ComplexTaskRequestHandler
-from task_center.complex_task.request import (
+from task_center.mission.handler import ComplexTaskRequestHandler
+from task_center.mission.mission import (
     ComplexTaskCloseReport,
     ComplexTaskRequest,
 )
 from task_center.exceptions import GraphInvariantViolation
-from task_center.harness_graph.factory import (
-    make_harness_graph_orchestrator_factory,
+from task_center.attempt.factory import (
+    make_attempt_orchestrator_factory,
 )
-from task_center.harness_graph import HarnessGraphFailReason, HarnessGraphStatus
-from task_center.harness_graph.runtime import HarnessGraphRuntime
-from task_center.segment.segment import TaskSegment
+from task_center.attempt import HarnessGraphFailReason, HarnessGraphStatus
+from task_center.attempt.runtime import HarnessGraphRuntime
+from task_center.episode.episode import TaskSegment
 from task_center.task import HarnessTaskStatus
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
-class ComplexTaskHandoffResult:
+class StartedMissionRequest:
     parent_task_id: str
     # ``None`` when the caller is the graph-less entry executor.
     parent_harness_graph_id: str | None
@@ -42,8 +42,8 @@ class ComplexTaskHandoffResult:
     goal: str
 
 
-class ComplexTaskHandoffCoordinator:
-    """Single orchestration entry point for executor → delegated request handoff."""
+class MissionRequestStarter:
+    """Single orchestration entry point for executor → delegated mission start."""
 
     def __init__(self, *, runtime: HarnessGraphRuntime) -> None:
         self._runtime = runtime
@@ -56,14 +56,14 @@ class ComplexTaskHandoffCoordinator:
         parent_task_id: str,
         parent_harness_graph_id: str | None,
         goal: str,
-    ) -> ComplexTaskHandoffResult:
+    ) -> StartedMissionRequest:
         self._assert_parent_running_and_no_open_child(
             parent_task_id=parent_task_id,
             parent_harness_graph_id=parent_harness_graph_id,
         )
 
         handler = self._build_handler()
-        delegated_request = handler.create_complex_task_request(
+        delegated_request = handler.create_mission_request(
             task_center_run_id=task_center_run_id,
             requested_by_task_id=parent_task_id,
             goal=goal,
@@ -71,13 +71,13 @@ class ComplexTaskHandoffCoordinator:
         (
             initial_segment,
             segment_manager,
-        ) = handler.create_initial_segment_with_manager(
+        ) = handler.create_initial_episode_with_manager(
             complex_task_request_id=delegated_request.id,
         )
 
         initial_graph = None
         try:
-            initial_graph = segment_manager.create_initial_harness_graph(start=False)
+            initial_graph = segment_manager.create_initial_attempt(start=False)
             self._mark_parent_waiting(
                 parent_task_id=parent_task_id,
                 parent_harness_graph_id=parent_harness_graph_id,
@@ -86,9 +86,9 @@ class ComplexTaskHandoffCoordinator:
                 graph_id=initial_graph.id,
                 goal=goal,
             )
-            segment_manager.start_harness_graph(initial_graph)
+            segment_manager.start_attempt(initial_graph)
         except Exception:
-            self._compensate_failed_handoff(
+            self._compensate_failed_start(
                 request=delegated_request,
                 segment=initial_segment,
                 initial_graph_id=(
@@ -99,7 +99,7 @@ class ComplexTaskHandoffCoordinator:
             raise
 
         assert initial_graph is not None
-        return ComplexTaskHandoffResult(
+        return StartedMissionRequest(
             parent_task_id=parent_task_id,
             parent_harness_graph_id=parent_harness_graph_id,
             complex_task_request_id=delegated_request.id,
@@ -116,14 +116,14 @@ class ComplexTaskHandoffCoordinator:
         manager_registry = self._runtime.manager_registry
         if manager_registry is None:
             raise GraphInvariantViolation(
-                "ComplexTaskHandoffCoordinator requires a segment manager registry."
+                "MissionRequestStarter requires a segment manager registry."
             )
         router = ComplexTaskCloseReportRouter(runtime=self._runtime)
 
         def _deliver(report: ComplexTaskCloseReport) -> None:
             router.deliver(report)
 
-        orchestrator_factory = make_harness_graph_orchestrator_factory(
+        orchestrator_factory = make_attempt_orchestrator_factory(
             runtime=self._runtime,
         )
         self._handler = ComplexTaskRequestHandler(
@@ -151,7 +151,7 @@ class ComplexTaskHandoffCoordinator:
         if task.get("status") != HarnessTaskStatus.RUNNING.value:
             raise GraphInvariantViolation(
                 f"TaskCenter task {parent_task_id!r} is not running; "
-                "complex-task handoff requires a running generator task."
+                "delegated mission start requires a running generator task."
             )
         attached_graph = str(task.get("task_center_harness_graph_id") or "")
         # In entry mode the caller has no parent graph (parent_harness_graph_id
@@ -226,10 +226,10 @@ class ComplexTaskHandoffCoordinator:
         if updated is None:
             raise GraphInvariantViolation(
                 f"TaskCenter task {parent_task_id!r} was not running when the "
-                "complex-task handoff tried to mark it waiting."
+                "delegated mission start tried to mark it waiting."
             )
 
-    def _compensate_failed_handoff(
+    def _compensate_failed_start(
         self,
         *,
         request: ComplexTaskRequest,
@@ -239,14 +239,14 @@ class ComplexTaskHandoffCoordinator:
     ) -> None:
         """Best-effort rollback. Order: graph → segment → request → parent."""
         now = datetime.now(UTC)
-        self._close_unstarted_graph_after_failed_handoff(initial_graph_id, now=now)
+        self._close_unstarted_attempt_after_failed_start(initial_graph_id, now=now)
         try:
             self._runtime.segment_store.cancel_for_compensation(
                 segment.id, closed_at=now
             )
         except Exception:
             logger.exception(
-                "ComplexTaskHandoffCoordinator: cancel segment failed",
+                "MissionRequestStarter: cancel segment failed",
             )
         try:
             self._runtime.request_store.cancel_for_compensation(
@@ -254,14 +254,14 @@ class ComplexTaskHandoffCoordinator:
             )
         except Exception:
             logger.exception(
-                "ComplexTaskHandoffCoordinator: cancel request failed",
+                "MissionRequestStarter: cancel request failed",
             )
         try:
             controller = self._runtime.entry_task_controller_for(parent_task_id)
             if controller is not None:
                 # Entry-mode rollback flows through the controller so the
                 # controller stays the single owner of entry-task transitions.
-                controller.restore_running_after_failed_handoff()
+                controller.restore_running_after_failed_mission_start()
             else:
                 self._runtime.task_store.set_task_status_if_current(
                     parent_task_id,
@@ -270,7 +270,7 @@ class ComplexTaskHandoffCoordinator:
                 )
         except Exception:
             logger.critical(
-                "ComplexTaskHandoffCoordinator: parent status rollback failed; "
+                "MissionRequestStarter: parent status rollback failed; "
                 "task %r will remain in WAITING_COMPLEX_TASK and requires "
                 "manual recovery",
                 parent_task_id,
@@ -280,7 +280,7 @@ class ComplexTaskHandoffCoordinator:
         if manager_registry is not None:
             manager_registry.deregister(segment.id)
 
-    def _close_unstarted_graph_after_failed_handoff(
+    def _close_unstarted_attempt_after_failed_start(
         self, graph_id: str | None, *, now: datetime
     ) -> None:
         if graph_id is None:
@@ -297,6 +297,6 @@ class ComplexTaskHandoffCoordinator:
             )
         except Exception:
             logger.exception(
-                "ComplexTaskHandoffCoordinator: failed to close graph "
-                "after handoff failure",
+                "MissionRequestStarter: failed to close attempt "
+                "after mission-start failure",
             )
