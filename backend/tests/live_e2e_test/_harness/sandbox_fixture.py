@@ -151,17 +151,19 @@ def _make_caller() -> SandboxCaller:
 def _bring_up_sandbox(name: str) -> str:
     bootstrap_daytona_provider()
     settings = load_settings()
-    if not settings.sandbox.default_image:
-        pytest.skip("live test requires settings.sandbox.default_image")
+    image = settings.sandbox.default_image.strip()
+    if not image:
+        pytest.skip(
+            "live test requires settings.sandbox.default_image (set "
+            "EPHEMERALOS_SANDBOX_DEFAULT_IMAGE in .env to a prebaked "
+            "image with git, /testbed, and the runtime bundle marker)"
+        )
     provider = get_default_provider()
     created = provider.create(
         name=name,
-        image=settings.sandbox.default_image,
+        image=image,
         language="python",
-        labels={
-            "purpose": "live-e2e-tests",
-            "project_dir": WORKSPACE_ROOT,
-        },
+        labels={"purpose": "live-e2e-tests", "project_dir": WORKSPACE_ROOT},
     )
     sandbox_id = str(created["id"])
     register_adapter(sandbox_id, provider)
@@ -205,11 +207,22 @@ def live_sandbox() -> Iterator[SandboxHandle]:
 
 
 async def _reset_workspace(sandbox_id: str) -> None:
-    """Per-test reset of ``/testbed`` to the post-``ensure_git`` baseline."""
+    """Per-test reset of ``/testbed`` to its post-``ensure_git`` baseline.
+
+    Assumes the prebaked image already provides ``/testbed`` and ``git``;
+    falls back to seeding an empty git repo on first use only if the
+    image's ``/testbed`` lacks ``.git``. Otherwise just runs ``reset
+    --hard`` + ``clean -fdx``.
+    """
     result = await raw_exec_fn(
         sandbox_id,
         "set -e; "
         f"cd {WORKSPACE_ROOT}; "
+        "if [ ! -d .git ]; then "
+        "  git -c init.defaultBranch=main init -q .; "
+        "  git -c user.email=eos@local -c user.name=eos "
+        "      commit -q --allow-empty -m 'live-e2e: baseline'; "
+        "fi; "
         "git reset --hard HEAD >/dev/null 2>&1 || true; "
         "git clean -fdx >/dev/null 2>&1 || true",
         timeout=60,
