@@ -347,6 +347,93 @@ print(json.dumps({"depth": depth, "results": out}, separators=(",", ":")))
 """
 
 
+_HEAVY_WRITE_BODY = r"""
+cfg = json.loads(__CFG_JSON__)
+depth = cfg["depth"]
+files = cfg["files"]
+write_bytes = cfg["write_bytes"]
+
+root = os.path.join(cfg["overlay_root"], "hw_d%d_f%d" % (depth, files))
+fresh(root)
+os.chdir(root)
+
+# Spread `files` files across `depth` lower layers (round-robin).
+# Each file path is "data/L<layer>/f<idx>.txt" and exists exactly once.
+file_paths = []
+for i in range(files):
+    layer = i % depth
+    layer_dir = "L%d" % layer
+    sub = os.path.join(layer_dir, "data", "L%d" % layer)
+    os.makedirs(sub, exist_ok=True)
+    rel = os.path.join("data", "L%d" % layer, "f%05d.txt" % i)
+    abs_in_layer = os.path.join(layer_dir, rel)
+    with open(abs_in_layer, "w") as fh:
+        fh.write("seed-%05d\n" % i)
+    file_paths.append(rel)
+
+lowers = ["L%d" % i for i in range(depth)]
+os.makedirs("u", exist_ok=True)
+os.makedirs("w", exist_ok=True)
+os.makedirs("m", exist_ok=True)
+options = "lowerdir=" + ":".join(reversed(lowers)) + ",upperdir=u,workdir=w"
+
+t0 = time.perf_counter()
+rc, err = mount2("m", options)
+mount_ms = (time.perf_counter() - t0) * 1000.0
+if rc != 0:
+    print(json.dumps({
+        "depth": depth, "files": files, "mount_errno": err,
+        "first_errno": errno.errorcode.get(err, err),
+    }, separators=(",", ":")))
+    raise SystemExit(1)
+
+payload = ("x" * write_bytes).encode("ascii")
+write_timings = []
+write_failures = 0
+total_t0 = time.perf_counter()
+for rel in file_paths:
+    target = os.path.join("m", rel)
+    t0 = time.perf_counter()
+    try:
+        with open(target, "wb") as fh:
+            fh.write(payload)
+        write_timings.append((time.perf_counter() - t0) * 1000.0)
+    except OSError:
+        write_failures += 1
+total_ms = (time.perf_counter() - total_t0) * 1000.0
+
+# Upperdir size after the copy-up storm.
+upper_bytes = 0
+upper_files = 0
+for dirpath, _dirs, names in os.walk("u"):
+    for name in names:
+        try:
+            upper_bytes += os.path.getsize(os.path.join(dirpath, name))
+            upper_files += 1
+        except OSError:
+            pass
+
+umount("m")
+
+print(json.dumps({
+    "depth": depth,
+    "files": files,
+    "write_bytes": write_bytes,
+    "mount_ms": mount_ms,
+    "total_write_ms": total_ms,
+    "writes_per_s": (len(write_timings) / (total_ms / 1000.0)) if total_ms > 0 else 0.0,
+    "write_failures": write_failures,
+    "p50_ms": percentile(write_timings, 50),
+    "p95_ms": percentile(write_timings, 95),
+    "p99_ms": percentile(write_timings, 99),
+    "max_ms": max(write_timings) if write_timings else 0.0,
+    "mean_ms": (sum(write_timings) / len(write_timings)) if write_timings else 0.0,
+    "upper_files": upper_files,
+    "upper_bytes": upper_bytes,
+}, separators=(",", ":")))
+"""
+
+
 _PURGE_BODY = r"""
 fresh(__OVERLAY_ROOT__)
 print("ok")
@@ -422,6 +509,19 @@ def script_concurrent_mounts(
     return _render(_CONCURRENT_BODY, cfg=cfg)
 
 
+def script_heavy_write_copy_up(
+    *, overlay_root: str, depth: int, files: int, write_bytes: int
+) -> str:
+    """Stress copy-up by rewriting every file through a deep overlay stack."""
+    cfg = {
+        "overlay_root": overlay_root,
+        "depth": int(depth),
+        "files": int(files),
+        "write_bytes": int(write_bytes),
+    }
+    return _render(_HEAVY_WRITE_BODY, cfg=cfg)
+
+
 def script_purge_overlay_mounts(*, overlay_root: str) -> str:
     return _render(_PURGE_BODY, overlay_root=overlay_root)
 
@@ -441,6 +541,7 @@ __all__ = [
     "script_snapshot_latency",
     "script_read_latency",
     "script_concurrent_mounts",
+    "script_heavy_write_copy_up",
     "script_purge_overlay_mounts",
     "wrap_unshare",
 ]

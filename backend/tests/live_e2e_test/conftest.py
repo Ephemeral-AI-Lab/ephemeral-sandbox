@@ -106,3 +106,44 @@ def pytest_collection_modifyitems(
             item.add_marker(pytest.mark.skip(reason=reason))
             # Also fail loudly: a fence violation is a hard error, not a skip.
             raise pytest.UsageError(reason)
+
+
+# -- Load metric collector for the occ/ suite -----------------------------
+
+import time as _time  # noqa: E402
+
+from ._harness.occ_workload import LoadCollector, render_table  # noqa: E402
+
+
+_CACHED_COLLECTOR: "LoadCollector | None" = None
+
+
+@pytest.fixture(scope="session")
+def occ_load_collector() -> LoadCollector:
+    """Session-scoped collector for occ load-loop metrics.
+
+    Records one JSONL row per iteration into
+    ``.omc/results/live-e2e-occ-<utc>.jsonl``. ``pytest_sessionfinish``
+    aggregates the rows into an ascii table printed under the
+    ``== live-e2e-occ load metrics ==`` banner so ``pytest -s`` consumers
+    can copy-paste the perf metrics into the README.
+    """
+    global _CACHED_COLLECTOR
+    repo_root = SUITE_ROOT.parents[2]
+    stamp = _time.strftime("%Y%m%dT%H%M%SZ", _time.gmtime())
+    output = repo_root / ".omc" / "results" / f"live-e2e-occ-{stamp}.jsonl"
+    collector = LoadCollector(output_path=output)
+    _CACHED_COLLECTOR = collector
+    return collector
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    del session, exitstatus
+    collector = _CACHED_COLLECTOR
+    if collector is None or not collector.stats:
+        return
+    rows = collector.summarize()
+    print()
+    print("== live-e2e-occ load metrics ==")
+    print(f"jsonl: {collector.output_path}")
+    print(render_table(rows))

@@ -44,13 +44,15 @@ class BudgetDecision:
 class LeaseBudgetWorker:
     """Evaluates lease age, pinned bytes, and active-depth pressure."""
 
+    DEFAULT_KILL_LEASE_AGE_SECONDS: float = 1800.0  # 30 minutes
+
     def __init__(
         self,
         *,
         max_active_depth: int | None = None,
         max_pinned_bytes: int | None = None,
         warn_lease_age_seconds: float | None = None,
-        kill_lease_age_seconds: float | None = None,
+        kill_lease_age_seconds: float | None = DEFAULT_KILL_LEASE_AGE_SECONDS,
         evict_session_pinned_bytes: int | None = None,
         clock: Callable[[], float] | None = None,
     ) -> None:

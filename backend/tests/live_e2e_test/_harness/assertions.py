@@ -89,15 +89,74 @@ def assert_accepts_visible_rejects_invisible(
 
 
 def assert_classification_pure(captures: Iterable[Mapping[str, Any]]) -> None:
-    raise NotImplementedError(
-        "gitignore-classification leak check lands with the occ suite"
-    )
+    """No path crosses the tracked/direct route boundary in a single batch.
+
+    Each capture is expected to carry ``path``, ``route`` (``"tracked"`` or
+    ``"direct"``), and ``status`` (a :class:`FileStatus` value). The OCC
+    contract is:
+
+    - direct-routed paths must never produce ``aborted_version`` /
+      ``aborted_overlap`` (LWW skips the CAS gate).
+    - tracked-routed paths must never carry ``dropped`` (drop is a direct
+      classification used for ``.git`` paths).
+
+    Raises :class:`AssertionError` on the first violation.
+    """
+    leaks: list[str] = []
+    for index, capture in enumerate(captures):
+        path = capture.get("path")
+        route = capture.get("route")
+        status = capture.get("status")
+        if route == "direct" and status in {"aborted_version", "aborted_overlap"}:
+            leaks.append(
+                f"capture[{index}] path={path!r} direct-routed path got CAS-style "
+                f"status={status!r} (LWW must skip the CAS gate)"
+            )
+        if route == "tracked" and status == "dropped":
+            leaks.append(
+                f"capture[{index}] path={path!r} tracked-routed path got "
+                f"status={status!r} (drop is reserved for direct/.git paths)"
+            )
+    if leaks:
+        raise AssertionError(
+            "classification leak detected: " + "; ".join(leaks[:5])
+        )
 
 
 def assert_telemetry_present(result: Mapping[str, Any]) -> None:
-    raise NotImplementedError(
-        "manifest_lag/shell_age telemetry assertions land with the occ suite"
-    )
+    """Committed OCC results must surface the load-testing telemetry contract.
+
+    Verifies:
+
+    - ``timings`` is a non-empty mapping.
+    - ``timings['occ.apply.total_s']`` is present and > 0.
+    - When ``published_manifest_version`` is set, ``timings`` includes
+      ``occ.apply.manifest_lag`` as a non-negative integer.
+
+    ``shell_age_seconds`` is checked softly: tolerated when absent (the
+    integrated/shell path lands in Step 7) but rejected if present with a
+    bad type.
+    """
+    timings = result.get("timings")
+    if not isinstance(timings, Mapping) or not timings:
+        raise AssertionError(f"missing/empty timings dict on result: {result!r}")
+    total_s = timings.get("occ.apply.total_s")
+    if not isinstance(total_s, (int, float)) or total_s <= 0:
+        raise AssertionError(
+            f"occ.apply.total_s missing or non-positive in timings: {timings!r}"
+        )
+    if result.get("published_manifest_version") is not None:
+        lag = timings.get("occ.apply.manifest_lag")
+        if not isinstance(lag, int) or lag < 0:
+            raise AssertionError(
+                f"occ.apply.manifest_lag missing or invalid for committed "
+                f"result: {timings!r}"
+            )
+    shell_age = timings.get("shell_age_seconds")
+    if shell_age is not None and not isinstance(shell_age, (int, float)):
+        raise AssertionError(
+            f"shell_age_seconds present but wrong type: {shell_age!r}"
+        )
 
 
 __all__ = [

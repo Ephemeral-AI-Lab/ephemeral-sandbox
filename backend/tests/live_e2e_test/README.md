@@ -29,6 +29,16 @@ This package is being built incrementally from that plan.
   `_harness/overlay_probe.py` ship via `raw_exec` and exercise direct
   `mount(2)` syscalls under `unshare -Urm`. `assert_no_torn_reads`
   consumes the captures the upper-dir test produces.
+- **Step 6 — `occ_sandbox` fixture + occ/ suite (landed):** fixture in
+  `_harness/sandbox_fixture.py` builds a host-side `LayerStackManager`
+  + `git init`'d workspace and registers an `OccService` via
+  `register_occ_service` so `SandboxHandle.occ_service` is non-None.
+  17 typed-changeset tests cover per-path CAS, gitignore-driven CAS/LWW
+  routing, the `WriteChange`/`EditChange`/`SymlinkChange`/`OpaqueDirChange`
+  pipeline, and `manifest_lag` staleness telemetry. The CAS load loop
+  records 200 iterations of W/W conflicts to
+  `.omc/results/live-e2e-occ-<utc>.jsonl` and prints an aggregate
+  ascii table at session teardown.
 
 Current overlay run (2026-05-05, full battery, 1000 iter × 8 depths):
 
@@ -41,6 +51,21 @@ Current overlay run (2026-05-05, full battery, 1000 iter × 8 depths):
 
 `pytest backend/tests/live_e2e_test/overlay`: **10 passed in 33.3 s**
 (session bring-up ~3.5 s).
+
+Current occ run (2026-05-05, full suite + 200-iter CAS load loop):
+
+| Test | Result |
+|---|---|
+| `test_changeset_pipeline.py` (8 tests) | 8 passed — write/edit/binary/symlink/opaquedir round-trip; intra-changeset Write+Edit ordering; `expected_occurrences` is informational; OpaqueDir + paired Write preserves a kept child |
+| `test_gitignore_routing.py` (6 tests) | 6 passed — tracked CAS, gitignored LWW, mixed partial commit (api_write), EditChange on gitignored path, overlay-capture all-or-nothing demotion, snapshot-time evaluation |
+| `test_per_path_cas.py` (6 tests) | 6 passed — 200/200 W/W conflict rounds: 200 accepted + 200 aborted (0 false-accept, 0 false-reject); p50=12.88 ms, p99=20.85 ms, mean=13.21 ms, max=40.15 ms; delete+edit same path in one changeset |
+| `test_staleness_telemetry.py` (3 tests) | 3 passed — `occ.apply.manifest_lag` populated; lag grows monotonically; no age- or lag-based rejection |
+
+`pytest backend/tests/live_e2e_test/occ -v -s`: **23 passed in 16.6 s**
+(session bring-up ~3.5 s; load loop ~2.6 s for 200 iters).
+JSONL artifact: `.omc/results/live-e2e-occ-<utc>.jsonl` (200 records,
+schema `{ts, test, accepted, rejected, latency_ms, manifest_version,
+manifest_lag}`).
 
 Current layer_stack run (2026-05-05):
 `12 passed, 1 skipped, 0 failed` in ~9 s (session bring-up ~3.5 s;
@@ -55,7 +80,6 @@ The remaining skips break down as follows:
 | Bucket | Files | Tests | Blocker |
 |---|---|---:|---|
 | `layer_stack/test_lease_budget.py` | 1 | 1 | `MAX_PINNED_OLD_MANIFESTS` knob on `LeaseBudgetWorker` |
-| `occ/*` | 4 | 17 | `occ_sandbox` fixture + `OccApplyService` registration path |
 | `layer_stack_overlay_occ/*` | 5 | 17 | `integrated_sandbox` fixture + `sandbox.api.tool` end-to-end through registered overlay/occ |
 
 Notes on the harder buckets:
@@ -115,39 +139,84 @@ host privilege:
 - `script_mount_depths` / `script_mount8_negative_control` — E1.
 - `script_snapshot_latency` — E2 (1000 iter × 8 depths).
 - `script_read_latency` — E3 (warm/cold reads, drop_caches gated).
+- `script_concurrent_mounts` — E2.1 (N mounts held open at depth 50).
 - `OverlayClient.shell` — E4 upper-dir capture round-trip.
 
 Baseline: `.omc/results/stack-overlay-live-*.jsonl`. Live results
 table is in *Status* above.
 
-### Step 6 — `occ_sandbox` fixture + occ/ suite (17 tests)
+#### `mount(2)` vs `mount(8)` and the util-linux ~16-layer cap
 
-Same shape as Step 5, for the changeset pipeline.
+The runtime issues `mount(2)` directly via `ctypes` (libc `mount`)
+rather than calling the `mount(8)` binary. This matters because the
+two have very different ceilings on `lowerdir=` length:
 
-1. Replace the `pytest.skip` in
-   `_harness/sandbox_fixture.py::occ_sandbox` with a fixture that
-   calls `register_occ_service(sandbox_id, ...)` from
-   `backend/src/sandbox/occ/client.py` and populates
-   `SandboxHandle.occ_service`. Build a synthetic layer-stack base
-   view via a host-side `LayerStackManager` (mirror
-   `layer_stack_sandbox`) so the changeset pipeline has something
-   to apply against without standing up overlay.
-2. Test bodies for plan §4.3:
-   - `test_per_path_cas.py` (5) — write/write conflict, disjoint
-     paths, anchor miss, existence change, delete idempotency.
-     Pass bar: 0 false-accept and 0 false-reject across 10k
-     iterations of the gated matrix (scale per test budget; record
-     the ratio).
-   - `test_gitignore_routing.py` (4) — tracked → CAS, gitignored →
-     LWW, mixed changeset partial commit, snapshot-time evaluation.
-   - `test_changeset_pipeline.py` (5) — round-trip every typed
-     `Change`: `WriteChange`, `EditChange`, `BinaryChange`,
-     `SymlinkChange`, `OpaqueDirChange`.
-   - `test_staleness_telemetry.py` (3) — long-shell clean CAS
-     accept; `manifest_lag` increments; no age- or lag-based
-     rejection.
-3. Implement `_harness/assertions.py::assert_classification_pure`
-   and `assert_telemetry_present` (currently `NotImplementedError`).
+- **`mount(2)`** accepts an options string up to one **kernel page**
+  (typically 4096 bytes). With basenames after `chdir` (~9 chars per
+  layer entry) that's room for ~400 lower layers in practice.
+- **`mount(8)`** (util-linux) parses options into an internal
+  **fixed-size buffer** that's much smaller. With absolute paths to
+  lower layers — the natural shape when shelling out from agent code —
+  the buffer overflows around depth **10–16**. The binary fails with
+  `wrong fs type, bad option, bad superblock on overlay …` (rc=32),
+  even though the kernel itself would happily accept the same options
+  via `mount(2)`.
+
+The negative-control test
+`test_mount8_binary_negative_control_fails_at_depth_ge_10` reproduces
+this exactly: at depth 100 with absolute paths it pushes the options
+string to **7 772 bytes**, well past util-linux's buffer, and
+`mount(8)` fails with *Too many levels of symbolic links*. The same
+kernel call via `mount(2)` succeeds at depth 200 with options_len=919
+(`test_snapshot_latency`).
+
+Design impact: the migration plan originally proposed a hybrid mode
+that fell back to `mount(8)` once the stack got deep, which would have
+capped practical depth at ~16 layers. Once we characterised the
+failure as **util-linux's argv buffer, not a kernel limit**, the
+runtime switched to `mount(2)` exclusively. This lifts the cap to the
+kernel-imposed limit (~200 layers in practice; zero failures across
+8 000 mounts in `test_1000_iter_zero_failures_per_depth`) and lets
+squash run on its own schedule rather than being driven by
+toolchain-imposed depth panic.
+
+### Step 6 — `occ_sandbox` fixture + occ/ suite (17 tests, landed)
+
+Same shape as Step 5, for the changeset pipeline. The fixture in
+`backend/tests/live_e2e_test/_harness/sandbox_fixture.py::occ_sandbox`
+brings up `live_sandbox`, builds a host-side `LayerStackManager`
+rooted at `tmp_path/occ_storage`, runs `git init` against
+`tmp_path/occ_workspace` so `GitignoreOracle` can answer
+`check-ignore`, instantiates an `OccService` over the pair, and binds
+it via `register_occ_service(sandbox_id, ...)`. The live sandbox is
+held up only to keep the gate honest — the OCC state under test is
+fully host-side.
+
+`_harness/occ_workload.py` ships the supporting workload helpers:
+`init_git_workspace`, `write_gitignore`, `publish_base_file` (seeds
+the layer-stack base view), and a `LoadCollector` that aggregates
+per-iteration latency + accept/reject counts and flushes one JSONL
+record per iteration.
+
+The CAS load loop in `test_per_path_cas.py::test_write_write_conflict_rejects_loser`
+runs 200 paired-commit rounds against the registered service. The
+session-end `pytest_sessionfinish` hook in `conftest.py` summarises
+latency p50/p99 + accept/reject ratios and prints them under the
+`== live-e2e-occ load metrics ==` banner so `pytest -s` consumers can
+copy-paste numbers into the Status table.
+
+`assert_classification_pure` rejects any direct-routed path that
+gets a CAS-style status (`aborted_version`/`aborted_overlap`) or any
+tracked-routed path tagged `dropped`. `assert_telemetry_present`
+verifies committed results carry `occ.apply.total_s>0` and, when a
+manifest is published, `occ.apply.manifest_lag` as a non-negative int.
+
+Telemetry: `OccService.apply_changeset` emits
+`occ.apply.manifest_lag = published_manifest_version - snapshot.version - 1`
+(clamped at 0) on every committed result whose changeset had a
+non-None snapshot. `shell_age_seconds` is intentionally left for
+Step 7's integrated/shell path; the assertion soft-tolerates its
+absence.
 
 ### Step 7 — `integrated_sandbox` fixture + layer_stack_overlay_occ/ suite (17 tests)
 
@@ -186,14 +255,14 @@ the conftest's `pytest_collection_modifyitems` hook will raise
 
 ### Sequencing
 
-With layer_stack and overlay green, the remaining work is:
+With layer_stack, overlay, and occ green, the remaining work is:
 
-- **Step 6** (occ_sandbox + occ tests) is the next single-fixture slice.
-- **Step 4** (`MAX_PINNED_OLD_MANIFESTS`) is independent and can ride
-  alongside Step 6.
-- **Step 7** is sequential — start it only after Step 6 lands.
-  **Step 7's `soak` profile is 15 min** and should not run on every
-  push; gate it behind a separate marker or a nightly job.
+- **Step 4** (`MAX_PINNED_OLD_MANIFESTS`) is independent and can land
+  any time.
+- **Step 7** (integrated_sandbox + load profiles) — start it now that
+  Step 6 has landed. **Step 7's `soak` profile is 15 min** and should
+  not run on every push; gate it behind a separate marker or a
+  nightly job.
 
 ## How to run
 

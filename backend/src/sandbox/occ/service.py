@@ -65,22 +65,26 @@ class OccService:
         result = await self._serial_merger.apply(prepared)
         commit_elapsed = time.perf_counter() - commit_start
         result_timings, resume_wait = _result_timings_with_resume(result)
+        timings = {
+            **result_timings,
+            "occ.apply.commit_queue_wait_s": result_timings.get(
+                "occ.serial.queue_wait_s",
+                0.0,
+            ),
+            "occ.apply.commit_worker_s": result_timings.get(
+                "occ.commit.total_s",
+                0.0,
+            ),
+            "occ.apply.commit_resume_wait_s": resume_wait,
+            "occ.apply.commit_s": commit_elapsed,
+            "occ.apply.total_s": time.perf_counter() - total_start,
+        }
+        manifest_lag = _manifest_lag(prepared.snapshot, result.published_manifest_version)
+        if manifest_lag is not None:
+            timings["occ.apply.manifest_lag"] = manifest_lag
         return ChangesetResult(
             files=result.files,
-            timings={
-                **result_timings,
-                "occ.apply.commit_queue_wait_s": result_timings.get(
-                    "occ.serial.queue_wait_s",
-                    0.0,
-                ),
-                "occ.apply.commit_worker_s": result_timings.get(
-                    "occ.commit.total_s",
-                    0.0,
-                ),
-                "occ.apply.commit_resume_wait_s": resume_wait,
-                "occ.apply.commit_s": commit_elapsed,
-                "occ.apply.total_s": time.perf_counter() - total_start,
-            },
+            timings=timings,
             published_manifest_version=result.published_manifest_version,
         )
 
@@ -109,22 +113,26 @@ class OccService:
         result = self._serial_merger.apply_sync(prepared)
         commit_elapsed = time.perf_counter() - commit_start
         result_timings, _resume_wait = _result_timings_with_resume(result)
+        timings = {
+            **result_timings,
+            "occ.apply.commit_queue_wait_s": result_timings.get(
+                "occ.serial.queue_wait_s",
+                0.0,
+            ),
+            "occ.apply.commit_worker_s": result_timings.get(
+                "occ.commit.total_s",
+                0.0,
+            ),
+            "occ.apply.commit_resume_wait_s": 0.0,
+            "occ.apply.commit_s": commit_elapsed,
+            "occ.apply.total_s": time.perf_counter() - total_start,
+        }
+        manifest_lag = _manifest_lag(prepared.snapshot, result.published_manifest_version)
+        if manifest_lag is not None:
+            timings["occ.apply.manifest_lag"] = manifest_lag
         return ChangesetResult(
             files=result.files,
-            timings={
-                **result_timings,
-                "occ.apply.commit_queue_wait_s": result_timings.get(
-                    "occ.serial.queue_wait_s",
-                    0.0,
-                ),
-                "occ.apply.commit_worker_s": result_timings.get(
-                    "occ.commit.total_s",
-                    0.0,
-                ),
-                "occ.apply.commit_resume_wait_s": 0.0,
-                "occ.apply.commit_s": commit_elapsed,
-                "occ.apply.total_s": time.perf_counter() - total_start,
-            },
+            timings=timings,
             published_manifest_version=result.published_manifest_version,
         )
 
@@ -184,6 +192,15 @@ class OccService:
         )
         timings["occ.prepare.total_s"] = time.perf_counter() - total_start
         return replace(prepared, timings={**prepared.timings, **timings})
+
+
+def _manifest_lag(
+    snapshot: Manifest | None, published_version: int | None
+) -> int | None:
+    if snapshot is None or published_version is None:
+        return None
+    delta = published_version - snapshot.version - 1
+    return max(0, delta)
 
 
 def _result_timings_with_resume(result: ChangesetResult) -> tuple[dict[str, float], float]:

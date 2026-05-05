@@ -15,6 +15,7 @@ remote shell access reach for ``handle.raw_exec``.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
@@ -46,6 +47,9 @@ from sandbox.api.utils.models import (
 )
 from sandbox.control.ops.setup import setup_after_create
 from sandbox.layer_stack.stack_manager import LayerStackManager
+from sandbox.occ.client import dispose_occ_service, register_occ_service
+from sandbox.occ.content.gitignore_oracle import GitignoreOracle
+from sandbox.occ.service import OccService
 from sandbox.overlay.client import (
     OverlayClient,
     dispose_overlay_client,
@@ -55,6 +59,7 @@ from sandbox.overlay.runner.snapshot_overlay_runner import SnapshotOverlayRunner
 from sandbox.providers.daytona.bootstrap import bootstrap_daytona_provider
 from sandbox.providers.registry import get_default_provider, register_adapter
 
+from .occ_workload import make_sandbox_gitignore_run_fn
 from .overlay_probe import OVERLAY_ROOT, script_purge_overlay_mounts, wrap_unshare
 
 
@@ -313,10 +318,50 @@ async def overlay_sandbox(
 
 @pytest_asyncio.fixture
 async def occ_sandbox(
-    live_sandbox: SandboxHandle,
+    live_sandbox: SandboxHandle, tmp_path: Path
 ) -> AsyncIterator[SandboxHandle]:
-    pytest.skip("occ_sandbox fixture lands with the occ suite")
-    yield live_sandbox  # pragma: no cover
+    """Live sandbox + host-side ``OccService`` whose oracle queries ``/testbed``.
+
+    The migration plan keeps :class:`LayerStackManager` host-side, so
+    OCC bookkeeping lives in ``tmp_path/occ_storage``. But the
+    :class:`GitignoreOracle` is bridged to the live sandbox: every
+    ``git check-ignore`` lookup ships over ``raw_exec`` against
+    ``/testbed`` so OCC's route decisions consult the real sandbox
+    state agents see, not a synthetic host workspace.
+
+    ``_reset_workspace`` runs first to give us a clean ``/testbed``
+    git baseline that test bodies can layer ``.gitignore`` patterns
+    onto via :func:`write_sandbox_gitignore`.
+    """
+    await _reset_workspace(live_sandbox.sandbox_id)
+
+    storage = tmp_path / "occ_storage"
+    manager = LayerStackManager(storage)
+    loop = asyncio.get_running_loop()
+    run_fn = make_sandbox_gitignore_run_fn(live_sandbox.sandbox_id, loop)
+    gitignore = GitignoreOracle("/testbed", run=run_fn)
+    service = OccService(gitignore=gitignore, layer_stack=manager)
+    register_occ_service(live_sandbox.sandbox_id, service)
+
+    handle = SandboxHandle(
+        sandbox_id=live_sandbox.sandbox_id,
+        caller=live_sandbox.caller,
+        raw_exec=live_sandbox.raw_exec,
+        tool=live_sandbox.tool,
+        layer_stack=manager,
+        occ_service=service,
+        extras={
+            "storage_root": storage,
+            "workspace_root": "/testbed",
+            "gitignore_oracle": gitignore,
+            "gitignore_run_fn": run_fn,
+            "payloads_root": tmp_path / "occ_payloads",
+        },
+    )
+    try:
+        yield handle
+    finally:
+        dispose_occ_service(live_sandbox.sandbox_id)
 
 
 @pytest_asyncio.fixture
