@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.layer_stack.changes import LayerChange, LayerDelta
+from sandbox.layer_stack.changes import LayerChange, LayerDelta, aggregate_layer_changes
 from sandbox.layer_stack.lease_budget import (
     BudgetDecision,
     LeaseBudgetWorker,
@@ -45,4 +45,5 @@ __all__ = [
     "MergedView",
     "SquashPlan",
     "SquashWorker",
+    "aggregate_layer_changes",
 ]

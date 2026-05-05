@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from sandbox.layer_stack.manifest import LayerRef, Manifest
@@ -51,14 +51,34 @@ class LeaseRegistry:
 
     def release(self, lease_id: str) -> Lease | None:
         with self._lock:
-            lease = self._leases.pop(lease_id, None)
-            if lease is None:
-                return None
-            for layer in lease.manifest.layers:
-                self._refcounts[layer] -= 1
-                if self._refcounts[layer] <= 0:
-                    del self._refcounts[layer]
-            return lease
+            return self._release_locked(lease_id)
+
+    def expire_older_than(
+        self,
+        max_age_seconds: float,
+        *,
+        now: float | None = None,
+    ) -> tuple[Lease, ...]:
+        if max_age_seconds < 0:
+            raise ValueError("max_age_seconds must be non-negative")
+        cutoff = (self._clock() if now is None else now) - max_age_seconds
+        with self._lock:
+            expired_ids = (
+                lease.lease_id
+                for lease in self._ordered_leases_locked()
+                if lease.acquired_at <= cutoff
+            )
+            return self._release_many_locked(expired_ids)
+
+    def sweep_dead_owners(self, live_owner_ids: Iterable[str]) -> tuple[Lease, ...]:
+        live = set(live_owner_ids)
+        with self._lock:
+            dead_ids = (
+                lease.lease_id
+                for lease in self._ordered_leases_locked()
+                if lease.owner_id not in live
+            )
+            return self._release_many_locked(dead_ids)
 
     def refcount(self, layer: LayerRef) -> int:
         with self._lock:
@@ -70,4 +90,25 @@ class LeaseRegistry:
 
     def active_leases(self) -> tuple[Lease, ...]:
         with self._lock:
-            return tuple(sorted(self._leases.values(), key=lambda lease: lease.acquired_at))
+            return self._ordered_leases_locked()
+
+    def _ordered_leases_locked(self) -> tuple[Lease, ...]:
+        return tuple(sorted(self._leases.values(), key=lambda lease: lease.acquired_at))
+
+    def _release_many_locked(self, lease_ids: Iterable[str]) -> tuple[Lease, ...]:
+        released: list[Lease] = []
+        for lease_id in tuple(lease_ids):
+            lease = self._release_locked(lease_id)
+            if lease is not None:
+                released.append(lease)
+        return tuple(released)
+
+    def _release_locked(self, lease_id: str) -> Lease | None:
+        lease = self._leases.pop(lease_id, None)
+        if lease is None:
+            return None
+        for layer in lease.manifest.layers:
+            self._refcounts[layer] -= 1
+            if self._refcounts[layer] <= 0:
+                del self._refcounts[layer]
+        return lease

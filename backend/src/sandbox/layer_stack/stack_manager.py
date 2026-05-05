@@ -93,6 +93,19 @@ class LayerStackManager:
         with self._lock:
             return self._leases.release(lease_id) is not None
 
+    def expire_leases_older_than(
+        self,
+        max_age_seconds: float,
+        *,
+        now: float | None = None,
+    ) -> tuple[Lease, ...]:
+        with self._lock:
+            return self._leases.expire_older_than(max_age_seconds, now=now)
+
+    def sweep_dead_lease_owners(self, live_owner_ids: Sequence[str]) -> tuple[Lease, ...]:
+        with self._lock:
+            return self._leases.sweep_dead_owners(live_owner_ids)
+
     def lease_refcount(self, layer: LayerRef) -> int:
         return self._leases.refcount(layer)
 

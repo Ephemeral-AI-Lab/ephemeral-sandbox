@@ -6,6 +6,7 @@ do not encode OCC policy, ignore-file policy, or overlay runtime details.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Literal
@@ -55,3 +56,13 @@ class LayerDelta:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "changes", tuple(self.changes))
+
+
+def aggregate_layer_changes(changes: Iterable[LayerChange]) -> LayerDelta:
+    """Collapse accepted same-path changes into a deterministic layer delta."""
+    final_by_path: dict[str, LayerChange] = {}
+    for change in changes:
+        final_by_path[change.path] = change
+    return LayerDelta(
+        changes=tuple(final_by_path[path] for path in sorted(final_by_path))
+    )

@@ -32,6 +32,15 @@ def test_lease_budget_backpressures_when_active_depth_reaches_limit() -> None:
     assert decision.lease_id is None
 
 
+def test_lease_budget_zero_depth_is_closed() -> None:
+    worker = LeaseBudgetWorker(max_active_depth=0)
+
+    decision = worker.evaluate(active_depth=0, snapshots=[])
+
+    assert decision.kind == "backpressure_commits"
+    assert decision.lease_id is None
+
+
 def test_lease_budget_marks_oldest_expired_lease_for_kill() -> None:
     worker = LeaseBudgetWorker(kill_lease_age_seconds=10, clock=lambda: 25)
     snapshot = LeaseSnapshot(

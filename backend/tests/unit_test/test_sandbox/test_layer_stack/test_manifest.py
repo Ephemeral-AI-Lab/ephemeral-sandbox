@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack.changes import LayerChange, normalize_layer_path
+from sandbox.layer_stack.changes import (
+    LayerChange,
+    aggregate_layer_changes,
+    normalize_layer_path,
+)
 from sandbox.layer_stack.manifest import LayerRef, Manifest, read_manifest, write_manifest_atomic
 
 
@@ -55,3 +59,23 @@ def test_layer_change_validates_storage_level_payload_shape(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="delete changes must not carry source_path"):
         LayerChange(path="old.py", kind="delete", source_path=str(source))
+
+
+def test_layer_change_aggregation_keeps_final_change_per_path(tmp_path: Path) -> None:
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    other = tmp_path / "other.txt"
+    first.write_text("first\n", encoding="utf-8")
+    second.write_text("second\n", encoding="utf-8")
+    other.write_text("other\n", encoding="utf-8")
+
+    delta = aggregate_layer_changes(
+        (
+            LayerChange(path="b.txt", kind="write", source_path=str(first)),
+            LayerChange(path="a.txt", kind="write", source_path=str(other)),
+            LayerChange(path="b.txt", kind="write", source_path=str(second)),
+        )
+    )
+
+    assert [change.path for change in delta.changes] == ["a.txt", "b.txt"]
+    assert delta.changes[1].source_path == str(second)

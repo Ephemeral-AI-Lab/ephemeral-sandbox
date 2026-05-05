@@ -56,11 +56,14 @@ class LeaseBudgetWorker:
         evict_session_pinned_bytes: int | None = None,
         clock: Callable[[], float] | None = None,
     ) -> None:
-        _validate_positive_int("max_active_depth", max_active_depth)
-        _validate_positive_int("max_pinned_bytes", max_pinned_bytes)
+        _validate_non_negative_int("max_active_depth", max_active_depth)
+        _validate_non_negative_int("max_pinned_bytes", max_pinned_bytes)
         _validate_positive_float("warn_lease_age_seconds", warn_lease_age_seconds)
         _validate_positive_float("kill_lease_age_seconds", kill_lease_age_seconds)
-        _validate_positive_int("evict_session_pinned_bytes", evict_session_pinned_bytes)
+        _validate_non_negative_int(
+            "evict_session_pinned_bytes",
+            evict_session_pinned_bytes,
+        )
         self._max_active_depth = max_active_depth
         self._max_pinned_bytes = max_pinned_bytes
         self._warn_lease_age_seconds = warn_lease_age_seconds
@@ -170,9 +173,9 @@ class LeaseBudgetWorker:
         return None
 
 
-def _validate_positive_int(name: str, value: int | None) -> None:
-    if value is not None and value <= 0:
-        raise ValueError(f"{name} must be positive")
+def _validate_non_negative_int(name: str, value: int | None) -> None:
+    if value is not None and value < 0:
+        raise ValueError(f"{name} must be non-negative")
 
 
 def _validate_positive_float(name: str, value: float | None) -> None:
