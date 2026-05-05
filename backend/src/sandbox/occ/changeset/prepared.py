@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset.types import Change
 
 
-class RouteDecision(StrEnum):
+class RouteDecision(str, Enum):
     OCC_GATED_MERGE = "occ_gated_merge"
     OCC_SKIPPED_MERGE = "occ_skipped_merge"
     DROP = "drop"

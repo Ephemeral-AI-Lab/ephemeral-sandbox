@@ -95,3 +95,16 @@ def test_unknown_path_caches_negative_result() -> None:
     # A negative answer must also be cached.
     assert oracle.is_ignored("src/main.py") is False
     assert counter["calls"] == 1
+
+
+def test_negated_verbose_pattern_marks_path_not_ignored() -> None:
+    def run(argv: list[str], stdin_bytes: bytes) -> RunOutcome:
+        return RunOutcome(
+            returncode=0,
+            stdout=b".gitignore\0N\0!build/keep.txt\0build/keep.txt\0",
+            stderr=b"",
+        )
+
+    oracle = GitignoreOracle("/repo", run=run)
+
+    assert oracle.is_ignored("build/keep.txt") is False

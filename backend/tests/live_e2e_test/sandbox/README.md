@@ -13,6 +13,10 @@ in the pytest process instead of the sandbox runtime guardrails.
   latency, read, concurrent-mount, and heavy-write probes via `raw_exec`.
 - **Overlay native slice:** `sandbox/overlay/native/` (in progress) hosts probes
   that import `sandbox.overlay` from the runtime bundle inside the sandbox.
+- **Phase 1 native foundations:** `sandbox/layer_stack/`, `sandbox/occ/`, and
+  `sandbox/overlay/native/` now cover the P0 storage, OCC, and native capture
+  probes from `IMPLEMENTATION_PLAN.md`. Current live gate: `23 passed` in
+  `55.65 s` on 2026-05-05. See `phase-01-native-foundations-report.md`.
 - **Integrated slice:** `sandbox/layer_stack_overlay_occ/` now has an active public-tool
   smoke for sandbox-local write/edit/shell/read coverage. Heavier race,
   recovery, and load-profile cases remain pending.
@@ -38,6 +42,7 @@ about 48 s. The skips are pending integrated concurrency/load/failure tests.
 | Bucket | Files | Tests | Blocker |
 |---|---|---:|---|
 | `sandbox/layer_stack_overlay_occ/*` | 5 | 17 | concurrency/load/failure helpers over public sandbox runtime tools |
+| Phase 4/5 load profiles | 1+ | 4+ | sustained/burst/soak JSONL load artifacts |
 
 The integrated suite is the replacement target for OCC/overlay live coverage.
 Per the import fence in `conftest.py`, live-suite files may import public

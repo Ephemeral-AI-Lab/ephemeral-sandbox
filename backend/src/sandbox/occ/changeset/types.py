@@ -6,13 +6,13 @@ Source-tagged mutation intent objects for the layer-stack OCC path.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import StrEnum
-from typing import Literal
+from enum import Enum
+from typing import Literal, Union
 
 ChangeSource = Literal["api_write", "api_edit", "overlay_capture"]
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True)
 class SearchReplaceEdit:
     """One exact-match edit anchor."""
 
@@ -123,7 +123,7 @@ class DeleteChange(Change):
         return DeleteChange(path=self.path, source=self.source, base_hash=base_hash)
 
 
-GatedChange = WriteChange | EditChange | DeleteChange
+GatedChange = Union[WriteChange, EditChange, DeleteChange]
 
 
 @dataclass(frozen=True, init=False)
@@ -160,7 +160,7 @@ class OpaqueDirChange(Change):
         object.__setattr__(self, "kept_children", frozenset(kept_children))
 
 
-class FileStatus(StrEnum):
+class FileStatus(str, Enum):
     ACCEPTED = "accepted"
     COMMITTED = "committed"
     ABORTED_VERSION = "aborted_version"

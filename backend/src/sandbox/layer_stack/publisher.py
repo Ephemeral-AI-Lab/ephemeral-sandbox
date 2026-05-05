@@ -77,6 +77,31 @@ class LayerPublisher:
             )
             return active
 
+        digest_start = time.perf_counter()
+        layer_digest = _changes_digest(changes)
+        if _head_layer_digest(self._storage_root, active) == layer_digest:
+            _record(
+                timings,
+                "layer_stack.publish.digest_check_s",
+                time.perf_counter() - digest_start,
+            )
+            _record(
+                timings,
+                "layer_stack.publish.idempotent_s",
+                time.perf_counter() - total_start,
+            )
+            _record(
+                timings,
+                "layer_stack.publish.total_s",
+                time.perf_counter() - total_start,
+            )
+            return active
+        _record(
+            timings,
+            "layer_stack.publish.digest_check_s",
+            time.perf_counter() - digest_start,
+        )
+
         backpressure_start = time.perf_counter()
         self._check_backpressure(active)
         _record(
@@ -110,6 +135,7 @@ class LayerPublisher:
             replace_start = time.perf_counter()
             layer_dir.parent.mkdir(parents=True, exist_ok=True)
             os.replace(staging_dir, layer_dir)
+            _write_layer_digest(self._storage_root, layer_id, layer_digest)
             _record(
                 timings,
                 "layer_stack.publish.replace_staging_s",
@@ -134,12 +160,19 @@ class LayerPublisher:
             time.perf_counter() - read_latest_start,
         )
         if latest != active:
+            _remove_path(layer_dir)
+            _digest_path(self._storage_root, layer_id).unlink(missing_ok=True)
             raise ManifestConflictError(
                 "active manifest changed during layer publish: "
                 f"expected version {active.version}, found version {latest.version}"
             )
         write_manifest_start = time.perf_counter()
-        write_manifest_atomic(self._manifest_file, new_manifest)
+        try:
+            write_manifest_atomic(self._manifest_file, new_manifest)
+        except Exception:
+            _remove_path(layer_dir)
+            _digest_path(self._storage_root, layer_id).unlink(missing_ok=True)
+            raise
         _record(
             timings,
             "layer_stack.publish.write_manifest_s",
@@ -204,6 +237,50 @@ class LayerPublisher:
 
 def _default_layer_id(next_version: int) -> str:
     return f"L{next_version:06d}-{uuid.uuid4().hex[:8]}"
+
+
+def _changes_digest(changes: Sequence[LayerChange]) -> str:
+    digest = hashlib.sha256()
+    for change in changes:
+        digest.update(change.kind.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(change.path.encode("utf-8"))
+        digest.update(b"\0")
+        if change.kind == "write":
+            if change.source_path is None:
+                raise ValueError("write changes require source_path")
+            digest.update(Path(change.source_path).read_bytes())
+        elif change.kind == "symlink":
+            digest.update(str(change.source_path or "").encode("utf-8"))
+        elif change.content_hash:
+            digest.update(change.content_hash.encode("utf-8"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _metadata_dir(storage_root: Path) -> Path:
+    return storage_root / ".layer-metadata"
+
+
+def _digest_path(storage_root: Path, layer_id: str) -> Path:
+    return _metadata_dir(storage_root) / f"{layer_id}.digest"
+
+
+def _write_layer_digest(storage_root: Path, layer_id: str, digest: str) -> None:
+    metadata = _metadata_dir(storage_root)
+    metadata.mkdir(parents=True, exist_ok=True)
+    _digest_path(storage_root, layer_id).write_text(digest, encoding="utf-8")
+
+
+def _head_layer_digest(storage_root: Path, active: Manifest) -> str | None:
+    if not active.layers:
+        return None
+    try:
+        return _digest_path(storage_root, active.layers[0].layer_id).read_text(
+            encoding="utf-8",
+        )
+    except OSError:
+        return None
 
 
 def _join_rel(root: Path, rel: str) -> Path:

@@ -92,8 +92,8 @@ class GitignoreOracle:
                 record = fields[i : i + 4]
                 if len(record) < 4:
                     break
-                source, _line, _pattern, raw_path = record
-                if source:
+                source, _line, pattern, raw_path = record
+                if source and not pattern.startswith(b"!"):
                     ignored.add(raw_path.decode("utf-8").rstrip("/"))
         for path in paths:
             self._cache[path] = path in ignored or path.rstrip("/") in ignored

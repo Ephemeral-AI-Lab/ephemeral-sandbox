@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
+from typing import Optional
 
 from sandbox.layer_stack.changes import normalize_layer_path
 from sandbox.layer_stack.manifest import Manifest
@@ -21,7 +22,7 @@ from sandbox.occ.changeset.types import (
 from sandbox.occ.content.gitignore_oracle import GitignoreOracle
 from sandbox.runtime.async_bridge import run_sync_in_executor
 
-BaseHashReader = Callable[[str], str | None]
+BaseHashReader = Callable[[str], Optional[str]]
 
 
 class OccOrchestrator:
@@ -146,7 +147,7 @@ class OccOrchestrator:
 
 def _requires_base_hash(change: Change) -> bool:
     return (
-        isinstance(change, WriteChange | DeleteChange)
+        isinstance(change, (WriteChange, DeleteChange))
         and change.base_hash is None
         and change.source in ("api_write", "overlay_capture")
     )
