@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from sandbox.layer_stack.changes import LayerChange, LayerDelta, aggregate_layer_changes
+from sandbox.layer_stack.workspace_base import (
+    WORKSPACE_BASE_LAYER_ID,
+    WorkspaceBaseAlreadyExistsError,
+    WorkspaceBaseIncompleteError,
+    build_workspace_base,
+)
 from sandbox.layer_stack.lease_budget import (
     BudgetDecision,
     LeaseBudgetWorker,
@@ -22,6 +28,15 @@ from sandbox.layer_stack.stack_manager import (
     GCMarkSet,
     LayerStackManager,
     LayerStackTransaction,
+)
+from sandbox.layer_stack.workspace import (
+    WORKSPACE_BINDING_FILE,
+    WorkspaceBinding,
+    WorkspaceBindingError,
+    read_workspace_binding,
+    require_workspace_binding,
+    workspace_binding_path,
+    write_workspace_binding_atomic,
 )
 
 __all__ = [
@@ -45,5 +60,16 @@ __all__ = [
     "MergedView",
     "SquashPlan",
     "SquashWorker",
+    "WORKSPACE_BINDING_FILE",
+    "WORKSPACE_BASE_LAYER_ID",
+    "WorkspaceBaseAlreadyExistsError",
+    "WorkspaceBaseIncompleteError",
+    "WorkspaceBinding",
+    "WorkspaceBindingError",
     "aggregate_layer_changes",
+    "build_workspace_base",
+    "read_workspace_binding",
+    "require_workspace_binding",
+    "workspace_binding_path",
+    "write_workspace_binding_atomic",
 ]

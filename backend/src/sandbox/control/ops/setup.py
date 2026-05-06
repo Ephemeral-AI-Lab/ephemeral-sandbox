@@ -104,6 +104,32 @@ def run_runtime_bootstrap(
     )
 
 
+def ensure_workspace_base(
+    sandbox_id: str,
+    workspace_root: str | None,
+) -> None:
+    """Bind the assigned workspace and build its layer-stack base once."""
+    workspace = (workspace_root or "").strip()
+    if not workspace or not sandbox_id:
+        logger.debug(
+            "layer-stack workspace base skipped for sandbox %s: no project_dir",
+            sandbox_id,
+        )
+        return
+
+    from sandbox.api.tool._runtime import call_runtime_api
+    from sandbox.runtime.async_bridge import run_sync
+
+    run_sync(
+        call_runtime_api(
+            sandbox_id,
+            "api.ensure_workspace_base",
+            {"workspace_root": workspace},
+            timeout=180,
+        )
+    )
+
+
 def start_runtime_bundle_upload(
     sandbox_id: str,
     workspace_root: str | None,
@@ -180,31 +206,35 @@ def finish_runtime_bundle_upload(
 
 
 def setup_after_create(sandbox_id: str, workspace_root: str | None) -> None:
-    """Post-create hook: ensure_git + mandatory runtime bootstrap.
+    """Post-create hook: ensure_git, runtime bootstrap, and workspace base.
 
     1. Start the bundle upload in the background (overlaps with ensure_git).
     2. Run ensure_git synchronously — installs git in minimal images that
        don't have it.
     3. Join the upload future (errors swallowed; sequential bootstrap retries).
     4. Run the sequential runtime bootstrap.
+    5. Bind the assigned workspace and build its layer-stack base.
     """
     upload_future = start_runtime_bundle_upload(sandbox_id, workspace_root)
     ensure_git(sandbox_id)
     finish_runtime_bundle_upload(upload_future, sandbox_id)
     run_runtime_bootstrap(sandbox_id, workspace_root)
+    ensure_workspace_base(sandbox_id, workspace_root)
 
 
 def setup_after_start(sandbox_id: str, workspace_root: str | None) -> None:
-    """Post-start hook: same four-step ensure_git + runtime bootstrap as create."""
+    """Post-start hook: same setup sequence as create."""
     upload_future = start_runtime_bundle_upload(sandbox_id, workspace_root)
     ensure_git(sandbox_id)
     finish_runtime_bundle_upload(upload_future, sandbox_id)
     run_runtime_bootstrap(sandbox_id, workspace_root)
+    ensure_workspace_base(sandbox_id, workspace_root)
 
 
 __all__ = [
     "bootstrap_in_sandbox_runtime",
     "bootstrap_upload_runtime_bundle",
+    "ensure_workspace_base",
     "finish_runtime_bundle_upload",
     "run_runtime_bootstrap",
     "setup_after_create",

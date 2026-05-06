@@ -7,19 +7,20 @@
 This bundle turns the simplified three-server workspace replacement plan into
 implementation-sized phase documents. The phases assume the assigned workspace
 is `/testbed`, layer-stack storage is outside that workspace, and guarded
-workspace APIs stop treating the real `/testbed` as truth after base import.
+workspace APIs stop treating the real `/testbed` as truth after the workspace
+base is built.
 
 ## Phase Order
 
 | Phase | Document | Outcome |
 |---|---|---|
-| 01 | `three-server-phase-01-workspace-binding-base-import.md` | `layer-stack-server` owns `workspace.json`, imports `/testbed`, and serves guarded reads from the active manifest. |
+| 01 | `three-server-phase-01-workspace-binding-base-layer.md` | `layer-stack-server` owns `workspace.json`, builds the `/testbed` base, and serves guarded reads from the active manifest. |
 | 02 | `three-server-phase-02-materialized-lowerdir-cache-leases.md` | Layer-stack can prepare leased, materialized lowerdirs without rebuilding the workspace per shell call. |
 | 03 | `three-server-phase-03-narrow-client-protocols.md` | OCC and command-exec depend on narrow layer-stack/OCC client protocols, not concrete storage or service internals. |
 | 04 | `three-server-phase-04-workspace-replaced-shell.md` | Guarded shell enters `command-exec-server`, replaces `/testbed` with a leased snapshot mount, captures workspace upperdir changes, and keeps the rest of the sandbox filesystem visible. |
 | 05 | `three-server-phase-05-occ-mutation-gate.md` | `write_file`, `edit_file`, and shell capture converge through `occ.client.OCCClient` and `occ-server` before publishing through layer-stack CAS. |
 | 06 | `three-server-phase-06-supervision-transport.md` | Setup supervises `layer-stack.sock`, `occ.sock`, and `command-exec.sock`, and the thin client routes public verbs to the correct server. |
-| 07 | `three-server-phase-07-raw-exec-blocking-recovery.md` | Raw/setup execution is prevented from mutating `/testbed` after import, with explicit recovery paths for reimport or rebase. |
+| 07 | `three-server-phase-07-raw-exec-blocking-recovery.md` | Raw/setup execution is prevented from mutating `/testbed` after the base is built, with explicit recovery paths for rebase. |
 | 08 | `three-server-phase-08-squash-gc-performance.md` | Squash, GC, cache, and performance gates preserve active leases and bound shell/read costs. |
 
 ## Shared Contract
@@ -38,7 +39,7 @@ edit_file   -> occ-server -> layer-stack-server
 shell       -> command-exec-server -> layer-stack-server
                                    -> occ.client.OCCClient -> occ-server
                                    -> layer-stack-server
-raw_exec    -> provider/runtime escape hatch, blocked for /testbed writes after import
+raw_exec    -> provider/runtime escape hatch, blocked for /testbed writes after base build
 status      -> provider/control path; setup starts and binds the three servers
 ```
 
@@ -70,7 +71,7 @@ layer-stack-server
   directly.
 - `occ-server` fails closed when workspace binding or active manifest is
   missing.
-- `layer-stack-server` never reads real `/testbed` after import except for
+- `layer-stack-server` never reads real `/testbed` after base build except for
   explicit recovery operations.
-- Raw/setup execution cannot silently mutate real `/testbed` after import.
+- Raw/setup execution cannot silently mutate real `/testbed` after base build.
 - Active leases survive squash and GC.

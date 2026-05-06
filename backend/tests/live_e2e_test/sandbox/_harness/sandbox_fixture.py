@@ -153,6 +153,14 @@ class ToolBundle:
             timeout=60,
         )
 
+    async def workspace_binding(self) -> dict[str, object]:
+        return await runtime_mod.call_runtime_api(
+            self.sandbox_id,
+            "api.workspace_binding",
+            {"actor_id": self.caller.agent_id},
+            timeout=30,
+        )
+
     async def compact(self, *, max_depth: int = 4) -> dict[str, object]:
         return await runtime_mod.call_runtime_api(
             self.sandbox_id,
@@ -276,6 +284,18 @@ async def _reset_runtime_layer_stack(sandbox_id: str) -> None:
         pytest.fail(f"runtime layer-stack reset failed: {result.stderr or result.stdout}")
 
 
+async def _build_workspace_base(sandbox_id: str) -> None:
+    """Recreate the workspace binding/base after clearing runtime state."""
+    result = await runtime_mod.call_runtime_api(
+        sandbox_id,
+        "api.build_workspace_base",
+        {"workspace_root": WORKSPACE_ROOT},
+        timeout=180,
+    )
+    if not result.get("success"):
+        pytest.fail(f"workspace base build failed: {result}")
+
+
 async def _purge_overlay_mounts(sandbox_id: str) -> None:
     """Detach any leaked overlayfs mounts the previous test left under OVERLAY_ROOT."""
     cmd = wrap_unshare(script_purge_overlay_mounts(overlay_root=OVERLAY_ROOT))
@@ -313,6 +333,7 @@ async def integrated_sandbox(
     """Live sandbox with public sandbox API state reset inside the runtime."""
     await _reset_workspace(live_sandbox.sandbox_id)
     await _reset_runtime_layer_stack(live_sandbox.sandbox_id)
+    await _build_workspace_base(live_sandbox.sandbox_id)
     yield live_sandbox
 
 

@@ -15,8 +15,7 @@ import logging
 from typing import Any
 
 from sandbox.api.tool.raw_exec import raw_exec
-from sandbox.control.ops.git import ensure_git
-from sandbox.control.ops.setup import run_runtime_bootstrap
+from sandbox.control.ops.setup import setup_after_start
 from sandbox.providers.registry import get_adapter
 from sandbox.runtime.async_bridge import run_sync
 
@@ -49,11 +48,10 @@ def ensure_running(sandbox_id: str) -> dict[str, Any]:
         )
         info = adapter.get(sandbox_id)
 
-    ensure_git(sandbox_id)
     info = adapter.get(sandbox_id)
 
     workspace_root = info.get("project_dir") or ""
-    run_runtime_bootstrap(sandbox_id, workspace_root)
+    setup_after_start(sandbox_id, workspace_root)
 
     return info
 

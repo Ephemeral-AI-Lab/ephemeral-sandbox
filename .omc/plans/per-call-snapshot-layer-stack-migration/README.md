@@ -34,13 +34,13 @@ document has the same shape:
 | Phase | Document | Outcome |
 |---|---|---|
 | Index | `three-server-phase-index.md` | Linked bundle for the simplified command-exec workspace replacement migration. |
-| 01 | `three-server-phase-01-workspace-binding-base-import.md` | `layer-stack-server` owns `workspace.json`, imports `/testbed`, and serves guarded reads from the active manifest. |
+| 01 | `three-server-phase-01-workspace-binding-base-layer.md` | `layer-stack-server` owns `workspace.json`, builds the `/testbed` base, and serves guarded reads from the active manifest. |
 | 02 | `three-server-phase-02-materialized-lowerdir-cache-leases.md` | Layer-stack prepares leased, materialized lowerdirs without rebuilding the workspace per shell call. |
 | 03 | `three-server-phase-03-narrow-client-protocols.md` | OCC and command-exec depend on narrow client protocols instead of concrete server internals. |
 | 04 | `three-server-phase-04-workspace-replaced-shell.md` | Guarded shell enters `command-exec-server`, replaces `/testbed` with a leased snapshot mount, and captures workspace upperdir changes. |
 | 05 | `three-server-phase-05-occ-mutation-gate.md` | `write_file`, `edit_file`, and shell capture converge through `OCCClient` and `occ-server`. |
 | 06 | `three-server-phase-06-supervision-transport.md` | Setup supervises `layer-stack.sock`, `occ.sock`, and `command-exec.sock`, and the thin client routes public verbs. |
-| 07 | `three-server-phase-07-raw-exec-blocking-recovery.md` | Raw/setup execution is blocked from mutating `/testbed` after import, with explicit recovery paths. |
+| 07 | `three-server-phase-07-raw-exec-blocking-recovery.md` | Raw/setup execution is blocked from mutating `/testbed` after base build, with explicit recovery paths. |
 | 08 | `three-server-phase-08-squash-gc-performance.md` | Squash, GC, cache, and performance gates preserve active leases and bound shell/read costs. |
 
 ## Target Dependency Rule

@@ -109,6 +109,50 @@ def test_run_runtime_bootstrap_propagates_runtime_upload_error() -> None:
         run_runtime_bootstrap("sb-1", "/ws")
 
 
+def test_ensure_workspace_base_skips_when_workspace_missing() -> None:
+    from sandbox.control.ops.setup import ensure_workspace_base
+
+    with patch("sandbox.api.tool._runtime.call_runtime_api") as call:
+        ensure_workspace_base("sb-1", None)
+
+    call.assert_not_called()
+
+
+def test_ensure_workspace_base_invokes_runtime_op() -> None:
+    from sandbox.control.ops.setup import ensure_workspace_base
+
+    calls: list[dict[str, Any]] = []
+
+    async def fake_call_runtime_api(
+        sandbox_id: str,
+        op: str,
+        args: dict[str, Any],
+        *,
+        timeout: int,
+    ) -> dict[str, Any]:
+        calls.append(
+            {
+                "sandbox_id": sandbox_id,
+                "op": op,
+                "args": args,
+                "timeout": timeout,
+            }
+        )
+        return {"success": True}
+
+    with patch("sandbox.api.tool._runtime.call_runtime_api", new=fake_call_runtime_api):
+        ensure_workspace_base("sb-1", "/testbed")
+
+    assert calls == [
+        {
+            "sandbox_id": "sb-1",
+            "op": "api.ensure_workspace_base",
+            "args": {"workspace_root": "/testbed"},
+            "timeout": 180,
+        }
+    ]
+
+
 def test_upload_helper_noop_on_missing_inputs() -> None:
     from sandbox.control.ops.setup import bootstrap_upload_runtime_bundle
 

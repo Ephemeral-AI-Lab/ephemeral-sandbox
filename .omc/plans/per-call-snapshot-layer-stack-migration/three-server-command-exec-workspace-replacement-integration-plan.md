@@ -15,21 +15,21 @@ real assigned workspace with many existing files
   /testbed
     repo files
     dotfiles
-    already-present generated files within import budgets
+    already-present generated files
 
-base import
+workspace base build
   -> deterministic workspace walk
-  -> include/exclude/budget report
+  -> full workspace copy
   -> base layer L000001
   -> manifest version 1
-  -> workspace.json with active_root_hash and import report
+  -> workspace.json with active_root_hash and base_root_hash
 ```
 
-After base import, layer-stack is the workspace source of truth for guarded
+After workspace base build, layer-stack is the workspace source of truth for guarded
 APIs. The real `/testbed` remains provider-owned filesystem state and is used
-only for explicit import or recovery.
+only for explicit rebuild-base or recovery.
 
-For a large existing workspace, the expensive work is base import and cache-miss
+For a large existing workspace, the expensive work is workspace base build and cache-miss
 snapshot materialization. A cache-hit shell call must mount an existing
 read-only materialized workspace snapshot and capture only the command's
 workspace upperdir changes.
@@ -131,10 +131,10 @@ not layer-stack storage.
 9. Writes under `/testbed` are captured and published through OCC.
 10. Writes outside `/testbed` are runtime/provider state. They are not published
    into layer-stack unless a future root-capture feature explicitly owns them.
-11. After base import, supported raw/setup execution must not mutate real
+11. After workspace base build, supported raw/setup execution must not mutate real
    `/testbed`; block those calls instead of tracking a divergence state.
 12. Squash rewrites layer-stack storage shape only. It never reads real
-    `/testbed` as truth after import.
+    `/testbed` as truth after workspace base build.
 
 ## Vocabulary
 
@@ -242,8 +242,8 @@ is only the frozen workspace snapshot.
   "guard_scope": "workspace_payload",
   "active_manifest_version": 17,
   "active_root_hash": "sha256:...",
-  "base_import_manifest_version": 1,
-  "base_import_root_hash": "sha256:...",
+  "base_manifest_version": 1,
+  "base_root_hash": "sha256:...",
   "created_at": "2026-05-06T00:00:00Z",
   "updated_at": "2026-05-06T00:00:00Z"
 }
@@ -255,48 +255,35 @@ Rules:
 - `layer_stack_root` is runtime storage and must never sit inside
   `workspace_root`.
 - Paths stored in layers are workspace-relative, for example `src/a.py`.
-- After base import, guarded APIs do not read the real `/testbed`.
-- The real `/testbed` is only an import/recovery source.
-- After base import, supported sandbox APIs must not mutate the real `/testbed`
+- After workspace base build, guarded APIs do not read the real `/testbed`.
+- The real `/testbed` is only an base/recovery source.
+- After workspace base build, supported sandbox APIs must not mutate the real `/testbed`
   path. This plan assumes the sandbox environment is trivial: no cron,
   background daemon, or external process edits the assigned workspace behind the
   guarded APIs.
 
-## Workspace Payload Policy
+## Workspace Payload Contract
 
-Layer-stack should guard the entire intended workspace payload, but "everything
-under `/testbed`" must still have an explicit import policy so performance and
-security are predictable.
+Layer-stack guards the entire intended workspace payload. "Everything under
+`/testbed`" means a complete base repo: regular files and symlinks are copied
+into `L000001-base`, directories are represented by their entries, and setup
+fails before binding if any workspace entry cannot be represented.
 
-Default first migration policy:
+Default first migration contract:
 
 ```text
-include:
-  regular files
-  directories
-  symlinks
-  dotfiles as ordinary files, without parsing them as policy
-  already-present generated/cache files below size/count limits
+copy:
+  every regular file
+  every symlink target as symlink metadata
+  dotfiles and Git metadata as ordinary workspace content
 
-exclude:
-  sockets
-  fifos
-  device nodes
-  proc/sys/dev-style bind mounts
-  paths that escape workspace_root through symlink traversal
-
-budget/fail-closed:
-  max files
-  max total bytes
-  max single file bytes
-  max symlink count/depth
-  explicit skipped-path report
+fail before binding:
+  sockets, FIFOs, device nodes, or other unrepresentable special files
+  workspace entries that disappear during the base walk
 ```
 
-The first migration should not silently skip large generated payloads. It should
-either import them within configured budgets or fail with an import report that
-names skipped/oversized paths. Gitignore remains OCC mutation policy, not the
-storage source of truth.
+There is no filtering policy and no per-path report contract. Gitignore remains OCC mutation
+policy, not the storage source of truth.
 
 ## OCC-Owned Git Policy
 
@@ -355,9 +342,9 @@ Owns durable workspace state and storage.
 Surfaces:
 
 ```text
-layer_stack.bind_workspace(workspace_root, layer_stack_root, import_policy)
+layer_stack.bind_workspace(workspace_root, layer_stack_root)
 layer_stack.get_workspace_binding(layer_stack_root)
-layer_stack.import_workspace_base(layer_stack_root, expected_empty=true)
+layer_stack.build_workspace_base(layer_stack_root, expected_empty=true)
 
 layer_stack.get_active_manifest(layer_stack_root)
 layer_stack.read_text(layer_stack_root, path, manifest_version?)
@@ -660,20 +647,20 @@ environment.
 
 ## Post-Import Workspace Ownership
 
-After import, layer-stack is the only supported workspace truth. The design does
+After workspace base build, layer-stack is the only supported workspace truth. The design does
 not keep a long-lived workspace state field because the normal runtime should
-not allow supported unguarded writes to real `/testbed` after import.
+not allow supported unguarded writes to real `/testbed` after workspace base build.
 
 Ownership rules:
 
 ```text
-base import:
+workspace base build:
   deterministic walk of real /testbed
   write manifest version 1
-  store base_import_root_hash and import report
+  store base_root_hash
 
 guarded APIs:
-  never read real /testbed after import
+  never read real /testbed after workspace base build
   all workspace writes publish through OCC
 
 guarded shell:
@@ -682,12 +669,12 @@ guarded shell:
   environment
 
 raw/setup execution:
-  may write /testbed only before base import
-  must be blocked from writing /testbed after base import
+  may write /testbed only before workspace base build
+  must be blocked from writing /testbed after workspace base build
 
 sandbox environment assumption:
   no cron, background daemon, package hook, or external process mutates /testbed
-  after base import
+  after workspace base build
   command-exec is the only runtime path that creates a writable /testbed view,
   and that writable view exists only in its private mount namespace
 
@@ -709,14 +696,14 @@ layer_stack.prepare_workspace_snapshot:
 Recovery options:
 
 ```text
-reimport:
+rebuild_base:
   explicit recovery-only operation
-  discard or archive current layer-stack workspace state, then import real
-  /testbed as a new base according to policy
+  discard or archive current layer-stack workspace state, then build real
+  /testbed as the new workspace base
 
 rebase:
   explicit recovery-only operation
-  compute real /testbed diff against the recorded import/active hash, convert to
+  compute real /testbed diff against the recorded base/active hash, convert to
   typed changes, and publish through OCC if valid
 
 ignore real workspace:
@@ -735,7 +722,7 @@ raw exec outside /testbed:
   allowed according to runtime/provider policy
 
 raw exec under /testbed:
-  blocked after base import by API policy
+  blocked after workspace base build by API policy
 
 raw exec cannot prove either:
   blocked
@@ -860,21 +847,20 @@ host create_sandbox(project_dir="/testbed")
   -> setup_after_create(sandbox_id, "/testbed")
   -> upload runtime bundle
   -> start/supervise layer-stack-server, occ-server, command-exec-server
-  -> layer_stack.bind_workspace("/testbed", DEFAULT_LAYER_STACK_ROOT, policy)
-  -> layer_stack.import_workspace_base()
-     walk /testbed according to import policy
+  -> layer_stack.bind_workspace("/testbed", DEFAULT_LAYER_STACK_ROOT)
+  -> layer_stack.build_workspace_base()
+     walk /testbed as a full workspace copy
      write base layer
      write manifest version 1
-     write workspace.json with root hash and import report
+     write workspace.json with root hash
   -> guarded API is ready when the workspace binding and active manifest exist
 ```
 
 Pass bar:
 
 - `api.read_file("known_repo_file")` returns seeded content before any write.
-- `api.read_file` never reads real `/testbed` after import.
-- oversized/skipped import paths are explicit in the import report.
-- supported raw/setup mutation under `/testbed` after import is blocked.
+- `api.read_file` never reads real `/testbed` after workspace base build.
+- supported raw/setup mutation under `/testbed` after workspace base build is blocked.
 - no background process mutates `/testbed` outside the guarded API path.
 
 ### Read
@@ -1076,9 +1062,8 @@ Files:
 ```text
 backend/src/sandbox/layer_stack/workspace.py
 backend/src/sandbox/layer_stack/importer.py
-backend/src/sandbox/layer_stack/import_policy.py
 backend/src/sandbox/runtime/layer_stack_server.py
-backend/tests/unit_test/test_sandbox/test_layer_stack/test_workspace_import.py
+backend/tests/unit_test/test_sandbox/test_layer_stack/test_workspace_base.py
 ```
 
 Tasks:
@@ -1086,19 +1071,19 @@ Tasks:
 - add `WorkspaceBinding`
 - add `workspace.json`
 - add import metadata and active-manifest binding fields
-- add deterministic import walker with include/exclude/budget report
-- add base import from `/testbed`
+- add deterministic import walker with full workspace copy
+- add workspace base build from `/testbed`
 - fail if `layer_stack_root` is inside `workspace_root`
-- keep layer-stack import Git-blind: apply configured path policy and budgets
+- keep layer-stack base Git-blind: copy the full repo without Git classification
   without parsing `.gitignore`, computing git state, or branching on Git
   metadata
 
 Pass bar:
 
 - empty stack imports `/testbed` to manifest version 1
-- import stores root hash and import report
+- base build stores root hash
 - repeated import with existing manifest fails unless explicit reset is passed
-- read after import uses layer-stack only
+- read after workspace base build uses layer-stack only
 - layer-stack import contains no Git or gitignore policy code
 - oversize/special files fail or report explicitly, never silently disappear
 
@@ -1272,16 +1257,16 @@ backend/src/sandbox/layer_stack/workspace_recovery.py
 
 Tasks:
 
-- block supported raw exec from writing under `/testbed` after base import
-- expose workspace binding/import metadata for diagnostics
-- add explicit reimport/rebase recovery APIs
+- block supported raw exec from writing under `/testbed` after workspace base build
+- expose workspace binding/base metadata for diagnostics
+- add explicit rebuild-base/rebase recovery APIs
 - add optional scanner for discrepancy audits
 
 Pass bar:
 
-- raw mutation under `/testbed` is rejected after base import
+- raw mutation under `/testbed` is rejected after workspace base build
 - guarded reads never need a persistent workspace status check
-- recovery can reimport/rebase only through explicit user/API action
+- recovery can rebuild base or rebase only through explicit user/API action
 
 ### Phase 8 - Squash, Checkpoint, and Performance Gates
 
@@ -1314,7 +1299,7 @@ Pass bar:
 ```text
 unit:
   workspace binding validation
-  deterministic workspace import and import reports
+  deterministic full workspace base
   post-import raw /testbed write blocking
   materialized lowerdir cache pins
   squash with and without active leases
@@ -1330,7 +1315,7 @@ integration:
   shell cwd escape rejected
   shell env /testbed path resolves to workspace replacement view
   outside-workspace writes not captured by workspace capture
-  raw workspace mutation is blocked after base import
+  raw workspace mutation is blocked after workspace base build
   long-running command keeps manifest N while active advances to N+1
   shell conflict against advanced active manifest rejects cleanly
 
@@ -1370,7 +1355,6 @@ Performance requirements:
   be amortized across leases for the same manifest
 - upperdir capture should scale with changed paths/bytes, not total workspace,
   on the production overlayfs path
-- import budget failures must be explicit and actionable
 - squash/checkpoint should bound active manifest depth before read/materialize
   costs become pathological
 
@@ -1404,10 +1388,8 @@ layer-stack-server
 
 ## Open Questions
 
-1. What are the default import budgets for file count, total bytes, and single
-   file size?
 2. Should outside-workspace writes be unrestricted runtime state, or limited to
    approved scratch/cache roots?
 3. Which raw execution paths remain after guarded shell is stable?
-4. Does recovery need both reimport and rebase in the first migration, or is
-   explicit reimport enough?
+4. Does recovery need both rebuild-base and rebase in the first migration, or is
+   explicit rebuild-base enough?

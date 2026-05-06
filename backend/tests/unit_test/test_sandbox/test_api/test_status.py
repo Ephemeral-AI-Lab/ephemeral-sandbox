@@ -201,6 +201,11 @@ def test_create_sandbox_invokes_ensure_git_via_setup_hook(
         setup_mod, "run_runtime_bootstrap",
         lambda sid, ws: calls.append(f"run_bootstrap({sid},{ws})"),
     )
+    monkeypatch.setattr(
+        setup_mod,
+        "ensure_workspace_base",
+        lambda sid, ws: calls.append(f"ensure_workspace({sid},{ws})"),
+    )
 
     sb_status.create_sandbox(name="demo")
 
@@ -209,6 +214,7 @@ def test_create_sandbox_invokes_ensure_git_via_setup_hook(
         "ensure_git(sb-1)",
         "finish_upload(sb-1)",
         "run_bootstrap(sb-1,/workspace/demo)",
+        "ensure_workspace(sb-1,/workspace/demo)",
     ]
 
 
@@ -240,6 +246,11 @@ def test_start_sandbox_invokes_ensure_git_via_setup_hook(
         setup_mod, "run_runtime_bootstrap",
         lambda sid, ws: calls.append(f"run_bootstrap({sid},{ws})"),
     )
+    monkeypatch.setattr(
+        setup_mod,
+        "ensure_workspace_base",
+        lambda sid, ws: calls.append(f"ensure_workspace({sid},{ws})"),
+    )
 
     sb_status.start_sandbox("sb-1")
 
@@ -248,6 +259,7 @@ def test_start_sandbox_invokes_ensure_git_via_setup_hook(
         "ensure_git(sb-1)",
         "finish_upload(sb-1)",
         "run_bootstrap(sb-1,/workspace/demo)",
+        "ensure_workspace(sb-1,/workspace/demo)",
     ]
 
 

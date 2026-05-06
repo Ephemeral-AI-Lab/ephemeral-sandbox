@@ -10,12 +10,12 @@
 
 After setup, `/testbed` has one workspace truth: the layer stack. The real
 provider filesystem still exists, but guarded workspace APIs do not treat the
-real `/testbed` as truth after import.
+real `/testbed` as truth after workspace base build.
 
 ```text
 real sandbox filesystem:
   /bin, /usr, /opt, /root, /tmp, ...
-  /testbed                  # import/recovery source only after base import
+  /testbed                  # base/recovery source only after workspace base build
 
 layer-stack-server:
   owns workspace manifests, layers, leases, materialized snapshots, squash, GC
@@ -100,17 +100,17 @@ workspace_root   = /testbed
 layer_stack_root = /tmp/eos-sandbox-runtime/layer-stack
 ```
 
-Base import happens once:
+Workspace base build happens once:
 
 ```text
 real /testbed
-  -> deterministic import policy
+  -> deterministic full workspace base
   -> base layer L000001
   -> active manifest version 1
   -> workspace.json
 ```
 
-Server binding after import:
+Server binding after workspace base build:
 
 ```text
 layer-stack-server
@@ -132,7 +132,7 @@ After that:
 - guarded reads read layer-stack snapshots, not real `/testbed`
 - guarded write/edit publish through OCC
 - guarded shell sees `/testbed` as a workspace replacement mount
-- raw/setup writes under `/testbed` are blocked after import
+- raw/setup writes under `/testbed` are blocked after workspace base build
 - writes outside `/testbed` are runtime/provider state, not layer-stack truth
 
 ## API Route Map
@@ -231,8 +231,8 @@ runtime setup
   v
 layer-stack-server
   |
-  | bind_workspace("/testbed", layer_stack_root, import_policy)
-  | import_workspace_base()
+  | bind_workspace("/testbed", layer_stack_root)
+  | build_workspace_base()
   v
 active manifest version 1
 ```
@@ -240,8 +240,8 @@ active manifest version 1
 Pass bar:
 
 - `read_file` can read seeded workspace content from layer-stack
-- the import report names included, skipped, and oversized paths
-- supported raw writes under `/testbed` are blocked after import
+- base build is complete: no filtering policy and no per-path report contract
+- supported raw writes under `/testbed` are blocked after workspace base build
 
 ### `sandbox.api.tool.read_file`
 
@@ -431,7 +431,7 @@ host sandbox.api.tool.raw_exec(command)
   v
 provider/runtime exec path
   |
-  | if command may mutate /testbed after base import:
+  | if command may mutate /testbed after workspace base build:
   |   reject
   |
   | if command is outside /testbed and allowed by runtime policy:
@@ -517,7 +517,7 @@ Phase 3: define narrow layer-stack and OCC client protocols
 Phase 4: route shell to command-exec-server with workspace replacement mount
 Phase 5: route write/edit and shell capture through OCCClient + occ-server
 Phase 6: supervise layer-stack.sock, occ.sock, command-exec.sock
-Phase 7: block raw/setup writes under /testbed after import
+Phase 7: block raw/setup writes under /testbed after workspace base build
 Phase 8: add squash, GC, cache, and performance gates
 ```
 
@@ -531,8 +531,8 @@ Phase 8: add squash, GC, cache, and performance gates
   internals.
 - `layer-stack-server` never imports OCC, command-exec, or Git/gitignore policy.
 - `command-exec-server` never imports or implements Git/gitignore policy.
-- guarded APIs never read or mutate real `/testbed` after base import.
-- raw exec under `/testbed` is blocked after base import.
+- guarded APIs never read or mutate real `/testbed` after workspace base build.
+- raw exec under `/testbed` is blocked after workspace base build.
 - shell writes under `/testbed` publish only through OCC.
 - shell writes outside `/testbed` are not layer-stack workspace truth.
 - active leases survive squash and GC.

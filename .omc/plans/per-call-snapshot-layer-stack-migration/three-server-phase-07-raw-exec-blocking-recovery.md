@@ -6,18 +6,18 @@
 ## 1. Task Specification
 
 Close the divergence hole where raw/setup execution can mutate real `/testbed`
-after layer-stack import. Public `raw_exec` remains a provider/runtime escape
+after workspace base build. Public `raw_exec` remains a provider/runtime escape
 hatch for non-workspace state, but it must fail closed when it may write the
-assigned workspace after import. Explicit recovery APIs own reimport/rebase
+assigned workspace after workspace base build. Explicit recovery APIs own rebuild-base/rebase
 behavior.
 
 Implementation scope:
 
 ```text
-block supported raw/setup writes under /testbed after base import
+block supported raw/setup writes under /testbed after workspace base build
 distinguish guarded RuntimeEnvelope calls from public raw_exec
-expose workspace binding/import diagnostics
-add explicit recovery-only reimport path
+expose workspace binding/base diagnostics
+add explicit recovery-only rebuild-base path
 draft or add explicit recovery-only rebase path if required
 add optional real /testbed scanner for audit/recovery diagnostics
 ```
@@ -34,7 +34,7 @@ no full-root versioning
 Exit condition:
 
 ```text
-after import, supported raw/setup execution cannot silently mutate real
+after workspace base build, supported raw/setup execution cannot silently mutate real
 /testbed in a way that guarded read_file would miss. Recovery requires an
 explicit user/API action.
 ```
@@ -49,7 +49,7 @@ RawExecPolicyDecision
   command_classification
 
 WorkspaceRecoveryRequest
-  mode: reimport | rebase | scan
+  mode: rebuild_base | rebase | scan
   workspace_ref
   actor_id
   reason
@@ -59,7 +59,6 @@ WorkspaceRecoveryReport
   real_workspace_hash
   layer_stack_active_hash
   changed_paths
-  skipped_paths
   conflicts
   action_taken
 
@@ -100,7 +99,7 @@ Blocked raw workspace mutation:
 ```text
 host raw_exec("bash -lc 'echo bad > /testbed/src/a.py'")
   -> raw_exec policy checks workspace binding
-  -> command may mutate /testbed after import
+  -> command may mutate /testbed after workspace base build
   -> reject with workspace_mutation_blocked
 ```
 
@@ -113,14 +112,14 @@ host raw_exec("bash -lc 'echo x > /tmp/outside'")
   -> execute as provider/runtime state
 ```
 
-Explicit reimport recovery:
+Explicit rebuild-base recovery:
 
 ```text
-workspace_recovery.reimport(workspace_ref, reason)
+workspace_recovery.rebuild_base(workspace_ref, reason)
   -> require explicit recovery request
-  -> scan real /testbed by ImportPolicy
-  -> archive or discard previous layer-stack workspace state by policy
-  -> import real /testbed as new base
+  -> scan real /testbed as a full workspace copy
+  -> archive or discard previous layer-stack workspace state by recovery mode
+  -> build real /testbed as the new workspace base
   -> write recovery report
 ```
 
@@ -129,7 +128,7 @@ Explicit rebase recovery:
 ```text
 workspace_recovery.rebase(workspace_ref, reason)
   -> scan real /testbed
-  -> compute diff against recorded import/active hash
+  -> compute diff against recorded base/active hash
   -> convert diff to typed changes
   -> submit through OCC
   -> report accepted/conflict/skipped paths
@@ -142,7 +141,7 @@ workspace_recovery.rebase(workspace_ref, reason)
 | `raw_exec` | Stays the provider/runtime escape hatch, not a guarded workspace API wrapper. |
 | `workspace_mutation_blocked` | Names the failure mode directly. |
 | `WorkspaceRecoveryRequest` | Makes recovery explicit and auditable. |
-| `reimport` | Replaces layer-stack truth from real `/testbed` only by explicit recovery action. |
+| `rebuild_base` | Replaces layer-stack truth from real `/testbed` only by explicit recovery action. |
 | `rebase` | Converts real workspace drift into typed OCC changes when that behavior is intentionally requested. |
 
 ## 6. Tests and Exit Criteria
@@ -154,8 +153,8 @@ uv run pytest backend/tests/unit_test/test_sandbox/test_layer_stack/test_workspa
 
 Required assertions:
 
-- raw mutation under `/testbed` is rejected after base import
+- raw mutation under `/testbed` is rejected after workspace base build
 - guarded runtime envelopes are not implemented as public raw_exec calls
 - reads never check real `/testbed` to decide normal freshness
-- reimport/rebase require explicit recovery mode and produce reports
+- rebuild-base/rebase require explicit recovery mode and produce reports
 - optional scanner is diagnostic only and does not mutate layer-stack by itself

@@ -17,6 +17,13 @@ from sandbox.api.tool.result_projection import (
     published_paths,
 )
 from sandbox.layer_stack import LayerStackManager
+from sandbox.layer_stack.manifest import manifest_path
+from sandbox.layer_stack.workspace import (
+    WorkspaceBinding,
+    WorkspaceBindingError,
+    read_workspace_binding,
+    require_workspace_binding,
+)
 from sandbox.occ.changeset.builders import build_api_edit_change, build_api_write_change
 from sandbox.occ.changeset.prepared import CommitOptions, PreparedChangeset
 from sandbox.occ.changeset.types import Change, ChangesetResult
@@ -186,7 +193,7 @@ async def _shell_with_services(
 async def write_file(args: dict[str, object]) -> dict[str, object]:
     total_start = time.perf_counter()
     _, occ_service, gitignore = _services(args)
-    path = str(args.get("path") or "")
+    path = _workspace_layer_path(args, str(args.get("path") or ""))
     change = build_api_write_change(
         path=path,
         final_content=str(args.get("content") or ""),
@@ -236,7 +243,7 @@ async def write_file(args: dict[str, object]) -> dict[str, object]:
 async def edit_file(args: dict[str, object]) -> dict[str, object]:
     total_start = time.perf_counter()
     _, occ_service, gitignore = _services(args)
-    path = str(args.get("path") or "")
+    path = _workspace_layer_path(args, str(args.get("path") or ""))
     edits = args.get("edits")
     if not isinstance(edits, Sequence) or isinstance(edits, (str, bytes)):
         raise ValueError("edits must be a list of search/replace objects")
@@ -295,9 +302,17 @@ async def edit_file(args: dict[str, object]) -> dict[str, object]:
 
 async def read_file(args: dict[str, object]) -> dict[str, object]:
     total_start = time.perf_counter()
+    layer_stack_root = str(args.get("layer_stack_root") or "").strip()
+    binding = _require_read_binding(layer_stack_root)
+    path = binding.relative_layer_path(str(args.get("path") or ""))
     manager, _, _ = _services(args)
+    active = manager.read_active_manifest()
+    if active.version <= 0:
+        raise WorkspaceBindingError(
+            f"active manifest is empty for workspace binding: {layer_stack_root}"
+        )
     read_start = time.perf_counter()
-    content, exists = manager.read_text(str(args.get("path") or ""))
+    content, exists = manager.read_text(path, active)
     read_elapsed = time.perf_counter() - read_start
     return {
         "success": True,
@@ -322,6 +337,7 @@ async def pinned_layers(args: dict[str, object]) -> dict[str, object]:
 async def layer_metrics(args: dict[str, object]) -> dict[str, object]:
     manager, _, _ = _services(args)
     manifest = manager.read_active_manifest()
+    binding = read_workspace_binding(str(args.get("layer_stack_root") or ""))
     layer_dirs = tuple((manager.storage_root / "layers").iterdir())
     staging_dirs = tuple((manager.storage_root / "staging").iterdir())
     total_bytes = 0
@@ -337,6 +353,11 @@ async def layer_metrics(args: dict[str, object]) -> dict[str, object]:
         "layer_dirs": len(layer_dirs),
         "staging_dirs": len(staging_dirs),
         "storage_bytes": total_bytes,
+        "workspace_bound": binding is not None,
+        "workspace_root": binding.workspace_root if binding is not None else "",
+        "base_root_hash": (
+            binding.base_root_hash if binding is not None else ""
+        ),
     }
 
 
@@ -470,6 +491,25 @@ def _services(
     services = (manager, OccService(gitignore=gitignore, layer_stack=manager), gitignore)
     _SERVICE_CACHE[layer_stack_root] = services
     return services
+
+
+def _require_read_binding(layer_stack_root: str) -> WorkspaceBinding:
+    if not layer_stack_root:
+        raise WorkspaceBindingError("layer_stack_root is required")
+    binding = require_workspace_binding(layer_stack_root)
+    if not manifest_path(layer_stack_root).exists():
+        raise WorkspaceBindingError(
+            f"active manifest is missing for workspace binding: {layer_stack_root}"
+        )
+    return binding
+
+
+def _workspace_layer_path(args: Mapping[str, object], path: str) -> str:
+    layer_stack_root = str(args.get("layer_stack_root") or "").strip()
+    binding = read_workspace_binding(layer_stack_root) if layer_stack_root else None
+    if binding is None:
+        return path
+    return binding.relative_layer_path(path)
 
 
 def _gitignore_timings(

@@ -222,9 +222,12 @@ def _to_jsonable(obj: Any) -> Any:
 
 def _load_peer_bootstraps() -> None:
     from sandbox.runtime import api_handlers
+    from sandbox.runtime import layer_stack_handlers
     from sandbox.overlay.handlers import run as overlay_run
 
     for op, handler in {
+        "api.ensure_workspace_base": layer_stack_handlers.ensure_workspace_base,
+        "api.build_workspace_base": layer_stack_handlers.build_workspace_base,
         "api.pinned_layers": api_handlers.pinned_layers,
         "api.compact": api_handlers.compact,
         "api.edit_file": api_handlers.edit_file,
@@ -232,6 +235,7 @@ def _load_peer_bootstraps() -> None:
         "api.read_file": api_handlers.read_file,
         "api.shell": api_handlers.shell,
         "api.shell_batch": api_handlers.shell_batch,
+        "api.workspace_binding": layer_stack_handlers.workspace_binding,
         "api.write_file": api_handlers.write_file,
         "overlay.run": overlay_run.handle,
     }.items():

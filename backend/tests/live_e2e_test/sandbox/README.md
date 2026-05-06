@@ -35,6 +35,12 @@ in the pytest process instead of the sandbox runtime guardrails.
   `reflink_cp`, and `hardlink_cp`, including 1/5/10 concurrent create batches.
   Current live gate: `3 passed` in `12.73 s` on 2026-05-06 UTC. See
   `request_snapshot/phase-00-request-snapshot-probe-report.md`.
+- **Workspace base read load:** `layer_stack_overlay_occ/test_workspace_base_read_load.py`
+  reads existing `/testbed` files through the layer-stack workspace base and
+  emits per-call JSONL metrics. Current focused run on 2026-05-06 UTC:
+  `1 passed` in `11.42 s`; 32 reads over 16 base paths, runtime p99
+  `2.166 ms`, wall p99 `669.666 ms`. Artifact:
+  `.omc/results/live-e2e-workspace-base-read-load-20260506T151748Z.jsonl`.
 
 Current overlay syscall run (2026-05-05, full battery, 1000 iter x 8 depths):
 
