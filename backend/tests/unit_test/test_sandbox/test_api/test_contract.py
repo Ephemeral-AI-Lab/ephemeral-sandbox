@@ -141,6 +141,6 @@ def test_result_hierarchy_exposes_conflict_only_on_guarded_results() -> None:
 
 
 def test_sandbox_toolkit_keeps_shared_mutation_tool_result() -> None:
-    from tools.sandbox_toolkit._mutation_result import mutation_tool_result
+    from tools.sandbox_toolkit.mutation_result import mutation_tool_result
 
     assert callable(mutation_tool_result)

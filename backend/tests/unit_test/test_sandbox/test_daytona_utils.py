@@ -15,7 +15,7 @@ from tools.sandbox_toolkit.session import (
     path_error,
     resolve_sandbox_path,
 )
-from tools.sandbox_toolkit._file_tool_helpers import (
+from tools.sandbox_toolkit.file_payloads import (
     MAX_READ_FILE_LINES,
     ReadFileInput,
     build_read_file_result,

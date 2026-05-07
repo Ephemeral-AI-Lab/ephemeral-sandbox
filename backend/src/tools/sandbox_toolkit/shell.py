@@ -14,7 +14,7 @@ from tools.sandbox_toolkit.session import (
     get_repo_root,
     sandbox_id_or_error,
 )
-from tools.sandbox_toolkit._shell_prehooks import (
+from tools.sandbox_toolkit.shell_policy import (
     DestructiveGitShellPreHook,
     DestructiveShellPreHook,
 )

@@ -11,11 +11,11 @@ from tools.sandbox_toolkit.session import (
     resolve_sandbox_path,
     sandbox_id_or_error,
 )
-from tools.sandbox_toolkit._file_tool_helpers import (
+from tools.sandbox_toolkit.file_payloads import (
     WriteFileInput,
     WriteFileOutput,
 )
-from tools.sandbox_toolkit._mutation_result import mutation_tool_result
+from tools.sandbox_toolkit.mutation_result import mutation_tool_result
 
 
 @tool(

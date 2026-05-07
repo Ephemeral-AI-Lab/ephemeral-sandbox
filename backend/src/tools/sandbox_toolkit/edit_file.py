@@ -13,7 +13,7 @@ from tools.sandbox_toolkit.session import (
     resolve_sandbox_path,
     sandbox_id_or_error,
 )
-from tools.sandbox_toolkit._mutation_result import mutation_tool_result
+from tools.sandbox_toolkit.mutation_result import mutation_tool_result
 
 
 class EditFileInput(BaseModel):
