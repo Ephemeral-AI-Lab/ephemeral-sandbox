@@ -3,8 +3,7 @@
 Predicates are pure named functions registered in code. ``agent.md`` only
 references them by id — there is no eval/dsl in the markdown.
 
-The canonical ``partial_plan_caller_ancestor`` predicate is registered here
-as a one-line shim around
+The ``partial_plan_caller_ancestor`` predicate delegates to
 :func:`task_center.mission.ancestry.has_partial_planned_caller_ancestor`.
 """
 
@@ -24,17 +23,6 @@ class ResolverContext:
 
     scope: ContextScope
     deps: ContextEngineDeps
-
-    def has_partial_planned_caller_ancestor(self) -> bool:
-        """Convenience delegate — keeps recipe / predicate / prehook on one
-        function object so structural drift fails the test, not silently."""
-        return has_partial_planned_caller_ancestor(
-            mission_id=self.scope.mission_id,
-            mission_store=self.deps.mission_store,
-            episode_store=self.deps.episode_store,
-            attempt_store=self.deps.attempt_store,
-            task_store=self.deps.task_store,
-        )
 
 
 PredicateFn = Callable[[ResolverContext], bool]
@@ -69,7 +57,7 @@ class PredicateRegistry:
 
 
 def _partial_plan_caller_ancestor(ctx: ResolverContext) -> bool:
-    """Shim → canonical ancestry function. Same kwargs, no extra logic."""
+    """Delegate to the canonical ancestry predicate."""
     return has_partial_planned_caller_ancestor(
         mission_id=ctx.scope.mission_id,
         mission_store=ctx.deps.mission_store,

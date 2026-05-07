@@ -1,12 +1,7 @@
 """Canonical ancestor walks across the mission → episode → attempt → task chain.
 
-This module owns the **single canonical implementation** of the partial-plan
-ancestor predicate. Surviving call sites (resolver predicate +
-``ResolverContext.has_partial_planned_caller_ancestor`` convenience method)
-are one-line shims around this function. The legacy
-``PartialPlanAncestorGate`` prehook + ``recursive_partial_plan`` notification
-trigger were removed in US-016 — the gate now lives in the agent.md
-``terminals:`` filter on ``planner_full_only``.
+This module owns the single implementation of the partial-plan ancestor
+predicate used by agent-launch predicate resolution.
 """
 
 from __future__ import annotations

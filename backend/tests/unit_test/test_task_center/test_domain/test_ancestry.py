@@ -1,14 +1,10 @@
 """Unit tests for the canonical ancestry walker.
 
-Pins (a) walker behavior across no/full/partial caller chains and
-(b) the structural property: every legacy/new caller resolves via
-``inspect.unwrap`` to the same canonical function object so drift fails
-the test, not silently.
+Pins walker behavior across no/full/partial caller chains and verifies the
+registered resolver predicate returns the same result.
 """
 
 from __future__ import annotations
-
-import inspect
 
 import pytest
 
@@ -267,7 +263,7 @@ def test_unknown_mission_id_raises(
 
 
 # ---------------------------------------------------------------------------
-# Structural enforcement: legacy shim ↔ canonical
+# Resolver predicate behavior
 # ---------------------------------------------------------------------------
 
 
@@ -324,36 +320,6 @@ def test_resolver_predicate_dispatches_to_canonical(
             "resolver predicate must yield the same answer as the canonical"
         )
 
-        # ResolverContext convenience method also delegates to the canonical.
-        assert ctx.has_partial_planned_caller_ancestor() is canonical_result
     finally:
         PredicateRegistry.clear()
         PredicateRegistry._registry.update(saved)
-
-
-def test_canonical_function_unwraps_to_itself():
-    """Pin: ``inspect.unwrap`` resolves the canonical implementation."""
-    canonical = inspect.unwrap(has_partial_planned_caller_ancestor)
-    assert canonical is has_partial_planned_caller_ancestor
-
-
-def test_resolver_call_sites_reference_canonical_in_source():
-    """Structural enforcement: every shim must call into the canonical via
-    the same name, so a future caller that drifts to a different signature
-    breaks this assertion."""
-    from task_center.agent_launch.predicates import (
-        ResolverContext,
-        _partial_plan_caller_ancestor,
-    )
-
-    predicate_src = inspect.getsource(_partial_plan_caller_ancestor)
-    helper_src = inspect.getsource(
-        ResolverContext.has_partial_planned_caller_ancestor
-    )
-    canonical_name = "has_partial_planned_caller_ancestor"
-    assert canonical_name in predicate_src, (
-        "resolver predicate must delegate to the canonical ancestry function"
-    )
-    assert canonical_name in helper_src, (
-        "ResolverContext convenience method must delegate to the canonical"
-    )
