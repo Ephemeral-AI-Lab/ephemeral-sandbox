@@ -18,7 +18,6 @@ from tools.core.sandbox_session import (
 from tools.sandbox_toolkit._file_tool_helpers import (
     MAX_READ_FILE_LINES,
     ReadFileInput,
-    build_find_result,
     build_read_file_result,
 )
 from tools.sandbox_toolkit.shell import _build_tool_output
@@ -145,25 +144,6 @@ def test_build_read_file_result_caps_selected_content_to_200_lines():
     assert payload["start_line"] == 25
     assert payload["end_line"] == 224
     assert len(payload["content"].splitlines()) == MAX_READ_FILE_LINES
-
-
-def test_build_find_result_preserves_all_matches_without_truncated_flag():
-    matches = [
-        {"file": f"/tmp/{idx}.py", "line": idx, "content": f"match {idx}"}
-        for idx in range(600)
-    ]
-
-    result = build_find_result(
-        cwd="/tmp",
-        pattern="match",
-        path="/tmp",
-        matches=matches,
-    )
-    payload = json.loads(result.output)
-
-    assert len(payload["matches"]) == len(matches)
-    assert payload["total_matches"] == len(matches)
-    assert "truncated" not in payload
 
 
 # ---------------------------------------------------------------------------

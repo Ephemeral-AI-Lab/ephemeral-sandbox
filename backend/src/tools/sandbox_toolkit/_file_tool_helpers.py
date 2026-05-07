@@ -78,47 +78,6 @@ class WriteFileOutput(BaseModel):
     bytes_written: int = Field(..., description="Number of UTF-8 bytes written.")
 
 
-class GrepInput(BaseModel):
-    pattern: str = Field(..., description="Regex pattern to search for in file contents.")
-    path: str = Field(
-        default=".",
-        description="Repo-relative or sandbox-root directory path.",
-    )
-
-
-class MatchOutput(BaseModel):
-    file: str = Field(..., description="Matched file path.")
-    line: int | None = Field(default=None, description="Matched one-based line number.")
-    content: str = Field(..., description="Matched line content.")
-
-
-class GrepOutput(BaseModel):
-    cwd: str = Field(..., description="Current sandbox working directory.")
-    pattern: str = Field(..., description="Pattern that was searched.")
-    path: str = Field(..., description="Search root path.")
-    matches: list[MatchOutput] = Field(
-        default_factory=list,
-        description="Matching file lines.",
-    )
-    total_matches: int = Field(..., description="Total number of matches found.")
-
-
-class GlobInput(BaseModel):
-    pattern: str = Field(..., description="Glob pattern for file names, such as **/*.py.")
-    path: str = Field(
-        default=".",
-        description="Repo-relative or sandbox-root directory path.",
-    )
-
-
-class GlobOutput(BaseModel):
-    cwd: str = Field(..., description="Current sandbox working directory.")
-    pattern: str = Field(..., description="Glob pattern used.")
-    path: str = Field(..., description="Search root path.")
-    files: list[str] = Field(default_factory=list, description="Matching file paths.")
-    total_files: int = Field(..., description="Total number of matching files.")
-
-
 def build_read_file_result(
     *,
     context: ToolExecutionContextService,
@@ -146,67 +105,11 @@ def build_read_file_result(
     )
 
 
-def build_match_result(match: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "file": str(match.get("file") or ""),
-        "line": match.get("line"),
-        "content": str(match.get("content") or "").rstrip(),
-    }
-
-
-def build_find_result(
-    *,
-    cwd: str,
-    pattern: str,
-    path: str,
-    matches: list[dict[str, Any]],
-    total_matches: int | None = None,
-) -> ToolResult:
-    total = len(matches) if total_matches is None else int(total_matches)
-    return ToolResult(
-        output=json.dumps(
-            {
-                "cwd": cwd,
-                "pattern": pattern,
-                "path": path,
-                "matches": [build_match_result(match) for match in matches],
-                "total_matches": total,
-            }
-        )
-    )
-
-
-def build_glob_result(
-    *,
-    cwd: str,
-    pattern: str,
-    path: str,
-    files: list[str],
-) -> ToolResult:
-    return ToolResult(
-        output=json.dumps(
-            {
-                "cwd": cwd,
-                "pattern": pattern,
-                "path": path,
-                "files": files,
-                "total_files": len(files),
-            }
-        )
-    )
-
-
 __all__ = [
-    "GlobInput",
-    "GlobOutput",
-    "GrepInput",
-    "GrepOutput",
     "MAX_READ_FILE_LINES",
     "ReadFileInput",
     "ReadFileOutput",
     "WriteFileInput",
     "WriteFileOutput",
-    "build_find_result",
-    "build_glob_result",
     "build_read_file_result",
 ]
