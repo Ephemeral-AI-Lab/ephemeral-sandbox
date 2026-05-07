@@ -38,7 +38,7 @@ from message.stream_events import (
     ToolExecutionProgress,
     ToolExecutionStarted,
 )
-from notification.events import SystemNotification
+from notification._runtime import SystemNotification
 
 
 _PALETTE = (

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from . import eval_agent_support
 from .eval_agent_support import EvalAgent
 from message.stream_events import BackgroundTaskCompleted
-from notification.events import SystemNotification
+from notification._runtime import SystemNotification
 
 
 class _DummyClient:

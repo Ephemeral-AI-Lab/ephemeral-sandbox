@@ -7,7 +7,7 @@ from message.stream_events import (
     ToolExecutionCompleted,
     ToolExecutionStarted,
 )
-from notification.events import SystemNotification
+from notification._runtime import SystemNotification
 from providers.types import UsageSnapshot
 from message.messages import ConversationMessage, TextBlock
 

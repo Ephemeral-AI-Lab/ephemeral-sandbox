@@ -44,7 +44,7 @@ from engine.query.context import QueryContext, QueryExitReason
 from engine.background.manager import BackgroundTaskManager
 from engine.tool_call.context import prepare_tool_execution_context
 from notification.rules import dispatch_rules
-from notification.service import SystemNotificationService
+from notification._runtime import SystemNotificationService
 from tools import (
     BaseTool,
     ExecutionMetadata,

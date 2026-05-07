@@ -8,7 +8,7 @@ import pytest
 
 from message.messages import ConversationMessage, ToolResultBlock, ToolUseBlock
 from notification.rules import dispatch_rules
-from notification.service import SystemNotificationService
+from notification._runtime import SystemNotificationService
 from tools.submission.notification_triggers import (
     make_mission_request_after_edit_reminder,
     make_resolver_limit_reminder,

@@ -14,7 +14,7 @@ from notification.notifications import (
     SYSTEM_NOTIFICATIONS_METADATA_KEY,
     serialize_system_notifications,
 )
-from notification.service import SystemNotificationService
+from notification._runtime import SystemNotificationService
 from tools.core.base import BaseTool
 from tools.core.context import ToolExecutionContextService
 from tools.core.hooks import HookResult, hook_name, validate_hook_targets

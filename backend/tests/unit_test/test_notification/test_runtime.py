@@ -1,10 +1,10 @@
-"""Unit tests for `notification.service.SystemNotificationService`."""
+"""Unit tests for notification runtime primitives."""
 
 from __future__ import annotations
 
 import pytest
 
-from notification.service import SystemNotificationService
+from notification._runtime import SystemNotificationService
 
 
 @pytest.mark.asyncio

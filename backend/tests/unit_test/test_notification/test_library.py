@@ -9,7 +9,7 @@ import pytest
 from message.messages import ConversationMessage, TextBlock
 from notification.library import make_budget_warning, make_opening_reminder
 from notification.rules import dispatch_rules
-from notification.service import SystemNotificationService
+from notification._runtime import SystemNotificationService
 
 
 class _StubBudget:

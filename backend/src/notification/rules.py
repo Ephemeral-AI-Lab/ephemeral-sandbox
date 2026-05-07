@@ -19,7 +19,7 @@ from message.messages import ConversationMessage
 
 if TYPE_CHECKING:
     from engine.api import QueryContext
-    from notification.service import SystemNotificationService
+    from notification._runtime import SystemNotificationService
 
 
 MessageList = list[ConversationMessage]

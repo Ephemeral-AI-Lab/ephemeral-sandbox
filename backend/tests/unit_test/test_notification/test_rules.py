@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from notification.rules import NotificationRule, dispatch_rules
-from notification.service import SystemNotificationService
+from notification._runtime import SystemNotificationService
 
 
 class _StubContext:

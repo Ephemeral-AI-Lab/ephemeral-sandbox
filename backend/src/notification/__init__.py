@@ -1,7 +1,7 @@
 """Notification primitives and services."""
 
-from notification.events import SystemNotification
-from notification.service import SystemNotificationService
+from notification._runtime import SystemNotification
+from notification._runtime import SystemNotificationService
 
 __all__ = [
     "SystemNotification",

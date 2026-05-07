@@ -4,9 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from message.messages import SystemNotificationBlock
-from notification.events import SystemNotification
+if TYPE_CHECKING:
+    from message.messages import SystemNotificationBlock
+
+
+@dataclass(frozen=True)
+class SystemNotification:
+    """Engine-generated notification visible to the user and the agent."""
+
+    text: str
+    agent_name: str = ""
+    run_id: str = ""
 
 
 @dataclass
@@ -35,6 +45,8 @@ class SystemNotificationService:
     async def notify_system(self, text: str) -> None:
         if not text:
             return
+        from message.messages import SystemNotificationBlock
+
         event = SystemNotification(text=text)
         self._notifications.append(SystemNotificationBlock(text=text))
         if self.emit is not None:

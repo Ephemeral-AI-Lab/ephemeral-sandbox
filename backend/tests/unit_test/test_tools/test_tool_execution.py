@@ -28,7 +28,7 @@ from message.stream_events import (
     ToolExecutionCompleted,
     ToolExecutionStarted,
 )
-from notification.events import SystemNotification
+from notification._runtime import SystemNotification
 from notification.library import make_budget_warning, make_opening_reminder
 from providers.types import (
     ApiMessageCompleteEvent,

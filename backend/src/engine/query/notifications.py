@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from message.stream_events import StreamEvent
-from notification.service import SystemNotificationService
+from notification._runtime import SystemNotificationService
 from providers.types import UsageSnapshot
 from tools import ExecutionMetadata
 
