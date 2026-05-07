@@ -18,7 +18,7 @@ from engine.agent.factory import (
 )
 from tools.core.base import BaseTool, ToolExecutionContextService, ToolRegistry, ToolResult
 from tools.core.context_requirements import SANDBOX_CONTEXT
-from tools.core.factory import (
+from tools.factory import (
     ToolFactoryContext,
     _factories,
     create_tool,

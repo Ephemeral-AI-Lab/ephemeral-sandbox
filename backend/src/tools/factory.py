@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 
 from tools.core.base import BaseTool
-from tools.core.factory_context import ToolFactoryContext
+from tools.factory_context import ToolFactoryContext
 
 logger = logging.getLogger(__name__)
 

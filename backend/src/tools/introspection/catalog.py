@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from tools.core.base import BaseTool
 from tools.core.registry import ToolRegistry
-from tools.core.factory import ToolFactoryContext, create_tool, list_available_tools
+from tools.factory import ToolFactoryContext, create_tool, list_available_tools
 
 
 @dataclass(frozen=True)

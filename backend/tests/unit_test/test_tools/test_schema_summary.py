@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, RootModel
 
 from tools.core.base import BaseTool, ToolExecutionContextService, ToolResult
-from tools.core.schema_summary import collect_schema_tools, format_tool_schema_summary
+from tools.introspection.schema_summary import collect_schema_tools, format_tool_schema_summary
 
 
 class _SyntheticInput(BaseModel):

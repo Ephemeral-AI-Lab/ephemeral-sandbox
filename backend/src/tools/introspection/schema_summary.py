@@ -11,7 +11,7 @@ from pydantic import BaseModel, RootModel
 from pydantic_core import PydanticUndefined
 
 from tools.core.base import BaseTool
-from tools.core.factory import ToolFactoryContext, create_tool, list_available_tools
+from tools.factory import ToolFactoryContext, create_tool, list_available_tools
 
 
 def collect_schema_tools(
