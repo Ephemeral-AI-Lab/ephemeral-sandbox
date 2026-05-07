@@ -5,7 +5,7 @@ from __future__ import annotations
 from sandbox.api import WriteFileRequest, api
 from tools.core.base import ToolExecutionContextService, ToolResult
 from tools.core.decorator import tool
-from tools.core.sandbox_session import (
+from tools.sandbox_toolkit.session import (
     caller_from_context,
     get_repo_root,
     resolve_sandbox_path,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from tools.core.base import BaseTool
-from tools.core.context_requirements import SANDBOX_CONTEXT
+from tools.sandbox_toolkit.context import SANDBOX_CONTEXT
 
 from tools.sandbox_toolkit.edit_file import edit_file
 from tools.sandbox_toolkit.read_file import read_file

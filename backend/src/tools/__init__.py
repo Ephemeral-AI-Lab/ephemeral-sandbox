@@ -51,7 +51,7 @@ _LAZY_EXPORTS = {
     "register_tool_instance": "tools.factory",
     "render_background_snapshot": "tools.builtins.background._common",
     "resolve_harness_notification_triggers": "tools.submission.notification_triggers",
-    "SANDBOX_CONTEXT": "tools.core.context_requirements",
+    "SANDBOX_CONTEXT": "tools.sandbox_toolkit.context",
 }
 
 

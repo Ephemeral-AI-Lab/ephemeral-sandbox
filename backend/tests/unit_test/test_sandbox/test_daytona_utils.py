@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from tools.core.base import ToolExecutionContextService
-from tools.core.sandbox_session import (
+from tools.sandbox_toolkit.session import (
     get_repo_root,
     normalized_path,
     path_error,
