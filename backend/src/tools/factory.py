@@ -33,6 +33,7 @@ def register_tool_instance(tool: BaseTool) -> None:
 
 def create_tool(name: str, ctx: ToolFactoryContext) -> BaseTool:
     """Create a tool instance by name."""
+    _ensure_builtins_registered()
     factory = _factories.get(name)
     if factory is None:
         raise KeyError(f"Tool '{name}' not registered. Tools: {list(_factories)}")
@@ -57,11 +58,13 @@ def create_tools(names: list[str], ctx: ToolFactoryContext) -> list[BaseTool]:
 
 def has_tool(name: str) -> bool:
     """Return True if a tool factory is registered for *name*."""
+    _ensure_builtins_registered()
     return name in _factories
 
 
 def list_available_tools() -> list[str]:
     """List all registered tool names."""
+    _ensure_builtins_registered()
     return list(_factories.keys())
 
 
@@ -81,4 +84,7 @@ def _register_builtins() -> None:
     register_tool_factory("run_subagent", make_subagent_tool_from_context)
 
 
-_register_builtins()
+def _ensure_builtins_registered() -> None:
+    if "run_subagent" in _factories and "read_file" in _factories:
+        return
+    _register_builtins()
