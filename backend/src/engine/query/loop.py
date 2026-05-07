@@ -31,9 +31,9 @@ from engine.query.notifications import (
     ensure_system_notification_service,
     flush_system_notifications,
 )
-from engine.core.streaming_executor import StreamingToolExecutor, defer_background_dispatch
-from engine.core.tool_dispatch import dispatch_assistant_tools
-from engine.core.tool_results import (
+from engine.tool_call.streaming import StreamingToolExecutor, defer_background_dispatch
+from engine.tool_call.dispatch import dispatch_assistant_tools
+from engine.tool_call.result import (
     any_terminal_result,
     terminal_result_from_tool_results,
 )
@@ -44,7 +44,7 @@ from engine.query.request import (
     record_tool_results,
 )
 from engine.runtime.background_tasks import BackgroundTaskManager
-from engine.runtime.tool_context import prepare_tool_execution_context
+from engine.tool_call.context import prepare_tool_execution_context
 from notification.rules import NotificationRule, dispatch_rules
 from notification.service import SystemNotificationService
 from prompt.prompt_report_recorder import PromptReportRecorder

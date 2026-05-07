@@ -7,7 +7,7 @@ from contextlib import suppress
 import time
 from typing import Any
 
-from engine.runtime.tool_trace import record_tool_trace as _record_tool_trace
+from engine.tool_call.trace import record_tool_trace as _record_tool_trace
 from engine.runtime.background_tasks import BackgroundTaskManager
 from message.stream_events import BackgroundTaskStarted
 from tools.builtins.background.cancel_background_task import (

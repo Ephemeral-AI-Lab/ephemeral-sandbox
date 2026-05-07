@@ -1,10 +1,10 @@
-"""Tests for engine.core.tool_batch.validate_tool_batch."""
+"""Tests for engine.tool_call.batch.validate_tool_batch."""
 
 from __future__ import annotations
 
 from types import SimpleNamespace
 
-from engine.core.tool_batch import validate_tool_batch
+from engine.tool_call.batch import validate_tool_batch
 from message.messages import ToolUseBlock
 
 

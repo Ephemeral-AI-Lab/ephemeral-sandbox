@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from engine.runtime.background_tasks import BackgroundTaskManager
-from engine.runtime.tool_trace import record_tool_trace
+from engine.tool_call.trace import record_tool_trace
 from message.messages import ConversationMessage, ToolResultBlock, ToolUseBlock
 from message.stream_events import (
     BackgroundTaskStarted,

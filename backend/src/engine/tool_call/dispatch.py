@@ -7,8 +7,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from engine.core.streaming_executor import StreamingToolExecutor, defer_background_dispatch
-from engine.core.tool_batch import validate_tool_batch
+from engine.tool_call.streaming import StreamingToolExecutor, defer_background_dispatch
+from engine.tool_call.batch import validate_tool_batch
 from engine.runtime.background_dispatch import launch_and_collect_bg_events
 from engine.runtime.background_tasks import BackgroundTaskManager
 from message.messages import ConversationMessage, ToolResultBlock, ToolUseBlock
