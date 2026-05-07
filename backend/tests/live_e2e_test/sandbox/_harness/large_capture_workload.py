@@ -287,6 +287,136 @@ def build_mixed_routing_capture(
     return _py_driver(body)
 
 
+def build_deep_path_workload(prefix: str, depth: int = 20) -> str:
+    """Phase 09 §4A.4 adversarial — single file at depth ``depth``.
+
+    Stresses ``LayerIndex`` key length and ``_join_rel`` path-segment
+    handling. Each level uses a 12-char segment so the total path
+    length is well over 200 chars.
+    """
+    _require_prefix(prefix)
+    if depth < 2:
+        raise ValueError(f"depth must be >= 2, got {depth}")
+    body = (
+        "import os\n"
+        f"prefix = {prefix!r}\n"
+        f"depth = {int(depth)}\n"
+        "segments = [f'lvl_{i:08d}' for i in range(depth)]\n"
+        "deep_dir = os.path.join(prefix, *segments)\n"
+        "os.makedirs(deep_dir, exist_ok=True)\n"
+        "leaf = os.path.join(deep_dir, 'leaf.txt')\n"
+        "fd = os.open(leaf, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)\n"
+        "try:\n"
+        "    os.write(fd, b'deep_leaf_content_marker_v1')\n"
+        "finally:\n"
+        "    os.close(fd)\n"
+    )
+    return _py_driver(body)
+
+
+def build_symlink_workload(
+    prefix: str,
+    *,
+    link_name: str,
+    target: str,
+) -> str:
+    """Phase 09 §4A.4 adversarial — create a symlink with chosen target.
+
+    Used for the `absolute-inside-workspace` and
+    `absolute-outside-workspace` adversarial cells. Does NOT follow the
+    target — the symlink is captured as-is by the overlay walker.
+    """
+    _require_prefix(prefix)
+    _require_prefix(link_name, name="link_name")
+    body = (
+        "import os\n"
+        f"prefix = {prefix!r}\n"
+        f"link_name = {link_name!r}\n"
+        f"target = {target!r}\n"
+        "os.makedirs(prefix, exist_ok=True)\n"
+        "link_path = os.path.join(prefix, link_name)\n"
+        "if os.path.lexists(link_path):\n"
+        "    os.unlink(link_path)\n"
+        "os.symlink(target, link_path)\n"
+    )
+    return _py_driver(body)
+
+
+def build_whiteout_collision_workload(prefix: str, *, name: str = "collide.txt") -> str:
+    """Phase 09 §4A.4 adversarial — delete then re-create same path.
+
+    The OCC commit must produce ONE entry (a write), not delete+write,
+    because the workload reaches the daemon via a single capture.
+    Pair with a (untimed) seed of the same path so the delete is
+    non-trivial.
+    """
+    _require_prefix(prefix)
+    body = (
+        "import os\n"
+        f"prefix = {prefix!r}\n"
+        f"name = {name!r}\n"
+        "path = os.path.join(prefix, name)\n"
+        "os.makedirs(prefix, exist_ok=True)\n"
+        "if os.path.exists(path):\n"
+        "    os.unlink(path)\n"
+        "fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)\n"
+        "try:\n"
+        "    os.write(fd, b'recreated_after_delete_v1')\n"
+        "finally:\n"
+        "    os.close(fd)\n"
+    )
+    return _py_driver(body)
+
+
+def build_special_chars_workload(prefix: str) -> str:
+    """Phase 09 §4A.4 adversarial — filename with bash-special chars.
+
+    Filename contains ``$`` and a backtick to exercise the python
+    driver's heredoc quoting. Also includes a space which is the most
+    common shell-quoting failure mode.
+    """
+    _require_prefix(prefix)
+    body = (
+        "import os\n"
+        f"prefix = {prefix!r}\n"
+        "os.makedirs(prefix, exist_ok=True)\n"
+        # Triple-escape the filename so the heredoc's repr() round-trips.
+        "name = 'with $var `cmd` and space.txt'\n"
+        "path = os.path.join(prefix, name)\n"
+        "fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)\n"
+        "try:\n"
+        "    os.write(fd, b'special_chars_marker_v1')\n"
+        "finally:\n"
+        "    os.close(fd)\n"
+    )
+    return _py_driver(body)
+
+
+def build_long_filename_workload(prefix: str, name_length: int = 250) -> str:
+    """Phase 09 §4A.4 adversarial — filename near the 255-char filesystem cap.
+
+    250 < 255 keeps a 5-char safety margin under POSIX NAME_MAX so
+    different filesystems agree. Stresses the path-key length in
+    ``LayerIndex`` and the publisher's hardlink target.
+    """
+    _require_prefix(prefix)
+    if name_length < 50 or name_length > 254:
+        raise ValueError(f"name_length must be 50..254, got {name_length}")
+    body = (
+        "import os\n"
+        f"prefix = {prefix!r}\n"
+        f"name = 'l' * {int(name_length - 4)} + '.bin'\n"
+        "os.makedirs(prefix, exist_ok=True)\n"
+        "path = os.path.join(prefix, name)\n"
+        "fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)\n"
+        "try:\n"
+        "    os.write(fd, b'long_filename_marker_v1')\n"
+        "finally:\n"
+        "    os.close(fd)\n"
+    )
+    return _py_driver(body)
+
+
 def build_count_files_command(prefix: str) -> str:
     """Print the number of regular files under ``prefix`` (recursive).
 
@@ -306,12 +436,17 @@ def build_count_files_command(prefix: str) -> str:
 
 
 __all__ = [
-    "build_k_capture_command",
-    "build_sized_capture",
-    "build_seed_capture",
-    "build_modify_capture",
+    "build_count_files_command",
+    "build_deep_path_workload",
     "build_delete_capture",
+    "build_k_capture_command",
+    "build_long_filename_workload",
     "build_mixed_kinds_capture",
     "build_mixed_routing_capture",
-    "build_count_files_command",
+    "build_modify_capture",
+    "build_seed_capture",
+    "build_sized_capture",
+    "build_special_chars_workload",
+    "build_symlink_workload",
+    "build_whiteout_collision_workload",
 ]

@@ -48,13 +48,32 @@ def build_api_delete_change(*, path: str, base_hash: str) -> DeleteChange:
     return DeleteChange(path=path, source="api_write", base_hash=base_hash)
 
 
-def build_overlay_write_change(*, path: str, final_content: bytes) -> WriteChange:
-    """Build an overlay-captured full-file write without a caller base hash."""
+def build_overlay_write_change(
+    *,
+    path: str,
+    final_content: bytes | None = None,
+    content_path: str | None = None,
+    precomputed_hash: str | None = None,
+) -> WriteChange:
+    """Build an overlay-captured full-file write without a caller base hash.
+
+    Phase 3 improvement #2: when ``content_path`` and ``precomputed_hash``
+    are supplied (the overlay-capture pipeline already computed them),
+    the bytes stay on disk and are streamed kernel-to-kernel by the OCC
+    stager. ``final_content`` becomes the legacy bytes-based path for
+    callers that haven't migrated.
+    """
+    if final_content is None and content_path is None:
+        raise ValueError(
+            "build_overlay_write_change needs final_content or content_path"
+        )
     return WriteChange(
         path=path,
         source="overlay_capture",
         final_content=final_content,
         base_hash=None,
+        content_path=content_path,
+        precomputed_hash=precomputed_hash,
     )
 
 

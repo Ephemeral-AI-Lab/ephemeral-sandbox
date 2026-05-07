@@ -6,7 +6,6 @@ import os
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Protocol
 
 from sandbox.occ.changeset.builders import (
@@ -105,10 +104,17 @@ def overlay_path_changes_to_occ_changes(
                 raise ValueError(
                     f"write overlay path change lacks content path: {path_change.path}"
                 )
+            if path_change.final_hash is None:
+                raise ValueError(
+                    f"write overlay path change lacks final_hash: {path_change.path}"
+                )
+            # Phase 3 improvement #2: thread content_path + precomputed
+            # hash through; stager copies in-kernel.
             changes.append(
                 build_overlay_write_change(
                     path=path_change.path,
-                    final_content=Path(path_change.content_path).read_bytes(),
+                    content_path=path_change.content_path,
+                    precomputed_hash=path_change.final_hash,
                 )
             )
             continue

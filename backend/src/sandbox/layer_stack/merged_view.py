@@ -77,43 +77,90 @@ class MergedView:
     def read_symlink(self, path: str, manifest: Manifest) -> tuple[str, bool]:
         rel = normalize_layer_path(path)
         for layer in manifest.layers:
-            layer_dir = self._layer_dir(layer)
-            if _whiteout_path(layer_dir, rel).exists():
+            index = self._layer_index(layer)
+            if rel in index.whiteouts:
                 return "", False
-            candidate = _join_rel(layer_dir, rel)
-            if candidate.is_symlink():
-                return os.readlink(candidate), True
-            if candidate.exists():
+            if rel in index.files:
+                layer_dir = self._layer_dir(layer)
+                candidate = _join_rel(layer_dir, rel)
+                if candidate.is_symlink():
+                    return os.readlink(candidate), True
+                # rel resolves to a regular file (not a symlink) in this
+                # layer — same answer as the old `candidate.exists()`
+                # branch: the path exists but is not a symlink.
                 return "", False
-            if _has_file_ancestor(layer_dir, rel):
+            if has_ancestor_in(rel, index.files):
                 return "", False
-            if _has_opaque_ancestor(layer_dir, rel):
+            if has_ancestor_in(rel, index.opaque_dirs):
                 return "", False
         return "", False
 
     def list_dir(self, path: str, manifest: Manifest) -> tuple[str, ...]:
         rel = normalize_layer_path(path, allow_root=True)
-        names: dict[str, None] = {}
+        names: set[str] = set()
         hidden: set[str] = set()
+        prefix = f"{rel}/" if rel else ""
 
         for layer in manifest.layers:
-            layer_dir = self._layer_dir(layer)
-            base = _join_rel(layer_dir, rel)
-            if rel and _whiteout_path(layer_dir, rel).exists() and not base.is_dir():
-                return tuple(sorted(names))
-            if base.is_symlink() or base.is_file() or _has_file_ancestor(layer_dir, rel):
-                return tuple(sorted(names))
-            if base.is_dir():
-                for child in sorted(base.iterdir(), key=lambda item: item.name):
-                    if child.name == OPAQUE_MARKER:
-                        continue
-                    if _is_whiteout(child.name):
-                        hidden.add(child.name[len(WHITEOUT_PREFIX) :])
-                        continue
-                    if child.name not in hidden and child.name not in names:
-                        names[child.name] = None
+            index = self._layer_index(layer)
 
-            if _opaque_marker_path(layer_dir, rel).exists():
+            # rel itself is a regular file/symlink in this layer, or any
+            # of its strict ancestors is. Either way, rel is not a
+            # directory in any layer at or below this one.
+            if rel and rel in index.files:
+                return tuple(sorted(names))
+            if rel and has_ancestor_in(rel, index.files):
+                return tuple(sorted(names))
+            # An opaque marker on a strict ancestor means rel can't
+            # exist in any older layer either (matching read_bytes /
+            # read_symlink semantics).
+            if rel and has_ancestor_in(rel, index.opaque_dirs):
+                return tuple(sorted(names))
+
+            # Direct-child whiteouts at this level mask same-name
+            # children in older layers. Whiteouts deeper than rel/<name>
+            # are not relevant here — they affect list_dir(rel/<name>).
+            for whiteout in index.whiteouts:
+                child = _direct_child_segment(whiteout, prefix)
+                if child is not None:
+                    hidden.add(child)
+
+            # Direct-child files contribute their first segment.
+            for file_path in index.files:
+                child = _direct_child_segment(file_path, prefix)
+                if child is not None and child not in hidden:
+                    names.add(child)
+
+            # Direct-child opaque-dir markers ALSO imply a directory
+            # child at this level.
+            for opaque in index.opaque_dirs:
+                child = _direct_child_segment(opaque, prefix)
+                if child is not None and child not in hidden:
+                    names.add(child)
+
+            # rel itself is whited out in this layer. If this same layer
+            # has no children of rel, the directory is gone — stop.
+            # If it does have children, the layer effectively re-creates
+            # rel as a directory; keep iterating older layers BUT they
+            # cannot show through (case D below catches the opaque-on-rel
+            # path; otherwise the whiteout-only re-creation never happens
+            # in practice — overlayfs writes `.wh.<rel>` only when rel
+            # is being deleted).
+            if rel and rel in index.whiteouts:
+                has_children_here = (
+                    any(name.startswith(prefix) for name in index.files)
+                    or any(name.startswith(prefix) for name in index.whiteouts)
+                    or any(
+                        opaque == rel or opaque.startswith(prefix)
+                        for opaque in index.opaque_dirs
+                    )
+                )
+                if not has_children_here:
+                    return tuple(sorted(names))
+
+            # rel itself is opaque in this layer → stop after collecting
+            # this layer's children; older layers can't contribute.
+            if rel in index.opaque_dirs:
                 return tuple(sorted(names))
 
         return tuple(sorted(names))
@@ -196,32 +243,25 @@ def _join_rel(root: Path, rel: str) -> Path:
     return root.joinpath(*PurePosixPath(rel).parts)
 
 
-def _whiteout_path(layer_dir: Path, rel: str) -> Path:
-    target = PurePosixPath(rel)
-    parent_parts = tuple(part for part in target.parent.parts if part != ".")
-    return layer_dir.joinpath(*parent_parts, f"{WHITEOUT_PREFIX}{target.name}")
+def _direct_child_segment(name: str, prefix: str) -> str | None:
+    """Return the first path segment of ``name`` under ``prefix``, or None.
 
-
-def _opaque_marker_path(layer_dir: Path, rel: str) -> Path:
-    return _join_rel(layer_dir, rel) / OPAQUE_MARKER
-
-
-def _has_opaque_ancestor(layer_dir: Path, rel: str) -> bool:
-    parts = PurePosixPath(rel).parts
-    for index in range(1, len(parts)):
-        ancestor = "/".join(parts[:index])
-        if _opaque_marker_path(layer_dir, ancestor).exists():
-            return True
-    return False
-
-
-def _has_file_ancestor(layer_dir: Path, rel: str) -> bool:
-    parts = PurePosixPath(rel).parts
-    for index in range(1, len(parts)):
-        ancestor = _join_rel(layer_dir, "/".join(parts[:index]))
-        if ancestor.is_symlink() or ancestor.is_file():
-            return True
-    return False
+    ``prefix`` is ``""`` for the root directory or ``"<dir>/"`` for any
+    other directory. ``name`` is a layer-index path (e.g. an entry of
+    ``index.files`` / ``index.whiteouts`` / ``index.opaque_dirs``).
+    Returns the direct-child segment if ``name`` is a strict descendant
+    of the directory; otherwise ``None``.
+    """
+    if prefix:
+        if not name.startswith(prefix):
+            return None
+        rest = name[len(prefix) :]
+    else:
+        rest = name
+    if not rest:
+        return None
+    head, _, _ = rest.partition("/")
+    return head or None
 
 
 def _is_whiteout(name: str) -> bool:

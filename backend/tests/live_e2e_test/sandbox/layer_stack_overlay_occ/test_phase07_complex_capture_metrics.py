@@ -163,6 +163,47 @@ async def _count_files(handle: SandboxHandle, prefix: str) -> int:
     return int(result.stdout.strip().splitlines()[-1])
 
 
+async def _assert_content_prefix(
+    handle: SandboxHandle,
+    *,
+    cell_id: str,
+    path: str,
+    expected_prefix: bytes,
+) -> None:
+    """Phase 3 verification A — read one path via tool.read_file and check.
+
+    Asserts the daemon-API exposes the bytes the workload wrote — the
+    correctness check the K-scaling benchmark never did. Uses
+    ``tool.read_file`` (not a python3 probe) so the path travels through
+    the layer-stack merged-view, exercising the same code paths that
+    serve real agent reads.
+    """
+    expected_text = expected_prefix.decode("utf-8")
+    result = await handle.tool.read_file(path)
+    assert result.exists, (
+        f"{cell_id}: tool.read_file({path!r}) returned exists=False; "
+        f"status={getattr(result, 'status', '?')!r}"
+    )
+    assert result.content.startswith(expected_text), (
+        f"{cell_id}: {path!r} content prefix mismatch — "
+        f"expected {expected_text!r}, got {result.content[: len(expected_text)]!r}"
+    )
+
+
+async def _assert_path_absent(
+    handle: SandboxHandle,
+    *,
+    cell_id: str,
+    path: str,
+) -> None:
+    """Verify a deleted path is absent via the daemon-API merged view."""
+    result = await handle.tool.read_file(path)
+    assert not result.exists, (
+        f"{cell_id}: expected {path!r} to be absent after delete, "
+        f"tool.read_file returned exists=True content={result.content[:60]!r}"
+    )
+
+
 async def _run_and_record(
     handle: SandboxHandle,
     *,
@@ -264,6 +305,20 @@ async def test_phase07_size_matrix(
                     f"{cell_id}: expected {k} files, found {actual}"
                 )
                 row["actual_files"] = actual
+
+                # Verification A — content prefix on the first path of
+                # the cell. build_sized_capture writes filler `b'x' *
+                # (size-16)` followed by `f'i={i:013d}\n'`; for size=64
+                # the prefix is 48 'x' bytes. We assert the first 16
+                # bytes are 'x' so the check works at every size on the
+                # grid.
+                await _assert_content_prefix(
+                    handle,
+                    cell_id=cell_id,
+                    path=f"{cell_dir}/file_000001.bin",
+                    expected_prefix=b"xxxxxxxxxxxxxxxx",
+                )
+                row["content_prefix_check"] = True
                 rows.append(row)
 
     with artifact.open("w", encoding="utf-8") as fh:
@@ -371,6 +426,56 @@ async def _run_kind_cell(
         f"{cell_id}: expected {expected_files} files, found {actual}"
     )
     row["actual_files"] = actual
+
+    # Verification A — content prefix per kind. All three live kinds
+    # use file_size_bytes=64 with deterministic head bytes from
+    # build_*_capture helpers.
+    if kind == "new_files":
+        # build_sized_capture: filler `b'x' * (size-16)` + `i=...\n`.
+        await _assert_content_prefix(
+            handle,
+            cell_id=cell_id,
+            path=f"{cell_dir}/file_000001.bin",
+            expected_prefix=b"xxxxxxxxxxxxxxxx",
+        )
+    elif kind == "modify_files":
+        # build_modify_capture: head `b'modified i=...\n'` + pad.
+        await _assert_content_prefix(
+            handle,
+            cell_id=cell_id,
+            path=f"{cell_dir}/file_000001.bin",
+            expected_prefix=b"modified i=",
+        )
+    elif kind == "delete_files":
+        # build_delete_capture: file is gone; merged view returns absent.
+        await _assert_path_absent(
+            handle,
+            cell_id=cell_id,
+            path=f"{cell_dir}/file_000001.bin",
+        )
+    elif kind == "mixed_kinds":
+        # mixed_kinds packs modified + deleted + new. Verify one path
+        # from EACH of the live ranges (modified + new) per plan §4.1.
+        # build_mixed_kinds_capture indices: 1..k_modify modify,
+        # k_modify+1..k_modify+k_delete delete, then k_modify+k_delete+1
+        # onward = new.
+        k_modify = k // 3
+        k_delete = k // 3
+        modify_idx = 1
+        new_idx = k_modify + k_delete + 1
+        await _assert_content_prefix(
+            handle,
+            cell_id=cell_id,
+            path=f"{cell_dir}/file_{modify_idx:06d}.bin",
+            expected_prefix=b"modified i=",
+        )
+        await _assert_content_prefix(
+            handle,
+            cell_id=cell_id,
+            path=f"{cell_dir}/file_{new_idx:06d}.bin",
+            expected_prefix=b"new i=",
+        )
+    row["content_prefix_check"] = True
     return row
 
 
@@ -474,6 +579,24 @@ async def test_phase07_mixed_routing_matrix(
         )
         row["actual_gated_files"] = actual_gated
         row["actual_dist_files"] = actual_dist
+
+        # Verification A — content prefix on one gated path AND one
+        # dist path per cell. build_mixed_routing_capture writes
+        # `b'gated i=...\n'` under gated_dir and `b'dist  i=...\n'`
+        # (note: TWO spaces to align with `gated `) under dist_dir.
+        await _assert_content_prefix(
+            handle,
+            cell_id=cell_id,
+            path=f"{gated_dir}/file_000001.bin",
+            expected_prefix=b"gated i=",
+        )
+        await _assert_content_prefix(
+            handle,
+            cell_id=cell_id,
+            path=f"{dist_dir}/file_000001.bin",
+            expected_prefix=b"dist  i=",
+        )
+        row["content_prefix_check"] = True
         rows.append(row)
 
     with artifact.open("w", encoding="utf-8") as fh:

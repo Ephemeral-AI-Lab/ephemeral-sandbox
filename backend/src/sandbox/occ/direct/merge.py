@@ -22,6 +22,7 @@ from sandbox.occ.changeset.types import (
 from sandbox.occ.ports import SnapshotReader
 
 StageWrite = Callable[[str, bytes], LayerChange]
+StageWriteFromPath = Callable[[str, str, str], LayerChange]
 _FinalKind = Literal["write", "delete", "symlink", "opaque_dir"]
 
 
@@ -37,9 +38,15 @@ class DirectMerge:
         *,
         active_manifest: Manifest,
         stage_write: StageWrite,
+        stage_write_from_path: StageWriteFromPath | None = None,
     ) -> tuple[FileResult, LayerDelta | None]:
         try:
-            return self._stage_group(group, active_manifest, stage_write)
+            return self._stage_group(
+                group,
+                active_manifest,
+                stage_write,
+                stage_write_from_path,
+            )
         except Exception as exc:
             return (
                 FileResult(
@@ -55,6 +62,7 @@ class DirectMerge:
         group: PreparedPathGroup,
         active_manifest: Manifest,
         stage_write: StageWrite,
+        stage_write_from_path: StageWriteFromPath | None,
     ) -> tuple[FileResult, LayerDelta | None]:
         timings: dict[str, float] = {}
         read_start = time.perf_counter()
@@ -67,6 +75,11 @@ class DirectMerge:
         content = current_content or b""
         final_kind: _FinalKind = "write" if current_exists else "delete"
         symlink_target: str | None = None
+        # Phase 3 improvement #2 — track the final WriteChange's
+        # on-disk content_path so the stager can `shutil.copyfile`
+        # instead of round-tripping the bytes through Python.
+        final_content_path: str | None = None
+        final_precomputed_hash: str | None = None
 
         apply_start = time.perf_counter()
         for change in group.changes:
@@ -74,21 +87,29 @@ class DirectMerge:
                 content = b""
                 final_kind = "opaque_dir"
                 symlink_target = None
+                final_content_path = None
+                final_precomputed_hash = None
                 continue
             if isinstance(change, SymlinkChange):
                 symlink_target = change.target
                 content = b""
                 final_kind = "symlink"
+                final_content_path = None
+                final_precomputed_hash = None
                 continue
             if isinstance(change, WriteChange):
                 content = bytes(change.final_content)
                 final_kind = "write"
                 symlink_target = None
+                final_content_path = change.content_path
+                final_precomputed_hash = change.precomputed_hash
                 continue
             if isinstance(change, DeleteChange):
                 content = b""
                 final_kind = "delete"
                 symlink_target = None
+                final_content_path = None
+                final_precomputed_hash = None
                 continue
             if isinstance(change, EditChange):
                 if final_kind != "write":
@@ -100,6 +121,10 @@ class DirectMerge:
                 if change.old_text in text:
                     text = text.replace(change.old_text, change.new_text, 1)
                 content = text.encode("utf-8")
+                # Edit produced new bytes — disk-backed shortcut no
+                # longer represents the final content.
+                final_content_path = None
+                final_precomputed_hash = None
                 continue
 
             timings["occ.direct.apply_changes_s"] = time.perf_counter() - apply_start
@@ -145,7 +170,22 @@ class DirectMerge:
                 delta,
             )
         if final_kind == "write":
-            delta = LayerDelta(changes=(stage_write(group.path, content),))
+            if (
+                stage_write_from_path is not None
+                and final_content_path is not None
+                and final_precomputed_hash is not None
+            ):
+                delta = LayerDelta(
+                    changes=(
+                        stage_write_from_path(
+                            group.path,
+                            final_content_path,
+                            final_precomputed_hash,
+                        ),
+                    )
+                )
+            else:
+                delta = LayerDelta(changes=(stage_write(group.path, content),))
             timings["occ.direct.stage_delta_s"] = time.perf_counter() - stage_start
             return (
                 FileResult(

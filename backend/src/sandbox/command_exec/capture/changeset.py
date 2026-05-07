@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Sequence
-from pathlib import Path
 
 from sandbox.occ.changeset.builders import (
     build_overlay_delete_change,
@@ -17,7 +16,14 @@ from sandbox.overlay.capture.changes import OverlayPathChange
 def workspace_changes_to_occ_changes(
     path_changes: Sequence[OverlayPathChange],
 ) -> tuple[Change, ...]:
-    """Convert policy-blind workspace changes into typed OCC mutations."""
+    """Convert policy-blind workspace changes into typed OCC mutations.
+
+    Phase 3 improvement #2: ``write`` kinds now thread ``content_path``
+    and ``final_hash`` (already computed during overlay capture) into
+    the ``WriteChange`` instead of reading the upperdir bytes here.
+    The downstream OCC stager copies the file in-kernel and reuses the
+    precomputed hash — saving one full host-side byte read per file.
+    """
     changes: list[Change] = []
     for path_change in path_changes:
         if path_change.kind == "write":
@@ -25,10 +31,15 @@ def workspace_changes_to_occ_changes(
                 raise ValueError(
                     f"write workspace change lacks content path: {path_change.path}"
                 )
+            if path_change.final_hash is None:
+                raise ValueError(
+                    f"write workspace change lacks final_hash: {path_change.path}"
+                )
             changes.append(
                 build_overlay_write_change(
                     path=path_change.path,
-                    final_content=Path(path_change.content_path).read_bytes(),
+                    content_path=path_change.content_path,
+                    precomputed_hash=path_change.final_hash,
                 )
             )
             continue

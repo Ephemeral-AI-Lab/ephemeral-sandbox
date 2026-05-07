@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Literal, Union
 
 ChangeSource = Literal["api_write", "api_edit", "overlay_capture"]
@@ -36,39 +37,81 @@ class Change:
 class WriteChange(Change):
     """Whole-file write intent.
 
-    ``final_content`` is stored as bytes for layer-stack staging.
+    Two payload modes coexist:
+
+    - **Eager bytes** (``api_write`` / ``api_edit``): the caller supplies
+      ``final_content`` as bytes. ``content_path`` is ``None``.
+    - **Lazy disk-backed** (``overlay_capture``): the caller supplies
+      ``content_path`` (the upperdir-staged file) and ``precomputed_hash``
+      (the SHA-256 already computed during overlay capture). The OCC
+      stager copies the file in-kernel (``shutil.copyfile``) and reuses
+      the precomputed hash, skipping a redundant Python ``read_bytes``
+      and a duplicate SHA-256.
+
+    Reading ``final_content`` on a lazy instance materialises the bytes
+    on demand so existing consumers (e.g. ``EditChange`` chained after
+    a ``WriteChange``) keep working without API churn.
     """
 
-    final_content: bytes
+    _eager_content: bytes | None
+    content_path: str | None
+    precomputed_hash: str | None
     base_hash: str | None
     create_only: bool
 
     def __init__(
         self,
         path: str,
-        final_content: bytes | str,
+        final_content: bytes | str | None = None,
         base_hash: str | None = None,
         create_only: bool = False,
         *,
         source: ChangeSource = "api_write",
+        content_path: str | None = None,
+        precomputed_hash: str | None = None,
     ) -> None:
         Change.__init__(self, path, source=source)
-        payload = (
-            final_content
-            if isinstance(final_content, bytes)
-            else final_content.encode("utf-8")
-        )
-        object.__setattr__(self, "final_content", payload)
+        if final_content is None and content_path is None:
+            raise ValueError(
+                "WriteChange requires final_content or content_path"
+            )
+        eager: bytes | None
+        if final_content is None:
+            eager = None
+        elif isinstance(final_content, bytes):
+            eager = final_content
+        else:
+            eager = final_content.encode("utf-8")
+        object.__setattr__(self, "_eager_content", eager)
+        object.__setattr__(self, "content_path", content_path)
+        object.__setattr__(self, "precomputed_hash", precomputed_hash)
         object.__setattr__(self, "base_hash", base_hash)
         object.__setattr__(self, "create_only", bool(create_only))
+
+    @property
+    def final_content(self) -> bytes:
+        """Return the write payload as bytes, materialising lazily.
+
+        Eager (api_write / api_edit) instances return their stored bytes
+        immediately. Lazy (overlay_capture) instances read from
+        ``content_path`` on first access — the redundancy improvement #2
+        skipped at capture time.
+        """
+        if self._eager_content is not None:
+            return self._eager_content
+        if self.content_path is not None:
+            return Path(self.content_path).read_bytes()
+        return b""
 
     def with_base_hash(self, base_hash: str | None) -> "WriteChange":
         return WriteChange(
             path=self.path,
             source=self.source,
-            final_content=self.final_content,
+            final_content=self._eager_content,
             base_hash=base_hash,
             create_only=self.create_only,
+            content_path=self.content_path,
+            precomputed_hash=self.precomputed_hash,
         )
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -220,6 +221,7 @@ class OccCommitTransaction:
                 group,
                 active_manifest=active_manifest,
                 stage_write=stager.write,
+                stage_write_from_path=stager.write_from_path,
             )
             return PathValidation(path=group.path, result=result, accepted_delta=delta)
         if group.route is RouteDecision.OCC_GATED_MERGE:
@@ -227,6 +229,7 @@ class OccCommitTransaction:
                 group,
                 active_manifest=active_manifest,
                 stage_write=stager.write,
+                stage_write_from_path=stager.write_from_path,
             )
             return PathValidation(path=group.path, result=result, accepted_delta=delta)
         return PathValidation(
@@ -293,6 +296,38 @@ class _LayerChangeStager:
                 path=path,
                 kind="write",
                 content_hash=self._hasher.hash_bytes(content),
+                source_path=str(source),
+            )
+        finally:
+            self._write_total_s += time.perf_counter() - start
+            self._write_count += 1
+
+    def write_from_path(
+        self,
+        path: str,
+        content_path: str,
+        precomputed_hash: str,
+    ) -> LayerChange:
+        """Phase 3 improvement #2 — stage from an existing on-disk file.
+
+        Skips the host-side ``read_bytes`` and the duplicate SHA-256
+        compute that ``write`` performs. Uses ``shutil.copyfile`` which
+        delegates to ``os.sendfile`` on Linux for kernel-level copy.
+        Caller guarantees the precomputed hash matches the file at
+        ``content_path`` (overlay capture writes the file once and hashes
+        it once during ``capture_workspace_upperdir``).
+        """
+        if self._staging_path is None:
+            raise RuntimeError("OCC layer-change stager is not active")
+        start = time.perf_counter()
+        try:
+            self._counter += 1
+            source = self._staging_path / f"{self._counter:06d}.bin"
+            shutil.copyfile(content_path, source)
+            return LayerChange(
+                path=path,
+                kind="write",
+                content_hash=precomputed_hash,
                 source_path=str(source),
             )
         finally:

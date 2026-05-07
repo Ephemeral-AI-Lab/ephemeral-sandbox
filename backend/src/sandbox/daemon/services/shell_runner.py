@@ -159,6 +159,12 @@ async def _execute_shell(
             timings["command_exec.release_snapshot_s"] = (
                 time.perf_counter() - release_start
             )
+        # Phase 3 improvement #1: drop the run_dir tree so /dev/shm stays
+        # bounded across long-running daemons. Capture and OCC commit are
+        # done by the time we get here; the tree is no longer load-bearing.
+        # ignore_errors=True keeps cleanup non-fatal — a stale dir cannot
+        # mask a real exception from the try-block.
+        shutil.rmtree(run_dir, ignore_errors=True)
 
 
 async def _apply_workspace_capture(
