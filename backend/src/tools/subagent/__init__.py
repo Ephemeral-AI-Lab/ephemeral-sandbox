@@ -11,7 +11,7 @@ from tools.core.base import BaseTool, ToolExecutionContextService, ToolResult
 from tools.subagent.run_subagent import run_subagent
 
 
-def _allowed_subagent_names_for_caller(caller_agent: str) -> tuple[str, ...]:
+def _allowed_subagent_names() -> tuple[str, ...]:
     return tuple(list_dispatchable_subagent_names())
 
 
@@ -68,17 +68,15 @@ class RestrictedRunSubagentTool(BaseTool):
         return await self._delegate.execute(arguments, context)
 
 
-def make_subagent_tools(*, caller_agent: str = "") -> list[BaseTool]:
+def make_subagent_tools() -> list[BaseTool]:
     """Return caller-scoped subagent dispatch tools."""
-    allowed = _allowed_subagent_names_for_caller(caller_agent)
-    return [RestrictedRunSubagentTool(allowed_agent_names=allowed)]
+    return [RestrictedRunSubagentTool(allowed_agent_names=_allowed_subagent_names())]
 
 
 def make_subagent_tool_from_context(ctx: object) -> BaseTool:
     """Return the caller-scoped ``run_subagent`` tool for a factory context."""
-    metadata = getattr(ctx, "metadata", {}) or {}
-    caller_agent = str(metadata.get("agent_name") or "").strip()
-    return make_subagent_tools(caller_agent=caller_agent)[0]
+    del ctx
+    return make_subagent_tools()[0]
 
 
 __all__ = [
