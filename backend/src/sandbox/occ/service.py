@@ -29,7 +29,6 @@ class OccService:
         workspace_ref: str = "",
     ) -> None:
         self._layer_stack = layer_stack
-        self._workspace_ref = workspace_ref
         self._orchestrator = OccOrchestrator(gitignore)
         self._transaction = (
             OccCommitTransaction(

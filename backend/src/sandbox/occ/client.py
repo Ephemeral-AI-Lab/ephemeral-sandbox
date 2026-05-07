@@ -28,7 +28,7 @@ class OCCClient:
         self,
         service: OCCMutationService,
         *,
-        binding_reader: WorkspaceBindingReader | None = None,
+        binding_reader: WorkspaceBindingReader,
         workspace_ref: str = "",
     ) -> None:
         self._service = service
@@ -44,8 +44,7 @@ class OCCClient:
         workspace_ref: str | None = None,
     ) -> ChangesetResult | PreparedChangeset:
         ref = self._workspace_ref if workspace_ref is None else workspace_ref
-        if self._binding_reader is not None:
-            self._binding_reader.require_workspace_binding(ref)
+        self._binding_reader.require_workspace_binding(ref)
         return await self._service.apply_changeset(
             typed_changes,
             snapshot=snapshot,
