@@ -14,13 +14,13 @@ from message.stream_events import (
     ToolExecutionCompleted,
     ToolExecutionProgress,
 )
-from tools.core.base import (
+from tools import (
     BaseTool,
     ToolExecutionContextService,
     ToolRegistry,
     ToolResult,
+    execute_tool_once,
 )
-from tools.core.tool_execution import execute_tool_once
 
 if TYPE_CHECKING:
     from providers.types import ApiToolUseDeltaEvent

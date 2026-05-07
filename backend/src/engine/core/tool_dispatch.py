@@ -18,7 +18,7 @@ from message.stream_events import (
     ToolExecutionCompleted,
 )
 from providers.types import UsageSnapshot
-from tools.core.tool_execution import execute_tool_call_streaming
+from tools import execute_tool_call_streaming
 
 if TYPE_CHECKING:
     from engine.core.query import QueryContext

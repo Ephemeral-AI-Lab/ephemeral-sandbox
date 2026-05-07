@@ -19,10 +19,10 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
-from agents.types import AgentDefinition
+from agents import AgentDefinition
 from message.messages import ConversationMessage, ToolResultBlock
 from message.stream_events import StreamEvent, ToolExecutionCompleted
-from tools.core.base import ExecutionMetadata, ToolResult
+from tools import ExecutionMetadata, ToolResult
 
 if TYPE_CHECKING:
     from server.app_factory import RuntimeConfig
@@ -93,7 +93,7 @@ async def run_ephemeral_agent(
     Terminal tools end the run immediately. There is no same-run retry loop;
     callers that need recovery must spawn a fresh agent run with a new prompt.
     """
-    from agents.run_tracker import AgentRunTracker
+    from agents import AgentRunTracker
     from engine.runtime.agent import spawn_agent
 
     db_available = False

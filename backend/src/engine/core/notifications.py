@@ -5,7 +5,7 @@ from __future__ import annotations
 from message.stream_events import StreamEvent
 from notification.service import SystemNotificationService
 from providers.types import UsageSnapshot
-from tools.core.runtime import ExecutionMetadata
+from tools import ExecutionMetadata
 
 
 def ensure_system_notification_service(

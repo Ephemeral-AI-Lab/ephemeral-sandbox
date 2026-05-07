@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from tools.core.base import ToolExecutionContextService
+from tools import ToolExecutionContextService
 
 if TYPE_CHECKING:
     from engine.core.query import QueryContext

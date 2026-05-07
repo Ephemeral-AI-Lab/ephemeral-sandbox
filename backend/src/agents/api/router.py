@@ -10,10 +10,10 @@ from fastapi import APIRouter, HTTPException
 from agents.registry import get_definition, list_definitions
 from agents.api.schemas import AgentValidationRequest
 from agents.validation import AgentDefinitionValidator, AgentValidationResult
-from tools.core.catalog import collect_tool_catalog
+from tools import collect_tool_catalog
 
 if TYPE_CHECKING:
-    from tools.core.base import ToolRegistry
+    from tools import ToolRegistry
 
 _READ_ONLY_DETAIL = "Agent definitions are file-backed under backend/config/agents."
 

@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, Field
 
-from agents.registry import RESERVED_BUILTIN_AGENT_NAMES
+from .registry import RESERVED_BUILTIN_AGENT_NAMES
 
 if TYPE_CHECKING:
-    from tools.core.base import ToolRegistry
+    from tools import ToolRegistry
 
 
 class AgentValidationInput(Protocol):
@@ -49,7 +49,7 @@ class AgentDefinitionValidator:
         return AgentValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)
 
     def _resolve_all_tool_names(self) -> set[str]:
-        from tools.core.catalog import collect_tool_catalog
+        from tools import collect_tool_catalog
 
         return {
             entry.name

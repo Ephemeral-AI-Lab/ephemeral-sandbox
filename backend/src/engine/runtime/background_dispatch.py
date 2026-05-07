@@ -18,8 +18,7 @@ from message.stream_events import (
 )
 from notification.events import SystemNotification
 from providers.types import UsageSnapshot
-from tools.core.base import BaseTool, ToolRegistry, ToolResult
-from tools.core.runtime import ExecutionMetadata
+from tools import BaseTool, ExecutionMetadata, ToolRegistry, ToolResult
 
 if TYPE_CHECKING:
     from engine.core.query import QueryContext
@@ -158,7 +157,7 @@ def launch_and_collect_bg_events(
         tool_input: dict[str, object],
         extra_metadata: ExecutionMetadata | dict[str, Any] | None = None,
     ) -> ToolResultBlock:
-        from tools.core.tool_execution import execute_tool_call_streaming
+        from tools import execute_tool_call_streaming
 
         async def emit(event: StreamEvent) -> None:
             if not isinstance(event, SystemNotification):

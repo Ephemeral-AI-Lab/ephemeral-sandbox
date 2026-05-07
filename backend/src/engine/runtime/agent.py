@@ -15,7 +15,7 @@ from collections.abc import AsyncIterator
 if TYPE_CHECKING:
     from server.app_factory import RuntimeConfig
     from engine.core.query import QueryContext
-    from tools.core.base import ToolRegistry
+    from tools import ToolRegistry
 
 from agents.types import AgentDefinition
 from config import Settings
@@ -24,11 +24,16 @@ from message.stream_events import StreamEvent
 from providers.provider import make_api_client
 from providers.types import UsageSnapshot
 from prompt import build_runtime_context_message, build_runtime_system_prompt
-from tools import create_default_tool_registry
-from tools.core.factory import (
+from tools import (
+    ExecutionMetadata,
+    SANDBOX_CONTEXT,
     ToolFactoryContext,
     create_tool,
+    create_default_tool_registry,
     has_tool,
+    make_background_tools,
+    make_sandbox_tools,
+    resolve_harness_notification_triggers,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,8 +116,6 @@ def finalize_tool_registry_and_prompt(
         Tuple of (updated_system_prompt, has_background_tools).
     """
     from prompt.runtime_prompt import build_termination_condition_prompt
-    from tools.builtins.background import make_background_tools
-
     bg_tool_names = [
         t.name
         for t in tool_registry.list_tools()
@@ -204,8 +207,6 @@ def _build_agent_tool_registry(
             agent_name,
         )
     elif sandbox_id:
-        from tools.sandbox_toolkit import make_sandbox_tools
-
         tool_registry.register_many(make_sandbox_tools())
         logger.info("Registered sandbox tools for sandbox %s", sandbox_id)
 
@@ -263,8 +264,6 @@ def _build_context_preparers(
     """Build provider/toolkit-specific context hooks for registered tools."""
     if not sandbox_id:
         return []
-    from tools.core.context_requirements import SANDBOX_CONTEXT
-
     requirements = _tool_registry_context_requirements(tool_registry)
     if SANDBOX_CONTEXT not in requirements:
         return []
@@ -311,8 +310,6 @@ def spawn_agent(
     from pathlib import Path
 
     from engine.core.query import QueryContext
-    from tools.core.base import ExecutionMetadata
-
     settings = config.resolve_settings()
 
     agent_name, resolved_model, api_client, db_kwargs = _resolve_agent_identity(
@@ -354,10 +351,6 @@ def spawn_agent(
 
     notification_rules = list(agent_def.notification_rules) if agent_def else []
     if agent_def and agent_def.notification_triggers:
-        from tools.submission.notification_triggers import (
-            resolve_harness_notification_triggers,
-        )
-
         notification_rules.extend(
             resolve_harness_notification_triggers(agent_def.notification_triggers)
         )

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tools.core.runtime import ExecutionMetadata
+from tools import ExecutionMetadata
 
 _TOOL_TRACE_LIMIT = 64
 

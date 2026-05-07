@@ -48,14 +48,14 @@ from engine.runtime.tool_context import prepare_tool_execution_context
 from notification.rules import NotificationRule, dispatch_rules
 from notification.service import SystemNotificationService
 from prompt.prompt_report_recorder import PromptReportRecorder
-from tools.core.base import (
+from tools import (
     BaseTool,
     ExecutionMetadata,
     ToolResult,
     ToolExecutionContextService,
     ToolRegistry,
+    _consume_tool_budget_or_reject,
 )
-from tools.core.tool_execution import _consume_tool_budget_or_reject
 
 
 logger = logging.getLogger(__name__)

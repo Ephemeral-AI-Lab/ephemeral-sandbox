@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from message.messages import ToolResultBlock
-from tools.core.base import ToolResult
+from tools import ToolResult
 
 
 def any_terminal_result(tool_results: list[ToolResultBlock]) -> bool:

@@ -7,7 +7,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
-from agents.registry import get_definition
+from agents import get_definition
 from engine.runtime.lifecycle import EphemeralRunResult
 from message.stream_events import StreamEvent
 from task_center.exceptions import TaskCenterInvariantViolation
@@ -22,10 +22,10 @@ from task_center.task import (
     HarnessTaskStatus,
     PlannerFailureSubmission,
 )
-from tools.core.base import ExecutionMetadata
+from tools import ExecutionMetadata
 
 if TYPE_CHECKING:
-    from agents.types import AgentDefinition
+    from agents import AgentDefinition
     from server.app_factory import RuntimeConfig
     from task_center.attempt.orchestrator import AttemptOrchestrator
 

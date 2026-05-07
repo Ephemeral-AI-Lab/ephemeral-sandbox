@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from tools.core.base import ToolResult
+from tools import ToolResult
 from message.messages import BackgroundTaskStateBlock, ContentBlock, ConversationMessage
 from message.stream_events import BackgroundTaskStarted
 
