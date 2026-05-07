@@ -81,8 +81,8 @@ def ensure_workspace_base(
         )
         return
 
-    from sandbox.api.tool._daemon_client import call_daemon_api
     from sandbox.async_bridge import run_sync
+    from sandbox.host.daemon_client import call_daemon_api
 
     run_sync(
         call_daemon_api(

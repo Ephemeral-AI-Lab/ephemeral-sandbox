@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
-from sandbox.api.tool.result_projection import (
+from sandbox.occ.result_projection import (
     conflict_and_status,
     published_paths,
 )

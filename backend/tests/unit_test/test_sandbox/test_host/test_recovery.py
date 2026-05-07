@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sandbox.api import RawExecResult
+from sandbox.contracts import RawExecResult
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +33,7 @@ def test_recovery_probe_success_skips_restart_setup(
         return RawExecResult(exit_code=0, stdout="/testbed\n")
 
     setup_calls: list[tuple[str, str | None]] = []
-    monkeypatch.setattr(recovery, "raw_exec", probe_ok)
+    adapter.exec = probe_ok
     monkeypatch.setattr(
         recovery,
         "setup_after_start",
@@ -60,7 +60,7 @@ def test_recovery_restart_uses_canonical_setup_hook(
         return RawExecResult(exit_code=1, stdout="")
 
     setup_calls: list[tuple[str, str | None]] = []
-    monkeypatch.setattr(recovery, "raw_exec", probe_failed)
+    adapter.exec = probe_failed
     monkeypatch.setattr(
         recovery,
         "setup_after_start",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from sandbox.api import RawExecResult
+from sandbox.contracts import RawExecResult
 from sandbox.provider.daytona.adapter import (
     _EXIT_MARKER,
     DaytonaProviderAdapter,

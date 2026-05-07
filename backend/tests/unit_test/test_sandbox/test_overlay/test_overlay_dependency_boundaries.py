@@ -66,7 +66,7 @@ def test_phase02_runtime_bundle_contains_snapshot_runtime_without_ndjson() -> No
     assert "sandbox/runtime/daemon/handler/overlay.py" in names
     assert "sandbox/overlay/namespace/mounts.py" in names
     assert "sandbox/layer_stack/manifest/model.py" in names
-    assert "sandbox/daemon/overlay_shell/capture_to_changeset.py" not in names
-    assert "sandbox/daemon/overlay_shell/pipeline.py" not in names
-    assert "sandbox/daemon/overlay_shell/result_envelope.py" not in names
     assert "sandbox/overlay/capture/ndjson.py" not in names
+    assert all(not name.startswith("sandbox/host/") for name in names)
+    assert all(not name.startswith("sandbox/provider/") for name in names)
+    assert all(not name.startswith("sandbox/testing/") for name in names)

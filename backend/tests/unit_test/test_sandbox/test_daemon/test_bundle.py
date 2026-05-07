@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
-from sandbox.api import RawExecResult
+from sandbox.contracts import RawExecResult
 import sandbox.host.runtime_bundle as bundle_module
 
 
@@ -24,7 +25,11 @@ async def test_ensure_runtime_uploaded_uses_raw_exec(monkeypatch) -> None:
             return RawExecResult(exit_code=1, stdout="")
         return RawExecResult(exit_code=0, stdout="")
 
-    monkeypatch.setattr(bundle_module, "raw_exec", fake_raw_exec)
+    monkeypatch.setattr(
+        bundle_module,
+        "get_adapter",
+        lambda _sandbox_id: SimpleNamespace(exec=fake_raw_exec),
+    )
 
     digest = await bundle_module.ensure_runtime_uploaded("sb-1")
 
@@ -48,7 +53,11 @@ async def test_ensure_runtime_uploaded_noops_when_hash_matches(monkeypatch) -> N
         calls.append((sandbox_id, command, kwargs.get("timeout")))
         return RawExecResult(exit_code=0, stdout=f"{digest}\n")
 
-    monkeypatch.setattr(bundle_module, "raw_exec", fake_raw_exec)
+    monkeypatch.setattr(
+        bundle_module,
+        "get_adapter",
+        lambda _sandbox_id: SimpleNamespace(exec=fake_raw_exec),
+    )
 
     assert await bundle_module.ensure_runtime_uploaded("sb-1") == digest
     assert len(calls) == 1

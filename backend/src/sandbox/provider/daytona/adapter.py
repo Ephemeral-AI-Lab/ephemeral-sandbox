@@ -6,7 +6,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar
 
-from sandbox.api import RawExecResult
+from sandbox.contracts import RawExecResult
 from sandbox.bash import (
     EXIT_MARKER as _EXIT_MARKER,
     extract_exit_code as _extract_exit_code,

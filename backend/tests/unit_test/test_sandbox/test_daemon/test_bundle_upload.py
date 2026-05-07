@@ -54,7 +54,6 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/api/__init__.py",
         "sandbox/api/facade.py",
         "sandbox/api/tool/__init__.py",
-        "sandbox/api/tool/result_projection.py",
         "sandbox/async_bridge.py",
         "sandbox/bash.py",
         "sandbox/contracts.py",
@@ -91,7 +90,8 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/layer_stack/manifest/store.py",
         "sandbox/layer_stack/manager.py",
         "sandbox/layer_stack/workspace/binding.py",
-                "sandbox/occ/capture/overlay.py",
+        "sandbox/occ/capture/overlay.py",
+        "sandbox/occ/result_projection.py",
         "sandbox/occ/changeset/builders.py",
         "sandbox/occ/changeset/prepared.py",
         "sandbox/occ/changeset/types.py",
@@ -112,18 +112,12 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
     ]
     missing = [p for p in required if not (extract_dir / p).exists()]
     assert missing == [], f"bundle is missing required paths: {missing}"
-    assert not (extract_dir / "sandbox/daemon/bundle.py").exists()
-    assert not (extract_dir / "sandbox/daemon/api_handlers.py").exists()
-    assert not (extract_dir / "sandbox/daemon/types.py").exists()
-    assert not (extract_dir / "sandbox/daemon/wire.py").exists()
-    assert not (extract_dir / "sandbox/daemon/occ_handlers.py").exists()
-    assert not (extract_dir / "sandbox/daemon/pipelines.py").exists()
-    assert not (extract_dir / "sandbox/daemon/overlay_shell/pipeline.py").exists()
-    assert not (extract_dir / "sandbox/daemon/overlay_capture").exists()
-    assert not (extract_dir / "sandbox/daemon/overlay_capture_runtime").exists()
-    assert not (extract_dir / "sandbox/occ/wire.py").exists()
-    assert not (extract_dir / "sandbox/occ/handlers").exists()
-    assert not (extract_dir / "sandbox/code_intelligence").exists()
+    assert not (extract_dir / "sandbox/api/status.py").exists()
+    assert not (extract_dir / "sandbox/api/tool/raw_exec.py").exists()
+    assert not (extract_dir / "sandbox/api/tool/_daemon_client.py").exists()
+    assert not (extract_dir / "sandbox/host").exists()
+    assert not (extract_dir / "sandbox/provider").exists()
+    assert not (extract_dir / "sandbox/testing").exists()
 
 
 def test_bundle_excludes_pycache_and_compiled() -> None:
@@ -137,42 +131,28 @@ def test_bundle_excludes_pycache_and_compiled() -> None:
     assert all(not n.endswith((".pyc", ".pyo")) for n in names)
 
 
-def test_bundle_excludes_host_only_raw_exec_modules() -> None:
+def test_bundle_excludes_host_and_public_transport_modules() -> None:
     bundle = _runtime_bundle_bytes()
     with tarfile.open(fileobj=io.BytesIO(bundle), mode="r:gz") as tar:
         names = set(tar.getnames())
 
     excluded = {
-        "sandbox/api/edit.py",
-        "sandbox/api/raw_exec.py",
-        "sandbox/api/read.py",
-        "sandbox/api/shell.py",
-        "sandbox/api/write.py",
+        "sandbox/api/status.py",
         "sandbox/api/tool/_daemon_client.py",
         "sandbox/api/tool/edit.py",
         "sandbox/api/tool/raw_exec.py",
         "sandbox/api/tool/read.py",
         "sandbox/api/tool/shell.py",
         "sandbox/api/tool/write.py",
-        "sandbox/lifecycle/commit.py",
-        "sandbox/overlay/handlers/shell.py",
-        "sandbox/overlay/runner/runtime_bundle.py",
-        "sandbox/host/deploy/bundle.py",
         "sandbox/host/runtime_bundle.py",
-        "sandbox/host/rpc/client.py",
         "sandbox/host/daemon_client.py",
-        "sandbox/host/deploy/install.py",
-        "sandbox/daemon/overlay_shell/capture_to_changeset.py",
-        "sandbox/daemon/overlay_shell/pipeline.py",
-        "sandbox/daemon/overlay_shell/result_envelope.py",
-        "sandbox/daemon/overlay_shell/testing.py",
-        "sandbox/daemon/overlay_shell/transaction.py",
+        "sandbox/provider/registry.py",
+        "sandbox/provider/daytona/adapter.py",
     }
     assert excluded.isdisjoint(names)
-    assert all(not name.startswith("sandbox/providers/") for name in names)
     assert all(not name.startswith("sandbox/provider/") for name in names)
     assert all(not name.startswith("sandbox/host/") for name in names)
-    assert all(not name.startswith("sandbox/runtime/daemon/backends/") for name in names)
+    assert all(not name.startswith("sandbox/testing/") for name in names)
 
 
 def test_bundle_extracted_python_modules_import_clean(tmp_path: Path) -> None:

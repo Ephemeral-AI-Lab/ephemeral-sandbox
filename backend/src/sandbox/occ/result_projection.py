@@ -1,9 +1,4 @@
-"""Helpers projecting a :class:`ChangesetResult` onto guarded tool API results.
-
-Tool verbs and in-sandbox runtime handlers both translate the gate's per-file
-``FileResult`` outcomes into public result shapes, so the projection stays with
-the tool API instead of living in private package utilities.
-"""
+"""Project changeset results onto guarded operation result shapes."""
 
 from __future__ import annotations
 
@@ -43,7 +38,7 @@ def published_paths(files: Sequence[FileResult]) -> tuple[str, ...]:
 def conflict_and_status(
     files: Sequence[FileResult],
 ) -> tuple[ConflictInfo | None, str]:
-    """Surface the first non-COMMITTED ``FileResult`` as a ``ConflictInfo`` + status."""
+    """Surface the first non-COMMITTED ``FileResult`` as a conflict + status."""
     if not files:
         return None, "committed"
     bad = next((f for f in files if not is_success_status(f.status)), None)

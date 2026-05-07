@@ -7,6 +7,7 @@ import shlex
 from typing import Any, Protocol
 
 from sandbox.host.runtime_bundle import BUNDLE_REMOTE_DIR
+from sandbox.provider.registry import get_adapter
 
 # Daemon launcher: ensures the resident daemon is running, then invokes a
 # tiny AF_UNIX client that pipes one envelope and prints the response. The
@@ -16,6 +17,7 @@ from sandbox.host.runtime_bundle import BUNDLE_REMOTE_DIR
 _DAEMON_SOCKET = f"{BUNDLE_REMOTE_DIR}/runtime.sock"
 _DAEMON_PID = f"{BUNDLE_REMOTE_DIR}/runtime.pid"
 _DAEMON_LOG = f"{BUNDLE_REMOTE_DIR}/runtime.log"
+DEFAULT_LAYER_STACK_ROOT = f"{BUNDLE_REMOTE_DIR}/layer-stack"
 
 _DAEMON_THIN_CLIENT_PY = (
     "import socket,sys,os\n"
@@ -133,6 +135,28 @@ async def _call_daemon(
     if getattr(result, "exit_code", 1) != 0:
         _raise_exec_failed(result)
     return response
+
+
+async def call_daemon_api(
+    sandbox_id: str,
+    op: str,
+    args: dict[str, Any],
+    *,
+    timeout: int = 60,
+    layer_stack_root: str = DEFAULT_LAYER_STACK_ROOT,
+) -> dict[str, Any]:
+    """Call one guarded API operation inside the preinstalled daemon bundle."""
+    daemon_args = {
+        "layer_stack_root": layer_stack_root,
+        **args,
+    }
+    return await _call_daemon(
+        exec_fn=get_adapter(sandbox_id).exec,
+        sandbox_id=sandbox_id,
+        op=op,
+        args=daemon_args,
+        timeout=timeout,
+    )
 
 
 async def _exec_daemon_call(

@@ -5,7 +5,7 @@ provider imports live here.
 
 Long-running benchmark runs sometimes observe a sandbox that still resolves
 by id yet whose backing container is gone or detached. Probe via
-``raw_exec`` first; if the probe fails, restart through the provider adapter
+provider ``exec`` first; if the probe fails, restart through the provider adapter
 once and re-run the post-start setup hook.
 """
 
@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sandbox.api.tool.raw_exec import raw_exec
 from sandbox.host.setup import setup_after_start
 from sandbox.provider.registry import get_adapter
 from sandbox.async_bridge import run_sync
@@ -27,7 +26,7 @@ def ensure_running(sandbox_id: str) -> dict[str, Any]:
     adapter = get_adapter(sandbox_id)
     info = adapter.get(sandbox_id)
     try:
-        resp = run_sync(raw_exec(sandbox_id, "pwd", timeout=10))
+        resp = run_sync(adapter.exec(sandbox_id, "pwd", timeout=10))
         exit_code = getattr(resp, "exit_code", 0)
         if exit_code in (None, 0):
             return info

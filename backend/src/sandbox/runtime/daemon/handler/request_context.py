@@ -24,7 +24,7 @@ import time
 from collections.abc import Mapping
 from typing import Literal, NamedTuple
 
-from sandbox.api.tool.result_projection import (
+from sandbox.occ.result_projection import (
     committed_paths,
     conflict_and_status,
 )

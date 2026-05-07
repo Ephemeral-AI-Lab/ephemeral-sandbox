@@ -6,7 +6,6 @@ __all__ = [
     "edit",
     "raw_exec",
     "read",
-    "result_projection",
     "shell",
     "write",
 ]

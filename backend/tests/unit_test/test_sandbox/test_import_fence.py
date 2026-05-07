@@ -240,6 +240,26 @@ def test_command_exec_imports_only_client_protocol_boundaries() -> None:
     assert offenders == []
 
 
+def test_internal_sandbox_layers_do_not_import_public_api() -> None:
+    """Internal layers stay below the public facade in the dependency DAG."""
+    offenders: list[str] = []
+    for root in (
+        SRC_ROOT / "sandbox" / "host",
+        SRC_ROOT / "sandbox" / "runtime" / "daemon",
+        SRC_ROOT / "sandbox" / "provider",
+        SRC_ROOT / "sandbox" / "occ",
+        SRC_ROOT / "sandbox" / "overlay",
+        SRC_ROOT / "sandbox" / "layer_stack",
+        SRC_ROOT / "sandbox" / "command_exec",
+    ):
+        for module in _python_files(root):
+            for imported in _imports(module):
+                if imported == "sandbox.api" or imported.startswith("sandbox.api."):
+                    offenders.append(f"{module.relative_to(SRC_ROOT)} imports {imported}")
+
+    assert offenders == []
+
+
 def _python_files(root: Path) -> list[Path]:
     return sorted(path for path in root.rglob("*.py") if "__pycache__" not in path.parts)
 

@@ -1,15 +1,17 @@
 """Unit tests for sandbox.host.git.ensure_git.
 
-Body lifted from the deleted SandboxProxy.ensure_git, with raw_exec replacing
-the SDK process.exec. These tests cover the same probe + install branches
-that the old TestSandboxProxy class covered.
+Body lifted from the deleted SandboxProxy.ensure_git, with provider exec
+replacing the SDK process.exec. These tests cover the same probe + install
+branches that the old TestSandboxProxy class covered.
 """
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
-from sandbox.api import RawExecResult
+from sandbox.contracts import RawExecResult
 from sandbox.host.git import ensure_git
 
 
@@ -21,7 +23,10 @@ def test_ensure_git_skips_when_git_present(monkeypatch: pytest.MonkeyPatch) -> N
         calls.append((sandbox_id, command, timeout))
         return RawExecResult(exit_code=0, stdout="ok")
 
-    monkeypatch.setattr("sandbox.api.tool.raw_exec.raw_exec", fake_raw_exec)
+    monkeypatch.setattr(
+        "sandbox.provider.registry.get_adapter",
+        lambda _sandbox_id: SimpleNamespace(exec=fake_raw_exec),
+    )
     ensure_git("sb-123")
 
     assert calls == [
@@ -43,7 +48,10 @@ def test_ensure_git_installs_when_missing(monkeypatch: pytest.MonkeyPatch) -> No
             return RawExecResult(exit_code=0, stdout="missing")
         return RawExecResult(exit_code=0, stdout="installed")
 
-    monkeypatch.setattr("sandbox.api.tool.raw_exec.raw_exec", fake_raw_exec)
+    monkeypatch.setattr(
+        "sandbox.provider.registry.get_adapter",
+        lambda _sandbox_id: SimpleNamespace(exec=fake_raw_exec),
+    )
     ensure_git("sb-123")
 
     assert len(calls) == 2
@@ -58,7 +66,10 @@ def test_ensure_git_no_op_for_empty_sandbox_id(monkeypatch: pytest.MonkeyPatch) 
         called["value"] = True
         return RawExecResult(exit_code=0, stdout="")
 
-    monkeypatch.setattr("sandbox.api.tool.raw_exec.raw_exec", fake_raw_exec)
+    monkeypatch.setattr(
+        "sandbox.provider.registry.get_adapter",
+        lambda _sandbox_id: SimpleNamespace(exec=fake_raw_exec),
+    )
     ensure_git("")
 
     assert called["value"] is False
@@ -73,5 +84,8 @@ def test_ensure_git_swallows_install_failure(monkeypatch: pytest.MonkeyPatch) ->
             return RawExecResult(exit_code=0, stdout="missing")
         return RawExecResult(exit_code=1, stdout="", stderr="apt failed")
 
-    monkeypatch.setattr("sandbox.api.tool.raw_exec.raw_exec", fake_raw_exec)
+    monkeypatch.setattr(
+        "sandbox.provider.registry.get_adapter",
+        lambda _sandbox_id: SimpleNamespace(exec=fake_raw_exec),
+    )
     ensure_git("sb-123")  # Must not raise.

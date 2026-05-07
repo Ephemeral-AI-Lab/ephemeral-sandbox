@@ -2,8 +2,8 @@
 
 The bundle is a tar.gz containing the project modules needed to import
 the deployed runtime server and setup orchestrator contract inside a sandbox.
-This module is host-side bootstrap code;
-bundle upload goes through ``sandbox.api.tool.raw_exec`` by sandbox id.
+This module is host-side bootstrap code; bundle upload uses the registered
+provider adapter's raw exec primitive by sandbox id.
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ import tarfile
 from pathlib import Path
 from typing import Protocol
 
-from sandbox.api import RawExecResult
-from sandbox.api.tool.raw_exec import raw_exec
+from sandbox.contracts import RawExecResult
+from sandbox.provider.registry import get_adapter
 
 __all__ = [
     "BUNDLE_REMOTE_DIR",
@@ -34,10 +34,6 @@ logger = logging.getLogger(__name__)
 BUNDLE_REMOTE_DIR = "/tmp/eos-sandbox-runtime"
 """Remote directory the bundle is extracted into."""
 
-_DAEMON_EXCLUDE_PARTS = {
-    "backends",
-    "testing.py",
-}
 _BUNDLE_HASH_MARKER = f"{BUNDLE_REMOTE_DIR}/.bundle-hash"
 _BUNDLE_REMOTE_TARBALL = f"{BUNDLE_REMOTE_DIR}/bundle.tar.gz"
 
@@ -52,6 +48,7 @@ class _RawExecCallable(Protocol):
         sandbox_id: str,
         command: str,
         *,
+        cwd: str | None = None,
         timeout: int | None = None,
     ) -> RawExecResult: ...
 
@@ -89,14 +86,9 @@ def _add_python_tree(
     root: Path,
     *,
     sandbox_dir: Path,
-    exclude_parts: set[str] | None = None,
 ) -> None:
-    excluded = exclude_parts or set()
     for path in sorted(root.rglob("*.py")):
         if _is_excluded(path):
-            continue
-        rel = path.relative_to(root)
-        if excluded.intersection(rel.parts):
             continue
         tar.add(
             path,
@@ -187,18 +179,12 @@ def _runtime_bundle_bytes() -> bytes:
             sandbox_dir / "api" / "tool" / "__init__.py",
             arcname="sandbox/api/tool/__init__.py",
         )
-        _add_if_exists(
-            tar,
-            sandbox_dir / "api" / "tool" / "result_projection.py",
-            arcname="sandbox/api/tool/result_projection.py",
-        )
 
         daemon_dir = sandbox_dir / "runtime"
         _add_python_tree(
             tar,
             daemon_dir,
             sandbox_dir=sandbox_dir,
-            exclude_parts=_DAEMON_EXCLUDE_PARTS,
         )
 
         command_exec_dir = sandbox_dir / "command_exec"
@@ -256,8 +242,11 @@ def bundle_hash(bundle: bytes | None = None) -> str:
 
 
 async def ensure_runtime_uploaded(sandbox_id: str) -> str:
-    """Upload the runtime bundle through ``sandbox.api.tool.raw_exec`` if needed."""
-    return await _ensure_runtime_uploaded_with_exec(sandbox_id, raw_exec)
+    """Upload the runtime bundle through the registered provider if needed."""
+    return await _ensure_runtime_uploaded_with_exec(
+        sandbox_id,
+        get_adapter(sandbox_id).exec,
+    )
 
 
 async def _ensure_runtime_uploaded_with_exec(

@@ -1,8 +1,8 @@
 """Provider-neutral ``ensure_git`` operation.
 
 Body lifted from ``SandboxProxy.ensure_git`` and rewritten to use
-:func:`sandbox.api.tool.raw_exec.raw_exec` instead of the SDK's ``process.exec``.
-No SDK or daytona-package imports.
+the registered provider adapter instead of the SDK's ``process.exec``. No SDK
+or daytona-package imports.
 """
 
 from __future__ import annotations
@@ -54,12 +54,13 @@ def ensure_git(sandbox_id: str) -> None:
     if not sandbox_id:
         return
     try:
-        from sandbox.api.tool.raw_exec import raw_exec
         from sandbox.async_bridge import run_sync
+        from sandbox.provider.registry import get_adapter
 
+        adapter = get_adapter(sandbox_id)
         logger.info("ensure_git(%s): probe starting", sandbox_id)
         resp = run_sync(
-            raw_exec(
+            adapter.exec(
                 sandbox_id,
                 "command -v git >/dev/null 2>&1 && echo ok || echo missing",
                 timeout=10,
@@ -69,7 +70,7 @@ def ensure_git(sandbox_id: str) -> None:
             logger.info("ensure_git(%s): git already available", sandbox_id)
             return
         logger.info("ensure_git(%s): installing git", sandbox_id)
-        install = run_sync(raw_exec(sandbox_id, _GIT_BOOTSTRAP, timeout=120))
+        install = run_sync(adapter.exec(sandbox_id, _GIT_BOOTSTRAP, timeout=120))
         if getattr(install, "exit_code", 1) not in (0, None):
             raise RuntimeError(
                 getattr(install, "stderr", "")

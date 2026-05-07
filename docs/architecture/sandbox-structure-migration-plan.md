@@ -7,6 +7,26 @@ runtime location, and dependency direction without changing observable
 behavior. The first pass is structural only: move files with `git mv`, update
 imports mechanically, and keep logic changes for later commits.
 
+## Implementation Status
+
+Implemented in the current tree.
+
+- Move-plan items 1-12 are complete: contracts moved to `sandbox/contracts.py`,
+  status flattened to `sandbox/api/status.py`, host folders flattened,
+  root foundation helpers moved, the resident daemon moved to
+  `sandbox/runtime/daemon`, `command_exec`, `layer_stack`, and `occ` were
+  regrouped, `providers` was renamed to `provider`, overlay CLI ownership moved
+  to `overlay/cli.py`, and generated sandbox state was removed.
+- OCC-owned projection and capture conversion now live under OCC:
+  `sandbox/occ/result_projection.py` and `sandbox/occ/capture/overlay.py`.
+  The old top-level `sandbox/occ/overlay_capture.py` facade was removed because
+  production code no longer imported it.
+- Host-side runtime setup now uses provider adapter exec and
+  `sandbox.host.daemon_client`; it no longer imports the public `sandbox.api`
+  tool internals.
+- `sandbox/testing/` was deleted after confirming there were no in-repo callers;
+  old eval-sandbox fixtures should stay test-local if needed again.
+
 ## Naming Convention
 
 - Package and module names use `snake_case`.
@@ -424,8 +444,6 @@ Do not mix these with move commits:
 - Re-audit pass-through parameters after import churn is complete.
 - Split `occ/commit_transaction.py` only after behavior tests are green; it is
   large but central and currently has user-owned dirty changes.
-- Delete `sandbox.testing` only after checking downstream callers and replacing
-  any remaining in-repo usages with test-local fixtures.
 
 ## Verification Plan
 

@@ -16,7 +16,6 @@ from sandbox.provider.daytona.client.credentials import load_credentials
 from sandbox.provider.daytona.errors import AsyncDaytonaUnavailableError
 from sandbox.async_bridge import (
     register_standalone_loop_cleanup,
-    run_sync_in_executor,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,35 +32,6 @@ _cached_clients: weakref.WeakKeyDictionary[
     asyncio.AbstractEventLoop,
     tuple[tuple[str, str, str], Any],
 ] = weakref.WeakKeyDictionary()
-
-
-def _looks_recoverable(exc: Exception | None) -> bool:
-    if exc is None:
-        return True
-    text = str(exc).lower()
-    return (
-        "no such container" in text
-        or "container not found" in text
-        or "sandbox container not found" in text
-    )
-
-
-async def _attempt_sandbox_recovery(sandbox_id: str, *, cause: Exception | None) -> None:
-    if not _looks_recoverable(cause):
-        return
-    try:
-        # Lazy import keeps sandbox.api -> sandbox.provider.daytona.client.async_client
-        # cycle out of module-load time.
-        from sandbox.api import status as sb_status
-
-        await run_sync_in_executor(sb_status.ensure_sandbox_running, sandbox_id)
-        logger.warning("Recovered sandbox %s after async fetch failure", sandbox_id)
-    except Exception:
-        logger.debug(
-            "Async sandbox recovery failed for %s",
-            sandbox_id,
-            exc_info=True,
-        )
 
 
 def _load_credentials() -> tuple[str, str, str]:
@@ -126,14 +96,7 @@ def get_async_daytona_client() -> Any:
 async def get_async_sandbox(sandbox_id: str) -> Any:
     """Fetch and start a pre-created sandbox by ID using async client."""
     client = get_async_daytona_client()
-    try:
-        sandbox = await client.get(sandbox_id)
-    except Exception as exc:
-        await _attempt_sandbox_recovery(sandbox_id, cause=exc)
-        sandbox = await client.get(sandbox_id)
-    if sandbox is None:
-        await _attempt_sandbox_recovery(sandbox_id, cause=None)
-        sandbox = await client.get(sandbox_id)
+    sandbox = await client.get(sandbox_id)
     if sandbox is None:
         raise ValueError(f"Sandbox '{sandbox_id}' not found")
     return sandbox

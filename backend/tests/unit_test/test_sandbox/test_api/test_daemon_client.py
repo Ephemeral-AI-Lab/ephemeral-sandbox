@@ -1,4 +1,4 @@
-"""Tests for public sandbox API daemon client helpers."""
+"""Tests for host-owned sandbox daemon client helpers."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.api.tool import _daemon_client as daemon_client_mod
+from sandbox.host import daemon_client as daemon_client_mod
 
 
 class _Adapter:
