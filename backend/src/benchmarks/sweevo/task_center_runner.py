@@ -1,15 +1,28 @@
-"""Legacy TaskCenter prompt helpers for SWE-EVO benchmark instances."""
+"""TaskCenter prompt helpers and mocked agent execution runner for SWE-EVO."""
 
 from __future__ import annotations
 
 import csv
 import functools
+import json
 import logging
 import os
 from pathlib import Path
 from typing import Any
 
-from benchmarks.sweevo.models import SWEEvoInstance, _REPO_DIR
+from benchmarks.sweevo.dataset import select_sweevo_instance
+from benchmarks.sweevo.evaluation import evaluate_sweevo_result
+from benchmarks.sweevo.mock_agent_execution import (
+    run_sweevo_task_center_with_mock_agent_execution,
+)
+from benchmarks.sweevo.models import (
+    SWEEvoInstance,
+    SWEEvoResult,
+    _DEFAULT_DATASET_SOURCE,
+    _DEFAULT_TARGET_BULLETS,
+    _REPO_DIR,
+)
+from benchmarks.sweevo.sandbox import create_sweevo_test_sandbox
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +107,148 @@ def build_sweevo_user_prompt(
     )
 
 
-async def run_sweevo_with_task_center(**_kwargs: Any) -> dict[str, Any]:
-    """Fail clearly while the TaskCenter runtime is being rebuilt."""
-    raise RuntimeError(
-        "The legacy TaskCenter SWE-EVO runner is disabled because "
-        "backend/src/task_center has been removed. Rebuild TaskCenter and add "
-        "a new benchmark runner before using this path."
+async def run_sweevo_with_task_center(
+    *,
+    printer: Any | None = None,
+    source: str = _DEFAULT_DATASET_SOURCE,
+    instance_id: str | None = None,
+    size: str = "medium",
+    target_bullets: int = _DEFAULT_TARGET_BULLETS,
+    snapshot_name: str = "",
+    sandbox_name: str = "",
+    register_snapshot: bool = True,
+    cpu: int = 2,
+    disk: int = 10,
+    repo_dir: str = _REPO_DIR,
+    evaluate: bool = True,
+    message_log_path: str | os.PathLike[str] | None = None,
+    pr_description_csv_path: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Run a SWE-EVO instance through TaskCenter with mocked agent execution.
+
+    The sandbox is real and is prepared from the selected SWE-EVO image. The
+    TaskCenter runtime is real; only the planner/executor/evaluator model
+    execution is replaced with deterministic Python handlers that call the same
+    sandbox and terminal submission tools the real agent loop would call.
+    """
+    del printer  # Mocked agent execution returns structured events.
+    instance = select_sweevo_instance(
+        source=source,
+        instance_id=instance_id,
+        size=size,
+        target_bullets=target_bullets,
     )
+    sandbox_result = await create_sweevo_test_sandbox(
+        instance,
+        snapshot_name=snapshot_name,
+        sandbox_name=sandbox_name,
+        register_snapshot=register_snapshot,
+        cpu=cpu,
+        disk=disk,
+        repo_dir=repo_dir,
+    )
+    user_prompt = build_sweevo_user_prompt(
+        instance,
+        repo_dir=repo_dir,
+        csv_path=pr_description_csv_path,
+    )
+    run = await run_sweevo_task_center_with_mock_agent_execution(
+        instance=instance,
+        user_prompt=user_prompt,
+        sandbox_id=str(sandbox_result["sandbox_id"]),
+        repo_dir=repo_dir,
+    )
+    run["sandbox"] = sandbox_result.get("sandbox")
+    run["snapshot_name"] = sandbox_result.get("snapshot_name", "")
+    run["repo_dir"] = repo_dir
+    run["prompt_source"] = {
+        "csv_path": os.fspath(
+            pr_description_csv_path
+            or os.environ.get(_PR_DESCRIPTION_CSV_ENV)
+            or _PR_DESCRIPTION_CSV_PATH
+        ),
+        "uses_pr_description": pr_description_for_instance(
+            instance,
+            csv_path=pr_description_csv_path,
+        ).strip()
+        != (instance.problem_statement or "").strip(),
+    }
+
+    if evaluate:
+        run["grading"] = await _evaluate_mock_agent_execution_run(
+            instance=instance,
+            run=run,
+            sandbox_id=str(sandbox_result["sandbox_id"]),
+            repo_dir=repo_dir,
+        )
+    else:
+        run["grading"] = None
+
+    if message_log_path:
+        _append_message_log(message_log_path, run)
+
+    return run
+
+
+async def _evaluate_mock_agent_execution_run(
+    *,
+    instance: SWEEvoInstance,
+    run: dict[str, Any],
+    sandbox_id: str,
+    repo_dir: str,
+) -> dict[str, Any]:
+    result = SWEEvoResult(
+        plan_id=str(run.get("task_center_run_id") or ""),
+        instance_id=instance.instance_id,
+        status=(
+            "completed"
+            if run.get("task_center_status") == "done"
+            else "failed"
+        ),
+        duration_s=float(run.get("duration_s") or 0.0),
+        task_count=int(run.get("task_count") or 0),
+        tasks_completed=int(run.get("tasks_completed") or 0),
+        tasks_failed=int(run.get("tasks_failed") or 0),
+    )
+    graded = await evaluate_sweevo_result(
+        instance,
+        result,
+        sandbox_id=sandbox_id,
+        repo_dir=repo_dir,
+    )
+    return {
+        "resolved": graded.resolved,
+        "fix_rate": graded.fix_rate,
+        "fail_to_pass_passed": graded.fail_to_pass_passed,
+        "fail_to_pass_total": graded.fail_to_pass_total,
+        "pass_to_pass_broken": graded.pass_to_pass_broken,
+        "pass_to_pass_total": graded.pass_to_pass_total,
+        "status": graded.status,
+        "error": graded.error,
+    }
+
+
+def _append_message_log(
+    message_log_path: str | os.PathLike[str],
+    run: dict[str, Any],
+) -> None:
+    path = Path(message_log_path)
+    with path.open("a", encoding="utf-8") as handle:
+        for launch in run.get("launches", []):
+            handle.write(json.dumps({"type": "launch", **launch}) + "\n")
+        for call in run.get("tool_calls", []):
+            handle.write(json.dumps({"type": "tool_call", **call}) + "\n")
+        handle.write(
+            json.dumps(
+                {
+                    "type": "summary",
+                    "task_center_run_id": run.get("task_center_run_id"),
+                    "task_center_status": run.get("task_center_status"),
+                    "grading": run.get("grading"),
+                }
+            )
+            + "\n"
+        )
 
 
 __all__ = [

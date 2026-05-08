@@ -46,6 +46,8 @@ class Attempt:
     created_at: datetime
     updated_at: datetime
     closed_at: datetime | None
+    context: str | None = None
+    summary: str | None = None
 
     @property
     def is_closed(self) -> bool:

@@ -68,6 +68,47 @@ def _default_sweevo_sandbox_name(instance: SWEEvoInstance) -> str:
     return _truncate_dns_label(f"sweevo-test-{instance.instance_id}-{uuid4().hex[:8]}")
 
 
+def _sweevo_sandbox_labels(instance: SWEEvoInstance, repo_dir: str) -> dict[str, str]:
+    return {
+        "purpose": "sweevo-test",
+        "project_dir": repo_dir,
+        "sweevo_instance": instance.instance_id,
+        "sweevo_repo": instance.repo,
+    }
+
+
+def _merge_sandbox_labels(
+    existing: dict[str, Any],
+    labels: dict[str, str],
+) -> dict[str, str]:
+    current = existing.get("labels")
+    merged = (
+        {str(k): str(v) for k, v in current.items()}
+        if isinstance(current, dict)
+        else {}
+    )
+    merged.update(labels)
+    return merged
+
+
+def _configure_reusable_sweevo_sandbox(
+    service: Any,
+    existing: dict[str, Any],
+    *,
+    instance: SWEEvoInstance,
+    repo_dir: str,
+) -> dict[str, Any] | None:
+    sandbox_id = str(existing.get("id") or "")
+    if not sandbox_id:
+        return None
+    labels = _merge_sandbox_labels(
+        existing,
+        _sweevo_sandbox_labels(instance, repo_dir),
+    )
+    service.set_sandbox_labels(sandbox_id, labels)
+    return service.start_sandbox(sandbox_id)
+
+
 def _safe_list_sandboxes(
     service: Any,
     *,
@@ -542,17 +583,23 @@ async def create_sweevo_test_sandbox(
         existing = _find_existing_sandbox_by_name(service, resolved_name)
         if existing:
             state = str(existing.get("state") or "")
-            if state == "stopped":
+            if state in {"started", "stopped", ""}:
                 try:
-                    existing = service.start_sandbox(str(existing["id"]))
+                    existing = _configure_reusable_sweevo_sandbox(
+                        service,
+                        existing,
+                        instance=instance,
+                        repo_dir=repo_dir,
+                    )
                 except Exception:
                     logger.warning(
-                        "Failed to start stopped SWE-EVO sandbox %s (%s)",
+                        "Failed to configure reusable SWE-EVO sandbox %s (%s)",
                         resolved_name,
                         existing.get("id", ""),
+                        exc_info=True,
                     )
                     existing = None
-            elif state not in {"started", ""}:
+            else:
                 logger.warning(
                     "Ignoring named SWE-EVO sandbox %s in non-reusable state %s",
                     resolved_name,
@@ -637,11 +684,7 @@ async def create_sweevo_test_sandbox(
         result = service.create_sandbox(
             name=resolved_name,
             language="python",
-            labels={
-                "purpose": "sweevo-test",
-                "sweevo_instance": instance.instance_id,
-                "sweevo_repo": instance.repo,
-            },
+            labels=_sweevo_sandbox_labels(instance, repo_dir),
             **create_kwargs,
         )
     except Exception as exc:
@@ -664,6 +707,14 @@ async def create_sweevo_test_sandbox(
                 f"[setup] recovered sandbox name={resolved_name} "
                 f"sandbox_id={fresh.get('id', '')}",
             )
+            recovered = _configure_reusable_sweevo_sandbox(
+                service,
+                fresh,
+                instance=instance,
+                repo_dir=repo_dir,
+            )
+            if recovered is not None:
+                fresh = recovered
             await setup_sweevo_sandbox(
                 instance,
                 fresh["id"],

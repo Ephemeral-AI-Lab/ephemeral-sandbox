@@ -52,6 +52,8 @@ class EpisodeRecord(Base):
         Text, nullable=True
     )
     task_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         UniqueConstraint(

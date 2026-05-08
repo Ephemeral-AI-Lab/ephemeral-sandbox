@@ -86,7 +86,20 @@ async def _edit_in_workspace(
             ) from exc
 
         derive_start = time.perf_counter()
-        final_text = _apply_edits(text, edits, path=layer_path)
+        try:
+            final_text = _apply_edits(text, edits, path=layer_path)
+        except ValueError as exc:
+            derive_elapsed = time.perf_counter() - derive_start
+            return _edit_conflict_payload(
+                path=layer_path,
+                message=str(exc),
+                total_start=total_start,
+                timings_extra={
+                    "api.edit.lease_acquire_s": lease_acquired_s,
+                    "api.edit.snapshot_read_s": read_elapsed,
+                    "api.edit.derive_bytes_s": derive_elapsed,
+                },
+            )
         derive_elapsed = time.perf_counter() - derive_start
 
         change = build_api_write_change(
@@ -144,7 +157,19 @@ def _edit_out_of_workspace(
     except UnicodeDecodeError as exc:
         raise ValueError(f"file is not valid UTF-8 text: {abs_path}") from exc
     derive_start = time.perf_counter()
-    final_text = _apply_edits(text, edits, path=abs_path)
+    try:
+        final_text = _apply_edits(text, edits, path=abs_path)
+    except ValueError as exc:
+        derive_elapsed = time.perf_counter() - derive_start
+        return _edit_conflict_payload(
+            path=abs_path,
+            message=str(exc),
+            total_start=total_start,
+            timings_extra={
+                "api.edit.host_fs_read_s": read_elapsed,
+                "api.edit.derive_bytes_s": derive_elapsed,
+            },
+        )
     derive_elapsed = time.perf_counter() - derive_start
     write_start = time.perf_counter()
     target.write_text(final_text, encoding="utf-8")
@@ -160,6 +185,31 @@ def _edit_out_of_workspace(
             "api.edit.host_fs_read_s": read_elapsed,
             "api.edit.derive_bytes_s": derive_elapsed,
             "api.edit.host_fs_write_s": write_elapsed,
+            "api.edit.total_s": time.perf_counter() - total_start,
+        },
+    }
+
+
+def _edit_conflict_payload(
+    *,
+    path: str,
+    message: str,
+    total_start: float,
+    timings_extra: dict[str, float],
+) -> dict[str, object]:
+    return {
+        "success": False,
+        "changed_paths": [path],
+        "applied_edits": 0,
+        "status": "aborted_overlap",
+        "conflict": {
+            "reason": "aborted_overlap",
+            "conflict_file": path,
+            "message": message,
+        },
+        "conflict_reason": message,
+        "timings": {
+            **timings_extra,
             "api.edit.total_s": time.perf_counter() - total_start,
         },
     }

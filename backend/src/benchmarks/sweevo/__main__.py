@@ -1,4 +1,4 @@
-"""CLI entrypoint for the legacy SWE-EVO TaskCenter runner.
+"""CLI entrypoint for the SWE-EVO TaskCenter runner with mocked agent execution.
 
 Example:
     PYTHONPATH=backend/src uv run python -m benchmarks.sweevo \
@@ -34,10 +34,16 @@ def _configure_benchmark_logging() -> None:
     logging.disable(logging.WARNING)
 
 
+def _bootstrap_sandbox_provider() -> None:
+    from sandbox.provider.daytona.bootstrap import bootstrap_daytona_provider
+
+    bootstrap_daytona_provider()
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m benchmarks.sweevo",
-        description="Legacy TaskCenter SWE-EVO runner.",
+        description="SWE-EVO TaskCenter runner with mocked agent execution.",
     )
     parser.add_argument("--source", default=_DEFAULT_DATASET_SOURCE)
     parser.add_argument("--instance-id", default=None, help="Exact instance_id to run")
@@ -95,12 +101,14 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     from benchmarks.sweevo.task_center_runner import run_sweevo_with_task_center
     from message.event_printer import MultiAgentEventPrinter
 
+    _bootstrap_sandbox_provider()
+
     printer = None
     if not args.no_stream:
         printer = MultiAgentEventPrinter(color=not args.no_color, timestamps=True)
         print("=" * 72, flush=True)
         print(
-            f"  SWE-EVO legacy TaskCenter run  instance="
+            f"  SWE-EVO TaskCenter run (mock agent execution)  instance="
             f"{args.instance_id or f'<auto size={args.size}>'}",
             flush=True,
         )
