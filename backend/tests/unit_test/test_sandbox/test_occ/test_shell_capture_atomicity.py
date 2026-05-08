@@ -15,7 +15,6 @@ import pytest
 from sandbox.command_exec.contract.result import ShellProcessResult
 from sandbox.layer_stack.workspace.base import build_workspace_base
 from sandbox.occ.client import OCCClient
-from sandbox.runtime.daemon.handler import shell
 from sandbox.runtime.daemon.service import occ_backend, shell_runner
 
 
@@ -90,7 +89,7 @@ async def test_shell_uses_occ_client_apply_changeset(
         shell_runner, "run_workspace_replaced_command", fake_run
     )
 
-    result = await shell.shell(
+    result = await shell_runner.execute_shell_api(
         {
             "layer_stack_root": stack.as_posix(),
             "command": "true",

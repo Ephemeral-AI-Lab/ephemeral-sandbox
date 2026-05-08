@@ -1,11 +1,10 @@
-"""Handler-per-command modules for the daemon ``api.*`` ops.
+"""Handler modules for daemon ``api.*`` ops.
 
-Each public verb has its own handler module under this package. Worker-level
-shell scaffolding (mount, capture, OCC apply) lives in
-:mod:`sandbox.runtime.daemon.service.shell_runner`; the dispatcher imports these
-modules and registers their entry functions in ``OP_TABLE``.
+Worker-level shell scaffolding (mount, capture, OCC apply) lives in
+:mod:`sandbox.runtime.daemon.service.shell_runner`; the dispatcher registers it
+directly because there is no shell-specific handler code left here.
 """
 
-from . import edit, health, metrics, read, shell, workspace, write
+from . import edit, health, metrics, read, workspace, write
 
-__all__ = ["edit", "health", "metrics", "read", "shell", "workspace", "write"]
+__all__ = ["edit", "health", "metrics", "read", "workspace", "write"]

@@ -17,7 +17,6 @@ from sandbox.occ.changeset.builders import build_api_write_change
 from sandbox.occ.changeset.prepared import CommitOptions, PreparedChangeset
 from sandbox.occ.changeset.types import FileStatus
 from sandbox.command_exec.contract.result import ShellProcessResult
-from sandbox.runtime.daemon.handler import shell
 from sandbox.runtime.daemon.service import occ_backend, shell_runner
 from sandbox.runtime.daemon.handler.request_context import _services
 
@@ -137,7 +136,7 @@ async def _run_occ_clean_stale_shell(
     )
 
     task = asyncio.create_task(
-        shell.shell(
+        shell_runner.execute_shell_api(
             {
                 "layer_stack_root": str(manager.storage_root),
                 "command": (

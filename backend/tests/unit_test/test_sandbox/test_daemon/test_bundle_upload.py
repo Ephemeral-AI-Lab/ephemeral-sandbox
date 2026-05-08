@@ -74,7 +74,6 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/runtime/daemon/handler/metrics.py",
         "sandbox/runtime/daemon/handler/overlay.py",
         "sandbox/runtime/daemon/handler/read.py",
-        "sandbox/runtime/daemon/handler/shell.py",
         "sandbox/runtime/daemon/handler/write.py",
         "sandbox/runtime/daemon/service/occ_backend.py",
         "sandbox/command_exec/__init__.py",

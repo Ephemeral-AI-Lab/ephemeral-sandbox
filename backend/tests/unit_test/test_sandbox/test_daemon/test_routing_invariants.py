@@ -12,11 +12,11 @@ from sandbox.runtime.daemon.handler import (
     health,
     metrics,
     read,
-    shell,
     workspace,
     write,
 )
 from sandbox.runtime.daemon.rpc import dispatcher as server
+from sandbox.runtime.daemon.service import shell_runner
 
 
 def test_daemon_op_table_routes_to_current_handler_layout() -> None:
@@ -26,7 +26,7 @@ def test_daemon_op_table_routes_to_current_handler_layout() -> None:
         "api.write_file": write.write_file,
         "api.edit_file": edit.edit_file,
         "api.read_file": read.read_file,
-        "api.shell": shell.shell,
+        "api.shell": shell_runner.execute_shell_api,
         "api.layer_metrics": metrics.layer_metrics,
         "api.ensure_workspace_base": workspace.ensure_workspace_base,
         "api.build_workspace_base": workspace.build_workspace_base,

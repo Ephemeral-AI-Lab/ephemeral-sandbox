@@ -40,7 +40,7 @@ Source of truth: `backend/src/sandbox/`.
                         │  provider.exec (RPC into sandbox)
                         ▼
 ┌─────────────────── SANDBOX (daemon) ────────────────────────┐
-│  daemon/handlers/shell.shell ─► services/shell_runner        │
+│  daemon service/shell_runner.execute_shell_api               │
 │                                       │                      │
 │         ┌─────────────────────────────┼─────────────────┐    │
 │         ▼                             ▼                 ▼    │

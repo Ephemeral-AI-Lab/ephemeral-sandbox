@@ -232,8 +232,9 @@ def _to_response_dict(result: Any) -> dict[str, Any]:
 
 
 def _load_peer_bootstraps() -> None:
-    from sandbox.runtime.daemon.handler import edit, health, metrics, read, shell, workspace, write
+    from sandbox.runtime.daemon.handler import edit, health, metrics, read, workspace, write
     from sandbox.runtime.daemon.handler import overlay as overlay_run
+    from sandbox.runtime.daemon.service import shell_runner
 
     for op, handler in {
         "api.ensure_workspace_base": workspace.ensure_workspace_base,
@@ -251,7 +252,7 @@ def _load_peer_bootstraps() -> None:
         "api.layer_metrics": metrics.layer_metrics,
         "api.read_file": read.read_file,
         "api.runtime.ready": health.runtime_ready,
-        "api.shell": shell.shell,
+        "api.shell": shell_runner.execute_shell_api,
         "api.workspace_binding": workspace.workspace_binding,
         "api.write_file": write.write_file,
         "overlay.run": overlay_run.handle,
