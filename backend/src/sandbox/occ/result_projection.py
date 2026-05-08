@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sandbox.contracts import ConflictInfo
+from sandbox.contract import ConflictInfo
 from sandbox.occ.changeset.types import (
     FileResult,
     is_published_status,
@@ -55,4 +55,29 @@ def conflict_and_status(
     )
 
 
-__all__ = ["committed_paths", "conflict_and_status", "published_paths"]
+def conflict_to_dict(conflict: object | None) -> dict[str, object] | None:
+    """Serialize a conflict object into the public guarded-result shape."""
+    if conflict is None:
+        return None
+    return {
+        "reason": getattr(conflict, "reason", ""),
+        "conflict_file": getattr(conflict, "conflict_file", None),
+        "message": getattr(conflict, "message", ""),
+    }
+
+
+def gitignore_cache_timings(gitignore: object) -> dict[str, float]:
+    """Expose gitignore-oracle cache counters as result timing metrics."""
+    return {
+        "gitignore.cache_hits_total": float(getattr(gitignore, "cache_hits")),
+        "gitignore.cache_misses_total": float(getattr(gitignore, "cache_misses")),
+    }
+
+
+__all__ = [
+    "committed_paths",
+    "conflict_and_status",
+    "conflict_to_dict",
+    "gitignore_cache_timings",
+    "published_paths",
+]

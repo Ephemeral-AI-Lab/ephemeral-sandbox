@@ -12,7 +12,7 @@ import pytest
 
 from sandbox.layer_stack.workspace.base import build_workspace_base
 from sandbox.runtime.daemon.service import occ_backend
-from sandbox.runtime.daemon.handler import edit, read, write
+from sandbox.runtime.daemon.handler.tools import edit, read, write
 from sandbox.runtime.daemon.service.workspace_server import get_layer_stack_manager
 
 

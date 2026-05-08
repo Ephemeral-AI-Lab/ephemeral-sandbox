@@ -258,7 +258,7 @@ def test_resolve_cwd_sync_calls_discover_workspace() -> None:
     fake_sb = MagicMock()
     mock_module = MagicMock()
     mock_module.discover_workspace.return_value = "/found/workspace"
-    with patch.dict("sys.modules", {"sandbox.workspace_context": mock_module}):
+    with patch.dict("sys.modules", {"sandbox.provider.daytona.workspace": mock_module}):
         result = DaytonaContextPreparer._resolve_cwd_sync(fake_sb)
         assert result == "/found/workspace"
         mock_module.discover_workspace.assert_called_once_with(fake_sb)
@@ -268,7 +268,7 @@ async def test_resolve_cwd_async_calls_discover_workspace_async() -> None:
     fake_sb = MagicMock()
     mock_module = MagicMock()
     mock_module.discover_workspace_async = AsyncMock(return_value="/async/found")
-    with patch.dict("sys.modules", {"sandbox.workspace_context": mock_module}):
+    with patch.dict("sys.modules", {"sandbox.provider.daytona.workspace": mock_module}):
         result = await DaytonaContextPreparer._resolve_cwd_async(fake_sb)
         assert result == "/async/found"
 

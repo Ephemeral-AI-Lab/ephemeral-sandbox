@@ -54,7 +54,7 @@ def ensure_git(sandbox_id: str) -> None:
     if not sandbox_id:
         return
     try:
-        from sandbox.async_bridge import run_sync
+        from sandbox.runtime.async_bridge import run_sync
         from sandbox.provider.registry import get_adapter
 
         adapter = get_adapter(sandbox_id)

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from sandbox.contracts import RawExecResult
+from sandbox.contract import RawExecResult
 from sandbox.host.git import ensure_git
 
 

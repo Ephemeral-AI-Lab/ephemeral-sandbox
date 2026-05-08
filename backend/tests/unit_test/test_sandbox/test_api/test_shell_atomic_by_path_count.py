@@ -79,7 +79,7 @@ def _patch_workspace_to_occ(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(
         shell_runner,
-        "workspace_changes_to_occ_changes",
+        "overlay_path_changes_to_occ_changes",
         fake,
     )
 

@@ -54,9 +54,9 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/api/__init__.py",
         "sandbox/api/facade.py",
         "sandbox/api/tool/__init__.py",
-        "sandbox/async_bridge.py",
-        "sandbox/contracts.py",
+        "sandbox/contract/__init__.py",
         "sandbox/runtime/__init__.py",
+        "sandbox/runtime/async_bridge.py",
         "sandbox/runtime/daemon/__main__.py",
         "sandbox/runtime/daemon/rpc/__init__.py",
         "sandbox/runtime/daemon/rpc/server.py",
@@ -70,11 +70,13 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/runtime/daemon/service/shell_runner.py",
         "sandbox/runtime/daemon/handler/__init__.py",
         "sandbox/runtime/daemon/handler/request_context.py",
-        "sandbox/runtime/daemon/handler/edit.py",
         "sandbox/runtime/daemon/handler/metrics.py",
         "sandbox/runtime/daemon/handler/overlay.py",
-        "sandbox/runtime/daemon/handler/read.py",
-        "sandbox/runtime/daemon/handler/write.py",
+        "sandbox/runtime/daemon/handler/tools/__init__.py",
+        "sandbox/runtime/daemon/handler/tools/edit.py",
+        "sandbox/runtime/daemon/handler/tools/read.py",
+        "sandbox/runtime/daemon/handler/tools/shell.py",
+        "sandbox/runtime/daemon/handler/tools/write.py",
         "sandbox/runtime/daemon/service/occ_backend.py",
         "sandbox/command_exec/__init__.py",
         "sandbox/command_exec/contract/request.py",
@@ -95,7 +97,6 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/occ/changeset/types.py",
         "sandbox/occ/commit_transaction.py",
         "sandbox/occ/routing/orchestrator.py",
-        "sandbox/occ/content/layer_backed.py",
         "sandbox/occ/content/gitignore_oracle.py",
         "sandbox/occ/content/hashing.py",
         "sandbox/occ/merge/direct.py",
@@ -212,9 +213,10 @@ def test_bundle_extracted_daemon_modules_import_clean(tmp_path: Path) -> None:
         "-c",
         (
             f"import sys; sys.path.insert(0, {str(extract_dir)!r}); "
-            "from sandbox.runtime.daemon.rpc.dispatcher import OP_TABLE, dispatch_envelope, main; "
-            "print('ok:', callable(main), isinstance(OP_TABLE, dict), "
-            "dispatch_envelope({'op':'missing'})['error']['kind'])"
+            "import asyncio; "
+            "from sandbox.runtime.daemon.rpc.dispatcher import OP_TABLE, dispatch_envelope_async; "
+            "response = asyncio.run(dispatch_envelope_async({'op':'missing'})); "
+            "print('ok:', isinstance(OP_TABLE, dict), response['error']['kind'])"
         ),
     ]
     result = subprocess.run(
@@ -227,7 +229,7 @@ def test_bundle_extracted_daemon_modules_import_clean(tmp_path: Path) -> None:
     assert result.returncode == 0, (
         f"daemon import failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert "ok: True True unknown_op" in result.stdout
+    assert "ok: True unknown_op" in result.stdout
 
 
 def test_bundle_hash_is_deterministic() -> None:

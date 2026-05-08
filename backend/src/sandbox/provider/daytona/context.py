@@ -50,13 +50,13 @@ class DaytonaContextPreparer:
 
     @staticmethod
     def _resolve_cwd_sync(sandbox: Any) -> str | None:
-        from sandbox.workspace_context import discover_workspace
+        from sandbox.provider.daytona.workspace import discover_workspace
 
         return discover_workspace(sandbox)
 
     @staticmethod
     async def _resolve_cwd_async(sandbox: Any) -> str | None:
-        from sandbox.workspace_context import discover_workspace_async
+        from sandbox.provider.daytona.workspace import discover_workspace_async
 
         return await discover_workspace_async(sandbox)
 
@@ -94,7 +94,7 @@ def prepare_daytona_runtime_context(
 ) -> None:
     """Inject provider-neutral runtime metadata and register the Daytona adapter."""
 
-    from sandbox.workspace_context import prepare_sandbox_runtime_context
+    from sandbox.provider.daytona.workspace import prepare_sandbox_runtime_context
 
     prepare_sandbox_runtime_context(
         context,
@@ -110,21 +110,10 @@ def _register_provider_adapter_if_missing(sandbox_id: str) -> None:
     if not sandbox_id:
         return
     try:
-        from sandbox.provider.registry import has_registered_adapter
+        from sandbox.provider.registry import has_registered_adapter, register_adapter
 
-        if has_registered_adapter(sandbox_id):
-            return
-    except Exception:
-        logger.debug(
-            "Provider adapter lookup failed for sandbox %s",
-            sandbox_id,
-            exc_info=True,
-        )
-        return
-    try:
-        from sandbox.provider.registry import register_adapter
-
-        register_adapter(sandbox_id, DaytonaProviderAdapter())
+        if not has_registered_adapter(sandbox_id):
+            register_adapter(sandbox_id, DaytonaProviderAdapter())
     except Exception:
         logger.debug(
             "Provider adapter attachment failed for sandbox %s",
@@ -135,6 +124,5 @@ def _register_provider_adapter_if_missing(sandbox_id: str) -> None:
 
 __all__ = [
     "DaytonaContextPreparer",
-    "_register_provider_adapter_if_missing",
     "prepare_daytona_runtime_context",
 ]

@@ -16,9 +16,7 @@ from sandbox.occ.changeset.types import (
     EditChange,
     FileResult,
     FileStatus,
-    GatedChange,
     OpaqueDirChange,
-    SearchReplaceEdit,
     SymlinkChange,
     WriteChange,
 )
@@ -32,12 +30,10 @@ __all__ = [
     "EditChange",
     "FileResult",
     "FileStatus",
-    "GatedChange",
     "OpaqueDirChange",
     "PreparedChangeset",
     "PreparedPathGroup",
     "RouteDecision",
-    "SearchReplaceEdit",
     "SymlinkChange",
     "WriteChange",
 ]

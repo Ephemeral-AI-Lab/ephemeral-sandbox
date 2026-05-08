@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from sandbox.command_exec.workspace.environment import command_environment, resolve_workspace_cwd
+from sandbox.command_exec.workspace.environment import run_command_to_refs
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,30 +65,26 @@ def execute(payload: dict[str, Any]) -> int:
 
     try:
         run_start = time.perf_counter()
-        cwd = resolve_workspace_cwd(
+        env_raw = payload.get("env") or {}
+        env = (
+            {str(key): str(value) for key, value in env_raw.items()}
+            if isinstance(env_raw, dict)
+            else {}
+        )
+        timeout_raw = payload.get("timeout_seconds")
+        timeout = float(timeout_raw) if timeout_raw is not None else None
+        exit_code = run_command_to_refs(
+            command=[str(part) for part in payload["command"]],
             declared_workspace_root=workspace_root,
             mounted_workspace_root=workspace_root,
             cwd=str(payload.get("cwd") or "."),
+            env=env,
+            timeout_seconds=timeout,
+            stdout_ref=stdout_ref,
+            stderr_ref=stderr_ref,
         )
-        env_raw = payload.get("env") or {}
-        env = {
-            str(key): str(value)
-            for key, value in env_raw.items()
-        } if isinstance(env_raw, dict) else {}
-        timeout_raw = payload.get("timeout_seconds")
-        timeout = float(timeout_raw) if timeout_raw is not None else None
-        with stdout_ref.open("wb") as stdout_file, stderr_ref.open("wb") as stderr_file:
-            completed = subprocess.run(
-                [str(part) for part in payload["command"]],
-                cwd=cwd,
-                env=command_environment(env),
-                stdout=stdout_file,
-                stderr=stderr_file,
-                timeout=timeout,
-                check=False,
-            )
         timings["command_exec.run_command_s"] = time.perf_counter() - run_start
-        return int(completed.returncode)
+        return exit_code
     except Exception as exc:
         with stderr_ref.open("ab") as stderr_file:
             stderr_file.write(f"workspace command failed: {exc}\n".encode("utf-8"))

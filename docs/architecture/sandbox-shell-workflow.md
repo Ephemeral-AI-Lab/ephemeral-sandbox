@@ -40,6 +40,9 @@ Source of truth: `backend/src/sandbox/`.
                         │  provider.exec (RPC into sandbox)
                         ▼
 ┌─────────────────── SANDBOX (daemon) ────────────────────────┐
+│  daemon handler/tools/shell.py                               │
+│                │                                             │
+│                ▼                                             │
 │  daemon service/shell_runner.execute_shell_api               │
 │                                       │                      │
 │         ┌─────────────────────────────┼─────────────────┐    │
@@ -80,6 +83,7 @@ caller        SandboxClient.shell        daemon_client      daemon
   ├───────────────►│ call_daemon_api     │                 │
   │                ├────────────────────►│ provider.exec   │
   │                │                     ├────────────────►│ api.shell(args)
+  │                │                     │                 ├─► handler/tools/shell.shell
   │                │                     │                 ├─► _execute_shell (below)
   │                │                     │                 │
   │                │                     │◄──── dict ──────┤
@@ -102,7 +106,7 @@ cmd_exec               layer_stack            overlay/mount         occ
    │◄────────── stdout / stderr / exit ────────────┤                 │
    │                                                                 │
    │ capture_workspace_upperdir (walk upper/)                        │
-   │ workspace_changes_to_occ_changes                                │
+   │ overlay_path_changes_to_occ_changes                             │
    │                                                                 │
    │ OCCClient.apply_changeset                                       │
    ├────────────────────────────────────────────────────────────────►│
@@ -202,7 +206,7 @@ does not see other concurrent shells.
     {opaque}build/        ──► OverlayPathChange(opaque_dir, "build")
 ```
 
-Then `workspace_changes_to_occ_changes` adapts those into typed
+Then `overlay_path_changes_to_occ_changes` adapts those into typed
 `occ.changeset.types.Change` records (with `source="overlay_capture"`).
 
 This is the single boundary between overlay and OCC: a typed sequence of
@@ -333,12 +337,12 @@ import OCC at all).
 
 ### 2.3 Connections
 
-The overlay capture layer (`sandbox/overlay/capture/...` and
-`sandbox/command_exec/capture/...`) is independent of both OCC and
+The overlay capture layer (`sandbox/overlay/capture/...` plus
+`sandbox/command_exec/workspace/capture.py`) is independent of both OCC and
 layer_stack. It produces a typed `Sequence[OverlayPathChange]` from an
 upperdir + snapshot manifest. The boundary into OCC is
-`workspace_changes_to_occ_changes(path_changes)`
-(`command_exec/capture/changeset.py`), which converts overlay events
+`overlay_path_changes_to_occ_changes(path_changes)`
+(`sandbox/occ/capture/overlay.py`), which converts overlay events
 into `occ.changeset.types.Change` objects.
 
 - Overlay knows nothing about OCC routing, gitignore, or transactions.

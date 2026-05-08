@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from sandbox.contracts import RawExecResult
+from sandbox.contract import RawExecResult
 import sandbox.host.runtime_bundle as bundle_module
 
 

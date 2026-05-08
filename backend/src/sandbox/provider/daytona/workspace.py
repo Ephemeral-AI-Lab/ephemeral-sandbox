@@ -1,18 +1,13 @@
-"""Sandbox workspace discovery and runtime context metadata.
+"""Daytona workspace discovery and runtime context metadata.
 
-Lifted from ``sandbox.lifecycle.workspace``. The ``sandbox`` argument to
-``discover_workspace`` / ``_sandbox_project_root`` still has provider-specific
-shape (``project_dir``, ``labels``, ``process.exec``); collapsing that gap is
-a separate plan (see ``.omc/plans/sandbox-provider-agnostic-lifecycle.md``
-§Out of scope).
+The ``sandbox`` argument uses Daytona SDK shape: ``project_dir``, ``labels``,
+and ``process.exec``. Keep this provider-owned until the lifecycle layer no
+longer needs raw provider objects for workspace discovery.
 """
 
 from __future__ import annotations
 
-import logging
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 
 def _sandbox_project_root(sandbox: Any) -> str | None:
@@ -27,15 +22,19 @@ def _sandbox_project_root(sandbox: Any) -> str | None:
     return None
 
 
+def _workspace_from_pwd_response(resp: Any) -> str | None:
+    if getattr(resp, "exit_code", None) != 0 or not getattr(resp, "result", None):
+        return None
+    result = str(resp.result).strip()
+    return result or None
+
+
 def discover_workspace(sandbox: Any) -> str | None:
     project_dir = _sandbox_project_root(sandbox)
     if project_dir:
         return project_dir
     try:
-        resp = sandbox.process.exec("pwd")
-        if resp.exit_code == 0 and resp.result:
-            result = str(resp.result).strip()
-            return result or None
+        return _workspace_from_pwd_response(sandbox.process.exec("pwd"))
     except Exception:
         pass
     return None
@@ -46,10 +45,7 @@ async def discover_workspace_async(sandbox: Any) -> str | None:
     if project_dir:
         return project_dir
     try:
-        resp = await sandbox.process.exec("pwd")
-        if resp.exit_code == 0 and resp.result:
-            result = str(resp.result).strip()
-            return result or None
+        return _workspace_from_pwd_response(await sandbox.process.exec("pwd"))
     except Exception:
         pass
     return None
@@ -61,7 +57,7 @@ def prepare_sandbox_runtime_context(
     sandbox: Any,
     workspace_root: str | None,
 ) -> None:
-    """Inject provider-neutral sandbox runtime metadata.
+    """Inject shared sandbox runtime metadata.
 
     Provider implementations own provider-specific context keys and adapter
     registration. This helper only normalizes workspace metadata shared by
@@ -81,7 +77,6 @@ def prepare_sandbox_runtime_context(
 
 
 __all__ = [
-    "_sandbox_project_root",
     "discover_workspace",
     "discover_workspace_async",
     "prepare_sandbox_runtime_context",

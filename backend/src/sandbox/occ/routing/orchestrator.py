@@ -21,7 +21,7 @@ from sandbox.occ.changeset.types import (
     WriteChange,
 )
 from sandbox.occ.content.gitignore_oracle import GitignoreMatcher
-from sandbox.async_bridge import run_sync_in_executor
+from sandbox.runtime.async_bridge import run_sync_in_executor
 
 BaseHashReader = Callable[[str], str | None]
 
@@ -139,11 +139,11 @@ class OccOrchestrator:
                 message=message,
             )
 
-        needs_base_hash = any(_requires_base_hash(change) for change in changes)
+        needs_base_hash = any(requires_base_hash(change) for change in changes)
         base_hash = base_hash_reader(path) if needs_base_hash else None
         prepared_changes = tuple(
-            _attach_base_hash(change, base_hash)
-            if _requires_base_hash(change)
+            attach_base_hash(change, base_hash)
+            if requires_base_hash(change)
             else change
             for change in changes
         )
@@ -156,7 +156,7 @@ class OccOrchestrator:
         )
 
 
-def _requires_base_hash(change: Change) -> bool:
+def requires_base_hash(change: Change) -> bool:
     return (
         isinstance(change, (WriteChange, DeleteChange))
         and change.base_hash is None
@@ -164,7 +164,7 @@ def _requires_base_hash(change: Change) -> bool:
     )
 
 
-def _attach_base_hash(change: Change, base_hash: str | None) -> Change:
+def attach_base_hash(change: Change, base_hash: str | None) -> Change:
     if isinstance(change, WriteChange):
         return change.with_base_hash(base_hash)
     if isinstance(change, DeleteChange):

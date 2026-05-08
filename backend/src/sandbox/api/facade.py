@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sandbox.contracts import (
+from sandbox.contract import (
     EditFileRequest,
     EditFileResult,
     RawExecResult,

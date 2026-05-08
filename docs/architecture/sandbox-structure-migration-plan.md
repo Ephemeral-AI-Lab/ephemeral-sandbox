@@ -11,7 +11,7 @@ imports mechanically, and keep logic changes for later commits.
 
 Implemented in the current tree.
 
-- Move-plan items 1-12 are complete: contracts moved to `sandbox/contracts.py`,
+- Move-plan items 1-12 are complete: contracts moved to `sandbox/contract/__init__.py`,
   status flattened to `sandbox/api/status.py`, host folders flattened,
   root foundation helpers moved, the resident daemon moved to
   `sandbox/runtime/daemon`, `command_exec`, `layer_stack`, and `occ` were
@@ -46,9 +46,9 @@ Implemented in the current tree.
 ```text
 sandbox/
   __init__.py
-  contracts.py
-  async_bridge.py
-  bash.py
+
+  contract/
+    __init__.py
 
   api/
     __init__.py
@@ -71,10 +71,10 @@ sandbox/
     git.py
     recovery.py
     setup.py
-    workspace.py
 
   runtime/
     __init__.py
+    async_bridge.py
     daemon/
       __init__.py
       __main__.py
@@ -85,13 +85,16 @@ sandbox/
       handler/
         __init__.py
         request_context.py
-        read.py
-        write.py
-        edit.py
-        shell.py
         health.py
         metrics.py
+        overlay.py
         workspace.py
+        tools/
+          __init__.py
+          read.py
+          write.py
+          edit.py
+          shell.py
       service/
         __init__.py
         layer_stack_client.py
@@ -169,7 +172,6 @@ sandbox/
       __init__.py
       gitignore_oracle.py
       hashing.py
-      layer_backed.py
     capture/
       __init__.py
       overlay.py
@@ -211,11 +213,13 @@ sandbox/
 
 ## Directory Responsibilities
 
-- `contracts.py`: shared sandbox DTOs used across `api`, `host`, `provider`,
+- `contract/`: shared sandbox DTOs used across `api`, `host`, `provider`,
   and runtime code. It must not import other sandbox layers.
 - `api/`: the public in-repo entry point for tools, routes, and app code.
 - `host/`: orchestrator-side setup, bundle upload, provider-backed daemon RPC,
-  workspace discovery, and recovery.
+  and recovery.
+- `runtime/async_bridge.py`: loop/executor bridge shared by host, provider, OCC,
+  overlay, and runtime daemon code.
 - `runtime/daemon/`: resident in-sandbox daemon server, dispatch, handlers, and
   daemon-local services.
 - `command_exec/`: guarded workspace-replaced command execution. It owns command
@@ -233,7 +237,7 @@ sandbox/
 The import graph should be a DAG:
 
 ```text
-contracts, async_bridge, bash
+contract, runtime.async_bridge
   <- layer_stack
   <- overlay
   <- occ
@@ -345,7 +349,7 @@ workspace/   real workspace binding and base import
 Each item should be a separate commit.
 
 1. Move shared contracts out of API internals.
-   - `sandbox/api/utils/models.py -> sandbox/contracts.py`
+   - `sandbox/api/utils/models.py -> sandbox/contract/__init__.py`
    - Update `sandbox.api.__init__` to re-export the same public DTO names.
    - Remove `sandbox/api/utils/`.
 
@@ -358,8 +362,8 @@ Each item should be a separate commit.
    - `sandbox/host/rpc/client.py -> sandbox/host/daemon_client.py`
    - `sandbox/host/ops/*.py -> sandbox/host/*.py`
 
-4. Move foundation helpers to named root modules.
-   - `sandbox/utils/async_bridge.py -> sandbox/async_bridge.py`
+4. Move foundation helpers to named runtime modules.
+   - `sandbox/utils/async_bridge.py -> sandbox/runtime/async_bridge.py`
    - Remove `sandbox/utils/`.
 
 5. Move resident daemon under runtime.
@@ -401,7 +405,6 @@ Each item should be a separate commit.
    - `direct/merge.py -> merge/direct.py`
    - `gated/merge.py -> merge/gated.py`
    - `serial_merger.py -> merge/serial.py`
-   - `content/layer_backed_content.py -> content/layer_backed.py`
    - Keep `commit_transaction.py` top-level until it is split by behavior in a
      later non-move commit.
 

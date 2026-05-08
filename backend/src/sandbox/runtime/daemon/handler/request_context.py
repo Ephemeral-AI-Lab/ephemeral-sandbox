@@ -12,9 +12,9 @@ The OCC backend tuple ``(LayerStackClient, OCCClient, SnapshotGitignoreOracle,
 LayerStackManager)`` is owned by :mod:`sandbox.runtime.daemon.service.occ_backend`. The
 ``_services`` helper is the canonical per-verb access point.
 
-``shell`` does NOT use this module — it routes through
-``daemon.services.shell_runner`` whose worker scaffolding still owns its own
-service entrypoint and timing helpers.
+``shell`` does NOT use this module — ``handler.tools.shell`` delegates to
+``service.shell_runner``, whose worker scaffolding still owns its own service
+entrypoint and timing helpers.
 """
 
 from __future__ import annotations
@@ -27,6 +27,8 @@ from typing import Literal, NamedTuple
 from sandbox.occ.result_projection import (
     committed_paths,
     conflict_and_status,
+    conflict_to_dict,
+    gitignore_cache_timings,
 )
 from sandbox.occ.changeset.types import ChangesetResult
 from sandbox.occ.content.gitignore_oracle import SnapshotGitignoreOracle
@@ -144,40 +146,19 @@ def _project_changeset(
         "success": result.success,
         "changed_paths": list(committed_paths(result.files, fallback_path=fallback_path)),
         "status": status,
-        "conflict": _conflict_to_dict(conflict),
+        "conflict": conflict_to_dict(conflict),
         "conflict_reason": conflict.message if conflict is not None else None,
         "timings": {
             **result.timings,
-            **_gitignore_timings(gitignore),
+            **gitignore_cache_timings(gitignore),
             **timings_extra,
             f"api.{verb}.total_s": time.perf_counter() - total_start,
         },
     }
 
 
-def _gitignore_timings(
-    gitignore: SnapshotGitignoreOracle,
-) -> dict[str, float]:
-    return {
-        "gitignore.cache_hits_total": float(gitignore.cache_hits),
-        "gitignore.cache_misses_total": float(gitignore.cache_misses),
-    }
-
-
-def _conflict_to_dict(conflict: object | None) -> dict[str, object] | None:
-    if conflict is None:
-        return None
-    return {
-        "reason": getattr(conflict, "reason", ""),
-        "conflict_file": getattr(conflict, "conflict_file", None),
-        "message": getattr(conflict, "message", ""),
-    }
-
-
 __all__ = [
     "ClassifiedPath",
-    "_conflict_to_dict",
-    "_gitignore_timings",
     "_layer_stack_root",
     "_project_changeset",
     "_required_single_path",

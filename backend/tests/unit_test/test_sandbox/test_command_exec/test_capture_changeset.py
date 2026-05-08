@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.occ.capture.overlay import workspace_changes_to_occ_changes
+from sandbox.occ.capture.overlay import overlay_path_changes_to_occ_changes
 from sandbox.occ.changeset.types import (
     DeleteChange,
     OpaqueDirChange,
@@ -17,7 +17,7 @@ from sandbox.occ.changeset.types import (
 from sandbox.overlay.capture.changes import OverlayPathChange, content_hash
 
 
-def test_workspace_changes_to_occ_changes_converts_all_supported_kinds(
+def test_overlay_path_changes_to_occ_changes_converts_all_supported_kinds(
     tmp_path: Path,
 ) -> None:
     write_path = tmp_path / "new.txt"
@@ -25,7 +25,7 @@ def test_workspace_changes_to_occ_changes_converts_all_supported_kinds(
     link_path = tmp_path / "link"
     os.symlink("/target", link_path)
 
-    changes = workspace_changes_to_occ_changes(
+    changes = overlay_path_changes_to_occ_changes(
         [
             OverlayPathChange(
                 path="src/new.txt",
@@ -85,7 +85,7 @@ def test_workspace_changes_to_occ_changes_converts_all_supported_kinds(
     assert changes[3].kept_children == frozenset({"keep.py", "nested"})
 
 
-def test_workspace_changes_to_occ_changes_rejects_missing_content_path() -> None:
+def test_overlay_path_changes_to_occ_changes_rejects_missing_content_path() -> None:
     invalid_change = object.__new__(OverlayPathChange)
     object.__setattr__(invalid_change, "path", "src/new.txt")
     object.__setattr__(invalid_change, "kind", "write")
@@ -93,10 +93,10 @@ def test_workspace_changes_to_occ_changes_rejects_missing_content_path() -> None
     object.__setattr__(invalid_change, "final_hash", None)
 
     with pytest.raises(ValueError, match="lacks content path"):
-        workspace_changes_to_occ_changes([invalid_change])
+        overlay_path_changes_to_occ_changes([invalid_change])
 
 
-def test_workspace_changes_to_occ_changes_rejects_missing_final_hash(
+def test_overlay_path_changes_to_occ_changes_rejects_missing_final_hash(
     tmp_path: Path,
 ) -> None:
     """Phase 3 improvement #2 — final_hash is now a hard requirement.
@@ -115,4 +115,4 @@ def test_workspace_changes_to_occ_changes_rejects_missing_final_hash(
     object.__setattr__(invalid, "final_hash", None)
 
     with pytest.raises(ValueError, match="lacks final_hash"):
-        workspace_changes_to_occ_changes([invalid])
+        overlay_path_changes_to_occ_changes([invalid])

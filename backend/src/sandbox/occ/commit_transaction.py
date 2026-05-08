@@ -42,7 +42,6 @@ _SMALL_FILE_BYTES_THRESHOLD = 16 * 1024
 
 @dataclass(frozen=True)
 class PathValidation:
-    path: str
     result: FileResult
     accepted_delta: LayerDelta | None
 
@@ -206,7 +205,6 @@ class OccCommitTransaction:
     ) -> PathValidation:
         if group.route is RouteDecision.DROP:
             return PathValidation(
-                path=group.path,
                 result=FileResult(
                     path=group.path,
                     status=FileStatus.DROPPED,
@@ -216,7 +214,6 @@ class OccCommitTransaction:
             )
         if group.route is RouteDecision.REJECT:
             return PathValidation(
-                path=group.path,
                 result=FileResult(
                     path=group.path,
                     status=FileStatus.REJECTED,
@@ -231,7 +228,7 @@ class OccCommitTransaction:
                 stage_write=stager.write,
                 stage_write_from_path=stager.write_from_path,
             )
-            return PathValidation(path=group.path, result=result, accepted_delta=delta)
+            return PathValidation(result=result, accepted_delta=delta)
         if group.route is RouteDecision.OCC_GATED_MERGE:
             result, delta = self._gated.stage_group(
                 group,
@@ -239,9 +236,8 @@ class OccCommitTransaction:
                 stage_write=stager.write,
                 stage_write_from_path=stager.write_from_path,
             )
-            return PathValidation(path=group.path, result=result, accepted_delta=delta)
+            return PathValidation(result=result, accepted_delta=delta)
         return PathValidation(
-            path=group.path,
             result=FileResult(
                 path=group.path,
                 status=FileStatus.REJECTED,
@@ -429,4 +425,4 @@ def _finish_timings(
     return result
 
 
-__all__ = ["OccCommitTransaction", "PathValidation"]
+__all__ = ["OccCommitTransaction"]

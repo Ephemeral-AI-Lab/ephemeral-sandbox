@@ -72,13 +72,3 @@ class TestLoadCredentials:
         assert key == ""
         assert url == ""
         assert target == ""
-
-    def test_has_credentials(self, monkeypatch):
-        monkeypatch.setattr(
-            "sandbox.provider.daytona.client.credentials.load_credentials",
-            lambda: ("key", "url", ""),
-        )
-
-        from sandbox.provider.daytona.client.credentials import has_credentials
-
-        assert has_credentials() is True

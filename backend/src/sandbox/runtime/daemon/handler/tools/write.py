@@ -10,7 +10,7 @@ from sandbox.layer_stack.workspace.binding import require_workspace_binding
 from sandbox.occ.changeset.builders import build_api_write_change
 from sandbox.occ.routing.runtime_ops import content_hash_bytes
 from sandbox.occ.routing.single_path import prepare_single_path_changeset
-from sandbox.async_bridge import run_sync_in_executor
+from sandbox.runtime.async_bridge import run_sync_in_executor
 from sandbox.runtime.daemon.handler.request_context import (
     _layer_stack_root,
     _project_changeset,

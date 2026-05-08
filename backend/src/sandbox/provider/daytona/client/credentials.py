@@ -11,11 +11,6 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[6]
 _DOTENV_PATH = _PROJECT_ROOT / ".env"
 
 
-def has_credentials() -> bool:
-    api_key, api_url, _ = load_credentials()
-    return bool(api_key and api_url)
-
-
 def load_credentials() -> tuple[str, str, str]:
     dotenv_map = _load_dotenv_values()
 
@@ -41,4 +36,4 @@ def _load_dotenv_values() -> dict[str, str]:
     }
 
 
-__all__ = ["has_credentials", "load_credentials"]
+__all__ = ["load_credentials"]

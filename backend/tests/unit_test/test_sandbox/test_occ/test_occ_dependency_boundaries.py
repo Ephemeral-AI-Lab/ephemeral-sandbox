@@ -31,7 +31,6 @@ def test_phase03_occ_preparation_modules_do_not_import_overlay_or_legacy_apply()
         occ_root / "routing" / "orchestrator.py",
         occ_root / "content" / "gitignore_oracle.py",
         occ_root / "content" / "hashing.py",
-        occ_root / "content" / "layer_backed.py",
         occ_root / "merge" / "direct.py",
         occ_root / "merge" / "gated.py",
         occ_root / "commit_transaction.py",

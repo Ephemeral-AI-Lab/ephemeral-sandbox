@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 
-from sandbox.command_exec.workspace.environment import command_environment, resolve_workspace_cwd
+from sandbox.command_exec.workspace.environment import run_command_to_refs
 from sandbox.command_exec.contract.request import CommandExecRequest
 from sandbox.command_exec.contract.result import ShellProcessResult
 
@@ -81,7 +81,8 @@ def _run_copy_backed_mount(
         if directory.exists():
             shutil.rmtree(directory)
         directory.mkdir(parents=True)
-    _copy_tree(lowerdir, merged)
+    if lowerdir.exists():
+        shutil.copytree(lowerdir, merged, symlinks=True, dirs_exist_ok=True)
     timings["command_exec.mount_workspace_s"] = time.perf_counter() - mount_start
 
     run_request = replace(
@@ -93,10 +94,13 @@ def _run_copy_backed_mount(
         ),
     )
     run_start = time.perf_counter()
-    exit_code = _run_command_to_refs(
-        request=run_request,
+    exit_code = run_command_to_refs(
+        command=run_request.command,
         declared_workspace_root=spec.workspace_root,
         mounted_workspace_root=merged,
+        cwd=run_request.cwd,
+        env=run_request.env,
+        timeout_seconds=run_request.timeout_seconds,
         stdout_ref=stdout_ref,
         stderr_ref=stderr_ref,
     )
@@ -165,49 +169,6 @@ def _run_private_mount_namespace(
         mounted_workspace_root=spec.workspace_root,
         mount_mode="private_namespace",
     )
-
-
-def _run_command_to_refs(
-    *,
-    request: CommandExecRequest,
-    declared_workspace_root: str,
-    mounted_workspace_root: str | Path,
-    stdout_ref: Path,
-    stderr_ref: Path,
-) -> int:
-    stdout_ref.parent.mkdir(parents=True, exist_ok=True)
-    stderr_ref.parent.mkdir(parents=True, exist_ok=True)
-    cwd = resolve_workspace_cwd(
-        declared_workspace_root=declared_workspace_root,
-        mounted_workspace_root=mounted_workspace_root,
-        cwd=request.cwd,
-    )
-    with stdout_ref.open("wb") as stdout_file, stderr_ref.open("wb") as stderr_file:
-        completed = subprocess.run(
-            list(request.command),
-            cwd=cwd,
-            env=command_environment(dict(request.env)),
-            stdout=stdout_file,
-            stderr=stderr_file,
-            timeout=request.timeout_seconds,
-            check=False,
-        )
-    return int(completed.returncode)
-
-
-def _copy_tree(source: Path, destination: Path) -> None:
-    if not source.exists():
-        return
-    for entry in source.iterdir():
-        target = destination / entry.name
-        if entry.is_symlink():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.symlink_to(entry.readlink())
-        elif entry.is_dir():
-            shutil.copytree(entry, target, symlinks=True)
-        elif entry.is_file():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(entry, target)
 
 
 def _rewrite_declared_workspace_refs(

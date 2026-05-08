@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from sandbox.contracts import RawExecResult
-from sandbox.provider.daytona.adapter import (
-    _EXIT_MARKER,
-    DaytonaProviderAdapter,
-)
+from sandbox.contract import RawExecResult
+from sandbox.provider.daytona.adapter import DaytonaProviderAdapter
+from sandbox.provider.daytona.bash import EXIT_MARKER
 
 
 class _FakeProcess:
@@ -17,7 +15,7 @@ class _FakeProcess:
 
     async def exec(self, command: str, *, timeout: int | None = None) -> SimpleNamespace:
         self.calls.append((command, timeout))
-        return SimpleNamespace(result=f"ok\n{_EXIT_MARKER}0\n", exit_code=0)
+        return SimpleNamespace(result=f"ok\n{EXIT_MARKER}0\n", exit_code=0)
 
 
 async def test_daytona_provider_adapter_execs_through_daytona_process() -> None:

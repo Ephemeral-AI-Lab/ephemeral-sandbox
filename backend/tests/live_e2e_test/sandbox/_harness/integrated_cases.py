@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import pytest
 
-from sandbox.contracts import (
+from sandbox.contract import (
     EditFileResult,
     GuardedResultBase,
     RawExecResult,

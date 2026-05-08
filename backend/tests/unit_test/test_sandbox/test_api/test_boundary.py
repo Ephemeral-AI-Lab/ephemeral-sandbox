@@ -35,7 +35,7 @@ ALLOWED_API_IMPORT_NAMES = {
     "WriteFileResult",
 }
 TYPE_MODULES = {
-    "sandbox.contracts",
+    "sandbox.contract",
 }
 
 

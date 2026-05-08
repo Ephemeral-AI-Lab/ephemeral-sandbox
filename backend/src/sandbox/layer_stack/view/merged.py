@@ -5,8 +5,9 @@ from __future__ import annotations
 import errno
 import os
 import shutil
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
+from sandbox.layer_stack.filesystem import join_layer_path, remove_path
 from sandbox.layer_stack.layer.change import normalize_layer_path
 from sandbox.layer_stack.layer.index import (
     OPAQUE_MARKER,
@@ -55,7 +56,7 @@ class MergedView:
                 return None, False
             if rel in index.files:
                 layer_dir = self._layer_dir(layer)
-                candidate = _join_rel(layer_dir, rel)
+                candidate = join_layer_path(layer_dir, rel)
                 if candidate.is_symlink():
                     return os.readlink(candidate).encode("utf-8"), True
                 if candidate.is_file():
@@ -82,7 +83,7 @@ class MergedView:
                 return "", False
             if rel in index.files:
                 layer_dir = self._layer_dir(layer)
-                candidate = _join_rel(layer_dir, rel)
+                candidate = join_layer_path(layer_dir, rel)
                 if candidate.is_symlink():
                     return os.readlink(candidate), True
                 # rel resolves to a regular file (not a symlink) in this
@@ -217,7 +218,7 @@ class MergedView:
                 continue
             rel = whiteout.relative_to(layer_dir)
             target = dest / rel.parent / whiteout.name[len(WHITEOUT_PREFIX) :]
-            _remove_path(target)
+            remove_path(target)
 
         for entry in entries:
             if entry.name == OPAQUE_MARKER or _is_whiteout(entry.name):
@@ -230,17 +231,11 @@ class MergedView:
                 target.mkdir(parents=True, exist_ok=True)
             elif entry.is_file():
                 target.parent.mkdir(parents=True, exist_ok=True)
-                _remove_path(target)
+                remove_path(target)
                 if link_ok:
                     _link_or_copy(entry, target)
                 else:
                     shutil.copy2(entry, target)
-
-
-def _join_rel(root: Path, rel: str) -> Path:
-    if not rel:
-        return root
-    return root.joinpath(*PurePosixPath(rel).parts)
 
 
 def _direct_child_segment(name: str, prefix: str) -> str | None:
@@ -271,14 +266,7 @@ def _is_whiteout(name: str) -> bool:
 def _clear_directory(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
     for child in path.iterdir():
-        _remove_path(child)
-
-
-def _remove_path(path: Path) -> None:
-    if path.is_symlink() or path.is_file():
-        path.unlink(missing_ok=True)
-    elif path.is_dir():
-        shutil.rmtree(path)
+        remove_path(child)
 
 
 def _link_or_copy(src: Path, dst: Path) -> None:
@@ -293,5 +281,5 @@ def _link_or_copy(src: Path, dst: Path) -> None:
 
 def _replace_symlink(path: Path, target: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    _remove_path(path)
+    remove_path(path)
     os.symlink(target, path)

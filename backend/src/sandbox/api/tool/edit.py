@@ -8,7 +8,7 @@ from sandbox.api.tool._payload import (
     paths_from_payload,
     timings_from_payload,
 )
-from sandbox.contracts import EditFileRequest, EditFileResult
+from sandbox.contract import EditFileRequest, EditFileResult
 from sandbox.host.daemon_client import call_daemon_api
 
 

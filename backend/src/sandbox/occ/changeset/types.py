@@ -8,17 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Literal, Union
+from typing import Literal
 
 ChangeSource = Literal["api_write", "api_edit", "overlay_capture"]
-
-
-@dataclass(frozen=True)
-class SearchReplaceEdit:
-    """One exact-match edit anchor."""
-
-    old_text: str
-    new_text: str
 
 
 @dataclass(frozen=True, init=False)
@@ -141,10 +133,6 @@ class EditChange(Change):
         object.__setattr__(self, "new_text", str(new_text))
         object.__setattr__(self, "expected_occurrences", int(expected_occurrences))
 
-    @property
-    def edits(self) -> tuple[SearchReplaceEdit, ...]:
-        return (SearchReplaceEdit(old_text=self.old_text, new_text=self.new_text),)
-
 
 @dataclass(frozen=True, init=False)
 class DeleteChange(Change):
@@ -164,9 +152,6 @@ class DeleteChange(Change):
 
     def with_base_hash(self, base_hash: str | None) -> "DeleteChange":
         return DeleteChange(path=self.path, source=self.source, base_hash=base_hash)
-
-
-GatedChange = Union[WriteChange, EditChange, DeleteChange]
 
 
 @dataclass(frozen=True, init=False)
@@ -252,9 +237,7 @@ __all__ = [
     "EditChange",
     "FileResult",
     "FileStatus",
-    "GatedChange",
     "OpaqueDirChange",
-    "SearchReplaceEdit",
     "SymlinkChange",
     "WriteChange",
     "is_published_status",

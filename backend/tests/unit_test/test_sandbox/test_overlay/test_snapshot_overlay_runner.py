@@ -10,7 +10,7 @@ import pytest
 from sandbox.layer_stack import LayerChange, LayerStackManager
 from sandbox.overlay.runner.snapshot_overlay_runner import SnapshotOverlayRunner
 from sandbox.overlay.runner.snapshot_overlay_runner import OverlayShellRequest
-from sandbox.runtime.daemon.rpc.dispatcher import dispatch_envelope
+from sandbox.runtime.daemon.rpc.dispatcher import dispatch_envelope_async
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> str:
@@ -97,7 +97,8 @@ async def test_snapshot_runner_releases_lease_when_runtime_fails(tmp_path: Path)
     assert manager.pinned_layers() == ()
 
 
-def test_overlay_run_handler_supports_layer_stack_snapshot_requests(
+@pytest.mark.asyncio
+async def test_overlay_run_handler_supports_layer_stack_snapshot_requests(
     tmp_path: Path,
 ) -> None:
     manager = LayerStackManager(tmp_path / "stack")
@@ -111,7 +112,7 @@ def test_overlay_run_handler_supports_layer_stack_snapshot_requests(
         ]
     )
 
-    result = dispatch_envelope(
+    result = await dispatch_envelope_async(
         {
             "op": "overlay.run",
             "args": {

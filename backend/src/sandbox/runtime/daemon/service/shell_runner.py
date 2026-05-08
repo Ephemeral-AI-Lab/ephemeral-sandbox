@@ -12,9 +12,11 @@ from uuid import uuid4
 
 from sandbox.occ.result_projection import (
     conflict_and_status,
+    conflict_to_dict,
+    gitignore_cache_timings,
     published_paths,
 )
-from sandbox.occ.capture.overlay import workspace_changes_to_occ_changes
+from sandbox.occ.capture.overlay import overlay_path_changes_to_occ_changes
 from sandbox.command_exec.workspace.capture import capture_workspace_upperdir
 from sandbox.command_exec.contract.ports import OCCMutationClient, WorkspaceLeaseClient
 from sandbox.command_exec.contract.request import CommandExecRequest
@@ -29,7 +31,7 @@ from sandbox.occ.changeset.types import ChangesetResult
 from sandbox.occ.content.gitignore_oracle import SnapshotGitignoreOracle
 from sandbox.overlay.capture.types import read_output_ref
 from sandbox.runtime.daemon.service import occ_backend
-from sandbox.async_bridge import run_sync_in_executor
+from sandbox.runtime.async_bridge import run_sync_in_executor
 
 
 async def execute_shell_api(args: dict[str, object]) -> dict[str, object]:
@@ -126,7 +128,7 @@ async def _execute_shell(
         timings = {
             **timings,
             **changeset.timings,
-            **_gitignore_timings(gitignore),
+            **gitignore_cache_timings(gitignore),
         }
         timings["api.shell.overlay_s"] = (
             timings.get("command_exec.mount_workspace_s", 0.0)
@@ -172,7 +174,7 @@ async def _apply_workspace_capture(
     snapshot: object,
     request: CommandExecRequest,
 ) -> ChangesetResult:
-    typed_changes = workspace_changes_to_occ_changes(path_changes)  # type: ignore[arg-type]
+    typed_changes = overlay_path_changes_to_occ_changes(path_changes)  # type: ignore[arg-type]
     if not typed_changes:
         return ChangesetResult(
             files=(),
@@ -214,7 +216,7 @@ def _payload_from_result(result: CommandExecResult) -> dict[str, object]:
         "stderr": result.stderr,
         "changed_paths": list(published_paths(files)),
         "status": status,
-        "conflict": _conflict_to_dict(conflict),
+        "conflict": conflict_to_dict(conflict),
         "conflict_reason": conflict.message if conflict is not None else None,
         "workspace_capture": {
             "snapshot_version": result.workspace_capture.snapshot_version,
@@ -311,25 +313,6 @@ def _drop_transient_lowerdir(lease: object) -> None:
         return
     lowerdir = Path(raw)
     shutil.rmtree(lowerdir.parent, ignore_errors=True)
-
-
-def _gitignore_timings(
-    gitignore: "SnapshotGitignoreOracle",
-) -> dict[str, float]:
-    return {
-        "gitignore.cache_hits_total": float(gitignore.cache_hits),
-        "gitignore.cache_misses_total": float(gitignore.cache_misses),
-    }
-
-
-def _conflict_to_dict(conflict: object | None) -> dict[str, object] | None:
-    if conflict is None:
-        return None
-    return {
-        "reason": getattr(conflict, "reason", ""),
-        "conflict_file": getattr(conflict, "conflict_file", None),
-        "message": getattr(conflict, "message", ""),
-    }
 
 
 def _mapping(value: object) -> Mapping[str, object]:

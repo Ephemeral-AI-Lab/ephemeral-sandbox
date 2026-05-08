@@ -20,24 +20,15 @@ def restore_op_table() -> None:
         server.OP_TABLE.update(saved)
 
 
-def test_empty_op_table_returns_unknown_op() -> None:
-    response = server.dispatch_envelope({"op": "occ.missing", "args": {}})
+async def test_empty_op_table_returns_unknown_op() -> None:
+    response = await server.dispatch_envelope_async({"op": "occ.missing", "args": {}})
 
     assert response["success"] is False
     assert response["error"]["kind"] == "unknown_op"
     assert response["error"]["details"] == {"op": "occ.missing"}
 
 
-def test_bad_json_returns_structured_error() -> None:
-    response = server.dispatch_json("{not json")
-
-    assert response["success"] is False
-    assert response["error"]["kind"] == "bad_json"
-    assert response["warnings"] == []
-    assert response["timings"] == {}
-
-
-def test_registered_handler_dispatches_through_op_table() -> None:
+async def test_registered_handler_dispatches_through_op_table() -> None:
     calls: list[dict[str, Any]] = []
 
     def handler(args: dict[str, Any]) -> dict[str, Any]:
@@ -46,7 +37,9 @@ def test_registered_handler_dispatches_through_op_table() -> None:
 
     server.register_op("test.echo", handler)
 
-    response = server.dispatch_envelope({"op": "test.echo", "args": {"value": 3}})
+    response = await server.dispatch_envelope_async(
+        {"op": "test.echo", "args": {"value": 3}}
+    )
 
     assert response["success"] is True
     assert response["value"] == 3

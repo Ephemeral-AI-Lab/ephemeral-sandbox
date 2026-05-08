@@ -12,6 +12,7 @@ import shutil
 from types import TracebackType
 from uuid import uuid4
 
+from sandbox.layer_stack.filesystem import remove_path, resolve_storage_path
 from sandbox.layer_stack.layer.change import LayerChange
 from sandbox.layer_stack.lease.registry import LeaseRegistry, WorkspaceLease
 from sandbox.layer_stack.manifest import (
@@ -238,10 +239,7 @@ class LayerStackManager:
                 self._squash.discard_checkpoint(checkpoint)
 
     def _layer_path(self, layer: LayerRef) -> Path:
-        path = Path(layer.path)
-        if not path.is_absolute():
-            path = self.storage_root / path
-        return path
+        return resolve_storage_path(self.storage_root, layer.path)
 
     def _remove_unreferenced_layers(
         self,
@@ -255,7 +253,7 @@ class LayerStackManager:
         for layer in sorted(set(candidates), key=lambda item: item.layer_id):
             if layer in active_layers or layer in pinned_layers:
                 continue
-            _remove_path(self._layer_path(layer))
+            remove_path(self._layer_path(layer))
             _layer_digest_path(self.storage_root, layer.layer_id).unlink(missing_ok=True)
             self._view.evict_layer_index(layer.layer_id)
             removed.append(layer.layer_id)
@@ -329,13 +327,6 @@ class LayerStackTransaction:
         if not self._entered or self._manifest is None:
             raise RuntimeError("layer-stack transaction is not active")
         return self._manifest
-
-
-def _remove_path(path: Path) -> None:
-    if path.is_symlink() or path.is_file():
-        path.unlink(missing_ok=True)
-    elif path.is_dir():
-        shutil.rmtree(path)
 
 
 def _layer_digest_path(storage_root: Path, layer_id: str) -> Path:

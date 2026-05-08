@@ -174,3 +174,18 @@ def test_prepare_workspace_snapshot_failure_releases_lease_and_drops_partial_low
     assert manager.pinned_layers() == ()
     assert partial_lowerdirs
     assert partial_lowerdirs[0].parent.exists() is False
+
+
+def test_layer_stack_manager_preserves_existing_materialized_dir_on_init(
+    tmp_path: Path,
+) -> None:
+    stack = tmp_path / "stack"
+    legacy = stack / "materialized" / "manifest-000001" / "lower"
+    legacy.mkdir(parents=True)
+    marker = legacy / "marker"
+    marker.write_text("keep\n", encoding="utf-8")
+
+    manager = LayerStackManager(stack)
+
+    assert manager.storage_root == stack
+    assert marker.read_text(encoding="utf-8") == "keep\n"

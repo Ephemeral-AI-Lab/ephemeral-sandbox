@@ -33,22 +33,22 @@ _MODEL_ONLY_MODULES = {
 _PUBLIC_VERB_IMPORT_ALLOWLIST = {
     "tool/read.py": {
         "sandbox.api.tool._payload",
-        "sandbox.contracts",
+        "sandbox.contract",
         "sandbox.host.daemon_client",
     },
     "tool/write.py": {
         "sandbox.api.tool._payload",
-        "sandbox.contracts",
+        "sandbox.contract",
         "sandbox.host.daemon_client",
     },
     "tool/edit.py": {
         "sandbox.api.tool._payload",
-        "sandbox.contracts",
+        "sandbox.contract",
         "sandbox.host.daemon_client",
     },
     "tool/shell.py": {
         "sandbox.api.tool._payload",
-        "sandbox.contracts",
+        "sandbox.contract",
         "sandbox.host.daemon_client",
     },
     "status.py": {

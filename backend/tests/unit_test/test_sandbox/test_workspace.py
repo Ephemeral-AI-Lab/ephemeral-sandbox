@@ -10,7 +10,7 @@ from tools.core.base import ToolExecutionContextService
 
 class TestDiscoverWorkspace:
     def test_returns_project_dir_when_present(self):
-        from sandbox.workspace_context import discover_workspace
+        from sandbox.provider.daytona.workspace import discover_workspace
 
         sandbox = MagicMock()
         sandbox.configure_mock(project_dir="/workspace/my-project")
@@ -19,7 +19,7 @@ class TestDiscoverWorkspace:
         assert result == "/workspace/my-project"
 
     def test_falls_back_to_pwd(self):
-        from sandbox.workspace_context import discover_workspace
+        from sandbox.provider.daytona.workspace import discover_workspace
 
         sandbox = MagicMock()
         sandbox.configure_mock(project_dir=None)
@@ -34,7 +34,7 @@ class TestDiscoverWorkspace:
         exec_mock.assert_called_once_with("pwd")
 
     def test_returns_none_when_both_fail(self):
-        from sandbox.workspace_context import discover_workspace
+        from sandbox.provider.daytona.workspace import discover_workspace
 
         sandbox = MagicMock()
         sandbox.configure_mock(project_dir=None)
@@ -49,7 +49,7 @@ class TestDiscoverWorkspace:
 class TestDiscoverWorkspaceAsync:
     @pytest.mark.anyio
     async def test_returns_project_dir_when_present(self):
-        from sandbox.workspace_context import discover_workspace_async
+        from sandbox.provider.daytona.workspace import discover_workspace_async
 
         sandbox = MagicMock()
         sandbox.configure_mock(project_dir="/workspace/my-project")
@@ -60,7 +60,7 @@ class TestDiscoverWorkspaceAsync:
 
     @pytest.mark.anyio
     async def test_falls_back_to_pwd(self):
-        from sandbox.workspace_context import discover_workspace_async
+        from sandbox.provider.daytona.workspace import discover_workspace_async
 
         sandbox = MagicMock()
         sandbox.configure_mock(project_dir=None)
@@ -75,7 +75,7 @@ class TestDiscoverWorkspaceAsync:
 
     @pytest.mark.anyio
     async def test_returns_none_when_both_fail(self):
-        from sandbox.workspace_context import discover_workspace_async
+        from sandbox.provider.daytona.workspace import discover_workspace_async
 
         sandbox = MagicMock()
         sandbox.configure_mock(project_dir=None)
@@ -89,7 +89,7 @@ class TestDiscoverWorkspaceAsync:
 
 class TestSandboxRuntimeContext:
     def test_sets_runtime_metadata(self):
-        import sandbox.workspace_context as workspace_module
+        import sandbox.provider.daytona.workspace as workspace_module
 
         mock_context = ToolExecutionContextService(cwd="/tmp")
         mock_sandbox = MagicMock()
@@ -105,7 +105,7 @@ class TestSandboxRuntimeContext:
         assert mock_context["exec_cwd"] == "/workspace"
 
     def test_respects_existing_repo_root(self):
-        from sandbox.workspace_context import prepare_sandbox_runtime_context
+        from sandbox.provider.daytona.workspace import prepare_sandbox_runtime_context
 
         mock_context = ToolExecutionContextService(
             cwd="/tmp",
@@ -125,7 +125,7 @@ class TestSandboxRuntimeContext:
 
 class TestProviderNeutralRuntimeContext:
     def test_context_runtime_does_not_attach_legacy_api_handles(self):
-        from sandbox.workspace_context import prepare_sandbox_runtime_context
+        from sandbox.provider.daytona.workspace import prepare_sandbox_runtime_context
 
         mock_context = ToolExecutionContextService(cwd="/tmp")
 

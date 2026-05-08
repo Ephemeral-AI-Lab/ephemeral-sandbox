@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from sandbox.layer_stack.timing import record_elapsed
 from sandbox.layer_stack.manifest import (
     LAYERS_DIR,
     STAGING_DIR,
@@ -90,11 +91,11 @@ def build_workspace_base(
     prepare_start = time.perf_counter()
     _prepare_empty_stack(stack)
     _reject_existing_base_state(stack)
-    _record(timings, "workspace_base.prepare_stack_s", time.perf_counter() - prepare_start)
+    record_elapsed(timings, "workspace_base.prepare_stack_s", prepare_start)
 
     collect_start = time.perf_counter()
     entries, root_hash = _collect_base_entries(workspace)
-    _record(timings, "workspace_base.collect_s", time.perf_counter() - collect_start)
+    record_elapsed(timings, "workspace_base.collect_s", collect_start)
     if timings is not None:
         files = sum(1 for e in entries if e.kind == "file")
         dirs = sum(1 for e in entries if e.kind == "directory")
@@ -106,10 +107,10 @@ def build_workspace_base(
         timings["workspace_base.inventory.bytes"] = float(bytes_total)
     write_layer_start = time.perf_counter()
     layer_ref = _write_base_layer(stack, entries)
-    _record(
+    record_elapsed(
         timings,
         "workspace_base.write_layer_s",
-        time.perf_counter() - write_layer_start,
+        write_layer_start,
     )
     rescan_start = time.perf_counter()
     try:
@@ -121,14 +122,14 @@ def build_workspace_base(
     except Exception:
         shutil.rmtree(stack / LAYERS_DIR / layer_ref.layer_id, ignore_errors=True)
         raise
-    _record(timings, "workspace_base.rescan_s", time.perf_counter() - rescan_start)
+    record_elapsed(timings, "workspace_base.rescan_s", rescan_start)
     manifest = Manifest(version=1, layers=(layer_ref,))
     write_manifest_start = time.perf_counter()
     write_manifest_atomic(manifest_path(stack), manifest)
-    _record(
+    record_elapsed(
         timings,
         "workspace_base.write_manifest_s",
-        time.perf_counter() - write_manifest_start,
+        write_manifest_start,
     )
     binding = WorkspaceBinding(
         workspace_root=workspace.as_posix(),
@@ -140,10 +141,10 @@ def build_workspace_base(
     )
     write_binding_start = time.perf_counter()
     write_workspace_binding_atomic(binding)
-    _record(
+    record_elapsed(
         timings,
         "workspace_base.write_binding_s",
-        time.perf_counter() - write_binding_start,
+        write_binding_start,
     )
     return binding
 
@@ -341,11 +342,6 @@ def _update_root_hash(digest: hashlib._Hash, entry: _BaseEntry) -> None:
 
 def _relative(workspace: Path, path: Path) -> str:
     return path.relative_to(workspace).as_posix()
-
-
-def _record(timings: dict[str, float] | None, key: str, value: float) -> None:
-    if timings is not None:
-        timings[key] = value
 
 
 __all__ = [

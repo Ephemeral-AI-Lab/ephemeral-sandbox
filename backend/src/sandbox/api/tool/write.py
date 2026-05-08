@@ -7,7 +7,7 @@ from sandbox.api.tool._payload import (
     paths_from_payload,
     timings_from_payload,
 )
-from sandbox.contracts import WriteFileRequest, WriteFileResult
+from sandbox.contract import WriteFileRequest, WriteFileResult
 from sandbox.host.daemon_client import call_daemon_api
 
 

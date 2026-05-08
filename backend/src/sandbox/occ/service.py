@@ -16,7 +16,7 @@ from sandbox.occ.routing.orchestrator import OccOrchestrator
 from sandbox.occ.ports import OccLayerStackPorts
 from sandbox.occ.routing.runtime_ops import infer_manifest_base_hash
 from sandbox.occ.merge.serial import OccSerialMerger
-from sandbox.async_bridge import run_sync_in_executor
+from sandbox.runtime.async_bridge import run_sync_in_executor
 
 
 class OccService:

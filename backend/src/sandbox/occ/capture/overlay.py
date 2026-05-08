@@ -11,12 +11,6 @@ from sandbox.occ.changeset.builders import (
 )
 from sandbox.occ.changeset.types import Change, OpaqueDirChange, SymlinkChange
 from sandbox.overlay.capture.changes import OverlayPathChange
-from sandbox.overlay.capture.types import OverlayCapture
-
-
-def overlay_capture_to_occ_changes(capture: OverlayCapture) -> tuple[Change, ...]:
-    """Convert policy-blind overlay capture changes into typed OCC mutations."""
-    return overlay_path_changes_to_occ_changes(capture.changes)
 
 
 def overlay_path_changes_to_occ_changes(
@@ -78,13 +72,6 @@ def overlay_path_changes_to_occ_changes(
     return tuple(changes)
 
 
-def workspace_changes_to_occ_changes(
-    path_changes: Sequence[OverlayPathChange],
-) -> tuple[Change, ...]:
-    """Compatibility name for command-exec workspace capture conversion."""
-    return overlay_path_changes_to_occ_changes(path_changes)
-
-
 def _kept_children_for(
     rel: str,
     path_changes: Sequence[OverlayPathChange],
@@ -101,7 +88,5 @@ def _kept_children_for(
 
 
 __all__ = [
-    "overlay_capture_to_occ_changes",
     "overlay_path_changes_to_occ_changes",
-    "workspace_changes_to_occ_changes",
 ]

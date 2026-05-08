@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Labels & constants — shared with sandbox.lifecycle.{service,proxy}
+# Labels & constants shared by the Daytona adapter.
 # ---------------------------------------------------------------------------
 
 _APP_MANAGED_BY = "ephemeralos"
@@ -146,17 +146,6 @@ def _paginate_all(list_fn: Any, limit: int) -> list[Any]:
 
 
 __all__ = [
-    "_APP_CREATED_VIA",
-    "_APP_MANAGED_BY",
-    "_IMAGE_LABEL",
-    "_LIST_PAGE_LIMIT",
-    "_SANDBOX_TIMEOUT_SECONDS",
-    "_SNAPSHOT_LABEL",
-    "_SNAPSHOT_PAGE_LIMIT",
-    "_daytona_classes",
-    "_normalize_dict",
-    "_normalize_optional_text",
-    "_paginate_all",
     "acquire_client",
     "fetch_sandbox",
 ]

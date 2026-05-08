@@ -121,22 +121,13 @@ def validate_workspace_binding_paths(
 
     workspace_resolved = workspace.resolve(strict=False)
     stack_resolved = stack.resolve(strict=False)
-    if workspace_resolved == stack_resolved or _is_relative_to(
-        stack_resolved,
-        workspace_resolved,
+    if workspace_resolved == stack_resolved or stack_resolved.is_relative_to(
+        workspace_resolved
     ):
         raise WorkspaceBindingError(
             "layer_stack_root must be outside workspace_root: "
             f"{stack_resolved} is inside {workspace_resolved}"
         )
-
-
-def _is_relative_to(path: Path, parent: Path) -> bool:
-    try:
-        path.relative_to(parent)
-    except ValueError:
-        return False
-    return True
 
 
 __all__ = [

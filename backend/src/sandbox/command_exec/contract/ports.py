@@ -12,7 +12,6 @@ from sandbox.occ.changeset.types import Change, ChangesetResult
 class WorkspaceSnapshotLease(Protocol):
     lease_id: str
     manifest_version: int
-    root_hash: str
     manifest: object
     lowerdir: str
     timings: dict[str, float]

@@ -8,7 +8,6 @@ from collections.abc import Callable
 from sandbox.layer_stack.layer.change import LayerChange, LayerDelta
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset.prepared import PreparedPathGroup
-from sandbox.occ.content.layer_backed import LayerBackedContent
 from sandbox.occ.changeset.types import (
     DeleteChange,
     EditChange,
@@ -32,7 +31,7 @@ class GatedMerge:
         *,
         hasher: ContentHasher | None = None,
     ) -> None:
-        self._content = LayerBackedContent(snapshot_reader)
+        self._snapshot_reader = snapshot_reader
         self._hasher = hasher or ContentHasher()
 
     def stage_group(
@@ -69,7 +68,7 @@ class GatedMerge:
     ) -> tuple[FileResult, LayerDelta | None]:
         timings: dict[str, float] = {}
         read_start = time.perf_counter()
-        current_content, current_exists = self._content.read_bytes(
+        current_content, current_exists = self._snapshot_reader.read_bytes(
             group.path,
             active_manifest,
         )

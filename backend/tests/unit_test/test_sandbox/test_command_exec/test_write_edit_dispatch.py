@@ -13,19 +13,14 @@ from uuid import uuid4
 import pytest
 
 from sandbox.layer_stack.workspace.base import build_workspace_base
-from sandbox.runtime.daemon.handler import (
-    edit,
-    metrics,
-    read,
-    write,
-)
+from sandbox.runtime.daemon.handler import metrics
 from sandbox.runtime.daemon.handler.request_context import (
     ClassifiedPath,
     _services,
     classify_path,
 )
+from sandbox.runtime.daemon.handler.tools import edit, read, shell, write
 from sandbox.runtime.daemon.rpc import dispatcher as server
-from sandbox.runtime.daemon.service import shell_runner
 from sandbox.runtime.daemon.service import occ_backend
 from sandbox.runtime.daemon.service.workspace_server import get_layer_stack_manager
 
@@ -113,7 +108,7 @@ def test_classify_outside_absolute_path_classifies_out_of_workspace(
 
 
 # ---------------------------------------------------------------------------
-# OP_TABLE wiring (write/edit/read dispatch from runtime.handlers)
+# OP_TABLE wiring (write/edit/read/shell dispatch from runtime handler tools)
 # ---------------------------------------------------------------------------
 
 
@@ -122,7 +117,7 @@ def test_op_table_dispatches_data_ops_to_runtime_handlers() -> None:
     assert server.OP_TABLE["api.write_file"] is write.write_file
     assert server.OP_TABLE["api.edit_file"] is edit.edit_file
     assert server.OP_TABLE["api.read_file"] is read.read_file
-    assert server.OP_TABLE["api.shell"] is shell_runner.execute_shell_api
+    assert server.OP_TABLE["api.shell"] is shell.shell
     assert server.OP_TABLE["api.layer_metrics"] is metrics.layer_metrics
 
 

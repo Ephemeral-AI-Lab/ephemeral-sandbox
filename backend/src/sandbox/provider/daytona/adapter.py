@@ -6,12 +6,8 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar
 
-from sandbox.contracts import RawExecResult
-from sandbox.provider.daytona.bash import (
-    EXIT_MARKER as _EXIT_MARKER,
-    extract_exit_code as _extract_exit_code,
-    wrap_bash_command as _wrap_bash_command,
-)
+from sandbox.contract import RawExecResult
+from sandbox.provider.daytona.bash import extract_exit_code, wrap_bash_command
 from sandbox.provider.daytona.client.async_client import get_async_sandbox
 from sandbox.provider.daytona.client.credentials import load_credentials
 from sandbox.provider.daytona.client.sync_client import (
@@ -303,12 +299,12 @@ class DaytonaProviderAdapter:
         timeout: int | None = None,
     ) -> "RawExecResult":
         sandbox = await self._resolve(sandbox_id)
-        wrapped = _wrap_bash_command(command, cwd=cwd)
+        wrapped = wrap_bash_command(command, cwd=cwd)
         kwargs: dict[str, Any] = {}
         if timeout is not None:
             kwargs["timeout"] = timeout
         response = await sandbox.process.exec(wrapped, **kwargs)
-        stdout, exit_code = _extract_exit_code(
+        stdout, exit_code = extract_exit_code(
             getattr(response, "result", "") or "",
             fallback_exit_code=getattr(response, "exit_code", None),
         )
@@ -333,8 +329,4 @@ class DaytonaProviderAdapter:
 
 __all__ = [
     "DaytonaProviderAdapter",
-    "_EXIT_MARKER",
-    "_extract_exit_code",
-    "_serialize_raw",
-    "_wrap_bash_command",
 ]

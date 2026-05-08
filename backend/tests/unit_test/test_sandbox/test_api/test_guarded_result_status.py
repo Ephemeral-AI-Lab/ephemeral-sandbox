@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from sandbox.occ.result_projection import committed_paths, conflict_and_status
+from types import SimpleNamespace
+
+from sandbox.occ.result_projection import (
+    committed_paths,
+    conflict_and_status,
+    conflict_to_dict,
+    gitignore_cache_timings,
+)
 from sandbox.occ.changeset.types import FileResult, FileStatus
 
 
@@ -86,3 +93,30 @@ def test_conflict_and_status_handles_empty_files() -> None:
     conflict, status = conflict_and_status(())
     assert conflict is None
     assert status == "committed"
+
+
+def test_conflict_to_dict_projects_public_shape() -> None:
+    conflict, _status = conflict_and_status(
+        (
+            FileResult(
+                path="/ws/app.py",
+                status=FileStatus.ABORTED_VERSION,
+                message="changed",
+            ),
+        )
+    )
+
+    assert conflict_to_dict(conflict) == {
+        "reason": "aborted_version",
+        "conflict_file": "/ws/app.py",
+        "message": "changed",
+    }
+
+
+def test_gitignore_cache_timings_projects_counters() -> None:
+    timings = gitignore_cache_timings(SimpleNamespace(cache_hits=2, cache_misses=3))
+
+    assert timings == {
+        "gitignore.cache_hits_total": 2.0,
+        "gitignore.cache_misses_total": 3.0,
+    }

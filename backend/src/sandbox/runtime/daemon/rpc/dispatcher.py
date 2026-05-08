@@ -1,27 +1,20 @@
 """Generic in-sandbox daemon dispatcher.
 
-Host-to-guest contract: callers send a JSON object such as
-``{"op": "overlay.run", "args": {...}}`` through argv[0] or stdin. Handlers
-return JSON-safe values or dataclasses matching the public result types from
-the sandbox API refactor plan. stdout receives that JSON result directly.
-
-This dispatcher emits direct handler results rather than a nested command
-envelope. Host callers use
-``sandbox.host.daemon_client`` and receive handler results directly.
+Host-to-guest contract: the resident AF_UNIX daemon decodes one JSON object
+such as ``{"op": "overlay.run", "args": {...}}`` and dispatches the decoded
+envelope here. Handlers return JSON-safe values or dataclasses matching the
+public sandbox API result types.
 """
 
 from __future__ import annotations
 
-import asyncio
 import dataclasses
 import inspect
-import json
-import sys
 import time
 import traceback
 from collections.abc import Callable, Mapping
 from types import SimpleNamespace
-from typing import Any, Awaitable
+from typing import Any
 
 _BOOT_T0 = time.perf_counter()
 
@@ -43,60 +36,12 @@ def register_op(op: str, handler: Handler) -> None:
     OP_TABLE[op] = handler
 
 
-def dispatch_json(raw: str) -> dict[str, Any]:
-    """Decode and dispatch one JSON envelope."""
-    try:
-        envelope = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        return _error(
-            "bad_json",
-            "daemon request must be valid JSON",
-            {"message": str(exc)},
-        )
-    if not isinstance(envelope, Mapping):
-        return _error("invalid_envelope", "daemon request must be a JSON object")
-    return dispatch_envelope(envelope)
-
-
-def dispatch_envelope(envelope: Mapping[str, Any]) -> dict[str, Any]:
-    """Dispatch an already-decoded daemon envelope."""
-    dispatch_entered_at = time.perf_counter()
-    validation_error, op, args_raw = _validate_envelope(envelope)
-    if validation_error is not None:
-        return validation_error
-
-    handler = OP_TABLE.get(op)
-    if handler is None:
-        return _error("unknown_op", f"unknown op: {op}", {"op": op})
-
-    try:
-        result = handler(dict(args_raw))
-        if inspect.isawaitable(result):
-            result = asyncio.run(_await_result(result))
-        jsonable = _to_response_dict(result)
-        _attach_runtime_boot_timings(
-            jsonable,
-            dispatch_entered_at=dispatch_entered_at,
-        )
-        return jsonable
-    except Exception as exc:
-        return _error(
-            "internal_error",
-            str(exc),
-            {"op": op, "traceback": traceback.format_exc()},
-        )
-
-
 async def dispatch_envelope_async(
     envelope: Mapping[str, Any],
     *,
     boot_t0: float | None = None,
 ) -> dict[str, Any]:
-    """Dispatch an envelope from an already-running asyncio loop.
-
-    Daemon-mode callers must use this rather than :func:`dispatch_envelope`,
-    because the latter calls ``asyncio.run`` on awaitable handler results,
-    which would fail inside the daemon's own running loop.
+    """Dispatch an envelope from the daemon's running asyncio loop.
 
     ``boot_t0`` overrides the module-level ``_BOOT_T0`` for the
     ``runtime.boot_to_dispatch_s`` metric. The daemon passes a per-call
@@ -181,16 +126,6 @@ def _attach_runtime_boot_timings(
     )
 
 
-def main(argv: list[str] | None = None) -> int:
-    """CLI entrypoint for the deployed daemon dispatcher."""
-    args = list(sys.argv[1:] if argv is None else argv)
-    raw = args[0] if args else sys.stdin.read()
-    response = dispatch_json(raw)
-    sys.stdout.write(json.dumps(response, separators=(",", ":")))
-    sys.stdout.write("\n")
-    return 1 if "error" in response else 0
-
-
 def _error(
     kind: str,
     message: str,
@@ -220,10 +155,6 @@ def _to_jsonable(obj: Any) -> Any:
     return obj
 
 
-async def _await_result(awaitable: Awaitable[Any]) -> Any:
-    return await awaitable
-
-
 def _to_response_dict(result: Any) -> dict[str, Any]:
     jsonable = _to_jsonable(result)
     if not isinstance(jsonable, dict):
@@ -232,9 +163,9 @@ def _to_response_dict(result: Any) -> dict[str, Any]:
 
 
 def _load_peer_bootstraps() -> None:
-    from sandbox.runtime.daemon.handler import edit, health, metrics, read, workspace, write
+    from sandbox.runtime.daemon.handler import health, metrics, workspace
     from sandbox.runtime.daemon.handler import overlay as overlay_run
-    from sandbox.runtime.daemon.service import shell_runner
+    from sandbox.runtime.daemon.handler.tools import edit, read, shell, write
 
     for op, handler in {
         "api.ensure_workspace_base": workspace.ensure_workspace_base,
@@ -252,7 +183,7 @@ def _load_peer_bootstraps() -> None:
         "api.layer_metrics": metrics.layer_metrics,
         "api.read_file": read.read_file,
         "api.runtime.ready": health.runtime_ready,
-        "api.shell": shell_runner.execute_shell_api,
+        "api.shell": shell.shell,
         "api.workspace_binding": workspace.workspace_binding,
         "api.write_file": write.write_file,
         "overlay.run": overlay_run.handle,
@@ -268,16 +199,9 @@ def _load_peer_bootstraps() -> None:
 _load_peer_bootstraps()
 
 
-if __name__ == "__main__":  # pragma: no cover - exercised through sandbox exec
-    raise SystemExit(main())
-
-
 __all__ = [
     "Handler",
     "OP_TABLE",
-    "dispatch_envelope",
     "dispatch_envelope_async",
-    "dispatch_json",
-    "main",
     "register_op",
 ]

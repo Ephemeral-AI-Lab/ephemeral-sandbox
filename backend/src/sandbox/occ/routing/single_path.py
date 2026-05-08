@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
 from typing import Protocol
 
 from sandbox.layer_stack.layer.change import normalize_layer_path
@@ -13,9 +12,12 @@ from sandbox.occ.changeset.prepared import (
     PreparedPathGroup,
     RouteDecision,
 )
-from sandbox.occ.changeset.types import Change, DeleteChange, WriteChange
-
-BaseHashReader = Callable[[str], str | None]
+from sandbox.occ.changeset.types import Change
+from sandbox.occ.routing.orchestrator import (
+    BaseHashReader,
+    attach_base_hash,
+    requires_base_hash,
+)
 
 
 class SnapshotIgnoreOracle(Protocol):
@@ -49,18 +51,28 @@ def prepare_single_path_changeset(
             "occ.prepare.route_and_base_hash_s"
         ]
         timings["occ.prepare.total_s"] = time.perf_counter() - total_start
-        return PreparedChangeset(snapshot=snapshot, path_groups=(group,), atomic=atomic, timings=timings)
+        return PreparedChangeset(
+            snapshot=snapshot,
+            path_groups=(group,),
+            atomic=atomic,
+            timings=timings,
+        )
 
-    route, message = _route_single_path(path, snapshot=snapshot, gitignore=gitignore, timings=timings)
+    route, message = _route_single_path(
+        path,
+        snapshot=snapshot,
+        gitignore=gitignore,
+        timings=timings,
+    )
     prepared_change = change
     base_hash = None
-    if route is RouteDecision.OCC_GATED_MERGE and _requires_base_hash(change):
+    if route is RouteDecision.OCC_GATED_MERGE and requires_base_hash(change):
         base_hash_start = time.perf_counter()
         base_hash = base_hash_reader(path) if base_hash_reader is not None else None
         timings["occ.prepare.single_path_base_hash_s"] = (
             time.perf_counter() - base_hash_start
         )
-        prepared_change = _attach_base_hash(change, base_hash)
+        prepared_change = attach_base_hash(change, base_hash)
     else:
         timings["occ.prepare.single_path_base_hash_s"] = 0.0
 
@@ -76,7 +88,12 @@ def prepare_single_path_changeset(
         "occ.prepare.route_and_base_hash_s"
     ]
     timings["occ.prepare.total_s"] = time.perf_counter() - total_start
-    return PreparedChangeset(snapshot=snapshot, path_groups=(group,), atomic=atomic, timings=timings)
+    return PreparedChangeset(
+        snapshot=snapshot,
+        path_groups=(group,),
+        atomic=atomic,
+        timings=timings,
+    )
 
 
 def _route_single_path(
@@ -96,22 +113,6 @@ def _route_single_path(
     if ignored:
         return RouteDecision.OCC_SKIPPED_MERGE, None
     return RouteDecision.OCC_GATED_MERGE, None
-
-
-def _requires_base_hash(change: Change) -> bool:
-    return (
-        isinstance(change, (WriteChange, DeleteChange))
-        and change.base_hash is None
-        and change.source in ("api_write", "overlay_capture")
-    )
-
-
-def _attach_base_hash(change: Change, base_hash: str | None) -> Change:
-    if isinstance(change, WriteChange):
-        return change.with_base_hash(base_hash)
-    if isinstance(change, DeleteChange):
-        return change.with_base_hash(base_hash)
-    return change
 
 
 __all__ = ["BaseHashReader", "SnapshotIgnoreOracle", "prepare_single_path_changeset"]

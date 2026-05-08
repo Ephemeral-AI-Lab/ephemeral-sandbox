@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 
-from sandbox.layer_stack.manifest import Manifest, empty_manifest
+from sandbox.layer_stack.manifest.model import Manifest, empty_manifest
 
 
 ACTIVE_MANIFEST_FILE = "manifest.json"

@@ -10,7 +10,9 @@ import uuid
 from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
 
+from sandbox.layer_stack.filesystem import join_layer_path, remove_path
 from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.index import OPAQUE_MARKER, WHITEOUT_PREFIX
 from sandbox.layer_stack.manifest import (
     LAYERS_DIR,
     STAGING_DIR,
@@ -21,7 +23,7 @@ from sandbox.layer_stack.manifest import (
     read_manifest,
     write_manifest_atomic,
 )
-from sandbox.layer_stack.view.merged import OPAQUE_MARKER, WHITEOUT_PREFIX
+from sandbox.layer_stack.timing import record_elapsed
 
 
 class LayerPublisher:
@@ -47,11 +49,7 @@ class LayerPublisher:
         total_start = time.perf_counter()
         read_active_start = time.perf_counter()
         active = read_manifest(self._manifest_file)
-        _record(
-            timings,
-            "layer_stack.publish.read_active_manifest_s",
-            time.perf_counter() - read_active_start,
-        )
+        record_elapsed(timings, "layer_stack.publish.read_active_manifest_s", read_active_start)
         if active != expected_manifest:
             raise ManifestConflictError(
                 "active manifest changed before layer publish: "
@@ -59,69 +57,45 @@ class LayerPublisher:
                 f"found version {active.version}"
             )
         if not changes:
-            _record(
-                timings,
-                "layer_stack.publish.total_s",
-                time.perf_counter() - total_start,
-            )
+            record_elapsed(timings, "layer_stack.publish.total_s", total_start)
             return active
 
         digest_start = time.perf_counter()
         layer_digest = _changes_digest(changes)
         if _head_layer_digest(self._storage_root, active) == layer_digest:
-            _record(
-                timings,
-                "layer_stack.publish.digest_check_s",
-                time.perf_counter() - digest_start,
-            )
-            _record(
-                timings,
-                "layer_stack.publish.idempotent_s",
-                time.perf_counter() - total_start,
-            )
-            _record(
-                timings,
-                "layer_stack.publish.total_s",
-                time.perf_counter() - total_start,
-            )
+            record_elapsed(timings, "layer_stack.publish.digest_check_s", digest_start)
+            record_elapsed(timings, "layer_stack.publish.idempotent_s", total_start)
+            record_elapsed(timings, "layer_stack.publish.total_s", total_start)
             return active
-        _record(
-            timings,
-            "layer_stack.publish.digest_check_s",
-            time.perf_counter() - digest_start,
-        )
+        record_elapsed(timings, "layer_stack.publish.digest_check_s", digest_start)
 
         allocate_start = time.perf_counter()
         layer_id, staging_dir, layer_dir = self._allocate_layer_paths(active.version + 1)
-        _record(
+        record_elapsed(
             timings,
             "layer_stack.publish.allocate_layer_paths_s",
-            time.perf_counter() - allocate_start,
+            allocate_start,
         )
         create_staging_start = time.perf_counter()
         staging_dir.mkdir(parents=True)
-        _record(
-            timings,
-            "layer_stack.publish.create_staging_s",
-            time.perf_counter() - create_staging_start,
-        )
+        record_elapsed(timings, "layer_stack.publish.create_staging_s", create_staging_start)
         try:
             write_changes_start = time.perf_counter()
             for change in changes:
                 self._write_change(staging_dir, change)
-            _record(
+            record_elapsed(
                 timings,
                 "layer_stack.publish.write_changes_s",
-                time.perf_counter() - write_changes_start,
+                write_changes_start,
             )
             replace_start = time.perf_counter()
             layer_dir.parent.mkdir(parents=True, exist_ok=True)
             os.replace(staging_dir, layer_dir)
             _write_layer_digest(self._storage_root, layer_id, layer_digest)
-            _record(
+            record_elapsed(
                 timings,
                 "layer_stack.publish.replace_staging_s",
-                time.perf_counter() - replace_start,
+                replace_start,
             )
         except Exception:
             shutil.rmtree(staging_dir, ignore_errors=True)
@@ -136,13 +110,13 @@ class LayerPublisher:
         )
         read_latest_start = time.perf_counter()
         latest = read_manifest(self._manifest_file)
-        _record(
+        record_elapsed(
             timings,
             "layer_stack.publish.read_latest_manifest_s",
-            time.perf_counter() - read_latest_start,
+            read_latest_start,
         )
         if latest != active:
-            _remove_path(layer_dir)
+            remove_path(layer_dir)
             _digest_path(self._storage_root, layer_id).unlink(missing_ok=True)
             raise ManifestConflictError(
                 "active manifest changed during layer publish: "
@@ -152,19 +126,11 @@ class LayerPublisher:
         try:
             write_manifest_atomic(self._manifest_file, new_manifest)
         except Exception:
-            _remove_path(layer_dir)
+            remove_path(layer_dir)
             _digest_path(self._storage_root, layer_id).unlink(missing_ok=True)
             raise
-        _record(
-            timings,
-            "layer_stack.publish.write_manifest_s",
-            time.perf_counter() - write_manifest_start,
-        )
-        _record(
-            timings,
-            "layer_stack.publish.total_s",
-            time.perf_counter() - total_start,
-        )
+        record_elapsed(timings, "layer_stack.publish.write_manifest_s", write_manifest_start)
+        record_elapsed(timings, "layer_stack.publish.total_s", total_start)
         return new_manifest
 
     def _allocate_layer_paths(self, next_version: int) -> tuple[str, Path, Path]:
@@ -184,7 +150,7 @@ class LayerPublisher:
         elif change.kind == "symlink":
             self._write_symlink(layer_dir, change)
         elif change.kind == "opaque_dir":
-            marker = _join_rel(layer_dir, change.path) / OPAQUE_MARKER
+            marker = join_layer_path(layer_dir, change.path) / OPAQUE_MARKER
             marker.parent.mkdir(parents=True, exist_ok=True)
             marker.write_text("", encoding="utf-8")
         else:
@@ -197,15 +163,15 @@ class LayerPublisher:
         content = source.read_bytes()
         if change.content_hash and hashlib.sha256(content).hexdigest() != change.content_hash:
             raise ValueError(f"content hash mismatch for {change.path}")
-        target = _join_rel(layer_dir, change.path)
+        target = join_layer_path(layer_dir, change.path)
         target.parent.mkdir(parents=True, exist_ok=True)
-        _remove_path(target)
+        remove_path(target)
         target.write_bytes(content)
 
     def _write_symlink(self, layer_dir: Path, change: LayerChange) -> None:
         if change.source_path is None:
             raise ValueError("symlink changes require source_path target")
-        target = _join_rel(layer_dir, change.path)
+        target = join_layer_path(layer_dir, change.path)
         target.parent.mkdir(parents=True, exist_ok=True)
         os.symlink(change.source_path, target)
 
@@ -256,25 +222,9 @@ def _head_layer_digest(storage_root: Path, active: Manifest) -> str | None:
         return None
 
 
-def _join_rel(root: Path, rel: str) -> Path:
-    return root.joinpath(*PurePosixPath(rel).parts)
-
-
 def _whiteout_path(layer_dir: Path, rel: str) -> Path:
     target = PurePosixPath(rel)
     parent_parts = tuple(part for part in target.parent.parts if part != ".")
     whiteout = layer_dir.joinpath(*parent_parts, f"{WHITEOUT_PREFIX}{target.name}")
     whiteout.parent.mkdir(parents=True, exist_ok=True)
     return whiteout
-
-
-def _remove_path(path: Path) -> None:
-    if path.is_symlink() or path.is_file():
-        path.unlink(missing_ok=True)
-    elif path.is_dir():
-        shutil.rmtree(path)
-
-
-def _record(timings: dict[str, float] | None, key: str, value: float) -> None:
-    if timings is not None:
-        timings[key] = value

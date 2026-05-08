@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from sandbox.contracts import ConflictInfo
+from sandbox.contract import ConflictInfo
 
 
 def conflict_from_payload(raw: object) -> ConflictInfo | None:
