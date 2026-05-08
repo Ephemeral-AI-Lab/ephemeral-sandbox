@@ -6,8 +6,7 @@ import time
 import pytest
 
 from config import load_settings
-from sandbox.api import status as sb_status
-from sandbox.api.tool.raw_exec import raw_exec
+import sandbox.api as sandbox_api
 from sandbox.host.runtime_bundle import BUNDLE_REMOTE_DIR, bundle_hash
 from sandbox.host.setup import setup_after_create
 from sandbox.provider.daytona.bootstrap import bootstrap_daytona_provider
@@ -50,7 +49,7 @@ async def test_host_setup_prepares_benchmark_runtime() -> None:
         assert created["project_dir"] == "/testbed"
         assert created["image"] == settings.sandbox.default_image
 
-        probe = await raw_exec(
+        probe = await sandbox_api.raw_exec(
             sandbox_id,
             (
                 "set -e; "
@@ -68,7 +67,7 @@ async def test_host_setup_prepares_benchmark_runtime() -> None:
         assert "/testbed" in probe.stdout
         assert bundle_hash() in probe.stdout
 
-        tests = await raw_exec(
+        tests = await sandbox_api.raw_exec(
             sandbox_id,
             "cd /testbed && pytest -q tests/test_structures.py --maxfail=1",
             timeout=120,
@@ -77,8 +76,8 @@ async def test_host_setup_prepares_benchmark_runtime() -> None:
         assert "20 passed" in tests.stdout
     finally:
         if sandbox_id:
-            sb_status.delete_sandbox(sandbox_id)
+            sandbox_api.delete_sandbox(sandbox_id)
         else:
-            for sandbox in sb_status.list_sandboxes():
+            for sandbox in sandbox_api.list_sandboxes():
                 if sandbox.get("name") == name and sandbox.get("id"):
-                    sb_status.delete_sandbox(str(sandbox["id"]))
+                    sandbox_api.delete_sandbox(str(sandbox["id"]))

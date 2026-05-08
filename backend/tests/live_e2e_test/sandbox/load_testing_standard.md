@@ -47,7 +47,7 @@ Current Phase 4 integrated artifacts use
 `.omc/results/live-e2e-integrated-<profile>-<utc>.jsonl`. Each row includes
 `wall_ms`, `runtime_ms`, `changed_paths`, `conflict_reason`, and the complete
 public-tool timing map. Shell fan-out rows are produced by independent
-`sandbox.api.tool.shell` calls launched concurrently under
+`sandbox.api.shell` calls launched concurrently under
 `gather_with_barrier`; each row carries the normal `api.shell.*` timing keys.
 
 ## Metric terminology

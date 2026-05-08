@@ -10,13 +10,9 @@ from pathlib import Path
 SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 _TOOL_ALLOWED = {
     "sandbox.api",
-    "sandbox.api.tool.edit",
-    "sandbox.api.tool.read",
-    "sandbox.api.tool.shell",
-    "sandbox.api.tool.write",
 }
 _TOOL_FORBIDDEN_PREFIXES = (
-    "sandbox.api.tool.raw_exec",
+    "sandbox.api.tool",
     "sandbox.provider",
     "sandbox.occ",
     "sandbox.overlay",

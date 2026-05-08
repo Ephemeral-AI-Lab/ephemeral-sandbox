@@ -249,7 +249,7 @@ For every probe file, the same loop:
 ## Anti-patterns (collection-time errors)
 
 - `from sandbox.layer_stack import ...` at module top of any live-suite file.
-- Building probe scripts that import `sandbox.api.tool` or
+- Building probe scripts that import sandbox internals instead of `sandbox.api` or
   `sandbox.host.*` (host-side packages even when staged).
 - `ignored_paths=[...]` parameters used to fake gitignore — use real
   `.gitignore` writes inside `/testbed` and let the pathspec oracle classify.

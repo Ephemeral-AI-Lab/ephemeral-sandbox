@@ -70,7 +70,7 @@ Last full Phase 3 integrated live run (2026-05-05): `14 passed, 4 skipped` in
 `151.73 s`. The skips are Phase 4/5 load-profile tests.
 
 Current focused public API scaling run (2026-05-05 UTC):
-`test_concurrency_scaling.py` uses independent `sandbox.api.tool.read_file`,
+`test_concurrency_scaling.py` uses independent `sandbox.api.read_file`,
 `write_file`, `edit_file`, and `shell` calls and passed in `142.58 s` with
 1/5/10/20 concurrent calls for each verb. At concurrency 20, throughput was:
 read `13.624 ops/s`, write `6.921 ops/s`, edit `6.292 ops/s`, shell

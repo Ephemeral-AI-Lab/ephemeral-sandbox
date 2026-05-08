@@ -1,4 +1,7 @@
-"""Public sandbox tool API verbs."""
+"""Internal implementation modules for public sandbox tool verbs.
+
+External callers should import from :mod:`sandbox.api`.
+"""
 
 from __future__ import annotations
 

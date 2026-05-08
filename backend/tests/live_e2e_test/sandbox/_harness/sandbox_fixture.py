@@ -23,15 +23,10 @@ import pytest
 import pytest_asyncio
 
 from config import load_settings
-from sandbox.api import status as sb_status
-from sandbox.api.tool import edit as edit_mod
+import sandbox.api as sandbox_api
 import sandbox.host.daemon_client as daemon_client_mod
-from sandbox.api.tool import read as read_mod
-from sandbox.api.tool import shell as shell_mod
-from sandbox.api.tool import write as write_mod
 from sandbox.host.daemon_client import DEFAULT_LAYER_STACK_ROOT
-from sandbox.api.tool.raw_exec import raw_exec as raw_exec_fn
-from sandbox.contracts import (
+from sandbox.api import (
     EditFileRequest,
     EditFileResult,
     RawExecResult,
@@ -64,13 +59,13 @@ WORKSPACE_ROOT = "/testbed"
 
 @dataclass(frozen=True)
 class ToolBundle:
-    """Bound wrappers over the four ``sandbox.api.tool`` verbs."""
+    """Bound wrappers over the public ``sandbox.api`` verbs."""
 
     sandbox_id: str
     caller: SandboxCaller
 
     async def read_file(self, path: str) -> ReadFileResult:
-        return await read_mod.read_file(
+        return await sandbox_api.read_file(
             self.sandbox_id, ReadFileRequest(path=path, caller=self.caller)
         )
 
@@ -82,7 +77,7 @@ class ToolBundle:
         overwrite: bool = True,
         description: str = "",
     ) -> WriteFileResult:
-        return await write_mod.write_file(
+        return await sandbox_api.write_file(
             self.sandbox_id,
             WriteFileRequest(
                 path=path,
@@ -100,7 +95,7 @@ class ToolBundle:
         *,
         description: str = "",
     ) -> EditFileResult:
-        return await edit_mod.edit_file(
+        return await sandbox_api.edit_file(
             self.sandbox_id,
             EditFileRequest(
                 path=path,
@@ -120,7 +115,7 @@ class ToolBundle:
         timeout: float | None = None,
         description: str = "",
     ) -> ShellResult:
-        return await shell_mod.shell(
+        return await sandbox_api.shell(
             self.sandbox_id,
             ShellRequest(
                 command=command,
@@ -192,11 +187,11 @@ def _bring_up_sandbox(name: str) -> str:
 
 def _delete_sandbox_quietly(sandbox_id: str, name: str) -> None:
     if sandbox_id:
-        sb_status.delete_sandbox(sandbox_id)
+        sandbox_api.delete_sandbox(sandbox_id)
         return
-    for sandbox in sb_status.list_sandboxes():
+    for sandbox in sandbox_api.list_sandboxes():
         if sandbox.get("name") == name and sandbox.get("id"):
-            sb_status.delete_sandbox(str(sandbox["id"]))
+            sandbox_api.delete_sandbox(str(sandbox["id"]))
 
 
 # -- Pytest fixtures ------------------------------------------------------
@@ -217,7 +212,7 @@ def live_sandbox() -> Iterator[SandboxHandle]:
         handle = SandboxHandle(
             sandbox_id=sandbox_id,
             caller=caller,
-            raw_exec=raw_exec_fn,
+            raw_exec=sandbox_api.raw_exec,
             tool=ToolBundle(sandbox_id=sandbox_id, caller=caller),
         )
         yield handle
@@ -233,7 +228,7 @@ async def _reset_workspace(sandbox_id: str) -> None:
     image's ``/testbed`` lacks ``.git``. Otherwise just runs ``reset
     --hard`` + ``clean -fdx``.
     """
-    result = await raw_exec_fn(
+    result = await sandbox_api.raw_exec(
         sandbox_id,
         "set -e; "
         f"cd {WORKSPACE_ROOT}; "
@@ -253,7 +248,7 @@ async def _reset_workspace(sandbox_id: str) -> None:
 async def _reset_runtime_layer_stack(sandbox_id: str) -> None:
     """Remove guarded API state so integrated tests start from an empty stack."""
     quoted_root = shlex.quote(DEFAULT_LAYER_STACK_ROOT)
-    result = await raw_exec_fn(
+    result = await sandbox_api.raw_exec(
         sandbox_id,
         f"rm -rf {quoted_root} && mkdir -p {quoted_root}",
         timeout=60,
@@ -278,7 +273,7 @@ async def _purge_overlay_mounts(sandbox_id: str) -> None:
     """Detach any leaked overlayfs mounts the previous test left under OVERLAY_ROOT."""
     cmd = wrap_unshare(script_purge_overlay_mounts(overlay_root=OVERLAY_ROOT))
     # Best-effort: some kernels reject unshare without privileges; ignore failures.
-    await raw_exec_fn(sandbox_id, cmd, timeout=30)
+    await sandbox_api.raw_exec(sandbox_id, cmd, timeout=30)
 
 
 @pytest_asyncio.fixture
@@ -329,7 +324,7 @@ async def workspace_base_sandbox(
 async def _assert_runtime_bundle_installed(sandbox_id: str) -> None:
     """Fail fast if the prebaked image's ``setup_after_create`` did not stage the bundle."""
     quoted = shlex.quote(BUNDLE_HASH_MARKER)
-    result = await raw_exec_fn(
+    result = await sandbox_api.raw_exec(
         sandbox_id,
         f"test -f {quoted} && cat {quoted}",
         timeout=15,
@@ -346,7 +341,7 @@ async def _purge_layer_stack_test_roots(sandbox_id: str) -> None:
     """Remove per-probe scratch dirs left under ``/tmp/eos-sandbox-runtime/layer-stack-test-*``."""
     pattern = shlex.quote(LAYER_STACK_TEST_PREFIX) + "*"
     # Use shell glob so the pattern is expanded inside the sandbox.
-    await raw_exec_fn(
+    await sandbox_api.raw_exec(
         sandbox_id,
         f"sh -c 'rm -rf -- {pattern}'",
         timeout=30,

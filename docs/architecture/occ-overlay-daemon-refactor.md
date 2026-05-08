@@ -164,7 +164,7 @@ imports OCC and never classifies gitignored vs gitincluded paths itself.
 No `auditor.py` remains in the target overlay package. The audit name implied
 policy ownership. The overlay side is capture-only; legacy `gitinclude_*` /
 `gitignore_*` response projection belongs outside `overlay/` during the
-compatibility window and disappears when public `sandbox.api.tool.shell` takes over.
+compatibility window and disappears when public `sandbox.api.shell` takes over.
 
 ### 2.3 Shared `sandbox/daemon/` Support
 
