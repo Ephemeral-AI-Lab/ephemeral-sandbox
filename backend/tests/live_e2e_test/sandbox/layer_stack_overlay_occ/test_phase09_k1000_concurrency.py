@@ -16,11 +16,8 @@ Pass bars (informational only — this is a measurement, not a falsifier):
 
 from __future__ import annotations
 
-import json
-import os
 import statistics
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -30,6 +27,10 @@ from .._harness.integrated_cases import emit_metric, timed_call
 from .._harness.large_capture_workload import build_sized_capture
 from .._harness.phase05_public_file_ops import seed_phase05_imported_base
 from .._harness.sandbox_fixture import SandboxHandle
+from .._harness.streaming_artifact import (
+    resolve_run_id as _resolve_run_id,
+    stream_row as _stream_row,
+)
 
 
 pytestmark = pytest.mark.asyncio
@@ -38,14 +39,6 @@ _BASE = "tracked/load/k1000_concurrency"
 _K = 1000
 _FILE_SIZE = 64
 _CONCURRENCY = (1, 5, 10, 20)
-
-
-def _resolve_run_id() -> str:
-    """Honor EOS_TIER_RUN_ID so the runner can pin artifact filenames."""
-    env_run_id = os.environ.get("EOS_TIER_RUN_ID")
-    if env_run_id:
-        return env_run_id
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{os.getpid()}"
 
 
 def _artifact_path() -> Path:
@@ -57,15 +50,6 @@ def _artifact_path() -> Path:
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     return target
-
-
-def _stream_row(artifact: Path, row: dict[str, object]) -> None:
-    """Append one JSONL row, flush, fsync — mid-batch kill-9 durability."""
-    with artifact.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(row, sort_keys=True, separators=(",", ":")))
-        fh.write("\n")
-        fh.flush()
-        os.fsync(fh.fileno())
 
 
 async def test_phase09_k1000_concurrency(

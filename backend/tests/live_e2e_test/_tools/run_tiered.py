@@ -221,44 +221,98 @@ def run_with_budget(
     """Run ``argv`` under a wall-clock budget with SIGINT-then-SIGKILL.
 
     The child is spawned with ``start_new_session=True`` so we can signal
-    the whole process group on timeout. ``popen_factory`` is the seam
-    unit tests inject a fake popen through.
+    the whole process group on timeout. Stdout/stderr are streamed to
+    temp files (NOT ``subprocess.PIPE``) so a verbose pytest run can't
+    fill the OS pipe buffer and deadlock the runner — pipe buffers are
+    fixed-size (~16-64 KB on macOS) and Popen.communicate() only drains
+    them on timeout/exit. ``popen_factory`` is the seam unit tests
+    inject a fake popen through; the fake's ``communicate`` is used
+    when the factory does not produce a real Popen with a temp-file
+    backed stdout.
     """
+    import tempfile
+
     factory = popen_factory or subprocess.Popen
     started = clock()
-    proc = factory(
-        argv,
-        env=env,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=True,
-    )
-    try:
-        stdout, stderr = proc.communicate(timeout=wall_budget_s)
-        elapsed = clock() - started
-        return SubprocessOutcome(
-            returncode=proc.returncode,
-            timed_out=False,
-            stdout_tail=_tail(stdout),
-            stderr_tail=_tail(stderr),
-            elapsed_s=elapsed,
+    using_tempfiles = factory is subprocess.Popen
+    if using_tempfiles:
+        stdout_f = tempfile.TemporaryFile(mode="w+b")
+        stderr_f = tempfile.TemporaryFile(mode="w+b")
+        proc = factory(
+            argv,
+            env=env,
+            cwd=cwd,
+            stdin=subprocess.DEVNULL,
+            stdout=stdout_f,
+            stderr=stderr_f,
+            start_new_session=True,
         )
+    else:
+        # Fake Popen path used by unit tests — keep PIPE semantics so
+        # the fake's communicate() can return canned bytes.
+        stdout_f = None
+        stderr_f = None
+        proc = factory(
+            argv,
+            env=env,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+
+    def _read_tails() -> tuple[str, str]:
+        if stdout_f is None or stderr_f is None:
+            return "", ""
+        stdout_f.seek(0)
+        stderr_f.seek(0)
+        out = _tail(stdout_f.read())
+        err = _tail(stderr_f.read())
+        stdout_f.close()
+        stderr_f.close()
+        return out, err
+
+    timed_out = False
+    try:
+        if using_tempfiles:
+            proc.wait(timeout=wall_budget_s)
+            stdout = b""
+            stderr = b""
+        else:
+            stdout, stderr = proc.communicate(timeout=wall_budget_s)
     except subprocess.TimeoutExpired:
+        timed_out = True
         _terminate_group(proc.pid, signal.SIGINT)
         try:
-            stdout, stderr = proc.communicate(timeout=grace_s)
+            if using_tempfiles:
+                proc.wait(timeout=grace_s)
+            else:
+                stdout, stderr = proc.communicate(timeout=grace_s)
         except subprocess.TimeoutExpired:
             _terminate_group(proc.pid, signal.SIGKILL)
-            stdout, stderr = proc.communicate()
-        elapsed = clock() - started
-        return SubprocessOutcome(
-            returncode=proc.returncode if proc.returncode is not None else -signal.SIGKILL,
-            timed_out=True,
-            stdout_tail=_tail(stdout),
-            stderr_tail=_tail(stderr),
-            elapsed_s=elapsed,
-        )
+            if using_tempfiles:
+                proc.wait()
+            else:
+                stdout, stderr = proc.communicate()
+
+    if using_tempfiles:
+        stdout_tail, stderr_tail = _read_tails()
+    else:
+        stdout_tail = _tail(stdout)
+        stderr_tail = _tail(stderr)
+
+    elapsed = clock() - started
+    return SubprocessOutcome(
+        returncode=(
+            proc.returncode
+            if proc.returncode is not None
+            else (-signal.SIGKILL if timed_out else -1)
+        ),
+        timed_out=timed_out,
+        stdout_tail=stdout_tail,
+        stderr_tail=stderr_tail,
+        elapsed_s=elapsed,
+    )
 
 
 def _tail(blob: bytes | None, *, limit: int = 1024) -> str:

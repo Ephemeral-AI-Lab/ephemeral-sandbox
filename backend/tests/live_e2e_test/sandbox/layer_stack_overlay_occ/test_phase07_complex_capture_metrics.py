@@ -28,10 +28,7 @@ correctness check the K-scaling benchmark never did.
 
 from __future__ import annotations
 
-import json
-import os
 from collections.abc import Mapping
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -48,6 +45,12 @@ from .._harness.large_capture_workload import (
 )
 from .._harness.phase05_public_file_ops import seed_phase05_imported_base
 from .._harness.sandbox_fixture import SandboxHandle
+from .._harness.streaming_artifact import (
+    load_prior_data_rows as _load_prior_data_rows,
+    resolve_run_id as _resolve_run_id,
+    rewrite_artifact as _rewrite_artifact,
+    stream_row as _stream_row,
+)
 
 
 pytestmark = pytest.mark.asyncio
@@ -57,65 +60,10 @@ _GATED_ROOT = "tracked/load/phase07"
 _DIST_ROOT = "dist/phase07"
 
 
-def _resolve_run_id() -> str:
-    """Honor EOS_TIER_RUN_ID so the runner can pin artifact filenames."""
-    env_run_id = os.environ.get("EOS_TIER_RUN_ID")
-    if env_run_id:
-        return env_run_id
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{os.getpid()}"
-
-
 def _artifact_path(label: str = "phase07-complex-capture-metrics") -> Path:
     target = Path.cwd() / ".omc" / "results" / f"{label}-{_resolve_run_id()}.jsonl"
     target.parent.mkdir(parents=True, exist_ok=True)
     return target
-
-
-def _load_prior_data_rows(artifact: Path) -> list[dict[str, object]]:
-    """Read prior data rows from the artifact, skipping any trailing summary.
-
-    A row whose ``schema`` ends with ``.summary.v1`` is treated as a
-    summary row and discarded — only data rows are returned so a
-    rebuild can recompute the summary cleanly.
-    """
-    if not artifact.exists():
-        return []
-    rows: list[dict[str, object]] = []
-    with artifact.open(encoding="utf-8") as fh:
-        for line in fh:
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            schema = str(row.get("schema", ""))
-            if schema.endswith(".summary.v1"):
-                continue
-            rows.append(row)
-    return rows
-
-
-def _stream_row(artifact: Path, row: dict[str, object]) -> None:
-    """Append one JSONL row, flush, fsync — mid-loop kill-9 durability."""
-    with artifact.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(row, sort_keys=True, separators=(",", ":")))
-        fh.write("\n")
-        fh.flush()
-        os.fsync(fh.fileno())
-
-
-def _rewrite_artifact(
-    artifact: Path,
-    rows: list[dict[str, object]],
-    summary_row: dict[str, object] | None,
-) -> None:
-    """Truncate-rewrite the artifact with rows + optional trailing summary."""
-    with artifact.open("w", encoding="utf-8") as fh:
-        for row in rows:
-            fh.write(json.dumps(row, sort_keys=True, separators=(",", ":")))
-            fh.write("\n")
-        if summary_row is not None:
-            fh.write(json.dumps(summary_row, sort_keys=True, separators=(",", ":")))
-            fh.write("\n")
 
 
 def _slug(value: str) -> str:

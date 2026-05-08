@@ -24,15 +24,16 @@ trajectory is mechanically diff-able across runs.
 
 from __future__ import annotations
 
-import json
-import os
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from .._harness.phase05_public_file_ops import seed_phase05_imported_base
 from .._harness.sandbox_fixture import SandboxHandle
+from .._harness.streaming_artifact import (
+    resolve_run_id as _resolve_run_id,
+    stream_row as _stream_row,
+)
 
 
 pytestmark = pytest.mark.asyncio
@@ -44,14 +45,6 @@ _TOTAL_CALLS = 200
 _PROBE_EVERY = 50
 
 
-def _resolve_run_id() -> str:
-    """Honor EOS_TIER_RUN_ID so the runner can pin artifact filenames."""
-    env_run_id = os.environ.get("EOS_TIER_RUN_ID")
-    if env_run_id:
-        return env_run_id
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{os.getpid()}"
-
-
 def _artifact_path() -> Path:
     target = (
         Path.cwd()
@@ -61,15 +54,6 @@ def _artifact_path() -> Path:
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     return target
-
-
-def _stream_row(artifact: Path, row: dict[str, object]) -> None:
-    """Append one JSONL row, flush, fsync — kill-9 durability."""
-    with artifact.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(row, sort_keys=True, separators=(",", ":")))
-        fh.write("\n")
-        fh.flush()
-        os.fsync(fh.fileno())
 
 
 async def _probe_dev_shm(handle: SandboxHandle) -> tuple[int, int, str]:

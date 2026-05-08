@@ -72,9 +72,23 @@ This is the design's headline value-prop: a Daytona-side stall surfaces in **120
 
 ## 3 Tier 1 Live Smoke
 
-See "Notes for next session" — Tier 1 was kicked off as part of T-RUN. The result is recorded in `.omc/results/progressive-test-summary-<run_id>.jsonl` and the per-tier artifact `phase00-smoke-<run_id>.jsonl`.
+**Outcome: FAIL — Daytona sandbox provisioning exceeded 3 min wall budget.**
 
-If Tier 1 passed, the full cascade through Tier 1 is operational. If Tier 1 failed (e.g., Daytona sandbox provisioning timed out), the cascade rule `abort_ge target=2` would skip Tiers 2 and 3, but Tiers 4-6 remain runnable per plan §3.
+Tier 1 was attempted twice via `run_tiered.py` and once via direct pytest:
+
+| Attempt | Wall budget | Outcome |
+|---|---:|---|
+| 1: `run_tiered --tier 0,1` | 60 s | aborted_budget; SIGKILL after grace |
+| 2: budget bumped to 180 s, retry | 180 s | aborted_budget; SIGKILL after grace |
+| 3: direct `pytest test_phase00_smoke.py` | (unbounded) | killed after 5 min — process at 0.3% CPU, no `phase00-smoke-*.jsonl` artifact ever produced — **stuck in Daytona session-fixture sandbox bring-up before any cell ran** |
+
+Tier 0 reported PASS (`api_health=ok; runner_health=healthy`) for all three attempts, so the design's Tier 0 probe is **insufficient on its own** to predict whether `provider.create()` will return in reasonable time.
+
+**Diagnosis:** the `live_sandbox` session-scoped fixture in `sandbox_fixture.py` calls `provider.create()` + `setup_after_create()` per pytest invocation. Daytona's `/api/health` is OK but the Daytona provisioning queue / runner job-pickup loop appears to be very slow today — exactly the symptom Phase 3's session 22:25 UTC stall documented. The state-machine workaround in `daytona_probe.sh` only handles the "stuck in starting" failure; it doesn't handle "provisioning is slow but rows haven't gone stale yet."
+
+**Follow-up:** Tier 0 should grow a "create-and-destroy a tiny sandbox within 60 s" probe, not just `/api/health`. That converts this class of failure from "5-min hang" into "30-s Tier 0 fail with `provisioning_too_slow` note." Out of scope for this PRD — recorded here for the next session to act on.
+
+**Per PRD T-RUN acceptance:** "outcome recorded in progress.txt: PASS, FAIL with reason, or DEFERRED" — outcome is **FAIL with reason: daytona_provisioning_too_slow**. Recording satisfies the acceptance criterion.
 
 ---
 
@@ -151,4 +165,25 @@ Re-running Phase 3's session under this design:
 
 ## 8 Reviewer Signoff
 
-[Pending — to be invoked at end of Ralph cycle.]
+**Architect verdict: APPROVED** (Ralph Step 7).
+
+Quote: "Tier 1 FAIL with reason `daytona_provisioning_too_slow` is contractually allowed by the PRD acceptance criterion, so it does not block approval."
+
+## 9 Deslop Pass (Ralph Step 7.5)
+
+The streaming artifact helpers (`resolve_run_id`, `load_prior_data_rows`, `stream_row`, `rewrite_artifact`) had been duplicated across 7 test files with identical or near-identical bodies. Pulled into a shared module:
+
+- New: `backend/tests/live_e2e_test/sandbox/_harness/streaming_artifact.py` (75 LOC, 4 functions)
+- New: `backend/tests/unit_test/test_live_e2e_tools/test_streaming_artifact.py` (8 tests covering all 4 functions)
+- Each affected test file (phase00, 07, 08, 09 complex, 09 k1000, 09 size_x_c, 09 kind_x_c) now imports the helpers via `import as` aliases preserving the existing `_resolve_run_id` / `_stream_row` / etc. underscore-prefixed call sites (no call-site changes; minimum diff).
+- Ruff auto-fixed unused `json`/`os`/`datetime` imports left over from removed local helpers.
+
+Net effect: ~135 LOC of duplicated helpers replaced with ~75 LOC of shared module + 8 lines of `import as` per file = single source of truth, future tests have one canonical place to import from.
+
+## 10 Post-deslop Regression (Ralph Step 7.6)
+
+| Check | Result |
+|---|---|
+| `.venv/bin/pytest backend/tests/unit_test/test_live_e2e_tools/` | 43 passed (35 + 8 new) |
+| `.venv/bin/ruff check` on every changed file | All checks passed |
+| `.venv/bin/pytest --collect-only` on all 7 progressive-tier tests | 10 collected (3 phase07 + 7 single-test files) |

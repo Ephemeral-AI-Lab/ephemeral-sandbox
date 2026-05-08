@@ -18,16 +18,18 @@ artifact and resume-on-restart works (design §5).
 from __future__ import annotations
 
 import json
-import os
 import time
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from .._harness.phase05_public_file_ops import seed_phase05_imported_base
 from .._harness.sandbox_fixture import SandboxHandle
+from .._harness.streaming_artifact import (
+    resolve_run_id as _resolve_run_id,
+    stream_row as _stream_row,
+)
 
 
 pytestmark = pytest.mark.asyncio
@@ -36,14 +38,6 @@ pytestmark = pytest.mark.asyncio
 _GATED_PATH = "tracked/smoke/probe.txt"
 _DIST_PATH = "dist/smoke/probe.txt"
 _SMOKE_TEXT = "hello"
-
-
-def _resolve_run_id() -> str:
-    """Use the runner-supplied run id when present so artifacts are stable."""
-    env_run_id = os.environ.get("EOS_TIER_RUN_ID")
-    if env_run_id:
-        return env_run_id
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{os.getpid()}"
 
 
 def _artifact_path() -> Path:
@@ -66,15 +60,6 @@ def _completed_cell_ids(artifact: Path) -> set[str]:
             if row.get("passed") is True and row.get("cell_id"):
                 completed.add(str(row["cell_id"]))
     return completed
-
-
-def _stream_row(artifact: Path, row: dict[str, object]) -> None:
-    """Append one JSONL row, flush, fsync — survives kill-9."""
-    with artifact.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(row, sort_keys=True, separators=(",", ":")))
-        fh.write("\n")
-        fh.flush()
-        os.fsync(fh.fileno())
 
 
 async def _run_noop(handle: SandboxHandle) -> tuple[bool, str | None]:
