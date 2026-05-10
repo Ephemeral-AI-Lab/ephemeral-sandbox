@@ -11,9 +11,11 @@ from sandbox.runtime.daemon.service import occ_backend
 
 async def layer_metrics(args: dict[str, object]) -> dict[str, object]:
     """Summarize layer-stack storage and lease state for one runtime root."""
+    layer_stack_root = str(args.get("layer_stack_root") or "")
     manager = _manager(args)
     manifest = manager.read_active_manifest()
-    binding = read_workspace_binding(str(args.get("layer_stack_root") or ""))
+    binding = read_workspace_binding(layer_stack_root)
+    backend = occ_backend.build_occ_backend(layer_stack_root)
     layer_dirs = tuple((manager.storage_root / "layers").iterdir())
     staging_dirs = tuple((manager.storage_root / "staging").iterdir())
     total_bytes = 0
@@ -32,6 +34,7 @@ async def layer_metrics(args: dict[str, object]) -> dict[str, object]:
         "workspace_bound": binding is not None,
         "workspace_root": binding.workspace_root if binding is not None else "",
         "base_root_hash": binding.base_root_hash if binding is not None else "",
+        "auto_squash": backend.occ_service.auto_squash_maintenance_status(),
     }
 
 

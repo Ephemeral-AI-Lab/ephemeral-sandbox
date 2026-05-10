@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shlex
 from typing import Any, Protocol
 
@@ -18,6 +19,10 @@ _DAEMON_SOCKET = f"{BUNDLE_REMOTE_DIR}/runtime.sock"
 _DAEMON_PID = f"{BUNDLE_REMOTE_DIR}/runtime.pid"
 _DAEMON_LOG = f"{BUNDLE_REMOTE_DIR}/runtime.log"
 DEFAULT_LAYER_STACK_ROOT = f"{BUNDLE_REMOTE_DIR}/layer-stack"
+_FORWARDED_DAEMON_ENV = (
+    "EOS_OCC_SQUASH_MODE",
+    "EOS_OCC_AUTO_SQUASH_MAX_DEPTH",
+)
 
 _DAEMON_THIN_CLIENT_PY = (
     "import socket,sys,os\n"
@@ -30,32 +35,6 @@ _DAEMON_THIN_CLIENT_PY = (
     " buf+=chunk\n"
     "sys.stdout.buffer.write(buf)\n"
 )
-
-_DAEMON_LAUNCHER = f"""\
-set -e
-SOCK={shlex.quote(_DAEMON_SOCKET)}
-PID={shlex.quote(_DAEMON_PID)}
-LOG={shlex.quote(_DAEMON_LOG)}
-mkdir -p {shlex.quote(BUNDLE_REMOTE_DIR)}
-if [ -S "$SOCK" ] && [ -f "$PID" ] && kill -0 "$(cat "$PID" 2>/dev/null)" 2>/dev/null; then
-    exit 0
-fi
-rm -f "$SOCK"
-for py in python3.13 python3.12 python3.11 python3.10 python3; do
-    if command -v "$py" >/dev/null 2>&1 && "$py" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
-        nohup "$py" -m sandbox.runtime.daemon --socket "$SOCK" --pid-file "$PID" </dev/null >"$LOG" 2>&1 &
-        # Wait briefly for the socket to appear so the next client connect succeeds.
-        for _ in $(seq 1 50); do
-            [ -S "$SOCK" ] && exit 0
-            sleep 0.05
-        done
-        echo 'sandbox daemon failed to bind socket within 2.5s' >&2
-        exit 1
-    fi
-done
-echo 'sandbox daemon requires Python >= 3.10' >&2
-exit 127
-"""
 
 _DAEMON_THIN_CLIENT_LAUNCHER = f"""\
 for py in python3.13 python3.12 python3.11 python3.10 python3; do
@@ -340,7 +319,46 @@ def _daemon_spawn_command() -> str:
     Idempotent: returns 0 immediately when an existing daemon's socket is
     bound and its PID is alive.
     """
-    return f"sh -c {shlex.quote(_DAEMON_LAUNCHER)}"
+    return f"sh -c {shlex.quote(_daemon_launcher())}"
+
+
+def _daemon_launcher() -> str:
+    return f"""\
+set -e
+{_daemon_env_exports()}SOCK={shlex.quote(_DAEMON_SOCKET)}
+PID={shlex.quote(_DAEMON_PID)}
+LOG={shlex.quote(_DAEMON_LOG)}
+mkdir -p {shlex.quote(BUNDLE_REMOTE_DIR)}
+if [ -S "$SOCK" ] && [ -f "$PID" ] && kill -0 "$(cat "$PID" 2>/dev/null)" 2>/dev/null; then
+    exit 0
+fi
+rm -f "$SOCK"
+for py in python3.13 python3.12 python3.11 python3.10 python3; do
+    if command -v "$py" >/dev/null 2>&1 && "$py" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
+        nohup "$py" -m sandbox.runtime.daemon --socket "$SOCK" --pid-file "$PID" </dev/null >"$LOG" 2>&1 &
+        # Wait briefly for the socket to appear so the next client connect succeeds.
+        for _ in $(seq 1 50); do
+            [ -S "$SOCK" ] && exit 0
+            sleep 0.05
+        done
+        echo 'sandbox daemon failed to bind socket within 2.5s' >&2
+        exit 1
+    fi
+done
+echo 'sandbox daemon requires Python >= 3.10' >&2
+exit 127
+"""
+
+
+def _daemon_env_exports() -> str:
+    exports: list[str] = []
+    for name in _FORWARDED_DAEMON_ENV:
+        value = os.getenv(name)
+        if value is not None:
+            exports.append(f"export {name}={shlex.quote(value)}")
+    if not exports:
+        return ""
+    return "\n".join(exports) + "\n"
 
 
 def _without_none(args: dict[str, Any]) -> dict[str, Any]:

@@ -17,7 +17,7 @@ async def build_workspace_base(args: dict[str, object]) -> dict[str, object]:
     layer_stack_root = _layer_stack_root(args)
     reset = bool(args.get("reset", False))
     if reset:
-        _drop_peer_runtime_caches(layer_stack_root)
+        await _drop_peer_runtime_caches(layer_stack_root)
     server = LayerStackWorkspaceServer(layer_stack_root)
     timings: dict[str, float] = {}
     binding = server.build_workspace_base(
@@ -120,9 +120,10 @@ def _lease_id(args: Mapping[str, object]) -> str:
     return _required_str(args, "lease_id")
 
 
-def _drop_peer_runtime_caches(layer_stack_root: str) -> None:
+async def _drop_peer_runtime_caches(layer_stack_root: str) -> None:
     from sandbox.runtime.daemon.service import occ_backend
 
+    await occ_backend.drain_backend_auto_squash(layer_stack_root)
     occ_backend.drop_backend_cache(layer_stack_root)
 
 

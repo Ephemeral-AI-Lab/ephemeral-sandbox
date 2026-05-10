@@ -72,6 +72,8 @@ def test_daemon_commands_do_not_forward_host_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("UNSUPPORTED_RUNTIME_ENV", "ignored")
+    monkeypatch.delenv("EOS_OCC_SQUASH_MODE", raising=False)
+    monkeypatch.delenv("EOS_OCC_AUTO_SQUASH_MAX_DEPTH", raising=False)
 
     thin_client = command._daemon_thin_client_command("{}")
     daemon_spawn = command._daemon_spawn_command()
@@ -80,6 +82,18 @@ def test_daemon_commands_do_not_forward_host_env(
     assert daemon_spawn.startswith("sh -c ")
     assert "UNSUPPORTED_RUNTIME_ENV" not in thin_client
     assert "UNSUPPORTED_RUNTIME_ENV" not in daemon_spawn
+
+
+def test_daemon_spawn_forwards_occ_squash_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("EOS_OCC_SQUASH_MODE", "coalesced")
+    monkeypatch.setenv("EOS_OCC_AUTO_SQUASH_MAX_DEPTH", "64")
+
+    daemon_spawn = command._daemon_spawn_command()
+
+    assert "export EOS_OCC_SQUASH_MODE=coalesced" in daemon_spawn
+    assert "export EOS_OCC_AUTO_SQUASH_MAX_DEPTH=64" in daemon_spawn
 
 
 async def test_daemon_transport_spawns_on_socket_missing() -> None:

@@ -17,7 +17,7 @@ from pathlib import Path
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.client import OCCClient
 from sandbox.occ.content.gitignore_oracle import SnapshotGitignoreOracle
-from sandbox.occ.service import OccService
+from sandbox.occ.service import AUTO_SQUASH_DRAIN_TIMEOUT_S, OccService
 from sandbox.runtime.daemon.service.layer_stack_client import LayerStackClient
 from sandbox.runtime.daemon.service.workspace_binding import RuntimeWorkspaceBindingReader
 from sandbox.runtime.daemon.service.workspace_server import get_layer_stack_manager
@@ -33,6 +33,7 @@ class OccBackend:
     """
 
     layer_stack: LayerStackClient
+    occ_service: OccService
     occ_client: OCCClient
     gitignore: SnapshotGitignoreOracle
     manager: LayerStackManager
@@ -58,6 +59,7 @@ def build_occ_backend(layer_stack_root: str) -> OccBackend:
     )
     backend = OccBackend(
         layer_stack=layer_stack,
+        occ_service=occ_service,
         occ_client=occ_client,
         gitignore=gitignore,
         manager=manager,
@@ -75,6 +77,25 @@ def drop_backend_cache(layer_stack_root: str) -> None:
     _BACKEND_CACHE.pop(str(Path(root).resolve(strict=False)), None)
 
 
+async def drain_backend_auto_squash(
+    layer_stack_root: str,
+    *,
+    timeout_s: float = AUTO_SQUASH_DRAIN_TIMEOUT_S,
+) -> dict[str, object] | None:
+    """Drain pending async auto-squash work for a cached backend."""
+    root = str(layer_stack_root or "").strip()
+    if not root:
+        return None
+    backend = _BACKEND_CACHE.get(root)
+    if backend is None:
+        backend = _BACKEND_CACHE.get(str(Path(root).resolve(strict=False)))
+    if backend is None:
+        return None
+    return await backend.occ_service.drain_auto_squash_maintenance(
+        timeout_s=timeout_s,
+    )
+
+
 def _backend_cache_clear() -> None:
     """Drop every cached OCC backend. Test helper."""
     _BACKEND_CACHE.clear()
@@ -90,5 +111,6 @@ def _backend_cache_key(layer_stack_root: str | Path) -> str:
 __all__ = [
     "OccBackend",
     "build_occ_backend",
+    "drain_backend_auto_squash",
     "drop_backend_cache",
 ]
