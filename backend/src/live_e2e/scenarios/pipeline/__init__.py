@@ -20,6 +20,7 @@ Implemented (reference scenarios):
 - :class:`InitialMission`
 - :class:`NestedMission`
 - :class:`NestedMissionFailure`
+- :class:`PartialParentPlannerFullOnly`
 """
 
 from __future__ import annotations
@@ -62,6 +63,9 @@ from live_e2e.scenarios.pipeline.nested_mission import (
     NestedMission,
     NestedMissionFailure,
 )
+from live_e2e.scenarios.pipeline.partial_parent_planner_full_only import (
+    PartialParentPlannerFullOnly,
+)
 
 __all__ = [
     "AttemptBudgetExhausted",
@@ -78,4 +82,5 @@ __all__ = [
     "InitialMission",
     "NestedMission",
     "NestedMissionFailure",
+    "PartialParentPlannerFullOnly",
 ]

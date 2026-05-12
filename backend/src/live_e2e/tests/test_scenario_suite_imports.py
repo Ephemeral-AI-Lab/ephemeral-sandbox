@@ -130,6 +130,7 @@ def test_subpackage_imports_are_clean() -> None:
         "InitialMission",
         "NestedMission",
         "NestedMissionFailure",
+        "PartialParentPlannerFullOnly",
     ]
     assert sandbox.__all__ == [
         "AutoSquashCommitResume",

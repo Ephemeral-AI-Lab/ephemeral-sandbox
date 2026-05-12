@@ -63,6 +63,7 @@ def test_registered_mock_agents_install_and_restore() -> None:
         assert installed == {
             "entry_executor",
             "planner",
+            "planner_full_only",
             "executor",
             "verifier",
             "evaluator",

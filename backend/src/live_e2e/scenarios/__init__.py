@@ -27,6 +27,7 @@ from live_e2e.scenarios.pipeline import (
     InitialMission,
     NestedMission,
     NestedMissionFailure,
+    PartialParentPlannerFullOnly,
 )
 from live_e2e.scenarios.planner_validation import (
     PlannerCycleInDeps,
@@ -65,6 +66,7 @@ SCENARIO_REGISTRY: dict[str, type[Scenario]] = {
     "pipeline.attempt_budget_exhausted": AttemptBudgetExhausted,
     "pipeline.nested_mission": NestedMission,
     "pipeline.nested_mission_failure": NestedMissionFailure,
+    "pipeline.partial_parent_planner_full_only": PartialParentPlannerFullOnly,
     # Composite capacity scenarios.
     "capacity.full_system_capacity_matrix": FullSystemCapacityMatrix,
     # Focused sandbox scenarios.
@@ -111,6 +113,7 @@ __all__ = [
     "InitialMission",
     "NestedMission",
     "NestedMissionFailure",
+    "PartialParentPlannerFullOnly",
     "OccConcurrentConflicts",
     "PlannerCycleInDeps",
     "PlannerDuplicateLocalId",
