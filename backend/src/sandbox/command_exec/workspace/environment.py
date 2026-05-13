@@ -92,8 +92,31 @@ def _relative_to_declared_workspace(candidate: Path, declared_root: Path) -> Pat
         raise ValueError(f"cwd escapes workspace replacement root: {candidate}") from exc
 
 
+# Env-var names a caller is NEVER allowed to override. These either alter
+# the loader/interpreter trust boundary (LD_PRELOAD, BASH_ENV) or steer
+# lookups for binaries the workspace-replacement layer assumes are sourced
+# from the host (PATH, PYTHONPATH). Caller-supplied values are silently
+# dropped — the host's value (if any) wins.
+_RESTRICTED_ENV_KEYS = frozenset(
+    {
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "LD_AUDIT",
+        "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH",
+        "PATH",
+        "PYTHONPATH",
+        "BASH_ENV",
+        "ENV",
+    }
+)
+
+
 def _command_environment(extra: Mapping[str, str]) -> dict[str, str]:
-    return {**os.environ, **dict(extra), "GIT_OPTIONAL_LOCKS": "0"}
+    safe_extra = {
+        k: v for k, v in extra.items() if k not in _RESTRICTED_ENV_KEYS
+    }
+    return {**os.environ, **safe_extra, "GIT_OPTIONAL_LOCKS": "0"}
 
 
 __all__ = [

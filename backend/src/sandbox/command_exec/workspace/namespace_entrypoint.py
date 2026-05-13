@@ -119,6 +119,14 @@ def _umount(workspace_root: Path) -> None:
     )
 
 
+# Characters that, if present in an overlay mount-option value, would split
+# or terminate the option string and let a caller inject extra options.
+# ``,`` separates options; ``:`` separates lowerdir entries; backslash is
+# the kernel's escape character; whitespace can mangle the option parser.
+# NUL (\0) terminates any C string the option may be passed through.
+_FORBIDDEN_OVERLAY_PATH_CHARS = (",", ":", "\\", "\n", "\r", "\t", "\0")
+
+
 def _validate_mount_inputs(
     *,
     workspace_root: Path,
@@ -131,8 +139,14 @@ def _validate_mount_inputs(
     if not lowerdir.is_dir():
         raise RuntimeError(f"leased lowerdir is missing: {lowerdir}")
     for path in (workspace_root, lowerdir, upperdir, workdir):
-        if "," in path.as_posix():
-            raise RuntimeError(f"overlay mount path cannot contain comma: {path}")
+        text = path.as_posix()
+        for bad in _FORBIDDEN_OVERLAY_PATH_CHARS:
+            if bad in text:
+                # NUL renders as garbage in messages; describe instead.
+                label = repr(bad)
+                raise RuntimeError(
+                    f"overlay mount path cannot contain {label}: {path!r}"
+                )
 
 
 def _write_timings(path: Path, timings: dict[str, float]) -> None:
