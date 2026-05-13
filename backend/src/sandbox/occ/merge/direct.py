@@ -111,17 +111,73 @@ class DirectMerge:
                 final_precomputed_hash = None
                 continue
             if isinstance(change, EditChange):
+                # Loud rejection on every failure case, mirroring
+                # GatedMerge._apply_edit_content. The previous silent
+                # `continue` on missing anchor, count mismatch, non-utf-8
+                # bytes, or prior-delete was the BL-01 contract violation —
+                # gitignored paths could pocket bogus edits while
+                # tracked paths got rejected.
                 if final_kind != "write":
-                    continue
+                    timings["occ.direct.apply_changes_s"] = (
+                        time.perf_counter() - apply_start
+                    )
+                    return (
+                        FileResult(
+                            path=group.path,
+                            status=FileStatus.ABORTED_OVERLAP,
+                            message="file does not exist",
+                            timings=timings,
+                        ),
+                        None,
+                    )
                 try:
                     text = content.decode("utf-8")
                 except UnicodeDecodeError:
-                    continue
-                if change.old_text in text:
-                    text = text.replace(change.old_text, change.new_text, 1)
+                    timings["occ.direct.apply_changes_s"] = (
+                        time.perf_counter() - apply_start
+                    )
+                    return (
+                        FileResult(
+                            path=group.path,
+                            status=FileStatus.ABORTED_OVERLAP,
+                            message="file is not utf-8 text",
+                            timings=timings,
+                        ),
+                        None,
+                    )
+                count = text.count(change.old_text)
+                if count == 0:
+                    timings["occ.direct.apply_changes_s"] = (
+                        time.perf_counter() - apply_start
+                    )
+                    return (
+                        FileResult(
+                            path=group.path,
+                            status=FileStatus.ABORTED_OVERLAP,
+                            message="anchor not found",
+                            timings=timings,
+                        ),
+                        None,
+                    )
+                if count != change.expected_occurrences:
+                    timings["occ.direct.apply_changes_s"] = (
+                        time.perf_counter() - apply_start
+                    )
+                    return (
+                        FileResult(
+                            path=group.path,
+                            status=FileStatus.ABORTED_OVERLAP,
+                            message="anchor occurrence count mismatch",
+                            timings=timings,
+                        ),
+                        None,
+                    )
+                text = text.replace(
+                    change.old_text,
+                    change.new_text,
+                    change.expected_occurrences,
+                )
                 content = text.encode("utf-8")
-                # Edit produced new bytes — disk-backed shortcut no
-                # longer represents the final content.
                 final_content_path = None
                 final_precomputed_hash = None
                 continue

@@ -80,7 +80,11 @@ def test_direct_write_stages_last_writer_wins_content(tmp_path: Path) -> None:
     assert Path(change.source_path or "").read_bytes() == b"second"
 
 
-def test_direct_edit_is_best_effort(tmp_path: Path) -> None:
+def test_direct_edit_rejects_missing_anchor(tmp_path: Path) -> None:
+    """occ BL-01: DirectMerge.EditChange must REJECT on anchor miss, matching
+    GatedMerge. The pre-fix `continue` silently accepted bogus edits on
+    gitignored paths while tracked paths got rejected — a contract violation.
+    """
     stack = LayerStackManager(tmp_path / "stack")
     _publish(stack, tmp_path, "dist/app.js", b"alpha\n")
     merge = DirectMerge(stack)
@@ -96,10 +100,9 @@ def test_direct_edit_is_best_effort(tmp_path: Path) -> None:
         stage_write=_stage_write(tmp_path),
     )
 
-    assert result.status is FileStatus.ACCEPTED
-    assert delta is not None
-    [change] = delta.changes
-    assert Path(change.source_path or "").read_bytes() == b"alpha\n"
+    assert result.status is FileStatus.ABORTED_OVERLAP
+    assert result.message == "anchor not found"
+    assert delta is None
 
 
 def test_direct_symlink_and_opaque_dir_stage_storage_changes(tmp_path: Path) -> None:

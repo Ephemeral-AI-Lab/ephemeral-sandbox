@@ -94,7 +94,17 @@ class LayerPublisher:
         record_elapsed(timings, "layer_stack.publish.create_staging_s", create_staging_start)
         try:
             write_changes_start = time.perf_counter()
+            # Dedupe prepared changes by path, last-write-wins. OCC's
+            # flattening across multiple LayerDeltas can present the same
+            # path more than once, and _write_symlink / opaque-dir marker
+            # writes are not idempotent on FileExistsError. Beyond the
+            # crash safety, this also keeps the on-disk layer canonical
+            # so the rolling sha256 digest is stable across equivalent
+            # change orderings.
+            seen: dict[str, _PreparedLayerChange] = {}
             for prepared in prepared_changes:
+                seen[prepared.change.path] = prepared
+            for prepared in seen.values():
                 self._write_change(staging_dir, prepared)
             _fsync_tree_files(staging_dir)
             _fsync_dir(staging_dir)
@@ -189,6 +199,11 @@ class LayerPublisher:
     def _write_symlink(self, layer_dir: Path, change: SymlinkLayerChange) -> None:
         target = join_layer_path(layer_dir, change.path)
         target.parent.mkdir(parents=True, exist_ok=True)
+        # Defensive: dedup at the publisher entry point should have ensured
+        # each path is written exactly once, but the dedup is a recent
+        # invariant; clean up any stale entry so a future caller that
+        # bypasses the dedup still produces a deterministic layer.
+        remove_path(target)
         os.symlink(change.source_path, target)
 
 

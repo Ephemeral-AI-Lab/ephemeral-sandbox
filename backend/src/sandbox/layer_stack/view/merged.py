@@ -264,6 +264,14 @@ def _is_whiteout(name: str) -> bool:
 
 
 def _clear_directory(path: Path) -> None:
+    # If an upper layer converts a file/symlink path into an opaque dir,
+    # the merged view materializer hits this with `path` already pointing
+    # at the previous-layer file or symlink. `mkdir(exist_ok=True)` would
+    # raise FileExistsError in that case (a legitimate transition, not an
+    # error). Remove the non-directory entry first so the opaque-dir apply
+    # can proceed.
+    if path.is_symlink() or (path.exists() and not path.is_dir()):
+        remove_path(path)
     path.mkdir(parents=True, exist_ok=True)
     for child in path.iterdir():
         remove_path(child)
