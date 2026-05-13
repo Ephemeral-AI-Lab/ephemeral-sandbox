@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from typing import Any
 
 from sandbox.models import (
@@ -16,9 +17,15 @@ from sandbox.models import (
     WriteFileResult,
 )
 
+if TYPE_CHECKING:
+    from audit.base import AuditSink
+
 
 class SandboxClient:
     """Single auditable call surface for sandbox status and tool verbs."""
+
+    def __init__(self, *, audit_sink: AuditSink | None = None) -> None:
+        self._audit_sink = audit_sink
 
     def create_sandbox(
         self,
@@ -109,10 +116,18 @@ class SandboxClient:
 
         return context_preparer_for(sandbox_id)
 
-    async def shell(self, sandbox_id: str, request: ShellRequest) -> ShellResult:
+    async def shell(
+        self,
+        sandbox_id: str,
+        request: ShellRequest,
+        *,
+        audit_sink: AuditSink | None = None,
+    ) -> ShellResult:
         from sandbox.api.tool import shell as shell_module
 
-        return await shell_module.shell(sandbox_id, request)
+        sink = self._audit_sink if audit_sink is None else audit_sink
+        kwargs = {"audit_sink": sink} if sink is not None else {}
+        return await shell_module.shell(sandbox_id, request, **kwargs)
 
     async def raw_exec(
         self,
@@ -121,42 +136,58 @@ class SandboxClient:
         *,
         cwd: str | None = None,
         timeout: int | None = None,
+        audit_sink: AuditSink | None = None,
     ) -> RawExecResult:
         from sandbox.api.tool import raw_exec as raw_exec_module
 
+        sink = self._audit_sink if audit_sink is None else audit_sink
+        kwargs = {"audit_sink": sink} if sink is not None else {}
         return await raw_exec_module.raw_exec(
             sandbox_id,
             command,
             cwd=cwd,
             timeout=timeout,
+            **kwargs,
         )
 
     async def read_file(
         self,
         sandbox_id: str,
         request: ReadFileRequest,
+        *,
+        audit_sink: AuditSink | None = None,
     ) -> ReadFileResult:
         from sandbox.api.tool import read as read_module
 
-        return await read_module.read_file(sandbox_id, request)
+        sink = self._audit_sink if audit_sink is None else audit_sink
+        kwargs = {"audit_sink": sink} if sink is not None else {}
+        return await read_module.read_file(sandbox_id, request, **kwargs)
 
     async def write_file(
         self,
         sandbox_id: str,
         request: WriteFileRequest,
+        *,
+        audit_sink: AuditSink | None = None,
     ) -> WriteFileResult:
         from sandbox.api.tool import write as write_module
 
-        return await write_module.write_file(sandbox_id, request)
+        sink = self._audit_sink if audit_sink is None else audit_sink
+        kwargs = {"audit_sink": sink} if sink is not None else {}
+        return await write_module.write_file(sandbox_id, request, **kwargs)
 
     async def edit_file(
         self,
         sandbox_id: str,
         request: EditFileRequest,
+        *,
+        audit_sink: AuditSink | None = None,
     ) -> EditFileResult:
         from sandbox.api.tool import edit as edit_module
 
-        return await edit_module.edit_file(sandbox_id, request)
+        sink = self._audit_sink if audit_sink is None else audit_sink
+        kwargs = {"audit_sink": sink} if sink is not None else {}
+        return await edit_module.edit_file(sandbox_id, request, **kwargs)
 
 
 __all__ = ["SandboxClient"]

@@ -71,7 +71,11 @@ def get_adapter(sandbox_id: str) -> ProviderAdapter:
             return adapter
         if _DEFAULT is None:
             raise KeyError(sandbox_id)
-        _ADAPTERS[sandbox_id] = _DEFAULT
+        # WR-01: do NOT cache the fallback. Pre-fix this assigned
+        # _ADAPTERS[sandbox_id] = _DEFAULT for any unknown id, growing
+        # the cache without bound AND making has_registered_adapter
+        # report True after the first fallback lookup — flipping
+        # "explicit register" indistinguishable from "fallback cached".
         return _DEFAULT
 
 

@@ -5,6 +5,12 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping
 
+from audit.base import AuditSink
+from sandbox.audit.operation import (
+    publish_operation_failed,
+    publish_operation_result,
+    publish_operation_started,
+)
 from sandbox.api.tool._payload import (
     caller_envelope,
     conflict_from_payload,
@@ -16,32 +22,70 @@ from sandbox.models import ConflictInfo, ShellRequest, ShellResult
 from sandbox.host.daemon_client import call_daemon_api
 
 
-async def shell(sandbox_id: str, request: ShellRequest) -> ShellResult:
+async def shell(
+    sandbox_id: str,
+    request: ShellRequest,
+    *,
+    audit_sink: AuditSink | None = None,
+) -> ShellResult:
     """Run a shell command through sandbox-local overlay and OCC."""
     total_start = time.perf_counter()
+    publish_operation_started(
+        audit_sink,
+        sandbox_id=sandbox_id,
+        operation="shell",
+        caller=request.caller,
+        payload={"cwd": _overlay_cwd(request.cwd)},
+    )
     if request.stdin is not None:
-        return _error_result(
+        result = _error_result(
             reason="stdin_not_supported",
             message="snapshot overlay shell does not accept stdin",
             timings={"api.shell.total_s": time.perf_counter() - total_start},
         )
+        publish_operation_result(
+            audit_sink,
+            sandbox_id=sandbox_id,
+            operation="shell",
+            caller=request.caller,
+            result=result,
+        )
+        return result
 
-    raw = await call_daemon_api(
-        sandbox_id,
-        "api.shell",
-        {
-            "command": request.command,
-            "cwd": _overlay_cwd(request.cwd),
-            "timeout_seconds": request.timeout,
-            "actor_id": request.caller.agent_id,
-            "caller": caller_envelope(request.caller),
-            "description": request.description or "shell",
-        },
-        timeout=(request.timeout or 60) + 30,
+    try:
+        raw = await call_daemon_api(
+            sandbox_id,
+            "api.shell",
+            {
+                "command": request.command,
+                "cwd": _overlay_cwd(request.cwd),
+                "timeout_seconds": request.timeout,
+                "actor_id": request.caller.agent_id,
+                "caller": caller_envelope(request.caller),
+                "description": request.description or "shell",
+            },
+            timeout=(request.timeout or 60) + 30,
+        )
+        timings = timings_from_payload(raw.get("timings"))
+        timings["api.shell.dispatch_total_s"] = time.perf_counter() - total_start
+        result = _result_from_payload(raw, timings=timings)
+    except Exception as exc:
+        publish_operation_failed(
+            audit_sink,
+            sandbox_id=sandbox_id,
+            operation="shell",
+            caller=request.caller,
+            error=exc,
+        )
+        raise
+    publish_operation_result(
+        audit_sink,
+        sandbox_id=sandbox_id,
+        operation="shell",
+        caller=request.caller,
+        result=result,
     )
-    timings = timings_from_payload(raw.get("timings"))
-    timings["api.shell.dispatch_total_s"] = time.perf_counter() - total_start
-    return _result_from_payload(raw, timings=timings)
+    return result
 
 
 def _result_from_payload(

@@ -17,6 +17,13 @@ class SandboxCaller:
     run_id: str = ""
     agent_run_id: str = ""
     task_id: str = ""
+    task_center_run_id: str = ""
+    task_center_task_id: str = ""
+    task_center_attempt_id: str = ""
+    task_center_mission_id: str = ""
+    task_center_request_id: str = ""
+    tool_name: str = ""
+    tool_id: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -42,6 +42,7 @@ def stream_bridge(
                 )
             )
         elif isinstance(stream_event, ToolExecutionCompleted):
+            metadata = dict(stream_event.metadata or {})
             node = NodeId(
                 task_center_run_id=task_center_run_id,
                 agent_name=stream_event.agent_name or None,
@@ -62,16 +63,17 @@ def stream_bridge(
                         "output": stream_event.output,
                         "is_error": stream_event.is_error,
                         "tool_id": stream_event.tool_id,
-                        "metadata": stream_event.metadata,
+                        "metadata": metadata,
                         "does_terminate": stream_event.does_terminate,
                     },
                 )
             )
-            for sandbox_event in sandbox_events_from_tool_completion(
-                stream_event,
-                task_center_run_id=task_center_run_id,
-            ):
-                bus.publish(sandbox_event)
+            if not metadata.get("sandbox_audit_emitted"):
+                for sandbox_event in sandbox_events_from_tool_completion(
+                    stream_event,
+                    task_center_run_id=task_center_run_id,
+                ):
+                    bus.publish(sandbox_event)
         # All other StreamEvent subtypes are silently ignored.
 
     return _on_event

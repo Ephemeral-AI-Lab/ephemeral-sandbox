@@ -18,6 +18,12 @@ def caller_from_context(
         run_id=str(context.get("run_id") or ""),
         agent_run_id=agent_run_id,
         task_id=str(context.get("task_id") or ""),
+        task_center_run_id=str(context.get("task_center_run_id") or ""),
+        task_center_task_id=str(context.get("task_center_task_id") or ""),
+        task_center_attempt_id=str(context.get("task_center_attempt_id") or ""),
+        task_center_mission_id=str(context.get("task_center_mission_id") or ""),
+        task_center_request_id=str(context.get("task_center_request_id") or ""),
+        tool_id=str(context.get("tool_id") or ""),
     )
 
 

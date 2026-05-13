@@ -32,21 +32,29 @@ _MODEL_ONLY_MODULES = {
 }
 _PUBLIC_VERB_IMPORT_ALLOWLIST = {
     "tool/read.py": {
+        "audit.base",
+        "sandbox.audit.operation",
         "sandbox.api.tool._payload",
         "sandbox.models",
         "sandbox.host.daemon_client",
     },
     "tool/write.py": {
+        "audit.base",
+        "sandbox.audit.operation",
         "sandbox.api.tool._payload",
         "sandbox.models",
         "sandbox.host.daemon_client",
     },
     "tool/edit.py": {
+        "audit.base",
+        "sandbox.audit.operation",
         "sandbox.api.tool._payload",
         "sandbox.models",
         "sandbox.host.daemon_client",
     },
     "tool/shell.py": {
+        "audit.base",
+        "sandbox.audit.operation",
         "sandbox.api.tool._payload",
         "sandbox.models",
         "sandbox.host.daemon_client",
@@ -132,6 +140,13 @@ def test_sandbox_caller_defaults_and_immutability() -> None:
     assert caller.run_id == ""
     assert caller.agent_run_id == ""
     assert caller.task_id == ""
+    assert caller.task_center_run_id == ""
+    assert caller.task_center_task_id == ""
+    assert caller.task_center_attempt_id == ""
+    assert caller.task_center_mission_id == ""
+    assert caller.task_center_request_id == ""
+    assert caller.tool_name == ""
+    assert caller.tool_id == ""
     with pytest.raises((AttributeError, TypeError)):
         caller.agent_id = "b"  # type: ignore[misc]
 

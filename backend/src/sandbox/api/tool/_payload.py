@@ -13,12 +13,24 @@ def caller_envelope(caller: SandboxCaller) -> dict[str, str]:
     Forwards every audit-relevant field so the daemon can stitch runs by
     ``run_id`` / ``agent_run_id`` / ``task_id`` instead of only ``agent_id``.
     """
-    return {
+    envelope = {
         "agent_id": caller.agent_id,
         "run_id": caller.run_id,
         "agent_run_id": caller.agent_run_id,
         "task_id": caller.task_id,
     }
+    for key, value in (
+        ("task_center_run_id", caller.task_center_run_id),
+        ("task_center_task_id", caller.task_center_task_id),
+        ("task_center_attempt_id", caller.task_center_attempt_id),
+        ("task_center_mission_id", caller.task_center_mission_id),
+        ("task_center_request_id", caller.task_center_request_id),
+        ("tool_name", caller.tool_name),
+        ("tool_id", caller.tool_id),
+    ):
+        if value:
+            envelope[key] = value
+    return envelope
 
 
 def conflict_from_payload(raw: object) -> ConflictInfo | None:

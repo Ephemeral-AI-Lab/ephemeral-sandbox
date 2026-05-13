@@ -63,6 +63,7 @@ from tools.submission.planner import (
 
 from live_e2e.audit.bus import AuditEventBus
 from live_e2e.audit.events import Event, EventType
+from live_e2e.audit.legacy import LegacySandboxAuditSink
 from live_e2e.audit.node_id import NodeId
 from live_e2e.scenarios.base import (
     Scenario,
@@ -142,6 +143,9 @@ class MockSquadRunner:
 
         self._repo_dir = repo_dir
         self._bus = bus
+        self._sandbox_audit_sink = (
+            LegacySandboxAuditSink(bus) if bus is not None else None
+        )
         self._task_center_run_id = task_center_run_id
         self._scenario: Scenario = scenario or CorrectnessTesting()
         self._mutable_state = mutable_state
@@ -742,6 +746,7 @@ class MockSquadRunner:
                 caller=self._caller(metadata),
                 description="batch edit for mock SWE-EVO probe",
             ),
+            audit_sink=self._sandbox_audit_sink,
         )
         passed = result.success and result.applied_edits == 2
         self.sandbox_checks.append(
@@ -780,6 +785,7 @@ class MockSquadRunner:
                 caller=self._caller(metadata),
                 description="expected conflict for mock SWE-EVO probe",
             ),
+            audit_sink=self._sandbox_audit_sink,
         )
         passed = not result.success
         detail = result.conflict_reason or result.status or "conflict reported"
@@ -1293,6 +1299,12 @@ class MockSquadRunner:
             run_id=str(metadata.get("run_id") or ""),
             agent_run_id=str(metadata.agent_run_id or ""),
             task_id=str(metadata.get("task_center_task_id") or ""),
+            task_center_run_id=str(metadata.get("task_center_run_id") or ""),
+            task_center_task_id=str(metadata.get("task_center_task_id") or ""),
+            task_center_attempt_id=str(metadata.get("task_center_attempt_id") or ""),
+            task_center_mission_id=str(metadata.get("task_center_mission_id") or ""),
+            task_center_request_id=str(metadata.get("task_center_request_id") or ""),
+            tool_id=str(metadata.get("tool_id") or ""),
         )
 
     @staticmethod
