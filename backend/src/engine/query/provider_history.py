@@ -6,7 +6,6 @@ import copy
 from typing import Any
 
 from message import (
-    BackgroundTaskStateBlock,
     ContentBlock,
     ConversationMessage,
     ToolResultBlock,
@@ -46,7 +45,7 @@ def reduce_background_task_history(
     """Keep only the latest provider-visible state for each background task."""
     tool_use_map: dict[str, tuple[int, int, str]] = {}
     snapshot_tool_use_ids: set[str] = set()
-    _WinnerKey = tuple[bool, int, int, int, tuple[int, int] | None, str | None, int | None]
+    _WinnerKey = tuple[bool, int, int, int, str, int]
     winners: dict[str, _WinnerKey] = {}
 
     for msg_idx, msg in enumerate(messages):
@@ -58,22 +57,6 @@ def reduce_background_task_history(
 
     for msg_idx, msg in enumerate(messages):
         for block_idx, block in enumerate(msg.content):
-            if isinstance(block, BackgroundTaskStateBlock) and block.status in _REDUCIBLE_STATUSES:
-                is_terminal = block.status in _REDUCIBLE_TERMINAL_STATUSES
-                key = (
-                    is_terminal,
-                    msg_idx,
-                    block_idx,
-                    -1,
-                    (msg_idx, block_idx),
-                    None,
-                    None,
-                )
-                current = winners.get(block.task_id)
-                if current is None or key[:4] > current[:4]:
-                    winners[block.task_id] = key
-                continue
-
             if not isinstance(block, ToolResultBlock):
                 continue
             snapshot = _background_snapshot_info(block, tool_use_map)
@@ -91,7 +74,6 @@ def reduce_background_task_history(
                     msg_idx,
                     block_idx,
                     status_idx,
-                    None,
                     block.tool_use_id,
                     status_idx,
                 )
@@ -99,25 +81,16 @@ def reduce_background_task_history(
                 if current is None or key[:4] > current[:4]:
                     winners[task_id] = key
 
-    keep_state_blocks: set[tuple[int, int]] = set()
     keep_snapshot_statuses: dict[str, set[int]] = {}
     for winner in winners.values():
-        if winner[4] is not None:
-            keep_state_blocks.add(winner[4])
-        if winner[5] is not None and winner[6] is not None:
-            keep_snapshot_statuses.setdefault(winner[5], set()).add(winner[6])
+        keep_snapshot_statuses.setdefault(winner[4], set()).add(winner[5])
 
     drop_tool_use_ids = snapshot_tool_use_ids - keep_snapshot_statuses.keys()
 
     reduced: list[ConversationMessage] = []
-    for msg_idx, msg in enumerate(messages):
+    for msg in messages:
         new_content: list[ContentBlock] = []
-        for block_idx, block in enumerate(msg.content):
-            if isinstance(block, BackgroundTaskStateBlock):
-                if (msg_idx, block_idx) in keep_state_blocks:
-                    new_content.append(block.model_copy(deep=True))
-                continue
-
+        for block in msg.content:
             if isinstance(block, ToolUseBlock) and block.id in drop_tool_use_ids:
                 continue
 

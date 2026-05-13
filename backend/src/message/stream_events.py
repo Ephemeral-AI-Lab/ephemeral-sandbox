@@ -110,18 +110,6 @@ class BackgroundTaskStarted:
     run_id: str = ""
 
 
-@dataclass(frozen=True)
-class BackgroundTaskCompleted:
-    """A background task has finished."""
-
-    task_id: str
-    tool_name: str
-    output: str
-    is_error: bool = False
-    agent_name: str = ""
-    run_id: str = ""
-
-
 StreamEvent = (
     ThinkingDelta
     | AssistantTextDelta
@@ -131,6 +119,5 @@ StreamEvent = (
     | ToolExecutionProgress
     | ToolExecutionCancelled
     | BackgroundTaskStarted
-    | BackgroundTaskCompleted
     | SystemNotification
 )

@@ -62,8 +62,8 @@ class EphemeralAgent:
     def messages(self) -> list[ConversationMessage]:
         """Live view of the agent's run transcript.
 
-        The list is owned by the agent. A run starts with exactly one user
-        message, then appends the assistant response.
+        The list is owned by the agent. A run appends the current user prompt
+        to any initial history, then appends provider and tool responses.
         """
         return self._messages
 
@@ -73,7 +73,7 @@ class EphemeralAgent:
 
         self.total_usage = UsageSnapshot()
         try:
-            self._messages = [ConversationMessage.from_user_text(prompt)]
+            self._messages = [*self._messages, ConversationMessage.from_user_text(prompt)]
             messages, event_iter = await run_query(
                 self.query_context, self._messages
             )
@@ -123,7 +123,7 @@ def finalize_tool_registry_and_prompt(
     ]
     has_background_tools = bool(bg_tool_names) and agent_type != "subagent"
     if has_background_tools:
-        tool_registry.register_many(make_background_tools(bg_tool_names))
+        tool_registry.register_many(make_background_tools())
 
     terminal_tool_names = [
         t.name

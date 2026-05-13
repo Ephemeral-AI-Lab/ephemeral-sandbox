@@ -71,53 +71,14 @@ class SystemNotificationBlock(BaseModel):
     text: str
 
 
-class BackgroundTaskStateBlock(BaseModel):
-    """Engine-generated per-task background state for API-view reduction."""
-
-    type: Literal["background_task_state"] = "background_task_state"
-    task_id: str
-    tool_name: str
-    task_type: str
-    status: Literal["running", "completed", "failed", "cancelled"]
-    source: Literal["engine_progress", "engine_terminal", "tool_snapshot"]
-    text: str
-    agent_run_id: str | None = None
-    cancel_reason: str | None = None
-    completion_mode: str | None = None
-
-
 ContentBlock = Annotated[
     TextBlock
     | ThinkingBlock
     | ToolUseBlock
     | ToolResultBlock
-    | SystemNotificationBlock
-    | BackgroundTaskStateBlock,
+    | SystemNotificationBlock,
     Field(discriminator="type"),
 ]
-
-
-def _background_task_state_body(block: BackgroundTaskStateBlock) -> str:
-    lines = [f"Tool: {block.tool_name}"]
-    if block.agent_run_id:
-        lines.append(f"Agent Run ID: {block.agent_run_id}")
-    if block.completion_mode:
-        lines.append(f"Completion Mode: {block.completion_mode}")
-    if block.cancel_reason:
-        lines.append(f"Cancel Reason: {block.cancel_reason}")
-    if block.text:
-        lines.append(block.text)
-    return "\n".join(lines)
-
-
-def render_background_task_state_text(block: BackgroundTaskStateBlock) -> str:
-    """Return a human-readable representation of a background task state."""
-    header = (
-        f'Background task_id="{block.task_id}" '
-        f'status="{block.status}" source="{block.source}"'
-    )
-    body = _background_task_state_body(block)
-    return f"{header}\n{body}" if body else header
 
 
 class ConversationMessage(BaseModel):
@@ -147,18 +108,6 @@ class ConversationMessage(BaseModel):
     def system_notification_text(self) -> str:
         """Concatenated text of all system-notification blocks (no tags)."""
         return "\n".join(b.text for b in self.system_notifications)
-
-    @property
-    def background_task_states(self) -> list[BackgroundTaskStateBlock]:
-        """Return all background task state blocks contained in this message."""
-        return [b for b in self.content if isinstance(b, BackgroundTaskStateBlock)]
-
-    @property
-    def background_task_state_text(self) -> str:
-        """Concatenated human-readable background task state text."""
-        return "\n\n".join(
-            render_background_task_state_text(b) for b in self.background_task_states
-        )
 
     @property
     def thinking(self) -> str:
@@ -204,23 +153,6 @@ def serialize_content_block(block: ContentBlock) -> dict[str, Any]:
         return {
             "type": "text",
             "text": f"<system-reminder>\n{block.text}\n</system-reminder>",
-        }
-
-    if isinstance(block, BackgroundTaskStateBlock):
-        body = _background_task_state_body(block)
-        completion_attr = (
-            f' completion_mode="{block.completion_mode}"'
-            if block.completion_mode
-            else ""
-        )
-        return {
-            "type": "text",
-            "text": (
-                f'<background-task task_id="{block.task_id}" '
-                f'status="{block.status}" source="{block.source}"{completion_attr}>\n'
-                f"{body}\n"
-                "</background-task>"
-            ),
         }
 
     if isinstance(block, ToolUseBlock):

@@ -29,7 +29,6 @@ from typing import Any
 from message.stream_events import (
     AssistantMessageComplete,
     AssistantTextDelta,
-    BackgroundTaskCompleted,
     BackgroundTaskStarted,
     StreamEvent,
     ThinkingDelta,
@@ -253,19 +252,6 @@ class MultiAgentEventPrinter:
                 agent,
                 run_id,
                 f"{self._c('blue', '>> bg_start:')}   {event.tool_name} task_id={event.task_id}{detail}",
-            )
-        elif isinstance(event, BackgroundTaskCompleted):
-            status = self._c("red", "ERROR") if event.is_error else self._c("green", "ok")
-            output = _format_tool_completion_output(
-                tool_name=event.tool_name,
-                output=event.output,
-                is_error=event.is_error,
-            )
-            self._line(
-                agent,
-                run_id,
-                f"{self._c('blue', '<< bg_done:')}    {event.tool_name} [{status}]"
-                f"{output}",
             )
         elif isinstance(event, AssistantMessageComplete):
             # Print full thinking/text blocks once per completed message.

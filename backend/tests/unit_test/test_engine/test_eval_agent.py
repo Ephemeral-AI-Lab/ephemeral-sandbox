@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from . import eval_agent_support
 from .eval_agent_support import EvalAgent
-from message.stream_events import BackgroundTaskCompleted
+from message.stream_events import BackgroundTaskStarted
 from notification import SystemNotification
 
 
@@ -19,12 +19,12 @@ async def _fake_event_iter(events):
         yield event, None
 
 
-def test_eval_agent_verbose_logging_keeps_full_background_and_system_messages(
+def test_eval_agent_verbose_logging_keeps_full_background_start_and_system_messages(
     monkeypatch,
     capsys,
 ) -> None:
     long_system = "system-note-" * 50
-    long_background = '{"summary":"' + ("background-output-" * 40) + '"}'
+    long_background_prompt = "background-output-" * 40
 
     async def _fake_run_query(_query_context, messages):
         return messages, _fake_event_iter(
@@ -34,10 +34,13 @@ def test_eval_agent_verbose_logging_keeps_full_background_and_system_messages(
                     agent_name="analysis_agent",
                     run_id="wid-1",
                 ),
-                BackgroundTaskCompleted(
+                BackgroundTaskStarted(
                     task_id="bg_1",
                     tool_name="run_subagent",
-                    output=long_background,
+                    tool_input={
+                        "agent_name": "explorer",
+                        "prompt": long_background_prompt,
+                    },
                     agent_name="analysis_agent",
                     run_id="wid-1",
                 ),
@@ -65,7 +68,8 @@ def test_eval_agent_verbose_logging_keeps_full_background_and_system_messages(
 
     out = capsys.readouterr().out
     assert f"    [system] {long_system}" in out
-    assert f"    << bg_done:    run_subagent {long_background}" in out
+    assert '    >> bg_start:   run_subagent task_id=bg_1 agent_name="explorer"' in out
+    assert long_background_prompt in out
     assert "..." not in next(
         line for line in out.splitlines() if line.startswith("    [system] ")
     )

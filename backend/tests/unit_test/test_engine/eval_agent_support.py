@@ -35,7 +35,6 @@ from message.event_printer import format_background_start_detail
 from message.stream_events import (
     AssistantMessageComplete,
     AssistantTextDelta,
-    BackgroundTaskCompleted,
     BackgroundTaskStarted,
     StreamEvent,
     ThinkingDelta,
@@ -134,9 +133,6 @@ class EvalResult:
     def background_started(self) -> list[BackgroundTaskStarted]:
         return self._of_type(BackgroundTaskStarted)
 
-    def background_completed(self) -> list[BackgroundTaskCompleted]:
-        return self._of_type(BackgroundTaskCompleted)
-
     def system_notifications(self) -> list[SystemNotification]:
         return self._of_type(SystemNotification)
 
@@ -158,13 +154,12 @@ class EvalResult:
         return len(self.error_events) > 0
 
     @property
-    def non_cancel_error_events(self) -> list[ToolExecutionCompleted | BackgroundTaskCompleted]:
+    def non_cancel_error_events(self) -> list[ToolExecutionCompleted]:
         """Error events excluding cancelled/killed process artifacts.
 
         Filters out:
         - ToolExecutionCompleted with exit_code -1 and empty stdout (process
           killed by cancellation or transient SDK failure)
-        - BackgroundTaskCompleted with "Cancelled" output
         """
 
         def _is_killed_process(output: str) -> bool:
@@ -177,13 +172,10 @@ class EvalResult:
             except (json.JSONDecodeError, AttributeError):
                 return False
 
-        results: list[ToolExecutionCompleted | BackgroundTaskCompleted] = []
+        results: list[ToolExecutionCompleted] = []
         for tool_evt in self.tools_completed():
             if tool_evt.is_error and not _is_killed_process(tool_evt.output):
                 results.append(tool_evt)
-        for bg_evt in self.background_completed():
-            if bg_evt.is_error and not bg_evt.output.startswith("Cancelled"):
-                results.append(bg_evt)
         return results
 
     @property
@@ -191,7 +183,7 @@ class EvalResult:
         return len(self.non_cancel_error_events) > 0
 
     @property
-    def unrecovered_error_events(self) -> list[ToolExecutionCompleted | BackgroundTaskCompleted]:
+    def unrecovered_error_events(self) -> list[ToolExecutionCompleted]:
         """Non-cancel errors where no later successful call to the same tool exists.
 
         An agent may hit an intermediate failure (e.g. ``cat`` on a file not yet
@@ -206,19 +198,18 @@ class EvalResult:
         all_completed = list(self.tools_completed())
         event_index: dict[int, int] = {id(e): i for i, e in enumerate(self.events)}
 
-        results: list[ToolExecutionCompleted | BackgroundTaskCompleted] = []
+        results: list[ToolExecutionCompleted] = []
         for err in errors:
             err_idx = event_index.get(id(err), len(self.events))
             recovered = False
-            if isinstance(err, ToolExecutionCompleted):
-                for later in all_completed:
-                    if (
-                        event_index.get(id(later), -1) > err_idx
-                        and later.tool_name == err.tool_name
-                        and not later.is_error
-                    ):
-                        recovered = True
-                        break
+            for later in all_completed:
+                if (
+                    event_index.get(id(later), -1) > err_idx
+                    and later.tool_name == err.tool_name
+                    and not later.is_error
+                ):
+                    recovered = True
+                    break
             if not recovered:
                 results.append(err)
         return results
@@ -512,8 +503,6 @@ class EvalAgent:
                 _out(
                     f"    >> bg_start:   {event.tool_name} task_id={event.task_id}{detail}"
                 )
-            elif isinstance(event, BackgroundTaskCompleted):
-                _out(f"    << bg_done:    {event.tool_name} {event.output}")
             elif isinstance(event, SystemNotification):
                 _out(f"    [system] {event.text}")
 

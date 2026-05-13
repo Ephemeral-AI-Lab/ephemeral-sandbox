@@ -2,20 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 import copy
-
-import pytest
 
 from engine.query.provider_history import (
     prepare_provider_messages,
     reduce_background_task_history,
     sanitize_tool_sequence,
 )
-from engine.background.manager import BackgroundTaskManager
-from engine.background.reminder import build_background_reminder
 from message.messages import (
-    BackgroundTaskStateBlock,
     ConversationMessage,
     SystemNotificationBlock,
     TextBlock,
@@ -26,7 +20,6 @@ from tools.background._lib._common import (
     build_background_snapshot_metadata,
     render_background_snapshot,
 )
-from tools._framework.core.base import ToolResult
 
 
 def _user(text: str) -> ConversationMessage:
@@ -49,35 +42,6 @@ def _tool_result(tool_use_id: str, content: str) -> ConversationMessage:
         role="user",
         content=[ToolResultBlock(tool_use_id=tool_use_id, content=content)],
     )
-
-
-def _bg_state(
-    task_id: str,
-    tool_name: str,
-    task_type: str,
-    status: str,
-    source: str,
-    text: str,
-) -> ConversationMessage:
-    return ConversationMessage(
-        role="user",
-        content=[
-            BackgroundTaskStateBlock(
-                task_id=task_id,
-                tool_name=tool_name,
-                task_type=task_type,
-                status=status,
-                source=source,
-                text=text,
-            )
-        ],
-    )
-
-
-async def _slow_coro() -> ToolResult:
-    """Coroutine that never completes naturally."""
-    await asyncio.sleep(10)
-    return ToolResult(output="done")
 
 
 class TestPrepareProviderMessages:
@@ -140,32 +104,38 @@ class TestPrepareProviderMessages:
         assert result_ids == {"toolu_pair"}
 
     def test_reduce_background_task_history_drops_stale_snapshot_pairs(self) -> None:
+        old_statuses = [{"task_id": "bg_1", "status": "running", "output": "old"}]
+        new_statuses = [{"task_id": "bg_1", "status": "completed", "output": "done"}]
         display = [
-            _tool_use("toolu_1", "wait_background_tasks", {"task_id": "all"}),
+            _tool_use("toolu_old", "wait_background_tasks", {"task_id": "all"}),
             ConversationMessage(
                 role="user",
                 content=[
                     ToolResultBlock(
-                        tool_use_id="toolu_1",
-                        content=render_background_snapshot(
-                            "progress",
-                            [{"task_id": "bg_1", "status": "running", "output": "old"}],
-                        ),
+                        tool_use_id="toolu_old",
+                        content=render_background_snapshot("progress", old_statuses),
                         metadata=build_background_snapshot_metadata(
                             "progress",
                             "all",
-                            [{"task_id": "bg_1", "status": "running", "output": "old"}],
+                            old_statuses,
                         ),
                     )
                 ],
             ),
-            _bg_state(
-                "bg_1",
-                "run_subagent",
-                "subagent",
-                "completed",
-                "engine_terminal",
-                "done",
+            _tool_use("toolu_new", "wait_background_tasks", {"task_id": "all"}),
+            ConversationMessage(
+                role="user",
+                content=[
+                    ToolResultBlock(
+                        tool_use_id="toolu_new",
+                        content=render_background_snapshot("wait_completed", new_statuses),
+                        metadata=build_background_snapshot_metadata(
+                            "wait_completed",
+                            "all",
+                            new_statuses,
+                        ),
+                    )
+                ],
             ),
         ]
         snapshot = copy.deepcopy(display)
@@ -174,19 +144,33 @@ class TestPrepareProviderMessages:
 
         assert display == snapshot
         assert any(
-            isinstance(block, ToolUseBlock) and block.id == "toolu_1"
+            isinstance(block, ToolUseBlock) and block.id == "toolu_old"
             for msg in display
             for block in msg.content
         )
         assert all(
             not any(
-                isinstance(block, ToolUseBlock) and block.id == "toolu_1"
+                isinstance(block, ToolUseBlock) and block.id == "toolu_old"
                 for block in msg.content
             )
             for msg in provider
         )
+        assert any(
+            isinstance(block, ToolUseBlock) and block.id == "toolu_new"
+            for msg in provider
+            for block in msg.content
+        )
 
     def test_reduce_background_task_history_prefers_delivered_snapshot(self) -> None:
+        running_statuses = [
+            {
+                "task_id": "bg_1",
+                "tool_name": "run_subagent",
+                "task_type": "subagent",
+                "status": "running",
+                "output": "Working.",
+            }
+        ]
         statuses = [
             {
                 "task_id": "bg_1",
@@ -197,6 +181,21 @@ class TestPrepareProviderMessages:
             }
         ]
         display = [
+            _tool_use("toolu_running", "wait_background_tasks", {"task_id": "all"}),
+            ConversationMessage(
+                role="user",
+                content=[
+                    ToolResultBlock(
+                        tool_use_id="toolu_running",
+                        content=render_background_snapshot("wait_timed_out", running_statuses),
+                        metadata=build_background_snapshot_metadata(
+                            "wait_timed_out",
+                            "all",
+                            running_statuses,
+                        ),
+                    )
+                ],
+            ),
             _tool_use("toolu_wait", "wait_background_tasks", {"task_id": "all"}),
             ConversationMessage(
                 role="user",
@@ -211,14 +210,6 @@ class TestPrepareProviderMessages:
                         ),
                     )
                 ],
-            ),
-            _bg_state(
-                "bg_1",
-                "run_subagent",
-                "subagent",
-                "running",
-                "engine_progress",
-                "Running for 0s",
             ),
         ]
 
@@ -238,72 +229,11 @@ class TestPrepareProviderMessages:
         assert any("[NO TASKS]" in content for content in result_contents)
         assert all(
             not any(
-                isinstance(block, BackgroundTaskStateBlock)
-                and block.task_id == "bg_1"
-                and block.status == "running"
+                isinstance(block, ToolUseBlock) and block.id == "toolu_running"
                 for block in msg.content
             )
             for msg in provider
         )
-
-
-class TestBuildBackgroundReminder:
-    """The reminder is a regular ConversationMessage in message history."""
-
-    def test_returns_none_when_no_pending_tasks(self) -> None:
-        mgr = BackgroundTaskManager()
-        assert build_background_reminder(mgr) is None
-
-    @pytest.mark.asyncio
-    async def test_includes_task_id_and_progress(self) -> None:
-        mgr = BackgroundTaskManager()
-        mgr.launch(
-            "bg_1",
-            "shell",
-            {"command": "sleep 10"},
-            _slow_coro(),
-        )
-        mgr.append_progress("bg_1", "halfway there")
-
-        msg = build_background_reminder(mgr)
-        assert msg is not None
-        assert msg.text == ""
-        reminder_text = msg.background_task_state_text
-        assert "bg_1" in reminder_text
-        assert "halfway there" in reminder_text
-        assert "Keep working on any other ready analysis or tool tasks first" in reminder_text
-        assert "Only wait when this background task is the remaining blocker" in reminder_text
-        assert "Do not recheck task ids after a terminal status" in reminder_text
-        assert msg.background_task_states[0].status == "running"
-        api_param = msg.to_api_param()
-        assert "<background-task" in api_param["content"][0]["text"]
-
-        msg2 = build_background_reminder(mgr)
-        assert msg2 is not None
-        assert "halfway there" not in msg2.background_task_state_text
-        assert "No new output" in msg2.background_task_state_text
-        assert "Only wait when this background task is the remaining blocker" in (
-            msg2.background_task_state_text
-        )
-
-        await mgr.cancel_all()
-
-    @pytest.mark.asyncio
-    async def test_appendable_to_messages_list(self) -> None:
-        mgr = BackgroundTaskManager()
-        mgr.launch("bg_1", "tool", {}, _slow_coro())
-        display: list[ConversationMessage] = [_user("hi")]
-
-        reminder = build_background_reminder(mgr)
-        assert reminder is not None
-        display.append(reminder)
-
-        assert len(display) == 2
-        assert display[1].role == "user"
-        assert len(display[1].background_task_states) == 1
-        assert display[1].text == ""
-
-        await mgr.cancel_all()
 
 
 class TestSystemNotificationBlock:
@@ -388,58 +318,6 @@ class TestSystemNotificationBlock:
         assert len(api["content"]) == 2
         assert "first" in api["content"][0]["text"]
         assert "second" in api["content"][1]["text"]
-
-
-class TestBuildReminderEdgeCases:
-    """Cover multi-task ordering and completed-task filtering."""
-
-    @pytest.mark.asyncio
-    async def test_multiple_pending_tasks_all_appear(self) -> None:
-        mgr = BackgroundTaskManager()
-        mgr.launch("bg_1", "tool_a", {}, _slow_coro())
-        mgr.launch("bg_2", "tool_b", {}, _slow_coro())
-        mgr.append_progress("bg_1", "alpha")
-        mgr.append_progress("bg_2", "beta")
-
-        msg = build_background_reminder(mgr)
-        assert msg is not None
-        text = msg.background_task_state_text
-        assert "bg_1" in text and "tool_a" in text and "alpha" in text
-        assert "bg_2" in text and "tool_b" in text and "beta" in text
-
-        await mgr.cancel_all()
-
-    @pytest.mark.asyncio
-    async def test_completed_tasks_excluded(self) -> None:
-        mgr = BackgroundTaskManager()
-
-        async def _quick() -> ToolResult:
-            return ToolResult(output="finished")
-
-        mgr.launch("bg_done", "tool_quick", {}, _quick())
-        mgr.launch("bg_running", "tool_slow", {}, _slow_coro())
-        await asyncio.sleep(0.05)
-
-        msg = build_background_reminder(mgr)
-        assert msg is not None
-        text = msg.background_task_state_text
-        assert "bg_running" in text
-        assert "bg_done" not in text
-
-        await mgr.cancel_all()
-
-    @pytest.mark.asyncio
-    async def test_no_progress_branch_uses_seconds_since_format(self) -> None:
-        mgr = BackgroundTaskManager()
-        mgr.launch("bg_x", "tool", {}, _slow_coro())
-        first = build_background_reminder(mgr)
-        assert first is not None
-        second = build_background_reminder(mgr)
-        assert second is not None
-        assert "No new output" in second.background_task_state_text
-
-        await mgr.cancel_all()
-
 
 class TestConversationMessageMixed:
     """SystemNotificationBlock must not interfere with other block accessors."""

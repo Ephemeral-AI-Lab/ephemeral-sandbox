@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -55,35 +54,21 @@ from tools import (
 
 logger = logging.getLogger(__name__)
 
-CANCEL_PATTERN = re.compile(r'\[CANCEL:(\S+)(?:\s+reason="([^"]*)")?\]')
-
-
 def _make_stream_dispatch_deferrer(
     context: QueryContext,
     background_manager: BackgroundTaskManager | None,
 ) -> Callable[[BaseTool | None, dict[str, Any] | None], bool]:
     """Build a per-stream `should_defer` predicate for `StreamingToolExecutor`.
 
-    Stateful: once a terminal tool is observed,
-    every subsequent call returns True for the rest of the stream. Construct
-    a fresh predicate for each provider stream.
+    Terminal-capable runs defer every tool until the complete assistant message
+    is available, so terminal-tool exclusivity is validated before any sibling
+    tool body can run.
     """
-    exclusive_batch_seen = False
 
     def _defer(tool_def: BaseTool | None, tool_input: dict[str, Any] | None) -> bool:
-        nonlocal exclusive_batch_seen
         if background_manager is not None and defer_background_dispatch(tool_def, tool_input):
             return True
-        if exclusive_batch_seen:
-            return True
-        if tool_def is None:
-            return False
-        # Terminal tools are batch-exclusive — they must not
-        # execute mid-stream alongside siblings. Defer so validate_tool_batch
-        # can enforce exclusivity after the full tool_uses list is known.
-        is_terminal = tool_def.name in context.terminal_tools
-        if is_terminal:
-            exclusive_batch_seen = True
+        if context.terminal_tools:
             return True
         return False
 
@@ -103,7 +88,6 @@ class _StreamRunState:
     usage: UsageSnapshot = field(default_factory=UsageSnapshot)
     streamed_rejections: list[ToolResultBlock] = field(default_factory=list)
     streamed_tool_use_ids: set[str] = field(default_factory=set)
-    pending_cancel: dict[str, str] = field(default_factory=dict)
 
 
 def _initialize_loop_state(
@@ -187,9 +171,6 @@ async def _consume_provider_stream(
                 continue
 
             if isinstance(event, ApiTextDeltaEvent):
-                if match := CANCEL_PATTERN.search(event.text):
-                    tool_id, reason = match.groups()
-                    state.pending_cancel[tool_id] = reason or "Cancelled by LLM"
                 yield AssistantTextDelta(text=event.text), None
                 continue
 
@@ -240,11 +221,8 @@ async def _consume_provider_stream(
 
 async def _drain_executor_after_stream(
     executor: StreamingToolExecutor,
-    state: _StreamRunState,
 ) -> AsyncIterator[tuple[StreamEvent, UsageSnapshot | None]]:
-    """Apply LLM-issued cancels and drain final executor events."""
-    for tool_id, reason in state.pending_cancel.items():
-        executor.cancel(tool_id, reason)
+    """Drain final executor progress and lifecycle events."""
     for progress in executor.get_progress():
         yield progress, None
     for emitted in executor.get_events():
@@ -343,7 +321,7 @@ async def _run_query_loop(
             ):
                 yield event, event_usage
 
-            async for event, event_usage in _drain_executor_after_stream(executor, state):
+            async for event, event_usage in _drain_executor_after_stream(executor):
                 yield event, event_usage
 
             final_message = state.final_message

@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from engine.tool_call.streaming import StreamingToolExecutor, defer_background_dispatch
+from engine.tool_call.streaming import StreamingToolExecutor
 from engine.tool_call.batch import validate_tool_batch
 from engine.background.dispatch import launch_and_collect_bg_events
 from engine.background.manager import BackgroundTaskManager
@@ -85,31 +85,35 @@ async def dispatch_assistant_tools(
             tool_results.append(_result_from_cancelled(completed))
             events.append((completed, None))
 
-    deferred_bg = executor.deferred_dispatch_ids
-    if deferred_bg and background_manager is not None:
-        for tc in final_message.tool_uses:
-            if tc.id not in deferred_bg:
-                continue
-            tool_def_for_check = context.tool_registry.get(tc.name)
-            if not defer_background_dispatch(tool_def_for_check, tc.input):
-                continue
-            events.extend(
-                launch_and_collect_bg_events(
-                    context,
-                    messages,
-                    background_manager,
-                    tc,
-                    tool_results,
+    batch_rejection = validate_tool_batch(context, final_message.tool_uses)
+    if batch_rejection is not None:
+        executor.cancel_all()
+        tool_results.extend(batch_rejection)
+        for tc, result in zip(final_message.tool_uses, batch_rejection, strict=True):
+            events.append(
+                (
+                    ToolExecutionCompleted(
+                        tool_name=tc.name,
+                        output=result.content,
+                        is_error=result.is_error,
+                        tool_id=tc.id,
+                        metadata=dict(result.metadata or {}),
+                        does_terminate=result.does_terminate,
+                    ),
+                    None,
                 )
             )
+        _assign_missing_tool_result_ids(tool_results, final_message.tool_uses)
+        return ToolDispatchResult(tool_results=tool_results, events=events)
 
-    if not tool_results:
-        executor.cancel_all()
+    resolved_ids = {result.tool_use_id for result in tool_results if result.tool_use_id}
+    pending_calls = [tc for tc in final_message.tool_uses if tc.id not in resolved_ids]
+    if pending_calls:
         events.extend(
             await _dispatch_deferred_tool_calls(
                 context,
                 messages,
-                final_message.tool_uses,
+                pending_calls,
                 streamed_tool_use_ids=streamed_tool_use_ids,
                 background_manager=background_manager,
                 tool_results=tool_results,

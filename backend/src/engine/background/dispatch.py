@@ -142,8 +142,7 @@ def launch_background_tool(
             f"wait_background_tasks() to block until all tasks settle, or "
             f'cancel_background_task(task_id="{bg_alias}"). '
             f"Keep using the current response on other ready work first; do not "
-            f"wait immediately unless this task is the only blocker left. "
-            f"A [BACKGROUND {bg_alias} COMPLETED] message will arrive automatically."
+            f"wait immediately unless this task is the only blocker left."
         ),
         is_error=False,
     )

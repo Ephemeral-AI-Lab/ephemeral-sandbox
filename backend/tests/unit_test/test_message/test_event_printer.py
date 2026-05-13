@@ -1,7 +1,6 @@
 from message.event_printer import MultiAgentEventPrinter
 from message.stream_events import (
     AssistantMessageComplete,
-    BackgroundTaskCompleted,
     BackgroundTaskStarted,
     ThinkingDelta,
     ToolExecutionCompleted,
@@ -119,30 +118,6 @@ def test_printer_keeps_plain_shell_error_payload() -> None:
     assert lines == [
         "[developer     ] [1234567890abcdef1234] "
         "<- tool_done:  shell [ERROR] Execution failed: sandbox unavailable"
-    ]
-
-
-def test_printer_renders_background_shell_error_fallback() -> None:
-    lines: list[str] = []
-    printer = MultiAgentEventPrinter(color=False, sink=lines.append)
-
-    printer.emit(
-        BackgroundTaskCompleted(
-            task_id="bg_1",
-            tool_name="shell",
-            output=(
-                '{"cwd": "/testbed", "status": "error", "changed_paths": [], '
-                '"command": "pytest -q", "exit_code": 2}'
-            ),
-            is_error=True,
-            agent_name="developer",
-            run_id="1234567890abcdef1234",
-        )
-    )
-
-    assert lines == [
-        "[developer     ] [1234567890abcdef1234] "
-        "<< bg_done:    shell [ERROR] $ pytest -q -> exit 2"
     ]
 
 
