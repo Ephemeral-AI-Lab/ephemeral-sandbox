@@ -168,7 +168,7 @@ async def run_ephemeral_agent(
     finally:
         if not run_error and terminal_result is None:
             terminal_result = agent.query_context.terminal_result or _last_terminal_tool_result(
-                agent.messages
+                agent._messages
             )
         if run_error:
             terminal_result = None
@@ -187,7 +187,7 @@ async def run_ephemeral_agent(
             token_count = agent.total_usage.input_tokens + agent.total_usage.output_tokens
 
         tracker.finish(
-            messages=list(agent.messages),
+            messages=list(agent._messages),
             terminal_tool_result=terminal_payload,
             token_count=token_count,
             error=run_error,
