@@ -108,15 +108,15 @@ Both assembled into `AgentDefinition.notification_rules` at agent launch time.
 
 ## Notification rules subsystem
 
-**`dispatch_rules`** (`notification/_rule_engine.py:56`) — evaluates all `NotificationRule` instances once per model turn; calls `rule.trigger(messages, context)`, then `rule.body(messages, context)`, then `service.notify_system(text)`; deduplicates via `context.notification_fired: set[str]`.
+**`dispatch_rules`** (`notification/rules/dispatch.py`) — evaluates all `NotificationRule` instances once per model turn; calls `rule.trigger(messages, context)`, then `rule.body(messages, context)`, then `service.notify_system(text)`; deduplicates via `context.notification_fired: set[str]`.
 
-**`SystemNotificationService`** (`notification/_runtime.py:23`) — run-scoped sink; `notify_system(text)` appends `SystemNotificationBlock` and emits `SystemNotification` event; `flush_events()` drains pending events; `pop_pending_notifications()` drains transcript-bound blocks.
+**`SystemNotificationService`** (`notification/runtime.py`) — run-scoped sink; `notify_system(text)` appends `SystemNotificationBlock` and emits `SystemNotification` event; `flush_events()` drains pending events; `pop_pending_notifications()` drains transcript-bound blocks.
 
 **Call sites** (`engine/query/loop.py`):
 - Line 316: `await dispatch_rules(rules, messages, context, service)` — top of every turn
 - Lines 271, 294, 345: `flush_system_notifications(notification_service)` — turn boundaries
 
-**Built-in rule factories** (`notification/_rule_catalog.py`):
+**Built-in rule factories** (`notification/rules/factories.py`):
 - `make_opening_reminder(rules_text)` — first turn only; `fire_once=True`
 - `make_budget_warning(thresholds=(0.50, 0.75, 0.90))` — fires at each budget fraction crossed; managed via `context.notification_state["budget_warning"]`
 
@@ -170,7 +170,6 @@ No `agents/profile/` directory in this repo. Role metadata carried as `role: str
 | `ToolUseBlock` | 18 | LLM tool call request (`id`, `name`, `input`) |
 | `ToolResultBlock` | 34 | Tool result (`tool_use_id`, `content`, `is_error`, `does_terminate`) |
 | `SystemNotificationBlock` | 48 | Engine-generated `<system-reminder>` |
-| `BackgroundTaskStateBlock` | 74 | Engine-generated background-task tag |
 
 `serialize_content_block` (line 191) converts to provider wire format; `ThinkingBlock` excluded from `to_api_param`.
 
@@ -188,8 +187,7 @@ Emitted OUT by run loop and tool executor — distinct from provider's `ApiStrea
 | `ToolExecutionProgress` | 76 | Long-running tool partial output |
 | `ToolExecutionCancelled` | 92 | Cancelled by LLM signal |
 | `BackgroundTaskStarted` | 103 | Tool dispatched as background |
-| `BackgroundTaskCompleted` | 113 | Background task finished |
-| `SystemNotification` | (`notification/_runtime`) | Notification emitted |
+| `SystemNotification` | (`notification/runtime.py`) | Notification emitted |
 
 `StreamEvent` union (line 125) = all of the above.
 
@@ -225,8 +223,8 @@ Three event types per turn (in `engine/query/request.py`):
 | `ToolRegistry` | `tools/core/registry.py` |
 | `execute_tool_once` / `execute_tool_call_streaming` | `tools/execution/tool_call.py` |
 | `ConversationMessage`, `ToolUseBlock`, `ToolResultBlock` | `message/messages.py` |
-| `dispatch_rules` | `notification/_rule_engine.py` |
-| `SystemNotificationService` | `notification/_runtime.py` |
+| `dispatch_rules` | `notification/rules/dispatch.py` |
+| `SystemNotificationService` | `notification/runtime.py` |
 | `flush_system_notifications` | `engine/query/notifications.py` |
 | `PromptReportRecorder` | `prompt/prompt_report_recorder.py` |
 
@@ -241,7 +239,7 @@ Three event types per turn (in `engine/query/request.py`):
 | Pre/post hook lifecycle | `tools/execution/hook_runner.py:ToolHookExecutionHelper` |
 | Max-step enforcement | `engine/query/loop.py:280` + `tool_call.py:59` |
 | Terminal tool submission (`does_terminate`) | `tool_call.py:211`, loop `TOOL_STOP` at `loop.py:276` |
-| System notification dispatch | `notification/_rule_engine.py:dispatch_rules` + `loop.py:316` |
+| System notification dispatch | `notification/rules/dispatch.py:dispatch_rules` + `loop.py:316` |
 | Planner validation | `tools/submission/main_agent/planner/_schemas.py` + planner submission input schemas |
 
 ### Replay artifact format

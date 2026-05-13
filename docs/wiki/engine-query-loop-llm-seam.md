@@ -20,7 +20,7 @@ _Source: explore agent draft, 2026-05-10. See `.omc/wiki-draft/engine-query.md`.
 - **Single method**: `async def stream_message(self, request: ApiMessageRequest) -> AsyncIterator[ApiStreamEvent]` (`providers/types.py:115`)
 - **ApiStreamEvent union** — 5 cases, all at `providers/types.py`:
   - `ApiThinkingDeltaEvent` (line 51) — incremental thinking/reasoning chunk
-  - `ApiTextDeltaEvent` (line 57) — incremental assistant text chunk; CANCEL_PATTERN extracted here
+  - `ApiTextDeltaEvent` (line 57) — incremental assistant text chunk
   - `ApiToolUseDeltaEvent` (line 73) — one tool_use block mid-stream with id/name/input
   - `ApiCancelEvent` (line 86) — LLM-issued abort signal targeting a running tool
   - `ApiMessageCompleteEvent` (line 64) — terminal event with full assistant ConversationMessage and UsageSnapshot
@@ -63,12 +63,12 @@ Built per turn by `build_query_run_request` (`engine/query/request.py:44`):
    - **`build_query_run_request`** (line 329) — records `llm_request`
    - **`_consume_provider_stream`** (line 171) — the seam consumption:
      - `ApiThinkingDeltaEvent` → yield `ThinkingDelta`
-     - `ApiTextDeltaEvent` → CANCEL_PATTERN extraction (`re.compile(r'\[CANCEL:(\S+)(?:\s+reason="([^"]*)")?\]')`, line 58); yield `AssistantTextDelta`
+    - `ApiTextDeltaEvent` → yield `AssistantTextDelta`
      - `ApiToolUseDeltaEvent` → `_consume_tool_budget_or_reject(...)` (`tools/execution/tool_call.py:59`); rejected → `ToolResultBlock` rejection appended, yield `ToolExecutionCompleted(is_error=True)`; otherwise → `executor.add_tool(event)`, drain progress/events
      - `ApiCancelEvent` → `executor.cancel(event.tool_id, event.reason)`
      - `ApiMessageCompleteEvent` → set `state.final_message` + `state.usage`
      - Stream ending without `final_message` raises RuntimeError (line 224-228)
-   - **`_drain_executor_after_stream`** (line 231) — apply CANCEL_PATTERN-captured cancels, drain
+   - **`_drain_executor_after_stream`** (line 231) — drain final executor progress/events
    - **`record_assistant_message` + `AssistantMessageComplete`** (lines 341-342)
    - **Text-only exit** (lines 344-348) — `final_message.tool_uses` empty → flush, `TEXT_RESPONSE`, break
    - **`_handle_tool_dispatch_branch`** (line 244) — `dispatch_assistant_tools`, `record_tool_results`, `flush_system_notifications`, terminal-result check, `tool_call_limit` check, append tool results as user message
@@ -90,7 +90,7 @@ Built per turn by `build_query_run_request` (`engine/query/request.py:44`):
 
 ## Notification rules dispatch within loop
 
-- `notification.dispatch_rules` (`notification/_rule_engine.py:56`) invoked **per loop iteration** at `loop.py:316-321`, before `build_query_run_request`
+- `notification.dispatch_rules` (`notification/rules/dispatch.py`) invoked **per loop iteration** at `loop.py:316-321`, before `build_query_run_request`
 - `flush_system_notifications` called in three places per turn:
   1. After `dispatch_assistant_tools` (line 271)
   2. When `tool_call_limit` exceeded (line 294)

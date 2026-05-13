@@ -98,6 +98,7 @@ Source: `task_center/context_engine/recipes/generator.py:32-89`. Required scope:
 **What is deliberately absent from the generator's view:**
 
 - **No mission goal, no episode goal, no prior episode results.** The generator never sees the broader contract. This is information minimization: re-exposing the wider goal invites scope creep (a generator that knows the mission goal might "improve" beyond their task and break invariants the planner relied on).
+- **No `partial_plan_boundary` or `continuation_goal`.** Partial-plan boundaries are evaluator and retry-planner context. A generator should not reason about future episode scope while executing its node.
 - **No evaluation criteria.** The criteria are the evaluator's business. A generator that sees them risks teaching to the test in the wrong direction.
 - **No failed-attempt landscape.** Retry history is the planner's responsibility, not the worker's.
 - **No sibling task specs.** Each generator sees only its own `planned_task_spec`. Siblings communicate only via summaries on completed dependency edges.

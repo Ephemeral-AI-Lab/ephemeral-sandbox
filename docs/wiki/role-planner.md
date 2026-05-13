@@ -77,7 +77,7 @@ Source: `task_center/context_engine/recipes/planner.py:37-77`. Required scope: `
 | 1 | `mission_goal` (under `# Mission`) | REQUIRED | `sequence_no > 1` | `mission.goal` |
 | 2..N | `prior_episode_specification` + `prior_episode_summary` pairs (under `# Previous Episode Results`) | HIGH for immediate prior, MEDIUM for older | `sequence_no > 1`, one pair per closed predecessor | `episode.task_specification` + `episode.task_summary` |
 | N+1 | `episode_goal` (under `# Current Episode`) | REQUIRED | `sequence_no > 1` | `episode.goal` |
-| last | `failed_attempt_landscape[]` (under `# Failed Attempts`) | HIGH (latest 6), MEDIUM (oldest collapsed) | any failed attempt in current episode | `attempt.task_specification` + `attempt.evaluation_criteria` + `attempt.fail_reason` |
+| last | `failed_attempt_landscape[]` (under `# Failed Attempts`) | HIGH (latest 6), MEDIUM (oldest collapsed) | any failed attempt in current episode | plan kind + `attempt.continuation_goal` + `attempt.task_specification` + `attempt.evaluation_criteria` + capped latest generator summaries + `attempt.fail_reason` |
 
 **Why this order:** The episode contract anchors the front of the prompt; the failure landscape closes it. The planner ends its read on retry evidence so the most-recent failure shapes its planning choices.
 
@@ -85,7 +85,7 @@ Source: `task_center/context_engine/recipes/planner.py:37-77`. Required scope: `
 
 - No generator results from this attempt (none exist yet — planner runs before generating).
 - No evaluator output (none exists yet).
-- No prior _attempt_ task summaries (those are not aggregated; the planner only sees the failure-landscape projection of failed attempts).
+- No current-attempt generator results (none exist yet — planner runs before generating).
 - No sandbox state. The planner cannot inspect the filesystem.
 - No nested-mission context. A planner planning an attempt inside a child Mission still sees its own Mission/Episode framing, not the parent's.
 
@@ -160,7 +160,7 @@ Leakage between audiences is a planning bug: criteria-language in a task_spec, t
 
 **3. Criteria are the planner's auto-handcuffs.** The evaluator returns binary verdicts (`submit_evaluation_success`/`submit_evaluation_failure`). Over-broad criteria mean partial progress becomes total failure; over-narrow criteria let trivially-passing plans through. The planner's only defense against an unforgiving evaluator is to write criteria it is _confident_ the planned DAG will satisfy. If coverage is uncertain, a partial plan with a tighter criterion set and an explicit `continuation_goal` outperforms a brittle full plan.
 
-**4. The planner is the only role that sees retry history.** `failed_attempt_landscape_blocks` is unique to `planner_v1`. The evaluator and generators operate context-free with respect to retry — they judge and execute the present attempt. This places retrospection where it can act: the planner can drop a failing slice, narrow scope, or restructure dependencies. Neither the evaluator nor the generator has the authority to do any of those.
+**4. The planner is the only role that sees retry history.** `failed_attempt_landscape_blocks` is unique to `planner_v1`. It carries the previous attempt's plan kind (`unsubmitted`, `full`, or `partial`), continuation goal, criteria, capped latest generator summaries, and fail reason. The evaluator and generators operate context-free with respect to retry — they judge and execute the present attempt. This places retrospection where it can act: the planner can drop a failing slice, narrow scope, preserve achieved work, or restructure dependencies. Neither the evaluator nor the generator has the authority to do any of those.
 
 **5. Wide-flat DAGs are normal; deep chains compound risk.** A generator failure blocks all transitive descendants (`blocked_descendant_ids`, `generator_dag.py:90`); the attempt then closes `FAILED/generator_failed`. A deep chain turns one stuck task into a whole-attempt loss. A wide flat DAG with independent siblings parallelizes throughput and isolates failures.
 
@@ -352,6 +352,8 @@ surface unresolved conflicts via a new GET /ledger/conflicts endpoint.
 
 ## Attempt 1
 
+plan_kind: full
+continuation_goal: (none)
 task_specification: Add sync push + conflict resolution. The DAG covers
 the HTTP client, the local→remote diff, and a smoke test against a
 mocked server.
@@ -359,16 +361,24 @@ evaluation_criteria:
   - POST /ledger/sync called with diff of unsynced entries
   - server conflict resolved by entry_id last-write-wins
   - smoke test green
+generator_summaries:
+  - gen-sync-client:
+    Implemented the sync client, but the mock-server smoke test still failed.
 fail_reason: evaluator_failed
 
 ## Attempt 2
 
+plan_kind: full
+continuation_goal: (none)
 task_specification: Same scope; route sync through a queue worker
 instead of a direct call, so retries on disconnect are not lost.
 evaluation_criteria:
   - queue worker created with idempotent pop
   - reconnect triggers worker drain within 5s
   - smoke test green
+generator_summaries:
+  - gen-queue-worker:
+    Added the queue worker; verifier found reconnect did not drain within 5s.
 fail_reason: evaluator_failed
 ```
 
@@ -389,18 +399,19 @@ The planner prompt is assembled by reading **four stores** and one constant. The
                 │   │   (one pair per closed predecessor; HIGH for immediate prior,
                 │   │    MEDIUM for older)
                 │   │
-                │   │           ┌── attempt.task_specification ─┐
-                │   │           ├── attempt.evaluation_criteria ├─► failed_attempt_landscape
-                │   │           └── attempt.fail_reason ────────┘   block (one per failed attempt
-                │   │                                                except current; cap=6, oldest
-                │   │                                                collapsed to a MEDIUM placeholder)
+                │   │           ┌── attempt.continuation_goal ───┐
+                │   │           ├── attempt.task_specification ───┤
+                │   │           ├── attempt.evaluation_criteria ──┼─► failed_attempt_landscape
+                │   │           ├── attempt.generator_task_ids ───┤   block (one per failed attempt
+                │   │           └── attempt.fail_reason ──────────┘   except current; cap=6, oldest
+                │   │                                                  collapsed to a MEDIUM placeholder)
 mission_store ──┘   │
 episode_store ──────┘
 attempt_store ──────────────────────────────────►
-task_store    ──────────────────────────────────► (unused by planner_v1)
+task_store    ──────────────────────────────────► latest generator summaries for failed attempts
 ```
 
-Notable: the planner recipe **never** reads `task_store`. Tasks do not yet exist for the current attempt (the planner is what creates them), and prior-attempt tasks are not surfaced individually — only the aggregated `fail_reason` and the attempt's own plan-contract fields are. This is by design: the planner's view of failure is *what was promised and what was judged*, not *what each generator did*.
+Notable: the planner recipe reads `task_store` only for prior failed attempts, using `attempt.generator_task_ids` and `latest_summary_text(...)` to show what each generator claims it achieved. It still does not read current-attempt task results because the current attempt has not generated anything yet. Prior generator summaries are capped inside each failed-attempt block: at most 12 summaries are rendered, preserving the first 6 and last 6 in DAG order, and each summary body is truncated at 800 characters.
 
 ### Truncation in practice
 

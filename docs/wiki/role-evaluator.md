@@ -76,10 +76,11 @@ Source: `task_center/context_engine/recipes/evaluator.py:30-106`. Required scope
 | 2..N | `prior_episode_specification` + `prior_episode_summary` pairs (under `# Previous Episode Results`) | HIGH for immediate prior, MEDIUM for older | `sequence_no > 1` |
 | N+1 | `episode_goal` (under `# Current Episode`) | REQUIRED | `sequence_no > 1` |
 | N+2 | `task_specification` | **REQUIRED** | `attempt.task_specification` non-empty |
+| N+3 | `partial_plan_boundary` | **REQUIRED** | `attempt.continuation_goal` non-empty |
 | ... | `completed_task_summary` × N (under `# Dependency Results`) | HIGH | One per id in `attempt.generator_task_ids`; rendered via `latest_summary_text` |
 | last | `evaluation_criteria` | **REQUIRED** | `attempt.evaluation_criteria` non-empty, bullet-formatted |
 
-**Why this order:** The prompt opens on contextual framing and closes on the verdict basis. The mission/episode framing is REQUIRED because it grounds the evaluator's reading, but the operative blocks — `task_specification` (REQUIRED), task summaries (HIGH), and `evaluation_criteria` (REQUIRED) — render in the bottom half.
+**Why this order:** The prompt opens on contextual framing and closes on the verdict basis. The mission/episode framing is REQUIRED because it grounds the evaluator's reading, but the operative blocks — `task_specification` (REQUIRED), the partial-plan boundary when present, task summaries (HIGH), and `evaluation_criteria` (REQUIRED) — render in the bottom half.
 
 **Notable comparison to `planner_v1`:**
 
@@ -89,7 +90,8 @@ Source: `task_center/context_engine/recipes/evaluator.py:30-106`. Required scope
 | Prior episode results | Yes | Yes |
 | `failed_attempt_landscape` | **Yes** | **No** |
 | `task_specification` | No (planner _writes_ it) | Yes (REQUIRED) |
-| Generator task summaries | No (none exist yet) | Yes (HIGH, all of them) |
+| `partial_plan_boundary` | No | Yes, when the current attempt is partial |
+| Generator task summaries | Yes, for failed prior attempts only | Yes (HIGH, all current-attempt generators) |
 | `evaluation_criteria` | No (planner _writes_ it) | Yes (REQUIRED, last) |
 
 The planner writes; the evaluator reads. The planner sees the past; the evaluator sees the present.
@@ -209,6 +211,8 @@ This section traces — end-to-end — how the evaluator's `task_input` string i
 │      blocks  = mission_episode_blocks(mission, episode, episodes)       │
 │      if attempt.task_specification:                                     │
 │          blocks += [ task_specification block REQUIRED ]                │
+│      if attempt.continuation_goal:                                      │
+│          blocks += [ partial_plan_boundary block REQUIRED ]             │
 │      for task_id in attempt.generator_task_ids:                         │
 │          task = task_store.get_task(task_id)                            │
 │          blocks += [ completed_task_summary block HIGH ]                │
@@ -272,6 +276,12 @@ Builder decisions:
   attempt.task_specification truthy
     → append task_specification block REQUIRED
 
+  attempt.continuation_goal truthy
+    → append partial_plan_boundary block REQUIRED
+      text starts with:
+        plan_kind: partial
+        continuation_goal: ...
+
   for task_id in ["gen-1","gen-2","gen-3"]:
     latest_summary_text(summaries):
       summaries non-empty → last entry → prefer "summary" → fall back "outcome" → "(empty)"
@@ -284,10 +294,11 @@ Builder decisions:
 Final block sequence:
   [0] episode_goal                                    REQUIRED
   [1] task_specification                              REQUIRED
-  [2] completed_task_summary (gen-1)                  HIGH    group=# Dependency Results
-  [3] completed_task_summary (gen-2)                  HIGH    group=# Dependency Results
-  [4] completed_task_summary (gen-3)                  HIGH    group=# Dependency Results
-  [5] evaluation_criteria                             REQUIRED
+  [2] partial_plan_boundary (if partial)              REQUIRED
+  [3] completed_task_summary (gen-1)                  HIGH    group=# Dependency Results
+  [4] completed_task_summary (gen-2)                  HIGH    group=# Dependency Results
+  [5] completed_task_summary (gen-3)                  HIGH    group=# Dependency Results
+  [6] evaluation_criteria                             REQUIRED
 ```
 
 Rendered `task_input` (Case A):
@@ -395,6 +406,8 @@ The framing front-loads context (mission → prior history → current goal), th
                 │   ├── attempt.task_specification ───► task_specification block
                 │   │                                    (REQUIRED)
                 │   │
+                │   ├── attempt.continuation_goal ────► partial_plan_boundary block
+                │   │                                    (REQUIRED, partial attempts only)
                 │   ├── attempt.evaluation_criteria ──► evaluation_criteria block
                 │   │   "- "-joined into bullets        (REQUIRED, last position)
                 │   │
@@ -442,13 +455,13 @@ The implication for generator authors is in [[role-generator]] — the prose sum
 | `attempt.task_specification` is empty/None | The `task_specification` block is **not** emitted. The evaluator still receives framing + summaries + criteria. (Well-formed planners never produce this.) |
 | `attempt.evaluation_criteria` is empty list | The `evaluation_criteria` block is **not** emitted. The evaluator must judge against framing alone — a structurally broken state; the planner schema rejects this. |
 | `attempt.generator_task_ids` empty | No `completed_task_summary` blocks. The evaluator has nothing to judge — the dispatcher path that leads here is already pathological. |
-| A `task_id` in `generator_task_ids` returns `None` from `task_store.get_task` | The block for that task is **silently skipped** (`evaluator.py:67-69`). The evaluator may judge an incomplete view; this is a hard inconsistency in the task store and should surface as a follow-up bug, not a render error. |
+| A `task_id` in `generator_task_ids` returns `None` from `task_store.get_task` | `ContextEngineError`; evaluator context refuses to assemble a partial dependency-results frame. |
 
 ### Truncation
 
 `evaluator_v1` has no recipe-level cap on summary count. If a DAG produced 50 generator tasks, all 50 `completed_task_summary` blocks render. Compression falls to the renderer:
 
-- All four block kinds in `evaluator_v1` are REQUIRED or HIGH.
+- All `evaluator_v1` block kinds are REQUIRED or HIGH.
 - `MarkdownPromptRenderer._compress` (`renderer.py:201-235`) only truncates LOW and MEDIUM.
 - **No block in `evaluator_v1` is currently truncatable.** Under budget pressure the prompt overruns; the renderer does not enforce a hard ceiling.
 
@@ -463,7 +476,7 @@ This is intentional: every piece of context the evaluator has is judgment-load-b
 | `mission_store.get` | mission row missing | `ContextEngineError("Mission ... not found")` |
 | `episode_store.get` | episode row missing for derived id | `ContextEngineError("Episode ... not found")` |
 | `_previous_episode_result_blocks` | a closed prior episode has `task_specification is None` or `task_summary is None` | `ContextEngineError` — same chain-integrity invariant as planner. |
-| `task_store.get_task` returns None | task id in `generator_task_ids` not found | silently skipped (degraded view, no exception). |
+| `task_store.get_task` returns None | task id in `generator_task_ids` not found | `ContextEngineError`; evaluator launch fails rather than judging an incomplete frame. |
 
 ## Failure modes
 

@@ -337,7 +337,7 @@ Current runtime inventory:
 | `context_read` / `context_write` | 3 / 4 | File notes plus scope and staleness checks |
 | `memory` | 3 | Exploration cache reuse and edit-history conflict prediction |
 | `subagent` | 1 | `run_subagent` for bounded configured subagent work |
-| Runtime `background` | 3 | `check_background_progress`, `wait_for_background_task`, `cancel_background_task` |
+| Runtime `background` | 3 | `check_background_task_result`, `wait_background_tasks`, `cancel_background_task` |
 
 Every tool has:
 - **Pydantic input validation** — structured, type-safe inputs

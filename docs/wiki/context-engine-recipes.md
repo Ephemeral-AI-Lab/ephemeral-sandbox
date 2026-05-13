@@ -64,7 +64,7 @@ ContextPacket
 
 **ContextPriority** (`packet.py:18-24`): `required | high | medium | low`. Compression drops `low` first, then `medium`; `required`/`high` never truncated (`renderer.py:215-235`).
 
-**ContextBlockKind** constants (`packet.py:31-46`): `mission_goal`, `episode_goal`, `prior_episode_specification`, `prior_episode_summary`, `failed_attempt_landscape`, `planned_task_spec`, `task_specification`, `evaluation_criteria`, `dependency_summary`, `completed_task_summary`, `artifact_reference`, `entry_request`.
+**ContextBlockKind** constants (`packet.py:31-46`): `mission_goal`, `episode_goal`, `prior_episode_specification`, `prior_episode_summary`, `failed_attempt_landscape`, `partial_plan_boundary`, `planned_task_spec`, `task_specification`, `evaluation_criteria`, `dependency_summary`, `completed_task_summary`, `artifact_reference`, `entry_request`.
 
 **ContextRefs** (`packet.py:48-56`): mission/episode/attempt/task ids.
 
@@ -84,7 +84,7 @@ Calls `mission_episode_blocks(...)` (`_mission_episode.py:20-40`) then `failed_a
 - `episode.sequence_no == 1` → single `episode_goal` block, heading `"# Mission / Current Episode"`.
 - `sequence_no > 1` → `mission_goal` + N prior-episode pairs (`prior_episode_specification` + `prior_episode_summary` per closed episode, sorted by `sequence_no`) + `episode_goal`. Immediate prior `priority=HIGH`; older `priority=MEDIUM` (`_mission_episode.py:84-87`). Missing prior fields → `ContextEngineError`.
 
-**Retry branch** (`attempt_landscape.py:20-53`): failed attempts = `status==FAILED AND id != current_attempt_id`. Zero failed → no blocks. ≤6 → one `failed_attempt_landscape` block each (`priority=HIGH`) with spec + criteria + `fail_reason`. >6 → oldest batch collapsed to `priority=MEDIUM` summary block.
+**Retry branch** (`attempt_landscape.py:20-53`): failed attempts = `status==FAILED AND id != current_attempt_id`. Zero failed → no blocks. ≤6 → one `failed_attempt_landscape` block each (`priority=HIGH`) with `plan_kind` (`unsubmitted` | `full` | `partial`), `continuation_goal`, spec, criteria, latest generator summaries, and `fail_reason`. >6 → oldest batch collapsed to `priority=MEDIUM` summary block. Generator summaries are locally capped: at most 12 task summaries per failed attempt, preserving the first 6 and last 6, and each summary body is truncated at 800 characters.
 
 ### generator_v1
 **`recipes/generator.py`** | Required scope: `{mission_id, attempt_id, task_id}`.
@@ -93,16 +93,20 @@ Block order: `task_specification` (attempt plan) → `dependency_summary` blocks
 
 **Plan presence** (`generator.py:50-59`): `attempt.task_specification` truthy → prepend `task_specification` block (`priority=HIGH`).
 
+**Partial-plan boundary is not rendered here.** Even when `attempt.continuation_goal` is set, `generator_v1` does not emit `partial_plan_boundary`; generators should execute only their local task and dependency summaries, not reason about deferred episode scope.
+
 **Dependency presence** (`generator.py:61-65`, `_dependency_summary_blocks` at `91-115`): iterates `task["needs"]`. Each resolved dep → `dependency_summary` block (`priority=MEDIUM`) with `latest_summary_text(dep["summaries"])` (`_summaries.py:14-20`), grouped under `"# Dependency Results"`. Missing dep rows silently skipped.
 
 ### evaluator_v1
 **`recipes/evaluator.py`** | Required scope: `{mission_id, attempt_id}`.
 
-Block order: `mission_episode_blocks(...)` → `task_specification` → `completed_task_summary` per generator task → `evaluation_criteria`.
+Block order: `mission_episode_blocks(...)` → `task_specification` → optional `partial_plan_boundary` → `completed_task_summary` per generator task → `evaluation_criteria`.
 
 **Episode frame**: same `_mission_episode.py` logic as planner.
 
 **Plan presence** (`evaluator.py:55-64`): `attempt.task_specification` truthy → `task_specification` block at `priority=REQUIRED` (stronger than generator's `HIGH`).
+
+**Partial-plan presence**: `attempt.continuation_goal` truthy → `partial_plan_boundary` block (`priority=REQUIRED`) with `plan_kind: partial` and the deferred `continuation_goal`, rendered before dependency results. This tells the evaluator not to fail the current attempt for intentionally deferred work.
 
 **Generator task summaries** (`evaluator.py:66-83`): iterates `attempt.generator_task_ids`; each existing task → `completed_task_summary` block (`priority=HIGH`), grouped under `"# Dependency Results"`.
 
@@ -115,7 +119,7 @@ Note: evaluator does **not** call `failed_attempt_landscape_blocks`; prior failu
 | Scenario | Recipe | What changes | Key conditional |
 |---|---|---|---|
 | Initial mission (ep 1, attempt 1) | planner_v1 | Single `episode_goal` block, combined heading; no failed-attempts | `_mission_episode.py:27-28` |
-| Attempt retry on planner failure (ep 1, attempt N>1) | planner_v1 | Adds N-1 `failed_attempt_landscape` under `"# Failed Attempts"` with `fail_reason` | `attempt_landscape.py:20-53` |
+| Attempt retry on planner failure (ep 1, attempt N>1) | planner_v1 | Adds N-1 `failed_attempt_landscape` under `"# Failed Attempts"` with plan kind, continuation goal, capped generator summaries, and `fail_reason` | `attempt_landscape.py:20-53` |
 | Episodic continuation (ep 2+) | planner_v1, evaluator_v1 | Adds `mission_goal` + prior-episode pairs; immediate prior `HIGH`, older `MEDIUM` | `_mission_episode.py:30-40`, `84-87` |
 | Generator — with dependency outputs | generator_v1 | Adds `dependency_summary` blocks under `"# Dependency Results"` | `generator.py:61-65`, `91-115` |
 | Generator — no dependencies | generator_v1 | No `dependency_summary` blocks | `generator.py:62`: `needs` empty |
