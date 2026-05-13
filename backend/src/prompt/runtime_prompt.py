@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from config.paths import get_project_issue_file, get_project_pr_comments_file
 from config.settings import Settings
@@ -13,43 +12,7 @@ __all__ = [
     "build_runtime_context_message",
     "build_runtime_system_prompt",
     "build_termination_condition_prompt",
-    "render_section",
-    "render_template",
 ]
-
-
-def render_template(template: str, variables: dict[str, Any]) -> str:
-    """Render a template with variable substitution.
-
-    Supports {{variable}} syntax. Variables are auto-converted to strings.
-
-    Args:
-        template: Template string with {{variable}} placeholders.
-        variables: Dict of variable names to values.
-
-    Returns:
-        Rendered string with all placeholders substituted.
-    """
-    for key, value in variables.items():
-        placeholder = "{{" + key + "}}"
-        template = template.replace(placeholder, str(value) if value is not None else "")
-    return template
-
-
-def render_section(template: str, variables: dict[str, Any], condition: bool = True) -> str:
-    """Render a section template if condition is truthy.
-
-    Args:
-        template: Section template with {{variable}} placeholders.
-        variables: Dict of variable names to values.
-        condition: If False, returns empty string.
-
-    Returns:
-        Rendered section or empty string if condition is falsy.
-    """
-    if not condition:
-        return ""
-    return render_template(template, variables)
 
 
 def build_runtime_system_prompt(
@@ -58,22 +21,15 @@ def build_runtime_system_prompt(
     cwd: str | Path,
 ) -> str:
     """Build the runtime instruction prompt for an agent run."""
-    variables = {
-        "base_prompt": build_system_prompt(agent_system_prompt=settings.system_prompt),
-        "fast_mode": settings.fast_mode,
-        "cwd": str(cwd),
-    }
-
     sections = [
-        variables["base_prompt"],
-        render_section(
+        build_system_prompt(agent_system_prompt=settings.system_prompt),
+    ]
+    if settings.fast_mode:
+        sections.append(
             "# Session Mode\n"
             "Fast mode is enabled. Prefer concise replies, minimal tool use, "
-            "and quicker progress over exhaustive exploration.",
-            variables,
-            condition=variables["fast_mode"],
-        ),
-    ]
+            "and quicker progress over exhaustive exploration."
+        )
 
     return "\n\n".join(section for section in sections if section.strip())
 

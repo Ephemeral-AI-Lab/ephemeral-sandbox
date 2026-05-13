@@ -9,15 +9,9 @@ Key ideas:
   events from different agents are buffered independently and printed
   once per completed assistant message, so two workers streaming at once
   don't clobber each other's prose and the console shows full blocks.
-- **Lineage via bg task_id.** A ``BackgroundTaskStarted`` whose
-  ``tool_name == "run_subagent"`` is treated as a spawn; its
-  ``task_id`` becomes the child's run_id so the child's own events
-  indent one level deeper than the dispatching parent.
 - **Color per agent.** Each distinct ``agent_name`` is assigned a
-  stable ANSI color from an 8-color palette (deterministic via hash)
-  so the eye can follow one worker down a wall of output.
-- **Summary.** ``summary()`` returns per-agent counts (tool calls,
-  subagents spawned) plus totals for a closing one-liner.
+  stable ANSI color from an 8-color palette (deterministic via insertion
+  order) so the eye can follow one worker down a wall of output.
 """
 
 from __future__ import annotations
@@ -157,7 +151,6 @@ def format_background_start_detail(tool_name: str, tool_input: dict[str, Any]) -
 class _AgentTotals:
     color: str = ""
     tool_calls: int = 0
-    subagents_spawned: int = 0
 
 
 @dataclass
@@ -191,8 +184,6 @@ class MultiAgentEventPrinter:
         self._start = _time.monotonic()
         self._agent_totals: dict[str, _AgentTotals] = {}
         self._lanes: dict[tuple[str, str], _LaneState] = {}
-        self._depth: dict[str, int] = {}  # run_id -> depth
-        self._run_to_agent: dict[str, str] = {}  # run_id -> agent_name
         self._palette_idx = 0
 
     # ------------------------------------------------------------------
@@ -259,36 +250,9 @@ class MultiAgentEventPrinter:
         elif isinstance(event, SystemNotification):
             self._line(agent, run_id, f"[system] {_full_text(event.text)}")
 
-    def raw_line(self, agent: str, body: str) -> None:
-        """Print a free-form line with the same column/tag/color treatment.
-
-        Used by callers that don't produce ``StreamEvent``s (e.g. the sweevo
-        CLI tailing pytest output in a sandbox) so the visual style stays
-        consistent with agent-driven runs.
-        """
-        self._flush_buffers(agent)
-        self._line(agent, "", body)
-
     def flush(self) -> None:
         for agent, run_id in list(self._lanes):
             self._flush_buffers(agent, run_id)
-
-    def summary(self) -> dict[str, Any]:
-        per_agent = {
-            name: {
-                "tool_calls": st.tool_calls,
-                "subagents_spawned": st.subagents_spawned,
-            }
-            for name, st in self._agent_totals.items()
-        }
-        totals = {
-            "agents": len(self._agent_totals),
-            "tool_calls": sum(st.tool_calls for st in self._agent_totals.values()),
-            "subagents_spawned": sum(
-                st.subagents_spawned for st in self._agent_totals.values()
-            ),
-        }
-        return {"per_agent": per_agent, "totals": totals}
 
     # ------------------------------------------------------------------
     # Internals
@@ -342,8 +306,6 @@ class MultiAgentEventPrinter:
     def _line(self, agent: str, run_id: str, body: str) -> None:
         import time as _time
 
-        depth = self._depth.get(run_id, 0) if run_id else 0
-        indent = "  " * depth
         tag = self._agent_tag(agent, run_id)
         lines = body.splitlines() or [""]
         continuation = self._c("dim", "│ ") if self._color else "│ "
@@ -352,9 +314,9 @@ class MultiAgentEventPrinter:
             if self._timestamps:
                 elapsed = _time.monotonic() - self._start
                 stamp = f"{_DIM}[{elapsed:7.1f}s]{_RESET}" if self._color else f"[{elapsed:7.1f}s]"
-                line = f"{stamp} {tag} {indent}{prefix}{segment}"
+                line = f"{stamp} {tag} {prefix}{segment}"
             else:
-                line = f"{tag} {indent}{prefix}{segment}"
+                line = f"{tag} {prefix}{segment}"
             if self._sink is not None:
                 self._sink(line)
             else:
@@ -365,13 +327,10 @@ class MultiAgentEventPrinter:
         name = agent[: self._tag_width].ljust(self._tag_width)
         raw = f"[{name}]"
         if run_id:
-            raw += f" [{self._format_run_id(run_id)}]"
+            raw += f" [{run_id}]"
         if self._color and st.color:
             return f"{st.color}{raw}{_RESET}"
         return raw
-
-    def _format_run_id(self, run_id: str) -> str:
-        return run_id
 
     def _c(self, key: str, text: str) -> str:
         if not self._color:
