@@ -211,8 +211,8 @@ Retry planner packet:
 ```text
 Final block sequence (planner_v1, packet order):
   [0] episode_goal (mission/current retry scope)     REQUIRED  heading=# Mission / Current Episode
-  [1] failed_attempt_landscape (Attempt#1 in Ep#1)   HIGH      group=# Failed Attempts
-  [2] failed_attempt_landscape (Attempt#2 in Ep#1)   HIGH      group=# Failed Attempts
+  [1] failed_attempt_landscape (Attempt#1 in Ep#1)   HIGH      group=# Prior Failed Attempts
+  [2] failed_attempt_landscape (Attempt#2 in Ep#1)   HIGH      group=# Prior Failed Attempts
 ```
 
 Retry generator packet:
@@ -269,7 +269,7 @@ Final block sequence (planner_v1, packet order):
   [1] prior_episode_specification (Ep#1)             HIGH      group=# Previous Episode Results
   [2] prior_episode_summary       (Ep#1)             HIGH      group=# Previous Episode Results
   [3] episode_goal (Ep#2 current retry scope)        REQUIRED  heading=# Current Episode
-  [4] failed_attempt_landscape (Attempt#1 in Ep#2)   HIGH      group=# Failed Attempts
+  [4] failed_attempt_landscape (Attempt#1 in Ep#2)   HIGH      group=# Prior Failed Attempts
 ```
 
 ### Scenario 5: Large Evaluator Context
@@ -321,7 +321,7 @@ judgment unless the runtime separately validates the state.
 | Generator context recipe | Emits attempt spec, direct dependency summaries, and the assigned task spec only. | A generator is not invited to reason about sibling work unless the planner encoded it into local task or dependency summaries. |
 | Evaluator partial boundary | Emits `plan_kind: partial` and `continuation_goal` for partial attempts. | The evaluator is told not to fail intentionally deferred continuation work, but the judgment remains an agent decision. |
 | Evaluator criteria last | Places criteria after dependency results. | The final prompt section anchors the evaluator on the planner's accepted rubric. |
-| Failed-attempt projection | Retry planner receives failed-attempt fields and generator summaries. | The repair plan can be narrow without replaying raw work logs. |
+| Failed-attempt projection | Retry planner receives prior failed attempts framed as accepted plan, generator outcomes, and evaluator judgment when present. | The repair plan can be narrow without replaying raw work logs or raw failure fields. |
 | Continuation summary boundary | Next episode sees prior accepted plan and evaluator pass summary. | Cross-episode reuse depends on deliberate close summaries, not context sprawl. |
 
 ## How Each Summary Is Obtained
@@ -334,11 +334,11 @@ summaries.
 |---|---|---|---|---|
 | Planner `task_specification` | Planner terminal call, `submit_full_plan` or `submit_partial_plan`. | Attempt plan contract. | Planner output becomes generator/evaluator framing. | Frozen for the attempt once accepted. |
 | Planner `evaluation_criteria` | Planner terminal call. | Attempt plan contract. | Evaluator criteria block. | Rendered last for evaluator. |
-| Planner `continuation_goal` | Planner terminal call when using partial plan. | Attempt plan contract and later episode continuation goal. | Evaluator partial boundary, retry planner failed-attempt landscape, next episode goal after pass. | Present only for partial attempts. |
-| Generator task summary | Generator terminal success/failure submission. | Task row `summaries[]`, appended as `{outcome, summary, payload}`. | Dependency summaries, evaluator dependency results, failed-attempt generator summaries. | Latest summary entry only; `summary` is preferred over `outcome`. |
+| Planner `continuation_goal` | Planner terminal call when using partial plan. | Attempt plan contract and later episode continuation goal. | Evaluator partial boundary, next episode goal after pass. | Present only for partial attempts; omitted from retry failed-attempt framing by default. |
+| Generator task summary | Generator terminal success/failure submission. | Task row `summaries[]`, appended as `{outcome, summary, payload}`. | Dependency summaries, evaluator dependency results, failed-attempt generator outcome details. | Latest summary entry only; `summary` is preferred over `outcome`. |
 | Generator dependency summary | Context-engine projection from direct `needs`. | Not separately stored. | Generator recipe. | One latest summary per direct dependency. |
-| Evaluator pass/fail summary | Evaluator terminal success/failure submission. | Evaluator task row `summaries[]`, appended as `{outcome, summary, payload}`. | Episode close summary, retry failure reason surface. | Latest evaluator summary for the attempt. |
-| Failed-attempt generator summaries | Context-engine projection from a failed attempt's generator task ids. | Not separately stored. | Planner recipe through failed-attempt landscape. | One latest summary per generator task id in every failed attempt; no failed-attempt count cap, summary-count cap, or summary-length cap. |
+| Evaluator pass/fail summary | Evaluator terminal success/failure submission. | Evaluator task row `summaries[]`, appended as `{outcome, summary, payload}`. | Episode close summary, retry evaluator-judgment surface. | Latest evaluator summary for the attempt. |
+| Failed-attempt generator outcomes | Context-engine projection from a failed attempt's generator task ids and task rows. | Not separately stored. | Planner recipe through failed-attempt landscape. | Status summary for every generator task id; detailed sections only for useful stored summaries; blocked tasks stay status-only unless they recorded a real summary. |
 | Continuation episode summary | Episode close path. | Episode row `task_summary`, derived from evaluator pass summary. | Planner recipe for later episodes. | Does not include every prior generator summary. |
 
 ## Stage 1: Planner Context, First Attempt
@@ -1360,9 +1360,10 @@ order response, and confirmation page agree for the e2e fixture.
 ```
 
 The episode has retry budget, so attempt #2 starts with a new planner. The
-planner sees the same current episode goal plus failed-attempt landscape. It
-sees whether the failed attempt was partial or full, the continuation goal, the
-failed attempt's plan, criteria, latest generator summaries, and fail reason.
+planner sees the same current episode goal plus prior failed attempts. Each
+failed attempt is framed as the accepted plan, generator outcomes, and evaluator
+judgment when an evaluator actually ran. Generator-failed attempts omit the
+evaluator section.
 
 Attempt #2 id: `attempt-commerce-001-a2`
 
@@ -1379,57 +1380,68 @@ FastAPI endpoints backed by Postgres. The React web app should use the existing
 app layout and API client pattern. Add focused backend, frontend, and end-to-end
 tests. Defer merchant admin, returns, refunds, coupons, and real fulfillment.
 
-# Failed Attempts
+# Prior Failed Attempts
 
 ## Attempt 1
 
-plan_kind: partial
-continuation_goal: Add merchant/admin capabilities for the e-commerce system:
-product management, inventory adjustment, order status management,
-refund/return workflows, coupon codes, fulfillment status, and payment webhook
-processing. Preserve the customer checkout APIs and UI created in the previous
-episode.
+### Accepted Plan
 
-task_specification: Deliver the customer shopping and checkout path for
-Northwind Market. The DAG must add database schema and seed fixtures for
-products, carts, and orders; backend APIs for catalog, cart, and checkout; a
-Stripe test-mode payment adapter; typed web API client methods; React catalog,
-cart, checkout, and order confirmation screens; focused backend/frontend tests;
-a browser e2e test that places one successful order; and setup documentation
-for local Stripe test-mode configuration. Do not implement merchant admin,
-returns, refunds, coupons, email notifications, inventory replenishment, or
-real fulfillment.
+Plan type: partial
 
-evaluation_criteria:
-- Product listing and product detail endpoints return seeded products with
-  stable ids, slugs, prices, inventory counts, and image URLs.
-- A customer can add a seeded product variant to the cart, update quantity,
-  refresh the app, and keep the same cart state.
-- Checkout creates exactly one order for an idempotency key, stores line items,
-  shipping address, payment status, subtotal, shipping, tax, and grand total.
-- The React app supports the path `/products` -> product detail -> cart drawer
-  -> `/checkout` -> `/orders/:orderId` without unhandled console errors.
-- Stripe is used only through the test adapter; local setup is documented with
-  env vars and test card instructions.
-- Backend unit/integration tests, frontend tests, and the checkout e2e test are
-  present and documented with their exact commands.
-- Totals displayed in the cart, checkout review, backend order response, and
-  confirmation page agree for the e2e fixture.
+Specification:
+Deliver the customer shopping and checkout path for Northwind Market. The DAG
+must add database schema and seed fixtures for products, carts, and orders;
+backend APIs for catalog, cart, and checkout; a Stripe test-mode payment
+adapter; typed web API client methods; React catalog, cart, checkout, and order
+confirmation screens; focused backend/frontend tests; a browser e2e test that
+places one successful order; and setup documentation for local Stripe test-mode
+configuration. Do not implement merchant admin, returns, refunds, coupons,
+email notifications, inventory replenishment, or real fulfillment.
 
-generator_summaries:
-  - gen-checkout-api:
-    Implemented checkout/order endpoints and confirmed backend total for two
-    `mug-blue-12oz` items is 3411.
-  - gen-checkout-ui:
-    Added checkout route and preview total, but the preview formula omitted tax
-    and displayed 3197 before submit.
-  - gen-e2e-checkout:
-    Added successful checkout e2e; the assertion caught the preview/confirmation
-    total mismatch.
+### Generator Outcomes
 
-fail_reason: evaluator_failed: checkout review displayed 3197 before submit
-while backend order response and confirmation displayed 3411. The preview
-omitted tax, breaking the total-consistency criterion.
+Status summary:
+- gen-checkout-api: done
+- gen-checkout-ui: done
+- gen-e2e-checkout: done
+
+#### gen-checkout-api
+
+Implemented checkout/order endpoints and confirmed backend total for two
+`mug-blue-12oz` items is 3411.
+
+#### gen-checkout-ui
+
+Added checkout route and preview total, but the preview formula omitted tax and
+displayed 3197 before submit.
+
+#### gen-e2e-checkout
+
+Added successful checkout e2e; the assertion caught the preview/confirmation
+total mismatch.
+
+### Evaluator Judgment
+
+Evaluation criteria:
+  - Product listing and product detail endpoints return seeded products with
+    stable ids, slugs, prices, inventory counts, and image URLs.
+  - A customer can add a seeded product variant to the cart, update quantity,
+    refresh the app, and keep the same cart state.
+  - Checkout creates exactly one order for an idempotency key, stores line items,
+    shipping address, payment status, subtotal, shipping, tax, and grand total.
+  - The React app supports the path `/products` -> product detail -> cart drawer
+    -> `/checkout` -> `/orders/:orderId` without unhandled console errors.
+  - Stripe is used only through the test adapter; local setup is documented with
+    env vars and test card instructions.
+  - Backend unit/integration tests, frontend tests, and the checkout e2e test are
+    present and documented with their exact commands.
+  - Totals displayed in the cart, checkout review, backend order response, and
+    confirmation page agree for the e2e fixture.
+
+Evaluator summary:
+Checkout review displayed 3197 before submit while backend order response and
+confirmation displayed 3411. The preview omitted tax, breaking the
+total-consistency criterion.
 ```
 
 The retry planner should not rebuild the whole e-commerce app. It should plan a
@@ -1467,7 +1479,7 @@ Retry criteria:
 
 Why this works:
 
-- The planner is the only role that saw the failed-attempt landscape and could
+- The planner is the only role that saw the prior failed-attempt projection and could
   narrow the next DAG.
 - The new generators still do not see the old generator summaries directly;
   the retry planner must encode relevant facts into the new attempt plan or
@@ -1568,7 +1580,7 @@ cart id persistence, Stripe env vars, and total calculation.
 | Generator context is intentionally narrow | UI tasks do not see mission goal, retry history, sibling specs, or criteria |
 | Verifiers are still generator nodes | `gen-fullstack-verifier` receives dependency summaries and an assigned verification task, but uses a verifier profile |
 | Evaluator sees the whole current attempt | It receives all generator summaries, the attempt plan, and criteria, but no failed-attempt landscape |
-| Retry planner sees failure projection, not all work logs | Attempt #2 planner gets `plan_kind`, `continuation_goal`, the failed plan, criteria, generator summaries, and fail reason, then narrows the repair DAG |
+| Retry planner sees outcome projection, not all work logs | Attempt #2 planner gets the accepted plan, generator outcome statuses and useful summaries, plus evaluator criteria/summary only when an evaluator ran, then narrows the repair DAG |
 | Continuation planner sees episode summaries | Episode #2 gets prior accepted plan and summary, so episode #1 summary must preserve reusable contracts |
 | Bad summaries create downstream blindness | If a backend task omits endpoint names or total formula, frontend/evaluator tasks must rediscover them with tools or may fail |
 

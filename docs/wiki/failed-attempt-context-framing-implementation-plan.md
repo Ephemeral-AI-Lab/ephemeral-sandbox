@@ -75,6 +75,13 @@ Evaluator summary:
 9. Do not render a separate failure-reason section. The failure should be visible
    through generator statuses or evaluator judgment.
 
+## Patch Scope
+
+This implementation changes the context-engine recipe and renderer defaults, not
+the attempt lifecycle. The attempt still closes once with
+`generator_failed`, `evaluator_failed`, `planner_failed`, or `startup_failed`;
+the retry planner simply receives a clearer projection of the closed attempt.
+
 ## Implementation Tasks
 
 1. Update `task_center.context_engine.recipes.attempt_landscape` to build the new

@@ -269,7 +269,7 @@ def test_three_failed_attempts_emit_three_high_priority_blocks(
     ]
 
 
-def test_failed_attempt_landscape_includes_plan_kind_and_generator_summaries(
+def test_failed_attempt_landscape_includes_plan_type_statuses_and_summaries(
     deps_with_stores, mission_store, episode_store, attempt_store, task_store,
     task_center_run_id,
 ):
@@ -331,10 +331,13 @@ def test_failed_attempt_landscape_includes_plan_kind_and_generator_summaries(
     ]
     assert len(failed_blocks) == 1
     text = failed_blocks[0].text
-    assert "plan_kind: partial" in text
-    assert "continuation_goal: continue with later slice" in text
-    assert "  - gen-a:\n    implemented A" in text
-    assert "  - gen-b:\n    B failed after creating fixture" in text
+    assert "Plan type: partial" in text
+    assert "continue with later slice" not in text
+    assert "- gen-a: done" in text
+    assert "- gen-b: failed" in text
+    assert "#### gen-a\n\nimplemented A" in text
+    assert "#### gen-b\n\nB failed after creating fixture" in text
+    assert "fail_reason" not in text
 
 
 def test_all_failed_attempts_render_as_high_priority_blocks(

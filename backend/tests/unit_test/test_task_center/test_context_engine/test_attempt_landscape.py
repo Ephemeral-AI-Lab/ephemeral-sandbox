@@ -87,25 +87,30 @@ def test_renders_missing_spec_empty_criteria_and_unknown_reason():
     )
 
     assert len(blocks) == 1
-    assert "plan_kind: unsubmitted" in blocks[0].text
-    assert "continuation_goal: (none)" in blocks[0].text
-    assert "task_specification: (missing)" in blocks[0].text
-    assert "evaluation_criteria:\n  (none)" in blocks[0].text
-    assert "generator_summaries:\n  (none)" in blocks[0].text
-    assert "fail_reason: unknown" in blocks[0].text
+    assert "### Accepted Plan" in blocks[0].text
+    assert "Plan type: unsubmitted" in blocks[0].text
+    assert "Specification:\n(not submitted)" in blocks[0].text
+    assert "### Generator Outcomes" in blocks[0].text
+    assert "Status summary:\n- (no generator tasks recorded)" in blocks[0].text
+    assert "continuation_goal" not in blocks[0].text
+    assert "fail_reason" not in blocks[0].text
 
 
-def test_renders_plan_kind_continuation_goal_and_generator_summaries():
+def test_renders_plan_kind_statuses_and_generator_summaries():
     class TaskStore:
         def get_task(self, task_id: str):
             return {
                 "t-a": {
+                    "status": "done",
                     "summaries": [
                         {"summary": "first summary"},
                         {"summary": "built catalog slice"},
                     ]
                 },
-                "t-b": {"summaries": [{"outcome": "verified checkout"}]},
+                "t-b": {
+                    "status": "done",
+                    "summaries": [{"outcome": "verified checkout"}],
+                },
             }.get(task_id)
 
     blocks = failed_attempt_landscape_blocks(
@@ -124,11 +129,13 @@ def test_renders_plan_kind_continuation_goal_and_generator_summaries():
     )
 
     assert len(blocks) == 1
-    assert "plan_kind: partial" in blocks[0].text
-    assert "continuation_goal: continue with admin tools" in blocks[0].text
-    assert "  - t-a:\n    built catalog slice" in blocks[0].text
-    assert "  - t-b:\n    verified checkout" in blocks[0].text
-    assert "  - t-missing: (missing task row)" in blocks[0].text
+    assert "Plan type: partial" in blocks[0].text
+    assert "continue with admin tools" not in blocks[0].text
+    assert "- t-a: done" in blocks[0].text
+    assert "- t-b: done" in blocks[0].text
+    assert "- t-missing: missing task row" in blocks[0].text
+    assert "#### t-a\n\nbuilt catalog slice" in blocks[0].text
+    assert "#### t-b\n\nverified checkout" in blocks[0].text
 
 
 def test_renders_full_plan_kind_for_submitted_nonpartial_attempt():
@@ -144,13 +151,17 @@ def test_renders_full_plan_kind_for_submitted_nonpartial_attempt():
         ],
     )
 
-    assert "plan_kind: full" in blocks[0].text
+    assert "Plan type: full" in blocks[0].text
 
 
-def test_evaluator_failure_summary_extends_retry_fail_reason():
+def test_evaluator_failure_renders_evaluator_judgment():
     class TaskStore:
         def get_task(self, task_id: str):
             return {
+                "t-a": {
+                    "status": "done",
+                    "summaries": [{"summary": "generator completed"}],
+                },
                 "eval-1": {
                     "summaries": [
                         {"summary": "older evaluator note"},
@@ -170,6 +181,8 @@ def test_evaluator_failure_summary_extends_retry_fail_reason():
             _attempt(
                 1,
                 task_specification="submitted spec",
+                evaluation_criteria=("total criterion",),
+                generator_task_ids=("t-a",),
                 evaluator_task_id="eval-1",
                 fail_reason=AttemptFailReason.EVALUATOR_FAILED,
             )
@@ -177,16 +190,69 @@ def test_evaluator_failure_summary_extends_retry_fail_reason():
         task_store=TaskStore(),
     )
 
+    assert "### Evaluator Judgment" in blocks[0].text
+    assert "Evaluation criteria:\n  - total criterion" in blocks[0].text
     assert (
-        "fail_reason: evaluator_failed: checkout review displayed 3197 before "
-        "submit while confirmation displayed 3411"
-    ) in blocks[0].text
+        "Evaluator summary:\ncheckout review displayed 3197 before submit"
+        in blocks[0].text
+    )
+    assert "fail_reason" not in blocks[0].text
+
+
+def test_generator_failure_hides_evaluator_and_keeps_blocked_task_in_status_only():
+    class TaskStore:
+        def get_task(self, task_id: str):
+            return {
+                "t-a": {
+                    "status": "done",
+                    "summaries": [{"summary": "completed dependency"}],
+                },
+                "t-b": {
+                    "status": "failed",
+                    "summaries": [{"summary": "failed after partial edit"}],
+                },
+                "t-c": {
+                    "status": "blocked",
+                    "summaries": [{"blocked_by": "t-b"}],
+                },
+                "eval-1": {
+                    "summaries": [{"summary": "should not render"}],
+                },
+            }.get(task_id)
+
+    blocks = failed_attempt_landscape_blocks(
+        current_attempt_id=None,
+        attempts=[
+            _attempt(
+                1,
+                task_specification="submitted spec",
+                evaluation_criteria=("criterion",),
+                generator_task_ids=("t-a", "t-b", "t-c"),
+                evaluator_task_id="eval-1",
+                fail_reason=AttemptFailReason.GENERATOR_FAILED,
+            )
+        ],
+        task_store=TaskStore(),
+    )
+
+    text = blocks[0].text
+    assert "- t-a: done" in text
+    assert "- t-b: failed" in text
+    assert "- t-c: blocked by t-b" in text
+    assert "#### t-a\n\ncompleted dependency" in text
+    assert "#### t-b\n\nfailed after partial edit" in text
+    assert "#### t-c" not in text
+    assert "### Evaluator Judgment" not in text
+    assert "should not render" not in text
 
 
 def test_generator_summaries_include_every_task_in_failed_attempt():
     class TaskStore:
         def get_task(self, task_id: str):
-            return {"summaries": [{"summary": f"summary for {task_id}"}]}
+            return {
+                "status": "done",
+                "summaries": [{"summary": f"summary for {task_id}"}],
+            }
 
     task_ids = tuple(f"t-{i}" for i in range(14))
 
@@ -204,14 +270,15 @@ def test_generator_summaries_include_every_task_in_failed_attempt():
     )
 
     for task_id in task_ids:
-        assert f"  - {task_id}:" in blocks[0].text
+        assert f"- {task_id}: done" in blocks[0].text
+        assert f"#### {task_id}" in blocks[0].text
     assert "generator summaries omitted" not in blocks[0].text
 
 
 def test_generator_summary_text_is_not_truncated():
     class TaskStore:
         def get_task(self, task_id: str):
-            return {"summaries": [{"summary": "x" * 850}]}
+            return {"status": "done", "summaries": [{"summary": "x" * 850}]}
 
     blocks = failed_attempt_landscape_blocks(
         current_attempt_id=None,

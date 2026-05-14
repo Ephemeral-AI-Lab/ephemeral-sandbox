@@ -82,7 +82,7 @@ def default_heading_template() -> HeadingTemplate:
                 "# Previous Episode Results"
             ),
             "failed_attempt_landscape": (
-                "# Failed Attempts"
+                "# Prior Failed Attempts"
             ),
             "partial_plan_boundary": "# Partial Plan Boundary",
             "planned_task_spec": "# Assigned Task",

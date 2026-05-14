@@ -77,7 +77,7 @@ Source: `task_center/context_engine/recipes/planner.py:37-77`. Required scope: `
 | 1 | `mission_goal` (under `# Mission`) | REQUIRED | `sequence_no > 1` | `mission.goal` |
 | 2..N | `prior_episode_specification` + `prior_episode_summary` pairs (under `# Previous Episode Results`) | HIGH for immediate prior, MEDIUM for older | `sequence_no > 1`, one pair per closed predecessor | `episode.task_specification` + `episode.task_summary` |
 | N+1 | `episode_goal` (under `# Current Episode`) | REQUIRED | `sequence_no > 1` | `episode.goal` |
-| last | `failed_attempt_landscape[]` (under `# Failed Attempts`) | HIGH | any failed attempt in current episode | plan kind + `attempt.continuation_goal` + `attempt.task_specification` + `attempt.evaluation_criteria` + latest generator summaries + `attempt.fail_reason`, plus latest evaluator summary for evaluator failures |
+| last | `failed_attempt_landscape[]` (under `# Prior Failed Attempts`) | HIGH | any failed attempt in current episode | accepted plan, generator outcome status summary, useful generator summaries, and evaluator criteria/summary only when an evaluator ran |
 
 **Why this order:** The episode contract anchors the front of the prompt; the failure landscape closes it. The planner ends its read on retry evidence so the most-recent failure shapes its planning choices.
 
@@ -90,8 +90,8 @@ Source: `task_center/context_engine/recipes/planner.py:37-77`. Required scope: `
 - No nested-mission context. A planner planning an attempt inside a child Mission still sees its own Mission/Episode framing, not the parent's.
 
 **Retry landscape size.** Every failed attempt in the current episode is
-rendered. The recipe does not collapse older failures or cap generator summary
-count/length inside a failed-attempt block.
+rendered. The recipe does not collapse older failures, cap generator status
+entries, or truncate useful generator summaries inside a failed-attempt block.
 
 **Failure modes of the recipe itself:**
 
@@ -310,16 +310,16 @@ Builder decisions:
   failed_attempt_landscape_blocks:
     failed = [Attempt#1, Attempt#2]    sorted by attempt_sequence_no
     emit:
-        - failed_attempt_landscape(Attempt#1, priority=HIGH)         [group=# Failed Attempts]
-        - failed_attempt_landscape(Attempt#2, priority=HIGH)         [group=# Failed Attempts]
+        - failed_attempt_landscape(Attempt#1, priority=HIGH)         [group=# Prior Failed Attempts]
+        - failed_attempt_landscape(Attempt#2, priority=HIGH)         [group=# Prior Failed Attempts]
 
 Final block sequence (in packet order):
   [0] mission_goal                                    REQUIRED
   [1] prior_episode_specification (Ep#1)              HIGH      group=# Previous Episode Results
   [2] prior_episode_summary       (Ep#1)              HIGH      group=# Previous Episode Results
   [3] episode_goal                (Ep#2, current)     REQUIRED
-  [4] failed_attempt_landscape    (Attempt#1)         HIGH      group=# Failed Attempts
-  [5] failed_attempt_landscape    (Attempt#2)         HIGH      group=# Failed Attempts
+  [4] failed_attempt_landscape    (Attempt#1)         HIGH      group=# Prior Failed Attempts
+  [5] failed_attempt_landscape    (Attempt#2)         HIGH      group=# Prior Failed Attempts
 ```
 
 Rendered `task_input` (Case D):
@@ -349,38 +349,65 @@ Add the sync layer: push local entries to /ledger/sync on reconnect,
 reconcile server-side conflicts via last-write-wins per entry id, and
 surface unresolved conflicts via a new GET /ledger/conflicts endpoint.
 
-# Failed Attempts
+# Prior Failed Attempts
 
 ## Attempt 1
 
-plan_kind: full
-continuation_goal: (none)
-task_specification: Add sync push + conflict resolution. The DAG covers
-the HTTP client, the local→remote diff, and a smoke test against a
-mocked server.
-evaluation_criteria:
+### Accepted Plan
+
+Plan type: full
+
+Specification:
+Add sync push + conflict resolution. The DAG covers the HTTP client, the
+local-to-remote diff, and a smoke test against a mocked server.
+
+### Generator Outcomes
+
+Status summary:
+- gen-sync-client: done
+
+#### gen-sync-client
+
+Implemented the sync client, but the mock-server smoke test still failed.
+
+### Evaluator Judgment
+
+Evaluation criteria:
   - POST /ledger/sync called with diff of unsynced entries
   - server conflict resolved by entry_id last-write-wins
   - smoke test green
-generator_summaries:
-  - gen-sync-client:
-    Implemented the sync client, but the mock-server smoke test still failed.
-fail_reason: evaluator_failed: mock-server smoke test failed after the sync client change.
+
+Evaluator summary:
+Mock-server smoke test failed after the sync client change.
 
 ## Attempt 2
 
-plan_kind: full
-continuation_goal: (none)
-task_specification: Same scope; route sync through a queue worker
-instead of a direct call, so retries on disconnect are not lost.
-evaluation_criteria:
+### Accepted Plan
+
+Plan type: full
+
+Specification:
+Same scope; route sync through a queue worker instead of a direct call, so
+retries on disconnect are not lost.
+
+### Generator Outcomes
+
+Status summary:
+- gen-queue-worker: done
+
+#### gen-queue-worker
+
+Added the queue worker; verifier found reconnect did not drain within 5s.
+
+### Evaluator Judgment
+
+Evaluation criteria:
   - queue worker created with idempotent pop
   - reconnect triggers worker drain within 5s
   - smoke test green
-generator_summaries:
-  - gen-queue-worker:
-    Added the queue worker; verifier found reconnect did not drain within 5s.
-fail_reason: evaluator_failed: reconnect did not drain the queue worker within 5s.
+
+Evaluator summary:
+Reconnect did not drain the queue worker within 5s.
 ```
 
 Note how the rendered grouping is driven by `metadata["group_heading"]` in each block, not by an outer template — the renderer (`renderer.py:163-179`) walks blocks linearly, collects consecutive blocks sharing the same `group_heading`, and emits one `## subheading` per block inside that group.
@@ -400,19 +427,22 @@ The planner prompt is assembled by reading **four stores** and one constant. The
                 │   │   (one pair per closed predecessor; HIGH for immediate prior,
                 │   │    MEDIUM for older)
                 │   │
-                │   │           ┌── attempt.continuation_goal ───┐
-                │   │           ├── attempt.task_specification ───┤
+                │   │           ┌── attempt.task_specification ───┐
                 │   │           ├── attempt.evaluation_criteria ──┼─► failed_attempt_landscape
                 │   │           ├── attempt.generator_task_ids ───┤   block (one per failed attempt
-                │   │           ├── attempt.fail_reason ──────────┤   except current)
-                │   │           └── attempt.evaluator_task_id ─────┘
+                │   │           └── attempt.evaluator_task_id ─────┘   except current)
 mission_store ──┘   │
 episode_store ──────┘
 attempt_store ──────────────────────────────────►
-task_store    ──────────────────────────────────► latest generator summaries and evaluator failure summaries
+task_store    ──────────────────────────────────► generator statuses/summaries and evaluator summaries
 ```
 
-Notable: the planner recipe reads `task_store` only for prior failed attempts, using `attempt.generator_task_ids` and `latest_summary_text(...)` to show what each generator claims it achieved. For evaluator failures, it also uses `attempt.evaluator_task_id` to append the evaluator's latest summary to the fail reason. It still does not read current-attempt task results because the current attempt has not generated anything yet. Prior failed-attempt projection renders every failed attempt and every generator task id listed on that attempt.
+Notable: the planner recipe reads `task_store` only for prior failed attempts,
+using `attempt.generator_task_ids` to render every generator status and useful
+latest generator summaries. For evaluator failures, it also uses
+`attempt.evaluator_task_id` to render evaluator criteria and the evaluator's
+latest summary in `Evaluator Judgment`. It still does not read current-attempt
+task results because the current attempt has not generated anything yet.
 
 ### Large retry landscape in practice
 
