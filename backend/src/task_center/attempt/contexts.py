@@ -31,7 +31,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing-only
     from task_center.attempt.orchestrator_registry import (
         AttemptOrchestratorRegistry,
     )
-    from task_center.attempt.launcher import EphemeralAttemptAgentLauncher
+    from task_center.attempt.launch import EphemeralAttemptAgentLauncher
     from task_center.attempt.state import Attempt
     from task_center.config import TaskCenterLifecycleConfig
     from task_center.context_engine.composer import ContextComposer

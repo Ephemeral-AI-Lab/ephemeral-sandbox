@@ -17,7 +17,7 @@ from task_center.episode.registry import EpisodeManagerRegistry
 from task_center.task_state import TaskCenterTaskRole
 
 if TYPE_CHECKING:
-    from task_center.attempt.launcher import EphemeralAttemptAgentLauncher
+    from task_center.attempt.launch import EphemeralAttemptAgentLauncher
     from task_center.attempt.orchestrator_registry import (
         AttemptOrchestratorRegistry,
     )
