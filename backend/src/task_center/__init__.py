@@ -52,7 +52,7 @@ if TYPE_CHECKING:
         EpisodeCreationReason,
         EpisodeStatus,
     )
-    from task_center._core.exceptions import TaskCenterInvariantViolation
+    from task_center._core.types import TaskCenterInvariantViolation
     from task_center.mission.starter import MissionStarter, StartedMission
     from task_center.mission.state import Mission, MissionStatus
     from task_center.task_state import (
@@ -109,7 +109,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "StartedMission": ("task_center.mission.starter", "StartedMission"),
     "TaskCenterInvariantViolation": (
-        "task_center._core.exceptions",
+        "task_center._core.types",
         "TaskCenterInvariantViolation",
     ),
     "TaskCenterSandboxBridge": (
