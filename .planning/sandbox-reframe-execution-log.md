@@ -106,7 +106,17 @@ After the first addendum (commit `4f95b143`) the loop resumed again and landed:
 |---|---|---|
 | `234e50b9` | W5c-occ | `occ/changeset/builders.py` (82 LOC) folded into `occ/changeset/types.py`; codemod 7 sites; -14 LOC net. |
 
-**Updated final metrics (post-W5c-occ):**
+## Session 1 — Addendum 3 (post-W6 partial)
+
+| SHA | Wave | Description |
+|---|---|---|
+| `205e0b03` | W6 partial | OccMutationService Protocol in occ/client.py replaced with TYPE_CHECKING import of OccService. -12 LOC. |
+
+**Updated final metrics (post-W6-partial):**
+- Files: 144 (was 160 baseline) — RFC §7 AC #6 target ≤152 beaten by 8.
+- LOC: 17,286 (was 17,492 baseline). -206 LOC net. RFC §13 AC #9 floor 1,222 LOC still NOT MET; the remaining LOC-yielders are W5b/W6/W7/W8a/W9.
+
+**Updated previous addendum metrics (now stale):**
 - Files: 144 (was 160 baseline) — RFC §7 AC #6 target ≤152 beaten by 8.
 - LOC: 17,298 (was 17,492 baseline). -194 LOC net. RFC §13 AC #9 floor 1,222 LOC still NOT MET; the remaining LOC-yielders are W5b/W6/W7/W8a/W9.
 
