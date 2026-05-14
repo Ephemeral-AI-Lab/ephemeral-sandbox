@@ -185,6 +185,30 @@ Per advisor (Session 3): "W7c is implementable but the commit body MUST carry th
 2. W8a residuals — `versioned_payload` move (5 LOC); `SandboxTransport` Protocol → Callable type alias (only if test_transport_protocol.py is also rewritten; net win unclear).
 3. ADR §15 items if scope is reopened: occ/stage deeper merge, plugin registry collapse, squash deeper merge.
 
+## Session 3 — Addendum 6 (W7c-min + skipped residuals)
+
+After addendum 5 the loop pushed for further continuation. Three more attempts:
+
+| SHA | Wave | Description |
+|---|---|---|
+| `76c34ad8` | W7c-min | Extracted `load_required_credentials(unavailable_cls, not_configured_message)` and `build_sdk_client(factory_name, ...)` to `provider/daytona/client/credentials.py`. Both sync and async client paths now call these helpers. Sync cache (singleton) and async cache (loop-keyed WeakKeyDictionary) stay separate — RFC's unified-cache scheme not attempted because it would require changing one cache's semantics. The thin module-local `_load_credentials` wrapper in async_client.py preserves the `test_async/test_client.py` monkeypatch seam. +44 LOC net (helper bodies cost more than the inline call sites saved) — **structurally cleaner but LOC-negative**. Real-Daytona e2e validation still owed by user. |
+| (no commit) | W8a-resid `versioned_payload` | SKIPPED. Moving `versioned_payload` into `host/daemon_client.py` either breaks 4 test mocks that wrap `call_daemon_api` with unversioned-payload assertions, or yields zero net LOC (move + import codemod). The RFC's stated benefit was "wire-versioning closer to the wire call" — cosmetic. |
+| (no commit) | shutdown.py compression | ATTEMPTED then REVERTED. Extracted `_resolve_close_fn(client)` helper used by both `close_client` and `async_close_client`. Saved 2 LOC per call site but the 5-LOC helper itself + blank lines pushed net to +3 LOC. The sync-context awaitable-close trick (new event loop in thread) is load-bearing and cannot be merged with `async_close_client` without breaking sync callers. Reverted. |
+
+**Updated final metrics (post-Session-3 addendum-6):**
+- Files: 144 (was 160 baseline) — W7c-min did not add or remove files.
+- LOC: 17,175 (was 17,131 in addendum 5, was 17,492 baseline). **-317 LOC net** vs baseline (+44 vs addendum 5).
+- Top-level subdirs: 9 (unchanged).
+- AC #11 (≤600 LOC ceiling): MET.
+- Tests: 544 passed, 1 skipped, 0 failed.
+- Ruff: clean.
+
+**Session 3 final deferrals (true next-session pickup order):**
+1. W7c-full — Real-Daytona e2e validation by user before deploy. Once validated, optional follow-up: unify cache containers (only if user accepts the behavior change in either direction).
+2. ADR §15 items if scope is reopened.
+
+The named-wave queue is now exhausted. All remaining LOC yield requires either ADR §15 scope reopening or user-gated T3 work.
+
 **Session 3 parallel-codex incidents:** Three documented sweeps, all benign:
 1. `45e17e92` (codex) captured my W9 direct.py + policy.py edits alongside its task_center config+task_ids shim collapse.
 2. `96301633` (codex) captured my W8a default.py imports + 3-file deletes + test codemods alongside its persistence+exceptions shim collapse.
