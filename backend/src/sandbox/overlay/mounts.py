@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sandbox.layer_stack.manifest import Manifest
-from sandbox.layer_stack.view.merged import MergedView
+from sandbox.layer_stack.view import MergedView
 from sandbox.timing import monotonic_now
 
 _INTERMEDIATE_RUN_DIRS: tuple[str, ...] = ("lower", "merged", "work")

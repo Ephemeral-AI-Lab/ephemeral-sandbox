@@ -8,7 +8,7 @@ import pytest
 
 from sandbox.layer_stack import WriteLayerChange, LayerStackManager
 from sandbox.layer_stack.manifest import LayerRef, Manifest, write_manifest_atomic
-from sandbox.layer_stack.maintenance.squash import SquashPlan
+from sandbox.layer_stack.maintenance import SquashPlan
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> str:

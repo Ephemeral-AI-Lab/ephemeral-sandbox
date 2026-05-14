@@ -10,7 +10,7 @@ from pathlib import Path
 
 from sandbox.layer_stack._paths import allocate_unique_layer_paths, resolve_storage_path
 from sandbox.layer_stack.manifest import LAYERS_DIR, STAGING_DIR, LayerRef, Manifest
-from sandbox.layer_stack.view.merged import MergedView
+from sandbox.layer_stack.view import MergedView
 
 
 @dataclass(frozen=True)

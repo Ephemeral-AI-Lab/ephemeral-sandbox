@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.layer_stack.lease.registry import LeaseRegistry
+from sandbox.layer_stack.lease import LeaseRegistry
 from sandbox.layer_stack.manifest import LayerRef, Manifest
 
 

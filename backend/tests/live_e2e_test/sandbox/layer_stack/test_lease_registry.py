@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _REGISTRY_BODY = r"""
-from sandbox.layer_stack.lease.registry import LeaseRegistry
+from sandbox.layer_stack.lease import LeaseRegistry
 from sandbox.layer_stack.manifest import LayerRef, Manifest
 
 label = "layer_stack.lease_registry"
@@ -44,7 +44,7 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.lease.registry import LeaseRegistry
+from sandbox.layer_stack.lease import LeaseRegistry
 from sandbox.layer_stack.manifest import LayerRef, Manifest
 
 label = "layer_stack.lease_registry_under_race"

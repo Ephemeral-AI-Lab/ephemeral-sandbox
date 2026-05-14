@@ -212,9 +212,9 @@ def test_occ_policy_modules_depend_on_layer_stack_ports_not_manager() -> None:
     }
     forbidden = (
         "sandbox.layer_stack.manager",
-        "sandbox.layer_stack.view.merged",
+        "sandbox.layer_stack.view",
         "sandbox.layer_stack.layer.publisher",
-        "sandbox.layer_stack.lease.registry",
+        "sandbox.layer_stack.lease",
         "sandbox.runtime.daemon.service.workspace_server",
     )
     for module in _python_files(occ_root):

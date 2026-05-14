@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from sandbox.layer_stack.commit.commit_staging_area import CommitStagingArea
+from sandbox.layer_stack.commit import CommitStagingArea
 from sandbox.layer_stack._paths import (
     log_rmtree_failure,
     remove_path,
@@ -20,8 +20,8 @@ from sandbox.layer_stack._paths import (
 from sandbox.layer_stack._storage_lock import acquire_storage_writer_lock
 from sandbox.layer_stack.layer.change import LayerChange
 from sandbox.layer_stack.layer.publisher import LayerPublisher
-from sandbox.layer_stack.lease.registry import LeaseRegistry, WorkspaceLease
-from sandbox.layer_stack.maintenance.squash import SquashService, manifest_still_ends_with
+from sandbox.layer_stack.lease import LeaseRegistry, WorkspaceLease
+from sandbox.layer_stack.maintenance import SquashService, manifest_still_ends_with
 from sandbox.layer_stack.manifest import (
     FileManifestStore,
     LAYERS_DIR,
@@ -41,7 +41,7 @@ from sandbox.layer_stack.transaction import (
     LayerStackTransaction,
     LayerStackTransactionHandle,
 )
-from sandbox.layer_stack.view.merged import MergedView
+from sandbox.layer_stack.view import MergedView
 from sandbox.timing import monotonic_now
 
 _TRANSIENT_LOWERDIR_DIR = "transient-lowerdirs"
