@@ -1,64 +1,36 @@
 """Facade for guarded command execution."""
 
-from __future__ import annotations
-
 from sandbox.execution.contract import (
-    CommandExecutor,
     CommandExecRequest,
     CommandExecResult,
+    CommandExecutor,
     MountMode,
     OCCMutationClient,
-    SnapshotManifest,
     ShellProcessResult,
+    SnapshotManifest,
     WorkspaceCapture,
     WorkspaceLeaseClient,
     WorkspaceReplacementMountSpec,
     WorkspaceSnapshotLease,
 )
-from sandbox.execution.policy import (
-    DEFAULT_COMMAND_EXEC_POLICY,
-    CommandExecPolicy,
-)
-
-_LAZY_EXPORTS = {
-    "capture_workspace_upperdir": (
-        "sandbox.execution.workspace_capture",
-        "capture_workspace_upperdir",
-    ),
-    "execute_command": ("sandbox.execution.orchestrator", "execute_command"),
-    "run_workspace_replaced_command": (
-        "sandbox.execution.workspace_mount",
-        "run_workspace_replaced_command",
-    ),
-}
+from sandbox.execution.orchestrator import execute_command
+from sandbox.execution.policy import DEFAULT_COMMAND_EXEC_POLICY, CommandExecPolicy
+from sandbox.execution.workspace_mount import run_workspace_replaced_command
 
 __all__ = [
+    "CommandExecPolicy",
     "CommandExecRequest",
     "CommandExecResult",
     "CommandExecutor",
-    "CommandExecPolicy",
+    "DEFAULT_COMMAND_EXEC_POLICY",
     "MountMode",
     "OCCMutationClient",
-    "SnapshotManifest",
     "ShellProcessResult",
+    "SnapshotManifest",
     "WorkspaceCapture",
     "WorkspaceLeaseClient",
     "WorkspaceReplacementMountSpec",
     "WorkspaceSnapshotLease",
-    "capture_workspace_upperdir",
-    "DEFAULT_COMMAND_EXEC_POLICY",
     "execute_command",
     "run_workspace_replaced_command",
 ]
-
-
-def __getattr__(name: str) -> object:
-    target = _LAZY_EXPORTS.get(name)
-    if target is None:
-        raise AttributeError(name)
-    module_name, attribute = target
-    from importlib import import_module
-
-    value = getattr(import_module(module_name), attribute)
-    globals()[name] = value
-    return value
