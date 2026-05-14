@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.mission.close_report_delivery import (
+from task_center.mission.close_report_router import (
     MissionClosureReportRouter,
 )
 from task_center.mission.state import MissionClosureReport

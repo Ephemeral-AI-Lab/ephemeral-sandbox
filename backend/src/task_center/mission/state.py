@@ -55,3 +55,13 @@ class MissionClosureReport:
             "final_episode_id": self.final_episode_id,
             "final_attempt_id": self.final_attempt_id,
         }
+
+
+CloseReportDeliveryStatus = Literal["delivered", "already_delivered"]
+
+
+@dataclass(frozen=True, slots=True)
+class CloseReportDeliveryResult:
+    status: CloseReportDeliveryStatus
+    requested_by_task_id: str
+    parent_attempt_id: str | None

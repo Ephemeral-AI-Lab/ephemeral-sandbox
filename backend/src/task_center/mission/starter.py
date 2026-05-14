@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from task_center.mission.close_report_delivery import (
+from task_center.mission.close_report_router import (
     MissionClosureReportRouter,
 )
 from task_center.mission.handler import MissionHandler
