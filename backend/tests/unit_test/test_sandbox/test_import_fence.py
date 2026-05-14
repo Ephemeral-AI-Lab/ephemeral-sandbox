@@ -183,7 +183,11 @@ def test_removed_api_compatibility_modules_stay_absent() -> None:
         try:
             importlib.import_module(module)
         except ModuleNotFoundError as exc:
-            assert exc.name == module
+            # exc.name may be the leaf (the parent package still exists as a
+            # namespace) or an ancestor (the parent dir was also removed in
+            # the sandbox-reframe W0 skeleton purge). Both are valid "module
+            # is absent" outcomes.
+            assert exc.name == module or module.startswith(f"{exc.name}.")
         else:
             raise AssertionError(f"{module} should not be importable")
 
