@@ -86,7 +86,6 @@ def drop_backend_cache(layer_stack_root: str) -> None:
     root = str(layer_stack_root or "").strip()
     if not root:
         return
-    _BACKEND_CACHE.pop(root, None)
     _BACKEND_CACHE.pop(str(Path(root).resolve(strict=False)), None)
 
 
