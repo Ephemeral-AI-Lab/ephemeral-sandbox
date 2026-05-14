@@ -61,32 +61,14 @@ class TaskCenterStores:
     task_store: TaskStoreProtocol
 
 
-class PlannerCtx(Protocol):
-    """Dependencies for the planner-stage of an :class:`AttemptOrchestrator`.
+class AttemptStageCtx(Protocol):
+    """Dependencies for any attempt-stage actor (planner + generator-DAG dispatch).
 
-    Reads the attempt + episode + mission rows, writes the planner task
-    + attempt rows, and dispatches the launch through the agent launcher
-    + composer.
-    """
-
-    mission_store: MissionStoreProtocol
-    episode_store: EpisodeStoreProtocol
-    attempt_store: AttemptStoreProtocol
-    task_store: TaskStoreProtocol
-    agent_launcher: AttemptAgentLauncher
-    orchestrator_registry: AttemptOrchestratorRegistry
-
-    def run_id_for_attempt(self, attempt: Attempt) -> str: ...
-
-    def require_composer(self) -> ContextComposer: ...
-
-
-class GeneratorCtx(Protocol):
-    """Dependencies for generator-DAG dispatch (``AttemptDispatcher``).
-
-    Same surface as :class:`PlannerCtx` plus audit sink for task-readiness
-    events; the dispatcher reads the attempt + tasks, advances generator
-    tasks, and dispatches launches.
+    Both planner-stage orchestration and generator-DAG dispatch read the
+    attempt/episode/mission rows, write task + attempt rows, and dispatch
+    launches through the agent launcher + composer. The original
+    PlannerCtx + GeneratorCtx Protocols had identical surfaces (lever #9
+    collapsed them).
     """
 
     mission_store: MissionStoreProtocol
@@ -102,12 +84,7 @@ class GeneratorCtx(Protocol):
 
 
 class EpisodeLifecycleCtx(Protocol):
-    """Dependencies for :class:`EpisodeManager` and the episode-closure router.
-
-    Episodes orchestrate retries (attempt creation + closure tracking) and
-    need both the stores and access to the orchestrator factory through
-    the runtime; the registry handles fan-out.
-    """
+    """Dependencies for :class:`EpisodeManager` and the episode-closure router."""
 
     mission_store: MissionStoreProtocol
     episode_store: EpisodeStoreProtocol
@@ -118,21 +95,12 @@ class EpisodeLifecycleCtx(Protocol):
     lifecycle_config: TaskCenterLifecycleConfig
 
 
-class MissionLifecycleCtx(Protocol):
-    """Dependencies for :class:`MissionStarter` and friends.
+class MissionLifecycleCtx(EpisodeLifecycleCtx, Protocol):
+    """Dependencies for :class:`MissionStarter`.
 
-    Mission-boundary code needs the stores, both registries, the
-    lifecycle target lookup (for entry-vs-attempt branching), and the
-    configurable budget knobs.
+    Adds ``lifecycle_target_for`` to the episode-lifecycle slice
+    (for entry-vs-attempt branching).
     """
-
-    mission_store: MissionStoreProtocol
-    episode_store: EpisodeStoreProtocol
-    attempt_store: AttemptStoreProtocol
-    task_store: TaskStoreProtocol
-    orchestrator_registry: AttemptOrchestratorRegistry
-    manager_registry: EpisodeManagerRegistry | None
-    lifecycle_config: TaskCenterLifecycleConfig
 
     def lifecycle_target_for(
         self, *, task_id: str, attempt_id: str | None
@@ -151,10 +119,9 @@ class LaunchCtx(Protocol):
 
 
 __all__ = [
+    "AttemptStageCtx",
     "EpisodeLifecycleCtx",
-    "GeneratorCtx",
     "LaunchCtx",
     "MissionLifecycleCtx",
-    "PlannerCtx",
     "TaskCenterStores",
 ]

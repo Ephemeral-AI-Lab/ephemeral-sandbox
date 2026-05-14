@@ -77,7 +77,7 @@ class AttemptDeps:
         only persistence.
 
         See :mod:`task_center.contexts` for the broader role-narrow
-        Protocol palette (:class:`PlannerCtx`, :class:`GeneratorCtx`,
+        Protocol palette (:class:`AttemptStageCtx`,
         :class:`EpisodeLifecycleCtx`, :class:`MissionLifecycleCtx`,
         :class:`LaunchCtx`).
         """
