@@ -26,7 +26,6 @@ _EXPECTED_API_ROOT_ENTRIES = {
     "__init__.py",
     "_control.py",
     "_impl",
-    "default.py",
     "protocol.py",
     "timeouts.py",
     "transport.py",

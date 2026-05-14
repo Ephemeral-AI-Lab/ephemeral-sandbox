@@ -3,25 +3,12 @@
 from __future__ import annotations
 
 from audit.base import AuditSink
+from sandbox.api._impl._audit import audited_operation
 from sandbox.api._impl._results import read_result_from_payload
-from sandbox.api._impl._run_verb import _VerbSpec, _run_verb
 from sandbox.api.protocol import SandboxTransport
 from sandbox.api.timeouts import READ_FILE_TIMEOUT_S
-from sandbox.api.transport import DAEMON_OP_READ_FILE
+from sandbox.api.transport import DAEMON_OP_READ_FILE, DaemonSandboxTransport
 from sandbox.models import ReadFileRequest, ReadFileResult
-
-
-_SPEC = _VerbSpec(
-    operation="read_file",
-    daemon_op=DAEMON_OP_READ_FILE,
-    timeout_s=READ_FILE_TIMEOUT_S,
-    payload_builder=lambda req: {
-        "path": req.path,
-        "caller": req.caller.audit_fields(),
-    },
-    audit_payload_builder=lambda req: {"path": req.path},
-    result_decoder=read_result_from_payload,
-)
 
 
 async def read_file(
@@ -32,8 +19,24 @@ async def read_file(
     transport: SandboxTransport | None = None,
 ) -> ReadFileResult:
     """Read one UTF-8 text file through the sandbox daemon."""
-    return await _run_verb(
-        _SPEC, sandbox_id, request, audit_sink=audit_sink, transport=transport
+    selected_transport = transport or DaemonSandboxTransport()
+
+    async def _call() -> ReadFileResult:
+        raw = await selected_transport.call(
+            sandbox_id,
+            DAEMON_OP_READ_FILE,
+            {"path": request.path, "caller": request.caller.audit_fields()},
+            timeout=READ_FILE_TIMEOUT_S,
+        )
+        return read_result_from_payload(raw)
+
+    return await audited_operation(
+        audit_sink=audit_sink,
+        sandbox_id=sandbox_id,
+        operation="read_file",
+        caller=request.caller,
+        payload={"path": request.path},
+        call=_call,
     )
 
 

@@ -3,33 +3,12 @@
 from __future__ import annotations
 
 from audit.base import AuditSink
-from sandbox.api._impl._results import write_result_from_payload
-from sandbox.api._impl._run_verb import _VerbSpec, _run_verb
+from sandbox.api._impl._audit import audited_operation
+from sandbox.api._impl._results import guarded_result_from_payload
 from sandbox.api.protocol import SandboxTransport
 from sandbox.api.timeouts import WRITE_FILE_TIMEOUT_S
-from sandbox.api.transport import DAEMON_OP_WRITE_FILE
+from sandbox.api.transport import DAEMON_OP_WRITE_FILE, DaemonSandboxTransport
 from sandbox.models import WriteFileRequest, WriteFileResult
-
-
-def _write_payload(request: WriteFileRequest) -> dict[str, object]:
-    return {
-        "path": request.path,
-        "content": request.content,
-        "actor_id": request.caller.agent_id,
-        "caller": request.caller.audit_fields(),
-        "description": request.default_description(f"write {request.path}"),
-        "overwrite": request.overwrite,
-    }
-
-
-_SPEC = _VerbSpec(
-    operation="write_file",
-    daemon_op=DAEMON_OP_WRITE_FILE,
-    timeout_s=WRITE_FILE_TIMEOUT_S,
-    payload_builder=_write_payload,
-    audit_payload_builder=lambda req: {"path": req.path},
-    result_decoder=write_result_from_payload,
-)
 
 
 async def write_file(
@@ -40,8 +19,31 @@ async def write_file(
     transport: SandboxTransport | None = None,
 ) -> WriteFileResult:
     """Write one UTF-8 file through sandbox-local OCC."""
-    return await _run_verb(
-        _SPEC, sandbox_id, request, audit_sink=audit_sink, transport=transport
+    selected_transport = transport or DaemonSandboxTransport()
+
+    async def _call() -> WriteFileResult:
+        raw = await selected_transport.call(
+            sandbox_id,
+            DAEMON_OP_WRITE_FILE,
+            {
+                "path": request.path,
+                "content": request.content,
+                "actor_id": request.caller.agent_id,
+                "caller": request.caller.audit_fields(),
+                "description": request.default_description(f"write {request.path}"),
+                "overwrite": request.overwrite,
+            },
+            timeout=WRITE_FILE_TIMEOUT_S,
+        )
+        return guarded_result_from_payload(WriteFileResult, raw)
+
+    return await audited_operation(
+        audit_sink=audit_sink,
+        sandbox_id=sandbox_id,
+        operation="write_file",
+        caller=request.caller,
+        payload={"path": request.path},
+        call=_call,
     )
 
 

@@ -60,18 +60,6 @@ def guarded_result_from_payload(
     )
 
 
-def write_result_from_payload(raw: Mapping[str, object]) -> WriteFileResult:
-    return guarded_result_from_payload(WriteFileResult, raw)
-
-
-def edit_result_from_payload(raw: Mapping[str, object]) -> EditFileResult:
-    return guarded_result_from_payload(
-        EditFileResult,
-        raw,
-        applied_edits=int_from_payload(raw.get("applied_edits"), default=0),
-    )
-
-
 def shell_result_from_payload(
     raw: Mapping[str, object],
     *,
@@ -141,11 +129,9 @@ def shell_error_result(
 
 __all__ = [
     "edit_conflict_result",
-    "edit_result_from_payload",
     "guarded_result_from_payload",
     "read_result_from_payload",
     "shell_conflict_result",
     "shell_error_result",
     "shell_result_from_payload",
-    "write_result_from_payload",
 ]
