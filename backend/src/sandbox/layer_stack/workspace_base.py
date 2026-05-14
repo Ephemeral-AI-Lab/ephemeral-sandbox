@@ -19,15 +19,14 @@ from sandbox.layer_stack.manifest import (
     read_manifest,
     write_manifest_atomic,
 )
-from sandbox.layer_stack.workspace.binding import (
+from sandbox.layer_stack.workspace_binding import (
     WorkspaceBinding,
     WorkspaceBindingError,
     read_workspace_binding,
     validate_workspace_binding_paths,
     write_workspace_binding_atomic,
 )
-from sandbox.timing import monotonic_now
-from sandbox.timing import record_elapsed
+from sandbox.timing import monotonic_now, record_elapsed
 
 WORKSPACE_BASE_LAYER_ID = "B000001-base"
 
@@ -94,10 +93,7 @@ def build_workspace_base(
     """
     workspace = Path(workspace_root)
     stack = Path(layer_stack_root)
-    validate_workspace_binding_paths(
-        workspace_root=workspace,
-        layer_stack_root=stack,
-    )
+    validate_workspace_binding_paths(workspace_root=workspace, layer_stack_root=stack)
     if not workspace.is_dir():
         raise WorkspaceBindingError(f"workspace_root does not exist: {workspace}")
 
@@ -123,11 +119,7 @@ def build_workspace_base(
     write_layer_start = monotonic_now()
     layer_ref = _write_base_layer(stack, entries)
     _write_base_digest_sidecar(stack, layer_ref.layer_id, root_hash)
-    record_elapsed(
-        timings,
-        "workspace_base.write_layer_s",
-        write_layer_start,
-    )
+    record_elapsed(timings, "workspace_base.write_layer_s", write_layer_start)
     rescan_start = monotonic_now()
     try:
         _assert_workspace_quiescent(
@@ -142,11 +134,7 @@ def build_workspace_base(
     manifest = Manifest(version=1, layers=(layer_ref,))
     write_manifest_start = monotonic_now()
     write_manifest_atomic(manifest_path(stack), manifest)
-    record_elapsed(
-        timings,
-        "workspace_base.write_manifest_s",
-        write_manifest_start,
-    )
+    record_elapsed(timings, "workspace_base.write_manifest_s", write_manifest_start)
     binding = WorkspaceBinding(
         workspace_root=workspace.as_posix(),
         layer_stack_root=stack.as_posix(),
@@ -157,11 +145,7 @@ def build_workspace_base(
     )
     write_binding_start = monotonic_now()
     write_workspace_binding_atomic(binding)
-    record_elapsed(
-        timings,
-        "workspace_base.write_binding_s",
-        write_binding_start,
-    )
+    record_elapsed(timings, "workspace_base.write_binding_s", write_binding_start)
     return binding
 
 
@@ -188,19 +172,13 @@ def _reject_existing_base_state(stack: Path) -> None:
         )
 
 
-def _collect_base_entries(
-    workspace: Path,
-) -> tuple[tuple[_BaseEntry, ...], str]:
+def _collect_base_entries(workspace: Path) -> tuple[tuple[_BaseEntry, ...], str]:
     special: list[str] = []
     unstable: list[str] = []
     entries: list[_BaseEntry] = []
     digest = hashlib.sha256()
 
-    for current_root, dirnames, filenames in os.walk(
-        workspace,
-        topdown=True,
-        followlinks=False,
-    ):
+    for current_root, dirnames, filenames in os.walk(workspace, topdown=True, followlinks=False):
         current = Path(current_root)
         dirnames.sort()
         filenames.sort()
@@ -210,11 +188,7 @@ def _collect_base_entries(
             path = current / dirname
             rel = _relative(workspace, path)
             if path.is_symlink():
-                entry = _symlink_entry(
-                    path=path,
-                    rel=rel,
-                )
-                entries.append(entry)
+                entries.append(_symlink_entry(path=path, rel=rel))
                 continue
             entries.append(_DirectoryEntry(path=rel))
             kept_dirs.append(dirname)
@@ -224,11 +198,7 @@ def _collect_base_entries(
             path = current / filename
             rel = _relative(workspace, path)
             if path.is_symlink():
-                entry = _symlink_entry(
-                    path=path,
-                    rel=rel,
-                )
-                entries.append(entry)
+                entries.append(_symlink_entry(path=path, rel=rel))
                 continue
             try:
                 stat = path.lstat()
@@ -248,12 +218,7 @@ def _collect_base_entries(
                 special.append(rel)
                 continue
             entries.append(
-                _FileEntry(
-                    path=rel,
-                    source_path=path,
-                    size=size,
-                    content_hash=content_hash,
-                )
+                _FileEntry(path=rel, source_path=path, size=size, content_hash=content_hash)
             )
 
     if special or unstable:
@@ -285,19 +250,12 @@ def _assert_workspace_quiescent(
     )
 
 
-def _symlink_entry(
-    *,
-    path: Path,
-    rel: str,
-) -> _BaseEntry:
+def _symlink_entry(*, path: Path, rel: str) -> _BaseEntry:
     target = os.readlink(path)
-    # WR-05: trusted-workspace assumption is preserved (the workspace is
-    # populated by the host before base-build runs), but reject obviously
-    # unsafe targets so a clone of an untrusted third-party repo carrying
-    # a malicious symlink does NOT end up in the published base layer.
-    # Absolute targets (escape into host fs) and relative targets that
-    # walk out of the workspace are rejected as "incomplete" so the
-    # caller can decide what to do.
+    # WR-05: reject obviously unsafe symlink targets so a clone of an
+    # untrusted third-party repo carrying a malicious symlink does NOT
+    # end up in the published base layer. Absolute targets and relative
+    # targets that walk out of the workspace are rejected as "incomplete".
     if target.startswith("/") or relative_symlink_target_escapes(target):
         raise WorkspaceBaseIncompleteError(
             special_file_rejections=(rel,),
@@ -306,10 +264,7 @@ def _symlink_entry(
     return _SymlinkEntry(path=rel, link_target=target)
 
 
-def _write_base_layer(
-    stack: Path,
-    entries: tuple[_BaseEntry, ...],
-) -> LayerRef:
+def _write_base_layer(stack: Path, entries: tuple[_BaseEntry, ...]) -> LayerRef:
     layer_id = WORKSPACE_BASE_LAYER_ID
     layer_dir = stack / LAYERS_DIR / layer_id
     staging_dir = stack / STAGING_DIR / f"{layer_id}.staging"
@@ -357,11 +312,7 @@ def _write_base_digest_sidecar(stack: Path, layer_id: str, root_hash: str) -> No
     metadata_dir = stack / _BASE_METADATA_DIR
     metadata_dir.mkdir(parents=True, exist_ok=True)
     digest_path = metadata_dir / f"{layer_id}.digest"
-    fd = os.open(
-        str(digest_path),
-        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-        0o644,
-    )
+    fd = os.open(str(digest_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
     try:
         os.write(fd, root_hash.encode("ascii") + b"\n")
         os.fsync(fd)

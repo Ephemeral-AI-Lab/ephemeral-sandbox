@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Mapping
 
-from sandbox.layer_stack.layer.change import normalize_layer_path
+from sandbox.layer_stack.layer_change import normalize_layer_path
 
 
 WORKSPACE_BINDING_FILE = "workspace.json"
@@ -74,13 +74,12 @@ class WorkspaceBinding:
             ) from exc
         return normalize_layer_path(relative.as_posix())
 
+
 def workspace_binding_path(layer_stack_root: str | Path) -> Path:
     return Path(layer_stack_root) / WORKSPACE_BINDING_FILE
 
 
-def read_workspace_binding(
-    layer_stack_root: str | Path,
-) -> WorkspaceBinding | None:
+def read_workspace_binding(layer_stack_root: str | Path) -> WorkspaceBinding | None:
     path = workspace_binding_path(layer_stack_root)
     if not path.exists():
         return None

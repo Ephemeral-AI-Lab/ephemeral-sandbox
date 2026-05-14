@@ -71,8 +71,8 @@ def has_ancestor_in(rel: str, members: frozenset[str]) -> bool:
 
 __all__ = [
     "LayerIndex",
-    "build_layer_index",
-    "has_ancestor_in",
     "OPAQUE_MARKER",
     "WHITEOUT_PREFIX",
+    "build_layer_index",
+    "has_ancestor_in",
 ]

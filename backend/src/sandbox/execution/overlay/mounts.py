@@ -17,7 +17,11 @@ from sandbox.layer_stack.manifest import Manifest
 from sandbox.layer_stack.view import MergedView
 from sandbox.timing import monotonic_now
 
-_INTERMEDIATE_RUN_DIRS: tuple[str, ...] = ("lower", "merged", "work")
+_LOWERDIR_NAME = "lower"
+_UPPERDIR_NAME = "upper"  # Load-bearing: capture refs into this tree after return.
+_WORKDIR_NAME = "work"
+_MERGED_NAME = "merged"
+_INTERMEDIATE_RUN_DIRS: tuple[str, ...] = (_LOWERDIR_NAME, _MERGED_NAME, _WORKDIR_NAME)
 
 
 @dataclass(frozen=True)
@@ -38,10 +42,10 @@ def mount_snapshot(
 ) -> OverlayMountedSnapshot:
     """Create a runtime-local merged workspace for a leased manifest."""
     run_root = Path(run_dir)
-    lowerdir = run_root / "lower"
-    upperdir = run_root / "upper"
-    workdir = run_root / "work"
-    merged = run_root / "merged"
+    lowerdir = run_root / _LOWERDIR_NAME
+    upperdir = run_root / _UPPERDIR_NAME
+    workdir = run_root / _WORKDIR_NAME
+    merged = run_root / _MERGED_NAME
     if timings is None:
         timings = {}
 
@@ -57,7 +61,7 @@ def mount_snapshot(
     timings["overlay.mount.materialize_lower_s"] = monotonic_now() - materialize_start
 
     copy_start = monotonic_now()
-    _copy_tree(lowerdir, merged)
+    shutil.copytree(lowerdir, merged, symlinks=True, dirs_exist_ok=True)
     timings["overlay.mount.copy_lower_to_merged_s"] = monotonic_now() - copy_start
     return OverlayMountedSnapshot(
         manifest=manifest,
@@ -73,22 +77,6 @@ def cleanup_runtime_run_dir(run_dir: str | Path) -> None:
     run_root = Path(run_dir)
     for name in _INTERMEDIATE_RUN_DIRS:
         shutil.rmtree(run_root / name, ignore_errors=True)
-
-
-def _copy_tree(source: Path, destination: Path) -> None:
-    # ``destination`` is pre-created next to upper/work dirs, so copy each root
-    # entry while preserving top-level symlinks and recursively preserving
-    # symlinks below directories.
-    for entry in source.iterdir():
-        target = destination / entry.name
-        if entry.is_symlink():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.symlink_to(entry.readlink())
-        elif entry.is_dir():
-            shutil.copytree(entry, target, symlinks=True)
-        elif entry.is_file():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(entry, target)
 
 
 __all__ = [

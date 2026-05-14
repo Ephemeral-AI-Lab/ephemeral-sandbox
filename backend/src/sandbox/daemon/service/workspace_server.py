@@ -12,8 +12,8 @@ from sandbox.layer_stack.manager import (
     PrepareWorkspaceSnapshotResult,
 )
 from sandbox.layer_stack.manifest import manifest_path, read_manifest
-from sandbox.layer_stack.workspace.base import build_workspace_base
-from sandbox.layer_stack.workspace.binding import (
+from sandbox.layer_stack.workspace_base import build_workspace_base
+from sandbox.layer_stack.workspace_binding import (
     WorkspaceBinding,
     WorkspaceBindingError,
     read_workspace_binding,

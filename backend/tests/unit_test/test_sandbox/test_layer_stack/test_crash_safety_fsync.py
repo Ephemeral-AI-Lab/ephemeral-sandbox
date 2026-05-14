@@ -14,18 +14,18 @@ from pathlib import Path
 
 import pytest
 
-import sandbox.layer_stack.layer.publisher as publisher_mod
-import sandbox.layer_stack.manifest.store as manifest_store_mod
-import sandbox.layer_stack.workspace.base as workspace_base_mod
-import sandbox.layer_stack.workspace.binding as binding_mod
+import sandbox.layer_stack.layer_publisher as publisher_mod
+import sandbox.layer_stack.manifest as manifest_store_mod
+import sandbox.layer_stack.workspace_base as workspace_base_mod
+import sandbox.layer_stack.workspace_binding as binding_mod
 from sandbox.layer_stack import WriteLayerChange, LayerStackManager
 from sandbox.layer_stack.manifest import (
     LayerRef,
     Manifest,
     write_manifest_atomic,
 )
-from sandbox.layer_stack.workspace.base import build_workspace_base
-from sandbox.layer_stack.workspace.binding import (
+from sandbox.layer_stack.workspace_base import build_workspace_base
+from sandbox.layer_stack.workspace_binding import (
     WorkspaceBinding,
     write_workspace_binding_atomic,
 )

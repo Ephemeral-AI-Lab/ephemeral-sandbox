@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast
 
-from sandbox.layer_stack.layer.change import (
+from sandbox.layer_stack.layer_change import (
     DeleteLayerChange,
     LayerChange,
     LayerDelta,

@@ -13,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _FAILURE_SAFETY_BODY = r"""
-import sandbox.layer_stack.workspace.base as wb
+import sandbox.layer_stack.workspace_base as wb
 
 label = "workspace_base.import_failure_safety"
 case = "base_import_failure_safety"

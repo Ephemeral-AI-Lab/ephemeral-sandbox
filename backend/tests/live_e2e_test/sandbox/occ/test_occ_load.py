@@ -13,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
+from sandbox.layer_stack.layer_change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.types import FileStatus, WriteChange
 from sandbox.occ.changeset.builders import build_api_write_change, build_overlay_write_change

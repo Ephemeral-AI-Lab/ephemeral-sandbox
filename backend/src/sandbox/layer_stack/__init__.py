@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sandbox.layer_stack.layer.change import (
+from sandbox.layer_stack.commit import CommitStagingArea
+from sandbox.layer_stack.errors import LayerStackStorageError
+from sandbox.layer_stack.layer_change import (
     DeleteLayerChange,
     LayerChange,
     LayerDelta,
@@ -12,20 +14,18 @@ from sandbox.layer_stack.layer.change import (
     aggregate_layer_changes,
     normalize_layer_path,
 )
-from sandbox.layer_stack.commit import CommitStagingArea
-from sandbox.layer_stack.errors import LayerStackStorageError
+from sandbox.layer_stack.manager import (
+    LayerStackManager,
+    PrepareWorkspaceSnapshotResult,
+)
 from sandbox.layer_stack.manifest import (
     LayerRef,
     MANIFEST_SCHEMA_VERSION,
     Manifest,
     ManifestConflictError,
 )
-from sandbox.layer_stack.manager import (
-    LayerStackManager,
-    PrepareWorkspaceSnapshotResult,
-)
 from sandbox.layer_stack.transaction import LayerStackTransaction
-from sandbox.layer_stack.workspace import (
+from sandbox.layer_stack.workspace_binding import (
     WorkspaceBinding,
     WorkspaceBindingError,
     read_workspace_binding,
@@ -33,20 +33,20 @@ from sandbox.layer_stack.workspace import (
 )
 
 __all__ = [
+    "CommitStagingArea",
+    "DeleteLayerChange",
     "LayerChange",
     "LayerDelta",
     "LayerRef",
-    "LayerStackStorageError",
     "LayerStackManager",
+    "LayerStackStorageError",
+    "LayerStackTransaction",
     "MANIFEST_SCHEMA_VERSION",
     "Manifest",
     "ManifestConflictError",
-    "DeleteLayerChange",
-    "CommitStagingArea",
     "OpaqueDirLayerChange",
     "PrepareWorkspaceSnapshotResult",
     "SymlinkLayerChange",
-    "LayerStackTransaction",
     "WorkspaceBinding",
     "WorkspaceBindingError",
     "WriteLayerChange",

@@ -11,7 +11,7 @@ from uuid import uuid4
 import pytest
 
 from sandbox.layer_stack import WriteLayerChange, LayerStackManager
-from sandbox.layer_stack.workspace.base import build_workspace_base
+from sandbox.layer_stack.workspace_base import build_workspace_base
 from sandbox.occ.content.hashing import ContentHasher
 from sandbox.occ.changeset.types import build_api_write_change
 from sandbox.occ.changeset.prepared import CommitOptions

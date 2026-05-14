@@ -13,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 _MERGE_BODY = r"""
 import sandbox.occ.stage as merge_facade
-from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
+from sandbox.layer_stack.layer_change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import PreparedPathGroup, RouteDecision
 from sandbox.occ.changeset.types import EditChange, FileStatus, WriteChange

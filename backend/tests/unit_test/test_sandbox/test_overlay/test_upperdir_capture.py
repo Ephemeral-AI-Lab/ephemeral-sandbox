@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 import sandbox.execution.overlay.capture as upperdir_mod
-from sandbox.layer_stack.layer.index import OPAQUE_MARKER, WHITEOUT_PREFIX
+from sandbox.layer_stack.layer_index import OPAQUE_MARKER, WHITEOUT_PREFIX
 from sandbox.execution.overlay import capture_changes
 
 

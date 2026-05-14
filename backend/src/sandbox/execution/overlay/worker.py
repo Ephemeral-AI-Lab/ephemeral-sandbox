@@ -54,8 +54,15 @@ def run_user_command(
     stdout_ref: str | Path,
     stderr_ref: str | Path,
 ) -> OverlayCommandResult:
-    resolved_cwd = _validate_cwd(Path(workspace_root), cwd)
+    root = Path(workspace_root).resolve()
+    candidate = Path(cwd)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved_cwd = candidate.resolve()
+    if not resolved_cwd.is_relative_to(root):
+        raise ValueError(f"cwd escapes mounted workspace: {cwd!r}")
     resolved_cwd.mkdir(parents=True, exist_ok=True)
+
     stdout_path = Path(stdout_ref)
     stderr_path = Path(stderr_ref)
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
@@ -88,17 +95,6 @@ def run_user_command(
         stdout_ref=str(stdout_path),
         stderr_ref=str(stderr_path),
     )
-
-
-def _validate_cwd(workspace_root: Path, cwd: str) -> Path:
-    root = workspace_root.resolve()
-    candidate = Path(cwd)
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    resolved = candidate.resolve()
-    if not resolved.is_relative_to(root):
-        raise ValueError(f"cwd escapes mounted workspace: {cwd!r}")
-    return resolved
 
 
 def execute_request(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Literal, Protocol
 
-from sandbox.layer_stack.layer.change import LayerChange, LayerDelta
+from sandbox.layer_stack.layer_change import LayerChange, LayerDelta
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset.prepared import PreparedPathGroup
 from sandbox.occ.changeset.types import FileResult

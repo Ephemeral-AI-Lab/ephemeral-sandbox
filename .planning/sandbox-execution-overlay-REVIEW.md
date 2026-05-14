@@ -242,3 +242,46 @@ Net redistribution: 116 lines deleted, ~56 lines moved pipeline→worker. The `p
 - **Structural split of `capture_changes`** into kernel-upperdir vs synthetic-diff variants — would shave another ~30 LoC and clarify intent. Held back as a judgment call (touches load-bearing marker logic).
 - **L3** (`_copy_tree` → `shutil.copytree` one-liner) — needs Linux verification that `symlinks=True, dirs_exist_ok=True` preserves the same symlink semantics as the hand-rolled iterator. Held back pending live_e2e check.
 - **`OverlayCapture.snapshot_manifest: Manifest | None`** — `None` branch is unreachable; cleaning it would tighten the type. Held back as out-of-scope cosmetic.
+
+---
+
+## Round 2 (2026-05-15)
+
+Applied R2, R3, R4, R5, R6, R7, R9, R10. Skipped:
+- **R1** (private import leak) — independently resolved by parallel codex commit `d60edff3`; `_relative_target_escapes` was renamed to public `relative_symlink_target_escapes` and moved to `sandbox.layer_stack._paths`.
+- **R8** (drop `snapshot_manifest` Optional) — `test_overlay_capture_timings_are_immutable` constructs `OverlayCapture` without `snapshot_manifest`; the default is load-bearing for that test fixture.
+- **S1/S2/S3** — structural; held back as judgment calls.
+
+| File | Round 1 → Round 2 | Δ |
+|---|:---:|---:|
+| `__init__.py` | 41 → 41 | 0 |
+| `capture.py` | 290 → 278 | -12 (R9 `_marker` helper) |
+| `change.py` | 82 → 82 | 0 |
+| `mounts.py` | 98 → 86 | -12 (R4 `shutil.copytree`, R5 name constants +5) |
+| `pipeline.py` | 114 → 80 | -34 (R2 inline, R3 dead metrics) |
+| `request.py` | 66 → 66 | 0 |
+| `result.py` | 98 → 98 | 0 |
+| `runner.py` | 47 → 49 | +2 (R7 explicit None check) |
+| `worker.py` | 164 → 160 | -4 (R6 inline `_validate_cwd`) |
+| **Total** | **1000 → 940** | **-60 (-6%)** |
+
+### Verification
+- `tests/unit_test/test_sandbox/test_overlay/`: **19/19 pass** (0.30s)
+- `ruff check`: clean
+- Full sandbox suite has 3 unrelated failures from a parallel codex `layer_stack/` restructure (collapsing `manifest/_model.py`, deleting `layer/*` and `workspace/*` files) — none touch overlay code.
+
+### Notable behavior changes
+- **`overlay.invoker.queue_wait_s`, `overlay.invoker.worker_total_s`, `overlay.invoker.resume_wait_s`, `overlay.invoker.total_s` metrics removed.** They were structurally dead after round 1's `invoke` collapse (always ~0). No consumer reads them.
+- **`mounts._copy_tree` replaced with `shutil.copytree(..., symlinks=True, dirs_exist_ok=True)`.** Should be equivalent for real-directory sources (which `MergedView.materialize` always produces), but if a Linux runtime hits a corner case it'd surface here.
+
+---
+
+## Cumulative trajectory
+
+| Stage | LoC | Δ from prior | Δ from baseline |
+|---|---:|---:|---:|
+| Baseline | 1125 | — | — |
+| Round 1 | 1000 | -125 (-11%) | -125 (-11%) |
+| Round 2 | 940 | -60 (-6%) | -185 (-16.4%) |
+
+`pipeline.py` alone: 286 → 80 (**-72%**). The Wave-2 consolidation grew it; the two-round refactor shrank it back to a single-concept module.

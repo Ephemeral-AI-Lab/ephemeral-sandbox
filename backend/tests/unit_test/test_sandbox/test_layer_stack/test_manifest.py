@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack.layer.change import (
+from sandbox.layer_stack.layer_change import (
     DeleteLayerChange,
     SymlinkLayerChange,
     WriteLayerChange,

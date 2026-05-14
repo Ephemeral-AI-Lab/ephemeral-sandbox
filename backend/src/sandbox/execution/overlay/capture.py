@@ -10,8 +10,12 @@ from contextlib import suppress
 from pathlib import Path
 
 from sandbox.layer_stack._paths import relative_symlink_target_escapes
-from sandbox.layer_stack.layer.index import OPAQUE_MARKER, WHITEOUT_PREFIX
-from sandbox.execution.overlay.change import OverlayPathChange, content_hash
+from sandbox.layer_stack.layer_index import OPAQUE_MARKER, WHITEOUT_PREFIX
+from sandbox.execution.overlay.change import (
+    OverlayPathChange,
+    OverlayPathChangeKind,
+    content_hash,
+)
 from sandbox.timing import monotonic_now
 
 
@@ -161,6 +165,10 @@ def _mode_bits(path: Path) -> int:
 # Upperdir walking.
 
 
+def _marker(kind: OverlayPathChangeKind, path: str) -> OverlayPathChange:
+    return OverlayPathChange(path=path, kind=kind, content_path=None, final_hash=None)
+
+
 def _walk_upperdir(upper_root: Path) -> Iterator[OverlayPathChange]:
     emitted_opaque_dirs: set[str] = set()
     for entry in sorted(upper_root.rglob("*"), key=lambda item: item.as_posix()):
@@ -169,40 +177,20 @@ def _walk_upperdir(upper_root: Path) -> Iterator[OverlayPathChange]:
             opaque_path = rel.parent.as_posix() if rel.parent.as_posix() != "." else ""
             if opaque_path not in emitted_opaque_dirs:
                 emitted_opaque_dirs.add(opaque_path)
-                yield OverlayPathChange(
-                    path=opaque_path,
-                    kind="opaque_dir",
-                    content_path=None,
-                    final_hash=None,
-                )
+                yield _marker("opaque_dir", opaque_path)
             continue
         if _is_whiteout_marker(entry):
-            yield OverlayPathChange(
-                path=_whiteout_target(rel).as_posix(),
-                kind="delete",
-                content_path=None,
-                final_hash=None,
-            )
+            yield _marker("delete", _whiteout_target(rel).as_posix())
             continue
         if entry.is_dir():
             if _has_overlay_opaque_xattr(entry):
                 opaque_path = rel.as_posix()
                 if opaque_path not in emitted_opaque_dirs:
                     emitted_opaque_dirs.add(opaque_path)
-                    yield OverlayPathChange(
-                        path=opaque_path,
-                        kind="opaque_dir",
-                        content_path=None,
-                        final_hash=None,
-                    )
+                    yield _marker("opaque_dir", opaque_path)
             continue
         if _is_overlay_whiteout(entry):
-            yield OverlayPathChange(
-                path=rel.as_posix(),
-                kind="delete",
-                content_path=None,
-                final_hash=None,
-            )
+            yield _marker("delete", rel.as_posix())
             continue
         if entry.is_symlink():
             yield OverlayPathChange(

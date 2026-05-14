@@ -30,7 +30,7 @@ from sandbox.plugin.runtime.registry import (
     pending_plugin_registrations,
     clear_plugin_registrations,
 )
-from sandbox.layer_stack.workspace.binding import (
+from sandbox.layer_stack.workspace_binding import (
     WorkspaceBindingError,
     require_workspace_binding,
 )

@@ -10,10 +10,13 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from sandbox.layer_stack._paths import allocate_unique_layer_paths, remove_path
-from sandbox.layer_stack.layer.change import (
+from sandbox.layer_stack.layer_change import (
     LayerChange,
     PreparedLayerChange,
     aggregate_layer_changes,
+    prepare_layer_change,
+    update_digest,
+    write_layer_change,
 )
 from sandbox.layer_stack.manifest import (
     LAYERS_DIR,
@@ -25,8 +28,7 @@ from sandbox.layer_stack.manifest import (
     read_manifest,
     write_manifest_atomic,
 )
-from sandbox.timing import monotonic_now
-from sandbox.timing import record_elapsed
+from sandbox.timing import monotonic_now, record_elapsed
 
 
 class LayerPublisher:
@@ -78,35 +80,23 @@ class LayerPublisher:
 
         allocate_start = monotonic_now()
         layer_id, staging_dir, layer_dir = self._allocate_layer_paths(active.version + 1)
-        record_elapsed(
-            timings,
-            "layer_stack.publish.allocate_layer_paths_s",
-            allocate_start,
-        )
+        record_elapsed(timings, "layer_stack.publish.allocate_layer_paths_s", allocate_start)
         create_staging_start = monotonic_now()
         staging_dir.mkdir(parents=True)
         record_elapsed(timings, "layer_stack.publish.create_staging_s", create_staging_start)
         try:
             write_changes_start = monotonic_now()
             for prepared in prepared_changes:
-                prepared.change.write_to(staging_dir, prepared)
+                write_layer_change(prepared, staging_dir)
             _fsync_tree_files(staging_dir)
             _fsync_dir(staging_dir)
-            record_elapsed(
-                timings,
-                "layer_stack.publish.write_changes_s",
-                write_changes_start,
-            )
+            record_elapsed(timings, "layer_stack.publish.write_changes_s", write_changes_start)
             replace_start = monotonic_now()
             layer_dir.parent.mkdir(parents=True, exist_ok=True)
             os.replace(staging_dir, layer_dir)
             _fsync_dir(layer_dir.parent)
             _write_layer_digest(self._storage_root, layer_id, layer_digest)
-            record_elapsed(
-                timings,
-                "layer_stack.publish.replace_staging_s",
-                replace_start,
-            )
+            record_elapsed(timings, "layer_stack.publish.replace_staging_s", replace_start)
         except Exception:
             shutil.rmtree(staging_dir, ignore_errors=True)
             raise
@@ -120,11 +110,7 @@ class LayerPublisher:
         )
         read_latest_start = monotonic_now()
         latest = read_manifest(self._manifest_file)
-        record_elapsed(
-            timings,
-            "layer_stack.publish.read_latest_manifest_s",
-            read_latest_start,
-        )
+        record_elapsed(timings, "layer_stack.publish.read_latest_manifest_s", read_latest_start)
         if latest != active:
             remove_path(layer_dir)
             _digest_path(self._storage_root, layer_id).unlink(missing_ok=True)
@@ -177,8 +163,8 @@ def _prepare_changes(
     )
     prepared: list[PreparedLayerChange] = []
     for change in aggregate_layer_changes(changes).changes:
-        prepared_change = change.prepare(source_root=resolved_source_root)
-        change.update_digest(digest, prepared_change)
+        prepared_change = prepare_layer_change(change, source_root=resolved_source_root)
+        update_digest(digest, prepared_change)
         prepared.append(prepared_change)
     return tuple(prepared), digest.hexdigest()
 
@@ -237,3 +223,6 @@ def _head_layer_digest(storage_root: Path, active: Manifest) -> str | None:
         )
     except OSError:
         return None
+
+
+__all__ = ["LayerPublisher"]

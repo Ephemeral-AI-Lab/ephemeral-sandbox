@@ -21,8 +21,10 @@ class OverlaySnapshotRunner:
         invoker: OverlayInvoker | None = None,
     ) -> None:
         self._layer_stack = layer_stack
-        self._invoker = invoker or OverlayRuntimeInvoker(
-            storage_root=layer_stack.storage_root
+        self._invoker = (
+            invoker
+            if invoker is not None
+            else OverlayRuntimeInvoker(storage_root=layer_stack.storage_root)
         )
 
     async def shell(self, request: OverlayShellRequest) -> OverlayCapture:
@@ -41,7 +43,7 @@ class OverlaySnapshotRunner:
             self._layer_stack.release_lease(lease.lease_id)
             timings["overlay.lease_release_s"] = monotonic_now() - release_start
             timings["overlay.runner_total_s"] = monotonic_now() - total_start
-        return replace(capture, timings={**dict(capture.timings), **timings})
+        return replace(capture, timings={**capture.timings, **timings})
 
 
 __all__ = ["OverlaySnapshotRunner"]

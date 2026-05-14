@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-import sandbox.layer_stack.workspace.base as workspace_base_module
+import sandbox.layer_stack.workspace_base as workspace_base_module
 from sandbox.layer_stack import LayerStackManager
-from sandbox.layer_stack.workspace.base import (
+from sandbox.layer_stack.workspace_base import (
     WORKSPACE_BASE_LAYER_ID,
     WorkspaceBaseAlreadyExistsError,
     WorkspaceBaseIncompleteError,
     build_workspace_base,
 )
-from sandbox.layer_stack.workspace.binding import read_workspace_binding
+from sandbox.layer_stack.workspace_binding import read_workspace_binding
 
 
 def test_workspace_base_writes_full_manifest_binding(tmp_path: Path) -> None:

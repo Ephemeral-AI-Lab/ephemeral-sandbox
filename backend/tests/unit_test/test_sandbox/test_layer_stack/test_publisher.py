@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import sandbox.layer_stack.layer.publisher as publisher_mod
+import sandbox.layer_stack.layer_publisher as publisher_mod
 from sandbox.layer_stack import (
     WriteLayerChange,
     LayerStackManager,
@@ -21,7 +21,7 @@ from sandbox.layer_stack.manifest import (
     read_manifest,
     write_manifest_atomic,
 )
-from sandbox.layer_stack.layer.publisher import LayerPublisher
+from sandbox.layer_stack.layer_publisher import LayerPublisher
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> Path:

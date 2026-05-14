@@ -9,7 +9,7 @@ from sandbox.layer_stack import (
     WriteLayerChange,
     LayerStackManager,
 )
-from sandbox.layer_stack.layer.index import (
+from sandbox.layer_stack.layer_index import (
     OPAQUE_MARKER,
     WHITEOUT_PREFIX,
     build_layer_index,

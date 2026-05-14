@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _MERGED_VIEW_BODY = r"""
-from sandbox.layer_stack.layer.change import (
+from sandbox.layer_stack.layer_change import (
     LayerChange,
     DeleteLayerChange,
     OpaqueDirLayerChange,

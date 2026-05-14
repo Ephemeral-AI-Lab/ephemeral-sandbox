@@ -37,7 +37,7 @@ import sys
 import time
 from pathlib import Path
 
-import sandbox.layer_stack.workspace.base as wb
+import sandbox.layer_stack.workspace_base as wb
 
 workspace = Path(sys.argv[1])
 stack = Path(sys.argv[2])

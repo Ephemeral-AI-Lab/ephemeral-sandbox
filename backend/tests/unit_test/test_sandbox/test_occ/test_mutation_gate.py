@@ -60,7 +60,7 @@ async def test_cas_retry_loop_bounded_under_no_contention(tmp_path: Path) -> Non
     retry loop turning into a busy spin."""
     import asyncio
 
-    from sandbox.layer_stack.workspace.base import build_workspace_base
+    from sandbox.layer_stack.workspace_base import build_workspace_base
     from sandbox.daemon.service import occ_backend
     from sandbox.daemon.handler.tools import write
 
@@ -91,7 +91,7 @@ async def test_cas_retry_exhaustion_returns_conflict_result(tmp_path: Path) -> N
     import asyncio
 
     from sandbox.layer_stack.manifest import ManifestConflictError
-    from sandbox.layer_stack.workspace.base import build_workspace_base
+    from sandbox.layer_stack.workspace_base import build_workspace_base
     from sandbox.occ.commit_queue import MAX_OCC_CAS_RETRIES
     from sandbox.daemon.service import occ_backend
     from sandbox.daemon.handler.tools import write

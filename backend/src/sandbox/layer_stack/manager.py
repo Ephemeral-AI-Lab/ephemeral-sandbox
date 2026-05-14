@@ -19,8 +19,8 @@ from sandbox.layer_stack._paths import (
     safe_request_part,
 )
 from sandbox.layer_stack._storage_lock import acquire_storage_writer_lock
-from sandbox.layer_stack.layer.change import LayerChange
-from sandbox.layer_stack.layer.publisher import LayerPublisher
+from sandbox.layer_stack.layer_change import LayerChange
+from sandbox.layer_stack.layer_publisher import LayerPublisher
 from sandbox.layer_stack.lease import LeaseRegistry, WorkspaceLease
 from sandbox.layer_stack.maintenance import SquashService, manifest_still_ends_with
 from sandbox.layer_stack.manifest import (

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from sandbox.layer_stack.workspace.binding import require_workspace_binding
+from sandbox.layer_stack.workspace_binding import require_workspace_binding
 from sandbox.daemon.service.workspace_server import (
     LayerStackWorkspaceServer,
 )

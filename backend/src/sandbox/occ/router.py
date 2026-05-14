@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 
-from sandbox.layer_stack.layer.change import normalize_layer_path
+from sandbox.layer_stack.layer_change import normalize_layer_path
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset.prepared import (
     CommitOptions,

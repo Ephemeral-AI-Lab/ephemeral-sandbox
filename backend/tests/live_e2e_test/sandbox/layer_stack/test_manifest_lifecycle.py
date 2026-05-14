@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _LIFECYCLE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
+from sandbox.layer_stack.layer_change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manifest import LayerRef, Manifest, read_manifest, write_manifest_atomic
 from sandbox.layer_stack.manager import LayerStackManager
 
@@ -67,7 +67,7 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
+from sandbox.layer_stack.layer_change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.manifest_lifecycle_under_race"

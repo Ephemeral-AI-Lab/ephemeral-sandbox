@@ -1,17 +1,21 @@
-"""Manifest contracts for the append-only sandbox layer stack."""
+"""Manifest contracts and storage helpers for the append-only layer stack."""
 
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+import os
 from collections.abc import Mapping
-from pathlib import PurePosixPath
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
 
 from sandbox.layer_stack.errors import ManifestConflictError
 
 
 MANIFEST_SCHEMA_VERSION = 1
+ACTIVE_MANIFEST_FILE = "manifest.json"
+LAYERS_DIR = "layers"
+STAGING_DIR = "staging"
 
 
 @dataclass(frozen=True, order=True)
@@ -37,9 +41,7 @@ class LayerRef:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> LayerRef:
-        layer_id = str(payload["layer_id"])
-        path = str(payload["path"])
-        return cls(layer_id=layer_id, path=path)
+        return cls(layer_id=str(payload["layer_id"]), path=str(payload["path"]))
 
 
 @dataclass(frozen=True)
@@ -51,8 +53,7 @@ class Manifest:
     def __post_init__(self) -> None:
         if self.schema_version != MANIFEST_SCHEMA_VERSION:
             raise ManifestConflictError(
-                "unsupported manifest schema_version: "
-                f"{self.schema_version}"
+                f"unsupported manifest schema_version: {self.schema_version}"
             )
         if self.version < 0:
             raise ValueError("manifest version must be non-negative")
@@ -71,30 +72,21 @@ class Manifest:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, object]) -> Manifest:
-        # WR-04 + WR-08: require both top-level keys explicitly. The
-        # pre-fix `.get("layers", ())` would silently promote a torn write
-        # (manifest.json that lost the `layers` key) into an "empty stack,
-        # version N" Manifest, which downstream paths interpret as
-        # legitimately-empty rather than as corruption.
+        # WR-04 + WR-08: require both top-level keys explicitly so a torn
+        # write that lost the `layers` key is treated as corruption, not as
+        # a legitimately-empty manifest.
         if "version" not in payload:
-            raise ManifestConflictError(
-                "manifest payload missing required field: version"
-            )
+            raise ManifestConflictError("manifest payload missing required field: version")
         if "layers" not in payload:
-            raise ManifestConflictError(
-                "manifest payload missing required field: layers"
-            )
-        raw_schema_version = payload.get("schema_version", MANIFEST_SCHEMA_VERSION)
-        schema_version = int(raw_schema_version)
+            raise ManifestConflictError("manifest payload missing required field: layers")
+        schema_version = int(payload.get("schema_version", MANIFEST_SCHEMA_VERSION))
         if schema_version > MANIFEST_SCHEMA_VERSION:
             raise ManifestConflictError(
                 "manifest schema_version is newer than this runtime supports: "
                 f"{schema_version}"
             )
         if schema_version != MANIFEST_SCHEMA_VERSION:
-            raise ManifestConflictError(
-                f"unsupported manifest schema_version: {schema_version}"
-            )
+            raise ManifestConflictError(f"unsupported manifest schema_version: {schema_version}")
         raw_layers = payload["layers"]
         if not isinstance(raw_layers, list):
             raise ValueError("manifest layers must be a list")
@@ -119,3 +111,70 @@ def manifest_root_hash(manifest: Manifest) -> str:
     payload = {"layers": [layer.to_dict() for layer in manifest.layers]}
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def manifest_path(storage_root: str | Path) -> Path:
+    return Path(storage_root) / ACTIVE_MANIFEST_FILE
+
+
+def read_manifest(path: str | Path) -> Manifest:
+    manifest_file = Path(path)
+    if not manifest_file.exists():
+        return empty_manifest()
+    payload = json.loads(manifest_file.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("manifest payload must be an object")
+    return Manifest.from_dict(payload)
+
+
+def write_manifest_atomic(path: str | Path, manifest: Manifest) -> None:
+    manifest_file = Path(path)
+    manifest_file.parent.mkdir(parents=True, exist_ok=True)
+    tmp = manifest_file.with_name(f".{manifest_file.name}.tmp")
+    data = json.dumps(manifest.to_dict(), indent=2, sort_keys=True).encode("utf-8")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    try:
+        os.write(fd, data)
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(tmp, manifest_file)
+    dir_fd = os.open(manifest_file.parent, os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+
+
+class FileManifestStore:
+    """Filesystem-backed active manifest store."""
+
+    def __init__(self, storage_root: str | Path) -> None:
+        self._path = manifest_path(storage_root)
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+    def read(self) -> Manifest:
+        return read_manifest(self._path)
+
+    def write(self, manifest: Manifest) -> None:
+        write_manifest_atomic(self._path, manifest)
+
+
+__all__ = [
+    "ACTIVE_MANIFEST_FILE",
+    "FileManifestStore",
+    "LAYERS_DIR",
+    "LayerRef",
+    "MANIFEST_SCHEMA_VERSION",
+    "Manifest",
+    "ManifestConflictError",
+    "STAGING_DIR",
+    "empty_manifest",
+    "manifest_path",
+    "manifest_root_hash",
+    "read_manifest",
+    "write_manifest_atomic",
+]

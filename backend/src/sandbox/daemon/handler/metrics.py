@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from sandbox.layer_stack import LayerStackManager
-from sandbox.layer_stack.workspace.binding import read_workspace_binding
+from sandbox.layer_stack.workspace_binding import read_workspace_binding
 from sandbox.daemon.service import occ_backend
 
 

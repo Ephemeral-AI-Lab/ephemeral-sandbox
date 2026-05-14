@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import pytest
 
-from sandbox.layer_stack.workspace.base import build_workspace_base
+from sandbox.layer_stack.workspace_base import build_workspace_base
 from sandbox.daemon.handler import metrics
 from sandbox.daemon.handler.request_context import (
     ClassifiedPath,

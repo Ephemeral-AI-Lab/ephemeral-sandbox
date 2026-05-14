@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack.workspace.binding import (
+from sandbox.layer_stack.workspace_binding import (
     WorkspaceBinding,
     write_workspace_binding_atomic,
 )

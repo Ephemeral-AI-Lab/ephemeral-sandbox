@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
-from sandbox.layer_stack.workspace.binding import (
+from sandbox.layer_stack.workspace_binding import (
     WorkspaceBindingError,
     require_workspace_binding,
 )

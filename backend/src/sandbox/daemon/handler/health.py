@@ -12,7 +12,7 @@ from sandbox.layer_stack.manifest import (
     manifest_path,
     read_manifest,
 )
-from sandbox.layer_stack.workspace.binding import require_workspace_binding
+from sandbox.layer_stack.workspace_binding import require_workspace_binding
 from sandbox.daemon.handler import request_context
 from sandbox.daemon.service import occ_backend, shell_runner
 from sandbox.daemon.service.occ_backend import OccBackend

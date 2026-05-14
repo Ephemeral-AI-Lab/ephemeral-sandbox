@@ -13,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 _BODY = r"""
 import os
-from sandbox.layer_stack.layer.change import (
+from sandbox.layer_stack.layer_change import (
     LayerChange,
     DeleteLayerChange,
     SymlinkLayerChange,

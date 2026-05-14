@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _AGGREGATION_BODY = r"""
-from sandbox.layer_stack.layer.change import (
+from sandbox.layer_stack.layer_change import (
     LayerChange,
     DeleteLayerChange,
     WriteLayerChange,
@@ -59,7 +59,7 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.layer.change import (
+from sandbox.layer_stack.layer_change import (
     LayerChange,
     WriteLayerChange,
     aggregate_layer_changes,

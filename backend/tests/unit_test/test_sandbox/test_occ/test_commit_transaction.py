@@ -7,7 +7,7 @@ from tests.occ_change_helpers import write_change
 import asyncio
 from pathlib import Path
 
-from sandbox.layer_stack.layer.change import WriteLayerChange
+from sandbox.layer_stack.layer_change import WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import CommitOptions
 from sandbox.occ.changeset.types import ChangesetResult, FileStatus

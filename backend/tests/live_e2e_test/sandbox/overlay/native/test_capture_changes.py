@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _CAPTURE_CHANGES_BODY = r"""
-from sandbox.layer_stack.layer.index import OPAQUE_MARKER, WHITEOUT_PREFIX
+from sandbox.layer_stack.layer_index import OPAQUE_MARKER, WHITEOUT_PREFIX
 from sandbox.overlay import capture_changes
 
 label = "overlay.native.capture_changes"

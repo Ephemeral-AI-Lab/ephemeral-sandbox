@@ -9,8 +9,8 @@ import pytest
 
 from sandbox.execution.contract import ShellProcessResult
 from sandbox.layer_stack.manifest import Manifest
-from sandbox.layer_stack.workspace.base import build_workspace_base
-from sandbox.layer_stack.workspace.binding import WorkspaceBinding, write_workspace_binding_atomic
+from sandbox.layer_stack.workspace_base import build_workspace_base
+from sandbox.layer_stack.workspace_binding import WorkspaceBinding, write_workspace_binding_atomic
 from sandbox.occ.changeset.types import ChangesetResult, FileResult, FileStatus
 from sandbox.daemon.service import shell_runner
 from sandbox.daemon.service.layer_stack_client import LayerStackClient

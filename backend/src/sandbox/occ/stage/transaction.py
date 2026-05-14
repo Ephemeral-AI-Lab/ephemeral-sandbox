@@ -10,7 +10,7 @@ from types import TracebackType
 from typing import Protocol
 from uuid import uuid4
 
-from sandbox.layer_stack.layer.change import LayerChange, LayerDelta, WriteLayerChange
+from sandbox.layer_stack.layer_change import LayerChange, LayerDelta, WriteLayerChange
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset.prepared import (
     PreparedChangeset,
