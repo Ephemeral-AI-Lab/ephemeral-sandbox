@@ -20,6 +20,7 @@ the first mutation.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -1006,12 +1007,7 @@ async def _phase_f_tri_source_consistency(
         tool_read = await _read_file(ctx, stats, path=path)
         tool_stripped = _strip_line_number_prefix(tool_read)
 
-        cat = await _shell(
-            ctx,
-            stats,
-            command=f"cat {path}",
-            timeout=60,
-        )
+        cat = await _shell_cat_with_retry(ctx, stats, path=path)
         cat_stdout = _shell_stdout(cat).rstrip("\n")
         api_read = await sandbox_api.read_file(
             ctx.sandbox_id,
@@ -1034,10 +1030,32 @@ async def _phase_f_tri_source_consistency(
                 passed=passed,
                 detail=(
                     f"tool={len(tool_stripped)} cat={len(cat_stdout)} "
-                    f"api={len(api_content)}"
+                    f"api={len(api_content)} cat_exit={_shell_exit_code(cat)}"
                 ),
             )
         )
+
+
+async def _shell_cat_with_retry(
+    ctx: ProbeContext,
+    stats: ProbeStats,
+    *,
+    path: str,
+) -> ToolResult:
+    result: ToolResult | None = None
+    for attempt in range(_TRI_SOURCE_SHELL_RETRIES):
+        result = await _shell(
+            ctx,
+            stats,
+            command=f"cat {path}",
+            timeout=60,
+        )
+        if (not result.is_error) and _shell_exit_code(result) == 0:
+            return result
+        if attempt + 1 < _TRI_SOURCE_SHELL_RETRIES:
+            await asyncio.sleep(_TRI_SOURCE_SHELL_RETRY_SLEEP_S)
+    assert result is not None
+    return result
 
 
 async def _phase_f_intentional_conflicts(
@@ -1215,6 +1233,8 @@ _LSP_NAMES = (
     "lsp.query_symbols",
     "lsp.diagnostics",
 )
+_TRI_SOURCE_SHELL_RETRIES = 3
+_TRI_SOURCE_SHELL_RETRY_SLEEP_S = 0.5
 
 
 async def _write_file(

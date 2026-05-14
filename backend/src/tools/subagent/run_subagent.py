@@ -198,8 +198,7 @@ async def run_subagent(
 
     sub_meta = ExecutionMetadata()
     sub_meta["agent_type"] = "subagent"
-    if sub_def.role:
-        sub_meta["role"] = sub_def.role
+    sub_meta["role"] = sub_def.agent_kind.value
 
     def _on_spawned(agent: Any) -> None:
         # Register the live-peek provider so check_background_task_result

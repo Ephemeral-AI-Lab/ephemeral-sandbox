@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agents import load_agents_dir, load_agents_tree
+from agents import AgentKind, load_agents_dir, load_agents_tree
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[3]
@@ -40,7 +40,7 @@ def test_recursive_agent_loader_finds_harness_profiles() -> None:
     by_name = {agent.name: agent for agent in loaded}
 
     assert {"planner", "executor", "verifier", "evaluator"} <= set(by_name)
-    assert by_name["executor"].role == "executor"
+    assert by_name["executor"].agent_kind == AgentKind.EXECUTOR
     assert "request_mission_solution" in by_name["executor"].terminals
 
 

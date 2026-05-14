@@ -2,7 +2,7 @@
 name: planner_full_only
 description: Main agent planner for TaskCenter attempts (full plan only; partial plans disabled in this mission's ancestry).
 model: inherit
-role: planner
+agent_kind: planner
 agent_type: agent
 allowed_tools:
   - read_file

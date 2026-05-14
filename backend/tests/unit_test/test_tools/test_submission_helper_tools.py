@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from agents import register_definition, unregister_definition
+from agents import AgentKind
 from agents import AgentDefinition
 from engine.api import EphemeralRunResult
 from task_center.context_engine.packet import (
@@ -150,7 +151,7 @@ async def test_ask_advisor_runs_advisor_with_inherited_parent_context(
         AgentDefinition(
             name="advisor",
             description="advisor",
-            role="advisor",
+            agent_kind=AgentKind.ADVISOR,
             terminals=["submit_advisor_feedback"],
             context_recipe="advisor_v1",
         )
@@ -205,7 +206,7 @@ async def test_ask_advisor_errors_when_composer_missing() -> None:
         AgentDefinition(
             name="advisor",
             description="advisor",
-            role="advisor",
+            agent_kind=AgentKind.ADVISOR,
             terminals=["submit_advisor_feedback"],
             context_recipe="advisor_v1",
         )
@@ -237,7 +238,7 @@ async def test_ask_resolver_runs_resolver_with_inherited_parent_context(
         AgentDefinition(
             name="resolver",
             description="resolver",
-            role="resolver",
+            agent_kind=AgentKind.RESOLVER,
             terminals=["submit_resolver_result"],
             context_recipe="resolver_v1",
         )

@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from agents import get_definition
+from agents import AgentKind, get_definition
 from task_center.api import (
     PlannedGeneratorTask,
     PlannerSubmission,
@@ -80,7 +80,10 @@ def _is_generator_capable_agent(agent_name: str) -> bool:
     if agent_name in {"executor", "verifier"}:
         return True
     definition = get_definition(agent_name)
-    return definition is not None and definition.role in {"executor", "verifier"}
+    return definition is not None and definition.agent_kind in {
+        AgentKind.EXECUTOR,
+        AgentKind.VERIFIER,
+    }
 
 
 def build_planner_submission(

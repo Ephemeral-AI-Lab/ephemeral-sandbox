@@ -1,6 +1,6 @@
 """MockSquadRunner — deterministic mock agent execution for live e2e scenarios.
 
-The runner dispatches on ``agent_def.role`` (planner/executor/verifier/evaluator)
+The runner dispatches on ``agent_def.agent_kind`` (planner/executor/verifier/evaluator)
 plus ``agent_def.name == "entry_executor"`` and calls **real** submission tools
 through ``execute_tool_once``.
 """
@@ -187,7 +187,7 @@ class MockSquadRunner:
                 task_id=task_id,
                 attempt_id=attempt_id,
                 agent_name=agent_def.name,
-                role=str(agent_def.role or ""),
+                role=str(agent_def.agent_kind.value or ""),
                 prompt_preview=prompt[:500],
             )
         )
@@ -207,13 +207,13 @@ class MockSquadRunner:
         # Publish invocation event.
         if agent_def.name == "entry_executor":
             invocation_type = EventType.ENTRY_EXECUTOR_INVOKED
-        elif agent_def.role == "planner":
+        elif agent_def.agent_kind.value == "planner":
             invocation_type = EventType.PLANNER_INVOKED
-        elif agent_def.role == "executor":
+        elif agent_def.agent_kind.value == "executor":
             invocation_type = EventType.EXECUTOR_INVOKED
-        elif agent_def.role == "verifier":
+        elif agent_def.agent_kind.value == "verifier":
             invocation_type = EventType.VERIFIER_INVOKED
-        elif agent_def.role == "evaluator":
+        elif agent_def.agent_kind.value == "evaluator":
             invocation_type = EventType.EVALUATOR_INVOKED
         else:
             invocation_type = None
@@ -229,16 +229,16 @@ class MockSquadRunner:
 
         if agent_def.name == "entry_executor":
             terminal = await self._run_entry_executor(prompt, metadata, emit)
-        elif agent_def.role == "planner":
+        elif agent_def.agent_kind.value == "planner":
             terminal = await self._run_planner(metadata, emit)
-        elif agent_def.role == "executor":
+        elif agent_def.agent_kind.value == "executor":
             terminal = await self._run_executor(prompt, metadata, emit)
-        elif agent_def.role == "verifier":
+        elif agent_def.agent_kind.value == "verifier":
             terminal = await self._run_verifier(prompt, metadata, emit)
-        elif agent_def.role == "evaluator":
+        elif agent_def.agent_kind.value == "evaluator":
             terminal = await self._run_evaluator(metadata, emit)
         else:
-            raise RuntimeError(f"Unsupported mock agent role: {agent_def.role!r}")
+            raise RuntimeError(f"Unsupported mock agent role: {agent_def.agent_kind.value!r}")
 
         return EphemeralRunResult(
             status="completed",
@@ -267,7 +267,7 @@ class MockSquadRunner:
         metadata.repo_root = self._repo_dir
         metadata.cwd = str(getattr(config, "cwd", self._repo_dir) or self._repo_dir)
         metadata.exec_cwd = self._repo_dir
-        metadata["role"] = str(agent_def.role or "")
+        metadata["role"] = str(agent_def.agent_kind.value or "")
         metadata["agent_type"] = agent_def.agent_type
         metadata["run_id"] = str(metadata.task_center_run_id or "")
         metadata["task_id"] = str(metadata.task_center_task_id or "")
@@ -1174,7 +1174,7 @@ class MockSquadRunner:
         agent_def: AgentDefinition,
         metadata: ExecutionMetadata,
     ) -> PromptInspection:
-        role = str(agent_def.role or "")
+        role = str(agent_def.agent_kind.value or "")
         checks: dict[str, bool]
         reason: str
         if agent_def.name == "entry_executor":
@@ -1434,7 +1434,7 @@ class MockSquadRunner:
         attempt_id: str | None = None
         if agent_def is not None:
             agent_name = agent_def.name or None
-            agent_role = str(agent_def.role or "") or None
+            agent_role = str(agent_def.agent_kind.value or "") or None
         if metadata is not None:
             if agent_name is None:
                 agent_name = str(metadata.agent_name or "") or None

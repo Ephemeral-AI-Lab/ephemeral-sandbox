@@ -29,6 +29,12 @@ def _load_agent_files(paths: Iterable[Path]) -> list[AgentDefinition]:
         data["description"] = str(data.get("description") or f"Agent: {data['name']}")
         if body:
             data["system_prompt"] = body
+        if "agent_kind" not in data:
+            raise ValueError(
+                f"Agent profile {path} is missing required 'agent_kind:' "
+                "frontmatter field. Declare one of planner / executor / verifier / "
+                "evaluator / advisor / explorer / resolver."
+            )
         try:
             agents.append(AgentDefinition.model_validate(data))
         except ValidationError:

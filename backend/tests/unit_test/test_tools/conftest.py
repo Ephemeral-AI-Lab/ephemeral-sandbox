@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from agents import (
     AgentDefinition,
+    AgentKind,
     list_definitions,
     register_definition,
     unregister_definition,
@@ -129,7 +130,7 @@ def register_test_agents(isolated_agent_registries):
         AgentDefinition(
             name="planner",
             description="test planner",
-            role="planner",
+            agent_kind=AgentKind.PLANNER,
             context_recipe="planner_v1",
             terminals=["submit_full_plan", "submit_partial_plan"],
         )
@@ -138,7 +139,7 @@ def register_test_agents(isolated_agent_registries):
         AgentDefinition(
             name="executor",
             description="test executor",
-            role="executor",
+            agent_kind=AgentKind.EXECUTOR,
             context_recipe="generator_v1",
             terminals=[
                 "request_mission_solution",
@@ -151,7 +152,7 @@ def register_test_agents(isolated_agent_registries):
         AgentDefinition(
             name="generator",
             description="test generator",
-            role="generator",
+            agent_kind=AgentKind.EXECUTOR,
             context_recipe="generator_v1",
             terminals=["submit_execution_success", "submit_execution_failure"],
         )
@@ -160,7 +161,7 @@ def register_test_agents(isolated_agent_registries):
         AgentDefinition(
             name="verifier",
             description="test verifier",
-            role="generator",
+            agent_kind=AgentKind.EXECUTOR,
             context_recipe="generator_v1",
             terminals=["submit_verification_success", "submit_verification_failure"],
         )
@@ -169,7 +170,7 @@ def register_test_agents(isolated_agent_registries):
         AgentDefinition(
             name="evaluator",
             description="test evaluator",
-            role="evaluator",
+            agent_kind=AgentKind.EVALUATOR,
             context_recipe="evaluator_v1",
             terminals=["submit_evaluation"],
         )

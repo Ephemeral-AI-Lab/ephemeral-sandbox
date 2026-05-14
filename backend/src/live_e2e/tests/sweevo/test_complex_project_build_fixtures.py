@@ -27,6 +27,8 @@ from live_e2e.scenarios.sandbox._fixtures.scheduler_demo_data import (
     SCHEDULER_DEMO_FILES,
     SMOKE_FILE_PATHS,
 )
+from live_e2e.squad import complex_project_build_probe as complex_probe
+from live_e2e.squad import complex_project_build_shell_edit_lsp_probe as shell_lsp_probe
 from live_e2e.squad.complex_project_build_probe import (
     _compute_amp_pairs,
     _importable_dotted_names,
@@ -178,12 +180,42 @@ def test_diagnostic_probe_uses_syntax_error_payload() -> None:
 
 
 @pytest.mark.asyncio
+async def test_shell_cat_retry_recovers_transient_transport_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    async def fake_shell(*args, **kwargs):  # noqa: ANN002, ANN003
+        calls.append(kwargs["command"])
+        if len(calls) == 1:
+            return ToolResult(output="transport failed", is_error=True)
+        return ToolResult(output=json.dumps({"stdout": "ok\n", "exit_code": 0}))
+
+    monkeypatch.setattr(complex_probe, "_shell", fake_shell)
+    monkeypatch.setattr(complex_probe, "_TRI_SOURCE_SHELL_RETRY_SLEEP_S", 0)
+
+    result = await complex_probe._shell_cat_with_retry(
+        SimpleNamespace(),
+        ShellEditLspStats(),
+        path="/ephemeral-os/.gitignore",
+    )
+
+    assert calls == ["cat /ephemeral-os/.gitignore", "cat /ephemeral-os/.gitignore"]
+    assert json.loads(result.output)["stdout"] == "ok\n"
+
+
+@pytest.mark.asyncio
 async def test_broken_lsp_diagnostic_requires_at_least_one_diagnostic(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    calls: list[dict[str, object]] = []
+
     async def fake_lsp_semantic_call(*args, **kwargs):  # noqa: ANN002, ANN003
+        calls.append(kwargs["args"])
         return ToolResult(output=json.dumps({"diagnostics": []}))
 
+    monkeypatch.setattr(shell_lsp_probe, "_DIAGNOSTIC_NONBLOCKING_RETRIES", 2)
+    monkeypatch.setattr(shell_lsp_probe, "_DIAGNOSTIC_NONBLOCKING_RETRY_SLEEP_S", 0)
     monkeypatch.setattr(
         "live_e2e.squad.complex_project_build_shell_edit_lsp_probe."
         "_lsp_semantic_call",
@@ -199,9 +231,19 @@ async def test_broken_lsp_diagnostic_requires_at_least_one_diagnostic(
             label="diagnostic_probe.broken",
         )
 
+    assert calls == [
+        {
+            "file_path": "/ephemeral-os/scheduler_demo/_lsp_error_probe.py",
+            "wait_for_diagnostics": False,
+        },
+        {
+            "file_path": "/ephemeral-os/scheduler_demo/_lsp_error_probe.py",
+            "wait_for_diagnostics": False,
+        },
+    ]
 
 @pytest.mark.asyncio
-async def test_broken_lsp_diagnostic_can_skip_wait_after_first_probe(
+async def test_broken_lsp_diagnostic_always_uses_nonblocking_calls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[dict[str, object]] = []
@@ -229,7 +271,6 @@ async def test_broken_lsp_diagnostic_can_skip_wait_after_first_probe(
         ShellEditLspStats(),
         rel_path="scheduler_demo/_lsp_error_probe.py",
         expect_clean=False,
-        wait_for_diagnostics=False,
         label="diagnostic_probe.broken.fast_followup",
     )
 

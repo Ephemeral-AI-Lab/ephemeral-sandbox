@@ -8,6 +8,7 @@ It also counts only semantic LSP calls as LSP correctness checks.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from collections.abc import Sequence
@@ -82,6 +83,8 @@ _LSP_NAMES = (
 _ROUTING_RULE = "logical_edit_index % 3 == 2"
 _SUMMARY_PATH = f"{WORKSPACE_ROOT}/.metrics/summary.json"
 _DIAGNOSTIC_PROBE_PATH = f"{WORKSPACE_ROOT}/scheduler_demo/_lsp_error_probe.py"
+_DIAGNOSTIC_NONBLOCKING_RETRIES = 12
+_DIAGNOSTIC_NONBLOCKING_RETRY_SLEEP_S = 0.15
 
 
 @dataclass
@@ -409,7 +412,6 @@ async def _phase_e_diagnostic_probe(
             stats,
             rel_path="scheduler_demo/_lsp_error_probe.py",
             expect_clean=False,
-            wait_for_diagnostics=index == 0,
             label=f"diagnostic_probe.broken.{index}",
         )
     stats.diagnostic_error_detected = True
@@ -962,22 +964,32 @@ async def _assert_lsp_diagnostics(
     expect_clean: bool,
     label: str,
     expected_message: str | None = None,
-    wait_for_diagnostics: bool | None = None,
 ) -> None:
-    should_wait = (not expect_clean) if wait_for_diagnostics is None else wait_for_diagnostics
-    result = await _lsp_semantic_call(
-        ctx,
-        stats,
-        tool_obj=lsp_diagnostics_tool,
-        tool_name="lsp.diagnostics",
-        args={
-            "file_path": f"{WORKSPACE_ROOT}/{rel_path}",
-            "wait_for_diagnostics": should_wait,
-        },
-    )
-    payload = _tool_json(result)
-    diagnostics = payload.get("diagnostics") if isinstance(payload, dict) else None
-    entries = diagnostics if isinstance(diagnostics, list) else []
+    attempts = 1 if expect_clean else _DIAGNOSTIC_NONBLOCKING_RETRIES
+    result: ToolResult | None = None
+    diagnostics: object = None
+    entries: list[object] = []
+
+    for attempt in range(attempts):
+        result = await _lsp_semantic_call(
+            ctx,
+            stats,
+            tool_obj=lsp_diagnostics_tool,
+            tool_name="lsp.diagnostics",
+            args={
+                "file_path": f"{WORKSPACE_ROOT}/{rel_path}",
+                "wait_for_diagnostics": False,
+            },
+        )
+        payload = _tool_json(result)
+        diagnostics = payload.get("diagnostics") if isinstance(payload, dict) else None
+        entries = diagnostics if isinstance(diagnostics, list) else []
+        if expect_clean or result.is_error or entries:
+            break
+        if attempt + 1 < attempts:
+            await asyncio.sleep(_DIAGNOSTIC_NONBLOCKING_RETRY_SLEEP_S)
+
+    assert result is not None
     if expect_clean:
         passed = (not result.is_error) and not entries
     else:

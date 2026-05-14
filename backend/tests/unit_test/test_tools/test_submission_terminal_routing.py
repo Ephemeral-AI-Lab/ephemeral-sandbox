@@ -214,13 +214,13 @@ async def test_request_mission_solution_starts_delegated_request(
 async def test_request_mission_solution_accepts_any_generator_agent_profile(
     mission_store, episode_store, attempt_store, task_store, composer
 ) -> None:
-    from agents import AgentDefinition, register_definition
+    from agents import AgentDefinition, AgentKind, register_definition
 
     register_definition(
         AgentDefinition(
             name="custom_generator",
             description="custom generator for this test",
-            role="generator",
+            agent_kind=AgentKind.EXECUTOR,
             context_recipe="generator_v1",
             terminals=[
                 "request_mission_solution",

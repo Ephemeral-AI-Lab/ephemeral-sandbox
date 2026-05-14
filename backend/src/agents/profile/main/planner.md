@@ -2,7 +2,7 @@
 name: planner
 description: Main agent planner for TaskCenter harness graphs.
 model: inherit
-role: planner
+agent_kind: planner
 agent_type: agent
 allowed_tools:
   - read_file

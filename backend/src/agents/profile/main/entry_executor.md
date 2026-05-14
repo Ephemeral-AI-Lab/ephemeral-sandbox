@@ -2,7 +2,7 @@
 name: entry_executor
 description: Top-level entry executor — receives the user prompt and either completes the request directly or delegates a complex-task plan.
 model: inherit
-role: executor
+agent_kind: executor
 agent_type: agent
 allowed_tools:
   - read_file

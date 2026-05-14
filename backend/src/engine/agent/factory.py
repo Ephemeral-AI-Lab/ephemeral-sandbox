@@ -192,7 +192,7 @@ def _build_agent_tool_registry(
     tool_ctx = ToolFactoryContext(
         metadata={
             "agent_name": agent_name,
-            "role": agent_def.role if agent_def else "",
+            "role": agent_def.agent_kind.value if agent_def else "",
             "cwd": config.cwd,
             "sandbox_id": sandbox_id or "",
         },
@@ -343,8 +343,7 @@ def spawn_agent(
     )
     if agent_def is not None:
         initial_tool_metadata["agent_type"] = agent_def.agent_type
-        if agent_def.role:
-            initial_tool_metadata["role"] = agent_def.role
+        initial_tool_metadata["role"] = agent_def.agent_kind.value
 
     notification_rules = list(agent_def.notification_rules) if agent_def else []
     if agent_def and agent_def.notification_triggers:

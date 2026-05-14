@@ -12,6 +12,7 @@ from .definition.registry import (
 )
 from .definition.model import (
     AgentDefinition,
+    AgentKind,
     AgentSelectionBlock,
     AgentType,
     AgentVariant,
@@ -20,6 +21,7 @@ from .definition.resolved_validation import validate_agent_definitions_resolved
 
 __all__ = [
     "AgentDefinition",
+    "AgentKind",
     "AgentSelectionBlock",
     "AgentType",
     "AgentVariant",

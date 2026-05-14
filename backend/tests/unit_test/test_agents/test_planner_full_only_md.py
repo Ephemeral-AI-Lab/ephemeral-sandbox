@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agents import load_agents_dir
+from agents import AgentKind, load_agents_dir
 
 BACKEND_ROOT = Path(__file__).resolve().parents[3]
 PLANNER_DIR = BACKEND_ROOT / "src" / "agents" / "profile" / "main"
@@ -20,8 +20,8 @@ def _load_planner_pair():
 
 def test_both_planner_definitions_load():
     planner, full_only = _load_planner_pair()
-    assert planner.role == "planner"
-    assert full_only.role == "planner"
+    assert planner.agent_kind == AgentKind.PLANNER
+    assert full_only.agent_kind == AgentKind.PLANNER
 
 
 def test_full_only_terminals_exclude_partial_plan():

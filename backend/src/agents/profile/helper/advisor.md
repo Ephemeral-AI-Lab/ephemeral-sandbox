@@ -2,7 +2,7 @@
 name: advisor
 description: Blocking no-edit helper that advises before terminal submission.
 model: inherit
-role: advisor
+agent_kind: advisor
 agent_type: agent
 allowed_tools:
   - read_file

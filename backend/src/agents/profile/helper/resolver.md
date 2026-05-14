@@ -2,7 +2,7 @@
 name: resolver
 description: Blocking edit-capable helper that resolves verifier or evaluator issues.
 model: inherit
-role: resolver
+agent_kind: resolver
 agent_type: agent
 allowed_tools:
   - read_file

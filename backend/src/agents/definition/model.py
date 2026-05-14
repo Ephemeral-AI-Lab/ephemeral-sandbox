@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from enum import StrEnum
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import (
@@ -13,6 +14,26 @@ from pydantic import (
 )
 
 AgentType = Literal["agent", "subagent"]
+
+
+class AgentKind(StrEnum):
+    """Canonical category of an agent profile.
+
+    Values mirror the previous free-form ``AgentDefinition.role`` strings
+    byte-for-byte, so audit consumers reading the ``metadata["role"]`` key
+    (emitted by ``factory.py`` and ``run_subagent.py``) continue to see the
+    same string set. The four main kinds (PLANNER / EXECUTOR / VERIFIER /
+    EVALUATOR) participate in depth-gated variant routing; ADVISOR / EXPLORER
+    / RESOLVER are helper / subagent kinds that never declare ``variants:``.
+    """
+
+    PLANNER = "planner"
+    EXECUTOR = "executor"
+    VERIFIER = "verifier"
+    EVALUATOR = "evaluator"
+    ADVISOR = "advisor"
+    EXPLORER = "explorer"
+    RESOLVER = "resolver"
 
 
 # Pydantic can't accept ``notification.NotificationRule`` directly here because
@@ -87,9 +108,22 @@ class AgentDefinition(BaseModel):
     # caller's counter is untouched.
     tool_call_limit: int | None = None
 
-    # --- role metadata ---
-    # Optional freeform label for UI display and tool-factory context.
-    role: str | None = None
+    # --- agent kind ---
+    # Canonical category of this profile (planner / executor / verifier /
+    # evaluator / advisor / explorer / resolver). Routing predicates and the
+    # planner submission gate read this; audit consumers read the same set of
+    # strings via ``agent_kind.value`` through the ``metadata["role"]`` key
+    # emitted by ``factory.py`` and ``run_subagent.py``. Profile MDs MUST
+    # declare ``agent_kind:`` in frontmatter — the loader rejects MDs that
+    # omit it. The Pydantic default exists only so test fixtures that build
+    # ``AgentDefinition`` directly stay terse; production agents always go
+    # through the loader gate.
+    agent_kind: AgentKind = AgentKind.EXECUTOR
+    # Planner-submission gate. Only profiles explicitly flagged True may be
+    # named as ``agent_name`` in a planner submission. Defaults False so that
+    # entry_executor, helper/subagent profiles, and resolver-variant targets
+    # are never planner-submittable by accident.
+    dispatchable_by_planner: bool = False
 
     # --- agent type: regular agent or subagent (worker) ---
     agent_type: AgentType = "agent"

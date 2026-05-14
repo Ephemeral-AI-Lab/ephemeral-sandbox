@@ -2,7 +2,7 @@
 name: evaluator
 description: Main agent evaluator for graph-level acceptance.
 model: inherit
-role: evaluator
+agent_kind: evaluator
 agent_type: agent
 allowed_tools:
   - read_file
