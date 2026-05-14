@@ -1,21 +1,5 @@
-"""TaskCenter domain invariants.
-
-One module per package was three modules of ``assert_<x>(args) -> None``
-free functions with no shared protocol. Consolidating into one module
-removes the appearance-of-architecture without giving up the clear,
-imperative call sites: ``assert_mission_open(mission)`` still reads at the
-call site exactly as it did before.
-
-Invariants are grouped per domain (mission / episode / attempt) so the
-import lines remain short:
-
-    from task_center.invariants import (
-        assert_mission_open,
-        assert_attempt_stage,
-        assert_episode_has_budget,
-    )
-
-Every assertion raises :class:`TaskCenterInvariantViolation` on breach.
+"""TaskCenter domain invariants. Every assertion raises
+:class:`TaskCenterInvariantViolation` on breach.
 """
 
 from __future__ import annotations
@@ -34,9 +18,6 @@ from task_center.mission.state import Mission
 from task_center.task_state import TaskCenterTaskRole
 
 
-# ---- Mission invariants ----------------------------------------------------
-
-
 def assert_mission_open(mission: Mission) -> None:
     if not mission.is_open:
         raise TaskCenterInvariantViolation(
@@ -44,41 +25,32 @@ def assert_mission_open(mission: Mission) -> None:
         )
 
 
-def assert_episode_id_unique_in_mission(
-    mission: Mission, episode_id: str
-) -> None:
+def assert_episode_id_unique_in_mission(mission: Mission, episode_id: str) -> None:
     if episode_id in mission.episode_ids:
         raise TaskCenterInvariantViolation(
-            f"Episode {episode_id!r} already present in Mission "
-            f"{mission.id!r} episode list"
+            f"Episode {episode_id!r} already present in Mission {mission.id!r} episode list"
         )
 
 
-def assert_episode_sequence_contiguous(
-    mission: Mission, new_sequence_no: int
-) -> None:
+def assert_episode_sequence_contiguous(mission: Mission, new_sequence_no: int) -> None:
     expected = len(mission.episode_ids) + 1
     if new_sequence_no != expected:
         raise TaskCenterInvariantViolation(
-            f"Episode sequence_no must be contiguous: expected {expected}, "
-            f"got {new_sequence_no}"
+            f"Episode sequence_no must be contiguous: expected {expected}, got {new_sequence_no}"
         )
 
 
 def assert_continuation_episode_predecessor(previous: Episode) -> None:
     if previous.status != EpisodeStatus.SUCCEEDED:
         raise TaskCenterInvariantViolation(
-            f"Continuation requires predecessor episode {previous.id!r} to be "
-            f"SUCCEEDED, not {previous.status}"
+            f"Continuation requires predecessor episode {previous.id!r} to be SUCCEEDED, "
+            f"not {previous.status}"
         )
     if previous.continuation_goal is None:
         raise TaskCenterInvariantViolation(
             f"Continuation requires predecessor episode {previous.id!r} to have a "
             f"continuation_goal; none was recorded"
         )
-
-
-# ---- Episode invariants ----------------------------------------------------
 
 
 def assert_episode_open(episode: Episode) -> None:
@@ -96,27 +68,20 @@ def assert_episode_has_budget(episode: Episode) -> None:
         )
 
 
-def assert_attempt_belongs_to_episode(
-    attempt: Attempt, episode: Episode
-) -> None:
+def assert_attempt_belongs_to_episode(attempt: Attempt, episode: Episode) -> None:
     if attempt.episode_id != episode.id:
         raise TaskCenterInvariantViolation(
-            f"Attempt {attempt.id!r} (episode {attempt.episode_id!r}) "
-            f"does not belong to Episode {episode.id!r}"
+            f"Attempt {attempt.id!r} (episode {attempt.episode_id!r}) does not "
+            f"belong to Episode {episode.id!r}"
         )
 
 
-# ---- Attempt invariants ---------------------------------------------------
-
-
-def assert_attempt_sequence_contiguous(
-    episode: Episode, new_sequence_no: int
-) -> None:
+def assert_attempt_sequence_contiguous(episode: Episode, new_sequence_no: int) -> None:
     expected = len(episode.attempt_ids) + 1
     if new_sequence_no != expected:
         raise TaskCenterInvariantViolation(
-            f"Attempt attempt_sequence_no must be contiguous: expected "
-            f"{expected}, got {new_sequence_no}"
+            f"Attempt attempt_sequence_no must be contiguous: expected {expected}, "
+            f"got {new_sequence_no}"
         )
 
 
@@ -127,9 +92,7 @@ def assert_fail_reason_present_on_failure(attempt: Attempt) -> None:
         )
 
 
-def assert_attempt_stage(
-    attempt: Attempt, expected: AttemptStage
-) -> None:
+def assert_attempt_stage(attempt: Attempt, expected: AttemptStage) -> None:
     if attempt.stage != expected:
         raise TaskCenterInvariantViolation(
             f"Attempt {attempt.id!r} expected stage {expected.value!r}, "
@@ -139,15 +102,11 @@ def assert_attempt_stage(
 
 def assert_attempt_not_closed(attempt: Attempt) -> None:
     if attempt.is_closed:
-        raise TaskCenterInvariantViolation(
-            f"Attempt {attempt.id!r} is already closed"
-        )
+        raise TaskCenterInvariantViolation(f"Attempt {attempt.id!r} is already closed")
 
 
 def assert_valid_attempt_close(
-    *,
-    status: AttemptStatus,
-    fail_reason: AttemptFailReason | None,
+    *, status: AttemptStatus, fail_reason: AttemptFailReason | None
 ) -> None:
     if status == AttemptStatus.FAILED and fail_reason is None:
         raise TaskCenterInvariantViolation("Failed attempt close requires fail_reason")
@@ -157,34 +116,23 @@ def assert_valid_attempt_close(
         raise TaskCenterInvariantViolation("Cannot close attempt with running status")
 
 
-def assert_task_belongs_to_attempt(
-    task: dict[str, Any], attempt: Attempt
-) -> None:
+def assert_task_belongs_to_attempt(task: dict[str, Any], attempt: Attempt) -> None:
     if task.get("task_center_attempt_id") != attempt.id:
         raise TaskCenterInvariantViolation(
-            f"Task {task.get('id')!r} does not belong to Attempt "
-            f"{attempt.id!r}"
+            f"Task {task.get('id')!r} does not belong to Attempt {attempt.id!r}"
         )
 
 
-def assert_generator_task_for_submission(
-    task: dict[str, Any], attempt: Attempt
-) -> None:
+def assert_generator_task_for_submission(task: dict[str, Any], attempt: Attempt) -> None:
     assert_task_belongs_to_attempt(task, attempt)
     if task.get("role") != TaskCenterTaskRole.GENERATOR.value:
-        raise TaskCenterInvariantViolation(
-            f"Task {task.get('id')!r} is not a generator task"
-        )
+        raise TaskCenterInvariantViolation(f"Task {task.get('id')!r} is not a generator task")
 
 
-def assert_evaluator_task_for_submission(
-    task: dict[str, Any], attempt: Attempt
-) -> None:
+def assert_evaluator_task_for_submission(task: dict[str, Any], attempt: Attempt) -> None:
     assert_task_belongs_to_attempt(task, attempt)
     if task.get("role") != TaskCenterTaskRole.EVALUATOR.value:
-        raise TaskCenterInvariantViolation(
-            f"Task {task.get('id')!r} is not an evaluator task"
-        )
+        raise TaskCenterInvariantViolation(f"Task {task.get('id')!r} is not an evaluator task")
 
 
 __all__ = [
