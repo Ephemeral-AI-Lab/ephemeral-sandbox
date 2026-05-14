@@ -366,6 +366,10 @@ class AttemptOrchestrator:
         self._on_attempt_closed(attempt.id)
 
     def _mark_startup_failed(self, *, planner_task_id: str) -> None:
+        # Owns planner-task cleanup + registry deregistration. EpisodeManager's
+        # _close_attempt_after_startup_failure (its catch in
+        # _start_orchestrator_if_configured) owns the attempt-close in both
+        # paths — factory raises and start() raises.
         runtime = self._runtime
         runtime.orchestrator_registry.deregister(self._attempt.id)
         try:
@@ -382,20 +386,6 @@ class AttemptOrchestrator:
         except Exception:
             logger.exception(
                 "AttemptOrchestrator: startup task cleanup failed",
-            )
-
-        try:
-            attempt = runtime.attempt_store.get(self._attempt.id)
-            if attempt is not None and not attempt.is_closed:
-                runtime.attempt_store.close(
-                    attempt.id,
-                    status=AttemptStatus.FAILED,
-                    fail_reason=AttemptFailReason.STARTUP_FAILED,
-                    closed_at=datetime.now(UTC),
-                )
-        except Exception:
-            logger.exception(
-                "AttemptOrchestrator: startup attempt cleanup failed",
             )
 
     def _fresh_attempt(self) -> Attempt:
