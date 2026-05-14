@@ -59,11 +59,7 @@ _PARITY_CASES: list[tuple[str, dict[str, str], list[str]]] = [
     (
         "nested-reinclude-and-character-classes",
         {
-            ".gitignore": (
-                "build/*\n"
-                "!build/keep.txt\n"
-                "logs/[Ee]rror.[Ll][Oo][Gg]\n"
-            ),
+            ".gitignore": ("build/*\n!build/keep.txt\nlogs/[Ee]rror.[Ll][Oo][Gg]\n"),
             "pkg/.gitignore": "*.tmp\n!important.tmp\n",
         },
         [
@@ -115,8 +111,7 @@ def test_pathspec_matches_git_check_ignore(
         git_verdict = _git_is_ignored(workspace, p)
         pathspec_verdict = pathspec_oracle.is_ignored(p)
         assert pathspec_verdict == git_verdict, (
-            f"divergence on {p!r} in case {label}: "
-            f"git={git_verdict}, pathspec={pathspec_verdict}"
+            f"divergence on {p!r} in case {label}: git={git_verdict}, pathspec={pathspec_verdict}"
         )
 
 
@@ -140,7 +135,11 @@ def test_pathspec_caches_per_path_lookup(tmp_path: Path) -> None:
 
     def reader(dir_rel: str) -> str | None:
         calls.append(dir_rel)
-        gi = (Path(workspace) / dir_rel / ".gitignore") if dir_rel else (Path(workspace) / ".gitignore")
+        gi = (
+            (Path(workspace) / dir_rel / ".gitignore")
+            if dir_rel
+            else (Path(workspace) / ".gitignore")
+        )
         return gi.read_text(encoding="utf-8") if gi.is_file() else None
 
     oracle = PathspecGitignoreOracle(str(workspace), read_gitignore=reader)
@@ -159,7 +158,11 @@ def test_pathspec_via_callback_matches_disk_backend(tmp_path: Path) -> None:
     disk = PathspecGitignoreOracle(str(workspace))
 
     def reader(dir_rel: str) -> str | None:
-        gi = (Path(workspace) / dir_rel / ".gitignore") if dir_rel else (Path(workspace) / ".gitignore")
+        gi = (
+            (Path(workspace) / dir_rel / ".gitignore")
+            if dir_rel
+            else (Path(workspace) / ".gitignore")
+        )
         return gi.read_text(encoding="utf-8") if gi.is_file() else None
 
     callback = PathspecGitignoreOracle("", read_gitignore=reader)

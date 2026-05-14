@@ -8,7 +8,7 @@ from sandbox.api._impl._payload import caller_audit_fields
 from sandbox.api._impl._results import read_result_from_payload
 from sandbox.api.protocol import SandboxTransport
 from sandbox.api.timeouts import READ_FILE_TIMEOUT_S
-from sandbox.api.transport import DaemonSandboxTransport
+from sandbox.api.transport import DAEMON_OP_READ_FILE, DaemonSandboxTransport
 from sandbox.models import ReadFileRequest, ReadFileResult
 
 
@@ -25,7 +25,7 @@ async def read_file(
     async def _call() -> ReadFileResult:
         raw = await selected_transport.call(
             sandbox_id,
-            "api.read_file",
+            DAEMON_OP_READ_FILE,
             {
                 "path": request.path,
                 "caller": caller_audit_fields(request.caller),

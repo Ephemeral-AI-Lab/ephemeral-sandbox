@@ -137,7 +137,7 @@ async def test_edit_anchor_error_publishes_operation_conflict(
 
     async def fake_call_daemon_api(sandbox_id, op, args, timeout):
         del sandbox_id, args, timeout
-        if op == "api.read_file":
+        if op == "api.v1.read_file":
             return {
                 "success": True,
                 "exists": True,

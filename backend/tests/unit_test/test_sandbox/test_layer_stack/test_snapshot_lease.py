@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack import LayerChange, WriteLayerChange, LayerStackManager
+from sandbox.layer_stack import WriteLayerChange, LayerStackManager
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> str:

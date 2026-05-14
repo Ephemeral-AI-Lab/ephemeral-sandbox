@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack import LayerChange, WriteLayerChange, LayerStackManager
+from sandbox.layer_stack import WriteLayerChange, LayerStackManager
 from sandbox.layer_stack.manifest import LayerRef, Manifest, write_manifest_atomic
 from sandbox.layer_stack.maintenance.squash import SquashPlan
 

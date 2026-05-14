@@ -64,34 +64,21 @@ class MissionClosureReportRouter:
                 "on a mission."
             )
 
-        if attempt_id is None:
-            # Entry mode: parent is the top-level entry executor. Route
-            # through the runtime's EntryTaskController instead of the
-            # orchestrator registry.
-            controller = self._runtime.entry_task_controller_for(
-                report.requested_by_task_id
+        target = self._runtime.lifecycle_target_for(
+            task_id=report.requested_by_task_id, attempt_id=attempt_id
+        )
+        if target is None:
+            kind = (
+                "entry controller"
+                if attempt_id is None
+                else f"AttemptOrchestrator for attempt {attempt_id!r}"
             )
-            if controller is None:
-                raise TaskCenterInvariantViolation(
-                    f"TaskCenter task {report.requested_by_task_id!r} is "
-                    "entry-mode but no entry controller is bound to it; "
-                    "close-report delivery cannot proceed."
-                )
-            controller.apply_mission_closure_report(report)
-            return CloseReportDeliveryResult(
-                status="delivered",
-                requested_by_task_id=report.requested_by_task_id,
-                parent_attempt_id=None,
-            )
-
-        orchestrator = self._runtime.orchestrator_registry.get(attempt_id)
-        if orchestrator is None:
             raise TaskCenterInvariantViolation(
-                f"Parent AttemptOrchestrator for attempt {attempt_id!r} is "
-                "not registered; close-report delivery requires an active "
-                "parent orchestrator."
+                f"TaskCenter task {report.requested_by_task_id!r}: "
+                f"{kind} is not registered; close-report delivery cannot "
+                "proceed."
             )
-        orchestrator.apply_mission_closure_report(report)
+        target.apply_mission_closure_report(report)
         return CloseReportDeliveryResult(
             status="delivered",
             requested_by_task_id=report.requested_by_task_id,

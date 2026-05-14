@@ -15,14 +15,23 @@ from sandbox.api import (
     ReadFileResult,
     SandboxClient,
     SandboxCaller,
+    SandboxRequestBase,
     ShellResult,
+    ShellRequest,
+    WriteFileRequest,
     WriteFileResult,
 )
 
 _API_ROOT = Path(sandbox_api.__file__).parent
 _EXPECTED_API_ROOT_ENTRIES = {
     "__init__.py",
+    "_impl",
+    "default.py",
+    "defaults.py",
+    "discovery.py",
     "facade.py",
+    "lifecycle.py",
+    "preview_urls.py",
     "protocol.py",
     "status.py",
     "timeouts.py",
@@ -31,45 +40,32 @@ _EXPECTED_API_ROOT_ENTRIES = {
 }
 _MODEL_ONLY_MODULES = {
     "__init__.py",
+    "_impl/__init__.py",
     "tool/__init__.py",
 }
 _PUBLIC_VERB_IMPORT_ALLOWLIST = {
-    "tool/read.py": {
+    "_impl/read.py": {
         "audit.base",
-        "sandbox.audit.operation",
-        "sandbox.api.protocol",
-        "sandbox.api.timeouts",
-        "sandbox.api.tool._payload",
-        "sandbox.api.transport",
         "sandbox.models",
     },
-    "tool/write.py": {
+    "_impl/write.py": {
         "audit.base",
-        "sandbox.audit.operation",
-        "sandbox.api.protocol",
-        "sandbox.api.timeouts",
-        "sandbox.api.tool._payload",
-        "sandbox.api.transport",
         "sandbox.models",
     },
-    "tool/edit.py": {
+    "_impl/edit.py": {
         "audit.base",
-        "sandbox.audit.operation",
-        "sandbox.api.protocol",
-        "sandbox.api.timeouts",
-        "sandbox.api.tool._payload",
-        "sandbox.api.transport",
         "sandbox.models",
     },
-    "tool/shell.py": {
+    "_impl/shell.py": {
         "audit.base",
         "sandbox.audit.operation",
-        "sandbox.api.protocol",
-        "sandbox.api.timeouts",
-        "sandbox.api.tool._payload",
-        "sandbox.api.transport",
         "sandbox.models",
         "sandbox.timing",
+    },
+    "_impl/raw_exec.py": {
+        "audit.base",
+        "sandbox.models",
+        "sandbox.provider.registry",
     },
     "status.py": {
         "sandbox.host.bootstrap",
@@ -107,10 +103,10 @@ def test_api_root_keeps_public_surface_grouped_by_role() -> None:
     } == _EXPECTED_API_ROOT_ENTRIES
 
 
-def test_api_package_is_the_facade_without_nested_api_object() -> None:
-    assert isinstance(sandbox_api._client, SandboxClient)
-    assert sandbox_api.create_sandbox == sandbox_api._client.create_sandbox
-    assert sandbox_api.read_file == sandbox_api._client.read_file
+def test_api_package_uses_replaceable_default_client_wrappers() -> None:
+    assert isinstance(sandbox_api.default_client(), SandboxClient)
+    assert sandbox_api.read_file != sandbox_api.default_client().read_file
+    assert not hasattr(sandbox_api, "_client")
     assert not hasattr(sandbox_api, "api")
 
 
@@ -119,6 +115,7 @@ def test_api_package_is_the_facade_without_nested_api_object() -> None:
     sorted(
             [
                 *_API_ROOT.glob("*.py"),
+                *(_API_ROOT / "_impl").glob("*.py"),
                 *(_API_ROOT / "tool").glob("*.py"),
             ]
         ),
@@ -163,6 +160,23 @@ def test_sandbox_caller_defaults_and_immutability() -> None:
         caller.agent_id = "b"  # type: ignore[misc]
 
 
+def test_request_models_share_audit_request_base() -> None:
+    request = WriteFileRequest(
+        path="a.py",
+        content="x",
+        caller=SandboxCaller(agent_id="worker-1"),
+    )
+    assert isinstance(request, SandboxRequestBase)
+    assert request.default_description("write a.py") == "write a.py"
+
+    described = ShellRequest(
+        command="pwd",
+        caller=SandboxCaller(agent_id="worker-1"),
+        description="custom shell",
+    )
+    assert described.default_description("shell") == "custom shell"
+
+
 def test_result_hierarchy_exposes_conflict_only_on_guarded_results() -> None:
     assert not hasattr(ReadFileResult(content="x"), "conflict")
     assert not hasattr(RawExecResult(exit_code=0, stdout="x"), "conflict")
@@ -181,6 +195,18 @@ def test_result_hierarchy_exposes_conflict_only_on_guarded_results() -> None:
     ):
         assert result.conflict is conflict
         assert result.conflict_reason == "base_mismatch"
+
+
+def test_conflict_info_factories_name_common_guarded_conflicts() -> None:
+    rejected = ConflictInfo.rejected(message="blocked")
+    assert rejected.reason == "rejected"
+    assert rejected.conflict_file is None
+    assert rejected.message == "blocked"
+
+    overlap = ConflictInfo.overlap(path="a.py", message="anchor not found")
+    assert overlap.reason == "aborted_overlap"
+    assert overlap.conflict_file == "a.py"
+    assert overlap.message == "anchor not found"
 
 
 def test_sandbox_toolkit_keeps_shared_mutation_tool_result() -> None:

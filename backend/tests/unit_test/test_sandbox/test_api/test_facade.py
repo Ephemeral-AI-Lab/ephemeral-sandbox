@@ -29,7 +29,7 @@ async def test_tool_methods_delegate_to_backing_modules(
 
     async def fake_transport_call(sandbox_id, op, args, timeout):
         del sandbox_id, args, timeout
-        if op == "api.shell":
+        if op == "api.v1.shell":
             return {
                 "success": True,
                 "exit_code": 0,
@@ -42,7 +42,7 @@ async def test_tool_methods_delegate_to_backing_modules(
                 "warnings": [],
                 "timings": {},
             }
-        if op == "api.read_file":
+        if op == "api.v1.read_file":
             return {
                 "success": True,
                 "exists": True,
@@ -50,7 +50,7 @@ async def test_tool_methods_delegate_to_backing_modules(
                 "encoding": "utf-8",
                 "timings": {},
             }
-        if op == "api.write_file":
+        if op == "api.v1.write_file":
             return {
                 "success": True,
                 "changed_paths": ["a.py"],
@@ -59,7 +59,7 @@ async def test_tool_methods_delegate_to_backing_modules(
                 "conflict_reason": None,
                 "timings": {},
             }
-        if op == "api.edit_file":
+        if op == "api.v1.edit_file":
             return {
                 "success": True,
                 "changed_paths": ["a.py"],
@@ -90,10 +90,11 @@ async def test_tool_methods_delegate_to_backing_modules(
         (("sb-1", "pwd"), {"cwd": "/ws", "timeout": 5, "audit_sink": None}),
     ]
     assert [call[1] for call in transport.calls] == [
-        "api.shell",
-        "api.read_file",
-        "api.write_file",
-        "api.edit_file",
+        "api.v1.shell",
+        "api.v1.read_file",
+        "api.v1.read_file",
+        "api.v1.write_file",
+        "api.v1.edit_file",
     ]
 
 

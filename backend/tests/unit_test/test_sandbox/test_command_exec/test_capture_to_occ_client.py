@@ -75,9 +75,7 @@ class _OCCClient:
         self.snapshot = snapshot
         self.atomic = getattr(options, "atomic", None)
         return ChangesetResult(
-            files=(
-                FileResult(path="generated/output.txt", status=FileStatus.COMMITTED),
-            ),
+            files=(FileResult(path="generated/output.txt", status=FileStatus.COMMITTED),),
             timings={
                 "occ.prepare.total_s": 0.003,
                 "occ.prepare.route_and_base_hash_s": 0.002,

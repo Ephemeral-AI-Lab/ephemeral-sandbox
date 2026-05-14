@@ -182,40 +182,21 @@ class MissionStarter:
         attempt_id: str,
         goal: str,
     ) -> None:
-        # Entry-mode caller: route through the EntryTaskController so the
-        # controller is the single owner of entry-task state transitions.
-        controller = self._runtime.entry_task_controller_for(parent_task_id)
-        if controller is not None:
-            controller.mark_waiting_mission(
-                delegated_mission_id=mission.id,
-                delegated_episode_id=episode.id,
-                delegated_attempt_id=attempt_id,
-                goal=goal,
-            )
-            return
-
-        summary = {
-            "outcome": "mission_start",
-            "summary": "Waiting on delegated mission solution.",
-            "payload": {
-                "mission_id": mission.id,
-                "initial_episode_id": episode.id,
-                "initial_attempt_id": attempt_id,
-                "parent_attempt_id": _parent_attempt_id(parent_task),
-                "goal": goal,
-            },
-        }
-        updated = self._runtime.task_store.set_task_status_if_current(
-            parent_task_id,
-            expected_status=TaskCenterTaskStatus.RUNNING.value,
-            status=TaskCenterTaskStatus.WAITING_MISSION.value,
-            summary=summary,
+        target = self._runtime.lifecycle_target_for(
+            task_id=parent_task_id,
+            attempt_id=_parent_attempt_id(parent_task),
         )
-        if updated is None:
+        if target is None:
             raise TaskCenterInvariantViolation(
-                f"TaskCenter task {parent_task_id!r} was not running when the "
-                "delegated mission start tried to mark it waiting."
+                f"No lifecycle target registered for TaskCenter task "
+                f"{parent_task_id!r}; mission start cannot proceed."
             )
+        target.mark_waiting_mission(
+            delegated_mission_id=mission.id,
+            delegated_episode_id=episode.id,
+            delegated_attempt_id=attempt_id,
+            goal=goal,
+        )
 
     def _compensate_failed_start(
         self,
@@ -250,11 +231,15 @@ class MissionStarter:
                 "MissionStarter: cancel mission failed",
             )
         try:
-            controller = self._runtime.entry_task_controller_for(parent_task_id)
-            if controller is not None:
-                # Entry-mode rollback flows through the controller so the
-                # controller stays the single owner of entry-task transitions.
-                controller.restore_running_after_failed_mission_start()
+            parent_task = self._runtime.task_store.get_task(parent_task_id)
+            attempt_id = (
+                _parent_attempt_id(parent_task) if parent_task else None
+            )
+            target = self._runtime.lifecycle_target_for(
+                task_id=parent_task_id, attempt_id=attempt_id
+            )
+            if target is not None:
+                target.restore_running_after_failed_mission_start()
             else:
                 self._runtime.task_store.set_task_status_if_current(
                     parent_task_id,

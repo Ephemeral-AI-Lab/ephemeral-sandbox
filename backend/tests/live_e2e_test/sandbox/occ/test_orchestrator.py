@@ -39,7 +39,7 @@ before = sample_resource()
 started = time.perf_counter()
 root = _case_root(label)
 stack = LayerStackManager(root / "stack")
-service = Service(gitignore=_Gitignore({"dist/app.js"}), layer_stack=stack)
+service = Service(gitignore=_Gitignore({"dist/app.js"}), snapshot_reader=stack, staging=stack, publisher=stack)
 _publish(stack, "src/app.py", b"base\n")
 snapshot = stack.read_active_manifest()
 
@@ -76,7 +76,7 @@ conflict = service.apply_changeset_sync(
 assert conflict.files[0].status is FileStatus.ABORTED_VERSION
 
 restarted_stack = LayerStackManager(root / "stack")
-restarted_service = Service(gitignore=_Gitignore(), layer_stack=restarted_stack)
+restarted_service = Service(gitignore=_Gitignore(), snapshot_reader=restarted_stack, staging=restarted_stack, publisher=restarted_stack)
 after_restart = restarted_service.apply_changeset_sync(
     [WriteChange(path="src/restart.py", final_content=b"ok\n")],
     snapshot=restarted_stack.read_active_manifest(),
@@ -119,7 +119,7 @@ before = sample_resource()
 started = time.perf_counter()
 root = _case_root(label)
 stack = LayerStackManager(root / "stack")
-service = Service(gitignore=_Gitignore(), layer_stack=stack)
+service = Service(gitignore=_Gitignore(), snapshot_reader=stack, staging=stack, publisher=stack)
 _publish(stack, "src/app.py", b"base\n")
 snapshot = stack.read_active_manifest()
 n = 4

@@ -302,23 +302,12 @@ class TaskCenterEntryCoordinator:
         controller: EntryTaskController,
         task_center_run_id: str,
     ) -> AgentLaunch:
-        composer = runtime.require_composer()
-        bundle = composer.compose(
-            base_agent_name=ENTRY_AGENT_NAME,
-            scope=ContextScope(
-                task_id=controller.task_id,
-            ),
-        )
-        return AgentLaunch(
+        from task_center.launch_builder import LaunchBuilder
+
+        return LaunchBuilder(runtime=runtime).for_entry(
             task_id=controller.task_id,
             task_center_run_id=task_center_run_id,
-            attempt_id=None,
-            role=TaskCenterTaskRole.ENTRY_EXECUTOR,
-            agent_name=bundle.agent_def.name,
-            rendered_prompt=bundle.rendered_prompt,
-            needs=(),
-            context_packet_id=bundle.context_packet_id,
-            mission_id=None,
+            base_agent_name=ENTRY_AGENT_NAME,
         )
 
     def _compensate_startup_failure(

@@ -19,9 +19,13 @@ def test_daemon_op_table_routes_to_current_handler_layout() -> None:
 
     expected = {
         "api.write_file": write.write_file,
+        "api.v1.write_file": write.write_file,
         "api.edit_file": edit.edit_file,
+        "api.v1.edit_file": edit.edit_file,
         "api.read_file": read.read_file,
+        "api.v1.read_file": read.read_file,
         "api.shell": shell_runner.execute_shell_api,
+        "api.v1.shell": shell_runner.execute_shell_api,
         "api.layer_metrics": metrics.layer_metrics,
         "api.ensure_workspace_base": workspace.ensure_workspace_base,
         "api.build_workspace_base": workspace.build_workspace_base,

@@ -35,7 +35,7 @@ for index in range(5):
             source_path=str(_source(root, "shared-%02d" % index, b"base\n")),
         )
     ])
-service = Service(gitignore=_Gitignore(), layer_stack=stack)
+service = Service(gitignore=_Gitignore(), snapshot_reader=stack, staging=stack, publisher=stack)
 operation_count = int(cfg["operation_count"])
 concurrency = int(cfg["concurrency"])
 barrier = threading.Barrier(concurrency)

@@ -1,4 +1,4 @@
-"""Global serial merger for prepared OCC commits."""
+"""Global commit queue for prepared OCC commits."""
 
 from __future__ import annotations
 
@@ -85,12 +85,12 @@ class CommitQueue:
     def start(self) -> None:
         """Start the background commit worker."""
         if self._closed:
-            raise RuntimeError("OCC serial merger is closed")
+            raise RuntimeError("OCC commit queue is closed")
         if self._thread is not None and self._thread.is_alive():
             return
         self._thread = threading.Thread(
             target=self._run,
-            name="occ-serial-merger",
+            name="occ-commit-queue",
             daemon=True,
         )
         self._thread.start()
@@ -111,12 +111,10 @@ class CommitQueue:
         prepared: PreparedChangeset,
     ) -> concurrent.futures.Future[ChangesetResult]:
         if self._closed:
-            raise RuntimeError("OCC serial merger is closed")
+            raise RuntimeError("OCC commit queue is closed")
         if self._thread is None or not self._thread.is_alive():
-            raise RuntimeError("OCC serial merger has not been started")
-        future: concurrent.futures.Future[ChangesetResult] = (
-            concurrent.futures.Future()
-        )
+            raise RuntimeError("OCC commit queue has not been started")
+        future: concurrent.futures.Future[ChangesetResult] = concurrent.futures.Future()
         self._queue.put(
             _WorkItem(
                 prepared=prepared,
@@ -151,10 +149,7 @@ class CommitQueue:
                     self._queue.put(item)
                     break
                 items.append(item)
-            if (
-                self._batch_window_s > 0
-                and len(items) < self._max_batch_size
-            ):
+            if self._batch_window_s > 0 and len(items) < self._max_batch_size:
                 time.sleep(self._batch_window_s)
                 while len(items) < self._max_batch_size:
                     try:
@@ -203,8 +198,7 @@ class CommitQueue:
                         timings={
                             **item.prepared.timings,
                             **result.timings,
-                            TimingKey.SERIAL_QUEUE_WAIT: commit_start
-                            - item.enqueued_at,
+                            TimingKey.SERIAL_QUEUE_WAIT: commit_start - item.enqueued_at,
                             TimingKey.SERIAL_BATCH_SIZE: float(len(batch)),
                             TimingKey.SERIAL_COMMIT: commit_elapsed,
                             TimingKey.SERIAL_CAS_ATTEMPTS: float(attempts + 1),
@@ -247,9 +241,7 @@ def _combine_prepared(items: list[PreparedChangeset]) -> PreparedChangeset:
         raise AssertionError("atomic prepared changesets must not be batched")
     return PreparedChangeset(
         snapshot=first.snapshot,
-        path_groups=tuple(
-            group for prepared in items for group in prepared.path_groups
-        ),
+        path_groups=tuple(group for prepared in items for group in prepared.path_groups),
         atomic=first.atomic,
         timings=_merge_timings(items),
     )
@@ -267,8 +259,7 @@ def _cas_exhaustion_result(
 ) -> ChangesetResult:
     """Convert a CAS-retry-exhausted failure into a per-path conflict result."""
     message = (
-        f"CAS mismatch retry budget exhausted after {retry_policy.max_cas_retries} "
-        f"attempts: {exc}"
+        f"CAS mismatch retry budget exhausted after {retry_policy.max_cas_retries} attempts: {exc}"
     )
     files: list[FileResult] = []
     for group in prepared.path_groups:

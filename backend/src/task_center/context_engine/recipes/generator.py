@@ -23,7 +23,7 @@ from task_center.context_engine.recipes_registry import ContextRecipe
 from task_center.context_engine.scope import ContextScope
 
 if TYPE_CHECKING:
-    from db.stores.task_center_store import TaskCenterStore
+    from task_center.persistence import TaskStoreProtocol
 
 GENERATOR_ID = "generator"
 _REQUIRED_FIELDS = frozenset({"mission_id", "attempt_id", "task_id"})
@@ -100,7 +100,7 @@ def _generator_build(
 def _dependency_summary_blocks(
     *,
     needs: tuple[str, ...],
-    task_store: TaskCenterStore,
+    task_store: TaskStoreProtocol,
 ) -> list[ContextBlock]:
     out: list[ContextBlock] = []
     for dep_id in needs:

@@ -23,11 +23,7 @@ def test_is_ignored_caches_result_second_call_reader_free(tmp_path: Path) -> Non
 
     def reader(dir_rel: str) -> str | None:
         calls.append(dir_rel)
-        gitignore = (
-            workspace / dir_rel / ".gitignore"
-            if dir_rel
-            else workspace / ".gitignore"
-        )
+        gitignore = workspace / dir_rel / ".gitignore" if dir_rel else workspace / ".gitignore"
         return gitignore.read_text(encoding="utf-8") if gitignore.is_file() else None
 
     oracle = PathspecGitignoreOracle(str(workspace), read_gitignore=reader)

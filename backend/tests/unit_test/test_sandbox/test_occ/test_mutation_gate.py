@@ -111,9 +111,7 @@ async def test_cas_retry_exhaustion_returns_conflict_result(tmp_path: Path) -> N
 
     def always_cas_mismatch(*_args, **_kwargs):
         call_counter["n"] += 1
-        raise ManifestConflictError(
-            "synthetic CAS mismatch for retry-exhaustion test"
-        )
+        raise ManifestConflictError("synthetic CAS mismatch for retry-exhaustion test")
 
     publisher.publish_layer = always_cas_mismatch  # type: ignore[method-assign]
     try:
@@ -187,12 +185,12 @@ def test_single_occ_backend_cache_per_layer_stack_root(
     )
     monkeypatch.setattr(
         occ_backend,
-        "OccService",
-        lambda *, gitignore, layer_stack: ("service", gitignore, layer_stack),
+        "Service",
+        lambda *, gitignore, **kwargs: ("service", gitignore, kwargs),
     )
     monkeypatch.setattr(
         occ_backend,
-        "OCCClient",
+        "Client",
         lambda service, *, binding_reader, workspace_ref: (
             "occ-client",
             service,

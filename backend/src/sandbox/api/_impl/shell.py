@@ -18,7 +18,7 @@ from sandbox.api._impl._results import (
 )
 from sandbox.api.protocol import SandboxTransport
 from sandbox.api.timeouts import shell_dispatch_timeout
-from sandbox.api.transport import DaemonSandboxTransport
+from sandbox.api.transport import DAEMON_OP_SHELL, DaemonSandboxTransport
 from sandbox.audit.operation import publish_operation_result, publish_operation_started
 from sandbox.models import ShellRequest, ShellResult
 from sandbox.timing import monotonic_now
@@ -61,14 +61,14 @@ async def shell(
     async def _call() -> ShellResult:
         raw = await selected_transport.call(
             sandbox_id,
-            "api.shell",
+            DAEMON_OP_SHELL,
             {
                 "command": request.command,
                 "cwd": cwd,
                 "timeout_seconds": request.timeout,
                 "actor_id": request.caller.agent_id,
                 "caller": caller_audit_fields(request.caller),
-                "description": request.description or "shell",
+                "description": request.default_description("shell"),
             },
             timeout=shell_dispatch_timeout(request.timeout),
         )

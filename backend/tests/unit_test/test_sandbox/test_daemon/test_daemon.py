@@ -43,9 +43,7 @@ async def test_dispatch_envelope_async_runs_async_handler() -> None:
 
     server.register_op("test.async_echo", handler)
 
-    response = await server.dispatch_envelope_async(
-        {"op": "test.async_echo", "args": {"value": 7}}
-    )
+    response = await server.dispatch_envelope_async({"op": "test.async_echo", "args": {"value": 7}})
 
     assert response["success"] is True
     assert response["value"] == 7
@@ -58,9 +56,7 @@ async def test_dispatch_envelope_async_runs_sync_handler() -> None:
 
     server.register_op("test.sync_echo", handler)
 
-    response = await server.dispatch_envelope_async(
-        {"op": "test.sync_echo", "args": {"value": 5}}
-    )
+    response = await server.dispatch_envelope_async({"op": "test.sync_echo", "args": {"value": 5}})
     assert response["success"] is True
     assert response["value"] == 10
 
@@ -196,12 +192,12 @@ def test_services_cached_per_layer_stack_root(
     )
     monkeypatch.setattr(
         occ_backend,
-        "OccService",
+        "Service",
         lambda *, gitignore, layer_stack: ("service", gitignore, layer_stack),
     )
     monkeypatch.setattr(
         occ_backend,
-        "OCCClient",
+        "Client",
         lambda service, *, binding_reader, workspace_ref: (
             "occ-client",
             service,
@@ -236,12 +232,12 @@ def test_drop_backend_cache_removes_only_requested_root(
     )
     monkeypatch.setattr(
         occ_backend,
-        "OccService",
+        "Service",
         lambda *, gitignore, layer_stack: object(),
     )
     monkeypatch.setattr(
         occ_backend,
-        "OCCClient",
+        "Client",
         lambda service, *, binding_reader, workspace_ref: object(),
     )
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from db.stores.task_center_store import TaskCenterStore
+from task_center.persistence import TaskStoreProtocol
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.mission.state import MissionClosureReport
 from task_center.task.state import TaskCenterTaskStatus
@@ -22,7 +22,7 @@ class EntryTaskController:
 
     task_id: str
     task_center_run_id: str
-    task_store: TaskCenterStore
+    task_store: TaskStoreProtocol
 
     # ---- terminal events --------------------------------------------------
 

@@ -9,20 +9,20 @@ chain themselves.
 
 from __future__ import annotations
 
-from db.stores.mission_store import MissionStore
-from db.stores.attempt_store import AttemptStore
-from db.stores.task_center_store import TaskCenterStore
-from db.stores.episode_store import EpisodeStore
+from task_center.persistence import MissionStoreProtocol
+from task_center.persistence import AttemptStoreProtocol
+from task_center.persistence import TaskStoreProtocol
+from task_center.persistence import EpisodeStoreProtocol
 from task_center.exceptions import TaskCenterInvariantViolation
 
 
 def nested_mission_depth(
     *,
     mission_id: str,
-    mission_store: MissionStore,
-    episode_store: EpisodeStore,
-    attempt_store: AttemptStore,
-    task_store: TaskCenterStore,
+    mission_store: MissionStoreProtocol,
+    episode_store: EpisodeStoreProtocol,
+    attempt_store: AttemptStoreProtocol,
+    task_store: TaskStoreProtocol,
 ) -> int:
     """Return the number of mission ancestors on the chain INCLUDING ``mission_id``.
 

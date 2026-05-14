@@ -46,10 +46,10 @@ def _stage_write(tmp_path: Path):
         counter += 1
         source = _source(tmp_path, f"staged-{counter}.bin", content)
         return WriteLayerChange(
-                   path=path,
-                   content_hash=ContentHasher().hash_bytes(content),
-                   source_path=str(source),
-               )
+            path=path,
+            content_hash=ContentHasher().hash_bytes(content),
+            source_path=str(source),
+        )
 
     return stage
 
@@ -130,9 +130,7 @@ def test_tracked_opaque_dir_overlay_change_stages_storage_change(
     opaque_group = PreparedPathGroup(
         path=".omc/results",
         route=RouteDecision.GATED,
-        changes=(
-            OpaqueDirChange(path=".omc/results", kept_children=frozenset()),
-        ),
+        changes=(OpaqueDirChange(path=".omc/results", kept_children=frozenset()),),
     )
 
     opaque_result, opaque_delta = merge.stage_group(

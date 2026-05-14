@@ -11,10 +11,10 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Literal
 
-from db.stores.mission_store import MissionStore
-from db.stores.attempt_store import AttemptStore
-from db.stores.task_center_store import TaskCenterStore
-from db.stores.episode_store import EpisodeStore
+from task_center.persistence import MissionStoreProtocol
+from task_center.persistence import AttemptStoreProtocol
+from task_center.persistence import TaskStoreProtocol
+from task_center.persistence import EpisodeStoreProtocol
 from task_center.mission.validation import (
     assert_continuation_episode_predecessor,
     assert_mission_open,
@@ -52,14 +52,14 @@ class MissionHandler:
     def __init__(
         self,
         *,
-        mission_store: MissionStore,
-        episode_store: EpisodeStore,
-        attempt_store: AttemptStore,
+        mission_store: MissionStoreProtocol,
+        episode_store: EpisodeStoreProtocol,
+        attempt_store: AttemptStoreProtocol,
         manager_registry: EpisodeManagerRegistry,
         config: TaskCenterLifecycleConfig,
         deliver_closure_report: MissionClosureReportSink | None = None,
         orchestrator_factory: OrchestratorFactory | None = None,
-        task_store: TaskCenterStore | None = None,
+        task_store: TaskStoreProtocol | None = None,
     ) -> None:
         self._mission_store = mission_store
         self._episode_store = episode_store

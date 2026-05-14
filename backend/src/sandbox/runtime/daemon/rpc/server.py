@@ -14,7 +14,7 @@ Wire format (newline-delimited JSON):
 The daemon imports :mod:`sandbox.runtime.daemon.rpc.dispatcher` so the ``OP_TABLE`` is
 populated by the standard peer bootstrap, then dispatches via
 :func:`dispatcher.dispatch_envelope_async`. State that is expensive to
-construct — ``LayerStackManager``, ``OccService``,
+construct — ``LayerStackManager``, ``Service``,
 ``SnapshotGitignoreOracle`` — is cached across calls by
 ``daemon.services.occ_backend`` and thus amortizes naturally because the daemon
 is one Python process.

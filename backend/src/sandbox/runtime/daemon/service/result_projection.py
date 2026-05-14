@@ -73,12 +73,8 @@ def gitignore_cache_timings(gitignore: object) -> dict[str, float]:
     # them. A test mock or alternative oracle satisfying the protocol
     # without these counters used to crash here at result-shape time.
     return {
-        TimingKey.GITIGNORE_CACHE_HITS_TOTAL: float(
-            getattr(gitignore, "cache_hits", 0)
-        ),
-        TimingKey.GITIGNORE_CACHE_MISSES_TOTAL: float(
-            getattr(gitignore, "cache_misses", 0)
-        ),
+        TimingKey.GITIGNORE_CACHE_HITS_TOTAL: float(getattr(gitignore, "cache_hits", 0)),
+        TimingKey.GITIGNORE_CACHE_MISSES_TOTAL: float(getattr(gitignore, "cache_misses", 0)),
     }
 
 

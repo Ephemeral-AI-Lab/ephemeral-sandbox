@@ -6,7 +6,7 @@ runtime, OCC, or overlay internals.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -25,6 +25,28 @@ class SandboxCaller:
     tool_name: str = ""
     tool_id: str = ""
 
+    def audit_fields(self) -> dict[str, str]:
+        """Return daemon-facing audit fields, preserving required empty IDs."""
+        required = {"agent_id", "run_id", "agent_run_id", "task_id"}
+        envelope: dict[str, str] = {}
+        for field_info in fields(self):
+            key = field_info.name
+            value = getattr(self, key)
+            if key in required or value:
+                envelope[key] = str(value)
+        return envelope
+
+
+@dataclass(frozen=True, kw_only=True)
+class SandboxRequestBase:
+    """Base request shape for audit-aware public sandbox operations."""
+
+    caller: SandboxCaller
+    description: str = ""
+
+    def default_description(self, fallback: str) -> str:
+        return self.description or fallback
+
 
 @dataclass(frozen=True, kw_only=True)
 class SandboxResultBase:
@@ -41,6 +63,18 @@ class ConflictInfo:
     reason: str
     conflict_file: str | None = None
     message: str = ""
+
+    @classmethod
+    def rejected(cls, *, reason: str = "rejected", message: str = "") -> ConflictInfo:
+        return cls(reason=reason, message=message)
+
+    @classmethod
+    def overlap(cls, *, path: str, message: str) -> ConflictInfo:
+        return cls(
+            reason="aborted_overlap",
+            conflict_file=path,
+            message=message,
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -63,9 +97,8 @@ class RawExecResult(SandboxResultBase):
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReadFileRequest:
+class ReadFileRequest(SandboxRequestBase):
     path: str
-    caller: SandboxCaller
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -76,11 +109,9 @@ class ReadFileResult(SandboxResultBase):
 
 
 @dataclass(frozen=True, kw_only=True)
-class WriteFileRequest:
+class WriteFileRequest(SandboxRequestBase):
     path: str
     content: str
-    caller: SandboxCaller
-    description: str = ""
     overwrite: bool = True
 
 
@@ -98,11 +129,9 @@ class SearchReplaceEdit:
 
 
 @dataclass(frozen=True, kw_only=True)
-class EditFileRequest:
+class EditFileRequest(SandboxRequestBase):
     path: str
     edits: tuple[SearchReplaceEdit, ...]
-    caller: SandboxCaller
-    description: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -111,13 +140,11 @@ class EditFileResult(GuardedResultBase):
 
 
 @dataclass(frozen=True, kw_only=True)
-class ShellRequest:
+class ShellRequest(SandboxRequestBase):
     command: str
-    caller: SandboxCaller
     cwd: str | None = None
     timeout: int | None = None
     stdin: str | None = None
-    description: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -137,6 +164,7 @@ __all__ = [
     "ReadFileRequest",
     "ReadFileResult",
     "SandboxCaller",
+    "SandboxRequestBase",
     "SandboxResultBase",
     "SearchReplaceEdit",
     "ShellRequest",

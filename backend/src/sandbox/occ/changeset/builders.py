@@ -38,9 +38,7 @@ def build_overlay_write_change(
     don't have a content path on disk.
     """
     if final_content is None and content_path is None:
-        raise ValueError(
-            "build_overlay_write_change needs final_content or content_path"
-        )
+        raise ValueError("build_overlay_write_change needs final_content or content_path")
     return WriteChange(
         path=path,
         source="overlay_capture",

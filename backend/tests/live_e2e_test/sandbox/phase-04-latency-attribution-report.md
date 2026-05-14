@@ -183,7 +183,7 @@ pathspec gitignore oracle.
 
 * **Phase 1** moved the flock fence to wrap `commit_prepared` only, taking the 1054-ms hot zone for write down to ~78 ms by running `prepare` lock-free.
 * **Phase 2a** moved the gitignore oracle's git workspace from `tempfile.TemporaryDirectory` to `<storage_root>/cache/gitignore-<version>/` with atomic install and depth-bounded eviction. **Phase 2b** added a `pathspec`-backed evaluator that reads `.gitignore` files directly from the snapshot — `materialize_snapshot` and `git_init` collapse to 0 ms.
-* **Phase 3** introduced a resident asyncio AF_UNIX daemon. The per-call command becomes a thin `python -c "socket.connect(...)"` client, so `boot_to_dispatch_s` falls from ~60 ms to <1 ms; the in-memory oracle and `OccService` cache durably across calls. Phase 3 alone exposed a new bottleneck — single-process commit serialization on an asyncio.Lock — which Phase 4 then fixed.
+* **Phase 3** introduced a resident asyncio AF_UNIX daemon. The per-call command becomes a thin `python -c "socket.connect(...)"` client, so `boot_to_dispatch_s` falls from ~60 ms to <1 ms; the in-memory oracle and `Service` cache durably across calls. Phase 3 alone exposed a new bottleneck — single-process commit serialization on an asyncio.Lock — which Phase 4 then fixed.
 * **Phase 4** replaced the single asyncio.Lock per `layer_stack_root` with 16 path-hashed buckets and made `write_file`/`edit_file` opt out of `CommitOptions.atomic` (which the codex parallel session flipped to `True` between Phase 3 and Phase 4 and which would otherwise defeat the merger's batching). `process_gate_wait_s` collapses by 96–97 % and the merger's batch window finally coalesces disjoint commits.
 
 ### Outstanding regression

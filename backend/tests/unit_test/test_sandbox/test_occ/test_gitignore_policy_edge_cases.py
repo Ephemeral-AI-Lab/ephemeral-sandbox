@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
+from sandbox.layer_stack.layer.change import WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import RouteDecision
 from sandbox.occ.changeset.types import (
@@ -22,7 +22,7 @@ from sandbox.occ.changeset.types import (
 )
 from sandbox.occ.stage.transaction import CommitTransaction
 from sandbox.occ.content.hashing import ContentHasher
-from sandbox.occ.service import OccService
+from sandbox.occ.service import Service
 
 
 class _MutableGitignore:
@@ -60,12 +60,14 @@ def _service(
     stack: LayerStackManager,
     *,
     ignored: set[str] | None = None,
-) -> OccService:
-    return OccService(gitignore=_MutableGitignore(ignored), layer_stack=stack)
+) -> Service:
+    return Service(
+        gitignore=_MutableGitignore(ignored), snapshot_reader=stack, staging=stack, publisher=stack
+    )
 
 
 def _apply(
-    service: OccService,
+    service: Service,
     changes: list[Change],
     *,
     snapshot,
@@ -196,7 +198,7 @@ def test_gitignore_occ_skipped_route_is_fixed_after_prepare_even_if_oracle_chang
 ) -> None:
     stack = LayerStackManager(tmp_path / "stack")
     gitignore = _MutableGitignore({"dist/out.js"})
-    service = OccService(gitignore=gitignore, layer_stack=stack)
+    service = Service(gitignore=gitignore, snapshot_reader=stack, staging=stack, publisher=stack)
 
     prepared = service.prepare_changeset_sync(
         [
@@ -230,7 +232,7 @@ def test_tracked_route_is_fixed_after_prepare_even_if_path_becomes_ignored(
     stale_snapshot = stack.read_active_manifest()
     _publish(stack, tmp_path, "dist/out.js", b"active\n")
     gitignore = _MutableGitignore()
-    service = OccService(gitignore=gitignore, layer_stack=stack)
+    service = Service(gitignore=gitignore, snapshot_reader=stack, staging=stack, publisher=stack)
 
     prepared = service.prepare_changeset_sync(
         [

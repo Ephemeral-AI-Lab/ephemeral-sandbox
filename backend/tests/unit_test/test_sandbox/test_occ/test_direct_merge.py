@@ -46,10 +46,10 @@ def _stage_write(tmp_path: Path):
         counter += 1
         source = _source(tmp_path, f"direct-{counter}.bin", content)
         return WriteLayerChange(
-                   path=path,
-                   content_hash=ContentHasher().hash_bytes(content),
-                   source_path=str(source),
-               )
+            path=path,
+            content_hash=ContentHasher().hash_bytes(content),
+            source_path=str(source),
+        )
 
     return stage
 

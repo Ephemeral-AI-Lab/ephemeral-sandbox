@@ -15,10 +15,10 @@ from task_center.context_engine.recipes_registry import RecipeRegistry
 from task_center.context_engine.scope import ContextScope
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only
-    from db.stores.mission_store import MissionStore
-    from db.stores.attempt_store import AttemptStore
-    from db.stores.task_center_store import TaskCenterStore
-    from db.stores.episode_store import EpisodeStore
+    from task_center.persistence import MissionStoreProtocol
+    from task_center.persistence import AttemptStoreProtocol
+    from task_center.persistence import TaskStoreProtocol
+    from task_center.persistence import EpisodeStoreProtocol
 
 
 class ContextPacketStoreProtocol(Protocol):
@@ -35,10 +35,10 @@ class ContextEngineDeps:
     runtime objects, so swapping a store in tests is one keyword argument.
     """
 
-    mission_store: MissionStore
-    episode_store: EpisodeStore
-    attempt_store: AttemptStore
-    task_store: TaskCenterStore
+    mission_store: MissionStoreProtocol
+    episode_store: EpisodeStoreProtocol
+    attempt_store: AttemptStoreProtocol
+    task_store: TaskStoreProtocol
 
     # Optional: when supplied, the composer persists rendered packet inputs.
     context_packet_store: ContextPacketStoreProtocol | None = None

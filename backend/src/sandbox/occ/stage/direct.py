@@ -139,9 +139,7 @@ class DirectStager:
         for change in group.changes:
             result = self._apply_change(change, state, path=group.path)
             if result is not None:
-                timings[TimingKey.DIRECT_APPLY_CHANGES] = (
-                    monotonic_now() - apply_start
-                )
+                timings[TimingKey.DIRECT_APPLY_CHANGES] = monotonic_now() - apply_start
                 return _with_timings(result, timings), None
 
         timings[TimingKey.DIRECT_APPLY_CHANGES] = monotonic_now() - apply_start
@@ -193,9 +191,7 @@ class DirectStager:
                     )
                 )
             else:
-                delta = LayerDelta(
-                    changes=(stage_write(group.path, state.content),)
-                )
+                delta = LayerDelta(changes=(stage_write(group.path, state.content),))
             timings[TimingKey.DIRECT_STAGE_DELTA] = monotonic_now() - stage_start
             return (
                 FileResult(

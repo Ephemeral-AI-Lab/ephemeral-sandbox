@@ -9,7 +9,6 @@ import pytest
 
 import sandbox.layer_stack.layer.publisher as publisher_mod
 from sandbox.layer_stack import (
-    LayerChange,
     WriteLayerChange,
     LayerStackManager,
     ManifestConflictError,

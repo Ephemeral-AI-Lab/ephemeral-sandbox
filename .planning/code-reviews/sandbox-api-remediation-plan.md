@@ -51,16 +51,19 @@ Issues addressed:
 - 4.3: conflict classification scattered through verbs.
 - 4.4, 7.3: edit recovery is bespoke and can false-positive when `new_text`
   already existed.
-- 5.2, 5.4: result/conflict construction duplicates type hierarchy.
+- 5.2, 5.3, 5.4: request, result, and conflict construction duplicate type
+  hierarchy.
 - 6.1: verb tests require monkey-patching concrete module globals.
 
 Implementation shape:
 
-- Move verb implementations to `sandbox.api._tool`.
+- Move verb implementations to `sandbox.api._impl`.
 - Keep `sandbox.api.tool` as a compatibility shim for old imports.
 - Introduce a shared audited execution helper used by read/write/edit/shell/raw.
 - Route daemon verbs through `SandboxTransport`.
 - Introduce named conflict classifiers and a stricter edit recovery check.
+- Add shared request-base/default-description plumbing and conflict factories.
+- Share transient transport recovery between write and edit.
 
 Verification:
 

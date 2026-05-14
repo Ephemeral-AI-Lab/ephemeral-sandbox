@@ -15,7 +15,7 @@ gitignored (`dist/`) routes the OCC commit groups separately:
 
 3. **Mixed routing** — populates *both* ``gated_path_count`` and
    ``direct_path_count`` from a single shell call so the routing-decision
-   codepath in ``OccCommitTransaction`` is measured under load. Phase 06
+   codepath in ``CommitTransaction`` is measured under load. Phase 06
    ran each prefix in isolation.
 
 Each cell emits a JSONL row to ``.omc/results/phase07-complex-capture-

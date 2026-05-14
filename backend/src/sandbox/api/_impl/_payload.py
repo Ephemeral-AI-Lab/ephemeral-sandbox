@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import fields
 import re
 
 from sandbox.models import ConflictInfo, SandboxCaller
 from sandbox.timing import normalize_timing_map
 
-_CALLER_REQUIRED_FIELDS = frozenset({"agent_id", "run_id", "agent_run_id", "task_id"})
 _INTERNAL_ERROR_PREFIX = "internal_error: "
 _TRANSIENT_ERROR_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -28,18 +26,7 @@ _TRANSIENT_ERROR_PATTERNS = tuple(
 
 def caller_audit_fields(caller: SandboxCaller) -> dict[str, str]:
     """Project a SandboxCaller into daemon audit fields."""
-    envelope: dict[str, str] = {}
-    for field in fields(caller):
-        key = field.name
-        value = getattr(caller, key)
-        if key in _CALLER_REQUIRED_FIELDS or value:
-            envelope[key] = str(value)
-    return envelope
-
-
-def caller_envelope(caller: SandboxCaller) -> dict[str, str]:
-    """Backward-compatible alias for daemon caller audit fields."""
-    return caller_audit_fields(caller)
+    return caller.audit_fields()
 
 
 def normalize_overlay_cwd(cwd: str | None) -> str:
@@ -99,7 +86,6 @@ def int_from_payload(value: object, *, default: int) -> int:
 
 __all__ = [
     "caller_audit_fields",
-    "caller_envelope",
     "conflict_from_payload",
     "error_message",
     "int_from_payload",

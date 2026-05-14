@@ -247,7 +247,7 @@ def build_mixed_routing_capture(
 ) -> str:
     """Create files under BOTH a gated and a gitignored prefix in one call.
 
-    Forces ``OccCommitTransaction`` to populate both ``gated_path_count``
+    Forces ``CommitTransaction`` to populate both ``gated_path_count``
     and ``direct_path_count`` from a single shell invocation — the
     routing-decision codepath that the K-scaling matrix never exercised.
     """

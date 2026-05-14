@@ -11,9 +11,9 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from db.stores.attempt_store import AttemptStore
-from db.stores.task_center_store import TaskCenterStore
-from db.stores.episode_store import EpisodeStore
+from task_center.persistence import AttemptStoreProtocol
+from task_center.persistence import TaskStoreProtocol
+from task_center.persistence import EpisodeStoreProtocol
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.attempt.state import (
     Attempt,
@@ -58,11 +58,11 @@ class EpisodeManager:
         self,
         *,
         episode_id: str,
-        episode_store: EpisodeStore,
-        attempt_store: AttemptStore,
+        episode_store: EpisodeStoreProtocol,
+        attempt_store: AttemptStoreProtocol,
         on_episode_closed: ClosureReportSink,
         orchestrator_factory: OrchestratorFactory | None = None,
-        task_store: TaskCenterStore | None = None,
+        task_store: TaskStoreProtocol | None = None,
     ) -> None:
         self.episode_id = episode_id
         self._episode_store = episode_store

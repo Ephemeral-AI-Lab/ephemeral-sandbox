@@ -18,7 +18,7 @@ import sandbox.layer_stack.layer.publisher as publisher_mod
 import sandbox.layer_stack.manifest.store as manifest_store_mod
 import sandbox.layer_stack.workspace.base as workspace_base_mod
 import sandbox.layer_stack.workspace.binding as binding_mod
-from sandbox.layer_stack import LayerChange, WriteLayerChange, LayerStackManager
+from sandbox.layer_stack import WriteLayerChange, LayerStackManager
 from sandbox.layer_stack.manifest import (
     LayerRef,
     Manifest,

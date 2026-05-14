@@ -45,7 +45,21 @@ async def test_write_file_dispatches_to_sandbox_daemon(
     assert transport.calls == [
         (
             "sb-write",
-            "api.write_file",
+            "api.v1.read_file",
+            {
+                "path": "a.py",
+                "caller": {
+                    "agent_id": "agent-1",
+                    "run_id": "",
+                    "agent_run_id": "",
+                    "task_id": "",
+                },
+            },
+            20,
+        ),
+        (
+            "sb-write",
+            "api.v1.write_file",
             {
                 "path": "a.py",
                 "content": "x",
@@ -62,6 +76,104 @@ async def test_write_file_dispatches_to_sandbox_daemon(
             60,
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_write_file_recovers_when_transient_exec_already_applied_write(
+    monkeypatch: pytest.MonkeyPatch,
+    recording_transport_factory,
+) -> None:
+    calls: list[str] = []
+
+    async def fake_call_daemon_api(sandbox_id, op, args, timeout):
+        del sandbox_id, args, timeout
+        calls.append(op)
+        if calls == ["api.v1.read_file"]:
+            return {
+                "success": True,
+                "exists": True,
+                "content": "old",
+                "encoding": "utf-8",
+                "timings": {},
+            }
+        if op == "api.v1.write_file":
+            raise RuntimeError("DaytonaError: Failed to execute command")
+        if op == "api.v1.read_file":
+            return {
+                "success": True,
+                "exists": True,
+                "content": "new",
+                "encoding": "utf-8",
+                "timings": {},
+            }
+        raise AssertionError(op)
+
+    del monkeypatch
+    transport = recording_transport_factory(fake_call_daemon_api)
+
+    result = await write_file(
+        "sb-write-transient",
+        WriteFileRequest(
+            path="a.py",
+            content="new",
+            caller=SandboxCaller(agent_id="agent-1"),
+        ),
+        transport=transport,
+    )
+
+    assert result.success is True
+    assert result.changed_paths == ("a.py",)
+    assert result.status == "written"
+    assert result.timings["api.write.recovered_after_transient"] == 1.0
+    assert calls == ["api.v1.read_file", "api.v1.write_file", "api.v1.read_file"]
+
+
+@pytest.mark.asyncio
+async def test_write_file_does_not_recover_when_preimage_already_matched(
+    monkeypatch: pytest.MonkeyPatch,
+    recording_transport_factory,
+) -> None:
+    calls: list[str] = []
+
+    async def fake_call_daemon_api(sandbox_id, op, args, timeout):
+        del sandbox_id, args, timeout
+        calls.append(op)
+        if calls == ["api.v1.read_file"]:
+            return {
+                "success": True,
+                "exists": True,
+                "content": "same",
+                "encoding": "utf-8",
+                "timings": {},
+            }
+        if calls == ["api.v1.read_file", "api.v1.write_file"]:
+            raise RuntimeError("DaytonaError: Failed to execute command")
+        if op == "api.v1.write_file":
+            return {
+                "success": True,
+                "changed_paths": ["a.py"],
+                "status": "ok",
+                "conflict": None,
+                "conflict_reason": None,
+                "timings": {},
+            }
+        raise AssertionError(op)
+
+    del monkeypatch
+    transport = recording_transport_factory(fake_call_daemon_api)
+
+    result = await write_file(
+        "sb-write-transient",
+        WriteFileRequest(
+            path="a.py",
+            content="same",
+            caller=SandboxCaller(agent_id="agent-1"),
+        ),
+        transport=transport,
+    )
+
+    assert result.success is True
+    assert calls == ["api.v1.read_file", "api.v1.write_file", "api.v1.write_file"]
 
 
 @pytest.mark.asyncio

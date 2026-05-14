@@ -9,7 +9,7 @@ from sandbox.layer_stack.layer.change import WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.types import FileStatus, WriteChange
 from sandbox.occ.content.hashing import ContentHasher
-from sandbox.occ.service import OccService
+from sandbox.occ.service import Service
 
 
 class _Gitignore:
@@ -45,7 +45,7 @@ def test_shell_occ_gated_conflict_holds_occ_skipped_outputs(tmp_path: Path) -> N
     _publish(stack, tmp_path, "src/app.py", b"leased\n")
     snapshot = stack.read_active_manifest()
     _publish(stack, tmp_path, "src/app.py", b"active\n")
-    service = OccService(gitignore=_Gitignore(), layer_stack=stack)
+    service = Service(gitignore=_Gitignore(), snapshot_reader=stack, staging=stack, publisher=stack)
 
     result = asyncio.run(
         service.apply_changeset(

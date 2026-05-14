@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from sandbox.api.protocol import SandboxTransport
 from sandbox.api.transport import (
+    DAEMON_OP_EDIT_FILE,
+    DAEMON_OP_READ_FILE,
+    DAEMON_OP_SHELL,
+    DAEMON_OP_WRITE_FILE,
     DAEMON_PROTOCOL_FIELD,
     DAEMON_PROTOCOL_VERSION,
     versioned_payload,
@@ -33,3 +37,10 @@ def test_versioned_payload_attaches_daemon_protocol_version() -> None:
         DAEMON_PROTOCOL_FIELD: DAEMON_PROTOCOL_VERSION,
         "path": "a.py",
     }
+
+
+def test_public_daemon_ops_are_versioned() -> None:
+    assert DAEMON_OP_READ_FILE == "api.v1.read_file"
+    assert DAEMON_OP_WRITE_FILE == "api.v1.write_file"
+    assert DAEMON_OP_EDIT_FILE == "api.v1.edit_file"
+    assert DAEMON_OP_SHELL == "api.v1.shell"

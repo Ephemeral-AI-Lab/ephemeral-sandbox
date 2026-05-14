@@ -105,7 +105,7 @@ Status: complete.
 
 Review issues addressed:
 
-- C-5: snapshot results now expose `snapshot_dir` as the backend-neutral alias while preserving `lowerdir` for existing runtime callers.
+- C-5: the unused `snapshot_dir` alias was removed in the cleanup pass; `lowerdir` remains because it is the active command-exec/overlay mount contract.
 - C-6: workspace-base layers moved out of the runtime `L...` namespace; the base sentinel is now `B000001-base`.
 - H-1/L-1: package `__init__.py` files now act as deliberate facades for layer, commit, lease, maintenance, view, and workspace APIs.
 - M-1: the squash collaborator is now `SquashService`; the old `SquashWorker` compatibility alias was removed.
@@ -116,7 +116,7 @@ Review issues addressed:
 - M-11: common layer-stack symbols are exported through root/package facades, and the current sandbox boundary/bundle tests cover the intended public surface.
 - L-2: `WorkspaceBaseIncompleteError` no longer inherits from workspace-binding errors.
 - L-4: the shared unique-layer allocator is used by both layer publish and squash.
-- L-6: workspace binding now has explicit `layer_path_from_relative(...)` and `layer_path_from_absolute(...)` methods; the old wrapper remains for compatibility.
+- L-6: workspace binding now has explicit `layer_path_from_relative(...)` and `layer_path_from_absolute(...)` methods; the old dual-semantics wrapper was removed.
 - L-8: the manager now has protocol-backed collaborator seams. A complete memory-only backend was not added because the production contract remains filesystem-backed, but the test seam no longer requires reaching through concrete storage classes.
 
 Implementation notes:
@@ -130,3 +130,24 @@ Verification:
 - `uv run pytest backend/tests/unit_test/test_sandbox/test_occ/test_auto_squash.py -q` -> `5 passed`.
 - `uv run pytest backend/tests/unit_test/test_sandbox/test_daemon/test_runtime_ready.py -q` -> `7 passed`.
 - `uv run pytest backend/tests/unit_test/test_sandbox/test_layer_stack backend/tests/unit_test/test_sandbox/test_occ backend/tests/unit_test/test_sandbox/test_command_exec backend/tests/unit_test/test_sandbox/test_overlay/test_upperdir_capture.py backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_daemon/test_runtime_ready.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py backend/tests/unit_test/test_sandbox/test_import_fence.py -q` -> `231 passed`.
+
+### Phase 5: OCC legacy-name cleanup
+
+Status: complete.
+
+Review issues addressed:
+
+- Removed the legacy generic OCC service/client symbols from the runtime surface.
+- Standardized in-repo callers on `OccService(gitignore=..., layer_stack=...)` and `OCCClient`.
+- Removed the old explicit `snapshot_reader`/`staging`/`publisher` constructor path from `OccService`; the layer stack is the canonical combined OCC port.
+
+Implementation notes:
+
+- `OccService` now owns the default auto-squash maintenance policy selection directly from the layer-stack capability.
+- Runtime backend construction, OCC unit tests, live OCC probes, and architecture notes were aligned to the canonical names.
+
+Verification:
+
+- `python3 -m py_compile backend/src/sandbox/occ/service.py backend/src/sandbox/occ/client.py backend/src/sandbox/runtime/daemon/service/occ_backend.py` -> passed.
+- `uv run ruff check backend/src/sandbox/occ backend/src/sandbox/runtime/daemon/service/occ_backend.py backend/tests/unit_test/test_sandbox/test_occ backend/tests/unit_test/test_sandbox/test_daemon/test_daemon.py backend/tests/live_e2e_test/sandbox/occ --select F401,F811,F821,F841,UP035 -q` -> passed.
+- `uv run pytest backend/tests/unit_test/test_sandbox/test_occ backend/tests/unit_test/test_sandbox/test_daemon/test_daemon.py -q` -> `67 passed`.

@@ -158,8 +158,7 @@ def test_bundle_excludes_pycache_and_compiled() -> None:
     with tarfile.open(fileobj=io.BytesIO(bundle), mode="r:gz") as tar:
         names = tar.getnames()
     assert all("__pycache__" not in n for n in names), (
-        f"bundle contains __pycache__ entries: "
-        f"{[n for n in names if '__pycache__' in n][:5]}"
+        f"bundle contains __pycache__ entries: {[n for n in names if '__pycache__' in n][:5]}"
     )
     assert all(not n.endswith((".pyc", ".pyo")) for n in names)
 
@@ -311,9 +310,7 @@ async def test_ensure_runtime_uploaded_uploads_when_marker_missing() -> None:
     # Chunk writes pipe ``printf`` through ``base64 -d`` straight into the
     # tarball — the previous ``.b64`` staging file is gone. Verify that
     # decode happens during streaming, not in the finalize step.
-    chunk_cmds = [
-        call.args[1] for call in transport.exec.await_args_list[2:-1]
-    ]
+    chunk_cmds = [call.args[1] for call in transport.exec.await_args_list[2:-1]]
     assert chunk_cmds, "expected at least one streaming chunk write"
     for cmd in chunk_cmds:
         assert "printf %s" in cmd
@@ -352,9 +349,7 @@ async def test_ensure_runtime_uploaded_raises_on_upload_failure() -> None:
             return type("R", (), {"exit_code": 1, "stdout": ""})()
         # Last call is the finalize (contains "tar -xzf"); fail it.
         if "tar -xzf" in cmd:
-            return type(
-                "R", (), {"exit_code": 2, "stdout": "tar: not enough disk space"}
-            )()
+            return type("R", (), {"exit_code": 2, "stdout": "tar: not enough disk space"})()
         return type("R", (), {"exit_code": 0, "stdout": ""})()
 
     transport.exec.side_effect = script

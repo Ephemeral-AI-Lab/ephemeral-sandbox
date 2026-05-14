@@ -103,7 +103,7 @@ async def test_daemon_gitignore_uses_layer_stack_snapshot(tmp_path: Path) -> Non
     occ_backend.clear_backend_cache()
     services = request_services(str(manager.storage_root))
 
-    # Reach through the OCC client to its underlying OccService for the assertion.
+    # Reach through the OCC client to its underlying Service for the assertion.
     result = await services.occ_client._service.apply_changeset(
         [build_api_write_change(path="dist/app.js", final_content="first\n")],
         options=CommitOptions(),

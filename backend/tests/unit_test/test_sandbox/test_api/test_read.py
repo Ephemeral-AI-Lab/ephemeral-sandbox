@@ -39,7 +39,7 @@ async def test_read_file_dispatches_to_sandbox_daemon(
     assert transport.calls == [
         (
             "sb-1",
-            "api.read_file",
+            "api.v1.read_file",
             {
                 "path": "/workspace/a.txt",
                 "caller": {

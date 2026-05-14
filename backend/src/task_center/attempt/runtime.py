@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from audit.base import AuditSink, NoopAuditSink
-from db.stores.mission_store import MissionStore
-from db.stores.attempt_store import AttemptStore
-from db.stores.task_center_store import TaskCenterStore
-from db.stores.episode_store import EpisodeStore
+from task_center.persistence import MissionStoreProtocol
+from task_center.persistence import AttemptStoreProtocol
+from task_center.persistence import TaskStoreProtocol
+from task_center.persistence import EpisodeStoreProtocol
 from task_center.config import TaskCenterLifecycleConfig
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.attempt.state import Attempt
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from task_center.attempt.orchestrator_registry import (
         AttemptOrchestratorRegistry,
     )
+    from task_center.lifecycle import LifecycleTarget
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +36,11 @@ class AgentLaunch:
     needs: tuple[str, ...]
     context_packet_id: str | None = None
     mission_id: str | None = None
+    # Per-launch extension bag. Use for knobs the launcher or runtime can
+    # opt into (priority, latency budget, retry policy) without forcing a
+    # new field + four call-site edits per knob. Keys are caller-defined;
+    # consumers should ``metadata.get(...)`` defensively.
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class AttemptAgentLauncher(Protocol):
@@ -45,10 +51,10 @@ class AttemptAgentLauncher(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class AttemptDeps:
-    mission_store: MissionStore
-    episode_store: EpisodeStore
-    attempt_store: AttemptStore
-    task_store: TaskCenterStore
+    mission_store: MissionStoreProtocol
+    episode_store: EpisodeStoreProtocol
+    attempt_store: AttemptStoreProtocol
+    task_store: TaskStoreProtocol
     agent_launcher: AttemptAgentLauncher
     orchestrator_registry: AttemptOrchestratorRegistry
     manager_registry: EpisodeManagerRegistry | None = None
@@ -103,3 +109,29 @@ class AttemptDeps:
         if controller is None or controller.task_id != task_id:
             return None
         return controller
+
+    def lifecycle_target_for(
+        self, *, task_id: str, attempt_id: str | None
+    ) -> LifecycleTarget | None:
+        """Return the :class:`LifecycleTarget` for one parent task.
+
+        For entry-mode (``attempt_id is None``), returns the
+        :class:`EntryTaskController` bound to *task_id* if any. For
+        attempt-mode, wraps the active orchestrator in a
+        :class:`GeneratorTaskLifecycle`. Returns ``None`` when no target is
+        registered — callers decide whether that's a hard error.
+        """
+        # Local import keeps the runtime module free of an eager
+        # ``lifecycle`` dependency; lifecycle imports orchestrator only
+        # via TYPE_CHECKING and only the controller/orchestrator import
+        # cycle would otherwise tighten.
+        from task_center.lifecycle import GeneratorTaskLifecycle
+
+        if attempt_id is None:
+            return self.entry_task_controller_for(task_id)
+        return GeneratorTaskLifecycle(
+            task_id=task_id,
+            attempt_id=attempt_id,
+            task_store=self.task_store,
+            orchestrator_lookup=self.orchestrator_registry.get,
+        )

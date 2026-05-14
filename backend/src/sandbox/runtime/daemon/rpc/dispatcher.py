@@ -191,14 +191,18 @@ def _load_peer_bootstraps() -> None:
             workspace.fence_stale_staging
         ),
         "api.edit_file": edit.edit_file,
+        "api.v1.edit_file": edit.edit_file,
         "api.layer_metrics": metrics.layer_metrics,
         "api.plugin.ensure": plugin_handler.plugin_ensure,
         "api.plugin.status": plugin_handler.plugin_status,
         "api.read_file": read.read_file,
+        "api.v1.read_file": read.read_file,
         "api.runtime.ready": health.runtime_ready,
         "api.shell": shell_runner.execute_shell_api,
+        "api.v1.shell": shell_runner.execute_shell_api,
         "api.workspace_binding": workspace.workspace_binding,
         "api.write_file": write.write_file,
+        "api.v1.write_file": write.write_file,
         "overlay.run": overlay_run.handle,
     }.items():
         existing = OP_TABLE.get(op)

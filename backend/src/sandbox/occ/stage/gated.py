@@ -160,9 +160,7 @@ class GatedStager:
                 path=group.path,
             )
             if result is not None:
-                timings[TimingKey.GATED_APPLY_CHANGES] = (
-                    monotonic_now() - apply_start
-                )
+                timings[TimingKey.GATED_APPLY_CHANGES] = monotonic_now() - apply_start
                 return _with_timings(result, timings), None
 
         timings[TimingKey.GATED_APPLY_CHANGES] = monotonic_now() - apply_start
@@ -346,11 +344,7 @@ def _delta_for_final_state(
             # the hash chain — pass it through so the stager's small-
             # file path doesn't re-read content_path.
             return LayerDelta(
-                changes=(
-                    stage_write_from_path(
-                        path, content_path, precomputed_hash, content
-                    ),
-                )
+                changes=(stage_write_from_path(path, content_path, precomputed_hash, content),)
             )
         return LayerDelta(changes=(stage_write(path, content),))
     if initial_exists:

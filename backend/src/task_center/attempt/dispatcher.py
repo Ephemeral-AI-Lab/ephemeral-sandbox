@@ -25,6 +25,7 @@ from task_center.attempt.runtime import (
     AgentLaunch,
     AttemptDeps,
 )
+from task_center.launch_builder import LaunchBuilder
 from task_center.attempt.generator_dag import (
     all_generators_done,
     all_generators_quiescent,
@@ -165,7 +166,7 @@ class AttemptDispatcher:
         )
         self._audit.task_launched(task, attempt_id=attempt.id)
         try:
-            launch = self._build_generator_launch(
+            launch = LaunchBuilder(runtime=runtime).for_generator(
                 attempt=attempt,
                 task=task,
                 base_agent_name=agent_name,
@@ -241,9 +242,8 @@ class AttemptDispatcher:
         runtime = self._runtime
         task_id = evaluator_task_id(attempt.id)
         try:
-            launch = self._build_evaluator_launch(
-                attempt=attempt,
-                task_id=task_id,
+            launch = LaunchBuilder(runtime=runtime).for_evaluator(
+                attempt=attempt, task_id=task_id
             )
             ready_task = {
                 "id": task_id,
@@ -313,75 +313,6 @@ class AttemptDispatcher:
                 f"Task {task.get('id')!r} has no persisted agent profile"
             )
         return agent_name
-
-    def _build_generator_launch(
-        self,
-        *,
-        attempt: Attempt,
-        task: dict[str, Any],
-        base_agent_name: str,
-    ) -> AgentLaunch:
-        runtime = self._runtime
-        task_id = str(task["id"])
-        composer = runtime.require_composer()
-        episode = runtime.episode_store.get(attempt.episode_id)
-        if episode is None:
-            raise TaskCenterInvariantViolation(
-                f"Episode {attempt.episode_id!r} not found"
-            )
-        bundle = composer.compose(
-            base_agent_name=base_agent_name,
-            scope=ContextScope(
-                mission_id=episode.mission_id,
-                episode_id=episode.id,
-                attempt_id=attempt.id,
-                task_id=task_id,
-            ),
-        )
-        return AgentLaunch(
-            task_id=task_id,
-            task_center_run_id=task["task_center_run_id"],
-            attempt_id=attempt.id,
-            role=TaskCenterTaskRole.GENERATOR,
-            agent_name=bundle.agent_def.name,
-            rendered_prompt=bundle.rendered_prompt,
-            needs=tuple(task["needs"]),
-            context_packet_id=bundle.context_packet_id,
-            mission_id=episode.mission_id,
-        )
-
-    def _build_evaluator_launch(
-        self,
-        *,
-        attempt: Attempt,
-        task_id: str,
-    ) -> AgentLaunch:
-        runtime = self._runtime
-        composer = runtime.require_composer()
-        episode = runtime.episode_store.get(attempt.episode_id)
-        if episode is None:
-            raise TaskCenterInvariantViolation(
-                f"Episode {attempt.episode_id!r} not found"
-            )
-        bundle = composer.compose(
-            base_agent_name="evaluator",
-            scope=ContextScope(
-                mission_id=episode.mission_id,
-                episode_id=episode.id,
-                attempt_id=attempt.id,
-            ),
-        )
-        return AgentLaunch(
-            task_id=task_id,
-            task_center_run_id=runtime.run_id_for_attempt(attempt),
-            attempt_id=attempt.id,
-            role=TaskCenterTaskRole.EVALUATOR,
-            agent_name=bundle.agent_def.name,
-            rendered_prompt=bundle.rendered_prompt,
-            needs=tuple(attempt.generator_task_ids),
-            context_packet_id=bundle.context_packet_id,
-            mission_id=episode.mission_id,
-        )
 
     def _fresh_attempt(self) -> Attempt:
         attempt = self._runtime.attempt_store.get(self._attempt_id)

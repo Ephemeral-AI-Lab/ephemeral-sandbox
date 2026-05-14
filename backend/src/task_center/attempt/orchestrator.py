@@ -21,6 +21,7 @@ from task_center.attempt.runtime import (
     AgentLaunch,
     AttemptDeps,
 )
+from task_center.launch_builder import LaunchBuilder
 from task_center.task.ids import generator_task_id, planner_task_id
 from task_center.task.state import (
     SpawnReason,
@@ -87,9 +88,8 @@ class AttemptOrchestrator:
         task_id = planner_task_id(attempt.id)
         runtime.orchestrator_registry.register(self)
         try:
-            launch = self._build_planner_launch(
-                attempt=attempt,
-                task_id=task_id,
+            launch = LaunchBuilder(runtime=runtime).for_planner(
+                attempt=attempt, task_id=task_id
             )
             runtime.task_store.upsert_task(
                 task_id=task_id,
@@ -110,40 +110,6 @@ class AttemptOrchestrator:
         except Exception:
             self._mark_startup_failed(planner_task_id=task_id)
             raise
-
-    def _build_planner_launch(
-        self,
-        *,
-        attempt: Attempt,
-        task_id: str,
-    ) -> AgentLaunch:
-        """Compose the planner launch via :class:`ContextComposer`."""
-        runtime = self._runtime
-        composer = runtime.require_composer()
-        episode = runtime.episode_store.get(attempt.episode_id)
-        if episode is None:
-            raise TaskCenterInvariantViolation(
-                f"Episode {attempt.episode_id!r} not found"
-            )
-        bundle = composer.compose(
-            base_agent_name="planner",
-            scope=ContextScope(
-                mission_id=episode.mission_id,
-                episode_id=episode.id,
-                attempt_id=attempt.id,
-            ),
-        )
-        return AgentLaunch(
-            task_id=task_id,
-            task_center_run_id=runtime.run_id_for_attempt(attempt),
-            attempt_id=attempt.id,
-            role=TaskCenterTaskRole.PLANNER,
-            agent_name=bundle.agent_def.name,
-            rendered_prompt=bundle.rendered_prompt,
-            needs=(),
-            context_packet_id=bundle.context_packet_id,
-            mission_id=episode.mission_id,
-        )
 
     def apply_plan_submission(self, submission: PlannerSubmission) -> None:
         self._assert_submission_attempt(submission.attempt_id)

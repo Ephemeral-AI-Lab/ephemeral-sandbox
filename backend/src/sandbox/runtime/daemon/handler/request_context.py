@@ -8,7 +8,7 @@ Owns the single source of truth for:
   ``edit`` to turn a :class:`ChangesetResult` into the
   host-visible payload.
 
-The OCC backend tuple ``(LayerStackClient, OCCClient, SnapshotGitignoreOracle,
+The OCC backend tuple ``(LayerStackClient, Client, SnapshotGitignoreOracle,
 LayerStackManager)`` is owned by :mod:`sandbox.runtime.daemon.service.occ_backend`.
 The ``services`` helper is the canonical per-verb access point.
 

@@ -14,7 +14,7 @@ from task_center.context_engine.recipes.summaries import latest_summary_text
 from task_center.attempt.state import Attempt, AttemptStatus
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only
-    from db.stores.task_center_store import TaskCenterStore
+    from task_center.persistence import TaskStoreProtocol
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,7 +29,7 @@ def failed_attempt_landscape_blocks(
     *,
     current_attempt_id: str | None,
     attempts: list[Attempt],
-    task_store: TaskCenterStore | None = None,
+    task_store: TaskStoreProtocol | None = None,
 ) -> list[ContextBlock]:
     failed = sorted(
         (
@@ -61,7 +61,7 @@ def failed_attempt_landscape_blocks(
 
 
 def _render_failed_attempt(
-    attempt: Attempt, *, task_store: TaskCenterStore | None
+    attempt: Attempt, *, task_store: TaskStoreProtocol | None
 ) -> str:
     outcomes = _generator_outcomes(attempt, task_store=task_store)
     sections = [
@@ -133,7 +133,7 @@ def _render_evaluator_judgment(
     attempt: Attempt,
     *,
     outcomes: list[_GeneratorOutcome],
-    task_store: TaskCenterStore | None,
+    task_store: TaskStoreProtocol | None,
 ) -> str:
     if _has_premature_generator_failure(outcomes):
         return ""
@@ -164,7 +164,7 @@ def _has_premature_generator_failure(outcomes: list[_GeneratorOutcome]) -> bool:
 
 
 def _generator_outcomes(
-    attempt: Attempt, *, task_store: TaskCenterStore | None
+    attempt: Attempt, *, task_store: TaskStoreProtocol | None
 ) -> list[_GeneratorOutcome]:
     if task_store is None or not attempt.generator_task_ids:
         return []

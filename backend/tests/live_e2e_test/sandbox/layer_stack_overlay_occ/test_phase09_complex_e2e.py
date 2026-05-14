@@ -54,10 +54,10 @@ pytestmark = pytest.mark.asyncio
 
 
 _GATED_ROOT = "tracked/load/phase09"
-# DirectMerge (the only route that handles SymlinkChange + OpaqueDirChange
+# DirectStager (the only route that handles SymlinkChange + OpaqueDirChange
 # kinds) is selected when the path is gitignored. Use a `dist/` prefix
 # for adversarial cells whose workload writes symlinks; tracked-path
-# symlinks are explicitly rejected by GatedMerge as "unsupported".
+# symlinks are explicitly rejected by GatedStager as "unsupported".
 _DIST_ROOT = "dist/phase09"
 
 
@@ -541,8 +541,8 @@ async def test_phase09_adversarial(
     )
 
     # ---- 2. Symlink target = absolute path inside workspace ----
-    # Symlinks are routed through DirectMerge — use a gitignored prefix
-    # so GatedMerge doesn't reject the SymlinkChange kind.
+    # Symlinks are routed through DirectStager — use a gitignored prefix
+    # so GatedStager doesn't reject the SymlinkChange kind.
     sym_in_dir = f"{_DIST_ROOT}/adv_sym_in"
     target_inside = "/testbed/keep.txt"
 

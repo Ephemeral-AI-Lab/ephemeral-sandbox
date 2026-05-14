@@ -8,7 +8,7 @@ import pytest
 
 from sandbox.occ.changeset.prepared import CommitOptions
 from sandbox.occ.changeset.types import Change, ChangesetResult
-from sandbox.occ.client import OCCClient
+from sandbox.occ.client import Client
 
 
 class _FailingBindingReader:
@@ -34,7 +34,7 @@ class _RecordingService:
 
 async def test_occ_client_fails_closed_when_workspace_binding_is_missing() -> None:
     service = _RecordingService()
-    client = OCCClient(
+    client = Client(
         service,
         binding_reader=_FailingBindingReader(),
         workspace_ref="/tmp/missing-layer-stack",

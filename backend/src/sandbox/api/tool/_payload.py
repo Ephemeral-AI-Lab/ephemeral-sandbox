@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from sandbox.api._impl._payload import (
     caller_audit_fields,
-    caller_envelope,
     conflict_from_payload,
     error_message,
     int_from_payload,
@@ -16,7 +15,6 @@ from sandbox.api._impl._payload import (
 
 __all__ = [
     "caller_audit_fields",
-    "caller_envelope",
     "conflict_from_payload",
     "error_message",
     "int_from_payload",

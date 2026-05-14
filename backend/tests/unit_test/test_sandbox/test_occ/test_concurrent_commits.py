@@ -10,7 +10,7 @@ from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.types import FileStatus, WriteChange
 from sandbox.occ.content.hashing import ContentHasher
 from sandbox.occ.stage.transaction import CommitTransaction
-from sandbox.occ.service import OccService
+from sandbox.occ.service import Service
 
 
 class _Gitignore:
@@ -48,7 +48,7 @@ def test_concurrent_prepared_commits_revalidate_latest_manifest(
     stack = LayerStackManager(tmp_path / "stack")
     _publish(stack, tmp_path, "src/app.py", b"base\n")
     snapshot = stack.read_active_manifest()
-    service = OccService(gitignore=_Gitignore(), layer_stack=stack)
+    service = Service(gitignore=_Gitignore(), snapshot_reader=stack, staging=stack, publisher=stack)
 
     async def run_commit(index: int):
         prepared = await service.prepare_changeset(

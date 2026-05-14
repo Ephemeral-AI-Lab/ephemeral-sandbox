@@ -51,7 +51,7 @@ async def test_shell_dispatches_to_sandbox_daemon(
     assert transport.calls == [
         (
             "sb-shell",
-            "api.shell",
+            "api.v1.shell",
             {
                 "command": "printf 'new\\n'",
                 "cwd": ".",

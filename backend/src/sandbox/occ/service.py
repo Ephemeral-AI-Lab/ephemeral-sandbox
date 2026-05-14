@@ -12,12 +12,7 @@ from sandbox.occ.changeset.types import Change, ChangesetResult
 from sandbox.occ.stage.transaction import CommitTransaction
 from sandbox.occ.content.gitignore_oracle import GitignoreMatcher
 from sandbox.occ.content.hashing import infer_manifest_base_hash
-from sandbox.occ.maintenance import (
-    AutoSquashMaintenancePolicy,
-    MaintenancePolicy,
-    NoopMaintenancePolicy,
-    SquashPort,
-)
+from sandbox.occ.maintenance import MaintenancePolicy, NoopMaintenancePolicy
 from sandbox.occ.commit_queue import CommitQueue
 from sandbox.occ.ports import CommitPublisher, CommitStagingStore, SnapshotReader
 from sandbox.occ.router import Router
@@ -28,31 +23,21 @@ from sandbox.timing import monotonic_now
 AUTO_SQUASH_MAX_DEPTH = 32
 
 
-class OccService:
+class Service:
     """Prepare typed OCC changesets and commit them through the layer stack."""
 
     def __init__(
         self,
         *,
         gitignore: GitignoreMatcher,
-        snapshot_reader: SnapshotReader | None = None,
-        staging: CommitStagingStore | None = None,
-        publisher: CommitPublisher | None = None,
-        layer_stack: object | None = None,
+        snapshot_reader: SnapshotReader,
+        staging: CommitStagingStore,
+        publisher: CommitPublisher,
         orchestrator: Router | None = None,
         transaction: CommitTransaction | None = None,
         commit_queue: CommitQueue | None = None,
         maintenance: MaintenancePolicy | None = None,
-        auto_squash_max_depth: int | None = None,
     ) -> None:
-        if layer_stack is not None:
-            snapshot_reader = snapshot_reader or cast(SnapshotReader, layer_stack)
-            staging = staging or cast(CommitStagingStore, layer_stack)
-            publisher = publisher or cast(CommitPublisher, layer_stack)
-        if snapshot_reader is None or staging is None or publisher is None:
-            raise TypeError(
-                "OccService requires snapshot_reader, staging, and publisher ports"
-            )
         self._snapshot_reader = snapshot_reader
         self._orchestrator = orchestrator or Router(gitignore)
         self._transaction = transaction or CommitTransaction(
@@ -60,18 +45,11 @@ class OccService:
             staging=staging,
             publisher=publisher,
         )
+        self._owns_commit_queue = commit_queue is None
         self._commit_queue = commit_queue or CommitQueue(self._transaction)
-        if commit_queue is None:
+        if self._owns_commit_queue:
             self._commit_queue.start()
-        self._maintenance = maintenance or _default_maintenance(
-            layer_stack=layer_stack,
-            snapshot_reader=snapshot_reader,
-            max_depth=(
-                AUTO_SQUASH_MAX_DEPTH
-                if auto_squash_max_depth is None
-                else auto_squash_max_depth
-            ),
-        )
+        self._maintenance = maintenance or NoopMaintenancePolicy()
 
     async def apply_changeset(
         self,
@@ -95,7 +73,7 @@ class OccService:
         *,
         _total_start: float | None = None,
     ) -> ChangesetResult:
-        """Commit an already-prepared changeset through the serial merger.
+        """Commit an already-prepared changeset through the commit queue.
 
         The merger's transaction calls ``transaction.snapshot()`` under the
         commit lock and revalidates against the *live* active manifest, so a
@@ -108,14 +86,14 @@ class OccService:
         commit_start = monotonic_now()
         result = await self._commit_queue.apply(prepared)
         commit_elapsed = monotonic_now() - commit_start
-        auto_squash_timings = await self._auto_squash_after_publish(result)
+        maintenance_timings = await self._maintenance_after_publish(result)
         return self._wrap_commit_result(
             result,
             prepared=prepared,
             total_start=total_start,
             commit_elapsed=commit_elapsed,
             sync_call=False,
-            extra_timings=auto_squash_timings,
+            extra_timings=maintenance_timings,
         )
 
     def apply_changeset_sync(
@@ -144,29 +122,26 @@ class OccService:
         commit_start = monotonic_now()
         result = self._commit_queue.apply_sync(prepared)
         commit_elapsed = monotonic_now() - commit_start
-        auto_squash_timings = self._auto_squash_after_publish_sync(result)
+        maintenance_timings = self._maintenance_after_publish_sync(result)
         return self._wrap_commit_result(
             result,
             prepared=prepared,
             total_start=total_start,
             commit_elapsed=commit_elapsed,
             sync_call=True,
-            extra_timings=auto_squash_timings,
+            extra_timings=maintenance_timings,
         )
 
-    async def _auto_squash_after_publish(
+    async def _maintenance_after_publish(
         self,
         result: ChangesetResult,
     ) -> dict[str, float]:
-        return cast(
-            dict[str, float],
-            await run_sync_in_executor(
-                self._maintenance.after_publish_sync,
-                result,
-            ),
+        return await run_sync_in_executor(
+            self._maintenance.after_publish_sync,
+            result,
         )
 
-    def _auto_squash_after_publish_sync(
+    def _maintenance_after_publish_sync(
         self,
         result: ChangesetResult,
     ) -> dict[str, float]:
@@ -240,9 +215,7 @@ class OccService:
         if effective_snapshot is None:
             snapshot_start = monotonic_now()
             effective_snapshot = self._snapshot_reader.read_active_manifest()
-            timings[TimingKey.PREPARE_CURRENT_SNAPSHOT] = (
-                monotonic_now() - snapshot_start
-            )
+            timings[TimingKey.PREPARE_CURRENT_SNAPSHOT] = monotonic_now() - snapshot_start
         assert effective_snapshot is not None
         snapshot_reader = self._snapshot_reader
 
@@ -260,39 +233,35 @@ class OccService:
             options=commit_options,
             base_hash_reader=base_hash_reader,
         )
-        timings[TimingKey.PREPARE_ROUTE_AND_BASE_HASH] = (
-            monotonic_now() - prepare_start
-        )
+        timings[TimingKey.PREPARE_ROUTE_AND_BASE_HASH] = monotonic_now() - prepare_start
         timings[TimingKey.PREPARE_TOTAL] = monotonic_now() - total_start
         return replace(prepared, timings={**prepared.timings, **timings})
 
     def close(self) -> None:
         """Stop owned background resources."""
-        self._commit_queue.close()
+        if self._owns_commit_queue:
+            self._commit_queue.close()
 
 
-def _default_maintenance(
-    *,
-    layer_stack: object | None,
-    snapshot_reader: SnapshotReader,
-    max_depth: int,
-) -> MaintenancePolicy:
-    if isinstance(layer_stack, SquashPort):
-        return AutoSquashMaintenancePolicy(
-            snapshot_reader=snapshot_reader,
-            squasher=layer_stack,
-            max_depth=max_depth,
-        )
-    return NoopMaintenancePolicy()
-
-
-def _manifest_lag(
-    snapshot: Manifest | None, published_version: int | None
-) -> int | None:
+def _manifest_lag(snapshot: Manifest | None, published_version: int | None) -> int | None:
     if snapshot is None or published_version is None:
         return None
     delta = published_version - snapshot.version - 1
     return max(0, delta)
+
+
+def _default_maintenance(
+    layer_stack: _LayerStackOccPort | None,
+    *,
+    max_depth: int,
+) -> MaintenancePolicy:
+    if layer_stack is None or max_depth < 1 or not isinstance(layer_stack, SquashPort):
+        return NoopMaintenancePolicy()
+    return AutoSquashMaintenancePolicy(
+        snapshot_reader=layer_stack,
+        squasher=layer_stack,
+        max_depth=max_depth,
+    )
 
 
 def _result_timings_with_resume(result: ChangesetResult) -> tuple[dict[str, float], float]:
@@ -305,5 +274,5 @@ def _result_timings_with_resume(result: ChangesetResult) -> tuple[dict[str, floa
 
 __all__ = [
     "AUTO_SQUASH_MAX_DEPTH",
-    "OccService",
+    "Service",
 ]

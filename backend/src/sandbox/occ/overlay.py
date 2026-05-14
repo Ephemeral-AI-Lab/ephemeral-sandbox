@@ -28,13 +28,9 @@ def overlay_path_changes_to_occ_changes(
     for path_change in path_changes:
         if path_change.kind == "write":
             if path_change.content_path is None:
-                raise ValueError(
-                    f"write workspace change lacks content path: {path_change.path}"
-                )
+                raise ValueError(f"write workspace change lacks content path: {path_change.path}")
             if path_change.final_hash is None:
-                raise ValueError(
-                    f"write workspace change lacks final_hash: {path_change.path}"
-                )
+                raise ValueError(f"write workspace change lacks final_hash: {path_change.path}")
             changes.append(
                 build_overlay_write_change(
                     path=path_change.path,
@@ -48,9 +44,7 @@ def overlay_path_changes_to_occ_changes(
             continue
         if path_change.kind == "symlink":
             if path_change.content_path is None:
-                raise ValueError(
-                    f"symlink workspace change lacks content path: {path_change.path}"
-                )
+                raise ValueError(f"symlink workspace change lacks content path: {path_change.path}")
             changes.append(
                 SymlinkChange(
                     path=path_change.path,
@@ -63,9 +57,7 @@ def overlay_path_changes_to_occ_changes(
             changes.append(
                 OpaqueDirChange(
                     path=path_change.path,
-                    kept_children=frozenset(
-                        _kept_children_for(path_change.path, path_changes)
-                    ),
+                    kept_children=frozenset(_kept_children_for(path_change.path, path_changes)),
                     source="overlay_capture",
                 )
             )

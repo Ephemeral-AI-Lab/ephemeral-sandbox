@@ -103,28 +103,20 @@ class CommitTransaction:
                     if group.route is RouteDecision.GATED:
                         gated_count += 1
                         gated_read_total += rt.get(TimingKey.GATED_READ_CURRENT, 0.0)
-                        gated_apply_total += rt.get(
-                            TimingKey.GATED_APPLY_CHANGES, 0.0
-                        )
+                        gated_apply_total += rt.get(TimingKey.GATED_APPLY_CHANGES, 0.0)
                         gated_stage_total += rt.get(TimingKey.GATED_STAGE_DELTA, 0.0)
                     elif group.route is RouteDecision.DIRECT:
                         direct_count += 1
                         direct_read_total += rt.get(TimingKey.DIRECT_READ_CURRENT, 0.0)
-                        direct_apply_total += rt.get(
-                            TimingKey.DIRECT_APPLY_CHANGES, 0.0
-                        )
+                        direct_apply_total += rt.get(TimingKey.DIRECT_APPLY_CHANGES, 0.0)
                         direct_stage_total += rt.get(TimingKey.DIRECT_STAGE_DELTA, 0.0)
-                timings[TimingKey.COMMIT_VALIDATE_GROUPS] = (
-                    monotonic_now() - validate_start
-                )
+                timings[TimingKey.COMMIT_VALIDATE_GROUPS] = monotonic_now() - validate_start
                 timings[TimingKey.COMMIT_GATED_READ_TOTAL] = gated_read_total
                 timings[TimingKey.COMMIT_GATED_APPLY_TOTAL] = gated_apply_total
                 timings[TimingKey.COMMIT_GATED_STAGE_TOTAL] = gated_stage_total
                 timings[TimingKey.COMMIT_GATED_PATH_COUNT] = float(gated_count)
                 timings[TimingKey.COMMIT_DIRECT_READ_TOTAL] = direct_read_total
-                timings[TimingKey.COMMIT_DIRECT_APPLY_TOTAL] = (
-                    direct_apply_total
-                )
+                timings[TimingKey.COMMIT_DIRECT_APPLY_TOTAL] = direct_apply_total
                 timings[TimingKey.COMMIT_DIRECT_STAGE_TOTAL] = direct_stage_total
                 timings[TimingKey.COMMIT_DIRECT_PATH_COUNT] = float(direct_count)
 
@@ -151,9 +143,7 @@ class CommitTransaction:
                     if accepted_delta is not None
                     for change in accepted_delta.changes
                 )
-                timings[TimingKey.COMMIT_COLLECT_CHANGES] = (
-                    monotonic_now() - collect_start
-                )
+                timings[TimingKey.COMMIT_COLLECT_CHANGES] = monotonic_now() - collect_start
                 if not changes:
                     return ChangesetResult(
                         files=files,
@@ -165,21 +155,15 @@ class CommitTransaction:
                         published_manifest_version=None,
                     )
 
-                timings[TimingKey.COMMIT_STAGER_WRITE_TOTAL] = (
-                    stager.write_total_s
-                )
-                timings[TimingKey.COMMIT_STAGER_WRITE_COUNT] = float(
-                    stager.write_count
-                )
+                timings[TimingKey.COMMIT_STAGER_WRITE_TOTAL] = stager.write_total_s
+                timings[TimingKey.COMMIT_STAGER_WRITE_COUNT] = float(stager.write_count)
                 publish_start = monotonic_now()
                 published = transaction.publish_layer(
                     changes,
                     source_root=stager.staging_path,
                     timings=timings,
                 )
-                timings[TimingKey.COMMIT_PUBLISH_LAYER] = (
-                    monotonic_now() - publish_start
-                )
+                timings[TimingKey.COMMIT_PUBLISH_LAYER] = monotonic_now() - publish_start
                 return ChangesetResult(
                     files=files,
                     timings=_finish_timings(
@@ -430,9 +414,7 @@ def _finish_timings(
         TimingKey.COMMIT_TOTAL: monotonic_now() - total_start,
     }
     if transaction is not None:
-        result[TimingKey.LAYER_TRANSACTION_LOCK_HELD] = float(
-            transaction.lock_held_s
-        )
+        result[TimingKey.LAYER_TRANSACTION_LOCK_HELD] = float(transaction.lock_held_s)
     return result
 
 

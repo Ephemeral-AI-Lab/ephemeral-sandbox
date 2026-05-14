@@ -37,17 +37,11 @@ class TimingKey(str, Enum):
     GITIGNORE_CACHE_MISSES_TOTAL = "gitignore.cache_misses_total"
     LAYER_AUTO_SQUASH_DEPTH_AFTER = "layer_stack.auto_squash.depth_after"
     LAYER_AUTO_SQUASH_DEPTH_BEFORE = "layer_stack.auto_squash.depth_before"
-    LAYER_AUTO_SQUASH_MANIFEST_VERSION = (
-        "layer_stack.auto_squash.manifest_version"
-    )
+    LAYER_AUTO_SQUASH_MANIFEST_VERSION = "layer_stack.auto_squash.manifest_version"
     LAYER_AUTO_SQUASH_MAX_DEPTH = "layer_stack.auto_squash.max_depth"
     LAYER_AUTO_SQUASH_RACED = "layer_stack.auto_squash.raced"
-    LAYER_AUTO_SQUASH_RECHECK_TRIGGERED = (
-        "layer_stack.auto_squash.recheck_triggered"
-    )
-    LAYER_AUTO_SQUASH_SKIPPED_IN_FLIGHT = (
-        "layer_stack.auto_squash.skipped_in_flight"
-    )
+    LAYER_AUTO_SQUASH_RECHECK_TRIGGERED = "layer_stack.auto_squash.recheck_triggered"
+    LAYER_AUTO_SQUASH_SKIPPED_IN_FLIGHT = "layer_stack.auto_squash.skipped_in_flight"
     LAYER_AUTO_SQUASH_TOTAL = "layer_stack.auto_squash.total_s"
     LAYER_TRANSACTION_LOCK_HELD = "layer_stack.transaction.lock_held_s"
     LAYER_TRANSACTION_LOCK_WAIT = "layer_stack.transaction.lock_wait_s"

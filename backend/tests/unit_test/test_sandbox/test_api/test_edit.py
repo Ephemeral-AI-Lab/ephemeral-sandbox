@@ -15,7 +15,7 @@ async def test_edit_file_dispatches_to_sandbox_daemon(
 ) -> None:
     async def fake_call_daemon_api(sandbox_id, op, args, timeout):
         del sandbox_id, args, timeout
-        if op == "api.read_file":
+        if op == "api.v1.read_file":
             return {
                 "success": True,
                 "exists": True,
@@ -53,7 +53,7 @@ async def test_edit_file_dispatches_to_sandbox_daemon(
     assert transport.calls == [
         (
             "sb-edit",
-            "api.read_file",
+            "api.v1.read_file",
             {
                 "path": "a.py",
                 "caller": {
@@ -67,7 +67,7 @@ async def test_edit_file_dispatches_to_sandbox_daemon(
         ),
         (
             "sb-edit",
-            "api.edit_file",
+            "api.v1.edit_file",
             {
                 "path": "a.py",
                 "edits": [{"old_text": "old", "new_text": "new"}],
@@ -97,7 +97,7 @@ async def test_edit_file_recovers_when_transient_exec_already_applied_edit(
     async def fake_call_daemon_api(sandbox_id, op, args, timeout):
         del sandbox_id, args
         calls.append((op, timeout))
-        if calls == [("api.read_file", 20)]:
+        if calls == [("api.v1.read_file", 20)]:
             return {
                 "success": True,
                 "exists": True,
@@ -105,9 +105,9 @@ async def test_edit_file_recovers_when_transient_exec_already_applied_edit(
                 "encoding": "utf-8",
                 "timings": {},
             }
-        if op == "api.edit_file":
+        if op == "api.v1.edit_file":
             raise RuntimeError("DaytonaError: Failed to execute command: ")
-        if op == "api.read_file":
+        if op == "api.v1.read_file":
             return {
                 "success": True,
                 "exists": True,
@@ -136,9 +136,9 @@ async def test_edit_file_recovers_when_transient_exec_already_applied_edit(
     assert result.status == "edited"
     assert result.timings["api.edit.recovered_after_transient"] == 1.0
     assert calls == [
-        ("api.read_file", 20),
-        ("api.edit_file", 20),
-        ("api.read_file", 20),
+        ("api.v1.read_file", 20),
+        ("api.v1.edit_file", 20),
+        ("api.v1.read_file", 20),
     ]
 
 
@@ -152,7 +152,7 @@ async def test_edit_file_retries_transient_exec_when_edit_not_visible(
     async def fake_call_daemon_api(sandbox_id, op, args, timeout):
         del sandbox_id, args
         calls.append((op, timeout))
-        if calls == [("api.read_file", 20)]:
+        if calls == [("api.v1.read_file", 20)]:
             return {
                 "success": True,
                 "exists": True,
@@ -160,9 +160,9 @@ async def test_edit_file_retries_transient_exec_when_edit_not_visible(
                 "encoding": "utf-8",
                 "timings": {},
             }
-        if calls == [("api.read_file", 20), ("api.edit_file", 20)]:
+        if calls == [("api.v1.read_file", 20), ("api.v1.edit_file", 20)]:
             raise RuntimeError("DaytonaError: Failed to execute command: ")
-        if op == "api.read_file":
+        if op == "api.v1.read_file":
             return {
                 "success": True,
                 "exists": True,
@@ -170,7 +170,7 @@ async def test_edit_file_retries_transient_exec_when_edit_not_visible(
                 "encoding": "utf-8",
                 "timings": {},
             }
-        if op == "api.edit_file":
+        if op == "api.v1.edit_file":
             return {
                 "success": True,
                 "changed_paths": ["a.py"],
@@ -198,10 +198,10 @@ async def test_edit_file_retries_transient_exec_when_edit_not_visible(
     assert result.success is True
     assert result.changed_paths == ("a.py",)
     assert calls == [
-        ("api.read_file", 20),
-        ("api.edit_file", 20),
-        ("api.read_file", 20),
-        ("api.edit_file", 20),
+        ("api.v1.read_file", 20),
+        ("api.v1.edit_file", 20),
+        ("api.v1.read_file", 20),
+        ("api.v1.edit_file", 20),
     ]
 
 
@@ -212,7 +212,7 @@ async def test_edit_file_guard_failure_maps_conflict_info(
 ) -> None:
     async def fake_call_daemon_api(sandbox_id, op, args, timeout):
         del sandbox_id, args, timeout
-        if op == "api.read_file":
+        if op == "api.v1.read_file":
             return {
                 "success": True,
                 "exists": True,
@@ -263,7 +263,7 @@ async def test_edit_file_anchor_error_maps_to_conflict_result(
 ) -> None:
     async def fake_call_daemon_api(sandbox_id, op, args, timeout):
         del sandbox_id, args, timeout
-        if op == "api.read_file":
+        if op == "api.v1.read_file":
             return {
                 "success": True,
                 "exists": True,

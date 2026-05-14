@@ -31,7 +31,7 @@ stack.publish_changes([
     WriteLayerChange(path="src/no_newline.py", source_path=str(_source(root, "nonewline", b"tail"))),
     WriteLayerChange(path="src/spaces.py", source_path=str(_source(root, "spaces", b"value = 1\n"))),
 ])
-service = Service(gitignore=_Gitignore(), layer_stack=stack)
+service = Service(gitignore=_Gitignore(), snapshot_reader=stack, staging=stack, publisher=stack)
 
 success = service.apply_changeset_sync([
     EditChange(path="src/app.py", old_text="beta\n", new_text="gamma\n"),

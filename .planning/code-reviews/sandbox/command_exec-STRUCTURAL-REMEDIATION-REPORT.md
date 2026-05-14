@@ -137,3 +137,18 @@ Blocked:
 
 - `test_capture_to_occ_client.py::test_shell_capture_goes_through_occ_client_before_lease_release` now fails during collection because the current dirty tree has `sandbox.occ.service -> sandbox.occ.stage.transaction` importing `DirectMerge` from `sandbox.occ.stage.direct`, where that symbol is absent.
 - Full bundle layout/import tests now fail on current dirty-tree layout drift unrelated to command-exec: missing old `sandbox/occ/capture/*`, `sandbox/occ/merge/*`, and `sandbox/occ/routing/*` paths, plus `sandbox.api.__init__` importing missing `sandbox.api.default`.
+
+### Cleanup Follow-up - 2026-05-14
+
+Status: previous OCC/API collection blockers resolved.
+
+Changes:
+
+- Updated command-exec comments/tests from `OccSerialMerger` to `CommitQueue`.
+- Removed the stale `commit_prepared_changeset` call path; command-exec write
+  and edit handlers now call `OCCClient.commit_prepared`.
+
+Verification:
+
+- `uv run pytest backend/tests/unit_test/test_sandbox/test_api backend/tests/unit_test/test_sandbox/test_host backend/tests/unit_test/test_sandbox/test_runtime_bootstrap.py backend/tests/unit_test/test_sandbox/test_live_setup_api.py backend/tests/unit_test/test_sandbox/test_occ backend/tests/unit_test/test_sandbox/test_command_exec/test_edit_snapshot_byte_derivation.py backend/tests/unit_test/test_sandbox/test_command_exec/test_capture_to_occ_client.py -q` -> 178 passed, 1 skipped.
+- `uv run ruff check backend/src/sandbox/api backend/src/sandbox/occ backend/src/sandbox/runtime/daemon/service/occ_backend.py backend/src/sandbox/runtime/daemon/handler/tools/edit.py backend/src/sandbox/runtime/daemon/handler/tools/write.py backend/tests/unit_test/test_sandbox/test_api backend/tests/unit_test/test_sandbox/test_occ backend/tests/unit_test/test_sandbox/test_command_exec/test_edit_snapshot_byte_derivation.py` -> all checks passed.

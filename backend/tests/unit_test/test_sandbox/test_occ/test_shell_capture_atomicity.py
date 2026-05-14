@@ -1,7 +1,7 @@
-"""Phase 05 — shell capture continues to reach OCC via OCCClient (not OccService).
+"""Phase 05 — shell capture continues to reach OCC via Client (not Service).
 
 Phase 04 established that shell capture submits typed changes via
-``OCCClient.apply_changeset`` rather than calling ``OccService`` directly.
+``Client.apply_changeset`` rather than calling ``Service`` directly.
 Phase 05 §6 re-confirms this: the simplified plan §"Shared OCC Publish
 Gate" forbids bypassing the OCC client boundary from capture conversion.
 """
@@ -14,7 +14,7 @@ import pytest
 
 from sandbox.command_exec.contract.result import ShellProcessResult
 from sandbox.layer_stack.workspace.base import build_workspace_base
-from sandbox.occ.client import OCCClient
+from sandbox.occ.client import Client
 from sandbox.runtime.daemon.service import occ_backend, shell_runner
 
 
@@ -23,7 +23,7 @@ async def test_shell_uses_occ_client_apply_changeset(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The shell handler must call OCCClient.apply_changeset (not bypass it)."""
+    """The shell handler must call Client.apply_changeset (not bypass it)."""
     occ_backend.clear_backend_cache()
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -33,8 +33,8 @@ async def test_shell_uses_occ_client_apply_changeset(
 
     services = shell_runner.services({"layer_stack_root": stack.as_posix()})
     occ_client = services[1]
-    assert isinstance(occ_client, OCCClient), (
-        "Shell capture must reach OCC through OCCClient — direct OccService "
+    assert isinstance(occ_client, Client), (
+        "Shell capture must reach OCC through Client — direct Service "
         "binding is forbidden by the plan §Shared OCC Publish Gate."
     )
 
@@ -85,9 +85,7 @@ async def test_shell_uses_occ_client_apply_changeset(
             mount_mode="private_namespace",
         )
 
-    monkeypatch.setattr(
-        shell_runner, "run_workspace_replaced_command", fake_run
-    )
+    monkeypatch.setattr(shell_runner, "run_workspace_replaced_command", fake_run)
 
     result = await shell_runner.execute_shell_api(
         {
@@ -100,7 +98,7 @@ async def test_shell_uses_occ_client_apply_changeset(
     )
 
     assert result["success"] is True
-    assert apply_calls, "shell must invoke OCCClient.apply_changeset"
+    assert apply_calls, "shell must invoke Client.apply_changeset"
     # The shell-capture call carries the leased manifest as its snapshot —
     # confirms OCC sees the leased identity, not a fresh active read.
     submitted = apply_calls[0]

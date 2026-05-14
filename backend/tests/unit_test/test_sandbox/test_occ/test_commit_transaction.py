@@ -5,12 +5,12 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
+from sandbox.layer_stack.layer.change import WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import CommitOptions
 from sandbox.occ.changeset.types import ChangesetResult, FileStatus, WriteChange
 from sandbox.occ.content.hashing import ContentHasher
-from sandbox.occ.service import OccService
+from sandbox.occ.service import Service
 
 
 class _Gitignore:
@@ -48,8 +48,10 @@ def _service(
     stack: LayerStackManager,
     *,
     ignored: set[str] | None = None,
-) -> OccService:
-    return OccService(gitignore=_Gitignore(ignored), layer_stack=stack)
+) -> Service:
+    return Service(
+        gitignore=_Gitignore(ignored), snapshot_reader=stack, staging=stack, publisher=stack
+    )
 
 
 def test_apply_changeset_publishes_accepted_tracked_layer(tmp_path: Path) -> None:

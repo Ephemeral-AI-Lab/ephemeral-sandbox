@@ -9,7 +9,6 @@ import pytest
 
 from sandbox.layer_stack import (
     DeleteLayerChange,
-    LayerChange,
     LayerStackManager,
     LayerStackStorageError,
     OpaqueDirLayerChange,

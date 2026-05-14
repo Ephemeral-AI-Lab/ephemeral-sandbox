@@ -116,9 +116,13 @@ def test_classify_outside_absolute_path_classifies_out_of_workspace(
 def test_op_table_dispatches_data_ops_to_runtime_handlers() -> None:
     server._load_peer_bootstraps()
     assert server.OP_TABLE["api.write_file"] is write.write_file
+    assert server.OP_TABLE["api.v1.write_file"] is write.write_file
     assert server.OP_TABLE["api.edit_file"] is edit.edit_file
+    assert server.OP_TABLE["api.v1.edit_file"] is edit.edit_file
     assert server.OP_TABLE["api.read_file"] is read.read_file
+    assert server.OP_TABLE["api.v1.read_file"] is read.read_file
     assert server.OP_TABLE["api.shell"] is shell_runner.execute_shell_api
+    assert server.OP_TABLE["api.v1.shell"] is shell_runner.execute_shell_api
     assert server.OP_TABLE["api.layer_metrics"] is metrics.layer_metrics
 
 

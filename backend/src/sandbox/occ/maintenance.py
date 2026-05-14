@@ -117,10 +117,7 @@ def _merge_auto_squash_timings(
     if not second:
         return dict(first)
     merged = {**first, **second}
-    if (
-        TimingKey.LAYER_AUTO_SQUASH_TOTAL in first
-        or TimingKey.LAYER_AUTO_SQUASH_TOTAL in second
-    ):
+    if TimingKey.LAYER_AUTO_SQUASH_TOTAL in first or TimingKey.LAYER_AUTO_SQUASH_TOTAL in second:
         merged[TimingKey.LAYER_AUTO_SQUASH_TOTAL] = first.get(
             TimingKey.LAYER_AUTO_SQUASH_TOTAL,
             0.0,

@@ -16,9 +16,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sandbox.layer_stack.manager import LayerStackManager
-from sandbox.occ.client import OCCClient
+from sandbox.occ.client import Client
 from sandbox.occ.content.gitignore_oracle import SnapshotGitignoreOracle
-from sandbox.occ.service import OccService
+from sandbox.occ.maintenance import AutoSquashMaintenancePolicy
+from sandbox.occ.service import AUTO_SQUASH_MAX_DEPTH, Service
 from sandbox.runtime.daemon.service.layer_stack_client import LayerStackClient
 from sandbox.runtime.daemon.service.workspace_binding import RuntimeWorkspaceBindingReader
 from sandbox.runtime.daemon.service.workspace_server import get_layer_stack_manager
@@ -34,8 +35,8 @@ class OccBackend:
     """
 
     layer_stack: LayerStackClient
-    occ_service: OccService
-    occ_client: OCCClient
+    occ_service: Service
+    occ_client: Client
     gitignore: SnapshotGitignoreOracle
     manager: LayerStackManager
 
@@ -54,8 +55,18 @@ def build_occ_backend(layer_stack_root: str) -> OccBackend:
     manager = get_layer_stack_manager(cache_key)
     layer_stack = LayerStackClient(manager)
     gitignore = SnapshotGitignoreOracle(layer_stack)
-    occ_service = OccService(gitignore=gitignore, layer_stack=layer_stack)
-    occ_client = OCCClient(
+    occ_service = Service(
+        gitignore=gitignore,
+        snapshot_reader=layer_stack,
+        staging=layer_stack,
+        publisher=layer_stack,
+        maintenance=AutoSquashMaintenancePolicy(
+            snapshot_reader=layer_stack,
+            squasher=layer_stack,
+            max_depth=AUTO_SQUASH_MAX_DEPTH,
+        ),
+    )
+    occ_client = Client(
         occ_service,
         binding_reader=RuntimeWorkspaceBindingReader(),
         workspace_ref=cache_key,

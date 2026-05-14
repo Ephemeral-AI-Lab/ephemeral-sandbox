@@ -25,7 +25,7 @@ before = sample_resource()
 started = time.perf_counter()
 root = _case_root(label)
 stack = LayerStackManager(root / "stack")
-service = Service(gitignore=_Gitignore(), layer_stack=stack)
+service = Service(gitignore=_Gitignore(), snapshot_reader=stack, staging=stack, publisher=stack)
 latencies = []
 timing_rows = []
 for batch in range(12):

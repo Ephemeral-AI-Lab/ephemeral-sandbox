@@ -103,9 +103,7 @@ class WriteChange(Change):
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "base_hash", base_hash)
         if final_content is None and content_path is None:
-            raise ValueError(
-                "WriteChange requires final_content or content_path"
-            )
+            raise ValueError("WriteChange requires final_content or content_path")
         if content_path is not None and final_content is None:
             payload: WritePayload = DiskWritePayload(
                 path=str(content_path),

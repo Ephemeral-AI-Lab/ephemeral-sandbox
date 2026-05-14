@@ -100,3 +100,27 @@ Result:
 - OCC package compiled.
 - The only remaining raw OCC timing strings are the enum values in
   `timing_keys.py`.
+
+## Cleanup Pass — Legacy Alias Removal
+
+Status: complete
+
+Changes:
+
+- Removed compatibility aliases for renamed OCC components:
+  `OccSerialMerger`, `OccCommitTransaction`, `DirectMerge`, `GatedMerge`,
+  `OccOrchestrator`, `SnapshotIgnoreOracle`, `OCCMutationService`, and the
+  service/client `Service`/`Client` aliases.
+- Updated production imports and tests to use `CommitQueue`,
+  `CommitTransaction`, `DirectStager`, `GatedStager`, `Router`, `OccService`,
+  and `OCCClient`.
+- Removed the unused `CommitTransaction` port alias and kept the explicit
+  `CommitTransactionPort` protocol.
+- Kept `_LayerChangeStager` and `_FileSystemLayerChangeStager` private to the
+  transaction module.
+
+Verification:
+
+- `uv run pytest backend/tests/unit_test/test_sandbox/test_api backend/tests/unit_test/test_sandbox/test_occ -q` -> 151 passed.
+- `uv run pytest backend/tests/unit_test/test_sandbox/test_api backend/tests/unit_test/test_sandbox/test_host backend/tests/unit_test/test_sandbox/test_runtime_bootstrap.py backend/tests/unit_test/test_sandbox/test_live_setup_api.py backend/tests/unit_test/test_sandbox/test_occ backend/tests/unit_test/test_sandbox/test_command_exec/test_edit_snapshot_byte_derivation.py backend/tests/unit_test/test_sandbox/test_command_exec/test_capture_to_occ_client.py -q` -> 178 passed, 1 skipped.
+- `uv run ruff check backend/src/sandbox/api backend/src/sandbox/occ backend/src/sandbox/runtime/daemon/service/occ_backend.py backend/src/sandbox/runtime/daemon/handler/tools/edit.py backend/src/sandbox/runtime/daemon/handler/tools/write.py backend/tests/unit_test/test_sandbox/test_api backend/tests/unit_test/test_sandbox/test_occ backend/tests/unit_test/test_sandbox/test_command_exec/test_edit_snapshot_byte_derivation.py` -> all checks passed.

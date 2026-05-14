@@ -99,11 +99,6 @@ class PrepareWorkspaceSnapshotResult:
     lowerdir: str
     timings: dict[str, float]
 
-    @property
-    def snapshot_dir(self) -> str:
-        """Backend-neutral name for the materialized snapshot directory."""
-        return self.lowerdir
-
     def to_dict(self) -> dict[str, object]:
         return {
             "lease_id": self.lease_id,
@@ -111,7 +106,6 @@ class PrepareWorkspaceSnapshotResult:
             "root_hash": self.root_hash,
             "manifest": self.manifest.to_dict(),
             "lowerdir": self.lowerdir,
-            "snapshot_dir": self.snapshot_dir,
             "timings": dict(self.timings),
         }
 

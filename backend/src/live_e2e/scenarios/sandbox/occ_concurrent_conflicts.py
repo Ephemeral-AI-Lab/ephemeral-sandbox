@@ -3,7 +3,7 @@
 Reference scenario for the sandbox subsystem. Plan emits one executor task
 that fires the existing ``sandbox_integrity`` action, which exercises:
 
-- ``write_file`` → real ``OccService.apply_changeset`` → layer published
+- ``write_file`` → real ``Service.apply_changeset`` → layer published
 - ``read_file`` round trip — proves layerstack publish is readable
 - ``edit_file`` (search/replace) — proves OCC merge of disjoint edits
 - ``shell`` command mutating a file — proves overlay capture path

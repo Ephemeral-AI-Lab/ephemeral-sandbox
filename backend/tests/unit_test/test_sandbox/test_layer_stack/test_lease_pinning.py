@@ -24,7 +24,6 @@ from pathlib import Path
 import pytest
 
 from sandbox.layer_stack import (
-    LayerChange,
     DeleteLayerChange,
     WriteLayerChange,
     LayerStackManager,
