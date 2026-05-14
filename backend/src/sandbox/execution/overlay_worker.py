@@ -9,7 +9,6 @@ import cycle that an earlier consolidation introduced.
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from sandbox.execution.overlay_capture import capture_changes
 from sandbox.execution.overlay_mounts import cleanup_runtime_run_dir, mount_snapshot
 from sandbox.execution.overlay_request import OverlayShellRequest
 from sandbox.execution.overlay_result import OverlayCapture, write_overlay_capture
+from sandbox.execution.workspace_environment import subprocess_to_refs
 from sandbox.timing import monotonic_now
 
 
@@ -61,33 +61,25 @@ def run_user_command(
         raise ValueError(f"cwd escapes mounted workspace: {cwd!r}")
     resolved_cwd.mkdir(parents=True, exist_ok=True)
 
-    stdout_path = Path(stdout_ref)
-    stderr_path = Path(stderr_ref)
-    stdout_path.parent.mkdir(parents=True, exist_ok=True)
-    stderr_path.parent.mkdir(parents=True, exist_ok=True)
-
     child_env = {
         **{k: os.environ[k] for k in _HOST_ENV_ALLOWLIST if k in os.environ},
         **env,
         "GIT_OPTIONAL_LOCKS": "0",
     }
 
-    with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
-        try:
-            completed = subprocess.run(
-                list(command),
-                cwd=resolved_cwd,
-                env=child_env,
-                stdout=stdout_file,
-                stderr=stderr_file,
-                timeout=timeout_seconds,
-                check=False,
-            )
-            exit_code = int(completed.returncode)
-        except subprocess.TimeoutExpired:
-            # 124 follows the GNU `timeout(1)` convention so callers can
-            # distinguish a user-command timeout from infrastructure failure.
-            exit_code = 124
+    stdout_path = Path(stdout_ref)
+    stderr_path = Path(stderr_ref)
+    exit_code = subprocess_to_refs(
+        command=command,
+        cwd=resolved_cwd,
+        env=child_env,
+        timeout_seconds=timeout_seconds,
+        stdout_ref=stdout_path,
+        stderr_ref=stderr_path,
+        # 124 follows GNU `timeout(1)` so callers can distinguish a
+        # user-command timeout from infrastructure failure.
+        timeout_exit_code=124,
+    )
     return OverlayCommandResult(
         exit_code=exit_code,
         stdout_ref=str(stdout_path),

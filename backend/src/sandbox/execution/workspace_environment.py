@@ -52,6 +52,45 @@ def resolve_workspace_cwd(
     return resolved
 
 
+def subprocess_to_refs(
+    *,
+    command: Sequence[str],
+    cwd: Path,
+    env: Mapping[str, str],
+    timeout_seconds: float | None,
+    stdout_ref: str | Path,
+    stderr_ref: str | Path,
+    timeout_exit_code: int | None = None,
+) -> int:
+    """Run a subprocess with stdout/stderr captured to ref files.
+
+    If a timeout fires and ``timeout_exit_code`` is ``None`` the
+    ``subprocess.TimeoutExpired`` propagates; otherwise that exit code is
+    returned so callers can distinguish a user-command timeout from a real
+    exit (e.g. GNU `timeout(1)` uses 124).
+    """
+    stdout_path = Path(stdout_ref)
+    stderr_path = Path(stderr_ref)
+    stdout_path.parent.mkdir(parents=True, exist_ok=True)
+    stderr_path.parent.mkdir(parents=True, exist_ok=True)
+    with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
+        try:
+            completed = subprocess.run(
+                list(command),
+                cwd=cwd,
+                env=dict(env),
+                stdout=stdout_file,
+                stderr=stderr_file,
+                timeout=timeout_seconds,
+                check=False,
+            )
+            return int(completed.returncode)
+        except subprocess.TimeoutExpired:
+            if timeout_exit_code is None:
+                raise
+            return timeout_exit_code
+
+
 def run_command_to_refs(
     *,
     command: Sequence[str],
@@ -65,26 +104,19 @@ def run_command_to_refs(
     policy: CommandExecPolicy = DEFAULT_COMMAND_EXEC_POLICY,
 ) -> int:
     """Run a guarded command and write stdout/stderr to reference files."""
-    stdout_path = Path(stdout_ref)
-    stderr_path = Path(stderr_ref)
-    stdout_path.parent.mkdir(parents=True, exist_ok=True)
-    stderr_path.parent.mkdir(parents=True, exist_ok=True)
     resolved_cwd = resolve_workspace_cwd(
         declared_workspace_root=declared_workspace_root,
         mounted_workspace_root=mounted_workspace_root,
         cwd=cwd,
     )
-    with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
-        completed = subprocess.run(
-            list(command),
-            cwd=resolved_cwd,
-            env=_command_environment(env, policy=policy),
-            stdout=stdout_file,
-            stderr=stderr_file,
-            timeout=timeout_seconds,
-            check=False,
-        )
-    return int(completed.returncode)
+    return subprocess_to_refs(
+        command=command,
+        cwd=resolved_cwd,
+        env=policy.command_environment(env),
+        timeout_seconds=timeout_seconds,
+        stdout_ref=stdout_ref,
+        stderr_ref=stderr_ref,
+    )
 
 
 def _relative_to_declared_workspace(candidate: Path, declared_root: Path) -> Path:
@@ -92,21 +124,11 @@ def _relative_to_declared_workspace(candidate: Path, declared_root: Path) -> Pat
     root_text = os.path.normpath(declared_root.as_posix())
     if os.path.commonpath([root_text, candidate_text]) != root_text:
         raise ValueError(f"cwd escapes workspace replacement root: {candidate}")
-    try:
-        return Path(candidate_text).relative_to(root_text)
-    except ValueError as exc:  # pragma: no cover - commonpath guards this.
-        raise ValueError(f"cwd escapes workspace replacement root: {candidate}") from exc
-
-
-def _command_environment(
-    extra: Mapping[str, str],
-    *,
-    policy: CommandExecPolicy = DEFAULT_COMMAND_EXEC_POLICY,
-) -> dict[str, str]:
-    return policy.command_environment(extra)
+    return Path(candidate_text).relative_to(root_text)
 
 
 __all__ = [
     "resolve_workspace_cwd",
     "run_command_to_refs",
+    "subprocess_to_refs",
 ]
