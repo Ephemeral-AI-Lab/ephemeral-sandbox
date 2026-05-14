@@ -31,10 +31,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing-only
     from task_center.attempt.orchestrator_registry import (
         AttemptOrchestratorRegistry,
     )
-    from task_center.attempt.runtime import (
-        AgentLaunch,
-        AttemptAgentLauncher,
-    )
+    from task_center.attempt.launcher import EphemeralAttemptAgentLauncher
     from task_center.attempt.state import Attempt
     from task_center.config import TaskCenterLifecycleConfig
     from task_center.context_engine.composer import ContextComposer
@@ -75,7 +72,7 @@ class AttemptStageCtx(Protocol):
     episode_store: EpisodeStoreProtocol
     attempt_store: AttemptStoreProtocol
     task_store: TaskStoreProtocol
-    agent_launcher: AttemptAgentLauncher
+    agent_launcher: EphemeralAttemptAgentLauncher
     orchestrator_registry: AttemptOrchestratorRegistry
 
     def run_id_for_attempt(self, attempt: Attempt) -> str: ...

@@ -18,14 +18,8 @@ from dataclasses import dataclass
 from agents import AgentDefinition
 from task_center.context_engine.engine import ContextEngine
 from task_center.context_engine.packet import ContextPacket
-from task_center.context_engine.renderer import (
-    MarkdownPromptRenderer,
-    PromptRenderer,
-)
-from task_center.agent_routing.resolver import (
-    AgentResolver,
-    RuleBasedAgentResolver,
-)
+from task_center.context_engine.renderer import MarkdownPromptRenderer
+from task_center.agent_routing.resolver import RuleBasedAgentResolver
 from task_center.context_engine.scope import ContextScope
 
 
@@ -43,9 +37,9 @@ class LaunchBundle:
 class ContextComposer:
     """Single launch entry point. Frozen so dependencies are explicit."""
 
-    resolver: AgentResolver
+    resolver: RuleBasedAgentResolver
     engine: ContextEngine
-    renderer: PromptRenderer
+    renderer: MarkdownPromptRenderer
 
     @classmethod
     def default(

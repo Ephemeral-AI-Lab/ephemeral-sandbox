@@ -12,8 +12,6 @@ their own contract first and the parent's frame underneath.
 
 from __future__ import annotations
 
-from typing import Protocol
-
 from task_center.context_engine.packet import (
     ContextBlock,
     ContextPacket,
@@ -26,12 +24,6 @@ _TOKEN_BUDGET_KEY = "token_budget"
 # Approximate, deterministic token estimate (4 chars ≈ 1 token). Used for
 # compression decisions; the renderer does not call out to a tokenizer.
 _CHARS_PER_TOKEN = 4
-
-
-class PromptRenderer(Protocol):
-    """Renders a :class:`ContextPacket` to a single ``rendered_prompt`` string."""
-
-    def render(self, packet: ContextPacket) -> str: ...
 
 
 def _humanize(kind: str) -> str:

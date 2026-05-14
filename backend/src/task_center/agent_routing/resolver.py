@@ -9,7 +9,6 @@ same code path.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
 
 from agents import get_definition
 from agents import AgentDefinition, AgentSelectionBlock, AgentVariant
@@ -37,18 +36,6 @@ class AgentSelection:
     context_recipe: str
     required_context_blocks: tuple[ContextBlock, ...] = ()
     reason: str | None = None
-
-
-class AgentResolver(Protocol):
-    """Selects an agent definition for a given scope."""
-
-    def resolve(
-        self,
-        *,
-        base_agent_name: str,
-        scope: ContextScope,
-        deps: ContextEngineDeps,
-    ) -> AgentSelection: ...
 
 
 class RuleBasedAgentResolver:

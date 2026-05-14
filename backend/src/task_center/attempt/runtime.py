@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 from audit.base import AuditSink, NoopAuditSink
 from task_center.persistence import MissionStoreProtocol
@@ -17,12 +17,13 @@ from task_center.episode.registry import EpisodeManagerRegistry
 from task_center.task_state import TaskCenterTaskRole
 
 if TYPE_CHECKING:
-    from task_center.context_engine.composer import ContextComposer
-    from task_center.contexts import TaskCenterStores
-    from task_center.entry.controller import EntryTaskController
+    from task_center.attempt.launcher import EphemeralAttemptAgentLauncher
     from task_center.attempt.orchestrator_registry import (
         AttemptOrchestratorRegistry,
     )
+    from task_center.context_engine.composer import ContextComposer
+    from task_center.contexts import TaskCenterStores
+    from task_center.entry.controller import EntryTaskController
     from task_center.lifecycle import LifecycleTarget
 
 
@@ -44,19 +45,13 @@ class AgentLaunch:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class AttemptAgentLauncher(Protocol):
-    """Launches or queues one harness agent task."""
-
-    def launch(self, launch: AgentLaunch) -> None: ...
-
-
 @dataclass(frozen=True, slots=True)
 class AttemptDeps:
     mission_store: MissionStoreProtocol
     episode_store: EpisodeStoreProtocol
     attempt_store: AttemptStoreProtocol
     task_store: TaskStoreProtocol
-    agent_launcher: AttemptAgentLauncher
+    agent_launcher: EphemeralAttemptAgentLauncher
     orchestrator_registry: AttemptOrchestratorRegistry
     manager_registry: EpisodeManagerRegistry | None = None
     lifecycle_config: TaskCenterLifecycleConfig = field(default_factory=TaskCenterLifecycleConfig)
