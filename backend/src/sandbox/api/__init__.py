@@ -29,7 +29,7 @@ from sandbox.models import (
     WriteFileRequest,
     WriteFileResult,
 )
-from sandbox.api._control import (  # noqa: I001 -- models must precede control
+from sandbox.api._control import (  # isort: skip -- models must precede control
     configured_sandbox_defaults,
     create_sandbox,
     delete_sandbox,

@@ -29,7 +29,7 @@ _SHELL_CONFLICT_MARKERS = (
 )
 
 
-def error_code(error: BaseException) -> str | None:
+def _error_code(error: BaseException) -> str | None:
     for attr in ("error_code", "code", "reason"):
         value = getattr(error, attr, None)
         if isinstance(value, str) and value.strip():
@@ -43,7 +43,7 @@ def error_code(error: BaseException) -> str | None:
 
 
 def is_edit_conflict(error: BaseException) -> bool:
-    code = error_code(error)
+    code = _error_code(error)
     if code in _EDIT_CONFLICT_CODES:
         return True
     lowered = error_message(error).lower()
@@ -51,11 +51,11 @@ def is_edit_conflict(error: BaseException) -> bool:
 
 
 def is_shell_conflict(error: BaseException) -> bool:
-    code = error_code(error)
+    code = _error_code(error)
     if code in _SHELL_CONFLICT_CODES:
         return True
     lowered = error_message(error).lower()
     return any(marker in lowered for marker in _SHELL_CONFLICT_MARKERS)
 
 
-__all__ = ["error_code", "is_edit_conflict", "is_shell_conflict"]
+__all__ = ["is_edit_conflict", "is_shell_conflict"]

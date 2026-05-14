@@ -3,25 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-import re
 
 from sandbox.models import ConflictInfo
 from sandbox.timing import normalize_timing_map
 
 _INTERNAL_ERROR_PREFIX = "internal_error: "
-_TRANSIENT_ERROR_PATTERNS = tuple(
-    re.compile(pattern, re.IGNORECASE)
-    for pattern in (
-        r"\bdaytonaerror\b",
-        r"\bfailed to execute command\b",
-        r"\bconnection reset\b",
-        r"\bconnection refused\b",
-        r"\bserver disconnected\b",
-        r"\btemporarily unavailable\b",
-        r"\bruntimeexecfailed\b",
-        r"\beos_daemon_io_failed\b",
-    )
-)
 
 
 def normalize_overlay_cwd(cwd: str | None) -> str:
@@ -35,11 +21,6 @@ def error_message(error: BaseException) -> str:
     if message.startswith(_INTERNAL_ERROR_PREFIX):
         return message.removeprefix(_INTERNAL_ERROR_PREFIX)
     return message
-
-
-def is_transient_transport_error(error: BaseException) -> bool:
-    message = error_message(error)
-    return any(pattern.search(message) for pattern in _TRANSIENT_ERROR_PATTERNS)
 
 
 def conflict_from_payload(raw: object) -> ConflictInfo | None:
@@ -83,7 +64,6 @@ __all__ = [
     "conflict_from_payload",
     "error_message",
     "int_from_payload",
-    "is_transient_transport_error",
     "normalize_overlay_cwd",
     "paths_from_payload",
     "timings_from_payload",

@@ -7,7 +7,6 @@ import pytest
 from sandbox.api._impl._payload import (
     error_message,
     int_from_payload,
-    is_transient_transport_error,
     normalize_overlay_cwd,
 )
 from sandbox.api._impl._classifiers import is_edit_conflict, is_shell_conflict
@@ -42,13 +41,6 @@ def test_error_message_strips_internal_error_prefix() -> None:
     assert error_message(RuntimeError("internal_error: anchor not found")) == (
         "anchor not found"
     )
-
-
-def test_transient_transport_error_uses_word_boundaries() -> None:
-    assert is_transient_transport_error(
-        RuntimeError("DaytonaError: Failed to execute command")
-    )
-    assert not is_transient_transport_error(RuntimeError("NotDaytonaError"))
 
 
 def test_int_from_payload_is_strict_about_boundary_types() -> None:

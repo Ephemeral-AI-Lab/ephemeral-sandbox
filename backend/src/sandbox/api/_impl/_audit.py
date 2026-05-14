@@ -42,6 +42,7 @@ async def audited_operation(
             conflict_from_error(exc) if conflict_from_error is not None else None
         )
         if conflict_result is not None:
+            # Recoverable: publish the conflict result and suppress the exception.
             publish_operation_result(
                 audit_sink,
                 sandbox_id=sandbox_id,
