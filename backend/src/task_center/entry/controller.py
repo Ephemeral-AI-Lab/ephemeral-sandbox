@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from task_center.persistence import TaskStoreProtocol
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.persistence import TaskStoreProtocol
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.mission.state import MissionClosureReport
 from task_center.task_state import TaskCenterTaskStatus
 

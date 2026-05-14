@@ -49,7 +49,7 @@ def _stub_provider() -> MagicMock:
 def test_create_registers_per_id_adapter_and_runs_setup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import get_adapter, set_default_provider
 
@@ -72,7 +72,7 @@ def test_create_registers_per_id_adapter_and_runs_setup(
 
 
 def test_start_runs_setup_after_start(monkeypatch: pytest.MonkeyPatch) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import register_adapter
 
@@ -96,7 +96,7 @@ def test_start_runs_setup_after_start(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_delete_disposes_adapter_and_plugin_host_caches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import get_adapter, register_adapter
 
@@ -123,8 +123,8 @@ def test_delete_disposes_adapter_and_plugin_host_caches(
 
 
 def test_read_helpers_route_through_registry(monkeypatch: pytest.MonkeyPatch) -> None:
-    from sandbox.api import discovery as sb_discovery
-    from sandbox.api import preview_urls as sb_preview_urls
+    from sandbox.api import _control as sb_discovery
+    from sandbox.api import _control as sb_preview_urls
     from sandbox.provider.registry import register_adapter, set_default_provider
 
     default = _stub_provider()
@@ -154,7 +154,7 @@ def test_read_helpers_route_through_registry(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_instance_scoped_helpers_fall_back_to_default_provider() -> None:
-    from sandbox.api import discovery as sb_discovery
+    from sandbox.api import _control as sb_discovery
     from sandbox.provider.registry import get_adapter, set_default_provider
 
     provider = _stub_provider()
@@ -166,7 +166,7 @@ def test_instance_scoped_helpers_fall_back_to_default_provider() -> None:
 
 
 def test_set_sandbox_labels_routes_through_provider() -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.provider.registry import register_adapter
 
     provider = _stub_provider()
@@ -188,7 +188,7 @@ def test_create_sandbox_invokes_ensure_git_via_setup_hook(
     downstream code that assumes git is installed (sweevo, any consumer
     running ``git ...`` on a minimal-image sandbox).
     """
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import bootstrap as bootstrap_mod
     from sandbox.provider.registry import set_default_provider
 
@@ -233,7 +233,7 @@ def test_start_sandbox_invokes_ensure_git_via_setup_hook(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Same regression guard for the start path."""
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import bootstrap as bootstrap_mod
     from sandbox.provider.registry import register_adapter
 
@@ -277,7 +277,7 @@ def test_start_sandbox_invokes_ensure_git_via_setup_hook(
 def test_create_sandbox_uses_configured_default_image(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import set_default_provider
 
@@ -303,7 +303,7 @@ def test_create_sandbox_uses_configured_default_image(
 def test_create_sandbox_explicit_image_overrides_configured_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import set_default_provider
 
@@ -325,7 +325,7 @@ def test_create_sandbox_explicit_image_overrides_configured_default(
 def test_create_sandbox_snapshot_skips_configured_default_image(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import set_default_provider
 
@@ -348,7 +348,7 @@ def test_create_sandbox_snapshot_skips_configured_default_image(
 def test_create_sandbox_uses_configured_default_snapshot(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import set_default_provider
 
@@ -374,7 +374,7 @@ def test_create_sandbox_uses_configured_default_snapshot(
 def test_create_sandbox_explicit_image_overrides_configured_default_snapshot(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import set_default_provider
 
@@ -398,7 +398,7 @@ def test_configured_default_snapshot_takes_precedence_over_default_image(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import lifecycle as sb_lifecycle
+    from sandbox.api import _control as sb_lifecycle
     from sandbox.host import lifecycle as host_lifecycle
     from sandbox.provider.registry import set_default_provider
 
@@ -441,7 +441,7 @@ def test_configured_default_snapshot_takes_precedence_over_default_image(
 def test_health_reports_configured_default_image(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import discovery as sb_discovery
+    from sandbox.api import _control as sb_discovery
     from sandbox.provider.registry import set_default_provider
 
     provider = _stub_provider()
@@ -463,7 +463,7 @@ def test_health_reports_configured_default_image(
 def test_health_reports_configured_default_snapshot(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sandbox.api import discovery as sb_discovery
+    from sandbox.api import _control as sb_discovery
     from sandbox.provider.registry import set_default_provider
 
     provider = _stub_provider()

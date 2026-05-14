@@ -14,7 +14,7 @@ from task_center.attempt import AttemptStage
 from task_center.context_engine.engine import ContextEngineDeps
 from task_center.context_engine.scope import ContextScope
 from task_center.episode.state import EpisodeCreationReason
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.mission.handler import nested_mission_depth
 
 

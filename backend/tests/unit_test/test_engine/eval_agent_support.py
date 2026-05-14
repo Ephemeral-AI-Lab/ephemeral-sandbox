@@ -272,7 +272,7 @@ class EvalAgent:
     def has_sandbox_provider() -> bool:
         """Check if the default sandbox provider is configured."""
         try:
-            from sandbox.api.discovery import get_health
+            from sandbox.api import get_health
 
             return bool(get_health().get("configured"))
         except Exception:

@@ -14,7 +14,7 @@ from task_center.context_engine.recipes.summaries import latest_summary_text
 from task_center.attempt.state import Attempt, AttemptStatus
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only
-    from task_center.persistence import TaskStoreProtocol
+    from task_center._core.persistence import TaskStoreProtocol
 
 
 @dataclass(frozen=True, slots=True)

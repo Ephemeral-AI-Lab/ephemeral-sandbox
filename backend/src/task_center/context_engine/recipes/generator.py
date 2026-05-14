@@ -23,7 +23,7 @@ from task_center.context_engine.recipes_registry import ContextRecipe
 from task_center.context_engine.scope import ContextScope
 
 if TYPE_CHECKING:
-    from task_center.persistence import TaskStoreProtocol
+    from task_center._core.persistence import TaskStoreProtocol
 
 GENERATOR_ID = "generator"
 _REQUIRED_FIELDS = frozenset({"mission_id", "attempt_id", "task_id"})

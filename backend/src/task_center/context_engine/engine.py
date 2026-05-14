@@ -15,10 +15,10 @@ from task_center.context_engine.recipes_registry import RecipeRegistry
 from task_center.context_engine.scope import ContextScope
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only
-    from task_center.persistence import MissionStoreProtocol
-    from task_center.persistence import AttemptStoreProtocol
-    from task_center.persistence import TaskStoreProtocol
-    from task_center.persistence import EpisodeStoreProtocol
+    from task_center._core.persistence import MissionStoreProtocol
+    from task_center._core.persistence import AttemptStoreProtocol
+    from task_center._core.persistence import TaskStoreProtocol
+    from task_center._core.persistence import EpisodeStoreProtocol
 
 
 class ContextPacketStoreProtocol(Protocol):

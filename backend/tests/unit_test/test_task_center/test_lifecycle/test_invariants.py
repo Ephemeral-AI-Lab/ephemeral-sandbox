@@ -37,7 +37,7 @@ from task_center.episode.state import (
     EpisodeCreationReason,
     EpisodeStatus,
 )
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 
 
 def _request(

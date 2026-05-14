@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sandbox.api import discovery as discovery_module
-from sandbox.api import lifecycle as lifecycle_module
-from sandbox.api import preview_urls as preview_urls_module
+from sandbox.api import _control as control_module
 from sandbox.api._impl import edit as edit_module
 from sandbox.api._impl import raw_exec as raw_exec_module
 from sandbox.api._impl import read as read_module
@@ -40,7 +38,7 @@ def create_sandbox(
     env_vars: dict[str, str] | None = None,
     labels: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    return lifecycle_module.create_sandbox(
+    return control_module.create_sandbox(
         name=name,
         snapshot=snapshot,
         image=image,
@@ -51,47 +49,47 @@ def create_sandbox(
 
 
 def start_sandbox(sandbox_id: str) -> dict[str, Any]:
-    return lifecycle_module.start_sandbox(sandbox_id)
+    return control_module.start_sandbox(sandbox_id)
 
 
 def stop_sandbox(sandbox_id: str) -> dict[str, Any]:
-    return lifecycle_module.stop_sandbox(sandbox_id)
+    return control_module.stop_sandbox(sandbox_id)
 
 
 def delete_sandbox(sandbox_id: str) -> None:
-    lifecycle_module.delete_sandbox(sandbox_id)
+    control_module.delete_sandbox(sandbox_id)
 
 
 def ensure_sandbox_running(sandbox_id: str) -> dict[str, Any]:
-    return lifecycle_module.ensure_sandbox_running(sandbox_id)
+    return control_module.ensure_sandbox_running(sandbox_id)
 
 
 def set_sandbox_labels(sandbox_id: str, labels: dict[str, str]) -> dict[str, Any]:
-    return lifecycle_module.set_sandbox_labels(sandbox_id, labels)
+    return control_module.set_sandbox_labels(sandbox_id, labels)
 
 
 def get_sandbox(sandbox_id: str) -> dict[str, Any]:
-    return discovery_module.get_sandbox(sandbox_id)
+    return control_module.get_sandbox(sandbox_id)
 
 
 def list_sandboxes() -> list[dict[str, Any]]:
-    return discovery_module.list_sandboxes()
+    return control_module.list_sandboxes()
 
 
 def list_snapshots() -> list[dict[str, Any]]:
-    return discovery_module.list_snapshots()
+    return control_module.list_snapshots()
 
 
 def get_health() -> dict[str, Any]:
-    return discovery_module.get_health()
+    return control_module.get_health()
 
 
 def get_signed_preview_url(sandbox_id: str, port: int) -> dict[str, Any]:
-    return preview_urls_module.get_signed_preview_url(sandbox_id, port)
+    return control_module.get_signed_preview_url(sandbox_id, port)
 
 
 def get_build_logs_url(sandbox_id: str) -> str | None:
-    return preview_urls_module.get_build_logs_url(sandbox_id)
+    return control_module.get_build_logs_url(sandbox_id)
 
 
 def context_preparer_for(sandbox_id: str) -> Any:

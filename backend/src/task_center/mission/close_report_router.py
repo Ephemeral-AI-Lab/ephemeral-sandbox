@@ -11,7 +11,7 @@ is a hard ``TaskCenterInvariantViolation``.
 from __future__ import annotations
 
 from task_center.attempt.runtime import AttemptDeps
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.mission.state import (
     CloseReportDeliveryResult,
     MissionClosureReport,

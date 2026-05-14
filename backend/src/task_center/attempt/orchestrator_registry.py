@@ -9,7 +9,7 @@ this registry — the cycle is broken at the type level.
 
 from __future__ import annotations
 
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center._core.types import RegisteredAttemptOrchestrator
 
 

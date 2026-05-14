@@ -24,11 +24,9 @@ from sandbox.api import (
 _API_ROOT = Path(sandbox_api.__file__).parent
 _EXPECTED_API_ROOT_ENTRIES = {
     "__init__.py",
+    "_control.py",
     "_impl",
     "default.py",
-    "discovery.py",
-    "lifecycle.py",
-    "preview_urls.py",
     "protocol.py",
     "timeouts.py",
     "transport.py",

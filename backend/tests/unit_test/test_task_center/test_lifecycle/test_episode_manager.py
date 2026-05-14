@@ -506,7 +506,7 @@ def test_attempted_plan_history_ordered_by_graph_sequence(
 def test_creating_initial_graph_twice_raises(
     mission_store, episode_store, attempt_store, task_center_run_id
 ):
-    from task_center.exceptions import TaskCenterInvariantViolation
+    from task_center._core.types import TaskCenterInvariantViolation
 
     seg_id = _seed_segment(mission_store, episode_store, task_center_run_id)
     mgr, _ = _make_manager(seg_id, episode_store, attempt_store)

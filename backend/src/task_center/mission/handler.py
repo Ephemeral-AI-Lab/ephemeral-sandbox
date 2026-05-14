@@ -22,7 +22,7 @@ from task_center.episode.state import (
     SuccessContinue,
     TerminalSuccess,
 )
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center._core.infra import (
     assert_continuation_episode_predecessor,
     assert_episode_id_unique_in_mission,
@@ -30,7 +30,7 @@ from task_center._core.infra import (
     assert_mission_open,
 )
 from task_center.mission.state import Mission, MissionClosureReport, MissionStatus
-from task_center.persistence import (
+from task_center._core.persistence import (
     AttemptStoreProtocol,
     EpisodeStoreProtocol,
     MissionStoreProtocol,

@@ -8,7 +8,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 
 from task_center.mission.state import MissionClosureReport
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.attempt.dispatcher import AttemptDispatcher
 from task_center.attempt.state import (
     Attempt,

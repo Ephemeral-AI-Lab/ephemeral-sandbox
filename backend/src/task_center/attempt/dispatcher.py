@@ -13,7 +13,7 @@ from collections.abc import Callable
 from typing import Any
 
 from task_center._core.infra import TaskCenterAuditEmitter
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.attempt.state import (
     Attempt,
     AttemptFailReason,

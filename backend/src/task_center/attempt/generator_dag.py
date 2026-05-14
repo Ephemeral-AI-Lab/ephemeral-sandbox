@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Any
 
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center._core.types import generator_task_id
 from task_center.task_state import (
     TaskCenterTaskStatus,

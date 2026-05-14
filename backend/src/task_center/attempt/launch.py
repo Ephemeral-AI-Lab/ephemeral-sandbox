@@ -19,7 +19,7 @@ from message.stream_events import StreamEvent
 from task_center.attempt.runtime import AgentLaunch, AttemptDeps
 from task_center.attempt.state import AttemptFailReason, AttemptStatus
 from task_center.context_engine.scope import ContextScope
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.task_state import (
     EvaluatorSubmission,
     GeneratorSubmission,

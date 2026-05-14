@@ -12,7 +12,7 @@ from task_center.mission.starter import (
     StartedMission,
 )
 from task_center.mission.state import MissionStatus
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.attempt.orchestrator_registry import (
     AttemptOrchestratorRegistry,
 )

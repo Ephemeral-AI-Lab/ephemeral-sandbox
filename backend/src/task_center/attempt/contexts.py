@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from task_center.persistence import (
+from task_center._core.persistence import (
     AttemptStoreProtocol,
     EpisodeStoreProtocol,
     MissionStoreProtocol,

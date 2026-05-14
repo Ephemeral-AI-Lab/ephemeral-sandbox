@@ -21,7 +21,7 @@ from task_center.mission.state import (
     Mission,
     MissionStatus,
 )
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.attempt.orchestrator import AttemptOrchestrator
 from task_center.episode.manager import OrchestratorFactory
 from task_center.attempt.state import AttemptFailReason, AttemptStatus

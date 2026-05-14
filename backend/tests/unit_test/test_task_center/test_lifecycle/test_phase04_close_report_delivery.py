@@ -8,7 +8,7 @@ from task_center.mission.close_report_router import (
     MissionClosureReportRouter,
 )
 from task_center.mission.state import MissionClosureReport
-from task_center.exceptions import TaskCenterInvariantViolation
+from task_center._core.types import TaskCenterInvariantViolation
 from task_center.attempt.orchestrator import AttemptOrchestrator
 from task_center.attempt.orchestrator_registry import (
     AttemptOrchestratorRegistry,
