@@ -155,7 +155,7 @@ Both assembled into `AgentDefinition.notification_rules` at agent launch time.
 - `AgentDefinitionValidator` (`tool_validation.py:27`) — validates `allowed_tools`/`terminals` against live `ToolRegistry`.
 
 ### Profiles
-No `agents/profile/` directory in this repo. Role metadata carried as `role: str | None` on `AgentDefinition`, surfaced to gate hooks via `context.get("role")`.
+Profiles live under `backend/src/agents/profile/{main,helper,subagent}/*.md`. The canonical category is `agent_kind: AgentKind` on `AgentDefinition` (one of `planner / executor / verifier / evaluator / advisor / explorer / resolver`), surfaced to gate hooks via `context.get("role")` — the key stays `"role"` for audit-consumer compat but the value is now `agent_def.agent_kind.value`. A separate `dispatchable_by_planner: bool` flag gates which profiles a planner submission may name as `agent_name`.
 
 ## Messages and stream events
 

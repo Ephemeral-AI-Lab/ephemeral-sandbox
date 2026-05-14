@@ -4,7 +4,7 @@ The entry executor is not a Mission. It is the top-level user-request agent
 that can either complete directly or call ``submit_execution_handoff`` to start
 the first delegated Mission. Lifecycle events flow through
 :class:`EntryTaskController`, which is attached to
-:class:`AttemptRuntime.entry_task_controller` so the launcher, close-report
+:class:`AttemptDeps.entry_task_controller` so the launcher, close-report
 router, and submission tools can dispatch entry-mode events consistently.
 """
 
@@ -22,7 +22,7 @@ from db.stores import (
     EpisodeStore,
 )
 from agents import validate_agent_definitions_resolved
-from task_center.config import HarnessLifecycleConfig
+from task_center.config import TaskCenterLifecycleConfig
 from task_center.agent_launch.composer import ContextComposer
 from task_center.context_engine.engine import ContextEngine, ContextEngineDeps
 from task_center.agent_launch.predicates import register_builtin_predicates
@@ -37,20 +37,23 @@ from task_center.agent_launch.launcher import (
 from task_center.attempt.orchestrator_registry import (
     AttemptOrchestratorRegistry,
 )
-from task_center.attempt.runtime import AgentLaunch, AttemptRuntime
+from task_center.attempt.runtime import AgentLaunch, AttemptDeps
 from task_center.entry.sandbox_bridge import (
     TaskCenterSandboxBinding,
     TaskCenterSandboxBridge,
 )
 from task_center.episode.registry import EpisodeManagerRegistry
-from task_center.task.models import HarnessTaskRole, HarnessTaskStatus
+from task_center.task.models import (
+    SpawnReason,
+    TaskCenterTaskRole,
+    TaskCenterTaskStatus,
+)
 
 if TYPE_CHECKING:
     from runtime.app_factory import RuntimeConfig
 
 
 ENTRY_AGENT_NAME = "entry_executor"
-ENTRY_SPAWN_REASON = "entry_executor"
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,8 +199,8 @@ class TaskCenterEntryCoordinator:
         *,
         manager_registry: EpisodeManagerRegistry,
         entry_task_controller: EntryTaskController,
-    ) -> tuple[AttemptRuntime, EphemeralAttemptAgentLauncher]:
-        runtime_ref: AttemptRuntime | None = None
+    ) -> tuple[AttemptDeps, EphemeralAttemptAgentLauncher]:
+        runtime_ref: AttemptDeps | None = None
         launcher = EphemeralAttemptAgentLauncher(
             config=self._config,
             runtime=lambda: runtime_ref,
@@ -206,7 +209,7 @@ class TaskCenterEntryCoordinator:
             runner=self._runner,
         )
         composer = self._build_composer()
-        runtime = AttemptRuntime(
+        runtime = AttemptDeps(
             mission_store=self._mission_store,
             episode_store=self._episode_store,
             attempt_store=self._attempt_store,
@@ -214,7 +217,7 @@ class TaskCenterEntryCoordinator:
             agent_launcher=launcher,
             orchestrator_registry=AttemptOrchestratorRegistry(),
             manager_registry=manager_registry,
-            lifecycle_config=HarnessLifecycleConfig(),
+            lifecycle_config=TaskCenterLifecycleConfig(),
             composer=composer,
             entry_task_controller=entry_task_controller,
         )
@@ -257,14 +260,14 @@ class TaskCenterEntryCoordinator:
         self._task_store.upsert_task(
             task_id=entry_task_id,
             task_center_run_id=task_center_run_id,
-            role=HarnessTaskRole.GENERATOR.value,
+            role=TaskCenterTaskRole.ENTRY_EXECUTOR.value,
             agent_name=ENTRY_AGENT_NAME,
-            task_input=self._prompt,
-            status=HarnessTaskStatus.RUNNING.value,
+            rendered_prompt=self._prompt,
+            status=TaskCenterTaskStatus.RUNNING.value,
             summaries=[],
             needs=[],
             task_center_attempt_id=None,
-            spawn_reason=ENTRY_SPAWN_REASON,
+            spawn_reason=SpawnReason.ENTRY_EXECUTOR.value,
         )
 
     # ---- internal: launch + cleanup ---------------------------------------
@@ -272,7 +275,7 @@ class TaskCenterEntryCoordinator:
     def _launch_entry_executor(
         self,
         *,
-        runtime: AttemptRuntime,
+        runtime: AttemptDeps,
         controller: EntryTaskController,
         task_center_run_id: str,
     ) -> None:
@@ -295,7 +298,7 @@ class TaskCenterEntryCoordinator:
     def _build_entry_launch(
         self,
         *,
-        runtime: AttemptRuntime,
+        runtime: AttemptDeps,
         controller: EntryTaskController,
         task_center_run_id: str,
     ) -> AgentLaunch:
@@ -310,9 +313,9 @@ class TaskCenterEntryCoordinator:
             task_id=controller.task_id,
             task_center_run_id=task_center_run_id,
             attempt_id=None,
-            role=HarnessTaskRole.GENERATOR,
+            role=TaskCenterTaskRole.ENTRY_EXECUTOR,
             agent_name=bundle.agent_def.name,
-            task_input=bundle.task_input,
+            rendered_prompt=bundle.rendered_prompt,
             needs=(),
             context_packet_id=bundle.context_packet_id,
             mission_id=None,

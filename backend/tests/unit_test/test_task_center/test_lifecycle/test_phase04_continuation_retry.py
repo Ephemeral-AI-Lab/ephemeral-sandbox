@@ -18,7 +18,7 @@ from task_center.attempt import (
     AttemptFailReason,
     AttemptStatus,
 )
-from task_center.attempt.runtime import AgentLaunch, AttemptRuntime
+from task_center.attempt.runtime import AgentLaunch, AttemptDeps
 from task_center.episode.registry import EpisodeManagerRegistry
 from task_center.episode.episode import (
     EpisodeCreationReason,
@@ -27,7 +27,7 @@ from task_center.episode.episode import (
 from task_center.task import (
     EvaluatorSubmission,
     GeneratorSubmission,
-    HarnessTaskStatus,
+    TaskCenterTaskStatus,
     PlannedGeneratorTask,
     PlannerSubmission,
     evaluator_task_id,
@@ -57,8 +57,8 @@ class _FailOnLaunchNumber(_FakeLauncher):
 
 def _build_runtime(
     mission_store, episode_store, attempt_store, task_store, *, composer, launcher=None
-) -> AttemptRuntime:
-    return AttemptRuntime(
+) -> AttemptDeps:
+    return AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -72,7 +72,7 @@ def _build_runtime(
 
 def _seed_outer_running_generator(
     *,
-    runtime: AttemptRuntime,
+    runtime: AttemptDeps,
     mission_store,
     episode_store,
     attempt_store,
@@ -129,7 +129,7 @@ def _seed_outer_running_generator(
 
 def _drive_delegated_attempt_to_pass(
     *,
-    runtime: AttemptRuntime,
+    runtime: AttemptDeps,
     delegated_attempt_id: str,
     continuation_goal: str | None,
 ) -> None:
@@ -197,7 +197,7 @@ def _drive_delegated_attempt_to_pass(
 
 def _drive_delegated_attempt_to_fail(
     *,
-    runtime: AttemptRuntime,
+    runtime: AttemptDeps,
     delegated_attempt_id: str,
 ) -> None:
     delegated = runtime.orchestrator_registry.get_or_raise(delegated_attempt_id)
@@ -263,7 +263,7 @@ def test_delegated_continuation_waits_until_final_segment(
     assert parent_after_segment1 is not None
     assert (
         parent_after_segment1["status"]
-        == HarnessTaskStatus.WAITING_MISSION.value
+        == TaskCenterTaskStatus.WAITING_MISSION.value
     )
     delegated_request_after_segment1 = mission_store.get(
         mission_start.mission_id
@@ -289,7 +289,7 @@ def test_delegated_continuation_waits_until_final_segment(
     delegated_final = mission_store.get(mission_start.mission_id)
     segment2_final = episode_store.get(segment2_id)
     assert parent_final is not None
-    assert parent_final["status"] == HarnessTaskStatus.DONE.value
+    assert parent_final["status"] == TaskCenterTaskStatus.DONE.value
     assert delegated_final is not None
     assert delegated_final.status == MissionStatus.SUCCEEDED
     assert segment2_final is not None
@@ -345,7 +345,7 @@ def test_continuation_startup_failure_reports_continuation_graph(
 
     parent_final = task_store.get_task(parent_task_id)
     assert parent_final is not None
-    assert parent_final["status"] == HarnessTaskStatus.FAILED.value
+    assert parent_final["status"] == TaskCenterTaskStatus.FAILED.value
 
 
 def test_delegated_retry_waits_until_final_graph(
@@ -377,7 +377,7 @@ def test_delegated_retry_waits_until_final_graph(
     assert len(segment1.attempt_ids) == 2
     parent_mid = task_store.get_task(parent_task_id)
     assert parent_mid is not None
-    assert parent_mid["status"] == HarnessTaskStatus.WAITING_MISSION.value
+    assert parent_mid["status"] == TaskCenterTaskStatus.WAITING_MISSION.value
     delegated_mid = mission_store.get(mission_start.mission_id)
     assert delegated_mid is not None
     assert delegated_mid.status == MissionStatus.OPEN
@@ -394,7 +394,7 @@ def test_delegated_retry_waits_until_final_graph(
     delegated_final = mission_store.get(mission_start.mission_id)
     refreshed_segment = episode_store.get(mission_start.initial_episode_id)
     assert parent_final is not None
-    assert parent_final["status"] == HarnessTaskStatus.DONE.value
+    assert parent_final["status"] == TaskCenterTaskStatus.DONE.value
     assert delegated_final is not None
     assert delegated_final.status == MissionStatus.SUCCEEDED
     assert refreshed_segment is not None

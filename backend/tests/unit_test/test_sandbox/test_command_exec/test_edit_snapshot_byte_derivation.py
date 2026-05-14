@@ -158,7 +158,7 @@ async def test_in_workspace_edit_same_path_M_gt_N_surfaces_hard_conflict(
     the SAME path moves manifest to M, commit must surface ABORTED_VERSION
     — OCC must NOT silently re-derive bytes against M.
     """
-    from sandbox.layer_stack import LayerChange
+    from sandbox.layer_stack import LayerChange, WriteLayerChange
     from sandbox.occ.changeset.builders import build_api_write_change
     from sandbox.occ.changeset.prepared import CommitOptions
     from sandbox.occ.changeset.types import FileStatus
@@ -201,9 +201,8 @@ async def test_in_workspace_edit_same_path_M_gt_N_surfaces_hard_conflict(
         intervening_source.write_text("DIFFERENT\n", encoding="utf-8")
         manager.publish_changes(
             [
-                LayerChange(
+                WriteLayerChange(
                     path="shared.txt",
-                    kind="write",
                     content_hash=ContentHasher().hash_bytes(b"DIFFERENT\n"),
                     source_path=str(intervening_source),
                 )

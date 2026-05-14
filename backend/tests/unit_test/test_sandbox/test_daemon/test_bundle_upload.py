@@ -88,6 +88,16 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/command_exec/workspace/capture.py",
         "sandbox/layer_stack/workspace/base.py",
         "sandbox/overlay/cli.py",
+        "sandbox/overlay/worker.py",
+        "sandbox/overlay/change.py",
+        "sandbox/overlay/capture.py",
+        "sandbox/overlay/result.py",
+        "sandbox/overlay/request.py",
+        "sandbox/overlay/command.py",
+        "sandbox/overlay/mounts.py",
+        "sandbox/overlay/invoker.py",
+        "sandbox/overlay/factory.py",
+        "sandbox/overlay/runner.py",
         "sandbox/layer_stack/manifest/model.py",
         "sandbox/layer_stack/manifest/store.py",
         "sandbox/layer_stack/manager.py",
@@ -103,6 +113,10 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/occ/content/hashing.py",
         "sandbox/occ/merge/direct.py",
         "sandbox/occ/merge/gated.py",
+    ]
+    missing = [p for p in required if not (extract_dir / p).exists()]
+    assert missing == [], f"bundle is missing required paths: {missing}"
+    removed = [
         "sandbox/overlay/capture/changes.py",
         "sandbox/overlay/capture/types.py",
         "sandbox/overlay/capture/upperdir.py",
@@ -111,8 +125,8 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/overlay/runner/runtime_invoker.py",
         "sandbox/overlay/runner/snapshot_overlay_runner.py",
     ]
-    missing = [p for p in required if not (extract_dir / p).exists()]
-    assert missing == [], f"bundle is missing required paths: {missing}"
+    present_removed = [p for p in removed if (extract_dir / p).exists()]
+    assert present_removed == []
     assert not (extract_dir / "sandbox/api/status.py").exists()
     assert not (extract_dir / "sandbox/api/tool/raw_exec.py").exists()
     assert not (extract_dir / "sandbox/api/tool/_payload.py").exists()

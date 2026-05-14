@@ -7,7 +7,7 @@ per-id) and the provider-neutral :mod:`sandbox.host` orchestration.
 
 All functions are sync and return plain dicts. Async callers (FastAPI route
 handlers, the runtime agent) should dispatch them through
-``sandbox.runtime.async_bridge.run_sync_in_executor``.
+``sandbox.async_bridge.run_sync_in_executor``.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Route OCC changes into OCC-skipped or OCC-gated prepared path groups."""
+"""Route OCC changes into direct or gated prepared path groups."""
 
 from __future__ import annotations
 
@@ -18,15 +18,18 @@ from sandbox.occ.changeset.types import (
     DeleteChange,
     WriteChange,
 )
-from sandbox.occ.content.gitignore_oracle import GitignoreMatcher
+from sandbox.occ.content.gitignore_oracle import (
+    GitignoreMatcher,
+    SnapshotGitignoreMatcher,
+)
 from sandbox.occ.content.hashing import ContentHasher
 from sandbox.timing import monotonic_now
 
 BaseHashReader = Callable[[str], str | None]
 
 
-class OccOrchestrator:
-    """Prepare OCC-skipped and OCC-gated path groups for a typed changeset."""
+class Router:
+    """Prepare direct and gated path groups for a typed changeset."""
 
     def __init__(self, gitignore: GitignoreMatcher) -> None:
         self._gitignore = gitignore
@@ -64,6 +67,48 @@ class OccOrchestrator:
             },
         )
 
+    def prepare_single_path_sync(
+        self,
+        change: Change,
+        *,
+        snapshot: Manifest,
+        base_hash_reader: BaseHashReader | None = None,
+        atomic: bool = False,
+    ) -> PreparedChangeset:
+        """Prepare one path through the same routing rules as batch prepare."""
+        total_start = monotonic_now()
+        route_start = monotonic_now()
+        route, path, message = self._route_change(change, snapshot=snapshot)
+        prepared_change = change
+        timings: dict[str, float] = {}
+        if route is RouteDecision.GATED and requires_base_hash(change):
+            base_hash_start = monotonic_now()
+            base_hash = base_hash_reader(path) if base_hash_reader is not None else None
+            timings["occ.prepare.single_path_base_hash_s"] = (
+                monotonic_now() - base_hash_start
+            )
+            prepared_change = attach_base_hash(change, base_hash)
+        else:
+            timings["occ.prepare.single_path_base_hash_s"] = 0.0
+
+        group = PreparedPathGroup(
+            path=path,
+            route=route,
+            changes=(prepared_change,),
+            message=message,
+        )
+        timings["occ.prepare.route_and_base_hash_s"] = monotonic_now() - route_start
+        timings["occ.prepare.single_path_fast_s"] = timings[
+            "occ.prepare.route_and_base_hash_s"
+        ]
+        timings["occ.prepare.total_s"] = monotonic_now() - total_start
+        return PreparedChangeset(
+            snapshot=snapshot,
+            path_groups=(group,),
+            atomic=atomic,
+            timings=timings,
+        )
+
     def _group_by_route(
         self,
         changes: Sequence[Change],
@@ -99,8 +144,8 @@ class OccOrchestrator:
             return RouteDecision.DROP, path, ".git paths are not mutable through OCC"
 
         if _is_gitignored(self._gitignore, path=path, snapshot=snapshot):
-            return RouteDecision.OCC_SKIPPED_MERGE, path, None
-        return RouteDecision.OCC_GATED_MERGE, path, None
+            return RouteDecision.DIRECT, path, None
+        return RouteDecision.GATED, path, None
 
     def _prepare_group(
         self,
@@ -110,7 +155,7 @@ class OccOrchestrator:
         message: str | None,
         base_hash_reader: BaseHashReader | None,
     ) -> PreparedPathGroup:
-        if route is not RouteDecision.OCC_GATED_MERGE or base_hash_reader is None:
+        if route is not RouteDecision.GATED or base_hash_reader is None:
             return PreparedPathGroup(
                 path=path,
                 route=route,
@@ -179,10 +224,22 @@ def _is_gitignored(
     snapshot: Manifest | None,
 ) -> bool:
     if snapshot is not None:
-        snapshot_oracle = getattr(oracle, "is_ignored_in_snapshot", None)
-        if callable(snapshot_oracle):
-            return bool(snapshot_oracle(path, snapshot))
+        if not isinstance(oracle, SnapshotGitignoreMatcher):
+            raise TypeError(
+                "snapshot-aware OCC routing requires "
+                "SnapshotGitignoreMatcher.is_ignored_in_snapshot"
+            )
+        return oracle.is_ignored_in_snapshot(path, snapshot)
     return oracle.is_ignored(path)
 
 
-__all__ = ["OccOrchestrator"]
+OccOrchestrator = Router
+
+
+__all__ = [
+    "BaseHashReader",
+    "OccOrchestrator",
+    "Router",
+    "attach_base_hash",
+    "requires_base_hash",
+]

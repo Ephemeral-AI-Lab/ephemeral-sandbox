@@ -16,7 +16,7 @@ from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.attempt.orchestrator_registry import (
     AttemptOrchestratorRegistry,
 )
-from task_center.attempt.runtime import AgentLaunch, AttemptRuntime
+from task_center.attempt.runtime import AgentLaunch, AttemptDeps
 from task_center.attempt import (
     AttemptFailReason,
     AttemptStatus,
@@ -26,7 +26,7 @@ from task_center.episode.episode import (
     EpisodeCreationReason,
     EpisodeStatus,
     )
-from task_center.task import HarnessTaskRole, HarnessTaskStatus, planner_task_id
+from task_center.task import TaskCenterTaskRole, TaskCenterTaskStatus, planner_task_id
 
 
 class _FakeLauncher:
@@ -45,10 +45,10 @@ class _FailingLauncher:
 
 def _build_runtime(
     mission_store, episode_store, attempt_store, task_store, *, composer, launcher=None
-) -> AttemptRuntime:
+) -> AttemptDeps:
     launcher = launcher or _FakeLauncher()
     registry = AttemptOrchestratorRegistry()
-    return AttemptRuntime(
+    return AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -91,10 +91,10 @@ def _seed_outer_generator_task(
     task_store.upsert_task(
         task_id=parent_task_id,
         task_center_run_id=task_center_run_id,
-        role=HarnessTaskRole.GENERATOR.value,
+        role=TaskCenterTaskRole.GENERATOR.value,
         agent_name="executor",
-        task_input="execute the outer task",
-        status=HarnessTaskStatus.RUNNING.value,
+        rendered_prompt="execute the outer task",
+        status=TaskCenterTaskStatus.RUNNING.value,
         summaries=[],
         needs=[],
         task_center_attempt_id=outer_attempt.id,
@@ -137,7 +137,7 @@ def test_mission_start_creates_request_segment_graph_and_marks_parent_waiting(
     assert initial_graph is not None
     assert initial_graph.episode_id == initial_episode.id
     assert parent_task is not None
-    assert parent_task["status"] == HarnessTaskStatus.WAITING_MISSION.value
+    assert parent_task["status"] == TaskCenterTaskStatus.WAITING_MISSION.value
     # Delegated orchestrator was started.
     assert runtime.orchestrator_registry.get(initial_graph.id) is not None
 
@@ -181,7 +181,7 @@ def test_mission_start_startup_failure_leaves_parent_running(
 
     parent_task = task_store.get_task(parent_task_id)
     assert parent_task is not None
-    assert parent_task["status"] == HarnessTaskStatus.RUNNING.value
+    assert parent_task["status"] == TaskCenterTaskStatus.RUNNING.value
     # The compensation path must mark the request and episode cancelled.
     open_requests = [
         r
@@ -243,7 +243,7 @@ def test_mission_start_startup_failure_closes_started_graph_and_deregisters_orch
     assert runtime.manager_registry.get(cancelled_segment.id) is None
     planner_task = task_store.get_task(planner_task_id(failed_attempt.id))
     assert planner_task is not None
-    assert planner_task["status"] == HarnessTaskStatus.FAILED.value
+    assert planner_task["status"] == TaskCenterTaskStatus.FAILED.value
 
 
 def test_mission_start_rejects_second_open_child_request_for_same_executor(
@@ -269,7 +269,7 @@ def test_mission_start_rejects_second_open_child_request_for_same_executor(
     # but is rejected by the duplicate-open-request check.
     task_store.set_task_status(
         parent_task_id,
-        status=HarnessTaskStatus.RUNNING.value,
+        status=TaskCenterTaskStatus.RUNNING.value,
     )
 
     with pytest.raises(TaskCenterInvariantViolation) as exc:
@@ -294,7 +294,7 @@ def test_mission_start_rejects_non_running_parent(
         task_center_run_id=task_center_run_id,
     )
     task_store.set_task_status(
-        parent_task_id, status=HarnessTaskStatus.DONE.value
+        parent_task_id, status=TaskCenterTaskStatus.DONE.value
     )
 
     coordinator = MissionStarter(runtime=runtime)
@@ -323,10 +323,10 @@ def test_mission_start_accepts_entry_mode_caller_with_no_parent_attempt(
     task_store.upsert_task(
         task_id=entry_task_id,
         task_center_run_id=task_center_run_id,
-        role=HarnessTaskRole.GENERATOR.value,
+        role=TaskCenterTaskRole.GENERATOR.value,
         agent_name="entry_executor",
-        task_input="entry goal",
-        status=HarnessTaskStatus.RUNNING.value,
+        rendered_prompt="entry goal",
+        status=TaskCenterTaskStatus.RUNNING.value,
         summaries=[],
         needs=[],
         task_center_attempt_id=None,
@@ -337,7 +337,7 @@ def test_mission_start_accepts_entry_mode_caller_with_no_parent_attempt(
         task_center_run_id=task_center_run_id,
         task_store=task_store,
     )
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -358,7 +358,7 @@ def test_mission_start_accepts_entry_mode_caller_with_no_parent_attempt(
     # Entry task is now WAITING_MISSION via the controller.
     entry_task = task_store.get_task(entry_task_id)
     assert entry_task is not None
-    assert entry_task["status"] == HarnessTaskStatus.WAITING_MISSION.value
+    assert entry_task["status"] == TaskCenterTaskStatus.WAITING_MISSION.value
     # Result carries None for parent_attempt_id (entry mode).
     assert result.parent_attempt_id is None
     # Delegated request + episode + attempt were all created and started.

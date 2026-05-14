@@ -19,14 +19,15 @@ from task_center.attempt.state import (
 from task_center.context_engine.scope import ContextScope
 from task_center.attempt.runtime import (
     AgentLaunch,
-    AttemptRuntime,
+    AttemptDeps,
 )
 from task_center.task.ids import generator_task_id, planner_task_id
 from task_center.task.models import (
+    SpawnReason,
     EvaluatorSubmission,
     GeneratorSubmission,
-    HarnessTaskRole,
-    HarnessTaskStatus,
+    TaskCenterTaskRole,
+    TaskCenterTaskStatus,
     PlannedGeneratorTask,
     PlannerFailureSubmission,
     PlannerSubmission,
@@ -55,7 +56,7 @@ class AttemptOrchestrator:
         *,
         attempt: Attempt,
         on_attempt_closed: Callable[[str], None],
-        runtime: AttemptRuntime,
+        runtime: AttemptDeps,
     ) -> None:
         self._attempt = attempt
         self._on_attempt_closed = on_attempt_closed
@@ -73,7 +74,7 @@ class AttemptOrchestrator:
 
     def start(self) -> None:
         runtime = self._runtime
-        attempt = self._assert_stage(AttemptStage.PLANNING)
+        attempt = self._assert_stage(AttemptStage.PLAN)
         if attempt.status != AttemptStatus.RUNNING:
             raise TaskCenterInvariantViolation(
                 f"Attempt {attempt.id!r} is not running"
@@ -93,15 +94,15 @@ class AttemptOrchestrator:
             runtime.task_store.upsert_task(
                 task_id=task_id,
                 task_center_run_id=launch.task_center_run_id,
-                role=HarnessTaskRole.PLANNER.value,
+                role=TaskCenterTaskRole.PLANNER.value,
                 agent_name=launch.agent_name,
-                task_input=launch.task_input,
-                status=HarnessTaskStatus.RUNNING.value,
+                rendered_prompt=launch.rendered_prompt,
+                status=TaskCenterTaskStatus.RUNNING.value,
                 summaries=[],
                 needs=[],
                 task_center_attempt_id=attempt.id,
                 context_packet_id=launch.context_packet_id,
-                spawn_reason="attempt_planner",
+                spawn_reason=SpawnReason.ATTEMPT_PLANNER.value,
             )
             runtime.attempt_store.set_planner_task_id(attempt.id, task_id)
             runtime.agent_launcher.launch(launch)
@@ -136,9 +137,9 @@ class AttemptOrchestrator:
             task_id=task_id,
             task_center_run_id=runtime.task_center_run_id_for_attempt(attempt),
             attempt_id=attempt.id,
-            role=HarnessTaskRole.PLANNER,
+            role=TaskCenterTaskRole.PLANNER,
             agent_name=bundle.agent_def.name,
-            task_input=bundle.task_input,
+            rendered_prompt=bundle.rendered_prompt,
             needs=(),
             context_packet_id=bundle.context_packet_id,
             mission_id=episode.mission_id,
@@ -146,7 +147,7 @@ class AttemptOrchestrator:
 
     def apply_plan_submission(self, submission: PlannerSubmission) -> None:
         self._assert_submission_attempt(submission.attempt_id)
-        attempt = self._assert_stage(AttemptStage.PLANNING)
+        attempt = self._assert_stage(AttemptStage.PLAN)
         if attempt.planner_task_id != submission.planner_task_id:
             raise TaskCenterInvariantViolation(
                 f"Planner submission task {submission.planner_task_id!r} does "
@@ -164,14 +165,14 @@ class AttemptOrchestrator:
                 f"Planner task {submission.planner_task_id!r} not found"
             )
         assert_task_belongs_to_attempt(planner_task, attempt)
-        if planner_task["role"] != HarnessTaskRole.PLANNER.value:
+        if planner_task["role"] != TaskCenterTaskRole.PLANNER.value:
             raise TaskCenterInvariantViolation(
                 f"Task {submission.planner_task_id!r} is not a planner task"
             )
 
         runtime.task_store.set_task_status(
             submission.planner_task_id,
-            status=HarnessTaskStatus.DONE.value,
+            status=TaskCenterTaskStatus.DONE.value,
             summary={
                 "kind": submission.kind,
                 "summary": submission.summary,
@@ -180,14 +181,14 @@ class AttemptOrchestrator:
         self._persist_plan_contract(submission)
         generator_ids = self._persist_generator_tasks(submission.tasks)
         runtime.attempt_store.set_generator_task_ids(attempt.id, list(generator_ids))
-        runtime.attempt_store.set_stage(attempt.id, AttemptStage.GENERATING)
+        runtime.attempt_store.set_stage(attempt.id, AttemptStage.GENERATE)
         self._dispatcher.dispatch_ready_work()
 
     def apply_planner_failure(
         self, submission: PlannerFailureSubmission
     ) -> None:
         self._assert_submission_attempt(submission.attempt_id)
-        attempt = self._assert_stage(AttemptStage.PLANNING)
+        attempt = self._assert_stage(AttemptStage.PLAN)
         if attempt.planner_task_id != submission.planner_task_id:
             raise TaskCenterInvariantViolation(
                 f"Planner failure task {submission.planner_task_id!r} does not "
@@ -202,7 +203,7 @@ class AttemptOrchestrator:
         assert_task_belongs_to_attempt(planner_task, attempt)
         runtime.task_store.set_task_status(
             submission.planner_task_id,
-            status=HarnessTaskStatus.FAILED.value,
+            status=TaskCenterTaskStatus.FAILED.value,
             summary={
                 "fail_reason": submission.fail_reason,
                 "summary": submission.summary,
@@ -242,27 +243,27 @@ class AttemptOrchestrator:
             raise TaskCenterInvariantViolation(
                 f"Generator task {report.requested_by_task_id!r} not found"
             )
-        if task.get("status") != HarnessTaskStatus.WAITING_MISSION.value:
+        if task.get("status") != TaskCenterTaskStatus.WAITING_MISSION.value:
             # Already delivered; no further action.
             return
 
-        attempt = self._assert_stage(AttemptStage.GENERATING)
+        attempt = self._assert_stage(AttemptStage.GENERATE)
         assert_generator_task_for_submission(task, attempt)
 
         if report.outcome == "success":
-            status = HarnessTaskStatus.DONE
+            status = TaskCenterTaskStatus.DONE
             summary = (
                 f"Delegated mission {report.mission_id} succeeded."
             )
         else:
-            status = HarnessTaskStatus.FAILED
+            status = TaskCenterTaskStatus.FAILED
             summary = (
                 f"Delegated mission {report.mission_id} failed."
             )
 
         updated = runtime.task_store.set_task_status_if_current(
             report.requested_by_task_id,
-            expected_status=HarnessTaskStatus.WAITING_MISSION.value,
+            expected_status=TaskCenterTaskStatus.WAITING_MISSION.value,
             status=status.value,
             summary={
                 "outcome": report.outcome,
@@ -276,7 +277,7 @@ class AttemptOrchestrator:
         if updated is None:
             # Race: another delivery moved the parent first. Idempotent.
             return
-        if status == HarnessTaskStatus.FAILED:
+        if status == TaskCenterTaskStatus.FAILED:
             self._dispatcher.block_failed_descendants(report.requested_by_task_id)
         self._dispatcher.dispatch_ready_work()
 
@@ -305,35 +306,35 @@ class AttemptOrchestrator:
             runtime.task_store.upsert_task(
                 task_id=task_id,
                 task_center_run_id=task_center_run_id,
-                role=HarnessTaskRole.GENERATOR.value,
+                role=TaskCenterTaskRole.GENERATOR.value,
                 agent_name=task.agent_name,
-                task_input=task.task_spec,
-                status=HarnessTaskStatus.PENDING.value,
+                rendered_prompt=task.task_spec,
+                status=TaskCenterTaskStatus.PENDING.value,
                 summaries=[],
                 needs=list(needs),
                 task_center_attempt_id=attempt.id,
-                spawn_reason="attempt_generator",
+                spawn_reason=SpawnReason.ATTEMPT_GENERATOR.value,
             )
             task_ids.append(task_id)
         return tuple(task_ids)
 
     def _mark_generator(self, submission: GeneratorSubmission) -> None:
         runtime = self._runtime
-        attempt = self._assert_stage(AttemptStage.GENERATING)
+        attempt = self._assert_stage(AttemptStage.GENERATE)
         task = runtime.task_store.get_task(submission.task_id)
         if task is None:
             raise TaskCenterInvariantViolation(
                 f"Generator task {submission.task_id!r} not found"
             )
         assert_generator_task_for_submission(task, attempt)
-        if task["status"] != HarnessTaskStatus.RUNNING.value:
+        if task["status"] != TaskCenterTaskStatus.RUNNING.value:
             raise TaskCenterInvariantViolation(
                 f"Generator task {submission.task_id!r} is not running"
             )
         status = (
-            HarnessTaskStatus.DONE
+            TaskCenterTaskStatus.DONE
             if submission.outcome == "success"
-            else HarnessTaskStatus.FAILED
+            else TaskCenterTaskStatus.FAILED
         )
         runtime.task_store.set_task_status(
             submission.task_id,
@@ -347,7 +348,7 @@ class AttemptOrchestrator:
 
     def _mark_evaluator(self, submission: EvaluatorSubmission) -> None:
         runtime = self._runtime
-        attempt = self._assert_stage(AttemptStage.EVALUATING)
+        attempt = self._assert_stage(AttemptStage.EVALUATE)
         if attempt.evaluator_task_id != submission.task_id:
             raise TaskCenterInvariantViolation(
                 f"Evaluator submission task {submission.task_id!r} does not "
@@ -359,14 +360,14 @@ class AttemptOrchestrator:
                 f"Evaluator task {submission.task_id!r} not found"
             )
         assert_evaluator_task_for_submission(task, attempt)
-        if task["status"] != HarnessTaskStatus.RUNNING.value:
+        if task["status"] != TaskCenterTaskStatus.RUNNING.value:
             raise TaskCenterInvariantViolation(
                 f"Evaluator task {submission.task_id!r} is not running"
             )
         status = (
-            HarnessTaskStatus.DONE
+            TaskCenterTaskStatus.DONE
             if submission.outcome == "success"
-            else HarnessTaskStatus.FAILED
+            else TaskCenterTaskStatus.FAILED
         )
         runtime.task_store.set_task_status(
             submission.task_id,
@@ -405,8 +406,8 @@ class AttemptOrchestrator:
         try:
             runtime.task_store.set_task_status_if_current(
                 planner_task_id,
-                expected_status=HarnessTaskStatus.RUNNING.value,
-                status=HarnessTaskStatus.FAILED.value,
+                expected_status=TaskCenterTaskStatus.RUNNING.value,
+                status=TaskCenterTaskStatus.FAILED.value,
                 summary={
                     "fail_reason": AttemptFailReason.STARTUP_FAILED.value,
                 },

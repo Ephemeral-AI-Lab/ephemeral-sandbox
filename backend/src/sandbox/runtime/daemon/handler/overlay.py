@@ -6,10 +6,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from sandbox.layer_stack.manager import LayerStackManager
-from sandbox.overlay.capture.types import OverlayCapture
-from sandbox.overlay.runner.snapshot_overlay_runner import (
-    SnapshotOverlayRunner,
-    overlay_shell_request_from_dict,
+from sandbox.overlay import (
+    OverlayCapture,
+    OverlayShellRequest,
+    OverlaySnapshotRunner,
 )
 
 
@@ -22,8 +22,8 @@ async def handle(args: dict[str, Any]) -> dict[str, Any]:
 
 async def _handle_snapshot_overlay(args: dict[str, Any]) -> OverlayCapture:
     manager = LayerStackManager(str(args["layer_stack_root"]))
-    runner = SnapshotOverlayRunner(manager)
-    request = overlay_shell_request_from_dict(_snapshot_request_payload(args))
+    runner = OverlaySnapshotRunner(manager)
+    request = OverlayShellRequest.from_dict(_snapshot_request_payload(args))
     return await runner.shell(request)
 
 

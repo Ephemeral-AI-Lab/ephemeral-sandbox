@@ -17,8 +17,8 @@ from typing import Literal
 
 from task_center.mission.mission import MissionCloseReport
 from task_center.exceptions import TaskCenterInvariantViolation
-from task_center.attempt.runtime import AttemptRuntime
-from task_center.task.models import HarnessTaskStatus
+from task_center.attempt.runtime import AttemptDeps
+from task_center.task.models import TaskCenterTaskStatus
 
 CloseReportDeliveryStatus = Literal[
     "delivered",
@@ -36,7 +36,7 @@ class CloseReportDeliveryResult:
 class MissionCloseReportRouter:
     """Single delivery path for final ``MissionCloseReport``s."""
 
-    def __init__(self, *, runtime: AttemptRuntime) -> None:
+    def __init__(self, *, runtime: AttemptDeps) -> None:
         self._runtime = runtime
 
     def deliver(
@@ -50,15 +50,15 @@ class MissionCloseReportRouter:
         attempt_id = str(task.get("task_center_attempt_id") or "") or None
         status = str(task.get("status") or "")
         if status in (
-            HarnessTaskStatus.DONE.value,
-            HarnessTaskStatus.FAILED.value,
+            TaskCenterTaskStatus.DONE.value,
+            TaskCenterTaskStatus.FAILED.value,
         ):
             return CloseReportDeliveryResult(
                 status="already_delivered",
                 requested_by_task_id=report.requested_by_task_id,
                 parent_attempt_id=attempt_id,
             )
-        if status != HarnessTaskStatus.WAITING_MISSION.value:
+        if status != TaskCenterTaskStatus.WAITING_MISSION.value:
             raise TaskCenterInvariantViolation(
                 f"TaskCenter task {report.requested_by_task_id!r} is not waiting "
                 "on a mission."

@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
+from typing import cast
 
-from sandbox.layer_stack.layer.change import LayerChange, LayerDelta
+from sandbox.layer_stack.layer.change import (
+    DeleteLayerChange,
+    LayerChange,
+    LayerDelta,
+    OpaqueDirLayerChange,
+)
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset.prepared import PreparedPathGroup
 from sandbox.occ.changeset.types import (
+    Change,
     DeleteChange,
     EditChange,
     FileResult,
@@ -16,11 +24,64 @@ from sandbox.occ.changeset.types import (
     WriteChange,
 )
 from sandbox.occ.content.hashing import ContentHasher
+from sandbox.occ.merge.policy import StageWrite, StageWriteFromPath
 from sandbox.occ.ports import SnapshotReader
 from sandbox.timing import monotonic_now
 
-StageWrite = Callable[[str, bytes], LayerChange]
-StageWriteFromPath = Callable[[str, str, str, bytes | None], LayerChange]
+_GatedChangeHandler = Callable[
+    [Change, "_GatedStageState", str | None, str],
+    FileResult | None,
+]
+
+
+@dataclass
+class _GatedStageState:
+    content: bytes
+    exists: bool
+    initial_exists: bool
+    final_content_path: str | None = None
+    final_precomputed_hash: str | None = None
+    final_special_change: LayerChange | None = None
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        current_content: bytes | None,
+        *,
+        current_exists: bool,
+    ) -> "_GatedStageState":
+        return cls(
+            content=current_content or b"",
+            exists=current_exists,
+            initial_exists=current_exists,
+        )
+
+    def set_opaque_dir(self, *, path: str) -> None:
+        self.content = b""
+        self.exists = True
+        self.final_content_path = None
+        self.final_precomputed_hash = None
+        self.final_special_change = OpaqueDirLayerChange(path=path)
+
+    def set_write(
+        self,
+        content: bytes,
+        *,
+        content_path: str | None,
+        precomputed_hash: str | None,
+    ) -> None:
+        self.content = content
+        self.exists = True
+        self.final_content_path = content_path
+        self.final_precomputed_hash = precomputed_hash
+        self.final_special_change = None
+
+    def set_delete(self) -> None:
+        self.content = b""
+        self.exists = False
+        self.final_content_path = None
+        self.final_precomputed_hash = None
+        self.final_special_change = None
 
 
 class GatedMerge:
@@ -34,6 +95,12 @@ class GatedMerge:
     ) -> None:
         self._snapshot_reader = snapshot_reader
         self._hasher = hasher or ContentHasher()
+        self._handlers: dict[type[Change], _GatedChangeHandler] = {
+            OpaqueDirChange: self._apply_opaque_dir,
+            WriteChange: self._apply_write,
+            DeleteChange: self._apply_delete,
+            EditChange: self._apply_edit,
+        }
 
     def stage_group(
         self,
@@ -74,124 +141,43 @@ class GatedMerge:
             active_manifest,
         )
         timings["occ.gated.read_current_s"] = monotonic_now() - read_start
-        initial_exists = current_exists
-        content = current_content or b""
-        exists = current_exists
-        # Track the staging hint for the *final* WriteChange in the
-        # group so the stager can copy from disk instead of round-
-        # tripping bytes through Python. Reset on any non-WriteChange
-        # so a chained Edit/Delete can't stage a stale path/hash.
-        final_content_path: str | None = None
-        final_precomputed_hash: str | None = None
-        final_special_change: LayerChange | None = None
+        state = _GatedStageState.from_snapshot(
+            current_content,
+            current_exists=current_exists,
+        )
 
         apply_start = monotonic_now()
         for change in group.changes:
-            current_hash = self._hasher.hash_current(content, exists=exists)
-            if isinstance(change, OpaqueDirChange):
-                content = b""
-                exists = True
-                final_content_path = None
-                final_precomputed_hash = None
-                final_special_change = LayerChange(
-                    path=group.path,
-                    kind="opaque_dir",
-                )
-                continue
-
-            if isinstance(change, WriteChange):
-                expected_hash = _base_hash(change.base_hash)
-                if current_hash != expected_hash:
-                    timings["occ.gated.apply_changes_s"] = (
-                        monotonic_now() - apply_start
-                    )
-                    return (
-                        FileResult(
-                            path=group.path,
-                            status=FileStatus.ABORTED_VERSION,
-                            message="content changed",
-                            timings=timings,
-                        ),
-                        None,
-                    )
-                # Eager bytes path for api_write/api_edit; lazy for
-                # overlay capture (final_content reads from content_path
-                # on demand).
-                content = bytes(change.final_content)
-                exists = True
-                final_content_path = change.content_path
-                final_precomputed_hash = change.precomputed_hash
-                final_special_change = None
-                continue
-
-            if isinstance(change, DeleteChange):
-                expected_hash = _base_hash(change.base_hash)
-                if current_hash != expected_hash:
-                    timings["occ.gated.apply_changes_s"] = (
-                        monotonic_now() - apply_start
-                    )
-                    return (
-                        FileResult(
-                            path=group.path,
-                            status=FileStatus.ABORTED_VERSION,
-                            message="content changed before delete",
-                            timings=timings,
-                        ),
-                        None,
-                    )
-                content = b""
-                exists = False
-                final_content_path = None
-                final_precomputed_hash = None
-                final_special_change = None
-                continue
-
-            if isinstance(change, EditChange):
-                edit_result = _apply_edit_content(
-                    group.path,
-                    content,
-                    exists,
-                    change,
-                )
-                if isinstance(edit_result, FileResult):
-                    timings["occ.gated.apply_changes_s"] = (
-                        monotonic_now() - apply_start
-                    )
-                    return _with_timings(edit_result, timings), None
-                content = edit_result
-                exists = True
-                # Edit produced new bytes — disk-backed shortcut no
-                # longer represents the final content.
-                final_content_path = None
-                final_precomputed_hash = None
-                final_special_change = None
-                continue
-
-            timings["occ.gated.apply_changes_s"] = monotonic_now() - apply_start
-            return (
-                FileResult(
-                    path=group.path,
-                    status=FileStatus.REJECTED,
-                    message=f"unsupported tracked change kind: {type(change).__name__}",
-                    timings=timings,
-                ),
-                None,
+            current_hash = self._hasher.hash_current(
+                state.content,
+                exists=state.exists,
             )
+            result = self._apply_change(
+                change,
+                state,
+                current_hash=current_hash,
+                path=group.path,
+            )
+            if result is not None:
+                timings["occ.gated.apply_changes_s"] = (
+                    monotonic_now() - apply_start
+                )
+                return _with_timings(result, timings), None
 
         timings["occ.gated.apply_changes_s"] = monotonic_now() - apply_start
         stage_start = monotonic_now()
         delta = (
-            LayerDelta(changes=(final_special_change,))
-            if final_special_change is not None
+            LayerDelta(changes=(state.final_special_change,))
+            if state.final_special_change is not None
             else _delta_for_final_state(
                 path=group.path,
-                content=content,
-                exists=exists,
-                initial_exists=initial_exists,
+                content=state.content,
+                exists=state.exists,
+                initial_exists=state.initial_exists,
                 stage_write=stage_write,
                 stage_write_from_path=stage_write_from_path,
-                content_path=final_content_path,
-                precomputed_hash=final_precomputed_hash,
+                content_path=state.final_content_path,
+                precomputed_hash=state.final_precomputed_hash,
             )
         )
         timings["occ.gated.stage_delta_s"] = monotonic_now() - stage_start
@@ -203,6 +189,98 @@ class GatedMerge:
             ),
             delta,
         )
+
+    def _apply_change(
+        self,
+        change: Change,
+        state: _GatedStageState,
+        *,
+        current_hash: str | None,
+        path: str,
+    ) -> FileResult | None:
+        handler = self._handlers.get(type(change))
+        if handler is None:
+            return FileResult(
+                path=path,
+                status=FileStatus.REJECTED,
+                message=f"unsupported tracked change kind: {type(change).__name__}",
+            )
+        return handler(change, state, current_hash, path)
+
+    def _apply_opaque_dir(
+        self,
+        change: Change,
+        state: _GatedStageState,
+        current_hash: str | None,
+        path: str,
+    ) -> FileResult | None:
+        del change, current_hash
+        state.set_opaque_dir(path=path)
+        return None
+
+    def _apply_write(
+        self,
+        change: Change,
+        state: _GatedStageState,
+        current_hash: str | None,
+        path: str,
+    ) -> FileResult | None:
+        write = cast(WriteChange, change)
+        expected_hash = _base_hash(write.base_hash)
+        if current_hash != expected_hash:
+            return FileResult(
+                path=path,
+                status=FileStatus.ABORTED_VERSION,
+                message="content changed",
+            )
+        state.set_write(
+            bytes(write.final_content),
+            content_path=write.content_path,
+            precomputed_hash=write.precomputed_hash,
+        )
+        return None
+
+    def _apply_delete(
+        self,
+        change: Change,
+        state: _GatedStageState,
+        current_hash: str | None,
+        path: str,
+    ) -> FileResult | None:
+        delete = cast(DeleteChange, change)
+        expected_hash = _base_hash(delete.base_hash)
+        if current_hash != expected_hash:
+            return FileResult(
+                path=path,
+                status=FileStatus.ABORTED_VERSION,
+                message="content changed before delete",
+            )
+        state.set_delete()
+        return None
+
+    def _apply_edit(
+        self,
+        change: Change,
+        state: _GatedStageState,
+        current_hash: str | None,
+        path: str,
+    ) -> FileResult | None:
+        del current_hash
+        edit = cast(EditChange, change)
+        edit_result = _apply_edit_content(
+            path,
+            state.content,
+            state.exists,
+            edit,
+        )
+        if isinstance(edit_result, FileResult):
+            return edit_result
+        state.set_write(
+            edit_result,
+            content_path=None,
+            precomputed_hash=None,
+        )
+        return None
 
 
 def _base_hash(value: str | None) -> str | None:
@@ -275,7 +353,7 @@ def _delta_for_final_state(
             )
         return LayerDelta(changes=(stage_write(path, content),))
     if initial_exists:
-        return LayerDelta(changes=(LayerChange(path=path, kind="delete"),))
+        return LayerDelta(changes=(DeleteLayerChange(path=path),))
     return None
 
 

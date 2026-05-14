@@ -9,7 +9,7 @@ from task_center.attempt import AttemptStage, AttemptStatus
 from task_center.task import (
     EvaluatorSubmission,
     GeneratorSubmission,
-    HarnessTaskStatus,
+    TaskCenterTaskStatus,
     PlannedGeneratorTask,
     PlannerSubmission,
     evaluator_task_id,
@@ -67,7 +67,7 @@ async def test_submit_execution_success_calls_apply_generator_submission(
     assert not result.is_error
     assert result.does_terminate
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.DONE.value
+    assert task["status"] == TaskCenterTaskStatus.DONE.value
     assert task["summaries"][-1]["payload"]["generator_role"] == "executor"
 
 
@@ -93,7 +93,7 @@ async def test_submit_execution_failure_calls_apply_generator_submission(
     task = task_store.get_task(generator_id)
     assert not result.is_error
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.FAILED.value
+    assert task["status"] == TaskCenterTaskStatus.FAILED.value
     assert task["summaries"][-1]["payload"]["reason"] == "blocked"
 
 
@@ -199,7 +199,7 @@ async def test_submit_execution_handoff_starts_delegated_request(
     assert not result.is_error
     assert result.does_terminate
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.WAITING_MISSION.value
+    assert task["status"] == TaskCenterTaskStatus.WAITING_MISSION.value
     assert delegated_request is not None
     assert delegated_request.status == MissionStatus.OPEN
     assert delegated_request.requested_by_task_id == generator_id
@@ -208,7 +208,7 @@ async def test_submit_execution_handoff_starts_delegated_request(
     assert initial_episode.mission_id == delegated_request.id
     assert created_attempt is not None
     assert created_attempt.episode_id == initial_episode.id
-    assert created_attempt.stage == AttemptStage.PLANNING
+    assert created_attempt.stage == AttemptStage.PLAN
 
 
 async def test_submit_execution_handoff_accepts_any_generator_agent_profile(
@@ -254,7 +254,7 @@ async def test_submit_execution_handoff_accepts_any_generator_agent_profile(
     assert not result.is_error
     assert result.does_terminate
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.WAITING_MISSION.value
+    assert task["status"] == TaskCenterTaskStatus.WAITING_MISSION.value
 
 
 async def test_submit_execution_handoff_return_updates_outer_generator(
@@ -326,11 +326,11 @@ async def test_submit_execution_handoff_return_updates_outer_generator(
     delegated_request = mission_store.get(result.metadata["mission_id"])
 
     assert outer_task is not None
-    assert outer_task["status"] == HarnessTaskStatus.DONE.value
+    assert outer_task["status"] == TaskCenterTaskStatus.DONE.value
     assert outer_task["summaries"][-1]["payload"]["mission_close_report"][
         "final_attempt_id"
     ] == delegated_attempt_id
     assert outer_attempt is not None
-    assert outer_attempt.stage == AttemptStage.EVALUATING
+    assert outer_attempt.stage == AttemptStage.EVALUATE
     assert delegated_request is not None
     assert delegated_request.status == MissionStatus.SUCCEEDED

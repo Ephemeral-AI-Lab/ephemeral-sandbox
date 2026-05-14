@@ -26,7 +26,7 @@ from task_center.mission.mission import (
     Mission,
     MissionStatus,
 )
-from task_center.config import HarnessLifecycleConfig
+from task_center.config import TaskCenterLifecycleConfig
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.episode.closure_report import (
     AttemptPlanFailed,
@@ -56,7 +56,7 @@ class MissionHandler:
         episode_store: EpisodeStore,
         attempt_store: AttemptStore,
         manager_registry: EpisodeManagerRegistry,
-        config: HarnessLifecycleConfig,
+        config: TaskCenterLifecycleConfig,
         deliver_close_report: CloseReportSink | None = None,
         orchestrator_factory: OrchestratorFactory | None = None,
         task_store: TaskCenterStore | None = None,

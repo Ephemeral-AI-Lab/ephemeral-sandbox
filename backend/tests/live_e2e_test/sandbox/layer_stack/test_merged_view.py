@@ -12,7 +12,12 @@ pytestmark = pytest.mark.asyncio
 
 
 _MERGED_VIEW_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import (
+    LayerChange,
+    DeleteLayerChange,
+    OpaqueDirLayerChange,
+    WriteLayerChange,
+)
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.merged_view"
@@ -23,24 +28,23 @@ manager = LayerStackManager(root / "stack")
 
 for index in range(100):
     manager.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="depth/%03d.txt" % index,
-            kind="write",
             source_path=str(_source(root, "depth-%03d" % index, ("value-%03d\n" % index).encode("utf-8"))),
         )
     ])
 
 manager.publish_changes([
-    LayerChange(path="depth/010.txt", kind="delete"),
-    LayerChange(path="opaque", kind="opaque_dir"),
-    LayerChange(path="opaque/kept.txt", kind="write", source_path=str(_source(root, "kept", b"kept\n"))),
+    DeleteLayerChange(path="depth/010.txt"),
+    OpaqueDirLayerChange(path="opaque"),
+    WriteLayerChange(path="opaque/kept.txt", source_path=str(_source(root, "kept", b"kept\n"))),
 ])
 manager.publish_changes([
-    LayerChange(path="opaque/old.txt", kind="write", source_path=str(_source(root, "old", b"old\n"))),
+    WriteLayerChange(path="opaque/old.txt", source_path=str(_source(root, "old", b"old\n"))),
 ])
 manager.publish_changes([
-    LayerChange(path="opaque", kind="opaque_dir"),
-    LayerChange(path="opaque/new.txt", kind="write", source_path=str(_source(root, "new", b"new\n"))),
+    OpaqueDirLayerChange(path="opaque"),
+    WriteLayerChange(path="opaque/new.txt", source_path=str(_source(root, "new", b"new\n"))),
 ])
 
 manifest = manager.read_active_manifest()

@@ -90,7 +90,7 @@ def _seed_parent_task(task_store, *, task_center_run_id, task_id, question):
         task_center_run_id=task_center_run_id,
         role="generator",
         agent_name="executor",
-        task_input=question,
+        rendered_prompt=question,
         status="running",
         summaries=[],
         needs=[],

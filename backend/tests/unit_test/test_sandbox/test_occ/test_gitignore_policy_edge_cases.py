@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import RouteDecision
 from sandbox.occ.changeset.types import (
@@ -32,6 +32,9 @@ class _MutableGitignore:
     def is_ignored(self, path: str) -> bool:
         return path in self.ignored
 
+    def is_ignored_in_snapshot(self, path: str, _snapshot: object) -> bool:
+        return self.is_ignored(path)
+
 
 def _source(tmp_path: Path, name: str, content: bytes) -> Path:
     path = tmp_path / "sources" / name
@@ -44,9 +47,8 @@ def _publish(stack: LayerStackManager, tmp_path: Path, rel: str, content: bytes)
     source = _source(tmp_path, rel.replace("/", "-"), content)
     stack.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 content_hash=ContentHasher().hash_bytes(content),
                 source_path=str(source),
             )
@@ -207,7 +209,7 @@ def test_gitignore_occ_skipped_route_is_fixed_after_prepare_even_if_oracle_chang
         snapshot=stack.read_active_manifest(),
     )
     [group] = prepared.path_groups
-    assert group.route is RouteDecision.OCC_SKIPPED_MERGE
+    assert group.route is RouteDecision.DIRECT
 
     gitignore.ignored.clear()
     result = OccCommitTransaction(stack).revalidate_and_publish(prepared)
@@ -237,7 +239,7 @@ def test_tracked_route_is_fixed_after_prepare_even_if_path_becomes_ignored(
         snapshot=stale_snapshot,
     )
     [group] = prepared.path_groups
-    assert group.route is RouteDecision.OCC_GATED_MERGE
+    assert group.route is RouteDecision.GATED
 
     gitignore.ignored.add("dist/out.js")
     result = OccCommitTransaction(stack).revalidate_and_publish(prepared)

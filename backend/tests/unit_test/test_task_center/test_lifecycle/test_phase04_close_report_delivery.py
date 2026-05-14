@@ -13,11 +13,11 @@ from task_center.attempt.orchestrator import AttemptOrchestrator
 from task_center.attempt.orchestrator_registry import (
     AttemptOrchestratorRegistry,
 )
-from task_center.attempt.runtime import AgentLaunch, AttemptRuntime
+from task_center.attempt.runtime import AgentLaunch, AttemptDeps
 from task_center.episode.registry import EpisodeManagerRegistry
 from task_center.episode.episode import EpisodeCreationReason
 from task_center.task import (
-    HarnessTaskStatus,
+    TaskCenterTaskStatus,
     PlannedGeneratorTask,
     PlannerSubmission,
     generator_task_id,
@@ -57,7 +57,7 @@ def _build_runtime_with_open_graph(
     attempt = attempt_store.insert(episode_id=episode.id, attempt_sequence_no=1)
     episode_store.append_attempt_id(episode.id, attempt.id)
     registry = AttemptOrchestratorRegistry()
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -100,7 +100,7 @@ def _build_runtime_with_open_graph(
 def _set_parent_waiting(task_store, parent_task_id: str) -> None:
     task_store.set_task_status(
         parent_task_id,
-        status=HarnessTaskStatus.WAITING_MISSION.value,
+        status=TaskCenterTaskStatus.WAITING_MISSION.value,
     )
 
 
@@ -132,7 +132,7 @@ def test_router_delivers_success_to_waiting_parent(
     assert result.parent_attempt_id == parent_attempt_id
     parent_task = task_store.get_task(parent_task_id)
     assert parent_task is not None
-    assert parent_task["status"] == HarnessTaskStatus.DONE.value
+    assert parent_task["status"] == TaskCenterTaskStatus.DONE.value
 
 
 def test_router_delivers_failure_marks_parent_failed_and_blocks_dependents(
@@ -154,7 +154,7 @@ def test_router_delivers_failure_marks_parent_failed_and_blocks_dependents(
     attempt = attempt_store.insert(episode_id=episode.id, attempt_sequence_no=1)
     episode_store.append_attempt_id(episode.id, attempt.id)
     registry = AttemptOrchestratorRegistry()
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -205,9 +205,9 @@ def test_router_delivers_failure_marks_parent_failed_and_blocks_dependents(
     parent_task = task_store.get_task(parent_task_id)
     dependent = task_store.get_task(dependent_id)
     assert parent_task is not None
-    assert parent_task["status"] == HarnessTaskStatus.FAILED.value
+    assert parent_task["status"] == TaskCenterTaskStatus.FAILED.value
     assert dependent is not None
-    assert dependent["status"] == HarnessTaskStatus.BLOCKED.value
+    assert dependent["status"] == TaskCenterTaskStatus.BLOCKED.value
 
 
 def test_router_treats_done_parent_as_already_delivered(
@@ -222,7 +222,7 @@ def test_router_treats_done_parent_as_already_delivered(
         composer=composer,
     )
     task_store.set_task_status(
-        parent_task_id, status=HarnessTaskStatus.DONE.value
+        parent_task_id, status=TaskCenterTaskStatus.DONE.value
     )
     router = MissionCloseReportRouter(runtime=runtime)
 
@@ -270,7 +270,7 @@ def test_router_raises_when_parent_orchestrator_missing(
 
     parent_task = task_store.get_task(parent_task_id)
     assert parent_task is not None
-    assert parent_task["status"] == HarnessTaskStatus.WAITING_MISSION.value
+    assert parent_task["status"] == TaskCenterTaskStatus.WAITING_MISSION.value
 
 
 def test_router_rejects_running_parent(
@@ -331,7 +331,7 @@ def test_apply_close_report_is_idempotent_on_second_delivery(
 
     parent_task = task_store.get_task(parent_task_id)
     assert parent_task is not None
-    assert parent_task["status"] == HarnessTaskStatus.DONE.value
+    assert parent_task["status"] == TaskCenterTaskStatus.DONE.value
     # Exactly one new summary appended.
     assert len(parent_task["summaries"]) == summary_count_before + 1
 
@@ -342,22 +342,22 @@ def test_router_routes_entry_mode_close_report_through_controller(
     """Entry-mode close-report dispatch.
 
     When the parent task has ``task_center_attempt_id=None``, the
-    router must look up :attr:`AttemptRuntime.entry_task_controller`
+    router must look up :attr:`AttemptDeps.entry_task_controller`
     instead of the orchestrator registry, and route the close report into
     the controller's ``apply_mission_close_report``.
     """
     from task_center.entry.controller import EntryTaskController
-    from task_center.task import HarnessTaskRole
+    from task_center.task import TaskCenterTaskRole
 
     # Seed entry-mode caller in WAITING_MISSION.
     entry_task_id = "entry-task"
     task_store.upsert_task(
         task_id=entry_task_id,
         task_center_run_id=task_center_run_id,
-        role=HarnessTaskRole.GENERATOR.value,
+        role=TaskCenterTaskRole.GENERATOR.value,
         agent_name="entry_executor",
-        task_input="entry goal",
-        status=HarnessTaskStatus.WAITING_MISSION.value,
+        rendered_prompt="entry goal",
+        status=TaskCenterTaskStatus.WAITING_MISSION.value,
         summaries=[],
         needs=[],
         task_center_attempt_id=None,
@@ -368,7 +368,7 @@ def test_router_routes_entry_mode_close_report_through_controller(
         task_center_run_id=task_center_run_id,
         task_store=task_store,
     )
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -396,6 +396,6 @@ def test_router_routes_entry_mode_close_report_through_controller(
     entry_task = task_store.get_task(entry_task_id)
     run = task_store.get_run(task_center_run_id)
     assert entry_task is not None
-    assert entry_task["status"] == HarnessTaskStatus.DONE.value
+    assert entry_task["status"] == TaskCenterTaskStatus.DONE.value
     assert run is not None
     assert run["status"] == "done"

@@ -100,9 +100,9 @@ correctness under race. Files needing this are flagged **(+ race)** below.
 
 | Order | File | Probe imports | Pass bar |
 |---:|---|---|---|
-| 13 | `overlay/native/test_snapshot_overlay_runner.py` **(+ race)** | `sandbox.overlay.runner.snapshot_overlay_runner` | mount + run + unmount round-trip; fd/mount Δ = 0; nested overlay; runner crash mid-run. Race: N=4 parallel runners → no fd/mount cross-leak |
-| 14 | `overlay/native/test_capture_upperdir.py` | `sandbox.overlay.capture.upperdir` | binary, sparse, symlink, hardlink, long path, unicode |
-| 15 | `overlay/native/test_capture_changes.py` **(+ race)** | `sandbox.overlay.capture.changes` | whiteouts, opaque dirs, rename detection, dedup, ordering. Race: N=4 producers same path → dedup deterministic, ordering preserved |
+| 13 | `overlay/native/test_snapshot_overlay_runner.py` **(+ race)** | `sandbox.overlay.runner` | mount + run + unmount round-trip; fd/mount Δ = 0; nested overlay; runner crash mid-run. Race: N=4 parallel runners → no fd/mount cross-leak |
+| 14 | `overlay/native/test_capture_upperdir.py` | `sandbox.overlay.capture` | binary, sparse, symlink, hardlink, long path, unicode |
+| 15 | `overlay/native/test_capture_changes.py` **(+ race)** | `sandbox.overlay.capture` | whiteouts, opaque dirs, rename detection, dedup, ordering. Race: N=4 producers same path -> dedup deterministic, ordering preserved |
 
 **Gate after 1b:** all 12 P0 native files in `occ/` and `overlay/native/` pass.
 

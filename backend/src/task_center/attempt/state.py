@@ -8,9 +8,9 @@ from enum import StrEnum
 
 
 class AttemptStage(StrEnum):
-    PLANNING = "planning"
-    GENERATING = "generating"
-    EVALUATING = "evaluating"
+    PLAN = "plan"
+    GENERATE = "generate"
+    EVALUATE = "evaluate"
     CLOSED = "closed"
 
 

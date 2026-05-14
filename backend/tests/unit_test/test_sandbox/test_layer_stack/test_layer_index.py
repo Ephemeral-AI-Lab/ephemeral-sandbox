@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
+from sandbox.layer_stack import (
+    LayerChange,
+    DeleteLayerChange,
+    WriteLayerChange,
+    LayerStackManager,
+)
 from sandbox.layer_stack.layer.index import (
     OPAQUE_MARKER,
     WHITEOUT_PREFIX,
@@ -63,14 +68,13 @@ def test_indexed_read_handles_nested_whiteout(tmp_path: Path) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="dist/foo",
-                kind="write",
                 source_path=_source(tmp_path, "foo.txt", b"original"),
             )
         ]
     )
-    manager.publish_changes([LayerChange(path="dist/foo", kind="delete")])
+    manager.publish_changes([DeleteLayerChange(path="dist/foo")])
 
     assert manager.read_bytes("dist/foo") == (None, False)
 
@@ -80,9 +84,8 @@ def test_indexed_read_evicts_after_layer_removal(tmp_path: Path) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="x.txt",
-                kind="write",
                 source_path=_source(tmp_path, "x.txt", b"v1"),
             )
         ]
@@ -94,9 +97,8 @@ def test_indexed_read_evicts_after_layer_removal(tmp_path: Path) -> None:
     )
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="x.txt",
-                kind="write",
                 source_path=_source(tmp_path, "x2.txt", b"v2"),
             )
         ]

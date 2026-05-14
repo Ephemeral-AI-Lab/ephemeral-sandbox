@@ -10,10 +10,16 @@ from sandbox.occ.changeset.types import Change
 
 
 class RouteDecision(str, Enum):
-    OCC_GATED_MERGE = "occ_gated_merge"
-    OCC_SKIPPED_MERGE = "occ_skipped_merge"
+    GATED = "gated"
+    DIRECT = "direct"
     DROP = "drop"
     REJECT = "reject"
+
+    # Backward-compatible aliases for older callers. New code should use
+    # DIRECT/GATED so route names describe what will happen, not what is
+    # being skipped.
+    OCC_GATED_MERGE = "gated"
+    OCC_SKIPPED_MERGE = "direct"
 
 
 @dataclass(frozen=True)

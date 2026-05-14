@@ -68,7 +68,7 @@ def _seed_parent_task(task_store, *, packet_id: str) -> None:
         task_center_run_id=PARENT_RUN_ID,
         role="generator",
         agent_name="executor",
-        task_input="parent task input",
+        rendered_prompt="parent task input",
         status="running",
         summaries=[],
         needs=[],

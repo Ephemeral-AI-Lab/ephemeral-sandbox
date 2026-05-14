@@ -23,7 +23,7 @@ from task_center.attempt.state import (
 from task_center.context_engine.scope import ContextScope
 from task_center.attempt.runtime import (
     AgentLaunch,
-    AttemptRuntime,
+    AttemptDeps,
 )
 from task_center.attempt.generator_dag import (
     all_generators_done,
@@ -34,8 +34,9 @@ from task_center.attempt.generator_dag import (
 )
 from task_center.task.ids import evaluator_task_id
 from task_center.task.models import (
-    HarnessTaskRole,
-    HarnessTaskStatus,
+    SpawnReason,
+    TaskCenterTaskRole,
+    TaskCenterTaskStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class AttemptDispatcher:
         self,
         *,
         attempt_id: str,
-        runtime: AttemptRuntime,
+        runtime: AttemptDeps,
         close_attempt: CloseGraphCallback,
     ) -> None:
         self._attempt_id = attempt_id
@@ -67,12 +68,12 @@ class AttemptDispatcher:
         attempt = self._fresh_attempt()
         if attempt.is_closed:
             return
-        if attempt.stage == AttemptStage.PLANNING:
+        if attempt.stage == AttemptStage.PLAN:
             return
-        if attempt.stage == AttemptStage.GENERATING:
+        if attempt.stage == AttemptStage.GENERATE:
             self._dispatch_generating(attempt)
             return
-        if attempt.stage == AttemptStage.EVALUATING:
+        if attempt.stage == AttemptStage.EVALUATE:
             self._dispatch_evaluating(attempt)
 
     def block_failed_descendants(self, failed_task_id: str) -> None:
@@ -87,7 +88,7 @@ class AttemptDispatcher:
         ):
             runtime.task_store.set_task_status(
                 task_id,
-                status=HarnessTaskStatus.BLOCKED.value,
+                status=TaskCenterTaskStatus.BLOCKED.value,
                 summary={"blocked_by": failed_task_id},
             )
 
@@ -135,10 +136,10 @@ class AttemptDispatcher:
             raise TaskCenterInvariantViolation(
                 f"Evaluator task {attempt.evaluator_task_id!r} not found"
             )
-        status = HarnessTaskStatus(evaluator_task["status"])
-        if status == HarnessTaskStatus.DONE:
+        status = TaskCenterTaskStatus(evaluator_task["status"])
+        if status == TaskCenterTaskStatus.DONE:
             self._close_attempt(AttemptStatus.PASSED, None)
-        elif status == HarnessTaskStatus.FAILED:
+        elif status == TaskCenterTaskStatus.FAILED:
             self._close_attempt(
                 AttemptStatus.FAILED,
                 AttemptFailReason.EVALUATOR_FAILED,
@@ -160,7 +161,7 @@ class AttemptDispatcher:
             ),
         )
         task = runtime.task_store.set_task_status(
-            task_id, status=HarnessTaskStatus.RUNNING.value
+            task_id, status=TaskCenterTaskStatus.RUNNING.value
         )
         self._audit.task_launched(task, attempt_id=attempt.id)
         try:
@@ -182,8 +183,8 @@ class AttemptDispatcher:
             )
             runtime.task_store.set_task_status_if_current(
                 task_id,
-                expected_status=HarnessTaskStatus.RUNNING.value,
-                status=HarnessTaskStatus.FAILED.value,
+                expected_status=TaskCenterTaskStatus.RUNNING.value,
+                status=TaskCenterTaskStatus.FAILED.value,
                 summary={
                     "fail_reason": "agent_launch_failed",
                     "summary": "Generator agent launch failed.",
@@ -214,8 +215,8 @@ class AttemptDispatcher:
             )
             runtime.task_store.set_task_status_if_current(
                 launch.task_id,
-                expected_status=HarnessTaskStatus.RUNNING.value,
-                status=HarnessTaskStatus.FAILED.value,
+                expected_status=TaskCenterTaskStatus.RUNNING.value,
+                status=TaskCenterTaskStatus.FAILED.value,
                 summary={
                     "fail_reason": "agent_launch_failed",
                     "summary": "Evaluator agent launch failed.",
@@ -247,9 +248,9 @@ class AttemptDispatcher:
             ready_task = {
                 "id": task_id,
                 "task_center_run_id": launch.task_center_run_id,
-                "role": HarnessTaskRole.EVALUATOR.value,
+                "role": TaskCenterTaskRole.EVALUATOR.value,
                 "agent_name": launch.agent_name,
-                "status": HarnessTaskStatus.PENDING.value,
+                "status": TaskCenterTaskStatus.PENDING.value,
                 "needs": list(attempt.generator_task_ids),
                 "task_center_attempt_id": attempt.id,
                 "context_packet_id": launch.context_packet_id,
@@ -262,21 +263,21 @@ class AttemptDispatcher:
             runtime.task_store.upsert_task(
                 task_id=task_id,
                 task_center_run_id=launch.task_center_run_id,
-                role=HarnessTaskRole.EVALUATOR.value,
+                role=TaskCenterTaskRole.EVALUATOR.value,
                 agent_name=launch.agent_name,
-                task_input=launch.task_input,
-                status=HarnessTaskStatus.RUNNING.value,
+                rendered_prompt=launch.rendered_prompt,
+                status=TaskCenterTaskStatus.RUNNING.value,
                 summaries=[],
                 needs=list(attempt.generator_task_ids),
                 task_center_attempt_id=attempt.id,
                 context_packet_id=launch.context_packet_id,
-                spawn_reason="attempt_evaluator",
+                spawn_reason=SpawnReason.ATTEMPT_EVALUATOR.value,
             )
             task = runtime.task_store.get_task(task_id)
             if task is not None:
                 self._audit.task_launched(task, attempt_id=attempt.id)
             runtime.attempt_store.set_evaluator_task_id(attempt.id, task_id)
-            runtime.attempt_store.set_stage(attempt.id, AttemptStage.EVALUATING)
+            runtime.attempt_store.set_stage(attempt.id, AttemptStage.EVALUATE)
             self._launch_evaluator(launch)
         except Exception:
             logger.exception(
@@ -290,8 +291,8 @@ class AttemptDispatcher:
         try:
             self._runtime.task_store.set_task_status_if_current(
                 task_id,
-                expected_status=HarnessTaskStatus.RUNNING.value,
-                status=HarnessTaskStatus.FAILED.value,
+                expected_status=TaskCenterTaskStatus.RUNNING.value,
+                status=TaskCenterTaskStatus.FAILED.value,
                 summary={
                     "fail_reason": "agent_launch_failed",
                     "summary": "Evaluator agent startup failed.",
@@ -341,9 +342,9 @@ class AttemptDispatcher:
             task_id=task_id,
             task_center_run_id=task["task_center_run_id"],
             attempt_id=attempt.id,
-            role=HarnessTaskRole.GENERATOR,
+            role=TaskCenterTaskRole.GENERATOR,
             agent_name=bundle.agent_def.name,
-            task_input=bundle.task_input,
+            rendered_prompt=bundle.rendered_prompt,
             needs=tuple(task["needs"]),
             context_packet_id=bundle.context_packet_id,
             mission_id=episode.mission_id,
@@ -374,9 +375,9 @@ class AttemptDispatcher:
             task_id=task_id,
             task_center_run_id=runtime.task_center_run_id_for_attempt(attempt),
             attempt_id=attempt.id,
-            role=HarnessTaskRole.EVALUATOR,
+            role=TaskCenterTaskRole.EVALUATOR,
             agent_name=bundle.agent_def.name,
-            task_input=bundle.task_input,
+            rendered_prompt=bundle.rendered_prompt,
             needs=tuple(attempt.generator_task_ids),
             context_packet_id=bundle.context_packet_id,
             mission_id=episode.mission_id,

@@ -10,25 +10,37 @@ import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from types import TracebackType
 from uuid import uuid4
 
 from sandbox.layer_stack.commit.staging import CommitStagingArea
-from sandbox.layer_stack.filesystem import remove_path, resolve_storage_path
+from sandbox.layer_stack._paths import (
+    log_rmtree_failure,
+    remove_path,
+    resolve_storage_path,
+    safe_request_part,
+)
 from sandbox.layer_stack.layer.change import LayerChange
 from sandbox.layer_stack.layer.publisher import LayerPublisher
 from sandbox.layer_stack.lease.registry import LeaseRegistry, WorkspaceLease
 from sandbox.layer_stack.maintenance.squash import SquashWorker, manifest_still_ends_with
 from sandbox.layer_stack.manifest import (
+    FileManifestStore,
     LAYERS_DIR,
     STAGING_DIR,
     LayerRef,
     Manifest,
     empty_manifest,
-    manifest_path,
     manifest_root_hash,
-    read_manifest,
-    write_manifest_atomic,
+)
+from sandbox.layer_stack.protocols import (
+    ChangePublisher,
+    LeaseStore,
+    ManifestStore,
+    SnapshotMaterializer,
+)
+from sandbox.layer_stack.transaction import (
+    LayerStackTransaction,
+    LayerStackTransactionHandle,
 )
 from sandbox.layer_stack.view.merged import MergedView
 from sandbox.timing import monotonic_now
@@ -342,7 +354,7 @@ class LayerStackTransaction:
         timings: dict[str, float] | None = None,
     ) -> Manifest:
         current = self._require_manifest()
-        new_manifest = self._manager._publisher.publish_layer_locked(
+        new_manifest = self._manager._publisher.publish_layer(
             tuple(changes),
             expected_manifest=current,
             source_root=source_root,

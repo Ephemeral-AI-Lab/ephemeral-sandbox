@@ -129,10 +129,10 @@ class PartialParentPlannerFullOnly(ScenarioBase):
         )
 
     def executor_actions(self, ctx: ScenarioContext) -> Sequence[str]:
-        task_input = ctx.task_input or ""
-        if "request_recursive_mission" in task_input:
+        rendered_prompt = ctx.rendered_prompt or ""
+        if "request_recursive_mission" in rendered_prompt:
             return (f"request_recursive_mission:{_CHILD_PACKAGE_ID}",)
-        if "ACTION recursive_" in task_input:
+        if "ACTION recursive_" in rendered_prompt:
             return ("recursive_step",)
         return ("preflight",)
 

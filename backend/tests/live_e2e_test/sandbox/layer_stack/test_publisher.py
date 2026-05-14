@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _PUBLISHER_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.layer_stack.manager import LayerStackManager
 
@@ -23,12 +23,11 @@ root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 
 payload = b"payload\n"
-change = LayerChange(
-    path="pkg/published.txt",
-    kind="write",
-    content_hash=_sha(payload),
-    source_path=str(_source(root, "payload", payload)),
-)
+change = WriteLayerChange(
+             path="pkg/published.txt",
+             content_hash=_sha(payload),
+             source_path=str(_source(root, "payload", payload)),
+         )
 first = manager.publish_changes([change])
 same = manager.publish_changes([change])
 assert same == first
@@ -37,9 +36,8 @@ assert manager.read_bytes("pkg/published.txt") == (payload, True)
 bad_source = _source(root, "bad", b"actual")
 try:
     manager.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="pkg/bad.txt",
-            kind="write",
             content_hash=_sha(b"expected"),
             source_path=str(bad_source),
         )
@@ -67,7 +65,7 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.publisher_under_race"
@@ -82,12 +80,11 @@ latencies = []
 
 def publish_same(index):
     source = _source(root, "same-%02d" % index, payload)
-    change = LayerChange(
-        path="pkg/same.txt",
-        kind="write",
-        content_hash=_sha(payload),
-        source_path=str(source),
-    )
+    change = WriteLayerChange(
+                 path="pkg/same.txt",
+                 content_hash=_sha(payload),
+                 source_path=str(source),
+             )
     barrier.wait(timeout=5)
     t0 = time.perf_counter()
     manifest = manager.publish_changes([change])

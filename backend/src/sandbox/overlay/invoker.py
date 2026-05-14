@@ -5,21 +5,35 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 from uuid import uuid4
 
 from sandbox.layer_stack.manifest import Manifest
-from sandbox.overlay.capture.types import OverlayCapture
-from sandbox.overlay.cli import execute_request
-from sandbox.overlay.runner.snapshot_overlay_runner import (
-    OverlayShellRequest,
-    overlay_shell_request_to_dict,
-)
-from sandbox.runtime.async_bridge import run_sync_in_executor
+from sandbox.overlay.request import OverlayShellRequest
+from sandbox.overlay.result import OverlayCapture
+from sandbox.overlay.worker import execute_request
+from sandbox.async_bridge import run_sync_in_executor
 from sandbox.timing import monotonic_now
 
 
-class RuntimeInvoker:
+@runtime_checkable
+class OverlayInvoker(Protocol):
+    async def invoke(
+        self,
+        *,
+        request: OverlayShellRequest,
+        manifest: Manifest,
+    ) -> OverlayCapture: ...
+
+    def invoke_sync(
+        self,
+        *,
+        request: OverlayShellRequest,
+        manifest: Manifest,
+    ) -> OverlayCapture: ...
+
+
+class OverlayRuntimeInvoker:
     """Invoke the runtime-local overlay shell command and return its capture."""
 
     def __init__(
@@ -43,29 +57,18 @@ class RuntimeInvoker:
         invoke_start = monotonic_now()
         capture, worker_start, worker_elapsed = await run_sync_in_executor(
             _execute_request_with_timings,
-            request_payload=overlay_shell_request_to_dict(request),
+            request_payload=request.to_dict(),
             manifest_payload=manifest.to_dict(),
             storage_root=self.storage_root,
             run_dir=run_dir,
         )
         invoke_elapsed = monotonic_now() - invoke_start
-        return replace(
+        return _with_invoker_timings(
             capture,
-            timings={
-                **capture.timings,
-                "overlay.invoker.queue_wait_s": _queue_wait_s(
-                    worker_start,
-                    invoke_start,
-                ),
-                "overlay.invoker.worker_total_s": worker_elapsed,
-                "overlay.invoker.resume_wait_s": _resume_wait_s(
-                    invoke_elapsed,
-                    worker_start=worker_start,
-                    invoke_start=invoke_start,
-                    worker_elapsed=worker_elapsed,
-                ),
-                "overlay.invoker.total_s": invoke_elapsed,
-            },
+            invoke_elapsed=invoke_elapsed,
+            invoke_start=invoke_start,
+            worker_start=worker_start,
+            worker_elapsed=worker_elapsed,
         )
 
     def invoke_sync(
@@ -77,32 +80,23 @@ class RuntimeInvoker:
         run_dir = self._run_dir(request)
         invoke_start = monotonic_now()
         capture, worker_start, worker_elapsed = _execute_request_with_timings(
-            request_payload=overlay_shell_request_to_dict(request),
+            request_payload=request.to_dict(),
             manifest_payload=manifest.to_dict(),
             storage_root=self.storage_root,
             run_dir=run_dir,
         )
         invoke_elapsed = monotonic_now() - invoke_start
-        return replace(
+        return _with_invoker_timings(
             capture,
-            timings={
-                **capture.timings,
-                "overlay.invoker.queue_wait_s": _queue_wait_s(
-                    worker_start,
-                    invoke_start,
-                ),
-                "overlay.invoker.worker_total_s": worker_elapsed,
-                "overlay.invoker.resume_wait_s": _resume_wait_s(
-                    invoke_elapsed,
-                    worker_start=worker_start,
-                    invoke_start=invoke_start,
-                    worker_elapsed=worker_elapsed,
-                ),
-                "overlay.invoker.total_s": invoke_elapsed,
-            },
+            invoke_elapsed=invoke_elapsed,
+            invoke_start=invoke_start,
+            worker_start=worker_start,
+            worker_elapsed=worker_elapsed,
         )
 
     def _run_dir(self, request: OverlayShellRequest) -> Path:
+        # ``OverlayShellRequest`` already rejects empty ids. This second pass
+        # keeps runtime paths safe even if request-id rules are loosened later.
         safe_id = "".join(
             char if char.isalnum() or char in ("-", "_") else "-"
             for char in request.request_id
@@ -120,12 +114,40 @@ def _execute_request_with_timings(
 ) -> tuple[OverlayCapture, float, float]:
     worker_start = monotonic_now()
     capture = execute_request(
-        request_payload=dict(request_payload),
-        manifest_payload=dict(manifest_payload),
+        request_payload=request_payload,
+        manifest_payload=manifest_payload,
         storage_root=storage_root,
         run_dir=run_dir,
     )
     return capture, worker_start, monotonic_now() - worker_start
+
+
+def _with_invoker_timings(
+    capture: OverlayCapture,
+    *,
+    invoke_elapsed: float,
+    invoke_start: float,
+    worker_start: float,
+    worker_elapsed: float,
+) -> OverlayCapture:
+    return replace(
+        capture,
+        timings={
+            **dict(capture.timings),
+            "overlay.invoker.queue_wait_s": _queue_wait_s(
+                worker_start,
+                invoke_start,
+            ),
+            "overlay.invoker.worker_total_s": worker_elapsed,
+            "overlay.invoker.resume_wait_s": _resume_wait_s(
+                invoke_elapsed,
+                worker_start=worker_start,
+                invoke_start=invoke_start,
+                worker_elapsed=worker_elapsed,
+            ),
+            "overlay.invoker.total_s": invoke_elapsed,
+        },
+    )
 
 
 def _queue_wait_s(worker_start: float, invoke_start: float) -> float:
@@ -144,4 +166,7 @@ def _resume_wait_s(
     return max(0.0, non_worker_elapsed - queue_wait)
 
 
-__all__ = ["RuntimeInvoker"]
+__all__ = [
+    "OverlayInvoker",
+    "OverlayRuntimeInvoker",
+]

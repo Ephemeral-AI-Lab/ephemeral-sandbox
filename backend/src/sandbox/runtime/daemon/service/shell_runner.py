@@ -8,12 +8,15 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from uuid import uuid4
 
-from sandbox.command_exec.contract.ports import OCCMutationClient, WorkspaceLeaseClient
-from sandbox.command_exec.contract.request import CommandExecRequest
-from sandbox.command_exec.contract.result import CommandExecResult, WorkspaceCapture
-from sandbox.command_exec.workspace.capture import capture_workspace_upperdir
-from sandbox.command_exec.workspace.mount import (
+from sandbox.command_exec import (
+    CommandExecRequest,
+    CommandExecResult,
+    MountMode,
+    OCCMutationClient,
+    WorkspaceCapture,
+    WorkspaceLeaseClient,
     WorkspaceReplacementMountSpec,
+    capture_workspace_upperdir,
     run_workspace_replaced_command,
 )
 from sandbox.layer_stack.workspace.binding import require_workspace_binding
@@ -27,8 +30,8 @@ from sandbox.occ.result_projection import (
     gitignore_cache_timings,
     published_paths,
 )
-from sandbox.overlay.capture.types import read_output_ref
-from sandbox.runtime.async_bridge import run_sync_in_executor
+from sandbox.overlay import read_output_ref
+from sandbox.async_bridge import run_sync_in_executor
 from sandbox.runtime.daemon.service import occ_backend
 from sandbox.timing import monotonic_now
 
@@ -98,9 +101,8 @@ async def _execute_shell(
         path_changes = tuple(
             capture_workspace_upperdir(
                 spec=spec,
-                snapshot_manifest=lease.manifest,
                 mounted_workspace_root=process.mounted_workspace_root,
-                copy_backed=process.mount_mode == "copy_backed",
+                copy_backed=process.mount_mode == MountMode.COPY_BACKED,
                 timings=timings,
             )
         )

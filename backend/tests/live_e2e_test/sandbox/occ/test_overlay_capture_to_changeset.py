@@ -14,10 +14,10 @@ pytestmark = pytest.mark.asyncio
 _OVERLAY_CAPTURE_BODY = r"""
 from sandbox.occ.changeset.types import DeleteChange, OpaqueDirChange, SymlinkChange, WriteChange
 from sandbox.occ.capture.overlay import overlay_path_changes_to_occ_changes
-from sandbox.overlay.capture.changes import OverlayPathChange, content_hash
-from sandbox.overlay.capture.upperdir import capture_changes
+from sandbox.overlay import OverlayPathChange, content_hash
+from sandbox.overlay import capture_changes
 from sandbox.layer_stack.manifest import Manifest
-from sandbox.layer_stack.view.merged import OPAQUE_MARKER, WHITEOUT_PREFIX
+from sandbox.layer_stack.layer.index import OPAQUE_MARKER, WHITEOUT_PREFIX
 
 label = "occ.overlay_capture_to_changeset"
 before = sample_resource()
@@ -33,7 +33,7 @@ upper.mkdir()
 (upper / "pkg" / "keep.py").write_text("keep\n", encoding="utf-8")
 os.symlink("../src/new.py", upper / "current")
 
-captured = capture_changes(upper, snapshot_manifest=Manifest(version=4, layers=()))
+captured = capture_changes(upper)
 changes = overlay_path_changes_to_occ_changes(captured)
 by_path = {change.path: change for change in changes}
 assert isinstance(by_path["src/new.py"], WriteChange)
@@ -54,7 +54,6 @@ rename_upper = root / "rename-upper"
 (rename_workspace / "new.txt").write_text("same\n", encoding="utf-8")
 rename_changes = capture_changes(
     rename_upper,
-    snapshot_manifest=Manifest(version=1, layers=()),
     lowerdir=rename_lower,
     workspace_root=rename_workspace,
 )

@@ -27,7 +27,7 @@ class AttemptStore(SyncStoreMixin):
                 id=str(uuid.uuid4()),
                 episode_id=episode_id,
                 attempt_sequence_no=attempt_sequence_no,
-                stage=AttemptStage.PLANNING.value,
+                stage=AttemptStage.PLAN.value,
                 status=AttemptStatus.RUNNING.value,
                 planner_task_id=None,
                 task_specification=None,

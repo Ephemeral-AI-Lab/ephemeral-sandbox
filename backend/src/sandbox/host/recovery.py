@@ -16,7 +16,7 @@ from typing import Any
 
 from sandbox.host.setup import setup_after_start
 from sandbox.provider.registry import get_adapter
-from sandbox.runtime.async_bridge import run_sync
+from sandbox.async_bridge import run_sync
 
 logger = logging.getLogger(__name__)
 

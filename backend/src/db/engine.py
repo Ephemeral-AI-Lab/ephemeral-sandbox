@@ -222,13 +222,13 @@ def _add_missing_columns(engine: Engine) -> None:
                     conn.execute(
                         text(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col_type}')
                     )
-                    if table.name == "task_center_tasks" and col.name == "task_input":
+                    if table.name == "task_center_tasks" and col.name == "rendered_prompt":
                         if "spec" in existing:
                             conn.execute(
                                 text(
                                     'UPDATE "task_center_tasks" '
-                                    'SET "task_input" = "spec" '
-                                    'WHERE "task_input" IS NULL'
+                                    'SET "rendered_prompt" = "spec" '
+                                    'WHERE "rendered_prompt" IS NULL'
                                 )
                             )
         for stale in stale_columns:

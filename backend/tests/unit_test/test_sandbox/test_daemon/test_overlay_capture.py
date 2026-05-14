@@ -10,7 +10,7 @@ from sandbox.occ.changeset.types import (
     SymlinkChange,
     WriteChange,
 )
-from sandbox.overlay.capture.changes import OverlayPathChange, content_hash
+from sandbox.overlay import OverlayPathChange, content_hash
 from sandbox.occ.capture.overlay import overlay_path_changes_to_occ_changes
 
 

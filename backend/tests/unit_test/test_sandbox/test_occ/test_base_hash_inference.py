@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import asyncio
 
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import RouteDecision
 from sandbox.occ.changeset.types import DeleteChange, EditChange, WriteChange
 from sandbox.occ.content.gitignore_oracle import GitignoreMatcher
-from sandbox.occ.routing.runtime_ops import content_hash_bytes
+from sandbox.occ.content.hashing import content_hash_bytes
 from sandbox.occ.service import OccService
 
 
 class _NeverIgnored:
     def is_ignored(self, _path: str) -> bool:
         return False
+
+    def is_ignored_in_snapshot(self, path: str, _snapshot: object) -> bool:
+        return self.is_ignored(path)
 
 
 def _never_ignored() -> GitignoreMatcher:
@@ -28,9 +31,8 @@ def _stack_with_file(tmp_path, rel: str, content: bytes) -> LayerStackManager:
     source.write_bytes(content)
     stack.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 content_hash=content_hash_bytes(content),
                 source_path=str(source),
             )
@@ -47,9 +49,8 @@ def test_tracked_write_without_base_hash_uses_leased_snapshot_hash(tmp_path) -> 
     source.write_bytes(b"active\n")
     stack.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="src/app.py",
-                kind="write",
                 content_hash=content_hash_bytes(b"active\n"),
                 source_path=str(source),
             )
@@ -73,7 +74,7 @@ def test_tracked_write_without_base_hash_uses_leased_snapshot_hash(tmp_path) -> 
 
     [group] = prepared.path_groups
     [change] = group.changes
-    assert group.route is RouteDecision.OCC_GATED_MERGE
+    assert group.route is RouteDecision.GATED
     assert isinstance(change, WriteChange)
     assert change.base_hash == content_hash_bytes(b"old\n")
 

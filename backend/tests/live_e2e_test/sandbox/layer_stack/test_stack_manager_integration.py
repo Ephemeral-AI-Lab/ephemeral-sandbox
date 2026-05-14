@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _INTEGRATION_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.stack_manager_integration"
@@ -22,12 +22,12 @@ root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 
 base = manager.publish_changes([
-    LayerChange(path="src/app.py", kind="write", source_path=str(_source(root, "app-base", b"base\n"))),
+    WriteLayerChange(path="src/app.py", source_path=str(_source(root, "app-base", b"base\n"))),
 ])
 lease = manager.acquire_snapshot_lease("agent-a")
 updated = manager.publish_changes([
-    LayerChange(path="src/app.py", kind="write", source_path=str(_source(root, "app-next", b"next\n"))),
-    LayerChange(path="build/out.txt", kind="write", source_path=str(_source(root, "build-out", b"build\n"))),
+    WriteLayerChange(path="src/app.py", source_path=str(_source(root, "app-next", b"next\n"))),
+    WriteLayerChange(path="build/out.txt", source_path=str(_source(root, "build-out", b"build\n"))),
 ])
 assert manager.read_text("src/app.py") == ("next\n", True)
 assert manager.read_text("src/app.py", manifest=lease.manifest) == ("base\n", True)
@@ -40,9 +40,8 @@ assert (materialized / "src" / "app.py").read_text(encoding="utf-8") == "next\n"
 bad_hash_rejected = False
 try:
     manager.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="src/bad.py",
-            kind="write",
             content_hash=_sha(b"expected"),
             source_path=str(_source(root, "bad", b"actual")),
         )
@@ -72,7 +71,7 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.stack_manager_integration_under_race"
@@ -81,7 +80,7 @@ started = time.perf_counter()
 root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 manager.publish_changes([
-    LayerChange(path="shared/base.txt", kind="write", source_path=str(_source(root, "base", b"base\n"))),
+    WriteLayerChange(path="shared/base.txt", source_path=str(_source(root, "base", b"base\n"))),
 ])
 n = 4
 barrier = threading.Barrier(n)
@@ -92,9 +91,8 @@ def agent_flow(index):
     barrier.wait(timeout=5)
     t0 = time.perf_counter()
     manifest = manager.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="agents/%02d.txt" % index,
-            kind="write",
             source_path=str(_source(root, "agent-%02d" % index, ("agent-%02d\n" % index).encode("utf-8"))),
         )
     ])

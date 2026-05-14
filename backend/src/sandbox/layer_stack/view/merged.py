@@ -7,11 +7,12 @@ import os
 import shutil
 from pathlib import Path
 
-from sandbox.layer_stack.filesystem import join_layer_path, remove_path
+from sandbox.layer_stack.errors import LayerStackStorageError
+from sandbox.layer_stack._paths import join_layer_path, remove_path
 from sandbox.layer_stack.layer.change import normalize_layer_path
 from sandbox.layer_stack.layer.index import (
-    OPAQUE_MARKER,
-    WHITEOUT_PREFIX,
+    OPAQUE_MARKER as _OPAQUE_MARKER,
+    WHITEOUT_PREFIX as _WHITEOUT_PREFIX,
     LayerIndex,
     build_layer_index,
     has_ancestor_in,
@@ -19,15 +20,7 @@ from sandbox.layer_stack.layer.index import (
 from sandbox.layer_stack.manifest import LayerRef, Manifest
 
 
-__all__ = ["LayerStackStorageError", "MergedView", "OPAQUE_MARKER", "WHITEOUT_PREFIX"]
-
-
-class LayerStackStorageError(RuntimeError):
-    """Raised when a manifest references missing or invalid layer storage."""
-
-    def __init__(self, message: str, *, layer_id: str | None = None) -> None:
-        super().__init__(message)
-        self.layer_id = layer_id
+__all__ = ["MergedView"]
 
 
 class MergedView:
@@ -222,7 +215,7 @@ class MergedView:
         entries = tuple(sorted(layer_dir.rglob("*"), key=lambda item: item.as_posix()))
 
         for marker in entries:
-            if marker.name != OPAQUE_MARKER:
+            if marker.name != _OPAQUE_MARKER:
                 continue
             target = dest / marker.parent.relative_to(layer_dir)
             _clear_directory(target)
@@ -231,11 +224,11 @@ class MergedView:
             if not _is_whiteout(whiteout.name):
                 continue
             rel = whiteout.relative_to(layer_dir)
-            target = dest / rel.parent / whiteout.name[len(WHITEOUT_PREFIX) :]
+            target = dest / rel.parent / whiteout.name[len(_WHITEOUT_PREFIX) :]
             remove_path(target)
 
         for entry in entries:
-            if entry.name == OPAQUE_MARKER or _is_whiteout(entry.name):
+            if entry.name == _OPAQUE_MARKER or _is_whiteout(entry.name):
                 continue
             rel = entry.relative_to(layer_dir)
             target = dest / rel
@@ -274,7 +267,7 @@ def _direct_child_segment(name: str, prefix: str) -> str | None:
 
 
 def _is_whiteout(name: str) -> bool:
-    return name.startswith(WHITEOUT_PREFIX) and name != OPAQUE_MARKER
+    return name.startswith(_WHITEOUT_PREFIX) and name != _OPAQUE_MARKER
 
 
 def _stale_layer_error(layer: LayerRef, rel: str) -> LayerStackStorageError:

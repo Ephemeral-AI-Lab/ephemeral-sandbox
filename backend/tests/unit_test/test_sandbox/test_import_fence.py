@@ -259,7 +259,7 @@ def test_command_exec_imports_only_client_protocol_boundaries() -> None:
         "sandbox.occ.merge.direct",
         "sandbox.occ.merge.gated",
         "sandbox.occ.routing.orchestrator",
-        "sandbox.occ.routing.runtime_ops",
+        "sandbox.occ.content.hashing",
         "sandbox.runtime.daemon.service.workspace_server",
     )
     for module in _python_files(command_exec_root):

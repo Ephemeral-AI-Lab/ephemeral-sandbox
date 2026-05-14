@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
+from sandbox.layer_stack import LayerChange, WriteLayerChange, LayerStackManager
 from sandbox.layer_stack.manifest import LayerRef, Manifest, write_manifest_atomic
 from sandbox.layer_stack.maintenance.squash import SquashPlan
 
@@ -26,9 +26,8 @@ def _publish(
 ) -> Manifest:
     return manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 source_path=_source(tmp_path, rel.replace("/", "_"), content),
             )
         ]

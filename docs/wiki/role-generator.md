@@ -13,7 +13,15 @@ schemaVersion: 1
 
 # Role: Generator (Executor + Verifier)
 
-A "generator" is any DAG leaf inside one Attempt. The harness recognizes one structural role (`HarnessTaskRole.GENERATOR`) split into two _profile roles_ — `executor` and `verifier` — that share the same context recipe but expose different tool palettes and different terminal contracts. Generators are the only roles in the TaskCenter that mutate sandbox state.
+A "generator" is any DAG leaf inside one Attempt. The harness recognizes one structural lifecycle bucket (`HarnessTaskRole.GENERATOR`) split into two _agent kinds_ on the profile MD — `agent_kind: executor` and `agent_kind: verifier` — that share the same context recipe but expose different tool palettes and different terminal contracts. Generators are the only agents in the TaskCenter that mutate sandbox state.
+
+**Vocabulary note.** Three distinct concepts share overlapping language; this doc uses the post-replan names:
+
+| Concept | Type | Meaning |
+|---|---|---|
+| `HarnessTaskRole` | dispatcher enum | Lifecycle bucket the dispatcher routes on (`PLANNER`, `GENERATOR`, `EVALUATOR`). Internal to `task_center/agent_launch/launcher.py`; not user-facing. |
+| `AgentKind` | profile enum | Canonical category on `AgentDefinition.agent_kind` (`planner`, `executor`, `verifier`, `evaluator`, `advisor`, `explorer`, `resolver`). The four main kinds participate in depth-gated variant routing. |
+| agent profile | MD file | A loaded `AgentDefinition` (file name = profile id). Planners submit by profile id (e.g., `agent_name="executor"`); the resolver picks a variant target at launch. |
 
 ## Identity in one sentence
 
@@ -34,16 +42,21 @@ The entry executor (the top-level agent that owns the user request) is _also_ a 
 
 ## Two profiles, one recipe
 
-| <br />                          | Executor (`agents/profile/main/generator_executor.md`)                             | Verifier (`agents/profile/main/generator_verifier.md`)            |
-| ------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `role` (in profile frontmatter) | `executor`                                                                         | `verifier`                                                        |
-| `allowed_tools`                 | `read_file, write_file, edit_file, shell, run_subagent, ask_advisor`               | `read_file, shell, ask_resolver`                                  |
-| Terminals                       | `submit_execution_success`, `submit_execution_failure`, `submit_execution_handoff` | `submit_verification_success`, `submit_verification_failure`      |
-| `context_recipe`                | `generator_v1`                                                                     | `generator_v1` (same recipe)                                      |
-| Notification triggers           | `request_mission_after_edit`                                                       | `resolver_limit`                                                  |
-| Editorial stance                | Build the artifact                                                                 | Inspect; if broken, delegate the fix via `ask_resolver`; re-check |
+| <br />                                | Executor (`agents/profile/main/executor.md` + variants)                                                                   | Verifier (`agents/profile/main/generator_verifier.md`)            |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `agent_kind` (in profile frontmatter) | `executor`                                                                                                                | `verifier`                                                        |
+| `dispatchable_by_planner`             | `true` on the thin entry `executor.md`; variant targets default `false`                                                   | `true`                                                            |
+| `allowed_tools`                       | `read_file, write_file, edit_file, shell, run_subagent, ask_advisor` (set on each variant target)                         | `read_file, shell, ask_resolver`                                  |
+| Terminals (depth ≤ MAX_HANDOFF_DEPTH) | `submit_execution_success`, `submit_execution_handoff` (selected via `executor_success_handoff.md`)                       | n/a                                                               |
+| Terminals (depth > MAX_HANDOFF_DEPTH) | `submit_execution_success`, `submit_execution_failure` (selected via `executor_success_failure.md`)                       | n/a                                                               |
+| Terminals (verifier)                  | n/a                                                                                                                       | `submit_verification_success`, `submit_verification_failure`      |
+| `context_recipe`                      | `generator_v1`                                                                                                            | `generator_v1` (same recipe)                                      |
+| Notification triggers                 | `request_mission_after_edit` (on the handoff variant)                                                                     | `resolver_limit`                                                  |
+| Editorial stance                      | Build the artifact; delegate via `submit_execution_handoff` if still allowed                                              | Inspect; if broken, delegate the fix via `ask_resolver`; re-check |
 
-Profile-level separation is enforced by each `AgentDefinition.terminals` whitelist — the executor profile lists only executor terminals, the verifier profile lists only verifier terminals — so a verifier-launched task cannot reach an executor terminal at all. There is no runtime role gate; the structural role on the task row is set by the dispatcher and consumed by `resolve_attempt_submission_context`.
+The `executor.md` entry-point declares no terminals or body of its own — it carries a depth-gated `variants:` list and the resolver picks one of two leaf profiles at launch. `executor_success_handoff.md` exposes success + handoff (depth ≤ `MAX_HANDOFF_DEPTH=2`); `executor_success_failure.md` exposes success + failure for leaf-depth runs (depth > 2) where further delegation is forbidden. The `entry_executor.md` profile is the documented carve-out: it retains all three terminals (success / failure / handoff) because it sits outside the mission tree and terminates the user-facing request directly.
+
+Profile-level separation is enforced by each `AgentDefinition.terminals` whitelist — the executor variants list only executor terminals, the verifier profile lists only verifier terminals — so a verifier-launched task cannot reach an executor terminal at all. There is no runtime role gate; the structural role on the task row is set by the dispatcher and consumed by `resolve_attempt_submission_context`.
 
 The recipe is identical because the _information_ each profile needs is identical: the DAG framing, the dependency summaries, and the local task spec. The _operation_ differs because the tool palette and the success contract differ.
 

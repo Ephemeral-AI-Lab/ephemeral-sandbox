@@ -5,7 +5,7 @@ Source-tagged mutation intent objects for the layer-stack OCC path.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from typing import Literal
@@ -13,44 +13,83 @@ from typing import Literal
 ChangeSource = Literal["api_write", "api_edit", "overlay_capture"]
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
 class Change:
     """Base mutation intent entering OCC."""
 
     path: str
-    source: ChangeSource
+    source: ChangeSource = "api_write"
 
-    def __init__(self, path: str, *, source: ChangeSource) -> None:
-        object.__setattr__(self, "path", str(path))
-        object.__setattr__(self, "source", source)
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "path", str(self.path))
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
+class EagerWritePayload:
+    """In-memory write payload."""
+
+    content: bytes
+
+    def read_bytes(self) -> bytes:
+        return self.content
+
+    @property
+    def content_path(self) -> str | None:
+        return None
+
+    @property
+    def precomputed_hash(self) -> str | None:
+        return None
+
+
+@dataclass(frozen=True)
+class DiskWritePayload:
+    """On-disk write payload with optional cached bytes."""
+
+    path: str
+    content_hash: str | None
+    _cached_content: bytes | None = field(
+        default=None,
+        init=False,
+        compare=False,
+        repr=False,
+    )
+
+    def read_bytes(self) -> bytes:
+        cached = self._cached_content
+        if cached is not None:
+            return cached
+        content = Path(self.path).read_bytes()
+        object.__setattr__(self, "_cached_content", content)
+        return content
+
+    @property
+    def content_path(self) -> str | None:
+        return self.path
+
+    @property
+    def precomputed_hash(self) -> str | None:
+        return self.content_hash
+
+
+WritePayload = EagerWritePayload | DiskWritePayload
+
+
+@dataclass(frozen=True)
 class WriteChange(Change):
     """Whole-file write intent.
 
-    Two payload modes coexist:
-
-    - **Eager bytes** (``api_write`` / ``api_edit``): the caller supplies
-      ``final_content`` as bytes. ``content_path`` is ``None``.
-    - **Lazy disk-backed** (``overlay_capture``): the caller supplies
-      ``content_path`` (the upperdir-staged file) and ``precomputed_hash``
-      (the SHA-256 already computed during overlay capture). The OCC
-      stager copies the file in-kernel (``shutil.copyfile``) and reuses
-      the precomputed hash, skipping a redundant Python ``read_bytes``
-      and a duplicate SHA-256.
-
-    Reading ``final_content`` on a lazy instance materialises the bytes
-    on demand so existing consumers (e.g. ``EditChange`` chained after
-    a ``WriteChange``) keep working without API churn.
+    ``payload`` keeps transport details out of the mutation intent. The
+    generated dataclass constructor still accepts the historical
+    ``final_content`` / ``content_path`` inputs so callers do not need an API
+    churn pass.
     """
 
-    _eager_content: bytes | None
-    content_path: str | None
-    precomputed_hash: str | None
-    base_hash: str | None
+    source: ChangeSource = "api_write"
+    base_hash: str | None = None
+    payload: WritePayload = field(init=False)
 
-    def __init__(
+    def __init__(  # type: ignore[no-untyped-def]
         self,
         path: str,
         final_content: bytes | str | None = None,
@@ -60,128 +99,132 @@ class WriteChange(Change):
         content_path: str | None = None,
         precomputed_hash: str | None = None,
     ) -> None:
-        Change.__init__(self, path, source=source)
+        object.__setattr__(self, "path", str(path))
+        object.__setattr__(self, "source", source)
+        object.__setattr__(self, "base_hash", base_hash)
         if final_content is None and content_path is None:
             raise ValueError(
                 "WriteChange requires final_content or content_path"
             )
-        eager: bytes | None
-        if final_content is None:
-            eager = None
-        elif isinstance(final_content, bytes):
-            eager = final_content
+        if content_path is not None and final_content is None:
+            payload: WritePayload = DiskWritePayload(
+                path=str(content_path),
+                content_hash=precomputed_hash,
+            )
         else:
-            eager = final_content.encode("utf-8")
-        object.__setattr__(self, "_eager_content", eager)
-        object.__setattr__(self, "content_path", content_path)
-        object.__setattr__(self, "precomputed_hash", precomputed_hash)
-        object.__setattr__(self, "base_hash", base_hash)
+            content = (
+                final_content
+                if isinstance(final_content, bytes)
+                else str(final_content).encode("utf-8")
+            )
+            payload = EagerWritePayload(content=content)
+        object.__setattr__(self, "payload", payload)
 
     @property
     def final_content(self) -> bytes:
         """Return the write payload as bytes, materialising lazily.
 
         Eager (api_write / api_edit) instances return their stored bytes
-        immediately. Lazy (overlay_capture) instances read from
-        ``content_path`` on first access — the redundancy improvement #2
-        skipped at capture time.
+        immediately. Lazy (overlay_capture) instances cache the first
+        ``content_path`` read so chained hash/stage consumers share it.
         """
-        if self._eager_content is not None:
-            return self._eager_content
-        if self.content_path is not None:
-            return Path(self.content_path).read_bytes()
-        return b""
+        return self.payload.read_bytes()
+
+    @property
+    def content_path(self) -> str | None:
+        return self.payload.content_path
+
+    @property
+    def precomputed_hash(self) -> str | None:
+        return self.payload.precomputed_hash
 
     def with_base_hash(self, base_hash: str | None) -> WriteChange:
+        if isinstance(self.payload, DiskWritePayload):
+            return WriteChange(
+                path=self.path,
+                source=self.source,
+                base_hash=base_hash,
+                content_path=self.payload.path,
+                precomputed_hash=self.payload.content_hash,
+            )
         return WriteChange(
             path=self.path,
             source=self.source,
-            final_content=self._eager_content,
+            final_content=self.payload.content,
             base_hash=base_hash,
-            content_path=self.content_path,
-            precomputed_hash=self.precomputed_hash,
         )
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
 class EditChange(Change):
     """Search/replace edit intent."""
 
-    old_text: str
-    new_text: str
-    expected_occurrences: int
+    source: ChangeSource = "api_edit"
+    old_text: str | None = None
+    new_text: str | None = None
+    expected_occurrences: int = 1
 
-    def __init__(
-        self,
-        path: str,
-        old_text: str | None = None,
-        new_text: str | None = None,
-        expected_occurrences: int = 1,
-        *,
-        source: ChangeSource = "api_edit",
-    ) -> None:
-        Change.__init__(self, path, source=source)
-        if old_text is None:
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.old_text is None:
             raise ValueError("EditChange requires old_text")
-        if new_text is None:
+        if self.new_text is None:
             raise ValueError("EditChange requires new_text")
-        object.__setattr__(self, "old_text", str(old_text))
-        object.__setattr__(self, "new_text", str(new_text))
-        object.__setattr__(self, "expected_occurrences", int(expected_occurrences))
+        object.__setattr__(self, "old_text", str(self.old_text))
+        object.__setattr__(self, "new_text", str(self.new_text))
+        object.__setattr__(
+            self,
+            "expected_occurrences",
+            int(self.expected_occurrences),
+        )
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
 class DeleteChange(Change):
     """Delete intent pinned to a base hash when known."""
 
-    base_hash: str | None
-
-    def __init__(
-        self,
-        path: str,
-        base_hash: str | None = None,
-        *,
-        source: ChangeSource = "api_write",
-    ) -> None:
-        Change.__init__(self, path, source=source)
-        object.__setattr__(self, "base_hash", base_hash)
+    base_hash: str | None = None
 
     def with_base_hash(self, base_hash: str | None) -> DeleteChange:
-        return DeleteChange(path=self.path, source=self.source, base_hash=base_hash)
+        return replace(self, base_hash=base_hash)
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
 class SymlinkChange(Change):
     """Replace path with symlink to target."""
 
-    target: str
+    source: ChangeSource = "overlay_capture"
+    target: str = ""
 
-    def __init__(
-        self,
-        path: str,
-        target: str,
-        *,
-        source: ChangeSource = "overlay_capture",
-    ) -> None:
-        Change.__init__(self, path, source=source)
-        object.__setattr__(self, "target", str(target))
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        object.__setattr__(self, "target", str(self.target))
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
 class OpaqueDirChange(Change):
     """Prune children of path not in ``kept_children``."""
 
-    kept_children: frozenset[str]
+    source: ChangeSource = "overlay_capture"
+    kept_children: frozenset[str] = field(default_factory=frozenset)
 
-    def __init__(
-        self,
-        path: str,
-        kept_children: frozenset[str],
-        *,
-        source: ChangeSource = "overlay_capture",
-    ) -> None:
-        Change.__init__(self, path, source=source)
-        object.__setattr__(self, "kept_children", frozenset(kept_children))
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        object.__setattr__(
+            self,
+            "kept_children",
+            _normalize_kept_children(self.kept_children),
+        )
+
+
+def _normalize_kept_children(values: frozenset[str]) -> frozenset[str]:
+    normalized: set[str] = set()
+    for value in values:
+        child = str(value).strip("/")
+        if not child or "/" in child or child in {".", ".."}:
+            raise ValueError(f"opaque dir kept child must be direct: {value!r}")
+        normalized.add(child)
+    return frozenset(normalized)
 
 
 class FileStatus(str, Enum):
@@ -230,12 +273,15 @@ __all__ = [
     "ChangeSource",
     "ChangesetResult",
     "DeleteChange",
+    "DiskWritePayload",
     "EditChange",
+    "EagerWritePayload",
     "FileResult",
     "FileStatus",
     "OpaqueDirChange",
     "SymlinkChange",
     "WriteChange",
+    "WritePayload",
     "is_published_status",
     "is_success_status",
 ]

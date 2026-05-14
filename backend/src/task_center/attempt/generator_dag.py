@@ -8,7 +8,7 @@ from typing import Any
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.task.ids import generator_task_id
 from task_center.task.models import (
-    HarnessTaskStatus,
+    TaskCenterTaskStatus,
     PlannedGeneratorTask,
     TERMINAL_GENERATOR_STATUSES,
 )
@@ -62,9 +62,9 @@ TaskRecord = dict[str, Any]
 
 def generator_status_map(
     task_records: list[TaskRecord],
-) -> dict[str, HarnessTaskStatus]:
+) -> dict[str, TaskCenterTaskStatus]:
     return {
-        task["id"]: HarnessTaskStatus(task["status"])
+        task["id"]: TaskCenterTaskStatus(task["status"])
         for task in task_records
     }
 
@@ -73,7 +73,7 @@ def ready_pending_generator_ids(task_records: list[TaskRecord]) -> tuple[str, ..
     statuses = generator_status_map(task_records)
     ready: list[str] = []
     for task in task_records:
-        if statuses[task["id"]] != HarnessTaskStatus.PENDING:
+        if statuses[task["id"]] != TaskCenterTaskStatus.PENDING:
             continue
         needs = tuple(task.get("needs") or ())
         missing = [dep for dep in needs if dep not in statuses]
@@ -82,7 +82,7 @@ def ready_pending_generator_ids(task_records: list[TaskRecord]) -> tuple[str, ..
                 f"Generator task {task['id']!r} has unknown persisted deps: "
                 f"{missing!r}"
             )
-        if all(statuses[dep] == HarnessTaskStatus.DONE for dep in needs):
+        if all(statuses[dep] == TaskCenterTaskStatus.DONE for dep in needs):
             ready.append(task["id"])
     return tuple(ready)
 
@@ -118,14 +118,14 @@ def blocked_descendant_ids(
         seen.add(task_id)
         status = statuses[task_id]
         if status not in (
-            HarnessTaskStatus.PENDING,
-            HarnessTaskStatus.BLOCKED,
+            TaskCenterTaskStatus.PENDING,
+            TaskCenterTaskStatus.BLOCKED,
         ):
             raise TaskCenterInvariantViolation(
                 f"Non-pending generator task {task_id!r} depends on failed task "
                 f"{failed_task_id!r}"
             )
-        if status == HarnessTaskStatus.PENDING:
+        if status == TaskCenterTaskStatus.PENDING:
             blocked.append(task_id)
         for child_id in dependents[task_id]:
             queue.append(child_id)
@@ -139,12 +139,12 @@ def all_generators_quiescent(task_records: list[TaskRecord]) -> bool:
 
 def all_generators_done(task_records: list[TaskRecord]) -> bool:
     statuses = generator_status_map(task_records).values()
-    return all(status == HarnessTaskStatus.DONE for status in statuses)
+    return all(status == TaskCenterTaskStatus.DONE for status in statuses)
 
 
 def any_generator_failed_or_blocked(task_records: list[TaskRecord]) -> bool:
     statuses = generator_status_map(task_records).values()
     return any(
-        status in (HarnessTaskStatus.FAILED, HarnessTaskStatus.BLOCKED)
+        status in (TaskCenterTaskStatus.FAILED, TaskCenterTaskStatus.BLOCKED)
         for status in statuses
     )

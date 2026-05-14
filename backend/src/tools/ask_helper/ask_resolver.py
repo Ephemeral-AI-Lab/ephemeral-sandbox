@@ -60,7 +60,7 @@ async def ask_resolver(
     except HelperComposeError as exc:
         return exc.to_tool_result()
 
-    composed_input = bundle.task_input.rstrip() + "\n\n" + _issue_section(
+    composed_input = bundle.rendered_prompt.rstrip() + "\n\n" + _issue_section(
         issues_to_resolve=issues_to_resolve,
         issue_context=issue_context,
     )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
+from sandbox.layer_stack import LayerChange, WriteLayerChange, LayerStackManager
 from sandbox.occ.content.gitignore_oracle import SnapshotGitignoreOracle
 from sandbox.occ.content.hashing import ContentHasher
 
@@ -15,9 +15,8 @@ def _publish(manager: LayerStackManager, tmp_path: Path, rel: str, content: byte
     source.write_bytes(content)
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 content_hash=ContentHasher().hash_bytes(content),
                 source_path=str(source),
             )

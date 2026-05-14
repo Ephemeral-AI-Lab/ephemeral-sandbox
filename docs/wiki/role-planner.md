@@ -131,9 +131,9 @@ A rejection returns an error tool result; the agent can correct and call again w
 | Variant | When selected | Difference |
 |---|---|---|
 | `planner` | default | Both `submit_full_plan` and `submit_partial_plan` are available. |
-| `planner_full_only` | when ancestry contains a partial-planned caller attempt (`when: partial_plan_caller_ancestor`) | Only `submit_full_plan` is exposed. System prompt explicitly forbids deferring remainder work. |
+| `planner_full_only` | when the mission ancestry is nested under another attempt (`when: nested_mission_depth_gt_1`) | Only `submit_full_plan` is exposed. System prompt explicitly forbids deferring remainder work. |
 
-**Why `planner_full_only` exists.** Partial planning creates an episodic continuation _on top of_ the current episode. Allowing a descendant planner to _also_ partial-plan would make the continuation chain ambiguous: whose `continuation_goal` extends the parent's mission? The ancestral rule eliminates the question — once any caller in the mission's lineage has committed to a partial plan, descendant planners must fully cover their scope.
+**Why `planner_full_only` exists.** Partial planning creates an episodic continuation _on top of_ the current episode. Allowing a descendant planner to _also_ partial-plan would make the continuation chain ambiguous: whose `continuation_goal` extends the parent's mission? The depth rule eliminates the question — any planner running inside a nested mission (`nested_mission_depth > 1`) must fully cover its scope. The depth helper lives at `task_center/mission/ancestry.py:nested_mission_depth`; the predicate is registered in `task_center/agent_launch/predicates.py`.
 
 ## Constraints
 

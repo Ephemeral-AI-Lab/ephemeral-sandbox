@@ -96,7 +96,7 @@ def _graph(
         id=gid,
         episode_id=episode_id,
         attempt_sequence_no=1,
-        stage=AttemptStage.PLANNING,
+        stage=AttemptStage.PLAN,
         status=status,
         planner_task_id=None,
         task_specification=None,

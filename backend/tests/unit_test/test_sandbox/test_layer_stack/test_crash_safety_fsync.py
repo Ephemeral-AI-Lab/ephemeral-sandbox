@@ -18,7 +18,7 @@ import sandbox.layer_stack.layer.publisher as publisher_mod
 import sandbox.layer_stack.manifest.store as manifest_store_mod
 import sandbox.layer_stack.workspace.base as workspace_base_mod
 import sandbox.layer_stack.workspace.binding as binding_mod
-from sandbox.layer_stack import LayerChange, LayerStackManager
+from sandbox.layer_stack import LayerChange, WriteLayerChange, LayerStackManager
 from sandbox.layer_stack.manifest import (
     LayerRef,
     Manifest,
@@ -111,9 +111,8 @@ def test_publish_layer_fsyncs_staged_files_and_parent_dir(
 
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/a.txt",
-                kind="write",
                 content_hash=hashlib.sha256(b"hello\n").hexdigest(),
                 source_path=str(source),
             )

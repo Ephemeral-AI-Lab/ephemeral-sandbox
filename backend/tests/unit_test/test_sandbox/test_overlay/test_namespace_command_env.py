@@ -1,6 +1,6 @@
 """Environment isolation tests for ``overlay.namespace.command.run_user_command``.
 
-Covers CR-01: host environment variables (secrets, tokens, etc.) must not
+Host environment variables (secrets, tokens, etc.) must not
 leak into the user command. Only an explicit minimal allow-list plus any
 caller-supplied ``env`` should be visible to the child process.
 """
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.overlay.namespace.command import run_user_command
+from sandbox.overlay import run_user_command
 
 
 def _run(

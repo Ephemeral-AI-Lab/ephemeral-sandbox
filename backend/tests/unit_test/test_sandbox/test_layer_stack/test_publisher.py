@@ -8,7 +8,12 @@ from pathlib import Path
 import pytest
 
 import sandbox.layer_stack.layer.publisher as publisher_mod
-from sandbox.layer_stack import LayerChange, LayerStackManager, ManifestConflictError
+from sandbox.layer_stack import (
+    LayerChange,
+    WriteLayerChange,
+    LayerStackManager,
+    ManifestConflictError,
+)
 from sandbox.layer_stack.manifest import (
     LAYERS_DIR,
     STAGING_DIR,
@@ -45,9 +50,8 @@ def test_publish_layer_writes_immutable_layer_and_manifest(tmp_path: Path) -> No
 
     manifest = manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/created.txt",
-                kind="write",
                 content_hash=hashlib.sha256(b"created").hexdigest(),
                 source_path=str(source),
             )
@@ -80,9 +84,8 @@ def test_publish_reads_write_source_once(
 
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/created.txt",
-                kind="write",
                 content_hash=hashlib.sha256(b"created").hexdigest(),
                 source_path=str(source),
             )
@@ -97,12 +100,11 @@ def test_same_digest_publish_returns_active_manifest_without_new_layer(
 ) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     source = _source(tmp_path, "created.txt", b"created")
-    change = LayerChange(
-        path="pkg/created.txt",
-        kind="write",
-        content_hash=hashlib.sha256(b"created").hexdigest(),
-        source_path=str(source),
-    )
+    change = WriteLayerChange(
+                 path="pkg/created.txt",
+                 content_hash=hashlib.sha256(b"created").hexdigest(),
+                 source_path=str(source),
+             )
 
     first = manager.publish_changes([change])
     second = manager.publish_changes([change])
@@ -121,9 +123,8 @@ def test_content_hash_mismatch_preserves_manifest_and_removes_staging(
     with pytest.raises(ValueError, match="content hash mismatch"):
         manager.publish_changes(
             [
-                LayerChange(
+                WriteLayerChange(
                     path="bad.txt",
-                    kind="write",
                     content_hash=hashlib.sha256(b"expected").hexdigest(),
                     source_path=str(source),
                 )
@@ -146,9 +147,8 @@ def test_transaction_publish_layer_rejects_source_outside_source_root(
         with pytest.raises(ValueError, match="outside trusted source root"):
             transaction.publish_layer(
                 [
-                    LayerChange(
+                    WriteLayerChange(
                         path="outside.txt",
-                        kind="write",
                         source_path=str(source),
                     )
                 ],
@@ -185,11 +185,10 @@ def test_late_manifest_conflict_removes_unreferenced_layer(
     monkeypatch.setattr(publisher_mod, "read_manifest", read_manifest_with_late_conflict)
 
     with pytest.raises(ManifestConflictError):
-        publisher.publish_layer_locked(
+        publisher.publish_layer(
             [
-                LayerChange(
+                WriteLayerChange(
                     path="pkg/created.txt",
-                    kind="write",
                     content_hash=hashlib.sha256(b"created").hexdigest(),
                     source_path=str(source),
                 )
@@ -213,9 +212,8 @@ def test_transaction_detects_manifest_conflict_before_publish(tmp_path: Path) ->
         with pytest.raises(ManifestConflictError):
             transaction.publish_layer(
                 [
-                    LayerChange(
+                    WriteLayerChange(
                         path="created.txt",
-                        kind="write",
                         source_path=str(source),
                     )
                 ]

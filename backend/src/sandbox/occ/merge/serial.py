@@ -36,10 +36,30 @@ named, testable limit.
 
 
 @dataclass(frozen=True)
+class RetryPolicy:
+    """Bounded CAS retry policy for serial OCC commits."""
+
+    max_cas_retries: int = MAX_OCC_CAS_RETRIES
+
+    def __post_init__(self) -> None:
+        if self.max_cas_retries < 1:
+            raise ValueError("max_cas_retries must be >= 1")
+
+
+@dataclass(frozen=True)
 class _WorkItem:
     prepared: PreparedChangeset
     future: concurrent.futures.Future[ChangesetResult]
     enqueued_at: float
+
+
+@dataclass(frozen=True)
+class _StopItem:
+    pass
+
+
+_STOP = _StopItem()
+_QueueItem = _WorkItem | _StopItem
 
 
 class OccSerialMerger:
@@ -51,11 +71,22 @@ class OccSerialMerger:
         *,
         max_batch_size: int = 64,
         batch_window_s: float = 0.002,
+        retry_policy: RetryPolicy = RetryPolicy(),
     ) -> None:
         self._transaction = transaction
         self._max_batch_size = max(1, int(max_batch_size))
         self._batch_window_s = max(0.0, float(batch_window_s))
-        self._queue: queue.Queue[_WorkItem] = queue.Queue()
+        self._retry_policy = retry_policy
+        self._queue: queue.Queue[_QueueItem] = queue.Queue()
+        self._thread: threading.Thread | None = None
+        self._closed = False
+
+    def start(self) -> None:
+        """Start the background commit worker."""
+        if self._closed:
+            raise RuntimeError("OCC serial merger is closed")
+        if self._thread is not None and self._thread.is_alive():
+            return
         self._thread = threading.Thread(
             target=self._run,
             name="occ-serial-merger",
@@ -63,10 +94,25 @@ class OccSerialMerger:
         )
         self._thread.start()
 
+    def close(self, *, timeout: float | None = 5.0) -> None:
+        """Stop the background commit worker after pending queued work drains."""
+        if self._closed:
+            return
+        self._closed = True
+        thread = self._thread
+        if thread is None:
+            return
+        self._queue.put(_STOP)
+        thread.join(timeout=timeout)
+
     def submit(
         self,
         prepared: PreparedChangeset,
     ) -> concurrent.futures.Future[ChangesetResult]:
+        if self._closed:
+            raise RuntimeError("OCC serial merger is closed")
+        if self._thread is None or not self._thread.is_alive():
+            raise RuntimeError("OCC serial merger has not been started")
         future: concurrent.futures.Future[ChangesetResult] = (
             concurrent.futures.Future()
         )
@@ -88,6 +134,8 @@ class OccSerialMerger:
     def _run(self) -> None:
         while True:
             first = self._queue.get()
+            if isinstance(first, _StopItem):
+                return
             items = [first]
             # WR-04: drain the queue non-blockingly first. Only pay the
             # batch-window latency when the drain emptied the queue AND
@@ -95,9 +143,13 @@ class OccSerialMerger:
             # wall-clock on the single-commit hot path.
             while len(items) < self._max_batch_size:
                 try:
-                    items.append(self._queue.get_nowait())
+                    item = self._queue.get_nowait()
                 except queue.Empty:
                     break
+                if isinstance(item, _StopItem):
+                    self._queue.put(item)
+                    break
+                items.append(item)
             if (
                 self._batch_window_s > 0
                 and len(items) < self._max_batch_size
@@ -105,9 +157,13 @@ class OccSerialMerger:
                 time.sleep(self._batch_window_s)
                 while len(items) < self._max_batch_size:
                     try:
-                        items.append(self._queue.get_nowait())
+                        item = self._queue.get_nowait()
                     except queue.Empty:
                         break
+                    if isinstance(item, _StopItem):
+                        self._queue.put(item)
+                        break
+                    items.append(item)
 
             pending = [item for item in items if not item.future.cancelled()]
             for batch in _disjoint_batches(pending):
@@ -126,8 +182,12 @@ class OccSerialMerger:
                     break
                 except ManifestConflictError as exc:
                     attempts += 1
-                    if attempts >= MAX_OCC_CAS_RETRIES:
-                        result = _cas_exhaustion_result(combined, exc)
+                    if attempts >= self._retry_policy.max_cas_retries:
+                        result = _cas_exhaustion_result(
+                            combined,
+                            exc,
+                            retry_policy=self._retry_policy,
+                        )
                         break
             commit_elapsed = monotonic_now() - commit_start
             ready_at = monotonic_now()
@@ -201,10 +261,12 @@ def _path_set(prepared: PreparedChangeset) -> set[str]:
 def _cas_exhaustion_result(
     prepared: PreparedChangeset,
     exc: ManifestConflictError,
+    *,
+    retry_policy: RetryPolicy,
 ) -> ChangesetResult:
     """Convert a CAS-retry-exhausted failure into a per-path conflict result."""
     message = (
-        f"CAS mismatch retry budget exhausted after {MAX_OCC_CAS_RETRIES} "
+        f"CAS mismatch retry budget exhausted after {retry_policy.max_cas_retries} "
         f"attempts: {exc}"
     )
     files: list[FileResult] = []
@@ -249,4 +311,4 @@ def _merge_timings(items: list[PreparedChangeset]) -> dict[str, float]:
     return timings
 
 
-__all__ = ["MAX_OCC_CAS_RETRIES", "OccSerialMerger"]
+__all__ = ["MAX_OCC_CAS_RETRIES", "OccSerialMerger", "RetryPolicy"]

@@ -40,11 +40,11 @@ mixed = service.prepare_changeset_sync([
 ], options=CommitOptions(atomic=True))
 routes = [(group.path, group.route.value) for group in mixed.path_groups]
 assert routes == [
-    ("src/new.txt", RouteDecision.OCC_GATED_MERGE.value),
-    ("dist/cache.txt", RouteDecision.OCC_SKIPPED_MERGE.value),
+    ("src/new.txt", RouteDecision.GATED.value),
+    ("dist/cache.txt", RouteDecision.DIRECT.value),
     (".git/config", RouteDecision.DROP.value),
     ("../escape", RouteDecision.REJECT.value),
-    ("unicodé/文件.txt", RouteDecision.OCC_GATED_MERGE.value),
+    ("unicodé/文件.txt", RouteDecision.GATED.value),
 ]
 
 max_changes = [WriteChange(path="bulk/%05d.txt" % index, final_content="x") for index in range(2000)]

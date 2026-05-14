@@ -60,9 +60,8 @@ def _source_file(root, name, content):
 
 def _publish_write(manager, root, index):
     _publish_changes(manager, [
-        LayerChange(
+        WriteLayerChange(
             path="phase01-budget/layer-%03d.txt" % index,
-            kind="write",
             source_path=str(_source_file(root, "layer-%03d" % index, "layer-%03d\n" % index)),
         )
     ])

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
+from sandbox.layer_stack import (
+    LayerChange,
+    DeleteLayerChange,
+    WriteLayerChange,
+    LayerStackManager,
+)
 from sandbox.layer_stack.manifest import LayerRef
 
 
@@ -23,9 +28,8 @@ def _publish(
 ) -> None:
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 source_path=_source(tmp_path, rel.replace("/", "_"), content),
             )
         ]
@@ -56,7 +60,7 @@ def test_squash_replaces_old_active_suffix_with_checkpoint(tmp_path: Path) -> No
 def test_squash_checkpoint_preserves_delete_semantics(tmp_path: Path) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     _publish(manager, tmp_path, "deleted.txt", b"old")
-    manager.publish_changes([LayerChange(path="deleted.txt", kind="delete")])
+    manager.publish_changes([DeleteLayerChange(path="deleted.txt")])
 
     manifest = manager.squash(max_depth=1)
 

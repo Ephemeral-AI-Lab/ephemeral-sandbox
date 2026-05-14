@@ -72,24 +72,24 @@ class FullCaseUserInput(ScenarioBase):
         return self._root_planner_response(ctx)
 
     def executor_actions(self, ctx: ScenarioContext) -> Sequence[str]:
-        task_input = ctx.task_input or ctx.prompt or ""
-        if "ACTION inspect_user_input" in task_input:
+        rendered_prompt = ctx.rendered_prompt or ctx.prompt or ""
+        if "ACTION inspect_user_input" in rendered_prompt:
             return ("inspect_user_input",)
-        if "ACTION request_recursive_mission" in task_input:
-            package_id = _field(task_input, "package") or self._recursive_package_id or ""
+        if "ACTION request_recursive_mission" in rendered_prompt:
+            package_id = _field(rendered_prompt, "package") or self._recursive_package_id or ""
             return (f"request_recursive_mission:{package_id}",)
-        if "ACTION execute_package" in task_input:
-            package_id = _field(task_input, "package") or "unknown"
+        if "ACTION execute_package" in rendered_prompt:
+            package_id = _field(rendered_prompt, "package") or "unknown"
             return (f"execute_package:{package_id}",)
-        if "ACTION final_reconciliation" in task_input:
+        if "ACTION final_reconciliation" in rendered_prompt:
             return ("final_reconciliation",)
-        if "ACTION recursive_" in task_input:
+        if "ACTION recursive_" in rendered_prompt:
             return ("recursive_step",)
         return ("execute_package:generic",)
 
     def verifier_response(self, ctx: ScenarioContext) -> ToolCallSpec:
-        task_input = ctx.task_input or ""
-        checkpoint = _field(task_input, "checkpoint") or "checkpoint"
+        rendered_prompt = ctx.rendered_prompt or ""
+        checkpoint = _field(rendered_prompt, "checkpoint") or "checkpoint"
         failed_by_hook = bool(
             ctx.mutable_state is not None
             and ctx.mutable_state.consume_failure(
@@ -115,7 +115,7 @@ class FullCaseUserInput(ScenarioBase):
                 "summary": f"Verifier accepted {checkpoint}.",
                 "checks": [
                     f"checkpoint:{checkpoint}",
-                    f"dependencies:{_field(task_input, 'dependency_count') or '0'}",
+                    f"dependencies:{_field(rendered_prompt, 'dependency_count') or '0'}",
                 ],
             },
         )
@@ -131,8 +131,8 @@ class FullCaseUserInput(ScenarioBase):
         )
 
     def recursive_mission_goal(self, ctx: ScenarioContext) -> str | None:
-        task_input = ctx.task_input or ""
-        package_id = _field(task_input, "package") or self._recursive_package_id
+        rendered_prompt = ctx.rendered_prompt or ""
+        package_id = _field(rendered_prompt, "package") or self._recursive_package_id
         if not package_id:
             return None
         plan = self._ensure_user_input_plan(ctx)
@@ -378,7 +378,7 @@ class FullCaseUserInput(ScenarioBase):
         if ctx.mission is not None and _is_root_mission(ctx):
             prompt = str(ctx.mission.goal or "")
         if not prompt:
-            prompt = ctx.prompt or ctx.task_input or ""
+            prompt = ctx.prompt or ctx.rendered_prompt or ""
         self._root_prompt = prompt
         self._user_input_plan = build_user_input_plan(prompt)
         return self._user_input_plan

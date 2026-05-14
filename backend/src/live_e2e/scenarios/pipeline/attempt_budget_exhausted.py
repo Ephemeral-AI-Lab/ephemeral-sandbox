@@ -1,6 +1,6 @@
 """Attempt budget exhausted — every attempt fails, mission closes failed.
 
-The default ``HarnessLifecycleConfig.default_attempt_budget`` is ``2``
+The default ``TaskCenterLifecycleConfig.default_attempt_budget`` is ``2``
 (``backend/src/task_center/config.py:16``). This scenario plans a single
 generator task that **always** calls ``submit_execution_failure``, so each
 attempt closes ``status=failed``, ``fail_reason="generator_failed"``. After

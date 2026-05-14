@@ -10,11 +10,11 @@ from db.stores.mission_store import MissionStore
 from db.stores.attempt_store import AttemptStore
 from db.stores.task_center_store import TaskCenterStore
 from db.stores.episode_store import EpisodeStore
-from task_center.config import HarnessLifecycleConfig
+from task_center.config import TaskCenterLifecycleConfig
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.attempt.state import Attempt
 from task_center.episode.registry import EpisodeManagerRegistry
-from task_center.task.models import HarnessTaskRole
+from task_center.task.models import TaskCenterTaskRole
 
 if TYPE_CHECKING:
     from task_center.agent_launch.composer import ContextComposer
@@ -29,9 +29,9 @@ class AgentLaunch:
     task_id: str
     task_center_run_id: str
     attempt_id: str | None
-    role: HarnessTaskRole
+    role: TaskCenterTaskRole
     agent_name: str
-    task_input: str
+    rendered_prompt: str
     needs: tuple[str, ...]
     context_packet_id: str | None = None
     mission_id: str | None = None
@@ -44,7 +44,7 @@ class AttemptAgentLauncher(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class AttemptRuntime:
+class AttemptDeps:
     mission_store: MissionStore
     episode_store: EpisodeStore
     attempt_store: AttemptStore
@@ -52,9 +52,9 @@ class AttemptRuntime:
     agent_launcher: AttemptAgentLauncher
     orchestrator_registry: AttemptOrchestratorRegistry
     manager_registry: EpisodeManagerRegistry | None = None
-    lifecycle_config: HarnessLifecycleConfig = field(default_factory=HarnessLifecycleConfig)
+    lifecycle_config: TaskCenterLifecycleConfig = field(default_factory=TaskCenterLifecycleConfig)
     # When set, orchestrator + dispatcher route launches through the composer
-    # to obtain a rendered task_input + selected agent definition.
+    # to obtain a rendered rendered_prompt + selected agent definition.
     # Optional so existing tests can continue without composer wiring.
     composer: ContextComposer | None = None
     # Lifecycle controller for the top-level entry executor. ``None`` for
@@ -82,7 +82,7 @@ class AttemptRuntime:
     def require_composer(self) -> ContextComposer:
         if self.composer is None:
             raise TaskCenterInvariantViolation(
-                "AttemptRuntime requires a ContextComposer for harness "
+                "AttemptDeps requires a ContextComposer for harness "
                 "agent launches; none was wired."
             )
         return self.composer

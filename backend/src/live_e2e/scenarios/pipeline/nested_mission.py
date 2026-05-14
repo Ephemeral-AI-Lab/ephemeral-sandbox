@@ -100,10 +100,10 @@ class NestedMission(ScenarioBase):
         return ToolCallSpec(submit_full_plan, _root_nested_plan(failing_child=False))
 
     def executor_actions(self, ctx: ScenarioContext) -> Sequence[str]:
-        task_input = ctx.task_input or ""
-        if "request_recursive_mission" in task_input:
+        rendered_prompt = ctx.rendered_prompt or ""
+        if "request_recursive_mission" in rendered_prompt:
             return ("request_recursive_mission:child_success",)
-        if "ACTION recursive_" in task_input:
+        if "ACTION recursive_" in rendered_prompt:
             return ("recursive_step",)
         return ("preflight",)
 
@@ -146,10 +146,10 @@ class NestedMissionFailure(ScenarioBase):
         return ToolCallSpec(submit_full_plan, _root_nested_plan(failing_child=True))
 
     def executor_actions(self, ctx: ScenarioContext) -> Sequence[str]:
-        task_input = ctx.task_input or ""
-        if "request_recursive_mission" in task_input:
+        rendered_prompt = ctx.rendered_prompt or ""
+        if "request_recursive_mission" in rendered_prompt:
             return ("request_recursive_mission:child_failure",)
-        if "child_failure" in task_input:
+        if "child_failure" in rendered_prompt:
             return ("fail:Intentional child mission failure.",)
         return ("preflight",)
 

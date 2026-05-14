@@ -107,7 +107,7 @@ async def test_cas_retry_exhaustion_returns_conflict_result(tmp_path: Path) -> N
     publisher = services.manager._publisher  # type: ignore[attr-defined]
 
     call_counter = {"n": 0}
-    real_publish = publisher.publish_layer_locked
+    real_publish = publisher.publish_layer
 
     def always_cas_mismatch(*_args, **_kwargs):
         call_counter["n"] += 1
@@ -115,7 +115,7 @@ async def test_cas_retry_exhaustion_returns_conflict_result(tmp_path: Path) -> N
             "synthetic CAS mismatch for retry-exhaustion test"
         )
 
-    publisher.publish_layer_locked = always_cas_mismatch  # type: ignore[method-assign]
+    publisher.publish_layer = always_cas_mismatch  # type: ignore[method-assign]
     try:
         result = await asyncio.wait_for(
             write.write_file(
@@ -128,7 +128,7 @@ async def test_cas_retry_exhaustion_returns_conflict_result(tmp_path: Path) -> N
             timeout=3.0,
         )
     finally:
-        publisher.publish_layer_locked = real_publish  # type: ignore[method-assign]
+        publisher.publish_layer = real_publish  # type: ignore[method-assign]
 
     # Result is a conflict, not an exception; success is False.
     assert result["success"] is False

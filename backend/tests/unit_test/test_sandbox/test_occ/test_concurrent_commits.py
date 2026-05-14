@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.types import FileStatus, WriteChange
 from sandbox.occ.content.hashing import ContentHasher
@@ -30,9 +30,8 @@ def _publish(stack: LayerStackManager, tmp_path: Path, rel: str, content: bytes)
     source = _source(tmp_path, rel.replace("/", "-"), content)
     stack.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 content_hash=ContentHasher().hash_bytes(content),
                 source_path=str(source),
             )

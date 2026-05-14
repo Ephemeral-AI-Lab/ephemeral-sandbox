@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack import LayerChange
+from sandbox.layer_stack import LayerChange, WriteLayerChange
 from sandbox.plugin.projection import (
     WorkspaceProjection,
     build_manifest_key,
@@ -26,9 +26,8 @@ def test_acquire_returns_handle_with_manifest_key(tmp_path: Path) -> None:
     # non-empty.
     projection._manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="src/app.py",
-                kind="write",
                 source_path=_seed_source(
                     tmp_path, "app.py", b"print('hi')\n"
                 ),
@@ -55,9 +54,8 @@ def test_release_is_idempotent(tmp_path: Path) -> None:
     projection = WorkspaceProjection(tmp_path / "stack")
     projection._manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="a.txt",
-                kind="write",
                 source_path=_seed_source(tmp_path, "a.txt", b"a"),
             )
         ]
@@ -72,9 +70,8 @@ def test_manifest_key_changes_after_publish(tmp_path: Path) -> None:
     projection = WorkspaceProjection(tmp_path / "stack")
     projection._manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="a.txt",
-                kind="write",
                 source_path=_seed_source(tmp_path, "a.txt", b"a"),
             )
         ]
@@ -84,9 +81,8 @@ def test_manifest_key_changes_after_publish(tmp_path: Path) -> None:
 
     projection._manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="b.txt",
-                kind="write",
                 source_path=_seed_source(tmp_path, "b.txt", b"b"),
             )
         ]
@@ -105,9 +101,8 @@ def test_active_manifest_key_matches_handle(tmp_path: Path) -> None:
     projection = WorkspaceProjection(tmp_path / "stack")
     projection._manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="a.txt",
-                kind="write",
                 source_path=_seed_source(tmp_path, "a.txt", b"a"),
             )
         ]

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
+from sandbox.layer_stack import LayerChange, WriteLayerChange, LayerStackManager
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> str:
@@ -21,9 +21,8 @@ def test_acquire_and_release_pin_exact_layer_refs(tmp_path: Path) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     manifest = manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="a.txt",
-                kind="write",
                 source_path=_source(tmp_path, "a.txt", b"a"),
             )
         ]
@@ -50,9 +49,8 @@ def test_releasing_old_snapshot_does_not_unpin_new_active_layer(tmp_path: Path) 
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="a.txt",
-                kind="write",
                 source_path=_source(tmp_path, "old.txt", b"old"),
             )
         ]
@@ -60,9 +58,8 @@ def test_releasing_old_snapshot_does_not_unpin_new_active_layer(tmp_path: Path) 
     old_lease = manager.acquire_snapshot_lease("old-request")
     new_manifest = manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="b.txt",
-                kind="write",
                 source_path=_source(tmp_path, "new.txt", b"new"),
             )
         ]
@@ -82,9 +79,8 @@ def test_release_lease_keeps_active_layer_storage(tmp_path: Path) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     manifest = manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="active.txt",
-                kind="write",
                 source_path=_source(tmp_path, "active.txt", b"active\n"),
             )
         ]
@@ -106,9 +102,8 @@ def test_release_lease_removes_unreferenced_layers_outside_manager_lock(
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="old.txt",
-                kind="write",
                 source_path=_source(tmp_path, "old.txt", b"old\n"),
             )
         ]
@@ -116,9 +111,8 @@ def test_release_lease_removes_unreferenced_layers_outside_manager_lock(
     lease = manager.acquire_snapshot_lease("old")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="new.txt",
-                kind="write",
                 source_path=_source(tmp_path, "new.txt", b"new\n"),
             )
         ]
@@ -143,9 +137,8 @@ def test_prepare_workspace_snapshot_returns_distinct_transient_lowerdirs_per_lea
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="src/app.py",
-                kind="write",
                 source_path=_source(tmp_path, "app.py", b"print('hi')\n"),
             )
         ]
@@ -181,9 +174,8 @@ def test_prepare_workspace_snapshot_failure_releases_lease_and_drops_partial_low
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="src/app.py",
-                kind="write",
                 source_path=_source(tmp_path, "app.py", b"print('hi')\n"),
             )
         ]

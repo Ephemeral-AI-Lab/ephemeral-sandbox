@@ -13,9 +13,9 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
-from sandbox.overlay.runner.snapshot_overlay_runner import OverlayShellRequest, SnapshotOverlayRunner
+from sandbox.overlay import OverlayShellRequest, OverlaySnapshotRunner
 
 cfg = json.loads(__CFG_JSON__)
 label = "overlay.native.overlay_runner_load"
@@ -24,9 +24,9 @@ started = time.perf_counter()
 root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 manager.publish_changes([
-    LayerChange(path="base.txt", kind="write", source_path=str(_source(root, "base", b"base\n"))),
+    WriteLayerChange(path="base.txt", source_path=str(_source(root, "base", b"base\n"))),
 ])
-runner = SnapshotOverlayRunner(manager)
+runner = OverlaySnapshotRunner(manager)
 operation_count = int(cfg["operation_count"])
 concurrency = int(cfg["concurrency"])
 barrier = threading.Barrier(concurrency)

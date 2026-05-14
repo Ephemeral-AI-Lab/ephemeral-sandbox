@@ -1,7 +1,7 @@
 """``entry_executor_v1`` recipe — context for the top-level entry executor.
 
 Emits one ``entry_request`` block (priority=required) sourced from the
-entry task row's ``task_input``. The entry executor is not a Mission, so this
+entry task row's ``rendered_prompt``. The entry executor is not a Mission, so this
 recipe is scoped only to the entry task.
 """
 
@@ -38,7 +38,7 @@ def _entry_executor_v1_build(
         raise ContextEngineError(
             f"Entry task {scope.task_id!r} not found"
         )
-    text = str(task.get("task_input") or "")
+    text = str(task.get("rendered_prompt") or "")
     block = ContextBlock(
         kind=ContextBlockKind.ENTRY_REQUEST,
         priority=ContextPriority.REQUIRED,

@@ -727,9 +727,9 @@ def lsp_refresh_semantics_script(ctx: ScenarioContext) -> PreparedToolScript:
 
 def recursive_oversized_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
     """Persist recursive mission evidence and close report through tools."""
-    task_input = ctx.task_input or ""
-    slice_id = _field(task_input, "slice") or "slice"
-    is_close = _field(task_input, "close") == "true" or slice_id == "close"
+    rendered_prompt = ctx.rendered_prompt or ""
+    slice_id = _field(rendered_prompt, "slice") or "slice"
+    is_close = _field(rendered_prompt, "close") == "true" or slice_id == "close"
     evidence_path = f"{_RECURSIVE_ROOT}/oversized-{_safe_slug(slice_id)}.json"
     payload = {
         "scenario": "full_stack_adversarial",
@@ -827,7 +827,7 @@ def final_reconciliation_script(ctx: ScenarioContext) -> PreparedToolScript:
     payload = {
         **summary,
         "task_id": ctx.task_id,
-        "stage": _field(ctx.task_input or "", "stage") or "final",
+        "stage": _field(ctx.rendered_prompt or "", "stage") or "final",
         "metrics_artifact": full_stack_metrics_path(ctx),
         "matrix_cells": matrix_cells,
     }
@@ -895,7 +895,7 @@ def final_reconciliation_script(ctx: ScenarioContext) -> PreparedToolScript:
 
 def verifier_checkpoint_script(ctx: ScenarioContext) -> PreparedToolScript:
     """Verifier-side readback for full-stack checkpoints."""
-    checkpoint = _field(ctx.task_input or "", "checkpoint") or "checkpoint"
+    checkpoint = _field(ctx.rendered_prompt or "", "checkpoint") or "checkpoint"
     read_paths = {
         "inventory": _LEDGER_PATH,
         "subsystem_wave_guard": _OCC_PATH,

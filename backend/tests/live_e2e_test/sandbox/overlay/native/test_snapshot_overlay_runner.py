@@ -12,10 +12,10 @@ pytestmark = pytest.mark.asyncio
 
 
 _RUNNER_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
-from sandbox.overlay.capture.types import read_output_ref
-from sandbox.overlay.runner.snapshot_overlay_runner import OverlayShellRequest, SnapshotOverlayRunner
+from sandbox.overlay import read_output_ref
+from sandbox.overlay import OverlayShellRequest, OverlaySnapshotRunner
 
 label = "overlay.native.snapshot_overlay_runner"
 before = sample_resource()
@@ -23,9 +23,9 @@ started = time.perf_counter()
 root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 manager.publish_changes([
-    LayerChange(path="pkg/value.txt", kind="write", source_path=str(_source(root, "value", b"old\n"))),
+    WriteLayerChange(path="pkg/value.txt", source_path=str(_source(root, "value", b"old\n"))),
 ])
-runner = SnapshotOverlayRunner(manager)
+runner = OverlaySnapshotRunner(manager)
 request = OverlayShellRequest(
     request_id="request-a",
     command=("bash", "-lc", "mkdir -p nested/dir; printf new > pkg/value.txt; printf nested > nested/dir/out.txt; printf ok"),
@@ -43,10 +43,13 @@ assert changes["nested/dir/out.txt"] == "write"
 assert manager.pinned_layers() == ()
 
 class _FailingInvoker:
+    async def invoke(self, **_kwargs):
+        raise RuntimeError("runtime failed")
+
     def invoke_sync(self, **_kwargs):
         raise RuntimeError("runtime failed")
 
-failing_runner = SnapshotOverlayRunner(manager, invoker=_FailingInvoker())
+failing_runner = OverlaySnapshotRunner(manager, invoker=_FailingInvoker())
 try:
     failing_runner.shell_sync(OverlayShellRequest(
         request_id="request-fails",
@@ -72,9 +75,9 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
-from sandbox.overlay.runner.snapshot_overlay_runner import OverlayShellRequest, SnapshotOverlayRunner
+from sandbox.overlay import OverlayShellRequest, OverlaySnapshotRunner
 
 label = "overlay.native.snapshot_overlay_runner_under_race"
 before = sample_resource()
@@ -82,9 +85,9 @@ started = time.perf_counter()
 root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 manager.publish_changes([
-    LayerChange(path="base.txt", kind="write", source_path=str(_source(root, "base", b"base\n"))),
+    WriteLayerChange(path="base.txt", source_path=str(_source(root, "base", b"base\n"))),
 ])
-runner = SnapshotOverlayRunner(manager)
+runner = OverlaySnapshotRunner(manager)
 n = 4
 barrier = threading.Barrier(n)
 

@@ -18,7 +18,7 @@ from sandbox.provider.daytona.client.sync_client import (
     _call_with_optional_timeout,
 )
 from sandbox.provider.daytona.errors import AsyncDaytonaUnavailableError
-from sandbox.runtime.async_bridge import (
+from sandbox.async_bridge import (
     register_standalone_loop_cleanup,
 )
 

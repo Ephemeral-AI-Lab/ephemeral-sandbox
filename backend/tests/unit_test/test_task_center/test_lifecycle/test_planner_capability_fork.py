@@ -24,7 +24,7 @@ from agents import (
     register_definition,
     unregister_definition,
 )
-from task_center.config import HarnessLifecycleConfig
+from task_center.config import TaskCenterLifecycleConfig
 from task_center.agent_launch.composer import ContextComposer
 from task_center.context_engine.engine import ContextEngine, ContextEngineDeps
 from task_center.agent_launch.predicates import (
@@ -39,7 +39,7 @@ from task_center.attempt.orchestrator_registry import (
 )
 from task_center.attempt.runtime import (
     AgentLaunch,
-    AttemptRuntime,
+    AttemptDeps,
 )
 from task_center.episode.episode import EpisodeCreationReason
 
@@ -90,7 +90,7 @@ def _clear_definitions() -> None:
 
 def _runtime_with_composer(
     mission_store, episode_store, attempt_store, task_store
-) -> tuple[AttemptRuntime, _RecordingLauncher]:
+) -> tuple[AttemptDeps, _RecordingLauncher]:
     launcher = _RecordingLauncher()
     deps = ContextEngineDeps(
         mission_store=mission_store,
@@ -99,7 +99,7 @@ def _runtime_with_composer(
         task_store=task_store,
     )
     composer = ContextComposer.default(ContextEngine(deps))
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -107,7 +107,7 @@ def _runtime_with_composer(
         agent_launcher=launcher,
         orchestrator_registry=AttemptOrchestratorRegistry(),
         manager_registry=None,
-        lifecycle_config=HarnessLifecycleConfig(),
+        lifecycle_config=TaskCenterLifecycleConfig(),
         composer=composer,
     )
     return runtime, launcher
@@ -146,7 +146,7 @@ def _seed_partial_plan_caller(
         task_center_run_id=task_center_run_id,
         role="generator",
         agent_name="executor",
-        task_input="x",
+        rendered_prompt="x",
         status="running",
         summaries=[],
         needs=[],

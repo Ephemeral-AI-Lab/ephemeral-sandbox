@@ -24,9 +24,9 @@ from task_center.mission.mission import (
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.attempt.orchestrator import AttemptOrchestrator
 from task_center.attempt.state import AttemptFailReason, AttemptStatus
-from task_center.attempt.runtime import AttemptRuntime
+from task_center.attempt.runtime import AttemptDeps
 from task_center.episode.episode import Episode, EpisodeStatus
-from task_center.task.models import HarnessTaskStatus
+from task_center.task.models import TaskCenterTaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class StartedMission:
 class MissionStarter:
     """Single orchestration entry point for executor → delegated mission start."""
 
-    def __init__(self, *, runtime: AttemptRuntime) -> None:
+    def __init__(self, *, runtime: AttemptDeps) -> None:
         self._runtime = runtime
 
     def start(
@@ -153,7 +153,7 @@ class MissionStarter:
             raise TaskCenterInvariantViolation(
                 f"TaskCenter task {parent_task_id!r} was not found."
             )
-        if task.get("status") != HarnessTaskStatus.RUNNING.value:
+        if task.get("status") != TaskCenterTaskStatus.RUNNING.value:
             raise TaskCenterInvariantViolation(
                 f"TaskCenter task {parent_task_id!r} is not running; "
                 "delegated mission start requires a running generator task."
@@ -207,8 +207,8 @@ class MissionStarter:
         }
         updated = self._runtime.task_store.set_task_status_if_current(
             parent_task_id,
-            expected_status=HarnessTaskStatus.RUNNING.value,
-            status=HarnessTaskStatus.WAITING_MISSION.value,
+            expected_status=TaskCenterTaskStatus.RUNNING.value,
+            status=TaskCenterTaskStatus.WAITING_MISSION.value,
             summary=summary,
         )
         if updated is None:
@@ -258,8 +258,8 @@ class MissionStarter:
             else:
                 self._runtime.task_store.set_task_status_if_current(
                     parent_task_id,
-                    expected_status=HarnessTaskStatus.WAITING_MISSION.value,
-                    status=HarnessTaskStatus.RUNNING.value,
+                    expected_status=TaskCenterTaskStatus.WAITING_MISSION.value,
+                    status=TaskCenterTaskStatus.RUNNING.value,
                 )
         except Exception:
             logger.critical(

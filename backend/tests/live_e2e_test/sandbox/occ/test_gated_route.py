@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _GATED_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.types import FileStatus, WriteChange
 from sandbox.occ.content.hashing import ContentHasher
@@ -24,9 +24,8 @@ class _Gitignore:
 
 def _publish(stack, rel, content):
     stack.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path=rel,
-            kind="write",
             content_hash=ContentHasher().hash_bytes(content),
             source_path=str(_source(root, rel.replace("/", "-"), content)),
         )

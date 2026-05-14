@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.resource"
@@ -28,7 +28,7 @@ for depth in range(1, max(depths) + 1):
     source = _source(root, "resource-%03d" % depth, ("value-%03d\n" % depth).encode("utf-8"))
     t0 = time.perf_counter()
     manager.publish_changes([
-        LayerChange(path="values/%03d.txt" % depth, kind="write", source_path=str(source)),
+        WriteLayerChange(path="values/%03d.txt" % depth, source_path=str(source)),
     ])
     latencies.append((time.perf_counter() - t0) * 1000.0)
     if depth in depths:

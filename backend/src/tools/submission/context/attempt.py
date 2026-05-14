@@ -8,7 +8,7 @@ from typing import Any
 from task_center.api import (
     Attempt,
     AttemptOrchestrator,
-    AttemptRuntime,
+    AttemptDeps,
     Episode,
     Mission,
     TaskCenterInvariantViolation,
@@ -34,7 +34,7 @@ class AttemptSubmissionContext:
     attempt: Attempt
     episode: Episode
     mission: Mission
-    runtime: AttemptRuntime
+    runtime: AttemptDeps
     orchestrator: AttemptOrchestrator
 
 
@@ -56,10 +56,10 @@ def resolve_attempt_submission_context(
 
 def _resolve_runtime_task(
     context: ToolExecutionContextService,
-) -> tuple[AttemptRuntime, dict[str, Any], str]:
+) -> tuple[AttemptDeps, dict[str, Any], str]:
     """Shared prelude: pull runtime + task row + task id from tool context."""
     runtime = context.get("attempt_runtime")
-    if not isinstance(runtime, AttemptRuntime):
+    if not isinstance(runtime, AttemptDeps):
         raise AttemptSubmissionContextError(
             "Missing harness attempt runtime for this TaskCenter submission."
         )
@@ -80,7 +80,7 @@ def _resolve_runtime_task(
 
 def _resolve_attempt_context(
     *,
-    runtime: AttemptRuntime,
+    runtime: AttemptDeps,
     task: dict[str, Any],
     task_id: str,
     context: ToolExecutionContextService,

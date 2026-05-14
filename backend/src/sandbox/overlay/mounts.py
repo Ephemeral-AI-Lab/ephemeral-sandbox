@@ -1,4 +1,11 @@
-"""Mount a frozen layer-stack manifest into a per-call workspace view."""
+"""Copy-backed workspace preparation for one snapshot overlay request.
+
+This module intentionally does not enter a Linux mount namespace. The
+privileged kernel-overlay entrypoint is
+``sandbox.command_exec.workspace.namespace_entrypoint``; this portable path
+materializes the leased snapshot into a normal directory tree and captures the
+diff afterward.
+"""
 
 from __future__ import annotations
 
@@ -10,12 +17,11 @@ from sandbox.layer_stack.manifest import Manifest
 from sandbox.layer_stack.view.merged import MergedView
 from sandbox.timing import monotonic_now
 
-# This module builds a copy-backed merged view for portable overlay-shell
-# execution. The privileged kernel mount path is separate:
-# sandbox.command_exec.workspace.namespace_entrypoint.
+_INTERMEDIATE_RUN_DIRS: tuple[str, ...] = ("lower", "merged", "work")
+
 
 @dataclass(frozen=True)
-class MountedSnapshot:
+class OverlayMountedSnapshot:
     manifest: Manifest
     workspace_root: str
     lowerdir: str
@@ -29,14 +35,8 @@ def mount_snapshot(
     storage_root: str | Path,
     run_dir: str | Path,
     timings: dict[str, float] | None = None,
-) -> MountedSnapshot:
-    """Create a runtime-local merged workspace for a leased manifest.
-
-    The layer stack remains immutable. This function materializes the leased
-    manifest into a lowerdir and prepares per-call upper/work/merged dirs. The
-    copy-backed merged view keeps unit runs portable; a kernel overlay mount can
-    replace this implementation behind the same return object later.
-    """
+) -> OverlayMountedSnapshot:
+    """Create a runtime-local merged workspace for a leased manifest."""
     run_root = Path(run_dir)
     lowerdir = run_root / "lower"
     upperdir = run_root / "upper"
@@ -64,7 +64,7 @@ def mount_snapshot(
         timings["overlay.mount.copy_lower_to_merged_s"] = (
             monotonic_now() - copy_start
         )
-    return MountedSnapshot(
+    return OverlayMountedSnapshot(
         manifest=manifest,
         workspace_root=str(merged),
         lowerdir=str(lowerdir),
@@ -73,7 +73,17 @@ def mount_snapshot(
     )
 
 
+def cleanup_runtime_run_dir(run_dir: str | Path) -> None:
+    """Remove non-load-bearing trees after capture while keeping result refs."""
+    run_root = Path(run_dir)
+    for name in _INTERMEDIATE_RUN_DIRS:
+        shutil.rmtree(run_root / name, ignore_errors=True)
+
+
 def _copy_tree(source: Path, destination: Path) -> None:
+    # ``destination`` is pre-created next to upper/work dirs, so copy each root
+    # entry while preserving top-level symlinks and recursively preserving
+    # symlinks below directories.
     for entry in source.iterdir():
         target = destination / entry.name
         if entry.is_symlink():
@@ -87,6 +97,7 @@ def _copy_tree(source: Path, destination: Path) -> None:
 
 
 __all__ = [
-    "MountedSnapshot",
+    "OverlayMountedSnapshot",
+    "cleanup_runtime_run_dir",
     "mount_snapshot",
 ]

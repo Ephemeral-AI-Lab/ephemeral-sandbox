@@ -1,6 +1,6 @@
 """Task-input parsing helpers shared across executor-action scenarios.
 
-The mock executor receives a `task_input` string built by the planner and
+The mock executor receives a `rendered_prompt` string built by the planner and
 formatted by the squad runner. Scenarios read scalar fields from the string
 via `key=value` tokens. This helper centralizes the parser used in the
 existing composite scenarios so new scenarios don't reinvent it.

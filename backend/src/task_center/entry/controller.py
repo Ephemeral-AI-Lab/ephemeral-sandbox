@@ -13,7 +13,7 @@ from typing import Any
 from db.stores.task_center_store import TaskCenterStore
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.mission.mission import MissionCloseReport
-from task_center.task.models import HarnessTaskStatus
+from task_center.task.models import TaskCenterTaskStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +31,7 @@ class EntryTaskController:
     ) -> None:
         """Entry executor called ``submit_execution_success``."""
         if not self._mark_terminal(
-            status=HarnessTaskStatus.DONE,
+            status=TaskCenterTaskStatus.DONE,
             summary={
                 "outcome": "success",
                 "summary": summary,
@@ -49,7 +49,7 @@ class EntryTaskController:
     ) -> None:
         """Entry executor called ``submit_execution_failure``."""
         if not self._mark_terminal(
-            status=HarnessTaskStatus.FAILED,
+            status=TaskCenterTaskStatus.FAILED,
             summary={
                 "outcome": "failure",
                 "summary": summary,
@@ -66,7 +66,7 @@ class EntryTaskController:
     def apply_run_exhausted(self, *, summary: str) -> None:
         """Launcher detected the entry agent ended without a terminal."""
         if not self._mark_terminal(
-            status=HarnessTaskStatus.FAILED,
+            status=TaskCenterTaskStatus.FAILED,
             summary={
                 "fail_reason": "run_exhausted",
                 "summary": summary,
@@ -83,16 +83,16 @@ class EntryTaskController:
         """Resume the entry task waiting on a delegated mission."""
         succeeded = report.outcome == "success"
         if succeeded:
-            status = HarnessTaskStatus.DONE
+            status = TaskCenterTaskStatus.DONE
             text = f"Delegated mission {report.mission_id} succeeded."
         else:
-            status = HarnessTaskStatus.FAILED
+            status = TaskCenterTaskStatus.FAILED
             text = f"Delegated mission {report.mission_id} failed."
 
         try:
             updated = self.task_store.set_task_status_if_current(
                 self.task_id,
-                expected_status=HarnessTaskStatus.WAITING_MISSION.value,
+                expected_status=TaskCenterTaskStatus.WAITING_MISSION.value,
                 status=status.value,
                 summary={
                     "outcome": report.outcome,
@@ -135,8 +135,8 @@ class EntryTaskController:
         }
         updated = self.task_store.set_task_status_if_current(
             self.task_id,
-            expected_status=HarnessTaskStatus.RUNNING.value,
-            status=HarnessTaskStatus.WAITING_MISSION.value,
+            expected_status=TaskCenterTaskStatus.RUNNING.value,
+            status=TaskCenterTaskStatus.WAITING_MISSION.value,
             summary=summary,
         )
         if updated is None:
@@ -149,8 +149,8 @@ class EntryTaskController:
         """Roll the entry task back to RUNNING after a failed mission start."""
         self.task_store.set_task_status_if_current(
             self.task_id,
-            expected_status=HarnessTaskStatus.WAITING_MISSION.value,
-            status=HarnessTaskStatus.RUNNING.value,
+            expected_status=TaskCenterTaskStatus.WAITING_MISSION.value,
+            status=TaskCenterTaskStatus.RUNNING.value,
         )
 
     # ---- internal ----------------------------------------------------------
@@ -158,14 +158,14 @@ class EntryTaskController:
     def _mark_terminal(
         self,
         *,
-        status: HarnessTaskStatus,
+        status: TaskCenterTaskStatus,
         summary: dict[str, Any],
     ) -> bool:
         """CAS the entry task from RUNNING to *status*."""
         try:
             updated = self.task_store.set_task_status_if_current(
                 self.task_id,
-                expected_status=HarnessTaskStatus.RUNNING.value,
+                expected_status=TaskCenterTaskStatus.RUNNING.value,
                 status=status.value,
                 summary=summary,
             )

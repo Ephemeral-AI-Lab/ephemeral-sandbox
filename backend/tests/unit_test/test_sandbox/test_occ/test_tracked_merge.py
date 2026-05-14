@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import PreparedPathGroup, RouteDecision
 from sandbox.occ.changeset.types import (
@@ -29,9 +29,8 @@ def _publish(stack: LayerStackManager, tmp_path: Path, rel: str, content: bytes)
     source = _source(tmp_path, rel.replace("/", "-"), content)
     stack.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 content_hash=ContentHasher().hash_bytes(content),
                 source_path=str(source),
             )
@@ -46,12 +45,11 @@ def _stage_write(tmp_path: Path):
         nonlocal counter
         counter += 1
         source = _source(tmp_path, f"staged-{counter}.bin", content)
-        return LayerChange(
-            path=path,
-            kind="write",
-            content_hash=ContentHasher().hash_bytes(content),
-            source_path=str(source),
-        )
+        return WriteLayerChange(
+                   path=path,
+                   content_hash=ContentHasher().hash_bytes(content),
+                   source_path=str(source),
+               )
 
     return stage
 
@@ -62,7 +60,7 @@ def test_tracked_write_requires_active_hash_to_match_prepared_base(tmp_path: Pat
     merge = GatedMerge(stack)
     group = PreparedPathGroup(
         path="src/app.py",
-        route=RouteDecision.OCC_GATED_MERGE,
+        route=RouteDecision.GATED,
         changes=(
             WriteChange(
                 path="src/app.py",
@@ -88,7 +86,7 @@ def test_tracked_edit_applies_unique_anchor_to_active_content(tmp_path: Path) ->
     merge = GatedMerge(stack)
     group = PreparedPathGroup(
         path="src/app.py",
-        route=RouteDecision.OCC_GATED_MERGE,
+        route=RouteDecision.GATED,
         changes=(EditChange(path="src/app.py", old_text="beta", new_text="BETA"),),
     )
 
@@ -110,7 +108,7 @@ def test_tracked_edit_aborts_when_anchor_is_ambiguous(tmp_path: Path) -> None:
     merge = GatedMerge(stack)
     group = PreparedPathGroup(
         path="src/app.py",
-        route=RouteDecision.OCC_GATED_MERGE,
+        route=RouteDecision.GATED,
         changes=(EditChange(path="src/app.py", old_text="x", new_text="Y"),),
     )
 
@@ -131,7 +129,7 @@ def test_tracked_opaque_dir_overlay_change_stages_storage_change(
     merge = GatedMerge(stack)
     opaque_group = PreparedPathGroup(
         path=".omc/results",
-        route=RouteDecision.OCC_GATED_MERGE,
+        route=RouteDecision.GATED,
         changes=(
             OpaqueDirChange(path=".omc/results", kept_children=frozenset()),
         ),
@@ -153,7 +151,7 @@ def test_tracked_symlink_overlay_change_is_rejected(tmp_path: Path) -> None:
     merge = GatedMerge(stack)
     group = PreparedPathGroup(
         path="link",
-        route=RouteDecision.OCC_GATED_MERGE,
+        route=RouteDecision.GATED,
         changes=(SymlinkChange(path="link", target="../target"),),
     )
 

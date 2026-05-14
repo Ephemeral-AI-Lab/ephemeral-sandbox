@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _LIFECYCLE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manifest import LayerRef, Manifest, read_manifest, write_manifest_atomic
 from sandbox.layer_stack.manager import LayerStackManager
 
@@ -35,11 +35,11 @@ assert read_manifest(manifest_file) == manifest
 
 manager = LayerStackManager(root / "stack")
 first = manager.publish_changes([
-    LayerChange(path="pkg/value.txt", kind="write", source_path=str(_source(root, "value-1", b"one"))),
+    WriteLayerChange(path="pkg/value.txt", source_path=str(_source(root, "value-1", b"one"))),
 ])
 lease = manager.acquire_snapshot_lease("request-a")
 second = manager.publish_changes([
-    LayerChange(path="pkg/value.txt", kind="write", source_path=str(_source(root, "value-2", b"two"))),
+    WriteLayerChange(path="pkg/value.txt", source_path=str(_source(root, "value-2", b"two"))),
 ])
 restarted = LayerStackManager(root / "stack")
 assert restarted.read_active_manifest() == second
@@ -67,7 +67,7 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.manifest_lifecycle_under_race"
@@ -81,12 +81,11 @@ latencies = []
 
 def append_one(index):
     source = _source(root, "race-%02d" % index, ("value-%02d\n" % index).encode("utf-8"))
-    change = LayerChange(
-        path="race/%02d.txt" % index,
-        kind="write",
-        content_hash=_sha(("value-%02d\n" % index).encode("utf-8")),
-        source_path=str(source),
-    )
+    change = WriteLayerChange(
+                 path="race/%02d.txt" % index,
+                 content_hash=_sha(("value-%02d\n" % index).encode("utf-8")),
+                 source_path=str(source),
+             )
     barrier.wait(timeout=5)
     t0 = time.perf_counter()
     manifest = manager.publish_changes([change])

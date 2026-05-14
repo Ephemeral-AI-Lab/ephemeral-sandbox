@@ -13,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.types import FileStatus, WriteChange
 from sandbox.occ.service import OccService
@@ -30,9 +30,8 @@ root = _case_root(label)
 stack = LayerStackManager(root / "stack")
 for index in range(5):
     stack.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="tracked/shared-%02d.txt" % index,
-            kind="write",
             source_path=str(_source(root, "shared-%02d" % index, b"base\n")),
         )
     ])

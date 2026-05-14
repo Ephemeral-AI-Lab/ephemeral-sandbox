@@ -12,7 +12,7 @@ from task_center.attempt.state import (
     AttemptStatus,
 )
 from task_center.episode.episode import Episode
-from task_center.task.models import HarnessTaskRole
+from task_center.task.models import TaskCenterTaskRole
 
 
 def assert_attempt_sequence_contiguous(
@@ -77,7 +77,7 @@ def assert_generator_task_for_submission(
     task: dict[str, Any], attempt: Attempt
 ) -> None:
     assert_task_belongs_to_attempt(task, attempt)
-    if task.get("role") != HarnessTaskRole.GENERATOR.value:
+    if task.get("role") != TaskCenterTaskRole.GENERATOR.value:
         raise TaskCenterInvariantViolation(
             f"Task {task.get('id')!r} is not a generator task"
         )
@@ -87,7 +87,7 @@ def assert_evaluator_task_for_submission(
     task: dict[str, Any], attempt: Attempt
 ) -> None:
     assert_task_belongs_to_attempt(task, attempt)
-    if task.get("role") != HarnessTaskRole.EVALUATOR.value:
+    if task.get("role") != TaskCenterTaskRole.EVALUATOR.value:
         raise TaskCenterInvariantViolation(
             f"Task {task.get('id')!r} is not an evaluator task"
         )

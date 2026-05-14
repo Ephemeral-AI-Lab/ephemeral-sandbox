@@ -8,40 +8,15 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 
 from sandbox.command_exec.contract.request import CommandExecRequest
-from sandbox.command_exec.contract.result import ShellProcessResult
+from sandbox.command_exec.contract.result import MountMode, ShellProcessResult
+from sandbox.command_exec.contract.spec import WorkspaceReplacementMountSpec
 from sandbox.command_exec.workspace.environment import run_command_to_refs
 from sandbox.timing import monotonic_now
-
-
-@dataclass(frozen=True)
-class WorkspaceReplacementMountSpec:
-    """Filesystem inputs for replacing the assigned workspace root."""
-
-    workspace_root: str
-    lowerdir: str
-    upperdir: str
-    workdir: str
-    scratch_root: str
-
-    def __post_init__(self) -> None:
-        if not str(self.workspace_root).startswith("/"):
-            raise ValueError("workspace_root must be absolute")
-        if not str(self.scratch_root).strip():
-            raise ValueError("scratch_root must not be empty")
-        scratch_root = Path(self.scratch_root).resolve(strict=False)
-        for field_name in ("lowerdir", "upperdir", "workdir"):
-            if not str(getattr(self, field_name)).strip():
-                raise ValueError(f"{field_name} must not be empty")
-            path = Path(str(getattr(self, field_name))).resolve(strict=False)
-            if not path.is_relative_to(scratch_root):
-                raise ValueError(
-                    f"{field_name} must be under scratch_root: {path}"
-                )
 
 
 def run_workspace_replaced_command(
@@ -126,7 +101,7 @@ def _run_copy_backed_mount(
         stdout_ref=str(stdout_ref),
         stderr_ref=str(stderr_ref),
         mounted_workspace_root=str(merged),
-        mount_mode="copy_backed",
+        mount_mode=MountMode.COPY_BACKED,
     )
 
 
@@ -185,7 +160,7 @@ def _run_private_mount_namespace(
         stdout_ref=str(stdout_ref),
         stderr_ref=str(stderr_ref),
         mounted_workspace_root=spec.workspace_root,
-        mount_mode="private_namespace",
+        mount_mode=MountMode.PRIVATE_NAMESPACE,
     )
 
 
@@ -294,7 +269,10 @@ def _merge_namespace_timings(path: Path, timings: dict[str, float]) -> None:
 
 
 def _is_namespace_mount_failure(process: ShellProcessResult) -> bool:
-    if process.mount_mode != "private_namespace" or process.exit_code != 126:
+    if (
+        process.mount_mode != MountMode.PRIVATE_NAMESPACE
+        or process.exit_code != 126
+    ):
         return False
     try:
         lines = Path(process.stderr_ref).read_text(encoding="utf-8").splitlines()

@@ -68,9 +68,8 @@ def _check_one_small_file(manifest):
 _publish_workload(
     "one_small_file",
     [
-        LayerChange(
+        WriteLayerChange(
             path="phase01-layer-create/small.txt",
-            kind="write",
             source_path=str(_source_file("small", b"small\n")),
         )
     ],
@@ -78,9 +77,8 @@ _publish_workload(
 )
 
 small_changes = [
-    LayerChange(
+    WriteLayerChange(
         path="phase01-layer-create/small-batch/%03d.txt" % index,
-        kind="write",
         source_path=str(_source_file("small-%03d" % index, "small-%03d\n" % index)),
     )
     for index in range(100)
@@ -109,9 +107,8 @@ def _check_large_file(manifest):
 _publish_workload(
     "one_large_file",
     [
-        LayerChange(
+        WriteLayerChange(
             path="phase01-layer-create/large.bin",
-            kind="write",
             source_path=str(_source_file("large", b"x" * large_size)),
         )
     ],
@@ -119,9 +116,8 @@ _publish_workload(
 )
 
 overwrite_changes = [
-    LayerChange(
+    WriteLayerChange(
         path="phase01-layer-create-fixtures/overwrites/%03d.txt" % index,
-        kind="write",
         source_path=str(_source_file("overwrite-%03d" % index, "top-%03d\n" % index)),
     )
     for index in range(100)
@@ -140,9 +136,8 @@ _publish_workload(
 )
 
 delete_changes = [
-    LayerChange(
+    DeleteLayerChange(
         path="phase01-layer-create-fixtures/deletes/%03d.txt" % index,
-        kind="delete",
     )
     for index in range(50)
 ]
@@ -160,32 +155,26 @@ _publish_workload(
 )
 
 mixed_changes = [
-    LayerChange(
+    WriteLayerChange(
         path="phase01-layer-create/mixed/new.txt",
-        kind="write",
         source_path=str(_source_file("mixed-new", b"new\n")),
     ),
-    LayerChange(
+    WriteLayerChange(
         path="phase01-layer-create-fixtures/overwrites/000.txt",
-        kind="write",
         source_path=str(_source_file("mixed-overwrite", b"mixed-overwrite\n")),
     ),
-    LayerChange(
+    DeleteLayerChange(
         path="phase01-layer-create-fixtures/deletes/050.txt",
-        kind="delete",
     ),
-    LayerChange(
+    SymlinkLayerChange(
         path="phase01-layer-create/mixed/link.txt",
-        kind="symlink",
         source_path="new.txt",
     ),
-    LayerChange(
+    OpaqueDirLayerChange(
         path="phase01-layer-create-fixtures/opaque",
-        kind="opaque_dir",
     ),
-    LayerChange(
+    WriteLayerChange(
         path="phase01-layer-create-fixtures/opaque/new.txt",
-        kind="write",
         source_path=str(_source_file("opaque-new", b"opaque-new\n")),
     ),
 ]

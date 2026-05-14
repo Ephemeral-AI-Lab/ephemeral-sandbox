@@ -29,7 +29,7 @@ _CHARS_PER_TOKEN = 4
 
 
 class PromptRenderer(Protocol):
-    """Renders a :class:`ContextPacket` to a single ``task_input`` string."""
+    """Renders a :class:`ContextPacket` to a single ``rendered_prompt`` string."""
 
     def render(self, packet: ContextPacket) -> str: ...
 

@@ -1,6 +1,6 @@
-"""Lifecycle tests for ``RuntimeInvoker`` / ``execute_request`` run_dir.
+"""Lifecycle tests for ``OverlayRuntimeInvoker`` / ``execute_request`` run_dir.
 
-Covers CR-02 narrow scope: the bulk-growth intermediates inside ``run_dir``
+The bulk-growth intermediates inside ``run_dir``
 (``lower/``, ``merged/``, ``work/``) must be reaped after the invocation.
 Load-bearing artifacts (``upper/`` with ``content_path`` refs, ``stdout.bin``,
 ``stderr.bin``, ``result.json``) MUST remain readable after return because
@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
-from sandbox.overlay.runner.runtime_invoker import RuntimeInvoker
-from sandbox.overlay.runner.snapshot_overlay_runner import OverlayShellRequest
+from sandbox.layer_stack import WriteLayerChange, LayerStackManager
+from sandbox.overlay import OverlayRuntimeInvoker, OverlayShellRequest
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> str:
@@ -30,15 +29,14 @@ def test_execute_request_removes_intermediate_dirs_but_keeps_outputs(
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/value.txt",
-                kind="write",
                 source_path=_source(tmp_path, "value.txt", b"old\n"),
             )
         ]
     )
     runtime_root = tmp_path / "runtime"
-    invoker = RuntimeInvoker(
+    invoker = OverlayRuntimeInvoker(
         storage_root=manager.storage_root,
         runtime_root=runtime_root,
     )
@@ -86,15 +84,14 @@ def test_execute_request_cleans_intermediate_dirs_even_on_nonzero_exit(
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="value.txt",
-                kind="write",
                 source_path=_source(tmp_path, "value.txt", b"x\n"),
             )
         ]
     )
     runtime_root = tmp_path / "runtime"
-    invoker = RuntimeInvoker(
+    invoker = OverlayRuntimeInvoker(
         storage_root=manager.storage_root,
         runtime_root=runtime_root,
     )

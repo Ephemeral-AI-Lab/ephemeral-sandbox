@@ -35,7 +35,7 @@ def test_insert_returns_running_planning_dto(
     seg_id = _seed_segment(mission_store, episode_store, task_center_run_id)
     g = attempt_store.insert(episode_id=seg_id, attempt_sequence_no=1)
     assert isinstance(g, Attempt)
-    assert g.stage == AttemptStage.PLANNING
+    assert g.stage == AttemptStage.PLAN
     assert g.status == AttemptStatus.RUNNING
     assert g.evaluation_criteria == ()
     assert g.generator_task_ids == ()

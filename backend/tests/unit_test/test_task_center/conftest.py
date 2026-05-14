@@ -108,7 +108,7 @@ def task_center_run_id() -> str:
 # ---------------------------------------------------------------------------
 #
 # Production paths (orchestrator + dispatcher + entry coordinator) require a
-# ``ContextComposer`` on ``AttemptRuntime``. Lifecycle tests that exercise
+# ``ContextComposer`` on ``AttemptDeps``. Lifecycle tests that exercise
 # planner/generator/evaluator launches need (a) a composer wired into the
 # runtime, (b) registered context recipes + predicates, and (c) minimal test
 # agent definitions so the resolver can look up a target agent.

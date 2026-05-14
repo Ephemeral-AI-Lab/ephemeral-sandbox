@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sandbox.layer_stack.manifest.model import (
     LayerRef,
+    MANIFEST_SCHEMA_VERSION,
     Manifest,
     ManifestConflictError,
     empty_manifest,
@@ -11,6 +12,7 @@ from sandbox.layer_stack.manifest.model import (
 )
 from sandbox.layer_stack.manifest.store import (
     ACTIVE_MANIFEST_FILE,
+    FileManifestStore,
     LAYERS_DIR,
     STAGING_DIR,
     manifest_path,
@@ -20,8 +22,10 @@ from sandbox.layer_stack.manifest.store import (
 
 __all__ = [
     "ACTIVE_MANIFEST_FILE",
+    "FileManifestStore",
     "LAYERS_DIR",
     "LayerRef",
+    "MANIFEST_SCHEMA_VERSION",
     "Manifest",
     "ManifestConflictError",
     "STAGING_DIR",

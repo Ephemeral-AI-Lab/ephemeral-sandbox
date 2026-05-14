@@ -248,7 +248,7 @@ def _insert_task(
                 task_center_run_id=run_id,
                 role=role,
                 agent_name=agent_name,
-                task_input="input",
+                rendered_prompt="input",
                 status="pending",
                 summaries=[],
                 needs=[],

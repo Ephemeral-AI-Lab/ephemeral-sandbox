@@ -63,7 +63,7 @@ def run_runtime_bootstrap(
         )
         return
 
-    from sandbox.runtime.async_bridge import run_sync
+    from sandbox.async_bridge import run_sync
 
     run_sync(
         bootstrap_in_sandbox_runtime(
@@ -85,7 +85,7 @@ def ensure_workspace_base(
         )
         return
 
-    from sandbox.runtime.async_bridge import run_sync
+    from sandbox.async_bridge import run_sync
     from sandbox.host.daemon_client import call_daemon_api
 
     run_sync(
@@ -126,7 +126,7 @@ def start_runtime_bundle_upload(
     if not workspace or not sandbox_id:
         return None
 
-    from sandbox.runtime.async_bridge import run_sync
+    from sandbox.async_bridge import run_sync
 
     def _do_upload() -> None:
         run_sync(

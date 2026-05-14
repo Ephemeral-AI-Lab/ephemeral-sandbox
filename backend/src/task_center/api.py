@@ -8,7 +8,7 @@ from task_center.agent_launch.composer import ContextComposer, LaunchBundle
 from task_center.agent_launch.predicates import PredicateRegistry
 from task_center.attempt.generator_dag import ordered_generator_tasks
 from task_center.attempt.orchestrator import AttemptOrchestrator
-from task_center.attempt.runtime import AttemptRuntime
+from task_center.attempt.runtime import AttemptDeps
 from task_center.attempt.state import Attempt
 from task_center.context_engine.errors import AgentDefinitionValidationError
 from task_center.context_engine.scope import ContextScope
@@ -43,7 +43,7 @@ __all__ = [
     "AgentDefinitionValidationError",
     "Attempt",
     "AttemptOrchestrator",
-    "AttemptRuntime",
+    "AttemptDeps",
     "ContextComposer",
     "ContextScope",
     "EntryTaskController",

@@ -12,9 +12,8 @@ pytestmark = pytest.mark.asyncio
 
 
 _CAPTURE_CHANGES_BODY = r"""
-from sandbox.layer_stack.manifest import Manifest
-from sandbox.layer_stack.view.merged import OPAQUE_MARKER, WHITEOUT_PREFIX
-from sandbox.overlay.capture.upperdir import capture_changes
+from sandbox.layer_stack.layer.index import OPAQUE_MARKER, WHITEOUT_PREFIX
+from sandbox.overlay import capture_changes
 
 label = "overlay.native.capture_changes"
 before = sample_resource()
@@ -29,7 +28,7 @@ upper.mkdir()
 (upper / "a.txt").write_text("a\n", encoding="utf-8")
 (upper / "b.txt").write_text("b\n", encoding="utf-8")
 
-changes = capture_changes(upper, snapshot_manifest=Manifest(version=1, layers=()))
+changes = capture_changes(upper)
 paths = [change.path for change in changes]
 kinds = {change.path: change.kind for change in changes}
 expected_order = ["gone.txt", "a.txt", "b.txt", "dir", "dir/keep.txt"]
@@ -47,7 +46,6 @@ merged.mkdir()
 (merged / "new.txt").write_text("same\n", encoding="utf-8")
 rename_changes = capture_changes(
     rename_upper,
-    snapshot_manifest=Manifest(version=1, layers=()),
     lowerdir=lower,
     workspace_root=merged,
 )
@@ -64,8 +62,7 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.manifest import Manifest
-from sandbox.overlay.capture.upperdir import capture_changes
+from sandbox.overlay import capture_changes
 
 label = "overlay.native.capture_changes_under_race"
 before = sample_resource()
@@ -84,7 +81,7 @@ def producer(index):
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=n) as pool:
     list(pool.map(producer, range(n)))
-changes = capture_changes(upper, snapshot_manifest=Manifest(version=1, layers=()))
+changes = capture_changes(upper)
 same_changes = [change for change in changes if change.path == "same.txt"]
 assert len(same_changes) == 1, changes
 final_content = Path(same_changes[0].content_path).read_text(encoding="utf-8")

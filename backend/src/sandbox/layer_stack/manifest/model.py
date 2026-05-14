@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from collections.abc import Mapping
 from pathlib import PurePosixPath
 
+from sandbox.layer_stack.errors import ManifestConflictError
 
-class ManifestConflictError(RuntimeError):
-    """Raised when an active-manifest compare-and-swap check fails."""
+
+MANIFEST_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True, order=True)
@@ -45,8 +46,14 @@ class LayerRef:
 class Manifest:
     version: int
     layers: tuple[LayerRef, ...]
+    schema_version: int = MANIFEST_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
+        if self.schema_version != MANIFEST_SCHEMA_VERSION:
+            raise ManifestConflictError(
+                "unsupported manifest schema_version: "
+                f"{self.schema_version}"
+            )
         if self.version < 0:
             raise ValueError("manifest version must be non-negative")
         object.__setattr__(self, "layers", tuple(self.layers))
@@ -57,6 +64,7 @@ class Manifest:
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "schema_version": self.schema_version,
             "version": self.version,
             "layers": [layer.to_dict() for layer in self.layers],
         }
@@ -76,6 +84,17 @@ class Manifest:
             raise ManifestConflictError(
                 "manifest payload missing required field: layers"
             )
+        raw_schema_version = payload.get("schema_version", MANIFEST_SCHEMA_VERSION)
+        schema_version = int(raw_schema_version)
+        if schema_version > MANIFEST_SCHEMA_VERSION:
+            raise ManifestConflictError(
+                "manifest schema_version is newer than this runtime supports: "
+                f"{schema_version}"
+            )
+        if schema_version != MANIFEST_SCHEMA_VERSION:
+            raise ManifestConflictError(
+                f"unsupported manifest schema_version: {schema_version}"
+            )
         raw_layers = payload["layers"]
         if not isinstance(raw_layers, list):
             raise ValueError("manifest layers must be a list")
@@ -84,7 +103,11 @@ class Manifest:
             if not isinstance(item, dict):
                 raise ValueError("manifest layer entries must be objects")
             layers.append(LayerRef.from_dict(item))
-        return cls(version=int(payload["version"]), layers=tuple(layers))
+        return cls(
+            version=int(payload["version"]),
+            layers=tuple(layers),
+            schema_version=schema_version,
+        )
 
 
 def empty_manifest() -> Manifest:

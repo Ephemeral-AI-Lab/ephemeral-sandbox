@@ -66,7 +66,7 @@ def _seed_attempt(
         evaluation_criteria=["c1"],
         continuation_goal=None,
     )
-    attempt_store.set_stage(attempt.id, AttemptStage.GENERATING)
+    attempt_store.set_stage(attempt.id, AttemptStage.GENERATE)
     return attempt
 
 
@@ -83,7 +83,7 @@ def _seed_task(
         task_center_run_id=task_center_run_id,
         role=role,
         agent_name=role,
-        task_input="input",
+        rendered_prompt="input",
         status="running",
         summaries=[],
         needs=[],

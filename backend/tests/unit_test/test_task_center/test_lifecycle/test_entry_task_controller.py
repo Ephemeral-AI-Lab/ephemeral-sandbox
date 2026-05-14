@@ -7,7 +7,7 @@ import pytest
 from task_center.entry.controller import EntryTaskController
 from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.mission.mission import MissionCloseReport
-from task_center.task import HarnessTaskRole, HarnessTaskStatus
+from task_center.task import TaskCenterTaskRole, TaskCenterTaskStatus
 
 
 def _seed_entry_task(*, task_store, task_center_run_id: str) -> str:
@@ -15,10 +15,10 @@ def _seed_entry_task(*, task_store, task_center_run_id: str) -> str:
     task_store.upsert_task(
         task_id=entry_task_id,
         task_center_run_id=task_center_run_id,
-        role=HarnessTaskRole.GENERATOR.value,
+        role=TaskCenterTaskRole.GENERATOR.value,
         agent_name="entry_executor",
-        task_input="entry goal",
-        status=HarnessTaskStatus.RUNNING.value,
+        rendered_prompt="entry goal",
+        status=TaskCenterTaskStatus.RUNNING.value,
         summaries=[],
         needs=[],
         task_center_attempt_id=None,
@@ -51,7 +51,7 @@ def test_apply_executor_success_marks_task_and_run_done(
     task = task_store.get_task(controller.task_id)
     run = task_store.get_run(task_center_run_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.DONE.value
+    assert task["status"] == TaskCenterTaskStatus.DONE.value
     assert task["summaries"][-1]["summary"] == "all good"
     assert run is not None
     assert run["status"] == "done"
@@ -71,7 +71,7 @@ def test_apply_executor_failure_marks_task_and_run_failed(
     task = task_store.get_task(controller.task_id)
     run = task_store.get_run(task_center_run_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.FAILED.value
+    assert task["status"] == TaskCenterTaskStatus.FAILED.value
     assert task["summaries"][-1]["payload"]["reason"] == "missing input"
     assert run is not None
     assert run["status"] == "failed"
@@ -87,7 +87,7 @@ def test_apply_run_exhausted_marks_failed(
     task = task_store.get_task(controller.task_id)
     run = task_store.get_run(task_center_run_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.FAILED.value
+    assert task["status"] == TaskCenterTaskStatus.FAILED.value
     assert task["summaries"][-1]["fail_reason"] == "run_exhausted"
     assert run is not None
     assert run["status"] == "failed"
@@ -105,7 +105,7 @@ def test_mark_waiting_then_close_report_success(
     )
     task = task_store.get_task(controller.task_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.WAITING_MISSION.value
+    assert task["status"] == TaskCenterTaskStatus.WAITING_MISSION.value
 
     controller.apply_mission_close_report(
         MissionCloseReport(
@@ -120,7 +120,7 @@ def test_mark_waiting_then_close_report_success(
     task = task_store.get_task(controller.task_id)
     run = task_store.get_run(task_center_run_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.DONE.value
+    assert task["status"] == TaskCenterTaskStatus.DONE.value
     assert run is not None
     assert run["status"] == "done"
 
@@ -149,7 +149,7 @@ def test_close_report_failure_marks_failed(
     task = task_store.get_task(controller.task_id)
     run = task_store.get_run(task_center_run_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.FAILED.value
+    assert task["status"] == TaskCenterTaskStatus.FAILED.value
     assert run is not None
     assert run["status"] == "failed"
 
@@ -173,7 +173,7 @@ def test_close_report_idempotent_when_task_already_terminal(
     task = task_store.get_task(controller.task_id)
     run = task_store.get_run(task_center_run_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.DONE.value
+    assert task["status"] == TaskCenterTaskStatus.DONE.value
     assert run is not None
     assert run["status"] == "done"
 
@@ -181,7 +181,7 @@ def test_close_report_idempotent_when_task_already_terminal(
 def test_mark_waiting_rejects_when_task_is_not_running(entry_setup, task_store):
     controller = entry_setup
     task_store.set_task_status(
-        controller.task_id, status=HarnessTaskStatus.DONE.value
+        controller.task_id, status=TaskCenterTaskStatus.DONE.value
     )
 
     with pytest.raises(TaskCenterInvariantViolation):
@@ -208,7 +208,7 @@ def test_restore_running_after_failed_mission_start_rolls_back_waiting(
 
     task = task_store.get_task(controller.task_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.RUNNING.value
+    assert task["status"] == TaskCenterTaskStatus.RUNNING.value
 
 
 def test_terminal_is_idempotent(entry_setup, task_store, task_center_run_id):
@@ -220,7 +220,7 @@ def test_terminal_is_idempotent(entry_setup, task_store, task_center_run_id):
     task = task_store.get_task(controller.task_id)
     run = task_store.get_run(task_center_run_id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.DONE.value
+    assert task["status"] == TaskCenterTaskStatus.DONE.value
     assert len(task["summaries"]) == 1
     assert run is not None
     assert run["status"] == "done"

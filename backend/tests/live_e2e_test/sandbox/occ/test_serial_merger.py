@@ -36,7 +36,7 @@ def _prepared(path, *, atomic=True):
         snapshot=Manifest(version=0, layers=()),
         path_groups=(PreparedPathGroup(
             path=path,
-            route=RouteDecision.OCC_SKIPPED_MERGE,
+            route=RouteDecision.DIRECT,
             changes=(WriteChange(path=path, final_content=b"x"),),
         ),),
         atomic=atomic,
@@ -89,7 +89,7 @@ def _prepared(path):
         snapshot=Manifest(version=0, layers=()),
         path_groups=(PreparedPathGroup(
             path=path,
-            route=RouteDecision.OCC_SKIPPED_MERGE,
+            route=RouteDecision.DIRECT,
             changes=(WriteChange(path=path, final_content=b"x"),),
         ),),
         atomic=True,

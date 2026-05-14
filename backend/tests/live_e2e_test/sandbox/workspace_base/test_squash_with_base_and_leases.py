@@ -63,40 +63,35 @@ def _shape_changes(root, index):
     mode = index % 5
     if mode == 0:
         return [
-            LayerChange(
+            WriteLayerChange(
                 path="phase01-squash/append/%03d.txt" % index,
-                kind="write",
                 source_path=str(_source_file(root, "append-%03d" % index, "append-%03d\n" % index)),
             )
         ]
     if mode == 1:
         return [
-            LayerChange(
+            WriteLayerChange(
                 path="phase01-squash-fixtures/overwrites/%03d.txt" % index,
-                kind="write",
                 source_path=str(_source_file(root, "overwrite-%03d" % index, "top-%03d\n" % index)),
             )
         ]
     if mode == 2:
         return [
-            LayerChange(
+            DeleteLayerChange(
                 path="phase01-squash-fixtures/deletes/%03d.txt" % index,
-                kind="delete",
             )
         ]
     if mode == 3:
         return [
-            LayerChange(
+            SymlinkLayerChange(
                 path="phase01-squash/symlinks/link-%03d" % index,
-                kind="symlink",
                 source_path="target-%03d.txt" % index,
             )
         ]
     return [
-        LayerChange(path="phase01-squash-fixtures/opaque", kind="opaque_dir"),
-        LayerChange(
+        OpaqueDirLayerChange(path="phase01-squash-fixtures/opaque"),
+        WriteLayerChange(
             path="phase01-squash-fixtures/opaque/%03d.txt" % index,
-            kind="write",
             source_path=str(_source_file(root, "opaque-%03d" % index, "opaque-%03d\n" % index)),
         ),
     ]
@@ -156,9 +151,8 @@ lease_stack = _phase01_root(label, "lease")
 lease_binding, lease_timings = _build_base(lease_stack)
 manager = LayerStackManager(lease_stack)
 manifest_a, _ = _publish_changes(manager, [
-    LayerChange(
+    WriteLayerChange(
         path="phase01-squash-lease/value.txt",
-        kind="write",
         source_path=str(_source_file(lease_stack, "lease-a", b"A\n")),
     )
 ])
@@ -166,17 +160,15 @@ lease = manager.acquire_snapshot_lease("phase01-lease-reader")
 assert lease.manifest == manifest_a
 leased_layers = lease.manifest.layers
 _publish_changes(manager, [
-    LayerChange(
+    WriteLayerChange(
         path="phase01-squash-lease/value.txt",
-        kind="write",
         source_path=str(_source_file(lease_stack, "lease-b", b"B\n")),
     )
 ])
 for index in range(30):
     _publish_changes(manager, [
-        LayerChange(
+        WriteLayerChange(
             path="phase01-squash-lease/value.txt",
-            kind="write",
             source_path=str(_source_file(lease_stack, "lease-%03d" % index, ("N%03d\n" % index).encode("utf-8"))),
         )
     ])

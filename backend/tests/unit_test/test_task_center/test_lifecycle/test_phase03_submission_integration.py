@@ -9,7 +9,7 @@ from task_center.attempt.orchestrator import AttemptOrchestrator
 from task_center.attempt.orchestrator_registry import (
     AttemptOrchestratorRegistry,
 )
-from task_center.attempt.runtime import AgentLaunch, AttemptRuntime
+from task_center.attempt.runtime import AgentLaunch, AttemptDeps
 from task_center.episode.registry import EpisodeManagerRegistry
 from task_center.episode.episode import EpisodeCreationReason
 from task_center.task import evaluator_task_id, generator_task_id, planner_task_id
@@ -36,7 +36,7 @@ async def _noop_emit(event) -> None:
 
 
 def _tool_context(
-    runtime: AttemptRuntime,
+    runtime: AttemptDeps,
     attempt_id: str,
     task_id: str,
     *,
@@ -69,7 +69,7 @@ def _build_runtime(mission_store, episode_store, attempt_store, task_store, *, c
     episode_store.append_attempt_id(episode.id, attempt.id)
     launcher = _FakeLauncher()
     registry = AttemptOrchestratorRegistry()
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,

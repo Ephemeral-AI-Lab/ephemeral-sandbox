@@ -1,4 +1,4 @@
-"""User-command execution inside a mounted snapshot workspace."""
+"""User-command execution inside a prepared snapshot workspace."""
 
 from __future__ import annotations
 
@@ -7,15 +7,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-
-# This package is the portable copy-backed merged-view runner. The kernel
-# namespace/overlay-mount entrypoint lives in
-# sandbox.command_exec.workspace.namespace_entrypoint.
-
 # Host env vars that the user command needs to function (PATH for argv0
-# resolution, HOME/TERM for shells, locale vars for tooling that branches
-# on encoding). Host secrets (AWS_*, ANTHROPIC_API_KEY, SSH_AUTH_SOCK, etc.)
-# are NOT in this list and therefore never reach the user command.
+# resolution, HOME/TERM for shells, locale vars for tooling that branches on
+# encoding). Host secrets are intentionally absent from this allow-list.
 _HOST_ENV_ALLOWLIST: tuple[str, ...] = (
     "PATH",
     "HOME",
@@ -28,7 +22,7 @@ _HOST_ENV_ALLOWLIST: tuple[str, ...] = (
 
 
 @dataclass(frozen=True)
-class CommandResult:
+class OverlayCommandResult:
     exit_code: int
     stdout_ref: str
     stderr_ref: str
@@ -43,7 +37,7 @@ def run_user_command(
     timeout_seconds: float | None,
     stdout_ref: str | Path,
     stderr_ref: str | Path,
-) -> CommandResult:
+) -> OverlayCommandResult:
     root = Path(workspace_root)
     resolved_cwd = _validate_cwd(root, cwd)
     _ensure_cwd(resolved_cwd)
@@ -72,12 +66,10 @@ def run_user_command(
             )
             exit_code = int(completed.returncode)
         except subprocess.TimeoutExpired:
-            # WR-04: a user command exceeding its timeout must surface as a
-            # structured ``timeout`` result, not an uncaught exception.
             # 124 follows the GNU `timeout(1)` convention so callers can
-            # distinguish "timed out" from infrastructure failures.
+            # distinguish a user-command timeout from infrastructure failure.
             exit_code = 124
-    return CommandResult(
+    return OverlayCommandResult(
         exit_code=exit_code,
         stdout_ref=str(stdout_path),
         stderr_ref=str(stderr_path),
@@ -100,6 +92,6 @@ def _ensure_cwd(resolved_cwd: Path) -> None:
 
 
 __all__ = [
-    "CommandResult",
+    "OverlayCommandResult",
     "run_user_command",
 ]

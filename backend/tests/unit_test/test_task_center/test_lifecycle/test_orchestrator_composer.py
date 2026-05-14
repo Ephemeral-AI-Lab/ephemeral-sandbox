@@ -1,7 +1,7 @@
 """US-014: orchestrator + dispatcher composer wiring.
 
-Confirms that when ``AttemptRuntime.composer`` is set, the orchestrator
-asks the composer for the planner agent name and task_input, and that
+Confirms that when ``AttemptDeps.composer`` is set, the orchestrator
+asks the composer for the planner agent name and rendered_prompt, and that
 ``planner_full_only`` is selected when ancestry has a partial-plan caller.
 """
 
@@ -18,7 +18,7 @@ from agents import (
     register_definition,
     unregister_definition,
 )
-from task_center.config import HarnessLifecycleConfig
+from task_center.config import TaskCenterLifecycleConfig
 from task_center.agent_launch.composer import ContextComposer
 from task_center.context_engine.engine import ContextEngine, ContextEngineDeps
 from task_center.agent_launch.predicates import (
@@ -33,7 +33,7 @@ from task_center.attempt.orchestrator_registry import (
 )
 from task_center.attempt.runtime import (
     AgentLaunch,
-    AttemptRuntime,
+    AttemptDeps,
 )
 from task_center.episode.episode import EpisodeCreationReason
 
@@ -76,7 +76,7 @@ def _clear_definitions() -> None:
 @pytest.fixture
 def composer_runtime(
     mission_store, episode_store, attempt_store, task_store
-) -> tuple[AttemptRuntime, _RecordingLauncher]:
+) -> tuple[AttemptDeps, _RecordingLauncher]:
     launcher = _RecordingLauncher()
     deps = ContextEngineDeps(
         mission_store=mission_store,
@@ -85,7 +85,7 @@ def composer_runtime(
         task_store=task_store,
     )
     composer = ContextComposer.default(ContextEngine(deps))
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -93,7 +93,7 @@ def composer_runtime(
         agent_launcher=launcher,
         orchestrator_registry=AttemptOrchestratorRegistry(),
         manager_registry=None,
-        lifecycle_config=HarnessLifecycleConfig(),
+        lifecycle_config=TaskCenterLifecycleConfig(),
         composer=composer,
     )
     return runtime, launcher
@@ -179,7 +179,7 @@ def _setup_partial_plan_ancestor(
         task_center_run_id=task_center_run_id,
         role="generator",
         agent_name="executor",
-        task_input="x",
+        rendered_prompt="x",
         status="running",
         summaries=[],
         needs=[],
@@ -213,7 +213,7 @@ def test_planner_launched_via_composer_uses_base_when_no_ancestor(
     assert selected is not None
     assert selected.system_prompt == "PLANNER"
     assert launched.context_packet_id is None  # no packet store wired
-    assert "Mission / Current Episode" in launched.task_input
+    assert "Mission / Current Episode" in launched.rendered_prompt
 
 
 def test_planner_forked_to_full_only_when_partial_plan_caller_present(

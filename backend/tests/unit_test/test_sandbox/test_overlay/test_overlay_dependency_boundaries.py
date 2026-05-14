@@ -6,24 +6,17 @@ from pathlib import Path
 import tarfile
 import io
 
-import sandbox.overlay.capture.types
 import sandbox.overlay
 from sandbox.host.runtime_bundle import _runtime_bundle_bytes
 
 
 def _overlay_root() -> Path:
-    return Path(sandbox.overlay.capture.types.__file__).resolve().parents[1]
+    return Path(sandbox.overlay.__file__).resolve().parent
 
 
 def test_phase02_overlay_modules_do_not_import_occ_or_git_policy() -> None:
     overlay_root = _overlay_root()
-    runtime_root = Path(sandbox.overlay.__file__).resolve().parent
-    checked_roots = (
-        overlay_root / "capture",
-        overlay_root / "namespace",
-        overlay_root / "runner",
-        runtime_root,
-    )
+    checked_roots = (overlay_root,)
 
     forbidden = (
         "sandbox.occ",
@@ -62,11 +55,19 @@ def test_phase02_runtime_bundle_contains_snapshot_runtime_without_ndjson() -> No
         names = set(tar.getnames())
 
     assert "sandbox/overlay/cli.py" in names
-    assert "sandbox/overlay/capture/upperdir.py" in names
+    assert "sandbox/overlay/worker.py" in names
+    assert "sandbox/overlay/capture.py" in names
+    assert "sandbox/overlay/change.py" in names
+    assert "sandbox/overlay/result.py" in names
     assert "sandbox/runtime/daemon/handler/overlay.py" in names
-    assert "sandbox/overlay/namespace/mounts.py" in names
+    assert "sandbox/overlay/mounts.py" in names
+    assert "sandbox/overlay/runner.py" in names
+    assert "sandbox/overlay/invoker.py" in names
     assert "sandbox/layer_stack/manifest/model.py" in names
     assert "sandbox/overlay/capture/ndjson.py" not in names
+    assert "sandbox/overlay/capture/upperdir.py" not in names
+    assert "sandbox/overlay/namespace/mounts.py" not in names
+    assert "sandbox/overlay/runner/snapshot_overlay_runner.py" not in names
     assert all(not name.startswith("sandbox/host/") for name in names)
     assert all(not name.startswith("sandbox/provider/") for name in names)
     assert all(not name.startswith("sandbox/testing/") for name in names)

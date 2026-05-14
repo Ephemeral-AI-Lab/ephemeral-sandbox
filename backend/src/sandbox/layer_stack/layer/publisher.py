@@ -7,18 +7,14 @@ import os
 import shutil
 import uuid
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
-from sandbox.layer_stack.filesystem import join_layer_path, remove_path
+from sandbox.layer_stack._paths import allocate_unique_layer_paths, remove_path
 from sandbox.layer_stack.layer.change import (
-    DeleteLayerChange,
     LayerChange,
-    OpaqueDirLayerChange,
-    SymlinkLayerChange,
-    WriteLayerChange,
+    PreparedLayerChange,
+    aggregate_layer_changes,
 )
-from sandbox.layer_stack.layer.index import OPAQUE_MARKER, WHITEOUT_PREFIX
 from sandbox.layer_stack.manifest import (
     LAYERS_DIR,
     STAGING_DIR,
@@ -31,12 +27,6 @@ from sandbox.layer_stack.manifest import (
 )
 from sandbox.timing import monotonic_now
 from sandbox.timing import record_elapsed
-
-
-@dataclass(frozen=True)
-class _PreparedLayerChange:
-    change: LayerChange
-    write_content: bytes | None = None
 
 
 class LayerPublisher:
@@ -52,7 +42,7 @@ class LayerPublisher:
         self._manifest_file = manifest_path(self._storage_root)
         self._id_factory = id_factory or _default_layer_id
 
-    def publish_layer_locked(
+    def publish_layer(
         self,
         changes: Sequence[LayerChange],
         *,
@@ -98,18 +88,8 @@ class LayerPublisher:
         record_elapsed(timings, "layer_stack.publish.create_staging_s", create_staging_start)
         try:
             write_changes_start = monotonic_now()
-            # Dedupe prepared changes by path, last-write-wins. OCC's
-            # flattening across multiple LayerDeltas can present the same
-            # path more than once, and _write_symlink / opaque-dir marker
-            # writes are not idempotent on FileExistsError. Beyond the
-            # crash safety, this also keeps the on-disk layer canonical
-            # so the rolling sha256 digest is stable across equivalent
-            # change orderings.
-            seen: dict[str, _PreparedLayerChange] = {}
             for prepared in prepared_changes:
-                seen[prepared.change.path] = prepared
-            for prepared in seen.values():
-                self._write_change(staging_dir, prepared)
+                prepared.change.write_to(staging_dir, prepared)
             _fsync_tree_files(staging_dir)
             _fsync_dir(staging_dir)
             record_elapsed(
@@ -164,51 +144,13 @@ class LayerPublisher:
         return new_manifest
 
     def _allocate_layer_paths(self, next_version: int) -> tuple[str, Path, Path]:
-        for _ in range(100):
-            layer_id = self._id_factory(next_version)
-            layer_dir = self._storage_root / LAYERS_DIR / layer_id
-            staging_dir = self._storage_root / STAGING_DIR / f"{layer_id}.staging"
-            if not layer_dir.exists() and not staging_dir.exists():
-                return layer_id, staging_dir, layer_dir
-        raise RuntimeError("could not allocate a unique layer id")
-
-    def _write_change(self, layer_dir: Path, prepared: _PreparedLayerChange) -> None:
-        change = prepared.change
-        if isinstance(change, WriteLayerChange):
-            self._write_file(layer_dir, change, prepared.write_content)
-        elif isinstance(change, DeleteLayerChange):
-            _whiteout_path(layer_dir, change.path).write_text("", encoding="utf-8")
-        elif isinstance(change, SymlinkLayerChange):
-            self._write_symlink(layer_dir, change)
-        elif isinstance(change, OpaqueDirLayerChange):
-            marker = join_layer_path(layer_dir, change.path) / OPAQUE_MARKER
-            marker.parent.mkdir(parents=True, exist_ok=True)
-            marker.write_text("", encoding="utf-8")
-        else:
-            raise ValueError(f"unsupported layer change kind: {change.kind}")
-
-    def _write_file(
-        self,
-        layer_dir: Path,
-        change: WriteLayerChange,
-        content: bytes | None,
-    ) -> None:
-        if content is None:
-            raise ValueError(f"prepared write content missing for {change.path}")
-        target = join_layer_path(layer_dir, change.path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        remove_path(target)
-        target.write_bytes(content)
-
-    def _write_symlink(self, layer_dir: Path, change: SymlinkLayerChange) -> None:
-        target = join_layer_path(layer_dir, change.path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        # Defensive: dedup at the publisher entry point should have ensured
-        # each path is written exactly once, but the dedup is a recent
-        # invariant; clean up any stale entry so a future caller that
-        # bypasses the dedup still produces a deterministic layer.
-        remove_path(target)
-        os.symlink(change.source_path, target)
+        return allocate_unique_layer_paths(
+            storage_root=self._storage_root,
+            layers_dir=LAYERS_DIR,
+            staging_dir=STAGING_DIR,
+            next_version=next_version,
+            id_factory=self._id_factory,
+        )
 
 
 def _default_layer_id(next_version: int) -> str:
@@ -230,39 +172,16 @@ def _prepare_changes(
     changes: Sequence[LayerChange],
     *,
     source_root: str | Path | None = None,
-) -> tuple[tuple[_PreparedLayerChange, ...], str]:
+) -> tuple[tuple[PreparedLayerChange, ...], str]:
     digest = hashlib.sha256()
     resolved_source_root = (
         Path(source_root).resolve(strict=True) if source_root is not None else None
     )
-    prepared: list[_PreparedLayerChange] = []
-    for change in changes:
-        digest.update(change.kind.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(change.path.encode("utf-8"))
-        digest.update(b"\0")
-        if isinstance(change, WriteLayerChange):
-            source_path = Path(change.source_path)
-            if resolved_source_root is not None:
-                resolved_source = source_path.resolve(strict=True)
-                if not resolved_source.is_relative_to(resolved_source_root):
-                    raise ValueError(
-                        "write source path is outside trusted source root: "
-                        f"{change.path}"
-                    )
-                source_path = resolved_source
-            content = source_path.read_bytes()
-            content_hash = hashlib.sha256(content).hexdigest()
-            if change.content_hash and content_hash != change.content_hash:
-                raise ValueError(f"content hash mismatch for {change.path}")
-            digest.update(content)
-            prepared.append(_PreparedLayerChange(change=change, write_content=content))
-        elif isinstance(change, SymlinkLayerChange):
-            digest.update(change.source_path.encode("utf-8"))
-            prepared.append(_PreparedLayerChange(change=change))
-        else:
-            prepared.append(_PreparedLayerChange(change=change))
-        digest.update(b"\0")
+    prepared: list[PreparedLayerChange] = []
+    for change in aggregate_layer_changes(changes).changes:
+        prepared_change = change.prepare(source_root=resolved_source_root)
+        change.update_digest(digest, prepared_change)
+        prepared.append(prepared_change)
     return tuple(prepared), digest.hexdigest()
 
 
@@ -320,11 +239,3 @@ def _head_layer_digest(storage_root: Path, active: Manifest) -> str | None:
         )
     except OSError:
         return None
-
-
-def _whiteout_path(layer_dir: Path, rel: str) -> Path:
-    target = PurePosixPath(rel)
-    parent_parts = tuple(part for part in target.parent.parts if part != ".")
-    whiteout = layer_dir.joinpath(*parent_parts, f"{WHITEOUT_PREFIX}{target.name}")
-    whiteout.parent.mkdir(parents=True, exist_ok=True)
-    return whiteout

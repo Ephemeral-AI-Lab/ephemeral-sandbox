@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class MountMode(str, Enum):
+    """Workspace replacement mode used for one command."""
+
+    COPY_BACKED = "copy_backed"
+    PRIVATE_NAMESPACE = "private_namespace"
 
 
 @dataclass(frozen=True)
@@ -12,7 +20,7 @@ class WorkspaceCapture:
 
     changes: Sequence[object]
     snapshot_version: int
-    mount_mode: str
+    mount_mode: MountMode
 
 
 @dataclass(frozen=True)
@@ -35,11 +43,12 @@ class ShellProcessResult:
     stdout_ref: str
     stderr_ref: str
     mounted_workspace_root: str
-    mount_mode: str
+    mount_mode: MountMode
 
 
 __all__ = [
     "CommandExecResult",
+    "MountMode",
     "ShellProcessResult",
     "WorkspaceCapture",
 ]

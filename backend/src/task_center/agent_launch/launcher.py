@@ -14,13 +14,13 @@ from task_center.exceptions import TaskCenterInvariantViolation
 from task_center.attempt.state import AttemptFailReason, AttemptStatus
 from task_center.attempt.runtime import (
     AgentLaunch,
-    AttemptRuntime,
+    AttemptDeps,
 )
 from task_center.task.models import (
     EvaluatorSubmission,
     GeneratorSubmission,
-    HarnessTaskRole,
-    HarnessTaskStatus,
+    TaskCenterTaskRole,
+    TaskCenterTaskStatus,
     PlannerFailureSubmission,
 )
 from tools import ExecutionMetadata
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttemptRuntimeProvider = Callable[[], AttemptRuntime | None]
+AttemptDepsProvider = Callable[[], AttemptDeps | None]
 AttemptAgentRunner = Callable[..., Awaitable[Any]]
 AgentStreamEmitter = Callable[[StreamEvent], Awaitable[None]]
 
@@ -50,7 +50,7 @@ class EphemeralAttemptAgentLauncher:
         self,
         *,
         config: RuntimeConfig,
-        runtime: AttemptRuntimeProvider,
+        runtime: AttemptDepsProvider,
         sandbox_id: str | None = None,
         on_event: AgentStreamEmitter | None = None,
         runner: AttemptAgentRunner | None = None,
@@ -68,7 +68,7 @@ class EphemeralAttemptAgentLauncher:
             loop = asyncio.get_running_loop()
         except RuntimeError as exc:
             raise TaskCenterInvariantViolation(
-                "Harness agent launcher requires an active asyncio event loop."
+                "TaskCenter agent launcher requires an active asyncio event loop."
             ) from exc
 
         task = loop.create_task(self._run_launch(launch, agent_def))
@@ -88,7 +88,7 @@ class EphemeralAttemptAgentLauncher:
         agent_def = get_definition(agent_name)
         if agent_def is None:
             raise TaskCenterInvariantViolation(
-                f"Harness agent definition {agent_name!r} is not registered."
+                f"TaskCenter agent definition {agent_name!r} is not registered."
             )
         return agent_def
 
@@ -118,7 +118,7 @@ class EphemeralAttemptAgentLauncher:
         try:
             result: Any = await runner(
                 self._config,
-                launch.task_input,
+                launch.rendered_prompt,
                 agent_def=agent_def,
                 sandbox_id=self._sandbox_id,
                 persist_agent_run=True,
@@ -161,10 +161,10 @@ class EphemeralAttemptAgentLauncher:
             summary = "Agent run ended without a terminal submission."
         await self._report_unfinished_running_task(launch, summary=summary)
 
-    def _require_runtime(self) -> AttemptRuntime:
+    def _require_runtime(self) -> AttemptDeps:
         runtime = self._runtime()
         if runtime is None:
-            raise TaskCenterInvariantViolation("Harness attempt runtime is not initialized.")
+            raise TaskCenterInvariantViolation("TaskCenter attempt runtime is not initialized.")
         return runtime
 
     async def _report_unfinished_running_task(
@@ -177,7 +177,7 @@ class EphemeralAttemptAgentLauncher:
         if runtime is None:
             return
         task = runtime.task_store.get_task(launch.task_id)
-        if task is None or task.get("status") != HarnessTaskStatus.RUNNING.value:
+        if task is None or task.get("status") != TaskCenterTaskStatus.RUNNING.value:
             # Entry-mode tasks may already be in WAITING_MISSION after a
             # delegated mission start; or DONE/FAILED via a terminal. Either way,
             # the controller has already moved the task off RUNNING and
@@ -202,18 +202,18 @@ class EphemeralAttemptAgentLauncher:
             self._fail_unowned_attempt(runtime, launch, summary=summary)
             return
 
-        if launch.role == HarnessTaskRole.PLANNER:
+        if launch.role == TaskCenterTaskRole.PLANNER:
             self._report_planner_exhaustion(orchestrator, launch, summary=summary)
-        elif launch.role == HarnessTaskRole.GENERATOR:
+        elif launch.role == TaskCenterTaskRole.GENERATOR:
             self._report_generator_exhaustion(orchestrator, launch, summary=summary)
-        elif launch.role == HarnessTaskRole.EVALUATOR:
+        elif launch.role == TaskCenterTaskRole.EVALUATOR:
             self._report_evaluator_exhaustion(orchestrator, launch, summary=summary)
-        else:  # pragma: no cover - exhaustive over HarnessTaskRole
+        else:  # pragma: no cover - exhaustive over TaskCenterTaskRole
             raise TaskCenterInvariantViolation(f"Unknown harness role: {launch.role!r}")
 
     @staticmethod
     def _mark_unowned_task_exhausted(
-        runtime: AttemptRuntime,
+        runtime: AttemptDeps,
         launch: AgentLaunch,
         *,
         summary: str,
@@ -227,14 +227,14 @@ class EphemeralAttemptAgentLauncher:
         )
         runtime.task_store.set_task_status(
             launch.task_id,
-            status=HarnessTaskStatus.FAILED.value,
+            status=TaskCenterTaskStatus.FAILED.value,
             summary={"fail_reason": "run_exhausted", "summary": summary},
         )
 
     @classmethod
     def _fail_unowned_attempt(
         cls,
-        runtime: AttemptRuntime,
+        runtime: AttemptDeps,
         launch: AgentLaunch,
         *,
         summary: str,
@@ -322,11 +322,11 @@ class EphemeralAttemptAgentLauncher:
         )
 
 
-def _fail_reason_for_role(role: HarnessTaskRole) -> AttemptFailReason:
-    if role == HarnessTaskRole.PLANNER:
+def _fail_reason_for_role(role: TaskCenterTaskRole) -> AttemptFailReason:
+    if role == TaskCenterTaskRole.PLANNER:
         return AttemptFailReason.PLANNER_FAILED
-    if role == HarnessTaskRole.GENERATOR:
+    if role == TaskCenterTaskRole.GENERATOR:
         return AttemptFailReason.GENERATOR_FAILED
-    if role == HarnessTaskRole.EVALUATOR:
+    if role == TaskCenterTaskRole.EVALUATOR:
         return AttemptFailReason.EVALUATOR_FAILED
     raise TaskCenterInvariantViolation(f"Unknown harness role: {role!r}")

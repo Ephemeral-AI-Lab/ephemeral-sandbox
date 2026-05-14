@@ -70,7 +70,7 @@ async def ask_advisor(
     except HelperComposeError as exc:
         return exc.to_tool_result()
 
-    composed_input = bundle.task_input.rstrip() + "\n\n" + _question_section(
+    composed_input = bundle.rendered_prompt.rstrip() + "\n\n" + _question_section(
         tool_name=tool_name,
         tool_payloads=tool_payloads,
         prompt=prompt,

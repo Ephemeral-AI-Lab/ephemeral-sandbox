@@ -77,7 +77,7 @@ def _generator_v1_build(
         ContextBlock(
             kind=ContextBlockKind.PLANNED_TASK_SPEC,
             priority=ContextPriority.REQUIRED,
-            text=str(task.get("task_input") or ""),
+            text=str(task.get("rendered_prompt") or ""),
             source_id=scope.task_id,
             source_kind="task_center_task",
         )

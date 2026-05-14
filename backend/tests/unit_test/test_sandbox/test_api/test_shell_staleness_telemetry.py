@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
+from sandbox.layer_stack import LayerChange, WriteLayerChange, LayerStackManager
 from sandbox.layer_stack.workspace.base import build_workspace_base
 from sandbox.occ.content.hashing import ContentHasher
 from sandbox.occ.changeset.builders import build_api_write_change
@@ -191,9 +191,8 @@ def _publish(
     source = _source(tmp_path, rel.replace("/", "-"), content)
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 content_hash=ContentHasher().hash_bytes(content),
                 source_path=str(source),
             )

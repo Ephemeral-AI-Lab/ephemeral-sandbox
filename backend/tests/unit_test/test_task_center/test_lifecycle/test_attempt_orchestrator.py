@@ -17,13 +17,13 @@ from task_center.attempt.orchestrator_registry import (
 )
 from task_center.attempt.runtime import (
     AgentLaunch,
-    AttemptRuntime,
+    AttemptDeps,
 )
 from task_center.task import (
     EvaluatorSubmission,
     GeneratorSubmission,
-    HarnessTaskRole,
-    HarnessTaskStatus,
+    TaskCenterTaskRole,
+    TaskCenterTaskStatus,
     PlannedGeneratorTask,
     PlannerFailureSubmission,
     PlannerSubmission,
@@ -43,7 +43,7 @@ class _FakeLauncher:
 
 
 class _FailingRoleLauncher(_FakeLauncher):
-    def __init__(self, role: HarnessTaskRole) -> None:
+    def __init__(self, role: TaskCenterTaskRole) -> None:
         super().__init__()
         self._role = role
 
@@ -95,7 +95,7 @@ def _build_orchestrator(
     )
     launcher = launcher or _FakeLauncher()
     registry = AttemptOrchestratorRegistry()
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -177,7 +177,7 @@ def test_start_creates_planner_task_and_sets_graph_planner_id(
     planner_task = task_store.get_task(task_id)
     assert refreshed is not None and refreshed.planner_task_id == task_id
     assert planner_task is not None
-    assert planner_task["status"] == HarnessTaskStatus.RUNNING.value
+    assert planner_task["status"] == TaskCenterTaskStatus.RUNNING.value
     assert [launch.task_id for launch in launcher.launches] == [task_id]
 
 
@@ -197,7 +197,7 @@ def test_apply_plan_submission_persists_contract_and_generator_ids(
 
     refreshed = attempt_store.get(attempt.id)
     assert refreshed is not None
-    assert refreshed.stage == AttemptStage.GENERATING
+    assert refreshed.stage == AttemptStage.GENERATE
     assert refreshed.task_specification == "spec"
     assert refreshed.generator_task_ids == (
         generator_task_id(attempt.id, "a"),
@@ -253,7 +253,7 @@ def test_apply_planner_failure_marks_task_and_closes_graph(
     assert refreshed is not None
     assert refreshed.status == AttemptStatus.FAILED
     assert refreshed.fail_reason == AttemptFailReason.PLANNER_FAILED
-    assert task is not None and task["status"] == HarnessTaskStatus.FAILED.value
+    assert task is not None and task["status"] == TaskCenterTaskStatus.FAILED.value
     assert closed == [attempt.id]
     assert registry.get(attempt.id) is None
 
@@ -310,7 +310,7 @@ def test_missing_generator_agent_profile_is_invariant_violation(
         task_center_run_id=task_b["task_center_run_id"],
         role=task_b["role"],
         agent_name=None,
-        task_input=task_b["task_input"],
+        rendered_prompt=task_b["rendered_prompt"],
         status=task_b["status"],
         summaries=task_b["summaries"],
         needs=task_b["needs"],
@@ -323,13 +323,13 @@ def test_missing_generator_agent_profile_is_invariant_violation(
 
     refreshed_task_b = task_store.get_task(task_b_id)
     assert refreshed_task_b is not None
-    assert refreshed_task_b["status"] == HarnessTaskStatus.PENDING.value
+    assert refreshed_task_b["status"] == TaskCenterTaskStatus.PENDING.value
 
 
 def test_generator_launch_failure_marks_task_failed_and_closes_graph(
     mission_store, episode_store, attempt_store, task_store, task_center_run_id, composer
 ):
-    launcher = _FailingRoleLauncher(HarnessTaskRole.GENERATOR)
+    launcher = _FailingRoleLauncher(TaskCenterTaskRole.GENERATOR)
     orchestrator, attempt, _, registry, closed = _build_orchestrator(
         mission_store,
         episode_store,
@@ -351,7 +351,7 @@ def test_generator_launch_failure_marks_task_failed_and_closes_graph(
     task = task_store.get_task(generator_task_id(attempt.id, "a"))
     refreshed = attempt_store.get(attempt.id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.FAILED.value
+    assert task["status"] == TaskCenterTaskStatus.FAILED.value
     assert task["summaries"][-1]["fail_reason"] == "agent_launch_failed"
     assert refreshed is not None
     assert refreshed.status == AttemptStatus.FAILED
@@ -363,7 +363,7 @@ def test_generator_launch_failure_marks_task_failed_and_closes_graph(
 def test_evaluator_launch_failure_marks_task_failed_and_closes_graph(
     mission_store, episode_store, attempt_store, task_store, task_center_run_id, composer
 ):
-    launcher = _FailingRoleLauncher(HarnessTaskRole.EVALUATOR)
+    launcher = _FailingRoleLauncher(TaskCenterTaskRole.EVALUATOR)
     orchestrator, attempt, _, registry, closed = _build_orchestrator(
         mission_store,
         episode_store,
@@ -386,7 +386,7 @@ def test_evaluator_launch_failure_marks_task_failed_and_closes_graph(
     task = task_store.get_task(evaluator_task_id(attempt.id))
     refreshed = attempt_store.get(attempt.id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.FAILED.value
+    assert task["status"] == TaskCenterTaskStatus.FAILED.value
     assert task["summaries"][-1]["fail_reason"] == "agent_launch_failed"
     assert refreshed is not None
     assert refreshed.status == AttemptStatus.FAILED
@@ -445,14 +445,14 @@ def test_waiting_mission_prevents_generator_quiescence(
     )
     task_store.set_task_status(
         generator_task_id(attempt.id, "a"),
-        status=HarnessTaskStatus.WAITING_MISSION.value,
+        status=TaskCenterTaskStatus.WAITING_MISSION.value,
     )
 
     orchestrator.apply_generator_submission(_generator_success(attempt.id, "b"))
 
     refreshed = attempt_store.get(attempt.id)
     assert refreshed is not None
-    assert refreshed.stage == AttemptStage.GENERATING
+    assert refreshed.stage == AttemptStage.GENERATE
     assert closed == []
 
 
@@ -472,7 +472,7 @@ def test_mission_close_report_success_resumes_waiting_generator(
     task_id = generator_task_id(attempt.id, "a")
     task_store.set_task_status(
         task_id,
-        status=HarnessTaskStatus.WAITING_MISSION.value,
+        status=TaskCenterTaskStatus.WAITING_MISSION.value,
     )
 
     orchestrator.apply_mission_close_report(
@@ -488,12 +488,12 @@ def test_mission_close_report_success_resumes_waiting_generator(
     task = task_store.get_task(task_id)
     refreshed = attempt_store.get(attempt.id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.DONE.value
+    assert task["status"] == TaskCenterTaskStatus.DONE.value
     assert task["summaries"][-1]["payload"]["mission_close_report"][
         "mission_id"
     ] == "delegated-1"
     assert refreshed is not None
-    assert refreshed.stage == AttemptStage.EVALUATING
+    assert refreshed.stage == AttemptStage.EVALUATE
 
 
 def test_mission_close_report_failure_blocks_dependents_and_closes_graph(
@@ -516,7 +516,7 @@ def test_mission_close_report_failure_blocks_dependents_and_closes_graph(
     dependent_id = generator_task_id(attempt.id, "b")
     task_store.set_task_status(
         task_id,
-        status=HarnessTaskStatus.WAITING_MISSION.value,
+        status=TaskCenterTaskStatus.WAITING_MISSION.value,
     )
 
     orchestrator.apply_mission_close_report(
@@ -533,9 +533,9 @@ def test_mission_close_report_failure_blocks_dependents_and_closes_graph(
     dependent = task_store.get_task(dependent_id)
     refreshed = attempt_store.get(attempt.id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.FAILED.value
+    assert task["status"] == TaskCenterTaskStatus.FAILED.value
     assert dependent is not None
-    assert dependent["status"] == HarnessTaskStatus.BLOCKED.value
+    assert dependent["status"] == TaskCenterTaskStatus.BLOCKED.value
     assert refreshed is not None
     assert refreshed.status == AttemptStatus.FAILED
     assert closed == [attempt.id]
@@ -617,7 +617,7 @@ def test_all_generators_done_spawns_evaluator(
 
     refreshed = attempt_store.get(attempt.id)
     assert refreshed is not None
-    assert refreshed.stage == AttemptStage.EVALUATING
+    assert refreshed.stage == AttemptStage.EVALUATE
     assert launcher.launches[-1].task_id == evaluator_task_id(attempt.id)
 
 

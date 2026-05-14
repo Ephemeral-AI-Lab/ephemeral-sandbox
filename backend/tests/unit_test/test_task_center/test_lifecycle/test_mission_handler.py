@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.config import HarnessLifecycleConfig
+from task_center.config import TaskCenterLifecycleConfig
 from task_center.mission.handler import MissionHandler
 from task_center.episode.registry import EpisodeManagerRegistry
 from task_center.mission.mission import MissionStatus
@@ -28,7 +28,7 @@ def handler(mission_store, episode_store, attempt_store):
         episode_store=episode_store,
         attempt_store=attempt_store,
         manager_registry=EpisodeManagerRegistry(),
-        config=HarnessLifecycleConfig(default_attempt_budget=2),
+        config=TaskCenterLifecycleConfig(default_attempt_budget=2),
     )
 
 
@@ -275,7 +275,7 @@ def test_close_mission_delivers_close_report_when_callback_set(
         episode_store=episode_store,
         attempt_store=attempt_store,
         manager_registry=EpisodeManagerRegistry(),
-        config=HarnessLifecycleConfig(default_attempt_budget=2),
+        config=TaskCenterLifecycleConfig(default_attempt_budget=2),
         deliver_close_report=sink,
     )
     req = handler.create_mission(
@@ -317,7 +317,7 @@ def test_handler_passes_orchestrator_factory_to_spawned_manager(
         episode_store=episode_store,
         attempt_store=attempt_store,
         manager_registry=registry,
-        config=HarnessLifecycleConfig(default_attempt_budget=2),
+        config=TaskCenterLifecycleConfig(default_attempt_budget=2),
         orchestrator_factory=factory,
     )
     req = handler.create_mission(

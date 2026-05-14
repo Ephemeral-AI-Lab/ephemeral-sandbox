@@ -12,9 +12,9 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
-from sandbox.overlay.runner.snapshot_overlay_runner import OverlayShellRequest, SnapshotOverlayRunner
+from sandbox.overlay import OverlayShellRequest, OverlaySnapshotRunner
 
 label = "overlay.native.overlay_resource"
 before = sample_resource()
@@ -22,9 +22,9 @@ started = time.perf_counter()
 root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 manager.publish_changes([
-    LayerChange(path="base.txt", kind="write", source_path=str(_source(root, "base", b"base\n"))),
+    WriteLayerChange(path="base.txt", source_path=str(_source(root, "base", b"base\n"))),
 ])
-runner = SnapshotOverlayRunner(manager)
+runner = OverlaySnapshotRunner(manager)
 latencies = []
 timing_rows = []
 for index in range(8):

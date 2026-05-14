@@ -4,21 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sandbox.command_exec.workspace.mount import WorkspaceReplacementMountSpec
-from sandbox.overlay.capture.changes import OverlayPathChange
-from sandbox.overlay.capture.upperdir import capture_changes
+from sandbox.command_exec.contract.spec import WorkspaceReplacementMountSpec
+from sandbox.overlay import OverlayPathChange
+from sandbox.overlay import capture_changes
 
 
 def capture_workspace_upperdir(
     *,
     spec: WorkspaceReplacementMountSpec,
-    snapshot_manifest: object,
     mounted_workspace_root: str,
     copy_backed: bool,
     timings: dict[str, float],
 ) -> Sequence[OverlayPathChange]:
     """Return only assigned-workspace changes for one command."""
-    del snapshot_manifest
     if copy_backed:
         return capture_changes(
             spec.upperdir,

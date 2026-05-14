@@ -43,12 +43,12 @@ prepared = router.prepare_sync(
 )
 routes = [(group.path, group.route.value) for group in prepared.path_groups]
 assert routes == [
-    ("src/app.py", RouteDecision.OCC_GATED_MERGE.value),
-    ("dist/app.js", RouteDecision.OCC_SKIPPED_MERGE.value),
+    ("src/app.py", RouteDecision.GATED.value),
+    ("dist/app.js", RouteDecision.DIRECT.value),
     (".git/config", RouteDecision.DROP.value),
     ("../escape", RouteDecision.REJECT.value),
-    ("ignored-link", RouteDecision.OCC_SKIPPED_MERGE.value),
-    ("cache", RouteDecision.OCC_SKIPPED_MERGE.value),
+    ("ignored-link", RouteDecision.DIRECT.value),
+    ("cache", RouteDecision.DIRECT.value),
 ]
 assert gitignore.calls == ["src/app.py", "dist/app.js", "ignored-link", "cache"]
 
@@ -69,7 +69,7 @@ async def test_routing_applies_direct_gated_drop_reject_and_override_priority(
         _ROUTING_BODY,
         label="occ.routing",
     )
-    assert payload["routes"][0] == ["src/app.py", "occ_gated_merge"]
-    assert payload["routes"][1] == ["dist/app.js", "occ_skipped_merge"]
+    assert payload["routes"][0] == ["src/app.py", "gated"]
+    assert payload["routes"][1] == ["dist/app.js", "direct"]
     assert payload["routes"][2] == [".git/config", "drop"]
     assert payload["routes"][3] == ["../escape", "reject"]

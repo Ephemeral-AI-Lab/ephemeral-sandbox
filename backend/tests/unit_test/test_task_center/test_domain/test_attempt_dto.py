@@ -17,7 +17,7 @@ def _graph(**overrides) -> Attempt:
         id="g1",
         episode_id="s1",
         attempt_sequence_no=1,
-        stage=AttemptStage.PLANNING,
+        stage=AttemptStage.PLAN,
         status=AttemptStatus.RUNNING,
         planner_task_id=None,
         task_specification=None,
@@ -40,9 +40,9 @@ def test_has_partial_continuation_matches_continuation_goal():
 
 
 def test_is_closed_matches_stage():
-    assert _graph(stage=AttemptStage.PLANNING).is_closed is False
-    assert _graph(stage=AttemptStage.GENERATING).is_closed is False
-    assert _graph(stage=AttemptStage.EVALUATING).is_closed is False
+    assert _graph(stage=AttemptStage.PLAN).is_closed is False
+    assert _graph(stage=AttemptStage.GENERATE).is_closed is False
+    assert _graph(stage=AttemptStage.EVALUATE).is_closed is False
     assert _graph(stage=AttemptStage.CLOSED).is_closed is True
 
 

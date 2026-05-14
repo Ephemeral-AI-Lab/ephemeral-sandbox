@@ -23,7 +23,12 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
+from sandbox.layer_stack import (
+    LayerChange,
+    DeleteLayerChange,
+    WriteLayerChange,
+    LayerStackManager,
+)
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> str:
@@ -43,9 +48,8 @@ def _publish_layer(
     """Publish a single-file layer and return its layer_id."""
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=f"pkg/{label}.txt",
-                kind="write",
                 source_path=_source(tmp_path, f"{label}.txt", content),
             )
         ]
@@ -83,9 +87,8 @@ def test_eviction_skips_layers_pinned_by_active_leases(
     for index in range(1, 6):
         manager.publish_changes(
             [
-                LayerChange(
+                WriteLayerChange(
                     path=f"pkg/layer{index}.txt",
-                    kind="write",
                     source_path=_source(
                         tmp_path, f"layer{index}.txt", f"v{index}".encode()
                     ),
@@ -108,14 +111,13 @@ def test_eviction_skips_layers_pinned_by_active_leases(
     # contribution (delete is itself a new layer L7 with a whiteout).
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/layer6.txt",
-                kind="write",
                 source_path=_source(tmp_path, "layer6.txt", b"v6"),
             )
         ]
     )
-    manager.publish_changes([LayerChange(path="pkg/layer1.txt", kind="delete")])
+    manager.publish_changes([DeleteLayerChange(path="pkg/layer1.txt")])
 
     # Eviction can only fire from `release_lease` or `squash`. So far we
     # have only published; the eviction log must still be empty.
@@ -184,9 +186,8 @@ def test_eviction_strict_set_after_squash(
     for index in range(1, 5):
         manager.publish_changes(
             [
-                LayerChange(
+                WriteLayerChange(
                     path=f"pkg/v{index}.txt",
-                    kind="write",
                     source_path=_source(tmp_path, f"v{index}.txt", str(index).encode()),
                 )
             ]

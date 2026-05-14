@@ -134,7 +134,7 @@ def test_compose_threads_calls_in_order(packet_store):
     assert bundle.agent_def.name == "planner"
     assert bundle.agent_def.system_prompt == "SYSTEM PROMPT"
     assert bundle.context_packet_id is not None
-    assert "Current Episode" in bundle.task_input
+    assert "Current Episode" in bundle.rendered_prompt
     # Packet was persisted.
     assert packet_store.get(bundle.context_packet_id) is not None
 
@@ -180,7 +180,7 @@ def test_required_context_blocks_appended_before_render(packet_store):
     assert bundle.agent_def.name == "planner_full_only"
     kinds = [b.kind for b in bundle.packet.blocks]
     assert "launch_notice" in kinds
-    assert "variant selected." in bundle.task_input
+    assert "variant selected." in bundle.rendered_prompt
 
 
 def test_compose_persists_packet_only_with_store():
@@ -242,7 +242,7 @@ def test_resolver_engine_renderer_called_with_correct_args(packet_store):
     renderer.render.assert_called_once()
     rendered_packet = renderer.render.call_args[0][0]
     assert isinstance(rendered_packet, ContextPacket)
-    assert bundle.task_input == "RENDERED"
+    assert bundle.rendered_prompt == "RENDERED"
 
 
 def test_missing_context_recipe_raises_before_render(packet_store):

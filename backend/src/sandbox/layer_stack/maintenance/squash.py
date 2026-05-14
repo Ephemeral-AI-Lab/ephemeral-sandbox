@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from sandbox.layer_stack.filesystem import resolve_storage_path
+from sandbox.layer_stack._paths import resolve_storage_path
 from sandbox.layer_stack.manifest import LAYERS_DIR, STAGING_DIR, LayerRef, Manifest
 from sandbox.layer_stack.view.merged import MergedView
 

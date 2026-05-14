@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import CommitOptions
 from sandbox.occ.changeset.types import ChangesetResult, FileStatus, WriteChange
@@ -20,6 +20,9 @@ class _Gitignore:
     def is_ignored(self, path: str) -> bool:
         return path in self._ignored
 
+    def is_ignored_in_snapshot(self, path: str, _snapshot: object) -> bool:
+        return self.is_ignored(path)
+
 
 def _source(tmp_path: Path, name: str, content: bytes) -> Path:
     path = tmp_path / "sources" / name
@@ -32,9 +35,8 @@ def _publish(stack: LayerStackManager, tmp_path: Path, rel: str, content: bytes)
     source = _source(tmp_path, rel.replace("/", "-"), content)
     stack.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 content_hash=ContentHasher().hash_bytes(content),
                 source_path=str(source),
             )

@@ -12,8 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _CAPTURE_UPPERDIR_BODY = r"""
-from sandbox.layer_stack.manifest import Manifest
-from sandbox.overlay.capture.upperdir import capture_changes
+from sandbox.overlay import capture_changes
 
 label = "overlay.native.capture_upperdir"
 before = sample_resource()
@@ -35,7 +34,7 @@ long_dir.mkdir(parents=True)
 (long_dir / "file.txt").write_text("long\n", encoding="utf-8")
 (upper / "unicode-\u2603.txt").write_text("snow\n", encoding="utf-8")
 
-changes = capture_changes(upper, snapshot_manifest=Manifest(version=1, layers=()))
+changes = capture_changes(upper)
 by_path = {change.path: change for change in changes}
 assert by_path["binary.bin"].kind == "write"
 assert by_path["binary.bin"].final_hash == _sha(b"\x00\xff\x01")

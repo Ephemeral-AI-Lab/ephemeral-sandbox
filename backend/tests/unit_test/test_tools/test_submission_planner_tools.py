@@ -60,7 +60,7 @@ async def test_full_plan_routes_to_apply_plan_submission(
     assert result.does_terminate
     assert result.metadata["submission_kind"] == "planner_full"
     assert attempt is not None
-    assert attempt.stage == AttemptStage.GENERATING
+    assert attempt.stage == AttemptStage.GENERATE
     assert attempt.generator_task_ids
 
 
@@ -180,7 +180,7 @@ async def test_plan_validation_errors_do_not_mutate_graph(
     assert result.is_error
     assert expected in result.output
     assert attempt is not None
-    assert attempt.stage == AttemptStage.PLANNING
+    assert attempt.stage == AttemptStage.PLAN
 
 
 async def test_full_plan_rejects_continuation_goal(
@@ -208,7 +208,7 @@ async def test_full_plan_rejects_continuation_goal(
     assert "continuation_goal" in result.output
     assert "Extra inputs are not permitted" in result.output
     assert attempt is not None
-    assert attempt.stage == AttemptStage.PLANNING
+    assert attempt.stage == AttemptStage.PLAN
 
 
 async def test_partial_plan_rejects_blank_continuation_goal(
@@ -235,4 +235,4 @@ async def test_partial_plan_rejects_blank_continuation_goal(
     assert result.is_error
     assert "continuation_goal must be nonblank" in result.output
     assert attempt is not None
-    assert attempt.stage == AttemptStage.PLANNING
+    assert attempt.stage == AttemptStage.PLAN

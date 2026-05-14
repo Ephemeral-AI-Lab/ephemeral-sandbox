@@ -34,7 +34,7 @@ class LaunchBundle:
     """The composer's output: everything the launcher needs."""
 
     agent_def: AgentDefinition
-    task_input: str
+    rendered_prompt: str
     packet: ContextPacket
     context_packet_id: str | None
 
@@ -72,10 +72,10 @@ class ContextComposer:
         if selection.required_context_blocks:
             packet.blocks.extend(selection.required_context_blocks)
         context_packet_id = self._persist(packet)
-        task_input = self.renderer.render(packet)
+        rendered_prompt = self.renderer.render(packet)
         return LaunchBundle(
             agent_def=selection.agent_def,
-            task_input=task_input,
+            rendered_prompt=rendered_prompt,
             packet=packet,
             context_packet_id=context_packet_id,
         )

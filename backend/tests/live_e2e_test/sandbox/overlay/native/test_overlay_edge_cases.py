@@ -14,10 +14,10 @@ pytestmark = pytest.mark.asyncio
 _BODY = r"""
 import errno
 from unittest import mock
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
-from sandbox.overlay.namespace.mounts import mount_snapshot
-import sandbox.overlay.namespace.mounts as mount_mod
+from sandbox.overlay import mount_snapshot
+import sandbox.overlay.mounts as mount_mod
 
 label = "overlay.native.overlay_edge_cases"
 before = sample_resource()
@@ -33,7 +33,7 @@ empty = mount_snapshot(
 assert Path(empty.workspace_root).is_dir()
 
 manager.publish_changes([
-    LayerChange(path="depth/value-000.txt", kind="write", source_path=str(_source(root, "value-000", b"0"))),
+    WriteLayerChange(path="depth/value-000.txt", source_path=str(_source(root, "value-000", b"0"))),
 ])
 depth_one = mount_snapshot(
     manifest=manager.read_active_manifest(),
@@ -44,9 +44,8 @@ assert (Path(depth_one.workspace_root) / "depth" / "value-000.txt").read_text(en
 
 for index in range(1, 26):
     manager.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="depth/value-%03d.txt" % index,
-            kind="write",
             source_path=str(_source(root, "value-%03d" % index, ("%d" % index).encode("utf-8"))),
         )
     ])

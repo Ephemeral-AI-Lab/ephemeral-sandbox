@@ -7,8 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
-from sandbox.layer_stack.view.merged import LayerStackStorageError
+from sandbox.layer_stack import (
+    DeleteLayerChange,
+    LayerChange,
+    LayerStackManager,
+    LayerStackStorageError,
+    OpaqueDirLayerChange,
+    SymlinkLayerChange,
+    WriteLayerChange,
+)
 
 
 def _source(tmp_path: Path, name: str, content: bytes) -> str:
@@ -22,9 +29,8 @@ def test_read_uses_leased_manifest_not_advanced_active_manifest(tmp_path: Path) 
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/value.txt",
-                kind="write",
                 source_path=_source(tmp_path, "base.txt", b"base"),
             )
         ]
@@ -33,9 +39,8 @@ def test_read_uses_leased_manifest_not_advanced_active_manifest(tmp_path: Path) 
 
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/value.txt",
-                kind="write",
                 source_path=_source(tmp_path, "new.txt", b"new"),
             )
         ]
@@ -49,9 +54,8 @@ def test_stale_layer_read_raises_typed_storage_error(tmp_path: Path) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     manifest = manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/value.txt",
-                kind="write",
                 source_path=_source(tmp_path, "value.txt", b"value"),
             )
         ]
@@ -70,14 +74,13 @@ def test_whiteout_hides_older_file(tmp_path: Path) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="old.txt",
-                kind="write",
                 source_path=_source(tmp_path, "old.txt", b"old"),
             )
         ]
     )
-    manager.publish_changes([LayerChange(path="old.txt", kind="delete")])
+    manager.publish_changes([DeleteLayerChange(path="old.txt")])
 
     assert manager.read_bytes("old.txt") == (None, False)
     assert manager.list_dir("") == ()
@@ -87,24 +90,21 @@ def test_opaque_dir_hides_older_children(tmp_path: Path) -> None:
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/a.py",
-                kind="write",
                 source_path=_source(tmp_path, "a.py", b"a"),
             ),
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/b.py",
-                kind="write",
                 source_path=_source(tmp_path, "b.py", b"b"),
             ),
         ]
     )
     manager.publish_changes(
         [
-            LayerChange(path="pkg", kind="opaque_dir"),
-            LayerChange(
+            OpaqueDirLayerChange(path="pkg"),
+            WriteLayerChange(
                 path="pkg/new.py",
-                kind="write",
                 source_path=_source(tmp_path, "new.py", b"new"),
             ),
         ]
@@ -133,24 +133,20 @@ def test_index_driven_list_dir_handles_files_whiteouts_and_opaque_marker(
     # Layer 1: seed gone.txt + keep.txt + a subdir nested/x.txt + a symlink.
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="mix/gone.txt",
-                kind="write",
                 source_path=_source(tmp_path, "gone.txt", b"to-be-deleted"),
             ),
-            LayerChange(
+            WriteLayerChange(
                 path="mix/keep.txt",
-                kind="write",
                 source_path=_source(tmp_path, "keep.txt", b"survives"),
             ),
-            LayerChange(
+            WriteLayerChange(
                 path="mix/nested/x.txt",
-                kind="write",
                 source_path=_source(tmp_path, "x.txt", b"x"),
             ),
-            LayerChange(
+            SymlinkLayerChange(
                 path="mix/link",
-                kind="symlink",
                 source_path="keep.txt",
             ),
         ]
@@ -158,8 +154,8 @@ def test_index_driven_list_dir_handles_files_whiteouts_and_opaque_marker(
     # Layer 2: delete gone.txt (whiteout) + opaque-marker the nested dir.
     manager.publish_changes(
         [
-            LayerChange(path="mix/gone.txt", kind="delete"),
-            LayerChange(path="mix/nested", kind="opaque_dir"),
+            DeleteLayerChange(path="mix/gone.txt"),
+            OpaqueDirLayerChange(path="mix/nested"),
         ]
     )
 
@@ -185,12 +181,11 @@ def test_materialize_matches_point_reads_and_preserves_symlinks(tmp_path: Path) 
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="target.txt",
-                kind="write",
                 source_path=_source(tmp_path, "target.txt", b"target"),
             ),
-            LayerChange(path="links/current", kind="symlink", source_path="../target.txt"),
+            SymlinkLayerChange(path="links/current", source_path="../target.txt"),
         ]
     )
     destination = tmp_path / "materialized"

@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import CommitOptions
 from sandbox.occ.changeset.types import FileStatus, WriteChange
@@ -28,7 +28,7 @@ started = time.perf_counter()
 root = _case_root(label)
 stack = LayerStackManager(root / "stack")
 stack.publish_changes([
-    LayerChange(path="tracked/shared.txt", kind="write", source_path=str(_source(root, "shared", b"base\n"))),
+    WriteLayerChange(path="tracked/shared.txt", source_path=str(_source(root, "shared", b"base\n"))),
 ])
 service = OccService(gitignore=_Gitignore(), layer_stack=stack)
 

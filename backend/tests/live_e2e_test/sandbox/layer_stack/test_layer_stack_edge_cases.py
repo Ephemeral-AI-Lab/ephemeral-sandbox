@@ -13,7 +13,12 @@ pytestmark = pytest.mark.asyncio
 
 _BODY = r"""
 import os
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import (
+    LayerChange,
+    DeleteLayerChange,
+    SymlinkLayerChange,
+    WriteLayerChange,
+)
 from sandbox.layer_stack.manifest import LayerRef, Manifest, write_manifest_atomic
 from sandbox.layer_stack.manager import LayerStackManager
 
@@ -27,23 +32,23 @@ empty_manifest = manager.publish_changes([])
 assert empty_manifest.depth == 0
 
 manager.publish_changes([
-    LayerChange(path="dir/kept.txt", kind="write", source_path=str(_source(root, "kept", b"kept"))),
-    LayerChange(path="dir/gone.txt", kind="write", source_path=str(_source(root, "gone", b"gone"))),
+    WriteLayerChange(path="dir/kept.txt", source_path=str(_source(root, "kept", b"kept"))),
+    WriteLayerChange(path="dir/gone.txt", source_path=str(_source(root, "gone", b"gone"))),
 ])
 delete_manifest = manager.publish_changes([
-    LayerChange(path="dir/gone.txt", kind="delete"),
+    DeleteLayerChange(path="dir/gone.txt"),
 ])
 assert manager.read_text("dir/gone.txt", manifest=delete_manifest) == ("", False)
 assert manager.read_text("dir/kept.txt", manifest=delete_manifest) == ("kept", True)
 
 unicode_path = "unicodé/" + ("x" * 180) + "/文件.txt"
 manager.publish_changes([
-    LayerChange(path=unicode_path, kind="write", source_path=str(_source(root, "unicode", "hello unicode"))),
+    WriteLayerChange(path=unicode_path, source_path=str(_source(root, "unicode", "hello unicode"))),
 ])
 assert manager.read_text(unicode_path) == ("hello unicode", True)
 
 loop_manifest = manager.publish_changes([
-    LayerChange(path="links/self", kind="symlink", source_path="../links/self"),
+    SymlinkLayerChange(path="links/self", source_path="../links/self"),
 ])
 assert manager.read_symlink("links/self", manifest=loop_manifest) == ("../links/self", True)
 

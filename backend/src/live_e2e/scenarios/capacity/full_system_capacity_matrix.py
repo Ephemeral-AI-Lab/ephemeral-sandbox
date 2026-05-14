@@ -20,8 +20,8 @@ class FullSystemCapacityMatrix(FullStackAdversarial):
     name = "capacity.full_system_capacity_matrix"
 
     def executor_actions(self, ctx: ScenarioContext) -> Sequence[str]:
-        task_input = ctx.task_input or ctx.prompt or ""
-        if "ACTION capacity_metrics_full_system" in task_input:
+        rendered_prompt = ctx.rendered_prompt or ctx.prompt or ""
+        if "ACTION capacity_metrics_full_system" in rendered_prompt:
             return ("capacity_metrics_full_system",)
         return super().executor_actions(ctx)
 

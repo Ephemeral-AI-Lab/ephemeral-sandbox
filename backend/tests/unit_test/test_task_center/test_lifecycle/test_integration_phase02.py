@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from task_center.config import HarnessLifecycleConfig
+from task_center.config import TaskCenterLifecycleConfig
 from task_center.mission.handler import MissionHandler
 from task_center.mission.mission import MissionStatus
 from task_center.attempt import AttemptStatus
@@ -12,7 +12,7 @@ from task_center.attempt.orchestrator_registry import (
 )
 from task_center.attempt.runtime import (
     AgentLaunch,
-    AttemptRuntime,
+    AttemptDeps,
 )
 from task_center.task import (
     EvaluatorSubmission,
@@ -46,7 +46,7 @@ def _build_handler(
     launcher = _FakeLauncher()
     orchestrator_registry = AttemptOrchestratorRegistry()
     manager_registry = EpisodeManagerRegistry()
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -61,7 +61,7 @@ def _build_handler(
         episode_store=episode_store,
         attempt_store=attempt_store,
         manager_registry=manager_registry,
-        config=HarnessLifecycleConfig(default_attempt_budget=2),
+        config=TaskCenterLifecycleConfig(default_attempt_budget=2),
         orchestrator_factory=lambda attempt, on_attempt_closed: AttemptOrchestrator(
             attempt=attempt,
             on_attempt_closed=on_attempt_closed,

@@ -12,8 +12,8 @@ import sandbox.command_exec.workspace.mount as workspace_mount
 from sandbox.command_exec.contract.result import ShellProcessResult
 from sandbox.command_exec.workspace.capture import capture_workspace_upperdir
 from sandbox.command_exec.contract.request import CommandExecRequest
+from sandbox.command_exec.contract.result import MountMode
 from sandbox.command_exec.workspace.mount import WorkspaceReplacementMountSpec
-from sandbox.layer_stack.manifest import Manifest
 
 
 def test_copy_backed_mount_captures_only_workspace_changes(
@@ -61,9 +61,8 @@ def test_copy_backed_mount_captures_only_workspace_changes(
     )
     changes = capture_workspace_upperdir(
         spec=spec,
-        snapshot_manifest=Manifest(version=1, layers=()),
         mounted_workspace_root=process.mounted_workspace_root,
-        copy_backed=process.mount_mode == "copy_backed",
+        copy_backed=process.mount_mode == MountMode.COPY_BACKED,
         timings=timings,
     )
 
@@ -109,9 +108,8 @@ def test_copy_backed_mount_rewrites_absolute_workspace_references(
     )
     changes = capture_workspace_upperdir(
         spec=spec,
-        snapshot_manifest=Manifest(version=1, layers=()),
         mounted_workspace_root=process.mounted_workspace_root,
-        copy_backed=process.mount_mode == "copy_backed",
+        copy_backed=process.mount_mode == MountMode.COPY_BACKED,
         timings=timings,
     )
 
@@ -194,7 +192,7 @@ def test_namespace_mount_failure_falls_back_to_copy_backed(
             stdout_ref=str(tmp_path / "run" / "stdout.bin"),
             stderr_ref=str(stderr_ref),
             mounted_workspace_root="/testbed",
-            mount_mode="private_namespace",
+            mount_mode=MountMode.PRIVATE_NAMESPACE,
         )
 
     monkeypatch.setattr(
@@ -217,7 +215,7 @@ def test_namespace_mount_failure_falls_back_to_copy_backed(
     )
 
     assert process.exit_code == 0
-    assert process.mount_mode == "copy_backed"
+    assert process.mount_mode == MountMode.COPY_BACKED
     assert (Path(process.mounted_workspace_root) / "out.txt").read_text(
         encoding="utf-8"
     ) == "ok"
@@ -237,12 +235,41 @@ def test_workspace_rewrite_rewrites_quoted_shell_paths() -> None:
 
 
 def test_mount_spec_rejects_paths_outside_scratch_root(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="upperdir must be under scratch_root"):
+    with pytest.raises(
+        ValueError,
+        match="upperdir must be strictly under scratch_root",
+    ):
         WorkspaceReplacementMountSpec(
             workspace_root="/testbed",
             lowerdir=str(tmp_path / "lower"),
             upperdir="/tmp/not-owned",
             workdir=str(tmp_path / "work"),
+            scratch_root=str(tmp_path),
+        )
+
+
+def test_mount_spec_rejects_scratch_root_itself(tmp_path: Path) -> None:
+    with pytest.raises(
+        ValueError,
+        match="upperdir must be strictly under scratch_root",
+    ):
+        WorkspaceReplacementMountSpec(
+            workspace_root="/testbed",
+            lowerdir=str(tmp_path / "lower"),
+            upperdir=str(tmp_path),
+            workdir=str(tmp_path / "work"),
+            scratch_root=str(tmp_path),
+        )
+
+
+def test_mount_spec_rejects_duplicate_mount_paths(tmp_path: Path) -> None:
+    shared = tmp_path / "same"
+    with pytest.raises(ValueError, match="workdir must be distinct from upperdir"):
+        WorkspaceReplacementMountSpec(
+            workspace_root="/testbed",
+            lowerdir=str(tmp_path / "lower"),
+            upperdir=str(shared),
+            workdir=str(shared),
             scratch_root=str(tmp_path),
         )
 

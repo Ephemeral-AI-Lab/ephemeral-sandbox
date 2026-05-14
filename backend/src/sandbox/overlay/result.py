@@ -1,4 +1,4 @@
-"""Snapshot overlay capture values returned by shell execution."""
+"""Snapshot overlay result values and result-file helpers."""
 
 from __future__ import annotations
 
@@ -6,10 +6,11 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from sandbox.layer_stack.manifest import Manifest
-from sandbox.overlay.capture.changes import OverlayPathChange
+from sandbox.overlay.change import OverlayPathChange
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ class OverlayCapture:
     snapshot_version: int
     changes: tuple[OverlayPathChange, ...]
     snapshot_manifest: Manifest | None = None
-    timings: dict[str, float] = field(default_factory=dict)
+    timings: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "exit_code", int(self.exit_code))
@@ -31,7 +32,9 @@ class OverlayCapture:
         object.__setattr__(
             self,
             "timings",
-            {str(key): float(value) for key, value in self.timings.items()},
+            MappingProxyType(
+                {str(key): float(value) for key, value in self.timings.items()}
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:

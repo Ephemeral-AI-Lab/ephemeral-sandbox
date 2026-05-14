@@ -1,117 +1,36 @@
-"""Fast OCC preparation for public single-path file operations."""
+"""Compatibility wrapper for single-path OCC preparation."""
 
 from __future__ import annotations
 
-from typing import Protocol
-
-from sandbox.layer_stack.layer.change import normalize_layer_path
 from sandbox.layer_stack.manifest import Manifest
-from sandbox.occ.changeset.prepared import (
-    PreparedChangeset,
-    PreparedPathGroup,
-    RouteDecision,
-)
+from sandbox.occ.changeset.prepared import PreparedChangeset
 from sandbox.occ.changeset.types import Change
-from sandbox.occ.routing.orchestrator import (
-    BaseHashReader,
-    attach_base_hash,
-    requires_base_hash,
-)
-from sandbox.timing import monotonic_now
-
-
-class SnapshotIgnoreOracle(Protocol):
-    def is_ignored_in_snapshot(self, path: str, snapshot: Manifest) -> bool: ...
+from sandbox.occ.content.gitignore_oracle import SnapshotGitignoreMatcher
+from sandbox.occ.routing.orchestrator import BaseHashReader, Router
 
 
 def prepare_single_path_changeset(
     change: Change,
     *,
     snapshot: Manifest,
-    gitignore: SnapshotIgnoreOracle,
+    gitignore: SnapshotGitignoreMatcher,
     base_hash_reader: BaseHashReader | None = None,
     atomic: bool = False,
 ) -> PreparedChangeset:
-    """Prepare one path without materializing a full gitignore workspace."""
-    total_start = monotonic_now()
-    timings: dict[str, float] = {}
-    route_start = monotonic_now()
-
-    try:
-        path = normalize_layer_path(change.path)
-    except ValueError as exc:
-        group = PreparedPathGroup(
-            path=str(change.path),
-            route=RouteDecision.REJECT,
-            changes=(change,),
-            message=str(exc),
-        )
-        timings["occ.prepare.route_and_base_hash_s"] = monotonic_now() - route_start
-        timings["occ.prepare.single_path_fast_s"] = timings[
-            "occ.prepare.route_and_base_hash_s"
-        ]
-        timings["occ.prepare.total_s"] = monotonic_now() - total_start
-        return PreparedChangeset(
-            snapshot=snapshot,
-            path_groups=(group,),
-            atomic=atomic,
-            timings=timings,
-        )
-
-    route, message = _route_single_path(
-        path,
+    """Prepare one path through the shared router fast branch."""
+    return Router(gitignore).prepare_single_path_sync(
+        change,
         snapshot=snapshot,
-        gitignore=gitignore,
-        timings=timings,
-    )
-    prepared_change = change
-    base_hash = None
-    if route is RouteDecision.OCC_GATED_MERGE and requires_base_hash(change):
-        base_hash_start = monotonic_now()
-        base_hash = base_hash_reader(path) if base_hash_reader is not None else None
-        timings["occ.prepare.single_path_base_hash_s"] = (
-            monotonic_now() - base_hash_start
-        )
-        prepared_change = attach_base_hash(change, base_hash)
-    else:
-        timings["occ.prepare.single_path_base_hash_s"] = 0.0
-
-    group = PreparedPathGroup(
-        path=path,
-        route=route,
-        changes=(prepared_change,),
-        message=message,
-    )
-    timings["occ.prepare.route_and_base_hash_s"] = monotonic_now() - route_start
-    timings["occ.prepare.single_path_fast_s"] = timings[
-        "occ.prepare.route_and_base_hash_s"
-    ]
-    timings["occ.prepare.total_s"] = monotonic_now() - total_start
-    return PreparedChangeset(
-        snapshot=snapshot,
-        path_groups=(group,),
+        base_hash_reader=base_hash_reader,
         atomic=atomic,
-        timings=timings,
     )
 
 
-def _route_single_path(
-    path: str,
-    *,
-    snapshot: Manifest,
-    gitignore: SnapshotIgnoreOracle,
-    timings: dict[str, float],
-) -> tuple[RouteDecision, str | None]:
-    if path == ".git" or path.startswith(".git/"):
-        timings["occ.prepare.gitignore_s"] = 0.0
-        return RouteDecision.DROP, ".git paths are not mutable through OCC"
-
-    gitignore_start = monotonic_now()
-    ignored = gitignore.is_ignored_in_snapshot(path, snapshot)
-    timings["occ.prepare.gitignore_s"] = monotonic_now() - gitignore_start
-    if ignored:
-        return RouteDecision.OCC_SKIPPED_MERGE, None
-    return RouteDecision.OCC_GATED_MERGE, None
+SnapshotIgnoreOracle = SnapshotGitignoreMatcher
 
 
-__all__ = ["BaseHashReader", "SnapshotIgnoreOracle", "prepare_single_path_changeset"]
+__all__ = [
+    "BaseHashReader",
+    "SnapshotIgnoreOracle",
+    "prepare_single_path_changeset",
+]

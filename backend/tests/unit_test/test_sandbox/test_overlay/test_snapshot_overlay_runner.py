@@ -7,9 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack import LayerChange, LayerStackManager
-from sandbox.overlay.runner.snapshot_overlay_runner import SnapshotOverlayRunner
-from sandbox.overlay.runner.snapshot_overlay_runner import OverlayShellRequest
+from sandbox.layer_stack import WriteLayerChange, LayerStackManager
+from sandbox.overlay import OverlayCapture, OverlayShellRequest, OverlaySnapshotRunner
 from sandbox.runtime.daemon.rpc.dispatcher import dispatch_envelope_async
 
 
@@ -20,6 +19,20 @@ def _source(tmp_path: Path, name: str, content: bytes) -> str:
     return str(path)
 
 
+def test_overlay_capture_timings_are_immutable() -> None:
+    capture = OverlayCapture(
+        exit_code=0,
+        stdout_ref="/tmp/stdout",
+        stderr_ref="/tmp/stderr",
+        snapshot_version=1,
+        changes=(),
+        timings={"phase": 1.0},
+    )
+
+    with pytest.raises(TypeError):
+        capture.timings["phase"] = 2.0
+
+
 @pytest.mark.asyncio
 async def test_snapshot_runner_executes_against_leased_manifest_without_publish(
     tmp_path: Path,
@@ -27,14 +40,13 @@ async def test_snapshot_runner_executes_against_leased_manifest_without_publish(
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/value.txt",
-                kind="write",
                 source_path=_source(tmp_path, "value.txt", b"old\n"),
             )
         ]
     )
-    runner = SnapshotOverlayRunner(manager)
+    runner = OverlaySnapshotRunner(manager)
     request = OverlayShellRequest(
         request_id="request-a",
         command=(
@@ -70,9 +82,8 @@ async def test_snapshot_runner_releases_lease_when_runtime_fails(tmp_path: Path)
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="pkg/value.txt",
-                kind="write",
                 source_path=_source(tmp_path, "value.txt", b"old\n"),
             )
         ]
@@ -82,7 +93,10 @@ async def test_snapshot_runner_releases_lease_when_runtime_fails(tmp_path: Path)
         async def invoke(self, **_kwargs):
             raise RuntimeError("runtime failed")
 
-    runner = SnapshotOverlayRunner(manager, invoker=_FailingInvoker())
+        def invoke_sync(self, **_kwargs):
+            raise RuntimeError("runtime failed")
+
+    runner = OverlaySnapshotRunner(manager, invoker=_FailingInvoker())
     request = OverlayShellRequest(
         request_id="request-a",
         command=("bash", "-lc", "true"),
@@ -104,9 +118,8 @@ async def test_overlay_run_handler_supports_layer_stack_snapshot_requests(
     manager = LayerStackManager(tmp_path / "stack")
     manager.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path="value.txt",
-                kind="write",
                 source_path=_source(tmp_path, "value.txt", b"old\n"),
             )
         ]

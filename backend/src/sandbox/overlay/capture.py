@@ -1,4 +1,4 @@
-"""Capture raw filesystem changes from an overlay upperdir."""
+"""Capture raw filesystem changes from a snapshot overlay upperdir."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from collections.abc import Iterator
 from contextlib import suppress
 from pathlib import Path
 
-from sandbox.layer_stack.view.merged import OPAQUE_MARKER, WHITEOUT_PREFIX
+from sandbox.layer_stack.layer.index import OPAQUE_MARKER, WHITEOUT_PREFIX
 from sandbox.layer_stack.workspace.base import _relative_target_escapes
-from sandbox.overlay.capture.changes import OverlayPathChange, content_hash
+from sandbox.overlay.change import OverlayPathChange, content_hash
 from sandbox.timing import monotonic_now
 
 
@@ -46,6 +46,9 @@ def capture_changes(
     if timings is not None:
         timings["overlay.capture.walk_upperdir_s"] = monotonic_now() - walk_start
     return changes
+
+
+# Copy-backed population.
 
 
 def _populate_upperdir_from_diff(
@@ -110,11 +113,18 @@ def _payload_paths(root: Path) -> set[Path]:
 
 def _entries_match(left: Path, right: Path) -> bool:
     if left.is_symlink() or right.is_symlink():
-        return left.is_symlink() and right.is_symlink() and os.readlink(left) == os.readlink(right)
+        return (
+            left.is_symlink()
+            and right.is_symlink()
+            and os.readlink(left) == os.readlink(right)
+        )
     if left.is_dir() and right.is_dir():
         return _mode_bits(left) == _mode_bits(right)
     if left.is_file() and right.is_file():
-        return left.read_bytes() == right.read_bytes() and _mode_bits(left) == _mode_bits(right)
+        return (
+            left.read_bytes() == right.read_bytes()
+            and _mode_bits(left) == _mode_bits(right)
+        )
     return False
 
 
@@ -145,6 +155,9 @@ def _has_payload_descendant(rel: Path, payload_paths: set[Path]) -> bool:
 
 def _mode_bits(path: Path) -> int:
     return stat.S_IMODE(path.lstat().st_mode)
+
+
+# Upperdir walking.
 
 
 def _walk_upperdir(upper_root: Path) -> Iterator[OverlayPathChange]:
@@ -220,11 +233,12 @@ def _remove_path(path: Path) -> None:
         shutil.rmtree(path)
 
 
+# Overlay marker decoding.
+
+
 def _is_whiteout_marker(entry: Path) -> bool:
-    # WR-02: an entry named literally ``.wh.`` (prefix only, empty target)
-    # would satisfy ``startswith(WHITEOUT_PREFIX) and != OPAQUE_MARKER`` and
-    # then crash ``normalize_layer_path`` later with "path must not be
-    # empty", aborting the capture mid-walk. Require a non-empty suffix.
+    # A literal ``.wh.`` entry has no target name and would fail later during
+    # layer path normalization, so require a non-empty suffix.
     return (
         entry.name.startswith(WHITEOUT_PREFIX)
         and entry.name != OPAQUE_MARKER
@@ -241,10 +255,8 @@ def _is_overlay_whiteout(entry: Path) -> bool:
         st = entry.lstat()
     except FileNotFoundError:
         return False
-    # WR-03: the overlayfs whiteout convention is ``S_ISCHR(mode) && rdev ==
-    # makedev(0, 0)``. The pre-fix ``in (0, None)`` matched whenever
-    # st_rdev was missing (mocked stat results, hypothetical platforms),
-    # which could mis-flag arbitrary char-special files as whiteouts.
+    # The overlayfs whiteout convention is ``S_ISCHR(mode) && rdev ==
+    # makedev(0, 0)``. Do not treat missing ``st_rdev`` as a whiteout.
     if stat.S_ISCHR(st.st_mode) and getattr(st, "st_rdev", None) == 0:
         return True
     return entry.is_file() and entry.stat().st_size == 0 and _has_xattr(

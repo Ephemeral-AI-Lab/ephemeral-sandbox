@@ -12,9 +12,9 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
-from sandbox.overlay.namespace.mounts import mount_snapshot
+from sandbox.overlay import mount_snapshot
 
 label = "overlay.native.namespace_mounts"
 before = sample_resource()
@@ -22,7 +22,7 @@ started = time.perf_counter()
 root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 manager.publish_changes([
-    LayerChange(path="pkg/base.txt", kind="write", source_path=str(_source(root, "base", b"base\n"))),
+    WriteLayerChange(path="pkg/base.txt", source_path=str(_source(root, "base", b"base\n"))),
 ])
 manifest = manager.read_active_manifest()
 run_dir = root / "run"

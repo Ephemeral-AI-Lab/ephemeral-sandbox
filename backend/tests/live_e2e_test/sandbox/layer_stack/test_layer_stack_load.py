@@ -13,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 cfg = json.loads(__CFG_JSON__)
@@ -28,7 +28,7 @@ barrier = threading.Barrier(concurrency)
 
 def publish_one(index):
     source = _source(root, "load-%04d" % index, ("payload-%04d\n" % index).encode("utf-8"))
-    change = LayerChange(path="load/%04d.txt" % index, kind="write", source_path=str(source))
+    change = WriteLayerChange(path="load/%04d.txt" % index, source_path=str(source))
     barrier.wait(timeout=10)
     timings = {}
     t0 = time.perf_counter()

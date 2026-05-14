@@ -37,44 +37,38 @@ def _source_file(root, name, content):
 def _changes_for(workload, index, root):
     if workload == "append":
         return [
-            LayerChange(
+            WriteLayerChange(
                 path="phase01-snapshot/append/%03d.txt" % index,
-                kind="write",
                 source_path=str(_source_file(root, "append-%03d" % index, "append-%03d\n" % index)),
             )
         ]
     if workload == "overwrite":
         return [
-            LayerChange(
+            WriteLayerChange(
                 path="phase01-snapshot-fixtures/overwrites/%03d.txt" % index,
-                kind="write",
                 source_path=str(_source_file(root, "overwrite-%03d" % index, "overwrite-%03d\n" % index)),
             )
         ]
     if workload == "delete":
         return [
-            LayerChange(
+            DeleteLayerChange(
                 path="phase01-snapshot-fixtures/deletes/%03d.txt" % index,
-                kind="delete",
             )
         ]
     if workload == "symlink":
         return [
-            LayerChange(
+            SymlinkLayerChange(
                 path="phase01-snapshot/symlinks/link-%03d" % index,
-                kind="symlink",
                 source_path="target-%03d.txt" % index,
             )
         ]
     if workload == "opaque":
         return [
-            LayerChange(
+            OpaqueDirLayerChange(
                 path="phase01-snapshot/opaque",
-                kind="opaque_dir",
             ),
-            LayerChange(
+            WriteLayerChange(
                 path="phase01-snapshot/opaque/%03d.txt" % index,
-                kind="write",
                 source_path=str(_source_file(root, "opaque-%03d" % index, "opaque-%03d\n" % index)),
             ),
         ]

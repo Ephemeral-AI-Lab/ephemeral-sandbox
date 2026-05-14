@@ -10,7 +10,7 @@ from task_center.attempt.orchestrator import AttemptOrchestrator
 from task_center.attempt.orchestrator_registry import (
     AttemptOrchestratorRegistry,
 )
-from task_center.attempt.runtime import AgentLaunch, AttemptRuntime
+from task_center.attempt.runtime import AgentLaunch, AttemptDeps
 from task_center.episode.registry import EpisodeManagerRegistry
 from task_center.episode.episode import EpisodeCreationReason
 from task_center.task import (
@@ -26,8 +26,8 @@ from tools._framework.core.runtime import ExecutionMetadata
 
 
 @dataclass
-class HarnessFixture:
-    runtime: AttemptRuntime
+class TaskCenterFixture:
+    runtime: AttemptDeps
     orchestrator: AttemptOrchestrator
     attempt_id: str
     request_id: str
@@ -49,7 +49,7 @@ def build_harness_fixture(
     attempt_store: Any,
     task_store: Any,
     composer: Any,
-) -> HarnessFixture:
+) -> TaskCenterFixture:
     request = mission_store.insert(
         task_center_run_id="run1",
         requested_by_task_id="outer-task",
@@ -68,7 +68,7 @@ def build_harness_fixture(
 
     launcher = FakeLauncher()
     registry = AttemptOrchestratorRegistry()
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -84,7 +84,7 @@ def build_harness_fixture(
         runtime=runtime,
     )
     registry.register(orchestrator)
-    return HarnessFixture(
+    return TaskCenterFixture(
         runtime=runtime,
         orchestrator=orchestrator,
         attempt_id=attempt.id,
@@ -94,7 +94,7 @@ def build_harness_fixture(
 
 
 def make_tool_context(
-    fixture: HarnessFixture,
+    fixture: TaskCenterFixture,
     task_id: str,
     *,
     messages: list[Any] | None = None,
@@ -114,12 +114,12 @@ def make_tool_context(
     return ToolExecutionContextService(cwd=Path("/tmp"), services=metadata)
 
 
-def start_planner(fixture: HarnessFixture) -> str:
+def start_planner(fixture: TaskCenterFixture) -> str:
     fixture.orchestrator.start()
     return planner_task_id(fixture.attempt_id)
 
 
-def apply_single_generator_plan(fixture: HarnessFixture, *, agent_name: str = "executor") -> str:
+def apply_single_generator_plan(fixture: TaskCenterFixture, *, agent_name: str = "executor") -> str:
     planner_id = start_planner(fixture)
     fixture.orchestrator.apply_plan_submission(
         PlannerSubmission(
@@ -143,7 +143,7 @@ def apply_single_generator_plan(fixture: HarnessFixture, *, agent_name: str = "e
     return generator_task_id(fixture.attempt_id, "a")
 
 
-def spawn_evaluator(fixture: HarnessFixture) -> str:
+def spawn_evaluator(fixture: TaskCenterFixture) -> str:
     generator_id = apply_single_generator_plan(fixture)
     fixture.orchestrator.apply_generator_submission(
         GeneratorSubmission(

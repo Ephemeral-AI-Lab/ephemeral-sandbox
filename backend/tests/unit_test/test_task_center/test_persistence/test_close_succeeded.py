@@ -99,7 +99,7 @@ def test_evaluator_pass_summary_helper(
         task_center_run_id=task_center_run_id,
         role="evaluator",
         agent_name="evaluator",
-        task_input="x",
+        rendered_prompt="x",
         status="running",
         summaries=[],
         needs=[],

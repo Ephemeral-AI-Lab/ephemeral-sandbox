@@ -43,8 +43,8 @@ def test_routes_occ_gated_occ_skipped_drop_and_reject_groups() -> None:
     )
 
     assert [(g.path, g.route) for g in prepared.path_groups] == [
-        ("src/app.py", RouteDecision.OCC_GATED_MERGE),
-        ("dist/app.js", RouteDecision.OCC_SKIPPED_MERGE),
+        ("src/app.py", RouteDecision.GATED),
+        ("dist/app.js", RouteDecision.DIRECT),
         (".git/config", RouteDecision.DROP),
         ("../escape", RouteDecision.REJECT),
     ]
@@ -66,10 +66,10 @@ def test_special_change_kinds_consult_gitignore_before_routing() -> None:
     )
 
     assert [(group.path, group.route) for group in prepared.path_groups] == [
-        ("bin/data.dat", RouteDecision.OCC_GATED_MERGE),
-        ("ignored-link", RouteDecision.OCC_SKIPPED_MERGE),
-        ("cache", RouteDecision.OCC_SKIPPED_MERGE),
-        ("pkg", RouteDecision.OCC_GATED_MERGE),
+        ("bin/data.dat", RouteDecision.GATED),
+        ("ignored-link", RouteDecision.DIRECT),
+        ("cache", RouteDecision.DIRECT),
+        ("pkg", RouteDecision.GATED),
     ]
     assert gitignore.calls == ["bin/data.dat", "ignored-link", "cache", "pkg"]
 
@@ -81,5 +81,5 @@ def test_same_path_changes_remain_ordered_in_one_group() -> None:
     prepared = _prepare([first, second])
 
     [group] = prepared.path_groups
-    assert group.route is RouteDecision.OCC_GATED_MERGE
+    assert group.route is RouteDecision.GATED
     assert group.changes == (first, second)

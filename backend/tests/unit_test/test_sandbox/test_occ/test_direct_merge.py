@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import PreparedPathGroup, RouteDecision
 from sandbox.occ.changeset.types import (
@@ -29,9 +29,8 @@ def _publish(stack: LayerStackManager, tmp_path: Path, rel: str, content: bytes)
     source = _source(tmp_path, rel.replace("/", "-"), content)
     stack.publish_changes(
         [
-            LayerChange(
+            WriteLayerChange(
                 path=rel,
-                kind="write",
                 content_hash=ContentHasher().hash_bytes(content),
                 source_path=str(source),
             )
@@ -46,12 +45,11 @@ def _stage_write(tmp_path: Path):
         nonlocal counter
         counter += 1
         source = _source(tmp_path, f"direct-{counter}.bin", content)
-        return LayerChange(
-            path=path,
-            kind="write",
-            content_hash=ContentHasher().hash_bytes(content),
-            source_path=str(source),
-        )
+        return WriteLayerChange(
+                   path=path,
+                   content_hash=ContentHasher().hash_bytes(content),
+                   source_path=str(source),
+               )
 
     return stage
 
@@ -61,7 +59,7 @@ def test_direct_write_stages_last_writer_wins_content(tmp_path: Path) -> None:
     merge = DirectMerge(stack)
     group = PreparedPathGroup(
         path="dist/app.js",
-        route=RouteDecision.OCC_SKIPPED_MERGE,
+        route=RouteDecision.DIRECT,
         changes=(
             WriteChange(path="dist/app.js", final_content=b"first"),
             WriteChange(path="dist/app.js", final_content=b"second"),
@@ -90,7 +88,7 @@ def test_direct_edit_rejects_missing_anchor(tmp_path: Path) -> None:
     merge = DirectMerge(stack)
     group = PreparedPathGroup(
         path="dist/app.js",
-        route=RouteDecision.OCC_SKIPPED_MERGE,
+        route=RouteDecision.DIRECT,
         changes=(EditChange(path="dist/app.js", old_text="missing", new_text="X"),),
     )
 
@@ -110,12 +108,12 @@ def test_direct_symlink_and_opaque_dir_stage_storage_changes(tmp_path: Path) -> 
     merge = DirectMerge(stack)
     symlink_group = PreparedPathGroup(
         path="link",
-        route=RouteDecision.OCC_SKIPPED_MERGE,
+        route=RouteDecision.DIRECT,
         changes=(SymlinkChange(path="link", target="../target"),),
     )
     opaque_group = PreparedPathGroup(
         path="cache",
-        route=RouteDecision.OCC_SKIPPED_MERGE,
+        route=RouteDecision.DIRECT,
         changes=(OpaqueDirChange(path="cache", kept_children=frozenset({"keep"})),),
     )
 
@@ -146,7 +144,7 @@ def test_direct_same_path_opaque_dir_respects_later_write(
     merge = DirectMerge(stack)
     group = PreparedPathGroup(
         path="cache",
-        route=RouteDecision.OCC_SKIPPED_MERGE,
+        route=RouteDecision.DIRECT,
         changes=(
             OpaqueDirChange(path="cache", kept_children=frozenset()),
             WriteChange(path="cache", final_content=b"file wins"),

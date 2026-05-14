@@ -1,4 +1,4 @@
-"""Harness attempt lifecycle package."""
+"""TaskCenter attempt lifecycle package."""
 
 from task_center.attempt.state import (
     Attempt,

@@ -91,29 +91,29 @@ class FullStackAdversarial(ScenarioBase):
         return self._root_planner_response(ctx)
 
     def executor_actions(self, ctx: ScenarioContext) -> Sequence[str]:
-        task_input = ctx.task_input or ctx.prompt or ""
-        if "ACTION inspect_full_user_input" in task_input:
+        rendered_prompt = ctx.rendered_prompt or ctx.prompt or ""
+        if "ACTION inspect_full_user_input" in rendered_prompt:
             return ("inspect_full_user_input",)
-        if "ACTION occ_conflict_matrix" in task_input:
+        if "ACTION occ_conflict_matrix" in rendered_prompt:
             return ("occ_conflict_matrix",)
-        if "ACTION overlay_edge_matrix" in task_input:
+        if "ACTION overlay_edge_matrix" in rendered_prompt:
             return ("overlay_edge_matrix",)
-        if "ACTION layerstack_squash_lease" in task_input:
+        if "ACTION layerstack_squash_lease" in rendered_prompt:
             return ("layerstack_squash_lease",)
-        if "ACTION lsp_refresh_semantics" in task_input:
+        if "ACTION lsp_refresh_semantics" in rendered_prompt:
             return ("lsp_refresh_semantics",)
-        if "ACTION request_recursive_matrix" in task_input:
-            package_id = _field(task_input, "package") or self._recursive_package_id or ""
+        if "ACTION request_recursive_matrix" in rendered_prompt:
+            package_id = _field(rendered_prompt, "package") or self._recursive_package_id or ""
             return (f"request_recursive_matrix:{package_id}",)
-        if "ACTION recursive_oversized_matrix" in task_input:
+        if "ACTION recursive_oversized_matrix" in rendered_prompt:
             return ("recursive_oversized_matrix",)
-        if "ACTION final_reconciliation" in task_input:
+        if "ACTION final_reconciliation" in rendered_prompt:
             return ("full_stack_final_reconciliation",)
         return ()
 
     def verifier_response(self, ctx: ScenarioContext) -> ToolCallSpec:
-        task_input = ctx.task_input or ""
-        checkpoint = _field(task_input, "checkpoint") or "checkpoint"
+        rendered_prompt = ctx.rendered_prompt or ""
+        checkpoint = _field(rendered_prompt, "checkpoint") or "checkpoint"
         failed_by_hook = bool(
             ctx.mutable_state is not None
             and ctx.mutable_state.consume_failure(
@@ -139,7 +139,7 @@ class FullStackAdversarial(ScenarioBase):
                 "summary": f"Verifier accepted {checkpoint}.",
                 "checks": [
                     f"checkpoint:{checkpoint}",
-                    f"dependencies:{_field(task_input, 'dependency_count') or '0'}",
+                    f"dependencies:{_field(rendered_prompt, 'dependency_count') or '0'}",
                 ],
             },
         )
@@ -168,8 +168,8 @@ class FullStackAdversarial(ScenarioBase):
         )
 
     def recursive_mission_goal(self, ctx: ScenarioContext) -> str | None:
-        task_input = ctx.task_input or ""
-        package_id = _field(task_input, "package") or self._recursive_package_id
+        rendered_prompt = ctx.rendered_prompt or ""
+        package_id = _field(rendered_prompt, "package") or self._recursive_package_id
         if not package_id:
             return None
         plan = self._ensure_user_input_plan(ctx)
@@ -443,7 +443,7 @@ class FullStackAdversarial(ScenarioBase):
         if ctx.mission is not None and _is_root_mission(ctx):
             prompt = str(ctx.mission.goal or "")
         if not prompt:
-            prompt = ctx.prompt or ctx.task_input or ""
+            prompt = ctx.prompt or ctx.rendered_prompt or ""
         self._root_prompt = prompt
         self._user_input_plan = build_user_input_plan(prompt)
         return self._user_input_plan

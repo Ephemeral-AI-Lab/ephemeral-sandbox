@@ -47,8 +47,26 @@ def write_manifest_atomic(path: str | Path, manifest: Manifest) -> None:
         os.close(dir_fd)
 
 
+class FileManifestStore:
+    """Filesystem-backed active manifest store."""
+
+    def __init__(self, storage_root: str | Path) -> None:
+        self._path = manifest_path(storage_root)
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+    def read(self) -> Manifest:
+        return read_manifest(self._path)
+
+    def write(self, manifest: Manifest) -> None:
+        write_manifest_atomic(self._path, manifest)
+
+
 __all__ = [
     "ACTIVE_MANIFEST_FILE",
+    "FileManifestStore",
     "LAYERS_DIR",
     "STAGING_DIR",
     "manifest_path",

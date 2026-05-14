@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from db.stores.attempt_store import AttemptStore
-from task_center.config import HarnessLifecycleConfig
+from task_center.config import TaskCenterLifecycleConfig
 from task_center.mission.handler import MissionHandler
 from task_center.episode.manager import EpisodeManager
 from task_center.episode.registry import EpisodeManagerRegistry
@@ -58,7 +58,7 @@ def _build_handler(mission_store, episode_store, attempt_store):
         episode_store=episode_store,
         attempt_store=attempt_store,
         manager_registry=EpisodeManagerRegistry(),
-        config=HarnessLifecycleConfig(default_attempt_budget=2),
+        config=TaskCenterLifecycleConfig(default_attempt_budget=2),
     )
 
 

@@ -31,10 +31,10 @@ Sync → `api/status.py` → `ProviderAdapter`. Tool verbs lazy-import `api/tool
 - `occ/ports.py:80` `OccLayerStackPorts` — `SnapshotReader + CommitStagingStore + CommitPublisher`; implemented by `LayerStackManager`.
 - `occ/commit_transaction.py:42` `OccCommitTransaction` — holds commit lock, calls `publish_layer`.
 
-**overlay** — Runs commands in overlayFS snapshot, captures diffs.
-- `overlay/cli.py:29` `execute_request` — mount → exec → `capture_changes` → `OverlayCapture` JSON; spawned as subprocess inside sandbox.
-- `overlay/namespace/mounts.py` `mount_snapshot` — builds lowerdir from manifest layers.
-- `overlay/capture/upperdir.py` `capture_changes` — diffs upperdir against snapshot.
+**overlay** — Runs commands in a prepared snapshot workspace, captures diffs.
+- `overlay/worker.py` `execute_request` — prepare workspace -> exec -> `capture_changes` -> `OverlayCapture` JSON.
+- `overlay/mounts.py` `mount_snapshot` — builds a copy-backed lower/merged workspace from manifest layers.
+- `overlay/capture.py` `capture_changes` — diffs upperdir or copy-backed workspace changes against the snapshot.
 
 **layer_stack** — Content-addressed layered FS inside sandbox.
 - `layer_stack/manager.py:58` `LayerStackManager` — manifest I/O, leases, reads, publishes; implements `OccLayerStackPorts`.
@@ -90,7 +90,7 @@ Sync → `api/status.py` → `ProviderAdapter`. Tool verbs lazy-import `api/tool
 3. **Post-create** — concurrent `ensure_git` + bundle upload → `call_daemon_api("api.ensure_workspace_base")`.
 4. **Daemon** — `_daemon_spawn_command` via `provider.exec` → AF_UNIX socket open, `OP_TABLE` populated.
 5. **Tool call** — `SandboxClient.edit_file` → `call_daemon_api("command_exec.edit_file")` → `OccService.apply_changeset` → `LayerPublisher` writes layer.
-6. **Shell** — `shell` → `call_daemon_api("overlay.run")` → `overlay/cli.py` → overlayFS + exec + capture → OCC commits delta.
+6. **Shell** — `shell` -> `call_daemon_api("overlay.run")` -> `overlay/worker.py` -> prepared workspace + exec + capture -> OCC commits delta.
 7. **Plugin** — `call_plugin` → `ensure_installed` → `api.plugin.ensure` → `call_daemon_api("plugin.<n>.<op>")`.
 8. **Recovery** — `ensure_sandbox_running` → probe → restart + `setup_after_start`.
 9. **Teardown** — `delete_sandbox` → `adapter.delete` → `dispose_adapter`.
@@ -123,7 +123,7 @@ Sync → `api/status.py` → `ProviderAdapter`. Tool verbs lazy-import `api/tool
 | `host/setup.py` bootstrap | **REAL** — daemon needs bundle + workspace base |
 | `runtime/daemon` in-sandbox | **REAL** — all tool calls traverse it |
 | `occ` + `layer_stack` | **REAL** — correctness under test |
-| `overlay/cli.py` subprocess | **REAL** — shell path needs actual overlayFS |
+| `overlay/worker.py` execution | **REAL** — shell path needs the snapshot workspace and capture pipeline |
 | plugin install + handler | **REAL** for LSP tests only |
 | `stream_message` | **MOCK** — sole replaced seam |
 
@@ -132,7 +132,7 @@ Sync → `api/status.py` → `ProviderAdapter`. Tool verbs lazy-import `api/tool
 - **setup**: `host/setup.py` bootstrap, bundle upload, `ensure_workspace_base`.
 - **daemon**: AF_UNIX lifecycle, `call_daemon_api` round-trip, `OP_TABLE` dispatch.
 - **occ**: `OccService.apply_changeset`, conflict detection, `OccSerialMerger`.
-- **overlay**: `overlay/cli.py` mount + capture via `shell` tool calls.
+- **overlay**: `overlay/worker.py` workspace preparation + capture via `shell` tool calls.
 - **layerstack**: `LayerStackManager` manifest read/write, `LayerPublisher`, `SquashWorker`.
 - **command_exec**: guarded exec via `occ/routing/orchestrator.py`.
 - **lsp plugin server**: `call_plugin` 5-step, `ensure_installed`, `plugin_ensure`.

@@ -13,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 _MERGE_BODY = r"""
 import sandbox.occ.merge as merge_facade
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.changeset.prepared import PreparedPathGroup, RouteDecision
 from sandbox.occ.changeset.types import EditChange, FileStatus, WriteChange
@@ -21,21 +21,19 @@ from sandbox.occ.content.hashing import ContentHasher
 
 def _publish(stack, rel, content):
     stack.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path=rel,
-            kind="write",
             content_hash=ContentHasher().hash_bytes(content),
             source_path=str(_source(root, rel.replace("/", "-"), content)),
         )
     ])
 
 def _stage_write(path, content):
-    return LayerChange(
-        path=path,
-        kind="write",
-        content_hash=ContentHasher().hash_bytes(content),
-        source_path=str(_source(root, "staged-" + path.replace("/", "-"), content)),
-    )
+    return WriteLayerChange(
+               path=path,
+               content_hash=ContentHasher().hash_bytes(content),
+               source_path=str(_source(root, "staged-" + path.replace("/", "-"), content)),
+           )
 
 label = "occ.merge_engine"
 before = sample_resource()
@@ -51,7 +49,7 @@ direct = merge_facade.DirectMerge(stack)
 
 ok_group = PreparedPathGroup(
     path="src/app.py",
-    route=RouteDecision.OCC_GATED_MERGE,
+    route=RouteDecision.GATED,
     changes=(EditChange(path="src/app.py", old_text="beta", new_text="BETA"),),
 )
 ok_result, ok_delta = gated.stage_group(
@@ -65,7 +63,7 @@ assert Path(ok_delta.changes[0].source_path).read_bytes() == b"alpha\nBETA\n"
 
 conflict_group = PreparedPathGroup(
     path="src/app.py",
-    route=RouteDecision.OCC_GATED_MERGE,
+    route=RouteDecision.GATED,
     changes=(EditChange(path="src/app.py", old_text="missing", new_text="X"),),
 )
 conflict_result, conflict_delta = gated.stage_group(
@@ -78,7 +76,7 @@ assert conflict_delta is None
 
 binary_group = PreparedPathGroup(
     path="src/bin.dat",
-    route=RouteDecision.OCC_GATED_MERGE,
+    route=RouteDecision.GATED,
     changes=(EditChange(path="src/bin.dat", old_text="x", new_text="y"),),
 )
 binary_result, binary_delta = gated.stage_group(
@@ -91,7 +89,7 @@ assert binary_delta is None
 
 crlf_group = PreparedPathGroup(
     path="src/crlf.txt",
-    route=RouteDecision.OCC_GATED_MERGE,
+    route=RouteDecision.GATED,
     changes=(EditChange(path="src/crlf.txt", old_text="b\r\n", new_text="B\r\n"),),
 )
 crlf_result, crlf_delta = gated.stage_group(
@@ -104,7 +102,7 @@ assert Path(crlf_delta.changes[0].source_path).read_bytes() == b"a\r\nB\r\n"
 
 direct_group = PreparedPathGroup(
     path="dist/app.js",
-    route=RouteDecision.OCC_SKIPPED_MERGE,
+    route=RouteDecision.DIRECT,
     changes=(WriteChange(path="dist/app.js", final_content=b"direct"),),
 )
 direct_result, direct_delta = direct.stage_group(

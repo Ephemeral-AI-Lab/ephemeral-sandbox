@@ -12,8 +12,8 @@ pytestmark = pytest.mark.asyncio
 
 
 _BODY = r"""
-from sandbox.overlay.namespace.command import run_user_command
-from sandbox.overlay.capture.types import read_output_ref
+from sandbox.overlay import run_user_command
+from sandbox.overlay import read_output_ref
 
 label = "overlay.native.namespace_command"
 before = sample_resource()

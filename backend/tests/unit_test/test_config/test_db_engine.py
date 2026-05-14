@@ -75,7 +75,7 @@ def test_initialize_db_renames_task_center_child_run_id_columns(
                     id VARCHAR(96) NOT NULL,
                     run_id VARCHAR(36) NOT NULL,
                     role VARCHAR(32) NOT NULL,
-                    task_input TEXT NOT NULL,
+                    rendered_prompt TEXT NOT NULL,
                     status VARCHAR(32) NOT NULL,
                     summaries JSON NOT NULL,
                     needs JSON NOT NULL,
@@ -140,7 +140,7 @@ def test_initialize_db_renames_task_center_child_run_id_columns(
             text(
                 """
                 INSERT INTO task_center_tasks (
-                    id, run_id, role, task_input, status, summaries, needs,
+                    id, run_id, role, rendered_prompt, status, summaries, needs,
                     task_center_attempt_id, fix_target_id, spawn_reason,
                     created_at, updated_at
                 )
@@ -266,7 +266,7 @@ def test_initialize_db_migrates_legacy_agent_runs_schema(
         task_center_run_id="run",
         role="executor",
         agent_name="executor",
-        task_input="prompt",
+        rendered_prompt="prompt",
         status="running",
         summaries=[],
         needs=[],

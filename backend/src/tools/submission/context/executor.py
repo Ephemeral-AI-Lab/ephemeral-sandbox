@@ -14,7 +14,7 @@ from tools.submission.context.attempt import (
 )
 
 if TYPE_CHECKING:
-    from task_center.api import AttemptRuntime, EntryTaskController, StartedMission
+    from task_center.api import AttemptDeps, EntryTaskController, StartedMission
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +32,7 @@ class ExecutorSubmissionContext:
 
     task_center_task_id: str
     task: dict[str, Any]
-    runtime: AttemptRuntime
+    runtime: AttemptDeps
     attempt_ctx: AttemptSubmissionContext | None
     entry_controller: EntryTaskController | None
 

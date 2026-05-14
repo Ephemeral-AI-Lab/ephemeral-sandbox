@@ -12,7 +12,12 @@ pytestmark = pytest.mark.asyncio
 
 
 _AGGREGATION_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange, aggregate_layer_changes
+from sandbox.layer_stack.layer.change import (
+    LayerChange,
+    DeleteLayerChange,
+    WriteLayerChange,
+    aggregate_layer_changes,
+)
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.changes_aggregation"
@@ -21,16 +26,16 @@ started = time.perf_counter()
 root = _case_root(label)
 manager = LayerStackManager(root / "stack")
 manager.publish_changes([
-    LayerChange(path="old/name.txt", kind="write", source_path=str(_source(root, "old-name", b"old\n"))),
+    WriteLayerChange(path="old/name.txt", source_path=str(_source(root, "old-name", b"old\n"))),
 ])
 
 changes = [
-    LayerChange(path="z/out.txt", kind="write", source_path=str(_source(root, "z-out-v1", b"z1\n"))),
-    LayerChange(path="a/out.txt", kind="write", source_path=str(_source(root, "a-out-v1", b"a1\n"))),
-    LayerChange(path="old/name.txt", kind="delete"),
-    LayerChange(path="new/name.txt", kind="write", source_path=str(_source(root, "new-name", b"renamed\n"))),
-    LayerChange(path="a/out.txt", kind="write", source_path=str(_source(root, "a-out-v2", b"a2\n"))),
-    LayerChange(path="z/out.txt", kind="write", source_path=str(_source(root, "z-out-v2", b"z2\n"))),
+    WriteLayerChange(path="z/out.txt", source_path=str(_source(root, "z-out-v1", b"z1\n"))),
+    WriteLayerChange(path="a/out.txt", source_path=str(_source(root, "a-out-v1", b"a1\n"))),
+    DeleteLayerChange(path="old/name.txt"),
+    WriteLayerChange(path="new/name.txt", source_path=str(_source(root, "new-name", b"renamed\n"))),
+    WriteLayerChange(path="a/out.txt", source_path=str(_source(root, "a-out-v2", b"a2\n"))),
+    WriteLayerChange(path="z/out.txt", source_path=str(_source(root, "z-out-v2", b"z2\n"))),
 ]
 delta = aggregate_layer_changes(changes)
 paths = [change.path for change in delta.changes]
@@ -54,7 +59,11 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange, aggregate_layer_changes
+from sandbox.layer_stack.layer.change import (
+    LayerChange,
+    WriteLayerChange,
+    aggregate_layer_changes,
+)
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.changes_aggregation_under_race"
@@ -70,8 +79,8 @@ def produce(index):
     first = _source(root, "race-%02d-v1" % index, ("draft-%02d\n" % index).encode("utf-8"))
     final = _source(root, "race-%02d-v2" % index, ("final-%02d\n" % index).encode("utf-8"))
     return (
-        LayerChange(path="race/%02d.txt" % index, kind="write", source_path=str(first)),
-        LayerChange(path="race/%02d.txt" % index, kind="write", source_path=str(final)),
+        WriteLayerChange(path="race/%02d.txt" % index, source_path=str(first)),
+        WriteLayerChange(path="race/%02d.txt" % index, source_path=str(final)),
     )
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=n) as pool:

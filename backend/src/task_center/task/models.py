@@ -1,4 +1,4 @@
-"""Harness attempt task roles, statuses, and submission DTOs."""
+"""TaskCenter attempt task roles, statuses, and submission DTOs."""
 
 from __future__ import annotations
 
@@ -7,13 +7,23 @@ from enum import StrEnum
 from typing import Any, Literal
 
 
-class HarnessTaskRole(StrEnum):
+class TaskCenterTaskRole(StrEnum):
     PLANNER = "planner"
     GENERATOR = "generator"
     EVALUATOR = "evaluator"
+    ENTRY_EXECUTOR = "entry_executor"
 
 
-class HarnessTaskStatus(StrEnum):
+class SpawnReason(StrEnum):
+    """Why a task row was created. Replaces free-form spawn_reason strings."""
+
+    ATTEMPT_PLANNER = "attempt_planner"
+    ATTEMPT_GENERATOR = "attempt_generator"
+    ATTEMPT_EVALUATOR = "attempt_evaluator"
+    ENTRY_EXECUTOR = "entry_executor"
+
+
+class TaskCenterTaskStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     WAITING_MISSION = "waiting_mission"
@@ -22,11 +32,11 @@ class HarnessTaskStatus(StrEnum):
     BLOCKED = "blocked"
 
 
-TERMINAL_GENERATOR_STATUSES: frozenset[HarnessTaskStatus] = frozenset(
+TERMINAL_GENERATOR_STATUSES: frozenset[TaskCenterTaskStatus] = frozenset(
     {
-        HarnessTaskStatus.DONE,
-        HarnessTaskStatus.FAILED,
-        HarnessTaskStatus.BLOCKED,
+        TaskCenterTaskStatus.DONE,
+        TaskCenterTaskStatus.FAILED,
+        TaskCenterTaskStatus.BLOCKED,
     }
 )
 

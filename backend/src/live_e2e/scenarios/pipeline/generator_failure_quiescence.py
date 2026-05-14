@@ -97,9 +97,9 @@ class GeneratorFailureQuiescence(ScenarioBase):
         return ToolCallSpec(submit_full_plan, _three_plus_one_plan())
 
     def executor_actions(self, ctx: ScenarioContext) -> Sequence[str]:
-        task_input = ctx.task_input or ctx.prompt or ""
-        if _FAIL_TAG in task_input and ctx.attempt.attempt_sequence_no == 1:
-            tag = _field(task_input, "tag") or "quiescence"
+        rendered_prompt = ctx.rendered_prompt or ctx.prompt or ""
+        if _FAIL_TAG in rendered_prompt and ctx.attempt.attempt_sequence_no == 1:
+            tag = _field(rendered_prompt, "tag") or "quiescence"
             return (
                 f"fail:Intentional generator failure on attempt 1 ({tag}).",
             )

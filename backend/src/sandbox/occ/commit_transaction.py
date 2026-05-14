@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
 from types import TracebackType
 from uuid import uuid4
 
-from sandbox.layer_stack.layer.change import LayerChange, LayerDelta
+from sandbox.layer_stack.layer.change import LayerChange, LayerDelta, WriteLayerChange
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset.prepared import (
     PreparedChangeset,
@@ -23,6 +24,7 @@ from sandbox.occ.changeset.types import (
 from sandbox.occ.content.hashing import ContentHasher
 from sandbox.occ.merge.direct import DirectMerge
 from sandbox.occ.merge.gated import GatedMerge
+from sandbox.occ.merge.policy import MergePolicy
 from sandbox.occ.ports import (
     CommitPublisher,
     CommitStagingStore,
@@ -64,6 +66,10 @@ class OccCommitTransaction:
         self._hasher = ContentHasher()
         self._gated = GatedMerge(snapshot_reader, hasher=self._hasher)
         self._direct = DirectMerge(snapshot_reader)
+        self._policies: Mapping[RouteDecision, MergePolicy] = {
+            RouteDecision.DIRECT: self._direct,
+            RouteDecision.GATED: self._gated,
+        }
 
     def revalidate_and_publish(self, prepared: PreparedChangeset) -> ChangesetResult:
         """Validate against the current active manifest and publish accepted deltas."""
@@ -97,19 +103,19 @@ class OccCommitTransaction:
                     )
                     validations.append((result, accepted_delta))
                     if (
-                        group.route is RouteDecision.OCC_GATED_MERGE
+                        group.route is RouteDecision.GATED
                         and result.status is not FileStatus.ACCEPTED
                     ):
                         occ_gated_failed = True
                     rt = result.timings
-                    if group.route is RouteDecision.OCC_GATED_MERGE:
+                    if group.route is RouteDecision.GATED:
                         gated_count += 1
                         gated_read_total += rt.get("occ.gated.read_current_s", 0.0)
                         gated_apply_total += rt.get(
                             "occ.gated.apply_changes_s", 0.0
                         )
                         gated_stage_total += rt.get("occ.gated.stage_delta_s", 0.0)
-                    elif group.route is RouteDecision.OCC_SKIPPED_MERGE:
+                    elif group.route is RouteDecision.DIRECT:
                         direct_count += 1
                         direct_read_total += rt.get("occ.direct.read_current_s", 0.0)
                         direct_apply_total += rt.get(
@@ -217,15 +223,9 @@ class OccCommitTransaction:
                 ),
                 None,
             )
-        if group.route is RouteDecision.OCC_SKIPPED_MERGE:
-            return self._direct.stage_group(
-                group,
-                active_manifest=active_manifest,
-                stage_write=stager.write,
-                stage_write_from_path=stager.write_from_path,
-            )
-        if group.route is RouteDecision.OCC_GATED_MERGE:
-            return self._gated.stage_group(
+        policy = self._policies.get(group.route)
+        if policy is not None:
+            return policy.stage_group(
                 group,
                 active_manifest=active_manifest,
                 stage_write=stager.write,
@@ -294,9 +294,8 @@ class _LayerChangeStager:
             self._counter += 1
             source = self._staging_path / f"{self._counter:06d}.bin"
             source.write_bytes(content)
-            return LayerChange(
+            return WriteLayerChange(
                 path=path,
-                kind="write",
                 content_hash=self._hasher.hash_bytes(content),
                 source_path=str(source),
             )
@@ -342,9 +341,8 @@ class _LayerChangeStager:
                 source.write_bytes(cached_bytes)
             else:
                 source.write_bytes(Path(content_path).read_bytes())
-            return LayerChange(
+            return WriteLayerChange(
                 path=path,
-                kind="write",
                 content_hash=precomputed_hash,
                 source_path=str(source),
             )

@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _SQUASH_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.squash"
@@ -23,9 +23,8 @@ manager = LayerStackManager(root / "stack")
 
 for index in range(6):
     manager.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="pkg/value-%02d.txt" % index,
-            kind="write",
             source_path=str(_source(root, "value-%02d" % index, ("value-%02d\n" % index).encode("utf-8"))),
         )
     ])
@@ -53,7 +52,7 @@ _emit(label, started, before, {
 
 
 _RACE_BODY = r"""
-from sandbox.layer_stack.layer.change import LayerChange
+from sandbox.layer_stack.layer.change import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manager import LayerStackManager
 
 label = "layer_stack.squash_under_race"
@@ -64,9 +63,8 @@ manager = LayerStackManager(root / "stack")
 
 for index in range(5):
     manager.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="base/%02d.txt" % index,
-            kind="write",
             source_path=str(_source(root, "base-%02d" % index, ("base-%02d\n" % index).encode("utf-8"))),
         )
     ])
@@ -76,9 +74,8 @@ barrier = threading.Barrier(2)
 def append_one():
     barrier.wait(timeout=5)
     manifest = manager.publish_changes([
-        LayerChange(
+        WriteLayerChange(
             path="race/appended.txt",
-            kind="write",
             source_path=str(_source(root, "race-appended", b"appended\n")),
         )
     ])

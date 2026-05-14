@@ -10,9 +10,9 @@ import pytest
 from task_center.agent_launch.launcher import EphemeralAttemptAgentLauncher
 from task_center.attempt import AttemptFailReason, AttemptStatus
 from task_center.attempt.orchestrator_registry import AttemptOrchestratorRegistry
-from task_center.attempt.runtime import AgentLaunch, AttemptRuntime
+from task_center.attempt.runtime import AgentLaunch, AttemptDeps
 from task_center.episode.episode import EpisodeCreationReason
-from task_center.task import HarnessTaskRole, HarnessTaskStatus, planner_task_id
+from task_center.task import TaskCenterTaskRole, TaskCenterTaskStatus, planner_task_id
 
 
 class _NoopLauncher:
@@ -58,16 +58,16 @@ async def test_missing_orchestrator_exhaustion_closes_attempt(
     task_store.upsert_task(
         task_id=task_id,
         task_center_run_id=task_center_run_id,
-        role=HarnessTaskRole.PLANNER.value,
+        role=TaskCenterTaskRole.PLANNER.value,
         agent_name="planner",
-        task_input="plan",
-        status=HarnessTaskStatus.RUNNING.value,
+        rendered_prompt="plan",
+        status=TaskCenterTaskStatus.RUNNING.value,
         summaries=[],
         needs=[],
         task_center_attempt_id=attempt.id,
         spawn_reason="attempt_planner",
     )
-    runtime = AttemptRuntime(
+    runtime = AttemptDeps(
         mission_store=mission_store,
         episode_store=episode_store,
         attempt_store=attempt_store,
@@ -85,9 +85,9 @@ async def test_missing_orchestrator_exhaustion_closes_attempt(
             task_id=task_id,
             task_center_run_id=task_center_run_id,
             attempt_id=attempt.id,
-            role=HarnessTaskRole.PLANNER,
+            role=TaskCenterTaskRole.PLANNER,
             agent_name="planner",
-            task_input="plan",
+            rendered_prompt="plan",
             needs=(),
             mission_id=mission.id,
         ),
@@ -97,7 +97,7 @@ async def test_missing_orchestrator_exhaustion_closes_attempt(
     task = task_store.get_task(task_id)
     refreshed = attempt_store.get(attempt.id)
     assert task is not None
-    assert task["status"] == HarnessTaskStatus.FAILED.value
+    assert task["status"] == TaskCenterTaskStatus.FAILED.value
     assert refreshed is not None
     assert refreshed.status == AttemptStatus.FAILED
     assert refreshed.fail_reason == AttemptFailReason.PLANNER_FAILED

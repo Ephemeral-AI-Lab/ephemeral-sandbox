@@ -52,7 +52,7 @@ def test_custom_generator_agent_can_declare_mission_solution_terminal() -> None:
     assert has_tool("submit_execution_handoff")
 
 
-def test_plan_task_input_rejects_extra_keys() -> None:
+def test_plan_rendered_prompt_rejects_extra_keys() -> None:
     with pytest.raises(ValidationError):
         PlanTaskInput.model_validate(
             {"id": "a", "agent_name": "executor", "deps": [], "extra": "nope"}

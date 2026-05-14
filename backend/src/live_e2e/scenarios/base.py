@@ -36,7 +36,7 @@ class ScenarioContext:
     mutable_state: Any  # MutableMockState | None
     task_id: str | None = None
     agent_name: str | None = None
-    task_input: str | None = None
+    rendered_prompt: str | None = None
     graph_summary: dict[str, Any] | None = None
     requirement_ledger: Any = None
     package_plan: Any = None

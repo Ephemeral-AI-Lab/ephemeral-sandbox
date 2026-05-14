@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.ports import SnapshotReader
@@ -38,6 +38,21 @@ class GitignoreMatcher(Protocol):
     """Small contract consumed by OCC routing."""
 
     def is_ignored(self, path: str) -> bool: ...
+
+
+@runtime_checkable
+class SnapshotGitignoreMatcher(GitignoreMatcher, Protocol):
+    """Gitignore contract for routing against a known layer-stack snapshot."""
+
+    def is_ignored_in_snapshot(self, path: str, snapshot: Manifest) -> bool: ...
+
+
+@runtime_checkable
+class GitignoreCacheStats(Protocol):
+    """Optional gitignore cache counters used by result formatting."""
+
+    cache_hits: int
+    cache_misses: int
 
 
 class PathspecGitignoreOracle:
@@ -212,7 +227,9 @@ class SnapshotGitignoreOracle:
 
 __all__ = [
     "GitignoreMatcher",
+    "GitignoreCacheStats",
     "PathspecGitignoreOracle",
     "ReadGitignoreFn",
+    "SnapshotGitignoreMatcher",
     "SnapshotGitignoreOracle",
 ]

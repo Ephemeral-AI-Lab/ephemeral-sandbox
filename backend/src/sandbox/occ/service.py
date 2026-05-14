@@ -12,11 +12,11 @@ from sandbox.occ.changeset.prepared import CommitOptions, PreparedChangeset
 from sandbox.occ.changeset.types import Change, ChangesetResult
 from sandbox.occ.commit_transaction import OccCommitTransaction
 from sandbox.occ.content.gitignore_oracle import GitignoreMatcher
+from sandbox.occ.content.hashing import infer_manifest_base_hash
 from sandbox.occ.merge.serial import OccSerialMerger
 from sandbox.occ.ports import OccLayerStackPorts
 from sandbox.occ.routing.orchestrator import OccOrchestrator
-from sandbox.occ.routing.runtime_ops import infer_manifest_base_hash
-from sandbox.runtime.async_bridge import run_sync_in_executor
+from sandbox.async_bridge import run_sync_in_executor
 from sandbox.timing import monotonic_now
 
 AUTO_SQUASH_MAX_DEPTH = 32

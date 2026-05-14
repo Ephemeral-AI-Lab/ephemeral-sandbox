@@ -7,11 +7,20 @@ from pathlib import Path
 import pytest
 
 from sandbox.layer_stack.layer.change import (
-    LayerChange,
+    DeleteLayerChange,
+    SymlinkLayerChange,
+    WriteLayerChange,
     aggregate_layer_changes,
     normalize_layer_path,
 )
-from sandbox.layer_stack.manifest import LayerRef, Manifest, read_manifest, write_manifest_atomic
+from sandbox.layer_stack.manifest import (
+    MANIFEST_SCHEMA_VERSION,
+    LayerRef,
+    Manifest,
+    ManifestConflictError,
+    read_manifest,
+    write_manifest_atomic,
+)
 
 
 def test_manifest_round_trips_layer_refs_newest_first(tmp_path: Path) -> None:
@@ -28,11 +37,24 @@ def test_manifest_round_trips_layer_refs_newest_first(tmp_path: Path) -> None:
 
     assert read_manifest(manifest_file) == manifest
     assert read_manifest(manifest_file).layers[0].layer_id == "L000002"
+    assert read_manifest(manifest_file).schema_version == MANIFEST_SCHEMA_VERSION
+    assert manifest.to_dict()["schema_version"] == MANIFEST_SCHEMA_VERSION
 
 
 def test_manifest_rejects_legacy_string_layer_refs() -> None:
     with pytest.raises(ValueError, match="manifest layer entries must be objects"):
         Manifest.from_dict({"version": 1, "layers": ["L000001"]})
+
+
+def test_manifest_rejects_newer_schema_version() -> None:
+    with pytest.raises(ManifestConflictError, match="newer than this runtime"):
+        Manifest.from_dict(
+            {
+                "schema_version": MANIFEST_SCHEMA_VERSION + 1,
+                "version": 1,
+                "layers": [],
+            }
+        )
 
 
 def test_layer_paths_are_normalized_and_cannot_escape_stack() -> None:
@@ -49,24 +71,22 @@ def test_layer_change_validates_storage_level_payload_shape(tmp_path: Path) -> N
     source.write_text("payload\n", encoding="utf-8")
 
     assert (
-        LayerChange(
+        WriteLayerChange(
             path="pkg/new.py",
-            kind="write",
             source_path=str(source),
         ).path
         == "pkg/new.py"
     )
 
     with pytest.raises(ValueError, match="write changes require source_path"):
-        LayerChange(path="missing.py", kind="write")
+        WriteLayerChange(path="missing.py")
 
     with pytest.raises(ValueError, match="delete changes must not carry source_path"):
-        LayerChange(path="old.py", kind="delete", source_path=str(source))
+        DeleteLayerChange(path="old.py", source_path=str(source))
 
     with pytest.raises(ValueError, match="symlink changes must not carry content_hash"):
-        LayerChange(
+        SymlinkLayerChange(
             path="link.py",
-            kind="symlink",
             source_path="target.py",
             content_hash="x",
         )
@@ -82,9 +102,9 @@ def test_layer_change_aggregation_keeps_final_change_per_path(tmp_path: Path) ->
 
     delta = aggregate_layer_changes(
         (
-            LayerChange(path="b.txt", kind="write", source_path=str(first)),
-            LayerChange(path="a.txt", kind="write", source_path=str(other)),
-            LayerChange(path="b.txt", kind="write", source_path=str(second)),
+            WriteLayerChange(path="b.txt", source_path=str(first)),
+            WriteLayerChange(path="a.txt", source_path=str(other)),
+            WriteLayerChange(path="b.txt", source_path=str(second)),
         )
     )
 
