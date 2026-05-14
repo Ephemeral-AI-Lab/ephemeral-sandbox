@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from task_center.attempt import AttemptFailReason
-from task_center.episode.closure_report import (
+from task_center.episode.state import (
     AttemptedPlanEntry,
     AttemptPlanFailed,
     SuccessContinue,

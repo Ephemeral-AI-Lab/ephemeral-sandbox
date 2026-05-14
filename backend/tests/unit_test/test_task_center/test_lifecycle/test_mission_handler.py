@@ -8,7 +8,7 @@ from task_center.config import TaskCenterLifecycleConfig
 from task_center.mission.handler import MissionHandler
 from task_center.episode.registry import EpisodeManagerRegistry
 from task_center.mission.state import MissionStatus
-from task_center.episode.closure_report import (
+from task_center.episode.state import (
     AttemptPlanFailed,
     SuccessContinue,
     EpisodeClosureReport,
