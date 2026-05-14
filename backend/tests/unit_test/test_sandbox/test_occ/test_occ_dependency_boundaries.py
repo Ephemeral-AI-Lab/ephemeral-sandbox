@@ -36,7 +36,7 @@ def test_phase03_occ_preparation_modules_do_not_import_overlay_or_legacy_apply()
     ]
 
     forbidden = {
-        "sandbox.overlay",
+        "sandbox.execution.overlay",
         "sandbox.occ.stage.direct.direct_merge_coordinator",
         "sandbox.occ.stage.gated.gated_coordinator",
     }
@@ -53,7 +53,7 @@ def test_overlay_capture_module_is_the_occ_overlay_bridge() -> None:
     occ_root = Path(sandbox.occ.__file__).resolve().parent
     imports = _imports(occ_root / "overlay.py")
 
-    assert "sandbox.overlay.change" in imports
+    assert "sandbox.execution.overlay.change" in imports
     assert "sandbox.occ.changeset.builders" in imports
 
 

@@ -207,13 +207,6 @@ def _runtime_bundle_bytes() -> bytes:
             sandbox_dir=sandbox_dir,
         )
 
-        overlay_dir = sandbox_dir / "overlay"
-        _add_python_tree(
-            tar,
-            overlay_dir,
-            sandbox_dir=sandbox_dir,
-        )
-
         # Bundle only the in-sandbox parts of sandbox/plugin/ — install.py
         # and session.py are host-only (they import from sandbox.host and
         # sandbox.provider). The daemon imports sandbox.plugin.runtime,

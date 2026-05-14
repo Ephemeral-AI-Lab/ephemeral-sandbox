@@ -6,12 +6,12 @@ from pathlib import Path
 import tarfile
 import io
 
-import sandbox.overlay
+import sandbox.execution.overlay
 from sandbox.host.runtime_bundle import _runtime_bundle_bytes
 
 
 def _overlay_root() -> Path:
-    return Path(sandbox.overlay.__file__).resolve().parent
+    return Path(sandbox.execution.overlay.__file__).resolve().parent
 
 
 def test_phase02_overlay_modules_do_not_import_occ_or_git_policy() -> None:
@@ -54,20 +54,23 @@ def test_phase02_runtime_bundle_contains_snapshot_runtime_without_ndjson() -> No
     with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as tar:
         names = set(tar.getnames())
 
-    assert "sandbox/overlay/cli.py" in names
-    assert "sandbox/overlay/worker.py" in names
-    assert "sandbox/overlay/capture.py" in names
-    assert "sandbox/overlay/change.py" in names
-    assert "sandbox/overlay/result.py" in names
+    assert "sandbox/execution/overlay/worker.py" in names
+    assert "sandbox/execution/overlay/capture.py" in names
+    assert "sandbox/execution/overlay/change.py" in names
+    assert "sandbox/execution/overlay/result.py" in names
     assert "sandbox/runtime/daemon/handler/overlay.py" in names
-    assert "sandbox/overlay/mounts.py" in names
-    assert "sandbox/overlay/runner.py" in names
-    assert "sandbox/overlay/invoker.py" in names
+    assert "sandbox/execution/overlay/mounts.py" in names
+    assert "sandbox/execution/overlay/runner.py" in names
+    assert "sandbox/execution/overlay/pipeline.py" in names
     assert "sandbox/layer_stack/manifest/_model.py" in names
-    assert "sandbox/overlay/capture/ndjson.py" not in names
-    assert "sandbox/overlay/capture/upperdir.py" not in names
-    assert "sandbox/overlay/namespace/mounts.py" not in names
-    assert "sandbox/overlay/runner/snapshot_overlay_runner.py" not in names
+    assert "sandbox/overlay/cli.py" not in names
+    assert "sandbox/overlay/invoker.py" not in names
+    assert "sandbox/overlay/factory.py" not in names
+    assert "sandbox/overlay/command.py" not in names
+    assert "sandbox/execution/overlay/capture/ndjson.py" not in names
+    assert "sandbox/execution/overlay/capture/upperdir.py" not in names
+    assert "sandbox/execution/overlay/namespace/mounts.py" not in names
+    assert "sandbox/execution/overlay/runner/snapshot_overlay_runner.py" not in names
     assert all(not name.startswith("sandbox/host/") for name in names)
     assert all(not name.startswith("sandbox/provider/") for name in names)
     assert all(not name.startswith("sandbox/testing/") for name in names)
