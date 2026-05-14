@@ -26,7 +26,6 @@ _EXPECTED_API_ROOT_ENTRIES = {
     "__init__.py",
     "_impl",
     "default.py",
-    "defaults.py",
     "discovery.py",
     "lifecycle.py",
     "preview_urls.py",

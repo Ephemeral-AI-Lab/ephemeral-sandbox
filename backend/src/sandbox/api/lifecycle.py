@@ -4,8 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from sandbox.api.defaults import configured_sandbox_defaults
 from sandbox.host import lifecycle as host_lifecycle
+
+
+def configured_sandbox_defaults() -> tuple[str | None, str | None]:
+    from config import load_settings
+
+    sandbox = load_settings().sandbox
+    snapshot = sandbox.default_snapshot.strip()
+    image = sandbox.default_image.strip()
+    return snapshot or None, image or None
 
 
 def create_sandbox(

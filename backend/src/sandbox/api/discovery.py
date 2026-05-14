@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sandbox.api.defaults import configured_sandbox_defaults
+from sandbox.api.lifecycle import configured_sandbox_defaults
 from sandbox.provider.registry import get_adapter, get_default_provider
 
 
