@@ -14,7 +14,10 @@ from sandbox.occ.content.gitignore_oracle import GitignoreMatcher
 from sandbox.occ.content.hashing import infer_manifest_base_hash
 from sandbox.occ.maintenance import MaintenancePolicy
 from sandbox.occ.commit_queue import CommitQueue
-from sandbox.occ.ports import OccLayerStackPort
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sandbox.layer_stack.manager import LayerStackManager
 from sandbox.occ.router import Router
 from sandbox.occ.timing_keys import TimingKey
 from sandbox.daemon.async_bridge import run_sync_in_executor
@@ -30,7 +33,7 @@ class OccService:
         self,
         *,
         gitignore: GitignoreMatcher,
-        layer_stack: OccLayerStackPort,
+        layer_stack: LayerStackManager,
         orchestrator: Router | None = None,
         transaction: CommitTransaction | None = None,
         commit_queue: CommitQueue | None = None,
