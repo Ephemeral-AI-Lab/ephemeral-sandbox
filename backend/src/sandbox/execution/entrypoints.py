@@ -225,10 +225,6 @@ def _validate_mount_inputs(
                 raise ValueError(f"mount scratch path is not a directory: {path}")
             path.mkdir(parents=True, exist_ok=True)
             fds.append(_open_dir_no_follow(path))
-        _assert_same_dir(workspace_root, fds[0])
-        _assert_same_dir(lowerdir, fds[1])
-        _assert_same_dir(upperdir, fds[2])
-        _assert_same_dir(workdir, fds[3])
         return _MountInputs(
             workspace_root=Path(f"/proc/self/fd/{fds[0]}"),
             lowerdir=Path(f"/proc/self/fd/{fds[1]}"),
@@ -248,13 +244,6 @@ def _open_dir_no_follow(path: Path) -> int:
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     return os.open(path, flags)
-
-
-def _assert_same_dir(path: Path, fd: int) -> None:
-    before = os.fstat(fd)
-    after = path.stat()
-    if (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino):
-        raise ValueError(f"mount input changed during validation: {path}")
 
 
 def _write_error(path: Path, error_kind: str, detail: str) -> None:

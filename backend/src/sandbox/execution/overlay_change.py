@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from sandbox.layer_stack.layer_change import normalize_layer_path
 
@@ -42,27 +41,6 @@ class OverlayPathChange:
             "content_path": self.content_path,
             "final_hash": self.final_hash,
         }
-
-    @classmethod
-    def from_dict(cls, payload: Mapping[str, Any]) -> OverlayPathChange:
-        kind = payload["kind"]
-        if kind not in ("write", "delete", "symlink", "opaque_dir"):
-            raise ValueError(f"unsupported upper change kind: {kind!r}")
-        return cls(
-            path=str(payload["path"]),
-            kind=kind,
-            content_path=(
-                str(payload["content_path"])
-                if payload.get("content_path") is not None
-                else None
-            ),
-            final_hash=(
-                str(payload["final_hash"])
-                if payload.get("final_hash") is not None
-                else None
-            ),
-        )
-
 
 def content_hash(path: str | Path, *, symlink: bool = False) -> str:
     data = (

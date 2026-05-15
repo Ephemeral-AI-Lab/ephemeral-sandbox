@@ -11,14 +11,16 @@ from sandbox.daemon.service.layer_stack_client import LayerStackClient
 from sandbox.execution.contract import (
     CommandExecRequest,
     MountMode,
+    OverlayCapture,
+    OverlayShellRequest,
     ShellProcessResult,
     WorkspaceReplacementMountSpec,
 )
-from sandbox.execution.orchestrator import execute_command
-from sandbox.execution.overlay_request import OverlayShellRequest
-from sandbox.execution.overlay_result import OverlayCapture
+from sandbox.execution.orchestrator import (
+    execute_command,
+    run_workspace_replaced_command,
+)
 from sandbox.execution.policy import CommandExecPolicy
-from sandbox.execution.workspace_mount import run_workspace_replaced_command
 from sandbox.layer_stack.manifest import Manifest
 
 _OVERLAY_COMMAND_POLICY = CommandExecPolicy(

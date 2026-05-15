@@ -952,3 +952,220 @@ Tests and guards run for the stop decision:
 
 Next phase recommendation:
 - Stop here until the dirty-overlap decision is resolved.
+
+## Phase 8.1 - Aggressive Execution Overlay Contract Collapse
+
+Status: complete
+
+Scope:
+- Collapse `OverlayShellRequest` and `OverlayCapture` into `sandbox.execution.contract`.
+- Delete the redundant `sandbox.execution.overlay_request` and `sandbox.execution.overlay_result` modules.
+- Remove dead overlay result-file round-trippers and the dead `OverlayPathChange.from_dict` parser.
+- Keep daemon `overlay.run` behavior and the bundle/runtime boundary intact.
+
+Implementation notes:
+- `OverlayShellRequest.from_dict` remains because daemon `overlay.run` still decodes request payloads through that shape.
+- `OverlayCapture.to_dict` remains because daemon `overlay.run` still returns that wire payload.
+- `read_output_ref` was narrowed to a private `_read_output_ref` helper in `orchestrator.py`; the deleted public-ish execution module no longer carries a one-line helper.
+- Runtime bundle boundary tests now require `execution/contract.py` as the request/result owner and reject the deleted `overlay_request.py` / `overlay_result.py` modules.
+
+Changed files:
+- `backend/src/sandbox/execution/contract.py`
+- `backend/src/sandbox/execution/overlay_change.py`
+- `backend/src/sandbox/execution/orchestrator.py`
+- `backend/src/sandbox/daemon/handler/overlay.py`
+- `backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py`
+- `backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py`
+- `backend/tests/unit_test/test_sandbox/test_overlay/test_snapshot_overlay_runner.py`
+- `.planning/sandbox-REVIEW-DEFERRED-IMPLEMENTATION.md`
+
+Deleted files:
+- `backend/src/sandbox/execution/overlay_request.py`
+- `backend/src/sandbox/execution/overlay_result.py`
+
+Compatibility shims:
+- None kept for the deleted execution-internal modules.
+- Public daemon `overlay.run` payload behavior is preserved through `OverlayShellRequest.from_dict` and `OverlayCapture.to_dict` in `sandbox.execution.contract`.
+
+Tests and guards run:
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox/test_overlay/test_snapshot_overlay_runner.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py backend/tests/unit_test/test_sandbox/test_daemon/test_overlay_capture.py -q` - 17 passed
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_overlay/test_snapshot_overlay_runner.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py -q` - 19 passed after boundary-test update
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox -q` - 547 passed, 1 skipped, 1 expected deprecation warning
+- `.venv/bin/ruff check backend/src/sandbox/execution/contract.py backend/src/sandbox/execution/orchestrator.py backend/src/sandbox/execution/overlay_change.py backend/src/sandbox/daemon/handler/overlay.py backend/tests/unit_test/test_sandbox/test_overlay/test_snapshot_overlay_runner.py backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py` - passed
+- `rg -n "from sandbox\\.execution\\.overlay_(request|result)|import sandbox\\.execution\\.overlay_(request|result)|sandbox\\.execution\\.overlay_(request|result)" backend/src backend/tests` - no hits
+- `rg -n "OverlayPathChange\\.from_dict|OverlayCapture\\.from_dict|write_overlay_capture" backend/src/sandbox backend/tests/unit_test/test_sandbox` - no hits
+- `git diff --stat` - phase-specific execution diff shows 98 insertions, 189 deletions
+- `git diff --check` - clean
+
+Failures and fixes:
+- First full sandbox guard failed because `test_overlay_dependency_boundaries.py` still required `sandbox/execution/overlay_result.py` in the runtime bundle. Updated the architectural boundary assertion to require `sandbox/execution/contract.py` and reject both deleted modules, then reran the guard successfully.
+
+Next phase recommendation:
+- Continue the aggressive execution cleanup with the one-caller `workspace_capture.py` deletion, then consider whether `workspace_mount.py` can be folded without weakening strategy fallback diagnostics.
+
+## Phase 8.2 - Delete One-Function Workspace Capture Wrapper
+
+Status: complete
+
+Scope:
+- Delete `backend/src/sandbox/execution/workspace_capture.py`.
+- Inline the copy-backed/private-namespace capture branch into `sandbox.execution.orchestrator`.
+- Update direct command-exec tests to call `capture_changes` directly for copy-backed captures.
+- Update runtime bundle boundary tests to reject the deleted wrapper.
+
+Implementation notes:
+- `execute_command` now calls `capture_changes` directly.
+- Copy-backed runs pass `lowerdir` and `mounted_workspace_root` to preserve the old merged-view diff reconstruction.
+- Private-namespace runs continue to capture `spec.upperdir` directly.
+- Tests that exercise the strategy runner no longer import the wrapper; they call `capture_changes` with the same copy-backed arguments the orchestrator now uses.
+
+Changed files:
+- `backend/src/sandbox/execution/orchestrator.py`
+- `backend/tests/unit_test/test_sandbox/test_command_exec/test_workspace_mount.py`
+- `backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py`
+- `backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py`
+- `.planning/sandbox-REVIEW-DEFERRED-IMPLEMENTATION.md`
+
+Deleted files:
+- `backend/src/sandbox/execution/workspace_capture.py`
+
+Compatibility shims:
+- None kept. The wrapper was an execution-internal one-call module.
+
+Tests and guards run:
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox/test_command_exec/test_workspace_mount.py backend/tests/unit_test/test_sandbox/test_overlay/test_snapshot_overlay_runner.py backend/tests/unit_test/test_sandbox/test_overlay/test_runtime_invoker_cleanup.py backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py -q` - 32 passed
+- `.venv/bin/ruff check backend/src/sandbox/execution/orchestrator.py backend/tests/unit_test/test_sandbox/test_command_exec/test_workspace_mount.py backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py` - passed
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox -q` - 547 passed, 1 skipped, 1 expected deprecation warning
+- `rg -n "from sandbox\\.execution\\.workspace_capture|import sandbox\\.execution\\.workspace_capture|capture_workspace_upperdir|sandbox\\.execution\\.workspace_capture" backend/src backend/tests` - no hits
+- `git diff --stat` - combined aggressive execution/report diff shows 167 insertions, 240 deletions
+- `git diff --check` - clean
+
+Failures and fixes:
+- None
+
+Next phase recommendation:
+- Continue with execution serialization/name cleanup only if it can stay sandbox-local. The next highest-LOC aggressive target is `workspace_mount.py` / strategy dispatch folding, but it should first preserve or improve fallback diagnostics so failures do not lose namespace-child stderr context.
+
+## Phase 8.3 - Fold Workspace Strategy Dispatcher Into Orchestrator
+
+Status: complete
+
+Scope:
+- Delete `backend/src/sandbox/execution/workspace_mount.py`.
+- Move `run_workspace_replaced_command` and mount-mode strategy selection into `sandbox.execution.orchestrator`.
+- Preserve the public `sandbox.execution.run_workspace_replaced_command` facade.
+- Preserve existing strategy fallback semantics and timing keys.
+
+Implementation notes:
+- `run_workspace_replaced_command` now lives next to `execute_command`, which is its only production orchestration owner.
+- Default strategy order remains private namespace first, then copy-backed fallback.
+- Explicit `mount_mode=MountMode.COPY_BACKED` and private namespace selection still construct the same single-strategy tuples.
+- Existing tests still monkeypatch `shell_runner.run_workspace_replaced_command`; the import is preserved through the `sandbox.execution` facade.
+
+Changed files:
+- `backend/src/sandbox/execution/orchestrator.py`
+- `backend/src/sandbox/execution/__init__.py`
+- `backend/src/sandbox/daemon/handler/overlay.py`
+- `backend/tests/unit_test/test_sandbox/test_command_exec/test_workspace_mount.py`
+- `backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py`
+- `backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py`
+- `.planning/sandbox-REVIEW-DEFERRED-IMPLEMENTATION.md`
+
+Deleted files:
+- `backend/src/sandbox/execution/workspace_mount.py`
+
+Compatibility shims:
+- Kept `sandbox.execution.run_workspace_replaced_command` as the stable facade import.
+- No shim kept for `sandbox.execution.workspace_mount`; the module was execution-internal and the bundle boundary now rejects it.
+
+Tests and guards run:
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox/test_command_exec/test_workspace_mount.py backend/tests/unit_test/test_sandbox/test_command_exec/test_capture_to_occ_client.py backend/tests/unit_test/test_sandbox/test_overlay/test_snapshot_overlay_runner.py backend/tests/unit_test/test_sandbox/test_overlay/test_runtime_invoker_cleanup.py backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py backend/tests/unit_test/test_sandbox/test_daemon/test_overlay_capture.py backend/tests/unit_test/test_sandbox/test_occ/test_shell_capture_atomicity.py -q` - 37 passed
+- `.venv/bin/ruff check backend/src/sandbox/execution/orchestrator.py backend/src/sandbox/execution/__init__.py backend/src/sandbox/daemon/handler/overlay.py backend/tests/unit_test/test_sandbox/test_command_exec/test_workspace_mount.py backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py` - passed
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox -q` - 547 passed, 1 skipped, 1 expected deprecation warning
+- `rg -n "from sandbox\\.execution\\.workspace_mount|import sandbox\\.execution\\.workspace_mount|sandbox\\.execution\\.workspace_mount" backend/src backend/tests` - no hits
+- `git diff --stat` - combined aggressive execution/report diff shows 295 insertions, 344 deletions
+- `git diff --check` - clean
+
+Failures and fixes:
+- None
+
+Next phase recommendation:
+- Stop before broader execution renames. The remaining large `execution/` cuts require either renaming public-ish modules (`entrypoints.py`, `workspace_environment.py`, `overlay_capture.py`) or changing copy-backed capture ownership; both should be separate decisioned phases because they can affect runtime bundle and live overlay probes.
+
+## Phase 8.4 - Remove Redundant Namespace Input Restat
+
+Status: complete
+
+Scope:
+- Remove the redundant `_assert_same_dir` helper from `backend/src/sandbox/execution/entrypoints.py`.
+- Keep mount input validation through path text checks, symlink checks, directory checks, `O_NOFOLLOW | O_DIRECTORY`, and `/proc/self/fd/*` mount references.
+- Preserve namespace helper payload and command execution behavior.
+
+Implementation notes:
+- The deleted helper performed a second `path.stat()` after opening the directory fd. The mount operation uses the fd-backed `/proc/self/fd/*` paths, so the post-open path restat did not strengthen the fd guarantee and left a misleading TOCTOU-shaped check in the code.
+- `_validate_mount_inputs` now opens validated directory fds and returns those fd-backed paths directly.
+
+Changed files:
+- `backend/src/sandbox/execution/entrypoints.py`
+- `.planning/sandbox-REVIEW-DEFERRED-IMPLEMENTATION.md`
+
+Deleted files:
+- None
+
+Compatibility shims:
+- None needed. Removed helper was private to the namespace child module.
+
+Tests and guards run:
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox/test_command_exec/test_workspace_mount.py backend/tests/unit_test/test_sandbox/test_overlay/test_runtime_invoker_cleanup.py backend/tests/unit_test/test_sandbox/test_overlay/test_snapshot_overlay_runner.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py -q` - 29 passed
+- `.venv/bin/ruff check backend/src/sandbox/execution/entrypoints.py` - passed
+- `rg -n "_assert_same_dir|mount input changed during validation" backend/src/sandbox/execution backend/tests/unit_test/test_sandbox` - no hits
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox -q` - 547 passed, 1 skipped, 1 expected deprecation warning
+- `git diff --stat` - combined aggressive execution/report diff shows 341 insertions, 355 deletions
+- `git diff --check` - clean
+
+Failures and fixes:
+- None
+
+Next phase recommendation:
+- Stop before the next aggressive execution reductions. Remaining high-LOC cuts are not simple removals: `entrypoints.py` and `workspace_environment.py` are rename/runtime-shape changes, `overlay_capture.py` needs a copy-backed capture ownership decision, and `execution/__init__.py` export trimming is a public-ish facade decision.
+
+## Phase 9.1 - Shared Chunked Base64 Upload Helper
+
+Status: complete
+
+Scope:
+- Extract the duplicated chunked base64 `printf | base64 -d >> remote` upload loop used by runtime bundle upload and plugin install.
+- Keep the existing transport behavior, chunk size, command shape, per-chunk timeout, and caller-specific error handling.
+- Do not change runtime bundle finalization, plugin setup, marker writes, or staging cleanup semantics.
+
+Implementation notes:
+- Added `sandbox.host.chunked_upload.write_base64_chunks`.
+- `host/runtime_bundle.py` still creates the runtime staging tarball first, writes base64 chunks into that tarball, extracts it, removes staging, and writes `.bundle-hash`.
+- `plugin/install.py` still acquires the lock, creates its staging dir/tarball, writes base64 chunks into the tarball, extracts, publishes, optionally runs trusted `setup.sh`, writes the marker, and cleans up.
+- The helper centralizes only the append-chunk loop and delegates result validation back to each caller.
+
+Changed files:
+- `backend/src/sandbox/host/chunked_upload.py`
+- `backend/src/sandbox/host/runtime_bundle.py`
+- `backend/src/sandbox/plugin/install.py`
+- `.planning/sandbox-REVIEW-DEFERRED-IMPLEMENTATION.md`
+
+Deleted files:
+- None
+
+Compatibility shims:
+- None needed. This is a host-side internal helper.
+
+Tests and guards run:
+- `.venv/bin/ruff check backend/src/sandbox/host/chunked_upload.py backend/src/sandbox/host/runtime_bundle.py backend/src/sandbox/plugin/install.py` - passed after removing stale imports/type names
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox/test_daemon/test_bundle.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py backend/tests/unit_test/test_sandbox/test_plugin_install.py -q` - 22 passed
+- `.venv/bin/pytest backend/tests/unit_test/test_sandbox -q` - 547 passed, 1 skipped, 1 expected deprecation warning
+- `rg -n "base64\\.b64encode|_CHUNK_SIZE =|for .*range\\(0, len\\(encoded\\)" backend/src/sandbox/host backend/src/sandbox/plugin` - only `sandbox.host.chunked_upload` owns the chunking loop now
+- `git diff --stat` - current tracked diff shows this phase plus prior execution/report changes; new helper is untracked until staged
+- `git diff --check` - clean
+
+Failures and fixes:
+- First ruff pass caught stale `RawExecResult`, `Protocol`, and `_RawExecCallable` references after the extraction. Removed/replaced them and reran successfully.
+
+Next phase recommendation:
+- Continue behavior-preserving reductions with provider Daytona client cache deduplication or plugin handler state consolidation. Avoid host upload-overlap removal and copy-backed capture ownership changes unless explicitly switching to behavior-bearing cleanup.

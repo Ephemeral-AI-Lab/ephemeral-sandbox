@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-import sandbox.execution.workspace_mount as workspace_mount
+import sandbox.execution.orchestrator as command_runner
 from sandbox.execution.contract import CommandExecRequest
 from sandbox.execution.contract import MountMode
 from sandbox.execution.contract import ShellProcessResult
-from sandbox.execution.workspace_capture import capture_workspace_upperdir
 from sandbox.execution.contract import WorkspaceReplacementMountSpec
 from sandbox.execution import entrypoints as namespace_helper
+from sandbox.execution.overlay_capture import capture_changes
 from sandbox.execution.strategy_copy_backed import (
     CopyBackedStrategy,
     rewrite_declared_workspace_refs,
@@ -57,17 +57,17 @@ def test_copy_backed_mount_captures_only_workspace_changes(
     )
     timings: dict[str, float] = {}
 
-    process = workspace_mount.run_workspace_replaced_command(
+    process = command_runner.run_workspace_replaced_command(
         spec=spec,
         request=request,
         run_dir=tmp_path / "run",
         timings=timings,
         strategies=(CopyBackedStrategy(),),
     )
-    changes = capture_workspace_upperdir(
-        spec=spec,
-        mounted_workspace_root=process.mounted_workspace_root,
-        copy_backed=process.mount_mode == MountMode.COPY_BACKED,
+    changes = capture_changes(
+        spec.upperdir,
+        lowerdir=spec.lowerdir,
+        workspace_root=process.mounted_workspace_root,
         timings=timings,
     )
 
@@ -99,17 +99,17 @@ def test_copy_backed_mount_rewrites_absolute_workspace_references(
     )
     timings: dict[str, float] = {}
 
-    process = workspace_mount.run_workspace_replaced_command(
+    process = command_runner.run_workspace_replaced_command(
         spec=spec,
         request=request,
         run_dir=tmp_path / "run",
         timings=timings,
         strategies=(CopyBackedStrategy(),),
     )
-    changes = capture_workspace_upperdir(
-        spec=spec,
-        mounted_workspace_root=process.mounted_workspace_root,
-        copy_backed=process.mount_mode == MountMode.COPY_BACKED,
+    changes = capture_changes(
+        spec.upperdir,
+        lowerdir=spec.lowerdir,
+        workspace_root=process.mounted_workspace_root,
         timings=timings,
     )
 
@@ -140,7 +140,7 @@ def test_copy_backed_mount_rewrites_workspace_env_values(
         env={"WORKSPACE_DIR": "/testbed"},
     )
 
-    process = workspace_mount.run_workspace_replaced_command(
+    process = command_runner.run_workspace_replaced_command(
         spec=spec,
         request=request,
         run_dir=tmp_path / "run",
@@ -218,7 +218,7 @@ def test_namespace_mount_failure_falls_back_to_copy_backed(
 
     timings: dict[str, float] = {}
 
-    process = workspace_mount.run_workspace_replaced_command(
+    process = command_runner.run_workspace_replaced_command(
         spec=spec,
         request=request,
         run_dir=tmp_path / "run",

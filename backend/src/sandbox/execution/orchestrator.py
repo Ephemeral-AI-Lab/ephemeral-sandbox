@@ -19,12 +19,20 @@ from sandbox.execution.contract import (
     WorkspaceLeaseClient,
     WorkspaceReplacementMountSpec,
 )
-from sandbox.execution.workspace_capture import capture_workspace_upperdir
-from sandbox.execution.workspace_mount import run_workspace_replaced_command
+from sandbox.execution.overlay_capture import capture_changes
+from sandbox.execution.policy import (
+    DEFAULT_COMMAND_EXEC_POLICY,
+    CommandExecPolicy,
+)
+from sandbox.execution.strategy_base import ExecutionStrategy
+from sandbox.execution.strategy_copy_backed import CopyBackedStrategy
+from sandbox.execution.strategy_private_namespace import (
+    PrivateNamespaceStrategy,
+    detect_private_mount_namespace,
+)
 from sandbox.occ.changeset import ChangesetResult, CommitOptions
 from sandbox.occ.overlay import overlay_path_changes_to_occ_changes
 from sandbox.execution.overlay_change import OverlayPathChange
-from sandbox.execution.overlay_result import read_output_ref
 from sandbox.daemon.async_bridge import run_sync_in_executor
 from sandbox.timing import monotonic_now
 
@@ -36,6 +44,44 @@ WorkspaceCommandRunner = Callable[
     ...,
     ShellProcessResult,
 ]
+
+
+def run_workspace_replaced_command(
+    *,
+    spec: WorkspaceReplacementMountSpec,
+    request: CommandExecRequest,
+    run_dir: str | Path,
+    timings: dict[str, float],
+    strategies: Sequence[ExecutionStrategy] | None = None,
+    mount_mode: MountMode | None = None,
+    policy: CommandExecPolicy = DEFAULT_COMMAND_EXEC_POLICY,
+) -> ShellProcessResult:
+    """Run a command with the assigned workspace replaced by the leased view."""
+    run_root = Path(run_dir)
+    run_root.mkdir(parents=True, exist_ok=True)
+    strategy_list: tuple[ExecutionStrategy, ...] = (
+        tuple(strategies)
+        if strategies is not None
+        else _strategies_for_mount_mode(mount_mode, policy=policy)
+    )
+    for strategy in strategy_list:
+        if not strategy.is_available():
+            continue
+        process = strategy.run(
+            spec=spec,
+            request=request,
+            run_dir=run_root,
+            timings=timings,
+        )
+        if not strategy.is_recoverable_failure(process, run_dir=run_root):
+            return process
+        fallback_key = (
+            "command_exec.private_mount_fallback"
+            if strategy.name == MountMode.PRIVATE_NAMESPACE.value
+            else f"command_exec.{strategy.name}_fallback"
+        )
+        timings[fallback_key] = 1.0
+    raise RuntimeError("no command execution strategy succeeded")
 
 
 async def execute_command(
@@ -91,14 +137,15 @@ async def execute_command(
         process = await run_sync_in_executor(command_runner, **runner_kwargs)
 
         capture_start = monotonic_now()
-        path_changes = tuple(
-            capture_workspace_upperdir(
-                spec=spec,
-                mounted_workspace_root=process.mounted_workspace_root,
-                copy_backed=process.mount_mode == MountMode.COPY_BACKED,
+        if process.mount_mode == MountMode.COPY_BACKED:
+            path_changes = capture_changes(
+                spec.upperdir,
+                lowerdir=spec.lowerdir,
+                workspace_root=process.mounted_workspace_root,
                 timings=timings,
             )
-        )
+        else:
+            path_changes = capture_changes(spec.upperdir, timings=timings)
         timings["command_exec.capture_upperdir_s"] = (
             monotonic_now() - capture_start
         )
@@ -144,8 +191,8 @@ async def execute_command(
         timings["api.shell.total_s"] = timings["command_exec.total_s"]
         result = CommandExecResult(
             exit_code=process.exit_code,
-            stdout=read_output_ref(process.stdout_ref),
-            stderr=read_output_ref(process.stderr_ref),
+            stdout=_read_output_ref(process.stdout_ref),
+            stderr=_read_output_ref(process.stderr_ref),
             stdout_ref=process.stdout_ref,
             stderr_ref=process.stderr_ref,
             workspace_capture=WorkspaceCapture(
@@ -177,6 +224,30 @@ async def execute_command(
             _drop_non_capture_run_dir_entries(run_dir)
         else:
             shutil.rmtree(run_dir, ignore_errors=True)
+
+
+def _strategies_for_mount_mode(
+    mount_mode: MountMode | None,
+    *,
+    policy: CommandExecPolicy,
+) -> tuple[ExecutionStrategy, ...]:
+    if mount_mode is None:
+        return (
+            PrivateNamespaceStrategy(
+                available=detect_private_mount_namespace(),
+                policy=policy,
+            ),
+            CopyBackedStrategy(policy=policy),
+        )
+    selected = MountMode(mount_mode)
+    if selected == MountMode.COPY_BACKED:
+        return (CopyBackedStrategy(policy=policy),)
+    return (
+        PrivateNamespaceStrategy(
+            available=detect_private_mount_namespace(),
+            policy=policy,
+        ),
+    )
 
 
 async def _apply_workspace_capture(
@@ -211,6 +282,10 @@ async def _apply_workspace_capture(
 def _drop_non_capture_run_dir_entries(run_dir: Path) -> None:
     for name in ("workspace", "work", "lower", "merged"):
         shutil.rmtree(run_dir / name, ignore_errors=True)
+
+
+def _read_output_ref(path: str) -> str:
+    return Path(path).read_bytes().decode("utf-8", "replace")
 
 
 def _run_dir(storage_root: Path, request_id: str) -> Path:
@@ -257,4 +332,5 @@ def _drop_transient_lowerdir(lease: object, *, storage_root: Path) -> None:
 
 __all__ = [
     "execute_command",
+    "run_workspace_replaced_command",
 ]

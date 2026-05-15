@@ -7,9 +7,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
+    from sandbox.layer_stack.manifest import Manifest
     from sandbox.execution.overlay_change import OverlayPathChange
     from sandbox.occ.changeset import Change, ChangesetResult, CommitOptions
 
@@ -64,6 +66,48 @@ class CommandExecRequest:
         self.description = str(self.description or "shell")
 
 
+@dataclass
+class OverlayShellRequest:
+    """One per-call shell request against a leased layer-stack snapshot."""
+
+    request_id: str
+    command: tuple[str, ...]
+    cwd: str
+    env: Mapping[str, str]
+    timeout_seconds: float | None
+
+    def __post_init__(self) -> None:
+        request_id = str(self.request_id).strip()
+        if not request_id:
+            raise ValueError("request_id must not be empty")
+        command = tuple(str(part) for part in self.command)
+        if not command or any(part == "" for part in command):
+            raise ValueError("command must contain non-empty argv parts")
+        if self.timeout_seconds is not None and self.timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive when provided")
+        self.request_id = request_id
+        self.command = command
+        self.cwd = str(self.cwd).strip() or "."
+        self.env = {str(key): str(value) for key, value in self.env.items()}
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> OverlayShellRequest:
+        command_raw = payload.get("command")
+        if not isinstance(command_raw, list):
+            raise ValueError("OverlayShellRequest.command must be a list")
+        env_raw = payload.get("env") or {}
+        if not isinstance(env_raw, Mapping):
+            raise ValueError("OverlayShellRequest.env must be an object")
+        timeout_raw = payload.get("timeout_seconds")
+        return cls(
+            request_id=str(payload.get("request_id") or ""),
+            command=tuple(str(part) for part in command_raw),
+            cwd=str(payload.get("cwd") or "."),
+            env={str(key): str(value) for key, value in env_raw.items()},
+            timeout_seconds=float(timeout_raw) if timeout_raw is not None else None,
+        )
+
+
 # ---- result ----------------------------------------------------------------
 
 
@@ -85,6 +129,42 @@ class WorkspaceCapture:
 
     def __post_init__(self) -> None:
         self.mount_mode = MountMode(self.mount_mode)
+
+
+@dataclass
+class OverlayCapture:
+    """Policy-blind shell execution result captured from a snapshot overlay."""
+
+    exit_code: int
+    stdout_ref: str
+    stderr_ref: str
+    snapshot_version: int
+    changes: tuple[OverlayPathChange, ...]
+    snapshot_manifest: Manifest | None = None
+    timings: Mapping[str, float] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.exit_code = int(self.exit_code)
+        self.snapshot_version = int(self.snapshot_version)
+        self.changes = tuple(self.changes)
+        self.timings = MappingProxyType(
+            {str(key): float(value) for key, value in self.timings.items()}
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "exit_code": self.exit_code,
+            "stdout_ref": self.stdout_ref,
+            "stderr_ref": self.stderr_ref,
+            "snapshot_version": self.snapshot_version,
+            "changes": [change.to_dict() for change in self.changes],
+            "snapshot_manifest": (
+                self.snapshot_manifest.to_dict()
+                if self.snapshot_manifest is not None
+                else None
+            ),
+            "timings": dict(self.timings),
+        }
 
 
 @dataclass
@@ -210,6 +290,8 @@ __all__ = [
     "CommandExecutor",
     "MountMode",
     "OCCMutationClient",
+    "OverlayCapture",
+    "OverlayShellRequest",
     "ShellProcessResult",
     "SnapshotManifest",
     "WorkspaceCapture",

@@ -12,10 +12,10 @@ from sandbox.daemon.service.layer_stack_client import LayerStackClient
 from sandbox.execution.contract import (
     CommandExecRequest,
     MountMode,
+    OverlayCapture,
     WorkspaceReplacementMountSpec,
 )
 from sandbox.execution.orchestrator import execute_command
-from sandbox.execution.overlay_result import OverlayCapture
 from sandbox.daemon.rpc.dispatcher import dispatch_envelope_async
 
 
