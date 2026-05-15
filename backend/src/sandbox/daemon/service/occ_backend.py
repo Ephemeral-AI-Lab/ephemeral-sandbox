@@ -11,6 +11,7 @@ via :mod:`sandbox.daemon.handler.request_context`).
 
 from __future__ import annotations
 
+import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,15 +44,17 @@ class OccBackend:
 
 _MAX_BACKEND_CACHE_ENTRIES = 256
 _BACKEND_CACHE: OrderedDict[str, OccBackend] = OrderedDict()
+_BACKEND_CACHE_LOCK = threading.RLock()
 
 
 def build_occ_backend(layer_stack_root: str) -> OccBackend:
     """Return the cached OCC backend for ``layer_stack_root`` (constructing on miss)."""
     cache_key = _backend_cache_key(layer_stack_root)
-    cached = _BACKEND_CACHE.get(cache_key)
-    if cached is not None:
-        _BACKEND_CACHE.move_to_end(cache_key)
-        return cached
+    with _BACKEND_CACHE_LOCK:
+        cached = _BACKEND_CACHE.get(cache_key)
+        if cached is not None:
+            _BACKEND_CACHE.move_to_end(cache_key)
+            return cached
     manager = get_layer_stack_manager(cache_key)
     layer_stack = LayerStackClient(manager)
     gitignore = SnapshotGitignoreOracle(layer_stack)
@@ -76,8 +79,13 @@ def build_occ_backend(layer_stack_root: str) -> OccBackend:
         gitignore=gitignore,
         manager=manager,
     )
-    _BACKEND_CACHE[cache_key] = backend
-    _evict_oldest_backends()
+    with _BACKEND_CACHE_LOCK:
+        existing = _BACKEND_CACHE.get(cache_key)
+        if existing is not None:
+            _BACKEND_CACHE.move_to_end(cache_key)
+            return existing
+        _BACKEND_CACHE[cache_key] = backend
+        _evict_oldest_backends()
     return backend
 
 
@@ -86,12 +94,14 @@ def drop_backend_cache(layer_stack_root: str) -> None:
     root = str(layer_stack_root or "").strip()
     if not root:
         return
-    _BACKEND_CACHE.pop(str(Path(root).resolve(strict=False)), None)
+    with _BACKEND_CACHE_LOCK:
+        _BACKEND_CACHE.pop(str(Path(root).resolve(strict=False)), None)
 
 
 def clear_backend_cache() -> None:
     """Drop every cached OCC backend. Test helper."""
-    _BACKEND_CACHE.clear()
+    with _BACKEND_CACHE_LOCK:
+        _BACKEND_CACHE.clear()
 
 
 def _backend_cache_key(layer_stack_root: str | Path) -> str:
@@ -102,6 +112,7 @@ def _backend_cache_key(layer_stack_root: str | Path) -> str:
 
 
 def _evict_oldest_backends() -> None:
+    """Caller must hold ``_BACKEND_CACHE_LOCK``."""
     while len(_BACKEND_CACHE) > _MAX_BACKEND_CACHE_ENTRIES:
         _BACKEND_CACHE.popitem(last=False)
 
