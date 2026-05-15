@@ -21,7 +21,7 @@ from sandbox.layer_stack.workspace_binding import (
     read_workspace_binding,
     require_workspace_binding,
 )
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 _MANAGER_CACHE_LOCK = threading.RLock()
 _MANAGER_CACHE: dict[str, LayerStack] = {}

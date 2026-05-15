@@ -12,7 +12,7 @@ from sandbox.daemon._toolbox import (
     required_single_path,
     services as backend_services,
 )
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 # WR-01: cap out-of-workspace reads. Reading /var/log/syslog or /proc/kcore
 # unbounded OOMs the daemon and blows up the response body. 16 MiB is

@@ -8,7 +8,7 @@ from sandbox.daemon.handler.edit import (
     _edit_out_of_workspace,
     edit_file,
 )
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 def test_edit_out_of_workspace_anchor_miss_returns_conflict(tmp_path) -> None:

@@ -29,7 +29,7 @@ from sandbox.occ.protocols import (
 from sandbox.occ.stage import DirectStager, GatedStager
 from sandbox.occ.stage_policy import MergePolicy, StagedChanges
 from sandbox.timing_keys import TimingKey
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 # Below this threshold, a buffered Python read+write is cheaper than
 # shutil.copyfile (which pays open/sendfile/close per call). Above it,

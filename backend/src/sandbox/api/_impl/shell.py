@@ -15,7 +15,7 @@ from sandbox.api.protocol import SandboxTransport
 from sandbox.api.timeouts import shell_dispatch_timeout
 from sandbox.api.transport import DAEMON_OP_SHELL, DaemonSandboxTransport
 from sandbox._shared.models import ShellRequest, ShellResult
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 async def shell(

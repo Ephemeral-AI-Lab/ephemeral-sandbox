@@ -31,7 +31,7 @@ from sandbox.layer_stack.transaction import (
     LayerStackTransactionHandle,
 )
 from sandbox.layer_stack.view import MergedView, SymlinkLookup
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 logger = logging.getLogger(__name__)
 

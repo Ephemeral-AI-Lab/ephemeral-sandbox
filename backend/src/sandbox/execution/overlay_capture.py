@@ -16,7 +16,7 @@ from sandbox.execution.path_change import (
     OverlayPathChangeKind,
     content_hash,
 )
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 def capture_changes(

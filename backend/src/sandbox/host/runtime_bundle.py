@@ -142,7 +142,6 @@ def _runtime_bundle_bytes() -> bytes:
     with tarfile.open(fileobj=raw, mode="w") as tar:
         for name in (
             "__init__.py",
-            "timing.py",
             "timing_keys.py",
             "daemon_paths.py",
         ):

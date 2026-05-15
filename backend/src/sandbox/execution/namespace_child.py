@@ -25,7 +25,7 @@ from sandbox.execution.env_policy import (
     CommandExecPolicy,
 )
 from sandbox.execution.subprocess_runner import run_command_to_refs
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 def main(argv: list[str] | None = None) -> int:

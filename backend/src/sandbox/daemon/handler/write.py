@@ -20,7 +20,7 @@ from sandbox.daemon._toolbox import (
     services as backend_services,
     write_text_no_follow,
 )
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 _CONTENT_HASHER = ContentHasher()
 

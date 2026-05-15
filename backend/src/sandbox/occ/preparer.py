@@ -24,7 +24,7 @@ from sandbox.occ.gitignore import (
 )
 from sandbox.occ.hashing import ContentHasher
 from sandbox.timing_keys import TimingKey
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 BaseHashReader = Callable[[str], str | None]
 

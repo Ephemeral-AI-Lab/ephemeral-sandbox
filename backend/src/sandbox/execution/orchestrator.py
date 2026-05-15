@@ -34,7 +34,7 @@ from sandbox.occ.changeset import ChangesetResult, CommitOptions
 from sandbox.occ.overlay import overlay_path_changes_to_occ_changes
 from sandbox.execution.path_change import OverlayPathChange
 from sandbox.daemon.async_bridge import run_sync_in_executor
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 logger = logging.getLogger(__name__)
 

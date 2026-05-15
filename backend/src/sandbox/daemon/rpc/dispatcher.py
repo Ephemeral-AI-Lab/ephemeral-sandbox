@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 logger = logging.getLogger("sandbox.daemon.rpc.dispatcher")
 

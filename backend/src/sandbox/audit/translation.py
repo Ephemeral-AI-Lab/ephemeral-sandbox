@@ -10,7 +10,8 @@ from audit.base import AuditEvent, AuditNode, JsonValue
 from sandbox._conflict_markers import ALL_CONFLICT_MARKERS
 from sandbox.audit import events
 from sandbox._shared.models import GuardedResultBase, SandboxCaller, SandboxResultBase
-from sandbox.timing import normalize_timing_map, timing_audit_signals
+from sandbox._shared.clock import normalize_timing_map
+from sandbox.audit.timing import timing_audit_signals
 
 SandboxOperation = Literal[
     "read_file",

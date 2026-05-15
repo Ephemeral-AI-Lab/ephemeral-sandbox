@@ -70,7 +70,7 @@ async def test_dispatch_envelope_async_unknown_op_returns_structured_error() -> 
 async def test_dispatch_envelope_async_honors_boot_t0_override() -> None:
     """``boot_t0`` overrides module-level ``_BOOT_T0`` so daemon-mode dispatch
     measures per-call boot, not daemon uptime."""
-    from sandbox.timing import monotonic_now
+    from sandbox._shared.clock import monotonic_now
 
     def handler(_: dict[str, object]) -> dict[str, object]:
         return {"success": True}

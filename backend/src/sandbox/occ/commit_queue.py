@@ -14,7 +14,7 @@ from sandbox.occ.changeset import PreparedChangeset, RouteDecision
 from sandbox.occ.changeset import ChangesetResult, FileResult, FileStatus
 from sandbox.occ.commit_transaction import CommitTransaction
 from sandbox.timing_keys import TimingKey
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 _RESULT_READY_AT = TimingKey.SERIAL_RESULT_READY_AT
 

@@ -18,7 +18,7 @@ from sandbox.daemon._toolbox import layer_stack_root as require_layer_stack_root
 from sandbox.daemon import occ_backend
 from sandbox.daemon.occ_backend import OccBackend
 from sandbox.daemon.workspace_server import get_layer_stack_manager
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 _STARTED_AT_MONO = time.monotonic()
 

@@ -28,7 +28,7 @@ from sandbox.layer_stack.manifest import (
     read_manifest,
     write_manifest_atomic,
 )
-from sandbox.timing import monotonic_now, record_elapsed
+from sandbox._shared.clock import monotonic_now, record_elapsed
 
 
 class LayerPublisher:

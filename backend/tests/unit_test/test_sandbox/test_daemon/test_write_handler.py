@@ -5,7 +5,7 @@ import os
 import pytest
 
 from sandbox.daemon.handler.write import _write_out_of_workspace
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 def test_write_out_of_workspace_refuses_terminal_symlink(tmp_path) -> None:

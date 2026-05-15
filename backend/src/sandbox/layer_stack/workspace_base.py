@@ -26,7 +26,7 @@ from sandbox.layer_stack.workspace_binding import (
     validate_workspace_binding_paths,
     write_workspace_binding_atomic,
 )
-from sandbox.timing import monotonic_now, record_elapsed
+from sandbox._shared.clock import monotonic_now, record_elapsed
 
 WORKSPACE_BASE_LAYER_ID = "B000001-base"
 

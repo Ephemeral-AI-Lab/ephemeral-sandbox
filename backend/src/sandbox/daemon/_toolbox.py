@@ -35,7 +35,7 @@ from sandbox.daemon._wire import (
 )
 from sandbox.daemon import occ_backend
 from sandbox.daemon.occ_backend import OccBackend
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 # -- classifier predicate ---------------------------------------------------
 

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from sandbox.layer_stack.changes import LayerChange
 from sandbox.layer_stack.manifest import Manifest
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 if TYPE_CHECKING:
     from sandbox.layer_stack.publisher import LayerPublisher

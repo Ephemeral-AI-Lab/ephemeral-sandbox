@@ -56,7 +56,7 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/daemon/async_bridge.py",
         "sandbox/daemon_paths.py",
         "sandbox/_shared/models.py",
-        "sandbox/timing.py",
+        "sandbox/_shared/clock.py",
         "sandbox/timing_keys.py",
         "sandbox/daemon/__init__.py",
         "sandbox/daemon/__main__.py",

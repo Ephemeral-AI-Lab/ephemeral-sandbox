@@ -37,7 +37,7 @@ from sandbox.occ.stage_policy import (
     with_timings,
 )
 from sandbox.timing_keys import TimingKey
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 def apply_edit_content(

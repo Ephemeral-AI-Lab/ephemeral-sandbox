@@ -1,16 +1,14 @@
-"""Shared timing helpers for sandbox operations.
+"""Audit-signal derivation from sandbox timing payloads.
 
-Sandbox results expose one flat ``timings`` mapping. Keep the clock,
-elapsed-time writes, payload normalization, and audit-facing key-family rules
-here so API wrappers, daemon handlers, OCC, overlay, and layer-stack code do
-not each grow their own timing conventions.
+``timing_audit_signals`` inspects a result's ``timings`` map and classifies
+which lifecycle facts (OCC prepared, overlay executed, layer published, …) the
+caller can claim happened. Clock primitives live in ``sandbox._shared.clock``;
+this module is intentionally narrow to audit-facing concerns.
 """
 
 from __future__ import annotations
 
-import time
-from collections.abc import Mapping, MutableMapping
-from enum import Enum
+from collections.abc import Mapping
 from typing import Literal
 
 TimingAuditSignal = Literal[
@@ -22,30 +20,6 @@ TimingAuditSignal = Literal[
     "layer_stack_layer_published",
     "layer_stack_auto_squashed",
 ]
-
-
-def monotonic_now() -> float:
-    """Return the sandbox timing clock."""
-    return time.perf_counter()
-
-
-def record_elapsed(
-    timings: MutableMapping[str, float] | None,
-    key: str,
-    started_at: float,
-) -> float:
-    """Record and return elapsed seconds for ``key`` when a timing map exists."""
-    elapsed = monotonic_now() - started_at
-    if timings is not None:
-        timings[key] = elapsed
-    return elapsed
-
-
-def normalize_timing_map(raw: Mapping[object, object] | None) -> dict[str, float]:
-    """Project arbitrary timing payloads into ``dict[str, float]``."""
-    if not raw:
-        return {}
-    return {_timing_key_text(key): float(value) for key, value in raw.items()}
 
 
 def timing_audit_signals(
@@ -111,16 +85,7 @@ def _has_auto_squash_fact(
     return any("auto_squash" in str(key).lower() for key in payload)
 
 
-def _timing_key_text(key: object) -> str:
-    if isinstance(key, Enum):
-        return str(key.value)
-    return str(key)
-
-
 __all__ = [
     "TimingAuditSignal",
-    "monotonic_now",
-    "normalize_timing_map",
-    "record_elapsed",
     "timing_audit_signals",
 ]

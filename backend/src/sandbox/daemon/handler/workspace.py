@@ -8,7 +8,7 @@ from sandbox.daemon._toolbox import (
     require_arg,
 )
 from sandbox.daemon import workspace_server
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 async def build_workspace_base(args: dict[str, object]) -> dict[str, object]:

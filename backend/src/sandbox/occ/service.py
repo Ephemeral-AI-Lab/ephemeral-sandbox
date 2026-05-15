@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 from sandbox.occ.preparer import ChangesetPreparer
 from sandbox.timing_keys import TimingKey
 from sandbox.daemon.async_bridge import run_sync_in_executor
-from sandbox.timing import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 AUTO_SQUASH_MAX_DEPTH = 32
 
