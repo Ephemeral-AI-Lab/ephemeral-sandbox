@@ -21,10 +21,16 @@ from sandbox.plugin.install import (
 
 
 @pytest.fixture(autouse=True)
-def _clear_install_caches() -> Iterator[None]:
+def _clear_install_caches(tmp_path: Path) -> Iterator[None]:
     install_mod._locks.clear()
+    # Tests stage plugin source trees under tmp_path and expect setup.sh to
+    # run; opt them into the trusted-setup allowlist so the C1 gate doesn't
+    # refuse the test fixture's source_dir.
+    resolved = tmp_path.resolve()
+    install_mod._TRUSTED_SETUP_ROOTS.add(resolved)
     yield
     install_mod._locks.clear()
+    install_mod._TRUSTED_SETUP_ROOTS.discard(resolved)
 
 
 def _seed_demo_plugin(tmp_path: Path, *, with_runtime: bool = True) -> Path:

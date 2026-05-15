@@ -19,6 +19,7 @@ import gzip
 import hashlib
 import io
 import logging
+import os
 import re
 import shlex
 import tarfile
@@ -26,6 +27,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Protocol
 
+from plugins.core.discovery import DEFAULT_CATALOG_DIR
 from plugins.core.manifest import PluginManifest
 from sandbox.daemon_paths import BUNDLE_REMOTE_DIR
 from sandbox.models import RawExecResult
@@ -38,6 +40,8 @@ __all__ = [
     "forget",
     "plugin_install_dir",
     "plugin_marker_path",
+    "register_trusted_setup_root",
+    "trusted_setup_roots",
 ]
 
 
@@ -56,6 +60,55 @@ _PLUGIN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # install small dependencies over the network while staying inside Daytona's
 # exec timeout.
 _DEFAULT_SETUP_TIMEOUT = 600
+
+
+def _initial_trusted_setup_roots() -> set[Path]:
+    """Path-based allowlist for plugins permitted to run ``setup.sh``.
+
+    Defaults to the bundled catalog directory (where vendor plugins live). The
+    env var ``EOS_PLUGIN_TRUSTED_SETUP_ROOTS`` (colon-separated absolute paths)
+    extends the list — used by tests and operator-controlled installs.
+
+    Plugins outside any trusted root must not have their ``setup.sh`` executed,
+    even if discovery wires up a manifest pointing at one (see review §C1).
+    """
+    roots: set[Path] = {DEFAULT_CATALOG_DIR.resolve()}
+    raw = os.environ.get("EOS_PLUGIN_TRUSTED_SETUP_ROOTS", "")
+    for part in raw.split(":"):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            roots.add(Path(part).resolve(strict=False))
+        except (OSError, ValueError):
+            logger.warning(
+                "ignoring invalid EOS_PLUGIN_TRUSTED_SETUP_ROOTS entry: %r", part
+            )
+    return roots
+
+
+_TRUSTED_SETUP_ROOTS: set[Path] = _initial_trusted_setup_roots()
+
+
+def register_trusted_setup_root(path: str | Path) -> None:
+    """Add *path* to the trusted-setup allowlist (test/operator helper)."""
+    _TRUSTED_SETUP_ROOTS.add(Path(path).resolve(strict=False))
+
+
+def trusted_setup_roots() -> tuple[Path, ...]:
+    """Return the current trusted-setup allowlist (debugging helper)."""
+    return tuple(sorted(_TRUSTED_SETUP_ROOTS))
+
+
+def _is_trusted_setup_source(source_dir: Path) -> bool:
+    source = source_dir.resolve(strict=False)
+    for root in _TRUSTED_SETUP_ROOTS:
+        try:
+            source.relative_to(root)
+        except ValueError:
+            continue
+        return True
+    return False
 
 
 class PluginInstallError(RuntimeError):
@@ -281,6 +334,13 @@ async def _upload_and_run_setup(
         _check(finalize, f"plugin install: failed to publish {install_dir}")
 
         if manifest.setup is not None:
+            if not _is_trusted_setup_source(manifest.source_dir):
+                raise PluginInstallError(
+                    f"plugin {manifest.name!r} setup.sh refused: "
+                    f"source_dir {manifest.source_dir} is not under any "
+                    f"trusted root; add to EOS_PLUGIN_TRUSTED_SETUP_ROOTS or "
+                    f"register_trusted_setup_root() to permit"
+                )
             setup_cmd = (
                 f"export EOS_PLUGIN_DIR={shlex.quote(install_dir)} && "
                 f"chmod +x {shlex.quote(install_dir)}/setup.sh && "
