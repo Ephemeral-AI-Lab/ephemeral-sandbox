@@ -1,25 +1,25 @@
 """SQLAlchemy ORM models for EphemeralOS persistence."""
 
 from db.models.agent_run import AgentRunRecord
-from db.models.mission import MissionRecord
+from db.models.goal import GoalRecord
 from db.models.context_packet import ContextPacketRecord
-from db.models.attempt import AttemptRecord
+from db.models.trial import TrialRecord
 from db.models.model_registration import ModelRegistrationRecord
 from db.models.task_center import (
     TaskCenterRequestRecord,
     TaskCenterRunRecord,
     TaskCenterTaskRecord,
 )
-from db.models.episode import EpisodeRecord
+from db.models.iteration import IterationRecord
 
 __all__ = [
     "AgentRunRecord",
-    "MissionRecord",
+    "GoalRecord",
     "ContextPacketRecord",
-    "AttemptRecord",
+    "TrialRecord",
     "ModelRegistrationRecord",
     "TaskCenterRequestRecord",
     "TaskCenterRunRecord",
     "TaskCenterTaskRecord",
-    "EpisodeRecord",
+    "IterationRecord",
 ]
