@@ -10,7 +10,7 @@ from sandbox.execution.env_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
 )
-from sandbox.execution.workspace_environment import resolve_workspace_cwd
+from sandbox.execution.subprocess_runner import resolve_workspace_cwd
 
 
 def test_relative_cwd_resolves_inside_mounted_workspace(tmp_path: Path) -> None:

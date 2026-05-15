@@ -24,7 +24,7 @@ from sandbox.execution.env_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
 )
-from sandbox.execution.workspace_environment import run_command_to_refs
+from sandbox.execution.subprocess_runner import run_command_to_refs
 from sandbox.timing import monotonic_now
 
 

@@ -26,7 +26,7 @@ from sandbox.execution.env_policy import (
     CommandExecPolicy,
 )
 from sandbox.execution.strategy_base import ExecutionStrategy
-from sandbox.execution.workspace_environment import run_command_to_refs
+from sandbox.execution.subprocess_runner import run_command_to_refs
 from sandbox.timing import monotonic_now
 
 WORKSPACE_ENV_KEYS = frozenset({"WORKSPACE_DIR", "PWD", "OLDPWD"})
