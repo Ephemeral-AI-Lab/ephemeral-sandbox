@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from task_center._core.agent_routing import PredicateRegistry
     from task_center.trial.generator_dag import ordered_generator_tasks
     from task_center.trial.orchestrator import TrialOrchestrator
-    from task_center.trial.runtime import AttemptDeps
+    from task_center.trial.runtime import TrialDeps
     from task_center.trial.state import (
         Trial,
         TrialFailReason,
@@ -70,7 +70,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "AgentDefinitionValidationError",
     ),
     "Trial": ("task_center.trial.state", "Trial"),
-    "AttemptDeps": ("task_center.trial.runtime", "AttemptDeps"),
+    "TrialDeps": ("task_center.trial.runtime", "TrialDeps"),
     "TrialFailReason": ("task_center.trial.state", "TrialFailReason"),
     "TrialOrchestrator": (
         "task_center.trial.orchestrator",

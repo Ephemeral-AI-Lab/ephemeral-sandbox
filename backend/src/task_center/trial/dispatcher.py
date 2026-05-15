@@ -21,7 +21,7 @@ from task_center.trial.state import (
 )
 from task_center.trial.runtime import (
     AgentLaunch,
-    AttemptDeps,
+    TrialDeps,
 )
 from task_center.trial.launch import LaunchBuilder
 from task_center.trial.generator_dag import (
@@ -51,7 +51,7 @@ class AttemptDispatcher:
         self,
         *,
         attempt_id: str,
-        runtime: AttemptDeps,
+        runtime: TrialDeps,
         close_attempt: CloseGraphCallback,
     ) -> None:
         self._attempt_id = attempt_id
@@ -269,8 +269,8 @@ class AttemptDispatcher:
             task = runtime.task_store.get_task(task_id)
             if task is not None:
                 self._audit.task_launched(task, trial_id=attempt.id)
-            runtime.attempt_store.set_evaluator_task_id(attempt.id, task_id)
-            runtime.attempt_store.set_stage(attempt.id, TrialStage.EVALUATE)
+            runtime.trial_store.set_evaluator_task_id(attempt.id, task_id)
+            runtime.trial_store.set_stage(attempt.id, TrialStage.EVALUATE)
             self._launch_evaluator(launch)
         except Exception:
             logger.exception(
@@ -296,7 +296,7 @@ class AttemptDispatcher:
             raise
 
     def _fresh_attempt(self) -> Trial:
-        attempt = self._runtime.attempt_store.get(self._attempt_id)
+        attempt = self._runtime.trial_store.get(self._attempt_id)
         if attempt is None:
             raise TaskCenterInvariantViolation(
                 f"Trial {self._attempt_id!r} not found"

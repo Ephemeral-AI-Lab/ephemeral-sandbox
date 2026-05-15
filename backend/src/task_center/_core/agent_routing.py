@@ -110,9 +110,9 @@ def _depth(ctx: ResolverContext) -> int:
         return 0
     return nested_goal_depth(
         goal_id=goal_id,
-        mission_store=ctx.deps.mission_store,
-        episode_store=ctx.deps.episode_store,
-        attempt_store=ctx.deps.attempt_store,
+        goal_store=ctx.deps.goal_store,
+        iteration_store=ctx.deps.iteration_store,
+        trial_store=ctx.deps.trial_store,
         task_store=ctx.deps.task_store,
     )
 

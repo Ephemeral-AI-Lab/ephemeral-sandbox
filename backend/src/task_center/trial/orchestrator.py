@@ -16,7 +16,7 @@ from task_center.trial.state import (
     TrialStage,
     TrialStatus,
 )
-from task_center.trial.runtime import AttemptDeps
+from task_center.trial.runtime import TrialDeps
 from task_center.trial.launch import LaunchBuilder
 from task_center._core.types import generator_task_id, planner_task_id
 from task_center.task_state import (
@@ -53,7 +53,7 @@ class TrialOrchestrator:
         *,
         attempt: Trial,
         on_attempt_closed: Callable[[str], None],
-        runtime: AttemptDeps,
+        runtime: TrialDeps,
     ) -> None:
         self._attempt = attempt
         self._on_attempt_closed = on_attempt_closed
@@ -100,7 +100,7 @@ class TrialOrchestrator:
                 context_packet_id=launch.context_packet_id,
                 spawn_reason=SpawnReason.TRIAL_PLANNER.value,
             )
-            runtime.attempt_store.set_planner_task_id(attempt.id, task_id)
+            runtime.trial_store.set_planner_task_id(attempt.id, task_id)
             runtime.agent_launcher.launch(launch)
             self._dispatcher.dispatch_ready_work()
         except Exception:
@@ -123,8 +123,8 @@ class TrialOrchestrator:
         )
         self._persist_plan_contract(submission)
         generator_ids = self._persist_generator_tasks(submission.tasks)
-        runtime.attempt_store.set_generator_task_ids(attempt.id, list(generator_ids))
-        runtime.attempt_store.set_stage(attempt.id, TrialStage.GENERATE)
+        runtime.trial_store.set_generator_task_ids(attempt.id, list(generator_ids))
+        runtime.trial_store.set_stage(attempt.id, TrialStage.GENERATE)
         self._dispatcher.dispatch_ready_work()
 
     def apply_planner_failure(
@@ -229,7 +229,7 @@ class TrialOrchestrator:
         return attempt
 
     def _persist_plan_contract(self, submission: PlannerSubmission) -> None:
-        self._runtime.attempt_store.set_plan_contract(
+        self._runtime.trial_store.set_plan_contract(
             submission.attempt_id,
             task_specification=submission.task_specification,
             evaluation_criteria=list(submission.evaluation_criteria),
@@ -329,7 +329,7 @@ class TrialOrchestrator:
             raise TaskCenterInvariantViolation(
                 f"Trial {attempt.id!r} is not running"
             )
-        self._runtime.attempt_store.close(
+        self._runtime.trial_store.close(
             attempt.id,
             status=status,
             fail_reason=fail_reason,
@@ -362,7 +362,7 @@ class TrialOrchestrator:
             )
 
     def _fresh_attempt(self) -> Trial:
-        attempt = self._runtime.attempt_store.get(self._attempt.id)
+        attempt = self._runtime.trial_store.get(self._attempt.id)
         if attempt is None:
             raise TaskCenterInvariantViolation(
                 f"Trial {self._attempt.id!r} not found"

@@ -4,7 +4,7 @@ The entry executor is not a Goal. It is the top-level user-request agent
 that can either complete directly or call ``submit_execution_handoff`` to start
 the first delegated Goal. Lifecycle events flow through
 :class:`EntryTaskController`, which is attached to
-:class:`AttemptDeps.entry_task_controller` so the launcher, close-report
+:class:`TrialDeps.entry_task_controller` so the launcher, close-report
 router, and submission tools can dispatch entry-mode events consistently.
 """
 
@@ -38,12 +38,12 @@ from task_center.entry import EntryTaskController, TaskCenterSandboxBinding, Tas
 from task_center.trial.launch import (
     AgentStreamEmitter,
     AttemptAgentRunner,
-    EphemeralAttemptAgentLauncher,
+    EphemeralTrialAgentLauncher,
 )
 from task_center.trial.orchestrator_registry import (
     TrialOrchestratorRegistry,
 )
-from task_center.trial.runtime import AgentLaunch, AttemptDeps
+from task_center.trial.runtime import AgentLaunch, TrialDeps
 from task_center.iteration import IterationManagerRegistry
 from task_center.task_state import (
     SpawnReason,
@@ -64,7 +64,7 @@ class TaskCenterEntryHandle:
     task_center_run_id: str
     binding: TaskCenterSandboxBinding
     entry_task_id: str
-    launcher: EphemeralAttemptAgentLauncher
+    launcher: EphemeralTrialAgentLauncher
 
     @property
     def sandbox_id(self) -> str:
@@ -78,9 +78,9 @@ def start_task_center_entry_run(
     sandbox_id: str | None,
     on_agent_event: AgentStreamEmitter | None,
     task_store: TaskCenterStore,
-    mission_store: GoalStore,
-    episode_store: IterationStore,
-    attempt_store: TrialStore,
+    goal_store: GoalStore,
+    iteration_store: IterationStore,
+    trial_store: TrialStore,
     runner: AttemptAgentRunner | None = None,
     context_packet_store: ContextPacketStore | None = None,
     sandbox_bridge: TaskCenterSandboxBridge | None = None,
@@ -92,9 +92,9 @@ def start_task_center_entry_run(
         sandbox_id=sandbox_id,
         on_agent_event=on_agent_event,
         task_store=task_store,
-        mission_store=mission_store,
-        episode_store=episode_store,
-        attempt_store=attempt_store,
+        goal_store=goal_store,
+        iteration_store=iteration_store,
+        trial_store=trial_store,
         runner=runner,
         context_packet_store=context_packet_store,
         sandbox_bridge=sandbox_bridge,
@@ -112,9 +112,9 @@ class TaskCenterEntryCoordinator:
         sandbox_id: str | None,
         on_agent_event: AgentStreamEmitter | None,
         task_store: TaskCenterStore,
-        mission_store: GoalStore,
-        episode_store: IterationStore,
-        attempt_store: TrialStore,
+        goal_store: GoalStore,
+        iteration_store: IterationStore,
+        trial_store: TrialStore,
         runner: AttemptAgentRunner | None = None,
         context_packet_store: ContextPacketStore | None = None,
         sandbox_bridge: TaskCenterSandboxBridge | None = None,
@@ -124,9 +124,9 @@ class TaskCenterEntryCoordinator:
         self._sandbox_id = sandbox_id
         self._on_agent_event = on_agent_event
         self._task_store = task_store
-        self._mission_store = mission_store
-        self._episode_store = episode_store
-        self._attempt_store = attempt_store
+        self._goal_store = goal_store
+        self._iteration_store = iteration_store
+        self._trial_store = trial_store
         self._runner = runner
         self._context_packet_store = context_packet_store
         self._sandbox_bridge = sandbox_bridge or TaskCenterSandboxBridge()
@@ -168,9 +168,9 @@ class TaskCenterEntryCoordinator:
     def _assert_stores_ready(self) -> None:
         _assert_stores_ready(
             task_store=self._task_store,
-            mission_store=self._mission_store,
-            episode_store=self._episode_store,
-            attempt_store=self._attempt_store,
+            goal_store=self._goal_store,
+            iteration_store=self._iteration_store,
+            trial_store=self._trial_store,
         )
 
     def _create_top_level_run(
@@ -201,9 +201,9 @@ class TaskCenterEntryCoordinator:
         *,
         manager_registry: IterationManagerRegistry,
         entry_task_controller: EntryTaskController,
-    ) -> tuple[AttemptDeps, EphemeralAttemptAgentLauncher]:
-        runtime_ref: AttemptDeps | None = None
-        launcher = EphemeralAttemptAgentLauncher(
+    ) -> tuple[TrialDeps, EphemeralTrialAgentLauncher]:
+        runtime_ref: TrialDeps | None = None
+        launcher = EphemeralTrialAgentLauncher(
             config=self._config,
             runtime=lambda: runtime_ref,
             sandbox_id=self._sandbox_id,
@@ -211,10 +211,10 @@ class TaskCenterEntryCoordinator:
             runner=self._runner,
         )
         composer = self._build_composer()
-        runtime = AttemptDeps(
-            mission_store=self._mission_store,
-            episode_store=self._episode_store,
-            attempt_store=self._attempt_store,
+        runtime = TrialDeps(
+            goal_store=self._goal_store,
+            iteration_store=self._iteration_store,
+            trial_store=self._trial_store,
             task_store=self._task_store,
             agent_launcher=launcher,
             orchestrator_registry=TrialOrchestratorRegistry(),
@@ -247,9 +247,9 @@ class TaskCenterEntryCoordinator:
         register_builtin_recipes()
         validate_agent_definitions_resolved()
         deps = ContextEngineDeps(
-            mission_store=self._mission_store,
-            episode_store=self._episode_store,
-            attempt_store=self._attempt_store,
+            goal_store=self._goal_store,
+            iteration_store=self._iteration_store,
+            trial_store=self._trial_store,
             task_store=self._task_store,
             context_packet_store=self._context_packet_store,
         )
@@ -280,7 +280,7 @@ class TaskCenterEntryCoordinator:
     def _launch_entry_executor(
         self,
         *,
-        runtime: AttemptDeps,
+        runtime: TrialDeps,
         controller: EntryTaskController,
         task_center_run_id: str,
     ) -> None:
@@ -303,7 +303,7 @@ class TaskCenterEntryCoordinator:
     def _build_entry_launch(
         self,
         *,
-        runtime: AttemptDeps,
+        runtime: TrialDeps,
         controller: EntryTaskController,
         task_center_run_id: str,
     ) -> AgentLaunch:
@@ -332,14 +332,14 @@ class TaskCenterEntryCoordinator:
 def _assert_stores_ready(
     *,
     task_store: TaskCenterStore,
-    mission_store: GoalStore,
-    episode_store: IterationStore,
-    attempt_store: TrialStore,
+    goal_store: GoalStore,
+    iteration_store: IterationStore,
+    trial_store: TrialStore,
 ) -> None:
     if not (
         task_store.is_ready
-        and mission_store.is_ready
-        and episode_store.is_ready
-        and attempt_store.is_ready
+        and goal_store.is_ready
+        and iteration_store.is_ready
+        and trial_store.is_ready
     ):
         raise RuntimeError("TaskCenter stores are not ready.")

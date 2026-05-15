@@ -13,7 +13,7 @@ from task_center import (
     TaskCenterInvariantViolation,
     ordered_generator_tasks,
 )
-from tools.submission.context import AttemptSubmissionContext
+from tools.submission.context import TrialSubmissionContext
 
 
 class PlanTaskInput(BaseModel):
@@ -96,7 +96,7 @@ def _is_generator_capable_agent(agent_name: str) -> bool:
 
 def build_planner_submission(
     *,
-    submission_context: AttemptSubmissionContext,
+    submission_context: TrialSubmissionContext,
     kind: Literal["full", "partial"],
     task_specification: str,
     evaluation_criteria: list[str],

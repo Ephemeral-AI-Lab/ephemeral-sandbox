@@ -12,8 +12,8 @@ from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.decorator import tool
 from tools._framework.core.results import TextToolOutput, ToolResult
 from tools.submission.context import (
-    AttemptSubmissionContextError,
-    resolve_attempt_submission_context,
+    TrialSubmissionContextError,
+    resolve_trial_submission_context,
 )
 
 
@@ -36,7 +36,7 @@ async def submit_evaluation_failure(
     context: ToolExecutionContextService,
 ) -> ToolResult:
     try:
-        submission_context = resolve_attempt_submission_context(context)
+        submission_context = resolve_trial_submission_context(context)
         submission_context.orchestrator.apply_evaluator_submission(
             EvaluatorSubmission(
                 attempt_id=submission_context.attempt.id,
@@ -46,7 +46,7 @@ async def submit_evaluation_failure(
                 payload={"failed_criteria": failed_criteria},
             )
         )
-    except (AttemptSubmissionContextError, TaskCenterInvariantViolation) as exc:
+    except (TrialSubmissionContextError, TaskCenterInvariantViolation) as exc:
         return ToolResult(output=str(exc), is_error=True)
 
     return ToolResult(

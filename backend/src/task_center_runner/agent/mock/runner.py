@@ -1266,7 +1266,7 @@ class MockSquadRunner:
     ) -> tuple[Attempt, Episode]:
         runtime = metadata.get("attempt_runtime")
         if runtime is None:
-            raise RuntimeError("Missing AttemptDeps in mocked agent metadata.")
+            raise RuntimeError("Missing TrialDeps in mocked agent metadata.")
         attempt_id = str(metadata.get("task_center_attempt_id") or "")
         attempt = runtime.attempt_store.get(attempt_id)
         if attempt is None:

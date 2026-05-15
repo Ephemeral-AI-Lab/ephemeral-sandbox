@@ -1,7 +1,7 @@
 """Production launcher + LaunchBuilder for TaskCenter harness agents.
 
 Phase 7d merger: bundles the former ``attempt/launcher.py`` (run-exhaustion
-reporting + EphemeralAttemptAgentLauncher) and ``attempt/launch_builder.py``
+reporting + EphemeralTrialAgentLauncher) and ``attempt/launch_builder.py``
 (role-specific AgentLaunch construction) into one module.
 """
 
@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from agents import get_definition
 from message.stream_events import StreamEvent
-from task_center.trial.runtime import AgentLaunch, AttemptDeps
+from task_center.trial.runtime import AgentLaunch, TrialDeps
 from task_center.trial.state import TrialFailReason, TrialStatus
 from task_center.context_engine.scope import ContextScope
 from task_center._core.types import TaskCenterInvariantViolation
@@ -38,12 +38,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttemptDepsProvider = Callable[[], AttemptDeps | None]
+TrialDepsProvider = Callable[[], TrialDeps | None]
 AttemptAgentRunner = Callable[..., Awaitable[Any]]
 AgentStreamEmitter = Callable[[StreamEvent], Awaitable[None]]
 
 
-class EphemeralAttemptAgentLauncher:
+class EphemeralTrialAgentLauncher:
     """Schedules trial-scoped ephemeral agents and reports run exhaustion.
 
     Terminal submission tools mutate the harness trial during the agent run.
@@ -56,7 +56,7 @@ class EphemeralAttemptAgentLauncher:
         self,
         *,
         config: RuntimeConfig,
-        runtime: AttemptDepsProvider,
+        runtime: TrialDepsProvider,
         sandbox_id: str | None = None,
         on_event: AgentStreamEmitter | None = None,
         runner: AttemptAgentRunner | None = None,
@@ -131,7 +131,7 @@ class EphemeralAttemptAgentLauncher:
             )
         except Exception as exc:  # pragma: no cover - defensive runner boundary
             logger.exception(
-                "EphemeralAttemptAgentLauncher: agent run failed",
+                "EphemeralTrialAgentLauncher: agent run failed",
                 extra={
                     "task_id": launch.task_id,
                     "attempt_id": launch.attempt_id,
@@ -191,14 +191,14 @@ _ROLE_FAIL_REASONS: dict[TaskCenterTaskRole, TrialFailReason] = {
 
 
 def _fail_unowned_attempt(
-    runtime: AttemptDeps,
+    runtime: TrialDeps,
     launch: AgentLaunch,
     *,
     summary: str,
 ) -> None:
     """Close task + trial directly when the orchestrator is missing."""
     logger.error(
-        "EphemeralAttemptAgentLauncher: missing orchestrator for unfinished task",
+        "EphemeralTrialAgentLauncher: missing orchestrator for unfinished task",
         extra={"task_id": launch.task_id, "attempt_id": launch.attempt_id},
     )
     runtime.task_store.set_task_status(
@@ -208,10 +208,10 @@ def _fail_unowned_attempt(
     )
     if launch.attempt_id is None:
         return
-    trial = runtime.attempt_store.get(launch.attempt_id)
+    trial = runtime.trial_store.get(launch.attempt_id)
     if trial is None or trial.is_closed:
         return
-    runtime.attempt_store.close(
+    runtime.trial_store.close(
         trial.id,
         status=TrialStatus.FAILED,
         fail_reason=_ROLE_FAIL_REASONS[launch.role],
@@ -226,8 +226,8 @@ def _fail_unowned_attempt(
 
 
 def _require_attempt_orchestrator(
-    launcher: EphemeralAttemptAgentLauncher,
-    runtime: AttemptDeps,
+    launcher: EphemeralTrialAgentLauncher,
+    runtime: TrialDeps,
     launch: AgentLaunch,
     *,
     summary: str,
@@ -244,8 +244,8 @@ def _require_attempt_orchestrator(
 
 
 def _report_exhaustion(
-    launcher: EphemeralAttemptAgentLauncher,
-    runtime: AttemptDeps,
+    launcher: EphemeralTrialAgentLauncher,
+    runtime: TrialDeps,
     launch: AgentLaunch,
     *,
     summary: str,
@@ -417,7 +417,7 @@ class LaunchBuilder:
         )
 
     def _require_iteration(self, attempt: Trial) -> Any:
-        iteration = self.runtime.episode_store.get(attempt.iteration_id)
+        iteration = self.runtime.iteration_store.get(attempt.iteration_id)
         if iteration is None:
             raise TaskCenterInvariantViolation(
                 f"Iteration {attempt.iteration_id!r} not found"

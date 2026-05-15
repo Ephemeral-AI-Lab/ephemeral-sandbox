@@ -10,7 +10,7 @@ is a hard ``TaskCenterInvariantViolation``.
 
 from __future__ import annotations
 
-from task_center.trial.runtime import AttemptDeps
+from task_center.trial.runtime import TrialDeps
 from task_center._core.types import TaskCenterInvariantViolation
 from task_center.goal.state import (
     CloseReportDeliveryResult,
@@ -22,7 +22,7 @@ from task_center.task_state import TaskCenterTaskStatus
 class GoalClosureReportRouter:
     """Single delivery path for final ``GoalClosureReport``s."""
 
-    def __init__(self, *, runtime: AttemptDeps) -> None:
+    def __init__(self, *, runtime: TrialDeps) -> None:
         self._runtime = runtime
 
     def deliver(

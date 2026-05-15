@@ -46,27 +46,27 @@ GoalClosureReportSink = Callable[[GoalClosureReport], None]
 class GoalRepository:
     """CRUD + closure helpers for :class:`Goal` records."""
 
-    def __init__(self, mission_store: GoalStoreProtocol) -> None:
-        self._mission_store = mission_store
+    def __init__(self, goal_store: GoalStoreProtocol) -> None:
+        self._goal_store = goal_store
 
     def create(
         self, *, task_center_run_id: str, requested_by_task_id: str, goal: str,
     ) -> Goal:
-        return self._mission_store.insert(
+        return self._goal_store.insert(
             task_center_run_id=task_center_run_id,
             requested_by_task_id=requested_by_task_id,
             goal=goal,
         )
 
     def require(self, goal_id: str) -> Goal:
-        goal = self._mission_store.get(goal_id)
+        goal = self._goal_store.get(goal_id)
         if goal is None:
             raise TaskCenterInvariantViolation(f"Goal {goal_id!r} not found")
         return goal
 
     def append_iteration_id(self, goal: Goal, iteration_id: str) -> Goal:
         assert_iteration_id_unique_in_goal(goal, iteration_id)
-        return self._mission_store.append_iteration_id(goal.id, iteration_id)
+        return self._goal_store.append_iteration_id(goal.id, iteration_id)
 
     def close(
         self,
@@ -86,7 +86,7 @@ class GoalRepository:
             final_iteration_id=final_iteration_id,
             final_trial_id=final_trial_id,
         )
-        updated = self._mission_store.set_status(
+        updated = self._goal_store.set_status(
             goal_id,
             status=GoalStatus.SUCCEEDED if succeeded else GoalStatus.FAILED,
             final_outcome=report.to_final_outcome(),
@@ -101,9 +101,9 @@ class GoalRepository:
 def nested_goal_depth(
     *,
     goal_id: str,
-    mission_store: GoalStoreProtocol,
-    episode_store: IterationStoreProtocol,
-    attempt_store: TrialStoreProtocol,
+    goal_store: GoalStoreProtocol,
+    iteration_store: IterationStoreProtocol,
+    trial_store: TrialStoreProtocol,
     task_store: TaskStoreProtocol,
 ) -> int:
     """Number of goal ancestors on the chain INCLUDING ``goal_id``."""
@@ -117,7 +117,7 @@ def nested_goal_depth(
             )
         seen_goal_ids.add(current_goal_id)
         depth += 1
-        current_goal = mission_store.get(current_goal_id)
+        current_goal = goal_store.get(current_goal_id)
         if current_goal is None:
             raise TaskCenterInvariantViolation(
                 f"Goal {current_goal_id!r} was not found."
@@ -128,12 +128,12 @@ def nested_goal_depth(
         parent_attempt_id = str(parent_task.get("task_center_attempt_id") or "")
         if not parent_attempt_id:
             return depth
-        parent_attempt = attempt_store.get(parent_attempt_id)
+        parent_attempt = trial_store.get(parent_attempt_id)
         if parent_attempt is None:
             raise TaskCenterInvariantViolation(
                 f"Parent Trial {parent_attempt_id!r} was not found."
             )
-        parent_iteration = episode_store.get(parent_attempt.iteration_id)
+        parent_iteration = iteration_store.get(parent_attempt.iteration_id)
         if parent_iteration is None:
             raise TaskCenterInvariantViolation(
                 f"Parent Iteration {parent_attempt.iteration_id!r} was not found."
@@ -148,8 +148,8 @@ class IterationFactory:
         self,
         *,
         goal_repository: GoalRepository,
-        episode_store: IterationStoreProtocol,
-        attempt_store: TrialStoreProtocol,
+        iteration_store: IterationStoreProtocol,
+        trial_store: TrialStoreProtocol,
         manager_registry: IterationManagerRegistry,
         config: TaskCenterLifecycleConfig,
         on_episode_closed,
@@ -157,8 +157,8 @@ class IterationFactory:
         task_store: TaskStoreProtocol | None = None,
     ) -> None:
         self._goal_repository = goal_repository
-        self._episode_store = episode_store
-        self._attempt_store = attempt_store
+        self._iteration_store = iteration_store
+        self._trial_store = trial_store
         self._manager_registry = manager_registry
         self._config = config
         self._on_episode_closed = on_episode_closed
@@ -200,7 +200,7 @@ class IterationFactory:
         creation_reason: IterationCreationReason,
         iteration_goal: str,
     ) -> tuple[Iteration, IterationManager]:
-        iteration = self._episode_store.insert(
+        iteration = self._iteration_store.insert(
             goal_id=goal.id,
             sequence_no=sequence_no,
             creation_reason=creation_reason,
@@ -210,8 +210,8 @@ class IterationFactory:
         self._goal_repository.append_iteration_id(goal, iteration.id)
         manager = IterationManager(
             iteration_id=iteration.id,
-            episode_store=self._episode_store,
-            attempt_store=self._attempt_store,
+            iteration_store=self._iteration_store,
+            trial_store=self._trial_store,
             on_episode_closed=self._on_episode_closed,
             orchestrator_factory=self._orchestrator_factory,
             task_store=self._task_store,
@@ -227,17 +227,17 @@ class IterationClosureRouter:
         self,
         *,
         factory: IterationFactory,
-        episode_store: IterationStoreProtocol,
+        iteration_store: IterationStoreProtocol,
         manager_registry: IterationManagerRegistry,
         close_goal,
     ) -> None:
         self._factory = factory
-        self._episode_store = episode_store
+        self._iteration_store = iteration_store
         self._manager_registry = manager_registry
         self._close_goal = close_goal
 
     def route(self, report: IterationClosureReport) -> None:
-        iteration = self._episode_store.get(report.iteration_id)
+        iteration = self._iteration_store.get(report.iteration_id)
         if iteration is None:
             raise TaskCenterInvariantViolation(
                 f"Iteration {report.iteration_id!r} not found"
@@ -281,12 +281,12 @@ class IterationClosureRouter:
                 "IterationClosureRouter: continuation trial creation failed",
                 extra={"iteration_id": next_iteration.id},
             )
-            latest_iteration = self._episode_store.get(next_iteration.id)
+            latest_iteration = self._iteration_store.get(next_iteration.id)
             failed_trial_id = (
                 (latest_iteration.latest_trial_id if latest_iteration else None)
                 or previous_report.final_trial_id
             )
-            self._episode_store.set_status(
+            self._iteration_store.set_status(
                 next_iteration.id,
                 status=IterationStatus.CANCELLED,
                 closed_at=datetime.now(UTC),
@@ -306,9 +306,9 @@ class GoalHandler:
     def __init__(
         self,
         *,
-        mission_store: GoalStoreProtocol,
-        episode_store: IterationStoreProtocol,
-        attempt_store: TrialStoreProtocol,
+        goal_store: GoalStoreProtocol,
+        iteration_store: IterationStoreProtocol,
+        trial_store: TrialStoreProtocol,
         manager_registry: IterationManagerRegistry,
         config: TaskCenterLifecycleConfig,
         deliver_closure_report: GoalClosureReportSink | None = None,
@@ -317,11 +317,11 @@ class GoalHandler:
     ) -> None:
         self._deliver_closure_report = deliver_closure_report
         self._manager_registry = manager_registry
-        self._repository = GoalRepository(mission_store)
+        self._repository = GoalRepository(goal_store)
         self._factory = IterationFactory(
             goal_repository=self._repository,
-            episode_store=episode_store,
-            attempt_store=attempt_store,
+            iteration_store=iteration_store,
+            trial_store=trial_store,
             manager_registry=manager_registry,
             config=config,
             on_episode_closed=self.handle_iteration_closed,
@@ -330,7 +330,7 @@ class GoalHandler:
         )
         self._router = IterationClosureRouter(
             factory=self._factory,
-            episode_store=episode_store,
+            iteration_store=iteration_store,
             manager_registry=manager_registry,
             close_goal=self.close_goal,
         )

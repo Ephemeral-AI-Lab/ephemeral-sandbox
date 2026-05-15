@@ -24,7 +24,7 @@ from task_center._core.types import TaskCenterInvariantViolation
 from task_center.trial.orchestrator import TrialOrchestrator
 from task_center.iteration import OrchestratorFactory
 from task_center.trial.state import TrialFailReason, TrialStatus
-from task_center.trial.runtime import AttemptDeps
+from task_center.trial.runtime import TrialDeps
 from task_center.iteration.state import Iteration, IterationStatus
 from task_center.task_state import TaskCenterTaskStatus
 
@@ -47,7 +47,7 @@ class GoalStarter:
     def __init__(
         self,
         *,
-        runtime: AttemptDeps,
+        runtime: TrialDeps,
         orchestrator_factory: OrchestratorFactory | None = None,
     ) -> None:
         self._runtime = runtime
@@ -116,9 +116,9 @@ class GoalStarter:
             )
         router = GoalClosureReportRouter(runtime=self._runtime)
         return GoalHandler(
-            mission_store=self._runtime.mission_store,
-            episode_store=self._runtime.episode_store,
-            attempt_store=self._runtime.attempt_store,
+            goal_store=self._runtime.goal_store,
+            iteration_store=self._runtime.iteration_store,
+            trial_store=self._runtime.trial_store,
             manager_registry=manager_registry,
             config=self._runtime.lifecycle_config,
             deliver_closure_report=router.deliver,
@@ -140,7 +140,7 @@ class GoalStarter:
             )
         open_goals = [
             r
-            for r in self._runtime.mission_store.list_for_executor_task(parent_task_id)
+            for r in self._runtime.goal_store.list_for_executor_task(parent_task_id)
             if r.is_open
         ]
         if open_goals:
@@ -206,10 +206,10 @@ class GoalStarter:
         _do("close_unstarted_trial", lambda: self._close_unstarted_trial(
             initial_trial_id, now=now
         ))
-        _do("cancel_iteration", lambda: runtime.episode_store.set_status(
+        _do("cancel_iteration", lambda: runtime.iteration_store.set_status(
             iteration.id, status=IterationStatus.CANCELLED, closed_at=now
         ))
-        _do("cancel_goal", lambda: runtime.mission_store.set_status(
+        _do("cancel_goal", lambda: runtime.goal_store.set_status(
             goal.id, status=GoalStatus.CANCELLED,
             final_outcome=None, closed_at=now,
         ))
@@ -246,10 +246,10 @@ class GoalStarter:
     ) -> None:
         if trial_id is None:
             return
-        trial = self._runtime.attempt_store.get(trial_id)
+        trial = self._runtime.trial_store.get(trial_id)
         if trial is None or trial.is_closed:
             return
-        self._runtime.attempt_store.close(
+        self._runtime.trial_store.close(
             trial_id,
             status=TrialStatus.FAILED,
             fail_reason=TrialFailReason.STARTUP_FAILED,

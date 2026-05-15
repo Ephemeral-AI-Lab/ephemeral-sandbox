@@ -3,7 +3,7 @@
 The launcher only needs ``mission_store`` + ``episode_store`` + the
 ``run_id_for_attempt`` / ``require_composer`` methods. Declaring this
 narrow Protocol lets the launcher accept any structurally compatible
-context — concrete :class:`AttemptDeps` satisfies it.
+context — concrete :class:`TrialDeps` satisfies it.
 """
 
 from __future__ import annotations

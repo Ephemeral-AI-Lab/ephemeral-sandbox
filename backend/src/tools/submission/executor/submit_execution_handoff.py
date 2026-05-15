@@ -11,7 +11,7 @@ from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.decorator import tool
 from tools._framework.core.results import TextToolOutput, ToolResult
 from tools.submission.context import (
-    AttemptSubmissionContextError,
+    TrialSubmissionContextError,
     resolve_executor_submission_context,
 )
 
@@ -47,7 +47,7 @@ async def submit_execution_handoff(
 ) -> ToolResult:
     try:
         submission_context = resolve_executor_submission_context(context)
-    except AttemptSubmissionContextError as exc:
+    except TrialSubmissionContextError as exc:
         return ToolResult(output=str(exc), is_error=True)
 
     try:

@@ -28,7 +28,7 @@ from task_center._core.types import RegisteredTrialOrchestrator
 from task_center.task_state import TaskCenterTaskRole, TaskCenterTaskStatus
 
 if TYPE_CHECKING:
-    from task_center.trial.launch import EphemeralAttemptAgentLauncher
+    from task_center.trial.launch import EphemeralTrialAgentLauncher
     from task_center.trial.orchestrator_registry import (
         TrialOrchestratorRegistry,
     )
@@ -51,12 +51,12 @@ class AgentLaunch:
 
 
 @dataclass(frozen=True, slots=True)
-class AttemptDeps:
-    mission_store: GoalStoreProtocol
-    episode_store: IterationStoreProtocol
-    attempt_store: TrialStoreProtocol
+class TrialDeps:
+    goal_store: GoalStoreProtocol
+    iteration_store: IterationStoreProtocol
+    trial_store: TrialStoreProtocol
     task_store: TaskStoreProtocol
-    agent_launcher: EphemeralAttemptAgentLauncher
+    agent_launcher: EphemeralTrialAgentLauncher
     orchestrator_registry: TrialOrchestratorRegistry
     manager_registry: IterationManagerRegistry | None = None
     lifecycle_config: TaskCenterLifecycleConfig = field(default_factory=TaskCenterLifecycleConfig)
@@ -72,13 +72,13 @@ class AttemptDeps:
     audit_sink: AuditSink = field(default_factory=NoopAuditSink)
 
     def run_id_for_attempt(self, attempt: Trial) -> str:
-        iteration = self.episode_store.get(attempt.iteration_id)
+        iteration = self.iteration_store.get(attempt.iteration_id)
         if iteration is None:
             raise TaskCenterInvariantViolation(
                 f"Iteration {attempt.iteration_id!r} not found for "
                 f"Trial {attempt.id!r}"
             )
-        goal = self.mission_store.get(iteration.goal_id)
+        goal = self.goal_store.get(iteration.goal_id)
         if goal is None:
             raise TaskCenterInvariantViolation(
                 f"Goal {iteration.goal_id!r} not "
@@ -89,7 +89,7 @@ class AttemptDeps:
     def require_composer(self) -> ContextComposer:
         if self.composer is None:
             raise TaskCenterInvariantViolation(
-                "AttemptDeps requires a ContextComposer for harness "
+                "TrialDeps requires a ContextComposer for harness "
                 "agent launches; none was wired."
             )
         return self.composer

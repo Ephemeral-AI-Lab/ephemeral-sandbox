@@ -1,9 +1,9 @@
 """TaskCenter submission context resolution."""
 
-from tools.submission.context.attempt import (
-    AttemptSubmissionContext,
-    AttemptSubmissionContextError,
-    resolve_attempt_submission_context,
+from tools.submission.context.trial import (
+    TrialSubmissionContext,
+    TrialSubmissionContextError,
+    resolve_trial_submission_context,
 )
 from tools.submission.context.executor import (
     ExecutorSubmissionContext,
@@ -11,9 +11,9 @@ from tools.submission.context.executor import (
 )
 
 __all__ = [
-    "AttemptSubmissionContext",
-    "AttemptSubmissionContextError",
+    "TrialSubmissionContext",
+    "TrialSubmissionContextError",
     "ExecutorSubmissionContext",
-    "resolve_attempt_submission_context",
+    "resolve_trial_submission_context",
     "resolve_executor_submission_context",
 ]

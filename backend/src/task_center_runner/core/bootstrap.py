@@ -23,7 +23,7 @@ _BOOTSTRAPPED = False
 _PROFILE_ROOT = Path(__file__).resolve().parents[1] / "agents" / "profile"
 
 # Names the launcher resolves via
-# ``EphemeralAttemptAgentLauncher._resolve_agent_definition``. Markdown
+# ``EphemeralTrialAgentLauncher._resolve_agent_definition``. Markdown
 # frontmatter ``name:`` fields under ``_PROFILE_ROOT/main/`` register these:
 # planner.md, evaluator.md, entry_executor.md, generator_executor.md
 # (name=executor), generator_verifier.md (name=verifier).
