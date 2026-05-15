@@ -90,7 +90,7 @@ class PrivateNamespaceStrategy(ExecutionStrategy):
                     "-Urm",
                     sys.executable,
                     "-m",
-                    "sandbox.execution.entrypoints",
+                    "sandbox.execution.namespace_child",
                     str(payload_ref),
                 ],
                 stdout=stdout_file,

@@ -12,7 +12,7 @@ from sandbox.execution.contract import CommandExecRequest
 from sandbox.execution.contract import MountMode
 from sandbox.execution.contract import ShellProcessResult
 from sandbox.execution.contract import WorkspaceReplacementMountSpec
-from sandbox.execution import entrypoints as namespace_helper
+from sandbox.execution import namespace_child as namespace_helper
 from sandbox.execution.overlay_capture import capture_changes
 from sandbox.execution.strategy_copy_backed import (
     CopyBackedStrategy,

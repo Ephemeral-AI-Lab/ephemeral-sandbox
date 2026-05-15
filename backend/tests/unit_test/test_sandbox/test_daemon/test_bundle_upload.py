@@ -86,7 +86,7 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/execution/__init__.py",
         "sandbox/execution/orchestrator.py",
         "sandbox/execution/policy.py",
-        "sandbox/execution/entrypoints.py",
+        "sandbox/execution/namespace_child.py",
         "sandbox/execution/contract.py",
         "sandbox/execution/strategy_base.py",
         "sandbox/execution/strategy_copy_backed.py",
