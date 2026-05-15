@@ -18,8 +18,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from task_center_runner.audit.events import EventType
 from task_center_runner.hooks.registry import HookResult, HookSet, MutableMockState
 from task_center_runner.scenarios.base import Scenario
+from task_center_runner.squad.prompt_inspector import (
+    LaunchRecord,
+    PromptInspection,
+    ToolCallRecord,
+)
+from task_center_runner.squad.sandbox_probe import SandboxCheck
 
 if TYPE_CHECKING:
     from task_center_runner.audit.events import Event
@@ -42,6 +49,14 @@ class ScenarioLifecycle:
         self._mutable_state = mutable_state
         self._hook_results: list[HookResult] = []
         self._captured_events: list[Event] = []
+        # Phase 4g-step1: accumulators rebuilt from MOCK_* events. Phase 4e
+        # shim still reads from ``MockSquadRunner.{launches,tool_calls,...}``
+        # for now; Phase 4g-step2 will switch the shim and Phase 4g-step3
+        # removes the runner's list attributes.
+        self._launches: list[LaunchRecord] = []
+        self._tool_calls: list[ToolCallRecord] = []
+        self._prompt_inspections: list[PromptInspection] = []
+        self._sandbox_checks: list[SandboxCheck] = []
 
     @property
     def captured_events(self) -> list["Event"]:
@@ -51,12 +66,42 @@ class ScenarioLifecycle:
     def hook_results(self) -> list[HookResult]:
         return self._hook_results
 
+    @property
+    def launches(self) -> list[LaunchRecord]:
+        return self._launches
+
+    @property
+    def tool_calls(self) -> list[ToolCallRecord]:
+        return self._tool_calls
+
+    @property
+    def prompt_inspections(self) -> list[PromptInspection]:
+        return self._prompt_inspections
+
+    @property
+    def sandbox_checks(self) -> list[SandboxCheck]:
+        return self._sandbox_checks
+
     async def before_run(self, ctx: "RunContext") -> None:
         return None
 
     def on_event(self, event: "Event") -> None:
         self._captured_events.append(event)
         self._mutable_state.seen_events.append(event.type)
+        if event.type == EventType.MOCK_LAUNCH_RECORDED:
+            self._launches.append(LaunchRecord(**event.payload))
+        elif event.type == EventType.MOCK_TOOL_CALL_RECORDED:
+            self._tool_calls.append(ToolCallRecord(**event.payload))
+        elif event.type == EventType.MOCK_PROMPT_INSPECTED:
+            self._prompt_inspections.append(PromptInspection(**event.payload))
+        elif event.type == EventType.MOCK_SANDBOX_CHECK_RECORDED:
+            payload = dict(event.payload)
+            # ``SandboxCheck.changed_paths`` is a tuple; ``dataclasses.asdict``
+            # used at the publish site keeps tuples as tuples but defensive
+            # callers (or future bus serialization) might emit a list.
+            cp = payload.get("changed_paths", ())
+            payload["changed_paths"] = tuple(cp) if not isinstance(cp, tuple) else cp
+            self._sandbox_checks.append(SandboxCheck(**payload))
         for result in self._hook_set.fire(event, "post", self._mutable_state):
             self._hook_results.append(result)
 

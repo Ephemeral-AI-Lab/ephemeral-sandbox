@@ -211,9 +211,15 @@ async def run_scenario(
         seen_event_types=list(mutable_state.seen_events),
         hook_results=list(lifecycle.hook_results),
         mutable_state_flags=dict(mutable_state.flags),
-        launches=list(squad.launches) if squad is not None else [],
-        tool_calls=list(squad.tool_calls) if squad is not None else [],
-        prompt_inspections=list(squad.prompt_inspections) if squad is not None else [],
+        # Phase 4g-step2: launches / tool_calls / prompt_inspections now come
+        # from MOCK_* events accumulated by the lifecycle subscriber, not from
+        # MockSquadRunner's list attributes. ``sandbox_checks`` still uses the
+        # runner attribute because probe helpers append to it via pass-by-ref
+        # without yet publishing MOCK_SANDBOX_CHECK_RECORDED events; Phase
+        # 4g-step3 threads publish through those helpers.
+        launches=list(lifecycle.launches),
+        tool_calls=list(lifecycle.tool_calls),
+        prompt_inspections=list(lifecycle.prompt_inspections),
         sandbox_checks=list(squad.sandbox_checks) if squad is not None else [],
         metrics=dict(pipeline_report.metrics),
         graph_summary=graph_summary,
