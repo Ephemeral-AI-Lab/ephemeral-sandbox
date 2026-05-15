@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-16
 **Branch:** `codex/fix-dot-path-normalization-tests`
-**Range:** commits `ef0c3aa9..f1e908f6` (15 commits)
+**Range:** commits `ef0c3aa9..d98abe65` (17 commits — 1 consolidation + 14 renames + 1 report + 1 live_e2e follow-up)
 **Source review:** `.planning/sandbox-REVIEW.md` §5 (cross-cutting rename map)
 **Prior phases:** see `.planning/sandbox-REVIEW-DEFERRED-IMPLEMENTATION.md` for Phases 2 through 9.4 (already complete)
 
@@ -93,6 +93,8 @@ Targeted grep checks after each rename to confirm no stale references survived. 
 ## 5. Commits in this pass
 
 ```
+d98abe65 sandbox: update live_e2e occ test_routing for ChangesetPreparer rename
+dac1e071 docs: add sandbox-REVIEW-FIX.md for Phase 8 naming-rename pass
 f1e908f6 sandbox: rename occ/router.py::Router to occ/preparer.py::ChangesetPreparer
 304294ca sandbox: rename occ/ports.py to protocols.py
 4c55d602 sandbox: rename provider/daytona/bash.py to exec_wrapper.py
@@ -110,7 +112,9 @@ d7020b4c sandbox: rename layer_stack/_paths.py to paths.py
 ef0c3aa9 sandbox: consolidate plugin state, dedupe daytona config, unify rpc error envelope
 ```
 
-15 commits, each atomic, each with green sandbox tests at HEAD.
+17 commits, each atomic, each with green sandbox tests at HEAD.
+
+Post-hoc verification (after report was written) caught one stale import in `backend/tests/live_e2e_test/sandbox/occ/test_routing.py` — 7 of the 14 renames had used a sweep scope of `backend/src/sandbox backend/tests/unit_test/test_sandbox` instead of unrestricted `backend/src backend/tests`, missing the live_e2e tree. A final unrestricted grep across `backend/{src,tests}` confirmed only this one file was affected; commit `d98abe65` fixed it. All other restricted-scope renames happened to have no live_e2e callers.
 
 ---
 
