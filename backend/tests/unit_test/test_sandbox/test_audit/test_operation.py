@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sandbox.audit import events
 from sandbox.audit.translation import events_from_result, node_from_caller
-from sandbox.models import ConflictInfo, SandboxCaller, WriteFileResult
+from sandbox._shared.models import ConflictInfo, SandboxCaller, WriteFileResult
 
 
 def test_node_from_caller_uses_task_center_fields_before_legacy_run_id() -> None:

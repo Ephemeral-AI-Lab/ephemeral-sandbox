@@ -142,12 +142,18 @@ def _runtime_bundle_bytes() -> bytes:
     with tarfile.open(fileobj=raw, mode="w") as tar:
         for name in (
             "__init__.py",
-            "models.py",
             "timing.py",
             "timing_keys.py",
             "daemon_paths.py",
         ):
             _add_if_exists(tar, sandbox_dir / name, arcname=f"sandbox/{name}")
+
+        shared_dir = sandbox_dir / "_shared"
+        _add_python_tree(
+            tar,
+            shared_dir,
+            sandbox_dir=sandbox_dir,
+        )
 
         daemon_dir = sandbox_dir / "daemon"
         _add_python_tree(

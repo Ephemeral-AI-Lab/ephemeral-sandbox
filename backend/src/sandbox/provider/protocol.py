@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
-    from sandbox.models import RawExecResult
+    from sandbox._shared.models import RawExecResult
 
 
 class ProviderAdapter(Protocol):

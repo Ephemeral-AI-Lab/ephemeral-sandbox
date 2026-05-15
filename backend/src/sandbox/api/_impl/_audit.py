@@ -12,7 +12,7 @@ from sandbox.audit.operation import (
     publish_operation_started,
 )
 from sandbox.audit.translation import SandboxOperation
-from sandbox.models import SandboxCaller, SandboxResultBase
+from sandbox._shared.models import SandboxCaller, SandboxResultBase
 
 TResult = TypeVar("TResult", bound=SandboxResultBase)
 

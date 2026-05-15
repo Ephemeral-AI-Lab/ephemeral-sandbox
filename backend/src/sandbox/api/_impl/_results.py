@@ -11,7 +11,7 @@ from sandbox.api._impl._payload import (
     paths_from_payload,
     timings_from_payload,
 )
-from sandbox.models import (
+from sandbox._shared.models import (
     ConflictInfo,
     EditFileResult,
     GuardedResultBase,

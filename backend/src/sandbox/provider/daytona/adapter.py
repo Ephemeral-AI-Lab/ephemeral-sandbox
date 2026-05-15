@@ -6,7 +6,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar
 
-from sandbox.models import RawExecResult
+from sandbox._shared.models import RawExecResult
 from sandbox.provider.daytona.exec_wrapper import extract_exit_code, wrap_bash_command
 from sandbox.provider.daytona.client import (
     APP_CREATED_VIA,

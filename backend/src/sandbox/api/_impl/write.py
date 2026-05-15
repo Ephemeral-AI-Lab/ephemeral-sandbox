@@ -8,7 +8,7 @@ from sandbox.api._impl._results import guarded_result_from_payload
 from sandbox.api.protocol import SandboxTransport
 from sandbox.api.timeouts import WRITE_FILE_TIMEOUT_S
 from sandbox.api.transport import DAEMON_OP_WRITE_FILE, DaemonSandboxTransport
-from sandbox.models import WriteFileRequest, WriteFileResult
+from sandbox._shared.models import WriteFileRequest, WriteFileResult
 
 
 async def write_file(

@@ -12,7 +12,7 @@ auto-formatter reorder these blocks.
 
 from __future__ import annotations
 
-from sandbox.models import (
+from sandbox._shared.models import (
     ConflictInfo,
     EditFileRequest,
     EditFileResult,

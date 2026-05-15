@@ -9,7 +9,7 @@ from audit.base import AuditEvent, AuditNode, JsonValue
 
 from sandbox._conflict_markers import ALL_CONFLICT_MARKERS
 from sandbox.audit import events
-from sandbox.models import GuardedResultBase, SandboxCaller, SandboxResultBase
+from sandbox._shared.models import GuardedResultBase, SandboxCaller, SandboxResultBase
 from sandbox.timing import normalize_timing_map, timing_audit_signals
 
 SandboxOperation = Literal[

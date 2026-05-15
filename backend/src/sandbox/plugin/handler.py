@@ -28,7 +28,7 @@ from sandbox.layer_stack.workspace_binding import (
     WorkspaceBindingError,
     require_workspace_binding,
 )
-from sandbox.models import SandboxCaller
+from sandbox._shared.models import SandboxCaller
 from sandbox.plugin.op_context import PluginOpContext
 from sandbox.plugin.op_registry import (
     clear_plugin_registrations,

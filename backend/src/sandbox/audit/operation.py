@@ -11,7 +11,7 @@ from sandbox.audit.translation import (
     failed_event,
     started_event,
 )
-from sandbox.models import SandboxCaller, SandboxResultBase
+from sandbox._shared.models import SandboxCaller, SandboxResultBase
 
 
 def publish_operation_started(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from sandbox.models import ConflictInfo
+from sandbox._shared.models import ConflictInfo
 from sandbox.timing import normalize_timing_map
 
 _INTERNAL_ERROR_PREFIX = "internal_error: "

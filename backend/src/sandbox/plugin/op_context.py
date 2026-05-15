@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from sandbox.models import SandboxCaller
+from sandbox._shared.models import SandboxCaller
 
 __all__ = [
     "PluginOpContext",

@@ -9,7 +9,7 @@ from sandbox.api._impl._payload import (
     int_from_payload,
 )
 from sandbox.api._impl._classifiers import is_edit_conflict, is_shell_conflict
-from sandbox.models import SandboxCaller
+from sandbox._shared.models import SandboxCaller
 
 
 def test_sandbox_caller_audit_fields_keeps_required_keys_and_non_empty_fields() -> None:

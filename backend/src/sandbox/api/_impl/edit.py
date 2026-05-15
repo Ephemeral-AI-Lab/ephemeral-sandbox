@@ -10,7 +10,7 @@ from sandbox.api._impl._results import edit_conflict_result, guarded_result_from
 from sandbox.api.protocol import SandboxTransport
 from sandbox.api.timeouts import EDIT_FILE_TIMEOUT_S
 from sandbox.api.transport import DAEMON_OP_EDIT_FILE, DaemonSandboxTransport
-from sandbox.models import EditFileRequest, EditFileResult
+from sandbox._shared.models import EditFileRequest, EditFileResult
 
 
 async def edit_file(
