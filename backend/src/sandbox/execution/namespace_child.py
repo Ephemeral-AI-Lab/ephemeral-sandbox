@@ -20,7 +20,7 @@ from sandbox.execution.strategy_private_namespace import (
     NAMESPACE_FALLBACK_STRATEGY,
     NAMESPACE_INFRA_EXIT_CODE,
 )
-from sandbox.execution.policy import (
+from sandbox.execution.env_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
 )

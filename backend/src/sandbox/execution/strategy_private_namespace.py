@@ -15,7 +15,7 @@ from sandbox.execution.contract import (
     ShellProcessResult,
     WorkspaceReplacementMountSpec,
 )
-from sandbox.execution.policy import (
+from sandbox.execution.env_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
 )

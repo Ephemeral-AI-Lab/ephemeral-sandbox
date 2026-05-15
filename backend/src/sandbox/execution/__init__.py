@@ -14,7 +14,7 @@ from sandbox.execution.contract import (
     WorkspaceSnapshotLease,
 )
 from sandbox.execution.orchestrator import execute_command, run_workspace_replaced_command
-from sandbox.execution.policy import DEFAULT_COMMAND_EXEC_POLICY, CommandExecPolicy
+from sandbox.execution.env_policy import DEFAULT_COMMAND_EXEC_POLICY, CommandExecPolicy
 
 __all__ = [
     "CommandExecPolicy",

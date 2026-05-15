@@ -20,7 +20,7 @@ from sandbox.execution.contract import (
     WorkspaceReplacementMountSpec,
 )
 from sandbox.execution.overlay_capture import capture_changes
-from sandbox.execution.policy import (
+from sandbox.execution.env_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
 )

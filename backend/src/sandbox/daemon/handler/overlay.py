@@ -20,7 +20,7 @@ from sandbox.execution.orchestrator import (
     execute_command,
     run_workspace_replaced_command,
 )
-from sandbox.execution.policy import CommandExecPolicy
+from sandbox.execution.env_policy import CommandExecPolicy
 from sandbox.layer_stack.manifest import Manifest
 
 _OVERLAY_COMMAND_POLICY = CommandExecPolicy(

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.execution.policy import (
+from sandbox.execution.env_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
 )
