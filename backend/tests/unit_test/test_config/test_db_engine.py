@@ -292,9 +292,6 @@ def test_initialize_db_drops_dead_task_center_lifecycle_columns(
     legacy_engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(legacy_engine)
     with legacy_engine.begin() as conn:
-        for table_name in ("missions", "episodes", "attempts"):
-            conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN "context" TEXT'))
-            conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN "summary" TEXT'))
         conn.execute(text('ALTER TABLE "task_center_tasks" ADD COLUMN "system_prompt" TEXT'))
         conn.execute(text('ALTER TABLE "task_center_tasks" ADD COLUMN "user_prompt" TEXT'))
     legacy_engine.dispose()
@@ -305,10 +302,6 @@ def test_initialize_db_drops_dead_task_center_lifecycle_columns(
     engine = engine_mod.get_engine()
     assert engine is not None
     insp = inspect(engine)
-    for table_name in ("missions", "episodes", "attempts"):
-        columns = {col["name"] for col in insp.get_columns(table_name)}
-        assert "context" not in columns
-        assert "summary" not in columns
     task_columns = {col["name"] for col in insp.get_columns("task_center_tasks")}
     assert "system_prompt" not in task_columns
     assert "user_prompt" not in task_columns

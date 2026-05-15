@@ -7,9 +7,7 @@ from pathlib import Path
 import pytest
 
 from sandbox.layer_stack.changes import (
-    DeleteLayerChange,
     LayerChange,
-    SymlinkLayerChange,
     WriteLayerChange,
     aggregate_layer_changes,
     normalize_layer_path,

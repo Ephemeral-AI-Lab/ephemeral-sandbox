@@ -19,7 +19,6 @@ from agents import (
     validate_agent_definitions_resolved,
 )
 from task_center._core.agent_routing import (
-    MAX_HANDOFF_DEPTH,
     PredicateRegistry,
     ResolverContext,
     register_builtin_predicates,

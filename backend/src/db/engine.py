@@ -65,18 +65,6 @@ _DROPPED_COLUMNS: dict[str, set[str]] = {
     "task_center_runs": {
         "root_task_id",
     },
-    "missions": {
-        "context",
-        "summary",
-    },
-    "episodes": {
-        "context",
-        "summary",
-    },
-    "attempts": {
-        "context",
-        "summary",
-    },
 }
 
 _RENAMED_COLUMNS: dict[str, dict[str, str]] = {

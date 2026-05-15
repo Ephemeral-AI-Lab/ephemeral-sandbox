@@ -50,9 +50,6 @@ class TestSettings:
         assert _DROPPED_COLUMNS["task_center_runs"] >= {
             "root_task_id",
         }
-        assert _DROPPED_COLUMNS["missions"] >= {"context", "summary"}
-        assert _DROPPED_COLUMNS["episodes"] >= {"context", "summary"}
-        assert _DROPPED_COLUMNS["attempts"] >= {"context", "summary"}
 
 
 class TestLoadSaveSettings:

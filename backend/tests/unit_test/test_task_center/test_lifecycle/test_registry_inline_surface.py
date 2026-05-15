@@ -14,7 +14,6 @@ import inspect
 
 from task_center._core.agent_routing import PredicateRegistry
 from task_center.context_engine.recipes_registry import (
-    ContextRecipe,
     RecipeRegistry,
 )
 

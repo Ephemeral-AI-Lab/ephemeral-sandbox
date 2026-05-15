@@ -67,6 +67,13 @@ markers = [
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint.per-file-ignores]
+# task_center/__init__.py is a re-export facade with a dynamic ``__all__`` built
+# from ``_EXPORTS``; the ``if TYPE_CHECKING:`` imports exist to give type
+# checkers visibility into the lazy ``__getattr__`` surface and are not used
+# at runtime by design.
+"backend/src/task_center/__init__.py" = ["F401"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
