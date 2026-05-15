@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeAlias
 
-from sandbox.layer_stack._paths import fsync_path, relative_symlink_target_escapes
+from sandbox.layer_stack.paths import fsync_path, relative_symlink_target_escapes
 from sandbox.layer_stack.manifest import (
     LAYERS_DIR,
     STAGING_DIR,

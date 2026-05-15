@@ -9,7 +9,7 @@ import uuid
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from sandbox.layer_stack._paths import allocate_unique_layer_paths, fsync_path, remove_path
+from sandbox.layer_stack.paths import allocate_unique_layer_paths, fsync_path, remove_path
 from sandbox.layer_stack.layer_change import (
     LayerChange,
     PreparedLayerChange,

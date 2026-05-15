@@ -9,7 +9,7 @@ from collections.abc import Iterator
 from contextlib import suppress
 from pathlib import Path
 
-from sandbox.layer_stack._paths import relative_symlink_target_escapes
+from sandbox.layer_stack.paths import relative_symlink_target_escapes
 from sandbox.layer_stack.layer_index import OPAQUE_MARKER, WHITEOUT_PREFIX
 from sandbox.execution.overlay_change import (
     OverlayPathChange,

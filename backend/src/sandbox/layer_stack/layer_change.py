@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, Protocol
 
-from sandbox.layer_stack._paths import join_layer_path, remove_path
+from sandbox.layer_stack.paths import join_layer_path, remove_path
 from sandbox.layer_stack.layer_index import OPAQUE_MARKER, WHITEOUT_PREFIX
 
 

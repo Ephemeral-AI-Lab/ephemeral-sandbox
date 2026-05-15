@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from sandbox.layer_stack._paths import remove_path, resolve_storage_path
+from sandbox.layer_stack.paths import remove_path, resolve_storage_path
 from sandbox.layer_stack.storage_lock import acquire_storage_writer_lock
 from sandbox.layer_stack.layer_change import LayerChange
 from sandbox.layer_stack.layer_publisher import LayerPublisher

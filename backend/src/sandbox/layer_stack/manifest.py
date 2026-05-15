@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from sandbox.layer_stack._paths import fsync_path
+from sandbox.layer_stack.paths import fsync_path
 
 
 class ManifestConflictError(RuntimeError):

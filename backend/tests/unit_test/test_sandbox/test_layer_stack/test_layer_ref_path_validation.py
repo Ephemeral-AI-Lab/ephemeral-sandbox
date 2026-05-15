@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.layer_stack._paths import resolve_storage_path
+from sandbox.layer_stack.paths import resolve_storage_path
 from sandbox.layer_stack.manifest import LayerRef, Manifest
 
 

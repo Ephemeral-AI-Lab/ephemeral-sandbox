@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from sandbox.layer_stack._paths import fsync_path
+from sandbox.layer_stack.paths import fsync_path
 from sandbox.layer_stack.layer_change import normalize_layer_path
 
 

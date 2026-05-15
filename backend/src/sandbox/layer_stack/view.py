@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from typing import Literal
 
-from sandbox.layer_stack._paths import join_layer_path, remove_path
+from sandbox.layer_stack.paths import join_layer_path, remove_path
 from sandbox.layer_stack.layer_change import normalize_layer_path
 from sandbox.layer_stack.layer_index import (
     OPAQUE_MARKER as _OPAQUE_MARKER,
