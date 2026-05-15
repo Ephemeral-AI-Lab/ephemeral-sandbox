@@ -183,13 +183,10 @@ def _none_if_empty(value: str | None) -> str | None:
     return stripped or None
 
 
-_CONFLICT_ERROR_MARKERS = ALL_CONFLICT_MARKERS
-
-
 def _conflict_reason_from_error(error: BaseException) -> str | None:
     message = str(getattr(error, "message", "") or error)
     lowered = message.lower()
-    if any(marker in lowered for marker in _CONFLICT_ERROR_MARKERS):
+    if any(marker in lowered for marker in ALL_CONFLICT_MARKERS):
         return message
     return None
 

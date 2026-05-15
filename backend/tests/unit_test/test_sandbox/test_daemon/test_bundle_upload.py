@@ -139,6 +139,11 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/daemon/service/occ_backend.py",
         "sandbox/daemon/service/result_projection.py",
         "sandbox/daemon/service/workspace_server.py",
+        "sandbox/models.py",
+        "sandbox/timing.py",
+        "sandbox/timing_keys.py",
+        "sandbox/daemon_paths.py",
+        "sandbox/_conflict_markers.py",
     ]
     present_removed = [p for p in removed if (extract_dir / p).exists()]
     assert present_removed == []
