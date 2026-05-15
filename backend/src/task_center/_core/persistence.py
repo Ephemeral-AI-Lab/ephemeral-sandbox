@@ -51,15 +51,15 @@ class MissionStoreProtocol(Protocol):
         goal: str,
     ) -> Mission: ...
 
-    def get(self, mission_id: str) -> Mission | None: ...
+    def get(self, goal_id: str) -> Mission | None: ...
 
-    def append_episode_id(
-        self, mission_id: str, episode_id: str
+    def append_iteration_id(
+        self, goal_id: str, iteration_id: str
     ) -> Mission: ...
 
     def set_status(
         self,
-        mission_id: str,
+        goal_id: str,
         *,
         status: MissionStatus,
         final_outcome: dict[str, Any] | None,
@@ -79,41 +79,41 @@ class EpisodeStoreProtocol(Protocol):
     def insert(
         self,
         *,
-        mission_id: str,
+        goal_id: str,
         sequence_no: int,
         creation_reason: EpisodeCreationReason,
         goal: str,
         attempt_budget: int,
     ) -> Episode: ...
 
-    def get(self, episode_id: str) -> Episode | None: ...
+    def get(self, iteration_id: str) -> Episode | None: ...
 
-    def append_attempt_id(
-        self, episode_id: str, attempt_id: str
+    def append_trial_id(
+        self, iteration_id: str, trial_id: str
     ) -> Episode: ...
 
     def set_status(
         self,
-        episode_id: str,
+        iteration_id: str,
         *,
         status: EpisodeStatus,
         closed_at: datetime | None,
     ) -> Episode: ...
 
     def set_continuation_goal(
-        self, episode_id: str, *, continuation_goal: str | None
+        self, iteration_id: str, *, continuation_goal: str | None
     ) -> Episode: ...
 
     def close_succeeded(
         self,
-        episode_id: str,
+        iteration_id: str,
         *,
         closed_at: datetime,
-        final_attempt_id: str,
+        final_trial_id: str,
         continuation_goal: str | None,
     ) -> Episode: ...
 
-    def list_for_mission(self, mission_id: str) -> list[Episode]: ...
+    def list_for_mission(self, goal_id: str) -> list[Episode]: ...
 
 
 class AttemptStoreProtocol(Protocol):
@@ -122,28 +122,28 @@ class AttemptStoreProtocol(Protocol):
     is_ready: bool
 
     def insert(
-        self, *, episode_id: str, attempt_sequence_no: int
+        self, *, iteration_id: str, attempt_sequence_no: int
     ) -> Attempt: ...
 
-    def get(self, attempt_id: str) -> Attempt | None: ...
+    def get(self, trial_id: str) -> Attempt | None: ...
 
-    def set_stage(self, attempt_id: str, stage: AttemptStage) -> Attempt: ...
+    def set_stage(self, trial_id: str, stage: AttemptStage) -> Attempt: ...
 
     def set_planner_task_id(
-        self, attempt_id: str, planner_task_id: str
+        self, trial_id: str, planner_task_id: str
     ) -> Attempt: ...
 
     def set_generator_task_ids(
-        self, attempt_id: str, generator_task_ids: list[str]
+        self, trial_id: str, generator_task_ids: list[str]
     ) -> Attempt: ...
 
     def set_evaluator_task_id(
-        self, attempt_id: str, evaluator_task_id: str
+        self, trial_id: str, evaluator_task_id: str
     ) -> Attempt: ...
 
     def set_plan_contract(
         self,
-        attempt_id: str,
+        trial_id: str,
         *,
         task_specification: str,
         evaluation_criteria: list[str],
@@ -152,14 +152,14 @@ class AttemptStoreProtocol(Protocol):
 
     def close(
         self,
-        attempt_id: str,
+        trial_id: str,
         *,
         status: AttemptStatus,
         fail_reason: AttemptFailReason | None,
         closed_at: datetime,
     ) -> Attempt: ...
 
-    def list_for_episode(self, episode_id: str) -> list[Attempt]: ...
+    def list_for_episode(self, iteration_id: str) -> list[Attempt]: ...
 
 
 class TaskStoreProtocol(Protocol):
@@ -206,7 +206,7 @@ class TaskStoreProtocol(Protocol):
     def get_task(self, task_id: str) -> TaskRow | None: ...
 
     def list_generator_tasks_for_attempt(
-        self, attempt_id: str
+        self, trial_id: str
     ) -> list[TaskRow]: ...
 
     def set_task_status(

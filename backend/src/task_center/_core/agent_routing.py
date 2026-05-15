@@ -100,16 +100,16 @@ class PredicateRegistry:
 
 
 def _depth(ctx: ResolverContext) -> int:
-    """Return the nested-mission depth for ``ctx``.
+    """Return the nested-goal depth for ``ctx``.
 
-    Scopes without a mission (e.g. the top-level entry executor) have no
-    caller-attempt ancestry by construction, so depth is zero.
+    Scopes without a goal (e.g. the top-level entry executor) have no
+    caller-trial ancestry by construction, so depth is zero.
     """
-    mission_id = ctx.scope.mission_id
-    if mission_id is None:
+    goal_id = ctx.scope.mission_id
+    if goal_id is None:
         return 0
     return nested_mission_depth(
-        mission_id=mission_id,
+        mission_id=goal_id,
         mission_store=ctx.deps.mission_store,
         episode_store=ctx.deps.episode_store,
         attempt_store=ctx.deps.attempt_store,
@@ -117,18 +117,18 @@ def _depth(ctx: ResolverContext) -> int:
     )
 
 
-def _nested_mission_depth_within_handoff_range(ctx: ResolverContext) -> bool:
+def _nested_goal_depth_within_handoff_range(ctx: ResolverContext) -> bool:
     """True when depth ≤ MAX_HANDOFF_DEPTH (executor may still hand off)."""
     return _depth(ctx) <= MAX_HANDOFF_DEPTH
 
 
-def _nested_mission_depth_above_handoff_range(ctx: ResolverContext) -> bool:
+def _nested_goal_depth_above_handoff_range(ctx: ResolverContext) -> bool:
     """True when depth > MAX_HANDOFF_DEPTH (leaf executor, no further handoff)."""
     return _depth(ctx) > MAX_HANDOFF_DEPTH
 
 
-def _nested_mission_depth_gt_1(ctx: ResolverContext) -> bool:
-    """True when depth > 1 — caller attempt is itself inside another mission."""
+def _nested_goal_depth_gt_1(ctx: ResolverContext) -> bool:
+    """True when depth > 1 — caller trial is itself inside another goal."""
     return _depth(ctx) > 1
 
 
@@ -141,15 +141,15 @@ def register_builtin_predicates() -> None:
     """Idempotent — safe to call from app startup."""
     PredicateRegistry.register(
         "nested_mission_depth_within_handoff_range",
-        _nested_mission_depth_within_handoff_range,
+        _nested_goal_depth_within_handoff_range,
     )
     PredicateRegistry.register(
-        "nested_mission_depth_above_handoff_range",
-        _nested_mission_depth_above_handoff_range,
+        "nested_goal_depth_above_handoff_range",
+        _nested_goal_depth_above_handoff_range,
     )
     PredicateRegistry.register(
-        "nested_mission_depth_gt_1",
-        _nested_mission_depth_gt_1,
+        "nested_goal_depth_gt_1",
+        _nested_goal_depth_gt_1,
     )
     PredicateRegistry.register("always", _always)
 

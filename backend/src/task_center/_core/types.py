@@ -28,16 +28,16 @@ class TaskCenterInvariantViolation(Exception):
 # ---- Stable task ids -------------------------------------------------------
 
 
-def planner_task_id(attempt_id: str) -> str:
-    return f"{attempt_id}:planner"
+def planner_task_id(trial_id: str) -> str:
+    return f"{trial_id}:planner"
 
 
-def generator_task_id(attempt_id: str, local_task_id: str) -> str:
-    return f"{attempt_id}:gen:{local_task_id}"
+def generator_task_id(trial_id: str, local_task_id: str) -> str:
+    return f"{trial_id}:gen:{local_task_id}"
 
 
-def evaluator_task_id(attempt_id: str) -> str:
-    return f"{attempt_id}:evaluator"
+def evaluator_task_id(trial_id: str) -> str:
+    return f"{trial_id}:evaluator"
 
 
 # ---- Runtime configuration -------------------------------------------------
@@ -64,7 +64,7 @@ class RegisteredAttemptOrchestrator(Protocol):
     """The slice of :class:`AttemptOrchestrator` observed by collaborators."""
 
     @property
-    def attempt_id(self) -> str: ...
+    def trial_id(self) -> str: ...
 
     def start(self) -> None: ...
 
