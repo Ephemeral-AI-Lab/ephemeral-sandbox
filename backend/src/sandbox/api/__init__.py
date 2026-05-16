@@ -1,9 +1,9 @@
-"""Public sandbox API package and compatibility request/result exports.
+"""Public sandbox API package: request/result dataclasses and verb dispatchers.
 
-Request and result dataclasses are owned by :mod:`sandbox.models`; they are
+Request and result dataclasses are owned by :mod:`sandbox._shared.models` and
 re-exported here to preserve the existing public import path.
 
-Import ordering is load-bearing: ``sandbox.models`` must bind before
+Import ordering is load-bearing: ``sandbox._shared.models`` must bind before
 ``sandbox.api._sandbox_control`` runs, because the chain
 ``_sandbox_control -> host.lifecycle -> plugin.session ->
 tools.sandbox._lib.session`` re-enters this package looking for

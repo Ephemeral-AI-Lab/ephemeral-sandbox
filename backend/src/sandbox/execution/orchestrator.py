@@ -231,22 +231,25 @@ def _strategies_for_mount_mode(
     *,
     policy: CommandExecPolicy,
 ) -> tuple[ExecutionStrategy, ...]:
-    if mount_mode is None:
-        return (
-            PrivateNamespaceStrategy(
-                available=detect_private_mount_namespace(),
-                policy=policy,
-            ),
-            CopyBackedStrategy(policy=policy),
-        )
-    selected = MountMode(mount_mode)
-    if selected == MountMode.COPY_BACKED:
-        return (CopyBackedStrategy(policy=policy),)
-    return (
-        PrivateNamespaceStrategy(
-            available=detect_private_mount_namespace(),
-            policy=policy,
-        ),
+    modes = (
+        (MountMode.PRIVATE_NAMESPACE, MountMode.COPY_BACKED)
+        if mount_mode is None
+        else (MountMode(mount_mode),)
+    )
+    return tuple(_build_strategy(mode, policy=policy) for mode in modes)
+
+
+def _build_strategy(
+    mode: MountMode, *, policy: CommandExecPolicy
+) -> ExecutionStrategy:
+    # detect_private_mount_namespace() is only invoked for modes that
+    # actually need it, so callers pinning COPY_BACKED never pay the
+    # `unshare -Urm true` probe cost.
+    if mode is MountMode.COPY_BACKED:
+        return CopyBackedStrategy(policy=policy)
+    return PrivateNamespaceStrategy(
+        available=detect_private_mount_namespace(),
+        policy=policy,
     )
 
 
