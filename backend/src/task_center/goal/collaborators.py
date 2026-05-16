@@ -1,7 +1,7 @@
-"""Internal collaborators for :class:`GoalHandler`.
+"""Collaborators composed by :class:`GoalHandler`.
 
-Underscore-prefixed module: not part of the goal package facade. Holds the
-three classes the public :class:`GoalHandler` composes:
+Not re-exported by ``task_center.goal``'s facade — :class:`GoalHandler`
+is the only consumer. Holds the three classes the handler composes:
 
 * :class:`GoalRepository` — CRUD + closure helpers around the goal store.
 * :class:`IterationFactory` — creates iteration rows + their managers.

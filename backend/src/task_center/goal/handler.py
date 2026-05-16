@@ -3,7 +3,7 @@
 :class:`GoalHandler` is the single entry point external callers use to
 create a delegated goal, drive its iteration chain, and close it. The
 internal collaborators (:class:`GoalRepository`, :class:`IterationFactory`,
-:class:`IterationClosureRouter`) live in :mod:`task_center.goal._lifecycle`;
+:class:`IterationClosureRouter`) live in :mod:`task_center.goal.collaborators`;
 ancestry depth lives in :mod:`task_center.goal.ancestry`.
 """
 
@@ -18,7 +18,7 @@ from task_center._core.persistence import (
     TaskStoreProtocol,
 )
 from task_center._core.primitives import TaskCenterLifecycleConfig
-from task_center.goal._lifecycle import (
+from task_center.goal.collaborators import (
     GoalRepository,
     IterationClosureRouter,
     IterationFactory,
