@@ -117,3 +117,39 @@ Starting state: branch `codex/fix-dot-path-normalization-tests` at `2cba70f5f` (
 **Audit refs:** `.omc/experiments/sweevo-real-agent-loop-20260517/iter-3/console.log`; `.sweevo_runs/benchmark/sweevo_csv/dask__dask_2023.3.2_2023.4.0/20260516T165257Z_37c040559e9c/run.json`; `.sweevo_runs/benchmark/sweevo_csv/dask__dask_2023.3.2_2023.4.0/20260516T165257Z_37c040559e9c/sweevo_result.json`
 
 **Guard:** `.venv/bin/pytest backend/tests/unit_test/test_benchmarks/test_sweevo_csv_runner_cli.py -q` -> `10 passed in 0.41s`; `.venv/bin/pytest backend/tests/unit_test/test_task_center_runner/test_sweevo_csv_runner_dispatch.py -q` -> `5 passed in 0.38s`; `.venv/bin/pytest backend/tests/unit_test/test_task_center_runner/test_real_agent_run.py -q` -> `1 passed in 0.38s`.
+
+## Iter 4 — 2026-05-17 00:56
+
+**Hypothesis:** host/sandbox cwd split will let planner agents reach model/tool execution instead of crashing at spawn.
+**Primary surface touched:** prompts
+**Infra patches (if any):** none
+**Change-set:**
+- `backend/src/agents/profile/main/planner.md`
+- `backend/src/agents/profile/main/planner_full_only.md`
+- `backend/tests/unit_test/test_agents/test_planner_full_only_md.py`
+
+**Run outcome:**
+- resolved: false
+- f2p: n/a
+- p2p_broken: n/a
+- duration_s: 2091
+- status: crashed
+- terminal failure mode: operator interrupted after nested planner entered a runaway invalid-agent-name loop; no `sweevo_result.json` was produced.
+
+**Checklist scores (§2):**
+1. planner-terminal: fail (root planner first submitted `code_executor`/`default`; nested planner kept trying invalid names such as `python_executor`, `transform`, `file_editor`, `apply`)
+2. planner-explore: fail (nested planner used repeated explorer/advisor calls for small direct file questions and then searched the target repo for harness agent names)
+3. planner-dag: fail (root DAG was wide, but one over-broad categorize task triggered a nested monolithic retry; nested planner never submitted a valid plan)
+4. planner-task-specs: fail (categorize spec was over-prescriptive and led the executor into a broken partial implementation plus handoff at tool-limit)
+5. executor-terminal: fail (three executors submitted success with evidence; categorize handed off only after exhausting the tool budget and leaving partial edits)
+6. verifier-terminal: n/a (no verifier launched)
+7. evaluator-terminal: n/a (no evaluator launched)
+8. nesting+parallelism: fail (top-level generator siblings ran concurrently; nested planning re-emitted a single monolithic fix attempt and then looped on invalid agent names)
+9. context-engine: fail (planner prompt said "registered executor or verifier agent" but did not name `executor` / `verifier`; agents looked in Dask for harness names)
+10. perf: fail (`api.shell.overlay_s` hit 14.375s and OCC committed pycache/pytest-cache noise, including one 96-path pycache changeset)
+
+**Top finding (the one thing to fix next):** The planner profiles do not give concrete valid `agent_name` values. Both normal and full-only planners treated agent names as discoverable project metadata, searched `/testbed`, asked the advisor, and burned 13 rejected `submit_plan_closes_goal` calls on invalid names.
+**Next hypothesis:** if both planner profiles explicitly name `executor` for generator work and `verifier` for verifier work, the planner will stop guessing repo-local agent names and nested handoffs will reach executable tasks faster.
+**Audit refs:** `.omc/experiments/sweevo-real-agent-loop-20260517/iter-4/console.log`; `.sweevo_runs/benchmark/sweevo_csv/dask__dask_2023.3.2_2023.4.0/20260516T165722Z_3398e9f9cf69/goal_01_bb2fb154-ad23-4155-a9f5-1239da47dc2f/iteration_01_9c7e845b-b555-4d58-9f05-8cf9be37746e/attempt_01_17f63ac1-b9de-4093-be74-d7dbe7f75f02/01_planner_17f63ac1-b9de-4093-be74-d7dbe7f75f02:planner/message.jsonl`; `.sweevo_runs/benchmark/sweevo_csv/dask__dask_2023.3.2_2023.4.0/20260516T165722Z_3398e9f9cf69/goal_02_094c1599-7a4e-4cb1-803f-f60c16b06e52/iteration_01_08cbf9c2-06bd-46e8-afef-e8fed65fe8be/attempt_01_05dfce16-81f0-4cc9-9e4d-e547d92b79e7/01_planner_05dfce16-81f0-4cc9-9e4d-e547d92b79e7:planner/message.jsonl`; `.sweevo_runs/benchmark/sweevo_csv/dask__dask_2023.3.2_2023.4.0/20260516T165722Z_3398e9f9cf69/metrics.json`; `.sweevo_runs/benchmark/sweevo_csv/dask__dask_2023.3.2_2023.4.0/20260516T165722Z_3398e9f9cf69/sandbox_events.jsonl`
+
+**Guard:** `.venv/bin/pytest backend/tests/unit_test/test_agents/test_planner_full_only_md.py -q` -> `8 passed in 0.22s`.

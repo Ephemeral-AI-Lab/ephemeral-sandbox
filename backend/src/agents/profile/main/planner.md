@@ -66,7 +66,10 @@ Both terminal tools share the same plan body.
   - Scope criteria to what the DAG will actually produce. The evaluator is binary — over-broad criteria turn partial progress into total failure.
 - `tasks: list[{id, agent_name, deps}]` — the generator DAG. At least one task.
   - `id` — short, unique within this plan. Stable identifier hinting at purpose.
-  - `agent_name` — must be a registered executor or verifier agent. Choose the one whose role and tooling fit the task.
+  - `agent_name` — choose only one of these registered graph agents:
+    - `executor` for implementation, investigation, file edits, shell checks, and other generator work.
+    - `verifier` for independent verification tasks that depend on executor outputs.
+    Do not invent repository-specific names such as `code_executor`, `default`, `python_executor`, or `file_editor`; those are invalid harness agent names.
   - `deps: list[str]` — `id`s in this same plan. Edges represent ordering and information flow: a task receives its dependencies' summaries and artifacts, nothing else.
 - `task_specs: dict[id, str]` — one entry per task `id`, no more, no less. Each value is the task's local instruction, written for the executor or verifier to act on without re-reading the graph contract. State inputs, outputs, success conditions, and any constraints. Reference dependency outputs by dependency `id`.
 - `continuation_goal: str` (continues-goal only) — non-blank, verbatim contract for the next iteration.

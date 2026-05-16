@@ -63,3 +63,14 @@ def test_planner_no_longer_lists_recursive_partial_plan_trigger():
     recursive_partial_plan notification is intentionally absent (US-016)."""
     planner, _ = _load_planner_pair()
     assert "recursive_partial_plan" not in planner.notification_triggers
+
+
+def test_planners_name_valid_graph_agents():
+    """Real planners need concrete agent_name values; repo-local guesses fail."""
+    planner, full_only = _load_planner_pair()
+    for profile in (planner, full_only):
+        body = profile.system_prompt or ""
+        assert "`executor` for implementation" in body
+        assert "`verifier` for independent verification" in body
+        assert "code_executor" in body
+        assert "python_executor" in body
