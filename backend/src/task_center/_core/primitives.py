@@ -1,4 +1,4 @@
-"""TaskCenter package primitives — exceptions, ids, config, runtime Protocols.
+"""TaskCenter package primitives — invariant exception, task-id helpers, lifecycle config.
 
 Persistence I/O Protocols live in :mod:`task_center._core.persistence`.
 """
