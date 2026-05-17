@@ -30,7 +30,11 @@ from db.models.attempt import AttemptRecord
 from db.models.iteration import IterationRecord
 from db.models.goal import GoalRecord
 from db.models.task_center import TaskCenterTaskRecord
-from message.agent_message_recorder import AgentMessageJsonlRecorder
+from message.agent_message_recorder import (
+    AgentMessageJsonlRecorder,
+    clear_recorder_for_agent_run,
+    register_recorder_for_agent_run,
+)
 
 
 PRIMARY_ROLES: frozenset[str] = frozenset(
@@ -302,6 +306,9 @@ class AuditRecorder:
             except Exception:  # noqa: BLE001
                 pass
 
+        for agent_run_id in list(self._agent_run_to_task):
+            clear_recorder_for_agent_run(agent_run_id)
+
         self._finished_ts = time.time()
         if self._status == "running":
             self._status = "finished"
@@ -371,17 +378,24 @@ class AuditRecorder:
                 or self._is_entry_executor(target)
             )
             if primary:
-                self._task_recorder[target.id] = AgentMessageJsonlRecorder(
+                recorder = AgentMessageJsonlRecorder(
                     task_dir / "message.jsonl",
                     base_event={
                         "task_id": target.id,
                         "task_center_run_id": self._task_center_run_id,
                     },
                 )
+                self._task_recorder[target.id] = recorder
+                for agent_run_id, task_id in self._agent_run_to_task.items():
+                    if task_id == target.id:
+                        register_recorder_for_agent_run(agent_run_id, recorder)
         _atomic_write_json(task_dir / "task.json", _serialize_task(target))
 
     def _handle_agent_run(self, target: AgentRunRecord) -> None:
         self._agent_run_to_task[target.id] = target.task_id
+        recorder = self._task_recorder.get(target.task_id)
+        if recorder is not None:
+            register_recorder_for_agent_run(target.id, recorder)
 
     def _record_sandbox_event(self, audit_event: AuditEvent) -> None:
         if not audit_event.type.value.startswith("sandbox_"):

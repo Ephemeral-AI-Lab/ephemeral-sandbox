@@ -2,8 +2,18 @@ from __future__ import annotations
 
 import json
 
-from message.agent_message_recorder import AgentMessageJsonlRecorder
-from message.messages import ConversationMessage, ToolUseBlock
+from message.agent_message_recorder import (
+    AgentMessageJsonlRecorder,
+    clear_recorder_for_agent_run,
+    recorder_for_agent_run,
+    register_recorder_for_agent_run,
+)
+from message.messages import (
+    ConversationMessage,
+    TextBlock,
+    ThinkingBlock,
+    ToolUseBlock,
+)
 from message.stream_events import (
     AssistantMessageComplete,
     AssistantTextDelta,
@@ -99,3 +109,51 @@ def test_agent_message_recorder_appends_conversation_messages(tmp_path) -> None:
     assert all(
         record["metadata"]["agent_name"] == "executor" for record in records
     )
+
+
+def test_assistant_complete_with_full_blocks_does_not_duplicate(tmp_path) -> None:
+    """Real-LLM path: AssistantMessageComplete carries the same thinking/text
+    blocks that arrived as deltas. The buffer must be discarded, not flushed,
+    so the recorder writes exactly one assistant row per provider turn."""
+    path = tmp_path / "message.jsonl"
+    recorder = AgentMessageJsonlRecorder(path)
+
+    recorder.emit(ThinkingDelta(text="plan ", agent_name="a", run_id="r"))
+    recorder.emit(ThinkingDelta(text="step", agent_name="a", run_id="r"))
+    recorder.emit(AssistantTextDelta(text="ok.", agent_name="a", run_id="r"))
+    recorder.emit(
+        AssistantMessageComplete(
+            message=ConversationMessage(
+                role="assistant",
+                content=[
+                    ThinkingBlock(text="plan step"),
+                    TextBlock(text="ok."),
+                    ToolUseBlock(id="t1", name="shell", input={"cmd": "ls"}),
+                ],
+            ),
+            usage=UsageSnapshot(),
+            agent_name="a",
+            run_id="r",
+        )
+    )
+    recorder.flush()
+
+    records = _read_jsonl(path)
+    assert len(records) == 1, records
+    assert [b["type"] for b in records[0]["content"]] == [
+        "thinking",
+        "text",
+        "tool_use",
+    ]
+
+
+def test_recorder_registry_round_trip(tmp_path) -> None:
+    recorder = AgentMessageJsonlRecorder(tmp_path / "message.jsonl")
+    register_recorder_for_agent_run("run-xyz", recorder)
+    try:
+        assert recorder_for_agent_run("run-xyz") is recorder
+        assert recorder_for_agent_run("") is None
+        assert recorder_for_agent_run("other") is None
+    finally:
+        clear_recorder_for_agent_run("run-xyz")
+    assert recorder_for_agent_run("run-xyz") is None

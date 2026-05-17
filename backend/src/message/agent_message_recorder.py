@@ -52,28 +52,45 @@ class AgentMessageJsonlRecorder:
         return self._path
 
     def emit(self, event: StreamEvent) -> None:
-        """Observe one stream event and append completed messages."""
+        """Observe one stream event and append completed messages.
+
+        Thinking and text deltas are buffered per (agent, run) lane and only
+        materialized when ``AssistantMessageComplete`` arrives: if that
+        message already contains the corresponding block, the buffer is
+        dropped (the complete message is the canonical row); otherwise the
+        buffer is flushed as its own row. Buffers that survive without a
+        completion event — e.g. mid-stream cancellation — are drained by
+        :meth:`flush`.
+        """
         if isinstance(event, ThinkingDelta):
-            self._flush_text(event.agent_name, event.run_id)
             self._thinking_for(event.agent_name, event.run_id).append(event.text)
             return
 
         if isinstance(event, AssistantTextDelta):
-            self._flush_thinking(event.agent_name, event.run_id)
             self._text_for(event.agent_name, event.run_id).append(event.text)
             return
 
         agent_name = str(getattr(event, "agent_name", "") or "")
         run_id = str(getattr(event, "run_id", "") or "")
-        self._flush_lane(agent_name, run_id)
 
         if isinstance(event, AssistantMessageComplete):
+            block_types = {type(b).__name__ for b in event.message.content}
+            if "ThinkingBlock" in block_types:
+                self._thinking.pop((agent_name, run_id), None)
+            else:
+                self._flush_thinking(agent_name, run_id)
+            if "TextBlock" in block_types:
+                self._text.pop((agent_name, run_id), None)
+            else:
+                self._flush_text(agent_name, run_id)
             self._record(
                 agent_name=event.agent_name,
                 run_id=event.run_id,
                 message=event.message,
             )
-        elif isinstance(event, ToolExecutionCompleted):
+            return
+
+        if isinstance(event, ToolExecutionCompleted):
             message = ConversationMessage(
                 role="user",
                 content=[
@@ -223,4 +240,33 @@ class AgentMessageJsonlRecorder:
             logger.debug("agent message append failed", exc_info=True)
 
 
-__all__ = ["AgentMessageJsonlRecorder"]
+_BY_AGENT_RUN: dict[str, "AgentMessageJsonlRecorder"] = {}
+
+
+def register_recorder_for_agent_run(
+    agent_run_id: str, recorder: "AgentMessageJsonlRecorder"
+) -> None:
+    """Make ``recorder`` discoverable via ``recorder_for_agent_run``.
+
+    Lets the LLM-request layer find the per-task message recorder without a
+    direct handle to the audit recorder. The audit recorder is the only
+    populator; consumers must not mutate the registry directly.
+    """
+    if agent_run_id:
+        _BY_AGENT_RUN[agent_run_id] = recorder
+
+
+def clear_recorder_for_agent_run(agent_run_id: str) -> None:
+    _BY_AGENT_RUN.pop(agent_run_id, None)
+
+
+def recorder_for_agent_run(agent_run_id: str) -> "AgentMessageJsonlRecorder | None":
+    return _BY_AGENT_RUN.get(agent_run_id) if agent_run_id else None
+
+
+__all__ = [
+    "AgentMessageJsonlRecorder",
+    "register_recorder_for_agent_run",
+    "clear_recorder_for_agent_run",
+    "recorder_for_agent_run",
+]
