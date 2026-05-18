@@ -12,7 +12,7 @@ from sandbox.execution.contract import CommandExecRequest
 from sandbox.execution.contract import MountMode
 from sandbox.execution.contract import ShellProcessResult
 from sandbox.execution.contract import OverlayLayout
-from sandbox.execution import namespace_child as namespace_helper
+from sandbox.execution.overlay import kernel_mount
 from sandbox.execution.overlay_capture import capture_changes
 from sandbox.execution.strategy_copy_backed import (
     CopyBackedStrategy,
@@ -315,7 +315,7 @@ def test_namespace_mount_validation_returns_fd_backed_paths(tmp_path: Path) -> N
     workspace_root.mkdir()
     lowerdir.mkdir()
 
-    inputs = namespace_helper._validate_mount_inputs(
+    inputs = kernel_mount.validate_mount_inputs(
         workspace_root=workspace_root,
         lowerdir=lowerdir,
         upperdir=upperdir,
@@ -340,7 +340,7 @@ def test_namespace_mount_passes_fd_paths_to_mount_subprocess(
     workdir = tmp_path / "work"
     workspace_root.mkdir()
     lowerdir.mkdir()
-    inputs = namespace_helper._validate_mount_inputs(
+    inputs = kernel_mount.validate_mount_inputs(
         workspace_root=workspace_root,
         lowerdir=lowerdir,
         upperdir=upperdir,
@@ -352,9 +352,9 @@ def test_namespace_mount_passes_fd_paths_to_mount_subprocess(
         calls.append({"args": args, "kwargs": kwargs})
         return subprocess.CompletedProcess(args=args, returncode=0)
 
-    monkeypatch.setattr(namespace_helper.subprocess, "run", fake_run)
+    monkeypatch.setattr(kernel_mount.subprocess, "run", fake_run)
     try:
-        namespace_helper._mount_overlay(
+        kernel_mount.mount_overlay(
             workspace_root=inputs.workspace_root,
             lowerdir=inputs.lowerdir,
             upperdir=inputs.upperdir,

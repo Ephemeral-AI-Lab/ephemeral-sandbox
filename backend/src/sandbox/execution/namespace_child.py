@@ -3,26 +3,33 @@
 This is command-exec's workspace replacement helper. The older
 ``sandbox.overlay.namespace`` path is for snapshot-overlay requests and stays
 separate because command-exec must capture an upperdir for OCC submission.
+
+Mount mechanics live in ``sandbox.execution.overlay.kernel_mount``; this
+module owns payload parsing, error reporting, and the sequencing around
+``run_command_to_refs``.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
-from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from sandbox.execution.env_policy import (
+    CommandExecPolicy,
+)
+from sandbox.execution.overlay.kernel_mount import (
+    MountInputs,
+    mount_overlay,
+    umount,
+    validate_mount_inputs,
+)
 from sandbox.execution.strategy_private_namespace import (
     NAMESPACE_FALLBACK_STRATEGY,
     NAMESPACE_INFRA_EXIT_CODE,
-)
-from sandbox.execution.env_policy import (
-    DEFAULT_COMMAND_EXEC_POLICY,
-    CommandExecPolicy,
 )
 from sandbox.execution.subprocess_runner import run_command_to_refs
 from sandbox._shared.clock import monotonic_now
@@ -55,9 +62,9 @@ def execute(payload: dict[str, Any]) -> int:
     except Exception as exc:
         return _fail_bad_payload(payload, timings, str(exc))
 
-    mount_inputs: _MountInputs | None = None
+    mount_inputs: MountInputs | None = None
     try:
-        mount_inputs = _validate_mount_inputs(
+        mount_inputs = validate_mount_inputs(
             workspace_root=request.workspace_root,
             lowerdir=request.lowerdir,
             upperdir=request.upperdir,
@@ -65,7 +72,7 @@ def execute(payload: dict[str, Any]) -> int:
             policy=request.policy,
         )
         mount_start = monotonic_now()
-        _mount_overlay(
+        mount_overlay(
             workspace_root=mount_inputs.workspace_root,
             lowerdir=mount_inputs.lowerdir,
             upperdir=mount_inputs.upperdir,
@@ -119,7 +126,7 @@ def execute(payload: dict[str, Any]) -> int:
             )
         return 126
     finally:
-        _umount(request.workspace_root)
+        umount(request.workspace_root)
         _write_timings(request.timings_ref, timings)
 
 
@@ -134,20 +141,6 @@ class _NamespaceRequest:
     timings_ref: Path
     control_ref: Path | None
     policy: CommandExecPolicy
-
-
-@dataclass(frozen=True)
-class _MountInputs:
-    workspace_root: Path
-    lowerdir: Path
-    upperdir: Path
-    workdir: Path
-    fds: tuple[int, ...]
-
-    def close(self) -> None:
-        for fd in self.fds:
-            with suppress(OSError):
-                os.close(fd)
 
 
 def _payload_request(payload: dict[str, Any]) -> _NamespaceRequest:
@@ -168,82 +161,6 @@ def _payload_request(payload: dict[str, Any]) -> _NamespaceRequest:
             payload["policy"] if isinstance(payload.get("policy"), dict) else {}
         ),
     )
-
-
-def _mount_overlay(
-    *,
-    workspace_root: Path,
-    lowerdir: Path,
-    upperdir: Path,
-    workdir: Path,
-    pass_fds: tuple[int, ...] = (),
-) -> None:
-    options = f"lowerdir={lowerdir},upperdir={upperdir},workdir={workdir}"
-    subprocess.run(
-        ["mount", "-t", "overlay", "overlay", "-o", options, str(workspace_root)],
-        check=True,
-        capture_output=True,
-        text=True,
-        pass_fds=pass_fds,
-    )
-
-
-def _umount(workspace_root: Path) -> None:
-    subprocess.run(
-        ["umount", str(workspace_root)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-
-
-def _validate_mount_inputs(
-    *,
-    workspace_root: Path,
-    lowerdir: Path,
-    upperdir: Path,
-    workdir: Path,
-    policy: CommandExecPolicy = DEFAULT_COMMAND_EXEC_POLICY,
-) -> _MountInputs:
-    fds: list[int] = []
-    try:
-        for path in (workspace_root, lowerdir, upperdir, workdir):
-            policy.validate_overlay_path_text(path.as_posix())
-        for path, label in (
-            (workspace_root, "workspace root"),
-            (lowerdir, "leased lowerdir"),
-        ):
-            if path.is_symlink():
-                raise ValueError(f"{label} must not be a symlink: {path}")
-            if not path.is_dir():
-                raise ValueError(f"{label} is missing: {path}")
-            fds.append(_open_dir_no_follow(path))
-        for path in (upperdir, workdir):
-            if path.is_symlink():
-                raise ValueError(f"mount scratch dir must not be a symlink: {path}")
-            if path.exists() and not path.is_dir():
-                raise ValueError(f"mount scratch path is not a directory: {path}")
-            path.mkdir(parents=True, exist_ok=True)
-            fds.append(_open_dir_no_follow(path))
-        return _MountInputs(
-            workspace_root=Path(f"/proc/self/fd/{fds[0]}"),
-            lowerdir=Path(f"/proc/self/fd/{fds[1]}"),
-            upperdir=Path(f"/proc/self/fd/{fds[2]}"),
-            workdir=Path(f"/proc/self/fd/{fds[3]}"),
-            fds=tuple(fds),
-        )
-    except Exception:
-        for fd in fds:
-            with suppress(OSError):
-                os.close(fd)
-        raise
-
-
-def _open_dir_no_follow(path: Path) -> int:
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    return os.open(path, flags)
 
 
 def _write_error(path: Path, error_kind: str, detail: str) -> None:
