@@ -19,7 +19,8 @@ from agents import (
     unregister_definition,
 )
 from task_center._core.primitives import TaskCenterLifecycleConfig
-from task_center.context_engine.core import ContextComposer, ContextEngine, ContextEngineDeps
+from task_center.agent_launch.composer import AgentEntryComposer
+from task_center.context_engine.core import ContextEngine, ContextEngineDeps
 from task_center._core.agent_routing import (
     PredicateRegistry,
     register_builtin_predicates,
@@ -83,7 +84,7 @@ def composer_runtime(
         attempt_store=attempt_store,
         task_store=task_store,
     )
-    composer = ContextComposer.default(ContextEngine(deps))
+    composer = AgentEntryComposer.default(ContextEngine(deps))
     runtime = AttemptDeps(
         goal_store=goal_store,
         iteration_store=iteration_store,
@@ -212,7 +213,7 @@ def test_planner_launched_via_composer_uses_base_when_no_ancestor(
     assert selected is not None
     assert selected.system_prompt == "PLANNER"
     assert launched.context_packet_id is None  # no packet store wired
-    assert "<goal_current_iteration>" in launched.context_message
+    assert "<goal_current_iteration>" in launched.context
 
 
 def test_planner_forked_to_full_only_when_partial_plan_caller_present(

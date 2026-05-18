@@ -25,7 +25,8 @@ from agents import (
     unregister_definition,
 )
 from task_center._core.primitives import TaskCenterLifecycleConfig
-from task_center.context_engine.core import ContextComposer, ContextEngine, ContextEngineDeps
+from task_center.agent_launch.composer import AgentEntryComposer
+from task_center.context_engine.core import ContextEngine, ContextEngineDeps
 from task_center._core.agent_routing import (
     PredicateRegistry,
     register_builtin_predicates,
@@ -97,7 +98,7 @@ def _runtime_with_composer(
         attempt_store=attempt_store,
         task_store=task_store,
     )
-    composer = ContextComposer.default(ContextEngine(deps))
+    composer = AgentEntryComposer.default(ContextEngine(deps))
     runtime = AttemptDeps(
         goal_store=goal_store,
         iteration_store=iteration_store,
