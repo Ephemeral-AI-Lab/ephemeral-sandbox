@@ -73,6 +73,9 @@ class CapturedAgent:
     system: str
     user_msg_1: str
     user_msg_2: str  # empty string when the launch shape only seeded one user message
+    # Row 4 — the skill + terminal_selection composite. Non-empty only for
+    # planner launches in v1 (Round 3 ships skills for planner variants only).
+    skill_row: str = ""
 
     @property
     def message_jsonl(self) -> str:
@@ -87,14 +90,20 @@ def _latest_run(scenario: str) -> Path | None:
     return runs[0] if runs else None
 
 
-def _read_first_three_rows(message_path: Path) -> tuple[str, str, str]:
-    """Return (system, user_msg_1, user_msg_2) from the first three rows.
+def _read_initial_rows(message_path: Path) -> tuple[str, str, str, str]:
+    """Return (system, user_msg_1, user_msg_2, skill_row).
 
-    Today's recorder writes system + every seeded initial user + the spawn
-    prompt (= role_instruction). For two-message launches that's 2 rows
-    (system + combined user); for three-message launches that's 3 rows
-    (system + context + role_instruction). user_msg_2 is the empty string
-    when only 2 rows exist.
+    The recorder writes system + every seeded initial user + the spawn
+    prompt. For Round 3 launch shapes:
+
+    * 2 rows = entry_executor (system + combined user); both user fields
+      after the first are empty.
+    * 3 rows = executor / evaluator (system + context + role_instruction);
+      ``skill_row`` is empty.
+    * 4 rows = skill-equipped planner (system + context + role_instruction +
+      skill row 4). The skill row carries the
+      ``Load skill: <name>`` header plus the ``<skill>`` and
+      ``<terminal_selection>`` blocks.
     """
     rows: list[dict] = []
     with message_path.open() as fh:
@@ -103,12 +112,13 @@ def _read_first_three_rows(message_path: Path) -> tuple[str, str, str]:
             if not line:
                 continue
             rows.append(json.loads(line))
-            if len(rows) == 3:
+            if len(rows) == 4:
                 break
     system_text = _text_of(rows[0]) if rows and rows[0].get("role") == "system" else ""
     user_msg_1 = _text_of(rows[1]) if len(rows) > 1 and rows[1].get("role") == "user" else ""
     user_msg_2 = _text_of(rows[2]) if len(rows) > 2 and rows[2].get("role") == "user" else ""
-    return system_text, user_msg_1, user_msg_2
+    skill_row = _text_of(rows[3]) if len(rows) > 3 and rows[3].get("role") == "user" else ""
+    return system_text, user_msg_1, user_msg_2, skill_row
 
 
 def _text_of(row: dict) -> str:
@@ -185,7 +195,7 @@ def harvest_main_agents() -> list[CapturedAgent]:
             print(f"WARN: no agent matched for {label} in {scenario}/{run.name}", file=sys.stderr)
             continue
         iteration, attempt, role_dir, jsonl = picked
-        system, user_msg_1, user_msg_2 = _read_first_three_rows(jsonl)
+        system, user_msg_1, user_msg_2, skill_row = _read_initial_rows(jsonl)
         if role_dir.startswith("entry_executor_") or "entry_executor" in role_dir:
             agent_name = "entry_executor"
         elif "planner" in role_dir:
@@ -208,6 +218,7 @@ def harvest_main_agents() -> list[CapturedAgent]:
                 system=system,
                 user_msg_1=user_msg_1,
                 user_msg_2=user_msg_2,
+                skill_row=skill_row,
             )
         )
     return captures
@@ -781,14 +792,16 @@ def render_report(
         )
     out.append("")
 
-    out.append("## Main agents (system + user_msg_1 + user_msg_2, captured live)\n")
+    out.append("## Main agents (initial rows captured live)\n")
     out.append(
         "Every main-agent row below is harvested verbatim from "
         "`message.jsonl` written by `AgentMessageJsonlRecorder."
-        "record_initial_messages` (now updated to write seeded "
-        "`initial_messages` between the system row and the spawn-prompt "
-        "row). entry_executor uses the legacy single-user-message launch "
-        "(no role_instruction recipe block), so its user_msg_2 is empty.\n"
+        "record_initial_messages`. Launch shapes (Round 3):\n\n"
+        "* planner — 4 rows (system + context + role_instruction + skill); "
+        "row 4 is the row-4 composite from `build_skill_message`.\n"
+        "* executor / evaluator — 3 rows (system + context + role_instruction); "
+        "no skill in v1.\n"
+        "* entry_executor — 2 rows (single-user-message launch).\n"
     )
     for cap in main_captures:
         out.append(f"### {cap.label}\n")
@@ -808,8 +821,8 @@ def render_report(
         out.append(_fmt_message("user_msg_1", _truncate(cap.user_msg_1)))
         if cap.user_msg_2:
             out.append(
-                "**user_msg_2** (verbatim, `message.jsonl` row 3 — the "
-                "spawn prompt = role_instruction + terminal catalog):\n"
+                "**user_msg_2** (verbatim, `message.jsonl` row 3 — "
+                "role_instruction + terminal catalog):\n"
             )
             out.append(_fmt_message("user_msg_2", _truncate(cap.user_msg_2)))
         else:
@@ -817,6 +830,12 @@ def render_report(
                 "**user_msg_2** — *not emitted* (single-user-message "
                 "launch; recipe carries no role_instruction block).\n"
             )
+        if cap.skill_row:
+            out.append(
+                "**row 4** (verbatim, `message.jsonl` row 4 — skill body + "
+                "`<terminal_selection>` composite from `build_skill_message`):\n"
+            )
+            out.append(_fmt_message("skill", _truncate(cap.skill_row)))
         verdict = coherence_verdict(
             cap.label,
             cap.system,

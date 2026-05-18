@@ -18,13 +18,23 @@ def validate_agent_definitions_resolved() -> None:
     Raises :class:`AgentDefinitionValidationError` if any agent references an
     unregistered predicate / recipe / variant target, declares a variant
     target that itself has variants (chaining is forbidden), or violates the
-    total-coverage tail rule on its variants list.
+    total-coverage tail rule on its variants list. Also runs the row-4
+    terminal-silence lint over every declared skill file
+    (:func:`agents.skills.validate_skill_files`).
 
     Called once at app startup after ``load_agents_tree`` so wiring mistakes
     surface before the first request.
     """
-    for definition in list_definitions():
+    definitions = list_definitions()
+    for definition in definitions:
         _validate_definition(definition)
+
+    # Skill-file lint runs after cross-reference validation so the failure
+    # message points at a real, resolvable definition. Lazy import avoids a
+    # registry-vs-loader import cycle.
+    from agents.skills import validate_skill_files
+
+    validate_skill_files(definitions)
 
 
 def _validate_definition(definition: AgentDefinition) -> None:

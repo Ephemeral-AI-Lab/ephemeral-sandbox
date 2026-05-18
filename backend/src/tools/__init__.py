@@ -40,11 +40,6 @@ _LAZY_EXPORTS = {
     "make_ask_helper_tools": "tools.ask_helper",
     "make_background_tools": "tools.background",
     "make_sandbox_tools": "tools.sandbox",
-    # Agent-scoped: requires a SkillRegistry at call time and is NOT
-    # registered into the global tool factory map. As a result it does not
-    # appear in collect_tool_catalog/collect_schema_tools output — those
-    # helpers enumerate global builtins only.
-    "make_skills_tools": "tools.skills",
     "make_subagent_tool_from_context": "tools.subagent",
     "make_submission_tools": "tools.submission",
     "register_tool_factory": "tools._framework.factory",
@@ -100,7 +95,6 @@ __all__ = [
     "make_ask_helper_tools",
     "make_background_tools",
     "make_sandbox_tools",
-    "make_skills_tools",
     "make_subagent_tool_from_context",
     "make_submission_tools",
     "register_tool_factory",

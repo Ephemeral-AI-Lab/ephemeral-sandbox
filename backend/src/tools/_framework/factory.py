@@ -86,12 +86,15 @@ def _register_many(tools: list[BaseTool]) -> None:
 def _register_builtins() -> None:
     """Register built-in tool factories.
 
-    Note: ``make_skills_tools`` is intentionally NOT registered here. Skill
-    tools require a ``SkillRegistry`` instance that cannot be resolved at
-    static registration time; they are constructed per-agent at agent build
-    time. As a consequence, ``collect_tool_catalog`` and
-    ``collect_schema_tools`` will not enumerate skill tools — that is
-    expected; skill tools are agent-scoped, not part of the global catalog.
+    ``load_skill_reference`` is registered as a per-agent factory
+    (:func:`tools.skills.make_load_skill_reference_from_context`). It needs
+    the spawning agent's name at create time to scope ``allowed_slugs`` to
+    the agent's own ``AgentDefinition.skill`` folder — that scoping is what
+    keeps the "at most one skill per launch" invariant load-bearing for
+    Round 3. The factory consults the agent registry at create time so
+    profile-level ``allowed_tools`` gating in
+    ``engine/agent/factory.py:_register_requested_tools`` keeps deciding
+    who gets the tool.
 
     Set ``EOS_SKIP_PLUGIN_IMPORTS_FOR_TESTS=1`` to skip plugin discovery —
     useful for unit tests that want to exercise the framework in
@@ -101,11 +104,15 @@ def _register_builtins() -> None:
     from tools.sandbox import make_sandbox_tools
     from tools.submission import make_submission_tools
     from tools.subagent import make_subagent_tool_from_context
+    from tools.skills import make_load_skill_reference_from_context
 
     _register_many(make_sandbox_tools())
     _register_many(make_submission_tools())
     _register_many(make_ask_helper_tools())
     register_tool_factory("run_subagent", make_subagent_tool_from_context)
+    register_tool_factory(
+        "load_skill_reference", make_load_skill_reference_from_context
+    )
     if not os.environ.get("EOS_SKIP_PLUGIN_IMPORTS_FOR_TESTS"):
         from plugins.core.loader import register_plugin_tools
 

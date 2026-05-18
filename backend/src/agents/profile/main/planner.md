@@ -10,11 +10,19 @@ allowed_tools:
   - glob
   - run_subagent
   - ask_advisor
+  - load_skill_reference
 terminals:
   - submit_plan_closes_goal
   - submit_plan_continues_goal
 notification_triggers: []
 context_recipe: planner
+# Skill is loaded into row 4 at launch (`task_center/context_engine/
+# core.py:build_skill_message`). The path is relative to this file:
+# four `..` segments climb from `agents/profile/main/` to `backend/`,
+# then `config/skills/planner/SKILL.md` reuses the existing bundled-
+# skill discovery so the same folder is reachable via load_skill_reference.
+# Uppercase `SKILL.md` matches that discovery convention.
+skill: ../../../../config/skills/planner/SKILL.md
 variants:
   - when: nested_goal_depth_gt_1
     use: planner_full_only

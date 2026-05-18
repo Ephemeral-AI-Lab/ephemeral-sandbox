@@ -12,6 +12,7 @@ from agents import (
     unregister_definition,
     validate_agent_definitions_resolved,
 )
+from agents.skills import SkillLintError
 from task_center.context_engine.core import (
     AgentDefinitionValidationError,
 )
@@ -167,3 +168,25 @@ def test_definitions_with_no_recipe_pass_validation():
     no_recipe = AgentDefinition(name="no_recipe", description="no recipe", context_recipe=None)
     register_definition(no_recipe)
     validate_agent_definitions_resolved()
+
+
+def test_skill_lint_runs_during_resolved_validation(tmp_path):
+    _stub_recipe("planner")
+    skill_file = tmp_path / "planner" / "SKILL.md"
+    skill_file.parent.mkdir()
+    skill_file.write_text(
+        "---\nname: planner\n---\n\nUse submit_plan_closes_goal here.",
+        encoding="utf-8",
+    )
+    planner = AgentDefinition(
+        name="planner",
+        description="planner",
+        context_recipe="planner",
+        skill=skill_file,
+    )
+    register_definition(planner)
+
+    with pytest.raises(SkillLintError) as exc:
+        validate_agent_definitions_resolved()
+    assert "submit_plan_closes_goal" in str(exc.value)
+    assert "planner" in str(exc.value)

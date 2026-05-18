@@ -223,23 +223,8 @@ def test_finalize_derives_terminal_tool_guidance_from_registry() -> None:
     assert "- `terminal_tool`" in prompt
 
 
-def test_build_agent_tool_registry_does_not_register_skill_tools(monkeypatch) -> None:
-    calls: list[list[str] | None] = []
-
-    monkeypatch.setattr(
-        "skills.core.loader.load_skill_registry",
-        lambda cwd: object(),
-    )
-
-    def _fake_make_skills_tools(_registry: object, skill_filter: list[str] | None = None) -> list[BaseTool]:
-        calls.append(skill_filter)
-        return [_DummyTool()]
-
-    monkeypatch.setattr(
-        "tools.skills.make_skills_tools",
-        _fake_make_skills_tools,
-    )
-
+def test_build_agent_tool_registry_skips_load_skill_reference_when_not_requested() -> None:
+    """Skill tool only appears when the agent's allowed_tools requests it."""
     registry = _build_agent_tool_registry(
         _make_config(),
         _make_agent_def(),
@@ -247,8 +232,7 @@ def test_build_agent_tool_registry_does_not_register_skill_tools(monkeypatch) ->
         "agent",
     )
 
-    assert registry.get("dummy_tool") is None
-    assert calls == []
+    assert registry.get("load_skill_reference") is None
 
 
 def test_default_sandbox_agent_registers_daytona_tools() -> None:
