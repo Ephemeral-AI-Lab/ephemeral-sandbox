@@ -25,6 +25,7 @@ from sandbox.execution.env_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
 )
+from sandbox.execution.overlay.change_synthesis import synthesize_writes
 from sandbox.execution.strategy_base import ExecutionStrategy
 from sandbox.execution.subprocess_runner import run_command_to_refs
 from sandbox._shared.clock import monotonic_now
@@ -97,6 +98,12 @@ class CopyBackedStrategy(ExecutionStrategy):
             policy=self._policy,
         )
         timings["command_exec.run_command_s"] = monotonic_now() - run_start
+        synthesize_writes(
+            merged=merged,
+            base_repo=base_repo,
+            into=writes,
+            timings=timings,
+        )
         return ShellProcessResult(
             exit_code=exit_code,
             stdout_ref=str(stdout_ref),
