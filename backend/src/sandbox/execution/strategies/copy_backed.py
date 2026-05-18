@@ -107,7 +107,7 @@ class CopyBackedStrategy(ExecutionStrategy):
             mount_mode=MountMode.COPY_BACKED,
         )
 
-    def is_recoverable_failure(
+    def should_fall_back(
         self,
         result: ShellProcessResult,
         *,

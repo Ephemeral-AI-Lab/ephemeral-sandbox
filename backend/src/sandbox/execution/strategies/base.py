@@ -28,7 +28,7 @@ class ExecutionStrategy(Protocol):
         timings: dict[str, float],
     ) -> ShellProcessResult: ...
 
-    def is_recoverable_failure(
+    def should_fall_back(
         self,
         result: ShellProcessResult,
         *,

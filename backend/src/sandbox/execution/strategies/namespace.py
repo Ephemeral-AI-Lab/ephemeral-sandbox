@@ -110,7 +110,7 @@ class PrivateNamespaceStrategy(ExecutionStrategy):
             mount_mode=MountMode.PRIVATE_NAMESPACE,
         )
 
-    def is_recoverable_failure(
+    def should_fall_back(
         self,
         result: ShellProcessResult,
         *,

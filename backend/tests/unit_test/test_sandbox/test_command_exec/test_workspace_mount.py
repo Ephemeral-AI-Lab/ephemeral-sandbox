@@ -208,13 +208,13 @@ def test_namespace_mount_failure_falls_back_to_copy_backed(
                 mount_mode=MountMode.PRIVATE_NAMESPACE,
             )
 
-        def is_recoverable_failure(
+        def should_fall_back(
             self,
             result: ShellProcessResult,
             *,
             run_dir: Path,
         ) -> bool:
-            return PrivateNamespaceStrategy(available=True).is_recoverable_failure(
+            return PrivateNamespaceStrategy(available=True).should_fall_back(
                 result,
                 run_dir=run_dir,
             )
@@ -252,7 +252,7 @@ def test_namespace_mount_failure_requires_control_sidecar(tmp_path: Path) -> Non
         mount_mode=MountMode.PRIVATE_NAMESPACE,
     )
 
-    assert PrivateNamespaceStrategy(available=True).is_recoverable_failure(
+    assert PrivateNamespaceStrategy(available=True).should_fall_back(
         process,
         run_dir=tmp_path / "run",
     ) is False

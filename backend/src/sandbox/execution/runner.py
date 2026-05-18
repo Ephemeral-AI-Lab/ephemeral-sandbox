@@ -56,7 +56,7 @@ def run_workspace_replaced_command(
             run_dir=run_root,
             timings=timings,
         )
-        if not strategy.is_recoverable_failure(process, run_dir=run_root):
+        if not strategy.should_fall_back(process, run_dir=run_root):
             return process
         fallback_key = (
             "command_exec.private_mount_fallback"
