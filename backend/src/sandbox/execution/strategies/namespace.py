@@ -12,9 +12,9 @@ from pathlib import Path
 from sandbox.execution.contract import (
     CommandExecRequest,
     MountMode,
-    OverlayLayout,
     ShellProcessResult,
 )
+from sandbox.execution.overlay.layout import LayerPathsLayout, MaterializeLayout
 from sandbox.execution.env_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
@@ -46,7 +46,7 @@ class PrivateNamespaceStrategy(ExecutionStrategy):
     def run(
         self,
         *,
-        spec: OverlayLayout,
+        spec: MaterializeLayout | LayerPathsLayout,
         request: CommandExecRequest,
         run_dir: Path,
         timings: dict[str, float],
@@ -56,14 +56,19 @@ class PrivateNamespaceStrategy(ExecutionStrategy):
         timings_ref = run_dir / "namespace-timings.json"
         control_ref = run_dir / NAMESPACE_CONTROL_REF
         payload_ref = run_dir / "namespace-request.json"
-        # Payload keys stay overlayfs-native (lowerdir/upperdir/workdir) because
-        # they are consumed by namespace_child.py / overlay/kernel_mount.py at
-        # the kernel boundary.
+        if isinstance(spec, LayerPathsLayout):
+            mount_payload: dict[str, object] = {
+                "layer_paths": list(spec.layer_paths),
+            }
+        else:
+            mount_payload = {
+                "lowerdir": spec.base_repo,
+            }
         payload_ref.write_text(
             json.dumps(
                 {
                     "workspace_root": spec.workspace_root,
-                    "lowerdir": spec.base_repo,
+                    **mount_payload,
                     "upperdir": spec.writes,
                     "workdir": spec.kernel_scratch,
                     "command": list(request.command),

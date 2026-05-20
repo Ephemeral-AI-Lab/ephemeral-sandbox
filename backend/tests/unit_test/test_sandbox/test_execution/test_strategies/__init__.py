@@ -1,0 +1,1 @@
+"""Namespace strategy tests."""

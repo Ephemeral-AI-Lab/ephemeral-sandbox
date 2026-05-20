@@ -66,7 +66,7 @@ def execute(payload: dict[str, Any]) -> int:
     try:
         mount_inputs = validate_mount_inputs(
             workspace_root=request.workspace_root,
-            lowerdir=request.lowerdir,
+            layer_paths=request.layer_paths,
             upperdir=request.upperdir,
             workdir=request.workdir,
             policy=request.policy,
@@ -74,7 +74,7 @@ def execute(payload: dict[str, Any]) -> int:
         mount_start = monotonic_now()
         mount_overlay(
             workspace_root=mount_inputs.workspace_root,
-            lowerdir=mount_inputs.lowerdir,
+            layer_paths=mount_inputs.layer_paths,
             upperdir=mount_inputs.upperdir,
             workdir=mount_inputs.workdir,
             pass_fds=mount_inputs.fds,
@@ -133,7 +133,7 @@ def execute(payload: dict[str, Any]) -> int:
 @dataclass(frozen=True)
 class _NamespaceRequest:
     workspace_root: Path
-    lowerdir: Path
+    layer_paths: tuple[Path, ...]
     upperdir: Path
     workdir: Path
     stdout_ref: Path
@@ -144,9 +144,15 @@ class _NamespaceRequest:
 
 
 def _payload_request(payload: dict[str, Any]) -> _NamespaceRequest:
+    raw_layers = payload["layer_paths"]
+    if not isinstance(raw_layers, list) or not raw_layers:
+        raise ValueError(
+            f"layer_paths must be a non-empty list; got {raw_layers!r}"
+        )
+    layer_paths = tuple(Path(str(p)) for p in raw_layers)
     return _NamespaceRequest(
         workspace_root=Path(str(payload["workspace_root"])),
-        lowerdir=Path(str(payload["lowerdir"])),
+        layer_paths=layer_paths,
         upperdir=Path(str(payload["upperdir"])),
         workdir=Path(str(payload["workdir"])),
         stdout_ref=Path(str(payload["stdout_ref"])),

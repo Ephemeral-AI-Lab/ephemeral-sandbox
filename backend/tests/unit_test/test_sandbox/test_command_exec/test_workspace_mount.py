@@ -312,54 +312,63 @@ def test_mount_spec_rejects_duplicate_mount_paths(tmp_path: Path) -> None:
 
 def test_namespace_mount_validation_returns_fd_backed_paths(tmp_path: Path) -> None:
     workspace_root = tmp_path / "workspace"
-    lowerdir = tmp_path / "lower"
+    layer1 = tmp_path / "layer1"
+    layer2 = tmp_path / "layer2"
     upperdir = tmp_path / "upper"
     workdir = tmp_path / "work"
     workspace_root.mkdir()
-    lowerdir.mkdir()
+    layer1.mkdir()
+    layer2.mkdir()
 
     inputs = kernel_mount.validate_mount_inputs(
         workspace_root=workspace_root,
-        lowerdir=lowerdir,
+        layer_paths=(layer1, layer2),
         upperdir=upperdir,
         workdir=workdir,
     )
     try:
         assert inputs.workspace_root.as_posix().startswith("/proc/self/fd/")
-        assert inputs.lowerdir.as_posix().startswith("/proc/self/fd/")
+        assert len(inputs.layer_paths) == 2
+        assert all(p.as_posix().startswith("/proc/self/fd/") for p in inputs.layer_paths)
         assert inputs.upperdir.as_posix().startswith("/proc/self/fd/")
         assert inputs.workdir.as_posix().startswith("/proc/self/fd/")
     finally:
         inputs.close()
 
 
-def test_namespace_mount_passes_fd_paths_to_mount_subprocess(
+def test_namespace_mount_passes_fd_paths_to_new_mount_api(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     workspace_root = tmp_path / "workspace"
-    lowerdir = tmp_path / "lower"
+    layer1 = tmp_path / "layer1"
     upperdir = tmp_path / "upper"
     workdir = tmp_path / "work"
     workspace_root.mkdir()
-    lowerdir.mkdir()
+    layer1.mkdir()
     inputs = kernel_mount.validate_mount_inputs(
         workspace_root=workspace_root,
-        lowerdir=lowerdir,
+        layer_paths=(layer1,),
         upperdir=upperdir,
         workdir=workdir,
     )
-    calls: list[dict[str, object]] = []
+    syscalls: list[tuple[object, ...]] = []
 
-    def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess:
-        calls.append({"args": args, "kwargs": kwargs})
-        return subprocess.CompletedProcess(args=args, returncode=0)
+    import ctypes
 
-    monkeypatch.setattr(kernel_mount.subprocess, "run", fake_run)
+    mock_libc = type("MockLibc", (), {})()
+
+    def fake_syscall(*args: object) -> int:
+        syscalls.append(args)
+        return 0
+
+    mock_libc.syscall = fake_syscall
+    monkeypatch.setattr(kernel_mount, "_get_libc", lambda: mock_libc)
+
     try:
         kernel_mount.mount_overlay(
             workspace_root=inputs.workspace_root,
-            lowerdir=inputs.lowerdir,
+            layer_paths=inputs.layer_paths,
             upperdir=inputs.upperdir,
             workdir=inputs.workdir,
             pass_fds=inputs.fds,
@@ -367,8 +376,10 @@ def test_namespace_mount_passes_fd_paths_to_mount_subprocess(
     finally:
         inputs.close()
 
-    assert calls
-    assert calls[0]["kwargs"]["pass_fds"] == inputs.fds
+    syscall_numbers = [call[0] for call in syscalls]
+    from sandbox.execution.overlay.new_mount_api import SYS_fsopen, SYS_fsconfig, SYS_fsmount, SYS_move_mount
+    assert SYS_fsopen in syscall_numbers
+    assert SYS_fsconfig in syscall_numbers
 
 
 def test_namespace_helper_module_path_in_strategy_argv_is_importable() -> None:
