@@ -11,30 +11,30 @@ with real sandboxes AND with our fully-customizable EphemeralOS tools.
    * Anthropic test: macOS Keychain entry ``Claude Code-credentials``.
    * Codex test: ``~/.codex/auth.json``.
 3. Coding-plan-mode infrastructure exists (per-test): the
-   ``providers.clients.coding_plan`` package importable AND a coding-plan-mode-
-   capable ``class_path`` value supported by ``make_api_client``. Until
-   Phase 1 lands this gate skips automatically — the test file lives
-   permanently on main without breaking CI.
+   ``providers.clients.coding_plan`` package importable.
 
-**Why the test file lands BEFORE Phase 1:**
-
-- Auto-skip gates mean zero CI cost today.
-- Once Phase 1+3 land, the gates auto-flip and the tests start running
-  under ``EOS_SWEEVO_REAL_AGENT_TESTS=1``; no separate scaffolding PR.
-- The skip-reasons themselves document the missing pieces for any future
-  contributor reading the file.
-
-Plan reference: ``.planning/coding_plan_mode_plan.md`` A18.
+Plan reference: ``.planning/final_phase_live_e2e_plan.md`` S7 (mirrors
+``.planning/coding_plan_mode_plan.md`` A18).
 """
 
 from __future__ import annotations
 
 import importlib
+import json
+import logging
 import os
 import subprocess
+import uuid
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any, Callable
 
 import pytest
+
+from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.core.real_agent_run import run_sweevo_real_agent
+from task_center_runner.core.stores import TaskCenterStoreBundle
+from tools.sandbox._lib.registry import make_sandbox_tools
 
 # Module-level gate: mirrors test_real_agent.py.
 pytestmark = pytest.mark.skipif(
@@ -79,12 +79,7 @@ def _codex_credentials_present() -> bool:
 
 
 def _plan_mode_infrastructure_present() -> bool:
-    """True iff Phase 1+ landed the coding_plan client package.
-
-    Detection strategy: attempt to import the package. The package is
-    introduced by the Phase 1 refactor (per v8 §A5 / v9 §6.5 / namespace
-    layout in v6). Until it exists, all three tests skip.
-    """
+    """True iff the coding_plan client package is importable."""
     try:
         importlib.import_module("providers.clients.coding_plan")
     except ImportError:
@@ -102,8 +97,156 @@ _SKIP_NO_CODEX_CREDS = pytest.mark.skipif(
 )
 _SKIP_NO_PLAN_INFRA = pytest.mark.skipif(
     not _plan_mode_infrastructure_present(),
-    reason="Coding-plan-mode infrastructure not yet landed (Phase 1 dependency)",
+    reason="Coding-plan-mode infrastructure not yet landed",
 )
+
+
+# ---------------------------------------------------------------------------
+# Fixtures.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _register_plan_mode_row(
+    stores: TaskCenterStoreBundle,
+) -> Iterator[Callable[..., str]]:
+    """Register a coding-plan-mode ``model_registrations`` row for one test.
+
+    See ``db/stores/model_store.py:98-176`` for the register/delete API.
+    The fixture rebinds the global ``model_store`` singleton onto the
+    per-test session factory and restores the prior binding on teardown
+    so subsequent tests don't query a dropped per-test schema.
+    """
+    from runtime.app_factory import model_store
+
+    prior_sf = model_store._session_factory  # may be None on first use
+    model_store.initialize(stores.session_factory)
+    registered_keys: list[str] = []
+
+    def _register(class_path: str, kwargs_extra: dict | None = None) -> str:
+        key = f"test/plan-mode-{uuid.uuid4().hex[:8]}"
+        model_store.register(
+            key=key,
+            label="Test Plan-Mode Row",
+            class_path=class_path,
+            kwargs=kwargs_extra or {},
+            activate=True,
+        )
+        registered_keys.append(key)
+        return key
+
+    yield _register
+
+    for key in registered_keys:
+        try:
+            model_store.delete(key)
+        except Exception:
+            pass
+    # Restore pre-fixture binding so the next test's bootstrap path
+    # initializes model_store cleanly (or sees the existing shared
+    # binding) instead of querying this dropped per-test schema.
+    model_store._session_factory = prior_sf
+
+
+# ---------------------------------------------------------------------------
+# Shared assertion helpers.
+# ---------------------------------------------------------------------------
+
+
+def _setup_caplog(caplog: pytest.LogCaptureFixture) -> None:
+    """Capture ERROR-level records on BOTH vendor loggers.
+
+    Single ``set_level`` on one logger won't catch the other vendor's
+    records — both providers emit ``coding_plan_mode_error`` against their
+    own module logger.
+    """
+    caplog.set_level(logging.ERROR, logger="providers.clients.anthropic_native")
+    caplog.set_level(logging.ERROR, logger="providers.clients.coding_plan.codex")
+
+
+def _assert_outcome_shape(report: Any) -> None:
+    """Outcome-shape assertions verbatim from ``test_real_agent.py:42-49``."""
+    assert report.task_center_run_id
+    assert report.run_dir.is_dir()
+    assert (report.run_dir / "run.json").is_file()
+    assert (report.run_dir / "sweevo_result.json").is_file()
+    assert report.task_center_status in {"done", "failed", "cancelled"}
+    if report.task_center_status == "done" and not report.aborted_by_timeout:
+        assert report.sweevo_result.fail_to_pass_total > 0
+
+
+def _assert_coding_plan_mode_active(run_dir: Path, expected: bool) -> None:
+    run_json = json.loads((run_dir / "run.json").read_text())
+    actual = run_json["coding_plan_mode_active"]
+    if expected:
+        assert actual is True, (
+            f"coding_plan_mode_active expected True, got {actual!r}"
+        )
+    else:
+        assert actual is False, (
+            f"coding_plan_mode_active expected False, got {actual!r}"
+        )
+
+
+def _collect_tool_use_names(run_dir: Path) -> set[str]:
+    """Walk ``message.jsonl`` files under ``run_dir`` and collect tool_use names.
+
+    Schema: ``backend/src/message/agent_message_recorder.py`` writes JSONL
+    rows of ``{"role": ..., "content": [block_dict, ...], "metadata": ...}``;
+    tool_use blocks have ``{"type": "tool_use", "id": ..., "name": ..., "input": ...}``.
+    """
+    names: set[str] = set()
+    for jsonl_path in run_dir.rglob("message.jsonl"):
+        try:
+            lines = jsonl_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            for block in event.get("content", []) or []:
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    name = block.get("name")
+                    if isinstance(name, str) and name:
+                        names.add(name)
+    return names
+
+
+def _assert_sandbox_tool_routing(run_dir: Path) -> None:
+    """Assert at least one tool_use name is in the sandbox-tool set.
+
+    Routing-regression signal — catches a future bug where the agent
+    routes through a non-sandbox tool registry. Capability is proven
+    separately by ``fail_to_pass_total > 0``.
+    """
+    sandbox_tool_names = {tool.name for tool in make_sandbox_tools()}
+    observed = _collect_tool_use_names(run_dir)
+    overlap = observed & sandbox_tool_names
+    assert overlap, (
+        f"Expected at least one sandbox-tool tool_use under {run_dir}; "
+        f"observed={sorted(observed)}, sandbox-set={sorted(sandbox_tool_names)}"
+    )
+
+
+def _assert_no_coding_plan_mode_error(caplog: pytest.LogCaptureFixture) -> None:
+    """Assert zero ``coding_plan_mode_error`` records.
+
+    Producer calls ``log.error("coding_plan_mode_error", extra=...)`` with
+    no format args, so ``record.message`` equals the raw event name.
+    """
+    records = [r for r in caplog.records if r.message == "coding_plan_mode_error"]
+    assert len(records) == 0, (
+        f"Expected zero coding_plan_mode_error records, got {len(records)}: "
+        f"{[(r.name, getattr(r, 'provider', None), getattr(r, 'error_type', None)) for r in records]}"
+    )
+
+
+def _max_duration_s() -> float:
+    return float(os.getenv("EOS_SWEEVO_REAL_AGENT_MAX_DURATION_S", "1800"))
 
 
 # ---------------------------------------------------------------------------
@@ -114,60 +257,106 @@ _SKIP_NO_PLAN_INFRA = pytest.mark.skipif(
 @_SKIP_NO_ANTHROPIC_CREDS
 @_SKIP_NO_PLAN_INFRA
 @pytest.mark.asyncio
-async def test_anthropic_coding_plan_mode_e2e() -> None:
+async def test_anthropic_coding_plan_mode_e2e(
+    sweevo_instance: SWEEvoInstance,
+    workspace: dict[str, object],
+    audit_dir: Path,
+    stores: TaskCenterStoreBundle,
+    caplog: pytest.LogCaptureFixture,
+    _register_plan_mode_row: Callable[..., str],
+) -> None:
     """A18.1 — Anthropic coding-plan-mode + custom tools end-to-end.
 
-    Activation: needs Phase 1 (AnthropicClient refactor, class_path
-    dispatch, A11 audit field, A17 observability) AND Phase 3 (sweevo
-    capability-parity benchmark wiring).
-
-    Once Phase 1+3 land, this test will:
-      1. Register a coding-plan-mode ``model_registrations`` row with
-         ``class_path="providers.clients.api.anthropic_native:AnthropicClient"``
-         and ``kwargs_json={"auth": "claude_oauth"}``.
-      2. Run a canonical SWE-EVO instance via ``run_sweevo_real_agent``.
-      3. Assert ``coding_plan_mode_active=true`` in ``run.json`` (A11).
-      4. Assert at least one tool_use record of a custom EphemeralOS
-         tool (e.g. ``read_file`` or ``shell``).
-      5. Assert the SWE-EVO sandbox-diff envelope matches expectations.
-      6. Assert NO ``coding_plan_mode_error`` log lines emitted at 4xx/5xx (A17).
+    Registers an Anthropic plan-mode row, runs the canonical SWE-EVO instance
+    via ``run_sweevo_real_agent``, asserts outcome shape + A11 audit field +
+    sandbox-tool routing-regression + zero A17 error logs.
     """
-    pytest.skip(
-        "A18.1 implementation pending Phase 1 (coding-plan-mode registration "
-        "helper) + Phase 3 (sweevo coding-plan-mode parity hooks). Scaffold "
-        "intentionally lands ahead so the file is reachable from CI once "
-        "the gates flip."
+    _setup_caplog(caplog)
+    _register_plan_mode_row(
+        class_path="providers.clients.coding_plan.anthropic:AnthropicPlanClient",
+        kwargs_extra={"model": "claude-sonnet-4-5"},
     )
+
+    report = await run_sweevo_real_agent(
+        instance=sweevo_instance,
+        sandbox_id=str(workspace["sandbox_id"]),
+        audit_dir=audit_dir,
+        stores=stores,
+        max_duration_s=_max_duration_s(),
+    )
+
+    _assert_outcome_shape(report)
+    _assert_coding_plan_mode_active(report.run_dir, expected=True)
+    _assert_sandbox_tool_routing(report.run_dir)
+    _assert_no_coding_plan_mode_error(caplog)
 
 
 @_SKIP_NO_CODEX_CREDS
 @_SKIP_NO_PLAN_INFRA
 @pytest.mark.asyncio
-async def test_codex_coding_plan_mode_e2e() -> None:
+async def test_codex_coding_plan_mode_e2e(
+    sweevo_instance: SWEEvoInstance,
+    workspace: dict[str, object],
+    audit_dir: Path,
+    stores: TaskCenterStoreBundle,
+    caplog: pytest.LogCaptureFixture,
+    _register_plan_mode_row: Callable[..., str],
+) -> None:
     """A18.2 — Codex coding-plan-mode + custom tools end-to-end.
 
-    Equivalent of A18.1 with
-    ``class_path="providers.clients.coding_plan.codex:CodexResponsesClient"``
-    and same assertion set.
+    Same shape as the Anthropic test with the Codex class_path. Model
+    auto-resolves from ``~/.codex/config.toml`` (defaults to ``gpt-5.5``).
     """
-    pytest.skip(
-        "A18.2 implementation pending Phase 2 (CodexResponsesClient) + "
-        "Phase 3. Gated separately from A18.1 so an Anthropic-only or "
-        "Codex-only smoke is possible."
+    _setup_caplog(caplog)
+    # ``model`` must be set for ``factory._resolve_agent_identity`` to
+    # accept the row (factory rejects empty model id at line 185 before
+    # the client is constructed). ``CodexResponsesClient`` will still
+    # auto-resolve its actual model from ``~/.codex/config.toml`` — this
+    # value just satisfies the factory's pre-construction validation.
+    _register_plan_mode_row(
+        class_path="providers.clients.coding_plan.codex:CodexResponsesClient",
+        kwargs_extra={"model": "gpt-5.5"},
     )
+
+    report = await run_sweevo_real_agent(
+        instance=sweevo_instance,
+        sandbox_id=str(workspace["sandbox_id"]),
+        audit_dir=audit_dir,
+        stores=stores,
+        max_duration_s=_max_duration_s(),
+    )
+
+    _assert_outcome_shape(report)
+    _assert_coding_plan_mode_active(report.run_dir, expected=True)
+    _assert_sandbox_tool_routing(report.run_dir)
+    _assert_no_coding_plan_mode_error(caplog)
 
 
 @pytest.mark.asyncio
-async def test_api_mode_regression() -> None:
-    """A18.3 — Existing API-mode flow runs unchanged when no coding-plan-mode row is active.
+async def test_api_mode_regression(
+    sweevo_instance: SWEEvoInstance,
+    workspace: dict[str, object],
+    audit_dir: Path,
+    stores: TaskCenterStoreBundle,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A18.3 — API-mode regression: no plan-mode row registered.
 
-    Skipped today because it duplicates ``test_real_agent.py``; included
-    as an explicit slot so a future Phase 1 regression can land here
-    rather than diluting the existing test. Once Phase 1 lands, this
-    test will assert ``coding_plan_mode_active=false`` in ``run.json`` and zero
-    ``coding_plan_mode_error`` log lines.
+    Asserts ``coding_plan_mode_active`` is False and zero
+    ``coding_plan_mode_error`` log records (api-mode does not emit them).
+    Pairs with the two plan-mode tests above so the three-mode parity
+    benchmark (S8) can run from one test file.
     """
-    pytest.skip(
-        "A18.3 — Duplicates test_real_agent.py until Phase 1 lands the "
-        "coding_plan_mode_active audit field. Will be activated alongside A11."
+    _setup_caplog(caplog)
+
+    report = await run_sweevo_real_agent(
+        instance=sweevo_instance,
+        sandbox_id=str(workspace["sandbox_id"]),
+        audit_dir=audit_dir,
+        stores=stores,
+        max_duration_s=_max_duration_s(),
     )
+
+    _assert_outcome_shape(report)
+    _assert_coding_plan_mode_active(report.run_dir, expected=False)
+    _assert_no_coding_plan_mode_error(caplog)

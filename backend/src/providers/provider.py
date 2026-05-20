@@ -38,7 +38,12 @@ def make_api_client(
 
     class_path = (db_kwargs or {}).get("class_path", "") or ""
 
-    if class_path:
+    # Plan §A1/A5: class_path is "module.path:ClassName". Rows with a colon
+    # go through importlib dispatch. Rows without a colon are legacy
+    # operator-seeded api-mode entries (e.g., ``minimax`` from registry.json
+    # uses ``providers.clients.anthropic_native.AnthropicClient`` — pure
+    # dot-format, no colon) — fall through to the api_key path below.
+    if class_path and ":" in class_path:
         if (
             class_path.startswith(CODING_PLAN_NAMESPACE)
             and os.environ.get("EOS_DISABLE_CODING_PLAN_MODE") == "1"

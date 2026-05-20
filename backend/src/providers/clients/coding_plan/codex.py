@@ -198,6 +198,28 @@ class CodexResponsesClient:
             )
         return str(access), str(id_token)
 
+    def _refresh_credentials(self) -> bool:
+        """Plan §A7 — reload ``auth.json`` for retry-on-401.
+
+        Returns True iff ``_access_token`` or ``_chatgpt_account_id``
+        changed (``build_headers`` reads both, so either flip rotates the
+        request signature). ``CodexCredentialIncompleteError`` → False.
+        """
+        try:
+            new_access, new_id_token = self._load_codex_auth(self._auth_path)
+            new_account_id = jwt_extract_chatgpt_account_id(new_id_token)
+        except CodexCredentialIncompleteError:
+            return False
+        changed = (
+            new_access != self._access_token
+            or new_account_id != self._chatgpt_account_id
+        )
+        if not changed:
+            return False
+        self._access_token = new_access
+        self._chatgpt_account_id = new_account_id
+        return True
+
     # ------------------------------------------------------------------
     # Request builders (testable in isolation)
     # ------------------------------------------------------------------
@@ -262,7 +284,6 @@ class CodexResponsesClient:
     async def stream_message(
         self, request: ApiMessageRequest
     ) -> AsyncIterator[ApiStreamEvent]:
-        headers = self.build_headers()
         body = self.build_body(request)
         response_id: str | None = None
         text_acc = ""
@@ -272,118 +293,137 @@ class CodexResponsesClient:
         usage_out = 0
         stop_reason: str | None = None
 
-        try:
-            async with httpx.AsyncClient(timeout=120.0) as http:
-                async with http.stream(
-                    "POST", CODEX_RESPONSES_URL, headers=headers, json=body
-                ) as response:
-                    if response.status_code != 200:
-                        body_text = (await response.aread()).decode(
-                            "utf-8", errors="replace"
-                        )
-                        cf_mit = response.headers.get("cf-mitigated", "")
-                        message = (
-                            f"Codex {response.status_code}: {body_text[:512]}"
-                        )
-                        if cf_mit:
-                            message = f"{message} (cf-mitigated={cf_mit})"
-                        raise _CodexHttpError(
-                            status_code=response.status_code,
-                            message=message,
-                            request_id=response.headers.get("x-request-id"),
-                        )
+        attempted_refresh = False
+        for _attempt in range(2):
+            response_id = None
+            text_acc = ""
+            tool_buffers = {}
+            collected_tools = []
+            usage_in = 0
+            usage_out = 0
+            stop_reason = None
+            headers = self.build_headers()
 
-                    async for line in response.aiter_lines():
-                        if not line or not line.startswith("data: "):
-                            continue
-                        payload_text = line[6:].strip()
-                        if not payload_text or payload_text == "[DONE]":
-                            continue
-                        try:
-                            payload = json.loads(payload_text)
-                        except json.JSONDecodeError:
-                            continue
-                        event_type = payload.get("type")
-
-                        if event_type == "response.created":
-                            response_id = (
-                                payload.get("response", {}).get("id") or response_id
+            try:
+                async with httpx.AsyncClient(timeout=120.0) as http:
+                    async with http.stream(
+                        "POST", CODEX_RESPONSES_URL, headers=headers, json=body
+                    ) as response:
+                        if response.status_code != 200:
+                            if (
+                                response.status_code == 401
+                                and not attempted_refresh
+                            ):
+                                attempted_refresh = True
+                                if self._refresh_credentials():
+                                    continue
+                            body_text = (await response.aread()).decode(
+                                "utf-8", errors="replace"
                             )
-                            continue
+                            cf_mit = response.headers.get("cf-mitigated", "")
+                            message = (
+                                f"Codex {response.status_code}: {body_text[:512]}"
+                            )
+                            if cf_mit:
+                                message = f"{message} (cf-mitigated={cf_mit})"
+                            raise _CodexHttpError(
+                                status_code=response.status_code,
+                                message=message,
+                                request_id=response.headers.get("x-request-id"),
+                            )
 
-                        if event_type == "response.in_progress":
-                            continue
-
-                        if event_type == "response.output_text.delta":
-                            delta = payload.get("delta", "")
-                            text_acc += delta
-                            yield ApiTextDeltaEvent(text=delta)
-                            continue
-
-                        if event_type == "response.reasoning_summary_text.delta":
-                            yield ApiThinkingDeltaEvent(text=payload.get("delta", ""))
-                            continue
-
-                        if event_type == "response.output_item.added":
-                            item = payload.get("item") or {}
-                            if item.get("type") == "function_call":
-                                item_id = item.get("id") or item.get("call_id") or ""
-                                tool_buffers[item_id] = {
-                                    "call_id": item.get("call_id") or item.get("id") or f"toolu_{uuid4().hex}",
-                                    "name": item.get("name", ""),
-                                    "args_buf": "",
-                                }
-                            continue
-
-                        if event_type == "response.function_call_arguments.delta":
-                            item_id = payload.get("item_id", "")
-                            buf = tool_buffers.get(item_id)
-                            if buf is not None:
-                                buf["args_buf"] += payload.get("delta", "")
-                            continue
-
-                        if event_type == "response.function_call_arguments.done":
-                            item_id = payload.get("item_id", "")
-                            buf = tool_buffers.get(item_id)
-                            if buf is None:
+                        async for line in response.aiter_lines():
+                            if not line or not line.startswith("data: "):
                                 continue
-                            raw_args = buf["args_buf"]
+                            payload_text = line[6:].strip()
+                            if not payload_text or payload_text == "[DONE]":
+                                continue
                             try:
-                                args = json.loads(raw_args) if raw_args else {}
-                            except (json.JSONDecodeError, TypeError):
-                                args = {}
-                            collected_tools.append(
-                                ToolUseBlock(
-                                    id=buf["call_id"],
-                                    name=buf["name"],
-                                    input=args,
+                                payload = json.loads(payload_text)
+                            except json.JSONDecodeError:
+                                continue
+                            event_type = payload.get("type")
+
+                            if event_type == "response.created":
+                                response_id = (
+                                    payload.get("response", {}).get("id") or response_id
                                 )
-                            )
-                            yield ApiToolUseDeltaEvent(
-                                id=buf["call_id"], name=buf["name"], input=args
-                            )
-                            continue
+                                continue
 
-                        if event_type == "response.completed":
-                            resp = payload.get("response") or {}
-                            usage = resp.get("usage") or {}
-                            usage_in = int(usage.get("input_tokens", 0) or 0)
-                            usage_out = int(usage.get("output_tokens", 0) or 0)
-                            stop_reason = resp.get("stop_reason", "end_turn")
-                            response_id = resp.get("id") or response_id
-                            continue
+                            if event_type == "response.in_progress":
+                                continue
 
-        except _CodexHttpError as exc:
-            translated = self._translate_http_error(exc)
-            self._emit_coding_plan_mode_error(translated, response_id)
-            raise translated from exc
-        except EphemeralOSApiError as exc:
-            self._emit_coding_plan_mode_error(exc, response_id)
-            raise
-        except httpx.RequestError as exc:
-            translated = RequestFailure(str(exc))
-            self._emit_coding_plan_mode_error(translated, response_id)
-            raise translated from exc
+                            if event_type == "response.output_text.delta":
+                                delta = payload.get("delta", "")
+                                text_acc += delta
+                                yield ApiTextDeltaEvent(text=delta)
+                                continue
+
+                            if event_type == "response.reasoning_summary_text.delta":
+                                yield ApiThinkingDeltaEvent(text=payload.get("delta", ""))
+                                continue
+
+                            if event_type == "response.output_item.added":
+                                item = payload.get("item") or {}
+                                if item.get("type") == "function_call":
+                                    item_id = item.get("id") or item.get("call_id") or ""
+                                    tool_buffers[item_id] = {
+                                        "call_id": item.get("call_id") or item.get("id") or f"toolu_{uuid4().hex}",
+                                        "name": item.get("name", ""),
+                                        "args_buf": "",
+                                    }
+                                continue
+
+                            if event_type == "response.function_call_arguments.delta":
+                                item_id = payload.get("item_id", "")
+                                buf = tool_buffers.get(item_id)
+                                if buf is not None:
+                                    buf["args_buf"] += payload.get("delta", "")
+                                continue
+
+                            if event_type == "response.function_call_arguments.done":
+                                item_id = payload.get("item_id", "")
+                                buf = tool_buffers.get(item_id)
+                                if buf is None:
+                                    continue
+                                raw_args = buf["args_buf"]
+                                try:
+                                    args = json.loads(raw_args) if raw_args else {}
+                                except (json.JSONDecodeError, TypeError):
+                                    args = {}
+                                collected_tools.append(
+                                    ToolUseBlock(
+                                        id=buf["call_id"],
+                                        name=buf["name"],
+                                        input=args,
+                                    )
+                                )
+                                yield ApiToolUseDeltaEvent(
+                                    id=buf["call_id"], name=buf["name"], input=args
+                                )
+                                continue
+
+                            if event_type == "response.completed":
+                                resp = payload.get("response") or {}
+                                usage = resp.get("usage") or {}
+                                usage_in = int(usage.get("input_tokens", 0) or 0)
+                                usage_out = int(usage.get("output_tokens", 0) or 0)
+                                stop_reason = resp.get("stop_reason", "end_turn")
+                                response_id = resp.get("id") or response_id
+                                continue
+                break
+
+            except _CodexHttpError as exc:
+                translated = self._translate_http_error(exc)
+                self._emit_coding_plan_mode_error(translated, response_id)
+                raise translated from exc
+            except EphemeralOSApiError as exc:
+                self._emit_coding_plan_mode_error(exc, response_id)
+                raise
+            except httpx.RequestError as exc:
+                translated = RequestFailure(str(exc))
+                self._emit_coding_plan_mode_error(translated, response_id)
+                raise translated from exc
 
         content: list[Any] = []
         if text_acc:

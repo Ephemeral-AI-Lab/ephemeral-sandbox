@@ -795,6 +795,7 @@ async def apply_layerstack_to_repo(
 
 def _materialize_layerstack_command(lowerdir: str, repo_dir: str) -> str:
     script = f"""
+import errno
 import shutil
 import uuid
 from pathlib import Path
@@ -810,19 +811,44 @@ parent = dst.parent
 tmp = parent / f".{{dst.name}}.layerstack-materialized-{{uuid.uuid4().hex}}"
 backup = parent / f".{{dst.name}}.pre-layerstack-{{uuid.uuid4().hex}}"
 shutil.copytree(src, tmp, symlinks=True)
-if dst.exists():
-    dst.rename(backup)
+
 try:
+    if dst.exists():
+        dst.rename(backup)
     tmp.rename(dst)
-except Exception:
-    if backup.exists() and not dst.exists():
-        backup.rename(dst)
-    raise
-if backup.exists():
-    shutil.rmtree(backup)
+    if backup.exists():
+        shutil.rmtree(backup)
+except OSError as exc:
+    if exc.errno != errno.EXDEV:
+        if backup.exists() and not dst.exists():
+            backup.rename(dst)
+        raise
+    # Bind-mount fallback: dst lives on a different device than parent
+    # (docker bind-mounts /testbed as a separate volume). Atomic
+    # rename-swap is impossible across devices; do contents-replacement
+    # so the workspace ends with the materialized view's children.
+    if not dst.exists():
+        dst.mkdir(parents=True)
+    for child in list(dst.iterdir()):
+        if child.is_dir() and not child.is_symlink():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+    for child in list(tmp.iterdir()):
+        shutil.move(str(child), str(dst / child.name))
+    shutil.rmtree(tmp, ignore_errors=True)
+    if backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)
+
 print(f"MATERIALIZED_LAYERSTACK {{src}} -> {{dst}}")
 """
-    return f"python - <<'PY'\n{script}PY"
+    # Trailing newline after ``PY`` is required because callers (docker
+    # provider's ``cd … && (cmd)`` subshell wrap) append a closing ``)``
+    # immediately after this string. Without the newline, the resulting
+    # last line becomes ``PY)`` and bash fails to recognize ``PY`` as the
+    # heredoc terminator. Daytona's exec path doesn't subshell-wrap, so
+    # it tolerated the missing trailing newline historically.
+    return f"python - <<'PY'\n{script}PY\n"
 
 
 async def _rebuild_sweevo_workspace_base(

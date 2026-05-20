@@ -28,7 +28,14 @@ def _resolve_store() -> Any:
 
 
 def get_active_model_kwargs() -> dict[str, Any]:
-    """Return resolved active-model kwargs from the DB.
+    """Return resolved active-model kwargs from the DB, with ``class_path``
+    threaded in from the row's column.
+
+    Plan §A1/A5: ``class_path`` is the dispatch discriminator used by
+    :func:`providers.provider.make_api_client` and the
+    ``coding_plan_mode_active`` derivation in ``task_center_runner.core.engine``.
+    Both call sites read it from this dict, so we inject it from the row
+    record rather than letting it stay siloed on the column.
 
     Raises :class:`NoActiveModelError` if the store is uninitialised or
     no active row exists.
@@ -39,8 +46,11 @@ def get_active_model_kwargs() -> dict[str, Any]:
     active = store.get_active_resolved()
     if not active:
         raise NoActiveModelError("No active model registration")
-    kwargs = active.get("kwargs") or {}
-    return dict(kwargs)
+    kwargs = dict(active.get("kwargs") or {})
+    class_path = active.get("class_path", "") or ""
+    if class_path:
+        kwargs["class_path"] = class_path
+    return kwargs
 
 
 def try_get_active_model_kwargs() -> dict[str, Any] | None:

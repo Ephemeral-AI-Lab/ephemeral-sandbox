@@ -24,9 +24,30 @@ def test_missing_class_path_uses_default_anthropic_client():
     assert isinstance(client, AnthropicClient)
 
 
-def test_malformed_class_path_no_colon_raises():
-    with pytest.raises(NoActiveModelError, match="expected 'module.path:ClassName'"):
+def test_no_colon_class_path_falls_through_to_api_key_dispatch():
+    """Legacy operator-seeded rows (e.g., ``minimax`` registry entry) store
+    ``class_path`` in dot-format with no colon. Such rows are treated as
+    api-mode: dispatch falls through to the api_key path. The actual error
+    surface depends on whether ``api_key`` is present — here we assert the
+    api-key path fires (raising for the missing key) rather than the
+    importlib path firing (which would complain about a missing colon).
+    """
+    with pytest.raises(NoActiveModelError, match="no api_key"):
         make_api_client(db_kwargs={"class_path": "no_colon_here"})
+
+
+def test_no_colon_class_path_with_api_key_constructs_default_anthropic_client():
+    """No-colon class_path + api_key + base_url present → AnthropicClient."""
+    from providers.clients.anthropic_native import AnthropicClient
+
+    client = make_api_client(
+        db_kwargs={
+            "class_path": "providers.clients.anthropic_native.AnthropicClient",
+            "api_key": "sk-x",
+            "base_url": None,
+        }
+    )
+    assert isinstance(client, AnthropicClient)
 
 
 def test_unimportable_module_raises():
