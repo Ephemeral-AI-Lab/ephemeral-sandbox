@@ -45,6 +45,7 @@ def command_exec_resource_timings(
         scratch_root,
     )
     _add_tree_stats(timings, "resource.command_exec.run_dir", run_dir)
+    _add_tree_stats(timings, "resource.command_exec.workspace", run_dir / "workspace")
     _add_tree_stats(timings, "resource.command_exec.upperdir", upperdir)
     _add_memory_stats(timings)
     timings["resource.audit.collect_s"] = monotonic_now() - started
@@ -155,6 +156,9 @@ def _allocated_bytes(stat_result: os.stat_result) -> int:
 
 
 def _add_memory_stats(timings: dict[str, float]) -> None:
+    rss_bytes = _current_rss_bytes()
+    if rss_bytes is not None:
+        timings["resource.process.rss_bytes"] = rss_bytes
     max_rss = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
     if not sys.platform.startswith("darwin"):
         max_rss *= 1024.0
@@ -180,6 +184,18 @@ def _read_cgroup_number(path: Path) -> float | None:
         return float(raw)
     except ValueError:
         return None
+
+
+def _current_rss_bytes() -> float | None:
+    if sys.platform.startswith("linux"):
+        try:
+            rss_pages = int(Path("/proc/self/statm").read_text().split()[1])
+        except (OSError, IndexError, ValueError):
+            return None
+        return float(rss_pages * os.sysconf("SC_PAGE_SIZE"))
+    if sys.platform.startswith("darwin"):
+        return float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    return None
 
 
 def _tree_entry_limit() -> int:

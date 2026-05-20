@@ -22,7 +22,11 @@ from sandbox.execution.strategies._workspace_rewrite import (
     rewrite_declared_workspace_refs,
 )
 from sandbox.execution.strategies.base import ExecutionStrategy
-from sandbox.execution.subprocess_runner import run_command_to_refs
+from sandbox.execution.subprocess_runner import (
+    child_cpu_times,
+    record_child_cpu_delta,
+    run_command_to_refs,
+)
 from sandbox._shared.clock import monotonic_now
 
 
@@ -81,6 +85,7 @@ class CopyBackedStrategy(ExecutionStrategy):
             ),
         )
         run_start = monotonic_now()
+        cpu_start = child_cpu_times()
         exit_code = run_command_to_refs(
             command=run_request.command,
             declared_workspace_root=spec.workspace_root,
@@ -93,6 +98,7 @@ class CopyBackedStrategy(ExecutionStrategy):
             policy=self._policy,
         )
         timings["command_exec.run_command_s"] = monotonic_now() - run_start
+        record_child_cpu_delta(timings, cpu_start)
         synthesize_writes(
             merged=merged,
             base_repo=base_repo,

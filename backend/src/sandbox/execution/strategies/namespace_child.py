@@ -31,7 +31,11 @@ from sandbox.execution.strategies.namespace import (
     NAMESPACE_FALLBACK_STRATEGY,
     NAMESPACE_INFRA_EXIT_CODE,
 )
-from sandbox.execution.subprocess_runner import run_command_to_refs
+from sandbox.execution.subprocess_runner import (
+    child_cpu_times,
+    record_child_cpu_delta,
+    run_command_to_refs,
+)
 from sandbox._shared.clock import monotonic_now
 
 
@@ -98,6 +102,7 @@ def execute(payload: dict[str, Any]) -> int:
 
     try:
         run_start = monotonic_now()
+        cpu_start = child_cpu_times()
         env_raw = payload.get("env") or {}
         env = (
             {str(key): str(value) for key, value in env_raw.items()}
@@ -118,6 +123,7 @@ def execute(payload: dict[str, Any]) -> int:
             policy=request.policy,
         )
         timings["command_exec.run_command_s"] = monotonic_now() - run_start
+        record_child_cpu_delta(timings, cpu_start)
         return exit_code
     except Exception as exc:
         with request.stderr_ref.open("ab") as stderr_file:

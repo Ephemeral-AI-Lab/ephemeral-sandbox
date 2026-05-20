@@ -292,6 +292,8 @@ def _assert_phase08_shell_timings(timings: dict[str, float]) -> None:
         "command_exec.prepare_snapshot_s",
         "command_exec.mount_workspace_s",
         "command_exec.run_command_s",
+        "cmd.exec.user_s",
+        "cmd.exec.system_s",
         "command_exec.capture_upperdir_s",
         "command_exec.occ_apply_s",
         "command_exec.release_snapshot_s",
@@ -311,10 +313,12 @@ def _assert_phase08_shell_timings(timings: dict[str, float]) -> None:
         "gitignore.cache_misses_total",
         "resource.audit.collect_s",
         "resource.command_exec.run_dir_tree_bytes",
+        "resource.command_exec.workspace_tree_bytes",
         "resource.command_exec.scratch_filesystem_total_bytes",
         "resource.command_exec.upperdir_tree_bytes",
         "resource.layer_stack.manifest_depth",
         "resource.layer_stack.storage_filesystem_total_bytes",
+        "resource.process.rss_bytes",
         "resource.process.max_rss_bytes",
     }
     assert required <= timings.keys()

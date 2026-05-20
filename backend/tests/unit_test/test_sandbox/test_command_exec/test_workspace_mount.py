@@ -79,6 +79,8 @@ def test_copy_backed_mount_captures_only_workspace_changes(
     assert outside.read_text(encoding="utf-8") == "outside"
     assert "command_exec.mount_workspace_s" in timings
     assert "command_exec.run_command_s" in timings
+    assert "cmd.exec.user_s" in timings
+    assert "cmd.exec.system_s" in timings
 
 
 def test_copy_backed_mount_rewrites_absolute_workspace_references(
