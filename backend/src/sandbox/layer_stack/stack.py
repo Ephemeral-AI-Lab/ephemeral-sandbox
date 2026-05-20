@@ -41,6 +41,16 @@ from sandbox._shared.clock import monotonic_now
 
 logger = logging.getLogger(__name__)
 
+# TODO(T2): import OVL_MAX_STACK_GUARD and LayerStackTooDeep from
+# sandbox.execution.overlay.new_mount_api once the circular-import boundary
+# between layer_stack and execution is resolved. Until then, the literal is
+# kept in sync manually (value = 110 = AUTO_SQUASH_MAX_DEPTH + 10).
+_OVL_MAX_STACK_GUARD: int = 110
+
+
+class LayerStackTooDeep(ValueError):
+    """Raised when manifest depth exceeds the overlay stack guard."""
+
 
 def _safe_request_part(value: str) -> str:
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in value)
@@ -69,11 +79,12 @@ class PrepareWorkspaceSnapshotResult:
     manifest_version: int
     root_hash: str
     manifest: Manifest
-    lowerdir: str
+    lowerdir: str | None
     timings: dict[str, float]
+    layer_paths: tuple[str, ...] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "lease_id": self.lease_id,
             "manifest_version": self.manifest_version,
             "root_hash": self.root_hash,
@@ -81,6 +92,9 @@ class PrepareWorkspaceSnapshotResult:
             "lowerdir": self.lowerdir,
             "timings": dict(self.timings),
         }
+        if self.layer_paths is not None:
+            result["layer_paths"] = list(self.layer_paths)
+        return result
 
 
 class LayerStack:
@@ -128,11 +142,46 @@ class LayerStack:
         owner_request_id: str,
         *,
         lowerdir_root: str | Path | None = None,
+        materialize: bool = True,
     ) -> PrepareWorkspaceSnapshotResult:
         total_start = monotonic_now()
         with self._lock:
             manifest = self._manifest_store.read()
+            # Pinning invariant: LeaseRegistry.acquire remains the sole pinning
+            # entry for layer dirs against squash GC. materialize=False does NOT
+            # bypass this registration — manifest.layers flows through
+            # _refcounts.update identically in both branches.
             lease = self._leases.acquire(manifest, owner_request_id)
+
+        if not materialize:
+            try:
+                layer_paths = tuple(
+                    self._layer_path(layer).as_posix() for layer in manifest.layers
+                )
+                if len(layer_paths) > _OVL_MAX_STACK_GUARD:
+                    raise LayerStackTooDeep(
+                        f"manifest depth {len(layer_paths)} exceeds "
+                        f"OVL_MAX_STACK_GUARD={_OVL_MAX_STACK_GUARD}"
+                    )
+                return PrepareWorkspaceSnapshotResult(
+                    lease_id=lease.lease_id,
+                    manifest_version=manifest.version,
+                    root_hash=manifest_root_hash(manifest),
+                    manifest=manifest,
+                    lowerdir=None,
+                    layer_paths=layer_paths,
+                    timings={
+                        "layer_stack.materialize_s": 0.0,
+                        "layer_stack.prepare_workspace_snapshot.total_s": (
+                            monotonic_now() - total_start
+                        ),
+                    },
+                )
+            except Exception:
+                with self._lock:
+                    self._leases.release(lease.lease_id)
+                raise
+
         lowerdir: Path | None = None
         try:
             transient_root = (

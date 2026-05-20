@@ -10,7 +10,12 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Protocol
 
-from sandbox.execution.overlay.layout import OverlayLayout
+from sandbox.execution.overlay.layout import (
+    AnyOverlayLayout,
+    LayerPathsLayout,
+    MaterializeLayout,
+    OverlayLayout,
+)
 
 if TYPE_CHECKING:
     from sandbox.layer_stack.manifest import Manifest
@@ -211,7 +216,8 @@ class WorkspaceSnapshotLease(Protocol):
     lease_id: str
     manifest_version: int
     manifest: SnapshotManifest
-    lowerdir: str
+    lowerdir: str | None
+    layer_paths: tuple[str, ...] | None
     timings: Mapping[str, float]
 
 
@@ -223,6 +229,7 @@ class WorkspaceLeaseClient(Protocol):
         *,
         request_id: str,
         lowerdir_root: str | Path | None = None,
+        materialize: bool = True,
     ) -> WorkspaceSnapshotLease: ...
 
     def release_lease(self, *, lease_id: str) -> bool: ...
@@ -254,8 +261,11 @@ class OCCMutationClient(Protocol):
 
 
 __all__ = [
+    "AnyOverlayLayout",
     "CommandExecRequest",
     "CommandExecResult",
+    "LayerPathsLayout",
+    "MaterializeLayout",
     "MountMode",
     "OCCMutationClient",
     "OverlayCapture",
