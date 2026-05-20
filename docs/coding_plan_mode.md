@@ -1,11 +1,16 @@
 # Coding Plan Mode
 
-Plan mode lets EphemeralOS drive agents off a vendor flat-rate subscription
+EphemeralOS runs in `api_mode` by default — an `AnthropicClient` configured
+with an explicit API key from the active `model_registrations` row. Coding
+plan modes are opt-in by setting `class_path` to a
+`providers.clients.coding_plan.*` value.
+
+Coding plan mode lets EphemeralOS drive agents off a vendor flat-rate subscription
 (Anthropic Claude Max + overage credits, OpenAI ChatGPT Plus/Pro via the
 Codex backend) instead of the metered Anthropic / OpenAI APIs. For long
 multi-agent runs this can flip economics significantly.
 
-> **Status: experimental.** Plan mode runs against vendor endpoints that
+> **Status: experimental.** Coding plan mode runs against vendor endpoints that
 > are not formally public APIs and may change without notice. Per
 > Anthropic / OpenAI Terms of Service, the user is responsible for usage
 > compliance. See [Vendor ToS](#vendor-tos-disclaimer) below.
@@ -17,19 +22,19 @@ Implementation contract: `.planning/coding_plan_mode_plan.md`
 
 ## Overview
 
-Plan mode is dispatched via the existing-but-previously-unused
+Coding plan mode is dispatched via the existing-but-previously-unused
 `class_path` column on the `model_registrations` row. Each row picks one
 of two clients:
 
 * `providers.clients.api.anthropic_native:AnthropicClient` (Anthropic API
   mode — today's default) — `class_path` empty.
 * `providers.clients.api.anthropic_native:AnthropicClient` with
-  `kwargs_json.auth = "claude_oauth"` — Anthropic plan mode via OAuth.
+  `kwargs_json.auth = "claude_oauth"` — Anthropic coding plan mode via OAuth.
 * `providers.clients.coding_plan.codex:CodexResponsesClient` —
-  Codex / ChatGPT plan mode via the ChatGPT backend.
+  Codex / ChatGPT coding plan mode via the ChatGPT backend.
 
 The agent's tool loop, sandbox (layerstack + OCC), and audit recorder
-remain framework-owned in all three cases. Plan mode does NOT surrender
+remain framework-owned in all three cases. Coding plan mode does NOT surrender
 the loop to a vendor CLI — see the Hermes Pattern A discussion in the
 plan for the architectural rationale.
 
@@ -37,14 +42,14 @@ plan for the architectural rationale.
 
 ## How to enable
 
-### Anthropic Claude Max plan mode
+### Anthropic Claude Max coding plan mode
 
 1. Have an active Claude Max subscription. (Claude Pro does not work —
    see [Overage-credit warning](#overage-credit-warning).)
 2. Log into Claude Code (`claude` CLI) so its OAuth credentials populate
    the macOS Keychain entry `Claude Code-credentials`. Linux storage
    path is TBD pending Phase 0.5 probe.
-3. Register a plan-mode row:
+3. Register a coding-plan-mode row:
 
    ```sql
    INSERT INTO model_registrations (model_id, class_path, kwargs_json, is_active)
@@ -57,14 +62,14 @@ plan for the architectural rationale.
    ```
 
 4. Run any EphemeralOS scenario. The CLI prints
-   `[plan-mode] anthropic` at agent spawn (A10).
+   `[coding-plan-mode] anthropic` at agent spawn (A10).
 
-### OpenAI Codex / ChatGPT plan mode
+### OpenAI Codex / ChatGPT coding plan mode
 
 1. Have an active ChatGPT Plus / Pro / Team subscription that includes
    Codex access.
 2. Log into the Codex CLI so credentials populate `~/.codex/auth.json`.
-3. Register a plan-mode row:
+3. Register a coding-plan-mode row:
 
    ```sql
    INSERT INTO model_registrations (model_id, class_path, kwargs_json, is_active)
@@ -76,7 +81,7 @@ plan for the architectural rationale.
    );
    ```
 
-4. CLI prints `[plan-mode] codex` at agent spawn.
+4. CLI prints `[coding-plan-mode] codex` at agent spawn.
 
 ---
 
@@ -102,20 +107,20 @@ static + runtime + subprocess-env tests that enforce this property.
 
 ## Kill switch
 
-Setting the environment variable `EOS_DISABLE_PLAN_MODE=1` causes
+Setting the environment variable `EOS_DISABLE_CODING_PLAN_MODE=1` causes
 `make_api_client()` to reject any `class_path` resolving into
 `providers.clients.coding_plan.*` with a clear error (A12). Use this
 to:
 
-* Disable plan mode org-wide via deployment config.
-* Force a fallback to API mode if a plan-mode vendor surface is
+* Disable coding plan mode org-wide via deployment config.
+* Force a fallback to API mode if a coding-plan-mode vendor surface is
   reported degraded.
 * Comply with downstream auditing requirements that mandate metered
   vendor billing.
 
 ```bash
-EOS_DISABLE_PLAN_MODE=1 ./your-eos-launch-command
-# → if any active model_registrations row has plan-mode class_path,
+EOS_DISABLE_CODING_PLAN_MODE=1 ./your-eos-launch-command
+# → if any active model_registrations row has coding-plan-mode class_path,
 #   spawn raises NoActiveModelError with clear message.
 ```
 
@@ -123,14 +128,14 @@ EOS_DISABLE_PLAN_MODE=1 ./your-eos-launch-command
 
 ## Overage-credit warning
 
-**Claude Max plan-mode consumes ONLY overage credits, not the base
+**Claude Max coding-plan-mode consumes ONLY overage credits, not the base
 allowance.** This is an Anthropic-side quota policy, not an EphemeralOS
 choice — Hermes Agent documented the same behavior in their providers
 guide. **Claude Pro does not work at all** with this auth flow.
 
-If your Max subscription's overage credit pool is empty, plan-mode
-requests will return 4xx — the `plan_mode_error` audit log (A17) will
-flag this, and the CLI's `[plan-mode]` notice (A10) advises checking
+If your Max subscription's overage credit pool is empty, coding-plan-mode
+requests will return 4xx — the `coding_plan_mode_error` audit log (A17) will
+flag this, and the CLI's `[coding-plan-mode]` notice (A10) advises checking
 the Anthropic billing dashboard.
 
 **Codex / ChatGPT Plus / Pro** consume the normal subscription bucket;
@@ -141,7 +146,7 @@ manual smoke).
 
 ## Vendor ToS disclaimer
 
-Plan mode involves vendor impersonation at the HTTP layer:
+Coding plan mode involves vendor impersonation at the HTTP layer:
 
 * Anthropic OAuth requires a hard-coded system block #0:
   `"You are Claude Code, Anthropic's official CLI for Claude."` (A13).
@@ -155,7 +160,7 @@ the vendor's discretion. **The user, not EphemeralOS, owns the ToS
 relationship.**
 
 If the user account is banned, restore to API mode trivially: remove
-the plan-mode `class_path` from the active `model_registrations` row.
+the coding-plan-mode `class_path` from the active `model_registrations` row.
 A8 ensures no OAuth tokens were ever persisted in our DB, so no purge
 step is needed.
 
@@ -163,20 +168,20 @@ step is needed.
 
 ## Audit & observability
 
-### `plan_mode_active` field in `run.json`
+### `coding_plan_mode_active` field in `run.json`
 
 Every `run.json` produced by `AuditRecorder` carries
-`"plan_mode_active": bool`, resolved once at run-start in
+`"coding_plan_mode_active": bool`, resolved once at run-start in
 `task_center_runner/core/engine.py` (A11). `true` iff the active
 `model_registrations.class_path` starts with
 `providers.clients.coding_plan.` OR is an Anthropic client constructed
 with `auth: "claude_oauth"` kwargs.
 
-### `plan_mode_error` log lines
+### `coding_plan_mode_error` log lines
 
 Both `AnthropicClient.stream_message` and
 `CodexResponsesClient.stream_message` emit a structured log line tagged
-`plan_mode_error` at every 4xx / 5xx boundary (A17). Fields:
+`coding_plan_mode_error` at every 4xx / 5xx boundary (A17). Fields:
 
 * `provider`: `"anthropic"` | `"codex"`
 * `status_code`: HTTP status
@@ -191,23 +196,23 @@ its allowlist, the error rate spike surfaces here.
 
 ## Live e2e tests
 
-Plan-mode end-to-end tests live in
-`backend/src/task_center_runner/tests/sweevo/test_real_agent_plan_mode.py`
+Coding-plan-mode end-to-end tests live in
+`backend/src/task_center_runner/tests/sweevo/test_real_agent_coding_plan_mode.py`
 and follow the existing `EOS_SWEEVO_REAL_AGENT_TESTS=1` pattern:
 
 ```bash
 EOS_SWEEVO_REAL_AGENT_TESTS=1 .venv/bin/pytest \
-    backend/src/task_center_runner/tests/sweevo/test_real_agent_plan_mode.py \
+    backend/src/task_center_runner/tests/sweevo/test_real_agent_coding_plan_mode.py \
     -v
 ```
 
 Three test cases:
 
-* `test_anthropic_plan_mode_e2e` — needs Claude Max OAuth + plan-mode infra
-* `test_codex_plan_mode_e2e` — needs Codex creds + plan-mode infra
+* `test_anthropic_coding_plan_mode_e2e` — needs Claude Max OAuth + coding-plan-mode infra
+* `test_codex_coding_plan_mode_e2e` — needs Codex creds + coding-plan-mode infra
 * `test_api_mode_regression` — existing API path, sanity check
 
-Each test auto-skips if its credentials or plan-mode infrastructure are
+Each test auto-skips if its credentials or coding-plan-mode infrastructure are
 absent. Phase 1+3 land the infrastructure that flips the gates.
 
 ---

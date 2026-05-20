@@ -151,7 +151,7 @@ class AuditRecorder:
         scenario_name: str = "",
         instance_id: str = "",
         sandbox_id: str = "",
-        plan_mode_active: bool = False,
+        coding_plan_mode_active: bool = False,
     ) -> None:
         self._run_dir = Path(run_dir)
         self._task_center_run_id = task_center_run_id
@@ -160,7 +160,7 @@ class AuditRecorder:
         self._scenario_name = scenario_name
         self._instance_id = instance_id
         self._sandbox_id = sandbox_id
-        self._plan_mode_active = plan_mode_active
+        self._coding_plan_mode_active = coding_plan_mode_active  # plan §A11
 
         self._goal_dir: dict[str, Path] = {}
         self._iteration_dir: dict[str, Path] = {}
@@ -503,7 +503,7 @@ class AuditRecorder:
             "started_ts": self._started_ts,
             "finished_ts": self._finished_ts,
             "status": self._status,
-            "plan_mode_active": self._plan_mode_active,
+            "coding_plan_mode_active": self._coding_plan_mode_active,
         }
         _atomic_write_json(self._run_dir / "run.json", payload)
 

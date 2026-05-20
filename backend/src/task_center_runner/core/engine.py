@@ -39,6 +39,7 @@ from types import SimpleNamespace
 
 from task_center import TaskCenterSandboxBridge, start_task_center_entry_run
 
+from config.model_config import try_get_active_model_kwargs
 from task_center_runner.audit.bus import AuditEventBus
 from task_center_runner.audit.events import Event, EventType
 from task_center_runner.audit.node_id import NodeId
@@ -115,6 +116,9 @@ async def run_pipeline(config: RunConfig) -> PipelineReport:
     if not isinstance(scenario_name, str) or not scenario_name:
         scenario_name = config.run_label
 
+    class_path = (try_get_active_model_kwargs() or {}).get("class_path", "") or ""
+    coding_plan_mode_active = class_path.startswith("providers.clients.coding_plan.")
+
     recorder = AuditRecorder(
         run_dir,
         task_center_run_id="",
@@ -122,6 +126,7 @@ async def run_pipeline(config: RunConfig) -> PipelineReport:
         scenario_name=scenario_name,
         instance_id=config.instance_id,
         sandbox_id=lease.sandbox_id,
+        coding_plan_mode_active=coding_plan_mode_active,
     )
     recorder.start()
 

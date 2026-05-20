@@ -55,8 +55,8 @@ def test_attribute_not_a_class_raises():
 
 
 def test_kill_switch_rejects_coding_plan(monkeypatch):
-    monkeypatch.setenv("EOS_DISABLE_PLAN_MODE", "1")
-    with pytest.raises(NoActiveModelError, match="Plan mode disabled"):
+    monkeypatch.setenv("EOS_DISABLE_CODING_PLAN_MODE", "1")
+    with pytest.raises(NoActiveModelError, match="Coding plan mode disabled"):
         make_api_client(
             db_kwargs={
                 "class_path": "providers.clients.coding_plan.anthropic:AnthropicPlanClient"
@@ -67,7 +67,7 @@ def test_kill_switch_rejects_coding_plan(monkeypatch):
 def test_kill_switch_does_not_block_non_plan_class_paths(monkeypatch):
     """Even with the kill switch set, non-coding_plan class_paths still go
     through the importlib resolver and surface their own errors."""
-    monkeypatch.setenv("EOS_DISABLE_PLAN_MODE", "1")
+    monkeypatch.setenv("EOS_DISABLE_CODING_PLAN_MODE", "1")
     with pytest.raises(NoActiveModelError, match="not a class"):
         make_api_client(
             db_kwargs={

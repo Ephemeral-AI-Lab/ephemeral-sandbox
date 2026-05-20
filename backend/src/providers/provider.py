@@ -25,7 +25,7 @@ def make_api_client(
     Non-empty `class_path` is parsed as `module.path:ClassName`; the class is
     instantiated as `cls(db_kwargs=db_kwargs)`.
 
-    EOS_DISABLE_PLAN_MODE=1 (plan §A12) rejects any `class_path` resolving
+    EOS_DISABLE_CODING_PLAN_MODE=1 (plan §A12) rejects any `class_path` resolving
     into `providers.clients.coding_plan.*`.
     """
     if external is not None:
@@ -41,19 +41,32 @@ def make_api_client(
     if class_path:
         if (
             class_path.startswith(CODING_PLAN_NAMESPACE)
-            and os.environ.get("EOS_DISABLE_PLAN_MODE") == "1"
+            and os.environ.get("EOS_DISABLE_CODING_PLAN_MODE") == "1"
         ):
             from config.model_config import NoActiveModelError
 
             raise NoActiveModelError(
-                "Plan mode disabled by EOS_DISABLE_PLAN_MODE=1; "
+                "Coding plan mode disabled by EOS_DISABLE_CODING_PLAN_MODE=1; "
                 f"refusing to instantiate {class_path!r}"
             )
 
         cls = _resolve_class_path(class_path)
+        if class_path.startswith(CODING_PLAN_NAMESPACE):
+            # Plan §A10: operator notice at agent spawn. Fires after class
+            # resolution succeeds but before construction so a credential
+            # failure inside ``cls(...)`` still surfaces the intent.
+            provider_segment = class_path[len(CODING_PLAN_NAMESPACE):].split(":", 1)[0]
+            print(f"[coding-plan-mode] {provider_segment}")
         return cls(db_kwargs=db_kwargs)
 
-    # Default path: API-key Anthropic client.
+    # Default path: api_mode dispatch. The implicit api_mode dispatch
+    # resolves to:
+    #   API_MODE_CLASS_PATH = "providers.clients.anthropic_native:AnthropicClient"
+    # The empty-class_path branch below instantiates this class directly with
+    # (api_key, base_url) rather than via _resolve_class_path, because the
+    # API-key constructor signature differs from the (db_kwargs=) pattern used
+    # by coding_plan classes. v6 file reorg (follow-up sprint after S5) will
+    # move anthropic_native under providers.clients.api/.
     from providers.clients.anthropic_native import AnthropicClient
 
     api_key = db_kwargs.get("api_key")

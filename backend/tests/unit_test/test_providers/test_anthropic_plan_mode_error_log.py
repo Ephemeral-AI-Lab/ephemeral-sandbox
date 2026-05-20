@@ -1,7 +1,7 @@
 """Plan §A17 — Anthropic plan-mode structured error logging.
 
 Two cases per S1.4 acceptance criteria: 401 → auth_401, 429 → rate_limit_429.
-Asserts ``log.error("plan_mode_error", extra={...})`` with the post-translation
+Asserts ``log.error("coding_plan_mode_error", extra={...})`` with the post-translation
 category, using the API-mode regression check separately to confirm the
 log does NOT fire when ``llm_client_mode != "coding_plan_mode"``.
 """
@@ -73,8 +73,8 @@ async def test_plan_mode_logs_auth_401(caplog: pytest.LogCaptureFixture) -> None
     with pytest.raises(AuthenticationFailure):
         await _drain(client)
 
-    records = [r for r in caplog.records if r.message == "plan_mode_error"]
-    assert len(records) == 1, f"expected one plan_mode_error log, got {records}"
+    records = [r for r in caplog.records if r.message == "coding_plan_mode_error"]
+    assert len(records) == 1, f"expected one coding_plan_mode_error log, got {records}"
     record = records[0]
     assert getattr(record, "provider", None) == "anthropic"
     assert getattr(record, "error_type", None) == "auth_401"
@@ -95,21 +95,21 @@ async def test_plan_mode_logs_rate_limit_429(caplog: pytest.LogCaptureFixture) -
         with pytest.raises(RateLimitFailure):
             await _drain(client)
 
-    records = [r for r in caplog.records if r.message == "plan_mode_error"]
+    records = [r for r in caplog.records if r.message == "coding_plan_mode_error"]
     # One final emission after MAX_RETRIES exhausted (intermediate retries
-    # log warnings but do NOT emit plan_mode_error — see _emit_plan_mode_error
+    # log warnings but do NOT emit coding_plan_mode_error — see _emit_coding_plan_mode_error
     # call site: only the terminal raise emits).
-    assert len(records) == 1, f"expected one terminal plan_mode_error log, got {records}"
+    assert len(records) == 1, f"expected one terminal coding_plan_mode_error log, got {records}"
     record = records[0]
     assert getattr(record, "provider", None) == "anthropic"
     assert getattr(record, "error_type", None) == "rate_limit_429"
 
 
 @pytest.mark.asyncio
-async def test_api_mode_does_not_emit_plan_mode_error(
+async def test_api_mode_does_not_emit_coding_plan_mode_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Regression: api_mode client must NOT emit plan_mode_error log lines."""
+    """Regression: api_mode client must NOT emit coding_plan_mode_error log lines."""
     client = AnthropicClient(api_key="sk-x")
     client._client.messages.stream = MagicMock(  # type: ignore[attr-defined]
         side_effect=_make_api_status_error(401, "bad key")
@@ -117,7 +117,7 @@ async def test_api_mode_does_not_emit_plan_mode_error(
     caplog.set_level(logging.ERROR, logger="providers.clients.anthropic_native")
     with pytest.raises(AuthenticationFailure):
         await _drain(client)
-    records = [r for r in caplog.records if r.message == "plan_mode_error"]
+    records = [r for r in caplog.records if r.message == "coding_plan_mode_error"]
     assert records == []
 
 

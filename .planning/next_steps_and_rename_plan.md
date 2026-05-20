@@ -239,6 +239,8 @@ This gives the default a named identity without adding speculative machinery.
 - **Tests:** `test_codex_jwt_decode.py` (Auth0-namespaced + top-level fallback + missing claim), `test_codex_request_headers.py` (5 headers exact), `test_codex_event_translation.py` (7 SSE event types → variants), `test_codex_plan_mode_error_log.py` (mock 401 + 403 + cf_mitigated → assert log emission with right category).
 - **Live smoke (Phase 2 manual-smoke gate):** one real round-trip through `CodexResponsesClient` via `make_api_client(class_path="providers.clients.coding_plan.codex:CodexResponsesClient")`. Assert end-to-end like the AnthropicPlanClient smoke this round delivered.
 
+> **Round-2 status (2026-05-20):** S4 code + tests landed (15/15 codex unit tests pass). Live smoke is **DEFERRED** to a credential-gated follow-up round — operator runs `~/.codex/auth.json` against the production seam and confirms a real round-trip succeeds + 5 headers pass Cloudflare allowlist. Same shape as Phase 0.3 Anthropic smoke gate (Round-1 S2).
+
 ### Sprint S5 — Phase 3: Capability parity benchmark (~1 day)
 
 Per plan §Phase 3 + §Verification Plan tolerance gate:

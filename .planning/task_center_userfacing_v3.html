@@ -4,21 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Task Center</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #fafaf7;
+    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
+
+    --bg: #f7f8fb;
     --surface: #ffffff;
-    --surface-2: #f5f4ef;
-    --surface-3: #ecebe4;
-    --border: #e5e3da;
-    --border-soft: #efeee7;
+    --surface-2: #f1f3f7;
+    --surface-3: #e6eaf0;
+    --border: #dfe4eb;
+    --border-soft: #edf0f4;
     --text: #1c1a18;
     --text-2: #44423d;
-    --muted: #837f74;
-    --muted-2: #b5b1a4;
+    --muted: #6f7480;
+    --muted-2: #a7adba;
 
     --brand: #ff6a3d;
     --brand-soft: #ffe6dc;
@@ -42,33 +42,126 @@
     --red-soft: #fbe6e6;
     --amber: #d68b1f;
     --amber-soft: #fdf1de;
+
+    --focus: 0 0 0 3px rgba(255, 106, 61, 0.22);
+    --shadow-card: 0 1px 2px rgba(24, 31, 42, 0.06), 0 8px 24px rgba(24, 31, 42, 0.04);
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
   body {
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-sans);
     background: var(--bg);
     color: var(--text);
-    font-size: 13.5px;
+    font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
-  code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; }
-  .mono-12 { font-family: "JetBrains Mono", monospace; font-size: 12px; }
+  code, .mono { font-family: var(--font-mono); font-size: 12px; }
+  .mono-12 { font-family: var(--font-mono); font-size: 12px; }
+  button, textarea { font: inherit; }
+  button:focus-visible,
+  textarea:focus-visible,
+  .rail-item:focus-visible,
+  .tab:focus-visible,
+  .tree .ln:focus-visible {
+    outline: 0;
+    box-shadow: var(--focus);
+  }
+  .muted { color: var(--muted); }
+  .muted-soft { color: var(--muted-2); }
+  .text-amber { color: var(--amber); }
+  .text-red { color: var(--red); }
+  .text-muted { color: var(--muted); }
+  .text-planner { color: var(--planner); }
+  .text-handoff { color: var(--handoff); }
+  .status-cluster {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: max-content;
+  }
+  .run-mark {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--brand-soft);
+    border: 1px solid rgba(255,106,61,0.32);
+    box-shadow: inset 0 0 0 2px var(--surface);
+    flex: 0 0 auto;
+  }
+  .entity-mark {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    flex: 0 0 auto;
+    display: inline-block;
+  }
+  .entity-mark.entry { background: var(--entry); }
+  .entity-mark.goal { background: var(--green); }
+  .entity-mark.iter { background: var(--evaluator); }
+  .entity-mark.att { background: var(--brand); }
+  .executor-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--executor);
+    flex: 0 0 auto;
+  }
+  .duration {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .icon-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .icon-label.goal { color: var(--green); }
+  .icon-label.entry { color: var(--entry); }
+  .icon-label.iter { color: var(--evaluator); }
+  .icon-label.att { color: var(--brand); }
+  .icon-label.plan { color: var(--planner); }
+  .icon-label.exec { color: var(--executor); }
+  .icon-label.eval { color: var(--evaluator); }
+  .file-rail-item {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding: 5px 12px;
+  }
+  .nested-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .json-preview.executor-preview {
+    background: var(--executor-s);
+    border-color: rgba(138,92,240,0.2);
+  }
 
   /* ===== TOP NAV ===== */
   .topnav {
-    height: 52px;
+    min-height: 52px;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
     display: flex;
     align-items: center;
     padding: 0 18px;
     gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
   }
   .topnav .brand {
     display: flex; align-items: center; gap: 8px;
-    font-weight: 700; letter-spacing: -0.01em; font-size: 15px;
+    font-weight: 700; font-size: 15px;
+    min-width: max-content;
   }
   .topnav .brand .logo {
     width: 28px; height: 28px;
@@ -76,11 +169,13 @@
     background: var(--brand);
     color: white;
     display: flex; align-items: center; justify-content: center;
-    font-size: 15px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    letter-spacing: 0;
     box-shadow: 1.5px 1.5px 0 var(--brand-dark);
   }
   .topnav .run-chip {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 11.5px;
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -88,15 +183,25 @@
     border-radius: 14px;
     color: var(--muted);
     display: flex; align-items: center; gap: 8px;
+    min-width: 0;
+    max-width: min(60vw, 900px);
+    white-space: nowrap;
+    overflow: hidden;
   }
+  .topnav .run-chip > span { min-width: 0; }
+  .topnav .run-chip .run-id { overflow: hidden; text-overflow: ellipsis; }
   .topnav .run-chip b { color: var(--text); font-weight: 600; }
-  .topnav .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .topnav .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   .topnav .new-task {
     background: var(--brand); color: white;
-    border: 0; padding: 6px 14px; border-radius: 8px;
+    border: 0; padding: 7px 14px; border-radius: 8px;
     font-weight: 600; font-size: 12.5px; cursor: pointer;
     box-shadow: 1.5px 1.5px 0 var(--brand-dark);
+    min-height: 36px;
+    transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
   }
+  .topnav .new-task:hover { transform: translate(-1px, -1px); box-shadow: 2.5px 2.5px 0 var(--brand-dark); }
+  .topnav .new-task:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--brand-dark); }
   .topnav .av {
     width: 28px; height: 28px;
     border-radius: 50%;
@@ -109,12 +214,13 @@
   /* ===== SHELL ===== */
   .shell {
     display: grid;
-    grid-template-columns: 280px 1fr 320px;
-    height: calc(100% - 52px);
+    grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(280px, 320px);
+    height: calc(100vh - 52px);
+    min-height: 0;
   }
 
   /* ===== LEFT RAIL ===== */
-  .rail { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 10px 6px; }
+  .rail { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 10px 6px; min-height: 0; }
   .group {
     font-size: 10px;
     text-transform: uppercase;
@@ -131,6 +237,7 @@
     border-radius: 8px;
     cursor: pointer;
     margin-bottom: 2px;
+    transition: background 160ms ease, box-shadow 160ms ease;
   }
   .rail-item:hover { background: var(--surface-2); }
   .rail-item.active { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--brand); }
@@ -141,7 +248,7 @@
   .rail-item .dot.fail  { background: var(--red); }
   .rail-item .dot.queue { background: var(--muted-2); }
   .rail-item .label {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 11.5px;
     color: var(--text);
     font-weight: 500;
@@ -168,7 +275,7 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; gap: 8px;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--muted);
     overflow-x: auto;
@@ -182,6 +289,7 @@
     border: 1px solid var(--border-soft);
     display: inline-flex; align-items: center; gap: 5px;
   }
+  .breadcrumb-bar .seg.entry-seg { background: var(--entry-s); border-color: rgba(44,158,128,0.25); }
   .breadcrumb-bar .seg.goal { background: var(--green-soft); border-color: rgba(76,175,80,0.25); }
   .breadcrumb-bar .seg.iter { background: var(--evaluator-s); border-color: rgba(214,139,31,0.25); }
   .breadcrumb-bar .seg.att  { background: var(--brand-soft); border-color: rgba(255,106,61,0.25); }
@@ -191,7 +299,7 @@
     flex: 1; overflow-y: auto;
     padding: 24px clamp(20px, 4vw, 48px);
   }
-  .container { max-width: 860px; margin: 0 auto; }
+  .container { max-width: 920px; margin: 0 auto; }
 
   /* user / agent message */
   .msg {
@@ -222,9 +330,10 @@
   .goal-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 8px;
     margin-bottom: 14px;
     overflow: hidden;
+    box-shadow: var(--shadow-card);
   }
   .goal-card.live { border-color: rgba(214,139,31,0.35); }
   .goal-card .gc-head {
@@ -244,7 +353,7 @@
     letter-spacing: 0.06em;
   }
   .goal-card .gc-head .id {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--muted);
     background: var(--surface);
@@ -261,6 +370,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .goal-card .gc-head .entity-mark { margin-right: -2px; }
   .goal-card .gc-body { padding: 12px; }
   .goal-card.nested {
     background: linear-gradient(180deg, rgba(217,76,102,0.04) 0%, var(--surface) 60%);
@@ -272,7 +382,7 @@
   .iter-card {
     background: var(--surface);
     border: 1px solid var(--border-soft);
-    border-radius: 10px;
+    border-radius: 8px;
     margin-bottom: 10px;
     overflow: hidden;
   }
@@ -284,7 +394,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 11.5px;
   }
   .iter-card .ic-head .lbl { color: var(--evaluator); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -308,6 +418,7 @@
   .stat-chip.running { background: var(--amber-soft); color: #8b5e15; }
   .stat-chip.closed { background: var(--surface-3); color: var(--muted); }
   .stat-chip.pending { background: var(--surface-3); color: var(--muted); }
+  .stat-chip.handoff { background: var(--handoff-s); color: var(--handoff); }
   .stat-chip.running::before {
     content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--amber); animation: pulse 1.3s infinite;
   }
@@ -329,9 +440,10 @@
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
+    flex-wrap: wrap;
   }
   .att-card .ah .nm {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 12.5px;
     font-weight: 600;
   }
@@ -404,6 +516,7 @@
     font-size: 12.5px;
     color: var(--text-2);
     line-height: 1.4;
+    overflow-wrap: anywhere;
   }
   .phase-card .pc-body code { font-size: 11px; }
   .phase-card .pc-files {
@@ -439,6 +552,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
   }
   .exec-group .eg-head {
     display: flex;
@@ -448,16 +562,22 @@
     font-size: 10px;
     color: var(--executor);
     font-weight: 600;
+    min-width: 0;
   }
+  .exec-group .eg-head > span { min-width: 0; }
   .exec-group .eg-head .seq {
     background: var(--text); color: var(--surface);
     padding: 1px 5px; border-radius: 3px; font-size: 9.5px; font-weight: 700;
+    flex: 0 0 auto;
   }
   .exec-group .eg-head .count {
     color: var(--muted);
     margin-left: auto;
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .exec-list {
     display: grid;
@@ -474,17 +594,24 @@
     gap: 8px;
     font-family: "JetBrains Mono", monospace;
     font-size: 11px;
+    min-width: 0;
+  }
+  .exec-list .ex .nm,
+  .exec-list .ex .scenario {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .exec-list .ex .nm { color: var(--text); font-weight: 500; }
   .exec-list .ex .scenario { color: var(--muted); font-size: 10.5px; }
-  .exec-list .ex .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .exec-list .ex .ex-meta { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: max-content; }
 
   .handoff-emit {
     background: var(--handoff-s);
     border: 1px dashed var(--handoff);
     border-radius: 6px;
     padding: 7px 10px;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--handoff);
     margin-top: 4px;
@@ -547,13 +674,14 @@
   .run-summary {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 12px 14px;
     margin-bottom: 14px;
+    box-shadow: var(--shadow-card);
   }
   .run-summary .rs-head {
     display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-    font-family: "JetBrains Mono", monospace; font-size: 11.5px;
+    font-family: var(--font-mono); font-size: 11.5px;
   }
   .run-summary .rs-head b { color: var(--text); }
   .run-summary .rs-head .files {
@@ -571,7 +699,7 @@
   }
   .run-summary .rs-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
   }
   .run-summary .rs-grid .kv {
@@ -587,10 +715,13 @@
     letter-spacing: 0.06em;
   }
   .run-summary .rs-grid .v {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text);
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* composer */
@@ -603,11 +734,11 @@
     max-width: 860px; margin: 0 auto;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 9px 11px 9px 14px;
     display: flex; align-items: flex-end; gap: 8px;
   }
-  .composer .wrap:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+  .composer .wrap:focus-within { border-color: var(--brand); box-shadow: var(--focus); }
   .composer .input {
     flex: 1; border: 0; outline: 0; background: transparent;
     font: inherit; font-size: 14px; color: var(--text);
@@ -619,57 +750,70 @@
     background: var(--brand); color: white; border: 0; cursor: pointer;
     display: flex; align-items: center; justify-content: center; font-size: 14px;
     box-shadow: 1.5px 1.5px 0 var(--brand-dark);
+    min-width: 32px;
+    transition: transform 160ms ease, box-shadow 160ms ease;
   }
+  .composer .send:hover { transform: translate(-1px, -1px); box-shadow: 2.5px 2.5px 0 var(--brand-dark); }
 
   /* ===== RIGHT PANEL: on-disk explorer ===== */
-  .right {
+  .side-panel {
     background: var(--surface);
     border-left: 1px solid var(--border);
     overflow-y: auto;
     display: flex; flex-direction: column;
+    min-width: 0;
+    min-height: 0;
   }
-  .right .rh {
+  .side-panel .rh {
     padding: 12px 14px;
     border-bottom: 1px solid var(--border-soft);
     display: flex; align-items: center; gap: 8px;
     background: var(--surface-2);
   }
-  .right .rh h4 {
+  .side-panel .rh h4 {
     margin: 0;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     font-weight: 600;
     color: var(--text);
   }
-  .right .rh .ic { color: var(--muted); font-size: 14px; }
-  .right .tabs {
+  .side-panel .rh .ic { color: var(--muted); font-size: 14px; }
+  .side-panel .tabs {
     display: flex;
     border-bottom: 1px solid var(--border-soft);
     padding: 0 6px;
   }
-  .right .tab {
+  .side-panel .tab {
     padding: 9px 10px;
     font-size: 11.5px;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     color: var(--muted);
     border-bottom: 2px solid transparent;
     cursor: pointer;
+    min-height: 36px;
+    transition: color 160ms ease, border-color 160ms ease;
   }
-  .right .tab.active { color: var(--text); border-bottom-color: var(--brand); }
-  .right .body { padding: 10px 14px 20px; overflow-y: auto; flex: 1; }
+  .side-panel .tab.active { color: var(--text); border-bottom-color: var(--brand); }
+  .side-panel .body { padding: 10px 14px 20px; overflow-y: auto; flex: 1; min-height: 0; }
 
   /* file tree */
   .tree {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 11.5px;
     line-height: 1.7;
   }
-  .tree .ln { padding: 2px 4px; border-radius: 4px; display: flex; align-items: center; gap: 6px; }
+  .tree .ln { padding: 2px 4px; border-radius: 4px; display: flex; align-items: center; gap: 6px; min-width: 0; }
   .tree .ln:hover { background: var(--surface-2); cursor: pointer; }
   .tree .ln.active { background: var(--brand-soft); color: var(--text); }
   .tree .gut { color: var(--muted-2); user-select: none; }
-  .tree .icon { width: 14px; text-align: center; }
-  .tree .name { color: var(--text); }
+  .tree .icon { width: 34px; text-align: left; flex: 0 0 34px; }
+  .tree .name {
+    color: var(--text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .tree .name.file { color: var(--text-2); font-weight: 400; }
   .tree .name.dir  { font-weight: 600; }
   .tree .dir.run     { color: var(--brand); }
@@ -693,6 +837,10 @@
     padding: 1px 6px;
     border-radius: 8px;
   }
+  .tree .meta-tag.handoff-tag {
+    background: var(--handoff-s);
+    color: var(--handoff);
+  }
 
   /* JSON preview snippet at bottom of right panel */
   .json-preview {
@@ -706,11 +854,158 @@
     line-height: 1.6;
     color: var(--text-2);
     white-space: pre-wrap;
+    overflow-x: auto;
+    overflow-wrap: anywhere;
   }
   .json-preview .h { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
   .json-preview .k { color: var(--planner); }
   .json-preview .s { color: var(--green); }
   .json-preview .n { color: var(--executor); }
+
+  @media (max-width: 1180px) {
+    .shell {
+      grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) minmax(260px, 34vh);
+      grid-template-areas:
+        "rail main"
+        "side side";
+    }
+    .rail { grid-area: rail; }
+    .main { grid-area: main; }
+    .side-panel {
+      grid-area: side;
+      border-left: 0;
+      border-top: 1px solid var(--border);
+    }
+    .side-panel .body { padding-bottom: 12px; }
+    .tree {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 12px;
+    }
+    .json-preview { grid-column: 1 / -1; }
+  }
+
+  @media (max-width: 900px) {
+    body { font-size: 16px; }
+    .topnav {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 10px 12px;
+    }
+    .topnav .run-chip {
+      order: 3;
+      flex-basis: 100%;
+      max-width: 100%;
+    }
+    .topnav .top-actions { margin-left: auto; }
+    .shell {
+      height: auto;
+      min-height: calc(100vh - 52px);
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto auto;
+      grid-template-areas:
+        "rail"
+        "main"
+        "side";
+    }
+    .rail {
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+      max-height: 240px;
+    }
+    .stream { padding: 18px 12px; }
+    .breadcrumb-bar {
+      padding: 10px 12px;
+      flex-wrap: wrap;
+      overflow-x: visible;
+      white-space: normal;
+    }
+    .run-summary .rs-head,
+    .goal-card .gc-head,
+    .iter-card .ic-head {
+      flex-wrap: wrap;
+    }
+    .run-summary .rs-head .files,
+    .status-cluster,
+    .iter-card .ic-head .status {
+      margin-left: 0;
+    }
+    .run-summary .rs-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .msg {
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 10px;
+    }
+    .phases-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .exec-group .eg-head {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .exec-group .eg-head .count {
+      flex-basis: 100%;
+      margin-left: 0;
+    }
+    .pcon {
+      min-height: 10px;
+    }
+    .pcon::before,
+    .pcon.dashed::before {
+      content: "down";
+      font-family: var(--font-mono);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .tree {
+      display: block;
+    }
+    .composer { padding: 10px 12px 14px; }
+  }
+
+  @media (max-width: 560px) {
+    .topnav .new-task {
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .run-summary .rs-grid {
+      grid-template-columns: 1fr;
+    }
+    .goal-card .gc-head h3 {
+      flex-basis: 100%;
+      white-space: normal;
+    }
+    .att-card {
+      padding: 9px;
+    }
+    .exec-list .ex {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .exec-list .ex .ex-meta {
+      width: 100%;
+      justify-content: flex-start;
+      margin-left: 16px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -718,17 +1013,17 @@
 <!-- ============== TOP NAV ============== -->
 <div class="topnav">
   <div class="brand">
-    <div class="logo">✶</div>
+    <div class="logo" aria-hidden="true">TC</div>
     Task Center
   </div>
   <div class="run-chip">
-    <span>📁</span>
-    <span><b>run_root</b> · <span style="color: var(--muted)">20260516T042506Z_dc8f46c0fb12</span></span>
-    <span style="color: var(--muted-2)">·</span>
+    <span class="run-mark" aria-hidden="true"></span>
+    <span class="run-id"><b>run_root</b> · <span class="muted">20260516T042506Z_dc8f46c0fb12</span></span>
+    <span class="muted-soft">·</span>
     <span><b>scenario</b> complex_project_build_shell_edit_lsp</span>
   </div>
-  <div class="right">
-    <button class="new-task">+ submit_execution_handoff</button>
+  <div class="top-actions">
+    <button class="new-task" type="button">+ submit_execution_handoff</button>
     <div class="av">Y</div>
   </div>
 </div>
@@ -775,10 +1070,10 @@
     </div>
 
     <div class="group">▾ run files</div>
-    <div class="rail-item" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); padding: 5px 12px;">📄 run.json</div>
-    <div class="rail-item" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); padding: 5px 12px;">📄 metrics.json</div>
-    <div class="rail-item" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); padding: 5px 12px;">📄 performance_report.{json,md}</div>
-    <div class="rail-item" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); padding: 5px 12px;">📄 sandbox_events.jsonl</div>
+    <div class="rail-item file-rail-item">run.json</div>
+    <div class="rail-item file-rail-item">metrics.json</div>
+    <div class="rail-item file-rail-item">performance_report.{json,md}</div>
+    <div class="rail-item file-rail-item">sandbox_events.jsonl</div>
 
     <div class="group">▾ recent runs</div>
     <div class="rail-item">
@@ -794,16 +1089,16 @@
   <!-- ====== MAIN ====== -->
   <main class="main">
     <div class="breadcrumb-bar">
-      <span class="seg" style="background: var(--entry-s); border-color: rgba(44,158,128,0.25)">🚪 entry_executor</span>
+      <span class="seg entry-seg"><span class="entity-mark entry"></span>entry_executor</span>
       <span class="sep">/</span>
-      <span class="seg goal">🎯 goal_01_cd4c3729</span>
+      <span class="seg goal"><span class="entity-mark goal"></span>goal_01_cd4c3729</span>
       <span class="sep">/</span>
-      <span class="seg iter">📐 iteration_02</span>
+      <span class="seg iter"><span class="entity-mark iter"></span>iteration_02</span>
       <span class="sep">/</span>
-      <span class="seg att">🎲 attempt_02</span>
-      <span style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
+      <span class="seg att"><span class="entity-mark att"></span>attempt_02</span>
+      <span class="status-cluster">
         <span class="stat-chip running">running</span>
-        <span class="stat-chip" style="background: var(--surface-2); color: var(--muted)">stage=executor</span>
+        <span class="stat-chip closed">stage=executor</span>
       </span>
     </div>
 
@@ -813,8 +1108,8 @@
         <!-- ===== run-level summary ===== -->
         <div class="run-summary">
           <div class="rs-head">
-            <span style="color: var(--muted)">📁</span>
-            <b>run_root</b><span style="color: var(--muted)">/</span><b>20260516T042506Z_dc8f46c0fb12</b>
+            <span class="run-mark" aria-hidden="true"></span>
+            <b>run_root</b><span class="muted">/</span><b>20260516T042506Z_dc8f46c0fb12</b>
             <div class="files">
               <span class="file-chip">run.json</span>
               <span class="file-chip">metrics.json</span>
@@ -826,13 +1121,13 @@
             <div class="kv"><div class="k">task_center_run_id</div><div class="v">dc8f46c0</div></div>
             <div class="kv"><div class="k">scenario_name</div><div class="v">complex_project_build_shell_edit_lsp</div></div>
             <div class="kv"><div class="k">sandbox_id</div><div class="v">docker · overlay 3/16</div></div>
-            <div class="kv"><div class="k">status</div><div class="v" style="color: var(--amber)">running</div></div>
+            <div class="kv"><div class="k">status</div><div class="v text-amber">running</div></div>
           </div>
         </div>
 
         <!-- ===== entry_executor message ===== -->
         <div class="msg entry">
-          <div class="av">🚪</div>
+          <div class="av">EE</div>
           <div>
             <div class="who">entry_executor<span class="time">02:00:11 · spawn_reason=entry_executor</span></div>
             <div class="bubble">
@@ -855,7 +1150,7 @@
         <!-- ===== GOAL CARD ===== -->
         <div class="goal-card live">
           <div class="gc-head">
-            <span style="font-size: 16px;">🎯</span>
+            <span class="entity-mark goal" aria-hidden="true"></span>
             <span class="lbl">Goal</span>
             <span class="id">goal_01_cd4c3729</span>
             <h3>Refactor audit recorder · drop in-memory buffer</h3>
@@ -866,7 +1161,7 @@
             <!-- ITERATION 1 (closed, continuation) -->
             <div class="iter-card">
               <div class="ic-head">
-                <span style="font-size: 13px;">📐</span>
+                <span class="entity-mark iter" aria-hidden="true"></span>
                 <span class="lbl">Iteration</span>
                 <span class="id">iteration_01_90446d85 · sequence_no=1 · creation_reason=initial · attempt_budget=2</span>
                 <span class="status"><span class="stat-chip closed">closed · passed</span></span>
@@ -876,10 +1171,10 @@
                 <!-- attempt 1.1 failed -->
                 <div class="att-card failed">
                   <div class="ah">
-                    <span style="font-size: 12px;">🎲</span>
+                    <span class="entity-mark att" aria-hidden="true"></span>
                     <span class="nm">attempt_01</span>
                     <span class="stage"><b>stage</b>=closed · <b>status</b>=failed</span>
-                    <span style="margin-left: auto;"><span class="stat-chip failed">failed</span></span>
+                    <span class="status-cluster"><span class="stat-chip failed">failed</span></span>
                   </div>
                   <div class="fail-reason"><b>fail_reason</b>: evaluator_criteria_unmet · 2 of 3 criteria failed</div>
 
@@ -895,16 +1190,16 @@
                       <div class="eg-head"><span class="seq">02</span><span>executor :gen:complex_project_build_shell_edit_lsp</span><span class="count">generator_task_ids = [a1, b2]</span></div>
                       <div class="exec-list">
                         <div class="ex">
-                          <span style="color: var(--executor);">●</span>
+                          <span class="executor-dot" aria-hidden="true"></span>
                           <span class="nm">executor #1</span>
                           <span class="scenario">code-mutator</span>
-                          <span class="right"><span class="stat-chip passed">closed</span></span>
+                          <span class="ex-meta"><span class="stat-chip passed">closed</span></span>
                         </div>
                         <div class="ex">
-                          <span style="color: var(--executor);">●</span>
+                          <span class="executor-dot" aria-hidden="true"></span>
                           <span class="nm">executor #2</span>
                           <span class="scenario">test-runner</span>
-                          <span class="right"><span class="stat-chip passed">closed</span></span>
+                          <span class="ex-meta"><span class="stat-chip passed">closed</span></span>
                         </div>
                       </div>
                     </div>
@@ -921,11 +1216,11 @@
                 <!-- attempt 1.2 passed -->
                 <div class="att-card passed">
                   <div class="ah">
-                    <span style="font-size: 12px;">🎲</span>
+                    <span class="entity-mark att" aria-hidden="true"></span>
                     <span class="nm">attempt_02</span>
                     <span class="stage"><b>stage</b>=closed · <b>status</b>=passed</span>
-                    <span class="stage" style="color: var(--planner)"><b>spawn_reason</b>=retry · <b>fix_target_id</b>→attempt_01.crit_2</span>
-                    <span style="margin-left: auto;"><span class="stat-chip passed">passed</span></span>
+                    <span class="stage text-planner"><b>spawn_reason</b>=retry · <b>fix_target_id</b>→attempt_01.crit_2</span>
+                    <span class="status-cluster"><span class="stat-chip passed">passed</span></span>
                   </div>
 
                   <div class="phases-row">
@@ -940,10 +1235,10 @@
                       <div class="eg-head"><span class="seq">02</span><span>executor :gen</span><span class="count">generator_task_ids = [c3]</span></div>
                       <div class="exec-list">
                         <div class="ex">
-                          <span style="color: var(--executor);">●</span>
+                          <span class="executor-dot" aria-hidden="true"></span>
                           <span class="nm">executor #1</span>
                           <span class="scenario">code+test</span>
-                          <span class="right"><span class="stat-chip passed">closed</span></span>
+                          <span class="ex-meta"><span class="stat-chip passed">closed</span></span>
                         </div>
                       </div>
                     </div>
@@ -975,7 +1270,7 @@
             <!-- ITERATION 2 (running) -->
             <div class="iter-card live">
               <div class="ic-head">
-                <span style="font-size: 13px;">📐</span>
+                <span class="entity-mark iter" aria-hidden="true"></span>
                 <span class="lbl">Iteration</span>
                 <span class="id">iteration_02_4e1a · sequence_no=2 · creation_reason=continuation · attempt_budget=3</span>
                 <span class="status"><span class="stat-chip running">running</span></span>
@@ -984,10 +1279,10 @@
 
                 <div class="att-card failed">
                   <div class="ah">
-                    <span style="font-size: 12px;">🎲</span>
+                    <span class="entity-mark att" aria-hidden="true"></span>
                     <span class="nm">attempt_01</span>
                     <span class="stage"><b>stage</b>=closed · <b>status</b>=failed</span>
-                    <span style="margin-left: auto;"><span class="stat-chip failed">failed</span></span>
+                    <span class="status-cluster"><span class="stat-chip failed">failed</span></span>
                   </div>
                   <div class="fail-reason"><b>fail_reason</b>: tests_red · 3 unit tests still failing</div>
                   <div class="phases-row">
@@ -999,13 +1294,13 @@
                     <div class="exec-group">
                       <div class="eg-head"><span class="seq">02</span><span>executor :gen</span><span class="count">generator_task_ids = [d1]</span></div>
                       <div class="exec-list">
-                        <div class="ex"><span style="color: var(--executor);">●</span><span class="nm">executor #1</span><span class="scenario">code-mutator</span><span class="right"><span class="stat-chip passed">closed</span></span></div>
+                        <div class="ex"><span class="executor-dot" aria-hidden="true"></span><span class="nm">executor #1</span><span class="scenario">code-mutator</span><span class="ex-meta"><span class="stat-chip passed">closed</span></span></div>
                       </div>
                     </div>
                     <div class="pcon"></div>
                     <div class="phase-card evaluator">
                       <div class="pc-head"><span class="seq">03</span><span class="role-tag">evaluator</span><span class="pc-uuid">…2c7e</span></div>
-                      <div class="pc-body" style="color: var(--red);">3 tests still red</div>
+                      <div class="pc-body text-red">3 tests still red</div>
                       <div class="pc-status"><span class="stat-chip failed">failed</span></div>
                     </div>
                   </div>
@@ -1013,11 +1308,11 @@
 
                 <div class="att-card running">
                   <div class="ah">
-                    <span style="font-size: 12px;">🎲</span>
+                    <span class="entity-mark att" aria-hidden="true"></span>
                     <span class="nm">attempt_02</span>
                     <span class="stage"><b>stage</b>=executor · <b>status</b>=running</span>
-                    <span class="stage" style="color: var(--planner)"><b>spawn_reason</b>=retry · <b>fix_target_id</b>→attempt_01.crit_3</span>
-                    <span style="margin-left: auto;"><span class="stat-chip running">running</span></span>
+                    <span class="stage text-planner"><b>spawn_reason</b>=retry · <b>fix_target_id</b>→attempt_01.crit_3</span>
+                    <span class="status-cluster"><span class="stat-chip running">running</span></span>
                   </div>
                   <div class="phases-row">
                     <div class="phase-card planner">
@@ -1035,20 +1330,20 @@
                       </div>
                       <div class="exec-list">
                         <div class="ex">
-                          <span style="color: var(--executor);">●</span>
+                          <span class="executor-dot" aria-hidden="true"></span>
                           <span class="nm">executor #1</span>
                           <span class="scenario">code-writer</span>
-                          <span class="right">
-                            <span style="font-family:monospace; font-size: 10px; color: var(--muted);">18s</span>
+                          <span class="ex-meta">
+                            <span class="duration">18s</span>
                             <span class="stat-chip running">running</span>
                           </span>
                         </div>
                         <div class="ex">
-                          <span style="color: var(--executor);">●</span>
+                          <span class="executor-dot" aria-hidden="true"></span>
                           <span class="nm">executor #2</span>
                           <span class="scenario">test-runner</span>
-                          <span class="right">
-                            <span style="font-family:monospace; font-size: 10px; color: var(--muted);">23s</span>
+                          <span class="ex-meta">
+                            <span class="duration">23s</span>
                             <span class="stat-chip running">running</span>
                           </span>
                         </div>
@@ -1056,13 +1351,13 @@
                       <div class="handoff-emit">
                         <span class="arrow">↳</span>
                         <span><b>executor #2</b> emitted <code>submit_execution_handoff</code> →</span>
-                        <span style="margin-left: auto;"><span class="stat-chip running" style="background: var(--handoff-s); color: var(--handoff);">goal_02 (nested)</span></span>
+                        <span class="status-cluster"><span class="stat-chip handoff">goal_02 (nested)</span></span>
                       </div>
                     </div>
                     <div class="pcon dashed"></div>
                     <div class="phase-card evaluator">
                       <div class="pc-head"><span class="seq">03</span><span class="role-tag">evaluator</span><span class="pc-uuid">…pend</span></div>
-                      <div class="pc-body" style="color: var(--muted);">pending — waits for executors + nested goal</div>
+                      <div class="pc-body text-muted">pending — waits for executors + nested goal</div>
                       <div class="pc-status"><span class="stat-chip pending">pending</span></div>
                     </div>
                   </div>
@@ -1071,7 +1366,7 @@
                     <h6>evaluation_criteria (4)</h6>
                     <div class="crit ok"><span class="c"></span><code>_buffer</code> absent from recorder.py</div>
                     <div class="crit ok"><span class="c"></span>all existing unit tests pass</div>
-                    <div class="crit live"><span class="c"></span>events visible to sink without flush() <span style="color:var(--muted);font-family:monospace;">— streaming check</span></div>
+                    <div class="crit live"><span class="c"></span>events visible to sink without flush() <span class="duration">— streaming check</span></div>
                     <div class="crit"><span class="c"></span>no orphan callers in stores.py</div>
                   </div>
                 </div>
@@ -1083,21 +1378,21 @@
         <!-- ===== NESTED GOAL CARD ===== -->
         <div class="goal-card nested live">
           <div class="gc-head">
-            <span style="font-size: 16px;">🎯</span>
+            <span class="entity-mark goal" aria-hidden="true"></span>
             <span class="lbl">Goal · nested</span>
             <span class="id">goal_02_a1b2c3d4</span>
             <h3>Diagnose flaky test_recorder::test_overflow</h3>
             <span class="stat-chip running">running</span>
           </div>
           <div class="gc-body">
-            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 8px;">
+            <div class="nested-meta">
               <b>requested_by_task_id</b>: goal_01 / iteration_02 / attempt_02 / 02_executor / executor #2
               · <b>nested_goal_depth</b>=2
             </div>
 
             <div class="iter-card live">
               <div class="ic-head">
-                <span style="font-size: 13px;">📐</span>
+                <span class="entity-mark iter" aria-hidden="true"></span>
                 <span class="lbl">Iteration</span>
                 <span class="id">iteration_01 · sequence_no=1 · creation_reason=initial · attempt_budget=2</span>
                 <span class="status"><span class="stat-chip running">running</span></span>
@@ -1105,10 +1400,10 @@
               <div class="ic-body">
                 <div class="att-card running">
                   <div class="ah">
-                    <span style="font-size: 12px;">🎲</span>
+                    <span class="entity-mark att" aria-hidden="true"></span>
                     <span class="nm">attempt_01</span>
                     <span class="stage"><b>stage</b>=executor · <b>status</b>=running</span>
-                    <span style="margin-left: auto;"><span class="stat-chip running">running</span></span>
+                    <span class="status-cluster"><span class="stat-chip running">running</span></span>
                   </div>
                   <div class="phases-row">
                     <div class="phase-card planner">
@@ -1125,7 +1420,7 @@
                     <div class="pcon dashed"></div>
                     <div class="phase-card evaluator">
                       <div class="pc-head"><span class="seq">03</span><span class="role-tag">evaluator</span></div>
-                      <div class="pc-body" style="color: var(--muted);">pending</div>
+                      <div class="pc-body text-muted">pending</div>
                       <div class="pc-status"><span class="stat-chip pending">pending</span></div>
                     </div>
                   </div>
@@ -1141,16 +1436,16 @@
     <!-- composer -->
     <div class="composer">
       <div class="wrap">
-        <textarea class="input" rows="1" placeholder="Add a comment, or send an instruction to the running attempt…"></textarea>
-        <button class="send">↑</button>
+        <textarea class="input" rows="1" aria-label="Instruction to the running attempt" placeholder="Add a comment, or send an instruction to the running attempt…"></textarea>
+        <button class="send" type="button" aria-label="Send instruction">↑</button>
       </div>
     </div>
   </main>
 
   <!-- ====== RIGHT: ON-DISK EXPLORER ====== -->
-  <aside class="right">
+  <aside class="side-panel">
     <div class="rh">
-      <span class="ic">📁</span>
+      <span class="run-mark" aria-hidden="true"></span>
       <h4>on-disk explorer</h4>
     </div>
     <div class="tabs">
@@ -1160,56 +1455,56 @@
     </div>
     <div class="body">
       <div class="tree">
-        <div class="ln indent-0"><span class="gut">▾</span><span class="icon">📁</span><span class="name dir run">20260516T042506Z_dc8f46c0fb12/</span></div>
+        <div class="ln indent-0"><span class="gut">▾</span><span class="icon icon-label">dir</span><span class="name dir run">20260516T042506Z_dc8f46c0fb12/</span></div>
 
-        <div class="ln indent-1"><span class="gut">·</span><span class="icon">📄</span><span class="name file">run.json</span></div>
-        <div class="ln indent-1"><span class="gut">·</span><span class="icon">📄</span><span class="name file">metrics.json</span></div>
-        <div class="ln indent-1"><span class="gut">·</span><span class="icon">📄</span><span class="name file">performance_report.json</span></div>
-        <div class="ln indent-1"><span class="gut">·</span><span class="icon">📄</span><span class="name file">performance_report.md</span></div>
-        <div class="ln indent-1"><span class="gut">·</span><span class="icon">📄</span><span class="name file">sandbox_events.jsonl</span><span class="meta-tag">stream</span></div>
+        <div class="ln indent-1"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">run.json</span></div>
+        <div class="ln indent-1"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">metrics.json</span></div>
+        <div class="ln indent-1"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">performance_report.json</span></div>
+        <div class="ln indent-1"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">performance_report.md</span></div>
+        <div class="ln indent-1"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">sandbox_events.jsonl</span><span class="meta-tag">stream</span></div>
 
-        <div class="ln indent-1"><span class="gut">▾</span><span class="icon">🚪</span><span class="name dir entry">entry_executor_e4eb7610:entry/</span></div>
-        <div class="ln indent-2"><span class="gut">·</span><span class="icon">📄</span><span class="name file">task.json</span></div>
-        <div class="ln indent-2"><span class="gut">·</span><span class="icon">📄</span><span class="name file">message.jsonl</span></div>
+        <div class="ln indent-1"><span class="gut">▾</span><span class="icon icon-label entry">entry</span><span class="name dir entry">entry_executor_e4eb7610:entry/</span></div>
+        <div class="ln indent-2"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">task.json</span></div>
+        <div class="ln indent-2"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">message.jsonl</span></div>
 
-        <div class="ln indent-1"><span class="gut">▾</span><span class="icon">🎯</span><span class="name dir goal">goal_01_cd4c3729/</span></div>
-        <div class="ln indent-2"><span class="gut">·</span><span class="icon">📄</span><span class="name file">goal.json</span></div>
-        <div class="ln indent-2"><span class="gut">▾</span><span class="icon">📐</span><span class="name dir iter">iteration_01_90446d85/</span></div>
-        <div class="ln indent-3"><span class="gut">·</span><span class="icon">📄</span><span class="name file">iteration.json</span></div>
-        <div class="ln indent-3"><span class="gut">▾</span><span class="icon">🎲</span><span class="name dir att">attempt_01_ae7c4ec6/</span></div>
-        <div class="ln indent-4"><span class="gut">·</span><span class="icon">📄</span><span class="name file">attempt.json</span></div>
-        <div class="ln indent-4"><span class="gut">▾</span><span class="icon">📜</span><span class="name dir planner">01_planner_ae7c…:planner/</span></div>
-        <div class="ln indent-5"><span class="gut">·</span><span class="icon">📄</span><span class="name file">task.json</span></div>
-        <div class="ln indent-5"><span class="gut">·</span><span class="icon">📄</span><span class="name file">message.jsonl</span></div>
-        <div class="ln indent-4"><span class="gut">▾</span><span class="icon">🤖</span><span class="name dir executor">02_executor_ae7c…:gen:complex_project_build_shell_edit_lsp/</span></div>
-        <div class="ln indent-5"><span class="gut">·</span><span class="icon">📄</span><span class="name file">task.json</span></div>
-        <div class="ln indent-5"><span class="gut">·</span><span class="icon">📄</span><span class="name file">message.jsonl</span></div>
-        <div class="ln indent-4"><span class="gut">▾</span><span class="icon">⚖️</span><span class="name dir evaluator">03_evaluator_ae7c…:evaluator/</span></div>
-        <div class="ln indent-5"><span class="gut">·</span><span class="icon">📄</span><span class="name file">task.json</span></div>
-        <div class="ln indent-5"><span class="gut">·</span><span class="icon">📄</span><span class="name file">message.jsonl</span></div>
+        <div class="ln indent-1"><span class="gut">▾</span><span class="icon icon-label goal">goal</span><span class="name dir goal">goal_01_cd4c3729/</span></div>
+        <div class="ln indent-2"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">goal.json</span></div>
+        <div class="ln indent-2"><span class="gut">▾</span><span class="icon icon-label iter">iter</span><span class="name dir iter">iteration_01_90446d85/</span></div>
+        <div class="ln indent-3"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">iteration.json</span></div>
+        <div class="ln indent-3"><span class="gut">▾</span><span class="icon icon-label att">att</span><span class="name dir att">attempt_01_ae7c4ec6/</span></div>
+        <div class="ln indent-4"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">attempt.json</span></div>
+        <div class="ln indent-4"><span class="gut">▾</span><span class="icon icon-label plan">plan</span><span class="name dir planner">01_planner_ae7c…:planner/</span></div>
+        <div class="ln indent-5"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">task.json</span></div>
+        <div class="ln indent-5"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">message.jsonl</span></div>
+        <div class="ln indent-4"><span class="gut">▾</span><span class="icon icon-label exec">exec</span><span class="name dir executor">02_executor_ae7c…:gen:complex_project_build_shell_edit_lsp/</span></div>
+        <div class="ln indent-5"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">task.json</span></div>
+        <div class="ln indent-5"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">message.jsonl</span></div>
+        <div class="ln indent-4"><span class="gut">▾</span><span class="icon icon-label eval">eval</span><span class="name dir evaluator">03_evaluator_ae7c…:evaluator/</span></div>
+        <div class="ln indent-5"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">task.json</span></div>
+        <div class="ln indent-5"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">message.jsonl</span></div>
 
-        <div class="ln indent-3"><span class="gut">▾</span><span class="icon">🎲</span><span class="name dir att">attempt_02_1b9fc7…/</span></div>
-        <div class="ln indent-4"><span class="gut">·</span><span class="icon">📄</span><span class="name file">attempt.json</span></div>
-        <div class="ln indent-4"><span class="gut">▸</span><span class="icon">📜</span><span class="name dir planner">01_planner_1b9f…:planner/</span></div>
-        <div class="ln indent-4"><span class="gut">▸</span><span class="icon">🤖</span><span class="name dir executor">02_executor_1b9f…:gen:…/</span></div>
-        <div class="ln indent-4"><span class="gut">▸</span><span class="icon">⚖️</span><span class="name dir evaluator">03_evaluator_1b9f…:evaluator/</span></div>
+        <div class="ln indent-3"><span class="gut">▾</span><span class="icon icon-label att">att</span><span class="name dir att">attempt_02_1b9fc7…/</span></div>
+        <div class="ln indent-4"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">attempt.json</span></div>
+        <div class="ln indent-4"><span class="gut">▸</span><span class="icon icon-label plan">plan</span><span class="name dir planner">01_planner_1b9f…:planner/</span></div>
+        <div class="ln indent-4"><span class="gut">▸</span><span class="icon icon-label exec">exec</span><span class="name dir executor">02_executor_1b9f…:gen:…/</span></div>
+        <div class="ln indent-4"><span class="gut">▸</span><span class="icon icon-label eval">eval</span><span class="name dir evaluator">03_evaluator_1b9f…:evaluator/</span></div>
 
-        <div class="ln indent-2"><span class="gut">▾</span><span class="icon">📐</span><span class="name dir iter">iteration_02_4e1a…/</span><span class="meta-tag">running</span></div>
-        <div class="ln indent-3"><span class="gut">·</span><span class="icon">📄</span><span class="name file">iteration.json</span></div>
-        <div class="ln indent-3"><span class="gut">▸</span><span class="icon">🎲</span><span class="name dir att">attempt_01_2c7e…/</span></div>
-        <div class="ln indent-3 active"><span class="gut">▾</span><span class="icon">🎲</span><span class="name dir att">attempt_02_9a02…/</span><span class="meta-tag">live</span></div>
-        <div class="ln indent-4"><span class="gut">·</span><span class="icon">📄</span><span class="name file">attempt.json</span></div>
-        <div class="ln indent-4"><span class="gut">▸</span><span class="icon">📜</span><span class="name dir planner">01_planner_9a02…:planner/</span></div>
-        <div class="ln indent-4"><span class="gut">▾</span><span class="icon">🤖</span><span class="name dir executor">02_executor_9a02…:gen:…/</span><span class="meta-tag">running</span></div>
-        <div class="ln indent-5"><span class="gut">·</span><span class="icon">📄</span><span class="name file">task.json</span></div>
-        <div class="ln indent-5"><span class="gut">·</span><span class="icon">📄</span><span class="name file">message.jsonl</span></div>
-        <div class="ln indent-4"><span class="gut">▸</span><span class="icon">⚖️</span><span class="name dir evaluator">03_evaluator_9a02…:evaluator/</span></div>
+        <div class="ln indent-2"><span class="gut">▾</span><span class="icon icon-label iter">iter</span><span class="name dir iter">iteration_02_4e1a…/</span><span class="meta-tag">running</span></div>
+        <div class="ln indent-3"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">iteration.json</span></div>
+        <div class="ln indent-3"><span class="gut">▸</span><span class="icon icon-label att">att</span><span class="name dir att">attempt_01_2c7e…/</span></div>
+        <div class="ln indent-3 active"><span class="gut">▾</span><span class="icon icon-label att">att</span><span class="name dir att">attempt_02_9a02…/</span><span class="meta-tag">live</span></div>
+        <div class="ln indent-4"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">attempt.json</span></div>
+        <div class="ln indent-4"><span class="gut">▸</span><span class="icon icon-label plan">plan</span><span class="name dir planner">01_planner_9a02…:planner/</span></div>
+        <div class="ln indent-4"><span class="gut">▾</span><span class="icon icon-label exec">exec</span><span class="name dir executor">02_executor_9a02…:gen:…/</span><span class="meta-tag">running</span></div>
+        <div class="ln indent-5"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">task.json</span></div>
+        <div class="ln indent-5"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">message.jsonl</span></div>
+        <div class="ln indent-4"><span class="gut">▸</span><span class="icon icon-label eval">eval</span><span class="name dir evaluator">03_evaluator_9a02…:evaluator/</span></div>
 
-        <div class="ln indent-1"><span class="gut">▾</span><span class="icon">🎯</span><span class="name dir goal" style="color: var(--handoff)">goal_02_a1b2c3d4/</span><span class="meta-tag" style="background: var(--handoff-s); color: var(--handoff);">nested · depth=2</span></div>
-        <div class="ln indent-2"><span class="gut">·</span><span class="icon">📄</span><span class="name file">goal.json</span></div>
-        <div class="ln indent-2"><span class="gut">▸</span><span class="icon">📐</span><span class="name dir iter">iteration_01_…/</span></div>
+        <div class="ln indent-1"><span class="gut">▾</span><span class="icon icon-label goal">goal</span><span class="name dir goal text-handoff">goal_02_a1b2c3d4/</span><span class="meta-tag handoff-tag">nested · depth=2</span></div>
+        <div class="ln indent-2"><span class="gut">·</span><span class="icon icon-label">doc</span><span class="name file">goal.json</span></div>
+        <div class="ln indent-2"><span class="gut">▸</span><span class="icon icon-label iter">iter</span><span class="name dir iter">iteration_01_…/</span></div>
 
-        <div class="ln indent-1"><span class="gut">▸</span><span class="icon">🎯</span><span class="name dir goal">goal_03_4f9a1e/</span><span class="meta-tag">queued</span></div>
+        <div class="ln indent-1"><span class="gut">▸</span><span class="icon icon-label goal">goal</span><span class="name dir goal">goal_03_4f9a1e/</span><span class="meta-tag">queued</span></div>
       </div>
 
       <!-- JSON preview -->
@@ -1228,7 +1523,7 @@
 <span class="k">"continuation_goal"</span>: <span class="s">null</span>
       </div>
 
-      <div class="json-preview" style="background: var(--executor-s); border-color: rgba(138,92,240,0.2);">
+      <div class="json-preview executor-preview">
         <div class="h">02_executor_9a02… / task.json (excerpt)</div>
 <span class="k">"role"</span>: <span class="s">"executor"</span>,
 <span class="k">"agent_name"</span>: <span class="s">"complex_project_build_shell_edit_lsp"</span>,

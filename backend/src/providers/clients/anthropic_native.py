@@ -44,7 +44,8 @@ def _categorize(exc: EphemeralOSApiError) -> str:
     """Plan §A17 error categorisation, mirrored on the Codex side (S4).
 
     Always categorises from the POST-translation typed exception so the
-    mapping is single-source.
+    mapping is single-source. The emitted log line is tagged
+    ``coding_plan_mode_error`` (S2 rename).
     """
     if isinstance(exc, AuthenticationFailure):
         if exc.status_code == 401:
@@ -82,15 +83,10 @@ class AnthropicClient:
         auth_strategy: "AuthStrategy | None" = None,
         system_prefix: str | None = None,
     ) -> None:
-        kwargs: dict[str, Any] = {}
-        if base_url:
-            kwargs["base_url"] = base_url
-
         if auth_strategy is not None:
             # Strategy-injected mode (plan §A2). Owns api_key/auth_token and
             # optional default_headers (e.g. OAuth beta + UA headers).
             self._auth_strategy = auth_strategy
-            kwargs.update(auth_strategy.get_auth_kwargs())
         else:
             # Today's behavior preserved. Non-Anthropic endpoints (e.g.
             # MiniMax) expect Authorization: Bearer instead of x-api-key.
@@ -99,18 +95,27 @@ class AnthropicClient:
                     "AnthropicClient requires either api_key or auth_strategy"
                 )
             use_auth_token = bool(base_url) and "anthropic.com" not in base_url
-            if use_auth_token:
-                kwargs["auth_token"] = api_key
-            else:
-                kwargs["api_key"] = api_key
             from providers.auth_strategy import make_api_key_strategy
 
             self._auth_strategy = make_api_key_strategy(
                 api_key, use_auth_token=use_auth_token
             )
 
+        self._base_url = base_url
         self._system_prefix = system_prefix
-        self._client = anthropic.AsyncAnthropic(**kwargs)
+        self._client = self._build_sdk_client()
+
+    def _build_sdk_client(self) -> anthropic.AsyncAnthropic:
+        """Construct the underlying SDK client from the current strategy state.
+
+        Used at ``__init__`` and after a successful ``refresh()`` so the new
+        token (plan §A7) is picked up.
+        """
+        kwargs: dict[str, Any] = {}
+        if self._base_url:
+            kwargs["base_url"] = self._base_url
+        kwargs.update(self._auth_strategy.get_auth_kwargs())
+        return anthropic.AsyncAnthropic(**kwargs)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -133,6 +138,7 @@ class AnthropicClient:
         the request would duplicate text deltas and double-dispatch tool_use
         ids on the engine side.
         """
+        attempted_refresh = False
         for attempt in range(MAX_RETRIES + 1):
             emitted_any = False
             try:
@@ -141,12 +147,25 @@ class AnthropicClient:
                     yield event
                 return
             except EphemeralOSApiError as exc:
-                self._emit_plan_mode_error(exc)
+                self._emit_coding_plan_mode_error(exc)
                 raise
             except Exception as exc:
+                status = getattr(exc, "status_code", None)
+                if status == 401 and not attempted_refresh:
+                    # Plan §A7: refresh-on-401 retry once. Overrides the
+                    # emitted_any fail-fast; replayed deltas are accepted cost.
+                    attempted_refresh = True
+                    if self._auth_strategy.refresh():
+                        self._client = self._build_sdk_client()
+                        continue
+                    # refresh returned False — strategy cannot self-heal; raise.
+                    translated = self._translate_error(exc)
+                    self._emit_coding_plan_mode_error(translated)
+                    raise translated from exc
+
                 if emitted_any or attempt >= MAX_RETRIES or not self._is_retryable(exc):
                     translated = self._translate_error(exc)
-                    self._emit_plan_mode_error(translated)
+                    self._emit_coding_plan_mode_error(translated)
                     raise translated from exc
 
                 delay = min(BASE_DELAY * (2**attempt), MAX_DELAY)
@@ -295,12 +314,12 @@ class AnthropicClient:
             return RateLimitFailure(msg, status_code=status, request_id=request_id)
         return RequestFailure(msg, status_code=status, request_id=request_id)
 
-    def _emit_plan_mode_error(self, exc: EphemeralOSApiError) -> None:
+    def _emit_coding_plan_mode_error(self, exc: EphemeralOSApiError) -> None:
         """Plan §A17: structured error log line under coding-plan mode."""
         if self._auth_strategy.llm_client_mode != LLM_CLIENT_MODE_CODING_PLAN:
             return
         log.error(
-            "plan_mode_error",
+            "coding_plan_mode_error",
             extra={
                 "provider": "anthropic",
                 "error_type": _categorize(exc),

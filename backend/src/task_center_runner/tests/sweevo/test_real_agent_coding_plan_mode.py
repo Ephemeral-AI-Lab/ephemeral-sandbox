@@ -1,7 +1,7 @@
 """A18 — Live e2e smoke tests for coding-plan mode.
 
 Sibling of ``test_real_agent.py``. Covers the v9 A18 acceptance criterion:
-prove that plan-mode (Anthropic OAuth + Codex OAuth) composes end-to-end
+prove that coding-plan-mode (Anthropic OAuth + Codex OAuth) composes end-to-end
 with real sandboxes AND with our fully-customizable EphemeralOS tools.
 
 **Activation gates (all must pass for a given test to run):**
@@ -10,8 +10,8 @@ with real sandboxes AND with our fully-customizable EphemeralOS tools.
 2. Provider-specific credentials present (per-test):
    * Anthropic test: macOS Keychain entry ``Claude Code-credentials``.
    * Codex test: ``~/.codex/auth.json``.
-3. Plan-mode infrastructure exists (per-test): the
-   ``providers.clients.coding_plan`` package importable AND a plan-mode-
+3. Coding-plan-mode infrastructure exists (per-test): the
+   ``providers.clients.coding_plan`` package importable AND a coding-plan-mode-
    capable ``class_path`` value supported by ``make_api_client``. Until
    Phase 1 lands this gate skips automatically — the test file lives
    permanently on main without breaking CI.
@@ -102,7 +102,7 @@ _SKIP_NO_CODEX_CREDS = pytest.mark.skipif(
 )
 _SKIP_NO_PLAN_INFRA = pytest.mark.skipif(
     not _plan_mode_infrastructure_present(),
-    reason="Plan-mode infrastructure not yet landed (Phase 1 dependency)",
+    reason="Coding-plan-mode infrastructure not yet landed (Phase 1 dependency)",
 )
 
 
@@ -114,27 +114,27 @@ _SKIP_NO_PLAN_INFRA = pytest.mark.skipif(
 @_SKIP_NO_ANTHROPIC_CREDS
 @_SKIP_NO_PLAN_INFRA
 @pytest.mark.asyncio
-async def test_anthropic_plan_mode_e2e() -> None:
-    """A18.1 — Anthropic plan-mode + custom tools end-to-end.
+async def test_anthropic_coding_plan_mode_e2e() -> None:
+    """A18.1 — Anthropic coding-plan-mode + custom tools end-to-end.
 
     Activation: needs Phase 1 (AnthropicClient refactor, class_path
     dispatch, A11 audit field, A17 observability) AND Phase 3 (sweevo
     capability-parity benchmark wiring).
 
     Once Phase 1+3 land, this test will:
-      1. Register a plan-mode ``model_registrations`` row with
+      1. Register a coding-plan-mode ``model_registrations`` row with
          ``class_path="providers.clients.api.anthropic_native:AnthropicClient"``
          and ``kwargs_json={"auth": "claude_oauth"}``.
       2. Run a canonical SWE-EVO instance via ``run_sweevo_real_agent``.
-      3. Assert ``plan_mode_active=true`` in ``run.json`` (A11).
+      3. Assert ``coding_plan_mode_active=true`` in ``run.json`` (A11).
       4. Assert at least one tool_use record of a custom EphemeralOS
          tool (e.g. ``read_file`` or ``shell``).
       5. Assert the SWE-EVO sandbox-diff envelope matches expectations.
-      6. Assert NO ``plan_mode_error`` log lines emitted at 4xx/5xx (A17).
+      6. Assert NO ``coding_plan_mode_error`` log lines emitted at 4xx/5xx (A17).
     """
     pytest.skip(
-        "A18.1 implementation pending Phase 1 (plan-mode registration "
-        "helper) + Phase 3 (sweevo plan-mode parity hooks). Scaffold "
+        "A18.1 implementation pending Phase 1 (coding-plan-mode registration "
+        "helper) + Phase 3 (sweevo coding-plan-mode parity hooks). Scaffold "
         "intentionally lands ahead so the file is reachable from CI once "
         "the gates flip."
     )
@@ -143,8 +143,8 @@ async def test_anthropic_plan_mode_e2e() -> None:
 @_SKIP_NO_CODEX_CREDS
 @_SKIP_NO_PLAN_INFRA
 @pytest.mark.asyncio
-async def test_codex_plan_mode_e2e() -> None:
-    """A18.2 — Codex plan-mode + custom tools end-to-end.
+async def test_codex_coding_plan_mode_e2e() -> None:
+    """A18.2 — Codex coding-plan-mode + custom tools end-to-end.
 
     Equivalent of A18.1 with
     ``class_path="providers.clients.coding_plan.codex:CodexResponsesClient"``
@@ -159,15 +159,15 @@ async def test_codex_plan_mode_e2e() -> None:
 
 @pytest.mark.asyncio
 async def test_api_mode_regression() -> None:
-    """A18.3 — Existing API-mode flow runs unchanged when no plan-mode row is active.
+    """A18.3 — Existing API-mode flow runs unchanged when no coding-plan-mode row is active.
 
     Skipped today because it duplicates ``test_real_agent.py``; included
     as an explicit slot so a future Phase 1 regression can land here
     rather than diluting the existing test. Once Phase 1 lands, this
-    test will assert ``plan_mode_active=false`` in ``run.json`` and zero
-    ``plan_mode_error`` log lines.
+    test will assert ``coding_plan_mode_active=false`` in ``run.json`` and zero
+    ``coding_plan_mode_error`` log lines.
     """
     pytest.skip(
         "A18.3 — Duplicates test_real_agent.py until Phase 1 lands the "
-        "plan_mode_active audit field. Will be activated alongside A11."
+        "coding_plan_mode_active audit field. Will be activated alongside A11."
     )
