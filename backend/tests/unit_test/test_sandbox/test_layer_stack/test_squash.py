@@ -136,16 +136,18 @@ def test_leased_snapshot_remains_readable_until_release_after_squash(
     squashed = manager.squash(max_depth=2)
 
     assert squashed is not None
-    assert squashed.depth == 4
+    assert squashed.depth == 3
     assert squashed.layers[0].layer_id.startswith("B")
-    assert squashed.layers[1:] == leased_layers
+    assert squashed.layers[1] == leased_layers[0]
+    assert squashed.layers[2].layer_id.startswith("B")
     assert manager.read_text("a.txt", manifest=lease.manifest) == ("a2", True)
     assert manager.read_text("b.txt", manifest=lease.manifest) == ("b1", True)
     assert all(_layer_path(manager, layer).is_dir() for layer in leased_layers)
 
     assert manager.release_lease(lease.lease_id) is True
 
-    assert all(_layer_path(manager, layer).is_dir() for layer in leased_layers)
+    assert _layer_path(manager, leased_layers[0]).is_dir()
+    assert all(not _layer_path(manager, layer).exists() for layer in leased_layers[1:])
     final_squash = manager.squash(max_depth=2)
 
     assert final_squash is not None

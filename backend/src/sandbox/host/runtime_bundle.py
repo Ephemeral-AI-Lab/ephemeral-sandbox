@@ -189,6 +189,8 @@ def _runtime_bundle_bytes() -> bytes:
             "handler.py",
             "op_context.py",
             "op_registry.py",
+            "overlay_child.py",
+            "overlay_dispatch.py",
             "projection.py",
         ):
             _add_if_exists(

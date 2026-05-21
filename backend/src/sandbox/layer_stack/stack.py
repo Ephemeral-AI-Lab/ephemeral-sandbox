@@ -242,7 +242,7 @@ class LayerStack:
                 self._squash.plan(
                     active,
                     max_depth=max_depth,
-                    pinned_layers=self._leases.pinned_layers(),
+                    pinned_layers=self._leases.squash_barrier_layers(),
                     min_reduction=2,
                 )
                 is not None
@@ -321,11 +321,10 @@ class LayerStack:
         with self._storage_write_guard():
             with self._lock:
                 active = self._manifest_store.read()
-                pinned_layers = self._leases.pinned_layers()
                 plan = self._squash.plan(
                     active,
                     max_depth=max_depth,
-                    pinned_layers=pinned_layers,
+                    pinned_layers=self._leases.squash_barrier_layers(),
                 )
                 if plan is None:
                     return None

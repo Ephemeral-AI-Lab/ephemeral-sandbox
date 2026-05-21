@@ -139,7 +139,7 @@ def test_auto_squash_preserves_active_lease_view(tmp_path) -> None:
     assert stack.active_lease_count() == 0
 
 
-def test_auto_squash_skips_when_only_tiny_unleased_run_is_reducible(
+def test_auto_squash_collapses_active_manifest_even_with_active_lease(
     tmp_path: Path,
 ) -> None:
     stack = LayerStack(tmp_path / "stack")
@@ -159,22 +159,17 @@ def test_auto_squash_skips_when_only_tiny_unleased_run_is_reducible(
             ChangesetResult(files=(), published_manifest_version=6)
         )
 
-        assert timings == {}
-        assert stack.read_active_manifest().depth == 6
+        assert timings[TimingKey.LAYER_AUTO_SQUASH_DEPTH_BEFORE] == 6.0
+        assert timings[TimingKey.LAYER_AUTO_SQUASH_DEPTH_AFTER] == 3.0
+        assert stack.read_active_manifest().depth == 3
+        assert stack.read_text("tracked/direct/03.txt", lease.manifest) == (
+            "direct-03\n",
+            True,
+        )
     finally:
         assert stack.release_lease(lease.lease_id) is True
 
-    policy = AutoSquashMaintenancePolicy(
-        snapshot_reader=stack,
-        squasher=stack,
-        max_depth=3,
-    )
-    timings = policy.after_publish_sync(
-        ChangesetResult(files=(), published_manifest_version=6)
-    )
-
-    assert timings[TimingKey.LAYER_AUTO_SQUASH_DEPTH_BEFORE] == 6.0
-    assert timings[TimingKey.LAYER_AUTO_SQUASH_DEPTH_AFTER] == 1.0
+    assert stack.active_lease_count() == 0
 
 
 def test_auto_squash_uses_fixed_constant_depth(tmp_path) -> None:
@@ -204,7 +199,7 @@ def test_auto_squash_uses_fixed_constant_depth(tmp_path) -> None:
     assert stack.read_active_manifest().depth <= configured_max_depth
 
 
-def test_default_mode_skips_in_flight_squash_and_rechecks() -> None:
+def test_auto_squash_policy_does_not_skip_in_flight_squash() -> None:
     max_depth = 4
     stack = _AutoSquashOnlyLayerStack(
         depth=7,
@@ -221,16 +216,20 @@ def test_default_mode_skips_in_flight_squash_and_rechecks() -> None:
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         owner = pool.submit(policy.after_publish_sync, published)
         assert stack.squash_entered.wait(timeout=2)
-        skipped = pool.submit(policy.after_publish_sync, published)
-        skipped_timings = skipped.result(timeout=2)
+        peer = pool.submit(policy.after_publish_sync, published)
         stack.release_squash.set()
+        peer_timings = peer.result(timeout=2)
         owner_timings = owner.result(timeout=2)
 
     assert stack.squash_calls == 2
-    assert skipped_timings[TimingKey.LAYER_AUTO_SQUASH_SKIPPED_IN_FLIGHT] == 1.0
-    assert owner_timings[TimingKey.LAYER_AUTO_SQUASH_RECHECK_TRIGGERED] == 1.0
-    assert owner_timings[TimingKey.LAYER_AUTO_SQUASH_DEPTH_BEFORE] == 7.0
-    assert owner_timings[TimingKey.LAYER_AUTO_SQUASH_DEPTH_AFTER] == 1.0
+    assert TimingKey.LAYER_AUTO_SQUASH_SKIPPED_IN_FLIGHT not in peer_timings
+    assert TimingKey.LAYER_AUTO_SQUASH_SKIPPED_IN_FLIGHT not in owner_timings
+    assert TimingKey.LAYER_AUTO_SQUASH_RECHECK_TRIGGERED not in peer_timings
+    assert TimingKey.LAYER_AUTO_SQUASH_RECHECK_TRIGGERED not in owner_timings
+    assert {
+        owner_timings[TimingKey.LAYER_AUTO_SQUASH_DEPTH_AFTER],
+        peer_timings[TimingKey.LAYER_AUTO_SQUASH_DEPTH_AFTER],
+    } == {1.0, 6.0}
 
 
 def test_removed_mode_env_is_ignored(monkeypatch) -> None:

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterator
+from types import SimpleNamespace
 
 import pytest
 
@@ -164,3 +166,74 @@ register_plugin_op("demo", "hover")(handler)
 
     with pytest.raises(PluginOpRegistrationError, match="only modules under"):
         flush_plugin_registrations("demo", lambda _op, _h: None)
+
+
+def test_context_wrapper_uses_dispatch_runner_for_auto_overlay_ops() -> None:
+    _exec_in_plugin_namespace(
+        "demo",
+        """
+async def handler(args, ctx):
+    return {"ctx": ctx.marker, "args": args}
+
+register_plugin_op("demo", "run")(handler)
+        """.strip(),
+    )
+    registered: dict[str, object] = {}
+    calls: list[tuple[str, str]] = []
+
+    async def context_factory(args, plugin_name, op_name):
+        del args, plugin_name, op_name
+        return SimpleNamespace(marker="ctx")
+
+    async def dispatch_runner(plugin_handler, args, ctx, plugin_name, op_name):
+        calls.append((plugin_name, op_name))
+        return await plugin_handler(args, ctx)
+
+    flush_plugin_registrations(
+        "demo",
+        lambda op, handler: registered.setdefault(op, handler),
+        context_factory=context_factory,
+        dispatch_runner=dispatch_runner,
+        trusted_caller=True,
+    )
+
+    result = asyncio.run(registered["plugin.demo.run"]({"value": 1}))
+
+    assert result == {"ctx": "ctx", "args": {"value": 1}}
+    assert calls == [("demo", "run")]
+
+
+def test_context_wrapper_skips_dispatch_runner_when_op_opts_out() -> None:
+    _exec_in_plugin_namespace(
+        "demo",
+        """
+async def handler(args, ctx):
+    return {"ctx": ctx.marker, "args": args}
+
+register_plugin_op("demo", "run", auto_workspace_overlay=False)(handler)
+        """.strip(),
+    )
+    registered: dict[str, object] = {}
+    calls: list[tuple[str, str]] = []
+
+    async def context_factory(args, plugin_name, op_name):
+        del args, plugin_name, op_name
+        return SimpleNamespace(marker="ctx")
+
+    async def dispatch_runner(plugin_handler, args, ctx, plugin_name, op_name):
+        del plugin_handler, args, ctx
+        calls.append((plugin_name, op_name))
+        return {}
+
+    flush_plugin_registrations(
+        "demo",
+        lambda op, handler: registered.setdefault(op, handler),
+        context_factory=context_factory,
+        dispatch_runner=dispatch_runner,
+        trusted_caller=True,
+    )
+
+    result = asyncio.run(registered["plugin.demo.run"]({"value": 1}))
+
+    assert result == {"ctx": "ctx", "args": {"value": 1}}
+    assert calls == []

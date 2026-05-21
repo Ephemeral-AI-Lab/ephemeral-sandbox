@@ -33,3 +33,28 @@ def test_workspace_leases_refcount_manifest_layers() -> None:
 def test_releasing_unknown_lease_returns_none() -> None:
     registry = LeaseRegistry(id_factory=lambda: "lease-a", clock=lambda: 10.0)
     assert registry.release("missing") is None
+
+
+def test_squash_barrier_layers_use_only_newest_layer_per_lease() -> None:
+    ids = iter(("lease-a", "lease-b", "lease-c", "lease-d"))
+    registry = LeaseRegistry(id_factory=lambda: next(ids), clock=lambda: 10.0)
+    layer_1 = LayerRef(layer_id="L000001", path="layers/L000001")
+    layer_2 = LayerRef(layer_id="L000002", path="layers/L000002")
+    layer_3 = LayerRef(layer_id="L000003", path="layers/L000003")
+
+    registry.acquire(
+        Manifest(version=3, layers=(layer_3, layer_2, layer_1)),
+        "request-a",
+    )
+    registry.acquire(
+        Manifest(version=2, layers=(layer_2, layer_1)),
+        "request-b",
+    )
+    registry.acquire(
+        Manifest(version=3, layers=(layer_3, layer_2, layer_1)),
+        "request-c",
+    )
+    registry.acquire(Manifest(version=0, layers=()), "request-d")
+
+    assert registry.squash_barrier_layers() == (layer_2, layer_3)
+    assert registry.pinned_layers() == (layer_1, layer_2, layer_3)

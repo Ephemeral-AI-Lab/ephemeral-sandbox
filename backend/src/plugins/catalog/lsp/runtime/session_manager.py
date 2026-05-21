@@ -9,7 +9,10 @@ from typing import Any
 from sandbox.execution.overlay.capability import new_mount_api_supported
 from sandbox.execution.strategies.namespace import detect_private_mount_namespace
 
-from plugins.catalog.lsp.runtime.pyright_session import PyrightSession
+from plugins.catalog.lsp.runtime.pyright_session import (
+    PyrightOverlayRefreshError,
+    PyrightSession,
+)
 
 __all__ = ["get_session", "evict_all", "evict_for_root"]
 
@@ -32,10 +35,26 @@ async def get_session(ctx: Any) -> PyrightSession:
         cached = _sessions.get(layer_stack_root)
         if cached is not None and cached.manifest_key != active_key:
             if _session_owns_overlay_handle(cached):
-                logger.info("pyright session snapshot changed; restarting")
-                await cached.evict()
-                _sessions.pop(layer_stack_root, None)
-                cached = None
+                workspace_root = _declared_workspace_root(ctx)
+                if cached.workspace_root == workspace_root:
+                    refreshed = await _refresh_owned_session(
+                        ctx,
+                        cached,
+                        active_key=active_key,
+                    )
+                    if not refreshed:
+                        cached = None
+                else:
+                    logger.info(
+                        "pyright session workspace root changed; restarting",
+                        extra={
+                            "old_workspace_root": cached.workspace_root,
+                            "new_workspace_root": workspace_root,
+                        },
+                    )
+                    await cached.evict()
+                    _sessions.pop(layer_stack_root, None)
+                    cached = None
             else:
                 await cached.refresh_manifest(manifest_key=active_key)
         if cached is not None and not _session_owns_overlay_handle(cached):
@@ -220,6 +239,30 @@ def _session_owns_overlay_handle(session: Any) -> bool:
     return getattr(session, "_overlay_handle", None) is not None
 
 
+async def _refresh_owned_session(
+    ctx: Any,
+    session: PyrightSession,
+    *,
+    active_key: str,
+) -> bool:
+    layer_stack_root = str(ctx.layer_stack_root)
+    session_view = _acquire_session_view(ctx, active_key=active_key)
+    try:
+        await session.refresh_manifest(
+            manifest_key=session_view.manifest_key,
+            overlay_handle=session_view.handle,
+            workspace_root=session_view.workspace_root,
+        )
+        logger.info("pyright session snapshot refreshed in place")
+        return True
+    except (PyrightOverlayRefreshError, OSError, asyncio.TimeoutError):
+        _release_handle(session_view.handle)
+        logger.info("pyright session snapshot refresh failed; restarting")
+        await session.evict()
+        _sessions.pop(layer_stack_root, None)
+        return False
+
+
 def _ensure_event_subscription(
     layer_stack_root: str,
     overlay: Any,
@@ -256,17 +299,77 @@ async def _pump_workspace_events(
 ) -> None:
     while True:
         event = await queue.get()
-        cached = _sessions.get(layer_stack_root)
-        if cached is not session:
-            return
-        active_key = (
-            overlay.active_manifest_key()
-            if hasattr(overlay, "active_manifest_key")
-            else session.manifest_key
+        lock = _locks.setdefault(layer_stack_root, asyncio.Lock())
+        async with lock:
+            cached = _sessions.get(layer_stack_root)
+            if cached is not session:
+                return
+            active_key = (
+                overlay.active_manifest_key()
+                if hasattr(overlay, "active_manifest_key")
+                else session.manifest_key
+            )
+            if active_key != session.manifest_key:
+                session_view = _acquire_session_view_from_overlay(
+                    overlay,
+                    active_key=active_key,
+                    op_name="event",
+                    workspace_root=session.workspace_root,
+                )
+                try:
+                    await session.refresh_manifest(
+                        manifest_key=session_view.manifest_key,
+                        overlay_handle=session_view.handle,
+                        workspace_root=session_view.workspace_root,
+                    )
+                except (PyrightOverlayRefreshError, OSError, asyncio.TimeoutError):
+                    _release_handle(session_view.handle)
+                    await session.evict()
+                    _sessions.pop(layer_stack_root, None)
+                    return
+            elif getattr(event, "changes", ()):
+                await session.refresh_manifest(manifest_key=active_key)
+
+
+def _acquire_session_view_from_overlay(
+    overlay: Any,
+    *,
+    active_key: str,
+    op_name: str,
+    workspace_root: str,
+) -> _SessionView:
+    acquire_operation_overlay = getattr(overlay, "acquire_operation_overlay", None)
+    if callable(acquire_operation_overlay):
+        use_namespace = _overlay_namespace_available()
+        handle = acquire_operation_overlay(
+            request_id=f"lsp-session:{op_name}",
+            workspace_root=workspace_root,
+            materialize=not use_namespace,
         )
-        if active_key != session.manifest_key:
-            await session.evict()
-            _sessions.pop(layer_stack_root, None)
-            return
-        if getattr(event, "changes", ()):
-            await session.refresh_manifest(manifest_key=active_key)
+        if use_namespace and getattr(handle, "layer_paths", None):
+            return _SessionView(
+                manifest_key=handle.manifest_key,
+                workspace_root=workspace_root,
+                handle=handle,
+            )
+        lowerdir = getattr(handle, "lowerdir", None)
+        if lowerdir:
+            return _SessionView(
+                manifest_key=handle.manifest_key,
+                workspace_root=str(lowerdir),
+                handle=handle,
+            )
+        _release_handle(handle)
+    return _SessionView(
+        manifest_key=active_key,
+        workspace_root=workspace_root,
+        handle=None,
+    )
+
+
+def _release_handle(handle: Any | None) -> None:
+    if handle is None:
+        return
+    release = getattr(handle, "release", None)
+    if callable(release):
+        release()

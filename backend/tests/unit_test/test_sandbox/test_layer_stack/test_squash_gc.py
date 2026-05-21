@@ -58,16 +58,18 @@ def test_squash_gc_keeps_active_and_leased_layers_then_release_removes_only_old_
     squashed = manager.squash(max_depth=2)
 
     assert squashed is not None
-    assert squashed.depth == 4
+    assert squashed.depth == 3
     assert squashed.layers[0].layer_id.startswith("B")
-    assert squashed.layers[1:] == leased_layers
+    assert squashed.layers[1] == leased_layers[0]
+    assert squashed.layers[2].layer_id.startswith("B")
     assert manager.read_text("a.txt", manifest=lease.manifest) == ("a2", True)
     assert manager.read_text("b.txt", manifest=lease.manifest) == ("b1", True)
     assert all(_layer_path(manager, layer).is_dir() for layer in leased_layers)
 
     assert manager.release_lease(lease.lease_id) is True
 
-    assert all(_layer_path(manager, layer).is_dir() for layer in leased_layers)
+    assert _layer_path(manager, leased_layers[0]).is_dir()
+    assert all(not _layer_path(manager, layer).exists() for layer in leased_layers[1:])
     final_squash = manager.squash(max_depth=2)
 
     assert final_squash is not None
@@ -253,6 +255,7 @@ def test_squash_pins_planned_layers_during_checkpoint_build(
 
     real_build_checkpoint = manager._squash.build_checkpoint
     triggered = False
+    concurrent_results: list[Manifest | None] = []
 
     def build_checkpoint_after_concurrent_squash(
         segment: CheckpointSegment,
@@ -268,12 +271,14 @@ def test_squash_pins_planned_layers_during_checkpoint_build(
                 real_build_checkpoint,
             )
             concurrent = manager.squash(max_depth=2)
+            concurrent_results.append(concurrent)
             monkeypatch.setattr(
                 manager._squash,
                 "build_checkpoint",
                 build_checkpoint_after_concurrent_squash,
             )
-            assert concurrent is None
+            assert concurrent is not None
+            assert concurrent.depth == 2
         return real_build_checkpoint(segment, active_version=active_version)
 
     monkeypatch.setattr(
@@ -285,10 +290,11 @@ def test_squash_pins_planned_layers_during_checkpoint_build(
     squashed = manager.squash(max_depth=2)
 
     assert triggered is True
-    assert squashed is not None
+    assert squashed is None
+    assert concurrent_results and concurrent_results[0] is not None
     assert manager.active_lease_count() == 0
     active = manager.read_active_manifest()
-    assert active.depth == 1
+    assert active.depth == 2
     for index in range(5):
         assert manager.read_text(f"base/{index:02d}.txt") == (
             f"base-{index:02d}\n",

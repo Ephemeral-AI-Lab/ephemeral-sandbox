@@ -42,6 +42,10 @@ ContextFactory = Callable[
     [dict[str, Any], str, str],
     Awaitable[PluginOpContext],
 ]
+DispatchRunner = Callable[
+    [PluginOpHandler, dict[str, Any], PluginOpContext, str, str],
+    Awaitable[Any],
+]
 
 
 class PluginOpRegistrationError(RuntimeError):
@@ -57,6 +61,7 @@ class _PendingRegistration:
     plugin_name: str
     op_name: str
     handler: PluginOpHandler
+    auto_workspace_overlay: bool = True
 
 
 _PENDING: dict[tuple[str, str], _PendingRegistration] = {}
@@ -65,12 +70,18 @@ _PLUGIN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def register_plugin_op(
-    plugin_name: str, op_name: str
+    plugin_name: str,
+    op_name: str,
+    *,
+    auto_workspace_overlay: bool = True,
 ) -> Callable[[PluginOpHandler], PluginOpHandler]:
     """Decorator that records a plugin op handler.
 
     Identical re-registration (same plugin/op/handler) is a no-op. Conflicting
     registration with a different handler raises ``PluginOpConflictError``.
+    By default, daemon dispatch runs handlers inside an automatic per-operation
+    workspace overlay. Stateful runtimes that already manage their own overlay
+    lifecycle can pass ``auto_workspace_overlay=False``.
     """
     plugin_name = (plugin_name or "").strip()
     op_name = (op_name or "").strip()
@@ -94,6 +105,7 @@ def register_plugin_op(
             plugin_name=plugin_name,
             op_name=op_name,
             handler=handler,
+            auto_workspace_overlay=bool(auto_workspace_overlay),
         )
         return handler
 
@@ -128,6 +140,7 @@ def flush_plugin_registrations(
     dispatcher_register_op: Callable[[str, DispatcherHandler], None],
     *,
     context_factory: ContextFactory | None = None,
+    dispatch_runner: DispatchRunner | None = None,
     trusted_caller: bool = False,
 ) -> list[str]:
     """Flush pending registrations for *plugin_name* into the dispatcher.
@@ -160,6 +173,7 @@ def flush_plugin_registrations(
                 context_factory=context_factory,
                 plugin_name=entry.plugin_name,
                 op_name=entry.op_name,
+                dispatch_runner=dispatch_runner if entry.auto_workspace_overlay else None,
             )
         dispatcher_register_op(public_op, handler)
         registered.append(public_op)
@@ -173,9 +187,18 @@ def _wrap_with_context(
     context_factory: ContextFactory,
     plugin_name: str,
     op_name: str,
+    dispatch_runner: DispatchRunner | None = None,
 ) -> DispatcherHandler:
     async def dispatcher_handler(args: dict[str, Any]) -> Any:
         ctx = await context_factory(args, plugin_name, op_name)
+        if dispatch_runner is not None:
+            return await dispatch_runner(
+                plugin_handler,
+                args,
+                ctx,
+                plugin_name,
+                op_name,
+            )
         return await plugin_handler(args, ctx)
 
     return dispatcher_handler

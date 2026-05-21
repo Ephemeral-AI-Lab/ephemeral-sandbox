@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 
 from plugins.catalog.lsp.runtime import server as lsp_server
+from plugins.catalog.lsp.runtime import pyright_session as pyright_session_module
 from plugins.catalog.lsp.runtime import session_manager
 from plugins.catalog.lsp.runtime.pyright_session import PyrightSession
 
@@ -122,16 +123,33 @@ class _FakeSession:
         self.manifest_key = manifest_key
         self.workspace_root = workspace_root
         self.overlay_handle = _kwargs.get("overlay_handle")
+        self._overlay_handle = self.overlay_handle
         self.refresh_count = 0
         self.evict_count = 0
 
-    async def refresh_manifest(self, *, manifest_key: str) -> None:
+    async def refresh_manifest(
+        self,
+        *,
+        manifest_key: str,
+        overlay_handle: Any | None = None,
+        workspace_root: str | None = None,
+    ) -> None:
+        old_handle = self._overlay_handle
         self.refresh_count += 1
         self.manifest_key = manifest_key
+        if workspace_root is not None:
+            self.workspace_root = workspace_root
+        if overlay_handle is not None:
+            self.overlay_handle = overlay_handle
+            self._overlay_handle = overlay_handle
+            if old_handle is not None and old_handle is not overlay_handle:
+                release = getattr(old_handle, "release", None)
+                if callable(release):
+                    release()
 
     async def evict(self) -> None:
         self.evict_count += 1
-        release = getattr(self.overlay_handle, "release", None)
+        release = getattr(self._overlay_handle, "release", None)
         if callable(release):
             release()
 
@@ -228,6 +246,35 @@ async def test_session_manager_uses_daemon_operation_overlay_for_lsp_session(
     assert session.overlay_handle is overlay.handles[0]
     assert overlay.handles[0].materialize is False
     assert overlay.handles[0].layer_paths == ("/layers/L1",)
+
+
+@pytest.mark.asyncio
+async def test_session_manager_refreshes_owned_overlay_without_restart(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(session_manager, "PyrightSession", _FakeSession)
+    monkeypatch.setattr(session_manager, "_overlay_namespace_available", lambda: True)
+
+    overlay = _OperationOverlay(workspace_root="/testbed", manifest_key="hash-a@1")
+    ctx = _Ctx(
+        layer_stack_root=str(tmp_path / "stack"),
+        overlay=overlay,
+        metadata={"op_name": "hover"},
+    )
+
+    session = await session_manager.get_session(ctx)
+    first_handle = overlay.handles[0]
+    overlay.manifest_key = "hash-b@2"
+    refreshed = await session_manager.get_session(ctx)
+
+    assert refreshed is session
+    assert session.evict_count == 0
+    assert session.refresh_count == 1
+    assert session.manifest_key == "hash-b@2"
+    assert session.overlay_handle is overlay.handles[1]
+    assert first_handle.released is True
+    assert overlay.handles[1].released is False
 
 
 @pytest.mark.asyncio
@@ -356,6 +403,108 @@ async def test_pyright_session_refresh_notifies_open_docs(tmp_path: Path) -> Non
         if method == "textDocument/didChange"
     ]
     assert did_change
+    assert did_change[-1]["contentChanges"] == [{"text": "value = 2\n"}]
+    assert uri in session._opened
+
+
+@pytest.mark.asyncio
+async def test_pyright_session_refresh_remounts_private_namespace(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    old_layer = tmp_path / "old" / "L1"
+    new_layer = tmp_path / "new" / "L2"
+    old_module = old_layer / "pkg" / "mod.py"
+    new_module = new_layer / "pkg" / "mod.py"
+    old_module.parent.mkdir(parents=True)
+    new_module.parent.mkdir(parents=True)
+    old_module.write_text("value = 1\n", encoding="utf-8")
+    new_module.write_text("value = 2\n", encoding="utf-8")
+    old_handle = _OverlayHandle(
+        request_id="lsp-session:hover",
+        workspace_root="/testbed",
+        manifest_key="hash-a@1",
+        materialize=False,
+    )
+    old_handle.layer_paths = (old_layer.as_posix(),)
+    new_handle = _OverlayHandle(
+        request_id="lsp-session:hover",
+        workspace_root="/testbed",
+        manifest_key="hash-b@2",
+        materialize=False,
+    )
+    new_handle.layer_paths = (new_layer.as_posix(),)
+    new_handle.run_dir = (tmp_path / "run").as_posix()
+    new_handle.upperdir = (tmp_path / "run" / "upper").as_posix()
+    new_handle.workdir = (tmp_path / "run" / "work").as_posix()
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    class _Proc:
+        returncode = 0
+
+        async def communicate(self) -> tuple[bytes, bytes]:
+            return b"", b""
+
+    async def _create_subprocess_exec(
+        *args: Any,
+        **kwargs: Any,
+    ) -> _Proc:
+        calls.append((args, kwargs))
+        return _Proc()
+
+    monkeypatch.setattr(
+        pyright_session_module.asyncio,
+        "create_subprocess_exec",
+        _create_subprocess_exec,
+    )
+    monkeypatch.setattr(
+        pyright_session_module.shutil,
+        "which",
+        lambda name: "/usr/bin/nsenter" if name == "nsenter" else None,
+    )
+    session = PyrightSession(
+        manifest_key="hash-a@1",
+        workspace_root="/testbed",
+        overlay_handle=old_handle,
+    )
+    client = _Client()
+    session._client = client  # type: ignore[assignment]
+    session._proc = SimpleNamespace(pid=4321)  # type: ignore[assignment]
+    session._started = True
+    uri = await session._open_document("pkg/mod.py")
+    client.notifications.clear()
+
+    await session.refresh_manifest(
+        manifest_key="hash-b@2",
+        overlay_handle=new_handle,
+        workspace_root="/testbed",
+    )
+
+    assert session.manifest_key == "hash-b@2"
+    assert session._overlay_handle is new_handle
+    assert session._overlay_layer_paths == (new_layer.as_posix(),)
+    assert old_handle.released is True
+    assert new_handle.released is False
+    assert calls
+    argv = calls[0][0]
+    assert argv[:6] == (
+        "/usr/bin/nsenter",
+        "-t",
+        "4321",
+        "-U",
+        "-m",
+        "--preserve-credentials",
+    )
+    assert "plugins.catalog.lsp.runtime.namespace_remount" in argv
+    assert (
+        "workspace/didChangeWatchedFiles",
+        {"changes": [{"uri": session._workspace_uri(), "type": 2}]},
+    ) in client.notifications
+    did_change = [
+        params
+        for method, params in client.notifications
+        if method == "textDocument/didChange"
+    ]
     assert did_change[-1]["contentChanges"] == [{"text": "value = 2\n"}]
     assert uri in session._opened
 

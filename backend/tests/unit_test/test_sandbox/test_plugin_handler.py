@@ -196,6 +196,52 @@ def test_plugin_context_rejects_workspace_root_mismatch(tmp_path: Path) -> None:
         )
 
 
+def test_plugin_context_does_not_start_persistent_overlay_mount(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    layer_stack_root = tmp_path / "layer-stack"
+    _write_binding(layer_stack_root)
+    calls: list[dict[str, object]] = []
+
+    async def fake_get_sandbox_overlay(
+        layer_stack_root_arg: str,
+        *,
+        workspace_root: str | None = None,
+        start: bool = True,
+    ) -> object:
+        calls.append(
+            {
+                "layer_stack_root": layer_stack_root_arg,
+                "workspace_root": workspace_root,
+                "start": start,
+            }
+        )
+        return object()
+
+    monkeypatch.setattr(
+        handler_mod,
+        "get_sandbox_overlay",
+        fake_get_sandbox_overlay,
+    )
+
+    overlay = asyncio.run(
+        handler_mod._overlay_for_root(
+            str(layer_stack_root),
+            workspace_root="/testbed",
+        )
+    )
+
+    assert overlay is not None
+    assert calls == [
+        {
+            "layer_stack_root": str(layer_stack_root),
+            "workspace_root": "/testbed",
+            "start": False,
+        }
+    ]
+
+
 def test_plugin_ensure_is_idempotent() -> None:
     _inject_runtime("demo2", ["hover"])
     first = asyncio.run(

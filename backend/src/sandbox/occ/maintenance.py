@@ -1,8 +1,6 @@
 """Post-publish OCC maintenance policies."""
 
 from __future__ import annotations
-
-import threading
 from typing import Protocol, runtime_checkable
 
 from sandbox.layer_stack.manifest import Manifest
@@ -26,7 +24,7 @@ class SquashPort(Protocol):
 
 
 class AutoSquashMaintenancePolicy:
-    """Coalesced synchronous layer-stack squash after successful publishes."""
+    """Synchronous layer-stack squash after successful publishes."""
 
     def __init__(
         self,
@@ -38,9 +36,6 @@ class AutoSquashMaintenancePolicy:
         self._snapshot_reader = snapshot_reader
         self._squasher = squasher
         self._max_depth = int(max_depth)
-        self._lock = threading.Lock()
-        self._state_lock = threading.Lock()
-        self._pending_recheck = False
 
     def after_publish_sync(self, result: ChangesetResult) -> dict[str, float]:
         if result.published_manifest_version is None:
@@ -49,41 +44,7 @@ class AutoSquashMaintenancePolicy:
         if active.depth <= self._max_depth:
             return {}
 
-        if not self._lock.acquire(blocking=False):
-            with self._state_lock:
-                self._pending_recheck = True
-            return {
-                TimingKey.LAYER_AUTO_SQUASH_SKIPPED_IN_FLIGHT: 1.0,
-                TimingKey.LAYER_AUTO_SQUASH_MAX_DEPTH: float(self._max_depth),
-                TimingKey.LAYER_AUTO_SQUASH_DEPTH_BEFORE: float(active.depth),
-            }
-
-        try:
-            timings = self._run_squash_for_active(active)
-            with self._state_lock:
-                pending_recheck = self._pending_recheck
-                self._pending_recheck = False
-            if not pending_recheck:
-                return timings
-
-            active = self._snapshot_reader.read_active_manifest()
-            if active.depth <= self._max_depth:
-                return timings
-            recheck_timings = self._run_squash_for_active(active)
-            if not recheck_timings:
-                return timings
-            recheck_timings[TimingKey.LAYER_AUTO_SQUASH_RECHECK_TRIGGERED] = 1.0
-            merged = {**timings, **recheck_timings}
-            merged[TimingKey.LAYER_AUTO_SQUASH_TOTAL] = timings.get(
-                TimingKey.LAYER_AUTO_SQUASH_TOTAL, 0.0
-            ) + recheck_timings.get(TimingKey.LAYER_AUTO_SQUASH_TOTAL, 0.0)
-            if TimingKey.LAYER_AUTO_SQUASH_DEPTH_BEFORE in timings:
-                merged[TimingKey.LAYER_AUTO_SQUASH_DEPTH_BEFORE] = timings[
-                    TimingKey.LAYER_AUTO_SQUASH_DEPTH_BEFORE
-                ]
-            return merged
-        finally:
-            self._lock.release()
+        return self._run_squash_for_active(active)
 
     def _run_squash_for_active(self, active: Manifest) -> dict[str, float]:
         can_squash = getattr(self._squasher, "can_squash", None)

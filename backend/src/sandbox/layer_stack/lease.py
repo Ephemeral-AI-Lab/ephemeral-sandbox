@@ -65,6 +65,26 @@ class LeaseRegistry:
         with self._lock:
             return tuple(sorted(self._refcounts))
 
+    def squash_barrier_layers(self) -> tuple[LayerRef, ...]:
+        """Return leased snapshot boundary layers that active squash must preserve.
+
+        Snapshot leases pin every layer for GC, but treating every pinned layer
+        as an active-manifest squash barrier prevents any reduction for a
+        leased deep snapshot. The newest layer of each leased manifest is the
+        boundary that keeps active squash from crossing that snapshot cut; the
+        remaining leased layers stay GC-pinned until release.
+        """
+        with self._lock:
+            return tuple(
+                sorted(
+                    {
+                        lease.manifest.layers[0]
+                        for lease in self._leases.values()
+                        if lease.manifest.layers
+                    }
+                )
+            )
+
     def active_count(self) -> int:
         with self._lock:
             return len(self._leases)

@@ -36,6 +36,7 @@ from sandbox.plugin.op_registry import (
     flush_plugin_registrations,
     pending_plugin_registrations,
 )
+from sandbox.plugin.overlay_dispatch import run_plugin_op_with_workspace_overlay
 from sandbox.plugin.projection import WorkspaceProjection
 
 __all__ = [
@@ -123,6 +124,7 @@ async def _plugin_ensure_locked(
         plugin_name,
         register_op,
         context_factory=_plugin_op_context_factory,
+        dispatch_runner=run_plugin_op_with_workspace_overlay,
         trusted_caller=True,
     )
     # Warm BEFORE writing _LOADED so a failed warm doesn't wedge the registry
@@ -326,6 +328,11 @@ async def _overlay_for_root(layer_stack_root: str, *, workspace_root: str) -> An
         return await get_sandbox_overlay(
             key,
             workspace_root=str(workspace_root or "").strip() or None,
+            # Plugin calls use SandboxOverlay as the daemon-owned operation
+            # facade. Starting the persistent workspace mount here would create
+            # a long-lived lease whose foreign-publish watcher remounts to the
+            # newest full stack and blocks auto-squash under normal writes.
+            start=False,
         )
     except WorkspaceBindingError as exc:
         raise PluginEnsureError(str(exc)) from exc
