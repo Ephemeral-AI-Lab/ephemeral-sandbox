@@ -80,31 +80,29 @@ async def apply_workspace_edit_op(args: dict[str, Any], ctx: Any) -> dict[str, A
 
 @register_plugin_op("lsp", "rename")
 async def rename(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
-    operation = getattr(ctx.overlay, "workspace_operation", None)
-    if callable(operation):
-        async with operation(reason="lsp:rename:enter"):
-            session = await get_session(ctx)
-            edit = await session.rename(args)
-            result = await apply_workspace_edit(edit, ctx, ensure_current=False)
-    else:
-        session = await get_session(ctx)
-        edit = await session.rename(args)
-        result = await apply_workspace_edit(edit, ctx, ensure_current=False)
+    session = await get_session(ctx)
+    edit = await session.rename(args)
+    result = await apply_workspace_edit(
+        edit,
+        ctx,
+        ensure_current=False,
+        workspace_root=session.workspace_root,
+        expected_manifest_key=session.manifest_key,
+    )
     return {"edit": edit, "apply": result}
 
 
 @register_plugin_op("lsp", "format")
 async def format_document(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
-    operation = getattr(ctx.overlay, "workspace_operation", None)
-    if callable(operation):
-        async with operation(reason="lsp:format:enter"):
-            session = await get_session(ctx)
-            edit = await session.format_document(args)
-            result = await apply_workspace_edit(edit, ctx, ensure_current=False)
-    else:
-        session = await get_session(ctx)
-        edit = await session.format_document(args)
-        result = await apply_workspace_edit(edit, ctx, ensure_current=False)
+    session = await get_session(ctx)
+    edit = await session.format_document(args)
+    result = await apply_workspace_edit(
+        edit,
+        ctx,
+        ensure_current=False,
+        workspace_root=session.workspace_root,
+        expected_manifest_key=session.manifest_key,
+    )
     return {"edit": edit, "apply": result}
 
 
@@ -118,5 +116,12 @@ async def code_actions(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
 async def apply_code_action(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
     action = args.get("action") if isinstance(args.get("action"), dict) else args
     edit = action.get("edit") if isinstance(action.get("edit"), dict) else {}
-    result = await apply_workspace_edit(edit, ctx)
+    session = await get_session(ctx)
+    result = await apply_workspace_edit(
+        edit,
+        ctx,
+        ensure_current=False,
+        workspace_root=session.workspace_root,
+        expected_manifest_key=session.manifest_key,
+    )
     return {"action": action, "apply": result}

@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import contextlib
 import hashlib
+import json
 import logging
 import os
 import shutil
+import sys
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote, urlparse
+
+from sandbox.layer_stack.changes import normalize_layer_path
+from sandbox.layer_stack.layer_index import build_layer_index, has_ancestor_in
+from sandbox.layer_stack.paths import join_layer_path
 
 from plugins.catalog.lsp.runtime.lsp_jsonrpc import (
     JsonRpcError,
@@ -37,17 +45,28 @@ class PyrightSpawnError(RuntimeError):
 
 
 class PyrightSession:
-    """Long-lived Pyright session rooted directly at the daemon overlay."""
+    """Long-lived Pyright session rooted at a leased workspace overlay."""
 
     def __init__(
         self,
         *,
         manifest_key: str,
         workspace_root: str,
+        overlay_handle: Any | None = None,
     ) -> None:
         self.manifest_key = manifest_key
         self.workspace_root = str(workspace_root or "/testbed").rstrip("/") or "/"
-        self.lowerdir = self.workspace_root
+        self._overlay_handle = overlay_handle
+        self._uses_private_overlay_namespace = bool(
+            getattr(overlay_handle, "layer_paths", None)
+        )
+        self._overlay_layer_paths = tuple(
+            str(path) for path in getattr(overlay_handle, "layer_paths", ()) or ()
+        )
+        self._layer_index_cache: dict[str, Any] = {}
+        self.lowerdir = str(
+            getattr(overlay_handle, "lowerdir", None) or self.workspace_root
+        )
         self._proc: asyncio.subprocess.Process | None = None
         self._client: LspJsonRpcClient | None = None
         self._opened: set[str] = set()
@@ -55,6 +74,7 @@ class PyrightSession:
         self._started = False
         self._document_versions: dict[str, int] = {}
         self._document_hashes: dict[str, str] = {}
+        self._diagnostic_cache: dict[str, list[dict[str, Any]]] = {}
 
     async def refresh_manifest(
         self,
@@ -150,8 +170,9 @@ class PyrightSession:
     async def query_symbols(self, args: dict[str, Any]) -> dict[str, Any]:
         await self.start()
         query = str(args.get("query", "")).strip()
-        if "file_path" in args and args["file_path"]:
-            uri = await self._open_document(str(args["file_path"]))
+        file_path = str(args["file_path"]) if args.get("file_path") else None
+        if file_path:
+            uri = await self._open_document(file_path)
             params = {"textDocument": {"uri": uri}}
             raw = await self._send_request(
                 "textDocument/documentSymbol", params
@@ -170,6 +191,8 @@ class PyrightSession:
                 if isinstance(s, dict)
                 and query.lower() in str(s.get("name", "")).lower()
             ]
+        if file_path and not symbols:
+            symbols = self._fallback_document_symbols(file_path, query)
         return {"symbols": symbols}
 
     async def rename(self, args: dict[str, Any]) -> dict[str, Any]:
@@ -236,6 +259,7 @@ class PyrightSession:
         self._client = None
         self._proc = None
         self._started = False
+        self._diagnostic_cache.clear()
         if client is not None:
             try:
                 await client.close()
@@ -247,6 +271,7 @@ class PyrightSession:
                 await asyncio.wait_for(proc.wait(), timeout=5.0)
             except Exception:
                 logger.debug("pyright proc terminate error", exc_info=True)
+        self._release_overlay_handle()
 
     async def _cleanup_failed_start(self) -> None:
         proc = self._proc
@@ -256,6 +281,7 @@ class PyrightSession:
             with contextlib.suppress(Exception):
                 proc.terminate()
                 await asyncio.wait_for(proc.wait(), timeout=5.0)
+        self._release_overlay_handle()
 
     async def _point_query(
         self, method: str, args: dict[str, Any]
@@ -388,6 +414,11 @@ class PyrightSession:
 
         items = raw.get("items")
         if not isinstance(items, list):
+            if raw.get("kind") == "unchanged":
+                return self._diagnostic_result(
+                    list(self._diagnostic_cache.get(uri, [])),
+                    raw,
+                )
             return {
                 "diagnostics": [],
                 "error": {
@@ -396,7 +427,31 @@ class PyrightSession:
             }
 
         diagnostics = list(items)
+        self._diagnostic_cache[uri] = diagnostics
         return self._diagnostic_result(diagnostics, raw)
+
+    def _fallback_document_symbols(
+        self,
+        file_path: str,
+        query: str,
+    ) -> list[dict[str, Any]]:
+        """Return AST-derived symbols for one valid Python file.
+
+        Pyright can transiently return an empty ``documentSymbol`` result while
+        the live overlay is changing. For file-scoped queries, the tool can
+        still answer from the current file contents without changing
+        workspace-wide LSP behavior.
+        """
+        text = self._read_document_text(file_path)
+        try:
+            module = ast.parse(text)
+        except SyntaxError:
+            return []
+        return _ast_document_symbols(
+            module.body,
+            uri=self._to_uri(file_path),
+            query=query,
+        )
 
     def _diagnostic_result(
         self,
@@ -439,6 +494,49 @@ class PyrightSession:
         self._client.start()
 
     def _build_argv(self) -> list[str]:
+        overlay_argv = self._build_overlay_argv()
+        if overlay_argv is not None:
+            return overlay_argv
+        return self._build_pyright_argv()
+
+    def _build_overlay_argv(self) -> list[str] | None:
+        handle = self._overlay_handle
+        layer_paths = getattr(handle, "layer_paths", None)
+        if not layer_paths:
+            return None
+        unshare = shutil.which("unshare")
+        if not unshare:
+            return None
+        run_dir = Path(str(getattr(handle, "run_dir", "")))
+        if not str(run_dir):
+            return None
+        payload_ref = run_dir / "lsp-namespace-request.json"
+        payload_ref.parent.mkdir(parents=True, exist_ok=True)
+        payload_ref.write_text(
+            json.dumps(
+                {
+                    "workspace_root": self.workspace_root,
+                    "layer_paths": list(layer_paths),
+                    "upperdir": str(getattr(handle, "upperdir", "")),
+                    "workdir": str(getattr(handle, "workdir", "")),
+                    "argv": self._build_pyright_argv(),
+                    "env": os.environ.copy(),
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+        return [
+            unshare,
+            "-Urm",
+            sys.executable,
+            "-m",
+            "plugins.catalog.lsp.runtime.namespace_child",
+            str(payload_ref),
+        ]
+
+    def _build_pyright_argv(self) -> list[str]:
         if os.path.exists(_CONDA_HOOK):
             return [
                 "bash",
@@ -457,6 +555,15 @@ class PyrightSession:
             "-lc",
             "export PATH=/tmp/eos-node22/bin:$PATH && exec pyright-langserver --stdio",
         ]
+
+    def _release_overlay_handle(self) -> None:
+        handle = self._overlay_handle
+        if handle is None:
+            return
+        self._overlay_handle = None
+        release = getattr(handle, "release", None)
+        if callable(release):
+            release()
 
     async def _initialize(self) -> None:
         client = self._client
@@ -511,16 +618,63 @@ class PyrightSession:
         return version
 
     def _read_document_text(self, file_path: str) -> str:
+        if self._uses_private_overlay_namespace:
+            return self._read_document_text_from_layers(file_path)
         try:
             with open(self._to_full_path(file_path), encoding="utf-8") as fh:
                 return fh.read()
         except OSError:
             return ""
 
+    def _read_document_text_from_layers(self, file_path: str) -> str:
+        rel = self._to_layer_relative_path(file_path)
+        if not rel:
+            return ""
+        for layer_path in self._overlay_layer_paths:
+            layer = Path(layer_path)
+            index = self._layer_index(layer)
+            if rel in index.whiteouts:
+                return ""
+            if rel in index.files:
+                candidate = join_layer_path(layer, rel)
+                try:
+                    if candidate.is_symlink():
+                        return os.readlink(candidate)
+                    if candidate.is_file():
+                        return candidate.read_text(encoding="utf-8")
+                except OSError:
+                    return ""
+                return ""
+            if has_ancestor_in(rel, index.files) or has_ancestor_in(
+                rel,
+                index.opaque_dirs,
+            ):
+                return ""
+        return ""
+
+    def _layer_index(self, layer: Path) -> Any:
+        key = layer.as_posix()
+        cached = self._layer_index_cache.get(key)
+        if cached is not None:
+            return cached
+        index = build_layer_index(layer)
+        self._layer_index_cache[key] = index
+        return index
+
+    def _to_layer_relative_path(self, file_path: str) -> str:
+        full = self._to_full_path(file_path)
+        root = self.workspace_root
+        if full == root:
+            return ""
+        if full.startswith(f"{root}/"):
+            return normalize_layer_path(full[len(root) + 1 :])
+        return normalize_layer_path(str(file_path).lstrip("/"))
+
     def _forget_document(self, uri: str) -> None:
         self._opened.discard(uri)
         self._document_hashes.pop(uri, None)
         self._document_versions.pop(uri, None)
+        self._diagnostic_cache.pop(uri, None)
 
     def _workspace_uri(self) -> str:
         return self._path_uri(self.workspace_root)
@@ -566,6 +720,64 @@ class PyrightSession:
 
 def _text_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _ast_document_symbols(
+    body: list[ast.stmt],
+    *,
+    uri: str,
+    query: str,
+) -> list[dict[str, Any]]:
+    query_lower = query.lower()
+    symbols: list[dict[str, Any]] = []
+    for node in body:
+        if not isinstance(
+            node,
+            (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
+        ):
+            continue
+        children = _ast_document_symbols(node.body, uri=uri, query=query)
+        symbol = _ast_symbol(node, uri=uri)
+        if children:
+            symbol["children"] = children
+        if not query_lower or query_lower in symbol["name"].lower() or children:
+            symbols.append(symbol)
+    return symbols
+
+
+def _ast_symbol(
+    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    *,
+    uri: str,
+) -> dict[str, Any]:
+    range_obj = {
+        "start": {
+            "line": max(0, int(getattr(node, "lineno", 1)) - 1),
+            "character": int(getattr(node, "col_offset", 0)),
+        },
+        "end": {
+            "line": max(
+                0,
+                int(getattr(node, "end_lineno", getattr(node, "lineno", 1))) - 1,
+            ),
+            "character": int(
+                getattr(
+                    node,
+                    "end_col_offset",
+                    getattr(node, "col_offset", 0) + len(node.name),
+                )
+            ),
+        },
+    }
+    return {
+        "name": node.name,
+        "kind": 5 if isinstance(node, ast.ClassDef) else 12,
+        "uri": uri,
+        "location": {
+            "uri": uri,
+            "range": range_obj,
+        },
+    }
 
 
 def _optional_positive_float(value: object, *, default: float) -> float:

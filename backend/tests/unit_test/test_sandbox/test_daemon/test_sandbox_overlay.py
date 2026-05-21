@@ -39,6 +39,9 @@ class _LayerStack:
         return SimpleNamespace(
             lease_id=f"lease-{self.manifest.version}",
             manifest=self.manifest,
+            manifest_version=self.manifest.version,
+            root_hash=f"root-{self.manifest.version}",
+            lowerdir=None,
             layer_paths=tuple(
                 (self.storage_root / "layers" / layer.path).as_posix()
                 for layer in self.manifest.layers
@@ -155,6 +158,48 @@ def test_overlay_runtime_uses_command_exec_scratch_root(
     assert overlay.scratch_root == scratch_root
     assert os.fspath(overlay.runtime_dir).startswith(os.fspath(scratch_root))
     assert os.fspath(overlay.upperdir).startswith(os.fspath(scratch_root))
+
+
+def test_operation_overlay_uses_shared_snapshot_layers_and_private_upperdir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scratch_root = tmp_path / "scratch"
+    monkeypatch.setenv("EPHEMERALOS_COMMAND_EXEC_SCRATCH_ROOT", scratch_root.as_posix())
+    manifest = Manifest(version=1, layers=(LayerRef(layer_id="L1", path="L1"),))
+    layer_stack = _LayerStack(tmp_path / "stack", manifest)
+    (layer_stack.storage_root / "layers" / "L1").mkdir(parents=True)
+
+    overlay = SandboxOverlay(
+        occ_client=_OccClient(),  # type: ignore[arg-type]
+        workspace_ref=layer_stack.storage_root.as_posix(),
+        layer_stack=layer_stack,
+        workspace_root="/testbed",
+    )
+
+    first = overlay.acquire_operation_overlay(
+        request_id="lsp-hover",
+        workspace_root="/testbed",
+        materialize=False,
+    )
+    second = overlay.acquire_operation_overlay(
+        request_id="lsp-rename",
+        workspace_root="/testbed",
+        materialize=False,
+    )
+
+    assert first.layer_paths == second.layer_paths
+    assert first.upperdir != second.upperdir
+    assert first.workdir != second.workdir
+    assert Path(first.upperdir).is_relative_to(scratch_root)
+    assert Path(second.upperdir).is_relative_to(scratch_root)
+
+    first.release()
+    second.release()
+
+    assert layer_stack.released == ["lease-1", "lease-1"]
+    assert not Path(first.run_dir).exists()
+    assert not Path(second.run_dir).exists()
 
 
 @pytest.mark.asyncio

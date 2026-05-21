@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import shutil
 from typing import AsyncIterator, Protocol
+from uuid import uuid4
 
 from sandbox.execution.contract import (
     ChangesetResultLike,
@@ -28,6 +29,7 @@ from sandbox.execution.overlay.kernel_mount import (
 from sandbox.execution.scratch import command_exec_scratch_root
 from sandbox.execution.path_change import OverlayPathChange
 from sandbox.layer_stack.manifest import manifest_root_hash
+from sandbox.layer_stack.paths import TRANSIENT_LOWERDIR_DIR
 from sandbox.occ.changeset import (
     ChangesetResult,
     CommitOptions,
@@ -72,6 +74,35 @@ class _OverlaySnapshot:
     lease_id: str
     manifest: SnapshotManifest
     layer_paths: tuple[Path, ...]
+
+
+@dataclass
+class OperationOverlayHandle:
+    """Daemon-owned lease plus private upper/work dirs for one operation."""
+
+    lease_id: str
+    manifest_key: str
+    manifest_version: int
+    root_hash: str
+    manifest: SnapshotManifest
+    workspace_root: str
+    run_dir: str
+    upperdir: str
+    workdir: str
+    lowerdir: str | None
+    layer_paths: tuple[str, ...] | None
+    _overlay: SandboxOverlay
+    _released: bool = False
+
+    def release(self) -> None:
+        if self._released:
+            return
+        self._released = True
+        self._overlay.release_operation_overlay(self)
+
+    @property
+    def released(self) -> bool:
+        return self._released
 
 
 class SandboxOverlay:
@@ -154,6 +185,67 @@ class SandboxOverlay:
         manifest = self._layer_stack.read_active_manifest()
         self._mark_active(manifest)
         return self._active_manifest_key
+
+    def acquire_operation_overlay(
+        self,
+        *,
+        request_id: str,
+        workspace_root: str | None = None,
+        materialize: bool = False,
+    ) -> OperationOverlayHandle:
+        """Lease the latest snapshot and allocate a private overlay upperdir."""
+        if self._layer_stack is None:
+            raise RuntimeError("acquire_operation_overlay requires layer_stack")
+        run_dir = (
+            self._scratch_root
+            / "runtime"
+            / "sandbox-overlay-ops"
+            / self._runtime_key(self._workspace_ref, self._workspace_root)
+            / f"{_safe_request_part(request_id)}-{uuid4().hex[:8]}"
+        )
+        upperdir = run_dir / "upper"
+        workdir = run_dir / "work"
+        snapshot = self._layer_stack.prepare_workspace_snapshot(
+            request_id=request_id,
+            lowerdir_root=self._scratch_root / "runtime" / TRANSIENT_LOWERDIR_DIR,
+            materialize=materialize,
+        )
+        lease_id = str(getattr(snapshot, "lease_id"))
+        try:
+            upperdir.mkdir(parents=True, exist_ok=True)
+            workdir.mkdir(parents=True, exist_ok=True)
+            manifest = getattr(snapshot, "manifest")
+            manifest_version = int(getattr(snapshot, "manifest_version"))
+            root_hash = str(getattr(snapshot, "root_hash"))
+            return OperationOverlayHandle(
+                lease_id=lease_id,
+                manifest_key=f"{root_hash}@{manifest_version}",
+                manifest_version=manifest_version,
+                root_hash=root_hash,
+                manifest=manifest,
+                workspace_root=str(workspace_root or self.workspace_root).rstrip("/")
+                or "/",
+                run_dir=run_dir.as_posix(),
+                upperdir=upperdir.as_posix(),
+                workdir=workdir.as_posix(),
+                lowerdir=getattr(snapshot, "lowerdir", None),
+                layer_paths=getattr(snapshot, "layer_paths", None),
+                _overlay=self,
+            )
+        except Exception:
+            self._release_lease(lease_id)
+            shutil.rmtree(run_dir, ignore_errors=True)
+            raise
+
+    def release_operation_overlay(self, handle: OperationOverlayHandle) -> None:
+        """Release a per-operation overlay lease and remove operation scratch."""
+        self._release_lease(handle.lease_id)
+        _drop_transient_lowerdir(
+            handle.lowerdir,
+            storage_root=self._layer_stack.storage_root if self._layer_stack else None,
+            scratch_root=self._scratch_root,
+        )
+        shutil.rmtree(handle.run_dir, ignore_errors=True)
 
     def current_manifest(self) -> SnapshotManifest:
         if self._layer_stack is None:
@@ -613,4 +705,38 @@ def _event_path_change(change: object) -> PathChange:
     return PathChange(path=str(change), kind="write", existed_before=False)
 
 
-__all__ = ["SandboxOverlay", "OverlayLayerStackClient"]
+def _drop_transient_lowerdir(
+    lowerdir_raw: str | None,
+    *,
+    storage_root: Path | None,
+    scratch_root: Path,
+) -> None:
+    if not lowerdir_raw:
+        return
+    lowerdir = Path(str(lowerdir_raw))
+    scratch_dir = lowerdir.parent
+    transient_roots = {
+        (scratch_root / "runtime" / TRANSIENT_LOWERDIR_DIR).resolve(strict=False),
+    }
+    if storage_root is not None:
+        transient_roots.add(
+            (storage_root / "runtime" / TRANSIENT_LOWERDIR_DIR).resolve(strict=False)
+        )
+    if (
+        lowerdir.name != "lower"
+        or scratch_dir.parent.name != TRANSIENT_LOWERDIR_DIR
+        or scratch_dir.parent.resolve(strict=False) not in transient_roots
+    ):
+        return
+    shutil.rmtree(scratch_dir, ignore_errors=True)
+
+
+def _safe_request_part(value: str) -> str:
+    safe = "".join(
+        char if char.isalnum() or char in ("-", "_") else "-"
+        for char in str(value)
+    ).strip("-")
+    return safe or "operation"
+
+
+__all__ = ["OperationOverlayHandle", "SandboxOverlay", "OverlayLayerStackClient"]

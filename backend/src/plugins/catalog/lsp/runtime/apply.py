@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import os
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
+from uuid import uuid4
+
+from sandbox.execution.contract import CommandExecRequest
+from sandbox.execution.overlay.capability import new_mount_api_supported
+from sandbox.execution.strategies.namespace import detect_private_mount_namespace
 
 
 async def apply_workspace_edit(
@@ -14,8 +22,19 @@ async def apply_workspace_edit(
     ctx: Any,
     *,
     ensure_current: bool = True,
+    workspace_root: str | None = None,
+    expected_manifest_key: str | None = None,
 ) -> dict[str, Any]:
-    workspace_root = str(ctx.overlay.workspace_root)
+    workspace_root = str(workspace_root or ctx.overlay.workspace_root)
+    overlay_result = await _apply_with_operation_overlay(
+        edit,
+        ctx,
+        workspace_root=workspace_root,
+        expected_manifest_key=expected_manifest_key,
+    )
+    if overlay_result is not None:
+        return overlay_result
+
     operation = getattr(ctx.overlay, "workspace_operation", None)
     if callable(operation) and ensure_current:
         metadata = getattr(ctx, "metadata", None) or {}
@@ -41,6 +60,147 @@ async def apply_workspace_edit(
             for file in getattr(result, "files", ())
         ],
     }
+
+
+async def _apply_with_operation_overlay(
+    edit: dict[str, Any],
+    ctx: Any,
+    *,
+    workspace_root: str,
+    expected_manifest_key: str | None,
+) -> dict[str, Any] | None:
+    if not _overlay_namespace_available():
+        return None
+    acquire_overlay = getattr(
+        getattr(ctx, "overlay", None),
+        "acquire_operation_overlay",
+        None,
+    )
+    publish_cycle = getattr(ctx.overlay, "publish_cycle", None)
+    if not callable(acquire_overlay) or not callable(publish_cycle):
+        return None
+
+    metadata = getattr(ctx, "metadata", None) or {}
+    op_name = str(metadata.get("op_name", "apply_workspace_edit"))
+    handle = acquire_overlay(
+        request_id=f"lsp-apply:{op_name}:{uuid4().hex[:8]}",
+        workspace_root=workspace_root,
+        materialize=False,
+    )
+    try:
+        if not getattr(handle, "layer_paths", None):
+            return None
+        if expected_manifest_key and handle.manifest_key != expected_manifest_key:
+            raise RuntimeError(
+                "workspace changed before LSP edit could be applied; retry the tool"
+            )
+        changed_paths = await _run_apply_child(
+            edit,
+            workspace_root=workspace_root,
+            handle=handle,
+        )
+        request = CommandExecRequest(
+            request_id=f"lsp-apply-{uuid4().hex[:8]}",
+            workspace_ref=str(getattr(ctx, "layer_stack_root", "")),
+            workspace_root=workspace_root,
+            command=("lsp.apply_workspace_edit",),
+            cwd=".",
+            env={},
+            timeout_seconds=None,
+            actor_id=getattr(ctx.caller, "agent_id", ""),
+            description="lsp.apply_workspace_edit",
+        )
+        publish = await publish_cycle(
+            request=request,
+            upperdir=str(handle.upperdir),
+            snapshot=handle.manifest,
+            run_maintenance=True,
+        )
+        return _format_apply_result(
+            getattr(publish, "changeset", publish),
+            changed_paths,
+            timings=getattr(publish, "timings", None),
+        )
+    finally:
+        release = getattr(handle, "release", None)
+        if callable(release):
+            release()
+
+
+async def _run_apply_child(
+    edit: dict[str, Any],
+    *,
+    workspace_root: str,
+    handle: Any,
+) -> list[str]:
+    unshare = shutil.which("unshare")
+    if not unshare:
+        raise RuntimeError("unshare is required for overlay-backed LSP apply")
+    run_dir = Path(str(handle.run_dir))
+    payload_ref = run_dir / "lsp-apply-request.json"
+    output_ref = run_dir / "lsp-apply-output.json"
+    payload_ref.write_text(
+        json.dumps(
+            {
+                "workspace_root": workspace_root,
+                "layer_paths": list(handle.layer_paths),
+                "upperdir": str(handle.upperdir),
+                "workdir": str(handle.workdir),
+                "output_ref": output_ref.as_posix(),
+                "edit": edit,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    proc = await asyncio.create_subprocess_exec(
+        unshare,
+        "-Urm",
+        sys.executable,
+        "-m",
+        "plugins.catalog.lsp.runtime.apply_child",
+        str(payload_ref),
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        detail = (stderr or b"").decode("utf-8", "replace").strip()
+        raise RuntimeError(detail or "overlay-backed LSP apply failed")
+    payload = json.loads(output_ref.read_text(encoding="utf-8"))
+    raw_paths = payload.get("changed_paths") if isinstance(payload, dict) else []
+    if not isinstance(raw_paths, list):
+        return []
+    return sorted({str(path) for path in raw_paths})
+
+
+def _overlay_namespace_available() -> bool:
+    return new_mount_api_supported() and detect_private_mount_namespace()
+
+
+def _format_apply_result(
+    result: Any,
+    changed_paths: list[str],
+    *,
+    timings: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    payload = {
+        "success": bool(getattr(result, "success", False)),
+        "changed_paths": changed_paths,
+        "manifest_version": getattr(result, "published_manifest_version", None),
+        "files": [
+            {
+                "path": getattr(file, "path", ""),
+                "status": str(getattr(file, "status", "")),
+                "message": getattr(file, "message", ""),
+            }
+            for file in getattr(result, "files", ())
+        ],
+    }
+    if timings:
+        payload["timings"] = dict(timings)
+    return payload
 
 
 async def _publish_changed_paths(changed_paths: list[str], ctx: Any) -> Any:

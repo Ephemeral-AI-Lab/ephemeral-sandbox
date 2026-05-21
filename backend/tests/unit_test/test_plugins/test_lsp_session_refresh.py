@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -48,6 +49,54 @@ class _Overlay:
         return self.manifest_key
 
 
+class _OperationOverlay(_Overlay):
+    def __init__(self, *, workspace_root: str, manifest_key: str) -> None:
+        super().__init__(workspace_root=workspace_root, manifest_key=manifest_key)
+        self.handles: list[_OverlayHandle] = []
+
+    def acquire_operation_overlay(
+        self,
+        *,
+        request_id: str,
+        workspace_root: str | None = None,
+        materialize: bool = False,
+    ) -> "_OverlayHandle":
+        handle = _OverlayHandle(
+            request_id=request_id,
+            workspace_root=workspace_root or self.workspace_root,
+            manifest_key=self.manifest_key,
+            materialize=materialize,
+        )
+        self.handles.append(handle)
+        return handle
+
+
+class _OverlayHandle:
+    def __init__(
+        self,
+        *,
+        request_id: str,
+        workspace_root: str,
+        manifest_key: str,
+        materialize: bool,
+    ) -> None:
+        self.request_id = request_id
+        self.workspace_root = workspace_root
+        self.manifest_key = manifest_key
+        self.materialize = materialize
+        self.manifest_version = int(manifest_key.rsplit("@", 1)[-1])
+        self.root_hash = manifest_key.rsplit("@", 1)[0]
+        self.lowerdir = None if not materialize else f"/tmp/{self.root_hash}/lower"
+        self.layer_paths = None if materialize else ("/layers/L1",)
+        self.run_dir = "/tmp/run"
+        self.upperdir = "/tmp/run/upper"
+        self.workdir = "/tmp/run/work"
+        self.released = False
+
+    def release(self) -> None:
+        self.released = True
+
+
 @dataclass(frozen=True)
 class _Caller:
     agent_run_id: str = "run"
@@ -68,9 +117,11 @@ class _FakeSession:
         *,
         manifest_key: str,
         workspace_root: str,
+        **_kwargs: Any,
     ) -> None:
         self.manifest_key = manifest_key
         self.workspace_root = workspace_root
+        self.overlay_handle = _kwargs.get("overlay_handle")
         self.refresh_count = 0
         self.evict_count = 0
 
@@ -80,6 +131,9 @@ class _FakeSession:
 
     async def evict(self) -> None:
         self.evict_count += 1
+        release = getattr(self.overlay_handle, "release", None)
+        if callable(release):
+            release()
 
 
 class _StartableFakeSession(_FakeSession):
@@ -88,8 +142,13 @@ class _StartableFakeSession(_FakeSession):
         *,
         manifest_key: str,
         workspace_root: str,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(manifest_key=manifest_key, workspace_root=workspace_root)
+        super().__init__(
+            manifest_key=manifest_key,
+            workspace_root=workspace_root,
+            **kwargs,
+        )
         self.start_count = 0
 
     async def start(self) -> None:
@@ -146,6 +205,29 @@ async def test_session_manager_restarts_when_workspace_root_changes(
     assert second is not first
     assert first.evict_count == 1
     assert second.workspace_root == "/workspace"
+
+
+@pytest.mark.asyncio
+async def test_session_manager_uses_daemon_operation_overlay_for_lsp_session(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(session_manager, "PyrightSession", _FakeSession)
+    monkeypatch.setattr(session_manager, "_overlay_namespace_available", lambda: True)
+
+    overlay = _OperationOverlay(workspace_root="/testbed", manifest_key="hash-a@1")
+    session = await session_manager.get_session(
+        _Ctx(
+            layer_stack_root=str(tmp_path / "stack"),
+            overlay=overlay,
+            metadata={"op_name": "hover"},
+        )
+    )
+
+    assert session.workspace_root == "/testbed"
+    assert session.overlay_handle is overlay.handles[0]
+    assert overlay.handles[0].materialize is False
+    assert overlay.handles[0].layer_paths == ("/layers/L1",)
 
 
 @pytest.mark.asyncio
@@ -220,6 +302,34 @@ class _HangingClient(_Client):
 
 
 @pytest.mark.asyncio
+async def test_pyright_session_overlay_namespace_reads_open_text_from_layers(
+    tmp_path: Path,
+) -> None:
+    layer = tmp_path / "layers" / "L1"
+    module = layer / "pkg" / "mod.py"
+    module.parent.mkdir(parents=True)
+    module.write_text("class Schedule:\n    pass\n", encoding="utf-8")
+    session = PyrightSession(
+        manifest_key="hash-a@1",
+        workspace_root="/testbed",
+        overlay_handle=SimpleNamespace(layer_paths=(layer.as_posix(),), lowerdir=None),
+    )
+    client = _Client()
+    session._client = client  # type: ignore[assignment]
+    session._started = True
+
+    uri = await session._open_document("pkg/mod.py")
+
+    assert uri == "file:///testbed/pkg/mod.py"
+    assert client.notifications[0][1]["textDocument"]["text"] == (
+        "class Schedule:\n    pass\n"
+    )
+    assert session._fallback_document_symbols("pkg/mod.py", "Schedule")[0][
+        "name"
+    ] == "Schedule"
+
+
+@pytest.mark.asyncio
 async def test_pyright_session_refresh_notifies_open_docs(tmp_path: Path) -> None:
     workspace = tmp_path / "testbed"
     (workspace / "pkg").mkdir(parents=True)
@@ -289,6 +399,89 @@ async def test_pyright_session_diagnostics_pulls_current_report(
         "result_id": "1",
     }
     assert session._to_uri("pkg/mod.py") in session._opened
+
+
+@pytest.mark.asyncio
+async def test_pyright_session_diagnostics_unchanged_reuses_cached_report(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "testbed"
+    (workspace / "pkg").mkdir(parents=True)
+    (workspace / "pkg" / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    session = PyrightSession(
+        manifest_key="hash-a@1",
+        workspace_root=str(workspace),
+    )
+    session._client = _Client()  # type: ignore[assignment]
+    session._started = True
+    pulled = [
+        {
+            "message": "Operator '+' not supported",
+            "range": {"start": {"line": 1, "character": 11}},
+        }
+    ]
+    responses: list[dict[str, Any]] = [
+        {"items": pulled, "kind": "full", "resultId": "1"},
+        {"kind": "unchanged", "resultId": "1"},
+    ]
+
+    async def _send_request(
+        method: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        assert method == "textDocument/diagnostic"
+        assert params["textDocument"]["uri"].endswith("/pkg/mod.py")
+        return responses.pop(0)
+
+    monkeypatch.setattr(session, "_send_request", _send_request)
+
+    first = await session.diagnostics({"file_path": "pkg/mod.py"})
+    second = await session.diagnostics({"file_path": "pkg/mod.py"})
+
+    assert first["diagnostics"] == pulled
+    assert second == {
+        "diagnostics": pulled,
+        "kind": "unchanged",
+        "result_id": "1",
+    }
+
+
+@pytest.mark.asyncio
+async def test_pyright_query_symbols_falls_back_to_ast_for_empty_document_symbols(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "testbed"
+    (workspace / "pkg").mkdir(parents=True)
+    (workspace / "pkg" / "priority.py").write_text(
+        "from enum import IntEnum\n\nclass Priority(IntEnum):\n    LOW = 0\n",
+        encoding="utf-8",
+    )
+    session = PyrightSession(
+        manifest_key="hash-a@1",
+        workspace_root=str(workspace),
+    )
+    session._client = _Client()  # type: ignore[assignment]
+    session._started = True
+
+    async def _send_request(
+        method: str,
+        params: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        assert method == "textDocument/documentSymbol"
+        assert params["textDocument"]["uri"].endswith("/pkg/priority.py")
+        return []
+
+    monkeypatch.setattr(session, "_send_request", _send_request)
+
+    result = await session.query_symbols(
+        {"file_path": "pkg/priority.py", "query": "Priority"}
+    )
+
+    assert result["symbols"][0]["name"] == "Priority"
+    assert result["symbols"][0]["uri"].endswith("/pkg/priority.py")
+    assert result["symbols"][0]["location"]["range"]["start"]["line"] == 2
 
 
 @pytest.mark.asyncio

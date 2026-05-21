@@ -20,8 +20,9 @@ class ProjectionHandleLike(Protocol):
     """Minimal protocol every projection handle satisfies."""
 
     manifest_key: str
-    lowerdir: str
+    lowerdir: str | None
     lease_id: str
+    layer_paths: tuple[str, ...] | None
 
     def release(self) -> None: ...
 
@@ -32,7 +33,21 @@ class WorkspaceProjectionLike(Protocol):
     @property
     def layer_stack_root(self) -> Any: ...
 
-    def acquire(self, owner_request_id: str) -> ProjectionHandleLike: ...
+    def acquire(
+        self,
+        owner_request_id: str,
+        *,
+        lowerdir_root: str | None = None,
+        materialize: bool = True,
+    ) -> ProjectionHandleLike: ...
+
+    def acquire_overlay(
+        self,
+        owner_request_id: str,
+        *,
+        workspace_root: str,
+        materialize: bool = False,
+    ) -> ProjectionHandleLike: ...
 
     def active_manifest_key(self) -> str: ...
 
@@ -49,6 +64,16 @@ class SandboxOverlayLike(Protocol):
 
     def current_manifest(self) -> Any: ...
 
+    def acquire_operation_overlay(
+        self,
+        *,
+        request_id: str,
+        workspace_root: str | None = None,
+        materialize: bool = False,
+    ) -> Any: ...
+
+    def release_operation_overlay(self, handle: Any) -> None: ...
+
     def workspace_operation(
         self,
         *,
@@ -61,6 +86,15 @@ class SandboxOverlayLike(Protocol):
         paths: list[str] | tuple[str, ...],
         actor_id: str = "",
         description: str = "plugin workspace edit",
+    ) -> object: ...
+
+    async def publish_cycle(
+        self,
+        *,
+        request: Any,
+        upperdir: str,
+        snapshot: Any,
+        run_maintenance: bool = True,
     ) -> object: ...
 
 

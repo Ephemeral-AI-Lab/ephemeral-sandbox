@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from contextlib import asynccontextmanager
 
 import pytest
 
 from sandbox.execution.contract import ShellProcessResult
-from sandbox.execution.contract import WorkspaceCapturePublishResult
 from sandbox.execution.service import _drop_transient_lowerdir
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.layer_stack.paths import TRANSIENT_LOWERDIR_DIR
@@ -58,6 +56,9 @@ class _LayerStackClient:
     def release_lease(self, *, lease_id: str) -> bool:
         self.released.append(lease_id)
         return True
+
+    def read_active_manifest(self) -> Manifest:
+        return self.lease.manifest
 
 
 class _Client:
@@ -118,46 +119,6 @@ class _Client:
 class _Gitignore:
     cache_hits = 0
     cache_misses = 0
-
-
-class _PersistentOverlay:
-    is_mounted = True
-
-    def __init__(self, workspace_root: str, manifest: Manifest) -> None:
-        self.workspace_root = workspace_root
-        self.upperdir = Path(workspace_root) / ".fake-upper"
-        self.upperdir.mkdir()
-        self.manifest = manifest
-        self.published = False
-
-    @asynccontextmanager
-    async def workspace_operation(self, *, reason: str = "operation"):
-        del reason
-        yield self.manifest
-
-    async def publish_pending_changes(
-        self,
-        *,
-        snapshot: Manifest,
-        reason: str = "publish",
-        run_maintenance: bool = True,
-    ) -> WorkspaceCapturePublishResult:
-        del snapshot, reason, run_maintenance
-        self.published = True
-        return WorkspaceCapturePublishResult(
-            path_changes=(),
-            changeset=ChangesetResult(files=()),
-            timings={"overlay.capture_upperdir_s": 0.0, "overlay.occ_apply_s": 0.0},
-        )
-
-    async def run_maintenance_after_publish(
-        self,
-        result: ChangesetResult,
-        *,
-        workspace_ref: str | None = None,
-    ) -> dict[str, float]:
-        del result, workspace_ref
-        return {}
 
 
 async def test_shell_capture_goes_through_occ_client_before_lease_release(
@@ -243,22 +204,47 @@ async def test_shell_capture_goes_through_occ_client_before_lease_release(
     _assert_phase08_shell_timings(result.timings)
 
 
-async def test_shell_uses_persistent_overlay_when_available(
+async def test_shell_uses_per_command_upperdir_for_workspace_writes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     stack = tmp_path / "stack"
+    scratch = tmp_path / "exec-scratch"
+    monkeypatch.setenv("EPHEMERALOS_COMMAND_EXEC_SCRATCH_ROOT", scratch.as_posix())
     build_workspace_base(workspace_root=workspace, layer_stack_root=stack)
-    manifest = Manifest(version=1, layers=())
-    overlay = _PersistentOverlay(workspace.as_posix(), manifest)
+    upperdirs: list[Path] = []
 
-    async def fake_get_overlay(*args, **kwargs):
-        del args, kwargs
-        return overlay
+    def fake_run_workspace_replaced_command(*, spec, request, run_dir, timings):
+        del request
+        upperdir = Path(spec.writes)
+        upperdirs.append(upperdir)
+        output = upperdir / "out.txt"
+        output.parent.mkdir(parents=True)
+        output.write_text("done", encoding="utf-8")
+        stdout_ref = Path(run_dir) / "stdout.bin"
+        stderr_ref = Path(run_dir) / "stderr.bin"
+        stdout_ref.write_text("", encoding="utf-8")
+        stderr_ref.write_text("", encoding="utf-8")
+        timings["command_exec.mount_workspace_s"] = 0.001
+        timings["command_exec.run_command_s"] = 0.001
+        timings["cmd.exec.user_s"] = 0.0005
+        timings["cmd.exec.system_s"] = 0.0001
+        return ShellProcessResult(
+            exit_code=0,
+            stdout_ref=str(stdout_ref),
+            stderr_ref=str(stderr_ref),
+            mounted_workspace_root=str(workspace),
+            mount_mode="private_namespace",
+        )
 
-    monkeypatch.setattr(shell_runner, "get_sandbox_overlay", fake_get_overlay)
+    monkeypatch.setattr(
+        shell_runner,
+        "run_workspace_replaced_command",
+        fake_run_workspace_replaced_command,
+    )
+    occ = _Client(_LayerStackClient(tmp_path / "unused-lower"))
 
     result = await shell_runner._execute_shell(
         {
@@ -267,17 +253,19 @@ async def test_shell_uses_persistent_overlay_when_available(
             "cwd": ".",
         },
         layer_stack=LayerStackClient(stack),
-        occ_client=_Client(_LayerStackClient(tmp_path / "unused-lower")),
+        occ_client=occ,
         gitignore=_Gitignore(),
         storage_root=stack,
     )
 
-    assert overlay.published is True
+    assert upperdirs
+    assert upperdirs[0].is_relative_to(scratch / "runtime" / "command_exec")
+    assert occ.paths == ["out.txt"]
     assert result.exit_code == 0
     assert result.stdout == ""
-    assert (workspace / "out.txt").read_text(encoding="utf-8") == "done"
-    assert result.timings["command_exec.mount_workspace_s"] == 0.0
-    assert result.timings["resource.command_exec.changed_path_count"] == 0.0
+    assert (workspace / "out.txt").exists() is False
+    assert result.timings["command_exec.mount_workspace_s"] == 0.001
+    assert result.timings["resource.command_exec.changed_path_count"] == 1.0
 
 
 async def test_shell_uses_transient_lowerdir_and_removes_it(

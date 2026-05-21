@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-import shutil
 from uuid import uuid4
 
 from sandbox.execution import (
@@ -15,14 +14,6 @@ from sandbox.execution import (
     execute_command,
     run_workspace_replaced_command,
 )
-from sandbox.execution.contract import WorkspaceCapture
-from sandbox.execution.contract import MountMode
-from sandbox.execution.subprocess_runner import (
-    child_cpu_times,
-    record_child_cpu_delta,
-    run_command_to_refs,
-)
-from sandbox.execution.resource_audit import command_exec_resource_timings
 from sandbox.layer_stack.workspace_binding import require_workspace_binding
 from sandbox.occ.gitignore import SnapshotGitignoreOracle
 from sandbox.daemon.occ_backend import build_occ_backend
@@ -34,8 +25,6 @@ from sandbox.daemon.result_projection import (
     published_paths,
 )
 from sandbox.daemon.service.sandbox_overlay import SandboxOverlay
-from sandbox.daemon.service.overlay_manager import get_sandbox_overlay
-from sandbox._shared.clock import monotonic_now
 
 
 async def execute_shell_api(args: dict[str, object]) -> dict[str, object]:
@@ -60,18 +49,6 @@ async def _execute_shell(
     storage_root: Path,
 ) -> CommandExecResult:
     request = _command_request(args)
-    overlay = await get_sandbox_overlay(
-        request.workspace_ref,
-        workspace_root=request.workspace_root,
-        start=True,
-    )
-    if overlay.is_mounted:
-        return await _execute_persistent_shell(
-            request,
-            overlay=overlay,
-            gitignore=gitignore,
-            storage_root=storage_root,
-        )
     overlay = SandboxOverlay(
         occ_client=occ_client,
         workspace_ref=request.workspace_ref,
@@ -86,104 +63,6 @@ async def _execute_shell(
         timing_provider=lambda: gitignore_cache_timings(gitignore),
         command_runner=run_workspace_replaced_command,
     )
-
-
-async def _execute_persistent_shell(
-    request: CommandExecRequest,
-    *,
-    overlay: SandboxOverlay,
-    gitignore: SnapshotGitignoreOracle,
-    storage_root: Path,
-) -> CommandExecResult:
-    total_start = monotonic_now()
-    run_dir = _persistent_run_dir(overlay.scratch_root, request.request_id)
-    stdout_ref = run_dir / "stdout.bin"
-    stderr_ref = run_dir / "stderr.bin"
-    timings: dict[str, float] = {
-        "command_exec.mount_workspace_s": 0.0,
-        "command_exec.handler_sync_prelude_s": 0.0,
-    }
-    try:
-        async with overlay.workspace_operation(reason=f"cmd:{request.request_id}:enter") as snapshot:
-            run_start = monotonic_now()
-            cpu_start = child_cpu_times()
-            exit_code = run_command_to_refs(
-                command=request.command,
-                declared_workspace_root=request.workspace_root,
-                mounted_workspace_root=request.workspace_root,
-                cwd=request.cwd,
-                env=request.env,
-                timeout_seconds=request.timeout_seconds,
-                stdout_ref=stdout_ref,
-                stderr_ref=stderr_ref,
-            )
-            timings["command_exec.run_command_s"] = monotonic_now() - run_start
-            record_child_cpu_delta(timings, cpu_start)
-            publish = await overlay.publish_pending_changes(
-                snapshot=snapshot,
-                reason="publish",
-                run_maintenance=True,
-            )
-            timings.update(publish.timings)
-            if "overlay.capture_upperdir_s" in publish.timings:
-                timings["command_exec.capture_upperdir_s"] = publish.timings[
-                    "overlay.capture_upperdir_s"
-                ]
-            if "overlay.occ_apply_s" in publish.timings:
-                timings["command_exec.occ_apply_s"] = publish.timings[
-                    "overlay.occ_apply_s"
-                ]
-        changeset = publish.changeset
-        timings = {
-            **timings,
-            **changeset.timings,
-            **gitignore_cache_timings(gitignore),
-            **command_exec_resource_timings(
-                storage_root=storage_root,
-                scratch_root=overlay.scratch_root,
-                run_dir=run_dir,
-                upperdir=overlay.upperdir,
-                manifest=snapshot,
-                changed_path_count=len(publish.path_changes),
-            ),
-        }
-        timings["api.shell.overlay_s"] = (
-            timings.get("command_exec.mount_workspace_s", 0.0)
-            + timings.get("command_exec.run_command_s", 0.0)
-            + timings.get("command_exec.capture_upperdir_s", 0.0)
-        )
-        timings["api.shell.occ_apply_s"] = timings.get("command_exec.occ_apply_s", 0.0)
-        timings["command_exec.total_s"] = monotonic_now() - total_start
-        timings["api.shell.total_s"] = timings["command_exec.total_s"]
-        return CommandExecResult(
-            exit_code=exit_code,
-            stdout=stdout_ref.read_bytes().decode("utf-8", "replace"),
-            stderr=stderr_ref.read_bytes().decode("utf-8", "replace"),
-            stdout_ref=stdout_ref.as_posix(),
-            stderr_ref=stderr_ref.as_posix(),
-            workspace_capture=WorkspaceCapture(
-                changes=publish.path_changes,
-                snapshot_version=int(snapshot.version),
-                mount_mode=MountMode.PRIVATE_NAMESPACE,
-                snapshot_manifest=snapshot,
-            ),
-            occ_result=changeset,
-            timings=timings,
-        )
-    finally:
-        shutil.rmtree(run_dir, ignore_errors=True)
-
-
-def _persistent_run_dir(storage_root: Path, request_id: str) -> Path:
-    safe_id = "".join(
-        char if char.isalnum() or char in ("-", "_") else "-"
-        for char in request_id
-    ).strip("-")
-    run_dir = storage_root / "runtime" / "command_exec_persistent" / (
-        f"{safe_id or 'request'}-{uuid4().hex[:8]}"
-    )
-    run_dir.mkdir(parents=True, exist_ok=True)
-    return run_dir
 
 
 def _payload_from_result(result: CommandExecResult) -> dict[str, object]:
