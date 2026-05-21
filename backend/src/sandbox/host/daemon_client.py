@@ -186,23 +186,47 @@ async def ensure_daemon_current(
         _raise_exec_failed(result)
 
 
+# TCP endpoint per sandbox is fixed once the container is up (host port binding
+# does not change for a running container). The docker resolver runs two HTTP
+# round-trips (`containers.get()` + `container.reload()`); without caching we
+# pay that cost on every tool dispatch. The cache is invalidated on TCP
+# CONNECT_FAILED (stale port mapping after a container restart) and after
+# ``ensure_daemon_current`` (defensive, in case the daemon was respawned).
+_tcp_endpoint_cache: dict[str, _DaemonTcpEndpoint | None] = {}
+_tcp_endpoint_cache_locks: dict[str, asyncio.Lock] = {}
+
+
+def invalidate_daemon_tcp_endpoint(sandbox_id: str) -> None:
+    """Drop the cached TCP endpoint for ``sandbox_id``; next call re-resolves."""
+    _tcp_endpoint_cache.pop(sandbox_id, None)
+
+
 async def _resolve_daemon_tcp_endpoint(
     adapter: Any,
     sandbox_id: str,
 ) -> _DaemonTcpEndpoint | None:
-    resolver = getattr(adapter, "get_daemon_tcp_endpoint", None)
-    if not callable(resolver):
-        return None
-    try:
-        raw_endpoint = await asyncio.to_thread(resolver, sandbox_id)
-    except Exception:
-        logger.debug(
-            "daemon TCP endpoint resolution failed for sandbox %s",
-            sandbox_id,
-            exc_info=True,
-        )
-        return None
-    return _normalize_daemon_tcp_endpoint(raw_endpoint)
+    if sandbox_id in _tcp_endpoint_cache:
+        return _tcp_endpoint_cache[sandbox_id]
+    lock = _tcp_endpoint_cache_locks.setdefault(sandbox_id, asyncio.Lock())
+    async with lock:
+        if sandbox_id in _tcp_endpoint_cache:
+            return _tcp_endpoint_cache[sandbox_id]
+        resolver = getattr(adapter, "get_daemon_tcp_endpoint", None)
+        if not callable(resolver):
+            _tcp_endpoint_cache[sandbox_id] = None
+            return None
+        try:
+            raw_endpoint = await asyncio.to_thread(resolver, sandbox_id)
+        except Exception:
+            logger.debug(
+                "daemon TCP endpoint resolution failed for sandbox %s",
+                sandbox_id,
+                exc_info=True,
+            )
+            return None
+        endpoint = _normalize_daemon_tcp_endpoint(raw_endpoint)
+        _tcp_endpoint_cache[sandbox_id] = endpoint
+        return endpoint
 
 
 def _normalize_daemon_tcp_endpoint(raw: Any) -> _DaemonTcpEndpoint | None:
@@ -394,6 +418,9 @@ async def _call_daemon_payload(
         tcp_result = await _call_tcp_daemon(tcp_endpoint, payload, timeout=timeout)
         if _exit_code(tcp_result) != _THIN_CLIENT_CONNECT_FAILED:
             return tcp_result
+        # Cached endpoint produced CONNECT_FAILED — drop it so the next call
+        # re-resolves the (possibly remapped) host port via the docker adapter.
+        invalidate_daemon_tcp_endpoint(sandbox_id)
     return await exec_fn(
         sandbox_id,
         _daemon_thin_client_command(payload),

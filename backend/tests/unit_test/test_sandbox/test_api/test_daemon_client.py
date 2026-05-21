@@ -27,8 +27,10 @@ async def test_call_daemon_api_dispatches_without_bundle_probe(
 ) -> None:
     dispatch_calls: list[tuple[str, str, dict[str, object], int]] = []
 
-    async def fake_call_daemon(*, exec_fn, sandbox_id, op, args, timeout):
-        del exec_fn
+    async def fake_call_daemon(
+        *, exec_fn, sandbox_id, op, args, timeout, tcp_endpoint
+    ):
+        del exec_fn, tcp_endpoint
         dispatch_calls.append((sandbox_id, op, args, timeout))
         return {"success": True, "timings": {}}
 
@@ -64,3 +66,34 @@ async def test_call_daemon_api_dispatches_without_bundle_probe(
             20,
         ),
     ]
+
+
+@pytest.mark.asyncio
+async def test_resolve_daemon_tcp_endpoint_caches_per_sandbox(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Second resolution for the same sandbox must not re-call the resolver."""
+    call_count = 0
+
+    class _CachingAdapter:
+        def get_daemon_tcp_endpoint(self, sandbox_id: str) -> dict[str, Any]:
+            nonlocal call_count
+            call_count += 1
+            return {"host": "127.0.0.1", "port": 9000 + call_count, "internal_port": 4000}
+
+    monkeypatch.setattr(daemon_client_mod, "_tcp_endpoint_cache", {})
+    monkeypatch.setattr(daemon_client_mod, "_tcp_endpoint_cache_locks", {})
+
+    adapter = _CachingAdapter()
+    a = await daemon_client_mod._resolve_daemon_tcp_endpoint(adapter, "sb-cache")
+    b = await daemon_client_mod._resolve_daemon_tcp_endpoint(adapter, "sb-cache")
+    assert a is not None and b is not None
+    assert a == b
+    assert a.port == 9001
+    assert call_count == 1, "cached endpoint must skip resolver on second call"
+
+    daemon_client_mod.invalidate_daemon_tcp_endpoint("sb-cache")
+    c = await daemon_client_mod._resolve_daemon_tcp_endpoint(adapter, "sb-cache")
+    assert c is not None
+    assert call_count == 2, "invalidation must force resolver re-call"
+    assert c.port == 9002, "invalidated entry must be replaced by fresh resolution"
