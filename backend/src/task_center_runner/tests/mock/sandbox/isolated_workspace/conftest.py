@@ -212,11 +212,114 @@ def iws_audit_tail(tmp_path):
 
 
 @pytest.fixture(scope="session")
-def iws_latency_baseline() -> dict[str, dict[str, float]]:
-    """Session-collected per-phase medians.
+async def iws_latency_baseline(iws_sandbox) -> dict[str, float]:
+    """Session-collected per-op + per-phase medians.
 
-    PR 6 wires this to a real 3-cycle warm-up against ``iws_sandbox``. Until
-    then it returns an empty dict so dependent Tier 9 tests can
-    ``pytest.skip`` cleanly when the baseline is missing.
+    Runs ``EOS_ISOLATED_WORKSPACE_BASELINE_RUNS`` warm-up enter→shell→exit
+    cycles (default 3) against the real sandbox; computes the median total
+    ms per operation AND per phase from the captured audit events. Returns
+    a flat ``{op_name: median_ms}`` dict consumed by the Tier 9
+    :class:`LatencyBudget` helper.
+
+    Skips loudly when the live tier isn't reachable — the same gates the
+    Tier 1-8 tests use. The dict is empty in that case so each Tier 9 test
+    skips with a precise reason ("baseline unavailable").
     """
-    return {}
+    import asyncio
+    import json
+    import os
+
+    from sandbox.api import raw_exec
+    from benchmarks.sweevo.models import _REPO_DIR
+
+    from task_center_runner.tests._live_config import (
+        database_configured,
+        live_e2e_heavy_enabled,
+    )
+
+    if not (database_configured() and live_e2e_heavy_enabled()):
+        return {}
+
+    from . import _iws_invariants, _iws_rpc
+
+    sandbox_id = str(iws_sandbox.get("sandbox_id") or iws_sandbox.get("id") or "")
+    if not sandbox_id:
+        return {}
+
+    runs = int(os.environ.get("EOS_ISOLATED_WORKSPACE_BASELINE_RUNS", "3"))
+    samples: dict[str, list[float]] = {
+        "workspace_create": [],
+        "tool_call": [],
+        "kill_holder": [],
+    }
+    agent_id = "agent-latency-baseline"
+
+    # Truncate the daemon-side log so the warm-up reads come back clean.
+    await raw_exec(
+        sandbox_id,
+        f": > {_IN_CONTAINER_AUDIT_PATH}",
+        cwd="/", timeout=10,
+    )
+
+    for _ in range(runs):
+        await _iws_rpc.enter(sandbox_id, agent_id, layer_stack_root=_REPO_DIR)
+        await _iws_rpc.shell(sandbox_id, agent_id, "true")
+        await _iws_rpc.exit_(sandbox_id, agent_id)
+        await asyncio.sleep(0.05)
+
+    raw = await raw_exec(
+        sandbox_id, f"cat {_IN_CONTAINER_AUDIT_PATH}", cwd="/", timeout=10,
+    )
+    rows: list[dict] = []
+    for line in (getattr(raw, "stdout", "") or "").splitlines():
+        if not line.strip():
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    for row in rows:
+        et = row.get("type")
+        payload = row.get("payload") or {}
+        total = float(payload.get("total_ms") or 0.0)
+        phases = payload.get("phases_ms") or {}
+        if et == "sandbox_isolated_workspace_enter" and total > 0:
+            samples["workspace_create"].append(total)
+        elif et == "sandbox_isolated_workspace_tool_call" and total > 0:
+            samples["tool_call"].append(total)
+        elif et == "sandbox_isolated_workspace_exit" and isinstance(phases, dict):
+            kh = phases.get("kill_holder")
+            if kh:
+                samples["kill_holder"].append(float(kh))
+
+    return {
+        op: _iws_invariants.median(values)
+        for op, values in samples.items()
+        if values
+    }
+
+
+@pytest.fixture(scope="session")
+def iws_latency_budget_path():
+    """Path to the committed ``_data/latency_budget.json`` (PR 7 artifact).
+
+    Returns ``None`` when the file is absent so Tier 9 tests can skip
+    cleanly per PLAN §17 governance.
+    """
+    from pathlib import Path
+
+    candidate = (
+        Path(__file__).resolve().parent / "_data" / "latency_budget.json"
+    )
+    return candidate if candidate.exists() else None
+
+
+def reference_ci_host() -> bool:
+    """Reference CI host check (PLAN §18 capability-probe policy).
+
+    On the reference host, probe-False is a hard failure; off-host, it is
+    a skip. Toggled by ``EOS_CI_REFERENCE_HOST=true``.
+    """
+    import os as _os
+    return _os.environ.get("EOS_CI_REFERENCE_HOST", "").lower() == "true"

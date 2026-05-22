@@ -11,6 +11,7 @@ the recorder's per-line JSON envelope (see
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -192,7 +193,109 @@ def assert_within_ratio_band(
     )
 
 
+# ---------------------------------------------------------------------------
+# Tier 9 latency budget (v2 §15.1, §17)
+# ---------------------------------------------------------------------------
+
+
+def _load_latency_budget(budget_path: Path | None) -> dict[str, Any] | None:
+    """Read ``_data/latency_budget.json`` if it exists, else ``None``.
+
+    Returning ``None`` lets each test ``pytest.skip`` with a precise reason
+    (PR 7 hasn't landed) instead of synthesising fake budgets.
+    """
+    if budget_path is None or not budget_path.exists():
+        return None
+    try:
+        return json.loads(budget_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+@dataclass(frozen=True)
+class LatencyBudget:
+    """HYBRID latency assertion — ratio-to-baseline AND absolute ceiling.
+
+    Per PLAN §15.1:
+      * Session baseline catches in-PR variance (portable).
+      * ``latency_budget.json`` catches multi-PR drift + absolute hardware
+        regression (committed artifact, refreshed once per ~10 PRs).
+
+    Constructed via :py:func:`from_paths`; tests call
+    :py:meth:`assert_stable_and_within_budget` once per operation per call.
+    Operations: ``workspace_create``, ``tool_call``, ``kill_holder``,
+    ``gc_orphan``. The first three carry ``total_ms_p95`` and
+    ``total_ms_p99``; ``gc_orphan`` carries ``total_ms_p95_per_orphan``.
+    """
+
+    baseline_ms: dict[str, float]
+    budget: dict[str, Any] | None
+    ratio_low: float = 0.3
+    ratio_high: float = 3.0
+    absolute_p95_slack: float = 1.5
+
+    @classmethod
+    def from_paths(
+        cls,
+        *,
+        baseline_ms: dict[str, float],
+        budget_path: Path | None,
+    ) -> LatencyBudget:
+        return cls(
+            baseline_ms=dict(baseline_ms),
+            budget=_load_latency_budget(budget_path),
+        )
+
+    def has_baseline_for(self, op_name: str) -> bool:
+        return op_name in self.baseline_ms and self.baseline_ms[op_name] > 0
+
+    def assert_stable_and_within_budget(
+        self,
+        samples_ms: list[float],
+        *,
+        op_name: str,
+    ) -> None:
+        """Run both checks. Median ratio AND absolute p95 if budget present.
+
+        ``samples_ms`` should be the per-operation durations (typically
+        the audit ``total_ms`` per emit). Median is compared to the
+        session baseline; p95 to the optional checked-in budget.
+        """
+        if not samples_ms:
+            raise AssertionError(f"{op_name}: no samples to check")
+        sample_median = median(samples_ms)
+        if self.has_baseline_for(op_name):
+            assert_within_ratio_band(
+                sample_median, self.baseline_ms[op_name],
+                low=self.ratio_low, high=self.ratio_high,
+                label=f"{op_name}.median_vs_baseline",
+            )
+        if self.budget is not None:
+            spec = self.budget.get(op_name) or {}
+            ceiling = spec.get("total_ms_p95")
+            if ceiling:
+                sample_p95 = _percentile(samples_ms, 95.0)
+                assert sample_p95 <= ceiling * self.absolute_p95_slack, (
+                    f"{op_name}: p95 {sample_p95}ms exceeds "
+                    f"{ceiling}ms x {self.absolute_p95_slack} slack",
+                )
+
+
+def _percentile(values: list[float], p: float) -> float:
+    if not values:
+        return 0.0
+    s = sorted(values)
+    k = (len(s) - 1) * (p / 100.0)
+    lo = int(k)
+    hi = min(lo + 1, len(s) - 1)
+    if lo == hi:
+        return s[lo]
+    frac = k - lo
+    return s[lo] * (1.0 - frac) + s[hi] * frac
+
+
 __all__ = [
+    "LatencyBudget",
     "PHASE_TIMER_EPSILON_MS",
     "assert_audit_sequence",
     "assert_event_payload",

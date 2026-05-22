@@ -71,6 +71,7 @@ HandleStatus = Literal["active", "exiting", "stopped", "reaping"]
 _TEST_HANG_AT_ENV = "EOS_ISOLATED_WORKSPACE_TEST_HANG_AT"
 _TEST_FAIL_AT_ENV = "EOS_ISOLATED_WORKSPACE_TEST_FAIL_AT"
 _TEST_HOLDER_CRASH_ENV = "EOS_ISOLATED_WORKSPACE_TEST_HOLDER_CRASH"
+_TEST_PHASE_DELAY_ENV = "EOS_ISOLATED_WORKSPACE_TEST_PHASE_DELAY"
 
 
 def _maybe_inject_failure(phase: str) -> None:
@@ -101,6 +102,24 @@ def _maybe_inject_failure(phase: str) -> None:
             f"test-only setup_failed injected at {phase}",
             failed_step=phase,
         )
+    # Tier 9 latency-regression knob: ``<phase>:<ms>`` (comma-separated to
+    # delay multiple phases in one run). Sleeps synchronously inside the
+    # ``with timer.measure(phase)`` block so the injected ms is reflected in
+    # the audit ``phases_ms[<phase>]`` value.
+    delays = os.environ.get(_TEST_PHASE_DELAY_ENV, "").strip()
+    if delays:
+        for spec in delays.split(","):
+            entry = spec.strip()
+            if not entry or ":" not in entry:
+                continue
+            target_phase, _, ms_text = entry.partition(":")
+            if target_phase.strip() != phase:
+                continue
+            try:
+                delay_ms = float(ms_text.rstrip("ms").strip())
+            except ValueError:
+                continue
+            time.sleep(max(0.0, delay_ms) / 1000.0)
 
 
 class IsolatedWorkspaceError(Exception):
@@ -254,16 +273,23 @@ class _PhaseTimer:
 class _Runtime(Protocol):
     """Kernel-touching operations the manager delegates to.
 
-    Overridden in tests with a fake runtime (no real ns / cgroup / overlay
-    calls). The default implementation calls Linux APIs.
+    The only concrete implementation is :class:`_LinuxRuntime`; the Protocol
+    exists so individual tests can swap in lightweight doubles without
+    importing the kernel-touching module. ``mount_overlay`` and
+    ``configure_dns`` are ``async def`` so concurrent enters (Tier 6 / Tier 8)
+    do not serialize on subprocess wait — both helpers spawn long-running
+    (up to 30 s) setns subprocesses that would otherwise block the event
+    loop under N=5 fan-out.
     """
 
     def spawn_ns_holder(self, handle: IsolatedWorkspaceHandle, *, setup_timeout_s: float) -> int: ...
     def open_ns_fds(self, root_pid: int) -> dict[str, int]: ...
-    def mount_overlay(
+    async def mount_overlay(
         self, handle: IsolatedWorkspaceHandle, *, layer_paths: tuple[str, ...]
     ) -> None: ...
-    def configure_dns(self, handle: IsolatedWorkspaceHandle, *, fallback_dns: str) -> bool: ...
+    async def configure_dns(
+        self, handle: IsolatedWorkspaceHandle, *, fallback_dns: str
+    ) -> bool: ...
     def signal_net_ready(
         self, handle: IsolatedWorkspaceHandle, *, setup_timeout_s: float
     ) -> None: ...
@@ -366,6 +392,8 @@ class IsolatedWorkspaceManager:
             await self.startup_gc()
         finally:
             self._init_complete.set()
+        if self._ttl_task is None and self._config.ttl_s > 0:
+            self._ttl_task = asyncio.create_task(self._ttl_loop())
 
     async def startup_gc(self) -> None:
         """Reap orphan resources after daemon restart; reconcile IP pool.
@@ -682,10 +710,12 @@ class IsolatedWorkspaceManager:
             )
         with t.measure("mount_overlay"):
             _maybe_inject_failure("overlay_mount")
-            self._runtime.mount_overlay(handle, layer_paths=layer_paths)
+            await self._runtime.mount_overlay(handle, layer_paths=layer_paths)
         with t.measure("configure_dns"):
             _maybe_inject_failure("configure_dns")
-            self._runtime.configure_dns(handle, fallback_dns=self._config.fallback_dns)
+            await self._runtime.configure_dns(
+                handle, fallback_dns=self._config.fallback_dns,
+            )
         # Signal ns_holder that the network + overlay are wired; ns_holder
         # brings ``lo`` up and acks via the readiness pipe. Wrapped in a
         # suppress so a degraded handshake degrades the freezer state rather
@@ -833,6 +863,24 @@ class IsolatedWorkspaceManager:
             "duration_s": duration,
         }
 
+    async def _ttl_loop(self) -> None:
+        """Background task started by ``initialize`` that runs periodic sweeps.
+
+        Tick interval = ``max(0.5 s, min(ttl_s / 2, 30 s))`` so short TTLs
+        (Tier 5's ``test_ttl_evict_and_audit`` sets ``TTL_S=1``) still see a
+        sweep inside the test budget while the default 1800 s TTL stays at a
+        modest 30 s heartbeat.
+        """
+        interval = max(0.5, min(self._config.ttl_s / 2.0, 30.0))
+        while True:
+            try:
+                await asyncio.sleep(interval)
+                await self.ttl_sweep()
+            except asyncio.CancelledError:
+                return
+            except Exception:  # pragma: no cover - background task
+                logger.exception("ttl_loop tick failed")
+
     async def ttl_sweep(self) -> int:
         now = self._clock()
         evicted = 0
@@ -971,7 +1019,7 @@ class _LinuxRuntime:
             for ns in ("user", "mnt", "pid", "net")
         }
 
-    def mount_overlay(
+    async def mount_overlay(
         self, handle: IsolatedWorkspaceHandle, *, layer_paths: tuple[str, ...]
     ) -> None:
         user_fd = handle.ns_fds.get("user")
@@ -996,23 +1044,28 @@ class _LinuxRuntime:
                 "workdir": handle.workdir.as_posix(),
             }
         ).encode("utf-8")
-        proc = subprocess.run(
-            [sys.executable, "-m", "sandbox.isolated_workspace.scripts.setns_overlay_mount"],
-            input=payload,
-            capture_output=True,
-            timeout=30,
+        returncode, _stdout, stderr_bytes = await _run_helper_subprocess(
+            argv=[
+                sys.executable,
+                "-m",
+                "sandbox.isolated_workspace.scripts.setns_overlay_mount",
+            ],
+            stdin_bytes=payload,
+            timeout_s=30.0,
             pass_fds=(user_fd, mnt_fd),
         )
-        if proc.returncode != 0:
+        if returncode != 0:
             raise IsolatedWorkspaceError(
                 "setup_failed",
                 "mount_overlay helper failed",
                 failed_step="overlay_mount",
-                helper_stderr=proc.stderr.decode("utf-8", errors="replace"),
-                return_code=proc.returncode,
+                helper_stderr=stderr_bytes.decode("utf-8", errors="replace"),
+                return_code=returncode,
             )
 
-    def configure_dns(self, handle: IsolatedWorkspaceHandle, *, fallback_dns: str) -> bool:
+    async def configure_dns(
+        self, handle: IsolatedWorkspaceHandle, *, fallback_dns: str
+    ) -> bool:
         user_fd = handle.ns_fds.get("user")
         mnt_fd = handle.ns_fds.get("mnt")
         if user_fd is None or mnt_fd is None:
@@ -1023,22 +1076,25 @@ class _LinuxRuntime:
                 "fallback_dns": fallback_dns,
             }
         ).encode("utf-8")
-        proc = subprocess.run(
-            [sys.executable, "-m", "sandbox.isolated_workspace.scripts.configure_dns_in_ns"],
-            input=payload,
-            capture_output=True,
-            timeout=10,
+        returncode, stdout_bytes, stderr_bytes = await _run_helper_subprocess(
+            argv=[
+                sys.executable,
+                "-m",
+                "sandbox.isolated_workspace.scripts.configure_dns_in_ns",
+            ],
+            stdin_bytes=payload,
+            timeout_s=10.0,
             pass_fds=(user_fd, mnt_fd),
         )
-        if proc.returncode != 0:
+        if returncode != 0:
             logger.warning(
                 "configure_dns helper failed rc=%d stderr=%s",
-                proc.returncode,
-                proc.stderr.decode("utf-8", errors="replace"),
+                returncode,
+                stderr_bytes.decode("utf-8", errors="replace"),
             )
             return False
         try:
-            result = json.loads(proc.stdout.decode("utf-8", errors="replace") or "{}")
+            result = json.loads(stdout_bytes.decode("utf-8", errors="replace") or "{}")
         except json.JSONDecodeError:
             return False
         return bool(result.get("applied_fallback", False))
@@ -1135,6 +1191,45 @@ class _LinuxRuntime:
             pass_fds=tuple(ns_fds.values()),
         )
         return proc.returncode, proc.stdout, proc.stderr
+
+
+async def _run_helper_subprocess(
+    *,
+    argv: list[str],
+    stdin_bytes: bytes,
+    timeout_s: float,
+    pass_fds: tuple[int, ...],
+) -> tuple[int, bytes, bytes]:
+    """Run a setns helper without blocking the asyncio event loop.
+
+    The setns helpers under ``scripts/`` consume their JSON payload on stdin
+    and return success via process exit code. Tier 6/8 fan-out N=5 concurrent
+    ``enter()`` calls so the long-tail helpers (``setns_overlay_mount``,
+    ``configure_dns_in_ns``) MUST not block the loop — otherwise five enters
+    serialize behind the same subprocess.run wait.
+    """
+    proc = await asyncio.create_subprocess_exec(
+        *argv,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        pass_fds=pass_fds,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(input=stdin_bytes), timeout=timeout_s,
+        )
+    except asyncio.TimeoutError:
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
+        with contextlib.suppress(Exception):
+            await proc.wait()
+        raise IsolatedWorkspaceError(
+            "setup_timeout",
+            f"helper {argv[-1]} exceeded {timeout_s}s",
+            failed_step=argv[-1].rsplit(".", 1)[-1],
+        )
+    return proc.returncode or 0, stdout or b"", stderr or b""
 
 
 def _read_memavailable_kb() -> int:

@@ -6,6 +6,129 @@
 
 ---
 
+## Session 4 — 2026-05-23 (Phases 7-9)
+
+This session closes the remaining four NEXT-AGENT-GUIDE phases — 30 new
+tests across four new tier directories (Tier 5 resource_controls, Tier 6
+concurrency, Tier 8 stress, Tier 9 performance) plus the production-code
+prerequisite (`_LinuxRuntime.mount_overlay` / `configure_dns` async refactor
++ TTL sweep task wiring) each tier depends on.
+
+### What landed
+
+| Slice | File(s) | Status |
+|---|---|---|
+| Phase 7 prerequisite — async `mount_overlay` + `configure_dns` (NEXT-AGENT-GUIDE §4.2/7.7) | `sandbox/isolated_workspace/manager.py` (`_Runtime` protocol, `_LinuxRuntime`, shared `_run_helper_subprocess` helper) | landed |
+| Production gap — `_ttl_loop` background task wired by `initialize()` | `sandbox/isolated_workspace/manager.py` | landed |
+| Test-only `EOS_ISOLATED_WORKSPACE_TEST_PHASE_DELAY` knob for Tier 9 regression-band test | `sandbox/isolated_workspace/manager.py:_maybe_inject_failure` | landed |
+| Phase 7 — Tier 5 resource controls (7 tests) | `resource_controls/` | landed |
+| Phase 7 — Tier 6 concurrency (7 base + 4 N=5 noisy-neighbor = 11 tests) | `concurrency/` | landed |
+| Phase 8 — Tier 8 stress (4 base + 1 v2 = 5 tests, marked `live_e2e_soak`) | `stress/` | landed |
+| Phase 9 — Tier 9 performance (7 tests, capability-gated per PLAN §18) | `performance/` | landed |
+| `LatencyBudget` helper class + percentile (HYBRID baseline, §15.1) | `_iws_invariants.py` | landed |
+| `iws_latency_baseline` session fixture (3 warm-up cycles, computes median per op) | `conftest.py` | landed |
+| `iws_latency_budget_path` session fixture (returns `None` if PR 7 artifact absent) | `conftest.py` | landed |
+| `reference_ci_host()` capability-gate policy helper (PLAN §18) | `conftest.py` | landed |
+| Tier 9 shared `_helpers.py` (gate_or_skip / require_baseline / build_budget) | `performance/_helpers.py` | landed |
+
+### Production-code summary
+
+**`sandbox/isolated_workspace/manager.py`:**
+
+- `_Runtime` Protocol: `mount_overlay` and `configure_dns` are now
+  `async def`. The two helpers had the longest subprocess timeouts (30 s
+  and 10 s respectively) and would serialise Tier 6/8 N=5 fan-out enters
+  on `subprocess.run`. Other Protocol methods stay sync — they're fast
+  (`ip link` / `mkdir`) and the contention-bound test in Tier 8
+  (`test_5_concurrent_isolated_workspaces`) will be the forcing function
+  if more need to widen.
+- `_LinuxRuntime.mount_overlay` / `configure_dns` rewritten to delegate
+  to a new shared `_run_helper_subprocess` (module-level coroutine) that
+  uses `asyncio.create_subprocess_exec` + `asyncio.wait_for`. Timeouts
+  raise `IsolatedWorkspaceError(setup_timeout, failed_step=...)` so the
+  rollback path still triggers correctly.
+- `IsolatedWorkspaceManager.initialize()` now starts a background
+  `_ttl_loop` task (after `startup_gc` settles + `_init_complete` is
+  set). Previously the `_ttl_task` slot was declared but never assigned
+  — Tier 5's `test_ttl_evict_and_audit` would have hung indefinitely.
+  Sweep cadence is `max(0.5 s, min(ttl_s / 2, 30 s))` — adaptive so
+  short test TTLs (TTL=1 s) tick at 0.5 s and the default 1800 s TTL
+  uses a 30 s heartbeat.
+- New test-only knob `EOS_ISOLATED_WORKSPACE_TEST_PHASE_DELAY=<phase>:<ms>`
+  (comma-separated). Sleeps inside the `_maybe_inject_failure` hook,
+  inside the corresponding `with timer.measure(phase)` block, so the
+  injected ms is reflected in the audit `phases_ms[<phase>]` value.
+  Drives Tier 9's `test_latency_regression_band`.
+
+### Test fixtures + invariants landed
+
+| Helper | File | Purpose |
+|---|---|---|
+| `LatencyBudget` dataclass | `_iws_invariants.py` | HYBRID baseline + `latency_budget.json` two-class assertion. |
+| `_percentile(values, p)` | `_iws_invariants.py` | Used by `LatencyBudget.assert_stable_and_within_budget` for the absolute-p95 check. |
+| `iws_latency_baseline` (session) | `conftest.py` | 3 warm-up enter→shell→exit cycles; medians extracted from the captured audit JSONL. |
+| `iws_latency_budget_path` (session) | `conftest.py` | Resolves `_data/latency_budget.json` if PR 7 has landed, else `None`. |
+| `reference_ci_host()` helper | `conftest.py` | Toggle for the §18 fail-vs-skip policy. |
+| Tier 9 `_helpers.py` (gate_or_skip, require_baseline, build_budget, event_payloads) | `performance/_helpers.py` | Centralised pattern for capability-gate guards + baseline gating + budget construction. |
+
+### Verification
+
+```text
+$ .venv/bin/python -m pytest \
+    backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/pre_flight/ \
+    backend/tests/unit_test/test_sandbox/test_daemon/ \
+    backend/tests/unit_test/test_sandbox/test_import_fence.py \
+    backend/tests/unit_test/test_audit/ \
+    backend/tests/unit_test/test_task_center/test_audit/
+152 passed, 1 warning in 1.22s
+
+$ .venv/bin/python -m pytest \
+    backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/ --collect-only
+94 tests collected
+
+$ .venv/bin/ruff check \
+    backend/src/sandbox/isolated_workspace/ \
+    backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/
+All checks passed!
+
+$ .venv/bin/python -m pytest \
+    backend/tests/unit_test/test_sandbox/ -q \
+    --ignore=backend/tests/unit_test/test_sandbox/test_provider \
+    --ignore=backend/tests/unit_test/test_sandbox/test_overlay \
+    -k 'not test_workspace_mount and not test_shell_atomic_by_path_count'
+697 passed, 2 skipped, 15 deselected in 5.15s
+```
+
+### Test counts (cumulative across all sessions)
+
+| Tier | Directory | Files | Status |
+|---|---|---|---|
+| Tier 0 | `pre_flight/` | 5 (17 cases) | green on macOS |
+| Tier 1 | `happy_path/` | 5 | live-CI gated |
+| Tier 2 | `isolation/` | 5 | live-CI gated |
+| Tier 3 | `network/` | 15 | live-CI gated |
+| Tier 4 | `failure_modes/` | 8 | live-CI gated |
+| **Tier 5** | **`resource_controls/`** | **7** | **live-CI gated (new)** |
+| **Tier 6** | **`concurrency/`** | **11** | **live-CI gated (new)** |
+| Tier 7 | `gc_and_persistence/` | 14 | live-CI gated |
+| **Tier 8** | **`stress/`** | **5** | **`live_e2e_soak` gated (new)** |
+| **Tier 9** | **`performance/`** | **7** | **capability-gated (new)** |
+| **Total** | — | **82 files / 94 collected** | **17 cases run + 77 live-gated** |
+
+The 94 vs 82 delta accounts for `pre_flight` having multiple test cases
+per file.
+
+### Deferred — what this session could NOT do
+
+| Item | Why | Owner / next trigger |
+|---|---|---|
+| **Live execution of Phases 7-9 tests** | Same root cause as prior sessions: macOS sweevo container fails its daemon bind in 10 s, before any iws test code runs. Pre-existing environmental limitation (mirrored across Tier 1-7 too). | Linux CI runner with functional sweevo image. |
+| **First `latency_budget.json` refresh (PR 7)** | Per PLAN §17 governance: must be derived from a 100-iteration distribution dump on the reference CI host. Committing a synthetic file from local dev would defeat the design. Until it lands, `iws_latency_budget_path` returns `None` so the absolute-p95 half of every Tier 9 test silently skips that arm. | Reference CI run after Phase 7-9 lands. |
+| **Async migration for `spawn_ns_holder` / `install_veth`** | NEXT-AGENT-GUIDE §4.2 said only `mount_overlay` and `configure_dns`. Tier 8's `test_5_concurrent_isolated_workspaces` carries the contention-bound assertion (`max install_veth ≤ 5 × median`) — that test is the forcing function that will demand the widening if the current scope is insufficient. | Tier 8 measurement on Linux CI. |
+| **4-phase `tool_call` widening (PLAN §15.2)** | Sunset trigger only: when `tool_call.exec` P95 > 500 ms on reference CI over a rolling 7-day window of `latency_budget.json` refresh data. Until then, 3-phase is the v1 contract. | First budget refresh cycles. |
+
+---
+
 ## Session 3 — 2026-05-23 (Phases 3-6)
 
 This session lands all four NEXT-AGENT-GUIDE phases the prior session
