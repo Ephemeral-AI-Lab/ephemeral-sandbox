@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from audit.base import AuditSink
+from audit.base import AuditEvent, AuditNode, AuditSink
 from sandbox.api.tool.core.audit import audited_operation
 from sandbox.api.tool.core.conflicts import is_shell_conflict
 from sandbox.api.tool.core.daemon_response import (
@@ -32,6 +32,7 @@ from sandbox.api.transport import (
     DAEMON_OP_SHELL_REAP,
     DaemonSandboxTransport,
 )
+from sandbox.audit import events as sandbox_audit_events
 from sandbox._shared.clock import monotonic_now
 from sandbox._shared.models import ShellRequest, ShellResult
 
@@ -70,6 +71,7 @@ async def shell(
                 cwd=cwd,
                 transport=selected_transport,
                 started_at=total_start,
+                audit_sink=audit_sink,
             )
         raw = await selected_transport.call(
             sandbox_id,
@@ -114,6 +116,7 @@ async def _shell_background_dispatch(
     cwd: str,
     transport: SandboxTransport,
     started_at: float,
+    audit_sink: AuditSink | None,
 ) -> ShellResult:
     """Drive shell.launch -> shell.reap; handle CancelledError mid-reap."""
     launch_args = {
@@ -146,6 +149,18 @@ async def _shell_background_dispatch(
             message="daemon shell.launch did not return a job_id",
             timings={"api.shell.dispatch_total_s": monotonic_now() - started_at},
         )
+    lease_id = str(launch_response.get("lease_id") or "")
+    _emit_shell_audit(
+        audit_sink,
+        sandbox_audit_events.SHELL_LAUNCHED,
+        sandbox_id=sandbox_id,
+        caller=request.caller,
+        payload={
+            "job_id": job_id,
+            "lease_id": lease_id,
+            "request_id": request.caller.agent_id,
+        },
+    )
 
     reap_timeout = max(60, int(request.timeout) if request.timeout else 600)
     try:
@@ -162,10 +177,24 @@ async def _shell_background_dispatch(
             transport=transport,
             sandbox_id=sandbox_id,
             job_id=job_id,
+            audit_sink=audit_sink,
+            caller_sandbox_id=sandbox_id,
+            caller=request.caller,
         )
         raise
     timings = timings_from_daemon_response(reap_response.get("timings"))
     timings["api.shell.dispatch_total_s"] = monotonic_now() - started_at
+    _emit_shell_audit(
+        audit_sink,
+        sandbox_audit_events.SHELL_REAPED,
+        sandbox_id=sandbox_id,
+        caller=request.caller,
+        payload={
+            "job_id": job_id,
+            "status": str(reap_response.get("status") or ""),
+            "changed_paths_count": len(reap_response.get("changed_paths") or ()),
+        },
+    )
     return _shell_result_from_reap(reap_response, timings=timings)
 
 
@@ -174,8 +203,18 @@ async def _send_cancel_then_reap(
     transport: SandboxTransport,
     sandbox_id: str,
     job_id: str,
+    audit_sink: AuditSink | None,
+    caller_sandbox_id: str,
+    caller: object,
 ) -> None:
     """Best-effort cancel + reap on CancelledError. Errors are swallowed."""
+    _emit_shell_audit(
+        audit_sink,
+        sandbox_audit_events.SHELL_CANCELLED,
+        sandbox_id=caller_sandbox_id,
+        caller=caller,
+        payload={"job_id": job_id, "reason": "engine_cancel"},
+    )
     try:
         await transport.call(
             sandbox_id,
@@ -185,9 +224,20 @@ async def _send_cancel_then_reap(
         )
     except Exception:
         logger.debug("shell.cancel best-effort dispatch failed", exc_info=True)
+        _emit_shell_audit(
+            audit_sink,
+            sandbox_audit_events.SHELL_REAPED,
+            sandbox_id=caller_sandbox_id,
+            caller=caller,
+            payload={
+                "job_id": job_id,
+                "status": "cancel_reap_failed",
+                "changed_paths_count": 0,
+            },
+        )
         return
     try:
-        await transport.call(
+        reap_response = await transport.call(
             sandbox_id,
             DAEMON_OP_SHELL_REAP,
             {"job_id": job_id, "timeout_seconds": 10.0},
@@ -197,6 +247,60 @@ async def _send_cancel_then_reap(
         # Daemon TTL reaper will catch any residual lease; nothing we can do
         # synchronously without blocking the engine cancel path.
         logger.debug("shell.reap after cancel best-effort dispatch failed", exc_info=True)
+        _emit_shell_audit(
+            audit_sink,
+            sandbox_audit_events.SHELL_REAPED,
+            sandbox_id=caller_sandbox_id,
+            caller=caller,
+            payload={
+                "job_id": job_id,
+                "status": "cancel_reap_failed",
+                "changed_paths_count": 0,
+            },
+        )
+        return
+    _emit_shell_audit(
+        audit_sink,
+        sandbox_audit_events.SHELL_REAPED,
+        sandbox_id=caller_sandbox_id,
+        caller=caller,
+        payload={
+            "job_id": job_id,
+            "status": str(reap_response.get("status") or "cancelled"),
+            "changed_paths_count": len(reap_response.get("changed_paths") or ()),
+        },
+    )
+
+
+def _emit_shell_audit(
+    audit_sink: AuditSink | None,
+    event_type: str,
+    *,
+    sandbox_id: str,
+    caller: object,
+    payload: dict[str, object],
+) -> None:
+    """Publish a SHELL_* lifecycle event to the engine's audit bus.
+
+    Mirrors the host-side derivation pattern used by
+    ``sandbox_events_from_tool_completion``: produce the typed AuditEvent at
+    the call boundary, let ``LegacySandboxAuditSink`` translate it into the
+    legacy ``EventType.SANDBOX_SHELL_*`` for ``sandbox_events.jsonl``.
+    """
+    if audit_sink is None:
+        return
+    agent_id = getattr(caller, "agent_id", None)
+    try:
+        audit_sink.publish(
+            AuditEvent(
+                source="sandbox",
+                type=event_type,
+                node=AuditNode(sandbox_id=sandbox_id, agent_run_id=agent_id),
+                payload=dict(payload),
+            )
+        )
+    except Exception:
+        logger.debug("shell audit publish failed event=%s", event_type, exc_info=True)
 
 
 def _response_ok(payload: dict[str, object]) -> bool:

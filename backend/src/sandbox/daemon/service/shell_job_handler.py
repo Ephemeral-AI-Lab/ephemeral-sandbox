@@ -85,6 +85,24 @@ async def shell_reap(args: dict[str, Any]) -> dict[str, Any]:
     return {"success": True, **payload}
 
 
+def shell_metrics(args: dict[str, Any]) -> dict[str, Any]:
+    """``api.shell.metrics``: registry-wide counters for AC-13 visibility.
+
+    Returns ``{active_jobs, ttl_reaped_total}``. The TTL reap counter is the
+    only post-mortem signal the integration test (T4) has once the engine
+    is SIGKILLed and its ``sandbox_events.jsonl`` writer dies with it.
+    """
+    del args  # no parameters
+    registry = get_shell_job_registry()
+    snapshot = registry.metrics()
+    return {
+        "success": True,
+        "active_jobs": int(snapshot["active_jobs"]),
+        "ttl_reaped_total": int(snapshot["ttl_reaped_total"]),
+        "timings": {},
+    }
+
+
 def _required_job_id(args: Mapping[str, Any]) -> str:
     job_id = str(args.get("job_id") or "").strip()
     if not job_id:
@@ -150,6 +168,7 @@ def _optional_float(value: Any) -> float | None:
 __all__ = [
     "shell_cancel",
     "shell_launch",
+    "shell_metrics",
     "shell_poll",
     "shell_reap",
 ]

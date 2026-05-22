@@ -66,6 +66,9 @@ class EventType(StrEnum):
     SANDBOX_OCC_CHANGESET_RECEIVED = "sandbox_occ_changeset_received"
     SANDBOX_OCC_CHANGES_COMMITTED = "sandbox_occ_changes_committed"
     SANDBOX_RESOURCE_SNAPSHOT = "sandbox_resource_snapshot"
+    SANDBOX_SHELL_LAUNCHED = "sandbox_shell_launched"
+    SANDBOX_SHELL_CANCELLED = "sandbox_shell_cancelled"
+    SANDBOX_SHELL_REAPED = "sandbox_shell_reaped"
 
     # hook synthetic
     HOOK_INJECTED_FAILURE = "hook_injected_failure"

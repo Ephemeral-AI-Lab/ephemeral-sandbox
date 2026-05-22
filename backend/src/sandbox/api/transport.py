@@ -18,6 +18,7 @@ DAEMON_OP_SHELL_LAUNCH = "api.v1.shell.launch"
 DAEMON_OP_SHELL_POLL = "api.v1.shell.poll"
 DAEMON_OP_SHELL_CANCEL = "api.v1.shell.cancel"
 DAEMON_OP_SHELL_REAP = "api.v1.shell.reap"
+DAEMON_OP_SHELL_METRICS = "api.v1.shell.metrics"
 DAEMON_OP_FIND_FILES = "api.v1.find_files"
 DAEMON_OP_SEARCH_CONTENT = "api.v1.search_content"
 
@@ -49,6 +50,7 @@ __all__ = [
     "DAEMON_OP_SHELL",
     "DAEMON_OP_SHELL_CANCEL",
     "DAEMON_OP_SHELL_LAUNCH",
+    "DAEMON_OP_SHELL_METRICS",
     "DAEMON_OP_SHELL_POLL",
     "DAEMON_OP_SHELL_REAP",
     "DAEMON_OP_WRITE_FILE",

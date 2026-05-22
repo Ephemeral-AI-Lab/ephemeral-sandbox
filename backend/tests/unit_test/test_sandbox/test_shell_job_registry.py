@@ -406,3 +406,40 @@ async def test_late_cancel_after_completion_preserves_status(
     assert cancel_resp.get("already_done") is True
     reap = await registry.reap(job_id, timeout_seconds=5.0)
     assert reap["status"] == "finished"
+
+
+async def test_metrics_reports_active_and_ttl_reaped(
+    registry: ShellJobRegistry,
+    overlay: _FakeSandboxOverlay,
+    tmp_path: Path,
+) -> None:
+    """``metrics()`` surfaces active_jobs + ttl_reaped_total for the
+    ``api.shell.metrics`` RPC (AC-13). Fresh registry → 0/0; after one
+    synthesized TTL reap → ttl_reaped_total == 1.
+    """
+    snapshot = registry.metrics()
+    assert snapshot == {"active_jobs": 0, "ttl_reaped_total": 0}
+
+    # Launch a long-running job and force-age its last_poll_at past TTL.
+    request = _make_request(command="sleep 5", timeout_seconds=30.0)
+    launch = registry.launch(
+        request=request,
+        overlay=overlay,  # type: ignore[arg-type]
+        storage_root=tmp_path,
+    )
+    job_id = str(launch["job_id"])
+    job = registry.get(job_id)
+    assert job is not None
+    assert registry.metrics()["active_jobs"] == 1
+    # Push last_poll_at into the past so the next reap-stale cycle picks it.
+    job.last_poll_at -= registry._ttl_seconds + 10.0
+    registry._reap_stale_jobs()
+    snapshot = registry.metrics()
+    assert snapshot["active_jobs"] == 0
+    assert snapshot["ttl_reaped_total"] == 1
+    # Allow the cancel-escalation thread to drain so the test process exits.
+    if job.thread_future is not None:
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: job.thread_future.result(timeout=5.0),
+        )

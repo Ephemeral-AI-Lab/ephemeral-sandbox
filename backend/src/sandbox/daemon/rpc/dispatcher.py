@@ -218,6 +218,8 @@ def _load_peer_bootstraps() -> None:
         "api.v1.shell.cancel": shell_job_handler.shell_cancel,
         "api.shell.reap": shell_job_handler.shell_reap,
         "api.v1.shell.reap": shell_job_handler.shell_reap,
+        "api.shell.metrics": shell_job_handler.shell_metrics,
+        "api.v1.shell.metrics": shell_job_handler.shell_metrics,
         "api.workspace_binding": workspace.workspace_binding,
         "api.write_file": write.write_file,
         "api.v1.write_file": write.write_file,

@@ -137,6 +137,10 @@ class ShellJobRegistry:
         self._reaper_interval_s = float(reaper_interval_s)
         self._audit_callback = audit_callback
         self._reaper_task: asyncio.Task[None] | None = None
+        # Lifetime counter for TTL-reaped jobs. Surfaced via :meth:`metrics`
+        # and the ``api.shell.metrics`` RPC so AC-13 (engine-kill TTL reap)
+        # is observable after the engine that drove the launch is dead.
+        self._ttl_reaped_total: int = 0
 
     # ---- public RPC surface ------------------------------------------------
 
@@ -211,25 +215,35 @@ class ShellJobRegistry:
         return snapshot
 
     def cancel(self, job_id: str, *, reason: str = "") -> dict[str, object]:
-        """Signal-cancel an in-flight job; idempotent against late-cancel races."""
+        """Signal-cancel an in-flight job; idempotent against late-cancel races.
+
+        The check-and-set is scoped to ``self._lock`` so the late-cancel race
+        (process exits between ``is_set()`` and the cancel mutation) resolves
+        deterministically: if the process beat us, ``cancelled`` stays False
+        and no ``SHELL_CANCELLED`` audit event fires (AC-5 invariant).
+        """
         job = self._get(job_id)
-        if job.process_done.is_set():
-            # Late cancel after natural completion — preserve completion status
-            # (single-terminal-status invariant, Pre-mortem #6).
-            return {
-                "job_id": job_id,
-                "cancelled": False,
-                "already_done": True,
-                "status": job.status,
-            }
-        if job.cancelled:
-            return {"job_id": job_id, "cancelled": True, "already_cancelled": True}
-        job.cancelled = True
-        job.cancel_reason = str(reason or "")
-        job.cancel_event.set()
+        with self._lock:
+            if job.process_done.is_set():
+                return {
+                    "job_id": job_id,
+                    "cancelled": False,
+                    "already_done": True,
+                    "status": job.status,
+                }
+            if job.cancelled:
+                return {
+                    "job_id": job_id,
+                    "cancelled": True,
+                    "already_cancelled": True,
+                }
+            job.cancelled = True
+            job.cancel_reason = str(reason or "")
+            job.cancel_event.set()
+        # Signal + audit happen outside the lock: SIGTERM may block the
+        # thread briefly and audit callbacks should never serialize callers.
         if job.pgrp:
             _signal_pgrp(job.pgrp, signal.SIGTERM)
-        # SIGKILL escalation runs off-thread so cancel returns promptly (R3).
         timer = threading.Timer(SIGTERM_GRACE_S, _escalate_kill, args=(job,))
         timer.daemon = True
         timer.start()
@@ -299,6 +313,14 @@ class ShellJobRegistry:
     def active_count(self) -> int:
         with self._lock:
             return len(self._jobs)
+
+    def metrics(self) -> dict[str, int]:
+        """Snapshot of registry-wide counters for the ``api.shell.metrics`` RPC."""
+        with self._lock:
+            return {
+                "active_jobs": len(self._jobs),
+                "ttl_reaped_total": int(self._ttl_reaped_total),
+            }
 
     def shutdown(self) -> None:
         if self._reaper_task is not None and not self._reaper_task.done():
@@ -431,6 +453,7 @@ class ShellJobRegistry:
             shutil.rmtree(job.handle.run_dir, ignore_errors=True)
             with self._lock:
                 self._jobs.pop(job.job_id, None)
+                self._ttl_reaped_total += 1
             self._emit_audit(
                 audit_events.SHELL_REAPED,
                 {
@@ -513,13 +536,50 @@ def _change_path(change: OverlayPathChange) -> str:
 _REGISTRY: ShellJobRegistry | None = None
 _REGISTRY_LOCK = threading.Lock()
 
+# Env-var overrides for the singleton TTL + reaper-interval. Required so the
+# T4 engine-kill integration test can drive the TTL reaper in a CI-bounded
+# window (default 300 s is unusable). See Phase 2 plan §Step 4.
+_ENV_TTL_S = "EOS_SHELL_JOB_TTL_S"
+_ENV_REAPER_INTERVAL_S = "EOS_SHELL_JOB_REAPER_INTERVAL_S"
+
+
+def _env_float_or_default(name: str, default: float) -> float:
+    """Read a non-negative float from ``os.environ``; fall back on any parse failure.
+
+    Empty string, missing key, unparseable value, and negative numbers all
+    fall back to ``default``. Negative TTL/interval would either disable the
+    reaper or fire it constantly — both are footguns we hide behind the
+    default rather than surface as an exception.
+    """
+    raw = os.environ.get(name, "")
+    if not raw:
+        return default
+    try:
+        parsed = float(raw)
+    except (TypeError, ValueError):
+        return default
+    if parsed < 0:
+        return default
+    return parsed
+
 
 def get_shell_job_registry() -> ShellJobRegistry:
-    """Return the process-local singleton registry (lazily constructed)."""
+    """Return the process-local singleton registry (lazily constructed).
+
+    Reads optional ``EOS_SHELL_JOB_TTL_S`` and
+    ``EOS_SHELL_JOB_REAPER_INTERVAL_S`` env vars on first construction. Once
+    built, the singleton persists for the daemon process lifetime; tests
+    that want fresh values must call :func:`reset_shell_job_registry`.
+    """
     global _REGISTRY
     with _REGISTRY_LOCK:
         if _REGISTRY is None:
-            _REGISTRY = ShellJobRegistry()
+            _REGISTRY = ShellJobRegistry(
+                ttl_seconds=_env_float_or_default(_ENV_TTL_S, DEFAULT_TTL_SECONDS),
+                reaper_interval_s=_env_float_or_default(
+                    _ENV_REAPER_INTERVAL_S, DEFAULT_REAPER_INTERVAL_S
+                ),
+            )
         return _REGISTRY
 
 

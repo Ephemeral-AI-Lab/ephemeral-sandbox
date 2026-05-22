@@ -88,13 +88,26 @@ def test_shell_schema_describes_command():
     assert tool.short_description == "Run a shell command from the repo root."
 
 
-def test_shell_does_not_expose_background_execution():
+def test_shell_exposes_optional_background_execution():
+    """``shell`` is the only sandbox tool that supports daemon-native background.
+
+    The daemon's ``shell.launch / poll / cancel / reap`` ops (plan
+    ``docs/plans/2026-05-22-shell-background-mode.md``) let the agent fire
+    long-running shells without blocking the conversation. The engine's
+    background dispatcher injects ``background_task_id`` on opt-in calls,
+    and the tool branches into the daemon's job-control surface when set.
+    """
     tools = {tool.name: tool for tool in make_sandbox_tools()}
     tool = tools.get("shell")
     assert tool is not None
 
     schema = tool.to_api_schema()["input_schema"]
-    assert tool.background == "forbidden"
+    assert tool.background == "optional"
+    # The ``background`` flag is injected by the registry's
+    # ``decorate_schemas_for_background`` pass at tool registration, not by
+    # ``to_api_schema`` directly. Verify the per-tool schema is otherwise
+    # unchanged: the LLM-facing parameter list still excludes the runtime
+    # control field, but the BaseTool attribute opts the tool in.
     assert "background" not in schema["properties"]
 
 

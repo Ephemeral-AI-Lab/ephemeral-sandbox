@@ -358,7 +358,7 @@ async def test_publish_releases_mounted_lease_before_maintenance_and_remounts_la
     )
 
     assert occ_client.apply_run_maintenance == [False]
-    assert occ_client.maintenance_release_order == [["lease-1"]]
+    assert occ_client.maintenance_release_order == [["lease-1-1"]]
     assert layer_stack.released == ["lease-1-1"]
     assert unmounts == [workspace]
     assert len(mounts) == 2
