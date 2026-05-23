@@ -66,7 +66,7 @@ class GlobOutput(BaseModel):
     input_model=GlobInput,
     output_model=GlobOutput,
 )
-async def glob_files(
+async def glob(
     pattern: str,
     path: str | None = None,
     *,
@@ -78,7 +78,7 @@ async def glob_files(
     if sandbox_id_error is not None:
         return sandbox_id_error
     try:
-        result = await sandbox_api.glob_files(
+        result = await sandbox_api.glob(
             sandbox_id,
             GlobRequest(
                 pattern=pattern,
@@ -112,4 +112,4 @@ async def glob_files(
         )
 
 
-__all__ = ["glob_files"]
+__all__ = ["glob"]

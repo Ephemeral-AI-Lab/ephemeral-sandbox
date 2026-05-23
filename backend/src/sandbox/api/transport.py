@@ -19,8 +19,8 @@ DAEMON_OP_SHELL_POLL = "api.v1.shell.poll"
 DAEMON_OP_SHELL_CANCEL = "api.v1.shell.cancel"
 DAEMON_OP_SHELL_REAP = "api.v1.shell.reap"
 DAEMON_OP_SHELL_METRICS = "api.v1.shell.metrics"
-DAEMON_OP_FIND_FILES = "api.v1.find_files"
-DAEMON_OP_SEARCH_CONTENT = "api.v1.search_content"
+DAEMON_OP_GLOB = "api.v1.glob"
+DAEMON_OP_GREP = "api.v1.grep"
 
 
 class DaemonSandboxTransport:
@@ -44,9 +44,9 @@ class DaemonSandboxTransport:
 
 __all__ = [
     "DAEMON_OP_EDIT_FILE",
-    "DAEMON_OP_FIND_FILES",
+    "DAEMON_OP_GLOB",
+    "DAEMON_OP_GREP",
     "DAEMON_OP_READ_FILE",
-    "DAEMON_OP_SEARCH_CONTENT",
     "DAEMON_OP_SHELL",
     "DAEMON_OP_SHELL_CANCEL",
     "DAEMON_OP_SHELL_LAUNCH",

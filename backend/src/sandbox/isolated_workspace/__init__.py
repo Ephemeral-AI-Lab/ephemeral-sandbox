@@ -2,7 +2,7 @@
 
 A self-contained directory for the per-agent ``{user, mnt, pid, net}`` sandbox
 that the daemon offers via ``api.isolated_workspace.{enter, exit, status,
-shell, read_file, write_file, edit_file, search_content}``.
+shell, read_file, write_file, edit_file, grep}``.
 
 Submodules
 ----------
@@ -13,7 +13,7 @@ Submodules
   (``enter``, ``exit_``, ``status``).
 - :mod:`.ops_handlers` — RPC handlers for the per-tool ops
   (``shell``, ``read_file``, ``write_file``, ``edit_file``,
-  ``search_content``). Subject to the R3 import-graph fence:
+  ``grep``). Subject to the R3 import-graph fence:
   transitive imports MUST NOT include ``sandbox.occ.*`` or
   ``sandbox.daemon.service.sandbox_overlay``.
 - :mod:`.scripts` — single-threaded subprocess helpers that perform setns

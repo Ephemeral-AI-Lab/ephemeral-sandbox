@@ -173,7 +173,7 @@ class GlobResult(SandboxResultBase):
 
 
 @dataclass(frozen=True, kw_only=True)
-class SearchContentRequest(SandboxRequestBase):
+class GrepRequest(SandboxRequestBase):
     pattern: str
     path: str | None = None
     glob_filter: str | None = None
@@ -186,8 +186,8 @@ class SearchContentRequest(SandboxRequestBase):
 
 
 @dataclass(frozen=True, kw_only=True)
-class SearchContentResult(SandboxResultBase):
-    mode: str = "files_with_matches"
+class GrepResult(SandboxResultBase):
+    output_mode: str = "files_with_matches"
     filenames: tuple[str, ...] = ()
     content: str = ""
     num_files: int = 0
@@ -204,6 +204,8 @@ __all__ = [
     "EditFileResult",
     "GlobRequest",
     "GlobResult",
+    "GrepRequest",
+    "GrepResult",
     "GuardedResultBase",
     "RawExecResult",
     "ReadFileRequest",
@@ -211,8 +213,6 @@ __all__ = [
     "SandboxCaller",
     "SandboxRequestBase",
     "SandboxResultBase",
-    "SearchContentRequest",
-    "SearchContentResult",
     "SearchReplaceEdit",
     "ShellRequest",
     "ShellResult",

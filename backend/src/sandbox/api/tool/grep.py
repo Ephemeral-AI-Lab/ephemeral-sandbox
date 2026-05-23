@@ -4,24 +4,24 @@ from __future__ import annotations
 
 from audit.base import AuditSink
 from sandbox.api.tool.core.audit import audited_operation
-from sandbox.api.tool.core.results import search_content_result_from_daemon_response
+from sandbox.api.tool.core.results import grep_result_from_daemon_response
 from sandbox.api.protocol import SandboxTransport
-from sandbox.api.timeouts import SEARCH_CONTENT_TIMEOUT_S
-from sandbox.api.transport import DAEMON_OP_SEARCH_CONTENT, DaemonSandboxTransport
-from sandbox._shared.models import SearchContentRequest, SearchContentResult
+from sandbox.api.timeouts import GREP_TIMEOUT_S
+from sandbox.api.transport import DAEMON_OP_GREP, DaemonSandboxTransport
+from sandbox._shared.models import GrepRequest, GrepResult
 
 
-async def search_content(
+async def grep(
     sandbox_id: str,
-    request: SearchContentRequest,
+    request: GrepRequest,
     *,
     audit_sink: AuditSink | None = None,
     transport: SandboxTransport | None = None,
-) -> SearchContentResult:
+) -> GrepResult:
     """Regex-scan workspace file contents under the sandbox's leased snapshot."""
     selected_transport = transport or DaemonSandboxTransport()
 
-    async def _call() -> SearchContentResult:
+    async def _call() -> GrepResult:
         payload: dict[str, object] = {
             "pattern": request.pattern,
             "output_mode": request.output_mode,
@@ -39,16 +39,16 @@ async def search_content(
             payload["head_limit"] = request.head_limit
         raw = await selected_transport.call(
             sandbox_id,
-            DAEMON_OP_SEARCH_CONTENT,
+            DAEMON_OP_GREP,
             payload,
-            timeout=SEARCH_CONTENT_TIMEOUT_S,
+            timeout=GREP_TIMEOUT_S,
         )
-        return search_content_result_from_daemon_response(raw)
+        return grep_result_from_daemon_response(raw)
 
     return await audited_operation(
         audit_sink=audit_sink,
         sandbox_id=sandbox_id,
-        operation="search_content",
+        operation="grep",
         caller=request.caller,
         payload={
             "pattern": request.pattern,
@@ -59,4 +59,4 @@ async def search_content(
     )
 
 
-__all__ = ["search_content"]
+__all__ = ["grep"]

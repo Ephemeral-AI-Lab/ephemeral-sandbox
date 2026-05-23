@@ -1232,7 +1232,7 @@ Emits (in walk order):
 
 <ul>
 <li><strong>Lifecycle verbs</strong> (<code>create_sandbox</code>, <code>start_sandbox</code>, <code>stop_sandbox</code>, <code>delete_sandbox</code>, <code>ensure_sandbox_running</code>, <code>get_health</code>, <code>list_snapshots</code>, <code>list_sandboxes</code>, <code>get_sandbox</code>, <code>set_sandbox_labels</code>, <code>get_signed_preview_url</code>, <code>get_build_logs_url</code>) — defined in <span class="file-ref">api/_sandbox_control.py</span>; thin wrappers over <code>host.lifecycle</code>.</li>
-<li><strong>Tool verbs</strong> (<code>read_file</code>, <code>write_file</code>, <code>edit_file</code>, <code>glob_files</code>, <code>search_content</code>, <code>shell</code>) — in <code>api/tool/</code>. Each builds a JSON payload, calls <code>DaemonSandboxTransport().call(sandbox_id, op, args, timeout)</code>, and parses the response into a typed Result dataclass.</li>
+<li><strong>Tool verbs</strong> (<code>read_file</code>, <code>write_file</code>, <code>edit_file</code>, <code>glob</code>, <code>grep</code>, <code>shell</code>) — in <code>api/tool/</code>. Each builds a JSON payload, calls <code>DaemonSandboxTransport().call(sandbox_id, op, args, timeout)</code>, and parses the response into a typed Result dataclass.</li>
 <li><strong>Raw exec</strong> (<code>raw_exec</code>) — <span class="file-ref">api/_raw_exec.py:22</span> — bypasses all the guarded API. Used by bootstrap (git install, bundle upload). Wrapped in <code>audited_operation</code> but otherwise straight passthrough to <code>provider.exec()</code>.</li>
 </ul>
 
@@ -1255,7 +1255,7 @@ Emits (in walk order):
   "_eos_daemon_auth_token": "&lt;optional&gt;"
 }</code></pre>
 
-<p>Operations are constants in <span class="file-ref">api/transport.py</span>: <code>DAEMON_OP_READ_FILE</code>, <code>DAEMON_OP_WRITE_FILE</code>, <code>DAEMON_OP_EDIT_FILE</code>, <code>DAEMON_OP_SHELL</code>, <code>DAEMON_OP_FIND_FILES</code>, <code>DAEMON_OP_SEARCH_CONTENT</code>. Per-op timeouts in <span class="file-ref">api/timeouts.py</span>: read/write/shell/find/search 60s, edit 20s, shell-dispatch grace +30s.</p>
+<p>Operations are constants in <span class="file-ref">api/transport.py</span>: <code>DAEMON_OP_READ_FILE</code>, <code>DAEMON_OP_WRITE_FILE</code>, <code>DAEMON_OP_EDIT_FILE</code>, <code>DAEMON_OP_SHELL</code>, <code>DAEMON_OP_GLOB</code>, <code>DAEMON_OP_GREP</code>. Per-op timeouts in <span class="file-ref">api/timeouts.py</span>: read/write/shell/glob/grep 60s, edit 20s, shell-dispatch grace +30s.</p>
 
 <h3>7.2 Result shape</h3>
 
@@ -1297,8 +1297,8 @@ Emits (in walk order):
 <tr><td><code>api.v1.read_file</code></td><td><span class="file-ref">daemon/handler/read.py</span></td><td>In-workspace: lease + <code>layer_stack.read_text</code>. Out-of-workspace: direct read capped at 16&nbsp;MiB.</td></tr>
 <tr><td><code>api.v1.write_file</code></td><td><span class="file-ref">daemon/handler/write.py</span></td><td>Full OCC path (build change, prepare, commit, maintenance). Out-of-workspace: atomic temp+rename.</td></tr>
 <tr><td><code>api.v1.edit_file</code></td><td><span class="file-ref">daemon/handler/edit.py</span></td><td>Anchor-based search/replace with expected_occurrences validation; in-workspace loud failure, out-of-workspace silent conflict.</td></tr>
-<tr><td><code>api.v1.find_files</code></td><td><span class="file-ref">daemon/handler/search.py</span></td><td>Glob over snapshot view; excludes <code>.git</code> etc.; max 100 matches.</td></tr>
-<tr><td><code>api.v1.search_content</code></td><td><span class="file-ref">daemon/handler/search.py</span></td><td>Three output modes (content / files_with_matches / count); 20 KiB content cap; skips binary &amp; &gt;10 MiB files.</td></tr>
+<tr><td><code>api.v1.glob</code></td><td><span class="file-ref">daemon/handler/glob.py</span></td><td>Glob over snapshot view; excludes <code>.git</code> etc.; max 100 matches.</td></tr>
+<tr><td><code>api.v1.grep</code></td><td><span class="file-ref">daemon/handler/grep.py</span></td><td>Three output modes (content / files_with_matches / count); 20 KiB content cap; skips binary &amp; &gt;10 MiB files.</td></tr>
 <tr><td><code>api.v1.shell</code></td><td><span class="file-ref">daemon/handler/overlay.py + execution.service</span></td><td>Overlay-isolated execution; see §4.</td></tr>
 <tr><td><code>api.ensure_workspace_base</code></td><td><span class="file-ref">daemon/handler/workspace.py</span></td><td>Idempotent: returns existing binding if manifest_version &ge; 1.</td></tr>
 <tr><td><code>api.prepare_workspace_snapshot</code></td><td><span class="file-ref">daemon/handler/workspace.py</span></td><td>Acquires lease + materializes transient lowerdir.</td></tr>

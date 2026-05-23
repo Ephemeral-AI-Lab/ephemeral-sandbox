@@ -9,7 +9,7 @@ from sandbox.daemon.handler import (
     workspace,
 )
 from sandbox.plugin import handler as plugin_handler
-from sandbox.daemon.handler import edit, read, search, write
+from sandbox.daemon.handler import edit, glob, grep, read, write
 from sandbox.daemon.rpc import dispatcher as server
 from sandbox.daemon.service import shell_runner, shell_job_handler
 from sandbox.isolated_workspace import handlers as iws_handlers
@@ -26,10 +26,10 @@ def test_daemon_op_table_routes_to_current_handler_layout() -> None:
         "api.v1.edit_file": edit.edit_file,
         "api.read_file": read.read_file,
         "api.v1.read_file": read.read_file,
-        "api.find_files": search.find_files,
-        "api.v1.find_files": search.find_files,
-        "api.search_content": search.search_content,
-        "api.v1.search_content": search.search_content,
+        "api.glob": glob.glob,
+        "api.v1.glob": glob.glob,
+        "api.grep": grep.grep,
+        "api.v1.grep": grep.grep,
         "api.shell": shell_runner.execute_shell_api,
         "api.v1.shell": shell_runner.execute_shell_api,
         "api.shell.launch": shell_job_handler.shell_launch,
@@ -70,7 +70,7 @@ def test_daemon_op_table_routes_to_current_handler_layout() -> None:
         "api.isolated_workspace.read_file": iws_ops_handlers.read_file,
         "api.isolated_workspace.write_file": iws_ops_handlers.write_file,
         "api.isolated_workspace.edit_file": iws_ops_handlers.edit_file,
-        "api.isolated_workspace.search_content": iws_ops_handlers.search_content,
+        "api.isolated_workspace.grep": iws_ops_handlers.grep,
     }
     # Plugin-specific ops (plugin.<name>.<op>) appear when api.plugin.ensure
     # flushes pending registrations; only the static OP_TABLE entries are

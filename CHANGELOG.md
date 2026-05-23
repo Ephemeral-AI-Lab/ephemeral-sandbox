@@ -28,6 +28,7 @@ The format is based on Keep a Changelog, and this project currently tracks chang
 
 - README now links to contribution docs, changelog, showcase material, and provider compatibility guidance.
 - README quick start now includes a one-command demo and clearer provider compatibility notes.
+- **Sandbox API verb rename (PR-0 of `unify_sandbox_tool_api_PLAN.md`):** `search_content` → `grep` and `glob_files` → `glob` across the entire stack. Renamed `SearchContentRequest`/`SearchContentResult` → `GrepRequest`/`GrepResult`; `DAEMON_OP_SEARCH_CONTENT`/`DAEMON_OP_FIND_FILES` → `DAEMON_OP_GREP`/`DAEMON_OP_GLOB` with new wire ops `api.v1.grep` / `api.v1.glob`; `SEARCH_CONTENT_TIMEOUT_S`/`FIND_FILES_TIMEOUT_S` → `GREP_TIMEOUT_S`/`GLOB_TIMEOUT_S`; renamed `SearchContentResult.mode` → `output_mode` (freeing the `mode` slot for the future workspace discriminator). Split `sandbox/daemon/handler/search.py` into sibling modules `grep.py` (regex-scan) and `glob.py` (pattern enumeration). The iws op `api.isolated_workspace.search_content` is renamed to `api.isolated_workspace.grep` (full iws tool-op surface is deleted in PR-A). No behavior change.
 - README provider compatibility section updated to include OpenAI-format providers.
 
 ## [0.1.0] - 2026-04-01

@@ -17,7 +17,7 @@ from typing import Any
 
 from tools._framework.core.results import ToolResult
 from tools._framework.core.runtime import ExecutionMetadata
-from tools.sandbox.glob import glob_files as glob_tool
+from tools.sandbox.glob import glob as glob_tool
 from tools.sandbox.grep import grep as grep_tool
 
 from task_center_runner.agent.mock.complex_project_build_probe import (

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox._shared.models import GlobResult, SearchContentResult
+from sandbox._shared.models import GlobResult, GrepResult
 from tools._framework.core.base import ToolExecutionContextService
 import tools.sandbox.glob as glob_tool_module
 import tools.sandbox.grep as grep_tool_module
@@ -35,12 +35,12 @@ async def test_glob_tool_resolves_repo_root_and_returns_filenames(
             filenames=("a.py", "pkg/b.py"),
             num_files=2,
             truncated=False,
-            timings={"api.find_files.total_s": 0.05},
+            timings={"api.glob.total_s": 0.05},
         )
 
-    monkeypatch.setattr(glob_tool_module.sandbox_api, "glob_files", fake_glob)
+    monkeypatch.setattr(glob_tool_module.sandbox_api, "glob", fake_glob)
 
-    tool = glob_tool_module.glob_files
+    tool = glob_tool_module.glob
     result = await tool.execute(
         tool.input_model(pattern="*.py", path="src"),
         _sandbox_ctx(),
@@ -60,7 +60,7 @@ async def test_glob_tool_resolves_repo_root_and_returns_filenames(
 
 
 async def test_glob_tool_returns_error_without_sandbox_id() -> None:
-    tool = glob_tool_module.glob_files
+    tool = glob_tool_module.glob
     result = await tool.execute(
         tool.input_model(pattern="*.py"),
         _ctx({"repo_root": "/repo"}),
@@ -82,9 +82,9 @@ async def test_glob_tool_surfaces_truncated_flag(
             timings={},
         )
 
-    monkeypatch.setattr(glob_tool_module.sandbox_api, "glob_files", fake_glob)
+    monkeypatch.setattr(glob_tool_module.sandbox_api, "glob", fake_glob)
 
-    tool = glob_tool_module.glob_files
+    tool = glob_tool_module.glob
     result = await tool.execute(
         tool.input_model(pattern="*.py"),
         _sandbox_ctx(),
@@ -101,9 +101,9 @@ async def test_glob_tool_handles_exception(
     async def fake_glob(sandbox_id, request, **kwargs):
         raise RuntimeError("daemon unreachable")
 
-    monkeypatch.setattr(glob_tool_module.sandbox_api, "glob_files", fake_glob)
+    monkeypatch.setattr(glob_tool_module.sandbox_api, "glob", fake_glob)
 
-    tool = glob_tool_module.glob_files
+    tool = glob_tool_module.glob
     result = await tool.execute(
         tool.input_model(pattern="*.py"),
         _sandbox_ctx(),
@@ -118,7 +118,7 @@ async def test_grep_tool_dispatches_with_full_options(
 ) -> None:
     received: dict[str, object] = {}
 
-    async def fake_search(sandbox_id, request, **kwargs):
+    async def fake_grep(sandbox_id, request, **kwargs):
         received["sandbox_id"] = sandbox_id
         received["pattern"] = request.pattern
         received["path"] = request.path
@@ -128,9 +128,9 @@ async def test_grep_tool_dispatches_with_full_options(
         received["case_insensitive"] = request.case_insensitive
         received["line_numbers"] = request.line_numbers
         received["multiline"] = request.multiline
-        return SearchContentResult(
+        return GrepResult(
             success=True,
-            mode="content",
+            output_mode="content",
             filenames=("a.py",),
             content="a.py:2:hit\n",
             num_files=1,
@@ -139,11 +139,11 @@ async def test_grep_tool_dispatches_with_full_options(
             applied_limit=10,
             applied_offset=0,
             truncated=False,
-            timings={"api.search_content.total_s": 0.1},
+            timings={"api.grep.total_s": 0.1},
         )
 
     monkeypatch.setattr(
-        grep_tool_module.sandbox_api, "search_content", fake_search
+        grep_tool_module.sandbox_api, "grep", fake_grep
     )
 
     tool = grep_tool_module.grep
@@ -188,11 +188,11 @@ async def test_grep_tool_zero_head_limit_propagates_as_unlimited(
     """
     received: dict[str, object] = {}
 
-    async def fake_search(sandbox_id, request, **kwargs):
+    async def fake_grep(sandbox_id, request, **kwargs):
         received["head_limit"] = request.head_limit
-        return SearchContentResult(
+        return GrepResult(
             success=True,
-            mode="files_with_matches",
+            output_mode="files_with_matches",
             filenames=(),
             content="",
             num_files=0,
@@ -205,7 +205,7 @@ async def test_grep_tool_zero_head_limit_propagates_as_unlimited(
         )
 
     monkeypatch.setattr(
-        grep_tool_module.sandbox_api, "search_content", fake_search
+        grep_tool_module.sandbox_api, "grep", fake_grep
     )
 
     tool = grep_tool_module.grep
@@ -243,11 +243,11 @@ async def test_grep_tool_returns_error_without_sandbox_id() -> None:
 async def test_grep_tool_handles_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_search(sandbox_id, request, **kwargs):
+    async def fake_grep(sandbox_id, request, **kwargs):
         raise RuntimeError("daemon unreachable")
 
     monkeypatch.setattr(
-        grep_tool_module.sandbox_api, "search_content", fake_search
+        grep_tool_module.sandbox_api, "grep", fake_grep
     )
 
     tool = grep_tool_module.grep

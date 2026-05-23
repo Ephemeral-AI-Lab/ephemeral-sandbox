@@ -86,7 +86,7 @@ async def edit_file(args: dict[str, Any]) -> dict[str, Any]:
     return await write_file(args)
 
 
-async def search_content(args: dict[str, Any]) -> dict[str, Any]:
+async def grep(args: dict[str, Any]) -> dict[str, Any]:
     return await _run(
         require_arg(args, "agent_id"),
         ["/usr/bin/grep", "-r", "-n",
@@ -95,4 +95,4 @@ async def search_content(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-__all__ = ["edit_file", "read_file", "search_content", "shell", "write_file"]
+__all__ = ["edit_file", "grep", "read_file", "shell", "write_file"]

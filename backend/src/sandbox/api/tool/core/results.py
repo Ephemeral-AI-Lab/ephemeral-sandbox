@@ -15,9 +15,9 @@ from sandbox._shared.models import (
     ConflictInfo,
     EditFileResult,
     GlobResult,
+    GrepResult,
     GuardedResultBase,
     ReadFileResult,
-    SearchContentResult,
     ShellResult,
 )
 
@@ -44,18 +44,18 @@ def glob_result_from_daemon_response(raw: Mapping[str, object]) -> GlobResult:
     )
 
 
-def search_content_result_from_daemon_response(
+def grep_result_from_daemon_response(
     raw: Mapping[str, object],
-) -> SearchContentResult:
+) -> GrepResult:
     applied_limit_raw = raw.get("applied_limit")
     applied_limit = (
         int_from_daemon_response(applied_limit_raw, default=0)
         if applied_limit_raw is not None
         else None
     )
-    return SearchContentResult(
+    return GrepResult(
         success=bool(raw.get("success", False)),
-        mode=str(raw.get("mode", "files_with_matches")),
+        output_mode=str(raw.get("output_mode", "files_with_matches")),
         filenames=paths_from_daemon_response(raw.get("filenames")),
         content=str(raw.get("content", "")),
         num_files=int_from_daemon_response(raw.get("num_files"), default=0),

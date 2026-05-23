@@ -6,8 +6,8 @@ import pytest
 
 from sandbox.api import (
     GlobRequest,
+    GrepRequest,
     SandboxCaller,
-    SearchContentRequest,
 )
 import sandbox.api.tool.glob as glob_module
 import sandbox.api.tool.grep as grep_module
@@ -22,7 +22,7 @@ _CALLER_FIELDS = {
 
 
 @pytest.mark.asyncio
-async def test_glob_files_dispatches_to_sandbox_daemon(
+async def test_glob_dispatches_to_sandbox_daemon(
     recording_transport_factory,
 ) -> None:
     async def fake_call(sandbox_id, op, args, timeout):
@@ -32,12 +32,12 @@ async def test_glob_files_dispatches_to_sandbox_daemon(
             "filenames": ["a.py", "pkg/b.py"],
             "num_files": 2,
             "truncated": False,
-            "timings": {"api.find_files.total_s": 0.1},
+            "timings": {"api.glob.total_s": 0.1},
         }
 
     transport = recording_transport_factory(fake_call)
 
-    result = await glob_module.glob_files(
+    result = await glob_module.glob(
         "sb-1",
         GlobRequest(pattern="*.py", caller=SandboxCaller(agent_id="a")),
         transport=transport,
@@ -50,7 +50,7 @@ async def test_glob_files_dispatches_to_sandbox_daemon(
     assert transport.calls == [
         (
             "sb-1",
-            "api.v1.find_files",
+            "api.v1.glob",
             {"pattern": "*.py", "caller": _CALLER_FIELDS},
             60,
         ),
@@ -58,7 +58,7 @@ async def test_glob_files_dispatches_to_sandbox_daemon(
 
 
 @pytest.mark.asyncio
-async def test_glob_files_passes_optional_path(
+async def test_glob_passes_optional_path(
     recording_transport_factory,
 ) -> None:
     async def fake_call(sandbox_id, op, args, timeout):
@@ -72,7 +72,7 @@ async def test_glob_files_passes_optional_path(
         }
 
     transport = recording_transport_factory(fake_call)
-    await glob_module.glob_files(
+    await glob_module.glob(
         "sb-1",
         GlobRequest(
             pattern="*.py",
@@ -87,7 +87,7 @@ async def test_glob_files_passes_optional_path(
 
 
 @pytest.mark.asyncio
-async def test_glob_files_truncated_flag_surfaces(
+async def test_glob_truncated_flag_surfaces(
     recording_transport_factory,
 ) -> None:
     async def fake_call(sandbox_id, op, args, timeout):
@@ -101,7 +101,7 @@ async def test_glob_files_truncated_flag_surfaces(
         }
 
     transport = recording_transport_factory(fake_call)
-    result = await glob_module.glob_files(
+    result = await glob_module.glob(
         "sb-1",
         GlobRequest(pattern="*.py", caller=SandboxCaller(agent_id="a")),
         transport=transport,
@@ -112,14 +112,14 @@ async def test_glob_files_truncated_flag_surfaces(
 
 
 @pytest.mark.asyncio
-async def test_search_content_dispatches_to_sandbox_daemon(
+async def test_grep_dispatches_to_sandbox_daemon(
     recording_transport_factory,
 ) -> None:
     async def fake_call(sandbox_id, op, args, timeout):
         del sandbox_id, op, args, timeout
         return {
             "success": True,
-            "mode": "files_with_matches",
+            "output_mode": "files_with_matches",
             "filenames": ["a.py"],
             "content": "",
             "num_files": 1,
@@ -128,27 +128,27 @@ async def test_search_content_dispatches_to_sandbox_daemon(
             "applied_limit": 250,
             "applied_offset": 0,
             "truncated": False,
-            "timings": {"api.search_content.total_s": 0.1},
+            "timings": {"api.grep.total_s": 0.1},
         }
 
     transport = recording_transport_factory(fake_call)
 
-    result = await grep_module.search_content(
+    result = await grep_module.grep(
         "sb-1",
-        SearchContentRequest(
+        GrepRequest(
             pattern="hello", caller=SandboxCaller(agent_id="a")
         ),
         transport=transport,
     )
 
     assert result.success is True
-    assert result.mode == "files_with_matches"
+    assert result.output_mode == "files_with_matches"
     assert result.filenames == ("a.py",)
     assert result.num_files == 1
     assert result.applied_limit == 250
     sandbox_id, op, payload, timeout = transport.calls[0]
     assert sandbox_id == "sb-1"
-    assert op == "api.v1.search_content"
+    assert op == "api.v1.grep"
     assert payload["pattern"] == "hello"
     assert payload["output_mode"] == "files_with_matches"
     assert payload["caller"] == _CALLER_FIELDS
@@ -156,14 +156,14 @@ async def test_search_content_dispatches_to_sandbox_daemon(
 
 
 @pytest.mark.asyncio
-async def test_search_content_passes_optional_filters(
+async def test_grep_passes_optional_filters(
     recording_transport_factory,
 ) -> None:
     async def fake_call(sandbox_id, op, args, timeout):
         del sandbox_id, op, args, timeout
         return {
             "success": True,
-            "mode": "content",
+            "output_mode": "content",
             "filenames": [],
             "content": "",
             "num_files": 0,
@@ -176,9 +176,9 @@ async def test_search_content_passes_optional_filters(
         }
 
     transport = recording_transport_factory(fake_call)
-    await grep_module.search_content(
+    await grep_module.grep(
         "sb-1",
-        SearchContentRequest(
+        GrepRequest(
             pattern="needle",
             path="pkg",
             glob_filter="*.py",
@@ -205,7 +205,7 @@ async def test_search_content_passes_optional_filters(
 
 
 @pytest.mark.asyncio
-async def test_search_content_zero_head_limit_reaches_daemon_as_zero(
+async def test_grep_zero_head_limit_reaches_daemon_as_zero(
     recording_transport_factory,
 ) -> None:
     """``head_limit=0`` (the documented unlimited sentinel) must be sent
@@ -218,7 +218,7 @@ async def test_search_content_zero_head_limit_reaches_daemon_as_zero(
         del sandbox_id, op, args, timeout
         return {
             "success": True,
-            "mode": "count",
+            "output_mode": "count",
             "filenames": ["a.py"],
             "content": "a.py:3",
             "num_files": 1,
@@ -231,9 +231,9 @@ async def test_search_content_zero_head_limit_reaches_daemon_as_zero(
         }
 
     transport = recording_transport_factory(fake_call)
-    result = await grep_module.search_content(
+    result = await grep_module.grep(
         "sb-1",
-        SearchContentRequest(
+        GrepRequest(
             pattern="hello",
             output_mode="count",
             head_limit=0,
@@ -244,7 +244,7 @@ async def test_search_content_zero_head_limit_reaches_daemon_as_zero(
 
     assert result.applied_limit is None
     assert result.num_matches == 3
-    assert result.mode == "count"
+    assert result.output_mode == "count"
     # Critical contract: the wrapper must forward head_limit=0 to the
     # daemon. Omitting the key would let the daemon default to 250.
     payload = transport.calls[0][2]
@@ -252,7 +252,7 @@ async def test_search_content_zero_head_limit_reaches_daemon_as_zero(
 
 
 @pytest.mark.asyncio
-async def test_glob_files_audit_sink_receives_start_and_result(
+async def test_glob_audit_sink_receives_start_and_result(
     recording_transport_factory,
 ) -> None:
     events: list[object] = []
@@ -272,7 +272,7 @@ async def test_glob_files_audit_sink_receives_start_and_result(
         }
 
     transport = recording_transport_factory(fake_call)
-    await glob_module.glob_files(
+    await glob_module.glob(
         "sb-1",
         GlobRequest(pattern="*.py", caller=SandboxCaller(agent_id="a")),
         audit_sink=SinkStub(),

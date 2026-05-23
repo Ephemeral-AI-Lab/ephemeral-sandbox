@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 import sandbox.api as sandbox_api
-from sandbox.api import SearchContentRequest
+from sandbox.api import GrepRequest
 from tools._framework.core.base import ToolExecutionContextService, ToolResult
 from tools._framework.core.decorator import tool
 from .prompt import get_grep_description
@@ -143,9 +143,9 @@ async def grep(
     if sandbox_id_error is not None:
         return sandbox_id_error
     try:
-        result = await sandbox_api.search_content(
+        result = await sandbox_api.grep(
             sandbox_id,
-            SearchContentRequest(
+            GrepRequest(
                 pattern=pattern,
                 path=resolved_path,
                 glob_filter=glob_filter,
@@ -176,7 +176,7 @@ async def grep(
                 {
                     "cwd": get_repo_root(context),
                     "pattern": pattern,
-                    "mode": result.mode,
+                    "mode": result.output_mode,
                     "filenames": list(result.filenames),
                     "content": result.content,
                     "num_files": result.num_files,

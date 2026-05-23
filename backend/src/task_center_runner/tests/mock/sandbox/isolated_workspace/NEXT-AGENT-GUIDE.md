@@ -27,7 +27,7 @@ backend/src/sandbox/isolated_workspace/          ← all iws production code
 ├── manager.py             state machine, _PhaseTimer, _LinuxRuntime, _Runtime Protocol
 ├── network.py             bridge + nftables + veth + IP pool
 ├── handlers.py            api.isolated_workspace.{enter, exit, status}
-├── ops_handlers.py        api.isolated_workspace.{shell, read_file, write_file, edit_file, search_content}
+├── ops_handlers.py        api.isolated_workspace.{shell, read_file, write_file, edit_file, grep}
 └── scripts/               single-threaded subprocess helpers (R10)
     ├── _setns_libc.py     libc setns(2) ctypes wrapper
     ├── ns_holder.py       PID 1 of the workspace namespace stack

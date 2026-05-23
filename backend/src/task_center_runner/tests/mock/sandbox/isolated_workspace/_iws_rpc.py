@@ -197,7 +197,7 @@ async def edit_file(
     )
 
 
-async def search_content(
+async def grep(
     sandbox_id: str,
     agent_id: str,
     pattern: str,
@@ -207,7 +207,7 @@ async def search_content(
 ) -> dict[str, Any]:
     return await call_daemon_api(
         sandbox_id,
-        "api.isolated_workspace.search_content",
+        "api.isolated_workspace.grep",
         {"agent_id": agent_id, "pattern": pattern, "path": path},
         timeout=timeout,
     )
@@ -219,9 +219,9 @@ __all__ = [
     "edit_file",
     "enter",
     "exit_",
+    "grep",
     "list_open",
     "read_file",
-    "search_content",
     "shell",
     "status",
     "test_reset",

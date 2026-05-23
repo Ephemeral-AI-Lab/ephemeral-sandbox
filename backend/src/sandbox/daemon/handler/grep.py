@@ -1,10 +1,12 @@
-"""``api.find_files`` / ``api.search_content`` dispatch entries (read-only).
+"""``api.grep`` dispatch entry (read-only).
 
-Both ops acquire a snapshot lease (MVCC read isolation, mirrors ``read.py``)
-and walk paths through ``services.layer_stack`` against ``lease.manifest`` so
-each scan is consistent with the leased snapshot. Neither handler imports
-``occ_client`` or touches the OCC mutation gate — the search surface is
+Acquires a snapshot lease (MVCC read isolation, mirrors ``read.py``) and walks
+paths through ``services.layer_stack`` against ``lease.manifest`` so each scan
+is consistent with the leased snapshot. The handler does not import
+``occ_client`` or touch the OCC mutation gate — the search surface is
 read-only by construction.
+
+The companion ``glob.py`` shares the directory-walk helpers exported below.
 """
 
 from __future__ import annotations
@@ -25,7 +27,6 @@ from sandbox._shared.clock import monotonic_now
 
 
 VCS_EXCLUDED = frozenset({".git", ".svn", ".hg", ".bzr", ".jj", ".sl"})
-DEFAULT_GLOB_LIMIT = 100
 DEFAULT_GREP_HEAD_LIMIT = 250
 MAX_GREP_CONTENT_BYTES = 20 * 1024
 MAX_GREP_FILE_BYTES = 10 * 1024 * 1024
@@ -34,11 +35,11 @@ _GrepMode = Literal["content", "files_with_matches", "count"]
 _VALID_MODES: frozenset[str] = frozenset({"content", "files_with_matches", "count"})
 
 
-def _is_vcs_excluded(path: str) -> bool:
+def is_vcs_excluded(path: str) -> bool:
     return any(part in VCS_EXCLUDED for part in path.split("/"))
 
 
-def _layer_subpath(args: dict[str, Any], workspace_root: str) -> str:
+def layer_subpath(args: dict[str, Any], workspace_root: str) -> str:
     raw = str(args.get("path") or "").strip()
     if not raw:
         return ""
@@ -48,7 +49,7 @@ def _layer_subpath(args: dict[str, Any], workspace_root: str) -> str:
     return classified.layer_path
 
 
-def _under(prefix: str, path: str) -> bool:
+def under(prefix: str, path: str) -> bool:
     if not prefix:
         return True
     return path == prefix or path.startswith(prefix + "/")
@@ -68,50 +69,7 @@ def _compile_regex(
         raise ValueError(f"invalid regex pattern: {exc}") from exc
 
 
-def _find_files_sync(args: dict[str, Any]) -> dict[str, Any]:
-    total_start = monotonic_now()
-    layer_stack_root = require_layer_stack_root(args)
-    binding = require_workspace_binding(layer_stack_root)
-    pattern = str(args.get("pattern") or "").strip()
-    if not pattern:
-        raise ValueError("pattern is required")
-    sub_path = _layer_subpath(args, binding.workspace_root)
-
-    services = build_occ_backend(layer_stack_root)
-    request_id = uuid4().hex
-    lease_start = monotonic_now()
-    lease = services.manager.acquire_snapshot_lease(request_id)
-    lease_acquired_s = monotonic_now() - lease_start
-    try:
-        iter_start = monotonic_now()
-        matches: list[str] = []
-        for layer_path in services.layer_stack.iter_paths(lease.manifest):
-            if _is_vcs_excluded(layer_path):
-                continue
-            if not _under(sub_path, layer_path):
-                continue
-            if not fnmatch.fnmatchcase(layer_path, pattern):
-                continue
-            matches.append(layer_path)
-        iter_elapsed = monotonic_now() - iter_start
-        matches.sort()
-        truncated = len(matches) > DEFAULT_GLOB_LIMIT
-        return {
-            "success": True,
-            "filenames": matches[:DEFAULT_GLOB_LIMIT],
-            "num_files": min(len(matches), DEFAULT_GLOB_LIMIT),
-            "truncated": truncated,
-            "timings": {
-                "api.find_files.lease_acquire_s": lease_acquired_s,
-                "api.find_files.iter_s": iter_elapsed,
-                "api.find_files.total_s": monotonic_now() - total_start,
-            },
-        }
-    finally:
-        services.manager.release_lease(lease.lease_id)
-
-
-def _search_content_sync(args: dict[str, Any]) -> dict[str, Any]:
+def _grep_sync(args: dict[str, Any]) -> dict[str, Any]:
     total_start = monotonic_now()
     layer_stack_root = require_layer_stack_root(args)
     binding = require_workspace_binding(layer_stack_root)
@@ -119,7 +77,7 @@ def _search_content_sync(args: dict[str, Any]) -> dict[str, Any]:
     pattern = "" if pattern_raw is None else str(pattern_raw)
     if not pattern:
         raise ValueError("pattern is required")
-    sub_path = _layer_subpath(args, binding.workspace_root)
+    sub_path = layer_subpath(args, binding.workspace_root)
     glob_filter = str(args.get("glob_filter") or "").strip() or None
     raw_mode = str(args.get("output_mode") or "files_with_matches").strip() or "files_with_matches"
     if raw_mode not in _VALID_MODES:
@@ -155,9 +113,9 @@ def _search_content_sync(args: dict[str, Any]) -> dict[str, Any]:
         scan_start = monotonic_now()
         candidate_paths: list[str] = []
         for layer_path in services.layer_stack.iter_paths(lease.manifest):
-            if _is_vcs_excluded(layer_path):
+            if is_vcs_excluded(layer_path):
                 continue
-            if not _under(sub_path, layer_path):
+            if not under(sub_path, layer_path):
                 continue
             if glob_filter is not None and not fnmatch.fnmatchcase(
                 layer_path, glob_filter
@@ -262,7 +220,7 @@ def _search_content_sync(args: dict[str, Any]) -> dict[str, Any]:
 
         return {
             "success": True,
-            "mode": mode,
+            "output_mode": mode,
             "filenames": filenames_out,
             "content": content_out,
             "num_files": num_files,
@@ -272,33 +230,29 @@ def _search_content_sync(args: dict[str, Any]) -> dict[str, Any]:
             "applied_offset": offset,
             "truncated": truncated,
             "timings": {
-                "api.search_content.lease_acquire_s": lease_acquired_s,
-                "api.search_content.scan_s": scan_elapsed,
-                "api.search_content.skipped_large": float(skipped_large),
-                "api.search_content.skipped_binary": float(skipped_binary),
-                "api.search_content.total_s": monotonic_now() - total_start,
+                "api.grep.lease_acquire_s": lease_acquired_s,
+                "api.grep.scan_s": scan_elapsed,
+                "api.grep.skipped_large": float(skipped_large),
+                "api.grep.skipped_binary": float(skipped_binary),
+                "api.grep.total_s": monotonic_now() - total_start,
             },
         }
     finally:
         services.manager.release_lease(lease.lease_id)
 
 
-async def find_files(args: dict[str, Any]) -> dict[str, Any]:
-    """``api.find_files``: enumerate snapshot paths matching a glob pattern."""
-    return await run_sync_in_executor(_find_files_sync, args)
-
-
-async def search_content(args: dict[str, Any]) -> dict[str, Any]:
-    """``api.search_content``: regex-scan snapshot file contents."""
-    return await run_sync_in_executor(_search_content_sync, args)
+async def grep(args: dict[str, Any]) -> dict[str, Any]:
+    """``api.grep``: regex-scan snapshot file contents."""
+    return await run_sync_in_executor(_grep_sync, args)
 
 
 __all__ = [
-    "DEFAULT_GLOB_LIMIT",
     "DEFAULT_GREP_HEAD_LIMIT",
     "MAX_GREP_CONTENT_BYTES",
     "MAX_GREP_FILE_BYTES",
     "VCS_EXCLUDED",
-    "find_files",
-    "search_content",
+    "grep",
+    "is_vcs_excluded",
+    "layer_subpath",
+    "under",
 ]

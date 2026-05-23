@@ -207,7 +207,7 @@ async def shell(sandbox_id, agent_id, command, *, timeout_s=30) -> dict
 async def read_file(sandbox_id, agent_id, path) -> dict
 async def write_file(sandbox_id, agent_id, path, content: bytes | str) -> dict
 async def edit_file(sandbox_id, agent_id, path, content) -> dict
-async def search_content(sandbox_id, agent_id, pattern, *, path="/testbed") -> dict
+async def grep(sandbox_id, agent_id, pattern, *, path="/testbed") -> dict
 ```
 
 Each function returns the raw JSON response and raises on transport-level
@@ -912,7 +912,7 @@ performance/
 
 | File | Asserts | Innocent-refactor failure mode | Capability gate |
 |---|---|---|---|
-| `performance/test_per_op_latency_within_baseline.py` | For each of `{enter, exit, shell, read_file, write_file, edit_file, search_content}`: median `duration_s` across N=21 in-test samples is within `[0.3×, 3×]` of the session baseline median AND p95 ≤ budget × 1.5. | Add synchronous network roundtrip to a single op — baseline doubles; ratio + absolute checks both flag. | `has_run_in_handle()` |
+| `performance/test_per_op_latency_within_baseline.py` | For each of `{enter, exit, shell, read_file, write_file, edit_file, grep}`: median `duration_s` across N=21 in-test samples is within `[0.3×, 3×]` of the session baseline median AND p95 ≤ budget × 1.5. | Add synchronous network roundtrip to a single op — baseline doubles; ratio + absolute checks both flag. | `has_run_in_handle()` |
 | `performance/test_enter_phase_breakdown_complete.py` | `sandbox_isolated_workspace_enter` payload has `phases_ms` dict whose key set is a subset of `{prepare_snapshot, spawn_ns_holder, open_ns_fds, install_veth, mount_overlay, configure_dns, create_cgroup}`. All values float, all ≥ 0. SUBSET-COVER invariant holds. | Drop a phase boundary `with timer.measure(...)` — key disappears. | `has_mount_overlay()` |
 | `performance/test_exit_phase_breakdown_complete.py` | Same shape for exit: keys subset of `{kill_holder, teardown_veth, release_snapshot, rmtree_scratch, cgroup_rmdir}`; SUBSET-COVER holds. Existing `lifetime_s`, `upperdir_bytes_discarded` still present (back-compat). | Combine two teardown phases — key vanishes. | `has_run_in_handle()` |
 | `performance/test_tool_call_phase_breakdown_complete.py` | `phases_ms` keys are subset of `{unfreeze, exec, freeze}` for v1 (per §15.2). `argv0`, `exit_code` populated. SUBSET-COVER holds. | Skip unfreeze step — `unfreeze` key disappears. | `has_run_in_handle()` |

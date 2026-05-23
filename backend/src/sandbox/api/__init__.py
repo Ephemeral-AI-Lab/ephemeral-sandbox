@@ -18,6 +18,8 @@ from sandbox._shared.models import (
     EditFileResult,
     GlobRequest,
     GlobResult,
+    GrepRequest,
+    GrepResult,
     GuardedResultBase,
     RawExecResult,
     ReadFileRequest,
@@ -25,8 +27,6 @@ from sandbox._shared.models import (
     SandboxCaller,
     SandboxRequestBase,
     SandboxResultBase,
-    SearchContentRequest,
-    SearchContentResult,
     SearchReplaceEdit,
     ShellRequest,
     ShellResult,
@@ -50,8 +50,8 @@ from sandbox.api._sandbox_control import (  # isort: skip -- models precede sand
     stop_sandbox,
 )
 from sandbox.api.tool.edit import edit_file
-from sandbox.api.tool.glob import glob_files
-from sandbox.api.tool.grep import search_content
+from sandbox.api.tool.glob import glob
+from sandbox.api.tool.grep import grep
 from sandbox.api.tool.read import read_file
 from sandbox.api.tool.shell import shell
 from sandbox.api.tool.write import write_file
@@ -63,6 +63,8 @@ __all__ = [
     "EditFileResult",
     "GlobRequest",
     "GlobResult",
+    "GrepRequest",
+    "GrepResult",
     "GuardedResultBase",
     "RawExecResult",
     "ReadFileRequest",
@@ -70,8 +72,6 @@ __all__ = [
     "SandboxCaller",
     "SandboxRequestBase",
     "SandboxResultBase",
-    "SearchContentRequest",
-    "SearchContentResult",
     "SearchReplaceEdit",
     "ShellRequest",
     "ShellResult",
@@ -87,12 +87,12 @@ __all__ = [
     "get_health",
     "get_sandbox",
     "get_signed_preview_url",
-    "glob_files",
+    "glob",
+    "grep",
     "list_sandboxes",
     "list_snapshots",
     "raw_exec",
     "read_file",
-    "search_content",
     "set_sandbox_labels",
     "shell",
     "start_sandbox",
