@@ -30,6 +30,7 @@ pytestmark = pytest.mark.asyncio
 
 
 _IN_CONTAINER_SCRIPT = r"""
+import asyncio
 import os
 import shutil
 import sys
@@ -66,7 +67,7 @@ exit_code = 0
 try:
     handle.root_pid = runtime.spawn_ns_holder(handle, setup_timeout_s=30.0)
     handle.ns_fds.update(runtime.open_ns_fds(handle.root_pid))
-    runtime.mount_overlay(handle, layer_paths=(str(lower),))
+    asyncio.run(runtime.mount_overlay(handle, layer_paths=(str(lower),)))
 
     mi_path = "/proc/%d/mountinfo" % handle.root_pid
     with open(mi_path, "r", encoding="utf-8") as fh:
@@ -111,9 +112,14 @@ sys.exit(exit_code)
 @pytest.mark.timeout(180)
 async def test_mount_overlay_backstop(iws_clean_sandbox) -> None:
     sandbox_id = str(iws_clean_sandbox["sandbox_id"])
+    # PYTHONPATH=/tmp/eos-sandbox-runtime lets the in-container python3 see
+    # the daemon's runtime bundle (sandbox.isolated_workspace.manager etc.).
     result = await raw_exec(
         sandbox_id,
-        f"python3 - <<'PY'\n{_IN_CONTAINER_SCRIPT}\nPY",
+        (
+            "PYTHONPATH=/tmp/eos-sandbox-runtime python3 - <<'PY'\n"
+            f"{_IN_CONTAINER_SCRIPT}\nPY"
+        ),
         cwd="/",
         timeout=120,
     )
