@@ -57,14 +57,13 @@ EPHEMERALOS_DATABASE_URL="sqlite:///./.ephemeralos/ephemeralos.db" \
   .venv/bin/pytest \
     backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/stress/ \
     -m live_e2e_soak \
-    --timeout=3600 \
     -v -p no:randomly
 ```
 
-The `--timeout=3600` overrides any per-test default that would clip the
-`test_rapid_create_destroy_cycle` 100-cycle loop on a slow image. The
-per-test `@pytest.mark.timeout` decorators still apply; this is a
-pytest-timeout floor for the session.
+This checkout does not currently include `pytest-timeout` in the dev
+environment. The per-test `@pytest.mark.timeout` decorators are registered
+as advisory markers, but `--timeout=3600` is not accepted unless a local
+runner installs the optional plugin.
 
 ## Run one test at a time
 
@@ -102,7 +101,6 @@ EPHEMERALOS_DATABASE_URL="sqlite:///./.ephemeralos/ephemeralos.db" \
     backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/stress/ \
     -m live_e2e_soak \
     -k "not test_pip_install_then_run_e2e" \
-    --timeout=3600 \
     -v -p no:randomly
 ```
 
@@ -115,7 +113,6 @@ Soak tests are nightly-only by convention (`RUNNING-LIVE-TESTS.md` §8):
 .venv/bin/pytest \
     backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/stress/ \
     -m live_e2e_soak \
-    --timeout=3600 \
     -v
 ```
 
