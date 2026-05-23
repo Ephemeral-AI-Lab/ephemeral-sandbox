@@ -155,4 +155,46 @@ async def status(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-__all__ = ["enter", "exit_", "status"]
+async def list_open(args: dict[str, Any]) -> dict[str, Any]:
+    """Return every agent ID with an open isolated workspace.
+
+    Always-on surface: cheap, read-only, no harness gate. Used by the test
+    fixture to know which agents need exiting without hardcoding the list.
+    """
+    try:
+        manager = require_manager()
+    except IsolatedWorkspaceError:
+        return {"success": True, "open_agent_ids": []}
+    return {"success": True, "open_agent_ids": manager.list_open_agents()}
+
+
+async def test_reset(args: dict[str, Any]) -> dict[str, Any]:
+    """Test-only janitor: exit every open handle + sweep orphan resources.
+
+    Gated on ``EOS_ISOLATED_WORKSPACE_TEST_HARNESS=true`` so production
+    deployments can't accidentally invoke it. Returns the list of agent IDs
+    that were active when called.
+    """
+    if os.environ.get(
+        "EOS_ISOLATED_WORKSPACE_TEST_HARNESS", ""
+    ).strip().lower() != "true":
+        return {
+            "success": False,
+            "error": {
+                "kind": "forbidden",
+                "message": (
+                    "api.isolated_workspace.test_reset requires "
+                    "EOS_ISOLATED_WORKSPACE_TEST_HARNESS=true"
+                ),
+                "details": {},
+            },
+        }
+    try:
+        manager = require_manager()
+    except IsolatedWorkspaceError:
+        return {"success": True, "exited_agents": []}
+    result = await manager.test_reset()
+    return {"success": True, **result}
+
+
+__all__ = ["enter", "exit_", "list_open", "status", "test_reset"]

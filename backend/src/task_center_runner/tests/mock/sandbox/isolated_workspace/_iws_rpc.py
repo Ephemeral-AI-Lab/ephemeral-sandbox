@@ -74,6 +74,32 @@ async def status(
     )
 
 
+async def list_open(
+    sandbox_id: str,
+    *,
+    timeout: int = DEFAULT_TIMEOUT_S,
+) -> dict[str, Any]:
+    return await call_daemon_api(
+        sandbox_id,
+        "api.isolated_workspace.list_open",
+        {},
+        timeout=timeout,
+    )
+
+
+async def test_reset(
+    sandbox_id: str,
+    *,
+    timeout: int = DEFAULT_TIMEOUT_S,
+) -> dict[str, Any]:
+    return await call_daemon_api(
+        sandbox_id,
+        "api.isolated_workspace.test_reset",
+        {},
+        timeout=timeout,
+    )
+
+
 async def shell(
     sandbox_id: str,
     agent_id: str,
@@ -158,12 +184,15 @@ async def search_content(
 
 __all__ = [
     "DEFAULT_TIMEOUT_S",
+    "IWS_LAYER_STACK_ROOT",
     "edit_file",
     "enter",
     "exit_",
+    "list_open",
     "read_file",
     "search_content",
     "shell",
     "status",
+    "test_reset",
     "write_file",
 ]

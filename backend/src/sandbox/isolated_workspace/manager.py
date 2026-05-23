@@ -921,6 +921,39 @@ class IsolatedWorkspaceManager:
             with contextlib.suppress(Exception):
                 await self._ttl_task
 
+    def list_open_agents(self) -> list[str]:
+        """Return every agent ID with an open handle (janitor surface)."""
+        return list(self._by_agent.keys())
+
+    async def test_reset(self) -> dict[str, Any]:
+        """Janitor: exit every open handle + sweep leftover orphans.
+
+        Test-only — the handler gate (``EOS_ISOLATED_WORKSPACE_TEST_HARNESS``)
+        keeps this off the production surface. The fixture loop used to call
+        ``exit`` for hardcoded ``agent-A..E``, which missed every test that
+        used a non-canonical agent ID (e.g. ``agent-latency-baseline``,
+        ``agent-restart-bootstrap``) — those handles, plus their
+        ``unshare --fork`` ns_holders, accumulated as zombies until the
+        daemon's PID/socket pressure broke later tests.
+        """
+        agent_ids = list(self._by_agent.keys())
+        for agent_id in agent_ids:
+            with contextlib.suppress(Exception):
+                await self.exit(agent_id, grace_s=1.0)
+        # Reap any zombies inherited from earlier daemon instances that died
+        # before they could waitpid their own children. Non-blocking sweep —
+        # we don't care which PIDs we collect, just that we drain them.
+        with contextlib.suppress(ChildProcessError, OSError):
+            while True:
+                pid, _status = os.waitpid(-1, os.WNOHANG)
+                if pid == 0:
+                    break
+        # Catch veth/scratch/cgroup left over by aborted enters that never
+        # made it into ``_handles`` (their _rollback_partial may have raised).
+        with contextlib.suppress(Exception):
+            self._reap_orphans(live_set=set())
+        return {"exited_agents": agent_ids}
+
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
@@ -986,6 +1019,16 @@ class IsolatedWorkspaceManager:
 class _LinuxRuntime:
     """Default runtime — calls real Linux syscalls / utilities."""
 
+    def __init__(self) -> None:
+        # Keep ``Popen`` references alive until ``kill_holder`` reaps them so
+        # the kernel actually frees the process table entry. Without this,
+        # every ``enter()`` would leave a defunct ``unshare --fork python3``
+        # behind: ``subprocess.Popen(...)``'s return value was dropped, so the
+        # parent process never called ``waitpid`` and the OS held the zombie
+        # until the daemon exited. Across hundreds of test entries this
+        # exhausts PIDs and the daemon eventually stops accepting connections.
+        self._holders: dict[int, subprocess.Popen[bytes]] = {}
+
     def spawn_ns_holder(self, handle: IsolatedWorkspaceHandle, *, setup_timeout_s: float) -> int:
         # os.pipe() returns (read_fd, write_fd). The holder process WRITES
         # "ns-up" and reads "net-ready"; the parent READS "ns-up" and writes
@@ -997,19 +1040,29 @@ class _LinuxRuntime:
         proc = subprocess.Popen(
             [
                 # ``--map-root-user`` (``-r``): without it the unshared user
-                # namespace maps the caller to nobody, and ``--mount-proc``
-                # then fails with EPERM on Docker Desktop and any cgroupv2
-                # host where the kernel rejects unprivileged /proc mounts.
-                # The matching pattern in ``execution/strategies/namespace.py``
-                # uses ``unshare -Urm`` (``-r`` is part of the working set).
+                # namespace maps the caller to nobody.
+                #
+                # No ``--mount-proc``: Docker Desktop's LinuxKit kernel (6.10+)
+                # rejects ``mount -t proc proc /proc`` from inside a
+                # non-init user namespace with EPERM (the userns_install
+                # equivalent check in fs/proc/root.c — every variant tested,
+                # including subset=pid and double-unshare, returns EPERM).
+                # Instead the ``ns_holder`` script rbinds the parent's
+                # ``/proc`` into the new mntns, which the kernel does allow
+                # in a user ns and which is sufficient for the only consumer
+                # (the parent reading ``/proc/<root_pid>/ns/*`` symlinks
+                # uses its OWN ``/proc``, not the child's).
                 "unshare", "--user", "--map-root-user",
                 "--net", "--pid", "--mount",
-                "--fork", "--mount-proc", "--propagation", "private",
+                "--fork", "--propagation", "private",
                 sys.executable, "-m", "sandbox.isolated_workspace.scripts.ns_holder",
                 str(r_holder), str(c_holder),
             ],
             pass_fds=(r_holder, c_holder),
         )
+        # Hold the Popen reference so kill_holder can wait() on it later
+        # rather than leaking a zombie process.
+        self._holders[proc.pid] = proc
         os.close(r_holder)
         os.close(c_holder)
         try:
@@ -1186,15 +1239,31 @@ class _LinuxRuntime:
     def kill_holder(self, root_pid: int, *, grace_s: float) -> None:
         with contextlib.suppress(ProcessLookupError, PermissionError):
             os.kill(root_pid, signal.SIGTERM)
+        died = False
         deadline = time.monotonic() + grace_s
         while time.monotonic() < deadline:
             try:
                 os.kill(root_pid, 0)
             except ProcessLookupError:
-                return
+                died = True
+                break
             time.sleep(0.05)
-        with contextlib.suppress(ProcessLookupError, PermissionError):
-            os.kill(root_pid, signal.SIGKILL)
+        if not died:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.kill(root_pid, signal.SIGKILL)
+        # Reap so the holder doesn't become defunct. After SIGKILL the kernel
+        # only frees the process table entry once SOMEONE calls waitpid; the
+        # Popen reference stashed in spawn_ns_holder lets us do that here.
+        # When the entry isn't in ``_holders`` (e.g. the daemon respawned and
+        # inherited an orphan from a prior process) fall back to a bare
+        # ``os.waitpid`` non-blocking probe — best-effort.
+        proc = self._holders.pop(root_pid, None)
+        if proc is not None:
+            with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+                proc.wait(timeout=2.0)
+        else:
+            with contextlib.suppress(ChildProcessError, OSError):
+                os.waitpid(root_pid, os.WNOHANG)
 
     def run_in_handle(
         self,
