@@ -7,8 +7,8 @@ State at daemon scope:
   - (Opt-in) RFC1918-deny drop rule when ``rfc1918_egress == "deny"``.
 
 Per-workspace state:
-  - One veth pair: ``eos-iws-{handle_id[:8]}h`` (host end on bridge) and
-    ``eos-iws-{handle_id[:8]}n`` (peer end moved into the netns, renamed
+  - One veth pair: ``eos-iws-{handle_id[:6]}h`` (host end on bridge) and
+    ``eos-iws-{handle_id[:6]}n`` (peer end moved into the netns, renamed
     ``eth0``).
   - One ``/32`` allocation from ``10.244.0.2 - 10.244.0.254``.
 
@@ -129,7 +129,9 @@ class IsolatedNetwork:
         """Create veth pair, attach host end to bridge with port isolation."""
         if not self._initialized:
             raise IsolatedNetworkUnavailable("isolated_network_not_initialized")
-        short = handle_id[:8]
+        # Linux IFNAMSIZ caps interface names at 15 chars.
+        # VETH_PREFIX (8: "eos-iws-") + short (6) + suffix (1) = 15 exactly.
+        short = handle_id[:6]
         host = f"{VETH_PREFIX}{short}h"
         ns = f"{VETH_PREFIX}{short}n"
         ns_ip = self.pool.allocate()

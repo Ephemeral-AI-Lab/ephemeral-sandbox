@@ -987,11 +987,23 @@ class _LinuxRuntime:
     """Default runtime — calls real Linux syscalls / utilities."""
 
     def spawn_ns_holder(self, handle: IsolatedWorkspaceHandle, *, setup_timeout_s: float) -> int:
-        r_holder, r_parent = os.pipe()
-        c_parent, c_holder = os.pipe()
+        # os.pipe() returns (read_fd, write_fd). The holder process WRITES
+        # "ns-up" and reads "net-ready"; the parent READS "ns-up" and writes
+        # "net-ready". Variable naming below is by usage (whose fd it is),
+        # so r_holder is the write end of the readiness pipe and r_parent
+        # is the read end.
+        r_parent, r_holder = os.pipe()
+        c_holder, c_parent = os.pipe()
         proc = subprocess.Popen(
             [
-                "unshare", "--user", "--net", "--pid", "--mount",
+                # ``--map-root-user`` (``-r``): without it the unshared user
+                # namespace maps the caller to nobody, and ``--mount-proc``
+                # then fails with EPERM on Docker Desktop and any cgroupv2
+                # host where the kernel rejects unprivileged /proc mounts.
+                # The matching pattern in ``execution/strategies/namespace.py``
+                # uses ``unshare -Urm`` (``-r`` is part of the working set).
+                "unshare", "--user", "--map-root-user",
+                "--net", "--pid", "--mount",
                 "--fork", "--mount-proc", "--propagation", "private",
                 sys.executable, "-m", "sandbox.isolated_workspace.scripts.ns_holder",
                 str(r_holder), str(c_holder),
@@ -1014,9 +1026,20 @@ class _LinuxRuntime:
         return proc.pid
 
     def open_ns_fds(self, root_pid: int) -> dict[str, int]:
+        # root_pid is the ``unshare --fork`` process, which stays in the
+        # OUTER pid ns. Only ``pid_for_children`` points at the NEW pid ns
+        # (per pid_namespaces(7): CLONE_NEWPID does not move the caller,
+        # only its future descendants). user/mnt/net are correct via the
+        # plain ``ns/<n>`` symlinks since those flags do move the caller.
+        ns_paths = {
+            "user": f"/proc/{root_pid}/ns/user",
+            "mnt": f"/proc/{root_pid}/ns/mnt",
+            "pid": f"/proc/{root_pid}/ns/pid_for_children",
+            "net": f"/proc/{root_pid}/ns/net",
+        }
         return {
-            ns: os.open(f"/proc/{root_pid}/ns/{ns}", os.O_RDONLY | os.O_CLOEXEC)
-            for ns in ("user", "mnt", "pid", "net")
+            name: os.open(path, os.O_RDONLY | os.O_CLOEXEC)
+            for name, path in ns_paths.items()
         }
 
     async def mount_overlay(
