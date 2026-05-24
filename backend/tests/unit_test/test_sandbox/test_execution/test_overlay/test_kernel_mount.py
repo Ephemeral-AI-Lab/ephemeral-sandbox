@@ -238,11 +238,5 @@ def test_validate_mount_inputs_closes_fds_on_error(tmp_path: Path) -> None:
     assert len(closed) >= 1  # workspace_root fd was opened and closed
 
 
-# ---------------------------------------------------------------------------
-# Legacy mount8 helper preserved
-# ---------------------------------------------------------------------------
-
-
-def test_mount_overlay_legacy_mount8_exists() -> None:
-    assert hasattr(km, "_mount_overlay_legacy_mount8")
-    assert callable(km._mount_overlay_legacy_mount8)
+def test_mount_overlay_legacy_mount8_removed() -> None:
+    assert not hasattr(km, "_mount_overlay_legacy_mount8")

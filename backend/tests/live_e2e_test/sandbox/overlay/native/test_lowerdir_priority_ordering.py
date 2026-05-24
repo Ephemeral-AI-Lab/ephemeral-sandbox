@@ -20,9 +20,7 @@ from __future__ import annotations
 import ctypes
 import ctypes.util
 import os
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest

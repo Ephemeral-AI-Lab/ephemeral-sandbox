@@ -398,7 +398,10 @@ class AuditRecorder:
             register_recorder_for_agent_run(target.id, recorder)
 
     def _record_sandbox_event(self, audit_event: AuditEvent) -> None:
-        if not audit_event.type.value.startswith("sandbox_"):
+        if not (
+            audit_event.type.value.startswith("sandbox_")
+            or audit_event.type.name.startswith("SANDBOX_")
+        ):
             return
         append_jsonl_event(
             self._run_dir / "sandbox_events.jsonl",

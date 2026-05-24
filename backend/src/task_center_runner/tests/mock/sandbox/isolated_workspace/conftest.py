@@ -479,7 +479,6 @@ def iws_audit_tail(tmp_path):
     """
     import asyncio
     import time
-    from pathlib import Path
     from typing import Callable
 
     async def wait_for(
@@ -528,7 +527,6 @@ async def iws_latency_baseline(iws_sandbox) -> dict[str, float]:
     import os
 
     from sandbox.api import raw_exec
-    from benchmarks.sweevo.models import _REPO_DIR
 
     from task_center_runner.tests._live_config import (
         database_configured,

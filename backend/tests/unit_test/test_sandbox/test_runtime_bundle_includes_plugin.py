@@ -1,4 +1,4 @@
-"""Verify the runtime bundle contains ephemeral plugin modules and compatibility shims."""
+"""Verify the runtime bundle contains current ephemeral plugin modules."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import tarfile
 from sandbox.host import runtime_bundle
 
 
-def test_bundle_contains_sandbox_plugin_runtime() -> None:
+def test_bundle_contains_sandbox_plugin_modules() -> None:
     runtime_bundle._BUNDLE_CACHE = None  # force a fresh build
     runtime_bundle._BUNDLE_HASH_CACHE = None
     bundle = runtime_bundle._runtime_bundle_bytes()
@@ -24,7 +24,5 @@ def test_bundle_contains_sandbox_plugin_runtime() -> None:
     assert "sandbox/ephemeral_workspace/plugin/op_registry.py" in names
     assert "sandbox/ephemeral_workspace/plugin/overlay_child.py" in names
     assert "sandbox/ephemeral_workspace/plugin/overlay_dispatch.py" in names
-    assert "sandbox/ephemeral_workspace/plugin/runtime/__init__.py" in names
-    assert "sandbox/ephemeral_workspace/plugin/runtime/registry.py" not in names
-    assert "sandbox/ephemeral_workspace/plugin/runtime/context.py" not in names
+    assert "sandbox/ephemeral_workspace/plugin/runtime/__init__.py" not in names
     assert "sandbox/ephemeral_workspace/plugin/handler.py" in names

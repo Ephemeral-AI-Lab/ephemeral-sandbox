@@ -128,28 +128,6 @@ def mount_overlay(
                 os.close(fsfd)
 
 
-def _mount_overlay_legacy_mount8(
-    *,
-    workspace_root: Path,
-    lowerdir: Path,
-    upperdir: Path,
-    workdir: Path,
-    pass_fds: tuple[int, ...] = (),
-) -> None:
-    """Legacy path used only by materialize fallback when probe_supported() == False.
-
-    Slated for removal per ADR Follow-up #5 (sunset: Linux >= 5.11 floor by 2027-Q1).
-    """
-    options = f"lowerdir={lowerdir},upperdir={upperdir},workdir={workdir}"
-    subprocess.run(
-        ["mount", "-t", "overlay", "overlay", "-o", options, str(workspace_root)],
-        check=True,
-        capture_output=True,
-        text=True,
-        pass_fds=pass_fds,
-    )
-
-
 def umount(workspace_root: Path) -> None:
     """Unmount all mounts stacked at ``workspace_root``.
 
@@ -253,7 +231,6 @@ def _open_dir_no_follow(path: Path) -> int:
 
 __all__ = [
     "MountInputs",
-    "_mount_overlay_legacy_mount8",
     "mount_overlay",
     "umount",
     "validate_mount_inputs",

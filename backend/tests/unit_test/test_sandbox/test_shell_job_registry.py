@@ -10,12 +10,9 @@ run on macOS without namespace or overlay support.
 from __future__ import annotations
 
 import asyncio
-import os
-import signal
 import subprocess
 import sys
 import threading
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -26,7 +23,6 @@ import pytest
 
 import sandbox.ephemeral_workspace.shell_job as shell_job_module
 from sandbox.ephemeral_workspace.shell_job import (
-    ShellJob,
     ShellJobNotFound,
     ShellJobRegistry,
 )
@@ -85,7 +81,7 @@ class _FakeEphemeralPipeline:
 
         return OperationOverlayHandle(
             lease_id=f"lease-{rid}",
-            manifest_key=f"hash@1",
+            manifest_key="hash@1",
             manifest_version=1,
             root_hash="hash",
             manifest=MagicMock(version=1),

@@ -14,6 +14,8 @@ from tests.live_e2e_test._tools.tier0_health import Tier0Result, probe_tier0
 def _no_real_network(monkeypatch):
     """Hard-fail if a test forgets to stub _check_api_health."""
 
+    monkeypatch.setenv("EOS_SANDBOX_PROVIDER", "daytona")
+
     def _explode(*_a, **_kw):
         raise RuntimeError("real urllib call leaked into unit test")
 

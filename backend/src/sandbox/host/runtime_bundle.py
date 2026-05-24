@@ -266,12 +266,6 @@ def _runtime_bundle_bytes() -> bytes:
                 plugin_dir / name,
                 arcname=f"sandbox/ephemeral_workspace/plugin/{name}",
             )
-        plugin_runtime_dir = plugin_dir / "runtime"
-        _add_python_tree(
-            tar,
-            plugin_runtime_dir,
-            sandbox_dir=sandbox_dir,
-        )
 
         _add_peer_setup_scripts(tar, sandbox_dir=sandbox_dir)
         _add_runtime_scripts(tar, sandbox_dir=sandbox_dir)
