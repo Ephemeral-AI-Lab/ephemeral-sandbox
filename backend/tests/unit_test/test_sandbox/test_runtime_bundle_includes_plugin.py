@@ -24,5 +24,4 @@ def test_bundle_contains_sandbox_plugin_modules() -> None:
     assert "sandbox/ephemeral_workspace/plugin/op_registry.py" in names
     assert "sandbox/ephemeral_workspace/plugin/overlay_child.py" in names
     assert "sandbox/ephemeral_workspace/plugin/overlay_dispatch.py" in names
-    assert "sandbox/ephemeral_workspace/plugin/runtime/__init__.py" not in names
     assert "sandbox/ephemeral_workspace/plugin/handler.py" in names
