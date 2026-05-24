@@ -17,7 +17,7 @@ from sandbox.ephemeral_workspace.events import (
     PathChange,
     WorkspaceChangeEvent,
 )
-from sandbox.ephemeral_workspace.shell_contract import (
+from sandbox._shared.shell_contract import (
     ChangesetResultLike,
     CommandExecRequest,
     SnapshotManifest,

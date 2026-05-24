@@ -41,7 +41,22 @@ class IsolatedPipeline(
     _IsolatedTtlMixin,
     _IsolatedQuotaMixin,
 ):
-    """Owns isolated workspace lifecycle, runtime, quota, TTL, and GC state."""
+    """Owns isolated workspace lifecycle, runtime, quota, TTL, and GC state.
+
+    Audit/event divergence vs ``EphemeralPipeline``:
+        ``IsolatedPipeline`` uses ``_JsonlAuditSink`` (in ``_manager.py``)
+        writing ``sandbox_isolated_workspace_*`` events to a JSONL file.
+        This is AUDIT (consumed by 20+ tier-3 tests parsing exact
+        event-type strings), not runtime control flow. For runtime events,
+        see ``EphemeralPipeline``'s ``event_bus`` pattern.
+
+    Body-length divergence vs ``EphemeralPipeline.run_tool_call``:
+        ``IsolatedPipeline.run_tool_call`` is intentionally short (~15
+        lines) because the isolated handle is persistent — there is no
+        per-call ``overlay_lifecycle.create`` / ``destroy`` pair to wrap.
+        Honest divergence; do not force-fit the ephemeral 5-step shape
+        (Phase 2.6 P1).
+    """
 
     def __init__(
         self,
@@ -98,7 +113,13 @@ class IsolatedPipeline(
         return self._handles.get(handle_id) if handle_id else None
 
     async def run_tool_call(self, req: ToolCallRequest) -> ToolCallResult:
-        """Run one foreground tool call inside an already-open isolated workspace."""
+        """Run one foreground tool call inside an already-open isolated workspace.
+
+        iws handle is persistent — no per-call create/destroy.
+        ``Intent.WRITE_ALLOWED`` captures ``changed_paths`` for audit ONLY;
+        no OCC commit; writes drop at ``exit_isolated_workspace`` via
+        ``shutil.rmtree(scratch_dir)``.
+        """
         handle = self.get_handle(req.agent_id)
         if handle is None:
             raise IsolatedWorkspaceError(
@@ -285,31 +306,17 @@ class IsolatedPipeline(
 
 
 
-_pipeline_singleton: IsolatedPipeline | None = None
-
-
-def set_pipeline(pipeline: IsolatedPipeline | None) -> None:
-    global _pipeline_singleton
-    _pipeline_singleton = pipeline
-
-
-def get_active_pipeline() -> IsolatedPipeline | None:
-    return _pipeline_singleton
-
-
-def require_pipeline() -> IsolatedPipeline:
-    if _pipeline_singleton is None:
-        raise IsolatedWorkspaceError(
-            "feature_disabled", "isolated workspace pipeline is not initialized",
-        )
-    return _pipeline_singleton
-
-
-def require_arg(args: dict[str, Any], key: str) -> str:
-    value = str(args.get(key) or "").strip()
-    if not value:
-        raise IsolatedWorkspaceError("invalid_argument", f"{key} is required", key=key)
-    return value
+# Singleton accessors (``set_pipeline`` / ``get_active_pipeline`` /
+# ``require_pipeline`` / ``require_arg``) live in :mod:`._manager` post-C3.
+# Re-export here so callers that still import them from ``pipeline`` keep
+# working through the rollout window; new code should import from
+# ``sandbox.isolated_workspace._manager`` directly.
+from sandbox.isolated_workspace._manager import (  # noqa: E402
+    get_active_pipeline,
+    require_arg,
+    require_pipeline,
+    set_pipeline,
+)
 
 
 __all__ = [

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
-from sandbox.ephemeral_workspace.shell_contract import SnapshotManifest
+from sandbox._shared.shell_contract import SnapshotManifest
 
 if TYPE_CHECKING:
     from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline

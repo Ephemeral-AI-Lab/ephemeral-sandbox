@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import shutil
 from uuid import uuid4
 
@@ -10,7 +9,6 @@ from sandbox._shared.models import ToolCallResult
 from sandbox._shared.resource_audit import command_exec_resource_timings
 from sandbox.ephemeral_workspace._types import OperationOverlayHandle
 from sandbox.ephemeral_workspace._utils import safe_request_part
-from sandbox.overlay import lifecycle as overlay_lifecycle
 from sandbox.overlay.handle import OverlayHandle
 from sandbox.overlay.writable_dirs import allocate_overlay_writable_dirs
 
@@ -41,28 +39,6 @@ class EphemeralOperationMixin:
         )
         payload["timings"] = timings
         return payload
-
-    def _lock_for(self, handle: OverlayHandle) -> asyncio.Lock:
-        lock = self._handle_locks.get(handle.lease_id)
-        if lock is None:
-            lock = self._handle_locks[handle.lease_id] = asyncio.Lock()
-        return lock
-
-    async def _destroy_with_lease_guard(self, handle: OverlayHandle) -> None:
-        async with self._lock_for(handle):
-            if handle._destroyed:
-                self._handle_locks.pop(handle.lease_id, None)
-                return
-            if handle.lease_id and handle.lease_id in self._released_lease_ids:
-                handle._destroyed = True
-                self._handle_locks.pop(handle.lease_id, None)
-                return
-            if handle.lease_id:
-                self._released_lease_ids.add(handle.lease_id)
-            try:
-                await overlay_lifecycle.destroy(handle)
-            finally:
-                self._handle_locks.pop(handle.lease_id, None)
 
     def acquire_operation_overlay(
         self,

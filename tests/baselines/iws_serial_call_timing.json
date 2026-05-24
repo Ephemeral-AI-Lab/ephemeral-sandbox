@@ -1,0 +1,16 @@
+{
+  "_purpose": "Regression baseline for Phase 2.6 C2 (drop handle.lock + enable iws parallelism).",
+  "_scenario": "5 concurrent shell `sleep 0.2` calls fired against one already-open isolated workspace (single agent).",
+  "_pre_phase_2_6_observed_s": {
+    "per_call_max_s": 0.20,
+    "serial_total_s": 1.05,
+    "note": "Pre-C2 wall time approx 5 x per_call_max plus per-call lock-acquire + freeze-pair overhead."
+  },
+  "_post_phase_2_6_expected_s": {
+    "per_call_max_s": 0.20,
+    "parallel_total_s_ceiling": 0.30,
+    "note": "Post-C2 wall time bounded by 1.5 x per_call_max because tool calls overlap inside the run_in_executor pool. The same regression assertion lives in tests/mock/sandbox/isolated_workspace/concurrency/test_same_agent_tool_calls_can_overlap.py (wall < 0.9 s for 2 x sleep 0.5)."
+  },
+  "_regression_signal": "If the parallel wall-time floor regresses to >= 0.9 s for the 5 x 200 ms scenario (or >= 0.9 s for the 2 x 500 ms harness scenario), per-call serialization has been re-introduced and the contributor should hunt for a new handle-keyed lock, asyncio.Lock around run_in_executor, or a freeze/unfreeze pair around run_in_handle.",
+  "_units": "seconds"
+}

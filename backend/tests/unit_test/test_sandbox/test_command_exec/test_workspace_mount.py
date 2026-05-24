@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.ephemeral_workspace.shell_contract import CommandExecRequest
+from sandbox._shared.shell_contract import CommandExecRequest
 from sandbox.overlay import kernel_mount
 
 

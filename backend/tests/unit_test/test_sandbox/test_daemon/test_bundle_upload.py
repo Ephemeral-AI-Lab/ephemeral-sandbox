@@ -86,7 +86,7 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/ephemeral_workspace/_types.py",
         "sandbox/ephemeral_workspace/_utils.py",
         "sandbox/ephemeral_workspace/pipeline.py",
-        "sandbox/ephemeral_workspace/shell_contract.py",
+        "sandbox/_shared/shell_contract.py",
         "sandbox/_shared/env_policy.py",
         "sandbox/_shared/resource_audit.py",
         "sandbox/overlay/__init__.py",

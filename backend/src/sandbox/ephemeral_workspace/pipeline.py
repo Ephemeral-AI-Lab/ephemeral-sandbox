@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 from typing import AsyncIterator
 
+from sandbox._shared.lease_guard import LeaseGuard
 from sandbox._shared.models import Intent, ToolCallRequest, ToolCallResult
 from sandbox.ephemeral_workspace._manager import (
     clear_overlay_manager_for_tests,
@@ -31,7 +32,7 @@ from sandbox.ephemeral_workspace.events import (
     EphemeralPipelineEventBus,
     WorkspaceChangeEvent,
 )
-from sandbox.ephemeral_workspace.shell_contract import (
+from sandbox._shared.shell_contract import (
     OCCMutationClient,
     SnapshotManifest,
 )
@@ -48,7 +49,15 @@ from sandbox.overlay.writable_dirs import overlay_writable_root
 
 
 class EphemeralPipeline(EphemeralOperationMixin, EphemeralPublishMixin):
-    """Facade hiding overlay freshness, capture, and OCC behind the daemon boundary."""
+    """Facade hiding overlay freshness, capture, and OCC behind the daemon boundary.
+
+    Audit/event divergence vs ``IsolatedPipeline``:
+        ``EphemeralPipeline`` uses ``events.WorkspaceChangeEvent`` via the
+        in-process ``event_bus.emit()`` — this is RUNTIME CONTROL FLOW
+        consumed by ``_watch_foreign_publishes``, not audit. For lifecycle
+        audit, see ``IsolatedPipeline``'s ``_JsonlAuditSink`` pattern in
+        ``isolated_workspace/_manager.py``.
+    """
 
     def __init__(
         self,
@@ -70,8 +79,7 @@ class EphemeralPipeline(EphemeralOperationMixin, EphemeralPublishMixin):
         self._active_lease_id = ""
         self._operation_lock = asyncio.Lock()
         self._foreign_watch_task: asyncio.Task[None] | None = None
-        self._released_lease_ids: set[str] = set()
-        self._handle_locks: dict[str, asyncio.Lock] = {}
+        self._lease_guard = LeaseGuard()
         self._writable_root = overlay_writable_root()
         self._runtime_dir_path = (
             self._writable_root
@@ -150,7 +158,7 @@ class EphemeralPipeline(EphemeralOperationMixin, EphemeralPublishMixin):
                 changed_path_count=len(path_changes),
             )
         finally:
-            await self._destroy_with_lease_guard(handle)
+            await self._lease_guard.destroy(handle, overlay_lifecycle.destroy)
 
     def active_manifest_key(self) -> str:
         if self._layer_stack is None:
@@ -291,9 +299,8 @@ class EphemeralPipeline(EphemeralOperationMixin, EphemeralPublishMixin):
     def _release_lease(self, lease_id: str) -> None:
         if not lease_id or self._layer_stack is None:
             return
-        if lease_id in self._released_lease_ids:
+        if not self._lease_guard.mark_released(lease_id):
             return
-        self._released_lease_ids.add(lease_id)
         self._layer_stack.release_lease(lease_id=lease_id)
 
     def _relative_workspace_path(self, path: str) -> str:

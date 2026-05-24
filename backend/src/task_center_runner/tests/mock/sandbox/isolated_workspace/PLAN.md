@@ -694,13 +694,13 @@ Three options considered:
 ### 15.2 `tool_call` phase count = 1
 
 **Decision: ship one phase (`exec`) and do not reintroduce hidden per-call
-freeze/thaw work.**
+pause/resume work.**
 
 Rationale: `_Runtime.run_in_handle` Protocol at
 `service/isolated_workspace.py:178-185` returns
 `tuple[int, bytes, bytes]` — no sub-phase timing exposed. The runtime no
-longer freezes between calls, so the only honest timing boundary is the
-actual setns/exec helper call.
+longer performs hidden work between calls, so the only honest timing
+boundary is the actual setns/exec helper call.
 
 **Deferral ticket** (file alongside PR 1):
 `[isolated-workspace] Widen _Runtime.run_in_handle to expose

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from sandbox.ephemeral_workspace.shell_contract import CommandExecRequest
+from sandbox._shared.shell_contract import CommandExecRequest
 from sandbox.overlay.capability import mount_syscalls_supported
 from sandbox.overlay.namespace_runner import detect_private_mount_namespace
 from sandbox.layer_stack.workspace_binding import (

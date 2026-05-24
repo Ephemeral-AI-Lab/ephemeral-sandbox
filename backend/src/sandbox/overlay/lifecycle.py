@@ -6,7 +6,7 @@ import shutil
 from collections.abc import Sequence
 from uuid import uuid4
 
-from sandbox.ephemeral_workspace.shell_contract import WorkspaceLeaseClient
+from sandbox._shared.shell_contract import WorkspaceLeaseClient
 from sandbox.overlay.capture import walk_upperdir
 from sandbox.overlay.handle import OverlayHandle
 from sandbox.overlay.path_change import OverlayPathChange

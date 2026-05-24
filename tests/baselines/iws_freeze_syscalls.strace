@@ -1,0 +1,41 @@
+# Phase 2.6 C1 regression baseline: freeze syscall count per isolated tool call.
+#
+# Scenario: agent enters one isolated workspace, runs one shell `true`, exits.
+# Counted via:
+#
+#     strace -f -e trace=write \
+#         python -m sandbox.daemon ... \
+#         2>&1 | grep -c '/sys/fs/cgroup/.*cgroup.freeze'
+#
+# (Equivalent: openat(...cgroup.freeze...) + write(..., "1", 1) when entering
+# freeze, openat + write(..., "0", 1) when thawing.)
+#
+# Pre-Phase-2.6 baseline (with _runtime.freeze + SIGSTOP fallback present):
+#   freeze_syscalls_per_call=2
+#   ratio_explanation: one write("1") before exec; one write("0") after exec.
+#   sigstop_fallback_path: when /sys/fs/cgroup/{handle}/cgroup.freeze write
+#     stalled past the per-call freezer timeout, the runtime fell back to
+#     kill(pid, SIGSTOP) on every namespace process; the fallback contributed
+#     N additional `kill` syscalls where N = process count inside the iws.
+#
+# Post-Phase-2.6 expectation (C1 removed freeze + SIGSTOP fallback entirely):
+#   freeze_syscalls_per_call=0
+#   sigstop_syscalls_per_call=0
+#   cgroup_quota_writes: unchanged (memory.max, io.max, pids.max written at
+#     create_cgroup time, NOT per tool call). Those are not the same syscall
+#     as the freeze write and must not be conflated with this baseline.
+#
+# Regression signal:
+#   - Any non-zero count of write() syscalls targeting `cgroup.freeze` from
+#     within a per-tool-call code path indicates _runtime.freeze() or its
+#     equivalent has been re-introduced.
+#   - Any kill(*, SIGSTOP) issued from sandbox.* during run_tool_call
+#     indicates the SIGSTOP fallback has been re-introduced.
+#
+# Capture command (rerun on Linux with strace + the iws fixture):
+#   strace -f -y -e trace=openat,write,kill \
+#       .venv/bin/pytest backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/concurrency/test_same_agent_tool_calls_can_overlap.py \
+#       2>iws_freeze_syscalls.raw
+#   grep -E 'cgroup\.freeze|SIGSTOP' iws_freeze_syscalls.raw | wc -l
+#
+# Expected output line: `0`

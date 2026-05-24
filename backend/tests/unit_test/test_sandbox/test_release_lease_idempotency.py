@@ -11,6 +11,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+from sandbox._shared.lease_guard import LeaseGuard
 from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline
 
 
@@ -34,6 +37,12 @@ class _NoopOccClient:
     pass
 
 
+class _Handle:
+    def __init__(self, lease_id: str) -> None:
+        self.lease_id = lease_id
+        self._destroyed = False
+
+
 def _make_overlay() -> tuple[EphemeralPipeline, _FakeLayerStack]:
     fake = _FakeLayerStack()
     overlay = EphemeralPipeline.__new__(EphemeralPipeline)
@@ -42,7 +51,7 @@ def _make_overlay() -> tuple[EphemeralPipeline, _FakeLayerStack]:
     overlay._workspace_ref = "test"  # type: ignore[attr-defined]
     overlay._layer_stack = fake  # type: ignore[attr-defined]
     overlay._workspace_root = "/testbed"  # type: ignore[attr-defined]
-    overlay._released_lease_ids = set()  # type: ignore[attr-defined]
+    overlay._lease_guard = LeaseGuard()  # type: ignore[attr-defined]
     return overlay, fake
 
 
@@ -78,5 +87,48 @@ def test_release_without_layer_stack_is_noop() -> None:
     overlay._workspace_ref = "test"  # type: ignore[attr-defined]
     overlay._layer_stack = None  # type: ignore[attr-defined]
     overlay._workspace_root = "/testbed"  # type: ignore[attr-defined]
-    overlay._released_lease_ids = set()  # type: ignore[attr-defined]
+    overlay._lease_guard = LeaseGuard()  # type: ignore[attr-defined]
     overlay._release_lease("lease-x")  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_lease_guard_destroy_skips_release_after_mark_released() -> None:
+    guard = LeaseGuard()
+    handle = _Handle("lease-1")
+    destroy_calls: list[str] = []
+
+    async def _destroy(target: _Handle) -> None:
+        destroy_calls.append(target.lease_id)
+        target._destroyed = True
+
+    assert guard.mark_released(handle.lease_id) is True
+    assert guard.mark_released(handle.lease_id) is False
+
+    await guard.destroy(handle, _destroy)
+
+    assert destroy_calls == []
+    assert handle._destroyed is True
+
+
+@pytest.mark.asyncio
+async def test_lease_guard_destroy_serializes_duplicate_destroy_calls() -> None:
+    guard = LeaseGuard()
+    handle = _Handle("lease-2")
+    destroy_calls: list[str] = []
+
+    async def _destroy(target: _Handle) -> None:
+        destroy_calls.append(target.lease_id)
+        target._destroyed = True
+
+    await handle_destroy_twice(guard, handle, _destroy)
+
+    assert destroy_calls == ["lease-2"]
+
+
+async def handle_destroy_twice(
+    guard: LeaseGuard,
+    handle: _Handle,
+    destroy_fn: Any,
+) -> None:
+    await guard.destroy(handle, destroy_fn)
+    await guard.destroy(handle, destroy_fn)

@@ -97,7 +97,6 @@ async def rename(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
     result = await apply_workspace_edit(
         edit,
         ctx,
-        ensure_current=False,
         workspace_root=session.workspace_root,
         expected_manifest_key=session.manifest_key,
     )
@@ -111,7 +110,6 @@ async def format_document(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
     result = await apply_workspace_edit(
         edit,
         ctx,
-        ensure_current=False,
         workspace_root=session.workspace_root,
         expected_manifest_key=session.manifest_key,
     )
@@ -132,7 +130,6 @@ async def apply_code_action(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
     result = await apply_workspace_edit(
         edit,
         ctx,
-        ensure_current=False,
         workspace_root=session.workspace_root,
         expected_manifest_key=session.manifest_key,
     )

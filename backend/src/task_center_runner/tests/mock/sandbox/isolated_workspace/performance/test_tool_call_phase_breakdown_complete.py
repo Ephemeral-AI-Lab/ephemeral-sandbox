@@ -1,7 +1,8 @@
 """``tool_call`` ``phases_ms`` covers the current single-phase key set.
 
-The runtime no longer freezes between tool calls. ``exec`` is therefore the
-only tool-call phase; ``argv0`` and ``exit_code`` are still populated.
+The runtime performs no hidden pause/resume work between tool calls. ``exec``
+is therefore the only tool-call phase; ``argv0`` and ``exit_code`` are still
+populated.
 """
 
 from __future__ import annotations

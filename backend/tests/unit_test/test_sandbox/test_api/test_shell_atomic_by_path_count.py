@@ -19,8 +19,9 @@ from typing import Any
 import pytest
 
 import sandbox.ephemeral_workspace._publishing as publishing
+import sandbox.ephemeral_workspace.pipeline as pipeline_mod
 from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline
-from sandbox.ephemeral_workspace.shell_contract import CommandExecRequest
+from sandbox._shared.shell_contract import CommandExecRequest
 from sandbox.occ.changeset import CommitOptions
 from sandbox.occ.changeset import ChangesetResult, WriteChange
 
@@ -78,7 +79,10 @@ def _request() -> CommandExecRequest:
 
 
 @pytest.fixture(autouse=True)
-def _patch_workspace_to_occ(monkeypatch: pytest.MonkeyPatch) -> None:
+def _patch_workspace_to_occ(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
     """Bypass on-disk content readers; emit one ``WriteChange`` per path."""
 
     def fake_walk_upperdir(*args: Any, **kwargs: Any) -> list[str]:
@@ -97,6 +101,9 @@ def _patch_workspace_to_occ(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(publishing, "walk_upperdir", fake_walk_upperdir)
     monkeypatch.setattr(publishing, "overlay_path_changes_to_occ_changes", fake)
+    writable_root = tmp_path / "overlay-writable"
+    writable_root.mkdir()
+    monkeypatch.setattr(pipeline_mod, "overlay_writable_root", lambda: writable_root)
 
 
 def _apply(client: _StubOccClient, paths: list[str]) -> None:

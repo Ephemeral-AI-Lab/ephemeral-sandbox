@@ -226,7 +226,7 @@ async def destroy(handle: OverlayHandle) -> None:
 The remaining `sandbox/execution/` files are shell-pipeline/runtime machinery that doesn't belong in the overlay substrate. They relocate to `sandbox/ephemeral_workspace/` or `sandbox/_shared/`.
 
 **5.1.** Move `sandbox/execution/contract.py` → split:
-- `CommandExecRequest`, `ShellProcessResult`, `OverlayShellRequest`, `OverlayCapture` → `sandbox/ephemeral_workspace/shell_contract.py` (used only by shell)
+- `CommandExecRequest`, `ShellProcessResult`, `OverlayShellRequest`, `OverlayCapture` → `sandbox/_shared/shell_contract.py` (used only by shell)
 - `WorkspaceCapture`, `WorkspaceCapturePublisher`, `WorkspaceCapturePublishResult`, `CommandExecResult` → `sandbox/ephemeral_workspace/pipeline.py` (absorbed; these are pipeline result types)
 - `WorkspaceLeaseClient`, `WorkspaceSnapshotLease`, `OCCMutationClient`, `SnapshotManifest`, `ChangesetResultLike`, `EmptyChangesetResult` → `sandbox/_shared/ports.py` (NEW — mode-agnostic protocol types)
 

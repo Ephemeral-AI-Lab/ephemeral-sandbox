@@ -110,10 +110,9 @@ async def test_apply_workspace_edit_writes_text_edits_and_publishes_path(
     module = workspace / "pkg" / "mod.py"
     module.parent.mkdir(parents=True)
     module.write_text("value = 1\nprint(value)\n", encoding="utf-8")
-    overlay = _Overlay(workspace.as_posix())
     uri = module.as_uri()
 
-    result = await apply_workspace_edit(
+    changed_paths = apply_mod._apply_edit_payload(
         {
             "changes": {
                 uri: [
@@ -127,14 +126,11 @@ async def test_apply_workspace_edit_writes_text_edits_and_publishes_path(
                 ]
             }
         },
-        _Ctx(overlay=overlay),
+        workspace_root=workspace.as_posix(),
     )
 
     assert module.read_text(encoding="utf-8") == "value = 2\nprint(value)\n"
-    assert overlay.ensure_reasons == ["lsp:apply_workspace_edit:enter"]
-    assert overlay.published_paths == ("pkg/mod.py",)
-    assert result["success"] is True
-    assert result["manifest_version"] == 2
+    assert changed_paths == ["pkg/mod.py"]
 
 
 @pytest.mark.asyncio
@@ -144,10 +140,9 @@ async def test_apply_workspace_edit_rejects_paths_outside_workspace(
     workspace = tmp_path / "testbed"
     workspace.mkdir()
     outside = tmp_path / "outside.py"
-    overlay = _Overlay(workspace.as_posix())
 
     with pytest.raises(ValueError, match="outside workspace"):
-        await apply_workspace_edit(
+        apply_mod._apply_edit_payload(
             {
                 "changes": {
                     outside.as_uri(): [
@@ -161,11 +156,10 @@ async def test_apply_workspace_edit_rejects_paths_outside_workspace(
                     ]
                 }
             },
-            _Ctx(overlay=overlay),
+            workspace_root=workspace.as_posix(),
         )
 
     assert not outside.exists()
-    assert overlay.published_paths == ()
 
 
 @pytest.mark.asyncio
@@ -176,9 +170,8 @@ async def test_apply_workspace_edit_handles_file_operations(
     old_path = workspace / "pkg" / "old.py"
     old_path.parent.mkdir(parents=True)
     old_path.write_text("x = 1\n", encoding="utf-8")
-    overlay = _Overlay(workspace.as_posix())
 
-    result = await apply_workspace_edit(
+    changed_paths = apply_mod._apply_edit_payload(
         {
             "documentChanges": [
                 {"kind": "rename", "oldUri": old_path.as_uri(), "newUri": (workspace / "pkg" / "new.py").as_uri()},
@@ -186,18 +179,32 @@ async def test_apply_workspace_edit_handles_file_operations(
                 {"kind": "delete", "uri": (workspace / "pkg" / "created.py").as_uri()},
             ]
         },
-        _Ctx(overlay=overlay),
+        workspace_root=workspace.as_posix(),
     )
 
     assert not old_path.exists()
     assert (workspace / "pkg" / "new.py").read_text(encoding="utf-8") == "x = 1\n"
     assert not (workspace / "pkg" / "created.py").exists()
-    assert overlay.published_paths == (
-        "pkg/created.py",
-        "pkg/new.py",
-        "pkg/old.py",
-    )
-    assert result["changed_paths"] == ["pkg/created.py", "pkg/new.py", "pkg/old.py"]
+    assert changed_paths == ["pkg/created.py", "pkg/new.py", "pkg/old.py"]
+
+
+@pytest.mark.asyncio
+async def test_apply_workspace_edit_requires_operation_overlay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "testbed"
+    workspace.mkdir()
+    overlay = _Overlay(workspace.as_posix())
+
+    monkeypatch.setattr(apply_mod, "_overlay_namespace_available", lambda: True)
+
+    with pytest.raises(RuntimeError, match="daemon operation overlay"):
+        await apply_workspace_edit(
+            {"changes": {}},
+            _Ctx(overlay=overlay),
+            workspace_root=workspace.as_posix(),
+        )
 
 
 @pytest.mark.asyncio

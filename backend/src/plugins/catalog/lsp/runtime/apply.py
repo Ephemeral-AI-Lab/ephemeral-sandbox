@@ -12,7 +12,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
-from sandbox.ephemeral_workspace.shell_contract import CommandExecRequest
+from sandbox._shared.shell_contract import CommandExecRequest
 from sandbox.overlay.capability import mount_syscalls_supported
 from sandbox.overlay.namespace_runner import detect_private_mount_namespace
 
@@ -21,45 +21,16 @@ async def apply_workspace_edit(
     edit: dict[str, Any],
     ctx: Any,
     *,
-    ensure_current: bool = True,
     workspace_root: str | None = None,
     expected_manifest_key: str | None = None,
 ) -> dict[str, Any]:
     workspace_root = str(workspace_root or ctx.overlay.workspace_root)
-    overlay_result = await _apply_with_operation_overlay(
+    return await _apply_with_operation_overlay(
         edit,
         ctx,
         workspace_root=workspace_root,
         expected_manifest_key=expected_manifest_key,
     )
-    if overlay_result is not None:
-        return overlay_result
-
-    operation = getattr(ctx.overlay, "workspace_operation", None)
-    if callable(operation) and ensure_current:
-        metadata = getattr(ctx, "metadata", None) or {}
-        op_name = str(metadata.get("op_name", "apply_workspace_edit"))
-        async with operation(reason=f"lsp:{op_name}:enter"):
-            changed_paths = _apply_edit_payload(edit, workspace_root=workspace_root)
-            result = await _publish_changed_paths(changed_paths, ctx)
-    else:
-        if ensure_current:
-            await _ensure_overlay_current(ctx)
-        changed_paths = _apply_edit_payload(edit, workspace_root=workspace_root)
-        result = await _publish_changed_paths(changed_paths, ctx)
-    return {
-        "success": bool(getattr(result, "success", False)),
-        "changed_paths": changed_paths,
-        "manifest_version": getattr(result, "published_manifest_version", None),
-        "files": [
-            {
-                "path": getattr(file, "path", ""),
-                "status": str(getattr(file, "status", "")),
-                "message": getattr(file, "message", ""),
-            }
-            for file in getattr(result, "files", ())
-        ],
-    }
 
 
 async def _apply_with_operation_overlay(
@@ -68,9 +39,11 @@ async def _apply_with_operation_overlay(
     *,
     workspace_root: str,
     expected_manifest_key: str | None,
-) -> dict[str, Any] | None:
+) -> dict[str, Any]:
     if not _overlay_namespace_available():
-        return None
+        raise RuntimeError(
+            "LSP WorkspaceEdit requires private mount namespace and overlay mount syscalls"
+        )
     acquire_overlay = getattr(
         getattr(ctx, "overlay", None),
         "acquire_operation_overlay",
@@ -78,7 +51,7 @@ async def _apply_with_operation_overlay(
     )
     publish_cycle = getattr(ctx.overlay, "publish_cycle", None)
     if not callable(acquire_overlay) or not callable(publish_cycle):
-        return None
+        raise RuntimeError("LSP WorkspaceEdit requires daemon operation overlay")
 
     metadata = getattr(ctx, "metadata", None) or {}
     op_name = str(metadata.get("op_name", "apply_workspace_edit"))
@@ -88,7 +61,9 @@ async def _apply_with_operation_overlay(
     )
     try:
         if not getattr(handle, "layer_paths", None):
-            return None
+            raise RuntimeError(
+                "LSP WorkspaceEdit operation overlay did not provide layer paths"
+            )
         if expected_manifest_key and handle.manifest_key != expected_manifest_key:
             raise RuntimeError(
                 "workspace changed before LSP edit could be applied; retry the tool"
@@ -200,24 +175,6 @@ def _format_apply_result(
     if timings:
         payload["timings"] = dict(timings)
     return payload
-
-
-async def _publish_changed_paths(changed_paths: list[str], ctx: Any) -> Any:
-    return await ctx.overlay.publish_workspace_paths(
-        paths=tuple(changed_paths),
-        agent_id=getattr(ctx.caller, "agent_id", ""),
-        description="lsp.apply_workspace_edit",
-    )
-
-
-async def _ensure_overlay_current(ctx: Any) -> None:
-    overlay = getattr(ctx, "overlay", None)
-    ensure_current = getattr(overlay, "ensure_current", None)
-    if not callable(ensure_current):
-        return
-    metadata = getattr(ctx, "metadata", None) or {}
-    op_name = str(metadata.get("op_name", "apply_workspace_edit"))
-    await ensure_current(reason=f"lsp:{op_name}:enter")
 
 
 def _apply_edit_payload(edit: dict[str, Any], *, workspace_root: str) -> list[str]:

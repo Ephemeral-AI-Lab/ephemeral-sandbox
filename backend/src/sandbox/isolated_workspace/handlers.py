@@ -3,106 +3,21 @@
 This top-level handler manages lifecycle only. Foreground tool operations use
 ``api.v1.<verb>`` and route through ``sandbox.daemon.dispatch``.
 
-Pipeline bootstrap: the daemon doesn't ship with a singleton layer_stack_root
-at startup (each handler call brings its own), so the manager is constructed
-lazily on the first ``enter()`` call using ``args["layer_stack_root"]``. The
-construction also runs ``initialize() + startup_gc()`` exactly once. After
-that, subsequent calls reuse the singleton via ``require_pipeline()``.
-
-Audit sink: the manager emits five ``sandbox_isolated_workspace_*`` event
-types via its ``AuditSink`` port. Here we wire a JSONL writer that appends
-into the in-container path (env-overrideable; default
-``/tmp/sandbox_isolated_workspace_events.jsonl``). Live tests read this file
-via ``raw_exec`` to verify audit sequences (PLAN §2).
+Pipeline bootstrap, audit-sink wiring, and the layer-stack adapter live in
+:mod:`._manager` post-Phase-2.6 C3; this module is the pure RPC surface.
 """
 
 from __future__ import annotations
 
-import asyncio
 import os
 from typing import Any
 
-from audit.jsonl import append_jsonl_event
-from sandbox.daemon import workspace_server
-from sandbox.overlay.writable_dirs import overlay_writable_root
-from sandbox.isolated_workspace.pipeline import (
-    IsolatedPipeline,
-    IsolatedWorkspaceError,
+from sandbox.isolated_workspace._manager import (
+    _ensure_manager,
     require_arg,
     require_pipeline,
-    set_pipeline,
 )
-
-
-_bootstrap_lock = asyncio.Lock()
-
-DEFAULT_AUDIT_JSONL_PATH = "/tmp/sandbox_isolated_workspace_events.jsonl"
-
-
-class _LayerStackAdapter:
-    """Adapter from ``workspace_server`` to the pipeline's ``LayerStackPort``."""
-
-    @staticmethod
-    def prepare_workspace_snapshot(
-        layer_stack_root: str, *, owner_request_id: str
-    ) -> Any:
-        return workspace_server.prepare_workspace_snapshot(
-            layer_stack_root,
-            owner_request_id=owner_request_id,
-        )
-
-    @staticmethod
-    def release_workspace_snapshot(layer_stack_root: str, *, lease_id: str) -> bool:
-        return workspace_server.release_workspace_snapshot(
-            layer_stack_root, lease_id=lease_id,
-        )
-
-
-class _JsonlAuditSink:
-    """Append-only JSON-line audit sink for iws events.
-
-    Each ``emit`` writes one object shaped
-    ``{"ts": <float>, "type": <event_type>, "payload": <payload>}`` to the
-    configured path. Live tests read this file via ``raw_exec`` to verify
-    audit sequences; in production the file is the daemon-side mirror of
-    the lifecycle events the host recorder would otherwise miss (the iws
-    handlers run RPC-direct without going through ``run_scenario``).
-    """
-
-    def __init__(self, path: str) -> None:
-        self._path = path
-
-    def emit(self, event_type: str, payload: dict[str, Any]) -> None:
-        append_jsonl_event(
-            self._path, {"type": event_type, "payload": dict(payload)}
-        )
-
-
-def _resolve_audit_path() -> str:
-    raw = os.environ.get("EOS_ISOLATED_WORKSPACE_AUDIT_PATH", "").strip()
-    return raw or DEFAULT_AUDIT_JSONL_PATH
-
-
-async def _ensure_manager(args: dict[str, Any]) -> IsolatedPipeline:
-    try:
-        return require_pipeline()
-    except IsolatedWorkspaceError:
-        pass
-    async with _bootstrap_lock:
-        try:
-            return require_pipeline()  # racing caller may have constructed it
-        except IsolatedWorkspaceError:
-            pass
-        layer_stack_root = require_arg(args, "layer_stack_root")
-        manager = IsolatedPipeline(
-            scratch_root=overlay_writable_root(),
-            layer_stack_root=layer_stack_root,
-            layer_stack=_LayerStackAdapter(),  # type: ignore[arg-type]
-            audit=_JsonlAuditSink(_resolve_audit_path()),
-        )
-        set_pipeline(manager)
-        await manager.initialize()
-        return manager
+from sandbox.isolated_workspace._types import IsolatedWorkspaceError
 
 
 def _error(exc: IsolatedWorkspaceError) -> dict[str, Any]:

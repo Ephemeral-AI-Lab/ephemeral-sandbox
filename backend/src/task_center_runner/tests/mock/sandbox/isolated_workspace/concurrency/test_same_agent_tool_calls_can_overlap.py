@@ -1,8 +1,7 @@
 """Tool calls for the same isolated workspace can overlap.
 
-The old per-handle lock serialized calls for the same agent. Isolated
-workspaces now rely on quotas and cgroups for resource control, so concurrent
-calls against the same open workspace should overlap.
+Isolated workspaces rely on quotas and cgroups for resource control, so
+concurrent calls against the same open workspace should overlap.
 """
 
 from __future__ import annotations
@@ -49,9 +48,6 @@ async def test_same_agent_tool_calls_can_overlap(
         )
         wall = loop.time() - t0
         assert all(result.get("success") for result in results), results
-        assert wall < 0.9, (
-            f"same-agent isolated calls should overlap; wall={wall:.2f}s",
-        )
         jsonl = await iws_audit_jsonl()
         tool_calls = _iws_invariants.events_of_type(
             jsonl, "sandbox_isolated_workspace_tool_call",
@@ -59,8 +55,12 @@ async def test_same_agent_tool_calls_can_overlap(
         assert len(tool_calls) >= 2, tool_calls
         durations = [
             float((row.get("payload") or {}).get("duration_s", 0.0))
-            for row in tool_calls[:2]
+            for row in tool_calls[-2:]
         ]
         assert all(d >= 0.4 for d in durations), durations
+        assert wall < sum(durations) * 0.75, (
+            "same-agent isolated calls should overlap materially; "
+            f"wall={wall:.2f}s durations={durations!r}",
+        )
     finally:
         await _iws_rpc.exit_(sandbox_id, "agent-A")
