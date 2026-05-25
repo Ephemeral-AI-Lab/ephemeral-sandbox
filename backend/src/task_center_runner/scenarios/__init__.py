@@ -67,6 +67,12 @@ from task_center_runner.scenarios.sandbox import (
     HeavyIoZonedConcurrent,
     HighConcurrencyLayerstackOverlayOcc,
     OccConcurrentConflicts,
+    PluginIntentContract,
+    PluginIwsPolicy,
+    PluginReadOnlyLspRefresh,
+    PluginServiceEvict,
+    PluginSetupFailure,
+    PluginWriteAllowedPublish,
 )
 
 SCENARIO_REGISTRY: dict[str, type[Scenario]] = {
@@ -146,6 +152,12 @@ SCENARIO_REGISTRY: dict[str, type[Scenario]] = {
         HighConcurrencyLayerstackOverlayOcc
     ),
     "sandbox.occ_concurrent_conflicts": OccConcurrentConflicts,
+    "sandbox.plugin_read_only_lsp_refresh": PluginReadOnlyLspRefresh,
+    "sandbox.plugin_write_allowed_publish": PluginWriteAllowedPublish,
+    "sandbox.plugin_intent_contract": PluginIntentContract,
+    "sandbox.plugin_iws_policy": PluginIwsPolicy,
+    "sandbox.plugin_setup_failure": PluginSetupFailure,
+    "sandbox.plugin_service_evict": PluginServiceEvict,
     # Focused planner-validation scenarios.
     "planner_validation.cycle_in_deps": PlannerCycleInDeps,
     "planner_validation.duplicate_local_id": PlannerDuplicateLocalId,
@@ -212,5 +224,11 @@ __all__ = [
     "PlannerDefersWithoutDeferredGoal",
     "PlannerUnknownAgentName",
     "PlannerUnknownDep",
+    "PluginIntentContract",
+    "PluginIwsPolicy",
+    "PluginReadOnlyLspRefresh",
+    "PluginServiceEvict",
+    "PluginSetupFailure",
+    "PluginWriteAllowedPublish",
     "SCENARIO_REGISTRY",
 ]

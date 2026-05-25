@@ -112,6 +112,23 @@ def _is_trusted_setup_source(source_dir: Path) -> bool:
 class PluginInstallError(RuntimeError):
     """Raised when plugin install fails (upload, setup.sh, or marker write)."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        kind: str = "plugin_install_failed",
+        plugin_name: str = "",
+        setup_step: str = "",
+        command: str = "",
+        stderr_excerpt: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.kind = kind
+        self.plugin_name = plugin_name
+        self.setup_step = setup_step
+        self.command = command
+        self.stderr_excerpt = stderr_excerpt
+
 
 _locks: dict[tuple[str, str], asyncio.Lock] = {}
 _installed_digests: dict[tuple[str, str], str] = {}
@@ -334,7 +351,10 @@ async def _upload_and_run_setup(
                     f"plugin {manifest.name!r} setup.sh refused: "
                     f"source_dir {manifest.source_dir} is not under any "
                     f"trusted root; add to EOS_PLUGIN_TRUSTED_SETUP_ROOTS or "
-                    f"register_trusted_setup_root() to permit"
+                    f"register_trusted_setup_root() to permit",
+                    kind="plugin_setup_refused",
+                    plugin_name=manifest.name,
+                    setup_step="setup.sh",
                 )
             setup_cmd = (
                 f"export EOS_PLUGIN_DIR={shlex.quote(install_dir)} && "
@@ -347,10 +367,20 @@ async def _upload_and_run_setup(
                 timeout=setup_timeout,
             )
             if getattr(setup_run, "exit_code", 1) != 0:
+                setup_stderr = str(
+                    getattr(setup_run, "stderr", "")
+                    or getattr(setup_run, "stdout", "")
+                    or ""
+                )
                 raise PluginInstallError(
                     f"plugin {manifest.name!r} setup.sh failed "
                     f"(exit_code={getattr(setup_run, 'exit_code', 1)}): "
-                    f"{getattr(setup_run, 'stderr', '') or getattr(setup_run, 'stdout', '')}"
+                    f"{setup_stderr}",
+                    kind=_classify_setup_failure(setup_stderr),
+                    plugin_name=manifest.name,
+                    setup_step="setup.sh",
+                    command=setup_cmd,
+                    stderr_excerpt=setup_stderr[:500],
                 )
 
         write_marker = await exec_fn(
@@ -388,3 +418,22 @@ def _check(result: Any, message: str) -> None:
         raise PluginInstallError(
             f"{message}: {getattr(result, 'stderr', '') or getattr(result, 'stdout', '')}"
         )
+
+
+def _classify_setup_failure(stderr: str) -> str:
+    lowered = stderr.lower()
+    network_needles = (
+        "network",
+        "could not resolve",
+        "connection refused",
+        "connection timed out",
+        "temporary failure",
+        "ssl_connect",
+        "curl:",
+        "npm err!",
+        "registry.npmjs.org",
+        "nodejs.org",
+    )
+    if any(needle in lowered for needle in network_needles):
+        return "plugin_setup_network_failure"
+    return "plugin_setup_failed"

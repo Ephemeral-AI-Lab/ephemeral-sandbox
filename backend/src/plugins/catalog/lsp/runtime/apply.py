@@ -12,6 +12,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
+from sandbox.overlay import lifecycle as overlay_lifecycle
 from sandbox._shared.shell_contract import CommandExecRequest
 from sandbox.overlay.capability import mount_syscalls_supported
 from sandbox.overlay.namespace_runner import detect_private_mount_namespace
@@ -96,9 +97,7 @@ async def _apply_with_operation_overlay(
             timings=getattr(publish, "timings", None),
         )
     finally:
-        release = getattr(handle, "release", None)
-        if callable(release):
-            release()
+        await _destroy_or_release(handle)
 
 
 async def _run_apply_child(
@@ -175,6 +174,15 @@ def _format_apply_result(
     if timings:
         payload["timings"] = dict(timings)
     return payload
+
+
+async def _destroy_or_release(handle: Any) -> None:
+    if hasattr(handle, "_destroy_lock") and hasattr(handle, "run_dir"):
+        await overlay_lifecycle.destroy(handle)
+        return
+    release = getattr(handle, "release", None)
+    if callable(release):
+        release()
 
 
 def _apply_edit_payload(edit: dict[str, Any], *, workspace_root: str) -> list[str]:

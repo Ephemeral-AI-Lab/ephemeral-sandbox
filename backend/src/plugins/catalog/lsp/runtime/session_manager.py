@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
 import time
 from typing import Any
 
@@ -379,3 +380,6 @@ def _release_handle(handle: Any | None) -> None:
     release = getattr(handle, "release", None)
     if callable(release):
         release()
+    run_dir = getattr(handle, "run_dir", None)
+    if run_dir:
+        shutil.rmtree(run_dir, ignore_errors=True)

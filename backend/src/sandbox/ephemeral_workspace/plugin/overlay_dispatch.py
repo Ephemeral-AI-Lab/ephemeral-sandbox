@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from sandbox._shared.models import Intent
 from sandbox._shared.shell_contract import CommandExecRequest
+from sandbox.overlay import lifecycle as overlay_lifecycle
 from sandbox.overlay.capability import mount_syscalls_supported
 from sandbox.overlay.namespace_runner import detect_private_mount_namespace
 from sandbox.layer_stack.workspace_binding import (
@@ -86,9 +87,7 @@ async def run_plugin_op_with_workspace_overlay(
         )
         return _attach_publish_result(response, publish)
     finally:
-        release = getattr(handle, "release", None)
-        if callable(release):
-            release()
+        await _destroy_or_release(handle)
 
 
 def _bound_workspace_root(ctx: PluginOpContext) -> str:
@@ -202,6 +201,15 @@ def _attach_publish_result(response: Any, publish: Any) -> Any:
             "message": "plugin workspace changes failed OCC publication",
         }
     return response
+
+
+async def _destroy_or_release(handle: Any) -> None:
+    if hasattr(handle, "_destroy_lock") and hasattr(handle, "run_dir"):
+        await overlay_lifecycle.destroy(handle)
+        return
+    release = getattr(handle, "release", None)
+    if callable(release):
+        release()
 
 
 __all__ = ["run_plugin_op_with_workspace_overlay"]

@@ -29,7 +29,7 @@ from sandbox.host.daemon_client import (
     DEFAULT_LAYER_STACK_ROOT,
     call_daemon_api,
 )
-from sandbox.ephemeral_workspace.plugin.install import ensure_installed
+from sandbox.ephemeral_workspace.plugin.install import PluginInstallError, ensure_installed
 from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.results import ToolResult
 from tools.sandbox._lib.session import (
@@ -98,6 +98,21 @@ async def call_plugin(
     async with lock:
         try:
             digest = await install_fn(sandbox_id, manifest)
+        except PluginInstallError as exc:
+            logger.warning(
+                "plugin install failed: sandbox=%s plugin=%s op=%s err=%s",
+                sandbox_id,
+                plugin,
+                op,
+                exc,
+            )
+            return _error_result(
+                "install",
+                plugin,
+                op,
+                _exception_message(exc),
+                details=_plugin_install_error_details(exc, plugin=plugin),
+            )
         except Exception as exc:
             logger.warning(
                 "plugin install failed: sandbox=%s plugin=%s op=%s err=%s",
@@ -242,11 +257,24 @@ def _wrap_response(
     return ToolResult(output=output, is_error=False, metadata=metadata)
 
 
-def _error_result(step: str, plugin: str, op: str, message: str) -> ToolResult:
+def _error_result(
+    step: str,
+    plugin: str,
+    op: str,
+    message: str,
+    *,
+    details: Mapping[str, Any] | None = None,
+) -> ToolResult:
+    metadata: dict[str, Any] = {"plugin": plugin, "op": op, "step": step}
+    if details:
+        metadata["details"] = dict(details)
+        error_kind = details.get("kind") or details.get("error_kind")
+        if error_kind:
+            metadata["error_kind"] = str(error_kind)
     return ToolResult(
         output=f"plugin {plugin}.{op} {step} failed: {message}",
         is_error=True,
-        metadata={"plugin": plugin, "op": op, "step": step},
+        metadata=metadata,
     )
 
 
@@ -255,6 +283,20 @@ def _exception_message(exc: Exception) -> str:
     if message:
         return message
     return exc.__class__.__name__
+
+
+def _plugin_install_error_details(
+    exc: PluginInstallError,
+    *,
+    plugin: str,
+) -> dict[str, str]:
+    return {
+        "kind": exc.kind,
+        "plugin": exc.plugin_name or plugin,
+        "setup_step": exc.setup_step,
+        "command": exc.command,
+        "stderr_excerpt": exc.stderr_excerpt,
+    }
 
 
 def reset_session_cache() -> None:

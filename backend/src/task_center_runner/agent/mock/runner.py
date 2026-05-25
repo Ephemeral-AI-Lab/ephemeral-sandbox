@@ -731,6 +731,42 @@ class MockSquadRunner:
                 )
                 summary = "Background-shell many-small-writes probe passed."
                 artifacts = [summary_path]
+            elif action == "plugin_read_only_lsp_refresh":
+                summary_path = await self._run_plugin_workspace_probe(
+                    metadata, emit, mode="read_only_lsp_refresh"
+                )
+                summary = "Plugin READ_ONLY LSP refresh probe passed."
+                artifacts = [summary_path]
+            elif action == "plugin_write_allowed_publish":
+                summary_path = await self._run_plugin_workspace_probe(
+                    metadata, emit, mode="write_allowed_publish"
+                )
+                summary = "Plugin WRITE_ALLOWED publish probe passed."
+                artifacts = [summary_path]
+            elif action == "plugin_intent_contract":
+                summary_path = await self._run_plugin_workspace_probe(
+                    metadata, emit, mode="intent_contract"
+                )
+                summary = "Plugin intent contract probe passed."
+                artifacts = [summary_path]
+            elif action == "plugin_iws_policy":
+                summary_path = await self._run_plugin_workspace_probe(
+                    metadata, emit, mode="iws_policy"
+                )
+                summary = "Plugin isolated-workspace policy probe passed."
+                artifacts = [summary_path]
+            elif action == "plugin_setup_failure":
+                summary_path = await self._run_plugin_workspace_probe(
+                    metadata, emit, mode="setup_failure"
+                )
+                summary = "Plugin setup failure probe passed."
+                artifacts = [summary_path]
+            elif action == "plugin_service_evict":
+                summary_path = await self._run_plugin_workspace_probe(
+                    metadata, emit, mode="service_evict"
+                )
+                summary = "Plugin service eviction probe passed."
+                artifacts = [summary_path]
             else:
                 raise RuntimeError(f"Unknown executor action: {action!r}")
         result = await self._call_tool(
@@ -1379,6 +1415,41 @@ class MockSquadRunner:
             "record_tool_check": self._record_tool_check,
         }
         if mode != "same_path_conflict":
+            kwargs["sandbox_id"] = sandbox_id
+        return await probe(**kwargs)
+
+    async def _run_plugin_workspace_probe(
+        self,
+        metadata: ExecutionMetadata,
+        emit: EmitStreamEvent,
+        *,
+        mode: str,
+    ) -> str:
+        from task_center_runner.agent.mock import plugin_workspace_probe
+
+        sandbox_id = self._require_sandbox_id(metadata)
+        dispatch = {
+            "read_only_lsp_refresh": (
+                plugin_workspace_probe.run_plugin_read_only_lsp_refresh_probe
+            ),
+            "write_allowed_publish": (
+                plugin_workspace_probe.run_plugin_write_allowed_publish_probe
+            ),
+            "intent_contract": plugin_workspace_probe.run_plugin_intent_contract_probe,
+            "iws_policy": plugin_workspace_probe.run_plugin_iws_policy_probe,
+            "setup_failure": plugin_workspace_probe.run_plugin_setup_failure_probe,
+            "service_evict": plugin_workspace_probe.run_plugin_service_evict_probe,
+        }
+        probe = dispatch.get(mode)
+        if probe is None:
+            raise RuntimeError(f"unknown plugin workspace probe mode: {mode!r}")
+        kwargs: dict[str, Any] = {
+            "metadata": metadata,
+            "emit": emit,
+            "call_tool": self._call_tool,
+            "record_tool_check": self._record_tool_check,
+        }
+        if mode != "intent_contract":
             kwargs["sandbox_id"] = sandbox_id
         return await probe(**kwargs)
 

@@ -64,6 +64,14 @@ from task_center_runner.scenarios.sandbox.high_concurrency_layerstack_overlay_oc
 from task_center_runner.scenarios.sandbox.occ_concurrent_conflicts import (
     OccConcurrentConflicts,
 )
+from task_center_runner.scenarios.sandbox.plugin import (
+    PluginIntentContract,
+    PluginIwsPolicy,
+    PluginReadOnlyLspRefresh,
+    PluginServiceEvict,
+    PluginSetupFailure,
+    PluginWriteAllowedPublish,
+)
 
 __all__ = [
     "AutoSquashCommitResume",
@@ -94,4 +102,10 @@ __all__ = [
     "HeavyIoZonedConcurrent",
     "HighConcurrencyLayerstackOverlayOcc",
     "OccConcurrentConflicts",
+    "PluginIntentContract",
+    "PluginIwsPolicy",
+    "PluginReadOnlyLspRefresh",
+    "PluginServiceEvict",
+    "PluginSetupFailure",
+    "PluginWriteAllowedPublish",
 ]
