@@ -26,6 +26,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -43,12 +44,12 @@
   </ul>
 </div>
 <div class="wiki-links" aria-label="Workspace mode links">
-  <a href="#main-workspace">[[main_workspace]]</a>
-  <a href="#ephemeral-workspace">[[ephemeral_workspace]]</a>
-  <a href="#ephemeral-fast-paths">[[Fast-path Technical Workflows]]</a>
-  <a href="#isolated-workspace">[[isolated_workspace]]</a>
-  <a href="#workspace-mode-selection">[[Mode Selection]]</a>
-  <a href="daemon.html#workspace-routing-and-state">[[Workspace Routing and State]]</a>
+  <a href="#main-workspace">main_workspace</a>
+  <a href="#ephemeral-workspace">ephemeral_workspace</a>
+  <a href="#ephemeral-fast-paths">Fast-path Technical Workflows</a>
+  <a href="#isolated-workspace">isolated_workspace</a>
+  <a href="#workspace-mode-selection">Mode Selection</a>
+  <a href="daemon.html#workspace-routing-and-state">Workspace Routing and State</a>
 </div>
 
 <div class="lane-grid">
@@ -61,16 +62,23 @@
 <table>
   <thead><tr><th>Question</th><th>Default answer</th><th>Why</th><th>Related node</th></tr></thead>
   <tbody>
-    <tr><td>Does the caller already have an isolated handle?</td><td>Route the tool call to <code>isolated_workspace</code>.</td><td>Private scratch continuity is explicit and should not accidentally publish through the shared path.</td><td><a class="wiki-link" href="#isolated-workspace">[[isolated_workspace]]</a></td></tr>
-    <tr><td>Is it a single-file read/write/edit that can bind through <code>workspace.json</code>?</td><td>Use direct LayerStack/OCC fast path.</td><td>It avoids namespace/overlay cost while preserving durable read and OCC publish semantics.</td><td><a class="wiki-link" href="#ephemeral-fast-paths">[[Fast-path Technical Workflows]]</a></td></tr>
-    <tr><td>Does it need a shell/search filesystem view or plugin child process?</td><td>Use per-operation <code>ephemeral_workspace</code> overlay.</td><td>The tool needs a normal workspace tree, but its private writes should be captured and destroyed after the call.</td><td><a class="wiki-link" href="#ephemeral-workspace">[[ephemeral_workspace]]</a></td></tr>
-    <tr><td>Is the user asking for low-confidence experimentation or private multi-step exploration?</td><td>Enter isolated mode explicitly.</td><td>The default shared collaboration path remains OCC-backed; private scratch is opt-in and discard-on-exit.</td><td><a class="wiki-link" href="#isolated-lifecycle-detail">[[Enter, Run, Exit Details]]</a></td></tr>
+    <tr><td>Does the caller already have an isolated handle?</td><td>Route the tool call to <code>isolated_workspace</code>.</td><td>Private scratch continuity is explicit and should not accidentally publish through the shared path.</td><td><a class="wiki-link" href="#isolated-workspace">isolated_workspace</a></td></tr>
+    <tr><td>Is it a single-file read/write/edit that can bind through <code>workspace.json</code>?</td><td>Use direct LayerStack/OCC fast path.</td><td>It avoids namespace/overlay cost while preserving durable read and OCC publish semantics.</td><td><a class="wiki-link" href="#ephemeral-fast-paths">Fast-path Technical Workflows</a></td></tr>
+    <tr><td>Does it need a shell/search filesystem view or plugin child process?</td><td>Use per-operation <code>ephemeral_workspace</code> overlay.</td><td>The tool needs a normal workspace tree, but its private writes should be captured and destroyed after the call.</td><td><a class="wiki-link" href="#ephemeral-workspace">ephemeral_workspace</a></td></tr>
+    <tr><td>Is the user asking for low-confidence experimentation or private multi-step exploration?</td><td>Enter isolated mode explicitly.</td><td>The default shared collaboration path remains OCC-backed; private scratch is opt-in and discard-on-exit.</td><td><a class="wiki-link" href="#isolated-lifecycle-detail">Enter, Run, Exit Details</a></td></tr>
   </tbody>
 </table>
 
 <div class="callout">
   <span class="label">API Shape</span>
   The runtime should keep one shared tool/API surface and let routing state choose the workspace implementation. Avoid a parallel isolated-only tool bridge: identity fields such as <code>agent_id</code> and explicit isolated lifecycle state are the selection boundary.
+</div>
+
+<div class="edge-list">
+  <div><b>calls</b><span><code>dispatch_workspace_tool_call()</code> constructs <code>ToolCallRequest</code>, checks active isolated state by <code>agent_id</code>, and falls back to the ephemeral pipeline when no direct file fast path applies <span class="file-ref">backend/src/sandbox/daemon/workspace_tool_dispatch.py:53-75</span>.</span></div>
+  <div><b>owns-state</b><span><code>main_workspace</code> is a package anchor; durable bytes and path binding live in LayerStack/OCC, not a separate persistent working tree <span class="file-ref">backend/src/sandbox/main_workspace/README.md:1-6</span>.</span></div>
+  <div><b>owns-state</b><span><code>EphemeralPipeline</code> owns per-operation overlay execution, publish-cycle events, and optional shell pre-mount squash <span class="file-ref">backend/src/sandbox/ephemeral_workspace/pipeline.py:131-250</span>.</span></div>
+  <div><b>owns-state</b><span><code>IsolatedPipeline</code> owns private handles, TTL, startup orphan recovery, persisted handle state, and audit events <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:44-188</span>.</span></div>
 </div>
 
 <h3 id="main-workspace">5.2 main_workspace <a class="anchor" href="#main-workspace">§</a></h3>
@@ -195,8 +203,38 @@
 </table>
 
 <p>The isolated pipeline is initialized once per layer-stack root: it creates scratch root, initializes networking when available, reports reachable RFC1918 routes, runs startup orphan recovery, then starts a TTL sweep loop <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:203-224</span>. The TTL sweep evicts only handles whose idle time exceeds TTL and whose <code>active_calls</code> is zero <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:226-273</span>. During tool calls, <code>active_calls</code> is incremented/decremented around the runtime execution so TTL cannot tear down an active handle <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:275-329</span>.</p>
+<h3 id="workspace-evidence-refresh">5.5 Evidence and Refresh <a class="anchor" href="#workspace-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Source files</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/sandbox/daemon/workspace_tool_dispatch.py</span> mode selection and direct file fast paths.</li>
+      <li><span class="file-ref">backend/src/sandbox/ephemeral_workspace/pipeline.py</span> ephemeral overlay execution and publish.</li>
+      <li><span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/workspace_handle_lifecycle.py</span> isolated enter/exit resources.</li>
+      <li><span class="file-ref">backend/src/sandbox/isolated_workspace/network.py</span> bridge/veth/NAT state.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Tests</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/ephemeral_workspace/test_ephemeral_all_verbs_publish_and_cleanup.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/ephemeral_workspace/test_ephemeral_lowerdir_disk_is_o1_under_100_calls.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/isolation/test_full_cycle_never_calls_occ.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/gc_and_persistence/test_lowerdir_disk_usage_is_o1.py</span></li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Audit artifacts</h4>
+    <p>Direct isolated workspace test runs use daemon JSONL audit events such as <code>sandbox_isolated_workspace_enter</code>, <code>exit</code>, <code>tool_call</code>, <code>evicted</code>, and <code>gc_orphan</code>. The default path is <code>/tmp/sandbox_isolated_workspace_events.jsonl</code> unless <code>EOS_ISOLATED_WORKSPACE_AUDIT_PATH</code> overrides it.</p>
+  </div>
+</div>
+<div class="refresh-list">
+  <div><strong>Mode selection changes</strong><span>Update Daemon routing, Workflow Cookbook, and the search index.</span></div>
+  <div><strong>Isolated resource changes</strong><span>Update Space Model, Diagnostics, and isolated test anchors.</span></div>
+  <div><strong>Direct file fast path changes</strong><span>Update OCC, LayerStack reads, and public file-op tests.</span></div>
+</div>
 <div class="maintenance-note">
-  Backlinks: <a class="wiki-link" href="daemon.html#workspace-routing-and-state">[[Workspace Routing and State]]</a> implements this selection logic; <a class="wiki-link" href="daemon.html#isolated-background-gate">[[Isolated Background Gate]]</a> explains why background work blocks enter; <a class="wiki-link" href="space-model.html">[[Space Model]]</a> explains the storage cost difference.
+  Backlinks: <a class="wiki-link" href="daemon.html#workspace-routing-and-state">Workspace Routing and State</a> implements this selection logic; <a class="wiki-link" href="daemon.html#isolated-background-gate">Isolated Background Gate</a> explains why background work blocks enter; <a class="wiki-link" href="space-model.html">Space Model</a> explains the storage cost difference.
 </div>
 <div class="page-footer-nav"><span><a href="occ.html">← 4. OCC</a></span><span><a href="daemon.html">6. Daemon and Background Tasks →</a></span></div>
 </main>

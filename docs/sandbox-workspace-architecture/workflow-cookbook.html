@@ -26,12 +26,13 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
 <div class="doc-actions">
   <span><a href="index.html">Index</a> / 10. Workflow Cookbook</span>
-  <span class="nav-pair"><a href="space-model.html">← 9. Space Model</a><a href="index.html">Index →</a></span>
+  <span class="nav-pair"><a href="space-model.html">← 9. Space Model</a><a href="maintenance.html">11. Wiki Maintenance →</a></span>
 </div>
 <h2 id="workflow-cookbook">10. Workflow Cookbook <a class="anchor" href="#workflow-cookbook">§</a></h2>
 
@@ -43,12 +44,12 @@
   </ul>
 </div>
 <div class="wiki-links" aria-label="Workflow cookbook links">
-  <a href="#cookbook-layerstack-read">[[Direct LayerStack Read]]</a>
-  <a href="#cookbook-ephemeral-shell">[[Ephemeral Shell or Search Operation]]</a>
-  <a href="#cookbook-occ-publish">[[OCC Publish from API Write/Edit]]</a>
-  <a href="#cookbook-isolated">[[Isolated Workspace Tool Lifecycle]]</a>
-  <a href="#cookbook-plugin-write">[[Plugin Write Operation]]</a>
-  <a href="#cookbook-pyright-refresh">[[Pyright Latest-Projection Refresh]]</a>
+  <a href="#cookbook-layerstack-read">Direct LayerStack Read</a>
+  <a href="#cookbook-ephemeral-shell">Ephemeral Shell or Search Operation</a>
+  <a href="#cookbook-occ-publish">OCC Publish from API Write/Edit</a>
+  <a href="#cookbook-isolated">Isolated Workspace Tool Lifecycle</a>
+  <a href="#cookbook-plugin-write">Plugin Write Operation</a>
+  <a href="#cookbook-pyright-refresh">Pyright Latest-Projection Refresh</a>
 </div>
 
 <div class="callout">
@@ -56,14 +57,21 @@
   Pick the trace by the external symptom first, then follow its backlinks to the owner page. The cookbook is intentionally operational: it names the state handoff points where bugs usually appear.
 </div>
 
+<div class="edge-list">
+  <div><b>entry</b><span>Public tools and plugin calls enter through host-side API/dispatch code, then become daemon envelopes with <code>op</code>, <code>invocation_id</code>, <code>layer_stack_root</code>, and caller identity.</span></div>
+  <div><b>decision</b><span>The daemon router is the main fork: isolated handle, direct LayerStack/OCC file path, or ephemeral overlay pipeline.</span></div>
+  <div><b>state</b><span>Durable mutations always pass through OCC and LayerStack; isolated mutations remain private upperdir state until discarded.</span></div>
+  <div><b>proof</b><span>Use the evidence sections on owner pages for code anchors and tests, then use this cookbook to follow timing/resource handoffs in one workflow.</span></div>
+</div>
+
 <table>
   <thead><tr><th>Symptom or question</th><th>Trace</th><th>Owner pages</th></tr></thead>
   <tbody>
-    <tr><td>Read returned stale or missing content.</td><td><a class="wiki-link" href="#cookbook-layerstack-read">[[Direct LayerStack Read]]</a></td><td><a class="wiki-link" href="layerstack.html">[[LayerStack]]</a>, <a class="wiki-link" href="daemon.html#workspace-routing-and-state">[[Workspace Routing and State]]</a></td></tr>
-    <tr><td>Shell/search saw different files than direct read.</td><td><a class="wiki-link" href="#cookbook-ephemeral-shell">[[Ephemeral Shell or Search Operation]]</a></td><td><a class="wiki-link" href="overlay.html">[[Overlay]]</a>, <a class="wiki-link" href="workspaces.html#ephemeral-workspace">[[ephemeral_workspace]]</a></td></tr>
-    <tr><td>Write/edit conflicted or did not publish.</td><td><a class="wiki-link" href="#cookbook-occ-publish">[[OCC Publish from API Write/Edit]]</a></td><td><a class="wiki-link" href="occ.html">[[OCC]]</a>, <a class="wiki-link" href="layerstack.html#layerstack-publish">[[Publish]]</a></td></tr>
-    <tr><td>Private scratch leaked, failed to enter, or lost state early.</td><td><a class="wiki-link" href="#cookbook-isolated">[[Isolated Workspace Tool Lifecycle]]</a></td><td><a class="wiki-link" href="workspaces.html#isolated-workspace">[[isolated_workspace]]</a>, <a class="wiki-link" href="daemon.html#isolated-background-gate">[[Isolated Background Gate]]</a></td></tr>
-    <tr><td>Plugin or LSP saw stale projection.</td><td><a class="wiki-link" href="#cookbook-pyright-refresh">[[Pyright Latest-Projection Refresh]]</a></td><td><a class="wiki-link" href="plugins.html">[[Plugin in ephemeral_workspace]]</a></td></tr>
+    <tr><td>Read returned stale or missing content.</td><td><a class="wiki-link" href="#cookbook-layerstack-read">Direct LayerStack Read</a></td><td><a class="wiki-link" href="layerstack.html">LayerStack</a>, <a class="wiki-link" href="daemon.html#workspace-routing-and-state">Workspace Routing and State</a></td></tr>
+    <tr><td>Shell/search saw different files than direct read.</td><td><a class="wiki-link" href="#cookbook-ephemeral-shell">Ephemeral Shell or Search Operation</a></td><td><a class="wiki-link" href="overlay.html">Overlay</a>, <a class="wiki-link" href="workspaces.html#ephemeral-workspace">ephemeral_workspace</a></td></tr>
+    <tr><td>Write/edit conflicted or did not publish.</td><td><a class="wiki-link" href="#cookbook-occ-publish">OCC Publish from API Write/Edit</a></td><td><a class="wiki-link" href="occ.html">OCC</a>, <a class="wiki-link" href="layerstack.html#layerstack-publish">Publish</a></td></tr>
+    <tr><td>Private scratch leaked, failed to enter, or lost state early.</td><td><a class="wiki-link" href="#cookbook-isolated">Isolated Workspace Tool Lifecycle</a></td><td><a class="wiki-link" href="workspaces.html#isolated-workspace">isolated_workspace</a>, <a class="wiki-link" href="daemon.html#isolated-background-gate">Isolated Background Gate</a></td></tr>
+    <tr><td>Plugin or LSP saw stale projection.</td><td><a class="wiki-link" href="#cookbook-pyright-refresh">Pyright Latest-Projection Refresh</a></td><td><a class="wiki-link" href="plugins.html">Plugin in ephemeral_workspace</a></td></tr>
   </tbody>
 </table>
 
@@ -149,10 +157,30 @@
 </div>
 
 <p>Relevant code: session reconciliation <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/session_manager.py:34-98</span>, overlay acquisition <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/session_manager.py:176-221</span>, event pump <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/session_manager.py:294-360</span>, Pyright remount/notification <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/pyright_session.py:374-415</span>, <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/pyright_session.py:583-650</span>, and LSP apply path <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/apply.py:21-148</span>.</p>
+<h3 id="cookbook-evidence-refresh">10.7 Cross-workflow Evidence and Refresh <a class="anchor" href="#cookbook-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Behavior suites</h4>
+    <ul>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ</span> integrated public file, shell, OCC, and overlay workflows.</li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/ephemeral_workspace</span> ephemeral-mode cleanup and conflict workflows.</li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/background_tool</span> background shell heartbeat/cancel/isolated-gate workflows.</li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/plugin</span> plugin/LSP runtime workflows.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Live artifacts</h4>
+    <p>Scenario-style runs write under <code>.sweevo_runs/scenario_logs</code>. Direct isolated-workspace pytest/soak paths may instead use daemon JSONL audit files, commonly <code>/tmp/sandbox_isolated_workspace_events.jsonl</code> inside the active sandbox.</p>
+  </div>
+  <div class="evidence-card">
+    <h4>Refresh triggers</h4>
+    <p>Add a new trace when an externally visible workflow crosses more than one owner module, or when an existing trace gets a new state handoff, failure mode, or proof artifact.</p>
+  </div>
+</div>
 <div class="maintenance-note">
   Backlinks: each trace should have one owner page and at least one storage/workspace page. If a new workflow appears, add it here, add a search-index entry, and add backlinks from the owner node.
 </div>
-<div class="page-footer-nav"><span><a href="space-model.html">← 9. Space Model</a></span><span><a href="index.html">Index →</a></span></div>
+<div class="page-footer-nav"><span><a href="space-model.html">← 9. Space Model</a></span><span><a href="maintenance.html">11. Wiki Maintenance →</a></span></div>
 </main>
 <script src="assets/search-index.js"></script>
 <script src="assets/nav.js"></script>

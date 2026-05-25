@@ -26,6 +26,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -43,12 +44,12 @@
   </ul>
 </div>
 <div class="wiki-links" aria-label="Space model links">
-  <a href="#space-cost-model">[[Cost Model]]</a>
-  <a href="#space-by-mode">[[Mode Cost Table]]</a>
-  <a href="#space-myths">[[Non-goals and Myths]]</a>
-  <a href="layerstack.html#layerstack-projection">[[LayerStack Projection]]</a>
-  <a href="overlay.html#overlay-handle">[[Overlay Handle]]</a>
-  <a href="workspaces.html">[[Workspace Modes]]</a>
+  <a href="#space-cost-model">Cost Model</a>
+  <a href="#space-by-mode">Mode Cost Table</a>
+  <a href="#space-myths">Non-goals and Myths</a>
+  <a href="layerstack.html#layerstack-projection">LayerStack Projection</a>
+  <a href="overlay.html#overlay-handle">Overlay Handle</a>
+  <a href="workspaces.html">Workspace Modes</a>
 </div>
 
 <h3 id="space-cost-model">9.1 Cost Model <a class="anchor" href="#space-cost-model">§</a></h3>
@@ -69,6 +70,13 @@
 
 <p>For <code>n</code> concurrent operations, writable scratch is <strong>O(n * per-operation changed bytes)</strong> plus small metadata. Each operation/session has its own <code>upper</code> and <code>work</code> directories <span class="file-ref">backend/src/sandbox/overlay/writable_dirs.py:46-52</span>. Capturing changes walks only the upperdir and emits writes/deletes/symlinks/opaque markers <span class="file-ref">backend/src/sandbox/overlay/capture.py:19-93</span>. OCC then publishes accepted changes as one new immutable layer rather than copying the whole workspace <span class="file-ref">backend/src/sandbox/occ/commit_transaction.py:113-141</span>.</p>
 
+<div class="edge-list">
+  <div><b>lower side</b><span><code>LayerStack.prepare_workspace_snapshot()</code> returns existing <code>layer_paths</code> and a lease, so lowerdir storage stays shared across operations.</span></div>
+  <div><b>writable side</b><span><code>allocate_overlay_writable_dirs()</code> creates one <code>upper</code> and one <code>work</code> directory per run dir, and capture walks only that upperdir.</span></div>
+  <div><b>publish side</b><span>OCC stages accepted deltas and LayerStack appends one immutable layer, so publish cost follows changed paths and content size.</span></div>
+  <div><b>private side</b><span>Isolated workspace keeps its upper/work dirs across calls, then reports discarded bytes and removes scratch on exit.</span></div>
+</div>
+
 <h3 id="space-by-mode">9.2 Mode Cost Table <a class="anchor" href="#space-by-mode">§</a></h3>
 <table>
   <thead><tr><th>Mode</th><th>Lower side</th><th>Writable side</th><th>Publish behavior</th></tr></thead>
@@ -85,15 +93,40 @@
 <table>
   <thead><tr><th>Claim</th><th>Correct reading</th><th>Where to verify</th></tr></thead>
   <tbody>
-    <tr><td>Every operation copies the repository.</td><td>No. It leases existing lowerdirs and allocates changed-byte scratch.</td><td><a class="wiki-link" href="layerstack.html#layerstack-projection">[[Projection]]</a>, <a class="wiki-link" href="overlay.html#overlay-handle">[[Overlay Handle]]</a></td></tr>
-    <tr><td>Isolated workspace is a second durable branch.</td><td>No. It is explicit private scratch over a pinned snapshot; without a promotion path, exit discards upperdir bytes.</td><td><a class="wiki-link" href="workspaces.html#isolated-workspace">[[isolated_workspace]]</a></td></tr>
-    <tr><td>Direct file fast paths bypass safety.</td><td>No. They bypass mount/capture cost but still publish through OCC for writes/edits.</td><td><a class="wiki-link" href="workspaces.html#ephemeral-fast-paths">[[Fast-path Technical Workflows]]</a></td></tr>
-    <tr><td>Manifest depth is free.</td><td>No. Lowerdir byte cost is O(1), but mount argument/path count grows with manifest depth; shell can pre-squash deep manifests.</td><td><a class="wiki-link" href="layerstack.html#layerstack-publish">[[Publish]]</a>, <a class="wiki-link" href="workflow-cookbook.html#cookbook-ephemeral-shell">[[Ephemeral Shell]]</a></td></tr>
+    <tr><td>Every operation copies the repository.</td><td>No. It leases existing lowerdirs and allocates changed-byte scratch.</td><td><a class="wiki-link" href="layerstack.html#layerstack-projection">Projection</a>, <a class="wiki-link" href="overlay.html#overlay-handle">Overlay Handle</a></td></tr>
+    <tr><td>Isolated workspace is a second durable branch.</td><td>No. It is explicit private scratch over a pinned snapshot; without a promotion path, exit discards upperdir bytes.</td><td><a class="wiki-link" href="workspaces.html#isolated-workspace">isolated_workspace</a></td></tr>
+    <tr><td>Direct file fast paths bypass safety.</td><td>No. They bypass mount/capture cost but still publish through OCC for writes/edits.</td><td><a class="wiki-link" href="workspaces.html#ephemeral-fast-paths">Fast-path Technical Workflows</a></td></tr>
+    <tr><td>Manifest depth is free.</td><td>No. Lowerdir byte cost is O(1), but mount argument/path count grows with manifest depth; shell can pre-squash deep manifests.</td><td><a class="wiki-link" href="layerstack.html#layerstack-publish">Publish</a>, <a class="wiki-link" href="workflow-cookbook.html#cookbook-ephemeral-shell">Ephemeral Shell</a></td></tr>
   </tbody>
 </table>
 
 <div class="maintenance-note">
-  Backlinks: update this page when <a class="wiki-link" href="layerstack.html#layerstack-projection">[[Projection]]</a>, <a class="wiki-link" href="overlay.html#overlay-capture">[[Upperdir Capture]]</a>, or <a class="wiki-link" href="workspaces.html#isolated-lifecycle-detail">[[Enter, Run, Exit Details]]</a> changes storage lifetime.
+  Backlinks: update this page when <a class="wiki-link" href="layerstack.html#layerstack-projection">Projection</a>, <a class="wiki-link" href="overlay.html#overlay-capture">Upperdir Capture</a>, or <a class="wiki-link" href="workspaces.html#isolated-lifecycle-detail">Enter, Run, Exit Details</a> changes storage lifetime.
+</div>
+<h3 id="space-evidence-refresh">9.4 Evidence and Refresh <a class="anchor" href="#space-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Code anchors</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/sandbox/layer_stack/stack.py:104-129</span> snapshot lease and layer path return.</li>
+      <li><span class="file-ref">backend/src/sandbox/overlay/writable_dirs.py:13-52</span> writable root and per-run upper/work allocation.</li>
+      <li><span class="file-ref">backend/src/sandbox/overlay/capture.py:49-93</span> upperdir-only traversal.</li>
+      <li><span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/workspace_handle_lifecycle.py:192-247</span> exit byte count and scratch removal.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Tests</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/ephemeral_workspace/test_ephemeral_lowerdir_disk_is_o1_under_100_calls.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/gc_and_persistence/test_lowerdir_disk_usage_is_o1.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/overlay/native/test_o1_memory_bound.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/overlay/syscall/test_heavy_write_copy_up.py</span></li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Refresh triggers</h4>
+    <p>Any materialized-tree default, new promotion path for isolated work, manifest-depth guard change, or writable-root policy change should update this page and the related owner page.</p>
+  </div>
 </div>
 <div class="page-footer-nav"><span><a href="plugins.html">← 8. Plugin in ephemeral_workspace</a></span><span><a href="workflow-cookbook.html">10. Workflow Cookbook →</a></span></div>
 </main>

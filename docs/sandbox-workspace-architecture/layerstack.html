@@ -26,6 +26,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -43,18 +44,18 @@
   </ul>
 </div>
 <div class="wiki-links" aria-label="LayerStack page links">
-  <a href="#layerstack-storage">[[Storage]]</a>
-  <a href="#layerstack-data-model">[[Data Model]]</a>
-  <a href="#layerstack-projection">[[Projection]]</a>
-  <a href="#layerstack-publish">[[Publish]]</a>
-  <a href="overlay.html">[[Overlay]]</a>
-  <a href="occ.html">[[OCC]]</a>
-  <a href="space-model.html">[[Space Model]]</a>
+  <a href="#layerstack-storage">Storage</a>
+  <a href="#layerstack-data-model">Data Model</a>
+  <a href="#layerstack-projection">Projection</a>
+  <a href="#layerstack-publish">Publish</a>
+  <a href="overlay.html">Overlay</a>
+  <a href="occ.html">OCC</a>
+  <a href="space-model.html">Space Model</a>
 </div>
 
 <div class="callout">
   <span class="label">Reading Path</span>
-  If the question is "where are the bytes?", read <a class="wiki-link" href="#layerstack-storage">[[Storage]]</a>. If the question is "why does this not copy the repo?", read <a class="wiki-link" href="#layerstack-projection">[[Projection]]</a> and then <a class="wiki-link" href="space-model.html">[[Space Model]]</a>. If the question is "how did my write become durable?", jump to <a class="wiki-link" href="#layerstack-publish">[[Publish]]</a> and <a class="wiki-link" href="occ.html#occ-technical-workflow">[[OCC Technical Workflow]]</a>.
+  If the question is "where are the bytes?", read <a class="wiki-link" href="#layerstack-storage">Storage</a>. If the question is "why does this not copy the repo?", read <a class="wiki-link" href="#layerstack-projection">Projection</a> and then <a class="wiki-link" href="space-model.html">Space Model</a>. If the question is "how did my write become durable?", jump to <a class="wiki-link" href="#layerstack-publish">Publish</a> and <a class="wiki-link" href="occ.html#occ-technical-workflow">OCC Technical Workflow</a>.
 </div>
 
 <h3 id="layerstack-storage">2.1 Storage <a class="anchor" href="#layerstack-storage">§</a></h3>
@@ -86,12 +87,12 @@
 <table>
   <thead><tr><th>Object</th><th>Role</th><th>Lifetime</th><th>Cross-links</th></tr></thead>
   <tbody>
-    <tr><td><code>Manifest</code></td><td>Ordered list of layer refs plus version/depth. Newest layer is first, so overlay mounts and merged reads see the latest changes first.</td><td>One active file at <code>manifest.json</code>, atomically replaced on publish/squash/flush.</td><td><a class="wiki-link" href="#layerstack-projection">[[Projection]]</a>, <a class="wiki-link" href="overlay.html">[[Overlay]]</a></td></tr>
-    <tr><td><code>LayerRef</code></td><td>Names one immutable directory under <code>layers/</code>. Base layers start with <code>B</code>; published delta/checkpoint layers start with <code>L</code> or checkpoint labels.</td><td>Referenced until no active manifest or lease pins it.</td><td><a class="wiki-link" href="#layerstack-publish">[[Publish]]</a>, <a class="wiki-link" href="#layerstack-storage">[[Storage]]</a></td></tr>
-    <tr><td><code>WorkspaceBinding</code></td><td>Binds a real workspace root to a layer-stack root and records base root hashes so path translation remains explicit.</td><td>Written during base creation and read by daemon routing.</td><td><a class="wiki-link" href="daemon.html#workspace-routing-and-state">[[Workspace Routing and State]]</a></td></tr>
-    <tr><td><code>WorkspaceLease</code></td><td>Pins the manifest that a live overlay/projection is using so cleanup and squash do not remove needed lowerdirs.</td><td>Created for snapshots, released by overlay destroy, isolated exit, or projection teardown.</td><td><a class="wiki-link" href="overlay.html">[[Overlay]]</a>, <a class="wiki-link" href="workspaces.html#isolated-lifecycle-detail">[[Enter, Run, Exit Details]]</a></td></tr>
-    <tr><td><code>MergedView</code></td><td>Logical reader over the active manifest. It answers direct reads/listing and can materialize a full tree when maintenance explicitly asks.</td><td>Cached by the LayerStack manager and evicts layer indexes when layers disappear.</td><td><a class="wiki-link" href="workflow-cookbook.html#cookbook-layerstack-read">[[Direct LayerStack Read]]</a></td></tr>
-    <tr><td><code>LayerStackTransaction</code></td><td>Storage writer boundary used by OCC to publish exactly one accepted changeset against the live manifest.</td><td>Per commit transaction.</td><td><a class="wiki-link" href="occ.html#occ-technical-workflow">[[OCC Technical Workflow]]</a></td></tr>
+    <tr><td><code>Manifest</code></td><td>Ordered list of layer refs plus version/depth. Newest layer is first, so overlay mounts and merged reads see the latest changes first.</td><td>One active file at <code>manifest.json</code>, atomically replaced on publish/squash/flush.</td><td><a class="wiki-link" href="#layerstack-projection">Projection</a>, <a class="wiki-link" href="overlay.html">Overlay</a></td></tr>
+    <tr><td><code>LayerRef</code></td><td>Names one immutable directory under <code>layers/</code>. Base layers start with <code>B</code>; published delta/checkpoint layers start with <code>L</code> or checkpoint labels.</td><td>Referenced until no active manifest or lease pins it.</td><td><a class="wiki-link" href="#layerstack-publish">Publish</a>, <a class="wiki-link" href="#layerstack-storage">Storage</a></td></tr>
+    <tr><td><code>WorkspaceBinding</code></td><td>Binds a real workspace root to a layer-stack root and records base root hashes so path translation remains explicit.</td><td>Written during base creation and read by daemon routing.</td><td><a class="wiki-link" href="daemon.html#workspace-routing-and-state">Workspace Routing and State</a></td></tr>
+    <tr><td><code>WorkspaceLease</code></td><td>Pins the manifest that a live overlay/projection is using so cleanup and squash do not remove needed lowerdirs.</td><td>Created for snapshots, released by overlay destroy, isolated exit, or projection teardown.</td><td><a class="wiki-link" href="overlay.html">Overlay</a>, <a class="wiki-link" href="workspaces.html#isolated-lifecycle-detail">Enter, Run, Exit Details</a></td></tr>
+    <tr><td><code>MergedView</code></td><td>Logical reader over the active manifest. It answers direct reads/listing and can materialize a full tree when maintenance explicitly asks.</td><td>Cached by the LayerStack manager and evicts layer indexes when layers disappear.</td><td><a class="wiki-link" href="workflow-cookbook.html#cookbook-layerstack-read">Direct LayerStack Read</a></td></tr>
+    <tr><td><code>LayerStackTransaction</code></td><td>Storage writer boundary used by OCC to publish exactly one accepted changeset against the live manifest.</td><td>Per commit transaction.</td><td><a class="wiki-link" href="occ.html#occ-technical-workflow">OCC Technical Workflow</a></td></tr>
   </tbody>
 </table>
 
@@ -155,8 +156,46 @@
   The normal operation projection is a lease-backed list of existing layer directories. A full rendered tree only appears when <code>MergedView.materialize()</code> is intentionally called for maintenance or flush, not during normal ephemeral/isolated lowerdir preparation.
 </div>
 
+<h3 id="layerstack-evidence-refresh">2.5 Evidence and Refresh <a class="anchor" href="#layerstack-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Source files</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/sandbox/layer_stack/stack.py</span> public facade, leases, snapshots, squash, flush.</li>
+      <li><span class="file-ref">backend/src/sandbox/layer_stack/publisher.py</span> staged layer publish and manifest CAS.</li>
+      <li><span class="file-ref">backend/src/sandbox/layer_stack/view.py</span> newest-first logical reads and materialization.</li>
+      <li><span class="file-ref">backend/src/sandbox/layer_stack/workspace_base.py</span> base import and workspace binding write.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Graph edges</h4>
+    <ul>
+      <li><code>exports</code> <code>LayerStack.prepare_workspace_snapshot()</code> to overlay and isolated workspace.</li>
+      <li><code>exports</code> <code>LayerStack.commit_transaction()</code> to OCC.</li>
+      <li><code>owns-state</code> manifest, layers, staging, leases, digest sidecars, and merged-view cache.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Tests</h4>
+    <ul>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/layer_stack/test_merged_view.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/layer_stack/test_squash.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/workspace_base/test_squash_with_base_and_leases.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_workspace_base_public_api_conflicts.py</span></li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Artifacts</h4>
+    <p>Live-suite reports under <span class="file-ref">backend/tests/live_e2e_test/sandbox/phase-01-workspace-base-report.md</span> and <span class="file-ref">backend/tests/live_e2e_test/sandbox/phase-02-p0-finish-report.md</span> record workspace-base and layer-stack coverage.</p>
+  </div>
+</div>
+<div class="refresh-list">
+  <div><strong>Manifest or layer layout changes</strong><span>Update Storage, Data Model, Space Model, and any direct file refs in Daemon routing.</span></div>
+  <div><strong>Snapshot semantics change</strong><span>Update Projection, Overlay Handle, isolated lifecycle, and plugin projection refresh.</span></div>
+  <div><strong>Publish or squash changes</strong><span>Update Publish, OCC Technical Workflow, and shell pre-mount maintenance notes.</span></div>
+</div>
 <div class="maintenance-note">
-  Backlinks: <a class="wiki-link" href="overview.html#overview-invariants">[[Core Invariants]]</a> names LayerStack as durable truth; <a class="wiki-link" href="overlay.html">[[Overlay]]</a> consumes <code>layer_paths</code>; <a class="wiki-link" href="occ.html">[[OCC]]</a> publishes into LayerStack; <a class="wiki-link" href="plugins.html#plugin-refresh-detail">[[Projection Refresh and LSP Writes]]</a> watches manifest keys derived from this page.
+  Backlinks: <a class="wiki-link" href="overview.html#overview-invariants">Core Invariants</a> names LayerStack as durable truth; <a class="wiki-link" href="overlay.html">Overlay</a> consumes <code>layer_paths</code>; <a class="wiki-link" href="occ.html">OCC</a> publishes into LayerStack; <a class="wiki-link" href="plugins.html#plugin-refresh-detail">Projection Refresh and LSP Writes</a> watches manifest keys derived from this page.
 </div>
 <div class="page-footer-nav"><span><a href="overview.html">← 1. Overview</a></span><span><a href="overlay.html">3. Overlay →</a></span></div>
 </main>

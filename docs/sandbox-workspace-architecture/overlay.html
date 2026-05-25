@@ -26,6 +26,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -43,12 +44,12 @@
   </ul>
 </div>
 <div class="wiki-links" aria-label="Overlay page links">
-  <a href="#overlay-handle">[[Overlay Handle]]</a>
-  <a href="#overlay-mount-namespace">[[Mount Namespace]]</a>
-  <a href="#overlay-capture">[[Upperdir Capture]]</a>
-  <a href="layerstack.html#layerstack-projection">[[LayerStack Projection]]</a>
-  <a href="occ.html">[[OCC]]</a>
-  <a href="workflow-cookbook.html#cookbook-ephemeral-shell">[[Ephemeral Shell]]</a>
+  <a href="#overlay-handle">Overlay Handle</a>
+  <a href="#overlay-mount-namespace">Mount Namespace</a>
+  <a href="#overlay-capture">Upperdir Capture</a>
+  <a href="layerstack.html#layerstack-projection">LayerStack Projection</a>
+  <a href="occ.html">OCC</a>
+  <a href="workflow-cookbook.html#cookbook-ephemeral-shell">Ephemeral Shell</a>
 </div>
 
 <h3 id="overlay-handle">3.1 Overlay Handle <a class="anchor" href="#overlay-handle">§</a></h3>
@@ -79,13 +80,19 @@
 
 <p>Fresh ephemeral calls write a JSON payload and launch <code>unshare -Urm python -m sandbox.overlay.namespace_entrypoint</code> <span class="file-ref">backend/src/sandbox/overlay/namespace_runner.py:66-128</span>. The entrypoint validates/mounts the overlay, runs the tool from <code>workspace_root</code>, unmounts, and writes timings <span class="file-ref">backend/src/sandbox/overlay/namespace_entrypoint.py:85-175</span>. For isolated workspaces, the runner passes <code>mount_overlay=false</code> and executes inside the already-mounted namespace <span class="file-ref">backend/src/sandbox/overlay/namespace_runner.py:131-197</span>.</p>
 
+<div class="edge-list">
+  <div><b>calls</b><span><code>EphemeralPipeline.run_tool_call()</code> acquires an <code>OverlayHandle</code>, calls <code>run_in_namespace()</code>, captures upperdir for write-intent calls, then destroys the handle <span class="file-ref">backend/src/sandbox/ephemeral_workspace/pipeline.py:131-178</span>.</span></div>
+  <div><b>calls</b><span><code>IsolatedPipeline.run_tool_call()</code> wraps an existing handle as an <code>OverlayHandle</code> and supplies an isolated runner; no per-call mount or destroy happens <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:156-188</span>.</span></div>
+  <div><b>owns-state</b><span><code>overlay.lifecycle.acquire()</code> owns the failure boundary for snapshot lease plus run-dir allocation: exceptions release the lease and remove scratch before re-raising <span class="file-ref">backend/src/sandbox/overlay/lifecycle.py:20-77</span>.</span></div>
+</div>
+
 <table>
   <thead><tr><th>Execution shape</th><th>Mount behavior</th><th>Publish behavior</th><th>Backlink</th></tr></thead>
   <tbody>
-    <tr><td>Fresh ephemeral tool call</td><td>Creates a new user/mount namespace and mounts overlay onto <code>workspace_root</code> for one payload.</td><td>Write-intent calls capture upperdir and publish through OCC.</td><td><a class="wiki-link" href="workflow-cookbook.html#cookbook-ephemeral-shell">[[Ephemeral Shell or Search Operation]]</a></td></tr>
-    <tr><td>Generic plugin write</td><td>Uses the same operation overlay wrapper and runs the plugin child in a fresh namespace.</td><td>Parent captures upperdir and calls <code>publish_cycle()</code>.</td><td><a class="wiki-link" href="plugins.html">[[Plugin in ephemeral_workspace]]</a></td></tr>
-    <tr><td>Isolated workspace</td><td>Mount happens once during enter. Subsequent tool calls enter the existing namespace and do not remount lowerdirs.</td><td>No publish; upperdir is audit/discard state until exit.</td><td><a class="wiki-link" href="workspaces.html#isolated-workspace">[[isolated_workspace]]</a></td></tr>
-    <tr><td>Pyright long-lived session</td><td>Runs inside a private overlay namespace and can remount when the active manifest key changes.</td><td>Read operations do not publish; LSP apply uses a separate write overlay.</td><td><a class="wiki-link" href="plugins.html#plugin-refresh-detail">[[Projection Refresh and LSP Writes]]</a></td></tr>
+    <tr><td>Fresh ephemeral tool call</td><td>Creates a new user/mount namespace and mounts overlay onto <code>workspace_root</code> for one payload.</td><td>Write-intent calls capture upperdir and publish through OCC.</td><td><a class="wiki-link" href="workflow-cookbook.html#cookbook-ephemeral-shell">Ephemeral Shell or Search Operation</a></td></tr>
+    <tr><td>Generic plugin write</td><td>Uses the same operation overlay wrapper and runs the plugin child in a fresh namespace.</td><td>Parent captures upperdir and calls <code>publish_cycle()</code>.</td><td><a class="wiki-link" href="plugins.html">Plugin in ephemeral_workspace</a></td></tr>
+    <tr><td>Isolated workspace</td><td>Mount happens once during enter. Subsequent tool calls enter the existing namespace and do not remount lowerdirs.</td><td>No publish; upperdir is audit/discard state until exit.</td><td><a class="wiki-link" href="workspaces.html#isolated-workspace">isolated_workspace</a></td></tr>
+    <tr><td>Pyright long-lived session</td><td>Runs inside a private overlay namespace and can remount when the active manifest key changes.</td><td>Read operations do not publish; LSP apply uses a separate write overlay.</td><td><a class="wiki-link" href="plugins.html#plugin-refresh-detail">Projection Refresh and LSP Writes</a></td></tr>
   </tbody>
 </table>
 
@@ -112,8 +119,38 @@
 </table>
 
 <p>The upperdir walk uses <code>os.walk()</code> and avoids loading the entire tree into memory <span class="file-ref">backend/src/sandbox/overlay/capture.py:49-93</span>. Whiteout and opaque handling are explicit helpers <span class="file-ref">backend/src/sandbox/overlay/capture.py:95-128</span>. This is why changed-data cost is tied to the operation's writes rather than repository size.</p>
+<h3 id="overlay-evidence-refresh">3.4 Evidence and Refresh <a class="anchor" href="#overlay-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Source files</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/sandbox/overlay/lifecycle.py</span> lease, upper/work, handle release.</li>
+      <li><span class="file-ref">backend/src/sandbox/overlay/kernel_mount.py</span> mount syscalls and input validation.</li>
+      <li><span class="file-ref">backend/src/sandbox/overlay/namespace_runner.py</span> fresh and existing namespace execution.</li>
+      <li><span class="file-ref">backend/src/sandbox/overlay/capture.py</span> upperdir change extraction.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Tests</h4>
+    <ul>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/overlay/syscall/test_concurrent_mounts.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/overlay/native/test_lowerdir_priority_ordering.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_phase07_complex_capture_metrics.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/ephemeral_workspace/test_ephemeral_cancellation_drops_partial_upperdir.py</span></li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Failure modes</h4>
+    <p>Inspect missing writable-root errors, mount input validation failures, namespace child failures, upperdir capture mismatches, and leaked run dirs separately. They belong to different files in this page's source set.</p>
+  </div>
+</div>
+<div class="refresh-list">
+  <div><strong>Mount helper changes</strong><span>Update Mount Namespace, isolated setns notes, and Provider/Daemon diagnostics.</span></div>
+  <div><strong>Capture semantics change</strong><span>Update Upperdir Capture, OCC change sources, Space Model, and plugin write workflow.</span></div>
+  <div><strong>Handle lifecycle changes</strong><span>Update Workspace Modes and leak/failure test anchors.</span></div>
+</div>
 <div class="maintenance-note">
-  Backlinks: <a class="wiki-link" href="layerstack.html#layerstack-projection">[[Projection]]</a> supplies lowerdirs, <a class="wiki-link" href="occ.html">[[OCC]]</a> consumes captured changes, and <a class="wiki-link" href="space-model.html">[[Space Model]]</a> explains why overlay scratch scales with changed bytes.
+  Backlinks: <a class="wiki-link" href="layerstack.html#layerstack-projection">Projection</a> supplies lowerdirs, <a class="wiki-link" href="occ.html">OCC</a> consumes captured changes, and <a class="wiki-link" href="space-model.html">Space Model</a> explains why overlay scratch scales with changed bytes.
 </div>
 <div class="page-footer-nav"><span><a href="layerstack.html">← 2. LayerStack</a></span><span><a href="occ.html">4. OCC →</a></span></div>
 </main>

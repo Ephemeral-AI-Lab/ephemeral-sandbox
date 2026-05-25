@@ -515,12 +515,12 @@ nav.toc a.active {
   display: inline-block;
   color: var(--accent);
   text-decoration: none;
-  font-family: "JetBrains Mono", Menlo, Consolas, monospace;
-  font-size: 12.5px;
+  font-size: 13px;
+  font-weight: 650;
   background: var(--accent-soft);
   border: 1px solid #bfdbfe;
-  border-radius: 4px;
-  padding: 2px 7px;
+  border-radius: 6px;
+  padding: 3px 8px;
   max-width: 100%;
   overflow-wrap: anywhere;
 }
@@ -581,6 +581,82 @@ nav.toc a.active {
 .inline-kv div:nth-child(2n + 1) {
   color: var(--muted);
   font-weight: 650;
+}
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  margin: 16px 0 22px;
+}
+.evidence-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 13px 15px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.evidence-card h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--fg);
+}
+.evidence-card p {
+  max-width: none;
+  color: var(--muted);
+  font-size: 13.5px;
+  margin: 0 0 8px;
+}
+.evidence-card ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.edge-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+.edge-list div {
+  display: grid;
+  grid-template-columns: minmax(120px, 170px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.edge-list b {
+  color: var(--muted);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.refresh-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+.refresh-list div {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fbfcfe;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.refresh-list strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.refresh-list span {
+  color: var(--muted);
+  font-size: 13px;
 }
 .maintenance-note {
   border: 1px dashed var(--border);

@@ -32,6 +32,7 @@
         <li><a href="daemon.html#background-lifecycle-detail">Background lifecycle</a></li>
         <li><a href="daemon.html#isolated-background-gate">Isolated gate</a></li>
         <li><a href="daemon.html#diagnostics-failure-modes">Diagnostics</a></li>
+        <li><a href="daemon.html#daemon-evidence-refresh">Evidence</a></li>
         <li><a href="daemon.html#maintenance-notes">Maintenance</a></li>
       </ol>
     </li>
@@ -39,6 +40,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -69,7 +71,8 @@
     <li><a href="#cancellation-heartbeats"><span>6.8</span> Cancellation and Heartbeats</a></li>
     <li><a href="#isolated-background-gate"><span>6.9</span> Isolated Background Gate</a></li>
     <li><a href="#diagnostics-failure-modes"><span>6.10</span> Diagnostics and Failure Modes</a></li>
-    <li><a href="#maintenance-notes"><span>6.11</span> Maintenance Notes</a></li>
+    <li><a href="#daemon-evidence-refresh"><span>6.11</span> Evidence and Refresh</a></li>
+    <li><a href="#maintenance-notes"><span>6.12</span> Maintenance Notes</a></li>
   </ol>
   <div class="toc-related" aria-label="Related pages">
     <span>Related:</span>
@@ -426,7 +429,33 @@
   </tbody>
 </table>
 
-<h3 id="maintenance-notes">6.11 Maintenance Notes <a class="anchor" href="#maintenance-notes">§</a></h3>
+<h3 id="daemon-evidence-refresh">6.11 Evidence and Refresh <a class="anchor" href="#daemon-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Source files</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/sandbox/daemon/rpc/server.py</span> socket/TCP server and request bounds.</li>
+      <li><span class="file-ref">backend/src/sandbox/daemon/rpc/dispatcher.py</span> op table, validation, in-flight registration, plugin gate.</li>
+      <li><span class="file-ref">backend/src/sandbox/daemon/workspace_tool_dispatch.py</span> direct/ephemeral/isolated routing.</li>
+      <li><span class="file-ref">backend/src/sandbox/daemon/rpc/in_flight.py</span> heartbeat, cancellation, TTL, and background counts.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Tests</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/background_tool/test_background_shell_cancel_during_maintenance.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/background_tool/test_background_exit_iws_drains_agent_tasks.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/plugin/test_plugin_blocked_in_open_isolated_workspace.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_public_tool_runtime_smoke.py</span></li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Artifacts</h4>
+    <p>Daemon startup and workspace operation timing surfaces appear in tool responses. Background and isolated live tests also write scenario summaries and performance reports under their scenario run directories.</p>
+  </div>
+</div>
+
+<h3 id="maintenance-notes">6.12 Maintenance Notes <a class="anchor" href="#maintenance-notes">§</a></h3>
 
 <p>When this page goes stale, update the smallest relevant section, keep related links live, and preserve the distinction between code evidence and explanatory summary.</p>
 

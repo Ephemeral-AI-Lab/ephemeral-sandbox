@@ -26,6 +26,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -44,12 +45,12 @@
 </div>
 
 <div class="wiki-links" aria-label="Overview page links">
-  <a href="layerstack.html">[[LayerStack]]</a>
-  <a href="overlay.html">[[Overlay]]</a>
-  <a href="occ.html">[[OCC]]</a>
-  <a href="workspaces.html">[[Workspace Modes]]</a>
-  <a href="daemon.html">[[Daemon and Background Tasks]]</a>
-  <a href="workflow-cookbook.html">[[Workflow Cookbook]]</a>
+  <a href="layerstack.html">LayerStack</a>
+  <a href="overlay.html">Overlay</a>
+  <a href="occ.html">OCC</a>
+  <a href="workspaces.html">Workspace Modes</a>
+  <a href="daemon.html">Daemon and Background Tasks</a>
+  <a href="workflow-cookbook.html">Workflow Cookbook</a>
 </div>
 
 <div class="diagram" aria-label="Sandbox components">
@@ -71,39 +72,70 @@
   </div>
 </div>
 
-<p>The important split is lifetime. <a class="wiki-link" href="workspaces.html#main-workspace">[[main_workspace]]</a> is the persistent repository identity. <a class="wiki-link" href="workspaces.html#ephemeral-workspace">[[ephemeral_workspace]]</a> creates private overlay state per tool/plugin operation or uses direct LayerStack/OCC fast paths. <a class="wiki-link" href="workspaces.html#isolated-workspace">[[isolated_workspace]]</a> creates one private overlay namespace at <code>enter_isolated_workspace</code> and discards it at <code>exit_isolated_workspace</code>.</p>
+<p>The important split is lifetime. <a class="wiki-link" href="workspaces.html#main-workspace">main_workspace</a> is the persistent repository identity. <a class="wiki-link" href="workspaces.html#ephemeral-workspace">ephemeral_workspace</a> creates private overlay state per tool/plugin operation or uses direct LayerStack/OCC fast paths. <a class="wiki-link" href="workspaces.html#isolated-workspace">isolated_workspace</a> creates one private overlay namespace at <code>enter_isolated_workspace</code> and discards it at <code>exit_isolated_workspace</code>.</p>
 
 <h3 id="overview-invariants">1.1 Core Invariants <a class="anchor" href="#overview-invariants">§</a></h3>
 <table>
   <thead><tr><th>Invariant</th><th>Practical meaning</th><th>Primary node</th></tr></thead>
   <tbody>
-    <tr><td>Durable truth is versioned.</td><td>The active manifest and immutable layers define the workspace state that later operations start from.</td><td><a class="wiki-link" href="layerstack.html">[[LayerStack]]</a></td></tr>
-    <tr><td>Execution scratch is private.</td><td>Shell/search/plugin work runs with per-operation <code>upper</code>/<code>work</code> dirs unless the operation can use a direct file fast path.</td><td><a class="wiki-link" href="overlay.html">[[Overlay]]</a></td></tr>
-    <tr><td>Publication is serialized and checked.</td><td>Accepted writes become new layers through OCC prepare, queue, transaction, and publisher steps.</td><td><a class="wiki-link" href="occ.html">[[OCC]]</a></td></tr>
-    <tr><td>Private scratch is opt-in.</td><td>Isolated mode is an explicit tool lifecycle for low-confidence experiments; default collaboration remains shared/OCC-backed.</td><td><a class="wiki-link" href="workspaces.html#isolated-workspace">[[isolated_workspace]]</a></td></tr>
-    <tr><td>Provider details stop at the boundary.</td><td>Docker/Daytona create containers and execute commands, but workspace semantics stay inside sandbox runtime packages.</td><td><a class="wiki-link" href="provider.html">[[Provider]]</a></td></tr>
+    <tr><td>Durable truth is versioned.</td><td>The active manifest and immutable layers define the workspace state that later operations start from.</td><td><a class="wiki-link" href="layerstack.html">LayerStack</a></td></tr>
+    <tr><td>Execution scratch is private.</td><td>Shell/search/plugin work runs with per-operation <code>upper</code>/<code>work</code> dirs unless the operation can use a direct file fast path.</td><td><a class="wiki-link" href="overlay.html">Overlay</a></td></tr>
+    <tr><td>Publication is serialized and checked.</td><td>Accepted writes become new layers through OCC prepare, queue, transaction, and publisher steps.</td><td><a class="wiki-link" href="occ.html">OCC</a></td></tr>
+    <tr><td>Private scratch is opt-in.</td><td>Isolated mode is an explicit tool lifecycle for low-confidence experiments; default collaboration remains shared/OCC-backed.</td><td><a class="wiki-link" href="workspaces.html#isolated-workspace">isolated_workspace</a></td></tr>
+    <tr><td>Provider details stop at the boundary.</td><td>Docker/Daytona create containers and execute commands, but workspace semantics stay inside sandbox runtime packages.</td><td><a class="wiki-link" href="provider.html">Provider</a></td></tr>
   </tbody>
 </table>
 
 <h3 id="overview-structure">1.2 Structural Map <a class="anchor" href="#overview-structure">§</a></h3>
 <div class="concept-grid">
-  <div class="concept-card"><strong><code>sandbox.api</code></strong><p>Public typed API and transport entrypoints. Tool modules build daemon payloads, attach caller identity, and convert daemon responses back to result models.</p><div class="wiki-links"><a href="daemon.html#request-lifecycle">[[Request Lifecycle]]</a></div></div>
-  <div class="concept-card"><strong><code>sandbox.host</code></strong><p>Host-side lifecycle and daemon client code. It uploads the runtime bundle, ensures git/base state, starts or calls the daemon, and wraps isolated lifecycle preflight.</p><div class="wiki-links"><a href="provider.html">[[Provider]]</a><a href="daemon.html#startup-transport">[[Startup and Transport]]</a></div></div>
-  <div class="concept-card"><strong><code>sandbox.daemon</code></strong><p>Resident in-sandbox control plane. It validates envelopes, registers in-flight invocations, owns operation handlers, and routes tools into workspace implementations.</p><div class="wiki-links"><a href="daemon.html">[[Daemon and Background Tasks]]</a></div></div>
-  <div class="concept-card"><strong><code>sandbox.layer_stack</code></strong><p>Versioned storage facade: manifests, immutable layer directories, leases, merged logical reads, publish transactions, squash, and flush.</p><div class="wiki-links"><a href="layerstack.html">[[LayerStack]]</a></div></div>
-  <div class="concept-card"><strong><code>sandbox.overlay</code></strong><p>Kernel overlay boundary: snapshot lease, upper/work allocation, mount input validation, namespace execution, capture, and teardown.</p><div class="wiki-links"><a href="overlay.html">[[Overlay]]</a></div></div>
-  <div class="concept-card"><strong><code>sandbox.occ</code></strong><p>Optimistic concurrency layer that prepares typed changes, routes direct versus gated paths, serializes commits, stages accepted deltas, and projects conflicts.</p><div class="wiki-links"><a href="occ.html">[[OCC]]</a></div></div>
-  <div class="concept-card"><strong><code>sandbox.ephemeral_workspace</code></strong><p>Default per-call execution and plugin overlay surface. It owns operation overlays, publish cycles, workspace events, and foreign publish refresh.</p><div class="wiki-links"><a href="workspaces.html#ephemeral-workspace">[[ephemeral_workspace]]</a><a href="plugins.html">[[Plugin in ephemeral_workspace]]</a></div></div>
-  <div class="concept-card"><strong><code>sandbox.isolated_workspace</code></strong><p>Explicit private scratch mode: handle map, namespace holder, veth, DNS, cgroup, persistent overlay upperdir, audit, and teardown.</p><div class="wiki-links"><a href="workspaces.html#isolated-workspace">[[isolated_workspace]]</a></div></div>
+  <div class="concept-card"><strong><code>sandbox.api</code></strong><p>Public typed API and transport entrypoints. Tool modules build daemon payloads, attach caller identity, and convert daemon responses back to result models.</p><div class="wiki-links"><a href="daemon.html#request-lifecycle">Request Lifecycle</a></div></div>
+  <div class="concept-card"><strong><code>sandbox.host</code></strong><p>Host-side lifecycle and daemon client code. It uploads the runtime bundle, ensures git/base state, starts or calls the daemon, and wraps isolated lifecycle preflight.</p><div class="wiki-links"><a href="provider.html">Provider</a><a href="daemon.html#startup-transport">Startup and Transport</a></div></div>
+  <div class="concept-card"><strong><code>sandbox.daemon</code></strong><p>Resident in-sandbox control plane. It validates envelopes, registers in-flight invocations, owns operation handlers, and routes tools into workspace implementations.</p><div class="wiki-links"><a href="daemon.html">Daemon and Background Tasks</a></div></div>
+  <div class="concept-card"><strong><code>sandbox.layer_stack</code></strong><p>Versioned storage facade: manifests, immutable layer directories, leases, merged logical reads, publish transactions, squash, and flush.</p><div class="wiki-links"><a href="layerstack.html">LayerStack</a></div></div>
+  <div class="concept-card"><strong><code>sandbox.overlay</code></strong><p>Kernel overlay boundary: snapshot lease, upper/work allocation, mount input validation, namespace execution, capture, and teardown.</p><div class="wiki-links"><a href="overlay.html">Overlay</a></div></div>
+  <div class="concept-card"><strong><code>sandbox.occ</code></strong><p>Optimistic concurrency layer that prepares typed changes, routes direct versus gated paths, serializes commits, stages accepted deltas, and projects conflicts.</p><div class="wiki-links"><a href="occ.html">OCC</a></div></div>
+  <div class="concept-card"><strong><code>sandbox.ephemeral_workspace</code></strong><p>Default per-call execution and plugin overlay surface. It owns operation overlays, publish cycles, workspace events, and foreign publish refresh.</p><div class="wiki-links"><a href="workspaces.html#ephemeral-workspace">ephemeral_workspace</a><a href="plugins.html">Plugin in ephemeral_workspace</a></div></div>
+  <div class="concept-card"><strong><code>sandbox.isolated_workspace</code></strong><p>Explicit private scratch mode: handle map, namespace holder, veth, DNS, cgroup, persistent overlay upperdir, audit, and teardown.</p><div class="wiki-links"><a href="workspaces.html#isolated-workspace">isolated_workspace</a></div></div>
 </div>
 
 <h3 id="overview-request-shape">1.3 Request Shape <a class="anchor" href="#overview-request-shape">§</a></h3>
 <p>Most runtime behavior is easier to understand as three nested boundaries: public API builds a typed request, the host transport wraps it as a daemon envelope, and the daemon router decides the workspace execution path. A direct file write can skip overlay mechanics, but it still publishes through OCC. A shell command usually needs a mounted overlay, then publishes captured upperdir changes. An isolated call reuses the already-open private namespace and discards changes on exit.</p>
 <div class="trace-grid">
-  <div>Direct file APIs</div><div><a class="wiki-link" href="workspaces.html#ephemeral-fast-paths">[[Fast-path Technical Workflows]]</a> and <a class="wiki-link" href="workflow-cookbook.html#cookbook-occ-publish">[[OCC Publish from API Write/Edit]]</a>.</div>
-  <div>Shell/search/default overlay</div><div><a class="wiki-link" href="workflow-cookbook.html#cookbook-ephemeral-shell">[[Ephemeral Shell or Search Operation]]</a>.</div>
-  <div>Private scratch</div><div><a class="wiki-link" href="workflow-cookbook.html#cookbook-isolated">[[Isolated Workspace Tool Lifecycle]]</a>.</div>
-  <div>Plugin/LSP</div><div><a class="wiki-link" href="workflow-cookbook.html#cookbook-plugin-write">[[Plugin Write Operation]]</a> and <a class="wiki-link" href="workflow-cookbook.html#cookbook-pyright-refresh">[[Pyright Latest-Projection Refresh]]</a>.</div>
+  <div>Direct file APIs</div><div><a class="wiki-link" href="workspaces.html#ephemeral-fast-paths">Fast-path Technical Workflows</a> and <a class="wiki-link" href="workflow-cookbook.html#cookbook-occ-publish">OCC Publish from API Write/Edit</a>.</div>
+  <div>Shell/search/default overlay</div><div><a class="wiki-link" href="workflow-cookbook.html#cookbook-ephemeral-shell">Ephemeral Shell or Search Operation</a>.</div>
+  <div>Private scratch</div><div><a class="wiki-link" href="workflow-cookbook.html#cookbook-isolated">Isolated Workspace Tool Lifecycle</a>.</div>
+  <div>Plugin/LSP</div><div><a class="wiki-link" href="workflow-cookbook.html#cookbook-plugin-write">Plugin Write Operation</a> and <a class="wiki-link" href="workflow-cookbook.html#cookbook-pyright-refresh">Pyright Latest-Projection Refresh</a>.</div>
+</div>
+<h3 id="overview-evidence-refresh">1.4 Evidence and Refresh <a class="anchor" href="#overview-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Entry points</h4>
+    <p>Public tools build daemon payloads through <code>sandbox.api.tool</code>, and the host transport calls the resident daemon.</p>
+    <span class="file-ref">backend/src/sandbox/api/transport.py:44-77</span>
+  </div>
+  <div class="evidence-card">
+    <h4>Router</h4>
+    <p>The daemon workspace router is the first place that distinguishes direct file paths from overlay and isolated execution.</p>
+    <span class="file-ref">backend/src/sandbox/daemon/workspace_tool_dispatch.py:53-75</span>
+  </div>
+  <div class="evidence-card">
+    <h4>Storage owner</h4>
+    <p>LayerStack coordinates active manifests, snapshot leases, merged reads, and publish transactions.</p>
+    <span class="file-ref">backend/src/sandbox/layer_stack/stack.py:69-343</span>
+  </div>
+  <div class="evidence-card">
+    <h4>Validation anchors</h4>
+    <ul>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_phase05_public_file_ops_correctness.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/ephemeral_workspace/test_ephemeral_all_verbs_publish_and_cleanup.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/happy_path/test_enter_then_shell_then_exit.py</span></li>
+    </ul>
+  </div>
+</div>
+<div class="refresh-list">
+  <div><strong>Refresh when routing changes</strong><span>Update Overview, Workspace Modes, Daemon routing, Workflow Cookbook, and search-index entries together.</span></div>
+  <div><strong>Refresh when ownership moves</strong><span>Check package cards here, then update the owner page with the new entry point and tests.</span></div>
+  <div><strong>Refresh when a live suite changes</strong><span>Update validation anchors and the evidence page sections that cite those tests.</span></div>
 </div>
 <div class="page-footer-nav"><span><a href="index.html">← Index</a></span><span><a href="layerstack.html">2. LayerStack →</a></span></div>
 </main>

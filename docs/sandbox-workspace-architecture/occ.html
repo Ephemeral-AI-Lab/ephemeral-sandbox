@@ -26,6 +26,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -43,12 +44,12 @@
   </ul>
 </div>
 <div class="wiki-links" aria-label="OCC page links">
-  <a href="#occ-change-sources">[[Change Sources]]</a>
-  <a href="#occ-technical-workflow">[[Technical Workflow]]</a>
-  <a href="#occ-routes-statuses">[[Routes and Statuses]]</a>
-  <a href="layerstack.html#layerstack-publish">[[LayerStack Publish]]</a>
-  <a href="overlay.html#overlay-capture">[[Upperdir Capture]]</a>
-  <a href="workflow-cookbook.html#cookbook-occ-publish">[[OCC Publish from API Write/Edit]]</a>
+  <a href="#occ-change-sources">Change Sources</a>
+  <a href="#occ-technical-workflow">Technical Workflow</a>
+  <a href="#occ-routes-statuses">Routes and Statuses</a>
+  <a href="layerstack.html#layerstack-publish">LayerStack Publish</a>
+  <a href="overlay.html#overlay-capture">Upperdir Capture</a>
+  <a href="workflow-cookbook.html#cookbook-occ-publish">OCC Publish from API Write/Edit</a>
 </div>
 
 <h3 id="occ-change-sources">4.1 Change Sources <a class="anchor" href="#occ-change-sources">§</a></h3>
@@ -72,13 +73,20 @@
 
 <p>Overlay changes are converted without rereading large files into memory: write changes thread <code>content_path</code> and <code>final_hash</code> into <code>WriteChange</code>, deletes become <code>DeleteChange</code>, symlinks become <code>SymlinkChange</code>, and opaque markers become <code>OpaqueDirChange</code> <span class="file-ref">backend/src/sandbox/occ/overlay_change_conversion.py:19-72</span>.</p>
 
+<div class="edge-list">
+  <div><b>calls</b><span><code>OccService.apply_changeset()</code> prepares a changeset, then commits it through the queue <span class="file-ref">backend/src/sandbox/occ/service.py:52-104</span>.</span></div>
+  <div><b>owns-state</b><span><code>CommitQueue</code> owns the background worker, queued futures, drain window, batching rules, and CAS retry budget <span class="file-ref">backend/src/sandbox/occ/commit_queue.py:54-183</span>.</span></div>
+  <div><b>calls</b><span><code>CommitTransaction.revalidate_and_publish()</code> opens the LayerStack transaction, revalidates every path group against the live manifest, stages accepted content, and publishes one layer <span class="file-ref">backend/src/sandbox/occ/commit_transaction.py:62-138</span>.</span></div>
+  <div><b>emits-artifact</b><span>Result timings expose queue wait, commit worker, manifest lag, route/base-hash cost, transaction lock wait, validation, staging, and publish cost.</span></div>
+</div>
+
 <table>
   <thead><tr><th>Source</th><th>Producer</th><th>Conflict model</th><th>Related path</th></tr></thead>
   <tbody>
-    <tr><td><code>api_write</code></td><td>Direct <code>write_file</code> fast path or single-file overlay publication.</td><td>Path route decides direct/gated behavior; create-only conflicts are projected before enqueue.</td><td><a class="wiki-link" href="workspaces.html#ephemeral-fast-paths">[[Fast-path Technical Workflows]]</a></td></tr>
-    <tr><td><code>api_edit</code></td><td>Direct <code>edit_file</code> fast path with ordered search/replace edits.</td><td>Edit anchoring and expected occurrences happen before publication; stale live content becomes conflict status.</td><td><a class="wiki-link" href="workflow-cookbook.html#cookbook-occ-publish">[[OCC Publish from API Write/Edit]]</a></td></tr>
-    <tr><td><code>overlay_capture</code></td><td>Shell/plugin operation upperdir capture.</td><td>Usually atomic by captured operation so unrelated queue batches do not mix into it.</td><td><a class="wiki-link" href="overlay.html#overlay-capture">[[Upperdir Capture]]</a></td></tr>
-    <tr><td>LSP apply</td><td>Plugin-owned operation overlay after expected manifest-key check.</td><td>Uses the same publish cycle after the LSP child applies workspace edits.</td><td><a class="wiki-link" href="plugins.html#plugin-refresh-detail">[[Projection Refresh and LSP Writes]]</a></td></tr>
+    <tr><td><code>api_write</code></td><td>Direct <code>write_file</code> fast path or single-file overlay publication.</td><td>Path route decides direct/gated behavior; create-only conflicts are projected before enqueue.</td><td><a class="wiki-link" href="workspaces.html#ephemeral-fast-paths">Fast-path Technical Workflows</a></td></tr>
+    <tr><td><code>api_edit</code></td><td>Direct <code>edit_file</code> fast path with ordered search/replace edits.</td><td>Edit anchoring and expected occurrences happen before publication; stale live content becomes conflict status.</td><td><a class="wiki-link" href="workflow-cookbook.html#cookbook-occ-publish">OCC Publish from API Write/Edit</a></td></tr>
+    <tr><td><code>overlay_capture</code></td><td>Shell/plugin operation upperdir capture.</td><td>Usually atomic by captured operation so unrelated queue batches do not mix into it.</td><td><a class="wiki-link" href="overlay.html#overlay-capture">Upperdir Capture</a></td></tr>
+    <tr><td>LSP apply</td><td>Plugin-owned operation overlay after expected manifest-key check.</td><td>Uses the same publish cycle after the LSP child applies workspace edits.</td><td><a class="wiki-link" href="plugins.html#plugin-refresh-detail">Projection Refresh and LSP Writes</a></td></tr>
   </tbody>
 </table>
 
@@ -122,7 +130,7 @@
 <table>
   <thead><tr><th>Status family</th><th>What it means to callers</th><th>What to inspect next</th></tr></thead>
   <tbody>
-    <tr><td>Published</td><td>The change produced a new LayerStack layer and is now visible to later direct reads, overlay lowerdirs, and plugin projections.</td><td><a class="wiki-link" href="layerstack.html#layerstack-publish">[[Publish]]</a> and daemon workspace events.</td></tr>
+    <tr><td>Published</td><td>The change produced a new LayerStack layer and is now visible to later direct reads, overlay lowerdirs, and plugin projections.</td><td><a class="wiki-link" href="layerstack.html#layerstack-publish">Publish</a> and daemon workspace events.</td></tr>
     <tr><td>Rejected</td><td>The change was invalid before publication, such as unsupported path/symlink or create-only existing target.</td><td>Preparer/stager route, path normalization, and public result projection.</td></tr>
     <tr><td>Aborted version</td><td>The base hash or expected live content no longer matched the active manifest.</td><td>Caller snapshot, queue delay, and conflicting published layer.</td></tr>
     <tr><td>Dropped</td><td>The change was intentionally ignored, most commonly internal <code>.git</code> paths or atomic-set fallout after a failure.</td><td>Prepare route and atomic changeset semantics.</td></tr>
@@ -130,7 +138,32 @@
 </table>
 
 <div class="maintenance-note">
-  Backlinks: direct writes from <a class="wiki-link" href="workspaces.html#ephemeral-fast-paths">[[Fast-path Technical Workflows]]</a> and captured writes from <a class="wiki-link" href="overlay.html#overlay-capture">[[Upperdir Capture]]</a> both converge here before <a class="wiki-link" href="layerstack.html#layerstack-publish">[[LayerStack Publish]]</a>.
+  Backlinks: direct writes from <a class="wiki-link" href="workspaces.html#ephemeral-fast-paths">Fast-path Technical Workflows</a> and captured writes from <a class="wiki-link" href="overlay.html#overlay-capture">Upperdir Capture</a> both converge here before <a class="wiki-link" href="layerstack.html#layerstack-publish">LayerStack Publish</a>.
+</div>
+<h3 id="occ-evidence-refresh">4.4 Evidence and Refresh <a class="anchor" href="#occ-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Source files</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/sandbox/occ/changeset.py</span> change/result models and route/status enums.</li>
+      <li><span class="file-ref">backend/src/sandbox/occ/changeset_preparation.py</span> route and base-hash preparation.</li>
+      <li><span class="file-ref">backend/src/sandbox/occ/commit_queue.py</span> serialization and batching.</li>
+      <li><span class="file-ref">backend/src/sandbox/occ/commit_transaction.py</span> live revalidation and LayerStack publish.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Tests</h4>
+    <ul>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/occ/test_direct_route.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/occ/test_gated_route.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/occ/test_commit_transaction.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_codegen_race.py</span></li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Refresh triggers</h4>
+    <p>Change source names, route decisions, file statuses, queue batching, CAS retry behavior, or auto-squash depth should update this page plus direct fast-path and overlay capture pages.</p>
+  </div>
 </div>
 <div class="page-footer-nav"><span><a href="overlay.html">← 3. Overlay</a></span><span><a href="workspaces.html">5. Workspace Modes →</a></span></div>
 </main>

@@ -144,8 +144,9 @@ tool calls. No emitters wired yet beyond a minimal smoke set.
    `isolated_workspace`, `os_resource`, `plugin`, `background_tool`,
    `tool_call`.
 4. Minimal smoke emitters for `daemon.started`,
-   `daemon.audit_buffer_pressure`, and one `os_resource.sampled` heartbeat
-   per second.
+   `daemon.audit_buffer_pressure`, and an `os_resource.sampled` heartbeat
+   on the default sampler tick (overridable by the Phase 2 adaptive cadence
+   policy — see table in Phase 2).
 
 #### State / event / resource demonstration (Phase 1 schema commitment)
 
@@ -304,8 +305,12 @@ generic plugin + background tool surfaces.
    on entry/exit of each phase. Phase boundaries derive from existing
    dispatch milestones, so cost is one append per boundary.
 6. Normalizer in `task_center_runner/audit/sandbox_events.py` — preserve
-   raw event under `payload["daemon_event"]`, promote subsystem sections
-   to `payload.<section>` for report consumers, dedupe stream + pull by
+   raw event under `payload["daemon_event"]` *and* promote subsystem
+   sections to `payload.<section>`. This duplication is intentional and
+   resolves V1 gap #10 in favor of *both*: `daemon_event` is the
+   forensic-grade verbatim record for audit replay/debugging, while
+   promoted `payload.<section>` keys are the stable consumer surface for
+   the report pipeline and downstream readers. Dedupe stream + pull by
    `seq` then `(operation_id, event, operation_step, tool_id)`.
 7. `sandbox_events.jsonl` writer gains **rotation + gzip** at 64 MiB per
    file with `EOS_AUDIT_ARTIFACT_RETENTION_FILES=8` (default) — solves
@@ -455,7 +460,10 @@ counts.
 #### Release gates (Phase 3 cannot ship without these passing)
 
 1. **Audit overhead gate** — run the `layer_stack_occ_overlay` mock suite
-   and one heavy live-e2e run twice (puller on / off). Required:
+   and one heavy live-e2e run twice (puller on / off), pinned to the V1
+   reproducibility anchor `EOS_SWEEVO_INSTANCE=dask__dask_2023.3.2_2023.4.0`
+   under `EOS_SANDBOX_PROVIDER=docker` +
+   `EOS_ISOLATED_WORKSPACE_ENABLED=true`. Required:
    - tool-call wall-time p95 delta ≤ 1 ms
    - daemon RSS delta ≤ 16 MiB (ring + scratch)
    - runner CPU delta ≤ 0.5 % averaged over run

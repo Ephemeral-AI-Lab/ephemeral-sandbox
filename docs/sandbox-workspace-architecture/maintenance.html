@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11. Wiki Maintenance - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 11. Wiki Maintenance</span>
+  <span class="nav-pair"><a href="workflow-cookbook.html">← 10. Workflow Cookbook</a><a href="index.html">Index →</a></span>
+</div>
+<h2 id="maintenance">11. Wiki Maintenance <a class="anchor" href="#maintenance">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>This page is the support layer for the sandbox workspace wiki.</li>
+    <li>It records page conventions, evidence rules, graph edge vocabulary, refresh triggers, validation commands, and change history.</li>
+    <li>The source tree remains the authority. Wiki pages should explain the current code path and name the files that prove each claim.</li>
+  </ul>
+</div>
+<div class="wiki-links" aria-label="Maintenance page links">
+  <a href="#page-conventions">Page Conventions</a>
+  <a href="#evidence-policy">Evidence Policy</a>
+  <a href="#graph-vocabulary">Graph Vocabulary</a>
+  <a href="#refresh-checklist">Refresh Checklist</a>
+  <a href="#change-log">Change Log</a>
+</div>
+
+<h3 id="page-conventions">11.1 Page Conventions <a class="anchor" href="#page-conventions">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Brief</h4>
+    <p>Start with a short user-facing verdict: what this node owns, why it exists, and when to read it.</p>
+  </div>
+  <div class="evidence-card">
+    <h4>Workflow</h4>
+    <p>Use sequences for state transitions and diagrams for cross-module boundaries. Every step should name the next owner.</p>
+  </div>
+  <div class="evidence-card">
+    <h4>Technical Dive</h4>
+    <p>Record entry points, adjacent files, imports, call paths, state ownership, config/artifact surfaces, tests, and failure modes.</p>
+  </div>
+  <div class="evidence-card">
+    <h4>Maintenance Memory</h4>
+    <p>End pages with stale triggers and related links so future edits update the smallest correct node.</p>
+  </div>
+</div>
+
+<h3 id="evidence-policy">11.2 Evidence Policy <a class="anchor" href="#evidence-policy">§</a></h3>
+<div class="edge-list">
+  <div><b>Source code</b><span>Use <span class="file-ref">path:line</span> references for concrete files and symbols. Do not claim a workflow step unless the current checkout exposes the path.</span></div>
+  <div><b>Tests</b><span>Name focused tests for behavior and live suites for runtime guarantees. Prefer narrow tests when a page explains one module boundary.</span></div>
+  <div><b>Artifacts</b><span>Use live artifact locations when behavior is proved by runs: <code>.sweevo_runs/scenario_logs</code>, performance reports, daemon JSONL audit files, and generated reports.</span></div>
+  <div><b>Open questions</b><span>If the code does not prove a claim, keep it out of the page or label it as a refresh question.</span></div>
+</div>
+
+<h3 id="graph-vocabulary">11.3 Graph Vocabulary <a class="anchor" href="#graph-vocabulary">§</a></h3>
+<div class="trace-grid">
+  <div><code>imports</code></div><div>Module A depends on module B.</div>
+  <div><code>exports</code></div><div>Module A exposes a symbol or registered operation.</div>
+  <div><code>calls</code></div><div>Function A invokes function B in the request path.</div>
+  <div><code>registers</code></div><div>A module adds a handler, tool, plugin op, or route.</div>
+  <div><code>owns-state</code></div><div>A module owns a cache, lock, lease, manager map, file, process, namespace, or lifecycle.</div>
+  <div><code>reads-config</code></div><div>A module consumes an env/config key or provider option.</div>
+  <div><code>emits-artifact</code></div><div>A code path writes a log, JSONL event, performance report, or scenario artifact.</div>
+  <div><code>tested-by</code></div><div>A behavior is covered by a focused test, live scenario, or report.</div>
+</div>
+
+<h3 id="refresh-checklist">11.4 Refresh Checklist <a class="anchor" href="#refresh-checklist">§</a></h3>
+<div class="refresh-list">
+  <div><strong>Routing changed</strong><span>Update Overview, Workspace Modes, Daemon routing, Workflow Cookbook, and search entries.</span></div>
+  <div><strong>Storage changed</strong><span>Update LayerStack, Overlay, OCC, Space Model, and evidence refs.</span></div>
+  <div><strong>Provider changed</strong><span>Update Provider, Daemon startup/transport, and bootstrap evidence.</span></div>
+  <div><strong>Plugin/LSP changed</strong><span>Update Plugins, Workflow Cookbook, daemon operation surface, and plugin test anchors.</span></div>
+  <div><strong>Isolated changed</strong><span>Update Workspaces, Daemon isolated gate, Space Model, and audit/artifact notes.</span></div>
+  <div><strong>Page moved</strong><span>Update all local links, search index entries, and sidebar navigation.</span></div>
+</div>
+
+<pre><code>python3 .agents/skills/codebase-wiki-builder/scripts/check_html_wiki.py docs/sandbox-workspace-architecture/*.html
+git diff --check -- docs/sandbox-workspace-architecture
+rg -n "\[\[|\]\]" docs/sandbox-workspace-architecture</code></pre>
+
+<h3 id="change-log">11.5 Change Log <a class="anchor" href="#change-log">§</a></h3>
+<div class="sequence" aria-label="Wiki maintenance change log">
+  <ol>
+    <li><span><strong>2026-05-26.</strong> Converted visible navigation away from bracketed wiki link labels, added HTML evidence and refresh components, expanded source-backed workflow details, and added this support page.</span></li>
+  </ol>
+</div>
+<div class="maintenance-note">
+  Related pages: <a class="wiki-link" href="index.html">Index</a>, <a class="wiki-link" href="overview.html">Overview</a>, <a class="wiki-link" href="workflow-cookbook.html">Workflow Cookbook</a>.
+</div>
+<div class="page-footer-nav"><span><a href="workflow-cookbook.html">← 10. Workflow Cookbook</a></span><span><a href="index.html">Index →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

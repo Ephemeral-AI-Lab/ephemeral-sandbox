@@ -26,6 +26,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -43,15 +44,22 @@
   </ul>
 </div>
 <div class="wiki-links" aria-label="Provider page links">
-  <a href="#provider-boundary">[[Provider Boundary]]</a>
-  <a href="#provider-bootstrap-workflow">[[Bootstrap Workflow]]</a>
-  <a href="daemon.html#startup-transport">[[Startup and Transport]]</a>
-  <a href="layerstack.html#layerstack-storage">[[LayerStack Storage]]</a>
-  <a href="workspaces.html#main-workspace">[[main_workspace]]</a>
+  <a href="#provider-boundary">Provider Boundary</a>
+  <a href="#provider-bootstrap-workflow">Bootstrap Workflow</a>
+  <a href="daemon.html#startup-transport">Startup and Transport</a>
+  <a href="layerstack.html#layerstack-storage">LayerStack Storage</a>
+  <a href="workspaces.html#main-workspace">main_workspace</a>
 </div>
 
 <h3 id="provider-boundary">7.1 Provider Boundary <a class="anchor" href="#provider-boundary">§</a></h3>
 <p><code>ProviderAdapter</code> is the single protocol for Docker and Daytona. It includes health/discovery, container CRUD, preview/build logs, async <code>exec</code>, and <code>context_preparer()</code> <span class="file-ref">backend/src/sandbox/provider/protocol.py:21-79</span>. The registry supports one process-wide default plus explicit per-sandbox bindings; fallback to default is intentionally uncached <span class="file-ref">backend/src/sandbox/provider/registry.py:1-95</span>. Startup chooses <code>EOS_SANDBOX_PROVIDER</code> or central config and bootstraps Docker or Daytona once <span class="file-ref">backend/src/sandbox/provider/bootstrap.py:33-77</span>.</p>
+
+<div class="edge-list">
+  <div><b>exports</b><span><code>ProviderAdapter</code> exposes only provider primitives: health, discovery, CRUD, preview/log URLs, exec, and context preparation <span class="file-ref">backend/src/sandbox/provider/protocol.py:21-79</span>.</span></div>
+  <div><b>calls</b><span><code>setup_post_lifecycle()</code> overlaps runtime upload with git bootstrap, joins the upload, runs runtime bootstrap, then ensures the workspace base <span class="file-ref">backend/src/sandbox/host/bootstrap.py:300-312</span>.</span></div>
+  <div><b>calls</b><span><code>call_daemon_api()</code> resolves the provider adapter, injects <code>layer_stack_root</code>, and chooses TCP or thin-client transport <span class="file-ref">backend/src/sandbox/host/daemon_client.py:161-183</span>.</span></div>
+  <div><b>owns-state</b><span>Providers own container lifecycle and optional daemon TCP exposure; the daemon and LayerStack own workspace semantics after bootstrap.</span></div>
+</div>
 
 <table>
   <thead><tr><th>Provider</th><th>Responsibilities in code</th><th>Evidence</th></tr></thead>
@@ -83,8 +91,32 @@
   </tbody>
 </table>
 
+<h3 id="provider-evidence-refresh">7.3 Evidence and Refresh <a class="anchor" href="#provider-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Source files</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/sandbox/provider/protocol.py</span> provider contract.</li>
+      <li><span class="file-ref">backend/src/sandbox/provider/docker/adapter.py</span> Docker CRUD, exec, daemon TCP endpoint.</li>
+      <li><span class="file-ref">backend/src/sandbox/provider/daytona/adapter.py</span> Daytona CRUD, exec, preview/logs.</li>
+      <li><span class="file-ref">backend/src/sandbox/host/bootstrap.py</span> post-create/start bootstrap sequence.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Tests and reports</h4>
+    <ul>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/_harness/workspace_base_public.py</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/phase-01-workspace-base-report.md</span></li>
+      <li><span class="file-ref">backend/tests/live_e2e_test/sandbox/phase-04-pure-sandbox-api-load-report.md</span></li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Refresh triggers</h4>
+    <p>Provider adapter method changes, daemon TCP exposure changes, runtime upload changes, or workspace base bootstrap changes should update this page plus Daemon startup and LayerStack Storage.</p>
+  </div>
+</div>
 <div class="maintenance-note">
-  Backlinks: daemon transport details live in <a class="wiki-link" href="daemon.html#startup-transport">[[Startup and Transport]]</a>; workspace base and binding details live in <a class="wiki-link" href="layerstack.html#layerstack-storage">[[Storage]]</a> and <a class="wiki-link" href="workspaces.html#main-workspace">[[main_workspace]]</a>.
+  Backlinks: daemon transport details live in <a class="wiki-link" href="daemon.html#startup-transport">Startup and Transport</a>; workspace base and binding details live in <a class="wiki-link" href="layerstack.html#layerstack-storage">Storage</a> and <a class="wiki-link" href="workspaces.html#main-workspace">main_workspace</a>.
 </div>
 <div class="page-footer-nav"><span><a href="daemon.html">← 6. Daemon and Background Tasks</a></span><span><a href="plugins.html">8. Plugin in ephemeral_workspace →</a></span></div>
 </main>

@@ -26,6 +26,7 @@
     <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
     <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
     <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+    <li><a href="maintenance.html" data-doc-section="maintenance">11. Wiki Maintenance</a></li>
   </ol>
 </nav>
 <main>
@@ -43,18 +44,25 @@
   </ul>
 </div>
 <div class="wiki-links" aria-label="Plugin page links">
-  <a href="#plugin-host-daemon-flow">[[Host and Daemon Flow]]</a>
-  <a href="#plugin-operation-classes">[[Operation Classes]]</a>
-  <a href="#plugin-refresh-detail">[[Projection Refresh and LSP Writes]]</a>
-  <a href="daemon.html#operation-surface">[[Operation Surface]]</a>
-  <a href="overlay.html#overlay-capture">[[Upperdir Capture]]</a>
-  <a href="workflow-cookbook.html#cookbook-plugin-write">[[Plugin Write Operation]]</a>
+  <a href="#plugin-host-daemon-flow">Host and Daemon Flow</a>
+  <a href="#plugin-operation-classes">Operation Classes</a>
+  <a href="#plugin-refresh-detail">Projection Refresh and LSP Writes</a>
+  <a href="daemon.html#operation-surface">Operation Surface</a>
+  <a href="overlay.html#overlay-capture">Upperdir Capture</a>
+  <a href="workflow-cookbook.html#cookbook-plugin-write">Plugin Write Operation</a>
 </div>
 
 <h3 id="plugin-host-daemon-flow">8.1 Host and Daemon Flow <a class="anchor" href="#plugin-host-daemon-flow">§</a></h3>
 <p>Host-side <code>call_plugin</code> is the single entrypoint: resolve sandbox/layer stack/caller, install the plugin bundle, call <code>api.plugin.ensure</code>, dispatch <code>plugin.&lt;name&gt;.&lt;op&gt;</code>, and wrap the response <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py:1-15</span>. The implementation ensures runtime only when the digest changes, then dispatches the plugin op with caller, workspace root, and intent metadata <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py:70-186</span>.</p>
 
 <p>Inside the daemon, <code>plugin_ensure</code> imports <code>plugins.catalog.&lt;plugin&gt;.runtime.server</code>, flushes plugin registrations into the daemon dispatcher, warms the runtime, and records loaded state <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/runtime_api.py:76-162</span>. The context factory gives each plugin a <code>WorkspaceProjection</code> and an <code>EphemeralPipeline</code> overlay facade created with <code>start=False</code> so plugin calls do not create a long-lived daemon mount or lease <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/runtime_api.py:266-350</span>.</p>
+
+<div class="edge-list">
+  <div><b>registers</b><span><code>api.plugin.ensure</code> imports a plugin runtime and flushes pending registrations into the daemon <code>OP_TABLE</code> <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/runtime_api.py:124-130</span>.</span></div>
+  <div><b>owns-state</b><span><code>runtime_api.py</code> owns loaded plugin digest state, per-plugin ensure locks, and per-layer-stack projection cache <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/runtime_api.py:65-76</span>.</span></div>
+  <div><b>calls</b><span>Generic write ops use <code>overlay_dispatch.py</code>, while LSP write/apply ops opt into their own overlay/OCC path through <code>plugins/catalog/lsp/runtime/apply.py</code>.</span></div>
+  <div><b>guards</b><span>The daemon dispatcher blocks plugin operations for an agent with an open isolated workspace <span class="file-ref">backend/src/sandbox/daemon/rpc/dispatcher.py:214-233</span>.</span></div>
+</div>
 
 <div class="sequence" aria-label="Plugin host daemon workflow">
   <ol>
@@ -116,8 +124,33 @@
   <span class="label">Daemon change for plugins</span>
   Plugin ops are registered into the same daemon <code>OP_TABLE</code>, but the dispatcher blocks plugin access while the caller has an open isolated workspace <span class="file-ref">backend/src/sandbox/daemon/rpc/dispatcher.py:216-235</span>. That avoids a plugin reading/publishing through the shared ephemeral projection while the agent is intentionally inside private isolated scratch.
 </div>
+<h3 id="plugin-evidence-refresh">8.4 Evidence and Refresh <a class="anchor" href="#plugin-evidence-refresh">§</a></h3>
+<div class="evidence-grid">
+  <div class="evidence-card">
+    <h4>Source files</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py</span> host install/ensure/dispatch.</li>
+      <li><span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/runtime_api.py</span> daemon ensure/status/context.</li>
+      <li><span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/op_registry.py</span> plugin operation classes and wrappers.</li>
+      <li><span class="file-ref">backend/src/plugins/catalog/lsp/runtime/session_manager.py</span> Pyright session refresh.</li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Tests</h4>
+    <ul>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/plugin/test_plugin_write_allowed_apply_workspace_edit_publishes.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/plugin/test_plugin_read_only_lsp_refresh_without_publish.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/plugin/test_plugin_blocked_in_open_isolated_workspace.py</span></li>
+      <li><span class="file-ref">backend/src/task_center_runner/tests/mock/sandbox/plugin/test_plugin_intent_mislabel_fails_fast.py</span></li>
+    </ul>
+  </div>
+  <div class="evidence-card">
+    <h4>Refresh triggers</h4>
+    <p>Plugin op-class changes, LSP session ownership changes, dispatcher plugin gates, or projection cache changes should update this page plus Daemon operation surface and Workflow Cookbook.</p>
+  </div>
+</div>
 <div class="maintenance-note">
-  Backlinks: <a class="wiki-link" href="daemon.html#operation-surface">[[Operation Surface]]</a> owns daemon op registration, <a class="wiki-link" href="workspaces.html#ephemeral-workspace">[[ephemeral_workspace]]</a> owns the overlay facade, and <a class="wiki-link" href="workspaces.html#isolated-workspace">[[isolated_workspace]]</a> explains why plugin access is blocked during private scratch.
+  Backlinks: <a class="wiki-link" href="daemon.html#operation-surface">Operation Surface</a> owns daemon op registration, <a class="wiki-link" href="workspaces.html#ephemeral-workspace">ephemeral_workspace</a> owns the overlay facade, and <a class="wiki-link" href="workspaces.html#isolated-workspace">isolated_workspace</a> explains why plugin access is blocked during private scratch.
 </div>
 <div class="page-footer-nav"><span><a href="provider.html">← 7. Provider</a></span><span><a href="space-model.html">9. Space Model →</a></span></div>
 </main>
