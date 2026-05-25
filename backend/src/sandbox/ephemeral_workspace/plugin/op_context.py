@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from collections.abc import Callable, Mapping
 from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from sandbox._shared.models import Intent, SandboxCaller
@@ -16,7 +17,51 @@ __all__ = [
     "EphemeralPipelineLike",
     "WorkspaceChangeEvent",
     "WorkspaceProjectionLike",
+    "caller_from_audit_payload",
+    "plugin_intent_from_payload",
 ]
+
+AuditFieldReader = Callable[[Mapping[str, Any], str], str]
+_CALLER_AUDIT_FIELDS = (
+    "agent_id",
+    "run_id",
+    "agent_run_id",
+    "task_id",
+    "task_center_run_id",
+    "task_center_task_id",
+    "task_center_attempt_id",
+    "task_center_goal_id",
+    "task_center_request_id",
+    "tool_name",
+    "tool_id",
+)
+
+
+def caller_from_audit_payload(
+    payload: object,
+    *,
+    field_reader: AuditFieldReader | None = None,
+) -> SandboxCaller:
+    if not isinstance(payload, Mapping):
+        return SandboxCaller(agent_id="")
+    read_field = field_reader or _audit_payload_field
+    return SandboxCaller(
+        **{field: read_field(payload, field) for field in _CALLER_AUDIT_FIELDS}
+    )
+
+
+def plugin_intent_from_payload(value: object) -> Intent:
+    raw = str(value or "")
+    if not raw:
+        return Intent.READ_ONLY
+    try:
+        return Intent(raw)
+    except ValueError:
+        return Intent.READ_ONLY
+
+
+def _audit_payload_field(payload: Mapping[str, Any], key: str) -> str:
+    return str(payload.get(key) or "")
 
 
 class WorkspaceProjectionLike(Protocol):
@@ -63,14 +108,6 @@ class EphemeralPipelineLike(Protocol):
         *,
         reason: str = "operation",
     ) -> AbstractAsyncContextManager[Any]: ...
-
-    async def publish_workspace_paths(
-        self,
-        *,
-        paths: list[str] | tuple[str, ...],
-        agent_id: str = "",
-        description: str = "plugin workspace edit",
-    ) -> object: ...
 
     async def publish_cycle(
         self,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from sandbox.api import SandboxCaller
+from sandbox._shared.models import SandboxCaller
 from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.results import ToolResult
 

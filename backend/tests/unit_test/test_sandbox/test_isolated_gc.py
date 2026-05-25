@@ -75,6 +75,12 @@ def test_namespace_holder_signal_order_terminates_child_before_unshare_parent() 
     ]
 
 
+def test_veth_handle_prefix_preserves_handle_chars_before_suffix() -> None:
+    assert reaper_module._handle_prefix_from_veth_name("eos-iws-abchnhh") == "abchnh"
+    assert reaper_module._handle_prefix_from_veth_name("eos-iws-abchnhn") == "abchnh"
+    assert reaper_module._handle_prefix_from_veth_name("eos-iws-too-short") is None
+
+
 def test_reap_orphan_holder_processes_continues_then_kills(
     monkeypatch,
 ) -> None:

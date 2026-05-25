@@ -86,7 +86,7 @@ async def test_iws_all_typed_verbs_same_session(iws_clean_sandbox) -> None:
             agent_id,
             "betavalue",
             path=base_dir,
-            include_pattern="*.py",
+            glob_filter="*.py",
             output_mode="content",
             case_insensitive=True,
             line_numbers=True,
@@ -113,10 +113,7 @@ async def test_iws_all_typed_verbs_same_session(iws_clean_sandbox) -> None:
         )
         assert shell.get("success") is True, shell
         assert shell.get("workspace") == "isolated", shell
-        assert any(
-            path.endswith("generated.txt")
-            for path in shell.get("changed_paths", ())
-        ), shell
+        assert any(path.endswith("generated.txt") for path in shell.get("changed_paths", ())), shell
     finally:
         await _iws_rpc.exit_(sandbox_id, agent_id)
 

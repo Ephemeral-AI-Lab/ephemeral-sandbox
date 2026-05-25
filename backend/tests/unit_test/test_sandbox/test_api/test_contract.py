@@ -24,9 +24,9 @@ from sandbox.api import (
 _API_ROOT = Path(sandbox_api.__file__).parent
 _EXPECTED_API_ROOT_ENTRIES = {
     "__init__.py",
-    "_provider_control.py",
-    "_provider_raw_exec.py",
-    "daemon_invocation_control.py",
+    "provider_control.py",
+    "raw_exec.py",
+    "daemon_invocations.py",
     "tool",
     "timeouts.py",
     "transport.py",
@@ -56,7 +56,7 @@ _PUBLIC_VERB_IMPORT_ALLOWLIST = {
         "sandbox._shared.models",
         "sandbox._shared.clock",
     },
-    "_provider_raw_exec.py": {
+    "raw_exec.py": {
         "audit.base",
         "sandbox._shared.models",
         "sandbox.provider.registry",

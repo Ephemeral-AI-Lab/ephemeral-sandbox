@@ -9,9 +9,9 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
-from sandbox._shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now, record_elapsed
 from sandbox.layer_stack.lease import LeaseRegistry
-from sandbox.layer_stack.manifest import FileManifestStore, Manifest
+from sandbox.layer_stack.manifest import Manifest, read_manifest
 from sandbox.layer_stack.paths import remove_path
 from sandbox.layer_stack.publisher import LayerPublisher
 from sandbox.layer_stack.squash import SquashService
@@ -31,7 +31,7 @@ def flush_to_workspace(
     *,
     storage_root: Path,
     workspace_root: str | Path,
-    manifest_store: FileManifestStore,
+    manifest_path: Path,
     view: MergedView,
     leases: LeaseRegistry,
     lock: threading.RLock,
@@ -45,7 +45,7 @@ def flush_to_workspace(
     with lock:
         if leases.active_count() > 0:
             raise RuntimeError("flush_to_workspace blocked by active leases")
-        active = manifest_store.read()
+        active = read_manifest(manifest_path)
 
     materialize_parent = storage_root / "runtime" / "flush"
     materialize_parent.mkdir(parents=True, exist_ok=True)
@@ -53,13 +53,11 @@ def flush_to_workspace(
     try:
         materialize_start = monotonic_now()
         view.materialize(materialized, active, share_inodes=False)
-        if timings is not None:
-            timings["layer_stack.flush.materialize_s"] = monotonic_now() - materialize_start
+        record_elapsed(timings, "layer_stack.flush.materialize_s", materialize_start)
 
         replace_start = monotonic_now()
         _replace_directory_contents(workspace, materialized)
-        if timings is not None:
-            timings["layer_stack.flush.replace_workspace_s"] = monotonic_now() - replace_start
+        record_elapsed(timings, "layer_stack.flush.replace_workspace_s", replace_start)
 
         reset_start = monotonic_now()
         with lock:
@@ -71,10 +69,9 @@ def flush_to_workspace(
             next_view = MergedView(storage_root)
             next_publisher = LayerPublisher(storage_root)
             next_squash = SquashService(storage_root)
-            new_manifest = manifest_store.read()
-        if timings is not None:
-            timings["layer_stack.flush.rebuild_base_s"] = monotonic_now() - reset_start
-            timings["layer_stack.flush.total_s"] = monotonic_now() - total_start
+            new_manifest = read_manifest(manifest_path)
+        record_elapsed(timings, "layer_stack.flush.rebuild_base_s", reset_start)
+        record_elapsed(timings, "layer_stack.flush.total_s", total_start)
         return WorkspaceFlushResult(
             manifest=new_manifest,
             view=next_view,

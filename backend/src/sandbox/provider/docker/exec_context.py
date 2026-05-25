@@ -2,7 +2,7 @@
 
 Mirrors the public surface of
 :class:`sandbox.provider.daytona.exec_context.DaytonaContextPreparer` so call
-sites in ``sandbox/api/_provider_control.py`` are symmetric.
+sites in ``sandbox/api/provider_control.py`` are symmetric.
 """
 
 from __future__ import annotations

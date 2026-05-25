@@ -1210,9 +1210,9 @@ Emits (in walk order):
 <p>The <code>sandbox.api</code> package is the orchestrator-facing facade. Two flavors of entry point:</p>
 
 <ul>
-<li><strong>Lifecycle verbs</strong> (<code>create_sandbox</code>, <code>start_sandbox</code>, <code>stop_sandbox</code>, <code>delete_sandbox</code>, <code>ensure_sandbox_running</code>, <code>get_health</code>, <code>list_snapshots</code>, <code>list_sandboxes</code>, <code>get_sandbox</code>, <code>set_sandbox_labels</code>, <code>get_signed_preview_url</code>, <code>get_build_logs_url</code>) — defined in <span class="file-ref">api/_provider_control.py</span>; thin wrappers over <code>host.lifecycle</code>.</li>
+<li><strong>Lifecycle verbs</strong> (<code>create_sandbox</code>, <code>start_sandbox</code>, <code>stop_sandbox</code>, <code>delete_sandbox</code>, <code>ensure_sandbox_running</code>, <code>get_health</code>, <code>list_snapshots</code>, <code>list_sandboxes</code>, <code>get_sandbox</code>, <code>set_sandbox_labels</code>, <code>get_signed_preview_url</code>, <code>get_build_logs_url</code>) — defined in <span class="file-ref">api/provider_control.py</span>; thin wrappers over <code>host.lifecycle</code>.</li>
 <li><strong>Tool verbs</strong> (<code>read_file</code>, <code>write_file</code>, <code>edit_file</code>, <code>glob</code>, <code>grep</code>, <code>shell</code>) — in <code>api/tool/</code>. Each builds a JSON payload, calls <code>DaemonSandboxTransport().call(sandbox_id, op, args, timeout)</code>, and parses the response into a typed Result dataclass.</li>
-<li><strong>Raw exec</strong> (<code>raw_exec</code>) — <span class="file-ref">api/_provider_raw_exec.py:22</span> — bypasses all the guarded API. Used by bootstrap (git install, bundle upload). Wrapped in <code>run_audited_operation</code> but otherwise straight passthrough to <code>provider.exec()</code>.</li>
+<li><strong>Raw exec</strong> (<code>raw_exec</code>) — <span class="file-ref">api/raw_exec.py:22</span> — bypasses all the guarded API. Used by bootstrap (git install, bundle upload). Wrapped in <code>run_audited_operation</code> but otherwise straight passthrough to <code>provider.exec()</code>.</li>
 </ul>
 
 <h3>7.1 Wire protocol</h3>

@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 
 from sandbox.layer_stack.manifest import ManifestConflictError
-from sandbox.occ.changeset import PreparedChangeset, RouteDecision
+from sandbox.occ.changeset import ChangeSource, PreparedChangeset, RouteDecision
 from sandbox.occ.changeset import ChangesetResult, FileResult, FileStatus
 from sandbox.occ.commit_transaction import CommitTransaction
 from sandbox._shared.timing_keys import TimingKey
@@ -43,9 +43,8 @@ class _WorkItem:
     enqueued_at: float
 
 
-@dataclass(frozen=True)
 class _StopItem:
-    pass
+    __slots__ = ()
 
 
 _STOP = _StopItem()
@@ -257,7 +256,7 @@ def _path_set(prepared: PreparedChangeset) -> set[str]:
 
 def _contains_overlay_capture(prepared: PreparedChangeset) -> bool:
     return any(
-        change.source == "overlay_capture"
+        change.source is ChangeSource.OVERLAY_CAPTURE
         for group in prepared.path_groups
         for change in group.changes
     )

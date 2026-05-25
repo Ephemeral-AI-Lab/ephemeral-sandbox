@@ -81,7 +81,13 @@ class LayerPublisher:
         record_elapsed(timings, "layer_stack.publish.prepare_changes_s", prepare_start)
 
         allocate_start = monotonic_now()
-        layer_id, staging_dir, layer_dir = self._allocate_layer_paths(active.version + 1)
+        layer_id, staging_dir, layer_dir = allocate_unique_layer_paths(
+            storage_root=self._storage_root,
+            layers_dir=LAYERS_DIR,
+            staging_dir=STAGING_DIR,
+            next_version=active.version + 1,
+            id_factory=self._id_factory,
+        )
         record_elapsed(timings, "layer_stack.publish.allocate_layer_paths_s", allocate_start)
         create_staging_start = monotonic_now()
         staging_dir.mkdir(parents=True)
@@ -130,16 +136,6 @@ class LayerPublisher:
         record_elapsed(timings, "layer_stack.publish.write_manifest_s", write_manifest_start)
         record_elapsed(timings, "layer_stack.publish.total_s", total_start)
         return new_manifest
-
-    def _allocate_layer_paths(self, next_version: int) -> tuple[str, Path, Path]:
-        return allocate_unique_layer_paths(
-            storage_root=self._storage_root,
-            layers_dir=LAYERS_DIR,
-            staging_dir=STAGING_DIR,
-            next_version=next_version,
-            id_factory=self._id_factory,
-        )
-
 
 def _default_layer_id(next_version: int) -> str:
     return f"L{next_version:06d}-{uuid.uuid4().hex[:8]}"

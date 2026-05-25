@@ -8,17 +8,18 @@ import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from sandbox.isolated_workspace.network import VethPair
+from sandbox.isolated_workspace.network import VethAllocation
 
 logger = logging.getLogger("sandbox.isolated_workspace.pipeline")
 
-SCHEMA_VERSION = 1
+PERSISTED_HANDLES_SCHEMA_VERSION = 1
 HANDLE_PREFIX = "eos-iws-"
 CGROUP_ROOT = Path("/sys/fs/cgroup")
-DEFAULT_WORKSPACE_ROOT = "/testbed"
+ISOLATED_WORKSPACE_ROOT = "/testbed"
 
 # PLAN §14: SUBSET-COVER invariant floor.
 # sum(phases_ms.values()) <= total_ms + max(_PHASE_TIMER_OVERHEAD_BUDGET_MS,
@@ -100,6 +101,14 @@ class AuditSink(Protocol):
     def emit(self, event_type: str, payload: dict[str, Any]) -> None: ...
 
 
+class IsolatedWorkspaceAuditEvent(str, Enum):
+    ENTER = "sandbox_isolated_workspace_enter"
+    EXIT = "sandbox_isolated_workspace_exit"
+    TOOL_CALL = "sandbox_isolated_workspace_tool_call"
+    EVICTED = "sandbox_isolated_workspace_evicted"
+    GC_ORPHAN = "sandbox_isolated_workspace_gc_orphan"
+
+
 @dataclass
 class IsolatedWorkspaceHandle:
     """Per-workspace state. Not a subclass of ``OperationOverlayHandle`` (C1)."""
@@ -119,7 +128,7 @@ class IsolatedWorkspaceHandle:
     # opened". Closed on teardown / rollback.
     readiness_fd: int = -1
     control_fd: int = -1
-    veth: VethPair | None = None
+    veth: VethAllocation | None = None
     cgroup_path: Path | None = None
     created_at: float = 0.0
     last_activity: float = 0.0

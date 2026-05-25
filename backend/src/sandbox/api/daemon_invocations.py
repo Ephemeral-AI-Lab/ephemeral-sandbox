@@ -8,8 +8,8 @@ from sandbox.api.transport import (
     DAEMON_OP_INFLIGHT_COUNT,
     DAEMON_OP_INVOCATION_CANCEL,
     DAEMON_OP_INVOCATION_HEARTBEAT,
-    DaemonSandboxTransport,
     SandboxTransport,
+    call_sandbox_daemon,
 )
 
 _CONTROL_TIMEOUT_S = 15
@@ -22,12 +22,12 @@ async def cancel(
     transport: SandboxTransport | None = None,
 ) -> dict[str, object]:
     """Cancel an in-flight daemon invocation by id."""
-    daemon_transport = transport or DaemonSandboxTransport()
-    return await daemon_transport.call(
+    return await call_sandbox_daemon(
         sandbox_id,
         DAEMON_OP_INVOCATION_CANCEL,
         {"invocation_id": invocation_id},
         timeout=_CONTROL_TIMEOUT_S,
+        transport=transport,
     )
 
 
@@ -38,13 +38,13 @@ async def heartbeat(
     transport: SandboxTransport | None = None,
 ) -> dict[str, object]:
     """Refresh liveness for a batch of in-flight daemon invocation ids."""
-    daemon_transport = transport or DaemonSandboxTransport()
     ids = [invocation_id for invocation_id in map(str, invocation_ids) if invocation_id]
-    return await daemon_transport.call(
+    return await call_sandbox_daemon(
         sandbox_id,
         DAEMON_OP_INVOCATION_HEARTBEAT,
         {"invocation_ids": ids},
         timeout=_CONTROL_TIMEOUT_S,
+        transport=transport,
     )
 
 
@@ -55,12 +55,12 @@ async def inflight_count(
     transport: SandboxTransport | None = None,
 ) -> int:
     """Return daemon-visible in-flight invocation count for one agent."""
-    daemon_transport = transport or DaemonSandboxTransport()
-    response = await daemon_transport.call(
+    response = await call_sandbox_daemon(
         sandbox_id,
         DAEMON_OP_INFLIGHT_COUNT,
         {"agent_id": agent_id},
         timeout=_CONTROL_TIMEOUT_S,
+        transport=transport,
     )
     return int(response.get("count") or 0)
 

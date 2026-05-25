@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import threading
-import time
 import uuid
 from collections import Counter
 from collections.abc import Callable
@@ -16,8 +15,6 @@ from sandbox.layer_stack.manifest import LayerRef, Manifest
 class WorkspaceLease:
     lease_id: str
     manifest: Manifest
-    owner_request_id: str
-    acquired_at: float
 
 
 class LeaseRegistry:
@@ -27,10 +24,8 @@ class LeaseRegistry:
         self,
         *,
         id_factory: Callable[[], str] | None = None,
-        clock: Callable[[], float] | None = None,
     ) -> None:
         self._id_factory = id_factory or (lambda: uuid.uuid4().hex)
-        self._clock = clock or time.time
         self._lock = threading.RLock()
         self._leases: dict[str, WorkspaceLease] = {}
         self._refcounts: Counter[LayerRef] = Counter()
@@ -46,8 +41,6 @@ class LeaseRegistry:
             lease = WorkspaceLease(
                 lease_id=self._id_factory(),
                 manifest=manifest,
-                owner_request_id=owner_request_id,
-                acquired_at=self._clock(),
             )
             self._leases[lease.lease_id] = lease
             self._refcounts.update(manifest.layers)

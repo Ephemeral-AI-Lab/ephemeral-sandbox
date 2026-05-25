@@ -78,7 +78,7 @@ isolated_workspace/
 │   ├── test_veth_install_fails_releases_lease.py
 │   ├── test_dns_helper_fails_does_not_strand_handle.py
 │   ├── test_holder_refuses_sigterm_sigkill_fallback.py
-│   └── test_argv_e2big_via_in_ns_write.py     # cross-ref: known_issue
+│   └── test_write_file_streams_large_body_without_argv_e2big.py
 │
 ├── resource_controls/                   # Tier 5: quota / TTL / RAM
 │   ├── test_quota_one_per_agent.py
@@ -102,11 +102,15 @@ isolated_workspace/
 │   ├── test_manager_json_schema_mismatch_treated_as_empty.py
 │   ├── test_daemon_restart_reaps_orphan_veth.py
 │   ├── test_daemon_restart_reaps_orphan_cgroup.py
-│   ├── test_daemon_restart_reaps_orphan_writable_dirs.py
+│   ├── test_daemon_restart_reaps_orphan_scratch.py
 │   ├── test_daemon_restart_reaps_orphan_netns.py
 │   ├── test_daemon_restart_releases_orphan_lease.py
 │   ├── test_daemon_restart_reconciles_ip_pool.py
-│   └── test_v1_nft_table_migration_sweep.py
+│   ├── test_iws_daemon_restart_mid_parallel_calls.py
+│   ├── test_lowerdir_disk_usage_is_o1.py
+│   ├── test_lowerdir_layer_paths_shared_across_concurrent_handles.py
+│   ├── test_upperdir_discarded_on_abnormal_exit_daemon_kill.py
+│   └── test_upperdir_fully_discarded_on_normal_exit.py
 │
 └── stress/                              # Tier 8: scale / soak
     ├── test_5_concurrent_isolated_workspaces.py   # TOTAL_CAP probe (cap=5)
@@ -115,7 +119,7 @@ isolated_workspace/
     └── test_pip_install_then_run_e2e.py           # full network stack
 ```
 
-**Total: 78 test files, organized into 9 tiers.** The directory structure is
+**Total: 83 test files, organized into 12 tier directories.** The directory structure is
 the documentation: each tier-named folder answers one design question.
 
 ---
@@ -293,7 +297,7 @@ real Docker boot.
 | `test_veth_install_fails_releases_lease` | Test knob makes `ip link add` return EEXIST conflict. Lease released; IP pool's `_allocated_ips` cardinality decreases by 1 (no IP leak). |
 | `test_dns_helper_fails_does_not_strand_handle` | DNS detection raises. Manager rolls back: kills holder, deletes veth, releases lease. State machine ends at `stopped`, not stuck in `exiting`. |
 | `test_holder_refuses_sigterm_sigkill_fallback` | After enter, host-side `kill -STOP {holder_pid}` to make it ignore SIGTERM. exit() takes ~5 s (grace), then SIGKILL fires; netns/mntns/pidns reaped. |
-| `test_argv_e2big_via_in_ns_write` | write_file with a 5 MB body. The base64-via-stdin path must not trigger argv-E2BIG. **Cross-references** the project memory entry `'checked batch apply failed' = argv E2BIG` — same class of bug, same fix (stream via stdin). |
+| `test_write_file_streams_large_body_without_argv_e2big` | write_file with a 5 MB body. The namespace-runner stdin payload path must not trigger argv-E2BIG. |
 
 ### Tier 5: Resource controls (6 tests)
 
@@ -330,7 +334,7 @@ real Docker boot.
 | `test_daemon_restart_reaps_orphan_netns` | `ip netns list \| grep eos-iws-` returns nothing (whether or not we adopt named netns; this test gates on the naming convention). |
 | `test_daemon_restart_releases_orphan_lease` | Before kill: `LeaseRegistry.active_count() == 1`. After restart + GC: 0. New `enter()` succeeds (lease wouldn't get an empty layer path if the old one were still pinned). |
 | `test_daemon_restart_reconciles_ip_pool` | Enter agent-A (gets .2). SIGKILL daemon; modify `manager.json` to say `.2` is allocated. Restart. Concurrent fresh enter: gets .3 (NOT .2). |
-| `test_v1_nft_table_migration_sweep` | Synthetic: pre-create `nft table inet eos_pinws_filter` (v1 naming). Restart daemon. Verify table is gone. Initialize() migration sweep. |
+| `test_iws_daemon_restart_mid_parallel_calls` | SIGKILL daemon during concurrent isolated tool calls. Restart must reap orphan handles and allow fresh enters without leaked resources. |
 
 ### Tier 8: Stress / scale / soak (4 tests, marked `slow`)
 

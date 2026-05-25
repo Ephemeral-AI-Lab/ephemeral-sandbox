@@ -13,10 +13,10 @@ def write_change(
     *,
     path: str,
     final_content: bytes | str,
-    source: ChangeSource = "api_write",
+    source: ChangeSource = ChangeSource.API_WRITE,
     base_hash: str | None = None,
 ) -> WriteChange:
-    if source == "overlay_capture":
+    if ChangeSource(source) is ChangeSource.OVERLAY_CAPTURE:
         return build_overlay_write_change(
             path=path,
             final_content=final_content,

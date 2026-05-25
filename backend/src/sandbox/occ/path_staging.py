@@ -135,6 +135,34 @@ class _PathStageState:
             self.content = Path(self.final_content_path).read_bytes()
         return self.content
 
+    def set_write(self, change: WriteChange) -> None:
+        content = (
+            None
+            if change.content_path is not None and change.precomputed_hash is not None
+            else bytes(change.final_content)
+        )
+        self.set_final(
+            kind="write",
+            content=content,
+            content_path=change.content_path,
+            precomputed_hash=change.precomputed_hash,
+        )
+
+    def set_final(
+        self,
+        *,
+        kind: FinalLayerChangeKind,
+        content: bytes | None = b"",
+        target: str | None = None,
+        content_path: str | None = None,
+        precomputed_hash: str | None = None,
+    ) -> None:
+        self.content = content
+        self.final_kind = kind
+        self.symlink_target = target
+        self.final_content_path = content_path
+        self.final_precomputed_hash = precomputed_hash
+
 
 class _PathGroupStager:
     """Validate and stage one prepared path group, parameterised by route."""
@@ -212,25 +240,14 @@ class _PathGroupStager:
         path: str,
     ) -> FileResult | None:
         if isinstance(change, OpaqueDirChange):
-            state.content = b""
-            state.final_kind = "opaque_dir"
-            state.symlink_target = None
-            state.final_content_path = None
-            state.final_precomputed_hash = None
+            state.set_final(kind="opaque_dir")
             return None
 
         if isinstance(change, WriteChange):
             mismatch = self._hash_mismatch(state, change.base_hash)
             if mismatch is not None:
                 return FileResult(path=path, status=mismatch, message="content changed")
-            if change.content_path is not None and change.precomputed_hash is not None:
-                state.content = None
-            else:
-                state.content = bytes(change.final_content)
-            state.final_kind = "write"
-            state.symlink_target = None
-            state.final_content_path = change.content_path
-            state.final_precomputed_hash = change.precomputed_hash
+            state.set_write(change)
             return None
 
         if isinstance(change, DeleteChange):
@@ -241,11 +258,7 @@ class _PathGroupStager:
                     status=mismatch,
                     message="content changed before delete",
                 )
-            state.content = b""
-            state.final_kind = "delete"
-            state.symlink_target = None
-            state.final_content_path = None
-            state.final_precomputed_hash = None
+            state.set_final(kind="delete")
             return None
 
         if isinstance(change, EditChange):
@@ -258,11 +271,7 @@ class _PathGroupStager:
             edit_result = _apply_edit_content(path, state.materialize_content(), change)
             if isinstance(edit_result, FileResult):
                 return edit_result
-            state.content = edit_result
-            state.final_kind = "write"
-            state.symlink_target = None
-            state.final_content_path = None
-            state.final_precomputed_hash = None
+            state.set_final(kind="write", content=edit_result)
             return None
 
         if isinstance(change, SymlinkChange):
@@ -272,11 +281,7 @@ class _PathGroupStager:
                     status=FileStatus.REJECTED,
                     message=f"unsupported {self._profile.name} change kind: SymlinkChange",
                 )
-            state.content = b""
-            state.final_kind = "symlink"
-            state.symlink_target = change.target
-            state.final_content_path = None
-            state.final_precomputed_hash = None
+            state.set_final(kind="symlink", target=change.target)
             return None
 
         return FileResult(

@@ -214,7 +214,7 @@ on, expect:
 - **Tier 6 concurrency** (11 tests) — same-agent overlap, map-lock,
   init_complete, fresh-handle on re-enter, 4 N=5 noisy-neighbor proofs.
 - **Tier 7 gc_and_persistence** (13 tests) — daemon-restart reaping of
-  veth/cgroup/scratch/netns/lease, IP-pool reconciliation, v1 nft sweep,
+  veth/cgroup/scratch/netns/lease, IP-pool reconciliation,
   v2 lowerdir O(1) checks, upperdir discard on abnormal exit.
 - **Tier 9 performance** (7 tests) — capability-gated; if the kernel
   surface looks good (probes return True), enforces SUBSET-COVER,

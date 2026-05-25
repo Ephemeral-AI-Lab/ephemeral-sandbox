@@ -14,6 +14,12 @@ def test_write_out_of_workspace_refuses_terminal_symlink(tmp_path) -> None:
     os.symlink(target, link)
 
     with pytest.raises(ValueError, match="refusing to follow symlink"):
-        write_file(str(link), "replacement\n", overwrite=True)
+        write_file(
+            {
+                "path": str(link),
+                "content": "replacement\n",
+                "overwrite": True,
+            }
+        )
 
     assert target.read_text(encoding="utf-8") == "existing\n"

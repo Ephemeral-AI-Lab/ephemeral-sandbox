@@ -23,7 +23,7 @@ from sandbox.host.daemon_client import _DaemonDispatchError, call_daemon_api
 DEFAULT_TIMEOUT_S = 30
 
 # Per-iws layer-stack metadata path. The iws workspace_root is fixed
-# (/testbed via DEFAULT_WORKSPACE_ROOT) but the binding metadata must live
+# (/testbed via ISOLATED_WORKSPACE_ROOT) but the binding metadata must live
 # at a DIFFERENT path per the workspace-binding constraint (layer_stack_root
 # cannot equal or be inside workspace_root). Tests use this constant.
 IWS_LAYER_STACK_ROOT = "/tmp/eos-sandbox-runtime/layer-stack"
@@ -199,7 +199,6 @@ async def grep(
     *,
     path: str = "/testbed",
     glob_filter: str | None = None,
-    include_pattern: str | None = None,
     output_mode: str | None = None,
     case_insensitive: bool | None = None,
     line_numbers: bool | None = None,
@@ -213,8 +212,6 @@ async def grep(
     }
     if glob_filter is not None:
         args["glob_filter"] = glob_filter
-    if include_pattern is not None:
-        args["include_pattern"] = include_pattern
     if output_mode is not None:
         args["output_mode"] = output_mode
     if case_insensitive is not None:

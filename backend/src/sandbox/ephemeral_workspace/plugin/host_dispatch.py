@@ -156,12 +156,7 @@ async def call_plugin(
     )
     payload_with_meta = {
         **dict(payload),
-        "caller": {
-            "agent_id": caller.agent_id,
-            "run_id": caller.run_id,
-            "agent_run_id": caller.agent_run_id,
-            "task_id": caller.task_id,
-        },
+        "caller": caller.audit_fields(),
         "workspace_root": str(context.get("repo_root") or "").strip(),
         "intent": intent_value,
     }

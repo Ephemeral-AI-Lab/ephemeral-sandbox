@@ -83,29 +83,18 @@ async def capture_changes(handle: OverlayHandle) -> Sequence[OverlayPathChange]:
 
 async def destroy(handle: OverlayHandle) -> None:
     """Idempotently mark an overlay handle destroyed and clean upper/work dirs."""
-    with handle._destroy_lock:
-        if handle._destroyed:
-            return
-        handle._destroyed = True
-        if handle._release is not None:
-            handle._release()
-        shutil.rmtree(handle.run_dir, ignore_errors=True)
+    handle.release()
+    shutil.rmtree(handle.run_dir, ignore_errors=True)
 
 
 def _allocate_run_dir(invocation_id: str) -> Path:
     safe = _safe_invocation_part(invocation_id)
-    return (
-        overlay_writable_root()
-        / "runtime"
-        / "overlay"
-        / f"{safe}-{uuid4().hex[:8]}"
-    )
+    return overlay_writable_root() / "runtime" / "overlay" / f"{safe}-{uuid4().hex[:8]}"
 
 
 def _safe_invocation_part(value: str) -> str:
     safe = "".join(
-        char if char.isalnum() or char in ("-", "_") else "-"
-        for char in str(value)
+        char if char.isalnum() or char in ("-", "_") else "-" for char in str(value)
     ).strip("-")
     return safe or "overlay"
 
@@ -119,14 +108,23 @@ def _build_release_closure(
 ) -> Callable[[], None]:
     def _release() -> None:
         try:
-            if release_hook is not None:
-                release_hook(lease_id)
-            else:
-                layer_stack.release_lease(lease_id=lease_id)
+            _release_lease(layer_stack, lease_id, release_hook=release_hook)
         finally:
             shutil.rmtree(run_dir, ignore_errors=True)
 
     return _release
+
+
+def _release_lease(
+    layer_stack: LayerStackPort,
+    lease_id: str,
+    *,
+    release_hook: Callable[[str], None] | None,
+) -> None:
+    if release_hook is not None:
+        release_hook(lease_id)
+    else:
+        layer_stack.release_lease(lease_id=lease_id)
 
 
 def _release_lease_silently(
@@ -138,10 +136,7 @@ def _release_lease_silently(
     if not lease_id:
         return
     try:
-        if release_hook is not None:
-            release_hook(lease_id)
-        else:
-            layer_stack.release_lease(lease_id=lease_id)
+        _release_lease(layer_stack, lease_id, release_hook=release_hook)
     except Exception:
         pass
 

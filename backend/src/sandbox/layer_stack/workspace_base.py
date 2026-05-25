@@ -224,7 +224,7 @@ def _collect_base_entries(workspace: Path) -> tuple[tuple[_BaseEntry, ...], str]
     return tuple(entries), digest.hexdigest()
 
 
-def _symlink_entry(*, path: Path, rel: str) -> _BaseEntry:
+def _symlink_entry(*, path: Path, rel: str) -> _SymlinkEntry:
     target = os.readlink(path)
     # Reject obviously unsafe symlink targets so a clone of an untrusted
     # third-party repo carrying a malicious symlink does NOT end up in the

@@ -31,14 +31,6 @@ class WorkspacePathChange:
         )
 
 
-def workspace_path_change_from_overlay_change(
-    change: object,
-) -> WorkspacePathChange:
-    if hasattr(change, "path") and hasattr(change, "kind"):
-        return WorkspacePathChange.from_overlay_change(change)  # type: ignore[arg-type]
-    return WorkspacePathChange(path=str(change), kind="write", existed_before=False)
-
-
 @dataclass(frozen=True)
 class WorkspaceChangeEvent:
     reason: WorkspaceChangeReason
@@ -106,5 +98,4 @@ __all__ = [
     "WorkspaceChangeEventBus",
     "WorkspaceChangeEvent",
     "WorkspaceChangeReason",
-    "workspace_path_change_from_overlay_change",
 ]

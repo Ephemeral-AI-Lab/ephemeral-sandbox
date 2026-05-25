@@ -38,8 +38,12 @@ class MountInputs:
 
     def close(self) -> None:
         for fd in self.fds:
-            with suppress(OSError):
-                os.close(fd)
+            _close_fd(fd)
+
+
+def _close_fd(fd: int) -> None:
+    with suppress(OSError):
+        os.close(fd)
 
 
 def mount_overlay(
@@ -66,11 +70,9 @@ def mount_overlay(
         move_mount(mfd, os.fsencode(str(workspace_root)))
     finally:
         if mfd >= 0:
-            with suppress(OSError):
-                os.close(mfd)
+            _close_fd(mfd)
         if fsfd >= 0:
-            with suppress(OSError):
-                os.close(fsfd)
+            _close_fd(fsfd)
 
 
 def umount(
@@ -90,7 +92,7 @@ def umount(
     matching the LSP namespace-remount detach contract. ``raise_on_failure``
     raises ``RuntimeError`` instead of silently returning when the path remains
     a mountpoint after exhausting available strategies; default
-    ``(False, False)`` preserves the legacy silent-return behavior.
+    ``(False, False)`` keeps the non-raising behavior used by teardown callers.
     """
     for _ in range(64):
         if not _is_mountpoint(workspace_root):
@@ -113,14 +115,10 @@ def umount(
             if lazy_result.returncode == 0:
                 return
         if raise_on_failure:
-            raise RuntimeError(
-                f"failed to detach existing mount: {workspace_root}"
-            )
+            raise RuntimeError(f"failed to detach existing mount: {workspace_root}")
         return
     if raise_on_failure and _is_mountpoint(workspace_root):
-        raise RuntimeError(
-            f"failed to detach existing mount: {workspace_root}"
-        )
+        raise RuntimeError(f"failed to detach existing mount: {workspace_root}")
 
 
 def _is_mountpoint(path: Path) -> bool:
@@ -174,16 +172,12 @@ def validate_mount_inputs(
             if path.is_symlink():
                 raise ValueError(f"overlay upper/work dir must not be a symlink: {path}")
             if path.exists() and not path.is_dir():
-                raise ValueError(
-                    f"overlay upper/work path is not a directory: {path}"
-                )
+                raise ValueError(f"overlay upper/work path is not a directory: {path}")
             path.mkdir(parents=True, exist_ok=True)
             fds.append(_open_dir_no_follow(path))
 
         # fds layout: [workspace_root, *layer_paths, upperdir, workdir]
-        layer_fd_paths = tuple(
-            Path(f"/proc/self/fd/{fds[i + 1]}") for i in range(len(layer_paths))
-        )
+        layer_fd_paths = tuple(Path(f"/proc/self/fd/{fds[i + 1]}") for i in range(len(layer_paths)))
         return MountInputs(
             workspace_root=workspace_root,
             layer_paths=layer_fd_paths,
@@ -193,8 +187,7 @@ def validate_mount_inputs(
         )
     except Exception:
         for fd in fds:
-            with suppress(OSError):
-                os.close(fd)
+            _close_fd(fd)
         raise
 
 

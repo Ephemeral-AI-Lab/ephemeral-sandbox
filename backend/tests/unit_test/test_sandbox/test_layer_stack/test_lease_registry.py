@@ -8,7 +8,7 @@ from sandbox.layer_stack.manifest import LayerRef, Manifest
 
 def test_workspace_leases_refcount_manifest_layers() -> None:
     ids = iter(("lease-a", "lease-b"))
-    registry = LeaseRegistry(id_factory=lambda: next(ids), clock=lambda: 10.0)
+    registry = LeaseRegistry(id_factory=lambda: next(ids))
     manifest = Manifest(
         version=3,
         layers=(LayerRef(layer_id="L000003", path="layers/L000003"),),
@@ -18,7 +18,6 @@ def test_workspace_leases_refcount_manifest_layers() -> None:
     lease_b = registry.acquire(manifest, "request-b")
 
     assert lease_a.manifest.version == 3
-    assert lease_a.owner_request_id == "request-a"
     assert registry.pinned_layers() == manifest.layers
     assert registry.active_count() == 2
 
@@ -31,13 +30,13 @@ def test_workspace_leases_refcount_manifest_layers() -> None:
 
 
 def test_releasing_unknown_lease_returns_none() -> None:
-    registry = LeaseRegistry(id_factory=lambda: "lease-a", clock=lambda: 10.0)
+    registry = LeaseRegistry(id_factory=lambda: "lease-a")
     assert registry.release("missing") is None
 
 
 def test_squash_barrier_layers_use_only_newest_layer_per_lease() -> None:
     ids = iter(("lease-a", "lease-b", "lease-c", "lease-d"))
-    registry = LeaseRegistry(id_factory=lambda: next(ids), clock=lambda: 10.0)
+    registry = LeaseRegistry(id_factory=lambda: next(ids))
     layer_1 = LayerRef(layer_id="L000001", path="layers/L000001")
     layer_2 = LayerRef(layer_id="L000002", path="layers/L000002")
     layer_3 = LayerRef(layer_id="L000003", path="layers/L000003")

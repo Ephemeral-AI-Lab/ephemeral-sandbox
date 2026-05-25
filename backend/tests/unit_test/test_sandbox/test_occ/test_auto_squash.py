@@ -274,6 +274,10 @@ class _AutoSquashOnlyLayerStack:
         with self._lock:
             return self._manifest
 
+    def can_squash(self, *, max_depth: int) -> bool:
+        with self._lock:
+            return self._manifest.depth > max_depth
+
     def squash(self, *, max_depth: int) -> Manifest | None:
         del max_depth
         self.squash_entered.set()

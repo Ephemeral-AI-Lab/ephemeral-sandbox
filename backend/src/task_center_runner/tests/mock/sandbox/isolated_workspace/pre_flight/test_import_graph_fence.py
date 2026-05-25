@@ -7,9 +7,10 @@ from pathlib import Path
 from sandbox.daemon.rpc import dispatcher
 
 
-def test_isolated_workspace_tool_op_module_was_deleted() -> None:
+def test_legacy_isolated_workspace_tool_surfaces_were_deleted() -> None:
     src_root = Path(__file__).resolve().parents[7] / "src"
     assert not (src_root / "sandbox" / "isolated_workspace" / "ops_handlers.py").exists()
+    assert not (src_root / "sandbox" / "isolated_workspace" / "scripts" / "in_ns_write.py").exists()
 
 
 def test_iws_tool_ops_route_through_api_v1_only() -> None:

@@ -16,6 +16,7 @@ from typing import Any
 from sandbox.isolated_workspace._control_plane.pipeline_state import (
     CGROUP_ROOT,
     HANDLE_PREFIX,
+    IsolatedWorkspaceAuditEvent,
     logger,
 )
 
@@ -88,9 +89,9 @@ class _OrphanResourceReaperMixin:
             # remaining string is exactly what ``ip link del`` expects.
             for token in line.split():
                 cleaned = token.rstrip(":").split("@", 1)[0]
-                if cleaned.startswith(HANDLE_PREFIX):
-                    short = cleaned[len(HANDLE_PREFIX) :].rstrip("hn")
-                    if not any(hid.startswith(short) for hid in live_set):
+                handle_prefix = _handle_prefix_from_veth_name(cleaned)
+                if handle_prefix is not None:
+                    if not any(hid.startswith(handle_prefix) for hid in live_set):
                         veth_orphans.append(cleaned)
                     # The ifname is always the second whitespace token on
                     # the line; no need to keep scanning flag tokens.
@@ -106,7 +107,7 @@ class _OrphanResourceReaperMixin:
             )
             reap_ms = (self._clock() - t_reap) * 1000.0
             self._emit(
-                "sandbox_isolated_workspace_gc_orphan",
+                IsolatedWorkspaceAuditEvent.GC_ORPHAN,
                 {
                     "kind": "veth",
                     "identifier": name,
@@ -129,7 +130,7 @@ class _OrphanResourceReaperMixin:
                 shutil.rmtree(child, ignore_errors=True)
                 reap_ms = (self._clock() - t_reap) * 1000.0
                 self._emit(
-                    "sandbox_isolated_workspace_gc_orphan",
+                    IsolatedWorkspaceAuditEvent.GC_ORPHAN,
                     {
                         "kind": "scratch",
                         "identifier": child.name,
@@ -157,7 +158,7 @@ class _OrphanResourceReaperMixin:
                     child.rmdir()
                 reap_ms = (self._clock() - t_reap) * 1000.0
                 self._emit(
-                    "sandbox_isolated_workspace_gc_orphan",
+                    IsolatedWorkspaceAuditEvent.GC_ORPHAN,
                     {
                         "kind": "cgroup",
                         "identifier": child.name,
@@ -181,7 +182,7 @@ class _OrphanResourceReaperMixin:
             )
         reap_ms = (self._clock() - t0) * 1000.0
         self._emit(
-            "sandbox_isolated_workspace_gc_orphan",
+            IsolatedWorkspaceAuditEvent.GC_ORPHAN,
             {
                 "kind": "lease",
                 "identifier": lease_id,
@@ -205,7 +206,7 @@ class _OrphanResourceReaperMixin:
             cgroup.rmdir()
         reap_ms = (self._clock() - t0) * 1000.0
         self._emit(
-            "sandbox_isolated_workspace_gc_orphan",
+            IsolatedWorkspaceAuditEvent.GC_ORPHAN,
             {
                 "kind": "cgroup",
                 "identifier": cgroup.name,
@@ -275,7 +276,7 @@ class _OrphanResourceReaperMixin:
         reap_share_ms = reap_ms / len(candidates)
         for proc in candidates:
             self._emit(
-                "sandbox_isolated_workspace_gc_orphan",
+                IsolatedWorkspaceAuditEvent.GC_ORPHAN,
                 {
                     "kind": "holder",
                     "identifier": str(proc.pid),
@@ -318,6 +319,16 @@ def _iter_namespace_holder_processes(
             )
         )
     return processes
+
+
+def _handle_prefix_from_veth_name(name: str) -> str | None:
+    if (
+        not name.startswith(HANDLE_PREFIX)
+        or len(name) != len(HANDLE_PREFIX) + 7
+        or name[-1:] not in {"h", "n"}
+    ):
+        return None
+    return name[len(HANDLE_PREFIX) : -1]
 
 
 def _namespace_holder_signal_order(

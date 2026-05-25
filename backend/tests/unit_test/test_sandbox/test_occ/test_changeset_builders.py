@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from sandbox.occ.changeset import (
+    Change,
+    ChangeSource,
     build_api_write_change,
     build_overlay_delete_change,
     build_overlay_write_change,
@@ -32,3 +34,11 @@ def test_overlay_builders_defer_base_hash_to_preparation() -> None:
     assert write.final_content == b"new"
     assert delete.source == "overlay_capture"
     assert delete.base_hash is None
+
+
+def test_change_source_normalizes_to_closed_string_enum() -> None:
+    change = Change(path="src/a.py", source="overlay_capture")
+
+    assert change.source is ChangeSource.OVERLAY_CAPTURE
+    assert str(change.source) == "overlay_capture"
+    assert change.source == "overlay_capture"

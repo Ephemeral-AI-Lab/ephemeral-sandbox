@@ -110,7 +110,7 @@ $ .venv/bin/python -m pytest \
 | Tier 4 | `failure_modes/` | 8 | live-CI gated |
 | **Tier 5** | **`resource_controls/`** | **7** | **live-CI gated (new)** |
 | **Tier 6** | **`concurrency/`** | **11** | **live-CI gated (new)** |
-| Tier 7 | `gc_and_persistence/` | 14 | live-CI gated |
+| Tier 7 | `gc_and_persistence/` | 13 | live-CI gated |
 | **Tier 8** | **`stress/`** | **5** | **`live_e2e_soak` gated (new)** |
 | **Tier 9** | **`performance/`** | **7** | **capability-gated (new)** |
 | **Total** | — | **82 files / 94 collected** | **17 cases run + 77 live-gated** |
@@ -140,11 +140,10 @@ code each tier depends on.
 | Slice | File(s) | Status |
 |---|---|---|
 | Phase 3 — Tier 2 isolation (5 tests) | `isolation/` | landed |
-| Phase 4 — Tier 7 GC + persistence (14 tests = 10 base + 4 v2) | `gc_and_persistence/` | landed |
+| Phase 4 — Tier 7 GC + persistence (13 tests = 9 base + 4 v2) | `gc_and_persistence/` | landed |
 | Phase 5 — Tier 3 network (15 tests = 11 base + 4 inbound REJECT) | `network/` | landed |
 | Phase 6 — Tier 4 failure modes (7 tests) | `failure_modes/` | landed |
 | GC reaping for cgroup + lease + netns (R5 ordering) | `sandbox/isolated_workspace/pipeline.py + extracted modules` | landed |
-| v1 nft-table migration sweep | `sandbox/isolated_workspace/network.py` | landed |
 | IPv6 default-route purge after `net-ready` | `sandbox/isolated_workspace/scripts/ns_holder.py` | landed |
 | Test-only failure-injection env knobs (HANG_AT / FAIL_AT / HOLDER_CRASH) | `pipeline.py` / extracted modules + `ns_holder.py` | landed |
 | Host-side helpers: scratch_root discovery, daemon restart, env-knob wiring, manager.json IO, host resource snapshot | `_iws_fixtures.py` | landed |
@@ -169,13 +168,6 @@ code each tier depends on.
   matching env knob (`EOS_ISOLATED_WORKSPACE_TEST_HANG_AT` /
   `EOS_ISOLATED_WORKSPACE_TEST_FAIL_AT`) is set. Branches are dead code
   in production (env vars unset).
-**`sandbox/isolated_workspace/network.py`:**
-
-- `IsolatedNetwork.initialize` now calls `_sweep_v1_nft_tables()` before
-  installing current tables — deletes `eos_pinws_nat` and
-  `eos_pinws_filter` if present.
-- New module-level `_nft_quiet(...)` ignores errors (used by the sweep).
-
 **`sandbox/isolated_workspace/scripts/ns_holder.py`:**
 
 - `_purge_ipv6_default_routes()` disables `accept_ra` on `eth0`/`lo`/
@@ -226,7 +218,7 @@ All checks passed!
 | Tier 2 (isolation/) | 5 | live-CI |
 | Tier 3 (network/) | 15 | live-CI |
 | Tier 4 (failure_modes/) | 8 | live-CI |
-| Tier 7 (gc_and_persistence/) | 14 | live-CI |
+| Tier 7 (gc_and_persistence/) | 13 | live-CI |
 | **Total** | **52 files** | **17 cases run + 47 live-gated** |
 
 Remaining tiers per PLAN §5/§19: Tier 5 (resource controls, 7 tests),
@@ -380,17 +372,16 @@ unit:
 ```
 backend/src/sandbox/isolated_workspace/
 ├── __init__.py
-├── pipeline.py / extracted modules          (was daemon/service/isolated_workspace.py)
+├── pipeline.py          (was daemon/service/isolated_workspace.py)
+├── _control_plane/      lifecycle, runtime, registry, state, orphan reaping
 ├── network.py          (was daemon/service/isolated_network.py)
-├── handlers.py         lifecycle only: enter/exit/status/list/reset
 └── scripts/
     ├── __init__.py
     ├── _setns_libc.py
     ├── ns_holder.py
     ├── setns_exec.py
     ├── setns_overlay_mount.py
-    ├── configure_dns_in_ns.py
-    └── in_ns_write.py
+    └── configure_dns_in_ns.py
 ```
 
 The previous scattered locations (``daemon/service/``, ``daemon/handler/``,
@@ -404,9 +395,9 @@ tools now flow through ``api.v1.<verb>`` and daemon pipeline resolution.
 |---|---|---|
 | ``sandbox.overlay.kernel_mount.mount_overlay`` | ``scripts/setns_overlay_mount.py`` — deferred-import *after* setns so R10 single-thread discipline is preserved at module-load time | ~80 LoC of duplicated ``fsopen / fsconfig / fsmount / move_mount`` syscall wrappers. One source of truth for overlay mount mechanics across the daemon. |
 | ``sandbox.overlay.capability.mount_syscalls_supported`` | ``_iws_fixtures.can_mount_overlay_natively`` | A bespoke ``/proc/filesystems`` scan. Uses the same hard precondition as daemon startup. |
-| ``sandbox.daemon.layer_stack_runtime.prepare_workspace_snapshot`` / ``release_lease`` | ``LayerStackClient`` bound during ``helper.manager`` bootstrap | Existing lease/snapshot lifecycle — no parallel implementation. |
+| ``sandbox.daemon.layer_stack_runtime.prepare_workspace_snapshot`` / ``release_lease`` | ``LayerStackClient`` bound during ``_control_plane.pipeline_registry.ensure_pipeline`` | Existing lease/snapshot lifecycle — no parallel implementation. |
 | ``sandbox.host.daemon_client.call_daemon_api`` | ``_iws_rpc`` | Existing daemon RPC client. |
-| ``sandbox.overlay.writable_dirs.overlay_writable_root`` | ``handlers._ensure_manager`` | Canonical overlay writable-root resolution. |
+| ``sandbox.overlay.writable_dirs.overlay_writable_root`` | ``_control_plane.pipeline_registry.ensure_pipeline`` | Canonical overlay writable-root resolution. |
 
 ## 3. Files added (new this session)
 

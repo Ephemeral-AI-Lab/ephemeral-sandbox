@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import logging
+import fcntl
 import os
 import threading
 import weakref
@@ -10,16 +10,9 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
 _STORAGE_WRITER_LOCK_FILE = ".storage-writer.lock"
 _STORAGE_WRITER_LOCKS: dict[str, _StorageWriterLock] = {}
 _STORAGE_WRITER_LOCKS_LOCK = threading.Lock()
-
-try:
-    import fcntl
-except ImportError:  # pragma: no cover - Windows-only fallback.
-    fcntl = None  # type: ignore[assignment]
 
 
 @dataclass
@@ -30,8 +23,7 @@ class _StorageWriterLock:
 
 
 class StorageWriterLockLease:
-    def __init__(self, key: str, fd: int, mutex: threading.RLock) -> None:
-        self.fd = fd
+    def __init__(self, key: str, mutex: threading.RLock) -> None:
         self._mutex = mutex
         # weakref.finalize avoids the __del__ trap of running during
         # interpreter teardown after module globals (the dict and its
@@ -60,24 +52,18 @@ def _release_storage_lock(key: str) -> None:
         if record.refcount > 0:
             return
         _STORAGE_WRITER_LOCKS.pop(key, None)
-        if fcntl is not None:
-            fcntl.flock(record.fd, fcntl.LOCK_UN)
+        fcntl.flock(record.fd, fcntl.LOCK_UN)
         os.close(record.fd)
 
 
-def acquire_storage_writer_lock(storage_root: Path) -> StorageWriterLockLease | None:
+def acquire_storage_writer_lock(storage_root: Path) -> StorageWriterLockLease:
     """Hold a process-wide advisory writer lock for this storage root."""
-    if fcntl is None:
-        logger.warning(
-            "layer-stack storage writer lock unavailable; fcntl is missing",
-        )
-        return None
     key = str(storage_root.resolve())
     with _STORAGE_WRITER_LOCKS_LOCK:
         record = _STORAGE_WRITER_LOCKS.get(key)
         if record is not None:
             record.refcount += 1
-            return StorageWriterLockLease(key, record.fd, record.mutex)
+            return StorageWriterLockLease(key, record.mutex)
 
         lock_path = storage_root / _STORAGE_WRITER_LOCK_FILE
         fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
@@ -95,7 +81,7 @@ def acquire_storage_writer_lock(storage_root: Path) -> StorageWriterLockLease | 
             refcount=1,
             mutex=mutex,
         )
-        return StorageWriterLockLease(key, fd, mutex)
+        return StorageWriterLockLease(key, mutex)
 
 
 __all__ = ["StorageWriterLockLease", "acquire_storage_writer_lock"]

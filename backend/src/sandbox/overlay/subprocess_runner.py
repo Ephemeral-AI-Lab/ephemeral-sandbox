@@ -23,6 +23,13 @@ _CANCEL_POLL_INTERVAL_S = 0.1
 _CANCEL_SIGKILL_GRACE_S = 2.0
 
 
+def kill_process_group(pid: int, signal_number: int) -> None:
+    try:
+        os.killpg(pid, signal_number)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
 def resolve_workspace_cwd(
     *,
     declared_workspace_root: str | Path,
@@ -54,9 +61,7 @@ def resolve_workspace_cwd(
     try:
         resolved_check.relative_to(mounted_root_resolved)
     except ValueError as exc:
-        raise ValueError(
-            f"cwd escapes workspace replacement root: {raw}"
-        ) from exc
+        raise ValueError(f"cwd escapes workspace replacement root: {raw}") from exc
 
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
@@ -118,10 +123,7 @@ def subprocess_to_refs(
                     cancel_event=cancel_event,
                 )
             except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                except (ProcessLookupError, PermissionError):
-                    pass
+                kill_process_group(proc.pid, signal.SIGKILL)
                 try:
                     proc.wait(timeout=2.0)
                 except subprocess.TimeoutExpired:
@@ -131,10 +133,7 @@ def subprocess_to_refs(
                 return timeout_exit_code
         finally:
             if proc.poll() is None:
-                try:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                except (ProcessLookupError, PermissionError):
-                    pass
+                kill_process_group(proc.pid, signal.SIGKILL)
 
 
 def wait_for_process_with_cancel(
@@ -156,22 +155,14 @@ def wait_for_process_with_cancel(
     if cancel_event is None:
         return int(proc.wait(timeout=timeout_seconds))
 
-    deadline = (
-        None if timeout_seconds is None else time.monotonic() + float(timeout_seconds)
-    )
+    deadline = None if timeout_seconds is None else time.monotonic() + float(timeout_seconds)
     while True:
         if cancel_event.is_set():
-            try:
-                os.killpg(proc.pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError):
-                pass
+            kill_process_group(proc.pid, signal.SIGTERM)
             try:
                 return int(proc.wait(timeout=_CANCEL_SIGKILL_GRACE_S))
             except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(proc.pid, signal.SIGKILL)
-                except (ProcessLookupError, PermissionError):
-                    pass
+                kill_process_group(proc.pid, signal.SIGKILL)
                 try:
                     return int(proc.wait(timeout=2.0))
                 except subprocess.TimeoutExpired:
@@ -225,6 +216,7 @@ def _relative_to_declared_workspace(candidate: Path, declared_root: Path) -> Pat
 
 
 __all__ = [
+    "kill_process_group",
     "resolve_workspace_cwd",
     "run_command_to_refs",
     "subprocess_to_refs",

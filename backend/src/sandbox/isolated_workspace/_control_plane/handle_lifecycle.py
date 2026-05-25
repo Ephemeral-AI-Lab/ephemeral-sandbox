@@ -9,7 +9,8 @@ from typing import Any
 
 from sandbox.isolated_workspace._control_plane.linux_runtime import _directory_file_bytes
 from sandbox.isolated_workspace._control_plane.pipeline_state import (
-    DEFAULT_WORKSPACE_ROOT,
+    ISOLATED_WORKSPACE_ROOT,
+    IsolatedWorkspaceAuditEvent,
     IsolatedWorkspaceError,
     IsolatedWorkspaceHandle,
     _maybe_inject_failure,
@@ -63,7 +64,7 @@ class _WorkspaceHandleLifecycleMixin:
             lease_id=snapshot.lease_id,
             manifest_version=snapshot.manifest_version,
             manifest_root_hash=snapshot.root_hash,
-            workspace_root=DEFAULT_WORKSPACE_ROOT,
+            workspace_root=ISOLATED_WORKSPACE_ROOT,
             scratch_dir=scratch,
             upperdir=upper,
             workdir=work,
@@ -84,7 +85,7 @@ class _WorkspaceHandleLifecycleMixin:
             self._by_agent[agent_id] = handle_id
         self._persist()
         self._emit(
-            "sandbox_isolated_workspace_enter",
+            IsolatedWorkspaceAuditEvent.ENTER,
             {
                 "handle_id": handle_id,
                 "agent_id": agent_id,
@@ -167,15 +168,7 @@ class _WorkspaceHandleLifecycleMixin:
         if handle.root_pid:
             with contextlib.suppress(Exception):
                 self._runtime.kill_holder(handle.root_pid, grace_s=1.0)
-        for fd in handle.ns_fds.values():
-            with contextlib.suppress(OSError):
-                os.close(fd)
-        for fd in (handle.readiness_fd, handle.control_fd):
-            if fd >= 0:
-                with contextlib.suppress(OSError):
-                    os.close(fd)
-        handle.readiness_fd = -1
-        handle.control_fd = -1
+        _close_handle_fds(handle)
         with contextlib.suppress(Exception):
             shutil.rmtree(handle.scratch_dir, ignore_errors=True)
 
@@ -205,7 +198,7 @@ class _WorkspaceHandleLifecycleMixin:
         total_ms = timer.total_ms()
         phases_ms = timer.phases_ms
         self._emit(
-            "sandbox_isolated_workspace_exit",
+            IsolatedWorkspaceAuditEvent.EXIT,
             {
                 "handle_id": handle.handle_id,
                 "reason": "explicit",
@@ -239,16 +232,7 @@ class _WorkspaceHandleLifecycleMixin:
             with contextlib.suppress(Exception):
                 with t.measure("teardown_veth"):
                     self._network.teardown_veth(handle.veth)
-        for fd in handle.ns_fds.values():
-            with contextlib.suppress(OSError):
-                os.close(fd)
-        handle.ns_fds = {}
-        for fd in (handle.readiness_fd, handle.control_fd):
-            if fd >= 0:
-                with contextlib.suppress(OSError):
-                    os.close(fd)
-        handle.readiness_fd = -1
-        handle.control_fd = -1
+        _close_handle_fds(handle)
         with contextlib.suppress(Exception):
             with t.measure("release_snapshot"):
                 self._layer_stack.release_lease(
@@ -261,3 +245,16 @@ class _WorkspaceHandleLifecycleMixin:
         with contextlib.suppress(Exception):
             with t.measure("rmtree_scratch"):
                 shutil.rmtree(handle.scratch_dir, ignore_errors=True)
+
+
+def _close_handle_fds(handle: IsolatedWorkspaceHandle) -> None:
+    for fd in handle.ns_fds.values():
+        with contextlib.suppress(OSError):
+            os.close(fd)
+    handle.ns_fds = {}
+    for fd in (handle.readiness_fd, handle.control_fd):
+        if fd >= 0:
+            with contextlib.suppress(OSError):
+                os.close(fd)
+    handle.readiness_fd = -1
+    handle.control_fd = -1

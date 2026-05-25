@@ -12,18 +12,11 @@ from sandbox._shared.tool_primitives.workspace_filesystem import (
 
 
 def write_file(
-    args: Mapping[str, object] | str,
-    content: str | None = None,
-    *,
-    overwrite: bool = True,
+    args: Mapping[str, object],
 ) -> WriteFileResult:
-    if isinstance(args, Mapping):
-        path = required_workspace_path(args.get("path"))
-        content = str(args.get("content") or "")
-        overwrite = bool(args.get("overwrite", overwrite))
-    else:
-        path = required_workspace_path(args)
-        content = "" if content is None else content
+    path = required_workspace_path(args.get("path"))
+    content = str(args.get("content") or "")
+    overwrite = bool(args.get("overwrite", True))
     write_bytes_no_follow(path, str(content).encode("utf-8"), overwrite=overwrite)
     return WriteFileResult(changed_paths=(path,), status="ok")
 

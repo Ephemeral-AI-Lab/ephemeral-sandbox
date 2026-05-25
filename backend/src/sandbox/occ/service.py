@@ -153,12 +153,6 @@ class OccService:
     ) -> dict[str, float]:
         return await self._maintenance_after_publish(result)
 
-    def run_maintenance_after_publish_sync(
-        self,
-        result: ChangesetResult,
-    ) -> dict[str, float]:
-        return self._maintenance_after_publish_sync(result)
-
     async def _maintenance_after_publish(
         self,
         result: ChangesetResult,

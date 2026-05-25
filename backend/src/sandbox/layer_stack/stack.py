@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import threading
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import AbstractContextManager
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
 from sandbox.layer_stack.paths import remove_path, resolve_storage_path
-from sandbox.layer_stack.storage_lock import acquire_storage_writer_lock
+from sandbox.layer_stack.storage_lock import (
+    StorageWriterLockLease,
+    acquire_storage_writer_lock,
+)
 from sandbox.layer_stack.changes import LayerChange
 from sandbox.layer_stack.commit_staging import (
     CommitStagingArea,
@@ -25,14 +28,16 @@ from sandbox.layer_stack.squash import (
     manifest_prefix_before_plan,
 )
 from sandbox.layer_stack.manifest import (
-    FileManifestStore,
     LAYERS_DIR,
     STAGING_DIR,
     LayerRef,
     Manifest,
     empty_manifest,
     layer_digest_path,
+    manifest_path,
     manifest_root_hash,
+    read_manifest,
+    write_manifest_atomic,
 )
 from sandbox.layer_stack.transaction import LayerStackTransaction
 from sandbox.layer_stack.view import MergedView, SymlinkLookup
@@ -47,7 +52,7 @@ class PrepareWorkspaceSnapshotResult:
     root_hash: str
     manifest: Manifest
     timings: dict[str, float]
-    layer_paths: tuple[str, ...] | None = None
+    layer_paths: tuple[str, ...]
 
     def to_dict(self) -> dict[str, object]:
         result: dict[str, object] = {
@@ -57,8 +62,7 @@ class PrepareWorkspaceSnapshotResult:
             "manifest": self.manifest.to_dict(),
             "timings": dict(self.timings),
         }
-        if self.layer_paths is not None:
-            result["layer_paths"] = list(self.layer_paths)
+        result["layer_paths"] = list(self.layer_paths)
         return result
 
 
@@ -68,32 +72,27 @@ class LayerStack:
     def __init__(
         self,
         storage_root: str | Path,
-        *,
-        manifest_store: FileManifestStore | None = None,
-        leases: LeaseRegistry | None = None,
-        view: MergedView | None = None,
-        publisher: LayerPublisher | None = None,
-        squash: SquashService | None = None,
     ) -> None:
         self.storage_root = Path(storage_root)
         self.storage_root.mkdir(parents=True, exist_ok=True)
-        self._storage_writer_lock = acquire_storage_writer_lock(self.storage_root)
+        self._storage_writer_lock: StorageWriterLockLease | None = (
+            acquire_storage_writer_lock(self.storage_root)
+        )
         (self.storage_root / LAYERS_DIR).mkdir(exist_ok=True)
         (self.storage_root / STAGING_DIR).mkdir(exist_ok=True)
 
-        self._manifest_store = manifest_store or FileManifestStore(self.storage_root)
-        self._manifest_file = self._manifest_store.path
+        self._manifest_file = manifest_path(self.storage_root)
         if not self._manifest_file.exists():
-            self._manifest_store.write(empty_manifest())
+            write_manifest_atomic(self._manifest_file, empty_manifest())
 
         self._lock = threading.RLock()
-        self._leases = leases or LeaseRegistry()
-        self._view = view or MergedView(self.storage_root)
-        self._publisher = publisher or LayerPublisher(self.storage_root)
-        self._squash = squash or SquashService(self.storage_root)
+        self._leases = LeaseRegistry()
+        self._view = MergedView(self.storage_root)
+        self._publisher = LayerPublisher(self.storage_root)
+        self._squash = SquashService(self.storage_root)
 
     def read_active_manifest(self) -> Manifest:
-        return self._manifest_store.read()
+        return read_manifest(self._manifest_file)
 
     def acquire_snapshot_lease(self, owner_request_id: str) -> WorkspaceLease:
         with self._lock:
@@ -108,7 +107,7 @@ class LayerStack:
     ) -> PrepareWorkspaceSnapshotResult:
         total_start = monotonic_now()
         with self._lock:
-            manifest = self._manifest_store.read()
+            manifest = self.read_active_manifest()
             lease = self._leases.acquire(manifest, owner_request_id)
         try:
             layer_paths = tuple(
@@ -138,7 +137,7 @@ class LayerStack:
                 lease = self._leases.release(lease_id)
                 if lease is None:
                     return False
-                active_manifest = self._manifest_store.read()
+                active_manifest = self.read_active_manifest()
                 removable = self._unreferenced_layers(
                     lease.manifest.layers,
                     current_manifest=active_manifest,
@@ -154,7 +153,7 @@ class LayerStack:
 
     def can_squash(self, *, max_depth: int) -> bool:
         with self._lock:
-            active = self._manifest_store.read()
+            active = self.read_active_manifest()
             return (
                 self._squash.plan(
                     active,
@@ -200,11 +199,12 @@ class LayerStack:
         self._view.materialize(destination, manifest or self.read_active_manifest())
 
     def commit_transaction(self) -> LayerStackTransaction:
+        storage_writer_lock = self._require_storage_writer_lock()
         return LayerStackTransaction(
             lock=self._lock,
-            manifest_store=self._manifest_store,
+            manifest_path=self._manifest_file,
             publisher=self._publisher,
-            storage_writer_lock=self._storage_writer_lock,
+            storage_writer_lock=storage_writer_lock,
         )
 
     def allocate_commit_staging(self, request_id: str) -> CommitStagingArea:
@@ -227,7 +227,7 @@ class LayerStack:
     def squash(self, *, max_depth: int) -> Manifest | None:
         with self._storage_write_guard():
             with self._lock:
-                active = self._manifest_store.read()
+                active = self.read_active_manifest()
                 plan = self._squash.plan(
                     active,
                     max_depth=max_depth,
@@ -251,7 +251,7 @@ class LayerStack:
                         )
                     )
                 with self._lock:
-                    current = self._manifest_store.read()
+                    current = self.read_active_manifest()
                     live_prefix = manifest_prefix_before_plan(current, plan)
                     if live_prefix is None:
                         return None
@@ -275,7 +275,7 @@ class LayerStack:
                         version=next_version,
                         layers=tuple(new_layers),
                     )
-                    self._manifest_store.write(new_manifest)
+                    write_manifest_atomic(self._manifest_file, new_manifest)
                     checkpoint_committed = True
                 return new_manifest
             finally:
@@ -300,7 +300,7 @@ class LayerStack:
             result = flush_to_workspace(
                 storage_root=self.storage_root,
                 workspace_root=workspace_root,
-                manifest_store=self._manifest_store,
+                manifest_path=self._manifest_file,
                 view=self._view,
                 leases=self._leases,
                 lock=self._lock,
@@ -312,9 +312,12 @@ class LayerStack:
             return result.manifest
 
     def _storage_write_guard(self) -> AbstractContextManager[object]:
+        return self._require_storage_writer_lock().exclusive()
+
+    def _require_storage_writer_lock(self) -> StorageWriterLockLease:
         if self._storage_writer_lock is None:
-            return nullcontext()
-        return self._storage_writer_lock.exclusive()
+            raise RuntimeError("layer-stack storage writer lock is closed")
+        return self._storage_writer_lock
 
     def _layer_path(self, layer: LayerRef) -> Path:
         return resolve_storage_path(self.storage_root, layer.path)
@@ -328,14 +331,11 @@ class LayerStack:
         skip = set(current_manifest.layers) | set(self._leases.pinned_layers())
         return tuple(layer for layer in candidates if layer not in skip)
 
-    def _remove_layers(self, layers: Sequence[LayerRef]) -> tuple[str, ...]:
-        removed: list[str] = []
+    def _remove_layers(self, layers: Sequence[LayerRef]) -> None:
         for layer in layers:
             remove_path(self._layer_path(layer))
             layer_digest_path(self.storage_root, layer.layer_id).unlink(missing_ok=True)
             self._view.evict_layer_index(layer.layer_id)
-            removed.append(layer.layer_id)
-        return tuple(removed)
 
     def close(self) -> None:
         if self._storage_writer_lock is not None:

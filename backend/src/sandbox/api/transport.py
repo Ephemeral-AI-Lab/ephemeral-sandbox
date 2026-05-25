@@ -60,6 +60,23 @@ class DaemonSandboxTransport:
         )
 
 
+async def call_sandbox_daemon(
+    sandbox_id: str,
+    op: str,
+    payload: Mapping[str, object],
+    *,
+    timeout: int,
+    transport: SandboxTransport | None = None,
+) -> dict[str, Any]:
+    """Call the provided transport or the resident daemon transport."""
+    return await (transport or DaemonSandboxTransport()).call(
+        sandbox_id,
+        op,
+        payload,
+        timeout=timeout,
+    )
+
+
 __all__ = [
     "DAEMON_OP_EDIT_FILE",
     "DAEMON_OP_GLOB",
@@ -72,4 +89,5 @@ __all__ = [
     "DAEMON_OP_WRITE_FILE",
     "DaemonSandboxTransport",
     "SandboxTransport",
+    "call_sandbox_daemon",
 ]

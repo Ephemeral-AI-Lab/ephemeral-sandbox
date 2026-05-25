@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Callable, Sequence
 
 from sandbox.layer_stack.changes import normalize_layer_path
@@ -15,6 +14,7 @@ from sandbox.occ.changeset import (
 )
 from sandbox.occ.changeset import (
     Change,
+    ChangeSource,
     DeleteChange,
     WriteChange,
 )
@@ -77,9 +77,7 @@ class ChangesetPreparer:
         *,
         snapshot: Manifest | None,
     ) -> list[tuple[str, RouteDecision, list[Change], str | None]]:
-        grouped: OrderedDict[tuple[RouteDecision, str], tuple[list[Change], str | None]] = (
-            OrderedDict()
-        )
+        grouped: dict[tuple[RouteDecision, str], tuple[list[Change], str | None]] = {}
         for change in changes:
             route, path, message = self._route_change(change, snapshot=snapshot)
             key = (route, path)
@@ -162,7 +160,7 @@ def _requires_base_hash(change: Change) -> bool:
     return (
         isinstance(change, (WriteChange, DeleteChange))
         and change.base_hash is None
-        and change.source in ("api_write", "overlay_capture")
+        and change.source in {ChangeSource.API_WRITE, ChangeSource.OVERLAY_CAPTURE}
     )
 
 
@@ -172,6 +170,8 @@ def _attach_base_hash(change: Change, base_hash: str | None) -> Change:
     if isinstance(change, DeleteChange):
         return change.with_base_hash(base_hash)
     return change
+
+
 __all__ = [
     "BaseHashLookup",
     "ChangesetPreparer",

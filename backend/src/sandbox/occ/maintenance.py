@@ -16,8 +16,10 @@ class MaintenancePolicy(Protocol):
     def after_publish_sync(self, result: ChangesetResult) -> dict[str, float]: ...
 
 
-class SquashPort(Protocol):
+class LayerSquashPort(Protocol):
     """Layer-stack maintenance capability consumed by auto-squash."""
+
+    def can_squash(self, *, max_depth: int) -> bool: ...
 
     def squash(self, *, max_depth: int) -> Manifest | None: ...
 
@@ -29,7 +31,7 @@ class AutoSquashMaintenancePolicy:
         self,
         *,
         snapshot_reader: LayerSnapshotReader,
-        squasher: SquashPort,
+        squasher: LayerSquashPort,
         max_depth: int,
     ) -> None:
         self._snapshot_reader = snapshot_reader
@@ -46,8 +48,7 @@ class AutoSquashMaintenancePolicy:
         return self._run_squash_for_active(active)
 
     def _run_squash_for_active(self, active: Manifest) -> dict[str, float]:
-        can_squash = getattr(self._squasher, "can_squash", None)
-        if callable(can_squash) and not can_squash(max_depth=self._max_depth):
+        if not self._squasher.can_squash(max_depth=self._max_depth):
             return {}
 
         squash_start = monotonic_now()
@@ -68,6 +69,6 @@ class AutoSquashMaintenancePolicy:
 
 __all__ = [
     "AutoSquashMaintenancePolicy",
+    "LayerSquashPort",
     "MaintenancePolicy",
-    "SquashPort",
 ]

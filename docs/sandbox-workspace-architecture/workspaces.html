@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5. Workspace Modes - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 5. Workspace Modes</span>
+  <span class="nav-pair"><a href="occ.html">← 4. OCC</a><a href="daemon.html">6. Daemon and Background Tasks →</a></span>
+</div>
+<h2 id="workspaces">5. Workspace Modes <a class="anchor" href="#workspaces">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>Not every task needs the same workspace lifetime or privacy model.</li>
+    <li>The package defines persistent, per-operation, and explicit private-session workspace behavior.</li>
+    <li>Daemon dispatch chooses isolated if open, otherwise ephemeral; main workspace provides binding and base identity.</li>
+    <li>All modes start from LayerStack truth but choose different temporary writable lifetimes.</li>
+  </ul>
+</div>
+
+<div class="lane-grid">
+  <div class="lane"><h4>main_workspace</h4><p>Persistent identity: the bound repo plus LayerStack snapshots, written only through OCC.</p></div>
+  <div class="lane"><h4>ephemeral_workspace</h4><p>Default per-call mode: each operation gets a fresh overlay or a direct file fast path.</p></div>
+  <div class="lane"><h4>isolated_workspace</h4><p>Opt-in private mode: enter once, run many tools, exit and discard the upperdir.</p></div>
+</div>
+
+<h3 id="main-workspace">5.1 main_workspace <a class="anchor" href="#main-workspace">§</a></h3>
+<div class="summary">
+  <ul>
+    <li>The sandbox needs one persistent repository identity to anchor every projection.</li>
+    <li><code>main_workspace</code> is a thin package anchor around LayerStack and OCC based workspace truth.</li>
+    <li>Host bootstrap uploads runtime, ensures git, then ensures the workspace base.</li>
+    <li>Main workspace is the source identity; the active LayerStack manifest is the mutable truth.</li>
+  </ul>
+</div>
+
+<p>The <code>main_workspace</code> package intentionally remains a thin facade: its README says implementation remains in <code>sandbox/layer_stack</code> and <code>sandbox/occ</code> so the three workspace concepts can have sibling package anchors <span class="file-ref">backend/src/sandbox/main_workspace/README.md:1-6</span>. The host lifecycle calls <code>ensure_workspace_base</code> after uploading the runtime and ensuring git <span class="file-ref">backend/src/sandbox/host/bootstrap.py:300-312</span>. Runtime binding fails closed if the binding or manifest is missing/empty <span class="file-ref">backend/src/sandbox/main_workspace/workspace_binding.py:12-35</span>.</p>
+
+<h3 id="ephemeral-workspace">5.2 ephemeral_workspace <a class="anchor" href="#ephemeral-workspace">§</a></h3>
+<div class="summary">
+  <ul>
+    <li>Most tool calls should not keep private workspace state after the operation ends.</li>
+    <li><code>ephemeral_workspace</code> creates a fresh overlay for shell/search/plugin operations, or direct OCC fast paths for simple file APIs.</li>
+    <li>LayerStack leases lower layers, overlay captures upperdir, and OCC publishes accepted changes.</li>
+    <li>Every call gets a clean snapshot and releases its scratch space when done.</li>
+  </ul>
+</div>
+
+<p>Daemon routing uses an active isolated pipeline only if the caller already has an isolated handle; otherwise it returns <code>get_sandbox_overlay(..., start=False)</code> <span class="file-ref">backend/src/sandbox/daemon/tool_call_router.py:27-35</span>. The <code>start=False</code> path is important: it gives the daemon a cached <code>EphemeralPipeline</code> facade without starting a persistent workspace mount <span class="file-ref">backend/src/sandbox/ephemeral_workspace/overlay_registry.py:33-70</span>.</p>
+
+<div class="diagram" aria-label="Ephemeral workspace flow">
+  <div class="flow-row">
+    <div class="node"><strong>Tool call</strong><small>shell/glob/grep or fallback file op</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Lease snapshot</strong><small>layer_paths + upper/work</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Fresh namespace</strong><small>mount workspace_root only</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Capture upperdir</strong><small>write/delete/symlink/opaque</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node good"><strong>OCC publish</strong><small>then destroy run dir</small></div>
+  </div>
+</div>
+
+<p><code>EphemeralPipeline.run_tool_call()</code> allocates a fresh overlay, runs the namespace child, captures the upperdir for write-intent calls, commits through OCC, attaches timings/resource metrics, then destroys the handle <span class="file-ref">backend/src/sandbox/ephemeral_workspace/pipeline.py:131-179</span>. For plugin/LSP operations, <code>acquire_operation_overlay()</code> exposes the same private overlay primitive to plugin code <span class="file-ref">backend/src/sandbox/ephemeral_workspace/operation_overlay.py:40-54</span>.</p>
+
+<p>Fast paths exist for the common single-file APIs when the path can be translated through <code>workspace.json</code>. <code>read_file</code> reads from <code>backend.manager.read_text()</code> with no overlay or run dir <span class="file-ref">backend/src/sandbox/daemon/tool_call_router.py:70-88</span>. <code>write_file</code> builds an <code>api_write</code> change and calls <code>occ_service.apply_changeset()</code> directly <span class="file-ref">backend/src/sandbox/daemon/tool_call_router.py:91-129</span>. <code>edit_file</code> builds <code>EditChange</code> objects and applies them directly through OCC <span class="file-ref">backend/src/sandbox/daemon/tool_call_router.py:132-181</span>. The resource timings explicitly report no run-dir or upperdir tree for these fast paths <span class="file-ref">backend/src/sandbox/daemon/tool_call_router.py:205-234</span>.</p>
+
+<h3 id="ephemeral-fast-paths">5.2.1 Fast-path Technical Workflows <a class="anchor" href="#ephemeral-fast-paths">§</a></h3>
+
+<table>
+  <thead><tr><th>Verb</th><th>Workflow</th><th>Conflict / result behavior</th><th>Skipped work</th></tr></thead>
+  <tbody>
+    <tr><td><code>read_file</code></td><td>Bind the input path to a workspace-relative path, call LayerStack <code>read_text()</code>, and return content.</td><td>No OCC conflict because it is read-only; errors come from normal path/read handling.</td><td>No overlay allocation, no namespace, no capture, no OCC.</td></tr>
+    <tr><td><code>write_file</code></td><td>Build a single API write change from request args and submit it to OCC.</td><td><code>overwrite=false</code> maps existing content to a conflict; gated paths still use base-hash validation.</td><td>No shell child and no upperdir capture; bytes flow directly into OCC staging.</td></tr>
+    <tr><td><code>edit_file</code></td><td>Build ordered <code>EditChange</code> objects, run OCC prepare/commit, and project the result.</td><td>Expected replacement counts and gated hashes protect tracked files from stale edits.</td><td>No mounted overlay tree; search/replace is staged through OCC.</td></tr>
+  </tbody>
+</table>
+
+<div class="sequence" aria-label="Ephemeral direct write/edit fast path">
+  <ol>
+    <li><span>The router confirms the caller has no active isolated handle.</span></li>
+    <li><span>It extracts exactly one tool path and converts it with <code>WorkspaceBinding.workspace_relative_path()</code>.</span></li>
+    <li><span>The router builds typed OCC changes directly from the tool arguments.</span></li>
+    <li><span>OCC prepares, queues, validates, stages, and publishes exactly as it does for overlay capture.</span></li>
+    <li><span>The router projects <code>ChangesetResult</code> into public tool output, including conflict information and timings.</span></li>
+  </ol>
+</div>
+
+<p>Path binding is implemented in the router helper <span class="file-ref">backend/src/sandbox/daemon/tool_call_router.py:184-197</span>. OCC result projection is shared through daemon helpers for published paths, conflict/status conversion, and gitignore cache timings <span class="file-ref">backend/src/sandbox/daemon/changeset_projection.py:16-60</span>. This is why the direct write/edit fast path is faster without weakening the publish contract: it avoids overlay mechanics but still goes through OCC.</p>
+
+<h3 id="isolated-workspace">5.3 isolated_workspace <a class="anchor" href="#isolated-workspace">§</a></h3>
+<div class="summary">
+  <ul>
+    <li>Low-confidence or experimental tasks can request a private scratch workspace across many tool calls.</li>
+    <li><code>isolated_workspace</code> opens one persistent overlay namespace on enter, runs tools inside it, and discards upperdir on exit.</li>
+    <li>Enter leases LayerStack paths; runtime wires namespace/network/cgroup; exit releases the lease and removes scratch.</li>
+    <li>Isolated workspace gives privacy and continuity without publishing changes to shared truth.</li>
+  </ul>
+</div>
+
+<p>The tools module registers both lifecycle tools with the normal sandbox tool set <span class="file-ref">backend/src/tools/sandbox/_lib/registry.py:17-31</span>. <code>enter_isolated_workspace</code> calls host lifecycle enter with the current caller, layer stack root, background manager, and sandbox id <span class="file-ref">backend/src/tools/isolated_workspace/enter_isolated_workspace/definition.py:24-47</span>. <code>exit_isolated_workspace</code> calls host lifecycle exit and returns discarded upperdir bytes and phase timings <span class="file-ref">backend/src/tools/isolated_workspace/exit_isolated_workspace/definition.py:24-46</span>.</p>
+
+<div class="diagram" aria-label="Isolated workspace lifecycle">
+  <div class="flow-row">
+    <div class="node info"><strong>enter_isolated_workspace</strong><small>rejects if sandbox background jobs are in flight</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>prepare snapshot</strong><small>lease + layer_paths</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>wire handle</strong><small>ns_holder, ns fds, veth, overlay, DNS, cgroup</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node good"><strong>run tools</strong><small>same upperdir until exit</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node warn"><strong>exit_isolated_workspace</strong><small>cancel jobs, kill holder, release lease, rmtree scratch</small></div>
+  </div>
+</div>
+
+<p>Host lifecycle refuses enter when local or daemon-visible sandbox-bound background tasks are still running, returning <code>ephemeral_jobs_in_flight</code> <span class="file-ref">backend/src/sandbox/host/iws_lifecycle.py:39-58</span>. The daemon registers lifecycle operations <code>api.isolated_workspace.enter</code> and <code>api.isolated_workspace.exit</code> in the OP table <span class="file-ref">backend/src/sandbox/daemon/rpc/dispatcher.py:258-389</span>.</p>
+
+<p>On enter, the isolated lifecycle checks capacity, prepares a LayerStack snapshot, creates <code>upper</code> and <code>work</code> under its scratch dir, keeps <code>layer_paths</code>, then wires a namespace holder, namespace fds, veth, overlay mount, DNS, and cgroup <span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/handle_lifecycle.py:21-155</span>. The runtime spawns <code>unshare --user --map-root-user --net --pid --mount --fork --kill-child --propagation private</code> <span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/linux_runtime.py:64-104</span> and mounts the overlay inside that namespace with the LayerStack paths as lowerdirs <span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/linux_runtime.py:105-143</span>.</p>
+
+<p>Subsequent tool calls do not create/destroy overlays. <code>IsolatedPipeline.run_tool_call()</code> wraps the existing handle into an <code>OverlayHandle</code>, runs in the existing namespace, marks <code>workspace=isolated</code>, and captures changed paths for audit only. It explicitly does not commit through OCC; writes are discarded when the scratch dir is removed on exit <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:121-158</span>. Exit kills the holder, tears down veth, closes fds, releases the snapshot lease, removes the cgroup, and deletes the scratch dir <span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/handle_lifecycle.py:175-258</span>.</p>
+
+<h3 id="isolated-lifecycle-detail">5.3.1 Enter, Run, Exit Details <a class="anchor" href="#isolated-lifecycle-detail">§</a></h3>
+
+<div class="sequence" aria-label="Isolated enter technical lifecycle">
+  <ol>
+    <li><span>The host lifecycle checks local background tasks and daemon in-flight background counts for the caller.</span></li>
+    <li><span>The daemon registry lazily constructs or returns the isolated pipeline for the requested layer-stack root.</span></li>
+    <li><span>The pipeline waits for startup orphan recovery, checks feature enablement, verifies agent id, enforces one handle per agent, and checks capacity.</span></li>
+    <li><span>LayerStack prepares a snapshot and returns the lease plus existing <code>layer_paths</code>.</span></li>
+    <li><span>The handle lifecycle creates scratch, <code>upper</code>, and <code>work</code> directories under the overlay writable root.</span></li>
+    <li><span>The Linux runtime spawns the namespace holder, opens namespace fds, installs networking, mounts overlay, configures DNS, signals readiness, and creates cgroup state.</span></li>
+    <li><span>The pipeline persists manager state and emits an audit event with phase timings.</span></li>
+  </ol>
+</div>
+
+<table>
+  <thead><tr><th>Resource</th><th>Creation path</th><th>Cleanup path</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td>Snapshot lease</td><td>Created during <code>enter</code> and stored on <code>IsolatedWorkspaceHandle</code>.</td><td>Released during explicit exit or orphan cleanup.</td><td><span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/handle_lifecycle.py:21-98</span>, <span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/orphan_reaper.py:169-192</span></td></tr>
+    <tr><td>Namespace holder</td><td>Spawned with user/net/pid/mount namespaces and held open until exit.</td><td>Killed by teardown or orphan recovery.</td><td><span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/linux_runtime.py:64-104</span>, <span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/handle_lifecycle.py:220-258</span></td></tr>
+    <tr><td>Network</td><td>One <code>eos-shared0</code> bridge and one veth pair per workspace.</td><td>Veth torn down and IP released on exit/failure.</td><td><span class="file-ref">backend/src/sandbox/isolated_workspace/network.py:1-17</span>, <span class="file-ref">backend/src/sandbox/isolated_workspace/network.py:128-171</span></td></tr>
+    <tr><td>Cgroup/scratch</td><td>Created while wiring the handle.</td><td>Removed by teardown, TTL eviction, or startup orphan recovery.</td><td><span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/handle_lifecycle.py:100-155</span>, <span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/orphan_reaper.py:66-168</span></td></tr>
+  </tbody>
+</table>
+
+<p>The isolated pipeline is initialized once per layer-stack root: it creates scratch root, initializes networking when available, reports reachable RFC1918 routes, runs startup orphan recovery, then starts a TTL sweep loop <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:203-224</span>. The TTL sweep evicts only handles whose idle time exceeds TTL and whose <code>active_calls</code> is zero <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:226-273</span>. During tool calls, <code>active_calls</code> is incremented/decremented around the runtime execution so TTL cannot tear down an active handle <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:275-329</span>.</p>
+<div class="page-footer-nav"><span><a href="occ.html">← 4. OCC</a></span><span><a href="daemon.html">6. Daemon and Background Tasks →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

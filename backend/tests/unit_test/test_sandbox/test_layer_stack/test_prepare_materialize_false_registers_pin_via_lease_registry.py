@@ -27,7 +27,6 @@ def test_prepare_workspace_snapshot_returns_layer_paths(tmp_path: Path) -> None:
     )
     result = manager.prepare_workspace_snapshot("request-a")
 
-    assert result.layer_paths is not None
     assert len(result.layer_paths) == len(manifest.layers)
     for layer_path in result.layer_paths:
         assert Path(layer_path).is_dir()
@@ -94,7 +93,6 @@ def test_prepare_workspace_snapshot_returns_all_deep_layer_paths(
 
     result = manager.prepare_workspace_snapshot("request-deep")
 
-    assert result.layer_paths is not None
     assert len(result.layer_paths) == layer_count
     assert manager.active_lease_count() == 1
     manager.release_lease(result.lease_id)

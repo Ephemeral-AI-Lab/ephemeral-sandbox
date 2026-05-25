@@ -24,6 +24,7 @@ from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline
 from sandbox._shared.command_exec_contract import CommandExecRequest
 from sandbox.occ.changeset import CommitOptions
 from sandbox.occ.changeset import ChangesetResult, WriteChange
+from sandbox.overlay.path_change import OverlayPathChange
 
 _CAPTURED_PATHS: list[str] = []
 
@@ -85,18 +86,26 @@ def _patch_workspace_to_occ(
 ) -> None:
     """Bypass on-disk content readers; emit one ``WriteChange`` per path."""
 
-    def fake_walk_upperdir(*args: Any, **kwargs: Any) -> list[str]:
+    def fake_walk_upperdir(*args: Any, **kwargs: Any) -> list[OverlayPathChange]:
         del args, kwargs
-        return list(_CAPTURED_PATHS)
+        return [
+            OverlayPathChange(
+                path=path,
+                kind="write",
+                content_path="/tmp/unused",
+                final_hash="hash",
+            )
+            for path in _CAPTURED_PATHS
+        ]
 
     def fake(path_changes: Any, **_: Any) -> tuple[WriteChange, ...]:
         return tuple(
             write_change(
-                path=path,
+                path=change.path,
                 final_content=b"x",
                 source="overlay_capture",
             )
-            for path in path_changes
+            for change in path_changes
         )
 
     monkeypatch.setattr(publishing, "walk_upperdir", fake_walk_upperdir)

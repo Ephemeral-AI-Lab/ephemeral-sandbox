@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6. Daemon and Background Tasks - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 6. Daemon and Background Tasks</span>
+  <span class="nav-pair"><a href="workspaces.html">← 5. Workspace Modes</a><a href="provider.html">7. Provider →</a></span>
+</div>
+<h2 id="daemon">6. Daemon and Background Tasks <a class="anchor" href="#daemon">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>Sandbox operations need resident state, cached managers, cancellation, and plugin registration.</li>
+    <li>The daemon accepts JSON RPC envelopes, registers in-flight work, dispatches handlers, and exposes lifecycle control.</li>
+    <li>Provider exec/TCP transports reach the daemon; the background manager sends heartbeats and cancellations.</li>
+    <li>The daemon is the runtime control plane inside the sandbox.</li>
+  </ul>
+</div>
+
+<p>Each daemon envelope is validated, registered in the in-flight registry with <code>agent_id</code>, op, and <code>background</code> flag, dispatched through <code>OP_TABLE</code>, then deregistered in <code>finally</code> <span class="file-ref">backend/src/sandbox/daemon/rpc/dispatcher.py:55-113</span>. The registry supports cancellation, heartbeat refresh, per-agent background counts, and TTL reaping for stale background invocations <span class="file-ref">backend/src/sandbox/daemon/rpc/in_flight.py:20-154</span>. Public daemon handlers expose <code>cancel</code>, <code>heartbeat</code>, and <code>inflight_count</code> <span class="file-ref">backend/src/sandbox/daemon/operation_handlers.py:56-85</span>, and the host API wraps them <span class="file-ref">backend/src/sandbox/api/daemon_invocations.py:18-65</span>.</p>
+
+<p>The engine background path creates a background alias, detects whether the tool requires sandbox context, assigns a sandbox invocation id, and launches the coroutine through <code>BackgroundTaskManager</code> <span class="file-ref">backend/src/engine/background/dispatch.py:59-156</span>. The manager stores sandbox id, invocation id, agent id, and <code>uses_sandbox</code> on each tracked task <span class="file-ref">backend/src/engine/background/manager.py:67-155</span>. Running sandbox invocations are heartbeated periodically via <code>sandbox_api.heartbeat()</code> <span class="file-ref">backend/src/engine/background/manager.py:405-454</span>. Cancelling a sandbox-bound background task first wires daemon cancellation through <code>sandbox_api.cancel()</code> <span class="file-ref">backend/src/engine/background/manager.py:281-311</span>.</p>
+
+<div class="callout warn">
+  <span class="label">Isolated vs ephemeral background behavior</span>
+  Ephemeral background shell tasks are normal sandbox-bound daemon invocations with heartbeats and TTL cleanup. Isolated enter is blocked while those are running. Isolated exit cancels running sandbox-bound tasks for the same agent before closing the namespace <span class="file-ref">backend/src/sandbox/host/iws_lifecycle.py:96-133</span>.
+</div>
+
+<h3 id="background-lifecycle-detail">6.1 Background Task Lifecycle <a class="anchor" href="#background-lifecycle-detail">§</a></h3>
+
+<div class="sequence" aria-label="Background task lifecycle">
+  <ol>
+    <li><span>The tool execution layer decides to launch a tool in the background and calls the background dispatch helper.</span></li>
+    <li><span>Dispatch detects sandbox context, creates a sandbox invocation id, and stores it on the tracked background task.</span></li>
+    <li><span>When the sandbox request reaches the daemon, the dispatcher registers the invocation with <code>background=true</code>.</span></li>
+    <li><span>The background manager heartbeat loop periodically batches sandbox invocation ids and calls daemon heartbeat.</span></li>
+    <li><span>If the user cancels the background task, manager cancellation first calls daemon cancellation for the invocation id.</span></li>
+    <li><span>If heartbeats stop, the daemon in-flight TTL reaper cancels stale background invocations.</span></li>
+    <li><span>Result tools read the local manager state; they do not directly inspect daemon state unless cancellation/heartbeat is needed.</span></li>
+  </ol>
+</div>
+
+<table>
+  <thead><tr><th>Background-facing tool</th><th>Behavior</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td><code>check_background_task_result</code></td><td>Finds the tracked task, normalizes status, returns JSON with task id, status, rendered command, and result/progress snapshot.</td><td><span class="file-ref">backend/src/tools/background/check_background_task_result/check_background_task_result.py:78-128</span></td></tr>
+    <tr><td><code>wait_background_tasks</code></td><td>Waits for all currently running tracked tasks up to a bounded timeout, collects completed tasks, and returns a compact status snapshot.</td><td><span class="file-ref">backend/src/tools/background/wait_background_tasks/wait_background_tasks.py:47-123</span></td></tr>
+    <tr><td><code>cancel_background_task</code></td><td>Rejects ambiguous <code>all</code>, resolves <code>auto</code> only when exactly one task is running, and calls manager cancellation.</td><td><span class="file-ref">backend/src/tools/background/cancel_background_task/cancel_background_task.py:22-112</span></td></tr>
+    <tr><td>Shared rendering helpers</td><td>Normalize status names and render snapshots used by wait/check tools.</td><td><span class="file-ref">backend/src/tools/background/_lib/_common.py:20-99</span></td></tr>
+  </tbody>
+</table>
+
+<p>The isolated lifecycle uses both local manager state and daemon-visible counts. Enter checks <code>count_running_sandbox_tasks_for_agent()</code> on the local manager and then asks the daemon for in-flight background count when possible <span class="file-ref">backend/src/sandbox/host/iws_lifecycle.py:39-75</span>. Exit calls <code>background_manager.cancel_by_agent(..., only_sandbox_bound=True)</code> before daemon exit so background work cannot keep writing inside a namespace that is being torn down <span class="file-ref">backend/src/sandbox/host/iws_lifecycle.py:96-133</span>, <span class="file-ref">backend/src/engine/background/manager.py:313-337</span>.</p>
+<div class="page-footer-nav"><span><a href="workspaces.html">← 5. Workspace Modes</a></span><span><a href="provider.html">7. Provider →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1. Overview - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 1. Overview</span>
+  <span class="nav-pair"><a href="index.html">← Index</a><a href="layerstack.html">2. LayerStack →</a></span>
+</div>
+<h2 id="overview">1. Overview <a class="anchor" href="#overview">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>Many agents and plugins inspect or mutate one repository while sharing a single durable workspace history.</li>
+    <li>The runtime separates durable truth, temporary execution state, conflict control, and daemon dispatch.</li>
+    <li>LayerStack stores versions, overlay exposes normal filesystem views, OCC publishes accepted changes, and the daemon routes calls.</li>
+    <li>Each operation starts from a clear snapshot and can only publish through the controlled OCC path unless it is explicitly isolated scratch.</li>
+  </ul>
+</div>
+
+<div class="diagram" aria-label="Sandbox components">
+  <div class="flow-row">
+    <div class="node info"><strong>Tool / Plugin</strong><small>read, write, edit, shell, LSP</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Daemon</strong><small>OP_TABLE, in-flight registry</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node good"><strong>Workspace pipeline</strong><small>ephemeral or isolated</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>LayerStack</strong><small>manifest + immutable layers</small></div>
+  </div>
+  <div class="flow-row">
+    <div class="node"><strong>Overlay</strong><small>mount layer paths + private upper/work</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>OCC</strong><small>validate, stage, commit queue</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Publisher</strong><small>new immutable layer + manifest CAS</small></div>
+  </div>
+</div>
+
+<p>The important split is lifetime. <code>main_workspace</code> is the persistent repository identity. <code>ephemeral_workspace</code> creates private overlay state per tool/plugin operation. <code>isolated_workspace</code> creates one private overlay namespace at <code>enter_isolated_workspace</code> and discards it at <code>exit_isolated_workspace</code>.</p>
+<div class="page-footer-nav"><span><a href="index.html">← Index</a></span><span><a href="layerstack.html">2. LayerStack →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

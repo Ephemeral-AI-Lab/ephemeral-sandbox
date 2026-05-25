@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3. Overlay - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 3. Overlay</span>
+  <span class="nav-pair"><a href="layerstack.html">← 2. LayerStack</a><a href="occ.html">4. OCC →</a></span>
+</div>
+<h2 id="overlay">3. Overlay <a class="anchor" href="#overlay">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>Shells and plugins need a normal filesystem, not a layer-by-layer API.</li>
+    <li>Overlay mounts layer paths as read-only lowerdirs plus a private writable upperdir/workdir.</li>
+    <li>LayerStack supplies lower layers; OCC consumes captured upperdir changes.</li>
+    <li>Overlay turns a versioned layer log into a temporary working tree for one operation or one isolated session.</li>
+  </ul>
+</div>
+
+<div class="stack-viz" aria-label="Overlay filesystem stack">
+  <div class="layer merged"><strong>workspace_root mountpoint</strong><div class="desc">what the tool sees inside its mount namespace</div></div>
+  <div class="layer upper"><strong>upperdir</strong><div class="desc">private writes for this operation/session</div></div>
+  <div class="layer work"><strong>workdir</strong><div class="desc">overlayfs scratch required by the kernel</div></div>
+  <div class="layer lower"><strong>layer_paths</strong><div class="desc">shared lowerdirs from the active LayerStack manifest</div></div>
+</div>
+
+<p>The overlay lifecycle primitive allocates a per-operation run dir, leases a snapshot, requires <code>layer_paths</code>, allocates <code>upper</code> and <code>work</code>, and returns an <code>OverlayHandle</code> <span class="file-ref">backend/src/sandbox/overlay/lifecycle.py:20-79</span>. Upper/work directories live under <code>/eos-mount-scratch/eos-sandbox-runtime</code>; there is intentionally no fallback because overlayfs requires a suitable writable filesystem <span class="file-ref">backend/src/sandbox/overlay/writable_dirs.py:13-52</span>.</p>
+
+<p>The kernel mount helper calls Linux <code>fsopen</code>, <code>fsconfig</code>, <code>fsmount</code>, and <code>move_mount</code>. It adds each layer with <code>lowerdir+</code> in manifest order, where the first path is the highest-priority lower <span class="file-ref">backend/src/sandbox/overlay/kernel_mount.py:45-67</span>. Inputs are validated with <code>O_DIRECTORY | O_NOFOLLOW</code> and passed as <code>/proc/self/fd/...</code> paths to pin the checked directories <span class="file-ref">backend/src/sandbox/overlay/kernel_mount.py:139-198</span>.</p>
+
+<div class="callout good">
+  <span class="label">Does overlay replace the whole filesystem?</span>
+  No. A fresh ephemeral operation runs in a new mount namespace and overmounts only the bound <code>workspace_root</code>. Other inherited filesystem paths remain available subject to denylist policy. Isolated workspace does the same idea once inside a persistent namespace at <code>/testbed</code>. The code mount target is <code>workspace_root</code>, not <code>/</code> <span class="file-ref">backend/src/sandbox/overlay/kernel_mount.py:45-67</span>.
+</div>
+
+<p>Fresh ephemeral calls write a JSON payload and launch <code>unshare -Urm python -m sandbox.overlay.namespace_entrypoint</code> <span class="file-ref">backend/src/sandbox/overlay/namespace_runner.py:66-128</span>. The entrypoint validates/mounts the overlay, runs the tool from <code>workspace_root</code>, unmounts, and writes timings <span class="file-ref">backend/src/sandbox/overlay/namespace_entrypoint.py:85-175</span>. For isolated workspaces, the runner passes <code>mount_overlay=false</code> and executes inside the already-mounted namespace <span class="file-ref">backend/src/sandbox/overlay/namespace_runner.py:131-197</span>.</p>
+
+<div class="sequence" aria-label="Overlay capture lifecycle">
+  <ol>
+    <li><span>The operation finishes and the parent pipeline keeps the overlay handle alive.</span></li>
+    <li><span>For write-intent calls, <code>capture_changes(handle)</code> walks only <code>upperdir</code>.</span></li>
+    <li><span>Directory traversal is sorted per level and emits opaque-directory changes before children.</span></li>
+    <li><span>Regular files become disk-backed write changes with <code>content_path</code> and hash.</span></li>
+    <li><span>Whiteout entries become deletes; symlinks become symlink changes; opaque xattrs/markers become opaque-dir changes.</span></li>
+    <li><span>The pipeline converts captured path changes to OCC changes and then destroys the overlay handle.</span></li>
+  </ol>
+</div>
+
+<table>
+  <thead><tr><th>Overlay artifact</th><th>Who creates it</th><th>Who consumes it</th><th>Lifetime</th></tr></thead>
+  <tbody>
+    <tr><td><code>run_dir</code></td><td>Overlay lifecycle allocator</td><td>Parent pipeline for cleanup and metrics</td><td>One ephemeral/plugin operation, or one isolated handle scratch subtree</td></tr>
+    <tr><td><code>upperdir</code></td><td>Overlay lifecycle allocator</td><td>Kernel overlayfs and upperdir capture</td><td>Changed bytes only; removed after publish or isolated exit</td></tr>
+    <tr><td><code>workdir</code></td><td>Overlay lifecycle allocator</td><td>Kernel overlayfs</td><td>Scratch metadata for the same overlay mount</td></tr>
+    <tr><td><code>layer_paths</code></td><td>LayerStack snapshot</td><td>Kernel overlayfs lowerdirs and LSP/Pyright projections</td><td>Existing immutable layers pinned by lease</td></tr>
+  </tbody>
+</table>
+
+<p>The upperdir walk uses <code>os.walk()</code> and avoids loading the entire tree into memory <span class="file-ref">backend/src/sandbox/overlay/capture.py:49-93</span>. Whiteout and opaque handling are explicit helpers <span class="file-ref">backend/src/sandbox/overlay/capture.py:95-128</span>. This is why changed-data cost is tied to the operation's writes rather than repository size.</p>
+<div class="page-footer-nav"><span><a href="layerstack.html">← 2. LayerStack</a></span><span><a href="occ.html">4. OCC →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

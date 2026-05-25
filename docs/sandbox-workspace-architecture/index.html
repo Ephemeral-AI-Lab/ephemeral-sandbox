@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EphemeralOS Sandbox Workspace Architecture - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<h1>EphemeralOS Sandbox Workspace Architecture</h1>
+<p class="lead">Current code-backed guide to <code>backend/src/sandbox</code>, focused on LayerStack, overlay, OCC, workspace modes, daemon/background handling, provider adapters, and ephemeral-workspace plugins.</p>
+<div class="callout">
+  <span class="label">Navigation</span>
+  This split version keeps the section names from the original HTML file and uses one complete static page per top-level section. It works from <code>file://</code>; JavaScript only enhances search and active-link highlighting.
+</div>
+<div class="section-card-grid">
+<a class="section-card" href="overview.html"><strong>1. Overview</strong><span>§ Many agents and plugins inspect or mutate one repository while sharing a single durable workspace history. The runtime separates</span></a>
+<a class="section-card" href="layerstack.html"><strong>2. LayerStack</strong><span>§ Overlay users need a stable snapshot while other calls keep publishing new changes. LayerStack stores workspace versions as immu</span></a>
+<a class="section-card" href="overlay.html"><strong>3. Overlay</strong><span>§ Shells and plugins need a normal filesystem, not a layer-by-layer API. Overlay mounts layer paths as read-only lowerdirs plus a </span></a>
+<a class="section-card" href="occ.html"><strong>4. OCC</strong><span>§ Multiple operations can edit overlapping files from different snapshots. OCC routes, validates, stages, serializes, and publishe</span></a>
+<a class="section-card" href="workspaces.html"><strong>5. Workspace Modes</strong><span>§ Not every task needs the same workspace lifetime or privacy model. The package defines persistent, per-operation, and explicit p</span></a>
+<a class="section-card" href="daemon.html"><strong>6. Daemon and Background Tasks</strong><span>§ Sandbox operations need resident state, cached managers, cancellation, and plugin registration. The daemon accepts JSON RPC enve</span></a>
+<a class="section-card" href="provider.html"><strong>7. Provider</strong><span>§ The sandbox runtime can run on different backends without changing workspace logic. The provider boundary defines provider-neutr</span></a>
+<a class="section-card" href="plugins.html"><strong>8. Plugin in ephemeral_workspace</strong><span>§ Plugins need current workspace state without bypassing LayerStack/OCC ownership. The plugin path installs plugin runtime, regist</span></a>
+<a class="section-card" href="space-model.html"><strong>9. Space Model</strong><span>§ The design avoids copying a large repository for every tool call or background job. Immutable lower layers are shared; private u</span></a>
+<a class="section-card" href="workflow-cookbook.html"><strong>10. Workflow Cookbook</strong><span>§ This section restates the main runtime paths as end-to-end traces so a reader can follow one request from API/tool entrypoint to</span></a>
+</div>
+<div class="summary">
+  <ul>
+    <li>Use component sections such as <code>layerstack.html</code>, <code>overlay.html</code>, and <code>occ.html</code> to understand ownership boundaries.</li>
+    <li>Use <code>workflow-cookbook.html</code> when tracing a concrete request from tool call to storage effect.</li>
+    <li>The legacy <code>../sandbox-workspace-architecture.html</code> now points here so existing bookmarks have a stable landing page.</li>
+  </ul>
+</div>
+<div class="page-footer-nav"><span></span><span><a href="overview.html">Start: 1. Overview →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

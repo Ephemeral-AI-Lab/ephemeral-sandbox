@@ -26,14 +26,14 @@ class CheckpointSegment:
             raise ValueError("checkpoint segments must contain at least two layers")
 
 
-SquashPlanEntry = LayerRef | CheckpointSegment
+_SquashPlanEntry = LayerRef | CheckpointSegment
 
 
 @dataclass(frozen=True)
 class SquashPlan:
     active_version: int
     active_layers: tuple[LayerRef, ...]
-    entries: tuple[SquashPlanEntry, ...]
+    entries: tuple[_SquashPlanEntry, ...]
 
     def __post_init__(self) -> None:
         if not self.active_layers:
@@ -46,14 +46,6 @@ class SquashPlan:
     @property
     def checkpoint_segments(self) -> tuple[CheckpointSegment, ...]:
         return tuple(entry for entry in self.entries if isinstance(entry, CheckpointSegment))
-
-    @property
-    def squashed_layers(self) -> tuple[LayerRef, ...]:
-        return tuple(layer for segment in self.checkpoint_segments for layer in segment.layers)
-
-    @property
-    def resulting_depth(self) -> int:
-        return len(self.entries)
 
 
 class SquashService:
@@ -150,9 +142,9 @@ class SquashService:
 def _segment_unpinned_layers(
     layers: tuple[LayerRef, ...],
     pinned_layers: tuple[LayerRef, ...],
-) -> tuple[SquashPlanEntry, ...]:
+) -> tuple[_SquashPlanEntry, ...]:
     pinned = set(pinned_layers)
-    entries: list[SquashPlanEntry] = []
+    entries: list[_SquashPlanEntry] = []
     run: list[LayerRef] = []
 
     def flush_run() -> None:
@@ -191,7 +183,6 @@ def _default_checkpoint_id(next_version: int) -> str:
 __all__ = [
     "CheckpointSegment",
     "SquashPlan",
-    "SquashPlanEntry",
     "SquashService",
     "manifest_prefix_before_plan",
 ]

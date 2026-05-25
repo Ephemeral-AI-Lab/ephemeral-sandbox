@@ -16,6 +16,7 @@ from sandbox._shared.models import Intent, ToolCallRequest
 from sandbox.layer_stack.workspace_base import build_workspace_base
 from sandbox.occ.client import OccClient
 from sandbox.overlay.path_change import OverlayPathChange, content_hash
+import sandbox.overlay.writable_dirs as writable_dirs_mod
 from sandbox.daemon import occ_runtime_services
 from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline
 import sandbox.ephemeral_workspace.pipeline as pipeline_mod
@@ -74,6 +75,9 @@ async def test_shell_uses_occ_client_apply_changeset(
     captured = tmp_path / "capture" / "out.txt"
     captured.parent.mkdir()
     captured.write_text("shell wrote me\n", encoding="utf-8")
+    writable_root = tmp_path / "overlay-writable-root"
+    writable_root.mkdir()
+    monkeypatch.setattr(writable_dirs_mod, "OVERLAY_WRITABLE_ROOT", writable_root)
 
     async def fake_run(handle, req):
         del handle, req

@@ -154,6 +154,7 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/_conflict_markers.py",
         "sandbox/daemon/async_bridge.py",
         "sandbox/ephemeral_workspace/shell_job.py",
+        "sandbox/isolated_workspace/scripts/in_ns_write.py",
     ]
     present_removed = [p for p in removed if (extract_dir / p).exists()]
     assert present_removed == []
@@ -285,9 +286,9 @@ def test_launch_daemon_does_not_leak_flock_fd_to_daemon(tmp_path: Path) -> None:
     extract_dir = tmp_path / "extracted"
     _extract_bundle(bundle, extract_dir)
 
-    script = (
-        extract_dir / "sandbox" / "daemon" / "scripts" / "launch_daemon.sh"
-    ).read_text(encoding="utf-8")
+    script = (extract_dir / "sandbox" / "daemon" / "scripts" / "launch_daemon.sh").read_text(
+        encoding="utf-8"
+    )
     assert 'LOCK_FILE="${SOCK}.launch.v2.lock"' in script
     assert '9>&- </dev/null >"$LOG" 2>&1 &' in script
 

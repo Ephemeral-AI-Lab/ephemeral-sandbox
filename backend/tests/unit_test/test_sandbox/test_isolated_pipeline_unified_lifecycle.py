@@ -241,6 +241,16 @@ async def test_same_session_tool_calls_do_not_share_per_call_lock(
     assert runtime.max_active_calls == 2
 
 
+@pytest.mark.asyncio
+async def test_shutdown_suppresses_ttl_task_cancellation(tmp_path: Path) -> None:
+    pipeline = _pipeline(tmp_path)
+    pipeline._ttl_task = asyncio.create_task(asyncio.sleep(60))
+
+    await pipeline.shutdown()
+
+    assert pipeline._ttl_task.cancelled()
+
+
 def test_no_freeze_contract_left() -> None:
     root = Path(__file__).resolve().parents[3] / "src"
     production_files = list((root / "sandbox" / "isolated_workspace").rglob("*.py"))

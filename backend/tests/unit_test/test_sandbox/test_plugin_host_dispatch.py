@@ -94,6 +94,61 @@ def test_call_plugin_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert dispatch_calls[1][2]["intent"] == Intent.READ_ONLY.value
 
 
+def test_call_plugin_forwards_caller_audit_fields(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = _seed_demo_manifest(tmp_path)
+    monkeypatch.setattr(
+        host_dispatch_mod, "_PLUGIN_MANIFESTS_BY_NAME", {"demo": manifest}, raising=False
+    )
+    ctx = _make_context()
+    ctx["task_center_run_id"] = "run-1"
+    ctx["task_center_task_id"] = "task-1"
+    ctx["task_center_attempt_id"] = "attempt-1"
+    ctx["task_center_goal_id"] = "goal-1"
+    ctx["task_center_request_id"] = "request-1"
+    ctx["tool_id"] = "tool-1"
+    dispatch_payloads: list[dict[str, Any]] = []
+
+    async def fake_install(sandbox_id: str, m: PluginManifest) -> str:
+        del sandbox_id, m
+        return "abc123"
+
+    async def fake_dispatch(
+        sandbox_id: str, op: str, args: dict[str, Any], **kwargs: Any
+    ) -> dict[str, Any]:
+        del sandbox_id, kwargs
+        if op != "api.plugin.ensure":
+            dispatch_payloads.append(dict(args))
+        return {"success": True}
+
+    result = asyncio.run(
+        call_plugin(
+            ctx,
+            plugin="demo",
+            op="run",
+            payload={},
+            install_runner=fake_install,
+            daemon_dispatcher=fake_dispatch,
+        )
+    )
+
+    assert not result.is_error
+    assert dispatch_payloads[0]["caller"] == {
+        "agent_id": "",
+        "run_id": "",
+        "agent_run_id": "",
+        "task_id": "",
+        "task_center_run_id": "run-1",
+        "task_center_task_id": "task-1",
+        "task_center_attempt_id": "attempt-1",
+        "task_center_goal_id": "goal-1",
+        "task_center_request_id": "request-1",
+        "tool_id": "tool-1",
+    }
+
+
 def test_call_plugin_write_requires_write_intent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -1,7 +1,7 @@
 """R6: a veth install failure releases the lease — no IP leak, no zombie.
 
 Failure injection at the ``install_veth`` phase. Because the failure
-fires BEFORE ``IPPool.allocate``, no IP gets reserved on the failing
+fires BEFORE ``BridgeAddressPool.allocate``, no IP gets reserved on the failing
 path; the post-rollback enter must therefore succeed with a fresh IP
 allocation and the OCC flush path still works (lease released).
 """

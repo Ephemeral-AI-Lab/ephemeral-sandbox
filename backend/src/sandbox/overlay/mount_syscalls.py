@@ -26,6 +26,7 @@ import logging
 import os
 import sys
 from functools import cache
+from typing import NoReturn
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +123,7 @@ def probe_supported() -> bool:
 
     err = ctypes.get_errno()
     if err == errno.ENOSYS:
-        logger.warning(
-            "overlay.mount_syscalls.unavailable errno=ENOSYS reason=kernel_too_old"
-        )
+        logger.warning("overlay.mount_syscalls.unavailable errno=ENOSYS reason=kernel_too_old")
     elif err == errno.EPERM:
         logger.warning(
             "overlay.mount_syscalls.unavailable errno=EPERM reason=capability_or_seccomp_denial"
@@ -134,9 +133,7 @@ def probe_supported() -> bool:
             "overlay.mount_syscalls.unavailable errno=EBADF reason=caller_context_misconfig"
         )
     else:
-        logger.warning(
-            "overlay.mount_syscalls.unavailable errno=%d reason=unknown", err
-        )
+        logger.warning("overlay.mount_syscalls.unavailable errno=%d reason=unknown", err)
     return False
 
 
@@ -152,13 +149,19 @@ def _libc_or_raise() -> ctypes.CDLL:
     return libc
 
 
+def _raise_last_os_error(filename: object | None = None) -> NoReturn:
+    err = ctypes.get_errno()
+    if filename is None:
+        raise OSError(err, os.strerror(err))
+    raise OSError(err, os.strerror(err), filename)
+
+
 def fsopen(fsname: bytes) -> int:
     """Call fsopen(2) for the given filesystem name; return the fs context fd."""
     libc = _libc_or_raise()
     fd = libc.syscall(SYS_fsopen, fsname, 0)
     if fd < 0:
-        err = ctypes.get_errno()
-        raise OSError(err, os.strerror(err), fsname)
+        _raise_last_os_error(fsname)
     return fd
 
 
@@ -167,8 +170,7 @@ def fsconfig_string(fd: int, key: bytes, value: bytes) -> None:
     libc = _libc_or_raise()
     ret = libc.syscall(SYS_fsconfig, fd, FSCONFIG_SET_STRING, key, value, 0)
     if ret < 0:
-        err = ctypes.get_errno()
-        raise OSError(err, os.strerror(err), f"{key!r}={value!r}")
+        _raise_last_os_error(f"{key!r}={value!r}")
 
 
 def fsconfig_create(fd: int) -> None:
@@ -176,8 +178,7 @@ def fsconfig_create(fd: int) -> None:
     libc = _libc_or_raise()
     ret = libc.syscall(SYS_fsconfig, fd, FSCONFIG_CMD_CREATE, None, None, 0)
     if ret < 0:
-        err = ctypes.get_errno()
-        raise OSError(err, os.strerror(err))
+        _raise_last_os_error()
 
 
 def fsmount(fsfd: int) -> int:
@@ -185,8 +186,7 @@ def fsmount(fsfd: int) -> int:
     libc = _libc_or_raise()
     mfd = libc.syscall(SYS_fsmount, fsfd, 0, 0)
     if mfd < 0:
-        err = ctypes.get_errno()
-        raise OSError(err, os.strerror(err))
+        _raise_last_os_error()
     return mfd
 
 
@@ -202,8 +202,7 @@ def move_mount(from_fd: int, target_path: bytes) -> None:
         MOVE_MOUNT_F_EMPTY_PATH,
     )
     if ret < 0:
-        err = ctypes.get_errno()
-        raise OSError(err, os.strerror(err), target_path)
+        _raise_last_os_error(target_path)
 
 
 __all__ = [

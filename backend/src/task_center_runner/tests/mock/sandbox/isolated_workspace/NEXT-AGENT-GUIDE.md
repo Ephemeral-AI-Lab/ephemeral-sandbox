@@ -24,16 +24,15 @@ about to write. If something close exists, reuse it (deferred import after
 ```
 backend/src/sandbox/isolated_workspace/          ← all iws production code
 ├── __init__.py            feature overview + cross-package reuse contract
-├── pipeline.py / extracted modules             state machine, _PhaseTimer, _LinuxRuntime, _Runtime Protocol
+├── pipeline.py            public pipeline class, TTL loop, tool-call routing
+├── _control_plane/        lifecycle, runtime, registry, state, orphan reaping
 ├── network.py             bridge + nftables + veth + IP pool
-├── handlers.py            lifecycle-only api.isolated_workspace.{enter, exit, status}
 └── scripts/               single-threaded subprocess helpers (R10)
     ├── _setns_libc.py     libc setns(2) ctypes wrapper
     ├── ns_holder.py       PID 1 of the workspace namespace stack
     ├── setns_exec.py      generic "setns then fork/exec" helper
     ├── setns_overlay_mount.py  setns then call kernel_mount.mount_overlay
-    ├── configure_dns_in_ns.py  setns then rewrite /etc/resolv.conf
-    └── in_ns_write.py     legacy helper retained for old runtime probes
+    └── configure_dns_in_ns.py  setns then rewrite /etc/resolv.conf
 
 backend/src/task_center_runner/tests/mock/sandbox/isolated_workspace/  ← all iws tests
 ├── PLAN.md                  the 1076-line spec — read §11–§23 for v2 enrichments
@@ -74,12 +73,12 @@ Before writing new code, check whether one of these already does the job.
 |---|---|---|
 | Mount an overlay filesystem | `sandbox.overlay.kernel_mount.mount_overlay` — modern `fsopen/fsconfig/fsmount/move_mount`, FD-pinned paths via `validate_mount_inputs` | yes (`scripts/setns_overlay_mount.py`, deferred import after `setns`, uses `validate_mount_inputs`) |
 | Probe kernel overlay support | `sandbox.overlay.capability.mount_syscalls_supported` — the same hard precondition used by daemon startup | yes (`_iws_fixtures.can_mount_overlay_natively`) |
-| Walk upperdir for change capture | `sandbox.overlay.capture.walk_upperdir` — handles whiteouts, opaque dirs, sparse files | **not yet** — `manager._du_bytes` is a hand-rolled walk. If you need anything beyond byte counting (e.g., for the Tier 7 `test_upperdir_fully_discarded_on_normal_exit`), use `walk_upperdir` instead of reinventing |
+| Walk upperdir for change capture | `sandbox.overlay.capture.walk_upperdir` — handles whiteouts, opaque dirs, sparse files | **not yet** — `_control_plane.linux_runtime._directory_file_bytes` is byte-count only. If you need anything beyond byte counting (e.g., for the Tier 7 `test_upperdir_fully_discarded_on_normal_exit`), use `walk_upperdir` instead of reinventing |
 | Mount syscall syscall constants | `sandbox.overlay.mount_syscalls` (`SYS_fsopen`, `SYS_fsconfig`, `SYS_fsmount`, `SYS_move_mount`, etc.) | yes, through deferred reuse of `kernel_mount.mount_overlay`; do not inline raw syscall constants in iws helpers |
-| Lease + snapshot lifecycle | `sandbox.daemon.layer_stack_runtime.prepare_workspace_snapshot` / `release_lease` | yes (`LayerStackClient` is bound during `helper.manager` bootstrap) |
-| Overlay writable-root resolution | `sandbox.overlay.writable_dirs.overlay_writable_root` | yes (`handlers._ensure_manager`) |
+| Lease + snapshot lifecycle | `sandbox.daemon.layer_stack_runtime.prepare_workspace_snapshot` / `release_lease` | yes (`LayerStackClient` is bound during `_control_plane.pipeline_registry.ensure_pipeline`) |
+| Overlay writable-root resolution | `sandbox.overlay.writable_dirs.overlay_writable_root` | yes (`_control_plane.pipeline_registry.ensure_pipeline`) |
 | Daemon RPC client | `sandbox.host.daemon_client.call_daemon_api` | yes (`_iws_rpc`) |
-| Audit event types | `task_center_runner.audit.events.EventType` — the 5 `SANDBOX_ISOLATED_WORKSPACE_*` enum members are already defined | yes (events emitted via `_emit` in `manager`) |
+| Audit event types | `task_center_runner.audit.events.EventType` — the 5 `SANDBOX_ISOLATED_WORKSPACE_*` enum members are already defined | yes (events emitted via `IsolatedPipeline._emit`) |
 | Overlay path validation | `sandbox._shared.command_exec_policy.validate_overlay_path_text` + the `MountInputs` returned by `validate_mount_inputs` | yes (`scripts/setns_overlay_mount.py` validates and FD-pins paths before calling `mount_overlay`) |
 | Path-policy enforcement | `sandbox._shared.command_exec_policy.DEFAULT_COMMAND_EXEC_POLICY` | yes for overlay mount paths through `validate_mount_inputs`; command/path policy for iws tool args remains separate |
 
@@ -180,7 +179,7 @@ layers. Three blockers fixed:
 
 Plus the **PR 0 acceptance backstop test** (Critic follow-up #6) landed
 as `happy_path/test_mount_overlay_backstop.py`. It bypasses the manager's
-`enter()` entirely, calls `_LinuxRuntime.mount_overlay` directly via a
+`enter()` entirely, calls `_LinuxNamespaceRuntime.mount_overlay` directly via a
 `raw_exec` script inside the sweevo container, and asserts the overlay
 line appears in `/proc/<root_pid>/mountinfo`. This isolates "did the
 syscall fire" from "is something around the mount broken" (veth, cgroup,
@@ -200,7 +199,8 @@ real sweevo container.
 **What this session landed (static):**
 
 - **Daemon-side audit sink wired**. The manager already accepted an
-  `AuditSink` port; `handlers.py` now passes a `_JsonlAuditSink` that
+  `AuditSink` port; `_control_plane.pipeline_registry.ensure_pipeline`
+  passes a `_JsonlAuditSink` that
   appends to `/tmp/sandbox_isolated_workspace_events.jsonl`
   (env-overrideable via `EOS_ISOLATED_WORKSPACE_AUDIT_PATH`). Previously
   the 5 lifecycle events fell on the floor because `audit=None`.
@@ -285,8 +285,7 @@ already provide all the properties under test.
 ### Phase 4 (done, 2026-05-23 session 3) — Tier 7 GC + persistence, 13 tests
 
 **Goal landed:** daemon-restart reconciliation reaps every iws-owned
-kernel + disk resource, releases orphan leases, reserves persisted IPs,
-and sweeps legacy v1 nft tables.
+kernel + disk resource, releases orphan leases, and reserves persisted IPs.
 
 **Tests landed (all 13):**
 
@@ -295,7 +294,7 @@ and sweeps legacy v1 nft tables.
 - `gc_and_persistence/test_daemon_restart_reaps_orphan_{veth, cgroup, scratch, netns}.py`
 - `gc_and_persistence/test_daemon_restart_releases_orphan_lease.py`
 - `gc_and_persistence/test_daemon_restart_reconciles_ip_pool.py`
-- `gc_and_persistence/test_v1_nft_table_migration_sweep.py`
+- `gc_and_persistence/test_iws_daemon_restart_mid_parallel_calls.py`
 - v2 additions (PLAN §19.5):
   - `gc_and_persistence/test_lowerdir_layer_paths_shared_across_concurrent_handles.py`
   - `gc_and_persistence/test_lowerdir_disk_usage_is_o1.py`
@@ -304,7 +303,7 @@ and sweeps legacy v1 nft tables.
 
 **Production code (in `pipeline.py` / extracted modules):**
 
-- `startup_gc` rewritten: every persisted handle row is treated as a
+- `reap_startup_orphans` rewritten: every persisted handle row is treated as a
   zombie — reserve its IP, release its lease, reap its cgroup, THEN run
   the naming-convention sweep.
 - New `_release_orphan_lease(persisted_row)` + `_reap_orphan_cgroup(persisted_row)`
@@ -312,17 +311,12 @@ and sweeps legacy v1 nft tables.
 - `_reap_orphans` extended with a cgroup naming-convention sweep on top of
   the existing veth + scratch sweeps.
 
-**Production code (in `network.py`):**
-
-- `initialize()` now calls `_sweep_v1_nft_tables()` before installing
-  current tables — deletes legacy `eos_pinws_*` if present.
-
 **Helpers landed in `_iws_fixtures.py`:**
 
 - `iws_scratch_root(sandbox_id)` — discovers the daemon's scratch root.
 - `daemon_kill_and_respawn(sandbox_id, *, layer_stack_root, ...)` —
   SIGKILLs the daemon then re-issues an `enter` to respawn it
-  (`_ensure_manager` runs `startup_gc`).
+  (`ensure_pipeline` runs `reap_startup_orphans` through `initialize()`).
 - `list_host_eos_iws_resources(sandbox_id)` — snapshot of veth/cgroup/netns
   named `eos-iws-*`.
 - `read_manager_json` / `write_manager_json` — for the roundtrip + schema
@@ -377,7 +371,7 @@ the manager doesn't strand state.
 - `failure_modes/test_veth_install_fails_releases_lease.py`
 - `failure_modes/test_dns_helper_fails_does_not_strand_handle.py`
 - `failure_modes/test_holder_refuses_sigterm_sigkill_fallback.py`
-- `failure_modes/test_argv_e2big_via_in_ns_write.py`
+- `failure_modes/test_write_file_streams_large_body_without_argv_e2big.py`
 
 **Production code (in `pipeline.py` / extracted modules):**
 
@@ -436,11 +430,11 @@ runtime test; the async refactor that unblocks N=5 fan-out lands first.
 
 **Production code (in `pipeline.py` / extracted modules):**
 
-- `_Runtime` Protocol: `mount_overlay` + `configure_dns` are now
+- `_NamespaceRuntime` Protocol: `mount_overlay` + `configure_dns` are now
   `async def`. The other Protocol methods stay sync — they're fast
   (`ip link` / `mkdir`); Tier 8's contention-bound test will be the
   forcing function if more need to widen.
-- `_LinuxRuntime.mount_overlay` / `configure_dns` reuse a new shared
+- `_LinuxNamespaceRuntime.mount_overlay` / `configure_dns` reuse a new shared
   module-level `_run_helper_subprocess` coroutine
   (`asyncio.create_subprocess_exec` + `asyncio.wait_for`) so 5 enters
   no longer queue on a single `subprocess.run`.
@@ -535,12 +529,11 @@ in `IMPLEMENTATION-REPORT.md` Session 4 deferred items.
 | Item | When to land |
 |---|---|
 | ~~`EOS_ISOLATED_WORKSPACE_ENABLED` daemon plumbing~~ | **DONE** (2026-05-23 session 2 — see `iws_sandbox` fixture in `conftest.py`). |
-| ~~Daemon-side iws audit-event JSONL sink~~ | **DONE** (2026-05-23 session 2 — `_JsonlAuditSink` in `handlers.py`, `iws_audit_jsonl` fixture). |
-| ~~Cgroup/lease/netns reap on startup_gc~~ | **DONE** (2026-05-23 session 3 — `_release_orphan_lease`, `_reap_orphan_cgroup`, and cgroup naming sweeps in `pipeline.py` / extracted modules). |
-| ~~v1 `eos_pinws_*` nft migration sweep~~ | **DONE** (2026-05-23 session 3 — `IsolatedNetwork._sweep_v1_nft_tables`). |
+| ~~Daemon-side iws audit-event JSONL sink~~ | **DONE** (2026-05-23 session 2 — `_JsonlAuditSink` in `_control_plane.pipeline_registry`, `iws_audit_jsonl` fixture). |
+| ~~Cgroup/lease/netns reap on startup_gc~~ | **DONE** (2026-05-23 session 3 — `_release_orphan_lease`, `_reap_orphan_cgroup`, and cgroup naming sweeps in `_control_plane.orphan_reaper`). |
 | ~~IPv6 default-route purge~~ | **DONE** (2026-05-23 session 3 — `_purge_ipv6_default_routes` in `scripts/ns_holder.py`). |
 | ~~Test-only failure-injection env knobs~~ | **DONE** (2026-05-23 session 3 — `_maybe_inject_failure` in `pipeline.py` / extracted modules, holder crash knob in `ns_holder.py`). |
-| ~~Async `subprocess` migration for `_LinuxRuntime` (§4.2/7.7)~~ | **DONE** (2026-05-23 session 4 — `mount_overlay` + `configure_dns` are `async def`; shared `_run_helper_subprocess` coroutine). |
+| ~~Async `subprocess` migration for `_LinuxNamespaceRuntime` (§4.2/7.7)~~ | **DONE** (2026-05-23 session 4 — `mount_overlay` + `configure_dns` are `async def`; shared `_run_helper_subprocess` coroutine). |
 | ~~`_ttl_loop` background task wired by `initialize()`~~ | **DONE** (2026-05-23 session 4 — Tier 5 prerequisite; adaptive cadence `max(0.5 s, min(ttl_s / 2, 30 s))`). |
 | ~~`EOS_ISOLATED_WORKSPACE_TEST_PHASE_DELAY` test-only knob~~ | **DONE** (2026-05-23 session 4 — drives Tier 9's `test_latency_regression_band`). |
 | ~~`LatencyBudget` helper + `latency_baseline` fixture (PR 6)~~ | **DONE** (2026-05-23 session 4 — `_iws_invariants.LatencyBudget`, `conftest.iws_latency_baseline`). |
@@ -611,7 +604,7 @@ them with the test that actually exercises them.
 
 ### 5.4 I latently broke `ns_holder.py` and didn't notice
 
-**What I did:** Original `_LinuxRuntime.spawn_ns_holder` closed
+**What I did:** Original `_LinuxNamespaceRuntime.spawn_ns_holder` closed
 `r_parent` (the readiness pipe reader) immediately after seeing `ns-up`.
 But `ns_holder.py` writes `ready\n` to the *writer* end of that same
 pipe later — when the reader is closed, the write hits EPIPE and

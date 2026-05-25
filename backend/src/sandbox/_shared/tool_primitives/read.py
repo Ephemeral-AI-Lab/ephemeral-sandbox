@@ -14,8 +14,8 @@ from sandbox._shared.tool_primitives.workspace_filesystem import (
 _MAX_READ_BYTES = 16 * 1024 * 1024
 
 
-def read_file(args: Mapping[str, object] | str) -> ReadFileResult:
-    path = _path_from_args(args)
+def read_file(args: Mapping[str, object]) -> ReadFileResult:
+    path = required_workspace_path(args.get("path"))
     try:
         fd = open_no_follow(path, os.O_RDONLY)
     except FileNotFoundError:
@@ -26,11 +26,6 @@ def read_file(args: Mapping[str, object] | str) -> ReadFileResult:
             raise ValueError(f"file too large: {size} > {_MAX_READ_BYTES} bytes")
         data = handle.read()
     return ReadFileResult(content=data.decode("utf-8", "replace"))
-
-
-def _path_from_args(args: Mapping[str, object] | str) -> str:
-    raw = args.get("path") if isinstance(args, Mapping) else args
-    return required_workspace_path(raw)
 
 
 __all__ = ["read_file"]

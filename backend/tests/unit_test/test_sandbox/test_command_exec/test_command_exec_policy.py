@@ -49,9 +49,7 @@ def test_absolute_cwd_outside_workspace_is_rejected(tmp_path: Path) -> None:
 
 
 def test_default_policy_filters_loader_env() -> None:
-    env = DEFAULT_COMMAND_EXEC_POLICY.command_environment(
-        {"PATH": "/tmp/unsafe", "SAFE_FLAG": "1"}
-    )
+    env = DEFAULT_COMMAND_EXEC_POLICY.command_environment({"PATH": "/tmp/unsafe", "SAFE_FLAG": "1"})
 
     assert env["SAFE_FLAG"] == "1"
     assert env["PATH"] != "/tmp/unsafe"
@@ -61,7 +59,6 @@ def test_default_policy_filters_loader_env() -> None:
 def test_command_exec_policy_can_be_tightened_for_tests() -> None:
     policy = CommandExecPolicy(
         restricted_env_keys=frozenset({"SECRET"}),
-        workspace_env_keys=frozenset({"WORKSPACE_DIR"}),
         forbidden_overlay_path_chars=("@",),
         command_env_defaults={"LOCKS": "off"},
     )

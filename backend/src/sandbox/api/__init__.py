@@ -4,10 +4,8 @@ Request and result dataclasses are owned by :mod:`sandbox._shared.models` and
 re-exported here to preserve the existing public import path.
 
 Import ordering is load-bearing: ``sandbox._shared.models`` must bind before
-``sandbox.api._provider_control`` runs, because the chain
-``_provider_control -> host.lifecycle -> plugin.host_dispatch ->
-tools.sandbox._lib.session`` re-enters this package looking for
-``SandboxCaller``. Do not let an auto-formatter reorder these blocks.
+``sandbox.api.provider_control`` runs so public request/result names are
+available before lifecycle imports pull in tool-facing plugin dispatch.
 """
 
 from __future__ import annotations
@@ -42,7 +40,7 @@ from sandbox._shared.models import (
     WriteFileRequest,
     WriteFileResult,
 )
-from sandbox.api._provider_control import (  # isort: skip -- models precede provider control
+from sandbox.api.provider_control import (  # isort: skip -- models precede provider control
     configured_sandbox_defaults,
     context_preparer_for,
     create_sandbox,
@@ -64,8 +62,8 @@ from sandbox.api.tool.grep import grep
 from sandbox.api.tool.read import read_file
 from sandbox.api.tool.shell import shell
 from sandbox.api.tool.write import write_file
-from sandbox.api._provider_raw_exec import raw_exec
-from sandbox.api.daemon_invocation_control import cancel, heartbeat, inflight_count
+from sandbox.api.raw_exec import raw_exec
+from sandbox.api.daemon_invocations import cancel, heartbeat, inflight_count
 
 __all__ = [
     "ConflictInfo",

@@ -16,27 +16,11 @@ from plugins.catalog.lsp.runtime.apply import apply_workspace_edit
 class _Overlay:
     def __init__(self, workspace_root: str) -> None:
         self.workspace_root = workspace_root
-        self.published_paths: tuple[str, ...] = ()
         self.ensure_reasons: list[str] = []
 
     async def ensure_current(self, *, reason: str = "ensure_current") -> str:
         self.ensure_reasons.append(reason)
         return "hash@1"
-
-    async def publish_workspace_paths(
-        self,
-        *,
-        paths: tuple[str, ...],
-        agent_id: str = "",
-        description: str = "plugin workspace edit",
-    ) -> object:
-        del agent_id, description
-        self.published_paths = paths
-        return SimpleNamespace(
-            success=True,
-            published_manifest_version=2,
-            files=(),
-        )
 
 
 class _OperationOverlay(_Overlay):
@@ -174,7 +158,11 @@ async def test_apply_workspace_edit_handles_file_operations(
     changed_paths = apply_mod._apply_edit_payload(
         {
             "documentChanges": [
-                {"kind": "rename", "oldUri": old_path.as_uri(), "newUri": (workspace / "pkg" / "new.py").as_uri()},
+                {
+                    "kind": "rename",
+                    "oldUri": old_path.as_uri(),
+                    "newUri": (workspace / "pkg" / "new.py").as_uri(),
+                },
                 {"kind": "create", "uri": (workspace / "pkg" / "created.py").as_uri()},
                 {"kind": "delete", "uri": (workspace / "pkg" / "created.py").as_uri()},
             ]

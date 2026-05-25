@@ -76,8 +76,6 @@ def test_squash_plan_collapses_each_unpinned_run_around_pinned_layers(
         layers[3],
         CheckpointSegment(layers[4:]),
     )
-    assert plan.squashed_layers == (*layers[:3], *layers[4:])
-    assert plan.resulting_depth == 3
 
 
 def test_squash_plan_skips_tiny_runs_when_pinned_suffix_exceeds_threshold(

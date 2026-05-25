@@ -72,7 +72,7 @@ class ProviderAdapter(Protocol):
         ``prepare_context_async(context)`` so sandbox tools can inject
         provider-aware runtime metadata without importing provider modules.
         Promoted from the duck-typed ``getattr(adapter, "context_preparer", ...)``
-        call at ``sandbox/api/_provider_control.py`` so static analysis has a
+        call at ``sandbox/api/provider_control.py`` so static analysis has a
         fixed point for every concrete adapter.
         """
         ...

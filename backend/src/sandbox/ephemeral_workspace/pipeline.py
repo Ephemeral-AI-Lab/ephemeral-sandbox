@@ -399,21 +399,6 @@ class EphemeralPipeline(OperationOverlayMixin, WorkspacePublishMixin):
             return
         self._layer_stack.release_lease(lease_id=lease_id)
 
-    def _relative_workspace_path(self, path: str) -> str:
-        raw = str(path or "").strip()
-        if not raw:
-            raise ValueError("workspace path must not be empty")
-        full = Path(raw)
-        root = Path(self.workspace_root)
-        if not full.is_absolute():
-            return full.as_posix().strip("/")
-        try:
-            return full.resolve(strict=False).relative_to(
-                root.resolve(strict=False)
-            ).as_posix()
-        except ValueError:
-            raise ValueError(f"path is outside workspace root: {path}") from None
-
     def _start_foreign_publish_watcher(self) -> None:
         if self._foreign_watch_task is not None and not self._foreign_watch_task.done():
             return

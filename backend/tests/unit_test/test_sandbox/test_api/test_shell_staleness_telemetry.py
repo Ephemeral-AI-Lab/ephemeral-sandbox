@@ -127,6 +127,16 @@ async def _run_occ_clean_stale_shell(
         runner,
     )
     services = occ_runtime_services.get_occ_runtime_services(str(manager.storage_root))
+    monkeypatch.setattr(
+        pipeline_mod,
+        "overlay_writable_root",
+        lambda: tmp_path / "overlay-writable-root",
+    )
+    monkeypatch.setattr(
+        pipeline_mod.overlay_lifecycle,
+        "overlay_writable_root",
+        lambda: tmp_path / "overlay-writable-root",
+    )
     pipeline = EphemeralPipeline(
         occ_client=services.occ_client,
         workspace_ref=str(manager.storage_root),

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from audit.base import AuditSink
-from sandbox.api.tool._daemon_payload import daemon_request_identity
+from sandbox.api.tool._daemon_requests import daemon_identity_payload
 from sandbox.api.tool._operation_audit import run_audited_operation
-from sandbox.api.tool._result_projection import read_result_from_daemon_response
+from sandbox.api.tool._daemon_results import read_result_from_daemon_response
 from sandbox.api.timeouts import READ_FILE_TIMEOUT_S
-from sandbox.api.transport import DAEMON_OP_READ_FILE, DaemonSandboxTransport, SandboxTransport
+from sandbox.api.transport import DAEMON_OP_READ_FILE, SandboxTransport, call_sandbox_daemon
 from sandbox._shared.models import ReadFileRequest, ReadFileResult
 
 
@@ -19,15 +19,15 @@ async def read_file(
     transport: SandboxTransport | None = None,
 ) -> ReadFileResult:
     """Read one UTF-8 text file through the sandbox daemon."""
-    daemon_transport = transport or DaemonSandboxTransport()
 
     async def _call() -> ReadFileResult:
-        payload = daemon_request_identity(request) | {"path": request.path}
-        response = await daemon_transport.call(
+        payload = daemon_identity_payload(request) | {"path": request.path}
+        response = await call_sandbox_daemon(
             sandbox_id,
             DAEMON_OP_READ_FILE,
             payload,
             timeout=READ_FILE_TIMEOUT_S,
+            transport=transport,
         )
         return read_result_from_daemon_response(response)
 

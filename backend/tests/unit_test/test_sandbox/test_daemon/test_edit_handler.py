@@ -13,9 +13,10 @@ def test_edit_anchor_miss_raises_without_writing(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="anchor not found"):
         edit_file(
-            str(target),
-            old_text="missing\n",
-            new_text="replacement\n",
+            {
+                "path": str(target),
+                "edits": [{"old_text": "missing\n", "new_text": "replacement\n"}],
+            }
         )
 
     assert target.read_text(encoding="utf-8") == "alpha\n"
@@ -83,7 +84,12 @@ def test_edit_out_of_workspace_refuses_terminal_symlink(tmp_path) -> None:
     os.symlink(target, link)
 
     with pytest.raises(ValueError, match="refusing to follow symlink"):
-        edit_file(str(link), old_text="alpha", new_text="beta")
+        edit_file(
+            {
+                "path": str(link),
+                "edits": [{"old_text": "alpha", "new_text": "beta"}],
+            }
+        )
 
     assert target.read_text(encoding="utf-8") == "alpha\n"
 

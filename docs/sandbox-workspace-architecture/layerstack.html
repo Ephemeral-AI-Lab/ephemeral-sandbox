@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2. LayerStack - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 2. LayerStack</span>
+  <span class="nav-pair"><a href="overview.html">← 1. Overview</a><a href="overlay.html">3. Overlay →</a></span>
+</div>
+<h2 id="layerstack">2. LayerStack <a class="anchor" href="#layerstack">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>Overlay users need a stable snapshot while other calls keep publishing new changes.</li>
+    <li>LayerStack stores workspace versions as immutable layer directories plus one active manifest.</li>
+    <li>OCC publishes new layers, overlay mounts layer paths, and plugins lease projections from the same manager.</li>
+    <li>LayerStack is the durable truth; overlays and plugin projections are temporary views over that truth.</li>
+  </ul>
+</div>
+
+<h3 id="layerstack-storage">2.1 Storage <a class="anchor" href="#layerstack-storage">§</a></h3>
+<div class="summary">
+  <ul>
+    <li>The runtime needs one place to find manifests, layers, staging, metadata, and workspace binding.</li>
+    <li>The storage root contains <code>manifest.json</code>, <code>workspace.json</code>, <code>layers/</code>, <code>staging/</code>, and digest sidecars.</li>
+    <li>Daemon bootstrap builds the base layer; workspace binding prevents path ambiguity between the real workspace and layer-stack root.</li>
+    <li>The repository is copied once into a base layer, then every accepted change appends a delta layer.</li>
+  </ul>
+</div>
+
+<pre><code>/tmp/eos-sandbox-runtime/layer-stack/     default root, from daemon paths
+  manifest.json                           active manifest
+  workspace.json                          binding to the real workspace root
+  layers/
+    B000001-base/                         initial full workspace base
+    L000002-.../                          immutable published deltas
+  staging/
+    *.staging/                            layer publish staging
+    occ-commit-.../                       OCC content staging
+  .layer-metadata/                        layer digest sidecars</code></pre>
+
+<p>The default layer stack root is <code>/tmp/eos-sandbox-runtime/layer-stack</code> <span class="file-ref">backend/src/sandbox/daemon/paths.py:5-16</span>. Actual calls may pass another <code>layer_stack_root</code>. A <code>WorkspaceBinding</code> records the bound <code>workspace_root</code>, stack root, active version, and root hashes <span class="file-ref">backend/src/sandbox/layer_stack/workspace_binding.py:21-28</span>. The binding validator requires both roots to be absolute and requires the layer stack to live outside the workspace <span class="file-ref">backend/src/sandbox/layer_stack/workspace_binding.py:110-130</span>.</p>
+
+<p>The base layer is built once as <code>B000001-base</code> <span class="file-ref">backend/src/sandbox/layer_stack/workspace_base.py:32</span>. The base builder walks the workspace, rejects special or unstable files, writes the layer, writes manifest version 1, then writes <code>workspace.json</code> <span class="file-ref">backend/src/sandbox/layer_stack/workspace_base.py:82-141</span>.</p>
+
+<h3 id="layerstack-projection">2.2 Projection <a class="anchor" href="#layerstack-projection">§</a></h3>
+<div class="summary">
+  <ul>
+    <li>Tools need the latest workspace view without copying the full repository for each call.</li>
+    <li>A snapshot returns a lease plus ordered <code>layer_paths</code> for the active manifest.</li>
+    <li>Overlay mounts those paths, and <code>MergedView</code> reads them directly for fast read APIs.</li>
+    <li>A normal projection is not a rendered tree by default; it is a pinned list of existing layers.</li>
+  </ul>
+</div>
+
+<p>Current <code>LayerStack.prepare_workspace_snapshot()</code> reads the manifest, acquires a lease, and returns <code>layer_paths</code> copied from the manifest. It sets <code>layer_stack.materialize_s</code> to <code>0.0</code> and does not build a transient lowerdir for normal operations <span class="file-ref">backend/src/sandbox/layer_stack/stack.py:105-129</span>. The result object contains <code>lease_id</code>, <code>manifest_version</code>, <code>root_hash</code>, <code>manifest</code>, timings, and optional <code>layer_paths</code> <span class="file-ref">backend/src/sandbox/layer_stack/stack.py:43-62</span>.</p>
+
+<div class="stack-viz" aria-label="LayerStack projection">
+  <div class="layer lower"><strong>L000005-...</strong><div class="desc">newest layer, highest priority lowerdir</div></div>
+  <div class="layer lower"><strong>L000004-...</strong><div class="desc">older layer</div></div>
+  <div class="layer base"><strong>B000001-base</strong><div class="desc">initial repository base</div></div>
+  <div class="layer merged"><strong>Projection handle</strong><div class="desc">lease_id + layer_paths + manifest_key, no full tree copy</div></div>
+</div>
+
+<p><code>MergedView</code> still exists for direct logical reads and materialization. It reads newest-first, honors whiteouts and opaque directories, and can list directories or iterate paths <span class="file-ref">backend/src/sandbox/layer_stack/view.py:60-193</span>. Its <code>materialize()</code> method applies layers oldest-first into a destination <span class="file-ref">backend/src/sandbox/layer_stack/view.py:195-219</span>. That rendered tree is used by flush/squash/special paths, not by normal per-tool overlay lowerdirs.</p>
+
+<h3 id="layerstack-publish">2.3 Publish <a class="anchor" href="#layerstack-publish">§</a></h3>
+<div class="summary">
+  <ul>
+    <li>Concurrent writers need an atomic way to append changes without losing another commit.</li>
+    <li>The publisher stages layer changes, moves the layer into <code>layers/</code>, then atomically writes a new manifest.</li>
+    <li>OCC validates changes before calling the publisher; leases prevent live layers from being removed.</li>
+    <li>Every successful mutation becomes one new immutable layer and one manifest version bump.</li>
+  </ul>
+</div>
+
+<p>The publisher performs a CAS check before writing, writes changes into a staging layer, moves it into <code>layers/</code>, then re-checks the manifest before writing the new active manifest <span class="file-ref">backend/src/sandbox/layer_stack/publisher.py:49-132</span>. Delete and opaque directory semantics use overlay-style marker files <span class="file-ref">backend/src/sandbox/layer_stack/changes.py:123-142</span>. Leases pin layers by refcount and expose pinned layers to squash/GC <span class="file-ref">backend/src/sandbox/layer_stack/lease.py:38-86</span>.</p>
+
+<div class="sequence" aria-label="LayerStack publish lifecycle">
+  <ol>
+    <li><span>OCC enters a LayerStack commit transaction and passes the expected manifest to the publisher.</span></li>
+    <li><span>The publisher compares the expected manifest with the current active manifest before writing a layer.</span></li>
+    <li><span>It prepares layer changes and computes a digest, allowing an idempotent duplicate head layer to short-circuit.</span></li>
+    <li><span>It writes a staging layer, fsyncs files/directories, and atomically moves staging into <code>layers/</code>.</span></li>
+    <li><span>It writes a digest sidecar, re-reads the active manifest, and removes the layer if another writer won the race.</span></li>
+    <li><span>If the manifest is still stable, it writes a new manifest with the new layer prepended.</span></li>
+  </ol>
+</div>
+
+<table>
+  <thead><tr><th>LayerStack operation</th><th>Technical behavior</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td>Initialization</td><td>Creates root, writer lock, <code>layers/</code>, <code>staging/</code>, manifest store, lease registry, merged view, publisher, and squash service.</td><td><span class="file-ref">backend/src/sandbox/layer_stack/stack.py:65-94</span></td></tr>
+    <tr><td>Snapshot release</td><td>Releases the lease, checks current manifest reachability, removes unreferenced layer candidates, removes digest sidecars, and evicts view indexes.</td><td><span class="file-ref">backend/src/sandbox/layer_stack/stack.py:135-147</span>, <span class="file-ref">backend/src/sandbox/layer_stack/stack.py:322-338</span></td></tr>
+    <tr><td>Squash planning</td><td>Segments unpinned layer runs so pinned layers from live overlays remain in place; no-op or tiny compactions are refused.</td><td><span class="file-ref">backend/src/sandbox/layer_stack/squash.py:69-101</span>, <span class="file-ref">backend/src/sandbox/layer_stack/squash.py:150-184</span></td></tr>
+    <tr><td>Checkpoint build</td><td>Materializes a segment into a checkpoint layer and moves it into <code>layers/</code>.</td><td><span class="file-ref">backend/src/sandbox/layer_stack/squash.py:103-121</span></td></tr>
+    <tr><td>Workspace flush</td><td>Materializes the active merged view back into the bound workspace, resets storage, and rebuilds a base layer.</td><td><span class="file-ref">backend/src/sandbox/layer_stack/stack.py:287-312</span></td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <span class="label">Projection detail</span>
+  The normal operation projection is a lease-backed list of existing layer directories. A full rendered tree only appears when <code>MergedView.materialize()</code> is intentionally called for maintenance or flush, not during normal ephemeral/isolated lowerdir preparation.
+</div>
+<div class="page-footer-nav"><span><a href="overview.html">← 1. Overview</a></span><span><a href="overlay.html">3. Overlay →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

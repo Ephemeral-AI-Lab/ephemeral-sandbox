@@ -1,19 +1,13 @@
-"""Project daemon response payloads into public sandbox API result models."""
+"""Convert daemon response payloads into public sandbox API result models."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any, TypeVar, cast
 
-from sandbox.api.tool._daemon_response_fields import (
-    conflict_info_from_daemon_field,
-    int_from_daemon_field,
-    path_tuple_from_daemon_field,
-    timing_map_from_daemon_field,
-)
+from sandbox._shared.clock import normalize_timing_map
 from sandbox._shared.models import (
     ConflictInfo,
-    EditFileResult,
     GlobResult,
     GrepResult,
     GuardedResultBase,
@@ -22,6 +16,52 @@ from sandbox._shared.models import (
 )
 
 TGuarded = TypeVar("TGuarded", bound=GuardedResultBase)
+_DAEMON_INTERNAL_ERROR_PREFIX = "internal_error: "
+
+
+def user_visible_error_message(error: BaseException) -> str:
+    message = str(getattr(error, "message", "") or error)
+    if message.startswith(_DAEMON_INTERNAL_ERROR_PREFIX):
+        return message.removeprefix(_DAEMON_INTERNAL_ERROR_PREFIX)
+    return message
+
+
+def conflict_info_from_daemon_field(raw: object) -> ConflictInfo | None:
+    if not isinstance(raw, dict):
+        return None
+    conflict_file = raw.get("conflict_file")
+    return ConflictInfo(
+        reason=str(raw.get("reason", "")),
+        conflict_file=(
+            str(conflict_file)
+            if isinstance(conflict_file, (str, int, float, bytes))
+            else None
+        ),
+        message=str(raw.get("message", "")),
+    )
+
+
+def path_tuple_from_daemon_field(raw: object) -> tuple[str, ...]:
+    if not isinstance(raw, Iterable) or isinstance(raw, (str, bytes, dict)):
+        return ()
+    return tuple(str(path) for path in raw if str(path or "").strip())
+
+
+def timing_map_from_daemon_field(raw: object) -> dict[str, float]:
+    if not isinstance(raw, dict):
+        return {}
+    return normalize_timing_map(raw)
+
+
+def int_from_daemon_field(value: object, *, default: int) -> int:
+    """Return an integer boundary value without accepting bool-as-int."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        raise TypeError(f"expected integer value, got bool ({value!r})")
+    if isinstance(value, int):
+        return value
+    raise TypeError(f"expected integer value, got {type(value).__name__}")
 
 
 def read_result_from_daemon_response(response: Mapping[str, object]) -> ReadFileResult:
@@ -124,55 +164,4 @@ def shell_result_from_daemon_response(
         stderr=str(response.get("stderr", "")),
         warnings=path_tuple_from_daemon_field(response.get("warnings")),
         timings=timings,
-    )
-
-
-def edit_conflict_result(path: str, message: str) -> EditFileResult:
-    return EditFileResult(
-        success=False,
-        changed_paths=(path,),
-        applied_edits=0,
-        status="aborted_overlap",
-        conflict=ConflictInfo.overlap(path=path, message=message),
-        conflict_reason=message,
-        timings={},
-    )
-
-
-def shell_conflict_result(
-    message: str,
-    *,
-    timings: dict[str, float],
-) -> ShellResult:
-    return ShellResult(
-        success=False,
-        exit_code=1,
-        stdout="",
-        stderr="",
-        changed_paths=(),
-        status="rejected",
-        conflict=ConflictInfo.rejected(message=message),
-        conflict_reason=message,
-        warnings=(),
-        timings=timings,
-    )
-
-
-def shell_error_result(
-    *,
-    reason: str,
-    message: str,
-    timings: dict[str, float] | None = None,
-) -> ShellResult:
-    return ShellResult(
-        success=False,
-        exit_code=1,
-        stdout="",
-        stderr="",
-        changed_paths=(),
-        status="error",
-        conflict=ConflictInfo.rejected(reason=reason, message=message),
-        conflict_reason=message,
-        warnings=(),
-        timings=timings or {},
     )

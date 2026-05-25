@@ -23,7 +23,8 @@ from sandbox._shared.tool_primitives.cancellation import (
     VerbCancellation,
 )
 from sandbox.overlay.handle import OverlayHandle
-from sandbox.overlay.subprocess_runner import wait_for_process_with_cancel
+from sandbox.overlay.namespace_entrypoint import WorkspaceMountMode
+from sandbox.overlay.subprocess_runner import kill_process_group
 
 TOOL_CALL_COMMAND_POLICY = CommandExecPolicy(
     host_env_keys=frozenset(
@@ -44,7 +45,8 @@ async def run_in_namespace(
     handle: OverlayHandle,
     req: ToolCallRequest,
     *,
-    isolated_runner: Callable[[list[str], bytes | None, float | None], Awaitable[Mapping[str, Any]]] | None = None,
+    isolated_runner: Callable[[list[str], bytes | None, float | None], Awaitable[Mapping[str, Any]]]
+    | None = None,
     cancellation: VerbCancellation | None = None,
 ) -> ToolCallResult:
     """Run one tool call through a fresh or already-open mount namespace."""
@@ -88,6 +90,7 @@ async def _run_tool_call_in_fresh_namespace(
                 "timings_ref": str(timings_ref),
                 "result_ref": str(result_ref),
                 "policy": TOOL_CALL_COMMAND_POLICY.to_payload(),
+                "workspace_mount_mode": WorkspaceMountMode.MOUNT_OVERLAY,
             },
             separators=(",", ":"),
             sort_keys=True,
@@ -132,21 +135,19 @@ async def _run_tool_call_in_existing_namespace(
     handle: OverlayHandle,
     req: ToolCallRequest,
     *,
-    isolated_runner: Callable[[list[str], bytes | None, float | None], Awaitable[Mapping[str, Any]]],
+    isolated_runner: Callable[
+        [list[str], bytes | None, float | None], Awaitable[Mapping[str, Any]]
+    ],
     cancellation: VerbCancellation,
 ) -> ToolCallResult:
     payload = json.dumps(
         {
             "workspace_root": handle.workspace_root,
             "tool_call": req.to_payload(),
-            "stdout_ref": (
-                handle.run_dir / f"{req.invocation_id}.stdout"
-            ).as_posix(),
-            "stderr_ref": (
-                handle.run_dir / f"{req.invocation_id}.stderr"
-            ).as_posix(),
+            "stdout_ref": (handle.run_dir / f"{req.invocation_id}.stdout").as_posix(),
+            "stderr_ref": (handle.run_dir / f"{req.invocation_id}.stderr").as_posix(),
             "policy": TOOL_CALL_COMMAND_POLICY.to_payload(),
-            "mount_overlay": False,
+            "workspace_mount_mode": WorkspaceMountMode.EXISTING_MOUNT,
         },
         separators=(",", ":"),
         sort_keys=True,
@@ -219,61 +220,6 @@ def _build_verb_cancellation(req: ToolCallRequest) -> VerbCancellation:
     return NO_OP_CANCELLATION
 
 
-def _run_namespace_entrypoint(
-    *,
-    payload_ref: Path,
-    stdout_ref: Path,
-    stderr_ref: Path,
-    timeout: float | None,
-    cancel_event: threading.Event | None,
-    pid_recorder: Callable[[int], None] | None,
-) -> int:
-    """Spawn the namespace entrypoint process with cancel support."""
-    cmd = [
-        _unshare_path(),
-        "-Urm",
-        sys.executable,
-        "-m",
-        "sandbox.overlay.namespace_entrypoint",
-        str(payload_ref),
-    ]
-    with stdout_ref.open("wb") as stdout_file, stderr_ref.open("wb") as stderr_file:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=stdout_file,
-            stderr=stderr_file,
-            start_new_session=True,
-        )
-        if pid_recorder is not None:
-            try:
-                pid_recorder(proc.pid)
-            except Exception:
-                pass
-        try:
-            try:
-                return wait_for_process_with_cancel(
-                    proc,
-                    timeout_seconds=timeout,
-                    cancel_event=cancel_event,
-                )
-            except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(proc.pid, 9)
-                except (ProcessLookupError, PermissionError):
-                    pass
-                try:
-                    proc.wait(timeout=2.0)
-                except subprocess.TimeoutExpired:
-                    pass
-                raise
-        finally:
-            if proc.poll() is None:
-                try:
-                    os.killpg(proc.pid, 9)
-                except (ProcessLookupError, PermissionError):
-                    pass
-
-
 async def _run_namespace_entrypoint_async(
     *,
     payload_ref: Path,
@@ -312,13 +258,13 @@ async def _run_namespace_entrypoint_async(
                 cancel_event=cancel_event,
             )
         except subprocess.TimeoutExpired:
-            _kill_process_group(proc.pid, signal.SIGKILL)
+            kill_process_group(proc.pid, signal.SIGKILL)
             with contextlib.suppress(asyncio.TimeoutError):
                 await asyncio.wait_for(proc.wait(), timeout=2.0)
             raise
         finally:
             if proc.returncode is None:
-                _kill_process_group(proc.pid, signal.SIGKILL)
+                kill_process_group(proc.pid, signal.SIGKILL)
 
 
 async def _wait_for_process_with_cancel_async(
@@ -335,16 +281,14 @@ async def _wait_for_process_with_cancel_async(
             raise subprocess.TimeoutExpired(command, timeout_seconds) from exc
 
     loop = asyncio.get_running_loop()
-    deadline = (
-        None if timeout_seconds is None else loop.time() + float(timeout_seconds)
-    )
+    deadline = None if timeout_seconds is None else loop.time() + float(timeout_seconds)
     while True:
         if cancel_event.is_set():
-            _kill_process_group(proc.pid, signal.SIGTERM)
+            kill_process_group(proc.pid, signal.SIGTERM)
             try:
                 return int(await asyncio.wait_for(proc.wait(), timeout=2.0))
             except asyncio.TimeoutError:
-                _kill_process_group(proc.pid, signal.SIGKILL)
+                kill_process_group(proc.pid, signal.SIGKILL)
                 with contextlib.suppress(asyncio.TimeoutError):
                     return int(await asyncio.wait_for(proc.wait(), timeout=2.0))
                 return -int(signal.SIGKILL)
@@ -353,13 +297,6 @@ async def _wait_for_process_with_cancel_async(
         if deadline is not None and loop.time() > deadline:
             raise subprocess.TimeoutExpired(command, timeout_seconds)
         await asyncio.sleep(0.1)
-
-
-def _kill_process_group(pid: int, sig: int) -> None:
-    try:
-        os.killpg(pid, sig)
-    except (ProcessLookupError, PermissionError):
-        pass
 
 
 def detect_private_mount_namespace() -> bool:

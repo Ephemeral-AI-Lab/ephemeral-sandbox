@@ -53,9 +53,7 @@ def _walk_upperdir(upper_root: Path) -> Iterator[OverlayPathChange]:
     # full-tree lex to per-level lex; consumers depend on the
     # "opaque_dir before children" invariant which topdown=True preserves.
     emitted_opaque_dirs: set[str] = set()
-    for dirpath, dirnames, filenames in os.walk(
-        upper_root, topdown=True, followlinks=False
-    ):
+    for dirpath, dirnames, filenames in os.walk(upper_root, topdown=True, followlinks=False):
         dirnames.sort()
         filenames.sort()
         dir_path = Path(dirpath)
@@ -63,9 +61,7 @@ def _walk_upperdir(upper_root: Path) -> Iterator[OverlayPathChange]:
             entry = dir_path / name
             rel = entry.relative_to(upper_root)
             if name == OPAQUE_MARKER:
-                opaque_path = (
-                    rel.parent.as_posix() if rel.parent.as_posix() != "." else ""
-                )
+                opaque_path = rel.parent.as_posix() if rel.parent.as_posix() != "." else ""
                 if opaque_path not in emitted_opaque_dirs:
                     emitted_opaque_dirs.add(opaque_path)
                     yield _marker("opaque_dir", opaque_path)
@@ -115,21 +111,22 @@ def _is_overlay_whiteout(entry: Path) -> bool:
     # makedev(0, 0)``. Do not treat missing ``st_rdev`` as a whiteout.
     if stat.S_ISCHR(st.st_mode) and getattr(st, "st_rdev", None) == 0:
         return True
-    return entry.is_file() and entry.stat().st_size == 0 and _has_xattr(
-        entry,
-        b"user.overlay.whiteout",
+    return (
+        entry.is_file()
+        and entry.stat().st_size == 0
+        and _xattr_value(entry, b"user.overlay.whiteout") is not None
     )
 
 
 def _has_overlay_opaque_xattr(entry: Path) -> bool:
-    return _xattr_value(entry, b"trusted.overlay.opaque") == b"y" or _xattr_value(
-        entry,
-        b"user.overlay.opaque",
-    ) == b"y"
-
-
-def _has_xattr(path: Path, key: bytes) -> bool:
-    return _xattr_value(path, key) is not None
+    return (
+        _xattr_value(entry, b"trusted.overlay.opaque") == b"y"
+        or _xattr_value(
+            entry,
+            b"user.overlay.opaque",
+        )
+        == b"y"
+    )
 
 
 def _xattr_value(path: Path, key: bytes) -> bytes | None:

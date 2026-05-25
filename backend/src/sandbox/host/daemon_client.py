@@ -111,7 +111,7 @@ async def _call_daemon(
     else:
         invocation_id = str(clean_args.get("invocation_id") or uuid4().hex)
         clean_args["invocation_id"] = invocation_id
-    raw_payload = json.dumps(
+    envelope_json = json.dumps(
         {"op": op, "invocation_id": invocation_id, "args": clean_args},
         separators=(",", ":"),
     )
@@ -120,7 +120,7 @@ async def _call_daemon(
         sandbox_id=sandbox_id,
         op=op,
         args=clean_args,
-        raw_payload=raw_payload,
+        envelope_json=envelope_json,
         cwd=cwd,
         timeout=timeout,
         tcp_endpoint=tcp_endpoint,
@@ -284,15 +284,15 @@ async def _dispatch_once_with_retry(
     sandbox_id: str,
     op: str,
     args: dict[str, Any],
-    raw_payload: str,
+    envelope_json: str,
     cwd: str,
     timeout: int | None,
     tcp_endpoint: _DaemonTcpEndpoint | None,
 ) -> Any:
-    result = await _call_daemon_payload(
+    result = await _send_daemon_envelope(
         exec_fn=exec_fn,
         sandbox_id=sandbox_id,
-        payload=raw_payload,
+        envelope_json=envelope_json,
         cwd=cwd,
         timeout=timeout,
         tcp_endpoint=tcp_endpoint,
@@ -319,7 +319,7 @@ async def _dispatch_once_with_retry(
             details={"op": op},
         )
 
-    readiness_payload = json.dumps(
+    readiness_envelope_json = json.dumps(
         {
             "op": "api.runtime.ready",
             "invocation_id": uuid4().hex,
@@ -330,7 +330,7 @@ async def _dispatch_once_with_retry(
     readiness_result = await _call_thin_client_with_connect_retry(
         exec_fn=exec_fn,
         sandbox_id=sandbox_id,
-        payload=readiness_payload,
+        envelope_json=readiness_envelope_json,
         cwd=cwd,
         timeout=30,
         tcp_endpoint=tcp_endpoint,
@@ -387,7 +387,7 @@ async def _dispatch_once_with_retry(
     return await _call_thin_client_with_connect_retry(
         exec_fn=exec_fn,
         sandbox_id=sandbox_id,
-        payload=raw_payload,
+        envelope_json=envelope_json,
         cwd=cwd,
         timeout=timeout,
         tcp_endpoint=tcp_endpoint,
@@ -398,7 +398,7 @@ async def _call_thin_client_with_connect_retry(
     *,
     exec_fn: _DaemonExec,
     sandbox_id: str,
-    payload: str,
+    envelope_json: str,
     cwd: str,
     timeout: int | None,
     tcp_endpoint: _DaemonTcpEndpoint | None = None,
@@ -412,10 +412,10 @@ async def _call_thin_client_with_connect_retry(
     """
     last_result: Any = None
     for delay in _CONNECT_RETRY_DELAYS_S:
-        last_result = await _call_daemon_payload(
+        last_result = await _send_daemon_envelope(
             exec_fn=exec_fn,
             sandbox_id=sandbox_id,
-            payload=payload,
+            envelope_json=envelope_json,
             cwd=cwd,
             timeout=timeout,
             tcp_endpoint=tcp_endpoint,
@@ -423,27 +423,27 @@ async def _call_thin_client_with_connect_retry(
         if _exit_code(last_result) != _THIN_CLIENT_CONNECT_FAILED:
             return last_result
         await asyncio.sleep(delay)
-    return await _call_daemon_payload(
+    return await _send_daemon_envelope(
         exec_fn=exec_fn,
         sandbox_id=sandbox_id,
-        payload=payload,
+        envelope_json=envelope_json,
         cwd=cwd,
         timeout=timeout,
         tcp_endpoint=tcp_endpoint,
     )
 
 
-async def _call_daemon_payload(
+async def _send_daemon_envelope(
     *,
     exec_fn: _DaemonExec,
     sandbox_id: str,
-    payload: str,
+    envelope_json: str,
     cwd: str,
     timeout: int | None,
     tcp_endpoint: _DaemonTcpEndpoint | None,
 ) -> Any:
     if tcp_endpoint is not None:
-        tcp_result = await _call_tcp_daemon(tcp_endpoint, payload, timeout=timeout)
+        tcp_result = await _call_tcp_daemon(tcp_endpoint, envelope_json, timeout=timeout)
         if _exit_code(tcp_result) != _THIN_CLIENT_CONNECT_FAILED:
             return tcp_result
         # Cached endpoint produced CONNECT_FAILED — drop it so the next call
@@ -451,7 +451,7 @@ async def _call_daemon_payload(
         invalidate_daemon_tcp_endpoint(sandbox_id)
     return await exec_fn(
         sandbox_id,
-        _daemon_thin_client_command(payload),
+        _daemon_thin_client_command(envelope_json),
         cwd=cwd,
         timeout=timeout,
     )
@@ -459,14 +459,17 @@ async def _call_daemon_payload(
 
 async def _call_tcp_daemon(
     endpoint: _DaemonTcpEndpoint,
-    payload: str,
+    envelope_json: str,
     *,
     timeout: int | None,
 ) -> RawExecResult:
     client_timeout = float(timeout if timeout is not None else 60)
     try:
         stdout = await asyncio.wait_for(
-            _call_tcp_daemon_inner(endpoint, _authenticated_payload(payload, endpoint)),
+            _call_tcp_daemon_inner(
+                endpoint,
+                _authenticated_envelope_json(envelope_json, endpoint),
+            ),
             timeout=client_timeout,
         )
         if not stdout.strip():
@@ -504,14 +507,14 @@ async def _call_tcp_daemon(
 
 async def _call_tcp_daemon_inner(
     endpoint: _DaemonTcpEndpoint,
-    payload: str,
+    envelope_json: str,
 ) -> str:
     try:
         reader, writer = await asyncio.open_connection(endpoint.host, endpoint.port)
     except OSError as exc:
         raise _TcpConnectFailed(exc) from exc
     try:
-        writer.write(payload.encode("utf-8") + b"\n")
+        writer.write(envelope_json.encode("utf-8") + b"\n")
         if writer.can_write_eof():
             writer.write_eof()
         await writer.drain()
@@ -589,14 +592,14 @@ def _can_retry_empty_response(op: str) -> bool:
     } and not op.startswith("plugin.")
 
 
-def _daemon_thin_client_command(raw_payload: str) -> str:
+def _daemon_thin_client_command(envelope_json: str) -> str:
     """Launch the bundled thin client with one daemon envelope."""
     return (
         f"sh -c {shlex.quote(_thin_client_python_launcher())} daemon "
         f"{shlex.quote(_python_candidates_arg())} "
         f"{shlex.quote(DAEMON_THIN_CLIENT_PATH)} "
         f"{shlex.quote(_DAEMON_SOCKET)} "
-        f"{shlex.quote(raw_payload)}"
+        f"{shlex.quote(envelope_json)}"
     )
 
 
@@ -667,15 +670,15 @@ def _without_none(args: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in args.items() if value is not None}
 
 
-def _authenticated_payload(
-    payload: str,
+def _authenticated_envelope_json(
+    envelope_json: str,
     endpoint: _DaemonTcpEndpoint,
 ) -> str:
     if not endpoint.auth_token:
-        return payload
-    envelope = json.loads(payload)
+        return envelope_json
+    envelope = json.loads(envelope_json)
     if not isinstance(envelope, dict):
-        return payload
+        return envelope_json
     envelope[DAEMON_AUTH_FIELD] = endpoint.auth_token
     return json.dumps(envelope, separators=(",", ":"))
 

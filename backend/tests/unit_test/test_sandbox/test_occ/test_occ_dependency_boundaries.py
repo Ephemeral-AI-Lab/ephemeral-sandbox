@@ -66,3 +66,9 @@ def test_overlay_capture_conversion_does_not_import_occ_service() -> None:
     assert "sandbox.occ.service" not in imports
     assert not (occ_root / "overlay.py").exists()
     assert not (occ_root / "overlay_capture.py").exists()
+
+
+def test_occ_package_root_does_not_reexport_concrete_contracts() -> None:
+    assert not hasattr(sandbox.occ, "OccService")
+    assert not hasattr(sandbox.occ, "CommitQueue")
+    assert not hasattr(sandbox.occ, "Change")

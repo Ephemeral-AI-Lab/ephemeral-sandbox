@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sandbox.api.tool._daemon_response_fields import (
+from sandbox.api.tool._daemon_results import (
     int_from_daemon_field,
     user_visible_error_message,
 )

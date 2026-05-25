@@ -511,7 +511,7 @@ async def test_call_thin_client_with_connect_retry_retries_transient_connect_fai
     result = await command._call_thin_client_with_connect_retry(
         exec_fn=fake_exec,
         sandbox_id="sb-1",
-        payload='{"op":"api.read_file"}',
+        envelope_json='{"op":"api.read_file"}',
         cwd="/runtime",
         timeout=15,
     )

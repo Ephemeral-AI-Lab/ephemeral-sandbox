@@ -10,12 +10,11 @@ from types import TracebackType
 from typing import TYPE_CHECKING
 
 from sandbox.layer_stack.changes import LayerChange
-from sandbox.layer_stack.manifest import Manifest
+from sandbox.layer_stack.manifest import Manifest, read_manifest
 from sandbox._shared.clock import monotonic_now
 
 if TYPE_CHECKING:
     from sandbox.layer_stack.publisher import LayerPublisher
-    from sandbox.layer_stack.manifest import FileManifestStore
     from sandbox.layer_stack.storage_lock import StorageWriterLockLease
 
 
@@ -26,12 +25,12 @@ class LayerStackTransaction:
         self,
         *,
         lock: threading.RLock,
-        manifest_store: FileManifestStore,
+        manifest_path: Path,
         publisher: LayerPublisher,
-        storage_writer_lock: StorageWriterLockLease | None = None,
+        storage_writer_lock: StorageWriterLockLease,
     ) -> None:
         self._lock = lock
-        self._manifest_store = manifest_store
+        self._manifest_path = manifest_path
         self._publisher = publisher
         self._storage_writer_lock = storage_writer_lock
         self._storage_guard: AbstractContextManager[object] | None = None
@@ -43,14 +42,9 @@ class LayerStackTransaction:
 
     def __enter__(self) -> LayerStackTransaction:
         wait_start = monotonic_now()
-        storage_guard = (
-            self._storage_writer_lock.exclusive()
-            if self._storage_writer_lock is not None
-            else None
-        )
-        if storage_guard is not None:
-            storage_guard.__enter__()
-            self._storage_guard = storage_guard
+        storage_guard = self._storage_writer_lock.exclusive()
+        storage_guard.__enter__()
+        self._storage_guard = storage_guard
         try:
             self._lock.acquire()
         except BaseException:
@@ -60,7 +54,7 @@ class LayerStackTransaction:
         self._lock_wait_s = acquired_at - wait_start
         self._lock_acquired_at = acquired_at
         self._entered = True
-        self._manifest = self._manifest_store.read()
+        self._manifest = read_manifest(self._manifest_path)
         return self
 
     def __exit__(

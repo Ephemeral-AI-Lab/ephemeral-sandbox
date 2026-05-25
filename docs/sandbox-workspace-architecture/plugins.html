@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8. Plugin in ephemeral_workspace - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 8. Plugin in ephemeral_workspace</span>
+  <span class="nav-pair"><a href="provider.html">← 7. Provider</a><a href="space-model.html">9. Space Model →</a></span>
+</div>
+<h2 id="plugins">8. Plugin in ephemeral_workspace <a class="anchor" href="#plugins">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>Plugins need current workspace state without bypassing LayerStack/OCC ownership.</li>
+    <li>The plugin path installs plugin runtime, registers daemon ops, and supplies projection and operation-overlay APIs.</li>
+    <li><code>EphemeralPipeline</code> provides overlays and publish cycles; LSP builds a long-lived Pyright session on top.</li>
+    <li>Plugins are daemon extensions that consume the same snapshot/overlay/OCC pipeline as tools.</li>
+  </ul>
+</div>
+
+<p>Host-side <code>call_plugin</code> is the single entrypoint: resolve sandbox/layer stack/caller, install the plugin bundle, call <code>api.plugin.ensure</code>, dispatch <code>plugin.&lt;name&gt;.&lt;op&gt;</code>, and wrap the response <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py:1-15</span>. The implementation ensures runtime only when the digest changes, then dispatches the plugin op with caller, workspace root, and intent metadata <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py:70-186</span>.</p>
+
+<p>Inside the daemon, <code>plugin_ensure</code> imports <code>plugins.catalog.&lt;plugin&gt;.runtime.server</code>, flushes plugin registrations into the daemon dispatcher, warms the runtime, and records loaded state <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/runtime_api.py:76-162</span>. The context factory gives each plugin a <code>WorkspaceProjection</code> and an <code>EphemeralPipeline</code> overlay facade created with <code>start=False</code> so plugin calls do not create a long-lived daemon mount or lease <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/runtime_api.py:266-350</span>.</p>
+
+<div class="diagram" aria-label="Plugin operation flow">
+  <div class="flow-row">
+    <div class="node"><strong>READ_ONLY plugin</strong><small>in daemon process, no per-call overlay</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Projection/LSP service</strong><small>leases or refreshes as needed</small></div>
+  </div>
+  <div class="flow-row">
+    <div class="node warn"><strong>WRITE_ALLOWED plugin</strong><small>private operation overlay</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>child namespace</strong><small>workspace_root replaced by overlay</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node good"><strong>publish_cycle</strong><small>upperdir capture through OCC</small></div>
+  </div>
+</div>
+
+<p>The op registry makes this generic. <code>READ_ONLY</code> handlers run in-process and should query a long-lived service. <code>WRITE_ALLOWED</code> handlers default to the overlay+OCC publish path. <code>LIFECYCLE</code> is rejected for plugins <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/op_registry.py:15-24</span>. The write wrapper acquires an operation overlay, runs the plugin child, publishes the upperdir, and destroys/releases the handle <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/overlay_dispatch.py:29-90</span>.</p>
+
+<p>Pyright is the concrete stateful plugin example. LSP ops register read-only operations and write operations; write operations such as rename/format/apply opt out of the generic wrapper because the LSP runtime manages its own overlay/OCC path <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/server.py:47-138</span>. <code>session_manager.get_session()</code> reconciles a cached Pyright session to the active manifest key, acquires an overlay handle through <code>ctx.overlay.acquire_operation_overlay</code> or projection fallback, subscribes to workspace change events, and refreshes/remounts when the manifest changes <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/session_manager.py:34-98</span>, <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/session_manager.py:176-221</span>, <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/session_manager.py:294-360</span>.</p>
+
+<p><code>PyrightSession</code> starts as a long-lived session rooted at a leased overlay handle <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/pyright_session.py:54-87</span>. It starts Pyright inside a private overlay namespace when layer paths are available <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/pyright_session.py:526-567</span>. On refresh, it can remount the running Pyright namespace with fresh layer paths via <code>nsenter</code> and <code>namespace_remount</code> <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/pyright_session.py:583-650</span>. It also sends <code>workspace/didChangeWatchedFiles</code>, closes missing open documents, and syncs changed open documents <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/pyright_session.py:374-415</span>. For file text/existence checks, it reads directly from the current overlay layer paths and layer index cache <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/pyright_session.py:730-794</span>.</p>
+
+<h3 id="plugin-refresh-detail">8.1 Projection Refresh and LSP Writes <a class="anchor" href="#plugin-refresh-detail">§</a></h3>
+
+<div class="sequence" aria-label="Plugin projection refresh workflow">
+  <ol>
+    <li><span>The daemon runtime caches <code>WorkspaceProjection</code> by layer-stack root using the daemon-owned LayerStack manager.</span></li>
+    <li><span>A read-only LSP op asks <code>session_manager.get_session()</code> for a session keyed by active manifest identity.</span></li>
+    <li><span>If the key changed, the session manager acquires a fresh overlay/projection handle or remounts an existing Pyright namespace.</span></li>
+    <li><span>The ephemeral pipeline emits workspace-change events after publishes, and the LSP session pump forwards them to Pyright.</span></li>
+    <li><span>Pyright receives file-watch notifications and refreshes open-document text so diagnostics/hover/rename see the latest projection.</span></li>
+  </ol>
+</div>
+
+<table>
+  <thead><tr><th>Plugin operation class</th><th>Workspace access model</th><th>Mutation path</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td>Generic <code>READ_ONLY</code></td><td>Daemon process context with <code>WorkspaceProjection</code> and service handles.</td><td>None; should query projection/service state.</td><td><span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/op_registry.py:15-24</span>, <span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/projection.py:51-104</span></td></tr>
+    <tr><td>Generic <code>WRITE_ALLOWED</code></td><td>Parent daemon acquires private operation overlay; child runs inside fresh namespace.</td><td>Parent captures upperdir and publishes through <code>publish_cycle()</code>.</td><td><span class="file-ref">backend/src/sandbox/ephemeral_workspace/plugin/overlay_dispatch.py:29-173</span></td></tr>
+    <tr><td>LSP read operations</td><td>Long-lived Pyright session backed by overlay/projection and refreshed by manifest key.</td><td>None; LSP requests query Pyright.</td><td><span class="file-ref">backend/src/plugins/catalog/lsp/runtime/session_manager.py:34-98</span>, <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/pyright_session.py:54-87</span></td></tr>
+    <tr><td>LSP apply/write operations</td><td>Own operation overlay, expected manifest-key check, child process applies edit inside overlay.</td><td>Publish through <code>publish_cycle()</code> after child exits.</td><td><span class="file-ref">backend/src/plugins/catalog/lsp/runtime/apply.py:21-100</span>, <span class="file-ref">backend/src/plugins/catalog/lsp/runtime/apply.py:103-148</span></td></tr>
+  </tbody>
+</table>
+
+<p>The workspace-change event bus is generic, not Pyright-specific. The ephemeral pipeline exposes subscribe/unsubscribe methods and emits a bounded event queue; if a subscriber queue overflows, it sends a full-resync marker instead of losing correctness silently <span class="file-ref">backend/src/sandbox/ephemeral_workspace/pipeline.py:284-315</span>, <span class="file-ref">backend/src/sandbox/ephemeral_workspace/events.py:51-101</span>. LSP uses that generic stream to drive Pyright refresh, but another plugin could consume the same projection and event model.</p>
+
+<div class="callout">
+  <span class="label">Daemon change for plugins</span>
+  Plugin ops are registered into the same daemon <code>OP_TABLE</code>, but the dispatcher blocks plugin access while the caller has an open isolated workspace <span class="file-ref">backend/src/sandbox/daemon/rpc/dispatcher.py:216-235</span>. That avoids a plugin reading/publishing through the shared ephemeral projection while the agent is intentionally inside private isolated scratch.
+</div>
+<div class="page-footer-nav"><span><a href="provider.html">← 7. Provider</a></span><span><a href="space-model.html">9. Space Model →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

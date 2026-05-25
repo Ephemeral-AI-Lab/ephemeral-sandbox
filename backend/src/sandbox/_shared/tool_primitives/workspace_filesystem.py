@@ -51,6 +51,15 @@ def search_root_path(raw: object) -> str:
     return _resolve_workspace_path(Path(text), original=text)
 
 
+def display_workspace_path(path: Path) -> str:
+    """Display ``path`` relative to the current workspace when possible."""
+    cwd = Path.cwd().resolve(strict=False)
+    try:
+        return path.resolve(strict=False).relative_to(cwd).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def _open_by_component(
     parts: tuple[str, ...],
     flags: int,
@@ -162,11 +171,7 @@ def write_text_no_follow(
 def walk_dirs_no_follow(root: str | Path) -> Iterator[Path]:
     """Yield files under ``root`` without descending through symlink dirs."""
     for current_root, dirs, files in os.walk(root, followlinks=False):
-        dirs[:] = [
-            name
-            for name in dirs
-            if not (Path(current_root) / name).is_symlink()
-        ]
+        dirs[:] = [name for name in dirs if not (Path(current_root) / name).is_symlink()]
         for name in files:
             path = Path(current_root) / name
             if not path.is_symlink():
@@ -194,6 +199,7 @@ def _resolve_workspace_path(candidate: Path, *, original: str) -> str:
 
 
 __all__ = [
+    "display_workspace_path",
     "open_no_follow",
     "is_regular_file_no_follow",
     "read_bytes_no_follow",

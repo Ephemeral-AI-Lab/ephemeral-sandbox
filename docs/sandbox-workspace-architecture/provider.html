@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7. Provider - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 7. Provider</span>
+  <span class="nav-pair"><a href="daemon.html">← 6. Daemon and Background Tasks</a><a href="plugins.html">8. Plugin in ephemeral_workspace →</a></span>
+</div>
+<h2 id="provider">7. Provider <a class="anchor" href="#provider">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>The sandbox runtime can run on different backends without changing workspace logic.</li>
+    <li>The provider boundary defines provider-neutral CRUD, exec, preview/log, and context-preparation primitives.</li>
+    <li>Host lifecycle bootstraps runtime and workspace base through the selected adapter.</li>
+    <li>Providers own containers; sandbox workspace logic stays provider-agnostic.</li>
+  </ul>
+</div>
+
+<p><code>ProviderAdapter</code> is the single protocol for Docker and Daytona. It includes health/discovery, container CRUD, preview/build logs, async <code>exec</code>, and <code>context_preparer()</code> <span class="file-ref">backend/src/sandbox/provider/protocol.py:21-79</span>. The registry supports one process-wide default plus explicit per-sandbox bindings; fallback to default is intentionally uncached <span class="file-ref">backend/src/sandbox/provider/registry.py:1-95</span>. Startup chooses <code>EOS_SANDBOX_PROVIDER</code> or central config and bootstraps Docker or Daytona once <span class="file-ref">backend/src/sandbox/provider/bootstrap.py:33-77</span>.</p>
+
+<table>
+  <thead><tr><th>Provider</th><th>Responsibilities in code</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td>Docker</td><td>Creates long-running containers, injects daemon TCP env/auth labels when enabled, exposes a host TCP endpoint, and executes commands through <code>container.exec_run</code>.</td><td><span class="file-ref">backend/src/sandbox/provider/docker/adapter.py:150-214</span>, <span class="file-ref">backend/src/sandbox/provider/docker/adapter.py:292-342</span>, <span class="file-ref">backend/src/sandbox/provider/docker/adapter.py:344-399</span></td></tr>
+    <tr><td>Daytona</td><td>Creates/starts/stops/deletes SDK sandboxes, wraps exec commands, returns preview URLs, and injects runtime context.</td><td><span class="file-ref">backend/src/sandbox/provider/daytona/adapter.py:192-283</span>, <span class="file-ref">backend/src/sandbox/provider/daytona/adapter.py:323-356</span></td></tr>
+    <tr><td>Host lifecycle</td><td>Uploads runtime bundle, ensures git, runs runtime bootstrap, and ensures the workspace base after create/start.</td><td><span class="file-ref">backend/src/sandbox/host/bootstrap.py:31-115</span>, <span class="file-ref">backend/src/sandbox/host/bootstrap.py:300-322</span></td></tr>
+  </tbody>
+</table>
+<div class="page-footer-nav"><span><a href="daemon.html">← 6. Daemon and Background Tasks</a></span><span><a href="plugins.html">8. Plugin in ephemeral_workspace →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

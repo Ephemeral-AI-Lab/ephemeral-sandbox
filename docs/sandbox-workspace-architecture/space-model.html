@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>9. Space Model - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 9. Space Model</span>
+  <span class="nav-pair"><a href="plugins.html">← 8. Plugin in ephemeral_workspace</a><a href="workflow-cookbook.html">10. Workflow Cookbook →</a></span>
+</div>
+<h2 id="space-model">9. Space Model <a class="anchor" href="#space-model">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>The design avoids copying a large repository for every tool call or background job.</li>
+    <li>Immutable lower layers are shared; private upper/work scratch is allocated per operation or isolated session.</li>
+    <li>LayerStack leases pin shared layers, overlay upperdirs hold changed bytes, and OCC publishes compact deltas.</li>
+    <li>Concurrent work scales with changed data, not with repository size.</li>
+  </ul>
+</div>
+
+<div class="diagram" aria-label="Space scaling model">
+  <div class="flow-row">
+    <div class="node good"><strong>Shared lowerdirs</strong><small>one LayerStack layer set</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Operation A upper</strong><small>only A changed bytes</small></div>
+    <div class="node"><strong>Operation B upper</strong><small>only B changed bytes</small></div>
+    <div class="node"><strong>Operation N upper</strong><small>only N changed bytes</small></div>
+  </div>
+  <div class="callout">
+    Lower layers are referenced by path and lease; each concurrent operation adds only its own <code>upper</code> and <code>work</code> directories.
+  </div>
+</div>
+
+<p>For normal ephemeral operations and isolated enter, additional lowerdir storage is <strong>O(1) repository bytes per operation</strong>: code returns existing <code>layer_paths</code> and a lease, not a rendered copy of the tree <span class="file-ref">backend/src/sandbox/layer_stack/stack.py:105-129</span>. The mount still carries O(manifest depth) path references and the shell path can pre-squash deep manifests before mounting <span class="file-ref">backend/src/sandbox/ephemeral_workspace/pipeline.py:221-230</span>, but it does not allocate O(repository bytes) lowerdir space.</p>
+
+<p>For <code>n</code> concurrent operations, writable scratch is <strong>O(n * per-operation changed bytes)</strong> plus small metadata. Each operation/session has its own <code>upper</code> and <code>work</code> directories <span class="file-ref">backend/src/sandbox/overlay/writable_dirs.py:46-52</span>. Capturing changes walks only the upperdir and emits writes/deletes/symlinks/opaque markers <span class="file-ref">backend/src/sandbox/overlay/capture.py:19-93</span>. OCC then publishes accepted changes as one new immutable layer rather than copying the whole workspace <span class="file-ref">backend/src/sandbox/occ/commit_transaction.py:113-141</span>.</p>
+
+<table>
+  <thead><tr><th>Mode</th><th>Lower side</th><th>Writable side</th><th>Publish behavior</th></tr></thead>
+  <tbody>
+    <tr><td><code>main_workspace</code></td><td>Durable LayerStack manifest and base/delta layers.</td><td>No per-call scratch by itself.</td><td>Only through OCC.</td></tr>
+    <tr><td><code>ephemeral_workspace</code></td><td>Lease + existing layer paths per operation.</td><td>Fresh run dir with <code>upper</code>/<code>work</code>, destroyed after the call.</td><td>Write-intent upperdir changes are captured and submitted through OCC.</td></tr>
+    <tr><td><code>isolated_workspace</code></td><td>Lease + existing layer paths once at enter.</td><td>Persistent private <code>upper</code>/<code>work</code> until exit.</td><td>No OCC publish; exit discards scratch.</td></tr>
+    <tr><td><code>plugin WRITE_ALLOWED</code></td><td>Same operation overlay as ephemeral workspace.</td><td>Plugin child writes to private upperdir.</td><td>Parent daemon publishes through <code>publish_cycle</code>.</td></tr>
+    <tr><td><code>Pyright LSP</code></td><td>Long-lived leased overlay handle, refreshed/remounted on manifest changes.</td><td>Private overlay state for language-server view.</td><td>Read ops query session; write ops use LSP apply overlay/OCC path.</td></tr>
+  </tbody>
+</table>
+<div class="page-footer-nav"><span><a href="plugins.html">← 8. Plugin in ephemeral_workspace</a></span><span><a href="workflow-cookbook.html">10. Workflow Cookbook →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

@@ -41,13 +41,13 @@ class LeaseGuard:
     """
 
     def __init__(self) -> None:
-        self._handle_locks: dict[str, asyncio.Lock] = {}
+        self._lease_locks: dict[str, asyncio.Lock] = {}
         self._released_lease_ids: set[str] = set()
 
-    def lock_for(self, lease_id: str) -> asyncio.Lock:
-        lock = self._handle_locks.get(lease_id)
+    def _lock_for(self, lease_id: str) -> asyncio.Lock:
+        lock = self._lease_locks.get(lease_id)
         if lock is None:
-            lock = self._handle_locks[lease_id] = asyncio.Lock()
+            lock = self._lease_locks[lease_id] = asyncio.Lock()
         return lock
 
     async def destroy(
@@ -55,20 +55,18 @@ class LeaseGuard:
         handle: _LeasedHandle,
         destroy_fn: Callable[[_LeasedHandle], Awaitable[None]],
     ) -> None:
-        async with self.lock_for(handle.lease_id):
-            if handle._destroyed:
-                self._handle_locks.pop(handle.lease_id, None)
-                return
-            if handle.lease_id and handle.lease_id in self._released_lease_ids:
-                handle._destroyed = True
-                self._handle_locks.pop(handle.lease_id, None)
-                return
-            if handle.lease_id:
-                self._released_lease_ids.add(handle.lease_id)
+        async with self._lock_for(handle.lease_id):
             try:
+                if handle._destroyed:
+                    return
+                if handle.lease_id and handle.lease_id in self._released_lease_ids:
+                    handle._destroyed = True
+                    return
+                if handle.lease_id:
+                    self._released_lease_ids.add(handle.lease_id)
                 await destroy_fn(handle)
             finally:
-                self._handle_locks.pop(handle.lease_id, None)
+                self._lease_locks.pop(handle.lease_id, None)
 
     def mark_released(self, lease_id: str) -> bool:
         """Atomically record that ``lease_id`` has been released.

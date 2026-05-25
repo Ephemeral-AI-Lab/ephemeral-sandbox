@@ -6,6 +6,7 @@ import errno
 import os
 import shutil
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -30,6 +31,12 @@ class LayerStackStorageError(RuntimeError):
     def __init__(self, message: str, *, layer_id: str | None = None) -> None:
         super().__init__(message)
         self.layer_id = layer_id
+
+
+@dataclass(frozen=True)
+class _VisibleLayerEntry:
+    layer: LayerRef
+    path: Path
 
 
 __all__ = ["LayerStackStorageError", "MergedView", "SymlinkLookup"]
@@ -59,26 +66,17 @@ class MergedView:
 
     def read_bytes(self, path: str, manifest: Manifest) -> tuple[bytes | None, bool]:
         rel = normalize_layer_path(path)
-        for layer in manifest.layers:
-            index = self._layer_index(layer)
-            if rel in index.whiteouts:
-                return None, False
-            if rel in index.files:
-                layer_dir = self._layer_dir(layer)
-                candidate = join_layer_path(layer_dir, rel)
-                try:
-                    if candidate.is_symlink():
-                        return os.readlink(candidate).encode("utf-8"), True
-                    if candidate.is_file():
-                        return candidate.read_bytes(), True
-                except OSError as exc:
-                    raise _stale_layer_error(layer, rel) from exc
-                raise _stale_layer_error(layer, rel)
-            if has_ancestor_in(rel, index.files):
-                return None, False
-            if has_ancestor_in(rel, index.opaque_dirs):
-                return None, False
-        return None, False
+        entry = self._visible_entry(rel, manifest)
+        if entry is None:
+            return None, False
+        try:
+            if entry.path.is_symlink():
+                return os.readlink(entry.path).encode("utf-8"), True
+            if entry.path.is_file():
+                return entry.path.read_bytes(), True
+        except OSError as exc:
+            raise _stale_layer_error(entry.layer, rel) from exc
+        raise _stale_layer_error(entry.layer, rel)
 
     def read_text(self, path: str, manifest: Manifest) -> tuple[str, bool]:
         content, exists = self.read_bytes(path, manifest)
@@ -89,24 +87,35 @@ class MergedView:
 
     def read_symlink(self, path: str, manifest: Manifest) -> tuple[str, SymlinkLookup]:
         rel = normalize_layer_path(path)
+        entry = self._visible_entry(rel, manifest)
+        if entry is None:
+            return "", "absent"
+        try:
+            if entry.path.is_symlink():
+                return os.readlink(entry.path), "symlink"
+            if entry.path.exists():
+                return "", "file"
+        except OSError as exc:
+            raise _stale_layer_error(entry.layer, rel) from exc
+        raise _stale_layer_error(entry.layer, rel)
+
+    def _visible_entry(
+        self,
+        rel: str,
+        manifest: Manifest,
+    ) -> _VisibleLayerEntry | None:
         for layer in manifest.layers:
             index = self._layer_index(layer)
             if rel in index.whiteouts:
-                return "", "absent"
+                return None
             if rel in index.files:
-                layer_dir = self._layer_dir(layer)
-                candidate = join_layer_path(layer_dir, rel)
-                try:
-                    if candidate.is_symlink():
-                        return os.readlink(candidate), "symlink"
-                    if candidate.exists():
-                        return "", "file"
-                except OSError as exc:
-                    raise _stale_layer_error(layer, rel) from exc
-                raise _stale_layer_error(layer, rel)
-            if has_ancestor_in(rel, index.files) or has_ancestor_in(rel, index.opaque_dirs):
-                return "", "absent"
-        return "", "absent"
+                return _VisibleLayerEntry(
+                    layer=layer,
+                    path=join_layer_path(self._layer_dir(layer), rel),
+                )
+            if _lookup_blocked_by_layer(rel, index):
+                return None
+        return None
 
     def list_dir(self, path: str, manifest: Manifest) -> tuple[str, ...]:
         rel = normalize_layer_path(path, allow_root=True)
@@ -117,17 +126,9 @@ class MergedView:
         for layer in manifest.layers:
             index = self._layer_index(layer)
 
-            # rel itself is a regular file/symlink in this layer, or any
-            # of its strict ancestors is. Either way, rel is not a
-            # directory in any layer at or below this one.
-            if rel and rel in index.files:
-                return tuple(sorted(names))
-            if rel and has_ancestor_in(rel, index.files):
-                return tuple(sorted(names))
-            # An opaque marker on a strict ancestor means rel can't
-            # exist in any older layer either (matching read_bytes /
-            # read_symlink semantics).
-            if rel and has_ancestor_in(rel, index.opaque_dirs):
+            # A file at rel, a file ancestor, or an opaque ancestor stops
+            # directory lookup at this layer.
+            if rel and (rel in index.files or _lookup_blocked_by_layer(rel, index)):
                 return tuple(sorted(names))
 
             # Direct-child whiteouts at this level mask same-name
@@ -288,6 +289,10 @@ def _direct_child_segment(name: str, prefix: str) -> str | None:
         return None
     head, _, _ = rest.partition("/")
     return head or None
+
+
+def _lookup_blocked_by_layer(rel: str, index: LayerIndex) -> bool:
+    return has_ancestor_in(rel, index.files) or has_ancestor_in(rel, index.opaque_dirs)
 
 
 def _is_whiteout(name: str) -> bool:

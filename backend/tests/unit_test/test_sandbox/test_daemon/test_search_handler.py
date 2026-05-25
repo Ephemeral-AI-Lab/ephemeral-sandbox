@@ -89,6 +89,13 @@ def test_glob_missing_pattern_raises(tmp_path: Path) -> None:
         glob_files({"path": "."})
 
 
+def test_grep_missing_pattern_raises(tmp_path: Path) -> None:
+    _seed_workspace(tmp_path, files={"a.txt": "a"})
+
+    with pytest.raises(ValueError, match="pattern is required"):
+        grep_files({"path": "."})
+
+
 def test_grep_files_with_matches_mode(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

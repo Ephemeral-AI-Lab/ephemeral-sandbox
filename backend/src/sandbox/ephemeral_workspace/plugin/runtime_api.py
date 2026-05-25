@@ -19,6 +19,7 @@ import logging
 import re
 import sys
 from collections import OrderedDict
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -29,8 +30,11 @@ from sandbox.layer_stack.workspace_binding import (
     WorkspaceBindingError,
     require_workspace_binding,
 )
-from sandbox._shared.models import Intent, SandboxCaller
-from sandbox.ephemeral_workspace.plugin.op_context import PluginOpContext
+from sandbox.ephemeral_workspace.plugin.op_context import (
+    PluginOpContext,
+    caller_from_audit_payload,
+    plugin_intent_from_payload,
+)
 from sandbox.ephemeral_workspace.plugin.op_registry import (
     clear_plugin_registrations,
     flush_plugin_registrations,
@@ -265,39 +269,21 @@ async def _plugin_op_context_factory(
     in registry._wrap_with_context forwards the same dict).
     """
     layer_stack_root = str(args.get("layer_stack_root", "")).strip()
-    caller_dict = args.get("caller") or {}
-    if isinstance(caller_dict, dict):
-        caller = SandboxCaller(
-            agent_id=_audit_field(caller_dict, "agent_id"),
-            run_id=_audit_field(caller_dict, "run_id"),
-            agent_run_id=_audit_field(caller_dict, "agent_run_id"),
-            task_id=_audit_field(caller_dict, "task_id"),
-            task_center_run_id=_audit_field(caller_dict, "task_center_run_id"),
-            task_center_task_id=_audit_field(caller_dict, "task_center_task_id"),
-            task_center_attempt_id=_audit_field(caller_dict, "task_center_attempt_id"),
-            task_center_goal_id=_audit_field(caller_dict, "task_center_goal_id"),
-            task_center_request_id=_audit_field(caller_dict, "task_center_request_id"),
-            tool_name=_audit_field(caller_dict, "tool_name"),
-            tool_id=_audit_field(caller_dict, "tool_id"),
-        )
-    else:
-        caller = SandboxCaller(agent_id="", run_id="", agent_run_id="", task_id="")
+    caller = caller_from_audit_payload(
+        args.get("caller"),
+        field_reader=_audit_field,
+    )
     projection = _workspace_projection_for_root(layer_stack_root)
     overlay = await _overlay_pipeline_for_root(
         layer_stack_root,
         workspace_root=str(args.get("workspace_root", "")),
     )
-    raw_intent = args.get("intent")
-    try:
-        intent = Intent(str(raw_intent)) if raw_intent else Intent.READ_ONLY
-    except ValueError:
-        intent = Intent.READ_ONLY
     return PluginOpContext(
         layer_stack_root=layer_stack_root,
         caller=caller,
         projection=projection,
         overlay=overlay,
-        intent=intent,
+        intent=plugin_intent_from_payload(args.get("intent")),
         metadata={
             "op_name": op_name,
             "workspace_root": str(args.get("workspace_root", "")),
@@ -364,7 +350,7 @@ def _validate_plugin_name(plugin_name: str) -> None:
         raise PluginEnsureError(f"invalid plugin name: {plugin_name!r}")
 
 
-def _audit_field(caller_dict: dict[str, Any], key: str) -> str:
+def _audit_field(caller_dict: Mapping[str, Any], key: str) -> str:
     value = str(caller_dict.get(key, ""))
     if "\x00" in value:
         raise PluginEnsureError(f"caller field {key} contains NUL byte")

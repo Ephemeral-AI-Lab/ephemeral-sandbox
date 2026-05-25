@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4. OCC - EphemeralOS Sandbox Workspace Architecture</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<nav class="toc">
+  <h2>Sandbox Workspace Architecture</h2>
+  <a class="home-link" href="index.html">Index</a>
+  <div class="search-box">
+    <input type="search" placeholder="Search sections" data-doc-search aria-label="Search sections">
+    <div class="search-results" data-doc-search-results></div>
+  </div>
+  <h2>Sections</h2>
+  <ol>
+    <li><a href="overview.html" data-doc-section="overview">1. Overview</a></li>
+    <li><a href="layerstack.html" data-doc-section="layerstack">2. LayerStack</a></li>
+    <li><a href="overlay.html" data-doc-section="overlay">3. Overlay</a></li>
+    <li><a href="occ.html" data-doc-section="occ">4. OCC</a></li>
+    <li><a href="workspaces.html" data-doc-section="workspaces">5. Workspace Modes</a></li>
+    <li><a href="daemon.html" data-doc-section="daemon">6. Daemon and Background Tasks</a></li>
+    <li><a href="provider.html" data-doc-section="provider">7. Provider</a></li>
+    <li><a href="plugins.html" data-doc-section="plugins">8. Plugin in ephemeral_workspace</a></li>
+    <li><a href="space-model.html" data-doc-section="space-model">9. Space Model</a></li>
+    <li><a href="workflow-cookbook.html" data-doc-section="workflow-cookbook">10. Workflow Cookbook</a></li>
+  </ol>
+</nav>
+<main>
+<div class="doc-actions">
+  <span><a href="index.html">Index</a> / 4. OCC</span>
+  <span class="nav-pair"><a href="overlay.html">← 3. Overlay</a><a href="workspaces.html">5. Workspace Modes →</a></span>
+</div>
+<h2 id="occ">4. OCC <a class="anchor" href="#occ">§</a></h2>
+<div class="summary">
+  <ul>
+    <li>Multiple operations can edit overlapping files from different snapshots.</li>
+    <li>OCC routes, validates, stages, serializes, and publishes changes with stale-base rejection.</li>
+    <li>LayerStack provides live manifests; overlay capture converts filesystem changes into typed OCC mutations.</li>
+    <li>OCC is the gate that decides whether temporary workspace changes become durable truth.</li>
+  </ul>
+</div>
+
+<p>OCC accepts typed changes tagged as <code>api_write</code>, <code>api_edit</code>, or <code>overlay_capture</code> <span class="file-ref">backend/src/sandbox/occ/changeset.py:15-125</span>. The preparer groups changes by normalized path, drops <code>.git</code>, routes gitignored paths to <code>DIRECT</code>, routes tracked paths to <code>GATED</code>, and attaches base hashes when needed <span class="file-ref">backend/src/sandbox/occ/changeset_preparation.py:41-158</span>.</p>
+
+<div class="diagram" aria-label="OCC publish flow">
+  <div class="flow-row">
+    <div class="node"><strong>Change</strong><small>api_write, api_edit, overlay_capture</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Prepare</strong><small>route + base hash</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Queue</strong><small>serialize publish, batch disjoint non-atomic paths</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><strong>Transaction</strong><small>revalidate against live manifest</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node good"><strong>Layer</strong><small>new immutable manifest version</small></div>
+  </div>
+</div>
+
+<p>The stager uses different profiles for direct and gated changes. Direct changes skip hash checks and support symlinks; gated changes check hashes and reject unsupported symlinks <span class="file-ref">backend/src/sandbox/occ/path_staging.py:84-115</span>. The commit transaction reads the live active manifest inside the layer-stack transaction, validates each path group, stages accepted deltas, and calls <code>publish_layer</code> once <span class="file-ref">backend/src/sandbox/occ/commit_transaction.py:65-141</span>. The commit queue runs a background worker, drains/batches work, retries bounded CAS conflicts, and splits atomic or overlay-capture changes away from unrelated batches <span class="file-ref">backend/src/sandbox/occ/commit_queue.py:55-239</span>.</p>
+
+<p>Overlay changes are converted without rereading large files into memory: write changes thread <code>content_path</code> and <code>final_hash</code> into <code>WriteChange</code>, deletes become <code>DeleteChange</code>, symlinks become <code>SymlinkChange</code>, and opaque markers become <code>OpaqueDirChange</code> <span class="file-ref">backend/src/sandbox/occ/overlay_change_conversion.py:19-72</span>.</p>
+
+<h3 id="occ-technical-workflow">4.1 Technical Workflow <a class="anchor" href="#occ-technical-workflow">§</a></h3>
+
+<div class="sequence" aria-label="OCC prepare and commit lifecycle">
+  <ol>
+    <li><span><code>OccService.apply_changeset()</code> prepares changes before entering the commit queue.</span></li>
+    <li><span>If the caller did not provide a snapshot, the service reads the current active manifest.</span></li>
+    <li><span>Prepare normalizes paths, groups ordered changes by path/route, attaches gated base hashes, and returns <code>PreparedChangeset</code>.</span></li>
+    <li><span>The commit queue serializes publish work, optionally batches disjoint non-atomic non-overlay groups, and retries manifest CAS races.</span></li>
+    <li><span>The transaction reads the live manifest, validates every path group, writes accepted content to OCC staging, and builds layer deltas.</span></li>
+    <li><span>If atomic semantics require all-or-nothing and any path fails, accepted paths are marked dropped and no layer is published.</span></li>
+    <li><span>Accepted changes publish as one LayerStack layer and the result reports per-file statuses plus the published manifest version.</span></li>
+  </ol>
+</div>
+
+<table>
+  <thead><tr><th>Stage</th><th>Current code behavior</th><th>Failure mode</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td>Prepare</td><td>Lock-free path normalization, grouping, gitignore routing, and base-hash attachment.</td><td>Reject invalid paths or drop ignored internal paths before queueing.</td><td><span class="file-ref">backend/src/sandbox/occ/service.py:237-272</span>, <span class="file-ref">backend/src/sandbox/occ/changeset_preparation.py:41-174</span></td></tr>
+    <tr><td>Queue</td><td>Owns a worker task and a small drain window; batches only disjoint safe changes.</td><td>CAS race retries up to <code>MAX_OCC_CAS_RETRIES</code>.</td><td><span class="file-ref">backend/src/sandbox/occ/commit_queue.py:22-36</span>, <span class="file-ref">backend/src/sandbox/occ/commit_queue.py:128-214</span></td></tr>
+    <tr><td>Transaction</td><td>Revalidates against live manifest, stages filesystem deltas, and calls publisher once.</td><td>Hash mismatch becomes <code>ABORTED_VERSION</code>; overlap can abort an atomic set.</td><td><span class="file-ref">backend/src/sandbox/occ/commit_transaction.py:65-183</span></td></tr>
+    <tr><td>Staging</td><td>Direct route skips hash checks; gated route requires base hash checks and rejects symlinks.</td><td>Unsupported or stale paths become rejected/aborted statuses.</td><td><span class="file-ref">backend/src/sandbox/occ/path_staging.py:84-115</span>, <span class="file-ref">backend/src/sandbox/occ/path_staging.py:153-340</span></td></tr>
+    <tr><td>Maintenance</td><td>Successful publishes can trigger auto-squash when manifest depth is above the configured max.</td><td>No publish means no post-publish maintenance.</td><td><span class="file-ref">backend/src/sandbox/occ/maintenance.py:25-66</span>, <span class="file-ref">backend/src/sandbox/occ/service.py:150-179</span></td></tr>
+  </tbody>
+</table>
+
+<div class="trace-grid" aria-label="OCC route semantics">
+  <div><code>DROP</code></div>
+  <div>Used for paths under <code>.git</code>; the mutation is intentionally not published.</div>
+  <div><code>DIRECT</code></div>
+  <div>Used for gitignored paths; it skips base-hash checks and behaves like last-writer-wins for those paths.</div>
+  <div><code>GATED</code></div>
+  <div>Used for normal tracked/non-ignored paths; it compares expected base hashes against the live manifest before publishing.</div>
+  <div><code>REJECT</code></div>
+  <div>Used when path normalization or route validation fails before a publishable change exists.</div>
+</div>
+<div class="page-footer-nav"><span><a href="overlay.html">← 3. Overlay</a></span><span><a href="workspaces.html">5. Workspace Modes →</a></span></div>
+</main>
+<script src="assets/search-index.js"></script>
+<script src="assets/nav.js"></script>
+</body>
+</html>

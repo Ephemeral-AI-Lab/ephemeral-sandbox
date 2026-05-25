@@ -12,7 +12,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from sandbox._shared.models import Intent, SandboxCaller
 from sandbox.overlay.kernel_mount import (
     MountInputs,
     mount_overlay,
@@ -20,7 +19,11 @@ from sandbox.overlay.kernel_mount import (
     validate_mount_inputs,
 )
 from sandbox.layer_stack.workspace_binding import require_workspace_binding
-from sandbox.ephemeral_workspace.plugin.op_context import PluginOpContext
+from sandbox.ephemeral_workspace.plugin.op_context import (
+    PluginOpContext,
+    caller_from_audit_payload,
+    plugin_intent_from_payload,
+)
 from sandbox.ephemeral_workspace.plugin.op_registry import (
     clear_plugin_registrations,
     pending_plugin_registrations,
@@ -89,11 +92,7 @@ class _PluginOverlayRequest:
         self.manifest_key = str(payload.get("manifest_key") or "")
         self.manifest_version = int(payload.get("manifest_version") or 0)
         self.root_hash = str(payload.get("root_hash") or "")
-        raw_intent = str(payload.get("intent") or "")
-        try:
-            self.intent = Intent(raw_intent) if raw_intent else Intent.READ_ONLY
-        except ValueError:
-            self.intent = Intent.READ_ONLY
+        self.intent = plugin_intent_from_payload(payload.get("intent"))
         raw_caller = payload.get("caller")
         self.caller = raw_caller if isinstance(raw_caller, dict) else {}
         raw_metadata = payload.get("metadata")
@@ -113,25 +112,7 @@ async def _invoke_plugin_handler(request: _PluginOverlayRequest) -> Any:
     handler = _load_handler(request.plugin_name, request.op_name)
     ctx = PluginOpContext(
         layer_stack_root=request.layer_stack_root,
-        caller=SandboxCaller(
-            agent_id=str(request.caller.get("agent_id") or ""),
-            run_id=str(request.caller.get("run_id") or ""),
-            agent_run_id=str(request.caller.get("agent_run_id") or ""),
-            task_id=str(request.caller.get("task_id") or ""),
-            task_center_run_id=str(request.caller.get("task_center_run_id") or ""),
-            task_center_task_id=str(
-                request.caller.get("task_center_task_id") or ""
-            ),
-            task_center_attempt_id=str(
-                request.caller.get("task_center_attempt_id") or ""
-            ),
-            task_center_goal_id=str(request.caller.get("task_center_goal_id") or ""),
-            task_center_request_id=str(
-                request.caller.get("task_center_request_id") or ""
-            ),
-            tool_name=str(request.caller.get("tool_name") or ""),
-            tool_id=str(request.caller.get("tool_id") or ""),
-        ),
+        caller=caller_from_audit_payload(request.caller),
         projection=_MountedPluginProjection(request),
         overlay=_MountedPluginWorkspace(request),
         intent=request.intent,
@@ -199,20 +180,6 @@ class _MountedPluginWorkspace:
     async def workspace_operation(self, *, reason: str = "operation") -> Any:
         del reason
         yield self.current_manifest()
-
-    async def publish_workspace_paths(
-        self,
-        *,
-        paths: list[str] | tuple[str, ...],
-        agent_id: str = "",
-        description: str = "plugin workspace edit",
-    ) -> Any:
-        del paths, agent_id, description
-        return SimpleNamespace(
-            success=True,
-            published_manifest_version=None,
-            files=(),
-        )
 
 
 def _to_jsonable(value: Any) -> Any:

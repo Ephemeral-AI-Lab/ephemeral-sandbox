@@ -26,9 +26,10 @@ from sandbox.isolated_workspace._control_plane.linux_runtime import (
 )
 from sandbox.isolated_workspace._control_plane.pipeline_state import (
     AuditSink,
+    IsolatedWorkspaceAuditEvent,
     IsolatedWorkspaceError,
     IsolatedWorkspaceHandle,
-    SCHEMA_VERSION,
+    PERSISTED_HANDLES_SCHEMA_VERSION,
     _PhaseTimer,
     _NamespaceRuntime,
     _PipelineConfig,
@@ -124,24 +125,33 @@ class IsolatedPipeline(
     def _read_persisted_handles(self) -> dict[str, Any]:
         path = self.persisted_handles_path
         if not path.exists():
-            return {"schema_version": SCHEMA_VERSION, "handles": []}
+            return _empty_persisted_handles()
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             logger.warning("isolated_workspace_handles_unreadable path=%s", path)
-            return {"schema_version": SCHEMA_VERSION, "handles": []}
-        if data.get("schema_version") != SCHEMA_VERSION:
+            return _empty_persisted_handles()
+        if data.get("schema_version") != PERSISTED_HANDLES_SCHEMA_VERSION:
             logger.warning(
                 "isolated_workspace_handles_schema_mismatch expected=%s found=%s",
-                SCHEMA_VERSION,
+                PERSISTED_HANDLES_SCHEMA_VERSION,
                 data.get("schema_version"),
             )
-            return {"schema_version": SCHEMA_VERSION, "handles": []}
+            return _empty_persisted_handles()
         return data
 
     def get_handle(self, agent_id: str) -> IsolatedWorkspaceHandle | None:
         handle_id = self._by_agent.get(agent_id)
         return self._handles.get(handle_id) if handle_id else None
+
+    def _require_handle(self, agent_id: str) -> IsolatedWorkspaceHandle:
+        handle = self.get_handle(agent_id)
+        if handle is None:
+            raise IsolatedWorkspaceError(
+                "no_isolated_workspace",
+                "no open isolated workspace for agent",
+            )
+        return handle
 
     async def run_tool_call(self, req: ToolCallRequest) -> ToolCallResult:
         """Run one foreground tool call inside an already-open isolated workspace.
@@ -151,12 +161,7 @@ class IsolatedPipeline(
         no OCC commit; writes drop at ``exit_isolated_workspace`` via
         ``shutil.rmtree(scratch_dir)``.
         """
-        handle = self.get_handle(req.agent_id)
-        if handle is None:
-            raise IsolatedWorkspaceError(
-                "no_isolated_workspace",
-                "no open isolated workspace for agent",
-            )
+        handle = self._require_handle(req.agent_id)
         overlay_handle = self._overlay_handle(handle)
 
         async def _runner(
@@ -215,8 +220,8 @@ class IsolatedPipeline(
             except IsolatedNetworkUnavailable as exc:
                 logger.warning("isolated_network unavailable: %s", exc)
             if self._network.initialized:
-                for subnet in self._network.reachable_rfc1918_subnets():
-                    logger.warning("isolated_workspace_rfc1918_reachable subnet=%s", subnet)
+                for subnet in self._network.daemon_private_routes():
+                    logger.warning("isolated_workspace_rfc1918_route_visible subnet=%s", subnet)
             await self.reap_startup_orphans()
         finally:
             self._init_complete.set()
@@ -254,7 +259,7 @@ class IsolatedPipeline(
             try:
                 stats = await self.exit(handle.agent_id)
                 self._emit(
-                    "sandbox_isolated_workspace_evicted",
+                    IsolatedWorkspaceAuditEvent.EVICTED,
                     {
                         "handle_id": handle.handle_id,
                         "reason": "ttl",
@@ -280,12 +285,7 @@ class IsolatedPipeline(
         stdin: bytes | None = None,
         timeout_s: float | None = None,
     ) -> dict[str, Any]:
-        handle = self.get_handle(agent_id)
-        if handle is None:
-            raise IsolatedWorkspaceError(
-                "no_isolated_workspace",
-                "no open isolated workspace for agent",
-            )
+        handle = self._require_handle(agent_id)
         timer = _PhaseTimer(self._clock)
         start = self._clock()
         handle.active_calls += 1
@@ -310,7 +310,7 @@ class IsolatedPipeline(
             handle.last_activity = self._clock()
         duration = self._clock() - start
         self._emit(
-            "sandbox_isolated_workspace_tool_call",
+            IsolatedWorkspaceAuditEvent.TOOL_CALL,
             {
                 "handle_id": handle.handle_id,
                 "argv0": argv[0] if argv else "",
@@ -330,13 +330,10 @@ class IsolatedPipeline(
 
     async def shutdown(self) -> None:
         """Tear down every active handle on daemon stop."""
-        agent_ids = list(self._by_agent.keys())
-        for agent_id in agent_ids:
-            with contextlib.suppress(Exception):
-                await self.exit(agent_id, grace_s=1.0)
+        await self._exit_open_agents(grace_s=1.0)
         if self._ttl_task is not None:
             self._ttl_task.cancel()
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._ttl_task
 
     def list_open_agents(self) -> list[str]:
@@ -354,10 +351,7 @@ class IsolatedPipeline(
         ``unshare --fork`` ns_holders, accumulated as zombies until the
         daemon's PID/socket pressure broke later tests.
         """
-        agent_ids = list(self._by_agent.keys())
-        for agent_id in agent_ids:
-            with contextlib.suppress(Exception):
-                await self.exit(agent_id, grace_s=1.0)
+        agent_ids = await self._exit_open_agents(grace_s=1.0)
         # Reap any zombies inherited from earlier daemon instances that died
         # before they could waitpid their own children. Non-blocking sweep —
         # we don't care which PIDs we collect, just that we drain them.
@@ -381,17 +375,28 @@ class IsolatedPipeline(
         path = self.persisted_handles_path
         tmp = path.with_suffix(".json.tmp")
         payload = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": PERSISTED_HANDLES_SCHEMA_VERSION,
             "handles": [h.to_persisted() for h in self._handles.values()],
         }
         tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         os.replace(tmp, path)
 
-    def _emit(self, event_type: str, payload: dict[str, Any]) -> None:
+    async def _exit_open_agents(self, *, grace_s: float) -> list[str]:
+        agent_ids = list(self._by_agent.keys())
+        for agent_id in agent_ids:
+            with contextlib.suppress(Exception):
+                await self.exit(agent_id, grace_s=grace_s)
+        return agent_ids
+
+    def _emit(self, event_type: IsolatedWorkspaceAuditEvent, payload: dict[str, Any]) -> None:
         if self._audit is None:
             return
         with contextlib.suppress(Exception):
-            self._audit.emit(event_type, payload)
+            self._audit.emit(event_type.value, payload)
 
 
 __all__ = ["IsolatedPipeline"]
+
+
+def _empty_persisted_handles() -> dict[str, Any]:
+    return {"schema_version": PERSISTED_HANDLES_SCHEMA_VERSION, "handles": []}

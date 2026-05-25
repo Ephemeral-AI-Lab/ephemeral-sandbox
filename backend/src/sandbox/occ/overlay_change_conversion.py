@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 def overlay_path_changes_to_occ_changes(
     path_changes: Sequence[OverlayPathChange],
     *,
-    source: ChangeSource = "overlay_capture",
+    source: ChangeSource = ChangeSource.OVERLAY_CAPTURE,
 ) -> tuple[Change, ...]:
     """Convert policy-blind path changes into typed OCC mutations.
 

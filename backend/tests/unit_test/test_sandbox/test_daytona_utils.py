@@ -40,6 +40,8 @@ def test_build_tool_output_preserves_command_output_and_changes():
         stdout=long_stdout,
         stderr="",
         changed_paths=["/tmp/a.py"],
+        changed_path_kinds={"a.py": "write"},
+        mutation_source="shell",
         conflict_reason=None,
         error=long_error,
     )
@@ -49,6 +51,8 @@ def test_build_tool_output_preserves_command_output_and_changes():
     assert payload["command"] == long_command
     assert payload["stdout"] == long_stdout
     assert payload["changed_paths"] == ["/tmp/a.py"]
+    assert payload["changed_path_kinds"] == {"a.py": "write"}
+    assert payload["mutation_source"] == "shell"
     assert "warnings" not in payload
 
 

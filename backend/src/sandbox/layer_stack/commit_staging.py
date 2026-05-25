@@ -33,7 +33,7 @@ def allocate_commit_staging(
 
 def drop_commit_staging(storage_root: str | Path, staging_id: str) -> None:
     if not staging_id:
-        return
+        raise ValueError("staging_id must not be empty")
     shutil.rmtree(Path(storage_root) / STAGING_DIR / staging_id, ignore_errors=True)
 
 

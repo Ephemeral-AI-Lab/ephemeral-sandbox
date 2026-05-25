@@ -4,19 +4,16 @@ from __future__ import annotations
 
 from audit.base import AuditSink
 from sandbox.api.tool._conflict_detection import is_edit_conflict
-from sandbox.api.tool._daemon_payload import daemon_request_identity
-from sandbox.api.tool._daemon_response_fields import (
+from sandbox.api.tool._daemon_requests import daemon_identity_payload
+from sandbox.api.tool._daemon_results import (
+    guarded_result_from_daemon_response,
     int_from_daemon_field,
     user_visible_error_message,
 )
 from sandbox.api.tool._operation_audit import run_audited_operation
-from sandbox.api.tool._result_projection import (
-    edit_conflict_result,
-    guarded_result_from_daemon_response,
-)
 from sandbox.api.timeouts import EDIT_FILE_TIMEOUT_S
-from sandbox.api.transport import DAEMON_OP_EDIT_FILE, DaemonSandboxTransport, SandboxTransport
-from sandbox._shared.models import EditFileRequest, EditFileResult
+from sandbox.api.transport import DAEMON_OP_EDIT_FILE, SandboxTransport, call_sandbox_daemon
+from sandbox._shared.models import ConflictInfo, EditFileRequest, EditFileResult
 
 
 async def edit_file(
@@ -27,10 +24,9 @@ async def edit_file(
     transport: SandboxTransport | None = None,
 ) -> EditFileResult:
     """Apply search/replace edits through sandbox-local OCC."""
-    daemon_transport = transport or DaemonSandboxTransport()
 
     async def _call() -> EditFileResult:
-        payload = daemon_request_identity(request) | {
+        payload = daemon_identity_payload(request) | {
             "path": request.path,
             "edits": [
                 {"old_text": edit.old_text, "new_text": edit.new_text}
@@ -38,11 +34,12 @@ async def edit_file(
             ],
             "description": request.default_description(f"edit {request.path}"),
         }
-        response = await daemon_transport.call(
+        response = await call_sandbox_daemon(
             sandbox_id,
             DAEMON_OP_EDIT_FILE,
             payload,
             timeout=EDIT_FILE_TIMEOUT_S,
+            transport=transport,
         )
         return guarded_result_from_daemon_response(
             EditFileResult,
@@ -53,7 +50,16 @@ async def edit_file(
     def _conflict_from_error(exc: BaseException) -> EditFileResult | None:
         if not is_edit_conflict(exc):
             return None
-        return edit_conflict_result(request.path, user_visible_error_message(exc))
+        message = user_visible_error_message(exc)
+        return EditFileResult(
+            success=False,
+            changed_paths=(request.path,),
+            applied_edits=0,
+            status="aborted_overlap",
+            conflict=ConflictInfo.overlap(path=request.path, message=message),
+            conflict_reason=message,
+            timings={},
+        )
 
     return await run_audited_operation(
         audit_sink=audit_sink,

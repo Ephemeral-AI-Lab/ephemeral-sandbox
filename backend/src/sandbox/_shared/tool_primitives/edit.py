@@ -12,19 +12,8 @@ from sandbox._shared.tool_primitives.workspace_filesystem import (
 )
 
 
-def edit_file(
-    args: Mapping[str, object] | str,
-    *,
-    old_text: str | None = None,
-    new_text: str | None = None,
-    expected_occurrences: int = 1,
-) -> EditFileResult:
-    path, edits = _normalize_args(
-        args,
-        old_text=old_text,
-        new_text=new_text,
-        expected_occurrences=expected_occurrences,
-    )
+def edit_file(args: Mapping[str, object]) -> EditFileResult:
+    path, edits = _normalize_args(args)
     text = read_bytes_no_follow(path).decode("utf-8")
     current = text
     for old, new, expected in edits:
@@ -42,23 +31,10 @@ def edit_file(
 
 
 def _normalize_args(
-    args: Mapping[str, object] | str,
-    *,
-    old_text: str | None,
-    new_text: str | None,
-    expected_occurrences: int,
+    args: Mapping[str, object],
 ) -> tuple[str, tuple[tuple[str, str, int], ...]]:
-    if not isinstance(args, Mapping):
-        if old_text is None or new_text is None:
-            raise ValueError("old_text and new_text are required")
-        return (
-            required_workspace_path(args),
-            ((old_text, new_text, expected_occurrences),),
-        )
     path = required_workspace_path(args.get("path"))
     edits_raw = args.get("edits")
-    if edits_raw is None and "old_text" in args:
-        edits_raw = [args]
     if not isinstance(edits_raw, Sequence) or isinstance(edits_raw, (str, bytes)):
         raise ValueError("edits must be a list of search/replace objects")
     edits: list[tuple[str, str, int]] = []

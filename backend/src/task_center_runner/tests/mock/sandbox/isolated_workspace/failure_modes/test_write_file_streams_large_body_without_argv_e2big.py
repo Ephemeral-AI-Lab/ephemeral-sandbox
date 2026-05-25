@@ -1,9 +1,10 @@
-"""5 MB write body must NOT trip argv E2BIG.
+"""5 MB write_file body must NOT trip argv E2BIG.
 
 Cross-ref to project memory ``'checked batch apply failed' = argv
-E2BIG``. The iws ``write_file`` handler streams the body via stdin to
-the in-ns helper; argv stays bounded by the path string. A 5 MB body
-therefore must succeed end-to-end and the readback content must match.
+E2BIG``. The iws ``api.v1.write_file`` path sends the tool payload through
+the existing namespace runner's stdin protocol; argv stays bounded by the
+small Python entrypoint wrapper. A 5 MB body therefore must succeed
+end-to-end and the readback content must match.
 
 We pass a TEXT body (5 MB of repeated ASCII) rather than random bytes —
 the property under test is argv size, not binary integrity. The current
@@ -35,16 +36,18 @@ pytestmark = pytest.mark.asyncio
     reason="heavy live e2e disabled in runner.live_e2e.heavy_enabled",
 )
 @pytest.mark.timeout(240)
-async def test_argv_e2big_via_in_ns_write(iws_clean_sandbox) -> None:
+async def test_write_file_streams_large_body_without_argv_e2big(iws_clean_sandbox) -> None:
     sandbox_id = str(iws_clean_sandbox["sandbox_id"])
     enter = await _iws_rpc.enter(
-        sandbox_id, "agent-A", layer_stack_root=_iws_rpc.IWS_LAYER_STACK_ROOT,
+        sandbox_id,
+        "agent-A",
+        layer_stack_root=_iws_rpc.IWS_LAYER_STACK_ROOT,
     )
     assert enter.get("success") is True, enter
     try:
         # 5 MB ASCII body. The argv limit on Linux is ~128 KB by default;
         # this is ~40× over so the stdin-streaming path is the only way
-        # the helper can receive the payload.
+        # the namespace entrypoint can receive the payload.
         body_chunk = "x" * 1024
         body = body_chunk * (5 * 1024)
         assert len(body) == 5 * 1024 * 1024
@@ -55,13 +58,17 @@ async def test_argv_e2big_via_in_ns_write(iws_clean_sandbox) -> None:
 
         # Read back size + a sentinel byte.
         size = await _iws_rpc.shell(
-            sandbox_id, "agent-A", f"wc -c < {path}",
+            sandbox_id,
+            "agent-A",
+            f"wc -c < {path}",
         )
         assert size.get("success") is True, size
         assert "5242880" in (size.get("stdout", "") or ""), size
 
         head = await _iws_rpc.shell(
-            sandbox_id, "agent-A", f"head -c 16 {path}",
+            sandbox_id,
+            "agent-A",
+            f"head -c 16 {path}",
         )
         assert "x" * 16 in (head.get("stdout", "") or ""), head
     finally:

@@ -1,11 +1,11 @@
-"""Tests for the unguarded ``sandbox.api._provider_raw_exec`` primitive."""
+"""Tests for the unguarded ``sandbox.api.raw_exec`` primitive."""
 
 from __future__ import annotations
 
 import pytest
 
 from sandbox.api import RawExecResult
-from sandbox.api._provider_raw_exec import raw_exec
+from sandbox.api.raw_exec import raw_exec
 from sandbox.provider.registry import dispose_adapter, register_adapter
 
 

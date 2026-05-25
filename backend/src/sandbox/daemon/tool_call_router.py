@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 from uuid import uuid4
 
@@ -151,10 +152,8 @@ async def _edit_file_in_layer_stack(req: ToolCallRequest) -> ToolCallResult:
     return payload
 
 
-def _edit_changes(args: dict[str, Any], path: str) -> list[EditChange]:
+def _edit_changes(args: Mapping[str, object], path: str) -> list[EditChange]:
     raw_edits = args.get("edits")
-    if raw_edits is None and "old_text" in args:
-        raw_edits = [args]
     if not isinstance(raw_edits, list):
         raise ValueError("edits must be a list")
     changes: list[EditChange] = []

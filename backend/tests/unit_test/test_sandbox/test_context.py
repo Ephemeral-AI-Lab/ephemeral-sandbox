@@ -25,7 +25,7 @@ def test_sandbox_api_context_preparer_uses_registered_adapter(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import sandbox.api as sandbox_api
-    from sandbox.api import _provider_control
+    import sandbox.api.provider_control as provider_control
 
     sentinel = object()
 
@@ -35,7 +35,7 @@ def test_sandbox_api_context_preparer_uses_registered_adapter(
             return sentinel
 
     monkeypatch.setattr(
-        _provider_control, "get_adapter", lambda _sandbox_id: Adapter()
+        provider_control, "get_adapter", lambda _sandbox_id: Adapter()
     )
 
     assert sandbox_api.context_preparer_for("sb-test123") is sentinel
@@ -45,10 +45,10 @@ def test_sandbox_api_context_preparer_requires_provider_hook(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import sandbox.api as sandbox_api
-    from sandbox.api import _provider_control
+    import sandbox.api.provider_control as provider_control
 
     monkeypatch.setattr(
-        _provider_control, "get_adapter", lambda _sandbox_id: object()
+        provider_control, "get_adapter", lambda _sandbox_id: object()
     )
 
     with pytest.raises(RuntimeError, match="does not expose context_preparer"):

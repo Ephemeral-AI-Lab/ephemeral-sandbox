@@ -8,11 +8,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
-from typing import Literal
 
 from sandbox.layer_stack.manifest import Manifest
 
-ChangeSource = Literal["api_write", "api_edit", "overlay_capture"]
+
+class ChangeSource(str, Enum):
+    API_WRITE = "api_write"
+    API_EDIT = "api_edit"
+    OVERLAY_CAPTURE = "overlay_capture"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass(frozen=True)
@@ -20,10 +26,11 @@ class Change:
     """Base mutation intent entering OCC."""
 
     path: str
-    source: ChangeSource = "api_write"
+    source: ChangeSource = ChangeSource.API_WRITE
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "path", str(self.path))
+        object.__setattr__(self, "source", ChangeSource(self.source))
 
 
 @dataclass(frozen=True)
@@ -79,7 +86,7 @@ class WriteChange(Change):
 class EditChange(Change):
     """Search/replace edit intent."""
 
-    source: ChangeSource = "api_edit"
+    source: ChangeSource = ChangeSource.API_EDIT
     old_text: str | None = None
     new_text: str | None = None
     expected_occurrences: int = 1
@@ -109,7 +116,7 @@ class DeleteChange(Change):
 class SymlinkChange(Change):
     """Replace path with symlink to target."""
 
-    source: ChangeSource = "overlay_capture"
+    source: ChangeSource = ChangeSource.OVERLAY_CAPTURE
     target: str = ""
 
     def __post_init__(self) -> None:
@@ -121,7 +128,7 @@ class SymlinkChange(Change):
 class OpaqueDirChange(Change):
     """Prune lower-layer children of a directory."""
 
-    source: ChangeSource = "overlay_capture"
+    source: ChangeSource = ChangeSource.OVERLAY_CAPTURE
 
 
 class FileStatus(str, Enum):
@@ -227,7 +234,7 @@ def build_api_write_change(
     """Build a source-tagged write change from the host write API."""
     return WriteChange(
         path=path,
-        source="api_write",
+        source=ChangeSource.API_WRITE,
         payload=_eager_payload(final_content),
         base_hash=base_hash,
     )
@@ -239,7 +246,7 @@ def build_overlay_write_change(
     final_content: bytes | None = None,
     content_path: str | None = None,
     precomputed_hash: str | None = None,
-    source: ChangeSource = "overlay_capture",
+    source: ChangeSource = ChangeSource.OVERLAY_CAPTURE,
 ) -> WriteChange:
     """Build an overlay-captured full-file write without a caller base hash.
 
@@ -269,7 +276,7 @@ def build_overlay_delete_change(
     *,
     path: str,
     base_hash: str | None = None,
-    source: ChangeSource = "overlay_capture",
+    source: ChangeSource = ChangeSource.OVERLAY_CAPTURE,
 ) -> DeleteChange:
     """Build an overlay-captured delete whose base hash can be inferred later."""
     return DeleteChange(path=path, source=source, base_hash=base_hash)

@@ -15,7 +15,6 @@ from sandbox.daemon.changeset_projection import (
 from sandbox.ephemeral_workspace.events import (
     WorkspacePathChange,
     WorkspaceChangeEvent,
-    workspace_path_change_from_overlay_change,
 )
 from sandbox._shared.command_exec_contract import (
     ChangesetResultLike,
@@ -26,9 +25,6 @@ from sandbox._shared.command_exec_contract import (
 from sandbox.occ.changeset import (
     ChangesetResult,
     CommitOptions,
-    DeleteChange,
-    WriteChange,
-    WritePayload,
 )
 from sandbox.occ.overlay_change_conversion import overlay_path_changes_to_occ_changes
 from sandbox.overlay.capture import walk_upperdir
@@ -162,7 +158,7 @@ class WorkspacePublishMixin:
                     to_version=self._active_manifest_version
                     or int(changeset.published_manifest_version or old_version),
                     changes=tuple(
-                        workspace_path_change_from_overlay_change(change)
+                        WorkspacePathChange.from_overlay_change(change)
                         for change in path_changes
                     ),
                 )
@@ -172,76 +168,6 @@ class WorkspacePublishMixin:
             changeset=changeset,
             timings={**timings, **maintenance_timings},
         )
-
-    async def publish_workspace_paths(
-        self,
-        *,
-        paths: Sequence[str],
-        agent_id: str = "",
-        description: str = "plugin workspace edit",
-    ) -> ChangesetResult:
-        """Publish direct writes made under the daemon overlay workspace root."""
-        del agent_id, description
-        if self._mounted:
-            snapshot = self.current_manifest()
-            publish = await self.publish_pending_changes(
-                snapshot=snapshot,
-                run_maintenance=True,
-            )
-            return publish.changeset
-        if self._layer_stack is None:
-            raise RuntimeError("publish_workspace_paths requires layer_stack")
-        snapshot = self._layer_stack.read_active_manifest()
-        old_version = int(getattr(snapshot, "version", self._active_manifest_version))
-        changes = []
-        event_changes: list[WorkspacePathChange] = []
-        for path in paths:
-            rel = self._relative_workspace_path(path)
-            full_path = Path(self.workspace_root) / rel
-            if full_path.exists() or full_path.is_symlink():
-                changes.append(
-                    WriteChange(
-                        path=rel,
-                        source="overlay_capture",
-                        payload=WritePayload(content_path=full_path.as_posix()),
-                    )
-                )
-                event_changes.append(
-                    WorkspacePathChange(path=rel, kind="write", existed_before=True)
-                )
-            else:
-                changes.append(DeleteChange(path=rel, source="overlay_capture"))
-                event_changes.append(
-                    WorkspacePathChange(path=rel, kind="delete", existed_before=True)
-                )
-        if not changes:
-            return ChangesetResult(
-                files=(),
-                timings={},
-                published_manifest_version=None,
-            )
-        result = await self._occ_client.apply_changeset(
-            tuple(changes),
-            snapshot=snapshot,
-            options=CommitOptions(atomic=len({change.path for change in changes}) > 1),
-            workspace_ref=self._workspace_ref,
-            run_maintenance=False,
-        )
-        await self.run_maintenance_after_publish(
-            result,
-            workspace_ref=self._workspace_ref,
-        )
-        if result.published_manifest_version is not None:
-            self._mark_active(self._layer_stack.read_active_manifest())
-            self.event_bus.emit(
-                WorkspaceChangeEvent(
-                    reason="publish",
-                    from_version=old_version,
-                    to_version=self._active_manifest_version,
-                    changes=tuple(event_changes),
-                )
-            )
-        return result
 
     async def run_maintenance_after_publish(
         self,

@@ -7,6 +7,7 @@ import os
 import sys
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, is_dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,11 @@ from sandbox.overlay.kernel_mount import (
     umount,
     validate_mount_inputs,
 )
+
+
+class WorkspaceMountMode(StrEnum):
+    MOUNT_OVERLAY = "mount_overlay"
+    EXISTING_MOUNT = "existing_mount"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,7 +56,7 @@ def execute(payload: dict[str, Any]) -> int:
 
 
 @dataclass(frozen=True)
-class _NamespaceRequest:
+class _OverlayMountRequest:
     workspace_root: Path
     layer_paths: tuple[Path, ...]
     upperdir: Path
@@ -61,14 +67,12 @@ class _NamespaceRequest:
     policy: CommandExecPolicy
 
 
-def _payload_request(payload: dict[str, Any]) -> _NamespaceRequest:
+def _overlay_mount_request(payload: dict[str, Any]) -> _OverlayMountRequest:
     raw_layers = payload["layer_paths"]
     if not isinstance(raw_layers, list) or not raw_layers:
-        raise ValueError(
-            f"layer_paths must be a non-empty list; got {raw_layers!r}"
-        )
+        raise ValueError(f"layer_paths must be a non-empty list; got {raw_layers!r}")
     layer_paths = tuple(Path(str(p)) for p in raw_layers)
-    return _NamespaceRequest(
+    return _OverlayMountRequest(
         workspace_root=Path(str(payload["workspace_root"])),
         layer_paths=layer_paths,
         upperdir=Path(str(payload["upperdir"])),
@@ -89,17 +93,17 @@ def execute_tool_payload_safely(
 ) -> dict[str, Any]:
     local_timings = timings if timings is not None else {}
     mount_inputs: MountInputs | None = None
-    request: _NamespaceRequest | None = None
-    mount_overlay_requested = payload.get("mount_overlay", True)
+    mount_request: _OverlayMountRequest | None = None
     try:
-        if mount_overlay_requested:
-            request = _payload_request(payload)
+        workspace_mount_mode = _workspace_mount_mode(payload)
+        if workspace_mount_mode is WorkspaceMountMode.MOUNT_OVERLAY:
+            mount_request = _overlay_mount_request(payload)
             mount_inputs = validate_mount_inputs(
-                workspace_root=request.workspace_root,
-                layer_paths=request.layer_paths,
-                upperdir=request.upperdir,
-                workdir=request.workdir,
-                policy=request.policy,
+                workspace_root=mount_request.workspace_root,
+                layer_paths=mount_request.layer_paths,
+                upperdir=mount_request.upperdir,
+                workdir=mount_request.workdir,
+                policy=mount_request.policy,
             )
             mount_start = monotonic_now()
             mount_overlay(
@@ -123,9 +127,18 @@ def execute_tool_payload_safely(
     finally:
         if mount_inputs is not None:
             mount_inputs.close()
-        if request is not None and mount_overlay_requested:
-            umount(request.workspace_root)
-            _write_timings(request.timings_ref, local_timings)
+        if mount_request is not None:
+            umount(mount_request.workspace_root)
+            _write_timings(mount_request.timings_ref, local_timings)
+
+
+def _workspace_mount_mode(payload: dict[str, Any]) -> WorkspaceMountMode:
+    raw = payload.get("workspace_mount_mode")
+    try:
+        return WorkspaceMountMode(str(raw))
+    except ValueError as exc:
+        allowed = ", ".join(mode.value for mode in WorkspaceMountMode)
+        raise ValueError(f"workspace_mount_mode must be one of: {allowed}; got {raw!r}") from exc
 
 
 def execute_tool_payload(
@@ -188,7 +201,10 @@ def _check_host_denylist(req: ToolCallRequest) -> dict[str, Any] | None:
     target = str(req.args.get("path") or req.args.get("cwd") or "")
     if not target:
         return None
-    if any(target == prefix.rstrip("/") or target.startswith(prefix) for prefix in _HOST_DENYLIST_PREFIXES):
+    if any(
+        target == prefix.rstrip("/") or target.startswith(prefix)
+        for prefix in _HOST_DENYLIST_PREFIXES
+    ):
         return {
             "success": False,
             "status": "error",
@@ -256,6 +272,7 @@ __all__ = [
     "execute_tool_payload",
     "execute_tool_payload_safely",
     "main",
+    "WorkspaceMountMode",
 ]
 
 

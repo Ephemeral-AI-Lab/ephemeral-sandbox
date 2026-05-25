@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import shutil
-from collections.abc import Mapping
 from pathlib import Path
 from types import TracebackType
 from uuid import uuid4
@@ -15,6 +14,7 @@ from sandbox.layer_stack.changes import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset import (
     ChangesetResult,
+    ChangeSource,
     FileResult,
     FileStatus,
     PreparedChangeset,
@@ -51,15 +51,12 @@ class CommitTransaction:
         staging: LayerCommitStagingStore,
         publisher: LayerCommitPublisher,
     ) -> None:
-        self._snapshot_reader = snapshot_reader
         self._staging = staging
         self._publisher = publisher
         self._hasher = ContentHasher()
-        self._gated = GatedStager(snapshot_reader, hasher=self._hasher)
-        self._direct = DirectStager(snapshot_reader)
-        self._policies: Mapping[RouteDecision, DirectStager | GatedStager] = {
-            RouteDecision.DIRECT: self._direct,
-            RouteDecision.GATED: self._gated,
+        self._route_stagers: dict[RouteDecision, DirectStager | GatedStager] = {
+            RouteDecision.DIRECT: DirectStager(snapshot_reader),
+            RouteDecision.GATED: GatedStager(snapshot_reader, hasher=self._hasher),
         }
 
     def revalidate_and_publish(self, prepared: PreparedChangeset) -> ChangesetResult:
@@ -165,9 +162,9 @@ class CommitTransaction:
                 ),
                 None,
             )
-        policy = self._policies.get(group.route)
-        if policy is not None:
-            return policy.stage_group(
+        route_stager = self._route_stagers.get(group.route)
+        if route_stager is not None:
+            return route_stager.stage_group(
                 group,
                 active_manifest=active_manifest,
                 stage_write=stager.write,
@@ -342,7 +339,7 @@ def _atomic_or_overlay_dropped(
     if prepared.atomic and any(result.status in _FAILURE_STATUSES for result in files):
         return "not published because atomic changeset validation failed"
     if occ_gated_failed and any(
-        change.source == "overlay_capture"
+        change.source is ChangeSource.OVERLAY_CAPTURE
         for group in prepared.path_groups
         for change in group.changes
     ):

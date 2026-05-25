@@ -20,9 +20,8 @@ before = sample_resource()
 started = time.perf_counter()
 root = _case_root(label)
 del root
-clock = {"now": 100.0}
 ids = iter(["lease-a", "lease-b", "lease-live", "lease-dead"])
-registry = LeaseRegistry(id_factory=lambda: next(ids), clock=lambda: clock["now"])
+registry = LeaseRegistry(id_factory=lambda: next(ids))
 layer = LayerRef(layer_id="L000001", path="layers/L000001")
 manifest = Manifest(version=1, layers=(layer,))
 
@@ -87,7 +86,7 @@ _emit(label, started, before, {
 """
 
 
-async def test_lease_registry_registers_releases_expires_and_sweeps_dead_owners(
+async def test_lease_registry_registers_and_releases_leases(
     native_sandbox: SandboxHandle,
 ) -> None:
     payload = await run_native_case(

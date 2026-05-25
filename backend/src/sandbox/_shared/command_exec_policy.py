@@ -27,9 +27,6 @@ class CommandExecPolicy:
             }
         )
     )
-    workspace_env_keys: frozenset[str] = field(
-        default_factory=lambda: frozenset({"WORKSPACE_DIR", "PWD", "OLDPWD"})
-    )
     forbidden_overlay_path_chars: tuple[str, ...] = (
         ",",
         ":",
@@ -47,15 +44,9 @@ class CommandExecPolicy:
         host_env = (
             dict(os.environ)
             if self.host_env_keys is None
-            else {
-                key: os.environ[key]
-                for key in self.host_env_keys
-                if key in os.environ
-            }
+            else {key: os.environ[key] for key in self.host_env_keys if key in os.environ}
         )
-        safe_extra = {
-            k: v for k, v in extra.items() if k not in self.restricted_env_keys
-        }
+        safe_extra = {k: v for k, v in extra.items() if k not in self.restricted_env_keys}
         return {
             **host_env,
             **safe_extra,
@@ -71,24 +62,15 @@ class CommandExecPolicy:
     def to_payload(self) -> dict[str, object]:
         return {
             "host_env_keys": (
-                sorted(self.host_env_keys)
-                if self.host_env_keys is not None
-                else None
+                sorted(self.host_env_keys) if self.host_env_keys is not None else None
             ),
             "restricted_env_keys": sorted(self.restricted_env_keys),
-            "workspace_env_keys": sorted(self.workspace_env_keys),
             "forbidden_overlay_path_chars": list(self.forbidden_overlay_path_chars),
             "command_env_defaults": dict(self.command_env_defaults),
         }
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, object]) -> CommandExecPolicy:
-        def _strings(key: str, default: tuple[str, ...]) -> frozenset[str]:
-            raw = payload.get(key)
-            if not isinstance(raw, list):
-                return frozenset(default)
-            return frozenset(str(item) for item in raw)
-
         defaults = DEFAULT_COMMAND_EXEC_POLICY
         env_defaults_raw = payload.get("command_env_defaults")
         env_defaults = (
@@ -110,17 +92,19 @@ class CommandExecPolicy:
         )
         return cls(
             host_env_keys=host_env_keys,
-            restricted_env_keys=_strings(
-                "restricted_env_keys",
-                tuple(defaults.restricted_env_keys),
-            ),
-            workspace_env_keys=_strings(
-                "workspace_env_keys",
-                tuple(defaults.workspace_env_keys),
+            restricted_env_keys=_string_set(
+                payload.get("restricted_env_keys"),
+                default=defaults.restricted_env_keys,
             ),
             forbidden_overlay_path_chars=forbidden,
             command_env_defaults=env_defaults,
         )
+
+
+def _string_set(raw: object, *, default: frozenset[str]) -> frozenset[str]:
+    if not isinstance(raw, list):
+        return default
+    return frozenset(str(item) for item in raw)
 
 
 DEFAULT_COMMAND_EXEC_POLICY = CommandExecPolicy()
