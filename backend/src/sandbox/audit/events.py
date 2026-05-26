@@ -45,10 +45,15 @@ SUBSYSTEM_EVENTS = OCC_EVENTS + OVERLAY_EVENTS + LAYER_STACK_EVENTS + RESOURCE_E
 WORKSPACE_LIFECYCLE_STARTED = "workspace_lifecycle_started"
 WORKSPACE_LIFECYCLE_COMPLETED = "workspace_lifecycle_completed"
 WORKSPACE_LIFECYCLE_FAILED = "workspace_lifecycle_failed"
+# Phase 4: engine-side rejection when a Intent.LIFECYCLE tool is co-batched
+# with other tool calls. Routed through the same lifecycle audit path so
+# the rejection appears in trace bundles next to enter/exit events.
+WORKSPACE_LIFECYCLE_BATCH_REJECTED = "workspace_lifecycle_batch_rejected"
 WORKSPACE_LIFECYCLE_EVENTS = (
     WORKSPACE_LIFECYCLE_STARTED,
     WORKSPACE_LIFECYCLE_COMPLETED,
     WORKSPACE_LIFECYCLE_FAILED,
+    WORKSPACE_LIFECYCLE_BATCH_REJECTED,
 )
 
 
@@ -113,6 +118,7 @@ __all__ = [
     "RESOURCE_SNAPSHOT",
     "SUBSYSTEM_EVENTS",
     "TIMING_SIGNAL_EVENTS",
+    "WORKSPACE_LIFECYCLE_BATCH_REJECTED",
     "WORKSPACE_LIFECYCLE_COMPLETED",
     "WORKSPACE_LIFECYCLE_EVENTS",
     "WORKSPACE_LIFECYCLE_FAILED",

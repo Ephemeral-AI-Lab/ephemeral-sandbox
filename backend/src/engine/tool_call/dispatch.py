@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -21,6 +23,8 @@ from message.stream_events import (
     ToolExecutionCompleted,
 )
 from sandbox._shared.clock import monotonic_now
+from sandbox._shared.models import Intent
+from sandbox.audit.lifecycle import emit_lifecycle_batch_rejected
 from sandbox.daemon.audit_schema import (
     ToolCallSection,
     build_tool_call_event,
@@ -33,6 +37,33 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+# Phase 4 §AC6: process-local counter for lifecycle-batch rejections.
+# Keyed by ``(lifecycle_tool, sibling_count_bucket)`` to stay cardinality-safe.
+# ``agent_id`` is intentionally a structured-log dimension (audit event)
+# rather than a counter label.
+_LIFECYCLE_BATCH_REJECTION_COUNTERS: Counter[tuple[str, str]] = Counter()
+
+
+def get_lifecycle_batch_rejection_counters() -> dict[tuple[str, str], int]:
+    """Read-only snapshot of the lifecycle-batch rejection counter map."""
+    return dict(_LIFECYCLE_BATCH_REJECTION_COUNTERS)
+
+
+def reset_lifecycle_batch_rejection_counters() -> None:
+    """Test helper: zero out the counter between assertions."""
+    _LIFECYCLE_BATCH_REJECTION_COUNTERS.clear()
+
+
+def _sibling_count_bucket(sibling_count: int) -> str:
+    if sibling_count <= 0:
+        return "0"
+    if sibling_count == 1:
+        return "1"
+    if sibling_count == 2:
+        return "2"
+    return "3+"
 
 
 def _emit_tool_call_started(tool_call: ToolUseBlock) -> None:
@@ -187,6 +218,106 @@ def _record_tool_batch_rejection(
     ]
 
 
+def _intent_for_tool(
+    context: QueryContext, tool_call: ToolUseBlock
+) -> Intent | None:
+    tool_def = context.tool_registry.get(tool_call.name)
+    intent = getattr(tool_def, "intent", None)
+    return intent if isinstance(intent, Intent) else None
+
+
+def _record_lifecycle_batch_rejection(
+    context: QueryContext,
+    tool_calls: list[ToolUseBlock],
+    tool_results: list[ToolResultBlock],
+) -> tuple[list[StreamEvent], list[ToolUseBlock]] | None:
+    """Engine-side ``Intent.LIFECYCLE`` batch policy (Phase 4 §E1/§E2).
+
+    Returns ``None`` when the batch is single-call or contains no lifecycle
+    tools — the caller proceeds as before. Otherwise emits rejection
+    ``ToolResultBlock``s, records telemetry, and returns
+    ``(events, dispatchable_tool_calls)``. The lifecycle invariant at
+    ``docs/architecture/tools/isolated-workspace.html:166`` ("later tool
+    calls observe the new routing state") becomes enforceable here:
+
+    * **>1 LIFECYCLE in batch:** all lifecycle calls rejected; non-lifecycle
+      siblings (if any) still dispatch — they observe whatever routing
+      state preceded the batch.
+    * **=1 LIFECYCLE + ≥1 sibling:** siblings rejected; the lifecycle call
+      dispatches solo. Divergence from the terminal-tool precedent is
+      deliberate (see Phase 4 plan §Design): forcing the lifecycle call to
+      also retry would loop the agent indefinitely.
+    """
+    if not tool_calls or len(tool_calls) <= 1:
+        return None
+    lifecycle_calls: list[ToolUseBlock] = []
+    non_lifecycle_calls: list[ToolUseBlock] = []
+    for call in tool_calls:
+        if _intent_for_tool(context, call) is Intent.LIFECYCLE:
+            lifecycle_calls.append(call)
+        else:
+            non_lifecycle_calls.append(call)
+    if not lifecycle_calls:
+        return None
+    audit_path = os.environ.get("EOS_WORKSPACE_LIFECYCLE_AUDIT_PATH")
+    agent_id = _batch_agent_id(context)
+    if len(lifecycle_calls) > 1:
+        names = ", ".join(f"`{c.name}`" for c in lifecycle_calls)
+        message = (
+            f"Multiple lifecycle tools in one batch ({names}); engine "
+            "cannot choose ordering. Resubmit each lifecycle call in its "
+            "own batch."
+        )
+        rejected_pairs = [
+            (call, ToolResultBlock(tool_use_id=str(call.id), content=message, is_error=True))
+            for call in lifecycle_calls
+        ]
+        remaining = non_lifecycle_calls
+        for call in lifecycle_calls:
+            _LIFECYCLE_BATCH_REJECTION_COUNTERS[(call.name, "multi_lifecycle")] += 1
+            emit_lifecycle_batch_rejected(
+                lifecycle_tool=call.name,
+                sibling_tools=tuple(c.name for c in lifecycle_calls if c is not call),
+                agent_id=agent_id,
+                audit_path=audit_path,
+            )
+    else:
+        lifecycle_call = lifecycle_calls[0]
+        sibling_names = ", ".join(f"`{c.name}`" for c in non_lifecycle_calls)
+        message = (
+            f"`{lifecycle_call.name}` changes workspace routing; sibling "
+            f"tools ({sibling_names}) were rejected to avoid ordering "
+            "ambiguity. The lifecycle call executed. Resubmit the rejected "
+            "tools in the next batch."
+        )
+        rejected_pairs = [
+            (call, ToolResultBlock(tool_use_id=str(call.id), content=message, is_error=True))
+            for call in non_lifecycle_calls
+        ]
+        remaining = [lifecycle_call]
+        bucket = _sibling_count_bucket(len(non_lifecycle_calls))
+        _LIFECYCLE_BATCH_REJECTION_COUNTERS[(lifecycle_call.name, bucket)] += 1
+        emit_lifecycle_batch_rejected(
+            lifecycle_tool=lifecycle_call.name,
+            sibling_tools=tuple(c.name for c in non_lifecycle_calls),
+            agent_id=agent_id,
+            audit_path=audit_path,
+        )
+    tool_results.extend(block for _, block in rejected_pairs)
+    events: list[StreamEvent] = [
+        _completion_event_from_tool_result_block(call, block)
+        for call, block in rejected_pairs
+    ]
+    return events, remaining
+
+
+def _batch_agent_id(context: QueryContext) -> str:
+    """Best-effort agent_id for audit records — empty string if unknown."""
+    metadata = getattr(context, "tool_metadata", None)
+    candidate = getattr(metadata, "agent_id", None) or getattr(context, "run_id", "")
+    return str(candidate or "")
+
+
 async def dispatch_assistant_tools(
     context: QueryContext,
     messages: list[ConversationMessage],
@@ -261,6 +392,15 @@ async def _dispatch_deferred_tool_calls(
     rejection_events = _record_tool_batch_rejection(context, tool_calls, tool_results)
     if rejection_events is not None:
         return rejection_events
+
+    lifecycle_rejection = _record_lifecycle_batch_rejection(
+        context, tool_calls, tool_results
+    )
+    if lifecycle_rejection is not None:
+        rejection_events_lc, tool_calls = lifecycle_rejection
+        events.extend(rejection_events_lc)
+        if not tool_calls:
+            return events
 
     foreground_tool_calls: list[ToolUseBlock] = []
     for tool_call in tool_calls:

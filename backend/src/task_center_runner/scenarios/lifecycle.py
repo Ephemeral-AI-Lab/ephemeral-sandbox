@@ -1,17 +1,11 @@
 """``ScenarioLifecycle`` — bridges scenario hooks into the audit-bus pipeline.
 
-Phase 4 of the task_center_runner restructure
-(.omc/plans/task_center_runner-restructure.md) makes mock scenarios run
-through the same ``run_pipeline`` as real-LLM freeform runs and SWE-EVO
-benchmark runs. The only mode-specific seam for mock scenarios is this
-lifecycle: ``on_event`` is subscribed to the audit bus at engine startup
-and fires the scenario's ``HookSet`` against the shared
-``MutableMockState``. ``after_run`` writes the accumulated hook results
-into ``PipelineReport.lifecycle_extras["hook_results"]`` so the legacy
-``live_e2e/runner.py`` shim can rebuild the rich ``RunReport`` view.
-
-This module is additive in Phase 4b: nothing imports it yet. Phase 4e
-(``run_scenario`` shim assembly) wires it through ``build_scenario_config``.
+Mock scenarios run through the same ``run_pipeline`` as real-agent and
+benchmark runs. This lifecycle is the mock-specific seam: ``on_event`` is
+subscribed to the audit bus at engine startup and fires the scenario's
+``HookSet`` against the shared ``MutableMockState``. ``run_scenario`` then
+builds the rich ``RunReport`` from the lifecycle's captured events and hook
+results.
 """
 
 from __future__ import annotations
@@ -49,10 +43,6 @@ class ScenarioLifecycle:
         self._mutable_state = mutable_state
         self._hook_results: list[HookResult] = []
         self._captured_events: list[Event] = []
-        # Phase 4g-step1: accumulators rebuilt from MOCK_* events. Phase 4e
-        # shim still reads from ``MockSquadRunner.{launches,tool_calls,...}``
-        # for now; Phase 4g-step2 will switch the shim and Phase 4g-step3
-        # removes the runner's list attributes.
         self._launches: list[LaunchRecord] = []
         self._tool_calls: list[ToolCallRecord] = []
         self._prompt_inspections: list[PromptInspection] = []
@@ -105,21 +95,10 @@ class ScenarioLifecycle:
         for result in self._hook_set.fire(event, "post", self._mutable_state):
             self._hook_results.append(result)
 
-    async def after_run(self, ctx: "RunContext", report: "PipelineReport") -> None:
-        report.lifecycle_extras.setdefault(
-            "hook_results", list(self._hook_results)
-        )
-        report.lifecycle_extras.setdefault(
-            "captured_events", list(self._captured_events)
-        )
-        report.lifecycle_extras.setdefault(
-            "mutable_state_flags", dict(self._mutable_state.flags)
-        )
-        report.lifecycle_extras.setdefault(
-            "seen_event_types", list(self._mutable_state.seen_events)
-        )
+    async def after_run(self, _ctx: "RunContext", _report: "PipelineReport") -> None:
+        return None
 
-    async def on_aborted(self, ctx: "RunContext", reason: str) -> None:
+    async def on_aborted(self, _ctx: "RunContext", _reason: str) -> None:
         return None
 
 

@@ -1,8 +1,7 @@
-"""Phase 2 of the task_center_runner restructure adds 4 MOCK_* EventType values.
+"""Regression guard for the four MOCK_* EventType values.
 
-The mock-runner side-channel pipe lives at the audit-event seam (Phase 4 wires
-``MockSquadRunner`` to publish on these types; the legacy ``live_e2e/runner.py``
-shim subscribes when assembling its rich ``RunReport`` view).
+MockSquadRunner publishes these side-channel events; ScenarioLifecycle consumes
+them when assembling the rich mock ``RunReport`` view.
 """
 
 from __future__ import annotations

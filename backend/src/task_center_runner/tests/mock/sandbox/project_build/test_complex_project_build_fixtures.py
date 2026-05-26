@@ -220,7 +220,7 @@ async def test_shell_cat_retry_recovers_transient_transport_error(
 ) -> None:
     calls: list[str] = []
 
-    async def fake_shell(*args, **kwargs):  # noqa: ANN002, ANN003
+    async def fake_shell(*_args, **kwargs):  # noqa: ANN002, ANN003
         calls.append(kwargs["command"])
         if len(calls) == 1:
             return ToolResult(output="transport failed", is_error=True)
@@ -245,7 +245,7 @@ async def test_broken_lsp_diagnostic_requires_at_least_one_diagnostic(
 ) -> None:
     calls: list[dict[str, object]] = []
 
-    async def fake_lsp_semantic_call(*args, **kwargs):  # noqa: ANN002, ANN003
+    async def fake_lsp_semantic_call(*_args, **kwargs):  # noqa: ANN002, ANN003
         calls.append(kwargs["args"])
         return ToolResult(output=json.dumps({"diagnostics": []}))
 
@@ -283,7 +283,7 @@ async def test_broken_lsp_diagnostic_always_uses_nonblocking_calls(
 ) -> None:
     calls: list[dict[str, object]] = []
 
-    async def fake_lsp_semantic_call(*args, **kwargs):  # noqa: ANN002, ANN003
+    async def fake_lsp_semantic_call(*_args, **kwargs):  # noqa: ANN002, ANN003
         calls.append(kwargs["args"])
         return ToolResult(
             output=json.dumps(
@@ -354,7 +354,7 @@ def test_compute_amp_pairs_meets_ratio_without_mutation_bloat() -> None:
     smoke = tuple(f for f in SCHEDULER_DEMO_FILES if f.relative_path in SMOKE_FILE_PATHS)
     full = SCHEDULER_DEMO_FILES
     for selected, smoke_flag in ((smoke, True), (full, False)):
-        pairs = _compute_amp_pairs(selected, smoke=smoke_flag)
+        pairs = _compute_amp_pairs(selected)
         write_count = sum(1 for f in selected if f.skeleton)
         patch_count = sum(len(f.patches) for f in selected)
         py_anchor_count = sum(

@@ -1,8 +1,9 @@
 """Scenario protocol + scenario registry.
 
 Composite scenarios live at the top level for historical reasons. Focused
-scenarios are organized by concern under subpackages — see
-``docs/wiki/live-e2e-scenario-suite-design.md`` for the full taxonomy.
+scenarios are organized by concern under subpackages; see
+``docs/architecture/task_center/bridges.html`` for the maintained runner and
+artifact boundary.
 """
 
 from __future__ import annotations

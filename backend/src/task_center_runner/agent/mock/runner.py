@@ -1984,15 +1984,7 @@ class MockSquadRunner:
     def _publish_mock_record(
         self, event_type: EventType, record: Any
     ) -> None:
-        """Phase 4 — mirror a list-append into the audit bus as a MOCK_* event.
-
-        Dual-write seam: the existing ``self.launches`` / ``self.tool_calls`` /
-        ``self.prompt_inspections`` / ``self.sandbox_checks`` lists keep their
-        contents (the legacy ``RunReport`` view still reads them), and the same
-        record is also emitted as a ``MOCK_*`` ``Event`` so a Phase-4e shim
-        subscriber can rebuild those lists from bus events alone — preparing
-        for Phase 4g removal of the list attributes.
-        """
+        """Publish one mock-runner record to the audit bus."""
         if self._bus is None:
             return
         payload = (

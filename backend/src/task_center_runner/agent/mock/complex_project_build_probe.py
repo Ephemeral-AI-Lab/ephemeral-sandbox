@@ -802,7 +802,6 @@ async def _phase_d_refactor(
 def _compute_amp_pairs(
     selected_files: Sequence[FixtureFile],
     *,
-    smoke: bool,
     edit_write_ratio_floor: float = 4.0,
     headroom: float = 1.25,
 ) -> int:
@@ -843,7 +842,7 @@ async def _phase_d_edit_amplification(
     Returns the computed ``pairs`` value so the caller can record it in the
     probe summary for visibility.
     """
-    pairs = _compute_amp_pairs(selected, smoke=ctx.smoke)
+    pairs = _compute_amp_pairs(selected)
     phase_started = time.monotonic()
 
     targets = [

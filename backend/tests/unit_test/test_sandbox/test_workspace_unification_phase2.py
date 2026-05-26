@@ -149,14 +149,11 @@ def test_plugin_gate_blocks_open_isolated_workspace(monkeypatch) -> None:
             return object() if agent_id == "agent" else None
 
     monkeypatch.setattr(dispatcher, "get_active_pipeline", lambda: _Iws())
-    blocked = dispatcher._check_plugin_block({"agent_id": "agent"}, "api.plugin.ensure")
+    blocked = dispatcher._plugin_block_decision("api.plugin.ensure", "agent")
     assert blocked is not None
     assert blocked["error"]["kind"] == "forbidden_in_isolated_workspace"
 
-    blocked = dispatcher._check_plugin_block(
-        {"caller": {"agent_id": "agent"}},
-        "plugin.demo.run",
-    )
+    blocked = dispatcher._plugin_block_decision("plugin.demo.run", "agent")
     assert blocked is not None
     assert blocked["error"]["kind"] == "forbidden_in_isolated_workspace"
 

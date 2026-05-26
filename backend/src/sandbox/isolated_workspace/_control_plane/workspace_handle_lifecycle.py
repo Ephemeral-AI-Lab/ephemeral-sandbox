@@ -209,21 +209,47 @@ class _WorkspaceHandleLifecycleMixin:
         *,
         grace_s: float | None = None,
     ) -> dict[str, Any]:
-        async with self._map_lock:
-            handle_id = self._by_agent.get(agent_id)
-            if handle_id is None:
-                raise IsolatedWorkspaceError(
-                    "not_open",
-                    "agent has no open isolated workspace",
-                    agent_id=agent_id,
-                )
-            handle = self._handles[handle_id]
-            del self._by_agent[agent_id]
-            del self._handles[handle_id]
+        # Lazy import: ``workspace_tool_dispatch`` imports the isolated
+        # pipeline registry at module load, so this module cannot import
+        # it at top level without a cycle.
+        from sandbox.daemon.workspace_tool_dispatch import (
+            begin_exit_drain,
+            finalize_exit_drain,
+            lifecycle_exit_critical_section,
+        )
+
+        effective_grace_s = self._config.exit_grace_s if grace_s is None else max(0.0, grace_s)
+        # Phase 4 §D2: drain in-flight foreground dispatches before touching
+        # routing state. ``exit_pending`` blocks new dispatches the moment
+        # ``begin_exit_drain`` returns; the wait covers calls that probed
+        # the pipeline before the gate flipped.
+        drain_mode, inflight_at_timeout = await begin_exit_drain(
+            agent_id, grace_s=effective_grace_s
+        )
+        if drain_mode == "timeout":
+            return _exit_drain_timeout_payload(
+                inflight=inflight_at_timeout, grace_s=effective_grace_s
+            )
+        async with lifecycle_exit_critical_section(agent_id):
+            async with self._map_lock:
+                handle_id = self._by_agent.get(agent_id)
+                if handle_id is None:
+                    # State exists but no map entry — the agent already exited
+                    # via another path. Reset exit_pending so the dispatch
+                    # state does not strand future dispatches.
+                    await finalize_exit_drain(agent_id)
+                    raise IsolatedWorkspaceError(
+                        "not_open",
+                        "agent has no open isolated workspace",
+                        agent_id=agent_id,
+                    )
+                handle = self._handles[handle_id]
+                del self._by_agent[agent_id]
+                del self._handles[handle_id]
         upperdir_bytes = _directory_file_bytes(handle.upperdir)
         timer = _PhaseTimer(self._clock)
-        effective_grace_s = self._config.exit_grace_s if grace_s is None else max(0.0, grace_s)
         await self._teardown(handle, grace_s=effective_grace_s, timer=timer)
+        await finalize_exit_drain(agent_id)
         self._persist()
         lifetime_s = self._clock() - handle.created_at
         total_ms = timer.total_ms()
@@ -339,3 +365,36 @@ def _close_handle_fds(handle: IsolatedWorkspaceHandle) -> None:
                 os.close(fd)
     handle.readiness_fd = -1
     handle.control_fd = -1
+
+
+def _exit_drain_timeout_payload(
+    *,
+    inflight: int,
+    grace_s: float,
+) -> dict[str, Any]:
+    """Wire-shape result for Phase 4 §D2 exit_drain_timeout.
+
+    The handle stays live, ``exit_pending`` has already been reset by
+    ``begin_exit_drain``, so the agent can retry with a larger
+    ``grace_s`` or pre-cancel via the background-task path. Maps and
+    ``_teardown`` are intentionally NOT executed.
+    """
+    return {
+        "success": False,
+        "evicted_upperdir_bytes": 0,
+        "lifetime_s": 0.0,
+        "total_ms": 0.0,
+        "phases_ms": {},
+        "error": {
+            "kind": "exit_drain_timeout",
+            "message": (
+                "exit_isolated_workspace timed out waiting for in-flight "
+                "dispatches to drain; retry with larger grace_s or cancel "
+                "via background path"
+            ),
+            "details": {
+                "inflight": str(inflight),
+                "grace_s": str(grace_s),
+            },
+        },
+    }

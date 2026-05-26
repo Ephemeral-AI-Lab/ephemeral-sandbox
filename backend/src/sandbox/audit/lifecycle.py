@@ -49,8 +49,34 @@ async def lifecycle_operation(
         )
 
 
+def emit_lifecycle_batch_rejected(
+    *,
+    lifecycle_tool: str,
+    sibling_tools: tuple[str, ...],
+    agent_id: str,
+    audit_path: str | None = None,
+) -> None:
+    """Record an engine-side batch rejection in the lifecycle audit stream.
+
+    Phase 4 §AC6: the engine refuses to dispatch ``Intent.LIFECYCLE`` calls
+    co-batched with siblings (or other lifecycle calls). The rejection is
+    recorded next to enter/exit events so trace bundles capture the cause
+    of the missing dispatch.
+    """
+    _emit(
+        audit_path,
+        events.WORKSPACE_LIFECYCLE_BATCH_REJECTED,
+        {
+            "lifecycle_tool": lifecycle_tool,
+            "sibling_tools": list(sibling_tools),
+            "sibling_count": len(sibling_tools),
+            "agent_id": agent_id,
+        },
+    )
+
+
 def _emit(path: str | None, event_type: str, payload: dict[str, object]) -> None:
     append_jsonl_event(path, {"type": event_type, "payload": payload})
 
 
-__all__ = ["lifecycle_operation"]
+__all__ = ["emit_lifecycle_batch_rejected", "lifecycle_operation"]

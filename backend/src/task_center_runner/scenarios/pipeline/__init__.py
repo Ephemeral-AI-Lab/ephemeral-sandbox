@@ -2,8 +2,7 @@
 
 Drive the orchestrator/task-dispatcher/iteration-coordinator/goal-lifecycle control
 flow with the lightest possible executor action (`preflight` or `fail`).
-Failures here mean a regression in `task_center/` proper. See
-``docs/wiki/live-e2e-scenario-suite-design.md`` for the full coverage matrix.
+Failures here mean a regression in `task_center/` proper.
 
 Implemented (reference scenarios):
 - :class:`AttemptBudgetExhausted`

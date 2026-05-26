@@ -11,17 +11,16 @@ full SWE-EVO benchmark lifecycle lives under
 Subpackages:
 
 - ``audit``     — event bus, lifecycle observer, recorder, metrics
+- ``agent.mock`` — mocked-agent runner, prompt inspector, sandbox probe
+- ``core``      — run config, pipeline entrypoint, report types, fixtures
 - ``hooks``     — Hook protocol + registry + built-in hooks
 - ``scenarios`` — Scenario protocol + concrete scenarios
-- ``squad``     — mock-agent squad runner, prompt inspector, sandbox probe
 - ``tests``     — pytest suites split by mock, real-agent, and capacity boundaries
 
-Top-level modules:
+Top-level exports:
 
-- ``stores``    — :class:`TaskCenterStoreBundle` + ``create_per_test_task_center_stores``
-- ``runner``    — ``run_scenario`` orchestration entry point (added in S-3)
-- ``fixtures``  — pytest fixtures (audit_dir, stores) (added in S-3)
-- ``environments`` — external environment fixtures such as the SWE-EVO image
+- :class:`RunReport` and :func:`run_scenario`
+- :class:`TaskCenterStoreBundle` and :func:`create_per_test_task_center_stores`
 """
 
 from __future__ import annotations

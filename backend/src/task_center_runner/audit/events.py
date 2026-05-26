@@ -105,10 +105,9 @@ class EventType(StrEnum):
     HOOK_ASSERTED = "hook_asserted"
 
     # mock-runner side-channel events. Emitted only by MockSquadRunner under
-    # the mock-scenario pipeline (Phase 4); consumed only by the legacy
-    # live_e2e/runner.py shim to reconstruct the rich RunReport view.
-    # Removed in the next milestone together with the shim — real-agent and
-    # benchmark runs never emit them, so subscribers must tolerate absence.
+    # the mock-scenario pipeline; ScenarioLifecycle accumulates them for the
+    # rich RunReport view. Real-agent and benchmark runs never emit them, so
+    # subscribers must tolerate absence.
     MOCK_LAUNCH_RECORDED = "mock_launch_recorded"
     MOCK_TOOL_CALL_RECORDED = "mock_tool_call_recorded"
     MOCK_PROMPT_INSPECTED = "mock_prompt_inspected"

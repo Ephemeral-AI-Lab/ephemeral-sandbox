@@ -21,6 +21,10 @@ from uuid import uuid4
 from audit.jsonl import append_jsonl_event
 from sandbox._shared.clock import monotonic_now
 from sandbox.daemon.rpc.in_flight import get_in_flight_registry
+from sandbox.daemon.workspace_tool_dispatch import (
+    LifecycleInProgressError,
+    acquire_dispatch_slot,
+)
 from sandbox.isolated_workspace._control_plane.pipeline_registry import get_active_pipeline
 from sandbox.isolated_workspace._control_plane.pipeline_state import IsolatedWorkspaceError
 
@@ -81,22 +85,33 @@ async def dispatch_envelope_async(
             background=bool(args_raw.get("background", False)),
         )
     try:
-        plugin_block = _check_plugin_block(args_raw, op)
-        if plugin_block is not None:
-            return plugin_block
-        handler = OP_TABLE.get(op)
-        if handler is None:
-            return _error("unknown_op", f"unknown op: {op}", {"op": op})
-        result = handler(dict(args_raw))
-        if inspect.isawaitable(result):
-            result = await result
-        jsonable = _to_response_dict(result)
-        _attach_runtime_boot_timings(
-            jsonable,
+        is_plugin_op = _is_plugin_op(op)
+        agent_id = _agent_id(args_raw)
+        if is_plugin_op and agent_id:
+            try:
+                async with acquire_dispatch_slot(agent_id):
+                    plugin_block = _plugin_block_decision(op, agent_id)
+                    if plugin_block is not None:
+                        return plugin_block
+                    return await _run_handler_and_finalize(
+                        op,
+                        args_raw,
+                        dispatch_entered_at=dispatch_entered_at,
+                        boot_t0=boot_t0,
+                    )
+            except LifecycleInProgressError as exc:
+                return _lifecycle_in_progress_response(op, exc.agent_id)
+        if is_plugin_op:
+            # Plugin op without an agent_id — surface the existing
+            # ``workspace_lifecycle.plugin_check_unbootstrapped`` audit so
+            # operators can spot mis-wired plugins, but proceed.
+            _emit_plugin_gate_audit(op, agent_id)
+        return await _run_handler_and_finalize(
+            op,
+            args_raw,
             dispatch_entered_at=dispatch_entered_at,
             boot_t0=boot_t0,
         )
-        return jsonable
     except Exception as exc:
         error_id = uuid4().hex
         logger.exception(
@@ -110,6 +125,32 @@ async def dispatch_envelope_async(
         )
     finally:
         registry.deregister(invocation_id)
+
+
+def _is_plugin_op(op_name: str) -> bool:
+    return op_name.startswith("api.plugin.") or op_name.startswith("plugin.")
+
+
+async def _run_handler_and_finalize(
+    op: str,
+    args_raw: dict[str, Any],
+    *,
+    dispatch_entered_at: float,
+    boot_t0: float | None,
+) -> dict[str, Any]:
+    handler = OP_TABLE.get(op)
+    if handler is None:
+        return _error("unknown_op", f"unknown op: {op}", {"op": op})
+    result = handler(dict(args_raw))
+    if inspect.isawaitable(result):
+        result = await result
+    jsonable = _to_response_dict(result)
+    _attach_runtime_boot_timings(
+        jsonable,
+        dispatch_entered_at=dispatch_entered_at,
+        boot_t0=boot_t0,
+    )
+    return jsonable
 
 
 def _validate_envelope(
@@ -211,15 +252,19 @@ def _to_response_dict(result: Any) -> dict[str, Any]:
     return jsonable
 
 
-def _check_plugin_block(args: Mapping[str, Any], op_name: str) -> dict[str, Any] | None:
-    if not (op_name.startswith("api.plugin.") or op_name.startswith("plugin.")):
-        return None
+def _plugin_block_decision(op_name: str, agent_id: str) -> dict[str, Any] | None:
+    """Phase 4 §D3: plugin gate — must run under ``acquire_dispatch_slot``.
+
+    Caller holds the per-agent dispatch slot, so ``state.exit_pending``
+    cannot flip mid-call (exit blocks on the entry_lock that this slot
+    holds for its bookkeeping). Returns the block payload when the gate
+    refuses the plugin op or ``None`` to proceed.
+    """
     iws = get_active_pipeline()
-    agent_id = _agent_id(args)
     if iws is None:
         _emit_plugin_gate_audit(op_name, agent_id)
         return None
-    if agent_id and iws.get_handle(agent_id) is not None:
+    if iws.get_handle(agent_id) is not None:
         return {
             "success": False,
             "warnings": [],
@@ -231,6 +276,23 @@ def _check_plugin_block(args: Mapping[str, Any], op_name: str) -> dict[str, Any]
             },
         }
     return None
+
+
+def _lifecycle_in_progress_response(op_name: str, agent_id: str) -> dict[str, Any]:
+    """Structured payload for Phase 4 §D2 lifecycle_in_progress."""
+    return {
+        "success": False,
+        "warnings": [],
+        "timings": {},
+        "error": {
+            "kind": "lifecycle_in_progress",
+            "message": (
+                "exit_isolated_workspace is draining; retry after exit "
+                "completes"
+            ),
+            "details": {"op": op_name, "agent_id": agent_id},
+        },
+    }
 
 
 def _emit_plugin_gate_audit(op_name: str, agent_id: str) -> None:

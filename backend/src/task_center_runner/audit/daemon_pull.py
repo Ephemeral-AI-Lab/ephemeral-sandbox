@@ -234,7 +234,7 @@ class DaemonAuditPuller:
             self._stats.pull_count += 1
             self._stats.record_pull_ms(elapsed_ms)
             self._observe_buffer(response.get("buffer") or {})
-            self._observe_epoch(response, any_events)
+            self._observe_epoch(response)
             events = response.get("events") or []
             cursor_block = response.get("cursor") or {}
             if events:
@@ -279,7 +279,7 @@ class DaemonAuditPuller:
         else:
             self._pressure_streak = 0
 
-    def _observe_epoch(self, response: dict[str, Any], saw_events: bool) -> None:
+    def _observe_epoch(self, response: dict[str, Any]) -> None:
         snapshot = response.get("snapshot") or {}
         daemon = snapshot.get("daemon") or {}
         boot_epoch_id = daemon.get("boot_epoch_id")

@@ -3,13 +3,12 @@
 Intentionally narrower than the legacy ``RunReport`` (which carries mock-only
 fields like ``launches``/``tool_calls``/``prompt_inspections``/``sandbox_checks``).
 Mock side-channels travel through ``MOCK_*`` audit events instead — see
-``task_center_runner.audit.events`` for the 4 enum values; the legacy
-``live_e2e/runner.py`` shim subscribes to them when assembling its ``RunReport``
-view.
+``task_center_runner.audit.events`` for the four enum values; ``run_scenario``
+uses ``ScenarioLifecycle``'s accumulated records when assembling its
+``RunReport`` view.
 
-The ``performance_report_task`` field is populated in Phase 3, when the
-recorder stops writing the perf report inline and the engine spawns the write
-as a background ``asyncio.Task``.
+The ``performance_report_task`` field is populated when the engine spawns
+performance-report writing as a background ``asyncio.Task``.
 """
 
 from __future__ import annotations

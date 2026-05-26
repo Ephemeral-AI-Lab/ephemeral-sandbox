@@ -5,9 +5,6 @@ Single point of truth where the ``MockSquadRunner`` factory, the
 ``MutableMockState`` are wired together so they share state. Outside this
 builder no other module imports ``MutableMockState`` — the engine remains
 runner-agnostic.
-
-This module is additive in Phase 4b; the ``run_scenario`` shim assembled in
-Phase 4e wires it through.
 """
 
 from __future__ import annotations
@@ -54,9 +51,7 @@ def build_scenario_config(
     )
 
     def _make_runner(ctx: "RunContext") -> "MockSquadRunner":
-        # Imported lazily — see the deferred-import note at the top of
-        # ``task_center_runner/squad/runner.py`` (the runner ↔ scenarios cycle
-        # is pre-existing).
+        # Imported lazily to keep scenario import-time setup free of runner state.
         from task_center_runner.agent.mock.runner import MockSquadRunner
 
         return MockSquadRunner(

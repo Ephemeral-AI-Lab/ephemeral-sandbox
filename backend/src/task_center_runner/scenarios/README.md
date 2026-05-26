@@ -1,8 +1,8 @@
 # Live E2E Scenarios
 
 Concrete scenarios that drive the live-e2e harness. See
-`docs/wiki/live-e2e-scenario-suite-design.md` for the full taxonomy, naming
-conventions, and per-subpackage coverage matrix.
+`docs/architecture/task_center/bridges.html` for the maintained runner and
+artifact boundary.
 
 ## Layout
 
@@ -18,7 +18,7 @@ conventions, and per-subpackage coverage matrix.
 
 ## Adding a scenario
 
-1. Pick the right subpackage from the taxonomy in the wiki design doc.
+1. Pick the right subpackage from the layout above.
 2. Copy the closest reference scenario:
    - State-machine assertion → `pipeline/initial_goal.py`
    - DAG dependency assertion → `pipeline/dependency_dag_serial.py`

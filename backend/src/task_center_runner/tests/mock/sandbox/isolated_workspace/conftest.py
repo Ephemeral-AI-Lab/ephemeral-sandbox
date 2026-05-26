@@ -484,7 +484,7 @@ async def iws_audit_jsonl(iws_clean_sandbox: dict[str, Any], tmp_path):
 
 
 @pytest.fixture
-def iws_audit_tail(tmp_path):
+def iws_audit_tail():
     """Return a callable that waits for an audit event by type + predicate.
 
     The full implementation tails ``sandbox_events.jsonl`` written by the

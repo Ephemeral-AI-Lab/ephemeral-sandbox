@@ -1,12 +1,5 @@
 """Pytest fixtures for ``task_center_runner`` — canonical location.
 
-Phase 5 of the restructure consolidates the former top-level
-``task_center_runner/fixtures.py`` (`db_engine`, `stores`, `audit_dir`)
-with the Phase-3 ``pipeline_run`` fixture into one module under
-``core/``. The legacy ``task_center_runner.fixtures`` path is preserved
-via the ``live_e2e/`` shim's prefix remap so any caller using the old
-path continues to resolve to this module.
-
 Fixtures:
 
 - ``db_engine``: session-scoped; bootstraps the configured database engine.

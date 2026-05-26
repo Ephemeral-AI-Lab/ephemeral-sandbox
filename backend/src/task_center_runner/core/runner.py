@@ -1,8 +1,7 @@
 """``run_scenario`` — thin shim around :func:`task_center_runner.core.engine.run_pipeline`.
 
-Phase 4e of the task_center_runner restructure
-(.omc/plans/task_center_runner-restructure.md). The legacy ``run_scenario``
-contract is preserved (same arguments, same :class:`RunReport` shape — see
+The legacy ``run_scenario`` contract is preserved (same arguments, same
+:class:`RunReport` shape — see
 ``tests/golden/run_report_structural.json``), but the actual orchestration
 now happens inside :func:`task_center_runner.core.engine.run_pipeline`.
 
@@ -11,12 +10,8 @@ What the shim adds on top of the engine:
 - Constructs ``RunConfig`` via :func:`build_scenario_config` so the
   ``MockSquadRunner`` factory, ``MutableMockState``, ``HookSet``, and
   ``ScenarioLifecycle`` all share state inside one place.
-- Wraps the ``runner_factory`` to capture the ``MockSquadRunner`` instance
-  via a list-box; the shim reads ``squad.launches``/``tool_calls``/
-  ``prompt_inspections``/``sandbox_checks`` for the legacy ``RunReport``
-  view. Phase 4g will switch this to ``MOCK_*`` event accumulation and
-  delete the list attributes — the engine remains literally
-  runner-agnostic in both phases.
+- Rebuilds the legacy ``RunReport`` view from ``ScenarioLifecycle`` event
+  accumulation and the ``PipelineReport`` returned by the engine.
 - Owns the ``TaskCenterStoreBundle`` lifecycle: passes the bundle to
   ``run_pipeline`` via ``config.stores`` so the engine does not close it,
   then computes :func:`_graph_summary` against the still-open stores before
@@ -204,12 +199,6 @@ async def run_scenario(
         seen_event_types=list(mutable_state.seen_events),
         hook_results=list(lifecycle.hook_results),
         mutable_state_flags=dict(mutable_state.flags),
-        # Phase 4g (steps 1-3a): all 4 mock-record streams now flow through
-        # the audit bus as MOCK_* events; ``ScenarioLifecycle`` accumulates
-        # them and the shim assembles the legacy ``RunReport`` view from the
-        # lifecycle alone. ``MockSquadRunner.launches`` etc. remain populated
-        # via the Phase 4d dual-write but the shim does not read them; Phase
-        # 4g-step3b deletes those attributes.
         launches=list(lifecycle.launches),
         tool_calls=list(lifecycle.tool_calls),
         prompt_inspections=list(lifecycle.prompt_inspections),

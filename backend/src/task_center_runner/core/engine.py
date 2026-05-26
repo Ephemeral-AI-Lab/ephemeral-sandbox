@@ -1,9 +1,7 @@
 """``run_pipeline`` — the unified entrypoint for mock / real / benchmark runs.
 
-Phase 4c of the task_center_runner restructure
-(.omc/plans/task_center_runner-restructure.md §4). All three run modes
-funnel through this one coroutine; the only mode-specific seams are the
-five fields documented in the plan's §4 mode-delta table:
+All three run modes funnel through this one coroutine; the only mode-specific
+seams are five ``RunConfig`` fields:
 
 - ``config.runner_factory`` — mock returns a ``MockSquadRunner``; real-LLM
   and benchmark return ``None`` so ``start_task_center_run`` falls
@@ -21,11 +19,7 @@ five fields documented in the plan's §4 mode-delta table:
 
 This module knows nothing about ``MockSquadRunner``, ``MutableMockState``,
 Daytona, or any ``benchmarks.sweevo.*`` symbol — that runner-agnostic
-property is enforced by ``test_no_core_imports.py`` (added with Phase 4d).
-
-The implementation is import-safe and unit-testable, but no production
-caller goes through it yet — Phases 4e and 4f slim ``run_scenario`` /
-``run_sweevo_real_agent`` to shims over ``run_pipeline``.
+property is enforced by ``test_no_core_imports.py``.
 """
 
 from __future__ import annotations

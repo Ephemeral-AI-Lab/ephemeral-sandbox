@@ -21,6 +21,8 @@
 | `phase-3-implementation-report.md` | Implementation report for the initial Phase 3 landing — V3 report layout, release-gate evaluator harness, default-on opt-out env gate, engine dual-disable refusal. Superseded for D1-D16 completion status by `phase-3-implementation-deferrals-report.md`. |
 | `phase-3-implementation-deferrals.md` | Code-side closers for Phase 3 — 16 deferrals (D1–D16) shipped as stubs / placeholders during Phase 3, each with file:line + verification recipe. Excludes live-e2e + operator hand-off items (those live in the implementation report and V3 §Follow-ups). |
 | `phase-3-implementation-deferrals-report.md` | Implementation report for the 16 deferrals (D1–D16). With this report, every JSON field and Markdown column in the V3 §1–§13 report carries real data when its emitter is active — no remaining `"—"` / `0` placeholders. |
+| `phase-4-isolated-workspace-lifecycle-batch-race.md` | Phase 4 plan: engine lifecycle-batch policy + daemon per-agent quiesce primitive that close the P1 race where `Intent.LIFECYCLE` calls co-batched with siblings let private writes leak to shared OCC. Independent from Phases 1–3 (sandbox concurrency, not audit consolidation); filed here because it touches the same files as the V3 audit emitters. |
+| `phase-4-implementation-report.md` | Implementation report for Phase 4 — file-level deltas, AC1–AC11 coverage, lock-order notes, two deferred items (FU#A integration matrix, FU#B mock-agent E2E retry). |
 
 ## Lineage
 
@@ -46,6 +48,7 @@
 | Phase 2.6 — dispatcher slow-tail (slice 7) + heavy-run regression (slice 8) + closers A/C/D/F | ✅ landed | [`phase-2.6-implementation-report.md`](phase-2.6-implementation-report.md) |
 | Phase 3 — V3 report layout (§1–§13) + release-gate evaluator + default-on opt-out + dual-disable refusal | ✅ landed | [`phase-3-implementation-report.md`](phase-3-implementation-report.md) |
 | Phase 3 deferrals — code-side closers D1–D16 (mount/publish phases, occ.prepare_ms, cgroup IO/throttle, ephemeral upperdir, started_seq, config knobs, artifact-bound gate verdict, forensic-raw deltas, ...) | ✅ landed | [`phase-3-implementation-deferrals-report.md`](phase-3-implementation-deferrals-report.md) |
+| Phase 4 — isolated-workspace lifecycle batch race (engine batch policy + daemon per-agent quiesce primitive); independent from V3 audit consolidation but filed here because it touches the same control-plane files | ✅ landed | [`phase-4-implementation-report.md`](phase-4-implementation-report.md) |
 | Release-gate evidence on dask-heavy live-e2e fixture | ⚠ operator hand-off | n/a (synthetic-event tests pin the evaluator math; live-fixture run is operational work) |
 | FU#1 stream-bridge retirement (K=5 clean heavy runs → flip default) | ⚠ operational | n/a |
 
