@@ -63,17 +63,17 @@ def test_prepare_workspace_snapshot_registers_pin_via_lease_registry(
             )
         ]
     )
-    assert manager.pinned_layers() == ()
+    assert manager.leased_layers() == ()
 
     result = manager.prepare_workspace_snapshot("request-pin")
 
-    pinned = manager.pinned_layers()
-    assert set(pinned) == set(manifest.layers), (
-        f"pinned_layers() returned {pinned!r}, expected {manifest.layers!r}"
+    leased = manager.leased_layers()
+    assert set(leased) == set(manifest.layers), (
+        f"leased_layers() returned {leased!r}, expected {manifest.layers!r}"
     )
 
     manager.release_lease(result.lease_id)
-    assert manager.pinned_layers() == ()
+    assert manager.leased_layers() == ()
 
 
 def test_prepare_workspace_snapshot_returns_all_deep_layer_paths(

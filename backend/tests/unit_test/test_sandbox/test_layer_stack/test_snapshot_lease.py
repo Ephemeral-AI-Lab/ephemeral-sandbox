@@ -33,15 +33,15 @@ def test_acquire_and_release_pin_exact_layer_refs(tmp_path: Path) -> None:
 
     assert lease_a.manifest == manifest
     assert lease_b.manifest == manifest
-    assert manager.pinned_layers() == (top_layer,)
+    assert manager.leased_layers() == (top_layer,)
 
     assert manager.release_lease(lease_a.lease_id) is True
-    assert manager.pinned_layers() == (top_layer,)
+    assert manager.leased_layers() == (top_layer,)
     assert manager.release_lease(lease_a.lease_id) is False
-    assert manager.pinned_layers() == (top_layer,)
+    assert manager.leased_layers() == (top_layer,)
 
     assert manager.release_lease(lease_b.lease_id) is True
-    assert manager.pinned_layers() == ()
+    assert manager.leased_layers() == ()
 
 
 def test_releasing_old_snapshot_does_not_unpin_new_active_layer(tmp_path: Path) -> None:
@@ -65,13 +65,13 @@ def test_releasing_old_snapshot_does_not_unpin_new_active_layer(tmp_path: Path) 
     )
     new_lease = manager.acquire_snapshot_lease("new-request")
 
-    assert set(manager.pinned_layers()) == set(new_manifest.layers)
+    assert set(manager.leased_layers()) == set(new_manifest.layers)
 
     manager.release_lease(old_lease.lease_id)
 
-    assert set(manager.pinned_layers()) == set(new_manifest.layers)
+    assert set(manager.leased_layers()) == set(new_manifest.layers)
     assert manager.release_lease(new_lease.lease_id) is True
-    assert manager.pinned_layers() == ()
+    assert manager.leased_layers() == ()
 
 
 def test_release_lease_keeps_active_layer_storage(tmp_path: Path) -> None:
@@ -91,7 +91,7 @@ def test_release_lease_keeps_active_layer_storage(tmp_path: Path) -> None:
 
     assert (manager.storage_root / active_layer.path).is_dir()
     assert manager.read_text("active.txt") == ("active\n", True)
-    assert manager.pinned_layers() == ()
+    assert manager.leased_layers() == ()
 
 
 def test_release_lease_removes_unreferenced_layers_outside_manager_lock(

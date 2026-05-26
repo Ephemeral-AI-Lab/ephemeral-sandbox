@@ -117,7 +117,7 @@ def test_release_lease_does_not_delete_layers_still_in_active_manifest(
 
     assert _layer_path(manager, manifest.layers[0]).is_dir()
     assert manager.read_text("active.txt") == ("still-active\n", True)
-    assert manager.pinned_layers() == ()
+    assert manager.leased_layers() == ()
 
 
 def test_checkpoint_relabel_moves_prebuilt_checkpoint_to_publish_version(

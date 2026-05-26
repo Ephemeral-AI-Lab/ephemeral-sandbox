@@ -149,8 +149,8 @@ class LayerStack:
             self._remove_layers(removable)
             return True
 
-    def pinned_layers(self) -> tuple[LayerRef, ...]:
-        return self._leases.pinned_layers()
+    def leased_layers(self) -> tuple[LayerRef, ...]:
+        return self._leases.leased_layers()
 
     def active_lease_count(self) -> int:
         return self._leases.active_count()
@@ -162,7 +162,7 @@ class LayerStack:
                 self._checkpoint_squasher.plan(
                     active,
                     max_depth=max_depth,
-                    pinned_layers=self._leases.squash_barrier_layers(),
+                    barrier_layers=self._leases.lease_head_layers(),
                     min_reduction=2,
                 )
                 is not None
@@ -235,7 +235,7 @@ class LayerStack:
                 plan = self._checkpoint_squasher.plan(
                     active,
                     max_depth=max_depth,
-                    pinned_layers=self._leases.squash_barrier_layers(),
+                    barrier_layers=self._leases.lease_head_layers(),
                 )
                 if plan is None:
                     return None
@@ -336,7 +336,7 @@ class LayerStack:
         *,
         current_manifest: Manifest,
     ) -> tuple[LayerRef, ...]:
-        skip = set(current_manifest.layers) | set(self._leases.pinned_layers())
+        skip = set(current_manifest.layers) | set(self._leases.leased_layers())
         return tuple(layer for layer in candidates if layer not in skip)
 
     def _remove_layers(self, layers: Sequence[LayerRef]) -> None:

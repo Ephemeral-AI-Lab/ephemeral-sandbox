@@ -92,7 +92,7 @@ async def test_concurrent_public_shell_leases_survive_mutation_burst(
 
     mid_metrics = await handle.tool.layer_metrics()
     assert int(mid_metrics["active_leases"]) >= 2, mid_metrics
-    assert int(mid_metrics["pinned_layers"]) >= 1, mid_metrics
+    assert int(mid_metrics["leased_layers"]) >= 1, mid_metrics
 
     async def write_watched():
         return await timed_call(
@@ -151,7 +151,7 @@ async def test_concurrent_public_shell_leases_survive_mutation_burst(
                 + [metric for _, metric, _ in shell_rows]
             ),
             "mid_active_leases": mid_metrics["active_leases"],
-            "mid_pinned_layers": mid_metrics["pinned_layers"],
+            "mid_leased_layers": mid_metrics["leased_layers"],
         },
     )
 

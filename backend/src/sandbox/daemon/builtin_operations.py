@@ -145,7 +145,7 @@ async def layer_metrics(args: dict[str, object]) -> dict[str, object]:
         "manifest_version": manifest.version,
         "manifest_depth": manifest.depth,
         "active_leases": manager.active_lease_count(),
-        "pinned_layers": len(manager.pinned_layers()),
+        "leased_layers": len(manager.leased_layers()),
         "layer_dirs": len(layer_dirs),
         "staging_dirs": len(staging_dirs),
         "storage_bytes": total_bytes,

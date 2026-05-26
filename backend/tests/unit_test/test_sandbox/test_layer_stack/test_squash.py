@@ -57,7 +57,7 @@ def test_squash_replaces_unleased_layers_with_checkpoint(tmp_path: Path) -> None
     assert manager.read_text("b.txt") == ("b1", True)
 
 
-def test_squash_plan_collapses_each_unpinned_run_around_pinned_layers(
+def test_squash_plan_collapses_each_run_around_barrier_layers(
     tmp_path: Path,
 ) -> None:
     layers = tuple(
@@ -67,7 +67,7 @@ def test_squash_plan_collapses_each_unpinned_run_around_pinned_layers(
     plan = LayerCheckpointSquasher(tmp_path / "stack").plan(
         Manifest(version=1, layers=layers),
         max_depth=2,
-        pinned_layers=(layers[3],),
+        barrier_layers=(layers[3],),
     )
 
     assert plan is not None
@@ -90,7 +90,7 @@ def test_squash_plan_skips_tiny_runs_when_pinned_suffix_exceeds_threshold(
         LayerCheckpointSquasher(tmp_path / "stack").plan(
             Manifest(version=1, layers=layers[:6]),
             max_depth=3,
-            pinned_layers=layers[2:6],
+            barrier_layers=layers[2:6],
             min_reduction=2,
         )
         is None
@@ -99,7 +99,7 @@ def test_squash_plan_skips_tiny_runs_when_pinned_suffix_exceeds_threshold(
     plan = LayerCheckpointSquasher(tmp_path / "stack").plan(
         Manifest(version=2, layers=layers),
         max_depth=3,
-        pinned_layers=layers[4:],
+        barrier_layers=layers[4:],
     )
 
     assert plan is not None

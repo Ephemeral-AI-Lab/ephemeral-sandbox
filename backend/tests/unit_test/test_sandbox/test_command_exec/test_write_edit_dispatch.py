@@ -113,7 +113,7 @@ async def test_layer_metrics_reports_no_cache_storage_fields(tmp_path: Path) -> 
         "manifest_version",
         "manifest_depth",
         "active_leases",
-        "pinned_layers",
+        "leased_layers",
         "layer_dirs",
         "staging_dirs",
         "storage_bytes",
@@ -148,4 +148,4 @@ async def test_layer_metrics_reports_active_lease_pins(tmp_path: Path) -> None:
         manager.release_lease(lease.lease_id)
 
     assert payload["active_leases"] == 1
-    assert payload["pinned_layers"] == len(set(lease.manifest.layers))
+    assert payload["leased_layers"] == len(set(lease.manifest.layers))

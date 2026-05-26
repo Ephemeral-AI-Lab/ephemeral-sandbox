@@ -18,7 +18,7 @@ class WorkspaceLease:
 
 
 class LeaseRegistry:
-    """Tracks active snapshot leases and exact pinned layer refs."""
+    """Tracks active snapshot leases and the layers they retain on disk."""
 
     def __init__(
         self,
@@ -54,18 +54,24 @@ class LeaseRegistry:
             self._refcounts -= Counter(lease.manifest.layers)
             return lease
 
-    def pinned_layers(self) -> tuple[LayerRef, ...]:
+    def leased_layers(self) -> tuple[LayerRef, ...]:
+        """Return every layer retained on disk by at least one active lease.
+
+        The lease's manifest references each of these layer directories for
+        reads, so GC must keep them on disk until the lease releases. This is
+        the full retention set; see :meth:`lease_head_layers` for the smaller
+        set of layers that act as squash barriers.
+        """
         with self._lock:
             return tuple(sorted(self._refcounts))
 
-    def squash_barrier_layers(self) -> tuple[LayerRef, ...]:
-        """Return leased snapshot boundary layers that active squash must preserve.
+    def lease_head_layers(self) -> tuple[LayerRef, ...]:
+        """Return the newest layer of each active lease's manifest.
 
-        Snapshot leases pin every layer for GC, but treating every pinned layer
-        as an active-manifest squash barrier prevents any reduction for a
-        leased deep snapshot. The newest layer of each leased manifest is the
-        boundary that keeps active squash from crossing that snapshot cut; the
-        remaining leased layers stay GC-pinned until release.
+        Squash uses these as barriers: each lease's head is a snapshot cut
+        point that must remain visible in the active manifest. Layers below
+        the head are foldable; the lease itself keeps reading through its
+        own frozen manifest via :meth:`leased_layers` GC retention.
         """
         with self._lock:
             return tuple(

@@ -109,7 +109,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=n) as pool:
 
 manifest = manager.read_active_manifest()
 assert all(row["released"] for row in rows), rows
-assert manager.pinned_layers() == ()
+assert manager.leased_layers() == ()
 assert manifest.depth == n + 1, manifest
 for index in range(n):
     assert manager.read_text("agents/%02d.txt" % index) == ("agent-%02d\n" % index, True)
@@ -120,7 +120,7 @@ _emit(label, started, before, {
     "agents": n,
     "manifest_depth": manifest.depth,
     "versions": sorted(row["version"] for row in rows),
-    "all_leases_released": manager.pinned_layers() == (),
+    "all_leases_released": manager.leased_layers() == (),
     "agent_p50_ms": _percentile(latencies, 50),
     "agent_p99_ms": _percentile(latencies, 99),
     "agent_max_ms": max(latencies),

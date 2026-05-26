@@ -27,17 +27,17 @@ manifest = Manifest(version=1, layers=(layer,))
 
 lease_a = registry.acquire(manifest, "owner-a")
 assert lease_a.lease_id == "lease-a"
-assert registry.pinned_layers() == (layer,)
+assert registry.leased_layers() == (layer,)
 released = registry.release(lease_a.lease_id)
 double_release = registry.release(lease_a.lease_id)
 assert released == lease_a
 assert double_release is None
-assert registry.pinned_layers() == ()
+assert registry.leased_layers() == ()
 
 _emit(label, started, before, {
     "released": released.lease_id,
     "double_release_is_none": double_release is None,
-    "final_pinned_layers": len(registry.pinned_layers()),
+    "final_leased_layers": len(registry.leased_layers()),
 })
 """
 
@@ -66,21 +66,21 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=n) as pool:
     lease_ids = list(pool.map(register_one, range(n)))
 
 assert len(set(lease_ids)) == n, lease_ids
-assert registry.pinned_layers() == (layer,)
+assert registry.leased_layers() == (layer,)
 assert registry.active_count() == n
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=n) as pool:
     released = list(pool.map(registry.release, lease_ids))
 
 assert all(lease is not None for lease in released)
-assert registry.pinned_layers() == ()
+assert registry.leased_layers() == ()
 assert registry.active_count() == 0
 
 _emit(label, started, before, {
     "registered": n,
     "unique_lease_ids": len(set(lease_ids)),
     "released": sum(1 for lease in released if lease is not None),
-    "final_pinned_layers": len(registry.pinned_layers()),
+    "final_leased_layers": len(registry.leased_layers()),
     "active_leases": registry.active_count(),
 })
 """
@@ -95,7 +95,7 @@ async def test_lease_registry_registers_and_releases_leases(
         label="layer_stack.lease_registry",
     )
     assert payload["double_release_is_none"] is True
-    assert payload["final_pinned_layers"] == 0
+    assert payload["final_leased_layers"] == 0
 
 
 async def test_lease_registry_under_race_allocates_unique_leases(
@@ -108,4 +108,4 @@ async def test_lease_registry_under_race_allocates_unique_leases(
     )
     assert payload["registered"] == 16
     assert payload["unique_lease_ids"] == 16
-    assert payload["final_pinned_layers"] == 0
+    assert payload["final_leased_layers"] == 0

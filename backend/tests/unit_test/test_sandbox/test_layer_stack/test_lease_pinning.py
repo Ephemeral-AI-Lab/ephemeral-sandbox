@@ -103,8 +103,8 @@ def test_eviction_skips_layers_pinned_by_active_leases(
     # time of acquisition. Leases acquired sequentially see the same
     # active manifest until the next publish_changes call.
     leases = [manager.acquire_snapshot_lease(f"lease-{i}") for i in range(4)]
-    pinned_layer_ids = {layer.layer_id for layer in manager.pinned_layers()}
-    assert pinned_layer_ids == set(layer_ids)
+    leased_layer_ids = {layer.layer_id for layer in manager.leased_layers()}
+    assert leased_layer_ids == set(layer_ids)
 
     # Churn: append a new layer L6, then a delete that removes layer L1's
     # contribution (delete is itself a new layer L7 with a whiteout).
@@ -128,11 +128,11 @@ def test_eviction_skips_layers_pinned_by_active_leases(
     # plus they all transitively pin the same 5 set. So eviction must not
     # touch any of layer_ids[0..4] yet.
     manager.release_lease(leases[0].lease_id)
-    pinned_after_first_release = {layer.layer_id for layer in manager.pinned_layers()}
-    assert pinned_after_first_release == set(layer_ids), (
+    leased_after_first_release = {layer.layer_id for layer in manager.leased_layers()}
+    assert leased_after_first_release == set(layer_ids), (
         "remaining 3 leases must keep all original 5 layers pinned"
     )
-    pinned_evicted = pinned_after_first_release & set(evict_log)
+    pinned_evicted = leased_after_first_release & set(evict_log)
     assert pinned_evicted == set(), (
         f"eviction touched a still-pinned layer: {sorted(pinned_evicted)}"
     )
@@ -140,10 +140,10 @@ def test_eviction_skips_layers_pinned_by_active_leases(
     # Release leases 1 and 2 — still 1 lease holding the original 5 pinned.
     manager.release_lease(leases[1].lease_id)
     manager.release_lease(leases[2].lease_id)
-    pinned_now = {layer.layer_id for layer in manager.pinned_layers()}
-    assert pinned_now == set(layer_ids), "last lease still pins all 5"
-    assert set(evict_log) & pinned_now == set(), (
-        f"eviction touched still-pinned layer; log={evict_log} pinned={sorted(pinned_now)}"
+    leased_now = {layer.layer_id for layer in manager.leased_layers()}
+    assert leased_now == set(layer_ids), "last lease still pins all 5"
+    assert set(evict_log) & leased_now == set(), (
+        f"eviction touched still-pinned layer; log={evict_log} pinned={sorted(leased_now)}"
     )
 
     # Release the final lease — only now can layers no live manifest
@@ -153,10 +153,10 @@ def test_eviction_skips_layers_pinned_by_active_leases(
     manager.release_lease(leases[3].lease_id)
 
     active_after = {layer.layer_id for layer in manager.read_active_manifest().layers}
-    pinned_after_full_release = {
-        layer.layer_id for layer in manager.pinned_layers()
+    leased_after_full_release = {
+        layer.layer_id for layer in manager.leased_layers()
     }
-    assert pinned_after_full_release == set(), "no leases left → no pinned layers"
+    assert leased_after_full_release == set(), "no leases left → no pinned layers"
 
     # Eviction set must be exactly the layers that are no longer in the
     # active manifest after all leases released.
@@ -202,12 +202,12 @@ def test_eviction_strict_set_after_squash(
 
     # Squash must not evict any pre-squash layer that is still pinned
     # by the held lease.
-    pinned_now = {layer.layer_id for layer in manager.pinned_layers()}
-    assert pinned_now == set(layer_ids), (
+    leased_now = {layer.layer_id for layer in manager.leased_layers()}
+    assert leased_now == set(layer_ids), (
         "lease on pre-squash manifest must keep all 4 layers pinned"
     )
-    assert set(evict_log) & pinned_now == set(), (
-        f"squash evicted a pinned layer; log={evict_log} pinned={sorted(pinned_now)}"
+    assert set(evict_log) & leased_now == set(), (
+        f"squash evicted a pinned layer; log={evict_log} pinned={sorted(leased_now)}"
     )
 
     manager.release_lease(held.lease_id)
