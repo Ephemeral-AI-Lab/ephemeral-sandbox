@@ -26,6 +26,7 @@ _EXPECTED_API_ROOT_ENTRIES = {
     "__init__.py",
     "provider_control.py",
     "raw_exec.py",
+    "daemon_audit.py",
     "daemon_invocations.py",
     "tool",
     "timeouts.py",

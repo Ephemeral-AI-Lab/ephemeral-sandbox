@@ -106,15 +106,25 @@ def evaluate_audit_overhead_gate(
 ) -> dict[str, Any]:
     """Per §Gate matrix: 4 thresholds on a paired-bootstrap CI upper bound.
 
-    Returns ``passed=False`` if any threshold is exceeded OR if the input
+    Returns ``passed=False`` if any threshold is exceeded, if the input
     is empty (overhead measurements absent — operator must run the gate
-    suite before claiming a pass).
+    suite before claiming a pass), or if methodology metadata is missing
+    (Phase 3 deferral D14: ``methodology_present`` is required, otherwise
+    n_paired_runs==0 is ambiguous between "no measurement" and "0 paired
+    runs").
     """
     if not overhead_metadata:
         return {
             "passed": False,
+            "methodology_present": False,
             "reason": "no overhead measurement supplied",
         }
+    # If methodology fields are entirely absent, treat it as a no-go too.
+    methodology_present = bool(
+        overhead_metadata.get("n_paired_runs")
+        or overhead_metadata.get("n_calls")
+        or overhead_metadata.get("bootstrap_resamples")
+    )
     latency_ci_upper = float(
         overhead_metadata.get("p95_delta_ci_upper")
         or overhead_metadata.get("tool_latency_p95_delta_ms")
@@ -133,8 +143,15 @@ def evaluate_audit_overhead_gate(
     pass_sandbox_disk = sandbox_disk_delta == 0
     return {
         "passed": all(
-            (pass_latency, pass_daemon_rss, pass_runner_cpu, pass_sandbox_disk)
+            (
+                methodology_present,
+                pass_latency,
+                pass_daemon_rss,
+                pass_runner_cpu,
+                pass_sandbox_disk,
+            )
         ),
+        "methodology_present": methodology_present,
         "latency_p95_delta_ci_upper_ms": latency_ci_upper,
         "daemon_rss_delta_mib": daemon_rss_delta_mib,
         "runner_cpu_pct_p99": runner_cpu_pct,

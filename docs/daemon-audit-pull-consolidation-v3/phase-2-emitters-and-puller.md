@@ -60,10 +60,15 @@ Emit the full lifecycle family from Phase 1 schema; stamp `workspace_mode="isola
 
 #### `occ`
 Instrument:
-- `backend/src/sandbox/daemon/occ_runtime_services.py`
-- `backend/src/sandbox/daemon/changeset_projection.py`
+- `backend/src/sandbox/occ/service.py`
 
 Emit the changeset transaction family ([schema in Phase 1](phase-1-audit-buffer-and-pull-rpc.md#occ--changeset-transaction-family)).
+
+> Plan-doc correction (Phase 3 deferral D16): V3's initial slice notes
+> referenced `sandbox/daemon/occ_runtime_services.py` and
+> `sandbox/daemon/changeset_projection.py`. The OCC emitters actually
+> live in `sandbox/occ/service.py` (the OCC service module). The earlier
+> file names never existed on `main`.
 
 #### `os_resource`
 Extend existing command-execution resource metrics to emit `os_resource.sampled` on the existing sampler tick (no new sampler).
@@ -101,7 +106,19 @@ This is the central enforcement point for [requirement 2 (generic plugin)](READM
 - `tool_call.finished.phase_totals_rollup` populated from in-process timers (NOT dependent on phase event emission).
 - Per-`tool_name` rolling-window of last 100 `total_ms` values protected by a per-`tool_name` lock; critical section is O(1) under a fixed-size deque.
 
-### 6. Normalizer in `backend/src/task_center_runner/audit/sandbox_events.py`
+### 6. Normalizer
+
+The normalization responsibility is split across two co-located modules
+(Phase 3 deferral D16 — the original V2 plan mentioned a single
+`task_center_runner/audit/sandbox_events.py` module, but slice 1 split
+it):
+
+- `backend/src/task_center_runner/audit/daemon_event_normalizer.py` —
+  reshape pulled events; only writer of `payload["daemon_event"]`.
+- `backend/src/task_center_runner/audit/sandbox_events_sink.py` —
+  rotating + gzip JSONL writer for `sandbox_events.jsonl`.
+
+Behaviour (unchanged from V2):
 
 - Promote subsystem sections to `payload["<section>"]` — **always** (consumer surface, what the report builder reads).
 - Preserve raw event under `payload["daemon_event"]` — **only when `EOS_AUDIT_FORENSIC_RAW_ENABLED=true`** (default off; forensic-only, never read by automated consumers).
@@ -138,7 +155,7 @@ This is the central enforcement point for [requirement 2 (generic plugin)](READM
 - `test_dedupe_pull_supersedes_stream_when_both_present` — emit same logical event via both paths; assert consumer sees the pull version (richer fields).
 - `test_no_consumer_reads_daemon_event_under_default_config` — full mock suite with `EOS_AUDIT_FORENSIC_RAW_ENABLED` unset; assert `daemon_event` key absent from every recorded payload.
 - `test_forensic_raw_present_when_env_enabled` — same suite with `EOS_AUDIT_FORENSIC_RAW_ENABLED=true`; assert `daemon_event` key present and structurally equal to source.
-- `test_daemon_event_writer_module_boundary` — CI-grade grep: any file outside `task_center_runner/audit/sandbox_events.py` (and test files) referencing `payload["daemon_event"]` / `payload.get("daemon_event")` → fail.
+- `test_daemon_event_writer_module_boundary` — CI-grade grep: any file outside `task_center_runner/audit/daemon_event_normalizer.py` (and test files) referencing `payload["daemon_event"]` / `payload.get("daemon_event")` → fail.
 - `test_daemon_restart_epoch_handled_by_puller` — simulate `boot_epoch_id` change between pulls; assert puller resets cursor, increments `daemon_restarts_observed`, writes a synthetic `daemon.restart_observed` event.
 
 ## Acceptance criteria
@@ -223,7 +240,8 @@ exists so each can drop in without further plumbing.
      `workspace_mode="ephemeral"`).
    - `isolated_workspace` in `sandbox/isolated_workspace/pipeline.py` plus
      `_control_plane/*` (full lifecycle family, `workspace_mode="isolated"`).
-   - `occ` in `sandbox/daemon/{occ_runtime_services,changeset_projection}.py`.
+   - `occ` in `sandbox/occ/service.py` (Phase 3 deferral D16 — the
+     V2 plan named two non-existent daemon files).
    - `os_resource.sampled` piggybacked on the existing command-execution
      resource-metrics tick (no new thread — option (a) in §2 of the plan).
 2. **Generic plugin instrumentation** in `backend/src/plugins/core/loader.py`

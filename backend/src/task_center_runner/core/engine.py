@@ -66,6 +66,26 @@ def _env_true(name: str, *, default: bool) -> bool:
     return raw.strip().lower() not in {"false", "0", "no", "off"}
 
 
+def _stream_fallback_enabled() -> bool:
+    """V3 Phase 3 deferral D13: env wins; Pydantic config is the default.
+
+    Mirrors :func:`task_center_runner.audit.recorder._daemon_audit_pull_enabled`
+    precedence: explicit env override first, then central config, then a
+    hard ``True`` default.
+    """
+    raw = os.environ.get(STREAM_FALLBACK_ENV)
+    if raw is not None and raw.strip() != "":
+        return raw.strip().lower() not in {"false", "0", "no", "off"}
+    try:
+        from config import get_central_config
+
+        return bool(
+            get_central_config().runner.daemon_audit_pull.stream_fallback
+        )
+    except Exception:  # noqa: BLE001 — central config is best-effort here
+        return True
+
+
 def _refuse_dual_disable_when_isolated_workspace_enabled() -> None:
     """V3 Phase 3 §Safety-gate-vs-toggle: hard-fail the startup.
 
@@ -74,13 +94,18 @@ def _refuse_dual_disable_when_isolated_workspace_enabled() -> None:
     orphan-detection invariants in the isolated_workspace exit gate stay
     observable. Disabling both is a silent safety regression — the engine
     refuses to start so the operator sees the misconfig immediately.
+
+    Phase 3 deferral D12: the check is also invoked from
+    :meth:`task_center_runner.audit.recorder.AuditRecorder.start` so any
+    recorder construction (including non-engine code paths) refuses on the
+    same misconfig.
     """
     isolated_enabled = _env_true(ISOLATED_WORKSPACE_ENABLED_ENV, default=False)
     if not isolated_enabled:
         return
     pull_enabled = _daemon_audit_pull_enabled()
     # Stream-bridge defaults to ON (FU#1 retirement gate has not fired yet).
-    stream_enabled = _env_true(STREAM_FALLBACK_ENV, default=True)
+    stream_enabled = _stream_fallback_enabled()
     if pull_enabled or stream_enabled:
         return
     raise RuntimeError(

@@ -120,8 +120,57 @@ def merge_streams(
     return list(merged.values())
 
 
+def collect_forensic_deltas(
+    rows: Iterable[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Phase 3 deferral D15 — surface forensic-raw drift rows.
+
+    Compares promoted ``payload[<section>]`` values against the
+    ``payload["daemon_event"]`` forensic raw stash. Returns ``None``
+    unless :func:`forensic_raw_enabled` so the happy-path JSON shape
+    is unchanged. The only reader of the ``daemon_event`` key — the
+    module-boundary CI lint enforces that other modules never touch it.
+    """
+    if not forensic_raw_enabled():
+        return None
+    drift_rows: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        payload = row.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        raw_event = payload.get("daemon_event")
+        if not isinstance(raw_event, dict):
+            continue
+        raw_inner = raw_event.get("payload")
+        if not isinstance(raw_inner, dict):
+            continue
+        for key, value in payload.items():
+            if key == "daemon_event" or not isinstance(value, dict):
+                continue
+            raw_section = raw_inner.get(key)
+            if not isinstance(raw_section, dict):
+                continue
+            for field_name, promoted_value in value.items():
+                if isinstance(promoted_value, dict):
+                    continue
+                raw_value = raw_section.get(field_name)
+                if raw_value is not None and raw_value != promoted_value:
+                    drift_rows.append(
+                        {
+                            "seq": row.get("seq"),
+                            "key": f"{key}.{field_name}",
+                            "promoted_value": promoted_value,
+                            "daemon_event_value": raw_value,
+                        }
+                    )
+    return {"rows": drift_rows}
+
+
 __all__ = [
     "FORENSIC_RAW_ENV",
+    "collect_forensic_deltas",
     "dedupe_key",
     "forensic_raw_enabled",
     "merge_streams",

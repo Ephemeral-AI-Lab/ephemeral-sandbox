@@ -162,8 +162,10 @@ pipeline_state; piggyback the emit there. No new threads.
 ### Slice 3 — `occ` emitters
 
 **Files to instrument:**
-- `backend/src/sandbox/daemon/occ_runtime_services.py`
-- `backend/src/sandbox/daemon/changeset_projection.py`
+- `backend/src/sandbox/occ/service.py` (was previously planned in
+  `sandbox/daemon/occ_runtime_services.py` and
+  `sandbox/daemon/changeset_projection.py`; the actual OCC emitters live
+  in the service module — Phase 3 deferral D16)
 
 **Schema additions:**
 

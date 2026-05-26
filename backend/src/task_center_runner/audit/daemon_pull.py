@@ -116,8 +116,20 @@ class DaemonAuditPuller:
         pressure_target_ms: int = PRESSURE_TARGET_MS,
         pull_limit: int = DEFAULT_PULL_LIMIT,
     ) -> None:
-        env_floor = _env_int("EOS_DAEMON_AUDIT_PULL_FLOOR_MS", DEFAULT_FLOOR_MS)
-        self._default_floor_ms = floor_ms if floor_ms is not None else env_floor
+        # Precedence (V3 Phase 3 deferral D13):
+        # 1. Explicit kwarg (test fixtures).
+        # 2. ``EOS_DAEMON_AUDIT_PULL_FLOOR_MS`` env var when set.
+        # 3. ``RunnerConfig.daemon_audit_pull.floor_ms`` from central config.
+        # 4. Hard default ``DEFAULT_FLOOR_MS``.
+        if floor_ms is not None:
+            resolved_floor = floor_ms
+        elif os.environ.get("EOS_DAEMON_AUDIT_PULL_FLOOR_MS", "").strip():
+            resolved_floor = _env_int(
+                "EOS_DAEMON_AUDIT_PULL_FLOOR_MS", DEFAULT_FLOOR_MS
+            )
+        else:
+            resolved_floor = _runner_config_floor_ms()
+        self._default_floor_ms = resolved_floor
         self._floor_ms = self._default_floor_ms
         self._active_target_ms = active_target_ms
         self._idle_target_ms = idle_target_ms
@@ -331,6 +343,23 @@ def _env_int(name: str, default: int) -> int:
         return max(1, int(raw))
     except (TypeError, ValueError):
         return default
+
+
+def _runner_config_floor_ms() -> int:
+    """Read ``RunnerConfig.daemon_audit_pull.floor_ms`` defensively.
+
+    Falls back to :data:`DEFAULT_FLOOR_MS` when central config is not
+    initialised (e.g. unit-test contexts) so the puller stays usable.
+    """
+    try:
+        from config import get_central_config
+
+        value = int(
+            get_central_config().runner.daemon_audit_pull.floor_ms
+        )
+        return max(1, value)
+    except Exception:  # noqa: BLE001 — central config is best-effort here
+        return DEFAULT_FLOOR_MS
 
 
 __all__ = [

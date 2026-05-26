@@ -76,6 +76,8 @@ class OverlayWorkspaceSection:
     cleanup_failure_kind: str | None = None
     committed_layer_id: str | None = None
     publish_layer_ms: float | None = None
+    changed_path_count: int | None = None
+    upperdir_bytes: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {}
@@ -145,6 +147,7 @@ class OccSection:
     changeset_id: str | None = None
     changed_path_count: int | None = None
     transaction_lock_wait_ms: float | None = None
+    prepare_ms: float | None = None
     apply_ms: float | None = None
     commit_ms: float | None = None
     committed_layer_id: str | None = None
@@ -288,6 +291,11 @@ class OsResourceSection:
     rss_bytes: int | None = None
     cpu_user_s: float | None = None
     cpu_system_s: float | None = None
+    cpu_throttled_us: int | None = None
+    io_read_bytes: int | None = None
+    io_write_bytes: int | None = None
+    io_read_ops: int | None = None
+    io_write_ops: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v is not None}
@@ -323,6 +331,26 @@ def safe_emit(event: dict[str, Any], lane: Lane) -> None:
         pass
 
 
+def safe_record_phase(phase: str, duration_ms: float) -> None:
+    """Bridge to :func:`engine.tool_call.phase_buffer.record_phase`.
+
+    Lazy-imported so the sandbox package does not carry an unconditional
+    ``engine`` dependency at module-load time. ``record_phase`` no-ops when
+    no per-call buffer is active, so callers outside the engine's tool
+    dispatch (tests, ad-hoc scripts) see no side effect.
+
+    Used by overlay/OCC publish boundaries (V3 §2/§3 mount/publish phase
+    columns) — the framework's own ``record_phase`` calls cover queued /
+    exec / capture / release.
+    """
+    try:
+        from engine.tool_call.phase_buffer import record_phase
+
+        record_phase(phase, duration_ms)
+    except Exception:  # noqa: BLE001 — phase recording never breaks the hot path
+        pass
+
+
 __all__ = [
     "BackgroundToolSection",
     "DaemonSection",
@@ -344,4 +372,5 @@ __all__ = [
     "build_plugin_event",
     "build_tool_call_event",
     "safe_emit",
+    "safe_record_phase",
 ]

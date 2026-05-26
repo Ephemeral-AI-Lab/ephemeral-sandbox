@@ -13,6 +13,7 @@ from sandbox.daemon.audit_schema import (
     OverlayWorkspaceSection,
     build_overlay_workspace_event,
     safe_emit,
+    safe_record_phase,
 )
 from sandbox.overlay.capture import walk_upperdir
 from sandbox.overlay.handle import OverlayHandle
@@ -57,6 +58,7 @@ def acquire(
         manifest = getattr(snapshot, "manifest", None)
         manifest_version = int(getattr(snapshot, "manifest_version", 0))
         root_hash = str(getattr(snapshot, "root_hash", "") or "")
+        mount_ms = (monotonic_now() - mount_started) * 1000.0
         safe_emit(
             build_overlay_workspace_event(
                 "overlay_workspace.mounted",
@@ -65,11 +67,15 @@ def acquire(
                     workspace_handle_id=lease_id,
                     lease_id=lease_id,
                     manifest_root_hash=root_hash or None,
-                    mount_ms=(monotonic_now() - mount_started) * 1000.0,
+                    mount_ms=mount_ms,
                 ),
             ),
             lane="critical",
         )
+        # V3 §2/§3 — surface the mount phase in the per-tool rollup so
+        # `phase_totals_rollup.mount_ms` is populated for any tool call
+        # whose framework dispatcher set up an active phase buffer.
+        safe_record_phase("mount", mount_ms)
         return OverlayHandle(
             workspace_root=str(workspace_root).rstrip("/") or "/",
             layer_paths=tuple(str(path) for path in layer_paths),

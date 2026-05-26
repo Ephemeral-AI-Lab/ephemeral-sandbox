@@ -45,9 +45,12 @@ _ALLOWED_PLUGIN_KINDS: tuple[str, ...] = (
     "custom",
 )
 
-# The four framework-boundary phases recorded today (Slice 7). The
-# remaining ``mount`` / ``publish`` phases are FU#5 — the §2 table renders
-# ``"—"`` for those columns until the overlay/OCC call sites land.
+# Six framework-boundary phases. ``queued`` / ``exec`` / ``capture`` /
+# ``release`` are recorded by the framework's dispatcher (Slice 7).
+# ``mount`` is recorded by ``sandbox/overlay/lifecycle.py`` via
+# :func:`safe_record_phase`; ``publish`` by ``sandbox/occ/service.py``.
+# All six populate ``phase_totals_rollup`` on ``tool_call.finished`` and
+# render as percentile columns in §2 / glyphs in §3.
 _PHASE_ORDER: tuple[str, ...] = (
     "queued",
     "mount",
@@ -135,11 +138,16 @@ def build_performance_report(
     rows = list(_iter_jsonl(run_path / "sandbox_events.jsonl"))
     legacy_sandbox = _build_legacy_sandbox_report(rows)
     tool_report = dict(tool_performance)
+    artifact_inventory = _collect_artifact_inventory(run_path)
     sections = _build_v3_sections(
         rows,
         daemon_audit_puller_stats=daemon_audit_puller_stats,
         overhead_metadata=overhead_metadata,
+        artifact_inventory=artifact_inventory,
     )
+    forensic_deltas = _collect_forensic_deltas(rows)
+    if forensic_deltas:
+        sections["forensic_deltas"] = forensic_deltas
     report: dict[str, Any] = {
         "schema": REPORT_SCHEMA,
         "generated_at": datetime.now(UTC).isoformat(),
@@ -225,6 +233,7 @@ def _build_v3_sections(
     *,
     daemon_audit_puller_stats: Mapping[str, Any] | None,
     overhead_metadata: Mapping[str, Any] | None,
+    artifact_inventory: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build §1-§13 from pulled events (``payload.<section>`` only).
 
@@ -248,7 +257,11 @@ def _build_v3_sections(
     daemon_audit_pull = _section_daemon_audit_pull(
         daemon_audit_puller_stats, indexed
     )
-    overhead = _section_overhead(overhead_metadata, daemon_audit_pull)
+    overhead = _section_overhead(
+        overhead_metadata,
+        daemon_audit_pull,
+        artifact_inventory=artifact_inventory,
+    )
     # Promote puller counters into §1's audit_summary so the one-glance
     # summary stays consistent with §11.
     summary["audit_summary"]["events_pulled"] = int(
@@ -272,6 +285,7 @@ def _build_v3_sections(
         layer_stack=layer_stack,
         occ=occ,
         os_resource=os_resource,
+        event_count=len(rows),
     )
     return {
         "summary": summary,
@@ -299,6 +313,16 @@ def _section_summary(
     rows: Sequence[Mapping[str, Any]],
     indexed: Mapping[str, list[Mapping[str, Any]]],
 ) -> dict[str, Any]:
+    """Build §1 from the JSONL row stream + indexed event lookup.
+
+    Phase 3 deferral D8: ``event_count`` is the raw count of normalized
+    rows in ``sandbox_events.jsonl`` (live + rotated history), while
+    ``audit_summary.events_pulled`` (mirrored from §11) reflects the
+    runner-side puller's counter. After a daemon restart or partial
+    flush these can drift; the §13 ``audit.events_count_drift`` warning
+    surfaces the divergence and points at §11's
+    ``daemon_restarts_observed`` for root-cause.
+    """
     tool_finished = indexed.get("tool_call.finished", [])
     tools_called = len(tool_finished)
     background_completed = (
@@ -398,7 +422,6 @@ def _section_per_tool_timing(
                 "calls": 0,
                 "_phase_samples": {phase: [] for phase in _PHASE_ORDER},
                 "_total_ms_samples": [],
-                "_queued_ms_samples": [],
             },
         )
         bucket["calls"] += 1
@@ -410,12 +433,6 @@ def _section_per_tool_timing(
         total_ms = _tool_call_total_ms(section)
         if total_ms is not None:
             bucket["_total_ms_samples"].append(total_ms)
-        # ``queued_ms`` is recorded as a dedicated phase by the framework
-        # (Slice 7). Older runs may still report it directly on the
-        # envelope for back-compat — both paths feed the percentile.
-        queued_direct = rollup.get("queued_ms_direct")
-        if isinstance(queued_direct, (int, float)):
-            bucket["_queued_ms_samples"].append(float(queued_direct))
     serialized = []
     for bucket in rows.values():
         record: dict[str, Any] = {
@@ -514,7 +531,12 @@ def _section_background_tool_calls(
                 "background_task_id": task_id,
                 "tool_name": section.get("tool_name") or "",
                 "task_kind": section.get("task_kind") or "",
-                "started_at": event_row.get("seq"),
+                # ``started_seq`` is the daemon-ring sequence number for the
+                # ``background_tool.started`` event — a stable cross-event
+                # ordering proxy. Pulled events do not carry a top-level
+                # ``ts`` today, so this is the canonical ordering field
+                # (Phase 3 deferral D5, option b).
+                "started_seq": event_row.get("seq"),
                 "status": "started",
                 "duration_ms": None,
                 "delivery_latency_ms": None,
@@ -531,7 +553,7 @@ def _section_background_tool_calls(
                 "background_task_id": task_id,
                 "tool_name": section.get("tool_name") or "",
                 "task_kind": section.get("task_kind") or "",
-                "started_at": None,
+                "started_seq": None,
                 "status": "",
                 "duration_ms": None,
                 "delivery_latency_ms": None,
@@ -704,6 +726,11 @@ def _section_overlay_workspace(
     ephemeral_cleanup = _samples(
         indexed.get("overlay_workspace.cleaned", []), "overlay_workspace", "cleanup_ms"
     )
+    ephemeral_upperdir = _samples(
+        indexed.get("overlay_workspace.published", []),
+        "overlay_workspace",
+        "upperdir_bytes",
+    )
     isolated_mount: list[float] = []
     isolated_cleanup: list[float] = []
     isolated_upperdir = _samples(
@@ -742,7 +769,7 @@ def _section_overlay_workspace(
         "ephemeral": {
             "mount_ms_total": float(sum(ephemeral_mount)),
             "cleanup_ms_total": float(sum(ephemeral_cleanup)),
-            "upperdir_bytes": _percentile_record([]),
+            "upperdir_bytes": _percentile_record(ephemeral_upperdir),
             "changed_path_count": ephemeral_changed_paths,
             "lifecycle_distribution": lifecycle_distribution["ephemeral"],
         },
@@ -852,7 +879,11 @@ def _section_occ(
             "kinds": dict(conflict_kinds),
             "top_paths": conflict_paths.most_common(10),
         },
-        "prepare_ms": _percentile_record([]),  # not recorded directly today
+        "prepare_ms": _percentile_record(
+            _samples(
+                indexed.get("occ.changeset_prepared", []), "occ", "prepare_ms"
+            )
+        ),
         "apply_ms": _percentile_record(
             _samples(indexed.get("occ.apply_committed", []), "occ", "apply_ms")
         ),
@@ -883,6 +914,7 @@ def _section_isolated_workspace(
     orphan_scratch = 0
     holder_pid_alive_after_exit = 0
     upperdir_samples: list[float] = []
+    upperdir_cap_max = 0
     for event_row in indexed.get("isolated_workspace.exited", []):
         section = _payload_section(event_row, "isolated_workspace")
         orphan_holder += int(section.get("orphan_holder_count") or 0)
@@ -900,6 +932,9 @@ def _section_isolated_workspace(
         upperdir = section.get("upperdir_bytes")
         if isinstance(upperdir, (int, float)):
             upperdir_samples.append(float(upperdir))
+        cap = section.get("upperdir_cap_bytes")
+        if isinstance(cap, (int, float)) and int(cap) > upperdir_cap_max:
+            upperdir_cap_max = int(cap)
     return {
         "handles": {
             "opened": handles_opened,
@@ -908,6 +943,9 @@ def _section_isolated_workspace(
             "open_handle_count": handles_opened - handles_closed - handles_evicted,
         },
         "upperdir_bytes": _percentile_record(upperdir_samples),
+        # Phase 3 deferral D7 — max ``upperdir_cap_bytes`` across sampled
+        # exits powers the §13 ``overlay_workspace.upperdir_cap`` warning.
+        "upperdir_cap_bytes": upperdir_cap_max,
         "orphan": {
             "orphan_holder_count": orphan_holder,
             "orphan_cgroup_count": orphan_cgroup,
@@ -928,6 +966,11 @@ def _section_os_resource(
     rss_samples: list[int] = []
     cpu_user_samples: list[float] = []
     cpu_system_samples: list[float] = []
+    cpu_throttled_samples: list[int] = []
+    io_read_bytes_samples: list[int] = []
+    io_write_bytes_samples: list[int] = []
+    io_read_ops_samples: list[int] = []
+    io_write_ops_samples: list[int] = []
     for event_row in indexed.get("os_resource.sampled", []):
         section = _payload_section(event_row, "os_resource")
         rss = section.get("rss_bytes")
@@ -939,6 +982,28 @@ def _section_os_resource(
         cpu_system = section.get("cpu_system_s")
         if isinstance(cpu_system, (int, float)):
             cpu_system_samples.append(float(cpu_system))
+        cpu_throttled = section.get("cpu_throttled_us")
+        if isinstance(cpu_throttled, (int, float)):
+            cpu_throttled_samples.append(int(cpu_throttled))
+        io_rbytes = section.get("io_read_bytes")
+        if isinstance(io_rbytes, (int, float)):
+            io_read_bytes_samples.append(int(io_rbytes))
+        io_wbytes = section.get("io_write_bytes")
+        if isinstance(io_wbytes, (int, float)):
+            io_write_bytes_samples.append(int(io_wbytes))
+        io_rios = section.get("io_read_ops")
+        if isinstance(io_rios, (int, float)):
+            io_read_ops_samples.append(int(io_rios))
+        io_wios = section.get("io_write_ops")
+        if isinstance(io_wios, (int, float)):
+            io_write_ops_samples.append(int(io_wios))
+
+    def _monotonic_delta_int(samples: list[int]) -> int:
+        if len(samples) < 2:
+            return 0
+        # Monotonic cgroup counters — delta is last minus first.
+        return max(0, samples[-1] - samples[0])
+
     cpu_user_delta = (
         (cpu_user_samples[-1] - cpu_user_samples[0]) if len(cpu_user_samples) >= 2 else 0.0
     )
@@ -951,16 +1016,16 @@ def _section_os_resource(
         "cpu": {
             "user_s_delta": cpu_user_delta,
             "system_s_delta": cpu_system_delta,
-            "throttled_us_delta": 0,  # not recorded by os_resource.sampled today
+            "throttled_us_delta": _monotonic_delta_int(cpu_throttled_samples),
         },
         "memory": {
             "rss_peak_bytes": max(rss_samples) if rss_samples else 0,
         },
         "io": {
-            "read_bytes": 0,
-            "write_bytes": 0,
-            "read_ops": 0,
-            "write_ops": 0,
+            "read_bytes": _monotonic_delta_int(io_read_bytes_samples),
+            "write_bytes": _monotonic_delta_int(io_write_bytes_samples),
+            "read_ops": _monotonic_delta_int(io_read_ops_samples),
+            "write_ops": _monotonic_delta_int(io_write_ops_samples),
         },
     }
 
@@ -1009,6 +1074,7 @@ def _section_daemon_audit_pull(
 def _section_overhead(
     overhead_metadata: Mapping[str, Any] | None,
     daemon_audit_pull: Mapping[str, Any],
+    artifact_inventory: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Audit overhead measurement payload + gate verdict.
 
@@ -1033,6 +1099,7 @@ def _section_overhead(
     ``test_overhead_gate_methodology_recorded_in_json`` schema assertion
     stays satisfied.
     """
+    methodology_present = overhead_metadata is not None
     if overhead_metadata is None:
         overhead_metadata = {}
     daemon_ring_retained = int(
@@ -1054,8 +1121,12 @@ def _section_overhead(
     ) + int(overhead_metadata.get("artifact_disk_rotated_bytes") or 0)
 
     # Methodology metadata (required by test
-    # ``test_overhead_gate_methodology_recorded_in_json``).
+    # ``test_overhead_gate_methodology_recorded_in_json``). Phase 3
+    # deferral D14: ``methodology_present`` distinguishes "no measurement
+    # supplied" from "0 paired runs"; the §12 gate cannot pass when
+    # missing.
     methodology = {
+        "methodology_present": methodology_present,
         "n_calls": int(overhead_metadata.get("n_calls") or 0),
         "n_paired_runs": int(overhead_metadata.get("n_paired_runs") or 0),
         "warmup_s": float(overhead_metadata.get("warmup_s") or 0.0),
@@ -1072,6 +1143,22 @@ def _section_overhead(
         "runner_cpu_delta_pct": _OVERHEAD_GATE_RUNNER_CPU_DELTA_PCT,
         "sandbox_disk_delta_bytes": _OVERHEAD_GATE_SANDBOX_DISK_DELTA_BYTES,
     }
+    # Phase 3 deferral D9 — wire the artifact-bound gate into §12 so all
+    # four V3 release gates surface in the verdict block. When
+    # ``artifact_inventory`` is None the verdict reflects the absence by
+    # reporting passed=True (no JSONL → 0 bytes ≤ cap is trivially OK).
+    from task_center_runner.audit.release_gates import evaluate_artifact_bound_gate
+
+    inventory = artifact_inventory or {
+        "live_bytes": 0,
+        "rotated_bytes": 0,
+        "rotated_file_count": 0,
+    }
+    artifact_verdict = evaluate_artifact_bound_gate(
+        live_bytes=int(inventory.get("live_bytes") or 0),
+        rotated_bytes=int(inventory.get("rotated_bytes") or 0),
+        rotated_file_count=int(inventory.get("rotated_file_count") or 0),
+    )
     gate_verdict = {
         "latency_p95_delta_pass": (
             p95_delta_ci_upper <= _OVERHEAD_GATE_LATENCY_DELTA_MS
@@ -1082,6 +1169,7 @@ def _section_overhead(
             overhead_metadata.get("sandbox_disk_delta_bytes") or 0
         )
         == 0,
+        "artifact_bound_pass": bool(artifact_verdict.get("passed")),
         "puller_attached": bool(daemon_audit_pull.get("puller_attached")),
     }
     return {
@@ -1094,10 +1182,48 @@ def _section_overhead(
         "tool_latency_p95_delta_ms": latency_delta,
         "artifact_disk_total_bytes": artifact_disk_total,
         "methodology": methodology,
+        "artifact_inventory": dict(inventory),
         "gate": {
             "thresholds": gate_thresholds,
             "verdict": gate_verdict,
+            "artifact_bound": artifact_verdict,
         },
+    }
+
+
+def _collect_artifact_inventory(run_dir: Path) -> dict[str, int]:
+    """Walk ``run_dir`` for ``sandbox_events.jsonl*`` files.
+
+    Returns ``live_bytes`` (the live JSONL size), ``rotated_bytes`` (sum
+    over rotated ``.<N>.gz`` files), and ``rotated_file_count`` so
+    :func:`evaluate_artifact_bound_gate` can decide whether the host-
+    side artifact footprint stayed within ``64 MiB + 8 × rotated``.
+    """
+    live_bytes = 0
+    rotated_bytes = 0
+    rotated_file_count = 0
+    base = run_dir / "sandbox_events.jsonl"
+    try:
+        live_bytes = base.stat().st_size if base.exists() else 0
+    except OSError:
+        live_bytes = 0
+    parent = run_dir
+    if parent.is_dir():
+        prefix = base.name + "."
+        for child in parent.iterdir():
+            if not child.is_file():
+                continue
+            if not child.name.startswith(prefix) or not child.name.endswith(".gz"):
+                continue
+            try:
+                rotated_bytes += child.stat().st_size
+            except OSError:
+                continue
+            rotated_file_count += 1
+    return {
+        "live_bytes": live_bytes,
+        "rotated_bytes": rotated_bytes,
+        "rotated_file_count": rotated_file_count,
     }
 
 
@@ -1115,6 +1241,7 @@ def _collect_warnings(
     layer_stack: Mapping[str, Any],
     occ: Mapping[str, Any],
     os_resource: Mapping[str, Any],
+    event_count: int,
 ) -> dict[str, Any]:
     warnings: list[dict[str, Any]] = []
     audit = _as_mapping(summary.get("audit_summary"))
@@ -1136,6 +1263,23 @@ def _collect_warnings(
             {
                 "kind": "audit.pressure",
                 "detail": f"max buffer pressure {pressure:.2f} > 0.80",
+            }
+        )
+    # Phase 3 deferral D8: divergence between JSONL row count and the
+    # puller's events_pulled counter indicates a daemon restart or partial
+    # flush; surface it so operators can resolve the §1 vs §11 numbers
+    # without source reading.
+    events_pulled = int(daemon_audit_pull.get("events_pulled") or 0)
+    delta = event_count - events_pulled
+    if events_pulled and abs(delta) > 0:
+        warnings.append(
+            {
+                "kind": "audit.events_count_drift",
+                "detail": (
+                    f"JSONL row count {event_count} vs puller events_pulled "
+                    f"{events_pulled} (delta {delta}); likely daemon restart "
+                    "or partial-flush — check §11 daemon_restarts_observed"
+                ),
             }
         )
     orphan = _as_mapping(isolated_workspace.get("orphan"))
@@ -1179,29 +1323,30 @@ def _collect_warnings(
                 ),
             }
         )
-    isolated = _as_mapping(overlay_workspace.get("isolated"))
-    upperdir = _as_mapping(isolated.get("upperdir_bytes"))
+    upperdir = _as_mapping(isolated_workspace.get("upperdir_bytes"))
     rss_peak = int(_as_mapping(os_resource.get("memory")).get("rss_peak_bytes") or 0)
-    if rss_peak and rss_peak > 4 * 1024 * 1024 * 1024:  # 4 GiB warn
+    memory_threshold = _memory_peak_warn_bytes()
+    if rss_peak and rss_peak > memory_threshold:
         warnings.append(
             {
                 "kind": "os_resource.memory_peak",
-                "detail": f"rss peak {rss_peak} bytes (> 4 GiB)",
+                "detail": (
+                    f"rss peak {rss_peak} bytes (> {memory_threshold} bytes)"
+                ),
             }
         )
     upperdir_max = float(upperdir.get("max") or 0.0)
-    if upperdir_max and isolated_workspace.get("upperdir_cap_bytes"):
-        cap = float(isolated_workspace.get("upperdir_cap_bytes") or 0.0)
-        if cap > 0 and upperdir_max / cap > _UPPERDIR_FRACTION_WARNING:
-            warnings.append(
-                {
-                    "kind": "overlay_workspace.upperdir_cap",
-                    "detail": (
-                        f"isolated upperdir {upperdir_max} > "
-                        f"{int(_UPPERDIR_FRACTION_WARNING * 100)}% of cap {cap}"
-                    ),
-                }
-            )
+    cap = float(isolated_workspace.get("upperdir_cap_bytes") or 0.0)
+    if upperdir_max and cap > 0 and upperdir_max / cap > _UPPERDIR_FRACTION_WARNING:
+        warnings.append(
+            {
+                "kind": "overlay_workspace.upperdir_cap",
+                "detail": (
+                    f"isolated upperdir {upperdir_max} > "
+                    f"{int(_UPPERDIR_FRACTION_WARNING * 100)}% of cap {cap}"
+                ),
+            }
+        )
     occ_conflicts = sum(_as_mapping(occ.get("conflicts", {}).get("kinds")).values())
     if occ_conflicts > 0:
         warnings.append(
@@ -1211,6 +1356,20 @@ def _collect_warnings(
             }
         )
     return {"rows": warnings}
+
+
+def _memory_peak_warn_bytes() -> int:
+    """Read ``RunnerConfig.audit_warnings.memory_peak_warn_bytes`` defensively.
+
+    Falls back to the V3 spec default (4 GiB) when central config is
+    unavailable (unit-test contexts). Phase 3 deferral D6.
+    """
+    try:
+        from config import get_central_config
+
+        return int(get_central_config().runner.audit_warnings.memory_peak_warn_bytes)
+    except Exception:  # noqa: BLE001 — central config is best-effort here
+        return 4 * 1024 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
@@ -1319,9 +1478,9 @@ def _render_section_4_background_tool_calls(
     lines: list[str] = [
         "## 4. Background tool calls",
         "",
-        "| task_id | tool_name | task_kind | started_at | duration_ms | "
+        "| task_id | tool_name | task_kind | started_seq | duration_ms | "
         "status | delivery_latency_ms |",
-        "| --- | --- | --- | --- | ---: | --- | ---: |",
+        "| --- | --- | --- | ---: | ---: | --- | ---: |",
     ]
     if not rows:
         lines.append("| (no background tool calls recorded) |  |  |  |  |  |  |")
@@ -1334,7 +1493,7 @@ def _render_section_4_background_tool_calls(
                     str(row_map.get("background_task_id") or ""),
                     str(row_map.get("tool_name") or ""),
                     str(row_map.get("task_kind") or ""),
-                    str(row_map.get("started_at") or ""),
+                    str(row_map.get("started_seq") or ""),
                     _fmt_ms_or_dash(row_map.get("duration_ms")),
                     str(row_map.get("status") or ""),
                     _fmt_ms_or_dash(row_map.get("delivery_latency_ms")),
@@ -1589,7 +1748,8 @@ def _render_section_12_overhead(
         f"- gate verdict: latency_p95_delta_pass={bool(verdict.get('latency_p95_delta_pass'))} "
         f"runner_cpu_pass={bool(verdict.get('runner_cpu_pass'))} "
         f"daemon_cpu_pass={bool(verdict.get('daemon_cpu_pass'))} "
-        f"sandbox_disk_pass={bool(verdict.get('sandbox_disk_pass'))}",
+        f"sandbox_disk_pass={bool(verdict.get('sandbox_disk_pass'))} "
+        f"artifact_bound_pass={bool(verdict.get('artifact_bound_pass'))}",
         "",
     ]
 
@@ -1601,14 +1761,58 @@ def _render_section_13_warnings(
     lines: list[str] = ["## 13. Warnings", ""]
     if not warnings:
         lines.extend(["- (none)", ""])
-        return lines
-    for warning in warnings:
-        warning_map = _as_mapping(warning)
-        lines.append(
-            f"- [{warning_map.get('kind') or ''}] {warning_map.get('detail') or ''}"
-        )
-    lines.append("")
+    else:
+        for warning in warnings:
+            warning_map = _as_mapping(warning)
+            lines.append(
+                f"- [{warning_map.get('kind') or ''}] "
+                f"{warning_map.get('detail') or ''}"
+            )
+        lines.append("")
+    forensic = _as_sequence(_as_mapping(sections.get("forensic_deltas")).get("rows"))
+    if forensic:
+        # Phase 3 deferral D15: an opt-in (gated by
+        # ``EOS_AUDIT_FORENSIC_RAW_ENABLED=true``) block showing
+        # (seq, key, promoted_value, daemon_event_value) drift between
+        # promoted sections and the daemon_event forensic raw. Helps
+        # diagnose "report looks wrong" cases.
+        lines.append("### 13.1 Forensic-raw drift (debug-mode)")
+        lines.append("")
+        lines.append("| seq | key | promoted | daemon_event |")
+        lines.append("| ---: | --- | --- | --- |")
+        for row in forensic:
+            row_map = _as_mapping(row)
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(row_map.get("seq") or ""),
+                        str(row_map.get("key") or ""),
+                        repr(row_map.get("promoted_value")),
+                        repr(row_map.get("daemon_event_value")),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
     return lines
+
+
+def _collect_forensic_deltas(
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any] | None:
+    """Phase 3 deferral D15 — opt-in forensic-raw delta surfacer.
+
+    Delegates to the normalizer module so the daemon-event boundary stays
+    enforced (only :mod:`daemon_event_normalizer` may read the forensic
+    raw field). Returns ``None`` unless
+    ``EOS_AUDIT_FORENSIC_RAW_ENABLED=true``.
+    """
+    from task_center_runner.audit.daemon_event_normalizer import (
+        collect_forensic_deltas,
+    )
+
+    return collect_forensic_deltas(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -1746,7 +1950,13 @@ def _fmt_ms_or_dash(value: object) -> str:
 
 
 def _phase_bar(fractions: Mapping[str, Any], width: int = 40) -> str:
-    parts: list[str] = []
+    """Render the §3 ASCII bar from a per-phase fraction map.
+
+    Phase 3 deferral D10: fractions are renormalised so they always sum
+    to ≤ 1 before glyph allocation. Without normalisation the bar would
+    silently lose its rightmost glyphs whenever phase totals overlap
+    (e.g. mount and publish recorded inside exec).
+    """
     glyph_map = {
         "queued": "Q",
         "mount": "M",
@@ -1755,12 +1965,21 @@ def _phase_bar(fractions: Mapping[str, Any], width: int = 40) -> str:
         "publish": "P",
         "release": "R",
     }
+    raw_fractions: dict[str, float] = {}
     for phase in _PHASE_ORDER:
         try:
-            frac = float(fractions.get(phase) or 0.0)
+            raw_fractions[phase] = max(0.0, float(fractions.get(phase) or 0.0))
         except (TypeError, ValueError):
-            frac = 0.0
-        cells = max(0, round(frac * width))
+            raw_fractions[phase] = 0.0
+    total = sum(raw_fractions.values())
+    if total > 1.0:
+        scale = 1.0 / total
+        normalized = {phase: value * scale for phase, value in raw_fractions.items()}
+    else:
+        normalized = raw_fractions
+    parts: list[str] = []
+    for phase in _PHASE_ORDER:
+        cells = max(0, round(normalized[phase] * width))
         parts.append(glyph_map[phase] * cells)
     bar = "".join(parts) or "·"
     if len(bar) > width:

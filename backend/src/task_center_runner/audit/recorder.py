@@ -270,7 +270,22 @@ class AuditRecorder:
         return self._task_recorder.get(task_id)
 
     def start(self) -> None:
-        """Register the 5 SQLAlchemy listeners and write run.json."""
+        """Register the 5 SQLAlchemy listeners and write run.json.
+
+        Phase 3 deferral D12: the safety check that refuses dual-disable
+        when isolated_workspace is enabled lives here so non-engine code
+        paths (ad-hoc scripts, host adapters) inherit the guarantee. The
+        engine entrypoint calls the same helper upstream so misconfig is
+        caught before any sandbox is provisioned.
+        """
+        # Lazy import to avoid a recorder→engine import cycle. The
+        # function is a pure env-var read; no heavy state.
+        from task_center_runner.core.engine import (
+            _refuse_dual_disable_when_isolated_workspace_enabled,
+        )
+
+        _refuse_dual_disable_when_isolated_workspace_enabled()
+
         self._run_dir.mkdir(parents=True, exist_ok=True)
         self._started_ts = time.time()
         self._status = "running"

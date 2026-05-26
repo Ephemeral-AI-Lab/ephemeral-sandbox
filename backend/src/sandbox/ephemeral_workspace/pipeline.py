@@ -185,6 +185,8 @@ class EphemeralPipeline(OperationOverlayMixin, WorkspacePublishMixin):
                             manifest_root_hash=handle.root_hash or None,
                             committed_layer_id=committed_layer_id,
                             publish_layer_ms=(monotonic_now() - publish_started) * 1000.0,
+                            changed_path_count=len(path_changes),
+                            upperdir_bytes=_upperdir_total_bytes(handle.upperdir),
                         ),
                     ),
                     lane="critical",
@@ -502,3 +504,43 @@ def _foreign_watch_interval_s() -> float:
 def _pipeline_runtime_key(workspace_ref: str, workspace_root: str) -> str:
     raw = f"{workspace_ref}\0{workspace_root}".encode("utf-8", "surrogateescape")
     return hashlib.sha256(raw).hexdigest()[:16]
+
+
+def _upperdir_total_bytes(upperdir: Path) -> int | None:
+    """Sum allocated bytes under ``upperdir`` (best-effort).
+
+    Returns ``None`` on any failure so the consumer-side percentile record
+    distinguishes "not sampled" from "0 bytes captured". Bounded by
+    ``EOS_OVERLAY_UPPERDIR_SAMPLE_ENTRY_LIMIT`` (default 5000) to keep the
+    per-call cost within the V3 §Gate matrix latency budget.
+    """
+    if not upperdir.exists():
+        return 0
+    try:
+        max_entries = _upperdir_sample_entry_limit()
+        total = 0
+        seen = 0
+        for root, _dirs, files in os.walk(upperdir):
+            for name in files:
+                seen += 1
+                if seen > max_entries:
+                    return total
+                try:
+                    st = os.lstat(os.path.join(root, name))
+                except OSError:
+                    continue
+                blocks = getattr(st, "st_blocks", None)
+                total += int(blocks) * 512 if blocks is not None else int(st.st_size)
+        return total
+    except OSError:
+        return None
+
+
+def _upperdir_sample_entry_limit() -> int:
+    raw = os.environ.get("EOS_OVERLAY_UPPERDIR_SAMPLE_ENTRY_LIMIT", "").strip()
+    if not raw:
+        return 5000
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return 5000

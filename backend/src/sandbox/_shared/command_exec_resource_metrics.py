@@ -68,6 +68,11 @@ def _emit_os_resource_sample(timings: dict[str, float]) -> None:
     rss = timings.get("resource.process.rss_bytes")
     user_us = timings.get("resource.process.user_cpu_usec")
     sys_us = timings.get("resource.process.system_cpu_usec")
+    cpu_throttled = timings.get("resource.cgroup.cpu_throttled_usec")
+    io_rbytes = timings.get("resource.cgroup.io_rbytes")
+    io_wbytes = timings.get("resource.cgroup.io_wbytes")
+    io_rios = timings.get("resource.cgroup.io_rios")
+    io_wios = timings.get("resource.cgroup.io_wios")
     safe_emit(
         build_os_resource_event(
             OsResourceSection(
@@ -75,6 +80,13 @@ def _emit_os_resource_sample(timings: dict[str, float]) -> None:
                 rss_bytes=int(rss) if rss is not None else None,
                 cpu_user_s=user_us / 1_000_000.0 if user_us is not None else None,
                 cpu_system_s=sys_us / 1_000_000.0 if sys_us is not None else None,
+                cpu_throttled_us=(
+                    int(cpu_throttled) if cpu_throttled is not None else None
+                ),
+                io_read_bytes=int(io_rbytes) if io_rbytes is not None else None,
+                io_write_bytes=int(io_wbytes) if io_wbytes is not None else None,
+                io_read_ops=int(io_rios) if io_rios is not None else None,
+                io_write_ops=int(io_wios) if io_wios is not None else None,
             ),
         ),
         lane="sample",

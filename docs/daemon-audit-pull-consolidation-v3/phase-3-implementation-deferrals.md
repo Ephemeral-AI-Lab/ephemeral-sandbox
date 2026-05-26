@@ -1,5 +1,9 @@
 # Phase 3 — Implementation Deferrals (Code-side closers)
 
+> **Status:** ALL 16 deferrals (D1-D16) **landed** on 2026-05-26. See
+> [`phase-3-implementation-deferrals-report.md`](phase-3-implementation-deferrals-report.md)
+> for the implementation report.
+>
 > **Scope:** Implementation work that was shipped as a stub / placeholder
 > during Phase 3 and that the next agent can land **without any live-e2e
 > infrastructure or operator hand-off**. Items requiring the dask-heavy

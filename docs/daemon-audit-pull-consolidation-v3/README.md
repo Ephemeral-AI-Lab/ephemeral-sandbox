@@ -20,6 +20,7 @@
 | `phase-3-report-and-release-gates.md` | Consolidated performance & resource report (§1–§13), 4 release gates, default-on rollout |
 | `phase-3-implementation-report.md` | Implementation report for Phase 3 — V3 report layout, release-gate evaluator harness, default-on opt-out env gate, engine dual-disable refusal. **With this report, V3 is code-complete**; remaining work is operational (gate evidence + K=5 countdown). |
 | `phase-3-implementation-deferrals.md` | Code-side closers for Phase 3 — 16 deferrals (D1–D16) shipped as stubs / placeholders during Phase 3, each with file:line + verification recipe. Excludes live-e2e + operator hand-off items (those live in the implementation report and V3 §Follow-ups). |
+| `phase-3-implementation-deferrals-report.md` | Implementation report for the 16 deferrals (D1–D16). With this report, every JSON field and Markdown column in the V3 §1–§13 report carries real data when its emitter is active — no remaining `"—"` / `0` placeholders. |
 
 ## Lineage
 
@@ -44,6 +45,7 @@
 | Phase 2 (slices 1–6) — daemon emitters + puller + normalizer + rotation | ✅ landed | [`phase-2-slice-1-report.md`](phase-2-slice-1-report.md), [`phase-2.5-implementation-report.md`](phase-2.5-implementation-report.md) |
 | Phase 2.6 — dispatcher slow-tail (slice 7) + heavy-run regression (slice 8) + closers A/C/D/F | ✅ landed | [`phase-2.6-implementation-report.md`](phase-2.6-implementation-report.md) |
 | Phase 3 — V3 report layout (§1–§13) + release-gate evaluator + default-on opt-out + dual-disable refusal | ✅ landed | [`phase-3-implementation-report.md`](phase-3-implementation-report.md) |
+| Phase 3 deferrals — code-side closers D1–D16 (mount/publish phases, occ.prepare_ms, cgroup IO/throttle, ephemeral upperdir, started_seq, config knobs, artifact-bound gate verdict, forensic-raw deltas, ...) | ✅ landed | [`phase-3-implementation-deferrals-report.md`](phase-3-implementation-deferrals-report.md) |
 | Release-gate evidence on dask-heavy live-e2e fixture | ⚠ operator hand-off | n/a (synthetic-event tests pin the evaluator math; live-fixture run is operational work) |
 | FU#1 stream-bridge retirement (K=5 clean heavy runs → flip default) | ⚠ operational | n/a |
 

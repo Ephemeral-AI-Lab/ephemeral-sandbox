@@ -12,6 +12,7 @@ from sandbox.daemon.audit_schema import (
     OccSection,
     build_occ_event,
     safe_emit,
+    safe_record_phase,
 )
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset import CommitOptions, PreparedChangeset
@@ -273,7 +274,8 @@ class OccService:
             base_hash_reader=base_hash_reader,
         )
         timings[TimingKey.PREPARE_ROUTE_AND_BASE_HASH] = monotonic_now() - prepare_start
-        timings[TimingKey.PREPARE_TOTAL] = monotonic_now() - total_start
+        prepare_total_s = monotonic_now() - total_start
+        timings[TimingKey.PREPARE_TOTAL] = prepare_total_s
         prepared = replace(prepared, timings={**prepared.timings, **timings})
         safe_emit(
             build_occ_event(
@@ -284,6 +286,7 @@ class OccService:
                     changed_path_count=sum(
                         len(group.changes) for group in prepared.path_groups
                     ),
+                    prepare_ms=prepare_total_s * 1000.0,
                     base_manifest_version=(
                         prepared.snapshot.version
                         if prepared.snapshot is not None
@@ -364,10 +367,15 @@ def _emit_occ_commit_events(
                     changeset_id=changeset_id,
                     committed_layer_id=str(result.published_manifest_version),
                     current_manifest_version=result.published_manifest_version,
+                    publish_layer_ms=apply_ms,
                 ),
             ),
             lane="normal",
         )
+        # V3 §2/§3 — surface the publish phase in the per-tool rollup. The
+        # apply→publish boundary is the full ``commit_elapsed`` window
+        # because the underlying transaction publishes synchronously.
+        safe_record_phase("publish", apply_ms)
 
 
 __all__ = [
