@@ -28,8 +28,8 @@ Combines three orthogonal composer branches into one live run so a single
    generator task per attempt. The single-task plans keep executor captures
    focused on the composer's context shape rather than tool chatter.
 
-This scenario does NOT trigger advisor / resolver / subagent calls because
-the mock runner does not currently invoke them — those initial-message
+This scenario does NOT trigger advisor / subagent calls because the mock
+runner does not currently invoke them — those initial-message
 captures are produced programmatically by
 ``scripts/build_initial_messages_report.py``, which calls the real
 builder functions in ``tools/ask_helper/_lib/_compose.py`` and
@@ -97,8 +97,8 @@ class InitialMessagesCapture(ScenarioBase):
     name = "pipeline.initial_messages_capture"
 
     # Bonus knob a future MockSquadRunner extension can read to invoke
-    # ask_advisor / ask_resolver / run_subagent inline from the executor
-    # task. Today it is informational only.
+    # ask_advisor / run_subagent inline from the executor task. Today it
+    # is informational only.
     call_helpers_in_executor: bool = False
 
     expected_event_sequence: tuple[EventType, ...] = (

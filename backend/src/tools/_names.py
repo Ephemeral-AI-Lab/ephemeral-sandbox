@@ -25,7 +25,6 @@ CANCEL_BACKGROUND_TASK_TOOL_NAME = "cancel_background_task"
 
 # Helper-ask tools (backend/src/tools/ask_helper/)
 ASK_ADVISOR_TOOL_NAME = "ask_advisor"
-ASK_RESOLVER_TOOL_NAME = "ask_resolver"
 
 # Executor terminal tools
 SUBMIT_EXECUTION_SUCCESS_TOOL_NAME = "submit_execution_success"
@@ -43,9 +42,6 @@ SUBMIT_EVALUATION_FAILURE_TOOL_NAME = "submit_evaluation_failure"
 # Planner terminal tools
 SUBMIT_PLAN_CLOSES_GOAL_TOOL_NAME = "submit_plan_closes_goal"
 SUBMIT_PLAN_DEFERS_GOAL_TOOL_NAME = "submit_plan_defers_goal"
-
-# Resolver terminal tool
-SUBMIT_RESOLVER_RESULT_TOOL_NAME = "submit_resolver_result"
 
 # Advisor terminal tool
 SUBMIT_ADVISOR_FEEDBACK_TOOL_NAME = "submit_advisor_feedback"
@@ -66,7 +62,6 @@ __all__ = [
     "WAIT_BACKGROUND_TASKS_TOOL_NAME",
     "CANCEL_BACKGROUND_TASK_TOOL_NAME",
     "ASK_ADVISOR_TOOL_NAME",
-    "ASK_RESOLVER_TOOL_NAME",
     "SUBMIT_EXECUTION_SUCCESS_TOOL_NAME",
     "SUBMIT_EXECUTION_BLOCKER_TOOL_NAME",
     "SUBMIT_EXECUTION_HANDOFF_TOOL_NAME",
@@ -76,7 +71,6 @@ __all__ = [
     "SUBMIT_EVALUATION_FAILURE_TOOL_NAME",
     "SUBMIT_PLAN_CLOSES_GOAL_TOOL_NAME",
     "SUBMIT_PLAN_DEFERS_GOAL_TOOL_NAME",
-    "SUBMIT_RESOLVER_RESULT_TOOL_NAME",
     "SUBMIT_ADVISOR_FEEDBACK_TOOL_NAME",
     "SUBMIT_EXPLORATION_RESULT_TOOL_NAME",
 ]

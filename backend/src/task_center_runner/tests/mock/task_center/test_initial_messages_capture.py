@@ -12,14 +12,14 @@ trees carry the right shape for every iteration position and attempt:
 * executor / evaluator launches — 3 rows (system + ``<context>`` +
   ``<Task Guidance>``); no skill is declared in v1.
 
-For helper (advisor / resolver) and subagent (explorer) initial-message
+For helper (advisor) and subagent (explorer) initial-message
 construction, see ``scripts/build_initial_messages_report.py`` — the
 mock-runner does not invoke helpers today, so the report builder calls the
 real builder functions in ``tools/ask_helper/_lib/_compose.py`` and
 ``task_center/task_guidance/builders.py`` against a realistic parent
 context. Once ``MockSquadRunner`` grows a helper dispatch, this test
-should be extended to also collect ``advisor`` / ``resolver`` /
-``explorer`` ``message.jsonl`` trees from the live run.
+should be extended to also collect ``advisor`` / ``explorer``
+``message.jsonl`` trees from the live run.
 """
 
 from __future__ import annotations
@@ -283,8 +283,8 @@ def _write_report(
     lines.append(
         "Up to four rows per agent: system + <context> envelope + "
         "<Task Guidance> envelope (with embedded <terminal_tool_selection>) "
-        "+ skill row (row 4 — planner only in v1). Helpers (advisor / "
-        "resolver) and subagent (explorer) are constructed by "
+        "+ skill row (row 4 — planner only in v1). Helper (advisor) and "
+        "subagent (explorer) are constructed by "
         "`scripts/build_initial_messages_report.py` — see "
         "`docs/reports/initial_messages_report.md`.\n"
     )

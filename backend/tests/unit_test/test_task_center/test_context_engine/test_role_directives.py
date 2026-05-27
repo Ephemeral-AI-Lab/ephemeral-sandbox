@@ -25,7 +25,6 @@ def test_directives_match_spec_lines():
         "verifier": "Complete <assigned_task>.",
         "evaluator": "Verify the current attempt against <evaluation_criteria>.",
         "advisor": "Review the parent's pending terminal call.",
-        "resolver": "Resolve the issues listed in <issues>.",
         "explorer": (
             "Investigate the parent's question and return concrete findings."
         ),

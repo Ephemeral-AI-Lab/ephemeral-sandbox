@@ -5,8 +5,8 @@ through the same :func:`build_task_guidance` — there's no per-role builder.
 The presence of a row here means "emit row 3 for this agent name"; absence
 means "no row 3".
 
-Helpers and subagents (``advisor``, ``resolver``, ``explorer``) bypass the
-composer entirely — they live in ``tools/ask_helper/`` and
+Helpers and subagents (``advisor``, ``explorer``) bypass the composer
+entirely — they live in ``tools/ask_helper/`` and
 ``tools/subagent/run_subagent.py``. The explorer's identity/format prose
 still lives in :func:`task_guidance.builders.build_explorer_task_guidance`,
 read directly by ``tools/subagent/run_subagent.py``.

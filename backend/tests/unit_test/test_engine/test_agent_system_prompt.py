@@ -46,7 +46,6 @@ def test_agent_system_prompt_includes_runtime_base_and_agent_body_only(monkeypat
     ("name", "kind"),
     [
         ("advisor", AgentKind.ADVISOR),
-        ("resolver", AgentKind.RESOLVER),
         ("explorer", AgentKind.EXPLORER),
     ],
 )

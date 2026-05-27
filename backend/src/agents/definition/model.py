@@ -28,8 +28,8 @@ class AgentKind(StrEnum):
     byte-for-byte, so audit consumers reading the ``metadata["role"]`` key
     (emitted by ``factory.py`` and ``run_subagent.py``) continue to see the
     same string set. Planner and executor profiles can participate in
-    launch-time terminal-tool routing; ADVISOR / EXPLORER / RESOLVER are
-    helper / subagent kinds.
+    launch-time terminal-tool routing; ADVISOR / EXPLORER are helper /
+    subagent kinds.
     """
 
     PLANNER = "planner"
@@ -38,7 +38,6 @@ class AgentKind(StrEnum):
     EVALUATOR = "evaluator"
     ADVISOR = "advisor"
     EXPLORER = "explorer"
-    RESOLVER = "resolver"
 
 
 # Pydantic can't accept ``notification.NotificationRule`` directly here because
@@ -88,8 +87,8 @@ class AgentDefinition(BaseModel):
 
     # --- agent kind ---
     # Canonical category of this profile (planner / executor / verifier /
-    # evaluator / advisor / explorer / resolver). Routing logic and the
-    # planner submission gate read this; audit consumers read the same set of
+    # evaluator / advisor / explorer). Routing logic and the planner
+    # submission gate read this; audit consumers read the same set of
     # strings via ``agent_kind.value`` through the ``metadata["role"]`` key
     # emitted by ``factory.py`` and ``run_subagent.py``. Profile MDs MUST
     # declare ``agent_kind:`` in frontmatter — the loader rejects MDs that
