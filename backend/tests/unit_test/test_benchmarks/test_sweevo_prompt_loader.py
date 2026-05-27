@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.sweevo.prompt import (
+from task_center_runner.benchmarks.sweevo.setup import (
     load_pr_description,
     load_pr_description_overrides,
 )

@@ -6,7 +6,7 @@ live under ``task_center_runner.tests.mock``. Real-agent tests live under
 both suites lives under ``task_center_runner.environments.sweevo_image``. The
 full SWE-EVO benchmark lifecycle lives under
 ``task_center_runner.benchmarks.sweevo`` and is invoked through
-``python -m benchmarks.sweevo --instance-id <id>``.
+``python -m task_center_runner.benchmarks.sweevo --instance-id <id>``.
 
 Subpackages:
 

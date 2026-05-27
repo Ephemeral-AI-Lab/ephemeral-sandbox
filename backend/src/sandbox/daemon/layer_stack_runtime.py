@@ -186,6 +186,26 @@ def acquire_snapshot(
     return result
 
 
+def commit_to_workspace(
+    layer_stack_root: str | Path,
+    *,
+    workspace_root: str | Path,
+    timings: dict[str, float] | None = None,
+):
+    """Project the active overlay onto ``workspace_root`` and rebuild the base.
+
+    Refuses to run while any snapshot lease is active. After the call,
+    layer storage is reset and the workspace becomes the new base.
+    """
+    drop_layer_stack_manager(layer_stack_root)
+    new_manifest = get_layer_stack_manager(layer_stack_root).commit_to_workspace(
+        workspace_root=workspace_root,
+        timings=timings,
+    )
+    drop_layer_stack_manager(layer_stack_root)
+    return new_manifest
+
+
 def release_lease(
     layer_stack_root: str | Path,
     *,
@@ -287,6 +307,7 @@ def _validate_manifest_for_root(layer_stack_root: Path) -> None:
 __all__ = [
     "build_workspace_base",
     "clear_layer_stack_runtime_caches_for_tests",
+    "commit_to_workspace",
     "drop_layer_stack_manager",
     "emit_squash_event",
     "ensure_workspace_base",

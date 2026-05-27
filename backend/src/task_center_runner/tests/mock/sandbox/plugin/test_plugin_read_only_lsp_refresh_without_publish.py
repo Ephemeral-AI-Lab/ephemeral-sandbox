@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from task_center_runner.agent.mock.plugin_workspace_probe import (
     READ_ONLY_LSP_REFRESH_SUMMARY,
 )

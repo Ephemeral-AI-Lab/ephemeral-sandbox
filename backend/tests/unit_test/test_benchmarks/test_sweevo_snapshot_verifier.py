@@ -1,8 +1,10 @@
-"""Tests for :func:`benchmarks.sweevo.sandbox.verify_sweevo_snapshot_exists`.
+"""Tests for the sweevo snapshot verifier.
 
-The verifier is a fail-fast probe the CSV benchmarker calls before any
-Daytona sandbox is created. It must surface missing snapshots, non-active
-states, and Daytona SDK enum-repr drift (per MEMORY.md R5).
+``verify_sweevo_snapshot_exists`` is a fail-fast probe the CLI calls
+before any sandbox is created so a missing snapshot surfaces before a
+long agent run. Post-migration, the benchmark is docker-only and the
+docker provider has no inactive/error state to normalize against —
+presence-in-list is the sole acceptance criterion.
 """
 
 from __future__ import annotations
@@ -10,11 +12,13 @@ from __future__ import annotations
 import pytest
 
 import sandbox.api as sandbox_api
-from benchmarks.sweevo.dataset import default_sweevo_snapshot_name
-from benchmarks.sweevo.models import SWEEvoInstance
-from benchmarks.sweevo.sandbox import (
+from task_center_runner.benchmarks.sweevo._snapshot import (
     SnapshotNotRegisteredError,
     verify_sweevo_snapshot_exists,
+)
+from task_center_runner.benchmarks.sweevo.models import (
+    SWEEvoInstance,
+    default_sweevo_snapshot_name,
 )
 
 
@@ -33,13 +37,15 @@ def _instance(instance_id: str = "dask__dask_2023.3.2_2023.4.0") -> SWEEvoInstan
     )
 
 
-def test_verify_returns_name_when_active(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_verify_returns_name_when_snapshot_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     inst = _instance()
     expected = default_sweevo_snapshot_name(inst)
     monkeypatch.setattr(
         sandbox_api,
         "list_snapshots",
-        lambda: [{"name": expected, "state": "active"}, {"name": "other", "state": "active"}],
+        lambda: [{"name": expected}, {"name": "other"}],
     )
 
     assert verify_sweevo_snapshot_exists(inst) == expected
@@ -51,7 +57,7 @@ def test_verify_raises_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         sandbox_api,
         "list_snapshots",
-        lambda: [{"name": "unrelated", "state": "active"}],
+        lambda: [{"name": "unrelated"}],
     )
 
     with pytest.raises(SnapshotNotRegisteredError) as exc_info:
@@ -61,68 +67,3 @@ def test_verify_raises_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     assert expected in message
     assert inst.instance_id in message
     assert "register_sweevo_snapshot" in message
-
-
-def test_verify_raises_when_state_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    inst = _instance()
-    expected = default_sweevo_snapshot_name(inst)
-    monkeypatch.setattr(
-        sandbox_api,
-        "list_snapshots",
-        lambda: [{"name": expected, "state": "error"}],
-    )
-
-    with pytest.raises(SnapshotNotRegisteredError) as exc_info:
-        verify_sweevo_snapshot_exists(inst)
-
-    assert "error" in str(exc_info.value)
-    assert expected in str(exc_info.value)
-
-
-def test_verify_raises_when_state_building(monkeypatch: pytest.MonkeyPatch) -> None:
-    inst = _instance()
-    expected = default_sweevo_snapshot_name(inst)
-    monkeypatch.setattr(
-        sandbox_api,
-        "list_snapshots",
-        lambda: [{"name": expected, "state": "building"}],
-    )
-
-    with pytest.raises(SnapshotNotRegisteredError) as exc_info:
-        verify_sweevo_snapshot_exists(inst)
-
-    assert "building" in str(exc_info.value)
-
-
-def test_verify_normalizes_enum_repr(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Per R5, accept ``'SnapshotState.ACTIVE'`` shaped state strings.
-
-    Daytona SDK enum reprs round-trip through ``str(...)`` as
-    ``'<EnumName>.<MEMBER>'``; the verifier must strip the prefix and
-    lowercase before comparing.
-    """
-    inst = _instance()
-    expected = default_sweevo_snapshot_name(inst)
-    monkeypatch.setattr(
-        sandbox_api,
-        "list_snapshots",
-        lambda: [{"name": expected, "state": "SnapshotState.ACTIVE"}],
-    )
-
-    assert verify_sweevo_snapshot_exists(inst) == expected
-
-
-def test_verify_treats_unknown_state_as_inactive(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Missing ``state`` key resolves to ``'unknown'`` → SnapshotNotRegisteredError."""
-    inst = _instance()
-    expected = default_sweevo_snapshot_name(inst)
-    monkeypatch.setattr(
-        sandbox_api,
-        "list_snapshots",
-        lambda: [{"name": expected}],  # no state key
-    )
-
-    with pytest.raises(SnapshotNotRegisteredError) as exc_info:
-        verify_sweevo_snapshot_exists(inst)
-
-    assert "unknown" in str(exc_info.value)

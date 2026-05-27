@@ -426,6 +426,7 @@ def _register_builtin_operations() -> None:
         "api.ensure_workspace_base": builtin_operations.ensure_workspace_base,
         "api.build_workspace_base": builtin_operations.build_workspace_base,
         "api.acquire_snapshot": builtin_operations.acquire_snapshot,
+        "api.commit_to_workspace": builtin_operations.commit_to_workspace,
         "api.release_lease": builtin_operations.release_lease,
         "api.layer_stack.fence_stale_staging": builtin_operations.fence_stale_staging,
         "api.layer_metrics": builtin_operations.layer_metrics,

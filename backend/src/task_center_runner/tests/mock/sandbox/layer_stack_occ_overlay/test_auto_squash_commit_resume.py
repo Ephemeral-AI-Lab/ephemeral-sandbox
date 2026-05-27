@@ -29,7 +29,7 @@ from typing import Any
 import pytest
 
 import sandbox.api as sandbox_api
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from sandbox.api import ReadFileRequest, SandboxCaller, ShellRequest
 from sandbox.occ.service import AUTO_SQUASH_MAX_DEPTH
 

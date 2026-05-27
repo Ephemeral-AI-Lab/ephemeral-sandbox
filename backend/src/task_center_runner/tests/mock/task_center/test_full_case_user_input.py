@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
-from benchmarks.sweevo.dataset import select_sweevo_instance
-from benchmarks.sweevo.prompt import build_sweevo_user_prompt
+from task_center_runner.benchmarks.sweevo.setup import select_sweevo_instance
+from task_center_runner.benchmarks.sweevo.setup import build_sweevo_user_prompt
 from task_center_runner.audit.events import Event, EventType
 from task_center_runner.hooks.builtins import (
     assert_recursive_goal_closed_before_parent_guard,
@@ -25,7 +25,7 @@ from task_center_runner.environments.sweevo_image.fixtures import run_scenario_o
 from task_center_runner.environments.sweevo_image.health import (
     require_sweevo_image_provider_healthy,
 )
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 
 
 _DEFAULT_INSTANCE_ID = "dask__dask_2023.3.2_2023.4.0"

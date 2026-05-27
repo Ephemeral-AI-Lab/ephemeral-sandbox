@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from task_center_runner.core.real_agent_run import run_sweevo_real_agent
 from task_center_runner.core.stores import TaskCenterStoreBundle
 from task_center_runner.tests._live_config import real_agent_max_duration_s

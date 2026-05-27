@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance, _REPO_DIR
-from benchmarks.sweevo.prompt import build_sweevo_user_prompt
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance, _REPO_DIR
+from task_center_runner.benchmarks.sweevo.setup import build_sweevo_user_prompt
 from task_center_runner import run_scenario
 from task_center_runner.audit.events import EventType
 from task_center_runner.hooks.builtins import count_events

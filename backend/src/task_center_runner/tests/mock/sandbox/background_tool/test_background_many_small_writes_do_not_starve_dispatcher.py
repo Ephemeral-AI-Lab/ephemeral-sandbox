@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from task_center_runner.agent.mock.background_shell_probe import (
     MANY_SMALL_WRITES_SUMMARY,
 )

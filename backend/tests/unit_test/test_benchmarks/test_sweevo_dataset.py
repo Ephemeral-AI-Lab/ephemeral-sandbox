@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import ModuleType
 import sys
 
-from benchmarks.sweevo import dataset as sweevo_dataset
+from task_center_runner.benchmarks.sweevo import setup as sweevo_dataset
 
 
 def test_load_sweevo_rows_prefers_cached_arrow(monkeypatch):

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from task_center_runner.environments.sweevo_image.fixtures import run_scenario_on_sweevo_image
 from task_center_runner.core.stores import TaskCenterStoreBundle
 from task_center_runner.scenarios import SCENARIO_REGISTRY

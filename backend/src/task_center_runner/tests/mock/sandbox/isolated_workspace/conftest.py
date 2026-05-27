@@ -322,7 +322,7 @@ async def iws_sandbox(
         # have skipped this (e.g. if the daemon crashed during initial
         # provisioning), so re-establish the binding directly via
         # call_daemon_api with the iws layer_stack_root.
-        from benchmarks.sweevo.models import _REPO_DIR
+        from task_center_runner.benchmarks.sweevo.models import _REPO_DIR
         from sandbox.host.daemon_client import call_daemon_api
 
         from . import _iws_rpc as _iws_rpc_mod

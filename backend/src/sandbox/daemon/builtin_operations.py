@@ -352,6 +352,33 @@ async def release_lease(args: dict[str, object]) -> dict[str, object]:
     }
 
 
+async def commit_to_workspace(args: dict[str, object]) -> dict[str, object]:
+    """Project the active overlay onto the bound workspace root.
+
+    Privileged tear-down sync op (no permission model exists — see
+    ``api.acquire_snapshot`` precedent). Refuses to run while any
+    snapshot lease is active; the surfacing ``RuntimeError`` indicates
+    an agent-loop bug that should be fixed at the source, not papered
+    over here.
+    """
+    total_start = monotonic_now()
+    workspace_root = require_nonempty_string_arg(args, "workspace_root")
+    timings: dict[str, float] = {}
+    new_manifest = layer_stack_runtime.commit_to_workspace(
+        require_layer_stack_root(args),
+        workspace_root=workspace_root,
+        timings=timings,
+    )
+    return {
+        "success": True,
+        "manifest_version": new_manifest.version,
+        "timings": {
+            **timings,
+            "api.commit_to_workspace.total_s": monotonic_now() - total_start,
+        },
+    }
+
+
 async def fence_stale_staging(args: dict[str, object]) -> dict[str, object]:
     return layer_stack_runtime.fence_stale_staging(require_layer_stack_root(args))
 
@@ -373,6 +400,7 @@ __all__ = [
     "WORKSPACE_TOOL_ROUTES",
     "build_workspace_base",
     "cancel",
+    "commit_to_workspace",
     "ensure_workspace_base",
     "fence_stale_staging",
     "heartbeat",

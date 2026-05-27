@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance, SWEEvoResult
-from task_center_runner.benchmarks.sweevo import lifecycle as lifecycle_mod
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance, SWEEvoResult
+from task_center_runner.benchmarks.sweevo import eval as lifecycle_mod
 from task_center_runner.core.report import PipelineReport
 
 
@@ -72,7 +72,11 @@ def _stub_evaluate(monkeypatch: pytest.MonkeyPatch) -> None:
         result.pass_to_pass_total = 12
         return result
 
+    async def fake_apply_layerstack(_sandbox_id: str, _repo_dir: str) -> None:
+        return None
+
     monkeypatch.setattr(lifecycle_mod, "evaluate_sweevo_result", fake_evaluate)
+    monkeypatch.setattr(lifecycle_mod, "apply_layerstack_to_repo", fake_apply_layerstack)
 
 
 @pytest.mark.asyncio

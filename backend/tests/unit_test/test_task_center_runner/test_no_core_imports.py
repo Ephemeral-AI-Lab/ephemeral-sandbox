@@ -104,3 +104,49 @@ def test_core_source_has_no_runner_shape_escape_valves() -> None:
         "Forbidden runner-shape escape valves found in task_center_runner/core/:\n"
         + "\n".join(f"  {path} matches /{pattern}/" for path, pattern in offenders)
     )
+
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[3]
+_FORBIDDEN_BENCHMARKS_PATTERNS = (
+    re.compile(r"\bfrom\s+benchmarks\."),
+    re.compile(r"\bimport\s+benchmarks\."),
+    re.compile(r"\bimport\s+benchmarks\s+as\b"),
+    re.compile(r"\bimport\s+benchmarks\s*$", re.MULTILINE),
+)
+
+
+def test_no_legacy_benchmarks_imports_anywhere() -> None:
+    """Per migration acceptance criterion 12 — no ``from benchmarks.`` anywhere.
+
+    The legacy ``backend/src/benchmarks/`` package was deleted in favor of
+    ``task_center_runner.benchmarks.sweevo``; any remaining reference is a
+    leak from before the rename and will ImportError at runtime.
+
+    Patterns are matched after stripping comments and string literals so
+    that documentation in tests/docs describing the migration does not
+    register as a violation.
+    """
+    src_root = _BACKEND_ROOT / "src"
+    tests_root = _BACKEND_ROOT / "tests"
+    offenders: list[tuple[Path, str]] = []
+    self_path = Path(__file__).resolve()
+    for root in (src_root, tests_root):
+        if not root.exists():
+            continue
+        for path in root.rglob("*.py"):
+            if "__pycache__" in path.parts:
+                continue
+            if path.resolve() == self_path:
+                continue
+            text = _strip_comments_and_docstrings(
+                path.read_text(encoding="utf-8", errors="replace")
+            )
+            for pat in _FORBIDDEN_BENCHMARKS_PATTERNS:
+                if pat.search(text):
+                    offenders.append((path.relative_to(_BACKEND_ROOT), pat.pattern))
+                    break
+    assert not offenders, (
+        "Legacy `benchmarks.*` imports still present (use "
+        "`task_center_runner.benchmarks.sweevo.*` instead):\n"
+        + "\n".join(f"  {path} matches /{pattern}/" for path, pattern in offenders)
+    )

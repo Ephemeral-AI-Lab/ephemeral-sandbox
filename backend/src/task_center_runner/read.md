@@ -99,14 +99,14 @@ The full SWE-EVO benchmark is not a pytest suite. Run it through the benchmark
 CLI and pass the instance id with `--instance-id`.
 
 ```bash
-uv run python -m benchmarks.sweevo \
+uv run python -m task_center_runner.benchmarks.sweevo \
   --instance-id dask__dask_2023.3.2_2023.4.0
 ```
 
 Useful options:
 
 ```bash
-uv run python -m benchmarks.sweevo \
+uv run python -m task_center_runner.benchmarks.sweevo \
   --instance-id dask__dask_2023.3.2_2023.4.0 \
   --max-duration-s 10800 \
   --audit-dir .sweevo_runs
@@ -114,13 +114,13 @@ uv run python -m benchmarks.sweevo \
 
 The TaskCenter-side benchmark implementation lives in:
 
-- `backend/src/task_center_runner/benchmarks/sweevo/agent_runner.py`
-- `backend/src/task_center_runner/benchmarks/sweevo/lifecycle.py`
-- `backend/src/task_center_runner/benchmarks/sweevo/provisioner.py`
+- `backend/src/task_center_runner/benchmarks/sweevo/run.py`
+- `backend/src/task_center_runner/benchmarks/sweevo/eval.py`
+- `backend/src/task_center_runner/benchmarks/sweevo/run.py`
 
 The CLI entrypoint is:
 
-- `backend/src/benchmarks/sweevo/__main__.py`
+- `backend/src/task_center_runner/benchmarks/sweevo/__main__.py`
 
 ## Single-Test Pattern
 

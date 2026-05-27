@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 import sandbox.api as sandbox_api
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from sandbox.api import ReadFileRequest, SandboxCaller
 from task_center_runner.agent.mock.heavy_io_zoned_probe import (
     CHUNK_COUNT,

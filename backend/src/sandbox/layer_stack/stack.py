@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import shutil
 import tempfile
@@ -393,12 +394,22 @@ class LayerStack:
 
 
 def _replace_workspace_contents(destination: Path, source: Path) -> None:
-    """Atomically swap *destination*'s children for *source*'s children."""
+    """Atomically swap *destination*'s children for *source*'s children.
+
+    Falls back to ``shutil.move`` on EXDEV; docker bind-mounts /testbed as
+    a separate volume so a kernel rename across the device boundary fails.
+    """
     destination.mkdir(parents=True, exist_ok=True)
     for child in destination.iterdir():
         remove_path(child)
     for child in source.iterdir():
-        os.replace(child, destination / child.name)
+        target = destination / child.name
+        try:
+            os.replace(child, target)
+        except OSError as exc:
+            if exc.errno != errno.EXDEV:
+                raise
+            shutil.move(str(child), str(target))
 
 
 def _clear_storage_root_preserving_lock(storage_root: Path) -> None:

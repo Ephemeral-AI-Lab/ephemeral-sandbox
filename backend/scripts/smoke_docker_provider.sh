@@ -37,7 +37,7 @@ export EOS_SANDBOX_PROVIDER=docker
 
 PYTHON="${PYTHON:-.venv/bin/python}"
 echo "smoke: running sweevo on $INSTANCE_ID under EOS_SANDBOX_PROVIDER=docker" | tee "$LOG_FILE"
-"$PYTHON" -m benchmarks.sweevo --instance-id "$INSTANCE_ID" 2>&1 | tee -a "$LOG_FILE" || true
+"$PYTHON" -m task_center_runner.benchmarks.sweevo --instance-id "$INSTANCE_ID" 2>&1 | tee -a "$LOG_FILE" || true
 
 TOTAL=$(grep -c "mount_mode=" "$LOG_FILE" || true)
 PRIVATE=$(grep -c "mount_mode=PRIVATE_NAMESPACE" "$LOG_FILE" || true)

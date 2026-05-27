@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from config import get_central_config
 
 

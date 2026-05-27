@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import sandbox.api as sandbox_api
-from benchmarks.sweevo.models import SWEEvoInstance, _REPO_DIR
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance, _REPO_DIR
 from sandbox.shared.models import ReadFileRequest, SandboxCaller
 from sandbox.daemon.paths import DAEMON_PID_PATH, DAEMON_SOCKET_PATH
 from sandbox.host.daemon_client import call_daemon_api

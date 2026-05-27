@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 import sandbox.api as sandbox_api
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from task_center_runner.audit.events import EventType
 from task_center_runner.hooks.builtins import (
     assert_recursive_goal_closed_before_parent_guard,

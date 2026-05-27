@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 import sandbox.api as sandbox_api
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from sandbox.shared.models import ReadFileRequest, SandboxCaller
 from task_center_runner.agent.mock.background_shell_probe import GOLDEN_SUMMARY
 from task_center_runner.core.stores import TaskCenterStoreBundle

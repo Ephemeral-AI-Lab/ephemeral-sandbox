@@ -363,3 +363,56 @@ Pre-merge gates (§7 / §8) catch regressions before integration; this section n
 - **Test plan:** microbench → unit correctness → integration → E2E scenario diff → observability.
 - **Output artifacts:** `capability_matrix.json`, `E3/report.md` (gates E1), `E1/report.md` (if not subsumed), `E2/report.md`, one or two integration PRs (if green).
 - **Ordering:** E0 first; E3 spike before E1 integration; E2 may run in parallel with E3 (different hotspot).
+
+---
+
+## 11. Experiment results and decision (2026-05-27)
+
+**Top-level decision: DO NOT PROCEED with code implementation.** No experiment delivered a result that meets its plan-defined integration gate. The strongest 100ms+ candidate (E4 — raising the squash cap) needs a Docker validation run that this macOS session cannot perform, and shipping it without that validation violates §3 ("evidence-of-delta before integration").
+
+### What ran (macOS, no Docker)
+
+| ID | Verdict | Plan threshold | Observed |
+|---|---|---|---|
+| **E3** (IndexedMergedView spike) | **PROMOTED at microbench, does NOT subsume E1** | scaling ≤2× AND index update p99 ≤20ms | scaling **1.02×**, index update p99 **3.04ms**, baseline scaling 18.08× confirming the O(L) realism gate |
+| **E2/A** (batch-window sweep) | **KILLED** | `commit_queue_wait_s` p99 reduction ≥50ms | best window (0.0) reduces p99 by **3.73ms** vs the 0.002 default (baseline p99 = 30.97ms, realism gate PASS) |
+| **E0**, **E1**, **E2/B** | Not run | — | Blocked on macOS: E0/E1 capability gates (`nice(+10)`/`pthread_setschedprio`) require Linux; E2/B's 100ms reduction threshold is mathematically unreachable on a workstation baseline of 31ms |
+
+### Surprise finding — E4 (added during execution)
+
+Auditing all 176 production `performance_report.json` files and joining each `workspace.mount_s` event with the closest preceding `resource.layer_stack.manifest_depth` observation (5406 mount events; see `backend/scripts/perf_experiments/E4_squash_cap_audit/audit_bucket.py`) gives:
+
+| depth bucket | n     | p50 ms | p95 ms | p99 ms  | max ms  |
+|--------------|------:|-------:|-------:|--------:|--------:|
+| 1-7          |  713 | 23.36  | 108.20 | **178.24** | 192.14 |
+| 8-15         |  703 | 22.51  | 79.08  | 95.24   | 120.22 |
+| 16-31        |  905 | 23.13  | 78.80  | 94.74   | 136.84 |
+| 32-63        | 1863 | 22.77  | 80.30  | 97.06   | 118.06 |
+| **64-99**    | **1210** | **22.64** | **25.55** | **30.43** | **96.05** |
+| 100-199      |   12 | 23.08  | 26.26  | 26.26   | 26.26 |
+
+`workspace.mount_s` p99 is roughly **6× lower at depth 64-99 than at depth 1-7**, and p50 is flat across the range. The 64-layer pre-mount squash trigger is empirically over-conservative — there is no kernel-imposed mount-latency penalty for deeper manifests in the observed range. The codebase already calls `fsmount(2)`/`move_mount(2)` directly (`backend/src/sandbox/overlay/kernel_mount.py:49-75`), so the util-linux mount(8) 16-layer cap historically cited for this trigger does **not** apply.
+
+**Why E4 is not "PROMOTED" yet:** selection-bias risk. Depth>64 only appears in the data when the squash trigger gates on it; the dataset is conditioned on squash NOT firing. The finding is consistent with the kernel facts (mount(2) takes 200+ layers) but a controlled validation is required before shipping.
+
+### Why E3 is not being implemented despite its microbench pass
+
+Per plan §6 E3 decision tree: "Both pass → write a separate full implementation plan, drop E1 (subsumed)." The chain assumption underpinning that subsumption (faster reads → skip squash → 204ms hotspot disappears) is **empirically false**. `_run_shell_pre_mount_maintenance` (`pipeline.py:243-274`) docstring is *"Collapse deep manifests before shell enters the kernel mount path"* — the trigger is mount-pressure-driven, not read-driven. IndexedMergedView's 175×/6× read-perf wins are real but do not address the 204ms tail. Since the cleaner alternative (E4 — raise the cap entirely) is one Docker run away, **defer E3 integration** until E4 validation closes; otherwise E3 may ship for a benefit that overlaps with what E4 makes unnecessary.
+
+### Why E2/A is not being shipped despite the small win
+
+The `batch_window_s=0` config produces a real 3.7ms p99 reduction with zero correctness risk. Plan §6 framing was *"single-line config change, zero correctness risk → a 50ms win is worth shipping. Below 50ms = kill."* The 3.7ms is below the gate; the plan's own falsifiability principle says do not ship. Ship-or-skip on whether the marginal win justifies one config PR is left as an explicit deferral, not an auto-promotion.
+
+### Followups (not executed in this session)
+
+1. **E4 validation (recommended next step, ~200ms tail elimination if it confirms):** run one Docker scenario (`heavy_io_zoned_concurrent` or `full_case_user_input`) twice — once with default `EOS_SHELL_MOUNT_SQUASH_MAX_DEPTH=64`, once with `=200`. Ship the cap raise only if `workspace.mount_s` p99 regression ≤10% AND `layer_stack.shell_pre_mount_squash.total_s` p99 drops to near zero.
+2. **E1 microbench (only if E4 validation fails):** the original async-squasher path remains the fallback. Requires Linux+Docker for the capability matrix (E0) and the load-divergence co-gate.
+3. **E3 integration plan (separate, lower-priority):** if read-perf wins are wanted for non-squash-related reasons (e.g. shell-startup latency, large-manifest projection costs), write `sandbox_merged_index_PLAN.md`. The microbench is durable evidence.
+4. **E2/A ship/skip:** explicit one-line decision (yes/no on the config change). The data is the data; the user makes the call.
+
+### Artifacts
+
+- `backend/scripts/perf_experiments/harness.py` — shared microbench harness (Stats, bootstrap CI, machine-identity capture, realism gate, soak-mode primitives).
+- `backend/scripts/perf_experiments/E3_indexed_merged_view/{README.md, bench.py, report.md}`.
+- `backend/scripts/perf_experiments/E2A_batch_window/{README.md, bench.py, report.md}`.
+- `backend/scripts/perf_experiments/E4_squash_cap_audit/{audit_analysis.md, audit_bucket.py}`.

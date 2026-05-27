@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance
-from benchmarks.sweevo.prompt import build_sweevo_user_prompt
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.setup import build_sweevo_user_prompt
 import sandbox.api as sandbox_api
 from sandbox.api import (
     ConflictInfo,

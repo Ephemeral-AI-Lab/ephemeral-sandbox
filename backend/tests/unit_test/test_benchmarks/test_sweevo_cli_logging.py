@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from benchmarks.sweevo.__main__ import _build_parser, _configure_logging
+from task_center_runner.benchmarks.sweevo.__main__ import _build_parser, _configure_logging
 
 
 def test_configure_logging_suppresses_warning_and_below() -> None:
@@ -10,10 +10,10 @@ def test_configure_logging_suppresses_warning_and_below() -> None:
     try:
         logging.disable(logging.NOTSET)
         _configure_logging()
-        assert not logging.getLogger("benchmarks.sweevo").isEnabledFor(logging.DEBUG)
-        assert not logging.getLogger("benchmarks.sweevo").isEnabledFor(logging.INFO)
-        assert not logging.getLogger("benchmarks.sweevo").isEnabledFor(logging.WARNING)
-        assert logging.getLogger("benchmarks.sweevo").isEnabledFor(logging.ERROR)
+        assert not logging.getLogger("task_center_runner.benchmarks.sweevo").isEnabledFor(logging.DEBUG)
+        assert not logging.getLogger("task_center_runner.benchmarks.sweevo").isEnabledFor(logging.INFO)
+        assert not logging.getLogger("task_center_runner.benchmarks.sweevo").isEnabledFor(logging.WARNING)
+        assert logging.getLogger("task_center_runner.benchmarks.sweevo").isEnabledFor(logging.ERROR)
     finally:
         logging.disable(previous_disable_level)
 

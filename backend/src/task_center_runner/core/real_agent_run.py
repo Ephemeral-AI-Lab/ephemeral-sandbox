@@ -12,11 +12,15 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from benchmarks.sweevo.models import SWEEvoInstance, SWEEvoResult, _REPO_DIR
-from benchmarks.sweevo.prompt import build_sweevo_user_prompt
 from runtime.app_factory import RuntimeConfig
-from task_center_runner.benchmarks.sweevo.lifecycle import SweevoLifecycle
-from task_center_runner.benchmarks.sweevo.provisioner import SweevoProvisioner
+from task_center_runner.benchmarks.sweevo.eval import SweevoLifecycle
+from task_center_runner.benchmarks.sweevo.models import (
+    SWEEvoInstance,
+    SWEEvoResult,
+    _REPO_DIR,
+)
+from task_center_runner.benchmarks.sweevo.run import SweevoProvisioner
+from task_center_runner.benchmarks.sweevo.setup import build_sweevo_user_prompt
 from task_center_runner.core.config import RunConfig
 from task_center_runner.core.engine import run_pipeline
 from task_center_runner.core.bootstrap import bootstrap_real_agent_runtime

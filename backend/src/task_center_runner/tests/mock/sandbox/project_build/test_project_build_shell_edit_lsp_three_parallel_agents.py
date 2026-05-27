@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from task_center_runner.audit.events import EventType
 from task_center_runner.core.runner import RunReport
 from task_center_runner.core.stores import TaskCenterStoreBundle

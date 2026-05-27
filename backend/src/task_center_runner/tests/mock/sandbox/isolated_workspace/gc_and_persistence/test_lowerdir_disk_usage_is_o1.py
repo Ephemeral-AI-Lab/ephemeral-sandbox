@@ -16,7 +16,7 @@ import asyncio
 import pytest
 
 from sandbox.api import raw_exec
-from benchmarks.sweevo.models import _REPO_DIR
+from task_center_runner.benchmarks.sweevo.models import _REPO_DIR
 from task_center_runner.tests._live_config import (
     database_configured,
     live_e2e_heavy_enabled,

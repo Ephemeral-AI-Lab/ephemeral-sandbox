@@ -18,7 +18,7 @@ seams are five ``RunConfig`` fields:
   ``benchmark/sweevo/<instance_id>``).
 
 This module knows nothing about ``MockSquadRunner``, ``MutableMockState``,
-Daytona, or any ``benchmarks.sweevo.*`` symbol — that runner-agnostic
+Daytona, or any ``task_center_runner.benchmarks.sweevo.*`` symbol — that runner-agnostic
 property is enforced by ``test_no_core_imports.py``.
 """
 

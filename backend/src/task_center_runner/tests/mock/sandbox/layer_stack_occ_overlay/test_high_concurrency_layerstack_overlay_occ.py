@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 import sandbox.api as sandbox_api
-from benchmarks.sweevo.models import SWEEvoInstance
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from sandbox.api import ReadFileRequest, SandboxCaller
 from task_center_runner.agent.mock.high_concurrency_probe import (
     CONFLICT_WORKER_COUNT,

@@ -17,10 +17,11 @@ from typing import IO
 
 import pytest
 
-from benchmarks.sweevo.dataset import select_sweevo_instance
-from benchmarks.sweevo.models import SWEEvoInstance, _REPO_DIR
-from benchmarks.sweevo.prompt import build_sweevo_user_prompt
-from config import get_central_config
+from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance, _REPO_DIR
+from task_center_runner.benchmarks.sweevo.setup import (
+    build_sweevo_user_prompt,
+    select_sweevo_instance,
+)
 from task_center_runner.core.runner import RunReport
 from task_center_runner.core.runner import run_scenario as _generic_run_scenario
 from task_center_runner.core.stores import TaskCenterStoreBundle
@@ -78,10 +79,17 @@ def sweevo_image_instance() -> SWEEvoInstance:
 async def sweevo_image_sandbox(
     sweevo_image_instance: SWEEvoInstance,
 ) -> AsyncIterator[dict[str, object]]:
-    """Provision a real Daytona sandbox for the configured SWE-EVO instance."""
+    """Provision the persistent sweevo container for the configured instance."""
     from sandbox.provider.bootstrap import bootstrap_sandbox_provider
 
-    from benchmarks.sweevo.sandbox import create_sweevo_test_sandbox
+    from task_center_runner.benchmarks.sweevo._provision import (
+        _create_sandbox,
+        _find_existing_sandbox_by_name,
+        _resume_sandbox,
+        _service,
+        setup_sweevo_sandbox,
+    )
+    from task_center_runner.benchmarks.sweevo.models import _sweevo_sandbox_name
     from task_center_runner.environments.sweevo_image.health import (
         require_sweevo_image_provider_healthy,
     )
@@ -90,12 +98,32 @@ async def sweevo_image_sandbox(
     try:
         bootstrap_sandbox_provider()
         require_sweevo_image_provider_healthy(sweevo_image_instance)
-        yield await create_sweevo_test_sandbox(
+        name = _sweevo_sandbox_name(sweevo_image_instance)
+        service = _service()
+        existing = _find_existing_sandbox_by_name(service, name)
+        reused_existing = existing is not None
+        if existing is None:
+            sandbox_id = await _create_sandbox(
+                sweevo_image_instance, name, _REPO_DIR,
+            )
+        else:
+            sandbox_id = await _resume_sandbox(
+                existing, name, sweevo_image_instance, _REPO_DIR,
+            )
+        await setup_sweevo_sandbox(
             sweevo_image_instance,
-            register_snapshot=True,
-            reuse_existing_auto=_reuse_existing_auto_enabled(),
+            sandbox_id,
+            _REPO_DIR,
             install_lsp=True,
         )
+        sandbox_info = service.get_sandbox(sandbox_id)
+        yield {
+            "sandbox_id": sandbox_id,
+            "sandbox": sandbox_info,
+            "snapshot_name": "",
+            "repo_dir": _REPO_DIR,
+            "reused_existing": reused_existing,
+        }
     finally:
         _release_sweevo_session_lock(lock)
 
@@ -111,19 +139,13 @@ async def workspace(
     first_use = sandbox_id not in used_sandboxes
     should_reset = (not first_use) or bool(sweevo_image_sandbox.get("reused_existing"))
     if should_reset:
-        from benchmarks.sweevo.sandbox import reset_sweevo_workspace
+        from task_center_runner.benchmarks.sweevo._provision import (
+            reset_sweevo_workspace,
+        )
 
         await reset_sweevo_workspace(sandbox_id, install_lsp=True)
     used_sandboxes.add(sandbox_id)
     return sweevo_image_sandbox
-
-
-def _reuse_existing_auto_enabled() -> bool:
-    """Return whether SWE-EVO tests may attach to an existing auto sandbox."""
-    reuse_mode = get_central_config().runner.sandbox_reuse_mode
-    if reuse_mode == "force_fresh":
-        return False
-    return reuse_mode == "reuse"
 
 
 def _acquire_sweevo_session_lock(instance_id: str) -> _SweevoSessionLock:
