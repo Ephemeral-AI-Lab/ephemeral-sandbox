@@ -303,7 +303,7 @@ def _read_file_from_layer_stack(layer_stack_root: str, path: str) -> ToolCallRes
     total_start = monotonic_now()
     services = get_occ_runtime_services(layer_stack_root)
     read_start = monotonic_now()
-    content, exists = services.manager.read_text(path)
+    content, exists = services.layer_stack_manager.read_text(path)
     return {
         "success": True,
         "workspace": "ephemeral",
@@ -329,7 +329,7 @@ async def _write_file_to_layer_stack(
         request.args.get("content") if request.args.get("content") is not None else ""
     )
     if not bool(request.args.get("overwrite", True)):
-        _current, exists = services.manager.read_text(path)
+        _current, exists = services.layer_stack_manager.read_text(path)
         if exists:
             return {
                 **project_conflict_result(
@@ -442,7 +442,7 @@ def _layer_stack_file_resource_timings(
     *,
     changed_path_count: int,
 ) -> dict[str, float]:
-    manifest = services.manager.read_active_manifest()
+    manifest = services.layer_stack_manager.read_active_manifest()
     layers = tuple(getattr(manifest, "layers", ()) or ())
     return {
         "resource.command_exec.changed_path_count": float(changed_path_count),
