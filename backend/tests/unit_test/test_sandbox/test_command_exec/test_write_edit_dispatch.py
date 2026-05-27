@@ -85,7 +85,7 @@ async def test_layer_stack_services_share_lease_registry(tmp_path: Path) -> None
     write_services = occ_runtime_services.get_occ_runtime_services(stack.as_posix())
     manager_via_singleton = get_layer_stack_manager(stack.as_posix())
 
-    assert write_services.manager is manager_via_singleton
+    assert write_services.layer_stack_manager is manager_via_singleton
     assert write_services.layer_stack.manager is manager_via_singleton
 
     starting_active = manager_via_singleton.active_lease_count()
@@ -93,7 +93,7 @@ async def test_layer_stack_services_share_lease_registry(tmp_path: Path) -> None
     try:
         assert manager_via_singleton.active_lease_count() == starting_active + 1
         assert (
-            write_services.manager.active_lease_count()
+            write_services.layer_stack_manager.active_lease_count()
             == manager_via_singleton.active_lease_count()
         )
     finally:
