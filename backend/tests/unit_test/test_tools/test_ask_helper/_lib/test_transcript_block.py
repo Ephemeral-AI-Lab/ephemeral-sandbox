@@ -22,6 +22,7 @@ from tools.ask_helper._lib._transcript import (
     MAX_TOOL_RESULT_CHARS,
     MAX_TRANSCRIPT_BYTES,
     MAX_TRANSCRIPT_MESSAGES,
+    _ADVISOR_STRIP_INPUT_TOOLS,
     build_parent_transcript,
 )
 
@@ -231,3 +232,55 @@ def test_byte_cap_emits_elision_marker_for_oversized_transcript():
     assert out is not None
     assert len(out.encode("utf-8")) <= MAX_TRANSCRIPT_BYTES
     assert "earlier message" in out and "elided" in out
+
+
+# ---- Inline-edit visibility for verifier/evaluator (load-bearing) -------
+
+
+def test_edit_file_input_is_rendered_verbatim_in_transcript():
+    """The advisor MUST see verifier/evaluator edit_file inputs.
+
+    Per remove-ask-resolver plan §7 Risk 1, the load-bearing scope-creep
+    gate is the advisor seeing inline-edit inputs verbatim. EphemeralOS's
+    lowercase ``edit_file`` / ``write_file`` are intentionally NOT in
+    ``_ADVISOR_STRIP_INPUT_TOOLS`` — only Claude Code's literal ``Edit`` /
+    ``Write`` / ``NotebookEdit`` are stripped.
+    """
+    msgs = [
+        _user("user_msg_1"),
+        _user("user_msg_2"),
+        _assistant_tool(
+            "edit_file",
+            file_path="src/auth.py",
+            old_string="typo",
+            new_string="fixed",
+        ),
+    ]
+    out = build_parent_transcript(msgs)
+    assert out is not None
+    assert "tool_use: edit_file" in out
+    assert "src/auth.py" in out
+    assert "typo" in out
+    assert "fixed" in out
+    assert "(input elided)" not in out
+
+
+def test_advisor_strip_set_is_frozen_to_claude_code_literal_names():
+    """Codifies the strip-set invariant per remove-ask-resolver §7 Risk 1.
+
+    The advisor sees full ``edit_file`` / ``write_file`` inputs in the
+    parent's transcript because EphemeralOS's lowercase tool names are NOT
+    in ``_ADVISOR_STRIP_INPUT_TOOLS``. That visibility is how the advisor
+    catches verifier/evaluator inline edits that exceed the typo /
+    single-line scope. If this constant gains ``edit_file`` or
+    ``write_file``, the scope-creep gate is gone — update the plan AND
+    this assertion deliberately.
+    """
+    assert _ADVISOR_STRIP_INPUT_TOOLS == frozenset(
+        {"Edit", "Write", "NotebookEdit"}
+    ), (
+        "Per remove-ask-resolver plan §7 Risk 1, this constant must NOT "
+        "gain 'edit_file' or 'write_file' — the advisor seeing edit inputs "
+        "verbatim is the load-bearing scope-creep gate. If you change this, "
+        "update the plan."
+    )
