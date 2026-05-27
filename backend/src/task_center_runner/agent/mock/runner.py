@@ -75,6 +75,9 @@ from task_center_runner.scenarios.base import (
 )
 from task_center_runner.scenarios._scenario_helpers import context_message_field
 from task_center_runner.hooks.registry import MutableMockState
+from task_center_runner.agent.mock._advisor_approval import (
+    build_advisor_approval_messages,
+)
 from task_center_runner.agent.mock.prompt_inspector import (
     LaunchRecord,
     PromptInspection,
@@ -311,6 +314,29 @@ class MockSquadRunner:
         metadata["task_id"] = str(metadata.task_center_task_id or "")
         return metadata
 
+    def _approve_terminal(
+        self,
+        metadata: ExecutionMetadata,
+        tool: BaseTool,
+    ) -> ExecutionMetadata:
+        """Return a metadata copy with a synthesized advisor approval prepended.
+
+        The mock squad bypasses the engine loop, so ``conversation_messages``
+        arrives empty and every gated terminal would trip
+        ``AdvisorApprovalPreHook``. This shim injects the same two-message
+        pair the engine would have produced when an agent calls
+        ``ask_advisor`` followed by an advisor approval verdict for THIS
+        terminal. Negative-path tests can call the helper with a *wrong*
+        tool name to confirm the gate still fires when the approval targets
+        a different terminal than the one being submitted.
+        """
+        gated = metadata.copy()
+        existing = list(metadata.get("conversation_messages") or [])
+        gated["conversation_messages"] = (
+            build_advisor_approval_messages(tool_name=tool.name) + existing
+        )
+        return gated
+
     async def _run_planner(
         self,
         metadata: ExecutionMetadata,
@@ -323,7 +349,10 @@ class MockSquadRunner:
             else None
         )
         spec = injected or self._scenario.planner_response(ctx)
-        result = await self._call_tool(spec.tool, dict(spec.args), metadata, emit)
+        gated_metadata = self._approve_terminal(metadata, spec.tool)
+        result = await self._call_tool(
+            spec.tool, dict(spec.args), gated_metadata, emit
+        )
         event_type = _PLANNER_EVENT_BY_TOOL.get(spec.tool.name)
         if event_type is not None:
             criteria = list(spec.args.get("evaluation_criteria", ()) or ())
@@ -362,7 +391,7 @@ class MockSquadRunner:
                 result = await self._call_tool(
                     submit_execution_blocker,
                     {"summary": reason},
-                    metadata,
+                    self._approve_terminal(metadata, submit_execution_blocker),
                     emit,
                 )
                 self._publish(
@@ -382,7 +411,7 @@ class MockSquadRunner:
                 result = await self._call_tool(
                     submit_execution_handoff,
                     {"goal": goal},
-                    metadata,
+                    self._approve_terminal(metadata, submit_execution_handoff),
                     emit,
                 )
                 self._publish(
@@ -404,7 +433,7 @@ class MockSquadRunner:
                 result = await self._call_tool(
                     submit_execution_handoff,
                     {"goal": goal},
-                    metadata,
+                    self._approve_terminal(metadata, submit_execution_handoff),
                     emit,
                 )
                 self._publish(
@@ -782,7 +811,7 @@ class MockSquadRunner:
         result = await self._call_tool(
             submit_execution_success,
             {"summary": summary, "artifacts": artifacts},
-            metadata,
+            self._approve_terminal(metadata, submit_execution_success),
             emit,
         )
         self._publish(
@@ -820,7 +849,10 @@ class MockSquadRunner:
             emit=emit,
         )
         spec = self._scenario.verifier_response(ctx)
-        result = await self._call_tool(spec.tool, dict(spec.args), metadata, emit)
+        gated_metadata = self._approve_terminal(metadata, spec.tool)
+        result = await self._call_tool(
+            spec.tool, dict(spec.args), gated_metadata, emit
+        )
         event_type = _VERIFIER_EVENT_BY_TOOL.get(spec.tool.name)
         if event_type is not None:
             self._publish(
@@ -838,7 +870,10 @@ class MockSquadRunner:
     ) -> ToolResult:
         ctx = self._scenario_context(prompt="", metadata=metadata)
         spec = self._scenario.evaluator_response(ctx)
-        result = await self._call_tool(spec.tool, dict(spec.args), metadata, emit)
+        gated_metadata = self._approve_terminal(metadata, spec.tool)
+        result = await self._call_tool(
+            spec.tool, dict(spec.args), gated_metadata, emit
+        )
         event_type = _EVALUATOR_EVENT_BY_TOOL.get(spec.tool.name)
         if event_type is not None:
             self._publish(event_type, agent_def=None, metadata=metadata)
