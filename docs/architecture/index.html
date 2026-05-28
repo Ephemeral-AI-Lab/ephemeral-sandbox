@@ -24,16 +24,231 @@
   </ol>
 </nav>
 <main>
+<p class="eyebrow">EphemeralOS · Multi-Agent Coding Framework</p>
 <h1>EphemeralOS Architecture Wiki</h1>
 <nav class="page-toc" aria-labelledby="page-toc-heading">
   <h3 id="page-toc-heading">Contents</h3>
   <ol>
-    <li><a href="#modules"><span>1</span> Modules</a></li>
-    <li><a href="#cross-module-map"><span>2</span> Cross-Module Map</a></li>
-    <li><a href="#maintenance"><span>3</span> Maintenance</a></li>
+    <li><a href="#thesis"><span>1</span> The Bet</a></li>
+    <li><a href="#why"><span>2</span> Why EphemeralOS</a></li>
+    <li><a href="#landscape"><span>3</span> Multi-Agent Landscape</a></li>
+    <li><a href="#lifecycle"><span>4</span> How a Task Runs</a></li>
+    <li><a href="#recovery"><span>5</span> Recovery &amp; Replanning</a></li>
+    <li><a href="#workspaces"><span>6</span> Workspace Modes</a></li>
+    <li><a href="#principles"><span>7</span> Design Principles</a></li>
+    <li><a href="#modules"><span>8</span> Modules</a></li>
+    <li><a href="#cross-module-map"><span>9</span> Cross-Module Map</a></li>
+    <li><a href="#maintenance"><span>10</span> Maintenance</a></li>
   </ol>
 </nav>
-<p class="lead">Merged architecture wiki for EphemeralOS modules. Use the module layer for broad ownership, the page layer for local concepts, and cross-module links for real runtime edges.</p>
+<p class="lead">EphemeralOS is a multi-agent coding framework built on one bet: a long-horizon coding task is fundamentally a <strong>memory-management problem</strong>, so memory belongs in cheap, durable storage — not in an expensive, volatile context window. Many small, disposable agents collaborate on <strong>one shared, concurrency-safe workspace</strong> instead of messaging each other or branching into isolated copies.</p>
+<div class="pill-row">
+  <span class="pill">Typed multi-agent roles</span>
+  <span class="pill">OCC-gated shared workspace</span>
+  <span class="pill">O(1) cost per operation</span>
+  <span class="pill">Built-in quality gate</span>
+  <span class="pill">Forward-only recovery</span>
+</div>
+
+<section id="thesis" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/task_center backend/src/sandbox docs/architecture/sandbox/space-model.html docs/architecture/task_center/lifecycle.html">
+<h2>The Bet <a class="anchor" href="#thesis">§</a></h2>
+<p>Two planes, one principle. The <strong>TaskCenter</strong> control plane holds durable <code>Goal → Iteration → Attempt</code> state and runs a planner → generator → evaluator harness. The <strong>Sandbox</strong> substrate is a shared workspace where every write is merged safely and made visible immediately. Agents coordinate by <em>reading shared truth</em> — the decision state and the artifact tree — never by talking to each other.</p>
+<pre class="diagram" aria-label="EphemeralOS two-plane architecture">
+  AGENTS   planner · generator · verifier · evaluator
+   │       typed roles — they never message each other
+   │
+   ▼  each launched with a fresh, role-scoped Context Packet
+  ┌─ TASKCENTER ───────────── durable control plane ──────────
+  │  "decision blackboard"
+  │
+  │  Goal ──▶ Iteration ──▶ Attempt
+  │  planner ──▶ generator DAG (parallel waves) ──▶ evaluator
+  │  coordinate through persisted state, not agent-to-agent chat
+  │
+  ▼  tool calls:  read · write · edit · shell · search
+  └─ SANDBOX ──────────────── shared execution substrate ─────
+     "artifact blackboard"
+
+     write ──▶ OCC gate ──▶ LayerStack immutable layers
+     every published write becomes the next agent's read
+     O(1) repo bytes per op  ·  isolated mode for risky work
+</pre>
+<div class="edge-list">
+  <div><b>decision blackboard</b><span>Durable <a class="wiki-link" href="task_center/lifecycle.html">Goal → Iteration → Attempt</a> state plus role-scoped <a class="wiki-link" href="task_center/context-engine.html">context packets</a> replace conversational memory.</span></div>
+  <div><b>artifact blackboard</b><span>The <a class="wiki-link" href="sandbox/workspaces.html">shared workspace</a> is the coordination channel; <a class="wiki-link" href="sandbox/occ.html">OCC</a> makes concurrent writes safe without agents ever messaging each other.</span></div>
+</div>
+</section>
+
+<section id="why" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/sandbox/occ backend/src/sandbox/layer_stack backend/src/sandbox/daemon/workspace_tool_dispatch.py backend/src/task_center/context_engine backend/src/task_center/attempt docs/architecture/sandbox/space-model.html docs/architecture/sandbox/workspaces.html docs/architecture/task_center/agent-roles.html">
+<h2>Why EphemeralOS <a class="anchor" href="#why">§</a></h2>
+<p>What this architecture does that container-, worktree-, and single-thread approaches structurally cannot:</p>
+<div class="concept-grid">
+  <div class="concept-card">
+    <strong>One shared workspace, not isolated copies</strong>
+    <p>Every <code>write</code> / <code>edit</code> merges into one mutable tree and is visible on the next agent's read — collaboration with <em>no agent-to-agent messaging</em>. See <a class="wiki-link" href="sandbox/workspaces.html">Workspace Modes</a>.</p>
+  </div>
+  <div class="concept-card">
+    <strong>Safe concurrent writes (OCC)</strong>
+    <p>Database-grade optimistic concurrency control: tracked files are stale-base-rejected at commit time, so one agent's edit never silently clobbers another's. See <a class="wiki-link" href="sandbox/occ.html">OCC</a>.</p>
+  </div>
+  <div class="concept-card">
+    <strong>O(1) cost per operation</strong>
+    <p>Immutable lower layers are shared by lease; each op adds only its changed bytes. A 2&nbsp;GB repo with 50 agents costs ~2&nbsp;GB, not 100&nbsp;GB. See <a class="wiki-link" href="sandbox/space-model.html">Space Model</a>.</p>
+  </div>
+  <div class="concept-card">
+    <strong>Memory on disk, not in-context</strong>
+    <p>Durable state is the memory; each agent gets a fresh, role-scoped <a class="wiki-link" href="task_center/context-engine.html">context packet</a> projected from it — no monotonically growing context, no compaction tax.</p>
+  </div>
+  <div class="concept-card">
+    <strong>Built-in quality gate</strong>
+    <p>The planner authors the rubric up front; a per-task verifier, a per-attempt evaluator, and a pre-terminal <a class="wiki-link" href="task_center/agent-roles.html">advisor</a> gate work before it commits.</p>
+  </div>
+  <div class="concept-card">
+    <strong>Forward-only, self-correcting</strong>
+    <p>No rollback machinery: the system hands the next agent accurate context and trusts it to self-correct, and recovery composes across <a class="wiki-link" href="task_center/lifecycle.html">nested execution lanes</a>.</p>
+  </div>
+</div>
+
+<h3>The shared-workspace advantage</h3>
+<p>Most multi-agent stacks must choose between cheap-but-isolated and collaborative-but-expensive. OCC-over-LayerStack is the only model that is both — cheap <em>and</em> collaborative.</p>
+<div class="table-wrap">
+<table>
+<thead><tr><th>Approach</th><th>Per-agent disk cost</th><th>Cross-agent visibility</th><th>Commit-back to shared truth</th></tr></thead>
+<tbody>
+<tr><td>Docker / OCI layers</td><td>shared lowerdirs</td><td>—</td><td>None — upperdir dies with the container</td></tr>
+<tr><td>git worktrees</td><td>O(N × repo)</td><td>merge-time only</td><td>Yes, but blind to gitignored deps</td></tr>
+<tr><td>per-agent VM / container</td><td>O(N × image)</td><td>none until merge</td><td>External</td></tr>
+<tr><td><strong>EphemeralOS (OCC + LayerStack)</strong></td><td><strong>O(1) + changed bytes</strong></td><td><strong>immediate (next snapshot)</strong></td><td><strong>Yes, conflict-gated</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>Source: <a class="wiki-link" href="sandbox/space-model.html#space-myths">Space Model — Non-goals and Myths</a>.</p>
+
+<h3>"The artifact is the channel"</h3>
+<pre class="diagram" aria-label="OCC publish — agents coordinate through the shared workspace, not messages">
+  Agent A                                Agent B
+  write_file(x)                          read_file(x)  ← next snapshot
+      │                                       ▲   sees A's bytes;
+      ▼                                       │   no message from A
+  ┌ OCC gate ┐  base hash == live manifest?   │
+  └────┬─────┘                                 │
+       ├─ yes ─▶ publish immutable layer ──────┘
+       │             (shared lowerdir, read-by-many, forever)
+       └─ no  ─▶ ABORTED_VERSION ─▶ A re-reads truth & retries
+</pre>
+</section>
+<section id="landscape" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/sandbox/occ backend/src/sandbox/layer_stack backend/src/task_center/attempt backend/src/sandbox/daemon/workspace_tool_dispatch.py docs/architecture/sandbox/space-model.html docs/architecture/task_center/agent-roles.html">
+<h2>Multi-Agent Landscape <a class="anchor" href="#landscape">§</a></h2>
+<p>Where EphemeralOS sits among multi-agent coding approaches. The comparison is on <strong>coordination architecture</strong> — how agents share work and writes — not on benchmark performance. The decisive axis is <strong>concurrent-write safety on a shared tree</strong>: most systems are either single-writer, isolate into copies, or share a working tree and avoid collisions <em>by convention</em> (task partitioning, messaging) rather than by control. The EphemeralOS column is grounded in this codebase; other rows characterize systems from public information as of early 2026 and may lag their latest releases — correct any row you know better.</p>
+<pre class="diagram" aria-label="Multi-agent positioning map: parallel writers by shared-tree safety">
+  positioning = parallel writers  ×  how the shared tree is kept safe
+
+  single writer (no concurrency)
+      → Windsurf/Cascade · OpenHands · OpenCode · Devin · Claude Code solo
+        one agent on the working tree: coherent, but serial
+
+  parallel writers, isolated copies
+      → worktree / container orchestrators (uzi, Conductor, container-use)
+        O(N×repo); conflicts resolved at merge time
+
+  parallel writers, shared tree — NO write-safety
+      → Claude Code teams · oh-my-claudecode team · Qoder expert teams
+        collisions avoided by task partitioning / messaging, not by control
+
+  parallel writers, shared tree — OCC write-safety
+      → ★ EphemeralOS
+        OCC stale-base rejection makes overlapping writes safe, not avoided
+        — the quadrant almost no one else occupies
+</pre>
+<div class="table-wrap">
+<table>
+<thead><tr><th>System</th><th>Multi-agent model</th><th>Concurrent writes to a shared tree</th><th>Coordination channel</th></tr></thead>
+<tbody>
+<tr><td>Windsurf / Cascade</td><td>Single agentic flow + human-in-the-loop (IDE)</td><td>Single writer on the working tree — no concurrency</td><td>Human review in the editor</td></tr>
+<tr><td>OpenHands</td><td>Single agent loop in a Docker runtime (optional delegation)</td><td>Single writer per sandbox</td><td>Event stream; delegated subtasks return to the parent</td></tr>
+<tr><td>OpenCode</td><td>Single-agent TUI sessions (client / server)</td><td>One writer per session; parallel sessions are not write-isolated</td><td>Per session, on the local working tree</td></tr>
+<tr><td>Claude Code teams</td><td>Multiple agents sharing one working directory</td><td>Shared tree, no write-time control — collisions avoided by partitioning</td><td>Message-passing (SendMessage) + shared task list</td></tr>
+<tr><td>oh-my-claudecode team</td><td>N agents on a shared task list, over Claude Code native teams</td><td>Inherits the shared working tree — no OCC</td><td>Shared task list + native-team messaging</td></tr>
+<tr><td>Qoder expert teams <em>(approximate)</em></td><td>IDE-orchestrated specialized agents, spec / quest-driven</td><td>IDE-mediated edits on the project tree, not OCC-gated</td><td>IDE orchestration</td></tr>
+<tr><td><strong>EphemeralOS</strong></td><td><strong>Typed roles + parallel generator DAG</strong></td><td><strong>OCC stale-base rejection on shared LayerStack — overlapping writes are safe</strong></td><td><strong>Shared blackboards (state + artifact), no agent-to-agent chat</strong></td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout"><span class="label">Safety by control, not convention</span> The systems that <em>do</em> run agents in parallel on a shared tree — Claude Code teams, oh-my-claudecode team, Qoder expert teams — keep writes from colliding by <em>convention</em>: partition the task list so two agents do not touch the same files. That holds until they do. EphemeralOS's <a class="wiki-link" href="sandbox/occ.html">OCC</a> stale-base rejection over shared <a class="wiki-link" href="sandbox/space-model.html">LayerStack</a> layers makes overlapping writes <em>structurally</em> safe, so correctness never depends on agents staying out of each other's way.</div>
+</section>
+
+<section id="lifecycle" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/task_center/goal backend/src/task_center/iteration backend/src/task_center/attempt backend/src/task_center/context_engine docs/architecture/task_center/lifecycle.html docs/architecture/task_center/attempt-harness.html">
+<h2>How a Task Runs <a class="anchor" href="#lifecycle">§</a></h2>
+<p>A run binds a sandbox workspace and starts a root <code>Goal</code>. Every Goal advances through one or more Iterations; each Iteration runs Attempts; each Attempt is one <strong>planner → generator DAG → evaluator</strong> pass. The whole lifecycle is persisted, so coordination needs no live orchestrator.</p>
+<div class="sequence" aria-label="End-to-end task lifecycle">
+  <ol>
+    <li><span><strong>Bootstrap.</strong> A run binds the workspace and <a class="wiki-link" href="task_center/lifecycle.html">GoalStarter</a> creates the root Goal, its first Iteration, and its first Attempt.</span></li>
+    <li><span><strong>Plan.</strong> The planner reads goal + history context and submits a validated generator DAG (unique ids, known deps, acyclic) plus the evaluation rubric.</span></li>
+    <li><span><strong>Generate.</strong> Ready generators launch in parallel waves; each reads the shared workspace, does its task, and publishes writes through <a class="wiki-link" href="sandbox/occ.html">OCC</a>.</span></li>
+    <li><span><strong>Verify.</strong> A per-task verifier checks each generator's output; a failed or blocked node makes its descendants unreachable while runnable siblings drain.</span></li>
+    <li><span><strong>Evaluate.</strong> Once the DAG is done, one evaluator judges the whole Attempt against the planner's rubric.</span></li>
+    <li><span><strong>Resolve.</strong> Pass closes the Goal or defers the next phase; fail retries within budget, carrying the failure into the next plan.</span></li>
+  </ol>
+</div>
+<pre class="diagram" aria-label="Planner, generator DAG, evaluator harness">
+  planner ── submits ──▶  GENERATOR DAG   (validated: acyclic, known deps)
+
+        g1 ─┐
+            ├─▶ g3 ──▶  evaluator ──▶  PASS ▸ close / defer next phase
+        g2 ─┘                          FAIL ▸ retry (budget) with hindsight
+
+  per generator:  read ─▶ work ─▶ OCC publish ─▶ submit terminal
+  a failed node blocks its descendants; runnable siblings still drain first
+</pre>
+<div class="trace-grid" aria-label="Lifecycle stage to owning code">
+  <div>Bootstrap &amp; Goal start</div><div><span class="file-ref">backend/src/task_center/goal/starter.py</span></div>
+  <div>Attempt orchestration</div><div><span class="file-ref">backend/src/task_center/attempt/orchestrator.py</span></div>
+  <div>Generator waves</div><div><span class="file-ref">backend/src/task_center/attempt/stage_advancer.py</span></div>
+  <div>Role-scoped context</div><div><span class="file-ref">backend/src/task_center/context_engine/recipes</span></div>
+</div>
+</section>
+
+<section id="recovery" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/task_center/attempt backend/src/task_center/iteration backend/src/task_center/goal docs/architecture/task_center/lifecycle.html docs/architecture/task_center/attempt-harness.html">
+<h2>Recovery &amp; Replanning <a class="anchor" href="#recovery">§</a></h2>
+<p>There is no checkpoint/rollback machinery and no compaction step. The world only moves forward; when something fails, the system hands the next agent an accurate picture of current reality and trusts it to <strong>self-correct</strong>. Adaptation is layered, and every loop replans at a <em>verified checkpoint</em> rather than mid-thread.</p>
+<pre class="diagram" aria-label="Layered recovery loops">
+  within-task      each generator is a full agent loop, adapts inside its task
+  mid-attempt      generator hits sub-work ─▶ handoff ─▶ child Goal (own lifecycle)
+  cross-attempt    failure ─▶ retry; next planner sees prior failures + verdict
+  cross-iteration  success + defer ─▶ next phase, prior phases visible
+
+  forward-only:  no rollback, no compaction. Decomposition keeps each agent's
+  context small by construction, so there is nothing to compress.
+</pre>
+<div class="callout"><span class="label">Why no live mid-flight replan</span> No multi-agent controller can watch N parallel sub-workers stream live within a context window — so every multi-agent system replans at return boundaries. EphemeralOS makes those checkpoints durable, structured, and evidence-rich instead of pretending to monitor live.</div>
+</section>
+
+<section id="workspaces" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/sandbox/daemon/workspace_tool_dispatch.py backend/src/sandbox/ephemeral_workspace backend/src/sandbox/isolated_workspace docs/architecture/sandbox/workspaces.html">
+<h2>Workspace Modes <a class="anchor" href="#workspaces">§</a></h2>
+<p>One tool surface, two lifetimes. Daemon routing picks the mode from the caller's state, so agents use the same <code>read</code> / <code>write</code> / <code>edit</code> / <code>shell</code> tools either way.</p>
+<div class="lane-grid">
+  <div class="lane"><h4>ephemeral_workspace · shared</h4><p>The default. Each operation gets a fresh overlay or a direct OCC fast path, and accepted writes publish to shared truth — so co-worker agents see them on their next read. This is the collaborative blackboard. See <a class="wiki-link" href="sandbox/workspaces.html#ephemeral-workspace">ephemeral_workspace</a>.</p></div>
+  <div class="lane"><h4>isolated_workspace · private</h4><p>Opt-in private namespace (own user / net / pid / mount) for destructive scripts, package installs, or risky experiments. Writes are captured for audit but <em>never</em> published, and the scratch is discarded on exit — the blast-radius safety valve. See <a class="wiki-link" href="sandbox/workspaces.html#isolated-workspace">isolated_workspace</a>.</p></div>
+</div>
+</section>
+
+<section id="principles" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/sandbox backend/src/task_center docs/architecture/sandbox/space-model.html docs/architecture/task_center/context-engine.html">
+<h2>Design Principles <a class="anchor" href="#principles">§</a></h2>
+<p>Every major decision is the same instinct applied at a different layer: <strong>prevent the expensive, volatile thing from forming; externalize truth to cheap, durable substrate; let capable agents self-correct from accurate context.</strong> One bet, five times:</p>
+<div class="table-wrap">
+<table>
+<thead><tr><th>Problem</th><th>Conventional answer</th><th>EphemeralOS answer</th></tr></thead>
+<tbody>
+<tr><td>Long context</td><td>compaction — compress after it grows</td><td>decomposition — recursive handoff so it never accumulates</td></tr>
+<tr><td>Failure recovery</td><td>checkpoint + rollback</td><td>forward-only + self-correct from context</td></tr>
+<tr><td>Coordination</td><td>central orchestrator / messaging</td><td>shared blackboards (durable state + workspace)</td></tr>
+<tr><td>Memory</td><td>in-model context window</td><td>durable disk — storage over tokens</td></tr>
+<tr><td>Concurrent writes</td><td>isolate, then merge later</td><td>OCC commit-back into shared truth</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
 <section id="modules" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="docs/architecture/sandbox docs/architecture/tools docs/architecture/agent_loops docs/architecture/assets">
 <h2>Modules <a class="anchor" href="#modules">§</a></h2>
 <div class="module-card-grid">
@@ -67,10 +282,10 @@
   <li>Cross-module links are allowed when they express a real code path, ownership edge, workflow dependency, or diagnostic route.</li>
 </ul></div>
 </section>
-<div class="page-baseline" data-page-baseline-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa">
+<div class="page-baseline" data-page-baseline-commit="d27d42ecc33841853d50b63df380d347504c5972">
   <strong>Maintenance baseline</strong>
-  <span>Root architecture index refreshed for Agent Loops at <code>e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa</code>.</span>
-  <code>git diff e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa..HEAD -- docs/architecture .agents/skills/codebase-wiki-builder</code>
+  <span>Mixed: overview sections (<a href="#thesis">The Bet</a> through <a href="#principles">Design Principles</a>) reviewed at <code>d27d42ecc33841853d50b63df380d347504c5972</code>; modules / cross-module / maintenance sections remain at <code>e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa</code>.</span>
+  <code>git diff &lt;section data-last-reviewed-commit&gt;..HEAD -- &lt;section data-evidence-paths&gt;</code>
 </div>
 </main>
 <script src="assets/search-index.js"></script>
