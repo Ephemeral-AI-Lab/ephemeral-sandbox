@@ -21,7 +21,7 @@ from tools.sandbox._lib.tool_context import (
     sandbox_audit_metadata_from_tool_context,
     sandbox_id_or_missing_error_result,
 )
-from tools.sandbox._lib.shell_policy import (
+from tools._hooks.destructive_shell import (
     DestructiveGitShellPreHook,
     DestructiveShellPreHook,
 )

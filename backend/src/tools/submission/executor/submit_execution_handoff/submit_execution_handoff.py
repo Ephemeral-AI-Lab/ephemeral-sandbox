@@ -23,7 +23,7 @@ from tools._framework.core.results import TextToolOutput, ToolResult
 from tools._hooks.require_no_inflight_background_tasks import (
     RequireNoInflightBackgroundTasks,
 )
-from tools.submission._advisor_approval_prehook import AdvisorApprovalPreHook
+from tools._hooks.advisor_approval import AdvisorApprovalPreHook
 from tools.submission.context import (
     AttemptSubmissionContextError,
     resolve_executor_submission_context,

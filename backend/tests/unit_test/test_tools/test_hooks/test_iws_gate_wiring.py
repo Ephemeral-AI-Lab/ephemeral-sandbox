@@ -18,7 +18,7 @@ from tools.ask_helper.ask_advisor import ask_advisor
 from tools.isolated_workspace.enter_isolated_workspace import enter_isolated_workspace
 from tools.isolated_workspace.exit_isolated_workspace import exit_isolated_workspace
 from tools.submission import make_submission_tools
-from tools.submission._advisor_approval_prehook import AdvisorApprovalPreHook
+from tools._hooks.advisor_approval import AdvisorApprovalPreHook
 from tools._hooks.block_in_isolated_mode import BlockInIsolatedMode
 from tools._hooks.require_no_inflight_background_tasks import (
     RequireNoInflightBackgroundTasks,

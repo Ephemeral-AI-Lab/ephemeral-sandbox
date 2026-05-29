@@ -23,7 +23,7 @@ from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.hooks import HookResult
 from tools._framework.core.runtime import ExecutionMetadata
 from tools._framework.factory import ToolFactoryContext, create_tool
-from tools.submission._advisor_approval_prehook import AdvisorApprovalPreHook
+from tools._hooks.advisor_approval import AdvisorApprovalPreHook
 
 from ._advisor_approval_fixtures import build_advisor_approval_messages
 

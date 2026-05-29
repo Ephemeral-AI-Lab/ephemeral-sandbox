@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from tools._framework.core.base import ToolExecutionContextService
-from tools.sandbox._lib.shell_policy import (
+from tools._hooks.destructive_shell import (
     destructive_git_command_error,
     destructive_shell_command_error,
 )

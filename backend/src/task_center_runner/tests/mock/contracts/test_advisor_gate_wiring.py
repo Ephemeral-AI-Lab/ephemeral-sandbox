@@ -14,7 +14,7 @@ Offline check — no Daytona, no Postgres, no event loop.
 from __future__ import annotations
 
 from tools.submission import make_submission_tools
-from tools.submission._advisor_approval_prehook import AdvisorApprovalPreHook
+from tools._hooks.advisor_approval import AdvisorApprovalPreHook
 
 
 _MAIN_TERMINAL_NAMES = frozenset(
