@@ -58,7 +58,7 @@
   <ul>
     <li>The harness is <em>dataset-agnostic</em>. The generic scenario runner lives at <code>core/runner.py</code> + <code>core/engine.py</code>; SWE-EVO is one benchmark adapter under <code>benchmarks/sweevo/</code>.</li>
     <li><strong>One engine, three modes.</strong> <code>core/engine.py::run_pipeline</code> is the only orchestrator; <code>RunConfig</code> swaps in a <code>MockSquadRunner</code> for mock scenarios, returns <code>None</code> for real-agent (delegating to <code>start_task_center_run</code>'s default runner), or wraps the production runner via <code>build_agent_delegate</code> for the benchmark.</li>
-    <li><strong>The harness is NOT TaskCenter.</strong> It binds stores, audit bus, sandbox lease, and lifecycle around a real TaskCenter run; it does not own Goal, Iteration, Attempt, or terminal-tool policy.</li>
+    <li><strong>The harness is NOT TaskCenter.</strong> It binds stores, audit bus, sandbox lease, and lifecycle around a real TaskCenter run; it does not own Workflow, Iteration, Attempt, or terminal-tool policy.</li>
     <li><strong>Mocked agents call real tools.</strong> <code>MockSquadRunner</code> dispatches on <code>agent_def.agent_kind</code> and invokes the production submission tools through <code>execute_tool_once</code>; agent definitions come from <code>backend/src/agents/profile/main/*.md</code>, the same markdown the real launcher resolves.</li>
     <li><strong>Persistent sandbox per SWE-EVO instance.</strong> Naming is deterministic (<code>sweevo-&lt;instance_id&gt;</code>); back-to-back runs reuse the container, and the CLI does NOT destroy it on exit. Reclaim with <code>docker container prune</code>.</li>
   </ul>

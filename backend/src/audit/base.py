@@ -21,7 +21,7 @@ class AuditNode:
 
     task_center_run_id: str | None = None
     request_id: str | None = None
-    goal_id: str | None = None
+    workflow_id: str | None = None
     iteration_id: str | None = None
     attempt_id: str | None = None
     task_center_task_id: str | None = None

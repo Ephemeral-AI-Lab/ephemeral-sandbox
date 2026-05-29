@@ -40,7 +40,7 @@ class _FakeIteration:
         self.task_summary = task_summary
 
 
-class _FakeGoal:
+class _FakeWorkflow:
     def __init__(self, *, id: str, goal: str):
         self.id = id
         self.goal = goal
@@ -108,7 +108,7 @@ def test_invariant_catches_planted_drift():
 def test_goal_iteration_blocks_full_frame_invariant():
     """The full Iteration N≥2 frame: standalone ``<goal>`` + prior iteration
     groups + current iteration goal."""
-    goal = _FakeGoal(id="g", goal="overall goal")
+    goal = _FakeWorkflow(id="g", goal="overall goal")
     prior = _FakeIteration(
         id="i1",
         sequence_no=1,

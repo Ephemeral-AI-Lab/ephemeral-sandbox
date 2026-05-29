@@ -41,7 +41,7 @@ def deps() -> ContextEngineDeps:
             return None
 
     return ContextEngineDeps(
-        goal_store=_S(),  # type: ignore[arg-type]
+        workflow_store=_S(),  # type: ignore[arg-type]
         iteration_store=_S(),  # type: ignore[arg-type]
         attempt_store=_S(),  # type: ignore[arg-type]
         task_store=_S(),  # type: ignore[arg-type]
@@ -77,13 +77,13 @@ def test_router_returns_effective_copy_without_mutating_registered_definition(
         recipe="planner",
     )
     monkeypatch.setattr(
-        "task_center._core.terminal_tool_routing._nested_goal_depth_gt_1",
+        "task_center._core.terminal_tool_routing._nested_workflow_depth_gt_1",
         lambda ctx: True,
     )
 
     selection = TerminalToolRouter().resolve(
         base_agent_name="planner",
-        scope=ContextScope(goal_id="g"),
+        scope=ContextScope(workflow_id="g"),
         deps=deps,
     )
 
@@ -101,13 +101,13 @@ def test_planner_depth_zero_or_one_keeps_close_and_defer(deps, monkeypatch):
         recipe="planner",
     )
     monkeypatch.setattr(
-        "task_center._core.terminal_tool_routing._nested_goal_depth_gt_1",
+        "task_center._core.terminal_tool_routing._nested_workflow_depth_gt_1",
         lambda ctx: False,
     )
 
     selection = TerminalToolRouter().resolve(
         base_agent_name="planner",
-        scope=ContextScope(goal_id="g"),
+        scope=ContextScope(workflow_id="g"),
         deps=deps,
     )
 
@@ -129,13 +129,13 @@ def test_executor_depth_gt_one_filters_handoff(deps, monkeypatch):
         recipe="generator",
     )
     monkeypatch.setattr(
-        "task_center._core.terminal_tool_routing._nested_goal_depth_gt_1",
+        "task_center._core.terminal_tool_routing._nested_workflow_depth_gt_1",
         lambda ctx: True,
     )
 
     selection = TerminalToolRouter().resolve(
         base_agent_name="executor",
-        scope=ContextScope(goal_id="g"),
+        scope=ContextScope(workflow_id="g"),
         deps=deps,
     )
 
@@ -157,13 +157,13 @@ def test_executor_depth_zero_or_one_keeps_handoff(deps, monkeypatch):
         recipe="generator",
     )
     monkeypatch.setattr(
-        "task_center._core.terminal_tool_routing._nested_goal_depth_gt_1",
+        "task_center._core.terminal_tool_routing._nested_workflow_depth_gt_1",
         lambda ctx: False,
     )
 
     selection = TerminalToolRouter().resolve(
         base_agent_name="executor",
-        scope=ContextScope(goal_id="g"),
+        scope=ContextScope(workflow_id="g"),
         deps=deps,
     )
 
@@ -182,13 +182,13 @@ def test_executor_without_goal_keeps_registered_terminals(deps, monkeypatch):
         recipe="generator",
     )
     monkeypatch.setattr(
-        "task_center._core.terminal_tool_routing._nested_goal_depth_gt_1",
+        "task_center._core.terminal_tool_routing._nested_workflow_depth_gt_1",
         lambda ctx: True,
     )
 
     selection = TerminalToolRouter().resolve(
         base_agent_name="standalone_executor",
-        scope=ContextScope(goal_id=None),
+        scope=ContextScope(workflow_id=None),
         deps=deps,
     )
 
@@ -207,6 +207,6 @@ def test_missing_context_recipe_raises(deps):
     with pytest.raises(MissingContextRecipeError):
         TerminalToolRouter().resolve(
             base_agent_name="bare",
-            scope=ContextScope(goal_id="g"),
+            scope=ContextScope(workflow_id="g"),
             deps=deps,
         )

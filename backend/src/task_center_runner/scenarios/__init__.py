@@ -26,9 +26,9 @@ from task_center_runner.scenarios.pipeline import (
     InitialMessagesCapture,
     IterativeDeferral,
     GeneratorFailureQuiescence,
-    InitialGoal,
-    NestedGoal,
-    NestedGoalFailure,
+    InitialWorkflow,
+    NestedWorkflow,
+    NestedWorkflowFailure,
     DeferredParentPlannerTerminalRouting,
 )
 from task_center_runner.scenarios.planner_validation import (
@@ -83,7 +83,7 @@ SCENARIO_REGISTRY: dict[str, type[Scenario]] = {
     "full_case_user_input": FullCaseUserInput,
     "full_stack_adversarial": FullStackAdversarial,
     # Focused pipeline scenarios.
-    "pipeline.initial_goal": InitialGoal,
+    "pipeline.initial_workflow": InitialWorkflow,
     "pipeline.initial_messages_capture": InitialMessagesCapture,
     "pipeline.iterative_deferral": IterativeDeferral,
     "pipeline.attempt_retry_evaluator_failure": AttemptRetryEvaluatorFailure,
@@ -96,8 +96,8 @@ SCENARIO_REGISTRY: dict[str, type[Scenario]] = {
     "pipeline.dependency_dag_parallel": DependencyDagParallel,
     "pipeline.generator_failure_quiescence": GeneratorFailureQuiescence,
     "pipeline.attempt_budget_exhausted": AttemptBudgetExhausted,
-    "pipeline.nested_goal": NestedGoal,
-    "pipeline.nested_goal_failure": NestedGoalFailure,
+    "pipeline.nested_workflow": NestedWorkflow,
+    "pipeline.nested_workflow_failure": NestedWorkflowFailure,
     "pipeline.deferred_parent_planner_terminal_routing": (
         DeferredParentPlannerTerminalRouting
     ),
@@ -216,10 +216,10 @@ __all__ = [
     "FullStackAdversarial",
     "GeneratorFailureQuiescence",
     "HeavyIoZonedConcurrent",
-    "InitialGoal",
+    "InitialWorkflow",
     "HighConcurrencyLayerstackOverlayOcc",
-    "NestedGoal",
-    "NestedGoalFailure",
+    "NestedWorkflow",
+    "NestedWorkflowFailure",
     "DeferredParentPlannerTerminalRouting",
     "OccConcurrentConflicts",
     "PlannerCycleInDeps",

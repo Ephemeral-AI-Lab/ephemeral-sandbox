@@ -42,32 +42,32 @@ class FakeLauncher:
 
 def build_harness_fixture(
     *,
-    goal_store: Any,
+    workflow_store: Any,
     iteration_store: Any,
     attempt_store: Any,
     task_store: Any,
     composer: Any,
 ) -> TaskCenterFixture:
-    request = goal_store.insert(
+    request = workflow_store.insert(
         task_center_run_id="run1",
         requested_by_task_id="outer-task",
         goal="solve the task",
     )
     iteration = iteration_store.insert(
-        goal_id=request.id,
+        workflow_id=request.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="solve the task",
         attempt_budget=2,
     )
-    goal_store.append_iteration_id(request.id, iteration.id)
+    workflow_store.append_iteration_id(request.id, iteration.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     iteration_store.append_attempt_id(iteration.id, attempt.id)
 
     launcher = FakeLauncher()
     registry = AttemptOrchestratorRegistry()
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,

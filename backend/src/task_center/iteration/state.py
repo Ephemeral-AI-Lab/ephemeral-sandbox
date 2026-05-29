@@ -27,7 +27,7 @@ class Iteration:
     """Immutable view of a persisted Iteration."""
 
     id: str
-    goal_id: str
+    workflow_id: str
     sequence_no: int
     creation_reason: IterationCreationReason
     goal: str

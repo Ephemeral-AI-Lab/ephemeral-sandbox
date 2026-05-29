@@ -1,4 +1,4 @@
-"""Goal + iteration scaffold blocks for the planner recipe.
+"""Workflow + iteration scaffold blocks for the planner recipe.
 
 Owns :func:`goal_iteration_blocks` — the standalone ``<goal>`` block followed
 by prior + current iteration groups. Living in its own module keeps consuming
@@ -35,7 +35,7 @@ from task_center.context_engine.packet import (
 )
 from task_center.context_engine.recipes._task_xml import block_task_body, task_attrs
 from task_center.iteration.state import Iteration
-from task_center.goal.state import Goal
+from task_center.workflow.state import Workflow
 
 
 def current_iteration_group_id(iteration: Iteration) -> str:
@@ -55,7 +55,7 @@ _ITERATION_GOAL_IDENTITY_BODY = "(identical to &lt;goal&gt;)"
 
 def goal_iteration_blocks(
     *,
-    goal: Goal,
+    goal: Workflow,
     current_iteration: Iteration,
     iterations: list[Iteration],
 ) -> list[ContextBlock]:
@@ -72,7 +72,7 @@ def goal_iteration_blocks(
     return blocks
 
 
-def _goal_statement_block(goal: Goal) -> ContextBlock:
+def _goal_statement_block(goal: Workflow) -> ContextBlock:
     """Standalone ``<goal>`` block (every iteration)."""
     return ContextBlock(
         kind=ContextBlockKind.GOAL_STATEMENT,

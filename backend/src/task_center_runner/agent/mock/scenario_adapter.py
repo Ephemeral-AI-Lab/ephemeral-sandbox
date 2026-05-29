@@ -23,7 +23,11 @@ from tools import ToolResult
 from message.message import ToolResultBlock
 
 from task_center_runner.agent.mock.event_source import ToolCall, Turn, TurnScript
-from task_center_runner.agent.mock.probe_bridge import bridge_probe_for, bridge_turns
+from task_center_runner.agent.mock.probe_bridge import (
+    bridge_probe_for,
+    bridge_script_for,
+    bridge_turns,
+)
 from task_center_runner.agent.mock.probes import (
     PROBE_BUILDERS,
     PROBE_SUMMARY,
@@ -77,13 +81,13 @@ def build_scenario_context(
     """Build the live :class:`ScenarioContext` from loop ``tool_metadata``."""
     attempt, iteration = _attempt_and_iteration(metadata)
     runtime = metadata.get("attempt_runtime")
-    goal = runtime.goal_store.get(iteration.goal_id)
+    workflow = runtime.workflow_store.get(iteration.workflow_id)
     task_id = str(metadata.get("task_center_task_id") or "")
     task = runtime.task_store.get_task(task_id) if task_id else None
     return ScenarioContext(
         attempt=attempt,
         iteration=iteration,
-        goal=goal,
+        workflow=workflow,
         prompt=prompt,
         metadata=metadata,
         audit_recorder=audit_recorder,
@@ -191,6 +195,33 @@ async def _executor_script(
     summary = "Workspace preflight completed."
     artifacts: list[str] = []
     for action in actions:
+        # --- terminal routing (each emits its own gated terminal, then ends) -
+        if action == "fail" or action.startswith("fail:"):
+            reason = (
+                action.split(":", 1)[1]
+                if ":" in action
+                else "Scenario-injected generator failure."
+            )
+            blocker_args = {"summary": reason}
+            _ = yield _ask_advisor_turn("submit_execution_blocker", blocker_args)
+            _ = yield Turn(
+                calls=(ToolCall("submit_execution_blocker", blocker_args),)
+            )
+            return
+        if action.startswith("request_recursive_workflow:") or action.startswith(
+            "request_recursive_matrix:"
+        ):
+            package_id = action.split(":", 1)[1]
+            goal = scenario.recursive_handoff_goal(ctx) or (
+                f"Resolve recursive package {package_id}."
+            )
+            handoff_args = {"goal_handoff": goal}
+            _ = yield _ask_advisor_turn("submit_execution_handoff", handoff_args)
+            _ = yield Turn(
+                calls=(ToolCall("submit_execution_handoff", handoff_args),)
+            )
+            return
+
         builder = PROBE_BUILDERS.get(action)
         if builder is not None:
             # Generator-style probe: yields one ToolCall per step directly.
@@ -207,14 +238,20 @@ async def _executor_script(
             artifacts = [] if action == "preflight" else [probe_ctx.probe_path()]
             continue
 
-        # Imperative call_tool-based probe (heavy/fan-out): drive its body
-        # through the queue-bridge so every tool still routes through the loop.
-        bridged = bridge_probe_for(action, probe_ctx=probe_ctx)
-        if bridged is None:
+        # PreparedToolScript action (full_case / full_stack / capacity): build
+        # the deterministic script from ``ctx`` and drive its steps through the
+        # SAME queue-bridge so every tool routes through the loop.
+        scripted = bridge_script_for(action, ctx=ctx)
+        if scripted is None:
+            # Imperative call_tool-based probe (heavy/fan-out): drive its body
+            # through the queue-bridge so every tool still routes through the
+            # loop.
+            scripted = bridge_probe_for(action, probe_ctx=probe_ctx)
+        if scripted is None:
             raise NotImplementedError(
                 f"executor action {action!r} not yet adapted (Phase 2)."
             )
-        factory, bridge_summary = bridged
+        factory, bridge_summary = scripted
         artifact_out: list[str] = []
         driver = bridge_turns(
             factory, artifact_out=artifact_out, normalize=normalize_result

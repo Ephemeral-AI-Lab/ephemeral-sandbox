@@ -1,7 +1,7 @@
-"""Runtime DI bundle (:class:`AttemptDeps`) plus delegated-goal parent tasks.
+"""Runtime DI bundle (:class:`AttemptDeps`) plus delegated-workflow parent tasks.
 
 :class:`AttemptDeps` threads stores, orchestration, launch, and audit concerns
-into every attempt-scoped spawn. :class:`AttemptDelegatedGoalParentTask`
+into every attempt-scoped spawn. :class:`AttemptDelegatedWorkflowParentTask`
 owns the parent generator-task transitions while a child goal is running.
 """
 
@@ -20,7 +20,7 @@ from task_center._core.primitives import TaskCenterInvariantViolation
 from task_center._core.persistence import (
     AttemptStoreProtocol,
     IterationStoreProtocol,
-    GoalStoreProtocol,
+    WorkflowStoreProtocol,
     TaskStoreProtocol,
 )
 from task_center._core.task_state import TaskCenterTaskRole, TaskCenterTaskStatus
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
         AttemptOrchestratorRegistry,
         RegisteredAttemptOrchestrator,
     )
-    from task_center.goal.state import GoalClosureReport
+    from task_center.workflow.state import WorkflowClosureReport
     from agents import AgentDefinition
 
 
@@ -61,13 +61,13 @@ class AgentLaunch:
     needs: tuple[str, ...]
     agent_def: AgentDefinition | None = None
     context_packet_id: str | None = None
-    goal_id: str | None = None
+    workflow_id: str | None = None
     skill: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class AttemptDeps:
-    goal_store: GoalStoreProtocol
+    workflow_store: WorkflowStoreProtocol
     iteration_store: IterationStoreProtocol
     attempt_store: AttemptStoreProtocol
     task_store: TaskStoreProtocol
@@ -87,10 +87,10 @@ class AttemptDeps:
             raise TaskCenterInvariantViolation(
                 f"Iteration {attempt.iteration_id!r} not found for Attempt {attempt.id!r}"
             )
-        goal = self.goal_store.get(iteration.goal_id)
+        goal = self.workflow_store.get(iteration.workflow_id)
         if goal is None:
             raise TaskCenterInvariantViolation(
-                f"Goal {iteration.goal_id!r} not found for Iteration {iteration.id!r}"
+                f"Workflow {iteration.workflow_id!r} not found for Iteration {iteration.id!r}"
             )
         return goal.task_center_run_id
 
@@ -102,13 +102,13 @@ class AttemptDeps:
             )
         return self.composer
 
-    def parent_task_for_delegated_goal(
+    def parent_task_for_delegated_workflow(
         self, *, task_id: str, attempt_id: str | None
-    ) -> AttemptDelegatedGoalParentTask | None:
+    ) -> AttemptDelegatedWorkflowParentTask | None:
         """Return the parent generator task waiting on a child goal."""
         if attempt_id is None:
             return None
-        return AttemptDelegatedGoalParentTask(
+        return AttemptDelegatedWorkflowParentTask(
             task_id=task_id,
             attempt_id=attempt_id,
             task_store=self.task_store,
@@ -117,7 +117,7 @@ class AttemptDeps:
 
 
 @dataclass(frozen=True, slots=True)
-class AttemptDelegatedGoalParentTask:
+class AttemptDelegatedWorkflowParentTask:
     """Parent generator task waiting on a delegated child goal."""
 
     task_id: str
@@ -125,7 +125,7 @@ class AttemptDelegatedGoalParentTask:
     task_store: TaskStoreProtocol
     orchestrator_lookup: Callable[[str], RegisteredAttemptOrchestrator | None]
 
-    def apply_goal_closure_report(self, report: GoalClosureReport) -> None:
+    def apply_workflow_closure_report(self, report: WorkflowClosureReport) -> None:
         orchestrator = self.orchestrator_lookup(self.attempt_id)
         if orchestrator is None:
             raise TaskCenterInvariantViolation(
@@ -133,21 +133,21 @@ class AttemptDelegatedGoalParentTask:
                 "not registered; close-report delivery requires an active "
                 "parent orchestrator."
             )
-        orchestrator.apply_goal_closure_report(report)
+        orchestrator.apply_workflow_closure_report(report)
 
-    def mark_waiting_goal(
+    def mark_waiting_workflow(
         self,
         *,
-        delegated_goal_id: str,
+        delegated_workflow_id: str,
         delegated_iteration_id: str,
         delegated_attempt_id: str,
         goal: str,
     ) -> None:
         summary = {
-            "outcome": "goal_start",
-            "summary": "Waiting on delegated goal solution.",
+            "outcome": "workflow_start",
+            "summary": "Waiting on delegated workflow solution.",
             "payload": {
-                "goal_id": delegated_goal_id,
+                "workflow_id": delegated_workflow_id,
                 "initial_iteration_id": delegated_iteration_id,
                 "initial_attempt_id": delegated_attempt_id,
                 "parent_attempt_id": self.attempt_id,
@@ -157,18 +157,18 @@ class AttemptDelegatedGoalParentTask:
         updated = self.task_store.set_task_status_if_current(
             self.task_id,
             expected_status=TaskCenterTaskStatus.RUNNING.value,
-            status=TaskCenterTaskStatus.WAITING_GOAL.value,
+            status=TaskCenterTaskStatus.WAITING_WORKFLOW.value,
             summary=summary,
         )
         if updated is None:
             raise TaskCenterInvariantViolation(
                 f"TaskCenter task {self.task_id!r} was not running when the "
-                "delegated goal start tried to mark it waiting."
+                "delegated workflow start tried to mark it waiting."
             )
 
-    def restore_running_after_failed_goal_start(self) -> None:
+    def restore_running_after_failed_workflow_start(self) -> None:
         self.task_store.set_task_status_if_current(
             self.task_id,
-            expected_status=TaskCenterTaskStatus.WAITING_GOAL.value,
+            expected_status=TaskCenterTaskStatus.WAITING_WORKFLOW.value,
             status=TaskCenterTaskStatus.RUNNING.value,
         )

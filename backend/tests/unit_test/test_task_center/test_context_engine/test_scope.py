@@ -10,23 +10,23 @@ from task_center.context_engine.scope import ContextScope
 
 def test_assert_fields_passes_when_all_present():
     scope = ContextScope(
-        goal_id="r",
+        workflow_id="r",
         iteration_id="s",
         attempt_id="g",
         task_id="t",
     )
-    scope.assert_fields(frozenset({"goal_id", "iteration_id", "attempt_id"}))
+    scope.assert_fields(frozenset({"workflow_id", "iteration_id", "attempt_id"}))
 
 
 def test_assert_fields_rejects_missing_iteration():
-    scope = ContextScope(goal_id="r")
+    scope = ContextScope(workflow_id="r")
     with pytest.raises(RecipeScopeError) as exc:
-        scope.assert_fields(frozenset({"goal_id", "iteration_id"}))
+        scope.assert_fields(frozenset({"workflow_id", "iteration_id"}))
     assert "iteration_id" in str(exc.value)
 
 
 def test_assert_fields_lists_all_missing_fields_sorted():
-    scope = ContextScope(goal_id="r")
+    scope = ContextScope(workflow_id="r")
     with pytest.raises(RecipeScopeError) as exc:
         scope.assert_fields(
             frozenset({"task_id", "iteration_id", "attempt_id"})

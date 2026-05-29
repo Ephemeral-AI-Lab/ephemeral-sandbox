@@ -145,7 +145,7 @@ def build_run_config(ctx: PreContext, sandbox_id: str) -> "RunConfig":
 
     runtime_cfg = RuntimeConfig(cwd=str(Path.cwd()), external_api_client=None)
     return RunConfig(
-        entry_prompt=ctx.goal,
+        entry_prompt=ctx.workflow,
         repo_dir=ctx.repo_dir,
         sandbox=SweevoProvisioner(
             ctx.instance,

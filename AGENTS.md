@@ -34,18 +34,18 @@ cross-module map now lives under `docs/architecture`.
 - TaskCenter is the persisted multi-agent control plane. Coordination flows
   through TaskCenter state, terminal submissions, context packets, and lifecycle
   reports; do not introduce peer-to-peer agent communication or a global agent
-  orchestrator. Its durable model is Goal -> Iteration -> Attempt, with each
+  orchestrator. Its durable model is Workflow -> Iteration -> Attempt, with each
   Attempt owning one planner -> generator DAG -> evaluator try.
 - `ContextEngine` builds recipe-driven packets from store state for role,
   retry, deferral, and evaluation contexts. Keep lifecycle policy in TaskCenter
   handlers/managers, not hidden in context construction. Recipes live under
   `backend/src/task_center/context_engine/recipes`.
-- TaskCenter state is grounded in `backend/src/task_center/goal/state.py`,
+- TaskCenter state is grounded in `backend/src/task_center/workflow/state.py`,
   `backend/src/task_center/iteration/state.py`, and
   `backend/src/task_center/attempt/state.py`. Handoff runs through
-  `submit_execution_handoff`, `GoalStarter.start(GoalOrigin.task(...))`,
-  `GoalClosureReportRouter`, and
-  `AttemptOrchestrator.apply_goal_closure_report`.
+  `submit_execution_handoff`, `WorkflowStarter.start(WorkflowOrigin.task(...))`,
+  `WorkflowClosureReportRouter`, and
+  `AttemptOrchestrator.apply_workflow_closure_report`.
 - `AttemptOrchestrator` is per-Attempt lifecycle machinery, not permission to
   add a global orchestration layer. Related launch, stage-advance, and close
   behavior lives under `backend/src/task_center/attempt`.

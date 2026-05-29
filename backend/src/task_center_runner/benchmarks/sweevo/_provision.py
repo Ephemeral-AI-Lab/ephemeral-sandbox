@@ -23,7 +23,6 @@ from task_center_runner.benchmarks.sweevo.models import (
     _has_explicit_sweevo_image_version,
     _normalize_sweevo_image_ref,
     _sweevo_sandbox_labels,
-    _sweevo_sandbox_name,
 )
 
 logger = logging.getLogger(__name__)

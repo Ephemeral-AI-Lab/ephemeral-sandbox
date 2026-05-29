@@ -62,7 +62,7 @@ class _StubPacketStore:
 
 def _make_deps(*, packet_store=None) -> ContextEngineDeps:
     return ContextEngineDeps(
-        goal_store=MagicMock(),
+        workflow_store=MagicMock(),
         iteration_store=MagicMock(),
         attempt_store=MagicMock(),
         task_store=MagicMock(),

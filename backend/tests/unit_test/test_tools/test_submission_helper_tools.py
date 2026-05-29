@@ -43,7 +43,7 @@ def _helper_context(
         runtime_config=object(),
         task_center_task_id="t-parent",
         task_center_run_id="run1",
-        task_center_goal_id="req-A",
+        task_center_workflow_id="req-A",
         agent_name=agent_name,
     )
     metadata["role"] = role

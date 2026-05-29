@@ -130,9 +130,9 @@ def test_subpackage_imports_are_clean() -> None:
         "InitialMessagesCapture",
         "IterativeDeferral",
         "GeneratorFailureQuiescence",
-        "InitialGoal",
-        "NestedGoal",
-        "NestedGoalFailure",
+        "InitialWorkflow",
+        "NestedWorkflow",
+        "NestedWorkflowFailure",
         "DeferredParentPlannerTerminalRouting",
     ]
     _assert_subpackage_exports_registry(sandbox, registry_prefix="sandbox")

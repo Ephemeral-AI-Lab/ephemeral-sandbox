@@ -2,7 +2,7 @@
 name: executor
 description: Main agent generator executor.
 model: inherit
-tool_call_limit: 75
+tool_call_limit: 100
 agent_kind: executor
 dispatchable_by_planner: true
 agent_type: agent
@@ -18,6 +18,9 @@ allowed_tools:
   - lsp.find_references
   - lsp.query_symbols
   - lsp.diagnostics
+  - lsp.apply_workspace_edit
+  - enter_isolated_workspace
+  - exit_isolated_workspace
   - run_subagent
   - ask_advisor
 terminals:
@@ -25,7 +28,7 @@ terminals:
   - submit_execution_success
   - submit_execution_blocker
 notification_triggers:
-  - request_goal_after_edit
+  - request_workflow_after_edit
 context_recipe: generator
 skill: ../../../../config/skills/executor/SKILL.md
 ---

@@ -1,4 +1,4 @@
-"""Goal lifecycle closure smoke with a synchronous attempt closer."""
+"""Workflow lifecycle closure smoke with a synchronous attempt closer."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ from collections.abc import Callable
 
 from db.stores.attempt_store import AttemptStore
 from task_center._core.primitives import TaskCenterLifecycleConfig
-from task_center.goal.lifecycle import GoalLifecycle
+from task_center.workflow.lifecycle import WorkflowLifecycle
 from task_center.iteration import (
     IterationAttemptCoordinator,
     OpenIterationCoordinatorRegistry,
 )
-from task_center.goal.state import GoalOrigin, GoalStatus
+from task_center.workflow.state import WorkflowOrigin, WorkflowStatus
 from task_center.attempt import (
     Attempt,
     AttemptFailReason,
@@ -54,16 +54,16 @@ class _StubOrchestrator:
         self._cb(self._g.id)
 
 
-def _build_goal_lifecycle(goal_store, iteration_store, attempt_store):
+def _build_workflow_lifecycle(workflow_store, iteration_store, attempt_store):
     iteration_coordinators = OpenIterationCoordinatorRegistry()
-    goal_lifecycle = GoalLifecycle(
-        goal_store=goal_store,
+    workflow_lifecycle = WorkflowLifecycle(
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         iteration_coordinators=iteration_coordinators,
         config=TaskCenterLifecycleConfig(default_attempt_budget=2),
     )
-    return goal_lifecycle, iteration_coordinators
+    return workflow_lifecycle, iteration_coordinators
 
 
 def _drive_segment(
@@ -91,42 +91,42 @@ def _drive_segment(
 
 
 def test_smoke_terminal_success(
-    goal_store, iteration_store, attempt_store, task_center_run_id
+    workflow_store, iteration_store, attempt_store, task_center_run_id
 ):
-    goal_lifecycle, iteration_coordinators = _build_goal_lifecycle(
-        goal_store, iteration_store, attempt_store
+    workflow_lifecycle, iteration_coordinators = _build_workflow_lifecycle(
+        workflow_store, iteration_store, attempt_store
     )
-    req = goal_lifecycle.create_goal(
+    req = workflow_lifecycle.create_workflow(
         task_center_run_id=task_center_run_id,
-        origin=GoalOrigin.task(task_id="exec-1"),
+        origin=WorkflowOrigin.task(task_id="exec-1"),
         goal="solve X",
     )
-    seg, _ = goal_lifecycle.create_initial_iteration_with_coordinator(goal_id=req.id)
+    seg, _ = workflow_lifecycle.create_initial_iteration_with_coordinator(workflow_id=req.id)
     _drive_segment(
         iteration_coordinators=iteration_coordinators,
         iteration_id=seg.id,
         attempt_store=attempt_store,
         verdict=(AttemptStatus.PASSED, None, None),
     )
-    final_request = goal_store.get(req.id)
+    final_request = workflow_store.get(req.id)
     final_segment = iteration_store.get(seg.id)
     assert final_request is not None and final_segment is not None
-    assert final_request.status == GoalStatus.SUCCEEDED
+    assert final_request.status == WorkflowStatus.SUCCEEDED
     assert final_segment.status == IterationStatus.SUCCEEDED
 
 
 def test_smoke_attempt_plan_failed(
-    goal_store, iteration_store, attempt_store, task_center_run_id
+    workflow_store, iteration_store, attempt_store, task_center_run_id
 ):
-    goal_lifecycle, iteration_coordinators = _build_goal_lifecycle(
-        goal_store, iteration_store, attempt_store
+    workflow_lifecycle, iteration_coordinators = _build_workflow_lifecycle(
+        workflow_store, iteration_store, attempt_store
     )
-    req = goal_lifecycle.create_goal(
+    req = workflow_lifecycle.create_workflow(
         task_center_run_id=task_center_run_id,
-        origin=GoalOrigin.task(task_id="exec-1"),
+        origin=WorkflowOrigin.task(task_id="exec-1"),
         goal="solve X",
     )
-    seg, _ = goal_lifecycle.create_initial_iteration_with_coordinator(goal_id=req.id)
+    seg, _ = workflow_lifecycle.create_initial_iteration_with_coordinator(workflow_id=req.id)
     # First attempt: fail with a generator error.
     coordinator = iteration_coordinators.get(seg.id)
     assert coordinator is not None
@@ -151,34 +151,34 @@ def test_smoke_attempt_plan_failed(
         fail_reason=AttemptFailReason.EVALUATOR_FAILED,
     )
     coordinator.handle_attempt_closed(g2_id)
-    final_request = goal_store.get(req.id)
+    final_request = workflow_store.get(req.id)
     final_segment = iteration_store.get(seg.id)
     assert final_request is not None and final_segment is not None
-    assert final_request.status == GoalStatus.FAILED
+    assert final_request.status == WorkflowStatus.FAILED
     assert final_segment.status == IterationStatus.FAILED
     assert final_request.final_outcome is not None
     assert final_request.final_outcome["outcome"] == "failed"
 
 
 def test_smoke_success_continue_then_terminal(
-    goal_store, iteration_store, attempt_store, task_center_run_id
+    workflow_store, iteration_store, attempt_store, task_center_run_id
 ):
-    goal_lifecycle, iteration_coordinators = _build_goal_lifecycle(
-        goal_store, iteration_store, attempt_store
+    workflow_lifecycle, iteration_coordinators = _build_workflow_lifecycle(
+        workflow_store, iteration_store, attempt_store
     )
-    req = goal_lifecycle.create_goal(
+    req = workflow_lifecycle.create_workflow(
         task_center_run_id=task_center_run_id,
-        origin=GoalOrigin.task(task_id="exec-1"),
+        origin=WorkflowOrigin.task(task_id="exec-1"),
         goal="initial-goal",
     )
-    seg1, _ = goal_lifecycle.create_initial_iteration_with_coordinator(goal_id=req.id)
+    seg1, _ = workflow_lifecycle.create_initial_iteration_with_coordinator(workflow_id=req.id)
     _drive_segment(
         iteration_coordinators=iteration_coordinators,
         iteration_id=seg1.id,
         attempt_store=attempt_store,
         verdict=(AttemptStatus.PASSED, None, "next-goal"),
     )
-    refreshed = goal_store.get(req.id)
+    refreshed = workflow_store.get(req.id)
     assert refreshed is not None
     assert len(refreshed.iteration_ids) == 2
     assert refreshed.is_open
@@ -193,6 +193,6 @@ def test_smoke_success_continue_then_terminal(
         attempt_store=attempt_store,
         verdict=(AttemptStatus.PASSED, None, None),
     )
-    final_request = goal_store.get(req.id)
+    final_request = workflow_store.get(req.id)
     assert final_request is not None
-    assert final_request.status == GoalStatus.SUCCEEDED
+    assert final_request.status == WorkflowStatus.SUCCEEDED

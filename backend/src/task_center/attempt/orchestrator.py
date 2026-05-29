@@ -18,7 +18,7 @@ from task_center._core.invariants import (
 )
 from task_center._core.generator_summaries import (
     attempt_failure_line,
-    child_outcomes_for_goal,
+    child_outcomes_for_workflow,
     generator_outcomes,
     to_record,
 )
@@ -40,7 +40,7 @@ from task_center.attempt.state import (
     AttemptStage,
     AttemptStatus,
 )
-from task_center.goal.state import GoalClosureReport
+from task_center.workflow.state import WorkflowClosureReport
 from task_center._core.task_state import (
     SpawnReason,
     TaskCenterTaskRole,
@@ -163,23 +163,23 @@ class AttemptOrchestrator:
         self._mark_evaluator(submission)
         self._stage_advancer.advance_ready_tasks()
 
-    def apply_goal_closure_report(self, report: GoalClosureReport) -> None:
-        """Resume a generator task waiting on a delegated goal.
+    def apply_workflow_closure_report(self, report: WorkflowClosureReport) -> None:
+        """Resume a generator task waiting on a delegated workflow.
 
         Idempotent: if the parent has already been resumed (status moved off
-        ``waiting_goal`` by an earlier delivery), return silently
+        ``waiting_workflow`` by an earlier delivery), return silently
         without re-asserting attempt stage or appending another summary.
         """
         runtime = self._runtime
         parent_task_id = report.requested_by_task_id
         if parent_task_id is None:
             raise TaskCenterInvariantViolation(
-                f"Goal closure report {report.goal_id!r} has no parent task id"
+                f"Workflow closure report {report.workflow_id!r} has no parent task id"
             )
         task = runtime.task_store.get_task(parent_task_id)
         if task is None:
             raise TaskCenterInvariantViolation(f"Generator task {parent_task_id!r} not found")
-        if task.get("status") != TaskCenterTaskStatus.WAITING_GOAL.value:
+        if task.get("status") != TaskCenterTaskStatus.WAITING_WORKFLOW.value:
             # Already delivered; no further action.
             return
 
@@ -188,21 +188,21 @@ class AttemptOrchestrator:
 
         if report.outcome == "success":
             status = TaskCenterTaskStatus.DONE
-            summary = f"Delegated goal {report.goal_id} succeeded."
+            summary = f"Delegated goal {report.workflow_id} succeeded."
         else:
             status = TaskCenterTaskStatus.FAILED
-            summary = f"Delegated goal {report.goal_id} failed."
+            summary = f"Delegated goal {report.workflow_id} failed."
 
         updated = runtime.task_store.set_task_status_if_current(
             parent_task_id,
-            expected_status=TaskCenterTaskStatus.WAITING_GOAL.value,
+            expected_status=TaskCenterTaskStatus.WAITING_WORKFLOW.value,
             status=status.value,
             summary={
                 "outcome": report.outcome,
                 "summary": summary,
                 "payload": {
-                    "goal_closure_report": asdict(report),
-                    "submission_kind": "goal_closure_report",
+                    "workflow_closure_report": asdict(report),
+                    "submission_kind": "workflow_closure_report",
                     "handoff_rollup": self._build_handoff_rollup(report),
                 },
             },
@@ -212,7 +212,7 @@ class AttemptOrchestrator:
             return
         self._stage_advancer.advance_ready_tasks()
 
-    def _build_handoff_rollup(self, report: GoalClosureReport) -> dict[str, Any]:
+    def _build_handoff_rollup(self, report: WorkflowClosureReport) -> dict[str, Any]:
         """Structured roll-up of the child goal, rendered later as nested ``<task>``.
 
         Success: the child generators across all SUCCEEDED child iterations.
@@ -223,7 +223,7 @@ class AttemptOrchestrator:
         runtime = self._runtime
         children = [
             to_record(outcome)
-            for outcome in child_outcomes_for_goal(report.goal_id, runtime.iteration_store)
+            for outcome in child_outcomes_for_workflow(report.workflow_id, runtime.iteration_store)
         ]
         failure: str | None = None
         if report.outcome != "success" and report.final_attempt_id is not None:

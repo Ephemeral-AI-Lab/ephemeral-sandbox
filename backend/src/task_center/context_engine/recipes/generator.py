@@ -40,13 +40,13 @@ if TYPE_CHECKING:
 
 
 GENERATOR_ID = "generator"
-_REQUIRED_FIELDS = frozenset({"goal_id", "attempt_id", "task_id"})
+_REQUIRED_FIELDS = frozenset({"workflow_id", "attempt_id", "task_id"})
 
 
 def build_generator_context(scope: ContextScope, deps: ContextEngineDeps) -> ContextPacket:
     attempt_id = scope.require_field("attempt_id")
     task_id = scope.require_field("task_id")
-    goal_id = scope.require_field("goal_id")
+    workflow_id = scope.require_field("workflow_id")
 
     attempt = deps.attempt_store.get(attempt_id)
     if attempt is None:
@@ -89,7 +89,7 @@ def build_generator_context(scope: ContextScope, deps: ContextEngineDeps) -> Con
         target_role="generator",
         target_id=task_id,
         canonical_refs=ContextRefs(
-            goal_id=goal_id,
+            workflow_id=workflow_id,
             iteration_id=iteration_id or attempt.iteration_id,
             attempt_id=attempt_id,
             task_id=task_id,

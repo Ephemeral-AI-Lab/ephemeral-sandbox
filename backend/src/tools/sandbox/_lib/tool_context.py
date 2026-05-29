@@ -23,7 +23,7 @@ def sandbox_caller_from_tool_context(
         task_center_run_id=str(context.get("task_center_run_id") or ""),
         task_center_task_id=str(context.get("task_center_task_id") or ""),
         task_center_attempt_id=str(context.get("task_center_attempt_id") or ""),
-        task_center_goal_id=str(context.get("task_center_goal_id") or ""),
+        task_center_workflow_id=str(context.get("task_center_workflow_id") or ""),
         task_center_request_id=str(context.get("task_center_request_id") or ""),
         tool_id=str(context.get("tool_use_id") or ""),
     )

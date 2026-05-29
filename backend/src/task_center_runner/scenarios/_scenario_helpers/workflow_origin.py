@@ -1,13 +1,13 @@
-"""Goal-origin predicates used by recursive-handoff scenarios."""
+"""Workflow-origin predicates used by recursive-handoff scenarios."""
 
 from __future__ import annotations
 
 from task_center_runner.scenarios.base import ScenarioContext
 
 
-def is_entry_origin_goal(ctx: ScenarioContext) -> bool:
+def is_entry_origin_workflow(ctx: ScenarioContext) -> bool:
     """True when the scenario context is in the entry-origin goal."""
-    goal = ctx.goal
+    goal = ctx.workflow
     if goal is None:
         return True
     origin_kind = getattr(goal, "origin_kind", None)
@@ -17,9 +17,9 @@ def is_entry_origin_goal(ctx: ScenarioContext) -> bool:
     return not requested_by
 
 
-def is_recursive_goal(ctx: ScenarioContext) -> bool:
-    """True when the scenario context is inside a child Goal."""
-    return not is_entry_origin_goal(ctx)
+def is_recursive_workflow(ctx: ScenarioContext) -> bool:
+    """True when the scenario context is inside a child Workflow."""
+    return not is_entry_origin_workflow(ctx)
 
 
-__all__ = ["is_recursive_goal", "is_entry_origin_goal"]
+__all__ = ["is_recursive_workflow", "is_entry_origin_workflow"]

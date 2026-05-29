@@ -7,7 +7,7 @@ from typing import Any
 
 __all__ = [
     "AgentRunStore",
-    "GoalStore",
+    "WorkflowStore",
     "ContextPacketStore",
     "AttemptStore",
     "ModelStore",
@@ -17,9 +17,9 @@ __all__ = [
 
 _EXPORTS = {
     "AgentRunStore": ("db.stores.agent_run_store", "AgentRunStore"),
-    "GoalStore": (
-        "db.stores.goal_store",
-        "GoalStore",
+    "WorkflowStore": (
+        "db.stores.workflow_store",
+        "WorkflowStore",
     ),
     "ContextPacketStore": (
         "db.stores.context_packet_store",

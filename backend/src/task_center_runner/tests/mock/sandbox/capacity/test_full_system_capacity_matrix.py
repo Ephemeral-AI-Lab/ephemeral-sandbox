@@ -13,7 +13,7 @@ import sandbox.api as sandbox_api
 from task_center_runner.benchmarks.sweevo.models import SWEEvoInstance
 from task_center_runner.audit.events import EventType
 from task_center_runner.hooks.builtins import (
-    assert_recursive_goal_closed_before_parent_guard,
+    assert_recursive_workflow_closed_before_parent_guard,
     count_events,
 )
 from task_center_runner.scenarios import SCENARIO_REGISTRY
@@ -68,7 +68,7 @@ async def test_full_system_capacity_matrix_records_artifacts_and_metrics(
         stores=stores,
         extra_hooks=(
             count_events(EventType.VERIFIER_FAILURE, name="verifier_failures"),
-            assert_recursive_goal_closed_before_parent_guard(),
+            assert_recursive_workflow_closed_before_parent_guard(),
         ),
     )
 
@@ -94,7 +94,7 @@ async def test_full_system_capacity_matrix_records_artifacts_and_metrics(
     )
 
 def _assert_graph_shape(graph_summary: dict[str, Any]) -> None:
-    goals = graph_summary["goals"]
+    goals = graph_summary["workflows"]
     assert len(goals) >= 2, graph_summary
     root = next(
         goal
@@ -144,8 +144,8 @@ def _assert_tool_and_event_capacity(report: Any) -> None:
     required_events = {
         EventType.PLANNER_DEFERS_GOAL_PLAN,
         EventType.VERIFIER_FAILURE,
-        EventType.RECURSIVE_GOAL_REQUESTED,
-        EventType.RECURSIVE_GOAL_COMPLETED,
+        EventType.RECURSIVE_WORKFLOW_REQUESTED,
+        EventType.RECURSIVE_WORKFLOW_COMPLETED,
         EventType.SANDBOX_LAYER_STACK_LAYERS_SQUASHED,
         EventType.SANDBOX_OVERLAY_EXECUTED,
         EventType.SANDBOX_OCC_CHANGESET_RECEIVED,

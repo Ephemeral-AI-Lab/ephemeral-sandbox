@@ -1,6 +1,6 @@
-"""Goal lifecycle coordination.
+"""Workflow lifecycle coordination.
 
-``GoalLifecycle`` is the entry point for creating a goal, extending its
+``WorkflowLifecycle`` is the entry point for creating a goal, extending its
 iteration chain, and closing it. Persistence, iteration creation, and
 continuation routing stay in this module behind the public lifecycle class.
 """
@@ -13,13 +13,13 @@ from datetime import UTC, datetime
 
 from task_center._core.invariants import (
     assert_predecessor_has_deferred_goal_for_next_iteration,
-    assert_goal_open,
-    assert_iteration_id_unique_in_goal,
+    assert_workflow_open,
+    assert_iteration_id_unique_in_workflow,
     assert_iteration_sequence_contiguous,
 )
 from task_center._core.persistence import (
     AttemptStoreProtocol,
-    GoalStoreProtocol,
+    WorkflowStoreProtocol,
     IterationStoreProtocol,
     TaskStoreProtocol,
 )
@@ -27,7 +27,7 @@ from task_center._core.primitives import (
     TaskCenterInvariantViolation,
     TaskCenterLifecycleConfig,
 )
-from task_center.goal.state import Goal, GoalClosureReport, GoalOrigin, GoalStatus
+from task_center.workflow.state import Workflow, WorkflowClosureReport, WorkflowOrigin, WorkflowStatus
 from task_center.iteration import (
     IterationAttemptCoordinator,
     OpenIterationCoordinatorRegistry,
@@ -46,26 +46,26 @@ from task_center.iteration.state import (
 logger = logging.getLogger(__name__)
 
 
-GoalClosureCallback = Callable[[GoalClosureReport], object]
+WorkflowClosureCallback = Callable[[WorkflowClosureReport], object]
 
 
-class GoalLifecycle:
+class WorkflowLifecycle:
     """Coordinates one goal's iteration chain and closure report delivery."""
 
     def __init__(
         self,
         *,
-        goal_store: GoalStoreProtocol,
+        workflow_store: WorkflowStoreProtocol,
         iteration_store: IterationStoreProtocol,
         attempt_store: AttemptStoreProtocol,
         iteration_coordinators: OpenIterationCoordinatorRegistry,
         config: TaskCenterLifecycleConfig,
-        deliver_closure_report: GoalClosureCallback | None = None,
+        deliver_closure_report: WorkflowClosureCallback | None = None,
         orchestrator_factory: OrchestratorFactory | None = None,
         task_store: TaskStoreProtocol | None = None,
     ) -> None:
         self._deliver_closure_report = deliver_closure_report
-        self._goal_store = goal_store
+        self._workflow_store = workflow_store
         self._iteration_store = iteration_store
         self._attempt_store = attempt_store
         self._iteration_coordinators = iteration_coordinators
@@ -73,24 +73,24 @@ class GoalLifecycle:
         self._orchestrator_factory = orchestrator_factory
         self._task_store = task_store
 
-    def create_goal(
+    def create_workflow(
         self,
         *,
         task_center_run_id: str,
-        origin: GoalOrigin,
+        origin: WorkflowOrigin,
         goal: str,
-    ) -> Goal:
-        return self._goal_store.insert(
+    ) -> Workflow:
+        return self._workflow_store.insert(
             task_center_run_id=task_center_run_id,
             origin=origin,
             goal=goal,
         )
 
     def create_initial_iteration_with_coordinator(
-        self, *, goal_id: str
+        self, *, workflow_id: str
     ) -> tuple[Iteration, IterationAttemptCoordinator]:
-        goal = self._require_goal(goal_id)
-        assert_goal_open(goal)
+        goal = self._require_workflow(workflow_id)
+        assert_workflow_open(goal)
         assert_iteration_sequence_contiguous(goal, new_sequence_no=1)
         return self._insert_iteration_and_register_coordinator(
             goal=goal,
@@ -102,8 +102,8 @@ class GoalLifecycle:
     def create_deferred_iteration_with_coordinator(
         self, *, previous_iteration: Iteration
     ) -> tuple[Iteration, IterationAttemptCoordinator]:
-        goal = self._require_goal(previous_iteration.goal_id)
-        assert_goal_open(goal)
+        goal = self._require_workflow(previous_iteration.workflow_id)
+        assert_workflow_open(goal)
         assert_predecessor_has_deferred_goal_for_next_iteration(previous_iteration)
         deferred_goal = previous_iteration.deferred_goal_for_next_iteration
         if deferred_goal is None:  # pragma: no cover - guarded by invariant above
@@ -122,18 +122,18 @@ class GoalLifecycle:
     def handle_iteration_closed(self, report: IterationClosureReport) -> None:
         self._route_iteration_closure(report)
 
-    def close_goal(
+    def close_workflow(
         self,
         *,
-        goal_id: str,
+        workflow_id: str,
         succeeded: bool,
         final_iteration_id: str,
         final_attempt_id: str | None,
-    ) -> Goal:
-        goal = self._require_goal(goal_id)
-        assert_goal_open(goal)
-        report = GoalClosureReport(
-            goal_id=goal_id,
+    ) -> Workflow:
+        goal = self._require_workflow(workflow_id)
+        assert_workflow_open(goal)
+        report = WorkflowClosureReport(
+            workflow_id=workflow_id,
             task_center_run_id=goal.task_center_run_id,
             origin_kind=goal.origin_kind,
             requested_by_task_id=goal.requested_by_task_id,
@@ -141,9 +141,9 @@ class GoalLifecycle:
             final_iteration_id=final_iteration_id,
             final_attempt_id=final_attempt_id,
         )
-        updated = self._goal_store.set_status(
-            goal_id,
-            status=GoalStatus.SUCCEEDED if succeeded else GoalStatus.FAILED,
+        updated = self._workflow_store.set_status(
+            workflow_id,
+            status=WorkflowStatus.SUCCEEDED if succeeded else WorkflowStatus.FAILED,
             final_outcome=report.to_final_outcome(),
             closed_at=datetime.now(UTC),
         )
@@ -151,26 +151,26 @@ class GoalLifecycle:
             self._deliver_closure_report(report)
         return updated
 
-    def _require_goal(self, goal_id: str) -> Goal:
-        goal = self._goal_store.get(goal_id)
+    def _require_workflow(self, workflow_id: str) -> Workflow:
+        goal = self._workflow_store.get(workflow_id)
         if goal is None:
-            raise TaskCenterInvariantViolation(f"Goal {goal_id!r} not found")
+            raise TaskCenterInvariantViolation(f"Workflow {workflow_id!r} not found")
         return goal
 
-    def _append_iteration_id(self, goal: Goal, iteration_id: str) -> Goal:
-        assert_iteration_id_unique_in_goal(goal, iteration_id)
-        return self._goal_store.append_iteration_id(goal.id, iteration_id)
+    def _append_iteration_id(self, goal: Workflow, iteration_id: str) -> Workflow:
+        assert_iteration_id_unique_in_workflow(goal, iteration_id)
+        return self._workflow_store.append_iteration_id(goal.id, iteration_id)
 
     def _insert_iteration_and_register_coordinator(
         self,
         *,
-        goal: Goal,
+        goal: Workflow,
         sequence_no: int,
         creation_reason: IterationCreationReason,
         iteration_goal: str,
     ) -> tuple[Iteration, IterationAttemptCoordinator]:
         iteration = self._iteration_store.insert(
-            goal_id=goal.id,
+            workflow_id=goal.id,
             sequence_no=sequence_no,
             creation_reason=creation_reason,
             goal=iteration_goal,
@@ -205,8 +205,8 @@ class GoalLifecycle:
                     previous_report=report,
                 )
             elif isinstance(outcome, (TerminalSuccess, AttemptPlanFailed)):
-                self.close_goal(
-                    goal_id=iteration.goal_id,
+                self.close_workflow(
+                    workflow_id=iteration.workflow_id,
                     succeeded=isinstance(outcome, TerminalSuccess),
                     final_iteration_id=iteration.id,
                     final_attempt_id=report.final_attempt_id,
@@ -229,7 +229,7 @@ class GoalLifecycle:
             next_coordinator.create_initial_attempt()
         except Exception:
             logger.exception(
-                "GoalLifecycle: continuation attempt creation failed",
+                "WorkflowLifecycle: continuation attempt creation failed",
                 extra={"iteration_id": next_iteration.id},
             )
             latest_iteration = self._iteration_store.get(next_iteration.id)
@@ -242,8 +242,8 @@ class GoalLifecycle:
                 closed_at=datetime.now(UTC),
             )
             self._iteration_coordinators.deregister(next_iteration.id)
-            self.close_goal(
-                goal_id=next_iteration.goal_id,
+            self.close_workflow(
+                workflow_id=next_iteration.workflow_id,
                 succeeded=False,
                 final_iteration_id=next_iteration.id,
                 final_attempt_id=failed_attempt_id,
@@ -251,6 +251,6 @@ class GoalLifecycle:
 
 
 __all__ = [
-    "GoalClosureCallback",
-    "GoalLifecycle",
+    "WorkflowClosureCallback",
+    "WorkflowLifecycle",
 ]

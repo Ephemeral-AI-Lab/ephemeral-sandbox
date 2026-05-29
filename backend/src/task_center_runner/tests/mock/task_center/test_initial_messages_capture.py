@@ -73,10 +73,10 @@ async def test_initial_messages_capture(
         stores=stores,
     )
 
-    # 1) Goal closes succeeded, 2 iterations, 3 attempts total
+    # 1) Workflow closes succeeded, 2 iterations, 3 attempts total
     #    (iter1 attempts 1 and 2; iter2 attempt 1).
     assert report.task_center_status == "done", report.metrics
-    goal = report.graph_summary["goals"][0]
+    goal = report.graph_summary["workflows"][0]
     assert goal["status"] == "succeeded"
     assert len(goal["iterations"]) == 2, goal
     attempts = [

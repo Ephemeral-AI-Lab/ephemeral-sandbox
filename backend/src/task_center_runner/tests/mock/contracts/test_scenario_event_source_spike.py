@@ -26,7 +26,7 @@ model row suffice (no live LLM, no API key).
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 import pytest

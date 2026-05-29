@@ -145,7 +145,7 @@ def test_sandbox_caller_defaults_and_immutability() -> None:
     assert caller.task_center_run_id == ""
     assert caller.task_center_task_id == ""
     assert caller.task_center_attempt_id == ""
-    assert caller.task_center_goal_id == ""
+    assert caller.task_center_workflow_id == ""
     assert caller.task_center_request_id == ""
     assert caller.tool_name == ""
     assert caller.tool_id == ""

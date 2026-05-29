@@ -97,6 +97,7 @@ def test_prompt_inspector_accepts_current_failed_attempt_heading(
             description="test planner",
             agent_kind=AgentKind.PLANNER,
             terminals=["submit_plan_closes_goal", "submit_plan_defers_goal"],
+            tool_call_limit=10,
         ),
         metadata=ExecutionMetadata(task_center_task_id="attempt-2:planner"),
     )
@@ -126,7 +127,7 @@ def test_prompt_inspector_accepts_current_previous_iteration_sections(
     inspection = runner._inspect_prompt(  # noqa: SLF001
         prompt="\n".join(
             [
-                "<goal>Continue the delegated goal.</goal>",
+                "<goal>Continue the delegated workflow.</goal>",
                 "<iteration iteration_no=\"1\" position=\"prior\">",
                 "<task id=\"schema\" status=\"success\">Earlier result.</task>",
                 "</iteration>",
@@ -140,6 +141,7 @@ def test_prompt_inspector_accepts_current_previous_iteration_sections(
             description="test planner",
             agent_kind=AgentKind.PLANNER,
             terminals=["submit_plan_closes_goal", "submit_plan_defers_goal"],
+            tool_call_limit=10,
         ),
         metadata=ExecutionMetadata(task_center_task_id="attempt-1:planner"),
     )
@@ -174,6 +176,8 @@ def test_prompt_inspector_accepts_planner_without_defer_terminal() -> None:
             name="planner",
             description="test full-only planner",
             agent_kind=AgentKind.PLANNER,
+            terminals=["submit_plan_closes_goal"],
+            tool_call_limit=10,
         ),
         metadata=ExecutionMetadata(
             task_center_task_id="recursive-1:planner",
@@ -194,12 +198,8 @@ def test_registered_mock_agents_install_and_restore() -> None:
     initial = {d.name for d in list_definitions()}
     with registered_mock_agents():
         installed = {d.name for d in list_definitions()}
-        assert installed == {
-            "planner",
-            "executor",
-            "verifier",
-            "evaluator",
-        }
+        expected = {d.name for d in mock_agent_definitions()}
+        assert installed == expected
     after = {d.name for d in list_definitions()}
     assert after == initial
 
@@ -232,8 +232,8 @@ def test_full_stack_recursive_planner_without_defer_closes_goal() -> None:
     scenario = FullStackAdversarial()
     ctx = ScenarioContext(
         attempt=SimpleNamespace(attempt_sequence_no=1, evaluation_criteria=()),
-        iteration=SimpleNamespace(sequence_no=1, goal_id="recursive-goal"),
-        goal=SimpleNamespace(requested_by_task_id="parent-task:executor"),
+        iteration=SimpleNamespace(sequence_no=1, workflow_id="recursive-goal"),
+        workflow=SimpleNamespace(requested_by_task_id="parent-task:executor"),
         prompt="Run delegated recursive matrix.",
         metadata=ExecutionMetadata(
             agent_name="planner",

@@ -73,18 +73,18 @@ CAPACITY_PACK_SPECS: tuple[CapacityPackSpec, ...] = (
         registry_name="pipeline.attempt_retry_generator_failure",
     ),
     CapacityPackSpec(
-        "pipeline.nested_goal",
+        "pipeline.nested_workflow",
         "A",
         "pipeline",
         "T1",
-        registry_name="pipeline.nested_goal",
+        registry_name="pipeline.nested_workflow",
     ),
     CapacityPackSpec(
-        "pipeline.nested_goal_failure",
+        "pipeline.nested_workflow_failure",
         "A",
         "pipeline",
         "T1",
-        registry_name="pipeline.nested_goal_failure",
+        registry_name="pipeline.nested_workflow_failure",
     ),
     CapacityPackSpec(
         "sandbox.setup_and_daemon",
@@ -235,7 +235,7 @@ CAPACITY_PACK_SPECS: tuple[CapacityPackSpec, ...] = (
         ),
     ),
     CapacityPackSpec(
-        "context.goal_entry_minimal",
+        "context.workflow_entry_minimal",
         "E",
         "context",
         "T0",

@@ -52,7 +52,7 @@
 
 <section id="thesis" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/task_center backend/src/sandbox docs/architecture/sandbox/space-model.html docs/architecture/task_center/lifecycle.html">
 <h2>The Bet <a class="anchor" href="#thesis">§</a></h2>
-<p>Two planes, one principle. The <strong>TaskCenter</strong> control plane holds durable <code>Goal → Iteration → Attempt</code> state and runs a planner → generator → evaluator harness. The <strong>Sandbox</strong> substrate is a shared workspace where every write is merged safely and made visible immediately. Agents coordinate by <em>reading shared truth</em> — the decision state and the artifact tree — never by talking to each other.</p>
+<p>Two planes, one principle. The <strong>TaskCenter</strong> control plane holds durable <code>Workflow → Iteration → Attempt</code> state and runs a planner → generator → evaluator harness. The <strong>Sandbox</strong> substrate is a shared workspace where every write is merged safely and made visible immediately. Agents coordinate by <em>reading shared truth</em> — the decision state and the artifact tree — never by talking to each other.</p>
 <pre class="diagram" aria-label="EphemeralOS two-plane architecture">
   AGENTS   planner · generator · verifier · evaluator
    │       typed roles — they never message each other
@@ -61,7 +61,7 @@
   ┌─ TASKCENTER ───────────── durable control plane ──────────
   │  "decision blackboard"
   │
-  │  Goal ──▶ Iteration ──▶ Attempt
+  │  Workflow ──▶ Iteration ──▶ Attempt
   │  planner ──▶ generator DAG (parallel waves) ──▶ evaluator
   │  coordinate through persisted state, not agent-to-agent chat
   │
@@ -74,7 +74,7 @@
      O(1) repo bytes per op  ·  isolated mode for risky work
 </pre>
 <div class="edge-list">
-  <div><b>decision blackboard</b><span>Durable <a class="wiki-link" href="task_center/lifecycle.html">Goal → Iteration → Attempt</a> state plus role-scoped <a class="wiki-link" href="task_center/context-engine.html">context packets</a> replace conversational memory.</span></div>
+  <div><b>decision blackboard</b><span>Durable <a class="wiki-link" href="task_center/lifecycle.html">Workflow → Iteration → Attempt</a> state plus role-scoped <a class="wiki-link" href="task_center/context-engine.html">context packets</a> replace conversational memory.</span></div>
   <div><b>artifact blackboard</b><span>The <a class="wiki-link" href="sandbox/workspaces.html">shared workspace</a> is the coordination channel; <a class="wiki-link" href="sandbox/occ.html">OCC</a> makes concurrent writes safe without agents ever messaging each other.</span></div>
 </div>
 </section>
@@ -177,17 +177,17 @@
 <div class="callout"><span class="label">Safety by control, not convention</span> The systems that <em>do</em> run agents in parallel on a shared tree — Claude Code teams, oh-my-claudecode team, Qoder expert teams — keep writes from colliding by <em>convention</em>: partition the task list so two agents do not touch the same files. That holds until they do. EphemeralOS's <a class="wiki-link" href="sandbox/occ.html">OCC</a> stale-base rejection over shared <a class="wiki-link" href="sandbox/space-model.html">LayerStack</a> layers makes overlapping writes <em>structurally</em> safe, so correctness never depends on agents staying out of each other's way.</div>
 </section>
 
-<section id="lifecycle" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/task_center/goal backend/src/task_center/iteration backend/src/task_center/attempt backend/src/task_center/context_engine docs/architecture/task_center/lifecycle.html docs/architecture/task_center/attempt-harness.html">
+<section id="lifecycle" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/task_center/workflow backend/src/task_center/iteration backend/src/task_center/attempt backend/src/task_center/context_engine docs/architecture/task_center/lifecycle.html docs/architecture/task_center/attempt-harness.html">
 <h2>How a Task Runs <a class="anchor" href="#lifecycle">§</a></h2>
-<p>A run binds a sandbox workspace and starts a root <code>Goal</code>. Every Goal advances through one or more Iterations; each Iteration runs Attempts; each Attempt is one <strong>planner → generator DAG → evaluator</strong> pass. The whole lifecycle is persisted, so coordination needs no live orchestrator.</p>
+<p>A run binds a sandbox workspace and starts a root <code>Workflow</code>. Every Workflow advances through one or more Iterations; each Iteration runs Attempts; each Attempt is one <strong>planner → generator DAG → evaluator</strong> pass. The whole lifecycle is persisted, so coordination needs no live orchestrator.</p>
 <div class="sequence" aria-label="End-to-end task lifecycle">
   <ol>
-    <li><span><strong>Bootstrap.</strong> A run binds the workspace and <a class="wiki-link" href="task_center/lifecycle.html">GoalStarter</a> creates the root Goal, its first Iteration, and its first Attempt.</span></li>
+    <li><span><strong>Bootstrap.</strong> A run binds the workspace and <a class="wiki-link" href="task_center/lifecycle.html">WorkflowStarter</a> creates the root Workflow, its first Iteration, and its first Attempt.</span></li>
     <li><span><strong>Plan.</strong> The planner reads goal + history context and submits a validated generator DAG (unique ids, known deps, acyclic) plus the evaluation rubric.</span></li>
     <li><span><strong>Generate.</strong> Ready generators launch in parallel waves; each reads the shared workspace, does its task, and publishes writes through <a class="wiki-link" href="sandbox/occ.html">OCC</a>.</span></li>
     <li><span><strong>Verify.</strong> A per-task verifier checks each generator's output; a failed or blocked node makes its descendants unreachable while runnable siblings drain.</span></li>
     <li><span><strong>Evaluate.</strong> Once the DAG is done, one evaluator judges the whole Attempt against the planner's rubric.</span></li>
-    <li><span><strong>Resolve.</strong> Pass closes the Goal or defers the next phase; fail retries within budget, carrying the failure into the next plan.</span></li>
+    <li><span><strong>Resolve.</strong> Pass closes the Workflow or defers the next phase; fail retries within budget, carrying the failure into the next plan.</span></li>
   </ol>
 </div>
 <pre class="diagram" aria-label="Planner, generator DAG, evaluator harness">
@@ -201,19 +201,19 @@
   a failed node blocks its descendants; runnable siblings still drain first
 </pre>
 <div class="trace-grid" aria-label="Lifecycle stage to owning code">
-  <div>Bootstrap &amp; Goal start</div><div><span class="file-ref">backend/src/task_center/goal/starter.py</span></div>
+  <div>Bootstrap &amp; Workflow start</div><div><span class="file-ref">backend/src/task_center/workflow/starter.py</span></div>
   <div>Attempt orchestration</div><div><span class="file-ref">backend/src/task_center/attempt/orchestrator.py</span></div>
   <div>Generator waves</div><div><span class="file-ref">backend/src/task_center/attempt/stage_advancer.py</span></div>
   <div>Role-scoped context</div><div><span class="file-ref">backend/src/task_center/context_engine/recipes</span></div>
 </div>
 </section>
 
-<section id="recovery" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/task_center/attempt backend/src/task_center/iteration backend/src/task_center/goal docs/architecture/task_center/lifecycle.html docs/architecture/task_center/attempt-harness.html">
+<section id="recovery" data-last-reviewed-commit="d27d42ecc33841853d50b63df380d347504c5972" data-evidence-paths="backend/src/task_center/attempt backend/src/task_center/iteration backend/src/task_center/workflow docs/architecture/task_center/lifecycle.html docs/architecture/task_center/attempt-harness.html">
 <h2>Recovery &amp; Replanning <a class="anchor" href="#recovery">§</a></h2>
 <p>There is no checkpoint/rollback machinery and no compaction step. The world only moves forward; when something fails, the system hands the next agent an accurate picture of current reality and trusts it to <strong>self-correct</strong>. Adaptation is layered, and every loop replans at a <em>verified checkpoint</em> rather than mid-thread.</p>
 <pre class="diagram" aria-label="Layered recovery loops">
   within-task      each generator is a full agent loop, adapts inside its task
-  mid-attempt      generator hits sub-work ─▶ handoff ─▶ child Goal (own lifecycle)
+  mid-attempt      generator hits sub-work ─▶ handoff ─▶ child Workflow (own lifecycle)
   cross-attempt    failure ─▶ retry; next planner sees prior failures + verdict
   cross-iteration  success + defer ─▶ next phase, prior phases visible
 
@@ -255,7 +255,7 @@
 <a class="module-card" href="sandbox/index.html"><strong>Sandbox Workspace</strong><span>LayerStack, overlay, OCC, daemon routing, providers, plugins, and workspace execution modes.</span></a>
 <a class="module-card" href="tools/index.html"><strong>Tools</strong><span>Agent-facing tool definitions, framework lifecycle, terminals, helpers, background tasks, and TaskCenter submission surfaces.</span></a>
 <a class="module-card" href="agent_loops/index.html"><strong>Agent Loops</strong><span>Engine run lifecycle, model-provider streaming, prompt assembly, background operations, sandbox-provider runtimes, notifications, and message artifacts.</span></a>
-<a class="module-card" href="task_center/index.html"><strong>TaskCenter</strong><span>Goal -> Iteration -> Attempt state model, planner-generator-evaluator harness, context engine, role profiles, and terminal state submissions.</span></a>
+<a class="module-card" href="task_center/index.html"><strong>TaskCenter</strong><span>Workflow -> Iteration -> Attempt state model, planner-generator-evaluator harness, context engine, role profiles, and terminal state submissions.</span></a>
 <a class="module-card" href="task_center_runner/index.html"><strong>TaskCenter Runner (Testing)</strong><span>Test-only harness for scenario-based mocked-agent coverage and the SWE-EVO benchmark pipeline; one engine, three modes.</span></a>
 </div>
 </section>

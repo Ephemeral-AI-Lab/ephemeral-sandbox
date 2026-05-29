@@ -165,37 +165,37 @@ def assert_guard_after_wave(*, wave_id: str) -> Hook:
     )
 
 
-def assert_recursive_goal_closed_before_parent_guard() -> Hook:
+def assert_recursive_workflow_closed_before_parent_guard() -> Hook:
     """Assert the parent recursive-return guard runs after close-report delivery."""
 
     def _fn(event: Event, state: MutableMockState) -> HookResult:
         if str(event.payload.get("checkpoint") or "") != "recursive_return":
             return HookResult(
-                name="assert_recursive_goal_closed_before_parent_guard",
+                name="assert_recursive_workflow_closed_before_parent_guard",
                 asserted=True,
                 extras={"matched": False},
             )
         seen = list(state.seen_events)
         try:
-            close_idx = seen.index(EventType.RECURSIVE_GOAL_COMPLETED)
+            close_idx = seen.index(EventType.RECURSIVE_WORKFLOW_COMPLETED)
             guard_idx = len(seen) - 1
         except ValueError:
             return HookResult(
-                name="assert_recursive_goal_closed_before_parent_guard",
+                name="assert_recursive_workflow_closed_before_parent_guard",
                 asserted=False,
                 failed_reason="recursive completion event was not observed",
                 extras={"seen": [item.value for item in seen]},
             )
         ok = close_idx < guard_idx
         return HookResult(
-            name="assert_recursive_goal_closed_before_parent_guard",
+            name="assert_recursive_workflow_closed_before_parent_guard",
             asserted=ok,
             failed_reason=None if ok else "parent guard preceded recursive completion",
             extras={"matched": True, "close_idx": close_idx, "guard_idx": guard_idx},
         )
 
     return Hook(
-        name="assert_recursive_goal_closed_before_parent_guard",
+        name="assert_recursive_workflow_closed_before_parent_guard",
         event=EventType.VERIFIER_SUCCESS,
         when="post",
         fn=_fn,
@@ -212,7 +212,7 @@ def assert_squash_after_n_edits(n: int = 16) -> Hook:
 __all__ = [
     "assert_event_sequence",
     "assert_guard_after_wave",
-    "assert_recursive_goal_closed_before_parent_guard",
+    "assert_recursive_workflow_closed_before_parent_guard",
     "assert_squash_after_n_edits",
     "capture_prompt",
     "count_events",

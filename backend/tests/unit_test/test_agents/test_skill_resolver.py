@@ -21,7 +21,7 @@ from task_center.context_engine.scope import ContextScope
 
 @dataclass(frozen=True, slots=True)
 class _Deps:
-    goal_store: object = None
+    workflow_store: object = None
     iteration_store: object = None
     attempt_store: object = None
     task_store: object = None
@@ -102,7 +102,7 @@ def test_resolve_keeps_base_skill_when_terminals_are_filtered(
     selection = TerminalToolRouter().resolve(
         base_agent_name="planner_test_router",
         scope=ContextScope.for_planner(
-            goal_id=None, iteration_id="i", attempt_id="a"
+            workflow_id=None, iteration_id="i", attempt_id="a"
         ),
         deps=_Deps(),  # type: ignore[arg-type]
     )

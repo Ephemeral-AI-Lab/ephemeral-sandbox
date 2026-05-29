@@ -63,10 +63,10 @@ class _StubHandle:
 class _StubStores:
     def __init__(self) -> None:
         self.task_store = self
-        self.goal_store = self
+        self.workflow_store = self
         self.iteration_store = self
         self.attempt_store = self
-        self.goal_store = self
+        self.workflow_store = self
         self.iteration_store = self
         self.attempt_store = self
         self.context_packet_store = self

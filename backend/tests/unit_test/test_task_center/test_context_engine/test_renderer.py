@@ -18,7 +18,7 @@ def _packet(blocks: list[ContextBlock], **metadata: str) -> ContextPacket:
     return ContextPacket(
         target_role="planner",
         target_id="g-1",
-        canonical_refs=ContextRefs(goal_id="r"),
+        canonical_refs=ContextRefs(workflow_id="r"),
         blocks=blocks,
         metadata=dict(metadata),
     )

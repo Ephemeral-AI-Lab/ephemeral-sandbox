@@ -14,7 +14,7 @@ from tools.submission.context.attempt import (
 )
 
 if TYPE_CHECKING:
-    from task_center import AttemptDeps, StartedGoal
+    from task_center import AttemptDeps, StartedWorkflow
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,7 +22,7 @@ class ExecutorSubmissionContext:
     """Unified context for executor-shaped terminal submissions.
 
     Tools call :meth:`submit_executor_success`,
-    :meth:`submit_executor_blocker`, or :meth:`start_delegated_goal`
+    :meth:`submit_executor_blocker`, or :meth:`start_delegated_workflow`
     for attempt-bound generator tasks.
     """
 
@@ -68,15 +68,15 @@ class ExecutorSubmissionContext:
             )
         )
 
-    def start_delegated_goal(
+    def start_delegated_workflow(
         self, *, goal_handoff: str
-    ) -> StartedGoal:
-        from task_center import GoalOrigin, GoalStarter
+    ) -> StartedWorkflow:
+        from task_center import WorkflowOrigin, WorkflowStarter
 
-        coordinator = GoalStarter(runtime=self.runtime)
+        coordinator = WorkflowStarter(runtime=self.runtime)
         return coordinator.start(
             prompt=goal_handoff,
-            origin=GoalOrigin.task(task_id=self.task_center_task_id),
+            origin=WorkflowOrigin.task(task_id=self.task_center_task_id),
         )
 
 

@@ -18,23 +18,23 @@ from task_center.attempt.state import (
     AttemptStatus,
 )
 from task_center.iteration.state import Iteration, IterationStatus
-from task_center.goal.state import Goal
+from task_center.workflow.state import Workflow
 from task_center._core.task_state import TaskCenterTaskRole
 
 
-def assert_goal_open(goal: Goal) -> None:
+def assert_workflow_open(goal: Workflow) -> None:
     if not goal.is_open:
-        raise TaskCenterInvariantViolation(f"Goal {goal.id!r} is not open (status={goal.status})")
+        raise TaskCenterInvariantViolation(f"Workflow {goal.id!r} is not open (status={goal.status})")
 
 
-def assert_iteration_id_unique_in_goal(goal: Goal, iteration_id: str) -> None:
+def assert_iteration_id_unique_in_workflow(goal: Workflow, iteration_id: str) -> None:
     if iteration_id in goal.iteration_ids:
         raise TaskCenterInvariantViolation(
-            f"Iteration {iteration_id!r} already present in Goal {goal.id!r} iteration list"
+            f"Iteration {iteration_id!r} already present in Workflow {goal.id!r} iteration list"
         )
 
 
-def assert_iteration_sequence_contiguous(goal: Goal, new_sequence_no: int) -> None:
+def assert_iteration_sequence_contiguous(goal: Workflow, new_sequence_no: int) -> None:
     expected = len(goal.iteration_ids) + 1
     if new_sequence_no != expected:
         raise TaskCenterInvariantViolation(
@@ -145,9 +145,9 @@ __all__ = [
     "assert_evaluator_task_for_submission",
     "assert_fail_reason_present_on_failure",
     "assert_generator_task_for_submission",
-    "assert_goal_open",
+    "assert_workflow_open",
     "assert_iteration_has_budget",
-    "assert_iteration_id_unique_in_goal",
+    "assert_iteration_id_unique_in_workflow",
     "assert_iteration_open",
     "assert_iteration_sequence_contiguous",
     "assert_task_belongs_to_attempt",

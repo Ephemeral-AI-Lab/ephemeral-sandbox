@@ -21,7 +21,7 @@ def _generator_has_edited(messages: list[Any]) -> bool:
     return False
 
 
-def make_goal_request_after_edit_reminder() -> NotificationRule:
+def make_workflow_request_after_edit_reminder() -> NotificationRule:
     def _trigger(messages: list[Any], context: Any) -> bool:
         del context
         return _generator_has_edited(messages)
@@ -35,7 +35,7 @@ def make_goal_request_after_edit_reminder() -> NotificationRule:
         )
 
     return NotificationRule(
-        name="request_goal_after_edit",
+        name="request_workflow_after_edit",
         trigger=_trigger,
         body=_body,
     )

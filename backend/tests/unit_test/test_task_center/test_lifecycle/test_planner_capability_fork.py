@@ -75,18 +75,18 @@ def _clear_definitions() -> None:
 
 
 def _runtime_with_composer(
-    goal_store, iteration_store, attempt_store, task_store
+    workflow_store, iteration_store, attempt_store, task_store
 ) -> tuple[AttemptDeps, _RecordingLauncher]:
     launcher = _RecordingLauncher()
     deps = ContextEngineDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
     )
     composer = AgentEntryComposer.default(ContextEngine(deps))
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -100,19 +100,19 @@ def _runtime_with_composer(
 
 
 def _seed_partial_plan_caller(
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
     task_center_run_id,
 ):
-    parent_req = goal_store.insert(
+    parent_req = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="parent-task",
         goal="parent",
     )
     parent_seg = iteration_store.insert(
-        goal_id=parent_req.id,
+        workflow_id=parent_req.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="parent seg",
@@ -143,23 +143,23 @@ def _seed_partial_plan_caller(
 
 
 def test_partial_plan_caller_restricts_child_planner_terminals(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     runtime, launcher = _runtime_with_composer(
-        goal_store, iteration_store, attempt_store, task_store
+        workflow_store, iteration_store, attempt_store, task_store
     )
     _seed_partial_plan_caller(
-        goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+        workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
     )
 
     # Child request spawned by the partial-plan caller task.
-    child_req = goal_store.insert(
+    child_req = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="t-caller",
         goal="child",
     )
     child_seg = iteration_store.insert(
-        goal_id=child_req.id,
+        workflow_id=child_req.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="child seg",

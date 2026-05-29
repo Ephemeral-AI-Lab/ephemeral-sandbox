@@ -69,7 +69,7 @@ Run one parametrized TaskCenter case:
 ```bash
 EOS_SWEEVO_INSTANCE=dask__dask_2023.3.2_2023.4.0 \
 uv run pytest -q \
-  'backend/src/task_center_runner/tests/mock/task_center/test_focused_scenarios.py::test_focused_reference_scenario_runs[pipeline.initial_goal]'
+  'backend/src/task_center_runner/tests/mock/task_center/test_focused_scenarios.py::test_focused_reference_scenario_runs[pipeline.initial_workflow]'
 ```
 
 ## Real-Agent Tests

@@ -144,7 +144,7 @@
 <div class="summary">
   <ul>
     <li><code>docs/task_center_harness_and_context_engine.html</code> contains historical references to <code>entry_executor</code>; current context-engine recipe files are planner, generator, and evaluator.</li>
-    <li>The same older TaskCenter HTML says executor routing no longer splits by depth; current <code>TerminalToolRouter</code> still removes handoff terminals at nested goal depth greater than one.</li>
+    <li>The same older TaskCenter HTML says executor routing no longer splits by depth; current <code>TerminalToolRouter</code> still removes handoff terminals at nested workflow depth greater than one.</li>
     <li>The older renderer description says high-priority context can be dropped after medium priority; current <code>XmlPromptRenderer</code> truncates low then medium priority blocks and preserves required/high blocks.</li>
     <li>A comment in <code>EphemeralAgent.run</code> still mentions a retry path, but <code>run_ephemeral_agent</code> documents that retry-with-fresh-budget no longer exists.</li>
     <li>A historical sandbox load report mentions public <code>api.shell_batch</code>; current daemon/API source exposes <code>api.v1.shell</code> and harness-local batch helpers.</li>

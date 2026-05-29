@@ -38,7 +38,7 @@ from task_center.context_engine.recipes.attempts import (
 from task_center.context_engine.recipes.generator import _dependency_blocks
 from task_center.context_engine.recipes.iterations import goal_iteration_blocks
 from task_center.context_engine.renderer import XmlPromptRenderer
-from task_center.goal.state import Goal, GoalOriginKind, GoalStatus
+from task_center.workflow.state import Workflow, WorkflowOriginKind, WorkflowStatus
 from task_center.iteration.state import (
     Iteration,
     IterationCreationReason,
@@ -56,18 +56,18 @@ class _FakeTaskStore:
         return self._rows.get(task_id)
 
 
-def _goal() -> Goal:
-    return Goal(
+def _goal() -> Workflow:
+    return Workflow(
         id="g1",
         task_center_run_id="run1",
         goal="Build a CLI todo app.",
-        status=GoalStatus.OPEN,
+        status=WorkflowStatus.OPEN,
         iteration_ids=(),
         final_outcome=None,
         created_at=_NOW,
         updated_at=_NOW,
         closed_at=None,
-        origin_kind=GoalOriginKind.ENTRY,
+        origin_kind=WorkflowOriginKind.ENTRY,
     )
 
 
@@ -76,7 +76,7 @@ def _iteration(
 ) -> Iteration:
     return Iteration(
         id=f"it{seq}",
-        goal_id="g1",
+        workflow_id="g1",
         sequence_no=seq,
         creation_reason=IterationCreationReason.INITIAL,
         goal=goal_text,
@@ -124,7 +124,7 @@ def _render(blocks: list[ContextBlock], *, role: str) -> str:
     packet = ContextPacket(
         target_role=role,
         target_id="att1",
-        canonical_refs=ContextRefs(goal_id="g1", iteration_id="it2", attempt_id="att1"),
+        canonical_refs=ContextRefs(workflow_id="g1", iteration_id="it2", attempt_id="att1"),
         blocks=blocks,
         source_ids=[],
     )
@@ -452,7 +452,7 @@ def test_handoff_rollup_renders_through_evaluator_task_block():
         ContextPacket(
             target_role="evaluator",
             target_id="att1",
-            canonical_refs=ContextRefs(goal_id="g1", iteration_id="it2", attempt_id="att1"),
+            canonical_refs=ContextRefs(workflow_id="g1", iteration_id="it2", attempt_id="att1"),
             blocks=current_attempt_flat_blocks(attempt=attempt, task_store=store),
             source_ids=[],
         )

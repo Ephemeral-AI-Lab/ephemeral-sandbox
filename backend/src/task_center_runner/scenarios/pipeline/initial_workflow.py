@@ -1,8 +1,8 @@
-"""Initial goal, single attempt, single success.
+"""Initial workflow, single attempt, single success.
 
 Reference scenario for the simplest task_center happy path: TaskCenter entry
-creates the initial goal → planner emits one full plan → executor runs ``preflight`` →
-evaluator passes → goal closes succeeded. One goal, one iteration
+creates the initial workflow → planner emits one full plan → executor runs ``preflight`` →
+evaluator passes → workflow closes succeeded. One workflow, one iteration
 (``creation_reason=INITIAL``), one attempt (``attempt_sequence_no=1``).
 
 Use this as the template for any "single-attempt success in a particular
@@ -22,10 +22,10 @@ from task_center_runner.scenarios._scenario_helpers import preflight_full_plan
 from task_center_runner.scenarios.base import ScenarioBase, ScenarioContext, ToolCallSpec
 
 
-class InitialGoal(ScenarioBase):
+class InitialWorkflow(ScenarioBase):
     """Single goal, single iteration, single attempt — happy path."""
 
-    name = "pipeline.initial_goal"
+    name = "pipeline.initial_workflow"
     expected_event_sequence: tuple[EventType, ...] = (
         EventType.PLANNER_INVOKED,
         EventType.PLANNER_COMPLETES_GOAL_PLAN,
@@ -51,4 +51,4 @@ class InitialGoal(ScenarioBase):
         )
 
 
-__all__ = ["InitialGoal"]
+__all__ = ["InitialWorkflow"]

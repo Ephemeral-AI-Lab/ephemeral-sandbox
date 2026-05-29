@@ -156,7 +156,7 @@ discipline. Static-only. **Do not redo.**
 
 ### Phase 1 (done, 2026-05-23 session 2) — unblock Tier 1 execution
 
-**Goal landed:** the 4 existing happy-path tests (+ a new mount_overlay
+**Workflow landed:** the 4 existing happy-path tests (+ a new mount_overlay
 backstop) no longer fail at the daemon-config / cap-set / fixture-wiring
 layers. Three blockers fixed:
 
@@ -193,7 +193,7 @@ to attempt anything. This is config rollout, not a code change.
 
 ### Phase 2 (partially done, 2026-05-23 session 2) — make Tier 1 green
 
-**Goal:** the 4 existing happy-path tests + new backstop pass against a
+**Workflow:** the 4 existing happy-path tests + new backstop pass against a
 real sweevo container.
 
 **What this session landed (static):**
@@ -255,7 +255,7 @@ real sweevo container.
 
 ### Phase 3 (done, 2026-05-23 session 3) — Tier 2 isolation, 5 tests
 
-**Goal landed:** the structural separation from OCC + the snapshot-at-enter
+**Workflow landed:** the structural separation from OCC + the snapshot-at-enter
 pinning property are pinned by runtime tests, not just the C2 source-scan
 fence.
 
@@ -284,7 +284,7 @@ already provide all the properties under test.
 
 ### Phase 4 (done, 2026-05-23 session 3) — Tier 7 GC + persistence, 13 tests
 
-**Goal landed:** daemon-restart reconciliation reaps every iws-owned
+**Workflow landed:** daemon-restart reconciliation reaps every iws-owned
 kernel + disk resource, releases orphan leases, and reserves persisted IPs.
 
 **Tests landed (all 13):**
@@ -326,7 +326,7 @@ kernel + disk resource, releases orphan leases, and reserves persisted IPs.
 
 ### Phase 5 (done, 2026-05-23 session 3) — Tier 3 network, 15 tests
 
-**Goal landed:** every nft rule + bridge flag + DNS substitution branch
+**Workflow landed:** every nft rule + bridge flag + DNS substitution branch
 + IPv6 default-route purge has a runtime test, and external→ws
 unreachability is proven via `unshare -n` host-netns probes (no second
 sandbox container needed).
@@ -359,7 +359,7 @@ sandbox container needed).
 
 ### Phase 6 (done, 2026-05-23 session 3) — Tier 4 failure modes, 7 tests
 
-**Goal landed:** every adversarial enter/exit path has a test that
+**Workflow landed:** every adversarial enter/exit path has a test that
 proves rollback runs (lease released, no orphan veth/cgroup/scratch) and
 the manager doesn't strand state.
 
@@ -401,7 +401,7 @@ the manager doesn't strand state.
 
 ### Phase 7 (done, 2026-05-23 session 4) — Tier 5 + Tier 6, 17 tests
 
-**Goal landed:** every resource-control + concurrency property has a
+**Workflow landed:** every resource-control + concurrency property has a
 runtime test; the async refactor that unblocks N=5 fan-out lands first.
 
 **Tests landed (Tier 5, 6 tests):**
@@ -449,7 +449,7 @@ runtime test; the async refactor that unblocks N=5 fan-out lands first.
 
 ### Phase 8 (done, 2026-05-23 session 4) — Tier 8 stress, 4 tests
 
-**Goal landed:** N=5 maximum-load + create/destroy soak + full network e2e
+**Workflow landed:** N=5 maximum-load + create/destroy soak + full network e2e
 and at-rest disk bound all have a test.
 All 4 are gated on `pytest.mark.live_e2e_soak` (PLAN §9.5 — soak marker
 already exists in `pyproject.toml`, no `--run-slow` plumbing was needed).
@@ -469,7 +469,7 @@ already exists in `pyproject.toml`, no `--run-slow` plumbing was needed).
 
 ### Phase 9 (done, 2026-05-23 session 4) — Tier 9 performance, 7 tests
 
-**Goal landed:** every per-op latency / per-phase breakdown / SUBSET-COVER
+**Workflow landed:** every per-op latency / per-phase breakdown / SUBSET-COVER
 invariant + the regression-band test ships, all capability-gated per
 PLAN §18.
 

@@ -402,7 +402,7 @@ class MockSquadRunner:
                 )
                 return result
             if isinstance(action, str) and action.startswith(
-                "request_recursive_goal:"
+                "request_recursive_workflow:"
             ):
                 package_id = action.split(":", 1)[1]
                 goal = self._scenario.recursive_handoff_goal(ctx) or (
@@ -415,11 +415,11 @@ class MockSquadRunner:
                     emit,
                 )
                 self._publish(
-                    EventType.RECURSIVE_GOAL_REQUESTED,
+                    EventType.RECURSIVE_WORKFLOW_REQUESTED,
                     metadata=metadata,
                     payload={
                         "package_id": package_id,
-                        "goal_id": result.metadata.get("goal_id"),
+                        "workflow_id": result.metadata.get("workflow_id"),
                     },
                 )
                 return result
@@ -437,11 +437,11 @@ class MockSquadRunner:
                     emit,
                 )
                 self._publish(
-                    EventType.RECURSIVE_GOAL_REQUESTED,
+                    EventType.RECURSIVE_WORKFLOW_REQUESTED,
                     metadata=metadata,
                     payload={
                         "package_id": package_id,
-                        "goal_id": result.metadata.get("goal_id"),
+                        "workflow_id": result.metadata.get("workflow_id"),
                     },
                 )
                 return result
@@ -839,7 +839,7 @@ class MockSquadRunner:
         checkpoint = context_message_field(context_message, "checkpoint") or "checkpoint"
         if checkpoint == "recursive_return":
             self._publish(
-                EventType.RECURSIVE_GOAL_COMPLETED,
+                EventType.RECURSIVE_WORKFLOW_COMPLETED,
                 metadata=metadata,
                 payload=self._recursive_close_payload(metadata),
             )
@@ -893,13 +893,13 @@ class MockSquadRunner:
     ) -> ScenarioContext:
         attempt, iteration = self._current_attempt_and_iteration(metadata)
         runtime = metadata.get("attempt_runtime")
-        goal = runtime.goal_store.get(iteration.goal_id)
+        workflow = runtime.workflow_store.get(iteration.workflow_id)
         task_id = str(metadata.get("task_center_task_id") or "")
         task = runtime.task_store.get_task(task_id) if task_id else None
         return ScenarioContext(
             attempt=attempt,
             iteration=iteration,
-            goal=goal,
+            workflow=workflow,
             prompt=prompt,
             metadata=metadata,
             audit_recorder=self._audit_recorder,
@@ -1897,7 +1897,7 @@ class MockSquadRunner:
             task_center_run_id=str(metadata.get("task_center_run_id") or ""),
             task_center_task_id=str(metadata.get("task_center_task_id") or ""),
             task_center_attempt_id=str(metadata.get("task_center_attempt_id") or ""),
-            task_center_goal_id=str(metadata.get("task_center_goal_id") or ""),
+            task_center_workflow_id=str(metadata.get("task_center_workflow_id") or ""),
             task_center_request_id=str(metadata.get("task_center_request_id") or ""),
             tool_id=str(metadata.get("tool_use_id") or ""),
         )
@@ -1965,10 +1965,10 @@ class MockSquadRunner:
                 payload = summary.get("payload") if isinstance(summary, dict) else None
                 if not isinstance(payload, dict):
                     continue
-                close_report = payload.get("goal_closure_report")
+                close_report = payload.get("workflow_closure_report")
                 if isinstance(close_report, dict):
                     return {
-                        "goal_id": close_report.get("goal_id"),
+                        "workflow_id": close_report.get("workflow_id"),
                         "requested_by_task_id": close_report.get(
                             "requested_by_task_id"
                         ),

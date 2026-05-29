@@ -5,8 +5,8 @@ the current goal's scope is too large for a single executor pass. The
 ``goal_handoff`` arg is the statement of the goal that needs to be
 decomposed (verbatim or paraphrased without information loss), together
 with the executor's findings and reasons for the handoff. It flows
-through to ``GoalStarter.start(prompt=...)`` and becomes the statement
-of a new delegated Goal — not a summary of the current attempt.
+through to ``WorkflowStarter.start(prompt=...)`` and becomes the statement
+of a new delegated Workflow — not a summary of the current attempt.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from .prompt import (
 )
 
 if TYPE_CHECKING:
-    from task_center import StartedGoal
+    from task_center import StartedWorkflow
 
 
 class SubmitExecutionHandoffInput(BaseModel):
@@ -78,24 +78,24 @@ async def submit_execution_handoff(
         return ToolResult(output=str(exc), is_error=True)
 
     try:
-        started_goal: StartedGoal = (
-            submission_context.start_delegated_goal(goal_handoff=goal_handoff)
+        started_workflow: StartedWorkflow = (
+            submission_context.start_delegated_workflow(goal_handoff=goal_handoff)
         )
     except TaskCenterInvariantViolation as exc:
         return ToolResult(output=str(exc), is_error=True)
 
     return ToolResult(
         output=(
-            "Started delegated goal "
-            f"{started_goal.goal_id} "
+            "Started delegated workflow "
+            f"{started_workflow.workflow_id} "
             "for this generator task."
         ),
         metadata={
-            "submission_kind": "goal_start",
-            "task_center_task_id": started_goal.origin.task_id,
-            "attempt_id": started_goal.parent_attempt_id,
-            "goal_id": started_goal.goal_id,
-            "initial_iteration_id": started_goal.initial_iteration_id,
-            "initial_attempt_id": started_goal.initial_attempt_id,
+            "submission_kind": "workflow_start",
+            "task_center_task_id": started_workflow.origin.task_id,
+            "attempt_id": started_workflow.parent_attempt_id,
+            "workflow_id": started_workflow.workflow_id,
+            "initial_iteration_id": started_workflow.initial_iteration_id,
+            "initial_attempt_id": started_workflow.initial_attempt_id,
         },
     )

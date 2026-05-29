@@ -1,8 +1,8 @@
 """TaskCenter entry bootstrap for top-level user requests.
 
 The entry layer is a service boundary, not an agent role. It creates the
-request/run/sandbox/runtime shell, converts the prompt into a normal Goal, and
-lets the Goal -> Iteration -> Attempt lifecycle launch the planner.
+request/run/sandbox/runtime shell, converts the prompt into a normal Workflow, and
+lets the Workflow -> Iteration -> Attempt lifecycle launch the planner.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from agents import validate_agent_definitions_resolved
 from db.stores import (
     AttemptStore,
     ContextPacketStore,
-    GoalStore,
+    WorkflowStore,
     IterationStore,
     TaskCenterStore,
 )
@@ -34,8 +34,8 @@ from task_center.entry.sandbox_provisioning import (
     TaskCenterSandboxBinding,
     TaskCenterSandboxProvisioner,
 )
-from task_center.goal.starter import GoalStarter
-from task_center.goal.state import GoalOrigin
+from task_center.workflow.starter import WorkflowStarter
+from task_center.workflow.state import WorkflowOrigin
 from task_center.iteration import OpenIterationCoordinatorRegistry
 
 if TYPE_CHECKING:
@@ -47,7 +47,7 @@ class TaskCenterEntryHandle:
     request_id: str
     task_center_run_id: str
     binding: TaskCenterSandboxBinding
-    goal_id: str
+    workflow_id: str
     initial_iteration_id: str
     initial_attempt_id: str
     launcher: EphemeralAttemptAgentLauncher
@@ -64,21 +64,21 @@ def start_task_center_run(
     sandbox_id: str | None,
     on_agent_event: AgentStreamEmitter | None,
     task_store: TaskCenterStore,
-    goal_store: GoalStore,
+    workflow_store: WorkflowStore,
     iteration_store: IterationStore,
     attempt_store: AttemptStore,
     runner: AttemptAgentRunner | None = None,
     context_packet_store: ContextPacketStore | None = None,
     sandbox_provisioner: TaskCenterSandboxProvisioner | None = None,
 ) -> TaskCenterEntryHandle:
-    """Start a TaskCenter run by converting *prompt* into the first Goal."""
+    """Start a TaskCenter run by converting *prompt* into the first Workflow."""
     return TaskCenterEntry(
         config=config,
         prompt=prompt,
         sandbox_id=sandbox_id,
         on_agent_event=on_agent_event,
         task_store=task_store,
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         runner=runner,
@@ -88,7 +88,7 @@ def start_task_center_run(
 
 
 class TaskCenterEntry:
-    """Bootstraps a top-level prompt into the normal Goal lifecycle."""
+    """Bootstraps a top-level prompt into the normal Workflow lifecycle."""
 
     def __init__(
         self,
@@ -98,7 +98,7 @@ class TaskCenterEntry:
         sandbox_id: str | None,
         on_agent_event: AgentStreamEmitter | None,
         task_store: TaskCenterStore,
-        goal_store: GoalStore,
+        workflow_store: WorkflowStore,
         iteration_store: IterationStore,
         attempt_store: AttemptStore,
         runner: AttemptAgentRunner | None = None,
@@ -110,7 +110,7 @@ class TaskCenterEntry:
         self._sandbox_id = sandbox_id
         self._on_agent_event = on_agent_event
         self._task_store = task_store
-        self._goal_store = goal_store
+        self._workflow_store = workflow_store
         self._iteration_store = iteration_store
         self._attempt_store = attempt_store
         self._runner = runner
@@ -120,7 +120,7 @@ class TaskCenterEntry:
     def start(self) -> TaskCenterEntryHandle:
         _assert_stores_ready(
             task_store=self._task_store,
-            goal_store=self._goal_store,
+            workflow_store=self._workflow_store,
             iteration_store=self._iteration_store,
             attempt_store=self._attempt_store,
         )
@@ -129,9 +129,9 @@ class TaskCenterEntry:
         runtime, launcher = self._create_runtime(iteration_coordinators=iteration_coordinators)
 
         try:
-            started = GoalStarter(runtime=runtime).start(
+            started = WorkflowStarter(runtime=runtime).start(
                 prompt=self._prompt,
-                origin=GoalOrigin.entry(task_center_run_id=run_id),
+                origin=WorkflowOrigin.entry(task_center_run_id=run_id),
             )
         except Exception:
             self._finish_run_if_open(run_id, status="failed")
@@ -141,7 +141,7 @@ class TaskCenterEntry:
             request_id=request_id,
             task_center_run_id=run_id,
             binding=binding,
-            goal_id=started.goal_id,
+            workflow_id=started.workflow_id,
             initial_iteration_id=started.initial_iteration_id,
             initial_attempt_id=started.initial_attempt_id,
             launcher=launcher,
@@ -179,7 +179,7 @@ class TaskCenterEntry:
             runner=self._runner,
         )
         runtime = AttemptDeps(
-            goal_store=self._goal_store,
+            workflow_store=self._workflow_store,
             iteration_store=self._iteration_store,
             attempt_store=self._attempt_store,
             task_store=self._task_store,
@@ -196,7 +196,7 @@ class TaskCenterEntry:
         register_builtin_recipes()
         validate_agent_definitions_resolved()
         deps = ContextEngineDeps(
-            goal_store=self._goal_store,
+            workflow_store=self._workflow_store,
             iteration_store=self._iteration_store,
             attempt_store=self._attempt_store,
             task_store=self._task_store,
@@ -213,13 +213,13 @@ class TaskCenterEntry:
 def _assert_stores_ready(
     *,
     task_store: TaskCenterStore,
-    goal_store: GoalStore,
+    workflow_store: WorkflowStore,
     iteration_store: IterationStore,
     attempt_store: AttemptStore,
 ) -> None:
     if not (
         task_store.is_ready
-        and goal_store.is_ready
+        and workflow_store.is_ready
         and iteration_store.is_ready
         and attempt_store.is_ready
     ):

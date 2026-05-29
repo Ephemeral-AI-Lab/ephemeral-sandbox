@@ -19,14 +19,14 @@ from typing import Literal
 
 from task_center.context_engine.exceptions import RecipeScopeError
 
-ScopeField = Literal["goal_id", "iteration_id", "attempt_id", "task_id"]
+ScopeField = Literal["workflow_id", "iteration_id", "attempt_id", "task_id"]
 
 
 @dataclass(frozen=True, slots=True)
 class ContextScope:
     """Identity surface threaded through resolver + engine + recipes."""
 
-    goal_id: str | None = None
+    workflow_id: str | None = None
 
     # Optional identity fields — recipes declare which of these they need.
     iteration_id: str | None = None
@@ -57,13 +57,13 @@ class ContextScope:
     def for_planner(
         cls,
         *,
-        goal_id: str,
+        workflow_id: str,
         iteration_id: str,
         attempt_id: str,
     ) -> ContextScope:
         """Scope shape required by the planner recipe."""
         return cls(
-            goal_id=goal_id,
+            workflow_id=workflow_id,
             iteration_id=iteration_id,
             attempt_id=attempt_id,
         )
@@ -72,14 +72,14 @@ class ContextScope:
     def for_generator(
         cls,
         *,
-        goal_id: str,
+        workflow_id: str,
         iteration_id: str,
         attempt_id: str,
         task_id: str,
     ) -> ContextScope:
         """Scope shape required by the generator recipe."""
         return cls(
-            goal_id=goal_id,
+            workflow_id=workflow_id,
             iteration_id=iteration_id,
             attempt_id=attempt_id,
             task_id=task_id,
@@ -89,13 +89,13 @@ class ContextScope:
     def for_evaluator(
         cls,
         *,
-        goal_id: str,
+        workflow_id: str,
         iteration_id: str,
         attempt_id: str,
     ) -> ContextScope:
         """Scope shape required by the evaluator recipe."""
         return cls(
-            goal_id=goal_id,
+            workflow_id=workflow_id,
             iteration_id=iteration_id,
             attempt_id=attempt_id,
         )

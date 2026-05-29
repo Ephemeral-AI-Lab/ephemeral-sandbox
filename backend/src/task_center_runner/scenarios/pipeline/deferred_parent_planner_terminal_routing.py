@@ -23,7 +23,7 @@ from tools.submission.planner import (
 
 from task_center_runner.audit.events import EventType
 from task_center_runner.scenarios._scenario_helpers import (
-    is_recursive_goal,
+    is_recursive_workflow,
     minimal_full_plan,
     preflight_full_plan,
 )
@@ -61,7 +61,7 @@ def _entry_origin_defers_plan() -> dict[str, Any]:
         ],
         "task_specs": {
             "delegate_child": (
-                f"ACTION request_recursive_goal package={_CHILD_PACKAGE_ID}"
+                f"ACTION request_recursive_workflow package={_CHILD_PACKAGE_ID}"
             ),
             "recursive_return_guard": "VERIFY checkpoint=recursive_return",
         },
@@ -72,11 +72,11 @@ def _entry_origin_defers_plan() -> dict[str, Any]:
 def _child_full_plan() -> dict[str, Any]:
     return minimal_full_plan(
         plan_spec=(
-            "Run a full child-goal preflight to prove the delegated goal "
+            "Run a full child workflow preflight to prove the delegated workflow "
             "cannot emit another partial plan."
         ),
         evaluation_criteria=[
-            "The child goal completes through a full plan.",
+            "The child workflow completes through a full plan.",
         ],
         task_id="child_reconcile",
         task_spec=(
@@ -94,13 +94,13 @@ class DeferredParentPlannerTerminalRouting(ScenarioBase):
         EventType.PLANNER_INVOKED,
         EventType.PLANNER_DEFERS_GOAL_PLAN,
         EventType.EXECUTOR_INVOKED,
-        EventType.RECURSIVE_GOAL_REQUESTED,
+        EventType.RECURSIVE_WORKFLOW_REQUESTED,
         EventType.PLANNER_INVOKED,
         EventType.PLANNER_COMPLETES_GOAL_PLAN,
         EventType.EXECUTOR_SUCCESS,
         EventType.EVALUATOR_SUCCESS,
         EventType.VERIFIER_INVOKED,
-        EventType.RECURSIVE_GOAL_COMPLETED,
+        EventType.RECURSIVE_WORKFLOW_COMPLETED,
         EventType.VERIFIER_SUCCESS,
         EventType.EVALUATOR_SUCCESS,
         EventType.PLANNER_INVOKED,
@@ -110,7 +110,7 @@ class DeferredParentPlannerTerminalRouting(ScenarioBase):
     )
 
     def planner_response(self, ctx: ScenarioContext) -> ToolCallSpec:
-        if is_recursive_goal(ctx):
+        if is_recursive_workflow(ctx):
             return ToolCallSpec(submit_plan_closes_goal, _child_full_plan())
         if ctx.iteration.sequence_no == 1:
             return ToolCallSpec(submit_plan_defers_goal, _entry_origin_defers_plan())
@@ -128,8 +128,8 @@ class DeferredParentPlannerTerminalRouting(ScenarioBase):
 
     def executor_actions(self, ctx: ScenarioContext) -> Sequence[str]:
         context_message = ctx.context_message or ""
-        if "request_recursive_goal" in context_message:
-            return (f"request_recursive_goal:{_CHILD_PACKAGE_ID}",)
+        if "request_recursive_workflow" in context_message:
+            return (f"request_recursive_workflow:{_CHILD_PACKAGE_ID}",)
         if "ACTION recursive_" in context_message:
             return ("recursive_step",)
         return ("preflight",)

@@ -41,7 +41,7 @@ class TaskCenterLifecycleConfig:
     """Configurable knobs for the goal/iteration/attempt lifecycle.
 
     ``default_attempt_budget`` is applied to every Iteration created by
-    ``GoalLifecycle`` unless overridden per-call.
+    ``WorkflowLifecycle`` unless overridden per-call.
     """
 
     default_attempt_budget: int = 2

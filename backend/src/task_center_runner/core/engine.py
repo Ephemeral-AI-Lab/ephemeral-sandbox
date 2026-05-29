@@ -240,7 +240,7 @@ async def run_pipeline(config: RunConfig) -> PipelineReport:
             sandbox_id=lease.sandbox_id,
             on_agent_event=_on_agent_event,
             task_store=bundle.task_store,
-            goal_store=bundle.goal_store,
+            workflow_store=bundle.workflow_store,
             iteration_store=bundle.iteration_store,
             attempt_store=bundle.attempt_store,
             context_packet_store=bundle.context_packet_store,

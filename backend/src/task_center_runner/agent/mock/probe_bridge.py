@@ -43,8 +43,6 @@ from task_center_runner.agent.mock.event_source import ToolCall, Turn
 # coroutine (which returns the artifact path string).
 ProbeFactory = Callable[[Callable[..., Awaitable[ToolResult]]], Awaitable[str]]
 
-_DONE = object()
-
 
 async def _noop_emit(_event: Any) -> None:
     return None
@@ -132,6 +130,194 @@ async def bridge_turns(
                 await probe_task
 
 
+def bridge_script_for(
+    action: str,
+    *,
+    ctx: Any,
+) -> tuple[ProbeFactory, str] | None:
+    """Map a ``PreparedToolScript`` executor action to ``(factory, summary)``.
+
+    The full_stack / capacity / full_case script-engine actions build a
+    deterministic :class:`PreparedToolScript` from the live
+    :class:`ScenarioContext` (``ctx``) and run it through
+    :class:`PreparedToolScriptEngine`. The engine calls its injected
+    ``call_tool`` exactly as the queue-bridge expects (4 positional +
+    ``allow_error`` only, never ``background_task_id``), so the bridge's
+    ``call_tool`` is passed straight in with no shim. The factory returns the
+    script's artifact path (the engine drives all its steps as scripted
+    ``Turn``s through the loop, identical to a probe body). Returns ``None`` if
+    *action* is not a script action (the caller then tries
+    :func:`bridge_probe_for` or raises ``NotImplementedError``). Script modules
+    are imported lazily to keep the import graph DAG-shaped.
+
+    Budget note: ``inspect_user_input`` (111 steps) and
+    ``layerstack_squash_lease`` (118 steps) exceed the executor design limit of
+    100, but stay under the runtime hard ceiling of ``ceil(1.5 * 100) = 150``
+    (the 100 limit only fires a reminder, which a scripted event source
+    ignores). They are bridged here so their scenarios run end-to-end; Item 3
+    fan-out splits them below 100.
+    """
+
+    def _engine_factory(
+        build: Callable[[], Any], summary: str
+    ) -> tuple[ProbeFactory, str]:
+        async def _run_script(call_tool: Any) -> str:
+            from task_center_runner.agent.mock.tool_scripts import (
+                PreparedToolScriptEngine,
+            )
+
+            engine = PreparedToolScriptEngine(call_tool)
+            result = await engine.run(
+                build(), metadata=ctx.metadata, emit=_noop_emit
+            )
+            return result.artifact
+
+        return _run_script, summary
+
+    if action == "inspect_user_input":
+        def _build() -> Any:
+            from task_center_runner.agent.mock.tool_scripts import (
+                inspect_user_input_script,
+            )
+
+            return inspect_user_input_script(ctx)
+
+        return _engine_factory(
+            _build, "Requirement ledger and package DAG were written and read back."
+        )
+
+    if action.startswith("execute_package:"):
+        package_id = action.split(":", 1)[1]
+
+        def _build_execute() -> Any:
+            from task_center_runner.agent.mock.tool_scripts import (
+                execute_package_script,
+            )
+
+            return execute_package_script(ctx, package_id=package_id)
+
+        return _engine_factory(
+            _build_execute, f"Executed package {package_id} with sandbox evidence."
+        )
+
+    if action == "final_reconciliation":
+        def _build_final() -> Any:
+            from task_center_runner.agent.mock.tool_scripts import (
+                final_reconciliation_script,
+            )
+
+            return final_reconciliation_script(ctx)
+
+        return _engine_factory(
+            _build_final, "Final coverage ledger and readback probe passed."
+        )
+
+    if action == "recursive_step":
+        def _build_recursive() -> Any:
+            from task_center_runner.agent.mock.tool_scripts import (
+                recursive_step_script,
+            )
+
+            return recursive_step_script(ctx)
+
+        return _engine_factory(
+            _build_recursive, "Recursive goal step completed with sandbox evidence."
+        )
+
+    # --- full_stack scripts -------------------------------------------------
+    if action == "inspect_full_user_input":
+        def _build_inspect_full() -> Any:
+            from task_center_runner.agent.mock.full_stack_tool_scripts import (
+                inspect_full_user_input_script,
+            )
+
+            return inspect_full_user_input_script(ctx)
+
+        return _engine_factory(
+            _build_inspect_full, "Full user-input inventory script passed."
+        )
+
+    if action == "occ_conflict_matrix":
+        def _build_occ() -> Any:
+            from task_center_runner.agent.mock.full_stack_tool_scripts import (
+                occ_conflict_matrix_script,
+            )
+
+            return occ_conflict_matrix_script(ctx)
+
+        return _engine_factory(_build_occ, "OCC conflict matrix script passed.")
+
+    if action == "overlay_edge_matrix":
+        def _build_overlay() -> Any:
+            from task_center_runner.agent.mock.full_stack_tool_scripts import (
+                overlay_edge_matrix_script,
+            )
+
+            return overlay_edge_matrix_script(ctx)
+
+        return _engine_factory(_build_overlay, "Overlay edge matrix script passed.")
+
+    if action == "layerstack_squash_lease":
+        def _build_layerstack() -> Any:
+            from task_center_runner.agent.mock.full_stack_tool_scripts import (
+                layerstack_squash_lease_script,
+            )
+
+            return layerstack_squash_lease_script(ctx)
+
+        return _engine_factory(
+            _build_layerstack, "LayerStack squash-lease script passed."
+        )
+
+    if action == "lsp_refresh_semantics":
+        def _build_lsp() -> Any:
+            from task_center_runner.agent.mock.full_stack_tool_scripts import (
+                lsp_refresh_semantics_script,
+            )
+
+            return lsp_refresh_semantics_script(ctx)
+
+        return _engine_factory(_build_lsp, "LSP refresh-semantics script passed.")
+
+    if action == "recursive_oversized_matrix":
+        def _build_recursive_matrix() -> Any:
+            from task_center_runner.agent.mock.full_stack_tool_scripts import (
+                recursive_oversized_matrix_script,
+            )
+
+            return recursive_oversized_matrix_script(ctx)
+
+        return _engine_factory(
+            _build_recursive_matrix, "Recursive oversized matrix script passed."
+        )
+
+    if action == "full_stack_final_reconciliation":
+        def _build_full_stack_final() -> Any:
+            from task_center_runner.agent.mock.full_stack_tool_scripts import (
+                final_reconciliation_script as full_stack_final_reconciliation_script,
+            )
+
+            return full_stack_final_reconciliation_script(ctx)
+
+        return _engine_factory(
+            _build_full_stack_final, "Full-stack final reconciliation script passed."
+        )
+
+    if action == "capacity_metrics_full_system":
+        def _build_capacity() -> Any:
+            from task_center_runner.agent.mock.capacity_actions import (
+                full_system_capacity_metrics_script,
+            )
+
+            return full_system_capacity_metrics_script(ctx)
+
+        return _engine_factory(
+            _build_capacity, "Full-system capacity metrics script passed."
+        )
+
+    return None
+
+
 def bridge_probe_for(
     action: str,
     *,
@@ -195,7 +381,229 @@ def bridge_probe_for(
 
         return _reconcile, "High-concurrency sandbox reconciliation passed."
 
+    if action == "heavy_io_zoned_seed":
+        def _hiz_seed(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.heavy_io_zoned_probe import (
+                run_heavy_io_zoned_seed_probe,
+            )
+
+            return run_heavy_io_zoned_seed_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+            )
+
+        return _hiz_seed, "Heavy-IO zoned sandbox seed passed."
+
+    if action.startswith("heavy_io_zoned_worker:"):
+        index = int(action.split(":", 1)[1])
+
+        def _hiz_worker(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.heavy_io_zoned_probe import (
+                run_heavy_io_zoned_worker_probe,
+            )
+
+            return run_heavy_io_zoned_worker_probe(
+                index=index,
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                publish=probe_ctx.publish,
+                publish_mock_record=probe_ctx.publish_mock_record,
+                record_tool_check=probe_ctx.record_check,
+            )
+
+        return _hiz_worker, f"Heavy-IO zoned worker {index:02d} passed."
+
+    if action == "heavy_io_zoned_reconcile":
+        def _hiz_reconcile(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.heavy_io_zoned_probe import (
+                run_heavy_io_zoned_reconcile_probe,
+            )
+
+            return run_heavy_io_zoned_reconcile_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+            )
+
+        return _hiz_reconcile, "Heavy-IO zoned sandbox reconciliation passed."
+
+    # --- plugin_workspace (single-action scenarios; all queue-bridge) -------
+    if action == "plugin_read_only_lsp_refresh":
+        def _plugin_read_only(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.plugin_workspace_probe import (
+                run_plugin_read_only_lsp_refresh_probe,
+            )
+
+            return run_plugin_read_only_lsp_refresh_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _plugin_read_only, "Plugin read-only LSP refresh probe passed."
+
+    if action == "plugin_write_allowed_publish":
+        def _plugin_write_allowed(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.plugin_workspace_probe import (
+                run_plugin_write_allowed_publish_probe,
+            )
+
+            return run_plugin_write_allowed_publish_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _plugin_write_allowed, "Plugin write-allowed publish probe passed."
+
+    if action == "plugin_intent_contract":
+        def _plugin_intent(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.plugin_workspace_probe import (
+                run_plugin_intent_contract_probe,
+            )
+
+            return run_plugin_intent_contract_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+            )
+
+        return _plugin_intent, "Plugin intent-contract probe passed."
+
+    if action == "plugin_iws_policy":
+        def _plugin_iws(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.plugin_workspace_probe import (
+                run_plugin_iws_policy_probe,
+            )
+
+            return run_plugin_iws_policy_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _plugin_iws, "Plugin isolated-workspace policy probe passed."
+
+    if action == "plugin_setup_failure":
+        def _plugin_setup_failure(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.plugin_workspace_probe import (
+                run_plugin_setup_failure_probe,
+            )
+
+            return run_plugin_setup_failure_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _plugin_setup_failure, "Plugin setup-failure probe passed."
+
+    if action == "plugin_service_evict":
+        def _plugin_service_evict(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.plugin_workspace_probe import (
+                run_plugin_service_evict_probe,
+            )
+
+            return run_plugin_service_evict_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _plugin_service_evict, "Plugin service-evict probe passed."
+
+    # --- ephemeral_workspace (non-cancellation actions; queue-bridge) ------
+    # ephemeral_workspace_cancellation is a §C background rewrite — the bridge
+    # rejects its background_task_id call, so it is intentionally not wired here.
+    if action == "ephemeral_workspace_all_verbs":
+        def _eph_all_verbs(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.ephemeral_workspace_probe import (
+                run_ephemeral_all_verbs_probe,
+            )
+
+            return run_ephemeral_all_verbs_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _eph_all_verbs, "Ephemeral workspace all-verbs probe passed."
+
+    if action == "ephemeral_workspace_concurrent_writes":
+        def _eph_concurrent(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.ephemeral_workspace_probe import (
+                run_ephemeral_concurrent_writes_probe,
+            )
+
+            return run_ephemeral_concurrent_writes_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _eph_concurrent, "Ephemeral workspace concurrent-writes probe passed."
+
+    if action == "ephemeral_workspace_policy":
+        def _eph_policy(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.ephemeral_workspace_probe import (
+                run_ephemeral_policy_probe,
+            )
+
+            return run_ephemeral_policy_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _eph_policy, "Ephemeral workspace policy probe passed."
+
+    if action == "ephemeral_workspace_o1_disk":
+        def _eph_o1_disk(call_tool: Any) -> Awaitable[str]:
+            from task_center_runner.agent.mock.ephemeral_workspace_probe import (
+                run_ephemeral_o1_disk_probe,
+            )
+
+            return run_ephemeral_o1_disk_probe(
+                metadata=metadata,
+                emit=_noop_emit,
+                call_tool=call_tool,
+                record_tool_check=probe_ctx.record_check,
+                sandbox_id=metadata.sandbox_id,
+            )
+
+        return _eph_o1_disk, "Ephemeral workspace O(1)-disk probe passed."
+
+    # ephemeral_workspace_same_path_conflict is intentionally NOT bridged: its
+    # probe asyncio.gathers 4 same-path writes and asserts >=1 OCC conflict, but
+    # the queue-bridge serializes calls (one loop turn at a time) so no race /
+    # no conflict occurs and the probe's "no typed conflicts" guard fires. It
+    # needs a concurrency-preserving fan-out (N racing generators, like
+    # high_concurrency's CONFLICT_WORKER_COUNT). Falling through to the adapter's
+    # NotImplementedError keeps it a clean "not ported" signal, not a confusing
+    # assertion failure. See FANOUT_HANDOFF §"Session 2026-05-29 cont."
+
     return None
 
 
-__all__ = ["bridge_probe_for", "bridge_turns"]
+__all__ = ["bridge_probe_for", "bridge_script_for", "bridge_turns"]

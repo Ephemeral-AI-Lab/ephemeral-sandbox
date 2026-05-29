@@ -37,7 +37,7 @@ class ExecutionMetadata:
     task_center_run_id: str | None = None
     task_center_task_id: str | None = None
     task_center_attempt_id: str | None = None
-    task_center_goal_id: str | None = None
+    task_center_workflow_id: str | None = None
     task_center_request_id: str | None = None
     attempt_runtime: Any | None = None
     # Per-request AgentEntryComposer used by helper tools (ask_advisor)
@@ -86,7 +86,7 @@ class ExecutionMetadata:
             "task_center_run_id",
             "task_center_task_id",
             "task_center_attempt_id",
-            "task_center_goal_id",
+            "task_center_workflow_id",
             "task_center_request_id",
             "attempt_runtime",
             "composer",

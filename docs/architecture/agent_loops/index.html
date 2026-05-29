@@ -170,7 +170,7 @@
 <div class="summary">
   <ul>
     <li>The older <code>docs/task_center_harness_and_context_engine.html</code> contains stale context-engine claims: it still mentions <code>entry_executor</code>, says executor terminal routing is no longer depth-filtered, and describes renderer compression as if high-priority blocks can be dropped.</li>
-    <li>Current source says built-in TaskCenter context recipes are planner, generator, and evaluator; executor terminal handoff is still filtered at nested goal depth greater than one; renderer truncates low then medium priority blocks, never required or high.</li>
+    <li>Current source says built-in TaskCenter context recipes are planner, generator, and evaluator; executor terminal handoff is still filtered at nested workflow depth greater than one; renderer truncates low then medium priority blocks, never required or high.</li>
     <li>The current agent lifecycle is single-pass. <code>run_ephemeral_agent</code> does not retry with a fresh budget; missing terminal output becomes exhaustion/failure handling at the TaskCenter launch boundary.</li>
     <li>Historical live reports may mention <code>api.shell_batch</code>. Current daemon/API source exposes <code>api.v1.shell</code> plus harness-local batch helpers, not a public shell-batch daemon operation.</li>
     <li>The model-provider package is plural: <code>backend/src/providers</code>. The singular <code>backend/src/provider</code> path does not exist in this checkout.</li>

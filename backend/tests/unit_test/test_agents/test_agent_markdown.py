@@ -29,7 +29,7 @@ def test_harness_agent_markdown_declares_notification_triggers() -> None:
     # Planner terminal restrictions are launch-time router policy; the profile
     # does not carry soft reminder triggers for recursive partial plans.
     assert planner.notification_triggers == []
-    assert executor.notification_triggers == ["request_goal_after_edit"]
+    assert executor.notification_triggers == ["request_workflow_after_edit"]
     assert verifier.notification_triggers == []
     assert evaluator.notification_triggers == []
 

@@ -16,9 +16,9 @@ Implemented (reference scenarios):
 - :class:`DependencyDagSerial`
 - :class:`IterativeDeferral`
 - :class:`GeneratorFailureQuiescence`
-- :class:`InitialGoal`
-- :class:`NestedGoal`
-- :class:`NestedGoalFailure`
+- :class:`InitialWorkflow`
+- :class:`NestedWorkflow`
+- :class:`NestedWorkflowFailure`
 - :class:`DeferredParentPlannerTerminalRouting`
 """
 
@@ -60,10 +60,10 @@ from task_center_runner.scenarios.pipeline.iterative_deferral import (
 from task_center_runner.scenarios.pipeline.generator_failure_quiescence import (
     GeneratorFailureQuiescence,
 )
-from task_center_runner.scenarios.pipeline.initial_goal import InitialGoal
-from task_center_runner.scenarios.pipeline.nested_goal import (
-    NestedGoal,
-    NestedGoalFailure,
+from task_center_runner.scenarios.pipeline.initial_workflow import InitialWorkflow
+from task_center_runner.scenarios.pipeline.nested_workflow import (
+    NestedWorkflow,
+    NestedWorkflowFailure,
 )
 from task_center_runner.scenarios.pipeline.deferred_parent_planner_terminal_routing import (
     DeferredParentPlannerTerminalRouting,
@@ -82,8 +82,8 @@ __all__ = [
     "InitialMessagesCapture",
     "IterativeDeferral",
     "GeneratorFailureQuiescence",
-    "InitialGoal",
-    "NestedGoal",
-    "NestedGoalFailure",
+    "InitialWorkflow",
+    "NestedWorkflow",
+    "NestedWorkflowFailure",
     "DeferredParentPlannerTerminalRouting",
 ]

@@ -1,10 +1,10 @@
-"""Phase 02 integration through goal_lifecycle -> coordinator -> orchestrator."""
+"""Phase 02 integration through workflow_lifecycle -> coordinator -> orchestrator."""
 
 from __future__ import annotations
 
 from task_center._core.primitives import TaskCenterLifecycleConfig
-from task_center.goal.lifecycle import GoalLifecycle
-from task_center.goal.state import GoalOrigin, GoalStatus
+from task_center.workflow.lifecycle import WorkflowLifecycle
+from task_center.workflow.state import WorkflowOrigin, WorkflowStatus
 from task_center.attempt import AttemptStatus
 from task_center.attempt.orchestrator import AttemptOrchestrator
 from task_center.attempt.orchestrator_registry import (
@@ -28,8 +28,8 @@ class _FakeLauncher:
         self.launches.append(launch)
 
 
-def _build_goal_lifecycle(
-    goal_store,
+def _build_workflow_lifecycle(
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
@@ -40,7 +40,7 @@ def _build_goal_lifecycle(
     orchestrator_registry = AttemptOrchestratorRegistry()
     iteration_coordinators = OpenIterationCoordinatorRegistry()
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -49,8 +49,8 @@ def _build_goal_lifecycle(
         iteration_coordinators=iteration_coordinators,
         composer=composer,
     )
-    goal_lifecycle = GoalLifecycle(
-        goal_store=goal_store,
+    workflow_lifecycle = WorkflowLifecycle(
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         iteration_coordinators=iteration_coordinators,
@@ -61,7 +61,7 @@ def _build_goal_lifecycle(
             runtime=runtime,
         ),
     )
-    return goal_lifecycle, iteration_coordinators, orchestrator_registry
+    return workflow_lifecycle, iteration_coordinators, orchestrator_registry
 
 
 def _plan(attempt_id: str) -> PlannerSubmission:
@@ -108,22 +108,22 @@ def _evaluator_success(attempt_id: str) -> EvaluatorSubmission:
 
 
 def test_full_plan_execution_success_closes_request_success(
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
     task_center_run_id,
     composer,
 ):
-    goal_lifecycle, iteration_coordinators, orchestrator_registry = _build_goal_lifecycle(
-        goal_store, iteration_store, attempt_store, task_store, composer=composer
+    workflow_lifecycle, iteration_coordinators, orchestrator_registry = _build_workflow_lifecycle(
+        workflow_store, iteration_store, attempt_store, task_store, composer=composer
     )
-    request = goal_lifecycle.create_goal(
+    request = workflow_lifecycle.create_workflow(
         task_center_run_id=task_center_run_id,
-        origin=GoalOrigin.task(task_id="executor-1"),
+        origin=WorkflowOrigin.task(task_id="executor-1"),
         goal="g",
     )
-    iteration, _ = goal_lifecycle.create_initial_iteration_with_coordinator(goal_id=request.id)
+    iteration, _ = workflow_lifecycle.create_initial_iteration_with_coordinator(workflow_id=request.id)
     coordinator = iteration_coordinators.get(iteration.id)
     assert coordinator is not None
     attempt = coordinator.create_initial_attempt()
@@ -133,34 +133,34 @@ def test_full_plan_execution_success_closes_request_success(
     orchestrator.apply_generator_submission(_generator_success(attempt.id))
     orchestrator.apply_evaluator_submission(_evaluator_success(attempt.id))
 
-    final_request = goal_store.get(request.id)
+    final_request = workflow_store.get(request.id)
     final_segment = iteration_store.get(iteration.id)
     final_graph = attempt_store.get(attempt.id)
     assert final_request is not None and final_segment is not None
     assert final_graph is not None
-    assert final_request.status == GoalStatus.SUCCEEDED
+    assert final_request.status == WorkflowStatus.SUCCEEDED
     assert final_segment.status == IterationStatus.SUCCEEDED
     assert final_graph.status == AttemptStatus.PASSED
     assert iteration_coordinators.get(iteration.id) is None
 
 
 def test_generator_failure_retry_then_evaluator_success(
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
     task_center_run_id,
     composer,
 ):
-    goal_lifecycle, iteration_coordinators, orchestrator_registry = _build_goal_lifecycle(
-        goal_store, iteration_store, attempt_store, task_store, composer=composer
+    workflow_lifecycle, iteration_coordinators, orchestrator_registry = _build_workflow_lifecycle(
+        workflow_store, iteration_store, attempt_store, task_store, composer=composer
     )
-    request = goal_lifecycle.create_goal(
+    request = workflow_lifecycle.create_workflow(
         task_center_run_id=task_center_run_id,
-        origin=GoalOrigin.task(task_id="executor-1"),
+        origin=WorkflowOrigin.task(task_id="executor-1"),
         goal="g",
     )
-    iteration, _ = goal_lifecycle.create_initial_iteration_with_coordinator(goal_id=request.id)
+    iteration, _ = workflow_lifecycle.create_initial_iteration_with_coordinator(workflow_id=request.id)
     coordinator = iteration_coordinators.get(iteration.id)
     assert coordinator is not None
     graph1 = coordinator.create_initial_attempt()
@@ -179,11 +179,11 @@ def test_generator_failure_retry_then_evaluator_success(
     orchestrator2.apply_generator_submission(_generator_success(graph2_id))
     orchestrator2.apply_evaluator_submission(_evaluator_success(graph2_id))
 
-    final_request = goal_store.get(request.id)
+    final_request = workflow_store.get(request.id)
     final_segment = iteration_store.get(iteration.id)
     final_graph2 = attempt_store.get(graph2_id)
     assert final_request is not None and final_segment is not None
     assert final_graph2 is not None
-    assert final_request.status == GoalStatus.SUCCEEDED
+    assert final_request.status == WorkflowStatus.SUCCEEDED
     assert final_segment.status == IterationStatus.SUCCEEDED
     assert final_graph2.status == AttemptStatus.PASSED

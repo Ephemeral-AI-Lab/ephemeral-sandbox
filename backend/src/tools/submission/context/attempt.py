@@ -10,7 +10,7 @@ from task_center import (
     AttemptOrchestrator,
     AttemptDeps,
     Iteration,
-    Goal,
+    Workflow,
     TaskCenterInvariantViolation,
 )
 from tools._framework.core.context import ToolExecutionContextService
@@ -33,7 +33,7 @@ class AttemptSubmissionContext:
     task: dict[str, Any]
     attempt: Attempt
     iteration: Iteration
-    goal: Goal
+    goal: Workflow
     runtime: AttemptDeps
     orchestrator: AttemptOrchestrator
 
@@ -119,10 +119,10 @@ def _resolve_attempt_context(
             f"Iteration {attempt.iteration_id!r} was not found."
         )
 
-    goal = runtime.goal_store.get(iteration.goal_id)
+    goal = runtime.workflow_store.get(iteration.workflow_id)
     if goal is None:
         raise AttemptSubmissionContextError(
-            f"Goal {iteration.goal_id!r} was not found."
+            f"Workflow {iteration.workflow_id!r} was not found."
         )
 
     try:

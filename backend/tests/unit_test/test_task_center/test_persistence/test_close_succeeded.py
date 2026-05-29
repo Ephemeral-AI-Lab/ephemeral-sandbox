@@ -12,14 +12,14 @@ from task_center.iteration.state import (
 )
 
 
-def _seed_segment(goal_store, iteration_store, task_center_run_id):
-    req = goal_store.insert(
+def _seed_segment(workflow_store, iteration_store, task_center_run_id):
+    req = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="parent-task",
         goal="g",
     )
     return iteration_store.insert(
-        goal_id=req.id,
+        workflow_id=req.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
@@ -28,9 +28,9 @@ def _seed_segment(goal_store, iteration_store, task_center_run_id):
 
 
 def test_close_succeeded_writes_status_spec_summary_atomically(
-    goal_store, iteration_store, task_center_run_id
+    workflow_store, iteration_store, task_center_run_id
 ):
-    seg = _seed_segment(goal_store, iteration_store, task_center_run_id)
+    seg = _seed_segment(workflow_store, iteration_store, task_center_run_id)
     closed = iteration_store.close_succeeded(
         seg.id,
         plan_spec="resulting spec",
@@ -44,9 +44,9 @@ def test_close_succeeded_writes_status_spec_summary_atomically(
 
 
 def test_close_succeeded_persists_through_get(
-    goal_store, iteration_store, task_center_run_id
+    workflow_store, iteration_store, task_center_run_id
 ):
-    seg = _seed_segment(goal_store, iteration_store, task_center_run_id)
+    seg = _seed_segment(workflow_store, iteration_store, task_center_run_id)
     iteration_store.close_succeeded(
         seg.id,
         plan_spec="spec",
@@ -59,9 +59,9 @@ def test_close_succeeded_persists_through_get(
 
 
 def test_failed_close_leaves_denormalized_fields_null(
-    goal_store, iteration_store, task_center_run_id
+    workflow_store, iteration_store, task_center_run_id
 ):
-    seg = _seed_segment(goal_store, iteration_store, task_center_run_id)
+    seg = _seed_segment(workflow_store, iteration_store, task_center_run_id)
     failed = iteration_store.set_status(
         seg.id,
         status=IterationStatus.FAILED,
@@ -82,8 +82,8 @@ def test_close_succeeded_unknown_segment_raises(iteration_store):
 
 
 def test_initial_iteration_has_null_denormalized_fields(
-    goal_store, iteration_store, task_center_run_id
+    workflow_store, iteration_store, task_center_run_id
 ):
-    seg = _seed_segment(goal_store, iteration_store, task_center_run_id)
+    seg = _seed_segment(workflow_store, iteration_store, task_center_run_id)
     assert seg.plan_spec is None
     assert seg.task_summary is None

@@ -1,5 +1,12 @@
 # Handoff: ScenarioEventSource migration (replace MockSquadRunner)
 
+> **⚠️ Phases 2/3/4 below are SUPERSEDED.** They predate the tool-call-budget /
+> planner→generator fan-out realization. For current Phase 2+ status, the
+> validated fan-out architecture, the queue-bridge infrastructure, and the
+> ordered remaining work, follow **`docs/plans/mock_event_source_FANOUT_HANDOFF.md`**.
+> Phases 0 and 1 (the seam + 3 simple probes) described below are still accurate
+> and GREEN.
+
 **Status as of 2026-05-29.** Implements `docs/plans/mock_event_source_IMPL_PLAN.md`.
 Goal: drive every mock agent through the **real** `engine/query/loop.py` via an
 injected per-agent event source, so the mock and a real agent differ *only* in

@@ -20,9 +20,9 @@ class IterationRecord(Base):
     __tablename__ = "iterations"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    goal_id: Mapped[str] = mapped_column(
+    workflow_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("goals.id", ondelete="CASCADE"),
+        ForeignKey("workflows.id", ondelete="CASCADE"),
         index=True,
     )
     sequence_no: Mapped[int] = mapped_column(Integer)
@@ -53,9 +53,9 @@ class IterationRecord(Base):
     task_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     __table_args__ = (
         UniqueConstraint(
-            "goal_id",
+            "workflow_id",
             "sequence_no",
-            name="uq_iteration_goal_sequence",
+            name="uq_iteration_workflow_sequence",
         ),
     )
 

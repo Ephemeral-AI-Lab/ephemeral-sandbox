@@ -37,10 +37,10 @@ def _valid_plan_payload() -> dict[str, object]:
 
 
 async def test_full_plan_routes_to_apply_plan_submission(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -67,10 +67,10 @@ async def test_full_plan_routes_to_apply_plan_submission(
 
 
 async def test_partial_plan_routes_to_apply_plan_submission(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -155,7 +155,7 @@ async def test_partial_plan_routes_to_apply_plan_submission(
     ],
 )
 async def test_plan_validation_errors_do_not_mutate_graph(
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
@@ -164,7 +164,7 @@ async def test_plan_validation_errors_do_not_mutate_graph(
     expected,
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -190,10 +190,10 @@ async def test_plan_validation_errors_do_not_mutate_graph(
 
 
 async def test_full_plan_rejects_deferred_goal(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -218,10 +218,10 @@ async def test_full_plan_rejects_deferred_goal(
 
 
 async def test_partial_plan_rejects_blank_deferred_goal(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,

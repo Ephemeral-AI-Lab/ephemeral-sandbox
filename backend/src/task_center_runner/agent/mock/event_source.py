@@ -195,21 +195,10 @@ class ScenarioEventSource:
             return Turn()
 
 
-async def turns_to_script(turns: list[Turn]) -> TurnScript:
-    """Adapt a static list of :class:`Turn`s into a turn-coroutine.
-
-    Ignores received tool results — for scripts whose calls do not branch on
-    prior results.
-    """
-    for turn in turns:
-        _ = yield turn
-
-
 __all__ = [
     "ScenarioEventSource",
     "ToolCall",
     "Turn",
     "TurnScript",
     "latest_tool_results",
-    "turns_to_script",
 ]

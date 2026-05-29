@@ -11,16 +11,16 @@ from task_center._core.invariants import (
     assert_attempt_sequence_contiguous,
     assert_predecessor_has_deferred_goal_for_next_iteration,
     assert_fail_reason_present_on_failure,
-    assert_goal_open,
+    assert_workflow_open,
     assert_iteration_has_budget,
-    assert_iteration_id_unique_in_goal,
+    assert_iteration_id_unique_in_workflow,
     assert_iteration_open,
     assert_iteration_sequence_contiguous,
 )
 from task_center.iteration import OpenIterationCoordinatorRegistry
-from task_center.goal.state import (
-    Goal,
-    GoalStatus,
+from task_center.workflow.state import (
+    Workflow,
+    WorkflowStatus,
 )
 from task_center.attempt import (
     Attempt,
@@ -37,11 +37,11 @@ from task_center._core.primitives import TaskCenterInvariantViolation
 
 
 def _goal(
-    status: GoalStatus = GoalStatus.OPEN,
+    status: WorkflowStatus = WorkflowStatus.OPEN,
     iteration_ids: tuple[str, ...] = (),
-) -> Goal:
+) -> Workflow:
     now = datetime.now(UTC)
-    return Goal(
+    return Workflow(
         id="r1",
         task_center_run_id="run1",
         requested_by_task_id="t1",
@@ -66,7 +66,7 @@ def _iteration(
     now = datetime.now(UTC)
     return Iteration(
         id=iteration_id,
-        goal_id="r1",
+        workflow_id="r1",
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
@@ -107,29 +107,29 @@ def _attempt(
     )
 
 
-# ---- Goal-level ---------------------------------------------------------
+# ---- Workflow-level ---------------------------------------------------------
 
 
 def test_assert_goal_open_passes_for_open():
-    assert_goal_open(_goal(status=GoalStatus.OPEN))
+    assert_workflow_open(_goal(status=WorkflowStatus.OPEN))
 
 
 def test_assert_goal_open_fails_for_closed():
     for status in (
-        GoalStatus.SUCCEEDED,
-        GoalStatus.FAILED,
-        GoalStatus.CANCELLED,
+        WorkflowStatus.SUCCEEDED,
+        WorkflowStatus.FAILED,
+        WorkflowStatus.CANCELLED,
     ):
         with pytest.raises(TaskCenterInvariantViolation):
-            assert_goal_open(_goal(status=status))
+            assert_workflow_open(_goal(status=status))
 
 
 def test_assert_iteration_id_unique_in_goal():
-    assert_iteration_id_unique_in_goal(
+    assert_iteration_id_unique_in_workflow(
         _goal(iteration_ids=("s1", "s2")), "s3"
     )
     with pytest.raises(TaskCenterInvariantViolation):
-        assert_iteration_id_unique_in_goal(
+        assert_iteration_id_unique_in_workflow(
             _goal(iteration_ids=("s1",)), "s1"
         )
 

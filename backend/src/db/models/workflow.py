@@ -1,6 +1,6 @@
-"""Goal persistence model — origin axis of harness work.
+"""Workflow persistence model — origin axis of harness work.
 
-A Goal is created from prompt text at TaskCenter entry or from a generator's
+A Workflow is created from prompt text at TaskCenter entry or from a generator's
 ``submit_execution_handoff(goal)``. It owns an ordered list of ``Iteration`` ids
 representing the vertical continuation progression of work toward the goal.
 """
@@ -15,10 +15,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from db.base import Base
 
 
-class GoalRecord(Base):
-    """Persisted Goal (origin axis)."""
+class WorkflowRecord(Base):
+    """Persisted Workflow (origin axis)."""
 
-    __tablename__ = "goals"
+    __tablename__ = "workflows"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     task_center_run_id: Mapped[str] = mapped_column(
@@ -47,5 +47,5 @@ class GoalRecord(Base):
     )
     def __repr__(self) -> str:
         return (
-            f"<GoalRecord id={self.id!r} status={self.status!r}>"
+            f"<WorkflowRecord id={self.id!r} status={self.status!r}>"
         )

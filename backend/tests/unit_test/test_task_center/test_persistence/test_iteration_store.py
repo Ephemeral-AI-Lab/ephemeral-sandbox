@@ -11,8 +11,8 @@ from task_center.iteration.state import (
 )
 
 
-def _seed_request(goal_store, task_center_run_id) -> str:
-    req = goal_store.insert(
+def _seed_request(workflow_store, task_center_run_id) -> str:
+    req = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="t1",
         goal="g",
@@ -20,10 +20,10 @@ def _seed_request(goal_store, task_center_run_id) -> str:
     return req.id
 
 
-def test_insert_returns_dto(iteration_store, goal_store, task_center_run_id):
-    request_id = _seed_request(goal_store, task_center_run_id)
+def test_insert_returns_dto(iteration_store, workflow_store, task_center_run_id):
+    request_id = _seed_request(workflow_store, task_center_run_id)
     seg = iteration_store.insert(
-        goal_id=request_id,
+        workflow_id=request_id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
@@ -35,10 +35,10 @@ def test_insert_returns_dto(iteration_store, goal_store, task_center_run_id):
     assert seg.attempt_budget == 2
 
 
-def test_get_round_trip(iteration_store, goal_store, task_center_run_id):
-    request_id = _seed_request(goal_store, task_center_run_id)
+def test_get_round_trip(iteration_store, workflow_store, task_center_run_id):
+    request_id = _seed_request(workflow_store, task_center_run_id)
     inserted = iteration_store.insert(
-        goal_id=request_id,
+        workflow_id=request_id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
@@ -51,11 +51,11 @@ def test_get_round_trip(iteration_store, goal_store, task_center_run_id):
 
 
 def test_append_attempt_id_preserves_order(
-    iteration_store, goal_store, task_center_run_id
+    iteration_store, workflow_store, task_center_run_id
 ):
-    request_id = _seed_request(goal_store, task_center_run_id)
+    request_id = _seed_request(workflow_store, task_center_run_id)
     seg = iteration_store.insert(
-        goal_id=request_id,
+        workflow_id=request_id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
@@ -69,7 +69,7 @@ def test_append_attempt_id_preserves_order(
 
 
 def test_deferred_goal_dto_field_maps_to_deferred_goal_db_column(
-    iteration_store, goal_store, task_center_run_id
+    iteration_store, workflow_store, task_center_run_id
 ):
     """Store seam translates DTO field `deferred_goal_for_next_iteration`
     to DB column `deferred_goal`. Raw-SQL queries must target the column name,
@@ -77,9 +77,9 @@ def test_deferred_goal_dto_field_maps_to_deferred_goal_db_column(
     """
     from db.models.iteration import IterationRecord
 
-    request_id = _seed_request(goal_store, task_center_run_id)
+    request_id = _seed_request(workflow_store, task_center_run_id)
     seg = iteration_store.insert(
-        goal_id=request_id,
+        workflow_id=request_id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
@@ -95,11 +95,11 @@ def test_deferred_goal_dto_field_maps_to_deferred_goal_db_column(
 
 
 def test_set_deferred_goal_for_next_iteration_and_status(
-    iteration_store, goal_store, task_center_run_id
+    iteration_store, workflow_store, task_center_run_id
 ):
-    request_id = _seed_request(goal_store, task_center_run_id)
+    request_id = _seed_request(workflow_store, task_center_run_id)
     seg = iteration_store.insert(
-        goal_id=request_id,
+        workflow_id=request_id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
@@ -117,42 +117,42 @@ def test_set_deferred_goal_for_next_iteration_and_status(
 
 
 def test_list_for_goal_orders_by_sequence_no(
-    iteration_store, goal_store, task_center_run_id
+    iteration_store, workflow_store, task_center_run_id
 ):
-    request_id = _seed_request(goal_store, task_center_run_id)
+    request_id = _seed_request(workflow_store, task_center_run_id)
     s2 = iteration_store.insert(
-        goal_id=request_id,
+        workflow_id=request_id,
         sequence_no=2,
         creation_reason=IterationCreationReason.DEFERRED_GOAL_CONTINUATION,
         goal="g2",
         attempt_budget=2,
     )
     s1 = iteration_store.insert(
-        goal_id=request_id,
+        workflow_id=request_id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g1",
         attempt_budget=2,
     )
-    listed = iteration_store.list_for_goal(request_id)
+    listed = iteration_store.list_for_workflow(request_id)
     assert [s.id for s in listed] == [s1.id, s2.id]
 
 
-def test_get_by_sequence(iteration_store, goal_store, task_center_run_id):
-    request_id = _seed_request(goal_store, task_center_run_id)
+def test_get_by_sequence(iteration_store, workflow_store, task_center_run_id):
+    request_id = _seed_request(workflow_store, task_center_run_id)
     seg = iteration_store.insert(
-        goal_id=request_id,
+        workflow_id=request_id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
         attempt_budget=2,
     )
     found = iteration_store.get_by_sequence(
-        goal_id=request_id, sequence_no=1
+        workflow_id=request_id, sequence_no=1
     )
     assert found is not None
     assert found.id == seg.id
     missing = iteration_store.get_by_sequence(
-        goal_id=request_id, sequence_no=99
+        workflow_id=request_id, sequence_no=99
     )
     assert missing is None

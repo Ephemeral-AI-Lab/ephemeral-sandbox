@@ -29,7 +29,7 @@ class ScenarioContext:
 
     attempt: Any  # Attempt | None
     iteration: Any  # Iteration | None
-    goal: Any  # Goal | None
+    workflow: Any  # Workflow | None
     prompt: str
     metadata: Any  # ExecutionMetadata
     audit_recorder: Any  # AuditRecorder | None

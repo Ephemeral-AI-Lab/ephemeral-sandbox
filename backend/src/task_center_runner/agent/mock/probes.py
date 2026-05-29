@@ -76,7 +76,7 @@ class ProbeContext:
             task_center_run_id=str(md.get("task_center_run_id") or ""),
             task_center_task_id=str(md.get("task_center_task_id") or ""),
             task_center_attempt_id=str(md.get("task_center_attempt_id") or ""),
-            task_center_goal_id=str(md.get("task_center_goal_id") or ""),
+            task_center_workflow_id=str(md.get("task_center_workflow_id") or ""),
             task_center_request_id=str(md.get("task_center_request_id") or ""),
             tool_id=str(md.get("tool_use_id") or ""),
         )

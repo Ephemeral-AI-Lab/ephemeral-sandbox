@@ -103,7 +103,7 @@ async def test_planner_submission_through_real_loop(
     # The goal closed — which required planner + executor + evaluator terminals
     # to dispatch through the real loop and mutate TaskCenter store state.
     assert report.task_center_status == "done", report.metrics
-    goals = report.graph_summary["goals"]
+    goals = report.graph_summary["workflows"]
     assert len(goals) == 1, goals
     goal = goals[0]
     assert goal["origin_kind"] == "entry", goal

@@ -31,7 +31,7 @@ class SandboxCaller:
     task_center_run_id: str = ""
     task_center_task_id: str = ""
     task_center_attempt_id: str = ""
-    task_center_goal_id: str = ""
+    task_center_workflow_id: str = ""
     task_center_request_id: str = ""
     tool_name: str = ""
     tool_id: str = ""

@@ -154,7 +154,7 @@ def _assert_three_executor_tasks_per_attempt(report: RunReport) -> None:
     for task_ids in by_attempt.values():
         assert task_ids == list(_AGENT_TASK_IDS)
 
-    goals = report.graph_summary["goals"]
+    goals = report.graph_summary["workflows"]
     assert len(goals) == 1, report.graph_summary
     attempts = goals[0]["iterations"][0]["attempts"]
     assert len(attempts) == 2, report.graph_summary

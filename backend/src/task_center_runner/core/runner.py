@@ -97,9 +97,9 @@ def _graph_summary(
     task_center_run_id: str,
 ) -> dict[str, Any]:
     goals: list[dict[str, Any]] = []
-    for goal in bundle.goal_store.list_for_run(task_center_run_id):
+    for goal in bundle.workflow_store.list_for_run(task_center_run_id):
         iterations: list[dict[str, Any]] = []
-        for iteration in bundle.iteration_store.list_for_goal(goal.id):
+        for iteration in bundle.iteration_store.list_for_workflow(goal.id):
             attempts: list[dict[str, Any]] = []
             for attempt in bundle.attempt_store.list_for_iteration(iteration.id):
                 task_rows = bundle.task_store.list_tasks_for_attempt(attempt.id)
@@ -144,7 +144,7 @@ def _graph_summary(
                 "iterations": iterations,
             }
         )
-    return {"goals": goals}
+    return {"workflows": goals}
 
 
 @contextlib.contextmanager

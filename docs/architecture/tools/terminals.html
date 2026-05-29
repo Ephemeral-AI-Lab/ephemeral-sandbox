@@ -90,14 +90,14 @@
 
 <section id="taskcenter-terminal-profiles" data-last-reviewed-commit="569f12c3f39471dbaa643906856a8daf81a21a2d" data-evidence-paths="backend/src/task_center/_core/terminal_tool_routing.py backend/src/task_center/agent_launch/skill_message.py backend/src/tools/_terminals/registry.py backend/src/agents/profile/main backend/tests/unit_test/test_task_center/test_agent_launch/test_terminal_tool_router.py backend/tests/unit_test/test_tools/test_submission_terminal_routing.py">
 <h2>TaskCenter Terminal Profiles <a class="anchor" href="#taskcenter-terminal-profiles">#</a></h2>
-<p>TaskCenter keeps terminal selection at launch time. <code>TerminalToolRouter</code> loads the registered agent definition, verifies it has a context recipe, computes nested goal depth, and returns an effective copy of the definition with launch-specific <code>terminals</code>. The registered profile remains unchanged.</p>
+<p>TaskCenter keeps terminal selection at launch time. <code>TerminalToolRouter</code> loads the registered agent definition, verifies it has a context recipe, computes nested workflow depth, and returns an effective copy of the definition with launch-specific <code>terminals</code>. The registered profile remains unchanged.</p>
 <table>
   <thead><tr><th>Agent kind</th><th>Launch condition</th><th>Allowed terminals</th></tr></thead>
   <tbody>
-    <tr><td>Planner</td><td>Nested goal depth is at most 1.</td><td><code>submit_plan_closes_goal</code>, <code>submit_plan_defers_goal</code>.</td></tr>
-    <tr><td>Planner</td><td>Nested goal depth is greater than 1.</td><td><code>submit_plan_closes_goal</code> only.</td></tr>
-    <tr><td>Executor</td><td>Attempt-bound goal depth is at most 1.</td><td><code>submit_execution_handoff</code>, <code>submit_execution_success</code>, <code>submit_execution_blocker</code>.</td></tr>
-    <tr><td>Executor</td><td>Nested goal depth is greater than 1.</td><td><code>submit_execution_success</code>, <code>submit_execution_blocker</code>; <code>submit_execution_handoff</code> is filtered out.</td></tr>
+    <tr><td>Planner</td><td>Nested workflow depth is at most 1.</td><td><code>submit_plan_closes_goal</code>, <code>submit_plan_defers_goal</code>.</td></tr>
+    <tr><td>Planner</td><td>Nested workflow depth is greater than 1.</td><td><code>submit_plan_closes_goal</code> only.</td></tr>
+    <tr><td>Executor</td><td>Attempt-bound workflow depth is at most 1.</td><td><code>submit_execution_handoff</code>, <code>submit_execution_success</code>, <code>submit_execution_blocker</code>.</td></tr>
+    <tr><td>Executor</td><td>Nested workflow depth is greater than 1.</td><td><code>submit_execution_success</code>, <code>submit_execution_blocker</code>; <code>submit_execution_handoff</code> is filtered out.</td></tr>
   </tbody>
 </table>
 <p>After routing, prompt rendering and real tool registration see the same terminal set, because both consume the effective agent definition. The terminal registry then provides the shared selection text for those tools.</p>

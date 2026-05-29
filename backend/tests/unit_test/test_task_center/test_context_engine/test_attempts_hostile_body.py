@@ -34,7 +34,7 @@ def _iteration() -> Iteration:
     now = datetime.now(UTC)
     return Iteration(
         id="seg-1",
-        goal_id="g-1",
+        workflow_id="g-1",
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="iteration goal",

@@ -29,7 +29,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing-only
     from task_center._core.persistence import (
         AttemptStoreProtocol,
         IterationStoreProtocol,
-        GoalStoreProtocol,
+        WorkflowStoreProtocol,
         TaskStoreProtocol,
     )
 
@@ -56,7 +56,7 @@ class ContextEngineDeps:
     tests is one keyword argument.
     """
 
-    goal_store: GoalStoreProtocol
+    workflow_store: WorkflowStoreProtocol
     iteration_store: IterationStoreProtocol
     attempt_store: AttemptStoreProtocol
     task_store: TaskStoreProtocol

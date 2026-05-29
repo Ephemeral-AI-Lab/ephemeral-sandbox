@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Protocol
 from task_center._core.primitives import TaskCenterInvariantViolation
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only
-    from task_center.goal.state import GoalClosureReport
+    from task_center.workflow.state import WorkflowClosureReport
     from task_center.submissions import (
         EvaluatorSubmission,
         GeneratorSubmission,
@@ -30,7 +30,7 @@ class RegisteredAttemptOrchestrator(Protocol):
 
     def start(self) -> None: ...
 
-    def apply_goal_closure_report(self, report: GoalClosureReport) -> None: ...
+    def apply_workflow_closure_report(self, report: WorkflowClosureReport) -> None: ...
 
     def apply_planner_failure(self, submission: PlannerFailureSubmission) -> None: ...
 

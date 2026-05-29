@@ -48,7 +48,7 @@ def test_packet_auto_generates_id():
     packet = ContextPacket(
         target_role="planner",
         target_id="g-1",
-        canonical_refs=ContextRefs(goal_id="req-A"),
+        canonical_refs=ContextRefs(workflow_id="req-A"),
     )
     assert packet.id  # non-empty UUID string
     assert isinstance(packet.id, str)
@@ -59,7 +59,7 @@ def test_packet_serialization_round_trip():
         target_role="planner",
         target_id=None,
         canonical_refs=ContextRefs(
-            goal_id="req",
+            workflow_id="req",
             iteration_id="seg",
             attempt_id="g",
             task_id="t",
@@ -87,6 +87,6 @@ def test_packet_extra_fields_rejected():
     with pytest.raises(ValidationError):
         ContextPacket(
             target_role="planner",
-            canonical_refs=ContextRefs(goal_id="r"),
+            canonical_refs=ContextRefs(workflow_id="r"),
             unknown="x",  # type: ignore[arg-type]
         )

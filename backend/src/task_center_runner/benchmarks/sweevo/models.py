@@ -123,14 +123,17 @@ def _strip_exit_code_marker(output: str) -> str:
     return re.sub(r"\n?EXIT_CODE=\d+\s*$", "", output, flags=re.S)
 
 
-def _sweevo_sandbox_name(instance: SWEEvoInstance) -> str:
+def _sweevo_sandbox_name(instance: SWEEvoInstance, worker: str | None = None) -> str:
     """Deterministic, instance-stable container name.
 
     The sweevo workflow persists one container per ``instance_id`` so back-to-back
     runs reuse the same container. Docker enforces name uniqueness; the second
     invocation fails fast on "container already in use" instead of leaking.
     """
-    return _truncate_dns_label(f"sweevo-{instance.instance_id}")
+    base = f"sweevo-{instance.instance_id}"
+    if worker:
+        base = f"{base}-{worker}"
+    return _truncate_dns_label(base)
 
 
 def _sweevo_sandbox_labels(instance: SWEEvoInstance, repo_dir: str) -> dict[str, str]:

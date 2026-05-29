@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TaskCenter Goal Iteration Attempt - EphemeralOS Architecture</title>
+<title>TaskCenter Workflow Iteration Attempt - EphemeralOS Architecture</title>
 <link rel="stylesheet" href="../assets/styles.css">
 </head>
 <body data-module="task-center" data-page="lifecycle" data-root="../">
@@ -24,7 +24,7 @@
   <h2>TaskCenter Pages</h2>
   <ol>
     <li><a href="index.html" data-doc-module="task-center" data-doc-section="index" data-doc-page="index.html">Overview</a></li>
-    <li><a href="lifecycle.html" data-doc-module="task-center" data-doc-section="lifecycle" data-doc-page="lifecycle.html" class="active">Goal Iteration Attempt</a></li>
+    <li><a href="lifecycle.html" data-doc-module="task-center" data-doc-section="lifecycle" data-doc-page="lifecycle.html" class="active">Workflow Iteration Attempt</a></li>
     <li><a href="attempt-harness.html" data-doc-module="task-center" data-doc-section="attempt-harness" data-doc-page="attempt-harness.html">Attempt Harness</a></li>
     <li><a href="context-engine.html" data-doc-module="task-center" data-doc-section="context-engine" data-doc-page="context-engine.html">Context Engine</a></li>
     <li><a href="agent-roles.html" data-doc-module="task-center" data-doc-section="agent-roles" data-doc-page="agent-roles.html">Agent Roles</a></li>
@@ -35,15 +35,15 @@
 </nav>
 <main>
 <div class="doc-actions">
-  <span><a href="../index.html">Architecture</a> / TaskCenter / Goal Iteration Attempt</span>
+  <span><a href="../index.html">Architecture</a> / TaskCenter / Workflow Iteration Attempt</span>
   <span class="nav-pair"><a href="index.html">Overview</a><a href="attempt-harness.html">Attempt Harness</a></span>
 </div>
-<h1>TaskCenter Goal -> Iteration -> Attempt</h1>
+<h1>TaskCenter Workflow -> Iteration -> Attempt</h1>
 <nav class="page-toc" aria-labelledby="page-toc-heading">
   <h3 id="page-toc-heading">Contents</h3>
   <ol>
-    <li><a href="#scope-state-chain"><span>1</span> Goal -> Iteration -> Attempt Model</a></li>
-    <li><a href="#goal-start-workflow"><span>2</span> Goal Start Workflow</a></li>
+    <li><a href="#scope-state-chain"><span>1</span> Workflow -> Iteration -> Attempt Model</a></li>
+    <li><a href="#goal-start-workflow"><span>2</span> Workflow Start Workflow</a></li>
     <li><a href="#iteration-retry-deferral"><span>3</span> Retry And Deferral</a></li>
     <li><a href="#delegated-child-goals"><span>4</span> Delegated Child Goals</a></li>
     <li><a href="#nested-planning-case"><span>5</span> Nested Planning Case</a></li>
@@ -52,41 +52,41 @@
   </ol>
 </nav>
 
-<p class="lead">This is the most important TaskCenter page: the control plane is the persisted <code>Goal -> Iteration -> Attempt</code> model. A Goal is the objective, an Iteration is the bounded planning slice for that objective, and an Attempt is one planner -> generator DAG -> evaluator try inside that Iteration. Everything else in TaskCenter exists to feed, advance, retry, continue, or close this state chain.</p>
+<p class="lead">This is the most important TaskCenter page: the control plane is the persisted <code>Workflow -> Iteration -> Attempt</code> model. A Workflow is the objective, an Iteration is the bounded planning slice for that objective, and an Attempt is one planner -> generator DAG -> evaluator try inside that Iteration. Everything else in TaskCenter exists to feed, advance, retry, continue, or close this state chain.</p>
 
-<section id="scope-state-chain" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/goal/state.py backend/src/task_center/iteration/state.py backend/src/task_center/attempt/state.py backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/src/task_center/_core/persistence.py docs/task_center_harness_and_context_engine.html">
-<h2>Goal -> Iteration -> Attempt Model <a class="anchor" href="#scope-state-chain">#</a></h2>
+<section id="scope-state-chain" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/workflow/state.py backend/src/task_center/iteration/state.py backend/src/task_center/attempt/state.py backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/src/task_center/_core/persistence.py docs/task_center_harness_and_context_engine.html">
+<h2>Workflow -> Iteration -> Attempt Model <a class="anchor" href="#scope-state-chain">#</a></h2>
 <div class="summary">
   <ul>
-    <li><strong>Goal</strong>: owns the objective, origin, ordered iteration ids, terminal status, and final closure report projection.</li>
-    <li><strong>Iteration</strong>: owns one iteration-local goal string plus retry budget. Deferred continuation creates another Iteration under the same Goal.</li>
+    <li><strong>Workflow</strong>: owns the objective, origin, ordered iteration ids, terminal status, and final closure report projection.</li>
+    <li><strong>Iteration</strong>: owns one iteration-local goal string plus retry budget. Deferred continuation creates another Iteration under the same Workflow.</li>
     <li><strong>Attempt</strong>: owns one concrete try inside one Iteration: planner terminal submission, generator DAG rows, generator outcomes, evaluator outcome, and attempt close.</li>
     <li><strong>Task rows</strong>: store the launched planner, generator, and evaluator agents for an Attempt. They are not a fourth control-plane level.</li>
   </ul>
 </div>
-<div class="diagram" aria-label="Goal iteration attempt state chain">
+<div class="diagram" aria-label="Workflow iteration attempt state chain">
   <div class="flow-row">
-    <div class="node info"><strong>Goal</strong><small><code>OPEN</code>, <code>SUCCEEDED</code>, <code>FAILED</code>, <code>CANCELLED</code></small></div>
+    <div class="node info"><strong>Workflow</strong><small><code>OPEN</code>, <code>SUCCEEDED</code>, <code>FAILED</code>, <code>CANCELLED</code></small></div>
     <div class="node"><strong>Iteration</strong><small>sequence, attempt budget, deferred continuation goal</small></div>
     <div class="node"><strong>Attempt</strong><small><code>PLAN</code>, <code>GENERATE</code>, <code>EVALUATE</code>, <code>CLOSED</code></small></div>
     <div class="node good"><strong>Task rows</strong><small>planner, generators, evaluator, parent waiting goal</small></div>
   </div>
 </div>
 <div class="edge-list">
-  <div><b>goal origin</b><span><code>GoalOrigin.entry(task_center_run_id=...)</code> starts the root run goal. <code>GoalOrigin.task(task_id=...)</code> starts a delegated child goal from a running generator task.</span></div>
-  <div><b>persistent shape</b><span><code>GoalStoreProtocol</code>, <code>IterationStoreProtocol</code>, <code>AttemptStoreProtocol</code>, and <code>TaskStoreProtocol</code> are the storage boundary consumed by Goal -> Iteration -> Attempt code.</span></div>
+  <div><b>goal origin</b><span><code>WorkflowOrigin.entry(task_center_run_id=...)</code> starts the root run goal. <code>WorkflowOrigin.task(task_id=...)</code> starts a delegated child goal from a running generator task.</span></div>
+  <div><b>persistent shape</b><span><code>WorkflowStoreProtocol</code>, <code>IterationStoreProtocol</code>, <code>AttemptStoreProtocol</code>, and <code>TaskStoreProtocol</code> are the storage boundary consumed by Workflow -> Iteration -> Attempt code.</span></div>
   <div><b>current correction</b><span>The older harness HTML says a child goal closure returns the parent task to <code>RUNNING</code>. Current source marks the parent generator <code>DONE</code> on child success or <code>FAILED</code> on child failure, records the closure report payload, and advances the attempt.</span></div>
 </div>
 </section>
 
-<section id="goal-start-workflow" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/goal/starter.py backend/src/task_center/goal/lifecycle.py backend/src/task_center/goal/state.py backend/src/task_center/iteration/attempt_coordinator.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/attempt/deps.py backend/src/task_center/entry/bootstrap.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_goal_request_start.py">
-<h2>Goal Start Workflow <a class="anchor" href="#goal-start-workflow">#</a></h2>
-<p><code>GoalStarter.start()</code> is the only prompt-to-Goal start path. It strips and validates the prompt, prepares entry or task origin, creates the Goal row, creates Iteration 1 with a registered <code>IterationAttemptCoordinator</code>, creates the unstarted initial Attempt, optionally marks the parent task <code>WAITING_GOAL</code>, and then starts the Attempt orchestrator.</p>
-<pre class="diagram" aria-label="GoalStarter start workflow diagram">
-[GoalOrigin]
+<section id="goal-start-workflow" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/workflow/starter.py backend/src/task_center/workflow/lifecycle.py backend/src/task_center/workflow/state.py backend/src/task_center/iteration/attempt_coordinator.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/attempt/deps.py backend/src/task_center/entry/bootstrap.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_workflow_request_start.py">
+<h2>Workflow Start Workflow <a class="anchor" href="#goal-start-workflow">#</a></h2>
+<p><code>WorkflowStarter.start()</code> is the only prompt-to-Workflow start path. It strips and validates the prompt, prepares entry or task origin, creates the Workflow row, creates Iteration 1 with a registered <code>IterationAttemptCoordinator</code>, creates the unstarted initial Attempt, optionally marks the parent task <code>WAITING_WORKFLOW</code>, and then starts the Attempt orchestrator.</p>
+<pre class="diagram" aria-label="WorkflowStarter start workflow diagram">
+[WorkflowOrigin]
         |
         v
-[GoalStarter.start]
+[WorkflowStarter.start]
         |
         v
 [persist goal state]
@@ -100,23 +100,23 @@
         v
 [AttemptOrchestrator launches planner/generator/evaluator flow]
 </pre>
-<div class="edge-list" aria-label="GoalStarter start transitions">
+<div class="edge-list" aria-label="WorkflowStarter start transitions">
   <div><b>origin</b><span>Preparation validates either an entry run id or a running generator task that belongs to an active attempt.</span></div>
-  <div><b>goal</b><span><code>GoalLifecycle.create_goal()</code> inserts the Goal with the selected entry or task-origin metadata.</span></div>
-  <div><b>iteration</b><span><code>create_initial_iteration_with_coordinator()</code> inserts Iteration sequence 1, appends it to the Goal, and registers the open coordinator.</span></div>
-  <div><b>attempt</b><span>The coordinator inserts Attempt sequence 1 before startup; task-origin starts move the parent generator to <code>WAITING_GOAL</code> with a CAS.</span></div>
+  <div><b>goal</b><span><code>WorkflowLifecycle.create_workflow()</code> inserts the Workflow with the selected entry or task-origin metadata.</span></div>
+  <div><b>iteration</b><span><code>create_initial_iteration_with_coordinator()</code> inserts Iteration sequence 1, appends it to the Workflow, and registers the open coordinator.</span></div>
+  <div><b>attempt</b><span>The coordinator inserts Attempt sequence 1 before startup; task-origin starts move the parent generator to <code>WAITING_WORKFLOW</code> with a CAS.</span></div>
   <div><b>launch</b><span><code>IterationAttemptCoordinator.start_attempt()</code> starts the <code>AttemptOrchestrator</code>, which launches the attempt planner.</span></div>
 </div>
 <div class="edge-list">
-  <div><b>entry origin</b><span><code>task_center/entry/bootstrap.py</code> creates the TaskCenter run, then calls <code>GoalStarter(...).start(origin=GoalOrigin.entry(...))</code>; root closure later finishes the run.</span></div>
-  <div><b>task origin</b><span><code>GoalStarter._assert_parent_running_and_no_open_child()</code> rejects missing parents, non-running parents, non-attempt-bound parents, and a second open delegated goal for the same parent task.</span></div>
-  <div><b>compensation</b><span>If initial attempt start fails, <code>GoalStarter._compensate_failed_start()</code> closes the unstarted attempt as <code>STARTUP_FAILED</code>, cancels the iteration and goal, restores the parent when possible, and deregisters the open coordinator.</span></div>
+  <div><b>entry origin</b><span><code>task_center/entry/bootstrap.py</code> creates the TaskCenter run, then calls <code>WorkflowStarter(...).start(origin=WorkflowOrigin.entry(...))</code>; root closure later finishes the run.</span></div>
+  <div><b>task origin</b><span><code>WorkflowStarter._assert_parent_running_and_no_open_child()</code> rejects missing parents, non-running parents, non-attempt-bound parents, and a second open delegated workflow for the same parent task.</span></div>
+  <div><b>compensation</b><span>If initial attempt start fails, <code>WorkflowStarter._compensate_failed_start()</code> closes the unstarted attempt as <code>STARTUP_FAILED</code>, cancels the iteration and goal, restores the parent when possible, and deregisters the open coordinator.</span></div>
 </div>
 </section>
 
-<section id="iteration-retry-deferral" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/iteration/state.py backend/src/task_center/iteration/attempt_coordinator.py backend/src/task_center/goal/lifecycle.py backend/src/task_center/_core/invariants.py backend/src/task_center/attempt/state.py backend/tests/unit_test/test_task_center/test_lifecycle/test_goal_lifecycle.py backend/tests/unit_test/test_task_center/test_lifecycle/test_iteration_attempt_coordinator.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_deferred_retry.py">
+<section id="iteration-retry-deferral" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/iteration/state.py backend/src/task_center/iteration/attempt_coordinator.py backend/src/task_center/workflow/lifecycle.py backend/src/task_center/_core/invariants.py backend/src/task_center/attempt/state.py backend/tests/unit_test/test_task_center/test_lifecycle/test_workflow_lifecycle.py backend/tests/unit_test/test_task_center/test_lifecycle/test_iteration_attempt_coordinator.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_deferred_retry.py">
 <h2>Retry And Deferral <a class="anchor" href="#iteration-retry-deferral">#</a></h2>
-<p>Retry and deferral are separate Goal -> Iteration -> Attempt decisions. A failed Attempt can retry inside the same Iteration while budget remains. A passed Attempt can either terminally close the Goal or carry <code>deferred_goal_for_next_iteration</code>, which closes the current Iteration as succeeded and starts the next Iteration under the same Goal.</p>
+<p>Retry and deferral are separate Workflow -> Iteration -> Attempt decisions. A failed Attempt can retry inside the same Iteration while budget remains. A passed Attempt can either terminally close the Workflow or carry <code>deferred_goal_for_next_iteration</code>, which closes the current Iteration as succeeded and starts the next Iteration under the same Workflow.</p>
 <div class="diagram" aria-label="Retry versus deferral workflow">
   <div class="flow-row">
     <div class="node"><strong>Attempt fails</strong><small>planner, generator, evaluator, or startup failure</small></div>
@@ -152,15 +152,15 @@
   <div><b>exhausted</b><span>Budget exhaustion closes the iteration as failed and emits <code>AttemptPlanFailed</code> with prior attempts ordered by sequence.</span></div>
 </div>
 <div class="edge-list">
-  <div><b>deferral gate</b><span><code>GoalLifecycle.create_deferred_iteration_with_coordinator()</code> requires the predecessor iteration to be <code>SUCCEEDED</code> and to have non-null deferred text.</span></div>
+  <div><b>deferral gate</b><span><code>WorkflowLifecycle.create_deferred_iteration_with_coordinator()</code> requires the predecessor iteration to be <code>SUCCEEDED</code> and to have non-null deferred text.</span></div>
   <div><b>retry scope</b><span>A failed partial-plan attempt does not propagate its deferred continuation to the iteration. The next attempt retries the same iteration scope.</span></div>
-  <div><b>goal stays open</b><span>During delegated continuation and delegated retry, tests keep the parent generator in <code>WAITING_GOAL</code> until the child goal closes terminally.</span></div>
+  <div><b>goal stays open</b><span>During delegated continuation and delegated retry, tests keep the parent generator in <code>WAITING_WORKFLOW</code> until the child goal closes terminally.</span></div>
 </div>
 </section>
 
-<section id="delegated-child-goals" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/tools/submission/context/executor.py backend/src/tools/submission/executor/submit_execution_handoff/submit_execution_handoff.py backend/src/task_center/goal/starter.py backend/src/task_center/attempt/deps.py backend/src/task_center/goal/closure_report_router.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_goal_request_start.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py docs/task_center_harness_and_context_engine.html">
+<section id="delegated-child-goals" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/tools/submission/context/executor.py backend/src/tools/submission/executor/submit_execution_handoff/submit_execution_handoff.py backend/src/task_center/workflow/starter.py backend/src/task_center/attempt/deps.py backend/src/task_center/workflow/closure_report_router.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_workflow_request_start.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py docs/task_center_harness_and_context_engine.html">
 <h2>Delegated Child Goals <a class="anchor" href="#delegated-child-goals">#</a></h2>
-<p>Delegation creates another complete Goal -> Iteration -> Attempt chain. It starts from the executor submission context, not from a direct agent-to-agent channel. <code>submit_execution_handoff</code> resolves the running generator task and calls <code>ExecutorSubmissionContext.start_delegated_goal()</code>, which invokes <code>GoalStarter.start(prompt=goal_handoff, origin=GoalOrigin.task(task_id=current_task_id))</code>.</p>
+<p>Delegation creates another complete Workflow -> Iteration -> Attempt chain. It starts from the executor submission context, not from a direct agent-to-agent channel. <code>submit_execution_handoff</code> resolves the running generator task and calls <code>ExecutorSubmissionContext.start_delegated_workflow()</code>, which invokes <code>WorkflowStarter.start(prompt=goal_handoff, origin=WorkflowOrigin.task(task_id=current_task_id))</code>.</p>
 <pre class="diagram" aria-label="Delegated child goal workflow diagram">
 [parent generator task]
         |
@@ -168,50 +168,50 @@
 [submit_execution_handoff]
         |
         v
-[GoalStarter.start child GoalOrigin.task]
+[WorkflowStarter.start child WorkflowOrigin.task]
         |
         v
-[parent attempt enters WAITING_GOAL]
+[parent attempt enters WAITING_WORKFLOW]
         |
         v
 [child goal completes]
         |
         v
-[GoalClosureReportRouter]
+[WorkflowClosureReportRouter]
         |
         v
 [AttemptOrchestrator resumes parent]
 </pre>
 <div class="edge-list" aria-label="Delegated child goal transitions">
   <div><b>handoff</b><span>The parent generator calls <code>submit_execution_handoff</code> while running inside the parent attempt DAG.</span></div>
-  <div><b>child start</b><span><code>GoalStarter</code> validates the parent, inserts the child state chain, and marks the parent generator <code>WAITING_GOAL</code>.</span></div>
-  <div><b>parent non-quiescent</b><span><code>WAITING_GOAL</code> is not terminal, so the parent attempt cannot advance past that generator until closure delivery.</span></div>
+  <div><b>child start</b><span><code>WorkflowStarter</code> validates the parent, inserts the child state chain, and marks the parent generator <code>WAITING_WORKFLOW</code>.</span></div>
+  <div><b>parent non-quiescent</b><span><code>WAITING_WORKFLOW</code> is not terminal, so the parent attempt cannot advance past that generator until closure delivery.</span></div>
   <div><b>child-local policy</b><span>Child retry stays inside the child iteration; child deferral creates another child iteration and still does not resume the parent.</span></div>
-  <div><b>report delivery</b><span>Terminal child Goal closure routes to the parent orchestrator, which records the report and marks the waiting generator <code>DONE</code> on success or <code>FAILED</code> on failure.</span></div>
+  <div><b>report delivery</b><span>Terminal child Workflow closure routes to the parent orchestrator, which records the report and marks the waiting generator <code>DONE</code> on success or <code>FAILED</code> on failure.</span></div>
 </div>
 <div class="callout warn">
   <span class="label">Stale doc correction</span>
-  <code>docs/task_center_harness_and_context_engine.html</code> still describes <code>WAITING_GOAL</code> returning to <code>RUNNING</code>. In current code, <code>AttemptOrchestrator.apply_goal_closure_report()</code> makes the parent generator terminal: <code>DONE</code> on success, <code>FAILED</code> on failure.
+  <code>docs/task_center_harness_and_context_engine.html</code> still describes <code>WAITING_WORKFLOW</code> returning to <code>RUNNING</code>. In current code, <code>AttemptOrchestrator.apply_workflow_closure_report()</code> makes the parent generator terminal: <code>DONE</code> on success, <code>FAILED</code> on failure.
 </div>
 <div class="edge-list">
-  <div><b>single child</b><span><code>GoalStarter</code> lists open goals for the parent task and rejects a second open child goal before creating another one.</span></div>
-  <div><b>waiting invariant</b><span><code>GoalClosureReportRouter</code> only delivers task-origin reports to tasks currently in <code>WAITING_GOAL</code>; already <code>DONE</code> or <code>FAILED</code> parents are treated as already delivered.</span></div>
+  <div><b>single child</b><span><code>WorkflowStarter</code> lists open goals for the parent task and rejects a second open child goal before creating another one.</span></div>
+  <div><b>waiting invariant</b><span><code>WorkflowClosureReportRouter</code> only delivers task-origin reports to tasks currently in <code>WAITING_WORKFLOW</code>; already <code>DONE</code> or <code>FAILED</code> parents are treated as already delivered.</span></div>
   <div><b>attempt progress</b><span>A child success can let the parent attempt move to evaluator if all generators are now done. A child failure blocks dependents and eventually closes the parent attempt with <code>GENERATOR_FAILED</code>.</span></div>
 </div>
 </section>
 
-<section id="nested-planning-case" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/goal/ancestry.py backend/src/task_center/_core/terminal_tool_routing.py backend/src/task_center/goal/starter.py backend/src/tools/submission/executor/submit_execution_handoff/submit_execution_handoff.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/attempt/stage_advancer.py backend/tests/unit_test/test_task_center/test_lifecycle/test_planner_capability_fork.py backend/tests/unit_test/test_task_center/test_lifecycle/test_orchestrator_composer.py backend/tests/unit_test/test_tools/test_submission_terminal_routing.py">
+<section id="nested-planning-case" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/workflow/ancestry.py backend/src/task_center/_core/terminal_tool_routing.py backend/src/task_center/workflow/starter.py backend/src/tools/submission/executor/submit_execution_handoff/submit_execution_handoff.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/attempt/stage_advancer.py backend/tests/unit_test/test_task_center/test_lifecycle/test_planner_capability_fork.py backend/tests/unit_test/test_task_center/test_lifecycle/test_orchestrator_composer.py backend/tests/unit_test/test_tools/test_submission_terminal_routing.py">
 <h2>Nested Planning Case <a class="anchor" href="#nested-planning-case">#</a></h2>
-<p>The nested planning case is a delegated child Goal whose planner must plan inside a parent generator task. This is still the same model: the parent Attempt pauses one generator task, the child Goal gets its own Iteration and Attempt, and the child planner creates its own generator DAG.</p>
+<p>The nested planning case is a delegated child Workflow whose planner must plan inside a parent generator task. This is still the same model: the parent Attempt pauses one generator task, the child Workflow gets its own Iteration and Attempt, and the child planner creates its own generator DAG.</p>
 <div class="diagram" aria-label="Nested planning state chain">
   <div class="flow-row">
-    <div class="node info"><strong>Parent Goal G1</strong><small>root depth 1</small></div>
+    <div class="node info"><strong>Parent Workflow G1</strong><small>root depth 1</small></div>
     <div class="node"><strong>Parent Iteration I1</strong><small>current planning slice</small></div>
     <div class="node"><strong>Parent Attempt A1</strong><small>planner -> generator DAG -> evaluator</small></div>
-    <div class="node warn"><strong>Generator T1</strong><small><code>WAITING_GOAL</code></small></div>
+    <div class="node warn"><strong>Generator T1</strong><small><code>WAITING_WORKFLOW</code></small></div>
   </div>
   <div class="flow-row">
-    <div class="node info"><strong>Child Goal G2</strong><small>delegated depth 2</small></div>
+    <div class="node info"><strong>Child Workflow G2</strong><small>delegated depth 2</small></div>
     <div class="node"><strong>Child Iteration I2</strong><small>child scope</small></div>
     <div class="node"><strong>Child Attempt A2</strong><small>child planner and child generator DAG</small></div>
     <div class="node good"><strong>Closure report</strong><small>resumes parent A1</small></div>
@@ -236,64 +236,64 @@
 [parent lifecycle advances with child evidence]
 </pre>
 <div class="edge-list" aria-label="Nested planning transitions">
-  <div><b>delegate</b><span>Parent Attempt A1 launches generator T1, and T1 uses <code>submit_execution_handoff</code> to start a task-origin child Goal.</span></div>
-  <div><b>depth</b><span><code>nested_goal_depth()</code> counts the child Goal and root ancestor, so G2 under G1 returns depth 2.</span></div>
+  <div><b>delegate</b><span>Parent Attempt A1 launches generator T1, and T1 uses <code>submit_execution_handoff</code> to start a task-origin child Workflow.</span></div>
+  <div><b>depth</b><span><code>nested_workflow_depth()</code> counts the child Workflow and root ancestor, so G2 under G1 returns depth 2.</span></div>
   <div><b>filter</b><span>At depth greater than 1, the child planner keeps only <code>submit_plan_closes_goal</code> and the child executor loses <code>submit_execution_handoff</code>.</span></div>
-  <div><b>child attempt</b><span>Child Attempt A2 runs its own planner -> generator DAG -> evaluator lifecycle before closing the child Goal.</span></div>
+  <div><b>child attempt</b><span>Child Attempt A2 runs its own planner -> generator DAG -> evaluator lifecycle before closing the child Workflow.</span></div>
   <div><b>parent continuation</b><span>Only after T1 becomes <code>DONE</code> or <code>FAILED</code> can A1 launch downstream generators or start the parent evaluator.</span></div>
 </div>
 <div class="callout warn">
   <span class="label">Depth rule</span>
-  The root Goal is depth 1. A delegated child Goal is depth 2. In current launch routing, depth greater than 1 disables further planning deferral and executor handoff for that nested Goal, so nested planning stays bounded by terminal close/blocker outcomes.
+  The root Workflow is depth 1. A delegated child Workflow is depth 2. In current launch routing, depth greater than 1 disables further planning deferral and executor handoff for that nested Workflow, so nested planning stays bounded by terminal close/blocker outcomes.
 </div>
 </section>
 
-<section id="closure-routing-invariants" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/goal/lifecycle.py backend/src/task_center/goal/closure_report_router.py backend/src/task_center/attempt/deps.py backend/src/task_center/attempt/orchestrator_registry.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/_core/invariants.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py backend/tests/unit_test/test_task_center/test_lifecycle/test_attempt_orchestrator.py">
+<section id="closure-routing-invariants" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/workflow/lifecycle.py backend/src/task_center/workflow/closure_report_router.py backend/src/task_center/attempt/deps.py backend/src/task_center/attempt/orchestrator_registry.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/_core/invariants.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py backend/tests/unit_test/test_task_center/test_lifecycle/test_attempt_orchestrator.py">
 <h2>Closure Routing And Invariants <a class="anchor" href="#closure-routing-invariants">#</a></h2>
-<p><code>GoalLifecycle.handle_iteration_closed()</code> is the transition point from iteration reports to goal closure or continuation. It creates deferred iterations for <code>SuccessDeferred</code>, closes goals for <code>TerminalSuccess</code> and <code>AttemptPlanFailed</code>, then deregisters the closed iteration coordinator.</p>
+<p><code>WorkflowLifecycle.handle_iteration_closed()</code> is the transition point from iteration reports to goal closure or continuation. It creates deferred iterations for <code>SuccessDeferred</code>, closes goals for <code>TerminalSuccess</code> and <code>AttemptPlanFailed</code>, then deregisters the closed iteration coordinator.</p>
 <div class="edge-list">
-  <div><b>entry-origin delivery</b><span><code>GoalClosureReportRouter._deliver_entry_origin()</code> finishes the TaskCenter run as <code>done</code> or <code>failed</code> and treats already finished runs as idempotent delivery.</span></div>
-  <div><b>task-origin delivery</b><span>The router looks up the parent task, requires <code>WAITING_GOAL</code>, reconstructs the parent task object from <code>AttemptDeps</code>, and calls <code>apply_goal_closure_report()</code>.</span></div>
-  <div><b>process-local registry</b><span>While a parent task is <code>WAITING_GOAL</code>, its parent attempt cannot be quiescent and its <code>AttemptOrchestrator</code> must still be registered in this process. A missing orchestrator is a hard invariant violation.</span></div>
+  <div><b>entry-origin delivery</b><span><code>WorkflowClosureReportRouter._deliver_entry_origin()</code> finishes the TaskCenter run as <code>done</code> or <code>failed</code> and treats already finished runs as idempotent delivery.</span></div>
+  <div><b>task-origin delivery</b><span>The router looks up the parent task, requires <code>WAITING_WORKFLOW</code>, reconstructs the parent task object from <code>AttemptDeps</code>, and calls <code>apply_workflow_closure_report()</code>.</span></div>
+  <div><b>process-local registry</b><span>While a parent task is <code>WAITING_WORKFLOW</code>, its parent attempt cannot be quiescent and its <code>AttemptOrchestrator</code> must still be registered in this process. A missing orchestrator is a hard invariant violation.</span></div>
   <div><b>idempotent close reports</b><span>The router treats parents already <code>DONE</code> or <code>FAILED</code> as <code>already_delivered</code>, and the orchestrator returns silently if a second direct report finds the task no longer waiting.</span></div>
   <div><b>state validation</b><span><code>_core/invariants.py</code> centralizes checks for open goals, contiguous iteration and attempt sequence numbers, stage correctness, ownership, failure reasons, and valid attempt close states.</span></div>
 </div>
 <div class="summary">
   <ul>
-    <li>Goal -> Iteration -> Attempt policy stays in <code>GoalStarter</code>, <code>GoalLifecycle</code>, <code>IterationAttemptCoordinator</code>, <code>GoalClosureReportRouter</code>, and <code>AttemptOrchestrator</code>.</li>
+    <li>Workflow -> Iteration -> Attempt policy stays in <code>WorkflowStarter</code>, <code>WorkflowLifecycle</code>, <code>IterationAttemptCoordinator</code>, <code>WorkflowClosureReportRouter</code>, and <code>AttemptOrchestrator</code>.</li>
     <li>The context engine later reads persisted state. It does not choose retry, deferral, child-goal delivery, or goal closure policy.</li>
     <li>The per-attempt orchestrator is not a global agent orchestrator; it only advances one attempt's planner, generators, and evaluator.</li>
   </ul>
 </div>
 </section>
 
-<section id="evidence-refresh" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/goal/state.py backend/src/task_center/goal/starter.py backend/src/task_center/goal/lifecycle.py backend/src/task_center/goal/closure_report_router.py backend/src/task_center/iteration/state.py backend/src/task_center/iteration/attempt_coordinator.py backend/src/task_center/attempt/deps.py backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/src/task_center/_core/persistence.py backend/tests/unit_test/test_task_center/test_lifecycle/test_goal_lifecycle.py backend/tests/unit_test/test_task_center/test_lifecycle/test_iteration_attempt_coordinator.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_goal_request_start.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_deferred_retry.py docs/task_center_harness_and_context_engine.html">
+<section id="evidence-refresh" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/task_center/workflow/state.py backend/src/task_center/workflow/starter.py backend/src/task_center/workflow/lifecycle.py backend/src/task_center/workflow/closure_report_router.py backend/src/task_center/iteration/state.py backend/src/task_center/iteration/attempt_coordinator.py backend/src/task_center/attempt/deps.py backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/src/task_center/_core/persistence.py backend/tests/unit_test/test_task_center/test_lifecycle/test_workflow_lifecycle.py backend/tests/unit_test/test_task_center/test_lifecycle/test_iteration_attempt_coordinator.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_workflow_request_start.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_deferred_retry.py docs/task_center_harness_and_context_engine.html">
 <h2>Evidence And Refresh <a class="anchor" href="#evidence-refresh">#</a></h2>
 <div class="evidence-grid">
   <div class="evidence-card">
     <h4>Primary Code</h4>
-    <p><code>goal/starter.py</code>, <code>goal/lifecycle.py</code>, <code>goal/ancestry.py</code>, <code>goal/closure_report_router.py</code>, <code>iteration/attempt_coordinator.py</code>, and <code>attempt/deps.py</code> own the Goal -> Iteration -> Attempt transitions described here.</p>
+    <p><code>goal/starter.py</code>, <code>goal/lifecycle.py</code>, <code>goal/ancestry.py</code>, <code>goal/closure_report_router.py</code>, <code>iteration/attempt_coordinator.py</code>, and <code>attempt/deps.py</code> own the Workflow -> Iteration -> Attempt transitions described here.</p>
   </div>
   <div class="evidence-card">
     <h4>Verification Anchors</h4>
-    <p><code>test_goal_lifecycle.py</code>, <code>test_iteration_attempt_coordinator.py</code>, <code>test_phase04_goal_request_start.py</code>, <code>test_phase04_close_report_delivery.py</code>, and <code>test_phase04_deferred_retry.py</code> cover initial start, compensation, retry, deferral, delegated continuation, and closure delivery.</p>
+    <p><code>test_workflow_lifecycle.py</code>, <code>test_iteration_attempt_coordinator.py</code>, <code>test_phase04_workflow_request_start.py</code>, <code>test_phase04_close_report_delivery.py</code>, and <code>test_phase04_deferred_retry.py</code> cover initial start, compensation, retry, deferral, delegated continuation, and closure delivery.</p>
   </div>
   <div class="evidence-card">
     <h4>Stale Claim Watch</h4>
-    <p>Refresh this page if older diagrams are updated around <code>WAITING_GOAL</code>, if close-report delivery becomes durable across restarts, or if retry moves out of <code>IterationAttemptCoordinator</code>.</p>
+    <p>Refresh this page if older diagrams are updated around <code>WAITING_WORKFLOW</code>, if close-report delivery becomes durable across restarts, or if retry moves out of <code>IterationAttemptCoordinator</code>.</p>
   </div>
 </div>
 <div class="summary">
   <ul>
-    <li>Refresh command shape: <code>git diff e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa..HEAD -- backend/src/task_center/goal backend/src/task_center/iteration backend/src/task_center/attempt backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/tests/unit_test/test_task_center/test_lifecycle docs/task_center_harness_and_context_engine.html</code></li>
-    <li>Focused verification: <code>uv run pytest backend/tests/unit_test/test_task_center/test_lifecycle/test_goal_lifecycle.py backend/tests/unit_test/test_task_center/test_lifecycle/test_iteration_attempt_coordinator.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_goal_request_start.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_deferred_retry.py -q</code></li>
+    <li>Refresh command shape: <code>git diff e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa..HEAD -- backend/src/task_center/workflow backend/src/task_center/iteration backend/src/task_center/attempt backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/tests/unit_test/test_task_center/test_lifecycle docs/task_center_harness_and_context_engine.html</code></li>
+    <li>Focused verification: <code>uv run pytest backend/tests/unit_test/test_task_center/test_lifecycle/test_workflow_lifecycle.py backend/tests/unit_test/test_task_center/test_lifecycle/test_iteration_attempt_coordinator.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_workflow_request_start.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_deferred_retry.py -q</code></li>
   </ul>
 </div>
 </section>
 
 <div class="page-baseline" data-page-baseline-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa">
   <strong>Maintenance baseline</strong>
-  <span>TaskCenter Goal -> Iteration -> Attempt technical sections reviewed against <code>e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa</code>.</span>
+  <span>TaskCenter Workflow -> Iteration -> Attempt technical sections reviewed against <code>e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa</code>.</span>
   <code>git diff e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa..HEAD -- &lt;section data-evidence-paths&gt;</code>
 </div>
 <div class="page-footer-nav"><span><a href="index.html">Overview</a></span><span><a href="attempt-harness.html">Attempt Harness</a></span></div>

@@ -28,8 +28,8 @@ from task_center_runner.scenarios.base import (
 )
 from task_center_runner.scenarios._scenario_helpers import (
     context_message_field,
-    is_entry_origin_goal,
-    is_recursive_goal,
+    is_entry_origin_workflow,
+    is_recursive_workflow,
 )
 from task_center_runner.scenarios.user_input import (
     UserInputPlan,
@@ -59,8 +59,8 @@ class FullStackAdversarial(ScenarioBase):
         EventType.EVALUATOR_FAILURE,
         EventType.PLANNER_DEFERS_GOAL_PLAN,
         EventType.VERIFIER_FAILURE,
-        EventType.RECURSIVE_GOAL_REQUESTED,
-        EventType.RECURSIVE_GOAL_COMPLETED,
+        EventType.RECURSIVE_WORKFLOW_REQUESTED,
+        EventType.RECURSIVE_WORKFLOW_COMPLETED,
         EventType.EVALUATOR_SUCCESS,
     )
 
@@ -90,7 +90,7 @@ class FullStackAdversarial(ScenarioBase):
         return [asdict(cell) for cell in self._matrix_cells]
 
     def planner_response(self, ctx: ScenarioContext) -> ToolCallSpec:
-        if is_recursive_goal(ctx):
+        if is_recursive_workflow(ctx):
             return self._recursive_planner_response(ctx)
         return self._entry_origin_planner_response(ctx)
 
@@ -154,7 +154,7 @@ class FullStackAdversarial(ScenarioBase):
         )
 
     def evaluator_response(self, ctx: ScenarioContext) -> ToolCallSpec:
-        if is_entry_origin_goal(ctx) and ctx.iteration.sequence_no == 1:
+        if is_entry_origin_workflow(ctx) and ctx.iteration.sequence_no == 1:
             if ctx.attempt.attempt_sequence_no == 1:
                 return ToolCallSpec(
                     submit_evaluation_failure,
@@ -455,8 +455,8 @@ class FullStackAdversarial(ScenarioBase):
         if self._user_input_plan is not None:
             return self._user_input_plan
         prompt = ""
-        if ctx.goal is not None and is_entry_origin_goal(ctx):
-            prompt = str(ctx.goal.goal or "")
+        if ctx.workflow is not None and is_entry_origin_workflow(ctx):
+            prompt = str(ctx.workflow.goal or "")
         if not prompt:
             prompt = ctx.prompt or ctx.context_message or ""
         self._entry_prompt = prompt
@@ -505,7 +505,7 @@ class FullStackAdversarial(ScenarioBase):
         ctx: ScenarioContext,
         checkpoint: str,
     ) -> bool:
-        if not is_entry_origin_goal(ctx):
+        if not is_entry_origin_workflow(ctx):
             return False
         if checkpoint != "subsystem_wave_guard" or self._forced_failure_seen:
             return False

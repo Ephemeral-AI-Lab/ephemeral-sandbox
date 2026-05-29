@@ -1,6 +1,6 @@
 """Unit tests for the SWE-EVO live e2e AuditRecorder.
 
-Exercises the 4 ORM commit listeners (Goal/Iteration/Attempt/Task) plus the
+Exercises the 4 ORM commit listeners (Workflow/Iteration/Attempt/Task) plus the
 agent_run_id -> task_id mapping listener, the per-Task message recorder
 gating by primary role, and the run.json/metrics.json writers.
 """
@@ -28,7 +28,7 @@ from db.models.task_center import (
 )
 from db.stores.attempt_store import AttemptStore
 from db.stores.iteration_store import IterationStore
-from db.stores.goal_store import GoalStore
+from db.stores.workflow_store import WorkflowStore
 from db.stores.task_center_store import TaskCenterStore
 from task_center_runner.audit.bus import AuditEventBus
 from task_center_runner.audit.events import Event, EventType
@@ -36,7 +36,7 @@ from task_center_runner.audit.node_id import NodeId
 from task_center_runner.audit.recorder import AuditRecorder
 from task_center import (
     IterationCreationReason,
-    GoalStatus,
+    WorkflowStatus,
 )
 
 
@@ -49,7 +49,7 @@ class _TestStoreBundle:
     engine: Engine
     session_factory: sessionmaker[Session]
     task_store: TaskCenterStore
-    goal_store: GoalStore
+    workflow_store: WorkflowStore
     iteration_store: IterationStore
     attempt_store: AttemptStore
 
@@ -70,13 +70,13 @@ def stores() -> Iterator[_TestStoreBundle]:
         engine=engine,
         session_factory=session_factory,
         task_store=TaskCenterStore(),
-        goal_store=GoalStore(),
+        workflow_store=WorkflowStore(),
         iteration_store=IterationStore(),
         attempt_store=AttemptStore(),
     )
     for store in (
         bundle.task_store,
-        bundle.goal_store,
+        bundle.workflow_store,
         bundle.iteration_store,
         bundle.attempt_store,
     ):
@@ -143,7 +143,7 @@ def test_goal_insert_writes_latest_snapshot(
     recorder = _make_recorder(tmp_path)
     recorder.start()
     try:
-        goal = stores.goal_store.insert(
+        goal = stores.workflow_store.insert(
             task_center_run_id=_RUN_ID,
             requested_by_task_id="parent_task_1",
             goal="solve the problem",
@@ -151,15 +151,15 @@ def test_goal_insert_writes_latest_snapshot(
     finally:
         recorder.dispose()
 
-    goal_dir = recorder.run_dir / f"goal_01_{goal.id}"
-    snapshot = goal_dir / "goal.json"
+    workflow_dir = recorder.run_dir / f"workflow_01_{goal.id}"
+    snapshot = workflow_dir / "workflow.json"
     assert snapshot.exists()
     row = _read_json(snapshot)
     assert row["id"] == goal.id
     assert row["status"] == "open"
     assert "context" not in row
     assert "summary" not in row
-    assert not (goal_dir / "goal.jsonl").exists()
+    assert not (workflow_dir / "workflow.jsonl").exists()
 
 
 def test_goal_update_overwrites_latest_snapshot(
@@ -169,21 +169,21 @@ def test_goal_update_overwrites_latest_snapshot(
     recorder = _make_recorder(tmp_path)
     recorder.start()
     try:
-        goal = stores.goal_store.insert(
+        goal = stores.workflow_store.insert(
             task_center_run_id=_RUN_ID,
             requested_by_task_id="parent_task_1",
             goal="solve the problem",
         )
-        stores.goal_store.set_status(
+        stores.workflow_store.set_status(
             goal.id,
-            status=GoalStatus.SUCCEEDED,
+            status=WorkflowStatus.SUCCEEDED,
             final_outcome={"ok": True},
             closed_at=datetime.now(UTC),
         )
     finally:
         recorder.dispose()
 
-    snapshot = recorder.run_dir / f"goal_01_{goal.id}" / "goal.json"
+    snapshot = recorder.run_dir / f"workflow_01_{goal.id}" / "workflow.json"
     row = _read_json(snapshot)
     assert row["status"] == "succeeded"
     assert row["final_outcome"] == {"ok": True}
@@ -196,13 +196,13 @@ def test_iteration_and_attempt_listeners(
     recorder = _make_recorder(tmp_path)
     recorder.start()
     try:
-        goal = stores.goal_store.insert(
+        goal = stores.workflow_store.insert(
             task_center_run_id=_RUN_ID,
             requested_by_task_id="parent_task_1",
             goal="solve the problem",
         )
         iteration = stores.iteration_store.insert(
-            goal_id=goal.id,
+            workflow_id=goal.id,
             sequence_no=1,
             creation_reason=IterationCreationReason.INITIAL,
             goal="ep goal",
@@ -215,8 +215,8 @@ def test_iteration_and_attempt_listeners(
     finally:
         recorder.dispose()
 
-    goal_dir = recorder.run_dir / f"goal_01_{goal.id}"
-    iteration_dir = goal_dir / f"iteration_01_{iteration.id}"
+    workflow_dir = recorder.run_dir / f"workflow_01_{goal.id}"
+    iteration_dir = workflow_dir / f"iteration_01_{iteration.id}"
     attempt_dir = iteration_dir / f"attempt_01_{attempt.id}"
     iteration_row = _read_json(iteration_dir / "iteration.json")
     attempt_row = _read_json(attempt_dir / "attempt.json")
@@ -268,12 +268,12 @@ def test_task_dir_placement_per_role(
     recorder = _make_recorder(tmp_path)
     recorder.start()
     try:
-        goal = stores.goal_store.insert(
+        goal = stores.workflow_store.insert(
             task_center_run_id=_RUN_ID,
             goal="goal",
         )
         iteration = stores.iteration_store.insert(
-            goal_id=goal.id,
+            workflow_id=goal.id,
             sequence_no=1,
             creation_reason=IterationCreationReason.INITIAL,
             goal="ep",
@@ -307,7 +307,7 @@ def test_task_dir_placement_per_role(
 
     attempt_dir = (
         recorder.run_dir
-        / f"goal_01_{goal.id}"
+        / f"workflow_01_{goal.id}"
         / f"iteration_01_{iteration.id}"
         / f"attempt_01_{attempt.id}"
     )
@@ -338,13 +338,13 @@ def test_generator_verifier_task_uses_verifier_dir_and_message_recorder(
     recorder = _make_recorder(tmp_path)
     recorder.start()
     try:
-        goal = stores.goal_store.insert(
+        goal = stores.workflow_store.insert(
             task_center_run_id=_RUN_ID,
             requested_by_task_id="parent_task_1",
             goal="goal",
         )
         iteration = stores.iteration_store.insert(
-            goal_id=goal.id,
+            workflow_id=goal.id,
             sequence_no=1,
             creation_reason=IterationCreationReason.INITIAL,
             goal="ep",
@@ -366,7 +366,7 @@ def test_generator_verifier_task_uses_verifier_dir_and_message_recorder(
 
     verifier_dir = (
         recorder.run_dir
-        / f"goal_01_{goal.id}"
+        / f"workflow_01_{goal.id}"
         / f"iteration_01_{iteration.id}"
         / f"attempt_01_{attempt.id}"
         / "01_verifier_task_verifier"
@@ -417,7 +417,7 @@ def test_dispose_unregisters_listeners(
     recorder = _make_recorder(tmp_path)
     recorder.start()
     try:
-        m1 = stores.goal_store.insert(
+        m1 = stores.workflow_store.insert(
             task_center_run_id=_RUN_ID,
             requested_by_task_id="parent_task_1",
             goal="g1",
@@ -425,14 +425,14 @@ def test_dispose_unregisters_listeners(
     finally:
         recorder.dispose()
 
-    m2 = stores.goal_store.insert(
+    m2 = stores.workflow_store.insert(
         task_center_run_id=_RUN_ID,
         requested_by_task_id="parent_task_2",
         goal="g2",
     )
 
-    assert (recorder.run_dir / f"goal_01_{m1.id}").exists()
-    assert not (recorder.run_dir / f"goal_02_{m2.id}").exists()
+    assert (recorder.run_dir / f"workflow_01_{m1.id}").exists()
+    assert not (recorder.run_dir / f"workflow_02_{m2.id}").exists()
 
 
 def test_run_json_and_metrics_json_written(
@@ -669,12 +669,12 @@ def test_agent_run_id_to_task_id_mapping(
     recorder = _make_recorder(tmp_path)
     recorder.start()
     try:
-        goal = stores.goal_store.insert(
+        goal = stores.workflow_store.insert(
             task_center_run_id=_RUN_ID,
             goal="goal",
         )
         iteration = stores.iteration_store.insert(
-            goal_id=goal.id,
+            workflow_id=goal.id,
             sequence_no=1,
             creation_reason=IterationCreationReason.INITIAL,
             goal="ep",

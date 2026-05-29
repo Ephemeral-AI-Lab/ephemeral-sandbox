@@ -80,7 +80,7 @@ async def test_correctness_testing_through_event_source(
 
     delegated = [
         goal
-        for goal in report.graph_summary["goals"]
+        for goal in report.graph_summary["workflows"]
         if any(it["attempts"] for it in goal["iterations"])
     ]
     assert delegated, "no goal with attempts in graph"

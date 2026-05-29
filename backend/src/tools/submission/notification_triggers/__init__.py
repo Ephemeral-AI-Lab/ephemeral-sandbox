@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from notification import NotificationRule
-from tools.submission.notification_triggers.request_goal_after_edit import (
-    make_goal_request_after_edit_reminder,
+from tools.submission.notification_triggers.request_workflow_after_edit import (
+    make_workflow_request_after_edit_reminder,
 )
 
 
@@ -12,7 +12,7 @@ def resolve_harness_notification_triggers(
     trigger_ids: list[str],
 ) -> list[NotificationRule]:
     factories = {
-        "request_goal_after_edit": make_goal_request_after_edit_reminder,
+        "request_workflow_after_edit": make_workflow_request_after_edit_reminder,
     }
     rules: list[NotificationRule] = []
     for trigger_id in trigger_ids:
@@ -24,6 +24,6 @@ def resolve_harness_notification_triggers(
 
 
 __all__ = [
-    "make_goal_request_after_edit_reminder",
+    "make_workflow_request_after_edit_reminder",
     "resolve_harness_notification_triggers",
 ]

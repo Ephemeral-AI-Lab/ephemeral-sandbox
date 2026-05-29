@@ -1,7 +1,7 @@
 """AuditRecorder — directory writer + ORM commit listeners.
 
 Wires five SQLAlchemy ``after_insert``/``after_update`` listeners (one per
-``GoalRecord``/``IterationRecord``/``AttemptRecord``/``TaskCenterTaskRecord``
+``WorkflowRecord``/``IterationRecord``/``AttemptRecord``/``TaskCenterTaskRecord``
 plus a fifth on ``AgentRunRecord`` for ``agent_run_id`` -> ``task_id``
 mapping). Task stream events append conversation-message rows to
 ``message.jsonl``. Lifecycle rows are mirrored as latest-state ``*.json``
@@ -32,7 +32,7 @@ from task_center_runner.audit.sandbox_events_sink import RotatingJsonlSink
 from db.models.agent_run import AgentRunRecord
 from db.models.attempt import AttemptRecord
 from db.models.iteration import IterationRecord
-from db.models.goal import GoalRecord
+from db.models.workflow import WorkflowRecord
 from db.models.task_center import TaskCenterTaskRecord
 from message.agent_message_recorder import (
     AgentMessageJsonlRecorder,
@@ -99,7 +99,7 @@ def _isoformat(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
-def _serialize_goal(record: GoalRecord) -> dict[str, Any]:
+def _serialize_workflow(record: WorkflowRecord) -> dict[str, Any]:
     return {
         "id": record.id,
         "task_center_run_id": record.task_center_run_id,
@@ -118,7 +118,7 @@ def _serialize_goal(record: GoalRecord) -> dict[str, Any]:
 def _serialize_iteration(record: IterationRecord) -> dict[str, Any]:
     return {
         "id": record.id,
-        "goal_id": record.goal_id,
+        "workflow_id": record.workflow_id,
         "sequence_no": record.sequence_no,
         "creation_reason": record.creation_reason,
         "goal": record.goal,
@@ -209,14 +209,14 @@ class AuditRecorder:
         self._sandbox_id = sandbox_id
         self._coding_plan_mode_active = coding_plan_mode_active  # plan §A11
 
-        self._goal_dir: dict[str, Path] = {}
+        self._workflow_dir: dict[str, Path] = {}
         self._iteration_dir: dict[str, Path] = {}
         self._attempt_dir: dict[str, Path] = {}
         self._task_dir: dict[str, Path] = {}
         self._task_recorder: dict[str, AgentMessageJsonlRecorder] = {}
         self._agent_run_to_task: dict[str, tuple[str, str]] = {}
 
-        self._goal_seq_counter: int = 0
+        self._workflow_seq_counter: int = 0
         self._iteration_seq_counter: dict[str, int] = {}
         self._attempt_seq_counter: dict[str, int] = {}
         self._role_seq_counter: dict[str, int] = {}
@@ -292,14 +292,14 @@ class AuditRecorder:
         self._status = "running"
 
         self._register(
-            GoalRecord,
+            WorkflowRecord,
             "after_insert",
-            lambda mapper, connection, target: self._handle_goal(target),
+            lambda mapper, connection, target: self._handle_workflow(target),
         )
         self._register(
-            GoalRecord,
+            WorkflowRecord,
             "after_update",
-            lambda mapper, connection, target: self._handle_goal(target),
+            lambda mapper, connection, target: self._handle_workflow(target),
         )
         self._register(
             IterationRecord,
@@ -549,21 +549,21 @@ class AuditRecorder:
     # Handlers
     # ------------------------------------------------------------------
 
-    def _handle_goal(self, target: GoalRecord) -> None:
+    def _handle_workflow(self, target: WorkflowRecord) -> None:
         if (
             self._task_center_run_id
             and target.task_center_run_id != self._task_center_run_id
         ):
             return
-        goal_dir = self._ensure_goal_dir(target.id)
-        _atomic_write_json(goal_dir / "goal.json", _serialize_goal(target))
+        workflow_dir = self._ensure_workflow_dir(target.id)
+        _atomic_write_json(workflow_dir / "workflow.json", _serialize_workflow(target))
 
     def _handle_iteration(self, target: IterationRecord) -> None:
-        goal_dir = self._goal_dir.get(target.goal_id)
-        if goal_dir is None:
+        workflow_dir = self._workflow_dir.get(target.workflow_id)
+        if workflow_dir is None:
             return
         iteration_dir = self._ensure_iteration_dir(
-            target.goal_id, target.id, goal_dir
+            target.workflow_id, target.id, workflow_dir
         )
         _atomic_write_json(iteration_dir / "iteration.json", _serialize_iteration(target))
 
@@ -632,26 +632,26 @@ class AuditRecorder:
     # Path resolution + numeric prefixes
     # ------------------------------------------------------------------
 
-    def _ensure_goal_dir(self, goal_id: str) -> Path:
-        cached = self._goal_dir.get(goal_id)
+    def _ensure_workflow_dir(self, workflow_id: str) -> Path:
+        cached = self._workflow_dir.get(workflow_id)
         if cached is not None:
             return cached
-        self._goal_seq_counter += 1
-        seq = self._goal_seq_counter
-        path = self._run_dir / f"goal_{seq:02d}_{goal_id}"
+        self._workflow_seq_counter += 1
+        seq = self._workflow_seq_counter
+        path = self._run_dir / f"workflow_{seq:02d}_{workflow_id}"
         path.mkdir(parents=True, exist_ok=True)
-        self._goal_dir[goal_id] = path
+        self._workflow_dir[workflow_id] = path
         return path
 
     def _ensure_iteration_dir(
-        self, goal_id: str, iteration_id: str, goal_dir: Path
+        self, workflow_id: str, iteration_id: str, workflow_dir: Path
     ) -> Path:
         cached = self._iteration_dir.get(iteration_id)
         if cached is not None:
             return cached
-        seq = self._iteration_seq_counter.get(goal_id, 0) + 1
-        self._iteration_seq_counter[goal_id] = seq
-        path = goal_dir / f"iteration_{seq:02d}_{iteration_id}"
+        seq = self._iteration_seq_counter.get(workflow_id, 0) + 1
+        self._iteration_seq_counter[workflow_id] = seq
+        path = workflow_dir / f"iteration_{seq:02d}_{iteration_id}"
         path.mkdir(parents=True, exist_ok=True)
         self._iteration_dir[iteration_id] = path
         return path

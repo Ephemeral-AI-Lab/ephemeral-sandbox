@@ -34,7 +34,7 @@ def _make_packet(packet_id: str = "pkt-1") -> ContextPacket:
         target_role="planner",
         target_id="g-1",
         canonical_refs=ContextRefs(
-            goal_id="req-A", iteration_id="iteration-1", attempt_id="g-1"
+            workflow_id="req-A", iteration_id="iteration-1", attempt_id="g-1"
         ),
         blocks=[
             ContextBlock(
@@ -68,7 +68,7 @@ def test_round_trip_preserves_blocks_and_metadata(packet_store):
     loaded = packet_store.get(stored_id)
     assert loaded is not None
     assert loaded.target_role == "planner"
-    assert loaded.canonical_refs.goal_id == "req-A"
+    assert loaded.canonical_refs.workflow_id == "req-A"
     assert len(loaded.blocks) == 2
     prior = loaded.blocks[1]
     assert prior.metadata["iteration_sequence_no"] == "1"

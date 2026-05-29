@@ -42,7 +42,7 @@
   <ol>
     <li><a href="#registration-map"><span>1</span> Registration Map</a></li>
     <li><a href="#planner-executor-verifier-evaluator"><span>2</span> Planner, Executor, Verifier, Evaluator</a></li>
-    <li><a href="#handoff-delegated-goal"><span>3</span> Execution Handoff and Delegated Goals</a></li>
+    <li><a href="#handoff-delegated-workflow"><span>3</span> Execution Handoff and Delegated Workflows</a></li>
     <li><a href="#helper-and-explorer-results"><span>4</span> Helper and Explorer Results</a></li>
     <li><a href="#workflow-connections"><span>5</span> Workflow Connections</a></li>
   </ol>
@@ -58,7 +58,7 @@
   </div>
   <div class="flow-row">
     <div class="node good"><strong>Attempt owner</strong><small>planner, executor, verifier, evaluator submissions</small></div>
-    <div class="node"><strong>Goal owner</strong><small>delegated handoff through child goal state</small></div>
+    <div class="node"><strong>Workflow owner</strong><small>delegated handoff through child goal state</small></div>
     <div class="node"><strong>Helper owner</strong><small>advisor, explorer metadata returned to caller</small></div>
   </div>
 </div>
@@ -70,7 +70,7 @@
   <thead><tr><th>Folder</th><th>Tools</th><th>Primary state owner</th></tr></thead>
   <tbody>
     <tr><td><code>planner</code></td><td><code>submit_plan_closes_goal</code>, <code>submit_plan_defers_goal</code></td><td><code>AttemptOrchestrator.apply_plan_submission()</code>.</td></tr>
-    <tr><td><code>executor</code></td><td><code>submit_execution_success</code>, <code>submit_execution_blocker</code>, <code>submit_execution_handoff</code></td><td><code>AttemptOrchestrator.apply_generator_submission()</code> or <code>GoalStarter.start()</code>.</td></tr>
+    <tr><td><code>executor</code></td><td><code>submit_execution_success</code>, <code>submit_execution_blocker</code>, <code>submit_execution_handoff</code></td><td><code>AttemptOrchestrator.apply_generator_submission()</code> or <code>WorkflowStarter.start()</code>.</td></tr>
     <tr><td><code>verifier</code></td><td><code>submit_verification_success</code>, <code>submit_verification_failure</code></td><td><code>AttemptOrchestrator.apply_generator_submission()</code> with verifier payloads.</td></tr>
     <tr><td><code>evaluator</code></td><td><code>submit_evaluation_success</code>, <code>submit_evaluation_failure</code></td><td><code>AttemptOrchestrator.apply_evaluator_submission()</code>.</td></tr>
     <tr><td><code>advisor</code></td><td><code>submit_advisor_feedback</code></td><td>Helper terminal metadata returned to the caller; no direct TaskCenter attempt mutation.</td></tr>
@@ -87,15 +87,15 @@
 <p>Verifier tools are also generator submissions, but their payload identifies <code>generator_role="verifier"</code> and carries checks or issues. Evaluator tools use <code>EvaluatorSubmission</code> and call <code>AttemptOrchestrator.apply_evaluator_submission()</code>, which lets the attempt stage advancer close, retry, or progress according to the stored plan contract and lifecycle rules.</p>
 </section>
 
-<section id="handoff-delegated-goal" data-last-reviewed-commit="569f12c3f39471dbaa643906856a8daf81a21a2d" data-evidence-paths="backend/src/tools/submission/executor/submit_execution_handoff/submit_execution_handoff.py backend/src/tools/submission/context/executor.py backend/src/task_center/goal/starter.py backend/src/task_center/goal/state.py backend/src/task_center/goal/closure_report_router.py backend/src/task_center/attempt/deps.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/tests/unit_test/test_tools/test_submission_terminal_routing.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_goal_request_start.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py">
-<h2>Execution Handoff and Delegated Goals <a class="anchor" href="#handoff-delegated-goal">#</a></h2>
+<section id="handoff-delegated-workflow" data-last-reviewed-commit="569f12c3f39471dbaa643906856a8daf81a21a2d" data-evidence-paths="backend/src/tools/submission/executor/submit_execution_handoff/submit_execution_handoff.py backend/src/tools/submission/context/executor.py backend/src/task_center/workflow/starter.py backend/src/task_center/workflow/state.py backend/src/task_center/workflow/closure_report_router.py backend/src/task_center/attempt/deps.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/_core/task_state.py backend/src/task_center/submissions.py backend/tests/unit_test/test_tools/test_submission_terminal_routing.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_workflow_request_start.py backend/tests/unit_test/test_task_center/test_lifecycle/test_phase04_close_report_delivery.py">
+<h2>Execution Handoff and Delegated Workflows <a class="anchor" href="#handoff-delegated-workflow">#</a></h2>
 <ol>
   <li><code>submit_execution_handoff(goal=...)</code> validates a nonblank goal and resolves an executor submission context for the current attempt-bound generator task.</li>
-  <li><code>ExecutorSubmissionContext.start_delegated_goal()</code> constructs <code>GoalStarter(runtime=...)</code> and calls <code>GoalStarter.start(prompt=goal, origin=GoalOrigin.task(task_id=current_task_id))</code>.</li>
-  <li><code>GoalStarter</code> validates that the parent generator task is running and has no open delegated child goal, creates the child goal, initial iteration, and initial attempt, then marks the parent task as <code>WAITING_GOAL</code>.</li>
-  <li>The handoff tool returns metadata containing <code>submission_kind="goal_start"</code>, parent task id, parent attempt id, child goal id, initial iteration id, and initial attempt id. Because it is terminal and successful, the framework stamps <code>is_terminal=True</code>.</li>
-  <li>When the delegated goal later closes, <code>GoalClosureReportRouter</code> delivers the report to the parent task. For task-origin goals, the parent must still be <code>WAITING_GOAL</code>; the router calls the registered parent task object.</li>
-  <li>The parent task delegates to <code>AttemptOrchestrator.apply_goal_closure_report()</code>, which resumes the waiting generator task as <code>DONE</code> on success or <code>FAILED</code> on failure, records the closure report in the task summary payload, and advances the attempt stage.</li>
+  <li><code>ExecutorSubmissionContext.start_delegated_workflow()</code> constructs <code>WorkflowStarter(runtime=...)</code> and calls <code>WorkflowStarter.start(prompt=goal, origin=WorkflowOrigin.task(task_id=current_task_id))</code>.</li>
+  <li><code>WorkflowStarter</code> validates that the parent generator task is running and has no open delegated child goal, creates the child goal, initial iteration, and initial attempt, then marks the parent task as <code>WAITING_WORKFLOW</code>.</li>
+  <li>The handoff tool returns metadata containing <code>submission_kind="workflow_start"</code>, parent task id, parent attempt id, child goal id, initial iteration id, and initial attempt id. Because it is terminal and successful, the framework stamps <code>is_terminal=True</code>.</li>
+  <li>When the delegated workflow later closes, <code>WorkflowClosureReportRouter</code> delivers the report to the parent task. For task-origin goals, the parent must still be <code>WAITING_WORKFLOW</code>; the router calls the registered parent task object.</li>
+  <li>The parent task delegates to <code>AttemptOrchestrator.apply_workflow_closure_report()</code>, which resumes the waiting generator task as <code>DONE</code> on success or <code>FAILED</code> on failure, records the closure report in the task summary payload, and advances the attempt stage.</li>
 </ol>
 <p>This flow is the TaskCenter handoff boundary: agents do not communicate peer-to-peer. The child goal is persisted state, and the parent resumes through a closure report delivered back into the orchestrator.</p>
 </section>
@@ -106,12 +106,12 @@
 <p>This distinction is intentional. Helper agents terminate their own helper run and provide structured metadata to the parent workflow, while the parent TaskCenter attempt state remains owned by the planner/executor/verifier/evaluator submission paths and the orchestrator.</p>
 </section>
 
-<section id="workflow-connections" data-last-reviewed-commit="569f12c3f39471dbaa643906856a8daf81a21a2d" data-evidence-paths="backend/src/tools/submission/_factory.py backend/src/tools/_framework/execution/tool_call.py backend/src/engine/query/loop.py backend/src/engine/tool_call/dispatch.py backend/src/task_center/_core/terminal_tool_routing.py backend/src/task_center/agent_launch/skill_message.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/goal/starter.py backend/src/task_center/goal/closure_report_router.py backend/tests/unit_test/test_tools/test_tool_execution.py backend/tests/unit_test/test_tools/test_submission_terminal_routing.py backend/tests/unit_test/test_task_center/test_agent_launch/test_terminal_tool_router.py">
+<section id="workflow-connections" data-last-reviewed-commit="569f12c3f39471dbaa643906856a8daf81a21a2d" data-evidence-paths="backend/src/tools/submission/_factory.py backend/src/tools/_framework/execution/tool_call.py backend/src/engine/query/loop.py backend/src/engine/tool_call/dispatch.py backend/src/task_center/_core/terminal_tool_routing.py backend/src/task_center/agent_launch/skill_message.py backend/src/task_center/attempt/orchestrator.py backend/src/task_center/workflow/starter.py backend/src/task_center/workflow/closure_report_router.py backend/tests/unit_test/test_tools/test_tool_execution.py backend/tests/unit_test/test_tools/test_submission_terminal_routing.py backend/tests/unit_test/test_task_center/test_agent_launch/test_terminal_tool_router.py">
 <h2>Workflow Connections <a class="anchor" href="#workflow-connections">#</a></h2>
 <div class="edge-list">
   <div><b>framework</b><span>Every <code>submit_*</code> function is a decorated <code>BaseTool</code> with <code>is_terminal_tool=True</code>; successful execution is stamped by <code>execute_tool_once()</code>.</span></div>
   <div><b>engine</b><span>Terminal exclusivity and <code>TOOL_STOP</code> are enforced in <code>engine.tool_call.dispatch</code> and <code>engine.query.loop</code>, not in individual submission tools.</span></div>
-  <div><b>TaskCenter</b><span>Attempt state changes are centralized in <code>AttemptOrchestrator</code>. Handoff state changes are centralized in <code>GoalStarter</code>, <code>GoalClosureReportRouter</code>, and <code>AttemptOrchestrator.apply_goal_closure_report()</code>.</span></div>
+  <div><b>TaskCenter</b><span>Attempt state changes are centralized in <code>AttemptOrchestrator</code>. Handoff state changes are centralized in <code>WorkflowStarter</code>, <code>WorkflowClosureReportRouter</code>, and <code>AttemptOrchestrator.apply_workflow_closure_report()</code>.</span></div>
   <div><b>sandbox</b><span>Submission tools use <code>Intent.READ_ONLY</code>. They do not perform workspace file mutations directly; generator work that touched the sandbox should already have gone through sandbox tools before terminal submission.</span></div>
   <div><b>prompting</b><span>Launch-time terminal routing and the shared terminal descriptor registry decide which terminal options appear in TaskCenter task guidance and skills.</span></div>
 </div>

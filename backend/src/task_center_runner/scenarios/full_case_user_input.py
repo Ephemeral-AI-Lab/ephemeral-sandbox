@@ -25,8 +25,8 @@ from task_center_runner.scenarios.base import (
 )
 from task_center_runner.scenarios._scenario_helpers import (
     context_message_field,
-    is_entry_origin_goal,
-    is_recursive_goal,
+    is_entry_origin_workflow,
+    is_recursive_workflow,
 )
 from task_center_runner.scenarios.user_input import (
     UserInputPlan,
@@ -71,7 +71,7 @@ class FullCaseUserInput(ScenarioBase):
         return [asdict(package) for package in plan.packages]
 
     def planner_response(self, ctx: ScenarioContext) -> ToolCallSpec:
-        if is_recursive_goal(ctx):
+        if is_recursive_workflow(ctx):
             return self._recursive_planner_response(ctx)
         return self._entry_origin_planner_response(ctx)
 
@@ -79,13 +79,13 @@ class FullCaseUserInput(ScenarioBase):
         context_message = ctx.context_message or ctx.prompt or ""
         if "ACTION inspect_user_input" in context_message:
             return ("inspect_user_input",)
-        if "ACTION request_recursive_goal" in context_message:
+        if "ACTION request_recursive_workflow" in context_message:
             package_id = (
                 context_message_field(context_message, "package")
                 or self._recursive_package_id
                 or ""
             )
-            return (f"request_recursive_goal:{package_id}",)
+            return (f"request_recursive_workflow:{package_id}",)
         if "ACTION execute_package" in context_message:
             package_id = context_message_field(context_message, "package") or "unknown"
             return (f"execute_package:{package_id}",)
@@ -310,7 +310,7 @@ class FullCaseUserInput(ScenarioBase):
                 {"id": delegate_id, "agent_name": "executor", "deps": recursive_deps}
             )
             task_specs[delegate_id] = (
-                f"ACTION request_recursive_goal package={recursive.id} "
+                f"ACTION request_recursive_workflow package={recursive.id} "
                 f"risk={recursive.risk}"
             )
             recursive_guard = "verify_recursive_return"
@@ -387,8 +387,8 @@ class FullCaseUserInput(ScenarioBase):
         if self._user_input_plan is not None:
             return self._user_input_plan
         prompt = ""
-        if ctx.goal is not None and is_entry_origin_goal(ctx):
-            prompt = str(ctx.goal.goal or "")
+        if ctx.workflow is not None and is_entry_origin_workflow(ctx):
+            prompt = str(ctx.workflow.goal or "")
         if not prompt:
             prompt = ctx.prompt or ctx.context_message or ""
         self._entry_prompt = prompt
@@ -400,7 +400,7 @@ class FullCaseUserInput(ScenarioBase):
         ctx: ScenarioContext,
         checkpoint: str,
     ) -> bool:
-        if not is_entry_origin_goal(ctx):
+        if not is_entry_origin_workflow(ctx):
             return False
         iteration = ctx.iteration
         attempt = ctx.attempt

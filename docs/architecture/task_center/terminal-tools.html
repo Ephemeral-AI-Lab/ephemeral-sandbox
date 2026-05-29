@@ -24,7 +24,7 @@
   <h2>TaskCenter Pages</h2>
   <ol>
     <li><a href="index.html" data-doc-module="task-center" data-doc-section="index" data-doc-page="index.html">Overview</a></li>
-    <li><a href="lifecycle.html" data-doc-module="task-center" data-doc-section="lifecycle" data-doc-page="lifecycle.html">Goal Iteration Attempt</a></li>
+    <li><a href="lifecycle.html" data-doc-module="task-center" data-doc-section="lifecycle" data-doc-page="lifecycle.html">Workflow Iteration Attempt</a></li>
     <li><a href="attempt-harness.html" data-doc-module="task-center" data-doc-section="attempt-harness" data-doc-page="attempt-harness.html">Attempt Harness</a></li>
     <li><a href="context-engine.html" data-doc-module="task-center" data-doc-section="context-engine" data-doc-page="context-engine.html">Context Engine</a></li>
     <li><a href="agent-roles.html" data-doc-module="task-center" data-doc-section="agent-roles" data-doc-page="agent-roles.html">Agent Roles</a></li>
@@ -108,15 +108,15 @@
 <div class="edge-list">
   <div><b>parent guidance</b><span><code>task_center.agent_launch.skill_message</code> renders the selected terminal list into launch guidance and skill rows so the agent sees exactly the terminals allowed for this launch.</span></div>
   <div><b>advisor guidance</b><span><code>ask_advisor</code> renders the same terminal names with <code>focus=&quot;advisor_review_focus&quot;</code>, so the audit prompt reviews the parent's choices through the same registry.</span></div>
-  <div><b>launch-specific set</b><span><code>TerminalToolRouter</code> computes an effective agent definition. The registered profile remains unchanged, while the launched copy carries filtered terminals such as planner close-only or executor no-handoff at deeper goal depth.</span></div>
+  <div><b>launch-specific set</b><span><code>TerminalToolRouter</code> computes an effective agent definition. The registered profile remains unchanged, while the launched copy carries filtered terminals such as planner close-only or executor no-handoff at deeper workflow depth.</span></div>
   <div><b>runtime metadata</b><span><code>EphemeralAttemptAgentLauncher</code> places the selected terminals into <code>ExecutionMetadata</code> under <code>active_terminals</code>. Mock/live message capture tests read that metadata from <code>message.jsonl</code> rows.</span></div>
   <div><b>drift tests</b><span>Descriptor tests require every main-profile terminal to have nonblank selection and advisor text; initial-message capture verifies row-level terminal catalog rendering from the registry.</span></div>
 </div>
 </section>
 
-<section id="role-submission-terminals" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/tools/submission/_factory.py backend/src/tools/submission/context/attempt.py backend/src/tools/submission/context/executor.py backend/src/tools/submission/planner backend/src/tools/submission/executor backend/src/tools/submission/verifier backend/src/tools/submission/evaluator backend/src/task_center/attempt/orchestrator.py backend/src/task_center/goal/starter.py backend/src/task_center/goal/closure_report_router.py backend/tests/unit_test/test_tools/test_submission_tool_registration.py backend/tests/unit_test/test_tools/test_submission_planner_tools.py backend/tests/unit_test/test_task_center/test_lifecycle">
+<section id="role-submission-terminals" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/tools/submission/_factory.py backend/src/tools/submission/context/attempt.py backend/src/tools/submission/context/executor.py backend/src/tools/submission/planner backend/src/tools/submission/executor backend/src/tools/submission/verifier backend/src/tools/submission/evaluator backend/src/task_center/attempt/orchestrator.py backend/src/task_center/workflow/starter.py backend/src/task_center/workflow/closure_report_router.py backend/tests/unit_test/test_tools/test_submission_tool_registration.py backend/tests/unit_test/test_tools/test_submission_planner_tools.py backend/tests/unit_test/test_task_center/test_lifecycle">
 <h2>Role Submission Terminals <a class="anchor" href="#role-submission-terminals">#</a></h2>
-<p>The role submission terminals are adapters over TaskCenter state owners. They do not coordinate peer agents directly; they resolve the current task, build typed submissions, and call the Goal -> Iteration -> Attempt owner for the current attempt or delegated goal.</p>
+<p>The role submission terminals are adapters over TaskCenter state owners. They do not coordinate peer agents directly; they resolve the current task, build typed submissions, and call the Workflow -> Iteration -> Attempt owner for the current attempt or delegated workflow.</p>
 <div class="evidence-grid">
   <div class="evidence-card">
     <h3>Planner</h3>
@@ -124,7 +124,7 @@
   </div>
   <div class="evidence-card">
     <h3>Executor</h3>
-    <p><code>submit_execution_success</code> and <code>submit_execution_blocker</code> resolve <code>ExecutorSubmissionContext</code> and call <code>apply_generator_submission()</code> with <code>generator_role=&quot;executor&quot;</code>. <code>submit_execution_handoff</code> starts a child goal through <code>GoalStarter.start(GoalOrigin.task(...))</code>.</p>
+    <p><code>submit_execution_success</code> and <code>submit_execution_blocker</code> resolve <code>ExecutorSubmissionContext</code> and call <code>apply_generator_submission()</code> with <code>generator_role=&quot;executor&quot;</code>. <code>submit_execution_handoff</code> starts a child goal through <code>WorkflowStarter.start(WorkflowOrigin.task(...))</code>.</p>
   </div>
   <div class="evidence-card">
     <h3>Verifier</h3>
@@ -142,7 +142,7 @@
 [submit_execution_handoff executor]
         |
         v
-[GoalStarter.start child task origin]
+[WorkflowStarter.start child task origin]
         |
         v
 [parent generator attempt waits on child goal]
@@ -156,9 +156,9 @@
 <div class="sequence" aria-label="Executor handoff sequence">
   <ol>
     <li><span>The executor submits a nonblank <code>goal_handoff</code> through <code>submit_execution_handoff</code>.</span></li>
-    <li><span><code>ExecutorSubmissionContext.start_delegated_goal()</code> creates <code>GoalStarter(runtime=...)</code> and starts a task-origin goal for the current generator task.</span></li>
-    <li><span><code>GoalStarter</code> creates the child goal, initial iteration, and initial attempt, then marks the parent generator task <code>WAITING_GOAL</code>.</span></li>
-    <li><span>When the child goal closes, <code>GoalClosureReportRouter</code> routes the close report back to the parent task, and <code>AttemptOrchestrator.apply_goal_closure_report()</code> resumes the parent generator state.</span></li>
+    <li><span><code>ExecutorSubmissionContext.start_delegated_workflow()</code> creates <code>WorkflowStarter(runtime=...)</code> and starts a task-origin goal for the current generator task.</span></li>
+    <li><span><code>WorkflowStarter</code> creates the child goal, initial iteration, and initial attempt, then marks the parent generator task <code>WAITING_WORKFLOW</code>.</span></li>
+    <li><span>When the child goal closes, <code>WorkflowClosureReportRouter</code> routes the close report back to the parent task, and <code>AttemptOrchestrator.apply_workflow_closure_report()</code> resumes the parent generator state.</span></li>
   </ol>
 </div>
 </section>
@@ -199,7 +199,7 @@
 </div>
 </section>
 
-<section id="helper-results-notifications" data-last-reviewed-commit="422aa57100f55131995ca73977c22ea0f9402a09" data-evidence-paths="backend/src/tools/submission/explorer/submit_exploration_result/submit_exploration_result.py backend/src/tools/submission/notification_triggers/request_goal_after_edit.py backend/tests/unit_test/test_tools/test_submission_helper_tools.py backend/tests/unit_test/test_tools/test_submission_soft_reminders.py docs/architecture/tools/ask-helper.html">
+<section id="helper-results-notifications" data-last-reviewed-commit="422aa57100f55131995ca73977c22ea0f9402a09" data-evidence-paths="backend/src/tools/submission/explorer/submit_exploration_result/submit_exploration_result.py backend/src/tools/submission/notification_triggers/request_workflow_after_edit.py backend/tests/unit_test/test_tools/test_submission_helper_tools.py backend/tests/unit_test/test_tools/test_submission_soft_reminders.py docs/architecture/tools/ask-helper.html">
 <h2>Helper Results And Notifications <a class="anchor" href="#helper-results-notifications">#</a></h2>
 <p>Helper terminal outputs are terminal inside the helper run, then ordinary tool results for the parent. This lets helpers use the same engine stop contract while keeping parent TaskCenter state under the parent submission tools and orchestrator.</p>
 <div class="evidence-grid">
@@ -209,7 +209,7 @@
   </div>
   <div class="evidence-card">
     <h3>Handoff-after-edit reminder</h3>
-    <p><code>make_goal_request_after_edit_reminder()</code> watches for generator edit tools such as <code>write_file</code>, <code>edit_file</code>, and <code>shell</code>. After edits start, it nudges the executor away from <code>submit_execution_handoff</code> and toward success or blocker terminals.</p>
+    <p><code>make_workflow_request_after_edit_reminder()</code> watches for generator edit tools such as <code>write_file</code>, <code>edit_file</code>, and <code>shell</code>. After edits start, it nudges the executor away from <code>submit_execution_handoff</code> and toward success or blocker terminals.</p>
   </div>
 </div>
 <div class="summary">
@@ -234,7 +234,7 @@
   </div>
   <div class="evidence-card">
     <h3>Planner and role submissions</h3>
-    <p>Planner submission tests cover duplicate tasks, dependency validation, task spec matching, close and defer variants, and Goal -> Iteration -> Attempt handoff through the attempt orchestrator.</p>
+    <p>Planner submission tests cover duplicate tasks, dependency validation, task spec matching, close and defer variants, and Workflow -> Iteration -> Attempt handoff through the attempt orchestrator.</p>
   </div>
   <div class="evidence-card">
     <h3>Helpers and reminders</h3>

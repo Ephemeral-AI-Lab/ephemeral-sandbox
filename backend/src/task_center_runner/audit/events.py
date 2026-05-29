@@ -47,9 +47,9 @@ class EventType(StrEnum):
     # task center lifecycle
     RUN_STARTED = "run_started"
     RUN_COMPLETED = "run_completed"
-    GOAL_STARTED = "goal_started"
-    GOAL_COMPLETED = "goal_completed"
-    GOAL_REQUESTED = "goal_requested"
+    WORKFLOW_STARTED = "workflow_started"
+    WORKFLOW_COMPLETED = "workflow_completed"
+    WORKFLOW_REQUESTED = "workflow_requested"
     ITERATION_STARTED = "iteration_started"
     ITERATION_COMPLETED = "iteration_completed"
     ITERATION_FROM_DEFERRED_GOAL_CREATED = "iteration_continuation_created"
@@ -71,8 +71,8 @@ class EventType(StrEnum):
     EVALUATOR_INVOKED = "evaluator_invoked"
     EVALUATOR_SUCCESS = "evaluator_success"
     EVALUATOR_FAILURE = "evaluator_failure"
-    RECURSIVE_GOAL_REQUESTED = "recursive_goal_requested"
-    RECURSIVE_GOAL_COMPLETED = "recursive_goal_completed"
+    RECURSIVE_WORKFLOW_REQUESTED = "recursive_workflow_requested"
+    RECURSIVE_WORKFLOW_COMPLETED = "recursive_workflow_completed"
     FULL_STACK_SCRIPT_COMPLETED = "full_stack_script_completed"
 
     # tools

@@ -40,7 +40,7 @@ def build_evaluator_context(scope: ContextScope, deps: ContextEngineDeps) -> Con
         target_role="evaluator",
         target_id=attempt_id,
         canonical_refs=ContextRefs(
-            goal_id=scope.goal_id,
+            workflow_id=scope.workflow_id,
             iteration_id=attempt.iteration_id,
             attempt_id=attempt_id,
         ),

@@ -111,8 +111,8 @@ class EphemeralAttemptAgentLauncher:
             task_center_run_id=launch.task_center_run_id,
             task_center_task_id=launch.task_id,
             task_center_attempt_id=launch.attempt_id,
-            task_center_goal_id=launch.goal_id,
-            task_center_request_id=launch.goal_id,
+            task_center_workflow_id=launch.workflow_id,
+            task_center_request_id=launch.workflow_id,
             attempt_runtime=runtime,
             composer=runtime.composer,
         )
@@ -315,7 +315,7 @@ class AgentLaunchFactory:
             role=TaskCenterTaskRole.PLANNER,
             base_agent_name=PLANNER_AGENT_NAME,
             scope=ContextScope.for_planner(
-                goal_id=iteration.goal_id,
+                workflow_id=iteration.workflow_id,
                 iteration_id=iteration.id,
                 attempt_id=attempt.id,
             ),
@@ -323,7 +323,7 @@ class AgentLaunchFactory:
             task_center_run_id=self.runtime.run_id_for_attempt(attempt),
             attempt_id=attempt.id,
             needs=(),
-            goal_id=iteration.goal_id,
+            workflow_id=iteration.workflow_id,
         )
 
     def for_generator(
@@ -339,7 +339,7 @@ class AgentLaunchFactory:
             role=TaskCenterTaskRole.GENERATOR,
             base_agent_name=base_agent_name,
             scope=ContextScope.for_generator(
-                goal_id=iteration.goal_id,
+                workflow_id=iteration.workflow_id,
                 iteration_id=iteration.id,
                 attempt_id=attempt.id,
                 task_id=task_id,
@@ -348,7 +348,7 @@ class AgentLaunchFactory:
             task_center_run_id=task["task_center_run_id"],
             attempt_id=attempt.id,
             needs=tuple(task["needs"]),
-            goal_id=iteration.goal_id,
+            workflow_id=iteration.workflow_id,
         )
 
     def for_evaluator(self, *, attempt: Attempt, task_id: str) -> AgentLaunch:
@@ -357,7 +357,7 @@ class AgentLaunchFactory:
             role=TaskCenterTaskRole.EVALUATOR,
             base_agent_name=EVALUATOR_AGENT_NAME,
             scope=ContextScope.for_evaluator(
-                goal_id=iteration.goal_id,
+                workflow_id=iteration.workflow_id,
                 iteration_id=iteration.id,
                 attempt_id=attempt.id,
             ),
@@ -365,7 +365,7 @@ class AgentLaunchFactory:
             task_center_run_id=self.runtime.run_id_for_attempt(attempt),
             attempt_id=attempt.id,
             needs=tuple(attempt.generator_task_ids),
-            goal_id=iteration.goal_id,
+            workflow_id=iteration.workflow_id,
         )
 
     def _build(
@@ -378,7 +378,7 @@ class AgentLaunchFactory:
         task_center_run_id: str,
         attempt_id: str | None,
         needs: tuple[str, ...],
-        goal_id: str | None,
+        workflow_id: str | None,
     ) -> AgentLaunch:
         messages = self.runtime.require_composer().compose(
             base_agent_name=base_agent_name, scope=scope
@@ -394,7 +394,7 @@ class AgentLaunchFactory:
             task_guidance=messages.task_guidance,
             needs=needs,
             context_packet_id=messages.context_packet_id,
-            goal_id=goal_id,
+            workflow_id=workflow_id,
             skill=messages.skill,
         )
 

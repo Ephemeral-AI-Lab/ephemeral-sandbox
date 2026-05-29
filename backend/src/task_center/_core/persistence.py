@@ -31,14 +31,14 @@ from task_center.iteration.state import (
     IterationCreationReason,
     IterationStatus,
 )
-from task_center.goal.state import Goal, GoalOrigin, GoalStatus
+from task_center.workflow.state import Workflow, WorkflowOrigin, WorkflowStatus
 
 # Row dicts returned by the task store. Always a serialized snapshot, never
 # a live ORM row.
 TaskRow = dict[str, Any]
 
 
-class GoalStoreProtocol(Protocol):
+class WorkflowStoreProtocol(Protocol):
     """Narrow contract for the goal persistence surface."""
 
     is_ready: bool
@@ -47,25 +47,25 @@ class GoalStoreProtocol(Protocol):
         self,
         *,
         task_center_run_id: str,
-        origin: GoalOrigin | None = ...,
+        origin: WorkflowOrigin | None = ...,
         requested_by_task_id: str | None = ...,
         goal: str,
-    ) -> Goal: ...
+    ) -> Workflow: ...
 
-    def get(self, goal_id: str) -> Goal | None: ...
+    def get(self, workflow_id: str) -> Workflow | None: ...
 
-    def append_iteration_id(self, goal_id: str, iteration_id: str) -> Goal: ...
+    def append_iteration_id(self, workflow_id: str, iteration_id: str) -> Workflow: ...
 
     def set_status(
         self,
-        goal_id: str,
+        workflow_id: str,
         *,
-        status: GoalStatus,
+        status: WorkflowStatus,
         final_outcome: dict[str, Any] | None,
         closed_at: datetime | None,
-    ) -> Goal: ...
+    ) -> Workflow: ...
 
-    def list_for_parent_task(self, parent_task_id: str) -> list[Goal]: ...
+    def list_for_parent_task(self, parent_task_id: str) -> list[Workflow]: ...
 
 
 class IterationStoreProtocol(Protocol):
@@ -76,7 +76,7 @@ class IterationStoreProtocol(Protocol):
     def insert(
         self,
         *,
-        goal_id: str,
+        workflow_id: str,
         sequence_no: int,
         creation_reason: IterationCreationReason,
         goal: str,
@@ -108,7 +108,7 @@ class IterationStoreProtocol(Protocol):
         closed_at: datetime | None = None,
     ) -> Iteration: ...
 
-    def list_for_goal(self, goal_id: str) -> list[Iteration]: ...
+    def list_for_workflow(self, workflow_id: str) -> list[Iteration]: ...
 
 
 class AttemptStoreProtocol(Protocol):
@@ -205,7 +205,7 @@ class TaskStoreProtocol(Protocol):
 
 
 __all__ = [
-    "GoalStoreProtocol",
+    "WorkflowStoreProtocol",
     "IterationStoreProtocol",
     "AttemptStoreProtocol",
     "TaskStoreProtocol",

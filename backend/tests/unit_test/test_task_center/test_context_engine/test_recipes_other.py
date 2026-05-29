@@ -17,27 +17,27 @@ from task_center.iteration.state import IterationCreationReason
 
 @pytest.fixture
 def deps(
-    goal_store, iteration_store, attempt_store, task_store
+    workflow_store, iteration_store, attempt_store, task_store
 ) -> ContextEngineDeps:
     return ContextEngineDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
     )
 
 
-def _seed_goal(goal_store, task_center_run_id):
-    return goal_store.insert(
+def _seed_workflow(workflow_store, task_center_run_id):
+    return workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="parent-task",
         goal="overall",
     )
 
 
-def _seed_iteration(iteration_store, *, goal_id):
+def _seed_iteration(iteration_store, *, workflow_id):
     return iteration_store.insert(
-        goal_id=goal_id,
+        workflow_id=workflow_id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",
@@ -45,9 +45,9 @@ def _seed_iteration(iteration_store, *, goal_id):
     )
 
 
-def _seed_continuation_iteration(iteration_store, *, goal_id):
+def _seed_continuation_iteration(iteration_store, *, workflow_id):
     return iteration_store.insert(
-        goal_id=goal_id,
+        workflow_id=workflow_id,
         sequence_no=2,
         creation_reason=IterationCreationReason.DEFERRED_GOAL_CONTINUATION,
         goal="g2",
@@ -61,10 +61,10 @@ def _seed_continuation_iteration(iteration_store, *, goal_id):
 
 
 def test_generator_emits_planned_task_spec_required_block(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -87,7 +87,7 @@ def test_generator_emits_planned_task_spec_required_block(
     )
     packet = build_generator_context(
         ContextScope(
-            goal_id=req.id,
+            workflow_id=req.id,
             attempt_id=attempt.id,
             task_id=task_id,
         ),
@@ -106,12 +106,12 @@ def test_generator_emits_planned_task_spec_required_block(
 
 
 def test_generator_drops_deferred_goal_from_executor_packet(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     """Continues-goal attempt emits only ``<plan_spec>`` to the executor — the
     ``<deferred_goal_for_next_iteration>`` is a planner / evaluator concern."""
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -134,7 +134,7 @@ def test_generator_drops_deferred_goal_from_executor_packet(
 
     packet = build_generator_context(
         ContextScope(
-            goal_id=req.id,
+            workflow_id=req.id,
             attempt_id=attempt.id,
             task_id="t-1",
         ),
@@ -157,10 +157,10 @@ def test_generator_drops_deferred_goal_from_executor_packet(
 
 
 def test_generator_dependency_blocks_are_a_dependency_group(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     task_store.upsert_task(
         task_id="t-up",
@@ -189,7 +189,7 @@ def test_generator_dependency_blocks_are_a_dependency_group(
 
     packet = build_generator_context(
         ContextScope(
-            goal_id=req.id, attempt_id=attempt.id, task_id="t-down"
+            workflow_id=req.id, attempt_id=attempt.id, task_id="t-down"
         ),
         deps,
     )
@@ -209,10 +209,10 @@ def test_generator_dependency_blocks_are_a_dependency_group(
 
 
 def test_generator_missing_dependency_task_raises_context_error(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     task_store.upsert_task(
         task_id="t-down",
@@ -230,7 +230,7 @@ def test_generator_missing_dependency_task_raises_context_error(
     with pytest.raises(ContextEngineError, match="Dependency task 't-missing'"):
         build_generator_context(
             ContextScope(
-                goal_id=req.id,
+                workflow_id=req.id,
                 attempt_id=attempt.id,
                 task_id="t-down",
             ),
@@ -244,10 +244,10 @@ def test_generator_missing_dependency_task_raises_context_error(
 
 
 def test_evaluator_emits_flat_plan_spec_tasks_and_criteria(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -270,7 +270,7 @@ def test_evaluator_emits_flat_plan_spec_tasks_and_criteria(
     )
     packet = build_evaluator_context(
         ContextScope(
-            goal_id=req.id, iteration_id=iteration.id, attempt_id=attempt.id
+            workflow_id=req.id, iteration_id=iteration.id, attempt_id=attempt.id
         ),
         deps,
     )
@@ -302,10 +302,10 @@ def test_evaluator_emits_flat_plan_spec_tasks_and_criteria(
 
 
 def test_evaluator_renders_every_generator_summary_in_order(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -331,7 +331,7 @@ def test_evaluator_renders_every_generator_summary_in_order(
 
     packet = build_evaluator_context(
         ContextScope(
-            goal_id=req.id,
+            workflow_id=req.id,
             iteration_id=iteration.id,
             attempt_id=attempt.id,
         ),
@@ -347,14 +347,14 @@ def test_evaluator_renders_every_generator_summary_in_order(
 
 
 def test_evaluator_missing_generator_task_surfaces_status(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     """The recipe consults ``_generator_outcomes`` rather than rejecting; a
     missing task surfaces as a ``<task>`` block with ``status="missing task row"``
     and an empty body. The harness-level invariant violation surfaces via the
     planner submission accept path; the recipe is read-only."""
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -366,7 +366,7 @@ def test_evaluator_missing_generator_task_surfaces_status(
 
     packet = build_evaluator_context(
         ContextScope(
-            goal_id=req.id,
+            workflow_id=req.id,
             iteration_id=iteration.id,
             attempt_id=attempt.id,
         ),
@@ -379,7 +379,7 @@ def test_evaluator_missing_generator_task_surfaces_status(
 
 
 def test_evaluator_defers_goal_attempt_has_no_deferred_block(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     """Asymmetry guard: even when the attempt is a *defers-goal* plan, the
     evaluator packet carries NO ``<deferred_goal_for_next_iteration>`` block or
@@ -387,8 +387,8 @@ def test_evaluator_defers_goal_attempt_has_no_deferred_block(
     evaluation evidence. (The planner still sees it in its failed-prior blocks —
     see test_attempts.py::test_prior_attempt_body_emits_deferred_goal_when_present.)
     """
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -412,7 +412,7 @@ def test_evaluator_defers_goal_attempt_has_no_deferred_block(
 
     packet = build_evaluator_context(
         ContextScope(
-            goal_id=req.id, iteration_id=iteration.id, attempt_id=attempt.id
+            workflow_id=req.id, iteration_id=iteration.id, attempt_id=attempt.id
         ),
         deps,
     )
@@ -428,20 +428,20 @@ def test_evaluator_defers_goal_attempt_has_no_deferred_block(
 
 
 def test_evaluator_iteration2_has_no_prior_iteration_frame(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     """E4: even on iteration 2+ (with a closed prior iteration), the evaluator
     packet carries NO goal block, NO prior-iteration background, and NO
     <iteration> wrapper — only the flat current attempt."""
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration1 = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration1 = _seed_iteration(iteration_store, workflow_id=req.id)
     iteration_store.close_succeeded(
         iteration1.id,
         plan_spec="accepted plan",
         task_summary="accepted summary",
         closed_at=datetime.now(UTC),
     )
-    iteration2 = _seed_continuation_iteration(iteration_store, goal_id=req.id)
+    iteration2 = _seed_continuation_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration2.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -452,7 +452,7 @@ def test_evaluator_iteration2_has_no_prior_iteration_frame(
 
     packet = build_evaluator_context(
         ContextScope(
-            goal_id=req.id, iteration_id=iteration2.id, attempt_id=attempt.id
+            workflow_id=req.id, iteration_id=iteration2.id, attempt_id=attempt.id
         ),
         deps,
     )
@@ -467,12 +467,12 @@ def test_evaluator_iteration2_has_no_prior_iteration_frame(
 
 
 def test_evaluator_with_empty_criteria_omits_criteria_block(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     """When evaluation_criteria is empty, no <evaluation_criteria> block is
     emitted; the packet still carries the <plan_spec> framing."""
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -483,7 +483,7 @@ def test_evaluator_with_empty_criteria_omits_criteria_block(
 
     packet = build_evaluator_context(
         ContextScope(
-            goal_id=req.id, iteration_id=iteration.id, attempt_id=attempt.id
+            workflow_id=req.id, iteration_id=iteration.id, attempt_id=attempt.id
         ),
         deps,
     )
@@ -493,13 +493,13 @@ def test_evaluator_with_empty_criteria_omits_criteria_block(
 
 
 def test_evaluator_builds_without_goal_or_iteration_scope(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
-    """U1-AC5: the recipe requires only attempt_id; with goal_id/iteration_id
+    """U1-AC5: the recipe requires only attempt_id; with workflow_id/iteration_id
     absent from the scope the packet still builds, deriving iteration from
     attempt.iteration_id."""
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
         attempt.id,
@@ -512,16 +512,16 @@ def test_evaluator_builds_without_goal_or_iteration_scope(
 
     assert [b.metadata.get("tag") for b in packet.blocks] == ["plan_spec", "evaluation_criteria"]
     assert packet.canonical_refs.iteration_id == iteration.id
-    assert packet.canonical_refs.goal_id is None
+    assert packet.canonical_refs.workflow_id is None
 
 
 def test_evaluator_omitted_blocks_when_no_plan_spec(
-    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    deps, workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     """Degenerate guard: an attempt with no submitted plan yields an empty
     packet (the evaluator only runs post-plan-submission in practice)."""
-    req = _seed_goal(goal_store, task_center_run_id)
-    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    req = _seed_workflow(workflow_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, workflow_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
 
     packet = build_evaluator_context(ContextScope(attempt_id=attempt.id), deps)

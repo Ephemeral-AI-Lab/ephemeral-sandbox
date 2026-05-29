@@ -34,7 +34,7 @@ _GEN_SEP = ":gen:"
 _RUN_EXHAUSTED = "run_exhausted"
 
 # Internal enum value → presentation status. Unknown values (``running``,
-# ``waiting_goal``, ``"missing task row"``) fall through unchanged so callers
+# ``waiting_workflow``, ``"missing task row"``) fall through unchanged so callers
 # stay presence-defensive.
 _PRESENTATION: dict[str, str] = {
     "done": "success",
@@ -88,7 +88,7 @@ def present_status(raw_status: str) -> str:
     """Map an internal task status to the presentation vocabulary.
 
     ``done→success``, ``failed|blocked→failure``, ``pending→pending``. Any
-    other value (``running``/``waiting_goal``/``missing task row``) passes
+    other value (``running``/``waiting_workflow``/``missing task row``) passes
     through unchanged.
     """
     return _PRESENTATION.get(raw_status, raw_status)
@@ -208,12 +208,12 @@ def parse_achieved_record(task_summary: str | None) -> list[TaskOutcome]:
     return [from_record(item) for item in data if isinstance(item, dict)]
 
 
-def child_outcomes_for_goal(
-    goal_id: str, iteration_store: IterationStoreProtocol
+def child_outcomes_for_workflow(
+    workflow_id: str, iteration_store: IterationStoreProtocol
 ) -> list[TaskOutcome]:
     """Flatten the achieved records of a goal's SUCCEEDED iterations, in order."""
     outcomes: list[TaskOutcome] = []
-    for iteration in iteration_store.list_for_goal(goal_id):
+    for iteration in iteration_store.list_for_workflow(workflow_id):
         if iteration.status != IterationStatus.SUCCEEDED:
             continue
         outcomes.extend(parse_achieved_record(iteration.task_summary))
@@ -292,7 +292,7 @@ __all__ = [
     "EMPTY_SUMMARY_PLACEHOLDERS",
     "TaskOutcome",
     "attempt_failure_line",
-    "child_outcomes_for_goal",
+    "child_outcomes_for_workflow",
     "from_record",
     "generator_outcomes",
     "latest_task_summary",

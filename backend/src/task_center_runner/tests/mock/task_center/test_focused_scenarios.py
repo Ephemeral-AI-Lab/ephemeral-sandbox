@@ -22,7 +22,7 @@ pytestmark = pytest.mark.asyncio
 
 _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
     FocusedScenarioCase(
-        "pipeline.initial_goal",
+        "pipeline.initial_workflow",
         min_event_counts={
             EventType.EXECUTOR_INVOKED: 1,
             EventType.EXECUTOR_SUCCESS: 1,
@@ -124,7 +124,7 @@ _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
             EventType.EXECUTOR_FAILURE: 2,
         },
         absent_events=(EventType.EVALUATOR_INVOKED,),
-        goal_status="failed",
+        workflow_status="failed",
         attempt_count=2,
     ),
     FocusedScenarioCase(
@@ -135,7 +135,7 @@ _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
             EventType.EXECUTOR_FAILURE: 2,
         },
         absent_events=(EventType.EVALUATOR_INVOKED,),
-        goal_status="failed",
+        workflow_status="failed",
         attempt_count=2,
     ),
     FocusedScenarioCase(
@@ -150,7 +150,7 @@ _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
             EventType.EXECUTOR_INVOKED,
             EventType.EVALUATOR_INVOKED,
         ),
-        goal_status="failed",
+        workflow_status="failed",
         attempt_count=2,
     ),
     FocusedScenarioCase(
@@ -165,7 +165,7 @@ _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
             EventType.EXECUTOR_INVOKED,
             EventType.EVALUATOR_INVOKED,
         ),
-        goal_status="failed",
+        workflow_status="failed",
         attempt_count=2,
     ),
     FocusedScenarioCase(
@@ -180,7 +180,7 @@ _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
             EventType.EXECUTOR_INVOKED,
             EventType.EVALUATOR_INVOKED,
         ),
-        goal_status="failed",
+        workflow_status="failed",
         attempt_count=2,
     ),
     FocusedScenarioCase(
@@ -196,7 +196,7 @@ _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
             EventType.EXECUTOR_INVOKED,
             EventType.EVALUATOR_INVOKED,
         ),
-        goal_status="failed",
+        workflow_status="failed",
         attempt_count=2,
     ),
     FocusedScenarioCase(
@@ -211,7 +211,7 @@ _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
             EventType.EXECUTOR_INVOKED,
             EventType.EVALUATOR_INVOKED,
         ),
-        goal_status="failed",
+        workflow_status="failed",
         attempt_count=2,
     ),
     FocusedScenarioCase(
@@ -226,7 +226,7 @@ _FOCUSED_CASES: tuple[FocusedScenarioCase, ...] = (
             EventType.EXECUTOR_INVOKED,
             EventType.EVALUATOR_INVOKED,
         ),
-        goal_status="failed",
+        workflow_status="failed",
         attempt_count=2,
     ),
 )

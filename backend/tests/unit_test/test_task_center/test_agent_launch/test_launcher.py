@@ -38,21 +38,21 @@ async def test_wait_for_idle_prunes_done_tasks_before_next_loop() -> None:
 
 @pytest.mark.asyncio
 async def test_missing_orchestrator_exhaustion_closes_attempt(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id
 ) -> None:
-    goal = goal_store.insert(
+    goal = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="outer-task",
         goal="solve",
     )
     iteration = iteration_store.insert(
-        goal_id=goal.id,
+        workflow_id=goal.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="solve",
         attempt_budget=1,
     )
-    goal_store.append_iteration_id(goal.id, iteration.id)
+    workflow_store.append_iteration_id(goal.id, iteration.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     iteration_store.append_attempt_id(iteration.id, attempt.id)
     task_id = planner_task_id(attempt.id)
@@ -69,7 +69,7 @@ async def test_missing_orchestrator_exhaustion_closes_attempt(
         spawn_reason="attempt_planner",
     )
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -91,7 +91,7 @@ async def test_missing_orchestrator_exhaustion_closes_attempt(
             context="plan",
             task_guidance="plan the work",
             needs=(),
-            goal_id=goal.id,
+            workflow_id=goal.id,
         ),
         summary="Agent run ended without a terminal submission.",
     )

@@ -43,7 +43,7 @@ class ContextBlockKind(StrEnum):
 class ContextRefs(BaseModel):
     """Canonical row references attached to every packet."""
 
-    goal_id: str | None = None
+    workflow_id: str | None = None
     iteration_id: str | None = None
     attempt_id: str | None = None
     task_id: str | None = None

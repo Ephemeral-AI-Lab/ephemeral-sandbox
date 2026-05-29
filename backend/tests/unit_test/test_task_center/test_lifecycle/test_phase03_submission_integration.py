@@ -62,26 +62,26 @@ def _tool_context(
     return ToolExecutionContextService(cwd="/tmp", services=metadata)
 
 
-def _build_runtime(goal_store, iteration_store, attempt_store, task_store, *, composer):
-    request = goal_store.insert(
+def _build_runtime(workflow_store, iteration_store, attempt_store, task_store, *, composer):
+    request = workflow_store.insert(
         task_center_run_id="run1",
         requested_by_task_id="outer-task",
         goal="solve task",
     )
     iteration = iteration_store.insert(
-        goal_id=request.id,
+        workflow_id=request.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="solve task",
         attempt_budget=2,
     )
-    goal_store.append_iteration_id(request.id, iteration.id)
+    workflow_store.append_iteration_id(request.id, iteration.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     iteration_store.append_attempt_id(iteration.id, attempt.id)
     launcher = _FakeLauncher()
     registry = AttemptOrchestratorRegistry()
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -100,10 +100,10 @@ def _build_runtime(goal_store, iteration_store, attempt_store, task_store, *, co
 
 
 async def test_phase03_full_plan_through_evaluator_success(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     runtime, orchestrator, attempt_id = _build_runtime(
-        goal_store,
+        workflow_store,
         iteration_store,
         attempt_store,
         task_store,

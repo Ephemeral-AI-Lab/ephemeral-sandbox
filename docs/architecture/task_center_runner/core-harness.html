@@ -69,7 +69,7 @@
   <a href="scenarios.html">Scenarios</a>
   <a href="mocked-agents.html">Mocked Agents</a>
   <a href="benchmark-sweevo.html">SWE-EVO Benchmark</a>
-  <a href="../task_center/lifecycle.html">Goal Iteration Attempt</a>
+  <a href="../task_center/lifecycle.html">Workflow Iteration Attempt</a>
 </div>
 </section>
 
@@ -92,7 +92,7 @@
 +-------------------+-----------------+-------------------------+------------------------+------------------------
 </pre>
 <div class="edge-list" aria-label="RunConfig shared fields">
-  <div><b>entry_prompt</b><span>The top-level user message routed to the initial Goal. Mock scenarios pass scenario-specific text; the benchmark passes a PR description loaded by <code>load_pr_description</code>.</span></div>
+  <div><b>entry_prompt</b><span>The top-level user message routed to the initial Workflow. Mock scenarios pass scenario-specific text; the benchmark passes a PR description loaded by <code>load_pr_description</code>.</span></div>
   <div><b>repo_dir</b><span>Project root inside the sandbox. Mock scenarios usually pass <code>/testbed</code> when paired with the SWE-EVO image fixture; the benchmark always passes <code>/testbed</code>.</span></div>
   <div><b>stores</b><span>An optional pre-created <code>TaskCenterStoreBundle</code>. When supplied the engine borrows it; otherwise the engine creates one per run and closes it in <code>finally</code>.</span></div>
   <div><b>audit_dir</b><span>Base directory for per-run artifacts. <code>_default_run_dir</code> resolves to <code>audit_dir/&lt;run_label&gt;/&lt;utc&gt;_&lt;self_id&gt;/</code>.</span></div>
@@ -183,7 +183,7 @@ run_pipeline(config) coroutine
 </div>
 <div class="summary">
   <ul>
-    <li>Stores in the bundle: <code>task_store</code>, <code>goal_store</code>, <code>iteration_store</code>, <code>attempt_store</code>, <code>context_packet_store</code>.</li>
+    <li>Stores in the bundle: <code>task_store</code>, <code>workflow_store</code>, <code>iteration_store</code>, <code>attempt_store</code>, <code>context_packet_store</code>.</li>
     <li>Each store is constructed and then <code>store.initialize(session_factory)</code> is called so the same instance can be reused safely under one bundle.</li>
     <li>Other dialects raise — only PostgreSQL and SQLite are supported.</li>
   </ul>
@@ -211,7 +211,7 @@ run_pipeline(config) coroutine
 <div class="edge-list" aria-label="Audit bus surfaces">
   <div><b>AuditEventBus</b><span>Synchronous fanout, single-threaded, no locking. <code>publish(event)</code> calls every handler; handler errors are captured into <code>bus.errors</code> rather than raised. <code>subscribe(handler)</code> returns an unsubscribe callable.</span></div>
   <div><b>Event types</b><span><code>EventType</code> enumerates run lifecycle, agent invocation, terminal outcomes, tool-call, sandbox-derived (write/edit/shell/batch-edit/conflict, LayerStack lease/layer/squash, OCC commit, isolated workspace events), hook synthetic, and four mock side-channel events.</span></div>
-  <div><b>NodeId</b><span>Every event carries a <code>NodeId</code> identifying the <code>task_center_run_id</code>, optional <code>goal_id</code>, <code>iteration_id</code>, <code>attempt_id</code>, <code>task_id</code>. Subscribers use it to route per-task work.</span></div>
+  <div><b>NodeId</b><span>Every event carries a <code>NodeId</code> identifying the <code>task_center_run_id</code>, optional <code>workflow_id</code>, <code>iteration_id</code>, <code>attempt_id</code>, <code>task_id</code>. Subscribers use it to route per-task work.</span></div>
   <div><b>AuditRecorder</b><span>Writes the run-dir's persistent artifacts. Bound to a single <code>task_center_run_id</code> via <code>bind_task_center_run_id</code>. Exposes <code>metrics</code> (live snapshot) and <code>metrics.performance_snapshot()</code> consumed by the perf report.</span></div>
   <div><b>Stream bridge</b><span><code>stream_bridge(bus, task_center_run_id, sandbox_fallback_enabled)</code> is the callback that turns engine-stream agent events into bus publications plus per-task message-recorder writes.</span></div>
 </div>

@@ -10,12 +10,12 @@ sandbox helpers from this package root::
     )
 
 Internal modules import from the canonical submodule path (e.g.
-``task_center.goal.state`` for ``Goal``). The package root is the stable
+``task_center.workflow.state`` for ``Workflow``). The package root is the stable
 convenience facade for outside-the-package
 callers.
 
 Public names are exposed via ``__getattr__`` so that importing a submodule
-(``from task_center.goal.state import Goal``) does NOT trigger the
+(``from task_center.workflow.state import Workflow``) does NOT trigger the
 heavy agent-launch / context-engine load chain. The cycle would otherwise
 be: db.stores -> task_center root -> agent_launch.composer ->
 terminal_tool_routing -> goal.ancestry -> db.stores. Lazy loading keeps the
@@ -56,8 +56,8 @@ if TYPE_CHECKING:
         IterationStatus,
     )
     from task_center._core.primitives import TaskCenterInvariantViolation
-    from task_center.goal.starter import GoalStarter, StartedGoal
-    from task_center.goal.state import Goal, GoalOrigin, GoalOriginKind, GoalStatus
+    from task_center.workflow.starter import WorkflowStarter, StartedWorkflow
+    from task_center.workflow.state import Workflow, WorkflowOrigin, WorkflowOriginKind, WorkflowStatus
     from task_center.submissions import (
         EvaluatorSubmission,
         GeneratorSubmission,
@@ -99,18 +99,18 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "IterationStatus": ("task_center.iteration.state", "IterationStatus"),
     "EvaluatorSubmission": ("task_center.submissions", "EvaluatorSubmission"),
     "GeneratorSubmission": ("task_center.submissions", "GeneratorSubmission"),
-    "Goal": ("task_center.goal.state", "Goal"),
-    "GoalOrigin": ("task_center.goal.state", "GoalOrigin"),
-    "GoalOriginKind": ("task_center.goal.state", "GoalOriginKind"),
-    "GoalStarter": ("task_center.goal.starter", "GoalStarter"),
-    "GoalStatus": ("task_center.goal.state", "GoalStatus"),
+    "Workflow": ("task_center.workflow.state", "Workflow"),
+    "WorkflowOrigin": ("task_center.workflow.state", "WorkflowOrigin"),
+    "WorkflowOriginKind": ("task_center.workflow.state", "WorkflowOriginKind"),
+    "WorkflowStarter": ("task_center.workflow.starter", "WorkflowStarter"),
+    "WorkflowStatus": ("task_center.workflow.state", "WorkflowStatus"),
     "PlannedGeneratorTask": ("task_center.submissions", "PlannedGeneratorTask"),
     "PlannerSubmission": ("task_center.submissions", "PlannerSubmission"),
     "RecipeRegistry": (
         "task_center.context_engine.recipes_registry",
         "RecipeRegistry",
     ),
-    "StartedGoal": ("task_center.goal.starter", "StartedGoal"),
+    "StartedWorkflow": ("task_center.workflow.starter", "StartedWorkflow"),
     "TaskCenterInvariantViolation": (
         "task_center._core.primitives",
         "TaskCenterInvariantViolation",

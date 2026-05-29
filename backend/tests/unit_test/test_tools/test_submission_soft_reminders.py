@@ -10,7 +10,7 @@ from message.message import Message, ToolUseBlock
 from notification import dispatch_rules
 from notification import SystemNotificationService
 from tools.submission.notification_triggers import (
-    make_goal_request_after_edit_reminder,
+    make_workflow_request_after_edit_reminder,
     resolve_harness_notification_triggers,
 )
 
@@ -37,7 +37,7 @@ async def test_after_edit_reminder_fires_once() -> None:
     ctx = SimpleNamespace(tool_metadata=None, cwd="/tmp")
 
     notifications = await _dispatch(
-        make_goal_request_after_edit_reminder(),
+        make_workflow_request_after_edit_reminder(),
         _edit_messages(),
         ctx,
     )

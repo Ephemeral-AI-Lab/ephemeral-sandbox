@@ -20,7 +20,7 @@ class IterationStore(SyncStoreMixin):
     def insert(
         self,
         *,
-        goal_id: str,
+        workflow_id: str,
         sequence_no: int,
         creation_reason: IterationCreationReason,
         goal: str,
@@ -30,7 +30,7 @@ class IterationStore(SyncStoreMixin):
             now = datetime.now(UTC)
             record = IterationRecord(
                 id=str(uuid.uuid4()),
-                goal_id=goal_id,
+                workflow_id=workflow_id,
                 sequence_no=sequence_no,
                 creation_reason=creation_reason.value,
                 goal=goal,
@@ -93,30 +93,30 @@ class IterationStore(SyncStoreMixin):
             db.refresh(record)
             return self._to_dto(record)
 
-    def list_for_goal(
-        self, goal_id: str
+    def list_for_workflow(
+        self, workflow_id: str
     ) -> list[Iteration]:
         """Ordered by sequence_no ascending."""
         with self._sf() as db:
             q = (
                 db.query(IterationRecord)
                 .filter(
-                    IterationRecord.goal_id
-                    == goal_id
+                    IterationRecord.workflow_id
+                    == workflow_id
                 )
                 .order_by(IterationRecord.sequence_no.asc())
             )
             return [self._to_dto(r) for r in q.all()]
 
     def get_by_sequence(
-        self, *, goal_id: str, sequence_no: int
+        self, *, workflow_id: str, sequence_no: int
     ) -> Iteration | None:
         with self._sf() as db:
             record = (
                 db.query(IterationRecord)
                 .filter(
-                    IterationRecord.goal_id
-                    == goal_id,
+                    IterationRecord.workflow_id
+                    == workflow_id,
                     IterationRecord.sequence_no == sequence_no,
                 )
                 .first()
@@ -155,7 +155,7 @@ class IterationStore(SyncStoreMixin):
     def _to_dto(self, record: IterationRecord) -> Iteration:
         return Iteration(
             id=record.id,
-            goal_id=record.goal_id,
+            workflow_id=record.workflow_id,
             sequence_no=record.sequence_no,
             creation_reason=IterationCreationReason(record.creation_reason),
             goal=record.goal,

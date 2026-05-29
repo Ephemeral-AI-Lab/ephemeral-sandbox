@@ -17,7 +17,7 @@ class FocusedScenarioCase:
     expected_status: str = "done"
     min_event_counts: Mapping[EventType, int] = field(default_factory=dict)
     absent_events: Sequence[EventType] = ()
-    goal_status: str = "succeeded"
+    workflow_status: str = "succeeded"
     iteration_count: int | None = 1
     attempt_count: int | None = None
 
@@ -59,7 +59,7 @@ def count_role_tasks(
     analog).
     """
     total = 0
-    for goal in report.graph_summary["goals"]:
+    for goal in report.graph_summary["workflows"]:
         for iteration in goal["iterations"]:
             for attempt in iteration["attempts"]:
                 for task in attempt["tasks"]:
@@ -69,6 +69,23 @@ def count_role_tasks(
                         continue
                     total += 1
     return total
+
+
+def recursive_goals(graph_summary: Mapping[str, object]) -> list[dict]:
+    """Return the delegated (recursive) workflows from ``graph_summary``.
+
+    A recursive workflow is one started by an executor ``submit_execution_handoff``
+    (``origin_kind == "task"``), as opposed to the entry workflow. The §4.1
+    replacement for ``count_events(RECURSIVE_WORKFLOW_REQUESTED/COMPLETED)``:
+    lifecycle events are gone under the event-source runner, so recursion is
+    asserted via real store state.
+    """
+    workflows = graph_summary["workflows"]  # type: ignore[index]
+    return [
+        workflow
+        for workflow in workflows  # type: ignore[union-attr]
+        if str(workflow.get("origin_kind") or "") == "task"
+    ]
 
 
 def _assert_ordered_subsequence(
@@ -101,10 +118,10 @@ def _assert_event_counts(report: RunReport, case: FocusedScenarioCase) -> None:
 
 
 def _assert_graph_shape(report: RunReport, case: FocusedScenarioCase) -> None:
-    goals = report.graph_summary["goals"]
+    goals = report.graph_summary["workflows"]
     assert len(goals) == 1, report.graph_summary
     goal = goals[0]
-    assert goal["status"] == case.goal_status
+    assert goal["status"] == case.workflow_status
     if case.iteration_count is not None:
         assert len(goal["iterations"]) == case.iteration_count
     if case.attempt_count is not None:

@@ -9,13 +9,13 @@ import pytest
 
 from task_center import start_task_center_run
 from task_center.entry import TaskCenterSandboxProvisioner
-from task_center.goal.state import GoalOriginKind
+from task_center.workflow.state import WorkflowOriginKind
 from task_center._core.task_state import TaskCenterTaskRole, SpawnReason
 
 
 @pytest.mark.asyncio
-async def test_entry_bootstrap_converts_prompt_to_initial_goal(
-    goal_store,
+async def test_entry_bootstrap_converts_prompt_to_initial_workflow(
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
@@ -41,7 +41,7 @@ async def test_entry_bootstrap_converts_prompt_to_initial_goal(
         sandbox_id=None,
         on_agent_event=None,
         task_store=task_store,
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         context_packet_store=context_packet_store,
@@ -52,16 +52,16 @@ async def test_entry_bootstrap_converts_prompt_to_initial_goal(
     )
     await asyncio.sleep(0)
 
-    goal = goal_store.get(handle.goal_id)
+    workflow = workflow_store.get(handle.workflow_id)
     iteration = iteration_store.get(handle.initial_iteration_id)
     attempt = attempt_store.get(handle.initial_attempt_id)
     planner_task = task_store.get_task(f"{handle.initial_attempt_id}:planner")
     run_tasks = task_store.list_tasks_for_run(handle.task_center_run_id)
 
-    assert goal is not None
-    assert goal.origin_kind == GoalOriginKind.ENTRY
-    assert goal.requested_by_task_id is None
-    assert goal.goal == "solve the user request"
+    assert workflow is not None
+    assert workflow.origin_kind == WorkflowOriginKind.ENTRY
+    assert workflow.requested_by_task_id is None
+    assert workflow.goal == "solve the user request"
     assert iteration is not None
     assert iteration.goal == "solve the user request"
     assert attempt is not None

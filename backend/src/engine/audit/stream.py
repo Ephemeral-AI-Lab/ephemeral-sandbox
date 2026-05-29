@@ -83,7 +83,7 @@ def _node_from_stream(
             task_center_run_id,
         ),
         request_id=_text_or_none(_metadata_get(metadata, "task_center_request_id")),
-        goal_id=_text_or_none(_metadata_get(metadata, "task_center_goal_id")),
+        workflow_id=_text_or_none(_metadata_get(metadata, "task_center_workflow_id")),
         attempt_id=_text_or_none(_metadata_get(metadata, "task_center_attempt_id")),
         task_center_task_id=_text_or_none(
             _metadata_get(metadata, "task_center_task_id")

@@ -65,16 +65,16 @@ async def test_correctness_testing_scenario_runs_end_to_end(
         item for item in report.sandbox_checks if not item.passed
     ]
 
-    # --- Goal graph: succeeded goal with delegated iterations ----
+    # --- Workflow graph: succeeded goal with delegated iterations ----
     delegated = [
         goal
-        for goal in report.graph_summary["goals"]
+        for goal in report.graph_summary["workflows"]
         if len(goal["iterations"]) >= 1
         and any(ep["attempts"] for ep in goal["iterations"])
     ]
     assert delegated, "no goal with attempts in graph"
-    final_goal = delegated[-1]
-    assert final_goal["status"] == "succeeded"
+    final_workflow = delegated[-1]
+    assert final_workflow["status"] == "succeeded"
 
     # --- Audit tree on disk -------------------------------------------
     run_dir = report.run_dir
@@ -82,12 +82,12 @@ async def test_correctness_testing_scenario_runs_end_to_end(
     assert (run_dir / "run.json").exists()
     assert (run_dir / "metrics.json").exists()
 
-    goal_dirs = list(run_dir.glob("goal_*_*"))
-    assert goal_dirs, f"no goal_NN_<id> dir under {run_dir}"
+    workflow_dirs = list(run_dir.glob("workflow_*_*"))
+    assert workflow_dirs, f"no workflow_NN_<id> dir under {run_dir}"
     found_attempt_with_role_dir = False
-    for goal_dir in goal_dirs:
-        assert (goal_dir / "goal.json").exists()
-        for iteration_dir in goal_dir.glob("iteration_*_*"):
+    for workflow_dir in workflow_dirs:
+        assert (workflow_dir / "workflow.json").exists()
+        for iteration_dir in workflow_dir.glob("iteration_*_*"):
             assert (iteration_dir / "iteration.json").exists()
             for attempt_dir in iteration_dir.glob("attempt_*_*"):
                 assert (attempt_dir / "attempt.json").exists()

@@ -17,9 +17,9 @@ from task_center_runner.scenarios.full_stack_adversarial import (
 from task_center_runner.scenarios.pipeline.generator_failure_quiescence import (
     GeneratorFailureQuiescence,
 )
-from task_center_runner.scenarios.pipeline.nested_goal import (
-    NestedGoal,
-    NestedGoalFailure,
+from task_center_runner.scenarios.pipeline.nested_workflow import (
+    NestedWorkflow,
+    NestedWorkflowFailure,
 )
 from task_center_runner.scenarios.sandbox.high_concurrency_layerstack_overlay_occ import (
     HighConcurrencyLayerstackOverlayOcc,
@@ -41,8 +41,8 @@ def _ctx(
             evaluation_criteria=("criterion",),
             id=f"attempt-{attempt_no}",
         ),
-        iteration=SimpleNamespace(sequence_no=1, goal_id="goal-id"),
-        goal=SimpleNamespace(requested_by_task_id=requested_by_task_id),
+        iteration=SimpleNamespace(sequence_no=1, workflow_id="goal-id"),
+        workflow=SimpleNamespace(requested_by_task_id=requested_by_task_id),
         prompt=prompt,
         metadata={},
         audit_recorder=None,
@@ -56,11 +56,11 @@ def _ctx(
 def test_full_case_executor_actions_use_context_message() -> None:
     scenario = FullCaseUserInput()
     ctx = _ctx(
-        context_message="ACTION request_recursive_goal package=pkg_42",
+        context_message="ACTION request_recursive_workflow package=pkg_42",
         prompt="this prompt should be ignored",
     )
 
-    assert scenario.executor_actions(ctx) == ("request_recursive_goal:pkg_42",)
+    assert scenario.executor_actions(ctx) == ("request_recursive_workflow:pkg_42",)
 
 
 def test_full_case_verifier_response_reads_checkpoint_from_context_message() -> None:
@@ -90,15 +90,15 @@ def test_full_stack_executor_actions_use_context_message() -> None:
     )
 
 
-def test_nested_goal_dispatch_uses_context_message() -> None:
-    success = NestedGoal()
-    failure = NestedGoalFailure()
+def test_nested_workflow_dispatch_uses_context_message() -> None:
+    success = NestedWorkflow()
+    failure = NestedWorkflowFailure()
 
     assert success.executor_actions(
-        _ctx(context_message="ACTION request_recursive_goal package=child_success")
-    ) == ("request_recursive_goal:child_success",)
+        _ctx(context_message="ACTION request_recursive_workflow package=child_success")
+    ) == ("request_recursive_workflow:child_success",)
     assert failure.executor_actions(
-        _ctx(context_message="ACTION child_failure reason=nested_goal")
+        _ctx(context_message="ACTION child_failure reason=nested_workflow")
     ) == ("fail:Intentional child goal failure.",)
 
 

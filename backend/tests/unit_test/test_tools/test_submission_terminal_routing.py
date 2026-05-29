@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from task_center.goal.state import GoalStatus
+from task_center.workflow.state import WorkflowStatus
 from task_center.attempt import AttemptStage, AttemptStatus
 from task_center._core.task_state import TaskCenterTaskStatus
 from task_center.submissions import (
@@ -43,10 +43,10 @@ async def _noop_emit(event) -> None:
 
 
 async def test_submit_execution_success_calls_apply_generator_submission(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -72,10 +72,10 @@ async def test_submit_execution_success_calls_apply_generator_submission(
 
 
 async def test_submit_execution_blocker_calls_apply_generator_submission(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -100,10 +100,10 @@ async def test_submit_execution_blocker_calls_apply_generator_submission(
 
 
 async def test_submit_verification_success_calls_apply_generator_submission(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -130,10 +130,10 @@ async def test_submit_verification_success_calls_apply_generator_submission(
 
 
 async def test_submit_evaluation_success_calls_apply_evaluator_submission(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -157,10 +157,10 @@ async def test_submit_evaluation_success_calls_apply_evaluator_submission(
 
 
 async def test_submit_evaluation_failure_calls_apply_evaluator_submission(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -184,10 +184,10 @@ async def test_submit_evaluation_failure_calls_apply_evaluator_submission(
 
 
 async def test_submit_execution_handoff_starts_delegated_request(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -205,27 +205,27 @@ async def test_submit_execution_handoff_starts_delegated_request(
     )
 
     task = task_store.get_task(generator_id)
-    delegated_request = goal_store.get(result.metadata["goal_id"])
+    delegated_request = workflow_store.get(result.metadata["workflow_id"])
     initial_iteration = iteration_store.get(result.metadata["initial_iteration_id"])
     created_attempt = attempt_store.get(result.metadata["initial_attempt_id"])
 
     assert not result.is_error
     assert result.is_terminal
     assert task is not None
-    assert task["status"] == TaskCenterTaskStatus.WAITING_GOAL.value
+    assert task["status"] == TaskCenterTaskStatus.WAITING_WORKFLOW.value
     assert delegated_request is not None
-    assert delegated_request.status == GoalStatus.OPEN
+    assert delegated_request.status == WorkflowStatus.OPEN
     assert delegated_request.requested_by_task_id == generator_id
     assert delegated_request.goal == "solve delegated task"
     assert initial_iteration is not None
-    assert initial_iteration.goal_id == delegated_request.id
+    assert initial_iteration.workflow_id == delegated_request.id
     assert created_attempt is not None
     assert created_attempt.iteration_id == initial_iteration.id
     assert created_attempt.stage == AttemptStage.PLAN
 
 
 async def test_submit_execution_handoff_accepts_any_generator_agent_profile(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     from agents import AgentDefinition, AgentKind, register_definition
 
@@ -246,7 +246,7 @@ async def test_submit_execution_handoff_accepts_any_generator_agent_profile(
     )
 
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -270,14 +270,14 @@ async def test_submit_execution_handoff_accepts_any_generator_agent_profile(
     assert not result.is_error
     assert result.is_terminal
     assert task is not None
-    assert task["status"] == TaskCenterTaskStatus.WAITING_GOAL.value
+    assert task["status"] == TaskCenterTaskStatus.WAITING_WORKFLOW.value
 
 
 async def test_submit_execution_handoff_return_updates_outer_generator(
-    goal_store, iteration_store, attempt_store, task_store, composer
+    workflow_store, iteration_store, attempt_store, task_store, composer
 ) -> None:
     fixture = build_harness_fixture(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -343,14 +343,14 @@ async def test_submit_execution_handoff_return_updates_outer_generator(
 
     outer_task = task_store.get_task(outer_generator_id)
     outer_attempt = attempt_store.get(fixture.attempt_id)
-    delegated_request = goal_store.get(result.metadata["goal_id"])
+    delegated_request = workflow_store.get(result.metadata["workflow_id"])
 
     assert outer_task is not None
     assert outer_task["status"] == TaskCenterTaskStatus.DONE.value
-    assert outer_task["summaries"][-1]["payload"]["goal_closure_report"][
+    assert outer_task["summaries"][-1]["payload"]["workflow_closure_report"][
         "final_attempt_id"
     ] == delegated_attempt_id
     assert outer_attempt is not None
     assert outer_attempt.stage == AttemptStage.EVALUATE
     assert delegated_request is not None
-    assert delegated_request.status == GoalStatus.SUCCEEDED
+    assert delegated_request.status == WorkflowStatus.SUCCEEDED

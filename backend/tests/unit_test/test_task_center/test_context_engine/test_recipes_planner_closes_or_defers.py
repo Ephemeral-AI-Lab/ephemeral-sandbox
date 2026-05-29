@@ -29,18 +29,18 @@ from task_center.iteration.state import (
 
 @pytest.fixture
 def deps_with_stores(
-    goal_store, iteration_store, attempt_store, task_store
+    workflow_store, iteration_store, attempt_store, task_store
 ) -> ContextEngineDeps:
     return ContextEngineDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
     )
 
 
-def _seed_goal(goal_store, task_center_run_id, goal="goal"):
-    return goal_store.insert(
+def _seed_workflow(workflow_store, task_center_run_id, goal="goal"):
+    return workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="parent-task",
         goal=goal,
@@ -50,12 +50,12 @@ def _seed_goal(goal_store, task_center_run_id, goal="goal"):
 def _seed_iteration(
     iteration_store,
     *,
-    goal_id: str,
+    workflow_id: str,
     sequence_no: int,
     goal: str = "g",
 ):
     return iteration_store.insert(
-        goal_id=goal_id,
+        workflow_id=workflow_id,
         sequence_no=sequence_no,
         creation_reason=IterationCreationReason.INITIAL,
         goal=goal,
@@ -123,20 +123,20 @@ def _seed_running_attempt(attempt_store, iteration_id, *, sequence_no: int):
 
 
 def test_iteration1_emits_goal_then_current_iteration_child(
-    deps_with_stores, goal_store, iteration_store, attempt_store,
+    deps_with_stores, workflow_store, iteration_store, attempt_store,
     task_center_run_id,
 ):
     """Iteration 1 now emits standalone ``<goal>`` plus a current-iteration
     group whose ``<iteration_goal>`` body is the identity marker."""
-    request = _seed_goal(goal_store, task_center_run_id, goal="overall")
+    request = _seed_workflow(workflow_store, task_center_run_id, goal="overall")
     iteration = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=1, goal="overall"
+        iteration_store, workflow_id=request.id, sequence_no=1, goal="overall"
     )
     g = _seed_running_attempt(attempt_store, iteration.id, sequence_no=1)
 
     packet = build_planner_context(
         ContextScope(
-            goal_id=request.id, iteration_id=iteration.id, attempt_id=g.id
+            workflow_id=request.id, iteration_id=iteration.id, attempt_id=g.id
         ),
         deps_with_stores,
     )
@@ -160,24 +160,24 @@ def test_iteration1_emits_goal_then_current_iteration_child(
 
 
 def test_iteration2_emits_goal_prior_results_and_current_iteration(
-    deps_with_stores, goal_store, iteration_store, attempt_store,
+    deps_with_stores, workflow_store, iteration_store, attempt_store,
     task_center_run_id,
 ):
-    request = _seed_goal(goal_store, task_center_run_id, goal="overall")
+    request = _seed_workflow(workflow_store, task_center_run_id, goal="overall")
     iteration1 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=1, goal="iteration1 goal"
+        iteration_store, workflow_id=request.id, sequence_no=1, goal="iteration1 goal"
     )
     _close_iteration_succeeded(
         iteration_store, iteration1.id, spec="iteration1 spec", summary="iteration1 summary"
     )
     iteration2 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=2, goal="iteration2 goal"
+        iteration_store, workflow_id=request.id, sequence_no=2, goal="iteration2 goal"
     )
     g = _seed_running_attempt(attempt_store, iteration2.id, sequence_no=1)
 
     packet = build_planner_context(
         ContextScope(
-            goal_id=request.id, iteration_id=iteration2.id, attempt_id=g.id
+            workflow_id=request.id, iteration_id=iteration2.id, attempt_id=g.id
         ),
         deps_with_stores,
     )
@@ -206,26 +206,26 @@ def test_iteration2_emits_goal_prior_results_and_current_iteration(
 
 
 def test_iteration3_emits_two_pairs_with_priority_split(
-    deps_with_stores, goal_store, iteration_store, attempt_store,
+    deps_with_stores, workflow_store, iteration_store, attempt_store,
     task_center_run_id,
 ):
-    request = _seed_goal(goal_store, task_center_run_id, goal="overall")
+    request = _seed_workflow(workflow_store, task_center_run_id, goal="overall")
     iteration1 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=1, goal="g1"
+        iteration_store, workflow_id=request.id, sequence_no=1, goal="g1"
     )
     _close_iteration_succeeded(iteration_store, iteration1.id, spec="s1", summary="sum1")
     iteration2 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=2, goal="g2"
+        iteration_store, workflow_id=request.id, sequence_no=2, goal="g2"
     )
     _close_iteration_succeeded(iteration_store, iteration2.id, spec="s2", summary="sum2")
     iteration3 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=3, goal="g3"
+        iteration_store, workflow_id=request.id, sequence_no=3, goal="g3"
     )
     g = _seed_running_attempt(attempt_store, iteration3.id, sequence_no=1)
 
     packet = build_planner_context(
         ContextScope(
-            goal_id=request.id, iteration_id=iteration3.id, attempt_id=g.id
+            workflow_id=request.id, iteration_id=iteration3.id, attempt_id=g.id
         ),
         deps_with_stores,
     )
@@ -242,28 +242,28 @@ def test_iteration3_emits_two_pairs_with_priority_split(
 
 
 def test_missing_prior_spec_raises_context_engine_error(
-    deps_with_stores, goal_store, iteration_store, attempt_store,
+    deps_with_stores, workflow_store, iteration_store, attempt_store,
     task_center_run_id,
 ):
     """Closed iteration-1 with task_summary still null is an invariant
     violation; recipe must raise (chain-integrity guard keys on task_summary)."""
-    request = _seed_goal(goal_store, task_center_run_id)
+    request = _seed_workflow(workflow_store, task_center_run_id)
     iteration1 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=1, goal="g1"
+        iteration_store, workflow_id=request.id, sequence_no=1, goal="g1"
     )
     # Close via legacy set_status (does not write denormalized fields).
     iteration_store.set_status(
         iteration1.id, status=IterationStatus.SUCCEEDED, closed_at=datetime.now(UTC)
     )
     iteration2 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=2, goal="g2"
+        iteration_store, workflow_id=request.id, sequence_no=2, goal="g2"
     )
     g = _seed_running_attempt(attempt_store, iteration2.id, sequence_no=1)
 
     with pytest.raises(ContextEngineError):
         build_planner_context(
             ContextScope(
-                goal_id=request.id, iteration_id=iteration2.id, attempt_id=g.id
+                workflow_id=request.id, iteration_id=iteration2.id, attempt_id=g.id
             ),
             deps_with_stores,
         )
@@ -275,12 +275,12 @@ def test_missing_prior_spec_raises_context_engine_error(
 
 
 def test_three_failed_attempts_emit_three_high_priority_blocks(
-    deps_with_stores, goal_store, iteration_store, attempt_store,
+    deps_with_stores, workflow_store, iteration_store, attempt_store,
     task_center_run_id,
 ):
-    request = _seed_goal(goal_store, task_center_run_id)
+    request = _seed_workflow(workflow_store, task_center_run_id)
     iteration = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=1, goal="g"
+        iteration_store, workflow_id=request.id, sequence_no=1, goal="g"
     )
     for n in (1, 2, 3):
         _seed_failed_attempt(attempt_store, iteration.id, sequence_no=n)
@@ -288,7 +288,7 @@ def test_three_failed_attempts_emit_three_high_priority_blocks(
 
     packet = build_planner_context(
         ContextScope(
-            goal_id=request.id,
+            workflow_id=request.id,
             iteration_id=iteration.id,
             attempt_id=current_attempt.id,
         ),
@@ -310,12 +310,12 @@ def test_three_failed_attempts_emit_three_high_priority_blocks(
 
 
 def test_failed_attempt_includes_plan_type_statuses_and_summaries(
-    deps_with_stores, goal_store, iteration_store, attempt_store, task_store,
+    deps_with_stores, workflow_store, iteration_store, attempt_store, task_store,
     task_center_run_id,
 ):
-    request = _seed_goal(goal_store, task_center_run_id)
+    request = _seed_workflow(workflow_store, task_center_run_id)
     iteration = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=1, goal="g"
+        iteration_store, workflow_id=request.id, sequence_no=1, goal="g"
     )
     failed = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     attempt_store.set_plan_contract(
@@ -359,7 +359,7 @@ def test_failed_attempt_includes_plan_type_statuses_and_summaries(
 
     packet = build_planner_context(
         ContextScope(
-            goal_id=request.id,
+            workflow_id=request.id,
             iteration_id=iteration.id,
             attempt_id=current_attempt.id,
         ),
@@ -400,12 +400,12 @@ def test_failed_attempt_includes_plan_type_statuses_and_summaries(
 
 
 def test_all_failed_attempts_render_as_high_priority_blocks(
-    deps_with_stores, goal_store, iteration_store, attempt_store,
+    deps_with_stores, workflow_store, iteration_store, attempt_store,
     task_center_run_id,
 ):
-    request = _seed_goal(goal_store, task_center_run_id)
+    request = _seed_workflow(workflow_store, task_center_run_id)
     iteration = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=1, goal="g"
+        iteration_store, workflow_id=request.id, sequence_no=1, goal="g"
     )
     total = 8
     for n in range(1, total + 1):
@@ -416,7 +416,7 @@ def test_all_failed_attempts_render_as_high_priority_blocks(
 
     packet = build_planner_context(
         ContextScope(
-            goal_id=request.id,
+            workflow_id=request.id,
             iteration_id=iteration.id,
             attempt_id=current_attempt.id,
         ),
@@ -439,7 +439,7 @@ def test_all_failed_attempts_render_as_high_priority_blocks(
 
 
 def test_iteration_2_plus_reading_a_structure(
-    deps_with_stores, goal_store, iteration_store, attempt_store,
+    deps_with_stores, workflow_store, iteration_store, attempt_store,
     task_center_run_id,
 ):
     """Structural lock for the planner Reading-A reframing (§4, Principle 4).
@@ -449,27 +449,27 @@ def test_iteration_2_plus_reading_a_structure(
     structural assertions (not full-text snapshots) so the test survives a
     future Reading-B rewrite.
     """
-    request = _seed_goal(goal_store, task_center_run_id, goal="overall goal")
+    request = _seed_workflow(workflow_store, task_center_run_id, goal="overall goal")
     iteration1 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=1, goal="iteration 1 goal"
+        iteration_store, workflow_id=request.id, sequence_no=1, goal="iteration 1 goal"
     )
     _close_iteration_succeeded(
         iteration_store, iteration1.id, spec="iter1 spec", summary="iter1 summary"
     )
     iteration2 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=2, goal="iteration 2 goal"
+        iteration_store, workflow_id=request.id, sequence_no=2, goal="iteration 2 goal"
     )
     _close_iteration_succeeded(
         iteration_store, iteration2.id, spec="iter2 spec", summary="iter2 summary"
     )
     iteration3 = _seed_iteration(
-        iteration_store, goal_id=request.id, sequence_no=3, goal="iteration 3 goal"
+        iteration_store, workflow_id=request.id, sequence_no=3, goal="iteration 3 goal"
     )
     current_attempt = _seed_running_attempt(attempt_store, iteration3.id, sequence_no=1)
 
     packet = build_planner_context(
         ContextScope(
-            goal_id=request.id,
+            workflow_id=request.id,
             iteration_id=iteration3.id,
             attempt_id=current_attempt.id,
         ),

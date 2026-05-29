@@ -56,7 +56,7 @@ def _tool_count(tool_calls: list[Any], tool_name: str) -> int:
 
 
 def _assert_partial_parent_graph(graph_summary: dict[str, Any]) -> None:
-    goals = graph_summary["goals"]
+    goals = graph_summary["workflows"]
     assert len(goals) == 2, graph_summary
     root = next(
         goal

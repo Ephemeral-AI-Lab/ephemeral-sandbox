@@ -19,7 +19,7 @@ from task_center.context_engine.core import (
     MissingContextRecipeError,
 )
 from task_center.context_engine.scope import ContextScope
-from task_center.goal.ancestry import nested_goal_depth
+from task_center.workflow.ancestry import nested_workflow_depth
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,24 +31,24 @@ class TerminalRoutingContext:
 
 
 def _depth(ctx: TerminalRoutingContext) -> int:
-    """Return the nested-goal depth for ``ctx``.
+    """Return the nested workflow depth for ``ctx``.
 
-    Scopes without a goal have no caller-attempt ancestry by construction,
+    Scopes without a workflow have no caller-attempt ancestry by construction,
     so depth is zero.
     """
-    goal_id = ctx.scope.goal_id
-    if goal_id is None:
+    workflow_id = ctx.scope.workflow_id
+    if workflow_id is None:
         return 0
-    return nested_goal_depth(
-        goal_id=goal_id,
-        goal_store=ctx.deps.goal_store,
+    return nested_workflow_depth(
+        workflow_id=workflow_id,
+        workflow_store=ctx.deps.workflow_store,
         iteration_store=ctx.deps.iteration_store,
         attempt_store=ctx.deps.attempt_store,
         task_store=ctx.deps.task_store,
     )
 
 
-def _nested_goal_depth_gt_1(ctx: TerminalRoutingContext) -> bool:
+def _nested_workflow_depth_gt_1(ctx: TerminalRoutingContext) -> bool:
     """True when depth > 1 — caller attempt is itself inside another goal.
 
     Kept as a named predicate (rather than inlined as ``_depth(ctx) > 1``)
@@ -131,10 +131,10 @@ class TerminalToolRouter:
     ) -> frozenset[str] | None:
         if definition.agent_kind not in {AgentKind.PLANNER, AgentKind.EXECUTOR}:
             return None
-        if definition.agent_kind == AgentKind.EXECUTOR and ctx.scope.goal_id is None:
+        if definition.agent_kind == AgentKind.EXECUTOR and ctx.scope.workflow_id is None:
             return None
 
-        depth_restricted = _nested_goal_depth_gt_1(ctx)
+        depth_restricted = _nested_workflow_depth_gt_1(ctx)
         if definition.agent_kind == AgentKind.PLANNER:
             if depth_restricted:
                 return frozenset({"submit_plan_closes_goal"})

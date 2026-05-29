@@ -19,7 +19,7 @@ def _packet_with_budget(blocks: list[ContextBlock], budget: int) -> ContextPacke
     return ContextPacket(
         target_role="planner",
         target_id="g",
-        canonical_refs=ContextRefs(goal_id="r"),
+        canonical_refs=ContextRefs(workflow_id="r"),
         blocks=blocks,
         metadata={"token_budget": str(budget)},
     )

@@ -6,10 +6,10 @@ from typing import Literal
 
 import pytest
 
-from task_center.goal.closure_report_router import (
-    GoalClosureReportRouter,
+from task_center.workflow.closure_report_router import (
+    WorkflowClosureReportRouter,
 )
-from task_center.goal.state import GoalClosureReport, GoalOriginKind
+from task_center.workflow.state import WorkflowClosureReport, WorkflowOriginKind
 from task_center._core.primitives import TaskCenterInvariantViolation
 from task_center.attempt.orchestrator import AttemptOrchestrator
 from task_center.attempt.orchestrator_registry import (
@@ -33,31 +33,31 @@ class _FakeLauncher:
 
 def _build_runtime_with_open_graph(
     *,
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
     task_center_run_id: str,
     composer,
 ):
-    request = goal_store.insert(
+    request = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="parent-task",
         goal="outer",
     )
     iteration = iteration_store.insert(
-        goal_id=request.id,
+        workflow_id=request.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="outer",
         attempt_budget=2,
     )
-    goal_store.append_iteration_id(request.id, iteration.id)
+    workflow_store.append_iteration_id(request.id, iteration.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     iteration_store.append_attempt_id(iteration.id, attempt.id)
     registry = AttemptOrchestratorRegistry()
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -99,7 +99,7 @@ def _build_runtime_with_open_graph(
 def _set_parent_waiting(task_store, parent_task_id: str) -> None:
     task_store.set_task_status(
         parent_task_id,
-        status=TaskCenterTaskStatus.WAITING_GOAL.value,
+        status=TaskCenterTaskStatus.WAITING_WORKFLOW.value,
     )
 
 
@@ -108,11 +108,11 @@ def _task_report(
     task_center_run_id: str,
     requested_by_task_id: str,
     outcome: Literal["success", "failed"] = "success",
-) -> GoalClosureReport:
-    return GoalClosureReport(
-        goal_id="delegated-1",
+) -> WorkflowClosureReport:
+    return WorkflowClosureReport(
+        workflow_id="delegated-1",
         task_center_run_id=task_center_run_id,
-        origin_kind=GoalOriginKind.TASK,
+        origin_kind=WorkflowOriginKind.TASK,
         requested_by_task_id=requested_by_task_id,
         outcome=outcome,
         final_iteration_id="seg-1",
@@ -121,10 +121,10 @@ def _task_report(
 
 
 def test_router_delivers_success_to_waiting_parent(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime, parent_attempt_id, parent_task_id = _build_runtime_with_open_graph(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -132,7 +132,7 @@ def test_router_delivers_success_to_waiting_parent(
         composer=composer,
     )
     _set_parent_waiting(task_store, parent_task_id)
-    router = GoalClosureReportRouter(runtime=runtime)
+    router = WorkflowClosureReportRouter(runtime=runtime)
 
     result = router.deliver(
         _task_report(
@@ -149,26 +149,26 @@ def test_router_delivers_success_to_waiting_parent(
 
 
 def test_router_delivers_failure_marks_parent_failed_and_blocks_dependents(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
 ) -> None:
-    request = goal_store.insert(
+    request = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="parent-task",
         goal="outer",
     )
     iteration = iteration_store.insert(
-        goal_id=request.id,
+        workflow_id=request.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="outer",
         attempt_budget=2,
     )
-    goal_store.append_iteration_id(request.id, iteration.id)
+    workflow_store.append_iteration_id(request.id, iteration.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
     iteration_store.append_attempt_id(iteration.id, attempt.id)
     registry = AttemptOrchestratorRegistry()
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -202,7 +202,7 @@ def test_router_delivers_failure_marks_parent_failed_and_blocks_dependents(
     parent_task_id = generator_task_id(attempt.id, "a")
     dependent_id = generator_task_id(attempt.id, "b")
     _set_parent_waiting(task_store, parent_task_id)
-    router = GoalClosureReportRouter(runtime=runtime)
+    router = WorkflowClosureReportRouter(runtime=runtime)
 
     result = router.deliver(
         _task_report(
@@ -222,10 +222,10 @@ def test_router_delivers_failure_marks_parent_failed_and_blocks_dependents(
 
 
 def test_router_treats_done_parent_as_already_delivered(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime, _, parent_task_id = _build_runtime_with_open_graph(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -235,7 +235,7 @@ def test_router_treats_done_parent_as_already_delivered(
     task_store.set_task_status(
         parent_task_id, status=TaskCenterTaskStatus.DONE.value
     )
-    router = GoalClosureReportRouter(runtime=runtime)
+    router = WorkflowClosureReportRouter(runtime=runtime)
 
     result = router.deliver(
         _task_report(
@@ -248,13 +248,13 @@ def test_router_treats_done_parent_as_already_delivered(
 
 
 def test_router_raises_when_parent_orchestrator_missing(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
 ) -> None:
-    """No-restart invariant: while a parent task is in WAITING_GOAL
+    """No-restart invariant: while a parent task is in WAITING_WORKFLOW
     its orchestrator must remain registered. A missing orchestrator at
     delivery time is a hard ``TaskCenterInvariantViolation``."""
     runtime, parent_attempt_id, parent_task_id = _build_runtime_with_open_graph(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -263,7 +263,7 @@ def test_router_raises_when_parent_orchestrator_missing(
     )
     _set_parent_waiting(task_store, parent_task_id)
     runtime.orchestrator_registry.deregister(parent_attempt_id)
-    router = GoalClosureReportRouter(runtime=runtime)
+    router = WorkflowClosureReportRouter(runtime=runtime)
 
     with pytest.raises(TaskCenterInvariantViolation):
         router.deliver(
@@ -275,14 +275,14 @@ def test_router_raises_when_parent_orchestrator_missing(
 
     parent_task = task_store.get_task(parent_task_id)
     assert parent_task is not None
-    assert parent_task["status"] == TaskCenterTaskStatus.WAITING_GOAL.value
+    assert parent_task["status"] == TaskCenterTaskStatus.WAITING_WORKFLOW.value
 
 
 def test_router_rejects_running_parent(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime, _, parent_task_id = _build_runtime_with_open_graph(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -290,7 +290,7 @@ def test_router_rejects_running_parent(
         composer=composer,
     )
     # Parent is RUNNING (not waiting) — illegal report state.
-    router = GoalClosureReportRouter(runtime=runtime)
+    router = WorkflowClosureReportRouter(runtime=runtime)
 
     with pytest.raises(TaskCenterInvariantViolation):
         router.deliver(
@@ -302,10 +302,10 @@ def test_router_rejects_running_parent(
 
 
 def test_apply_closure_report_is_idempotent_on_second_delivery(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime, _, parent_task_id = _build_runtime_with_open_graph(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -325,8 +325,8 @@ def test_apply_closure_report_is_idempotent_on_second_delivery(
     # must be silently idempotent (CAS miss).
     parent_attempt_id = parent_task_before["task_center_attempt_id"]
     orchestrator = runtime.orchestrator_registry.get_or_raise(parent_attempt_id)
-    orchestrator.apply_goal_closure_report(report)
-    orchestrator.apply_goal_closure_report(report)
+    orchestrator.apply_workflow_closure_report(report)
+    orchestrator.apply_workflow_closure_report(report)
 
     parent_task = task_store.get_task(parent_task_id)
     assert parent_task is not None
@@ -336,10 +336,10 @@ def test_apply_closure_report_is_idempotent_on_second_delivery(
 
 
 def test_router_finishes_entry_origin_goal_run(
-    goal_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
+    workflow_store, iteration_store, attempt_store, task_store, task_center_run_id, composer
 ) -> None:
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -349,12 +349,12 @@ def test_router_finishes_entry_origin_goal_run(
         composer=composer,
     )
 
-    router = GoalClosureReportRouter(runtime=runtime)
+    router = WorkflowClosureReportRouter(runtime=runtime)
     result = router.deliver(
-        GoalClosureReport(
-            goal_id="delegated-x",
+        WorkflowClosureReport(
+            workflow_id="delegated-x",
             task_center_run_id=task_center_run_id,
-            origin_kind=GoalOriginKind.ENTRY,
+            origin_kind=WorkflowOriginKind.ENTRY,
             requested_by_task_id=None,
             outcome="success",
             final_iteration_id="delegated-seg",

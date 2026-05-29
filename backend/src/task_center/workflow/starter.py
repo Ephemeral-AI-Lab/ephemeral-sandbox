@@ -1,4 +1,4 @@
-"""GoalStarter — single safe path from prompt text to Goal execution.
+"""WorkflowStarter — single safe path from prompt text to Workflow execution.
 
 Owns origin validation, optional parent-task CAS, initial iteration/attempt
 startup, and compensation on failure.
@@ -12,16 +12,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from task_center.goal.closure_report_router import (
-    GoalClosureReportRouter,
+from task_center.workflow.closure_report_router import (
+    WorkflowClosureReportRouter,
 )
-from task_center.goal.lifecycle import GoalLifecycle
-from task_center.goal.state import (
-    GoalClosureReport,
-    GoalOrigin,
-    GoalOriginKind,
-    Goal,
-    GoalStatus,
+from task_center.workflow.lifecycle import WorkflowLifecycle
+from task_center.workflow.state import (
+    WorkflowClosureReport,
+    WorkflowOrigin,
+    WorkflowOriginKind,
+    Workflow,
+    WorkflowStatus,
 )
 from task_center._core.primitives import TaskCenterInvariantViolation
 from task_center.attempt.orchestrator import AttemptOrchestrator
@@ -35,10 +35,10 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
-class StartedGoal:
-    origin: GoalOrigin
+class StartedWorkflow:
+    origin: WorkflowOrigin
     parent_attempt_id: str | None
-    goal_id: str
+    workflow_id: str
     initial_iteration_id: str
     initial_attempt_id: str
     goal: str
@@ -48,7 +48,7 @@ class StartedGoal:
         return self.origin.task_id
 
 
-class GoalStarter:
+class WorkflowStarter:
     """Single orchestration entry point for prompt → goal start."""
 
     def __init__(
@@ -66,26 +66,26 @@ class GoalStarter:
             )
         )
 
-    def start(self, *, prompt: str, origin: GoalOrigin) -> StartedGoal:
+    def start(self, *, prompt: str, origin: WorkflowOrigin) -> StartedWorkflow:
         prompt = prompt.strip()
         if not prompt:
-            raise TaskCenterInvariantViolation("Goal prompt must be nonblank.")
+            raise TaskCenterInvariantViolation("Workflow prompt must be nonblank.")
         prepared = self._prepare_origin(origin)
 
-        goal_lifecycle = self._build_goal_lifecycle()
-        created_goal = goal_lifecycle.create_goal(
+        workflow_lifecycle = self._build_workflow_lifecycle()
+        created_workflow = workflow_lifecycle.create_workflow(
             task_center_run_id=prepared.task_center_run_id,
             origin=origin,
             goal=prompt,
         )
-        iteration, iteration_coordinator = goal_lifecycle.create_initial_iteration_with_coordinator(
-            goal_id=created_goal.id,
+        iteration, iteration_coordinator = workflow_lifecycle.create_initial_iteration_with_coordinator(
+            workflow_id=created_workflow.id,
         )
 
         initial_attempt = None
         try:
             initial_attempt = iteration_coordinator.create_unstarted_initial_attempt()
-            if origin.kind == GoalOriginKind.TASK:
+            if origin.kind == WorkflowOriginKind.TASK:
                 if prepared.parent_attempt_id is None:
                     raise TaskCenterInvariantViolation(
                         "Task-origin goal start is missing parent attempt id."
@@ -93,7 +93,7 @@ class GoalStarter:
                 self._mark_parent_waiting(
                     origin=origin,
                     parent_attempt_id=prepared.parent_attempt_id,
-                    goal=created_goal,
+                    goal=created_workflow,
                     iteration=iteration,
                     attempt_id=initial_attempt.id,
                     goal_text=prompt,
@@ -101,27 +101,27 @@ class GoalStarter:
             iteration_coordinator.start_attempt(initial_attempt)
         except Exception:
             self._compensate_failed_start(
-                goal=created_goal,
+                goal=created_workflow,
                 iteration=iteration,
                 initial_attempt_id=initial_attempt.id if initial_attempt else None,
                 origin=origin,
             )
             raise
 
-        return StartedGoal(
+        return StartedWorkflow(
             origin=origin,
             parent_attempt_id=prepared.parent_attempt_id,
-            goal_id=created_goal.id,
+            workflow_id=created_workflow.id,
             initial_iteration_id=iteration.id,
             initial_attempt_id=initial_attempt.id,
             goal=prompt,
         )
 
-    def _prepare_origin(self, origin: GoalOrigin) -> "_PreparedGoalOrigin":
-        if origin.kind == GoalOriginKind.ENTRY:
+    def _prepare_origin(self, origin: WorkflowOrigin) -> "_PreparedWorkflowOrigin":
+        if origin.kind == WorkflowOriginKind.ENTRY:
             if origin.task_center_run_id is None:
                 raise TaskCenterInvariantViolation("Entry-origin goal requires task_center_run_id.")
-            return _PreparedGoalOrigin(
+            return _PreparedWorkflowOrigin(
                 task_center_run_id=origin.task_center_run_id,
                 parent_attempt_id=None,
             )
@@ -138,24 +138,25 @@ class GoalStarter:
                 f"TaskCenter task {origin.task_id!r} is not attempt-bound; "
                 "task-origin goal starts require a generator task."
             )
-        return _PreparedGoalOrigin(
+        return _PreparedWorkflowOrigin(
             task_center_run_id=task_center_run_id,
             parent_attempt_id=parent_attempt_id,
         )
 
-    def _build_goal_lifecycle(self) -> GoalLifecycle:
+    def _build_workflow_lifecycle(self) -> WorkflowLifecycle:
         iteration_coordinators = self._runtime.iteration_coordinators
         if iteration_coordinators is None:
-            raise TaskCenterInvariantViolation("GoalStarter requires open iteration coordinators.")
-        router = GoalClosureReportRouter(runtime=self._runtime)
-        return GoalLifecycle(
-            goal_store=self._runtime.goal_store,
+            raise TaskCenterInvariantViolation("WorkflowStarter requires open iteration coordinators.")
+        router = WorkflowClosureReportRouter(runtime=self._runtime)
+        return WorkflowLifecycle(
+            workflow_store=self._runtime.workflow_store,
             iteration_store=self._runtime.iteration_store,
             attempt_store=self._runtime.attempt_store,
             iteration_coordinators=iteration_coordinators,
             config=self._runtime.lifecycle_config,
             deliver_closure_report=router.deliver,
             orchestrator_factory=self._orchestrator_factory,
+            task_store=self._runtime.task_store,
         )
 
     def _assert_parent_running_and_no_open_child(self, parent_task_id: str) -> dict[str, Any]:
@@ -165,31 +166,31 @@ class GoalStarter:
         if task.get("status") != TaskCenterTaskStatus.RUNNING.value:
             raise TaskCenterInvariantViolation(
                 f"TaskCenter task {parent_task_id!r} is not running; "
-                "delegated goal start requires a running generator task."
+                "delegated workflow start requires a running generator task."
             )
-        open_goals = [
-            r for r in self._runtime.goal_store.list_for_parent_task(parent_task_id) if r.is_open
+        open_workflows = [
+            r for r in self._runtime.workflow_store.list_for_parent_task(parent_task_id) if r.is_open
         ]
-        if open_goals:
+        if open_workflows:
             raise TaskCenterInvariantViolation(
                 f"TaskCenter task {parent_task_id!r} already has an open "
-                f"delegated goal {open_goals[0].id!r}."
+                f"delegated workflow {open_workflows[0].id!r}."
             )
         return task
 
     def _mark_parent_waiting(
         self,
         *,
-        origin: GoalOrigin,
+        origin: WorkflowOrigin,
         parent_attempt_id: str,
-        goal: Goal,
+        goal: Workflow,
         iteration: Iteration,
         attempt_id: str,
         goal_text: str,
     ) -> None:
         if origin.task_id is None:
             raise TaskCenterInvariantViolation("Task-origin goal start is missing parent task_id.")
-        parent_task = self._runtime.parent_task_for_delegated_goal(
+        parent_task = self._runtime.parent_task_for_delegated_workflow(
             task_id=origin.task_id, attempt_id=parent_attempt_id
         )
         if parent_task is None:
@@ -197,8 +198,8 @@ class GoalStarter:
                 f"No parent task registered for TaskCenter task "
                 f"{origin.task_id!r}; goal start cannot proceed."
             )
-        parent_task.mark_waiting_goal(
-            delegated_goal_id=goal.id,
+        parent_task.mark_waiting_workflow(
+            delegated_workflow_id=goal.id,
             delegated_iteration_id=iteration.id,
             delegated_attempt_id=attempt_id,
             goal=goal_text,
@@ -207,17 +208,17 @@ class GoalStarter:
     def _compensate_failed_start(
         self,
         *,
-        goal: Goal,
+        goal: Workflow,
         iteration: Iteration,
         initial_attempt_id: str | None,
-        origin: GoalOrigin,
+        origin: WorkflowOrigin,
     ) -> None:
         """Best-effort rollback: attempt -> iteration -> goal -> parent.
 
         Each step is independent; failures are logged via ``logger.exception``
         but never block subsequent steps. If parent restore fails we route a
         synthetic failed close-report so the parent does not stay orphaned in
-        ``WAITING_GOAL``.
+        ``WAITING_WORKFLOW``.
         """
         now = datetime.now(UTC)
         runtime = self._runtime
@@ -227,7 +228,7 @@ class GoalStarter:
                 action()
                 return True
             except Exception:
-                logger.exception("GoalStart compensation step %r failed", step_name)
+                logger.exception("WorkflowStart compensation step %r failed", step_name)
                 return False
 
         _do(
@@ -242,14 +243,14 @@ class GoalStarter:
         )
         _do(
             "cancel_goal",
-            lambda: runtime.goal_store.set_status(
+            lambda: runtime.workflow_store.set_status(
                 goal.id,
-                status=GoalStatus.CANCELLED,
+                status=WorkflowStatus.CANCELLED,
                 final_outcome=None,
                 closed_at=now,
             ),
         )
-        if origin.kind != GoalOriginKind.TASK:
+        if origin.kind != WorkflowOriginKind.TASK:
             if runtime.iteration_coordinators is not None:
                 runtime.iteration_coordinators.deregister(iteration.id)
             return
@@ -259,9 +260,9 @@ class GoalStarter:
         if not _do("restore_parent", lambda: self._restore_parent(parent_task_id)):
             _do(
                 "synthetic_close_report",
-                lambda: GoalClosureReportRouter(runtime=runtime).deliver(
-                    GoalClosureReport(
-                        goal_id=goal.id,
+                lambda: WorkflowClosureReportRouter(runtime=runtime).deliver(
+                    WorkflowClosureReport(
+                        workflow_id=goal.id,
                         task_center_run_id=goal.task_center_run_id,
                         origin_kind=goal.origin_kind,
                         requested_by_task_id=parent_task_id,
@@ -277,15 +278,15 @@ class GoalStarter:
     def _restore_parent(self, parent_task_id: str) -> None:
         task_row = self._runtime.task_store.get_task(parent_task_id)
         attempt_id = _parent_attempt_id(task_row) if task_row else None
-        parent_task = self._runtime.parent_task_for_delegated_goal(
+        parent_task = self._runtime.parent_task_for_delegated_workflow(
             task_id=parent_task_id, attempt_id=attempt_id
         )
         if parent_task is not None:
-            parent_task.restore_running_after_failed_goal_start()
+            parent_task.restore_running_after_failed_workflow_start()
             return
         self._runtime.task_store.set_task_status_if_current(
             parent_task_id,
-            expected_status=TaskCenterTaskStatus.WAITING_GOAL.value,
+            expected_status=TaskCenterTaskStatus.WAITING_WORKFLOW.value,
             status=TaskCenterTaskStatus.RUNNING.value,
         )
 
@@ -309,6 +310,6 @@ def _parent_attempt_id(task: dict[str, Any]) -> str | None:
 
 
 @dataclass(frozen=True, slots=True)
-class _PreparedGoalOrigin:
+class _PreparedWorkflowOrigin:
     task_center_run_id: str
     parent_attempt_id: str | None

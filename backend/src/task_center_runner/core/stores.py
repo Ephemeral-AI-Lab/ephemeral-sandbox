@@ -22,7 +22,7 @@ from db.engine import get_engine, initialize_db
 from db.stores.attempt_store import AttemptStore
 from db.stores.context_packet_store import ContextPacketStore
 from db.stores.iteration_store import IterationStore
-from db.stores.goal_store import GoalStore
+from db.stores.workflow_store import WorkflowStore
 from db.stores.task_center_store import TaskCenterStore
 
 
@@ -34,7 +34,7 @@ class TaskCenterStoreBundle:
     schema: str
     session_factory: sessionmaker[Session]
     task_store: TaskCenterStore
-    goal_store: GoalStore
+    workflow_store: WorkflowStore
     iteration_store: IterationStore
     attempt_store: AttemptStore
     context_packet_store: ContextPacketStore
@@ -91,7 +91,7 @@ def _initialize_bundle(
         schema=schema,
         session_factory=session_factory,
         task_store=TaskCenterStore(),
-        goal_store=GoalStore(),
+        workflow_store=WorkflowStore(),
         iteration_store=IterationStore(),
         attempt_store=AttemptStore(),
         context_packet_store=ContextPacketStore(),
@@ -100,7 +100,7 @@ def _initialize_bundle(
     )
     for store in (
         bundle.task_store,
-        bundle.goal_store,
+        bundle.workflow_store,
         bundle.iteration_store,
         bundle.attempt_store,
         bundle.context_packet_store,

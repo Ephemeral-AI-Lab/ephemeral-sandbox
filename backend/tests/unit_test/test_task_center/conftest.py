@@ -18,7 +18,7 @@ from agents import (
 from db.base import Base
 import db.models  # noqa: F401  - populates Base.metadata
 from db.models.task_center import TaskCenterRequestRecord, TaskCenterRunRecord
-from db.stores.goal_store import GoalStore
+from db.stores.workflow_store import WorkflowStore
 from db.stores.context_packet_store import ContextPacketStore
 from db.stores.attempt_store import AttemptStore
 from db.stores.task_center_store import TaskCenterStore
@@ -60,8 +60,8 @@ def session_factory():
 
 
 @pytest.fixture
-def goal_store(session_factory) -> GoalStore:
-    store = GoalStore()
+def workflow_store(session_factory) -> WorkflowStore:
+    store = WorkflowStore()
     store.initialize(session_factory)
     return store
 
@@ -204,7 +204,7 @@ def register_test_agents(request):
 
 @pytest.fixture
 def composer(
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
@@ -214,7 +214,7 @@ def composer(
     """Real AgentEntryComposer wired against the in-memory stores."""
     request.getfixturevalue("register_test_agents")
     deps = ContextEngineDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,

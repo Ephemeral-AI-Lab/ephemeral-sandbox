@@ -47,7 +47,7 @@
     <li><a href="#scenario-lifecycle-wiring"><span>3</span> ScenarioLifecycle Wiring</a></li>
     <li><a href="#catalog"><span>4</span> Scenario Catalog</a></li>
     <li><a href="#hooks"><span>5</span> Hooks And MutableMockState</a></li>
-    <li><a href="#example-initial-goal"><span>6</span> Example: InitialGoal</a></li>
+    <li><a href="#example-initial-goal"><span>6</span> Example: InitialWorkflow</a></li>
   </ol>
 </nav>
 
@@ -66,7 +66,7 @@
 <div class="wiki-links" aria-label="Scenarios related pages">
   <a href="core-harness.html">Core Harness</a>
   <a href="mocked-agents.html">Mocked Agents</a>
-  <a href="../task_center/lifecycle.html">Goal Iteration Attempt</a>
+  <a href="../task_center/lifecycle.html">Workflow Iteration Attempt</a>
   <a href="../task_center/terminal-tools.html">Terminal Tools</a>
 </div>
 </section>
@@ -75,10 +75,10 @@
 <h2>Scenario Protocol <a class="anchor" href="#scenario-protocol">#</a></h2>
 <p>The protocol is implemented either via <code>ScenarioBase</code> (with overridable defaults) or by satisfying <code>Scenario</code> structurally.</p>
 <div class="edge-list" aria-label="Scenario protocol methods">
-  <div><b>name</b><span>Dotted-path identifier used by <code>SCENARIO_REGISTRY</code> and as the audit recorder's scenario label. Example: <code>pipeline.initial_goal</code>, <code>sandbox.background_shell_golden</code>.</span></div>
+  <div><b>name</b><span>Dotted-path identifier used by <code>SCENARIO_REGISTRY</code> and as the audit recorder's scenario label. Example: <code>pipeline.initial_workflow</code>, <code>sandbox.background_shell_golden</code>.</span></div>
   <div><b>expected_event_sequence</b><span>Ordered tuple of <code>EventType</code>s the scenario expects. Drives <code>assert_event_sequence</code> hooks.</span></div>
   <div><b>planner_response(ctx)</b><span>Returns a <code>ToolCallSpec(submit_plan_closes_goal | submit_plan_defers_goal, args)</code>. <code>args</code> typically contains <code>plan_spec</code>, <code>tasks</code>, <code>evaluation_criteria</code>.</span></div>
-  <div><b>executor_actions(ctx)</b><span>Returns a sequence of action tokens consumed by the runner's executor dispatcher: <code>"preflight"</code>, <code>"fail"</code>/<code>"fail:reason"</code>, <code>"request_recursive_goal:&lt;pkg&gt;"</code>, probe action names. Default is empty.</span></div>
+  <div><b>executor_actions(ctx)</b><span>Returns a sequence of action tokens consumed by the runner's executor dispatcher: <code>"preflight"</code>, <code>"fail"</code>/<code>"fail:reason"</code>, <code>"request_recursive_workflow:&lt;pkg&gt;"</code>, probe action names. Default is empty.</span></div>
   <div><b>verifier_response(ctx)</b><span>Returns a <code>ToolCallSpec</code> targeting <code>submit_verification_success</code> or <code>submit_verification_failure</code>.</span></div>
   <div><b>evaluator_response(ctx)</b><span>Returns a <code>ToolCallSpec</code> targeting <code>submit_evaluation_success</code> or <code>submit_evaluation_failure</code>.</span></div>
   <div><b>recursive_handoff_goal(ctx)</b><span>Optional goal text used when an executor action requests a recursive handoff; defaults to <code>None</code> (the runner synthesizes a placeholder).</span></div>
@@ -135,7 +135,7 @@ run_pipeline executes; per event:
   <div class="evidence-card">
     <h3>Pipeline (state machine)</h3>
     <p>Drives planner / generator DAG / evaluator control flow with the lightest possible executor action. Failures here mean a regression in <code>task_center/</code> proper.</p>
-    <p>Reference scenarios: <code>InitialGoal</code>, <code>NestedGoal</code>, <code>NestedGoalFailure</code>, <code>IterativeDeferral</code>, <code>DependencyDagSerial</code>, <code>DependencyDagParallel</code>, <code>DependencyDagDiamond</code>, <code>DependencyDagMixed</code>, <code>DependencyBlockedDescendants</code>, <code>AttemptRetryPlannerFailure</code>, <code>AttemptRetryGeneratorFailure</code>, <code>AttemptRetryEvaluatorFailure</code>, <code>AttemptBudgetExhausted</code>, <code>GeneratorFailureQuiescence</code>, <code>DeferredParentPlannerTerminalRouting</code>, <code>InitialMessagesCapture</code>.</p>
+    <p>Reference scenarios: <code>InitialWorkflow</code>, <code>NestedWorkflow</code>, <code>NestedWorkflowFailure</code>, <code>IterativeDeferral</code>, <code>DependencyDagSerial</code>, <code>DependencyDagParallel</code>, <code>DependencyDagDiamond</code>, <code>DependencyDagMixed</code>, <code>DependencyBlockedDescendants</code>, <code>AttemptRetryPlannerFailure</code>, <code>AttemptRetryGeneratorFailure</code>, <code>AttemptRetryEvaluatorFailure</code>, <code>AttemptBudgetExhausted</code>, <code>GeneratorFailureQuiescence</code>, <code>DeferredParentPlannerTerminalRouting</code>, <code>InitialMessagesCapture</code>.</p>
   </div>
   <div class="evidence-card">
     <h3>Sandbox</h3>
@@ -144,7 +144,7 @@ run_pipeline executes; per event:
   </div>
   <div class="evidence-card">
     <h3>Capacity</h3>
-    <p><code>FullSystemCapacityMatrix</code> — composite scenario that walks a pack catalog (<code>capacity/pack_catalog.py</code>) to stress the full Goal / Iteration / Attempt graph plus sandbox surface together. Skipped unless <code>runner.live_e2e.capacity_enabled</code> is true.</p>
+    <p><code>FullSystemCapacityMatrix</code> — composite scenario that walks a pack catalog (<code>capacity/pack_catalog.py</code>) to stress the full Workflow / Iteration / Attempt graph plus sandbox surface together. Skipped unless <code>runner.live_e2e.capacity_enabled</code> is true.</p>
   </div>
   <div class="evidence-card">
     <h3>Planner Validation</h3>
@@ -187,8 +187,8 @@ run_pipeline executes; per event:
     <p>VERIFIER_SUCCESS post-hook that asserts a verifier guard for <code>wave_id</code> had at least one executor dependency. Defends against accidentally-leaf guards.</p>
   </div>
   <div class="evidence-card">
-    <h3>assert_recursive_goal_closed_before_parent_guard</h3>
-    <p>VERIFIER_SUCCESS post-hook that asserts <code>RECURSIVE_GOAL_COMPLETED</code> precedes the parent <code>recursive_return</code> guard in seen-events order.</p>
+    <h3>assert_recursive_workflow_closed_before_parent_guard</h3>
+    <p>VERIFIER_SUCCESS post-hook that asserts <code>RECURSIVE_WORKFLOW_COMPLETED</code> precedes the parent <code>recursive_return</code> guard in seen-events order.</p>
   </div>
 </div>
 <div class="summary">
@@ -199,12 +199,12 @@ run_pipeline executes; per event:
 </div>
 </section>
 
-<section id="example-initial-goal" data-last-reviewed-commit="c8f6bcde0c63c7ec004545128d186853df5dcde1" data-evidence-paths="backend/src/task_center_runner/scenarios/pipeline/initial_goal.py backend/src/task_center_runner/scenarios/_scenario_helpers/plan_shapes.py">
-<h2>Example: InitialGoal <a class="anchor" href="#example-initial-goal">#</a></h2>
+<section id="example-initial-goal" data-last-reviewed-commit="c8f6bcde0c63c7ec004545128d186853df5dcde1" data-evidence-paths="backend/src/task_center_runner/scenarios/pipeline/initial_workflow.py backend/src/task_center_runner/scenarios/_scenario_helpers/plan_shapes.py">
+<h2>Example: InitialWorkflow <a class="anchor" href="#example-initial-goal">#</a></h2>
 <p>The smallest pipeline scenario — the canonical template for "single-attempt success" tests.</p>
-<pre class="diagram" aria-label="InitialGoal scenario step diagram">
-class InitialGoal(ScenarioBase):
-    name = "pipeline.initial_goal"
+<pre class="diagram" aria-label="InitialWorkflow scenario step diagram">
+class InitialWorkflow(ScenarioBase):
+    name = "pipeline.initial_workflow"
     expected_event_sequence = (
         PLANNER_INVOKED, PLANNER_COMPLETES_GOAL_PLAN,
         EXECUTOR_INVOKED, EXECUTOR_SUCCESS,

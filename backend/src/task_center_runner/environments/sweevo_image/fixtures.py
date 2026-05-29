@@ -110,11 +110,12 @@ async def sweevo_image_sandbox(
         require_sweevo_image_provider_healthy,
     )
 
-    lock = _acquire_sweevo_session_lock(sweevo_image_instance.instance_id)
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    lock = _acquire_sweevo_session_lock(sweevo_image_instance.instance_id, worker)
     try:
         bootstrap_sandbox_provider()
         require_sweevo_image_provider_healthy(sweevo_image_instance)
-        name = _sweevo_sandbox_name(sweevo_image_instance)
+        name = _sweevo_sandbox_name(sweevo_image_instance, worker)
         service = _service()
         existing = _find_existing_sandbox_by_name(service, name)
         reused_existing = existing is not None
@@ -164,7 +165,7 @@ async def workspace(
     return sweevo_image_sandbox
 
 
-def _acquire_sweevo_session_lock(instance_id: str) -> _SweevoSessionLock:
+def _acquire_sweevo_session_lock(instance_id: str, worker: str | None = None) -> _SweevoSessionLock:
     """Serialize live SWE-EVO runs that may reuse the same Daytona sandbox.
 
     Several scenarios intentionally rebind the public-tool workspace root
@@ -176,7 +177,8 @@ def _acquire_sweevo_session_lock(instance_id: str) -> _SweevoSessionLock:
     import fcntl
 
     _LOCK_DIR.mkdir(parents=True, exist_ok=True)
-    lock_path = _LOCK_DIR / f"sweevo-{_lock_slug(instance_id)}.lock"
+    key = instance_id if not worker else f"{instance_id}-{worker}"
+    lock_path = _LOCK_DIR / f"sweevo-{_lock_slug(key)}.lock"
     held = _HELD_SWEEVO_LOCKS.get(lock_path)
     if held is not None:
         handle, count = held

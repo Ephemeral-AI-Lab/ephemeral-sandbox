@@ -71,7 +71,7 @@ def test_node_from_caller_uses_task_center_fields_before_legacy_run_id() -> None
             task_center_run_id="tc-run",
             task_center_task_id="tc-task",
             task_center_attempt_id="attempt-1",
-            task_center_goal_id="goal-1",
+            task_center_workflow_id="goal-1",
             task_center_request_id="request-1",
             tool_id="tool-1",
         ),
@@ -80,7 +80,7 @@ def test_node_from_caller_uses_task_center_fields_before_legacy_run_id() -> None
     assert node.task_center_run_id == "tc-run"
     assert node.task_center_task_id == "tc-task"
     assert node.attempt_id == "attempt-1"
-    assert node.goal_id == "goal-1"
+    assert node.workflow_id == "goal-1"
     assert node.request_id == "request-1"
     assert node.agent_name == "agent-1"
     assert node.agent_run_id == "agent-run-1"

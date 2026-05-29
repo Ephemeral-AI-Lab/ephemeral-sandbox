@@ -1,4 +1,4 @@
-"""Goal persistence store. Returns frozen DTOs."""
+"""Workflow persistence store. Returns frozen DTOs."""
 
 from __future__ import annotations
 
@@ -6,27 +6,27 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from db.models.goal import GoalRecord
+from db.models.workflow import WorkflowRecord
 from db.stores.base import SyncStoreMixin
-from task_center.goal.state import (
-    GoalOrigin,
-    GoalOriginKind,
-    Goal,
-    GoalStatus,
+from task_center.workflow.state import (
+    WorkflowOrigin,
+    WorkflowOriginKind,
+    Workflow,
+    WorkflowStatus,
 )
 
 
-class GoalStore(SyncStoreMixin):
-    """CRUD for Goal. Returns frozen Goal DTOs."""
+class WorkflowStore(SyncStoreMixin):
+    """CRUD for Workflow. Returns frozen Workflow DTOs."""
 
     def insert(
         self,
         *,
         task_center_run_id: str,
-        origin: GoalOrigin | None = None,
+        origin: WorkflowOrigin | None = None,
         requested_by_task_id: str | None = None,
         goal: str,
-    ) -> Goal:
+    ) -> Workflow:
         origin = _resolve_origin(
             task_center_run_id=task_center_run_id,
             origin=origin,
@@ -34,13 +34,13 @@ class GoalStore(SyncStoreMixin):
         )
         with self._sf() as db:
             now = datetime.now(UTC)
-            record = GoalRecord(
+            record = WorkflowRecord(
                 id=str(uuid.uuid4()),
                 task_center_run_id=task_center_run_id,
                 origin_kind=origin.kind.value,
                 requested_by_task_id=origin.task_id,
                 goal=goal,
-                status=GoalStatus.OPEN.value,
+                status=WorkflowStatus.OPEN.value,
                 iteration_ids=[],
                 final_outcome=None,
                 created_at=now,
@@ -51,18 +51,18 @@ class GoalStore(SyncStoreMixin):
             db.refresh(record)
             return self._to_dto(record)
 
-    def get(self, goal_id: str) -> Goal | None:
+    def get(self, workflow_id: str) -> Workflow | None:
         with self._sf() as db:
-            record = db.get(GoalRecord, goal_id)
+            record = db.get(WorkflowRecord, workflow_id)
             return self._to_dto(record) if record is not None else None
 
     def append_iteration_id(
-        self, goal_id: str, iteration_id: str
-    ) -> Goal:
+        self, workflow_id: str, iteration_id: str
+    ) -> Workflow:
         with self._sf() as db:
-            record = db.get(GoalRecord, goal_id)
+            record = db.get(WorkflowRecord, workflow_id)
             if record is None:
-                raise LookupError(f"Goal {goal_id!r} not found")
+                raise LookupError(f"Workflow {workflow_id!r} not found")
             ids = list(record.iteration_ids or [])
             ids.append(iteration_id)
             record.iteration_ids = ids
@@ -72,16 +72,16 @@ class GoalStore(SyncStoreMixin):
 
     def set_status(
         self,
-        goal_id: str,
+        workflow_id: str,
         *,
-        status: GoalStatus,
+        status: WorkflowStatus,
         final_outcome: dict[str, Any] | None,
         closed_at: datetime | None = None,
-    ) -> Goal:
+    ) -> Workflow:
         with self._sf() as db:
-            record = db.get(GoalRecord, goal_id)
+            record = db.get(WorkflowRecord, workflow_id)
             if record is None:
-                raise LookupError(f"Goal {goal_id!r} not found")
+                raise LookupError(f"Workflow {workflow_id!r} not found")
             record.status = status.value
             record.final_outcome = final_outcome
             if closed_at is not None:
@@ -90,40 +90,40 @@ class GoalStore(SyncStoreMixin):
             db.refresh(record)
             return self._to_dto(record)
 
-    def list_for_parent_task(self, parent_task_id: str) -> list[Goal]:
+    def list_for_parent_task(self, parent_task_id: str) -> list[Workflow]:
         with self._sf() as db:
             q = (
-                db.query(GoalRecord)
+                db.query(WorkflowRecord)
                 .filter(
-                    GoalRecord.requested_by_task_id
+                    WorkflowRecord.requested_by_task_id
                     == parent_task_id
                 )
-                .order_by(GoalRecord.created_at.asc())
+                .order_by(WorkflowRecord.created_at.asc())
             )
             return [self._to_dto(r) for r in q.all()]
 
     def list_for_run(
         self, task_center_run_id: str
-    ) -> list[Goal]:
+    ) -> list[Workflow]:
         with self._sf() as db:
             q = (
-                db.query(GoalRecord)
+                db.query(WorkflowRecord)
                 .filter(
-                    GoalRecord.task_center_run_id
+                    WorkflowRecord.task_center_run_id
                     == task_center_run_id
                 )
-                .order_by(GoalRecord.created_at.asc())
+                .order_by(WorkflowRecord.created_at.asc())
             )
             return [self._to_dto(r) for r in q.all()]
 
-    def _to_dto(self, record: GoalRecord) -> Goal:
-        return Goal(
+    def _to_dto(self, record: WorkflowRecord) -> Workflow:
+        return Workflow(
             id=record.id,
             task_center_run_id=record.task_center_run_id,
-            origin_kind=GoalOriginKind(record.origin_kind or GoalOriginKind.TASK.value),
+            origin_kind=WorkflowOriginKind(record.origin_kind or WorkflowOriginKind.TASK.value),
             requested_by_task_id=record.requested_by_task_id,
             goal=record.goal,
-            status=GoalStatus(record.status),
+            status=WorkflowStatus(record.status),
             iteration_ids=tuple(record.iteration_ids or ()),
             final_outcome=record.final_outcome,
             created_at=record.created_at,
@@ -135,11 +135,11 @@ class GoalStore(SyncStoreMixin):
 def _resolve_origin(
     *,
     task_center_run_id: str,
-    origin: GoalOrigin | None,
+    origin: WorkflowOrigin | None,
     requested_by_task_id: str | None,
-) -> GoalOrigin:
+) -> WorkflowOrigin:
     if origin is not None:
         return origin
     if requested_by_task_id is not None:
-        return GoalOrigin.task(task_id=requested_by_task_id)
-    return GoalOrigin.entry(task_center_run_id=task_center_run_id)
+        return WorkflowOrigin.task(task_id=requested_by_task_id)
+    return WorkflowOrigin.entry(task_center_run_id=task_center_run_id)

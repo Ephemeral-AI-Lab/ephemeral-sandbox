@@ -65,18 +65,18 @@ def _clear_definitions() -> None:
 
 @pytest.fixture
 def composer_runtime(
-    goal_store, iteration_store, attempt_store, task_store
+    workflow_store, iteration_store, attempt_store, task_store
 ) -> tuple[AttemptDeps, _RecordingLauncher]:
     launcher = _RecordingLauncher()
     deps = ContextEngineDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
     )
     composer = AgentEntryComposer.default(ContextEngine(deps))
     runtime = AttemptDeps(
-        goal_store=goal_store,
+        workflow_store=workflow_store,
         iteration_store=iteration_store,
         attempt_store=attempt_store,
         task_store=task_store,
@@ -103,15 +103,15 @@ def _register_planner_agents() -> None:
 
 
 def _seed_request_segment_graph(
-    goal_store, iteration_store, attempt_store, task_center_run_id
+    workflow_store, iteration_store, attempt_store, task_center_run_id
 ):
-    request = goal_store.insert(
+    request = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="parent-task",
         goal="overall",
     )
     iteration = iteration_store.insert(
-        goal_id=request.id,
+        workflow_id=request.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="seg goal",
@@ -124,20 +124,20 @@ def _seed_request_segment_graph(
 
 
 def _setup_partial_plan_ancestor(
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
     task_center_run_id,
 ):
     """Ancestor caller submitted a partial plan → child planner should fork."""
-    parent_req = goal_store.insert(
+    parent_req = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="parent-task",
         goal="parent",
     )
     parent_seg = iteration_store.insert(
-        goal_id=parent_req.id,
+        workflow_id=parent_req.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="parent seg",
@@ -169,7 +169,7 @@ def _setup_partial_plan_ancestor(
 
 def test_planner_launched_via_composer_uses_base_when_no_ancestor(
     composer_runtime,
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
@@ -178,7 +178,7 @@ def test_planner_launched_via_composer_uses_base_when_no_ancestor(
     runtime, launcher = composer_runtime
     _register_planner_agents()
     request, iteration, attempt = _seed_request_segment_graph(
-        goal_store, iteration_store, attempt_store, task_center_run_id
+        workflow_store, iteration_store, attempt_store, task_center_run_id
     )
     orchestrator = AttemptOrchestrator(
         attempt=attempt, on_attempt_closed=lambda _id: None, runtime=runtime
@@ -200,7 +200,7 @@ def test_planner_launched_via_composer_uses_base_when_no_ancestor(
 
 def test_planner_terminals_restricted_when_partial_plan_caller_present(
     composer_runtime,
-    goal_store,
+    workflow_store,
     iteration_store,
     attempt_store,
     task_store,
@@ -209,20 +209,20 @@ def test_planner_terminals_restricted_when_partial_plan_caller_present(
     runtime, launcher = composer_runtime
     _register_planner_agents()
     _setup_partial_plan_ancestor(
-        goal_store,
+        workflow_store,
         iteration_store,
         attempt_store,
         task_store,
         task_center_run_id,
     )
     # Child request is spawned by the partial-plan caller task.
-    child_req = goal_store.insert(
+    child_req = workflow_store.insert(
         task_center_run_id=task_center_run_id,
         requested_by_task_id="t-caller",
         goal="child",
     )
     child_seg = iteration_store.insert(
-        goal_id=child_req.id,
+        workflow_id=child_req.id,
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="child seg",

@@ -20,7 +20,7 @@ artifact boundary.
 
 1. Pick the right subpackage from the layout above.
 2. Copy the closest reference scenario:
-   - State-machine assertion → `pipeline/initial_goal.py`
+   - State-machine assertion → `pipeline/initial_workflow.py`
    - DAG dependency assertion → `pipeline/dependency_dag_serial.py`
    - Iterative continuation → `pipeline/iterative_deferral.py`
    - Attempt-retry assertion → `pipeline/attempt_retry_evaluator_failure.py`

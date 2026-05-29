@@ -14,7 +14,7 @@ from task_center.iteration.state import (
 def _seg(**overrides) -> Iteration:
     base = dict(
         id="s1",
-        goal_id="r1",
+        workflow_id="r1",
         sequence_no=1,
         creation_reason=IterationCreationReason.INITIAL,
         goal="g",

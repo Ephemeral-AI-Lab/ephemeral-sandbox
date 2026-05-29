@@ -80,8 +80,8 @@ def test_pending_dependents_of_failed_task_close_after_siblings_finish():
     assert state.any_failed_or_blocked
 
 
-def test_waiting_goal_is_not_quiescent_or_done():
-    records = [_task("a", "waiting_goal")]
+def test_waiting_workflow_is_not_quiescent_or_done():
+    records = [_task("a", "waiting_workflow")]
 
     state = summarize_generator_dag(records)
     assert not state.all_quiescent
