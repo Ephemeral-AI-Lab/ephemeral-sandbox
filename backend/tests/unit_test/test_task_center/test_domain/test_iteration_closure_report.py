@@ -30,14 +30,10 @@ def test_attempt_plan_failed_carries_history():
         plan_spec=None,
         evaluation_criteria=(),
         fail_reason=AttemptFailReason.GENERATOR_FAILED,
-        attempt_summary_id=None,
-        failure_landscape=None,
     )
     o = AttemptPlanFailed(failure_summary="bad", prior_attempt_history=(e1,))
     assert o.kind == "attempt_plan_failed"
     assert o.prior_attempt_history == (e1,)
-    assert e1.attempt_summary_id is None
-    assert e1.failure_landscape is None
 
 
 def test_prior_attempt_history_orders_by_sequence_no():
@@ -47,8 +43,6 @@ def test_prior_attempt_history_orders_by_sequence_no():
         plan_spec=None,
         evaluation_criteria=(),
         fail_reason=None,
-        attempt_summary_id=None,
-        failure_landscape=None,
     )
     e2 = FailedAttemptEntry(
         attempt_id="g2",
@@ -56,8 +50,6 @@ def test_prior_attempt_history_orders_by_sequence_no():
         plan_spec=None,
         evaluation_criteria=(),
         fail_reason=None,
-        attempt_summary_id=None,
-        failure_landscape=None,
     )
     seqs = [e.attempt_sequence_no for e in (e1, e2)]
     assert seqs == sorted(seqs)
