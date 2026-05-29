@@ -38,7 +38,6 @@ _CHARS_PER_TOKEN = 4
 _DEFAULT_TAGS: dict[str, str] = {
     "goal_statement": "goal",
     "iteration_statement": "iteration_goal",
-    "prior_iteration_specification": "accepted_plan",
     "prior_iteration_summary": "summary",
     "failed_attempt": "attempt",
     "planned_task_spec": "assigned_task",

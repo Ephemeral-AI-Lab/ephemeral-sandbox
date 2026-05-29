@@ -203,8 +203,6 @@ class TaskStoreProtocol(Protocol):
 
     def set_task_context_packet_id(self, task_id: str, *, context_packet_id: str) -> None: ...
 
-    def get_evaluator_pass_summary(self, evaluator_task_id: str) -> Any: ...
-
 
 __all__ = [
     "GoalStoreProtocol",

@@ -57,16 +57,6 @@ TAG_DICTIONARY: list[TagDescriptor] = [
         label="active iteration's scope",
     ),
     TagDescriptor(
-        tag="accepted_plan",
-        attr_filter=None,
-        label="prior iteration's accepted plan",
-    ),
-    TagDescriptor(
-        tag="summary",
-        attr_filter=None,
-        label="prior iteration's summary",
-    ),
-    TagDescriptor(
         tag="attempt",
         attr_filter=None,
         label="failed prior attempt",
@@ -76,11 +66,6 @@ TAG_DICTIONARY: list[TagDescriptor] = [
         tag="deferred_goal_for_next_iteration",
         attr_filter=None,
         label="scope handed to next iteration",
-    ),
-    TagDescriptor(
-        tag="status_summary",
-        attr_filter=None,
-        label="generator outcomes summary",
     ),
     TagDescriptor(tag="task", attr_filter=None, label="generator task outcome"),
     TagDescriptor(
@@ -92,11 +77,6 @@ TAG_DICTIONARY: list[TagDescriptor] = [
         tag="evaluator_summary",
         attr_filter=None,
         label="evaluator's commentary",
-    ),
-    TagDescriptor(
-        tag="failed_criteria",
-        attr_filter=None,
-        label="criteria that failed",
     ),
     TagDescriptor(
         tag="assigned_task",

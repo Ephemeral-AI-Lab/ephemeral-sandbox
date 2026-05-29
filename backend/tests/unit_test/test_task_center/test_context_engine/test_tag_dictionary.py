@@ -24,10 +24,10 @@ def test_dictionary_has_every_canonical_row_from_spec():
         ("iteration", {"position": "prior"}, "previous iteration's work"),
         ("iteration", {"position": "current"}, "active iteration"),
         ("iteration_goal", None, "active iteration's scope"),
-        ("accepted_plan", None, "prior iteration's accepted plan"),
-        ("summary", None, "prior iteration's summary"),
         # The attempt row is now a single wildcard; the prior/current and
-        # status/verdict attempt rows were removed (contract §5).
+        # status/verdict attempt rows were removed (contract §5). The
+        # accepted_plan/summary/status_summary/failed_criteria rows were removed
+        # too — the redesign no longer emits any of those elements.
         ("attempt", None, "failed prior attempt"),
         ("plan_spec", None, "attempt's plan"),
         (
@@ -35,7 +35,6 @@ def test_dictionary_has_every_canonical_row_from_spec():
             None,
             "scope handed to next iteration",
         ),
-        ("status_summary", None, "generator outcomes summary"),
         ("task", None, "generator task outcome"),
         (
             "evaluation_criteria",
@@ -43,7 +42,6 @@ def test_dictionary_has_every_canonical_row_from_spec():
             "criteria the attempt must satisfy",
         ),
         ("evaluator_summary", None, "evaluator's commentary"),
-        ("failed_criteria", None, "criteria that failed"),
         ("assigned_task", None, "your assigned task"),
         ("dependency", None, "upstream task output"),
     ]

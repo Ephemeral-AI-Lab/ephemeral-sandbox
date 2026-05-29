@@ -32,7 +32,6 @@ class ContextBlockKind(StrEnum):
 
     GOAL_STATEMENT = "goal_statement"
     ITERATION_STATEMENT = "iteration_statement"
-    PRIOR_ITERATION_SPECIFICATION = "prior_iteration_specification"
     PRIOR_ITERATION_SUMMARY = "prior_iteration_summary"
     FAILED_ATTEMPT = "failed_attempt"
     PLANNED_TASK_SPEC = "planned_task_spec"
