@@ -262,18 +262,25 @@ def _register_requested_tools(
             )
 
 
-def _attach_default_terminal_reminder(
+def _attach_default_notification_rules(
     notification_rules: list[Any],
 ) -> None:
-    """Append the terminal-call reminder rule if not already present.
+    """Append default notification rules if not already present.
 
     Every agent has terminals and a ``tool_call_limit`` by invariant, so
-    this rule applies unconditionally. Dedupes by ``rule.name`` so
+    these rules apply unconditionally. Dedupes by ``rule.name`` so
     profiles that customize the rule via ``notification_rules`` win.
     """
-    from notification import make_terminal_call_reminder
+    from notification import (
+        make_terminal_call_reminder,
+        make_terminal_tool_call_count_reminders,
+    )
 
     existing_names = {getattr(rule, "name", "") for rule in notification_rules}
+    for rule in make_terminal_tool_call_count_reminders():
+        if rule.name not in existing_names:
+            notification_rules.append(rule)
+            existing_names.add(rule.name)
     if "terminal_call_reminder" not in existing_names:
         notification_rules.append(make_terminal_call_reminder())
 
@@ -375,7 +382,7 @@ def spawn_agent(
         notification_rules.extend(
             resolve_harness_notification_triggers(agent_def.notification_triggers)
         )
-    _attach_default_terminal_reminder(notification_rules)
+    _attach_default_notification_rules(notification_rules)
 
     query_context = QueryContext(
         api_client=api_client,

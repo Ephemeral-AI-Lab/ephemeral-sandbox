@@ -158,6 +158,8 @@
          data-evidence-paths="backend/src/engine/query/loop.py
                               backend/src/engine/query/context.py
                               backend/src/notification/rules/factories.py
+                              backend/src/notification/rules/must_submit_terminal_tool.py
+                              backend/src/notification/rules/terminal_tool_call_count_reminder.py
                               backend/src/engine/agent/factory.py">
   <h2>Termination</h2>
   <p>
@@ -186,11 +188,14 @@
         is emitted on the stream.</li>
   </ul>
   <p>
-    A single notification rule, <code>terminal_call_reminder</code>, fires
-    every turn after the first assistant message while
-    <code>terminal_result</code> is None. The reminder body includes the
-    registered terminal tool names, the current <code>used/limit</code>
-    budget, the hard ceiling, and the remaining turns until failure.
+    Default notifications are split by purpose. The
+    <code>terminal_tool_call_count_reminder</code> rules fire once at
+    <code>75%</code>, <code>100%</code>, and <code>125%</code> of
+    <code>tool_call_limit</code> while <code>terminal_result</code> is None.
+    The repeating <code>terminal_call_reminder</code> still fires every turn
+    after the first assistant message while no terminal result exists. Both
+    reminder families include the current <code>used/limit</code> budget, the
+    hard ceiling, and the remaining turns until failure.
   </p>
   <p>
     Transcript invariant: on the <code>TERMINAL_NOT_SUBMITTED</code> exit,
@@ -206,7 +211,7 @@
 <p><code>run_ephemeral_agent()</code> is the single lifecycle entry point for top-level agent runs and subagent launches. It spawns the agent, drives <code>agent.run(..., auto_close=False)</code>, forwards stream events, persists the agent run, closes the provider client, and returns an <code>EphemeralRunResult</code>.</p>
 <div class="summary">
   <p>There is no retry-with-fresh-budget mechanism at this layer. If the query loop exits without a terminal result because of <code>TERMINAL_NOT_SUBMITTED</code> or a crash, <code>run_ephemeral_agent()</code> returns no terminal result; only unhandled exceptions set <code>status=&quot;failed&quot;</code> directly through <code>run_error</code>.</p>
-  <p>Soft recovery remains in-band. The factory attaches a default <code>terminal_call_reminder</code> notification rule for every agent. The reminder is a user-message block in the same transcript, not a hidden outer retry.</p>
+  <p>Soft recovery remains in-band. The factory attaches default budget-tier warnings plus the repeating <code>terminal_call_reminder</code> for every agent. The reminders are user-message blocks in the same transcript, not hidden outer retries.</p>
 </div>
 <pre class="diagram" aria-label="Lifecycle exit reasons">
             QueryExitReason                EphemeralRunResult                  Caller view
@@ -215,8 +220,9 @@
             TERMINAL_NOT_SUBMITTED  ----&gt;  terminal_result = None              soft fail (in-band)
             unhandled exception     ----&gt;  status = "failed", run_error set    hard fail
 
-            * No fresh-budget retry. The terminal_call_reminder nudges the
-              agent in-band; the hard ceiling is the only failure mode.
+            * No fresh-budget retry. Budget-tier warnings and
+              terminal_call_reminder nudge the agent in-band; the hard ceiling
+              is the only failure mode.
 </pre>
 <div class="edge-list">
   <div><b>Factory owns setup</b><span><code>spawn_agent()</code> builds the tool registry, registers background management tools only when needed and not for subagents, appends terminal guidance, and constructs the <code>QueryContext</code>.</span></div>
@@ -225,11 +231,11 @@
 </div>
 </section>
 
-<section id="tests-and-failure-modes" data-last-reviewed-commit="HEAD" data-evidence-paths="backend/src/engine/query/loop.py backend/src/engine/query/context.py backend/src/engine/tool_call/streaming.py backend/src/engine/tool_call/dispatch.py backend/src/engine/agent/lifecycle.py backend/tests/unit_test/test_tools/test_tool_execution.py backend/tests/unit_test/test_engine/test_tool_call_limit.py backend/tests/unit_test/test_engine/test_hard_ceiling_behavior.py backend/tests/unit_test/test_engine/test_terminal_not_submitted_transcript.py backend/tests/unit_test/test_notification/test_terminal_call_reminder.py backend/tests/unit_test/test_agents/test_definition_invariants.py">
+<section id="tests-and-failure-modes" data-last-reviewed-commit="HEAD" data-evidence-paths="backend/src/engine/query/loop.py backend/src/engine/query/context.py backend/src/engine/tool_call/streaming.py backend/src/engine/tool_call/dispatch.py backend/src/engine/agent/lifecycle.py backend/src/notification/rules/must_submit_terminal_tool.py backend/src/notification/rules/terminal_tool_call_count_reminder.py backend/tests/unit_test/test_tools/test_tool_execution.py backend/tests/unit_test/test_engine/test_tool_call_limit.py backend/tests/unit_test/test_engine/test_hard_ceiling_behavior.py backend/tests/unit_test/test_engine/test_terminal_not_submitted_transcript.py backend/tests/unit_test/test_notification/test_terminal_call_reminder.py backend/tests/unit_test/test_notification/test_tool_call_budget_tier_reminders.py backend/tests/unit_test/test_agents/test_definition_invariants.py">
 <h2>Tests and Failure Modes</h2>
 <div class="evidence-grid">
   <div><strong>Streaming and terminal dispatch</strong><p><code>backend/tests/unit_test/test_tools/test_tool_execution.py</code> covers non-terminal continuation, terminal result capture without a follow-up tool-result prompt, terminal batch rejection, terminal marker propagation, and background dispatch hooks.</p></div>
-  <div><strong>Termination model</strong><p><code>test_tool_call_limit.py</code>, <code>test_hard_ceiling_behavior.py</code>, <code>test_terminal_not_submitted_transcript.py</code>, <code>test_terminal_call_reminder.py</code>, and <code>test_definition_invariants.py</code> cover counter-only tool dispatch, the <code>ceil(1.5 × tool_call_limit)</code> hard ceiling, transcript pairing on hard exit, the reminder body content, and the boot-time invariants (non-empty terminals, required positive tool_call_limit, no legacy keys).</p></div>
+  <div><strong>Termination model</strong><p><code>test_tool_call_limit.py</code>, <code>test_hard_ceiling_behavior.py</code>, <code>test_terminal_not_submitted_transcript.py</code>, <code>test_terminal_call_reminder.py</code>, <code>test_tool_call_budget_tier_reminders.py</code>, and <code>test_definition_invariants.py</code> cover counter-only tool dispatch, the <code>ceil(1.5 × tool_call_limit)</code> hard ceiling, transcript pairing on hard exit, terminal reminder body content, 75/100/125% budget-tier notifications, and the boot-time invariants (non-empty terminals, required positive tool_call_limit, no legacy keys).</p></div>
   <div><strong>No outer retry</strong><p><code>test_attempt_launcher_retry.py</code> includes static coverage that the TaskCenter launcher no longer passes the deleted <code>max_terminal_retries</code> argument to <code>run_ephemeral_agent()</code>.</p></div>
   <div><strong>Failure modes</strong><p>Refresh this page when provider message sanitation, terminal-tool exclusivity, background deferral, budget tolerance arithmetic, notification injection, or the lifecycle return contract changes.</p></div>
 </div>

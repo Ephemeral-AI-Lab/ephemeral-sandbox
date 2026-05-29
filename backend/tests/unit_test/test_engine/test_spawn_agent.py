@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import threading
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -12,6 +11,7 @@ from pydantic import BaseModel
 
 from agents import AgentDefinition, AgentKind
 from engine.agent.factory import (
+    _attach_default_notification_rules,
     _build_agent_tool_registry,
     _build_sandbox_context_preparers,
     _finalize_tool_registry_and_prompt,
@@ -194,6 +194,20 @@ def test_run_subagent_factory_preserves_always_background_policy() -> None:
     assert has_background is True
     assert registry.get("wait_background_tasks") is not None
     assert registry.get("check_background_task_result") is not None
+
+
+def test_attach_default_notification_rules_adds_budget_tiers_once() -> None:
+    rules = []
+
+    _attach_default_notification_rules(rules)
+    _attach_default_notification_rules(rules)
+
+    assert [rule.name for rule in rules] == [
+        "tool_call_budget_75_percent",
+        "tool_call_budget_100_percent",
+        "tool_call_budget_125_percent",
+        "terminal_call_reminder",
+    ]
 
 
 def test_finalize_skips_background_management_tools_for_subagent() -> None:

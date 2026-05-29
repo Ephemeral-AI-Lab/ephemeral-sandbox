@@ -13,6 +13,8 @@ from notification.metadata import (
 from notification.rules import NotificationRule, dispatch_rules
 from notification.rules import (
     make_terminal_call_reminder,
+    make_terminal_tool_call_count_reminders,
+    make_tool_call_budget_tier_reminders,
 )
 
 __all__ = [
@@ -24,5 +26,7 @@ __all__ = [
     "ensure_system_notification_service",
     "flush_system_notification_events",
     "make_terminal_call_reminder",
+    "make_terminal_tool_call_count_reminders",
+    "make_tool_call_budget_tier_reminders",
     "serialize_system_notifications",
 ]

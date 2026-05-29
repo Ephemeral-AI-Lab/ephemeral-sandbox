@@ -101,14 +101,14 @@
 </div>
 </section>
 
-<section id="notification-runtime" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="backend/src/notification/runtime.py backend/src/notification/rules/dispatch.py backend/src/notification/rules/factories.py backend/src/engine/query/loop.py backend/src/engine/agent/factory.py backend/tests/unit_test/test_notification/test_runtime.py backend/tests/unit_test/test_notification/test_rules_dispatch.py backend/tests/unit_test/test_notification/test_terminal_call_reminder.py">
+<section id="notification-runtime" data-last-reviewed-commit="HEAD" data-evidence-paths="backend/src/notification/runtime.py backend/src/notification/rules/dispatch.py backend/src/notification/rules/factories.py backend/src/notification/rules/must_submit_terminal_tool.py backend/src/notification/rules/terminal_tool_call_count_reminder.py backend/src/engine/query/loop.py backend/src/engine/agent/factory.py backend/tests/unit_test/test_notification/test_runtime.py backend/tests/unit_test/test_notification/test_rules_dispatch.py backend/tests/unit_test/test_notification/test_terminal_call_reminder.py backend/tests/unit_test/test_notification/test_tool_call_budget_tier_reminders.py">
 <h2>Notification Runtime <a class="anchor" href="#notification-runtime">#</a></h2>
 <p><code>SystemNotificationService</code> is a run-scoped sink. Runtime code, hooks, and rules call <code>notify_system()</code>; the service stores a provider-visible <code>SystemNotificationBlock</code> and also queues a stream-side <code>SystemNotification</code> event.</p>
 <div class="trace-grid">
   <div>Rule timing</div><div><code>_run_query_loop()</code> evaluates notification rules at the top of each provider turn, before the next request is built.</div>
   <div>Visibility</div><div>Pending reminder blocks are appended as a user message so the next provider request sees them. Stream events are flushed separately so the user interface can render them as system messages.</div>
   <div>Ordering</div><div><code>dispatch_rules()</code> evaluates rules in list order. A later rule in the same pass cannot observe a reminder emitted by an earlier rule because the caller drains notifications after the pass.</div>
-  <div>Default rules</div><div>The agent factory attaches the terminal-call reminder to each spawned agent so a run that has produced assistant output but no terminal result receives an in-band nudge on the next provider turn.</div>
+  <div>Default rules</div><div>The agent factory attaches one-shot tool-call budget warnings at 75%, 100%, and 125% of <code>tool_call_limit</code>, plus the repeating terminal-call reminder, to each spawned agent so runs receive in-band nudges before the 150% hard ceiling.</div>
 </div>
 </section>
 
