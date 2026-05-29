@@ -10,6 +10,7 @@ from task_center.context_engine.core import ContextEngineDeps, ContextEngineErro
 from task_center.context_engine.packet import ContextPriority
 from task_center.context_engine.recipes.evaluator import build_evaluator_context
 from task_center.context_engine.recipes.generator import build_generator_context
+from task_center.context_engine.renderer import XmlPromptRenderer
 from task_center.context_engine.scope import ContextScope
 from task_center.iteration.state import IterationCreationReason
 
@@ -238,11 +239,11 @@ def test_generator_missing_dependency_task_raises_context_error(
 
 
 # ---------------------------------------------------------------------------
-# evaluator — emits goal + iteration framing + current_attempt block
+# evaluator — flat current attempt: <plan_spec> + <task>×N + <evaluation_criteria>
 # ---------------------------------------------------------------------------
 
 
-def test_evaluator_emits_current_attempt_block_with_plan_and_criteria_inline(
+def test_evaluator_emits_flat_plan_spec_tasks_and_criteria(
     deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     req = _seed_goal(goal_store, task_center_run_id)
@@ -273,29 +274,34 @@ def test_evaluator_emits_current_attempt_block_with_plan_and_criteria_inline(
         ),
         deps,
     )
+    # Flat top-level blocks — no goal/iteration frame, no <attempt> wrapper.
     kinds = [b.kind for b in packet.blocks]
-    assert kinds == [
-        "goal_statement",
-        "iteration_statement",
-        "failed_attempt",
-    ]
-    goal_block, iteration_goal_block, current_attempt = packet.blocks
-    assert goal_block.metadata["tag"] == "goal"
-    assert iteration_goal_block.metadata["child_tag"] == "iteration_goal"
-    assert iteration_goal_block.metadata["group_tag"] == "iteration"
-    assert current_attempt.metadata["child_tag"] == "attempt"
-    assert current_attempt.metadata["attrs"].endswith('status="current"')
-    assert current_attempt.metadata["pre_rendered_xml"] == "true"
-    # All evaluator-visible content is inlined in the attempt body.
-    body = current_attempt.text
-    assert "<plan_spec>\nevaluator spec\n</plan_spec>" in body
-    assert "<evaluation_criteria>" in body
-    assert "c1" in body and "c2" in body
-    assert '<task id="t-a" status="done">' in body
-    assert "good output" in body
+    assert kinds == ["task_specification", "generator_task_outcome", "evaluation_criteria"]
+    plan_spec_block, task_block, criteria_block = packet.blocks
+    # plan_spec — built fresh, top-level, no wrapper.
+    assert plan_spec_block.metadata["tag"] == "plan_spec"
+    assert "group_tag" not in plan_spec_block.metadata
+    assert "pre_rendered_xml" not in plan_spec_block.metadata
+    assert plan_spec_block.text == "evaluator spec"
+    # task — summary-only body, id + status on the tag.
+    assert task_block.metadata["tag"] == "task"
+    assert task_block.metadata["attrs"] == 'id="t-a" status="done"'
+    assert task_block.text == "good output"
+    # evaluation_criteria — the authority, highest priority (last dropped).
+    assert criteria_block.metadata["tag"] == "evaluation_criteria"
+    assert criteria_block.priority == ContextPriority.REQUIRED
+    assert criteria_block.text == "c1\nc2"
+    # End-to-end: the flat blocks render through the real renderer. They are
+    # ordinary (non pre_rendered_xml) blocks, so the renderer's structural-closer
+    # guard sanitizes the bodies and wraps each tag once — no <attempt> wrapper.
+    rendered = XmlPromptRenderer().render_context(packet)
+    assert "<plan_spec>\nevaluator spec\n</plan_spec>" in rendered
+    assert '<task id="t-a" status="done">\ngood output\n</task>' in rendered
+    assert "<evaluation_criteria>\nc1\nc2\n</evaluation_criteria>" in rendered
+    assert "<attempt" not in rendered and "<iteration" not in rendered
 
 
-def test_evaluator_renders_every_generator_summary_in_attempt_order(
+def test_evaluator_renders_every_generator_summary_in_order(
     deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
     req = _seed_goal(goal_store, task_center_run_id)
@@ -332,29 +338,21 @@ def test_evaluator_renders_every_generator_summary_in_attempt_order(
         deps,
     )
 
-    current_attempt_blocks = [
-        b for b in packet.blocks
-        if b.kind == "failed_attempt"
-        and 'status="current"' in b.metadata.get("attrs", "")
-    ]
-    assert len(current_attempt_blocks) == 1
-    body = current_attempt_blocks[0].text
-    # Every generator task surfaces in order in the attempt body.
-    for task_id in task_ids:
-        assert f'<task id="{task_id}" status="done">' in body
-        assert f"summary for {task_id}" in body
-    # Tasks appear in submitted order.
-    indices = [body.index(f'id="{task_id}"') for task_id in task_ids]
-    assert indices == sorted(indices)
+    # One top-level <task> block per generator task, in submitted order.
+    task_blocks = [b for b in packet.blocks if b.kind == "generator_task_outcome"]
+    assert [b.source_id for b in task_blocks] == task_ids
+    for task_id, block in zip(task_ids, task_blocks, strict=True):
+        assert block.metadata["attrs"] == f'id="{task_id}" status="done"'
+        assert block.text == f"summary for {task_id}"
 
 
-def test_evaluator_missing_generator_task_does_not_raise(
+def test_evaluator_missing_generator_task_surfaces_status(
     deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
-    """The evaluator recipe now consults ``_generator_outcomes`` rather than
-    rejecting outright; a missing task surfaces as ``status="missing task row"``
-    in the body. The harness-level invariant violation surfaces via the planner
-    submission accept path; the recipe is read-only."""
+    """The recipe consults ``_generator_outcomes`` rather than rejecting; a
+    missing task surfaces as a ``<task>`` block with ``status="missing task row"``
+    and an empty body. The harness-level invariant violation surfaces via the
+    planner submission accept path; the recipe is read-only."""
     req = _seed_goal(goal_store, task_center_run_id)
     iteration = _seed_iteration(iteration_store, goal_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
@@ -374,18 +372,21 @@ def test_evaluator_missing_generator_task_does_not_raise(
         ),
         deps,
     )
-    current = [
-        b for b in packet.blocks
-        if b.kind == "failed_attempt"
-        and 'status="current"' in b.metadata.get("attrs", "")
-    ]
-    assert current
-    assert 'status="missing task row"' in current[0].text
+    task_blocks = [b for b in packet.blocks if b.kind == "generator_task_outcome"]
+    assert len(task_blocks) == 1
+    assert task_blocks[0].metadata["attrs"] == 'id="t-missing" status="missing task row"'
+    assert task_blocks[0].text == ""
 
 
-def test_evaluator_defers_goal_inlines_deferred_child_in_attempt_body(
+def test_evaluator_defers_goal_attempt_has_no_deferred_block(
     deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
+    """Asymmetry guard: even when the attempt is a *defers-goal* plan, the
+    evaluator packet carries NO ``<deferred_goal_for_next_iteration>`` block or
+    metadata. The deferred remainder is the next iteration's contract, not
+    evaluation evidence. (The planner still sees it in its failed-prior blocks —
+    see test_attempts.py::test_prior_attempt_body_emits_deferred_goal_when_present.)
+    """
     req = _seed_goal(goal_store, task_center_run_id)
     iteration = _seed_iteration(iteration_store, goal_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
@@ -416,21 +417,22 @@ def test_evaluator_defers_goal_inlines_deferred_child_in_attempt_body(
         deps,
     )
 
-    current = [
-        b for b in packet.blocks
-        if b.kind == "failed_attempt"
-        and 'status="current"' in b.metadata.get("attrs", "")
-    ][0]
-    assert current.metadata["has_deferred_goal_for_next_iteration"] == "true"
-    assert (
-        "<deferred_goal_for_next_iteration>\nbuild admin tools next\n"
-        "</deferred_goal_for_next_iteration>"
-    ) in current.text
+    # The plan_spec block is built fresh from attempt.plan_spec — no deferred child.
+    plan_spec_block = next(b for b in packet.blocks if b.metadata.get("tag") == "plan_spec")
+    assert plan_spec_block.text == "partial attempt spec"
+    # No deferred-goal block, body, or signal anywhere in the packet.
+    for block in packet.blocks:
+        assert "deferred_goal_for_next_iteration" not in block.text
+        assert "has_deferred_goal_for_next_iteration" not in block.metadata
+        assert block.metadata.get("tag") != "deferred_goal_for_next_iteration"
 
 
-def test_evaluator_iteration2_frame_then_current_attempt(
+def test_evaluator_iteration2_has_no_prior_iteration_frame(
     deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
+    """E4: even on iteration 2+ (with a closed prior iteration), the evaluator
+    packet carries NO goal block, NO prior-iteration background, and NO
+    <iteration> wrapper — only the flat current attempt."""
     req = _seed_goal(goal_store, task_center_run_id)
     iteration1 = _seed_iteration(iteration_store, goal_id=req.id)
     iteration_store.close_succeeded(
@@ -455,28 +457,20 @@ def test_evaluator_iteration2_frame_then_current_attempt(
         deps,
     )
 
-    assert [b.kind for b in packet.blocks] == [
-        "goal_statement",
-        "prior_iteration_specification",
-        "prior_iteration_summary",
-        "iteration_statement",
-        "failed_attempt",
-    ]
-    assert packet.blocks[0].metadata["tag"] == "goal"
-    assert packet.blocks[1].metadata["child_tag"] == "accepted_plan"
-    assert packet.blocks[1].metadata["group_tag"] == "iteration"
-    assert packet.blocks[3].metadata["child_tag"] == "iteration_goal"
-    assert packet.blocks[3].metadata["group_tag"] == "iteration"
-    assert packet.blocks[-1].metadata["child_tag"] == "attempt"
-    assert 'status="current"' in packet.blocks[-1].metadata["attrs"]
+    # No goal/prior-iteration/iteration-frame kinds survive.
+    assert [b.kind for b in packet.blocks] == ["task_specification", "evaluation_criteria"]
+    assert all("group_tag" not in b.metadata for b in packet.blocks)
+    tags = {b.metadata.get("tag") for b in packet.blocks}
+    assert tags == {"plan_spec", "evaluation_criteria"}
+    # iteration is still threaded into canonical refs via attempt.iteration_id.
+    assert packet.canonical_refs.iteration_id == iteration2.id
 
 
 def test_evaluator_with_empty_criteria_omits_criteria_block(
     deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
 ):
-    """When evaluation_criteria is empty the criteria block does not appear
-    in the attempt body. The packet still emits the active iteration plus
-    the attempt block."""
+    """When evaluation_criteria is empty, no <evaluation_criteria> block is
+    emitted; the packet still carries the <plan_spec> framing."""
     req = _seed_goal(goal_store, task_center_run_id)
     iteration = _seed_iteration(iteration_store, goal_id=req.id)
     attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
@@ -494,15 +488,45 @@ def test_evaluator_with_empty_criteria_omits_criteria_block(
         deps,
     )
 
-    kinds = [b.kind for b in packet.blocks]
-    assert "evaluation_criteria" not in kinds
-    current = [
-        b for b in packet.blocks
-        if b.kind == "failed_attempt"
-        and 'status="current"' in b.metadata.get("attrs", "")
-    ]
-    assert current
-    assert "<evaluation_criteria>" not in current[0].text
+    assert "evaluation_criteria" not in [b.kind for b in packet.blocks]
+    assert [b.metadata.get("tag") for b in packet.blocks] == ["plan_spec"]
+
+
+def test_evaluator_builds_without_goal_or_iteration_scope(
+    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+):
+    """U1-AC5: the recipe requires only attempt_id; with goal_id/iteration_id
+    absent from the scope the packet still builds, deriving iteration from
+    attempt.iteration_id."""
+    req = _seed_goal(goal_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
+    attempt_store.set_plan_contract(
+        attempt.id,
+        plan_spec="evaluator spec",
+        evaluation_criteria=["c1"],
+        deferred_goal_for_next_iteration=None,
+    )
+
+    packet = build_evaluator_context(ContextScope(attempt_id=attempt.id), deps)
+
+    assert [b.metadata.get("tag") for b in packet.blocks] == ["plan_spec", "evaluation_criteria"]
+    assert packet.canonical_refs.iteration_id == iteration.id
+    assert packet.canonical_refs.goal_id is None
+
+
+def test_evaluator_omitted_blocks_when_no_plan_spec(
+    deps, goal_store, iteration_store, attempt_store, task_store, task_center_run_id
+):
+    """Degenerate guard: an attempt with no submitted plan yields an empty
+    packet (the evaluator only runs post-plan-submission in practice)."""
+    req = _seed_goal(goal_store, task_center_run_id)
+    iteration = _seed_iteration(iteration_store, goal_id=req.id)
+    attempt = attempt_store.insert(iteration_id=iteration.id, attempt_sequence_no=1)
+
+    packet = build_evaluator_context(ContextScope(attempt_id=attempt.id), deps)
+
+    assert packet.blocks == []
 
 
 # ---------------------------------------------------------------------------

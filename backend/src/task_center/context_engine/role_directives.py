@@ -19,7 +19,6 @@ ROLE_DIRECTIVES: dict[str, str] = {
     "executor": "Complete <assigned_task>.",
     "verifier": "Complete <assigned_task>.",
     "evaluator": "Verify the current attempt against <evaluation_criteria>.",
-    "advisor": "Review the parent's pending terminal call.",
     "explorer": ("Investigate the parent's question and return concrete findings."),
 }
 

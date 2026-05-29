@@ -1,8 +1,9 @@
-"""Goal + iteration scaffold blocks shared by planner and evaluator recipes.
+"""Goal + iteration scaffold blocks for the planner recipe.
 
 Owns :func:`goal_iteration_blocks` — the standalone ``<goal>`` block followed
 by prior + current iteration groups. Living in its own module keeps consuming
-recipe modules independent of each other.
+recipe modules independent of each other. (The evaluator recipe no longer uses
+this scaffold — see ``recipes/evaluator.py`` for its flat current-attempt shape.)
 
 The XML structure produced by this module is the same for every iteration:
 
@@ -14,8 +15,8 @@ The XML structure produced by this module is the same for every iteration:
   ``<iteration_goal>`` body reads ``(identical to <goal>)`` rather than
   duplicating the goal text.
 
-Additional blocks (failed attempts, the current attempt's plan) join the
-current iteration's group by sharing :func:`current_iteration_group_id`.
+Failed prior attempts (:func:`failed_attempt_blocks`) join the current
+iteration's group by sharing :func:`current_iteration_group_id`.
 """
 
 from __future__ import annotations

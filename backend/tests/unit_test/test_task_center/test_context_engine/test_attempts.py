@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from task_center.context_engine.packet import ContextPriority
 from task_center.context_engine.recipes.attempts import (
-    current_attempt_block,
+    current_attempt_flat_blocks,
     failed_attempt_blocks,
 )
 from task_center.attempt import (
@@ -366,52 +366,79 @@ def test_all_failed_attempts_render_in_sequence_order():
 
 
 # ---------------------------------------------------------------------------
-# Current attempt block.
+# Current attempt block (flat — evaluator-only).
 # ---------------------------------------------------------------------------
 
 
-def test_current_attempt_block_emits_status_current_attrs():
-    blocks = current_attempt_block(
+def test_current_attempt_flat_blocks_emit_plan_spec_and_criteria():
+    blocks = current_attempt_flat_blocks(
         attempt=_attempt(
             2,
             status=AttemptStatus.RUNNING,
             plan_spec="active spec",
             evaluation_criteria=("crit-a",),
         ),
-        iteration=_iteration(sequence_no=1),
     )
-    assert len(blocks) == 1
-    block = blocks[0]
-    assert block.metadata["group_id"] == "iteration_1_current"
-    assert block.metadata["group_tag"] == "iteration"
-    assert block.metadata["child_tag"] == "attempt"
-    assert block.metadata["attrs"] == 'attempt_no="2" status="current"'
-    assert block.metadata["pre_rendered_xml"] == "true"
-    assert "<plan_spec>\nactive spec\n</plan_spec>" in block.text
-    assert "<evaluation_criteria>\ncrit-a\n</evaluation_criteria>" in block.text
+    assert [b.metadata["tag"] for b in blocks] == ["plan_spec", "evaluation_criteria"]
+    plan_spec, criteria = blocks
+    # Flat top-level blocks — no <iteration>/<attempt> wrapper, no pre-render.
+    assert "group_tag" not in plan_spec.metadata
+    assert "pre_rendered_xml" not in plan_spec.metadata
+    assert plan_spec.priority == ContextPriority.HIGH
+    assert plan_spec.text == "active spec"
+    assert criteria.priority == ContextPriority.REQUIRED
+    assert criteria.text == "crit-a"
 
 
-def test_current_attempt_block_includes_deferred_goal():
-    blocks = current_attempt_block(
+def test_current_attempt_flat_blocks_emit_one_task_block_per_generator():
+    class TaskStore:
+        def get_task(self, task_id: str):
+            return {
+                "t-a": {"status": "done", "summaries": [{"summary": "built slice"}]},
+                "t-b": {"status": "done", "summaries": [{"summary": "(empty)"}]},
+            }.get(task_id)
+
+    blocks = current_attempt_flat_blocks(
+        attempt=_attempt(
+            1,
+            status=AttemptStatus.RUNNING,
+            plan_spec="spec",
+            evaluation_criteria=("c1",),
+            generator_task_ids=("t-a", "t-b"),
+        ),
+        task_store=TaskStore(),
+    )
+    task_blocks = [b for b in blocks if b.metadata.get("tag") == "task"]
+    assert [b.metadata["attrs"] for b in task_blocks] == [
+        'id="t-a" status="done"',
+        'id="t-b" status="done"',
+    ]
+    # Real summary becomes the body; a placeholder summary collapses to empty.
+    assert task_blocks[0].text == "built slice"
+    assert task_blocks[1].text == ""
+
+
+def test_current_attempt_flat_blocks_omit_deferred_goal():
+    """Even a defers-goal attempt emits no deferred block — the evaluator
+    judges the current slice against its criteria, not the remainder."""
+    blocks = current_attempt_flat_blocks(
         attempt=_attempt(
             2,
             status=AttemptStatus.RUNNING,
             plan_spec="partial",
             deferred_goal_for_next_iteration="next slice",
         ),
-        iteration=_iteration(sequence_no=1),
     )
-    block = blocks[0]
-    assert block.metadata["has_deferred_goal_for_next_iteration"] == "true"
+    assert [b.metadata["tag"] for b in blocks] == ["plan_spec"]
+    for block in blocks:
+        assert "deferred_goal_for_next_iteration" not in block.text
+        assert "has_deferred_goal_for_next_iteration" not in block.metadata
+
+
+def test_current_attempt_flat_blocks_omitted_without_plan_spec():
     assert (
-        "<deferred_goal_for_next_iteration>\nnext slice\n"
-        "</deferred_goal_for_next_iteration>"
-    ) in block.text
-
-
-def test_current_attempt_block_omitted_without_plan_spec():
-    blocks = current_attempt_block(
-        attempt=_attempt(1, plan_spec=None, status=AttemptStatus.RUNNING),
-        iteration=_iteration(),
+        current_attempt_flat_blocks(
+            attempt=_attempt(1, plan_spec=None, status=AttemptStatus.RUNNING),
+        )
+        == []
     )
-    assert blocks == []

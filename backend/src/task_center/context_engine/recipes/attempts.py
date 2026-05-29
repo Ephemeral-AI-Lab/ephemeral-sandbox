@@ -1,28 +1,27 @@
-"""``<attempt>`` blocks nested under ``<iteration status="current">``.
+"""``<attempt>`` emitters for the planner and evaluator recipes.
 
-Two emitters, one body shape:
+Two emitters with different shapes:
 
-* :func:`failed_attempt_blocks` — one block per failed prior attempt,
-  attrs ``status="prior" verdict="fail"`` (planner + evaluator).
-* :func:`current_attempt_block` — one block for the attempt currently being
-  evaluated, attrs ``status="current"`` (evaluator only).
+* :func:`failed_attempt_blocks` — **planner-only**. One block per failed prior
+  attempt, attrs ``status="prior" verdict="fail"``, grouped under
+  ``<iteration status="current">`` via :func:`current_iteration_group_id`.
+  Each block's ``text`` is the pre-rendered XML body of ``<attempt>…</attempt>``
+  with children inlined as siblings (no ``<attempt_plan>`` /
+  ``<generator_outcomes>`` / ``<evaluator_judgment>`` wrappers): ``<plan_spec>``
+  and, when present, ``<deferred_goal_for_next_iteration>``; ``<status_summary>``;
+  one ``<task id="..." status="...">`` per generator task; ``<evaluation_criteria>``;
+  and the evaluator's ``<evaluator_summary>`` / ``<passed_criteria>`` /
+  ``<failed_criteria>``.
+* :func:`current_attempt_flat_blocks` — **evaluator-only**. The attempt being
+  judged, emitted as flat top-level blocks (no ``<iteration>`` / ``<attempt>``
+  wrapper): ``<plan_spec>`` (framing) + one ``<task id="..." status="...">`` per
+  generator task (summary-only) + ``<evaluation_criteria>`` (authority). No
+  ``<deferred_goal_for_next_iteration>`` — the evaluator judges the current
+  slice against its criteria, not the deferred remainder.
 
-Every block's ``text`` is the pre-rendered XML body of ``<attempt>…</attempt>``;
-the renderer groups them under ``<iteration status="current">`` via the shared
-:func:`current_iteration_group_id`.
-
-The body inlines children as siblings — no ``<attempt_plan>``,
-``<generator_outcomes>``, or ``<evaluator_judgment>`` wrappers — matching the
-``OPTIMIZED_USER_MSG_1.md`` spec:
-
-* ``<plan_spec>`` and (when present) ``<deferred_goal_for_next_iteration>``.
-* ``<status_summary>`` (failed only — current attempts haven't finished yet
-  so they emit per-task ``<task>`` children but no status_summary).
-* One ``<task id="..." status="...">`` per generator task, body = the latest
-  summary text.
-* ``<evaluation_criteria>`` — listed at attempt scope.
-* Evaluator-only on failed attempts: ``<evaluator_summary>``,
-  ``<passed_criteria>``, ``<failed_criteria>``.
+The pre-rendered failed-attempt body bypasses the renderer's structural-closer
+guard, so :func:`_sanitize_user_text` re-applies it. The flat current-attempt
+blocks are ordinary blocks; the renderer guards their bodies directly.
 """
 
 from __future__ import annotations
@@ -51,6 +50,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing-only
 _MISSING_TASK_ROW_STATUS = "missing task row"
 _PREMATURE_STATUSES = frozenset({"failed", "blocked", _MISSING_TASK_ROW_STATUS})
 _EMPTY_SUMMARY_PLACEHOLDERS = frozenset({"(empty)", "(no summary recorded)"})
+
+# ``ContextBlock.kind`` for the flat evaluator emitter's task and criteria
+# blocks (the plan_spec block reuses ``TASK_SPECIFICATION``). ``kind`` is a
+# free string; tag resolution goes through ``metadata['tag']``, so these are
+# provenance labels only.
+_TASK_OUTCOME_KIND = "generator_task_outcome"
+_EVALUATION_CRITERIA_KIND = "evaluation_criteria"
 
 # fail_reasons where no plan was ever committed, so neither generators nor
 # the evaluator had a chance to run. The recipe collapses such attempts to a
@@ -118,46 +124,70 @@ def failed_attempt_blocks(
     ]
 
 
-def current_attempt_block(
+def current_attempt_flat_blocks(
     *,
     attempt: Attempt,
-    iteration: Iteration,
     task_store: TaskStoreProtocol | None = None,
 ) -> list[ContextBlock]:
-    """Return the active ``<attempt status="current">`` block, or empty list.
+    """Return the current attempt's substance as flat top-level blocks (evaluator-only).
 
-    Empty list when the planner hasn't submitted a plan yet (no plan_spec —
-    nothing to show).
+    Emitted in order, with no ``<iteration>`` / ``<attempt>`` wrapper:
+
+    * ``<plan_spec>`` (HIGH) — the attempt's framing, built fresh from
+      ``attempt.plan_spec``. No ``<deferred_goal_for_next_iteration>`` child:
+      the evaluator judges the current slice, not the deferred remainder.
+    * one ``<task id="..." status="...">`` per generator outcome (HIGH),
+      body = the latest summary text (empty body when none was recorded).
+    * ``<evaluation_criteria>`` (REQUIRED — the authority, last dropped under
+      token budget), omitted when the attempt carries no criteria.
+
+    Empty list when the planner has not submitted a plan yet (no plan_spec).
+    These are ordinary blocks, so the renderer's structural-closer guard
+    sanitizes their user-supplied bodies — no ``pre_rendered_xml`` opt-out.
     """
     if not attempt.plan_spec:
         return []
-    body = _render_current_attempt_body(attempt, task_store=task_store)
-    group_id = current_iteration_group_id(iteration)
-    group_attrs = current_iteration_group_attrs(iteration)
-    return [
+    blocks: list[ContextBlock] = [
         ContextBlock(
-            kind=ContextBlockKind.FAILED_ATTEMPT,
-            priority=ContextPriority.REQUIRED,
-            text=body,
+            kind=ContextBlockKind.TASK_SPECIFICATION,
+            priority=ContextPriority.HIGH,
+            text=attempt.plan_spec,
             source_id=attempt.id,
             source_kind="attempt",
-            metadata={
-                "group_id": group_id,
-                "group_tag": "iteration",
-                "group_attrs": group_attrs,
-                "child_tag": "attempt",
-                "attrs": (f'attempt_no="{attempt.attempt_sequence_no}" status="current"'),
-                "pre_rendered_xml": "true",
-                # Surface deferred-goal presence for any downstream code that
-                # wants to branch on it (e.g. role skills, audits).
-                **(
-                    {"has_deferred_goal_for_next_iteration": "true"}
-                    if attempt.deferred_goal_for_next_iteration
-                    else {}
-                ),
-            },
+            metadata={"tag": "plan_spec"},
         )
     ]
+    blocks.extend(
+        _task_outcome_block(o) for o in _generator_outcomes(attempt, task_store=task_store)
+    )
+    if attempt.evaluation_criteria:
+        blocks.append(
+            ContextBlock(
+                kind=_EVALUATION_CRITERIA_KIND,
+                priority=ContextPriority.REQUIRED,
+                text="\n".join(attempt.evaluation_criteria),
+                source_id=attempt.id,
+                source_kind="attempt",
+                metadata={"tag": "evaluation_criteria"},
+            )
+        )
+    return blocks
+
+
+def _task_outcome_block(outcome: _GeneratorOutcome) -> ContextBlock:
+    """One ``<task id status>`` block, body = the generator summary only."""
+    has_summary = bool(outcome.summary) and outcome.summary not in _EMPTY_SUMMARY_PLACEHOLDERS
+    return ContextBlock(
+        kind=_TASK_OUTCOME_KIND,
+        priority=ContextPriority.HIGH,
+        text=outcome.summary if has_summary else "",
+        source_id=outcome.task_id,
+        source_kind="task_center_task",
+        metadata={
+            "tag": "task",
+            "attrs": f'id="{outcome.task_id}" status="{outcome.status}"',
+        },
+    )
 
 
 def _render_failed_attempt_body(attempt: Attempt, *, task_store: TaskStoreProtocol | None) -> str:
@@ -173,22 +203,6 @@ def _render_failed_attempt_body(attempt: Attempt, *, task_store: TaskStoreProtoc
     generator_outcomes = _generator_outcomes(attempt, task_store=task_store)
     parts.append(_render_generator_outcome_children(attempt, generator_outcomes))
     parts.append(_render_evaluator_children(attempt, generator_outcomes, task_store=task_store))
-    return "\n".join(p for p in parts if p)
-
-
-def _render_current_attempt_body(attempt: Attempt, *, task_store: TaskStoreProtocol | None) -> str:
-    """Render the inside of ``<attempt status="current">…</attempt>``.
-
-    Current attempts haven't finished evaluation yet, so the body omits the
-    evaluator's verdict children (``<evaluator_summary>``,
-    ``<passed_criteria>``, ``<failed_criteria>``). Generator ``<task>``
-    children carry whatever summaries the runtime has recorded so far.
-    """
-    parts: list[str] = [_render_plan_spec_children(attempt)]
-    generator_outcomes = _generator_outcomes(attempt, task_store=task_store)
-    if generator_outcomes:
-        parts.append("\n".join(_render_task_element(o, attempt.id) for o in generator_outcomes))
-    parts.append(_render_evaluation_criteria(attempt))
     return "\n".join(p for p in parts if p)
 
 

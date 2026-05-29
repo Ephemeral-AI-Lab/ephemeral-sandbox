@@ -16,16 +16,10 @@ import re
 
 import pytest
 
-from task_center.context_engine.packet import (
-    ContextBlock,
-    ContextPriority,
-)
+from task_center.context_engine.packet import ContextBlock
 from task_center.context_engine.recipes.iterations import (
     _current_iteration_goal_child,
     goal_iteration_blocks,
-)
-from task_center.context_engine.recipes.attempts import (
-    current_attempt_block,
 )
 
 
@@ -50,27 +44,6 @@ class _FakeGoal:
     def __init__(self, *, id: str, goal: str):
         self.id = id
         self.goal = goal
-
-
-class _FakeAttempt:
-    def __init__(
-        self,
-        *,
-        id: str,
-        attempt_sequence_no: int,
-        plan_spec: str | None,
-        deferred_goal_for_next_iteration: str | None,
-        generator_task_ids: tuple[str, ...] = (),
-        evaluator_task_id: str | None = None,
-        evaluation_criteria: tuple[str, ...] = (),
-    ):
-        self.id = id
-        self.attempt_sequence_no = attempt_sequence_no
-        self.plan_spec = plan_spec
-        self.deferred_goal_for_next_iteration = deferred_goal_for_next_iteration
-        self.generator_task_ids = generator_task_ids
-        self.evaluator_task_id = evaluator_task_id
-        self.evaluation_criteria = evaluation_criteria
 
 
 def _parse_iteration_no_from_group_attrs(group_attrs: str) -> int | None:
@@ -150,33 +123,3 @@ def test_goal_iteration_blocks_full_frame_invariant():
         iterations=[prior, current],
     )
     _assert_invariant(blocks)
-
-
-def test_current_attempt_block_carries_deferred_goal_signal():
-    """The current attempt's block surfaces ``has_deferred_goal_for_next_iteration``
-    when the planner submitted a continues-goal plan."""
-    iteration = _FakeIteration(id="i1", sequence_no=1, goal="iter 1 goal")
-    attempt = _FakeAttempt(
-        id="a",
-        attempt_sequence_no=2,
-        plan_spec="plan body",
-        deferred_goal_for_next_iteration="future work",
-    )
-    blocks = current_attempt_block(attempt=attempt, iteration=iteration)
-    assert len(blocks) == 1
-    assert (
-        blocks[0].metadata["has_deferred_goal_for_next_iteration"] == "true"
-    )
-    assert blocks[0].metadata["attrs"].endswith('status="current"')
-    assert blocks[0].priority == ContextPriority.REQUIRED
-
-
-def test_current_attempt_block_omitted_when_no_plan_spec():
-    iteration = _FakeIteration(id="i1", sequence_no=1, goal="iter 1 goal")
-    attempt = _FakeAttempt(
-        id="a",
-        attempt_sequence_no=1,
-        plan_spec=None,
-        deferred_goal_for_next_iteration=None,
-    )
-    assert current_attempt_block(attempt=attempt, iteration=iteration) == []

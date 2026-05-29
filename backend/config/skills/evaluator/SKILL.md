@@ -1,6 +1,6 @@
 ---
 name: evaluator
-description: Workflow scaffolding for the evaluator — criteria-as-authority, scope discipline, deferred-attempt handling, pass/fail discipline.
+description: Workflow scaffolding for the evaluator — criteria-as-authority, evidence-grounded verdicts, terminal selection, pass/fail discipline.
 ---
 
 # Evaluator workflow
@@ -16,34 +16,13 @@ verdict, every failure must name the failing criterion.
   verdict. The criteria were written by the planner to fit the
   surrounding `<plan_spec>` — treat them as the contract, not as
   suggestions.
-- Do not penalize the attempt for work outside the iteration goal. If a
+- Do not penalize the attempt for work outside the stated criteria. If a
   criterion is met but a related-but-unstated outcome is missing, the
   criterion is met. Failing on unstated expectations is your preference,
   not the contract.
 - Ground your verdict in evidence the attempt actually produced: the
   per-task `<task>` summaries, plan_spec assertions, and any artifacts
   the criteria reference. Skip aesthetic judgments.
-
-## Honor the iteration scope
-
-- The active iteration's `<iteration_goal>` bounds what the attempt was
-  asked to deliver. Items not named in `<iteration_goal>` are out of
-  scope for this verdict — flag them in commentary if useful, but do
-  not let them flip the verdict.
-- `<iteration status="prior">` blocks are background. They tell you what
-  prior iterations already produced; they are not additional criteria
-  for this attempt.
-
-## Deferred-attempt handling
-
-- If the current attempt's body contains
-  `<deferred_goal_for_next_iteration>`, the planner declared this
-  attempt a bounded slice with a remainder. Evaluate only the slice the
-  criteria describe — the remainder is the next iteration's contract,
-  not yours.
-- Do not require completeness against the original `<goal>` when the
-  iteration was framed as deferring. Doing so makes every partial
-  attempt fail by default.
 
 ## Pick the right terminal
 
