@@ -34,11 +34,6 @@ def _graph(**overrides) -> Attempt:
     return Attempt(**base)
 
 
-def test_has_deferred_goal_for_next_iteration_matches_deferred_goal():
-    assert _graph(deferred_goal_for_next_iteration=None).has_deferred_goal_for_next_iteration is False
-    assert _graph(deferred_goal_for_next_iteration="x").has_deferred_goal_for_next_iteration is True
-
-
 def test_is_closed_matches_stage():
     assert _graph(stage=AttemptStage.PLAN).is_closed is False
     assert _graph(stage=AttemptStage.GENERATE).is_closed is False

@@ -50,7 +50,3 @@ class Attempt:
     @property
     def is_closed(self) -> bool:
         return self.stage == AttemptStage.CLOSED
-
-    @property
-    def has_deferred_goal_for_next_iteration(self) -> bool:
-        return self.deferred_goal_for_next_iteration is not None
