@@ -50,7 +50,7 @@ class EphemeralRunResult:
     error: str | None
     terminal_result: ToolResult | None
     agent_name: str
-    event_count: int
+    tool_call_count: int
 
 
 def _last_terminal_tool_result(
@@ -146,14 +146,15 @@ async def run_ephemeral_agent(
         agent.query_context.tool_metadata.agent_run_id = agent_run_id
     agent.query_context.run_id = task_id or agent_run_id or agent.query_context.run_id
 
-    event_count = 0
+    tool_call_count = 0
     run_error: str | None = None
     terminal_result: ToolResult | None = None
 
     try:
         try:
             async for event in agent.run(prompt, auto_close=False):
-                event_count += 1
+                if isinstance(event, ToolExecutionCompletedEvent):
+                    tool_call_count += 1
                 if (
                     isinstance(event, ToolExecutionCompletedEvent)
                     and event.is_terminal
@@ -209,5 +210,5 @@ async def run_ephemeral_agent(
         error=run_error,
         terminal_result=terminal_result,
         agent_name=agent.agent_name,
-        event_count=event_count,
+        tool_call_count=tool_call_count,
     )

@@ -148,7 +148,7 @@ def _graph_summary(
 
 
 @contextlib.contextmanager
-def _active_mock_model_if_enabled(bundle: TaskCenterStoreBundle):
+def _active_mock_model_if_enabled(bundle: TaskCenterStoreBundle, scenario_name: str):
     """Register a throwaway active model row for the event-source runner path.
 
     Under ``EOS_MOCK_EVENT_SOURCE_RUNNER`` the mock drives the REAL loop via
@@ -158,7 +158,7 @@ def _active_mock_model_if_enabled(bundle: TaskCenterStoreBundle):
     row was needed. Gating on the flag keeps the default-off path untouched; all
     scenario tests funnel through here, so none need a per-test fixture.
     """
-    if not _event_source_runner_enabled():
+    if not _event_source_runner_enabled(scenario_name):
         yield
         return
     from config.model_config import get_active_model_kwargs
@@ -226,7 +226,7 @@ async def run_scenario(
     # ``registered_mock_agents`` registers the mock agent definitions for the
     # duration of the run; restore the registry on exit. The original
     # ``run_scenario`` wrapped its core call in this context manager too.
-    with registered_mock_agents(), _active_mock_model_if_enabled(bundle):
+    with registered_mock_agents(), _active_mock_model_if_enabled(bundle, scenario.name):
         config = _dataclasses.replace(config, stores=bundle)
         pipeline_report = await run_pipeline(config)
 

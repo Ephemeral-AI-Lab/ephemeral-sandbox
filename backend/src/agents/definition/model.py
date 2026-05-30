@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -40,24 +39,6 @@ class AgentKind(StrEnum):
     EXPLORER = "explorer"
 
 
-# Pydantic can't accept ``notification.NotificationRule`` directly here because
-# the rule type is defined cross-package and using it would re-introduce a
-# forward-reference cycle (see ``notification/rules/model.py:18-22``). This
-# structural Protocol is the supported workaround; do not replace it with a
-# concrete import. The @runtime_checkable decorator is load-bearing — Pydantic
-# uses ``isinstance(rule, AgentNotificationRule)`` to validate the
-# ``notification_rules: list[AgentNotificationRule]`` field at construction
-# time and Protocol isinstance checks require the decorator.
-@runtime_checkable
-class AgentNotificationRule(Protocol):
-    """Runtime notification rule shape consumed by agent definitions."""
-
-    name: str
-    body: Callable[..., str]
-    trigger: Callable[..., bool]
-    fire_once: bool
-
-
 class AgentDefinition(BaseModel):
     """Full agent definition with all configuration fields."""
 
@@ -90,10 +71,6 @@ class AgentDefinition(BaseModel):
     # ``AgentDefinition`` directly stay terse; production agents always go
     # through the loader gate.
     agent_kind: AgentKind = AgentKind.EXECUTOR
-    # Planner-submission gate. Only profiles explicitly flagged True may be
-    # named as ``agent_name`` in a planner submission. Defaults False so helper
-    # and subagent profiles are never planner-submittable by accident.
-    dispatchable_by_planner: bool = False
 
     # --- agent type: regular agent or subagent (worker) ---
     agent_type: AgentType = AgentType.AGENT
@@ -109,11 +86,6 @@ class AgentDefinition(BaseModel):
     # instances by runtime-specific launch code.
     notification_triggers: list[str] = Field(default_factory=list)
 
-    # --- notification rules ---
-    # Rules evaluated at the top of every model turn (see
-    # the notification rule engine. Empty list = no notifications.
-    notification_rules: list[AgentNotificationRule] = Field(default_factory=list)
-
     # --- skill (Round 3) ---
     # Absolute path to the agent's workflow SKILL.md, resolved by the loader
     # from the relative ``skill:`` frontmatter field. ``None`` when no skill is
@@ -128,7 +100,6 @@ class AgentDefinition(BaseModel):
     context_recipe: str | None = None
     model_config = ConfigDict(
         populate_by_name=True,
-        arbitrary_types_allowed=True,
         extra="forbid",
     )
 

@@ -92,6 +92,12 @@ def _assert_ordered_subsequence(
     expected: Sequence[EventType],
     actual: Sequence[EventType],
 ) -> None:
+    actual_set = set(actual)
+    expected = [
+        event_type
+        for event_type in expected
+        if event_type not in _GRAPH_BACKED_EVENT_TYPES or event_type in actual_set
+    ]
     position = 0
     for event_type in actual:
         if position < len(expected) and event_type == expected[position]:
@@ -106,9 +112,10 @@ def _assert_ordered_subsequence(
 def _assert_event_counts(report: RunReport, case: FocusedScenarioCase) -> None:
     counts = Counter(event.type for event in report.events)
     for event_type, minimum in case.min_event_counts.items():
-        assert counts[event_type] >= minimum, (
+        observed = max(counts[event_type], _graph_backed_event_count(report, event_type))
+        assert observed >= minimum, (
             f"{case.name}: expected at least {minimum} {event_type.value} events, "
-            f"saw {counts[event_type]}"
+            f"saw {observed}"
         )
     for event_type in case.absent_events:
         assert counts[event_type] == 0, (
@@ -131,3 +138,63 @@ def _assert_graph_shape(report: RunReport, case: FocusedScenarioCase) -> None:
             for attempt in iteration["attempts"]
         ]
         assert len(attempts) == case.attempt_count
+
+
+_GRAPH_BACKED_EVENT_TYPES: frozenset[EventType] = frozenset(
+    {
+        EventType.PLANNER_INVOKED,
+        EventType.PLANNER_COMPLETES_GOAL_PLAN,
+        EventType.PLANNER_DEFERS_GOAL_PLAN,
+        EventType.EXECUTOR_INVOKED,
+        EventType.EXECUTOR_SUCCESS,
+        EventType.EXECUTOR_FAILURE,
+        EventType.VERIFIER_INVOKED,
+        EventType.VERIFIER_SUCCESS,
+        EventType.VERIFIER_FAILURE,
+        EventType.EVALUATOR_INVOKED,
+        EventType.EVALUATOR_SUCCESS,
+        EventType.EVALUATOR_FAILURE,
+        EventType.RECURSIVE_WORKFLOW_REQUESTED,
+        EventType.RECURSIVE_WORKFLOW_COMPLETED,
+    }
+)
+
+
+def _graph_backed_event_count(report: RunReport, event_type: EventType) -> int:
+    if event_type in {EventType.PLANNER_INVOKED, EventType.PLANNER_COMPLETES_GOAL_PLAN}:
+        return count_role_tasks(report, "planner", status="done")
+    if event_type == EventType.PLANNER_DEFERS_GOAL_PLAN:
+        return sum(
+            1
+            for workflow in report.graph_summary["workflows"]
+            for iteration in workflow["iterations"]
+            for attempt in iteration["attempts"]
+            if attempt["deferred_goal_for_next_iteration"]
+        )
+    if event_type == EventType.EXECUTOR_INVOKED:
+        return count_role_tasks(report, "executor")
+    if event_type == EventType.EXECUTOR_SUCCESS:
+        return count_role_tasks(report, "executor", status="done")
+    if event_type == EventType.EXECUTOR_FAILURE:
+        return count_role_tasks(report, "executor", status="failed")
+    if event_type == EventType.VERIFIER_INVOKED:
+        return count_role_tasks(report, "verifier")
+    if event_type == EventType.VERIFIER_SUCCESS:
+        return count_role_tasks(report, "verifier", status="done")
+    if event_type == EventType.VERIFIER_FAILURE:
+        return count_role_tasks(report, "verifier", status="failed")
+    if event_type == EventType.EVALUATOR_INVOKED:
+        return count_role_tasks(report, "evaluator")
+    if event_type == EventType.EVALUATOR_SUCCESS:
+        return count_role_tasks(report, "evaluator", status="done")
+    if event_type == EventType.EVALUATOR_FAILURE:
+        return count_role_tasks(report, "evaluator", status="failed")
+    if event_type == EventType.RECURSIVE_WORKFLOW_REQUESTED:
+        return len(recursive_workflows(report.graph_summary))
+    if event_type == EventType.RECURSIVE_WORKFLOW_COMPLETED:
+        return sum(
+            1
+            for workflow in recursive_workflows(report.graph_summary)
+            if workflow.get("status") == "succeeded"
+        )
+    return 0

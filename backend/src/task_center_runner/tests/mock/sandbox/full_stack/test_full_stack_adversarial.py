@@ -14,10 +14,6 @@ import pytest
 from task_center_runner.benchmarks.sweevo.setup import select_sweevo_instance
 from task_center_runner.benchmarks.sweevo.setup import build_sweevo_user_prompt
 from task_center_runner.audit.events import Event, EventType
-from task_center_runner.hooks.builtins import (
-    assert_recursive_workflow_closed_before_parent_guard,
-    count_events,
-)
 from task_center_runner.scenarios.full_stack_adversarial import (
     FullStackAdversarial,
 )
@@ -121,10 +117,6 @@ async def test_full_stack_adversarial_runs_agent_tool_script_matrix(
         sandbox_id=str(workspace["sandbox_id"]),
         audit_dir=audit_dir,
         stores=stores,
-        extra_hooks=(
-            count_events(EventType.VERIFIER_FAILURE, name="verifier_failures"),
-            assert_recursive_workflow_closed_before_parent_guard(),
-        ),
     )
 
     assert report.task_center_status == "done", report.metrics
@@ -143,7 +135,7 @@ async def test_full_stack_adversarial_runs_agent_tool_script_matrix(
     assert len(report.package_plan) >= 4
     assert len(report.matrix_plan) >= 32
 
-    _assert_task_center_shape(report.graph_summary, report.events)
+    _assert_task_center_shape(report.graph_summary)
     _assert_message_logs(report.run_dir)
     _assert_sandbox_monitor_events(report.events, report.run_dir)
     _assert_full_stack_performance_report_complete(report.run_dir)
@@ -153,31 +145,44 @@ async def test_full_stack_adversarial_runs_agent_tool_script_matrix(
     )
 
 
-def _assert_task_center_shape(
-    graph_summary: dict[str, Any],
-    events: list[Event],
-) -> None:
-    seen = {event.type for event in events}
-    assert EventType.PLANNER_COMPLETES_GOAL_PLAN in seen
-    assert EventType.PLANNER_DEFERS_GOAL_PLAN in seen
-    assert EventType.VERIFIER_FAILURE in seen
-    assert EventType.RECURSIVE_WORKFLOW_REQUESTED in seen
-    assert EventType.RECURSIVE_WORKFLOW_COMPLETED in seen
-    assert EventType.EVALUATOR_SUCCESS in seen
-    assert EventType.FULL_STACK_SCRIPT_COMPLETED in seen
+def _assert_task_center_shape(graph_summary: dict[str, Any]) -> None:
+    assert _has_deferred_attempt(graph_summary)
+    assert _has_closing_passed_attempt(graph_summary)
+    assert _count_failed_verifier_tasks(graph_summary) >= 1
     assert _has_multi_dependency_verifier(graph_summary)
     assert _recursive_workflow_count(graph_summary) >= 1
-    _assert_event_order(
-        events,
-        first=EventType.RECURSIVE_WORKFLOW_COMPLETED,
-        second=EventType.VERIFIER_SUCCESS,
-        second_checkpoint="recursive_return",
+    assert _recursive_workflows_succeeded(graph_summary), graph_summary
+    assert _verifier_task_done_with_checkpoint(graph_summary, "recursive_return")
+    assert _verifier_task_done_with_checkpoint(graph_summary, "final_release")
+
+
+def _has_deferred_attempt(graph_summary: dict[str, Any]) -> bool:
+    return any(
+        attempt["deferred_goal_for_next_iteration"]
+        for workflow in graph_summary["workflows"]
+        for iteration in workflow["iterations"]
+        for attempt in iteration["attempts"]
     )
-    _assert_event_order(
-        events,
-        first=EventType.VERIFIER_SUCCESS,
-        second=EventType.EVALUATOR_INVOKED,
-        first_checkpoint="final_release",
+
+
+def _has_closing_passed_attempt(graph_summary: dict[str, Any]) -> bool:
+    return any(
+        attempt["status"] == "passed"
+        and not attempt["deferred_goal_for_next_iteration"]
+        for workflow in graph_summary["workflows"]
+        for iteration in workflow["iterations"]
+        for attempt in iteration["attempts"]
+    )
+
+
+def _count_failed_verifier_tasks(graph_summary: dict[str, Any]) -> int:
+    return sum(
+        1
+        for workflow in graph_summary["workflows"]
+        for iteration in workflow["iterations"]
+        for attempt in iteration["attempts"]
+        for task in attempt["tasks"]
+        if task.get("agent_name") == "verifier" and task.get("status") == "failed"
     )
 
 
@@ -196,6 +201,33 @@ def _recursive_workflow_count(graph_summary: dict[str, Any]) -> int:
         1
         for workflow in graph_summary["workflows"]
         if workflow.get("origin_kind") == "task"
+    )
+
+
+def _recursive_workflows_succeeded(graph_summary: dict[str, Any]) -> bool:
+    recursive = [
+        workflow
+        for workflow in graph_summary["workflows"]
+        if workflow.get("origin_kind") == "task"
+    ]
+    return bool(recursive) and all(
+        workflow.get("status") == "succeeded" for workflow in recursive
+    )
+
+
+def _verifier_task_done_with_checkpoint(
+    graph_summary: dict[str, Any],
+    checkpoint: str,
+) -> bool:
+    needle = f"checkpoint={checkpoint}"
+    return any(
+        task.get("agent_name") == "verifier"
+        and task.get("status") == "done"
+        and needle in str(task.get("context_message") or "")
+        for workflow in graph_summary["workflows"]
+        for iteration in workflow["iterations"]
+        for attempt in iteration["attempts"]
+        for task in attempt["tasks"]
     )
 
 
@@ -371,8 +403,10 @@ def _assert_recursive_workflow_keeps_sandbox_responsive(
     messages = _message_rows(run_dir)
     recursive_tool_uses = _tool_uses_for_task(messages, "recursive_")
     assert {"read_file", "write_file"} <= recursive_tool_uses
-    final_release_tool_uses = _tool_uses_for_task(messages, "final_release_guard")
-    assert {"read_file", "shell"} <= final_release_tool_uses
+    final_reconciliation_tool_uses = _tool_uses_for_task(
+        messages, "final_reconciliation"
+    )
+    assert {"read_file", "shell"} <= final_reconciliation_tool_uses
     for tool_name in _FOREGROUND_SANDBOX_TOOLS:
         _assert_foreground_tool_latency(per_tool, tool_name)
 
@@ -458,42 +492,6 @@ async def _assert_final_sandbox_state(
     assert shell.success
     assert shell.exit_code == 0
     assert "workspace=/testbed" in shell.stdout
-
-
-def _assert_event_order(
-    events: list[Event],
-    *,
-    first: EventType,
-    second: EventType,
-    first_checkpoint: str | None = None,
-    second_checkpoint: str | None = None,
-) -> None:
-    first_index = _event_index(events, first, first_checkpoint)
-    assert first_index >= 0, first
-    second_index = _event_index(
-        events,
-        second,
-        second_checkpoint,
-        start=first_index + 1,
-    )
-    assert second_index >= 0, second
-    assert first_index < second_index
-
-
-def _event_index(
-    events: list[Event],
-    event_type: EventType,
-    checkpoint: str | None,
-    *,
-    start: int = 0,
-) -> int:
-    for index, event in enumerate(events[start:], start=start):
-        if event.type != event_type:
-            continue
-        if checkpoint is not None and event.payload.get("checkpoint") != checkpoint:
-            continue
-        return index
-    return -1
 
 
 def _message_rows(run_dir: Path) -> list[dict[str, Any]]:

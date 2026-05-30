@@ -69,87 +69,94 @@ class _PluginScenarioBase(ScenarioBase):
         )
 
 
-class PluginReadOnlyLspRefresh(_PluginScenarioBase):
-    name = "sandbox.plugin_read_only_lsp_refresh"
-    action_id = "plugin_read_only_lsp_refresh"
-    action_spec = (
-        "ACTION plugin_read_only_lsp_refresh. Seed a Python module, run "
-        "READ_ONLY LSP hover/definition/diagnostics, edit the module through "
-        "the default file path, and run diagnostics again to prove warm "
-        "service refresh without per-call publish."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/plugin/read_only_lsp_refresh/summary.json"
-    )
+def _scenario(
+    class_name: str,
+    *,
+    action_id: str,
+    action_spec: str,
+    summary_path_hint: str,
+) -> type[_PluginScenarioBase]:
+    """Build a data-only plugin/LSP scenario leaf.
 
-
-class PluginWriteAllowedPublish(_PluginScenarioBase):
-    name = "sandbox.plugin_write_allowed_publish"
-    action_id = "plugin_write_allowed_publish"
-    action_spec = (
-        "ACTION plugin_write_allowed_publish. Seed a Python file, apply an "
-        "LSP WorkspaceEdit through the WRITE_ALLOWED plugin path, and read "
-        "the committed change through the normal sandbox API."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/plugin/write_allowed_publish/summary.json"
+    ``name`` is derived as ``f"sandbox.{action_id}"`` — the invariant every
+    former hand-written leaf class satisfied.
+    """
+    return type(
+        class_name,
+        (_PluginScenarioBase,),
+        {
+            "name": f"sandbox.{action_id}",
+            "action_id": action_id,
+            "action_spec": action_spec,
+            "summary_path_hint": summary_path_hint,
+        },
     )
 
 
-class PluginIntentContract(_PluginScenarioBase):
-    name = "sandbox.plugin_intent_contract"
-    action_id = "plugin_intent_contract"
-    action_spec = (
-        "ACTION plugin_intent_contract. Register synthetic plugin controls "
-        "to prove missing intent and lifecycle intent fail fast while "
-        "READ_ONLY dispatch stays in-process and WRITE_ALLOWED dispatch uses "
-        "the overlay runner."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/plugin/intent_contract/summary.json"
-    )
-
-
-class PluginIwsPolicy(_PluginScenarioBase):
-    name = "sandbox.plugin_iws_policy"
-    action_id = "plugin_iws_policy"
-    action_spec = (
+PluginReadOnlyLspRefresh = _scenario(
+    "PluginReadOnlyLspRefresh",
+    action_id="plugin_read_only_lsp_refresh",
+    action_spec=(
+        "ACTION plugin_read_only_lsp_refresh. Seed a Python module, run READ_ONLY "
+        "LSP hover/definition/diagnostics, edit the module through the default "
+        "file path, and run diagnostics again to prove warm service refresh "
+        "without per-call publish."
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/plugin/read_only_lsp_refresh/summary.json",
+)
+PluginWriteAllowedPublish = _scenario(
+    "PluginWriteAllowedPublish",
+    action_id="plugin_write_allowed_publish",
+    action_spec=(
+        "ACTION plugin_write_allowed_publish. Seed a Python file, apply an LSP "
+        "WorkspaceEdit through the WRITE_ALLOWED plugin path, and read the "
+        "committed change through the normal sandbox API."
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/plugin/write_allowed_publish/summary.json",
+)
+PluginIntentContract = _scenario(
+    "PluginIntentContract",
+    action_id="plugin_intent_contract",
+    action_spec=(
+        "ACTION plugin_intent_contract. Register synthetic plugin controls to "
+        "prove missing intent and lifecycle intent fail fast while READ_ONLY "
+        "dispatch stays in-process and WRITE_ALLOWED dispatch uses the overlay "
+        "runner."
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/plugin/intent_contract/summary.json",
+)
+PluginIwsPolicy = _scenario(
+    "PluginIwsPolicy",
+    action_id="plugin_iws_policy",
+    action_spec=(
         "ACTION plugin_iws_policy. Enter isolated_workspace for the executor "
         "agent, prove generic and dynamic plugin daemon ops are blocked with "
-        "forbidden_in_isolated_workspace, exit, and verify default mode "
-        "permits plugin status."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/plugin/iws_policy/summary.json"
-    )
-
-
-class PluginSetupFailure(_PluginScenarioBase):
-    name = "sandbox.plugin_setup_failure"
-    action_id = "plugin_setup_failure"
-    action_spec = (
+        "forbidden_in_isolated_workspace, exit, and verify default mode permits "
+        "plugin status."
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/plugin/iws_policy/summary.json",
+)
+PluginSetupFailure = _scenario(
+    "PluginSetupFailure",
+    action_id="plugin_setup_failure",
+    action_spec=(
         "ACTION plugin_setup_failure. Force a synthetic setup/network failure "
-        "through call_plugin, assert the structured setup failure payload, "
-        "then retry successfully to prove no stale loaded state remains."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/plugin/setup_failure/summary.json"
-    )
-
-
-class PluginServiceEvict(_PluginScenarioBase):
-    name = "sandbox.plugin_service_evict"
-    action_id = "plugin_service_evict"
-    action_spec = (
-        "ACTION plugin_service_evict. Start the Pyright service, publish "
-        "several peer edits, verify warm refresh/remount, force plugin "
-        "runtime eviction through api.plugin.ensure digest churn, and verify "
-        "a clean service restart."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/plugin/service_evict/summary.json"
-    )
-
+        "through call_plugin, assert the structured setup failure payload, then "
+        "retry successfully to prove no stale loaded state remains."
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/plugin/setup_failure/summary.json",
+)
+PluginServiceEvict = _scenario(
+    "PluginServiceEvict",
+    action_id="plugin_service_evict",
+    action_spec=(
+        "ACTION plugin_service_evict. Start the Pyright service, publish several "
+        "peer edits, verify warm refresh/remount, force plugin runtime eviction "
+        "through api.plugin.ensure digest churn, and verify a clean service "
+        "restart."
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/plugin/service_evict/summary.json",
+)
 
 __all__ = [
     "PluginIntentContract",

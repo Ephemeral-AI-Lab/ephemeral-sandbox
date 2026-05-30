@@ -24,17 +24,49 @@ if TYPE_CHECKING:
     from task_center_runner.core.config import RunContext
 
 
-# Migration seam: when truthy, mock scenarios run through the real query loop
-# via ``ScenarioLoopRunner`` + an injected ``ScenarioEventSource`` instead of the
-# imperative ``MockSquadRunner``. Default-off keeps un-migrated scenarios on the
-# old runner until each is ported (Phase 2). Flipped to default-on once the
-# migration completes.
+# Migration seam: mock scenarios run through the real query loop via
+# ``ScenarioLoopRunner`` + an injected ``ScenarioEventSource`` unless explicitly
+# disabled. ``MockSquadRunner`` remains available as a fallback while the last
+# scenario migrations land.
 _EVENT_SOURCE_RUNNER_ENV = "EOS_MOCK_EVENT_SOURCE_RUNNER"
+_LEGACY_RUNNER_REQUIRED_SCENARIOS: frozenset[str] = frozenset(
+    {
+        # Item 3 in docs/plans/mock_event_source_HANDOFF_2026-05-30.md: these
+        # still need fan-out promotions before the event-source runner can own
+        # their concurrency shape.
+        "sandbox.auto_squash_commit_resume",
+        "sandbox.complex_project_build",
+        "sandbox.complex_project_build_grep_glob",
+        "sandbox.complex_project_build_grep_glob_smoke",
+        "sandbox.complex_project_build_shell_edit_lsp",
+        "sandbox.complex_project_build_shell_edit_lsp_smoke",
+        "sandbox.complex_project_build_smoke",
+        "sandbox.ephemeral_workspace_same_path_conflict",
+        # Item 4: background probes still use the old blocking
+        # background_task_id call contract.
+        "sandbox.background_engine_restart_no_lease_leak",
+        "sandbox.background_exit_iws_drains_agent_tasks",
+        "sandbox.background_heartbeat_loss_reaps_only_stale_bg",
+        "sandbox.background_many_small_writes_do_not_starve_dispatcher",
+        "sandbox.background_mixed_fg_bg_same_path_conflict",
+        "sandbox.background_mixed_op_concurrent",
+        "sandbox.background_shell_exhaustion",
+        "sandbox.background_shell_golden",
+        "sandbox.background_shell_interleave",
+        "sandbox.background_shell_late_cancel_race",
+        "sandbox.background_shell_partial_write_cancel",
+        "sandbox.background_shell_stop",
+        "sandbox.background_shell_stop_during_maintenance",
+        "sandbox.ephemeral_workspace_cancellation",
+    }
+)
 
 
-def _event_source_runner_enabled() -> bool:
+def _event_source_runner_enabled(scenario_name: str) -> bool:
     raw = os.environ.get(_EVENT_SOURCE_RUNNER_ENV)
-    return bool(raw) and raw.strip().lower() not in {"false", "0", "no", "off"}
+    if raw is not None:
+        return raw.strip().lower() not in {"false", "0", "no", "off"}
+    return scenario_name not in _LEGACY_RUNNER_REQUIRED_SCENARIOS
 
 
 def build_scenario_config(
@@ -65,7 +97,7 @@ def build_scenario_config(
 
     def _make_runner(ctx: "RunContext"):
         # Imported lazily to keep scenario import-time setup free of runner state.
-        if _event_source_runner_enabled():
+        if _event_source_runner_enabled(scenario.name):
             from task_center_runner.agent.mock.scenario_loop_runner import (
                 ScenarioLoopRunner,
             )

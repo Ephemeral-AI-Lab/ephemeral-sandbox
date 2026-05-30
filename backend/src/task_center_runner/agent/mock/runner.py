@@ -286,7 +286,7 @@ class MockSquadRunner:
             error=None,
             terminal_result=terminal,
             agent_name=agent_def.name,
-            event_count=1,
+            tool_call_count=1,
         )
 
     def _metadata_for(

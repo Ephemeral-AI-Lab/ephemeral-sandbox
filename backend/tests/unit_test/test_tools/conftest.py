@@ -133,7 +133,6 @@ def register_test_agents(isolated_agent_registries):
             description="test executor",
             tool_call_limit=10,
             agent_kind=AgentKind.EXECUTOR,
-            dispatchable_by_planner=True,
             context_recipe="generator",
             terminals=[
                 "submit_execution_handoff",
@@ -157,7 +156,6 @@ def register_test_agents(isolated_agent_registries):
             name="verifier",
             description="test verifier",
             agent_kind=AgentKind.EXECUTOR,
-            dispatchable_by_planner=True,
             context_recipe="generator",
             terminals=["submit_verification_success", "submit_verification_failure"],
             tool_call_limit=10,

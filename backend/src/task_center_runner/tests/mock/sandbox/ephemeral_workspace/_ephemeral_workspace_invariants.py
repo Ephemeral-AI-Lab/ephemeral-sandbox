@@ -154,15 +154,32 @@ def assert_sandbox_events_have_source(
 def _warm_p95(tool_stats: Mapping[str, Any]) -> float:
     samples = list(tool_stats.get("samples") or ())
     durations = [
-        float(mapping(sample)["duration_ms"])
+        duration_ms
         for sample in samples[2:]
-        if "duration_ms" in mapping(sample)
+        if (duration_ms := _sample_duration_ms(mapping(sample))) is not None
     ]
     if not durations:
         return float(tool_stats.get("p95_ms") or 0.0)
     if len(durations) == 1:
         return durations[0]
     return float(statistics.quantiles(durations, n=20, method="inclusive")[18])
+
+
+def _sample_duration_ms(sample: Mapping[str, Any]) -> float | None:
+    duration_ms = sample.get("duration_ms")
+    if duration_ms is not None:
+        return float(duration_ms)
+    timings = mapping(sample.get("timings_s") or {})
+    for key in (
+        "api.read.total_s",
+        "api.write.total_s",
+        "api.edit.total_s",
+        "command_exec.total_s",
+        "runtime.dispatch_s",
+    ):
+        if key in timings:
+            return float(timings[key]) * 1000.0
+    return None
 
 
 __all__ = [

@@ -51,12 +51,12 @@ def _stub_recipe(recipe_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# AC2 — planner submission gate: dispatchable_by_planner is required and
-# applies even to agents whose agent_kind is executor.
+# AC2 — planner submission gate: only executor / verifier kinds are
+# generator-capable.
 # ---------------------------------------------------------------------------
 
 
-def test_ac2_dispatchable_executor_is_accepted() -> None:
+def test_ac2_executor_is_accepted() -> None:
     register_definition(
         AgentDefinition(
             name="executor_alt",
@@ -64,39 +64,35 @@ def test_ac2_dispatchable_executor_is_accepted() -> None:
             terminals=["submit_x"],
             tool_call_limit=10,
             agent_kind=AgentKind.EXECUTOR,
-            dispatchable_by_planner=True,
         )
     )
     assert _is_generator_capable_agent("executor_alt") is True
 
 
-def test_ac2_non_dispatchable_executor_is_rejected() -> None:
+def test_ac2_verifier_is_accepted() -> None:
     register_definition(
         AgentDefinition(
-            name="executor_alt",
-            description="alt executor",
+            name="verifier_alt",
+            description="alt verifier",
             terminals=["submit_x"],
             tool_call_limit=10,
-            agent_kind=AgentKind.EXECUTOR,
-            dispatchable_by_planner=False,
+            agent_kind=AgentKind.VERIFIER,
         )
     )
-    assert _is_generator_capable_agent("executor_alt") is False
+    assert _is_generator_capable_agent("verifier_alt") is True
 
 
-def test_ac2_non_dispatchable_named_executor_is_rejected() -> None:
-    """Regression for the old literal-name fast-path."""
+def test_ac2_non_generator_kind_is_rejected() -> None:
     register_definition(
         AgentDefinition(
-            name="executor_shadow",
-            description="shadow executor",
+            name="advisor_alt",
+            description="alt advisor",
             terminals=["submit_x"],
             tool_call_limit=10,
-            agent_kind=AgentKind.EXECUTOR,
-            # dispatchable_by_planner defaults to False — that is the contract.
+            agent_kind=AgentKind.ADVISOR,
         )
     )
-    assert _is_generator_capable_agent("executor_shadow") is False
+    assert _is_generator_capable_agent("advisor_alt") is False
 
 
 def test_ac2_unknown_agent_name_is_rejected() -> None:

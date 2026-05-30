@@ -93,13 +93,13 @@ def validate_nonblank(value: str, field_name: str) -> str:
 def _is_generator_capable_agent(agent_name: str) -> bool:
     """Gate for ``agent_name`` values a planner may submit as a generator task.
 
-    Defense-in-depth: requires BOTH a positive ``dispatchable_by_planner`` flag
-    on the registered definition AND an executor / verifier ``agent_kind``.
+    Only executor / verifier profiles are generator-capable; helper, subagent,
+    planner, and evaluator kinds are never planner-submittable.
     """
     definition = get_definition(agent_name)
     if definition is None:
         return False
-    return definition.dispatchable_by_planner and definition.agent_kind in {
+    return definition.agent_kind in {
         AgentKind.EXECUTOR,
         AgentKind.VERIFIER,
     }

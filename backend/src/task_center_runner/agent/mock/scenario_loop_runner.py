@@ -18,6 +18,7 @@ is asserted via ``graph_summary``.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, Any
 
 from message.events import StreamEvent, ToolExecutionCompletedEvent
@@ -121,7 +122,11 @@ class ScenarioLoopRunner:
         resolved_task_id = task_id or str(_md_get(md, "task_center_task_id") or "")
         attempt_id = str(_md_get(md, "task_center_attempt_id") or "") or None
         self._publish_launch(agent_def, prompt, resolved_task_id, attempt_id)
-        self._publish_prompt_inspection(agent_def, prompt, md)
+        self._publish_prompt_inspection(
+            agent_def,
+            _combined_user_prompt(prompt, initial_messages),
+            md,
+        )
         self._record_initial_messages(agent_def, prompt, md, initial_messages)
 
         config.event_source_factory = self._event_source_factory
@@ -192,7 +197,9 @@ class ScenarioLoopRunner:
         inspection = self._inspect_prompt(
             agent_def=agent_def, prompt=prompt, metadata=metadata
         )
-        self._publish_record(EventType.MOCK_PROMPT_INSPECTED, inspection.as_dict())
+        self._publish_record(
+            EventType.MOCK_PROMPT_INSPECTED, dataclasses.asdict(inspection)
+        )
 
     def _inspect_prompt(
         self, *, prompt: str, agent_def: "AgentDefinition", metadata: Any
@@ -327,6 +334,28 @@ def _initial_message_metadata(md: Any) -> dict[str, object]:
     if not isinstance(active_terminals, (list, tuple, set, frozenset)):
         return {}
     return {"active_terminals": [str(name) for name in active_terminals]}
+
+
+def _combined_user_prompt(prompt: str, initial_messages: Any | None) -> str:
+    parts = [_message_text(message) for message in list(initial_messages or [])]
+    parts.append(prompt)
+    return "\n\n".join(part for part in parts if part)
+
+
+def _message_text(message: Any) -> str:
+    if isinstance(message, str):
+        return message
+    content = getattr(message, "content", None)
+    if not content:
+        return ""
+    text_parts: list[str] = []
+    for block in content:
+        text = getattr(block, "text", None)
+        if isinstance(text, str):
+            text_parts.append(text)
+        elif isinstance(block, dict) and isinstance(block.get("text"), str):
+            text_parts.append(block["text"])
+    return "".join(text_parts)
 
 
 __all__ = ["ScenarioLoopRunner", "make_mock_runtime_config"]

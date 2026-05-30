@@ -4,7 +4,6 @@ description: Main agent generator verifier for checking generator output.
 model: inherit
 tool_call_limit: 50
 agent_kind: verifier
-dispatchable_by_planner: true
 agent_type: agent
 allowed_tools:
   - read_file

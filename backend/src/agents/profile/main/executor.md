@@ -4,7 +4,6 @@ description: Main agent generator executor.
 model: inherit
 tool_call_limit: 100
 agent_kind: executor
-dispatchable_by_planner: true
 agent_type: agent
 allowed_tools:
   - read_file

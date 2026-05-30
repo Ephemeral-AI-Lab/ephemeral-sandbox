@@ -235,7 +235,6 @@ async def test_submit_execution_handoff_accepts_any_generator_agent_profile(
             description="custom generator for this test",
             tool_call_limit=10,
             agent_kind=AgentKind.EXECUTOR,
-            dispatchable_by_planner=True,
             context_recipe="generator",
             terminals=[
                 "submit_execution_handoff",

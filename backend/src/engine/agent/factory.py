@@ -377,7 +377,7 @@ def spawn_agent(
     initial_tool_metadata["agent_type"] = agent_def.agent_type.value
     initial_tool_metadata["role"] = agent_def.agent_kind.value
 
-    notification_rules = list(agent_def.notification_rules)
+    notification_rules: list[Any] = []
     if agent_def.notification_triggers:
         notification_rules.extend(
             resolve_harness_notification_triggers(agent_def.notification_triggers)

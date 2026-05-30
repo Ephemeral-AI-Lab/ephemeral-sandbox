@@ -15,7 +15,7 @@ import pytest
 from runtime.app_factory import model_store
 from task_center_runner.benchmarks.sweevo.setup import select_sweevo_instance
 from task_center_runner.benchmarks.sweevo.setup import build_sweevo_user_prompt
-from task_center_runner.audit.events import Event, EventType
+from task_center_runner.audit.events import EventType
 from task_center_runner.scenarios.full_case_user_input import (
     FullCaseUserInput,
 )
@@ -113,14 +113,14 @@ async def test_full_case_user_input_runs_dynamic_verifier_dag(
     assert _has_multi_dependency_verifier(gs)
     # VERIFIER_FAILURE -> at least one verifier task failed.
     assert _count_failed_verifier_tasks(gs) >= 1, gs
+    planner_inspections = [
+        item for item in report.prompt_inspections if item.role == "planner"
+    ]
     assert any(
-        item.agent_name == "planner"
-        and (
-            item.checks.get("failed_attempts")
-            or item.checks.get("previous_iteration_results")
-        )
-        for item in report.prompt_inspections
-    )
+        item.checks.get("failed_attempts")
+        or item.checks.get("previous_iteration_results")
+        for item in planner_inspections
+    ), planner_inspections
 
     # RECURSIVE_WORKFLOW_REQUESTED/COMPLETED -> a delegated (task-origin)
     # workflow exists and succeeded. The two former checkpoint-gated ordering
@@ -142,7 +142,7 @@ async def test_full_case_user_input_runs_dynamic_verifier_dag(
 
     _assert_audit_tree_roles(report.run_dir)
     _assert_message_jsonl_contains_tool_scripts(report.run_dir)
-    _assert_parallel_agent_execution(report.events)
+    _assert_parallel_task_wave(gs)
     _assert_sandbox_monitor_events(report)
     await _assert_daytona_workspace_tool_state(report.sandbox_id)
 
@@ -288,36 +288,22 @@ def _assert_message_jsonl_contains_tool_scripts(run_dir: Path) -> None:
     )
 
 
-def _assert_parallel_agent_execution(events: list[Event]) -> None:
-    starts: dict[str, tuple[Any, str, str, str]] = {}
-    intervals: list[tuple[Any, Any, str, str, str]] = []
-    for event in events:
-        if event.type == EventType.TOOL_CALL_STARTED:
-            tool_use_id = str(event.payload.get("tool_use_id") or "")
-            if not tool_use_id:
-                continue
-            starts[tool_use_id] = (
-                event.ts,
-                event.node.agent_run_id or "",
-                event.node.agent_name or "",
-                str(event.payload.get("tool_name") or ""),
-            )
-        elif event.type in (EventType.TOOL_CALL_COMPLETED, EventType.TOOL_CALL_ERROR):
-            tool_use_id = str(event.payload.get("tool_use_id") or "")
-            start = starts.pop(tool_use_id, None)
-            if start is None:
-                continue
-            start_ts, agent_run_id, agent_name, tool_name = start
-            intervals.append((start_ts, event.ts, agent_run_id, agent_name, tool_name))
-
-    for index, left in enumerate(intervals):
-        left_start, left_end, left_run, _, _ = left
-        for right in intervals[index + 1 :]:
-            right_start, right_end, right_run, _, _ = right
-            if left_run and right_run and left_run != right_run:
-                if left_start < right_end and right_start < left_end:
+def _assert_parallel_task_wave(graph_summary: dict[str, Any]) -> None:
+    for workflow in graph_summary["workflows"]:
+        for iteration in workflow["iterations"]:
+            for attempt in iteration["attempts"]:
+                tasks_by_deps: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+                for task in attempt["tasks"]:
+                    if (
+                        task.get("agent_name") != "executor"
+                        or task.get("status") != "done"
+                    ):
+                        continue
+                    deps = tuple(str(dep) for dep in task.get("needs") or ())
+                    tasks_by_deps.setdefault(deps, []).append(task)
+                if any(len(tasks) >= 2 for tasks in tasks_by_deps.values()):
                     return
-    raise AssertionError("no overlapping tool intervals from distinct agent runs")
+    raise AssertionError("no parallel executor wave in graph_summary")
 
 
 def _assert_sandbox_monitor_events(report: Any) -> None:

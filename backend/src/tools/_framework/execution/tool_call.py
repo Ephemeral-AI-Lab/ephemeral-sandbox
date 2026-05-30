@@ -93,6 +93,8 @@ async def execute_tool_call_streaming(
     )
     metadata.tool_registry = context.tool_registry
     metadata.tool_use_id = tool_use_id
+    if context.run_id:
+        metadata["query_run_id"] = context.run_id
     if context.task_center_task_id:
         metadata.task_center_task_id = context.task_center_task_id
     if conversation_messages is not None:
@@ -169,6 +171,14 @@ async def execute_tool_once(
             ToolExecutionStartedEvent(
                 tool_name=tool.name,
                 tool_input=parsed_input.model_dump(mode="json"),
+                tool_use_id=str(context.tool_use_id or ""),
+                agent_name=str(context.agent_name or ""),
+                run_id=str(
+                    context.get("query_run_id")
+                    or context.agent_run_id
+                    or context.task_center_task_id
+                    or ""
+                ),
             )
         )
     record_phase(PHASE_QUEUED, (monotonic_now() - queued_start) * 1000.0)

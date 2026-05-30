@@ -23,8 +23,7 @@ def _plan(action_id: str, action_spec: str, summary_hint: str) -> dict[str, Any]
             "probe through the mock-agent harness."
         ),
         "evaluation_criteria": [
-            f"Ephemeral-workspace probe '{action_id}' wrote its summary to "
-            f"{summary_hint}.",
+            f"Ephemeral-workspace probe '{action_id}' wrote its summary to {summary_hint}.",
             "Per-call overlay lifecycle, OCC publish behavior, and runtime "
             "cleanup matched the 3.2 live E2E contract.",
         ],
@@ -69,85 +68,90 @@ class _EphemeralWorkspaceScenarioBase(ScenarioBase):
         )
 
 
-class EphemeralWorkspaceAllVerbs(_EphemeralWorkspaceScenarioBase):
-    name = "sandbox.ephemeral_workspace_all_verbs"
-    action_id = "ephemeral_workspace_all_verbs"
-    action_spec = (
+def _scenario(
+    class_name: str,
+    *,
+    action_id: str,
+    action_spec: str,
+    summary_path_hint: str,
+) -> type[_EphemeralWorkspaceScenarioBase]:
+    """Build a data-only ephemeral-workspace scenario leaf.
+
+    ``name`` is derived as ``f"sandbox.{action_id}"`` — the invariant every
+    former hand-written leaf class satisfied.
+    """
+    return type(
+        class_name,
+        (_EphemeralWorkspaceScenarioBase,),
+        {
+            "name": f"sandbox.{action_id}",
+            "action_id": action_id,
+            "action_spec": action_spec,
+            "summary_path_hint": summary_path_hint,
+        },
+    )
+
+
+EphemeralWorkspaceAllVerbs = _scenario(
+    "EphemeralWorkspaceAllVerbs",
+    action_id="ephemeral_workspace_all_verbs",
+    action_spec=(
         "ACTION ephemeral_workspace_all_verbs. Run write_file, read_file, "
         "edit_file, grep, glob, and shell against /testbed/eph_case; inspect "
         "manifest versions and per-call runtime cleanup after every call."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/all_verbs/summary.json"
-    )
-
-
-class EphemeralWorkspaceConcurrentWrites(_EphemeralWorkspaceScenarioBase):
-    name = "sandbox.ephemeral_workspace_concurrent_writes"
-    action_id = "ephemeral_workspace_concurrent_writes"
-    action_spec = (
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/all_verbs/summary.json",
+)
+EphemeralWorkspaceConcurrentWrites = _scenario(
+    "EphemeralWorkspaceConcurrentWrites",
+    action_id="ephemeral_workspace_concurrent_writes",
+    action_spec=(
         "ACTION ephemeral_workspace_concurrent_writes. Launch 8 concurrent "
-        "write_file calls to disjoint paths and 2 concurrent shell captures; "
-        "read all outputs and assert typed/api versus overlay source tags."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/"
-        "concurrent_writes/summary.json"
-    )
-
-
-class EphemeralWorkspaceSamePathConflict(_EphemeralWorkspaceScenarioBase):
-    name = "sandbox.ephemeral_workspace_same_path_conflict"
-    action_id = "ephemeral_workspace_same_path_conflict"
-    action_spec = (
+        "write_file calls to disjoint paths and 2 concurrent shell captures; read "
+        "all outputs and assert typed/api versus overlay source tags."
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/concurrent_writes/summary.json",
+)
+EphemeralWorkspaceSamePathConflict = _scenario(
+    "EphemeralWorkspaceSamePathConflict",
+    action_id="ephemeral_workspace_same_path_conflict",
+    action_spec=(
         "ACTION ephemeral_workspace_same_path_conflict. Launch four same-path "
         "writes, require typed OCC conflicts, retry failed writes after fresh "
         "reads, and verify the final content."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/"
-        "same_path_conflict/summary.json"
-    )
-
-
-class EphemeralWorkspacePolicy(_EphemeralWorkspaceScenarioBase):
-    name = "sandbox.ephemeral_workspace_policy"
-    action_id = "ephemeral_workspace_policy"
-    action_spec = (
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/same_path_conflict/summary.json",
+)
+EphemeralWorkspacePolicy = _scenario(
+    "EphemeralWorkspacePolicy",
+    action_id="ephemeral_workspace_policy",
+    action_spec=(
         "ACTION ephemeral_workspace_policy. Read /etc/hosts, write /tmp, and "
         "attempt denied writes to /etc, /proc, /sys, and /boot through the same "
         "ephemeral request pipeline."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/policy/summary.json"
-    )
-
-
-class EphemeralWorkspaceCancellation(_EphemeralWorkspaceScenarioBase):
-    name = "sandbox.ephemeral_workspace_cancellation"
-    action_id = "ephemeral_workspace_cancellation"
-    action_spec = (
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/policy/summary.json",
+)
+EphemeralWorkspaceCancellation = _scenario(
+    "EphemeralWorkspaceCancellation",
+    action_id="ephemeral_workspace_cancellation",
+    action_spec=(
         "ACTION ephemeral_workspace_cancellation. Cancel a long shell that is "
         "writing /testbed/eph_case/partial.bin, then verify no partial publish "
         "and a healthy foreground read/write cycle."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/cancellation/summary.json"
-    )
-
-
-class EphemeralWorkspaceO1Disk(_EphemeralWorkspaceScenarioBase):
-    name = "sandbox.ephemeral_workspace_o1_disk"
-    action_id = "ephemeral_workspace_o1_disk"
-    action_spec = (
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/cancellation/summary.json",
+)
+EphemeralWorkspaceO1Disk = _scenario(
+    "EphemeralWorkspaceO1Disk",
+    action_id="ephemeral_workspace_o1_disk",
+    action_spec=(
         "ACTION ephemeral_workspace_o1_disk. Run 100 sequential small "
         "write/edit/read calls, sample runtime disk after every 10 calls, and "
         "assert manifest advancement matches mutation count."
-    )
-    summary_path_hint = (
-        "/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/o1_disk/summary.json"
-    )
-
+    ),
+    summary_path_hint="/testbed/.ephemeralos/sweevo-mock/ephemeral_workspace/o1_disk/summary.json",
+)
 
 __all__ = [
     "EphemeralWorkspaceAllVerbs",

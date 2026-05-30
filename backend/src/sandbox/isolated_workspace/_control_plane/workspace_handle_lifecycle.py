@@ -97,6 +97,7 @@ class _WorkspaceHandleLifecycleMixin:
                     lease_id=snapshot.lease_id,
                 )
             raise
+        handle.last_activity = self._clock()
         async with self._map_lock:
             self._handles[workspace_handle_id] = handle
             self._by_agent[agent_id] = workspace_handle_id
