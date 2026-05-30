@@ -9,6 +9,9 @@ from typing import Any
 from message import (
     ContentBlock,
     Message,
+    SystemNotificationBlock,
+    TextBlock,
+    ThinkingBlock,
     ToolResultBlock,
     ToolUseBlock,
 )
@@ -93,7 +96,7 @@ def reduce_background_task_history(
             if isinstance(block, ToolResultBlock):
                 snapshot = _background_snapshot_info(block, tool_use_map)
                 if snapshot is None:
-                    new_content.append(block.model_copy(deep=True))
+                    new_content.append(_provider_block_copy(block))
                     continue
                 keep_indexes = keep_snapshot_statuses.get(block.tool_use_id)
                 if not keep_indexes:
@@ -103,26 +106,82 @@ def reduce_background_task_history(
                     for idx, status in enumerate(snapshot.statuses)
                     if idx in keep_indexes
                 ]
-                rebuilt = block.model_copy(deep=True)
-                rebuilt.content = render_background_snapshot(
-                    snapshot.kind,
-                    filtered,
-                    elapsed_seconds=snapshot.elapsed_seconds,
-                )
-                rebuilt.metadata = build_background_snapshot_metadata(
-                    snapshot.kind,
-                    snapshot.scope,
-                    filtered,
-                    elapsed_seconds=snapshot.elapsed_seconds,
+                rebuilt = ToolResultBlock(
+                    tool_use_id=block.tool_use_id,
+                    content=render_background_snapshot(
+                        snapshot.kind,
+                        filtered,
+                        elapsed_seconds=snapshot.elapsed_seconds,
+                    ),
+                    is_error=block.is_error,
+                    metadata=build_background_snapshot_metadata(
+                        snapshot.kind,
+                        snapshot.scope,
+                        filtered,
+                        elapsed_seconds=snapshot.elapsed_seconds,
+                    ),
+                    is_terminal=block.is_terminal,
                 )
                 new_content.append(rebuilt)
                 continue
 
-            new_content.append(block.model_copy(deep=True))
+            new_content.append(_provider_block_copy(block))
 
         if new_content:
             reduced.append(Message(role=msg.role, content=new_content))
     return reduced
+
+
+def _provider_block_copy(block: ContentBlock) -> ContentBlock:
+    if isinstance(block, ToolResultBlock):
+        return ToolResultBlock(
+            tool_use_id=block.tool_use_id,
+            content=block.content,
+            is_error=block.is_error,
+            metadata=_json_metadata_copy(block.metadata),
+            is_terminal=block.is_terminal,
+        )
+    if isinstance(block, ToolUseBlock):
+        return ToolUseBlock(
+            tool_use_id=block.tool_use_id,
+            name=block.name,
+            input=copy.deepcopy(block.input),
+        )
+    if isinstance(block, TextBlock):
+        return TextBlock(text=block.text)
+    if isinstance(block, ThinkingBlock):
+        return ThinkingBlock(text=block.text)
+    if isinstance(block, SystemNotificationBlock):
+        return SystemNotificationBlock(text=block.text)
+    raise TypeError(f"unknown content block type: {type(block).__name__}")
+
+
+def _json_metadata_copy(metadata: dict[str, Any]) -> dict[str, Any]:
+    copied = _jsonish_copy(metadata)
+    return copied if isinstance(copied, dict) else {}
+
+
+def _jsonish_copy(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            copied = _jsonish_copy(item)
+            if copied is not _DROP:
+                result[str(key)] = copied
+        return result
+    if isinstance(value, (list, tuple)):
+        result = []
+        for item in value:
+            copied = _jsonish_copy(item)
+            if copied is not _DROP:
+                result.append(copied)
+        return result
+    return _DROP
+
+
+_DROP = object()
 
 
 def _background_snapshot_info(

@@ -44,6 +44,54 @@ def _tool_result(tool_use_id: str, content: str) -> Message:
 class TestPrepareProviderMessages:
     """Provider-history preparation must not mutate the display transcript."""
 
+    def test_provider_copy_drops_tool_result_metadata_without_deepcopy(self) -> None:
+        class NoDeepcopy:
+            def __deepcopy__(self, memo: dict[int, object]) -> object:
+                raise AssertionError("provider view must not deepcopy tool metadata")
+
+        sentinel = NoDeepcopy()
+        display = [
+            _tool_use("toolu_pair", "echo", {"value": "x"}),
+            Message(
+                role="user",
+                content=[
+                    ToolResultBlock(
+                        tool_use_id="toolu_pair",
+                        content="result",
+                        metadata={
+                            "heavy": sentinel,
+                            "hook_trace": [
+                                {
+                                    "status": "fail",
+                                    "metadata": {"reason": "blocked"},
+                                }
+                            ],
+                        },
+                    )
+                ],
+            ),
+        ]
+
+        provider = build_provider_messages(display)
+
+        result = next(
+            block
+            for msg in provider
+            for block in msg.content
+            if isinstance(block, ToolResultBlock)
+        )
+        assert result.metadata == {
+            "hook_trace": [
+                {
+                    "status": "fail",
+                    "metadata": {"reason": "blocked"},
+                }
+            ]
+        }
+        original = display[1].content[0]
+        assert isinstance(original, ToolResultBlock)
+        assert original.metadata["heavy"] is sentinel
+
     def test_returns_fresh_provider_list(self) -> None:
         display = [_user("hello"), _user("world")]
         snapshot = copy.deepcopy(display)

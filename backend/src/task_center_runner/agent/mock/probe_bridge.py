@@ -57,14 +57,15 @@ async def _noop_emit(_event: Any) -> None:
 
 
 _BACKGROUND_TASK_ID_RE = re.compile(r'task_id="([^"]+)"')
-_BACKGROUND_WAIT_TIMEOUT_S = 5
+_BACKGROUND_POLL_INITIAL_S = 0.05
+_BACKGROUND_POLL_MAX_S = 0.5
 BackgroundCancelCallback = Callable[[dict[str, Any]], None]
 
 
 class _CallToolBridge:
     """Provides the bridging ``call_tool`` + a request queue the driver drains."""
 
-    __slots__ = ("_on_background_cancel", "_queue")
+    __slots__ = ("_background_aliases", "_on_background_cancel", "_queue")
 
     def __init__(
         self,
@@ -76,6 +77,7 @@ class _CallToolBridge:
             asyncio.Queue()
         )
         self._on_background_cancel = on_background_cancel
+        self._background_aliases: dict[str, str] = {}
 
     async def call_tool(
         self,
@@ -109,8 +111,17 @@ class _CallToolBridge:
 
     async def _call_loop_tool(self, tool_name: str, raw_input: dict[str, Any]) -> ToolResult:
         fut: asyncio.Future[ToolResult] = asyncio.get_running_loop().create_future()
-        await self._queue.put(("call", tool_name, dict(raw_input), fut))
+        await self._queue.put(("call", tool_name, self._loop_tool_input(tool_name, raw_input), fut))
         return await asyncio.shield(fut)
+
+    def _loop_tool_input(self, tool_name: str, raw_input: dict[str, Any]) -> dict[str, Any]:
+        tool_input = dict(raw_input)
+        if tool_name in {"cancel_background_task", "check_background_task_result"}:
+            task_id = str(tool_input.get("task_id") or "")
+            real_task_id = self._background_aliases.get(task_id)
+            if real_task_id:
+                tool_input["task_id"] = real_task_id
+        return tool_input
 
     async def _call_background_tool(
         self,
@@ -141,6 +152,7 @@ class _CallToolBridge:
                 ),
                 is_error=True,
             )
+        self._background_aliases[requested_background_task_id] = task_id
         try:
             return await self._await_background_result(
                 task_id=task_id,
@@ -196,6 +208,7 @@ class _CallToolBridge:
         task_id: str,
         allow_error: bool,
     ) -> ToolResult:
+        poll_s = _BACKGROUND_POLL_INITIAL_S
         while True:
             checked = await self._call_loop_tool(
                 "check_background_task_result", {"task_id": task_id}
@@ -208,10 +221,8 @@ class _CallToolBridge:
                     payload=payload,
                     allow_error=allow_error,
                 )
-            await self._call_loop_tool(
-                "wait_background_tasks",
-                {"timeout": _BACKGROUND_WAIT_TIMEOUT_S},
-            )
+            await asyncio.sleep(poll_s)
+            poll_s = min(_BACKGROUND_POLL_MAX_S, poll_s * 2)
 
 
 def _parse_background_task_id(output: str) -> str:

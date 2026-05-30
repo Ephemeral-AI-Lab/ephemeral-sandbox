@@ -68,7 +68,9 @@ async def test_background_exit_iws_drains_agent_tasks(
     assert not summary["iws_exit"]["is_error"], summary
     phases = summary["iws_exit_payload"]["phases_ms"]
     assert "evicted_background_tasks" in phases, summary
-    assert summary["tracked_status_after_exit"] in {"cancelled", "failed"}, summary
+    # The local bridge task can complete after it observes the real background
+    # task's terminal cancel/fail result; the invariant is that it is settled.
+    assert summary["tracked_status_after_exit"] in {"cancelled", "completed", "failed"}, summary
     assert not summary["iws_published"], summary
 
     assert_background_performance_artifacts(report)
