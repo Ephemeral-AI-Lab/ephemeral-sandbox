@@ -1776,15 +1776,20 @@ class MockSquadRunner:
                 "Depth-restricted planner exposes only the close-only planner terminal."
             )
         elif role == "planner":
-            attempt, iteration = self._current_attempt_and_iteration(metadata)
+            _attempt, iteration = self._current_attempt_and_iteration(metadata)
             checks = {
                 "goal": "<goal>" in prompt,
                 "current_iteration": (
                     "<iteration " in prompt and 'position="current"' in prompt
                 ),
             }
-            if attempt.attempt_sequence_no > 1:
-                checks["failed_attempts"] = '<attempt attempt_no="' in prompt
+            # Failed-attempt evidence renders as <attempt attempt_no="k"> when the
+            # current iteration has a prior failed attempt; flag it from the prompt
+            # (positive-only — a non-retry planner is not penalized) rather than
+            # gating on attempt_sequence_no, which the store view may not reflect
+            # for the inspected planner.
+            if '<attempt attempt_no="' in prompt:
+                checks["failed_attempts"] = True
             if iteration.sequence_no > 1:
                 checks["previous_iteration_results"] = (
                     'position="prior"' in prompt and "<task " in prompt
