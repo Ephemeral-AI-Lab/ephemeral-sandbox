@@ -3,61 +3,39 @@
 from __future__ import annotations
 
 from tools._names import SUBMIT_PLAN_CLOSES_GOAL_TOOL_NAME
-from tools.submission.planner._prompt_guidance import PLAN_DAG_GUIDANCE
+from tools.submission.planner._prompt_guidance import (
+    PLAN_DAG_GUIDANCE,
+    PLAN_SUBMISSION_CHOICE_GUIDANCE,
+)
 
 
 def get_submit_plan_defers_goal_description() -> str:
     return f"""\
-Submit a plan that delivers a bounded slice of the goal in this iteration
+Submit a plan that delivers a bounded iteration toward the goal
 and defers the remainder to a follow-up iteration.
 
 ## When to Use This Tool
 - The full goal is too large or risky to complete safely in one
   iteration.
-- You can articulate a bounded slice that is independently valuable AND
+- You can articulate a bounded iteration that is independently valuable AND
   a clear `deferred_goal_for_next_iteration` describing what's left.
 
 ## When NOT to Use This Tool
 - The full goal fits in one iteration — use `{SUBMIT_PLAN_CLOSES_GOAL_TOOL_NAME}`.
 - You haven't decided what to defer — that's a planning signal, not a
-  slicing one.
+  next-iteration boundary.
 
-## Decision Reasoning
-- Use deferral only when this graph can close a valuable slice AND the
-  remainder is a coherent next-iteration goal.
-- The deferred goal must be the next planner's whole goal, not leftover notes
-  or conditions on this plan.
-- Do not defer because the plan is uncertain, reducers are too broad, or some
-  current-slice work is unfinished. If the slice boundary is unclear, keep
-  planning instead of submitting.
-- If this iteration can gate every requirement, use
-  `{SUBMIT_PLAN_CLOSES_GOAL_TOOL_NAME}`.
-
-## Examples
-- Do NOT defer when the current goal is fully satisfied by a
-  phase_a -> phase_b -> phase_c -> ... lane. A plan like
-  `gen_phase_a -> gen_phase_b -> gen_phase_c -> ... -> red_final` should use
-  `{SUBMIT_PLAN_CLOSES_GOAL_TOOL_NAME}` if `red_final` gates the complete result
-  the goal asked for.
-- Defer when the current goal needs more than one iteration and this attempt
-  can close only the first bounded slice: `gen_phase_a -> gen_phase_b ->
-  gen_phase_c -> ...` produces a concrete next-iteration plan, not the final
-  result. Gate that plan here, then set `deferred_goal_for_next_iteration` to a
-  self-contained goal like "Use the plan from this iteration to implement the
-  next slice and run the relevant checks."
-- Do NOT defer with vague remainder such as "replan later" or "continue the
-  rest." Keep planning until the next iteration's goal is specific enough for a
-  fresh planner to execute.
+{PLAN_SUBMISSION_CHOICE_GUIDANCE}
 
 ## Continuation Contract
 - The submitted plan must stand on its own. Its tasks and reducers deliver a
-  finished slice that closes the current iteration. The continuation is for
+  finished iteration that closes the current iteration. The continuation is for
   additional work, not unfinished work in this graph.
 - `deferred_goal_for_next_iteration` is the next iteration's whole scope, not
   a backlog dump or a diff against this attempt. Write it as a self-contained
   instruction for a fresh planner.
 - If the remainder contains many independent items, choose one coherent,
-  bounded next slice and leave later remainder for that future planner to size.
+  bounded next iteration and leave later remainder for that future planner to size.
 
 {PLAN_DAG_GUIDANCE}
 

@@ -74,7 +74,7 @@ async def test_call_daemon_api_dispatches_without_bundle_probe(
 async def test_call_daemon_accepts_success_response_with_null_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_dispatch_once_with_retry(**_kwargs: object) -> Any:
+    async def fake_dispatch(**_kwargs: object) -> Any:
         return SimpleNamespace(
             exit_code=0,
             stdout=json.dumps(
@@ -89,8 +89,8 @@ async def test_call_daemon_accepts_success_response_with_null_error(
 
     monkeypatch.setattr(
         daemon_client_mod,
-        "_dispatch_once_with_retry",
-        fake_dispatch_once_with_retry,
+        "_dispatch_with_daemon_spawn_recovery",
+        fake_dispatch,
     )
 
     response = await daemon_client_mod._call_daemon(
@@ -108,7 +108,7 @@ async def test_call_daemon_accepts_success_response_with_null_error(
 async def test_call_daemon_returns_guarded_error_response_with_status(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_dispatch_once_with_retry(**_kwargs: object) -> Any:
+    async def fake_dispatch(**_kwargs: object) -> Any:
         return SimpleNamespace(
             exit_code=0,
             stdout=json.dumps(
@@ -128,8 +128,8 @@ async def test_call_daemon_returns_guarded_error_response_with_status(
 
     monkeypatch.setattr(
         daemon_client_mod,
-        "_dispatch_once_with_retry",
-        fake_dispatch_once_with_retry,
+        "_dispatch_with_daemon_spawn_recovery",
+        fake_dispatch,
     )
 
     response = await daemon_client_mod._call_daemon(

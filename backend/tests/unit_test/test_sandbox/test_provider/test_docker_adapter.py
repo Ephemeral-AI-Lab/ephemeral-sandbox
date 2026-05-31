@@ -340,7 +340,7 @@ def test_exec_nonzero_exit_propagates(adapter: DockerProviderAdapter, fake_clien
 
 def test_context_preparer_returns_preparer_instance(adapter: DockerProviderAdapter) -> None:
     preparer = adapter.context_preparer("c-1")
-    from sandbox.provider.docker.runtime_context import DockerContextPreparer
+    from sandbox.provider.docker.context_preparer import DockerContextPreparer
 
     assert isinstance(preparer, DockerContextPreparer)
     assert preparer.sandbox_id == "c-1"

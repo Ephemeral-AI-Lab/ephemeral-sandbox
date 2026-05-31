@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from sandbox.shared.clock import monotonic_now
-from sandbox.shared.layer_stack_port import LayerStackPort
+from sandbox.shared.layer_stack_port import LayerStackSnapshotPort
 from sandbox.daemon.audit_schema import (
     OverlayWorkspaceSection,
     build_overlay_workspace_event,
@@ -25,7 +25,7 @@ from sandbox.overlay.writable_dirs import (
 
 
 def acquire(
-    layer_stack: LayerStackPort,
+    layer_stack: LayerStackSnapshotPort,
     *,
     invocation_id: str,
     workspace_root: str = "/testbed",
@@ -201,7 +201,7 @@ def _safe_invocation_part(value: str) -> str:
 
 def _build_release_closure(
     *,
-    layer_stack: LayerStackPort,
+    layer_stack: LayerStackSnapshotPort,
     lease_id: str,
     run_dir: Path,
     release_hook: Callable[[str], None] | None,
@@ -218,7 +218,7 @@ def _build_release_closure(
 
 
 def _release_lease(
-    layer_stack: LayerStackPort,
+    layer_stack: LayerStackSnapshotPort,
     lease_id: str,
     *,
     release_hook: Callable[[str], None] | None,
@@ -230,7 +230,7 @@ def _release_lease(
 
 
 def _release_lease_silently(
-    layer_stack: LayerStackPort,
+    layer_stack: LayerStackSnapshotPort,
     lease_id: str,
     *,
     release_hook: Callable[[str], None] | None,

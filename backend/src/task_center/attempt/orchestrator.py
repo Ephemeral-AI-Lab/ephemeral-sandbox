@@ -243,12 +243,12 @@ class AttemptOrchestrator:
 
     def _persist_plan_tasks(
         self,
-        tasks: tuple[PlannedGeneratorTask, ...],
+        generators: tuple[PlannedGeneratorTask, ...],
         reducers: tuple[PlannedReducerTask, ...],
     ) -> tuple[tuple[str, ...], tuple[str, ...]]:
         runtime = self._runtime
         attempt = self._fresh_attempt()
-        ordered_gen, ordered_red = ordered_plan_tasks(tasks, reducers)
+        ordered_gen, ordered_red = ordered_plan_tasks(generators, reducers)
         run_id = runtime.run_id_for_attempt(attempt)
         id_map = {t.local_id: generator_task_id(attempt.id, t.local_id) for t in ordered_gen}
         id_map.update({r.local_id: reducer_task_id(attempt.id, r.local_id) for r in ordered_red})

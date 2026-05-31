@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # Signalled on iteration close: (iteration_id, succeeded, deferred_goal,
 # final_attempt_id). succeeded + deferred_goal=None -> workflow success;
 # succeeded + deferred_goal -> next iteration; not succeeded -> workflow fail.
-IterationClosureCallback = Callable[..., None]
+IterationClosedCallback = Callable[..., None]
 AttemptClosedCallback = Callable[[str], None]
 OrchestratorFactory = Callable[[Attempt, AttemptClosedCallback], RegisteredAttemptOrchestrator]
 
@@ -58,7 +58,7 @@ class IterationAttemptCoordinator:
         iteration_id: str,
         iteration_store: IterationStoreProtocol,
         attempt_store: AttemptStoreProtocol,
-        on_iteration_closed: IterationClosureCallback,
+        on_iteration_closed: IterationClosedCallback,
         orchestrator_factory: OrchestratorFactory | None = None,
         task_store: TaskStoreProtocol | None = None,
     ) -> None:
@@ -294,7 +294,7 @@ class OpenIterationCoordinatorRegistry:
 
 __all__ = [
     "AttemptClosedCallback",
-    "IterationClosureCallback",
+    "IterationClosedCallback",
     "IterationAttemptCoordinator",
     "OpenIterationCoordinatorRegistry",
     "OrchestratorFactory",

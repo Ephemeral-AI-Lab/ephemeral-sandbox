@@ -14,7 +14,7 @@ from typing import AsyncIterator
 
 from sandbox.shared.async_bridge import run_sync_in_executor
 from sandbox.shared.clock import monotonic_now
-from sandbox.shared.layer_stack_port import LayerStackPort
+from sandbox.shared.layer_stack_port import LayerStackSnapshotPort
 from sandbox.shared.lease_guard import LeaseGuard
 from sandbox.shared.models import Intent, ToolCallRequest, ToolCallResult
 from sandbox.ephemeral_workspace.operation_overlay import OperationOverlayMixin
@@ -68,7 +68,7 @@ class EphemeralPipeline(OperationOverlayMixin, WorkspacePublishMixin):
         *,
         occ_client: OCCMutationClient,
         workspace_ref: str,
-        layer_stack: LayerStackPort | None = None,
+        layer_stack: LayerStackSnapshotPort | None = None,
         workspace_root: str = "/testbed",
         event_bus: WorkspaceChangeEventBus | None = None,
     ) -> None:

@@ -115,7 +115,7 @@ async def _call_daemon(
         {"op": op, "invocation_id": invocation_id, "args": clean_args},
         separators=(",", ":"),
     )
-    result = await _dispatch_once_with_retry(
+    result = await _dispatch_with_daemon_spawn_recovery(
         exec_fn=exec_fn,
         sandbox_id=sandbox_id,
         op=op,
@@ -278,7 +278,7 @@ def _normalize_daemon_tcp_endpoint(raw: Any) -> _DaemonTcpEndpoint | None:
     )
 
 
-async def _dispatch_once_with_retry(
+async def _dispatch_with_daemon_spawn_recovery(
     *,
     exec_fn: _DaemonExec,
     sandbox_id: str,

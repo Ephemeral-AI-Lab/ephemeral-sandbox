@@ -3,7 +3,7 @@
 The ``container`` argument here is a ``docker.models.containers.Container``
 object from the Docker Python SDK (or, in tests, a duck-typed equivalent with
 ``.attrs`` dict and ``.exec_run`` method). Public surface matches
-``provider/daytona/workspace.py`` so call sites in ``runtime_context.py`` are
+``provider/daytona/workspace.py`` so call sites in ``context_preparer.py`` are
 symmetric.
 """
 
@@ -79,7 +79,7 @@ def prepare_sandbox_runtime_context(
 
     Symmetric with :func:`sandbox.provider.daytona.workspace.prepare_sandbox_runtime_context`:
     only normalizes ``repo_root`` and ``exec_cwd`` keys. Adapter registration
-    happens in :mod:`sandbox.provider.docker.runtime_context`.
+    happens in :mod:`sandbox.provider.docker.context_preparer`.
     """
     repo_root = str(context.get("repo_root") or "").strip()
     if not repo_root:

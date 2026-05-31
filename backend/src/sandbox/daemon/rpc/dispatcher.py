@@ -124,7 +124,7 @@ async def dispatch_envelope_async(
             "daemon op failed",
             extra={"op": op, "error_id": error_id},
         )
-        return _error(
+        return _error_envelope(
             "internal_error",
             str(exc),
             {"op": op, "error_id": error_id},
@@ -146,7 +146,7 @@ async def _run_handler_and_finalize(
 ) -> dict[str, Any]:
     handler = OP_TABLE.get(op)
     if handler is None:
-        return _error("unknown_op", f"unknown op: {op}", {"op": op})
+        return _error_envelope("unknown_op", f"unknown op: {op}", {"op": op})
     result = handler(dict(args_raw))
     if inspect.isawaitable(result):
         result = await result
@@ -165,7 +165,7 @@ def _validate_envelope(
     op = envelope.get("op")
     if not isinstance(op, str) or not op:
         return (
-            _error(
+            _error_envelope(
                 "invalid_envelope",
                 "daemon envelope requires a non-empty string op",
             ),
@@ -182,7 +182,7 @@ def _validate_envelope(
         args_raw = {}
     if not isinstance(args_raw, dict):
         return (
-            _error(
+            _error_envelope(
                 "invalid_envelope",
                 "daemon envelope args must be a JSON object",
                 {"op": op},
@@ -212,7 +212,7 @@ def _attach_runtime_boot_timings(
     timings["runtime.dispatch_s"] = max(0.0, monotonic_now() - dispatch_entered_at)
 
 
-def _error(
+def _error_envelope(
     kind: str,
     message: str,
     details: dict[str, Any] | None = None,
@@ -402,7 +402,7 @@ def _audit_snapshot_handler(args: dict[str, Any]) -> dict[str, Any]:
 
 def _audit_reset_floor_handler(args: dict[str, Any]) -> dict[str, Any]:
     if os.environ.get("EOS_DAEMON_AUDIT_ALLOW_FLOOR_RESET", "").strip().lower() != "true":
-        return _error(
+        return _error_envelope(
             "forbidden",
             "api.audit.reset_floor requires EOS_DAEMON_AUDIT_ALLOW_FLOOR_RESET=true",
             {"op": "api.audit.reset_floor"},

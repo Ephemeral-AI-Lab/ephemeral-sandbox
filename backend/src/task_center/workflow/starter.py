@@ -43,7 +43,6 @@ class StartedWorkflow:
     workflow_id: str
     iteration_id: str
     attempt_id: str
-    goal: str
 
 
 def _no_root_close_handler(*, child_workflow: Workflow) -> None:
@@ -121,7 +120,6 @@ class WorkflowStarter:
             workflow_id=workflow.id,
             iteration_id=iteration.id,
             attempt_id=attempt.id,
-            goal=prompt,
         )
 
     def _build_workflow_lifecycle(self) -> WorkflowLifecycle:

@@ -16,7 +16,6 @@ import asyncio
 import importlib
 import inspect
 import logging
-import re
 import sys
 from collections import OrderedDict
 from collections.abc import Mapping
@@ -36,6 +35,7 @@ from sandbox.ephemeral_workspace.plugin.op_context import (
     sandbox_caller_from_plugin_envelope,
 )
 from sandbox.ephemeral_workspace.plugin.op_registry import (
+    _PLUGIN_NAME_RE,
     clear_plugin_registrations,
     flush_plugin_registrations,
     pending_plugin_registrations,
@@ -67,7 +67,6 @@ _LOADED_PLUGIN_RUNTIMES: dict[str, _LoadedPluginRuntime] = {}
 # reuse the same projection across calls.
 _MAX_WORKSPACE_PROJECTIONS = 256
 _MAX_AUDIT_FIELD_CHARS = 256
-_PLUGIN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _WORKSPACE_PROJECTIONS: OrderedDict[str, WorkspaceProjection] = OrderedDict()
 # WR-01: per-plugin async lock so two concurrent ensure calls with
 # different digests cannot interleave at await boundaries. Without this

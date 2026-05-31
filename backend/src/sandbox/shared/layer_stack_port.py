@@ -1,4 +1,4 @@
-"""Single canonical layer-stack Protocol for workspace pipelines.
+"""Snapshot/lease/read-manifest slice of the layer stack that workspace pipelines need.
 
 The iws pipeline binds a :class:`sandbox.occ.layer_stack_adapter.LayerStackPortAdapter`
 at construction time, so both eph and iws speak the same kwarg-only contract
@@ -16,7 +16,7 @@ from sandbox.shared.command_exec_contract import (
 )
 
 
-class LayerStackPort(Protocol):
+class LayerStackSnapshotPort(Protocol):
     """Layer-stack surface a workspace pipeline needs.
 
     The kwarg-only signature lets concrete implementations (e.g.
@@ -38,4 +38,4 @@ class LayerStackPort(Protocol):
     def read_active_manifest(self) -> SnapshotManifest: ...
 
 
-__all__ = ["LayerStackPort"]
+__all__ = ["LayerStackSnapshotPort"]

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from sandbox.audit.events import IsolatedWorkspaceAuditEvent
-from sandbox.shared.layer_stack_port import LayerStackPort
+from sandbox.shared.layer_stack_port import LayerStackSnapshotPort
 from sandbox.shared.clock import monotonic_now
 from sandbox.shared.models import Intent, ToolCallRequest, ToolCallResult
 from sandbox.shared.ordered_lock import OrderedLock
@@ -74,7 +74,7 @@ class IsolatedPipeline(
         self,
         *,
         scratch_root: Path,
-        layer_stack: LayerStackPort,
+        layer_stack: LayerStackSnapshotPort,
         audit: IsolatedWorkspaceAuditSink | None = None,
         config: _PipelineConfig | None = None,
         network: IsolatedNetwork | None = None,

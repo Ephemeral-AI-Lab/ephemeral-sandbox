@@ -91,7 +91,7 @@ async def ensure_pipeline(args: dict[str, Any]) -> "IsolatedPipeline":
 
         layer_stack_root = require_isolated_workspace_arg(args, "layer_stack_root")
         # Phase 2.6 C3.5b: bind a LayerStackPortAdapter ONCE at construction so
-        # the iws pipeline speaks the same kwarg-only LayerStackPort
+        # the iws pipeline speaks the same kwarg-only LayerStackSnapshotPort
         # contract as eph (no per-call ``layer_stack_root`` arg threaded
         # through the lease/release call sites).
         layer_stack = LayerStackPortAdapter(

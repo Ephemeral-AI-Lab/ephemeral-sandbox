@@ -5,7 +5,7 @@ coordination lives in :mod:`task_center.iteration.attempt_coordinator`.
 
 The facade re-exports only the names that callers actually reach through this
 path. Internal callback aliases (``AttemptClosedCallback``,
-``IterationClosureCallback``) and the iteration DTOs/enums
+``IterationClosedCallback``) and the iteration DTOs/enums
 (``IterationCreationReason``, ``IterationStatus``) live on the canonical
 ``_core.state`` / ``.attempt_coordinator`` modules; import them from there.
 """

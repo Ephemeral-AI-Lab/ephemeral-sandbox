@@ -18,6 +18,7 @@ is asserted via ``graph_summary``.
 from __future__ import annotations
 
 import dataclasses
+from html import escape
 from typing import TYPE_CHECKING, Any
 
 from message.events import StreamEvent, ToolExecutionCompletedEvent
@@ -282,18 +283,29 @@ class ScenarioLoopRunner:
                 "previous iteration results."
             )
         elif role == "executor":
+            needs = _task_needs(metadata)
             checks = {
                 "assigned_task": "<assigned_task" in prompt,
             }
+            if needs:
+                checks["dependencies"] = "<dependencies>" in prompt
+                checks["dependency_outcomes"] = _has_dependency_outcomes(
+                    prompt, needs=needs
+                )
             reason = (
                 "Executor context is local to the current planned task with the "
                 "declared dependency outcomes as framing."
             )
         elif role == "reducer":
+            needs = _task_needs(metadata)
             checks = {
                 "assigned_task": "<assigned_task" in prompt,
                 "dependencies": "<dependencies>" in prompt,
             }
+            if needs:
+                checks["dependency_outcomes"] = _has_dependency_outcomes(
+                    prompt, needs=needs
+                )
             reason = (
                 "Reducer context is graph-local: its assigned task and the "
                 "per-task outcomes of its dependencies."
@@ -338,6 +350,31 @@ def _md_get(md: Any, key: str) -> Any:
     if callable(getter):
         return getter(key)
     return None
+
+
+def _task_needs(md: Any) -> tuple[str, ...]:
+    runtime = _md_get(md, "attempt_runtime")
+    task_id = str(_md_get(md, "task_center_task_id") or "")
+    task_store = getattr(runtime, "task_store", None)
+    get_task = getattr(task_store, "get_task", None)
+    if not task_id or not callable(get_task):
+        return ()
+    task = get_task(task_id)
+    if not isinstance(task, dict):
+        return ()
+    return tuple(str(dep) for dep in task.get("needs") or ())
+
+
+def _has_dependency_outcomes(prompt: str, *, needs: tuple[str, ...]) -> bool:
+    return all(_dependency_has_task_outcome(prompt, task_id) for task_id in needs)
+
+
+def _dependency_has_task_outcome(prompt: str, task_id: str) -> bool:
+    marker = f'<dependency task_id="{escape(task_id, quote=True)}">'
+    if marker not in prompt:
+        return False
+    section = prompt.split(marker, 1)[1].split("</dependency>", 1)[0]
+    return "<task " in section and 'status="' in section
 
 
 def _stream_run_id(md: Any) -> str:

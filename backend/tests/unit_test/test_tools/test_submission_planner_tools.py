@@ -7,7 +7,10 @@ import pytest
 from task_center.attempt import AttemptStage
 from tools._framework.execution.tool_call import execute_tool_once
 from tools.submission.planner import submit_plan_closes_goal, submit_plan_defers_goal
-from tools.submission.planner._prompt_guidance import PLAN_DAG_GUIDANCE
+from tools.submission.planner._prompt_guidance import (
+    PLAN_DAG_GUIDANCE,
+    PLAN_SUBMISSION_CHOICE_GUIDANCE,
+)
 from tools.submission.planner.submit_plan_closes_goal.prompt import (
     get_submit_plan_closes_goal_description,
 )
@@ -50,12 +53,13 @@ async def test_plan_tool_descriptions_share_dag_guidance() -> None:
 
     assert PLAN_DAG_GUIDANCE in closes
     assert PLAN_DAG_GUIDANCE in defers
+    assert PLAN_SUBMISSION_CHOICE_GUIDANCE in closes
+    assert PLAN_SUBMISSION_CHOICE_GUIDANCE in defers
     assert "The attempt PASSES iff every plan task reaches DONE." in closes
-    assert "Sufficient means every required outcome" in closes
-    assert "## Decision Reasoning" in defers
-    assert "If this iteration can gate every requirement" in defers
-    assert "phase_a -> phase_b -> phase_c -> ... lane" in defers
-    assert "produces a concrete next-iteration plan" in defers
+    assert "## Close vs Defer Decision" in closes
+    assert "## Close vs Defer Decision" in defers
+    assert "Lane shape does not decide close vs defer" in defers
+    assert "outcomes become prior-iteration context" in defers
     assert "deferred_goal_for_next_iteration" in defers
 
 

@@ -224,7 +224,7 @@ class NamespaceRuntimePort(Protocol):
     The only concrete implementation is :class:`_KernelNamespaceRuntime`; the
     Protocol exists so individual tests can swap in lightweight doubles
     without importing the kernel-touching module. Named ``*Port`` to match
-    the codebase's ``LayerStackPort`` convention for kwarg-only Protocols.
+    the codebase's ``LayerStackSnapshotPort`` convention for kwarg-only Protocols.
     ``mount_overlay`` and ``configure_dns`` are ``async def`` so concurrent
     enters (Tier 6 / Tier 8) do not serialize on subprocess wait — both
     helpers spawn long-running (up to 30 s) setns subprocesses that would

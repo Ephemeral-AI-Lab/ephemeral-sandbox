@@ -55,6 +55,72 @@ def _runner() -> ScenarioLoopRunner:
     )
 
 
+class _TaskStore:
+    def __init__(self, rows: dict[str, dict[str, object]]) -> None:
+        self._rows = rows
+
+    def get_task(self, task_id: str) -> dict[str, object] | None:
+        return self._rows.get(task_id)
+
+
+def _runtime_with_tasks(rows: dict[str, dict[str, object]]) -> SimpleNamespace:
+    return SimpleNamespace(task_store=_TaskStore(rows))
+
+
+def _metadata_for_task(task_id: str, *, needs: list[str]) -> ExecutionMetadata:
+    return ExecutionMetadata(
+        task_center_task_id=task_id,
+        attempt_runtime=_runtime_with_tasks({task_id: {"needs": needs}}),
+    )
+
+
+def _agent(name: str, role: AgentRole) -> AgentDefinition:
+    return AgentDefinition(
+        name=name,
+        description=f"test {name}",
+        role=role,
+        terminals=["terminal"],
+        tool_call_limit=10,
+    )
+
+
+def _role_context(
+    *,
+    role: str,
+    task_id: str,
+    dependency_sections: list[str],
+) -> str:
+    sections = [
+        f'<context role="{role}">',
+        "<dependencies>",
+        *dependency_sections,
+        "</dependencies>",
+        f'<assigned_task task_id="{task_id}">Run {task_id}.</assigned_task>',
+        "</context>",
+    ]
+    return "\n".join(sections)
+
+
+def _dependency_section(
+    task_id: str,
+    *,
+    task_outcome: str | None = None,
+    outcome_task_id: str | None = None,
+) -> str:
+    if task_outcome is None:
+        return f'<dependency task_id="{task_id}"></dependency>'
+    rendered_task_id = outcome_task_id or task_id
+    return "\n".join(
+        [
+            f'<dependency task_id="{task_id}">',
+            f'<task task_id="{rendered_task_id}" role="generator" status="success">',
+            task_outcome,
+            "</task>",
+            "</dependency>",
+        ]
+    )
+
+
 def test_scenario_loop_runner_constructs_without_instance() -> None:
     bus = AuditEventBus()
     runner = ScenarioLoopRunner(
@@ -175,6 +241,82 @@ def test_prompt_inspector_accepts_planner_without_defer_terminal() -> None:
         "current_iteration": True,
         "closes_goal_terminal": True,
         "no_defer_terminal": True,
+    }
+    assert inspection.passed
+
+
+def test_prompt_inspector_verifies_dependent_executor_outcomes() -> None:
+    task_id = "attempt-1:gen:b"
+
+    inspection = _runner()._inspect_prompt(  # noqa: SLF001
+        prompt=_role_context(
+            role="generator",
+            task_id=task_id,
+            dependency_sections=[
+                _dependency_section(
+                    "attempt-1:gen:a", task_outcome="Generator a completed."
+                )
+            ],
+        ),
+        agent_def=_agent("executor", AgentRole.GENERATOR),
+        metadata=_metadata_for_task(task_id, needs=["attempt-1:gen:a"]),
+    )
+
+    assert inspection.checks == {
+        "assigned_task": True,
+        "dependencies": True,
+        "dependency_outcomes": True,
+    }
+    assert inspection.passed
+
+
+def test_prompt_inspector_flags_dependent_executor_without_outcomes() -> None:
+    task_id = "attempt-1:gen:b"
+
+    inspection = _runner()._inspect_prompt(  # noqa: SLF001
+        prompt=_role_context(
+            role="generator",
+            task_id=task_id,
+            dependency_sections=[_dependency_section("attempt-1:gen:a")],
+        ),
+        agent_def=_agent("executor", AgentRole.GENERATOR),
+        metadata=_metadata_for_task(task_id, needs=["attempt-1:gen:a"]),
+    )
+
+    assert inspection.checks["dependencies"]
+    assert not inspection.checks["dependency_outcomes"]
+    assert not inspection.passed
+
+
+def test_prompt_inspector_verifies_reducer_dependency_outcomes() -> None:
+    task_id = "attempt-1:red:reduce"
+
+    inspection = _runner()._inspect_prompt(  # noqa: SLF001
+        prompt=_role_context(
+            role="reducer",
+            task_id=task_id,
+            dependency_sections=[
+                _dependency_section(
+                    "attempt-1:gen:a", task_outcome="Generator a completed."
+                ),
+                _dependency_section(
+                    "attempt-1:gen:b",
+                    task_outcome="Nested child outcome completed.",
+                    outcome_task_id="child:gen:nested",
+                ),
+            ],
+        ),
+        agent_def=_agent("reducer", AgentRole.REDUCER),
+        metadata=_metadata_for_task(
+            task_id,
+            needs=["attempt-1:gen:a", "attempt-1:gen:b"],
+        ),
+    )
+
+    assert inspection.checks == {
+        "assigned_task": True,
+        "dependencies": True,
+        "dependency_outcomes": True,
     }
     assert inspection.passed
 

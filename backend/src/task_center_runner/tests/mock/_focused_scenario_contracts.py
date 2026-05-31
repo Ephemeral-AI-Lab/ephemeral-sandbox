@@ -36,6 +36,7 @@ def assert_focused_scenario_report(
     assert report.passed_prompt_inspections, [
         item for item in report.prompt_inspections if not item.passed
     ]
+    _assert_dependency_prompt_inspections(report)
     assert report.passed_sandbox_checks, [
         item for item in report.sandbox_checks if not item.passed
     ]
@@ -51,6 +52,9 @@ def assert_focused_scenario_report(
 # ``submit_generator_failure`` task is "a task that failed the attempt" for the
 # purposes of the scenario role counts.
 _FAILED_STATUSES: tuple[str, ...] = ("failed", "blocked")
+_PROMPT_INSPECTED_STATUSES: frozenset[str] = frozenset(
+    {"done", "failed", "waiting_workflow"}
+)
 
 
 def count_role_tasks(
@@ -158,6 +162,42 @@ def _assert_role_counts(report: RunReport, case: FocusedScenarioCase) -> None:
             f"{case.name}: expected at most {case.max_deferred_attempts} "
             f"deferred attempts, saw {deferred}"
         )
+
+
+def _assert_dependency_prompt_inspections(report: RunReport) -> None:
+    inspections_by_task = {
+        inspection.task_id: inspection for inspection in report.prompt_inspections
+    }
+    for task in _graph_tasks(report):
+        needs = tuple(str(dep) for dep in task.get("needs") or ())
+        if not needs:
+            continue
+        inspection = inspections_by_task.get(str(task.get("task_id") or ""))
+        if inspection is None:
+            if str(task.get("status") or "") in _PROMPT_INSPECTED_STATUSES:
+                raise AssertionError(
+                    f"{task['task_id']}: launched dependency-aware task "
+                    "had no prompt inspection"
+                )
+            continue
+        assert inspection.checks.get("dependencies") is True, (
+            f"{task['task_id']}: launched dependency-aware task prompt "
+            "did not include <dependencies>"
+        )
+        assert inspection.checks.get("dependency_outcomes") is True, (
+            f"{task['task_id']}: launched dependency-aware task prompt "
+            "did not include dependency task outcomes"
+        )
+
+
+def _graph_tasks(report: RunReport) -> list[dict[str, object]]:
+    return [
+        task
+        for workflow in report.graph_summary["workflows"]
+        for iteration in workflow["iterations"]
+        for attempt in iteration["attempts"]
+        for task in attempt["tasks"]
+    ]
 
 
 def _assert_graph_shape(report: RunReport, case: FocusedScenarioCase) -> None:

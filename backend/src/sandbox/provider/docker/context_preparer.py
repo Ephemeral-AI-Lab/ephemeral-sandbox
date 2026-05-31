@@ -1,7 +1,7 @@
 """Docker runtime-context preparation.
 
 Mirrors the public surface of
-:class:`sandbox.provider.daytona.runtime_context.DaytonaContextPreparer` so call
+:class:`sandbox.provider.daytona.context_preparer.DaytonaContextPreparer` so call
 sites in ``sandbox/api/provider_control.py`` are symmetric.
 """
 

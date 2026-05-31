@@ -274,7 +274,6 @@ def test_apply_planner_failure_marks_task_and_closes_attempt(
             attempt_id=attempt.id,
             planner_task_id=planner_task_id(attempt.id),
             fail_reason="run_exhausted",
-            outcome="planner stopped",
         )
     )
 

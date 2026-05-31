@@ -54,7 +54,6 @@ class PlannerFailureSubmission:
     attempt_id: str
     planner_task_id: str
     fail_reason: Literal["run_exhausted"]
-    outcome: str
 
 
 @dataclass(frozen=True, slots=True)

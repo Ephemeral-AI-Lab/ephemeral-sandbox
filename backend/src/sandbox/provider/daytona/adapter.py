@@ -72,7 +72,7 @@ def _serialize_raw(raw: Any, *, assigned_agents: list[str] | None = None) -> dic
                 image = val
                 break
 
-    project_dir = _project_dir(raw, labels)
+    project_dir = _sandbox_project_root(raw, labels)
 
     return {
         "id": sandbox_id,
@@ -87,7 +87,7 @@ def _serialize_raw(raw: Any, *, assigned_agents: list[str] | None = None) -> dic
     }
 
 
-def _project_dir(raw: Any, labels: dict[str, str]) -> str | None:
+def _sandbox_project_root(raw: Any, labels: dict[str, str]) -> str | None:
     project_dir = getattr(raw, "project_dir", None)
     if isinstance(project_dir, str) and project_dir.strip():
         return project_dir.strip()
@@ -342,7 +342,7 @@ class DaytonaProviderAdapter:
 
     def context_preparer(self, sandbox_id: str) -> Any:
         """Return the daytona-specific context preparer for *sandbox_id*."""
-        from sandbox.provider.daytona.runtime_context import DaytonaContextPreparer
+        from sandbox.provider.daytona.context_preparer import DaytonaContextPreparer
 
         return DaytonaContextPreparer(sandbox_id)
 

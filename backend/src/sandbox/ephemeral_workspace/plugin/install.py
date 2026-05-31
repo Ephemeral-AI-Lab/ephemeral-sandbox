@@ -19,7 +19,6 @@ import hashlib
 import io
 import logging
 import os
-import re
 import shlex
 import tarfile
 import uuid
@@ -29,6 +28,7 @@ from typing import Any
 from plugins.core.discovery import DEFAULT_CATALOG_DIR
 from plugins.core.manifest import PluginManifest
 from sandbox.daemon.paths import BUNDLE_REMOTE_DIR
+from sandbox.ephemeral_workspace.plugin.op_registry import _PLUGIN_NAME_RE
 from sandbox.host.chunked_upload import RawExecCallable, write_base64_chunks
 from sandbox.provider.registry import get_adapter
 
@@ -51,7 +51,6 @@ logger = logging.getLogger(__name__)
 # — so ``import plugins.catalog.<name>.runtime.server`` resolves naturally.
 PLUGIN_BUNDLE_REMOTE_ROOT = f"{BUNDLE_REMOTE_DIR}/plugins/catalog"
 
-_PLUGIN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # 600s headroom for plugin setup scripts that download runtime binaries or
 # install small dependencies over the network while staying inside Daytona's
 # exec timeout.

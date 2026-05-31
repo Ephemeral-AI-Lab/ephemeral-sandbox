@@ -367,7 +367,6 @@ def _report_exhaustion(
                 attempt_id=attempt_id,
                 planner_task_id=launch.task_id,
                 fail_reason="run_exhausted",
-                outcome=summary,
             )
         )
     elif launch.role == TaskCenterTaskRole.GENERATOR:
