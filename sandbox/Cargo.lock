@@ -147,6 +147,9 @@ name = "eos-layerstack"
 version = "0.1.0"
 dependencies = [
  "eos-protocol",
+ "rustix 0.38.44",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 
@@ -234,6 +237,7 @@ dependencies = [
  "eos-protocol",
  "eos-runner",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

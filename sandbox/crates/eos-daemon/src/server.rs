@@ -26,11 +26,16 @@
 //! `// PORT backend/src/sandbox/daemon/rpc/server.py:58,62,116-143,183,193 — caps/timeout/auth/listeners`
 
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
 
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::net::{TcpListener, UnixListener};
 use tokio::sync::{mpsc, oneshot};
+use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
-use eos_protocol::LayerChange;
+use eos_protocol::{decode, encode, Envelope, ErrorKind, LayerChange};
 
 use crate::audit_buffer::AuditBuffer;
 use crate::dispatcher::OpTable;
@@ -112,30 +117,169 @@ impl DaemonServer {
     /// remove the pid file, and unlink the socket.
     // PORT backend/src/sandbox/daemon/rpc/server.py:148-249 — serve(): start_unix_server + start_server, signal handlers, AsyncExitStack, stop_all_ephemeral_pipelines + pid/socket cleanup
     pub async fn serve(self, occ_queue: OccWriterQueue) -> Result<(), DaemonError> {
-        let _ = (
-            &self.config,
-            &self.op_table,
-            &self.audit,
-            &self.in_flight,
-            &self.occ_tx,
-            &self.shutdown,
-            occ_queue,
-        );
-        todo!("PORT server.py:148-249 — bind AF_UNIX (chmod 0o600) + optional 127.0.0.1 TCP (limit=MAX_REQUEST_BYTES), write pid, add SIGTERM/SIGINT -> cancel token, select serve loops vs token, drain pipelines + cleanup")
+        let shutdown = self.shutdown.clone();
+        let server = Arc::new(self);
+        let _occ_task = tokio::spawn(occ_queue.run());
+        let _ = (&server.audit, &server.in_flight, &server.occ_tx);
+
+        if let Some(parent) = server.config.socket_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        if let Some(parent) = server.config.pid_path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        let _ = tokio::fs::remove_file(&server.config.socket_path).await;
+        let unix_listener = UnixListener::bind(&server.config.socket_path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            tokio::fs::set_permissions(
+                &server.config.socket_path,
+                std::fs::Permissions::from_mode(0o600),
+            )
+            .await?;
+        }
+        tokio::fs::write(&server.config.pid_path, std::process::id().to_string()).await?;
+
+        let unix_server = {
+            let server = Arc::clone(&server);
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        _ = server.shutdown.cancelled() => break,
+                        accepted = unix_listener.accept() => {
+                            let (stream, _) = accepted?;
+                            let server = Arc::clone(&server);
+                            tokio::spawn(async move {
+                                let _ = server.handle_connection(stream, false).await;
+                            });
+                        }
+                    }
+                }
+                Ok::<(), std::io::Error>(())
+            })
+        };
+
+        let tcp_server = match (&server.config.tcp_host, server.config.tcp_port) {
+            (Some(host), Some(port)) => {
+                let listener = TcpListener::bind((host.as_str(), port)).await?;
+                let server = Arc::clone(&server);
+                Some(tokio::spawn(async move {
+                    loop {
+                        tokio::select! {
+                            _ = server.shutdown.cancelled() => break,
+                            accepted = listener.accept() => {
+                                let (stream, _) = accepted?;
+                                let server = Arc::clone(&server);
+                                tokio::spawn(async move {
+                                    let _ = server.handle_connection(stream, true).await;
+                                });
+                            }
+                        }
+                    }
+                    Ok::<(), std::io::Error>(())
+                }))
+            }
+            _ => None,
+        };
+
+        tokio::select! {
+            _ = shutdown.cancelled() => {}
+            _ = signal_shutdown() => shutdown.cancel(),
+            result = unix_server => {
+                if let Ok(Err(err)) = result {
+                    return Err(DaemonError::Io(err));
+                }
+            }
+        }
+        if let Some(task) = tcp_server {
+            task.abort();
+        }
+        let _ = tokio::fs::remove_file(&server.config.pid_path).await;
+        let _ = tokio::fs::remove_file(&server.config.socket_path).await;
+        Ok(())
     }
 
     /// Handle one accepted connection: read one capped, timed request line, pop
     /// the TCP-only auth token, decode the envelope, dispatch, write one framed
     /// response. Per-connection; never holds a lock across the await points.
     // PORT backend/src/sandbox/daemon/rpc/server.py:64-143 — _handle_connection(): readline(timeout), LimitOverrun/Value -> request_too_large, auth pop (TCP), bad_json/invalid_envelope, dispatch, frame + drain
-    async fn handle_connection(&self, _is_tcp: bool) -> Result<(), DaemonError> {
-        let _ = (
-            &self.config.auth_token,
-            &self.op_table,
-            REQUEST_READ_TIMEOUT_S,
-            MAX_REQUEST_BYTES,
-        );
-        todo!("PORT server.py:64-143 — readline w/ REQUEST_READ_TIMEOUT_S + MAX_REQUEST_BYTES cap, pop _eos_daemon_auth_token on TCP, decode + dispatch + frame, never hold a lock across .await")
+    async fn handle_connection<S>(&self, stream: S, is_tcp: bool) -> Result<(), DaemonError>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        let (mut reader, mut writer) = tokio::io::split(stream);
+        let bytes = read_request_line(&mut reader).await;
+        let response = match bytes {
+            Ok(bytes) => self.dispatch_bytes(bytes, is_tcp),
+            Err(err @ DaemonError::RequestTooLarge { .. }) => crate::dispatcher::error_envelope(
+                err.wire_kind(),
+                &format!("daemon request exceeds {MAX_REQUEST_BYTES} byte limit"),
+                serde_json::json!({"limit": MAX_REQUEST_BYTES}),
+            ),
+            Err(err) => crate::dispatcher::error_envelope(
+                err.wire_kind(),
+                &err.to_string(),
+                serde_json::json!({}),
+            ),
+        };
+        let framed = encode(&Envelope::Response(response))?;
+        writer.write_all(&framed).await?;
+        writer.shutdown().await?;
+        Ok(())
+    }
+
+    fn dispatch_bytes(&self, bytes: Vec<u8>, is_tcp: bool) -> serde_json::Value {
+        let bytes = if is_tcp {
+            match self.strip_tcp_auth(&bytes) {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    return crate::dispatcher::error_envelope(
+                        err.wire_kind(),
+                        &err.to_string(),
+                        serde_json::json!({}),
+                    );
+                }
+            }
+        } else {
+            bytes
+        };
+        match decode(&bytes) {
+            Ok(Envelope::Request(request)) => self.op_table.dispatch(&request),
+            Ok(_) => crate::dispatcher::error_envelope(
+                ErrorKind::InvalidEnvelope,
+                "request envelope must include op, invocation_id, and args",
+                serde_json::json!({}),
+            ),
+            Err(err) => crate::dispatcher::error_envelope(
+                ErrorKind::BadJson,
+                &err.to_string(),
+                serde_json::json!({}),
+            ),
+        }
+    }
+
+    fn strip_tcp_auth(&self, bytes: &[u8]) -> Result<Vec<u8>, DaemonError> {
+        let Some(expected) = self
+            .config
+            .auth_token
+            .as_deref()
+            .filter(|token| !token.is_empty())
+        else {
+            return Ok(bytes.to_vec());
+        };
+        let mut value: serde_json::Value =
+            serde_json::from_slice(bytes).map_err(eos_protocol::ProtocolError::from)?;
+        let token = value
+            .as_object_mut()
+            .and_then(|object| object.remove(eos_protocol::DAEMON_AUTH_FIELD))
+            .and_then(|value| value.as_str().map(str::to_owned));
+        if token.as_deref() != Some(expected) {
+            return Err(DaemonError::Unauthorized);
+        }
+        let mut encoded = serde_json::to_vec(&value).map_err(eos_protocol::ProtocolError::from)?;
+        encoded.push(b'\n');
+        Ok(encoded)
     }
 }
 
@@ -178,7 +322,54 @@ impl OccWriterQueue {
     /// writer, reply on the oneshot, until the queue closes or shutdown fires.
     // PORT backend/src/sandbox/occ/commit_queue.py:120-160 — _drain_loop: recv batch, commit_prepared, reply, honor batch_window
     pub async fn run(mut self) {
-        let _ = (&mut self.rx, &self.shutdown);
-        todo!("PORT commit_queue.py:120-160 — single consumer: recv OccWork, apply through per-root OccService, reply on oneshot, stop on close/cancel")
+        loop {
+            tokio::select! {
+                _ = self.shutdown.cancelled() => break,
+                work = self.rx.recv() => {
+                    let Some(work) = work else { break };
+                    let _ = work.reply.send(Err(DaemonError::Forbidden(
+                        "OCC publish is not implemented in Phase 2".to_owned(),
+                    )));
+                }
+            }
+        }
     }
+}
+
+async fn read_request_line<R>(reader: &mut R) -> Result<Vec<u8>, DaemonError>
+where
+    R: AsyncRead + Unpin,
+{
+    let mut buf = Vec::new();
+    let mut byte = [0_u8; 1];
+    let timeout_duration = Duration::from_secs_f64(REQUEST_READ_TIMEOUT_S);
+    let read = async {
+        loop {
+            let n = reader.read(&mut byte).await?;
+            if n == 0 {
+                break;
+            }
+            buf.push(byte[0]);
+            if buf.len() > MAX_REQUEST_BYTES {
+                return Err(DaemonError::RequestTooLarge {
+                    limit: MAX_REQUEST_BYTES,
+                });
+            }
+            if byte[0] == b'\n' {
+                break;
+            }
+        }
+        Ok::<(), DaemonError>(())
+    };
+    timeout(timeout_duration, read).await.map_err(|_| {
+        DaemonError::Io(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "daemon request read timed out",
+        ))
+    })??;
+    Ok(buf)
+}
+
+async fn signal_shutdown() {
+    let _ = tokio::signal::ctrl_c().await;
 }

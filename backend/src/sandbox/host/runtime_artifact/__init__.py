@@ -20,8 +20,8 @@ EOSD_VERSION = "0.1.0-local.20260531"
 # Per-arch SHA256 of the binary. Keys = container arch tokens the host maps to
 # (amd64 / arm64).
 EOSD_SHA256: dict[str, str] = {
-    "amd64": "438d0bde3b5f615c451d5e850fe163818a37262d7201de2e5e34dc743beb77b6",
-    "arm64": "710972fd0cdcfad35536e7998afefc5b1b100bfeaac189175c7ab0e208f8f577",
+    "amd64": "f374662b28337575aafb65995c7c3626e4731fc9464cb4ac24bc45ab262acefe",
+    "arm64": "4a39764bc3e13421a58835bc3294fb8f6f2801b2610690ebbe9e652d0a6c1758",
 }
 
 # Minisign trust-anchor public key (the release signing key). Empty for the

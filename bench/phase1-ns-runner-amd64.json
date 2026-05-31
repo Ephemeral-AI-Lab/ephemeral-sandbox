@@ -74,14 +74,14 @@
       "exit_code": 0,
       "samples": {
         "count": 3,
-        "max": 428.45850001322106,
-        "min": 421.47750000003725,
-        "p50": 428.13670804025605,
-        "p95": 428.13670804025605,
+        "max": 448.15533299697563,
+        "min": 433.0120829981752,
+        "p50": 443.623083003331,
+        "p95": 443.623083003331,
         "samples_ms": [
-          421.47750000003725,
-          428.13670804025605,
-          428.45850001322106
+          433.0120829981752,
+          443.623083003331,
+          448.15533299697563
         ]
       },
       "stderr": "",
@@ -116,8 +116,8 @@
       "stderr": "",
       "stdout": "eosd 0.1.0"
     },
-    "sha256": "438d0bde3b5f615c451d5e850fe163818a37262d7201de2e5e34dc743beb77b6",
-    "size_bytes": 683360
+    "sha256": "f374662b28337575aafb65995c7c3626e4731fc9464cb4ac24bc45ab262acefe",
+    "size_bytes": 681888
   },
   "gates": {
     "all_perf_samples_ok": true,
@@ -133,8 +133,8 @@
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 325.85333299357444,
-      "mount_ms": 1.5060419999999999,
+      "host_wall_ms": 340.9163749893196,
+      "mount_ms": 1.0715830000000002,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-00/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-00/request.json",
       "result": {
@@ -152,8 +152,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001506042,
-            "workspace.tool_s": 0.28990025
+            "workspace.mount_s": 0.001071583,
+            "workspace.tool_s": 0.302995
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -165,15 +165,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 289.90025,
+      "tool_ms": 302.995,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 328.6817080224864,
-      "mount_ms": 1.492916,
+      "host_wall_ms": 343.9359579933807,
+      "mount_ms": 1.093583,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-01/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-01/request.json",
       "result": {
@@ -191,8 +191,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001492916,
-            "workspace.tool_s": 0.289662459
+            "workspace.mount_s": 0.001093583,
+            "workspace.tool_s": 0.298346083
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -204,15 +204,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 289.66245899999996,
+      "tool_ms": 298.34608299999996,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 336.35145804146305,
-      "mount_ms": 1.452833,
+      "host_wall_ms": 373.75916697783396,
+      "mount_ms": 1.034417,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-02/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-02/request.json",
       "result": {
@@ -230,8 +230,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001452833,
-            "workspace.tool_s": 0.299769625
+            "workspace.mount_s": 0.001034417,
+            "workspace.tool_s": 0.329300375
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -243,15 +243,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 299.76962499999996,
+      "tool_ms": 329.300375,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 342.48087502783164,
-      "mount_ms": 1.559625,
+      "host_wall_ms": 360.6124590151012,
+      "mount_ms": 1.0811250000000001,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-03/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-03/request.json",
       "result": {
@@ -269,8 +269,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001559625,
-            "workspace.tool_s": 0.297285625
+            "workspace.mount_s": 0.001081125,
+            "workspace.tool_s": 0.312926917
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -282,15 +282,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 297.285625,
+      "tool_ms": 312.926917,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 324.0117499954067,
-      "mount_ms": 1.505416,
+      "host_wall_ms": 359.4113750150427,
+      "mount_ms": 1.111916,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-04/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-04/request.json",
       "result": {
@@ -308,8 +308,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001505416,
-            "workspace.tool_s": 0.29145775
+            "workspace.mount_s": 0.001111916,
+            "workspace.tool_s": 0.309065
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -321,15 +321,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 291.45775000000003,
+      "tool_ms": 309.065,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 329.8032499733381,
-      "mount_ms": 1.43975,
+      "host_wall_ms": 345.58216598816216,
+      "mount_ms": 1.0785829999999998,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-05/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-05/request.json",
       "result": {
@@ -347,8 +347,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.00143975,
-            "workspace.tool_s": 0.296367958
+            "workspace.mount_s": 0.001078583,
+            "workspace.tool_s": 0.298044542
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -360,15 +360,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 296.367958,
+      "tool_ms": 298.04454200000004,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 333.6251250002533,
-      "mount_ms": 1.5727499999999999,
+      "host_wall_ms": 332.40108302561566,
+      "mount_ms": 1.047875,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-06/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-06/request.json",
       "result": {
@@ -386,8 +386,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.00157275,
-            "workspace.tool_s": 0.294431708
+            "workspace.mount_s": 0.001047875,
+            "workspace.tool_s": 0.296334333
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -399,15 +399,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 294.431708,
+      "tool_ms": 296.334333,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 333.0454590031877,
-      "mount_ms": 1.482333,
+      "host_wall_ms": 347.5107499980368,
+      "mount_ms": 1.06575,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-07/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-07/request.json",
       "result": {
@@ -425,8 +425,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001482333,
-            "workspace.tool_s": 0.2921965
+            "workspace.mount_s": 0.00106575,
+            "workspace.tool_s": 0.306199667
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -438,15 +438,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 292.1965,
+      "tool_ms": 306.19966700000003,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 341.09820902813226,
-      "mount_ms": 1.501583,
+      "host_wall_ms": 352.079208008945,
+      "mount_ms": 1.08325,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-08/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-08/request.json",
       "result": {
@@ -464,8 +464,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001501583,
-            "workspace.tool_s": 0.293117334
+            "workspace.mount_s": 0.00108325,
+            "workspace.tool_s": 0.299826001
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -477,15 +477,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 293.117334,
+      "tool_ms": 299.826001,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 328.05654196999967,
-      "mount_ms": 1.527542,
+      "host_wall_ms": 340.45841702027246,
+      "mount_ms": 1.0738340000000002,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-09/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-09/request.json",
       "result": {
@@ -503,8 +503,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001527542,
-            "workspace.tool_s": 0.294603542
+            "workspace.mount_s": 0.001073834,
+            "workspace.tool_s": 0.298413209
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -516,15 +516,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 294.603542,
+      "tool_ms": 298.413209,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 326.01249997969717,
-      "mount_ms": 1.501708,
+      "host_wall_ms": 370.1244589756243,
+      "mount_ms": 1.367083,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-10/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-10/request.json",
       "result": {
@@ -542,8 +542,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001501708,
-            "workspace.tool_s": 0.291120834
+            "workspace.mount_s": 0.001367083,
+            "workspace.tool_s": 0.320717416
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -555,15 +555,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 291.120834,
+      "tool_ms": 320.71741599999996,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 348.0585420038551,
-      "mount_ms": 1.538125,
+      "host_wall_ms": 371.9694160390645,
+      "mount_ms": 1.193667,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-11/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-11/request.json",
       "result": {
@@ -581,8 +581,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001538125,
-            "workspace.tool_s": 0.294283583
+            "workspace.mount_s": 0.001193667,
+            "workspace.tool_s": 0.32220225
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -594,15 +594,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 294.283583,
+      "tool_ms": 322.20225000000005,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 332.85820798482746,
-      "mount_ms": 1.517208,
+      "host_wall_ms": 362.52099997363985,
+      "mount_ms": 1.054625,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-12/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-12/request.json",
       "result": {
@@ -620,8 +620,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001517208,
-            "workspace.tool_s": 0.288344292
+            "workspace.mount_s": 0.001054625,
+            "workspace.tool_s": 0.31698325
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -633,15 +633,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 288.344292,
+      "tool_ms": 316.98325,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 347.7640000055544,
-      "mount_ms": 1.518541,
+      "host_wall_ms": 371.77349999547005,
+      "mount_ms": 1.1025,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-13/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-13/request.json",
       "result": {
@@ -659,8 +659,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001518541,
-            "workspace.tool_s": 0.303073083
+            "workspace.mount_s": 0.0011025,
+            "workspace.tool_s": 0.327299083
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -672,15 +672,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 303.073083,
+      "tool_ms": 327.299083,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 332.38066703779623,
-      "mount_ms": 1.523625,
+      "host_wall_ms": 376.1275410070084,
+      "mount_ms": 1.050167,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-14/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-14/request.json",
       "result": {
@@ -698,8 +698,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001523625,
-            "workspace.tool_s": 0.290887084
+            "workspace.mount_s": 0.001050167,
+            "workspace.tool_s": 0.328809334
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -711,15 +711,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 290.887084,
+      "tool_ms": 328.80933400000004,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 329.3985420023091,
-      "mount_ms": 1.6005,
+      "host_wall_ms": 364.7896670154296,
+      "mount_ms": 1.073792,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-15/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-15/request.json",
       "result": {
@@ -737,8 +737,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.0016005,
-            "workspace.tool_s": 0.295308209
+            "workspace.mount_s": 0.001073792,
+            "workspace.tool_s": 0.324936375
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -750,15 +750,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 295.308209,
+      "tool_ms": 324.936375,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 348.73333299765363,
-      "mount_ms": 1.48525,
+      "host_wall_ms": 372.14691599365324,
+      "mount_ms": 1.108541,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-16/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-16/request.json",
       "result": {
@@ -776,8 +776,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.00148525,
-            "workspace.tool_s": 0.299634917
+            "workspace.mount_s": 0.001108541,
+            "workspace.tool_s": 0.335801208
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -789,15 +789,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 299.634917,
+      "tool_ms": 335.80120800000003,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 338.4429579600692,
-      "mount_ms": 1.694667,
+      "host_wall_ms": 353.95262500969693,
+      "mount_ms": 1.065375,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-17/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-17/request.json",
       "result": {
@@ -815,8 +815,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001694667,
-            "workspace.tool_s": 0.295356167
+            "workspace.mount_s": 0.001065375,
+            "workspace.tool_s": 0.319473125
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -828,15 +828,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 295.356167,
+      "tool_ms": 319.47312500000004,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 369.7329999995418,
-      "mount_ms": 1.472833,
+      "host_wall_ms": 368.8935419777408,
+      "mount_ms": 1.13125,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-18/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-18/request.json",
       "result": {
@@ -854,8 +854,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.001472833,
-            "workspace.tool_s": 0.329653833
+            "workspace.mount_s": 0.00113125,
+            "workspace.tool_s": 0.325922459
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -867,15 +867,15 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 329.653833,
+      "tool_ms": 325.922459,
       "tool_stderr": "",
       "tool_stdout": ""
     },
     {
       "command": "true",
       "exit_code": 0,
-      "host_wall_ms": 331.10637502977625,
-      "mount_ms": 1.4537499999999999,
+      "host_wall_ms": 363.8241660082713,
+      "mount_ms": 1.014125,
       "output_path": "/eos-mount-scratch/phase1/runs/perf-19/result.json",
       "request_path": "/eos-mount-scratch/phase1/runs/perf-19/request.json",
       "result": {
@@ -893,8 +893,8 @@
           "stdout": "",
           "success": true,
           "timings": {
-            "workspace.mount_s": 0.00145375,
-            "workspace.tool_s": 0.29528275
+            "workspace.mount_s": 0.001014125,
+            "workspace.tool_s": 0.323159375
           },
           "warnings": [],
           "workspace": "ephemeral"
@@ -906,7 +906,7 @@
       "stderr": "",
       "stdout": "",
       "tool_exit_code": 0,
-      "tool_ms": 295.28274999999996,
+      "tool_ms": 323.159375,
       "tool_stderr": "",
       "tool_stdout": ""
     }
@@ -915,134 +915,134 @@
     "cp0_python_process_start_p50_ms": 428.128374973312,
     "host_wall_ms": {
       "count": 20,
-      "max": 369.7329999995418,
-      "min": 324.0117499954067,
-      "p50": 332.9518334940076,
-      "p95": 348.73333299765363,
+      "max": 376.1275410070084,
+      "min": 332.40108302561566,
+      "p50": 361.5667294943705,
+      "p95": 373.75916697783396,
       "samples_ms": [
-        324.0117499954067,
-        325.85333299357444,
-        326.01249997969717,
-        328.05654196999967,
-        328.6817080224864,
-        329.3985420023091,
-        329.8032499733381,
-        331.10637502977625,
-        332.38066703779623,
-        332.85820798482746,
-        333.0454590031877,
-        333.6251250002533,
-        336.35145804146305,
-        338.4429579600692,
-        341.09820902813226,
-        342.48087502783164,
-        347.7640000055544,
-        348.0585420038551,
-        348.73333299765363,
-        369.7329999995418
+        332.40108302561566,
+        340.45841702027246,
+        340.9163749893196,
+        343.9359579933807,
+        345.58216598816216,
+        347.5107499980368,
+        352.079208008945,
+        353.95262500969693,
+        359.4113750150427,
+        360.6124590151012,
+        362.52099997363985,
+        363.8241660082713,
+        364.7896670154296,
+        368.8935419777408,
+        370.1244589756243,
+        371.77349999547005,
+        371.9694160390645,
+        372.14691599365324,
+        373.75916697783396,
+        376.1275410070084
       ]
     },
-    "host_wall_vs_cp0_p50_ratio": 1.2858567873932953,
-    "internal_mount_only_vs_cp0_p50_ratio": 284.3329543186802,
-    "internal_mount_plus_tool_vs_cp0_p50_ratio": 1.4460485635679408,
+    "host_wall_vs_cp0_p50_ratio": 1.1840922851834956,
+    "internal_mount_only_vs_cp0_p50_ratio": 397.8117390573593,
+    "internal_mount_plus_tool_vs_cp0_p50_ratio": 1.340883852689702,
     "ok_samples": 20,
     "runner_mount_ms": {
       "count": 20,
-      "max": 1.694667,
-      "min": 1.43975,
-      "p50": 1.505729,
-      "p95": 1.6005,
+      "max": 1.367083,
+      "min": 1.014125,
+      "p50": 1.0762085,
+      "p95": 1.193667,
       "samples_ms": [
-        1.43975,
-        1.452833,
-        1.4537499999999999,
-        1.472833,
-        1.482333,
-        1.48525,
-        1.492916,
-        1.501583,
-        1.501708,
-        1.505416,
-        1.5060419999999999,
-        1.517208,
-        1.518541,
-        1.523625,
-        1.527542,
-        1.538125,
-        1.559625,
-        1.5727499999999999,
-        1.6005,
-        1.694667
+        1.014125,
+        1.034417,
+        1.047875,
+        1.050167,
+        1.054625,
+        1.065375,
+        1.06575,
+        1.0715830000000002,
+        1.073792,
+        1.0738340000000002,
+        1.0785829999999998,
+        1.0811250000000001,
+        1.08325,
+        1.093583,
+        1.1025,
+        1.108541,
+        1.111916,
+        1.13125,
+        1.193667,
+        1.367083
       ]
     },
     "runner_mount_plus_tool_ms": {
       "count": 20,
-      "max": 331.126666,
-      "min": 289.8615,
-      "p50": 296.067771,
-      "p95": 304.591624,
+      "max": 336.90974900000003,
+      "min": 297.382208,
+      "p50": 319.28818750000005,
+      "p95": 330.334792,
       "samples_ms": [
-        289.8615,
-        291.15537499999994,
-        291.406292,
-        292.410709,
-        292.622542,
-        292.96316600000006,
-        293.678833,
-        294.618917,
-        295.821708,
-        296.004458,
-        296.131084,
-        296.7365,
-        296.908709,
-        297.050834,
-        297.807708,
-        298.84524999999996,
-        301.120167,
-        301.22245799999996,
-        304.591624,
-        331.126666
+        297.382208,
+        299.123125,
+        299.439666,
+        299.48704299999997,
+        300.90925100000004,
+        304.066583,
+        307.265417,
+        310.176916,
+        314.008042,
+        318.037875,
+        320.53850000000006,
+        322.08449899999994,
+        323.39591700000005,
+        324.1735,
+        326.010167,
+        327.053709,
+        328.401583,
+        329.859501,
+        330.334792,
+        336.90974900000003
       ]
     },
     "runner_tool_ms": {
       "count": 20,
-      "max": 329.653833,
-      "min": 288.344292,
-      "p50": 294.517625,
-      "p95": 303.073083,
+      "max": 335.80120800000003,
+      "min": 296.334333,
+      "p50": 318.2281875,
+      "p95": 329.300375,
       "samples_ms": [
-        288.344292,
-        289.66245899999996,
-        289.90025,
-        290.887084,
-        291.120834,
-        291.45775000000003,
-        292.1965,
-        293.117334,
-        294.283583,
-        294.431708,
-        294.603542,
-        295.28274999999996,
-        295.308209,
-        295.356167,
-        296.367958,
-        297.285625,
-        299.634917,
-        299.76962499999996,
-        303.073083,
-        329.653833
+        296.334333,
+        298.04454200000004,
+        298.34608299999996,
+        298.413209,
+        299.826001,
+        302.995,
+        306.19966700000003,
+        309.065,
+        312.926917,
+        316.98325,
+        319.47312500000004,
+        320.71741599999996,
+        322.20225000000005,
+        323.159375,
+        324.936375,
+        325.922459,
+        327.299083,
+        328.80933400000004,
+        329.300375,
+        335.80120800000003
       ]
     }
   },
-  "run_id": "local-24067e7f748b",
+  "run_id": "local-eade9cddd2d7",
   "samples": 20,
-  "sandbox_id": "46e8ad1d37c6615ade889a491556ac29d57465c2271a6a695326a48d0a7ecbce",
+  "sandbox_id": "a4d1addf2a3674d9591a488a95657eb8b51c0cd09082725e188558a2bdddc14a",
   "scratch_io_note": "Docker archive API could not address /eos-mount-scratch tmpfs; harness used in-container exec for scratch request/result files.",
   "smoke": {
     "command": "set -eu; cat hello.txt; printf ok > generated.txt; cat generated.txt",
     "exit_code": 0,
-    "host_wall_ms": 350.2453750115819,
-    "mount_ms": 1.549833,
+    "host_wall_ms": 353.5198750323616,
+    "mount_ms": 1.10975,
     "output_path": "/eos-mount-scratch/phase1/runs/smoke/result.json",
     "request_path": "/eos-mount-scratch/phase1/runs/smoke/request.json",
     "result": {
@@ -1060,8 +1060,8 @@
         "stdout": "hello-from-layer\nok",
         "success": true,
         "timings": {
-          "workspace.mount_s": 0.001549833,
-          "workspace.tool_s": 0.31050675
+          "workspace.mount_s": 0.00110975,
+          "workspace.tool_s": 0.316972459
         },
         "warnings": [],
         "workspace": "ephemeral"
@@ -1073,7 +1073,7 @@
     "stderr": "",
     "stdout": "",
     "tool_exit_code": 0,
-    "tool_ms": 310.50675,
+    "tool_ms": 316.97245899999996,
     "tool_stderr": "",
     "tool_stdout": "hello-from-layer\nok"
   },
@@ -1087,7 +1087,7 @@
   "timeout": {
     "command": "sleep 5",
     "exit_code": 1,
-    "host_wall_ms": 255.58012496912852,
+    "host_wall_ms": 247.2267090342939,
     "output_path": "/eos-mount-scratch/phase1/runs/timeout/result.json",
     "request_path": "/eos-mount-scratch/phase1/runs/timeout/request.json",
     "run_name": "timeout",

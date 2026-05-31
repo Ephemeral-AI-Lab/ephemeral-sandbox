@@ -34,6 +34,7 @@ _DAEMON_SOCKET = DAEMON_SOCKET_PATH
 _DAEMON_PID = DAEMON_PID_PATH
 _DAEMON_LOG = DAEMON_LOG_PATH
 _DAEMON_ENV = DAEMON_ENV_SIGNATURE_PATH
+_EOSD_REMOTE_PATH = f"{BUNDLE_REMOTE_DIR}/eosd"
 _PYTHON_CANDIDATES = ("python3.13", "python3.12", "python3.11", "python3.10", "python3")
 _THIN_CLIENT_CONNECT_FAILED = 97
 _THIN_CLIENT_IO_FAILED = 98
@@ -197,8 +198,9 @@ def with_daemon_protocol_version(payload: Mapping[str, object]) -> dict[str, obj
 def selected_sandbox_runtime() -> str:
     """Return the requested sandbox runtime.
 
-    Phase 0 only validates and exposes the flag; the Python/Rust dispatch fork
-    lands with the daemon connector in Phase 2.
+    Python remains the default while the Rust daemon is phased in. Selecting
+    ``rust`` switches daemon spawn and AF_UNIX fallback to the uploaded
+    ``eosd`` binary for new sandboxes.
     """
     runtime = os.environ.get(SANDBOX_RUNTIME_ENV, "python").strip().lower() or "python"
     if runtime not in _SUPPORTED_SANDBOX_RUNTIMES:
@@ -611,6 +613,17 @@ def _can_retry_empty_response(op: str) -> bool:
 
 def _daemon_thin_client_command(envelope_json: str) -> str:
     """Launch the bundled thin client with one daemon envelope."""
+    if selected_sandbox_runtime() == "rust":
+        return " ".join(
+            shlex.quote(part)
+            for part in (
+                _EOSD_REMOTE_PATH,
+                "daemon",
+                "--client",
+                _DAEMON_SOCKET,
+                envelope_json,
+            )
+        )
     return (
         f"sh -c {shlex.quote(_thin_client_python_launcher())} daemon "
         f"{shlex.quote(_python_candidates_arg())} "
@@ -632,20 +645,45 @@ def _daemon_spawn_command(
     by default which does NOT auto-source it; ``set -a`` exports every
     sourced variable so the daemon inherits them.
     """
-    inner = " ".join(
-        shlex.quote(part)
-        for part in (
-            "sh",
-            DAEMON_LAUNCH_SCRIPT_PATH,
-            _python_candidates_arg(),
+    if selected_sandbox_runtime() == "rust":
+        inner_parts = [
+            _EOSD_REMOTE_PATH,
+            "daemon",
+            "--spawn",
+            "--socket",
             _DAEMON_SOCKET,
+            "--pid-file",
             _DAEMON_PID,
+            "--log-file",
             _DAEMON_LOG,
-            _DAEMON_ENV,
-            _daemon_env_signature(tcp_endpoint=tcp_endpoint),
-            "sandbox.daemon",
+        ]
+        if tcp_endpoint is not None:
+            inner_parts.extend(
+                [
+                    "--tcp-host",
+                    "127.0.0.1",
+                    "--tcp-port",
+                    str(tcp_endpoint.internal_port or tcp_endpoint.port),
+                ]
+            )
+            if tcp_endpoint.auth_token:
+                inner_parts.extend(["--auth-token", tcp_endpoint.auth_token])
+        inner = " ".join(shlex.quote(part) for part in inner_parts)
+    else:
+        inner = " ".join(
+            shlex.quote(part)
+            for part in (
+                "sh",
+                DAEMON_LAUNCH_SCRIPT_PATH,
+                _python_candidates_arg(),
+                _DAEMON_SOCKET,
+                _DAEMON_PID,
+                _DAEMON_LOG,
+                _DAEMON_ENV,
+                _daemon_env_signature(tcp_endpoint=tcp_endpoint),
+                "sandbox.daemon",
+            )
         )
-    )
     return (
         "if [ -r /etc/environment ]; then set -a; . /etc/environment; set +a; fi; "
         + inner

@@ -25,10 +25,11 @@
 //!   activity. The Drop-guard structure here is what the task specifies; the
 //!   `// PORT` anchor points at `reap_stale` so the reconciliation is a
 //!   port-time call.
-//! `// PORT backend/src/sandbox/daemon/rpc/in_flight.py — InFlightInvocationRegistry`
+//!   `// PORT backend/src/sandbox/daemon/rpc/in_flight.py — InFlightInvocationRegistry`
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
+use std::time::Instant;
 
 use tokio::task::AbortHandle;
 
@@ -110,38 +111,73 @@ impl InFlightRegistry {
         op: &str,
         background: bool,
     ) {
-        let _ = (&self.inner, invocation_id, abort, agent_id, op, background);
-        todo!("PORT in_flight.py:54-77 — insert InFlightInvocation keyed by invocation_id, stamp last_seen")
+        if invocation_id.is_empty() {
+            return;
+        }
+        let mut state = self.inner.lock().expect("in-flight registry poisoned");
+        state.by_invocation.insert(
+            invocation_id.to_owned(),
+            InFlightInvocation {
+                invocation_id: invocation_id.to_owned(),
+                abort,
+                agent_id: agent_id.to_owned(),
+                op: op.to_owned(),
+                last_seen: monotonic_seconds(),
+                background,
+                active_calls: 0,
+                ttl_reaped: false,
+            },
+        );
     }
 
     /// Remove the entry for `invocation_id` (the dispatch `finally` path).
     // PORT backend/src/sandbox/daemon/rpc/in_flight.py:79-81 — deregister()
     pub fn deregister(&self, invocation_id: &str) {
-        let _ = (&self.inner, invocation_id);
-        todo!("PORT in_flight.py:79-81 — by_invocation.remove(invocation_id)")
+        self.inner
+            .lock()
+            .expect("in-flight registry poisoned")
+            .by_invocation
+            .remove(invocation_id);
     }
 
     /// Cancel the task for `invocation_id`; returns whether an entry existed.
     // PORT backend/src/sandbox/daemon/rpc/in_flight.py:83-88 — cancel_task()
     pub fn cancel(&self, invocation_id: &str) -> bool {
-        let _ = (&self.inner, invocation_id);
-        todo!("PORT in_flight.py:83-88 — entry.task.cancel(); return existed")
+        let state = self.inner.lock().expect("in-flight registry poisoned");
+        let Some(entry) = state.by_invocation.get(invocation_id) else {
+            return false;
+        };
+        entry.abort.abort();
+        true
     }
 
     /// Touch `last_seen` for every known id; returns how many were touched.
     /// Backs `api.v1.heartbeat`.
     // PORT backend/src/sandbox/daemon/rpc/in_flight.py:90-98 — heartbeat()
     pub fn heartbeat(&self, invocation_ids: &[String]) -> usize {
-        let _ = (&self.inner, invocation_ids);
-        todo!("PORT in_flight.py:90-98 — bump last_seen per known id, count touched")
+        let mut state = self.inner.lock().expect("in-flight registry poisoned");
+        let now = monotonic_seconds();
+        let mut touched = 0;
+        for invocation_id in invocation_ids {
+            if let Some(entry) = state.by_invocation.get_mut(invocation_id) {
+                entry.last_seen = now;
+                touched += 1;
+            }
+        }
+        touched
     }
 
     /// Count live background invocations for `agent_id`. Backs
     /// `api.v1.inflight_count`.
     // PORT backend/src/sandbox/daemon/rpc/in_flight.py:100-106 — count_by_agent()
     pub fn count_by_agent(&self, agent_id: &str) -> usize {
-        let _ = (&self.inner, agent_id);
-        todo!("PORT in_flight.py:100-106 — count background && agent_id && !done")
+        self.inner
+            .lock()
+            .expect("in-flight registry poisoned")
+            .by_invocation
+            .values()
+            .filter(|entry| entry.background && entry.agent_id == agent_id && !entry.ttl_reaped)
+            .count()
     }
 
     /// Acquire an [`ActiveCallGuard`]: bumps `active_calls` so the TTL reaper
@@ -149,10 +185,19 @@ impl InFlightRegistry {
     /// decrements on drop.
     // PORT backend/src/sandbox/daemon/rpc/in_flight.py:54-77 — active-call bookkeeping (Drop-guard structure per task)
     pub fn enter_call<'r>(&'r self, invocation_id: &str) -> ActiveCallGuard<'r> {
-        let _ = (&self.inner, invocation_id);
-        todo!(
-            "PORT in_flight.py — increment active_calls for invocation_id, return ActiveCallGuard"
-        )
+        if let Some(entry) = self
+            .inner
+            .lock()
+            .expect("in-flight registry poisoned")
+            .by_invocation
+            .get_mut(invocation_id)
+        {
+            entry.active_calls = entry.active_calls.saturating_add(1);
+        }
+        ActiveCallGuard {
+            registry: self,
+            invocation_id: invocation_id.to_owned(),
+        }
     }
 
     /// Cancel every entry idle past the TTL AND with `active_calls == 0`.
@@ -161,15 +206,28 @@ impl InFlightRegistry {
     /// tasks regardless of activity) by the active-call gate the task requires.
     // PORT backend/src/sandbox/daemon/rpc/in_flight.py:118-141 — reap_stale(): select stale background, cancel, mark ttl_reaped
     pub fn ttl_sweep(&self) {
-        let _ = (&self.inner, self.ttl_s);
-        todo!("PORT in_flight.py:118-141 — select idle>TTL && active_calls==0 && background && !ttl_reaped, cancel + mark")
+        let mut state = self.inner.lock().expect("in-flight registry poisoned");
+        let now = monotonic_seconds();
+        let mut reaped = 0;
+        for entry in state.by_invocation.values_mut() {
+            if entry.background
+                && !entry.ttl_reaped
+                && entry.active_calls == 0
+                && now - entry.last_seen > self.ttl_s
+            {
+                entry.abort.abort();
+                entry.ttl_reaped = true;
+                reaped += 1;
+            }
+        }
+        state.ttl_reaped_total += reaped;
     }
 
     /// `(active_invocations, ttl_reaped_total)` for diagnostics.
     // PORT backend/src/sandbox/daemon/rpc/in_flight.py:108-113 — metrics()
     pub fn metrics(&self) -> (usize, u64) {
-        let _ = &self.inner;
-        todo!("PORT in_flight.py:108-113 — (len(by_invocation), ttl_reaped_total)")
+        let state = self.inner.lock().expect("in-flight registry poisoned");
+        (state.by_invocation.len(), state.ttl_reaped_total)
     }
 }
 
@@ -189,10 +247,16 @@ pub struct ActiveCallGuard<'r> {
 impl Drop for ActiveCallGuard<'_> {
     // PORT backend/src/sandbox/daemon/rpc/in_flight.py — decrement active_calls on call completion
     fn drop(&mut self) {
-        // The future body decrements `active_calls` for `self.invocation_id`
-        // under the registry lock. Drop must not panic, so the real impl logs +
-        // swallows a missing entry rather than asserting.
-        let _ = (&self.registry.inner, &self.invocation_id);
+        if let Some(entry) = self
+            .registry
+            .inner
+            .lock()
+            .expect("in-flight registry poisoned")
+            .by_invocation
+            .get_mut(&self.invocation_id)
+        {
+            entry.active_calls = entry.active_calls.saturating_sub(1);
+        }
     }
 }
 
@@ -206,4 +270,9 @@ fn env_positive_f64(name: &str, default: f64) -> f64 {
         },
         Err(_) => default,
     }
+}
+
+fn monotonic_seconds() -> f64 {
+    static START: OnceLock<Instant> = OnceLock::new();
+    START.get_or_init(Instant::now).elapsed().as_secs_f64()
 }

@@ -17,7 +17,7 @@
 //!
 //! 1. **Fresh-ns** ([`RunMode::FreshNs`]): `unshare(CLONE_NEWUSER|CLONE_NEWNS|…)` →
 //!    write `uid_map`/`gid_map` → mount the overlay (via the [`mount::KernelMountPort`]
-//!    port, fulfilled by `eos-overlay`'s `kernel_mount`) → `execve` the tool → collect
+//!    port, fulfilled by `eos-overlay`'s `kernel_mount`) → spawn the tool → construct
 //!    the result JSON → cleanup. One tool call per fresh namespace.
 //! 2. **Setns** ([`RunMode::SetNs`]): per isolated call, `setns()` into the
 //!    ns-holder's pre-opened namespace FDs (`user`, then `mnt`, then `pid`, then

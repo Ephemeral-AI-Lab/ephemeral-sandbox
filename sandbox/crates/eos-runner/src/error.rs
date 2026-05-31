@@ -2,10 +2,10 @@
 //!
 //! Per the workspace non-negotiables: library errors are `thiserror` enums with
 //! lowercase, punctuation-free messages and `#[from]` source conversions. The
-//! kinds below mirror the failure surfaces of the Python helpers — the
-//! `namespace_entrypoint_bad_json` / `namespace_entrypoint_bad_result` shapes
-//! (`overlay/namespace_runner.py:182-205`) and the syscall errnos raised by
-//! `setns` / `unshare` (`isolated_workspace/scripts/_setns_libc.py:18-25`).
+//! kinds below mirror the active runner failure surfaces: invalid requests,
+//! child process failures, overlay mount failures, timeouts, and the syscall
+//! errnos raised by `setns` / `unshare`
+//! (`isolated_workspace/scripts/_setns_libc.py:18-25`).
 
 use thiserror::Error;
 
@@ -33,17 +33,6 @@ pub enum RunnerError {
     #[error("child process failed")]
     Child(#[source] std::io::Error),
 
-    /// The tool ran but its result JSON could not be read or parsed (the
-    /// `namespace_entrypoint_bad_json` / `bad_result` paths).
-    /// `// PORT backend/src/sandbox/overlay/namespace_runner.py:182-205`
-    #[error("namespace entrypoint produced an unreadable result")]
-    BadResult(#[source] serde_json::Error),
-
-    /// The tool call was cancelled; the runner killed the whole process group.
-    /// `// PORT backend/src/sandbox/overlay/namespace_runner.py:172` (on_cancel)
-    #[error("tool call cancelled")]
-    Cancelled,
-
     /// The tool call exceeded its timeout; the group was SIGKILLed.
     /// `// PORT backend/src/sandbox/overlay/namespace_runner.py:265-269`
     #[error("tool call timed out")]
@@ -65,11 +54,5 @@ impl From<std::io::Error> for RunnerError {
 impl From<eos_overlay::OverlayError> for RunnerError {
     fn from(err: eos_overlay::OverlayError) -> Self {
         Self::Overlay(err)
-    }
-}
-
-impl From<serde_json::Error> for RunnerError {
-    fn from(err: serde_json::Error) -> Self {
-        Self::BadResult(err)
     }
 }

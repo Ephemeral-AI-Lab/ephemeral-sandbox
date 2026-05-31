@@ -1,11 +1,11 @@
-//! Fresh-namespace mode: `unshare` → `uid_map` → mount overlay → `execve`.
+//! Fresh-namespace mode: `unshare` → `uid_map` → mount overlay → spawn tool.
 //!
 //! This is the daemon's standard per-tool-call path. The Python target spawns
 //! `unshare -Urm python -m sandbox.overlay.namespace_entrypoint <payload>` with
 //! `start_new_session=True`; the Rust port does the `unshare(CLONE_NEWUSER|
 //! CLONE_NEWNS)` itself in this single-threaded child, writes the uid/gid maps,
-//! delegates the overlay mount to [`KernelMountPort`], then `execve`s the tool —
-//! all in one process group so cancel can `killpg` the whole tree.
+//! delegates the overlay mount to [`KernelMountPort`], then spawns the tool in
+//! its own process group so timeout cleanup can kill the whole tree.
 //!
 //! The syscall boundary is kept behind safe `rustix` wrappers here. If this
 //! later needs a raw libc gap, the block must carry a focused `// SAFETY:` note
@@ -50,9 +50,9 @@ const CHILD_WAIT_POLL: Duration = Duration::from_millis(5);
 ///
 /// # Safety (future)
 ///
-/// Will call `unshare(2)`, `execve(2)`, and `setsid(2)`. These require the
-/// process to be single-threaded (the crate-level invariant) and the caller to
-/// own the namespace it creates.
+/// Will call `setsid(2)` and `unshare(2)`, then spawn a child in the new
+/// namespace. The namespace syscalls require the process to be single-threaded
+/// (the crate-level invariant) and the caller to own the namespace it creates.
 // PORT backend/src/sandbox/overlay/namespace_runner.py:72 — _run_tool_call_in_fresh_namespace
 // PORT backend/src/sandbox/overlay/namespace_runner.py:227-250 — _run_namespace_entrypoint_async (unshare -Urm, start_new_session=True)
 // PORT backend/src/sandbox/overlay/namespace_entrypoint.py:92-135 — mount_and_execute_tool_payload (mount overlay then exec)
@@ -64,27 +64,34 @@ pub fn run_fresh_ns(
     // PORT backend/src/sandbox/overlay/namespace_runner.py:72-135 — full fresh-ns
     //   sequence: unshare(CLONE_NEWUSER|CLONE_NEWNS) on this single-threaded child,
     //   write /proc/self/{uid_map,setgroups,gid_map}, KernelMountPort::mount_overlay
-    //   at workspace_root, setsid + execve the tool, then read the result JSON and
-    //   reap the process group on cancel/timeout.
+    //   at workspace_root, setsid + spawn the tool, then build the result JSON
+    //   and reap the process group on timeout.
     enter_fresh_namespace()?;
+    let upperdir = request
+        .upperdir
+        .as_ref()
+        .ok_or_else(|| RunnerError::InvalidRequest("fresh-ns requires upperdir".to_owned()))?;
+    let workdir = request
+        .workdir
+        .as_ref()
+        .ok_or_else(|| RunnerError::InvalidRequest("fresh-ns requires workdir".to_owned()))?;
+    let output_dir = upperdir
+        .parent()
+        .ok_or_else(|| {
+            RunnerError::InvalidRequest("fresh-ns upperdir must have a parent".to_owned())
+        })?
+        .to_path_buf();
+
     let mount_start = Instant::now();
-    let mount_guard =
-        mount.mount_overlay(&MountInputs {
-            workspace_root: request.workspace_root.0.clone(),
-            layer_paths: request.layer_paths.clone(),
-            upperdir: request.upperdir.clone().ok_or_else(|| {
-                RunnerError::InvalidRequest("fresh-ns requires upperdir".to_owned())
-            })?,
-            workdir: request.workdir.clone().ok_or_else(|| {
-                RunnerError::InvalidRequest("fresh-ns requires workdir".to_owned())
-            })?,
-        })?;
+    let _mount_guard = mount.mount_overlay(&MountInputs {
+        workspace_root: request.workspace_root.0.clone(),
+        layer_paths: request.layer_paths.clone(),
+        upperdir: upperdir.clone(),
+        workdir: workdir.clone(),
+    })?;
     let mount_s = mount_start.elapsed().as_secs_f64();
 
-    let run_start = Instant::now();
-    let result = execute_tool(request, mount_s, run_start)?;
-    drop(mount_guard);
-    Ok(result)
+    execute_tool(request, mount_s, output_dir, Instant::now())
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -126,6 +133,7 @@ fn enter_fresh_namespace() -> Result<(), RunnerError> {
 fn execute_tool(
     request: &RunRequest,
     mount_s: f64,
+    output_dir: PathBuf,
     run_start: Instant,
 ) -> Result<RunResult, RunnerError> {
     if request.tool_call.verb != "shell" {
@@ -141,11 +149,6 @@ fn execute_tool(
 
     let argv = shell_argv(&request.tool_call.args)?;
     let cwd = shell_cwd(request)?;
-    let output_dir = request
-        .upperdir
-        .as_ref()
-        .and_then(|path| path.parent().map(Path::to_path_buf))
-        .unwrap_or_else(std::env::temp_dir);
     fs::create_dir_all(&output_dir).map_err(RunnerError::Child)?;
     let stdout_path = output_dir.join(format!("{}.stdout", request.tool_call.invocation_id));
     let stderr_path = output_dir.join(format!("{}.stderr", request.tool_call.invocation_id));

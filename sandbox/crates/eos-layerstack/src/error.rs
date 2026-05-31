@@ -37,6 +37,18 @@ pub enum LayerStackError {
     #[error("could not allocate a unique layer id")]
     LayerIdAllocation,
 
+    /// The active manifest could not be parsed or violated storage invariants.
+    #[error("manifest error: {0}")]
+    Manifest(String),
+
+    /// The layer-stack workspace binding is missing or invalid.
+    #[error("workspace binding error: {0}")]
+    WorkspaceBinding(String),
+
+    /// A manifest-referenced layer no longer contains the requested data.
+    #[error("layer-stack storage error: {0}")]
+    Storage(String),
+
     /// A CAS path / manifest value failed to parse or validate.
     #[error(transparent)]
     Cas(#[from] CasError),

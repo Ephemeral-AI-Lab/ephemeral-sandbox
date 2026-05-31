@@ -40,6 +40,7 @@ pub mod port;
 pub mod squash;
 pub mod stack;
 pub mod storage_lock;
+pub mod workspace_binding;
 
 // CAS types are owned by eos-protocol; re-export so downstream crates use ONE
 // set of hashes/types and never redefine them.
@@ -58,6 +59,9 @@ pub use squash::{
 };
 pub use stack::{LayerStack, Lease, MergedView};
 pub use storage_lock::{StorageWriterLockLease, STORAGE_WRITER_LOCK_FILE};
+pub use workspace_binding::{
+    read_workspace_binding, require_workspace_binding, WorkspaceBinding, WORKSPACE_BINDING_FILE,
+};
 
 /// Auto-squash depth ceiling — distinct from the 16-layer overlay mount ceiling.
 /// `// PORT backend/src/sandbox/occ/service.py:34 — AUTO_SQUASH_MAX_DEPTH`
