@@ -1,0 +1,1106 @@
+{
+  "baseline_cp0_python_process_start_ms": {
+    "count": 10,
+    "max": 455.00637497752905,
+    "min": 414.62837503058836,
+    "p50": 428.128374973312,
+    "p95": 440.6974170124158,
+    "samples_ms": [
+      414.62837503058836,
+      422.57912503555417,
+      423.64150000503287,
+      425.43395899701864,
+      426.51637498056516,
+      429.7403749660589,
+      435.3225420345552,
+      435.41737500345334,
+      440.6974170124158,
+      455.00637497752905
+    ]
+  },
+  "baseline_cp0_warm_heartbeat_ms": {
+    "count": 10,
+    "max": 3.8579999818466604,
+    "min": 0.8416249766014516,
+    "p50": 1.1026874708477408,
+    "p95": 1.9927499815821648,
+    "samples_ms": [
+      0.8416249766014516,
+      0.9089999948628247,
+      1.0092079755850136,
+      1.0179999517276883,
+      1.0693749645724893,
+      1.1359999771229923,
+      1.1802079970948398,
+      1.600208051968366,
+      1.9927499815821648,
+      3.8579999818466604
+    ]
+  },
+  "baseline_cp1_gate_pass": true,
+  "baseline_report": "/Users/yifanxu/machine_learning/LoVC/EphemeralOS/bench/baseline-amd64.json",
+  "environment": {
+    "architecture": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "x86_64"
+    },
+    "cargo": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "missing"
+    },
+    "kernel": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "6.10.14-linuxkit"
+    },
+    "max_user_namespaces": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "15655"
+    },
+    "os_release": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "PRETTY_NAME=\"Ubuntu 22.04.4 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"22.04\"\nVERSION=\"22.04.4 LTS (Jammy Jellyfish)\"\nVERSION_CODENAME=jammy\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=jammy"
+    },
+    "overlay_filesystem": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "nodev\toverlay"
+    },
+    "overlay_in_userns_probe": {
+      "exit_code": 0,
+      "samples": {
+        "count": 3,
+        "max": 428.45850001322106,
+        "min": 421.47750000003725,
+        "p50": 428.13670804025605,
+        "p95": 428.13670804025605,
+        "samples_ms": [
+          421.47750000003725,
+          428.13670804025605,
+          428.45850001322106
+        ]
+      },
+      "stderr": "",
+      "stdout": "",
+      "success": true
+    },
+    "python": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "Python 3.10.14"
+    },
+    "rustc": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "missing"
+    },
+    "scratch_mount": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "tmpfs  rw,nosuid,nodev,noexec,relatime,size=2097152k"
+    },
+    "userns_clone": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    }
+  },
+  "eosd": {
+    "local_path": "/Users/yifanxu/machine_learning/LoVC/EphemeralOS/sandbox/dist/eosd-linux-amd64",
+    "remote_version": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "eosd 0.1.0"
+    },
+    "sha256": "438d0bde3b5f615c451d5e850fe163818a37262d7201de2e5e34dc743beb77b6",
+    "size_bytes": 683360
+  },
+  "gates": {
+    "all_perf_samples_ok": true,
+    "av_shell_result": true,
+    "av_timeout_cleanup": true,
+    "cp2a_internal_mount_only_20x_vs_cp0_python_start": true,
+    "cp2a_internal_mount_plus_tool_20x_vs_cp0_python_start": false,
+    "cp2b_host_wall_no_regression_vs_cp0_python_start": true
+  },
+  "image": "sweevo-dask__dask-10042:latest",
+  "mode": "phase1-fresh-ns-dask",
+  "perf_rows": [
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 325.85333299357444,
+      "mount_ms": 1.5060419999999999,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-00/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-00/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001506042,
+            "workspace.tool_s": 0.28990025
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-00",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-00",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 289.90025,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 328.6817080224864,
+      "mount_ms": 1.492916,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-01/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-01/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001492916,
+            "workspace.tool_s": 0.289662459
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-01",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-01",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 289.66245899999996,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 336.35145804146305,
+      "mount_ms": 1.452833,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-02/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-02/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001452833,
+            "workspace.tool_s": 0.299769625
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-02",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-02",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 299.76962499999996,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 342.48087502783164,
+      "mount_ms": 1.559625,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-03/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-03/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001559625,
+            "workspace.tool_s": 0.297285625
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-03",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-03",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 297.285625,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 324.0117499954067,
+      "mount_ms": 1.505416,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-04/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-04/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001505416,
+            "workspace.tool_s": 0.29145775
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-04",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-04",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 291.45775000000003,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 329.8032499733381,
+      "mount_ms": 1.43975,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-05/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-05/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.00143975,
+            "workspace.tool_s": 0.296367958
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-05",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-05",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 296.367958,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 333.6251250002533,
+      "mount_ms": 1.5727499999999999,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-06/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-06/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.00157275,
+            "workspace.tool_s": 0.294431708
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-06",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-06",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 294.431708,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 333.0454590031877,
+      "mount_ms": 1.482333,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-07/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-07/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001482333,
+            "workspace.tool_s": 0.2921965
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-07",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-07",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 292.1965,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 341.09820902813226,
+      "mount_ms": 1.501583,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-08/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-08/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001501583,
+            "workspace.tool_s": 0.293117334
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-08",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-08",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 293.117334,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 328.05654196999967,
+      "mount_ms": 1.527542,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-09/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-09/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001527542,
+            "workspace.tool_s": 0.294603542
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-09",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-09",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 294.603542,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 326.01249997969717,
+      "mount_ms": 1.501708,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-10/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-10/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001501708,
+            "workspace.tool_s": 0.291120834
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-10",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-10",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 291.120834,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 348.0585420038551,
+      "mount_ms": 1.538125,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-11/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-11/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001538125,
+            "workspace.tool_s": 0.294283583
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-11",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-11",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 294.283583,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 332.85820798482746,
+      "mount_ms": 1.517208,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-12/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-12/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001517208,
+            "workspace.tool_s": 0.288344292
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-12",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-12",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 288.344292,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 347.7640000055544,
+      "mount_ms": 1.518541,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-13/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-13/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001518541,
+            "workspace.tool_s": 0.303073083
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-13",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-13",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 303.073083,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 332.38066703779623,
+      "mount_ms": 1.523625,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-14/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-14/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001523625,
+            "workspace.tool_s": 0.290887084
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-14",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-14",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 290.887084,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 329.3985420023091,
+      "mount_ms": 1.6005,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-15/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-15/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.0016005,
+            "workspace.tool_s": 0.295308209
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-15",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-15",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 295.308209,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 348.73333299765363,
+      "mount_ms": 1.48525,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-16/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-16/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.00148525,
+            "workspace.tool_s": 0.299634917
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-16",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-16",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 299.634917,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 338.4429579600692,
+      "mount_ms": 1.694667,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-17/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-17/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001694667,
+            "workspace.tool_s": 0.295356167
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-17",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-17",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 295.356167,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 369.7329999995418,
+      "mount_ms": 1.472833,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-18/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-18/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.001472833,
+            "workspace.tool_s": 0.329653833
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-18",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-18",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 329.653833,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    },
+    {
+      "command": "true",
+      "exit_code": 0,
+      "host_wall_ms": 331.10637502977625,
+      "mount_ms": 1.4537499999999999,
+      "output_path": "/eos-mount-scratch/phase1/runs/perf-19/result.json",
+      "request_path": "/eos-mount-scratch/phase1/runs/perf-19/request.json",
+      "result": {
+        "exit_code": 0,
+        "tool_result": {
+          "changed_path_kinds": {},
+          "changed_paths": [],
+          "conflict": null,
+          "conflict_reason": null,
+          "error": null,
+          "exit_code": 0,
+          "mutation_source": "",
+          "status": "ok",
+          "stderr": "",
+          "stdout": "",
+          "success": true,
+          "timings": {
+            "workspace.mount_s": 0.00145375,
+            "workspace.tool_s": 0.29528275
+          },
+          "warnings": [],
+          "workspace": "ephemeral"
+        }
+      },
+      "run_name": "perf-19",
+      "run_root": "/eos-mount-scratch/phase1/runs/perf-19",
+      "runner_exit_code": 0,
+      "stderr": "",
+      "stdout": "",
+      "tool_exit_code": 0,
+      "tool_ms": 295.28274999999996,
+      "tool_stderr": "",
+      "tool_stdout": ""
+    }
+  ],
+  "performance": {
+    "cp0_python_process_start_p50_ms": 428.128374973312,
+    "host_wall_ms": {
+      "count": 20,
+      "max": 369.7329999995418,
+      "min": 324.0117499954067,
+      "p50": 332.9518334940076,
+      "p95": 348.73333299765363,
+      "samples_ms": [
+        324.0117499954067,
+        325.85333299357444,
+        326.01249997969717,
+        328.05654196999967,
+        328.6817080224864,
+        329.3985420023091,
+        329.8032499733381,
+        331.10637502977625,
+        332.38066703779623,
+        332.85820798482746,
+        333.0454590031877,
+        333.6251250002533,
+        336.35145804146305,
+        338.4429579600692,
+        341.09820902813226,
+        342.48087502783164,
+        347.7640000055544,
+        348.0585420038551,
+        348.73333299765363,
+        369.7329999995418
+      ]
+    },
+    "host_wall_vs_cp0_p50_ratio": 1.2858567873932953,
+    "internal_mount_only_vs_cp0_p50_ratio": 284.3329543186802,
+    "internal_mount_plus_tool_vs_cp0_p50_ratio": 1.4460485635679408,
+    "ok_samples": 20,
+    "runner_mount_ms": {
+      "count": 20,
+      "max": 1.694667,
+      "min": 1.43975,
+      "p50": 1.505729,
+      "p95": 1.6005,
+      "samples_ms": [
+        1.43975,
+        1.452833,
+        1.4537499999999999,
+        1.472833,
+        1.482333,
+        1.48525,
+        1.492916,
+        1.501583,
+        1.501708,
+        1.505416,
+        1.5060419999999999,
+        1.517208,
+        1.518541,
+        1.523625,
+        1.527542,
+        1.538125,
+        1.559625,
+        1.5727499999999999,
+        1.6005,
+        1.694667
+      ]
+    },
+    "runner_mount_plus_tool_ms": {
+      "count": 20,
+      "max": 331.126666,
+      "min": 289.8615,
+      "p50": 296.067771,
+      "p95": 304.591624,
+      "samples_ms": [
+        289.8615,
+        291.15537499999994,
+        291.406292,
+        292.410709,
+        292.622542,
+        292.96316600000006,
+        293.678833,
+        294.618917,
+        295.821708,
+        296.004458,
+        296.131084,
+        296.7365,
+        296.908709,
+        297.050834,
+        297.807708,
+        298.84524999999996,
+        301.120167,
+        301.22245799999996,
+        304.591624,
+        331.126666
+      ]
+    },
+    "runner_tool_ms": {
+      "count": 20,
+      "max": 329.653833,
+      "min": 288.344292,
+      "p50": 294.517625,
+      "p95": 303.073083,
+      "samples_ms": [
+        288.344292,
+        289.66245899999996,
+        289.90025,
+        290.887084,
+        291.120834,
+        291.45775000000003,
+        292.1965,
+        293.117334,
+        294.283583,
+        294.431708,
+        294.603542,
+        295.28274999999996,
+        295.308209,
+        295.356167,
+        296.367958,
+        297.285625,
+        299.634917,
+        299.76962499999996,
+        303.073083,
+        329.653833
+      ]
+    }
+  },
+  "run_id": "local-24067e7f748b",
+  "samples": 20,
+  "sandbox_id": "46e8ad1d37c6615ade889a491556ac29d57465c2271a6a695326a48d0a7ecbce",
+  "scratch_io_note": "Docker archive API could not address /eos-mount-scratch tmpfs; harness used in-container exec for scratch request/result files.",
+  "smoke": {
+    "command": "set -eu; cat hello.txt; printf ok > generated.txt; cat generated.txt",
+    "exit_code": 0,
+    "host_wall_ms": 350.2453750115819,
+    "mount_ms": 1.549833,
+    "output_path": "/eos-mount-scratch/phase1/runs/smoke/result.json",
+    "request_path": "/eos-mount-scratch/phase1/runs/smoke/request.json",
+    "result": {
+      "exit_code": 0,
+      "tool_result": {
+        "changed_path_kinds": {},
+        "changed_paths": [],
+        "conflict": null,
+        "conflict_reason": null,
+        "error": null,
+        "exit_code": 0,
+        "mutation_source": "",
+        "status": "ok",
+        "stderr": "",
+        "stdout": "hello-from-layer\nok",
+        "success": true,
+        "timings": {
+          "workspace.mount_s": 0.001549833,
+          "workspace.tool_s": 0.31050675
+        },
+        "warnings": [],
+        "workspace": "ephemeral"
+      }
+    },
+    "run_name": "smoke",
+    "run_root": "/eos-mount-scratch/phase1/runs/smoke",
+    "runner_exit_code": 0,
+    "stderr": "",
+    "stdout": "",
+    "tool_exit_code": 0,
+    "tool_ms": 310.50675,
+    "tool_stderr": "",
+    "tool_stdout": "hello-from-layer\nok"
+  },
+  "smoke_checks": {
+    "mount_leak_free_parent_namespace": true,
+    "mountinfo_testbed_after_smoke": "",
+    "tool_stdout_ok": true,
+    "upper_generated": "ok",
+    "upper_generated_ok": true
+  },
+  "timeout": {
+    "command": "sleep 5",
+    "exit_code": 1,
+    "host_wall_ms": 255.58012496912852,
+    "output_path": "/eos-mount-scratch/phase1/runs/timeout/result.json",
+    "request_path": "/eos-mount-scratch/phase1/runs/timeout/request.json",
+    "run_name": "timeout",
+    "run_root": "/eos-mount-scratch/phase1/runs/timeout",
+    "stderr": "Error: ns-runner failed\n\nCaused by:\n    tool call timed out\n",
+    "stdout": ""
+  },
+  "timeout_checks": {
+    "expected_nonzero_exit": true,
+    "lingering_sleep_stdout": "",
+    "mount_leak_free_parent_namespace": true,
+    "mountinfo_testbed_after_timeout": "",
+    "no_lingering_sleep": true,
+    "stderr_mentions_timeout": true
+  }
+}

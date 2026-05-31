@@ -29,6 +29,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 #[cfg(target_os = "linux")]
+use rustix::io::Errno;
+#[cfg(target_os = "linux")]
 use rustix::mount::{mount_change, MountPropagationFlags};
 #[cfg(target_os = "linux")]
 use rustix::process::{kill_process_group, setsid, Pid, Signal};
@@ -40,6 +42,9 @@ use crate::mount::KernelMountPort;
 #[cfg(target_os = "linux")]
 use crate::mount::MountInputs;
 use crate::request::{RunRequest, RunResult};
+
+#[cfg(target_os = "linux")]
+const CHILD_WAIT_POLL: Duration = Duration::from_millis(5);
 
 /// Run one tool call in a freshly-unshared namespace.
 ///
@@ -95,7 +100,14 @@ fn enter_fresh_namespace() -> Result<(), RunnerError> {
     let host_uid = rustix::process::getuid().as_raw();
     let host_gid = rustix::process::getgid().as_raw();
 
-    setsid().map_syscall()?;
+    if let Err(err) = setsid() {
+        // Docker exec may launch the runner as a process-group leader. In that
+        // case setsid(2) returns EPERM, but the spawned tool below still gets
+        // its own process group for timeout/cancel cleanup.
+        if err != Errno::PERM {
+            return Err(RunnerError::Syscall(std::io::Error::from(err)));
+        }
+    }
     unshare(UnshareFlags::NEWUSER | UnshareFlags::NEWNS).map_syscall()?;
     write_if_exists("/proc/self/setgroups", "deny\n")?;
     fs::write("/proc/self/uid_map", format!("0 {host_uid} 1\n")).map_err(RunnerError::Syscall)?;
@@ -202,7 +214,7 @@ fn wait_for_child(
             let _ = child.wait();
             return Err(RunnerError::TimedOut);
         }
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(CHILD_WAIT_POLL);
     }
 }
 
