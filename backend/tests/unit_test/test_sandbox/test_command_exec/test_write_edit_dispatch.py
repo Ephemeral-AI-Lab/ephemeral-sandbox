@@ -34,6 +34,10 @@ def test_op_table_dispatches_data_ops_to_unified_handlers() -> None:
     assert server.OP_TABLE["api.read_file"] is _tool_handler("read_file")
     assert server.OP_TABLE["api.v1.read_file"] is _tool_handler("read_file")
     assert server.OP_TABLE["api.v1.shell"] is _tool_handler("shell")
+    assert server.OP_TABLE["api.v1.exec_command"] is builtin_operations.exec_command
+    assert server.OP_TABLE["api.v1.pty.write_stdin"] is builtin_operations.write_pty_stdin
+    assert server.OP_TABLE["api.v1.pty.progress"] is builtin_operations.pty_progress
+    assert server.OP_TABLE["api.v1.pty.cancel"] is builtin_operations.pty_cancel
     assert server.OP_TABLE["api.layer_metrics"] is builtin_operations.layer_metrics
 
 

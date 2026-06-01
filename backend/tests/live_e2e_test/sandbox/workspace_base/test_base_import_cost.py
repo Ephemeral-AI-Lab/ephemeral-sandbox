@@ -95,7 +95,7 @@ async def test_base_import_cost_metrics(
         assert binding["active_manifest_version"] == 1
         assert binding["base_root_hash"] == binding["active_root_hash"]
         assert binding["workspace_root"] == WORKSPACE_ROOT
-        assert str(binding["layer_stack_root"]).startswith("/tmp/")
+        assert str(binding["layer_stack_root"]).startswith("/eos-mount-scratch/")
         assert not str(binding["layer_stack_root"]).startswith(WORKSPACE_ROOT)
 
         exists = await handle.raw_exec(

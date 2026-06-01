@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from sandbox.api.transport import (
     DAEMON_OP_EDIT_FILE,
+    DAEMON_OP_EXEC_COMMAND,
     DAEMON_OP_INFLIGHT_COUNT,
     DAEMON_OP_INVOCATION_CANCEL,
     DAEMON_OP_INVOCATION_HEARTBEAT,
     DAEMON_OP_READ_FILE,
     DAEMON_OP_SHELL,
+    DAEMON_OP_PTY_CANCEL,
+    DAEMON_OP_PTY_COLLECT_COMPLETED,
+    DAEMON_OP_PTY_PROGRESS,
+    DAEMON_OP_PTY_WRITE_STDIN,
     DAEMON_OP_WRITE_FILE,
     SandboxTransport,
 )
@@ -37,6 +42,11 @@ def test_public_daemon_ops_use_api_v1_names() -> None:
     assert DAEMON_OP_WRITE_FILE == "api.v1.write_file"
     assert DAEMON_OP_EDIT_FILE == "api.v1.edit_file"
     assert DAEMON_OP_SHELL == "api.v1.shell"
+    assert DAEMON_OP_EXEC_COMMAND == "api.v1.exec_command"
+    assert DAEMON_OP_PTY_WRITE_STDIN == "api.v1.pty.write_stdin"
+    assert DAEMON_OP_PTY_PROGRESS == "api.v1.pty.progress"
+    assert DAEMON_OP_PTY_CANCEL == "api.v1.pty.cancel"
+    assert DAEMON_OP_PTY_COLLECT_COMPLETED == "api.v1.pty.collect_completed"
     assert DAEMON_OP_INVOCATION_CANCEL == "api.v1.cancel"
     assert DAEMON_OP_INVOCATION_HEARTBEAT == "api.v1.heartbeat"
     assert DAEMON_OP_INFLIGHT_COUNT == "api.v1.inflight_count"

@@ -119,6 +119,7 @@ dependencies = [
  "eos-plugin",
  "eos-protocol",
  "eos-runner",
+ "nix",
  "serde_json",
  "sha2",
  "thiserror",
@@ -159,6 +160,7 @@ dependencies = [
  "rustix 0.38.44",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror",
 ]
 

@@ -15,7 +15,7 @@
 //! `// PORT backend/src/sandbox/daemon/rpc/dispatcher.py:60-160 — dispatch_envelope_async`
 //! `// PORT backend/src/sandbox/daemon/rpc/dispatcher.py:404-449 — _register_builtin_operations / OP_TABLE`
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -25,7 +25,10 @@ use std::time::Instant;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use eos_layerstack::{read_workspace_binding, require_workspace_binding, LayerStack, MergedView};
+use eos_layerstack::{
+    build_workspace_base, ensure_workspace_base, read_workspace_binding, require_workspace_binding,
+    LayerStack, MergedView, WorkspaceBinding,
+};
 use eos_occ::{
     ChangesetResult, CommitQueue, CommitTransactionPort, FileResult, OccRouteProvider, OccService,
     OccStatus, PreparedChangeset, PublishConflict, Route,
@@ -34,7 +37,7 @@ use eos_overlay::{allocate_overlay_writable_dirs, capture_upperdir, overlay_writ
 use eos_protocol::{
     apply_search_replace,
     models::{SearchReplaceEdit, MAX_READ_BYTES},
-    ErrorKind, Intent, LayerChange, LayerPath, Request, SearchReplaceError,
+    ErrorKind, Intent, LayerChange, LayerPath, Manifest, Request, SearchReplaceError,
 };
 use eos_runner::{RunMode, RunRequest, RunResult, ToolCall, WorkspaceRoot};
 
@@ -95,6 +98,9 @@ impl OpTable {
         table.register("api.v1.heartbeat", op_heartbeat);
         table.register("api.v1.inflight_count", op_inflight_count);
         table.register("api.layer_metrics", op_layer_metrics);
+        table.register("api.ensure_workspace_base", op_ensure_workspace_base);
+        table.register("api.build_workspace_base", op_build_workspace_base);
+        table.register("api.workspace_binding", op_workspace_binding);
         table.register("api.audit.pull", op_audit_pull);
         table.register("api.audit.snapshot", op_audit_snapshot);
         table.register("api.audit.reset_floor", op_audit_reset_floor);
@@ -109,6 +115,14 @@ impl OpTable {
         table.register("api.grep", op_grep);
         table.register("api.v1.grep", op_grep);
         table.register("api.v1.shell", op_shell);
+        table.register("api.v1.exec_command", crate::command::op_exec_command);
+        table.register("api.v1.pty.write_stdin", crate::command::op_pty_write_stdin);
+        table.register("api.v1.pty.progress", crate::command::op_pty_progress);
+        table.register("api.v1.pty.cancel", crate::command::op_pty_cancel);
+        table.register(
+            "api.v1.pty.collect_completed",
+            crate::command::op_pty_collect_completed,
+        );
         table
     }
 
@@ -280,6 +294,59 @@ fn op_layer_metrics(args: &Value, _context: DispatchContext<'_>) -> Result<Value
         "workspace_bound": binding.is_some(),
         "workspace_root": binding.as_ref().map(|binding| binding.workspace_root.as_str()).unwrap_or(""),
         "base_root_hash": binding.as_ref().map(|binding| binding.base_root_hash.as_str()).unwrap_or(""),
+    }))
+}
+
+fn op_build_workspace_base(
+    args: &Value,
+    _context: DispatchContext<'_>,
+) -> Result<Value, DaemonError> {
+    let total_start = Instant::now();
+    let root = PathBuf::from(require_string(args, "layer_stack_root")?);
+    let workspace_root = PathBuf::from(require_string(args, "workspace_root")?);
+    let reset = args.get("reset").and_then(Value::as_bool).unwrap_or(false);
+    let built = build_workspace_base(&root, &workspace_root, reset)?;
+    let mut timings = timings_to_value_map(&built.timings);
+    timings.insert(
+        "api.workspace_base.total_s".to_owned(),
+        json!(total_start.elapsed().as_secs_f64()),
+    );
+    let binding = binding_to_value(&built.binding)?;
+    Ok(json!({
+        "success": true,
+        "created": true,
+        "binding": binding,
+        "timings": Value::Object(timings),
+    }))
+}
+
+fn op_ensure_workspace_base(
+    args: &Value,
+    _context: DispatchContext<'_>,
+) -> Result<Value, DaemonError> {
+    let total_start = Instant::now();
+    let root = PathBuf::from(require_string(args, "layer_stack_root")?);
+    let workspace_root = PathBuf::from(require_string(args, "workspace_root")?);
+    let (binding, created) = ensure_workspace_base(&root, &workspace_root)?;
+    let binding = binding_to_value(&binding)?;
+    let timings = json!({
+        "api.workspace_base.total_s": total_start.elapsed().as_secs_f64(),
+    });
+    Ok(json!({
+        "success": true,
+        "created": created,
+        "binding": binding,
+        "timings": timings,
+    }))
+}
+
+fn op_workspace_binding(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
+    let root = PathBuf::from(require_string(args, "layer_stack_root")?);
+    let binding = require_workspace_binding(&root)?;
+    let binding = binding_to_value(&binding)?;
+    Ok(json!({
+        "success": true,
+        "binding": binding,
     }))
 }
 
@@ -525,7 +592,10 @@ fn op_edit_file(args: &Value, _context: DispatchContext<'_>) -> Result<Value, Da
 /// `api.v1.shell` — fresh overlay namespace, capture upperdir, publish via OCC.
 // PORT backend/src/sandbox/ephemeral_workspace/pipeline.py:130-202 — run_tool_call overlay body
 fn op_shell(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
-    let total_start = Instant::now();
+    run_shell_overlay(args, Instant::now())
+}
+
+pub(crate) fn run_shell_overlay(args: &Value, total_start: Instant) -> Result<Value, DaemonError> {
     let root = PathBuf::from(require_string(args, "layer_stack_root")?);
     let command = require_shell_command(args)?;
     let cwd = args
@@ -599,6 +669,9 @@ fn op_shell(args: &Value, _context: DispatchContext<'_>) -> Result<Value, Daemon
                 )
             })
             .collect();
+        let route_start = Instant::now();
+        let route_metrics = occ_route_metrics(&root, &changes)?;
+        let route_s = route_start.elapsed().as_secs_f64();
         let base_hashes = base_hashes_for_snapshot(&root, &lease.manifest, &changes)?;
         let occ_start = Instant::now();
         let changeset = apply_occ_changeset(
@@ -612,6 +685,8 @@ fn op_shell(args: &Value, _context: DispatchContext<'_>) -> Result<Value, Daemon
             runner,
             changeset,
             path_kinds,
+            route_metrics,
+            route_s,
             capture_s,
             occ_s,
         })
@@ -627,6 +702,12 @@ fn op_shell(args: &Value, _context: DispatchContext<'_>) -> Result<Value, Daemon
         json!(shell.capture_s),
     );
     timings.insert("command_exec.occ_apply_s".to_owned(), json!(shell.occ_s));
+    insert_occ_route_timings(
+        &mut timings,
+        shell.route_metrics,
+        shell.route_s,
+        shell.occ_s,
+    );
     timings.insert(
         "api.shell.total_s".to_owned(),
         json!(total_start.elapsed().as_secs_f64()),
@@ -750,12 +831,33 @@ fn require_string(args: &Value, key: &str) -> Result<String, DaemonError> {
     Ok(value)
 }
 
+fn binding_to_value(binding: &WorkspaceBinding) -> Result<Value, DaemonError> {
+    serde_json::to_value(binding).map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))
+}
+
+fn timings_to_value_map(
+    timings: &std::collections::BTreeMap<String, f64>,
+) -> serde_json::Map<String, Value> {
+    timings
+        .iter()
+        .map(|(key, value)| (key.clone(), json!(value)))
+        .collect()
+}
+
 fn require_shell_command(args: &Value) -> Result<Value, DaemonError> {
     let Some(command) = args.get("command") else {
         return Err(DaemonError::InvalidEnvelope(
             "command is required".to_owned(),
         ));
     };
+    if let Some(value) = command.as_str() {
+        if value.trim().is_empty() {
+            return Err(DaemonError::InvalidEnvelope(
+                "command must be a non-empty string".to_owned(),
+            ));
+        }
+        return Ok(json!(value));
+    }
     if let Some(parts) = command.as_array() {
         if parts.is_empty() {
             return Err(DaemonError::InvalidEnvelope(
@@ -777,7 +879,7 @@ fn require_shell_command(args: &Value) -> Result<Value, DaemonError> {
         return Ok(Value::Array(parts.clone()));
     }
     Err(DaemonError::InvalidEnvelope(
-        "command must be an argv list; shell strings are not supported".to_owned(),
+        "command must be a string or argv list".to_owned(),
     ))
 }
 
@@ -790,8 +892,16 @@ struct ShellRunOutcome {
     runner: RunResult,
     changeset: ChangesetResult,
     path_kinds: Vec<(String, String)>,
+    route_metrics: OccRouteMetrics,
+    route_s: f64,
     capture_s: f64,
     occ_s: f64,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct OccRouteMetrics {
+    gated_path_count: usize,
+    direct_path_count: usize,
 }
 
 struct RunDirCleanup(PathBuf);
@@ -807,11 +917,35 @@ impl CommitTransactionPort for LayerStackCommitTransaction {
         &self,
         combined: &PreparedChangeset,
     ) -> std::result::Result<ChangesetResult, PublishConflict> {
+        let total_start = Instant::now();
         let mut stack = match LayerStack::open(self.root.clone()) {
             Ok(stack) => stack,
-            Err(err) => return Ok(failed_changeset(combined, err.to_string())),
+            Err(err) => {
+                let timings =
+                    commit_timings(combined, 0.0, 0.0, total_start.elapsed().as_secs_f64());
+                return Ok(failed_changeset_with_timings(
+                    combined,
+                    err.to_string(),
+                    timings,
+                ));
+            }
         };
-        let validations = validate_prepared(&stack, combined);
+        let validate_start = Instant::now();
+        let active = match stack.read_active_manifest() {
+            Ok(manifest) => manifest,
+            Err(err) => {
+                let timings =
+                    commit_timings(combined, 0.0, 0.0, total_start.elapsed().as_secs_f64());
+                return Ok(failed_changeset_with_timings(
+                    combined,
+                    err.to_string(),
+                    timings,
+                ));
+            }
+        };
+        let view = MergedView::new(self.root.clone());
+        let validations = validate_prepared(&self.root, &view, &active, combined);
+        let validate_s = validate_start.elapsed().as_secs_f64();
         if combined.atomic
             && validations
                 .iter()
@@ -834,6 +968,12 @@ impl CommitTransactionPort for LayerStackCommitTransaction {
                     })
                     .collect(),
                 published_manifest_version: None,
+                timings: commit_timings(
+                    combined,
+                    validate_s,
+                    0.0,
+                    total_start.elapsed().as_secs_f64(),
+                ),
             });
         }
         let publishable_paths = validations
@@ -851,31 +991,59 @@ impl CommitTransactionPort for LayerStackCommitTransaction {
             return Ok(ChangesetResult {
                 files: validations,
                 published_manifest_version: None,
+                timings: commit_timings(
+                    combined,
+                    validate_s,
+                    0.0,
+                    total_start.elapsed().as_secs_f64(),
+                ),
             });
         }
+        let publish_start = Instant::now();
         match stack.publish_layer(&publishable_changes) {
-            Ok(manifest) => Ok(ChangesetResult {
-                files: validations
-                    .into_iter()
-                    .map(|file| {
-                        if file.status.is_published() {
-                            FileResult {
-                                status: OccStatus::Committed,
-                                ..file
+            Ok(manifest) => {
+                let publish_s = publish_start.elapsed().as_secs_f64();
+                Ok(ChangesetResult {
+                    files: validations
+                        .into_iter()
+                        .map(|file| {
+                            if file.status.is_published() {
+                                FileResult {
+                                    status: OccStatus::Committed,
+                                    ..file
+                                }
+                            } else {
+                                file
                             }
-                        } else {
-                            file
-                        }
-                    })
-                    .collect(),
-                published_manifest_version: Some(manifest.version as u64),
-            }),
+                        })
+                        .collect(),
+                    published_manifest_version: Some(manifest.version as u64),
+                    timings: commit_timings(
+                        combined,
+                        validate_s,
+                        publish_s,
+                        total_start.elapsed().as_secs_f64(),
+                    ),
+                })
+            }
             Err(eos_layerstack::LayerStackError::ManifestConflict { found, .. }) => {
                 Err(PublishConflict {
                     observed_version: Some(found as u64),
                 })
             }
-            Err(err) => Ok(failed_changeset(combined, err.to_string())),
+            Err(err) => {
+                let publish_s = publish_start.elapsed().as_secs_f64();
+                Ok(failed_changeset_with_timings(
+                    combined,
+                    err.to_string(),
+                    commit_timings(
+                        combined,
+                        validate_s,
+                        publish_s,
+                        total_start.elapsed().as_secs_f64(),
+                    ),
+                ))
+            }
         }
     }
 }
@@ -916,7 +1084,7 @@ impl OccRouteProvider for LayerStackRouteProvider {
     }
 }
 
-fn apply_occ_changeset(
+pub(crate) fn apply_occ_changeset(
     root: &Path,
     snapshot_version: Option<u64>,
     changes: &[LayerChange],
@@ -924,6 +1092,71 @@ fn apply_occ_changeset(
 ) -> Result<ChangesetResult, DaemonError> {
     let service = occ_service_for_root(root)?;
     Ok(service.apply_changeset_with_base_hashes(changes, snapshot_version, true, base_hashes)?)
+}
+
+pub(crate) fn occ_route_metrics(
+    root: &Path,
+    changes: &[LayerChange],
+) -> Result<OccRouteMetrics, DaemonError> {
+    let stack = LayerStack::open(root.to_path_buf())?;
+    let ignore = match stack.read_bytes(".gitignore")? {
+        (Some(bytes), true) => {
+            String::from_utf8(bytes).map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))?
+        }
+        _ => String::new(),
+    };
+    let mut metrics = OccRouteMetrics::default();
+    for change in changes {
+        let path = change.path().as_str();
+        if path == ".git" || path.starts_with(".git/") {
+            continue;
+        }
+        if gitignore_matches(&ignore, path) {
+            metrics.direct_path_count += 1;
+        } else {
+            metrics.gated_path_count += 1;
+        }
+    }
+    Ok(metrics)
+}
+
+pub(crate) fn insert_occ_route_timings(
+    timings: &mut serde_json::Map<String, Value>,
+    metrics: OccRouteMetrics,
+    route_s: f64,
+    occ_s: f64,
+) {
+    for (key, value) in [
+        ("occ.prepare.prepare_groups_s", route_s),
+        ("occ.prepare.group_by_route_s", route_s),
+        ("occ.prepare.route_and_base_hash_s", route_s),
+        ("occ.prepare.total_s", route_s),
+        ("occ.commit.total_s", occ_s),
+        (
+            "occ.commit.gated_path_count",
+            metrics.gated_path_count as f64,
+        ),
+        (
+            "occ.commit.direct_path_count",
+            metrics.direct_path_count as f64,
+        ),
+    ] {
+        timings.insert(key.to_owned(), json!(value));
+    }
+    for key in [
+        "occ.commit.validate_groups_s",
+        "occ.commit.publish_layer_s",
+        "occ.commit.stager_write_total_s",
+        "occ.commit.stager_write_count",
+        "occ.commit.gated_read_current_total_s",
+        "occ.commit.gated_apply_changes_total_s",
+        "occ.commit.gated_stage_delta_total_s",
+        "occ.commit.direct_read_current_total_s",
+        "occ.commit.direct_apply_changes_total_s",
+        "occ.commit.direct_stage_delta_total_s",
+    ] {
+        timings.entry(key.to_owned()).or_insert_with(|| json!(0.0));
+    }
 }
 
 fn run_ns_runner_child(request: &RunRequest) -> Result<RunResult, DaemonError> {
@@ -961,7 +1194,7 @@ fn run_ns_runner_child(request: &RunRequest) -> Result<RunResult, DaemonError> {
     })
 }
 
-fn base_hashes_for_snapshot(
+pub(crate) fn base_hashes_for_snapshot(
     root: &Path,
     manifest: &eos_layerstack::Manifest,
     changes: &[LayerChange],
@@ -1020,7 +1253,7 @@ fn merge_runner_timings(timings: &mut serde_json::Map<String, Value>, runner: &R
     }
 }
 
-fn layer_change_kind(change: &LayerChange) -> &'static str {
+pub(crate) fn layer_change_kind(change: &LayerChange) -> &'static str {
     match change {
         LayerChange::Write { .. } => "write",
         LayerChange::Delete { .. } => "delete",
@@ -1029,7 +1262,7 @@ fn layer_change_kind(change: &LayerChange) -> &'static str {
     }
 }
 
-fn overlay_daemon_error(context: &str, err: eos_overlay::OverlayError) -> DaemonError {
+pub(crate) fn overlay_daemon_error(context: &str, err: eos_overlay::OverlayError) -> DaemonError {
     DaemonError::Ephemeral(eos_ephemeral::EphemeralError::Overlay(format!(
         "{context}: {err}"
     )))
@@ -1084,7 +1317,13 @@ fn occ_services() -> &'static Mutex<HashMap<String, Arc<OccService<LayerStackCom
     SERVICES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn validate_prepared(stack: &LayerStack, prepared: &PreparedChangeset) -> Vec<FileResult> {
+fn validate_prepared(
+    root: &Path,
+    view: &MergedView,
+    manifest: &Manifest,
+    prepared: &PreparedChangeset,
+) -> Vec<FileResult> {
+    let mut parent_absent_cache = HashMap::new();
     prepared
         .path_groups
         .iter()
@@ -1106,9 +1345,15 @@ fn validate_prepared(stack: &LayerStack, prepared: &PreparedChangeset) -> Vec<Fi
                     .unwrap_or_else(|| "change rejected".to_owned()),
             },
             Route::Direct => validate_direct_group(group.path.as_str()),
-            Route::Gated => {
-                validate_gated_group(stack, prepared, group.path.as_str(), &group.base_hash)
-            }
+            Route::Gated => validate_gated_group(
+                root,
+                view,
+                manifest,
+                prepared,
+                group.path.as_str(),
+                &group.base_hash,
+                &mut parent_absent_cache,
+            ),
             _ => FileResult {
                 path: group.path.clone(),
                 status: OccStatus::Rejected,
@@ -1128,10 +1373,13 @@ fn validate_direct_group(path: &str) -> FileResult {
 }
 
 fn validate_gated_group(
-    stack: &LayerStack,
+    root: &Path,
+    view: &MergedView,
+    manifest: &Manifest,
     prepared: &PreparedChangeset,
     path: &str,
     base_hash: &Option<String>,
+    parent_absent_cache: &mut HashMap<String, bool>,
 ) -> FileResult {
     let layer_path = LayerPath::parse(path).expect("prepared paths are normalized");
     if prepared.changes.iter().any(|change| {
@@ -1143,7 +1391,21 @@ fn validate_gated_group(
             message: "unsupported gated change kind: SymlinkChange".to_owned(),
         };
     }
-    match stack.read_bytes(path) {
+    if base_hash.is_none() {
+        if let Some(parent) = parent_dir(path) {
+            let parent_absent = *parent_absent_cache
+                .entry(parent.to_owned())
+                .or_insert_with(|| parent_absent_from_manifest(root, manifest, parent));
+            if parent_absent {
+                return FileResult {
+                    path: layer_path,
+                    status: OccStatus::Accepted,
+                    message: String::new(),
+                };
+            }
+        }
+    }
+    match view.read_bytes(path, manifest) {
         Ok((bytes, exists)) if hash_current(bytes.as_deref(), exists) == *base_hash => FileResult {
             path: layer_path,
             status: OccStatus::Accepted,
@@ -1160,6 +1422,28 @@ fn validate_gated_group(
             message: err.to_string(),
         },
     }
+}
+
+fn parent_dir(path: &str) -> Option<&str> {
+    path.rsplit_once('/')
+        .map(|(parent, _)| parent)
+        .filter(|parent| !parent.is_empty())
+}
+
+fn parent_absent_from_manifest(root: &Path, manifest: &Manifest, parent: &str) -> bool {
+    manifest.layers.iter().all(|layer| {
+        let path = PathBuf::from(&layer.path);
+        let layer_dir = if path.is_absolute() {
+            path
+        } else {
+            root.join(path)
+        };
+        match std::fs::symlink_metadata(layer_dir.join(parent)) {
+            Ok(_) => false,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => true,
+            Err(_) => false,
+        }
+    })
 }
 
 fn is_validation_failure(status: OccStatus) -> bool {
@@ -1259,7 +1543,11 @@ fn wildcard_match(pattern: &[u8], value: &[u8]) -> bool {
     p == pattern.len()
 }
 
-fn failed_changeset(prepared: &PreparedChangeset, message: String) -> ChangesetResult {
+fn failed_changeset_with_timings(
+    prepared: &PreparedChangeset,
+    message: String,
+    timings: BTreeMap<String, f64>,
+) -> ChangesetResult {
     ChangesetResult {
         files: prepared
             .path_groups
@@ -1271,7 +1559,52 @@ fn failed_changeset(prepared: &PreparedChangeset, message: String) -> ChangesetR
             })
             .collect(),
         published_manifest_version: None,
+        timings,
     }
+}
+
+fn commit_timings(
+    prepared: &PreparedChangeset,
+    validate_s: f64,
+    publish_s: f64,
+    total_s: f64,
+) -> BTreeMap<String, f64> {
+    let mut timings = BTreeMap::new();
+    timings.insert("occ.commit.total_s".to_owned(), total_s);
+    timings.insert("occ.commit.validate_groups_s".to_owned(), validate_s);
+    timings.insert("occ.commit.publish_layer_s".to_owned(), publish_s);
+    timings.insert(
+        "occ.commit.stager_write_count".to_owned(),
+        prepared.changes.len() as f64,
+    );
+    timings.insert("occ.commit.stager_write_total_s".to_owned(), publish_s);
+    timings.insert(
+        "occ.commit.gated_path_count".to_owned(),
+        prepared
+            .path_groups
+            .iter()
+            .filter(|group| group.route == Route::Gated)
+            .count() as f64,
+    );
+    timings.insert(
+        "occ.commit.direct_path_count".to_owned(),
+        prepared
+            .path_groups
+            .iter()
+            .filter(|group| group.route == Route::Direct)
+            .count() as f64,
+    );
+    for key in [
+        "occ.commit.gated_read_current_total_s",
+        "occ.commit.gated_apply_changes_total_s",
+        "occ.commit.gated_stage_delta_total_s",
+        "occ.commit.direct_read_current_total_s",
+        "occ.commit.direct_apply_changes_total_s",
+        "occ.commit.direct_stage_delta_total_s",
+    ] {
+        timings.insert(key.to_owned(), 0.0);
+    }
+    timings
 }
 
 fn bound_layer_path(root: &Path, args: &Value) -> Result<String, DaemonError> {
@@ -1307,13 +1640,16 @@ fn parse_edits(args: &Value) -> Result<Vec<SearchReplaceEdit>, DaemonError> {
     Ok(parsed)
 }
 
-fn guarded_changeset_response(
+pub(crate) fn guarded_changeset_response(
     verb: &str,
     result: &ChangesetResult,
     mut timings: serde_json::Map<String, Value>,
     total_start: Instant,
     applied_edits: Option<i64>,
 ) -> Value {
+    for (key, value) in &result.timings {
+        timings.insert(key.clone(), json!(value));
+    }
     timings.insert(
         format!("api.{verb}.total_s"),
         json!(total_start.elapsed().as_secs_f64()),
@@ -1413,7 +1749,7 @@ fn guarded_conflict_response(
     response
 }
 
-fn resource_timings(
+pub(crate) fn resource_timings(
     manifest: &eos_layerstack::Manifest,
     changed_path_count: usize,
 ) -> serde_json::Map<String, Value> {
@@ -1601,11 +1937,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn shell_command_rejects_string_wire_shape() {
-        let error = require_shell_command(&json!({"command": "echo hi"}))
-            .expect_err("string shell command is rejected");
+    fn shell_command_accepts_string_wire_shape() {
+        let command = require_shell_command(&json!({"command": "echo hi"}))
+            .expect("string shell command is valid");
 
-        assert!(error.to_string().contains("argv list"));
+        assert_eq!(command, json!("echo hi"));
     }
 
     #[test]
@@ -1743,6 +2079,36 @@ mod tests {
         assert!(!provider
             .is_ignored(&lp("src/main.rs"))
             .expect("gitignore read succeeds"));
+    }
+
+    #[test]
+    fn occ_route_metrics_count_gated_and_direct_paths() {
+        let fixture = Fixture::new_with_gitignore("route_metrics", "target/\n*.pyc\n");
+        let metrics = occ_route_metrics(
+            &fixture.root,
+            &[
+                LayerChange::Write {
+                    path: lp("src/main.rs"),
+                    content: b"tracked".to_vec(),
+                },
+                LayerChange::Write {
+                    path: lp("target/out.txt"),
+                    content: b"direct".to_vec(),
+                },
+                LayerChange::Write {
+                    path: lp("pkg/cache.pyc"),
+                    content: b"direct".to_vec(),
+                },
+                LayerChange::Write {
+                    path: lp(".git/config"),
+                    content: b"drop".to_vec(),
+                },
+            ],
+        )
+        .expect("route metrics read gitignore");
+
+        assert_eq!(metrics.gated_path_count, 1);
+        assert_eq!(metrics.direct_path_count, 2);
     }
 
     fn transaction(fixture: &Fixture) -> LayerStackCommitTransaction {

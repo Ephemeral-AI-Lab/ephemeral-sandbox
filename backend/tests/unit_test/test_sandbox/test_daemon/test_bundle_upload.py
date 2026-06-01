@@ -9,6 +9,7 @@ otherwise hit on a clean sandbox image.
 from __future__ import annotations
 
 import io
+import hashlib
 import subprocess
 import sys
 import tarfile
@@ -20,6 +21,7 @@ import pytest
 
 from sandbox.daemon.paths import BUNDLE_REMOTE_DIR, BUNDLE_REMOTE_TARBALL
 from sandbox.host.runtime_bundle import (
+    _ensure_eosd_uploaded,
     _ensure_runtime_uploaded_with_exec,
     _runtime_bundle_bytes,
     bundle_hash,
@@ -408,3 +410,42 @@ async def test_ensure_runtime_uploaded_re_uploads_when_hash_mismatches() -> None
     # Marker-check + setup + chunks + finalize ≥ 4 calls.
     assert transport.exec.await_count >= 4
     transport.write_bytes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ensure_eosd_uploaded_streams_arch_binary_with_executable_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = b"fake-eosd"
+    digest = hashlib.sha256(payload).hexdigest()
+    artifact = tmp_path / "sandbox" / "dist" / "eosd-linux-amd64"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_bytes(payload)
+
+    monkeypatch.setattr("sandbox.host.runtime_bundle._repo_root", lambda: tmp_path)
+    monkeypatch.setattr("sandbox.host.runtime_bundle.EOSD_SHA256", {"amd64": digest})
+
+    adapter: Any = AsyncMock()
+    adapter.exec.side_effect = [
+        type("R", (), {"exit_code": 0, "stdout": "x86_64\n"})(),
+        type("R", (), {"exit_code": 1, "stdout": ""})(),
+        type("R", (), {"exit_code": 0, "stdout": ""})(),
+        type("R", (), {"exit_code": 0, "stdout": ""})(),
+    ]
+
+    await _ensure_eosd_uploaded("sb-1", adapter)
+
+    adapter.put_archive.assert_awaited_once()
+    kwargs = adapter.put_archive.await_args.kwargs
+    assert kwargs["dest_dir"] == "/"
+    with tarfile.open(fileobj=io.BytesIO(kwargs["tar_stream"]), mode="r:") as tar:
+        member = tar.getmember("tmp/eos-sandbox-runtime/eosd")
+        extracted = tar.extractfile(member)
+        assert extracted is not None
+        assert extracted.read() == payload
+        assert member.mode == 0o755
+
+    verify_cmd = adapter.exec.await_args_list[-1].args[1]
+    assert ".eosd-sha256" in verify_cmd
+    assert "eosd --version" in verify_cmd

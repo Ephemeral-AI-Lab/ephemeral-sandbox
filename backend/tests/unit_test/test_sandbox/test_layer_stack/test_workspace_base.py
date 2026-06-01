@@ -111,6 +111,25 @@ def test_workspace_base_fails_when_special_files_prevent_full_copy(
     assert read_workspace_binding(stack) is None
 
 
+def test_workspace_base_preserves_relative_and_absolute_symlinks(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "src").mkdir()
+    (workspace / "src" / "a.py").write_text("print('base')\n", encoding="utf-8")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside\n", encoding="utf-8")
+    (workspace / "links").mkdir()
+    os.symlink("../src/a.py", workspace / "links" / "inside")
+    os.symlink(outside, workspace / "links" / "outside")
+
+    stack = tmp_path / "stack"
+    build_workspace_base(workspace_root=workspace, layer_stack_root=stack)
+
+    manager = LayerStack(stack)
+    assert manager.read_symlink("links/inside") == ("../src/a.py", "symlink")
+    assert manager.read_symlink("links/outside") == (outside.as_posix(), "symlink")
+
+
 def test_workspace_base_has_no_source_control_classification_branches() -> None:
     source = "\n".join(
         [

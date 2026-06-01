@@ -4,8 +4,8 @@ Module layout:
 
 * In-flight registry surface — ``cancel``, ``heartbeat``, ``inflight_count``.
 * Tool operation routes — ``read_file``, ``write_file``, ``edit_file``,
-  ``glob``, ``grep``, ``shell``. ``WORKSPACE_TOOL_OPS`` threads ``args`` and
-  the static verb/intent pair through
+  ``glob``, ``grep``, ``shell``, and the Phase 3T command/PTY aliases.
+  ``WORKSPACE_TOOL_OPS`` threads ``args`` and the static verb/intent pair through
   :func:`sandbox.daemon.workspace_tool.dispatch.dispatch_workspace_tool_call`.
 * Layer-stack diagnostic surface — ``layer_metrics``, ``runtime_ready``.
 * Layer-stack control surface — ``build_workspace_base``, ``ensure_workspace_base``,
@@ -84,6 +84,82 @@ WORKSPACE_TOOL_OPS = {
     for verb, aliases in _WORKSPACE_TOOL_OP_ALIASES.items()
     for op in aliases
 }
+
+
+def _command_result(
+    status: str,
+    *,
+    exit_code: int | None,
+    stdout: str = "",
+    stderr: str = "",
+    pty_session_id: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "status": status,
+        "exit_code": exit_code,
+        "output": {"stdout": stdout, "stderr": stderr},
+    }
+    if pty_session_id:
+        payload["pty_session_id"] = pty_session_id
+    return payload
+
+
+def _pty_not_found() -> dict[str, object]:
+    return _command_result(
+        "error",
+        exit_code=None,
+        stderr="pty_session_not_found",
+    )
+
+
+async def exec_command(args: dict[str, Any]) -> dict[str, object]:
+    """Compatibility implementation for the Python daemon path.
+
+    The production Rust daemon owns native PTY sessions. The Python daemon keeps
+    finite command semantics in sync and returns the generic PTY not-found shape
+    for PTY controls so callers do not branch on daemon implementation details.
+    """
+    cmd = str(args.get("cmd") or "").strip()
+    if not cmd:
+        raise ValueError("cmd is required")
+    if bool(args.get("tty", False)):
+        return _command_result(
+            "error",
+            exit_code=None,
+            stderr="pty commands require the Rust sandbox daemon",
+        )
+    payload = dict(args)
+    payload["command"] = cmd
+    payload["cwd"] = "."
+    if "timeout" in payload and "timeout_seconds" not in payload:
+        payload["timeout_seconds"] = payload["timeout"]
+    result = await dispatch_workspace_tool_call(
+        payload,
+        verb="shell",
+        intent=Intent.WRITE_ALLOWED,
+    )
+    return _command_result(
+        str(result.get("status") or "error"),
+        exit_code=int(result.get("exit_code") or 0),
+        stdout=str(result.get("stdout") or ""),
+        stderr=str(result.get("stderr") or ""),
+    )
+
+
+async def write_pty_stdin(args: dict[str, Any]) -> dict[str, object]:
+    return _pty_not_found()
+
+
+async def pty_progress(args: dict[str, Any]) -> dict[str, object]:
+    return _pty_not_found()
+
+
+async def pty_cancel(args: dict[str, Any]) -> dict[str, object]:
+    return _pty_not_found()
+
+
+async def pty_collect_completed(args: dict[str, Any]) -> dict[str, object]:
+    return {"success": True, "completions": []}
 
 
 # ---------------------------------------------------------------------------

@@ -15,12 +15,12 @@ from __future__ import annotations
 
 # eosd artifact this backend is pinned to. Bumped on a coordinated protocol or
 # artifact release per CONTRACT.md.
-EOSD_VERSION = "0.1.0-local.20260531"
+EOSD_VERSION = "0.1.0-local.20260601"
 
 # Per-arch SHA256 of the binary. Keys = container arch tokens the host maps to
 # (amd64 / arm64).
 EOSD_SHA256: dict[str, str] = {
-    "amd64": "ade88b2700f0c4894a08adc98e2a37dfc17deda0d614da465138a2bb6e5d525f",
+    "amd64": "71f6533c2d41861303cc7fef4828738cd16e352c539b59c67e489987f1a36162",
     "arm64": "4a39764bc3e13421a58835bc3294fb8f6f2801b2610690ebbe9e652d0a6c1758",
 }
 

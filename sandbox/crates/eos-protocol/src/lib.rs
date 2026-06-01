@@ -21,8 +21,9 @@ pub use cas::{
 };
 pub use envelope::{decode, encode, Envelope, ErrorEnvelope, ErrorKind, ProtocolError, Request};
 pub use models::{
-    apply_search_replace, ConflictInfo, EditFileArgs, EditFileResult, GlobArgs, GlobResult,
-    GrepArgs, GrepResult, Intent, ReadFileArgs, ReadFileResult, SearchReplaceEdit,
+    apply_search_replace, CommandOutput, ConflictInfo, EditFileArgs, EditFileResult,
+    ExecCommandArgs, ExecCommandResult, GlobArgs, GlobResult, GrepArgs, GrepResult, Intent,
+    PtyCancelArgs, PtyProgressArgs, PtyWriteArgs, ReadFileArgs, ReadFileResult, SearchReplaceEdit,
     SearchReplaceError, ShellArgs, ShellResult, WriteFileArgs, WriteFileResult,
 };
 pub use version::{

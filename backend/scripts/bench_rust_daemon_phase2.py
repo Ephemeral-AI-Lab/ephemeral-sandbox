@@ -54,7 +54,7 @@ from bench_sandbox_e2e import (  # noqa: E402
 
 RUNTIME_ROOT = "/tmp/eos-sandbox-runtime"
 EOSD_REMOTE_PATH = f"{RUNTIME_ROOT}/eosd"
-LAYER_STACK_ROOT = f"{RUNTIME_ROOT}/layer-stack"
+LAYER_STACK_ROOT = "/eos-mount-scratch/eos-sandbox-runtime/layer-stack"
 WORKSPACE_ROOT = "/testbed"
 SOCKET_PATH = f"{RUNTIME_ROOT}/runtime.sock"
 PID_PATH = f"{RUNTIME_ROOT}/runtime.pid"
@@ -319,6 +319,7 @@ if [ -f {shlex.quote(PID_PATH)} ]; then
   kill "$(cat {shlex.quote(PID_PATH)})" 2>/dev/null || true
 fi
 rm -f {shlex.quote(PID_PATH)} {shlex.quote(SOCKET_PATH)} {shlex.quote(RUNTIME_ROOT)}/runtime.env {shlex.quote(RUNTIME_ROOT)}/runtime.log
+rm -rf {shlex.quote(LAYER_STACK_ROOT)}
 """
     result = await bench.exec(command, timeout=15)
     require_success(result, "reset rust runtime")

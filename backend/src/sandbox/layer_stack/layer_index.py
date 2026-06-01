@@ -19,6 +19,8 @@ shell captures that create many new files.
 
 from __future__ import annotations
 
+import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
@@ -51,6 +53,9 @@ def build_layer_index(layer_dir: Path) -> LayerIndex:
             target = target_name if parent == "." else f"{parent}/{target_name}"
             whiteouts.add(target)
             continue
+        if _is_kernel_whiteout(entry):
+            whiteouts.add(rel.as_posix())
+            continue
         if entry.is_symlink() or entry.is_file():
             files.add(rel.as_posix())
 
@@ -59,6 +64,30 @@ def build_layer_index(layer_dir: Path) -> LayerIndex:
         whiteouts=frozenset(whiteouts),
         opaque_dirs=frozenset(opaque_dirs),
     )
+
+
+def _is_kernel_whiteout(entry: Path) -> bool:
+    try:
+        st = entry.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISCHR(st.st_mode) and getattr(st, "st_rdev", None) == 0:
+        return True
+    if not stat.S_ISREG(st.st_mode) or st.st_size != 0:
+        return False
+    return _xattr_value(entry, b"trusted.overlay.whiteout") is not None or _xattr_value(
+        entry, b"user.overlay.whiteout"
+    ) is not None
+
+
+def _xattr_value(path: Path, key: bytes) -> bytes | None:
+    getxattr = getattr(os, "getxattr", None)
+    if getxattr is None:
+        return None
+    try:
+        return getxattr(path, key, follow_symlinks=False)
+    except OSError:
+        return None
 
 
 def has_ancestor_in(rel: str, members: frozenset[str]) -> bool:

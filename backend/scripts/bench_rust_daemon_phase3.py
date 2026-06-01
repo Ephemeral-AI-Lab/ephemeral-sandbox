@@ -191,7 +191,6 @@ async def run_phase3(args: argparse.Namespace) -> dict[str, Any]:
         }
         await reset_runtime(bench)
         report["artifact"] = await upload_artifact(bench, args.artifact)
-        report["layer_stack_seed"] = await seed_layer_stack_from_workspace(bench)
 
         with temporary_env("EOS_SANDBOX_RUNTIME", "rust"):
             from sandbox.host import daemon_client
@@ -212,6 +211,13 @@ async def run_phase3(args: argparse.Namespace) -> dict[str, Any]:
                 "internal_port": endpoint.internal_port,
                 "auth_token_present": bool(endpoint.auth_token),
             }
+            report["layer_stack_seed"] = await daemon_client.call_daemon_api(
+                bench.sandbox_id,
+                "api.build_workspace_base",
+                {"workspace_root": WORKSPACE_ROOT, "reset": True},
+                layer_stack_root=LAYER_STACK_ROOT,
+                timeout=180,
+            )
             report["ready"] = await daemon_client.call_daemon_api(
                 bench.sandbox_id,
                 "api.runtime.ready",

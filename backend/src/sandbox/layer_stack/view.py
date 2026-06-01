@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -230,12 +231,15 @@ class MergedView:
     ) -> None:
         opaques: list[Path] = []
         whiteouts: list[Path] = []
+        kernel_whiteouts: list[Path] = []
         regulars: list[Path] = []
         for entry in sorted(layer_dir.rglob("*"), key=lambda item: item.as_posix()):
             if entry.name == OPAQUE_MARKER:
                 opaques.append(entry)
             elif _is_whiteout(entry.name):
                 whiteouts.append(entry)
+            elif _is_kernel_whiteout(entry):
+                kernel_whiteouts.append(entry)
             else:
                 regulars.append(entry)
 
@@ -245,6 +249,8 @@ class MergedView:
         for whiteout in whiteouts:
             rel = whiteout.relative_to(layer_dir)
             remove_path(dest / rel.parent / whiteout.name[len(WHITEOUT_PREFIX) :])
+        for whiteout in kernel_whiteouts:
+            remove_path(dest / whiteout.relative_to(layer_dir))
 
         for entry in regulars:
             target = dest / entry.relative_to(layer_dir)
@@ -285,6 +291,30 @@ def _lookup_blocked_by_layer(rel: str, index: LayerIndex) -> bool:
 
 def _is_whiteout(name: str) -> bool:
     return name.startswith(WHITEOUT_PREFIX) and name != OPAQUE_MARKER
+
+
+def _is_kernel_whiteout(entry: Path) -> bool:
+    try:
+        st = entry.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISCHR(st.st_mode) and getattr(st, "st_rdev", None) == 0:
+        return True
+    if not stat.S_ISREG(st.st_mode) or st.st_size != 0:
+        return False
+    return _xattr_value(entry, b"trusted.overlay.whiteout") is not None or _xattr_value(
+        entry, b"user.overlay.whiteout"
+    ) is not None
+
+
+def _xattr_value(path: Path, key: bytes) -> bytes | None:
+    getxattr = getattr(os, "getxattr", None)
+    if getxattr is None:
+        return None
+    try:
+        return getxattr(path, key, follow_symlinks=False)
+    except OSError:
+        return None
 
 
 def _stale_layer_error(layer: LayerRef, rel: str) -> LayerStackStorageError:

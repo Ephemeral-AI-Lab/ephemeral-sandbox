@@ -44,6 +44,7 @@
 #![forbid(unsafe_code)]
 
 pub mod audit_buffer;
+pub(crate) mod command;
 pub mod dispatcher;
 pub mod error;
 pub mod in_flight;

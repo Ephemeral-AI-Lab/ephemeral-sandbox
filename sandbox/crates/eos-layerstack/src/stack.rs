@@ -12,6 +12,8 @@
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::io::ErrorKind;
+#[cfg(unix)]
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -27,6 +29,15 @@ use crate::lease::LeaseRegistry;
 use crate::squash::{manifest_prefix_before_plan, LayerCheckpointSquasher, SquashPlanEntry};
 use crate::storage_lock::StorageWriterLockLease;
 use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR, LAYER_METADATA_DIR, STAGING_DIR};
+
+const LOGICAL_WHITEOUT_PREFIX: &str = ".wh.";
+const OPAQUE_MARKER: &str = ".wh..wh..opq";
+const TRUSTED_OVERLAY_WHITEOUT_XATTR: &str = "trusted.overlay.whiteout";
+const USER_OVERLAY_WHITEOUT_XATTR: &str = "user.overlay.whiteout";
+#[cfg(target_os = "linux")]
+const WHITEOUT_DEVICE_MAJOR: u32 = 0;
+#[cfg(target_os = "linux")]
+const WHITEOUT_DEVICE_MINOR: u32 = 0;
 
 /// Immutable result of an O(1) snapshot: a lease id + the pinned manifest's
 /// existing on-disk layer paths. NEVER a rendered tree.
@@ -125,12 +136,15 @@ impl MergedView {
     }
 
     fn is_whiteouted(&self, layer_dir: &Path, rel: &str) -> bool {
+        if is_kernel_whiteout(&join_layer_path(layer_dir, rel)) {
+            return true;
+        }
         let rel_path = PathBuf::from(rel);
         let Some(name) = rel_path.file_name() else {
             return false;
         };
         let marker_name = {
-            let mut marker = OsString::from(".wh.");
+            let mut marker = OsString::from(LOGICAL_WHITEOUT_PREFIX);
             marker.push(name);
             marker
         };
@@ -149,12 +163,15 @@ impl MergedView {
         for index in 1..parts.len() {
             let ancestor = parts[..index].join("/");
             let path = join_layer_path(layer_dir, &ancestor);
+            if is_kernel_whiteout(&path) {
+                return true;
+            }
             if let Ok(meta) = std::fs::symlink_metadata(&path) {
                 if meta.is_file() || meta.file_type().is_symlink() {
                     return true;
                 }
             }
-            if path.join(".wh..wh..opq").exists() {
+            if path.join(OPAQUE_MARKER).exists() {
                 return true;
             }
         }
@@ -178,22 +195,30 @@ impl MergedView {
                 );
             clear_directory(&dir)?;
         }
-        for entry in entries
-            .iter()
-            .filter(|entry| matches!(entry.kind, ProjectEntryKind::Whiteout))
-        {
-            let Some(name) = entry.rel.file_name().and_then(|name| name.to_str()) else {
-                continue;
+        for entry in entries.iter().filter(|entry| {
+            matches!(
+                entry.kind,
+                ProjectEntryKind::LogicalWhiteout | ProjectEntryKind::KernelWhiteout
+            )
+        }) {
+            let target = match entry.kind {
+                ProjectEntryKind::LogicalWhiteout => {
+                    let Some(name) = entry.rel.file_name().and_then(|name| name.to_str()) else {
+                        continue;
+                    };
+                    let target_name = name.trim_start_matches(LOGICAL_WHITEOUT_PREFIX);
+                    entry
+                        .rel
+                        .parent()
+                        .filter(|parent| !parent.as_os_str().is_empty())
+                        .map_or_else(
+                            || destination.join(target_name),
+                            |parent| destination.join(parent).join(target_name),
+                        )
+                }
+                ProjectEntryKind::KernelWhiteout => destination.join(&entry.rel),
+                _ => continue,
             };
-            let target_name = name.trim_start_matches(".wh.");
-            let target = entry
-                .rel
-                .parent()
-                .filter(|parent| !parent.as_os_str().is_empty())
-                .map_or_else(
-                    || destination.join(target_name),
-                    |parent| destination.join(parent).join(target_name),
-                );
             remove_path(&target)?;
         }
         for entry in entries.into_iter().filter(|entry| {
@@ -220,7 +245,9 @@ impl MergedView {
                     let link_target = std::fs::read_link(entry.path)?;
                     std::os::unix::fs::symlink(link_target, target)?;
                 }
-                ProjectEntryKind::Opaque | ProjectEntryKind::Whiteout => {}
+                ProjectEntryKind::Opaque
+                | ProjectEntryKind::LogicalWhiteout
+                | ProjectEntryKind::KernelWhiteout => {}
             }
         }
         Ok(())
@@ -584,7 +611,8 @@ struct ProjectEntry {
 #[derive(Debug)]
 enum ProjectEntryKind {
     Opaque,
-    Whiteout,
+    LogicalWhiteout,
+    KernelWhiteout,
     Directory,
     File,
     Symlink,
@@ -610,10 +638,13 @@ fn collect_project_entries(layer_dir: &Path) -> Result<Vec<ProjectEntry>, LayerS
                 .file_name()
                 .and_then(|name| name.to_str())
                 .unwrap_or_default();
-            let kind = if name == ".wh..wh..opq" {
+            let meta = std::fs::symlink_metadata(&path)?;
+            let kind = if name == OPAQUE_MARKER {
                 ProjectEntryKind::Opaque
-            } else if name.starts_with(".wh.") {
-                ProjectEntryKind::Whiteout
+            } else if name.starts_with(LOGICAL_WHITEOUT_PREFIX) {
+                ProjectEntryKind::LogicalWhiteout
+            } else if is_kernel_whiteout_meta(&path, &meta) {
+                ProjectEntryKind::KernelWhiteout
             } else if file_type.is_symlink() {
                 ProjectEntryKind::Symlink
             } else if file_type.is_dir() {
@@ -774,11 +805,12 @@ fn write_layer_changes(layer_dir: &Path, changes: &[LayerChange]) -> Result<(), 
                 std::fs::write(target, content)?;
             }
             LayerChange::Delete { path } => {
-                let whiteout = whiteout_path(layer_dir, path.as_str());
-                if let Some(parent) = whiteout.parent() {
+                let target = join_layer_path(layer_dir, path.as_str());
+                if let Some(parent) = target.parent() {
                     std::fs::create_dir_all(parent)?;
                 }
-                std::fs::write(whiteout, b"")?;
+                remove_path(&target)?;
+                write_kernel_whiteout(&target)?;
             }
             LayerChange::Symlink { path, source_path } => {
                 let target = join_layer_path(layer_dir, path.as_str());
@@ -789,7 +821,7 @@ fn write_layer_changes(layer_dir: &Path, changes: &[LayerChange]) -> Result<(), 
                 std::os::unix::fs::symlink(source_path, target)?;
             }
             LayerChange::OpaqueDir { path } => {
-                let marker = join_layer_path(layer_dir, path.as_str()).join(".wh..wh..opq");
+                let marker = join_layer_path(layer_dir, path.as_str()).join(OPAQUE_MARKER);
                 if let Some(parent) = marker.parent() {
                     std::fs::create_dir_all(parent)?;
                 }
@@ -800,18 +832,94 @@ fn write_layer_changes(layer_dir: &Path, changes: &[LayerChange]) -> Result<(), 
     Ok(())
 }
 
-fn whiteout_path(layer_dir: &Path, rel: &str) -> PathBuf {
-    let rel_path = PathBuf::from(rel);
-    let name = rel_path.file_name().unwrap_or_default();
-    let mut whiteout_name = OsString::from(".wh.");
+#[cfg(target_os = "linux")]
+fn write_kernel_whiteout(path: &Path) -> Result<(), LayerStackError> {
+    let device = rustix::fs::makedev(WHITEOUT_DEVICE_MAJOR, WHITEOUT_DEVICE_MINOR);
+    let mknod = rustix::fs::mknodat(
+        rustix::fs::CWD,
+        path,
+        rustix::fs::FileType::CharacterDevice,
+        rustix::fs::Mode::from_raw_mode(0o644),
+        device,
+    );
+    if mknod.is_ok() {
+        return Ok(());
+    }
+
+    std::fs::write(path, b"")?;
+    let trusted = rustix::fs::setxattr(
+        path,
+        TRUSTED_OVERLAY_WHITEOUT_XATTR,
+        b"y",
+        rustix::fs::XattrFlags::empty(),
+    );
+    let user = rustix::fs::setxattr(
+        path,
+        USER_OVERLAY_WHITEOUT_XATTR,
+        b"y",
+        rustix::fs::XattrFlags::empty(),
+    );
+    if trusted.is_err() && user.is_err() {
+        let _ = std::fs::remove_file(path);
+        return Err(LayerStackError::Storage(format!(
+            "failed to mark overlay whiteout {}: mknod={:?}, trusted={:?}, user={:?}",
+            path.display(),
+            mknod.err(),
+            trusted.err(),
+            user.err()
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn write_kernel_whiteout(path: &Path) -> Result<(), LayerStackError> {
+    let logical = logical_whiteout_path_for_target(path);
+    if let Some(parent) = logical.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(logical, b"")?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn logical_whiteout_path_for_target(path: &Path) -> PathBuf {
+    let name = path.file_name().unwrap_or_default();
+    let mut whiteout_name = OsString::from(LOGICAL_WHITEOUT_PREFIX);
     whiteout_name.push(name);
-    match rel_path
+    match path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
     {
-        Some(parent) => layer_dir.join(parent).join(whiteout_name),
-        None => layer_dir.join(whiteout_name),
+        Some(parent) => parent.join(whiteout_name),
+        None => PathBuf::from(whiteout_name),
     }
+}
+
+fn is_kernel_whiteout(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|meta| is_kernel_whiteout_meta(path, &meta))
+}
+
+#[cfg(unix)]
+fn is_kernel_whiteout_meta(path: &Path, meta: &std::fs::Metadata) -> bool {
+    if meta.file_type().is_char_device() && meta.rdev() == 0 {
+        return true;
+    }
+    meta.is_file()
+        && meta.len() == 0
+        && (has_xattr(path, TRUSTED_OVERLAY_WHITEOUT_XATTR)
+            || has_xattr(path, USER_OVERLAY_WHITEOUT_XATTR))
+}
+
+#[cfg(not(unix))]
+fn is_kernel_whiteout_meta(_path: &Path, _meta: &std::fs::Metadata) -> bool {
+    false
+}
+
+#[cfg(unix)]
+fn has_xattr(path: &Path, name: &str) -> bool {
+    let mut value = [0_u8; 1];
+    rustix::fs::lgetxattr(path, name, &mut value).is_ok()
 }
 
 fn remove_path(path: &Path) -> Result<(), LayerStackError> {
@@ -913,6 +1021,44 @@ mod tests {
         for layer in &old_tail {
             assert!(!fixture.root.join(&layer.path).exists());
         }
+    }
+
+    #[test]
+    fn delete_layer_hides_files_in_reads_and_projection() {
+        let fixture = Fixture::new("delete_hides");
+        let mut stack = LayerStack::open(fixture.root.clone()).expect("open stack");
+        publish_text(&mut stack, "dir/a.txt", "one\n");
+        publish_text(&mut stack, "dir/b.txt", "two\n");
+
+        stack
+            .publish_layer(&[LayerChange::Delete {
+                path: LayerPath::parse("dir/a.txt").expect("valid layer path"),
+            }])
+            .expect("publish delete");
+
+        assert_eq!(
+            stack.read_text("dir/a.txt").expect("read deleted path"),
+            (String::new(), false)
+        );
+        assert_eq!(
+            stack.read_text("dir/b.txt").expect("read sibling path"),
+            ("two\n".to_owned(), true)
+        );
+
+        let projected = fixture.root.join("projected");
+        stack
+            ._view
+            .project(&projected, &stack.read_active_manifest().expect("manifest"))
+            .expect("project manifest");
+        assert!(!projected.join("dir/a.txt").exists());
+        assert_eq!(
+            std::fs::read_to_string(projected.join("dir/b.txt")).expect("read projected sibling"),
+            "two\n"
+        );
+        assert!(
+            !projected.join("dir/.wh.a.txt").exists(),
+            "logical whiteout marker must not leak into projections"
+        );
     }
 
     fn publish_text(stack: &mut LayerStack, path: &str, content: &str) {

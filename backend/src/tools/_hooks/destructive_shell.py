@@ -93,6 +93,8 @@ _DESTRUCTIVE_SHELL_MESSAGE = (
 
 def _shell_command(args: BaseModel) -> str | None:
     command = getattr(args, "command", None)
+    if command is None:
+        command = getattr(args, "cmd", None)
     if not isinstance(command, str) or not command.strip():
         return None
     return command
@@ -194,8 +196,9 @@ def destructive_shell_command_error(command: str) -> str | None:
 class DestructiveGitShellPreHook:
     """Block git working-tree or metadata mutations before shell execution."""
 
-    name = "sandbox_shell:destructive_git"
-    target_tool = "shell"
+    def __init__(self, target_tool: str = "shell") -> None:
+        self.name = f"sandbox_shell:destructive_git:{target_tool}"
+        self.target_tool = target_tool
 
     async def run(
         self,
@@ -215,8 +218,9 @@ class DestructiveGitShellPreHook:
 class DestructiveShellPreHook:
     """Block destructive filesystem commands before shell execution."""
 
-    name = "sandbox_shell:destructive_shell"
-    target_tool = "shell"
+    def __init__(self, target_tool: str = "shell") -> None:
+        self.name = f"sandbox_shell:destructive_shell:{target_tool}"
+        self.target_tool = target_tool
 
     async def run(
         self,

@@ -24,8 +24,8 @@ use std::path::{Path, PathBuf};
 use rustix::fd::AsFd;
 #[cfg(target_os = "linux")]
 use rustix::mount::{
-    fsconfig_create, fsconfig_set_string, fsmount, fsopen, move_mount, unmount, FsMountFlags,
-    FsOpenFlags, MountAttrFlags, MoveMountFlags, UnmountFlags,
+    fsconfig_create, fsconfig_set_flag, fsconfig_set_string, fsmount, fsopen, move_mount, unmount,
+    FsMountFlags, FsOpenFlags, MountAttrFlags, MoveMountFlags, UnmountFlags,
 };
 
 use crate::error::{OverlayError, Result};
@@ -88,17 +88,18 @@ impl Drop for OverlayMount {
 /// Mount an overlay filesystem at `workspace_root` from `handle`.
 ///
 /// Builds the mount via the raw API in this exact order (per the ordering
-/// invariant): `fsopen("overlay")`, one `fsconfig_string("lowerdir+", layer)`
-/// per layer in `handle.layer_paths` (newest-first), then `"upperdir"`,
-/// `"workdir"`, `fsconfig_create`, `fsmount`, and finally `move_mount` onto the
-/// real `workspace_root` (NOT a `/proc/self/fd` symlink — `move_mount(2)`
-/// rejects that as a destination).
+/// invariant): `fsopen("overlay")`, `userxattr`, one
+/// `fsconfig_string("lowerdir+", layer)` per layer in `handle.layer_paths`
+/// (newest-first), then `"upperdir"`, `"workdir"`, `fsconfig_create`,
+/// `fsmount`, and finally `move_mount` onto the real `workspace_root` (NOT a
+/// `/proc/self/fd` symlink — `move_mount(2)` rejects that as a destination).
 /// `// PORT backend/src/sandbox/overlay/kernel_mount.py:49-75 — mount_overlay`
 #[cfg(target_os = "linux")]
 pub fn mount_overlay(workspace_root: &Path, handle: &OverlayHandle) -> Result<OverlayMount> {
     // PORT backend/src/sandbox/overlay/kernel_mount.py:62-70 — fsopen/fsconfig/fsmount/move_mount
     let inputs = ValidatedMountInputs::open(workspace_root, handle)?;
     let fsfd = fsopen("overlay", FsOpenFlags::FSOPEN_CLOEXEC).map_io()?;
+    fsconfig_set_flag(fsfd.as_fd(), "userxattr").map_io()?;
     for layer in &inputs.layer_paths {
         fsconfig_set_string(fsfd.as_fd(), "lowerdir+", layer).map_io()?;
     }

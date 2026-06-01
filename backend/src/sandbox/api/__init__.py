@@ -11,11 +11,14 @@ available before lifecycle imports pull in tool-facing plugin dispatch.
 from __future__ import annotations
 
 from sandbox.shared.models import (
+    CommandOutput,
     ConflictInfo,
     EditFileRequest,
     EditFileResult,
     EnterIsolatedWorkspaceRequest,
     EnterIsolatedWorkspaceResult,
+    ExecCommandRequest,
+    ExecCommandResult,
     ExitIsolatedWorkspaceRequest,
     ExitIsolatedWorkspaceResult,
     GlobRequest,
@@ -26,6 +29,9 @@ from sandbox.shared.models import (
     Intent,
     LifecycleError,
     LifecycleResultBase,
+    PtyCancelRequest,
+    PtyProgressRequest,
+    PtyWriteRequest,
     RawExecResult,
     ReadFileRequest,
     ReadFileResult,
@@ -39,6 +45,13 @@ from sandbox.shared.models import (
     ToolCallResult,
     WriteFileRequest,
     WriteFileResult,
+)
+from sandbox.api.tool.command import (
+    cancel_pty_command,
+    check_pty_command_progress,
+    collect_pty_completions,
+    exec_command,
+    write_pty_command_stdin,
 )
 from sandbox.api.provider_control import (  # isort: skip -- models precede provider control
     configured_sandbox_defaults,
@@ -73,10 +86,13 @@ from sandbox.api.daemon_audit import audit_pull, audit_reset_floor, audit_snapsh
 
 __all__ = [
     "ConflictInfo",
+    "CommandOutput",
     "EditFileRequest",
     "EditFileResult",
     "EnterIsolatedWorkspaceRequest",
     "EnterIsolatedWorkspaceResult",
+    "ExecCommandRequest",
+    "ExecCommandResult",
     "ExitIsolatedWorkspaceRequest",
     "ExitIsolatedWorkspaceResult",
     "GlobRequest",
@@ -87,6 +103,9 @@ __all__ = [
     "Intent",
     "LifecycleError",
     "LifecycleResultBase",
+    "PtyCancelRequest",
+    "PtyProgressRequest",
+    "PtyWriteRequest",
     "RawExecResult",
     "ReadFileRequest",
     "ReadFileResult",
@@ -103,6 +122,9 @@ __all__ = [
     "audit_pull",
     "audit_reset_floor",
     "audit_snapshot",
+    "cancel_pty_command",
+    "check_pty_command_progress",
+    "collect_pty_completions",
     "configured_sandbox_defaults",
     "context_preparer_for",
     "cancel",
@@ -110,6 +132,7 @@ __all__ = [
     "delete_sandbox",
     "edit_file",
     "ensure_sandbox_running",
+    "exec_command",
     "get_build_logs_url",
     "get_health",
     "get_sandbox",
@@ -127,5 +150,6 @@ __all__ = [
     "shell",
     "start_sandbox",
     "stop_sandbox",
+    "write_pty_command_stdin",
     "write_file",
 ]

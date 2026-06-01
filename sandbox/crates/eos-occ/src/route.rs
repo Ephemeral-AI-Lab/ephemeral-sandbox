@@ -6,6 +6,8 @@
 //! `FileStatus` enums byte-for-byte (the `str` values are part of the wire
 //! contract, so the `serde` rename strings below are load-bearing).
 
+use std::collections::BTreeMap;
+
 use eos_protocol::LayerPath;
 use serde::{Deserialize, Serialize};
 
@@ -102,12 +104,15 @@ pub struct FileResult {
 }
 
 /// Aggregate result of a published (or aborted) changeset.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChangesetResult {
     /// Per-path outcomes, one entry per input path.
     pub files: Vec<FileResult>,
     /// Manifest version produced, or `None` if nothing landed.
     pub published_manifest_version: Option<u64>,
+    /// Per-commit phase timings keyed with the Python-compatible `occ.commit.*`
+    /// names.
+    pub timings: BTreeMap<String, f64>,
 }
 
 impl ChangesetResult {

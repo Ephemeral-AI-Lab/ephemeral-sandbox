@@ -111,11 +111,13 @@ def subprocess_to_refs(
                 pass
         try:
             try:
-                return wait_for_process_with_cancel(
+                rc = wait_for_process_with_cancel(
                     proc,
                     timeout_seconds=timeout_seconds,
                     cancel_event=cancel_event,
                 )
+                kill_process_group(proc.pid, signal.SIGKILL)
+                return rc
             except subprocess.TimeoutExpired:
                 kill_process_group(proc.pid, signal.SIGKILL)
                 try:

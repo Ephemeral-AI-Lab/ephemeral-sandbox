@@ -218,6 +218,48 @@ class ShellResult(GuardedResultBase):
 
 
 @dataclass(frozen=True, kw_only=True)
+class CommandOutput:
+    stdout: str = ""
+    stderr: str = ""
+
+
+@dataclass(frozen=True, kw_only=True)
+class ExecCommandRequest(SandboxRequestBase):
+    cmd: str
+    tty: bool = False
+    yield_time_ms: int | None = None
+    timeout: int | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ExecCommandResult(SandboxResultBase):
+    status: str
+    exit_code: int | None
+    output: CommandOutput
+    pty_session_id: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class PtyWriteRequest(SandboxRequestBase):
+    pty_session_id: str
+    chars: str
+    yield_time_ms: int | None = None
+    max_tokens: int | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class PtyProgressRequest(SandboxRequestBase):
+    pty_session_id: str
+    time: float
+    max_tokens: int | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class PtyCancelRequest(SandboxRequestBase):
+    pty_session_id: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class GlobRequest(SandboxRequestBase):
     pattern: str
     path: str | None = None
@@ -298,11 +340,14 @@ class ExitIsolatedWorkspaceResult(LifecycleResultBase):
 
 
 __all__ = [
+    "CommandOutput",
     "ConflictInfo",
     "EditFileRequest",
     "EditFileResult",
     "EnterIsolatedWorkspaceRequest",
     "EnterIsolatedWorkspaceResult",
+    "ExecCommandRequest",
+    "ExecCommandResult",
     "ExitIsolatedWorkspaceRequest",
     "ExitIsolatedWorkspaceResult",
     "GlobRequest",
@@ -313,6 +358,9 @@ __all__ = [
     "Intent",
     "LifecycleError",
     "LifecycleResultBase",
+    "PtyCancelRequest",
+    "PtyProgressRequest",
+    "PtyWriteRequest",
     "RawExecResult",
     "ReadFileRequest",
     "ReadFileResult",

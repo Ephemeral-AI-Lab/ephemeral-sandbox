@@ -128,7 +128,7 @@
   <ol>
     <li><span>The engine dispatches a tool call through the tool framework with <code>SANDBOX_CONTEXT</code>.</span></li>
     <li><span>The tool wrapper builds a typed request and calls <code>sandbox.api</code>.</span></li>
-    <li><span>The facade calls daemon op names such as <code>api.v1.read_file</code>, <code>api.v1.write_file</code>, <code>api.v1.edit_file</code>, <code>api.v1.shell</code>, <code>api.v1.glob</code>, and <code>api.v1.grep</code>.</span></li>
+    <li><span>The facade calls daemon op names such as <code>api.v1.read_file</code>, <code>api.v1.write_file</code>, <code>api.v1.edit_file</code>, <code>api.v1.shell</code>, <code>api.v1.exec_command</code>, <code>api.v1.pty.write_stdin</code>, <code>api.v1.pty.progress</code>, <code>api.v1.pty.cancel</code>, <code>api.v1.glob</code>, and <code>api.v1.grep</code>.</span></li>
     <li><span><code>daemon.rpc.dispatcher</code> validates the envelope, registers in-flight state, blocks plugin ops when this agent has an active isolated workspace, and invokes the registered handler.</span></li>
     <li><span><code>daemon.builtin_operations</code> maps workspace ops to <code>dispatch_workspace_tool_call</code> with the static verb and intent.</span></li>
   </ol>

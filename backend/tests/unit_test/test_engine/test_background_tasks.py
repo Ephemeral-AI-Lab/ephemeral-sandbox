@@ -254,6 +254,20 @@ async def test_sandbox_task_can_disable_supervisor_heartbeat() -> None:
     await mgr.cancel_all()
 
 
+async def test_count_by_agent_includes_active_pty_commands() -> None:
+    mgr = BackgroundTaskSupervisor()
+    mgr.register_pty_command(
+        pty_session_id="pty_1",
+        sandbox_id="sandbox-1",
+        agent_id="agent-a",
+    )
+
+    assert mgr.count_by_agent("agent-a") == 1
+    mgr.mark_pty_cancelled_by_tool("pty_1")
+    assert mgr.count_by_agent("agent-a") == 0
+    await mgr.cancel_all()
+
+
 # ---------------------------------------------------------------------------
 # 9. cancel nonexistent task
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::LayerStackError;
 
@@ -15,7 +15,7 @@ pub const WORKSPACE_BINDING_FILE: &str = "workspace.json";
 
 /// Durable binding from a real workspace root to the layer-stack storage root.
 /// `// PORT backend/src/sandbox/layer_stack/workspace_binding.py:16-34`
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct WorkspaceBinding {
     pub workspace_root: String,
     pub layer_stack_root: String,

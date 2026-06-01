@@ -1,0 +1,52 @@
+{
+  "arch": "amd64",
+  "artifact": {
+    "executable": true,
+    "gate_pass": true,
+    "hashes_match": true,
+    "local_sha256": "b5ddd947ad2f44e4840702fa4372ade77a0fbeb2847ecac59d2ee2221ef56115",
+    "remote_mode": "0o755",
+    "remote_path": "/tmp/eosd-local/eosd",
+    "remote_sha256": "b5ddd947ad2f44e4840702fa4372ade77a0fbeb2847ecac59d2ee2221ef56115",
+    "size_bytes": 3230384,
+    "source_path": "/Users/yifanxu/machine_learning/LoVC/EphemeralOS/sandbox/dist/eosd-linux-amd64",
+    "upload_time_ms": 30.807542032562196,
+    "version": {
+      "error": null,
+      "exit_code": 0,
+      "present": true,
+      "stderr": "",
+      "stdout": "eosd 0.1.0"
+    }
+  },
+  "builder": "rust-lld",
+  "built": true,
+  "container_command": [
+    "sleep",
+    "infinity"
+  ],
+  "container_id": "aed1b999093f50f0db68e82e083490a69a7a92d76ed88ae595f3c85dfb6978e4",
+  "container_name": "eos-eosd-upload-d8d18fe1bd",
+  "container_start_ms": 192.56562500959262,
+  "image": "sweevo-dask__dask-10042:latest",
+  "no_package_install_in_target": true,
+  "platform": "linux/amd64",
+  "target": "x86_64-unknown-linux-musl",
+  "target_requires_rust": false,
+  "toolchain_probe": {
+    "cargo": {
+      "error": null,
+      "exit_code": 127,
+      "present": false,
+      "stderr": "",
+      "stdout": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"cargo\": executable file not found in $PATH: unknown"
+    },
+    "rustc": {
+      "error": null,
+      "exit_code": 127,
+      "present": false,
+      "stderr": "",
+      "stdout": "OCI runtime exec failed: exec failed: unable to start container process: exec: \"rustc\": executable file not found in $PATH: unknown"
+    }
+  }
+}

@@ -293,6 +293,7 @@ impl<T: CommitTransactionPort + 'static> CommitQueue<T> {
             let _ = item.reply.send(Ok(ChangesetResult {
                 files,
                 published_manifest_version: result.published_manifest_version,
+                timings: result.timings.clone(),
             }));
         }
     }
@@ -420,6 +421,7 @@ fn cas_exhaustion_result(
     ChangesetResult {
         files,
         published_manifest_version: None,
+        timings: std::collections::BTreeMap::new(),
     }
 }
 
@@ -477,6 +479,7 @@ mod tests {
                     })
                     .collect(),
                 published_manifest_version: Some(2),
+                timings: std::collections::BTreeMap::new(),
             })
         }
     }

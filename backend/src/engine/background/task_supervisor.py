@@ -111,6 +111,16 @@ class BackgroundTaskRecord:
     _terminal_lock: threading.Lock = field(default_factory=threading.Lock)
 
 
+@dataclass
+class PtyCommandRecord:
+    """Lightweight supervision state for a daemon-owned PTY command."""
+
+    pty_session_id: str
+    sandbox_id: str
+    agent_id: str
+    status: BackgroundTaskStatus = BackgroundTaskStatus.RUNNING
+
+
 _TERMINAL_EVENT_TYPE: dict[str, str] = {
     "completed": "background_tool.completed",
     "failed": "background_tool.failed",
@@ -192,6 +202,7 @@ class BackgroundTaskSupervisor:
 
     def __init__(self) -> None:
         self._tasks: dict[str, BackgroundTaskRecord] = {}
+        self._pty_commands: dict[str, PtyCommandRecord] = {}
         self._alias_counter: int = 0
         self._heartbeat_task: asyncio.Task[None] | None = None
 
@@ -334,11 +345,40 @@ class BackgroundTaskSupervisor:
 
     def count_by_agent(self, agent_id: str) -> int:
         """Return running sandbox-bound background task count for one agent."""
-        return sum(
+        task_count = sum(
             1
             for tracked in self._tasks.values()
             if _running_sandbox_task(tracked, agent_id)
         )
+        pty_count = sum(
+            1
+            for tracked in self._pty_commands.values()
+            if tracked.status == BackgroundTaskStatus.RUNNING
+            and tracked.agent_id == agent_id
+        )
+        return task_count + pty_count
+
+    def register_pty_command(
+        self,
+        *,
+        pty_session_id: str,
+        sandbox_id: str,
+        agent_id: str,
+    ) -> None:
+        """Track a daemon-owned PTY command for lifecycle gates."""
+        self._pty_commands[pty_session_id] = PtyCommandRecord(
+            pty_session_id=pty_session_id,
+            sandbox_id=sandbox_id,
+            agent_id=agent_id,
+        )
+        self._ensure_heartbeat_task()
+
+    def mark_pty_cancelled_by_tool(self, pty_session_id: str) -> None:
+        tracked = self._pty_commands.get(pty_session_id)
+        if tracked is None:
+            return
+        tracked.status = BackgroundTaskStatus.CANCELLED
+        self._stop_heartbeat_if_idle()
 
     def append_progress(self, task_id: str, line: str) -> None:
         """Append a live progress line for *task_id*.
@@ -404,6 +444,7 @@ class BackgroundTaskSupervisor:
 
         Returns the number of asyncio tasks still not done after ``grace_s``.
         """
+        await self.cancel_pty_by_agent(agent_id)
         targets = [
             tracked
             for tracked in self._tasks.values()
@@ -430,12 +471,48 @@ class BackgroundTaskSupervisor:
             task.cancel()
         return len([task for task in pending if not task.done()])
 
+    async def cancel_pty_by_agent(self, agent_id: str) -> int:
+        """Cancel active PTY command records for one agent."""
+        targets = [
+            record
+            for record in self._pty_commands.values()
+            if record.status == BackgroundTaskStatus.RUNNING
+            and record.agent_id == agent_id
+        ]
+        if not targets:
+            return 0
+        try:
+            import sandbox.api as sandbox_api
+
+            await asyncio.gather(
+                *(
+                    sandbox_api.cancel_pty_command(
+                        record.sandbox_id,
+                        sandbox_api.PtyCancelRequest(
+                            caller=sandbox_api.SandboxCaller(agent_id=record.agent_id),
+                            pty_session_id=record.pty_session_id,
+                        ),
+                    )
+                    for record in targets
+                ),
+                return_exceptions=True,
+            )
+        finally:
+            for record in targets:
+                record.status = BackgroundTaskStatus.CANCELLED
+        return len(targets)
+
     def get_task(self, task_id: str) -> BackgroundTaskRecord | None:
         """Return the tracked task for *task_id* (or None)."""
         return self._tasks.get(task_id)
 
     async def cancel_all(self) -> None:
         """Cancel all running tasks. Called on query loop exit."""
+        pty_agents = {record.agent_id for record in self._running_pty_commands()}
+        await asyncio.gather(
+            *(self.cancel_pty_by_agent(agent_id) for agent_id in pty_agents),
+            return_exceptions=True,
+        )
         cancelled_tasks: list[asyncio.Task[ToolResult]] = []
         for tracked in self._tasks.values():
             if tracked.status != BackgroundTaskStatus.RUNNING:
@@ -521,7 +598,7 @@ class BackgroundTaskSupervisor:
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
     def _stop_heartbeat_if_idle(self) -> None:
-        if self._running_sandbox_invocation_ids():
+        if self._running_sandbox_invocation_ids() or self._running_pty_commands():
             return
         if self._heartbeat_task is not None and not self._heartbeat_task.done():
             self._heartbeat_task.cancel()
@@ -531,7 +608,8 @@ class BackgroundTaskSupervisor:
         while True:
             await asyncio.sleep(_HEARTBEAT_INTERVAL_S)
             by_sandbox = self._running_sandbox_invocation_ids()
-            if not by_sandbox:
+            await self._collect_pty_completions_once()
+            if not by_sandbox and not self._running_pty_commands():
                 self._heartbeat_task = None
                 return
             for tracked in list(self._tasks.values()):
@@ -577,3 +655,49 @@ class BackgroundTaskSupervisor:
                     tracked.sandbox_invocation_id
                 )
         return by_sandbox
+
+    def _running_pty_commands(self) -> list[PtyCommandRecord]:
+        return [
+            record
+            for record in self._pty_commands.values()
+            if record.status == BackgroundTaskStatus.RUNNING
+        ]
+
+    async def _collect_pty_completions_once(self) -> None:
+        running = self._running_pty_commands()
+        if not running:
+            return
+        try:
+            import sandbox.api as sandbox_api
+
+            by_sandbox_agent: dict[tuple[str, str], list[str]] = {}
+            for record in running:
+                by_sandbox_agent.setdefault(
+                    (record.sandbox_id, record.agent_id),
+                    [],
+                ).append(record.pty_session_id)
+            for (sandbox_id, agent_id), ids in by_sandbox_agent.items():
+                completions = await sandbox_api.collect_pty_completions(
+                    sandbox_id,
+                    agent_id=agent_id,
+                    pty_session_ids=ids,
+                )
+                for completion in completions:
+                    pty_session_id = str(completion.get("pty_session_id") or "")
+                    record = self._pty_commands.get(pty_session_id)
+                    if record is None:
+                        continue
+                    result = completion.get("result")
+                    status = (
+                        str(result.get("status"))
+                        if isinstance(result, dict)
+                        else "completed"
+                    )
+                    if status == "cancelled":
+                        record.status = BackgroundTaskStatus.CANCELLED
+                    elif status == "ok":
+                        record.status = BackgroundTaskStatus.COMPLETED
+                    else:
+                        record.status = BackgroundTaskStatus.FAILED
+        except Exception:
+            logger.debug("pty completion collection failed", exc_info=True)

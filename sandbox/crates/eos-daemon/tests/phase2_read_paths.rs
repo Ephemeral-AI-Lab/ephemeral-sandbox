@@ -54,6 +54,137 @@ fn dispatches_runtime_ready_probe() {
 }
 
 #[test]
+fn dispatches_workspace_base_control_ops_for_fresh_stack() {
+    let (root, workspace) = empty_workspace("workspace_base");
+    std::fs::create_dir_all(workspace.join("src")).expect("create src");
+    std::fs::write(workspace.join("README.md"), "# base\n").expect("write readme");
+    std::fs::write(workspace.join("src").join("a.py"), "print('base')\n").expect("write source");
+    std::os::unix::fs::symlink("src/a.py", workspace.join("link.py")).expect("create symlink");
+    std::fs::create_dir_all(workspace.join("links")).expect("create links");
+    let outside_target = workspace
+        .parent()
+        .expect("workspace parent")
+        .join("outside.txt");
+    std::fs::write(&outside_target, "outside\n").expect("write outside target");
+    std::os::unix::fs::symlink("../src/a.py", workspace.join("links").join("inside"))
+        .expect("create relative symlink with parent component");
+    std::os::unix::fs::symlink(&outside_target, workspace.join("links").join("outside"))
+        .expect("create absolute symlink");
+    let table = OpTable::with_builtins();
+
+    let ensure = table.dispatch(&Request {
+        op: "api.ensure_workspace_base".to_owned(),
+        invocation_id: "ensure".to_owned(),
+        args: json!({
+            "layer_stack_root": &root,
+            "workspace_root": &workspace,
+        }),
+    });
+
+    assert_eq!(ensure["success"], Value::Bool(true));
+    assert_eq!(ensure["created"], Value::Bool(true));
+    assert_eq!(
+        ensure["binding"]["workspace_root"],
+        json!(workspace.to_string_lossy().as_ref())
+    );
+    assert_eq!(
+        ensure["binding"]["layer_stack_root"],
+        json!(root.to_string_lossy().as_ref())
+    );
+    assert_eq!(ensure["binding"]["base_manifest_version"], json!(1));
+    assert_eq!(
+        ensure["binding"]["base_root_hash"].as_str().map(str::len),
+        Some(64)
+    );
+    assert!(ensure["timings"]["api.workspace_base.total_s"].is_number());
+    assert_eq!(
+        std::fs::read_link(
+            root.join("layers")
+                .join("B000001-base")
+                .join("links")
+                .join("inside")
+        )
+        .expect("inside symlink")
+        .to_string_lossy(),
+        "../src/a.py"
+    );
+    assert_eq!(
+        std::fs::read_link(
+            root.join("layers")
+                .join("B000001-base")
+                .join("links")
+                .join("outside")
+        )
+        .expect("outside symlink"),
+        outside_target
+    );
+
+    let binding = table.dispatch(&Request {
+        op: "api.workspace_binding".to_owned(),
+        invocation_id: "binding".to_owned(),
+        args: json!({"layer_stack_root": &root}),
+    });
+    assert_eq!(binding["success"], Value::Bool(true));
+    assert_eq!(
+        binding["binding"]["base_root_hash"],
+        ensure["binding"]["base_root_hash"]
+    );
+
+    let read = table.dispatch(&Request {
+        op: "api.v1.read_file".to_owned(),
+        invocation_id: "read".to_owned(),
+        args: json!({
+            "layer_stack_root": &root,
+            "path": workspace.join("README.md"),
+        }),
+    });
+    assert_eq!(read["success"], Value::Bool(true));
+    assert_eq!(read["content"], Value::String("# base\n".to_owned()));
+
+    let ensure_again = table.dispatch(&Request {
+        op: "api.ensure_workspace_base".to_owned(),
+        invocation_id: "ensure-again".to_owned(),
+        args: json!({
+            "layer_stack_root": &root,
+            "workspace_root": &workspace,
+        }),
+    });
+    assert_eq!(ensure_again["success"], Value::Bool(true));
+    assert_eq!(ensure_again["created"], Value::Bool(false));
+
+    std::fs::write(workspace.join("README.md"), "# reset\n").expect("rewrite readme");
+    let rebuilt = table.dispatch(&Request {
+        op: "api.build_workspace_base".to_owned(),
+        invocation_id: "rebuild".to_owned(),
+        args: json!({
+            "layer_stack_root": &root,
+            "workspace_root": &workspace,
+            "reset": true,
+        }),
+    });
+    assert_eq!(rebuilt["success"], Value::Bool(true));
+    assert_eq!(rebuilt["created"], Value::Bool(true));
+    assert_ne!(
+        rebuilt["binding"]["base_root_hash"],
+        ensure["binding"]["base_root_hash"]
+    );
+
+    let read_after_reset = table.dispatch(&Request {
+        op: "api.v1.read_file".to_owned(),
+        invocation_id: "read-after-reset".to_owned(),
+        args: json!({
+            "layer_stack_root": &root,
+            "path": "README.md",
+        }),
+    });
+    assert_eq!(read_after_reset["success"], Value::Bool(true));
+    assert_eq!(
+        read_after_reset["content"],
+        Value::String("# reset\n".to_owned())
+    );
+}
+
+#[test]
 fn unknown_op_uses_structured_contract() {
     let request = Request {
         op: "api.v1.does_not_exist".to_owned(),
@@ -297,6 +428,20 @@ fn seed_layer_stack(label: &str) -> (PathBuf, PathBuf) {
             "base_root_hash": "base",
         }),
     );
+    (root, workspace)
+}
+
+fn empty_workspace(label: &str) -> (PathBuf, PathBuf) {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let base = PathBuf::from("/tmp").join(format!(
+        "eosd-empty-{label}-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
+    let _ = std::fs::remove_dir_all(&base);
+    let workspace = base.join("workspace");
+    let root = base.join("layer-stack");
+    std::fs::create_dir_all(&workspace).expect("create workspace dir");
     (root, workspace)
 }
 

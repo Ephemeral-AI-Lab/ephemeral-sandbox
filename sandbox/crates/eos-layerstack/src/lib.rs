@@ -40,6 +40,7 @@ pub mod port;
 pub mod squash;
 pub mod stack;
 pub mod storage_lock;
+pub mod workspace_base;
 pub mod workspace_binding;
 
 // CAS types are owned by eos-protocol; re-export so downstream crates use ONE
@@ -59,6 +60,7 @@ pub use squash::{
 };
 pub use stack::{LayerStack, Lease, MergedView};
 pub use storage_lock::{StorageWriterLockLease, STORAGE_WRITER_LOCK_FILE};
+pub use workspace_base::{build_workspace_base, ensure_workspace_base, WORKSPACE_BASE_LAYER_ID};
 pub use workspace_binding::{
     read_workspace_binding, require_workspace_binding, WorkspaceBinding, WORKSPACE_BINDING_FILE,
 };

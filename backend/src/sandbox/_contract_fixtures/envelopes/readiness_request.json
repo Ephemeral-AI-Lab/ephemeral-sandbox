@@ -1,1 +1,1 @@
-{"op":"api.runtime.ready","invocation_id":"00000000000000000000000000000001","args":{"layer_stack_root":"/tmp/eos-sandbox-runtime/layer-stack"}}
+{"op":"api.runtime.ready","invocation_id":"00000000000000000000000000000001","args":{"layer_stack_root":"/eos-mount-scratch/eos-sandbox-runtime/layer-stack"}}

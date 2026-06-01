@@ -1,1 +1,1 @@
-{"op":"api.v1.read_file","invocation_id":"00000000000000000000000000000001","args":{"layer_stack_root":"/tmp/eos-sandbox-runtime/layer-stack","_eos_daemon_protocol_version":1,"path":"/workspace/repo/README.md","agent_id":"agent-1","invocation_id":"00000000000000000000000000000001"}}
+{"op":"api.v1.read_file","invocation_id":"00000000000000000000000000000001","args":{"layer_stack_root":"/eos-mount-scratch/eos-sandbox-runtime/layer-stack","_eos_daemon_protocol_version":1,"path":"/workspace/repo/README.md","agent_id":"agent-1","invocation_id":"00000000000000000000000000000001"}}

@@ -240,7 +240,9 @@ def _shell_argv(args: Any) -> list[str]:
     if isinstance(command, list):
         return [str(part) for part in command]
     if isinstance(command, str):
-        return ["bash", "-lc", command]
+        if not command.strip():
+            raise ValueError("command string must be non-empty")
+        return ["/bin/bash", "--noprofile", "--norc", "-c", command]
     raise ValueError("command must be a string or argv list")
 
 

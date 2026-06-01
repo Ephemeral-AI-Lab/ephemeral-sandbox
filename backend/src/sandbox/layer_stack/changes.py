@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import stat
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -129,7 +130,7 @@ def write_layer_change(prepared: PreparedLayerChange, layer_dir: Path) -> None:
         remove_path(target)
         target.write_bytes(prepared.write_content)
     elif c.kind == "delete":
-        _whiteout_path(layer_dir, c.path).write_text("", encoding="utf-8")
+        _write_whiteout(layer_dir, c.path)
     elif c.kind == "symlink":
         assert c.source_path is not None
         target = join_layer_path(layer_dir, c.path)
@@ -171,6 +172,31 @@ def _whiteout_path(layer_dir: Path, rel: str) -> Path:
     whiteout = layer_dir.joinpath(*parent_parts, f"{WHITEOUT_PREFIX}{target.name}")
     whiteout.parent.mkdir(parents=True, exist_ok=True)
     return whiteout
+
+
+def _write_whiteout(layer_dir: Path, rel: str) -> None:
+    target = join_layer_path(layer_dir, rel)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.mknod(target, stat.S_IFCHR | 0o644, os.makedev(0, 0))
+        return
+    except (AttributeError, OSError):
+        pass
+    target.write_bytes(b"")
+    if _set_whiteout_xattr(target, b"trusted.overlay.whiteout") or _set_whiteout_xattr(
+        target, b"user.overlay.whiteout"
+    ):
+        return
+    target.unlink(missing_ok=True)
+    _whiteout_path(layer_dir, rel).write_text("", encoding="utf-8")
+
+
+def _set_whiteout_xattr(path: Path, key: bytes) -> bool:
+    try:
+        os.setxattr(path, key, b"y", follow_symlinks=False)
+    except (AttributeError, OSError):
+        return False
+    return True
 
 
 __all__ = [

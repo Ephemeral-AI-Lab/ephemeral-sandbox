@@ -12,6 +12,7 @@ import gzip
 import hashlib
 import io
 import logging
+import os
 import shlex
 import tarfile
 import uuid
@@ -23,6 +24,7 @@ from sandbox.daemon.paths import (
     BUNDLE_REMOTE_TARBALL as _BUNDLE_REMOTE_TARBALL,
 )
 from sandbox.host.chunked_upload import RawExecCallable, write_base64_chunks
+from sandbox.host.runtime_artifact import EOSD_SHA256
 from sandbox.provider.registry import get_adapter
 
 __all__ = [
@@ -306,10 +308,14 @@ def clear_bundle_caches() -> None:
 
 async def ensure_runtime_uploaded(sandbox_id: str) -> str:
     """Upload the runtime bundle through the registered provider if needed."""
-    return await _ensure_runtime_uploaded_with_exec(
+    adapter = get_adapter(sandbox_id)
+    digest = await _ensure_runtime_uploaded_with_exec(
         sandbox_id,
-        get_adapter(sandbox_id).exec,
+        adapter.exec,
     )
+    if _selected_sandbox_runtime() == "rust":
+        await _ensure_eosd_uploaded(sandbox_id, adapter)
+    return digest
 
 
 async def _ensure_runtime_uploaded_with_exec(
@@ -372,6 +378,137 @@ async def _ensure_runtime_uploaded_with_exec(
         sandbox_id,
     )
     return digest
+
+
+def _selected_sandbox_runtime() -> str:
+    return os.environ.get("EOS_SANDBOX_RUNTIME", "python").strip().lower() or "python"
+
+
+async def _ensure_eosd_uploaded(sandbox_id: str, adapter: object) -> None:
+    exec_fn = getattr(adapter, "exec")
+    arch = _artifact_arch(await _exec_stdout(exec_fn, sandbox_id, "uname -m", timeout=15))
+    artifact = _repo_root() / "sandbox" / "dist" / f"eosd-linux-{arch}"
+    if not artifact.exists():
+        raise RuntimeError(f"missing eosd artifact for {arch}: {artifact}")
+    payload = artifact.read_bytes()
+    digest = hashlib.sha256(payload).hexdigest()
+    expected = EOSD_SHA256.get(arch)
+    if digest != expected:
+        raise RuntimeError(
+            f"eosd artifact hash mismatch for {arch}: got {digest}, expected {expected}"
+        )
+
+    marker = f"{_BUNDLE_REMOTE_DIR}/.eosd-sha256"
+    remote = f"{_BUNDLE_REMOTE_DIR}/eosd"
+    marker_check = await exec_fn(
+        sandbox_id,
+        (
+            f"test -x {shlex.quote(remote)} && "
+            f"test -f {shlex.quote(marker)} && cat {shlex.quote(marker)}"
+        ),
+        timeout=15,
+    )
+    if _exit_code(marker_check) == 0 and (getattr(marker_check, "stdout", "") or "").strip() == digest:
+        return
+
+    await _check_exec(
+        exec_fn,
+        sandbox_id,
+        f"mkdir -p {shlex.quote(_BUNDLE_REMOTE_DIR)}",
+        timeout=30,
+        message="eosd runtime directory setup failed",
+    )
+    put_archive = getattr(adapter, "put_archive", None)
+    if callable(put_archive):
+        await put_archive(
+            sandbox_id,
+            tar_stream=_tar_file_at_path(remote, payload, mode=0o755),
+            dest_dir="/",
+        )
+    else:
+        staging = f"{remote}.{uuid.uuid4().hex}.staging"
+        await write_base64_chunks(
+            exec_fn,
+            sandbox_id,
+            content=payload,
+            remote_path=staging,
+            check_result=_check_chunk_write,
+            failure_message=lambda offset: (
+                f"eosd chunk write failed at offset {offset} (sandbox={sandbox_id!r})"
+            ),
+        )
+        await _check_exec(
+            exec_fn,
+            sandbox_id,
+            f"chmod 755 {shlex.quote(staging)} && mv -f {shlex.quote(staging)} {shlex.quote(remote)}",
+            timeout=30,
+            message="eosd finalize failed",
+        )
+
+    await _check_exec(
+        exec_fn,
+        sandbox_id,
+        (
+            f"printf %s {shlex.quote(digest)} > {shlex.quote(marker)} && "
+            f"{shlex.quote(remote)} --version >/dev/null"
+        ),
+        timeout=30,
+        message="eosd upload verification failed",
+    )
+
+
+async def _exec_stdout(
+    exec_fn: RawExecCallable,
+    sandbox_id: str,
+    command: str,
+    *,
+    timeout: int,
+) -> str:
+    result = await exec_fn(sandbox_id, command, timeout=timeout)
+    if _exit_code(result) != 0:
+        raise RuntimeError(f"runtime probe failed: {getattr(result, 'stdout', '')}")
+    return (getattr(result, "stdout", "") or "").strip()
+
+
+async def _check_exec(
+    exec_fn: RawExecCallable,
+    sandbox_id: str,
+    command: str,
+    *,
+    timeout: int,
+    message: str,
+) -> None:
+    result = await exec_fn(sandbox_id, command, timeout=timeout)
+    if _exit_code(result) != 0:
+        raise RuntimeError(f"{message} (sandbox={sandbox_id!r}): {getattr(result, 'stdout', '')}")
+
+
+def _artifact_arch(machine: str) -> str:
+    normalized = machine.strip().lower()
+    if normalized in {"x86_64", "amd64"}:
+        return "amd64"
+    if normalized in {"aarch64", "arm64"}:
+        return "arm64"
+    raise RuntimeError(f"unsupported sandbox architecture for eosd artifact: {machine!r}")
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[4]
+
+
+def _tar_file_at_path(path: str, payload: bytes, *, mode: int) -> bytes:
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode="w") as tar:
+        info = tarfile.TarInfo(path.strip("/"))
+        info.size = len(payload)
+        info.mtime = 0
+        info.uid = 0
+        info.gid = 0
+        info.uname = ""
+        info.gname = ""
+        info.mode = mode
+        tar.addfile(info, io.BytesIO(payload))
+    return raw.getvalue()
 
 
 def _check_chunk_write(result: object, message: str) -> None:

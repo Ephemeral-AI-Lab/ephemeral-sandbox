@@ -47,11 +47,22 @@ class CommandExecPolicy:
             else {key: os.environ[key] for key in self.host_env_keys if key in os.environ}
         )
         safe_extra = {k: v for k, v in extra.items() if k not in self.restricted_env_keys}
-        return {
+        env = {
             **host_env,
             **safe_extra,
             **{str(k): str(v) for k, v in self.command_env_defaults.items()},
         }
+        base_path = env.get(
+            "PATH",
+            "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        )
+        env["PATH"] = (
+            "/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/bin:"
+            f"{base_path}"
+        )
+        env.pop("BASH_ENV", None)
+        env.pop("ENV", None)
+        return env
 
     def validate_overlay_path_text(self, text: str) -> None:
         for bad in self.forbidden_overlay_path_chars:

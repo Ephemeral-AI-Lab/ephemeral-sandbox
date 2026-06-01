@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeAlias
 
-from sandbox.layer_stack.paths import fsync_path, relative_symlink_target_escapes
+from sandbox.layer_stack.paths import fsync_path
 from sandbox.layer_stack.manifest import (
     LAYERS_DIR,
     STAGING_DIR,
@@ -226,15 +226,6 @@ def _collect_base_entries(workspace: Path) -> tuple[tuple[_BaseEntry, ...], str]
 
 def _symlink_entry(*, path: Path, rel: str) -> _SymlinkEntry:
     target = os.readlink(path)
-    # Reject obviously unsafe symlink targets so a clone of an untrusted
-    # third-party repo carrying a malicious symlink does NOT end up in the
-    # published base layer. Absolute targets and relative targets that walk
-    # out of the workspace are rejected as "incomplete".
-    if target.startswith("/") or relative_symlink_target_escapes(target):
-        raise WorkspaceBaseIncompleteError(
-            special_file_rejections=(rel,),
-            unstable_paths=(),
-        )
     return _SymlinkEntry(path=rel, link_target=target)
 
 

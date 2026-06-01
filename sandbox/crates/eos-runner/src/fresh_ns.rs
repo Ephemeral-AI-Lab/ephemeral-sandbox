@@ -139,7 +139,7 @@ fn execute_tool(
     run_start: Instant,
 ) -> Result<RunResult, RunnerError> {
     match request.tool_call.verb.as_str() {
-        "shell" => execute_shell(request, mount_s, output_dir, run_start),
+        "shell" | "exec_command" => execute_shell(request, mount_s, output_dir, run_start),
         "glob" => Ok(RunResult {
             exit_code: 0,
             tool_result: glob_tool_result(
@@ -176,9 +176,18 @@ fn execute_shell(
     output_dir: PathBuf,
     run_start: Instant,
 ) -> Result<RunResult, RunnerError> {
-    let argv = shell_argv(&request.tool_call.args)?;
+    let argv = shell_argv(request)?;
     let cwd = shell_cwd(request)?;
     fs::create_dir_all(&output_dir).map_err(RunnerError::Child)?;
+    if request
+        .tool_call
+        .args
+        .get("tty")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        return execute_shell_pty(request, mount_s, run_start, argv, cwd);
+    }
     let stdout_path = output_dir.join(format!("{}.stdout", request.tool_call.invocation_id));
     let stderr_path = output_dir.join(format!("{}.stderr", request.tool_call.invocation_id));
     let stdout_file = File::create(&stdout_path).map_err(RunnerError::Child)?;
@@ -190,17 +199,30 @@ fn execute_shell(
         .current_dir(&cwd)
         .env_clear()
         .envs(command_environment(&request.tool_call.args))
+        .stdin(Stdio::null())
         .stdout(Stdio::from(stdout_file))
         .stderr(Stdio::from(stderr_file))
         .process_group(0);
 
     let mut child = command.spawn().map_err(RunnerError::Child)?;
-    let exit_code = wait_for_child(&mut child, request.timeout_seconds)?;
+    let child_pid = Pid::from_child(&child);
+    let (exit_code, timed_out) = match wait_for_child(&mut child, request.timeout_seconds) {
+        Ok(exit_code) => (exit_code, false),
+        Err(RunnerError::TimedOut) => (124, true),
+        Err(err) => return Err(err),
+    };
+    let _ = kill_process_group(child_pid, Signal::Kill);
     let stdout = fs::read_to_string(&stdout_path).unwrap_or_else(|_| String::new());
     let stderr = fs::read_to_string(&stderr_path).unwrap_or_else(|_| String::new());
     let tool_s = run_start.elapsed().as_secs_f64();
 
-    let status = if exit_code == 0 { "ok" } else { "error" };
+    let status = if timed_out {
+        "timed_out"
+    } else if exit_code == 0 {
+        "ok"
+    } else {
+        "error"
+    };
     Ok(RunResult {
         exit_code,
         tool_result: serde_json::json!({
@@ -220,6 +242,61 @@ fn execute_shell(
             "exit_code": exit_code,
             "stdout": stdout,
             "stderr": stderr,
+            "warnings": [],
+        }),
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn execute_shell_pty(
+    request: &RunRequest,
+    mount_s: f64,
+    run_start: Instant,
+    argv: Vec<String>,
+    cwd: PathBuf,
+) -> Result<RunResult, RunnerError> {
+    let mut command = Command::new(&argv[0]);
+    command
+        .args(&argv[1..])
+        .current_dir(&cwd)
+        .env_clear()
+        .envs(command_environment(&request.tool_call.args))
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    let mut child = command.spawn().map_err(RunnerError::Child)?;
+    let (exit_code, timed_out) = match wait_for_child(&mut child, request.timeout_seconds) {
+        Ok(exit_code) => (exit_code, false),
+        Err(RunnerError::TimedOut) => (124, true),
+        Err(err) => return Err(err),
+    };
+    let status = if timed_out {
+        "timed_out"
+    } else if exit_code == 0 {
+        "ok"
+    } else {
+        "error"
+    };
+    Ok(RunResult {
+        exit_code,
+        tool_result: serde_json::json!({
+            "success": true,
+            "workspace": "ephemeral",
+            "timings": {
+                "workspace.mount_s": mount_s,
+                "workspace.tool_s": run_start.elapsed().as_secs_f64(),
+            },
+            "conflict": null,
+            "conflict_reason": null,
+            "changed_paths": [],
+            "error": null,
+            "changed_path_kinds": {},
+            "mutation_source": "",
+            "status": status,
+            "exit_code": exit_code,
+            "stdout": "",
+            "stderr": "",
             "warnings": [],
         }),
     })
@@ -251,12 +328,33 @@ fn wait_for_child(
 }
 
 #[cfg(target_os = "linux")]
-fn shell_argv(args: &serde_json::Value) -> Result<Vec<String>, RunnerError> {
+fn shell_argv(request: &RunRequest) -> Result<Vec<String>, RunnerError> {
+    let args = &request.tool_call.args;
     let Some(command) = args.get("command") else {
         return Err(RunnerError::InvalidRequest(
             "shell args require command".to_owned(),
         ));
     };
+    if let Some(value) = command.as_str() {
+        let command = value.trim();
+        if command.is_empty() {
+            return Err(RunnerError::InvalidRequest(
+                "shell command string must not be empty".to_owned(),
+            ));
+        }
+        return Ok(vec![
+            "/bin/bash".to_owned(),
+            "--noprofile".to_owned(),
+            "--norc".to_owned(),
+            "-c".to_owned(),
+            value.to_owned(),
+        ]);
+    }
+    if request.tool_call.verb == "exec_command" {
+        return Err(RunnerError::InvalidRequest(
+            "exec_command requires a shell-format command string".to_owned(),
+        ));
+    }
     if let Some(parts) = command.as_array() {
         if parts.is_empty() {
             return Err(RunnerError::InvalidRequest(
@@ -281,7 +379,7 @@ fn shell_argv(args: &serde_json::Value) -> Result<Vec<String>, RunnerError> {
         return Ok(argv);
     }
     Err(RunnerError::InvalidRequest(
-        "shell command must be an argv list; shell strings are not supported".to_owned(),
+        "shell command must be a string or argv list".to_owned(),
     ))
 }
 
@@ -355,6 +453,16 @@ fn command_environment(args: &serde_json::Value) -> BTreeMap<String, String> {
             "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_owned(),
         );
     }
+    let existing_path = env.get("PATH").cloned().unwrap_or_default();
+    let suffix = if existing_path.is_empty() {
+        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_owned()
+    } else {
+        existing_path
+    };
+    env.insert(
+        "PATH".to_owned(),
+        format!("/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/bin:{suffix}"),
+    );
     if let Some(extra) = args.get("env").and_then(serde_json::Value::as_object) {
         for (key, value) in extra {
             if !RESTRICTED.contains(&key.as_str()) {
@@ -413,20 +521,40 @@ impl<T> SyscallResult<T> for rustix::io::Result<T> {
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::{normalize_lexical, shell_argv};
+    use crate::request::{RunMode, RunRequest, ToolCall, WorkspaceRoot};
+    use eos_protocol::Intent;
     use std::path::Path;
 
     #[test]
-    fn shell_rejects_string_command() {
-        let error = shell_argv(&serde_json::json!({"command": "echo hi"}))
-            .expect_err("string command must be rejected");
-        assert!(error.to_string().contains("argv list"));
+    fn shell_string_uses_non_login_bash() {
+        let argv = shell_argv(&request("shell", serde_json::json!({"command": "echo hi"})))
+            .expect("string command is valid");
+        assert_eq!(
+            argv,
+            ["/bin/bash", "--noprofile", "--norc", "-c", "echo hi"]
+                .map(str::to_owned)
+                .to_vec()
+        );
     }
 
     #[test]
-    fn shell_accepts_argv_command() {
-        let argv =
-            shell_argv(&serde_json::json!({"command": ["echo", "hi"]})).expect("valid shell argv");
-        assert_eq!(argv, vec!["echo", "hi"]);
+    fn exec_command_rejects_raw_argv() {
+        let error = shell_argv(&request(
+            "exec_command",
+            serde_json::json!({"command": ["echo", "hi"]}),
+        ))
+        .expect_err("exec_command raw argv is rejected");
+        assert!(error.to_string().contains("shell-format command string"));
+    }
+
+    #[test]
+    fn legacy_shell_still_accepts_argv_command() {
+        let argv = shell_argv(&request(
+            "shell",
+            serde_json::json!({"command": ["echo", "hi"]}),
+        ))
+        .expect("valid shell argv");
+        assert_eq!(argv, ["echo", "hi"].map(str::to_owned).to_vec());
     }
 
     #[test]
@@ -435,5 +563,26 @@ mod tests {
             normalize_lexical(Path::new("/testbed/./a/../b")),
             Path::new("/testbed/b")
         );
+    }
+
+    fn request(verb: &str, args: serde_json::Value) -> RunRequest {
+        RunRequest {
+            mode: RunMode::FreshNs,
+            tool_call: ToolCall {
+                invocation_id: "test".to_owned(),
+                agent_id: "agent".to_owned(),
+                verb: verb.to_owned(),
+                intent: Intent::WriteAllowed,
+                args,
+                background: false,
+            },
+            workspace_root: WorkspaceRoot(Path::new("/testbed").to_path_buf()),
+            layer_paths: vec![],
+            upperdir: None,
+            workdir: None,
+            ns_fds: None,
+            cgroup_path: None,
+            timeout_seconds: None,
+        }
     }
 }
