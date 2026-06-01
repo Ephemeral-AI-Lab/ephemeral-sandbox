@@ -26,10 +26,7 @@ def test_harness_agent_markdown_declares_notification_triggers() -> None:
     reducer = _load_named(MAIN_PROFILE_DIR, "reducer")
 
     assert planner.notification_triggers == ["nested_planner_deferral_disabled"]
-    assert executor.notification_triggers == [
-        "nested_workflow_handoff_disabled",
-        "request_workflow_after_edit",
-    ]
+    assert executor.notification_triggers == []
     assert reducer.notification_triggers == []
 
 
@@ -44,16 +41,15 @@ def test_recursive_agent_loader_finds_harness_profiles() -> None:
     } <= set(by_name)
     assert by_name["executor"].role == AgentRole.GENERATOR
     assert by_name["executor"].agent_type == AgentType.AGENT
-    assert by_name["executor"].terminals == [
-        "submit_workflow_handoff",
-        "submit_generator_outcome",
-    ]
+    assert by_name["executor"].terminals == ["submit_generator_outcome"]
+    assert "delegate_workflow" in by_name["executor"].allowed_tools
 
 
 def test_executor_profile_uses_goal_solution_terminal() -> None:
     executor = _load_named(MAIN_PROFILE_DIR, "executor")
 
-    assert "submit_workflow_handoff" in executor.terminals
+    assert "submit_generator_outcome" in executor.terminals
+    assert "delegate_workflow" in executor.allowed_tools
     assert "ask_resolver" not in executor.allowed_tools
 
 

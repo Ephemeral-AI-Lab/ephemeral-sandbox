@@ -1,6 +1,6 @@
-"""Two agents bind the same TCP port — no EADDRINUSE thanks to per-ws netns.
+"""Two agents bind TCP port 3000 — no EADDRINUSE thanks to per-ws netns.
 
-Each workspace owns a fresh ``CLONE_NEWNET`` so port 8080 in ws-A and ws-B
+Each workspace owns a fresh ``CLONE_NEWNET`` so port 3000 in ws-A and ws-B
 are independent allocations. Cross-agent curl to the peer IP is still
 blocked by bridge port isolation (Tier 2 property).
 """
@@ -20,6 +20,7 @@ from task_center_runner.tests.mock.sandbox.isolated_workspace import (
 
 
 pytestmark = pytest.mark.asyncio
+_PORT = 3000
 
 
 @pytest.mark.skipif(
@@ -42,17 +43,17 @@ async def test_two_agents_same_port(iws_clean_sandbox, iws_audit_jsonl) -> None:
         for agent in ("agent-A", "agent-B"):
             launched = await _iws_rpc.shell(
                 sandbox_id, agent,
-                "nohup python3 -m http.server 8080 >/tmp/srv.log 2>&1 & "
+                f"nohup python3 -m http.server {_PORT} >/tmp/srv.log 2>&1 & "
                 "sleep 0.5; echo $!",
             )
             assert launched.get("success") is True, (agent, launched)
 
-        # Each agent reaches its OWN localhost:8080.
+        # Each agent reaches its OWN localhost:3000.
         for agent in ("agent-A", "agent-B"):
             curl = await _iws_rpc.shell(
                 sandbox_id, agent,
                 "curl -s --max-time 3 -o /dev/null -w '%{http_code}' "
-                "http://127.0.0.1:8080/ || echo BAD",
+                f"http://127.0.0.1:{_PORT}/ || echo BAD",
             )
             assert curl.get("success") is True, (agent, curl)
             assert "200" in (curl.get("stdout", "") or ""), (agent, curl)
@@ -69,7 +70,7 @@ async def test_two_agents_same_port(iws_clean_sandbox, iws_audit_jsonl) -> None:
         assert ip_b, enters
         cross = await _iws_rpc.shell(
             sandbox_id, "agent-A",
-            f"curl -s --max-time 2 http://{ip_b}:8080/ || echo BLOCKED",
+            f"curl -s --max-time 2 http://{ip_b}:{_PORT}/ || echo BLOCKED",
         )
         assert "BLOCKED" in (cross.get("stdout", "") or ""), cross
     finally:

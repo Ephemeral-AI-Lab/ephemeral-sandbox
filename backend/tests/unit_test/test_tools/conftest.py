@@ -17,10 +17,10 @@ from agents import (
 )
 from db.base import Base
 import db.models  # noqa: F401
-from db.models.task_center import TaskCenterRequestRecord, TaskCenterRunRecord
+from db.models.request import RequestRecord
 from db.stores.workflow_store import WorkflowStore
 from db.stores.attempt_store import AttemptStore
-from db.stores.task_center_store import TaskCenterStore
+from db.stores.task_store import TaskStore
 from db.stores.iteration_store import IterationStore
 from workflow.agent_launch.composer import AgentEntryComposer
 from workflow.context_engine.engine import ContextEngine, ContextEngineDeps
@@ -33,21 +33,14 @@ def session_factory():
     sf = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     with sf() as session:
         session.add(
-            TaskCenterRequestRecord(
-                id="req1",
+            RequestRecord(
+                id="run1",
                 cwd="/tmp",
                 sandbox_id=None,
                 request_prompt="prompt",
+                status="running",
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
-            )
-        )
-        session.add(
-            TaskCenterRunRecord(
-                id="run1",
-                request_id="req1",
-                status="running",
-                started_at=datetime.now(UTC),
             )
         )
         session.commit()
@@ -77,8 +70,8 @@ def attempt_store(session_factory) -> AttemptStore:
 
 
 @pytest.fixture
-def task_store(session_factory) -> TaskCenterStore:
-    store = TaskCenterStore()
+def task_store(session_factory) -> TaskStore:
+    store = TaskStore()
     store.initialize(session_factory)
     return store
 
@@ -119,7 +112,8 @@ def register_test_agents(isolated_agent_registries):
             tool_call_limit=10,
             role=AgentRole.GENERATOR,
             context_recipe="generator",
-            terminals=["submit_workflow_handoff", "submit_generator_outcome"],
+            allowed_tools=["delegate_workflow", "check_workflow_status", "cancel_workflow"],
+            terminals=["submit_generator_outcome"],
         )
     )
     register_definition(

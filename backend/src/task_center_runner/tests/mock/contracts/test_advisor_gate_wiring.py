@@ -32,6 +32,8 @@ _HELPER_TERMINAL_NAMES = frozenset(
     }
 )
 
+_ROOT_TERMINAL_NAMES = frozenset({"submit_root_outcome"})
+
 
 def test_main_terminals_carry_advisor_approval_prehook() -> None:
     """Every main-role terminal in ``make_submission_tools()`` carries the gate."""
@@ -49,16 +51,16 @@ def test_main_terminals_carry_advisor_approval_prehook() -> None:
         )
 
 
-def test_helper_terminals_omit_advisor_approval_prehook() -> None:
-    """Helper / subagent terminals must NOT carry the gate."""
+def test_non_main_terminals_omit_advisor_approval_prehook() -> None:
+    """Root/helper/subagent terminals must NOT carry the advisor gate."""
     tools_by_name = {tool.name: tool for tool in make_submission_tools()}
-    for name in _HELPER_TERMINAL_NAMES:
+    for name in _HELPER_TERMINAL_NAMES | _ROOT_TERMINAL_NAMES:
         tool = tools_by_name.get(name)
         assert tool is not None, f"{name!r} missing from make_submission_tools()"
         hooks = tuple(getattr(tool, "pre_hooks", ()) or ())
         advisor_hooks = [hook for hook in hooks if isinstance(hook, AdvisorApprovalPreHook)]
         assert not advisor_hooks, (
-            f"{name!r}: helper terminal must not carry AdvisorApprovalPreHook "
+            f"{name!r}: non-main terminal must not carry AdvisorApprovalPreHook "
             f"(found {advisor_hooks!r})"
         )
 
@@ -71,6 +73,6 @@ def test_make_submission_tools_covers_every_known_terminal() -> None:
     names). This test catches that by asserting set equality.
     """
     factory_names = {tool.name for tool in make_submission_tools()}
-    assert factory_names == _MAIN_TERMINAL_NAMES | _HELPER_TERMINAL_NAMES, (
+    assert factory_names == _MAIN_TERMINAL_NAMES | _HELPER_TERMINAL_NAMES | _ROOT_TERMINAL_NAMES, (
         f"make_submission_tools() returned {factory_names!r}"
     )

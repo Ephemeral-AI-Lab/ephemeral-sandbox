@@ -32,7 +32,7 @@ from .test_auto_squash_edge_cases import (
 pytestmark = pytest.mark.asyncio
 
 _AGENTS = ("agent-A", "agent-B", "agent-C")
-_PORT = 8000
+_PORT = 3000
 
 
 async def _iws_shell(handle: SandboxHandle, agent_id: str, command: str) -> dict[str, object]:
