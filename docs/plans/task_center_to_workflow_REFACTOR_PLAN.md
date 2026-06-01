@@ -407,6 +407,7 @@ class Workflow:                          # workflows table; created ONLY by dele
     workflow_goal: str
     status: WorkflowStatus
     iteration_ids: tuple[str, ...]       # kept (ordered)
+    outcomes: str | None                 # ★ now PERSISTED on close (was derived via workflow_outcomes())
     created_at; updated_at; closed_at
 
 class IterationStatus(StrEnum):          OPEN; SUCCEEDED; FAILED; CANCELLED
@@ -434,6 +435,7 @@ class AttemptFailReason(StrEnum):  TASK_FAILED; STARTUP_FAILED
 class Attempt:                           # attempts table; UNIQUE(iteration_id, attempt_sequence_no)
     id: str
     iteration_id: str                    # FK → iterations
+    workflow_id: str                     # ★ denormalized owning workflow (source for stamping Task.workflow_id)
     attempt_sequence_no: int
     stage: AttemptStage                  # PLAN → RUN → CLOSED
     status: AttemptStatus                # PASSED iff every plan task DONE; FAILED if any failed/blocked
@@ -514,6 +516,7 @@ workflows   (created ONLY by delegate_workflow)
   goal              Text
   status            String            {open|succeeded|failed|cancelled}
   iteration_ids     JSON              (kept)
+  outcomes          Text NULL         ★ (persisted projection, set on close; was derived)
   created_at; updated_at; closed_at NULL
 
 iterations
@@ -533,6 +536,7 @@ iterations
 attempts
   id                PK String(36)
   iteration_id      String(36)  FK→iterations.id  ON DELETE CASCADE, indexed
+  workflow_id       String(36), indexed   ★  (soft → workflows.id; denormalized owning workflow)
   attempt_sequence_no  Integer
   stage             String            {plan|run|closed}
   status            String            {running|passed|failed}

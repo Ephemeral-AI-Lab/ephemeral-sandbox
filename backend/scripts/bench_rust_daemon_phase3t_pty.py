@@ -31,6 +31,8 @@ from bench_rust_daemon_phase2 import (  # noqa: E402
     WORKSPACE_ROOT,
     call_tcp,
     reset_runtime,
+    require_success,
+    tar_file_at_path,
     temporary_env,
     upload_artifact,
 )
@@ -1039,6 +1041,7 @@ async def seed_cache_churn_roots(bench: DockerBench, root_count: int) -> list[st
     raw = io.BytesIO()
     added_dirs: set[str] = set()
     with tarfile.open(fileobj=raw, mode="w") as tar:
+        add_tar_dir(tar, "/eos/cache-churn", added_dirs)
         for root in roots:
             add_tar_dir(tar, root, added_dirs)
             add_tar_dir(tar, f"{root}/layers", added_dirs)
@@ -1084,10 +1087,24 @@ async def seed_cache_churn_roots(bench: DockerBench, root_count: int) -> list[st
                 b"# cache churn\n",
                 added_dirs,
             )
+    staging_dir = f"/tmp/eos-cache-churn-{uuid.uuid4().hex}"
+    staging_tar = f"{staging_dir}/cache-roots.tar"
+    require_success(
+        await bench.exec(f"mkdir -p {shlex.quote(staging_dir)}", timeout=30),
+        "create cache churn staging dir",
+    )
     await bench.adapter.put_archive(
         bench.sandbox_id,
-        tar_stream=raw.getvalue(),
-        dest_dir="/",
+        tar_stream=tar_file_at_path("cache-roots.tar", raw.getvalue(), mode=0o644),
+        dest_dir=staging_dir,
+    )
+    require_success(
+        await bench.exec(
+            f"tar -xf {shlex.quote(staging_tar)} -C / && "
+            f"rm -rf {shlex.quote(staging_dir)}",
+            timeout=120,
+        ),
+        "extract cache churn roots",
     )
     return roots
 

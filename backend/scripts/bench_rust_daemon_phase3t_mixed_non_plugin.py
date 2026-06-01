@@ -344,12 +344,6 @@ class DaemonClient:
             },
         )
 
-    async def pty_collect_completed(self, pty_session_id: str) -> dict[str, Any]:
-        return await self.call(
-            "api.v1.pty.collect_completed",
-            {"pty_session_ids": [pty_session_id]},
-        )
-
     async def pty_cancel(self, pty_session_id: str) -> dict[str, Any]:
         return await self.call("api.v1.pty.cancel", {"pty_session_id": pty_session_id})
 
@@ -630,14 +624,6 @@ async def run_pty_input(client: DaemonClient, index: int) -> dict[str, Any]:
         collected += text_out(progress)
         if progress.get("status") != "running":
             break
-    if expected not in collected:
-        completed = await client.pty_collect_completed(session_id)
-        for item in completed.get("completions", []):
-            if not isinstance(item, dict):
-                continue
-            result = item.get("result")
-            if isinstance(result, dict):
-                collected += text_out(result)
     if collected != text_out(write):
         write["output"] = {"stdout": collected, "stderr": ""}
     write["progress_polls"] = progress_polls

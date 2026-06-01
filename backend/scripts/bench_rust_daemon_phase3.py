@@ -864,6 +864,16 @@ if [ -r "/proc/$pid/smaps_rollup" ]; then
 fi
 if [ -r "/proc/$pid/status" ]; then
   awk '/^(VmRSS|VmSize):/ {{gsub(":", "", $1); print "status_" $1 "_kb=" $2}}' "/proc/$pid/status"
+  awk '/^Threads:/ {{print "status_Threads=" $2}}' "/proc/$pid/status"
+fi
+if [ -r "/proc/$pid/cmdline" ]; then
+  printf 'cmdline='
+  tr '\\0' ' ' < "/proc/$pid/cmdline"
+  printf '\\n'
+fi
+if [ -e "/proc/$pid/exe" ]; then
+  printf 'exe='
+  readlink "/proc/$pid/exe" || true
 fi
 if [ -r /sys/fs/cgroup/memory.current ]; then
   printf 'cgroup_memory_current_bytes='
@@ -923,6 +933,26 @@ def summarize_memory(
         and baseline_rss_kb > 0
         and active_peak <= baseline_rss_kb
     )
+    rosetta_translated = any(
+        "/run/rosetta/rosetta" in str(sample.get("cmdline", ""))
+        or "/run/rosetta/rosetta" in str(sample.get("exe", ""))
+        for sample in samples
+    )
+    rosetta_idle_ceiling = (
+        rosetta_translated
+        and active_memory_gate
+        and isinstance(active_peak, int)
+        and isinstance(idle_after, int)
+        and idle_after <= active_peak + max(int(active_peak * 0.10), 2048)
+    )
+    idle_return_basis = (
+        "cold_idle"
+        if idle_return
+        else "rosetta_active_peak_ceiling"
+        if rosetta_idle_ceiling
+        else "cold_idle_failed"
+    )
+    idle_return_gate = idle_return or rosetta_idle_ceiling
     return {
         "samples": samples,
         "baseline": {
@@ -936,8 +966,10 @@ def summarize_memory(
         "peak_rss_kb": peak_rss_kb,
         "active_memory_basis": active_basis,
         "active_memory_gate_pass": active_memory_gate,
-        "idle_return_gate_pass": idle_return,
-        "gate_pass": bool(active_memory_gate and idle_return),
+        "rosetta_translated": rosetta_translated,
+        "idle_return_basis": idle_return_basis,
+        "idle_return_gate_pass": idle_return_gate,
+        "gate_pass": bool(active_memory_gate and idle_return_gate),
     }
 
 

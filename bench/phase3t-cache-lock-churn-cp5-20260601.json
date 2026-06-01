@@ -1,0 +1,5571 @@
+{
+  "artifact": {
+    "executable": true,
+    "gate_pass": true,
+    "hashes_match": true,
+    "local_sha256": "5fe3da1c879b9db0ad1776f39b4c2fdfe988de04c9d28772a1d085ad53d40f26",
+    "remote_mode": "0o755",
+    "remote_path": "/eos/daemon/eosd",
+    "remote_sha256": "5fe3da1c879b9db0ad1776f39b4c2fdfe988de04c9d28772a1d085ad53d40f26",
+    "size_bytes": 4588240,
+    "source_path": "sandbox/dist/eosd-linux-amd64",
+    "upload_time_ms": 441.4524579769932,
+    "version": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "eosd 0.1.0"
+    }
+  },
+  "cache_churn": {
+    "cache": {
+      "capacity": 256,
+      "creates_total": 261,
+      "evictions_total": 5,
+      "hits_total": 13,
+      "last_lock_wait_s": 2.92e-07,
+      "lock_wait_s_max": 4.0875e-05,
+      "lock_wait_s_total": 0.00014028500000000027,
+      "misses_total": 261,
+      "size": 256
+    },
+    "checks": {
+      "cache_bounded": true,
+      "evicted_after_churn": true,
+      "metrics_reported": true,
+      "reuse_hit": true,
+      "samples_ok": true
+    },
+    "gate_pass": true,
+    "metrics_wall_ms": 3.2596249948255718,
+    "reuse": {
+      "response": {
+        "changed_paths": [
+          "phase3t-cache-reuse.txt"
+        ],
+        "conflict": null,
+        "conflict_reason": null,
+        "error": null,
+        "status": "committed",
+        "success": true
+      },
+      "runtime_service_timings": {
+        "occ.runtime_service.cache_capacity": 256.0,
+        "occ.runtime_service.cache_created": 0.0,
+        "occ.runtime_service.cache_evicted_count": 0.0,
+        "occ.runtime_service.cache_hit": 1.0,
+        "occ.runtime_service.cache_lock_wait_s": 1.25e-07,
+        "occ.runtime_service.cache_miss": 0.0,
+        "occ.runtime_service.cache_reused": 1.0,
+        "occ.runtime_service.cache_size": 256.0
+      },
+      "wall_ms": 5.669458012562245
+    },
+    "root_count": 260,
+    "sample_summary": {
+      "all_samples_ok": true,
+      "host_wall_ms": {
+        "count": 260,
+        "max": 10.834500018972903,
+        "min": 3.5980420070700347,
+        "p50": 5.2424164896365255,
+        "p95": 7.0940000005066395,
+        "samples_ms": [
+          3.5980420070700347,
+          3.8615420344285667,
+          3.9025000296533108,
+          3.9048329927027225,
+          3.9586250204592943,
+          3.9723339723423123,
+          3.9789999718777835,
+          4.003541951533407,
+          4.028750001452863,
+          4.036624974105507,
+          4.154167021624744,
+          4.156709008384496,
+          4.208915983326733,
+          4.2316249455325305,
+          4.29708301089704,
+          4.3358749826438725,
+          4.342458036262542,
+          4.381292033940554,
+          4.416957963258028,
+          4.48795803822577,
+          4.50645899400115,
+          4.542374983429909,
+          4.545375006273389,
+          4.55616699764505,
+          4.5693329884670675,
+          4.585874965414405,
+          4.606083035469055,
+          4.6152909635566175,
+          4.617375030647963,
+          4.6322499983944,
+          4.637000034563243,
+          4.637208010535687,
+          4.642041982151568,
+          4.651291994377971,
+          4.664000007323921,
+          4.667375003919005,
+          4.671167000196874,
+          4.67766699148342,
+          4.677707969676703,
+          4.691374953836203,
+          4.69470804091543,
+          4.724415950477123,
+          4.74324997048825,
+          4.744666977785528,
+          4.745875019580126,
+          4.757916962262243,
+          4.766083031427115,
+          4.77333297021687,
+          4.774458007887006,
+          4.781791009008884,
+          4.790291015524417,
+          4.797958012204617,
+          4.805582982953638,
+          4.813207953702658,
+          4.814458021428436,
+          4.82924998505041,
+          4.833791987039149,
+          4.8379580257460475,
+          4.844916984438896,
+          4.845624964218587,
+          4.84741700347513,
+          4.84887498896569,
+          4.849709046538919,
+          4.855290986597538,
+          4.85558295622468,
+          4.885417001787573,
+          4.8955000238493085,
+          4.897209000773728,
+          4.9002080340869725,
+          4.900790983811021,
+          4.904667031951249,
+          4.9063750193454325,
+          4.913249984383583,
+          4.918166960123926,
+          4.940874991007149,
+          4.955167009029537,
+          4.956624994520098,
+          4.958875011652708,
+          4.960916005074978,
+          4.9624580424278975,
+          4.973875009454787,
+          4.977500007953495,
+          4.978125041816384,
+          4.985084000509232,
+          4.9881660379469395,
+          4.9896250129677355,
+          4.990916000679135,
+          4.992540983948857,
+          4.993957991246134,
+          4.994249960873276,
+          4.999249998945743,
+          5.001500016078353,
+          5.010500026401132,
+          5.015457980334759,
+          5.02087501809001,
+          5.0272499793209136,
+          5.039417010266334,
+          5.042417033109814,
+          5.045749945566058,
+          5.067916994448751,
+          5.074332992080599,
+          5.081291019450873,
+          5.083958967588842,
+          5.086582968942821,
+          5.089374957606196,
+          5.095958011224866,
+          5.097999994177371,
+          5.105959018692374,
+          5.11320901568979,
+          5.115166015457362,
+          5.117832974065095,
+          5.121291964314878,
+          5.125541996676475,
+          5.135915998835117,
+          5.138374981470406,
+          5.139207991305739,
+          5.1444999990053475,
+          5.1520830020308495,
+          5.157625011634082,
+          5.175208963919431,
+          5.180499982088804,
+          5.197582999244332,
+          5.210125003941357,
+          5.21016598213464,
+          5.211666983086616,
+          5.215625045821071,
+          5.2306249854154885,
+          5.234459007624537,
+          5.236833996605128,
+          5.239583028014749,
+          5.245249951258302,
+          5.249332985840738,
+          5.252000002656132,
+          5.255750031210482,
+          5.267332948278636,
+          5.270665977150202,
+          5.291417008265853,
+          5.292957997880876,
+          5.300000018905848,
+          5.303541955072433,
+          5.314000009093434,
+          5.317292001564056,
+          5.321917007677257,
+          5.329541978426278,
+          5.329666018951684,
+          5.330457992386073,
+          5.340999981854111,
+          5.354290944524109,
+          5.3913749870844185,
+          5.392750026658177,
+          5.394791020080447,
+          5.399874993599951,
+          5.422957998234779,
+          5.42554201092571,
+          5.425833980552852,
+          5.429124983493239,
+          5.434875027276576,
+          5.4427499999292195,
+          5.458500003442168,
+          5.460040993057191,
+          5.461374996230006,
+          5.46774995746091,
+          5.4850829765200615,
+          5.493291013408452,
+          5.499541002791375,
+          5.505833018105477,
+          5.527750006876886,
+          5.535959033295512,
+          5.53841597866267,
+          5.543167004361749,
+          5.552750022616237,
+          5.560250021517277,
+          5.568500026129186,
+          5.5709159933030605,
+          5.580915953032672,
+          5.581584002356976,
+          5.585958017036319,
+          5.594583984930068,
+          5.6027499958872795,
+          5.611583997961134,
+          5.614791996777058,
+          5.619333998765796,
+          5.634958040900528,
+          5.636957997921854,
+          5.639249982777983,
+          5.6440000189468265,
+          5.646708013955504,
+          5.658292036969215,
+          5.662999988999218,
+          5.690791993401945,
+          5.69562497548759,
+          5.716332991141826,
+          5.725333990994841,
+          5.752000026404858,
+          5.753125005867332,
+          5.75900002149865,
+          5.770166986621916,
+          5.79824997112155,
+          5.8359160320833325,
+          5.836250027641654,
+          5.849042034242302,
+          5.864208040293306,
+          5.8713750331662595,
+          5.892374960239977,
+          5.899542011320591,
+          5.90929202735424,
+          5.909959028940648,
+          5.91283303219825,
+          5.932416010182351,
+          5.947458033915609,
+          5.9520420036278665,
+          5.9754159883596,
+          5.988500022795051,
+          6.004208989907056,
+          6.015999999362975,
+          6.023457972332835,
+          6.037708022631705,
+          6.047167000360787,
+          6.100207974668592,
+          6.10308296745643,
+          6.162083998788148,
+          6.210291001480073,
+          6.218708003871143,
+          6.223042029887438,
+          6.250666046980768,
+          6.264916039071977,
+          6.269000004976988,
+          6.286583957262337,
+          6.302666966803372,
+          6.326082977466285,
+          6.331042037345469,
+          6.338874984066933,
+          6.355958990752697,
+          6.372791016474366,
+          6.470250023994595,
+          6.535499996971339,
+          6.574833008926362,
+          6.615000020246953,
+          6.630833027884364,
+          6.6900840029120445,
+          6.7952920217067,
+          6.817875022534281,
+          6.822458002716303,
+          6.846916978247464,
+          6.972040981054306,
+          7.00129201868549,
+          7.0940000005066395,
+          7.291458954568952,
+          7.308042026124895,
+          7.397165987640619,
+          7.5750420219264925,
+          7.698374975007027,
+          7.863959006499499,
+          8.333541976753622,
+          8.422750048339367,
+          8.671707997564226,
+          8.711833041161299,
+          9.57158301025629,
+          9.884209022857249,
+          10.834500018972903
+        ]
+      },
+      "sample_count": 260,
+      "samples": [
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.42554201092571,
+          "index": 0,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0000.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 3.5980420070700347,
+          "index": 1,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0001.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.036624974105507,
+          "index": 2,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0002.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.003541951533407,
+          "index": 3,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0003.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.292957997880876,
+          "index": 4,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0004.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.651291994377971,
+          "index": 5,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0005.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 3.8615420344285667,
+          "index": 6,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0006.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.3358749826438725,
+          "index": 7,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0007.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.67766699148342,
+          "index": 8,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0008.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.29708301089704,
+          "index": 9,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0009.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.766083031427115,
+          "index": 10,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0010.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 3.9789999718777835,
+          "index": 11,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0011.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.637000034563243,
+          "index": 12,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0012.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.637208010535687,
+          "index": 13,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0013.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.342458036262542,
+          "index": 14,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0014.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.028750001452863,
+          "index": 15,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0015.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 3.9723339723423123,
+          "index": 16,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0016.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.2316249455325305,
+          "index": 17,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0017.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.691374953836203,
+          "index": 18,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0018.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.154167021624744,
+          "index": 19,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0019.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.845624964218587,
+          "index": 20,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0020.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.8955000238493085,
+          "index": 21,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0021.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.973875009454787,
+          "index": 22,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0022.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.042417033109814,
+          "index": 23,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0023.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.84887498896569,
+          "index": 24,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0024.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 3.9025000296533108,
+          "index": 25,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0025.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.978125041816384,
+          "index": 26,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0026.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.291417008265853,
+          "index": 27,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0027.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.69470804091543,
+          "index": 28,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0028.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.215625045821071,
+          "index": 29,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0029.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.805582982953638,
+          "index": 30,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0030.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.255750031210482,
+          "index": 31,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0031.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.958875011652708,
+          "index": 32,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0032.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.50645899400115,
+          "index": 33,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0033.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.157625011634082,
+          "index": 34,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0034.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.138374981470406,
+          "index": 35,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0035.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.918166960123926,
+          "index": 36,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0036.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.724415950477123,
+          "index": 37,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0037.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.814458021428436,
+          "index": 38,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0038.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.434875027276576,
+          "index": 39,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0039.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.081291019450873,
+          "index": 40,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0040.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.585874965414405,
+          "index": 41,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0041.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.392750026658177,
+          "index": 42,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0042.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.394791020080447,
+          "index": 43,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0043.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.039417010266334,
+          "index": 44,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0044.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.994249960873276,
+          "index": 45,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0045.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.252000002656132,
+          "index": 46,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0046.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.117832974065095,
+          "index": 47,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0047.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.303541955072433,
+          "index": 48,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0048.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.614791996777058,
+          "index": 49,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0049.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.568500026129186,
+          "index": 50,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0050.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.833791987039149,
+          "index": 51,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0051.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.993957991246134,
+          "index": 52,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0052.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.85558295622468,
+          "index": 53,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0053.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.1520830020308495,
+          "index": 54,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0054.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.956624994520098,
+          "index": 55,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0055.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.904667031951249,
+          "index": 56,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0056.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.340999981854111,
+          "index": 57,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0057.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.545375006273389,
+          "index": 58,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0058.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.53841597866267,
+          "index": 59,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0059.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.864208040293306,
+          "index": 60,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0060.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.892374960239977,
+          "index": 61,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0061.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.646708013955504,
+          "index": 62,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0062.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.21016598213464,
+          "index": 63,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0063.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.381292033940554,
+          "index": 64,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0064.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.75900002149865,
+          "index": 65,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0065.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.9520420036278665,
+          "index": 66,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0066.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.105959018692374,
+          "index": 67,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0067.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.211666983086616,
+          "index": 68,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0068.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.940874991007149,
+          "index": 69,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0069.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.664000007323921,
+          "index": 70,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0070.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.270665977150202,
+          "index": 71,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0071.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.90929202735424,
+          "index": 72,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0072.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 10.834500018972903,
+          "index": 73,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0073.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.264916039071977,
+          "index": 74,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0074.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.630833027884364,
+          "index": 75,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0075.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.097999994177371,
+          "index": 76,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0076.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 9.884209022857249,
+          "index": 77,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0077.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.355958990752697,
+          "index": 78,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0078.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 7.291458954568952,
+          "index": 79,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0079.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 8.671707997564226,
+          "index": 80,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0080.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.606083035469055,
+          "index": 81,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0081.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.617375030647963,
+          "index": 82,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0082.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.208915983326733,
+          "index": 83,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0083.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 8.333541976753622,
+          "index": 84,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0084.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.354290944524109,
+          "index": 85,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0085.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 3.9048329927027225,
+          "index": 86,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0086.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.671167000196874,
+          "index": 87,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0087.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.84741700347513,
+          "index": 88,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0088.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.249332985840738,
+          "index": 89,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0089.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.885417001787573,
+          "index": 90,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0090.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.913249984383583,
+          "index": 91,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0091.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.667375003919005,
+          "index": 92,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0092.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.286583957262337,
+          "index": 93,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0093.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.77333297021687,
+          "index": 94,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0094.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.745875019580126,
+          "index": 95,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0095.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.100207974668592,
+          "index": 96,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0096.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.9896250129677355,
+          "index": 97,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0097.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.8379580257460475,
+          "index": 98,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0098.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.197582999244332,
+          "index": 99,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0099.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.004208989907056,
+          "index": 100,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0100.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.5693329884670675,
+          "index": 101,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0101.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.849042034242302,
+          "index": 102,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0102.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.330457992386073,
+          "index": 103,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0103.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.045749945566058,
+          "index": 104,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0104.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.321917007677257,
+          "index": 105,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0105.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.594583984930068,
+          "index": 106,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0106.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 8.711833041161299,
+          "index": 107,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0107.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.425833980552852,
+          "index": 108,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0108.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.774458007887006,
+          "index": 109,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0109.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.015457980334759,
+          "index": 110,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0110.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 7.0940000005066395,
+          "index": 111,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0111.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.790291015524417,
+          "index": 112,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0112.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.086582968942821,
+          "index": 113,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0113.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.399874993599951,
+          "index": 114,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0114.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.239583028014749,
+          "index": 115,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0115.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.955167009029537,
+          "index": 116,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0116.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.636957997921854,
+          "index": 117,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0117.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.585958017036319,
+          "index": 118,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0118.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.82924998505041,
+          "index": 119,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0119.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.067916994448751,
+          "index": 120,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0120.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.8713750331662595,
+          "index": 121,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0121.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.9881660379469395,
+          "index": 122,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0122.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.329541978426278,
+          "index": 123,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0123.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.461374996230006,
+          "index": 124,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0124.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.634958040900528,
+          "index": 125,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0125.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.416957963258028,
+          "index": 126,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0126.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.46774995746091,
+          "index": 127,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0127.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.074332992080599,
+          "index": 128,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0128.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.560250021517277,
+          "index": 129,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0129.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.001500016078353,
+          "index": 130,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0130.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.6900840029120445,
+          "index": 131,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0131.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.639249982777983,
+          "index": 132,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0132.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.015999999362975,
+          "index": 133,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0133.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.899542011320591,
+          "index": 134,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0134.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.611583997961134,
+          "index": 135,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0135.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.781791009008884,
+          "index": 136,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0136.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.9002080340869725,
+          "index": 137,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0137.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.999249998945743,
+          "index": 138,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0138.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.615000020246953,
+          "index": 139,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0139.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 7.397165987640619,
+          "index": 140,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0140.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.372791016474366,
+          "index": 141,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0141.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.505833018105477,
+          "index": 142,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0142.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.9624580424278975,
+          "index": 143,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0143.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.6027499958872795,
+          "index": 144,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0144.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.422957998234779,
+          "index": 145,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0145.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.121291964314878,
+          "index": 146,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0146.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.977500007953495,
+          "index": 147,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0147.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.79824997112155,
+          "index": 148,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0148.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.218708003871143,
+          "index": 149,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0149.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 7.5750420219264925,
+          "index": 150,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0150.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.234459007624537,
+          "index": 151,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0151.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.6152909635566175,
+          "index": 152,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0152.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.180499982088804,
+          "index": 153,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0153.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.74324997048825,
+          "index": 154,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0154.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.329666018951684,
+          "index": 155,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0155.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.4850829765200615,
+          "index": 156,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0156.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 7.00129201868549,
+          "index": 157,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0157.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.236833996605128,
+          "index": 158,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0158.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.725333990994841,
+          "index": 159,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0159.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.047167000360787,
+          "index": 160,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0160.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.897209000773728,
+          "index": 161,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0161.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.02087501809001,
+          "index": 162,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0162.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.3913749870844185,
+          "index": 163,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0163.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.10308296745643,
+          "index": 164,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0164.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.7952920217067,
+          "index": 165,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0165.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.0272499793209136,
+          "index": 166,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0166.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.932416010182351,
+          "index": 167,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0167.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.55616699764505,
+          "index": 168,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0168.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.095958011224866,
+          "index": 169,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0169.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.331042037345469,
+          "index": 170,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0170.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.302666966803372,
+          "index": 171,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0171.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.245249951258302,
+          "index": 172,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0172.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.757916962262243,
+          "index": 173,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0173.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.458500003442168,
+          "index": 174,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0174.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 9.57158301025629,
+          "index": 175,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0175.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.314000009093434,
+          "index": 176,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0176.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.6322499983944,
+          "index": 177,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0177.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.900790983811021,
+          "index": 178,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0178.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.770166986621916,
+          "index": 179,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0179.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.156709008384496,
+          "index": 180,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0180.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.210125003941357,
+          "index": 181,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0181.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.300000018905848,
+          "index": 182,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0182.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.91283303219825,
+          "index": 183,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0183.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.210291001480073,
+          "index": 184,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0184.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 3.9586250204592943,
+          "index": 185,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0185.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.855290986597538,
+          "index": 186,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0186.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.658292036969215,
+          "index": 187,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0187.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.813207953702658,
+          "index": 188,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0188.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.135915998835117,
+          "index": 189,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0189.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.010500026401132,
+          "index": 190,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0190.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.267332948278636,
+          "index": 191,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0191.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.8359160320833325,
+          "index": 192,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0192.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.223042029887438,
+          "index": 193,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0193.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 7.863959006499499,
+          "index": 194,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0194.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.250666046980768,
+          "index": 195,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0195.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 8.422750048339367,
+          "index": 196,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0196.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 7.698374975007027,
+          "index": 197,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0197.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.269000004976988,
+          "index": 198,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0198.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.972040981054306,
+          "index": 199,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0199.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.4427499999292195,
+          "index": 200,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0200.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.125541996676475,
+          "index": 201,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0201.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.543167004361749,
+          "index": 202,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0202.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.822458002716303,
+          "index": 203,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0203.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.642041982151568,
+          "index": 204,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0204.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.115166015457362,
+          "index": 205,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0205.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.493291013408452,
+          "index": 206,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0206.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.175208963919431,
+          "index": 207,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0207.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.2306249854154885,
+          "index": 208,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0208.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.836250027641654,
+          "index": 209,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0209.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.992540983948857,
+          "index": 210,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0210.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.716332991141826,
+          "index": 211,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0211.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.083958967588842,
+          "index": 212,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0212.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.089374957606196,
+          "index": 213,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0213.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.48795803822577,
+          "index": 214,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0214.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.499541002791375,
+          "index": 215,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0215.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.317292001564056,
+          "index": 216,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0216.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.581584002356976,
+          "index": 217,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0217.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.817875022534281,
+          "index": 218,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0218.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.677707969676703,
+          "index": 219,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0219.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.985084000509232,
+          "index": 220,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0220.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.162083998788148,
+          "index": 221,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0221.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.11320901568979,
+          "index": 222,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0222.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.797958012204617,
+          "index": 223,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0223.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.535499996971339,
+          "index": 224,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0224.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.535959033295512,
+          "index": 225,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0225.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.990916000679135,
+          "index": 226,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0226.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.574833008926362,
+          "index": 227,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0227.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.6440000189468265,
+          "index": 228,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0228.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.752000026404858,
+          "index": 229,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0229.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.988500022795051,
+          "index": 230,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0230.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.326082977466285,
+          "index": 231,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0231.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.023457972332835,
+          "index": 232,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0232.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.1444999990053475,
+          "index": 233,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0233.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.552750022616237,
+          "index": 234,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0234.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.9754159883596,
+          "index": 235,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0235.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.527750006876886,
+          "index": 236,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0236.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.470250023994595,
+          "index": 237,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0237.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.338874984066933,
+          "index": 238,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0238.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.429124983493239,
+          "index": 239,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0239.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.580915953032672,
+          "index": 240,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0240.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.619333998765796,
+          "index": 241,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0241.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.662999988999218,
+          "index": 242,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0242.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 7.308042026124895,
+          "index": 243,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0243.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.69562497548759,
+          "index": 244,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0244.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.909959028940648,
+          "index": 245,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0245.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.542374983429909,
+          "index": 246,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0246.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.460040993057191,
+          "index": 247,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0247.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.690791993401945,
+          "index": 248,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0248.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.9063750193454325,
+          "index": 249,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0249.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.844916984438896,
+          "index": 250,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0250.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.037708022631705,
+          "index": 251,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0251.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.960916005074978,
+          "index": 252,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0252.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.744666977785528,
+          "index": 253,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0253.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.5709159933030605,
+          "index": 254,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0254.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 6.846916978247464,
+          "index": 255,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0255.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.139207991305739,
+          "index": 256,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0256.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.753125005867332,
+          "index": 257,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0257.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 5.947458033915609,
+          "index": 258,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0258.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        },
+        {
+          "exit_code": null,
+          "host_wall_ms": 4.849709046538919,
+          "index": 259,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [
+              "phase3t-cache-churn-0259.txt"
+            ],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "status": "committed",
+            "success": true
+          },
+          "status": "committed"
+        }
+      ],
+      "success_count": 260
+    }
+  },
+  "correctness": {
+    "checks": {
+      "finite_write_published": true,
+      "nohup_descendant_cleanup": true,
+      "pty_nohup_descendant_cleanup": true,
+      "python_uses_testbed_env": true,
+      "stdout_stderr_split": true
+    },
+    "gate_pass": true,
+    "responses": {
+      "nohup": {
+        "changed_paths": [],
+        "conflict": null,
+        "conflict_reason": null,
+        "error": null,
+        "exit_code": 0,
+        "output": {
+          "stderr": "",
+          "stdout": ""
+        },
+        "status": "ok",
+        "success": true
+      },
+      "nohup_marker_remaining": 0,
+      "pty_nohup": {
+        "exit_code": 0,
+        "output": {
+          "stderr": "",
+          "stdout": ""
+        },
+        "status": "ok"
+      },
+      "pty_nohup_marker_remaining": 0,
+      "python_path": {
+        "changed_paths": [],
+        "conflict": null,
+        "conflict_reason": null,
+        "error": null,
+        "exit_code": 0,
+        "output": {
+          "stderr": "",
+          "stdout": "/opt/miniconda3/envs/testbed/bin/python\n"
+        },
+        "status": "ok",
+        "success": true
+      },
+      "readback": {
+        "content": "phase3t",
+        "success": true
+      },
+      "separated": {
+        "changed_paths": [],
+        "conflict": null,
+        "conflict_reason": null,
+        "error": null,
+        "exit_code": 0,
+        "output": {
+          "stderr": "err\n",
+          "stdout": "out\n"
+        },
+        "status": "ok",
+        "success": true
+      },
+      "write": {
+        "changed_paths": [
+          "phase3t-write-d974171d.txt"
+        ],
+        "conflict": null,
+        "conflict_reason": null,
+        "error": null,
+        "exit_code": 0,
+        "output": {
+          "stderr": "",
+          "stdout": ""
+        },
+        "status": "ok",
+        "success": true
+      }
+    }
+  },
+  "created_container": true,
+  "daemon_spawn_ms": 365.6786670326255,
+  "endpoint": {
+    "auth_token_present": true,
+    "host": "127.0.0.1",
+    "internal_port": 37657,
+    "port": 60542
+  },
+  "gate_pass": true,
+  "gates": {
+    "finite_true_p95": true,
+    "operation_samples_ok": true,
+    "pty_cancel_hard_cleanup": true,
+    "pty_cancel_p95": true,
+    "pty_progress_p95": true,
+    "pty_true_p95": true,
+    "pty_write_echo_p95": true
+  },
+  "host": {
+    "platform": "macOS-26.4.1-arm64-arm-64bit",
+    "python": "3.12.6"
+  },
+  "isolated_exit_inspection": {
+    "gate_pass": true,
+    "skipped": true
+  },
+  "layer_stack_seed": {
+    "binding": {
+      "active_manifest_version": 1,
+      "active_root_hash": "09e75672b2e10eb0a13860eb8102868ac41f2152feb7bb6038dee26ffd7cbe4d",
+      "base_manifest_version": 1,
+      "base_root_hash": "09e75672b2e10eb0a13860eb8102868ac41f2152feb7bb6038dee26ffd7cbe4d",
+      "layer_stack_root": "/eos/layer-stack",
+      "workspace_root": "/testbed"
+    },
+    "created": true,
+    "success": true,
+    "timings": {
+      "api.workspace_base.total_s": 0.985859417,
+      "runtime.boot_to_dispatch_s": 0.0,
+      "runtime.dispatch_s": 0.0,
+      "runtime.read_request_s": 0.0,
+      "workspace_base.collect_s": 0.481563708,
+      "workspace_base.inventory.bytes": 135087287.0,
+      "workspace_base.inventory.dirs": 53.0,
+      "workspace_base.inventory.files": 517.0,
+      "workspace_base.inventory.symlinks": 0.0,
+      "workspace_base.prepare_stack_s": 0.001459167,
+      "workspace_base.write_binding_s": 0.000232625,
+      "workspace_base.write_layer_s": 0.501033667,
+      "workspace_base.write_manifest_s": 0.000461334
+    }
+  },
+  "load": {
+    "gate_pass": true,
+    "operations": {
+      "finite_true": {
+        "1": {
+          "all_samples_ok": true,
+          "concurrency": 1,
+          "host_wall_ms": {
+            "count": 1,
+            "max": 46.08420899603516,
+            "min": 46.08420899603516,
+            "p50": 46.08420899603516,
+            "p95": 46.08420899603516,
+            "samples_ms": [
+              46.08420899603516
+            ]
+          },
+          "rounds": 1,
+          "sample_count": 1,
+          "samples": [
+            {
+              "exit_code": 0,
+              "host_wall_ms": 46.08420899603516,
+              "index": 0,
+              "ok": true,
+              "pty_session_id_present": false,
+              "response": {
+                "changed_paths": [],
+                "conflict": null,
+                "conflict_reason": null,
+                "error": null,
+                "exit_code": 0,
+                "output": {
+                  "stderr": "",
+                  "stdout": ""
+                },
+                "status": "ok",
+                "success": true
+              },
+              "round": 0,
+              "slot": 0,
+              "status": "ok"
+            }
+          ],
+          "success_count": 1,
+          "wave_wall_ms": {
+            "count": 1,
+            "max": 46.274583030026406,
+            "min": 46.274583030026406,
+            "p50": 46.274583030026406,
+            "p95": 46.274583030026406,
+            "samples_ms": [
+              46.274583030026406
+            ]
+          }
+        }
+      },
+      "finite_write": {
+        "1": {
+          "all_samples_ok": true,
+          "concurrency": 1,
+          "host_wall_ms": {
+            "count": 1,
+            "max": 43.09554200153798,
+            "min": 43.09554200153798,
+            "p50": 43.09554200153798,
+            "p95": 43.09554200153798,
+            "samples_ms": [
+              43.09554200153798
+            ]
+          },
+          "rounds": 1,
+          "sample_count": 1,
+          "samples": [
+            {
+              "exit_code": 0,
+              "host_wall_ms": 43.09554200153798,
+              "index": 0,
+              "ok": true,
+              "pty_session_id_present": false,
+              "response": {
+                "changed_paths": [
+                  "phase3t-load-1-0.txt"
+                ],
+                "conflict": null,
+                "conflict_reason": null,
+                "error": null,
+                "exit_code": 0,
+                "output": {
+                  "stderr": "",
+                  "stdout": ""
+                },
+                "status": "ok",
+                "success": true
+              },
+              "round": 0,
+              "slot": 0,
+              "status": "ok"
+            }
+          ],
+          "success_count": 1,
+          "wave_wall_ms": {
+            "count": 1,
+            "max": 43.26779203256592,
+            "min": 43.26779203256592,
+            "p50": 43.26779203256592,
+            "p95": 43.26779203256592,
+            "samples_ms": [
+              43.26779203256592
+            ]
+          }
+        }
+      },
+      "pty_true": {
+        "1": {
+          "all_samples_ok": true,
+          "concurrency": 1,
+          "host_wall_ms": {
+            "count": 1,
+            "max": 47.60083300061524,
+            "min": 47.60083300061524,
+            "p50": 47.60083300061524,
+            "p95": 47.60083300061524,
+            "samples_ms": [
+              47.60083300061524
+            ]
+          },
+          "rounds": 1,
+          "sample_count": 1,
+          "samples": [
+            {
+              "exit_code": 0,
+              "host_wall_ms": 47.60083300061524,
+              "index": 0,
+              "ok": true,
+              "pty_session_id_present": false,
+              "response": {
+                "exit_code": 0,
+                "output": {
+                  "stderr": "",
+                  "stdout": ""
+                },
+                "status": "ok"
+              },
+              "round": 0,
+              "slot": 0,
+              "status": "ok"
+            }
+          ],
+          "success_count": 1,
+          "wave_wall_ms": {
+            "count": 1,
+            "max": 47.70666698459536,
+            "min": 47.70666698459536,
+            "p50": 47.70666698459536,
+            "p95": 47.70666698459536,
+            "samples_ms": [
+              47.70666698459536
+            ]
+          }
+        }
+      }
+    }
+  },
+  "mixed_non_plugin_load": {
+    "gate_pass": true,
+    "skipped": true
+  },
+  "mode": "docker-phase3t-pty-command",
+  "operations": {
+    "finite_true": {
+      "all_samples_ok": true,
+      "host_wall_ms": {
+        "count": 1,
+        "max": 46.033916994929314,
+        "min": 46.033916994929314,
+        "p50": 46.033916994929314,
+        "p95": 46.033916994929314,
+        "samples_ms": [
+          46.033916994929314
+        ]
+      },
+      "sample_count": 1,
+      "samples": [
+        {
+          "exit_code": 0,
+          "host_wall_ms": 46.033916994929314,
+          "index": 0,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "changed_paths": [],
+            "conflict": null,
+            "conflict_reason": null,
+            "error": null,
+            "exit_code": 0,
+            "output": {
+              "stderr": "",
+              "stdout": ""
+            },
+            "status": "ok",
+            "success": true
+          },
+          "status": "ok"
+        }
+      ],
+      "success_count": 1
+    },
+    "pty_cancel": {
+      "all_samples_ok": true,
+      "cleanup_ms": {
+        "count": 1,
+        "max": 372.60516599053517,
+        "min": 372.60516599053517,
+        "p50": 372.60516599053517,
+        "p95": 372.60516599053517,
+        "samples_ms": [
+          372.60516599053517
+        ]
+      },
+      "host_wall_ms": {
+        "count": 1,
+        "max": 54.79629203910008,
+        "min": 54.79629203910008,
+        "p50": 54.79629203910008,
+        "p95": 54.79629203910008,
+        "samples_ms": [
+          54.79629203910008
+        ]
+      },
+      "sample_count": 1,
+      "samples": [
+        {
+          "exit_code": null,
+          "host_wall_ms": 54.79629203910008,
+          "index": 0,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "exit_code": null,
+            "output": {
+              "stderr": "",
+              "stdout": ""
+            },
+            "status": "cancelled"
+          },
+          "status": "cancelled"
+        }
+      ],
+      "success_count": 1
+    },
+    "pty_progress": {
+      "all_samples_ok": true,
+      "host_wall_ms": {
+        "count": 1,
+        "max": 1.8028750200755894,
+        "min": 1.8028750200755894,
+        "p50": 1.8028750200755894,
+        "p95": 1.8028750200755894,
+        "samples_ms": [
+          1.8028750200755894
+        ]
+      },
+      "sample_count": 1,
+      "samples": [
+        {
+          "exit_code": null,
+          "host_wall_ms": 1.8028750200755894,
+          "index": 0,
+          "ok": true,
+          "pty_session_id_present": true,
+          "response": {
+            "exit_code": null,
+            "output": {
+              "stderr": "",
+              "stdout": "phase3t-progress\r\n"
+            },
+            "pty_session_id": "pty_3",
+            "status": "running"
+          },
+          "status": "running"
+        }
+      ],
+      "start": {
+        "exit_code": null,
+        "output": {
+          "stderr": "",
+          "stdout": "phase3t-progress\r\n"
+        },
+        "pty_session_id": "pty_3",
+        "status": "running"
+      },
+      "success_count": 1
+    },
+    "pty_true": {
+      "all_samples_ok": true,
+      "host_wall_ms": {
+        "count": 1,
+        "max": 49.66795799555257,
+        "min": 49.66795799555257,
+        "p50": 49.66795799555257,
+        "p95": 49.66795799555257,
+        "samples_ms": [
+          49.66795799555257
+        ]
+      },
+      "sample_count": 1,
+      "samples": [
+        {
+          "exit_code": 0,
+          "host_wall_ms": 49.66795799555257,
+          "index": 0,
+          "ok": true,
+          "pty_session_id_present": false,
+          "response": {
+            "exit_code": 0,
+            "output": {
+              "stderr": "",
+              "stdout": ""
+            },
+            "status": "ok"
+          },
+          "status": "ok"
+        }
+      ],
+      "success_count": 1
+    },
+    "pty_write_echo": {
+      "all_samples_ok": true,
+      "host_wall_ms": {
+        "count": 1,
+        "max": 54.649333003908396,
+        "min": 54.649333003908396,
+        "p50": 54.649333003908396,
+        "p95": 54.649333003908396,
+        "samples_ms": [
+          54.649333003908396
+        ]
+      },
+      "sample_count": 1,
+      "samples": [
+        {
+          "exit_code": null,
+          "host_wall_ms": 54.649333003908396,
+          "index": 0,
+          "ok": true,
+          "progress_polls": 5,
+          "pty_session_id_present": true,
+          "response": {
+            "exit_code": null,
+            "output": {
+              "stderr": "",
+              "stdout": "hello-0\r\nready\r\necho:hello-0\r\n"
+            },
+            "pty_session_id": "pty_4",
+            "status": "running"
+          },
+          "status": "running"
+        }
+      ],
+      "success_count": 1
+    }
+  },
+  "ready": {
+    "daemon_pid": 158,
+    "probes": [
+      {
+        "details": {
+          "base_root_hash": "09e75672b2e10eb0a13860eb8102868ac41f2152feb7bb6038dee26ffd7cbe4d",
+          "manifest_depth": 1,
+          "manifest_version": 1,
+          "workspace_root": "/testbed"
+        },
+        "name": "control_plane",
+        "status": "ok"
+      },
+      {
+        "details": {
+          "handlers_services_ready": true,
+          "shell_services_ready": true,
+          "workspace_mount_mode": "private_namespace"
+        },
+        "name": "data_plane",
+        "status": "ok"
+      },
+      {
+        "details": {
+          "backend_fields": [
+            "layer_stack",
+            "occ_service",
+            "occ_client",
+            "gitignore",
+            "layer_stack_manager"
+          ],
+          "backend_ready": true,
+          "occ_client_class": "OccClient"
+        },
+        "name": "mutation_gate",
+        "status": "ok"
+      }
+    ],
+    "ready": true,
+    "success": true,
+    "timings": {
+      "runtime.boot_to_dispatch_s": 0.0,
+      "runtime.dispatch_s": 0.0,
+      "runtime.read_request_s": 0.0,
+      "runtime.ready.control_plane_s": 0.001621583,
+      "runtime.ready.data_plane_s": 9.59e-07,
+      "runtime.ready.mutation_gate_s": 1.292e-06,
+      "runtime.ready.total_s": 0.001631459
+    },
+    "uptime_s": 0.997697001
+  },
+  "run_id": "local-f4149399963b",
+  "samples_per_operation": 1,
+  "sandbox_id": "6b72bb927bbf2e3f5fc0c1bd622cfa93192f1e086e655355394fe1963448782d"
+}

@@ -1373,7 +1373,11 @@ fn pty_progress(args: &Value) -> Result<Value, DaemonError> {
     let id = require_string(args, "pty_session_id")?;
     let seconds = args.get("time").and_then(Value::as_f64).unwrap_or(1.0);
     let max_tokens = optional_u64(args, "max_tokens");
-    let Some(session) = pty_registry().get(&id) else {
+    let registry = pty_registry();
+    let Some(session) = registry.get(&id) else {
+        if let Some(result) = registry.take_completed_result(&id) {
+            return Ok(result);
+        }
         return Ok(pty_not_found());
     };
     let window = if seconds.is_finite() && seconds > 0.0 {
@@ -1469,5 +1473,26 @@ mod tests {
 
         let remaining = registry.collect_completed(&json!({"pty_session_ids": ["pty_keep"]}));
         assert_eq!(remaining["completions"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn pty_progress_returns_completed_result_when_live_session_is_gone() {
+        let id = "pty_progress_done_unit";
+        pty_registry().push_completed(json!({
+            "pty_session_id": id,
+            "result": {
+                "status": "ok",
+                "exit_code": 0,
+                "output": {"stdout": "done\n", "stderr": ""},
+            },
+        }));
+
+        let response = pty_progress(&json!({"pty_session_id": id, "time": 0.01}))
+            .expect("progress should return completed result");
+
+        assert_eq!(response["status"], "ok");
+        assert_eq!(response["output"]["stdout"], "done\n");
+        assert!(pty_registry().take_completed_result(id).is_none());
     }
 }
