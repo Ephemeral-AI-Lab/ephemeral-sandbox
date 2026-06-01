@@ -1,0 +1,679 @@
+{
+  "after_metrics": {
+    "active_leases": 0,
+    "base_root_hash": "09e75672b2e10eb0a13860eb8102868ac41f2152feb7bb6038dee26ffd7cbe4d",
+    "layer_dirs": 26,
+    "leased_layers": 0,
+    "manifest_depth": 26,
+    "manifest_version": 26,
+    "missing_layer_count": 0,
+    "missing_layer_ids": [],
+    "occ_runtime_service_cache": {
+      "capacity": 256,
+      "creates_total": 1,
+      "evictions_total": 0,
+      "hits_total": 24,
+      "last_lock_wait_s": 2.5e-07,
+      "lock_wait_s_max": 0.000229583,
+      "lock_wait_s_total": 0.00026062600000000013,
+      "misses_total": 1,
+      "size": 1
+    },
+    "orphan_layer_count": 0,
+    "orphan_layer_ids": [],
+    "referenced_layers": 26,
+    "staging_dirs": 0,
+    "storage_bytes": 135091909,
+    "success": true,
+    "timings": {
+      "runtime.boot_to_dispatch_s": 0.0,
+      "runtime.dispatch_s": 0.0,
+      "runtime.read_request_s": 0.0
+    },
+    "workspace_bound": true,
+    "workspace_root": "/testbed"
+  },
+  "artifact": {
+    "executable": true,
+    "gate_pass": true,
+    "hashes_match": true,
+    "local_sha256": "3faab56b43bcbb5fedbe7ae8395ec6eca5f47f32447df853cb1ab219abaad815",
+    "remote_mode": "0o755",
+    "remote_path": "/eos/daemon/eosd",
+    "remote_sha256": "3faab56b43bcbb5fedbe7ae8395ec6eca5f47f32447df853cb1ab219abaad815",
+    "size_bytes": 4588464,
+    "source_path": "sandbox/dist/eosd-linux-amd64",
+    "upload_time_ms": 453.8169169682078,
+    "version": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "eosd 0.1.0"
+    }
+  },
+  "artifact_paths": {
+    "performance_report_json": "bench/phase3t-mixed-non-plugin-cp4-av4-20260601-read-smoke.performance_report.json",
+    "performance_report_md": "bench/phase3t-mixed-non-plugin-cp4-av4-20260601-read-smoke.performance_report.md",
+    "report": "bench/phase3t-mixed-non-plugin-cp4-av4-20260601-read-smoke.json",
+    "sandbox_events_jsonl": "bench/phase3t-mixed-non-plugin-cp4-av4-20260601-read-smoke.sandbox_events.jsonl"
+  },
+  "audit": {
+    "artifact_event_bytes": 4411,
+    "buffer_pressure_ok": true,
+    "drop_free": true,
+    "event_count": 11,
+    "event_type_counts": {
+      "layer_stack.maintenance": 2,
+      "tool_call.completed": 3,
+      "tool_call.finished": 3,
+      "tool_call.started": 3
+    },
+    "events": [
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "tool_name": "api.layer_metrics",
+            "tool_use_id": "phase3t-cp4-2360b6ec3bbf4a28a5f2f715ac0ceaaf"
+          }
+        },
+        "seq": 107,
+        "type": "tool_call.started"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "duration_ms": 2.514291,
+            "exit_status": "ok",
+            "phase_totals_rollup": {
+              "runtime.boot_to_dispatch_s": 0.0,
+              "runtime.dispatch_s": 0.0,
+              "runtime.read_request_s": 0.0
+            },
+            "tool_name": "api.layer_metrics",
+            "tool_use_id": "phase3t-cp4-2360b6ec3bbf4a28a5f2f715ac0ceaaf",
+            "total_ms": 2.514291,
+            "workspace_mode": null
+          }
+        },
+        "seq": 108,
+        "type": "tool_call.completed"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "layer_stack": {
+            "layer_count": 26,
+            "lease_hold_ms": 2.514291,
+            "manifest_version": 26,
+            "operation_id": "phase3t-cp4-2360b6ec3bbf4a28a5f2f715ac0ceaaf"
+          }
+        },
+        "seq": 109,
+        "type": "layer_stack.maintenance"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "exit_status": "ok",
+            "tool_name": "api.layer_metrics",
+            "tool_use_id": "phase3t-cp4-2360b6ec3bbf4a28a5f2f715ac0ceaaf",
+            "total_ms": 2.677375
+          }
+        },
+        "seq": 110,
+        "type": "tool_call.finished"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "tool_name": "api.v1.read_file",
+            "tool_use_id": "phase3t-cp4-35c7d029b1ae4b3586a490e95ca599ce"
+          }
+        },
+        "seq": 111,
+        "type": "tool_call.started"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "duration_ms": 1.068208,
+            "exit_status": "ok",
+            "phase_totals_rollup": {
+              "api.read.layer_stack_read_s": 0.000796291,
+              "api.read.total_s": 0.000869459,
+              "resource.command_exec.changed_path_count": 0.0,
+              "resource.command_exec.run_dir_tree_bytes": 0.0,
+              "resource.command_exec.run_dir_tree_dir_count": 0.0,
+              "resource.command_exec.run_dir_tree_entry_count": 0.0,
+              "resource.command_exec.run_dir_tree_exists": 0.0,
+              "resource.command_exec.run_dir_tree_file_count": 0.0,
+              "resource.command_exec.run_dir_tree_truncated": 0.0,
+              "resource.command_exec.upperdir_tree_bytes": 0.0,
+              "resource.command_exec.upperdir_tree_dir_count": 0.0,
+              "resource.command_exec.upperdir_tree_entry_count": 0.0,
+              "resource.command_exec.upperdir_tree_exists": 0.0,
+              "resource.command_exec.upperdir_tree_file_count": 0.0,
+              "resource.command_exec.upperdir_tree_truncated": 0.0,
+              "resource.command_exec.workspace_tree_bytes": 0.0,
+              "resource.command_exec.workspace_tree_dir_count": 0.0,
+              "resource.command_exec.workspace_tree_entry_count": 0.0,
+              "resource.command_exec.workspace_tree_exists": 0.0,
+              "resource.command_exec.workspace_tree_file_count": 0.0,
+              "resource.command_exec.workspace_tree_truncated": 0.0,
+              "resource.layer_stack.manifest_depth": 26.0,
+              "resource.layer_stack.manifest_path_count": 26.0,
+              "runtime.boot_to_dispatch_s": 0.0,
+              "runtime.dispatch_s": 0.0,
+              "runtime.read_request_s": 0.0
+            },
+            "tool_name": "api.v1.read_file",
+            "tool_use_id": "phase3t-cp4-35c7d029b1ae4b3586a490e95ca599ce",
+            "total_ms": 1.068208,
+            "workspace_mode": "ephemeral"
+          }
+        },
+        "seq": 112,
+        "type": "tool_call.completed"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "exit_status": "ok",
+            "tool_name": "api.v1.read_file",
+            "tool_use_id": "phase3t-cp4-35c7d029b1ae4b3586a490e95ca599ce",
+            "total_ms": 1.316333
+          }
+        },
+        "seq": 113,
+        "type": "tool_call.finished"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "tool_name": "api.layer_metrics",
+            "tool_use_id": "phase3t-cp4-05da227cc69a41a2a821480beda58c75"
+          }
+        },
+        "seq": 114,
+        "type": "tool_call.started"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "duration_ms": 1.133208,
+            "exit_status": "ok",
+            "phase_totals_rollup": {
+              "runtime.boot_to_dispatch_s": 0.0,
+              "runtime.dispatch_s": 0.0,
+              "runtime.read_request_s": 0.0
+            },
+            "tool_name": "api.layer_metrics",
+            "tool_use_id": "phase3t-cp4-05da227cc69a41a2a821480beda58c75",
+            "total_ms": 1.133208,
+            "workspace_mode": null
+          }
+        },
+        "seq": 115,
+        "type": "tool_call.completed"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "layer_stack": {
+            "layer_count": 26,
+            "lease_hold_ms": 1.133208,
+            "manifest_version": 26,
+            "operation_id": "phase3t-cp4-05da227cc69a41a2a821480beda58c75"
+          }
+        },
+        "seq": 116,
+        "type": "layer_stack.maintenance"
+      },
+      {
+        "lane": "normal",
+        "payload": {
+          "tool_call": {
+            "agent_id": "phase3t-cp4-av4-bench",
+            "exit_status": "ok",
+            "tool_name": "api.layer_metrics",
+            "tool_use_id": "phase3t-cp4-05da227cc69a41a2a821480beda58c75",
+            "total_ms": 1.168458
+          }
+        },
+        "seq": 117,
+        "type": "tool_call.finished"
+      }
+    ],
+    "last_pull_buffer": {
+      "dropped_event_count": 0,
+      "dropped_event_count_by_lane": {
+        "critical": 0,
+        "normal": 0,
+        "sample": 0
+      },
+      "lost_before_seq": 0,
+      "max_bytes": 8388608,
+      "max_events": 50000,
+      "pressure": 0.009963393211364746,
+      "retained_bytes": 83579,
+      "retained_events": 118
+    },
+    "missing_required_event_types": [
+      "occ.publish",
+      "occ.conflict",
+      "layer_stack.lease_released",
+      "overlay_workspace.cleanup",
+      "background_tool.started",
+      "background_tool.input",
+      "background_tool.cancelled"
+    ],
+    "required_event_types": [
+      "tool_call.completed",
+      "occ.publish",
+      "occ.conflict",
+      "layer_stack.lease_released",
+      "overlay_workspace.cleanup",
+      "layer_stack.maintenance",
+      "background_tool.started",
+      "background_tool.input",
+      "background_tool.cancelled"
+    ],
+    "schema": "sandbox.daemon.audit.pull.v1",
+    "snapshot_buffer": {
+      "dropped_event_count": 0,
+      "dropped_event_count_by_lane": {
+        "critical": 0,
+        "normal": 0,
+        "sample": 0
+      },
+      "lost_before_seq": 0,
+      "max_bytes": 8388608,
+      "max_events": 50000,
+      "pressure": 0.009963393211364746,
+      "retained_bytes": 83579,
+      "retained_events": 118
+    }
+  },
+  "audit_baseline_cursor": {
+    "after_seq": 106,
+    "lost_before_seq": 0
+  },
+  "av4": {
+    "artifact_bytes": 4411,
+    "buffer_pressure_ok": true,
+    "drop_free": true,
+    "gate_pass": false,
+    "required_event_types_present": false,
+    "schema_ok": true
+  },
+  "before_metrics": {
+    "active_leases": 0,
+    "base_root_hash": "09e75672b2e10eb0a13860eb8102868ac41f2152feb7bb6038dee26ffd7cbe4d",
+    "layer_dirs": 26,
+    "leased_layers": 0,
+    "manifest_depth": 26,
+    "manifest_version": 26,
+    "missing_layer_count": 0,
+    "missing_layer_ids": [],
+    "occ_runtime_service_cache": {
+      "capacity": 256,
+      "creates_total": 1,
+      "evictions_total": 0,
+      "hits_total": 24,
+      "last_lock_wait_s": 2.5e-07,
+      "lock_wait_s_max": 0.000229583,
+      "lock_wait_s_total": 0.00026037600000000015,
+      "misses_total": 1,
+      "size": 1
+    },
+    "orphan_layer_count": 0,
+    "orphan_layer_ids": [],
+    "referenced_layers": 26,
+    "staging_dirs": 0,
+    "storage_bytes": 135091909,
+    "success": true,
+    "timings": {
+      "runtime.boot_to_dispatch_s": 0.0,
+      "runtime.dispatch_s": 0.0,
+      "runtime.read_request_s": 0.0
+    },
+    "workspace_bound": true,
+    "workspace_root": "/testbed"
+  },
+  "cp4": {
+    "conflict_gate": true,
+    "failed_cells": [],
+    "final_state_gate": true,
+    "gate_pass": false,
+    "timing_coverage": {
+      "capture": false,
+      "cleanup": false,
+      "layer_stack": true,
+      "mount": false,
+      "occ": false,
+      "release": false,
+      "tool": false
+    },
+    "timing_keys": [
+      "api.read.layer_stack_read_s",
+      "api.read.total_s",
+      "runtime.boot_to_dispatch_s",
+      "runtime.dispatch_s",
+      "runtime.read_request_s"
+    ]
+  },
+  "created_container": true,
+  "daemon_spawn_ms": 372.52179195638746,
+  "endpoint": {
+    "auth_token_present": true,
+    "host": "127.0.0.1",
+    "internal_port": 37657,
+    "port": 51920
+  },
+  "environment": {
+    "architecture": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "x86_64"
+    },
+    "cargo": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "missing"
+    },
+    "eos_mount": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "tmpfs  rw,nosuid,nodev,relatime,size=2097152k"
+    },
+    "kernel": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "6.10.14-linuxkit"
+    },
+    "max_user_namespaces": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "15655"
+    },
+    "os_release": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "PRETTY_NAME=\"Ubuntu 22.04.4 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"22.04\"\nVERSION=\"22.04.4 LTS (Jammy Jellyfish)\"\nVERSION_CODENAME=jammy\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=jammy"
+    },
+    "overlay_filesystem": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "nodev\toverlay"
+    },
+    "overlay_in_userns_probe": {
+      "exit_code": 0,
+      "samples": {
+        "count": 3,
+        "max": 505.04374998854473,
+        "min": 490.7972079818137,
+        "p50": 496.44141597673297,
+        "p95": 496.44141597673297,
+        "samples_ms": [
+          490.7972079818137,
+          496.44141597673297,
+          505.04374998854473
+        ]
+      },
+      "stderr": "",
+      "stdout": "",
+      "success": true
+    },
+    "python": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "Python 3.10.14"
+    },
+    "rustc": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "missing"
+    },
+    "userns_clone": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    }
+  },
+  "final_state": {
+    "checked_path_count": 0,
+    "conflict_file_content": "base-conflict\n",
+    "conflict_file_has_single_winner": true,
+    "gate_pass": true,
+    "mismatches": {},
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "gate_pass": false,
+  "host": {
+    "platform": "macOS-26.4.1-arm64-arm-64bit",
+    "python": "3.12.6"
+  },
+  "layer_stack_seed": {
+    "binding": {
+      "active_manifest_version": 1,
+      "active_root_hash": "09e75672b2e10eb0a13860eb8102868ac41f2152feb7bb6038dee26ffd7cbe4d",
+      "base_manifest_version": 1,
+      "base_root_hash": "09e75672b2e10eb0a13860eb8102868ac41f2152feb7bb6038dee26ffd7cbe4d",
+      "layer_stack_root": "/eos/layer-stack",
+      "workspace_root": "/testbed"
+    },
+    "created": true,
+    "success": true,
+    "timings": {
+      "api.workspace_base.total_s": 0.991883959,
+      "runtime.boot_to_dispatch_s": 0.0,
+      "runtime.dispatch_s": 0.0,
+      "runtime.read_request_s": 0.0,
+      "workspace_base.collect_s": 0.486612458,
+      "workspace_base.inventory.bytes": 135087287.0,
+      "workspace_base.inventory.dirs": 53.0,
+      "workspace_base.inventory.files": 517.0,
+      "workspace_base.inventory.symlinks": 0.0,
+      "workspace_base.prepare_stack_s": 0.001566958,
+      "workspace_base.write_binding_s": 0.000271667,
+      "workspace_base.write_layer_s": 0.501641125,
+      "workspace_base.write_manifest_s": 0.00048625
+    }
+  },
+  "load": {
+    "concurrency_levels": [
+      1
+    ],
+    "expected_paths": {},
+    "operations": {
+      "read_heavy": {
+        "1": {
+          "all_samples_ok": true,
+          "concurrency": 1,
+          "conflict_count": 0,
+          "expected_paths": {},
+          "host_wall_ms": {
+            "count": 1,
+            "max": 3.549833025317639,
+            "min": 3.549833025317639,
+            "p50": 3.549833025317639,
+            "p95": 3.549833025317639,
+            "samples_ms": [
+              3.549833025317639
+            ]
+          },
+          "phase_timing_ms": {
+            "api.read.layer_stack_read_s": {
+              "count": 1,
+              "max": 0.796291,
+              "min": 0.796291,
+              "p50": 0.796291,
+              "p95": 0.796291,
+              "samples_ms": [
+                0.796291
+              ]
+            },
+            "api.read.total_s": {
+              "count": 1,
+              "max": 0.8694590000000001,
+              "min": 0.8694590000000001,
+              "p50": 0.8694590000000001,
+              "p95": 0.8694590000000001,
+              "samples_ms": [
+                0.8694590000000001
+              ]
+            },
+            "runtime.boot_to_dispatch_s": {
+              "count": 1,
+              "max": 0.0,
+              "min": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "samples_ms": [
+                0.0
+              ]
+            },
+            "runtime.dispatch_s": {
+              "count": 1,
+              "max": 0.0,
+              "min": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "samples_ms": [
+                0.0
+              ]
+            },
+            "runtime.read_request_s": {
+              "count": 1,
+              "max": 0.0,
+              "min": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "samples_ms": [
+                0.0
+              ]
+            }
+          },
+          "rounds": 1,
+          "sample_count": 1,
+          "samples": [
+            {
+              "conflict": false,
+              "exit_code": null,
+              "expected_content": null,
+              "expected_path": null,
+              "host_wall_ms": 3.549833025317639,
+              "ok": true,
+              "op": "api.v1.read_file",
+              "response": {
+                "exists": true,
+                "success": true,
+                "workspace": "ephemeral"
+              },
+              "round": 0,
+              "slot": 0,
+              "status": null,
+              "success": true,
+              "timings_ms": {
+                "api.read.layer_stack_read_s": 0.796291,
+                "api.read.total_s": 0.8694590000000001,
+                "runtime.boot_to_dispatch_s": 0.0,
+                "runtime.dispatch_s": 0.0,
+                "runtime.read_request_s": 0.0
+              }
+            }
+          ],
+          "success_count": 1,
+          "wave_wall_ms": {
+            "count": 1,
+            "max": 3.7444999907165766,
+            "min": 3.7444999907165766,
+            "p50": 3.7444999907165766,
+            "p95": 3.7444999907165766,
+            "samples_ms": [
+              3.7444999907165766
+            ]
+          }
+        }
+      }
+    },
+    "rounds_per_concurrency": 1,
+    "selected_operations": [
+      "read_heavy"
+    ]
+  },
+  "mode": "docker-phase3t-mixed-non-plugin-cp4-av4",
+  "ready": {
+    "daemon_pid": 389,
+    "probes": [
+      {
+        "details": {
+          "base_root_hash": "09e75672b2e10eb0a13860eb8102868ac41f2152feb7bb6038dee26ffd7cbe4d",
+          "manifest_depth": 1,
+          "manifest_version": 1,
+          "workspace_root": "/testbed"
+        },
+        "name": "control_plane",
+        "status": "ok"
+      },
+      {
+        "details": {
+          "handlers_services_ready": true,
+          "shell_services_ready": true,
+          "workspace_mount_mode": "private_namespace"
+        },
+        "name": "data_plane",
+        "status": "ok"
+      },
+      {
+        "details": {
+          "backend_fields": [
+            "layer_stack",
+            "occ_service",
+            "occ_client",
+            "gitignore",
+            "layer_stack_manager"
+          ],
+          "backend_ready": true,
+          "occ_client_class": "OccClient"
+        },
+        "name": "mutation_gate",
+        "status": "ok"
+      }
+    ],
+    "ready": true,
+    "success": true,
+    "timings": {
+      "runtime.boot_to_dispatch_s": 0.0,
+      "runtime.dispatch_s": 0.0,
+      "runtime.read_request_s": 0.0,
+      "runtime.ready.control_plane_s": 0.001719792,
+      "runtime.ready.data_plane_s": 8.75e-07,
+      "runtime.ready.mutation_gate_s": 1.167e-06,
+      "runtime.ready.total_s": 0.001730125
+    },
+    "uptime_s": 1.003930708
+  },
+  "run_id": "local-cf6221a65683",
+  "sandbox_id": "21e3db09806e67194acdf5dc08fff6b71634ca99419990f9b7ed76b4d82dac25",
+  "setup": {
+    "all_seed_writes_ok": true,
+    "max_index": 11,
+    "seed_write_count": 25
+  }
+}

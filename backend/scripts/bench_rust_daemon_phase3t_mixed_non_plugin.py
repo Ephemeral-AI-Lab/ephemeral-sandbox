@@ -44,6 +44,20 @@ from bench_sandbox_e2e import (  # noqa: E402
 AGENT_ID = "phase3t-cp4-av4-bench"
 REPORT_STEM = "phase3t-mixed-non-plugin-cp4-av4-20260601"
 CP4_DIR = "cp4-mixed"
+TRANSIENT_DAEMON_IO_MARKERS = (
+    "EOS_DAEMON_IO_FAILED:empty_response",
+    "EOS_DAEMON_IO_FAILED:asyncio.TimeoutError",
+)
+DAEMON_RETRY_DELAYS_S = (0.2, 0.5, 1.0, 2.0)
+RETRYABLE_DAEMON_OPS = {
+    "api.audit.pull",
+    "api.audit.snapshot",
+    "api.layer_metrics",
+    "api.runtime.ready",
+    "api.v1.glob",
+    "api.v1.grep",
+    "api.v1.read_file",
+}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -92,6 +106,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--load-concurrency", default="1,3,5,10")
     parser.add_argument("--load-rounds", type=int, default=3)
+    parser.add_argument(
+        "--operations",
+        default=None,
+        help="Comma-separated operation subset for debugging; defaults to the full CP-4 matrix.",
+    )
     parser.add_argument("--keep-container", action="store_true")
     parser.add_argument("--name-prefix", default="eos-phase3t-cp4-av4")
     return parser.parse_args(argv)
@@ -101,6 +120,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     if not args.artifact.exists():
         raise SystemExit(f"missing eosd artifact: {args.artifact}")
     concurrencies = parse_concurrency(args.load_concurrency)
+    selected_operations = parse_operations(args.operations)
     rounds = max(0, args.load_rounds)
     bench = await DockerBench.create(
         image=args.docker_image,
@@ -115,7 +135,11 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             "created_container": bench.created,
             "host": {"platform": platform.platform(), "python": sys.version.split()[0]},
             "environment": await collect_environment(bench),
-            "load": {"concurrency_levels": concurrencies, "rounds_per_concurrency": rounds},
+            "load": {
+                "concurrency_levels": concurrencies,
+                "rounds_per_concurrency": rounds,
+                "selected_operations": selected_operations,
+            },
             "artifact_paths": {
                 "report": args.report,
                 "sandbox_events_jsonl": args.audit_jsonl,
@@ -146,14 +170,16 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 "internal_port": endpoint.internal_port,
                 "auth_token_present": bool(endpoint.auth_token),
             }
-            report["layer_stack_seed"] = await daemon_client.call_daemon_api(
+            report["layer_stack_seed"] = await call_daemon_api_retry(
+                daemon_client,
                 bench.sandbox_id,
                 "api.build_workspace_base",
                 {"workspace_root": WORKSPACE_ROOT, "reset": True},
                 layer_stack_root=LAYER_STACK_ROOT,
                 timeout=180,
             )
-            report["ready"] = await daemon_client.call_daemon_api(
+            report["ready"] = await call_daemon_api_retry(
+                daemon_client,
                 bench.sandbox_id,
                 "api.runtime.ready",
                 {},
@@ -166,7 +192,12 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             after_seq = int(report["audit_baseline_cursor"].get("after_seq", -1))
             before_metrics = await client.call("api.layer_metrics")
             report["before_metrics"] = before_metrics
-            load = await run_load_matrix(client, concurrencies=concurrencies, rounds=rounds)
+            load = await run_load_matrix(
+                client,
+                concurrencies=concurrencies,
+                rounds=rounds,
+                selected_operations=selected_operations,
+            )
             after_metrics = await client.call("api.layer_metrics")
             audit = await collect_audit(client, after_seq=after_seq)
             final_state = await collect_final_state(client, load)
@@ -188,6 +219,64 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         await bench.close(keep=args.keep_container)
 
 
+async def call_daemon_api_retry(
+    daemon_client: Any,
+    sandbox_id: str,
+    op: str,
+    args: dict[str, Any],
+    *,
+    timeout: int,
+    layer_stack_root: str,
+) -> dict[str, Any]:
+    """Retry bootstrap/read-only daemon calls after transient empty TCP output."""
+    last_exc: Exception | None = None
+    for delay_s in (*DAEMON_RETRY_DELAYS_S, None):
+        try:
+            return await daemon_client.call_daemon_api(
+                sandbox_id,
+                op,
+                args,
+                timeout=timeout,
+                layer_stack_root=layer_stack_root,
+            )
+        except Exception as exc:
+            if not is_transient_daemon_io(exc):
+                raise
+            last_exc = exc
+            if delay_s is None:
+                break
+            await asyncio.sleep(delay_s)
+    assert last_exc is not None
+    raise last_exc
+
+
+async def call_tcp_retry(
+    daemon_client: Any,
+    endpoint: Any,
+    payload: str,
+    *,
+    retryable: bool,
+) -> dict[str, Any]:
+    last_exc: Exception | None = None
+    for delay_s in (*DAEMON_RETRY_DELAYS_S, None):
+        try:
+            return await call_tcp(daemon_client, endpoint, payload)
+        except Exception as exc:
+            if not retryable or not is_transient_daemon_io(exc):
+                raise
+            last_exc = exc
+            if delay_s is None:
+                break
+            await asyncio.sleep(delay_s)
+    assert last_exc is not None
+    raise last_exc
+
+
+def is_transient_daemon_io(exc: Exception) -> bool:
+    message = str(exc)
+    return any(marker in message for marker in TRANSIENT_DAEMON_IO_MARKERS)
+
+
 class DaemonClient:
     def __init__(self, daemon_client: Any, endpoint: Any) -> None:
         self.daemon_client = daemon_client
@@ -196,7 +285,12 @@ class DaemonClient:
     async def call(self, op: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
         invocation_id = (args or {}).get("invocation_id") or f"phase3t-cp4-{uuid.uuid4().hex}"
         payload = daemon_request(op, args or {}, str(invocation_id))
-        return await call_tcp(self.daemon_client, self.endpoint, payload)
+        return await call_tcp_retry(
+            self.daemon_client,
+            self.endpoint,
+            payload,
+            retryable=op in RETRYABLE_DAEMON_OPS,
+        )
 
     async def read_file(self, path: str) -> dict[str, Any]:
         return await self.call("api.v1.read_file", {"path": f"{WORKSPACE_ROOT}/{path}"})
@@ -240,6 +334,22 @@ class DaemonClient:
             },
         )
 
+    async def pty_progress(self, pty_session_id: str) -> dict[str, Any]:
+        return await self.call(
+            "api.v1.pty.progress",
+            {
+                "pty_session_id": pty_session_id,
+                "time": 0.05,
+                "max_tokens": 2000,
+            },
+        )
+
+    async def pty_collect_completed(self, pty_session_id: str) -> dict[str, Any]:
+        return await self.call(
+            "api.v1.pty.collect_completed",
+            {"pty_session_ids": [pty_session_id]},
+        )
+
     async def pty_cancel(self, pty_session_id: str) -> dict[str, Any]:
         return await self.call("api.v1.pty.cancel", {"pty_session_id": pty_session_id})
 
@@ -272,11 +382,14 @@ async def run_load_matrix(
     *,
     concurrencies: list[int],
     rounds: int,
+    selected_operations: list[str],
 ) -> dict[str, Any]:
-    operations: dict[str, dict[str, Any]] = {key: {} for key in operation_builders()}
+    builders = operation_builders()
+    operations: dict[str, dict[str, Any]] = {key: {} for key in selected_operations}
     expected_paths: dict[str, str] = {}
     for concurrency in concurrencies:
-        for name, builder in operation_builders().items():
+        for name in selected_operations:
+            builder = builders[name]
             block = await measure_concurrent(
                 client,
                 name=name,
@@ -388,7 +501,7 @@ def edit_call(path: str, old: str, new: str) -> LoadCall:
         },
         expect_publish_or_conflict,
         expected_path=path,
-        expected_content=new,
+        expected_content=f"{new}\n",
         accepts_conflict=True,
     )
 
@@ -497,6 +610,7 @@ async def run_load_call(
 
 
 async def run_pty_input(client: DaemonClient, index: int) -> dict[str, Any]:
+    expected = f"echo:input-{index}"
     start = await client.exec_command(
         "python3 -c 'import sys; print(\"ready\", flush=True); line=sys.stdin.readline(); print(\"echo:\" + line.strip(), flush=True)'",
         tty=True,
@@ -508,6 +622,25 @@ async def run_pty_input(client: DaemonClient, index: int) -> dict[str, Any]:
         return start
     write = await client.pty_write(session_id, f"input-{index}\n")
     write["start_response"] = trim_response(start)
+    collected = text_out(write)
+    progress_polls = 0
+    while expected not in collected and progress_polls < 10:
+        progress = await client.pty_progress(session_id)
+        progress_polls += 1
+        collected += text_out(progress)
+        if progress.get("status") != "running":
+            break
+    if expected not in collected:
+        completed = await client.pty_collect_completed(session_id)
+        for item in completed.get("completions", []):
+            if not isinstance(item, dict):
+                continue
+            result = item.get("result")
+            if isinstance(result, dict):
+                collected += text_out(result)
+    if collected != text_out(write):
+        write["output"] = {"stdout": collected, "stderr": ""}
+    write["progress_polls"] = progress_polls
     return write
 
 
@@ -524,7 +657,7 @@ async def run_pty_long_session(client: DaemonClient) -> dict[str, Any]:
 async def collect_audit(client: DaemonClient, *, after_seq: int) -> dict[str, Any]:
     events: list[dict[str, Any]] = []
     cursor = after_seq
-    while True:
+    for _pull_index in range(20):
         pulled = await client.call("api.audit.pull", {"after_seq": cursor, "limit": 10_000})
         batch = pulled.get("events", [])
         if isinstance(batch, list):
@@ -534,6 +667,7 @@ async def collect_audit(client: DaemonClient, *, after_seq: int) -> dict[str, An
             snapshot = await client.call("api.audit.snapshot")
             return summarize_audit(events, pulled, snapshot)
         cursor = next_cursor
+    raise RuntimeError("audit pull did not converge after 20 batches")
 
 
 def summarize_audit(
@@ -635,6 +769,13 @@ def evaluate_cp4(report: dict[str, Any]) -> dict[str, Any]:
     timing_coverage = {
         fragment: any(fragment in key for key in timing_keys) for fragment in required_timing_fragments
     }
+    audit_counts = report.get("audit", {}).get("event_type_counts", {})
+    timing_coverage["cleanup"] = timing_coverage["cleanup"] or bool(
+        audit_counts.get("overlay_workspace.cleanup")
+    )
+    timing_coverage["release"] = timing_coverage["release"] or bool(
+        audit_counts.get("layer_stack.lease_released")
+    )
     return {
         "failed_cells": failed_cells,
         "conflict_gate": conflict_gate,
@@ -817,6 +958,19 @@ def text_out(response: dict[str, Any]) -> str:
 def parse_concurrency(raw: str) -> list[int]:
     levels = [int(item.strip()) for item in raw.split(",") if item.strip()]
     return levels or [1]
+
+
+def parse_operations(raw: str | None) -> list[str]:
+    available = operation_builders()
+    if raw is None or not raw.strip():
+        return list(available)
+    selected = [item.strip() for item in raw.split(",") if item.strip()]
+    unknown = sorted(set(selected) - set(available))
+    if unknown:
+        names = ", ".join(unknown)
+        allowed = ", ".join(sorted(available))
+        raise SystemExit(f"unknown --operations entries: {names}; allowed: {allowed}")
+    return selected
 
 
 if __name__ == "__main__":

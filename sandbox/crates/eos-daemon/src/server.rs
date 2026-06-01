@@ -285,15 +285,18 @@ impl DaemonServer {
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
         let op = request.op.clone();
+        let emit_tool_events = should_emit_tool_call_event(&op);
         let started = Instant::now();
-        emit_tool_call_event(
-            "tool_call.started",
-            &invocation_id,
-            &op,
-            &agent_id,
-            None,
-            None,
-        );
+        if emit_tool_events {
+            emit_tool_call_event(
+                "tool_call.started",
+                &invocation_id,
+                &op,
+                &agent_id,
+                None,
+                None,
+            );
+        }
         let table = self.op_table.clone();
         let registry = Arc::clone(&self.in_flight);
         let task_invocation_id = invocation_id.clone();
@@ -326,14 +329,16 @@ impl DaemonServer {
             ),
         };
         registry.deregister(&invocation_id);
-        emit_tool_call_event(
-            "tool_call.finished",
-            &invocation_id,
-            &op,
-            &agent_id,
-            Some(started.elapsed().as_secs_f64() * 1000.0),
-            response_status(&response),
-        );
+        if emit_tool_events {
+            emit_tool_call_event(
+                "tool_call.finished",
+                &invocation_id,
+                &op,
+                &agent_id,
+                Some(started.elapsed().as_secs_f64() * 1000.0),
+                response_status(&response),
+            );
+        }
         response
     }
 
@@ -359,6 +364,10 @@ impl DaemonServer {
         encoded.push(b'\n');
         Ok(encoded)
     }
+}
+
+fn should_emit_tool_call_event(op: &str) -> bool {
+    !op.starts_with("api.audit.") && !matches!(op, "api.v1.heartbeat" | "api.v1.inflight_count")
 }
 
 fn emit_tool_call_event(

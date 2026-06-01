@@ -42,6 +42,8 @@ use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, Context, Result};
 
+const MAX_DAEMON_WORKER_THREADS: usize = 4;
+
 fn main() -> Result<()> {
     let mut args = std::env::args();
     let _argv0 = args.next();
@@ -88,6 +90,7 @@ fn run_daemon(args: std::env::Args) -> Result<()> {
         auth_token: config.auth_token,
     };
     let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(daemon_worker_threads())
         .enable_all()
         .build()
         .context("failed to build daemon tokio runtime")?;
@@ -96,6 +99,13 @@ fn run_daemon(args: std::env::Args) -> Result<()> {
         server.serve(occ_queue).await
     })?;
     Ok(())
+}
+
+fn daemon_worker_threads() -> usize {
+    std::thread::available_parallelism()
+        .map(|threads| threads.get().min(MAX_DAEMON_WORKER_THREADS))
+        .unwrap_or(MAX_DAEMON_WORKER_THREADS)
+        .max(1)
 }
 
 /// `eosd ns-runner` — execute one tool call inside a namespace (fresh-ns or

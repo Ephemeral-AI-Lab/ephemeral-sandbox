@@ -24,7 +24,8 @@
 //! `// PORT backend/src/sandbox/daemon/audit_schema.py:294,310 — safe_emit / safe_record_phase`
 
 use std::collections::VecDeque;
-use std::sync::{Mutex, OnceLock};
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
@@ -123,6 +124,13 @@ impl AuditBuffer {
         self.boot_epoch_id
     }
 
+    fn lock_state(&self) -> MutexGuard<'_, RingState> {
+        match self.inner.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        }
+    }
+
     /// Append `event` on `lane`, returning the assigned sequence number.
     ///
     /// Injects `seq`/`lane` into the payload, enforces the caps (evicting in
@@ -131,7 +139,7 @@ impl AuditBuffer {
     // PORT backend/src/sandbox/daemon/audit_buffer.py:160-200 — append(): seq/lane stamp, enforce caps, edge-triggered pressure emit
     pub fn append(&self, event: Value, lane: Lane) -> u64 {
         let encoded_bytes = encoded_size(&event);
-        let mut state = self.inner.lock().expect("audit buffer poisoned");
+        let mut state = self.lock_state();
         let seq = state.next_seq;
         state.next_seq += 1;
         let mut payload = event;
@@ -164,7 +172,7 @@ impl AuditBuffer {
     // PORT backend/src/sandbox/daemon/audit_buffer.py:202-225 — pull(after_seq, limit)
     pub fn pull(&self, after_seq: i64, limit: usize) -> Value {
         let limit = limit.max(1);
-        let state = self.inner.lock().expect("audit buffer poisoned");
+        let state = self.lock_state();
         let events: Vec<Value> = state
             .all
             .iter()
@@ -192,7 +200,7 @@ impl AuditBuffer {
     /// Buffer + snapshot blocks with no events. Backs `api.audit.snapshot`.
     // PORT backend/src/sandbox/daemon/audit_buffer.py:227-234 — snapshot()
     pub fn snapshot(&self) -> Value {
-        let state = self.inner.lock().expect("audit buffer poisoned");
+        let state = self.lock_state();
         serde_json::json!({
             "schema": SCHEMA_VERSION,
             "buffer": buffer_block(&state),
@@ -215,7 +223,9 @@ impl Default for AuditBuffer {
 /// pure schema constructors stay in [`eos_protocol::audit`]).
 // PORT backend/src/sandbox/daemon/audit_schema.py:294-307 — safe_emit(event, lane): lazy get_audit_buffer().append, swallow
 pub fn safe_emit(event: Value, lane: Lane) {
-    let _ = global_audit_buffer().append(event, lane);
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        let _ = global_audit_buffer().append(event, lane);
+    }));
 }
 
 /// Bridge to the engine's per-call phase buffer (`record_phase`).

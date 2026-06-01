@@ -29,6 +29,19 @@ generator) can call to spin up more Tasks under a delegated workflow. The old
 machinery is **kept** — it is simply *launched by an agent* now, never wrapping
 the root.
 
+**No "root workflow" vs "child workflow" distinction.** Today there are two kinds
+of workflow, told apart by their parent: the *root workflow* (parent =
+`<run_id>:root`, close → `run_close_handler` → finish the run) and a *child
+workflow* (parent = a generator task, close → `apply_child_workflow_outcome` →
+write onto the parent). That split exists **only because the old design wrapped
+the top-level request in a synthetic workflow**. Here the root is not a workflow
+at all (it's a bare agent), so every `Workflow` is uniformly "one an agent
+launched": it has a `parent_task_id` (the launching Task — root agent *or* a
+generator) and resolves through a **single** close path that delivers its
+outcome back to that launching agent. The `_route_close` root-vs-child branch,
+`run_close_handler`, and `apply_child_workflow_outcome`-onto-parent all collapse
+into one uniform "deliver to the launcher" path.
+
 ## Pinned decisions
 
 1. **No `TaskCenter`, no `run`.** The `task_center` package and the `runs` table
@@ -36,7 +49,7 @@ the root.
    **`request_id`** (renamed from `task_center_run_id` everywhere — on disk too,
    no `task_center_` prefix kept). `request` gains `root_task_id` + `status`.
 2. **Task is first-class and carries its position as explicit columns.** Root is
-   identified by `task.root_task = True` (and `workflow_id IS NULL`), *not* by a
+   identified by `workflow_id IS NULL` (+ `request.root_task_id`), *not* by a
    `<run_id>:root` id string. `workflow_id` / `iteration_id` / `attempt_id` are
    optional columns. This replaces id-string parsing
    (`attempt_id_from_task_id`, `role_from_task_id`, `list_tasks_for_attempt`
@@ -91,7 +104,6 @@ class Task:
     needs: tuple[str, ...] = ()
     outcomes: tuple[Any, ...] = ()
     terminal_tool_result: dict | None = None
-    root_task: bool = False          # redundant convenience flag (≡ workflow_id IS NULL); see note
 ```
 
 | Task kind | `role` | `workflow_id` | `iteration_id` | `attempt_id` | `instruction` is… |
@@ -105,11 +117,11 @@ class Task:
 > - **One role enum.** `AgentRole` is the superset; `Task.role` is its
 >   task-bearing subset. Deletes the separate `TaskCenterTaskRole`/`TaskRole` and
 >   the dual-`ROOT` addition — `ROOT` is added to `AgentRole` *once*.
-> - **`root_task` is redundant** with `workflow_id IS NULL` (every non-root Task
->   is minted with a `workflow_id`; the root is the only `NULL`). Kept only because
->   you asked for it — as a convenience flag, not a third fact. **Recommend
->   dropping it**; use `workflow_id IS NULL` as the sole discriminator +
->   `request.root_task_id` as the forward pointer. Your call.
+> - **`root_task` flag dropped.** The sole root discriminator is `workflow_id IS
+>   NULL` (every non-root Task is minted with a `workflow_id`; the root is the only
+>   `NULL`), with `request.root_task_id` as the forward pointer. Invariant to
+>   enforce in the Task-spawn path: no non-root Task is ever created without a
+>   `workflow_id`.
 
 `WAITING_WORKFLOW` is **gone** from `TaskStatus` — a delegating agent stays
 `RUNNING` (delegate_workflow is background; the agent waits via the
@@ -232,7 +244,7 @@ backend/src/runtime/                   # COMPOSITION ROOT (was task_center/entry
 └── sandbox_provisioning.py            # ← entry/sandbox_provisioning.py
 
 backend/src/tools/workflow/            # delegate_workflow · check_workflow_status · cancel_workflow (non-terminal)
-backend/src/tools/submission/root/     # submit_root_outcome (new) — resolver checks task.root_task, finishes request
+backend/src/tools/submission/root/     # submit_root_outcome (new) — resolver checks workflow_id IS NULL, finishes request
 backend/src/agents/profile/main/root.md  # root agent profile (role: root, terminals: submit_root_outcome)
 backend/src/db/models/{request.py,task.py,workflow.py,iteration.py,attempt.py}  # task_center_runs DROPPED
 ```
@@ -379,8 +391,9 @@ Two forced changes: (1) `task_center_run_id → request_id`; (2)
 was the synthetic root workflow, now deleted. The `Iteration`/`Attempt` DTO field
 names below (`iteration_goal`, `deferred_goal_for_next_iteration`) are reproduced
 verbatim from `state.py`; the stores already map them onto the unchanged DB
-columns `goal` / `deferred_goal`, so those columns are untouched. The four
-child-id-list fields shown are **dropped** per the ★ Phase-4 cut above.
+columns `goal` / `deferred_goal`, so those columns are untouched. The
+child-id-list fields (`iteration_ids` / `attempt_ids` /
+`generator_task_ids` / `reducer_task_ids`) are **kept** (your call — see note above).
 
 ```python
 # workflow/_core/state.py
@@ -393,7 +406,7 @@ class Workflow:                          # workflows table; created ONLY by dele
     parent_task_id: str                  # the launching Task (root agent OR a generator) — durable back-link
     workflow_goal: str
     status: WorkflowStatus
-    iteration_ids: tuple[str, ...]       # ordered (★ derivable — see note)
+    iteration_ids: tuple[str, ...]       # kept (ordered)
     created_at; updated_at; closed_at
 
 class IterationStatus(StrEnum):          OPEN; SUCCEEDED; FAILED; CANCELLED
@@ -408,7 +421,7 @@ class Iteration:                         # iterations table; UNIQUE(workflow_id,
     iteration_goal: str
     attempt_budget: int
     status: IterationStatus
-    attempt_ids: tuple[str, ...]         # ordered (★ derivable)
+    attempt_ids: tuple[str, ...]         # kept (ordered)
     deferred_goal_for_next_iteration: str | None
     outcomes: str | None                 # persisted projection (closing attempt's evidence); None while open
     created_at; updated_at; closed_at
@@ -425,41 +438,139 @@ class Attempt:                           # attempts table; UNIQUE(iteration_id, 
     stage: AttemptStage                  # PLAN → RUN → CLOSED
     status: AttemptStatus                # PASSED iff every plan task DONE; FAILED if any failed/blocked
     planner_task_id: str | None
-    generator_task_ids: tuple[str, ...]  # (★ derivable: tasks WHERE attempt_id=… AND role=generator)
-    reducer_task_ids: tuple[str, ...]    # (★ derivable: … AND role=reducer)  — reducer is the exit gate
+    generator_task_ids: tuple[str, ...]  # kept — read directly by the RUN-stage scheduler
+    reducer_task_ids: tuple[str, ...]    # kept — reducer is the exit gate
     deferred_goal_for_next_iteration: str | None
     fail_reason: AttemptFailReason | None
     outcomes: tuple[ExecutionTaskOutcome, ...]
     created_at; updated_at; closed_at
 ```
 
-**★ Mandatory simplification (Phase 4, not optional).** Now that `Task` carries
-explicit `workflow_id` / `iteration_id` / `attempt_id` / `role` columns, the
-child-id-list fields are **denormalized caches** — keeping them re-imports the
-dual-write bookkeeping the column model is meant to retire. **Drop all four**:
-- `Attempt.generator_task_ids` / `reducer_task_ids` ← `tasks WHERE attempt_id=? AND role=?` (ORDER BY `created_at,id`; list order is non-semantic — DAG order comes from `needs`)
-- `Iteration.attempt_ids` ← `WHERE iteration_id=?` ORDER BY `attempt_sequence_no`
-- `Workflow.iteration_ids` ← `WHERE workflow_id=?` ORDER BY `sequence_no`
+**Child-id-list fields are KEPT** (`Attempt.generator_task_ids` /
+`reducer_task_ids`, `Iteration.attempt_ids`, `Workflow.iteration_ids`). Although
+the explicit `Task.{workflow_id,iteration_id,attempt_id}` columns make them
+*derivable*, they stay: the RUN-stage scheduler (`run_stage.py`) reads
+`attempt.generator_task_ids/reducer_task_ids` directly, and the ordered tuples
+are the cheap path for the scheduler + `latest_attempt_id`/`attempt_count`. This
+is an accepted denormalization — membership is now writable two ways (the id-list
+tuples *and* the `Task.attempt_id` column), and the orchestrator/coordinator keep
+their existing `set_generator_task_ids`/`set_reducer_task_ids` bookkeeping. The
+new `Task` position columns serve the **root discriminator + position/audit**,
+not a scheduler rewrite.
 
-Remove the setters (`orchestrator.py` calls `set_generator_task_ids` /
-`set_reducer_task_ids` on every spawn — gone) and switch the only two readers —
-the RUN-stage scheduler (`run_stage.py`) and the reducer-membership check
-(`orchestrator.py`) — to `list_tasks_for_attempt(attempt_id, role)` (an indexed
-column equality, replacing the id-prefix `LIKE`). `planner_task_id` is *also*
-derivable but stays stored as a single-row fast path — an intentional asymmetry,
-not an inconsistency.
+## Resulting DB schema (tables, columns, FKs)
+
+`task_center` prefix dropped from table names; `task_center_runs` dropped;
+`task_center_run_id → request_id`. No Alembic — `db/engine.py` rebuilds from
+`Base.metadata` (drop-unmodelled + `create_all`), so the rename/drop is a rebuild.
+Legend: ★ new · ⊖ dropped · ⟳ changed. Cross-row links that are **plain indexed
+columns, app-enforced (NOT declared FKs)** — matching today's `parent_task_id` —
+are marked *(soft)*; declared FKs say `FK→…`.
+
+```text
+requests   (⟳ was task_center_requests)
+  id                PK String(36)
+  cwd               String(1024)
+  sandbox_id        String(128) NULL
+  request_prompt    Text
+  root_task_id      String(96) NULL  ★  (soft → tasks.id; set after the root Task is minted — avoids the request↔task insert cycle)
+  status            String(32) = 'running'   ★ (migrated from runs)
+  created_at; updated_at; finished_at NULL  ★ (finished_at from runs; runs.started_at folds into created_at)
+
+⊖ task_center_runs   — DROPPED ENTIRELY (status/finished_at migrated to requests; 1 run-per-request, so nothing orphaned)
+
+tasks   (⟳ was task_center_tasks)
+  id                PK String(96)
+  request_id        String(36)  FK→requests.id  ON DELETE CASCADE, indexed   ⟳ (was task_center_run_id → runs)
+  role              String(32)        {root|planner|generator|reducer}
+  instruction       Text              ⟳ (was context_message)
+  status            String(32)        {pending|running|done|failed|blocked}   ⟳ (waiting_workflow removed)
+  workflow_id       String(36) NULL, indexed   ★  (soft → workflows.id; NULL ⇔ ROOT — the discriminator)
+  iteration_id      String(36) NULL, indexed   ★  (soft → iterations.id)
+  attempt_id        String(96) NULL, indexed   ★  (soft → attempts.id)
+  agent_name        String(128) NULL
+  needs             JSON = []
+  outcomes          JSON = []
+  terminal_tool_result  JSON NULL
+  created_at; updated_at
+  ⊖ child_workflow_id   — DROPPED (back-link is workflows.parent_task_id, one-directional)
+  rel: agent_run 1:1
+
+agent_runs
+  id                PK String(36)
+  task_id           String(96)  FK→tasks.id  ON DELETE CASCADE, UNIQUE, indexed   (1:1 with a Task)
+  agent_name        String(128)
+  initial_messages  JSON         ★  (launch seed; [system, …role-specific…])
+  message_history   JSON NULL
+  terminal_tool_result  JSON NULL
+  token_count       Integer = 0
+  error             Text NULL
+  created_at; finished_at NULL
+
+workflows   (created ONLY by delegate_workflow)
+  id                PK String(36)
+  request_id        String(36)  FK→requests.id  ON DELETE CASCADE, indexed   ⟳ (was task_center_run_id → runs)
+  parent_task_id    String(96) NOT NULL, indexed   ⟳ (was NULL; soft → tasks.id; the launching Task)
+  goal              Text
+  status            String            {open|succeeded|failed|cancelled}
+  iteration_ids     JSON              (kept)
+  created_at; updated_at; closed_at NULL
+
+iterations
+  id                PK String(36)
+  workflow_id       String(36)  FK→workflows.id  ON DELETE CASCADE, indexed
+  sequence_no       Integer
+  creation_reason   String            {initial|deferred_goal_continuation}
+  goal              Text
+  attempt_budget    Integer
+  status            String            {open|succeeded|failed|cancelled}
+  attempt_ids       JSON              (kept)
+  deferred_goal     Text NULL
+  outcomes          Text NULL
+  created_at; updated_at; closed_at NULL
+  UNIQUE(workflow_id, sequence_no)
+
+attempts
+  id                PK String(36)
+  iteration_id      String(36)  FK→iterations.id  ON DELETE CASCADE, indexed
+  attempt_sequence_no  Integer
+  stage             String            {plan|run|closed}
+  status            String            {running|passed|failed}
+  planner_task_id   String(96) NULL
+  generator_task_ids  JSON            (kept — scheduler reads directly)
+  reducer_task_ids    JSON            (kept)
+  deferred_goal     Text NULL
+  fail_reason       String NULL       {task_failed|startup_failed}
+  outcomes          JSON
+  created_at; updated_at; closed_at NULL
+  UNIQUE(iteration_id, attempt_sequence_no)
+```
+
+FK / ownership graph after the collapse:
+```
+requests ──FK──< tasks            (tasks.request_id, CASCADE)
+requests ──FK──< workflows        (workflows.request_id, CASCADE)
+                  └──FK──< iterations ──FK──< attempts
+tasks    ──FK(1:1)── agent_runs   (agent_runs.task_id UNIQUE, CASCADE)
+requests ··soft··> tasks          (root_task_id, forward pointer)
+tasks    ··soft··> workflows/iterations/attempts   (workflow_id/iteration_id/attempt_id — NULL ⇔ root)
+workflows ··soft··> tasks         (parent_task_id — the launching Task)
+```
+Note the `requests.root_task_id ↔ tasks.request_id` reference is cyclic, so
+`root_task_id` is a soft nullable column set right after the root Task is minted
+(not a hard FK) — same pattern the codebase already uses for `parent_task_id`.
 
 ## Phased plan
 
 ### Phase 1 — Task DTO + collapse run into request (schema + model)
 - New `task/task.py`: `Task` with `request_id`, `role`, `instruction`,
-  position columns (`root_task`, `workflow_id`, `iteration_id`, `attempt_id`).
+  position columns (`workflow_id`, `iteration_id`, `attempt_id`).
 - DB: drop `task_center_runs`; `request` gains `root_task_id` + `status`; `task`
   FK → `request_id`, add position columns, rename `context_message` → `instruction`.
 - Rename `task_center_run_id` → `request_id` across src + tests + the wire
   consumers + `task_center_runner` + `db/models/__init__.py` + `db/stores/__init__.py`
   + the `Mapped["…Record"]` forward-ref strings.
-- Replace id-string routing with column reads (`task.root_task`, `WHERE attempt_id=`,
+- Replace id-string routing with column reads (`workflow_id IS NULL`, `WHERE attempt_id=`,
   `task.role`).
 - Verify: `uv run pytest -q backend/tests/unit_test/test_task_center/test_persistence/`
   (renamed) + a request-lifecycle test.
@@ -562,12 +673,22 @@ not an inconsistency.
 
 ## Success criteria
 - A request runs a first-class root agent against a root `Task`
-  (`root_task=True`, `workflow_id=None`); no `runs` table, no synthetic bootstrap.
+  (`workflow_id=None`); no `runs` table, no synthetic bootstrap.
+- **Grep gate (no root/child workflow concept survives):** after migration,
+  `rg "root_workflow|child_workflow"` returns **0**. Requires deleting
+  `on_root_workflow_closed` + `run_close_handler` + `apply_child_workflow_outcome`;
+  renaming `start_child_workflow`→`start_delegated_workflow`/`start_background_child`
+  and `cancel_child_workflow`→`cancel_workflow`; dropping the `Task.child_workflow_id`
+  column (the durable back-link is `Workflow.parent_task_id`, one-directional);
+  and renaming `start_root_run` (no "run" — folds into the `runtime/` request
+  entry). What remains is the legit delegated construct: `Workflow`,
+  `Workflow.parent_task_id`, `workflow_id`, `delegate_workflow`,
+  `check_workflow_status`, `cancel_workflow`.
 - `submit_root_outcome` finishes the request; the user reads the request result.
 - `delegate_workflow` is non-terminal, optional, usable by root + generators, and
   is the only creator of `Workflow` rows.
 - `submit_workflow_handoff` and the `Planned*` DTOs are gone.
-- Routing reads Task columns (`root_task`, `role`, `attempt_id`), not id strings.
+- Routing reads Task columns (`workflow_id`, `role`, `attempt_id`), not id strings.
 - `backend/src/task` and `backend/src/workflow` import cleanly (no cycle, no
   `task_center` references).
 - CLAUDE.md describes the Task-unified, agent-first model.
