@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import importlib
 import json
 import os
@@ -46,51 +47,91 @@ async def _serve(socket_path: str) -> int:
     stream.connect(socket_path)
     stream_file = stream.makefile("rwb", buffering=0)
     state = _ServiceState(stream_file)
+    tasks: set[asyncio.Task[None]] = set()
     try:
         while True:
-            frame = stream_file.readline(_MAX_FRAME_BYTES + 1)
+            frame = await asyncio.to_thread(stream_file.readline, _MAX_FRAME_BYTES + 1)
             if not frame:
                 return 0
             if len(frame) > _MAX_FRAME_BYTES:
                 raise ValueError("PPC frame exceeded byte limit")
-            reply = await _handle_frame(frame, state)
-            stream_file.write(reply)
-            stream_file.flush()
+            message = _decode_frame(frame)
+            direction = _frame_direction(message)
+            if direction == "reply":
+                state.resolve_reply(message)
+                continue
+            if direction != "request":
+                raise ValueError("PPC service only accepts request or reply frames")
+            task = asyncio.create_task(_handle_request_message(message, state))
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
     finally:
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
         stream_file.close()
         stream.close()
 
 
-async def _handle_frame(frame: bytes, state: "_ServiceState") -> bytes:
+def _decode_frame(frame: bytes) -> dict[str, Any]:
     message = json.loads(frame.decode("utf-8"))
     if not isinstance(message, dict):
         raise ValueError("PPC frame must be a JSON object")
-    message_id = str(message.get("invocation_id") or "")
-    op = str(message.get("op") or "")
+    return message
+
+
+def _frame_direction(message: Mapping[str, Any]) -> str:
     args = message.get("args")
     if not isinstance(args, dict):
         raise ValueError("PPC frame args must be an object")
-    if args.get("direction") != "request":
-        raise ValueError("PPC service only accepts request frames")
-    body = _json_object(args.get("body"))
+    return str(args.get("direction") or "")
 
-    if op == _REFRESH_OP:
-        result = state.ack_refresh(body)
-    else:
-        result = await _dispatch_plugin_op(op, body, state)
-    return _reply_frame(message_id, result)
+
+def _frame_body(message: Mapping[str, Any]) -> dict[str, Any]:
+    args = message.get("args")
+    if not isinstance(args, dict):
+        raise ValueError("PPC frame args must be an object")
+    return _json_object(args.get("body"))
+
+
+async def _handle_request_message(
+    message: Mapping[str, Any],
+    state: "_ServiceState",
+) -> None:
+    message_id = str(message.get("invocation_id") or "")
+    op = str(message.get("op") or "")
+    try:
+        body = _frame_body(message)
+        if op == _REFRESH_OP:
+            result = await state.ack_refresh(body)
+        else:
+            result = await _dispatch_plugin_op(op, body, state, message_id)
+    except Exception as exc:
+        result = {
+            "success": False,
+            "error": {
+                "kind": type(exc).__name__,
+                "message": str(exc) or type(exc).__name__,
+            },
+        }
+    await state.write_frame(_reply_frame(message_id, result))
 
 
 async def _dispatch_plugin_op(
     public_op: str,
     args: dict[str, Any],
     state: "_ServiceState",
+    message_id: str = "",
 ) -> dict[str, Any]:
     plugin_name, op_name = _split_public_op(public_op)
-    handler = _load_handler(plugin_name, op_name)
-    ctx = state.context(args, op_name)
+    handler = await state.handler(plugin_name, op_name)
+    ctx = await state.context(args, op_name, message_id)
     try:
-        result = handler(args, ctx)
+        if inspect.iscoroutinefunction(handler):
+            result = handler(args, ctx)
+        else:
+            result = await asyncio.to_thread(handler, args, ctx)
         if asyncio.iscoroutine(result) or hasattr(result, "__await__"):
             result = await result
     except Exception as exc:
@@ -169,38 +210,78 @@ def _reply_frame(message_id: str, body: Mapping[str, Any]) -> bytes:
 class _ServiceState:
     def __init__(self, stream_file: Any | None = None) -> None:
         self._stream_file = stream_file
+        self._write_lock = asyncio.Lock()
+        self._callback_replies: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self.manifest_key = os.environ.get("EOS_PLUGIN_MANIFEST_KEY", "").strip()
         self.layer_stack_root = os.environ.get("EOS_PLUGIN_LAYER_STACK_ROOT", "").strip()
         self.workspace_root = os.environ.get("EOS_PLUGIN_WORKSPACE_ROOT", "").strip()
+        self._state_lock = asyncio.Lock()
+        self._handler_lock = asyncio.Lock()
+        self._handlers: dict[tuple[str, str], Any] = {}
 
-    def ack_refresh(self, payload: dict[str, Any]) -> dict[str, Any]:
-        target = str(
-            payload.get("target_manifest_key")
-            or payload.get("manifest_key")
-            or self.manifest_key
-        )
-        if target:
-            self.manifest_key = target
-        workspace_root = str(payload.get("workspace_root") or "").strip()
-        if workspace_root:
+    async def handler(self, plugin_name: str, op_name: str) -> Any:
+        key = (plugin_name, op_name)
+        if key in self._handlers:
+            return self._handlers[key]
+        async with self._handler_lock:
+            if key not in self._handlers:
+                self._handlers[key] = _load_handler(plugin_name, op_name)
+            return self._handlers[key]
+
+    async def write_frame(self, frame: bytes) -> None:
+        if self._stream_file is None:
+            raise RuntimeError("PPC stream is unavailable")
+        async with self._write_lock:
+            await asyncio.to_thread(_write_and_flush, self._stream_file, frame)
+
+    def resolve_reply(self, message: Mapping[str, Any]) -> None:
+        message_id = str(message.get("invocation_id") or "")
+        future = self._callback_replies.pop(message_id, None)
+        if future is None:
+            raise ValueError(f"unexpected PPC reply frame {message_id}")
+        if not future.done():
+            future.set_result(_frame_body(message))
+
+    async def ack_refresh(self, payload: dict[str, Any]) -> dict[str, Any]:
+        async with self._state_lock:
+            target = str(
+                payload.get("target_manifest_key")
+                or payload.get("manifest_key")
+                or self.manifest_key
+            )
+            if target:
+                self.manifest_key = target
+            workspace_root = str(payload.get("workspace_root") or "").strip()
+            if workspace_root:
+                self.workspace_root = workspace_root
+            return {"manifest_key": self.manifest_key, "accepted": True}
+
+    async def context(
+        self,
+        args: dict[str, Any],
+        op_name: str,
+        message_id: str = "",
+    ) -> PluginOpContext:
+        async with self._state_lock:
+            layer_stack_root = str(args.get("layer_stack_root") or self.layer_stack_root)
+            workspace_root = str(args.get("workspace_root") or self.workspace_root or "/testbed")
+            manifest_key = str(args.get("manifest_key") or self.manifest_key or "workspace@0")
+            self.layer_stack_root = layer_stack_root
             self.workspace_root = workspace_root
-        return {"manifest_key": self.manifest_key, "accepted": True}
-
-    def context(self, args: dict[str, Any], op_name: str) -> PluginOpContext:
-        layer_stack_root = str(args.get("layer_stack_root") or self.layer_stack_root)
-        workspace_root = str(args.get("workspace_root") or self.workspace_root or "/testbed")
-        manifest_key = str(args.get("manifest_key") or self.manifest_key or "workspace@0")
-        self.layer_stack_root = layer_stack_root
-        self.workspace_root = workspace_root
-        self.manifest_key = manifest_key
+            self.manifest_key = manifest_key
         return PluginOpContext(
             layer_stack_root=layer_stack_root,
             caller=sandbox_caller_from_plugin_envelope(args.get("caller")),
-            projection=_MountedWorkspaceProjection(layer_stack_root, lambda: self.manifest_key),
+            projection=_MountedWorkspaceProjection(layer_stack_root, lambda: manifest_key),
             overlay=_MountedWorkspaceOverlay(
                 workspace_root,
-                lambda: self.manifest_key,
-                self.publish_mounted_workspace_changes,
+                lambda: manifest_key,
+                lambda changed_paths, *, workspace_root: self.publish_mounted_workspace_changes(
+                    changed_paths,
+                    workspace_root=workspace_root,
+                    parent_message_id=message_id,
+                    layer_stack_root=layer_stack_root,
+                ),
             ),
             intent=plugin_intent_from_envelope(args.get("intent")),
             metadata={"op_name": op_name, "workspace_root": workspace_root},
@@ -211,6 +292,8 @@ class _ServiceState:
         changed_paths: list[str],
         *,
         workspace_root: str,
+        parent_message_id: str = "",
+        layer_stack_root: str | None = None,
     ) -> dict[str, Any]:
         if self._stream_file is None:
             raise RuntimeError("PPC stream is unavailable for OCC callback")
@@ -218,32 +301,35 @@ class _ServiceState:
             _change_for_path(Path(workspace_root), changed_path)
             for changed_path in changed_paths
         ]
-        message_id = f"plugin-occ-apply-{uuid4().hex}"
-        self._stream_file.write(
-            _request_frame(
-                message_id,
-                _OCC_APPLY_CHANGESET_OP,
-                {
-                    "layer_stack_root": self.layer_stack_root,
-                    "changes": changes,
-                },
-            )
+        callback_id = f"plugin-occ-apply-{uuid4().hex}"
+        message_id = (
+            f"{parent_message_id}:{callback_id}" if parent_message_id else callback_id
         )
-        self._stream_file.flush()
-        frame = self._stream_file.readline(_MAX_FRAME_BYTES + 1)
-        if not frame:
-            raise RuntimeError("PPC OCC callback stream closed before reply")
-        if len(frame) > _MAX_FRAME_BYTES:
-            raise RuntimeError("PPC OCC callback reply exceeded byte limit")
-        reply = json.loads(frame.decode("utf-8"))
-        if not isinstance(reply, dict):
-            raise RuntimeError("PPC OCC callback reply must be a JSON object")
-        if str(reply.get("invocation_id") or "") != message_id:
-            raise RuntimeError("PPC OCC callback reply used wrong message id")
-        args = reply.get("args")
-        if not isinstance(args, dict) or args.get("direction") != "reply":
-            raise RuntimeError("PPC OCC callback reply has invalid direction")
-        return _json_object(args.get("body"))
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[dict[str, Any]] = loop.create_future()
+        self._callback_replies[message_id] = future
+        try:
+            body: dict[str, Any] = {
+                "layer_stack_root": layer_stack_root or self.layer_stack_root,
+                "changes": changes,
+            }
+            if parent_message_id:
+                body["parent_message_id"] = parent_message_id
+            await self.write_frame(
+                _request_frame(
+                    message_id,
+                    _OCC_APPLY_CHANGESET_OP,
+                    body,
+                )
+            )
+            return await asyncio.wait_for(future, timeout=60)
+        finally:
+            self._callback_replies.pop(message_id, None)
+
+
+def _write_and_flush(stream_file: Any, frame: bytes) -> None:
+    stream_file.write(frame)
+    stream_file.flush()
 
 
 @dataclass(frozen=True)

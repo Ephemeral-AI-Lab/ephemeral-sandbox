@@ -174,8 +174,8 @@ async def test_initial_messages_capture(
             task_guidance = texts[2]
             skill_row = texts[3]
             assert "<goal" in user_msg_1, f"{rel}: missing <goal*> XML tag"
-            assert "<iteration_goal" in user_msg_1, (
-                f"{rel}: missing <iteration_goal> XML tag"
+            assert "<current_iteration" in user_msg_1, (
+                f"{rel}: missing <current_iteration> XML tag"
             )
             assert task_guidance.startswith("<Task Guidance>\n"), (
                 f"{rel}: row 3 does not start with '<Task Guidance>\\n'"

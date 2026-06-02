@@ -25,7 +25,7 @@ and routes through the loop here. Background dispatch
 (``background_task_id``) is fire-and-forget through the loop and cannot satisfy
 the imperative probes' blocking-await contract by itself, so this bridge
 converts the requested stable background id into the real-agent model:
-``shell(background=True)`` plus ``check_background_task_result`` /
+an internal background-dispatch key plus ``check_background_task_result`` /
 ``cancel_background_task``.
 """
 
@@ -42,6 +42,7 @@ from engine.background.dispatch import (
     DISABLE_SANDBOX_HEARTBEAT_INPUT_KEY,
     SANDBOX_INVOCATION_ID_INPUT_KEY,
 )
+from engine.background.policy import BACKGROUND_TOOL_INPUT_KEY
 from message.message import ToolResultBlock
 from tools._framework.core.results import ToolResult
 
@@ -132,7 +133,7 @@ class _CallToolBridge:
         requested_background_task_id: str,
         sandbox_invocation_id: str | None,
     ) -> ToolResult:
-        launch_input = {**dict(raw_input), "background": True}
+        launch_input = {**dict(raw_input), BACKGROUND_TOOL_INPUT_KEY: True}
         if sandbox_invocation_id:
             launch_input[SANDBOX_INVOCATION_ID_INPUT_KEY] = sandbox_invocation_id
             launch_input[DISABLE_SANDBOX_HEARTBEAT_INPUT_KEY] = True

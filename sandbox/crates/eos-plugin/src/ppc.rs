@@ -6,12 +6,15 @@
 //! The PPC reuses the daemon's newline-delimited compact-JSON framing — one
 //! [`eos_protocol::Envelope`] per message, a single trailing `\n` — over an
 //! `AF_UNIX` socket to the daemon-managed service process. It is BIDIRECTIONAL and
-//! message-id'd: the daemon multiplexes many in-flight ops over one service
-//! connection, and the self-managed mode lets the plugin call BACK to the daemon
-//! (the OCC commit callback) on the same channel. The `message_id` correlates a
-//! reply to its request and is carried as the envelope's `invocation_id` so the
-//! existing [`eos_protocol::encode`]/[`eos_protocol::decode`] framing applies
-//! unchanged (no second wire format).
+//! message-id'd: plugin operation serialization is forbidden, so the daemon
+//! multiplexes many in-flight ops over one service connection, and the
+//! self-managed mode lets the plugin call BACK to the daemon (the OCC commit
+//! callback) on the same channel. The `message_id` correlates a reply to its
+//! request and is carried as the envelope's `invocation_id` so the existing
+//! [`eos_protocol::encode`]/[`eos_protocol::decode`] framing applies unchanged
+//! (no second wire format). Callback request bodies should include
+//! `parent_message_id` so the daemon can route callback replies while many
+//! callback-capable plugin ops are in flight on the same socket.
 //!
 //! `// PORT backend/src/sandbox/ephemeral_workspace/plugin/overlay_child.py:39-69 — JSON payload <-> reply framing`
 //! `// PORT backend/src/sandbox/ephemeral_workspace/plugin/overlay_dispatch.py:135-173 — request/output_ref handoff (becomes the PPC channel)`

@@ -17,6 +17,8 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::io::Write;
+#[cfg(target_os = "linux")]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
@@ -850,10 +852,14 @@ fn op_shell(args: &Value, context: DispatchContext<'_>) -> Result<Value, DaemonE
         command_args["cmd"] = json!(require_shell_command(args)?);
         return crate::command::op_exec_command(&command_args, context);
     }
-    run_shell_overlay(args, Instant::now())
+    run_shell_overlay(args, Instant::now(), context.invocation_registry)
 }
 
-pub(crate) fn run_shell_overlay(args: &Value, total_start: Instant) -> Result<Value, DaemonError> {
+pub(crate) fn run_shell_overlay(
+    args: &Value,
+    total_start: Instant,
+    invocation_registry: Option<&InFlightRegistry>,
+) -> Result<Value, DaemonError> {
     let spec = ShellOverlayCommand {
         layer_stack_root: PathBuf::from(require_string(args, "layer_stack_root")?),
         command: require_shell_command(args)?,
@@ -884,7 +890,7 @@ pub(crate) fn run_shell_overlay(args: &Value, total_start: Instant) -> Result<Va
     let lease =
         stack.acquire_snapshot(&format!("overlay:{}:{}", spec.agent_id, spec.invocation_id))?;
     let lease_acquire_s = acquire_start.elapsed().as_secs_f64();
-    let run_result = run_shell_overlay_once(&spec, &binding, &lease);
+    let run_result = run_shell_overlay_once(&spec, &binding, &lease, invocation_registry);
     let _ = stack.release_lease(&lease.lease_id);
     let shell = run_result?;
     shell_overlay_response(&spec.layer_stack_root, shell, total_start, lease_acquire_s)
@@ -894,6 +900,7 @@ fn run_shell_overlay_once(
     spec: &ShellOverlayCommand,
     binding: &WorkspaceBinding,
     lease: &Lease,
+    invocation_registry: Option<&InFlightRegistry>,
 ) -> Result<ShellRunOutcome, DaemonError> {
     let dirs = overlay_run_dirs("sandbox-overlay", &spec.invocation_id)?;
     let _cleanup = RunDirCleanup(dirs.run_dir.clone());
@@ -918,7 +925,7 @@ fn run_shell_overlay_once(
         cgroup_path: None,
         timeout_seconds: spec.timeout_seconds,
     };
-    let runner = run_ns_runner_child(&request)?;
+    let runner = run_ns_runner_child(&request, invocation_registry)?;
     let (changes, path_kinds, capture_s) = capture_upperdir_for_occ(&dirs.upperdir)?;
     let route_start = Instant::now();
     let route_metrics = occ_route_metrics(&spec.layer_stack_root, &changes)?;
@@ -1062,7 +1069,7 @@ fn run_plugin_overlay_once(
 
     let request =
         plugin_overlay_run_request(spec, binding, lease, &dirs, &request_path, &result_path);
-    let runner = run_ns_runner_child(&request)?;
+    let runner = run_ns_runner_child(&request, None)?;
     let plugin_result = read_plugin_overlay_result(&result_path)?;
     let (changes, path_kinds, capture_s) = capture_upperdir_for_occ(&dirs.upperdir)?;
     let route_start = Instant::now();
@@ -1366,7 +1373,7 @@ fn run_overlay_read_tool(args: &Value, verb: &str) -> Result<Value, DaemonError>
             cgroup_path: None,
             timeout_seconds: args.get("timeout_seconds").and_then(Value::as_f64),
         };
-        run_ns_runner_child(&request)
+        run_ns_runner_child(&request, None)
     })();
     let _ = stack.release_lease(&lease.lease_id);
 
@@ -1429,7 +1436,7 @@ fn run_isolated_read_tool(
         cgroup_path: handle.cgroup_path.clone(),
         timeout_seconds: args.get("timeout_seconds").and_then(Value::as_f64),
     };
-    let runner = run_ns_runner_child(&request)?;
+    let runner = run_ns_runner_child(&request, None)?;
     let mut timings = resource_timings(&isolated_manifest(handle), 0);
     merge_runner_timings(&mut timings, &runner);
     timings.insert(
@@ -1895,21 +1902,35 @@ pub(crate) fn insert_occ_route_timings(
     }
 }
 
-pub(crate) fn run_ns_runner_child(request: &RunRequest) -> Result<RunResult, DaemonError> {
+pub(crate) fn run_ns_runner_child(
+    request: &RunRequest,
+    invocation_registry: Option<&InFlightRegistry>,
+) -> Result<RunResult, DaemonError> {
     let payload =
         serde_json::to_vec(request).map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))?;
-    let mut child = Command::new(std::env::current_exe()?)
+    let mut command = Command::new(std::env::current_exe()?);
+    command
         .arg("ns-runner")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
+        .stderr(Stdio::piped());
+    #[cfg(target_os = "linux")]
+    command.process_group(0);
+    let mut child = command.spawn()?;
+    if let Some(registry) = invocation_registry {
+        if let Ok(pgid) = i32::try_from(child.id()) {
+            registry.register_process_group(&request.tool_call.invocation_id, pgid);
+        }
+    }
     child
         .stdin
         .as_mut()
         .ok_or_else(|| DaemonError::OverlayPipeline("ns-runner stdin unavailable".to_owned()))?
         .write_all(&payload)?;
     let output = child.wait_with_output()?;
+    if let Some(registry) = invocation_registry {
+        registry.clear_process_group(&request.tool_call.invocation_id);
+    }
     if !output.status.success() {
         return Err(DaemonError::OverlayPipeline(format!(
             "ns-runner exited with status {}: {}",

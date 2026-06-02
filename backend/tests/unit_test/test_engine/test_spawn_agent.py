@@ -58,6 +58,10 @@ class _ExecCommandTool(_DummyTool):
     name = "exec_command"
 
 
+class _ShellTool(_DummyTool):
+    name = "shell"
+
+
 class _SandboxContextTool(_DummyTool):
     name = "sandbox_context_tool"
     context_requirements = (SANDBOX_CONTEXT,)
@@ -192,6 +196,25 @@ def test_finalize_enables_background_manager_for_pty_session_tools() -> None:
     assert registry.get("wait_background_tasks") is None
     assert registry.get("check_background_task_result") is None
     assert registry.get("cancel_background_task") is None
+
+
+def test_finalize_registers_background_controls_for_generic_shell() -> None:
+    registry = ToolRegistry()
+    registry.register(_ShellTool())
+    registry.register(_TerminalTool())
+
+    _, has_background = _finalize_tool_registry_and_prompt(
+        registry,
+        "base",
+        agent_type="agent",
+    )
+
+    assert has_background is True
+    assert registry.get("check_background_task_result") is not None
+    assert registry.get("cancel_background_task") is not None
+    assert registry.get("wait_background_tasks") is None
+    assert registry.get("check_subagent_progress") is None
+    assert registry.get("cancel_subagent") is None
 
 
 def test_run_subagent_factory_uses_typed_background_policy() -> None:

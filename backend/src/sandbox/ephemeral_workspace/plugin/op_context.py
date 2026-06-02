@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from sandbox.shared.models import Intent, SandboxCaller
-from sandbox.ephemeral_workspace.events import WorkspaceChangeEvent
-from sandbox.overlay.handle import OverlayHandle
+
+if TYPE_CHECKING:
+    from sandbox.ephemeral_workspace.events import WorkspaceChangeEvent
+    from sandbox.overlay.handle import OverlayHandle
+else:
+    WorkspaceChangeEvent = Any
+    OverlayHandle = Any
 
 __all__ = [
     "PluginOpContext",

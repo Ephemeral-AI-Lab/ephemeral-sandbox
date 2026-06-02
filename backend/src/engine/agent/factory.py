@@ -25,6 +25,7 @@ from message.events import StreamEvent
 from engine.background.policy import (
     is_engine_background_tool,
     needs_background_manager,
+    supports_explicit_generic_background,
 )
 from providers.provider import make_api_client
 from providers.types import UsageSnapshot
@@ -149,6 +150,15 @@ def _finalize_tool_registry_and_prompt(
     if has_background_tools:
         if any(is_engine_background_tool(tool) for tool in listed_tools):
             tool_registry.register_many(make_subagent_control_tools())
+        if any(supports_explicit_generic_background(tool) for tool in listed_tools):
+            from tools.background import (
+                CancelBackgroundTaskTool,
+                CheckBackgroundTaskResultTool,
+            )
+
+            tool_registry.register_many(
+                [CheckBackgroundTaskResultTool(), CancelBackgroundTaskTool()]
+            )
 
     terminal_tool_names = [
         t.name

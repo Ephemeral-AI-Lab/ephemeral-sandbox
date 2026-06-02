@@ -95,6 +95,19 @@ async def apply_workspace_edit_op(args: dict[str, Any], ctx: Any) -> dict[str, A
 async def rename(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
     session = await get_session(ctx)
     edit = await session.rename(args)
+    if not _workspace_edit_has_changes(edit):
+        try:
+            await session.query_symbols(
+                {
+                    "file_path": args.get("file_path"),
+                    "query": "",
+                }
+            )
+        except TimeoutError:
+            pass
+        retry_edit = await session.rename(args)
+        if _workspace_edit_has_changes(retry_edit):
+            edit = retry_edit
     result = await apply_workspace_edit(
         edit,
         ctx,
@@ -102,6 +115,24 @@ async def rename(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
         expected_manifest_key=session.manifest_key,
     )
     return {"edit": edit, "apply": result}
+
+
+def _workspace_edit_has_changes(edit: dict[str, Any]) -> bool:
+    changes = edit.get("changes")
+    if isinstance(changes, dict) and any(changes.values()):
+        return True
+    document_changes = edit.get("documentChanges")
+    if not isinstance(document_changes, list):
+        return False
+    for change in document_changes:
+        if not isinstance(change, dict):
+            continue
+        edits = change.get("edits")
+        if isinstance(edits, list) and edits:
+            return True
+        if change.get("kind") in {"create", "delete", "rename"}:
+            return True
+    return False
 
 
 @register_plugin_op("lsp", "format", intent=Intent.WRITE_ALLOWED, auto_workspace_overlay=False)

@@ -103,6 +103,7 @@ struct DaemonPluginState {
     service_ppc_clients: BTreeMap<String, SharedPpcClient>,
     service_processes: BTreeMap<String, process::PluginServiceProcess>,
     service_snapshots: BTreeMap<String, PluginServiceSnapshot>,
+    service_refresh_locks: BTreeMap<String, Arc<Mutex<()>>>,
 }
 
 fn state_cell() -> &'static Mutex<DaemonPluginState> {
@@ -269,6 +270,7 @@ fn reset_for_tests() {
         state.service_ppc_clients.clear();
         state.service_processes.clear();
         state.service_snapshots.clear();
+        state.service_refresh_locks.clear();
         drop(state);
         for snapshot in snapshots {
             release_service_snapshot(&snapshot);
@@ -1066,7 +1068,7 @@ fn dispatch_connected_read_only_route(
     let Some(service_instance_id) = route.service_instance_id.clone() else {
         return Ok(None);
     };
-    let Some(client) = ensure_read_only_service_current(route, invocation_id)? else {
+    let Some(client) = ensure_connected_service_current(route, invocation_id)? else {
         return Ok(None);
     };
     let timeout = Duration::from_millis(
@@ -1091,7 +1093,7 @@ fn dispatch_connected_read_only_route(
     response_payload_from_reply(&reply)
 }
 
-fn ensure_read_only_service_current(
+fn ensure_connected_service_current(
     route: &PluginOperationRoute,
     invocation_id: &str,
 ) -> Result<Option<SharedPpcClient>, DaemonError> {
@@ -1111,18 +1113,34 @@ fn ensure_read_only_service_current(
         };
         return Ok(Some(client));
     }
-    let client = match ppc_client_for_service(service_instance_id)? {
-        Some(client) => client,
-        None if service_was_started_before(service_instance_id)? => {
+
+    if let Some(client) = ppc_client_for_service(service_instance_id)? {
+        let target_manifest_key = active_manifest_key(&service_key.layer_stack_root)?;
+        if service_is_ready_on_manifest(service_instance_id, &target_manifest_key)? {
+            return Ok(Some(client));
+        }
+    } else if !service_was_started_before(service_instance_id)? {
+        return Ok(None);
+    }
+
+    // Refresh mutates the service namespace and snapshot lease, so it is
+    // singleflight per service. Operation dispatch remains multiplexed after
+    // this freshness gate returns.
+    let refresh_lock = refresh_lock_for_service(service_instance_id)?;
+    let _refresh_guard = refresh_lock
+        .lock()
+        .map_err(|_| DaemonError::StateLockPoisoned("plugin service refresh"))?;
+    ensure_tracked_service_process_running(service_instance_id)?;
+    let Some(client) = ppc_client_for_service(service_instance_id)? else {
+        if service_was_started_before(service_instance_id)? {
             return restart_read_only_service(service_instance_id);
         }
-        None => return Ok(None),
+        return Ok(None);
     };
     let target_manifest_key = active_manifest_key(&service_key.layer_stack_root)?;
     if service_is_ready_on_manifest(service_instance_id, &target_manifest_key)? {
         return Ok(Some(client));
     }
-
     if service_key.refresh_strategy == RefreshStrategy::RestartService {
         return restart_read_only_service(service_instance_id);
     }
@@ -1135,6 +1153,15 @@ fn ensure_read_only_service_current(
         invocation_id,
     )?;
     Ok(Some(client))
+}
+
+fn refresh_lock_for_service(service_instance_id: &str) -> Result<Arc<Mutex<()>>, DaemonError> {
+    let mut state = lock_state()?;
+    Ok(state
+        .service_refresh_locks
+        .entry(service_instance_id.to_owned())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone())
 }
 
 fn service_was_started_before(service_instance_id: &str) -> Result<bool, DaemonError> {
@@ -1425,8 +1452,7 @@ fn dispatch_connected_self_managed_route(
     let Some(layer_stack_root) = route.layer_stack_root.clone() else {
         return Ok(None);
     };
-    ensure_tracked_service_process_running(&service_instance_id)?;
-    let Some(client) = ppc_client_for_service(&service_instance_id)? else {
+    let Some(client) = ensure_connected_service_current(route, invocation_id)? else {
         return Ok(None);
     };
     let timeout = Duration::from_millis(
@@ -2241,6 +2267,153 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_read_only_refresh_is_singleflight_before_requests() -> TestResult {
+        let _guard = PluginTestGuard::new()?;
+        let table = Arc::new(OpTable::with_builtins());
+        let (layer_stack_root, workspace_root) =
+            test_bound_workspace("read-only-refresh-singleflight")?;
+        let ensure = table.dispatch(&Request {
+            op: "api.plugin.ensure".to_owned(),
+            invocation_id: "plugin-ensure-test".to_owned(),
+            args: json!({
+                "manifest": lsp_manifest("digest-a", "hover"),
+                "layer_stack_root": layer_stack_root.to_string_lossy().into_owned(),
+                "workspace_root": workspace_root.to_string_lossy().into_owned()
+            }),
+        });
+        assert_eq!(ensure["success"], true);
+
+        let (client_stream, mut server_stream) = ppc_stream_pair()?;
+        register_ppc_client_for_tests("plugin.lsp.hover", client_stream)?;
+
+        let write = table.dispatch(&Request {
+            op: "api.v1.write_file".to_owned(),
+            invocation_id: "peer-write".to_owned(),
+            args: json!({
+                "layer_stack_root": layer_stack_root.to_string_lossy().into_owned(),
+                "path": workspace_root.join("peer.txt").to_string_lossy().into_owned(),
+                "content": "peer\n"
+            }),
+        });
+        assert_eq!(write["success"], true, "write response: {write:?}");
+
+        let (refresh_started_tx, refresh_started_rx) = mpsc::channel();
+        let (continue_refresh_tx, continue_refresh_rx) = mpsc::channel();
+        let server = std::thread::spawn(move || -> TestResult {
+            let mut refresh_types = Vec::new();
+            let mut current_manifest_key = String::new();
+            let first_op = loop {
+                let request = read_ppc_request(&mut server_stream, "read ppc request")?;
+                if request.op != WORKSPACE_SNAPSHOT_REFRESH_OP {
+                    break request;
+                }
+                let body: Value = serde_json::from_str(&request.body)?;
+                let refresh_type =
+                    value_str(&body["type"], "refresh type must be a string")?.to_owned();
+                if refresh_types.is_empty() {
+                    assert_eq!(refresh_type, "prepare_refresh");
+                    refresh_started_tx.send(())?;
+                    continue_refresh_rx.recv_timeout(Duration::from_secs(1))?;
+                }
+                refresh_types.push(refresh_type);
+                if let Some(key) = body
+                    .get("target_manifest_key")
+                    .or_else(|| body.get("manifest_key"))
+                    .and_then(Value::as_str)
+                {
+                    current_manifest_key = key.to_owned();
+                }
+                let refresh_reply = json!({
+                    "manifest_key": current_manifest_key,
+                    "accepted": true
+                });
+                write_ppc_reply_json_result(
+                    &mut server_stream,
+                    request.message_id,
+                    &refresh_reply,
+                )?;
+            };
+            assert_eq!(
+                refresh_types,
+                vec![
+                    "prepare_refresh".to_owned(),
+                    "quiesce".to_owned(),
+                    "swap_workspace".to_owned(),
+                    "notify_refresh".to_owned(),
+                    "resume".to_owned(),
+                    "health".to_owned(),
+                ]
+            );
+
+            let second_op = read_ppc_request(&mut server_stream, "read second plugin request")?;
+            let mut message_ids = vec![first_op.message_id.clone(), second_op.message_id.clone()];
+            message_ids.sort();
+            assert_eq!(
+                message_ids,
+                vec![
+                    "plugin-hover-concurrent-refresh-a".to_owned(),
+                    "plugin-hover-concurrent-refresh-b".to_owned(),
+                ]
+            );
+            assert_eq!(first_op.op, "plugin.lsp.hover");
+            assert_eq!(second_op.op, "plugin.lsp.hover");
+            write_ppc_reply_result(
+                &mut server_stream,
+                second_op.message_id,
+                r#"{"success":true,"seq":2}"#,
+            )?;
+            write_ppc_reply_result(
+                &mut server_stream,
+                first_op.message_id,
+                r#"{"success":true,"seq":1}"#,
+            )?;
+            Ok(())
+        });
+
+        let first_table = Arc::clone(&table);
+        let first = std::thread::spawn(move || -> Result<Value, TestError> {
+            Ok(first_table.dispatch(&Request {
+                op: "plugin.lsp.hover".to_owned(),
+                invocation_id: "plugin-hover-concurrent-refresh-a".to_owned(),
+                args: json!({"agent_id": "agent-plugin", "request": "a"}),
+            }))
+        });
+        refresh_started_rx.recv_timeout(Duration::from_secs(1))?;
+
+        let (second_started_tx, second_started_rx) = mpsc::channel();
+        let second_table = Arc::clone(&table);
+        let second = std::thread::spawn(move || -> Result<Value, TestError> {
+            second_started_tx.send(())?;
+            Ok(second_table.dispatch(&Request {
+                op: "plugin.lsp.hover".to_owned(),
+                invocation_id: "plugin-hover-concurrent-refresh-b".to_owned(),
+                args: json!({"agent_id": "agent-plugin", "request": "b"}),
+            }))
+        });
+        second_started_rx.recv_timeout(Duration::from_secs(1))?;
+        continue_refresh_tx.send(())?;
+
+        let first_response = join_value_thread(first, "first dispatch thread panicked")?;
+        let second_response = join_value_thread(second, "second dispatch thread panicked")?;
+        assert_eq!(first_response["success"], true);
+        assert_eq!(second_response["success"], true);
+
+        let status = table.dispatch(&Request {
+            op: "api.plugin.status".to_owned(),
+            invocation_id: "plugin-status-after-refresh-singleflight".to_owned(),
+            args: json!({}),
+        });
+        assert_eq!(status["loaded_plugins"][0]["services"][0]["state"], "ready");
+        assert_eq!(
+            status["loaded_plugins"][0]["services"][0]["refresh_count"],
+            1
+        );
+        join_test_thread(server, "server thread panicked")?;
+        remove_test_tree(&layer_stack_root)?;
+        Ok(())
+    }
+
+    #[test]
     fn restart_service_strategy_restarts_after_peer_publish_before_request() -> TestResult {
         let _guard = PluginTestGuard::new()?;
         let table = OpTable::with_builtins();
@@ -2348,22 +2521,23 @@ mod tests {
         let (client_stream, mut server_stream) = ppc_stream_pair()?;
         register_ppc_client_for_tests("plugin.lsp.hover", client_stream)?;
         let (first_seen_tx, first_seen_rx) = mpsc::channel();
+        let (second_seen_tx, second_seen_rx) = mpsc::channel();
         let (reply_first_tx, reply_first_rx) = mpsc::channel();
         let server = std::thread::spawn(move || -> TestResult {
             let first = read_ppc_request(&mut server_stream, "read first ppc request")?;
             first_seen_tx.send(first.message_id.clone())?;
-            reply_first_rx.recv()?;
-            write_ppc_reply_result(
-                &mut server_stream,
-                first.message_id,
-                r#"{"success":true,"seq":1}"#,
-            )?;
-
             let second = read_ppc_request(&mut server_stream, "read second ppc request")?;
+            second_seen_tx.send(second.message_id.clone())?;
+            reply_first_rx.recv()?;
             write_ppc_reply_result(
                 &mut server_stream,
                 second.message_id,
                 r#"{"success":true,"seq":2}"#,
+            )?;
+            write_ppc_reply_result(
+                &mut server_stream,
+                first.message_id,
+                r#"{"success":true,"seq":1}"#,
             )?;
             Ok(())
         });
@@ -2392,8 +2566,80 @@ mod tests {
             }))
         });
         second_started_rx.recv_timeout(Duration::from_secs(1))?;
+        assert_eq!(
+            second_seen_rx.recv_timeout(Duration::from_secs(1))?,
+            "plugin-hover-concurrent-b"
+        );
         reply_first_tx.send(())?;
 
+        let first_response = join_value_thread(first, "first dispatch thread panicked")?;
+        let second_response = join_value_thread(second, "second dispatch thread panicked")?;
+        assert_eq!(first_response["success"], true);
+        assert_eq!(first_response["seq"], 1);
+        assert_eq!(second_response["success"], true);
+        assert_eq!(second_response["seq"], 2);
+        join_test_thread(server, "server thread panicked")?;
+        remove_test_tree(&layer_stack_root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn concurrent_read_only_plugin_ops_match_out_of_order_replies() -> TestResult {
+        let _guard = PluginTestGuard::new()?;
+        let table = Arc::new(OpTable::with_builtins());
+        let (layer_stack_root, workspace_root) =
+            test_bound_workspace("concurrent-read-only-out-of-order")?;
+        let ensure = table.dispatch(&Request {
+            op: "api.plugin.ensure".to_owned(),
+            invocation_id: "plugin-ensure-test".to_owned(),
+            args: json!({
+                "manifest": lsp_manifest("digest-a", "hover"),
+                "layer_stack_root": layer_stack_root.to_string_lossy().into_owned(),
+                "workspace_root": workspace_root.to_string_lossy().into_owned()
+            }),
+        });
+        assert_eq!(ensure["success"], true);
+
+        let (client_stream, mut server_stream) = ppc_stream_pair()?;
+        register_ppc_client_for_tests("plugin.lsp.hover", client_stream)?;
+        let (both_seen_tx, both_seen_rx) = mpsc::channel();
+        let server = std::thread::spawn(move || -> TestResult {
+            let first = read_ppc_request(&mut server_stream, "read first ppc request")?;
+            let second = read_ppc_request(&mut server_stream, "read second ppc request")?;
+            both_seen_tx.send((first.message_id.clone(), second.message_id.clone()))?;
+            write_ppc_reply_result(
+                &mut server_stream,
+                second.message_id,
+                r#"{"success":true,"seq":2}"#,
+            )?;
+            write_ppc_reply_result(
+                &mut server_stream,
+                first.message_id,
+                r#"{"success":true,"seq":1}"#,
+            )?;
+            Ok(())
+        });
+
+        let first_table = Arc::clone(&table);
+        let first = std::thread::spawn(move || -> Result<Value, TestError> {
+            Ok(first_table.dispatch(&Request {
+                op: "plugin.lsp.hover".to_owned(),
+                invocation_id: "plugin-hover-concurrent-a".to_owned(),
+                args: json!({"agent_id": "agent-plugin", "request": "a"}),
+            }))
+        });
+        let second_table = Arc::clone(&table);
+        let second = std::thread::spawn(move || -> Result<Value, TestError> {
+            Ok(second_table.dispatch(&Request {
+                op: "plugin.lsp.hover".to_owned(),
+                invocation_id: "plugin-hover-concurrent-b".to_owned(),
+                args: json!({"agent_id": "agent-plugin", "request": "b"}),
+            }))
+        });
+
+        let seen = both_seen_rx.recv_timeout(Duration::from_secs(1))?;
+        assert_eq!(seen.0, "plugin-hover-concurrent-a");
+        assert_eq!(seen.1, "plugin-hover-concurrent-b");
         let first_response = join_value_thread(first, "first dispatch thread panicked")?;
         let second_response = join_value_thread(second, "second dispatch thread panicked")?;
         assert_eq!(first_response["success"], true);
@@ -2588,6 +2834,102 @@ mod tests {
             "print('from callback')\n"
         );
 
+        join_test_thread(server, "server thread panicked")?;
+        remove_test_tree(&layer_stack_root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn self_managed_service_refreshes_after_peer_publish_before_request() -> TestResult {
+        let _guard = PluginTestGuard::new()?;
+        let table = OpTable::with_builtins();
+        let (layer_stack_root, workspace_root) = test_bound_workspace("self-managed-refresh")?;
+        let ensure = table.dispatch(&Request {
+            op: "api.plugin.ensure".to_owned(),
+            invocation_id: "plugin-ensure-test".to_owned(),
+            args: json!({
+                "manifest": lsp_self_managed_manifest("digest-a", "apply"),
+                "layer_stack_root": layer_stack_root.to_string_lossy().into_owned(),
+                "workspace_root": workspace_root.to_string_lossy().into_owned()
+            }),
+        });
+        assert_eq!(ensure["success"], true);
+
+        let (client_stream, mut server_stream) = ppc_stream_pair()?;
+        register_ppc_client_for_tests("plugin.lsp.apply", client_stream)?;
+
+        let write = table.dispatch(&Request {
+            op: "api.v1.write_file".to_owned(),
+            invocation_id: "peer-write".to_owned(),
+            args: json!({
+                "layer_stack_root": layer_stack_root.to_string_lossy().into_owned(),
+                "path": workspace_root.join("peer.txt").to_string_lossy().into_owned(),
+                "content": "peer\n"
+            }),
+        });
+        assert_eq!(write["success"], true, "write response: {write:?}");
+
+        let server = std::thread::spawn(move || -> TestResult {
+            let mut refresh_types = Vec::new();
+            let mut current_manifest_key = String::new();
+            loop {
+                let request = read_ppc_request(&mut server_stream, "read ppc request")?;
+                if request.op == WORKSPACE_SNAPSHOT_REFRESH_OP {
+                    let body: Value = serde_json::from_str(&request.body)?;
+                    refresh_types.push(
+                        value_str(&body["type"], "refresh type must be a string")?.to_owned(),
+                    );
+                    if let Some(key) = body
+                        .get("target_manifest_key")
+                        .or_else(|| body.get("manifest_key"))
+                        .and_then(Value::as_str)
+                    {
+                        current_manifest_key = key.to_owned();
+                    }
+                    let refresh_reply = json!({
+                        "manifest_key": current_manifest_key,
+                        "accepted": true
+                    });
+                    write_ppc_reply_json_result(
+                        &mut server_stream,
+                        request.message_id,
+                        &refresh_reply,
+                    )?;
+                    continue;
+                }
+
+                assert_eq!(request.message_id, "plugin-apply-after-peer-write");
+                assert_eq!(request.op, "plugin.lsp.apply");
+                assert!(refresh_types.contains(&"prepare_refresh".to_owned()));
+                assert!(refresh_types.contains(&"swap_workspace".to_owned()));
+                assert!(refresh_types.contains(&"health".to_owned()));
+                write_ppc_reply_result(
+                    &mut server_stream,
+                    request.message_id,
+                    r#"{"success":true,"self_managed_after_refresh":true}"#,
+                )?;
+                break Ok(());
+            }
+        });
+
+        let routed = table.dispatch(&Request {
+            op: "plugin.lsp.apply".to_owned(),
+            invocation_id: "plugin-apply-after-peer-write".to_owned(),
+            args: json!({"agent_id": "agent-plugin"}),
+        });
+        assert_eq!(routed["success"], true, "routed response: {routed:?}");
+        assert_eq!(routed["self_managed_after_refresh"], true);
+
+        let status = table.dispatch(&Request {
+            op: "api.plugin.status".to_owned(),
+            invocation_id: "plugin-status-after-self-managed-refresh".to_owned(),
+            args: json!({}),
+        });
+        assert_eq!(status["loaded_plugins"][0]["services"][0]["state"], "ready");
+        assert_eq!(
+            status["loaded_plugins"][0]["services"][0]["refresh_count"],
+            1
+        );
         join_test_thread(server, "server thread panicked")?;
         remove_test_tree(&layer_stack_root)?;
         Ok(())

@@ -80,7 +80,7 @@ pub fn op_exec_command(args: &Value, _context: DispatchContext<'_>) -> Result<Va
         if let Some(timeout) = timeout_seconds {
             shell_args["timeout_seconds"] = json!(timeout);
         }
-        let shell = run_shell_overlay(&shell_args, Instant::now())?;
+        let shell = run_shell_overlay(&shell_args, Instant::now(), None)?;
         return Ok(command_response_from_shell(&shell, None));
     }
 
@@ -624,7 +624,7 @@ fn run_isolated_command(
         cgroup_path: handle.cgroup_path.clone(),
         timeout_seconds,
     };
-    let runner = run_ns_runner_child(&request)?;
+    let runner = run_ns_runner_child(&request, None)?;
     isolated_response_from_runner(handle, &runner, total_start, false)
 }
 

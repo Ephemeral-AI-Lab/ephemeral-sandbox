@@ -6,8 +6,9 @@ callbacks including repeated callback frames before a final reply, one-shot
 WRITE_ALLOWED overlay execution, and live generic Rust
 plugin coverage landed. Long-lived services now start in a daemon-owned private
 overlay namespace on Linux and stale remount strategies now perform daemon-owned
-in-place namespace remount; a generic package-adapter harness and the reusable
-bundled Python PPC service bridge are live, while
+in-place namespace remount with per-service refresh singleflight; a generic
+package-adapter harness and the reusable bundled Python PPC service bridge are
+live, while
 Pyright read-only `documentSymbol`/`workspace/symbol`/`completion`/
 `completionItem/resolve`/`publishDiagnostics`/`codeAction`/`signatureHelp`/
 `hover`/`typeDefinition`/`declaration`/`callHierarchy` incoming/outgoing/
@@ -29,18 +30,22 @@ also green. The isolated-workspace plugin-family gate is now live-gated:
 `forbidden_in_isolated_workspace` while the same agent has an active isolated
 workspace. The latest live
 artifact records two read-only services co-observing the same refreshed
-manifest without restart, same-service concurrent read-only dispatch preserving
-distinct replies on the connected PPC client, mixed `api.v1.shell` overlay/OCC
-publish followed by long-lived plugin refresh/readback, explicit daemon cleanup
-that removes PPC routes/services and reaps plugin harness processes, and the current
+manifest without restart, non-serialized same-service concurrent read-only
+dispatch with message-id routed out-of-order replies on the connected PPC
+client, daemon-coalesced stale-service remounts before requests enter the
+multiplexed stream, reusable PPC-bridge concurrent read-only calls where a fast
+second request replies before a slow first request on the same service connection,
+concurrent mounted-workspace write callbacks with distinct parent operation
+ids, mixed `api.v1.shell` overlay/OCC publish followed by long-lived plugin
+refresh/readback, explicit daemon cleanup that removes PPC routes/services and
+reaps plugin harness processes, and the current
 Pyright negative capability boundary:
 `document_formatting=false`, `document_range_formatting=false`, and
 `executeCommandProvider.commands=[]`, so Pyright formatting/execute-command are
 unsupported-route gates for this Pyright harness, not positive provider parity
 targets themselves.
-Broader AV-10 LSP parity, true operation-level out-of-order multiplexing if
-required, and the broader crash-recovery matrix beyond the covered
-health/crash/timeout/recovery paths remain open.
+Broader AV-10 LSP parity and the broader crash-recovery matrix beyond the
+covered health/crash/timeout/recovery paths remain open.
 **Date:** 2026-06-02.
 **Scope:** `/sandbox` Rust plugin implementation, with the Python sandbox plugin
 path as the behavioral reference.
@@ -69,6 +74,120 @@ path as the behavioral reference.
   `docs/plans/sandbox-rust-external-migration-PLAN.md`,
   `docs/plans/sandbox-rust-external-migration-PROGRESS.md`.
 
+## Progress Update - 2026-06-02 12:57 CST
+
+Landed:
+
+- Refined the concurrency contract after live E2E found a remount race. Plugin
+  operations still must not serialize on the shared service connection: the
+  daemon PPC client remains a multiplexed pending-message table with only a
+  short writer mutex. The narrow exception is the mutable service freshness
+  gate: stale `workspace_snapshot_refresh` remount/restart work is now
+  singleflight per service, and waiters recheck the active manifest after the
+  refresh lock so duplicate namespace remounts are skipped.
+- Applied the freshness gate uniformly to connected read-only and connected
+  self-managed WRITE_ALLOWED services. This fixes the canonical importlib LSP
+  bridge write path that previously could run against an old mounted snapshot
+  if a self-managed service skipped refresh before dispatch.
+- Added focused daemon regressions:
+  `self_managed_service_refreshes_after_peer_publish_before_request` proves a
+  self-managed WRITE_ALLOWED connected route receives
+  `PrepareRefresh -> Quiesce -> SwapWorkspace -> Health` before its operation
+  after a peer publish; `concurrent_read_only_refresh_is_singleflight_before_requests`
+  proves two concurrent calls to one stale service produce exactly one refresh
+  sequence before both plugin requests enter the same PPC stream.
+- The first live rerun after removing operation serialization failed before the
+  Rust report was written, with `plugin service remount failed ... failed to
+  unmount old workspace overlay ... Invalid argument`; that was the duplicate
+  namespace-remount race. After singleflight and artifact rebuild, live
+  verification passed:
+  `EOS_SANDBOX_PROVIDER=docker EOS_LIVE_E2E_IMAGE=xingyaoww/sweb.eval.x86_64.dask_s_dask-10042:latest EOS_PLUGIN_REFRESH_SAMPLES=1 EOS_PLUGIN_REFRESH_AUTO_SQUASH_WRITES=104 EOS_RUST_PLUGIN_BENCH_TIMEOUT_S=600 uv run pytest -q -x -rs --tb=short --durations=10 backend/tests/live_e2e_test/sandbox/plugin/test_plugin_refresh_strategies.py`
+  (`1 passed in 50.52s`). The Rust plugin report
+  `.omc/results/rust-daemon-plugin-generic-20260602T050316Z-60000.json` had
+  `gate_pass=true` and artifact SHA
+  `62e6d703964fb5525874629cb39c522e1aa96e25fd80f9619c3da205ef98b83f`.
+- The same passing artifact proves the canonical Python importlib LSP bridge
+  slice over the reusable PPC service: `lsp_bridge_rename` came from
+  `plugins.catalog.lsp.runtime.server`, published
+  `live_plugin_lsp_bridge.py` through the mounted-workspace callback, and read
+  back `bridge_total`; `lsp_bridge_query_symbols` returned
+  `symbol_names=["bridge_total"]` from protocol `lsp-python-importlib`.
+- The same artifact preserved the non-serialized operation proof:
+  `runtime_bridge_concurrent` returned `fast-second` in `0.0049s` while
+  `slow-first` took `0.3587s` on the same service, and
+  `runtime_bridge_concurrent_apply` committed both concurrent mounted-workspace
+  callback writes. Cleanup ended with no connected routes/services, no plugin
+  processes, `post_cleanup_active_leases=0`, and no orphan/missing layers.
+
+Still open:
+
+- Broader AV-10 LSP parity beyond the representative Pyright/generic LSP
+  coverage, plus broader crash-recovery matrix coverage. Operation-level PPC
+  multiplexing and duplicate remount races are no longer open for the current
+  `workspace_snapshot_refresh` service path.
+
+## Progress Update - 2026-06-02 12:08 CST
+
+Landed:
+
+- Enforced the plugin PPC transport rule that operation serialization is
+  forbidden. `eos-daemon` now shares one `Arc<PpcClient>` per connected service,
+  registers each in-flight operation in a pending table by message id, writes
+  frames under only a short stream-write mutex, and uses a dedicated reader
+  thread to route out-of-order replies back to the correct caller. The outer
+  `Arc<Mutex<PpcClient>>` serialization point was removed from health probes,
+  read-only dispatch, refresh sequencing, and self-managed callback dispatch.
+- Made concurrent self-managed callbacks deterministic. Plugin callback request
+  bodies can carry `parent_message_id`; the daemon routes each callback to the
+  owning in-flight operation, falls back to the legacy `parent:suffix` callback
+  id shape for older harnesses, and fails ambiguous callback frames instead of
+  guessing.
+- Updated the reusable bundled Python PPC bridge so arbitrary service runtimes
+  can process concurrent request frames on one socket. The bridge now spawns a
+  task per request, serializes only socket writes, tracks daemon callback replies
+  by message id, and includes `parent_message_id` in mounted-workspace publish
+  callbacks.
+- Added unit and live gates for the concurrency contract. Rust PPC tests now
+  prove out-of-order reply matching and concurrent parent-scoped callbacks over
+  one service connection. The daemon op-table test proves two concurrent
+  read-only plugin dispatches to one service receive the correct out-of-order
+  replies. The live runtime bridge adds `plugin.generic.runtime_bridge_delay_ping`
+  plus concurrent mounted-workspace apply/readback probes.
+- Live verification passed:
+  `EOS_SANDBOX_PROVIDER=docker EOS_LIVE_E2E_IMAGE=xingyaoww/sweb.eval.x86_64.dask_s_dask-10042:latest EOS_PLUGIN_REFRESH_SAMPLES=1 EOS_PLUGIN_REFRESH_AUTO_SQUASH_WRITES=104 EOS_RUST_PLUGIN_BENCH_TIMEOUT_S=600 uv run pytest -q -x -rs --tb=short --durations=10 backend/tests/live_e2e_test/sandbox/plugin/test_plugin_refresh_strategies.py`
+  (`1 passed in 48.99s`). The Rust plugin report
+  `.omc/results/rust-daemon-plugin-generic-20260602T040405Z-60405.json` had
+  `gate_pass=true` and artifact SHA
+  `6d58b54f40cdaa8af77a767983dda0b06c27ea0cb4221d781b2b4cce42c431c4`.
+  `runtime_bridge_concurrent` sent slow-first delay `0.35s` and fast-second
+  delay `0.0s` over the same reusable bridge service; both replies came from the
+  runtime bridge/PPC bridge with `workspace_mounted=true`, and the fast second
+  request finished at the service and client before the slow first request
+  finished. `runtime_bridge_concurrent_apply` concurrently published
+  `live_plugin_runtime_bridge_concurrent_a.txt` and
+  `live_plugin_runtime_bridge_concurrent_b.txt` through mounted-workspace
+  callbacks, with callback success at manifest versions `4` and `5`; LayerStack
+  readbacks returned `from concurrent runtime bridge a\n` and
+  `from concurrent runtime bridge b\n`. Final metrics were manifest version
+  `25`, active service leases `9`, layer dirs/referenced layers `25`, no orphan
+  or missing layers, and cleanup moved plugin process count from `12` to `0`
+  with post-cleanup active leases `0`.
+- The paired refresh-strategy report
+  `.omc/results/plugin-refresh-strategies-20260602T040405Z-60405.json` still
+  recommends `workspace_snapshot_refresh`; refresh p95 was `6.143 ms` versus
+  `commit_to_workspace` p95 `4.914 ms`, raw workspace watch stayed stale without
+  materialization, and auto-squash plus post-drain commit passed.
+
+Still open:
+
+- Broader AV-10 LSP parity beyond the representative Pyright and generic LSP
+  coverage already listed below, and a broader crash-recovery matrix beyond the
+  covered health probe, failed-health isolation/recovery, closed PPC stream
+  fail-closed/recovery, PPC timeout fail-closed/recovery, and next-dispatch
+  restart paths. Operation-level PPC multiplexing is no longer open: plugin op
+  serialization is forbidden and the current daemon/live gates enforce
+  message-id-routed concurrent operations over one service connection.
+
 ## Progress Update - 2026-06-02 07:34 CST
 
 Landed:
@@ -96,9 +215,10 @@ Landed:
   and `plugin/ppc_router.rs` performs message-id checked AF_UNIX request/reply.
   Connected read-only routes can now dispatch through PPC without holding the
   daemon plugin registry lock during I/O; same-service concurrent read-only
-  requests share the connected client and serialize on a per-client lock rather
-  than falling back to deferred dispatch, and failed PPC I/O drops the connected
-  route so status does not report a stale service connection.
+  requests share the connected client but must never serialize by operation.
+  The daemon keeps a pending request table, writes frames under only a short
+  stream-write mutex, routes replies by message id from a dedicated reader, and
+  drops failed PPC I/O from connected-route status.
 - Added the first self-managed callback transport slice: the daemon PPC client
   can now service plugin-originated request frames on the same AF_UNIX stream
   before the final operation reply arrives, validates callback reply direction
@@ -333,7 +453,7 @@ Landed:
   refresh-strategy benchmark in the same integrated sandbox fixture.
 - Live verification passed:
   `EOS_SANDBOX_PROVIDER=docker EOS_LIVE_E2E_IMAGE=xingyaoww/sweb.eval.x86_64.dask_s_dask-10042:latest EOS_PLUGIN_REFRESH_SAMPLES=1 EOS_PLUGIN_REFRESH_AUTO_SQUASH_WRITES=104 EOS_RUST_PLUGIN_BENCH_TIMEOUT_S=600 uv run pytest -q -x -rs --tb=short --durations=10 backend/tests/live_e2e_test/sandbox/plugin/test_plugin_refresh_strategies.py`
-  (`1 passed in 49.31s` on the latest rerun). The Rust plugin artifact report
+  (`1 passed in 49.31s` on that previous rerun). The Rust plugin artifact report
   `.omc/results/rust-daemon-plugin-generic-20260602T033206Z-57542.json` used
   `eosd-linux-amd64` SHA
   `dfb9334466e2a32365e944e74e3a809acdb68d39808ba7d595e6e61d52dfc960` and
@@ -633,9 +753,7 @@ Landed:
 
 Still open:
 
-- True operation-level out-of-order multiplexing if needed by a future
-  bidirectional protocol,
-  broader crash-recovery matrix beyond the now-covered health probe,
+- Broader crash-recovery matrix beyond the now-covered health probe,
   failed-health isolation, same-service failed-health recovery, closed PPC
   stream fail-closed, same-service crash recovery, PPC timeout fail-closed,
   timeout restart recovery, and next-dispatch restart paths,
@@ -712,8 +830,9 @@ The Rust path is deliberately incomplete:
   `start_services: true`, service commands are spawned and reported as daemon
   owned processes, and the daemon binds/accepts the per-service PPC socket before
   dispatching registered read-only routes through the accepted stream. Concurrent
-  read-only calls to the same service now share the connected client and
-  serialize on a per-client lock without holding the daemon registry mutex.
+  read-only calls to the same service now share the connected client without
+  operation serialization: in-flight requests are keyed by message id, replies
+  may arrive out of order, and the registry mutex is not held during PPC I/O.
   Broken PPC streams are removed from the connected-service map. The PPC client
   can also service plugin-originated callback request frames before the final
   operation reply. For connected self-managed routes, the
@@ -1249,11 +1368,13 @@ Checks:
   recovery, and broader AV-10 LSP parity remain.
 - Connect through AF_UNIX PPC using the existing envelope framing. The focused
   single-request route is landed for connected read-only services; process
-  accept/connect handoff and same-service concurrent serialization are landed;
-  plugin-to-daemon callback-frame servicing and OCC callback body handling are
+  accept/connect handoff and same-service concurrent multiplexing are landed.
+  Serialization of plugin operations is forbidden; lifecycle refresh/remount may
+  briefly gate a stale service before operation dispatch, but active operation
+  requests share one PPC stream with message-id matched, out-of-order replies.
+  Plugin-to-daemon callback-frame servicing and OCC callback body handling are
   landed for connected self-managed services, including repeated callback
-  frames before the final plugin reply; any future operation-level
-  out-of-order multiplexing remains.
+  frames before the final plugin reply.
 - Support message-id matched request/reply and plugin-to-daemon callbacks. The
   transport loop and daemon OCC callback handling are landed for the current
   connected-service path.

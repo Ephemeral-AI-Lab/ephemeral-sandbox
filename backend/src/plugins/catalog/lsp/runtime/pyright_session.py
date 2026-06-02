@@ -16,10 +16,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
-from sandbox.layer_stack.changes import normalize_layer_path
-from sandbox.layer_stack.layer_index import build_layer_index, has_ancestor_in
-from sandbox.layer_stack.paths import join_layer_path
-
 from plugins.catalog.lsp.runtime.lsp_jsonrpc import (
     JsonRpcError,
     LspJsonRpcClient,
@@ -746,6 +742,8 @@ class PyrightSession:
             if rel in index.whiteouts:
                 return ""
             if rel in index.files:
+                from sandbox.layer_stack.paths import join_layer_path
+
                 candidate = join_layer_path(layer, rel)
                 try:
                     if candidate.is_symlink():
@@ -755,6 +753,8 @@ class PyrightSession:
                 except OSError:
                     return ""
                 return ""
+            from sandbox.layer_stack.layer_index import has_ancestor_in
+
             if has_ancestor_in(rel, index.files) or has_ancestor_in(
                 rel,
                 index.opaque_dirs,
@@ -777,6 +777,8 @@ class PyrightSession:
                 return False
             if rel in index.files:
                 return True
+            from sandbox.layer_stack.layer_index import has_ancestor_in
+
             if has_ancestor_in(rel, index.files) or has_ancestor_in(
                 rel,
                 index.opaque_dirs,
@@ -789,6 +791,8 @@ class PyrightSession:
         cached = self._layer_index_cache.get(key)
         if cached is not None:
             return cached
+        from sandbox.layer_stack.layer_index import build_layer_index
+
         index = build_layer_index(layer)
         self._layer_index_cache[key] = index
         return index
@@ -798,6 +802,8 @@ class PyrightSession:
         root = self.workspace_root
         if full == root:
             return ""
+        from sandbox.layer_stack.changes import normalize_layer_path
+
         if full.startswith(f"{root}/"):
             return normalize_layer_path(full[len(root) + 1 :])
         return normalize_layer_path(str(file_path).lstrip("/"))

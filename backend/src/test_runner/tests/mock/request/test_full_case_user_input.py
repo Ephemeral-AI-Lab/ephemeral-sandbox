@@ -300,7 +300,7 @@ def _assert_message_jsonl_contains_tool_scripts(run_dir: Path) -> None:
         for block in message.get("content", [])
         if isinstance(block, dict) and block.get("type") == "tool_use"
     }
-    assert {"write_file", "edit_file", "read_file", "exec_command"}.issubset(tool_calls)
+    assert {"write_file", "edit_file", "read_file", "shell"}.issubset(tool_calls)
     assert "system" in {str(message.get("role") or "") for message in messages}
     assert "user" in {str(message.get("role") or "") for message in messages}
     assert "assistant" in {

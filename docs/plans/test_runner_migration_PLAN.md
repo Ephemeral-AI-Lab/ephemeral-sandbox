@@ -334,12 +334,15 @@ regression harness.
      - non-LSP dummy read-only service that caches file content and proves the
        daemon refresh protocol, so generic support is not inferred only from
        Pyright/LSP
-     - warm-service process crash, timeout, heartbeat, LRU eviction, and
-       process-group teardown
-     - PPC request/reply multiplexing and plugin-to-daemon callbacks with
-       message-id matching
-     - service workspace byte growth remains bounded across repeated peer
-       publishes
+    - warm-service process crash, timeout, heartbeat, LRU eviction, and
+      process-group teardown
+    - PPC request/reply multiplexing and plugin-to-daemon callbacks with
+      message-id matching; plugin operations must not serialize on the shared
+      service client, and only stale-service refresh/remount lifecycle may gate
+      dispatch as a per-service singleflight before requests enter the
+      multiplexed stream
+    - service workspace byte growth remains bounded across repeated peer
+      publishes
 4. Isolated workspace:
    - run tests against `eosd ns-holder` + `eosd ns-runner` setns mode
    - assert enter rejects active sandbox-bound background work

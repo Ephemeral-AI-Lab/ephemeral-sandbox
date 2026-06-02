@@ -102,6 +102,23 @@ from bench_sandbox_e2e import (  # noqa: E402
 
 PLUGIN_ROOT = "/eos/plugin"
 BUNDLE_REMOTE_DIR = "/eos/daemon"
+PPC_SERVICE_BUNDLE_FILES = (
+    "plugins/__init__.py",
+    "plugins/catalog/lsp/runtime/__init__.py",
+    "plugins/catalog/lsp/runtime/apply.py",
+    "plugins/catalog/lsp/runtime/lsp_jsonrpc.py",
+    "plugins/catalog/lsp/runtime/pyright_session.py",
+    "plugins/catalog/lsp/runtime/server.py",
+    "plugins/catalog/lsp/runtime/session_manager.py",
+    "sandbox/__init__.py",
+    "sandbox/shared/__init__.py",
+    "sandbox/shared/models.py",
+    "sandbox/ephemeral_workspace/__init__.py",
+    "sandbox/ephemeral_workspace/plugin/__init__.py",
+    "sandbox/ephemeral_workspace/plugin/op_context.py",
+    "sandbox/ephemeral_workspace/plugin/op_registry.py",
+    "sandbox/ephemeral_workspace/plugin/ppc_service.py",
+)
 LAYER_STACK_ROOT = f"{PLUGIN_ROOT}/rust-layer-stack"
 WORKSPACE_ROOT = f"{PLUGIN_ROOT}/rust-workspace"
 ISOLATED_SCRATCH_ROOT = f"{PLUGIN_ROOT}/iws-scratch"
@@ -118,6 +135,18 @@ TARGET_REL = "live_plugin_result.txt"
 TARGET_CONTENT = "from live rust plugin\n"
 RUNTIME_BRIDGE_TARGET_REL = "live_plugin_runtime_bridge.txt"
 RUNTIME_BRIDGE_CONTENT = "from reusable ppc bridge\n"
+RUNTIME_BRIDGE_CONCURRENT_A_REL = "live_plugin_runtime_bridge_concurrent_a.txt"
+RUNTIME_BRIDGE_CONCURRENT_A_CONTENT = "from concurrent runtime bridge a\n"
+RUNTIME_BRIDGE_CONCURRENT_B_REL = "live_plugin_runtime_bridge_concurrent_b.txt"
+RUNTIME_BRIDGE_CONCURRENT_B_CONTENT = "from concurrent runtime bridge b\n"
+LSP_BRIDGE_TARGET_REL = "live_plugin_lsp_bridge.py"
+LSP_BRIDGE_CONTENT = "def bridge_value() -> int:\n    return 7\n\nRESULT = bridge_value()\n"
+LSP_BRIDGE_SYMBOL = "bridge_value"
+LSP_BRIDGE_RENAMED_SYMBOL = "bridge_total"
+LSP_BRIDGE_RENAMED_CONTENT = LSP_BRIDGE_CONTENT.replace(
+    LSP_BRIDGE_SYMBOL,
+    LSP_BRIDGE_RENAMED_SYMBOL,
+)
 MULTI_TARGET_A_REL = "live_plugin_multi_a.txt"
 MULTI_TARGET_A_CONTENT = "from live rust plugin multi a\n"
 MULTI_TARGET_B_REL = "live_plugin_multi_b.txt"
@@ -3119,7 +3148,9 @@ if __name__ == "__main__":
 RUNTIME_BRIDGE_SERVER_SOURCE = r'''
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -3142,6 +3173,18 @@ def _workspace_read(workspace_root: str, rel_path: str) -> dict[str, object]:
         return {"requested": True, "exists": False, "path": rel_path}
 
 
+def _flatten_lsp_symbols(symbols: Any) -> list[dict[str, Any]]:
+    flat: list[dict[str, Any]] = []
+    if not isinstance(symbols, list):
+        return flat
+    for symbol in symbols:
+        if not isinstance(symbol, dict):
+            continue
+        flat.append(symbol)
+        flat.extend(_flatten_lsp_symbols(symbol.get("children")))
+    return flat
+
+
 @register_plugin_op("generic", "runtime_bridge_ping", intent=Intent.READ_ONLY)
 def runtime_bridge_ping(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
     workspace_root = str(ctx.overlay.workspace_root)
@@ -3154,6 +3197,109 @@ def runtime_bridge_ping(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
         "manifest_key": ctx.overlay.active_manifest_key(),
         "projection_manifest_key": ctx.projection.active_manifest_key(),
         "workspace_read": _workspace_read(workspace_root, str(args.get("read_path") or "")),
+    }
+
+
+@register_plugin_op("generic", "lsp_bridge_query_symbols", intent=Intent.READ_ONLY)
+async def lsp_bridge_query_symbols(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
+    from plugins.catalog.lsp.runtime import server as lsp_server
+
+    file_path = str(args.get("file_path") or args.get("read_path") or "")
+    query = str(args.get("query") or "")
+    query_args = {"file_path": file_path, "query": query}
+    retry_after_timeout = False
+    try:
+        result = await lsp_server.query_symbols(query_args, ctx)
+    except TimeoutError:
+        retry_after_timeout = True
+        await asyncio.sleep(0.25)
+        result = await lsp_server.query_symbols(query_args, ctx)
+    symbols = _flatten_lsp_symbols(result.get("symbols"))
+    return {
+        "success": True,
+        "from_lsp_importlib_bridge": True,
+        "from_ppc_service_bridge": True,
+        "retry_after_timeout": retry_after_timeout,
+        "workspace_mounted": os.environ.get("EOS_PLUGIN_WORKSPACE_MOUNTED") == "1",
+        "manifest_key": ctx.overlay.active_manifest_key(),
+        "lsp": {
+            "protocol": "lsp-python-importlib",
+            "server": "plugins.catalog.lsp.runtime.server",
+            "path": file_path,
+            "query": query,
+            "symbol_count": len(symbols),
+            "symbol_names": [str(symbol.get("name", "")) for symbol in symbols],
+            "raw": result,
+        },
+    }
+
+
+@register_plugin_op(
+    "generic",
+    "lsp_bridge_rename",
+    intent=Intent.WRITE_ALLOWED,
+    auto_workspace_overlay=False,
+)
+async def lsp_bridge_rename(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
+    from plugins.catalog.lsp.runtime import server as lsp_server
+
+    file_path = str(args.get("file_path") or args.get("read_path") or "")
+    line = int(args.get("line") or 0)
+    character = int(args.get("character") or 0)
+    new_name = str(args.get("new_name") or "")
+    result = await lsp_server.rename(
+        {
+            "file_path": file_path,
+            "line": line,
+            "character": character,
+            "new_name": new_name,
+        },
+        ctx,
+    )
+    apply_result = result.get("apply") if isinstance(result, dict) else {}
+    apply_result = apply_result if isinstance(apply_result, dict) else {}
+    changed_paths = [
+        str(path)
+        for path in apply_result.get("changed_paths", [])
+        if isinstance(path, str)
+    ]
+    return {
+        "success": bool(apply_result.get("success")),
+        "from_lsp_importlib_bridge": True,
+        "from_ppc_service_bridge": True,
+        "from_mounted_workspace_callback": True,
+        "workspace_mounted": os.environ.get("EOS_PLUGIN_WORKSPACE_MOUNTED") == "1",
+        "manifest_key": ctx.overlay.active_manifest_key(),
+        "changed_paths": changed_paths,
+        "lsp": {
+            "protocol": "lsp-python-importlib",
+            "server": "plugins.catalog.lsp.runtime.server",
+            "path": file_path,
+            "position": {"line": line, "character": character},
+            "new_name": new_name,
+            "edit": result.get("edit") if isinstance(result, dict) else {},
+            "apply": apply_result,
+        },
+    }
+
+
+@register_plugin_op("generic", "runtime_bridge_delay_ping", intent=Intent.READ_ONLY)
+async def runtime_bridge_delay_ping(args: dict[str, Any], ctx: Any) -> dict[str, Any]:
+    delay_s = float(args.get("delay_s") or 0)
+    started_at = time.monotonic()
+    if delay_s > 0:
+        await asyncio.sleep(delay_s)
+    finished_at = time.monotonic()
+    return {
+        "success": True,
+        "from_runtime_bridge": True,
+        "from_ppc_service_bridge": True,
+        "workspace_mounted": os.environ.get("EOS_PLUGIN_WORKSPACE_MOUNTED") == "1",
+        "manifest_key": ctx.overlay.active_manifest_key(),
+        "echo": args.get("message"),
+        "delay_s": delay_s,
+        "service_started_at_s": started_at,
+        "service_finished_at_s": finished_at,
     }
 
 
@@ -3527,6 +3673,36 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 layer_stack_root=LAYER_STACK_ROOT,
                 timeout=30,
             )
+
+            async def runtime_bridge_delay_call(
+                message: str,
+                delay_s: float,
+            ) -> dict[str, Any]:
+                started = time.perf_counter()
+                response = await daemon_client.call_daemon_api(
+                    bench.sandbox_id,
+                    "plugin.generic.runtime_bridge_delay_ping",
+                    {
+                        "agent_id": AGENT_ID,
+                        "message": message,
+                        "delay_s": delay_s,
+                    },
+                    layer_stack_root=LAYER_STACK_ROOT,
+                    timeout=30,
+                )
+                finished = time.perf_counter()
+                if isinstance(response, dict):
+                    response["client_elapsed_s"] = finished - started
+                    response["client_started_s"] = started
+                    response["client_finished_s"] = finished
+                return response
+
+            report["runtime_bridge_concurrent"] = list(
+                await asyncio.gather(
+                    runtime_bridge_delay_call("slow-first", 0.35),
+                    runtime_bridge_delay_call("fast-second", 0.0),
+                )
+            )
             report["runtime_bridge_apply"] = await daemon_client.call_daemon_api(
                 bench.sandbox_id,
                 "plugin.generic.runtime_bridge_apply",
@@ -3544,6 +3720,50 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 {"agent_id": AGENT_ID, "path": RUNTIME_BRIDGE_TARGET_REL},
                 layer_stack_root=LAYER_STACK_ROOT,
                 timeout=30,
+            )
+            report["runtime_bridge_concurrent_apply"] = list(
+                await asyncio.gather(
+                    daemon_client.call_daemon_api(
+                        bench.sandbox_id,
+                        "plugin.generic.runtime_bridge_apply",
+                        {
+                            "agent_id": AGENT_ID,
+                            "path": RUNTIME_BRIDGE_CONCURRENT_A_REL,
+                            "content": RUNTIME_BRIDGE_CONCURRENT_A_CONTENT,
+                        },
+                        layer_stack_root=LAYER_STACK_ROOT,
+                        timeout=30,
+                    ),
+                    daemon_client.call_daemon_api(
+                        bench.sandbox_id,
+                        "plugin.generic.runtime_bridge_apply",
+                        {
+                            "agent_id": AGENT_ID,
+                            "path": RUNTIME_BRIDGE_CONCURRENT_B_REL,
+                            "content": RUNTIME_BRIDGE_CONCURRENT_B_CONTENT,
+                        },
+                        layer_stack_root=LAYER_STACK_ROOT,
+                        timeout=30,
+                    ),
+                )
+            )
+            report["runtime_bridge_concurrent_readback_a"] = (
+                await daemon_client.call_daemon_api(
+                    bench.sandbox_id,
+                    "api.v1.read_file",
+                    {"agent_id": AGENT_ID, "path": RUNTIME_BRIDGE_CONCURRENT_A_REL},
+                    layer_stack_root=LAYER_STACK_ROOT,
+                    timeout=30,
+                )
+            )
+            report["runtime_bridge_concurrent_readback_b"] = (
+                await daemon_client.call_daemon_api(
+                    bench.sandbox_id,
+                    "api.v1.read_file",
+                    {"agent_id": AGENT_ID, "path": RUNTIME_BRIDGE_CONCURRENT_B_REL},
+                    layer_stack_root=LAYER_STACK_ROOT,
+                    timeout=30,
+                )
             )
             report["apply_multi"] = await daemon_client.call_daemon_api(
                 bench.sandbox_id,
@@ -3655,6 +3875,18 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 report["status_after_adapter"],
                 "harness",
                 "adapter_harness",
+            )
+            report["lsp_bridge_seed"] = await daemon_client.call_daemon_api(
+                bench.sandbox_id,
+                "api.v1.write_file",
+                {
+                    "agent_id": AGENT_ID,
+                    "path": f"{WORKSPACE_ROOT}/{LSP_BRIDGE_TARGET_REL}",
+                    "content": LSP_BRIDGE_CONTENT,
+                    "overwrite": True,
+                },
+                layer_stack_root=LAYER_STACK_ROOT,
+                timeout=30,
             )
             report["pyright_seed"] = await daemon_client.call_daemon_api(
                 bench.sandbox_id,
@@ -4334,6 +4566,51 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 timeout=30,
             )
             try:
+                report["lsp_bridge_rename"] = await daemon_client.call_daemon_api(
+                    bench.sandbox_id,
+                    "plugin.generic.lsp_bridge_rename",
+                    {
+                        "agent_id": AGENT_ID,
+                        "read_path": LSP_BRIDGE_TARGET_REL,
+                        "line": 3,
+                        "character": len("RESULT = bri"),
+                        "new_name": LSP_BRIDGE_RENAMED_SYMBOL,
+                    },
+                    layer_stack_root=LAYER_STACK_ROOT,
+                    timeout=150,
+                )
+            except Exception as exc:
+                report["lsp_bridge_rename"] = {
+                    "success": False,
+                    "from_lsp_importlib_bridge": False,
+                    "error": str(exc),
+                }
+            report["lsp_bridge_rename_readback"] = await daemon_client.call_daemon_api(
+                bench.sandbox_id,
+                "api.v1.read_file",
+                {"agent_id": AGENT_ID, "path": LSP_BRIDGE_TARGET_REL},
+                layer_stack_root=LAYER_STACK_ROOT,
+                timeout=30,
+            )
+            try:
+                report["lsp_bridge_query_symbols"] = await daemon_client.call_daemon_api(
+                    bench.sandbox_id,
+                    "plugin.generic.lsp_bridge_query_symbols",
+                    {
+                        "agent_id": AGENT_ID,
+                        "read_path": LSP_BRIDGE_TARGET_REL,
+                        "query": LSP_BRIDGE_RENAMED_SYMBOL,
+                    },
+                    layer_stack_root=LAYER_STACK_ROOT,
+                    timeout=150,
+                )
+            except Exception as exc:
+                report["lsp_bridge_query_symbols"] = {
+                    "success": False,
+                    "from_lsp_importlib_bridge": False,
+                    "error": str(exc),
+                }
+            try:
                 report["pyright_rename"] = await daemon_client.call_daemon_api(
                     bench.sandbox_id,
                     "plugin.generic.pyright_rename",
@@ -4712,11 +4989,30 @@ def plugin_manifest() -> dict[str, Any]:
                 "timeout_ms": 10000,
             },
             {
+                "op_name": "runtime_bridge_delay_ping",
+                "intent": "read_only",
+                "service_id": "runtime_bridge",
+                "timeout_ms": 10000,
+            },
+            {
                 "op_name": "runtime_bridge_apply",
                 "intent": "write_allowed",
                 "auto_workspace_overlay": False,
                 "service_id": "runtime_bridge",
                 "timeout_ms": 10000,
+            },
+            {
+                "op_name": "lsp_bridge_query_symbols",
+                "intent": "read_only",
+                "service_id": "runtime_bridge",
+                "timeout_ms": 150000,
+            },
+            {
+                "op_name": "lsp_bridge_rename",
+                "intent": "write_allowed",
+                "auto_workspace_overlay": False,
+                "service_id": "runtime_bridge",
+                "timeout_ms": 150000,
             },
             {
                 "op_name": "pyright_symbols",
@@ -4933,13 +5229,18 @@ async def install_harness(bench: DockerBench) -> dict[str, Any]:
     vanilla_package_payload = VANILLA_PACKAGE_SOURCE.encode("utf-8")
     runtime_bridge_payload = RUNTIME_BRIDGE_SERVER_SOURCE.encode("utf-8")
     pyright_setup_payload = PYRIGHT_SETUP_SOURCE.encode("utf-8")
+    ppc_service_bundle_bytes: dict[str, int] = {}
     staging_dir = f"/tmp/eos-plugin-harness-{uuid.uuid4().hex}"
     staging_file = f"{staging_dir}/rust_ppc_harness.py"
     staging_oneshot = f"{staging_dir}/rust_oneshot_worker.py"
     staging_vanilla_package = f"{staging_dir}/rust_vanilla_package.py"
     staging_runtime_bridge = f"{staging_dir}/runtime_bridge_server.py"
     staging_pyright_setup = f"{staging_dir}/rust_pyright_setup.sh"
-    mkdir = await bench.exec(f"mkdir -p {shlex.quote(staging_dir)}", timeout=30)
+    ppc_service_bundle_installs: list[str] = []
+    mkdir = await bench.exec(
+        f"mkdir -p {shlex.quote(staging_dir)} {shlex.quote(BUNDLE_REMOTE_DIR)}",
+        timeout=30,
+    )
     if getattr(mkdir, "exit_code", 1) != 0:
         return {
             "path": HARNESS_SCRIPT,
@@ -4952,6 +5253,7 @@ async def install_harness(bench: DockerBench) -> dict[str, Any]:
                 "vanilla_package": len(vanilla_package_payload),
                 "runtime_bridge": len(runtime_bridge_payload),
                 "pyright_setup": len(pyright_setup_payload),
+                "ppc_service_bundle": ppc_service_bundle_bytes,
             },
             "mkdir": result_block(mkdir),
             "gate_pass": False,
@@ -4993,6 +5295,23 @@ async def install_harness(bench: DockerBench) -> dict[str, Any]:
         ),
         dest_dir=staging_dir,
     )
+    for relative_path in PPC_SERVICE_BUNDLE_FILES:
+        payload = (BACKEND_SRC / relative_path).read_bytes()
+        ppc_service_bundle_bytes[relative_path] = len(payload)
+        staging_name = f"ppc_service_{relative_path.replace('/', '__')}"
+        staging_path = f"{staging_dir}/{staging_name}"
+        remote_path = f"{BUNDLE_REMOTE_DIR}/{relative_path}"
+        await bench.adapter.put_archive(
+            bench.sandbox_id,
+            tar_stream=tar_file_at_path(staging_name, payload, mode=0o644),
+            dest_dir=staging_dir,
+        )
+        ppc_service_bundle_installs.append(
+            f"mkdir -p {shlex.quote(str(Path(remote_path).parent))} && "
+            f"cat {shlex.quote(staging_path)} > {shlex.quote(remote_path)} && "
+            f"chmod 644 {shlex.quote(remote_path)}"
+        )
+    bundle_install = " && ".join(ppc_service_bundle_installs)
     finalize = await bench.exec(
         f"mkdir -p {shlex.quote(PLUGIN_ROOT)} "
         f"{shlex.quote(f'{RUNTIME_BRIDGE_PLUGIN_ROOT}/runtime')} && "
@@ -5006,6 +5325,7 @@ async def install_harness(bench: DockerBench) -> dict[str, Any]:
         f"chmod 755 {shlex.quote(VANILLA_PACKAGE_SCRIPT)} && "
         f"chmod 644 {shlex.quote(RUNTIME_BRIDGE_SERVER)} && "
         f"chmod 755 {shlex.quote(PYRIGHT_SETUP_SCRIPT)} && "
+        f"{bundle_install} && "
         f"rm -rf {shlex.quote(staging_dir)}",
         timeout=30,
     )
@@ -5014,6 +5334,7 @@ async def install_harness(bench: DockerBench) -> dict[str, Any]:
         f"test -x {shlex.quote(ONESHOT_SCRIPT)} && "
         f"test -x {shlex.quote(VANILLA_PACKAGE_SCRIPT)} && "
         f"test -f {shlex.quote(RUNTIME_BRIDGE_SERVER)} && "
+        f"test -f {shlex.quote(f'{BUNDLE_REMOTE_DIR}/sandbox/ephemeral_workspace/plugin/ppc_service.py')} && "
         f"test -x {shlex.quote(PYRIGHT_SETUP_SCRIPT)} && "
         f"wc -c {shlex.quote(HARNESS_SCRIPT)} "
         f"{shlex.quote(ONESHOT_SCRIPT)} "
@@ -5033,6 +5354,7 @@ async def install_harness(bench: DockerBench) -> dict[str, Any]:
             "vanilla_package": len(vanilla_package_payload),
             "runtime_bridge": len(runtime_bridge_payload),
             "pyright_setup": len(pyright_setup_payload),
+            "ppc_service_bundle": ppc_service_bundle_bytes,
         },
         "mkdir": result_block(mkdir),
         "finalize": result_block(finalize),
@@ -5253,6 +5575,52 @@ def gate_pass(report: dict[str, Any]) -> bool:
         else {}
     )
     runtime_bridge_readback = report.get("runtime_bridge_readback", {})
+    runtime_bridge_concurrent = [
+        item
+        for item in report.get("runtime_bridge_concurrent", [])
+        if isinstance(item, dict)
+    ]
+    runtime_bridge_concurrent_by_echo = {
+        str(item.get("echo")): item for item in runtime_bridge_concurrent
+    }
+    runtime_bridge_slow = runtime_bridge_concurrent_by_echo.get("slow-first", {})
+    runtime_bridge_fast = runtime_bridge_concurrent_by_echo.get("fast-second", {})
+    runtime_bridge_concurrent_apply = [
+        item
+        for item in report.get("runtime_bridge_concurrent_apply", [])
+        if isinstance(item, dict)
+    ]
+    runtime_bridge_concurrent_apply_paths = {
+        str(path)
+        for item in runtime_bridge_concurrent_apply
+        for path in item.get("changed_paths", [])
+    }
+    runtime_bridge_concurrent_readback_a = report.get(
+        "runtime_bridge_concurrent_readback_a",
+        {},
+    )
+    runtime_bridge_concurrent_readback_b = report.get(
+        "runtime_bridge_concurrent_readback_b",
+        {},
+    )
+    lsp_bridge_query_symbols = report.get("lsp_bridge_query_symbols", {})
+    lsp_bridge_query_symbols_lsp = (
+        lsp_bridge_query_symbols.get("lsp", {})
+        if isinstance(lsp_bridge_query_symbols, dict)
+        else {}
+    )
+    lsp_bridge_rename = report.get("lsp_bridge_rename", {})
+    lsp_bridge_rename_lsp = (
+        lsp_bridge_rename.get("lsp", {})
+        if isinstance(lsp_bridge_rename, dict)
+        else {}
+    )
+    lsp_bridge_rename_apply = (
+        lsp_bridge_rename_lsp.get("apply", {})
+        if isinstance(lsp_bridge_rename_lsp, dict)
+        else {}
+    )
+    lsp_bridge_rename_readback = report.get("lsp_bridge_rename_readback", {})
     multi_readback_a = report.get("multi_readback_a", {})
     multi_readback_b = report.get("multi_readback_b", {})
     shell_publish = report.get("shell_publish", {})
@@ -5526,6 +5894,12 @@ def gate_pass(report: dict[str, Any]) -> bool:
         in report.get("status_after_ensure", {}).get("connected_ppc_routes", [])
         and "plugin.generic.runtime_bridge_apply"
         in report.get("status_after_ensure", {}).get("connected_ppc_routes", [])
+        and "plugin.generic.runtime_bridge_delay_ping"
+        in report.get("status_after_ensure", {}).get("connected_ppc_routes", [])
+        and "plugin.generic.lsp_bridge_query_symbols"
+        in report.get("status_after_ensure", {}).get("connected_ppc_routes", [])
+        and "plugin.generic.lsp_bridge_rename"
+        in report.get("status_after_ensure", {}).get("connected_ppc_routes", [])
         and "plugin.generic.pyright_symbols"
         in report.get("status_after_ensure", {}).get("connected_ppc_routes", [])
         and "plugin.generic.pyright_workspace_symbols"
@@ -5643,6 +6017,53 @@ def gate_pass(report: dict[str, Any]) -> bool:
         in runtime_bridge_apply.get("changed_paths", [])
         and runtime_bridge_readback.get("exists") is True
         and runtime_bridge_readback.get("content") == RUNTIME_BRIDGE_CONTENT
+        and len(runtime_bridge_concurrent) == 2
+        and runtime_bridge_slow.get("from_runtime_bridge") is True
+        and runtime_bridge_fast.get("from_runtime_bridge") is True
+        and runtime_bridge_slow.get("from_ppc_service_bridge") is True
+        and runtime_bridge_fast.get("from_ppc_service_bridge") is True
+        and runtime_bridge_slow.get("workspace_mounted") is True
+        and runtime_bridge_fast.get("workspace_mounted") is True
+        and float(runtime_bridge_slow.get("delay_s", 0)) >= 0.3
+        and float(runtime_bridge_fast.get("delay_s", 1)) == 0.0
+        and float(runtime_bridge_fast.get("service_finished_at_s", 0))
+        < float(runtime_bridge_slow.get("service_finished_at_s", 0))
+        and float(runtime_bridge_fast.get("client_elapsed_s", 99))
+        < float(runtime_bridge_slow.get("client_elapsed_s", 0))
+        and len(runtime_bridge_concurrent_apply) == 2
+        and all(
+            item.get("from_runtime_bridge") is True
+            and item.get("from_ppc_service_bridge") is True
+            and item.get("from_mounted_workspace_callback") is True
+            and item.get("workspace_mounted") is True
+            and item.get("callback", {}).get("success") is True
+            for item in runtime_bridge_concurrent_apply
+        )
+        and runtime_bridge_concurrent_apply_paths
+        == {RUNTIME_BRIDGE_CONCURRENT_A_REL, RUNTIME_BRIDGE_CONCURRENT_B_REL}
+        and runtime_bridge_concurrent_readback_a.get("content")
+        == RUNTIME_BRIDGE_CONCURRENT_A_CONTENT
+        and runtime_bridge_concurrent_readback_b.get("content")
+        == RUNTIME_BRIDGE_CONCURRENT_B_CONTENT
+        and report.get("lsp_bridge_seed", {}).get("success") is True
+        and lsp_bridge_query_symbols.get("from_lsp_importlib_bridge") is True
+        and lsp_bridge_query_symbols.get("from_ppc_service_bridge") is True
+        and lsp_bridge_query_symbols.get("workspace_mounted") is True
+        and lsp_bridge_query_symbols_lsp.get("protocol") == "lsp-python-importlib"
+        and lsp_bridge_query_symbols_lsp.get("server")
+        == "plugins.catalog.lsp.runtime.server"
+        and LSP_BRIDGE_RENAMED_SYMBOL
+        in lsp_bridge_query_symbols_lsp.get("symbol_names", [])
+        and lsp_bridge_rename.get("from_lsp_importlib_bridge") is True
+        and lsp_bridge_rename.get("from_ppc_service_bridge") is True
+        and lsp_bridge_rename.get("from_mounted_workspace_callback") is True
+        and lsp_bridge_rename.get("workspace_mounted") is True
+        and lsp_bridge_rename_lsp.get("protocol") == "lsp-python-importlib"
+        and lsp_bridge_rename_lsp.get("new_name") == LSP_BRIDGE_RENAMED_SYMBOL
+        and lsp_bridge_rename_apply.get("success") is True
+        and LSP_BRIDGE_TARGET_REL in lsp_bridge_rename.get("changed_paths", [])
+        and lsp_bridge_rename_readback.get("exists") is True
+        and lsp_bridge_rename_readback.get("content") == LSP_BRIDGE_RENAMED_CONTENT
         and apply_multi.get("from_self_managed") is True
         and apply_multi.get("callback_count") == 2
         and len(multi_callbacks) == 2
@@ -6114,9 +6535,16 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"- apply_from_self_managed: `{report.get('apply', {}).get('from_self_managed')}`",
         f"- readback_exists: `{report.get('readback', {}).get('exists')}`",
         f"- runtime_bridge_ping: `{report.get('runtime_bridge_ping')}`",
+        f"- runtime_bridge_concurrent: `{report.get('runtime_bridge_concurrent')}`",
         f"- runtime_bridge_apply: `{report.get('runtime_bridge_apply')}`",
         f"- runtime_bridge_readback: `{report.get('runtime_bridge_readback', {}).get('content')}`",
+        f"- runtime_bridge_concurrent_apply: `{report.get('runtime_bridge_concurrent_apply')}`",
+        f"- runtime_bridge_concurrent_readback_a: `{report.get('runtime_bridge_concurrent_readback_a', {}).get('content')}`",
+        f"- runtime_bridge_concurrent_readback_b: `{report.get('runtime_bridge_concurrent_readback_b', {}).get('content')}`",
         f"- runtime_bridge_refresh_count: `{runtime_bridge_status.get('refresh_count')}`",
+        f"- lsp_bridge_query_symbols: `{report.get('lsp_bridge_query_symbols', {}).get('lsp')}`",
+        f"- lsp_bridge_rename: `{report.get('lsp_bridge_rename', {}).get('lsp')}`",
+        f"- lsp_bridge_rename_readback: `{report.get('lsp_bridge_rename_readback', {}).get('content')}`",
         f"- apply_multi_callback_count: `{report.get('apply_multi', {}).get('callback_count')}`",
         f"- apply_multi_callbacks: `{report.get('apply_multi', {}).get('callbacks')}`",
         f"- multi_readback_a: `{report.get('multi_readback_a', {}).get('content')}`",

@@ -15,7 +15,10 @@ from message.events import (
     ToolExecutionCompletedEvent,
     ToolExecutionProgressEvent,
 )
-from engine.background.policy import is_engine_background_tool
+from engine.background.policy import (
+    is_engine_background_tool,
+    is_explicit_generic_background_tool,
+)
 from tools import (
     BaseTool,
     ToolExecutionContextService,
@@ -59,8 +62,10 @@ def defer_background_dispatch(
     tool_def: BaseTool | None, tool_input: dict[str, Any] | None
 ) -> bool:
     """Default defer predicate for hard-coded engine background tools."""
-    del tool_input
-    return tool_def is not None and is_engine_background_tool(tool_def)
+    return tool_def is not None and (
+        is_engine_background_tool(tool_def)
+        or is_explicit_generic_background_tool(tool_def, tool_input)
+    )
 
 
 class StreamingToolExecutor:

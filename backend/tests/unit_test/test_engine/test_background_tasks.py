@@ -8,7 +8,12 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from engine.background.dispatch import launch_background_tool
+from engine.background.dispatch import (
+    DISABLE_SANDBOX_HEARTBEAT_INPUT_KEY,
+    SANDBOX_INVOCATION_ID_INPUT_KEY,
+    launch_background_tool,
+)
+from engine.background.policy import BACKGROUND_TOOL_INPUT_KEY
 from engine.background.task_supervisor import BackgroundTaskSupervisor
 from message.events import BackgroundTaskStartedEvent
 from message.message import ToolResultBlock, ToolUseBlock
@@ -18,6 +23,8 @@ from tools.background.cancel_background_task import (
 )
 from tools._framework.core.base import BaseTool, ToolExecutionContextService, ToolResult
 from tools._framework.core.registry import ToolRegistry
+from tools._framework.core.runtime import ExecutionMetadata
+from tools.sandbox._lib.context import SANDBOX_CONTEXT
 from tools.subagent.control import (
     CancelSubagentInput,
     CancelSubagentTool,
@@ -41,6 +48,25 @@ class _RunSubagentTool(BaseTool):
     description = "test subagent launcher"
     input_model = _RunSubagentInput
     task_type = "subagent"
+
+    async def execute(
+        self,
+        arguments: BaseModel,
+        context: ToolExecutionContextService,
+    ) -> ToolResult:
+        del arguments, context
+        return ToolResult(output="done")
+
+
+class _ShellInput(BaseModel):
+    command: str
+
+
+class _ShellTool(BaseTool):
+    name = "shell"
+    description = "test shell"
+    input_model = _ShellInput
+    context_requirements = (SANDBOX_CONTEXT,)
 
     async def execute(
         self,
@@ -339,6 +365,63 @@ async def test_subagent_launch_returns_public_session_id_not_private_task_id() -
     assert "bg_1" not in mgr._tasks
     assert mgr._tasks["subagent_1"].task_id == "subagent_1"
     assert mgr._tasks["subagent_1"].subagent_session_id == "subagent_1"
+    await mgr.cancel_all()
+
+
+async def test_internal_generic_background_launch_strips_control_keys() -> None:
+    mgr = BackgroundTaskSupervisor()
+    registry = ToolRegistry()
+    registry.register(_ShellTool())
+    metadata = ExecutionMetadata(sandbox_id="sandbox-1", agent_run_id="agent-a")
+    captured: dict[str, object] = {}
+
+    async def _execute(
+        tool_name: str,
+        tool_use_id: str,
+        tool_input: dict[str, object],
+        extra_metadata=None,
+    ) -> ToolResultBlock:
+        captured["tool_name"] = tool_name
+        captured["tool_use_id"] = tool_use_id
+        captured["tool_input"] = dict(tool_input)
+        captured["extra_metadata"] = extra_metadata
+        return ToolResultBlock(tool_use_id=tool_use_id, content="done")
+
+    result, started, rejected = launch_background_tool(
+        tool_registry=registry,
+        tool_metadata=metadata,
+        background_tasks=mgr,
+        tool_use=ToolUseBlock(
+            tool_use_id="toolu_1",
+            name="shell",
+            input={
+                "command": "sleep 60",
+                BACKGROUND_TOOL_INPUT_KEY: True,
+                SANDBOX_INVOCATION_ID_INPUT_KEY: "invocation-fixed",
+                DISABLE_SANDBOX_HEARTBEAT_INPUT_KEY: True,
+            },
+        ),
+        execute_tool_call=_execute,
+    )
+
+    await asyncio.sleep(0)
+
+    assert rejected is None
+    assert isinstance(started, BackgroundTaskStartedEvent)
+    assert started.task_id == "bg_1"
+    assert '[BACKGROUND LAUNCHED] task_id="bg_1"' in result.content
+    assert "subagent_session_id" not in result.content
+    assert captured["tool_name"] == "shell"
+    assert captured["tool_input"] == {"command": "sleep 60"}
+    extra = captured["extra_metadata"]
+    assert isinstance(extra, ExecutionMetadata)
+    assert extra.background_task_id == "bg_1"
+    assert extra.sandbox_invocation_id == "invocation-fixed"
+    tracked = mgr.get_task("bg_1")
+    assert tracked is not None
+    assert tracked.task_type != "subagent"
+    assert tracked.sandbox_invocation_id == "invocation-fixed"
+    assert tracked.heartbeat_enabled is False
     await mgr.cancel_all()
 
 

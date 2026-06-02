@@ -1,11 +1,14 @@
 //! Daemon-side PPC request/reply transport.
 //!
 //! This is the boundary the daemon uses once a plugin service has connected its
-//! `AF_UNIX` socket. Daemon callers use a synchronous API, but the connection
-//! itself can carry many in-flight operation requests. A dedicated reader thread
-//! routes reply frames by `message_id`; self-managed plugin operations can also
-//! service plugin-originated callback requests on the same socket before their
-//! final operation reply arrives.
+//! `AF_UNIX` socket. Daemon callers use a synchronous API, but plugin operation
+//! serialization is forbidden: the connection itself can carry many in-flight
+//! operation requests. A dedicated reader thread routes reply frames by
+//! `message_id`; self-managed plugin operations can also service
+//! plugin-originated callback requests on the same socket before their final
+//! operation reply arrives. Concurrent callback-capable operations are routed by
+//! `parent_message_id` in the callback body, with a legacy message-id prefix
+//! fallback for older harnesses.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -47,11 +50,7 @@ impl PpcClient {
         let reader_stream = stream.try_clone()?;
         let writer = Arc::new(Mutex::new(stream));
         let pending = Arc::new(Mutex::new(HashMap::new()));
-        spawn_reader_thread(
-            reader_stream,
-            Arc::clone(&writer),
-            Arc::clone(&pending),
-        )?;
+        spawn_reader_thread(reader_stream, Arc::clone(&writer), Arc::clone(&pending))?;
         Ok(Self { writer, pending })
     }
 
@@ -77,7 +76,7 @@ impl PpcClient {
             callback
                 .lock()
                 .map_err(|_| DaemonError::StateLockPoisoned("plugin ppc callback handler"))?(
-                frame,
+                frame
             )
         });
         self.send_request(request, timeout, Some(handler))
@@ -176,9 +175,9 @@ fn reader_loop(
     pending: &Arc<Mutex<HashMap<String, PendingRequest>>>,
 ) {
     loop {
-        let frame = match read_frame(stream).and_then(|bytes| {
-            PpcEnvelope::decode(&bytes).map_err(DaemonError::from)
-        }) {
+        let frame = match read_frame(stream)
+            .and_then(|bytes| PpcEnvelope::decode(&bytes).map_err(DaemonError::from))
+        {
             Ok(frame) => frame,
             Err(err) => {
                 fail_all_pending(pending, err.to_string());
@@ -373,7 +372,10 @@ fn fail_pending(
 
 fn fail_all_pending(pending: &Arc<Mutex<HashMap<String, PendingRequest>>>, message: String) {
     let pending_requests = match pending.lock() {
-        Ok(mut pending) => pending.drain().map(|(_, request)| request).collect::<Vec<_>>(),
+        Ok(mut pending) => pending
+            .drain()
+            .map(|(_, request)| request)
+            .collect::<Vec<_>>(),
         Err(_) => return,
     };
     for pending_request in pending_requests {
@@ -409,6 +411,7 @@ pub(super) fn read_frame(stream: &mut UnixStream) -> Result<Vec<u8>, DaemonError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::thread;
 
     type TestResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -483,10 +486,12 @@ mod tests {
     #[test]
     fn ppc_client_matches_out_of_order_replies_by_message_id() -> TestResult {
         let (client_stream, mut server_stream) = UnixStream::pair()?;
+        let (first_seen_tx, first_seen_rx) = mpsc::channel();
         let server = thread::spawn(move || -> TestResult {
             let first = PpcEnvelope::decode(&read_frame(&mut server_stream)?)?;
-            let second = PpcEnvelope::decode(&read_frame(&mut server_stream)?)?;
             assert_eq!(first.message_id, "msg-1");
+            first_seen_tx.send(())?;
+            let second = PpcEnvelope::decode(&read_frame(&mut server_stream)?)?;
             assert_eq!(second.message_id, "msg-2");
 
             server_stream.write_all(
@@ -523,6 +528,7 @@ mod tests {
                 Duration::from_secs(1),
             )
         });
+        first_seen_rx.recv_timeout(Duration::from_secs(1))?;
         let second_client = Arc::clone(&client);
         let second = thread::spawn(move || {
             second_client.round_trip(
@@ -642,7 +648,8 @@ mod tests {
             Ok(())
         });
 
-        let mut callback_count = 0_usize;
+        let callback_count = Arc::new(AtomicUsize::new(0));
+        let callback_counter = Arc::clone(&callback_count);
         let client = PpcClient::new(client_stream)?;
         let reply = client.round_trip_with_callbacks(
             &PpcEnvelope {
@@ -652,7 +659,8 @@ mod tests {
                 body: r#"{"paths":["file-0.txt","file-1.txt"]}"#.to_owned(),
             },
             Duration::from_secs(1),
-            |callback| {
+            move |callback| {
+                let callback_count = callback_counter.fetch_add(1, Ordering::SeqCst);
                 let expected_id = format!("callback-{callback_count}");
                 let expected_body =
                     format!(r#"{{"changes":[{{"path":"file-{callback_count}.txt"}}]}}"#);
@@ -660,7 +668,6 @@ mod tests {
                 assert_eq!(callback.op, "daemon.occ.apply_changeset");
                 assert_eq!(callback.body, expected_body);
                 let body = format!(r#"{{"published":["file-{callback_count}.txt"]}}"#);
-                callback_count += 1;
                 Ok(PpcEnvelope {
                     message_id: callback.message_id,
                     direction: PpcDirection::Reply,
@@ -670,9 +677,111 @@ mod tests {
             },
         )?;
 
-        assert_eq!(callback_count, 2);
+        assert_eq!(callback_count.load(Ordering::SeqCst), 2);
         assert_eq!(reply.message_id, "msg-1");
         assert_eq!(reply.body, r#"{"success":true,"callback_count":2}"#);
+        join_server(server)?;
+        Ok(())
+    }
+
+    #[test]
+    fn ppc_client_routes_concurrent_callbacks_by_parent_message_id() -> TestResult {
+        let (client_stream, mut server_stream) = UnixStream::pair()?;
+        let (first_seen_tx, first_seen_rx) = mpsc::channel();
+        let server = thread::spawn(move || -> TestResult {
+            let first = PpcEnvelope::decode(&read_frame(&mut server_stream)?)?;
+            assert_eq!(first.message_id, "op-1");
+            first_seen_tx.send(())?;
+            let second = PpcEnvelope::decode(&read_frame(&mut server_stream)?)?;
+            assert_eq!(second.message_id, "op-2");
+
+            for (message_id, path) in [("op-2", "b.txt"), ("op-1", "a.txt")] {
+                let callback_id = format!("{message_id}:occ");
+                server_stream.write_all(
+                    &PpcEnvelope {
+                        message_id: callback_id.clone(),
+                        direction: PpcDirection::Request,
+                        op: "daemon.occ.apply_changeset".to_owned(),
+                        body: format!(
+                            r#"{{"parent_message_id":"{message_id}","changes":[{{"path":"{path}"}}]}}"#
+                        ),
+                    }
+                    .encode()?,
+                )?;
+                let callback_reply = PpcEnvelope::decode(&read_frame(&mut server_stream)?)?;
+                assert_eq!(callback_reply.message_id, callback_id);
+                assert_eq!(
+                    callback_reply.body,
+                    format!(r#"{{"published":["{path}"]}}"#)
+                );
+                server_stream.write_all(
+                    &PpcEnvelope {
+                        message_id: message_id.to_owned(),
+                        direction: PpcDirection::Reply,
+                        op: "reply".to_owned(),
+                        body: format!(r#"{{"success":true,"path":"{path}"}}"#),
+                    }
+                    .encode()?,
+                )?;
+            }
+            Ok(())
+        });
+
+        let client = Arc::new(PpcClient::new(client_stream)?);
+        let first_client = Arc::clone(&client);
+        let first = thread::spawn(move || {
+            first_client.round_trip_with_callbacks(
+                &PpcEnvelope {
+                    message_id: "op-1".to_owned(),
+                    direction: PpcDirection::Request,
+                    op: "plugin.lsp.apply".to_owned(),
+                    body: r#"{"path":"a.txt"}"#.to_owned(),
+                },
+                Duration::from_secs(1),
+                |callback| {
+                    assert_eq!(callback.message_id, "op-1:occ");
+                    Ok(PpcEnvelope {
+                        message_id: callback.message_id,
+                        direction: PpcDirection::Reply,
+                        op: "reply".to_owned(),
+                        body: r#"{"published":["a.txt"]}"#.to_owned(),
+                    })
+                },
+            )
+        });
+        first_seen_rx.recv_timeout(Duration::from_secs(1))?;
+        let second_client = Arc::clone(&client);
+        let second = thread::spawn(move || {
+            second_client.round_trip_with_callbacks(
+                &PpcEnvelope {
+                    message_id: "op-2".to_owned(),
+                    direction: PpcDirection::Request,
+                    op: "plugin.lsp.apply".to_owned(),
+                    body: r#"{"path":"b.txt"}"#.to_owned(),
+                },
+                Duration::from_secs(1),
+                |callback| {
+                    assert_eq!(callback.message_id, "op-2:occ");
+                    Ok(PpcEnvelope {
+                        message_id: callback.message_id,
+                        direction: PpcDirection::Reply,
+                        op: "reply".to_owned(),
+                        body: r#"{"published":["b.txt"]}"#.to_owned(),
+                    })
+                },
+            )
+        });
+
+        let first_reply = first
+            .join()
+            .unwrap_or_else(|_| Err(std::io::Error::other("first thread panicked").into()))?;
+        let second_reply = second
+            .join()
+            .unwrap_or_else(|_| Err(std::io::Error::other("second thread panicked").into()))?;
+        assert_eq!(first_reply.message_id, "op-1");
+        assert_eq!(first_reply.body, r#"{"success":true,"path":"a.txt"}"#);
+        assert_eq!(second_reply.message_id, "op-2");
+        assert_eq!(second_reply.body, r#"{"success":true,"path":"b.txt"}"#);
         join_server(server)?;
         Ok(())
     }

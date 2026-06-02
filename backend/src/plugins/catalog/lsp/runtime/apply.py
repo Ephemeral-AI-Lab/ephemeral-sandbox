@@ -12,11 +12,6 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
-from sandbox.overlay import lifecycle as overlay_lifecycle
-from sandbox.shared.command_exec_contract import CommandExecRequest
-from sandbox.overlay.mount_syscalls import mount_syscalls_supported
-from sandbox.overlay.namespace_runner import detect_private_mount_namespace
-
 
 async def apply_workspace_edit(
     edit: dict[str, Any],
@@ -118,6 +113,8 @@ async def _apply_with_operation_overlay(
             workspace_root=workspace_root,
             handle=handle,
         )
+        from sandbox.shared.command_exec_contract import CommandExecRequest
+
         request = CommandExecRequest(
             invocation_id=f"lsp-apply-{uuid4().hex[:8]}",
             workspace_ref=str(getattr(ctx, "layer_stack_root", "")),
@@ -193,6 +190,9 @@ async def _run_apply_child(
 
 
 def _overlay_namespace_available() -> bool:
+    from sandbox.overlay.mount_syscalls import mount_syscalls_supported
+    from sandbox.overlay.namespace_runner import detect_private_mount_namespace
+
     return mount_syscalls_supported() and detect_private_mount_namespace()
 
 
@@ -222,6 +222,8 @@ def _format_apply_result(
 
 async def _release_handle(handle: Any) -> None:
     if hasattr(handle, "_release_lock") and hasattr(handle, "run_dir"):
+        from sandbox.overlay import lifecycle as overlay_lifecycle
+
         await overlay_lifecycle.release_overlay(handle)
         return
     release = getattr(handle, "release", None)
