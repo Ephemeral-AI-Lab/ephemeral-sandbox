@@ -26,6 +26,7 @@ into a Rust `agent-core` Cargo workspace placed at the repository root —
 | `overview.md` (this) | Index, scope-coverage map, dependency topology, phase plan, cross-cutting workstreams, risks, progress tracker. |
 | `impl-workspace.md` | Phase-0 workspace scaffolding + parity harness. |
 | `impl-eos-*.md` (×15) | One spec per crate: files, contracts, types/fields/schemas, concurrency/state, SOLID rationale, gap-closeouts, acceptance criteria. |
+| `impl-cutover.md` | Phase-7 compatibility boundary, switch/rollback protocol, parity comparator, retirement gates. |
 
 Every `impl-*.md` follows the anchor §12 template and ends with an instruction to
 update the Progress Tracker (§Progress Tracker, below) for its own row only.
@@ -110,12 +111,12 @@ it, so the host owns it with no anchor change required.
 
 ```text
 eos-types
-  ├─ eos-config        (types)
   ├─ eos-state         (types)
   ├─ eos-audit         (types)
   ├─ eos-sandbox-api   (types)
   └─ eos-agent-def     (types)
 
+eos-config         (no internal upstream edge)
 eos-llm-client     -> types, config
 eos-skills         -> types, config
 eos-db             -> state, config
@@ -160,12 +161,13 @@ with the verification gate from the plan's Migration Phases section.
     the topology it says to mirror and with each crate's own `impl-*.md` §2:
     (1) `eos-plugin-catalog -> sandbox-api, audit, config` (§5's `audit`-only row
     was an omission; the topology and `impl-eos-plugin-catalog.md` §2 list all
-    three); (2) `eos-config -> eos-types` is kept per the topology and §5, though
-    `impl-eos-config.md` §2 plans to drop it — Phase 2 prunes that edge and
-    updates the test when `eos-config` is implemented.
-  - **Parity corpus deferrals:** sandbox request/result DTOs are frozen
+    three); (2) the Phase-0 skeleton's temporary `eos-config -> eos-types` edge
+    is explicitly **not** part of the final topology — Phase 2 prunes that edge
+    and updates the dependency test when `eos-config` is implemented.
+  - **Parity corpus deferrals:** sandbox request/result DTOs are
     `@dataclass`es (no `model_json_schema()`) and `ToolSpec` goldens need
-    per-agent tool binding; both are deferred to their owning crates' phases
+    per-agent tool binding; neither is frozen in Phase 0. Both are deferred to
+    their owning crates' phases
     (`eos-sandbox-api`, `eos-llm-client`/`eos-tools`). `Message` + content blocks
     + `TextToolOutput` satisfy AC-workspace-05. See `parity/README.md`.
 
@@ -212,13 +214,33 @@ with the verification gate from the plan's Migration Phases section.
 - **Gate:** root request creates root Task + no root workflow; `delegate_workflow`
   creates `Workflow→Iteration→Attempt` and leaves parent task running.
 
-### Phase 7 — Cutover  *(no new crate)*
-- Python compatibility adapters to run old/new control planes side by side; run
-  Rust control plane against existing daemon + DB fixtures; retire Python modules
-  by package boundary after parity; rebuild test-runner integration separately.
+### Phase 7 — Cutover  *(compatibility boundary; no new Rust crate)*
+- **`impl-cutover.md`** — the executable old/new boundary: subprocess JSON-RPC
+  adapter, config/env switch, parity comparator, rollback trigger, DB compatibility
+  invariant, and Python-package retirement gates.
+- Run Rust control plane against the existing daemon + DB fixtures; retire Python
+  modules by package boundary only after the matching gate passes; rebuild
+  test-runner integration separately.
 - **Gate:** E2E root request with mocked LLM; delegated workflow E2E with
   planner/generator/reducer fixtures; sandbox tool integration against the Rust
-  daemon; Anthropic/OpenAI provider mock tests.
+  daemon; Anthropic/OpenAI provider mock tests; old/new comparator over root,
+  delegated workflow, sandbox-tool, and provider-stream fixtures; rollback command
+  documented and exercised.
+
+### Load / performance gates
+
+These gates complement the per-crate correctness ACs and prevent the Rust rewrite
+from regressing hot-path behavior while it is still staged:
+
+- `eos-llm-client`: Criterion benchmark for SSE frame splitting + provider decode
+  on captured Anthropic/OpenAI fixtures; no full-body buffering regression.
+- `eos-engine`: query-loop/tool-dispatch benchmark over a fixed scripted
+  transcript, including foreground fan-in and terminal-batch rejection.
+- `eos-db`: concurrent SQLite store roundtrips under WAL/busy-timeout with
+  workflow/iteration/attempt/task inserts and close updates.
+- `eos-workflow`: fan-out/fan-in scheduler load test with reducer gate.
+- Phase 7: old/new adapter E2E latency comparison for root + delegated workflows,
+  reported as an artifact before package retirement.
 
 ## 6. Module index
 
@@ -295,18 +317,19 @@ with the verification gate from the plan's Migration Phases section.
 | `impl-eos-llm-client.md` | DONE (2026-06-02) | yes | Neutral types + `ToolSpec` (§5a); Anthropic/OpenAI SSE; `Reasoning` rename; retry gating |
 | `impl-eos-skills.md` | DONE (2026-06-02) | yes | `SkillDefinition`/`Registry`/loader; config-root loading decided; deterministic refs |
 | `impl-eos-db.md` | DONE (2026-06-02) | yes | sqlx SQLite repos of `Store` traits; migrations; column↔domain mapping; `class_path`=migration-only |
-| `impl-eos-sandbox-host.md` | DONE (2026-06-02) | yes | `ProviderAdapter` + registry app-state; Docker/Daytona; daemon client; artifact upload |
+| `impl-eos-sandbox-host.md` | DONE (2026-06-02) | yes | `ProviderAdapter` + registry app-state; Docker only (seam kept for future providers); daemon client; artifact upload |
 | `impl-eos-plugin-catalog.md` | DONE (2026-06-02) | yes | Manifest/catalog; kinds enum; Rust-native plugin tool specs; LSP boundary only |
 | `impl-eos-tools.md` | DONE (2026-06-02) | yes | `ToolName`/`Intent`/`Executor`/`Registry`; terminal descriptors total; **owns** §6b ports |
 | `impl-eos-engine.md` | DONE (2026-06-02) | yes (resume) | Query loop + deferred terminal enforcement; `EventSource` seam; `JoinSet`+`CancellationToken` supervisor; prompt-report system-role fix; implements §6b ports |
 | `impl-eos-workflow.md` | DONE (2026-06-02) | yes | Starter/orchestrator/run-stage/`ContextEngine`; **owns** `AgentRunner` (§6a); implements §6b ports |
 | `impl-eos-runtime.md` | DONE (2026-06-02) | yes | `AppState` composition root; no root workflow; supplies `AgentRunner` adapter + wires all ports |
+| `impl-cutover.md` | DONE (2026-06-02) | yes | Subprocess JSON-RPC compatibility boundary, switch/rollback, DB invariant, retirement gates |
 
 ### Implementation
 
 | Phase | Crate | Status | Date | Note / commit |
 |---|---|---|---|---|
-| 0 | (workspace) | DONE | 2026-06-02 | agent-core workspace + 15 crate skeletons + eos-parity harness; frozen DAG/profiles/schema/SSE/prompt-report guard tests green (`cargo fmt --check`, `clippy -D warnings`, `test -p eos-parity`); CI workflow `.github/workflows/agent-core.yml` added. Uncommitted. |
+| 0 | (workspace) | DONE | 2026-06-02 | agent-core workspace + 15 crate skeletons + eos-parity harness; frozen DAG/profiles/schema/SSE/prompt-report guard tests green (`cargo fmt --check`, `clippy -D warnings`, `test -p eos-parity`); CI workflow `.github/workflows/agent-core.yml` added. Phase-0 gap pass (2026-06-02): (a) frozen DAG corrected to drop the spurious `eos-engine -> eos-state` edge so the §5/§4 edge set matches across all 16 rows (AC-workspace-02); (b) added the AC-workspace-10 CI "observability smoke" step (`cargo check --workspace --features eos-runtime/tokio-console`) — the default `build` never enabled `console-subscriber`, so AC-10's named proof was missing from CI; (c) the `eos-parity` `unwrap_used`/`print_stdout = allow` override (impl checklist step 5) is intentionally deferred — `[lints] workspace = true` cannot also carry per-lint overrides, and the guard tests use `.expect()` + `pretty_assertions` (no `unwrap`/`println`), so `clippy -D warnings` is green without it. Uncommitted. |
 | 1 | eos-types | NOT STARTED | — | — |
 | 2 | eos-config | NOT STARTED | — | — |
 | 2 | eos-state | NOT STARTED | — | — |

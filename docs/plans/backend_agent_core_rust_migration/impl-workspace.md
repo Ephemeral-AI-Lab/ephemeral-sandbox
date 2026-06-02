@@ -107,7 +107,7 @@ The mapping is *Python observable behavior → committed fixture*:
 
 | Source (Python) | Parity artifact (committed) | What is captured / dropped |
 |---|---|---|
-| Pydantic `model_json_schema()` for `ToolSpec` inputs, `Message`/content blocks, sandbox request/result DTOs | `parity/schemas/<name>.schema.json` | exact JSON Schema; drops nothing — these are the contract goldens |
+| Pydantic `model_json_schema()` for `Message`/content blocks + `TextToolOutput` | `parity/schemas/<name>.schema.json` | exact JSON Schema; `ToolSpec` and sandbox request/result DTOs are deferred to their owning crate phases because Phase 0 has no representative tool registry binding and sandbox DTOs are dataclasses |
 | `backend/src/db/engine.py` live DDL + SQLAlchemy models (`requests`,`tasks`,`workflows`,`iterations`,`attempts`,`agent_runs`,`model_registrations`) | `parity/sqlite/schema.sql` (canonicalized `sqlite_master` dump) | table/column/constraint shape incl. unique constraints; drops the live DDL patching the target replaces with clean versioned migrations |
 | Anthropic native client SSE (`message_start`…`message_stop`) | `parity/sse/anthropic/*.sse` | raw byte stream replay input |
 | OpenAI Responses SSE (`response.output_text.delta`, tool-arg deltas, done) | `parity/sse/openai/*.sse` | raw byte stream replay input |
@@ -145,7 +145,7 @@ agent-core/
     eos-engine/       { Cargo.toml, src/lib.rs } # -> eos-llm-client, eos-tools, eos-audit, eos-agent-def
     eos-workflow/     { Cargo.toml, src/lib.rs } # -> eos-state, eos-tools, eos-agent-def, eos-audit
     eos-sandbox-host/ { Cargo.toml, src/lib.rs } # -> eos-sandbox-api, eos-config
-    eos-plugin-catalog/ { Cargo.toml, src/lib.rs } # -> eos-audit
+    eos-plugin-catalog/ { Cargo.toml, src/lib.rs } # -> eos-sandbox-api, eos-audit, eos-config
     eos-runtime/      { Cargo.toml, src/lib.rs, src/main.rs } # composition root -> all crates (see §5 table)
   parity/
     Cargo.toml                 # member crate `eos-parity` (dev/test only)
@@ -277,10 +277,20 @@ workspace = true
 
 The **complete edge set** (single source of truth; mirror into `overview.md`):
 
+> **Phase-0 reconciliation (2026-06-02):** the *built* edge set asserted by
+> `parity/tests/dependency_dag.rs` follows the `overview.md` §4 topology where it
+> diverges from this table, and is the live source of truth. Known divergences:
+> `eos-plugin-catalog` → `sandbox-api, audit, config` (this table's `audit`-only
+> row was an omission); `eos-engine` drops the `eos-state` edge (matches the §4
+> topology and `impl-eos-engine.md` §2); the scaffold-only
+> `eos-config -> eos-types` edge is **not** part of the final topology and is
+> pruned in Phase 2. See the `overview.md`
+> Phase-0 implementation notes. Do not "fix" the test back to this table.
+
 | Crate | `[dependencies]` internal edges |
 |---|---|
 | eos-types | — |
-| eos-config | eos-types |
+| eos-config | — |
 | eos-state | eos-types |
 | eos-db | eos-state, eos-config |
 | eos-audit | eos-types |
@@ -292,7 +302,7 @@ The **complete edge set** (single source of truth; mirror into `overview.md`):
 | eos-engine | eos-llm-client, eos-tools, eos-audit, eos-agent-def |
 | eos-workflow | eos-state, eos-tools, eos-agent-def, eos-audit |
 | eos-sandbox-host | eos-sandbox-api, eos-config |
-| eos-plugin-catalog | eos-audit |
+| eos-plugin-catalog | eos-sandbox-api, eos-audit, eos-config |
 | eos-runtime | eos-db, eos-engine, eos-workflow, eos-sandbox-host, eos-plugin-catalog, eos-skills, eos-config, eos-agent-def, eos-sandbox-api, eos-state, eos-types, eos-llm-client, eos-tools, eos-audit, anyhow |
 
 The plan's terse DAG (lines 90-106) omits a few transitive edges that the
@@ -623,8 +633,10 @@ Ordered, small, individually verifiable (`small-incremental-changes`):
    `sqlite_schema.rs`); accept the initial `insta` snapshots. → verify:
    `cargo test -p eos-parity` green (AC-workspace-02/04/05/06/07/08/09).
 8. Add the CI job (`.github/workflows/`): toolchain → `fmt --check` →
-   `clippy -D warnings` → `build --workspace` → `test -p eos-parity`. → verify:
-   CI green (AC-workspace-01/03).
+   `clippy -D warnings` → `build --workspace` → `test -p eos-parity` →
+   `check --workspace --features eos-runtime/tokio-console` (AC-workspace-10's
+   observability smoke — the default `build` never enables the optional
+   `console-subscriber`). → verify: CI green (AC-workspace-01/03/10).
 9. Mirror the §5 edge table + GC-workspace-04 `panic=unwind` rationale into
    `overview.md`'s dependency graph + Phase-0 notes (anchor §5a requirement).
 

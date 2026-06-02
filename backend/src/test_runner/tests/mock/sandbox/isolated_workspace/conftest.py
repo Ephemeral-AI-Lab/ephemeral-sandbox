@@ -311,7 +311,10 @@ async def iws_sandbox(
         # sandbox.host.daemon_client._daemon_spawn_command.
         await raw_exec(
             sandbox_id,
-            "pkill -f '^.*python.*-m sandbox\\.daemon' || true",
+            "pkill -f '^/eos/daemon/eosd daemon' || true; "
+            "pkill -f '^.*python.*-m sandbox\\.daemon' || true; "
+            "rm -f /eos/daemon/runtime.sock /eos/daemon/runtime.pid "
+            "/eos/daemon/runtime.env",
             cwd="/",
             timeout=10,
         )
@@ -402,7 +405,10 @@ async def iws_clean_sandbox(iws_sandbox: dict[str, Any]) -> dict[str, Any]:
         f"echo 'EOS_ISOLATED_WORKSPACE_UPPERDIR_BYTES={_IWS_TEST_UPPERDIR_BYTES}' "
         ">> /etc/environment; changed=1; fi; "
         'if [ "$changed" = 1 ]; '
-        "then pkill -9 -f '^.*python.*-m sandbox\\.daemon' || true; "
+        "then pkill -9 -f '^/eos/daemon/eosd daemon' || true; "
+        "pkill -9 -f '^.*python.*-m sandbox\\.daemon' || true; "
+        "rm -f /eos/daemon/runtime.sock /eos/daemon/runtime.pid "
+        "/eos/daemon/runtime.env; "
         "echo PURGED; else echo OK; fi",
         cwd="/",
         timeout=10,

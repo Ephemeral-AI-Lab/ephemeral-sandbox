@@ -115,13 +115,13 @@ pub trait Clock: Send + Sync {
 
 ### 5.2 ID newtypes
 
-Nine `#[repr(transparent)]` wrappers over `String` (Python IDs are UUIDv4
+Twelve `#[repr(transparent)]` wrappers over `String` (Python IDs are UUIDv4
 strings and prefixed strings such as `root-<hex16>`, so the inner type is
 `String`, **not** an integer; therefore **not** `Copy` per `own-copy-small`).
 
 Each ID provides: `Display`, `FromStr`, `Serialize`/`Deserialize`
-(`#[serde(transparent)]`), `JsonSchema`, `From<String>` + `From<&str>`
-(`api-from-not-into`), `as_str(&self) -> &str` (`name-as-free`),
+(`#[serde(transparent)]`), `JsonSchema`, `TryFrom<String>` + `TryFrom<&str>`
+(`api-parse-dont-validate`), `as_str(&self) -> &str` (`name-as-free`),
 `into_inner(self) -> String` (`name-into-ownership`), and a `new_v4()`
 constructor that mints a fresh dashed UUIDv4. `new_v4()` is emitted by
 `define_id!` for every ID **except `ToolUseId`**, which is model-assigned (see
@@ -161,6 +161,9 @@ and the `Intent` enum (`eos-sandbox-api`); `ToolSpec` (`eos-llm-client`).
 | `SandboxId` | `String` | sandbox host | audit, sandbox-api, sandbox-host |
 | `ToolUseId` | `String` | provider stream (model-assigned) | audit, llm-client, tools, engine |
 | `InvocationId` | `String` | tool dispatch | audit, sandbox-api, tools |
+| `WorkflowTaskId` | `String` | engine background workflow handle | tools, engine, workflow |
+| `CommandSessionId` | `String` | sandbox command-session tool | tools, engine |
+| `SubagentSessionId` | `String` | engine subagent supervisor | tools, engine |
 
 All share the layout below (one representative shown; the rest are macro-emitted):
 
@@ -196,8 +199,14 @@ impl std::str::FromStr for TaskId {
     }
 }
 
-impl From<String> for TaskId { fn from(s: String) -> Self { Self(s) } } // api-from-not-into
-impl From<&str> for TaskId  { fn from(s: &str) -> Self { Self(s.to_owned()) } }
+impl TryFrom<String> for TaskId {
+    type Error = CoreError;
+    fn try_from(s: String) -> Result<Self, Self::Error> { s.parse() }
+}
+impl TryFrom<&str> for TaskId {
+    type Error = CoreError;
+    fn try_from(s: &str) -> Result<Self, Self::Error> { s.parse() }
+}
 ```
 
 `Display` writes the bare inner string (not `kind:value`) so that
@@ -364,14 +373,14 @@ Unit tests live in `#[cfg(test)] mod tests` with `use super::*`
 (`test-cfg-test-module`, `test-use-super`); the schema-snapshot AC feeds the
 Phase-0 parity harness (anchor §11).
 
-- **AC-types-01 — ID `Display`/`FromStr` roundtrip.** For each of the 9 IDs,
+- **AC-types-01 — ID `Display`/`FromStr` roundtrip.** For each of the 12 IDs,
   `s.parse::<T>().unwrap().to_string() == s` for a UUIDv4 string and for a
   `root-abc123` prefixed string; empty string parses to `Err(CoreError::EmptyId)`.
   *Test:* `ids::tests::id_display_fromstr_roundtrip` (proptest over non-empty
   strings — `test-proptest-properties`).
 
 - **AC-types-02 — Transparent serde, no key duplication (GC-types-01).**
-  `serde_json::to_value(&TaskId::from("t1"))` equals `json!("t1")` (a bare
+  `serde_json::to_value(&"t1".parse::<TaskId>().unwrap())` equals `json!("t1")` (a bare
   string, not `{"0":"t1"}`); deserializing `"t1"` yields the same id. A struct
   `{ id: TaskId }` serializes to `{"id":"t1"}` with the id appearing under
   exactly one key. *Test:* `ids::tests::id_serde_transparent_single_key`.
@@ -407,7 +416,7 @@ Ordered, small, verifiable steps (`small-incremental-changes`):
 2. `error.rs`: `CoreError` with `EmptyId` + `Timestamp(#[from])`. Write
    AC-types-05 test first. → fails, then passes.
 3. `ids.rs`: write AC-types-01/02 tests; add `define_id!` macro; instantiate the
-   9 IDs; implement `Display`/`FromStr`/`From`/serde/`JsonSchema`/`new_v4`. → ACs pass.
+   12 IDs; implement `Display`/`FromStr`/`TryFrom`/serde/`JsonSchema`/`new_v4`. → ACs pass.
 4. `time.rs`: write AC-types-03/04 tests; implement `UtcDateTime` (Copy, UTC-norm,
    RFC 3339 serde) and `Clock` + `SystemClock` + `TestClock`. → ACs pass.
 5. `json.rs`: add the two aliases.

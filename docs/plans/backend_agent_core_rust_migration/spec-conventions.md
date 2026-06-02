@@ -99,7 +99,7 @@ contract has exactly one definition (enforced by the Ownership Map).
 | Execution role (state) | `generator` | `executor` is **at most a profile alias**; never enters state. |
 | Model reasoning content | `Reasoning*` (`ReasoningDelta`, `ReasoningBlock`) | Old JSONL `thinking` → compatibility decode map. |
 | Model client provider | `llm_provider` | Never bare `provider`. |
-| Sandbox backend | `sandbox_provider` (Docker / Daytona) | Never bare `provider`. |
+| Sandbox backend | `sandbox_provider` (Docker; seam kept for future providers) | Never bare `provider`. |
 | Command execution tool | `exec_command` + command session | Daemon op may retain legacy `shell` label for protocol compat. |
 | Transcript message role | `user` \| `assistant` | Fix the prompt-report `system`-role mismatch (system prompt is a request field, not a `Message`). |
 
@@ -117,7 +117,7 @@ shared contract.
 
 | Contract / type | Owning crate | Referenced by |
 |---|---|---|
-| Newtype IDs (`TaskId`, `WorkflowId`, `IterationId`, `AttemptId`, `RequestId`, `AgentRunId`, `SandboxId`, `ToolUseId`, `InvocationId`), `UtcDateTime`, `Clock` trait, `CoreError`, `JsonObject` | `eos-types` | all |
+| Newtype IDs (`TaskId`, `WorkflowId`, `IterationId`, `AttemptId`, `RequestId`, `AgentRunId`, `SandboxId`, `ToolUseId`, `InvocationId`, `WorkflowTaskId`, `CommandSessionId`, `SubagentSessionId`), `UtcDateTime`, `Clock` trait, `CoreError`, `JsonObject` | `eos-types` | all |
 | Domain state (`Task`, `Workflow`, `Iteration`, `Attempt`), status/stage/reason enums, outcome projections, terminal submission DTOs, **per-entity `Store` traits** | `eos-state` | `eos-db`, `eos-tools`, `eos-engine`, `eos-workflow`, `eos-runtime` |
 | SQLite row structs, repository impls, migrations, `SqlitePool` builder, model registry | `eos-db` | `eos-runtime` |
 | `CentralConfig` + section configs, env loading, path resolution, validation | `eos-config` | `eos-db`, `eos-llm-client`, `eos-sandbox-host`, `eos-skills`, `eos-plugin-catalog`, `eos-runtime` |
@@ -126,7 +126,7 @@ shared contract.
 | `ToolName` (typed constants), `ToolIntent`, `ToolError`, **`ToolExecutor` trait**, `ToolRegistry`, terminal descriptors, execution/dispatch policy | `eos-tools` | `eos-engine`, `eos-workflow` |
 | `AgentDefinition`, `AgentRole`, `AgentType`, `AgentRegistry`, context-recipe metadata | `eos-agent-def` | `eos-engine`, `eos-workflow`, `eos-runtime` |
 | `SandboxCaller`, `SandboxRequestBase/ResultBase`, `ToolCallRequest`, daemon op constants, **`SandboxTransport` trait**, typed `tool_api` | `eos-sandbox-api` | `eos-tools`, `eos-sandbox-host` |
-| **`ProviderAdapter` trait**, provider registry, Docker/Daytona adapters, daemon client, lifecycle, runtime-artifact upload | `eos-sandbox-host` | `eos-runtime` |
+| **`ProviderAdapter` trait**, provider registry, the Docker adapter (seam kept for future providers), daemon client, lifecycle, runtime-artifact upload | `eos-sandbox-host` | `eos-runtime` |
 | `SkillDefinition`, `SkillRegistry`, loader | `eos-skills` | `eos-tools`, `eos-runtime` |
 | `PluginManifest`, `ToolEntry`, `PluginCatalog`, plugin tool specs, plugin audit wrapper | `eos-plugin-catalog` | `eos-runtime` |
 | `QueryContext`, query loop, dispatch/streaming, background supervisor, notifications, prompt report, agent factory, **`EventSource` trait** | `eos-engine` | `eos-runtime` |
@@ -160,16 +160,16 @@ rust-skills rules. **Do not introduce abstractions outside this list.**
 | `ToolExecutor` + `ToolRegistry` | eos-tools | per-tool executors | OCP + SRP | `api-sealed-trait` |
 | `AuditSink` + `AuditEventBus` | eos-audit | JSONL sink, in-memory sink | DIP + OCP | — |
 | `SandboxTransport` | eos-sandbox-api | daemon client | DIP | `async-tokio-runtime` |
-| `ProviderAdapter` + provider registry | eos-sandbox-host | Docker, Daytona | OCP + LSP | — |
+| `ProviderAdapter` + provider registry | eos-sandbox-host | Docker (+ `#[cfg(test)]` mock; seam kept for future providers) | OCP + LSP | — |
 | `AgentRegistry` | eos-agent-def | profile-backed registry | OCP | — |
 | `SkillRegistry` | eos-skills | bundled/config-dir loader | OCP | — |
 | `PluginCatalog` | eos-plugin-catalog | manifest-discovered catalog | OCP | — |
 | `AgentRunner` (§6a) | eos-workflow | runtime adapter over `run_ephemeral_agent`, mock | DIP, testability | `test-mock-traits`, `anti-type-erasure` |
-| `WorkflowControlPort` (§6b) | eos-tools | eos-workflow (`WorkflowStarter`/manager) | DIP + ISP | `api-sealed-trait` |
+| `WorkflowControlPort` (§6b) | eos-tools | eos-workflow + eos-engine workflow-handle adapter | DIP + ISP | `api-sealed-trait` |
 | `PlanSubmissionPort` (§6b) | eos-tools | eos-workflow `AttemptOrchestrator` | DIP + ISP | `api-sealed-trait` |
 | `SubagentSupervisorPort` (§6b) | eos-tools | eos-engine background supervisor | DIP + ISP | `api-sealed-trait` |
 | `AdvisorPort` (§6b) | eos-tools | eos-engine helper-agent runner | DIP + ISP | `api-sealed-trait` |
-| `IsolatedWorkspacePort` (§6b) | eos-tools | eos-runtime adapter over eos-sandbox-host lifecycle | DIP + ISP | `api-sealed-trait` |
+| `IsolatedWorkspacePort` (§6b) | eos-tools | eos-runtime adapter over eos-sandbox-host lifecycle + eos-engine background state | DIP + ISP | `api-sealed-trait` |
 | `NotificationSink` (§6b) | eos-tools | eos-engine notification service | DIP + ISP | `api-sealed-trait` |
 
 **Trait object-safety:** traits used behind `dyn` in the composition root that
@@ -342,7 +342,7 @@ right reason, then implement.
   | eos-workflow | workflow DAG / orchestrator / context tests under `backend/tests`; planner-DAG invariants; reducer exit gate |
   | eos-config | env-override tests |
   | eos-audit | JSONL golden + deterministic redaction |
-  | eos-sandbox-api/host | daemon envelope tests; Docker/Daytona selection; provisioning |
+  | eos-sandbox-api/host | daemon envelope tests; Docker selection (seam ready for future providers); provisioning |
   | eos-skills | reference-loading determinism |
   | eos-plugin-catalog | manifest validation |
 

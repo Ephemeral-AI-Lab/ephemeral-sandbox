@@ -35,13 +35,16 @@ fn seven_target_tables_present() {
 #[test]
 fn three_unique_constraints_present() {
     let sql = schema_sql();
-    // Named composite unique constraints on iterations and attempts.
+    // Assert the full constraint definitions (name + exact column tuple), not
+    // just the names, so a column-composition drift is caught too.
     assert!(
-        sql.contains("uq_iteration_workflow_sequence"),
+        sql.contains("CONSTRAINT uq_iteration_workflow_sequence UNIQUE (workflow_id, sequence_no)"),
         "iterations(workflow_id, sequence_no) unique constraint"
     );
     assert!(
-        sql.contains("uq_attempt_iteration_sequence"),
+        sql.contains(
+            "CONSTRAINT uq_attempt_iteration_sequence UNIQUE (iteration_id, attempt_sequence_no)"
+        ),
         "attempts(iteration_id, attempt_sequence_no) unique constraint"
     );
     // agent_runs.task_id uniqueness manifests as a unique index.

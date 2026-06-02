@@ -37,7 +37,9 @@ types.
   `AgentType`).
 - **Downstream consumers (used by):** `eos-runtime` (composition root: resolves
   the model + `Arc<dyn LlmClient>`, wires the production `EventSource`, runs the
-  root agent), `eos-workflow` (spawns generator/reducer agents via the factory).
+  root agent). `eos-workflow` reaches agent execution only through its own
+  `AgentRunner` seam wired by `eos-runtime`; there is no `eos-workflow ->
+  eos-engine` edge.
 - **Implements (downstream-state ports owned by `eos-tools`, anchor §6b):**
   `SubagentSupervisorPort` (the background supervisor backs `run_subagent` /
   control tools), `AdvisorPort` (the helper-agent runner backs `ask_advisor`), and
@@ -286,10 +288,11 @@ Failed(2) > Cancelled(1) > Running(0)`; `Delivered(4)` is the sink.
 Sources: `task_supervisor.py`. Selected fields (all owned by the loop task, no
 interior mutex — GC-engine-04):
 
-`BackgroundTaskRecord`: `task_id: String`, `tool_name: String`, `tool_input:
+`BackgroundTaskRecord`: `task_id: String` (background-supervisor-local id),
+`tool_name: String`, `tool_input:
 JsonObject`, `task_kind: BackgroundTaskKind` (`Agent|Subagent|Workflow` —
 replaces stringly `task_type`, `type-no-stringly`), `subagent_session_id:
-Option<String>`, `agent_id: Option<String>`, `uses_sandbox: bool`, `sandbox_id:
+Option<SubagentSessionId>`, `agent_id: Option<String>`, `uses_sandbox: bool`, `sandbox_id:
 Option<SandboxId>`, `sandbox_invocation_id: Option<InvocationId>`,
 `heartbeat_enabled: bool`, `status: BackgroundTaskStatus`, `cancel_reason:
 Option<String>`, `stop_mode: Option<StopMode>` (`Cancel|EarlyStop|ParentExit`),
@@ -300,11 +303,11 @@ Vec<String>`. The `asyncio.Task`
 handle becomes an `AbortHandle` + child `CancellationToken` held in the JoinSet
 keyed by `task_id` (§7).
 
-`CommandSessionRecord`: `command_session_id`, `sandbox_id`, `agent_id`, `command:
-String`, `status: BackgroundTaskStatus`, `result: Option<JsonObject>`,
+`CommandSessionRecord`: `command_session_id: CommandSessionId`, `sandbox_id`,
+`agent_id`, `command: String`, `status: BackgroundTaskStatus`, `result: Option<JsonObject>`,
 `started_at: Instant` (`tokio::time::Instant`; source `time.monotonic()`).
 
-`WorkflowBackgroundRecord`: `workflow_task_id`, `workflow_id: WorkflowId`,
+`WorkflowBackgroundRecord`: `workflow_task_id: WorkflowTaskId`, `workflow_id: WorkflowId`,
 `parent_task_id: TaskId`, `parent_attempt_id: Option<AttemptId>`, `request_id:
 RequestId`, `agent_id: String`, `goal: String`, `status`, `final_status:
 Option<String>`, `final_outcomes: Vec<JsonObject>`, `last_seen_at: Instant`
@@ -419,10 +422,22 @@ Runtime-agnostic crate; `eos-runtime` owns the single multi-thread Tokio runtime
   the run-scoped `CancellationToken` (`async-select-racing`).
 - **Foreground multi-tool fan-in (`async-mpsc-queue`, `async-bounded-channel`).**
   `_dispatch_many_foreground_tools`' `asyncio.Queue` becomes a **bounded** `mpsc`:
-  each tool task `emit`s progress events and a final `(ToolUseBlock, ToolResultBlock)`
-  into the channel; the owner drains in completion order, preserving the
-  progress-before-result interleaving. Single-tool dispatch stays a direct inline
-  `await`.
+  capacity is `max(2 * tool_batch_len, 16)` for final-result headroom. Each tool
+  task `select!`s sends against the run `CancellationToken`. Final
+  `(ToolUseBlock, ToolResultBlock)` sends are mandatory before task completion;
+  progress sends are best-effort and may be coalesced/dropped with a dropped-count
+  note when the channel is full. The owner drains in completion order, preserving
+  progress-before-result interleaving for delivered events, closes the receiver on
+  terminal/ceiling/parent-exit, and aborts unfinished foreground tasks. Single-tool
+  dispatch stays a direct inline `await`.
+- **Foreground ownership and supervisor controls.** Spawned foreground tool tasks
+  must own cloned `ToolUseBlock` input and an owned/cloned `ExecutionMetadata`;
+  they may borrow those values only inside the spawned async block so the future is
+  `Send + 'static`. Background-control/lifecycle tools that mutate supervisor
+  state (`check_*`, `cancel_*`, `write_stdin`, workflow control) are not launched as
+  parallel foreground siblings unless the mutation is routed through the loop-owner
+  task. This preserves the single-owner supervisor model while retaining parallel
+  fan-in for ordinary independent foreground tools.
 - **Lock discipline.** No lock is held across `.await` anywhere
   (`async-no-lock-await`, `anti-lock-across-await`); the design has no app-level
   mutex on the hot path. If a future change forces a supervisor mutation off the
@@ -543,6 +558,7 @@ Maps to anchor §11 "Tests to Port First" for eos-engine (`test_tool_batch.py`,
 | AC-engine-06 | `PromptReportRecorder` never serializes a system-role transcript row: every recorded `Message` has role `user`/`assistant`, and `system_prompt` is the top-level `llm_request` string field. (The enum having no `System` variant is owned/proven by eos-llm-client; see impl-eos-llm-client.md GC-llm-client-03.) | `prompt_report.rs` `#[test] fn no_system_role_in_transcript` | — |
 | AC-engine-07 | On TOOL_STOP a running subagent is terminated via parent-exit (`stop_mode=ParentExit`, status `Cancelled`, parent-exit result); a `cancel()` racing a natural completion resolves to `Completed` via reap precedence. | `background/supervisor.rs` `#[tokio::test] fn parent_exit_and_cancel_complete_race` | `test_tool_call_dispatch_lifecycle.py` |
 | AC-engine-08 | `build_query_context` for an `AgentDefinition` with one terminal tool derives `terminal_tools`, appends the termination-condition prompt, and attaches the three budget tiers + `TerminalCallReminder` (deduped by name). | `agent/factory.rs` `#[test] fn factory_assembles_terminals_prompt_and_rules` | — |
+| AC-engine-09 | A progress-heavy foreground multi-tool batch cannot deadlock the owner, may drop/coalesce progress with a counter, and always delivers every final result unless cancellation wins. | `tool_call/dispatch.rs` `#[tokio::test] fn foreground_fan_in_backpressure_preserves_final_results` | — |
 
 ## 12. Implementation Checklist
 

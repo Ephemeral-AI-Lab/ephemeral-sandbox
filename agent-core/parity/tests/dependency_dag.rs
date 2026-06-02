@@ -38,13 +38,7 @@ fn frozen_edges() -> Edges {
         ),
         (
             "eos-engine",
-            &[
-                "eos-state",
-                "eos-llm-client",
-                "eos-tools",
-                "eos-audit",
-                "eos-agent-def",
-            ],
+            &["eos-llm-client", "eos-tools", "eos-audit", "eos-agent-def"],
         ),
         (
             "eos-workflow",
@@ -144,8 +138,9 @@ fn tools_depends_on_llm_client() {
 #[test]
 fn dag_is_acyclic() {
     // Cargo would already reject a cycle, but assert it explicitly via Kahn's
-    // algorithm over the frozen set so the invariant is documented.
-    let edges = frozen_edges();
+    // algorithm over the ACTUAL resolved edges (not the frozen set) so this
+    // validates the real workspace, not a hardcoded copy.
+    let edges = actual_edges();
     let mut indegree: BTreeMap<&str, usize> = edges.keys().map(|k| (k.as_str(), 0)).collect();
     for deps in edges.values() {
         for dep in deps {

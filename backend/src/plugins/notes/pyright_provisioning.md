@@ -5,16 +5,18 @@ the sandbox. There is no alternate language-server fallback.
 
 ## Setup Path
 
-`sandbox.ephemeral_workspace.plugin.install` uploads only the LSP plugin bundle. It does not upload
-Node archives, npm packages, or language-server bundles.
+`sandbox.ephemeral_workspace.plugin.install` uploads the LSP plugin bundle plus
+host-prepared setup packages. Node and Pyright artifacts are downloaded on the
+host, then sent into the sandbox with provider `put_archive` under
+`/eos/plugin-packages/lsp`.
 
-`setup.sh` installs Node into `/tmp/eos-node22` only when `node`/`npm` are not
-already available. The default Node download list tries the npmmirror binary
-endpoint first, then the official Node tarball. After Node is available, setup
-installs pinned Pyright with npm:
+`setup.sh` runs offline. It extracts the uploaded Node archive into
+`/eos/plugin-packages/lsp/node` only when `node`/`npm` are not already
+available. After Node is available, setup installs the uploaded Pyright tarball
+with npm:
 
 ```bash
-npm install -g --omit=optional "pyright@${EOS_PYRIGHT_VERSION:-1.1.409}"
+npm install -g --offline --cache /eos/plugin-packages/lsp/npm-cache --omit=optional /eos/plugin-packages/lsp/pyright.tgz
 ```
 
 The marker is `.pyright_installed`, but setup also verifies
@@ -29,8 +31,9 @@ pyright-langserver --stdio
 ```
 
 If the sandbox has the standard `testbed` conda environment, the session starts
-through that environment and prepends `/tmp/eos-node22/bin` to `PATH`. Missing
-setup fails closed rather than falling back to a different language server.
+through that environment and prepends `/eos/plugin-packages/lsp/node/bin` to
+`PATH`. Missing setup fails closed rather than falling back to a different
+language server.
 
 ## Diagnostics
 

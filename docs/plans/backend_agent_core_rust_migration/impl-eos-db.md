@@ -43,11 +43,11 @@ only exposes `async fn`s on `&self`.
 
   | Crate | Features | Justification | rust-skills |
   |---|---|---|---|
-  | `sqlx` | `runtime-tokio`, `sqlite`, `macros`, `chrono`, `migrate` — **no `postgres`/`mysql`** | The whole point of the crate: async SQLite pool, `query_as` into typed rows, compile-checked migrations. SQLite-only by feature gate enforces anchor §2. | `async-tokio-runtime` |
+  | `sqlx` | `runtime-tokio`, `sqlite`, `macros`, `time`, `migrate` — **no `postgres`/`mysql`** | The whole point of the crate: async SQLite pool, `query_as` into typed rows, compile-checked migrations. SQLite-only by feature gate enforces anchor §2. | `async-tokio-runtime` |
   | `thiserror` | — | One `DbError` enum with `#[from] sqlx::Error` (anchor §8). | `err-thiserror-lib`, `err-from-impl` |
   | `async-trait` | — | The `Store` traits use `async fn`; they are stored behind `Arc<dyn Store>` in the composition root, so they need `#[async_trait]` (anchor §6 object-safety note). | `async-tokio-runtime` |
   | `serde` / `serde_json` | `derive` | JSON columns are stored as validated TEXT; map `Vec<TaskId>`/`outcomes`/`kwargs` ↔ `TEXT` via `serde_json::{to_string,from_str}`. | `api-parse-dont-validate` |
-  | `chrono` | `serde` | Timestamps map to `UtcDateTime` (= `eos-types` newtype over `chrono::DateTime<Utc>`); sqlx `chrono` feature binds them. | — |
+  | `time` | `serde` | Timestamps map to `UtcDateTime` (= `eos-types` newtype over `time::OffsetDateTime`); sqlx `time` feature binds them. | — |
   | `uuid` | `v4` | New row ids (`Workflow`/`Iteration`/`Attempt` mint `uuid4` in their `insert`, matching Python `str(uuid.uuid4())`). | — |
 
   Dev-only: `tempfile` (RAII temp DB file per test — `test-fixture-raii`).
@@ -147,7 +147,7 @@ types:
   `Arc<dyn …>` at the composition root — anchor §6). Each holds a `SqlitePool`
   clone (cheap; the pool is `Arc` internally).
 - **`ModelRegistry`** — `model_registry.rs`. Concrete (not a seam in anchor §6):
-  `register`, `delete`, `get`, `get_active`, `get_active_resolved`,
+  `register`, `delete`, `get`, `active`, `active_resolved`,
   `seed_from_json`. `class_path` is stored/returned **as data only**.
 - **`DbError`** — the crate's one `thiserror` enum (anchor §8).
 
@@ -188,7 +188,7 @@ mapping fn is the single explicit bridge. **Enum-backed columns
 |---|---|---|
 | `id` | `TaskId` (TEXT PK 96) | serialized as `task_id` in DTO |
 | `request_id` | `RequestId` (TEXT, FK→requests ON DELETE CASCADE, indexed) | |
-| `role` | `String` (TEXT — parsed into the `eos-state` `Task.role` `AgentRole` task-role mirror in the mapper) | `role` column |
+| `role` | `String` (TEXT — parsed into the `eos-state` `Task.role` `TaskRole` in the mapper) | `role` column |
 | `instruction` | `String` (TEXT) | |
 | `status` | task-status enum per eos-state | |
 | `workflow_id` | `Option<WorkflowId>` (TEXT null, indexed) | |
@@ -365,6 +365,12 @@ conversion (`err-from-impl`); `#[source]` to chain serde failures
   **not** an app-level mutex (anchor §7 "No app-level DB mutex"). Each `Sql*Store`
   holds a `SqlitePool` clone (the pool is internally `Arc`; cloning is cheap —
   `own-arc-shared`).
+- **Pool pressure and transactions:** the pool builder sets explicit
+  `max_connections`, `acquire_timeout`, `busy_timeout`, and WAL/foreign-key
+  pragmas from `DatabaseConfig`. Write methods open the shortest possible
+  transaction (`BEGIN IMMEDIATE` where write-lock acquisition must be explicit)
+  and **never hold a transaction across LLM, sandbox, tool, or agent-run awaits**;
+  all such awaits happen before entering the transaction or after commit/rollback.
 - **Shared immutable state:** the `Database` composition root holds each store in an
   `Arc<…>` so runtime hands out `Arc<dyn …Store>` cheaply (`own-arc-shared`).
 - **Lock discipline:** there are **no `Mutex`/`RwLock` guards** held across `.await`
@@ -429,7 +435,7 @@ conversion (`err-from-impl`); `#[source]` to chain serde failures
   already in `{done, failed}` it returns the existing projection unchanged (no
   re-write), mirroring `task_store.py` lines 97-98. The remaining request/task
   trait methods (`set_root_task_id`, `finish_request`, `set_task_status`,
-  `get_task`, `list_tasks_for_request`) are owned by the `eos-state`
+  `get`, `list_tasks_for_request`) are owned by the `eos-state`
   request/task `Store` trait and covered by its trait-level tests; AC-eos-db-01
   proves the `finish_request`/`set_root_task_id` round-trip plus this terminal
   no-op against the sqlx backend.
@@ -444,8 +450,8 @@ conversion (`err-from-impl`); `#[source]` to chain serde failures
   caller's job after this returns.
 - **Model registry invariants:** `key` is unique (upsert on conflict); at most one
   `is_active`; deleting the active row promotes the oldest remaining
-  (`created_at, id` ascending); `get_active_resolved` resolves `env:`/`${VAR}`/`$VAR`
-  placeholders in `kwargs` (compat-migration only); `get`/`get_active` redact secret
+  (`created_at, id` ascending); `active_resolved` resolves `env:`/`${VAR}`/`$VAR`
+  placeholders in `kwargs` (compat-migration only); `get`/`active` redact secret
   markers by default. `class_path` is carried verbatim and **never used to import or
   dispatch** (anchor §2; GC-eos-db-01).
 - **Subtle risk (from plan):** the naming gap is the highest-risk drift point — the
@@ -507,7 +513,7 @@ implement. Maps to anchor §11 "eos-db: store roundtrips for request/task/workfl
 iteration/attempt/agent_run".
 
 - **AC-eos-db-01 — request+task roundtrip & upsert/CAS.** `create_request` →
-  `get_request`; `set_root_task_id` persists and reloads; `finish_request` sets a
+  `RequestStore::get`; `set_root_task_id` persists and reloads; `finish_request` sets a
   terminal status, and a second `finish_request` on an already-`done`/`failed`
   request returns the existing projection unchanged (terminal no-op);
   `upsert_task` insert-then-update bumps fields/`updated_at`;
@@ -544,7 +550,7 @@ iteration/attempt/agent_run".
   `postgresql://…` URL returns `Err(DbError::PostgresRejected)` and opens no
   connection. Test `postgres_url_rejected`.
 - **AC-eos-db-07 — model registry: active lookup, env resolution, class_path is data.**
-  `register`/`get_active`/`get_active_resolved` resolve `env:`/`${VAR}` placeholders;
+  `register`/`active`/`active_resolved` resolve `env:`/`${VAR}` placeholders;
   activating a second key deactivates the first; deleting the active promotes the
   oldest; `class_path` is returned verbatim and no import is attempted. Test
   `model_registry_active_and_resolve` (ports `test_model_store.py`).
@@ -575,8 +581,8 @@ lives in `tests/` integration dir.
    `close_succeeded` → AC-eos-db-03.
 8. `repositories/attempt.rs`: `SqlAttemptStore` → AC-eos-db-04.
 9. `repositories/agent_run.rs`: `SqlAgentRunStore` → AC-eos-db-04b.
-10. `model_registry.rs`: `ModelRegistry` (register/delete/get/get_active/
-    get_active_resolved/seed; env resolution; redaction; class_path-as-data) →
+10. `model_registry.rs`: `ModelRegistry` (register/delete/get/active/
+    active_resolved/seed; env resolution; redaction; class_path-as-data) →
     AC-eos-db-07.
 11. `composition.rs`: `Database::open` + `Arc<dyn …Store>` accessors → AC-eos-db-08.
 12. `lib.rs`: `pub use` facade; `cargo fmt --check` + `clippy -D warnings`

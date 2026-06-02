@@ -160,11 +160,11 @@ Public structs/enums that may grow gain `#[non_exhaustive]` with a constructor
 |---|---|---|---|
 | `agent_id` | `String` | required; eos-types owns **no** `AgentId` newtype, stays `String` (advisor). Production value is derived from `agent_run_id` (`tools/sandbox/_lib/tool_context.py:17`, eos-tools source: `agent_run_id.strip() or agent_name`), so it frequently equals the `agent_run_id` string — see §6.1 note for the AC-04 fixture | models.py:27 |
 | `run_id` | `String` | required-empty (see §8 invariant) | models.py:28 |
-| `agent_run_id` | `AgentRunId` | required-empty; `#[serde(default)]`, transparent string newtype represents `""` | models.py:29 |
-| `task_id` | `TaskId` | required-empty; `#[serde(default)]` | models.py:30 |
-| `request_id` | `RequestId` | optional-empty (omitted when empty in `audit_fields`) | models.py:31 |
-| `attempt_id` | `AttemptId` | optional-empty | models.py:32 |
-| `workflow_id` | `WorkflowId` | optional-empty | models.py:33 |
+| `agent_run_id` | `String` | required-empty raw wire field; typed accessor returns `Option<AgentRunId>` after non-empty validation | models.py:29 |
+| `task_id` | `String` | required-empty raw wire field; typed accessor returns `Option<TaskId>` after non-empty validation | models.py:30 |
+| `request_id` | `String` | optional-empty raw wire field; omitted when empty in `audit_fields`; typed accessor returns `Option<RequestId>` | models.py:31 |
+| `attempt_id` | `String` | optional-empty raw wire field; typed accessor returns `Option<AttemptId>` | models.py:32 |
+| `workflow_id` | `String` | optional-empty raw wire field; typed accessor returns `Option<WorkflowId>` | models.py:33 |
 | ~~`tool_name`~~ | — | **REMOVED** (GC-01); was almost always empty | models.py:35 |
 | `tool_id` | `Option<ToolUseId>` | `None` when empty; production factory populates it (`tools/sandbox/_lib/tool_context.py:26`, eos-tools source) | models.py:36 |
 
@@ -193,11 +193,10 @@ impl SandboxCaller {
 }
 ```
 
-> Note on typed-ID empty strings: eos-types IDs are `#[repr(transparent)]`,
-> `#[serde(transparent)]` newtypes over `String` (impl-eos-types.md §5.2), so
-> an empty `AgentRunId("")` serializes as `""`. This is what lets the
-> required-empty invariant (§8) survive the migration without a special wire
-> type.
+> Note on typed-ID empty strings: eos-types IDs are non-empty by construction
+> (impl-eos-types.md §5.2). `SandboxCaller` is therefore a raw daemon wire DTO
+> for the required-empty compatibility fields; use typed accessors only when a
+> field is non-empty and has passed `TryFrom`/`FromStr` validation.
 
 ### 6.2 `SandboxRequestBase` / `SandboxResultBase`
 
@@ -288,6 +287,8 @@ pub enum DaemonOp {
     #[serde(rename = "api.v1.cancel")]      InvocationCancel,
     #[serde(rename = "api.v1.heartbeat")]   InvocationHeartbeat,
     #[serde(rename = "api.v1.inflight_count")]            InflightCount,
+    #[serde(rename = "api.isolated_workspace.enter")]     IsolatedWorkspaceEnter,
+    #[serde(rename = "api.isolated_workspace.exit")]      IsolatedWorkspaceExit,
     #[serde(rename = "api.isolated_workspace.status")]   IsolatedWorkspaceStatus,
     #[serde(rename = "api.v1.glob")]        Glob,
     #[serde(rename = "api.v1.grep")]        Grep,
@@ -438,7 +439,7 @@ implement. Maps to anchor §11 "Tests to Port First" row **eos-sandbox-api/host 
 daemon envelope tests**.
 
 - **AC-sandbox-api-01 — DTO schema parity.** `schemars` JSON schema for each
-  request DTO matches the Phase 0 snapshot of the Python Pydantic/dataclass
+  request DTO matches the crate-owned Phase-2 snapshot of the Python Pydantic/dataclass
   schema (field names, optionality, defaults). *Test:* `tests/schema_snapshot.rs`
   (insta snapshot per DTO).
 - **AC-sandbox-api-02 — `SandboxCaller` has no `tool_name`; `tool_id` is
@@ -496,7 +497,7 @@ Ordered, small, verifiable (`small-incremental-changes`):
    `parse_*_result`. Test AC-03.
 7. `tool_api/{read,write,glob,grep,command,control}.rs`: pure helpers.
 8. `tool_api/{edit,shell}.rs` with conflict classifier + stdin reject. Test AC-05.
-9. `tests/schema_snapshot.rs` against Phase 0 snapshots. Test AC-01.
+9. `tests/schema_snapshot.rs` against crate-owned Phase-2 snapshots. Test AC-01.
 10. `lib.rs` re-exports; `cargo fmt --check` + `clippy -D warnings`.
 
 ---

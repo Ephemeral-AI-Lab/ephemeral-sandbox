@@ -193,11 +193,11 @@ agent-core crates implement them:
 
 | Port | Methods (sketch) | Implementor (edge to eos-tools) | Replaces (Python) |
 |---|---|---|---|
-| `WorkflowControlPort` | `start(goal) -> StartedWorkflow`, `status(WorkflowId, Option<WorkflowTaskId>)`, `cancel(WorkflowTaskId, reason)`, `find_outstanding(parent_task, agent_id)` | eos-workflow (`WorkflowStarter`/manager) | `delegate`/`check`/`cancel_workflow` runtime |
+| `WorkflowControlPort` | `start(parent_task_id: TaskId, agent_id: String, goal: String) -> StartedWorkflow { workflow_id, workflow_task_id }`, `status(WorkflowId, Option<WorkflowTaskId>)`, `cancel(WorkflowTaskId, reason)`, `find_outstanding(parent_task_id, agent_id)` | eos-workflow + eos-engine workflow-handle adapter | `delegate`/`check`/`cancel_workflow` runtime |
 | `PlanSubmissionPort` | `apply_plan(PlannerSubmission)`, `apply_reducer(ReducerSubmission)`, `submit_generator(status, outcome)` | eos-workflow `AttemptOrchestrator` | submission `orchestrator.apply_*` |
-| `SubagentSupervisorPort` | `spawn(agent, prompt)`, `progress(session_id, n)`, `cancel(session_id, reason)`, `set_progress_provider(...)` | eos-engine background supervisor | `run_subagent`/control |
+| `SubagentSupervisorPort` | `spawn(agent, prompt) -> SubagentSessionId`, `progress(SubagentSessionId, n)`, `cancel(SubagentSessionId, reason)`, `set_progress_provider(...)` | eos-engine background supervisor | `run_subagent`/control |
 | `AdvisorPort` | `review(tool_name, payload) -> Verdict` | eos-engine helper-agent runner | `ask_advisor` / `AdvisorApprovalPreHook` |
-| `IsolatedWorkspacePort` | `enter(req)`, `exit(req)` | eos-runtime adapter over eos-sandbox-host lifecycle (sandbox-host is upstream of eos-tools, so the implementor lives at the composition root) | enter/exit_isolated_workspace |
+| `IsolatedWorkspacePort` | `enter(agent_id, sandbox_id, req)`, `exit(agent_id, sandbox_id, req)`; adapter enforces no in-flight ephemeral jobs/command sessions before enter and cancels/drains per-agent background work before exit | eos-runtime adapter over eos-sandbox-host lifecycle + eos-engine background state | enter/exit_isolated_workspace |
 | `NotificationSink` | `notify_system(event)` | eos-engine notification service | `SystemNotificationService` |
 
 `TaskStore` (used by `submit_root_outcome`) is **not** a new port — it is the
@@ -346,8 +346,8 @@ All derive `Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema`; schema
 feed `ToolSpec.input_schema`. Real field names from source:
 
 - `ExecCommandInput { cmd: String(min 1), yield_time_ms: u32 (0..=30_000, default 1000), timeout: Option<u32>(>=1), max_output_tokens: Option<u32>(>=1) }`
-- `WriteStdinInput { command_session_id: String(min 1), chars: String(default ""), yield_time_ms: u32, max_output_tokens: Option<u32> }`
-- `ReadFileInput { file_path: String, start_line: u32 (>=1, default 1), end_line: u32 (>=1, default 200=MAX_READ_FILE_LINES) }` — when `end_line` is omitted a before-validator fills it as `start_line + 199` (the auto-window); after-validator enforces the ≤200-line invariant. Both defaults + the auto-window must be in the schemars schema for the Phase-0 parity snapshot (AC-tools-08).
+- `WriteStdinInput { command_session_id: CommandSessionId, chars: String(default ""), yield_time_ms: u32, max_output_tokens: Option<u32> }`
+- `ReadFileInput { file_path: String, start_line: u32 (>=1, default 1), end_line: u32 (>=1, default 200=MAX_READ_FILE_LINES) }` — when `end_line` is omitted a before-validator fills it as `start_line + 199` (the auto-window); after-validator enforces the ≤200-line invariant. Both defaults + the auto-window must be in the schemars schema for the crate-owned Phase-4 parity snapshot (AC-tools-08).
 - `WriteFileInput { file_path: String, content: String }`
 - `EditFileInput { file_path, old_text, new_text, replace_all: bool, description }`
 - `MultiEditInput { file_path, edits: Vec<MultiEditOp{old_text,new_text,replace_all}>, description }`
@@ -362,11 +362,11 @@ feed `ToolSpec.input_schema`. Real field names from source:
   - `SubmitExplorationResultInput { summary: String(min 1), findings: Vec<String>, references: Vec<String> }`
 - Workflow inputs:
   - `DelegateWorkflowInput { goal: String(min 1, nonblank) }`
-  - `CheckWorkflowStatusInput { workflow_id: String(min 1), workflow_task_id: Option<String> }`
-  - `CancelWorkflowInput { workflow_task_id: String(min 1), reason: String(default "") }`
-- `RunSubagentInput { agent_name: String, prompt: String(min 1) }` — the registered tool is the **restricted** variant (`RestrictedRunSubagentTool`): `agent_name` carries a runtime-scoped `enum` of the caller's dispatchable subagents (`json_schema_extra={"enum": allowed_list}`), so the emitted spec's input schema is **patched per caller at spec-build time** with that enum (and validated against it). The Phase-0 parity snapshot (AC-tools-08) must reflect the patched-enum schema, not a bare `agent_name: String`.
-- `CheckSubagentProgressInput { subagent_session_id: String(min 1), last_n_messages: u8 (1..=10, default 5) }`
-- `CancelSubagentInput { subagent_session_id: String(min 1), reason: String }`
+  - `CheckWorkflowStatusInput { workflow_id: WorkflowId, workflow_task_id: Option<WorkflowTaskId> }`
+  - `CancelWorkflowInput { workflow_task_id: WorkflowTaskId, reason: String(default "") }`
+- `RunSubagentInput { agent_name: String, prompt: String(min 1) }` — the registered tool is the **restricted** variant (`RestrictedRunSubagentTool`): `agent_name` carries a runtime-scoped `enum` of the caller's dispatchable subagents (`json_schema_extra={"enum": allowed_list}`), so the emitted spec's input schema is **patched per caller at spec-build time** with that enum (and validated against it). The crate-owned Phase-4 parity snapshot (AC-tools-08) must reflect the patched-enum schema, not a bare `agent_name: String`.
+- `CheckSubagentProgressInput { subagent_session_id: SubagentSessionId, last_n_messages: u8 (1..=10, default 5) }`
+- `CancelSubagentInput { subagent_session_id: SubagentSessionId, reason: String }`
 - `AskAdvisorInput { tool_name: String, tool_payload: JsonObject }`
 - `LoadSkillReferenceInput { skill_name: String, reference_name: String }`
 - `EnterIsolatedWorkspaceInput { layer_stack_root: String(default "") }`, `ExitIsolatedWorkspaceInput { … }`
@@ -568,7 +568,7 @@ Write each test first (TDD, anchor §11); confirm it fails before implementing.
   `ToolName` maps to a `TerminalTool`. Test: `terminal::tests::descriptors_total`.
   Ports `test_descriptor_registry.py`.
 - **AC-tools-08** — *Schema summary / spec parity.* `registry.specs()` produces a
-  stable, ordered `Vec<ToolSpec>` matching the Phase-0 schema snapshot for the
+  stable, ordered `Vec<ToolSpec>` matching the crate-owned Phase-4 schema snapshot for the
   full default tool set. The `run_subagent` spec reproduces the restricted schema:
   `agent_name` carries the caller-scoped enum of dispatchable subagents (schema
   patched per caller at spec-build time), so the snapshot fixture is built for a
@@ -607,7 +607,7 @@ Write each test first (TDD, anchor §11); confirm it fails before implementing.
     others via `PlanSubmissionPort`) → AC-tools-10/12.
 12. `model_tools/{workflow,subagent,ask_advisor,skills,isolated_workspace}/*`.
 13. `descriptions/*.md` incl. corrected `run_subagent.md` → GC-tools-08.
-14. Phase-0 schema snapshot fixture + spec-parity test.
+14. Crate-owned Phase-4 schema snapshot fixture + spec-parity test.
 
 ---
 **On completion:** update the Progress Tracker in `./overview.md` for row

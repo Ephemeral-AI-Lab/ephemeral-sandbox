@@ -128,7 +128,9 @@ for tests and low-volume compatibility. Production wiring should prefer
 `BufferedJsonlSink`: `publish` sends the event into a bounded sync channel, and a
 single writer thread owns the open append-mode file handle. If the queue is full,
 `publish` returns an `AuditError::Backpressure` so the bus can record the failure
-instead of blocking a Tokio worker thread.
+instead of blocking a Tokio worker thread. The close handle is a separate owned
+guard (`BufferedAuditShutdown`) retained by `eos-runtime`; it flushes and joins
+the writer thread on shutdown without adding methods to the `AuditSink` trait.
 
 Contracts **referenced** (not redefined here): `RequestId`, `WorkflowId`,
 `IterationId`, `AttemptId`, `TaskId`, `AgentRunId`, `SandboxId`, `ToolUseId`,
@@ -414,7 +416,8 @@ Per anchor §7. This crate is **synchronous** and runtime-agnostic — it takes
   `std::sync::mpsc::SyncSender<AuditEvent>` and a writer thread that owns the
   append-mode file handle. `publish` never performs disk IO on the caller's Tokio
   worker; it sends or returns `AuditError::Backpressure`. Shutdown flushes and
-  joins the writer from the composition root.
+  joins the writer through the `BufferedAuditShutdown` guard held by the
+  composition root.
 - **No async channels, no `JoinSet`** — none apply to a synchronous fanout bus.
   The bridge is a dedicated sync writer thread so the `AuditSink` trait remains
   object-safe and runtime-agnostic.
@@ -553,6 +556,9 @@ implement. Maps to anchor §11 "eos-audit: JSONL golden + deterministic redactio
 - **AC-audit-09** `JsonlSink` appends untruncated lines, creates parent dirs, and
   preserves prior content across writes. *Test:* `jsonl::tests::append_only_untruncated`
   (tempdir RAII fixture, `test-fixture-raii`).
+- **AC-audit-10** `BufferedJsonlSink` plus its shutdown guard flushes all accepted
+  events before join. Publish N events, call the guard's shutdown, and assert N
+  complete JSONL rows on disk. *Test:* `jsonl::tests::buffered_shutdown_flushes`.
 
 ## 12. Implementation Checklist
 

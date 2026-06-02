@@ -104,11 +104,21 @@ eos-types
   <- eos-agent-def
 
 eos-db -> eos-state + eos-config
-eos-tools -> eos-state + eos-sandbox-api + eos-skills + eos-audit
+eos-skills -> eos-types + eos-config
+eos-sandbox-host -> eos-sandbox-api + eos-config
+eos-plugin-catalog -> eos-sandbox-api + eos-audit + eos-config
+eos-tools -> eos-state + eos-sandbox-api + eos-skills + eos-audit + eos-llm-client
 eos-engine -> eos-llm-client + eos-tools + eos-audit + eos-agent-def
 eos-workflow -> eos-state + eos-tools + eos-agent-def + eos-audit
 eos-runtime -> eos-db + eos-engine + eos-workflow + eos-sandbox-host
+  + eos-plugin-catalog + eos-skills + eos-config + eos-agent-def
+  + eos-sandbox-api + eos-state + eos-types + eos-llm-client + eos-tools
+  + eos-audit
 ```
+
+`ToolSpec` is owned by `eos-llm-client`; `eos-tools` depends on it to author the
+model-facing tool specs. `eos-runtime` is the composition root and may depend
+directly on every crate it constructs.
 
 Use `tokio` with the `tracing` feature, `serde`, `serde_json`, `schemars`,
 `sqlx` with the `sqlite` feature only, `reqwest`, `eventsource-stream` or a
@@ -566,7 +576,8 @@ Core schemas:
 
 Rust target:
 
-- `spec.rs`: `ToolSpec`, `ToolName`, `ToolIntent`, `ToolError`.
+- `spec.rs`: colocated-spec helpers; `ToolName`, `ToolIntent`, `ToolError`.
+  `ToolSpec` itself is imported from `eos-llm-client`.
 - `executor.rs`: `trait ToolExecutor`.
 - `registry.rs`: concrete name to executor factory and spec.
 - `execution.rs`: parse input, run hooks, execute, validate output, stamp
@@ -864,7 +875,8 @@ Core classes and fields:
 
 Core schemas:
 
-- Sandbox provider kind: Docker or Daytona.
+- Sandbox provider kind: Docker only in the Rust target (the `ProviderAdapter`
+  seam + registry are kept so Daytona and other providers can be re-added later).
 - Daemon envelope fields: protocol version, auth token, op, args.
 - Runtime selection: Python or Rust during compatibility. Target should default
   to Rust daemon after migration.
@@ -873,7 +885,8 @@ Rust target:
 
 - `provider.rs`: adapter trait.
 - `registry.rs`: explicit app-state registry, not hidden process global state.
-- `docker.rs`, `daytona.rs`: concrete adapters.
+- `docker.rs`: the concrete adapter (Docker is the only Rust provider; `daytona.rs`
+  is not ported now — the trait + registry are kept so it can be re-added).
 - `daemon_client.rs`: transport, recovery, error decoding.
 - `lifecycle.rs`: create/start/stop/delete/setup.
 - `runtime_artifact.rs`: Rust daemon upload/readiness checks.
@@ -884,6 +897,11 @@ Gap closeout:
   shrink this to artifact upload plus compatibility bridge.
 - Provider bootstrap is first-call-wins today. Model it as explicit app state in
   Rust.
+- Do not port the Daytona adapter now: Docker is the only Rust sandbox provider.
+  Keep the `ProviderAdapter` trait + registry + `ProviderKind`/`SandboxProvider`
+  (Docker-only, `#[non_exhaustive]`) so Daytona/other providers can be re-added by
+  implementing the trait, and fail fast on a legacy `EOS_SANDBOX_PROVIDER=daytona`
+  rather than silently accepting it.
 - Keep the deep sandbox migration separate. Agent-core calls the daemon; it does
   not reimplement LayerStack, OCC, overlay, or plugin execution internals.
 
@@ -959,13 +977,13 @@ Core schemas:
 - Directory skill format: `<skill-name>/SKILL.md`.
 - Optional YAML frontmatter: `name`, `description`.
 - Optional `references/*.md` mapped by file stem.
-- Tool schema: `load_skill_reference { skill_name, reference_name }`.
+- Tool schema: `load_skill_reference { skill_name, reference_name }` (owned by
+  `eos-tools`; this crate only supplies the registry/loader it reads).
 
 Rust target:
 
 - `definition.rs`, `registry.rs`, `loader.rs`.
 - `bundled.rs` for config-backed skill directory loading.
-- `tool.rs` for `load_skill_reference`.
 
 Gap closeout:
 
@@ -1014,7 +1032,7 @@ Rust target:
 
 - `manifest.rs`: parse and validate `plugin.md`.
 - `discovery.rs`: catalog discovery and duplicate detection.
-- `catalog.rs`: app-state plugin registry.
+- `discovery.rs`: also owns the immutable `PluginCatalog` app-state value.
 - `tool_specs.rs`: expose model-facing specs for plugin tools.
 - `audit.rs`: plugin audit wrapper.
 
@@ -1121,7 +1139,8 @@ State and workflow:
 
 Providers:
 
-- Use `llm_provider` for model clients and `sandbox_provider` for Docker/Daytona.
+- Use `llm_provider` for model clients and `sandbox_provider` for the Docker
+  sandbox backend (the only Rust provider; seam kept for future providers).
 - Replace dynamic `class_path` client loading with typed config.
 - Unify retry config. Do not keep local retry constants in a provider client.
 - Keep coding-plan clients out of agent-core.
@@ -1178,47 +1197,57 @@ Verification:
 
 - `cargo fmt --check`.
 - `cargo clippy --workspace --all-targets -- -D warnings`.
-- Rust schema snapshots match current Pydantic schemas for selected tools,
-  messages, and sandbox request/result DTOs.
+- Rust schema snapshots match current Pydantic schemas for selected message
+  contracts. Sandbox request/result DTOs are dataclasses and `ToolSpec` goldens
+  require per-agent tool binding, so those are deferred to `eos-sandbox-api` and
+  `eos-tools` acceptance criteria.
 
-### Phase 1: State, Config, DB, Audit
+### Phase 1: Foundation
 
-- Implement `eos-types`, `eos-state`, `eos-config`, `eos-db`, `eos-audit`.
-- Convert workflow/task state and stores first.
-- Introduce SQLite versioned SQL migrations.
-- Add JSONL audit writer and redaction tests.
+- Implement `eos-types`: ID newtypes, `UtcDateTime`, `Clock`, `CoreError`,
+  `JsonObject`.
 
 Verification:
 
-- Store roundtrip tests for request/task/workflow/iteration/attempt/agent_run.
-- SQLite migration tests from empty database and from current compatibility
-  fixtures.
-- Outcome projection tests.
+- ID round-trip tests (`Display`/`FromStr`/serde/schemars).
+- `UtcDateTime` RFC3339 and UTC-normalization tests.
+
+### Phase 2: Leaf Domain and Boundary Crates
+
+- Implement `eos-config`, `eos-state`, `eos-audit`, `eos-sandbox-api`, and
+  `eos-agent-def`.
+- Convert workflow/task state, terminal submissions, config, audit, sandbox
+  request/result envelopes, and agent definitions before persistence/execution.
+
+Verification:
+
 - Config env override tests.
-- Audit JSONL golden tests.
+- State outcome-projection and submission DTO tests.
+- Audit JSONL golden and redaction tests.
+- Sandbox API envelope shape and dataclass parity fixtures.
+- Agent definition load/validate tests.
 
-### Phase 2: LLM Client and Message Layer
+### Phase 3: Persistence, Providers, Sandbox Host, Plugins, Skills
 
-- Implement `eos-llm-client`.
-- Add direct HTTP/SSE Anthropic client.
-- Add direct HTTP/SSE OpenAI Responses client.
-- Normalize stream events into existing query-loop event shape.
-- Add provider mock servers and replay tests.
+- Implement `eos-llm-client`, `eos-skills`, `eos-db`, `eos-sandbox-host`, and
+  `eos-plugin-catalog`.
+- Add direct HTTP/SSE Anthropic/OpenAI clients, SQLite repositories/migrations,
+  provider lifecycle/provisioning, plugin manifest discovery, and skill registry.
 
 Verification:
 
-- Anthropic SSE fixtures produce the same text/reasoning/tool-use/final events
-  as Python.
-- OpenAI SSE fixtures produce the same normalized tool-use deltas.
-- Retry tests prove no retry after visible output.
-- Error mapping tests preserve request ID and status code.
+- Anthropic/OpenAI SSE fixture replay, retry, and error-mapping tests.
+- Store roundtrip and SQLite migration tests.
+- Docker provider selection and provisioning tests (seam ready for future providers).
+- Plugin manifest validation tests.
+- Skill reference-loading determinism tests.
 
-### Phase 3: Tool Framework
+### Phase 4: Tool Framework
 
 - Implement `eos-tools` specs, registry, execution, hooks, terminal stamping,
-  and dispatch policy.
-- Port model-facing tool schemas and descriptions.
-- Port submission, workflow, sandbox, subagent, helper, and skill tools.
+  dispatch policy, and all model-facing tools.
+- Port submission, workflow, sandbox, subagent, helper, skill, and isolated
+  workspace tools.
 - Add compile/test coverage for terminal descriptors and tool names.
 
 Verification:
@@ -1226,61 +1255,51 @@ Verification:
 - Terminal tool called with siblings is rejected.
 - Terminal success stamps `is_terminal=true`.
 - Lifecycle batch policy matches current behavior.
-- Tool schema snapshots match Python where contracts are intentionally
-  preserved.
+- Representative tool schema snapshots match Python where contracts are
+  intentionally preserved.
 - Prompt/description coverage tests pass.
 
-### Phase 4: Engine
+### Phase 5: Execution Core
 
-- Implement query context, request builder, provider stream consumption,
-  streaming tool executor, dispatch, background supervisor, notifications, and
-  prompt reports.
-- Wire `eos-llm-client` and `eos-tools`.
+- Implement `eos-engine` and `eos-workflow`: query context/loop, provider stream
+  consumption, dispatch, background supervisor, notifications, prompt reports,
+  workflow starter, attempt orchestrator, run-stage scheduler, context engine,
+  and iteration coordinator.
 
 Verification:
 
-- Query-loop stop tests.
-- Terminal non-submission ceiling tests.
-- Background command/session tests.
-- Prompt report JSONL golden tests.
-- Notification rule tests.
+- Query-loop stop and terminal non-submission ceiling tests.
+- Background command/session cancellation tests.
+- Prompt report JSONL golden and notification rule tests.
+- Planner DAG validation tests.
+- Generator/reducer scheduling tests.
+- Reducer exit-gate, attempt close, and outcome projection tests.
 
-### Phase 5: Workflow and Runtime
+### Phase 6: Runtime Composition
 
-- Implement workflow starter, attempt orchestrator, planner DAG validation,
-  run-stage scheduling, context engine, iteration coordinator, and runtime
-  entry.
-- Wire root task startup and delegated workflow tools.
+- Implement `eos-runtime`: `AppState` graph, root request entry, root-agent
+  lifecycle, sandbox provisioning, provider/registry wiring, and observability
+  initialization.
 
 Verification:
 
 - Root request creates root task and no root workflow.
 - `delegate_workflow` creates `Workflow -> Iteration -> Attempt` and leaves the
   parent task running.
-- Planner DAG validation tests.
-- Generator/reducer scheduling tests.
-- Attempt close and outcome projection tests.
-
-### Phase 6: Sandbox Host, Plugins, Skills
-
-- Implement `eos-sandbox-api` and `eos-sandbox-host` host-facing boundary.
-- Port sandbox tool projections to daemon RPCs.
-- Implement plugin manifest discovery/catalog and skill registry.
-- Keep deep daemon/runtime internals outside agent-core.
-
-Verification:
-
-- Sandbox daemon envelope tests.
-- Docker/Daytona provider selection tests.
 - Request sandbox provisioning tests.
-- Plugin manifest validation tests.
-- Skill reference loading tests.
+- End-to-end mocked root request and delegated workflow tests.
 
 ### Phase 7: Cutover
 
-- Add Python compatibility adapters where needed to run old and new control
-  planes side by side.
+- Add an explicit cutover adapter (subprocess CLI, JSON-RPC, or extension module
+  chosen in the cutover spec) to run old and new control planes side by side.
+- Define request/result schemas, exit codes, stdout/stderr/log contract, feature
+  flag, DB ownership, and shadow-mode comparison tests.
 - Run Rust control plane against existing daemon and DB fixtures.
+- Choose the DB deployment path: greenfield SQLite-only, one-shot SQLite import,
+  or explicit PostgreSQL deprecation/error handling.
+- Define packaging for `eos-runtime` as a sidecar binary, standalone package, or
+  bundled wheel resource with release CI and package-location tests.
 - Retire Python modules by package boundary after parity is proven.
 - Rebuild test-runner integration separately; do not migrate
   `backend/src/test_runner` in this plan.

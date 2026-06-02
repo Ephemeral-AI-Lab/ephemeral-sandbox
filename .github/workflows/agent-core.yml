@@ -45,3 +45,6 @@ jobs:
 
       - name: parity tests
         run: cargo test -p eos-parity
+
+      - name: observability smoke
+        run: cargo check --workspace --features eos-runtime/tokio-console

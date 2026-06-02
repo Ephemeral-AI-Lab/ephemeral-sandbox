@@ -58,9 +58,9 @@ configured catalog root.
   | Crate | Why | rust-skills rule |
   |---|---|---|
   | `thiserror` | the one library error enum `PluginCatalogError`; no `Box<dyn Error>` in public signatures | `err-thiserror-lib`, `err-custom-type` |
-  | `serde` (derive) | `Serialize` on manifests/`PluginToolSpec`/audit section (emit into audit + Phase-0 snapshots); `Deserialize` only on the wire-input DTOs (`RawManifest`, LSP input structs), not on the invariant types (§6) | `api-common-traits`, `api-parse-dont-validate` |
+  | `serde` (derive) | `Serialize` on manifests/`PluginToolSpec`/audit section (emit into audit + crate-owned Phase-3 snapshots); `Deserialize` only on the wire-input DTOs (`RawManifest`, LSP input structs), not on the invariant types (§6) | `api-common-traits`, `api-parse-dont-validate` |
   | `serde_yaml` | parse the `---`-delimited YAML frontmatter of `plugin.md` (mirrors Python `yaml.safe_load`) | `api-parse-dont-validate` |
-  | `schemars` (`JsonSchema`) | LSP tool input structs participate in the Phase-0 schema-snapshot parity harness (anchor §11) | anchor §3 (Pydantic → serde + JsonSchema) |
+  | `schemars` (`JsonSchema`) | LSP tool input structs participate in the crate-owned Phase-3 schema-snapshot parity harness (anchor §11) | anchor §3 (Pydantic → serde + JsonSchema) |
 
   No `tokio` runtime, no `async-trait`, no `regex`, no `walkdir`/glob: discovery is
   a single synchronous `read_dir` of the catalog root performed **once** at the
@@ -74,13 +74,13 @@ configured catalog root.
 
 | Python source | Rust target | What moves / what is dropped |
 |---|---|---|
-| `plugins/core/manifest.py` (`PluginManifest`, `ToolEntry`, `ALLOWED_PLUGIN_KINDS`, `parse_plugin_manifest`, `PluginManifestError`) | `src/manifest.rs` | Moves all validation: frontmatter split, name pattern, `name == dir`, tool-prefix, duplicate-tool, path-under-dir resolution, `kind` enum check. Validation is **two-stage**: deserialize a `pub(crate) RawManifest` DTO (the only `Deserialize` target) from the frontmatter `serde_yaml::Value`, then validate-into the invariant-bearing `PluginManifest` with `plugin_dir` context (mirrors Python's dynamic dict inspection in `_parse_tools`/`_require_str`, which yields the granular error variants a typed deserialize cannot). `ALLOWED_PLUGIN_KINDS: frozenset[str]` → `PluginKind` enum (`type-no-stringly`). `module: Path` (validated-under-dir) → `PluginRelPath` newtype. `setup`/`runtime: Path \| None` → `Option<PluginRelPath>` (validated, **not** executed). |
+| `plugins/core/manifest.py` (`PluginManifest`, `ToolEntry`, `ALLOWED_PLUGIN_KINDS`, `parse_plugin_manifest`, `PluginManifestError`) | `src/manifest.rs` | Moves all validation: frontmatter split, name pattern, `name == dir`, tool-prefix, duplicate-tool, path-under-dir resolution, `kind` enum check. Validation is **two-stage**: deserialize a `pub(crate) RawManifest` DTO (the only `Deserialize` target) from the frontmatter `serde_yaml::Value`, then validate-into the invariant-bearing `PluginManifest` with `plugin_dir` context (mirrors Python's dynamic dict inspection in `_parse_tools`/`_require_str`, which yields the granular error variants a typed deserialize cannot). `ALLOWED_PLUGIN_KINDS: frozenset[str]` → `PluginKind` enum (`type-no-stringly`). `module: Path` (validated-under-dir) → `PluginResolvedPath` newtype. `setup`/`runtime: Path \| None` → `Option<PluginResolvedPath>` (validated, **not** executed). |
 | `plugins/core/discovery.py` (`discover_plugins`, `DuplicatePluginError`, `DEFAULT_CATALOG_DIR`, `default_catalog_dir`) | `src/discovery.rs` | Moves: sorted deterministic walk, skip-folders-without-`plugin.md`, duplicate-name → hard error. **DROPS** `DEFAULT_CATALOG_DIR`/`default_catalog_dir` (the `Path(__file__).parent.parent/"catalog"` derivation); root comes from `eos-config` (GC-plugin-catalog-02). PLAN's separate `catalog.rs` (app-state plugin registry, PLAN line 1010) is intentionally **merged into `discovery.rs`** (the `PluginCatalog` value is colocated with `discover_under`, KISS); no standalone `catalog.rs`. |
 | `plugins/core/loader.py` (`register_plugin_tools`, `_load_*`, `_import_from_path`, `_collect_base_tools`, `_LOAD_CACHE`, `PluginToolImportError`, `PluginToolBindingError`) | **mostly DROPPED** | No Python-module import/bind in Rust (GC-plugin-catalog-01). `PluginToolImportError`/`PluginToolBindingError`/`_collect_base_tools`/`_import_from_path`/`_LOAD_CACHE` **vanish**. The **only** surviving concept is the `_install_plugin_audit_shim` wrapper → `src/audit.rs` as a generic combinator (GC-plugin-catalog-03). |
 | `plugins/catalog/lsp/plugin.md` + `tools/*.py` (input models, names, intents) | `src/tool_specs.rs` | Moves the **declared** LSP tool surface as catalog-native `PluginToolSpec`s: name const, `const DESCRIPTION`, `#[derive(JsonSchema)]` input struct, `Intent`. Does **not** move `call_plugin`/`call_plugin_write` dispatch (that is the runtime's executor) nor `runtime/server.py` (Pyright session — stays out of agent-core, GC-plugin-catalog-05). |
 | `sandbox/daemon/audit_schema.py` (`PluginSection`, `build_plugin_event`) | `src/audit.rs` (`PluginAuditSection`, event builder) | Re-implements the plugin-specific event section + `plugin.*` event builder; emits through the referenced `AuditSink`. |
 
-**In scope:** `PluginManifest`, `ToolEntry`, `PluginKind`, `PluginRelPath`,
+**In scope:** `PluginManifest`, `ToolEntry`, `PluginKind`, `PluginResolvedPath`,
 `PluginName`/`PluginToolName`, `PluginCatalog` + discovery/duplicate detection,
 `PluginToolSpec` sources (incl. the 10 LSP specs), the plugin audit wrapper, and
 `PluginCatalogError`.
@@ -101,7 +101,7 @@ eos-plugin-catalog/
   src/
     lib.rs          # crate docs + `pub use` re-exports (proj-pub-use-reexport)
     manifest.rs     # PluginManifest, ToolEntry, PluginKind, parse_plugin_manifest
-    names.rs        # PluginName, PluginToolName, PluginRelPath validated newtypes
+    names.rs        # PluginName, PluginToolName, PluginResolvedPath validated newtypes
     discovery.rs    # PluginCatalog: discover_under(root) + duplicate detection
     tool_specs.rs   # PluginToolSpec + the 10 LSP tool-spec sources + input structs
     audit.rs        # PluginAuditSection, plugin.* event builder, audit_plugin_call
@@ -110,7 +110,7 @@ eos-plugin-catalog/
 ```
 
 `lib.rs` re-exports the public surface: `PluginManifest`, `ToolEntry`,
-`PluginKind`, `PluginName`, `PluginToolName`, `PluginRelPath`, `PluginCatalog`,
+`PluginKind`, `PluginName`, `PluginToolName`, `PluginResolvedPath`, `PluginCatalog`,
 `PluginToolSpec`, `PluginAuditSection`, `audit_plugin_call`, `plugin_tool_specs`,
 and `PluginCatalogError`. `frontmatter.rs` is `pub(crate)`
 (`proj-pub-crate-internal`); manifest validation helpers are `pub(crate)`.
@@ -187,8 +187,8 @@ preference for concrete/`impl Trait` over `Box<dyn Trait>` (`anti-type-erasure`)
 | `name` | `PluginName` | transparent newtype over `String` | `name: str` |
 | `description` | `String` | plain, non-empty | `description: str` |
 | `tools` | `Vec<ToolEntry>` | non-empty (validated) | `tools: tuple[ToolEntry, ...]` |
-| `setup` | `Option<PluginRelPath>` | validated-under-dir, file-exists; not executed | `setup: Path \| None` |
-| `runtime` | `Option<PluginRelPath>` | validated-under-dir, file-exists; not executed | `runtime: Path \| None` |
+| `setup` | `Option<PluginResolvedPath>` | validated-under-dir, file-exists; not executed | `setup: Path \| None` |
+| `runtime` | `Option<PluginResolvedPath>` | validated-under-dir, file-exists; not executed | `runtime: Path \| None` |
 | `source_dir` | `PathBuf` | absolute, canonicalized plugin dir | `source_dir: Path` |
 | `body` | `String` | trimmed markdown after frontmatter (informational) | `body: str` |
 | `kind` | `Option<PluginKind>` | `#[serde(default)]`; `None` = unset | `kind: str \| None = None` |
@@ -201,7 +201,7 @@ parser, not a wire-input DTO; see the two-stage parse below);
 
 **Two-stage parse (parse-raw → validate).** `PluginManifest` is *not* a direct
 `Deserialize` target: two of its fields (`source_dir`, and the resolved
-`PluginRelPath`s for `tools[].module`/`setup`/`runtime`) are only knowable with
+`PluginResolvedPath`s for `tools[].module`/`setup`/`runtime`) are only knowable with
 `plugin_dir` context, never from frontmatter alone, and a typed
 `serde_yaml::from_value` would collapse the granular `PluginCatalogError`
 variants (`MissingField`/`NotMapping`/`EmptyTools`) into one
@@ -219,7 +219,7 @@ DRY-shared split with `eos-skills`; a plugin-shaped DTO would couple it).
 | Field | Rust type | Notes | Source-of-truth |
 |---|---|---|---|
 | `name` | `PluginToolName` | validated to start with `<plugin_name>.` | `name: str` |
-| `module` | `PluginRelPath` | resolves under `source_dir`, file exists | `module: Path` |
+| `module` | `PluginResolvedPath` | resolves under `source_dir`, file exists | `module: Path` |
 
 ### `PluginKind` (was `ALLOWED_PLUGIN_KINDS: frozenset[str]`, lines 45-54)
 
@@ -239,7 +239,7 @@ DRY-shared split with `eos-skills`; a plugin-shaped DTO would couple it).
 `type-no-stringly`/`type-enum-states`.
 The audit fallback to `Custom` when `kind` is unset is preserved in §8/audit.
 
-### `PluginName`, `PluginToolName`, `PluginRelPath` (validated newtypes)
+### `PluginName`, `PluginToolName`, `PluginResolvedPath` (validated newtypes)
 
 ```rust
 /// A plugin folder + manifest name. Must match `^[a-z][a-z0-9_]*$` and equal the
@@ -257,21 +257,21 @@ impl PluginName {
 /// A path declared in `plugin.md`, resolved and proven to live UNDER the plugin
 /// dir (no `..` escape). The security invariant from manifest.py `_resolve_under`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct PluginRelPath(PathBuf); // absolute, canonicalized, `starts_with(source_dir)`
+pub struct PluginResolvedPath(PathBuf); // absolute, canonicalized, `starts_with(source_dir)`
 ```
 
 `PluginToolName` is a transparent `String` newtype carrying the validated
 `<plugin_name>.<suffix>` shape (manifest.py lines 179-194). All three newtypes
-(`PluginName`, `PluginToolName`, `PluginRelPath`) derive **`Serialize` +
+(`PluginName`, `PluginToolName`, `PluginResolvedPath`) derive **`Serialize` +
 `JsonSchema` only — never `Deserialize`** (`type-newtype-validated`,
 `api-parse-dont-validate`): a derived `Deserialize` would be an unvalidated
-public constructor able to mint a `PluginRelPath` holding `../evil` or a
+public constructor able to mint a `PluginResolvedPath` holding `../evil` or a
 `PluginName` violating `^[a-z][a-z0-9_]*$` without ever running
 `parse`/`resolve_under`. By withholding it, the `parse`/`resolve_under`
-validators are the **sole** constructors, so — once parsed — a `PluginRelPath`
+validators are the **sole** constructors, so — once parsed — a `PluginResolvedPath`
 is structurally guaranteed not to escape `source_dir`; that withholding is what
 actually makes this guarantee (and GC-plugin-catalog-06) true. `Serialize` +
-`JsonSchema` still satisfy the §2 audit-emit and Phase-0 snapshot uses. (Wire
+`JsonSchema` still satisfy the §2 audit-emit and Phase-3 snapshot uses. (Wire
 *input* DTOs — the LSP input structs below and the `pub(crate) RawManifest` —
 *do* derive `Deserialize`; the runtime legitimately parses into those.) `Ord` on
 `PluginName` gives `BTreeMap` deterministic ordering for free (replaces Python
@@ -502,12 +502,12 @@ favor of the source (`lsp.format`), GC-plugin-catalog-07.
   declared deps).
 - **GC-plugin-catalog-05 — validated-not-executed paths; LSP runtime stays out
   (PLAN lines 1019-1022, second + third bullets).** *Resolution:* `setup`/
-  `runtime`/`module` are validated as `PluginRelPath` (under-dir + exists) but
+  `runtime`/`module` are validated as `PluginResolvedPath` (under-dir + exists) but
   never executed here; Pyright sessions / `runtime/server.py` remain a sandbox
   plugin-runtime concern. The crate only *describes* the LSP tool boundary (§6).
   Proven by AC-plugin-catalog-03, AC-plugin-catalog-10.
 - **GC-plugin-catalog-06 — path-escape is structurally impossible.**
-  *Resolution:* `PluginRelPath::resolve_under(plugin_dir, raw)` canonicalizes and
+  *Resolution:* `PluginResolvedPath::resolve_under(plugin_dir, raw)` canonicalizes and
   `starts_with`-checks; a `..`-escaping path returns `PathEscape`. Proven by
   AC-plugin-catalog-04.
 - **GC-plugin-catalog-07 — `lsp.format` naming (directive/source drift).**
@@ -537,7 +537,7 @@ Maps to anchor §11 "Tests to Port First" row `eos-plugin-catalog` →
   `runtime` path that resolves under-dir but does not exist → `PathMissing`.
   *Proving test:* `manifest::tests::missing_declared_path_errors`.
 - **AC-plugin-catalog-04 — path-escape rejected.** A tool `module` of `../evil.py`
-  (or absolute outside) → `PathEscape`; `PluginRelPath::resolve_under` never
+  (or absolute outside) → `PathEscape`; `PluginResolvedPath::resolve_under` never
   returns a path outside `plugin_dir`. *Proving test:*
   `names::tests::rejects_path_escape` (proves GC-plugin-catalog-06).
 - **AC-plugin-catalog-05 — kind validation.** Unset `kind` → `None`; a recognized
@@ -570,14 +570,14 @@ Maps to anchor §11 "Tests to Port First" row `eos-plugin-catalog` →
   (proves GC-plugin-catalog-04).
 - **AC-plugin-catalog-10 — LSP input-schema snapshot parity.**
   `schema_for!(HoverInput)` … `schema_for!(ApplyWorkspaceEditInput)` match the
-  committed Phase-0 snapshots derived from the current Pydantic schemas on a
+  committed Phase-3 snapshots derived from the current Pydantic schemas on a
   **normalized comparison** — the field-name/optionality set, defaults, and the
   `lsp.format` name — **not** raw JSON-Schema byte-equality. The deliberate
   `u32` (for `line`/`character`, was Pydantic `int(ge=0)`) and `JsonObject` (for
   opaque LSP payloads, was `dict`/`list`) choices intentionally change the
   emitted schema, so a raw byte-equal snapshot would mismatch by design.
   *Proving test:* `tool_specs::tests::lsp_input_schema_snapshots` (anchor §11
-  Phase-0 parity harness; proves GC-plugin-catalog-07).
+  Phase-3 parity harness; proves GC-plugin-catalog-07).
 
 ## 12. Implementation Checklist
 
@@ -587,7 +587,7 @@ Ordered, small, verifiable steps (`small-incremental-changes`):
    lints). `cargo build` green with empty `lib.rs`.
 2. `error.rs`: define `PluginCatalogError` (thiserror, `#[non_exhaustive]`).
 3. `names.rs`: `PluginName`/`PluginToolName` parse (char-class, prefix),
-   `PluginRelPath::resolve_under` (canonicalize + `starts_with`). Write
+   `PluginResolvedPath::resolve_under` (canonicalize + `starts_with`). Write
    AC-plugin-catalog-04 first.
 4. `frontmatter.rs` (`pub(crate)`): port the `---` YAML frontmatter split.
 5. `manifest.rs`: `PluginKind` enum, `ToolEntry`, `PluginManifest`, the
@@ -602,7 +602,7 @@ Ordered, small, verifiable steps (`small-incremental-changes`):
    `DuplicatePlugin`; empty-vs-non-dir root. Write AC-plugin-catalog-06 first.
 7. `tool_specs.rs`: `PluginToolSpec`, the 10 LSP input structs + name consts +
    `const DESCRIPTION` + `Intent`, `plugin_tool_specs()`. Write
-   AC-plugin-catalog-07/09 first; commit Phase-0 schema snapshots (AC-10).
+   AC-plugin-catalog-07/09 first; commit Phase-3 schema snapshots (AC-10).
 8. `audit.rs`: `PluginAuditSection`, `PluginCallStatus`, `plugin.*` event builder,
    `audit_plugin_call`. Write AC-plugin-catalog-08 first.
 9. `lib.rs`: `pub use` re-exports; `cargo clippy -D warnings` + `cargo fmt

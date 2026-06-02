@@ -49,7 +49,7 @@ all I/O-shaped trait methods return `Result<_, CoreError>` (`type-result-fallibl
 
 | Python source | Rust target | What moves / what is dropped |
 |---|---|---|
-| `backend/src/task/task.py` | `task.rs` | `Task` DTO + `TaskStatus`; `TASK_AGENT_ROLES` / `TERMINAL_GENERATOR_STATUSES` become `const` sets / helper fns. `role: AgentRole` is referenced from `eos-agent-def`? **No** — to keep `eos-state` upstream of `eos-agent-def`, `Task.role` is a local `AgentRole` enum mirror (the 4 task roles); see §6/§8 ownership note. |
+| `backend/src/task/task.py` | `task.rs` | `Task` DTO + `TaskStatus`; `TASK_AGENT_ROLES` / `TERMINAL_GENERATOR_STATUSES` become `const` sets / helper fns. `role: AgentRole` is referenced from `eos-agent-def`? **No** — to keep `eos-state` upstream of `eos-agent-def`, `Task.role` is a local `TaskRole` enum (the 4 persisted task roles); see §6/§8 ownership note. |
 | `backend/src/workflow/_core/state.py` | `workflow.rs`, `iteration.rs`, `attempt.rs` | `Workflow`/`Iteration`/`Attempt` DTOs + `WorkflowStatus`, `IterationStatus`, `IterationCreationReason`, `AttemptStage`, `AttemptStatus`, `AttemptFailReason`; `is_open`/`attempt_count`/`has_budget_remaining`/`latest_attempt_id`/`is_closed` become methods. |
 | `backend/src/workflow/_core/outcomes.py` | `outcomes.rs` | `ExecutionTaskOutcome` + `TaskOutcomeStatus`/`ExecutionRole` enums + pure projections. JSON parse/serialize helpers (`parse_outcomes_record`, `records_json`, `to_record`) move to `eos-db`; only the **typed** projection algebra stays here (see §6). |
 | `backend/src/workflow/_core/persistence.py` | `store.rs` | `*StoreProtocol` Protocols → `#[async_trait]` per-entity traits returning typed DTOs. `TaskRow = dict[str,Any]` is **dropped**: `TaskStore` returns `Option<Task>` (typed), closing the plan's "stop serializing id twice" gap. `is_ready: bool` → readiness is an `eos-db` concern, not a trait member. |
@@ -69,7 +69,7 @@ packets, any orchestration/lifecycle decision.
 ```
 src/
   lib.rs          // pub use re-exports of every public DTO/enum/trait (proj-pub-use-reexport)
-  task.rs         // Task, TaskStatus, AgentRole (task-role mirror), role/status helper consts
+  task.rs         // Task, TaskStatus, TaskRole (task-row role mirror), role/status helper consts
   workflow.rs     // Workflow, WorkflowStatus
   iteration.rs    // Iteration, IterationStatus, IterationCreationReason
   attempt.rs      // Attempt, AttemptStage, AttemptStatus, AttemptFailReason
@@ -156,7 +156,7 @@ pub trait WorkflowStore: sealed::Sealed + Send + Sync {
 #[async_trait]
 pub trait TaskStore: sealed::Sealed + Send + Sync {
     async fn upsert_task(&self, task: &Task) -> Result<(), CoreError>;
-    async fn get_task(&self, id: &TaskId) -> Result<Option<Task>, CoreError>;
+    async fn get(&self, id: &TaskId) -> Result<Option<Task>, CoreError>;
     async fn set_task_status(
         &self,
         id: &TaskId,
@@ -270,7 +270,7 @@ pub trait RequestStore: sealed::Sealed + Send + Sync {
         sandbox_id: Option<&SandboxId>,
         request_prompt: &str,
     ) -> Result<(), CoreError>;                          // Python returns None
-    async fn get_request(&self, id: &RequestId) -> Result<Option<Request>, CoreError>;
+    async fn get(&self, id: &RequestId) -> Result<Option<Request>, CoreError>;
     async fn set_root_task_id(
         &self,
         id: &RequestId,
@@ -304,7 +304,7 @@ pub trait AgentRunStore: sealed::Sealed + Send + Sync {
         token_count: i64,
         error: Option<&str>,
     ) -> Result<Option<AgentRun>, CoreError>;
-    async fn get_run(&self, agent_run_id: &AgentRunId) -> Result<Option<AgentRun>, CoreError>;
+    async fn get(&self, agent_run_id: &AgentRunId) -> Result<Option<AgentRun>, CoreError>;
 }
 
 #[async_trait]
@@ -323,7 +323,7 @@ pub trait ModelStore: sealed::Sealed + Send + Sync {
     ) -> Result<ModelRegistration, CoreError>;
     async fn delete(&self, model_key: &str) -> Result<bool, CoreError>;
     async fn get(&self, model_key: &str) -> Result<Option<ModelRegistration>, CoreError>;
-    async fn get_active(&self) -> Result<Option<ModelRegistration>, CoreError>;
+    async fn active(&self) -> Result<Option<ModelRegistration>, CoreError>;
 }
 ```
 
@@ -337,7 +337,7 @@ method above to its Python protocol source.)
 
 `outcomes.rs` owns the projection algebra as **pure async-free functions**
 (no `self`, no I/O), taking `Option<&dyn TaskStore>` where the Python took
-`TaskStoreProtocol | None`. Because the projections call `task_store.get_task`
+`TaskStoreProtocol | None`. Because the projections call `task_store.get`
 (async), the projection fns that touch the store are `async`; the in-memory ones
 (`execution_outcome_for_submission`, `present_status`, `latest_iteration`) are
 sync. See §6.8.
@@ -389,15 +389,15 @@ the Python `StrEnum` wire values.
 `TaskStatus` enum (source: `TaskStatus(StrEnum)`): `Pending`, `Running`, `Done`,
 `Failed`, `Blocked`.
 
-`AgentRole` (task-role mirror): `Root`, `Planner`, `Generator`, `Reducer` —
+`TaskRole`: `Root`, `Planner`, `Generator`, `Reducer` —
 exactly `TASK_AGENT_ROLES`. **Naming normalization (anchor §4, GC-eos-state-02):**
 the execution state role is `Generator`; `executor` never appears here (profile
 alias only, owned by `eos-agent-def`). `TASK_AGENT_ROLES` and
 `TERMINAL_GENERATOR_STATUSES` become:
 
 ```rust
-pub const TASK_AGENT_ROLES: [AgentRole; 4] =
-    [AgentRole::Root, AgentRole::Planner, AgentRole::Generator, AgentRole::Reducer];
+pub const TASK_AGENT_ROLES: [TaskRole; 4] =
+    [TaskRole::Root, TaskRole::Planner, TaskRole::Generator, TaskRole::Reducer];
 
 impl TaskStatus {
     /// Python `TERMINAL_GENERATOR_STATUSES`.
@@ -617,14 +617,14 @@ from the Python module and is recorded as GC-eos-state-03.
 | `WorkflowStore` | `insert`, `get`, `append_iteration_id`, `set_status`, `list_for_parent_task` | `WorkflowStoreProtocol` |
 | `IterationStore` | `insert`, `get`, `append_attempt_id`, `set_status`, `set_deferred_goal_for_next_iteration`, `close_succeeded`, `list_for_workflow` | `IterationStoreProtocol` |
 | `AttemptStore` | `insert`, `get`, `set_stage`, `set_planner_task_id`, `set_generator_task_ids`, `set_reducer_task_ids`, `set_deferred_goal`, `close`, `list_for_iteration` | `AttemptStoreProtocol` |
-| `TaskStore` | `upsert_task`, `get_task`, `set_task_status`, `set_task_status_if_current` | `TaskStoreProtocol` (task surface) |
-| `RequestStore` | `create_request`, `get_request`, `set_root_task_id`, `finish_request` | `TaskStoreProtocol` (request surface, split out per ISP) |
-| `AgentRunStore` | `create_run`, `finish_run`, `get_run` | `AgentRunStore` |
-| `ModelStore` | `register`, `delete`, `get`, `get_active` | `ModelStore` |
+| `TaskStore` | `upsert_task`, `get`, `set_task_status`, `set_task_status_if_current` | `TaskStoreProtocol` (task surface) |
+| `RequestStore` | `create_request`, `get`, `set_root_task_id`, `finish_request` | `TaskStoreProtocol` (request surface, split out per ISP) |
+| `AgentRunStore` | `create_run`, `finish_run`, `get` | `AgentRunStore` |
+| `ModelStore` | `register`, `delete`, `get`, `active` | `ModelStore` |
 
 `AttemptStore::close` mirrors Python: `status: AttemptStatus`,
 `fail_reason: Option<AttemptFailReason>`, `outcomes: Option<&[ExecutionTaskOutcome]>`,
-`closed_at: UtcDateTime`. `ModelStore::get`/`get_active` return
+`closed_at: UtcDateTime`. `ModelStore::get`/`active` return
 `Result<Option<ModelRegistration>, CoreError>` (the normalized DTO carrying
 `model_key`); **provider selection is not modeled in `eos-state`** — it is
 `eos-db`/`eos-llm-client`'s job (see §6.7), which keeps this crate free of
@@ -689,7 +689,7 @@ concurrency primitives live downstream.
   imposes **no lock discipline** because it holds no state across `.await`
   (`async-no-lock-await` is trivially satisfied — there are no locks).
 - **Projections:** the async projection fns `.await` exactly one or more
-  `store.get_task`/`list_*` calls and own all their intermediate `Vec`s on the
+  `store.get`/`list_*` calls and own all their intermediate `Vec`s on the
   stack; nothing is shared, so there is no lock-across-await hazard
   (`anti-lock-across-await`).
 - **No channels, no `JoinSet`, no `CancellationToken`** originate here — the
@@ -804,13 +804,14 @@ purely in-memory fns return plain values (`err-result-over-panic` — no panics)
 - **GC-eos-state-04** — *No `class_path` dispatch (anchor §2 non-goal).*
   `ModelRegistration.class_path` is an opaque migration-only field; provider
   selection is normalized to `llm_provider`/`model_key` and is **not modeled in
-  `eos-state`** — it is derived in `eos-db`. `ModelStore::get`/`get_active`
+  `eos-state`** — it is derived in `eos-db`. `ModelStore::get`/`active`
   return the `ModelRegistration` DTO (carrying `model_key`) only. **Resolution:**
   no `class_path`-based branching and no provider-selection logic in `eos-state`;
   the DTO carries the column but no behavior. Proven by AC-eos-state-07.
 - **GC-eos-state-05** — *Acyclic role ownership.* `Task.role` uses a minimal
-  4-variant `AgentRole` defined here (upstream of `eos-agent-def`); the full
-  role/type registry stays in `eos-agent-def`, which references this enum.
+  4-variant `TaskRole` defined here (upstream of `eos-agent-def`); the full
+  profile role/type registry keeps the `AgentRole` name in `eos-agent-def` and
+  maps to/from `TaskRole` at spawn/validation boundaries.
   **Resolution:** documented ownership boundary in §6.1; verified by the
   dependency graph in overview.md having no `eos-state → eos-agent-def` edge.
 
@@ -843,7 +844,7 @@ the Phase-0 schema-snapshot harness.
   — two attempts, first failed (with a successful reducer), second passing;
   asserts only the closing attempt's reducer successes appear. (§8 invariant 4,
   highest-risk regression.)
-- **AC-eos-state-06** — `TaskStore` is fully typed: `get_task → Option<Task>`,
+- **AC-eos-state-06** — `TaskStore` is fully typed: `get → Option<Task>`,
   `upsert_task(&Task)`, no `dict`/`Value` row type in any signature. *Test:*
   `task_store_is_typed` (a `FakeTaskStore` impl + a trait-object usage compiles
   and round-trips a `Task` losslessly). (GC-eos-state-01.)

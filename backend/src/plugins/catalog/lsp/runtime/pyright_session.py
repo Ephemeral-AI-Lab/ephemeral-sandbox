@@ -31,6 +31,7 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 _CONDA_HOOK = "/opt/miniconda3/etc/profile.d/conda.sh"
+_PYRIGHT_NODE_BIN = "/eos/plugin-packages/lsp/node/bin"
 _DEFAULT_INIT_TIMEOUT_S = 30.0
 _DEFAULT_REQUEST_TIMEOUT_S = 30.0
 _REFERENCES_TIMEOUT_S = 5.0
@@ -713,7 +714,7 @@ class PyrightSession:
                 "-lc",
                 (
                     f". {_CONDA_HOOK} && conda activate testbed "
-                    "&& export PATH=/tmp/eos-node22/bin:$PATH "
+                    f"&& export PATH={_PYRIGHT_NODE_BIN}:$PATH "
                     "&& exec pyright-langserver --stdio"
                 ),
             ]
@@ -723,7 +724,7 @@ class PyrightSession:
         return [
             "bash",
             "-lc",
-            "export PATH=/tmp/eos-node22/bin:$PATH && exec pyright-langserver --stdio",
+            f"export PATH={_PYRIGHT_NODE_BIN}:$PATH && exec pyright-langserver --stdio",
         ]
 
     def _release_overlay_handle(self) -> None:

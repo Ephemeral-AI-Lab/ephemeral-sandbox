@@ -45,33 +45,43 @@ async def test_5_concurrent_network_no_interference(
         )
     )
     assert all(r.get("success") for r in enters), enters
+    server_sessions: dict[str, str] = {}
     try:
         # 5 servers on the same port — no EADDRINUSE thanks to per-ws netns.
         launches = await asyncio.gather(
             *(
                 _iws_rpc.shell(
                     sandbox_id, agent,
-                    "nohup python3 -m http.server 8080 >/tmp/srv.log 2>&1 & "
-                    "sleep 0.5; echo $!",
+                    "cd /testbed && exec python3 -m http.server 8080",
                 )
                 for agent in _AGENTS
             )
         )
-        assert all(r.get("success") for r in launches), launches
+        for agent, launch in zip(_AGENTS, launches, strict=True):
+            command_session_id = launch.get("command_session_id")
+            if isinstance(command_session_id, str) and command_session_id:
+                assert launch.get("status") == "running", (agent, launch)
+                server_sessions[agent] = command_session_id
+            else:
+                assert launch.get("success") is True, (agent, launch)
 
         # Each agent reaches localhost:8080 successfully.
-        own = await asyncio.gather(
-            *(
-                _iws_rpc.shell(
-                    sandbox_id, agent,
-                    "curl -s --max-time 3 -o /dev/null -w '%{http_code}' "
-                    "http://127.0.0.1:8080/ || echo BAD",
+        for agent in _AGENTS:
+            for _attempt in range(12):
+                res = await _iws_rpc.complete_shell(
+                    sandbox_id,
+                    agent,
+                    await _iws_rpc.shell(
+                        sandbox_id, agent,
+                        "curl -s --max-time 3 -o /dev/null -w '%{http_code}' "
+                        "http://127.0.0.1:8080/ || echo BAD",
+                    ),
                 )
-                for agent in _AGENTS
-            )
-        )
-        for agent, res in zip(_AGENTS, own, strict=True):
-            assert "200" in (res.get("stdout", "") or ""), (agent, res)
+                if "200" in _iws_rpc.stdout(res):
+                    break
+                await asyncio.sleep(0.25)
+            else:
+                raise AssertionError((agent, res))
 
         # Cross-agent reach via peer's bridge IP must fail.
         jsonl = await iws_audit_jsonl()
@@ -87,11 +97,21 @@ async def test_5_concurrent_network_no_interference(
         assert set(_AGENTS) <= set(ip_by_agent), ip_by_agent
 
         peer_ip = ip_by_agent["agent-B"]
-        cross = await _iws_rpc.shell(
-            sandbox_id, "agent-A",
-            f"curl -s --max-time 2 http://{peer_ip}:8080/ || echo BLOCKED",
+        cross = await _iws_rpc.complete_shell(
+            sandbox_id,
+            "agent-A",
+            await _iws_rpc.shell(
+                sandbox_id, "agent-A",
+                f"curl -s --max-time 2 http://{peer_ip}:8080/ || echo BLOCKED",
+            ),
         )
-        assert "BLOCKED" in (cross.get("stdout", "") or ""), cross
+        assert "BLOCKED" in _iws_rpc.stdout(cross), cross
     finally:
+        for agent, command_session_id in server_sessions.items():
+            await _iws_rpc.cancel_command_session(
+                sandbox_id,
+                agent,
+                command_session_id,
+            )
         for agent in _AGENTS:
             await _iws_rpc.exit_(sandbox_id, agent)

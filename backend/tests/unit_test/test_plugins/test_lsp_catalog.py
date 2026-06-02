@@ -146,7 +146,12 @@ def test_lsp_setup_script_self_locates_and_installs_pyright(
 
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
-    fake_node_home = tmp_path / "node"
+    package_dir = tmp_path / "package"
+    package_dir.mkdir()
+    fake_node_home = package_dir / "node"
+    fake_node_home.mkdir()
+    (package_dir / "node.tar.xz").write_bytes(b"node archive")
+    (package_dir / "pyright.tgz").write_bytes(b"pyright archive")
     log_path = tmp_path / "npm.log"
     (fake_bin / "node").write_text(
         """#!/usr/bin/env bash
@@ -168,6 +173,12 @@ if [ "${1:-}" = "config" ] && [ "${2:-}" = "set" ]; then
     exit 0
 fi
 if [ "${1:-}" = "install" ]; then
+    test "${2:-}" = "-g"
+    test "${3:-}" = "--offline"
+    test "${4:-}" = "--cache"
+    test "${5:-}" = "$EOS_PLUGIN_PACKAGE_DIR/npm-cache"
+    test "${6:-}" = "--omit=optional"
+    test "${7:-}" = "$EOS_PLUGIN_PACKAGE_DIR/pyright.tgz"
     mkdir -p "$EOS_NODE_HOME/bin"
     printf '#!/usr/bin/env sh\nprintf "pyright 1.1.409\\n"\n' > "$EOS_NODE_HOME/bin/pyright"
     printf '#!/usr/bin/env sh\nexit 0\n' > "$EOS_NODE_HOME/bin/pyright-langserver"
@@ -180,10 +191,22 @@ exit 99
         encoding="utf-8",
     )
     (fake_bin / "npm").chmod(0o755)
+    (fake_bin / "tar").write_text(
+        """#!/usr/bin/env bash
+set -eu
+printf '%s\n' "$*" >> "$PYRIGHT_SETUP_LOG"
+exit 0
+""",
+        encoding="utf-8",
+    )
+    (fake_bin / "tar").chmod(0o755)
+    (fake_bin / "curl").write_text("#!/usr/bin/env bash\nexit 99\n", encoding="utf-8")
+    (fake_bin / "curl").chmod(0o755)
 
     env = {
         "PATH": f"{fake_bin}:/usr/bin:/bin",
         "EOS_NODE_HOME": str(fake_node_home),
+        "EOS_PLUGIN_PACKAGE_DIR": str(package_dir),
         "PYRIGHT_SETUP_LOG": str(log_path),
     }
     completed = subprocess.run(
@@ -200,7 +223,10 @@ exit 99
     assert (plugin_dir / ".pyright_installed").is_file()
     npm_calls = log_path.read_text(encoding="utf-8").splitlines()
     assert "config set prefix " + str(fake_node_home) in npm_calls
-    assert "install -g --omit=optional pyright@1.1.409" in npm_calls
+    assert (
+        "install -g --offline --cache "
+        f"{package_dir}/npm-cache --omit=optional {package_dir}/pyright.tgz"
+    ) in npm_calls
 
 
 def test_lsp_setup_script_marker_short_circuits_when_pyright_exists(

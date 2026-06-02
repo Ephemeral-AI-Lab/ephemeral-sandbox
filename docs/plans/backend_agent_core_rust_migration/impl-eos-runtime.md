@@ -93,10 +93,8 @@ eos-runtime/
     │                          #   root-task minting, root-agent spawn, fail-unfinished glue
     ├── observability.rs       # tracing-subscriber setup + optional tokio-console feature
     ├── root_agent.rs          # run_root_agent: direct eos-engine call + outcome mapping
-    └── sandbox_provisioning.rs# RequestSandboxBinding, RequestSandboxProvisioner
-
-eos-runtime-bin/ (or src/bin/eos-runtime.rs)
-    main.rs                    # thin entry point: init tracing, build AppState, call async API
+    ├── sandbox_provisioning.rs# RequestSandboxBinding, RequestSandboxProvisioner
+    └── main.rs                # thin entry point: init tracing, build AppState, call async API
 ```
 
 `lib.rs` re-exports the public surface; everything else is `pub(crate)` unless
@@ -137,18 +135,19 @@ else is referenced.
 - `AuditSink`, `AuditEventBus`, JSONL sink — `eos-audit`.
 - `LlmClient`, provider-neutral `Message`, `ToolSpec` — `eos-llm-client`.
 - `ToolRegistry`, `ToolExecutor`, `ExecutionMetadata` equivalent — `eos-tools`.
-- `AgentDefinition`, `AgentRole`, `AgentRegistry`, `get_definition`/validation —
+- `AgentDefinition`, `AgentRole`, concrete `AgentRegistry`, `get_definition`/validation —
   `eos-agent-def`.
-- `SkillRegistry` — `eos-skills`; `PluginCatalog` — `eos-plugin-catalog`.
+- Concrete `SkillRegistry` — `eos-skills`; concrete `PluginCatalog` —
+  `eos-plugin-catalog`.
 - `ProviderAdapter` + provider registry, daemon client, lifecycle — `eos-sandbox-host`.
 - `run_ephemeral_agent`, `EphemeralRunResult`, `EphemeralRunStatus`,
   `QueryContext`, `EventSource` — `eos-engine` (see impl-eos-engine.md).
 - `WorkflowStarter`, `AttemptOrchestrator`, **`AttemptDeps`**,
-  **`EphemeralAttemptAgentLauncher`**, `AttemptOrchestratorRegistry`,
+  **`AgentRunner`**, `AttemptOrchestratorRegistry`,
   `OpenIterationCoordinatorRegistry`, `ContextEngine`, `AgentEntryComposer`,
   `WorkflowLifecycleConfig` — `eos-workflow` (see impl-eos-workflow.md). The
-  `workflow_runtime` and `launcher` fields of `RequestEntryHandle` are these
-  types; this doc references them and must not redefine their fields.
+  `attempt_deps` field of `RequestEntryHandle` is this runtime-wired dependency
+  bundle; this doc references it and must not redefine its fields.
 
 ## 6. Types, Fields & Schemas
 
@@ -175,10 +174,10 @@ traits are `#[async_trait]`-based to be `dyn`-safe behind the composition root
 | `event_source_factory` | `Option<EventSourceFactory>` = `Option<Arc<dyn Fn(&AgentDefinition) -> Box<dyn EventSource> + Send + Sync>>` | `None` ⇒ live provider stream; mock harness sets it (replaces `RuntimeConfig.event_source_factory`). Kept as a type-erased **synchronous** composition-root closure (not promoted to a named trait like §6a's `AgentRunner`): the §6a anti-type-erasure ruling targets async DI params (its `anti-type-erasure` note is about `Arc<dyn Fn -> BoxFuture>`), but the Python factory is synchronous and returns the trait object directly (`app_factory.py:61`), so there is no future to erase and a one-method trait would add no testability or type safety over this alias. |
 | `audit` | `Arc<dyn AuditSink>` | eos-audit; JSONL sink in prod |
 | `tool_registry` | `Arc<ToolRegistry>` | eos-tools, read-only after build |
-| `agent_registry` | `Arc<dyn AgentRegistry>` | eos-agent-def |
-| `skill_registry` | `Arc<dyn SkillRegistry>` | eos-skills |
-| `plugin_catalog` | `Arc<dyn PluginCatalog>` | eos-plugin-catalog |
-| `provider_registry` | `Arc<ProviderRegistry>` | eos-sandbox-host concrete registry (holds `ProviderAdapter` seams: Docker default / Daytona) |
+| `agent_registry` | `Arc<AgentRegistry>` | eos-agent-def concrete read-only registry |
+| `skill_registry` | `Arc<SkillRegistry>` | eos-skills concrete read-only registry |
+| `plugin_catalog` | `Arc<PluginCatalog>` | eos-plugin-catalog concrete read-only catalog |
+| `provider_registry` | `Arc<ProviderRegistry>` | eos-sandbox-host concrete registry (holds the Docker `ProviderAdapter`; seam kept for future providers) |
 | `shutdown` | `CancellationToken` | tokio-util; parent-exit / graceful cancellation |
 
 ```rust
@@ -186,24 +185,25 @@ traits are `#[async_trait]`-based to be `dyn`-safe behind the composition root
 #[derive(Clone)]
 #[non_exhaustive]
 pub struct AppState {
-    pub config: Arc<CentralConfig>,
-    pub clock: Arc<dyn Clock>,
-    pub db_pool: SqlitePool,
-    pub task_store: Arc<dyn TaskStore>,
-    pub workflow_store: Arc<dyn WorkflowStore>,
-    pub iteration_store: Arc<dyn IterationStore>,
-    pub attempt_store: Arc<dyn AttemptStore>,
-    pub agent_run_store: Arc<dyn AgentRunStore>,
-    pub model_store: Arc<dyn ModelStore>,
-    pub llm_client: Arc<dyn LlmClient>,
-    pub event_source_factory: Option<EventSourceFactory>,
-    pub audit: Arc<dyn AuditSink>,
-    pub tool_registry: Arc<ToolRegistry>,
-    pub agent_registry: Arc<dyn AgentRegistry>,
-    pub skill_registry: Arc<dyn SkillRegistry>,
-    pub plugin_catalog: Arc<dyn PluginCatalog>,
-    pub provider_registry: Arc<ProviderRegistry>,
-    pub shutdown: CancellationToken,
+    config: Arc<CentralConfig>,
+    clock: Arc<dyn Clock>,
+    db_pool: SqlitePool,
+    task_store: Arc<dyn TaskStore>,
+    workflow_store: Arc<dyn WorkflowStore>,
+    iteration_store: Arc<dyn IterationStore>,
+    attempt_store: Arc<dyn AttemptStore>,
+    agent_run_store: Arc<dyn AgentRunStore>,
+    model_store: Arc<dyn ModelStore>,
+    llm_client: Arc<dyn LlmClient>,
+    event_source_factory: Option<EventSourceFactory>,
+    audit: Arc<dyn AuditSink>,
+    audit_shutdown: Option<BufferedAuditShutdown>,
+    tool_registry: Arc<ToolRegistry>,
+    agent_registry: Arc<AgentRegistry>,
+    skill_registry: Arc<SkillRegistry>,
+    plugin_catalog: Arc<PluginCatalog>,
+    provider_registry: Arc<ProviderRegistry>,
+    shutdown: CancellationToken,
 }
 
 #[must_use = "AppStateBuilder does nothing until build() is called"]
@@ -228,8 +228,7 @@ impl AppStateBuilder {
 |---|---|---|
 | `request_id` | `RequestId` | eos-types newtype (`str` in Python) |
 | `root_task_id` | `TaskId` | eos-types newtype |
-| `workflow_runtime` | `AttemptDeps` | eos-workflow (referenced; not redefined) |
-| `launcher` | `EphemeralAttemptAgentLauncher` | eos-workflow (referenced) |
+| `attempt_deps` | `AttemptDeps` | eos-workflow dependency bundle including the runtime-wired `AgentRunner` adapter |
 | `root_agent_task` | `tokio::task::JoinHandle<()>` | replaces `asyncio.Task[None]` |
 
 ### `RequestSandboxBinding`
@@ -271,6 +270,12 @@ returned no id`).
 - **Cancellation:** `AppState.shutdown: CancellationToken` is the graceful
   shutdown / parent-exit token (`async-cancellation-token`); it is cloned into
   the engine background supervisor and into delegated-workflow handles.
+- **Request shutdown:** `RequestEntryHandle::shutdown(reason)` cancels the root
+  token, asks the engine supervisor to drain/cancel command sessions and subagents,
+  asks delegated workflow handles to cancel/drain, awaits the root task with a
+  grace timeout, then aborts as fallback and runs the same still-running
+  `_fail_unfinished_root` guard used for join errors. Audit shutdown guard flushes
+  after request/background drains.
 - **Locks:** none owned here. There is no app-level DB mutex (SQLite
   single-writer is handled by `eos-db` via WAL + busy timeout, anchor §7). No
   lock is held across `.await` because this layer holds no shared mutable state.
@@ -331,12 +336,12 @@ Python source:
 phased rollout (plan §Migration Phases) is summarized here:
 
 - **Phase 0 — Scaffolding/parity harness:** workspace + crate skeletons, fmt/clippy/CI, schema + SSE + SQLite snapshot fixtures.
-- **Phase 1 — State/Config/DB/Audit:** `eos-types/-state/-config/-db/-audit`; store roundtrips, migrations, audit golden. *Provides every store + config + audit seam this crate wires.*
-- **Phase 2 — LLM client:** `eos-llm-client`; Anthropic/OpenAI SSE, retry, error mapping. *Provides the `LlmClient` seam.*
-- **Phase 3 — Tools:** `eos-tools`; specs, registry, terminal stamping, dispatch. *Provides `ToolRegistry`.*
-- **Phase 4 — Engine:** `eos-engine`; query loop, dispatch, background supervisor, prompt reports. *Provides `run_ephemeral_agent`/`EphemeralRunResult`/`EventSource`.*
-- **Phase 5 — Workflow & Runtime:** `eos-workflow` + **this crate**. Verifications gate here: root request creates a root Task and **no** root workflow; `delegate_workflow` creates `Workflow→Iteration→Attempt` and leaves the parent Task running; sandbox provisioning works.
-- **Phase 6 — Sandbox host/plugins/skills:** `eos-sandbox-api/-host`, plugin catalog, skill registry. *Provides `ProviderAdapter`/catalog/registry seams.*
+- **Phase 1 — Foundation:** `eos-types`; ID/time/error roundtrips. *Provides the shared leaf primitives this crate wires.*
+- **Phase 2 — Leaf domain and boundary crates:** `eos-config`, `eos-state`, `eos-audit`, `eos-sandbox-api`, `eos-agent-def`; config/state/audit/sandbox-envelope/agent-profile tests. *Provides the upstream DTOs and traits this crate wires.*
+- **Phase 3 — Persistence, providers, plugins, skills:** `eos-llm-client`, `eos-skills`, `eos-db`, `eos-sandbox-host`, `eos-plugin-catalog`; provider/DB/host/catalog/skill tests. *Provides `LlmClient`, stores, `ProviderRegistry`, `SkillRegistry`, and `PluginCatalog`.*
+- **Phase 4 — Tools:** `eos-tools`; specs, registry, terminal stamping, dispatch. *Provides `ToolRegistry` and downstream-state ports.*
+- **Phase 5 — Execution core:** `eos-engine` + `eos-workflow`; query loop, background supervisor, workflow lifecycle, scheduler, context engine. *Provides `run_ephemeral_agent`/`EventSource` and the `AgentRunner` seam that runtime wires.*
+- **Phase 6 — Runtime composition:** **this crate**. Verifications gate here: root request creates a root Task and **no** root workflow; `delegate_workflow` creates `Workflow→Iteration→Attempt` and leaves the parent Task running; sandbox provisioning works.
 - **Phase 7 — Cutover:** Python compatibility adapters run old/new control planes side by side; the Rust control plane (rooted at `AppState` here) runs against the existing daemon + DB fixtures; Python packages retire by boundary after parity. `test_runner` is **not** migrated.
 
 ## 9. SOLID & Principles Applied
@@ -388,13 +393,13 @@ phased rollout (plan §Migration Phases) is summarized here:
 ## 11. Acceptance Criteria
 
 TDD: write each test first, confirm it fails for the right reason, then implement.
-Maps to plan Phase 5/7 verifications and anchor §11.
+Maps to plan Phase 6/7 verifications and anchor §11.
 
 - **AC-eos-runtime-01** — *root request creates a root Task, no root workflow.*
   Test `entry_tests::start_request_mints_root_task_no_workflow`: with a mock
   `LlmClient`/`EventSource` that immediately submits a root terminal, assert a
   `Task(role=root, workflow_id=None)` row exists, `set_root_task_id` was called,
-  and **no** Workflow row was created. (Plan Phase 5: "root request creates root
+  and **no** Workflow row was created. (Plan Phase 6: "root request creates root
   task and no root workflow".)
 - **AC-eos-runtime-02** — *root-agent success persists the engine terminal.*
   Test `root_agent_tests::successful_root_keeps_engine_terminal`: when
@@ -406,16 +411,22 @@ Maps to plan Phase 5/7 verifications and anchor §11.
   is set `failed` with `terminal_tool_result.fail_reason == "root_run_exhausted"`
   and `finish_request(failed)` is called. If status is no longer `running`, no
   mutation occurs. (GC-01 invariant.)
+- **AC-eos-runtime-03b** — *root-agent join failure persists failure.* Test
+  `root_agent_tests::join_error_marks_unfinished_root_failed`: if
+  `root_agent_task.await` returns `JoinError` because the spawned task panicked or
+  was aborted, `_fail_unfinished_root` runs the same still-running guard and marks
+  the root task/request failed instead of returning only an in-memory join error.
+  This preserves the Python `run_root_agent` exception path.
 - **AC-eos-runtime-04** — *single-place graph construction.* Test
   `app_state_tests::builder_constructs_all_stores_and_seams`: `AppStateBuilder::
   build()` against an in-memory SQLite (eos-db builder) yields an `AppState` whose
   stores all report ready; a network DB URL makes `build()` return an error
-  (fail-fast). (Plan Phase 1 store roundtrips feed this; GC-02.)
+  (fail-fast). (Plan Phase 3 store roundtrips feed this; GC-02.)
 - **AC-eos-runtime-05** — *delegation leaves the parent Task running.* Test
   `entry_tests::delegate_workflow_leaves_parent_running`: a root agent that calls
   `delegate_workflow` creates `Workflow→Iteration→Attempt`; after the delegated
   workflow completes, the parent root Task status is still `running` (no
-  close-time mutation). (Plan Phase 5; GC-03.)
+  close-time mutation). (Plan Phase 6; GC-03.)
 - **AC-eos-runtime-06** — *missing model registry is non-fatal.* Test
   `app_state_tests::missing_model_registry_does_not_fail_startup`: pointing the
   optional registry path at a nonexistent file still produces a usable
@@ -424,12 +435,17 @@ Maps to plan Phase 5/7 verifications and anchor §11.
   `sandbox_provisioning_tests::explicit_id_starts_and_binds` and
   `::auto_create_labels_origin_workflow`: explicit id path calls `start` and binds
   it; auto path calls `create` with labels `{origin: "workflow", request_id}` and
-  rejects an empty returned id. (Plan Phase 5/6: "request sandbox provisioning".)
+  rejects an empty returned id. (Plan Phase 6: "request sandbox provisioning".)
 - **AC-eos-runtime-08** — *end-to-end root request with mocked LLM.* Integration
   test `tests/e2e_root_request.rs`: build `AppState` with the mock
   `event_source_factory` (test-mock-traits), `start_request`, await
   `root_agent_task`, assert the request finishes with the submitted root outcome.
   (Plan Phase 7: "end-to-end root agent request with mocked LLM".)
+- **AC-eos-runtime-08b** — *shutdown drains and persists unfinished state.*
+  Integration test `tests/shutdown.rs`: a root run with an active delegated
+  workflow and command session receives shutdown, cancels/drains background work,
+  aborts only after grace timeout, flushes audit, and marks a still-running root
+  task/request failed through the normal guard.
 - **AC-eos-runtime-09** — *agent profile tool names validate after registries are
   built.* Test `app_state_tests::unknown_profile_tool_fails_startup`: with a
   profile whose `allowed_tools`/`terminals` includes a name absent from

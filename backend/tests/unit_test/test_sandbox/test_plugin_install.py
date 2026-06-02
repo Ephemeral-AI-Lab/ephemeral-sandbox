@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import shlex
+import tarfile
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -83,7 +85,9 @@ class _FakeExec:
     ) -> _FakeResult:
         del sandbox_id, cwd, timeout
         self.calls.append(command)
-        if command.startswith("test -f"):
+        if command == "uname -m":
+            return _FakeResult(exit_code=0, stdout="x86_64\n")
+        if command.startswith("test -f") and ".installed-" in command:
             return _FakeResult(exit_code=0 if self.marker_present else 1)
         if "setup.sh" in command and "EOS_PLUGIN_DIR" in command:
             return _FakeResult(
@@ -91,6 +95,22 @@ class _FakeExec:
                 stderr="setup boom" if self.setup_exit_code != 0 else "",
             )
         return _FakeResult(exit_code=0)
+
+
+@dataclass
+class _FakePutArchive:
+    calls: list[tuple[str, str, list[str]]] = field(default_factory=list)
+
+    async def __call__(
+        self,
+        sandbox_id: str,
+        *,
+        tar_stream: bytes,
+        dest_dir: str,
+    ) -> None:
+        with tarfile.open(fileobj=io.BytesIO(tar_stream), mode="r") as tar:
+            names = sorted(member.name for member in tar.getmembers())
+        self.calls.append((sandbox_id, dest_dir, names))
 
 
 def _seed_lsp_plugin(tmp_path: Path) -> Path:
@@ -211,7 +231,7 @@ def test_hot_install_uses_process_cache_until_forget(tmp_path: Path) -> None:
     marker_checks = [
         command
         for command in fake.calls
-        if command.startswith("test -f")
+        if command.startswith("test -f") and ".installed-" in command
     ]
     assert len(setup_runs) == 1
     assert len(marker_checks) == 2
@@ -228,7 +248,7 @@ def test_hot_install_uses_process_cache_until_forget(tmp_path: Path) -> None:
     marker_checks = [
         command
         for command in fake.calls
-        if command.startswith("test -f")
+        if command.startswith("test -f") and ".installed-" in command
     ]
     assert len(setup_runs) == 2
     assert len(marker_checks) == 4
@@ -320,23 +340,56 @@ def test_install_free_plugin_skips_setup(tmp_path: Path) -> None:
     )
 
 
-def test_lsp_install_runs_setup_without_host_assets(tmp_path: Path) -> None:
+def test_lsp_install_uploads_host_package_with_put_archive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     plugin_dir = _seed_lsp_plugin(tmp_path)
     manifest = parse_plugin_manifest(plugin_dir)
+    package_cache = tmp_path / "package-cache"
+    monkeypatch.setenv("EOS_PLUGIN_PACKAGE_CACHE", str(package_cache))
+
+    def fake_download(_urls: list[str], dest: Path, *, label: str) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(f"{label}\n".encode("utf-8"))
+
+    monkeypatch.setattr(install_mod, "_download_file", fake_download)
 
     fake = _FakeExec(marker_present=False)
-    asyncio.run(ensure_installed("sb-1", manifest, exec_fn=fake))
+    put_archive = _FakePutArchive()
+    asyncio.run(
+        ensure_installed(
+            "sb-1",
+            manifest,
+            exec_fn=fake,
+            put_archive_fn=put_archive,
+        )
+    )
 
     install_dir = plugin_install_dir("lsp")
     assert any(
         f"export EOS_PLUGIN_DIR={shlex.quote(install_dir)}" in command
         for command in fake.calls
     )
-    assert not any(
-        "ARCHIVE" in command or "PACKAGE" in command
+    assert any(
+        f"export EOS_PLUGIN_PACKAGE_DIR={shlex.quote('/eos/plugin-packages/lsp')}"
+        in command
         for command in fake.calls
     )
-    assert not any(
-        command == "uname -m" or "/vendor/" in command
-        for command in fake.calls
+    assert len(put_archive.calls) == 2
+    assert put_archive.calls[0][1] == "/eos"
+    assert put_archive.calls[1][1] == "/eos"
+    assert any(
+        name.endswith("/plugin.md") for name in put_archive.calls[0][2]
     )
+    assert any(
+        name.startswith("daemon/plugins/catalog/lsp.staging-")
+        and name.endswith("/plugin.md")
+        for name in put_archive.calls[0][2]
+    )
+    assert set(put_archive.calls[1][2]) >= {
+        "plugin-packages/lsp/PACKAGE_MANIFEST.txt",
+        "plugin-packages/lsp/node.tar.xz",
+        "plugin-packages/lsp/pyright.tgz",
+    }
+    assert not any("base64 -d" in command for command in fake.calls)

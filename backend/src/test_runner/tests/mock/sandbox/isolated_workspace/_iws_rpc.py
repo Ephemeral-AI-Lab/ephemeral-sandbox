@@ -15,6 +15,8 @@ Lifecycle calls use ``api.isolated_workspace.*``. Tool calls use
 
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any
 
 from sandbox.host.daemon_client import _DaemonDispatchError, call_daemon_api
@@ -87,6 +89,63 @@ async def exit_(
         {"agent_id": agent_id},
         timeout=timeout,
     )
+
+
+async def cancel_command_session(
+    sandbox_id: str,
+    agent_id: str,
+    command_session_id: str,
+    *,
+    timeout: int = DEFAULT_TIMEOUT_S,
+) -> dict[str, Any]:
+    return await call_daemon_api(
+        sandbox_id,
+        "api.v1.command.cancel",
+        {"agent_id": agent_id, "command_session_id": command_session_id},
+        timeout=timeout,
+    )
+
+
+async def poll_command_session(
+    sandbox_id: str,
+    agent_id: str,
+    command_session_id: str,
+    *,
+    timeout: int = DEFAULT_TIMEOUT_S,
+) -> dict[str, Any]:
+    return await call_daemon_api(
+        sandbox_id,
+        "api.v1.command.write_stdin",
+        {"agent_id": agent_id, "command_session_id": command_session_id, "chars": ""},
+        timeout=timeout,
+    )
+
+
+def stdout(response: dict[str, Any]) -> str:
+    output = response.get("output")
+    if isinstance(output, dict):
+        return str(output.get("stdout") or "")
+    return str(response.get("stdout") or "")
+
+
+async def complete_shell(
+    sandbox_id: str,
+    agent_id: str,
+    response: dict[str, Any],
+    *,
+    timeout_s: float = 6.0,
+) -> dict[str, Any]:
+    command_session_id = response.get("command_session_id")
+    if not isinstance(command_session_id, str) or not command_session_id:
+        return response
+    deadline = time.monotonic() + timeout_s
+    current = response
+    while current.get("status") == "running" and time.monotonic() < deadline:
+        await asyncio.sleep(0.1)
+        current = await poll_command_session(sandbox_id, agent_id, command_session_id)
+    if current.get("status") == "running":
+        await cancel_command_session(sandbox_id, agent_id, command_session_id)
+    return current
 
 
 async def status(
@@ -247,15 +306,19 @@ async def glob(
 __all__ = [
     "DEFAULT_TIMEOUT_S",
     "IWS_LAYER_STACK_ROOT",
+    "cancel_command_session",
+    "complete_shell",
     "edit_file",
     "enter",
     "exit_",
     "glob",
     "grep",
     "list_open",
+    "poll_command_session",
     "read_file",
     "shell",
     "status",
+    "stdout",
     "test_reset",
     "write_file",
 ]

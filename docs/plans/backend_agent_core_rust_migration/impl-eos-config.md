@@ -60,7 +60,7 @@ No `dyn` trait objects are needed; this crate exposes concrete types only
 | `config/paths.py` | `paths.rs` | Config/data/log path resolution + `EPHEMERALOS_CONFIG_DIR/DATA_DIR/LOGS_DIR` and `ephemeralos.yaml` discovery. Per-project/feedback/issue/PR helpers are CLI-scoped — drop unless a downstream agent-core caller needs them. |
 | `config/model_config.py` | **not here** → `eos-db` `model_registry.rs` | Active-model resolution + `class_path` (migration-only) are DB concerns; see `impl-eos-db.md`. |
 | `config/sections/database.py` | `database.rs` | `DatabaseConfig` simplified to SQLite-only; drop `pool_pre_ping`, `max_overflow` (GC-eos-config-03). |
-| `config/sections/sandbox.py` | `sandbox.rs` | `SandboxConfig`/`DockerConfig`/`DaytonaConfig` port verbatim (fields below). |
+| `config/sections/sandbox.py` | `sandbox.rs` | `SandboxConfig`/`DockerConfig` plus a Docker-only `SandboxProvider`; non-Docker provider config is not ported to Rust. |
 | `config/sections/providers.py` | `providers.rs` | `ProvidersConfig`/`RetryConfig`/`MinimaxConfig` port; retry defaults become the source of truth for `eos-llm-client` (GC-eos-config-04). |
 | `config/sections/runner.py` | **dropped** | Test-runner flavored; not imported (GC-eos-config-05). |
 | `config/sections/engine.py` | **dropped (empty)** | `EngineConfig` has zero fields; omit from Rust `CentralConfig` (YAGNI, GC-eos-config-07). |
@@ -82,7 +82,7 @@ src/
   env.rs          # EOS__ nested parsing + legacy env adapter table; complex-value parse.
   paths.rs        # config/data/log dir + ephemeralos.yaml discovery; path env vars.
   database.rs     # DatabaseConfig (SQLite-only) + DatabaseUrl newtype.
-  sandbox.rs      # SandboxConfig, DockerConfig, DaytonaConfig, SandboxProvider enum.
+  sandbox.rs      # SandboxConfig, DockerConfig, Docker-only SandboxProvider enum.
   providers.rs    # ProvidersConfig, RetryConfig, MinimaxConfig.
   validation.rs   # validate(&CentralConfig) -> Result<(), ConfigError> contradictions.
   error.rs        # ConfigError (thiserror).
@@ -98,8 +98,7 @@ SOLID Seam Map (anchor §6)**. Owned (anchor §5 row "CentralConfig + section
 configs, env loading, path resolution, validation"):
 
 - `CentralConfig` and all section configs (`DatabaseConfig`, `SandboxConfig`,
-  `DockerConfig`, `DaytonaConfig`, `ProvidersConfig`, `RetryConfig`,
-  `MinimaxConfig`).
+  `DockerConfig`, `ProvidersConfig`, `RetryConfig`, `MinimaxConfig`).
 - Validated newtypes: `DatabaseUrl` (SQLite-only), `SandboxProvider` enum.
 - `ConfigError`.
 - `load_central_config(...) -> Result<CentralConfig, ConfigError>` and the
@@ -142,30 +141,27 @@ public structs that may grow (`api-non-exhaustive`).
 Dropped: `pool_pre_ping`, `max_overflow` (GC-eos-config-03 — connection-server
 concepts, meaningless for embedded SQLite).
 
-### SandboxConfig / DockerConfig / DaytonaConfig — source: `sections/sandbox.py`
+### SandboxConfig / DockerConfig — source: `sections/sandbox.py`
 
 `SandboxConfig`:
 
 | Field | Rust type | notes | Source |
 |---|---|---|---|
-| `default_provider` | `SandboxProvider` | enum `{ Docker, Daytona }`, serde `snake_case`; default `Docker` | `sandbox.py:41` |
+| `default_provider` | `SandboxProvider` | enum `{ Docker }`, serde `snake_case`; default `Docker`; any other provider string is unsupported in Rust | `sandbox.py:41` |
 | `timeout_s` | `f64` | default `300.0`, `> 0` (validate, §8 item 9) | `sandbox.py:42` |
 | `runtime_client_timeout_s` | `f64` | default `600.0`, `> 0` (validate, §8 item 9) | `sandbox.py:43` |
 | `docker` | `DockerConfig` | default | `sandbox.py:44` |
-| `daytona` | `DaytonaConfig` | default | `sandbox.py:45` |
 
 `DockerConfig`: `daemon_tcp: bool = true`, `privileged: bool = false`,
 `no_privilege: bool = false`, `default_snapshot: String = ""`
 (`sandbox.py:20-23`).
 
-`DaytonaConfig`: `api_key: String = ""`, `api_url: String = ""`,
-`target: String = ""`, `tcp_host: String = ""`, `tcp_port: Option<u16>` (upper
-bound `<= 65535` enforced by `u16`; lower bound `>= 1` enforced in validate, §8
-item 9), `default_image: String = ""`, `default_snapshot: String = ""`
-(`sandbox.py:29-35`).
+The Python non-Docker provider config fields are intentionally absent. Rust
+agent-core uses Docker as its only sandbox provider.
 
-`SandboxProvider` replaces the Python `Literal["docker","daytona"]`
-(`type-no-stringly`).
+`SandboxProvider` replaces the Python provider string literal
+(`type-no-stringly`) with the Docker-only `Docker` enum variant; deserializing any
+other provider string fails at config load.
 
 ### ProvidersConfig / RetryConfig / MinimaxConfig — source: `sections/providers.py`
 
@@ -238,7 +234,7 @@ pub(crate) fn validate(cfg: &CentralConfig) -> Result<(), ConfigError> {
     if d.privileged && d.no_privilege {
         return Err(ConfigError::DockerPrivilegeContradiction);
     }
-    // Pydantic ge/gt/le parity (only constraints the Rust type does not enforce).
+    // Pydantic ge/gt parity (only constraints the Rust type does not enforce).
     if cfg.database.pool_size < 1 {
         return Err(ConfigError::OutOfRange {
             field: "database.pool_size".into(),
@@ -256,12 +252,6 @@ pub(crate) fn validate(cfg: &CentralConfig) -> Result<(), ConfigError> {
         return Err(ConfigError::OutOfRange {
             field: "providers.retry.*delay_s".into(),
             detail: "must be >= 0".into(),
-        });
-    }
-    if matches!(cfg.sandbox.daytona.tcp_port, Some(p) if p < 1) {
-        return Err(ConfigError::OutOfRange {
-            field: "sandbox.daytona.tcp_port".into(),
-            detail: "must be in 1..=65535".into(),
         });
     }
     Ok(())
@@ -317,36 +307,29 @@ pub enum ConfigError {
 2. **`EOS__` nested env.** `EOS__SECTION__FIELD[__SUBFIELD]` lowercases each
    segment and sets the nested path (`loader.py:108-111`). Values starting with
    `[` or `{` are YAML-parsed (`_parse_complex_env_value`, `loader.py:94-101`).
-3. **Legacy env adapters** (the surviving 15; `EOS_SWEEVO_*` drop with runner —
+3. **Legacy env adapters** (the surviving 9; `EOS_SWEEVO_*` drop with runner —
    GC-eos-config-05). Each maps a legacy var to a nested config path; empty/blank
    values are skipped; the listed transform is applied:
 
    | Legacy var | Target path | Transform |
    |---|---|---|
    | `EPHEMERALOS_DATABASE_URL` | `database.url` | strip |
-   | `EPHEMERALOS_SANDBOX_DEFAULT_IMAGE` | `sandbox.daytona.default_image` | strip |
    | `EPHEMERALOS_SANDBOX_TIMEOUT_SECONDS` | `sandbox.timeout_s` | strip |
    | `EPHEMERALOS_RUNTIME_CLIENT_TIMEOUT` | `sandbox.runtime_client_timeout_s` | strip |
-   | `EOS_SANDBOX_PROVIDER` | `sandbox.default_provider` | strip + **lowercase** |
+   | `EOS_SANDBOX_PROVIDER` | `sandbox.default_provider` | strip + **lowercase**; only `docker` is valid |
    | `EOS_DOCKER_DAEMON_TCP` | `sandbox.docker.daemon_tcp` | strip |
    | `EOS_DOCKER_PRIVILEGED` | `sandbox.docker.privileged` | strip |
    | `EOS_DOCKER_NO_PRIVILEGE` | `sandbox.docker.no_privilege` | strip |
-   | `EOS_DAEMON_TCP_HOST` | `sandbox.daytona.tcp_host` | strip |
-   | `EOS_DAEMON_TCP_PORT` | `sandbox.daytona.tcp_port` | strip |
-   | `DAYTONA_API_KEY` | `sandbox.daytona.api_key` | strip |
-   | `DAYTONA_API_URL` | `sandbox.daytona.api_url` | strip |
-   | `DAYTONA_TARGET` | `sandbox.daytona.target` | strip |
    | `MINIMAX_BASE_URL` | `providers.minimax.base_url` | strip |
    | `MINIMAX_MODEL` | `providers.minimax.model` | strip |
 
-   Note: this 15-entry table is taken from `loader.py` `_LEGACY_ENV_MAP`
-   (authoritative, code-as-source-truth) and is intentionally broader than
-   PLAN §4's abbreviated 8-var enumeration; the divergence is deliberate.
+   Note: the Python `_LEGACY_ENV_MAP` is broader because it still includes
+   non-Docker provider settings. Rust agent-core deliberately ports only the
+   Docker-relevant subset.
 
-4. **Snapshot fan-out (special case).** `EPHEMERALOS_SANDBOX_DEFAULT_SNAPSHOT`
-   sets **both** `sandbox.docker.default_snapshot` **and**
-   `sandbox.daytona.default_snapshot` (`loader.py:119-123`). (Invariant →
-   AC-eos-config-04.)
+4. **Default snapshot (special case).** `EPHEMERALOS_SANDBOX_DEFAULT_SNAPSHOT`
+   sets `sandbox.docker.default_snapshot`. The Python fan-out to non-Docker config
+   is not ported. (Invariant → AC-eos-config-04.)
 5. **Provider key alias.** A `sandbox.provider` key (from `EOS__SANDBOX__PROVIDER`
    or YAML) is renamed to `default_provider` if `default_provider` is absent
    (`loader.py:125-127`).
@@ -372,19 +355,18 @@ pub enum ConfigError {
    Pydantic's type-directed coercion (which keeps a `str` field's `"123"`/`"true"`
    verbatim), YAML-parse-everything is not type-directed — a `String` field
    receiving `"123"`/`"true"`/`"null"` would be coerced away from string. This is
-   accepted: the actual string fields here are URLs, API keys, snapshots, and
-   hostnames, none of which take bare numeric/bool/null literals. (Invariant →
+   accepted: the actual string fields here are URLs, model names, and snapshots,
+   none of which take bare numeric/bool/null literals. (Invariant →
    AC-eos-config-03, AC-eos-config-05.)
-9. **Numeric range validation (parity with Pydantic `ge`/`gt`/`le`).** The §6
+9. **Numeric range validation (parity with Pydantic `ge`/`gt`).** The §6
    range annotations are enforced in `validate(&CentralConfig)`, not via newtypes
    (newtypes would ripple into the type tables, `Default` impls, and schema). Only
    constraints the Rust type does not already give are checked: `pool_size >= 1`
    (`database.py:26`), `timeout_s > 0` / `runtime_client_timeout_s > 0`
-   (`sandbox.py:42-43`), `base_delay_s >= 0` / `max_delay_s >= 0`
-   (`providers.py:21-22`), `tcp_port (if Some) >= 1` (`sandbox.py:33`).
-   `max_retries >= 0` (`u32`) and `tcp_port <= 65535` (`u16`) are already enforced
-   by the field type, so no runtime check is added. A range failure surfaces as
-   `ConfigError::OutOfRange`. (Invariant → AC-eos-config-11.)
+   (`sandbox.py:42-43`), and `base_delay_s >= 0` / `max_delay_s >= 0`
+   (`providers.py:21-22`). `max_retries >= 0` is already enforced by `u32`, so no
+   runtime check is added. A range failure surfaces as `ConfigError::OutOfRange`.
+   (Invariant → AC-eos-config-11.)
 
 Subtle risk (plan): legacy adapters must run **after** nested `EOS__` parsing and
 write into the same merged map, so an explicit `EOS__...` and a legacy var resolve
@@ -404,9 +386,9 @@ deterministically (legacy wins where both target the same path, matching
   reflective `section_name`/`with_overrides`, the global ContextVar, and the
   `pool_pre_ping`/`max_overflow` SQLite-irrelevant fields. One `ConfigError`; one
   loader; defaults defined once per `Default` impl.
-- **Type safety:** `DatabaseUrl` and `SandboxProvider` are validated newtypes/enums
-  (`type-no-stringly`, `api-parse-dont-validate`); booleans/numbers parsed into
-  typed fields, not strings.
+- **Type safety:** `DatabaseUrl` and the Docker-only `SandboxProvider` are
+  validated newtypes/enums (`type-no-stringly`, `api-parse-dont-validate`);
+  booleans/numbers are parsed into typed fields, not strings.
 - **Non-goals respected:** no PostgreSQL (fail fast on network URLs); no model
   `class_path` import (model resolution is eos-db); no speculative config knobs.
 
@@ -440,6 +422,9 @@ is therefore auditable.
   `ConfigError`.
 - **GC-eos-config-07** — Empty `EngineConfig`. Resolution: omit `engine` from the
   Rust `CentralConfig` (YAGNI); reintroduce only when a real engine knob exists.
+- **GC-eos-config-08** — Docker-only sandbox provider for Rust. Resolution: do
+  not port non-Docker provider config fields or legacy env bindings; reject any
+  non-Docker `sandbox.default_provider` value during config load.
 
 ## 11. Acceptance Criteria
 
@@ -457,12 +442,12 @@ Anchor §11 maps this crate to **"env-override tests"**.
   `test_eos_nested_env_sets_path`: `EOS__SANDBOX__TIMEOUT_S=120` →
   `sandbox.timeout_s == 120.0` (string `"120"` YAML-coerced to `f64`, §8 item 8);
   `EOS__PROVIDERS__RETRY__STATUS_CODES=[429,503]` YAML-parses the complex value.
-- **AC-eos-config-04** *(snapshot fan-out)* —
+- **AC-eos-config-04** *(default snapshot)* —
   `test_default_snapshot_fans_out`: `EPHEMERALOS_SANDBOX_DEFAULT_SNAPSHOT=foo`
-  sets both `docker.default_snapshot` and `daytona.default_snapshot` to `"foo"`.
+  sets `docker.default_snapshot` to `"foo"`.
 - **AC-eos-config-05** *(legacy adapters + scalar coercion)* —
-  `test_legacy_env_adapters`: each of the 15 surviving vars maps to its target
-  path; `EOS_SANDBOX_PROVIDER=DAYTONA` lowercases to `Daytona`;
+  `test_legacy_env_adapters`: each of the 9 surviving vars maps to its target
+  path; `EOS_SANDBOX_PROVIDER=DOCKER` lowercases to `Docker`;
   `EOS_DOCKER_PRIVILEGED=true` YAML-coerces the legacy-adapter string to
   `docker.privileged == true` (bool, §8 item 8); blank values are ignored.
 - **AC-eos-config-06** *(reject network DB)* —
@@ -476,7 +461,8 @@ Anchor §11 maps this crate to **"env-override tests"**.
   (Pydantic `extra="forbid"` parity).
 - **AC-eos-config-09** *(provider-alias rename)* —
   `test_provider_key_aliases_to_default_provider`: a `sandbox.provider` key sets
-  `default_provider` when the latter is absent.
+  `default_provider` when the latter is absent; a non-Docker provider string is
+  rejected during deserialization.
 - **AC-eos-config-10** *(schema parity)* — `test_central_config_json_schema`:
   `schema_for!(CentralConfig)` matches the recorded Pydantic-derived schema for
   the surviving sections **after a normalization pass** (Phase-0 parity harness,
@@ -489,8 +475,8 @@ Anchor §11 maps this crate to **"env-override tests"**.
   `frozenset[int]` (array-of-integer, ignore item ordering).
 - **AC-eos-config-11** *(range constraints)* — `test_range_constraints_rejected`:
   `validate` rejects `database.pool_size=0`, `sandbox.timeout_s=0.0`,
-  `sandbox.runtime_client_timeout_s=0.0`, `providers.retry.base_delay_s=-1.0`, and
-  `sandbox.daytona.tcp_port=Some(0)` with `ConfigError::OutOfRange` (Pydantic
+  `sandbox.runtime_client_timeout_s=0.0`, and
+  `providers.retry.base_delay_s=-1.0` with `ConfigError::OutOfRange` (Pydantic
   `ge`/`gt` parity, §8 item 9); valid in-range values pass.
 
 ## 12. Implementation Checklist
@@ -498,14 +484,14 @@ Anchor §11 maps this crate to **"env-override tests"**.
 1. `error.rs`: `ConfigError` enum (thiserror) — write first, used by all tests.
 2. `database.rs`: `DatabaseUrl` newtype + `parse` + `Deserialize`; `DatabaseConfig`
    with SQLite-only fields and `Default`. Tests: AC-06, AC-02 (db subset).
-3. `sandbox.rs`: `SandboxProvider` enum, `SandboxConfig`/`Docker`/`Daytona` +
+3. `sandbox.rs`: Docker-only `SandboxProvider` enum, `SandboxConfig`/`Docker` +
    defaults. Test: AC-02 (sandbox subset).
 4. `providers.rs`: `ProvidersConfig`/`RetryConfig`/`MinimaxConfig` + defaults
    (`BTreeSet<u16>`). Test: AC-02 (retry).
 5. `config.rs`: `CentralConfig { database, sandbox, providers }` + `Default` +
    optional builder (`api-builder-pattern`) for init overrides.
 6. `env.rs`: `EOS__` nested parser + all-scalar YAML coercion (§8 item 8) + the
-   15-entry legacy adapter table + snapshot fan-out + provider alias. Tests:
+   9-entry legacy adapter table + Docker default snapshot + provider alias. Tests:
    AC-03, AC-04, AC-05, AC-09.
 7. `loader.rs`: `load_central_config` layering `defaults < YAML < env < init`.
    Test: AC-01.
