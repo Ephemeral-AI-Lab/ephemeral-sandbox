@@ -574,7 +574,8 @@ fn can_retry_empty_response(op: &str) -> bool {
             | "api.v1.edit_file"
             | "api.write_file"
             | "api.v1.write_file"
-            | "api.v1.shell"
+            | "api.v1.exec_command"
+            | "api.v1.exec_stdin"
     ) && !op.starts_with("plugin.")
 }
 
@@ -1202,7 +1203,8 @@ mod tests {
             "api.v1.edit_file",
             "api.write_file",
             "api.v1.write_file",
-            "api.v1.shell",
+            "api.v1.exec_command",
+            "api.v1.exec_stdin",
             "plugin.install",
         ] {
             assert!(!can_retry_empty_response(op), "{op} must fail closed");

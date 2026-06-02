@@ -8,7 +8,7 @@
 //! - the typed daemon op constants ([`DaemonOp`]);
 //! - the [`SandboxTransport`] async trait seam (DIP — implemented downstream in
 //!   `eos-sandbox-host`, injected by `eos-runtime`);
-//! - the timeout policy ([`shell_dispatch_timeout`] and the `*_TIMEOUT_S`
+//! - the timeout policy ([`exec_dispatch_timeout`] and the `*_TIMEOUT_S`
 //!   constants); and
 //! - the pure `tool_api` helpers that build a daemon payload, call a transport,
 //!   and parse the JSON envelope into a typed result.
@@ -31,21 +31,21 @@ pub use error::SandboxApiError;
 pub use models::{
     CommandOutput, CommandSessionCancelRequest, CommandSessionWriteRequest, ConflictInfo,
     EditFileRequest, EditFileResult, EnterIsolatedWorkspaceRequest, EnterIsolatedWorkspaceResult,
-    ExecCommandRequest, ExecCommandResult, ExitIsolatedWorkspaceRequest,
+    ExecCommandRequest, ExecCommandResult, ExecStdinRequest, ExitIsolatedWorkspaceRequest,
     ExitIsolatedWorkspaceResult, GlobRequest, GlobResult, GrepRequest, GrepResult, Intent,
     LifecycleError, LifecycleResultBase, ReadFileRequest, ReadFileResult, SandboxCaller,
-    SandboxRequestBase, SandboxResultBase, SearchReplaceEdit, ShellRequest, ShellResult,
-    ToolCallRequest, Workspace, WriteFileRequest, WriteFileResult,
+    SandboxRequestBase, SandboxResultBase, SearchReplaceEdit, ToolCallRequest, Workspace,
+    WriteFileRequest, WriteFileResult,
 };
 pub use ops::DaemonOp;
 pub use timeouts::{
-    shell_dispatch_timeout, EDIT_FILE_TIMEOUT_S, GLOB_TIMEOUT_S, GREP_TIMEOUT_S,
-    READ_FILE_TIMEOUT_S, SHELL_DEFAULT_COMMAND_TIMEOUT_S, SHELL_DISPATCH_GRACE_S,
+    exec_dispatch_timeout, EDIT_FILE_TIMEOUT_S, EXEC_DEFAULT_COMMAND_TIMEOUT_S,
+    EXEC_DISPATCH_GRACE_S, GLOB_TIMEOUT_S, GREP_TIMEOUT_S, READ_FILE_TIMEOUT_S,
     WRITE_FILE_TIMEOUT_S,
 };
 pub use tool_api::{
     cancel, cancel_command_session, collect_command_completions, command_session_count, edit_file,
-    exec_command, glob, grep, heartbeat, inflight_count, isolated_active, read_file, shell,
+    exec_command, exec_stdin, glob, grep, heartbeat, inflight_count, isolated_active, read_file,
     write_file, write_stdin,
 };
 pub use transport::SandboxTransport;

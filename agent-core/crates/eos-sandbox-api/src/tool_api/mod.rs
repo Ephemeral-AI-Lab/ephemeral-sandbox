@@ -11,14 +11,14 @@ mod edit;
 mod glob;
 mod grep;
 mod read;
-mod shell;
 mod write;
 
-pub use command::{cancel_command_session, collect_command_completions, exec_command, write_stdin};
+pub use command::{
+    cancel_command_session, collect_command_completions, exec_command, exec_stdin, write_stdin,
+};
 pub use control::{cancel, command_session_count, heartbeat, inflight_count, isolated_active};
 pub use edit::edit_file;
 pub use glob::glob;
 pub use grep::grep;
 pub use read::read_file;
-pub use shell::shell;
 pub use write::write_file;

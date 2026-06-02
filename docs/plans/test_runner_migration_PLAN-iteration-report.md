@@ -1100,3 +1100,99 @@ Current verdict:
 
 Next iteration entry point:
 - Fix the Rust isolated command-session completion contract first. Many failures share the same symptom: `api.v1.shell` returns a running command-session envelope while the isolated-workspace tests expect the daemon/RPC helper to return a completed result.
+
+## Iteration 16 - 2026-06-03 02:24:15 +0800 CST
+
+Checkout summary:
+- Current `HEAD`: `4a8c7730e`.
+- The checkout advanced during this live iteration; the migration changes below are already present in `HEAD`.
+- Remaining dirty worktree files are unrelated concurrent `agent-core/crates/eos-tools/*` edits and were not modified.
+
+Plan path and target files:
+- Plan: `docs/plans/test_runner_migration_PLAN.md`.
+- Target files:
+  - `backend/src/sandbox/api/transport.py`
+  - `backend/src/sandbox/api/tool/command.py`
+  - `backend/src/sandbox/daemon/builtin_operations.py`
+  - `backend/src/sandbox/daemon/rpc/dispatcher.py`
+  - `backend/src/sandbox/host/daemon_client.py`
+  - `backend/src/sandbox/host/runtime_artifact/__init__.py`
+  - `backend/src/test_runner/tests/mock/sandbox/isolated_workspace/_iws_rpc.py`
+  - `sandbox/crates/eos-daemon/src/dispatcher.rs`
+  - `sandbox/crates/eos-daemon/src/isolated.rs`
+  - `sandbox/crates/eos-daemon/src/server.rs`
+  - `sandbox/crates/eos-isolated/src/error.rs`
+  - `sandbox/crates/eos-isolated/src/session.rs`
+  - `sandbox/crates/eos-protocol/src/models.rs`
+  - `sandbox/crates/eos-runner/src/fresh_ns.rs`
+  - `docs/plans/test_runner_migration_PLAN.md`
+
+Coverage gaps and findings:
+- The previous report entry used stale wording: the model-facing shell/session surface is no longer `api.v1.shell`.
+- Current canonical daemon RPCs are `api.v1.exec_command` and `api.v1.write_stdin`; `api.v1.command.write_stdin` remains only as a compatibility alias.
+- `api.v1.exec_command` must be fail-closed on empty daemon responses. Retrying it after daemon death can replay an isolated command outside the isolated handle and publish stale upperdir content to the normal layer stack.
+- Rust isolated-workspace parity still missed two Python-contract details:
+  - `already_open` responses needed `details.created_at` and `details.last_activity`;
+  - TTL eviction needed a Rust daemon sweep that emits `sandbox_isolated_workspace_evicted` with `reason=ttl`.
+
+Fixes applied:
+- Removed the public `api.v1.shell` registration/export path and migrated the runner helpers/tests to `exec_command`.
+- Added canonical `api.v1.write_stdin` routing through Python and Rust daemon dispatch; retained `api.v1.command.write_stdin` as a temporary alias.
+- Migrated stale test-runner timing expectations from `api.shell.*` to `api.exec_command.*`.
+- Marked `api.v1.exec_command` as non-retryable in the host daemon client.
+- Added Rust isolated error details for `AlreadyOpen` and `QuotaExceeded`.
+- Added a Rust isolated TTL sweep and daemon periodic task, skipping agents with active command sessions and emitting the TTL eviction audit event.
+- Rebuilt/uploaded the amd64 Rust daemon and pinned `EOSD_SHA256["amd64"]` to `d97104b79f904b60beac0e0c4bdda2f5141a790b2aa8b511edb1d125e4ee2ca3`.
+
+Commands run:
+- `rg -n "api\\.v1\\.shell|DAEMON_OP_SHELL|ShellRequest|ShellResult|ShellArgs|parse_shell_result|api\\.shell\\." backend/src sandbox/crates -g '*.py' -g '*.rs'`
+  - Result: clean; no matches.
+- `rg -n "api\\.v1\\.write_stdin|api\\.v1\\.command\\.write_stdin|DAEMON_OP_COMMAND_WRITE_STDIN" backend/src sandbox/crates -g '*.py' -g '*.rs'`
+  - Result: canonical `api.v1.write_stdin` found in transport/client/test helper and Rust/Python daemon dispatch; alias found only in dispatcher compatibility paths.
+- `uv run ruff check backend/src/sandbox/host/daemon_client.py backend/src/sandbox/host/runtime_artifact/__init__.py backend/src/sandbox/api/tool/command.py backend/src/test_runner/tests/mock/sandbox/isolated_workspace/_iws_rpc.py`
+  - Result: passed.
+- `cargo fmt --manifest-path sandbox/Cargo.toml --all`
+  - Result: passed.
+- `cargo test --manifest-path sandbox/Cargo.toml -p eos-isolated session::tests -- --nocapture`
+  - Result: passed with `4 passed`.
+- `cargo test --manifest-path sandbox/Cargo.toml -p eos-daemon isolated::tests -- --nocapture`
+  - Result: passed with `3 passed`.
+- `cargo test --manifest-path sandbox/Cargo.toml -p eos-daemon server::tests -- --nocapture`
+  - Result: compiled and ran with no matching server tests selected.
+- `uv run python backend/scripts/build_upload_eosd_docker.py --arch amd64`
+  - Final result: passed; `gate_pass=true`, SHA `d97104b79f904b60beac0e0c4bdda2f5141a790b2aa8b511edb1d125e4ee2ca3`.
+- `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q backend/src/test_runner/tests/mock/sandbox/isolated_workspace/resource_controls/test_quota_one_per_agent.py::test_quota_one_per_agent backend/src/test_runner/tests/mock/sandbox/isolated_workspace/resource_controls/test_total_cap_blocks_new_agent.py::test_total_cap_blocks_new_agent --tb=short --durations=20`
+  - Result: passed with `2 passed in 21.54s`.
+- `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q backend/src/test_runner/tests/mock/sandbox/isolated_workspace/resource_controls/test_ttl_evict_and_audit.py::test_ttl_evict_and_audit --tb=short --durations=20`
+  - Result: passed with `1 passed in 27.38s`.
+- `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q -x backend/src/test_runner/tests/mock/sandbox/isolated_workspace --tb=short --durations=20`
+  - First run before the TTL fix: failed after `80 passed` at `test_ttl_evict_and_audit`.
+  - Final run after the TTL fix and artifact rebuild: passed with `86 passed in 356.04s`.
+- Previously in this same live iteration, focused slices passed:
+  - `test_enter_then_shell_then_exit`: `1 passed in 22.50s` using the `exec_command` helper despite the historical test name.
+  - isolated concurrency/network/O(1)/discard slice: `5 passed in 30.77s`.
+  - ephemeral workspace O(1)/outside-policy/all-verbs slice: `3 passed in 42.08s`.
+
+Fresh artifacts inspected:
+- `bench/local-eosd-amd64-upload.json`
+  - `gate_pass=true`
+  - final `local_sha256=remote_sha256=d97104b79f904b60beac0e0c4bdda2f5141a790b2aa8b511edb1d125e4ee2ca3`
+- In-container isolated audit source used by the direct pytest fixtures:
+  - `/tmp/sandbox_isolated_workspace_events.jsonl`
+  - Host-side pytest snapshots are written as per-test `tmp_path / "iws_events.jsonl"` by `iws_audit_jsonl`.
+
+Current verdict:
+- Correctness: PASS for the Rust isolated-workspace folder, `api.v1.shell` removal, canonical `api.v1.write_stdin`, command-session polling, quota details, TTL eviction audit, daemon-restart no-replay behavior, and direct isolated command completion expectations.
+- Concurrency/parallelism: PASS for isolated same-session overlap, multi-workspace network tests, and the focused five-test concurrency/network slice; the full isolated folder passed under the Rust daemon.
+- O(1) memory/disk: PASS for the focused ephemeral lowerdir slice and the isolated folder's lowerdir/disk-at-rest tests, including `test_lowerdir_bytes_and_inodes_constant_as_n_grows` and `test_disk_at_rest_bounded`.
+- Isolated workspace network/discard: PASS for private-network tests and upperdir discard tests, including normal exit, abnormal daemon-kill exit, and rapid create/destroy coverage.
+- Latency: PASS for the isolated folder gate with current thresholds; slowest test was `test_disk_at_rest_bounded` at `61.44s`.
+
+Remaining risk:
+- The broad `backend/src/test_runner/tests/mock/sandbox -n 3` gate was not rerun after this isolated-workspace fix.
+- The public Python host/API/provider boundary still contains internal compatibility code such as `sandbox.shared.tool_primitives.shell` for the namespace entrypoint; it is not the removed public `api.v1.shell` daemon API.
+- Historical test names still contain "shell" where they now exercise `exec_command`; renaming those files can be a separate cleanup to avoid mixing behavioral changes with this parity fix.
+
+Next iteration entry point:
+- Rerun the broad Phase D/E live sandbox gate:
+  `EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q -n 3 backend/src/test_runner/tests/mock/sandbox --tb=short --durations=20`.

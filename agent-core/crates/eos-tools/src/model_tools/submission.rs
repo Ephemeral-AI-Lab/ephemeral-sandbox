@@ -240,7 +240,7 @@ impl ToolExecutor for SubmitGeneratorOutcome {
                 ("task_id", json!(task_id.as_str())),
                 (
                     "attempt_id",
-                    json!(ctx.attempt_id.as_ref().map(|a| a.as_str())),
+                    json!(ctx.attempt_id.as_ref().map(eos_types::AttemptId::as_str)),
                 ),
             ]),
         ))
@@ -291,7 +291,7 @@ impl ToolExecutor for SubmitReducerOutcome {
                 ("task_id", json!(task_id.as_str())),
                 (
                     "attempt_id",
-                    json!(ctx.attempt_id.as_ref().map(|a| a.as_str())),
+                    json!(ctx.attempt_id.as_ref().map(eos_types::AttemptId::as_str)),
                 ),
             ]),
         ))
@@ -406,7 +406,7 @@ impl ToolExecutor for SubmitPlannerOutcome {
                 ("task_id", json!(planner_task_id.as_str())),
                 (
                     "attempt_id",
-                    json!(ctx.attempt_id.as_ref().map(|a| a.as_str())),
+                    json!(ctx.attempt_id.as_ref().map(eos_types::AttemptId::as_str)),
                 ),
             ]),
         ))
@@ -635,6 +635,7 @@ pub(crate) fn register(registry: &mut ToolRegistry) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)] // unwrap permitted in tests (err-no-unwrap-prod)
     use std::sync::Mutex;
 
     use eos_state::{RequestId, Task};
@@ -825,12 +826,23 @@ mod tests {
             .expect("ok");
         assert!(!res.is_error, "{}", res.output);
         assert_eq!(res.metadata["submission_kind"], json!("planner_completes"));
-        let plans = port.plans.lock().unwrap();
-        assert_eq!(plans.len(), 1);
-        let ids: Vec<&str> = plans[0].tasks.iter().map(|t| t.id.as_str()).collect();
-        assert_eq!(ids, vec!["g1", "g2"]);
-        assert_eq!(plans[0].reducers[0].id, "r1");
-        drop(plans);
+        // Extract under the lock and drop the guard before any later `.await`
+        // (await_holding_lock is denied workspace-wide).
+        let (count, task_ids, reducer_id) = {
+            let plans = port.plans.lock().unwrap();
+            (
+                plans.len(),
+                plans[0]
+                    .tasks
+                    .iter()
+                    .map(|t| t.id.clone())
+                    .collect::<Vec<_>>(),
+                plans[0].reducers[0].id.clone(),
+            )
+        };
+        assert_eq!(count, 1);
+        assert_eq!(task_ids, vec!["g1", "g2"]);
+        assert_eq!(reducer_id, "r1");
 
         // Duplicate task id.
         let mut dup = valid_plan();

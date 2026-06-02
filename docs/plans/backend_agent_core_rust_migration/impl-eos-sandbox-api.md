@@ -55,9 +55,9 @@ This crate must **NOT**:
 |---|---|---|
 | `sandbox/api/transport.py` (`SandboxTransport` Protocol, `DAEMON_OP_*` constants, `call_sandbox_daemon`) | `transport.rs` (trait) + `ops.rs` (constants) | Trait + op constants move here. **`DaemonSandboxTransport` and `with_daemon_protocol_version`/`_eos_daemon_protocol_version` stamping relocate to `eos-sandbox-host`** (it owns the daemon client — anchor §5). |
 | `sandbox/shared/models.py` (`SandboxCaller`, `SandboxRequestBase`, `SandboxResultBase`, `ToolCallRequest`, file/edit/command/search/isolated DTOs, `Intent`, `ConflictInfo`, `GuardedResultBase`, `LifecycleError`) | `models.rs` | All DTOs + `Intent` move here. `RawExecResult` is **dropped** (raw provider exec is a host concern, not routed via daemon op). `SandboxCaller.tool_name` is **removed** (GC-01). |
-| `sandbox/api/tool/{read,write,edit,glob,grep,shell}.py`, `sandbox/api/tool/command.py` | `tool_api/{read,write,edit,glob,grep,shell,command}.rs` | The build-payload → call-transport → parse-result core moves here as **pure** functions (no `audit_sink` arg). The `run_audited_operation` wrapper + `SandboxOperation`→`AuditEvent` translation (`sandbox/api/tool/_operation_audit.py`, `sandbox/audit/translation.py`) **relocate to `eos-tools`** (anchor §5: sandbox-api is absent from the eos-audit consumer list). |
+| `sandbox/api/tool/{read,write,edit,glob,grep}.py`, `sandbox/api/tool/command.py` | `tool_api/{read,write,edit,glob,grep,command}.rs` | The build-payload → call-transport → parse-result core moves here as **pure** functions (no `audit_sink` arg). The deleted public shell API is not ported. The `run_audited_operation` wrapper + `SandboxOperation`→`AuditEvent` translation (`sandbox/api/tool/_operation_audit.py`, `sandbox/audit/translation.py`) **relocate to `eos-tools`** (anchor §5: sandbox-api is absent from the eos-audit consumer list). |
 | `sandbox/api/tool/_daemon_response_parsing.py` (`parse_*_result`, `daemon_request_identity_fields`, `strict_int_from_daemon_field`, `parse_*_field`) | `tool_api/parse.rs` | Pure envelope parsers move here verbatim in behavior. Note: `parse.rs` holds **both** the request-identity payload **builder** (`daemon_request_identity_fields`, which constructs the outbound envelope identity, not a response decoder) and the response parsers. |
-| `sandbox/api/timeouts.py` (`*_TIMEOUT_S`, `shell_dispatch_timeout`) | `timeouts.rs` | Constants + `shell_dispatch_timeout` move here. |
+| `sandbox/api/timeouts.py` (`*_TIMEOUT_S`, command dispatch timeout) | `timeouts.rs` | Constants + `exec_dispatch_timeout` move here. |
 | `sandbox/api/daemon_invocations.py` (`cancel`, `heartbeat`, `inflight_count`, `command_session_count`, `isolated_active`) | `tool_api/control.rs` | Control RPCs move here (pure transport calls). The `_CONTROL_TIMEOUT_S=15` constant lives here (not `timeouts.py`); port it as `control.rs` `CONTROL_TIMEOUT_S=15`. `inflight_count`/`command_session_count` return a count integer (`u32`) defaulting to `0` (`int(response.get("count") or 0)`); `isolated_active` returns `bool`. |
 | `sandbox/shared/clock.py` (`monotonic_now`, `normalize_timing_map`) | `tool_api/parse.rs` (timing normalization) | Only `normalize_timing_map` shape is needed for parsing `timings`; `monotonic_now` dispatch-timing is recorded by the **caller** (`eos-tools`), not here. |
 
@@ -77,7 +77,7 @@ src/
   models.rs         // SandboxCaller, *RequestBase/*ResultBase, ToolCallRequest, all verb DTOs, Intent, ConflictInfo
   ops.rs            // DaemonOp typed constants (wire-string serialization)
   transport.rs      // SandboxTransport #[async_trait] seam + DaemonEnvelope error decode
-  timeouts.rs       // *_TIMEOUT_S consts + shell_dispatch_timeout()
+  timeouts.rs       // *_TIMEOUT_S consts + exec_dispatch_timeout()
   error.rs          // SandboxApiError (thiserror)
   tool_api/
     mod.rs          // pub(crate) re-exports of helper fns
@@ -87,8 +87,7 @@ src/
     edit.rs         // edit_file(...)  (+ edit-conflict result mapping)
     glob.rs         // glob(...)
     grep.rs         // grep(...)
-    shell.rs        // shell(...) (legacy op; + shell-conflict result mapping)
-    command.rs      // exec_command / write_stdin / cancel_command_session / collect_command_completions
+    command.rs      // exec_command / exec_stdin (+ write_stdin alias) / cancel_command_session / collect_command_completions
     control.rs      // cancel / heartbeat / inflight_count / command_session_count / isolated_active
 ```
 
@@ -234,12 +233,10 @@ plus these fields per result struct; no class hierarchy.)
 | `SearchReplaceEdit` | `old_text: String`, `new_text: String`, `replace_all: bool` (default `false`) |
 | `EditFileRequest` | base + `path: String`, `edits: Vec<SearchReplaceEdit>` |
 | `EditFileResult` | guarded + `applied_edits: u32` (default `0`) |
-| `ShellRequest` (legacy op) | base + `command: String`, `cwd: Option<String>`, `timeout: Option<u32>`, `stdin: Option<String>`, `background: bool` (metadata only) |
-| `ShellResult` | guarded + `exit_code: i32`, `stdout: String`, `stderr: String`, `warnings: Vec<String>` |
 | `CommandOutput` | `stdout: String`, `stderr: String` |
 | `ExecCommandRequest` | base + `cmd: String`, `yield_time_ms: Option<u32>`, `timeout: Option<u32>`, `max_output_tokens: Option<u32>` |
 | `ExecCommandResult` | base + `status: String`, `exit_code: Option<i32>`, `output: CommandOutput`, `command_session_id: Option<String>`, `changed_path_kinds: BTreeMap<String,String>`, `mutation_source: String` |
-| `CommandSessionWriteRequest` | base + `command_session_id: String`, `chars: String`, `yield_time_ms: Option<u32>`, `max_output_tokens: Option<u32>` |
+| `ExecStdinRequest` | base + `command_session_id: String`, `chars: String`, `yield_time_ms: Option<u32>`, `max_output_tokens: Option<u32>`; `CommandSessionWriteRequest` remains a Rust type alias for the model-facing `write_stdin` tool |
 | `CommandSessionCancelRequest` | base + `command_session_id: String` |
 | `GlobRequest` | base + `pattern: String`, `path: Option<String>` |
 | `GlobResult` | base + `filenames: Vec<String>`, `num_files: u32`, `truncated: bool` |
@@ -250,7 +247,7 @@ plus these fields per result struct; no class hierarchy.)
 
 Non-DTO return types (helpers without a typed result struct):
 `collect_command_completions` returns `Vec<JsonObject>` (the only verb returning
-raw maps) at `shell_dispatch_timeout(None)=90`, not a control timeout; the count
+raw maps) at `exec_dispatch_timeout(None)=90`, not a control timeout; the count
 RPCs (`inflight_count`/`command_session_count`) return `u32` defaulting to `0`.
 
 Isolated-workspace **host-facing** schemas (kept; internal namespace impl
@@ -278,9 +275,8 @@ pub enum DaemonOp {
     #[serde(rename = "api.v1.read_file")]   ReadFile,
     #[serde(rename = "api.v1.write_file")]  WriteFile,
     #[serde(rename = "api.v1.edit_file")]   EditFile,
-    #[serde(rename = "api.v1.shell")]       Shell,          // legacy; protocol compat (GC-02)
     #[serde(rename = "api.v1.exec_command")] ExecCommand,
-    #[serde(rename = "api.v1.command.write_stdin")]      CommandWriteStdin,
+    #[serde(rename = "api.v1.exec_stdin")] ExecStdin,
     #[serde(rename = "api.v1.command.cancel")]           CommandCancel,
     #[serde(rename = "api.v1.command.collect_completed")] CommandCollectCompleted,
     #[serde(rename = "api.v1.command_session_count")]    CommandSessionCount,
@@ -298,10 +294,10 @@ pub enum DaemonOp {
 }
 ```
 
-Every wire string above is verbatim from `transport.py:13-29` (protocol compat).
+Every wire string above is verbatim from the current daemon transport contract.
 User-facing tool naming in `eos-tools`/specs uses `exec_command` /
-command-session terminology even though `DaemonOp::Shell` retains the legacy
-`shell` wire label (GC-02).
+`write_stdin`; `eos-sandbox-api` maps those helpers to `api.v1.exec_command` and
+`api.v1.exec_stdin`. There is no `DaemonOp::Shell` compatibility variant.
 
 ## 7. Concurrency & State Ownership
 
@@ -337,29 +333,29 @@ Semantics that must be preserved (cite Python source):
 3. **`success` derivation for commands.** `ExecCommandResult.success` is
    `status not in {"error","timed_out"}` (command.py:152). Must be computed in
    the Rust parser, not read from a daemon `success` field.
-4. **Conflict-to-result mapping (recoverable).** `edit_file`/`shell` translate a
-   detected edit/shell conflict exception into a *successful return* of a
-   `*Result{ success:false, status, conflict, conflict_reason }}` rather than an
-   error (edit.py:56-68, shell.py:85-100). In Rust, the conflict classifier maps
-   a transport error into `Ok(result)` for these two verbs; all other transport
-   errors propagate as `Err(SandboxApiError)`.
-5. **Shell stdin / raw-argv rejection.** `shell` returns a rejected
-   `ShellResult` (not an error) when `stdin` is set or command is non-string
-   (shell.py:32-65). Rust: `stdin.is_some()` short-circuits to a rejected result
-   before any transport call. (Non-string argv is unrepresentable in Rust —
-   `command: String` — so only the stdin guard survives; note this simplification.)
+4. **Conflict-to-result mapping (recoverable).** `edit_file` translates a
+   detected edit conflict exception into a *successful return* of a
+   `EditFileResult{ success:false, status, conflict, conflict_reason }` rather
+   than an error (edit.py:56-68). In Rust, the edit conflict classifier maps a
+   transport error into `Ok(result)` for `edit_file`; all other transport errors
+   propagate as `Err(SandboxApiError)`.
+5. **No shell compatibility API.** The deleted `shell` API is not ported:
+   no `ShellRequest`, no `ShellResult`, no `DaemonOp::Shell`, and no `tool_api::shell`.
+   Command execution is exclusively `exec_command`; command-session stdin is
+   `api.v1.exec_stdin` (with `write_stdin` kept only as the model-facing helper
+   alias used by `eos-tools`).
 6. **Timeout policy.** Per-verb file/search constants are `READ_FILE_TIMEOUT_S=60`,
    `WRITE_FILE_TIMEOUT_S=60`, `EDIT_FILE_TIMEOUT_S=20`, `GLOB_TIMEOUT_S=60`,
-   `GREP_TIMEOUT_S=60` (timeouts.py). There is **no** standalone shell/exec
-   per-verb constant: `shell`/`exec_command` use
-   `shell_dispatch_timeout(t) = t.unwrap_or(SHELL_DEFAULT_COMMAND_TIMEOUT_S=60) + SHELL_DISPATCH_GRACE_S=30`.
+   `GREP_TIMEOUT_S=60` (timeouts.py). There is **no** standalone exec
+   per-verb constant: `exec_command` / `exec_stdin` use
+   `exec_dispatch_timeout(t) = t.unwrap_or(EXEC_DEFAULT_COMMAND_TIMEOUT_S=60) + EXEC_DISPATCH_GRACE_S=30`.
    Control RPCs use `CONTROL_TIMEOUT_S=15` (daemon_invocations.py `_CONTROL_TIMEOUT_S`).
-   `timeouts.rs` ports `SHELL_DEFAULT_COMMAND_TIMEOUT_S` and `SHELL_DISPATCH_GRACE_S`
+   `timeouts.rs` ports `EXEC_DEFAULT_COMMAND_TIMEOUT_S` and `EXEC_DISPATCH_GRACE_S`
    as named consts (not magic 60/30).
 7. **Strict int decode.** `strict_int_from_daemon_field` rejects bool-as-int.
    Rust gets this for free via typed `u32`/`i32` `serde` decode, but the parser
-   must default missing numeric fields (e.g. `num_files` → 0, `exit_code` → 1 for
-   shell) to match `default=` behavior — pinned by parser unit tests (AC-03).
+   must default missing numeric fields (e.g. `num_files` → 0) to match
+   `default=` behavior — pinned by parser unit tests (AC-03).
 8. **Timing key normalization.** `timings` keys are normalized to plain strings
    (clock.py `normalize_timing_map`); enum-prefixed keys (`TimingKey.*`) collapse
    to their value. Port this normalization in `parse.rs`. This applies to the
@@ -369,7 +365,7 @@ Semantics that must be preserved (cite Python source):
    guarded/exec verbs.
 9. **Result decode is hand-written, not blanket serde.** Results are produced by
    the hand-written `parse_*_result` functions (`parse_read_file/glob/grep_result`,
-   `parse_guarded_mutation_result`, `parse_shell_result`, exec `_parse_exec_command_result`),
+   `parse_guarded_mutation_result`, exec `_parse_exec_command_result`),
    which do **not** read `workspace` from the daemon envelope — `workspace` is always
    the construction default `Ephemeral` on the parse path. AC-01 schema-parity
    (`schemars` on **request** DTOs) is the wire-shape contract, **not** the
@@ -385,9 +381,10 @@ Semantics that must be preserved (cite Python source):
    the filter (pinned by AC-03).
 
 Subtle risks called out by the plan: keep public command/session terminology
-consistent even though the daemon op is labeled `shell` (GC-02); the grep prompt
-contract (`re`-style regex) is **not** owned here — it is a tool-spec concern in
-`eos-tools` (plan §1141) — but `GrepRequest` fields must round-trip unchanged.
+consistent across the model-facing `write_stdin` helper and the daemon-facing
+`api.v1.exec_stdin` op (GC-02); the grep prompt contract (`re`-style regex) is
+**not** owned here — it is a tool-spec concern in `eos-tools` (plan §1141) — but
+`GrepRequest` fields must round-trip unchanged.
 
 ## 9. SOLID & Principles Applied
 
@@ -422,11 +419,11 @@ contract (`re`-style regex) is **not** owned here — it is a tool-spec concern 
   the operation name. Since audit translation relocates to `eos-tools` (§3), the
   audit `tool_name` is derived from the `SandboxOperation` there; no field needed.
 - **GC-sandbox-api-02 — daemon op names vs user-facing terminology.**
-  *Resolution:* port all wire strings verbatim into the typed `DaemonOp` enum
-  (§6.4) for protocol compat, including the legacy `api.v1.shell`. User-facing
-  command/session naming (`exec_command`, command-session) is used by
-  `eos-tools` tool specs; this crate exposes both `DaemonOp::Shell` (legacy) and
-  `DaemonOp::ExecCommand`/command-session ops.
+  *Resolution:* port the current wire strings verbatim into the typed
+  `DaemonOp` enum (§6.4). The old `api.v1.shell` op is removed. User-facing
+  command/session naming (`exec_command`, `write_stdin`) is used by `eos-tools`
+  tool specs; this crate maps those helpers to `DaemonOp::ExecCommand` and
+  `DaemonOp::ExecStdin` (`api.v1.exec_stdin`).
 - **GC-sandbox-api-03 — isolated-workspace schemas.** *Resolution:* keep the
   host-facing enter/exit request/result DTOs (`Enter/ExitIsolatedWorkspace*`,
   `LifecycleError`, `LifecycleResultBase`) and the `IsolatedWorkspaceStatus` op;
@@ -468,16 +465,15 @@ daemon envelope tests**.
   to catch accidental newtype coupling while keeping the fields distinct. *Test:*
   `models::tests::identity_block_required_empty_and_optional_omitted` plus an
   envelope test asserting top-level `agent_id` + `caller` + optional `invocation_id`.
-- **AC-sandbox-api-05 — conflict mapping.** `edit_file`/`shell` return
+- **AC-sandbox-api-05 — conflict mapping.** `edit_file` returns
   `Ok(result{success:false,...})` for a classified conflict transport error and
-  `Err` for any other error; `shell` rejects `stdin` without calling the
-  transport. *Test:* `tool_api::{edit,shell}::tests::*` using a mock
+  `Err` for any other error. *Test:* `tool_api::edit::tests::*` using a mock
   `SandboxTransport`.
 - **AC-sandbox-api-06 — `DaemonOp` wire strings.** Every variant serializes to
   the exact legacy string from `transport.py`. *Test:*
   `ops::tests::daemon_op_wire_strings` (table-driven equality).
-- **AC-sandbox-api-07 — `shell_dispatch_timeout` + timeout constants.**
-  `shell_dispatch_timeout(None)==90`, `shell_dispatch_timeout(Some(t))==t+30`;
+- **AC-sandbox-api-07 — `exec_dispatch_timeout` + timeout constants.**
+  `exec_dispatch_timeout(None)==90`, `exec_dispatch_timeout(Some(t))==t+30`;
   per-verb constants equal the Python values. *Test:*
   `timeouts::tests::dispatch_and_constants`.
 
@@ -496,7 +492,7 @@ Ordered, small, verifiable (`small-incremental-changes`):
 6. `tool_api/parse.rs`: identity builder, timing normalization, all
    `parse_*_result`. Test AC-03.
 7. `tool_api/{read,write,glob,grep,command,control}.rs`: pure helpers.
-8. `tool_api/{edit,shell}.rs` with conflict classifier + stdin reject. Test AC-05.
+8. `tool_api/edit.rs` with conflict classifier. Test AC-05.
 9. `tests/schema_snapshot.rs` against crate-owned Phase-2 snapshots. Test AC-01.
 10. `lib.rs` re-exports; `cargo fmt --check` + `clippy -D warnings`.
 

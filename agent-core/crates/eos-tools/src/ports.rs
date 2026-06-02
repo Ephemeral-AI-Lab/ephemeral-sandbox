@@ -228,11 +228,11 @@ pub trait SubagentSupervisorPort: Sealed + Send + Sync {
 }
 
 // ---------------------------------------------------------------------------
-// AdvisorPort — ask_advisor tool + AdvisorApproval pre-hook.
+// AdvisorPort — ask_advisor tool + `AdvisorApproval` pre-hook.
 // ---------------------------------------------------------------------------
 
 /// The result of checking prior advisor approval for a terminal (the
-/// AdvisorApproval pre-hook). When `approved` is false, `reason` is one of the
+/// `AdvisorApproval` pre-hook). When `approved` is false, `reason` is one of the
 /// Python classification tags (`missing`/`advisor_failed`/`structural`/
 /// `rejected`/`unpaired`/`wrong_tool`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -252,7 +252,7 @@ pub trait AdvisorPort: Sealed + Send + Sync {
         -> Result<String, ToolError>;
 
     /// Whether the conversation already carries a valid approving advisor verdict
-    /// for `target_tool` (the AdvisorApproval pre-hook; the implementor inspects
+    /// for `target_tool` (the `AdvisorApproval` pre-hook; the implementor inspects
     /// the engine-owned conversation history).
     async fn approval_status(&self, target_tool: &str) -> Result<AdvisorApproval, ToolError>;
 }

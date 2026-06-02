@@ -1,5 +1,5 @@
 //! The model-facing tools: one module per tool family (sandbox, isolated,
-//! submission, ask_advisor, workflow, subagent, skills). Each tool authors its
+//! submission, `ask_advisor`, workflow, subagent, skills). Each tool authors its
 //! Input/Output DTOs, its colocated `ToolSpec` description, and a
 //! [`ToolExecutor`](crate::ToolExecutor) impl; the registry builder wires them
 //! with their intent / terminal flag / hooks (`meta.rs`).
@@ -54,7 +54,7 @@ pub(crate) fn register_tool(
 }
 
 /// Build the default tool registry for one caller scope. Insertion order matches
-/// the Python factory (sandbox → isolated → submission → ask_advisor → workflow →
+/// the Python factory (sandbox → isolated → submission → `ask_advisor` → workflow →
 /// subagent → skills); the order backs the Phase-4 schema snapshot and is the
 /// agent-spawn default before `restrict`/`remove`.
 #[must_use]

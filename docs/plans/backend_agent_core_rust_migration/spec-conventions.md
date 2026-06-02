@@ -100,7 +100,7 @@ contract has exactly one definition (enforced by the Ownership Map).
 | Model reasoning content | `Reasoning*` (`ReasoningDelta`, `ReasoningBlock`) | Old JSONL `thinking` → compatibility decode map. |
 | Model client provider | `llm_provider` | Never bare `provider`. |
 | Sandbox backend | `sandbox_provider` (Docker; seam kept for future providers) | Never bare `provider`. |
-| Command execution tool | `exec_command` + command session | Daemon op may retain legacy `shell` label for protocol compat. |
+| Command execution tool | `exec_command` + command session | Daemon ops are `api.v1.exec_command` and `api.v1.exec_stdin`; the legacy `shell` op is removed. |
 | Transcript message role | `user` \| `assistant` | Fix the prompt-report `system`-role mismatch (system prompt is a request field, not a `Message`). |
 
 **Acronyms are words:** `Uuid`, `Json`, `Http`, `Sse`, `Lsp`, `Occ` →

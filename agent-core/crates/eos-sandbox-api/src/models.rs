@@ -361,55 +361,6 @@ pub struct EditFileResult {
     pub applied_edits: u32,
 }
 
-/// Run a shell command through overlay + OCC (legacy `api.v1.shell` op).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct ShellRequest {
-    /// Caller identity / description / invocation id.
-    #[serde(flatten)]
-    pub base: SandboxRequestBase,
-    /// Command line to run.
-    pub command: String,
-    /// Working directory (defaults to `.` when empty/whitespace).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cwd: Option<String>,
-    /// Command timeout in seconds.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timeout: Option<u32>,
-    /// Stdin to feed; **rejected** by the snapshot-overlay shell (invariant 5).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stdin: Option<String>,
-    /// Background marker (metadata only; the engine owns background lifecycle).
-    #[serde(default)]
-    pub background: bool,
-}
-
-/// Result of [`ShellRequest`] (a guarded mutation).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct ShellResult {
-    /// Common result fields.
-    #[serde(flatten)]
-    pub base: SandboxResultBase,
-    /// Per-path mutation kinds reported by the daemon.
-    #[serde(default)]
-    pub changed_path_kinds: BTreeMap<String, String>,
-    /// Source of the mutation (daemon-reported).
-    #[serde(default)]
-    pub mutation_source: String,
-    /// Guarded-operation status string.
-    #[serde(default)]
-    pub status: String,
-    /// Process exit code (defaults to `1` on a missing daemon field).
-    pub exit_code: i32,
-    /// Captured stdout.
-    pub stdout: String,
-    /// Captured stderr.
-    #[serde(default)]
-    pub stderr: String,
-    /// Non-fatal warnings.
-    #[serde(default)]
-    pub warnings: Vec<String>,
-}
-
 /// Stdout/stderr captured from a command session.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 pub struct CommandOutput {
@@ -464,9 +415,9 @@ pub struct ExecCommandResult {
     pub mutation_source: String,
 }
 
-/// Write characters to an open command session.
+/// Write characters to an open command session through `api.v1.exec_stdin`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct CommandSessionWriteRequest {
+pub struct ExecStdinRequest {
     /// Caller identity / description / invocation id.
     #[serde(flatten)]
     pub base: SandboxRequestBase,
@@ -481,6 +432,9 @@ pub struct CommandSessionWriteRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
 }
+
+/// Model-facing `write_stdin` request alias for [`ExecStdinRequest`].
+pub type CommandSessionWriteRequest = ExecStdinRequest;
 
 /// Cancel an open command session.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

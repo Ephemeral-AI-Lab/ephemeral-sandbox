@@ -76,7 +76,7 @@ pub struct ExecutionMetadata {
     pub plan_submission: Option<Arc<dyn PlanSubmissionPort>>,
     /// Subagent supervisor port (run/check/cancel subagent + bg count).
     pub subagent_supervisor: Option<Arc<dyn SubagentSupervisorPort>>,
-    /// Advisor port (`ask_advisor` + AdvisorApproval hook).
+    /// Advisor port (`ask_advisor` + `AdvisorApproval` hook).
     pub advisor: Option<Arc<dyn AdvisorPort>>,
     /// Isolated-workspace lifecycle port (enter/exit).
     pub isolated_workspace: Option<Arc<dyn IsolatedWorkspacePort>>,

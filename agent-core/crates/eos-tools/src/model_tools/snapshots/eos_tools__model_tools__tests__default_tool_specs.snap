@@ -369,7 +369,7 @@ expression: specs
     },
     "output_schema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "description": "`CommandToolOutput` (command_session_tool.py).",
+      "description": "`CommandToolOutput` (`command_session_tool.py`).",
       "properties": {
         "changed_path_kinds": {
           "additionalProperties": {
@@ -478,7 +478,7 @@ expression: specs
     },
     "output_schema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "description": "`CommandToolOutput` (command_session_tool.py).",
+      "description": "`CommandToolOutput` (`command_session_tool.py`).",
       "properties": {
         "changed_path_kinds": {
           "additionalProperties": {

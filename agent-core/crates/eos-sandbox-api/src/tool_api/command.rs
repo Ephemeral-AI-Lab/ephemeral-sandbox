@@ -1,4 +1,4 @@
-//! Pure command-session helpers: `exec_command`, `write_stdin`,
+//! Pure command-session helpers: `exec_command`, `exec_stdin`/`write_stdin`,
 //! `cancel_command_session`, and `collect_command_completions`. The first three
 //! return [`ExecCommandResult`]; `collect_command_completions` returns the raw
 //! completion maps (the only verb without a typed result struct).
@@ -8,10 +8,11 @@ use serde_json::Value;
 
 use crate::error::SandboxApiError;
 use crate::models::{
-    CommandSessionCancelRequest, CommandSessionWriteRequest, ExecCommandRequest, ExecCommandResult,
+    CommandSessionCancelRequest, CommandSessionWriteRequest, ExecCommandRequest,
+    ExecCommandResult, ExecStdinRequest,
 };
 use crate::ops::DaemonOp;
-use crate::timeouts::shell_dispatch_timeout;
+use crate::timeouts::exec_dispatch_timeout;
 use crate::tool_api::parse::{daemon_request_identity_fields, parse_exec_command_result};
 use crate::transport::SandboxTransport;
 
@@ -40,17 +41,17 @@ pub async fn exec_command(
             sandbox_id,
             DaemonOp::ExecCommand,
             payload,
-            shell_dispatch_timeout(request.timeout),
+            exec_dispatch_timeout(request.timeout),
         )
         .await?;
     parse_exec_command_result(&response)
 }
 
 /// Write characters (stdin) to an open command session.
-pub async fn write_stdin(
+pub async fn exec_stdin(
     transport: &dyn SandboxTransport,
     sandbox_id: &SandboxId,
-    request: &CommandSessionWriteRequest,
+    request: &ExecStdinRequest,
 ) -> Result<ExecCommandResult, SandboxApiError> {
     let mut payload = daemon_request_identity_fields(&request.base);
     payload.insert(
@@ -70,12 +71,21 @@ pub async fn write_stdin(
     let response = transport
         .call(
             sandbox_id,
-            DaemonOp::CommandWriteStdin,
+            DaemonOp::ExecStdin,
             payload,
-            shell_dispatch_timeout(None),
+            exec_dispatch_timeout(None),
         )
         .await?;
     parse_exec_command_result(&response)
+}
+
+/// Model-facing alias for [`exec_stdin`].
+pub async fn write_stdin(
+    transport: &dyn SandboxTransport,
+    sandbox_id: &SandboxId,
+    request: &CommandSessionWriteRequest,
+) -> Result<ExecCommandResult, SandboxApiError> {
+    exec_stdin(transport, sandbox_id, request).await
 }
 
 /// Cancel an open command session.
@@ -94,7 +104,7 @@ pub async fn cancel_command_session(
             sandbox_id,
             DaemonOp::CommandCancel,
             payload,
-            shell_dispatch_timeout(None),
+            exec_dispatch_timeout(None),
         )
         .await?;
     parse_exec_command_result(&response)
@@ -124,7 +134,7 @@ pub async fn collect_command_completions(
             sandbox_id,
             DaemonOp::CommandCollectCompleted,
             payload,
-            shell_dispatch_timeout(None),
+            exec_dispatch_timeout(None),
         )
         .await?;
     let completions = match response.get("completions") {

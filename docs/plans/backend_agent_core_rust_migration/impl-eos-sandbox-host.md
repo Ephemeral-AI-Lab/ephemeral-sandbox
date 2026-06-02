@@ -424,7 +424,8 @@ multi-thread runtime.
      replay the original envelope.
   3. **Empty-response retry is op-gated** (`_can_retry_empty_response`): mutating
      ops (`api.edit_file`, `api.v1.edit_file`, `api.write_file`,
-     `api.v1.write_file`, `api.v1.shell`, any `plugin.*`) **fail closed** — never
+     `api.v1.write_file`, `api.v1.exec_command`, `api.v1.exec_stdin`, any
+     `plugin.*`) **fail closed** — never
      replayed (replay could convert an isolated in-flight call into a default-mode
      publish). Lifecycle/read/control ops retry.
   4. `api.ensure_workspace_base`/`api.build_workspace_base` may be declared ready

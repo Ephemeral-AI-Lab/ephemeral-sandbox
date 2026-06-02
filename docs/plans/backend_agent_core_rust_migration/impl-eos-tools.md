@@ -461,9 +461,10 @@ authored so the fallback branch disappears.
    §7 / isolated-workspace invariant: later calls observe new routing state).
 6. **exec_command / command-session naming** (GC-tools-07): the tool is
    `exec_command`; its output carries `command_session_id`; the follow-up tool is
-   `write_stdin` over a command session. Rust keeps these names. The daemon op
-   label (legacy `shell`) is owned by `eos-sandbox-api` and may stay for protocol
-   compat (anchor §4) — not a tool-name concern here.
+   `write_stdin` over a command session. Rust keeps these model-facing names.
+   The daemon wire labels are owned by `eos-sandbox-api` and are
+   `api.v1.exec_command` / `api.v1.exec_stdin`; the deleted `shell` op is not a
+   tool-name concern here.
 7. **submit_root_outcome** validates: task exists, belongs to request,
    `workflow_id is None`, `role == root`; sets task status + finishes request via
    `TaskStore`. Pure store path → no orchestrator port needed.

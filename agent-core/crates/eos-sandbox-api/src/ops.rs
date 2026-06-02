@@ -1,6 +1,6 @@
 //! Typed daemon operation constants.
 //!
-//! Replaces the 20 bare `DAEMON_OP_*` `&str` constants from
+//! Replaces the bare `DAEMON_OP_*` `&str` constants from
 //! `sandbox/api/transport.py` with one `#[non_exhaustive]` enum whose serialized
 //! form is the **exact** legacy wire string (`api.v1.read_file`, …) so the
 //! protocol stays byte-compatible (GC-sandbox-api-02). New ops are added as
@@ -11,9 +11,7 @@ use serde::{Deserialize, Serialize};
 /// One sandbox daemon operation. Serializes to its verbatim legacy wire string.
 ///
 /// `#[non_exhaustive]` because the daemon protocol may grow; within this crate
-/// matches stay exhaustive. The legacy `Shell` variant keeps the `api.v1.shell`
-/// wire label even though user-facing tooling says `exec_command`
-/// (GC-sandbox-api-02).
+/// matches stay exhaustive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum DaemonOp {
@@ -26,15 +24,12 @@ pub enum DaemonOp {
     /// `api.v1.edit_file`
     #[serde(rename = "api.v1.edit_file")]
     EditFile,
-    /// `api.v1.shell` — legacy label retained for protocol compat (GC-02).
-    #[serde(rename = "api.v1.shell")]
-    Shell,
     /// `api.v1.exec_command`
     #[serde(rename = "api.v1.exec_command")]
     ExecCommand,
-    /// `api.v1.command.write_stdin`
-    #[serde(rename = "api.v1.command.write_stdin")]
-    CommandWriteStdin,
+    /// `api.v1.exec_stdin`
+    #[serde(rename = "api.v1.exec_stdin")]
+    ExecStdin,
     /// `api.v1.command.cancel`
     #[serde(rename = "api.v1.command.cancel")]
     CommandCancel,
@@ -89,9 +84,8 @@ impl DaemonOp {
             Self::ReadFile => "api.v1.read_file",
             Self::WriteFile => "api.v1.write_file",
             Self::EditFile => "api.v1.edit_file",
-            Self::Shell => "api.v1.shell",
             Self::ExecCommand => "api.v1.exec_command",
-            Self::CommandWriteStdin => "api.v1.command.write_stdin",
+            Self::ExecStdin => "api.v1.exec_stdin",
             Self::CommandCancel => "api.v1.command.cancel",
             Self::CommandCollectCompleted => "api.v1.command.collect_completed",
             Self::CommandSessionCount => "api.v1.command_session_count",
@@ -122,9 +116,8 @@ mod tests {
             (DaemonOp::ReadFile, "api.v1.read_file"),
             (DaemonOp::WriteFile, "api.v1.write_file"),
             (DaemonOp::EditFile, "api.v1.edit_file"),
-            (DaemonOp::Shell, "api.v1.shell"),
             (DaemonOp::ExecCommand, "api.v1.exec_command"),
-            (DaemonOp::CommandWriteStdin, "api.v1.command.write_stdin"),
+            (DaemonOp::ExecStdin, "api.v1.exec_stdin"),
             (DaemonOp::CommandCancel, "api.v1.command.cancel"),
             (
                 DaemonOp::CommandCollectCompleted,

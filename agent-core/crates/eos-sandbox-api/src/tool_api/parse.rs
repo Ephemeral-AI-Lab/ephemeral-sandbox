@@ -17,7 +17,7 @@ use serde_json::Value;
 use crate::error::SandboxApiError;
 use crate::models::{
     CommandOutput, ConflictInfo, EditFileResult, ExecCommandResult, GlobResult, GrepResult,
-    ReadFileResult, SandboxRequestBase, SandboxResultBase, ShellResult, Workspace, WriteFileResult,
+    ReadFileResult, SandboxRequestBase, SandboxResultBase, Workspace, WriteFileResult,
 };
 
 // ---------------------------------------------------------------------------
@@ -65,11 +65,6 @@ const EDIT_CONFLICT_CODES: [&str; 3] = [
     "anchor_not_found",
     "anchor_occurrence_count_mismatch",
 ];
-const SHELL_CONFLICT_CODES: [&str; 3] = [
-    "overlay_escape",
-    "rejected_symlink",
-    "unsupported_symlink_change",
-];
 // Message substrings, already lowercase (ported from conflict_markers.py). Both
 // the api side (here) and the audit side (relocated to eos-tools) must keep
 // these in sync — see the conflict_markers.py docstring.
@@ -78,11 +73,6 @@ const EDIT_CONFLICT_MARKERS: [&str; 3] = [
     "anchor occurrence count mismatch",
     "aborted_overlap",
 ];
-const SHELL_CONFLICT_MARKERS: [&str; 2] = [
-    "overlay capture refuses escaping symlink target",
-    "unsupported tracked change kind: symlinkchange",
-];
-
 fn matches_conflict(err: &SandboxApiError, codes: &[&str], markers: &[&str]) -> bool {
     if let Some(code) = err.code() {
         let normalized = code.trim().to_lowercase();
@@ -98,11 +88,6 @@ fn matches_conflict(err: &SandboxApiError, codes: &[&str], markers: &[&str]) -> 
 /// to a successful `Ok(result)` instead of `Err`).
 pub(crate) fn is_edit_conflict(err: &SandboxApiError) -> bool {
     matches_conflict(err, &EDIT_CONFLICT_CODES, &EDIT_CONFLICT_MARKERS)
-}
-
-/// Whether a transport error is a recoverable shell conflict.
-pub(crate) fn is_shell_conflict(err: &SandboxApiError) -> bool {
-    matches_conflict(err, &SHELL_CONFLICT_CODES, &SHELL_CONFLICT_MARKERS)
 }
 
 // ---------------------------------------------------------------------------
@@ -414,20 +399,6 @@ pub(crate) fn parse_edit_file_result(
     })
 }
 
-pub(crate) fn parse_shell_result(response: &JsonObject) -> Result<ShellResult, SandboxApiError> {
-    let common = parse_guarded_common(response);
-    Ok(ShellResult {
-        base: common.base,
-        changed_path_kinds: common.changed_path_kinds,
-        mutation_source: common.mutation_source,
-        status: common.status,
-        exit_code: strict_int(response, "exit_code", 1)? as i32,
-        stdout: get_string(response, "stdout", ""),
-        stderr: get_string(response, "stderr", ""),
-        warnings: parse_path_tuple(response.get("warnings")),
-    })
-}
-
 pub(crate) fn parse_exec_command_result(
     response: &JsonObject,
 ) -> Result<ExecCommandResult, SandboxApiError> {
@@ -619,15 +590,6 @@ mod tests {
             Some(&"modified".to_owned())
         );
 
-        // Shell `warnings` uses the same filter.
-        let shell = obj(serde_json::json!({
-            "success": true,
-            "exit_code": 0,
-            "stdout": "",
-            "warnings": ["careful", "   "],
-        }));
-        let result = parse_shell_result(&shell).expect("parse");
-        assert_eq!(result.warnings, vec!["careful"]);
     }
 
     // AC-sandbox-api-03: ExecCommandResult.success is derived from status.
@@ -743,11 +705,6 @@ mod tests {
         assert!(is_edit_conflict(&SandboxApiError::transport(
             None,
             "internal_error: Anchor Not Found here",
-        )));
-        // Shell markers.
-        assert!(is_shell_conflict(&SandboxApiError::transport(
-            None,
-            "overlay capture refuses escaping symlink target",
         )));
         // Non-conflict.
         assert!(!is_edit_conflict(&SandboxApiError::transport(

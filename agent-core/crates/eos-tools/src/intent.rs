@@ -62,6 +62,7 @@ impl From<ToolIntent> for Intent {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)] // unwrap permitted in tests (err-no-unwrap-prod)
     use super::*;
 
     #[test]

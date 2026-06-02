@@ -132,7 +132,7 @@ struct GlobOutput {
     truncated: bool,
 }
 
-/// `CommandToolOutput` (command_session_tool.py).
+/// `CommandToolOutput` (`command_session_tool.py`).
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 struct CommandToolOutput {
     status: String,
@@ -500,14 +500,17 @@ fn edit_output(
 }
 
 fn mutation_result(success: bool, output: MutationOutput) -> ToolResult {
+    let serialized = serialize(&output);
     let mut result = if success {
-        ToolResult::ok(serialize(&output))
+        ToolResult::ok(serialized)
     } else {
-        ToolResult::error(serialize(&output))
+        ToolResult::error(serialized)
     };
+    // Moves `output.status` out, consuming `output` (so it is not a
+    // pass-by-reference-only argument).
     result
         .metadata
-        .insert("status".to_owned(), json!(output.status));
+        .insert("status".to_owned(), Value::String(output.status));
     result
 }
 
@@ -1012,7 +1015,7 @@ mod tests {
         let cancels = Arc::new(AtomicUsize::new(0));
         let cancels_seen = cancels.clone();
         let transport = Arc::new(FakeTransport::new(move |op, _| match op {
-            DaemonOp::CommandWriteStdin => Ok(obj(&[
+            DaemonOp::ExecStdin => Ok(obj(&[
                 ("status", json!("running")),
                 ("output", json!({"stdout": "", "stderr": ""})),
             ])),
@@ -1044,7 +1047,7 @@ mod tests {
     #[tokio::test]
     async fn write_stdin_plain_does_not_cancel() {
         let transport = Arc::new(FakeTransport::new(|op, _| match op {
-            DaemonOp::CommandWriteStdin => Ok(obj(&[
+            DaemonOp::ExecStdin => Ok(obj(&[
                 ("status", json!("running")),
                 ("output", json!({"stdout": "ok", "stderr": ""})),
             ])),
