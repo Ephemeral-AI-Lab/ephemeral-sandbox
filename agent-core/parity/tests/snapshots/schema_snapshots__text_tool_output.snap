@@ -1,0 +1,9 @@
+---
+source: parity/tests/schema_snapshots.rs
+expression: value
+---
+{
+  "description": "Successful output for tools whose true output is plain text.",
+  "title": "TextToolOutput",
+  "type": "string"
+}

@@ -121,10 +121,14 @@ Synchronous single-process fanout. Owns a `Vec<Arc<dyn AuditSink>>` and a
 `Mutex<Vec<AuditDispatchError>>`. `publish` is **infallible to its caller**: it
 visits every sink, stashing each `Err` (GC-audit-04). See §6/§8.
 
-### JSONL writer (`JsonlSink`, owned)
+### JSONL writer (`JsonlSink` / `BufferedJsonlSink`, owned)
 
-An `AuditSink` that appends one untruncated canonical JSON object per line. Owns a
-`PathBuf`; opens with create+append per write (mirrors `os.open(O_APPEND)`).
+`JsonlSink` appends one untruncated canonical JSON object per line and is useful
+for tests and low-volume compatibility. Production wiring should prefer
+`BufferedJsonlSink`: `publish` sends the event into a bounded sync channel, and a
+single writer thread owns the open append-mode file handle. If the queue is full,
+`publish` returns an `AuditError::Backpressure` so the bus can record the failure
+instead of blocking a Tokio worker thread.
 
 Contracts **referenced** (not redefined here): `RequestId`, `WorkflowId`,
 `IterationId`, `AttemptId`, `TaskId`, `AgentRunId`, `SandboxId`, `ToolUseId`,
@@ -380,6 +384,8 @@ pub enum AuditError {
     Jsonl(#[from] std::io::Error),
     #[error("audit event serialization failed")]
     Serialize(#[from] serde_json::Error),
+    #[error("audit sink queue is full")]
+    Backpressure,
 }
 ```
 
@@ -402,12 +408,16 @@ Per anchor §7. This crate is **synchronous** and runtime-agnostic — it takes
   (`async-clone-before-await` analog: minimize critical section).
 - **`JsonlSink`:** owns a `PathBuf`; each `publish` does create-dir + open
   (`O_CREAT|O_APPEND`) + single `write` + close — append-mode write is the
-  atomicity story (mirrors Python `os.open(...O_APPEND)`). No shared file handle,
-  so no app-level file mutex. Concurrent processes are serialized by the OS append
-  semantics, identical to the Python writer.
-- **No channels, no cancellation, no `JoinSet`** — none apply to a synchronous
-  fanout bus. (If a future async sink is needed it is a *separate* sink impl that
-  internally bridges; it does not change this trait. Not built now — YAGNI.)
+  atomicity story (mirrors Python `os.open(...O_APPEND)`). Use it in tests and
+  low-volume compatibility paths.
+- **`BufferedJsonlSink`:** production file-backed sink. It owns a bounded
+  `std::sync::mpsc::SyncSender<AuditEvent>` and a writer thread that owns the
+  append-mode file handle. `publish` never performs disk IO on the caller's Tokio
+  worker; it sends or returns `AuditError::Backpressure`. Shutdown flushes and
+  joins the writer from the composition root.
+- **No async channels, no `JoinSet`** — none apply to a synchronous fanout bus.
+  The bridge is a dedicated sync writer thread so the `AuditSink` trait remains
+  object-safe and runtime-agnostic.
 - **CPU work** (hashing/canonical-JSON for redaction) runs inline on the caller's
   thread; volumes are small (single tool I/O blobs), so no `spawn_blocking`
   (`anti-premature-optimize`).

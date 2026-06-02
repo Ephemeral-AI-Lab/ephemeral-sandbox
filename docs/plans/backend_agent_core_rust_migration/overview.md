@@ -145,6 +145,29 @@ with the verification gate from the plan's Migration Phases section.
   prompt-report goldens, SQLite schema snapshots).
 - **Gate:** `cargo fmt --check`; `cargo clippy --workspace --all-targets -D
   warnings`; schema snapshots wired.
+- **Phase-0 implementation notes (2026-06-02):**
+  - **`panic = "unwind"` (GC-workspace-04):** set in `[profile.release]` and
+    inherited by `[profile.bench]` (Cargo ignores an explicit `panic` for bench).
+    The engine query loop and background supervisor recover from per-task /
+    per-attempt panics; an `abort` strategy would escalate a single
+    tool/SSE-parse panic to a whole-process kill, destroying in-flight sibling
+    background tasks and persisted-state coherence. This intentionally diverges
+    from the sibling `sandbox/` daemon workspace (`abort`).
+    `parity/tests/profiles.rs` guards against regression to `abort`.
+  - **Frozen edge set & reconciliations:** the internal `eos-* -> eos-*` edge set
+    asserted by `parity/tests/dependency_dag.rs` follows the §4 dependency
+    topology. Two corrections to `impl-workspace.md` §5's edge table align it with
+    the topology it says to mirror and with each crate's own `impl-*.md` §2:
+    (1) `eos-plugin-catalog -> sandbox-api, audit, config` (§5's `audit`-only row
+    was an omission; the topology and `impl-eos-plugin-catalog.md` §2 list all
+    three); (2) `eos-config -> eos-types` is kept per the topology and §5, though
+    `impl-eos-config.md` §2 plans to drop it — Phase 2 prunes that edge and
+    updates the test when `eos-config` is implemented.
+  - **Parity corpus deferrals:** sandbox request/result DTOs are frozen
+    `@dataclass`es (no `model_json_schema()`) and `ToolSpec` goldens need
+    per-agent tool binding; both are deferred to their owning crates' phases
+    (`eos-sandbox-api`, `eos-llm-client`/`eos-tools`). `Message` + content blocks
+    + `TextToolOutput` satisfy AC-workspace-05. See `parity/README.md`.
 
 ### Phase 1 — Foundation  *(sequential; blocks all domain crates)*
 - **`impl-eos-types.md`** — IDs, `UtcDateTime`, `Clock`, `CoreError`,
@@ -283,7 +306,7 @@ with the verification gate from the plan's Migration Phases section.
 
 | Phase | Crate | Status | Date | Note / commit |
 |---|---|---|---|---|
-| 0 | (workspace) | NOT STARTED | — | — |
+| 0 | (workspace) | DONE | 2026-06-02 | agent-core workspace + 15 crate skeletons + eos-parity harness; frozen DAG/profiles/schema/SSE/prompt-report guard tests green (`cargo fmt --check`, `clippy -D warnings`, `test -p eos-parity`); CI workflow `.github/workflows/agent-core.yml` added. Uncommitted. |
 | 1 | eos-types | NOT STARTED | — | — |
 | 2 | eos-config | NOT STARTED | — | — |
 | 2 | eos-state | NOT STARTED | — | — |

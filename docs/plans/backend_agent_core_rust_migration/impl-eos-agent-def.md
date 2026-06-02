@@ -280,12 +280,15 @@ Semantics preserved from the Python source (cite per item):
    (in `_build_agent_tool_registry`) computes
    `sorted(set(allowed_tools) | set(terminals))` and hands it to
    `_register_requested_tools`, which **skips unknown names with a warning**
-   (`engine/agent/factory.py:252`) at spawn. This crate therefore stores both lists as plain
-   `Vec<String>` and performs **no** union, no registry check, no `ToolSpec`
-   build. Encoding tool names as a registry-validated `ToolName` here would
-   *reject* names Python deliberately tolerates and would require an illegal
-   `eos-tools` edge. The union + skip-unknown + spawn-time `Vec<ToolSpec>`
-   materialization is an **eos-engine invariant** (see `impl-eos-engine.md`).
+   (`engine/agent/factory.py:252`) at spawn. This crate therefore stores both
+   lists as plain `Vec<String>` and performs **no** union, no registry check, no
+   `ToolSpec` build. Encoding tool names as a registry-validated `ToolName` here
+   would reject names Python deliberately tolerates and would require an illegal
+   `eos-tools` edge. The union + spawn-time `Vec<ToolSpec>` materialization is an
+   **eos-engine invariant** (see `impl-eos-engine.md`). Final Rust startup
+   validation is an **eos-runtime** responsibility after tool/agent registries
+   are both built: unknown tool names fail fast unless an explicit compatibility
+   mode is enabled.
    This is the anchor §2 non-goal: **no tool visibility enum, no lazy loader.**
 2. **`role` is required on the file-parse path; the struct default is
    test-only.** `loader.py:64` raises when frontmatter omits `role`. The Pydantic
@@ -358,8 +361,9 @@ no tool visibility abstraction (GC-eos-agent-def-06); registry is lookup only.
   coordination type.
 - **GC-eos-agent-def-04** — *No tool visibility abstraction; registry is lookup
   only.* `allowed_tools`/`terminals` are `Vec<String>`; the `∪`-to-`ToolSpec`
-  materialization (and skip-unknown policy) is an eos-engine invariant
-  documented in §8.1, not implemented here.
+  materialization is an eos-engine invariant documented in §8.1, not implemented
+  here. Cross-registry unknown-name validation is performed by eos-runtime at
+  startup once the tool registry exists.
 - **GC-eos-agent-def-05** — *Break cyclic validation edges.* The recipe-catalog
   check relocates to `eos-workflow` (invoked at composition root); the skill lint
   takes terminal keys as injected `&[&str]`; frontmatter parsing is inlined (no

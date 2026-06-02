@@ -1,0 +1,47 @@
+name: agent-core CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "agent-core/**"
+      - ".github/workflows/agent-core.yml"
+  pull_request:
+    paths:
+      - "agent-core/**"
+      - ".github/workflows/agent-core.yml"
+
+defaults:
+  run:
+    working-directory: agent-core
+
+jobs:
+  rust:
+    name: agent-core fmt + clippy + build + parity tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable + rustfmt + clippy)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent-core
+
+      - name: rustfmt
+        run: cargo fmt --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: build
+        run: cargo build --workspace
+
+      - name: parity tests
+        run: cargo test -p eos-parity

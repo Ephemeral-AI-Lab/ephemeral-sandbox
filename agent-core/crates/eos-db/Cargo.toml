@@ -7,6 +7,7 @@ rust-version.workspace = true
 [dependencies]
 eos-state.workspace = true
 eos-config.workspace = true
+uuid.workspace = true
 
 [lints]
 workspace = true

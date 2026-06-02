@@ -1,0 +1,33 @@
+---
+source: parity/tests/schema_snapshots.rs
+expression: value
+---
+{
+  "description": "A request from the model to execute a named tool.",
+  "properties": {
+    "input": {
+      "additionalProperties": true,
+      "title": "Input",
+      "type": "object"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "tool_use_id": {
+      "title": "Tool Use Id",
+      "type": "string"
+    },
+    "type": {
+      "const": "tool_use",
+      "default": "tool_use",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "ToolUseBlock",
+  "type": "object"
+}

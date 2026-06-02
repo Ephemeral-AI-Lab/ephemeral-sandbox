@@ -1,0 +1,24 @@
+---
+source: parity/tests/schema_snapshots.rs
+expression: value
+---
+{
+  "description": "Plain text content.",
+  "properties": {
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "type": {
+      "const": "text",
+      "default": "text",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "title": "TextBlock",
+  "type": "object"
+}

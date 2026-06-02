@@ -361,8 +361,10 @@ GC-engine-02. Three events, all sharing the turn's `seq`:
 | `tool_results` | `seq: u64`, `tool_results: Vec<ToolResultBlock>` | `record_tool_results` |
 
 Each row is the base event (`{agent_run_id, agent, model}`) merged with the event
-body, appended via the `eos-audit` JSONL append helper. **No `role="system"`
-`Message` is ever synthesized** (GC-engine-02): `system_prompt` is a top-level
+body, appended through the file-backed audit writer contract. Production wiring
+uses the buffered JSONL sink so prompt-report writes do not block Tokio worker
+threads. **No `role="system"` `Message` is ever synthesized** (GC-engine-02):
+`system_prompt` is a top-level
 string field; `MessageRole` has only `User`/`Assistant`.
 
 ## 7. Concurrency & State Ownership
@@ -424,9 +426,10 @@ Runtime-agnostic crate; `eos-runtime` owns the single multi-thread Tokio runtime
 - **Lock discipline.** No lock is held across `.await` anywhere
   (`async-no-lock-await`, `anti-lock-across-await`); the design has no app-level
   mutex on the hot path. If a future change forces a supervisor mutation off the
-  owner task, fall back to `Arc<tokio::sync::Mutex<Supervisor>>` with
-  clone-before-await (`async-clone-before-await`) — but the current design does
-  not need it.
+  owner task, fall back to `Arc<parking_lot::Mutex<Supervisor>>` with
+  clone-before-await (`async-clone-before-await`, anchor §7) — or
+  `tokio::sync::Mutex` only if a mutation must hold the guard across an `.await`.
+  The current design needs neither.
 - **Supervisor ↔ tools back-reference.** Tools (`run_subagent`, `exec_command`,
   `write_stdin`, workflow tools) reach the supervisor through the eos-tools
   `ExecutionMetadata`/execution context (the `background_task_manager` /

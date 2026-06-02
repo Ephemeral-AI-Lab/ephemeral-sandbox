@@ -50,6 +50,7 @@ does not own them.
 | `bollard` | typed async Docker Engine API client (container CRUD, exec, `put_archive`, port bindings) — avoids `Box<dyn>` over a hand-rolled HTTP client | `anti-type-erasure` |
 | `reqwest` (json, stream) | Daytona HTTP API client (no official Rust SDK; REST + signed-URL calls) | `async-tokio-runtime` |
 | `async-trait` | `ProviderAdapter` is stored behind `Arc<dyn ProviderAdapter>` in the registry; native async-fn-in-trait is not yet `dyn`-safe (anchor §6) | `api-sealed-trait` |
+| `parking_lot` | `RwLock` for the provider registry + TCP-endpoint cache map — synchronous read/insert, guard dropped before `.await`, `!Send` guard, no poison under `panic=unwind` (the across-await dedup guard stays `tokio::sync::Mutex`) | `own-mutex-interior`, anchor §7 |
 | `serde` / `serde_json` | decode provider JSON (container attrs, snapshots, signed URLs) and daemon envelope/response JSON | — |
 | `thiserror` | the single `SandboxHostError` enum (`err-thiserror-lib`) | `err-thiserror-lib` |
 | `sha2` | verify the pinned `eosd` artifact digest before upload | — |
@@ -64,7 +65,7 @@ does not own them.
 |---|---|---|
 | `sandbox/provider/protocol.py` | `provider.rs` | `ProviderAdapter` trait (owned here). Drop duck-typed `context_preparer(...) -> Any`: replace with the concrete `ContextPreparer` enum (GC-07) — a typed fixed point, not a new trait seam. |
 | `sandbox/provider/bootstrap.py` | folded into `registry.rs` + `eos-runtime` wiring | First-call-wins process global + sentinel → **explicit `ProviderRegistry` app state** built once at the composition root (GC-02). Drop `_reset_for_tests`, the `threading.Lock` sentinel, env warning-on-mismatch. |
-| `sandbox/provider/registry.py` | `registry.rs` | `set/get_default_provider`, `register/get/has/dispose_adapter`, **WR-01 no-cache-fallback** semantics preserved. `threading.Lock` → `tokio::sync::RwLock`. |
+| `sandbox/provider/registry.py` | `registry.rs` | `set/get_default_provider`, `register/get/has/dispose_adapter`, **WR-01 no-cache-fallback** semantics preserved. `threading.Lock` → `parking_lot::RwLock` (synchronous read/insert, anchor §7). |
 | `sandbox/provider/docker/adapter.py` | `docker.rs` | `DockerProviderAdapter` over `bollard`. Keep daemon-TCP endpoint derivation (`get_daemon_tcp_endpoint`), label conventions, `put_archive`. `asyncio.to_thread` Docker calls become native bollard async. |
 | `sandbox/provider/daytona/adapter.py` | `daytona.rs` | `DaytonaProviderAdapter` over `reqwest`. `put_archive` stays `Err(Unsupported)` (Docker-only). Health probe redaction (IN-02) preserved. |
 | `sandbox/host/lifecycle.py` | `lifecycle.rs` | `create/start/stop/delete/set_labels/ensure_running` + post-lifecycle setup orchestration. The `delete` path's `forget_plugin_dispatch_state`/`forget_plugin_install_state` calls are host-local in-process cache cleanups (they `.pop()` from module-level dicts), **not** daemon ops — port as a local host-state cleanup, or drop if the Rust host holds no such cache (no plugin internals, no transport RPC). |
@@ -194,8 +195,8 @@ The per-provider preparer payloads (`DockerContextPreparer`,
 ```rust
 #[derive(Debug, Default)]
 pub struct ProviderRegistry {
-    default: RwLock<Option<Arc<dyn ProviderAdapter>>>,
-    bindings: RwLock<HashMap<SandboxId, Arc<dyn ProviderAdapter>>>,
+    default: parking_lot::RwLock<Option<Arc<dyn ProviderAdapter>>>,
+    bindings: parking_lot::RwLock<HashMap<SandboxId, Arc<dyn ProviderAdapter>>>,
 }
 ```
 Constructed by `eos-runtime` and shared as `Arc<ProviderRegistry>`. Methods:
@@ -372,19 +373,25 @@ multi-thread runtime.
 
 - **`ProviderRegistry`** is the only shared mutable state: shared as
   `Arc<ProviderRegistry>` (`own-arc-shared`); `default` and `bindings` behind
-  `tokio::sync::RwLock` (reads dominate — every dispatch reads, registration is
-  rare — `own-rwlock-readers`). Lock discipline: read guard is dropped (the
-  `Arc<dyn ProviderAdapter>` is cloned out) **before** any `.await`
+  **`parking_lot::RwLock`** (reads dominate — every dispatch reads, registration
+  is rare — `own-rwlock-readers`). The read path is synchronous: the
+  `Arc<dyn ProviderAdapter>` is cloned out and the guard dropped **before** any
+  `.await`, so the async `tokio::sync::RwLock` buys nothing (anchor §7); the
+  `!Send` guard makes a hold-across-await a compile error
   (`async-no-lock-await`, `async-clone-before-await`).
 - **Adapters** (`Arc<dyn ProviderAdapter>`) are immutable after construction;
   `bollard::Docker` / `reqwest::Client` are internally `Clone` + pooled.
 - **Sync provider CPU calls** (bollard container CRUD that is blocking, daytona
   REST when only a sync path exists) run via `tokio::task::spawn_blocking`
   (`async-spawn-blocking`) — mirrors Python `asyncio.to_thread`.
-- **TCP-endpoint cache** (`daemon_client.rs`): `RwLock<HashMap<SandboxId,
-  Option<DaemonTcpEndpoint>>>` plus a per-sandbox `Mutex` guard to dedupe the
-  resolve round-trip (the Python `_tcp_endpoint_cache_locks` pattern). Cache is
-  invalidated on `CONNECT_FAILED` / empty TCP response.
+- **TCP-endpoint cache** (`daemon_client.rs`): the
+  `HashMap<SandboxId, Option<DaemonTcpEndpoint>>` lookup/insert is synchronous, so
+  it sits behind a **`parking_lot::RwLock`**. The per-sandbox dedup guard is the
+  **one `tokio::sync::Mutex`** in this crate, and deliberately so: it is **held
+  across the async resolve round-trip** so concurrent callers single-flight rather
+  than all hitting the daemon (the Python `_tcp_endpoint_cache_locks` pattern) —
+  the legitimate must-span-`.await` case (anchor §7). Cache is invalidated on
+  `CONNECT_FAILED` / empty TCP response.
 - **Background bundle upload overlap** (post-create setup): the Python
   `ThreadPoolExecutor` + future-join becomes a single `tokio::task::JoinSet`
   task launched before `ensure_git`, drained (`join_next`) after, with errors
@@ -568,7 +575,7 @@ provisioning").
 2. `provider.rs`: `ProviderKind`, `CreateSandboxSpec`, `SandboxInfo`,
    `DaemonTcpEndpoint`, `ExecOpts`, `RawExecResult`, the sealed `ProviderAdapter`
    trait + the concrete `ContextPreparer` enum (verify: AC-10 compile-fail stub).
-3. `registry.rs`: `ProviderRegistry` app state with RwLock fields; WR-01 no-cache
+3. `registry.rs`: `ProviderRegistry` app state with `parking_lot::RwLock` fields; WR-01 no-cache
    fallback (verify: AC-01, AC-02).
 4. `daemon_client.rs`: envelope builder + constants + decode (verify: AC-03, AC-05).
 5. `daemon_client.rs`: spawn/connect/empty-response recovery state machine + TCP

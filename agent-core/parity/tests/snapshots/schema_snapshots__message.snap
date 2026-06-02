@@ -1,0 +1,186 @@
+---
+source: parity/tests/schema_snapshots.rs
+expression: value
+---
+{
+  "$defs": {
+    "SystemNotificationBlock": {
+      "description": "Engine-generated reminder for the model wrapped in tags.\n\nThis is a first-class content block — distinct from a user-authored\nTextBlock — so the engine and UI can treat it\nspecially:\n\n- The display layer can render it differently (greyed-out, icon,\n  collapsible) instead of mixing it with real user text.\n- Provider-history preparation can filter or dedupe stale notifications before\n  they reach the model.\n- Audit / persistence can count notifications separately from real user\n  messages.\n\nOn the wire (Anthropic and other providers that only accept ``text``\nblocks mid-conversation), this block is serialized as a ``text`` block\nwhose body is wrapped in ``<system-reminder>...</system-reminder>``\ntags. See :func:`serialize_content_block`. The role of the parent\n:class:`Message` should be ``\"user\"`` because Anthropic's\nAPI does not accept arbitrary roles in the messages array.",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "system_notification",
+          "default": "system_notification",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "SystemNotificationBlock",
+      "type": "object"
+    },
+    "TextBlock": {
+      "description": "Plain text content.",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "text",
+          "default": "text",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "TextBlock",
+      "type": "object"
+    },
+    "ThinkingBlock": {
+      "description": "Model reasoning / chain-of-thought content.",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "thinking",
+          "default": "thinking",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "ThinkingBlock",
+      "type": "object"
+    },
+    "ToolResultBlock": {
+      "description": "Tool result content sent back to the model.",
+      "properties": {
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "is_error": {
+          "default": false,
+          "title": "Is Error",
+          "type": "boolean"
+        },
+        "is_terminal": {
+          "default": false,
+          "title": "Is Terminal",
+          "type": "boolean"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "tool_use_id": {
+          "title": "Tool Use Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_result",
+          "default": "tool_result",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_use_id",
+        "content"
+      ],
+      "title": "ToolResultBlock",
+      "type": "object"
+    },
+    "ToolUseBlock": {
+      "description": "A request from the model to execute a named tool.",
+      "properties": {
+        "input": {
+          "additionalProperties": true,
+          "title": "Input",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "tool_use_id": {
+          "title": "Tool Use Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_use",
+          "default": "tool_use",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolUseBlock",
+      "type": "object"
+    }
+  },
+  "description": "A single assistant or user message.",
+  "properties": {
+    "content": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "system_notification": "#/$defs/SystemNotificationBlock",
+            "text": "#/$defs/TextBlock",
+            "thinking": "#/$defs/ThinkingBlock",
+            "tool_result": "#/$defs/ToolResultBlock",
+            "tool_use": "#/$defs/ToolUseBlock"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/TextBlock"
+          },
+          {
+            "$ref": "#/$defs/ThinkingBlock"
+          },
+          {
+            "$ref": "#/$defs/ToolUseBlock"
+          },
+          {
+            "$ref": "#/$defs/ToolResultBlock"
+          },
+          {
+            "$ref": "#/$defs/SystemNotificationBlock"
+          }
+        ]
+      },
+      "title": "Content",
+      "type": "array"
+    },
+    "role": {
+      "enum": [
+        "user",
+        "assistant"
+      ],
+      "title": "Role",
+      "type": "string"
+    }
+  },
+  "required": [
+    "role"
+  ],
+  "title": "Message",
+  "type": "object"
+}

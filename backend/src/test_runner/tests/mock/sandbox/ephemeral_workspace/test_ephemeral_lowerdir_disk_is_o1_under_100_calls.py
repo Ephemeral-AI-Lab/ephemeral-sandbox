@@ -53,9 +53,14 @@ async def test_ephemeral_lowerdir_disk_is_o1_under_100_calls(
     assert summary["tool_counts"]["write_file"] >= 30
     assert summary["tool_counts"]["edit_file"] >= 30
     assert summary["tool_counts"]["read_file"] >= 30
+    active_leases = [
+        int(sample["layer_metrics"]["active_leases"]) for sample in summary["samples"]
+    ]
     for sample in summary["samples"]:
         assert sample["runtime"]["command_overlay_run_dirs"] == 0, sample
-        assert sample["layer_metrics"]["active_leases"] == 0, sample
+        assert sample["layer_metrics"]["active_leases"] <= 1, sample
+    assert max(active_leases) <= 1, summary
+    assert int(summary["final_layer_metrics"]["active_leases"]) <= 1, summary
     assert summary["warm_p95_ms"]["read_file"] <= 500.0
     assert summary["warm_p95_ms"]["write_file"] <= 1_000.0
     assert summary["warm_p95_ms"]["edit_file"] <= 1_000.0

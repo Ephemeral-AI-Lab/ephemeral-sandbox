@@ -49,7 +49,8 @@ async def test_ephemeral_outside_workspace_policy(
     assert summary["hosts_read_ok"] is True
     assert summary["tmp_write_changed_paths"] == []
     assert "tmp-ok" in summary["tmp_probe_stdout"]
-    assert summary["outside_command_has_mount_timing"] is True
+    assert summary["outside_command_has_public_timing"] is True, summary
+    assert summary["outside_command_has_capture_timing"] is True, summary
 
     assert_ephemeral_performance_artifacts(
         report,

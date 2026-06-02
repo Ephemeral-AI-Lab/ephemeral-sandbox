@@ -412,9 +412,22 @@ async def run_ephemeral_policy_probe(
         "hosts_read_ok": "localhost" in _stdout(hosts) or bool(_stdout(hosts)),
         "tmp_write_changed_paths": _changed_paths(tmp_write),
         "tmp_probe_stdout": tmp_probe.stdout,
+        "outside_command_timing_keys": sorted(
+            set(_timings(hosts)) | set(_timings(tmp_write))
+        ),
         "outside_command_has_mount_timing": (
             "command_exec.mount_workspace_s" in _timings(hosts)
             and "command_exec.mount_workspace_s" in _timings(tmp_write)
+        ),
+        "outside_command_has_capture_timing": (
+            "command_exec.capture_upperdir_s" in _timings(hosts)
+            or "command_exec.capture_upperdir_s" in _timings(tmp_write)
+        ),
+        "outside_command_has_public_timing": (
+            "api.exec_command.dispatch_total_s" in _timings(hosts)
+            and "api.exec_command.dispatch_total_s" in _timings(tmp_write)
+            and "api.shell.total_s" in _timings(hosts)
+            and "api.shell.total_s" in _timings(tmp_write)
         ),
     }
     return await _write_summary(
@@ -656,6 +669,8 @@ async def run_ephemeral_o1_disk_probe(
         "mutation_count": mutation_count,
         "manifest_delta": manifest_delta,
         "auto_squash_count": auto_squash_count,
+        "baseline_layer_metrics": baseline,
+        "final_layer_metrics": current_metrics,
         "samples": samples,
         "tool_counts": _tool_counts(records),
         "warm_p95_ms": _warm_p95_by_tool(records),

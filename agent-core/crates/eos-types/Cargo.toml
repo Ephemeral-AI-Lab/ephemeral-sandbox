@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+uuid.workspace = true
 
 [lints]
 workspace = true

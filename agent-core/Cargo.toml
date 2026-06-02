@@ -32,6 +32,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"]
 time        = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
 async-trait = "0.1"
 bytes       = "1"
+parking_lot = "0.12"
+uuid        = { version = "1", features = ["v4", "serde"] }
 console-subscriber = "0.4"
 # dev
 insta             = { version = "1", features = ["json"] }
@@ -91,6 +93,7 @@ unwrap_used = "warn"
 dbg_macro   = "warn"
 print_stdout = "warn"
 undocumented_unsafe_blocks = "deny"
+await_holding_lock = "deny"   # std/parking_lot guard held across .await is a bug (anchor §7)
 
 [workspace.lints.rust]
 unsafe_code = "forbid"     # no agent-core crate needs unsafe; sandbox owns FFI

@@ -51,7 +51,9 @@ composition-root half of the DIP seams (anchor §6).
 | `tokio` (rt-multi-thread, macros) | owns the single multi-thread runtime + `JoinHandle` for the root-agent task | `async-tokio-runtime` |
 | `anyhow` | top-level wiring errors with context chaining at the app boundary only | `err-anyhow-app` |
 | `tokio-util` | `CancellationToken` propagated into `AppState`/root-agent for graceful shutdown | `async-cancellation-token` |
-| `tracing` | structured startup/shutdown logging (replaces `logging` in `app_factory.py`) | — |
+| `tracing` | structured startup/shutdown spans (replaces `logging` in `app_factory.py`) | — |
+| `tracing-subscriber` | env-filtered text/JSON subscriber setup in `observability.rs` | anchor §7 observability |
+| `console-subscriber` (optional feature `tokio-console`) | Tokio task/resource debugging when explicitly enabled | anchor §7 observability |
 | `uuid` (v4) | mint `request_id` and `root-<hex16>` root-task ids (parity with `entry.py`) | — |
 
 No `serde`/`schemars` is needed here directly: this crate owns no wire DTOs (all
@@ -84,21 +86,24 @@ eos-runtime/
 └── src/
     ├── lib.rs                 # pub use AppState, RequestEntryHandle, start_request,
     │                          #   RequestSandboxBinding, RequestSandboxProvisioner;
-    │                          #   builds + owns the Tokio runtime via run() (proj-pub-use-reexport)
+    │                          #   async API only, no Runtime::new (proj-pub-use-reexport)
     ├── app_state.rs           # AppState (DI graph) + AppStateBuilder; single-place
     │                          #   store + seam construction; optional registry seed
     ├── entry.rs               # RequestEntry, RequestEntryHandle, start_request,
     │                          #   root-task minting, root-agent spawn, fail-unfinished glue
+    ├── observability.rs       # tracing-subscriber setup + optional tokio-console feature
     ├── root_agent.rs          # run_root_agent: direct eos-engine call + outcome mapping
     └── sandbox_provisioning.rs# RequestSandboxBinding, RequestSandboxProvisioner
 
 eos-runtime-bin/ (or src/bin/eos-runtime.rs)
-    main.rs                    # thin entry point: AppState::builder().build()?, run()
+    main.rs                    # thin entry point: init tracing, build AppState, call async API
 ```
 
 `lib.rs` re-exports the public surface; everything else is `pub(crate)` unless
 re-exported (`proj-pub-crate-internal`). `main.rs` holds no logic
 (`proj-lib-main-split`) so `entry`/`app_state` stay integration-testable.
+`Runtime::new` / `#[tokio::main]` appear only in the binary or an explicitly
+named sync wrapper; library callers use async APIs and bring their own runtime.
 
 ## 5. Contracts Owned Here
 
@@ -248,12 +253,13 @@ returned no id`).
 
 ## 7. Concurrency & State Ownership
 
-- **Runtime:** this crate constructs the **single Tokio multi-thread runtime**
-  (`async-tokio-runtime`) in `lib.rs::run` / `main.rs`. All lower crates are
-  runtime-agnostic. The root-agent future is launched with `tokio::spawn`,
-  yielding `root_agent_task: JoinHandle<()>` (replaces `loop.create_task`); the
-  Python guard "requires an active asyncio event loop" becomes a compile/runtime
-  guarantee that `start_request` is called within the runtime.
+- **Runtime:** the binary or an explicitly named sync wrapper constructs the
+  **single Tokio multi-thread runtime** (`async-tokio-runtime`). `lib.rs`
+  exposes async APIs only. All lower crates are runtime-agnostic. The root-agent
+  future is launched with `tokio::spawn`, yielding `root_agent_task:
+  JoinHandle<()>` (replaces `loop.create_task`); the Python guard "requires an
+  active asyncio event loop" becomes a compile/runtime guarantee that
+  `start_request` is called within the runtime.
 - **Shared immutable state:** `AppState` and every registry/config/seam it holds
   are `Arc<T>` cloned per spawned agent and per delegated workflow
   (`own-arc-shared`). `AppState: Clone` is the cheap-clone graph handle.
@@ -424,6 +430,12 @@ Maps to plan Phase 5/7 verifications and anchor §11.
   `event_source_factory` (test-mock-traits), `start_request`, await
   `root_agent_task`, assert the request finishes with the submitted root outcome.
   (Plan Phase 7: "end-to-end root agent request with mocked LLM".)
+- **AC-eos-runtime-09** — *agent profile tool names validate after registries are
+  built.* Test `app_state_tests::unknown_profile_tool_fails_startup`: with a
+  profile whose `allowed_tools`/`terminals` includes a name absent from
+  `ToolRegistry`, `AppStateBuilder::build()` fails unless explicit compatibility
+  mode is enabled. This closes the Python skip-unknown warning behavior without
+  adding an `eos-agent-def -> eos-tools` edge.
 
 ## 12. Implementation Checklist
 
@@ -443,9 +455,16 @@ Maps to plan Phase 5/7 verifications and anchor §11.
    AC-eos-runtime-02, -03.
 6. Add `tests/e2e_root_request.rs` with mock `event_source_factory`; AC-05 +
    AC-08. → verify: AC-eos-runtime-05, -08.
-7. Add thin `main.rs`: build runtime, build `AppState`, `start_request`, join.
-   → verify: `cargo run -p eos-runtime` against a fixture prompt + mock seam.
-8. `cargo fmt --check` + `cargo clippy --workspace --all-targets -- -D warnings`.
+7. Add `observability.rs`: initialize `tracing-subscriber` with env filters,
+   text/JSON output modes, and optional `tokio-console` feature. → verify:
+   subscriber setup test + feature-gated compile.
+8. Add cross-registry validation in `AppStateBuilder`: fail fast on unknown
+   profile tool names unless compatibility mode is enabled. → verify:
+   AC-eos-runtime-09.
+9. Add thin `main.rs`: initialize tracing, build runtime, build `AppState`,
+   `start_request`, join. → verify: `cargo run -p eos-runtime` against a fixture
+   prompt + mock seam.
+10. `cargo fmt --check` + `cargo clippy --workspace --all-targets -- -D warnings`.
 
 ---
 **On completion:** update the Progress Tracker in `./overview.md` for row

@@ -222,10 +222,21 @@ these conventions. Name the actual primitives; do not hand-wave.
 - **Shared immutable state** (config, registries, agent defs, skills): `Arc<T>`,
   cloned cheaply (`own-arc-shared`).
 - **Shared mutable state:** prefer message passing. Where shared mutation is
-  unavoidable, `tokio::sync::Mutex` / `RwLock` (use `RwLock` when reads dominate,
-  `own-rwlock-readers`). **Never hold a lock across `.await`**
-  (`async-no-lock-await`, `anti-lock-across-await`); clone/extract then drop the
-  guard before awaiting (`async-clone-before-await`).
+  unavoidable, **choose the lock by access pattern**:
+  - *Short, synchronous critical sections that never `.await` while the guard is
+    held* (counters, small registry/cache maps): use **`parking_lot::Mutex` /
+    `RwLock`** (or `std::sync::Mutex`). Their guard is `!Send`, so "hold across
+    `.await`" is a **compile error** in spawned tasks and clippy
+    `await_holding_lock` flags it; `parking_lot` also does not poison (matters
+    under `panic=unwind`) and is smaller/faster (`own-mutex-interior`). Use
+    `RwLock` when reads dominate (`own-rwlock-readers`).
+  - *Only when the guard genuinely must span an `.await`* (e.g. single-flight
+    dedup of an async resolve): use **`tokio::sync::Mutex` / `RwLock`** — the one
+    job the async lock exists for; otherwise it adds scheduler overhead for no
+    benefit.
+  - **Never hold a lock across `.await`** as the default (`async-no-lock-await`,
+    `anti-lock-across-await`); clone/extract then drop the guard before awaiting
+    (`async-clone-before-await`).
 - **Background supervisor (eos-engine):** `tokio::task::JoinSet` for the dynamic
   task group (`async-joinset-structured`), `CancellationToken` for graceful +
   parent-exit cancellation (`async-cancellation-token`), `mpsc` for the work

@@ -58,11 +58,9 @@ _FOREGROUND_SANDBOX_TOOLS = (
     "lsp.apply_workspace_edit",
 )
 _REQUIRED_SANDBOX_TIMING_KEYS = (
-    "command_exec.mount_workspace_s",
-    "command_exec.run_command_s",
+    "api.exec_command.dispatch_total_s",
+    "api.shell.total_s",
     "command_exec.capture_upperdir_s",
-    "command_exec.total_s",
-    "layer_stack.acquire_snapshot.total_s",
     "occ.commit.total_s",
     "occ.commit.publish_layer_s",
     "occ.apply.total_s",
@@ -72,8 +70,8 @@ _REQUIRED_TOOL_SAMPLE_TIMINGS = {
     "write_file": ("api.write.total_s", "occ.apply.total_s"),
     "edit_file": ("api.edit.total_s", "occ.apply.total_s"),
     "exec_command": (
-        "command_exec.mount_workspace_s",
-        "command_exec.run_command_s",
+        "api.exec_command.dispatch_total_s",
+        "api.shell.total_s",
         "command_exec.capture_upperdir_s",
     ),
     "lsp.apply_workspace_edit": (
@@ -292,7 +290,6 @@ def _assert_message_logs(run_dir: Path) -> None:
 
 def _assert_sandbox_monitor_events(events: list[Event], run_dir: Path) -> None:
     required = {
-        EventType.SANDBOX_LAYER_STACK_LEASE_ACQUIRED,
         EventType.SANDBOX_LAYER_STACK_LAYER_CREATED,
         EventType.SANDBOX_LAYER_STACK_LAYERS_SQUASHED,
         EventType.SANDBOX_OVERLAY_EXECUTED,
@@ -306,10 +303,14 @@ def _assert_sandbox_monitor_events(events: list[Event], run_dir: Path) -> None:
 
     sandbox_log = run_dir / "sandbox_events.jsonl"
     assert sandbox_log.exists()
+    rows = _jsonl_rows(sandbox_log)
+    assert any(
+        row.get("event_type") == "layer_stack.lease_acquired" for row in rows
+    ), "missing persisted layer_stack.lease_acquired"
     runner_event_values = {event.value for event in EventType}
     logged = {
         EventType(event_type)
-        for row in _jsonl_rows(sandbox_log)
+        for row in rows
         if (event_type := row.get("event_type")) in runner_event_values
     }
     missing_logged = sorted(event.value for event in required - logged)
@@ -447,7 +448,7 @@ async def _assert_final_sandbox_state(
     request_id: str,
 ) -> None:
     import sandbox.api as sandbox_api
-    from sandbox.api import ReadFileRequest, SandboxCaller, ShellRequest
+    from sandbox.api import ExecCommandRequest, ReadFileRequest, SandboxCaller
 
     caller = SandboxCaller(agent_id="sweevo-full-stack-test")
     final_path = "/testbed/.ephemeralos/sweevo-mock/full_stack/final-reconciliation.json"
@@ -493,22 +494,21 @@ async def _assert_final_sandbox_state(
     assert summary["conflicts_detected"] >= 1
     assert any(row.get("subsystem") == "lsp" for row in rows)
 
-    shell = await sandbox_api.shell(
+    command = await sandbox_api.exec_command(
         sandbox_id,
-        ShellRequest(
-            command=(
+        ExecCommandRequest(
+            cmd=(
                 f"test -s {final_path} && test -d /testbed/.git && "
                 "printf 'workspace=/testbed\\n'"
             ),
-            cwd="/testbed",
             timeout=60,
             caller=caller,
             description="verify final full-stack sandbox state",
         ),
     )
-    assert shell.success
-    assert shell.exit_code == 0
-    assert "workspace=/testbed" in shell.stdout
+    assert command.success
+    assert command.exit_code == 0
+    assert "workspace=/testbed" in command.output.stdout
 
 
 def _message_rows(run_dir: Path) -> list[dict[str, Any]]:

@@ -110,9 +110,11 @@ eos-workflow -> eos-state + eos-tools + eos-agent-def + eos-audit
 eos-runtime -> eos-db + eos-engine + eos-workflow + eos-sandbox-host
 ```
 
-Use `tokio`, `serde`, `serde_json`, `schemars`, `sqlx` with the `sqlite`
-feature only, `reqwest`, `eventsource-stream` or a small SSE parser, `futures`,
-`thiserror`, `tracing`, and `time`.
+Use `tokio` with the `tracing` feature, `serde`, `serde_json`, `schemars`,
+`sqlx` with the `sqlite` feature only, `reqwest`, `eventsource-stream` or a
+small SSE parser, `futures`, `thiserror`, `tracing`, `tracing-subscriber`,
+optional `console-subscriber` for `tokio-console`, dev `loom`, `uuid`, and
+`time`.
 
 ## Design Rules
 
@@ -1166,6 +1168,8 @@ Prompt reporting and notifications:
 
 - Create `agent-core` workspace and crate skeleton.
 - Add Rust formatting, clippy, and CI hooks.
+- Add tracing/subscriber setup plus optional Tokio console support before
+  implementing async runtime behavior.
 - Add schema snapshot tests against current Python JSON schema output.
 - Add fixture transcripts for provider stream normalization and prompt reports.
 - Add SQLite DB schema snapshots for current tables.

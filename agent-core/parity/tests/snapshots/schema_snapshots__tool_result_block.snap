@@ -1,0 +1,44 @@
+---
+source: parity/tests/schema_snapshots.rs
+expression: value
+---
+{
+  "description": "Tool result content sent back to the model.",
+  "properties": {
+    "content": {
+      "title": "Content",
+      "type": "string"
+    },
+    "is_error": {
+      "default": false,
+      "title": "Is Error",
+      "type": "boolean"
+    },
+    "is_terminal": {
+      "default": false,
+      "title": "Is Terminal",
+      "type": "boolean"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "tool_use_id": {
+      "title": "Tool Use Id",
+      "type": "string"
+    },
+    "type": {
+      "const": "tool_result",
+      "default": "tool_result",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tool_use_id",
+    "content"
+  ],
+  "title": "ToolResultBlock",
+  "type": "object"
+}

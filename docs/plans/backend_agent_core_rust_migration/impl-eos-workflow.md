@@ -58,6 +58,7 @@ and GC-eos-workflow-04; that lives in `eos-tools` by the anchor §5a DAG tie-bre
   | `tokio` | multi-thread runtime handle (`spawn`, `JoinSet`, `sync`); the run-stage scheduler is a single-writer async loop | `async-tokio-runtime`, `async-joinset-structured` |
   | `tokio-util` | `CancellationToken` for parent-exit / workflow-cancel of the attempt scheduler | `async-cancellation-token` |
   | `async-trait` | `dyn`-safe `async fn` on the injected `AgentRunner` trait + audit sink used behind `Arc<dyn ...>` | anchor §6 object-safety note |
+  | `parking_lot` | `Mutex` for the small orchestrator/coordinator registries — synchronous insert/remove (no await held), `!Send` guard, no poison under `panic=unwind` | `own-mutex-interior`, anchor §7 |
   | `futures` | stream combinators in the scheduler | anchor §7 |
   | `serde` (derive) | `AgentContext`/`ContextSection`/`AgentLaunch`/`StartedWorkflow` (de)serialize for audit + parity snapshots | `api-common-traits` |
   | `schemars` | `JsonSchema` on `AgentContext`/`ContextSection` for the Phase-0 context-snapshot parity test | anchor §11 |
@@ -293,10 +294,13 @@ its absence → the scheduler synthesizes the matching failure, §8.4).
   vector by value and re-reads it from the store, so there is no shared mutable in-memory DAG
   to lock.
 - **Registries:** `AttemptOrchestratorRegistry` and `OpenIterationCoordinatorRegistry` are
-  small `HashMap`s. Because mutation happens only from the workflow-runtime task graph, they
-  sit behind a `tokio::sync::Mutex` guarded for the brief insert/remove only — never across an
-  await (`async-clone-before-await`). Reads dominate; if contention shows up, switch to
-  `RwLock` (`own-rwlock-readers`) — not before (`anti-premature-optimize`).
+  small `HashMap`s mutated only by synchronous insert/remove (never across an `.await`). They
+  sit behind a **`parking_lot::Mutex`** (anchor §7): the critical section never awaits, so the
+  async `tokio::sync::Mutex` would add scheduler overhead for nothing; `parking_lot`'s `!Send`
+  guard makes a hold-across-await a **compile error** in the spawned scheduler tasks (and
+  enables clippy `await_holding_lock`), and it does not poison under `panic=unwind`. If read
+  contention ever shows up, switch to `parking_lot::RwLock` (`own-rwlock-readers`) — not before
+  (`anti-premature-optimize`).
 - **Workflow↔engine seam:** the injected `AgentRunner` trait (`Arc<dyn AgentRunner>`) is the
   only crossing into engine territory; `AgentRunner::run` returns a `'static + Send` future so the
   `JoinSet` can own it. No compile-time dependency on `eos-engine` (GC-eos-workflow-03).

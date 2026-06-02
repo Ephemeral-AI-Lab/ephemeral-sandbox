@@ -70,6 +70,8 @@ naming.
 | `time` | `0.3`, features `["serde","formatting","parsing","macros"]` | `UtcDateTime` wraps `time::OffsetDateTime` | anchor §4 / plan §1 |
 | `async-trait` | `0.1` | `dyn`-safe async traits at the composition root (native AFIT not `dyn`-safe) | anchor §6 |
 | `bytes` | `1` | zero-copy SSE buffer slices | `mem-zero-copy` |
+| `parking_lot` | `0.12` | `Mutex`/`RwLock` for short **synchronous** (non-await) critical sections in `eos-workflow`/`eos-sandbox-host` — `!Send` guard (hold-across-await = compile error), no poison under `panic=unwind`, smaller/faster; `tokio::sync::*` is reserved for guards that must span an `.await` (anchor §7) | `own-mutex-interior` |
+| `uuid` | `1`, features `["v4","serde"]` | typed ID helpers plus DB/runtime ID generation | impl-eos-types, impl-eos-db, impl-eos-runtime |
 
 Dev-only (also workspace-inherited, `[dev-dependencies]`):
 
@@ -130,7 +132,7 @@ agent-core/
   clippy.toml                # msrv = "1.85"
   .gitignore                 # /target
   crates/
-    eos-types/   { Cargo.toml, src/lib.rs }   # no deps (leaf)
+    eos-types/   { Cargo.toml, src/lib.rs }   # no internal deps (leaf)
     eos-config/  { Cargo.toml, src/lib.rs }   # -> eos-types
     eos-state/   { Cargo.toml, src/lib.rs }   # -> eos-types
     eos-db/      { Cargo.toml, src/lib.rs, migrations/ } # -> eos-state, eos-config
@@ -219,13 +221,15 @@ tracing-subscriber = { version = "0.3", features = ["env-filter","fmt","json"] }
 time        = { version = "0.3", features = ["serde","formatting","parsing","macros"] }
 async-trait = "0.1"
 bytes       = "1"
+parking_lot = "0.12"
+uuid        = { version = "1", features = ["v4","serde"] }
+console-subscriber = "0.4"
 # dev
 insta       = { version = "1", features = ["json"] }
 proptest    = "1"
 wiremock    = "0.6"
 pretty_assertions = "1"
 loom        = "0.7"
-console-subscriber = "0.4"
 # internal crates — these path edges ARE the dependency DAG
 eos-types          = { path = "crates/eos-types" }
 eos-config         = { path = "crates/eos-config" }
@@ -347,6 +351,7 @@ unwrap_used = "warn"
 dbg_macro   = "warn"
 print_stdout = "warn"
 undocumented_unsafe_blocks = "deny"
+await_holding_lock = "deny"   # std/parking_lot guard held across .await is a bug (anchor §7)
 
 [workspace.lints.rust]
 unsafe_code = "forbid"     # no agent-core crate needs unsafe; sandbox owns FFI
@@ -407,8 +412,12 @@ What this spec *fixes in place* for every downstream crate:
 - **No app-level DB mutex:** `sqlx` `SqlitePool` is the only DB concurrency
   primitive; the workspace pins it with `sqlite` + `runtime-tokio` so every crate
   agrees on one async SQLite stack (anchor §7 DB).
-- **Lock discipline** (`async-no-lock-await`/`anti-lock-across-await`) is a
-  workspace lint-and-review concern; this spec does not add a lock anywhere.
+- **Lock discipline** (`async-no-lock-await`/`anti-lock-across-await`) is enforced
+  by clippy `await_holding_lock = "deny"` (§6) — which fires on `std`/`parking_lot`
+  guards held across `.await` — plus review; this spec adds no lock itself. Per
+  anchor §7, synchronous critical sections use `parking_lot` (its `!Send` guard
+  also makes hold-across-await a compile error), reserving `tokio::sync` locks for
+  the rare guard that must span an `.await`.
 
 The `eos-parity` crate owns its fixture files immutably; tests read them, never
 mutate them. `insta` snapshot review is the only "state change" and it is
@@ -499,7 +508,9 @@ tracked requirements:
   `cargo clippy --workspace --all-targets -- -D warnings`
   (`lint-rustfmt-check`). Proven by AC-workspace-03.
 - **GC-workspace-04** — *Resolve `panic = unwind` vs `abort` and justify.*
-  Resolution: **`panic = "unwind"`** in `[profile.release]` and `[profile.bench]`.
+  Resolution: **`panic = "unwind"`** in `[profile.release]`; `[profile.bench]`
+  inherits release and must not redeclare `panic`, because Cargo ignores that key
+  in the bench profile and emits a warning.
   Justification: the engine query loop and background supervisor (anchor §7,
   plan §8) recover from per-call and per-task failures; `abort` would escalate a
   single tool/SSE-parse/attempt panic to a whole-process kill, destroying
@@ -530,6 +541,10 @@ tracked requirements:
   Resolution: all crate names are `eos-<area>` (`name-crate-no-rs`); version pins
   match `sandbox/` where the crates overlap (feature sets and the
   `futures`/`futures-util` choice would still need reconciliation in a merge).
+- **GC-workspace-10** — *Observability/debugging from day one.* Resolution:
+  workspace deps include `tracing`, `tracing-subscriber`, Tokio's `tracing`
+  feature, optional `console-subscriber` for `tokio-console`, and dev `loom`.
+  `eos-runtime` owns subscriber initialization.
 
 ---
 
@@ -552,8 +567,9 @@ anchor §11 "Tests to Port First" corpus.
   `cargo clippy --workspace --all-targets -- -D warnings` both pass.
   *Proof:* CI `lint` job (`lint-rustfmt-check`). Maps to plan §Phase 0
   Verification bullets 1-2.
-- **AC-workspace-04** — release/bench profiles set `panic = "unwind"`,
-  `lto="fat"`, `codegen-units=1`, `strip=true` (release). *Proof:*
+- **AC-workspace-04** — release profile sets `panic = "unwind"`, `lto="fat"`,
+  `codegen-units=1`, `strip=true`; bench profile inherits release and does not
+  declare ignored `panic`. *Proof:*
   `parity/tests/profiles.rs` reads `../Cargo.toml` and asserts the profile keys
   (guards GC-workspace-04 against regression to `abort`).
 - **AC-workspace-05** — committed Pydantic schema JSON matches an `insta`
@@ -574,6 +590,10 @@ anchor §11 "Tests to Port First" corpus.
 - **AC-workspace-09** — `cargo test -p eos-parity` runs all guard tests green in
   CI. *Proof:* CI `test` step over the parity crate only (the 15 domain crates
   have no tests yet).
+- **AC-workspace-10** — `agent-core/Cargo.toml` pins observability/debug deps:
+  Tokio `tracing` feature, `tracing-subscriber`, optional `console-subscriber`,
+  and dev `loom`; `cargo check --workspace --features eos-runtime/tokio-console`
+  succeeds. *Proof:* CI `observability` smoke.
 
 ---
 
