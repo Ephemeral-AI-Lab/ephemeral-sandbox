@@ -1,5 +1,6 @@
 ---
 source: crates/eos-tools/src/model_tools/mod.rs
+assertion_line: 142
 expression: specs
 ---
 [
@@ -12,7 +13,7 @@ expression: specs
         "end_line": {
           "default": 200,
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 1.0,
           "type": "integer"
         },
         "file_path": {
@@ -21,7 +22,7 @@ expression: specs
         "start_line": {
           "default": 1,
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 1.0,
           "type": "integer"
         }
       },
@@ -339,7 +340,7 @@ expression: specs
         "max_output_tokens": {
           "default": null,
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 1.0,
           "type": [
             "integer",
             "null"
@@ -348,7 +349,7 @@ expression: specs
         "timeout": {
           "default": null,
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 1.0,
           "type": [
             "integer",
             "null"
@@ -357,6 +358,7 @@ expression: specs
         "yield_time_ms": {
           "default": 1000,
           "format": "uint32",
+          "maximum": 30000.0,
           "minimum": 0.0,
           "type": "integer"
         }
@@ -457,7 +459,7 @@ expression: specs
         "max_output_tokens": {
           "default": null,
           "format": "uint32",
-          "minimum": 0.0,
+          "minimum": 1.0,
           "type": [
             "integer",
             "null"
@@ -466,6 +468,7 @@ expression: specs
         "yield_time_ms": {
           "default": 1000,
           "format": "uint32",
+          "maximum": 30000.0,
           "minimum": 0.0,
           "type": "integer"
         }
@@ -1123,7 +1126,7 @@ expression: specs
   },
   {
     "name": "run_subagent",
-    "description": "Spawn a registered subagent as a supervised async session. You hand it `prompt` as\nits only input. It must finish by calling its terminal tool; whatever that\nterminal tool emits becomes your result.\n\nUse this when:\n- You need to delegate a focused, context-isolated investigation (e.g.,\n  \"where is X used across the repo?\") so your context isn't polluted by\n  intermediate tool output.\n- You can launch multiple independent investigations and want to run them\n  in parallel — fire them all in a single message with multiple\n  `run_subagent` calls.\n\nDo NOT use for:\n- Work you'd handle in 1–3 of your own tool calls — direct execution\n  beats subagent overhead.\n- Spawning further subagents from inside a subagent — that path is\n  rejected at validation time. Handle the work directly, or submit your\n  findings via your own terminal tool.\n- Tasks that need shared context with you — the subagent does NOT\n  inherit your conversation. The `prompt` is the only channel.\n\nWriting the prompt:\nBrief the subagent like a smart colleague who just walked into the room.\nIt hasn't seen your conversation, doesn't know what you've tried, doesn't\nunderstand why the task matters.\n- Explain what you're trying to accomplish and why.\n- Include the exact paths, symbol names, or commands you'd run yourself.\n- Specify what's in scope and what's out of scope.\n- Tell it what shape of answer you want (\"report in under 200 words\",\n  \"list the file paths\").\n- Terse command-style prompts produce shallow, generic work.\n\nDon't peek. The launch returns a `subagent_session_id`; the subagent\nruns asynchronously. Don't read its transcript or poll progress unless\nthe user explicitly asks for a status check — that defeats the point\nof forking off its tool noise. You'll be notified when it completes.\n\nDon't race. After launching, you know nothing about what the subagent\nwill find. Never predict its result in any format. If the user asks a\nfollow-up before completion, give status, not a guess.\n\nCapabilities and constraints:\n- The launch returns immediately with a `subagent_session_id`.\n- Peek progress with `check_subagent_progress` — you get\n  the last few messages while it's running, the terminal output once it\n  finishes.\n- Cancel with `cancel_subagent`.\n- A subagent that exits without calling a terminal tool is marked\n  failed.\n\nOutput shape:\n- On success: the terminal tool's output text (e.g., the\n  `submit_exploration_result.summary`).\n- On crash: `is_error=True`; the output explains the crash.\n- On exit without terminal: `is_error=True`, \"subagent exited without\n  calling a terminal tool\".\n- Metadata includes `subagent_terminal_called` so `check_subagent_progress`\n  can distinguish \"finished cleanly\" from \"finished without delivering\".\n\nExample:\n  run_subagent(\n    agent_name=\"explorer\",\n    prompt=(\n      \"Find every call site of \"\n      \"`AttemptOrchestrator.apply_reducer_submission` in backend/src \"\n      \"and report (file, line, calling function). The signature is \"\n      \"changing in PR #842; I need the punch list of files to update. \"\n      \"Report under 200 words.\"\n    ),\n  )",
+    "description": "Spawn a registered subagent as a supervised async session. You hand it `prompt` as\nits only input. It must finish by calling its terminal tool; whatever that\nterminal tool emits becomes your result.\n\nUse this when:\n- You need to delegate a focused, context-isolated investigation (e.g.,\n  \"where is X used across the repo?\") so your context isn't polluted by\n  intermediate tool output.\n- You can launch multiple independent investigations and want to run them\n  in parallel — fire them all in a single message with multiple\n  `run_subagent` calls.\n\nDo NOT use for:\n- Work you'd handle in 1–3 of your own tool calls — direct execution\n  beats subagent overhead.\n- Spawning further subagents from inside a subagent — that path is\n  rejected at validation time. Handle the work directly, or submit your\n  findings via your own terminal tool.\n- Tasks that need shared context with you — the subagent does NOT\n  inherit your conversation. The `prompt` is the only channel.\n\nWriting the prompt:\nBrief the subagent like a smart colleague who just walked into the room.\nIt hasn't seen your conversation, doesn't know what you've tried, doesn't\nunderstand why the task matters.\n- Explain what you're trying to accomplish and why.\n- Include the exact paths, symbol names, or commands you'd run yourself.\n- Specify what's in scope and what's out of scope.\n- Tell it what shape of answer you want (\"report in under 200 words\",\n  \"list the file paths\").\n- Terse command-style prompts produce shallow, generic work.\n\nDon't peek. The launch returns a `subagent_session_id`; the subagent\nruns asynchronously. Don't read its transcript or poll progress unless\nthe user explicitly asks for a status check — that defeats the point\nof forking off its tool noise. You'll be notified when it completes.\n\nDon't race. After launching, you know nothing about what the subagent\nwill find. Never predict its result in any format. If the user asks a\nfollow-up before completion, give status, not a guess.\n\nCapabilities and constraints:\n- The launch returns immediately with a `subagent_session_id`.\n- Peek progress with `check_subagent_progress` — you get\n  the last few messages while it's running, the terminal output once it\n  finishes.\n- Cancel with `cancel_subagent`.\n- A subagent that exits without calling a terminal tool is marked\n  failed.\n\nLaunch output:\n- On success: `[SUBAGENT LAUNCHED]` with `subagent_session_id`, `status=running`,\n  and `agent_name`.\n- Metadata includes `subagent_session_id`, `status`, and `agent_name`.\n- Completion is delivered later by typed notification or\n  `check_subagent_progress`; terminal metadata such as\n  `subagent_terminal_called` belongs to that completion result, not the launch.\n\nExample:\n  run_subagent(\n    agent_name=\"explorer\",\n    prompt=(\n      \"Find every call site of \"\n      \"`AttemptOrchestrator.apply_reducer_submission` in backend/src \"\n      \"and report (file, line, calling function). The signature is \"\n      \"changing in PR #842; I need the punch list of files to update. \"\n      \"Report under 200 words.\"\n    ),\n  )\n",
     "input_schema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
@@ -1157,7 +1160,8 @@ expression: specs
         "last_n_messages": {
           "default": 5,
           "format": "uint8",
-          "minimum": 0.0,
+          "maximum": 10.0,
+          "minimum": 1.0,
           "type": "integer"
         },
         "subagent_session_id": {

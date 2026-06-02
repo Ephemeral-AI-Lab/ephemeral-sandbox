@@ -41,13 +41,9 @@ _ROOT = "/testbed/.ephemeralos/sweevo-mock/shell_concurrency_latency_matrix"
 _ARTIFACT_DIR = Path(".sweevo_runs/manual_diagnostics/shell_concurrency_latency")
 _TIMING_KEYS = (
     "api.exec_command.dispatch_total_s",
-    "command_exec.total_s",
-    "command_exec.mount_workspace_s",
-    "command_exec.run_command_s",
+    "api.exec_command.total_s",
     "command_exec.capture_upperdir_s",
     "command_exec.occ_apply_s",
-    "layer_stack.acquire_snapshot.total_s",
-    "layer_stack.transaction.lock_wait_s",
     "occ.apply.commit_queue_wait_s",
     "occ.apply.total_s",
     "runtime.dispatch_s",

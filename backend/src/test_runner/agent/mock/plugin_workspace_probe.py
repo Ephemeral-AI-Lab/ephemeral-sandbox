@@ -731,8 +731,7 @@ def _looks_like_overlay_publish_key(key: str) -> bool:
     needles = (
         "publish",
         "capture_upperdir",
-        "command_exec.mount_workspace_s",
-        "command_exec.run_command_s",
+        "command_exec.occ_apply_s",
     )
     return any(needle in key for needle in needles)
 

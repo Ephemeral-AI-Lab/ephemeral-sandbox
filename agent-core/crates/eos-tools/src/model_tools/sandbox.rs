@@ -18,7 +18,7 @@ use eos_sandbox_api::{
     ExecCommandResult, GlobRequest, GrepRequest, ReadFileRequest, SandboxRequestBase,
     SearchReplaceEdit, WriteFileRequest,
 };
-use eos_types::{InvocationId, JsonObject};
+use eos_types::{CommandSessionId, InvocationId, JsonObject};
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -33,6 +33,7 @@ use crate::result::{OutputShape, ToolResult};
 use crate::spec::json_spec;
 
 const MAX_READ_FILE_LINES: u32 = 200;
+const MAX_YIELD_TIME_MS: u32 = 30_000;
 
 // ---------------------------------------------------------------------------
 // Shared helpers (ported from sandbox/_lib/tool_context.py).
@@ -66,6 +67,13 @@ fn cwd(ctx: &ExecutionMetadata) -> String {
 
 fn serialize<T: Serialize>(value: &T) -> String {
     serde_json::to_string(value).expect("tool output DTO serializes")
+}
+
+fn invalid_input(tool: ToolName, message: impl std::fmt::Display) -> ToolResult {
+    ToolResult::error(format!(
+        "Invalid input for {}: {message}. Please retry the tool call with valid arguments.",
+        tool.as_str()
+    ))
 }
 
 /// `_failure_status(conflict_reason)`.
@@ -166,10 +174,10 @@ fn default_max_read_lines() -> u32 {
 struct ReadFileInput {
     file_path: String,
     #[serde(default = "default_one")]
-    #[schemars(default = "default_one")]
+    #[schemars(default = "default_one", range(min = 1))]
     start_line: u32,
     #[serde(default = "default_max_read_lines")]
-    #[schemars(default = "default_max_read_lines")]
+    #[schemars(default = "default_max_read_lines", range(min = 1))]
     end_line: u32,
 }
 
@@ -194,17 +202,23 @@ impl ToolExecutor for ReadFile {
                 .start_line
                 .saturating_add(MAX_READ_FILE_LINES.saturating_sub(1))
         };
+        if parsed.start_line == 0 {
+            return Ok(invalid_input(ToolName::ReadFile, "start_line must be >= 1"));
+        }
+        if end_line == 0 {
+            return Ok(invalid_input(ToolName::ReadFile, "end_line must be >= 1"));
+        }
         if end_line < parsed.start_line {
-            return Ok(ToolResult::error(
-                "Invalid input for read_file: end_line cannot be smaller than start_line. \
-                 Please retry the tool call with valid arguments.",
+            return Ok(invalid_input(
+                ToolName::ReadFile,
+                "end_line cannot be smaller than start_line",
             ));
         }
         if end_line - parsed.start_line + 1 > MAX_READ_FILE_LINES {
-            return Ok(ToolResult::error(format!(
-                "Invalid input for read_file: read_file can return at most {MAX_READ_FILE_LINES} \
-                 lines. Please retry the tool call with valid arguments."
-            )));
+            return Ok(invalid_input(
+                ToolName::ReadFile,
+                format!("read_file can return at most {MAX_READ_FILE_LINES} lines"),
+            ));
         }
 
         let path = resolve_path(ctx, &parsed.file_path);
@@ -692,15 +706,38 @@ fn default_yield_ms() -> u32 {
     1000
 }
 
+fn validate_command_timing(
+    tool: ToolName,
+    yield_time_ms: u32,
+    timeout: Option<u32>,
+    max_output_tokens: Option<u32>,
+) -> Option<ToolResult> {
+    if yield_time_ms > MAX_YIELD_TIME_MS {
+        return Some(invalid_input(
+            tool,
+            format!("yield_time_ms must be <= {MAX_YIELD_TIME_MS}"),
+        ));
+    }
+    if timeout == Some(0) {
+        return Some(invalid_input(tool, "timeout must be >= 1"));
+    }
+    if max_output_tokens == Some(0) {
+        return Some(invalid_input(tool, "max_output_tokens must be >= 1"));
+    }
+    None
+}
+
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct ExecCommandInput {
     cmd: String,
     #[serde(default = "default_yield_ms")]
-    #[schemars(default = "default_yield_ms")]
+    #[schemars(default = "default_yield_ms", range(max = 30000))]
     yield_time_ms: u32,
     #[serde(default)]
+    #[schemars(range(min = 1))]
     timeout: Option<u32>,
     #[serde(default)]
+    #[schemars(range(min = 1))]
     max_output_tokens: Option<u32>,
 }
 
@@ -717,10 +754,18 @@ impl ToolExecutor for ExecCommand {
             Ok(v) => v,
             Err(err) => return Ok(err),
         };
+        if let Some(err) = validate_command_timing(
+            ToolName::ExecCommand,
+            parsed.yield_time_ms,
+            parsed.timeout,
+            parsed.max_output_tokens,
+        ) {
+            return Ok(err);
+        }
         if parsed.cmd.is_empty() {
-            return Ok(ToolResult::error(
-                "Invalid input for exec_command: cmd must be non-empty. \
-                 Please retry the tool call with valid arguments.",
+            return Ok(invalid_input(
+                ToolName::ExecCommand,
+                "cmd must be non-empty",
             ));
         }
         let sandbox_id = ctx.require_sandbox_id()?;
@@ -752,13 +797,14 @@ fn default_chars() -> String {
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct WriteStdinInput {
-    command_session_id: String,
+    command_session_id: CommandSessionId,
     #[serde(default = "default_chars")]
     chars: String,
     #[serde(default = "default_yield_ms")]
-    #[schemars(default = "default_yield_ms")]
+    #[schemars(default = "default_yield_ms", range(max = 30000))]
     yield_time_ms: u32,
     #[serde(default)]
+    #[schemars(range(min = 1))]
     max_output_tokens: Option<u32>,
 }
 
@@ -775,10 +821,25 @@ impl ToolExecutor for WriteStdin {
             Ok(v) => v,
             Err(err) => return Ok(err),
         };
+        if let Some(err) = validate_command_timing(
+            ToolName::WriteStdin,
+            parsed.yield_time_ms,
+            None,
+            parsed.max_output_tokens,
+        ) {
+            return Ok(err);
+        }
+        if parsed.command_session_id.as_str().is_empty() {
+            return Ok(invalid_input(
+                ToolName::WriteStdin,
+                "command_session_id must be non-empty",
+            ));
+        }
+        let command_session_id = parsed.command_session_id.into_inner();
         let sandbox_id = ctx.require_sandbox_id()?;
         let write_request = CommandSessionWriteRequest {
             base: request_base(ctx, "write_stdin"),
-            command_session_id: parsed.command_session_id.clone(),
+            command_session_id: command_session_id.clone(),
             chars: parsed.chars.clone(),
             yield_time_ms: Some(parsed.yield_time_ms),
             max_output_tokens: parsed.max_output_tokens,
@@ -792,7 +853,7 @@ impl ToolExecutor for WriteStdin {
         if parsed.chars.contains('\u{3}') && result.status == "running" {
             let cancel = CommandSessionCancelRequest {
                 base: request_base(ctx, "write_stdin"),
-                command_session_id: parsed.command_session_id,
+                command_session_id,
             };
             result =
                 match eos_sandbox_api::cancel_command_session(&*ctx.transport, sandbox_id, &cancel)
@@ -1008,6 +1069,20 @@ mod tests {
         assert_eq!(payload["command_session_id"], json!("cs-7"));
     }
 
+    #[tokio::test]
+    async fn exec_command_rejects_invalid_numeric_bounds() {
+        let ctx = metadata_with(Arc::new(FakeTransport::inert()));
+        for input in [
+            obj(&[("cmd", json!("true")), ("yield_time_ms", json!(30_001))]),
+            obj(&[("cmd", json!("true")), ("timeout", json!(0))]),
+            obj(&[("cmd", json!("true")), ("max_output_tokens", json!(0))]),
+        ] {
+            let res = ExecCommand.execute(&input, &ctx).await.expect("ok");
+            assert!(res.is_error, "{}", res.output);
+            assert!(res.output.contains("Invalid input for exec_command"));
+        }
+    }
+
     // AC-tools-11 (write_stdin half): write_stdin with \x03 while running issues a
     // cancel RPC.
     #[tokio::test]
@@ -1061,5 +1136,42 @@ mod tests {
         let res = WriteStdin.execute(&input, &ctx).await.expect("ok");
         let payload: serde_json::Value = serde_json::from_str(&res.output).expect("json");
         assert_eq!(payload["status"], json!("running"));
+    }
+
+    #[tokio::test]
+    async fn write_stdin_rejects_invalid_numeric_bounds() {
+        let ctx = metadata_with(Arc::new(FakeTransport::inert()));
+        for input in [
+            obj(&[
+                ("command_session_id", json!("cs-7")),
+                ("yield_time_ms", json!(30_001)),
+            ]),
+            obj(&[
+                ("command_session_id", json!("cs-7")),
+                ("max_output_tokens", json!(0)),
+            ]),
+            obj(&[("command_session_id", json!(""))]),
+        ] {
+            let res = WriteStdin.execute(&input, &ctx).await.expect("ok");
+            assert!(res.is_error, "{}", res.output);
+            assert!(res.output.contains("Invalid input for write_stdin"));
+        }
+    }
+
+    #[tokio::test]
+    async fn read_file_rejects_zero_line_numbers() {
+        let ctx = metadata_with(Arc::new(FakeTransport::inert()));
+        for input in [
+            obj(&[("file_path", json!("src/lib.rs")), ("start_line", json!(0))]),
+            obj(&[
+                ("file_path", json!("src/lib.rs")),
+                ("start_line", json!(1)),
+                ("end_line", json!(0)),
+            ]),
+        ] {
+            let res = ReadFile.execute(&input, &ctx).await.expect("ok");
+            assert!(res.is_error, "{}", res.output);
+            assert!(res.output.contains("Invalid input for read_file"));
+        }
     }
 }

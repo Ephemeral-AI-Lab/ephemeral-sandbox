@@ -514,7 +514,7 @@ async def run_background_shell_interleave_probe(
             duration = time.perf_counter() - t0
             command_meta = _command_metadata(fg_result)
             mount_s = (
-                float(command_meta["timings"].get("command_exec.mount_workspace_s", 0.0))
+                float(command_meta["timings"].get("api.exec_command.total_s", 0.0))
                 or duration
             )
             foreground_records.append(

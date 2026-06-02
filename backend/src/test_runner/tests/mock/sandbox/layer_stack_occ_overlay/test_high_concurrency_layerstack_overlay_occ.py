@@ -49,13 +49,12 @@ pytestmark = pytest.mark.asyncio
 
 _WRITE_EDIT_P95_BUDGET_MS = 1_000.0
 _REQUIRED_LATENCY_KEYS = (
-    "command_exec.mount_workspace_s",
-    "command_exec.run_command_s",
     "command_exec.capture_upperdir_s",
-    "layer_stack.acquire_snapshot.total_s",
+    "command_exec.occ_apply_s",
     "occ.apply.commit_queue_wait_s",
     "occ.apply.commit_resume_wait_s",
     "occ.apply.total_s",
+    "api.exec_command.dispatch_total_s",
     "api.exec_command.total_s",
 )
 
@@ -211,6 +210,8 @@ async def _assert_performance_report(
     assert int(mapping(families["layer_stack"])["event_count"]) >= 1
 
     resource_keys = mapping(sandbox["resource_keys"])
+    assert "resource.layer_stack.manifest_depth" in resource_keys
+    assert "resource.layer_stack.manifest_path_count" in resource_keys
     assert "resource.command_exec.changed_path_count" in resource_keys
     assert_resource_key_max(perf, "resource.command_exec.workspace_tree_bytes", 0.0)
     assert_resource_key_max(perf, "resource.command_exec.workspace_tree_exists", 0.0)

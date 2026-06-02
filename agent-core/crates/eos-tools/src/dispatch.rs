@@ -209,14 +209,13 @@ mod tests {
         let calls = [call("t1", "submit_root_outcome"), call("t2", "read_file")];
         let rejections = reject_terminal_batch(&calls, &registry).expect("rejected");
         assert_eq!(rejections.len(), 2);
+        // Byte-exact verbatim contract (parity "EXACT Rejection Message"): flagged
+        // is the sorted/deduped terminal set; called is every call in batch order.
+        let expected = "Terminal tool `submit_root_outcome` must be called alone. This response \
+             batched it with other tools: `submit_root_outcome`, `read_file`. No tool in this \
+             batch executed. Resubmit with only the exclusive tool in its own final batch.";
         for rej in &rejections {
-            assert!(
-                rej.message.contains("must be called alone"),
-                "{}",
-                rej.message
-            );
-            assert!(rej.message.contains("`submit_root_outcome`"));
-            assert!(rej.message.contains("No tool in this batch executed"));
+            assert_eq!(rej.message, expected, "verbatim terminal-batch message");
         }
 
         // No terminal in batch: allowed.
@@ -250,9 +249,13 @@ mod tests {
         let decision = lifecycle_batch_decision(&calls, &registry);
         assert_eq!(decision.rejected.len(), 2);
         assert_eq!(decision.dispatched, vec!["c"]);
-        assert!(decision.rejected[0]
-            .message
-            .contains("Multiple lifecycle tools"));
+        // Byte-exact verbatim contract (parity "EXACT Message"); names are the
+        // lifecycle calls in batch order.
+        assert_eq!(
+            decision.rejected[0].message,
+            "Multiple lifecycle tools in one batch (`delegate_workflow`, `cancel_workflow`); \
+             engine cannot choose ordering. Resubmit each lifecycle call in its own batch."
+        );
 
         // 1 lifecycle + siblings: reject siblings, lifecycle dispatches solo.
         let calls = [call("a", "delegate_workflow"), call("b", "read_file")];
@@ -260,8 +263,11 @@ mod tests {
         assert_eq!(decision.dispatched, vec!["a"]);
         assert_eq!(decision.rejected.len(), 1);
         assert_eq!(decision.rejected[0].tool_use_id, "b");
-        assert!(decision.rejected[0]
-            .message
-            .contains("changes workspace routing"));
+        assert_eq!(
+            decision.rejected[0].message,
+            "`delegate_workflow` changes workspace routing; sibling tools (`read_file`) were \
+             rejected to avoid ordering ambiguity. The lifecycle call executed. Resubmit the \
+             rejected tools in the next batch."
+        );
     }
 }

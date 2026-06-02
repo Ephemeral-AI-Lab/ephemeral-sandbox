@@ -589,7 +589,6 @@ mod tests {
             result.changed_path_kinds.get("real.txt"),
             Some(&"modified".to_owned())
         );
-
     }
 
     // AC-sandbox-api-03: ExecCommandResult.success is derived from status.

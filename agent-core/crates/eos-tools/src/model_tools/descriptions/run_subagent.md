@@ -48,14 +48,13 @@ Capabilities and constraints:
 - A subagent that exits without calling a terminal tool is marked
   failed.
 
-Output shape:
-- On success: the terminal tool's output text (e.g., the
-  `submit_exploration_result.summary`).
-- On crash: `is_error=True`; the output explains the crash.
-- On exit without terminal: `is_error=True`, "subagent exited without
-  calling a terminal tool".
-- Metadata includes `subagent_terminal_called` so `check_subagent_progress`
-  can distinguish "finished cleanly" from "finished without delivering".
+Launch output:
+- On success: `[SUBAGENT LAUNCHED]` with `subagent_session_id`, `status=running`,
+  and `agent_name`.
+- Metadata includes `subagent_session_id`, `status`, and `agent_name`.
+- Completion is delivered later by typed notification or
+  `check_subagent_progress`; terminal metadata such as
+  `subagent_terminal_called` belongs to that completion result, not the launch.
 
 Example:
   run_subagent(

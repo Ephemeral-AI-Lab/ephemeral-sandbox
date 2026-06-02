@@ -569,10 +569,23 @@ dependencies = [
 name = "eos-engine"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
+ "async-trait",
  "eos-agent-def",
  "eos-audit",
  "eos-llm-client",
+ "eos-sandbox-api",
+ "eos-skills",
+ "eos-state",
  "eos-tools",
+ "eos-types",
+ "futures",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -752,10 +765,20 @@ dependencies = [
 name = "eos-workflow"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "eos-agent-def",
  "eos-audit",
  "eos-state",
  "eos-tools",
+ "eos-types",
+ "parking_lot",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -3004,6 +3027,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]

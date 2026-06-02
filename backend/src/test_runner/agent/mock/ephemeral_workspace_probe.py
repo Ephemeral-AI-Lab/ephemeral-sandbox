@@ -415,9 +415,13 @@ async def run_ephemeral_policy_probe(
         "outside_command_timing_keys": sorted(
             set(_timings(hosts)) | set(_timings(tmp_write))
         ),
-        "outside_command_has_mount_timing": (
-            "command_exec.mount_workspace_s" in _timings(hosts)
-            and "command_exec.mount_workspace_s" in _timings(tmp_write)
+        "outside_command_has_overlay_timing": (
+            "api.exec_command.total_s" in _timings(hosts)
+            and "api.exec_command.total_s" in _timings(tmp_write)
+            and (
+                "command_exec.capture_upperdir_s" in _timings(hosts)
+                or "command_exec.capture_upperdir_s" in _timings(tmp_write)
+            )
         ),
         "outside_command_has_capture_timing": (
             "command_exec.capture_upperdir_s" in _timings(hosts)

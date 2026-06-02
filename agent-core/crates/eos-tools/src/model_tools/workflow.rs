@@ -107,6 +107,14 @@ impl ToolExecutor for DelegateWorkflow {
 
 struct CheckWorkflowStatus;
 
+fn empty_workflow_id_error(tool: ToolName, field: &str) -> ToolResult {
+    ToolResult::error(format!(
+        "Invalid input for {}: {field} must be non-empty. \
+         Please retry the tool call with valid arguments.",
+        tool.as_str()
+    ))
+}
+
 #[async_trait]
 impl ToolExecutor for CheckWorkflowStatus {
     async fn execute(
@@ -119,6 +127,22 @@ impl ToolExecutor for CheckWorkflowStatus {
                 Ok(v) => v,
                 Err(err) => return Ok(err),
             };
+        if parsed.workflow_id.as_str().is_empty() {
+            return Ok(empty_workflow_id_error(
+                ToolName::CheckWorkflowStatus,
+                "workflow_id",
+            ));
+        }
+        if parsed
+            .workflow_task_id
+            .as_ref()
+            .is_some_and(|id| id.as_str().is_empty())
+        {
+            return Ok(empty_workflow_id_error(
+                ToolName::CheckWorkflowStatus,
+                "workflow_task_id",
+            ));
+        }
         let output = ctx
             .require_workflow_control()?
             .status(&parsed.workflow_id, parsed.workflow_task_id.as_ref())
@@ -140,6 +164,12 @@ impl ToolExecutor for CancelWorkflow {
             Ok(v) => v,
             Err(err) => return Ok(err),
         };
+        if parsed.workflow_task_id.as_str().is_empty() {
+            return Ok(empty_workflow_id_error(
+                ToolName::CancelWorkflow,
+                "workflow_task_id",
+            ));
+        }
         let output = ctx
             .require_workflow_control()?
             .cancel(&parsed.workflow_task_id, &parsed.reason)
@@ -182,4 +212,44 @@ pub(crate) fn register(registry: &mut ToolRegistry) {
         OutputShape::Text,
         Arc::new(CancelWorkflow),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use crate::testsupport::metadata;
+
+    use super::*;
+
+    fn obj(pairs: &[(&str, serde_json::Value)]) -> JsonObject {
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), v.clone()))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn workflow_controls_reject_empty_ids() {
+        let ctx = metadata();
+
+        for input in [
+            obj(&[("workflow_id", json!(""))]),
+            obj(&[
+                ("workflow_id", json!("workflow-1")),
+                ("workflow_task_id", json!("")),
+            ]),
+        ] {
+            let res = CheckWorkflowStatus.execute(&input, &ctx).await.expect("ok");
+            assert!(res.is_error);
+            assert!(res.output.contains("workflow"), "{}", res.output);
+        }
+
+        let cancel = CancelWorkflow
+            .execute(&obj(&[("workflow_task_id", json!(""))]), &ctx)
+            .await
+            .expect("ok");
+        assert!(cancel.is_error);
+        assert!(cancel.output.contains("workflow_task_id"));
+    }
 }

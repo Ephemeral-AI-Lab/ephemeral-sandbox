@@ -47,7 +47,7 @@ pub use model_tools::{build_default_registry, CallerScope};
 pub use name::ToolName;
 pub use ports::{
     AdvisorApproval, AdvisorPort, IsolatedWorkspacePort, NotificationSink, OutstandingWorkflow,
-    PlanReducer, PlanSubmissionPort, PlanTask, PlannerPlan, StartedWorkflow, SubagentRunOutcome,
+    PlanReducer, PlanSubmissionPort, PlanTask, PlannerPlan, StartedSubagent, StartedWorkflow,
     SubagentSupervisorPort, SubmissionAck, SystemNotification, WorkflowControlPort,
 };
 pub use registry::ToolRegistry;

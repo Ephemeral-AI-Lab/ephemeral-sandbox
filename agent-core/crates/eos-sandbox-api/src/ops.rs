@@ -2,13 +2,13 @@
 //!
 //! Replaces the bare `DAEMON_OP_*` `&str` constants from
 //! `sandbox/api/transport.py` with one `#[non_exhaustive]` enum whose serialized
-//! form is the **exact** legacy wire string (`api.v1.read_file`, …) so the
-//! protocol stays byte-compatible (GC-sandbox-api-02). New ops are added as
-//! variants, never by editing a stringly dispatch (`type-no-stringly`, OCP).
+//! form is the **exact** daemon wire string (`api.v1.read_file`, …). New ops are
+//! added as variants, never by editing a stringly dispatch (`type-no-stringly`,
+//! OCP).
 
 use serde::{Deserialize, Serialize};
 
-/// One sandbox daemon operation. Serializes to its verbatim legacy wire string.
+/// One sandbox daemon operation. Serializes to its verbatim daemon wire string.
 ///
 /// `#[non_exhaustive]` because the daemon protocol may grow; within this crate
 /// matches stay exhaustive.
@@ -75,7 +75,7 @@ pub enum DaemonOp {
 }
 
 impl DaemonOp {
-    /// The verbatim legacy wire string for this op. Mirrors the serde encoding;
+    /// The verbatim daemon wire string for this op. Mirrors the serde encoding;
     /// the test `daemon_op_wire_strings` pins both to the same value so they
     /// cannot drift.
     #[must_use]
@@ -108,8 +108,8 @@ impl DaemonOp {
 mod tests {
     use super::*;
 
-    // AC-sandbox-api-06: every variant serializes to the exact legacy wire
-    // string from transport.py, and `as_wire` agrees with serde (no drift).
+    // AC-sandbox-api-06: every variant serializes to the current daemon wire
+    // string, and `as_wire` agrees with serde (no drift).
     #[test]
     fn daemon_op_wire_strings() {
         let table = [

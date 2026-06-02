@@ -516,17 +516,15 @@ def test_write_performance_reports_produces_detailed_report(tmp_path: Path) -> N
                 type=EventType.SANDBOX_OVERLAY_EXECUTED,
                 node=node,
                 payload={
-                    "tool_name": "shell",
+                    "tool_name": "exec_command",
                     "tool_use_id": "toolu_2",
                     "status": "ok",
                     "changed_paths": ["b.py"],
                     "timings": {
-                        "command_exec.mount_workspace_s": 0.02,
-                        "command_exec.run_command_s": 0.07,
                         "command_exec.capture_upperdir_s": 0.03,
-                        "command_exec.total_s": 0.18,
-                        "api.shell.overlay_s": 0.12,
-                        "api.shell.total_s": 0.18,
+                        "command_exec.occ_apply_s": 0.07,
+                        "api.exec_command.dispatch_total_s": 0.12,
+                        "api.exec_command.total_s": 0.18,
                     },
                 },
             )
@@ -552,7 +550,7 @@ def test_write_performance_reports_produces_detailed_report(tmp_path: Path) -> N
                 type=EventType.SANDBOX_RESOURCE_SNAPSHOT,
                 node=node,
                 payload={
-                    "tool_name": "shell",
+                    "tool_name": "exec_command",
                     "tool_use_id": "toolu_4",
                     "status": "ok",
                     "changed_paths": [],
@@ -570,7 +568,7 @@ def test_write_performance_reports_produces_detailed_report(tmp_path: Path) -> N
                 type=EventType.SANDBOX_RESOURCE_SNAPSHOT,
                 node=node,
                 payload={
-                    "tool_name": "shell",
+                    "tool_name": "exec_command",
                     "tool_use_id": "toolu_5",
                     "status": "ok",
                     "changed_paths": [],
@@ -610,18 +608,14 @@ def test_write_performance_reports_produces_detailed_report(tmp_path: Path) -> N
     assert report["sandbox"]["families"]["overlay"]["event_count"] == 1
     assert report["sandbox"]["families"]["layer_stack"]["event_count"] == 1
     assert report["sandbox"]["families"]["resource"]["event_count"] == 2
-    assert report["sandbox"]["timing_keys"]["api.shell.overlay_s"]["total"] == 0.12
-    assert report["sandbox"]["timing_keys"]["command_exec.mount_workspace_s"][
+    assert report["sandbox"]["timing_keys"]["api.exec_command.dispatch_total_s"][
         "total"
-    ] == 0.02
-    assert report["sandbox"]["timing_keys"]["command_exec.run_command_s"][
-        "total"
-    ] == 0.07
+    ] == 0.12
     assert report["sandbox"]["timing_keys"]["command_exec.capture_upperdir_s"][
         "total"
     ] == 0.03
-    assert report["sandbox"]["timing_keys"]["command_exec.total_s"]["total"] == 0.18
-    assert report["sandbox"]["timing_keys"]["api.shell.total_s"]["total"] == 0.18
+    assert report["sandbox"]["timing_keys"]["command_exec.occ_apply_s"]["total"] == 0.07
+    assert report["sandbox"]["timing_keys"]["api.exec_command.total_s"]["total"] == 0.18
     assert report["sandbox"]["non_duration_observations"][
         "layer_stack.auto_squash.depth_before"
     ]["max"] == 40.0

@@ -1196,3 +1196,49 @@ Remaining risk:
 Next iteration entry point:
 - Rerun the broad Phase D/E live sandbox gate:
   `EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q -n 3 backend/src/test_runner/tests/mock/sandbox --tb=short --durations=20`.
+
+Broad gate addendum:
+- After the isolated-folder pass, the broad Phase D/E live sandbox gate was rerun:
+  `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q -n 3 backend/src/test_runner/tests/mock/sandbox --tb=short --durations=20`
+- Result: failed with `9 failed, 142 passed, 1 skipped in 1160.65s`.
+- This is a major improvement over Iteration 15's `45 failed, 106 passed, 2 skipped`, and the previous isolated-workspace failure cluster did not recur.
+- Remaining broad failures:
+  - `background_tool/test_background_engine_restart_no_lease_leak.py::test_background_engine_restart_no_lease_leak`
+    - `summary["abandoned_published"]` was `True`; background restart can still publish an abandoned result under this load.
+  - `full_stack/test_full_stack_adversarial.py::test_full_stack_adversarial_runs_agent_tool_script_matrix`
+    - persisted `layer_stack.lease_acquired` event was missing from the monitor events.
+  - `layer_stack_occ_overlay/test_high_concurrency_layerstack_overlay_occ.py::test_high_concurrency_layerstack_overlay_occ_capacity`
+    - missing timing keys: `command_exec.mount_workspace_s`, `command_exec.run_command_s`, and `layer_stack.acquire_snapshot.total_s`.
+  - `plugin/test_plugin_read_only_lsp_refresh_without_publish.py::test_plugin_read_only_lsp_refresh_without_publish`
+    - `lsp.diagnostics` hit plugin PPC reply timeouts under the broad concurrent run.
+  - `layer_stack_occ_overlay/test_auto_squash_commit_resume.py::test_auto_squash_commit_resume_crosses_depth_threshold`
+  - `layer_stack_occ_overlay/test_commit_to_workspace_materializes_git.py::test_commit_to_workspace_materializes_layerstack_edits_into_testbed_git`
+  - `layer_stack_occ_overlay/test_heavy_io_zoned_concurrent.py::test_heavy_io_zoned_concurrent`
+  - `project_build/test_complex_project_build_shell_edit_lsp_smoke.py::test_complex_project_build_shell_edit_lsp_smoke`
+    - LSP semantic check failed with `logical_edit_20.Schedule: symbols=[]`.
+  - `project_build/test_project_build_shell_edit_lsp_remount_not_restart.py::test_project_build_shell_edit_lsp_remount_not_restart`
+    - request did not finish because the same LSP symbol refresh path failed.
+- Updated current verdict:
+  - Correctness: PASS for `api.v1.shell` removal, `api.v1.write_stdin`, and the Rust isolated-workspace folder. PARTIAL for the broad sandbox gate.
+  - Concurrency/parallelism: PASS for isolated workspace; PARTIAL for broad `-n 3` because plugin PPC, background restart, layer-stack timing/event capture, and LSP refresh still fail under combined load.
+  - O(1) memory/disk: PASS for isolated and focused ephemeral checks; broad project-build/layer-stack O(1) claims need rerun after the remaining failures are fixed.
+- Next iteration entry point:
+  - Triage the remaining broad failures from the latest `.sweevo_runs/scenario_logs/*/20260602T183*` artifacts, starting with plugin PPC timeout and layer-stack timing/event capture. Then rerun the failing subset before repeating the full `-n 3` gate.
+
+Post-addendum fixes:
+- Updated test-runner timing assertions and benchmark unit fixtures to the current Rust metrics:
+  - removed required `command_exec.mount_workspace_s`, `command_exec.run_command_s`, `layer_stack.acquire_snapshot.total_s`, and `api.shell.*` keys;
+  - required `api.exec_command.total_s`, `api.exec_command.dispatch_total_s`, `command_exec.capture_upperdir_s`, `command_exec.occ_apply_s`, and OCC apply timings instead;
+  - accepted persisted daemon `tool_call.completed` rows with `resource.layer_stack.*` as layer-stack lease evidence in the full-stack assertion.
+- Commands run:
+  - `uv run ruff check backend/src/test_runner/audit/sandbox_events.py backend/src/test_runner/tests/mock/sandbox/layer_stack_occ_overlay/test_high_concurrency_layerstack_overlay_occ.py backend/src/test_runner/tests/mock/sandbox/layer_stack_occ_overlay/test_shell_concurrency_latency_matrix_diagnostic.py backend/src/test_runner/tests/mock/sandbox/ephemeral_workspace/_ephemeral_workspace_invariants.py backend/src/test_runner/agent/mock/plugin_workspace_probe.py backend/src/test_runner/agent/mock/background_shell_probe.py backend/src/test_runner/agent/mock/ephemeral_workspace_probe.py backend/tests/unit_test/test_benchmarks/test_sweevo_sandbox_event_monitor.py backend/tests/unit_test/test_benchmarks/test_sweevo_audit_recorder.py`
+    - Result: passed.
+  - `uv run pytest -q backend/tests/unit_test/test_benchmarks/test_sweevo_audit_recorder.py backend/tests/unit_test/test_benchmarks/test_sweevo_sandbox_event_monitor.py --tb=short`
+    - Result: passed with `19 passed in 0.45s`.
+  - `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q backend/src/test_runner/tests/mock/sandbox/layer_stack_occ_overlay/test_high_concurrency_layerstack_overlay_occ.py::test_high_concurrency_layerstack_overlay_occ_capacity backend/src/test_runner/tests/mock/sandbox/full_stack/test_full_stack_adversarial.py::test_full_stack_adversarial_runs_agent_tool_script_matrix --tb=short --durations=20`
+    - Result: `test_high_concurrency_layerstack_overlay_occ_capacity` passed; full-stack still failed on persisted layer-stack evidence before the assertion update.
+  - `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q backend/src/test_runner/tests/mock/sandbox/full_stack/test_full_stack_adversarial.py::test_full_stack_adversarial_runs_agent_tool_script_matrix --tb=short --durations=20`
+    - Result: passed with `1 passed in 33.44s`.
+- Updated remaining broad-failure status:
+  - Closed by focused rerun: high-concurrency timing keys and full-stack persisted layer-stack evidence.
+  - Still open from the broad run: background restart abandoned publish, plugin PPC/LSP timeout under `-n 3`, auto-squash/materialized-git/heavy-IO layer-stack cases, and project-build LSP symbol refresh.

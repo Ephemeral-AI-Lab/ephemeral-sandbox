@@ -22,6 +22,7 @@ use crate::execution::parse_input;
 use crate::executor::ToolExecutor;
 use crate::metadata::ExecutionMetadata;
 use crate::name::ToolName;
+use crate::ports::StartedSubagent;
 use crate::registry::ToolRegistry;
 use crate::result::{OutputShape, ToolResult};
 use crate::spec::{text_spec, text_spec_with_agent_enum};
@@ -44,8 +45,9 @@ struct RunSubagentInput {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct CheckSubagentProgressInput {
     subagent_session_id: SubagentSessionId,
+    // Matches Python `Field(ge=1, le=10)` in both schema and runtime validation.
     #[serde(default = "default_five")]
-    #[schemars(default = "default_five")]
+    #[schemars(default = "default_five", range(min = 1, max = 10))]
     last_n_messages: u8,
 }
 
@@ -58,6 +60,22 @@ struct CancelSubagentInput {
 
 struct RunSubagent;
 
+fn launch_result(agent_name: &str, started: &StartedSubagent) -> ToolResult {
+    let session_id = started.subagent_session_id.as_str();
+    let mut metadata = JsonObject::new();
+    metadata.insert("subagent_session_id".to_owned(), json!(session_id));
+    metadata.insert("status".to_owned(), json!("running"));
+    metadata.insert("agent_name".to_owned(), json!(agent_name));
+    ToolResult::ok(format!(
+        "[SUBAGENT LAUNCHED] subagent_session_id=\"{session_id}\" status=running \
+         agent_name=\"{agent_name}\"\nUse check_subagent_progress(\
+         subagent_session_id=\"{session_id}\", last_n_messages=5) to inspect progress, \
+         or cancel_subagent(subagent_session_id=\"{session_id}\") to stop it. \
+         Keep using the current response on other ready work first."
+    ))
+    .with_metadata(metadata)
+}
+
 #[async_trait]
 impl ToolExecutor for RunSubagent {
     async fn execute(
@@ -69,30 +87,33 @@ impl ToolExecutor for RunSubagent {
             Ok(v) => v,
             Err(err) => return Ok(err),
         };
+        if parsed.agent_name.trim().is_empty() {
+            return Ok(ToolResult::error(
+                "run_subagent: `agent_name` must be a non-empty string.",
+            ));
+        }
         if parsed.prompt.trim().is_empty() {
             return Ok(ToolResult::error(
                 "run_subagent: `prompt` must be a non-empty string.",
             ));
         }
-        let outcome = ctx
+        let started = ctx
             .require_subagent_supervisor()?
-            .run(&parsed.agent_name, &parsed.prompt)
+            .spawn(&parsed.agent_name, &parsed.prompt)
             .await?;
-        let mut metadata = JsonObject::new();
-        metadata.insert(
-            "subagent_terminal_called".to_owned(),
-            json!(outcome.terminal_called),
-        );
-        Ok(ToolResult {
-            output: outcome.output,
-            is_error: outcome.is_error,
-            metadata,
-            is_terminal: false,
-        })
+        Ok(launch_result(&parsed.agent_name, &started))
     }
 }
 
 struct CheckSubagentProgress;
+
+fn empty_subagent_session_error(tool: ToolName) -> ToolResult {
+    ToolResult::error(format!(
+        "Invalid input for {}: subagent_session_id must be non-empty. \
+         Please retry the tool call with valid arguments.",
+        tool.as_str()
+    ))
+}
 
 #[async_trait]
 impl ToolExecutor for CheckSubagentProgress {
@@ -106,6 +127,17 @@ impl ToolExecutor for CheckSubagentProgress {
                 Ok(v) => v,
                 Err(err) => return Ok(err),
             };
+        if parsed.subagent_session_id.as_str().is_empty() {
+            return Ok(empty_subagent_session_error(
+                ToolName::CheckSubagentProgress,
+            ));
+        }
+        if !(1..=10).contains(&parsed.last_n_messages) {
+            return Ok(ToolResult::error(
+                "Invalid input for check_subagent_progress: last_n_messages must be between 1 and 10. \
+                 Please retry the tool call with valid arguments.",
+            ));
+        }
         let output = ctx
             .require_subagent_supervisor()?
             .progress(&parsed.subagent_session_id, parsed.last_n_messages)
@@ -127,6 +159,9 @@ impl ToolExecutor for CancelSubagent {
             Ok(v) => v,
             Err(err) => return Ok(err),
         };
+        if parsed.subagent_session_id.as_str().is_empty() {
+            return Ok(empty_subagent_session_error(ToolName::CancelSubagent));
+        }
         let output = ctx
             .require_subagent_supervisor()?
             .cancel(&parsed.subagent_session_id, &parsed.reason)
@@ -170,4 +205,143 @@ pub(crate) fn register(registry: &mut ToolRegistry, caller: &CallerScope) {
         OutputShape::Text,
         Arc::new(CancelSubagent),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use std::sync::Mutex;
+
+    use crate::ports::{Sealed, SubagentSupervisorPort};
+    use crate::testsupport::metadata;
+
+    use super::*;
+
+    #[derive(Default)]
+    struct FakeSubagentSupervisor {
+        spawned: Mutex<Vec<(String, String)>>,
+    }
+
+    impl Sealed for FakeSubagentSupervisor {}
+
+    #[async_trait]
+    impl SubagentSupervisorPort for FakeSubagentSupervisor {
+        async fn spawn(
+            &self,
+            agent_name: &str,
+            prompt: &str,
+        ) -> Result<StartedSubagent, ToolError> {
+            self.spawned
+                .lock()
+                .unwrap()
+                .push((agent_name.to_owned(), prompt.to_owned()));
+            Ok(StartedSubagent {
+                subagent_session_id: "subagent_1".parse()?,
+            })
+        }
+
+        async fn progress(
+            &self,
+            _subagent_session_id: &SubagentSessionId,
+            _last_n_messages: u8,
+        ) -> Result<String, ToolError> {
+            Ok("running".to_owned())
+        }
+
+        async fn cancel(
+            &self,
+            _subagent_session_id: &SubagentSessionId,
+            _reason: &str,
+        ) -> Result<String, ToolError> {
+            Ok("cancelled".to_owned())
+        }
+
+        async fn background_inflight_count(&self, _agent_id: &str) -> usize {
+            0
+        }
+    }
+
+    fn obj(pairs: &[(&str, serde_json::Value)]) -> JsonObject {
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), v.clone()))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn run_subagent_returns_session_handle() {
+        let supervisor = Arc::new(FakeSubagentSupervisor::default());
+        let mut ctx = metadata();
+        ctx.subagent_supervisor = Some(supervisor.clone());
+
+        let res = RunSubagent
+            .execute(
+                &obj(&[
+                    ("agent_name", json!("explorer")),
+                    ("prompt", json!("inspect the plan")),
+                ]),
+                &ctx,
+            )
+            .await
+            .expect("ok");
+
+        assert!(!res.is_error, "{}", res.output);
+        assert!(res.output.contains("[SUBAGENT LAUNCHED]"), "{}", res.output);
+        assert_eq!(res.metadata["subagent_session_id"], json!("subagent_1"));
+        assert_eq!(res.metadata["status"], json!("running"));
+        assert_eq!(
+            supervisor.spawned.lock().unwrap().as_slice(),
+            &[("explorer".to_owned(), "inspect the plan".to_owned())]
+        );
+    }
+
+    #[tokio::test]
+    async fn check_subagent_progress_rejects_out_of_range_last_n() {
+        let supervisor = Arc::new(FakeSubagentSupervisor::default());
+        let mut ctx = metadata();
+        ctx.subagent_supervisor = Some(supervisor);
+
+        for last_n in [0, 11] {
+            let res = CheckSubagentProgress
+                .execute(
+                    &obj(&[
+                        ("subagent_session_id", json!("subagent_1")),
+                        ("last_n_messages", json!(last_n)),
+                    ]),
+                    &ctx,
+                )
+                .await
+                .expect("ok");
+            assert!(res.is_error);
+            assert!(res.output.contains("last_n_messages"), "{}", res.output);
+        }
+    }
+
+    #[tokio::test]
+    async fn subagent_controls_reject_empty_session_id() {
+        let ctx = metadata();
+        let progress = CheckSubagentProgress
+            .execute(
+                &obj(&[
+                    ("subagent_session_id", json!("")),
+                    ("last_n_messages", json!(5)),
+                ]),
+                &ctx,
+            )
+            .await
+            .expect("ok");
+        assert!(progress.is_error);
+        assert!(progress.output.contains("subagent_session_id"));
+
+        let cancel = CancelSubagent
+            .execute(
+                &obj(&[("subagent_session_id", json!("")), ("reason", json!("x"))]),
+                &ctx,
+            )
+            .await
+            .expect("ok");
+        assert!(cancel.is_error);
+        assert!(cancel.output.contains("subagent_session_id"));
+    }
 }

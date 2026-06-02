@@ -34,34 +34,20 @@ pub trait SandboxTransport: Send + Sync {
 
 #[cfg(test)]
 pub(crate) mod mock {
-    //! An in-memory `SandboxTransport` returning a canned outcome and recording
-    //! the call count, used by the `tool_api` conflict/reject tests.
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    //! An in-memory `SandboxTransport` returning a canned outcome, used by the
+    //! `tool_api` conflict tests.
 
     use super::{async_trait, DaemonOp, JsonObject, SandboxApiError, SandboxId, SandboxTransport};
 
     pub(crate) struct MockTransport {
         outcome: Result<JsonObject, SandboxApiError>,
-        calls: AtomicUsize,
     }
 
     impl MockTransport {
-        pub(crate) fn ok(response: JsonObject) -> Self {
-            Self {
-                outcome: Ok(response),
-                calls: AtomicUsize::new(0),
-            }
-        }
-
         pub(crate) fn err(error: SandboxApiError) -> Self {
             Self {
                 outcome: Err(error),
-                calls: AtomicUsize::new(0),
             }
-        }
-
-        pub(crate) fn calls(&self) -> usize {
-            self.calls.load(Ordering::SeqCst)
         }
     }
 
@@ -74,7 +60,6 @@ pub(crate) mod mock {
             _payload: JsonObject,
             _timeout_s: u32,
         ) -> Result<JsonObject, SandboxApiError> {
-            self.calls.fetch_add(1, Ordering::SeqCst);
             self.outcome.clone()
         }
     }

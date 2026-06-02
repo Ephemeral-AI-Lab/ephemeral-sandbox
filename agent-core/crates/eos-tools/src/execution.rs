@@ -41,11 +41,23 @@ pub async fn execute_tool_once(
         )));
     }
 
-    // 2. Pre-hooks: the first Deny short-circuits to an in-band error.
+    // 2. Pre-hooks: the first Deny short-circuits to an in-band error. Passing
+    //    hooks accumulate into the trace that a later denial reports (the denier
+    //    itself is recorded in `hook_failure`, not the trace — Python parity).
+    let mut hook_trace: Vec<Value> = Vec::new();
     for &hook in &tool.hooks {
         match hook.run(raw_input, ctx).await? {
-            HookOutcome::Pass => {}
-            HookOutcome::Deny(denial) => return Ok(hook_failure_result(hook, &denial)),
+            HookOutcome::Pass(meta) => hook_trace.push(json!({
+                "phase": "pre",
+                "hook_name": hook.hook_name(),
+                "status": "pass",
+                "reason": "",
+                "message": "",
+                "metadata": meta,
+            })),
+            HookOutcome::Deny(denial) => {
+                return Ok(hook_failure_result(hook, &denial, &hook_trace, raw_input))
+            }
         }
     }
 
@@ -246,6 +258,70 @@ mod tests {
             "carries hook_failure metadata"
         );
         assert_eq!(res.metadata["policy"], json!("destructive_shell"));
+        // Python `_build_hook_failure_result` shape: the denier is the first/only
+        // hook, so no hooks passed before it — the trace is present but empty, and
+        // the effective input that reached the hook is echoed back.
+        assert_eq!(res.metadata["hook_trace"], json!([]));
+        assert_eq!(
+            res.metadata["effective_tool_input"],
+            json!({"cmd": "rm -rf /testbed"})
+        );
+        assert!(!ran.load(Ordering::SeqCst), "executor never ran");
+    }
+
+    // hook_trace records each PASSING hook (not the denier) in order — the
+    // accumulate-on-pass / emit-on-deny half of the Python pipeline shape.
+    #[tokio::test]
+    async fn hook_trace_records_passing_hooks() {
+        // No sandbox_id → BlockInIsolatedMode fails open (Pass) before the
+        // DestructiveShell denial fires.
+        let ctx = metadata();
+        let ran = Arc::new(AtomicBool::new(false));
+        let exec_tool = RegisteredTool::new(
+            ToolName::ExecCommand,
+            ToolIntent::WriteAllowed,
+            false,
+            crate::spec::text_spec(
+                ToolName::ExecCommand,
+                "desc",
+                schemars::schema_for!(Structured),
+            ),
+            OutputShape::Text,
+            Arc::new(Exploding(ran.clone())),
+        )
+        .with_hooks(vec![
+            Hook::BlockInIsolatedMode {
+                tool: ToolName::ExecCommand,
+            },
+            Hook::DestructiveShell {
+                tool: ToolName::ExecCommand,
+            },
+        ]);
+
+        let mut input = JsonObject::new();
+        input.insert(
+            "cmd".to_owned(),
+            Value::String("rm -rf /testbed".to_owned()),
+        );
+        let res = execute_tool_once(&exec_tool, &input, &ctx)
+            .await
+            .expect("ok");
+
+        assert!(res.is_error);
+        let trace = res.metadata["hook_trace"]
+            .as_array()
+            .expect("hook_trace is an array");
+        assert_eq!(trace.len(), 1, "only the passing hook is traced");
+        assert_eq!(
+            trace[0]["hook_name"],
+            json!("block_in_isolated_mode:exec_command")
+        );
+        assert_eq!(trace[0]["status"], json!("pass"));
+        // The denier is recorded in hook_failure, not the trace.
+        assert_eq!(
+            res.metadata["hook_failure"]["hook_name"],
+            json!("sandbox_shell:destructive_shell:exec_command")
+        );
         assert!(!ran.load(Ordering::SeqCst), "executor never ran");
     }
 

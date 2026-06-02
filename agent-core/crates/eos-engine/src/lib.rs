@@ -1,3 +1,31 @@
-//! eos-engine — the query context and loop, background supervisor, event source, and notifications.
-//! Phase-0 skeleton: contracts are specified in impl-eos-engine.md.
+//! `eos-engine` — one ephemeral agent query loop, tool dispatch, background
+//! supervision, notifications, prompt reports, and the event-source seam.
 #![forbid(unsafe_code)]
+
+pub mod agent;
+pub mod audit;
+pub mod background;
+mod error;
+mod events;
+mod notifications;
+pub mod prompt;
+mod prompt_report;
+pub mod query;
+pub mod tool_call;
+
+#[cfg(test)]
+mod test_support;
+
+pub use agent::{build_query_context, BuildQueryContextInput};
+pub use background::{BackgroundTaskStatus, BackgroundTaskSupervisor, SharedSubagentSupervisor};
+pub use error::EngineError;
+pub use events::{stamp_identity, AssistantMessageComplete, StreamEvent};
+pub use notifications::{
+    make_default_notification_rules, AdvisorService, NotificationRule, NotificationService,
+    SystemNotification,
+};
+pub use prompt_report::PromptReportRecorder;
+pub use query::{
+    build_query_run_request, run_query, terminal_submission_failed, EngineStream, EventSource,
+    ProviderEventSource, QueryContext, QueryExitReason, QueryRunRequest, QueryStream,
+};

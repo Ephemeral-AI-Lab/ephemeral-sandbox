@@ -36,19 +36,18 @@ def test_stream_bridge_derives_sandbox_subsystem_events() -> None:
                     "conflict_reason": None,
                     "timings": {
                         "command_exec.prepare_snapshot_s": 0.01,
-                        "command_exec.mount_workspace_s": 0.011,
-                        "command_exec.run_command_s": 0.012,
                         "command_exec.capture_upperdir_s": 0.013,
-                        "command_exec.total_s": 0.09,
-                        "api.shell.total_s": 0.09,
+                        "command_exec.occ_apply_s": 0.07,
+                        "api.exec_command.dispatch_total_s": 0.08,
+                        "api.exec_command.total_s": 0.09,
                         "overlay.total_s": 0.02,
                         "occ.prepare.total_s": 0.03,
                         "occ.commit.publish_layer_s": 0.04,
                         "occ.commit.total_s": 0.05,
                         "occ.apply.total_s": 0.06,
-                        "command_exec.occ_apply_s": 0.07,
                         "layer_stack.auto_squash.total_s": 0.08,
                         "layer_stack.auto_squash.depth_after": 32.0,
+                        "resource.layer_stack.manifest_depth": 32.0,
                         "resource.command_exec.upperdir_tree_bytes": 4096.0,
                         "resource.cgroup.memory_current_bytes": 123456.0,
                     },
@@ -70,11 +69,10 @@ def test_stream_bridge_derives_sandbox_subsystem_events() -> None:
         event for event in events if event.type is EventType.SANDBOX_OVERLAY_EXECUTED
     )
     assert overlay_event.payload["timings"] == {
-        "command_exec.mount_workspace_s": 0.011,
-        "command_exec.run_command_s": 0.012,
         "command_exec.capture_upperdir_s": 0.013,
-        "command_exec.total_s": 0.09,
-        "api.shell.total_s": 0.09,
+        "command_exec.occ_apply_s": 0.07,
+        "api.exec_command.dispatch_total_s": 0.08,
+        "api.exec_command.total_s": 0.09,
         "overlay.total_s": 0.02,
     }
 

@@ -69,10 +69,19 @@ pub enum Hook {
 /// The outcome of running one hook.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HookOutcome {
-    /// The hook passed; execution proceeds.
-    Pass,
+    /// The hook passed; execution proceeds. Carries the pass-phase metadata the
+    /// Python `HookResult.pass_(value, metadata=...)` records in the `hook_trace`
+    /// (empty for most hooks; the daemon-unavailable bailout stamps a `reason`).
+    Pass(JsonObject),
     /// The hook denied execution; the pipeline returns an in-band error.
     Deny(HookDenial),
+}
+
+impl HookOutcome {
+    /// A pass carrying no metadata (the common case).
+    pub(crate) fn pass() -> Self {
+        HookOutcome::Pass(JsonObject::new())
+    }
 }
 
 /// A hook denial: the model-facing message plus the audit/policy metadata the
@@ -166,9 +175,17 @@ impl Hook {
 }
 
 /// Build the in-band `hook_failure` [`ToolResult`] (Python
-/// `_build_hook_failure_result`, pre-phase).
+/// `_build_hook_failure_result`, pre-phase). `hook_trace` is the
+/// already-accumulated trace of the hooks that *passed* before this denial (the
+/// denier is recorded in `hook_failure`, not the trace); `raw_input` is the
+/// effective tool input that reached the failing hook.
 #[must_use]
-pub(crate) fn hook_failure_result(hook: Hook, denial: &HookDenial) -> ToolResult {
+pub(crate) fn hook_failure_result(
+    hook: Hook,
+    denial: &HookDenial,
+    hook_trace: &[Value],
+    raw_input: &JsonObject,
+) -> ToolResult {
     let hook_name = hook.hook_name();
     let tool_name = hook.tool().as_str();
     let message = denial.message.clone();
@@ -204,6 +221,13 @@ pub(crate) fn hook_failure_result(hook: Hook, denial: &HookDenial) -> ToolResult
     for (k, v) in &denial.extra {
         metadata.insert(k.clone(), v.clone());
     }
+    // The Python `_build_hook_failure_result` shape also carries the accumulated
+    // trace of passing hooks and the effective input (`hook_pipeline.py`).
+    metadata.insert("hook_trace".to_owned(), Value::Array(hook_trace.to_vec()));
+    metadata.insert(
+        "effective_tool_input".to_owned(),
+        Value::Object(raw_input.clone()),
+    );
 
     ToolResult {
         output: output.to_string(),
@@ -405,7 +429,7 @@ fn run_destructive_git(raw_input: &JsonObject) -> HookOutcome {
         Some(command) if has_git_mutation_command(command) => {
             HookOutcome::Deny(HookDenial::new(DESTRUCTIVE_GIT_MESSAGE, "destructive_git"))
         }
-        _ => HookOutcome::Pass,
+        _ => HookOutcome::pass(),
     }
 }
 
@@ -414,7 +438,7 @@ fn run_destructive_shell(raw_input: &JsonObject) -> HookOutcome {
         Some(command) if DESTRUCTIVE_SHELL_PATTERN.is_match(command) => HookOutcome::Deny(
             HookDenial::new(DESTRUCTIVE_SHELL_MESSAGE, "destructive_shell"),
         ),
-        _ => HookOutcome::Pass,
+        _ => HookOutcome::pass(),
     }
 }
 
@@ -435,7 +459,7 @@ const NESTED_PLANNER_DEFERRAL_MESSAGE: &str = "BLOCKED: nested workflow planners
 async fn run_block_in_isolated_mode(ctx: &ExecutionMetadata) -> Result<HookOutcome, ToolError> {
     let sandbox_id = match &ctx.sandbox_id {
         Some(id) => id,
-        None => return Ok(HookOutcome::Pass),
+        None => return Ok(HookOutcome::pass()),
     };
     let agent_id = ctx.agent_id();
     match eos_sandbox_api::isolated_active(&*ctx.transport, sandbox_id, &agent_id).await {
@@ -444,7 +468,7 @@ async fn run_block_in_isolated_mode(ctx: &ExecutionMetadata) -> Result<HookOutco
                 .with_reason("isolated_workspace_open"),
         )),
         // Active=false OR any daemon error → fail-open (pass).
-        Ok(false) | Err(_) => Ok(HookOutcome::Pass),
+        Ok(false) | Err(_) => Ok(HookOutcome::pass()),
     }
 }
 
@@ -498,7 +522,7 @@ async fn run_require_no_inflight(
 
     let sandbox_id = match &ctx.sandbox_id {
         Some(id) => id,
-        None => return Ok(HookOutcome::Pass),
+        None => return Ok(HookOutcome::pass()),
     };
 
     let daemon = match eos_sandbox_api::command_session_count(
@@ -511,7 +535,13 @@ async fn run_require_no_inflight(
         Ok(count) => count as usize,
         Err(_) => {
             if is_bailout_submission(tool, raw_input) {
-                return Ok(HookOutcome::Pass);
+                // Fail-OPEN: stamp the override reason in the pass-phase metadata
+                // so the audit trail (hook_trace) distinguishes a bailout from a
+                // normal pass (Python `daemon_unavailable_bailout`).
+                let mut meta = JsonObject::new();
+                meta.insert("policy".to_owned(), json!("no_inflight_background_tasks"));
+                meta.insert("reason".to_owned(), json!("daemon_unavailable_bailout"));
+                return Ok(HookOutcome::Pass(meta));
             }
             return Ok(HookOutcome::Deny(
                 HookDenial::new(
@@ -536,7 +566,7 @@ async fn run_require_no_inflight(
             .with_count(daemon),
         ));
     }
-    Ok(HookOutcome::Pass)
+    Ok(HookOutcome::pass())
 }
 
 /// `AdvisorApprovalPreHook`: a missing advisor port denies with `missing`
@@ -556,7 +586,7 @@ async fn run_advisor_approval(
     };
     let approval = advisor.approval_status(tool.as_str()).await?;
     if approval.approved {
-        Ok(HookOutcome::Pass)
+        Ok(HookOutcome::pass())
     } else {
         let mut denial = HookDenial::new(message, "advisor_approval");
         if let Some(reason) = approval.reason {
@@ -579,10 +609,10 @@ async fn run_disallow_nested_planner_deferral(
         .map(str::trim)
         .filter(|s| !s.is_empty());
     if deferred.is_none() {
-        return Ok(HookOutcome::Pass);
+        return Ok(HookOutcome::pass());
     }
     let (Some(workflow_id), Some(control)) = (&ctx.workflow_id, &ctx.workflow_control) else {
-        return Ok(HookOutcome::Pass);
+        return Ok(HookOutcome::pass());
     };
     if control.is_nested_workflow(workflow_id).await? {
         Ok(HookOutcome::Deny(
@@ -590,7 +620,7 @@ async fn run_disallow_nested_planner_deferral(
                 .with_reason("nested_workflow"),
         ))
     } else {
-        Ok(HookOutcome::Pass)
+        Ok(HookOutcome::pass())
     }
 }
 

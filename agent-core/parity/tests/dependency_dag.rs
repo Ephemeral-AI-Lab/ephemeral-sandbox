@@ -49,11 +49,23 @@ fn frozen_edges() -> Edges {
         ),
         (
             "eos-engine",
-            &["eos-llm-client", "eos-tools", "eos-audit", "eos-agent-def"],
+            &[
+                "eos-types",
+                "eos-llm-client",
+                "eos-tools",
+                "eos-audit",
+                "eos-agent-def",
+            ],
         ),
         (
             "eos-workflow",
-            &["eos-state", "eos-tools", "eos-agent-def", "eos-audit"],
+            &[
+                "eos-types",
+                "eos-state",
+                "eos-tools",
+                "eos-agent-def",
+                "eos-audit",
+            ],
         ),
         // Phase 3: eos-sandbox-host adds a direct eos-types edge when implemented.
         // It names eos_types items (SandboxId, JsonObject, Clock, CoreError,
@@ -132,6 +144,9 @@ fn actual_edges() -> Edges {
         let mut deps = BTreeSet::new();
         if let Some(arr) = pkg["dependencies"].as_array() {
             for dep in arr {
+                if dep["kind"].as_str() == Some("dev") {
+                    continue;
+                }
                 if let Some(dep_name) = dep["name"].as_str() {
                     if eos.contains(dep_name) {
                         deps.insert(dep_name.to_owned());

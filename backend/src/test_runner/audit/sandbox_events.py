@@ -11,9 +11,8 @@ _SANDBOX_TOOLS = frozenset(
     {"read_file", "write_file", "edit_file", "exec_command", "grep", "glob"}
 )
 _COMMAND_EXEC_OVERLAY_TIMINGS = (
-    "command_exec.mount_workspace_s",
-    "command_exec.run_command_s",
     "command_exec.capture_upperdir_s",
+    "command_exec.occ_apply_s",
     "command_exec.total_s",
     "api.exec_command.dispatch_total_s",
     "api.exec_command.total_s",
@@ -90,7 +89,8 @@ def sandbox_events_from_tool_completion(
         "api.write.lease_acquire_s",
         "api.edit.lease_acquire_s",
         "command_exec.prepare_snapshot_s",
-        "layer_stack.acquire_snapshot.total_s",
+        "resource.layer_stack.manifest_depth",
+        "resource.layer_stack.manifest_path_count",
     ):
         events.append(
             Event(
@@ -105,7 +105,7 @@ def sandbox_events_from_tool_completion(
                         "api.edit.lease_acquire_s",
                         "command_exec.prepare_snapshot_s",
                         "command_exec.release_snapshot_s",
-                        "layer_stack.acquire_snapshot.",
+                        "resource.layer_stack.",
                     ),
                 },
             )

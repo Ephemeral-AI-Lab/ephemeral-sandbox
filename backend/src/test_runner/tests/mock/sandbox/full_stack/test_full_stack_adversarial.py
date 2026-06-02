@@ -304,9 +304,9 @@ def _assert_sandbox_monitor_events(events: list[Event], run_dir: Path) -> None:
     sandbox_log = run_dir / "sandbox_events.jsonl"
     assert sandbox_log.exists()
     rows = _jsonl_rows(sandbox_log)
-    assert any(
-        row.get("event_type") == "layer_stack.lease_acquired" for row in rows
-    ), "missing persisted layer_stack.lease_acquired"
+    assert any(_has_persisted_layer_stack_evidence(row) for row in rows), (
+        "missing persisted layer-stack lease evidence"
+    )
     runner_event_values = {event.value for event in EventType}
     logged = {
         EventType(event_type)
@@ -315,6 +315,23 @@ def _assert_sandbox_monitor_events(events: list[Event], run_dir: Path) -> None:
     }
     missing_logged = sorted(event.value for event in required - logged)
     assert not missing_logged, f"missing persisted sandbox events: {missing_logged}"
+
+
+def _has_persisted_layer_stack_evidence(row: Mapping[str, Any]) -> bool:
+    if row.get("event_type") == "layer_stack.lease_acquired":
+        return True
+    if row.get("event_type") != "tool_call.completed":
+        return False
+    payload = row.get("payload")
+    if not isinstance(payload, Mapping):
+        return False
+    tool_call = payload.get("tool_call")
+    if not isinstance(tool_call, Mapping):
+        return False
+    timings = tool_call.get("phase_totals_rollup")
+    if not isinstance(timings, Mapping):
+        return False
+    return any(str(key).startswith("resource.layer_stack.") for key in timings)
 
 
 def _assert_full_stack_performance_report_complete(run_dir: Path) -> None:

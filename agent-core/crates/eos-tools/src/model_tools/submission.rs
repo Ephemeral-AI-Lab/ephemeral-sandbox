@@ -440,7 +440,9 @@ fn validate_planner_input(input: &SubmitPlannerOutcomeInput) -> Result<(), Strin
             return Err("task_specs key must be nonblank".to_owned());
         }
         if is_blank(spec) {
-            return Err(format!("task spec for {key:?} must be nonblank"));
+            // Python `validate_nonblank(spec, f"task spec for {key!r}")` → `!r`
+            // renders single quotes; match it verbatim (not Rust `{:?}`).
+            return Err(format!("task spec for '{key}' must be nonblank"));
         }
     }
     for reducer in &input.reducers {
@@ -468,7 +470,9 @@ fn validate_planner_structure(input: &SubmitPlannerOutcomeInput) -> Result<(), S
     let mut seen = BTreeSet::new();
     for task in &input.tasks {
         if !seen.insert(task.id.as_str()) {
-            return Err(format!("Plan contains duplicate task id {:?}.", task.id));
+            // Python `f"Plan contains duplicate task id {task.id!r}."` → single
+            // quotes (verbatim contract); Rust `{:?}` would emit double quotes.
+            return Err(format!("Plan contains duplicate task id '{}'.", task.id));
         }
     }
     let task_ids: BTreeSet<&str> = input.tasks.iter().map(|t| t.id.as_str()).collect();

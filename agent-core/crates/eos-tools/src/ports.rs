@@ -185,28 +185,24 @@ pub trait PlanSubmissionPort: Sealed + Send + Sync {
 }
 
 // ---------------------------------------------------------------------------
-// SubagentSupervisorPort — run / check / cancel subagent + background count.
+// SubagentSupervisorPort — spawn / check / cancel subagent + background count.
 // ---------------------------------------------------------------------------
 
-/// The outcome of a `run_subagent` dispatch.
+/// A started subagent handle (returned by [`SubagentSupervisorPort::spawn`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SubagentRunOutcome {
-    /// The subagent's terminal result text (or an error explanation).
-    pub output: String,
-    /// Whether the result is an error (crash, no-terminal, or the terminal's own
-    /// `is_error`).
-    pub is_error: bool,
-    /// Whether the subagent actually called a terminal tool.
-    pub terminal_called: bool,
+pub struct StartedSubagent {
+    /// The agent-facing background handle (`subagent_<n>`).
+    pub subagent_session_id: SubagentSessionId,
 }
 
 /// The engine background supervisor, for the subagent tools and the
 /// no-inflight-background-tasks hook. Implemented by `eos-engine`.
 #[async_trait]
 pub trait SubagentSupervisorPort: Sealed + Send + Sync {
-    /// Run a dispatchable subagent to its terminal and return the outcome. The
-    /// implementor validates the agent (exists, is a subagent, no recursion).
-    async fn run(&self, agent_name: &str, prompt: &str) -> Result<SubagentRunOutcome, ToolError>;
+    /// Spawn a dispatchable subagent session and return its typed handle. The
+    /// implementor validates the agent (exists, is a subagent, no recursion) and
+    /// supervises terminal-result delivery out of band.
+    async fn spawn(&self, agent_name: &str, prompt: &str) -> Result<StartedSubagent, ToolError>;
 
     /// Render the latest `last_n` messages / status for a tracked subagent.
     async fn progress(

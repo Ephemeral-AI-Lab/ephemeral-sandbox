@@ -447,8 +447,8 @@ def _shell_stdout(result: ToolResult) -> str:
     try:
         parsed = json.loads(result.output or "{}")
     except json.JSONDecodeError:
-        return result.output or ""
-    return str(parsed.get("stdout") or result.output or "")
+        return (result.output or "").replace("\r\n", "\n")
+    return str(parsed.get("stdout") or result.output or "").replace("\r\n", "\n")
 
 
 def _string_list(value: Any) -> list[str]:

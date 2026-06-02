@@ -529,7 +529,8 @@ authored so the fallback branch disappears.
   `BlockInIsolatedMode` (the live `ask_advisor` pre-hook).
 - **GC-tools-07** — *Consistent `exec_command`/command-session naming.*
   Resolution: tool names `exec_command` + `write_stdin`; output field
-  `command_session_id`; daemon op compat label stays in `eos-sandbox-api`.
+  `command_session_id`; daemon wire labels `api.v1.exec_command` and
+  `api.v1.exec_stdin` stay in `eos-sandbox-api`.
 - **GC-tools-08** — *Update stale subagent prompt referencing retired wait/check
   controls.* Resolution: `subagent/run_subagent/prompt.py:71` ("so `check`/`wait`
   can …") references a retired generic `wait` control; the Rust

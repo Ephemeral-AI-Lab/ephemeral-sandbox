@@ -27,11 +27,10 @@ from test_runner.tests.mock._layer_stack_occ_overlay_assertions import (
 )
 
 REQUIRED_OVERLAY_TIMING_KEYS = (
-    "command_exec.mount_workspace_s",
-    "command_exec.run_command_s",
     "command_exec.capture_upperdir_s",
-    "command_exec.total_s",
-    "layer_stack.acquire_snapshot.total_s",
+    "command_exec.occ_apply_s",
+    "api.exec_command.dispatch_total_s",
+    "api.exec_command.total_s",
 )
 
 

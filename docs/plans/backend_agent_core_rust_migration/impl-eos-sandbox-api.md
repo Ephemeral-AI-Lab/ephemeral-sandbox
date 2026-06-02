@@ -130,9 +130,9 @@ pub trait SandboxTransport: Send + Sync {
 
 ### 5.2 `DaemonOp` (typed op constants — anchor §10 / `type-no-stringly`)
 
-A `#[non_exhaustive]` enum whose serialized form is the exact legacy wire string
+A `#[non_exhaustive]` enum whose serialized form is the exact daemon wire string
 (`api.v1.read_file`, …). This replaces 18 bare `&str` constants with one typed
-surface while preserving protocol compatibility (GC-02). See §6.4.
+surface while preserving the current daemon protocol contract (GC-02). See §6.4.
 
 ### Contracts merely USED (referenced, not redefined here)
 
