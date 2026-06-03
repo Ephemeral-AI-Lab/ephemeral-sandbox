@@ -44,7 +44,7 @@ pub(super) struct PluginServiceOverlay {
     pub(super) workdir: PathBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct PluginProcessSpec {
     key: PluginServiceKey,
     command: Vec<String>,

@@ -27,6 +27,20 @@ def _make_context(sandbox_id: str = "sb-1") -> ToolExecutionContextService:
     return ctx
 
 
+def _runtime_cache_key(
+    *,
+    sandbox_id: str = "sb-1",
+    plugin: str = "demo",
+    workspace_root: str = "/testbed",
+) -> tuple[str, str, str, str]:
+    return host_dispatch_mod._runtime_cache_key(
+        sandbox_id,
+        plugin,
+        layer_stack_root=host_dispatch_mod.DEFAULT_LAYER_STACK_ROOT,
+        workspace_root=workspace_root,
+    )
+
+
 def _seed_demo_manifest(tmp_path: Path) -> PluginManifest:
     plugin_dir = tmp_path / "demo"
     plugin_dir.mkdir()
@@ -432,6 +446,51 @@ def test_call_plugin_reensures_runtime_when_digest_changes(
     ]
 
 
+def test_call_plugin_reensures_runtime_when_workspace_root_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = _seed_demo_manifest(tmp_path)
+    monkeypatch.setattr(
+        host_dispatch_mod, "_PLUGIN_MANIFESTS_BY_NAME", {"demo": manifest}, raising=False
+    )
+    ensure_payloads: list[dict[str, Any]] = []
+
+    async def fake_install(sandbox_id: str, m: PluginManifest) -> str:
+        del sandbox_id, m
+        return "digest-a"
+
+    async def fake_dispatch(
+        sandbox_id: str, op: str, args: dict[str, Any], **kwargs: Any
+    ) -> dict[str, Any]:
+        del sandbox_id, kwargs
+        if op == "api.plugin.ensure":
+            ensure_payloads.append(dict(args))
+        return {"success": True}
+
+    first = _make_context()
+    second = _make_context()
+    second["repo_root"] = "/ephemeral-os"
+
+    for ctx in (first, second):
+        result = asyncio.run(
+            call_plugin(
+                ctx,
+                plugin="demo",
+                op="run",
+                payload={},
+                install_runner=fake_install,
+                daemon_dispatcher=fake_dispatch,
+            )
+        )
+        assert not result.is_error
+
+    assert ensure_payloads == [
+        {"plugin": "demo", "digest": "digest-a", "workspace_root": "/testbed"},
+        {"plugin": "demo", "digest": "digest-a", "workspace_root": "/ephemeral-os"},
+    ]
+
+
 def test_call_plugin_recovers_stale_runtime_cache_on_unknown_op(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -440,7 +499,7 @@ def test_call_plugin_recovers_stale_runtime_cache_on_unknown_op(
     monkeypatch.setattr(
         host_dispatch_mod, "_PLUGIN_MANIFESTS_BY_NAME", {"demo": manifest}, raising=False
     )
-    host_dispatch_mod._RUNTIME_DIGEST_BY_SANDBOX_PLUGIN[("sb-1", "demo")] = "abc"
+    host_dispatch_mod._RUNTIME_DIGEST_BY_SANDBOX_PLUGIN[_runtime_cache_key()] = "abc"
     dispatch_ops: list[str] = []
     plugin_attempts = 0
 
@@ -583,7 +642,7 @@ def test_call_plugin_does_not_serialize_dispatch_after_runtime_loaded(
     monkeypatch.setattr(
         host_dispatch_mod, "_PLUGIN_MANIFESTS_BY_NAME", {"demo": manifest}, raising=False
     )
-    host_dispatch_mod._RUNTIME_DIGEST_BY_SANDBOX_PLUGIN[("sb-1", "demo")] = "abc"
+    host_dispatch_mod._RUNTIME_DIGEST_BY_SANDBOX_PLUGIN[_runtime_cache_key()] = "abc"
     dispatch_running = 0
     max_dispatch_concurrency = 0
 

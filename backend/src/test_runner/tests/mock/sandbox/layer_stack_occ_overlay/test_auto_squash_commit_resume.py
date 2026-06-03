@@ -241,4 +241,4 @@ async def _assert_final_workspace_state(
     )
     assert command_result.success
     assert command_result.exit_code == 0
-    assert command_result.output.stdout == expected_edit_content
+    assert command_result.output.stdout.replace("\r\n", "\n") == expected_edit_content

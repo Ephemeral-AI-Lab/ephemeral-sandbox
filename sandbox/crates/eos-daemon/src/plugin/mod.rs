@@ -52,7 +52,7 @@ struct PluginServiceSnapshot {
     overlay: Option<PluginServiceOverlay>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct PluginOperationRoute {
     plugin_id: String,
     op_name: String,
@@ -130,7 +130,7 @@ pub fn op_ensure(args: &Value, _context: DispatchContext<'_>) -> Result<Value, D
         let already_loaded = state
             .loaded
             .get(&parsed.plugin_id)
-            .is_some_and(|loaded| loaded.digest == parsed.plugin_digest);
+            .is_some_and(|loaded| loaded_matches_parsed(loaded, &parsed));
         if !already_loaded {
             stop_plugin_service_processes(&mut state, &parsed.plugin_id);
             state.loaded.insert(
@@ -344,6 +344,14 @@ struct ParsedEnsure {
     services: Vec<PluginServiceStatus>,
     service_processes: Vec<PluginProcessSpec>,
     runtime_loaded: bool,
+}
+
+fn loaded_matches_parsed(loaded: &LoadedPluginRuntime, parsed: &ParsedEnsure) -> bool {
+    loaded.digest == parsed.plugin_digest
+        && loaded.registered_ops == parsed.registered_ops
+        && loaded.operation_routes == parsed.operation_routes
+        && loaded.service_processes == parsed.service_processes
+        && loaded.runtime_loaded == parsed.runtime_loaded
 }
 
 impl ParsedEnsure {
@@ -902,6 +910,29 @@ fn stop_plugin_service_processes(state: &mut DaemonPluginState, plugin_id: &str)
         }
         mark_service_stopped(state, &service_instance_id);
     }
+}
+
+pub(crate) fn stop_services_for_layer_stack_root(
+    layer_stack_root: &str,
+) -> Result<usize, DaemonError> {
+    let mut state = lock_state()?;
+    let service_instance_ids = state
+        .service_snapshots
+        .iter()
+        .filter_map(|(service_instance_id, snapshot)| {
+            (snapshot.layer_stack_root == layer_stack_root).then(|| service_instance_id.clone())
+        })
+        .collect::<Vec<_>>();
+    let stopped_count = service_instance_ids.len();
+    for service_instance_id in service_instance_ids {
+        state.service_processes.remove(&service_instance_id);
+        state.service_ppc_clients.remove(&service_instance_id);
+        if let Some(snapshot) = state.service_snapshots.remove(&service_instance_id) {
+            release_service_snapshot(&snapshot);
+        }
+        mark_service_stopped(&mut state, &service_instance_id);
+    }
+    Ok(stopped_count)
 }
 
 fn running_process_values(state: &mut DaemonPluginState) -> Vec<Value> {
@@ -1831,6 +1862,88 @@ mod tests {
         )?;
         assert_eq!(first["already_loaded"], false);
         assert_eq!(second["already_loaded"], true);
+        Ok(())
+    }
+
+    #[test]
+    fn ensure_reloads_same_digest_when_workspace_root_changes() -> TestResult {
+        let _guard = PluginTestGuard::new()?;
+        let first = op_ensure(
+            &json!({
+                "manifest": lsp_manifest("digest-a", "hover"),
+                "layer_stack_root": "/eos/plugin/layer-stack",
+                "workspace_root": "/testbed"
+            }),
+            DispatchContext::empty(),
+        )?;
+        let second = op_ensure(
+            &json!({
+                "manifest": lsp_manifest("digest-a", "hover"),
+                "layer_stack_root": "/eos/plugin/layer-stack",
+                "workspace_root": "/ephemeral-os"
+            }),
+            DispatchContext::empty(),
+        )?;
+
+        assert_eq!(first["already_loaded"], false);
+        assert_eq!(second["already_loaded"], false);
+        assert_eq!(
+            first["service_processes"][0]["env"]["EOS_PLUGIN_WORKSPACE_ROOT"],
+            "/testbed"
+        );
+        assert_eq!(
+            second["service_processes"][0]["env"]["EOS_PLUGIN_WORKSPACE_ROOT"],
+            "/ephemeral-os"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn build_workspace_base_reset_stops_plugin_service_snapshots_for_layer_root() -> TestResult {
+        let _guard = PluginTestGuard::new()?;
+        let table = OpTable::with_builtins();
+        let (layer_stack_root, workspace_root) = test_bound_workspace("reset-plugin-service")?;
+        let ensure = table.dispatch(&Request {
+            op: "api.plugin.ensure".to_owned(),
+            invocation_id: "plugin-ensure-reset-service".to_owned(),
+            args: json!({
+                "manifest": lsp_manifest("digest-a", "hover"),
+                "layer_stack_root": layer_stack_root.to_string_lossy().into_owned(),
+                "workspace_root": workspace_root.to_string_lossy().into_owned()
+            }),
+        });
+        assert_eq!(ensure["success"], true);
+        let _ = attach_service_snapshot_for_tests("plugin.lsp.hover")?;
+        assert_eq!(
+            LayerStack::open(layer_stack_root.clone())?.active_lease_count(),
+            1
+        );
+
+        let reset = table.dispatch(&Request {
+            op: "api.build_workspace_base".to_owned(),
+            invocation_id: "workspace-base-reset-stops-service".to_owned(),
+            args: json!({
+                "layer_stack_root": layer_stack_root.to_string_lossy().into_owned(),
+                "workspace_root": workspace_root.to_string_lossy().into_owned(),
+                "reset": true
+            }),
+        });
+
+        assert_eq!(reset["success"], true, "{reset:?}");
+        assert_eq!(
+            LayerStack::open(layer_stack_root.clone())?.active_lease_count(),
+            0
+        );
+        let status = table.dispatch(&Request {
+            op: "api.plugin.status".to_owned(),
+            invocation_id: "plugin-status-reset-service".to_owned(),
+            args: json!({}),
+        });
+        assert_eq!(
+            status["loaded_plugins"][0]["services"][0]["state"],
+            "stopped"
+        );
+        remove_test_tree(&layer_stack_root)?;
         Ok(())
     }
 

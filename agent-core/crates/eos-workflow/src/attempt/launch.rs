@@ -5,9 +5,9 @@ use eos_agent_def::{AgentDefinition, AgentName, AgentRegistry, AgentRole};
 use eos_audit::{AuditSink, NoopAuditSink};
 use eos_state::{
     Attempt, AttemptStore, GeneratorSubmission, IterationStore, PlannerFailureSubmission,
-    PlannerSubmission, ReducerSubmission, RequestId, Task, TaskId, TaskStore, WorkflowId,
-    WorkflowStore,
+    ReducerSubmission, RequestId, Task, TaskId, TaskStore, WorkflowId, WorkflowStore,
 };
+use eos_tools::PlannerPlan;
 
 use crate::context::{AgentEntryComposer, ContextScope};
 use crate::ids::WorkflowLifecycleConfig;
@@ -20,7 +20,7 @@ use crate::iteration::OpenIterationCoordinatorRegistry;
 #[derive(Debug, Clone, PartialEq)]
 pub enum AgentTerminal {
     /// Planner submitted a plan.
-    Planner(PlannerSubmission),
+    Planner(PlannerPlan),
     /// Planner failed/exhausted.
     PlannerFailure(PlannerFailureSubmission),
     /// Generator submitted its outcome.

@@ -5,9 +5,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use eos_llm_client::ContentBlock;
 use eos_tools::{
     execute_tool_once, lifecycle_batch_decision, reject_terminal_batch, DispatchCall,
-    ExecutionMetadata, ToolName, ToolResult,
+    ExecutionMetadata, RegisteredTool, ToolName, ToolResult,
 };
 use eos_types::{JsonObject, ToolUseId};
+use tokio::sync::mpsc;
+use tokio::task::JoinSet;
 
 use crate::events::StreamEvent;
 use crate::query::QueryContext;
@@ -86,7 +88,9 @@ fn first_terminal_result(
         ToolName::from_wire(&call.name)
             .and_then(|name| ctx.tool_registry.get(name))
             .filter(|tool| tool.is_terminal)
-            .and_then(|_| results.get(call.tool_use_id.as_str()).cloned())
+            .and_then(|_| results.get(call.tool_use_id.as_str()))
+            .filter(|result| result.is_terminal)
+            .cloned()
     })
 }
 
@@ -94,6 +98,104 @@ fn metadata_for_call(ctx: &QueryContext, tool_use_id: &ToolUseId) -> ExecutionMe
     let mut metadata = ctx.tool_metadata.clone();
     metadata.tool_use_id = Some(tool_use_id.clone());
     metadata
+}
+
+#[derive(Debug)]
+struct ForegroundCompletion {
+    call: ToolUseRequest,
+    result: ToolResult,
+}
+
+async fn execute_foreground_tool(
+    call: ToolUseRequest,
+    tool: RegisteredTool,
+    metadata: ExecutionMetadata,
+) -> Result<ForegroundCompletion, EngineError> {
+    let result = execute_tool_once(&tool, &call.input, &metadata).await?;
+    Ok(ForegroundCompletion { call, result })
+}
+
+async fn dispatch_single_foreground_tool(
+    ctx: &QueryContext,
+    call: ToolUseRequest,
+    tool: RegisteredTool,
+) -> Result<ForegroundCompletion, EngineError> {
+    let metadata = metadata_for_call(ctx, &call.tool_use_id);
+    execute_foreground_tool(call, tool, metadata).await
+}
+
+fn join_error(err: &tokio::task::JoinError) -> EngineError {
+    EngineError::Internal(format!("foreground tool task failed: {err}"))
+}
+
+async fn dispatch_many_foreground_tools(
+    ctx: &QueryContext,
+    runnable: Vec<(ToolUseRequest, RegisteredTool)>,
+) -> Result<Vec<ForegroundCompletion>, EngineError> {
+    let expected = runnable.len();
+    let capacity = expected.saturating_mul(2).max(16);
+    let (tx, mut rx) = mpsc::channel(capacity);
+    let mut tasks = JoinSet::new();
+
+    for (call, tool) in runnable {
+        let metadata = metadata_for_call(ctx, &call.tool_use_id);
+        let tx = tx.clone();
+        tasks.spawn(async move {
+            let completion = execute_foreground_tool(call, tool, metadata).await;
+            let _ignored = tx.send(completion).await;
+        });
+    }
+    drop(tx);
+
+    let mut completions = Vec::with_capacity(expected);
+    while completions.len() < expected {
+        let Some(item) = rx.recv().await else {
+            break;
+        };
+        match item {
+            Ok(completion) => completions.push(completion),
+            Err(err) => {
+                tasks.abort_all();
+                while let Some(joined) = tasks.join_next().await {
+                    let _ignored = joined.map_err(|err| join_error(&err));
+                }
+                return Err(err);
+            }
+        }
+    }
+
+    while let Some(joined) = tasks.join_next().await {
+        joined.map_err(|err| join_error(&err))?;
+    }
+
+    if completions.len() == expected {
+        Ok(completions)
+    } else {
+        Err(EngineError::Internal(format!(
+            "foreground fan-in lost final results: expected {expected}, got {}",
+            completions.len()
+        )))
+    }
+}
+
+async fn dispatch_foreground_tools(
+    ctx: &QueryContext,
+    runnable: Vec<(ToolUseRequest, RegisteredTool)>,
+) -> Result<Vec<ForegroundCompletion>, EngineError> {
+    match runnable.len() {
+        0 => Ok(Vec::new()),
+        1 => {
+            let Some((call, tool)) = runnable.into_iter().next() else {
+                return Err(EngineError::Internal(
+                    "single foreground dispatch had no runnable call".to_owned(),
+                ));
+            };
+            Ok(vec![
+                dispatch_single_foreground_tool(ctx, call, tool).await?,
+            ])
+        }
+        _ => dispatch_many_foreground_tools(ctx, runnable).await,
+    }
 }
 
 /// Dispatch a complete assistant tool batch.
@@ -126,7 +228,7 @@ pub async fn dispatch_assistant_tools(
             }
         }
         return Ok(AssistantToolDispatchOutcome {
-            terminal_result: first_terminal_result(calls, &by_id, ctx),
+            terminal_result: None,
             tool_results,
             events,
         });
@@ -142,6 +244,7 @@ pub async fn dispatch_assistant_tools(
     let mut events = Vec::new();
     let mut tool_results = Vec::new();
     let mut results_by_id = rejected.clone();
+    let mut runnable = Vec::new();
 
     for call in calls {
         if let Some(result) = rejected.get(call.tool_use_id.as_str()) {
@@ -169,20 +272,28 @@ pub async fn dispatch_assistant_tools(
         };
 
         events.push(started_event(call));
-        let metadata = metadata_for_call(ctx, &call.tool_use_id);
-        let result = execute_tool_once(tool, &call.input, &metadata).await?;
-        if result.is_terminal {
-            ctx.terminal_result = Some(result.clone());
-        }
-        events.push(completed_event(call, &result));
-        tool_results.push(result_block(&call.tool_use_id, &result));
-        results_by_id.insert(call.tool_use_id.as_str().to_owned(), result);
+        runnable.push((call.clone(), tool.clone()));
     }
 
-    let terminal_result = ctx
-        .terminal_result
-        .clone()
-        .or_else(|| first_terminal_result(calls, &results_by_id, ctx));
+    for completion in dispatch_foreground_tools(ctx, runnable).await? {
+        if completion.result.is_terminal {
+            ctx.terminal_result = Some(completion.result.clone());
+        }
+        events.push(completed_event(&completion.call, &completion.result));
+        tool_results.push(result_block(
+            &completion.call.tool_use_id,
+            &completion.result,
+        ));
+        results_by_id.insert(
+            completion.call.tool_use_id.as_str().to_owned(),
+            completion.result,
+        );
+    }
+
+    let terminal_result = first_terminal_result(calls, &results_by_id, ctx);
+    if terminal_result.is_some() {
+        ctx.terminal_result = terminal_result.clone();
+    }
 
     Ok(AssistantToolDispatchOutcome {
         tool_results,
@@ -207,6 +318,8 @@ mod tests {
     };
     use eos_types::{AgentRunId, JsonObject};
     use serde_json::json;
+    use tokio::sync::Barrier;
+    use tokio::time::{timeout, Duration};
 
     use super::*;
     use crate::test_support::metadata;
@@ -229,6 +342,25 @@ mod tests {
         }
     }
 
+    #[derive(Debug)]
+    struct BarrierExecutor {
+        count: Arc<AtomicUsize>,
+        barrier: Arc<Barrier>,
+    }
+
+    #[async_trait]
+    impl ToolExecutor for BarrierExecutor {
+        async fn execute(
+            &self,
+            _input: &JsonObject,
+            _ctx: &eos_tools::ExecutionMetadata,
+        ) -> Result<ToolResult, eos_tools::ToolError> {
+            self.count.fetch_add(1, Ordering::SeqCst);
+            self.barrier.wait().await;
+            Ok(ToolResult::ok("ok"))
+        }
+    }
+
     fn spec(name: ToolName) -> ToolSpec {
         ToolSpec::new(
             name.as_str(),
@@ -241,17 +373,38 @@ mod tests {
         )
     }
 
-    fn tool(name: ToolName, terminal: bool, count: Arc<AtomicUsize>) -> RegisteredTool {
+    fn tool_with_result(
+        name: ToolName,
+        terminal: bool,
+        count: Arc<AtomicUsize>,
+        result: ToolResult,
+    ) -> RegisteredTool {
         RegisteredTool::new(
             name,
             ToolIntent::ReadOnly,
             terminal,
             spec(name),
             OutputShape::Text,
-            Arc::new(CountingExecutor {
-                count,
-                result: ToolResult::ok("ok"),
-            }),
+            Arc::new(CountingExecutor { count, result }),
+        )
+    }
+
+    fn tool(name: ToolName, terminal: bool, count: Arc<AtomicUsize>) -> RegisteredTool {
+        tool_with_result(name, terminal, count, ToolResult::ok("ok"))
+    }
+
+    fn barrier_tool(
+        name: ToolName,
+        count: Arc<AtomicUsize>,
+        barrier: Arc<Barrier>,
+    ) -> RegisteredTool {
+        RegisteredTool::new(
+            name,
+            ToolIntent::ReadOnly,
+            false,
+            spec(name),
+            OutputShape::Text,
+            Arc::new(BarrierExecutor { count, barrier }),
         )
     }
 
@@ -317,7 +470,7 @@ mod tests {
             .tool_results
             .iter()
             .all(|block| matches!(block, ContentBlock::ToolResult { is_error: true, .. })));
-        assert!(outcome.terminal_result.is_some());
+        assert!(outcome.terminal_result.is_none());
         assert!(outcome.events.iter().all(|event| matches!(
             event,
             StreamEvent::ToolExecutionCompleted { is_error: true, .. }
@@ -325,12 +478,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn foreground_fan_in_backpressure_preserves_final_results() {
+    async fn foreground_multi_tool_batch_runs_in_parallel_and_preserves_final_results() {
         let first_count = Arc::new(AtomicUsize::new(0));
         let second_count = Arc::new(AtomicUsize::new(0));
+        let barrier = Arc::new(Barrier::new(2));
         let mut registry = ToolRegistry::new();
-        registry.register(tool(ToolName::ReadFile, false, first_count.clone()));
-        registry.register(tool(ToolName::Grep, false, second_count.clone()));
+        registry.register(barrier_tool(
+            ToolName::ReadFile,
+            first_count.clone(),
+            barrier.clone(),
+        ));
+        registry.register(barrier_tool(
+            ToolName::Grep,
+            second_count.clone(),
+            barrier.clone(),
+        ));
         let mut ctx = ctx(registry);
         ctx.terminal_tools = BTreeSet::new();
 
@@ -346,9 +508,13 @@ mod tests {
                 input: JsonObject::new(),
             },
         ];
-        let outcome = dispatch_assistant_tools(&mut ctx, &calls)
-            .await
-            .expect("dispatch");
+        let outcome = timeout(
+            Duration::from_millis(200),
+            dispatch_assistant_tools(&mut ctx, &calls),
+        )
+        .await
+        .expect("parallel foreground dispatch timed out")
+        .expect("dispatch");
         assert_eq!(first_count.load(Ordering::SeqCst), 1);
         assert_eq!(second_count.load(Ordering::SeqCst), 1);
         assert_eq!(outcome.tool_results.len(), 2);
@@ -359,5 +525,39 @@ mod tests {
                 ..
             }
         )));
+    }
+
+    #[tokio::test]
+    async fn terminal_tool_error_does_not_project_terminal_result() {
+        let terminal_count = Arc::new(AtomicUsize::new(0));
+        let mut registry = ToolRegistry::new();
+        registry.register(tool_with_result(
+            ToolName::SubmitRootOutcome,
+            true,
+            terminal_count.clone(),
+            ToolResult::error("validation failed"),
+        ));
+        let mut ctx = ctx(registry);
+
+        let calls = [ToolUseRequest {
+            tool_use_id: "toolu-1".parse().expect("valid id"),
+            name: "submit_root_outcome".to_owned(),
+            input: JsonObject::new(),
+        }];
+        let outcome = dispatch_assistant_tools(&mut ctx, &calls)
+            .await
+            .expect("dispatch");
+
+        assert_eq!(terminal_count.load(Ordering::SeqCst), 1);
+        assert!(ctx.terminal_result.is_none());
+        assert!(outcome.terminal_result.is_none());
+        assert!(matches!(
+            outcome.tool_results.first(),
+            Some(ContentBlock::ToolResult {
+                is_error: true,
+                is_terminal: false,
+                ..
+            })
+        ));
     }
 }

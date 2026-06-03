@@ -165,6 +165,7 @@ async def run_heavy_io_zoned_worker_probe(
             {"command": _long_write_command(zone_dir), "timeout": SHELL_TIMEOUT_S},
             metadata,
             emit,
+            background_task_id=f"heavy_io_zoned.worker_{index:02d}.{zone}.write",
         )
         record_tool_check(
             f"tool.exec_command.heavy_io_zoned.worker_{index:02d}.{zone}.write",

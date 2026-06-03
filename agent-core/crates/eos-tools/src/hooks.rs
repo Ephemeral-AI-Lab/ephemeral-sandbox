@@ -680,4 +680,41 @@ mod tests {
         assert_eq!(shell_command(&cmd_input("  ")), None);
         assert_eq!(shell_command(&JsonObject::new()), None);
     }
+
+    // A daemon-count failure on a *bailout* submission fails OPEN, and the
+    // pass-phase metadata records the override reason (Python parity:
+    // `daemon_unavailable_bailout`).
+    #[tokio::test]
+    async fn bailout_pass_carries_daemon_unavailable_reason() {
+        use std::sync::Arc;
+
+        use eos_sandbox_api::SandboxApiError;
+
+        use crate::testsupport::{metadata, FakeTransport};
+
+        let mut ctx = metadata();
+        ctx.sandbox_id = Some("sandbox-1".parse().expect("sandbox id"));
+        // Every daemon RPC (here, command_session_count) errors.
+        ctx.transport = Arc::new(FakeTransport::new(|_, _| {
+            Err(SandboxApiError::Transport {
+                code: None,
+                message: "daemon down".to_owned(),
+            })
+        }));
+
+        // A failed generator submission qualifies as a bailout.
+        let mut input = JsonObject::new();
+        input.insert("status".to_owned(), Value::String("failed".to_owned()));
+
+        let outcome = run_require_no_inflight(ToolName::SubmitGeneratorOutcome, &input, &ctx)
+            .await
+            .expect("hook ran");
+        match outcome {
+            HookOutcome::Pass(meta) => {
+                assert_eq!(meta["reason"], json!("daemon_unavailable_bailout"));
+                assert_eq!(meta["policy"], json!("no_inflight_background_tasks"));
+            }
+            other => panic!("expected a bailout pass, got {other:?}"),
+        }
+    }
 }

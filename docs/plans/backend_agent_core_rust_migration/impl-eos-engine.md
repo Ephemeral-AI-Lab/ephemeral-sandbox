@@ -54,15 +54,13 @@ types.
 
   | Crate | Why | rust-skills |
   |---|---|---|
-  | `tokio` (rt, sync, macros, time) | spawn background tool tasks, `select!` racing, `mpsc`/`watch`/`oneshot` channels, timers for heartbeat grace | `async-tokio-runtime`, `async-select-racing` |
-  | `tokio-util` (`CancellationToken`) | graceful + parent-exit cancellation of background tasks (child tokens per task) | `async-cancellation-token` |
+  | `tokio` (rt, sync, macros, time) | spawn foreground tool tasks, bounded `mpsc` fan-in, tests/timers | `async-tokio-runtime`, `async-select-racing` |
   | `futures` / `futures-util` | consume the model `Stream<Item = Result<LlmStreamEvent, ProviderError>>`; `Stream` for the loop output | `async-tokio-runtime`, `anti-type-erasure` |
   | `async-stream` | author the loop's `impl Stream<Item = (StreamEvent, Option<UsageSnapshot>)>` generator | — |
   | `async-trait` | `EventSource` is used behind `dyn` at the composition root | (anchor §6) |
   | `serde` / `serde_json` | prompt-report JSONL events and engine DTOs | — |
   | `schemars` | `JsonSchema` on wire/DTO types for parity snapshots | (anchor §11) |
   | `thiserror` | the single `EngineError` enum | `err-thiserror-lib` |
-  | `tracing` | structured logging (replaces `logging`) | — |
 
   Runtime-agnostic: the crate takes `&self`/`async fn` and never creates a Tokio
   runtime; `eos-runtime` owns the multi-thread runtime (anchor §7).
@@ -75,9 +73,9 @@ types.
 | `engine/query/request.py` (`QueryRunRequest`, `build_query_run_request`, `_record_initial_messages_once`) | `query/request.rs` | `QueryRunRequest` + request build move. `_record_initial_messages_once` is **dropped** here: the on-disk `agent_message_recorder` transcript is message-domain (out of scope per §3). |
 | `engine/query/loop.py` (`run_query`, `_run_query_loop`, `terminal_submission_failed`, `_stamp`) | `query/loop.rs` | Full move. `_count_tool_dispatch` budget hook re-expressed inline. |
 | `engine/tool_call/dispatch.py` (`dispatch_assistant_tools`, batch/lifecycle rejection, foreground fan-out, `AssistantToolDispatchOutcome`) | `tool_call/dispatch.rs` | Full move. `phase_buffer` + daemon `audit_schema` (`ToolCallSection`/`build_tool_call_event`/`safe_emit`) telemetry is **dropped** (sandbox-daemon-internal); replaced by `audit/stream.rs` projection. |
-| `engine/tool_call/streaming.py` (`StreamingToolExecutor`, `StreamingToolRun`, `defer_background_dispatch`) | `tool_call/streaming.rs` | Full move; latent-fallback path (see §8 defer-all). |
-| `engine/background/task_supervisor.py` (`BackgroundTaskSupervisor`, `BackgroundTaskRecord`, `CommandSessionRecord`, `WorkflowBackgroundRecord`, `BackgroundTaskStatus`) | `background/supervisor.rs` | Full move; `_terminal_lock` dropped (single-owner reap, GC-engine-04). Heartbeat→`watch`-driven task. `sandbox.api` calls go through an injected handle. |
-| `engine/background/dispatch.py` (`launch_background_tool`, `dispatch_background_tool_call`, `validate_background_tool_input`) | `background/dispatch.rs` | Full move. |
+| `engine/tool_call/streaming.py` (`StreamingToolExecutor`, `StreamingToolRun`, `defer_background_dispatch`) | `tool_call/streaming.rs` | Deferral policy/tracker moved. Python's mid-stream execution task body is not used in the current Rust production path because terminal tools force post-message dispatch. |
+| `engine/background/task_supervisor.py` (`BackgroundTaskSupervisor`, `BackgroundTaskRecord`, `CommandSessionRecord`, `WorkflowBackgroundRecord`, `BackgroundTaskStatus`) | `background/supervisor.rs` | Status/handle semantics moved for the implemented subagent supervisor port; `_terminal_lock` dropped via explicit status precedence. Full spawned runner ownership, command/workflow background records, heartbeat, and sandbox polling are Phase-6 runtime wiring residuals. |
+| `engine/background/dispatch.py` (`launch_background_tool`, `dispatch_background_tool_call`, `validate_background_tool_input`) | `background/dispatch.rs` | Minimal launch helper present; full background dispatch/validation moves with the Phase-6 spawned-runner wiring. |
 | `engine/background/policy.py` (`is_engine_background_tool`, `needs_background_manager`, tool-name sets) | `background/policy.rs` | Full move; name sets become `ToolName` constants. |
 | `engine/background/history.py` (`reduce_background_task_history`) | — | **Dropped**: it is an identity passthrough; no Rust target. |
 | `engine/agent/factory.py` (`spawn_agent`, registry/prompt finalization) | `agent/factory.rs` | **Assembly only** moves (terminal-tool derivation, termination-prompt append, default-rule attach). Model/client resolution + sandbox provisioning stay in `eos-runtime` (GC-engine-06). |
@@ -108,7 +106,7 @@ eos-engine/src/
     provider_source.rs    // production EventSource: LlmClient -> StreamEvent adapter
   tool_call/
     mod.rs
-    streaming.rs          // StreamingToolExecutor, StreamingToolRun, defer predicate
+    streaming.rs          // StreamingToolExecutor deferral tracker + defer predicate
     dispatch.rs           // dispatch_assistant_tools, batch/lifecycle rejection, fan-out
   background/
     mod.rs
@@ -300,8 +298,8 @@ Option<String>`, `stop_mode: Option<StopMode>` (`Cancel|EarlyStop|ParentExit`),
 `started_at: Instant` (`tokio::time::Instant`; source `time.monotonic()`, backs
 duration/uptime math — not a wall-clock timestamp), `progress_lines:
 Vec<String>`. The `asyncio.Task`
-handle becomes an `AbortHandle` + child `CancellationToken` held in the JoinSet
-keyed by `task_id` (§7).
+spawned-task handle / `CancellationToken` ownership is a Phase-6 runtime wiring
+residual (§7).
 
 `CommandSessionRecord`: `command_session_id: CommandSessionId`, `sandbox_id`,
 `agent_id`, `command: String`, `status: BackgroundTaskStatus`, `result: Option<JsonObject>`,
@@ -388,63 +386,38 @@ Runtime-agnostic crate; `eos-runtime` owns the single multi-thread Tokio runtime
 - **Provider stream consumption.** `EventSource::stream` returns
   `Pin<Box<dyn Stream<...>>>`; the loop `while let Some(event) = stream.next().await`
   drives it, accumulating `final_message`/`usage`/`streamed_tool_use_ids` into a
-  local `ProviderStreamAccumulator`. On any error/early break the in-flight
-  streaming executor tasks are aborted (`executor.cancel_all()`).
-- **Background supervisor — single owner, JoinSet + per-task CancellationToken.**
-  All mutations (`launch`, `cancel`, `cancel_all`, reap, `register_*`,
-  `mark_*`) run inline on the loop-owner task — dispatch is `.await`ed inline, and
-  `cancel_subagent`/`cancel_workflow`/`check_*` are *tools* dispatched within the
-  same task. So `BackgroundTaskSupervisor` is plain owned state:
-  `HashMap<String, BackgroundTaskRecord>` + the command-session / workflow maps,
-  with a `JoinSet<(String, BackgroundOutcome)>` for spawned tool tasks
-  (`async-joinset-structured`). Each `launch` spawns into the JoinSet with a child
-  `CancellationToken` derived from a run-scoped root token
-  (`async-cancellation-token`); `cancel`/`cancel_all`/`terminate_for_parent_exit`
-  call `token.cancel()` (subagents additionally yield once to salvage a partial
-  result, matching `_request_subagent_early_stop`). Completed tasks are reaped via
-  `join_next()` at the existing drain points (top-of-turn drain, TOOL_STOP exit,
-  ceiling exit, `finally`).
-- **Terminal-status precedence without a lock (GC-engine-04).** The Python
-  `_terminal_lock` + `_TERMINAL_PRECEDENCE` CAS exists only because the
-  `done_callback` and `cancel()` race across asyncio callbacks. With single-owner
-  reap there is no race: `cancel()` records the requested status, and the reap
-  step applies precedence to the `join_next()` outcome (a real `Completed` result
-  overrides a previously-requested `Cancelled`, resolving the cancel-vs-finish
-  race to `COMPLETED` exactly as the source comment requires). Drop the lock —
-  net-negative simplification.
-- **Heartbeat via `watch` (anchor §7 / `async-watch-latest`).** The optional
-  heartbeat is one spawned task that only needs a *read snapshot* of
-  `{SandboxId: Vec<InvocationId>}` and the running command sessions. The owner
-  publishes the snapshot through a `watch::Sender` whenever the running set
-  changes; the heartbeat task `borrow_and_update().clone()`s it each interval and
-  issues the sandbox heartbeat/poll via the injected sandbox handle — keeping all
-  supervisor-map mutation on the owner task. The interval is `select!`ed against
-  the run-scoped `CancellationToken` (`async-select-racing`).
+  local `ProviderStreamAccumulator`. The current Rust production path does not
+  spawn mid-stream tool-executor tasks; terminal-enabled agents dispatch after
+  the complete assistant message.
+- **Background supervisor — status/handle tracker.** The current
+  `BackgroundTaskSupervisor` owns the typed background records and status
+  transitions. `SharedSubagentSupervisor` wraps it in a `tokio::sync::Mutex` for
+  the eos-tools `SubagentSupervisorPort`; each method locks only long enough to
+  register, inspect, or mutate the record and does not hold the guard across
+  additional awaited work. Full spawned task ownership (`JoinSet`), heartbeat
+  polling, early-stop salvage, and `CancellationToken` cancellation are recorded
+  as Phase-6 runtime/agent-runner wiring residuals.
+- **Terminal-status precedence without the Python terminal lock (GC-engine-04).**
+  The Python `_terminal_lock` + `_TERMINAL_PRECEDENCE` CAS exists because
+  `done_callback` and `cancel()` race across asyncio callbacks. The current Rust
+  record mutators apply explicit precedence directly: `Completed` outranks
+  `Failed`, which outranks `Cancelled`, and `Delivered` is the sink state.
 - **Foreground multi-tool fan-in (`async-mpsc-queue`, `async-bounded-channel`).**
   `_dispatch_many_foreground_tools`' `asyncio.Queue` becomes a **bounded** `mpsc`:
-  capacity is `max(2 * tool_batch_len, 16)` for final-result headroom. Each tool
-  task `select!`s sends against the run `CancellationToken`. Final
-  `(ToolUseBlock, ToolResultBlock)` sends are mandatory before task completion;
-  progress sends are best-effort and may be coalesced/dropped with a dropped-count
-  note when the channel is full. The owner drains in completion order, preserving
-  progress-before-result interleaving for delivered events, closes the receiver on
-  terminal/ceiling/parent-exit, and aborts unfinished foreground tasks. Single-tool
-  dispatch stays a direct inline `await`.
-- **Foreground ownership and supervisor controls.** Spawned foreground tool tasks
-  must own cloned `ToolUseBlock` input and an owned/cloned `ExecutionMetadata`;
-  they may borrow those values only inside the spawned async block so the future is
-  `Send + 'static`. Background-control/lifecycle tools that mutate supervisor
-  state (`check_*`, `cancel_*`, `write_stdin`, workflow control) are not launched as
-  parallel foreground siblings unless the mutation is routed through the loop-owner
-  task. This preserves the single-owner supervisor model while retaining parallel
-  fan-in for ordinary independent foreground tools.
+  capacity is `max(2 * tool_batch_len, 16)` for final-result headroom. Final
+  `(ToolUseBlock, ToolResultBlock)` sends are mandatory before task completion.
+  The owner drains in completion order and aborts unfinished foreground tasks on a
+  framework error. Single-tool dispatch stays a direct inline `await`.
+- **Foreground ownership.** Spawned foreground tool tasks own cloned tool inputs,
+  cloned `RegisteredTool`s, and owned/cloned `ExecutionMetadata`; they borrow
+  only inside the spawned async block so the future is `Send + 'static`.
+  Lifecycle tools stay ordered by the lifecycle-batch policy. Port-backed
+  read-only/control tools use their injected port synchronization when batched.
 - **Lock discipline.** No lock is held across `.await` anywhere
-  (`async-no-lock-await`, `anti-lock-across-await`); the design has no app-level
-  mutex on the hot path. If a future change forces a supervisor mutation off the
-  owner task, fall back to `Arc<parking_lot::Mutex<Supervisor>>` with
-  clone-before-await (`async-clone-before-await`, anchor §7) — or
-  `tokio::sync::Mutex` only if a mutation must hold the guard across an `.await`.
-  The current design needs neither.
+  (`async-no-lock-await`, `anti-lock-across-await`). The supervisor port uses a
+  `tokio::sync::Mutex` because the port is shared through `Arc<dyn
+  SubagentSupervisorPort>`, but the guard is not retained while calling external
+  services.
 - **Supervisor ↔ tools back-reference.** Tools (`run_subagent`, `exec_command`,
   `write_stdin`, workflow tools) reach the supervisor through the eos-tools
   `ExecutionMetadata`/execution context (the `background_task_manager` /
@@ -462,13 +435,14 @@ Cite the plan §8 gap closeouts and core rules (anchor §3).
    terminal tool). Therefore in production **all** tool execution is deferred to
    the post-message `dispatch_assistant_tools`, so terminal-tool exclusivity is
    validated against the **complete** assistant message before any sibling body
-   runs. The mid-stream `StreamingToolExecutor` body path is a **latent fallback**
-   exercised only when `terminal_tools` is empty (test fixtures); do not model it
-   as the primary path. Background tools defer regardless (their dispatch path).
+   runs. The current `StreamingToolExecutor` is a deferral tracker/predicate; do
+   not model it as the primary execution path. Background tools defer regardless
+   (their dispatch path).
 2. **Terminal tools called alone.** `validate_tool_batch`: if a batch (`len > 1`)
    contains any terminal tool, **no** tool executes; every call gets an error
-   `ToolResultBlock` ("must be called alone… resubmit"). The first terminal result
-   is projected as `terminal_result`. (Lifecycle-batch rejection —
+   `ToolResultBlock` ("must be called alone… resubmit") with `is_terminal=false`.
+   Rejection blocks are not projected as `terminal_result`; only a successful
+   terminal-tool execution can set the loop's terminal result. (Lifecycle-batch rejection —
    `Intent::Lifecycle`, the source `_record_lifecycle_batch_rejection` — is the
    engine-side analogue, kept; not a separately tracked gap-closeout.)
 3. **Single budget count.** The counter increments once per observed `ToolUseDelta`
@@ -498,9 +472,11 @@ Cite the plan §8 gap closeouts and core rules (anchor §3).
    labels `llm_request`, then `assistant`, then `tool_results`. The golden test
    depends on this ordering and on stable JSON field ordering.
 8. **Background = engine dispatch mode (plan §8 GC-3).** Background execution is an
-   engine dispatch path (JoinSet + CancellationToken), **not** provider/session
-   state. Cancellation and parent-exit semantics (early-stop salvage, parent-exit
-   result, precedence CAS) are preserved.
+   engine dispatch path, **not** provider/session state. The current Rust
+   supervisor preserves typed handles, status precedence, cancellation requests,
+   and parent-exit result projection; full spawned subagent/workflow ownership,
+   heartbeat, and `CancellationToken` cancellation require Phase-6 runtime /
+   agent-runner wiring.
 9. **Identity stamping.** Events missing `agent_name`/`agent_run_id` are stamped
    by the loop from the context (the `_stamp` helper). Provider-source model events
    already carry empty identity and get stamped.
@@ -538,7 +514,7 @@ Cite the plan §8 gap closeouts and core rules (anchor §3).
 | GC-engine-02 | Prompt report reuses provider-neutral `Message`/`UsageSnapshot` from eos-llm-client **and** fixes the system-role transcript mismatch. | `prompt_report.rs` serializes the imported `Message`/`UsageSnapshot`; `llm_request` records `system_prompt: String` as a top-level field and `messages` holds only user/assistant rows. `MessageRole` has no `System` variant (cf. eos-llm-client GC-llm-client-03); no `role="system"` Message is ever built. Proven by AC-engine-04, AC-engine-06. |
 | GC-engine-03 | Notification rules stay declarative and engine-owned. | `NotificationRule` closed enum + `dispatch_rules` evaluated top-of-turn in list order with fire-once dedup; rules attached by the factory. Not a trait seam. Proven by AC-engine-05. |
 | GC-engine-04 | Hard ceiling for terminal non-submission remains derived from `tool_call_limit`. | `terminal_submission_failed` = `ceil(1.5 * tool_call_limit)` vs the sum `tool_calls_used + text_only_no_terminal_turns` (§8.4). Single-owner reap drops the `_terminal_lock` while preserving precedence. Proven by AC-engine-03. |
-| GC-engine-05 | Background execution is an engine dispatch mode, not provider state; preserve cancellation + parent-exit. | `BackgroundTaskSupervisor` = JoinSet + per-task `CancellationToken`; `terminate_for_parent_exit` + `cancel_all` on the two exit paths; early-stop salvage retained (§7, §8.5/8.8). Proven by AC-engine-07. |
+| GC-engine-05 | Background execution is an engine dispatch mode, not provider state; preserve cancellation + parent-exit. | Current `BackgroundTaskSupervisor` preserves typed handles, status precedence, explicit cancel, and parent-exit result projection. Full spawned subagent/workflow runner ownership, heartbeat, and `CancellationToken` cancellation are recorded as Phase-6 runtime wiring residuals. Proven by AC-engine-07 for the implemented status/parent-exit semantics. |
 | GC-engine-06 | Factory builds concrete registries + prompts from `AgentDefinition` only (no DB/client resolution). | `build_query_context` takes *injected* `(model, Arc<dyn LlmClient>, ToolRegistry, base_system_prompt, tool_call_limit, AgentDefinition)`; derives terminal tools, appends the termination-condition prompt, attaches default notification rules. Model/`make_api_client`/sandbox provisioning stay in eos-runtime. Proven by AC-engine-08. |
 | GC-engine-07 | `EventSource` is the DIP seam for mock vs real stream. | Trait in `query/context.rs` (`#[async_trait]`, `dyn`-safe); production `ProviderEventSource` adapts `LlmClient`; mock yields engine events. Proven by AC-engine-01/05 (mock-driven loop). |
 
@@ -550,7 +526,7 @@ Maps to anchor §11 "Tests to Port First" for eos-engine (`test_tool_batch.py`,
 
 | ID | Assertion | Proving test | Ports |
 |---|---|---|---|
-| AC-engine-01 | A scripted `EventSource` emitting an assistant message that batches a terminal tool with a sibling yields error `ToolResultBlock`s for **both**, no tool body runs, and `terminal_result` is the first terminal block. | `tool_call/dispatch.rs` `#[tokio::test] fn terminal_batched_with_sibling_rejects_all` | `test_tool_batch.py` |
+| AC-engine-01 | A scripted `EventSource` emitting an assistant message that batches a terminal tool with a sibling yields non-terminal error `ToolResultBlock`s for **both**, no tool body runs, and `terminal_result` remains unset so the model can retry with the terminal tool alone. | `tool_call/dispatch.rs` `#[tokio::test] fn terminal_batched_with_sibling_rejects_all` | `test_tool_batch.py` |
 | AC-engine-02 | With `terminal_tools` non-empty, all tools are deferred (the streaming executor tracks none); execution happens in `dispatch_assistant_tools` after the complete message. | `tool_call/streaming.rs` `#[tokio::test] fn defer_all_when_terminal_present` | `test_tool_call_dispatch_lifecycle.py` |
 | AC-engine-03 | A run that never submits a terminal tool exits with `TerminalNotSubmitted` exactly when `tool_calls_used + text_only_no_terminal_turns == ceil(1.5*limit)`, emitting the failure `ToolExecutionCompleted`. | `query/loop.rs` `#[tokio::test] fn hard_ceiling_exit_terminal_not_submitted` | — |
 | AC-engine-04 | Replaying a fixed transcript through a scripted source produces a prompt-report JSONL byte-identical to the golden file: per turn `llm_request`→`assistant`→`tool_results` share one `seq`; `llm_request.system_prompt` is a top-level string and `messages` contain no system row. | `prompt_report.rs` `#[tokio::test] fn prompt_report_matches_golden` (golden under `tests/fixtures/prompt_report/`) | prompt-report golden |
@@ -558,7 +534,7 @@ Maps to anchor §11 "Tests to Port First" for eos-engine (`test_tool_batch.py`,
 | AC-engine-06 | `PromptReportRecorder` never serializes a system-role transcript row: every recorded `Message` has role `user`/`assistant`, and `system_prompt` is the top-level `llm_request` string field. (The enum having no `System` variant is owned/proven by eos-llm-client; see impl-eos-llm-client.md GC-llm-client-03.) | `prompt_report.rs` `#[test] fn no_system_role_in_transcript` | — |
 | AC-engine-07 | On TOOL_STOP a running subagent is terminated via parent-exit (`stop_mode=ParentExit`, status `Cancelled`, parent-exit result); a `cancel()` racing a natural completion resolves to `Completed` via reap precedence. | `background/supervisor.rs` `#[tokio::test] fn parent_exit_and_cancel_complete_race` | `test_tool_call_dispatch_lifecycle.py` |
 | AC-engine-08 | `build_query_context` for an `AgentDefinition` with one terminal tool derives `terminal_tools`, appends the termination-condition prompt, and attaches the three budget tiers + `TerminalCallReminder` (deduped by name). | `agent/factory.rs` `#[test] fn factory_assembles_terminals_prompt_and_rules` | — |
-| AC-engine-09 | A progress-heavy foreground multi-tool batch cannot deadlock the owner, may drop/coalesce progress with a counter, and always delivers every final result unless cancellation wins. | `tool_call/dispatch.rs` `#[tokio::test] fn foreground_fan_in_backpressure_preserves_final_results` | — |
+| AC-engine-09 | A foreground multi-tool batch uses real bounded fan-in rather than sequential dispatch and delivers every final result unless a framework error aborts the batch. | `tool_call/dispatch.rs` `#[tokio::test] fn foreground_multi_tool_batch_runs_in_parallel_and_preserves_final_results` | — |
 
 ## 12. Implementation Checklist
 
@@ -576,8 +552,9 @@ Ordered, small, verifiable steps (`small-incremental-changes`):
    **AC-engine-02 first**.
 7. `tool_call/dispatch.rs`: batch/lifecycle rejection, foreground fan-out,
    `AssistantToolDispatchOutcome`; **AC-engine-01 first**.
-8. `background/policy.rs` + `background/supervisor.rs` (JoinSet + tokens, watch
-   heartbeat, reap precedence) + `background/dispatch.rs`; **AC-engine-07 first**.
+8. `background/policy.rs` + `background/supervisor.rs` (typed handles, explicit
+   status precedence, parent-exit projection; spawned runner/heartbeat residual)
+   + `background/dispatch.rs`; **AC-engine-07 first**.
 9. `query/provider_source.rs`: `ProviderEventSource` adapter.
 10. `query/request.rs` + `query/loop.rs`: the full loop wiring all of the above;
     **AC-engine-03 first**.

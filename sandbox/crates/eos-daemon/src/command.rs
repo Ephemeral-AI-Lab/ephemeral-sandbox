@@ -41,8 +41,9 @@ use eos_runner::{Fd, NsFds, RunMode, RunRequest, RunResult, ToolCall, WorkspaceR
 #[cfg(target_os = "linux")]
 use crate::dispatcher::{
     apply_occ_changeset, base_hashes_for_snapshot, guarded_changeset_response,
-    insert_occ_route_timings, layer_change_kind, manifest_version_u64, merge_runner_timings,
-    occ_route_metrics, overlay_daemon_error, resource_timings,
+    insert_occ_route_timings, insert_tree_resource_timings, layer_change_kind,
+    manifest_version_u64, merge_runner_timings, occ_route_metrics, overlay_daemon_error,
+    resource_timings, TreeResourceStats,
 };
 use crate::dispatcher::{u64_to_f64_saturating, DispatchContext};
 use crate::error::DaemonError;
@@ -1304,6 +1305,7 @@ fn finalize_command_workspace(
     stdout: &str,
     include_session_id: bool,
 ) -> Result<Value, DaemonError> {
+    let upperdir_stats = TreeResourceStats::collect(&workspace.upperdir);
     let capture_start = Instant::now();
     let changes = capture_upperdir(&workspace.upperdir)
         .map_err(|err| overlay_daemon_error("capture upperdir", &err))?;
@@ -1331,6 +1333,11 @@ fn finalize_command_workspace(
     let occ_s = occ_start.elapsed().as_secs_f64();
     let manifest = LayerStack::open(workspace.root.clone())?.read_active_manifest()?;
     let mut timings = resource_timings(&manifest, path_kinds.len());
+    insert_tree_resource_timings(
+        &mut timings,
+        "resource.command_exec.upperdir",
+        &upperdir_stats,
+    );
     insert_occ_route_timings(&mut timings, route_metrics, route_s, occ_s);
     let mut response =
         guarded_changeset_response("exec_command", &changeset, timings, Instant::now(), None);

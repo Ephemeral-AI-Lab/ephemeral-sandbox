@@ -1,12 +1,20 @@
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_state::{GeneratorSubmission, ReducerSubmission, TaskStore, WorkflowId, WorkflowStatus};
+use eos_state::{
+    execution_outcome_for_submission, AttemptFailReason, AttemptStatus, ExecutionRole,
+    GeneratorSubmission, IterationStatus, ReducerSubmission, Task, TaskOutcomeStatus, TaskRole,
+    TaskStatus, TaskStore, WorkflowId, WorkflowStatus,
+};
 use eos_tools::{
     OutstandingWorkflow, PlanSubmissionPort, PlannerPlan, SubmissionAck, ToolError,
     WorkflowControlPort,
 };
 use eos_types::WorkflowSessionId;
+use parking_lot::Mutex;
+use serde_json::{json, Value};
 
 use crate::attempt::AttemptOrchestratorRegistry;
 use crate::{WorkflowError, WorkflowStarter};
@@ -89,7 +97,10 @@ fn submission_ack(result: crate::Result<()>) -> Result<SubmissionAck, ToolError>
 pub struct WorkflowControlAdapter {
     starter: WorkflowStarter,
     workflow_store: Arc<dyn eos_state::WorkflowStore>,
+    iteration_store: Arc<dyn eos_state::IterationStore>,
+    attempt_store: Arc<dyn eos_state::AttemptStore>,
     task_store: Arc<dyn TaskStore>,
+    handles: Arc<WorkflowHandleRegistry>,
 }
 
 impl std::fmt::Debug for WorkflowControlAdapter {
@@ -105,12 +116,17 @@ impl WorkflowControlAdapter {
     pub fn new(
         starter: WorkflowStarter,
         workflow_store: Arc<dyn eos_state::WorkflowStore>,
+        iteration_store: Arc<dyn eos_state::IterationStore>,
+        attempt_store: Arc<dyn eos_state::AttemptStore>,
         task_store: Arc<dyn TaskStore>,
     ) -> Self {
         Self {
             starter,
             workflow_store,
+            iteration_store,
+            attempt_store,
             task_store,
+            handles: Arc::new(WorkflowHandleRegistry::default()),
         }
     }
 }
@@ -122,17 +138,17 @@ impl WorkflowControlPort for WorkflowControlAdapter {
     async fn start(
         &self,
         parent_task_id: &eos_state::TaskId,
-        agent_id: &str,
+        _agent_id: &str,
         workflow_goal: &str,
     ) -> Result<eos_tools::StartedWorkflow, ToolError> {
-        let _ = agent_id;
         let started = self
             .starter
             .start(workflow_goal, parent_task_id)
             .await
             .map_err(workflow_control_error)?;
+        let workflow_task_id = self.handles.handle_for_workflow(&started.workflow_id)?;
         Ok(eos_tools::StartedWorkflow {
-            workflow_task_id: workflow_handle(&started.workflow_id)?,
+            workflow_task_id,
             workflow_id: started.workflow_id,
         })
     }
@@ -143,7 +159,7 @@ impl WorkflowControlPort for WorkflowControlAdapter {
         workflow_task_id: Option<&WorkflowSessionId>,
     ) -> Result<String, ToolError> {
         if let Some(handle) = workflow_task_id {
-            let Some(handle_workflow_id) = workflow_id_from_handle(handle) else {
+            let Some(handle_workflow_id) = self.handles.workflow_id_for_handle(handle) else {
                 return Ok(format!("Workflow handle {handle} was not found."));
             };
             if &handle_workflow_id != workflow_id {
@@ -155,7 +171,7 @@ impl WorkflowControlPort for WorkflowControlAdapter {
         let Some(workflow) = self.workflow_store.get(workflow_id).await? else {
             return Ok(format!("Workflow {workflow_id} was not found."));
         };
-        let handle = workflow_handle(&workflow.id)?;
+        let handle = self.handles.handle_for_workflow(&workflow.id)?;
         let mut text = format!(
             "Workflow {} ({}) is {:?}. Goal: {}",
             workflow.id, handle, workflow.status, workflow.workflow_goal
@@ -172,7 +188,7 @@ impl WorkflowControlPort for WorkflowControlAdapter {
         workflow_task_id: &WorkflowSessionId,
         reason: &str,
     ) -> Result<String, ToolError> {
-        let Some(workflow_id) = workflow_id_from_handle(workflow_task_id) else {
+        let Some(workflow_id) = self.handles.workflow_id_for_handle(workflow_task_id) else {
             return Ok(format!("Workflow handle {workflow_task_id} was not found."));
         };
         let Some(workflow) = self.workflow_store.get(&workflow_id).await? else {
@@ -184,23 +200,15 @@ impl WorkflowControlPort for WorkflowControlAdapter {
                 workflow.status
             ));
         }
-        self.workflow_store
-            .set_status(
-                &workflow_id,
-                WorkflowStatus::Cancelled,
-                Some(eos_state::UtcDateTime::now()),
-                None,
-            )
-            .await?;
+        self.cancel_workflow_state(&workflow, reason).await?;
         Ok(format!("Workflow {workflow_id} cancelled: {reason}"))
     }
 
     async fn find_outstanding(
         &self,
         parent_task_id: &eos_state::TaskId,
-        agent_id: &str,
+        _agent_id: &str,
     ) -> Result<Vec<OutstandingWorkflow>, ToolError> {
-        let _ = agent_id;
         self.workflow_store
             .list_for_parent_task(parent_task_id)
             .await?
@@ -208,7 +216,7 @@ impl WorkflowControlPort for WorkflowControlAdapter {
             .filter(eos_state::Workflow::is_open)
             .map(|workflow| {
                 Ok(OutstandingWorkflow {
-                    workflow_task_id: workflow_handle(&workflow.id)?,
+                    workflow_task_id: self.handles.handle_for_workflow(&workflow.id)?,
                     workflow_id: workflow.id,
                     workflow_goal: workflow.workflow_goal,
                 })
@@ -227,6 +235,94 @@ impl WorkflowControlPort for WorkflowControlAdapter {
     }
 }
 
+impl WorkflowControlAdapter {
+    async fn cancel_workflow_state(
+        &self,
+        workflow: &eos_state::Workflow,
+        reason: &str,
+    ) -> Result<(), ToolError> {
+        let now = eos_state::UtcDateTime::now();
+        let outcome_text = if reason.trim().is_empty() {
+            "Delegated workflow was cancelled."
+        } else {
+            reason
+        };
+        let outcomes = json!([{
+            "status": "failed",
+            "role": "workflow",
+            "task_id": workflow.id.as_str(),
+            "outcome": outcome_text,
+        }])
+        .to_string();
+
+        for iteration in self.iteration_store.list_for_workflow(&workflow.id).await? {
+            if !iteration.is_open() {
+                continue;
+            }
+            for attempt in self.attempt_store.list_for_iteration(&iteration.id).await? {
+                if attempt.is_closed() {
+                    continue;
+                }
+                let mut task_ids = Vec::new();
+                if let Some(planner_task_id) = &attempt.planner_task_id {
+                    task_ids.push(planner_task_id.clone());
+                }
+                task_ids.extend(attempt.generator_task_ids.iter().cloned());
+                task_ids.extend(attempt.reducer_task_ids.iter().cloned());
+                for task_id in task_ids {
+                    if let Some(task) = self.task_store.get(&task_id).await? {
+                        self.cancel_active_task(&task, outcome_text).await?;
+                    }
+                }
+                self.attempt_store
+                    .close(
+                        &attempt.id,
+                        AttemptStatus::Failed,
+                        Some(AttemptFailReason::TaskFailed),
+                        Some(&[]),
+                        now,
+                    )
+                    .await?;
+            }
+            self.iteration_store
+                .set_status(
+                    &iteration.id,
+                    IterationStatus::Cancelled,
+                    Some(now),
+                    Some(&outcomes),
+                )
+                .await?;
+        }
+        self.workflow_store
+            .set_status(
+                &workflow.id,
+                WorkflowStatus::Cancelled,
+                Some(now),
+                Some(&outcomes),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn cancel_active_task(&self, task: &Task, outcome_text: &str) -> Result<(), ToolError> {
+        if !matches!(task.status, TaskStatus::Pending | TaskStatus::Running) {
+            return Ok(());
+        }
+        let terminal = json_object("fail_reason", "workflow_cancelled");
+        let outcomes = cancellation_outcomes(task, outcome_text);
+        self.task_store
+            .set_task_status_if_current(
+                &task.id,
+                task.status,
+                TaskStatus::Failed,
+                Some(&outcomes),
+                Some(&terminal),
+            )
+            .await?;
+        Ok(())
+    }
+}
+
 fn workflow_control_error(err: WorkflowError) -> ToolError {
     match err {
         WorkflowError::Store(err) => ToolError::Store(err),
@@ -235,13 +331,59 @@ fn workflow_control_error(err: WorkflowError) -> ToolError {
     }
 }
 
-fn workflow_handle(workflow_id: &WorkflowId) -> Result<WorkflowSessionId, ToolError> {
-    Ok(format!("wf_{}", workflow_id.as_str()).parse()?)
+#[derive(Debug, Default)]
+struct WorkflowHandleRegistry {
+    next_handle: AtomicU64,
+    inner: Mutex<WorkflowHandleMaps>,
 }
 
-fn workflow_id_from_handle(handle: &WorkflowSessionId) -> Option<WorkflowId> {
-    handle
-        .as_str()
-        .strip_prefix("wf_")
-        .and_then(|id| id.parse().ok())
+#[derive(Debug, Default)]
+struct WorkflowHandleMaps {
+    workflow_by_handle: HashMap<WorkflowSessionId, WorkflowId>,
+    handle_by_workflow: HashMap<WorkflowId, WorkflowSessionId>,
+}
+
+impl WorkflowHandleRegistry {
+    fn handle_for_workflow(
+        &self,
+        workflow_id: &WorkflowId,
+    ) -> Result<WorkflowSessionId, ToolError> {
+        let mut guard = self.inner.lock();
+        if let Some(handle) = guard.handle_by_workflow.get(workflow_id) {
+            return Ok(handle.clone());
+        }
+        let id = self.next_handle.fetch_add(1, Ordering::Relaxed) + 1;
+        let handle: WorkflowSessionId = format!("wf_{id}").parse()?;
+        guard
+            .workflow_by_handle
+            .insert(handle.clone(), workflow_id.clone());
+        guard
+            .handle_by_workflow
+            .insert(workflow_id.clone(), handle.clone());
+        Ok(handle)
+    }
+
+    fn workflow_id_for_handle(&self, handle: &WorkflowSessionId) -> Option<WorkflowId> {
+        self.inner.lock().workflow_by_handle.get(handle).cloned()
+    }
+}
+
+fn cancellation_outcomes(task: &Task, outcome_text: &str) -> Vec<eos_state::ExecutionTaskOutcome> {
+    let role = match task.role {
+        TaskRole::Generator => ExecutionRole::Generator,
+        TaskRole::Reducer => ExecutionRole::Reducer,
+        TaskRole::Root | TaskRole::Planner => return Vec::new(),
+    };
+    vec![execution_outcome_for_submission(
+        task.id.clone(),
+        role,
+        TaskOutcomeStatus::Failed,
+        outcome_text.to_owned(),
+    )]
+}
+
+fn json_object(key: &str, value: impl Into<Value>) -> eos_state::JsonObject {
+    let mut object = eos_state::JsonObject::new();
+    object.insert(key.to_owned(), value.into());
+    object
 }

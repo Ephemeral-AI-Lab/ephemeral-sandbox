@@ -12,8 +12,10 @@ use eos_state::{
     IterationStatus, JsonObject, ReducerSubmission, RequestId, Task, TaskId, TaskRole, TaskStatus,
     Workflow, WorkflowId, WorkflowStatus,
 };
+use eos_tools::WorkflowControlPort;
 use parking_lot::Mutex;
 use serde_json::json;
+use tokio::sync::Notify;
 
 use crate::attempt::{
     AgentLaunch, AgentRunReport, AgentRunner, AgentTerminal, AttemptDeps,
@@ -21,7 +23,7 @@ use crate::attempt::{
 };
 use crate::ids::{generator_task_id, reducer_task_id};
 use crate::iteration::OpenIterationCoordinatorRegistry;
-use crate::{Result, WorkflowStarter};
+use crate::{Result, WorkflowControlAdapter, WorkflowStarter};
 
 #[derive(Debug, Default)]
 pub(crate) struct MemoryStores {
@@ -459,11 +461,13 @@ impl eos_state::TaskStore for MemoryStores {
 pub(crate) struct QueueRunner {
     reports: Mutex<VecDeque<AgentRunReport>>,
     launches: Mutex<Vec<AgentLaunch>>,
+    notify: Notify,
 }
 
 impl QueueRunner {
     pub(crate) fn push(&self, report: AgentRunReport) {
         self.reports.lock().push_back(report);
+        self.notify.notify_one();
     }
 
     pub(crate) fn launches(&self) -> Vec<AgentLaunch> {
@@ -475,11 +479,12 @@ impl QueueRunner {
 impl AgentRunner for QueueRunner {
     async fn run(&self, launch: AgentLaunch) -> Result<AgentRunReport> {
         self.launches.lock().push(launch);
-        Ok(self
-            .reports
-            .lock()
-            .pop_front()
-            .unwrap_or_else(|| AgentRunReport::no_terminal("no terminal report queued")))
+        loop {
+            if let Some(report) = self.reports.lock().pop_front() {
+                return Ok(report);
+            }
+            self.notify.notified().await;
+        }
     }
 }
 
@@ -562,8 +567,6 @@ fn terminal_result() -> JsonObject {
 }
 
 fn one_step_plan(started: &crate::StartedWorkflow) -> eos_tools::PlannerPlan {
-    let planner_task_id = started.attempt_id.as_str().parse::<AttemptId>().unwrap();
-    let _ = planner_task_id;
     eos_tools::PlannerPlan {
         attempt_id: started.attempt_id.clone(),
         planner_task_id: crate::planner_task_id(&started.attempt_id).unwrap(),
@@ -583,6 +586,20 @@ fn one_step_plan(started: &crate::StartedWorkflow) -> eos_tools::PlannerPlan {
             prompt: "reduce".to_owned(),
         }],
     }
+}
+
+async fn wait_for_workflow_status(
+    stores: &MemoryStores,
+    workflow_id: &WorkflowId,
+    status: WorkflowStatus,
+) {
+    for _ in 0..100 {
+        if stores.workflow(workflow_id).unwrap().status == status {
+            return;
+        }
+        tokio::task::yield_now().await;
+    }
+    panic!("workflow {workflow_id} did not reach {status:?}");
 }
 
 #[tokio::test]
@@ -629,6 +646,9 @@ async fn reducer_success_closes_attempt_iteration_and_workflow() {
         .unwrap();
     let generator_id = generator_task_id(&started.attempt_id, "g1").unwrap();
     let reducer_id = reducer_task_id(&started.attempt_id, "r1").unwrap();
+    runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
+        one_step_plan(&started),
+    )));
     runner.push(AgentRunReport::terminal(AgentTerminal::Generator(
         GeneratorSubmission {
             attempt_id: started.attempt_id.clone(),
@@ -647,12 +667,7 @@ async fn reducer_success_closes_attempt_iteration_and_workflow() {
             terminal_tool_result: terminal_result(),
         },
     )));
-
-    let orchestrator = deps.orchestrator_registry.get(&started.attempt_id).unwrap();
-    orchestrator
-        .apply_plan(one_step_plan(&started))
-        .await
-        .unwrap();
+    wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Succeeded).await;
 
     assert_eq!(
         stores.attempt(&started.attempt_id).unwrap().status,
@@ -667,14 +682,14 @@ async fn reducer_success_closes_attempt_iteration_and_workflow() {
         WorkflowStatus::Succeeded
     );
     assert_eq!(stores.task(&parent.id).unwrap().status, TaskStatus::Running);
-    assert_eq!(runner.launches().len(), 2);
+    assert_eq!(runner.launches().len(), 3);
 }
 
 #[tokio::test]
 async fn no_terminal_generator_fails_the_attempt_and_workflow_when_budget_is_exhausted() {
     let stores = Arc::new(MemoryStores::default());
     let runner = Arc::new(QueueRunner::default());
-    let mut deps = stores.deps(runner);
+    let mut deps = stores.deps(runner.clone());
     deps.lifecycle_config.default_attempt_budget = 1;
     let parent = root_task("parent", TaskStatus::Running);
     stores.seed_task(parent.clone());
@@ -682,12 +697,13 @@ async fn no_terminal_generator_fails_the_attempt_and_workflow_when_budget_is_exh
         .start("delegated goal", &parent.id)
         .await
         .unwrap();
-    let orchestrator = deps.orchestrator_registry.get(&started.attempt_id).unwrap();
-
-    orchestrator
-        .apply_plan(one_step_plan(&started))
-        .await
-        .unwrap();
+    runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
+        one_step_plan(&started),
+    )));
+    runner.push(AgentRunReport::no_terminal(
+        "generator ended without terminal",
+    ));
+    wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Failed).await;
 
     let attempt = stores.attempt(&started.attempt_id).unwrap();
     assert_eq!(attempt.status, AttemptStatus::Failed);
@@ -699,5 +715,122 @@ async fn no_terminal_generator_fails_the_attempt_and_workflow_when_budget_is_exh
     assert_eq!(
         stores.workflow(&started.workflow_id).unwrap().status,
         WorkflowStatus::Failed
+    );
+}
+
+#[tokio::test]
+async fn launch_failure_marks_task_failed_instead_of_stranding_running_task() {
+    let stores = Arc::new(MemoryStores::default());
+    let runner = Arc::new(QueueRunner::default());
+    let mut deps = stores.deps(runner);
+    deps.lifecycle_config.default_attempt_budget = 1;
+    let parent = root_task("parent", TaskStatus::Running);
+    stores.seed_task(parent.clone());
+    let started = WorkflowStarter::new(deps.clone())
+        .start("delegated goal", &parent.id)
+        .await
+        .unwrap();
+    let task_id = generator_task_id(&started.attempt_id, "missing-profile").unwrap();
+    stores.seed_task(Task {
+        id: task_id.clone(),
+        request_id: parent.request_id,
+        role: TaskRole::Generator,
+        instruction: "do work".to_owned(),
+        status: TaskStatus::Pending,
+        workflow_id: Some(started.workflow_id.clone()),
+        iteration_id: Some(started.iteration_id.clone()),
+        attempt_id: Some(started.attempt_id.clone()),
+        agent_name: None,
+        needs: Vec::new(),
+        outcomes: Vec::new(),
+        terminal_tool_result: None,
+    });
+    eos_state::AttemptStore::set_generator_task_ids(
+        stores.as_ref(),
+        &started.attempt_id,
+        std::slice::from_ref(&task_id),
+    )
+    .await
+    .unwrap();
+    eos_state::AttemptStore::set_stage(stores.as_ref(), &started.attempt_id, AttemptStage::Run)
+        .await
+        .unwrap();
+
+    let orchestrator = deps.orchestrator_registry.get(&started.attempt_id).unwrap();
+    crate::AttemptStageAdvancer::new(orchestrator)
+        .advance_run_stage()
+        .await
+        .unwrap();
+
+    let task = stores.task(&task_id).unwrap();
+    assert_eq!(task.status, TaskStatus::Failed);
+    assert_eq!(
+        task.terminal_tool_result.unwrap().get("fail_reason"),
+        Some(&json!("agent_launch_failed"))
+    );
+    assert_eq!(
+        stores.attempt(&started.attempt_id).unwrap().status,
+        AttemptStatus::Failed
+    );
+    assert_eq!(
+        stores.workflow(&started.workflow_id).unwrap().status,
+        WorkflowStatus::Failed
+    );
+}
+
+#[tokio::test]
+async fn workflow_control_uses_runtime_handles_and_cancels_child_state() {
+    let stores = Arc::new(MemoryStores::default());
+    let runner = Arc::new(QueueRunner::default());
+    let deps = stores.deps(runner);
+    let parent = root_task("parent", TaskStatus::Running);
+    stores.seed_task(parent.clone());
+    let adapter = WorkflowControlAdapter::new(
+        WorkflowStarter::new(deps),
+        stores.clone(),
+        stores.clone(),
+        stores.clone(),
+        stores.clone(),
+    );
+
+    let started = adapter
+        .start(&parent.id, "agent-1", "delegated goal")
+        .await
+        .unwrap();
+    assert_eq!(started.workflow_task_id.as_str(), "wf_1");
+    let derived_handle: eos_types::WorkflowSessionId =
+        format!("wf_{}", started.workflow_id.as_str())
+            .parse()
+            .unwrap();
+    assert!(adapter
+        .status(&started.workflow_id, Some(&derived_handle))
+        .await
+        .unwrap()
+        .contains("was not found"));
+
+    adapter
+        .cancel(&started.workflow_task_id, "stop now")
+        .await
+        .unwrap();
+
+    let workflow = stores.workflow(&started.workflow_id).unwrap();
+    assert_eq!(workflow.status, WorkflowStatus::Cancelled);
+    let iteration_id = workflow.iteration_ids.first().unwrap();
+    let iteration = stores.iteration(iteration_id).unwrap();
+    assert_eq!(iteration.status, IterationStatus::Cancelled);
+    let attempt_id = iteration.attempt_ids.first().unwrap();
+    let attempt = stores.attempt(attempt_id).unwrap();
+    assert_eq!(attempt.status, AttemptStatus::Failed);
+    assert_eq!(attempt.fail_reason, Some(AttemptFailReason::TaskFailed));
+    let planner_task = stores
+        .task(attempt.planner_task_id.as_ref().unwrap())
+        .unwrap();
+    assert_eq!(planner_task.status, TaskStatus::Failed);
+    assert_eq!(
+        planner_task
+            .terminal_tool_result
+            .unwrap()
+            .get("fail_reason"),
+        Some(&json!("workflow_cancelled"))
     );
 }

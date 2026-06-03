@@ -35,7 +35,6 @@ from test_runner.tests.mock._layer_stack_occ_overlay_assertions import (
     assert_o1_workspace_resource_snapshots,
     assert_resource_key_max,
     load_performance_report,
-    mapping,
 )
 
 
@@ -146,10 +145,13 @@ def _assert_gitignore_route_filtering(report: RunReport) -> None:
     tracked_shells = 0
     gitignored_shells = 0
     for call in report.tool_calls:
-        if call.tool_name != "exec_command":
+        if call.tool_name not in {"exec_command", "write_stdin"}:
             continue
-        changed = [str(path) for path in (call.metadata or {}).get("changed_paths", ())]
-        timings = (call.metadata or {}).get("timings") or {}
+        metadata = call.metadata or {}
+        changed = [str(path) for path in metadata.get("changed_paths", ())]
+        if not changed:
+            continue
+        timings = metadata.get("timings") or {}
         if any(path.startswith("perf_load_tracked/") for path in changed):
             tracked_shells += 1
             assert float(timings.get("occ.commit.gated_path_count", 0.0)) == float(
@@ -214,10 +216,34 @@ async def _assert_upperdir_scales_with_payload(
     expected_payload_bytes = (
         int(summary["expected_kib_per_zone_per_worker"]) * 1024
     )
-    resources = mapping(mapping(perf["sandbox"])["resource_keys"])
-    upperdir_stats = mapping(resources["resource.command_exec.upperdir_tree_bytes"])
-    changed_path_stats = mapping(resources["resource.command_exec.changed_path_count"])
-    upperdir_max = float(upperdir_stats["max"])
+    upperdir_max = 0.0
+    changed_path_max = 0.0
+    tracked_samples = 0
+    for call in report.tool_calls:
+        if call.tool_name not in {"exec_command", "write_stdin"}:
+            continue
+        metadata = call.metadata or {}
+        changed = [str(path) for path in metadata.get("changed_paths", ())]
+        if not any(path.startswith("perf_load_tracked/") for path in changed):
+            continue
+        tracked_samples += 1
+        timings = metadata.get("timings") or {}
+        upperdir_max = max(
+            upperdir_max,
+            float(timings.get("resource.command_exec.upperdir_tree_bytes", 0.0) or 0.0),
+        )
+        changed_path_max = max(
+            changed_path_max,
+            float(
+                timings.get(
+                    "resource.command_exec.changed_path_count",
+                    len(changed),
+                )
+                or len(changed)
+            ),
+        )
+
+    assert tracked_samples >= WORKER_COUNT
     assert upperdir_max >= expected_payload_bytes * 0.95, (
         f"upperdir max {upperdir_max} did not capture tracked payload "
         f"{expected_payload_bytes}"
@@ -228,7 +254,7 @@ async def _assert_upperdir_scales_with_payload(
         f"upperdir max {upperdir_max} exceeds payload-proportional budget "
         f"{expected_payload_bytes + _UPPERDIR_PAYLOAD_OVERHEAD_BYTES}"
     )
-    assert float(changed_path_stats["max"]) == float(CHUNK_COUNT)
+    assert changed_path_max == float(CHUNK_COUNT)
 
 
 async def _read_summary(sandbox_id: str) -> dict[str, Any]:

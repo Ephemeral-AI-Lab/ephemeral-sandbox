@@ -1242,3 +1242,89 @@ Post-addendum fixes:
 - Updated remaining broad-failure status:
   - Closed by focused rerun: high-concurrency timing keys and full-stack persisted layer-stack evidence.
   - Still open from the broad run: background restart abandoned publish, plugin PPC/LSP timeout under `-n 3`, auto-squash/materialized-git/heavy-IO layer-stack cases, and project-build LSP symbol refresh.
+
+## Iteration 17 - 2026-06-03 03:54:37 +0800 CST
+
+Checkout summary:
+- Current `HEAD`: `4a8c7730e`.
+- Concurrent `agent-core/*` edits are still present and were not modified by this iteration.
+
+Plan path and target files:
+- Plan: `docs/plans/test_runner_migration_PLAN.md`.
+- Report: `docs/plans/test_runner_migration_PLAN-iteration-report.md`.
+- Target files:
+  - `backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py`
+  - `backend/src/sandbox/host/runtime_artifact/__init__.py`
+  - `backend/src/test_runner/agent/mock/heavy_io_zoned_probe.py`
+  - `backend/src/test_runner/agent/mock/probe_bridge.py`
+  - `backend/src/test_runner/tests/mock/sandbox/layer_stack_occ_overlay/test_heavy_io_zoned_concurrent.py`
+  - `backend/tests/unit_test/test_sandbox/test_plugin_host_dispatch.py`
+  - `sandbox/crates/eos-daemon/src/command.rs`
+  - `sandbox/crates/eos-daemon/src/dispatcher.rs`
+  - `sandbox/crates/eos-daemon/src/plugin/mod.rs`
+  - `sandbox/crates/eos-daemon/src/plugin/process.rs`
+
+Coverage gaps and findings:
+- `eos-plugin` already models service identity with `workspace_root` in `PluginServiceKey`; the Python host runtime cache was coarser than that contract and could reuse an LSP runtime after the SWE-EVO workspace root was rebound.
+- Rust daemon `api.plugin.ensure` treated same plugin digest as already-loaded even when op routes, service process specs, or `runtime_loaded` changed. This let stale LSP route/service state survive after rebind.
+- `reset_sweevo_workspace` calls `api.build_workspace_base(reset=True)` before materialized-git/project-build cases; Rust reset did not stop plugin service snapshot leases for that layer-stack root, so later `commit_to_workspace` could see active stale leases.
+- Long-running yielded `exec_command` calls publish their final changed paths and OCC timings through the terminal `write_stdin` result, not the initial `exec_command(status=running)` result.
+- Rust command-session finalization used zero default upperdir tree resource timings, unlike finite overlay/plugin paths that sample upperdir stats.
+- The performance report currently omits terminal `write_stdin` resource timings from aggregate `sandbox.resource_keys`; the raw `RunReport.tool_calls`/message artifacts do carry the terminal resource timings.
+
+Fixes applied:
+- Keyed the Python plugin runtime cache/locks by `(sandbox_id, plugin, layer_stack_root, workspace_root)`.
+- Made Rust plugin `already_loaded` compare parsed digest, op routes, services, service process specs, and `runtime_loaded`.
+- Added `stop_services_for_layer_stack_root(...)` and called it from `api.build_workspace_base(reset=True)`.
+- Added command-session upperdir tree sampling in `finalize_command_workspace(...)` and rebuilt/uploaded `eosd-linux-amd64`.
+- Updated the heavy-IO probe bridge to launch long writes with stable `background_task_id` values and increased command-session polling backoff to avoid hard tool-call-limit exhaustion.
+- Updated the heavy-IO live assertion to count terminal `write_stdin` completion results and to read upperdir payload metrics from terminal tool-call metadata.
+- Updated the plan to include `backend/scripts/bench_rust_daemon_plugin.py`, host/runtime LSP cache isolation, same-digest reload semantics, reset-time plugin service stop, and terminal `write_stdin` publish evidence.
+- Rebuilt/uploaded the amd64 Rust daemon and pinned `EOSD_SHA256["amd64"]` to `78e20fc9004a17b8d5e16e8c7a5bd0578d350289555585a8006a445347555ca0`.
+
+Commands run:
+- `uv run ruff check backend/src/test_runner/tests/mock/sandbox/layer_stack_occ_overlay/test_heavy_io_zoned_concurrent.py backend/src/test_runner/agent/mock/probe_bridge.py backend/src/test_runner/agent/mock/heavy_io_zoned_probe.py backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py backend/tests/unit_test/test_sandbox/test_plugin_host_dispatch.py backend/src/sandbox/host/runtime_artifact/__init__.py`
+  - Result: passed.
+- `cargo fmt --manifest-path sandbox/Cargo.toml --all --check`
+  - Result: passed.
+- `cargo test --manifest-path sandbox/Cargo.toml -p eos-daemon dispatcher::tests::upperdir_tree_resource_timings_capture_bounded_payload -- --nocapture`
+  - Result: passed with `1 passed`.
+- `cargo test --manifest-path sandbox/Cargo.toml -p eos-daemon command::tests -- --nocapture`
+  - Result: passed with `4 passed`.
+- `cargo test --manifest-path sandbox/Cargo.toml -p eos-daemon plugin::tests::ensure -- --nocapture`
+  - Result: passed with `5 passed`.
+- `cargo test --manifest-path sandbox/Cargo.toml -p eos-daemon plugin::tests::build_workspace_base_reset_stops_plugin_service_snapshots_for_layer_root -- --nocapture`
+  - Result: passed with `1 passed`.
+- `uv run pytest -q backend/tests/unit_test/test_sandbox/test_plugin_host_dispatch.py --tb=short`
+  - Result: passed with `17 passed in 0.23s`.
+- `uv run python backend/scripts/build_upload_eosd_docker.py --arch amd64 --image sweevo-dask__dask-10042:latest --builder rust-lld`
+  - Result: passed; `gate_pass=true`, SHA `78e20fc9004a17b8d5e16e8c7a5bd0578d350289555585a8006a445347555ca0`.
+- `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q backend/src/test_runner/tests/mock/sandbox/layer_stack_occ_overlay/test_heavy_io_zoned_concurrent.py::test_heavy_io_zoned_concurrent --tb=short --durations=20`
+  - First result after session-poll/backoff fix: request completed, but stale test expected changed paths on `exec_command` instead of terminal `write_stdin`.
+  - Second result after route assertion update: failed because command-session upperdir resource metrics were zero.
+  - Third result after daemon upperdir metric patch: failed because `performance_report.json` aggregate dropped terminal `write_stdin` resource timings while raw tool-call metadata had the expected `34603388` byte upperdir samples.
+  - Final result after assertion update: passed with `1 passed in 121.94s`.
+- `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q backend/src/test_runner/tests/mock/sandbox/background_tool/test_background_engine_restart_no_lease_leak.py::test_background_engine_restart_no_lease_leak backend/src/test_runner/tests/mock/sandbox/plugin/test_plugin_read_only_lsp_refresh_without_publish.py::test_plugin_read_only_lsp_refresh_without_publish backend/src/test_runner/tests/mock/sandbox/layer_stack_occ_overlay/test_auto_squash_commit_resume.py::test_auto_squash_commit_resume_crosses_depth_threshold backend/src/test_runner/tests/mock/sandbox/layer_stack_occ_overlay/test_commit_to_workspace_materializes_git.py::test_commit_to_workspace_materializes_layerstack_edits_into_testbed_git backend/src/test_runner/tests/mock/sandbox/project_build/test_complex_project_build_shell_edit_lsp_smoke.py::test_complex_project_build_shell_edit_lsp_smoke backend/src/test_runner/tests/mock/sandbox/project_build/test_project_build_shell_edit_lsp_remount_not_restart.py::test_project_build_shell_edit_lsp_remount_not_restart --tb=short --durations=20`
+  - Result: passed with `6 passed in 419.75s`.
+- `env EOS_SANDBOX_PROVIDER=docker EOS_SANDBOX_RUNTIME=rust EOS_LIVE_E2E_IMAGE=sweevo-dask__dask-10042:latest uv run pytest -q -n 3 backend/src/test_runner/tests/mock/sandbox --tb=short --durations=20`
+  - Result: passed with `151 passed, 1 skipped in 987.80s`.
+  - Slowest cases were the expected project-build/LSP and full project-build scenarios, led by `test_project_build_shell_edit_lsp_remount_not_restart` at `312.82s`, `test_complex_project_build_shell_edit_lsp_full` at `308.09s`, and `test_project_build_full_o1_disk_budget` at `220.91s`.
+
+Fresh artifacts inspected:
+- `bench/local-eosd-amd64-upload.json`
+  - `gate_pass=true`
+  - `local_sha256=remote_sha256=78e20fc9004a17b8d5e16e8c7a5bd0578d350289555585a8006a445347555ca0`
+- `.sweevo_runs/scenario_logs/sandbox.heavy_io_zoned_concurrent/20260602T193944Z_db8db05269e0`
+  - Terminal `write_stdin` metadata recorded `resource.command_exec.upperdir_tree_bytes=34603388.0`, `workspace_tree_bytes=0.0`, and `occ.commit.gated_path_count=11.0` for tracked workers.
+- `.sweevo_runs/scenario_logs/sandbox.complex_project_build_shell_edit_lsp/20260602T194725Z_4f7bf764be16`
+  - Used to confirm the focused project-build LSP artifact finished during the six-test subset.
+
+Current verdict:
+- Correctness: PASS for the focused previous-failure subset, the heavy command-session layer-stack path, and the full sandbox mock live gate.
+- Concurrency/parallelism: PASS for the focused six-test subset and full `-n 3` sandbox gate (`151 passed, 1 skipped`).
+- O(1) memory/disk: PASS for heavy lowerdir/workspace evidence (`workspace_tree_bytes=0.0`) and payload-proportional upperdir evidence from terminal command-session tool-call metadata.
+- LSP/plugin freshness: PASS for focused project-build/LSP and plugin read-only LSP cases after host cache isolation, same-digest reload, and reset-time plugin service teardown.
+
+Remaining risk:
+- `performance_report.json` aggregates do not currently include terminal `write_stdin` resource timings, even though raw tool-call/message metadata does. Keep heavy payload assertions on `RunReport.tool_calls` until the report aggregator is extended.
+- Historical test filenames still contain `shell` in places where behavior now exercises `exec_command`; this is naming cleanup, not a live-gate failure.

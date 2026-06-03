@@ -9,9 +9,12 @@ use eos_state::{
     TaskStatus,
 };
 use eos_tools::PlannerPlan;
-use serde_json::json;
+use serde_json::Value;
 
-use crate::attempt::{AgentLaunchFactory, AttemptDeps, AttemptStageAdvancer};
+use crate::attempt::{
+    AgentLaunch, AgentLaunchFactory, AgentRunReport, AgentTerminal, AttemptDeps,
+    AttemptStageAdvancer,
+};
 use crate::ids::{generator_task_id, planner_task_id, reducer_task_id};
 use crate::{Result, WorkflowError};
 
@@ -59,6 +62,7 @@ impl AttemptOrchestrator {
     /// # Errors
     /// Returns [`WorkflowError`] if the attempt is not startable.
     pub async fn start(self: &Arc<Self>) -> Result<()> {
+        self.validate_run_concurrency()?;
         let attempt = self.assert_stage(AttemptStage::Plan).await?;
         if attempt.status != AttemptStatus::Running {
             return Err(WorkflowError::invariant(format!(
@@ -73,32 +77,102 @@ impl AttemptOrchestrator {
             )));
         }
         let task_id = planner_task_id(&attempt.id)?;
-        self.deps.orchestrator_registry.register(Arc::clone(self))?;
         let launch = AgentLaunchFactory::new(self.deps.clone())
             .for_planner(&attempt, task_id.clone())
             .await?;
-        self.deps
-            .task_store
-            .upsert_task(&Task {
-                id: task_id.clone(),
-                request_id: launch.request_id,
-                role: TaskRole::Planner,
-                instruction: launch.context,
-                status: TaskStatus::Running,
-                workflow_id: launch.workflow_id,
-                iteration_id: Some(attempt.iteration_id.clone()),
-                attempt_id: Some(attempt.id.clone()),
-                agent_name: Some(launch.agent_name),
-                needs: Vec::new(),
-                outcomes: Vec::new(),
-                terminal_tool_result: None,
-            })
-            .await?;
-        self.deps
-            .attempt_store
-            .set_planner_task_id(&attempt.id, &task_id)
-            .await?;
+        self.deps.orchestrator_registry.register(Arc::clone(self))?;
+        let result: Result<()> = async {
+            self.deps
+                .task_store
+                .upsert_task(&Task {
+                    id: task_id.clone(),
+                    request_id: launch.request_id.clone(),
+                    role: TaskRole::Planner,
+                    instruction: launch.context.clone(),
+                    status: TaskStatus::Running,
+                    workflow_id: launch.workflow_id.clone(),
+                    iteration_id: Some(attempt.iteration_id.clone()),
+                    attempt_id: Some(attempt.id.clone()),
+                    agent_name: Some(launch.agent_name.clone()),
+                    needs: Vec::new(),
+                    outcomes: Vec::new(),
+                    terminal_tool_result: None,
+                })
+                .await?;
+            self.deps
+                .attempt_store
+                .set_planner_task_id(&attempt.id, &task_id)
+                .await?;
+            Ok(())
+        }
+        .await;
+        if result.is_err() {
+            self.deps.orchestrator_registry.deregister(&attempt.id);
+        }
+        result?;
+        self.spawn_planner_run(launch);
         Ok(())
+    }
+
+    fn spawn_planner_run(self: &Arc<Self>, launch: AgentLaunch) {
+        let orchestrator = Arc::clone(self);
+        let runner = self.deps.runner.clone();
+        tokio::spawn(async move {
+            let report = runner.run(launch.clone()).await;
+            if let Err(err) = orchestrator.apply_planner_report(launch, report).await {
+                tracing::warn!(
+                    attempt_id = %orchestrator.attempt_id.as_str(),
+                    error = %err,
+                    "planner launch report could not be applied"
+                );
+            }
+        });
+    }
+
+    async fn apply_planner_report(
+        self: &Arc<Self>,
+        launch: AgentLaunch,
+        report: Result<AgentRunReport>,
+    ) -> Result<()> {
+        match report {
+            Ok(report) => match report.terminal {
+                Some(AgentTerminal::Planner(plan)) => self.apply_plan(plan).await,
+                Some(AgentTerminal::PlannerFailure(submission)) => {
+                    self.apply_planner_failure(submission).await
+                }
+                Some(terminal) => {
+                    tracing::warn!(
+                        attempt_id = %self.attempt_id.as_str(),
+                        task_id = %launch.task_id.as_str(),
+                        terminal = ?terminal,
+                        "planner run returned non-planner terminal"
+                    );
+                    self.synthesize_planner_failure(&launch).await
+                }
+                None => self.synthesize_planner_failure(&launch).await,
+            },
+            Err(err) => {
+                tracing::warn!(
+                    attempt_id = %self.attempt_id.as_str(),
+                    task_id = %launch.task_id.as_str(),
+                    error = %err,
+                    "planner run failed"
+                );
+                self.synthesize_planner_failure(&launch).await
+            }
+        }
+    }
+
+    async fn synthesize_planner_failure(&self, launch: &AgentLaunch) -> Result<()> {
+        let attempt_id = launch.attempt_id.clone().ok_or_else(|| {
+            WorkflowError::invariant("planner exhaustion report requires launch.attempt_id")
+        })?;
+        self.apply_planner_failure(PlannerFailureSubmission {
+            attempt_id,
+            planner_task_id: launch.task_id.clone(),
+            fail_reason: PlannerFailReason::RunExhausted,
+        })
+        .await
     }
 
     /// Apply a rich planner plan from `eos-tools`.
@@ -311,6 +385,7 @@ impl AttemptOrchestrator {
 
     async fn apply_plan_submission(self: &Arc<Self>, submission: PlannerSubmission) -> Result<()> {
         self.assert_submission_attempt(&submission.attempt_id)?;
+        self.validate_run_concurrency()?;
         match submission.kind {
             PlannerKind::Completes if submission.deferred_goal_for_next_iteration.is_some() => {
                 return Err(WorkflowError::invariant(
@@ -327,21 +402,20 @@ impl AttemptOrchestrator {
         let attempt = self
             .validate_planner_submission(&submission.planner_task_id)
             .await?;
+        let planner_result = json_object(
+            "kind",
+            match submission.kind {
+                PlannerKind::Completes => "completes",
+                PlannerKind::Defers => "defers",
+            },
+        );
         self.deps
             .task_store
             .set_task_status(
                 &submission.planner_task_id,
                 TaskStatus::Done,
                 Some(&[]),
-                Some(
-                    &json!({"kind": match submission.kind {
-                        PlannerKind::Completes => "completes",
-                        PlannerKind::Defers => "defers",
-                    }})
-                    .as_object()
-                    .expect("object")
-                    .clone(),
-                ),
+                Some(&planner_result),
             )
             .await?;
         self.deps
@@ -373,20 +447,19 @@ impl AttemptOrchestrator {
         self.assert_submission_attempt(&submission.attempt_id)?;
         self.validate_planner_submission(&submission.planner_task_id)
             .await?;
+        let planner_result = json_object(
+            "fail_reason",
+            match submission.fail_reason {
+                PlannerFailReason::RunExhausted => "run_exhausted",
+            },
+        );
         self.deps
             .task_store
             .set_task_status(
                 &submission.planner_task_id,
                 TaskStatus::Failed,
                 Some(&[]),
-                Some(
-                    &json!({"fail_reason": match submission.fail_reason {
-                        PlannerFailReason::RunExhausted => "run_exhausted",
-                    }})
-                    .as_object()
-                    .expect("object")
-                    .clone(),
-                ),
+                Some(&planner_result),
             )
             .await?;
         self.close_attempt(AttemptStatus::Failed, Some(AttemptFailReason::TaskFailed))
@@ -655,6 +728,15 @@ impl AttemptOrchestrator {
     pub(crate) fn deps(&self) -> &AttemptDeps {
         &self.deps
     }
+
+    fn validate_run_concurrency(&self) -> Result<()> {
+        if self.deps.max_concurrent_task_runs == 0 {
+            return Err(WorkflowError::invariant(
+                "max_concurrent_task_runs must be at least 1",
+            ));
+        }
+        Ok(())
+    }
 }
 
 fn assert_acyclic(plan: &PlannerPlan) -> Result<()> {
@@ -712,4 +794,10 @@ fn assert_acyclic(plan: &PlannerPlan) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+fn json_object(key: &str, value: impl Into<Value>) -> eos_state::JsonObject {
+    let mut object = eos_state::JsonObject::new();
+    object.insert(key.to_owned(), value.into());
+    object
 }

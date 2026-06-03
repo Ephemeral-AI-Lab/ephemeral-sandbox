@@ -398,6 +398,9 @@ fn op_build_workspace_base(
     let root = PathBuf::from(require_string(args, "layer_stack_root")?);
     let workspace_root = PathBuf::from(require_string(args, "workspace_root")?);
     let reset = args.get("reset").and_then(Value::as_bool).unwrap_or(false);
+    if reset {
+        crate::plugin::stop_services_for_layer_stack_root(&root.to_string_lossy())?;
+    }
     let built = build_workspace_base(&root, &workspace_root, reset)?;
     let mut timings = timings_to_value_map(&built.timings);
     timings.insert(
@@ -1364,7 +1367,7 @@ pub(crate) struct OccRouteMetrics {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct TreeResourceStats {
+pub(crate) struct TreeResourceStats {
     exists: f64,
     bytes: f64,
     file_count: f64,
@@ -1385,7 +1388,7 @@ impl TreeResourceStats {
         }
     }
 
-    fn collect(path: &Path) -> Self {
+    pub(crate) fn collect(path: &Path) -> Self {
         let Ok(root_metadata) = fs::symlink_metadata(path) else {
             return Self::missing();
         };
@@ -2907,7 +2910,7 @@ pub(crate) fn resource_timings(
     timings
 }
 
-fn insert_tree_resource_timings(
+pub(crate) fn insert_tree_resource_timings(
     timings: &mut serde_json::Map<String, Value>,
     prefix: &str,
     stats: &TreeResourceStats,

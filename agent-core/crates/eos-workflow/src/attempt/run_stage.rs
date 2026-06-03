@@ -2,15 +2,16 @@ use std::sync::Arc;
 
 use eos_agent_def::AgentRole;
 use eos_state::{
-    GeneratorSubmission, PlannerFailReason, PlannerFailureSubmission, ReducerSubmission,
-    TaskOutcomeStatus, TaskStatus,
+    execution_outcome_for_submission, Attempt, ExecutionRole, GeneratorSubmission, JsonObject,
+    PlannerFailReason, PlannerFailureSubmission, ReducerSubmission, Task, TaskOutcomeStatus,
+    TaskRole, TaskStatus,
 };
-use serde_json::json;
+use serde_json::Value;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
 use crate::attempt::plan_dag::{dag_status, ready_pending_plan_ids};
-use crate::attempt::{AgentLaunch, AgentLaunchFactory, AgentRunReport, AgentTerminal};
+use crate::attempt::{AgentLaunch, AgentLaunchFactory, AgentRunReport, AgentTerminal, AttemptDeps};
 use crate::{Result, WorkflowError};
 
 use super::AttemptOrchestrator;
@@ -39,6 +40,11 @@ impl AttemptStageAdvancer {
     /// Returns [`WorkflowError`] for persisted DAG/store invariants.
     pub async fn advance_run_stage(&self) -> Result<()> {
         let deps = self.orchestrator.deps().clone();
+        if deps.max_concurrent_task_runs == 0 {
+            return Err(WorkflowError::invariant(
+                "max_concurrent_task_runs must be at least 1",
+            ));
+        }
         let mut set = JoinSet::new();
         loop {
             let attempt = self.orchestrator.fresh_attempt().await?;
@@ -54,20 +60,12 @@ impl AttemptStageAdvancer {
                     .task_store
                     .set_task_status(&task_id, TaskStatus::Running, None, None)
                     .await?;
-                let launch = if task.role == eos_state::TaskRole::Reducer {
-                    AgentLaunchFactory::new(deps.clone())
-                        .for_reducer(&attempt, &task)
-                        .await?
-                } else {
-                    let agent_name = task.agent_name.clone().ok_or_else(|| {
-                        WorkflowError::invariant(format!(
-                            "task {:?} has no persisted agent profile",
-                            task.id.as_str()
-                        ))
-                    })?;
-                    AgentLaunchFactory::new(deps.clone())
-                        .for_generator(&attempt, &task, &agent_name)
-                        .await?
+                let launch = match self.build_launch(&deps, &attempt, &task).await {
+                    Ok(launch) => launch,
+                    Err(err) => {
+                        self.mark_launch_failed(&task, &err.to_string()).await?;
+                        continue;
+                    }
                 };
                 let runner = deps.runner.clone();
                 set.spawn(async move {
@@ -110,6 +108,87 @@ impl AttemptStageAdvancer {
                     self.apply_report(launch, report).await?;
                 }
             }
+        }
+    }
+
+    async fn build_launch(
+        &self,
+        deps: &AttemptDeps,
+        attempt: &Attempt,
+        task: &Task,
+    ) -> Result<AgentLaunch> {
+        if task.role == TaskRole::Reducer {
+            AgentLaunchFactory::new(deps.clone())
+                .for_reducer(attempt, task)
+                .await
+        } else {
+            let agent_name = task.agent_name.clone().ok_or_else(|| {
+                WorkflowError::invariant(format!(
+                    "task {:?} has no persisted agent profile",
+                    task.id.as_str()
+                ))
+            })?;
+            AgentLaunchFactory::new(deps.clone())
+                .for_generator(attempt, task, &agent_name)
+                .await
+        }
+    }
+
+    async fn mark_launch_failed(&self, task: &Task, summary: &str) -> Result<()> {
+        if task.attempt_id.is_none() {
+            return Err(WorkflowError::invariant(format!(
+                "task {:?} launch failure requires task.attempt_id",
+                task.id.as_str()
+            )));
+        }
+        let outcome = format!("agent launch failed: {summary}");
+        let terminal_tool_result = json_object("fail_reason", "agent_launch_failed");
+        match task.role {
+            TaskRole::Generator => {
+                let result = execution_outcome_for_submission(
+                    task.id.clone(),
+                    ExecutionRole::Generator,
+                    TaskOutcomeStatus::Failed,
+                    outcome.clone(),
+                );
+                let outcomes = [result];
+                self.orchestrator
+                    .deps()
+                    .task_store
+                    .set_task_status(
+                        &task.id,
+                        TaskStatus::Failed,
+                        Some(&outcomes),
+                        Some(&terminal_tool_result),
+                    )
+                    .await?;
+                Ok(())
+            }
+            TaskRole::Reducer => {
+                let result = execution_outcome_for_submission(
+                    task.id.clone(),
+                    ExecutionRole::Reducer,
+                    TaskOutcomeStatus::Failed,
+                    outcome,
+                );
+                let outcomes = [result];
+                self.orchestrator
+                    .deps()
+                    .task_store
+                    .set_task_status(
+                        &task.id,
+                        TaskStatus::Failed,
+                        Some(&outcomes),
+                        Some(&terminal_tool_result),
+                    )
+                    .await?;
+                Ok(())
+            }
+            _ => Err(WorkflowError::invariant(format!(
+                "task {:?} has unsupported launch-failure role {:?}",
+                task.id.as_str(),
+                task.role
+            ))),
         }
     }
 
@@ -168,10 +247,7 @@ impl AttemptStageAdvancer {
                 launch.role
             ))
         })?;
-        let exhausted = json!({"fail_reason": "run_exhausted"})
-            .as_object()
-            .expect("object")
-            .clone();
+        let exhausted = json_object("fail_reason", "run_exhausted");
         match launch.role {
             AgentRole::Planner => {
                 self.orchestrator
@@ -210,4 +286,10 @@ impl AttemptStageAdvancer {
             ))),
         }
     }
+}
+
+fn json_object(key: &str, value: impl Into<Value>) -> JsonObject {
+    let mut object = JsonObject::new();
+    object.insert(key.to_owned(), value.into());
+    object
 }

@@ -62,6 +62,7 @@ Python sandbox infra is removed.
   `backend/scripts/bench_rust_daemon_phase3t_av7_parity.py`,
   `backend/scripts/bench_rust_daemon_phase3t_mixed_non_plugin.py`,
   `backend/scripts/bench_rust_daemon_phase3t_section7_non_plugin.py`,
+  `backend/scripts/bench_rust_daemon_plugin.py`,
   `backend/scripts/bench_rust_daemon_isolated_inspection.py`, and
   `backend/scripts/bench_plugin_refresh_strategies.py`.
 - Set live concurrent sandbox runners to `3` and verify that three parallel
@@ -110,6 +111,7 @@ Python sandbox infra is removed.
   `backend/scripts/bench_rust_daemon_phase3t_av7_parity.py`,
   `backend/scripts/bench_rust_daemon_phase3t_mixed_non_plugin.py`,
   `backend/scripts/bench_rust_daemon_phase3t_section7_non_plugin.py`,
+  `backend/scripts/bench_rust_daemon_plugin.py`,
   `backend/scripts/bench_rust_daemon_isolated_inspection.py`, and
   `backend/scripts/bench_plugin_refresh_strategies.py`; do not invent a
   parallel provisioning path for the runner before checking those helpers.
@@ -324,6 +326,10 @@ regression harness.
        inside one live command session, no `cd` persistence across separate
        finite commands, process-group cleanup, lease release, and terminal
        result reporting exactly once.
+      - for yielded command sessions, the initial `exec_command` result may
+        have `status=running` and no `changed_paths`; terminal publish,
+        resource, and OCC timing assertions must inspect the final
+        `write_stdin` result that observes completion.
    - remove references to `shell(background=True)`,
      `check_background_task_result`, `wait_background_tasks`, and generic shell
      background cancellation from model-facing assertions
@@ -340,6 +346,15 @@ regression harness.
        `plugin.<plugin>.<op>` route resolution
      - `PluginServiceKey` reuse isolation across plugin id, digest, service id,
        service profile digest, workspace root, mode, and refresh strategy
+     - host runtime cache isolation across sandbox id, plugin id,
+       `layer_stack_root`, and `workspace_root`; LSP must not reuse a runtime
+       ensured for `/testbed` after rebinding to `/ephemeral-os`
+     - daemon `api.plugin.ensure` must reload even when the plugin digest is
+       unchanged if parsed op routes, service process specs, or
+       `runtime_loaded` differ from the loaded runtime
+     - `api.build_workspace_base(reset=True)` must stop plugin service
+       snapshots for the reset layer-stack root before rebuilding, matching the
+       SWE-EVO reset path used by project-build/materialized-git tests
      - stale-manifest behavior: refresh, retryable `plugin_projection_stale`,
        or restart; never silent stale responses
      - `workspace_snapshot_refresh` strategies:
@@ -447,6 +462,7 @@ uv run python backend/scripts/bench_rust_daemon_phase3t_pty.py
 uv run python backend/scripts/bench_rust_daemon_phase3t_av7_parity.py
 uv run python backend/scripts/bench_rust_daemon_phase3t_mixed_non_plugin.py
 uv run python backend/scripts/bench_rust_daemon_phase3t_section7_non_plugin.py
+uv run python backend/scripts/bench_rust_daemon_plugin.py
 uv run python backend/scripts/bench_rust_daemon_isolated_inspection.py
 uv run python backend/scripts/bench_plugin_refresh_strategies.py
 ```

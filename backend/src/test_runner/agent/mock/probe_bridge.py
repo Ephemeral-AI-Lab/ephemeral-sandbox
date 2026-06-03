@@ -51,7 +51,7 @@ async def _noop_emit(_event: Any) -> None:
 
 _COMMAND_SESSION_ID_RE = re.compile(r'"command_session_id"\s*:\s*"([^"]+)"')
 _BACKGROUND_POLL_INITIAL_S = 0.05
-_BACKGROUND_POLL_MAX_S = 0.5
+_BACKGROUND_POLL_MAX_S = 2.0
 BackgroundCancelCallback = Callable[[dict[str, Any]], None]
 
 

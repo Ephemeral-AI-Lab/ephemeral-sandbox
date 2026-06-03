@@ -54,8 +54,9 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 _PLUGIN_MANIFESTS_BY_NAME: dict[str, PluginManifest] | None = None
-_RUNTIME_DIGEST_BY_SANDBOX_PLUGIN: dict[tuple[str, str], str] = {}
-_PLUGIN_SETUP_LOCKS: dict[tuple[str, str], asyncio.Lock] = {}
+_PluginRuntimeCacheKey = tuple[str, str, str, str]
+_RUNTIME_DIGEST_BY_SANDBOX_PLUGIN: dict[_PluginRuntimeCacheKey, str] = {}
+_PLUGIN_SETUP_LOCKS: dict[_PluginRuntimeCacheKey, asyncio.Lock] = {}
 _MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 
 
@@ -93,6 +94,13 @@ async def call_plugin(
         str(context.get("layer_stack_root") or "").strip()
         or DEFAULT_LAYER_STACK_ROOT
     )
+    workspace_root = str(context.get("repo_root") or "").strip()
+    runtime_cache_key = _runtime_cache_key(
+        sandbox_id,
+        plugin,
+        layer_stack_root=layer_stack_root,
+        workspace_root=workspace_root,
+    )
     try:
         manifest = _manifest_for(plugin)
     except KeyError as exc:
@@ -128,10 +136,12 @@ async def call_plugin(
         )
         return _plugin_error_result("install", plugin, op, _exception_message(exc))
 
-    if _RUNTIME_DIGEST_BY_SANDBOX_PLUGIN.get((sandbox_id, plugin)) != digest:
-        setup_lock = _PLUGIN_SETUP_LOCKS.setdefault((sandbox_id, plugin), asyncio.Lock())
+    if _RUNTIME_DIGEST_BY_SANDBOX_PLUGIN.get(runtime_cache_key) != digest:
+        setup_lock = _PLUGIN_SETUP_LOCKS.setdefault(
+            runtime_cache_key, asyncio.Lock()
+        )
         async with setup_lock:
-            if _RUNTIME_DIGEST_BY_SANDBOX_PLUGIN.get((sandbox_id, plugin)) == digest:
+            if _RUNTIME_DIGEST_BY_SANDBOX_PLUGIN.get(runtime_cache_key) == digest:
                 pass
             else:
                 try:
@@ -141,7 +151,7 @@ async def call_plugin(
                         _ensure_payload(
                             manifest,
                             digest=digest,
-                            workspace_root=str(context.get("repo_root") or "").strip(),
+                            workspace_root=workspace_root,
                         ),
                         timeout=timeout,
                         layer_stack_root=layer_stack_root,
@@ -160,7 +170,7 @@ async def call_plugin(
                         op,
                         _exception_message(exc),
                     )
-                _RUNTIME_DIGEST_BY_SANDBOX_PLUGIN[(sandbox_id, plugin)] = digest
+                _RUNTIME_DIGEST_BY_SANDBOX_PLUGIN[runtime_cache_key] = digest
 
     caller = sandbox_caller_from_tool_context(context)
     raw_intent = context.get("__intent")
@@ -172,7 +182,7 @@ async def call_plugin(
     payload_with_meta = {
         **dict(payload),
         "caller": caller.audit_fields(),
-        "workspace_root": str(context.get("repo_root") or "").strip(),
+        "workspace_root": workspace_root,
         "intent": intent_value,
     }
     try:
@@ -185,7 +195,7 @@ async def call_plugin(
         )
     except Exception as exc:
         if _retry_unknown_op and _is_unknown_plugin_op_error(exc):
-            _RUNTIME_DIGEST_BY_SANDBOX_PLUGIN.pop((sandbox_id, plugin), None)
+            _RUNTIME_DIGEST_BY_SANDBOX_PLUGIN.pop(runtime_cache_key, None)
             logger.info(
                 "plugin runtime cache stale; re-ensuring runtime: "
                 "sandbox=%s plugin=%s op=%s",
@@ -427,6 +437,16 @@ def _is_unknown_plugin_op_error(exc: Exception) -> bool:
     kind = str(getattr(exc, "kind", "") or "")
     message = _exception_message(exc)
     return kind == "unknown_op" and "plugin." in message
+
+
+def _runtime_cache_key(
+    sandbox_id: str,
+    plugin: str,
+    *,
+    layer_stack_root: str,
+    workspace_root: str,
+) -> _PluginRuntimeCacheKey:
+    return (sandbox_id, plugin, layer_stack_root, workspace_root)
 
 
 def _plugin_install_error_details(
