@@ -24,6 +24,7 @@ use crate::name::ToolName;
 use crate::result::ToolResult;
 
 mod advisor_approval;
+mod require_no_inflight_background_tasks;
 
 /// One wired pre-hook. `#[non_exhaustive]`: hooks are added here, never as an
 /// open trait (the closed set is matched exhaustively by [`Hook::run`]).
@@ -166,7 +167,8 @@ impl Hook {
             Hook::DestructiveShell { .. } => Ok(run_destructive_shell(raw_input)),
             Hook::BlockInIsolatedMode { .. } => run_block_in_isolated_mode(ctx).await,
             Hook::RequireNoInflightBackgroundTasks { tool } => {
-                run_require_no_inflight(tool, raw_input, ctx).await
+                require_no_inflight_background_tasks::run_require_no_inflight(tool, raw_input, ctx)
+                    .await
             }
             Hook::AdvisorApproval { tool } => {
                 advisor_approval::run_advisor_approval(tool, ctx).await

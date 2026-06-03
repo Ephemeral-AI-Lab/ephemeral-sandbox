@@ -933,4 +933,95 @@ mod tests {
             IterationStatus::Failed
         );
     }
+
+    // D6 (generator role gate) + D1 (reducer-dup id) + the recording parity win:
+    // the recording port returns the orchestrator's real `Rejected` ack to the
+    // agent (a model-facing validation error), not a silent accept.
+    #[tokio::test]
+    async fn record_plan_rejects_bad_shape_with_real_ack() {
+        use eos_state::PlannerKind;
+        use eos_tools::{PlanReducer, PlanTask, PlanSubmissionPort, PlannerPlan, SubmissionAck};
+
+        use crate::PlanSubmissionAdapter;
+
+        let stores = Arc::new(MemoryStores::default());
+        let runner = Arc::new(QueueRunner::default());
+        let deps = stores.deps(runner);
+        let registry = deps.orchestrator_registry.clone();
+        let parent = root_task("parent", TaskStatus::Running);
+        stores.seed_task(parent.clone());
+        let started = WorkflowStarter::new(deps)
+            .start("delegated goal", &parent.id)
+            .await
+            .unwrap();
+        let adapter = PlanSubmissionAdapter::new(registry);
+        let planner_task_id = crate::planner_task_id(&started.attempt_id).unwrap();
+        let plan = |tasks: Vec<PlanTask>, reducers: Vec<PlanReducer>| PlannerPlan {
+            attempt_id: started.attempt_id.clone(),
+            planner_task_id: planner_task_id.clone(),
+            kind: PlannerKind::Completes,
+            deferred_goal_for_next_iteration: None,
+            tasks,
+            task_specs: [("g1".to_owned(), "do work".to_owned())]
+                .into_iter()
+                .collect(),
+            reducers,
+        };
+
+        // D6: a generator bound to a non-generator profile ("reducer") is rejected.
+        let ack = adapter
+            .apply_plan(plan(
+                vec![PlanTask {
+                    id: "g1".to_owned(),
+                    agent_name: "reducer".to_owned(),
+                    needs: Vec::new(),
+                }],
+                vec![PlanReducer {
+                    id: "r1".to_owned(),
+                    needs: vec!["g1".to_owned()],
+                    prompt: "reduce".to_owned(),
+                }],
+            ))
+            .await
+            .unwrap();
+        assert!(
+            matches!(ack, SubmissionAck::Rejected(ref m) if m.contains("expected generator")),
+            "D6 role gate: {ack:?}"
+        );
+
+        // D1: a duplicate reducer id slips past the tool's generator-only dup
+        // check but is rejected by the orchestrator's union-dedup.
+        let ack = adapter
+            .apply_plan(plan(
+                vec![PlanTask {
+                    id: "g1".to_owned(),
+                    agent_name: "coder".to_owned(),
+                    needs: Vec::new(),
+                }],
+                vec![
+                    PlanReducer {
+                        id: "r1".to_owned(),
+                        needs: vec!["g1".to_owned()],
+                        prompt: "a".to_owned(),
+                    },
+                    PlanReducer {
+                        id: "r1".to_owned(),
+                        needs: vec!["g1".to_owned()],
+                        prompt: "b".to_owned(),
+                    },
+                ],
+            ))
+            .await
+            .unwrap();
+        assert!(
+            matches!(ack, SubmissionAck::Rejected(ref m) if m.contains("duplicate task id")),
+            "D1 union-dedup: {ack:?}"
+        );
+
+        // The attempt is untouched by either rejection (still in PLAN, no plan
+        // tasks materialized).
+        let attempt = stores.attempt(&started.attempt_id).unwrap();
+        assert_eq!(attempt.stage, eos_state::AttemptStage::Plan);
+        assert!(attempt.generator_task_ids.is_empty());
+    }
 }

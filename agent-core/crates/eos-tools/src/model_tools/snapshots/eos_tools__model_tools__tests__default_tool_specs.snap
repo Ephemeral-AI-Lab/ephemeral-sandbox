@@ -329,7 +329,7 @@ expression: specs
   },
   {
     "name": "exec_command",
-    "description": "Run a managed sandbox command session.",
+    "description": "Run a command in a managed PTY session inside the sandbox. If the command finishes within `yield_time_ms` you get the final result; otherwise the session keeps running in the background and you get `status: running` with a `command_session_id` — use `write_stdin` to feed input, poll for more output, or tear it down. Set `timeout` (seconds) to bound the run and `max_output_tokens` to cap returned output. Output is a merged PTY stream: everything (including the program's stderr) arrives in `stdout`, and the `stderr` field is always empty.",
     "input_schema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ExecCommandInput",
@@ -444,7 +444,7 @@ expression: specs
   },
   {
     "name": "write_stdin",
-    "description": "Write literal text to an active command session, or poll with empty input.",
+    "description": "Interact with a running command session by `command_session_id`. Write literal text to its stdin (e.g. `\"y\\n\"`), or poll for more output with empty `chars`. A `\\x03` (Ctrl-C) character only interrupts the foreground program (SIGINT); to end the session entirely set `terminate: true` (SIGTERM→SIGKILL). Returns the final result once the command exits, otherwise `status: running` with output so far. Output is the merged PTY stream in `stdout`; `stderr` is always empty.",
     "input_schema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "WriteStdinInput",
@@ -468,6 +468,11 @@ expression: specs
           ],
           "format": "uint32",
           "minimum": 1.0
+        },
+        "terminate": {
+          "description": "Tear the session down after writing. A `\\x03` char only interrupts (SIGINT); set this to end the session (SIGTERM→SIGKILL).",
+          "default": false,
+          "type": "boolean"
         },
         "yield_time_ms": {
           "default": 1000,

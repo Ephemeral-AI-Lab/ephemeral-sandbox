@@ -374,8 +374,9 @@ mod tests {
         let stores = Arc::new(MemoryStores::default());
         // Every attempt fails at the reducer, forcing retries until exhaustion.
         let runner = ScriptedRunner::new(1, TaskOutcomeStatus::Failed, 0, "");
-        let mut deps = stores.deps(runner);
+        let mut deps = stores.deps(runner.clone());
         deps.lifecycle_config.default_attempt_budget = 2;
+        runner.bind(&deps.orchestrator_registry);
         let parent = root_task("parent", TaskStatus::Running);
         stores.seed_task(parent.clone());
         let started = WorkflowStarter::new(deps)
@@ -406,8 +407,9 @@ mod tests {
         let stores = Arc::new(MemoryStores::default());
         // First planner run defers "continue the work"; the next completes.
         let runner = ScriptedRunner::new(1, TaskOutcomeStatus::Success, 1, "continue the work");
-        let mut deps = stores.deps(runner);
+        let mut deps = stores.deps(runner.clone());
         deps.lifecycle_config.default_attempt_budget = 2;
+        runner.bind(&deps.orchestrator_registry);
         let parent = root_task("parent", TaskStatus::Running);
         stores.seed_task(parent.clone());
         let started = WorkflowStarter::new(deps)

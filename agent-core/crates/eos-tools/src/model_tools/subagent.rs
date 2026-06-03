@@ -22,7 +22,7 @@ use crate::execution::parse_input;
 use crate::executor::ToolExecutor;
 use crate::metadata::ExecutionMetadata;
 use crate::name::ToolName;
-use crate::ports::StartedSubagent;
+use crate::ports::{SpawnedSubagent, StartedSubagent};
 use crate::registry::ToolRegistry;
 use crate::result::{OutputShape, ToolResult};
 use crate::spec::{text_spec, text_spec_with_agent_enum};
@@ -97,11 +97,14 @@ impl ToolExecutor for RunSubagent {
                 "run_subagent: `prompt` must be a non-empty string.",
             ));
         }
-        let started = ctx
+        match ctx
             .require_subagent_supervisor()?
-            .spawn(&parsed.agent_name, &parsed.prompt)
-            .await?;
-        Ok(launch_result(&parsed.agent_name, &started))
+            .spawn(ctx, &parsed.agent_name, &parsed.prompt)
+            .await?
+        {
+            SpawnedSubagent::Launched(started) => Ok(launch_result(&parsed.agent_name, &started)),
+            SpawnedSubagent::Rejected(message) => Ok(ToolResult::error(message)),
+        }
     }
 }
 
@@ -138,11 +141,9 @@ impl ToolExecutor for CheckSubagentProgress {
                  Please retry the tool call with valid arguments.",
             ));
         }
-        let output = ctx
-            .require_subagent_supervisor()?
+        ctx.require_subagent_supervisor()?
             .progress(&parsed.subagent_session_id, parsed.last_n_messages)
-            .await?;
-        Ok(ToolResult::ok(output))
+            .await
     }
 }
 
@@ -162,11 +163,9 @@ impl ToolExecutor for CancelSubagent {
         if parsed.subagent_session_id.as_str().is_empty() {
             return Ok(empty_subagent_session_error(ToolName::CancelSubagent));
         }
-        let output = ctx
-            .require_subagent_supervisor()?
+        ctx.require_subagent_supervisor()?
             .cancel(&parsed.subagent_session_id, &parsed.reason)
-            .await?;
-        Ok(ToolResult::ok(output))
+            .await
     }
 }
 
@@ -213,7 +212,7 @@ mod tests {
 
     use std::sync::Mutex;
 
-    use crate::ports::{Sealed, SubagentSupervisorPort};
+    use crate::ports::{BackgroundInflightReport, Sealed, SubagentSupervisorPort};
     use crate::testsupport::metadata;
 
     use super::*;
@@ -229,36 +228,49 @@ mod tests {
     impl SubagentSupervisorPort for FakeSubagentSupervisor {
         async fn spawn(
             &self,
+            _ctx: &ExecutionMetadata,
             agent_name: &str,
             prompt: &str,
-        ) -> Result<StartedSubagent, ToolError> {
+        ) -> Result<SpawnedSubagent, ToolError> {
             self.spawned
                 .lock()
                 .unwrap()
                 .push((agent_name.to_owned(), prompt.to_owned()));
-            Ok(StartedSubagent {
+            Ok(SpawnedSubagent::Launched(StartedSubagent {
                 subagent_session_id: "subagent_1".parse()?,
-            })
+            }))
         }
 
         async fn progress(
             &self,
             _subagent_session_id: &SubagentSessionId,
             _last_n_messages: u8,
-        ) -> Result<String, ToolError> {
-            Ok("running".to_owned())
+        ) -> Result<ToolResult, ToolError> {
+            Ok(ToolResult::ok("running"))
         }
 
         async fn cancel(
             &self,
             _subagent_session_id: &SubagentSessionId,
             _reason: &str,
-        ) -> Result<String, ToolError> {
-            Ok("cancelled".to_owned())
+        ) -> Result<ToolResult, ToolError> {
+            Ok(ToolResult::ok("cancelled"))
         }
 
-        async fn background_inflight_count(&self, _agent_id: &str) -> usize {
-            0
+        async fn inflight_report(&self, _agent_id: &str) -> BackgroundInflightReport {
+            BackgroundInflightReport {
+                total: 0,
+                subagent: 0,
+                command_session: 0,
+            }
+        }
+
+        async fn drain_for_agent(&self, _agent_id: &str) -> BackgroundInflightReport {
+            BackgroundInflightReport {
+                total: 0,
+                subagent: 0,
+                command_session: 0,
+            }
         }
     }
 

@@ -14,9 +14,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_sandbox_api::{
-    CommandSessionCancelRequest, CommandSessionWriteRequest, EditFileRequest, ExecCommandRequest,
-    ExecCommandResult, GlobRequest, GrepRequest, ReadFileRequest, SandboxRequestBase,
-    SearchReplaceEdit, WriteFileRequest,
+    CommandSessionWriteRequest, EditFileRequest, ExecCommandRequest, ExecCommandResult,
+    GlobRequest, GrepRequest, ReadFileRequest, SandboxRequestBase, SearchReplaceEdit,
+    WriteFileRequest,
 };
 use eos_types::{CommandSessionId, InvocationId, JsonObject};
 use schemars::{schema_for, JsonSchema};
@@ -698,9 +698,17 @@ impl ToolExecutor for Glob {
 // exec_command + write_stdin (command sessions).
 // ---------------------------------------------------------------------------
 
-const EXEC_COMMAND_DESCRIPTION: &str = "Run a managed sandbox command session.";
-const WRITE_STDIN_DESCRIPTION: &str =
-    "Write literal text to an active command session, or poll with empty input.";
+const EXEC_COMMAND_DESCRIPTION: &str = "Run a command in a managed PTY session inside the sandbox. \
+If the command finishes within `yield_time_ms` you get the final result; otherwise the session \
+keeps running in the background and you get `status: running` with a `command_session_id` — use \
+`write_stdin` to feed input, poll for more output, or tear it down. Set `timeout` (seconds) to bound \
+the run and `max_output_tokens` to cap returned output. Output is a merged PTY stream: everything \
+(including the program's stderr) arrives in `stdout`, and the `stderr` field is always empty.";
+const WRITE_STDIN_DESCRIPTION: &str = "Interact with a running command session by `command_session_id`. \
+Write literal text to its stdin (e.g. `\"y\\n\"`), or poll for more output with empty `chars`. A `\\x03` \
+(Ctrl-C) character only interrupts the foreground program (SIGINT); to end the session entirely set \
+`terminate: true` (SIGTERM→SIGKILL). Returns the final result once the command exits, otherwise \
+`status: running` with output so far. Output is the merged PTY stream in `stdout`; `stderr` is always empty.";
 
 fn default_yield_ms() -> u32 {
     1000
@@ -824,6 +832,10 @@ struct WriteStdinInput {
     #[serde(default)]
     #[schemars(range(min = 1))]
     max_output_tokens: Option<u32>,
+    /// Tear the session down after writing. A `\x03` char only interrupts
+    /// (SIGINT); set this to end the session (SIGTERM→SIGKILL).
+    #[serde(default = "default_false")]
+    terminate: bool,
 }
 
 struct WriteStdin;
@@ -855,32 +867,22 @@ impl ToolExecutor for WriteStdin {
         }
         let command_session_id = parsed.command_session_id.into_inner();
         let sandbox_id = ctx.require_sandbox_id()?;
+        // Ctrl-C decoupling (sense-2 D7): `\x03` rides through as ordinary stdin
+        // and the daemon raises SIGINT; teardown is the explicit `terminate`
+        // flag (SIGTERM→SIGKILL), so the tool no longer escalates to a cancel RPC.
         let write_request = CommandSessionWriteRequest {
             base: request_base(ctx, "write_stdin"),
             command_session_id: command_session_id.clone(),
             chars: parsed.chars.clone(),
             yield_time_ms: Some(parsed.yield_time_ms),
             max_output_tokens: parsed.max_output_tokens,
+            terminate: parsed.terminate,
         };
-        let mut result =
+        let result =
             match eos_sandbox_api::write_stdin(&*ctx.transport, sandbox_id, &write_request).await {
                 Ok(result) => result,
                 Err(err) => return Ok(ToolResult::error(err.to_string())),
             };
-        // Ctrl-C (\x03) while the session is still running → cancel it.
-        if parsed.chars.contains('\u{3}') && result.status == "running" {
-            let cancel = CommandSessionCancelRequest {
-                base: request_base(ctx, "write_stdin"),
-                command_session_id: command_session_id.clone(),
-            };
-            result =
-                match eos_sandbox_api::cancel_command_session(&*ctx.transport, sandbox_id, &cancel)
-                    .await
-                {
-                    Ok(result) => result,
-                    Err(err) => return Ok(ToolResult::error(err.to_string())),
-                };
-        }
         // Recover race + exactly-once latch (anchor §8). If the daemon already
         // lost the live session, surface the supervisor's stored terminal;
         // otherwise, once a terminal status is observed inline, latch it
@@ -1193,10 +1195,10 @@ mod tests {
         }
     }
 
-    // AC-tools-11 (write_stdin half): write_stdin with \x03 while running issues a
-    // cancel RPC.
+    // sense-2 D7: `\x03` is SIGINT-only and rides through as ordinary stdin — the
+    // tool no longer escalates to a cancel RPC (the daemon raises SIGINT itself).
     #[tokio::test]
-    async fn write_stdin_ctrl_c() {
+    async fn write_stdin_ctrl_c_does_not_escalate_to_cancel() {
         let cancels = Arc::new(AtomicUsize::new(0));
         let cancels_seen = cancels.clone();
         let transport = Arc::new(FakeTransport::new(move |op, _| match op {
@@ -1206,10 +1208,7 @@ mod tests {
             ])),
             DaemonOp::CommandCancel => {
                 cancels_seen.fetch_add(1, Ordering::SeqCst);
-                Ok(obj(&[
-                    ("status", json!("cancelled")),
-                    ("output", json!({"stdout": "", "stderr": ""})),
-                ]))
+                Ok(obj(&[("status", json!("cancelled"))]))
             }
             other => Err(SandboxApiError::decode(format!("unexpected op {other:?}"))),
         }));
@@ -1221,8 +1220,42 @@ mod tests {
         let res = WriteStdin.execute(&input, &ctx).await.expect("ok");
         assert_eq!(
             cancels.load(Ordering::SeqCst),
+            0,
+            "ctrl-c must NOT issue a cancel RPC (D7: SIGINT only)"
+        );
+        let payload: serde_json::Value = serde_json::from_str(&res.output).expect("json");
+        assert_eq!(payload["status"], json!("running"));
+    }
+
+    // sense-2 D7: `terminate: true` is forwarded on the write RPC so the daemon
+    // tears the session down; no separate cancel RPC is issued by the tool.
+    #[tokio::test]
+    async fn write_stdin_terminate_forwards_flag() {
+        let terminate_seen = Arc::new(AtomicUsize::new(0));
+        let seen = terminate_seen.clone();
+        let transport = Arc::new(FakeTransport::new(move |op, payload| match op {
+            DaemonOp::ExecStdin => {
+                if payload.get("terminate").and_then(Value::as_bool) == Some(true) {
+                    seen.fetch_add(1, Ordering::SeqCst);
+                }
+                Ok(obj(&[
+                    ("status", json!("cancelled")),
+                    ("exit_code", json!(130)),
+                    ("output", json!({"stdout": "", "stderr": ""})),
+                ]))
+            }
+            other => Err(SandboxApiError::decode(format!("unexpected op {other:?}"))),
+        }));
+        let ctx = metadata_with(transport);
+        let input = obj(&[
+            ("command_session_id", json!("cs-7")),
+            ("terminate", json!(true)),
+        ]);
+        let res = WriteStdin.execute(&input, &ctx).await.expect("ok");
+        assert_eq!(
+            terminate_seen.load(Ordering::SeqCst),
             1,
-            "ctrl-c triggered a cancel"
+            "the terminate flag must be forwarded on the write RPC"
         );
         let payload: serde_json::Value = serde_json::from_str(&res.output).expect("json");
         assert_eq!(payload["status"], json!("cancelled"));

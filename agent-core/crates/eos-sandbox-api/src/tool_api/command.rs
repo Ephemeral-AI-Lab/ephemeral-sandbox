@@ -68,6 +68,9 @@ pub async fn exec_stdin(
             Value::from(max_output_tokens),
         );
     }
+    if request.terminate {
+        payload.insert("terminate".to_owned(), Value::Bool(true));
+    }
     let response = transport
         .call(
             sandbox_id,

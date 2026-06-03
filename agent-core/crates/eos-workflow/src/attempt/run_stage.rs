@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use eos_agent_def::AgentRole;
+use eos_audit::{AuditEvent, AuditNode, AuditSource};
 use eos_state::{
-    execution_outcome_for_submission, Attempt, ExecutionRole, GeneratorSubmission,
+    execution_outcome_for_submission, Attempt, ExecutionRole, GeneratorSubmission, JsonObject,
     PlannerFailReason, PlannerFailureSubmission, ReducerSubmission, Task, TaskOutcomeStatus,
     TaskRole, TaskStatus,
 };
+use eos_types::SystemClock;
+use serde_json::{json, Value};
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
@@ -13,6 +16,11 @@ use crate::attempt::plan_dag::{dag_status, ready_pending_plan_ids};
 use crate::attempt::{AgentLaunch, AgentLaunchFactory, AgentRunReport, AttemptDeps};
 use crate::util::json_object;
 use crate::{Result, WorkflowError};
+
+/// Workflow audit event-type constants (Python `workflow._core.audit`).
+const TASK_READY: &str = "workflow.task.ready";
+const TASK_LAUNCHED: &str = "workflow.task.launched";
+const TASK_FAILED: &str = "workflow.task.failed";
 
 use super::AttemptOrchestrator;
 
@@ -56,10 +64,33 @@ impl AttemptStageAdvancer {
                 if set.len() >= deps.max_concurrent_task_runs {
                     break;
                 }
+                // D8: task_ready (pending -> pending) on the still-pending row,
+                // then task_launched (pending -> running) on the transition.
+                if let Some(pending) = tasks.iter().find(|task| task.id == task_id) {
+                    let needs: Vec<&str> =
+                        pending.needs.iter().map(eos_state::TaskId::as_str).collect();
+                    self.emit_task_event(
+                        TASK_READY,
+                        pending,
+                        &[
+                            ("status_from", json!("pending")),
+                            ("status_to", json!("pending")),
+                            ("satisfied_dependency_ids", json!(needs)),
+                        ],
+                    );
+                }
                 let task = deps
                     .task_store
                     .set_task_status(&task_id, TaskStatus::Running, None, None)
                     .await?;
+                self.emit_task_event(
+                    TASK_LAUNCHED,
+                    &task,
+                    &[
+                        ("status_from", json!("pending")),
+                        ("status_to", json!("running")),
+                    ],
+                );
                 let launch = match self.build_launch(&deps, &attempt, &task).await {
                     Ok(launch) => launch,
                     Err(err) => {
@@ -143,52 +174,86 @@ impl AttemptStageAdvancer {
         }
         let outcome = format!("agent launch failed: {summary}");
         let terminal_tool_result = json_object("fail_reason", "agent_launch_failed");
-        match task.role {
-            TaskRole::Generator => {
-                let result = execution_outcome_for_submission(
-                    task.id.clone(),
-                    ExecutionRole::Generator,
-                    TaskOutcomeStatus::Failed,
-                    outcome.clone(),
-                );
-                let outcomes = [result];
-                self.orchestrator
-                    .deps()
-                    .task_store
-                    .set_task_status(
-                        &task.id,
-                        TaskStatus::Failed,
-                        Some(&outcomes),
-                        Some(&terminal_tool_result),
-                    )
-                    .await?;
-                Ok(())
+        let role = match task.role {
+            TaskRole::Generator => ExecutionRole::Generator,
+            TaskRole::Reducer => ExecutionRole::Reducer,
+            _ => {
+                return Err(WorkflowError::invariant(format!(
+                    "task {:?} has unsupported launch-failure role {:?}",
+                    task.id.as_str(),
+                    task.role
+                )))
             }
-            TaskRole::Reducer => {
-                let result = execution_outcome_for_submission(
-                    task.id.clone(),
-                    ExecutionRole::Reducer,
-                    TaskOutcomeStatus::Failed,
-                    outcome,
-                );
-                let outcomes = [result];
-                self.orchestrator
-                    .deps()
-                    .task_store
-                    .set_task_status(
-                        &task.id,
-                        TaskStatus::Failed,
-                        Some(&outcomes),
-                        Some(&terminal_tool_result),
-                    )
-                    .await?;
-                Ok(())
-            }
-            _ => Err(WorkflowError::invariant(format!(
-                "task {:?} has unsupported launch-failure role {:?}",
-                task.id.as_str(),
-                task.role
-            ))),
+        };
+        let result = execution_outcome_for_submission(
+            task.id.clone(),
+            role,
+            TaskOutcomeStatus::Failed,
+            outcome,
+        );
+        let outcomes = [result];
+        self.orchestrator
+            .deps()
+            .task_store
+            .set_task_status(
+                &task.id,
+                TaskStatus::Failed,
+                Some(&outcomes),
+                Some(&terminal_tool_result),
+            )
+            .await?;
+        // D8: task_failed (running -> failed) on a launch failure.
+        self.emit_task_event(
+            TASK_FAILED,
+            task,
+            &[
+                ("status_from", json!("running")),
+                ("status_to", json!("failed")),
+                ("fail_reason", json!("agent_launch_failed")),
+                ("summary", json!(summary)),
+            ],
+        );
+        Ok(())
+    }
+
+    /// Emit one `workflow.task.*` audit event (D8) through the attempt's audit
+    /// sink, mirroring Python's `WorkflowAuditEmitter` node + payload shape.
+    /// Observability only: a publish failure is logged, never propagated.
+    fn emit_task_event(&self, event_type: &str, task: &Task, extra: &[(&str, Value)]) {
+        let mut node = AuditNode::builder()
+            .request_id(task.request_id.clone())
+            .task_id(task.id.clone());
+        if let Some(attempt_id) = &task.attempt_id {
+            node = node.attempt_id(attempt_id.clone());
+        }
+        if let Some(agent_name) = &task.agent_name {
+            node = node.agent_name(agent_name.clone());
+        }
+        let mut payload = JsonObject::new();
+        payload.insert("request_id".to_owned(), json!(task.request_id.as_str()));
+        payload.insert(
+            "attempt_id".to_owned(),
+            json!(task.attempt_id.as_ref().map(eos_state::AttemptId::as_str)),
+        );
+        payload.insert("task_id".to_owned(), json!(task.id.as_str()));
+        payload.insert("role".to_owned(), json!(task_role_label(task.role)));
+        payload.insert("agent_name".to_owned(), json!(task.agent_name.clone()));
+        payload.insert(
+            "needs".to_owned(),
+            json!(task.needs.iter().map(eos_state::TaskId::as_str).collect::<Vec<_>>()),
+        );
+        for (key, value) in extra {
+            payload.insert((*key).to_owned(), value.clone());
+        }
+        let event = AuditEvent::new(
+            AuditSource::Workflow,
+            event_type,
+            node.build(),
+            payload,
+            &SystemClock,
+        );
+        if let Err(err) = self.orchestrator.deps().audit_sink.publish(&event) {
+            tracing::warn!(error = %err, event = event_type, "workflow audit publish failed");
         }
     }
 
@@ -267,6 +332,17 @@ impl AttemptStageAdvancer {
                 launch.role
             ))),
         }
+    }
+}
+
+/// The lowercase role label used in `workflow.task.*` audit payloads (Python
+/// persists `task.role` as a lowercase string).
+fn task_role_label(role: TaskRole) -> &'static str {
+    match role {
+        TaskRole::Root => "root",
+        TaskRole::Planner => "planner",
+        TaskRole::Generator => "generator",
+        TaskRole::Reducer => "reducer",
     }
 }
 

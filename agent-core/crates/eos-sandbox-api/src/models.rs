@@ -431,6 +431,10 @@ pub struct ExecStdinRequest {
     /// Cap on output tokens returned.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
+    /// Tear the session down (SIGTERM→SIGKILL) after writing — the explicit
+    /// teardown channel, decoupled from `\x03`/SIGINT (sense-2 D7).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub terminate: bool,
 }
 
 /// Model-facing `write_stdin` request alias for [`ExecStdinRequest`].

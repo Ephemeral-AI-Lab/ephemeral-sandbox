@@ -50,6 +50,10 @@ expression: schema
       "format": "uint32",
       "minimum": 0.0
     },
+    "terminate": {
+      "description": "Tear the session down (SIGTERM→SIGKILL) after writing — the explicit teardown channel, decoupled from `\\x03`/SIGINT (sense-2 D7).",
+      "type": "boolean"
+    },
     "yield_time_ms": {
       "description": "Yield window in milliseconds before returning partial output.",
       "type": [

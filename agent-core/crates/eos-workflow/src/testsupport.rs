@@ -52,6 +52,34 @@ pub(crate) fn recording_port(
     Arc::new(PlanSubmissionAdapter::new(registry.clone()))
 }
 
+/// An in-memory [`AuditSink`](eos_audit::AuditSink) that records published events
+/// for D8 (`workflow.task.*`) assertions.
+#[derive(Debug, Default)]
+pub(crate) struct RecordingAuditSink {
+    events: Mutex<Vec<eos_audit::AuditEvent>>,
+}
+
+impl RecordingAuditSink {
+    /// The `type` of each event published so far, in order.
+    pub(crate) fn event_types(&self) -> Vec<String> {
+        self.events
+            .lock()
+            .iter()
+            .map(|event| event.event_type.clone())
+            .collect()
+    }
+}
+
+impl eos_audit::AuditSink for RecordingAuditSink {
+    fn publish(
+        &self,
+        event: &eos_audit::AuditEvent,
+    ) -> std::result::Result<(), eos_audit::AuditError> {
+        self.events.lock().push(event.clone());
+        Ok(())
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct MemoryStores {
     workflows: Mutex<HashMap<WorkflowId, Workflow>>,
@@ -573,12 +601,6 @@ impl QueueRunner {
         let _ = self.port.set(recording_port(registry));
     }
 
-    fn port(&self) -> &Arc<dyn PlanSubmissionPort> {
-        self.port
-            .get()
-            .expect("QueueRunner recording port bound (call bind() after deps())")
-    }
-
     pub(crate) fn push(&self, submission: ScriptedSubmission) {
         self.submissions.lock().push_back(submission);
         self.notify.notify_one();
@@ -599,31 +621,39 @@ impl AgentRunner for QueueRunner {
             }
             self.notify.notified().await;
         };
-        record_scripted(self.port(), submission).await
+        record_scripted(&self.port, submission).await
     }
 }
 
 /// Record a scripted submission via the recording port (the same path the real
-/// submit tools take). A `NoSubmission` records nothing, so the owning loop's
-/// still-RUNNING guard synthesizes `run_exhausted`.
+/// submit tools take). A `NoSubmission` records nothing (and needs no bound
+/// port), so the owning loop's still-RUNNING guard synthesizes `run_exhausted`;
+/// a recording variant resolves the bound port and fails loud if a test forgot
+/// to `bind()` after `deps()`.
 async fn record_scripted(
-    port: &Arc<dyn PlanSubmissionPort>,
+    port: &OnceLock<Arc<dyn PlanSubmissionPort>>,
     submission: ScriptedSubmission,
 ) -> Result<AgentRunReport> {
+    fn bound(port: &OnceLock<Arc<dyn PlanSubmissionPort>>) -> &Arc<dyn PlanSubmissionPort> {
+        port.get()
+            .expect("recording port bound (call bind() after deps())")
+    }
     match submission {
         ScriptedSubmission::NoSubmission(summary) => Ok(AgentRunReport::failed(summary)),
         ScriptedSubmission::Planner(plan) => {
-            port.apply_plan(plan).await.expect("record plan via port");
+            bound(port).apply_plan(plan).await.expect("record plan via port");
             Ok(AgentRunReport::ok())
         }
         ScriptedSubmission::Generator(submission) => {
-            port.submit_generator(submission)
+            bound(port)
+                .submit_generator(submission)
                 .await
                 .expect("record generator via port");
             Ok(AgentRunReport::ok())
         }
         ScriptedSubmission::Reducer(submission) => {
-            port.apply_reducer(submission)
+            bound(port)
+                .apply_reducer(submission)
                 .await
                 .expect("record reducer via port");
             Ok(AgentRunReport::ok())
@@ -679,12 +709,6 @@ impl ScriptedRunner {
     /// `deps()`, before the registry is moved into the starter).
     pub(crate) fn bind(&self, registry: &Arc<AttemptOrchestratorRegistry>) {
         let _ = self.port.set(recording_port(registry));
-    }
-
-    fn port(&self) -> &Arc<dyn PlanSubmissionPort> {
-        self.port
-            .get()
-            .expect("ScriptedRunner recording port bound (call bind() after deps())")
     }
 
     pub(crate) fn launches(&self) -> Vec<AgentLaunch> {
@@ -778,7 +802,7 @@ impl AgentRunner for ScriptedRunner {
             }
             other => panic!("ScriptedRunner does not serve role {other:?}"),
         };
-        record_scripted(self.port(), submission).await
+        record_scripted(&self.port, submission).await
     }
 }
 

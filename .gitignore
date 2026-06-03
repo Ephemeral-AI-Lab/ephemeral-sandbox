@@ -87,3 +87,8 @@ graphify-out/
 
 # SWE-EVO live e2e test framework audit trees
 .sweevo_runs/
+
+# Generated benchmark and sandbox evidence artifacts
+bench/*.json
+bench/*.jsonl
+bench/*.md

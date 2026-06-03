@@ -14,8 +14,8 @@ use eos_state::{TaskRole, TaskStatus, WorkflowStatus};
 use serde_json::json;
 
 use crate::app_state::test_seams::{
-    agent_def, build_test_state, build_test_state_with_advisor, factory_from,
-    factory_root_blocks_after, tool_use_turn, ApprovingAdvisor, BlockingSource,
+    agent_def, build_test_state, factory_by_agent, factory_from, factory_root_blocks_after,
+    tool_use_turn, BlockingSource,
 };
 use crate::app_state::EventSourceFactory;
 use crate::{start_request, AppState};
@@ -24,8 +24,19 @@ fn root_agent() -> AgentDefinition {
     agent_def(
         "root",
         AgentRole::Root,
-        &["read_file", "delegate_workflow"],
+        &["read_file", "delegate_workflow", "ask_advisor"],
         &["submit_root_outcome"],
+    )
+}
+
+/// The advisor helper agent: read-only tools + the (ungated) advisor terminal.
+/// Resolved by name in the engine-driven `ask_advisor` run.
+fn advisor_agent() -> AgentDefinition {
+    agent_def(
+        "advisor",
+        AgentRole::Helper,
+        &["read_file", "glob", "grep"],
+        &["submit_advisor_feedback"],
     )
 }
 
@@ -159,23 +170,40 @@ async fn start_request_mints_root_task_no_workflow() {
 }
 
 // --- AC-eos-runtime-02 / -08: root success keeps the engine-stamped terminal.
-// `submit_root_outcome` is advisor-gated, so success requires an approving
-// advisor; the production `AdvisorService` stub denies (see
-// `root_terminal_blocked_without_advisor_approval`).
+// `submit_root_outcome` is advisor-gated, so success requires a real approving
+// advisor verdict in the transcript. The root asks the advisor (a pure tool_use
+// turn) and, once the engine-driven advisor agent returns `verdict="approve"`,
+// submits its terminal — no injected advisor port (the stateless gate infers the
+// verdict from the transcript).
 
 #[tokio::test]
 async fn successful_root_keeps_engine_terminal() {
-    let factory = factory_from(vec![tool_use_turn(
-        "toolu_1",
-        "submit_root_outcome",
-        json!({"status": "success", "outcome": "all done"}),
-    )]);
-    let (state, _dir) = build_test_state_with_advisor(
-        Some(factory),
-        vec![root_agent()],
-        Some(Arc::new(ApprovingAdvisor)),
-    )
-    .await;
+    let payload = json!({"status": "success", "outcome": "all done"});
+    let factory = factory_by_agent(vec![
+        (
+            "root",
+            vec![
+                tool_use_turn(
+                    "toolu_advise",
+                    "ask_advisor",
+                    json!({"tool_name": "submit_root_outcome", "tool_payload": payload.clone()}),
+                ),
+                tool_use_turn("toolu_1", "submit_root_outcome", payload),
+            ],
+        ),
+        (
+            "advisor",
+            vec![tool_use_turn(
+                "toolu_fb",
+                "submit_advisor_feedback",
+                json!({
+                    "verdict": "approve",
+                    "summary": "Tool selection correct. Payload supported by the work. No residual risks.",
+                }),
+            )],
+        ),
+    ]);
+    let (state, _dir) = build_test_state(Some(factory), vec![root_agent(), advisor_agent()]).await;
     let handle = start_request(&state, "task", Some("sb-1"), None)
         .await
         .unwrap();
@@ -480,7 +508,7 @@ mod command_session_delivery {
     use eos_types::{JsonObject, SandboxId};
     use serde_json::json;
 
-    use crate::app_state::test_seams::{agent_def, ApprovingAdvisor, FakeProvisioner};
+    use crate::app_state::test_seams::{agent_def, FakeProvisioner, ScriptedSource};
     use crate::app_state::EventSourceFactory;
     use crate::{start_request, AppState};
 
@@ -569,12 +597,15 @@ mod command_session_delivery {
         }]
     }
 
-    /// Drives the root: turn 1 launches a background command session, then it
-    /// keeps returning text turns until the `[BACKGROUND COMPLETED]` notification
-    /// for `cmd_1` lands in the transcript, at which point it submits the
+    /// Drives the root: turn 1 launches a background command session; it then
+    /// returns text turns until the `[BACKGROUND COMPLETED]` notification for
+    /// `cmd_1` lands in the transcript. Because `submit_root_outcome` is
+    /// advisor-gated, it then asks the advisor (one turn) and, on the following
+    /// turn — with the approve verdict now in the transcript — submits its
     /// terminal (recording that it saw the notification).
     struct DeliveryProbeSource {
         started: Arc<AtomicBool>,
+        asked_advisor: Arc<AtomicBool>,
         saw_notification: Arc<AtomicBool>,
     }
 
@@ -589,6 +620,16 @@ mod command_session_delivery {
             });
             if seen {
                 self.saw_notification.store(true, Ordering::SeqCst);
+                if !self.asked_advisor.swap(true, Ordering::SeqCst) {
+                    return Ok(stream_of(tool_turn(
+                        "toolu_advise",
+                        "ask_advisor",
+                        json!({
+                            "tool_name": "submit_root_outcome",
+                            "tool_payload": {"status": "success", "outcome": "saw background completion"},
+                        }),
+                    )));
+                }
                 return Ok(stream_of(tool_turn(
                     "toolu_done",
                     "submit_root_outcome",
@@ -617,27 +658,46 @@ mod command_session_delivery {
         let mut root = agent_def(
             "root",
             AgentRole::Root,
-            &["exec_command", "read_file"],
+            &["exec_command", "read_file", "ask_advisor"],
             &["submit_root_outcome"],
         );
         // Generous budget so the wait-loop never trips the no-terminal ceiling
         // before the (fast) heartbeat delivers.
         root.tool_call_limit = NonZeroU32::new(40).expect("nonzero");
+        let advisor = agent_def(
+            "advisor",
+            AgentRole::Helper,
+            &["read_file", "glob", "grep"],
+            &["submit_advisor_feedback"],
+        );
 
         let started = Arc::new(AtomicBool::new(false));
+        let asked_advisor = Arc::new(AtomicBool::new(false));
         let saw_notification = Arc::new(AtomicBool::new(false));
         let started_factory = started.clone();
+        let asked_factory = asked_advisor.clone();
         let saw_factory = saw_notification.clone();
-        let factory: EventSourceFactory = Arc::new(move |_def| {
-            Arc::new(DeliveryProbeSource {
-                started: started_factory.clone(),
-                saw_notification: saw_factory.clone(),
-            }) as Arc<dyn EventSource>
+        // The advisor agent runs a real approve turn; the root probe drives the
+        // rest. No injected advisor port — the gate reads the transcript.
+        let factory: EventSourceFactory = Arc::new(move |def| {
+            if def.name.as_str() == "advisor" {
+                Arc::new(ScriptedSource::new(vec![tool_turn(
+                    "toolu_fb",
+                    "submit_advisor_feedback",
+                    json!({"verdict": "approve", "summary": "background completion is real; approve"}),
+                )])) as Arc<dyn EventSource>
+            } else {
+                Arc::new(DeliveryProbeSource {
+                    started: started_factory.clone(),
+                    asked_advisor: asked_factory.clone(),
+                    saw_notification: saw_factory.clone(),
+                }) as Arc<dyn EventSource>
+            }
         });
 
         let dir = tempfile::tempdir().expect("tempdir");
         let url = format!("sqlite://{}", dir.path().join("t.db").display());
-        let registry: AgentRegistry = vec![root].into_iter().collect();
+        let registry: AgentRegistry = vec![root, advisor].into_iter().collect();
         let state = AppState::builder()
             .database_url(url)
             .cwd(dir.path().display().to_string())
@@ -647,7 +707,6 @@ mod command_session_delivery {
             .transport(Arc::new(CommandCompletionTransport))
             .agent_registry(Arc::new(registry))
             .event_source_factory(factory)
-            .advisor(Arc::new(ApprovingAdvisor))
             .build()
             .await
             .expect("build state");

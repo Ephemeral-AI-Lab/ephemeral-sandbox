@@ -10,11 +10,10 @@ use std::sync::{Arc, Mutex as StdMutex};
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use eos_agent_def::{load_agents_tree, AgentDefinition, AgentRegistry, AgentRegistryBuilder};
+use eos_agent_def::{load_agents_tree, AgentRegistry, AgentRegistryBuilder};
 use eos_audit::{AuditSink, BufferedAuditShutdown, BufferedJsonlSink, NoopAuditSink};
 use eos_config::{CentralConfig, DatabaseUrl};
 use eos_db::Database;
-use eos_engine::{AdvisorService, EventSource, StreamEvent};
 use eos_llm_client::{Auth, LlmClient, LlmRequest, LlmStream, ProviderError};
 use eos_plugin_catalog::PluginCatalog;
 use eos_sandbox_api::SandboxTransport;
@@ -26,21 +25,15 @@ use eos_skills::{load_skill_registry, SkillRegistry};
 use eos_state::{
     AgentRunStore, AttemptStore, IterationStore, ModelStore, RequestStore, TaskStore, WorkflowStore,
 };
-use eos_tools::{build_default_registry, AdvisorPort, CallerScope, ToolName, ToolRegistry};
+use eos_tools::{build_default_registry, CallerScope, ToolName, ToolRegistry};
 use eos_types::{Clock, RequestId, SystemClock};
 use tokio_util::sync::CancellationToken;
 
-/// Per-agent event-source factory seam (replaces `RuntimeConfig.event_source_factory`).
-///
-/// `None` on [`AppState`] means the live provider stream is used; the mock
-/// harness sets it so each spawned agent runs the real loop against a scripted
-/// source. Kept as a synchronous composition-root closure (the Python factory is
-/// synchronous and returns the trait object directly), not promoted to a named
-/// trait — there is no future to erase.
-pub type EventSourceFactory = Arc<dyn Fn(&AgentDefinition) -> Arc<dyn EventSource> + Send + Sync>;
-
-/// Per-run stream-event callback (replaces the Python `AgentStreamEmitter`).
-pub type EventCallback = Arc<dyn Fn(&StreamEvent) + Send + Sync>;
+// The per-agent event-source factory and per-run stream-event callback are owned
+// by `eos-engine` (next to the loop they drive, so the engine-driven advisor run
+// can resolve a source without a runtime back-edge) and re-exported here for the
+// composition root and the `start_request` signature.
+pub use eos_engine::{EventCallback, EventSourceFactory};
 
 /// Request-scoped sandbox provisioning seam.
 ///
@@ -124,7 +117,6 @@ pub struct AppState {
     pub(crate) provider_registry: Arc<ProviderRegistry>,
     pub(crate) transport: Arc<dyn SandboxTransport>,
     pub(crate) provisioner: Arc<dyn RequestProvisioner>,
-    pub(crate) advisor: Arc<dyn AdvisorPort>,
     pub(crate) shutdown: CancellationToken,
 }
 
@@ -149,6 +141,20 @@ impl AppState {
     #[must_use]
     pub fn shutdown_token(&self) -> CancellationToken {
         self.shutdown.clone()
+    }
+
+    /// Bundle the explicit run handles `eos_engine::run_ephemeral_agent` needs (in
+    /// place of `&AppState`, advisor remediation plan §6). Cheap (Arc/`String`
+    /// clones); the root-agent and delegated-workflow runners pass this in.
+    pub(crate) fn engine_run_handles(&self) -> eos_engine::EngineRunHandles {
+        eos_engine::EngineRunHandles {
+            agent_run_store: self.agent_run_store.clone(),
+            model_store: self.model_store.clone(),
+            llm_client: self.llm_client.clone(),
+            event_source_factory: self.event_source_factory.clone(),
+            agent_registry: self.agent_registry.clone(),
+            cwd: self.cwd.clone(),
+        }
     }
 
     /// The shared central configuration.
@@ -209,7 +215,6 @@ pub struct AppStateBuilder {
     model_registry_path: Option<PathBuf>,
     provisioner: Option<Arc<dyn RequestProvisioner>>,
     transport: Option<Arc<dyn SandboxTransport>>,
-    advisor: Option<Arc<dyn AdvisorPort>>,
     compatibility_mode: bool,
 }
 
@@ -251,14 +256,6 @@ impl AppStateBuilder {
     /// Inject an LLM client (an unconfigured placeholder by default).
     pub fn llm_client(mut self, client: Arc<dyn LlmClient>) -> Self {
         self.llm_client = Some(client);
-        self
-    }
-
-    /// Inject the advisor port (the engine `AdvisorService` stub by default). The
-    /// stub denies every terminal, so a real `AdvisorPort` is required for any
-    /// advisor-gated terminal — which now includes `submit_root_outcome` — to pass.
-    pub fn advisor(mut self, advisor: Arc<dyn AdvisorPort>) -> Self {
-        self.advisor = Some(advisor);
         self
     }
 
@@ -476,9 +473,6 @@ impl AppStateBuilder {
             provider_registry,
             transport,
             provisioner,
-            advisor: self
-                .advisor
-                .unwrap_or_else(|| Arc::new(AdvisorService)),
             shutdown: CancellationToken::new(),
         })
     }
@@ -584,36 +578,6 @@ pub(crate) mod test_seams {
             _timeout_s: u32,
         ) -> Result<JsonObject, SandboxApiError> {
             Ok(JsonObject::new())
-        }
-    }
-
-    /// An advisor port that approves every terminal — the test analogue of a
-    /// wired advisor runner. The production `AdvisorService` stub denies every
-    /// terminal, so a test that needs an advisor-gated terminal (now including
-    /// `submit_root_outcome`) to succeed injects this.
-    #[derive(Debug, Default)]
-    pub(crate) struct ApprovingAdvisor;
-
-    impl eos_tools::ports::Sealed for ApprovingAdvisor {}
-
-    #[async_trait]
-    impl eos_tools::AdvisorPort for ApprovingAdvisor {
-        async fn review(
-            &self,
-            _tool_name: &str,
-            _tool_payload: &JsonObject,
-        ) -> Result<String, eos_tools::ToolError> {
-            Ok("approved".to_owned())
-        }
-
-        async fn approval_status(
-            &self,
-            _target_tool: &str,
-        ) -> Result<eos_tools::AdvisorApproval, eos_tools::ToolError> {
-            Ok(eos_tools::AdvisorApproval {
-                approved: true,
-                reason: None,
-            })
         }
     }
 
@@ -741,6 +705,22 @@ pub(crate) mod test_seams {
         })
     }
 
+    /// A factory that dispatches scripted turns by agent name; an agent absent
+    /// from the map gets an empty (first-turn-erroring) source. Used by the
+    /// advisor e2e test, where `root` and `advisor` need distinct turn scripts.
+    pub(crate) fn factory_by_agent(
+        by_agent: Vec<(&'static str, Vec<Vec<StreamEvent>>)>,
+    ) -> EventSourceFactory {
+        let scripts: std::collections::HashMap<String, Vec<Vec<StreamEvent>>> = by_agent
+            .into_iter()
+            .map(|(name, turns)| (name.to_owned(), turns))
+            .collect();
+        Arc::new(move |def: &AgentDefinition| {
+            let turns = scripts.get(def.name.as_str()).cloned().unwrap_or_default();
+            Arc::new(ScriptedSource::new(turns)) as Arc<dyn EventSource>
+        })
+    }
+
     /// One model turn that calls `tool_name` with `input`.
     pub(crate) fn tool_use_turn(
         tool_use_id: &str,
@@ -779,18 +759,6 @@ pub(crate) mod test_seams {
         factory: Option<EventSourceFactory>,
         agents: Vec<AgentDefinition>,
     ) -> (super::AppState, tempfile::TempDir) {
-        build_test_state_with_advisor(factory, agents, None).await
-    }
-
-    /// Like [`build_test_state`] but injects an explicit advisor port. `None`
-    /// keeps the production `AdvisorService` stub (which denies every terminal),
-    /// so a caller that needs an advisor-gated terminal to pass injects
-    /// [`ApprovingAdvisor`].
-    pub(crate) async fn build_test_state_with_advisor(
-        factory: Option<EventSourceFactory>,
-        agents: Vec<AgentDefinition>,
-        advisor: Option<Arc<dyn eos_tools::AdvisorPort>>,
-    ) -> (super::AppState, tempfile::TempDir) {
         use eos_agent_def::AgentRegistry;
 
         let dir = tempfile::tempdir().expect("tempdir");
@@ -806,9 +774,6 @@ pub(crate) mod test_seams {
             .agent_registry(Arc::new(registry));
         if let Some(factory) = factory {
             builder = builder.event_source_factory(factory);
-        }
-        if let Some(advisor) = advisor {
-            builder = builder.advisor(advisor);
         }
         let state = builder.build().await.expect("build app state");
         (state, dir)

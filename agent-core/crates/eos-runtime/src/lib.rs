@@ -21,7 +21,6 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-mod agent_loop;
 mod agent_runner;
 mod app_state;
 mod entry;

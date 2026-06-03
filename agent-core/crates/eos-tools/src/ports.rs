@@ -18,9 +18,12 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use eos_state::{GeneratorSubmission, PlannerKind, ReducerSubmission};
 use eos_types::{SandboxId, SubagentSessionId, TaskId, WorkflowId, WorkflowSessionId};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::error::ToolError;
+use crate::metadata::ExecutionMetadata;
+use crate::result::ToolResult;
 
 /// Friend-seal for the port traits (`api-sealed-trait`).
 ///
@@ -189,39 +192,81 @@ pub trait PlanSubmissionPort: Sealed + Send + Sync {
 // SubagentSupervisorPort — spawn / check / cancel subagent + background count.
 // ---------------------------------------------------------------------------
 
-/// A started subagent handle (returned by [`SubagentSupervisorPort::spawn`]).
+/// A started subagent handle (returned on the `Launched` arm of [`SpawnedSubagent`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StartedSubagent {
     /// The agent-facing background handle (`subagent_<n>`).
     pub subagent_session_id: SubagentSessionId,
 }
 
+/// The outcome of [`SubagentSupervisorPort::spawn`]: a tracked launch, or an
+/// in-band validation rejection rendered to the model. Mirrors [`SubmissionAck`]:
+/// validation failures (recursion / unknown / non-subagent) are model-facing
+/// `Ok(Rejected)` outcomes, not `Err(ToolError)` framework faults.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpawnedSubagent {
+    /// The subagent run was launched and is tracked.
+    Launched(StartedSubagent),
+    /// Validation rejected the dispatch; the message is shown to the model.
+    Rejected(String),
+}
+
+/// Per-agent, per-kind in-flight background-task count (Running records only),
+/// scoped to one `agent_id`, serialized to JSON for the terminal-drain audit
+/// assertion. Workflow handles are minted/tracked by the workflow adapter, not
+/// this supervisor, so they are deliberately absent here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct BackgroundInflightReport {
+    /// `subagent + command_session`.
+    pub total: usize,
+    /// In-flight subagent runs for this agent.
+    pub subagent: usize,
+    /// In-flight, supervisor-tracked command sessions for this agent
+    /// (diagnostic; the authoritative live-session gate is the daemon RPC).
+    pub command_session: usize,
+}
+
 /// The engine background supervisor, for the subagent tools and the
 /// no-inflight-background-tasks hook. Implemented by `eos-engine`.
 #[async_trait]
 pub trait SubagentSupervisorPort: Sealed + Send + Sync {
-    /// Spawn a dispatchable subagent session and return its typed handle. The
-    /// implementor validates the agent (exists, is a subagent, no recursion) and
-    /// supervises terminal-result delivery out of band.
-    async fn spawn(&self, agent_name: &str, prompt: &str) -> Result<StartedSubagent, ToolError>;
+    /// Validate, launch, and track a dispatchable subagent run. `ctx` is the
+    /// caller's execution metadata: the implementor reads the caller identity
+    /// from it (for recursion + the agent-scoped count) and clones it to build
+    /// the child run's metadata. Validation failures (recursion / unknown /
+    /// non-subagent) return `Ok(Rejected(_))`; `Err` is a framework fault only.
+    async fn spawn(
+        &self,
+        ctx: &ExecutionMetadata,
+        agent_name: &str,
+        prompt: &str,
+    ) -> Result<SpawnedSubagent, ToolError>;
 
-    /// Render the latest `last_n` messages / status for a tracked subagent.
+    /// Render a tracked subagent's status/result as the model-facing
+    /// [`ToolResult`] (the rendered JSON payload, or `is_error` for a missing
+    /// session).
     async fn progress(
         &self,
         subagent_session_id: &SubagentSessionId,
         last_n_messages: u8,
-    ) -> Result<String, ToolError>;
+    ) -> Result<ToolResult, ToolError>;
 
-    /// Cancel a tracked subagent session.
+    /// Cancel a tracked subagent session, returning the model-facing
+    /// [`ToolResult`] (`is_error` for an unknown / already-settled session).
     async fn cancel(
         &self,
         subagent_session_id: &SubagentSessionId,
         reason: &str,
-    ) -> Result<String, ToolError>;
+    ) -> Result<ToolResult, ToolError>;
 
-    /// Count of this agent's in-flight local background tasks (the
-    /// `background_task_manager` count the no-inflight hook reads).
-    async fn background_inflight_count(&self, agent_id: &str) -> usize;
+    /// This agent's in-flight background report (Running-only), without mutating
+    /// state — the reject-mode read for `enter_isolated_workspace`.
+    async fn inflight_report(&self, agent_id: &str) -> BackgroundInflightReport;
+
+    /// Drain this agent's in-flight subagent runs (settle `Cancelled` + abort)
+    /// and return the post-drain report — the drain-to-0 path the terminal /
+    /// exit prehook runs so a live or phantom subagent never wedges the terminal.
+    async fn drain_for_agent(&self, agent_id: &str) -> BackgroundInflightReport;
 }
 
 // ---------------------------------------------------------------------------
