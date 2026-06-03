@@ -12,7 +12,7 @@ import json
 
 from pydantic import BaseModel, Field
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.decorator import tool
 from tools._framework.core.results import TextToolOutput, ToolResult

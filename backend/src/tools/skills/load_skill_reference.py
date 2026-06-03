@@ -6,7 +6,7 @@ import json
 
 from pydantic import BaseModel, Field
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from skills.core.registry import SkillRegistry
 from tools._framework.core.base import BaseTool, TextToolOutput, ToolResult
 from tools._framework.core.decorator import tool

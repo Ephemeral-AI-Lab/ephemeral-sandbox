@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from sandbox.ephemeral_workspace.plugin import op_registry as registry_mod
 from sandbox.ephemeral_workspace.plugin.op_registry import (
     PluginOpConflictError,

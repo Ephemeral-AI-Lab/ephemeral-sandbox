@@ -7,8 +7,8 @@ import os
 import time
 from typing import Any
 
-from sandbox.shared.models import Intent
-from sandbox.ephemeral_workspace.plugin.op_registry import register_plugin_op
+from sandbox._shared.models import Intent
+from plugins.runtime_bridge.op_registry import register_plugin_op
 
 from plugins.catalog.lsp.runtime.apply import apply_workspace_edit
 from plugins.catalog.lsp.runtime.session_manager import get_session, session_audit_counts

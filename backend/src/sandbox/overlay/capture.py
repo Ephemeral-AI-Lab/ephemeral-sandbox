@@ -13,7 +13,7 @@ from sandbox.overlay.path_change import (
     OverlayPathChangeKind,
     content_hash,
 )
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 def walk_upperdir(

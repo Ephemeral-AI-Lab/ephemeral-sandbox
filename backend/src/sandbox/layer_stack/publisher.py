@@ -30,7 +30,7 @@ from sandbox.layer_stack.manifest import (
     write_layer_digest_atomic,
     write_manifest_atomic,
 )
-from sandbox.shared.clock import monotonic_now, record_elapsed
+from sandbox._shared.clock import monotonic_now, record_elapsed
 
 
 class LayerPublisher:

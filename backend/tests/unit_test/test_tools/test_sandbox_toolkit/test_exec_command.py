@@ -10,8 +10,8 @@ from typing import Any
 
 import pytest
 
-from sandbox.shared.models import CommandOutput, ExecCommandResult
-from sandbox.shared.timing_keys import TimingKey
+from sandbox._shared.models import CommandOutput, ExecCommandResult
+from sandbox._shared.timing_keys import TimingKey
 from tools._framework.core.base import ToolExecutionContextService
 from tools.sandbox.exec_command import exec_command
 

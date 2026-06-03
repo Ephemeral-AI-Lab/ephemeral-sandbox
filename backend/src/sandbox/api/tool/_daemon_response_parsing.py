@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any, TypeVar, cast
 
-from sandbox.shared.clock import normalize_timing_map
-from sandbox.shared.models import (
+from sandbox._shared.clock import normalize_timing_map
+from sandbox._shared.models import (
     ConflictInfo,
     GlobResult,
     GrepResult,

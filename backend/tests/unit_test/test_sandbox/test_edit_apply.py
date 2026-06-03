@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sandbox.shared.edit_apply import SearchReplaceError, apply_search_replace
+from sandbox._shared.edit_apply import SearchReplaceError, apply_search_replace
 
 
 def test_unique_match_replaced_once() -> None:

@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from sandbox.shared.command_exec_policy import (
+from sandbox._shared.command_exec_policy import (
     DEFAULT_COMMAND_EXEC_POLICY,
     CommandExecPolicy,
 )

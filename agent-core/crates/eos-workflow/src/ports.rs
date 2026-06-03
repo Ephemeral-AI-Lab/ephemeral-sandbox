@@ -381,3 +381,80 @@ fn cancellation_outcomes(task: &Task, outcome_text: &str) -> Vec<eos_state::Exec
         outcome_text.to_owned(),
     )]
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use std::sync::Arc;
+
+    use eos_state::{
+        AttemptFailReason, AttemptStatus, IterationStatus, TaskStatus, WorkflowStatus,
+    };
+    use eos_tools::WorkflowControlPort as _;
+    use serde_json::json;
+
+    use super::*;
+    use crate::testsupport::{root_task, MemoryStores, QueueRunner};
+
+    // The workflow-control adapter mints `wf_<n>` handles (not workflow ids),
+    // rejects a fabricated handle, and `cancel` tears down the delegated tree
+    // (workflow + iteration CANCELLED, attempt FAILED, active tasks FAILED with
+    // a `workflow_cancelled` marker) without mutating the parent.
+    #[tokio::test]
+    async fn workflow_control_uses_runtime_handles_and_cancels_child_state() {
+        let stores = Arc::new(MemoryStores::default());
+        let runner = Arc::new(QueueRunner::default());
+        let deps = stores.deps(runner);
+        let parent = root_task("parent", TaskStatus::Running);
+        stores.seed_task(parent.clone());
+        let adapter = WorkflowControlAdapter::new(
+            WorkflowStarter::new(deps),
+            stores.clone(),
+            stores.clone(),
+            stores.clone(),
+            stores.clone(),
+        );
+
+        let started = adapter
+            .start(&parent.id, "agent-1", "delegated goal")
+            .await
+            .unwrap();
+        assert_eq!(started.workflow_task_id.as_str(), "wf_1");
+        let derived_handle: eos_types::WorkflowSessionId =
+            format!("wf_{}", started.workflow_id.as_str())
+                .parse()
+                .unwrap();
+        assert!(adapter
+            .status(&started.workflow_id, Some(&derived_handle))
+            .await
+            .unwrap()
+            .contains("was not found"));
+
+        adapter
+            .cancel(&started.workflow_task_id, "stop now")
+            .await
+            .unwrap();
+
+        let workflow = stores.workflow(&started.workflow_id).unwrap();
+        assert_eq!(workflow.status, WorkflowStatus::Cancelled);
+        let iteration_id = workflow.iteration_ids.first().unwrap();
+        let iteration = stores.iteration(iteration_id).unwrap();
+        assert_eq!(iteration.status, IterationStatus::Cancelled);
+        let attempt_id = iteration.attempt_ids.first().unwrap();
+        let attempt = stores.attempt(attempt_id).unwrap();
+        assert_eq!(attempt.status, AttemptStatus::Failed);
+        assert_eq!(attempt.fail_reason, Some(AttemptFailReason::TaskFailed));
+        let planner_task = stores
+            .task(attempt.planner_task_id.as_ref().unwrap())
+            .unwrap();
+        assert_eq!(planner_task.status, TaskStatus::Failed);
+        assert_eq!(
+            planner_task
+                .terminal_tool_result
+                .unwrap()
+                .get("fail_reason"),
+            Some(&json!("workflow_cancelled"))
+        );
+        assert_eq!(stores.task(&parent.id).unwrap().status, TaskStatus::Running);
+    }
+}

@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from sandbox.shared.models import Intent, SandboxCaller
+from sandbox._shared.models import Intent, SandboxCaller
 from sandbox.ephemeral_workspace.plugin import op_registry, overlay_child, overlay_dispatch
 from sandbox.ephemeral_workspace.plugin.op_context import PluginOpContext
 from sandbox.ephemeral_workspace.plugin.op_registry import (

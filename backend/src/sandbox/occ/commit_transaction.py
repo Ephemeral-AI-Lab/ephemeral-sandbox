@@ -8,8 +8,8 @@ from pathlib import Path
 from types import TracebackType
 from uuid import uuid4
 
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.timing_keys import TimingKey
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.timing_keys import TimingKey
 from sandbox.layer_stack.changes import LayerChange, WriteLayerChange
 from sandbox.layer_stack.manifest import Manifest
 from sandbox.occ.changeset import (

@@ -20,9 +20,9 @@ from sandbox.layer_stack.changes import (
     SymlinkLayerChange,
 )
 from sandbox.layer_stack.manifest import Manifest
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.edit_apply import SearchReplaceError, apply_search_replace
-from sandbox.shared.timing_keys import TimingKey
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.edit_apply import SearchReplaceError, apply_search_replace
+from sandbox._shared.timing_keys import TimingKey
 from sandbox.occ.changeset import (
     Change,
     DeleteChange,

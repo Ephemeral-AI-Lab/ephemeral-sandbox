@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.shared.tool_primitives.edit import edit_file
+from sandbox._shared.tool_primitives.edit import edit_file
 from sandbox.layer_stack import LayerStack, WriteLayerChange
 from sandbox.layer_stack.workspace_base import build_workspace_base
 from sandbox.occ.changeset import CommitOptions, FileStatus, build_api_write_change

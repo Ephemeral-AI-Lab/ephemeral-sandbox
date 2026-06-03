@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from audit.jsonl import append_jsonl_event
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now
 from sandbox.audit import events
 
 

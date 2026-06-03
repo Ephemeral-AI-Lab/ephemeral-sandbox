@@ -113,7 +113,7 @@ async def _apply_with_operation_overlay(
             workspace_root=workspace_root,
             handle=handle,
         )
-        from sandbox.shared.command_exec_contract import CommandExecRequest
+        from sandbox._shared.command_exec_contract import CommandExecRequest
 
         request = CommandExecRequest(
             invocation_id=f"lsp-apply-{uuid4().hex[:8]}",

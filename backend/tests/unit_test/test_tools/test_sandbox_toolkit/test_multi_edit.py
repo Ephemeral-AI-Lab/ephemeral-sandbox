@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from sandbox.api import EditFileResult
-from sandbox.shared.edit_apply import SearchReplaceError, apply_search_replace
+from sandbox._shared.edit_apply import SearchReplaceError, apply_search_replace
 from tools._framework.core.base import ToolExecutionContextService
 from tools.sandbox.multi_edit import multi_edit
 

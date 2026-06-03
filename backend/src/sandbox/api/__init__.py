@@ -1,16 +1,16 @@
 """Public sandbox API package: request/result dataclasses and verb dispatchers.
 
-Request and result dataclasses are owned by :mod:`sandbox.shared.models` and
+Request and result dataclasses are owned by :mod:`sandbox._shared.models` and
 re-exported here to preserve the existing public import path.
 
-Import ordering is load-bearing: ``sandbox.shared.models`` must bind before
+Import ordering is load-bearing: ``sandbox._shared.models`` must bind before
 ``sandbox.api.provider_control`` runs so public request/result names are
 available before lifecycle imports pull in tool-facing plugin dispatch.
 """
 
 from __future__ import annotations
 
-from sandbox.shared.models import (
+from sandbox._shared.models import (
     CommandOutput,
     CommandSessionCancelRequest,
     CommandSessionWriteRequest,

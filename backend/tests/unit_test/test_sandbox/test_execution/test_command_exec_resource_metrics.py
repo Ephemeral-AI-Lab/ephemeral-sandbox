@@ -1,4 +1,4 @@
-from sandbox.shared.command_exec_resource_metrics import (
+from sandbox._shared.command_exec_resource_metrics import (
     _parse_cgroup_io_stat,
     _parse_cgroup_key_values,
 )

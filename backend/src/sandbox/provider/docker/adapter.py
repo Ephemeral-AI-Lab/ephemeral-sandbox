@@ -13,7 +13,7 @@ import secrets
 import shlex
 from typing import Any
 
-from sandbox.shared.models import RawExecResult
+from sandbox._shared.models import RawExecResult
 from sandbox.provider.docker.client import (
     get_async_docker_client,
     get_docker_client,

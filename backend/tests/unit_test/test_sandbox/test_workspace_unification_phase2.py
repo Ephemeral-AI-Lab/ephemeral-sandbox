@@ -6,8 +6,8 @@ import asyncio
 import os
 from pathlib import Path
 
-from sandbox.shared.models import Intent, ToolCallRequest
-from sandbox.shared.tool_primitives import VERB_TABLE
+from sandbox._shared.models import Intent, ToolCallRequest
+from sandbox._shared.tool_primitives import VERB_TABLE
 from sandbox.daemon.rpc import dispatcher
 from sandbox.occ.overlay_change_conversion import overlay_path_changes_to_occ_changes
 from sandbox.occ.changeset import ChangesetResult, FileResult, FileStatus

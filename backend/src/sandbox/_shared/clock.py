@@ -42,7 +42,7 @@ def _timing_key_text(key: object) -> str:
         return str(key.value)
     text = str(key)
     if text.startswith("TimingKey."):
-        from sandbox.shared.timing_keys import TimingKey
+        from sandbox._shared.timing_keys import TimingKey
 
         enum_name = text.removeprefix("TimingKey.")
         try:

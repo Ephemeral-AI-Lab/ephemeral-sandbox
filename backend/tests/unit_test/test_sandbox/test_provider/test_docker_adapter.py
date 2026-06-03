@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sandbox.shared.models import RawExecResult
+from sandbox._shared.models import RawExecResult
 from sandbox.provider.docker.adapter import (
     DAEMON_AUTH_ENV,
     DAEMON_TCP_ENABLED_LABEL,

@@ -18,8 +18,8 @@ from sandbox.occ.changeset import (
     drop_or_reject_file_result,
 )
 from sandbox.occ.commit_transaction import CommitTransaction
-from sandbox.shared.timing_keys import TimingKey
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.timing_keys import TimingKey
+from sandbox._shared.clock import monotonic_now
 
 _RESULT_READY_AT = TimingKey.COMMIT_QUEUE_RESULT_READY_AT
 

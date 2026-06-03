@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 
 from pydantic import BaseModel, ConfigDict, Field
 

@@ -49,7 +49,7 @@ def _inject_runtime(plugin: str, op: str) -> types.ModuleType:
     controlled by monkeypatching ``runtime_api_mod._warm_plugin_runtime`` in the
     test so we can deterministically fail-then-succeed.
     """
-    from sandbox.shared.models import Intent
+    from sandbox._shared.models import Intent
 
     module_name = f"plugins.catalog.{plugin}.runtime.server"
     namespace: dict[str, object] = {

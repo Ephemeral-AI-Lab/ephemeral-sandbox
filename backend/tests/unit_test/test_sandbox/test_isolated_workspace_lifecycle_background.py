@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from sandbox.shared.models import (
+from sandbox._shared.models import (
     EnterIsolatedWorkspaceRequest,
     ExitIsolatedWorkspaceRequest,
     SandboxCaller,

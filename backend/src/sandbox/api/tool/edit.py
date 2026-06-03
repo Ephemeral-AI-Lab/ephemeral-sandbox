@@ -13,7 +13,7 @@ from sandbox.api.tool._daemon_response_parsing import (
 from sandbox.api.tool._operation_audit import run_audited_operation
 from sandbox.api.timeouts import EDIT_FILE_TIMEOUT_S
 from sandbox.api.transport import DAEMON_OP_EDIT_FILE, SandboxTransport, call_sandbox_daemon
-from sandbox.shared.models import ConflictInfo, EditFileRequest, EditFileResult
+from sandbox._shared.models import ConflictInfo, EditFileRequest, EditFileResult
 
 
 async def edit_file(

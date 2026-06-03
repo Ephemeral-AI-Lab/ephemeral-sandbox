@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from sandbox.shared.timing_keys import TimingKey
-from sandbox.shared.clock import normalize_timing_map, record_elapsed
+from sandbox._shared.timing_keys import TimingKey
+from sandbox._shared.clock import normalize_timing_map, record_elapsed
 from sandbox.audit.timing import timing_audit_signals
 
 
@@ -31,7 +31,7 @@ def test_record_elapsed_writes_and_returns_elapsed_seconds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     clock = iter([10.0, 12.5])
-    monkeypatch.setattr("sandbox.shared.clock.monotonic_now", lambda: next(clock))
+    monkeypatch.setattr("sandbox._shared.clock.monotonic_now", lambda: next(clock))
 
     started_at = next(clock)
     timings: dict[str, float] = {}

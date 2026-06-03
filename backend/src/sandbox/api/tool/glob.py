@@ -10,7 +10,7 @@ from sandbox.api.tool._daemon_response_parsing import (
 )
 from sandbox.api.timeouts import GLOB_TIMEOUT_S
 from sandbox.api.transport import DAEMON_OP_GLOB, SandboxTransport, call_sandbox_daemon
-from sandbox.shared.models import GlobRequest, GlobResult
+from sandbox._shared.models import GlobRequest, GlobResult
 
 
 async def glob(

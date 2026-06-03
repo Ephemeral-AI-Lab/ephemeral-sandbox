@@ -136,8 +136,8 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
   - `eosd` → daemon, runner, ns-holder, overlay, protocol
   - `xtask` is a workspace package for packaging and is not part of the runtime architecture graph.
 - **Port traits invert the upward edges** (so the graph stays leaf→root). Lower crates *define* a
-  trait (e.g. `OccRuntimeServicesPort`, `LayerStackRuntimePort`, `ChangesetProjectionPort`);
-  `eos-daemon` implements and injects it. The audit *schema* (pure dataclasses) moves into
+  trait (e.g. `OccRuntimeServicesPort` in `eos-occ`, `LayerStackSnapshotPort`/`NamespaceRuntimePort`
+  in `eos-isolated`); `eos-daemon` implements and injects it. The audit *schema* (pure dataclasses) moves into
   `eos-protocol`; the impure `safe_emit`/`safe_record_phase` stay in `eos-daemon` (partial severing).
 
 ---

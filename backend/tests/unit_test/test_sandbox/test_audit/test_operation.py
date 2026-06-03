@@ -14,7 +14,7 @@ from sandbox.audit.translation import (
     events_from_result,
     node_from_caller,
 )
-from sandbox.shared.models import ConflictInfo, SandboxCaller, WriteFileResult
+from sandbox._shared.models import ConflictInfo, SandboxCaller, WriteFileResult
 
 
 def test_event_families_group_all_known_event_types_once() -> None:

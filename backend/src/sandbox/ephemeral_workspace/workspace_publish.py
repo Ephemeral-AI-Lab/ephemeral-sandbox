@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.models import ToolCallResult
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.models import ToolCallResult
 from sandbox.daemon.workspace_tool.changeset_projection import (
     conflict_and_status,
     conflict_to_dict,
@@ -16,7 +16,7 @@ from sandbox.ephemeral_workspace.events import (
     WorkspacePathChange,
     WorkspaceChangeEvent,
 )
-from sandbox.shared.command_exec_contract import (
+from sandbox._shared.command_exec_contract import (
     ChangesetResultLike,
     CommandExecRequest,
     SnapshotManifest,

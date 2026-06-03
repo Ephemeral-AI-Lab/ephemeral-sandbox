@@ -7,7 +7,7 @@ import threading
 import time
 from pathlib import Path
 
-from sandbox.daemon.audit_schema import (
+from sandbox.audit.schema import (
     LayerStackSection,
     build_layer_stack_event,
     safe_emit,
@@ -26,7 +26,7 @@ from sandbox.layer_stack.workspace_binding import (
     read_workspace_binding,
     require_workspace_binding,
 )
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 _MANAGER_CACHE_LOCK = threading.RLock()
 _MANAGER_CACHE: dict[str, LayerStack] = {}

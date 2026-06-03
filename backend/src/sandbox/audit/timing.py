@@ -2,7 +2,7 @@
 
 ``timing_audit_signals`` inspects a result's ``timings`` map and classifies
 which lifecycle facts (OCC prepared, overlay executed, layer published, …) the
-caller can claim happened. Clock primitives live in ``sandbox.shared.clock``;
+caller can claim happened. Clock primitives live in ``sandbox._shared.clock``;
 this module is intentionally narrow to audit-facing concerns.
 """
 

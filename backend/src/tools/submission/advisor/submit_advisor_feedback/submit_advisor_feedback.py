@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from tools._framework.core.context import ToolExecutionContextService
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from tools._framework.core.decorator import tool
 from tools._framework.core.results import TextToolOutput, ToolResult
 from .prompt import (

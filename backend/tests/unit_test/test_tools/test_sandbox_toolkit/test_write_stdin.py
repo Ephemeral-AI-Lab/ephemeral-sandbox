@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from engine.background.task_supervisor import BackgroundTaskSupervisor
-from sandbox.shared.models import CommandOutput, ExecCommandResult
+from sandbox._shared.models import CommandOutput, ExecCommandResult
 from tools._framework.core.base import ToolExecutionContextService
 from tools.sandbox.write_stdin import write_stdin
 

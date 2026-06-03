@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from workflow import WorkflowInvariantViolation
 from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.decorator import tool

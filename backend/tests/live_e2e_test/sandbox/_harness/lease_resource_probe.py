@@ -18,7 +18,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, Protocol
 
-from sandbox.shared.models import Intent, ToolCallRequest
+from sandbox._shared.models import Intent, ToolCallRequest
 
 OverlayPath = Literal["mount_syscalls"]
 

@@ -6,7 +6,7 @@ import json
 
 from pydantic import BaseModel
 
-from sandbox.shared.models import ExitIsolatedWorkspaceRequest, Intent
+from sandbox._shared.models import ExitIsolatedWorkspaceRequest, Intent
 from sandbox.host.isolated_workspace_lifecycle import exit_isolated_workspace as lifecycle_exit
 from tools._framework.core.base import (
     TextToolOutput,

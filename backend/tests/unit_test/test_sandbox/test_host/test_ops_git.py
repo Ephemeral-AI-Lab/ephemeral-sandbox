@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from sandbox.shared.models import RawExecResult
+from sandbox._shared.models import RawExecResult
 from sandbox.host.bootstrap import ensure_git
 
 

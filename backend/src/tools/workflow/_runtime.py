@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from engine.background.task_supervisor import BackgroundTaskSupervisor
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from task import TaskStatus
 from tools._framework.core.context import ToolExecutionContextService
 from tools._hooks._context import resolve_agent_id

@@ -19,7 +19,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from sandbox.daemon.builtin_operations import WORKSPACE_TOOL_ROUTES
 from tools._framework.core.base import BaseTool
 

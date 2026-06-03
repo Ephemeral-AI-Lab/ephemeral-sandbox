@@ -12,7 +12,7 @@ from sandbox.audit.translation import (
     failed_event,
     started_event,
 )
-from sandbox.shared.models import SandboxCaller, SandboxResultBase
+from sandbox._shared.models import SandboxCaller, SandboxResultBase
 
 TResult = TypeVar("TResult", bound=SandboxResultBase)
 

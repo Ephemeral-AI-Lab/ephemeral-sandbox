@@ -7,7 +7,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field
 
 import sandbox.api as sandbox_api
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from sandbox.api import GlobRequest
 from tools._framework.core.base import ToolExecutionContextService, ToolResult
 from tools._framework.core.decorator import tool

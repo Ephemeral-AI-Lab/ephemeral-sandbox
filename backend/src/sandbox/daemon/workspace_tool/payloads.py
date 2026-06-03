@@ -11,7 +11,7 @@ from sandbox.daemon.workspace_tool.changeset_projection import (
     gitignore_cache_timings,
     published_paths,
 )
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 
 def _agent_id_from_args(args: Mapping[str, object]) -> str:

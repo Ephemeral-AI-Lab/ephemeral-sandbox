@@ -15,7 +15,7 @@ from sandbox.layer_stack.stack import LayerStack
 from sandbox.occ.changeset import ChangesetResult
 from sandbox.occ.maintenance import AutoSquashMaintenancePolicy
 from sandbox.occ.service import OccService
-from sandbox.shared.timing_keys import TimingKey
+from sandbox._shared.timing_keys import TimingKey
 
 
 class _Gitignore:

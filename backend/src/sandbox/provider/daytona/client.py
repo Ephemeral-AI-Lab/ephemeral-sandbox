@@ -17,7 +17,7 @@ from typing import Any, Literal, TypeAlias
 
 from dotenv import dotenv_values
 
-from sandbox.shared.async_bridge import register_standalone_loop_cleanup
+from sandbox._shared.async_bridge import register_standalone_loop_cleanup
 from sandbox.provider.daytona.errors import (
     AsyncDaytonaUnavailableError,
     DaytonaUnavailableError,

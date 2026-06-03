@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.shared.tool_primitives.edit import edit_file
-from sandbox.shared.tool_primitives.glob import glob_files
-from sandbox.shared.tool_primitives.grep import grep_files
-from sandbox.shared.tool_primitives.read import read_file
-from sandbox.shared.tool_primitives.write import write_file
+from sandbox._shared.tool_primitives.edit import edit_file
+from sandbox._shared.tool_primitives.glob import glob_files
+from sandbox._shared.tool_primitives.grep import grep_files
+from sandbox._shared.tool_primitives.read import read_file
+from sandbox._shared.tool_primitives.write import write_file
 
 _CORPUS = (
     Path(__file__).resolve().parents[3]

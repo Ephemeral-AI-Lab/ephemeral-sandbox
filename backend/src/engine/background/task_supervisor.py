@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from sandbox.daemon.audit_schema import (
+from sandbox.audit.schema import (
     BackgroundToolSection,
     build_background_tool_event,
     safe_emit,

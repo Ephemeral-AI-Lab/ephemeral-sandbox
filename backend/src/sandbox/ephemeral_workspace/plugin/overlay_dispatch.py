@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from sandbox.shared.models import Intent
-from sandbox.shared.command_exec_contract import CommandExecRequest
+from sandbox._shared.models import Intent
+from sandbox._shared.command_exec_contract import CommandExecRequest
 from sandbox.overlay import lifecycle as overlay_lifecycle
 from sandbox.overlay.mount_syscalls import mount_syscalls_supported
 from sandbox.overlay.namespace_runner import detect_private_mount_namespace

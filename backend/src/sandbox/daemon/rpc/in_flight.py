@@ -7,7 +7,7 @@ import logging
 import os
 from dataclasses import dataclass
 
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 logger = logging.getLogger("sandbox.daemon.rpc.in_flight")
 

@@ -6,8 +6,8 @@ import json
 
 from pydantic import BaseModel, Field
 
-from sandbox.shared.clock import normalize_timing_map
-from sandbox.shared.models import CommandOutput, ExecCommandResult
+from sandbox._shared.clock import normalize_timing_map
+from sandbox._shared.models import CommandOutput, ExecCommandResult
 from tools._framework.core.base import ToolExecutionContextService, ToolResult
 
 

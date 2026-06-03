@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sandbox.shared.clock import normalize_timing_map
-from sandbox.shared.models import GuardedResultBase
+from sandbox._shared.clock import normalize_timing_map
+from sandbox._shared.models import GuardedResultBase
 from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.results import ToolResult
 from tools.sandbox._lib.tool_context import (

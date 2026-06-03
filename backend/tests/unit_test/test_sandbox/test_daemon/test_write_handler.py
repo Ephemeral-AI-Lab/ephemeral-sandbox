@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from sandbox.shared.tool_primitives.write import write_file
+from sandbox._shared.tool_primitives.write import write_file
 
 
 def test_write_out_of_workspace_refuses_terminal_symlink(tmp_path) -> None:

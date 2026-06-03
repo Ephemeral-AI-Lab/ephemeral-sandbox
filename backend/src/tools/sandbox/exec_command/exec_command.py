@@ -8,7 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 import sandbox.api as sandbox_api
-from sandbox.shared.models import ExecCommandRequest, Intent
+from sandbox._shared.models import ExecCommandRequest, Intent
 from tools._framework.core.base import ToolExecutionContextService, ToolResult
 from tools._framework.core.decorator import tool
 from tools._hooks.destructive_shell import (

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.shared.tool_primitives.glob import DEFAULT_GLOB_LIMIT
-from sandbox.shared.tool_primitives.glob import glob_files
-from sandbox.shared.tool_primitives.grep import grep_files
+from sandbox._shared.tool_primitives.glob import DEFAULT_GLOB_LIMIT
+from sandbox._shared.tool_primitives.glob import glob_files
+from sandbox._shared.tool_primitives.grep import grep_files
 
 
 def _seed_workspace(tmp_path: Path, *, files: dict[str, str]) -> Path:

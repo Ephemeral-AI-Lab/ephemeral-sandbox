@@ -15,7 +15,7 @@ from engine.tool_call.dispatch import (
     reset_lifecycle_batch_rejection_counters,
 )
 from message.message import ToolResultBlock, ToolUseBlock
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from sandbox.audit import events
 
 

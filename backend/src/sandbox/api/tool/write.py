@@ -10,7 +10,7 @@ from sandbox.api.tool._daemon_response_parsing import (
 )
 from sandbox.api.timeouts import WRITE_FILE_TIMEOUT_S
 from sandbox.api.transport import DAEMON_OP_WRITE_FILE, SandboxTransport, call_sandbox_daemon
-from sandbox.shared.models import WriteFileRequest, WriteFileResult
+from sandbox._shared.models import WriteFileRequest, WriteFileResult
 
 
 async def write_file(

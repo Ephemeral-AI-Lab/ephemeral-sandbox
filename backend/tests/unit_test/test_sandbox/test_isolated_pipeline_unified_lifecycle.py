@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.shared.models import Intent, ToolCallRequest
+from sandbox._shared.models import Intent, ToolCallRequest
 from sandbox.isolated_workspace._control_plane.types import (
     IsolatedWorkspaceError,
     IsolatedWorkspaceHandle,

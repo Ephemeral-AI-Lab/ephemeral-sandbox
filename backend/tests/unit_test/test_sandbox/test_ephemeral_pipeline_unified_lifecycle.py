@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.shared.models import Intent, ToolCallRequest
+from sandbox._shared.models import Intent, ToolCallRequest
 from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline
 from sandbox.occ.changeset import ChangesetResult, FileResult, FileStatus
 from sandbox.overlay.path_change import OverlayPathChange, content_hash

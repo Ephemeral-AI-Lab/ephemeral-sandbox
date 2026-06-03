@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.shared.models import Intent, ToolCallRequest
+from sandbox._shared.models import Intent, ToolCallRequest
 from sandbox.layer_stack.workspace_base import build_workspace_base
 from sandbox.occ.client import OccClient
 from sandbox.overlay.path_change import OverlayPathChange, content_hash

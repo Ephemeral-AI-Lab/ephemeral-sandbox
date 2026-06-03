@@ -8,7 +8,7 @@ import shutil
 from typing import Any
 
 from sandbox.audit.events import IsolatedWorkspaceAuditEvent
-from sandbox.daemon.audit_schema import (
+from sandbox.audit.schema import (
     IsolatedWorkspaceSection,
     build_isolated_workspace_event,
     safe_emit,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sandbox.shared.models import Intent, ToolCallRequest
+from sandbox._shared.models import Intent, ToolCallRequest
 from sandbox.overlay.namespace_entrypoint import execute_tool_payload
 
 

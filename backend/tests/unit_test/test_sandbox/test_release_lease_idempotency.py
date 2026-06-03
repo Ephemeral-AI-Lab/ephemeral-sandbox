@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.shared.lease_guard import LeaseGuard
+from sandbox._shared.lease_guard import LeaseGuard
 from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline
 
 

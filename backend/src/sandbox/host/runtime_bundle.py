@@ -67,22 +67,6 @@ def _add_if_exists(tar: tarfile.TarFile, path: Path, *, arcname: str) -> None:
         tar.add(path, arcname=arcname, filter=_normalize_tarinfo)
 
 
-def _add_python_tree(
-    tar: tarfile.TarFile,
-    root: Path,
-    *,
-    sandbox_dir: Path,
-) -> None:
-    for path in sorted(root.rglob("*.py")):
-        if _is_excluded(path):
-            continue
-        tar.add(
-            path,
-            arcname=f"sandbox/{path.relative_to(sandbox_dir).as_posix()}",
-            filter=_normalize_tarinfo,
-        )
-
-
 _BUNDLE_CACHE: bytes | None = None
 
 
@@ -98,9 +82,9 @@ def _runtime_bundle_bytes() -> bytes:
     with tarfile.open(fileobj=raw, mode="w") as tar:
         _add_if_exists(tar, sandbox_dir / "__init__.py", arcname="sandbox/__init__.py")
 
-        shared_dir = sandbox_dir / "shared"
+        shared_dir = sandbox_dir / "_shared"
         for name in ("__init__.py", "models.py", "command_exec_contract.py"):
-            _add_if_exists(tar, shared_dir / name, arcname=f"sandbox/shared/{name}")
+            _add_if_exists(tar, shared_dir / name, arcname=f"sandbox/_shared/{name}")
 
         ephemeral_dir = sandbox_dir / "ephemeral_workspace"
         for name in (

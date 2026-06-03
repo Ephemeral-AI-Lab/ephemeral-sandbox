@@ -8,7 +8,7 @@ import json
 import pytest
 
 from engine.background.task_supervisor import BackgroundTaskSupervisor
-from sandbox.shared.models import CommandOutput, ExecCommandResult
+from sandbox._shared.models import CommandOutput, ExecCommandResult
 from tools._framework.core.context import ToolExecutionContextService
 from tools.sandbox._lib.command_session_tool import (
     command_tool_result,

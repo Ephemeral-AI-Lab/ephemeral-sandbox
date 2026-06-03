@@ -25,10 +25,10 @@ from message.events import (
     ToolExecutionCancelledEvent,
     ToolExecutionCompletedEvent,
 )
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.models import Intent
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.models import Intent
 from sandbox.audit.lifecycle import emit_lifecycle_batch_rejected
-from sandbox.daemon.audit_schema import (
+from sandbox.audit.schema import (
     ToolCallSection,
     build_tool_call_event,
     safe_emit,

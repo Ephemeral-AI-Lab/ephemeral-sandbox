@@ -113,7 +113,7 @@ async def test_dispatch_plugin_op_without_agent_id_only_audits_when_unbootstrapp
 async def test_dispatch_envelope_async_honors_boot_t0_override() -> None:
     """``boot_t0`` overrides module-level ``_DISPATCHER_BOOT_MONOTONIC`` so
     daemon-mode dispatch measures per-call boot, not daemon uptime."""
-    from sandbox.shared.clock import monotonic_now
+    from sandbox._shared.clock import monotonic_now
 
     def handler(_: dict[str, object]) -> dict[str, object]:
         return {"success": True}

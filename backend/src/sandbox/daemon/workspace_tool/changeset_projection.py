@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sandbox.shared.models import ConflictInfo
+from sandbox._shared.models import ConflictInfo
 from sandbox.occ.changeset import (
     FileResult,
     is_published_status,
     is_success_status,
 )
-from sandbox.shared.timing_keys import TimingKey
+from sandbox._shared.timing_keys import TimingKey
 
 
 def published_paths(files: Sequence[FileResult]) -> tuple[str, ...]:

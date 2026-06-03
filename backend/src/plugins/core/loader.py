@@ -21,8 +21,8 @@ from typing import Any
 
 from plugins.core.discovery import default_catalog_dir, discover_plugins
 from plugins.core.manifest import PluginManifest, ToolEntry
-from sandbox.shared.clock import monotonic_now
-from sandbox.daemon.audit_schema import (
+from sandbox._shared.clock import monotonic_now
+from sandbox.audit.schema import (
     PluginSection,
     build_plugin_event,
     safe_emit,

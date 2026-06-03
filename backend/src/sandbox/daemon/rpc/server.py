@@ -43,7 +43,7 @@ from pathlib import Path
 
 from sandbox.daemon.paths import DAEMON_PID_PATH, DAEMON_SOCKET_PATH
 from sandbox.daemon.rpc import dispatcher
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now
 
 logger = logging.getLogger("sandbox.daemon.rpc.server")
 

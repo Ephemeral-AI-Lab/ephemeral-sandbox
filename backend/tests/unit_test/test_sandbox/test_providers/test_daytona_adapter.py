@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from sandbox.shared.models import RawExecResult
+from sandbox._shared.models import RawExecResult
 from sandbox.provider.daytona.adapter import DaytonaProviderAdapter
 from sandbox.provider.daytona.bash_command import EXIT_MARKER
 

@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.shared.models import SandboxCaller
+from sandbox._shared.models import SandboxCaller
 from sandbox.layer_stack.workspace_binding import (
     WorkspaceBinding,
     WorkspaceBindingError,

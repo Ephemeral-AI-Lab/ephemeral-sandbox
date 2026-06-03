@@ -23,8 +23,8 @@ from collections.abc import Callable
 from dataclasses import fields
 from typing import Any
 
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.models import Intent
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.models import Intent
 from sandbox.daemon import layer_stack_runtime, occ_runtime_services
 from sandbox.daemon.occ_runtime_services import OccRuntimeServices
 from sandbox.daemon.workspace_tool.payloads import (

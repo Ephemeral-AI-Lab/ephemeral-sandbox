@@ -41,7 +41,7 @@ from message.message import (
 )
 from notification import SystemNotification
 from providers.types import UsageSnapshot
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from tools._framework.core.base import (
     BaseTool,
     ExecutionMetadata,

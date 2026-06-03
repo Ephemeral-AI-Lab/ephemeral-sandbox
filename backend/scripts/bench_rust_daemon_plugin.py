@@ -3178,7 +3178,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from sandbox.ephemeral_workspace.plugin.op_registry import register_plugin_op
+from plugins.runtime_bridge.op_registry import register_plugin_op
 from sandbox.shared.models import Intent
 
 
@@ -5915,7 +5915,7 @@ def ppc_service_command() -> list[str]:
     launcher = (
         "import sys; "
         f"sys.path.insert(0, {BUNDLE_REMOTE_DIR!r}); "
-        "from sandbox.ephemeral_workspace.plugin.ppc_service import main; "
+        "from plugins.runtime_bridge.ppc_service import main; "
         "raise SystemExit(main())"
     )
     return ["python3", "-c", launcher]
@@ -6659,7 +6659,7 @@ async def process_snapshot(bench: DockerBench) -> dict[str, Any]:
         if (
             f"python3 {HARNESS_SCRIPT}" in line
             or line.endswith(HARNESS_SCRIPT)
-            or "sandbox.ephemeral_workspace.plugin.ppc_service" in line
+            or "plugins.runtime_bridge.ppc_service" in line
         )
     ]
     return {"count": len(lines), "lines": lines}

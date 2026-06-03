@@ -19,7 +19,7 @@ from typing import Any
 from uuid import uuid4
 
 from audit.jsonl import append_jsonl_event
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now
 from sandbox.daemon.rpc.in_flight import get_in_flight_registry
 from sandbox.daemon.workspace_tool.dispatch import (
     LifecycleInProgressError,
@@ -413,7 +413,7 @@ def _audit_reset_floor_handler(args: dict[str, Any]) -> dict[str, Any]:
 def _register_builtin_operations() -> None:
     from sandbox.daemon import builtin_operations
     from sandbox.daemon.audit_buffer import get_audit_buffer
-    from sandbox.daemon.audit_schema import DaemonSection, build_daemon_event
+    from sandbox.audit.schema import DaemonSection, build_daemon_event
     from sandbox.ephemeral_workspace.plugin import runtime_api
 
     builtin_ops: dict[str, Handler] = {

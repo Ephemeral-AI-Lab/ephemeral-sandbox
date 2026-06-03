@@ -13,11 +13,11 @@ from pathlib import Path
 from typing import Any
 
 from sandbox.audit.events import IsolatedWorkspaceAuditEvent
-from sandbox.shared.layer_stack_port import LayerStackSnapshotPort
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.models import Intent, ToolCallRequest, ToolCallResult
-from sandbox.shared.ordered_lock import OrderedLock
-from sandbox.daemon.audit_schema import (
+from sandbox._shared.layer_stack_port import LayerStackSnapshotPort
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.models import Intent, ToolCallRequest, ToolCallResult
+from sandbox._shared.ordered_lock import OrderedLock
+from sandbox.audit.schema import (
     IsolatedWorkspaceSection,
     build_isolated_workspace_event,
     safe_emit,

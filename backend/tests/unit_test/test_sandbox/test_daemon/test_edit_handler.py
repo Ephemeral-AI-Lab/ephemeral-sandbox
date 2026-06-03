@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from sandbox.shared.tool_primitives.edit import edit_file
+from sandbox._shared.tool_primitives.edit import edit_file
 
 
 def test_edit_anchor_miss_raises_without_writing(tmp_path) -> None:

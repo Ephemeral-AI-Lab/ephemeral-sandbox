@@ -20,8 +20,8 @@ def test_bundle_contains_sandbox_plugin_modules() -> None:
     assert "sandbox/ephemeral_workspace/plugin/op_context.py" in names
     assert "sandbox/ephemeral_workspace/plugin/op_registry.py" in names
     assert "sandbox/ephemeral_workspace/plugin/ppc_service.py" in names
-    assert "sandbox/shared/models.py" in names
-    assert "sandbox/shared/command_exec_contract.py" in names
+    assert "sandbox/_shared/models.py" in names
+    assert "sandbox/_shared/command_exec_contract.py" in names
     assert "plugins/catalog/lsp/runtime/server.py" in names
     assert "plugins/catalog/lsp/runtime/pyright_session.py" in names
     assert not any(name.startswith("sandbox/daemon/") for name in names)

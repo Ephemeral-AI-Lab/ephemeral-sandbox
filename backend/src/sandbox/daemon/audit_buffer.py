@@ -340,7 +340,7 @@ def reset_audit_buffer_for_tests(buffer: AuditBuffer | None = None) -> AuditBuff
 def _wire_pressure_emitter(buffer: AuditBuffer) -> None:
     def _emit(snapshot_dict: dict[str, Any]) -> None:
         # Lazy import to break the audit_schema -> audit_buffer cycle.
-        from sandbox.daemon.audit_schema import DaemonSection, build_daemon_event
+        from sandbox.audit.schema import DaemonSection, build_daemon_event
 
         event = build_daemon_event(
             "daemon.audit_buffer_pressure",

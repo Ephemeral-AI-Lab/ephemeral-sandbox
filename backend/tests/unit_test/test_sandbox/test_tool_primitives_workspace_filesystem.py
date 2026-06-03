@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.shared.tool_primitives import workspace_filesystem
+from sandbox._shared.tool_primitives import workspace_filesystem
 
 
 def test_open_no_follow_rejects_intermediate_symlink(tmp_path: Path) -> None:

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from plugins.core.loader import _install_plugin_audit_shim
 from plugins.core.manifest import PluginManifest, ToolEntry
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from sandbox.daemon.audit_buffer import get_audit_buffer
 from tools._framework.core.base import BaseTool, ToolExecutionContextService
 from tools._framework.core.results import ToolResult

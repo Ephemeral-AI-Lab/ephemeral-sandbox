@@ -11,10 +11,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.command_exec_policy import CommandExecPolicy
-from sandbox.shared.models import Intent, ToolCallRequest
-from sandbox.shared.tool_primitives import VERB_TABLE, shell
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.command_exec_policy import CommandExecPolicy
+from sandbox._shared.models import Intent, ToolCallRequest
+from sandbox._shared.tool_primitives import VERB_TABLE, shell
 from sandbox.overlay.kernel_mount import (
     MountInputs,
     mount_overlay,

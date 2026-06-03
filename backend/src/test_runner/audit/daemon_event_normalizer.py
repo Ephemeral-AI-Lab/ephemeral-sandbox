@@ -49,7 +49,7 @@ def normalize_pulled_event(
     """Promote subsystem sections to ``payload[<section>]``; optionally retain raw.
 
     The pulled event already carries the promoted sections (emitters construct
-    them via dataclass helpers in :mod:`sandbox.daemon.audit_schema`). This
+    them via dataclass helpers in :mod:`sandbox.audit.schema`). This
     function reshapes the wire format into the JSONL row schema
     (``ts``, ``event_type``, ``seq``, ``payload``) and conditionally tacks on
     ``payload["daemon_event"]`` when forensic raw is enabled.

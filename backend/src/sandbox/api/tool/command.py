@@ -20,8 +20,8 @@ from sandbox.api.transport import (
     SandboxTransport,
     call_sandbox_daemon,
 )
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.models import (
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.models import (
     CommandOutput,
     CommandSessionCancelRequest,
     CommandSessionWriteRequest,

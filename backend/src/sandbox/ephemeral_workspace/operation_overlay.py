@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from sandbox.shared.models import ToolCallResult
-from sandbox.shared.command_exec_resource_metrics import (
+from sandbox._shared.models import ToolCallResult
+from sandbox._shared.command_exec_resource_metrics import (
     collect_command_exec_resource_metrics,
 )
 from sandbox.overlay import lifecycle as overlay_lifecycle

@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from sandbox.shared.command_exec_resource_metrics import (
+from sandbox._shared.command_exec_resource_metrics import (
     collect_command_exec_resource_metrics,
 )
 from sandbox.daemon.audit_buffer import get_audit_buffer

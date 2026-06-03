@@ -16,7 +16,7 @@ from engine.tool_call.phase_buffer import (
 from message.message import Message
 from message.message import ToolResultBlock
 from message.events import StreamEvent, ToolExecutionStartedEvent
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.clock import monotonic_now
 from tools._framework.core.base import BaseTool
 from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.execution.hook_pipeline import ToolHookExecutionPipeline

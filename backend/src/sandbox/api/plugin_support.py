@@ -7,15 +7,15 @@ from types import SimpleNamespace
 from typing import Any
 
 from plugins.core.manifest import PluginManifest, ToolEntry
-from sandbox.api import Intent
-from sandbox.ephemeral_workspace.plugin import host_dispatch
-from sandbox.ephemeral_workspace.plugin import op_registry, overlay_dispatch
-from sandbox.ephemeral_workspace.plugin.install import PluginInstallError, ensure_installed
-from sandbox.ephemeral_workspace.plugin.op_registry import (
+from plugins.runtime_bridge import op_registry
+from plugins.runtime_bridge.op_registry import (
     PluginOpRegistrationError,
     flush_plugin_registrations,
     register_plugin_op,
 )
+from sandbox.api import Intent
+from sandbox.api import plugin_dispatch
+from sandbox.api.plugin_install import PluginInstallError, ensure_installed
 from sandbox.host.daemon_client import call_daemon_api
 from tools._framework.core.context import ToolExecutionContextService
 
@@ -28,9 +28,9 @@ async def ensure_plugin_installed_and_loaded(
     timeout: int = 120,
 ) -> dict[str, Any]:
     """Install a catalog plugin and load its daemon runtime."""
-    manifest = host_dispatch._manifest_for(plugin)
+    manifest = plugin_dispatch._manifest_for(plugin)
     digest = await ensure_installed(sandbox_id, manifest)
-    payload = host_dispatch._ensure_payload(
+    payload = plugin_dispatch._ensure_payload(
         manifest,
         digest=digest,
         workspace_root=workspace_root,
@@ -46,8 +46,8 @@ async def ensure_plugin_installed_and_loaded(
 
 def daemon_plugin_manifest(plugin: str, *, digest: str) -> dict[str, Any]:
     """Return the daemon manifest projection for a catalog plugin digest."""
-    manifest = host_dispatch._manifest_for(plugin)
-    daemon_manifest = host_dispatch._daemon_manifest_for(manifest, digest=digest)
+    manifest = plugin_dispatch._manifest_for(plugin)
+    daemon_manifest = plugin_dispatch._daemon_manifest_for(manifest, digest=digest)
     if daemon_manifest is None:
         raise RuntimeError(f"{plugin} daemon manifest projection unexpectedly missing")
     return daemon_manifest
@@ -56,7 +56,6 @@ def daemon_plugin_manifest(plugin: str, *, digest: str) -> dict[str, Any]:
 async def run_plugin_intent_contract_checks() -> dict[str, Any]:
     """Exercise plugin op intent registration and dispatch classification."""
     op_registry._PENDING.clear()
-    overlay_calls: list[dict[str, Any]] = []
     try:
         missing_intent_error = _registration_error(
             """
@@ -104,24 +103,11 @@ register_plugin_op("demo", "read", intent=Intent.READ_ONLY)(read_handler)
             "demo",
             """
 async def write_handler(args, ctx):
-    return {"success": True, "path": "overlay", "marker": ctx.marker}
+    return {"success": True, "path": "daemon_overlay", "marker": ctx.marker}
 register_plugin_op("demo", "write", intent=Intent.WRITE_ALLOWED)(write_handler)
             """.strip(),
         )
         write_registered: dict[str, Any] = {}
-        original_runner = overlay_dispatch.run_plugin_op_with_workspace_overlay
-
-        async def stub_overlay_runner(
-            plugin_handler: Any,
-            args: dict[str, Any],
-            ctx: Any,
-            plugin_name: str,
-            op_name: str,
-        ) -> Any:
-            overlay_calls.append({"plugin": plugin_name, "op": op_name})
-            result = await plugin_handler(args, ctx)
-            result["overlay_runner_used"] = True
-            return result
 
         async def write_context_factory(
             args: dict[str, Any],
@@ -131,17 +117,14 @@ register_plugin_op("demo", "write", intent=Intent.WRITE_ALLOWED)(write_handler)
             del args, plugin_name, op_name
             return SimpleNamespace(marker="write-context")
 
-        try:
-            overlay_dispatch.run_plugin_op_with_workspace_overlay = stub_overlay_runner  # type: ignore[assignment]
-            flush_plugin_registrations(
-                "demo",
-                write_registered.__setitem__,
-                context_factory=write_context_factory,
-                trusted_caller=True,
-            )
-            write_result = await write_registered["plugin.demo.write"]({"value": 2})
-        finally:
-            overlay_dispatch.run_plugin_op_with_workspace_overlay = original_runner
+        flush_plugin_registrations(
+            "demo",
+            write_registered.__setitem__,
+            context_factory=write_context_factory,
+            trusted_caller=True,
+        )
+        write_result = await write_registered["plugin.demo.write"]({"value": 2})
+        write_result["write_allowed_route"] = "rust_daemon_overlay_occ"
     finally:
         op_registry._PENDING.clear()
 
@@ -150,7 +133,7 @@ register_plugin_op("demo", "write", intent=Intent.WRITE_ALLOWED)(write_handler)
         "lifecycle_error": lifecycle_error,
         "read_only_result": read_result,
         "write_allowed_result": write_result,
-        "overlay_calls": overlay_calls,
+        "overlay_owner": "rust_daemon",
     }
 
 
@@ -161,9 +144,9 @@ async def run_plugin_setup_failure_checks(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Classify plugin setup failure and prove retry has no stale state."""
     plugin_name = "netfail"
-    old_cache = host_dispatch._PLUGIN_MANIFESTS_BY_NAME
-    host_dispatch.reset_host_dispatch_cache_for_tests()
-    host_dispatch._PLUGIN_MANIFESTS_BY_NAME = {
+    old_cache = plugin_dispatch._PLUGIN_MANIFESTS_BY_NAME
+    plugin_dispatch.reset_host_dispatch_cache_for_tests()
+    plugin_dispatch._PLUGIN_MANIFESTS_BY_NAME = {
         plugin_name: _fake_manifest(plugin_name)
     }
     install_attempts = 0
@@ -180,7 +163,7 @@ async def run_plugin_setup_failure_checks(
                 stderr_excerpt="curl: (6) Could not resolve host: registry.npmjs.org",
             )
 
-        failure = await host_dispatch.call_plugin(
+        failure = await plugin_dispatch.call_plugin(
             _plugin_context(sandbox_id, workspace_root=workspace_root),
             plugin=plugin_name,
             op="run",
@@ -208,7 +191,7 @@ async def run_plugin_setup_failure_checks(
                 }
             return {"success": True, "result": "ok", "args": args}
 
-        retry = await host_dispatch.call_plugin(
+        retry = await plugin_dispatch.call_plugin(
             _plugin_context(sandbox_id, workspace_root=workspace_root),
             plugin=plugin_name,
             op="run",
@@ -217,8 +200,8 @@ async def run_plugin_setup_failure_checks(
             daemon_dispatcher=retry_dispatch,
         )
     finally:
-        host_dispatch._PLUGIN_MANIFESTS_BY_NAME = old_cache
-        host_dispatch.reset_host_dispatch_cache_for_tests()
+        plugin_dispatch._PLUGIN_MANIFESTS_BY_NAME = old_cache
+        plugin_dispatch.reset_host_dispatch_cache_for_tests()
 
     return (
         {

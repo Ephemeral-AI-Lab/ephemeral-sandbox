@@ -267,7 +267,7 @@ async def run_sync_in_executor(func: Any, /, *args: Any, **kwargs: Any) -> Any:
 
     This helper dispatches via a dedicated sandbox executor — which does NOT
     copy contextvars by default — but explicitly re-seeds the
-    one contextvar :mod:`sandbox.shared.async_bridge` *does* need in
+    one contextvar :mod:`sandbox._shared.async_bridge` *does* need in
     the worker thread: :data:`sandbox_io_loop`. Without that seed,
     :func:`run_sync` (called transitively from ``ContentManager``) would
     fall through to the standalone sandbox I/O loop in the worker, which

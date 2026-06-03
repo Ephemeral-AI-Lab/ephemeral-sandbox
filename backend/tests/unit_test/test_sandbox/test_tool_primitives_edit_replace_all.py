@@ -8,7 +8,7 @@ import pytest
 
 from sandbox.occ.changeset import EditChange, FileResult
 from sandbox.occ.path_staging import _apply_edit_content
-from sandbox.shared.tool_primitives.edit import edit_file
+from sandbox._shared.tool_primitives.edit import edit_file
 
 
 def test_edit_primitive_replace_all_replaces_every_occurrence(tmp_path: Path) -> None:

@@ -17,9 +17,9 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.models import Intent, ToolCallRequest, ToolCallResult
-from sandbox.shared.ordered_lock import OrderedLock
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.models import Intent, ToolCallRequest, ToolCallResult
+from sandbox._shared.ordered_lock import OrderedLock
 from sandbox.daemon.occ_runtime_services import get_occ_runtime_services
 from sandbox.daemon.workspace_tool.payloads import (
     _agent_id_from_args,

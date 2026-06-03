@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from sandbox.daemon.workspace_tool import dispatch as dispatch_mod
 from sandbox.daemon.workspace_tool.dispatch import (
     _ensure_quiesce_state,

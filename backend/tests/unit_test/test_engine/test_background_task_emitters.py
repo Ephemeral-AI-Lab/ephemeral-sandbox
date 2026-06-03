@@ -354,7 +354,7 @@ async def test_tool_reported_command_session_result_suppresses_completion_notifi
 async def test_generic_command_session_not_found_does_not_suppress_completion_notification() -> (
     None
 ):
-    from sandbox.shared.models import CommandOutput, ExecCommandResult
+    from sandbox._shared.models import CommandOutput, ExecCommandResult
     from tools._framework.core.context import ToolExecutionContextService
     from tools.sandbox._lib.command_session_tool import mark_command_session_result_reported_by_tool
 

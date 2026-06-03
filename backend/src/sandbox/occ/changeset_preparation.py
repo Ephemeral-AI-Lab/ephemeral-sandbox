@@ -24,8 +24,8 @@ from sandbox.occ.gitignore import (
     SnapshotGitignoreMatcher,
 )
 from sandbox.occ.content_hashing import ContentHasher
-from sandbox.shared.timing_keys import TimingKey
-from sandbox.shared.clock import monotonic_now
+from sandbox._shared.timing_keys import TimingKey
+from sandbox._shared.clock import monotonic_now
 
 BaseHashLookup = Callable[[str], str | None]
 

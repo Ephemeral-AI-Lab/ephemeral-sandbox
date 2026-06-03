@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from audit.base import AuditSink
 from sandbox.api.tool._operation_audit import run_audited_operation
-from sandbox.shared.models import RawExecResult
+from sandbox._shared.models import RawExecResult
 from sandbox.provider.registry import get_adapter
 
 

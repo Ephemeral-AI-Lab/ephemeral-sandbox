@@ -16,7 +16,7 @@ from sandbox.occ.content_hashing import ContentHasher
 from sandbox.occ.changeset import build_api_write_change
 from sandbox.occ.changeset import CommitOptions
 from sandbox.occ.changeset import FileStatus
-from sandbox.shared.models import Intent, ToolCallRequest
+from sandbox._shared.models import Intent, ToolCallRequest
 from sandbox.daemon import occ_runtime_services
 from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline
 import sandbox.ephemeral_workspace.pipeline as pipeline_mod

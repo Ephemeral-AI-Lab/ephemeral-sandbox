@@ -27,7 +27,7 @@ Usage::
 
 Every decorated tool supplies explicit Pydantic ``input_model`` and
 ``output_model`` definitions plus the foreground ``intent`` (see
-:class:`sandbox.shared.models.Intent`). Field descriptions live on those
+:class:`sandbox._shared.models.Intent`). Field descriptions live on those
 models.
 """
 
@@ -39,7 +39,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from tools._framework.core.base import BaseTool
 from tools._framework.core.context import ToolExecutionContextService
 from tools._framework.core.hooks import validate_hook_targets

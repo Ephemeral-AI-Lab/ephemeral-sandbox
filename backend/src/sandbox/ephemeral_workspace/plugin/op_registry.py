@@ -31,7 +31,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from sandbox.ephemeral_workspace.plugin.op_context import PluginOpContext
 
 __all__ = [

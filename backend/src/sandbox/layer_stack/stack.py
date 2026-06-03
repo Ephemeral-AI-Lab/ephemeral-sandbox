@@ -46,7 +46,7 @@ from sandbox.layer_stack.manifest import (
 from sandbox.layer_stack.transaction import LayerStackTransaction
 from sandbox.layer_stack.view import MergedView, SymlinkLookup
 from sandbox.layer_stack.workspace_base import build_workspace_base
-from sandbox.shared.clock import monotonic_now, record_elapsed
+from sandbox._shared.clock import monotonic_now, record_elapsed
 
 
 @dataclass(frozen=True)

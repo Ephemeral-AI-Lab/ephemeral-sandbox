@@ -6,9 +6,9 @@ from collections.abc import Sequence
 from dataclasses import replace
 from typing import cast
 
-from sandbox.shared.clock import monotonic_now
-from sandbox.shared.timing_keys import TimingKey
-from sandbox.daemon.audit_schema import (
+from sandbox._shared.clock import monotonic_now
+from sandbox._shared.timing_keys import TimingKey
+from sandbox.audit.schema import (
     OccSection,
     build_occ_event,
     safe_emit,
@@ -29,7 +29,7 @@ from sandbox.occ.content_hashing import infer_snapshot_base_hash
 from sandbox.occ.gitignore import GitignoreMatcher
 from sandbox.occ.maintenance import MaintenancePolicy
 from sandbox.occ.ports import OccLayerStackPort
-from sandbox.shared.async_bridge import run_sync_in_executor
+from sandbox._shared.async_bridge import run_sync_in_executor
 
 AUTO_SQUASH_MAX_DEPTH = 100
 

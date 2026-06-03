@@ -10,7 +10,7 @@ from typing import Callable
 
 import pytest
 
-from sandbox.shared.models import Intent, ToolCallRequest
+from sandbox._shared.models import Intent, ToolCallRequest
 from sandbox.ephemeral_workspace.pipeline import EphemeralPipeline
 from sandbox.overlay import namespace_runner as namespace_mod
 from sandbox.occ.changeset import ChangesetResult

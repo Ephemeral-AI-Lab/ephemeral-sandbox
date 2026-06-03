@@ -62,7 +62,7 @@ def _inject_runtime(
     the resulting module into sys.modules so importlib.import_module
     returns it directly.
     """
-    from sandbox.shared.models import Intent
+    from sandbox._shared.models import Intent
 
     module_name = f"plugins.catalog.{plugin}.runtime.server"
     namespace: dict[str, object] = {

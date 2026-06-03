@@ -39,7 +39,7 @@ from message.events import (
     AssistantMessageCompleteEvent,
     ToolUseDeltaEvent,
 )
-from sandbox.shared.models import Intent
+from sandbox._shared.models import Intent
 from tools.sandbox._lib.context import SANDBOX_CONTEXT
 from tools._framework.core.base import (
     BaseTool,

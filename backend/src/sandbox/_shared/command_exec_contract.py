@@ -1,15 +1,16 @@
-"""Command-exec contract values: request, process result, and OCC ports."""
+"""Command-exec contract values used by plugin bridge payloads."""
 
 from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol
+from typing import Any, Protocol
 
-if TYPE_CHECKING:
-    from sandbox.overlay.path_change import OverlayPathChange
-    from sandbox.occ.changeset import Change, CommitOptions, FileResult
+Change = Any
+CommitOptions = Any
+FileResult = Any
+OverlayPathChange = Any
 
 # ---- request ---------------------------------------------------------------
 

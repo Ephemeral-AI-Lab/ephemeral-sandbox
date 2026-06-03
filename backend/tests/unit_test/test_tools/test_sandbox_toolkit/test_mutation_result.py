@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sandbox.shared.timing_keys import TimingKey
+from sandbox._shared.timing_keys import TimingKey
 from tools.sandbox._lib.mutation_result import mutation_tool_result
 
 

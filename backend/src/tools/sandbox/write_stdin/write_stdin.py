@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 import sandbox.api as sandbox_api
-from sandbox.shared.models import CommandSessionCancelRequest, CommandSessionWriteRequest, Intent
+from sandbox._shared.models import CommandSessionCancelRequest, CommandSessionWriteRequest, Intent
 from tools._framework.core.base import ToolExecutionContextService, ToolResult
 from tools._framework.core.decorator import tool
 from tools.sandbox._lib.command_session_tool import (

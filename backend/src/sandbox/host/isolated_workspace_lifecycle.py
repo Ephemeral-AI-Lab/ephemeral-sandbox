@@ -1,29 +1,15 @@
-"""Host-side enter/exit coroutines for the isolated_workspace tool layer.
+"""Host-side enter/exit coroutines for isolated workspace tools.
 
-These wrap the daemon-side ``IsolatedPipeline.{enter,exit}`` RPCs with the
-host-only concerns the tool layer needs:
-
-* background-task gating on enter (rejects when ephemeral jobs are still
-  running for this agent — local count plus daemon command-session count)
-* background-task drain on exit (cancels per-agent background work before
-  tearing the pipeline handle down)
-* the ``lifecycle_operation`` audit wrapper
-
-Phase 2.6 C4 collapsed ``isolated_workspace/lifecycle/`` into this single
-host-side module so the only place that knows the host orchestration is
-``sandbox.host``; tool definitions in ``tools/`` consume these coroutines
-directly. Earlier drafts considered colocating with the tool definitions,
-but the ``tools.isolated_workspace`` package init eagerly loads
-``definition.py`` which pulls in ``tools.sandbox._lib.tool_context`` —
-co-locating ``_lifecycle.py`` inside that package triggered a circular
-import through ``sandbox.api``. Hosting here breaks the cycle.
+The Rust daemon is the isolated-workspace authority. This module keeps only the
+host concerns: local background-task gating, per-agent background drain, typed
+result decoding, and lifecycle audit timing.
 """
 
 from __future__ import annotations
 
 import os
 
-from sandbox.shared.models import (
+from sandbox._shared.models import (
     EnterIsolatedWorkspaceRequest,
     EnterIsolatedWorkspaceResult,
     ExitIsolatedWorkspaceRequest,
@@ -32,10 +18,6 @@ from sandbox.shared.models import (
 )
 from sandbox.audit.lifecycle import lifecycle_operation
 from sandbox.host.daemon_client import _DaemonDispatchError, call_daemon_api
-from sandbox.isolated_workspace import IsolatedWorkspaceError
-from sandbox.isolated_workspace._control_plane import (
-    pipeline_registry as isolated_pipeline_registry,
-)
 
 
 async def enter_isolated_workspace(
@@ -63,34 +45,16 @@ async def enter_isolated_workspace(
             agent_id=agent_id,
             audit_path=os.environ.get("EOS_WORKSPACE_LIFECYCLE_AUDIT_PATH"),
         ) as timings:
-            if sandbox_id:
-                return await _daemon_enter(sandbox_id, request, timings=dict(timings))
-            pipeline = await isolated_pipeline_registry.ensure_pipeline(
-                {"layer_stack_root": request.layer_stack_root}
-            )
-            handle = await pipeline.enter(agent_id)
-            return EnterIsolatedWorkspaceResult(
-                success=True,
-                manifest_version=str(handle.manifest_version),
-                manifest_root_hash=str(handle.manifest_root_hash),
-                timings=dict(timings),
-            )
+            if not sandbox_id:
+                return _missing_sandbox_id_enter(timings=dict(timings))
+            return await _daemon_enter(sandbox_id, request, timings=dict(timings))
     except RuntimeError as exc:
         return EnterIsolatedWorkspaceResult(
             success=False,
             error=LifecycleError(
-                    kind="command_session_count_unavailable",
+                kind="command_session_count_unavailable",
                 message=str(exc),
                 details={"sandbox_id": sandbox_id},
-            ),
-        )
-    except IsolatedWorkspaceError as exc:
-        return EnterIsolatedWorkspaceResult(
-            success=False,
-            error=LifecycleError(
-                kind=exc.kind,
-                message=str(exc),
-                details={str(k): str(v) for k, v in exc.details.items()},
             ),
         )
 
@@ -102,46 +66,26 @@ async def exit_isolated_workspace(
     sandbox_id: str = "",
 ) -> ExitIsolatedWorkspaceResult:
     agent_id = request.caller.agent_id
-    try:
-        async with lifecycle_operation(
-            kind="exit_isolated_workspace",
-            agent_id=agent_id,
-            audit_path=os.environ.get("EOS_WORKSPACE_LIFECYCLE_AUDIT_PATH"),
-        ) as timings:
-            evicted_background_tasks = await _cancel_by_agent(
-                background_manager,
-                agent_id,
-                grace_s=request.grace_s,
-            )
-            if sandbox_id:
-                return await _daemon_exit(
-                    sandbox_id,
-                    request,
-                    evicted_background_tasks=evicted_background_tasks,
-                    timings=dict(timings),
-                )
-            result = await isolated_pipeline_registry.require_pipeline().exit(
-                agent_id,
-                grace_s=0.0,
-            )
-            phases = dict(result.get("phases_ms", {}))
-            phases["evicted_background_tasks"] = float(evicted_background_tasks)
-            timings.update(result.get("phases_ms", {}))
-            return ExitIsolatedWorkspaceResult(
-                success=bool(result.get("success", True)),
-                evicted_upperdir_bytes=int(result.get("evicted_upperdir_bytes", 0)),
-                lifetime_s=float(result.get("lifetime_s", 0.0)),
-                phases_ms=phases,
+    async with lifecycle_operation(
+        kind="exit_isolated_workspace",
+        agent_id=agent_id,
+        audit_path=os.environ.get("EOS_WORKSPACE_LIFECYCLE_AUDIT_PATH"),
+    ) as timings:
+        evicted_background_tasks = await _cancel_by_agent(
+            background_manager,
+            agent_id,
+            grace_s=request.grace_s,
+        )
+        if sandbox_id:
+            return await _daemon_exit(
+                sandbox_id,
+                request,
+                evicted_background_tasks=evicted_background_tasks,
                 timings=dict(timings),
             )
-    except IsolatedWorkspaceError as exc:
-        return ExitIsolatedWorkspaceResult(
-            success=False,
-            error=LifecycleError(
-                kind=exc.kind,
-                message=str(exc),
-                details={str(k): str(v) for k, v in exc.details.items()},
-            ),
+        return _missing_sandbox_id_exit(
+            evicted_background_tasks=evicted_background_tasks,
+            timings=dict(timings),
         )
 
 
@@ -238,6 +182,35 @@ def _lifecycle_error_from_mapping(error: object) -> LifecycleError:
         kind=str(error.get("kind") or "internal_error"),
         message=str(error.get("message") or ""),
         details={str(k): str(v) for k, v in (details if isinstance(details, dict) else {}).items()},
+    )
+
+
+def _missing_sandbox_id_enter(*, timings: dict[str, float]) -> EnterIsolatedWorkspaceResult:
+    return EnterIsolatedWorkspaceResult(
+        success=False,
+        timings=timings,
+        error=LifecycleError(
+            kind="sandbox_id_required",
+            message="isolated workspace enter requires a Rust sandbox daemon sandbox_id",
+        ),
+    )
+
+
+def _missing_sandbox_id_exit(
+    *,
+    evicted_background_tasks: int,
+    timings: dict[str, float],
+) -> ExitIsolatedWorkspaceResult:
+    phases = {"evicted_background_tasks": float(evicted_background_tasks)}
+    timings.update(phases)
+    return ExitIsolatedWorkspaceResult(
+        success=False,
+        phases_ms=phases,
+        timings=timings,
+        error=LifecycleError(
+            kind="sandbox_id_required",
+            message="isolated workspace exit requires a Rust sandbox daemon sandbox_id",
+        ),
     )
 
 

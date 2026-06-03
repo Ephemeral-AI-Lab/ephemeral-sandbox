@@ -54,8 +54,8 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
 
     required = [
         "sandbox/__init__.py",
-        "sandbox/shared/models.py",
-        "sandbox/shared/command_exec_contract.py",
+        "sandbox/_shared/models.py",
+        "sandbox/_shared/command_exec_contract.py",
         "sandbox/ephemeral_workspace/__init__.py",
         "sandbox/ephemeral_workspace/plugin/__init__.py",
         "sandbox/ephemeral_workspace/plugin/op_context.py",
