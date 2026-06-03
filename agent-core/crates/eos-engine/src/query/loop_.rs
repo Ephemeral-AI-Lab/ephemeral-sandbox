@@ -189,7 +189,7 @@ pub fn run_query<'a>(ctx: &'a mut QueryContext, messages: &'a mut Vec<Message>) 
                 continue;
             }
 
-            let outcome = dispatch_assistant_tools(ctx, &tool_uses).await?;
+            let outcome = dispatch_assistant_tools(ctx, &tool_uses, messages).await?;
             for event in outcome.events {
                 let stamped = stamp_identity(event, &ctx.agent_name, &ctx.agent_run_id);
                 yield (stamped, None);

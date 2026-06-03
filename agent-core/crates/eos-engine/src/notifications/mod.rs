@@ -12,9 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_llm_client::Message;
-use eos_tools::ports::{
-    AdvisorApproval, AdvisorPort, NotificationSink, Sealed, SystemNotification as ToolNotification,
-};
+use eos_tools::ports::{NotificationSink, Sealed, SystemNotification as ToolNotification};
 use eos_tools::ToolError;
 use tokio::sync::Mutex;
 
@@ -143,33 +141,6 @@ impl NotificationSink for NotificationService {
     async fn notify_system(&self, notification: ToolNotification) -> Result<(), ToolError> {
         self.queue.lock().await.push_back(notification);
         Ok(())
-    }
-}
-
-/// Minimal advisor port implementation used until `eos-runtime` wires a helper
-/// runner around the engine loop.
-#[derive(Debug, Default, Clone)]
-pub struct AdvisorService;
-
-impl Sealed for AdvisorService {}
-
-#[async_trait]
-impl AdvisorPort for AdvisorService {
-    async fn review(
-        &self,
-        tool_name: &str,
-        _tool_payload: &eos_types::JsonObject,
-    ) -> Result<String, ToolError> {
-        Ok(format!(
-            "Advisor runner is not wired for `{tool_name}` in this engine-only phase."
-        ))
-    }
-
-    async fn approval_status(&self, _target_tool: &str) -> Result<AdvisorApproval, ToolError> {
-        Ok(AdvisorApproval {
-            approved: false,
-            reason: Some("missing".to_owned()),
-        })
     }
 }
 

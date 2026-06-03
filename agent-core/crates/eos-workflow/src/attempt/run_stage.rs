@@ -286,9 +286,9 @@ mod tests {
     use crate::ids::generator_task_id;
     use crate::testsupport::{
         one_step_plan, root_task, wait_for_workflow_status, MemoryStores, QueueRunner,
-        ScriptedRunner,
+        ScriptedRunner, ScriptedSubmission,
     };
-    use crate::{AgentRunReport, AgentTerminal, WorkflowStarter};
+    use crate::WorkflowStarter;
 
     // AC-eos-workflow-08: the run is exercised entirely through the injected
     // `AgentRunner` double (no eos-engine edge); the seam hands each role a
@@ -299,6 +299,7 @@ mod tests {
         let runner = Arc::new(QueueRunner::default());
         let mut deps = stores.deps(runner.clone());
         deps.lifecycle_config.default_attempt_budget = 1;
+        runner.bind(&deps.orchestrator_registry);
         let parent = root_task("parent", TaskStatus::Running);
         stores.seed_task(parent.clone());
         let started = WorkflowStarter::new(deps)
@@ -306,27 +307,21 @@ mod tests {
             .await
             .unwrap();
         let generator_id = generator_task_id(&started.attempt_id, "g1").unwrap();
-        runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
-            one_step_plan(&started),
-        )));
-        runner.push(AgentRunReport::terminal(AgentTerminal::Generator(
-            eos_state::GeneratorSubmission {
-                attempt_id: started.attempt_id.clone(),
-                task_id: generator_id.clone(),
-                status: TaskOutcomeStatus::Success,
-                outcome: "generated".to_owned(),
-                terminal_tool_result: crate::testsupport::terminal_result(),
-            },
-        )));
-        runner.push(AgentRunReport::terminal(AgentTerminal::Reducer(
-            eos_state::ReducerSubmission {
-                attempt_id: started.attempt_id.clone(),
-                task_id: crate::reducer_task_id(&started.attempt_id, "r1").unwrap(),
-                status: TaskOutcomeStatus::Success,
-                outcome: "reduced".to_owned(),
-                terminal_tool_result: crate::testsupport::terminal_result(),
-            },
-        )));
+        runner.push(ScriptedSubmission::Planner(one_step_plan(&started)));
+        runner.push(ScriptedSubmission::Generator(eos_state::GeneratorSubmission {
+            attempt_id: started.attempt_id.clone(),
+            task_id: generator_id.clone(),
+            status: TaskOutcomeStatus::Success,
+            outcome: "generated".to_owned(),
+            terminal_tool_result: crate::testsupport::terminal_result(),
+        }));
+        runner.push(ScriptedSubmission::Reducer(eos_state::ReducerSubmission {
+            attempt_id: started.attempt_id.clone(),
+            task_id: crate::reducer_task_id(&started.attempt_id, "r1").unwrap(),
+            status: TaskOutcomeStatus::Success,
+            outcome: "reduced".to_owned(),
+            terminal_tool_result: crate::testsupport::terminal_result(),
+        }));
         wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Succeeded).await;
 
         let launches = runner.launches();
@@ -347,17 +342,16 @@ mod tests {
         let runner = Arc::new(QueueRunner::default());
         let mut deps = stores.deps(runner.clone());
         deps.lifecycle_config.default_attempt_budget = 1;
+        runner.bind(&deps.orchestrator_registry);
         let parent = root_task("parent", TaskStatus::Running);
         stores.seed_task(parent.clone());
         let started = WorkflowStarter::new(deps)
             .start("delegated goal", &parent.id)
             .await
             .unwrap();
-        runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
-            one_step_plan(&started),
-        )));
-        runner.push(AgentRunReport::no_terminal(
-            "generator ended without terminal",
+        runner.push(ScriptedSubmission::Planner(one_step_plan(&started)));
+        runner.push(ScriptedSubmission::NoSubmission(
+            "generator ended without terminal".to_owned(),
         ));
         wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Failed).await;
 
@@ -395,8 +389,8 @@ mod tests {
             .start("delegated goal", &parent.id)
             .await
             .unwrap();
-        runner.push(AgentRunReport::no_terminal(
-            "planner ended without terminal",
+        runner.push(ScriptedSubmission::NoSubmission(
+            "planner ended without terminal".to_owned(),
         ));
         wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Failed).await;
 
@@ -427,6 +421,7 @@ mod tests {
         let mut deps = stores.deps(runner.clone());
         deps.lifecycle_config.default_attempt_budget = 1;
         deps.max_concurrent_task_runs = 3;
+        runner.bind(&deps.orchestrator_registry);
         let parent = root_task("parent", TaskStatus::Running);
         stores.seed_task(parent.clone());
         let started = WorkflowStarter::new(deps)

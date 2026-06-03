@@ -38,8 +38,9 @@ pub(crate) struct MetadataParams {
 }
 
 /// Assemble the tool execution context from the shared app state plus per-run
-/// params. `plan_submission` and `isolated_workspace` are intentionally `None`
-/// (Phase-6 scope); advisor/notifications come from the shared engine services.
+/// params. `isolated_workspace` is intentionally `None` (Phase-6 scope). The
+/// `conversation` transcript starts empty here and is stamped per-call by the
+/// engine dispatch before any hook reads it (advisor remediation plan §2b).
 pub(crate) fn build_metadata(state: &AppState, params: MetadataParams) -> ExecutionMetadata {
     let caller = SandboxCaller {
         agent_id: params.agent_name.clone(),
@@ -91,11 +92,11 @@ pub(crate) fn build_metadata(state: &AppState, params: MetadataParams) -> Execut
         request_store: state.request_store.clone(),
         skill_registry: state.skill_registry.clone(),
         workflow_control: params.workflow_control,
-        plan_submission: None,
+        plan_submission: params.plan_submission,
         subagent_supervisor: params.subagent_supervisor,
         command_session_supervisor: params.command_session_supervisor,
-        advisor: Some(state.advisor.clone()),
         isolated_workspace: None,
         notifications: Some(params.notifications),
+        conversation: Arc::from(Vec::new()),
     }
 }

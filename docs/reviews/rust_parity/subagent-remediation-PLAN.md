@@ -11,7 +11,7 @@ This plan honors the user's binding constraints, each verified against Python:
    `BackgroundTaskSupervisor` is the single owner of subagent + workflow records and
    command-session lifecycle — one record store, one precedence latch, one count, one
    notification emitter — and it is the real `SubagentSupervisorPort` impl (on
-   `SharedSubagentSupervisor`). No per-kind supervisor class; workflow is a
+   `BackgroundSupervisorHandle`). No per-kind supervisor class; workflow is a
    `BackgroundTaskKind`, not a separate subsystem at the handle/count layer. This
    mirrors Python, where one `BackgroundTaskSupervisor` holds `_tasks` / `_workflows`
    / `_command_sessions` and `count_by_agent` sums all of them.
@@ -29,6 +29,109 @@ This plan honors the user's binding constraints, each verified against Python:
    and the existing `SubagentSupervisorPort`. The count surface returns a per-kind JSON
    report; the terminal prehook drains all kinds to 0; the supervisor is the single
    emitter of `background_tool.*`.
+
+---
+
+## 0. At a glance
+
+### Key concepts
+
+| # | Concept | One-liner |
+|---|---|---|
+| K1 | **One central background supervisor** | A single `BackgroundTaskSupervisor` (eos-engine) owns *all* background kinds — subagent + workflow records + command sessions — one ledger, one count, one notifier. No per-kind supervisor. |
+| K2 | **`run_ephemeral_agent` is a shared engine primitive** | Relocated `eos-runtime` → `eos-engine` (drops `&AppState`, takes explicit handles). Advisor, subagent, workflow all call the *same* function — no runner trait, no injection. |
+| K3 | **Two launch modes over one primitive** | `ask_advisor` = inline/**blocking** (`.await`); `run_subagent` = detached/**async** (`tokio::spawn`). |
+| K4 | **Two dispatchers, by statefulness** | Advisor = **dispatch interception** (stateless, needs handles+conversation); subagent = **generic tool path → port → supervisor** (stateful; supervisor carries handles). |
+| K5 | **Terminal gate drains, not denies** | The `submit_*_outcome` prehook cancels+settles all kinds to 0, then proceeds. |
+| K6 | **Running-only count** | The inflight report counts only `Running` records — why the drain reaches `total == 0` and cancel races are harmless. |
+| K7 | **Settle unwedges; abort is hygiene** | Settling the record (leaves `Running`) closes D9; `abort()` only stops runaway compute. |
+
+### Core flow — `run_subagent` (detached async)
+
+```
+model ── run_subagent(name, prompt) ──────────────────────────────── generic tool path
+  RunSubagent::execute (eos-tools)
+   └─ SubagentSupervisorPort::spawn(name, prompt, caller_name, caller_id)
+       └─ BackgroundSupervisorHandle::spawn ─► background/subagent.rs (eos-engine)
+            1. validate (recursion / exists / is-subagent)          ← AgentRegistry
+            2. role = build_explorer_launch_prompt(); initial = [user(prompt)]
+            3. register_running(Subagent, agent_id) → "subagent_1"   ─ emit background_tool.started
+            4. tokio::spawn { run = eos_engine::run_ephemeral_agent(handles, input).await
+                              supervisor.settle("subagent_1", classify(run))  ─ emit completed/failed }
+   └─ return "[SUBAGENT LAUNCHED]"   ◄── immediate (non-blocking)
+
+  check_subagent_progress → running → "running";  settled → terminal result ("finished")
+  submit_*_outcome → prehook DRAINS agent's kinds (settle + abort) → report.total == 0 → pass
+
+contrast — ask_advisor: dispatch interception → advisor::run_advisor
+           → run_ephemeral_agent(handles, …).await   ◄── BLOCKS, returns the verdict inline
+```
+
+### Resulting file / folder structure
+
+```
+agent-core/crates/
+├── eos-tools/src/
+│   ├── model_tools/subagent.rs                       EDIT  spawn() passes caller_name+caller_id
+│   ├── ports.rs                                      EDIT  spawn sig; count→inflight_report; +drain_for_agent
+│   ├── hooks/
+│   │   ├── advisor_approval.rs                        (exists — advisor lane)
+│   │   └── require_no_inflight_background_tasks.rs    NEW   drain hook (moved out of hooks.rs)
+│   ├── hooks.rs                                       EDIT  keep Hook enum + dispatcher; body moves to hooks/
+│   └── meta.rs                                        KEEP  prehook wiring on the 4 submit_* unchanged
+├── eos-engine/src/
+│   ├── background/
+│   │   ├── supervisor.rs                              EDIT  rename→BackgroundSupervisorHandle; +agent_id, handles,
+│   │   │                                                    run handles, sink; +settle/cancel_by_agent/inflight_report;
+│   │   │                                                    −Agent kind/counter/progress_lines/push_progress
+│   │   ├── subagent.rs                                NEW   validate + prompt + spawn orchestration + settle
+│   │   ├── dispatch.rs · policy.rs                    DELETE (dead)
+│   │   ├── heartbeat.rs                               EDIT  command-session completion routes through settle
+│   │   └── mod.rs                                     EDIT  drop dispatch/policy re-exports
+│   ├── agent_loop.rs                                  NEW   run_ephemeral_agent (relocated)      ◄ advisor lane
+│   ├── advisor.rs                                     NEW   run_advisor launcher                  ◄ advisor lane
+│   └── tool_call/dispatch.rs                          EDIT  AskAdvisor interception arm           ◄ advisor lane
+└── eos-runtime/src/
+    ├── entry.rs                                       EDIT  build BackgroundSupervisorHandle w/ handles+sink
+    ├── agent_loop.rs                                  DELETE move to eos-engine                   ◄ advisor lane
+    └── root_agent.rs · agent_runner.rs                EDIT  call eos_engine::run_ephemeral_agent  ◄ advisor lane
+```
+
+### Renames & field updates
+
+| Kind | Old | New |
+|---|---|---|
+| rename (struct) | `SharedSubagentSupervisor` | **`BackgroundSupervisorHandle`** |
+| add (struct) | — | `BackgroundInflightReport { total, subagent, workflow, command_session }` (Running-only) |
+| remove (enum variant) | `BackgroundTaskKind::Agent` (`bg_<n>`) | — |
+| remove (enum variant, opt) | `StopMode::EarlyStop` | — |
+| `BackgroundTaskRecord` +field | — | `agent_id: Option<String>` |
+| `BackgroundTaskRecord` −field | `progress_lines: Vec<String>` | — |
+| `BackgroundTaskSupervisor` +fields | — | `handles`, run handles, `notification_sink` |
+| `BackgroundTaskSupervisor` +methods | — | `settle`, `cancel_by_agent`, `inflight_report` |
+| `BackgroundTaskSupervisor` −methods/fields | `push_progress`, `counter` | — |
+| `SubagentSupervisorPort::spawn` | `(name, prompt)` | `(name, prompt, caller_name, caller_id)` |
+| `SubagentSupervisorPort` count | `background_inflight_count → usize` | `inflight_report → BackgroundInflightReport`; + `drain_for_agent` |
+
+### HEAD → Target diff
+
+| Dimension | Rust HEAD (broken) | Target |
+|---|---|---|
+| Subagent launch | `register_running` only — no child runs | `tokio::spawn(eos_engine::run_ephemeral_agent)` |
+| `run_ephemeral_agent` home | `eos-runtime` (unreachable by port) | `eos-engine` (shared primitive, direct call) |
+| Result | `"Running: "` forever | settled terminal → `finished/failed` + JSON |
+| Validation | none (falsely promised) | enforced in `background/subagent.rs` before mint |
+| Terminal gate | deny-if-count>0 → **phantom wedges forever (D9)** | **drain-to-0** then pass |
+| Count | every `Running` record, ignores agent | `BackgroundInflightReport`, Running-only, per-agent/kind |
+| Cancel | hard status-flip | settle `Cancelled` + abort (no salvage) |
+| Notifications | none from agent-core | supervisor = single emitter of `background_tool.*` |
+| Live peek | broken (`progress_lines` never written) | **cut** (bare `running`); fields removed |
+| Kinds | `Agent / Subagent / Workflow` | `Subagent / Workflow` |
+| Port impl class | `SharedSubagentSupervisor` (stub) | `BackgroundSupervisorHandle` (real, holds handles+sink) |
+| Dead dispatch path | `dispatch.rs`/`policy.rs` present, unused | deleted; `enable_background_tasks` writes removed |
+| Hook location | `hooks.rs` (monolith) | `hooks/require_no_inflight_background_tasks.rs` (drain) |
+
+**Open item:** §3e command-session count topology — supervisor-local (drop daemon call) vs daemon-authoritative backstop.
 
 ---
 
@@ -60,7 +163,7 @@ Python's mechanism (ground truth):
 
 Rust HEAD deviates at exactly the driver seam, and the deviations compound:
 
-- **(R1) No driver.** `SharedSubagentSupervisor::spawn` (`supervisor.rs:253-265`)
+- **(R1) No driver.** `BackgroundSupervisorHandle::spawn` (`supervisor.rs:253-265`)
   only calls `register_running` and returns. `BackgroundTaskRecord`
   (`supervisor.rs:68-88`) has **no** task handle / future / `JoinHandle`. The real
   `run_ephemeral_agent` (`agent_loop.rs:54`) is reachable only by root
@@ -88,7 +191,7 @@ the agent … and supervises terminal-result delivery out of band."
 
 **Decision.** Keep the **single** `BackgroundTaskSupervisor` (`eos-engine`) as THE
 center for every background kind — subagent, workflow, command session — and make it
-the real `SubagentSupervisorPort` impl (on `SharedSubagentSupervisor`). It owns
+the real `SubagentSupervisorPort` impl (on `BackgroundSupervisorHandle`). It owns
 registration, validation, prompt assembly, the precedence latch, counts,
 notifications, cancel/parent-exit, and settle. The capability it needs to run a child —
 `run_ephemeral_agent` — is **relocated into `eos-engine`** (per the advisor lane) and
@@ -121,6 +224,26 @@ there too, the **entire** subagent flow (validate + prompt + register + run + se
 engine-resident. `eos-runtime` only constructs the supervisor with the handles from
 `AppState` — it hosts no subagent execution.
 
+**Naming.** The port-facing wrapper is renamed `SharedSubagentSupervisor →
+BackgroundSupervisorHandle` — it is not subagent-specific (it owns all three kinds, holds
+the run handles, and impls both `SubagentSupervisorPort` and
+`CommandSessionSupervisorPort`). It stays in `eos-engine/src/background/supervisor.rs`,
+next to the `BackgroundTaskSupervisor` state it wraps; the subagent-specific orchestration
+lives in the new `background/subagent.rs`.
+
+**Launch mode + dispatch (Q2/Q3).** Both `ask_advisor` and `run_subagent` call the one
+relocated `run_ephemeral_agent`; they differ only in *how* they invoke it and *how* they
+are dispatched:
+
+| | `ask_advisor` | `run_subagent` |
+|---|---|---|
+| Dispatch | **interception** — a match arm in `eos-engine/.../tool_call/dispatch.rs::dispatch_assistant_tools` routes `AskAdvisor` → `advisor::run_advisor`, bypassing `execute_tool_once` (it needs the engine handles + live conversation the generic path lacks) | **generic tool path** — `execute_tool_once` → `RunSubagent::execute` → `SubagentSupervisorPort::spawn` → `BackgroundSupervisorHandle::spawn` (the supervisor already carries the handles, so no interception) |
+| Mode | **blocking** — `run_advisor` `.await`s `run_ephemeral_agent`, returns the advisor terminal as the tool result | **detached / async** — `spawn` `tokio::spawn`s `run_ephemeral_agent`, returns `[SUBAGENT LAUNCHED]`; result via `check_subagent_progress` |
+| Supervisor record | none (stateless one-shot) | tracked / settled / counted / drained |
+
+The asymmetry is principled: interception for the stateless one-shot (advisor), port +
+supervisor for the stateful tracked one (subagent).
+
 **Reconciliation with the audit.** The report's D1 Fix says "replace the stub with a
 real implementor in `eos-runtime`." This plan **refines** that: the implementor stays
 in `eos-engine` (where `ports.rs` already promised it), and only the agent-execution
@@ -141,22 +264,24 @@ Python's `launch()` drives a coroutine, **without** breaking the record's
 - Add `pub agent_id: Option<String>` to `BackgroundTaskRecord` (`:68-88`) — the
   owner needed for the agent-scoped count (Python `BackgroundTaskRecord.agent_id`).
   `Option<String>` is `Clone + PartialEq`, so the derives stand.
-- Add a side map `handles: HashMap<String, tokio::task::AbortHandle>` (or a
-  `tokio_util::sync::CancellationToken` per task) to `BackgroundTaskSupervisor`
-  (`:107-116`) — **not** on the record (a `JoinHandle`/`AbortHandle` is neither
-  `Clone` nor `PartialEq`; the record stays cloneable). This is the Rust analog of
-  Python's `BackgroundTaskRecord.asyncio_task`, parked off the value type.
-- Add `register_running` variant / param to stamp `agent_id` + the kind at mint
-  time (extend `:126-161`).
+- Add a side map `handles: HashMap<String, tokio::task::AbortHandle>` to
+  `BackgroundTaskSupervisor` (`:107-116`) — **not** on the record (an `AbortHandle` is
+  not `Clone`/`PartialEq`; the record stays cloneable). **Role: resource hygiene, not
+  correctness.** What unwedges D9 is the cancelling side *settling* the record (it leaves
+  `Running`, so the count drops); `abort()` merely stops a runaway child from burning
+  compute. Abort-mid-run is fine precisely because the drain already settled the record.
+- Extend `register_running`'s signature to take `agent_id` (no new variant), stamping it
+  + the kind at mint time (`:126-161`).
 - Add a `settle` method that mirrors Python's `_done_callback` precedence latch
   (`task_supervisor.py:329-382`): apply a terminal status **classified by
-  `subagent_terminal_called`, not by `result.is_error`** — a subagent that called
-  its terminal with `is_error=true` is still `Completed` (the error rides in the
-  payload, and `check_subagent_progress` reports `finished`); only crash / no-terminal
-  / exception settle to `Failed`. Keep the strict-`>` precedence guard (`:178`) so a
-  cancel-vs-finish race resolves to `Completed` (already covered by the
-  `parent_exit_and_cancel_complete_race` test). Populate `progress_lines` from the
-  settled result's output (Python `task_supervisor.py:381`).
+  `subagent_terminal_called`, not by `result.is_error`** — a subagent that called its
+  terminal with `is_error=true` is still `Completed` (the error rides in the payload, and
+  `check_subagent_progress` reports `finished`); only crash / no-terminal / exception
+  settle to `Failed`. Keep the strict-`>` precedence guard (`:178`) so a cancel-vs-finish
+  race resolves to `Completed`. **This is the single on-completion routine:** the spawned
+  task builds the `ToolResult` from the run (terminal / crash / no-terminal, per
+  `run_subagent.py:231-251`) and calls `settle` — there is no separate "forward terminal"
+  step.
 - Thread the **run handles** (`agent_registry`, `llm_client`, `model_store`,
   `agent_run_store`, `event_source_factory`, `cwd`) and an `Arc<dyn NotificationSink>`
   into the supervisor at `entry.rs`. The supervisor is the **single emitter** of
@@ -174,7 +299,7 @@ notifications.
 ### 3b. `eos-engine` subagent orchestration: validate, prompt, drive, forward — D1/D2/D3/D5
 
 A new `eos-engine` module `background/subagent.rs` holds the subagent specifics, and
-the `SubagentSupervisorPort::spawn` impl on `SharedSubagentSupervisor` calls into it.
+the `SubagentSupervisorPort::spawn` impl on `BackgroundSupervisorHandle` calls into it.
 It uses the `AgentRegistry` (validation) + the run handles the supervisor holds, and
 calls the relocated `eos_engine::run_ephemeral_agent(handles, …)` directly — no
 `AppState`, no runner trait. (`run_ephemeral_agent` is moved into `eos-engine` by the
@@ -203,27 +328,21 @@ site `RunSubagent::execute` (`subagent.rs:100-104`) to pass `ctx.agent_name`
   emits `background_tool.started` (3a notifications).
 - **Drive directly (D1)** — `tokio::spawn` a task that calls
   `eos_engine::run_ephemeral_agent(handles, EphemeralRunInput{ agent: sub_def,
-  initial_messages, tool_metadata, persist_agent_run: false, … })`, then locks the
-  supervisor and `settle`s the record (3a). Store the `AbortHandle` in the supervisor's
-  side map (3d). The child run is **not** handed the parent's `NotificationService` —
-  its events feed only the peek buffer (below), and the supervisor emits the lifecycle
-  notifications; this preserves isolation (Q3).
-- **Live peek (DESIGN ITEM, not a straight port — D3 progress-while-running):**
-  Python's `_on_spawned` closes over the child's live `agent.messages` and snapshots
-  on demand (`run_subagent.py:190-204`). Rust's `run_ephemeral_agent` exposes **no**
-  such handle — messages accumulate inside `run_query(&mut ctx, &mut initial_messages)`
-  (`agent_loop.rs:136`) and only `on_event` escapes. So this is a mechanism to design,
-  not port: accumulate rendered `[text]/[think]/[tool]/[result]` blocks (port
-  `format_last_n_messages`, `run_subagent.py:56-83`) from the `on_event` callback into
-  a shared buffer that the supervisor's `progress` reads under the same lock. Lower
-  priority than D1/D3 terminal forwarding (which works without it); call it out so it
-  is not mistaken for a one-line port.
-- **Forward terminal (D3):** map the `EphemeralRun` to the settled `ToolResult`
-  exactly as `run_subagent.py:231-251` — terminal present → `terminal.output`,
-  `terminal.is_error`, `{**terminal.metadata, subagent_terminal_called: true}`;
-  `run.error.is_some()` → crash text + `subagent_terminal_called:false`;
-  terminal `None` → no-terminal text + `subagent_terminal_called:false`. Emit
-  `background_tool.completed/failed` (D8, `task_supervisor.py:173-210`).
+  initial_messages, tool_metadata, persist_agent_run: false })` (**no `on_event`** — see
+  the live-peek cut below), then `settle`s the record (3a) with the run's outcome mapped
+  to a `ToolResult` (terminal → `output/is_error/{…, subagent_terminal_called:true}`;
+  crash/no-terminal → error text + `subagent_terminal_called:false`;
+  `run_subagent.py:231-251`). Store the `AbortHandle` for cancel (3d). The child run is
+  **not** handed the parent's `NotificationService`; `background_tool.*` fires from the
+  supervisor's launch/settle (3a), not the child's events — this preserves isolation (Q3).
+- **Live peek — cut from v1 (scope cut, documented gap).** Python shows the child's
+  last-N messages while running (`_on_spawned` + `format_last_n_messages`,
+  `run_subagent.py:56-83,190-204`); Rust's `run_ephemeral_agent` exposes no live
+  `agent.messages` handle, so reproducing it means an `on_event` buffer + lock. Not worth
+  it for v1: `check_subagent_progress` returns bare `running` while running and the
+  terminal result when finished. This removes the `progress_lines` field, `push_progress`
+  (already zero callers — dead code), the `format_last_n_messages` port, and the
+  `on_event` plumbing. Add later if the mid-run view is wanted.
 
 Return `StartedSubagent { subagent_session_id }`; the `[SUBAGENT LAUNCHED]` ack
 (`subagent.rs:63-77`, already parity-good per E1) is unchanged.
@@ -234,42 +353,56 @@ Return `StartedSubagent { subagent_session_id }`; the `[SUBAGENT LAUNCHED]` ack
 `control.py::_subagent_status_and_result` (`control.py:64-89`) + the JSON payload
 (`control.py:136-146`):
 
-- Map record status → `terminated` / `cancelled` / `running` / `finished`
-  (COMPLETED|DELIVERED **and** `subagent_terminal_called`) / `failed`, using the
-  live-peek provider while running and the settled `result.output` when finished.
-- Return `json.dumps(payload, indent=2)` shape: `{subagent_session_id, status,
-  agent_name, result}`, and `mark_subagent_delivered` on terminal observation
-  (`control.py:129-134`) so the record advances to `Delivered`.
-- **E5 fix:** a genuinely-missing session must return `is_error=true`
-  (Python `control.py:117-122`), not the current non-error `ToolResult::ok`
-  (`subagent.rs:145` + `supervisor.rs:273-278`).
+- Map record status → `running` (while `Running`) / `finished` (`Completed` +
+  `subagent_terminal_called`) / `failed` / `cancelled` / `terminated`
+  (`control.py:64-89`), reading the terminal `result.output` when settled. While running
+  it returns bare `running` (no message tail — live peek is cut, 3b).
+- Return the `json.dumps(payload, indent=2)` shape `{subagent_session_id, status,
+  agent_name, result}` (`control.py:136-146`). **No `Delivered`/`mark_subagent_delivered`
+  for subagents** — Python's `collect_completed` intentionally skips `SUBAGENT_TASK_TYPE`
+  (`task_supervisor.py:400-404`), so nothing re-delivers them and the `COMPLETED→DELIVERED`
+  transition is cosmetic.
+- **E5 fix:** a missing session returns `is_error=true` (`control.py:117-122`), not the
+  current non-error `ToolResult::ok` (`subagent.rs:145` + `supervisor.rs:273-278`).
 
 `cancel` (D4 + **E6**): see 3d; an unknown-session cancel must return `is_error=true`
 (Python `control.py:172-180`), not the current non-error ok.
 
-### 3d. Cancel = cooperative early-stop salvage — D4
+### 3d. Cancel = settle `Cancelled` + abort the handle — D4
 
-Replace the hard status-flip (`supervisor.rs:186-198`) with the Python early-stop
-path for subagents (`task_supervisor.py:222-235`, `:683-685`): set
-`stop_mode=EarlyStop` (the `StopMode::EarlyStop` variant at `supervisor.rs:62` is
-declared but unused today), signal the child's `CancellationToken` / `AbortHandle`,
-give it one scheduler yield (`tokio::task::yield_now().await`, the analog of
-`asyncio.sleep(0)`) so a salvaged partial terminal can settle first, then let the
-settle path (3a) record the terminal status. Parent-exit
-(`terminate_for_parent_exit`, `supervisor.rs:201-212`) keeps its current shape but
-must also abort the stored handle. True salvage requires the child loop to observe
-the token; if that is out of scope for this lane, settle as `Cancelled` with the
-partial peek and note the residual (do **not** silently claim full salvage).
+`cancel(id)` (replace the hard status-flip at `supervisor.rs:186-198`): **settle** the
+record to `Cancelled` via the precedence latch, then `abort()` the stored handle (3a) to
+stop a runaway child. `terminate_for_parent_exit` (`:201-212`) and the terminal drain
+(3e) do the same per task. The unwedge comes from the *settle* (the record leaves
+`Running`); the abort is resource hygiene.
+
+Cooperative early-stop **salvage** (Python `_request_subagent_early_stop`'s
+`stop_mode=early_stop` + `asyncio.sleep(0)` to rescue a partial terminal,
+`task_supervisor.py:222-235`) is **cut from v1**: it needs the child loop to observe a
+cancellation token, which `run_query` does not expose. Settle `Cancelled` with whatever
+the record holds; leave `StopMode::EarlyStop` unused (optionally drop the variant).
+Documented gap.
+
+E6: an unknown-session cancel returns `is_error=true` (`control.py:172-180`).
 
 ### 3e. The terminal prehook drains all three kinds to 0 — D6 / D9 (Q1 + Q2)
 
 The terminal enforcement is a **single prehook** (`RequireNoInflightBackgroundTasks`,
 `meta.rs:55-81`; grep confirms nothing else gates the terminal — `background_inflight_count`
-has no other reader). It changes from *deny-if-count>0* to **drain-to-0**:
+has no other reader). **Relocate the hook body** out of the `hooks.rs` monolith into
+`eos-tools/src/hooks/require_no_inflight_background_tasks.rs` — its own file in the
+`hooks/` module, mirroring the already-extracted `hooks/advisor_approval.rs` (advisor lane)
+and Python's `tools/_hooks/require_no_inflight_background_tasks.py`. `hooks.rs` keeps the
+`Hook` enum + dispatcher, which call into the module. The behavior changes from
+*deny-if-count>0* to **drain-to-0**:
 
-- **Count surface → JSON report (Q1).** The supervisor exposes
+- **Count surface → JSON report (Q1), Running-only.** The supervisor exposes
   `BackgroundInflightReport { total, subagent, workflow, command_session }`, scoped by
-  `agent_id`, serialized to JSON for audit/diagnostics and for the post-drain assertion.
+  `agent_id`, serialized to JSON for audit/diagnostics and the post-drain assertion.
+  **Each field counts `Running` records of that kind.** This is the load-bearing
+  invariant: settling does not remove a record (Running→terminal stays in the map), so
+  the drain reaches `total == 0` *only* because the count ignores settled records — and it
+  makes the cancel-vs-complete race harmless (either outcome is terminal, not Running).
 - **Drain, don't deny (Q2).** On `submit_*_outcome` the prehook reads
   `ctx.subagent_supervisor` (already attached, `metadata.rs:78`) and **cancels +
   settles all three kinds for this agent**, then asserts `report.total == 0` and passes.
@@ -329,7 +462,7 @@ reduce to exactly the production set — `Subagent` + `Workflow` — alongside t
   validation in 3b is the *engine-side* recursion/exists/is-subagent gate, additive.
 - **The `[SUBAGENT LAUNCHED]` ack** (`subagent.rs:63-77`) — parity-good (E1).
 - **The single shared supervisor instance.** `entry.rs:120-141` mints one
-  `SharedSubagentSupervisor` serving the subagent port, the command-session port, and
+  `BackgroundSupervisorHandle` serving the subagent port, the command-session port, and
   the heartbeat (`supervisor.inner()`). It stays the one ledger **and** the one
   `SubagentSupervisorPort` impl; `entry.rs` additionally threads the **run handles**
   (from `AppState`) and the `NotificationSink` into it (§2, 3a). The spawned task settles
@@ -354,8 +487,9 @@ reduce to exactly the production set — `Subagent` + `Workflow` — alongside t
   (not `failed`); crash → `failed` + `subagent_terminal_called:false`; no-terminal →
   `failed` + `subagent_terminal_called:false`. Missing-session and unknown-cancel
   return `is_error=true` (E5/E6).
-- **Cancel (D4):** a cancel sets `EarlyStop`/`Cancelled` and surfaces the partial peek;
-  parent-exit aborts the handle and settles `Cancelled`.
+- **Cancel (D4):** a cancel settles the record `Cancelled` and aborts the handle (no
+  salvage); the inflight report drops because the record left `Running`. Parent-exit and
+  the terminal drain do the same.
 - **Audit (D8):** `background_tool.started/completed/failed/cancelled` fire from
   agent-core for `task_kind=subagent`.
 - **Dead-code (D7):** `dispatch.rs`/`policy.rs` removed; no `enable_background_tasks`

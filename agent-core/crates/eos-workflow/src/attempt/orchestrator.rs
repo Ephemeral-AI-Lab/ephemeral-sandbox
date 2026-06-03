@@ -833,9 +833,9 @@ mod tests {
     use crate::ids::{generator_task_id, reducer_task_id};
     use crate::testsupport::{
         one_step_plan, root_task, terminal_result, wait_for_workflow_status, MemoryStores,
-        QueueRunner,
+        QueueRunner, ScriptedSubmission,
     };
-    use crate::{AgentRunReport, AgentTerminal, WorkflowStarter};
+    use crate::WorkflowStarter;
 
     // AC-eos-workflow-06 (reducer exit gate): all generators DONE + all reducers
     // DONE -> attempt PASSED, iteration SUCCEEDED, workflow SUCCEEDED, parent
@@ -846,6 +846,7 @@ mod tests {
         let runner = Arc::new(QueueRunner::default());
         let mut deps = stores.deps(runner.clone());
         deps.lifecycle_config.default_attempt_budget = 1;
+        runner.bind(&deps.orchestrator_registry);
         let parent = root_task("parent", TaskStatus::Running);
         stores.seed_task(parent.clone());
         let started = WorkflowStarter::new(deps)
@@ -854,27 +855,21 @@ mod tests {
             .unwrap();
         let generator_id = generator_task_id(&started.attempt_id, "g1").unwrap();
         let reducer_id = reducer_task_id(&started.attempt_id, "r1").unwrap();
-        runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
-            one_step_plan(&started),
-        )));
-        runner.push(AgentRunReport::terminal(AgentTerminal::Generator(
-            GeneratorSubmission {
-                attempt_id: started.attempt_id.clone(),
-                task_id: generator_id,
-                status: TaskOutcomeStatus::Success,
-                outcome: "generated".to_owned(),
-                terminal_tool_result: terminal_result(),
-            },
-        )));
-        runner.push(AgentRunReport::terminal(AgentTerminal::Reducer(
-            ReducerSubmission {
-                attempt_id: started.attempt_id.clone(),
-                task_id: reducer_id,
-                status: TaskOutcomeStatus::Success,
-                outcome: "reduced".to_owned(),
-                terminal_tool_result: terminal_result(),
-            },
-        )));
+        runner.push(ScriptedSubmission::Planner(one_step_plan(&started)));
+        runner.push(ScriptedSubmission::Generator(GeneratorSubmission {
+            attempt_id: started.attempt_id.clone(),
+            task_id: generator_id,
+            status: TaskOutcomeStatus::Success,
+            outcome: "generated".to_owned(),
+            terminal_tool_result: terminal_result(),
+        }));
+        runner.push(ScriptedSubmission::Reducer(ReducerSubmission {
+            attempt_id: started.attempt_id.clone(),
+            task_id: reducer_id,
+            status: TaskOutcomeStatus::Success,
+            outcome: "reduced".to_owned(),
+            terminal_tool_result: terminal_result(),
+        }));
         wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Succeeded).await;
 
         assert_eq!(
@@ -901,6 +896,7 @@ mod tests {
         let runner = Arc::new(QueueRunner::default());
         let mut deps = stores.deps(runner.clone());
         deps.lifecycle_config.default_attempt_budget = 1;
+        runner.bind(&deps.orchestrator_registry);
         let parent = root_task("parent", TaskStatus::Running);
         stores.seed_task(parent.clone());
         let started = WorkflowStarter::new(deps)
@@ -909,27 +905,21 @@ mod tests {
             .unwrap();
         let generator_id = generator_task_id(&started.attempt_id, "g1").unwrap();
         let reducer_id = reducer_task_id(&started.attempt_id, "r1").unwrap();
-        runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
-            one_step_plan(&started),
-        )));
-        runner.push(AgentRunReport::terminal(AgentTerminal::Generator(
-            GeneratorSubmission {
-                attempt_id: started.attempt_id.clone(),
-                task_id: generator_id,
-                status: TaskOutcomeStatus::Success,
-                outcome: "generated".to_owned(),
-                terminal_tool_result: terminal_result(),
-            },
-        )));
-        runner.push(AgentRunReport::terminal(AgentTerminal::Reducer(
-            ReducerSubmission {
-                attempt_id: started.attempt_id.clone(),
-                task_id: reducer_id,
-                status: TaskOutcomeStatus::Failed,
-                outcome: "reduction failed".to_owned(),
-                terminal_tool_result: terminal_result(),
-            },
-        )));
+        runner.push(ScriptedSubmission::Planner(one_step_plan(&started)));
+        runner.push(ScriptedSubmission::Generator(GeneratorSubmission {
+            attempt_id: started.attempt_id.clone(),
+            task_id: generator_id,
+            status: TaskOutcomeStatus::Success,
+            outcome: "generated".to_owned(),
+            terminal_tool_result: terminal_result(),
+        }));
+        runner.push(ScriptedSubmission::Reducer(ReducerSubmission {
+            attempt_id: started.attempt_id.clone(),
+            task_id: reducer_id,
+            status: TaskOutcomeStatus::Failed,
+            outcome: "reduction failed".to_owned(),
+            terminal_tool_result: terminal_result(),
+        }));
         wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Failed).await;
 
         let attempt = stores.attempt(&started.attempt_id).unwrap();

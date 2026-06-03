@@ -120,6 +120,45 @@ pub const fn descriptor(terminal: TerminalTool) -> TerminalDescriptor {
     }
 }
 
+/// Which descriptor field a rendered terminal catalog presents (Python
+/// `CatalogFocus = Literal["selection_guidance", "advisor_review_focus"]`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolInstructions {
+    /// The parent-facing "when to call this terminal" guidance.
+    SelectionGuidance,
+    /// The advisor-facing "what to verify" focus.
+    AdvisorReviewFocus,
+}
+
+/// Render a terminal-tool catalog for `terminals` at the given `focus` — the port
+/// of `registry.render_terminal_catalog`. One backtick-wrapped row per terminal
+/// (`` - `name` — text ``), blank-line separated; an unregistered terminal gets a
+/// stub row. Empty input yields an empty string (callers add their own heading).
+#[must_use]
+pub fn render_tool_instruction(terminals: &[ToolName], focus: ToolInstructions) -> String {
+    if terminals.is_empty() {
+        return String::new();
+    }
+    terminals
+        .iter()
+        .map(|&name| match TerminalTool::from_tool_name(name) {
+            Some(terminal) => {
+                let d = descriptor(terminal);
+                let text = match focus {
+                    ToolInstructions::SelectionGuidance => d.selection_guidance,
+                    ToolInstructions::AdvisorReviewFocus => d.advisor_review_focus,
+                };
+                format!("- `{}` — {text}", name.as_str())
+            }
+            None => format!(
+                "- `{}` — (no descriptor registered for this terminal)",
+                name.as_str()
+            ),
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

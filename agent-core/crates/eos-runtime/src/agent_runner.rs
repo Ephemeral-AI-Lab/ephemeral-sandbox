@@ -1,33 +1,39 @@
 //! The `eos-workflow` [`AgentRunner`] adapter: runs one delegated-workflow agent
 //! (planner / generator / reducer) through the shared engine loop.
 //!
-//! **Phase-6 scope.** The orchestrator drives `runner.run(launch)` (in a spawned
-//! task) and applies the returned `AgentRunReport::terminal`. Capturing a *typed*
-//! terminal (`PlannerPlan` / `GeneratorSubmission` / `ReducerSubmission`) from a
-//! generic engine run requires a capturing `PlanSubmissionPort`, which would
-//! otherwise double-apply against the real `PlanSubmissionAdapter`; that is the
-//! Phase-7 delegated-execution gate. Here the workflow agent runs with
-//! `plan_submission = None`, so the run never yields a typed terminal and this
-//! adapter reports `no_terminal`. The orchestrator then closes the attempt
-//! cleanly (`synthesize_planner_failure`) — the parent task is never mutated
+//! **Path A-recording (Phase-7 complete).** This runner is a thin engine-run
+//! wrapper. The submit tool drives the harness *during* the run: a
+//! `submit_planner/generator/reducer_outcome` resolves the wired recording
+//! [`PlanSubmissionPort`] from `ExecutionMetadata.plan_submission` and records
+//! the agent's real submission straight to the per-attempt orchestrator's
+//! non-advancing `record_*` variants (materialize / mark task Done|Failed). The
+//! runner therefore does not ferry a typed terminal back — it reports only
+//! whether the engine run itself broke (`failure_summary = run.error`). The
+//! single `advance_run_stage` loop owns launching + closure (D4: exactly one
+//! writer), and catches a dead agent (one that never submitted) at join time via
+//! the still-RUNNING exhaustion guard. The parent task is never mutated
 //! (GC-eos-runtime-03).
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use eos_engine::NotificationService;
+use eos_engine::{run_ephemeral_agent, EphemeralRunInput, NotificationService};
 use eos_llm_client::Message;
-use eos_tools::{CommandSessionSupervisorPort, NotificationSink, SubagentSupervisorPort};
+use eos_tools::{
+    CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort, SubagentSupervisorPort,
+};
 use eos_types::AgentRunId;
 use eos_workflow::{AgentLaunch, AgentRunReport, AgentRunner, Result as WorkflowResult};
 
-use crate::agent_loop::{run_ephemeral_agent, EphemeralRunInput};
 use crate::app_state::AppState;
 use crate::tool_context::{build_metadata, MetadataParams};
 
 /// Runtime adapter over the shared engine loop, supplied to `AttemptDeps.runner`.
 pub(crate) struct RuntimeAgentRunner {
     state: AppState,
+    /// The recording plan-submission port (the wired `PlanSubmissionAdapter`
+    /// over the shared attempt registry). Stateless and shared across all runs.
+    plan_submission: Arc<dyn PlanSubmissionPort>,
     subagent_supervisor: Arc<dyn SubagentSupervisorPort>,
     command_session_supervisor: Arc<dyn CommandSessionSupervisorPort>,
     notifier: NotificationService,
@@ -42,12 +48,14 @@ impl std::fmt::Debug for RuntimeAgentRunner {
 impl RuntimeAgentRunner {
     pub(crate) fn new(
         state: AppState,
+        plan_submission: Arc<dyn PlanSubmissionPort>,
         subagent_supervisor: Arc<dyn SubagentSupervisorPort>,
         command_session_supervisor: Arc<dyn CommandSessionSupervisorPort>,
         notifier: NotificationService,
     ) -> Self {
         Self {
             state,
+            plan_submission,
             subagent_supervisor,
             command_session_supervisor,
             notifier,
@@ -59,7 +67,7 @@ impl RuntimeAgentRunner {
 impl AgentRunner for RuntimeAgentRunner {
     async fn run(&self, launch: AgentLaunch) -> WorkflowResult<AgentRunReport> {
         let Some(agent_def) = launch.agent_def.clone() else {
-            return Ok(AgentRunReport::no_terminal(
+            return Ok(AgentRunReport::failed(
                 "workflow launch carried no agent definition",
             ));
         };
@@ -77,6 +85,7 @@ impl AgentRunner for RuntimeAgentRunner {
                 attempt_id: launch.attempt_id.clone(),
                 workflow_id: launch.workflow_id.clone(),
                 workflow_control: None,
+                plan_submission: Some(self.plan_submission.clone()),
                 subagent_supervisor: Some(self.subagent_supervisor.clone()),
                 command_session_supervisor: Some(self.command_session_supervisor.clone()),
                 notifications: sink,
@@ -94,7 +103,7 @@ impl AgentRunner for RuntimeAgentRunner {
         }
 
         let run = run_ephemeral_agent(
-            &self.state,
+            &self.state.engine_run_handles(),
             EphemeralRunInput {
                 agent: agent_def,
                 initial_messages: vec![Message::from_user_text(prompt)],
@@ -108,10 +117,11 @@ impl AgentRunner for RuntimeAgentRunner {
         )
         .await;
 
-        let summary = run.error.unwrap_or_else(|| {
-            "workflow agent produced no typed terminal (phase-6 delegated-execution residual)"
-                .to_owned()
-        });
-        Ok(AgentRunReport::no_terminal(summary))
+        // The submit tool already recorded the agent's submission during the run
+        // (Path A-recording); the runner reports only a framework fault, which
+        // the loop uses as the still-RUNNING exhaustion summary for a dead agent.
+        Ok(AgentRunReport {
+            failure_summary: run.error,
+        })
     }
 }

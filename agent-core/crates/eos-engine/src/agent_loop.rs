@@ -64,6 +64,7 @@ impl std::fmt::Debug for EngineRunHandles {
 }
 
 /// Inputs for [`run_ephemeral_agent`].
+#[derive(Debug)]
 pub struct EphemeralRunInput {
     /// The resolved agent definition to run.
     pub agent: AgentDefinition,
@@ -84,6 +85,7 @@ pub struct EphemeralRunInput {
 }
 
 /// The result of one ephemeral agent run, read from the loop's `QueryContext`.
+#[derive(Debug)]
 pub struct EphemeralRun {
     /// The terminal tool result, when a terminal tool succeeded.
     pub terminal_result: Option<ToolResult>,

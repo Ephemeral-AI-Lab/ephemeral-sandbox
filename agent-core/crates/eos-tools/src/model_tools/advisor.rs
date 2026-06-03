@@ -1,5 +1,12 @@
 //! The `ask_advisor` helper tool — a blocking read-only advisor audit of a
-//! pending terminal submission. Calls the [`AdvisorPort`].
+//! pending terminal submission.
+//!
+//! Only the model-facing spec/registration lives here. *Execution* is the engine
+//! running an ephemeral advisor agent: `dispatch_assistant_tools` intercepts
+//! `ToolName::AskAdvisor` and routes it to `eos_engine::advisor::run_advisor`
+//! (advisor remediation plan §2a). `eos-tools` is upstream of `eos-engine`, so the
+//! run cannot be driven from this crate; the executor below is therefore never
+//! reached in the engine loop and exists only so the tool registers with a body.
 
 use std::sync::Arc;
 
@@ -9,7 +16,6 @@ use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 
 use crate::error::ToolError;
-use crate::execution::parse_input;
 use crate::executor::ToolExecutor;
 use crate::metadata::ExecutionMetadata;
 use crate::name::ToolName;
@@ -34,21 +40,14 @@ struct AskAdvisor;
 impl ToolExecutor for AskAdvisor {
     async fn execute(
         &self,
-        input: &JsonObject,
-        ctx: &ExecutionMetadata,
+        _input: &JsonObject,
+        _ctx: &ExecutionMetadata,
     ) -> Result<ToolResult, ToolError> {
-        let parsed: AskAdvisorInput = match parse_input(ToolName::AskAdvisor, input) {
-            Ok(v) => v,
-            Err(err) => return Ok(err),
-        };
-        if parsed.tool_name.trim().is_empty() {
-            return Ok(ToolResult::error("tool_name must be nonblank"));
-        }
-        let output = ctx
-            .require_advisor()?
-            .review(&parsed.tool_name, &parsed.tool_payload)
-            .await?;
-        Ok(ToolResult::ok(output))
+        // The engine dispatch loop intercepts `ask_advisor` and runs it as an
+        // ephemeral advisor agent; this body is unreachable in the loop.
+        Ok(ToolResult::error(
+            "ask_advisor is dispatched by the engine and has no in-tool executor",
+        ))
     }
 }
 

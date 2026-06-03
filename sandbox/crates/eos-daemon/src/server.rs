@@ -138,6 +138,26 @@ impl DaemonServer {
                 }
             })
         };
+        // Command-session reaper (sense-2 §2.4): timeout backstop + finalize of
+        // unpolled child exits. Runs in a blocking task (try_wait/killpg/fs).
+        let _command_session_reaper = {
+            let shutdown = server.shutdown.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        () = shutdown.cancelled() => break,
+                        () = tokio::time::sleep(Duration::from_millis(50)) => {
+                            let _ = tokio::task::spawn_blocking(
+                                crate::command::command_session_reaper_sweep,
+                            )
+                            .await;
+                        }
+                    }
+                }
+            })
+        };
+        // Reap stale command sessions left by a prior daemon, before accepting.
+        crate::command::recover_orphaned_command_sessions();
         let _ = (&server.audit, &server.invocation_registry);
 
         if let Some(parent) = server.config.socket_path.parent() {

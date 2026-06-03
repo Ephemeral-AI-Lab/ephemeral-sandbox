@@ -1,11 +1,12 @@
 //! Post-message assistant tool dispatch.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
-use eos_llm_client::ContentBlock;
+use eos_llm_client::{ContentBlock, Message};
 use eos_tools::{
-    execute_tool_once, lifecycle_batch_decision, reject_terminal_batch, DispatchCall,
-    ExecutionMetadata, RegisteredTool, ToolName, ToolResult,
+    execute_tool_once, lifecycle_batch_decision, reject_terminal_batch, run_pre_hooks,
+    DispatchCall, ExecutionMetadata, RegisteredTool, ToolName, ToolResult,
 };
 use eos_types::{JsonObject, ToolUseId};
 use tokio::sync::mpsc;
@@ -94,9 +95,16 @@ fn first_terminal_result(
     })
 }
 
-fn metadata_for_call(ctx: &QueryContext, tool_use_id: &ToolUseId) -> ExecutionMetadata {
+fn metadata_for_call(
+    ctx: &QueryContext,
+    conversation: &Arc<[Message]>,
+    tool_use_id: &ToolUseId,
+) -> ExecutionMetadata {
     let mut metadata = ctx.tool_metadata.clone();
     metadata.tool_use_id = Some(tool_use_id.clone());
+    // Per-turn transcript snapshot (port of Python `context.conversation_messages`),
+    // read by the stateless advisor-approval gate. Cheap Arc clone, not a copy.
+    metadata.conversation = conversation.clone();
     metadata
 }
 
@@ -117,10 +125,11 @@ async fn execute_foreground_tool(
 
 async fn dispatch_single_foreground_tool(
     ctx: &QueryContext,
+    conversation: &Arc<[Message]>,
     call: ToolUseRequest,
     tool: RegisteredTool,
 ) -> Result<ForegroundCompletion, EngineError> {
-    let metadata = metadata_for_call(ctx, &call.tool_use_id);
+    let metadata = metadata_for_call(ctx, conversation, &call.tool_use_id);
     execute_foreground_tool(call, tool, metadata).await
 }
 
@@ -130,6 +139,7 @@ fn join_error(err: &tokio::task::JoinError) -> EngineError {
 
 async fn dispatch_many_foreground_tools(
     ctx: &QueryContext,
+    conversation: &Arc<[Message]>,
     runnable: Vec<(ToolUseRequest, RegisteredTool)>,
 ) -> Result<Vec<ForegroundCompletion>, EngineError> {
     let expected = runnable.len();
@@ -138,7 +148,7 @@ async fn dispatch_many_foreground_tools(
     let mut tasks = JoinSet::new();
 
     for (call, tool) in runnable {
-        let metadata = metadata_for_call(ctx, &call.tool_use_id);
+        let metadata = metadata_for_call(ctx, conversation, &call.tool_use_id);
         let tx = tx.clone();
         tasks.spawn(async move {
             let completion = execute_foreground_tool(call, tool, metadata).await;
@@ -180,6 +190,7 @@ async fn dispatch_many_foreground_tools(
 
 async fn dispatch_foreground_tools(
     ctx: &QueryContext,
+    conversation: &Arc<[Message]>,
     runnable: Vec<(ToolUseRequest, RegisteredTool)>,
 ) -> Result<Vec<ForegroundCompletion>, EngineError> {
     match runnable.len() {
@@ -191,11 +202,46 @@ async fn dispatch_foreground_tools(
                 ));
             };
             Ok(vec![
-                dispatch_single_foreground_tool(ctx, call, tool).await?,
+                dispatch_single_foreground_tool(ctx, conversation, call, tool).await?,
             ])
         }
-        _ => dispatch_many_foreground_tools(ctx, runnable).await,
+        _ => dispatch_many_foreground_tools(ctx, conversation, runnable).await,
     }
+}
+
+/// Run an `ask_advisor` call: its pre-hooks (e.g. `BlockInIsolatedMode`) gate the
+/// call, then — if they pass — the engine drives an ephemeral advisor agent
+/// (`advisor::run_advisor`). The advisor run is an engine primitive, so this is
+/// the faithful Rust form of Python `ask_advisor` calling `run_ephemeral_agent`.
+async fn run_advisor_call(
+    ctx: &QueryContext,
+    conversation: &Arc<[Message]>,
+    call: ToolUseRequest,
+    tool: RegisteredTool,
+) -> Result<ForegroundCompletion, EngineError> {
+    let metadata = metadata_for_call(ctx, conversation, &call.tool_use_id);
+    let result = if let Some(denial) = run_pre_hooks(&tool, &call.input, &metadata).await? {
+        denial
+    } else if let Some(handles) = ctx.run_handles.clone() {
+        let tool_name = call
+            .input
+            .get("tool_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        let tool_payload = call
+            .input
+            .get("tool_payload")
+            .and_then(|v| v.as_object())
+            .cloned()
+            .unwrap_or_default();
+        crate::advisor::run_advisor(&handles, &metadata, conversation, tool_name, &tool_payload)
+            .await
+    } else {
+        rejection_result(
+            "ask_advisor is unavailable: the engine run handles are not wired for this run",
+        )
+    };
+    Ok(ForegroundCompletion { call, result })
 }
 
 /// Dispatch a complete assistant tool batch.
@@ -205,6 +251,7 @@ async fn dispatch_foreground_tools(
 pub async fn dispatch_assistant_tools(
     ctx: &mut QueryContext,
     calls: &[ToolUseRequest],
+    messages: &[Message],
 ) -> Result<AssistantToolDispatchOutcome, EngineError> {
     let dispatch_calls: Vec<DispatchCall<'_>> = calls
         .iter()
@@ -241,10 +288,16 @@ pub async fn dispatch_assistant_tools(
         rejected.insert(rejection.tool_use_id, rejection_result(rejection.message));
     }
 
+    // One transcript snapshot for this dispatch; cloned (cheaply) into each tool's
+    // metadata as `conversation` (the advisor gate's only input) and read by the
+    // engine-driven `ask_advisor` run.
+    let conversation: Arc<[Message]> = Arc::from(messages.to_vec());
+
     let mut events = Vec::new();
     let mut tool_results = Vec::new();
     let mut results_by_id = rejected.clone();
     let mut runnable = Vec::new();
+    let mut advisor_runnable = Vec::new();
 
     for call in calls {
         if let Some(result) = rejected.get(call.tool_use_id.as_str()) {
@@ -272,10 +325,21 @@ pub async fn dispatch_assistant_tools(
         };
 
         events.push(started_event(call));
-        runnable.push((call.clone(), tool.clone()));
+        // `ask_advisor` is engine-driven (an ephemeral advisor agent), not a
+        // generic foreground executor — route it out of the parallel fan-out.
+        if name == ToolName::AskAdvisor {
+            advisor_runnable.push((call.clone(), tool.clone()));
+        } else {
+            runnable.push((call.clone(), tool.clone()));
+        }
     }
 
-    for completion in dispatch_foreground_tools(ctx, runnable).await? {
+    let mut completions = dispatch_foreground_tools(ctx, &conversation, runnable).await?;
+    for (call, tool) in advisor_runnable {
+        completions.push(run_advisor_call(ctx, &conversation, call, tool).await?);
+    }
+
+    for completion in completions {
         if completion.result.is_terminal {
             ctx.terminal_result = Some(completion.result.clone());
         }
@@ -461,7 +525,7 @@ mod tests {
                 input: JsonObject::new(),
             },
         ];
-        let outcome = dispatch_assistant_tools(&mut ctx, &calls)
+        let outcome = dispatch_assistant_tools(&mut ctx, &calls, &[])
             .await
             .expect("dispatch");
 
@@ -512,7 +576,7 @@ mod tests {
         ];
         let outcome = timeout(
             Duration::from_millis(200),
-            dispatch_assistant_tools(&mut ctx, &calls),
+            dispatch_assistant_tools(&mut ctx, &calls, &[]),
         )
         .await
         .expect("parallel foreground dispatch timed out")
@@ -546,7 +610,7 @@ mod tests {
             name: "submit_root_outcome".to_owned(),
             input: JsonObject::new(),
         }];
-        let outcome = dispatch_assistant_tools(&mut ctx, &calls)
+        let outcome = dispatch_assistant_tools(&mut ctx, &calls, &[])
             .await
             .expect("dispatch");
 

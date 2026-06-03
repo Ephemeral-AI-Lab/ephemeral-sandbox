@@ -23,6 +23,8 @@ use crate::metadata::ExecutionMetadata;
 use crate::name::ToolName;
 use crate::result::ToolResult;
 
+mod advisor_approval;
+
 /// One wired pre-hook. `#[non_exhaustive]`: hooks are added here, never as an
 /// open trait (the closed set is matched exhaustively by [`Hook::run`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,7 +168,9 @@ impl Hook {
             Hook::RequireNoInflightBackgroundTasks { tool } => {
                 run_require_no_inflight(tool, raw_input, ctx).await
             }
-            Hook::AdvisorApproval { tool } => run_advisor_approval(tool, ctx).await,
+            Hook::AdvisorApproval { tool } => {
+                advisor_approval::run_advisor_approval(tool, ctx).await
+            }
             Hook::DisallowNestedPlannerDeferral { .. } => {
                 run_disallow_nested_planner_deferral(raw_input, ctx).await
             }
@@ -448,11 +452,6 @@ fn run_destructive_shell(raw_input: &JsonObject) -> HookOutcome {
 
 const BLOCK_IN_ISOLATED_MESSAGE: &str = "BLOCKED: ask_advisor is unavailable inside an isolated workspace; call exit_isolated_workspace first, then ask_advisor and submit your terminal.";
 
-const ADVISOR_APPROVAL_MESSAGE_PREFIX: &str =
-    "BLOCKED: You must get approval from advisor before submitting this terminal. Call ask_advisor(tool_name=\"";
-const ADVISOR_APPROVAL_MESSAGE_SUFFIX: &str =
-    "\", tool_payload=...) and resubmit only after the advisor returns verdict=\"approve\".";
-
 const NESTED_PLANNER_DEFERRAL_MESSAGE: &str = "BLOCKED: nested workflow planners cannot set deferred_goal_for_next_iteration. Submit a plan that covers all current child-workflow goal items and leaves no remaining items.";
 
 /// `BlockInIsolatedMode`: fail-OPEN on any daemon RPC error (Python parity).
@@ -567,33 +566,6 @@ async fn run_require_no_inflight(
         ));
     }
     Ok(HookOutcome::pass())
-}
-
-/// `AdvisorApprovalPreHook`: a missing advisor port denies with `missing`
-/// (Python: no conversation → reason `missing`).
-async fn run_advisor_approval(
-    tool: ToolName,
-    ctx: &ExecutionMetadata,
-) -> Result<HookOutcome, ToolError> {
-    let message = format!(
-        "{ADVISOR_APPROVAL_MESSAGE_PREFIX}{}{ADVISOR_APPROVAL_MESSAGE_SUFFIX}",
-        tool.as_str()
-    );
-    let Some(advisor) = &ctx.advisor else {
-        return Ok(HookOutcome::Deny(
-            HookDenial::new(message, "advisor_approval").with_reason("missing"),
-        ));
-    };
-    let approval = advisor.approval_status(tool.as_str()).await?;
-    if approval.approved {
-        Ok(HookOutcome::pass())
-    } else {
-        let mut denial = HookDenial::new(message, "advisor_approval");
-        if let Some(reason) = approval.reason {
-            denial = denial.with_reason(reason);
-        }
-        Ok(HookOutcome::Deny(denial))
-    }
 }
 
 /// `DisallowNestedPlannerDeferral`: only fires when a nonblank deferred goal is

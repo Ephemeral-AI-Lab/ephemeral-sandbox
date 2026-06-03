@@ -12,13 +12,14 @@ use anyhow::{Context, Result};
 use eos_engine::{spawn_command_completion_heartbeat, NotificationService, SharedSubagentSupervisor};
 use eos_state::{Task, TaskRole, TaskStatus};
 use eos_tools::{
-    CommandSessionSupervisorPort, NotificationSink, SubagentSupervisorPort, WorkflowControlPort,
+    CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort, SubagentSupervisorPort,
+    WorkflowControlPort,
 };
 use eos_types::{RequestId, TaskId};
 use eos_workflow::{
     AgentEntryComposer, AgentRunner, AttemptDeps, AttemptOrchestratorRegistry, ContextEngine,
-    ContextEngineDeps, OpenIterationCoordinatorRegistry, WorkflowControlAdapter,
-    WorkflowLifecycleConfig, WorkflowStarter,
+    ContextEngineDeps, OpenIterationCoordinatorRegistry, PlanSubmissionAdapter,
+    WorkflowControlAdapter, WorkflowLifecycleConfig, WorkflowStarter,
 };
 use tokio::task::JoinHandle;
 use uuid::Uuid;
@@ -148,8 +149,14 @@ pub async fn start_request(
         context_engine,
         state.agent_registry.clone(),
     ));
+    // The recording plan-submission port: workflow-agent submit tools record
+    // straight to the active per-attempt orchestrator over this shared registry
+    // (Path A-recording). Stateless and shared across all runs.
+    let plan_submission: Arc<dyn PlanSubmissionPort> =
+        Arc::new(PlanSubmissionAdapter::new(orchestrator_registry.clone()));
     let runner: Arc<dyn AgentRunner> = Arc::new(RuntimeAgentRunner::new(
         state.clone(),
+        plan_submission,
         supervisor_port.clone(),
         command_session_port.clone(),
         notifier.clone(),

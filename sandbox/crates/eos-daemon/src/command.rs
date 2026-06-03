@@ -708,6 +708,14 @@ impl CommandSessionRegistry {
             .count()
     }
 
+    /// A snapshot of the live sessions (for the reaper sweep).
+    fn live(&self) -> Vec<Arc<CommandSession>> {
+        lock_command_session_state(&self.sessions)
+            .values()
+            .cloned()
+            .collect()
+    }
+
     fn push_completed(&self, completion: Value) {
         let id = completion
             .get("command_session_id")
@@ -1386,6 +1394,11 @@ fn terminate_command_process_group(pgid: i32) {
     }
 }
 
+/// How long `cancel`/exit-cleanup wait for the SIGKILLed child to exit so the
+/// finalize (lease release + isolated unregister) runs inline.
+#[cfg(target_os = "linux")]
+const COMMAND_SESSION_CANCEL_WAIT_MS: u64 = 500;
+
 #[cfg(target_os = "linux")]
 fn command_session_write_stdin(args: &Value) -> Result<Value, DaemonError> {
     let id = require_string(args, "command_session_id")?;
@@ -1396,8 +1409,15 @@ fn command_session_write_stdin(args: &Value) -> Result<Value, DaemonError> {
         .to_owned();
     let yield_time_ms = optional_u64(args, "yield_time_ms").unwrap_or(1000);
     let max_tokens = optional_u64(args, "max_output_tokens");
+    // sense-2 D7: `terminate` is the explicit teardown channel, decoupled from
+    // `\x03` (which is SIGINT/interrupt only).
+    let terminate = args
+        .get("terminate")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let registry = command_session_registry();
     let Some(session) = registry.get(&id) else {
+        // The live session is gone; a reaper-parked completion may remain.
         if let Some(result) = registry.take_completed_result(&id) {
             return Ok(result);
         }
@@ -1407,28 +1427,31 @@ fn command_session_write_stdin(args: &Value) -> Result<Value, DaemonError> {
         let mut writer = lock_command_session_state(&session.writer);
         writer.write_all(chars.as_bytes())?;
     }
+    // `\x03` interrupts the foreground program (SIGINT) only — teardown is a
+    // separate concern (sense-2 D7).
     if chars.contains('\u{3}') {
         *lock_command_session_state(&session.interrupted) = true;
         let _ = killpg(Pid::from_raw(session.pgid), Signal::SIGINT);
     }
-    thread::sleep(Duration::from_millis(yield_time_ms));
-    if let Some(result) = command_session_registry().take_completed_result(&id) {
-        return Ok(result);
+    // `terminate: true` tears the session down (SIGTERM→SIGKILL); `wait_for_yield`
+    // then finalizes it inline with a `cancelled` status.
+    if terminate {
+        *lock_command_session_state(&session.cancelled) = true;
+        terminate_command_process_group(session.pgid);
     }
-    Ok(command_result(
-        "running",
-        None,
-        &session.read_model_output(max_tokens),
-        "",
-        Some(id),
-    ))
+    // Unified wait: early-return on completion (inline finalize) or
+    // quiet-after-output, capped at `yield_time_ms` (sense-2 §2.3).
+    match wait_for_yield(&session, yield_time_ms, max_tokens) {
+        WaitOutcome::Completed(result) => Ok(result),
+        WaitOutcome::Running(stdout) => Ok(command_result("running", None, &stdout, "", Some(id))),
+    }
 }
 
 #[cfg(target_os = "linux")]
 fn command_session_cancel(args: &Value) -> Result<Value, DaemonError> {
     let id = require_string(args, "command_session_id")?;
     let registry = command_session_registry();
-    let Some(session) = registry.remove(&id) else {
+    let Some(session) = registry.get(&id) else {
         if let Some(result) = registry.take_completed_result(&id) {
             return Ok(result);
         }
@@ -1436,16 +1459,16 @@ fn command_session_cancel(args: &Value) -> Result<Value, DaemonError> {
     };
     *lock_command_session_state(&session.cancelled) = true;
     terminate_command_process_group(session.pgid);
-    crate::isolated::unregister_command_session(&session.agent_id, &id);
-    Ok(command_result(
-        "cancelled",
-        None,
-        &session
-            .output
-            .all_recent(optional_u64(args, "max_output_tokens")),
-        "",
-        None,
-    ))
+    // Finalize inline so the lease/scratch is reclaimed and the cancelled status
+    // is stamped; if the child is somehow still alive, the reaper finalizes it.
+    match wait_for_yield(
+        &session,
+        COMMAND_SESSION_CANCEL_WAIT_MS,
+        optional_u64(args, "max_output_tokens"),
+    ) {
+        WaitOutcome::Completed(result) => Ok(result),
+        WaitOutcome::Running(stdout) => Ok(command_result("cancelled", None, &stdout, "", None)),
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -1454,13 +1477,19 @@ fn command_session_cancel(args: &Value) -> Result<Value, DaemonError> {
     reason = "isolated exit cleanup keeps the same fallible helper signature across cfgs"
 )]
 pub fn cancel_command_session_for_exit(id: &str) -> Result<bool, DaemonError> {
-    let Some(session) = command_session_registry().remove(id) else {
+    let Some(session) = command_session_registry().get(id) else {
         crate::isolated::unregister_command_session_id(id);
         return Ok(false);
     };
     *lock_command_session_state(&session.cancelled) = true;
     terminate_command_process_group(session.pgid);
-    crate::isolated::unregister_command_session(&session.agent_id, id);
+    // Reap promptly so `try_finalize` releases the session and (for isolated)
+    // unregisters it before the namespace is torn down; the reaper is the
+    // backstop if the child outlives the window.
+    let deadline = Instant::now() + Duration::from_millis(COMMAND_SESSION_CANCEL_WAIT_MS);
+    while session.try_finalize(false).is_none() && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(5));
+    }
     Ok(true)
 }
 
@@ -1474,6 +1503,86 @@ pub fn cancel_command_session_for_exit(id: &str) -> Result<bool, DaemonError> {
 pub const fn cancel_command_session_for_exit(_id: &str) -> Result<bool, DaemonError> {
     Ok(false)
 }
+
+/// Periodic reaper (sense-2 §2.4, §3): enforce the per-session timeout backstop
+/// and finalize any session whose child has exited without a live poller,
+/// parking the completion for the heartbeat. The runner enforces the per-call
+/// timeout internally (primary); this is the backstop for a wedged or
+/// no-timeout runner and the only finalizer for fire-and-forget sessions.
+#[cfg(target_os = "linux")]
+pub fn command_session_reaper_sweep() {
+    for session in command_session_registry().live() {
+        if let Some(deadline) = session.timeout_deadline {
+            if Instant::now() > deadline {
+                terminate_command_process_group(session.pgid);
+            }
+        }
+        let _ = session.try_finalize(true);
+    }
+}
+
+/// Startup recovery (sense-2 §2.4): a previous daemon may have left ephemeral
+/// command-session metadata behind. Park an `orphan_reaped` completion for each
+/// so a recovering agent learns the session is dead, then remove the stale dir.
+///
+/// We deliberately do **not** `killpg` the old children: their pgids are not
+/// persisted, so a restarted daemon could otherwise signal a reused PID. Their
+/// own runner timeout reclaims them; lease cleanup is left to LayerStack GC.
+#[cfg(target_os = "linux")]
+pub fn recover_orphaned_command_sessions() {
+    let Ok(runtime_root) = overlay_writable_root() else {
+        return;
+    };
+    let dir = runtime_root.join("runtime").join("command-sessions");
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if let Ok(bytes) = std::fs::read(path.join("metadata.json")) {
+            if let Ok(meta) = serde_json::from_slice::<Value>(&bytes) {
+                let id = meta
+                    .get("command_session_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                if !id.is_empty() {
+                    let agent_id = meta
+                        .get("agent_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    let command = meta
+                        .get("command")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    let result = command_result(
+                        "error",
+                        Some(1),
+                        "",
+                        "orphan_reaped: daemon restarted",
+                        Some(id.to_owned()),
+                    );
+                    command_session_registry().push_completed(json!({
+                        "command_session_id": id,
+                        "agent_id": agent_id,
+                        "command": command,
+                        "result": result.clone(),
+                        "notification_result": result,
+                    }));
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(&path);
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn command_session_reaper_sweep() {}
+
+#[cfg(not(target_os = "linux"))]
+pub fn recover_orphaned_command_sessions() {}
 
 #[cfg(test)]
 mod tests {

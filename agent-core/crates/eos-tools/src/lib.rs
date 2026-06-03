@@ -38,7 +38,7 @@ pub use dispatch::{
     LifecycleBatchDecision,
 };
 pub use error::ToolError;
-pub use execution::execute_tool_once;
+pub use execution::{execute_tool_once, run_pre_hooks};
 pub use executor::{RegisteredTool, ToolExecutor};
 pub use hooks::{Hook, HookDenial, HookOutcome};
 pub use intent::ToolIntent;
@@ -52,4 +52,6 @@ pub use ports::{
 };
 pub use registry::ToolRegistry;
 pub use result::{OutputShape, ToolResult};
-pub use terminal::{descriptor, TerminalDescriptor, TerminalTool};
+pub use terminal::{
+    descriptor, render_tool_instruction, TerminalDescriptor, TerminalTool, ToolInstructions,
+};

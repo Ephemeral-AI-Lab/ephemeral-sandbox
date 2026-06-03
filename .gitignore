@@ -9,12 +9,14 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.uv-cache/
 .venv/
 venv/
 env/
 .env
 *.so
 .coverage
+.coverage.*
 htmlcov/
 .idea/
 .vscode/
@@ -50,6 +52,7 @@ frontend/out/
 react_tui_smoke.txt
 .pytest_cache/
 .pytest_cache
+.hypothesis/
 .ruff_cache/
 coverage/
 *.lcov
@@ -60,6 +63,7 @@ coverage.*
 htmlcov/
 
 # Backend/build artefacts and env tooling
+target/
 backend/.venv/
 backend/node_modules/
 backend/.pytest_cache/

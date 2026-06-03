@@ -41,9 +41,39 @@ pub async fn execute_tool_once(
         )));
     }
 
-    // 2. Pre-hooks: the first Deny short-circuits to an in-band error. Passing
-    //    hooks accumulate into the trace that a later denial reports (the denier
-    //    itself is recorded in `hook_failure`, not the trace — Python parity).
+    // 2. Pre-hooks: the first Deny short-circuits to an in-band error.
+    if let Some(denial) = run_pre_hooks(tool, raw_input, ctx).await? {
+        return Ok(denial);
+    }
+
+    // 3. Execute the body.
+    let result = tool.executor().execute(raw_input, ctx).await?;
+
+    // 4. Validate output against the declared shape.
+    let result = validate_output(tool, result);
+
+    // 5. Stamp terminal on success.
+    Ok(stamp_terminal(tool, result))
+}
+
+/// Run a tool's ordered pre-hooks against `raw_input`/`ctx`. Returns
+/// `Some(in-band error result)` on the first Deny (the Python
+/// `_build_hook_failure_result` shape, carrying the accumulated pass-trace), or
+/// `None` if every hook passes.
+///
+/// Shared by [`execute_tool_once`] and the engine's `ask_advisor` interception,
+/// which runs the gate hooks (e.g. `BlockInIsolatedMode`) but drives the advisor
+/// *execution* itself rather than calling the stub executor.
+///
+/// # Errors
+/// Propagates a [`ToolError`] from a hook reading downstream state.
+pub async fn run_pre_hooks(
+    tool: &RegisteredTool,
+    raw_input: &JsonObject,
+    ctx: &crate::metadata::ExecutionMetadata,
+) -> Result<Option<ToolResult>, ToolError> {
+    // Passing hooks accumulate into the trace a later denial reports (the denier
+    // itself is recorded in `hook_failure`, not the trace — Python parity).
     let mut hook_trace: Vec<Value> = Vec::new();
     for &hook in &tool.hooks {
         match hook.run(raw_input, ctx).await? {
@@ -56,19 +86,11 @@ pub async fn execute_tool_once(
                 "metadata": meta,
             })),
             HookOutcome::Deny(denial) => {
-                return Ok(hook_failure_result(hook, &denial, &hook_trace, raw_input))
+                return Ok(Some(hook_failure_result(hook, &denial, &hook_trace, raw_input)))
             }
         }
     }
-
-    // 3. Execute the body.
-    let result = tool.executor().execute(raw_input, ctx).await?;
-
-    // 4. Validate output against the declared shape.
-    let result = validate_output(tool, result);
-
-    // 5. Stamp terminal on success.
-    Ok(stamp_terminal(tool, result))
+    Ok(None)
 }
 
 /// Validate a successful result against the tool's [`OutputShape`]

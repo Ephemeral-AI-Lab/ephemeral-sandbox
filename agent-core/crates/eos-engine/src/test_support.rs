@@ -179,8 +179,8 @@ pub(crate) fn metadata() -> ExecutionMetadata {
         plan_submission: None,
         subagent_supervisor: None,
         command_session_supervisor: None,
-        advisor: None,
         isolated_workspace: None,
         notifications: None,
+        conversation: Arc::from(Vec::new()),
     }
 }

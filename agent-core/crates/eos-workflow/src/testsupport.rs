@@ -8,7 +8,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use eos_agent_def::{AgentDefinition, AgentName, AgentRegistry, AgentRegistryBuilder, AgentRole};
@@ -18,17 +18,39 @@ use eos_state::{
     IterationStatus, JsonObject, PlannerKind, ReducerSubmission, RequestId, Task, TaskId,
     TaskOutcomeStatus, TaskRole, TaskStatus, Workflow, WorkflowId, WorkflowStatus,
 };
-use eos_tools::{PlanReducer, PlanTask, PlannerPlan};
+use eos_tools::{PlanReducer, PlanSubmissionPort, PlanTask, PlannerPlan};
 use parking_lot::Mutex;
 use serde_json::json;
 use tokio::sync::Notify;
 
-use crate::attempt::{
-    AgentLaunch, AgentRunReport, AgentRunner, AgentTerminal, AttemptDeps,
-    AttemptOrchestratorRegistry,
-};
+use crate::attempt::{AgentLaunch, AgentRunReport, AgentRunner, AttemptDeps, AttemptOrchestratorRegistry};
 use crate::iteration::OpenIterationCoordinatorRegistry;
-use crate::Result;
+use crate::{PlanSubmissionAdapter, Result};
+
+/// A scripted terminal submission a test double records via the recording
+/// [`PlanSubmissionPort`] during `run()` — the same tool->record path the real
+/// submit tools take (Path A-recording). Replaces the old `AgentTerminal` enum
+/// the runner used to return for the loop to apply.
+#[derive(Debug, Clone)]
+pub(crate) enum ScriptedSubmission {
+    /// The planner submits a plan (records via `apply_plan`).
+    Planner(PlannerPlan),
+    /// A generator submits its outcome (records via `submit_generator`).
+    Generator(GeneratorSubmission),
+    /// A reducer submits its outcome (records via `apply_reducer`).
+    Reducer(ReducerSubmission),
+    /// A dead agent: the run ends without recording, so the owning loop catches
+    /// it via the still-RUNNING exhaustion guard (`run_exhausted`).
+    NoSubmission(String),
+}
+
+/// Build the recording port over an attempt registry (the test analogue of the
+/// production `PlanSubmissionAdapter` wiring at the composition root).
+pub(crate) fn recording_port(
+    registry: &Arc<AttemptOrchestratorRegistry>,
+) -> Arc<dyn PlanSubmissionPort> {
+    Arc::new(PlanSubmissionAdapter::new(registry.clone()))
+}
 
 #[derive(Debug, Default)]
 pub(crate) struct MemoryStores {
@@ -525,18 +547,40 @@ impl eos_state::TaskStore for MemoryStores {
     }
 }
 
-/// Agent-runner double serving pre-pushed reports FIFO. Use for sequential,
-/// single-attempt scenarios where the task ids are known after `start()`.
-#[derive(Debug, Default)]
+/// Agent-runner double serving pre-pushed submissions FIFO, each recorded via
+/// the bound recording port (the real tool->record path). Use for sequential,
+/// single-attempt scenarios where the task ids are known after `start()`. An
+/// empty queue blocks the run (the agent stays "running") until a submission is
+/// pushed — used by tests that hold a planner open while exercising cancel.
+#[derive(Default)]
 pub(crate) struct QueueRunner {
-    reports: Mutex<VecDeque<AgentRunReport>>,
+    submissions: Mutex<VecDeque<ScriptedSubmission>>,
     launches: Mutex<Vec<AgentLaunch>>,
+    port: OnceLock<Arc<dyn PlanSubmissionPort>>,
     notify: Notify,
 }
 
+impl std::fmt::Debug for QueueRunner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("QueueRunner").finish_non_exhaustive()
+    }
+}
+
 impl QueueRunner {
-    pub(crate) fn push(&self, report: AgentRunReport) {
-        self.reports.lock().push_back(report);
+    /// Bind the recording port to the attempt registry (call right after
+    /// `deps()`, before the registry is moved into the starter/lifecycle).
+    pub(crate) fn bind(&self, registry: &Arc<AttemptOrchestratorRegistry>) {
+        let _ = self.port.set(recording_port(registry));
+    }
+
+    fn port(&self) -> &Arc<dyn PlanSubmissionPort> {
+        self.port
+            .get()
+            .expect("QueueRunner recording port bound (call bind() after deps())")
+    }
+
+    pub(crate) fn push(&self, submission: ScriptedSubmission) {
+        self.submissions.lock().push_back(submission);
         self.notify.notify_one();
     }
 
@@ -549,11 +593,40 @@ impl QueueRunner {
 impl AgentRunner for QueueRunner {
     async fn run(&self, launch: AgentLaunch) -> Result<AgentRunReport> {
         self.launches.lock().push(launch);
-        loop {
-            if let Some(report) = self.reports.lock().pop_front() {
-                return Ok(report);
+        let submission = loop {
+            if let Some(submission) = self.submissions.lock().pop_front() {
+                break submission;
             }
             self.notify.notified().await;
+        };
+        record_scripted(self.port(), submission).await
+    }
+}
+
+/// Record a scripted submission via the recording port (the same path the real
+/// submit tools take). A `NoSubmission` records nothing, so the owning loop's
+/// still-RUNNING guard synthesizes `run_exhausted`.
+async fn record_scripted(
+    port: &Arc<dyn PlanSubmissionPort>,
+    submission: ScriptedSubmission,
+) -> Result<AgentRunReport> {
+    match submission {
+        ScriptedSubmission::NoSubmission(summary) => Ok(AgentRunReport::failed(summary)),
+        ScriptedSubmission::Planner(plan) => {
+            port.apply_plan(plan).await.expect("record plan via port");
+            Ok(AgentRunReport::ok())
+        }
+        ScriptedSubmission::Generator(submission) => {
+            port.submit_generator(submission)
+                .await
+                .expect("record generator via port");
+            Ok(AgentRunReport::ok())
+        }
+        ScriptedSubmission::Reducer(submission) => {
+            port.apply_reducer(submission)
+                .await
+                .expect("record reducer via port");
+            Ok(AgentRunReport::ok())
         }
     }
 }
@@ -569,6 +642,15 @@ pub(crate) struct ScriptedRunner {
     launches: Mutex<Vec<AgentLaunch>>,
     in_flight: AtomicUsize,
     max_in_flight: AtomicUsize,
+    port: OnceLock<Arc<dyn PlanSubmissionPort>>,
+}
+
+impl std::fmt::Debug for ScriptedRunner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScriptedRunner")
+            .field("generators", &self.generators)
+            .finish_non_exhaustive()
+    }
 }
 
 impl ScriptedRunner {
@@ -589,7 +671,20 @@ impl ScriptedRunner {
             launches: Mutex::new(Vec::new()),
             in_flight: AtomicUsize::new(0),
             max_in_flight: AtomicUsize::new(0),
+            port: OnceLock::new(),
         })
+    }
+
+    /// Bind the recording port to the attempt registry (call right after
+    /// `deps()`, before the registry is moved into the starter).
+    pub(crate) fn bind(&self, registry: &Arc<AttemptOrchestratorRegistry>) {
+        let _ = self.port.set(recording_port(registry));
+    }
+
+    fn port(&self) -> &Arc<dyn PlanSubmissionPort> {
+        self.port
+            .get()
+            .expect("ScriptedRunner recording port bound (call bind() after deps())")
     }
 
     pub(crate) fn launches(&self) -> Vec<AgentLaunch> {
@@ -653,42 +748,37 @@ impl AgentRunner for ScriptedRunner {
     async fn run(&self, launch: AgentLaunch) -> Result<AgentRunReport> {
         self.launches.lock().push(launch.clone());
         let attempt_id = launch.attempt_id.clone().expect("launch attempt id");
-        match launch.role {
-            AgentRole::Planner => Ok(AgentRunReport::terminal(AgentTerminal::Planner(
-                self.build_plan(&launch),
-            ))),
+        let submission = match launch.role {
+            AgentRole::Planner => ScriptedSubmission::Planner(self.build_plan(&launch)),
             AgentRole::Generator => {
                 self.enter();
                 for _ in 0..4 {
                     tokio::task::yield_now().await;
                 }
                 self.exit();
-                Ok(AgentRunReport::terminal(AgentTerminal::Generator(
-                    GeneratorSubmission {
-                        attempt_id,
-                        task_id: launch.task_id.clone(),
-                        status: TaskOutcomeStatus::Success,
-                        outcome: "generated".to_owned(),
-                        terminal_tool_result: terminal_result(),
-                    },
-                )))
+                ScriptedSubmission::Generator(GeneratorSubmission {
+                    attempt_id,
+                    task_id: launch.task_id.clone(),
+                    status: TaskOutcomeStatus::Success,
+                    outcome: "generated".to_owned(),
+                    terminal_tool_result: terminal_result(),
+                })
             }
             AgentRole::Reducer => {
                 self.enter();
                 tokio::task::yield_now().await;
                 self.exit();
-                Ok(AgentRunReport::terminal(AgentTerminal::Reducer(
-                    ReducerSubmission {
-                        attempt_id,
-                        task_id: launch.task_id.clone(),
-                        status: self.reducer_status,
-                        outcome: "reduced".to_owned(),
-                        terminal_tool_result: terminal_result(),
-                    },
-                )))
+                ScriptedSubmission::Reducer(ReducerSubmission {
+                    attempt_id,
+                    task_id: launch.task_id.clone(),
+                    status: self.reducer_status,
+                    outcome: "reduced".to_owned(),
+                    terminal_tool_result: terminal_result(),
+                })
             }
             other => panic!("ScriptedRunner does not serve role {other:?}"),
-        }
+        };
+        record_scripted(self.port(), submission).await
     }
 }
 

@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use eos_agent_def::AgentName;
-use eos_engine::NotificationService;
+use eos_engine::{run_ephemeral_agent, EphemeralRunInput, NotificationService};
 use eos_llm_client::Message;
 use eos_state::TaskStatus;
 use eos_tools::{
@@ -15,7 +15,6 @@ use eos_tools::{
 use eos_types::{AgentRunId, JsonObject, RequestId, SandboxId, TaskId};
 use serde_json::json;
 
-use crate::agent_loop::{run_ephemeral_agent, EphemeralRunInput};
 use crate::app_state::{AppState, EventCallback};
 use crate::tool_context::{build_metadata, MetadataParams};
 
@@ -76,6 +75,7 @@ pub(crate) async fn run_root_agent(state: AppState, params: RootAgentParams) {
             attempt_id: None,
             workflow_id: None,
             workflow_control: Some(params.workflow_control.clone()),
+            plan_submission: None,
             subagent_supervisor: Some(params.subagent_supervisor.clone()),
             command_session_supervisor: Some(params.command_session_supervisor.clone()),
             notifications: sink,
@@ -83,7 +83,7 @@ pub(crate) async fn run_root_agent(state: AppState, params: RootAgentParams) {
     );
 
     let run = run_ephemeral_agent(
-        &state,
+        &state.engine_run_handles(),
         EphemeralRunInput {
             agent: root_def,
             initial_messages: vec![Message::from_user_text(params.prompt.clone())],
