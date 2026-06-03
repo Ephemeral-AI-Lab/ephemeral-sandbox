@@ -214,14 +214,19 @@ pub enum SpawnedSubagent {
 
 /// Per-agent, per-kind in-flight background-task count (Running records only),
 /// scoped to one `agent_id`, serialized to JSON for the terminal-drain audit
-/// assertion. Workflow handles are minted/tracked by the workflow adapter, not
-/// this supervisor, so they are deliberately absent here.
+/// assertion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct BackgroundInflightReport {
-    /// `subagent + command_session`.
+    /// `subagent + workflow + command_session`.
     pub total: usize,
     /// In-flight subagent runs for this agent.
     pub subagent: usize,
+    /// Outstanding delegated workflows for this agent. Workflow lifecycle is
+    /// owned by the workflow lane (a sibling crate) with authoritative persisted
+    /// state, so the supervisor does not track it: the supervisor leaves this `0`
+    /// and the terminal hook populates the count from the authoritative
+    /// [`WorkflowControlPort::find_outstanding`].
+    pub workflow: usize,
     /// In-flight, supervisor-tracked command sessions for this agent
     /// (diagnostic; the authoritative live-session gate is the daemon RPC).
     pub command_session: usize,

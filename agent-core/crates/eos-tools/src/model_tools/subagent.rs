@@ -261,6 +261,7 @@ mod tests {
             BackgroundInflightReport {
                 total: 0,
                 subagent: 0,
+                workflow: 0,
                 command_session: 0,
             }
         }
@@ -269,6 +270,7 @@ mod tests {
             BackgroundInflightReport {
                 total: 0,
                 subagent: 0,
+                workflow: 0,
                 command_session: 0,
             }
         }

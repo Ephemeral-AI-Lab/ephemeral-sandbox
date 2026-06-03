@@ -16,6 +16,15 @@
 //! means killing a running build at terminal time. That is a behavior change to
 //! just-committed code, a divergence from Python's deny-on-live-command-session,
 //! and unnecessary to close D9 — so it is deliberately out of scope here.
+//!
+//! **Workflow dimension (§3e, all-three-kinds invariant).** Delegated workflows
+//! are owned by the workflow lane (a sibling crate) with authoritative persisted
+//! state, so the supervisor cannot hold workflow records without duplicating that
+//! state and risking a never-settled phantom (a D9 re-run for workflows). Instead
+//! this hook gates on the authoritative [`WorkflowControlPort::find_outstanding`]
+//! and **denies** the terminal while a delegated workflow is open — Python
+//! `count_by_agent` parity (workflows are never auto-cancelled; the agent resolves
+//! them via `check_workflow_status` / `cancel_workflow`).
 
 use eos_types::JsonObject;
 use serde_json::{json, Value};
@@ -91,6 +100,33 @@ pub(crate) async fn run_require_no_inflight(
                 )
                 .with_reason("ephemeral_jobs_in_flight")
                 .with_count(report.subagent),
+            ));
+        }
+    }
+
+    // Workflow dimension (BackgroundInflightReport.workflow): delegated workflows
+    // are owned by the workflow lane (a sibling crate) with authoritative
+    // persisted state, so the supervisor cannot track them. Gate on the
+    // authoritative `WorkflowControlPort::find_outstanding` instead — Python
+    // `count_by_agent` parity: DENY while a delegated workflow is still open
+    // (never auto-cancel; the agent collects/cancels it explicitly via
+    // check_workflow_status / cancel_workflow).
+    if let (Some(control), Some(task_id)) = (&ctx.workflow_control, &ctx.task_id) {
+        let outstanding = control.find_outstanding(task_id, &agent_id).await?;
+        if !outstanding.is_empty() {
+            return Ok(HookOutcome::Deny(
+                HookDenial::new(
+                    format!(
+                        "BLOCKED: {} delegated workflow(s) are still outstanding for this agent. \
+                         Use check_workflow_status to collect them or cancel_workflow to stop them \
+                         before calling {}, then retry.",
+                        outstanding.len(),
+                        tool.as_str()
+                    ),
+                    "no_inflight_background_tasks",
+                )
+                .with_reason("ephemeral_jobs_in_flight")
+                .with_count(outstanding.len()),
             ));
         }
     }
@@ -182,6 +218,78 @@ mod tests {
                 assert_eq!(meta["policy"], json!("no_inflight_background_tasks"));
             }
             other => panic!("expected a bailout pass, got {other:?}"),
+        }
+    }
+
+    // The workflow dimension: a terminal is DENIED while a delegated workflow is
+    // still outstanding — gated on the authoritative WorkflowControlPort, not a
+    // supervisor record (Python `count_by_agent` parity).
+    #[tokio::test]
+    async fn outstanding_workflow_denies_terminal() {
+        use std::sync::Arc;
+
+        use async_trait::async_trait;
+        use eos_types::{TaskId, WorkflowId, WorkflowSessionId};
+
+        use crate::ports::{OutstandingWorkflow, Sealed, StartedWorkflow, WorkflowControlPort};
+        use crate::testsupport::metadata;
+
+        struct OneOutstanding;
+        impl Sealed for OneOutstanding {}
+
+        #[async_trait]
+        impl WorkflowControlPort for OneOutstanding {
+            async fn start(
+                &self,
+                _: &TaskId,
+                _: &str,
+                _: &str,
+            ) -> Result<StartedWorkflow, ToolError> {
+                unreachable!("deny short-circuits before start")
+            }
+            async fn status(
+                &self,
+                _: &WorkflowId,
+                _: Option<&WorkflowSessionId>,
+            ) -> Result<String, ToolError> {
+                unreachable!()
+            }
+            async fn cancel(&self, _: &WorkflowSessionId, _: &str) -> Result<String, ToolError> {
+                unreachable!()
+            }
+            async fn find_outstanding(
+                &self,
+                _: &TaskId,
+                _: &str,
+            ) -> Result<Vec<OutstandingWorkflow>, ToolError> {
+                Ok(vec![OutstandingWorkflow {
+                    workflow_id: WorkflowId::new_v4(),
+                    workflow_task_id: WorkflowSessionId::new_v4(),
+                    workflow_goal: "prior goal".to_owned(),
+                }])
+            }
+            async fn is_nested_workflow(&self, _: &WorkflowId) -> Result<bool, ToolError> {
+                Ok(false)
+            }
+        }
+
+        let mut ctx = metadata();
+        ctx.task_id = Some("parent".parse().expect("task id"));
+        ctx.workflow_control = Some(Arc::new(OneOutstanding));
+
+        let outcome = run_require_no_inflight(ToolName::SubmitRootOutcome, &JsonObject::new(), &ctx)
+            .await
+            .expect("hook ran");
+        match outcome {
+            HookOutcome::Deny(denial) => {
+                assert!(
+                    denial.message.contains("delegated workflow"),
+                    "{}",
+                    denial.message
+                );
+                assert_eq!(denial.extra.get("count").and_then(Value::as_u64), Some(1));
+            }
+            other => panic!("expected a workflow deny, got {other:?}"),
         }
     }
 }

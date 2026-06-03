@@ -251,9 +251,14 @@ impl BackgroundTaskSupervisor {
             })
             .count();
         let command_session = self.count_command_sessions_by_agent(agent_id);
+        // The supervisor does not own workflow lifecycle (sibling crate); the
+        // terminal hook fills the workflow dimension from the authoritative
+        // `WorkflowControlPort`, so the supervisor's own report leaves it 0.
+        let workflow = 0;
         BackgroundInflightReport {
-            total: subagent + command_session,
+            total: subagent + workflow + command_session,
             subagent,
+            workflow,
             command_session,
         }
     }
