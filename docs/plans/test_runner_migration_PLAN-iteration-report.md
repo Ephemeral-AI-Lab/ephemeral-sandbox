@@ -1466,3 +1466,139 @@ Current verdict:
 
 Remaining risk / next iteration entry point:
 - The full Phase G physical deletion pass remains open: old Python daemon/overlay/OCC/layer_stack/isolated_workspace implementation directories still exist and still have unit-test imports.
+
+## Iteration 20 - 2026-06-03 12:22:23 +0800 CST
+
+Checkout summary:
+- Current checkout remains a dirty multi-agent worktree. Existing unrelated edits
+  in `agent-core/*`, `sandbox/crates/*`, and
+  `docs/plans/backend_agent_core_rust_migration/overview.md` were left
+  untouched.
+- This iteration continued Phase G and performed the source deletion pass for
+  old Python sandbox implementation directories.
+
+Plan path and target files:
+- Plan: `docs/plans/test_runner_migration_PLAN.md`.
+- Report: `docs/plans/test_runner_migration_PLAN-iteration-report.md`.
+- Rust truth checked:
+  - `sandbox/crates/eos-plugin/src/{lib.rs,manifest.rs,registry.rs}`
+  - `sandbox/crates/eos-daemon/src/dispatcher.rs`
+  - `sandbox/crates/eos-daemon/src/command.rs`
+  - `backend/scripts/bench_rust_daemon_phase3.py`
+  - `backend/scripts/bench_rust_daemon_plugin.py`
+- Main source target files:
+  - `backend/src/sandbox/host/isolated_workspace_lifecycle.py`
+  - `backend/src/sandbox/host/runtime_bundle.py`
+  - `backend/src/sandbox/api/plugin_{dispatch,install,support}.py`
+  - `backend/src/sandbox/_shared/*`
+  - `backend/src/sandbox/audit/schema.py`
+  - `backend/src/plugins/runtime_bridge/*`
+  - `backend/src/plugins/catalog/lsp/runtime/{apply.py,pyright_session.py,session_manager.py,server.py}`
+
+Findings:
+- The import failure after deleting `sandbox/shared` was caused by
+  `sandbox.host.isolated_workspace_lifecycle` falling back into the old Python
+  `sandbox.isolated_workspace` pipeline when no `sandbox_id` was supplied.
+- `eos-plugin` owns only pure PPC/service contracts. The daemon-side live route
+  selection for plugin ops is `plugin.<plugin>.<op>` and the Rust daemon owns
+  service processes, isolated-mode plugin blocking, overlay/OCC callbacks, and
+  command sessions.
+- The LSP host tools were still importing the old Python plugin facade
+  (`sandbox.ephemeral_workspace.plugin`). The LSP runtime itself can remain a
+  Python service payload, but the host-facing dispatch and runtime bridge must
+  not live under deleted sandbox implementation namespaces.
+- `backend/scripts/bench_rust_daemon_plugin.py` already used
+  `plugins.runtime_bridge.ppc_service` in the service command, but its bundle
+  file list and cleanup probe still referenced the old
+  `sandbox/ephemeral_workspace/plugin` path.
+- Active host/API/plugin/tool source no longer needed
+  `sandbox.{daemon,overlay,occ,layer_stack,shared,ephemeral_workspace,isolated_workspace}`;
+  the remaining broad grep hits are legacy tests/scripts and audit event-name
+  string constants.
+
+Fixes applied:
+- Moved request/result helpers from `sandbox.shared` to `sandbox._shared`, added
+  `ExecCommandResult.stdout` / `.stderr`, and deleted `backend/src/sandbox/shared`.
+- Moved host-readable audit schema from `sandbox.daemon.audit_schema` to
+  `sandbox.audit.schema`; `safe_emit` is now a host-side no-op shim instead of
+  importing the Python daemon audit buffer.
+- Refactored isolated workspace host enter/exit to require the Rust daemon
+  `sandbox_id` path. The Python pipeline fallback was removed; missing
+  `sandbox_id` now returns a typed `sandbox_id_required` lifecycle error.
+- Added host API plugin modules under `sandbox.api` and moved the small
+  in-sandbox PPC bridge to `plugins.runtime_bridge`.
+- Updated LSP tools to call `sandbox.api.plugin_dispatch`; updated LSP runtime
+  registration to `plugins.runtime_bridge.op_registry`.
+- Removed the LSP private-overlay fallback helper files and pruned
+  `pyright_session.py`/`session_manager.py` to the Rust PPC mounted-workspace
+  contract.
+- Updated the runtime bundle and bundle tests to include
+  `plugins/runtime_bridge/*` and exclude `sandbox/ephemeral_workspace/plugin/*`.
+- Deleted old Python sandbox implementation directories:
+  - `backend/src/sandbox/daemon`
+  - `backend/src/sandbox/overlay`
+  - `backend/src/sandbox/occ`
+  - `backend/src/sandbox/layer_stack`
+  - `backend/src/sandbox/ephemeral_workspace`
+  - `backend/src/sandbox/isolated_workspace`
+- Replaced the Python daemon OP-table unit test with a Rust dispatcher contract
+  test that asserts `api.v1.exec_command`, canonical `api.v1.write_stdin`, the
+  compatibility alias `api.v1.command.write_stdin`, and absence of
+  `api.v1.shell`.
+- Updated the test-runner plugin intent mock contract from a Python overlay
+  runner assertion to `write_allowed_route=rust_daemon_overlay_occ`.
+- Updated the plan checkpoint to record that source deletion is done while broad
+  legacy test/script cleanup remains open.
+
+Commands run:
+- `python3 -m py_compile ...`
+  - Result: passed for touched host/API/plugin bridge, LSP runtime, tests, and
+    bench scripts.
+- `uv run pytest -q backend/tests/unit_test/test_sandbox/test_api/test_command.py backend/tests/unit_test/test_sandbox/test_api/test_contract.py backend/tests/unit_test/test_sandbox/test_api/test_transport_protocol.py backend/tests/unit_test/test_sandbox/test_api/test_boundary.py backend/tests/unit_test/test_sandbox/test_api/test_daemon_client.py backend/tests/unit_test/test_sandbox/test_runtime_bundle_includes_plugin.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py backend/tests/unit_test/test_sandbox/test_command_exec/test_write_edit_dispatch.py --tb=short`
+  - First result: failed on API-root whitelist and a too-strict Rust dispatcher
+    formatting assertion.
+  - Final result: passed with `58 passed in 0.43s`.
+- `uv run pytest -q backend/src/test_runner/tests/mock/contracts/test_runner_imports.py backend/src/test_runner/tests/mock/sandbox/project_build/test_complex_project_build_fixtures.py backend/src/test_runner/tests/mock/sandbox/plugin/test_plugin_intent_mislabel_fails_fast.py -rs --tb=short`
+  - Result: passed with `17 passed, 21 skipped in 0.12s`; skips were expected
+    Rust-runtime/database gates.
+- `env EOS_SANDBOX_RUNTIME=rust uv run pytest -q backend/src/test_runner/tests/mock/sandbox/project_build/test_complex_project_build_fixtures.py --tb=short`
+  - Initial non-escalated result: blocked by local `uv` cache permission.
+  - Escalated result: passed with `20 passed in 0.14s`.
+- `uv run ruff check ...`
+  - Initial non-escalated result: blocked by local `uv` cache permission.
+  - Escalated final result: passed.
+- `cd sandbox && cargo test -p eos-plugin`
+  - Result: passed with `18 passed`.
+- `git diff --check`
+  - Result: passed.
+- Inventory:
+  - `rg -n "sandbox\.(daemon|overlay|occ|layer_stack|shared|ephemeral_workspace|isolated_workspace)" backend/src/sandbox/api backend/src/sandbox/host backend/src/sandbox/provider backend/src/engine backend/src/plugins backend/src/tools --glob '*.py'`
+    - Result: no active host/API/plugin/tool source imports.
+  - `find backend/src/sandbox -maxdepth 2 -type d`
+    - Result: remaining source dirs are `host`, `provider`, `api`, `_shared`,
+      `audit`, and `_contract_fixtures` plus cache/local state dirs.
+
+Current verdict:
+- Correctness: PASS for the source deletion pass and focused host/API/runtime
+  bundle contracts.
+- Rust daemon truth: PASS for command op registration and plugin contract crate
+  verification.
+- Test-runner mock: PASS for import contracts and Rust-runtime project-build
+  fixture execution.
+- LSP/plugin: PASS for host-facing dispatch migration to `sandbox.api` and
+  runtime bridge relocation to `plugins.runtime_bridge`; live LSP performance
+  was not rerun in this iteration.
+- O(1)/concurrency/IWS semantics: source now routes these through the Rust
+  daemon and focused mock/API checks pass. Full live concurrency and IWS
+  evidence remains from earlier green gates and should be rerun after legacy
+  test pruning if a fresh artifact is required.
+
+Remaining risk / next iteration entry point:
+- Broad `backend/tests` inventory is not clean. Many legacy unit/live tests and
+  old perf scripts still import deleted Python daemon/overlay/OCC/layer-stack
+  modules. They need deletion, rewrite to Rust daemon contracts, or quarantine
+  before full-suite collection can pass.
+- `backend/src/sandbox/audit/events.py` still contains historical event-name
+  string constants such as `sandbox.occ.*`; these are not module imports, but
+  the final grep gate may need either a narrower import-aware check or updated
+  event names.

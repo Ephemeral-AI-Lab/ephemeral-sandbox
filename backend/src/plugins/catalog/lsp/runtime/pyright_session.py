@@ -10,7 +10,6 @@ import logging
 import os
 import shutil
 import time
-from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
@@ -792,4 +791,3 @@ def _optional_positive_float(value: object, *, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return parsed if parsed > 0 else default
-

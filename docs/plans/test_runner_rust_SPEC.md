@@ -1,816 +1,696 @@
 # SPEC: Rust `test_runner` — bridging `sandbox` and `agent-core`
 
-Status: **draft (pre-adversarial-review)**
+Status: **draft v2 (post adversarial review; code-verified)**
 Date: 2026-06-03
 Owner doc: this file (`docs/plans/test_runner_rust_SPEC.md`)
 Supersedes (for the harness tier): `docs/plans/test_runner_migration_PLAN.md`
-(that plan renamed the **Python** `task_center_runner -> test_runner` and
-deliberately kept the harness + host/API boundary in Python; this spec moves the
-harness itself to **Rust**, now that `sandbox/` and `agent-core/` are migrated).
+(that plan renamed the **Python** `task_center_runner -> test_runner` and kept the
+harness + host/API boundary in Python; this spec moves the harness itself to
+**Rust**, now that `sandbox/` and `agent-core/` are migrated).
+
+> v2 incorporates a multi-agent adversarial review that verified every
+> load-bearing claim against the live code. Corrections from review are marked
+> **[rev]**. The net effect is **smaller and more correct**: one crate (not six),
+> consumer-side audit normalization (no shared contract crate), one mock surface,
+> a one-direction correlation fix, and no changes to production config or
+> `eos-runtime::main`.
 
 ---
 
 ## 0. TL;DR
 
-Build a new **top-level Rust workspace `test_runner/`** (peer to `sandbox/` and
+Build **one new top-level Rust crate, `test_runner/`** (peer to `sandbox/` and
 `agent-core/`) that drives a **real** Rust sandbox and the **real** Rust
-agent-core engine to test agent execution end-to-end. It has four modules:
+agent-core engine to test agent execution end-to-end. Modules:
 
 | Module | Job | Primary upstream surface |
 |---|---|---|
-| `config` | One centralized config: api-client creds (.env-writable), sandbox setup, multi-node size, agent-core run params | `eos-config::CentralConfig` (extended) |
-| `audit` | **Unified, human-readable, correlated** trace across agent-core + sandbox | `eos-audit::AuditSink` (in-proc) + `api.audit.pull` (sandbox ring) |
-| `agent-core` (mock + api) | Drive a run from a user request to completion/partial; inject a **`MockedLlmClient`**; trivial live api-client smoke | `EventSource`/`LlmClient` seams; `eos-runtime::start_request` |
-| `sandbox` | Provision a **fast, reusable** dask container; single- and multi-node; real (never mocked) | `eos-sandbox-host` + `/sandbox` wire protocol |
+| `config` | api-client creds via `.env`; sandbox + multi-node sizing in a per-run handle | `eos-config` (+ `providers.active` only) |
+| `audit` | **Unified, human-readable, correlated** trace — **bridged consumer-side** | `eos-audit::AuditSink` (in-proc) + `api.audit.pull` (sandbox ring) |
+| `agent` | one `MockedLlmClient` injected into the real loop; run→completion/partial; trivial live api smoke | `EventSource` seam; `eos-runtime::start_request` |
+| `sandbox` | fast, reusable dask container; single + multi-node; **never mocked** | `eos-sandbox-host` + `/sandbox` wire protocol |
 
-The single hardest fact — **is the LLM client injectable?** — resolved **YES,
-no new seam needed**: the engine loop consumes `Arc<dyn EventSource>`; concrete
-Anthropic/OpenAI clients are built only in `eos-runtime::default_llm_client`.
-The only agent-core change for mock injection is **promoting an existing
-`#[cfg(test)]` mock to a `pub` test-support feature**.
+**The two things the user explicitly asked, answered up front:**
 
-The audit reform (the user's explicit ask) is the largest source-side change and
-gets its own module + a four-facet model: **semantics / performance / resource /
-correctness**, joined per-tool-call by stamping the engine `tool_use_id` onto the
-sandbox request.
+1. **"How do I design an audit interface where each module handles its own, then
+   bridge them?"** → **Each module keeps its own native audit** (agent-core
+   `eos-audit::AuditEvent`; sandbox `eos-protocol::audit` `*Section`). They are
+   bridged **only in the `test_runner` collector**, via consumer-side
+   normalization into one `TraceEvent` with four facets. **No shared cross-repo
+   contract.** The only cross-repo coupling is **one correlation key** (the engine
+   `tool_use_id`, which the daemon already echoes). This mirrors the proven Python
+   `daemon_event_normalizer.py` + `performance_report.py` shape. **[rev: was a
+   shared `eos-audit-contract` crate — deleted as over-engineering.]**
+2. **"Reform the audits to be collected nicely, human-readable, reflecting
+   semantics / performance / resource usage / correctness."** → A **four-facet
+   model** (`Semantics / Performance / Resource / Correctness`) + a tree/summary
+   **renderer** in the collector (§7). The four facets map 1:1 to the user's ask
+   and to fields both sides already emit (timings→perf, bytes/peak→resource,
+   status/conflict→correctness, op→semantics).
+
+The hardest fact — **is the LLM client injectable?** — is **YES, no new seam**: the
+loop consumes `Arc<dyn EventSource>`; concrete clients are built only in
+`eos-runtime::default_llm_client`.
 
 ---
 
 ## 1. Goals / Non-Goals
 
 ### Goals
-1. Run the canonical request flow (`user request -> root Task -> root agent ->
-   optional delegate_workflow -> submit_root_outcome`) under test, with the
-   ability to **terminate early** when a test condition is met (partial result).
+1. Run `user request -> root Task -> root agent -> optional delegate_workflow ->
+   submit_root_outcome` under test, with the ability to **terminate early**
+   (partial result) when a test condition is met.
 2. **Mock LLM** tier: scripted thinking/text/tool-call turns injected into the
    **real** engine loop. Sandbox is **never** mocked.
 3. **Live api-client** tier: a *trivial* smoke proving `anthropic.rs` and
    `openai.rs` produce well-shaped tool calls + honor the system reminder.
 4. **Sandbox** tier: fast reusable dask container; configurable multi-node.
-5. **Unified audit**: collect agent-core + sandbox events into one correlated,
-   human-readable timeline reflecting semantics/performance/resource/correctness.
-6. **Centralized config**: api-client (.env), sandbox, agent-core run params.
+5. **Unified audit**: one correlated, human-readable timeline across both sides.
+6. **Centralized config**: api-client (`.env`), sandbox, run params.
 7. Preserve the Python harness's test **rigor** (difficulty / complexity /
    load-bearing) while discarding its bad layout.
 
-### Non-Goals (scope discipline — see `CLAUDE.md`)
-- No new agent orchestration layer; no peer-to-peer agent comms.
-- No re-implementation of a fake agent loop — tests drive the **real** loop.
-- No exhaustive provider matrix for the api-client test — it is intentionally
-  trivial.
-- No port of the over-engineered Python scenarios (`full_stack_adversarial`,
+### Non-Goals (`CLAUDE.md` simplicity rules — over-engineering is a defect equal to under-coverage)
+- No new orchestration layer; no peer-to-peer agent comms; no fake agent loop.
+- No exhaustive provider matrix for the api-client test (intentionally trivial).
+- No port of the over-engineered Python scenarios as-is (`full_stack_adversarial`,
   `full_system_capacity_matrix`, `pack_catalog`, the ~120-file
-  `isolated_workspace` explosion). Port the **invariants**, not the file count.
-- No Daytona/Minimax client wiring (agent-core is Docker + Anthropic/OpenAI).
+  `isolated_workspace` explosion). Port **invariant categories**, not file count.
+- No Daytona/Minimax client wiring.
+- **[rev]** No shared audit-contract crate; no second mock surface; no changes to
+  production `CentralConfig` or `eos-runtime::main`.
 
 ---
 
 ## 2. Key decisions & assumptions
 
-> Material assumptions are stated here rather than guessed silently.
-
-- **A1 — Location: new top-level workspace `test_runner/`.** The user asked for a
-  module "at `…/EphemeralOS`". It path-depends on agent-core crates (`eos-runtime`,
-  `eos-engine`, `eos-audit`, `eos-sandbox-host`, `eos-sandbox-api`, `eos-config`,
-  `eos-workflow`, `eos-state`) and one sandbox crate (`eos-protocol`, for typed
-  audit `*Section` deserialization). Dependency direction is **test_runner ->
-  {agent-core, sandbox}**, never the reverse. (Alternative considered: a crate
-  inside the agent-core workspace — rejected to honor the explicit root location
-  and keep the harness from polluting agent-core's dependency graph.)
-- **A2 — LLM seam already injectable.** No seam introduction needed. The only
-  change is exposing a `pub` mock (§5). This keeps the agent-core change net-small.
-- **A3 — "use sandbox api/commands in `/sandbox`"** = drive the sandbox through
-  its **wire protocol** (`eos-protocol` envelope; `api.v1.*` / `api.audit.*` daemon
-  ops) via the host transport. Never reach into LayerStack/OCC/overlay internals.
-- **A4 — Sandbox is real; LLM is the only thing ever mocked.**
-- **A5 — Container reuse is the default**; a session keeps one warm dask
-  container per (instance × node), resetting only the active overlay per test.
-- **A6 — Audit reform spans both repos** but the cross-repo change is kept
-  **minimal**: add the missing emitters + one correlation key + facet grouping.
-  The "nice/human-readable" view lives in the `test_runner` collector (consumer
-  side), not baked into the daemon.
+- **A1 — One crate `test_runner/`** (a top-level peer to `sandbox/`, `agent-core/`)
+  with internal modules, mirroring the Python package
+  (`backend/src/test_runner/{core,audit,agent,scenarios}`). It path-depends on
+  agent-core crates (`eos-runtime`, `eos-engine`, `eos-audit`, `eos-sandbox-host`,
+  `eos-sandbox-api`, `eos-config`, `eos-workflow`, `eos-state`) and one sandbox
+  crate (`eos-protocol`, for typed audit `*Section` deserialization). Direction is
+  always `test_runner -> {agent-core, sandbox}`. **[rev: was six crates — premature
+  granularity for an internal harness with no external consumer.]**
+- **A2 — LLM seam already injectable.** No seam introduction. One mock surface
+  (`MockedLlmClient: EventSource`) replaces the client in the loop.
+- **A3 — "use sandbox api/commands in `/sandbox`"** = drive the sandbox through its
+  **wire protocol** (`eos-protocol` envelope; `api.v1.*` / `api.audit.*` daemon
+  ops) via the `eos-sandbox-host` transport. Never reach into LayerStack / OCC /
+  overlay internals.
+- **A4 — Sandbox is real; the LLM is the only thing ever mocked.**
+- **A5 — Container reuse is the default.** A session keeps one warm dask container
+  per (instance × node). **[rev]** Per-test reset is the **real** SWE-EVO reset
+  (git reset/clean/checkout + `build_workspace_base{reset}`), not overlay-only — see §8.2.
+- **A6 — Audit bridge is consumer-side.** Each module keeps native emission; the
+  collector normalizes. The only cross-repo change is the correlation key and a
+  daemon-side emission *widening* (not a wire change).
 
 ---
 
-## 3. System architecture
+## 3. Source-side prerequisites & dependencies
+
+> **[rev]** The review found that some bridge work is **agent-core/sandbox feature
+> work**, not test-harness work. This section separates the two so the scope
+> expansion is explicit, not buried. **Decision needed from the user** on the
+> out-of-scope items (they gate specific scenario tiers, not the baseline).
+
+### 3a. Test-enabling bridge changes — IN SCOPE (small, harness-prerequisite)
+| # | Change | Where | Why |
+|---|---|---|---|
+| P1 | Stamp engine `tool_use_id` onto `sandbox_invocation_id` **upstream**; verify every mint/fallback site honors a present id | `eos-engine::tool_call::dispatch` (`metadata_for_call`), `eos-tools::model_tools::sandbox` (drop the `new_v4` fallback when present), `eos-sandbox-host::daemon_client` (`new_invocation_id` — reuse present id) | Per-call audit join. The daemon **already echoes** the wire id as `ToolCallSection.tool_use_id` (`emit_tool_call_event`); the gap is upstream that the id is never populated. **[rev: not a daemon change.]** |
+| P2 | `pub testsupport` feature exposing `ScriptedTurn`/`TurnScript`/`MockedLlmClient` (an `EventSource`) | `eos-engine` (model + emit helpers); reference impls `ScriptedSource`/`MockLlmClient` are `#[cfg(test)]` today | Let the external harness build scripted runs without re-implementing the trait (mirrors `eos-workflow/src/testsupport.rs`). **No loop change.** |
+| P3 | Add `AppStateBuilder::advisor(Arc<dyn AdvisorPort>)` setter + a `pub testsupport` **`AutoApproveAdvisor`** stub | `eos-runtime::app_state` (setter), `eos-engine`/`eos-tools` (stub; `AdvisorPort` is `Sealed`, so the stub ships in-tree) | **Unblocks gated terminals** (`submit_*_outcome`). Today `AdvisorService::approval_status` **always denies** ("advisor runner not wired"), so every gated scenario would block. An injected auto-approver is the *test-appropriate* fix — **not** building the real advisor runtime. |
+| P4 | Wire the **dead** `engine.tool.*` audit path to publish on the injected sink; enrich `AuditNode` from `QueryContext`/`ExecutionMetadata` (request/task/attempt ids) | `eos-engine::query::loop_` + `eos-engine::audit::stream` (`audit_events_from_stream_event` has **zero** callers) | Without this the collector sees only `plugin.*`. Enrichment lets tool rows self-group into the §7 tree without an `eos-state` join. |
+| P5 | Daemon-side **emission widening**: add the breadcrumb ids the daemon already receives (`SandboxCaller::identity_block`: workflow/attempt/task) to `ToolCallSection` | `sandbox/eos-protocol::audit` + `eos-daemon::server::emit_tool_call_event` | The ids reach the daemon but are discarded at section-build time (only `agent_id` kept). No wire change. |
+| P6 | Add `providers.active: ProviderKind` to `eos-config` (keys stay **env-only**, matching Python) | `eos-config::providers` | **Bugfix**: `default_llm_client`'s `if/else-if` makes OpenAI unreachable whenever `ANTHROPIC_API_KEY` is set. Update the `ProvidersConfig` parity case + insta snapshot. |
+
+### 3b. Agent-core / sandbox migration work the harness DEPENDS ON — OUT OF SCOPE (flagged)
+> The **baseline** mock tier (non-gated correctness, no explorer subagents)
+> delivers value with only 3a. These gate **specific** tiers and should be carved
+> out as explicit dependencies, owned by the agent-core/sandbox migration:
+
+| # | Dependency | Gates which tier | Workaround until done |
+|---|---|---|---|
+| D1 | `SubagentSupervisorPort::spawn` must drive `run_ephemeral_agent` for `subagent`-role agents (today it only `register_running`, never runs the loop) | Scenarios using `run_subagent`/explorer | Skip explorer-spawning scenarios; baseline uses `delegate_workflow` (a different, working path) |
+| D2 | Lifecycle audit emitters (`request/workflow/iteration/attempt started/completed`) in `eos-workflow` (it holds an unused `audit_sink`) | The **full** request→workflow→attempt timeline tree (§7.5) | Tool-level + sandbox-level timeline works; lifecycle nodes joined from `eos-state` instead |
+| D3 | **Cooperative cancellation** in tool dispatch (poll `shutdown.is_cancelled()` at await boundaries / thread the token to the daemon client) | Clean **mid-tool** early-abort (§6.4) | Baseline terminates via natural loop exits / between turns; mid-tool abort is best-effort (see §6.4 consistency contract) |
+| D4 | Per-test **OCC publish idempotency/atomicity across abort** (verify daemon-side) | Early-abort during a sandbox write | Drive early-abort at turn boundaries, not mid-write |
+
+---
+
+## 4. System architecture
 
 ```
-                          test_runner/  (new top-level Rust workspace)
+                          test_runner/  (ONE new top-level crate)
    ┌─────────────────────────────────────────────────────────────────────────┐
-   │  config        audit          agent-core(mock|api)        sandbox        │
-   │  ──────        ─────          ───────────────────         ───────        │
-   │  RunnerConfig  Collector      ScenarioRunner              SandboxPool    │
-   │  (.env, yaml)  Timeline       MockedLlmClient             FastProvision  │
-   │  multi-node    Renderer       Expectation/Report          MultiNode      │
+   │  config        audit            agent (mock|api)            sandbox       │
+   │  ──────        ─────            ────────────────            ───────       │
+   │  RunConfig     Collector        MockedLlmClient             SandboxPool   │
+   │  (.env→env)    Timeline+Render  (EventSource)               FastReset     │
+   │  run params    normalize.rs     run→completion/partial      MultiNode     │
+   │                (TraceEvent)     AutoApproveAdvisor(inj.)     (rollback)    │
    └───────┬───────────┬──────────────────┬───────────────────────┬──────────┘
            │           │                  │                        │
-   reads   │   in-proc │ AuditSink   inject EventSource /   wire: eos-protocol
-   config  │   capture │             llm_client            api.v1.* / api.audit.*
+   reads   │  in-proc  │ AuditSink   inject EventSource +    wire: eos-protocol
+   .env+yaml│  capture │             advisor stub           api.v1.* / api.audit.*
            ▼           ▼                  ▼                        ▼
    ┌──────────────┐  ┌──────────────────────────────┐   ┌─────────────────────┐
    │  eos-config  │  │          agent-core            │   │   eos-sandbox-host   │
-   │  (extended)  │  │  eos-runtime  eos-engine       │   │   (host transport)   │
-   └──────────────┘  │  eos-audit    eos-llm-client   │   └──────────┬──────────┘
-                     │  eos-workflow eos-state        │              │ TCP/UDS
+   │ (+providers. │  │  eos-runtime  eos-engine       │   │   (host transport)   │
+   │   active)    │  │  eos-audit    eos-llm-client   │   └──────────┬──────────┘
+   └──────────────┘  │  eos-workflow eos-state        │              │ TCP/UDS
                      └───────────────┬────────────────┘              ▼
-                                     │ api.v1.* tool calls   ┌─────────────────┐
-                                     └──────────────────────▶│  eosd (Rust)    │
-                                              api.audit.pull  │  /sandbox crates │
-                                     ◀───────────────────────│  daemon + ring   │
-                                                              └─────────────────┘
-   Correlation key flowing right→ : engine tool_use_id  ──stamped on the wire──▶
-   Audit flowing left←            : engine.* (in-proc)  +  sandbox.* (pull)  →  one timeline
+                                     │ api.v1.* (tool_use_id stamped)┌─────────────────┐
+                                     └──────────────────────────────▶│  eosd (Rust)    │
+                                              api.audit.pull          │  /sandbox crates │
+                                     ◀────────────────────────────────│  daemon + ring   │
+                                                                      └─────────────────┘
+   Bridge (←): engine.* (in-proc AuditSink)  +  sandbox.* (pull, native Sections)
+               → collector normalize → ONE TraceEvent timeline, joined on tool_use_id
 ```
-
-The bridge is two-directional:
-- **Drive** (→): config selects provider + sandbox; the agent-core module injects
-  a mock/real LLM and runs the engine, whose tool calls hit the real sandbox over
-  the `/sandbox` wire.
-- **Observe** (←): the audit module captures agent-core events in-process and
-  pulls sandbox events from the daemon ring, then **correlates** them on
-  `tool_use_id` into one human-readable timeline.
 
 ---
 
-## 4. Module: `config` (centralized configuration)
+## 5. Module: `config`
 
-### 4.1 Current state (from `eos-config`)
-- `CentralConfig { database, sandbox, providers, attempt }`, layered
-  `defaults < ephemeralos.yaml < env < init`, `#[serde(deny_unknown_fields)]`.
-- **Gaps**: (1) no api-key / base_url / active-provider — keys read inline via
-  `std::env::var` and base_urls hardcoded in `eos-runtime::default_llm_client`;
-  (2) no `runner`/multi-node section (dropped as `GC-eos-config-05`); (3) **no
-  `.env` loading** on either side (deliberately removed in `loader.py`).
+### 5.1 Current state (`eos-config`)
+`CentralConfig { database, sandbox, providers, attempt }`, layered
+`defaults < ephemeralos.yaml < env < init`, `#[serde(deny_unknown_fields)]`. Gaps:
+no active-provider selector; api keys read inline via `std::env::var` + hardcoded
+base_urls in `default_llm_client`; **no `.env` loading** (deliberately removed).
 
-### 4.2 Design — extend `eos-config`, add a thin `test_runner` overlay
-
-We add the three missing surfaces to `eos-config` (so production and tests share
-one loader), and a per-run handle in `test_runner`.
-
-```
-eos-config (extended, in agent-core)
-  CentralConfig
-    ├ database   (unchanged)
-    ├ sandbox    (+ runner subsection, see below)
-    ├ providers  (+ per-provider credential sections)         ◀── NEW
-    │    ├ retry            RetryConfig          (existing bridge → eos-llm-client)
-    │    ├ active           ProviderKind         (Anthropic|OpenAi)   ◀── NEW
-    │    ├ anthropic        ProviderClientConfig { base_url, model, api_key, auth_scheme }
-    │    └ openai           ProviderClientConfig { base_url, model, api_key, auth_scheme }
-    ├ attempt    AttemptConfig { max_concurrent_task_runs }   (existing)
-    └ runner     RunnerConfig                                  ◀── NEW (re-absorbed)
-         ├ sandbox_reuse_mode   {Fresh|Reuse|ForceFresh}
-         ├ sandbox_quota        u32
-         ├ audit_dir            PathBuf
-         ├ run_label            String
-         └ live_e2e             LiveE2eConfig
-               ├ concurrent_sandbox_runners  u32   (multi-node size; plan = 3)
-               ├ real_agent_max_duration_s   u64
-               ├ heavy_enabled               bool
-               └ capacity_enabled            bool
-```
-
-`ProviderClientConfig.api_key` holds an **`env:VAR` / `${VAR}` placeholder**, not
-a raw secret — resolved lazily via the existing `eos-db::resolved_kwargs`
-resolver into a `secrecy::SecretString`. This **preserves** the "CentralConfig
-holds no secrets" invariant.
-
-**`.env` loading** (the user's ask: "Python writes api_client config into `.env`"):
-add a single `dotenvy::dotenv()` call at runtime startup **before**
-`ConfigLoader::load()` and before any `std::env::var` read, so `.env`-written
-keys hydrate the process env. Real exported env still overrides `.env` (dotenvy
-default), preserving `env > yaml` precedence.
+### 5.2 Design — minimal, env-keyed, harness-scoped `.env`
+**[rev]** Three corrections from review:
+1. **Do NOT re-add a `runner` section to production `CentralConfig`** (it was
+   removed as `GC-eos-config-05`; re-adding reverses a recorded decision and breaks
+   the schema-parity test). Runner/multi-node knobs live in the harness's own
+   `RunConfig`.
+2. **Keep api keys env-only** (matching Python `providers.py`: "API keys remain
+   env-only"). `eos-config` gains only `providers.active: ProviderKind`. This both
+   fixes the OpenAI-unreachable bug **and** keeps secrets out of the serialized
+   config — no `env:VAR` placeholder machinery, no `SecretString` plumbing needed.
+3. **`dotenvy::dotenv()` is called only in the `test_runner` harness entrypoint**,
+   never in `eos-runtime::main`. The harness process hydrates `.env` into the
+   process env *before* building `AppState`; `default_llm_client` then reads the
+   keys via the existing `std::env::var` path. Real exported env still overrides
+   `.env` (dotenvy default → preserves `env > yaml`).
 
 ```
-.env  (Python writes ANTHROPIC_API_KEY=... / OPENAI_API_KEY=...)
-   │  dotenvy::dotenv()  (test_runner main / eos-runtime main, FIRST)
+.env  (user / Python writes ANTHROPIC_API_KEY=… , OPENAI_API_KEY=…  — manual/external)
+   │  test_runner main: dotenvy::dotenv()   (FIRST, harness-only)
    ▼
-process env  ──read by──▶  ConfigLoader (EOS__… + legacy) ──▶ CentralConfig
-                           providers.anthropic.api_key = "env:ANTHROPIC_API_KEY"
-                                       │ resolved_kwargs → SecretString
-                                       ▼
-                           AnthropicClient::new(base_url, Auth::ApiKey(secret), retry)
+process env ──▶ default_llm_client: std::env::var(ANTHROPIC_API_KEY|OPENAI_API_KEY)
+                CentralConfig.providers.active → picks which client to build
+                AnthropicClient::new(base_url, Auth::ApiKey(secret_from_env), retry)
 ```
 
-### 4.3 `test_runner::config` files
-
-```
-test_runner/crates/runner-config/src/
-  lib.rs            // re-export
-  runner_config.rs  // RunConfig (per-invocation handle) — wraps CentralConfig
-  env_bootstrap.rs  // load_dotenv_then_central() → CentralConfig
-  dotenv_writer.rs  // write_provider_keys_to_env(path, &[(k,v)]) — the Python-side .env writer (Rust mirror, used by tests/tools)
-```
+### 5.3 `RunConfig` (harness per-run handle — decoupled from `CentralConfig`)
+**[rev]** Match the Python shape: `RunConfig` holds only run-scoped fields and does
+**not** embed `CentralConfig`; the resolved provider client/config is passed
+separately to the runner.
 
 ```rust
-/// Per-run handle. Draws defaults from CentralConfig.runner; not a second config.
 pub struct RunConfig {
     pub entry_prompt: String,
-    pub instance_id: SweevoInstanceId,     // EOS_SWEEVO_INSTANCE
-    pub fidelity: Fidelity,                // Mock | Live
-    pub subject: Subject,                  // AgentExecution | Sandbox
-    pub load: Load,                        // Single | Multi { nodes: u32 }
+    pub instance_id: SweevoInstanceId,         // EOS_SWEEVO_INSTANCE
+    pub fidelity: Fidelity,                    // Mock | Live
+    pub subject: Subject,                       // AgentExecution | SandboxTools | SandboxRpc
+    pub load: Load,                             // Single | Multi { nodes: u32 }
+    pub reuse_mode: ReuseMode,                  // Fresh | Reuse | ForceFresh
     pub audit_dir: PathBuf,
     pub run_label: String,
-    pub max_duration_s: Option<u64>,       // wall-clock cap → early abort
-    pub central: Arc<CentralConfig>,
+    pub max_duration_s: Option<u64>,            // wall-clock cap → early abort
+    // live_e2e knobs (concurrent_sandbox_runners, real_agent_max_duration_s,
+    // heavy_enabled, capacity_enabled) live here, NOT in production CentralConfig.
+    pub live_e2e: LiveE2eParams,
 }
 ```
 
-### 4.4 Source-side change list (config)
-- `eos-config`: add `providers.{active,anthropic,openai}`, add `runner` section,
-  port Pydantic ranges into `validation.rs`, update the schema-parity test that
-  currently drops `runner`. Reuse `eos-db::resolved_kwargs` for credential resolution.
-- `eos-runtime`: call `dotenvy::dotenv()` at startup; make `default_llm_client`
-  read `providers.<active>.{base_url, api_key, auth_scheme}` instead of
-  env+hardcode (keep env var as a fallback for compatibility).
+### 5.4 Files & source-side change
+```
+test_runner/src/config/
+  mod.rs
+  run_config.rs     // RunConfig, Fidelity/Subject/Load/ReuseMode
+  env_bootstrap.rs  // load_dotenv() + load_central() (harness entrypoint only)
+```
+Source change: P6 (`providers.active` + parity-case/snapshot update). **[rev: no
+`runner` section, no `dotenv_writer.rs`, no credential-resolver plumbing.]**
 
 ---
 
-## 5. Module: `agent-core` (mock + api)
+## 6. Module: `agent` (mock + api)
 
-### 5.1 The seam (confirmed injectable)
-
+### 6.1 The seam (one mock surface)
 ```
-run_query (eos-engine/query/loop_.rs)
-   └─ source: Arc<dyn EventSource> = ctx.event_source        ← INJECT HERE
-        ├─ ProviderEventSource (prod) ── wraps ── Arc<dyn LlmClient>  ← OR INJECT HERE
-        │      └─ AnthropicClient / OpenAiClient  (built ONLY in default_llm_client)
-        ├─ ScenarioEventSource (mock, engine-level)   ← scripted StreamEvents
-        └─ MockedLlmClient    (mock, provider-level)  ← scripted LlmStreamEvents
+run_query (eos-engine::query::loop_)
+   └─ source: Arc<dyn EventSource> = ctx.event_source         ← INJECT MockedLlmClient HERE
+        ├─ ProviderEventSource (prod) ── wraps ── Arc<dyn LlmClient> (Anthropic/OpenAI)
+        └─ MockedLlmClient (the only mock) ── holds ── Box<dyn TurnScript>
 ```
+**[rev]** Ship **one** scripted surface — the engine-level `MockedLlmClient`
+(`impl EventSource`). It is named per the user's request ("rename to mocked llm
+client"). The provider-level `LlmClient` mock and the precedence-footgun guard are
+**dropped**; the real encode/adapt path is covered by the §6.5 live smoke.
 
-Two injection levels, both already real:
-
-| Level | Trait | Yields | Use |
-|---|---|---|---|
-| Engine | `EventSource::stream(&LlmRequest) -> EngineStream` | `StreamEvent` | Branching scenarios; cheapest |
-| Provider | `LlmClient::stream_message(LlmRequest) -> LlmStream` | `LlmStreamEvent` | Exercises real encode/adapt path; "closest to live" |
-
-Runtime hook: `AppState.event_source_factory: Option<Arc<dyn Fn(&AgentDefinition)
--> Arc<dyn EventSource>>>` and `AppStateBuilder::llm_client(Arc<dyn LlmClient>)`.
-**Precedence footgun**: `event_source` wins over `llm_client` — the harness guards
-against setting both.
-
-### 5.2 `MockedLlmClient` (the rename the user asked for)
-
-The user's "mocked llm client" = the **provider-level** `LlmClient` impl that
-replays scripted `LlmStreamEvent`s, so the real `ProviderEventSource`
-encode/adapt path runs end-to-end. The **engine-level** `ScenarioEventSource` is
-the richer, branching variant for result-driven scenarios. Both share the
-scripted-turn data model (direct port of the Python `Turn`/`ToolCall`).
-
+### 6.2 Scripted-turn model (the primary type is the **branching** one)
 ```rust
-/// Shared scripted-turn schema (port of Python event_source.py Turn/ToolCall).
 pub struct ScriptedTurn { pub thinking: Option<String>, pub text: Option<String>, pub calls: Vec<ScriptedCall> }
 pub struct ScriptedCall { pub name: String, pub input: JsonObject }
 
-/// Provider-level mock — the "MockedLlmClient".
-pub struct MockedLlmClient { script: Box<dyn TurnScript> }
-impl LlmClient for MockedLlmClient {
-    async fn stream_message(&self, req: LlmRequest) -> Result<LlmStream, ProviderError> {
-        let turn = self.script.next_turn(trailing_tool_results(&req));  // observe prior results
-        Ok(emit_llm_stream(turn))   // [ReasoningDelta?, TextDelta?, ToolUseDelta×N, AssistantMessageComplete]
-    }
-}
-
-/// Engine-level mock — branching/result-driven scenarios.
-pub struct ScenarioEventSource { script: Box<dyn TurnScript> }
-impl EventSource for ScenarioEventSource { /* same shape, emits StreamEvent */ }
-
-/// Static = ignore results; branching = stateful machine.
+/// PRIMARY: result-reading, stateful (interior-mutable). Needed for branching
+/// scenarios (root delegation polls check_workflow_status up to ~90 turns).
 pub trait TurnScript: Send + Sync {
     fn next_turn(&self, prior: &[ToolResult]) -> Option<ScriptedTurn>;
 }
-impl TurnScript for Vec<ScriptedTurn> { /* the simple replay case */ }
-```
+/// Convenience for NON-branching fixtures ONLY — never for delegation/polling.
+impl TurnScript for Mutex<std::vec::IntoIter<ScriptedTurn>> { /* ignores prior */ }
 
-**Load-bearing invariants** (from the loop):
-1. Emit one `ToolUseDelta` per call **before** `AssistantMessageComplete`, with
-   matching `ToolUseId`s — required for budget-count parity (`tool_calls_used`).
-2. A turn must terminate each model turn with `AssistantMessageComplete` or the
-   loop errors `provider stream ended without assistant completion`.
-3. A turn containing a **terminal** tool must contain **only** that call
-   (terminal-alone). A `debug_assert!` in the mock catches port mistakes early.
-4. Script exhaustion → one text-only `AssistantMessageComplete` (reproduces a
-   model that stopped calling tools → loop ends).
-5. Leave `agent_name`/`agent_run_id` empty; the loop's `stamp_identity` fills them.
-
-### 5.3 Source-side change (agent-core, **the only mock change**)
-Promote `MockedLlmClient` + `ScenarioEventSource` from `#[cfg(test)]`-private to a
-**`pub` `testsupport` feature** on `eos-llm-client` / `eos-engine` (mirroring
-`eos-workflow/src/testsupport.rs`), so the external `test_runner` crate can
-construct scripted clients without re-implementing the trait. **No loop change.**
-
-### 5.4 Run-to-completion + early-terminate
-
-```
-start_request(state, prompt) ─▶ RequestEntryHandle {
-    request_id, root_task_id, attempt_deps,
-    root_agent_task: JoinHandle<()>,   state(AppState w/ shutdown: CancellationToken)
+pub struct MockedLlmClient { script: Box<dyn TurnScript> }
+impl EventSource for MockedLlmClient {
+    async fn stream(&self, req: &LlmRequest) -> Result<EngineStream, EngineError> {
+        let prior = trailing_tool_results(req);   // scan BACKWARD past appended notifications
+        let turn = self.script.next_turn(prior).unwrap_or_else(ScriptedTurn::text_only_eos);
+        Ok(emit_stream(turn))   // [ReasoningDelta?, TextDelta?, ToolUseDelta×N, AssistantMessageComplete]
+    }
 }
-        │
-        ├── observe:  AppState.event_source_factory / EventCallback + audit CapturingSink
-        │             → harness watches StreamEvent / AuditEvent per turn
-        │
-        ├── full finish:   handle.join().await         (root agent submits submit_root_outcome)
-        │
-        └── PARTIAL (test condition met):
-              tokio::select! {
-                  _ = handle.join()        => Completed,
-                  _ = condition_watcher    => { handle.shutdown(grace).await; Partial }
-                  _ = sleep(max_duration)  => { handle.shutdown(grace).await; AbortedByTimeout }
-              }
-              // shutdown() cancels the token, parent-exits the supervisor,
-              // awaits root within grace, aborts the JoinHandle on timeout.
 ```
 
-`condition_watcher` is fed by the **audit** module: when a target event appears
-(e.g. a specific tool completed, a sandbox conflict observed, N tool calls
-reached), it resolves and the run is terminated early with a `Partial` outcome.
-This is the Rust analogue of the Python `LifecycleHooks.on_event` + `aborted_by_timeout`.
+**[rev] Loop invariants — corrected against `run_query`:**
+1. **Always end each turn with `AssistantMessageComplete`** carrying the tool_use
+   blocks. Absent → `EngineError("provider stream ended without assistant
+   completion")`. *(This — not deltas — is the load-bearing requirement.)*
+2. Budget is counted via `streamed_tool_use_ids` de-dup **plus** a second pass over
+   the message's tool_use blocks. Deltas are **optional for budget**, but when
+   present their `ToolUseId`s **must match** the complete-message block ids
+   (mismatch double-counts). Emit deltas-before-complete for production-faithful order.
+3. There is **no dispatch-time budget gate**. The only hard ceiling is
+   `terminal_submission_failed`: `tool_calls_used + text_only_no_terminal_turns >=
+   (tool_call_limit*3 + 1)/2`. `attempt_budget_exhausted` scenarios must be driven
+   by that ceiling or by attempt-level orchestration, not a per-call gate.
+4. A terminal tool must be the **only** call in its turn (`debug_assert!` in the mock).
+5. On script exhaustion, yield a **valid text-only `AssistantMessageComplete`
+   every subsequent turn** (never an empty stream) so the `*3/2` ceiling terminates.
+6. Leave `agent_name`/`agent_run_id` empty on **all** emitted events; the loop's
+   `stamp_identity` fills them.
+7. `trailing_tool_results` scans `req.messages` **backward** for the most recent
+   user message carrying `ToolResult` blocks (the loop appends a notification/reminder
+   user message *after* the results — a naive "last message" read returns the reminder).
 
-### 5.5 Live api-client smoke (trivial, per the user)
+### 6.3 Gated terminals & subagents (the §3 prerequisite, surfaced here)
+Gated terminals (`submit_generator_outcome`/`submit_reducer_outcome`/
+`submit_root_outcome`) call `ask_advisor` → `AdvisorPort::approval_status`. The
+harness injects **`AutoApproveAdvisor`** via the new `AppStateBuilder::advisor(...)`
+setter (P3). The harness also registers `main`+`helper`+`subagent` agent profiles
+into the **immutable** `AgentRegistry` (built once via `AgentRegistryBuilder`,
+injected through `AppStateBuilder::agent_registry`). Explorer (`run_subagent`)
+scenarios additionally require D1 (out of scope) and are skipped until then.
 
-One test per provider. Not a matrix.
-
+### 6.4 Run→completion + early-terminate (with the consistency contract)
 ```
-api_client_smoke(provider):
-  1. load .env → CentralConfig.providers.<provider>
-  2. build real AnthropicClient/OpenAiClient
-  3. send a 1-turn LlmRequest: system reminder + a single tool definition
-       "respond by calling tool `echo{message}`"
-  4. assert the stream yields a ToolUseDelta with name=="echo" and well-formed input,
-     terminated by AssistantMessageComplete{stop_reason: ToolUse}
-  5. assert the system reminder was honored (tool called, not free text)
+start_request(state, prompt) ─▶ RequestEntryHandle { request_id, root_task_id,
+                                  root_agent_task: JoinHandle<()>, state(AppState{shutdown: CancellationToken}) }
+  ├ full finish : handle.join().await            (root submits submit_root_outcome)
+  └ PARTIAL / TIMEOUT:
+      tokio::select! {
+        _ = handle.join()       => Completed,
+        _ = condition_watcher   => stop(),    // fed by audit events (a tool completed / conflict / N calls)
+        _ = sleep(max_duration) => stop(),
+      }
+      stop() = handle.shutdown(grace)  // cancel token, parent-exit supervisor, await within grace, abort on timeout
 ```
-Gated by presence of the key (`#[ignore]` + env preflight) so it never runs in
-offline CI.
+**[rev] Consistency contract (the abort path is NOT lossless):** the
+`CancellationToken` is **not** observed inside tool execution today (D3), so
+`JoinHandle::abort()` cuts at the next `.await` — possibly mid-daemon-roundtrip.
+Therefore:
+- `Partial`/`AbortedByTimeout` outcomes carry **best-effort, possibly-truncated**
+  audit (the in-proc `CapturingSink` "0 dropped" guarantee holds only for runs that
+  end via normal loop exit, **not** mid-tool abort).
+- Prefer terminating at **turn boundaries** (drive the condition off completed-tool
+  audit events) over mid-tool abort.
+- Clean mid-tool abort requires D3 (cooperative cancellation) + D4 (idempotent OCC
+  publish) — flagged dependencies, not baseline.
 
-### 5.6 `agent-core` module files
+### 6.5 Live api-client smoke (trivial — one test per provider)
+```
+api_smoke(provider):
+  load .env → build real Anthropic/OpenAI client →
+  send 1-turn LlmRequest {system reminder, one tool `echo{message}`, "respond by calling echo"} →
+  assert: ToolUseDelta name=="echo" with well-formed input,
+          terminated by AssistantMessageComplete{stop_reason: ToolUse}  (system reminder honored → tool, not free text)
+```
+Gated by key presence (`#[ignore]` + env preflight). Not a matrix.
 
+### 6.6 Files & source-side change
 ```
-test_runner/crates/runner-agent/src/
-  lib.rs
-  mock/
-    script.rs          // ScriptedTurn, ScriptedCall, TurnScript, emit_* helpers
-    mocked_llm.rs       // MockedLlmClient (provider-level)
-    scenario_source.rs  // ScenarioEventSource (engine-level, branching)
-    advisor.rs          // advisor sub-agent script (gated-terminal precondition)
-  run/
-    request_run.rs      // start_request wrapper + RequestEntryHandle driver
-    terminate.rs        // condition_watcher, early-abort (select! on shutdown/timeout)
-  api/
-    api_smoke.rs        // trivial live anthropic/openai tool-call + system-reminder test
+test_runner/src/agent/
+  mod.rs
+  script.rs         // ScriptedTurn, ScriptedCall, TurnScript, emit_stream, trailing_tool_results
+  mocked_llm.rs     // MockedLlmClient (impl EventSource)
+  advisor_stub.rs   // wires AutoApproveAdvisor + registers main/helper/subagent profiles
+  run.rs            // RequestEntryHandle driver + early-terminate (select!)
+  api_smoke.rs      // trivial live anthropic/openai test
 ```
+Source changes: P2, P3 (+ D1 flagged for explorer scenarios).
 
 ---
 
-## 6. Module: `audit` (the reform — unified, human-readable, correlated)
+## 7. Module: `audit` (the reform — consumer-side bridge, four facets, human-readable)
 
-> The user: "reform the audit module in sandbox and agent-core so they can be
-> collected in a nicer way, more human readable, and reflect key points,
-> semantics, performance, resource usage, and correctness."
+### 7.1 The bridge answer (the user's confusion-point #1)
+**Each module keeps its native audit; the bridge is consumer-side.** No shared
+contract crate. The collector defines `TraceEvent` and writes `From<AuditEvent>`
+(agent-core) and `From<&Section>` (sandbox) — exactly as Python's
+`daemon_event_normalizer.py` + `performance_report.py` do. The **only** cross-repo
+coupling is the correlation key (P1) and the daemon emission widening (P5).
 
-### 6.1 Current state (the problem)
-- **agent-core `eos-audit`**: clean envelope (`AuditEvent{schema_version, source,
-  event_type, node, payload, correlation_id, ts}`), `AuditSink` seam, sync
-  `AuditEventBus` (used nowhere). **Only `plugin.*` events are actually emitted**:
-  `engine.tool.*` projection (`audit_events_from_stream_event`) has **zero
-  callers** (dead); no `sandbox.*`/`workflow.*`/lifecycle emitters. `node.sandbox_id`
-  never set, `correlation_id` always `None` → **no cross-source correlation**.
-  `ts` from an injectable Clock → not a reliable total order.
-- **sandbox `eos-protocol::audit` + `eos-daemon`**: rich, pull-based ring
-  (`AuditBuffer`, `api.audit.pull`, monotonic `seq` + `boot_epoch_id`), typed
-  `*Section` structs (tool_call/occ/layer_stack/overlay/background/plugin/…). BUT
-  the daemon stamps `tool_call.tool_use_id = host-minted uuid4`, while agent-core
-  keys on the **LLM `tu-*` id** → **broken per-call join**; the rich caller
-  breadcrumb the daemon receives is **dropped**.
-
-### 6.2 The reform — a four-facet contract + one correlation key
-
-Introduce a small **shared contract** (new crate `eos-audit-contract`, or a
-`contract` module in `eos-audit`) that both repos map into. Each module keeps its
-native emission; the contract is the *lingua franca* the collector consumes.
-
+### 7.2 The four-facet `TraceEvent` (defined ONLY in `test_runner::audit::normalize`)
 ```rust
-/// The one envelope both agent-core and sandbox normalize into.
 pub struct TraceEvent {
-    pub seq: u64,                 // monotonic, total order (NOT ts — ts unreliable under TestClock)
+    pub ord: u64,                 // collector-assigned merged-timeline ordinal (the total order)
     pub ts: UtcDateTime,
-    pub source: TraceSource,      // Engine | Workflow | Sandbox | Plugin | Runner
+    pub source: TraceSource,      // Engine | Workflow | Sandbox | Plugin
     pub kind: String,             // "engine.tool.completed", "sandbox.occ.publish", …
-    pub node: CorrelationNode,    // the join keys
-    pub facets: Facets,           // the four human dimensions
-    pub raw: Option<JsonObject>,  // forensic, gated by EOS_AUDIT_FORENSIC_RAW_ENABLED
+    pub node: CorrelationNode,    // join keys (superset of eos-audit AuditNode + agent_role + ordinals)
+    pub facets: Facets,
+    pub raw: Option<JsonObject>,  // forensic, gated by EOS_AUDIT_FORENSIC_RAW_ENABLED (Python parity)
 }
-
-pub struct CorrelationNode {
-    pub request_id: Option<RequestId>, pub workflow_id: Option<WorkflowId>,
-    pub iteration_id: Option<IterationId>, pub attempt_id: Option<AttemptId>,
-    pub task_id: Option<TaskId>, pub agent_run_id: Option<AgentRunId>,
-    pub agent_name: Option<String>, pub agent_role: Option<AgentRole>,
-    pub tool_use_id: Option<ToolUseId>,   // ◀── THE per-call join key (LLM id, now on BOTH sides)
-    pub tool_name: Option<String>, pub sandbox_id: Option<SandboxId>,
-    pub ordinals: SeqOrdinals,            // workflow_seq/iteration_seq/attempt_seq (port of NodeId)
-}
-
 pub struct Facets {
-    pub semantics:  Option<Semantics>,   // WHAT happened (human sentence + structured op)
-    pub performance: Option<Performance>,// durations, phase timings
-    pub resource:   Option<Resource>,    // bytes in/out, peak_resident, disk, changed_paths
-    pub correctness: Option<Correctness>,// status ok|error, error_kind, conflict, is_terminal
+    pub semantics:  Option<Semantics>,   // headline sentence + op + detail
+    pub performance: Option<Performance>,// duration_ms, phase_ms map
+    pub resource:   Option<Resource>,    // bytes_in/out, peak_resident, changed_path_count, tokens_in/out
+    pub correctness: Option<Correctness>,// status, error_kind, conflict, is_terminal
 }
-
-pub struct Semantics  { pub headline: String, pub op: String, pub detail: JsonObject }
-pub struct Performance{ pub duration_ms: Option<f64>, pub phase_ms: BTreeMap<String,f64> }
-pub struct Resource   { pub bytes_in: Option<u64>, pub bytes_out: Option<u64>,
-                        pub peak_resident_bytes: Option<u64>, pub changed_path_count: Option<u32> }
-pub struct Correctness{ pub status: Status, pub error_kind: Option<String>,
-                        pub conflict: Option<ConflictInfo>, pub is_terminal: bool }
 ```
+**[rev] Facet sourcing — honesty about "no new measurement code":** performance,
+resource (bytes/peak/paths), and correctness map onto fields **both sides already
+emit**. The **one** genuinely-new projection is **token usage** (`UsageSnapshot`
+exists on the engine turn event but is never audited) — if the `resource` facet
+includes tokens, P4's change list must add an `engine.turn.completed` usage emitter;
+otherwise drop the tokens line. *(Recommended: include it — the user explicitly
+named "resource usage"; it is a tiny projection of an existing struct.)*
 
-**Why facets and not free JSON**: the four dimensions are exactly the user's ask
-and map cleanly onto data **both sides already produce** — the daemon already has
-`*_ms` timings (→ performance), `bytes_in/out`/`peak_resident_bytes` (→ resource),
-`status`/`conflict_kind` (→ correctness), op name (→ semantics). The reform is
-**organizing existing fields**, not inventing telemetry.
+**[rev] Ordering:** the **collector assigns `ord`** at ingest (the only place that
+sees both streams). The daemon ring's own `seq`/`lost_before_seq` are kept strictly
+for **drop detection**, not cross-source order. No sink-boundary seq is added to
+`eos-audit` (it could not total-order across the boot-scoped ring anyway).
 
-#### The correlation fix (load-bearing, smallest possible change)
+### 7.3 Correlation (P1) — direction, not an exact diff
 ```
-engine dispatch (eos-engine/tool_call/dispatch.rs)
-   metadata.tool_use_id = Some(LLM "tu-…")          ← already set
-        │  COPY (the one missing wire)
-        ▼
-ExecutionMetadata.sandbox_invocation_id = Some(tu-…)
-        ▼  request_base (eos-tools/model_tools/sandbox.rs)
+engine dispatch: metadata.tool_use_id = Some(tu-…)   (already set)
+   │  STAMP upstream onto sandbox_invocation_id  (verify all mint/fallback sites honor a present id)
+   ▼
 SandboxRequestBase.invocation_id = tu-…
-        ▼  daemon_client: reuse present id, DO NOT mint uuid4
+   ▼  (daemon ALREADY echoes wire id)
 eosd ToolCallSection.tool_use_id = tu-…   ==   engine.tool node.tool_use_id
-        ▼
-collector joins both streams on tool_use_id  → per-call correlation, zero in-proc coupling
+   ▼
+collector joins both streams on tool_use_id  → per-call correlation (fallback: agent_run_id)
+```
+The daemon needs **no** tool_use_id change. Mint sites to audit: `eos-tools::
+model_tools::sandbox` (`new_v4` fallback) and `eos-sandbox-host::daemon_client`
+(`new_invocation_id`) — both must reuse a present id.
+
+### 7.4 Collector files
+```
+test_runner/src/audit/
+  mod.rs
+  capturing_sink.rs  // impl AuditSink: in-proc, lossless Vec (agent-core side)
+  daemon_puller.rs   // port of DaemonAuditPuller: api.audit.pull cursor/cadence/boot_epoch_id
+  normalize.rs       // TraceEvent + From<AuditEvent> + From<&eos_protocol::Section>
+  timeline.rs        // merge both streams, assign ord, group by node
+  render.rs          // tree + summary  (semantics/performance/resource/correctness)
+  jsonl_sink.rs      // RotatingJsonlSink port (canonical sandbox_events.jsonl artifact)
+  query.rs           // assertion helpers for Expectation (by kind/node/facet)
 ```
 
-### 6.3 Source-side reform change list
-
-**agent-core (`eos-audit` + emitters):**
-1. **Wire the dead engine path**: call `audit_events_from_stream_event` in the
-   query loop (or have the engine hold the `Arc<dyn AuditSink>` and publish per
-   `StreamEvent`), so `engine.tool.started/completed/failed` actually fire.
-2. Add **lifecycle emitters** in `eos-workflow` (it already holds an unused
-   `audit_sink`): `request.started/completed`, `workflow.started/completed`,
-   `iteration.started/completed`, `attempt.started/passed/failed`.
-3. Add a **monotonic `seq`** (atomic) at the sink/bus boundary for total order.
-4. Map `AuditEvent` → `TraceEvent` facets (a `From`/`to_trace()` in the contract).
-5. Populate `node.tool_use_id` consistently; set `node.sandbox_id` on
-   sandbox-bound tool events.
-
-**sandbox (`eos-protocol::audit` + `eos-daemon`):**
-6. **Stamp the caller `tool_use_id`** (the LLM id from the wire) into every
-   emitted `*Section` (today `tool_use_id` = minted uuid). Add an explicit
-   caller-supplied field distinct from the daemon invocation_id.
-7. **Echo the caller breadcrumb** (`agent_run_id`, `workflow_id`, `attempt_id`)
-   the daemon already receives into each section (a shared `node` sub-object) so a
-   pulled event self-describes its place in the run — restores what `node_id.py`
-   provided.
-8. Provide `Section -> TraceEvent` facet mapping (timings→performance,
-   bytes/peak→resource, status/conflict→correctness, op→semantics).
-9. Add an **audit-pull schema** entry to `sandbox/CONTRACT.md` as a coordinated
-   cross-repo surface (it is now a depended-upon contract).
-
-> Guardrail: we do **not** invent a new universal telemetry bus, do **not** add
-> push from daemon, do **not** force both sides onto one struct. Each side keeps
-> its native event type; the contract is a thin mapping + the correlation key.
-
-### 6.4 `test_runner::audit` (the collector — consumer side, where "nice" lives)
-
+### 7.5 Human-readable output (sample — the deliverable)
 ```
-test_runner/crates/runner-audit/src/
-  lib.rs
-  capturing_sink.rs   // impl AuditSink: in-proc, lossless Vec<AuditEvent> (agent-core side)
-  daemon_puller.rs    // port of DaemonAuditPuller: api.audit.pull cursor/cadence/epoch
-  normalize.rs        // AuditEvent→TraceEvent  &  eos-protocol::Section→TraceEvent
-  timeline.rs         // merge both streams, total-order by seq, group by node
-  correlate.rs        // join engine↔sandbox on tool_use_id (fallback: agent_run_id)
-  render.rs           // human-readable tree + summary  (the "nicer way" deliverable)
-  jsonl_sink.rs       // RotatingJsonlSink port (canonical sandbox_events.jsonl artifact)
-  query.rs            // assertion helpers: by kind, by node, by facet (for Expectation)
+REQUEST req-9f3a  "fix dask groupby regression"            [PASS]  42.1s
+└─ workflow wf-21 (delegated)  iter 2 / attempt 2          ✔ reducer gate
+   └─ task t-7 (executor)  agent_run ar-55
+      ├─ engine.tool.completed  write_file  src/groupby.py
+      │     semantics : wrote file (overlay capture)
+      │     perf      : 12.4ms      resource: +1 path, 3.1 KiB out      correct: ok
+      │     └─ sandbox.occ.publish  tool_use=tu-7f… (JOINED)
+      │           perf: prepare 1.1 / apply 2.0 / commit 0.8 / publish 0.4 ms
+      │           resource: 1 changed path                              correct: ok (no conflict)
+      ├─ engine.tool.completed  exec_command  "pytest -q"   correct: error (exit 1)  perf: 8.7s
+      └─ engine.tool.completed  submit_generator_outcome    correct: ok (terminal)
+SUMMARY  tools 31 (write 8/read 6/exec 4/search 9/terminal 4) · sandbox occ.publish 8 conflict 0 squash 1
+         perf agent 38.0s sandbox 4.1s · resource tokens 18.2k/2.1k* · correctness 0 unexpected errors, reducer PASS
+         audit: in-proc 0 dropped · ring lost_before_seq 0     (* tokens require P4 usage emitter)
 ```
-
-```
-Collection pipeline:
-  ┌─ agent-core run ─┐                       ┌─ sandbox daemon ─┐
-  │ CapturingSink    │  AuditEvent           │ AuditBuffer ring │
-  │ (injected via    │ ───────────────┐      │ api.audit.pull   │
-  │  AppStateBuilder │                │      └────────┬─────────┘
-  │  .audit(sink))   │                │   Section     │ (cursor, seq, boot_epoch_id)
-  └──────────────────┘                ▼               ▼
-                              normalize::to_trace()  normalize::to_trace()
-                                        └──────┬──────┘
-                                               ▼
-                                     Timeline (Vec<TraceEvent>, sorted by seq)
-                                               │  correlate on tool_use_id
-                                               ▼
-                          render::tree()  +  render::summary()  +  jsonl artifact
-```
-
-### 6.5 Human-readable output (sample)
-
-```
-REQUEST req-9f3a  "fix dask groupby regression"            [PASS]  42.1s  1 workflow
-└─ workflow wf-21  (delegated)                                       3 iters, 2 attempts
-   └─ iteration 2  attempt 2                                         ✔ reducer gate
-      ├─ task t-7 (executor)  agent_run ar-55
-      │  ├─ engine.tool.completed  write_file  src/groupby.py
-      │  │     semantics : wrote file (overlay capture)
-      │  │     perf      : 12.4ms
-      │  │     resource  : +1 path, 3.1 KiB out
-      │  │     correct   : ok
-      │  │     └─sandbox.occ.publish   tool_use=tu-7f… (JOINED)
-      │  │           perf: prepare 1.1 / apply 2.0 / commit 0.8 / publish 0.4 ms
-      │  │           resource: 1 changed path
-      │  │           correct: ok (no conflict)
-      │  ├─ engine.tool.completed  exec_command  "pytest -q"
-      │  │     correct: error (exit 1)   perf: 8.7s   resource: 240 KiB out
-      │  └─ engine.tool.completed  submit_generator_outcome   correct: ok (terminal)
-      └─ reducer  submit_reducer_outcome   correct: ok (terminal)
-
-SUMMARY  tools: 31 (write 8 / read 6 / exec 4 / search 9 / terminal 4)
-         sandbox: occ.publish 8, conflict 0, squash 1, lease ok
-         perf: agent 38.0s, sandbox 4.1s   tokens: 18.2k in / 2.1k out
-         correctness: 0 unexpected errors, terminal submitted, reducer gate PASS
-         dropped audit events: 0 (lossless in-proc) ; ring lost_before_seq: 0
-```
-
-`render::summary()` reflects exactly the four facets the user named, per run.
 
 ---
 
-## 7. Module: `sandbox` (real, fast, reusable, multi-node)
+## 8. Module: `sandbox` (real, fast, reusable, multi-node)
 
-### 7.1 Drive via the `/sandbox` wire (A3)
-The module orchestrates the sandbox **only** through `eos-sandbox-host`
-(provision/transport) speaking the `/sandbox` `eos-protocol` envelope and daemon
-ops. No LayerStack/OCC/overlay internals.
+### 8.1 Drive via the `/sandbox` wire (A3)
+Orchestrate **only** through `eos-sandbox-host`: provision
+(`RequestSandboxProvisioner::prepare_for_run`), lifecycle (`SandboxLifecycle`),
+transport (`DaemonClient: SandboxTransport`), tool ops (`tool_api::*` → `api.v1.*`),
+audit pull (`api.audit.*`), one-time eosd push (`runtime_artifact::
+ensure_eosd_uploaded`, marker-skip `/eos/daemon/.eosd-sha256`).
 
-```
-SandboxPool ──▶ eos-sandbox-host
-  provision   : RequestSandboxProvisioner::prepare_for_run → RequestSandboxBinding{sandbox_id}
-  lifecycle   : SandboxLifecycle::{create,start,ensure_running,set_labels,stop,delete}
-  transport   : DaemonClient (impl SandboxTransport) — TCP-first/UDS-fallback
-  tool ops    : tool_api::{read_file,write_file,edit_file,exec_command,glob,grep,…}  (api.v1.*)
-  audit pull  : api.audit.pull / api.audit.snapshot
-  one-time    : runtime_artifact::ensure_eosd_uploaded  (marker-skip /eos/daemon/.eosd-sha256)
-```
-
-### 7.2 Fast reusable setup — what is one-time vs per-test
+### 8.2 Fast reuse — **[rev] corrected per-test reset**
+The review verified that overlay-only reset **cannot** prevent contamination: the
+Python `reset_sweevo_workspace` does `git reset --hard / clean -fd / checkout -f
+base_commit` + `build_workspace_base{reset}` (+ `pip install -e .` + daemon rebind),
+and `commit_to_workspace` materializes overlays into the repo's `.git`.
 
 ```
-                       FIRST container in a session            EVERY reused test
-  docker pull+tag image (snapshot)   ████ one-time              ░ skip (cached tag)
-  create container + map daemon port ████ one-time              ░ skip (resume start)
-  ensure_eosd_uploaded (push eosd)   ████ one-time              ░ skip (.eosd-sha256 marker)
-  ensure_daemon_current (spawn)      ████ one-time              ░ skip (pid+socket liveness)
-  api.build_workspace_base{reset}    ████ first use             ████ per-test (active overlay only)
-  git reset/clean/checkout base      ████ first use             ████ per-test
-  base LayerStack layer (B…-base)    ████ one-time              ░ reuse base manifest
+                       FIRST container in session         EVERY reused test
+  docker pull+tag image (snapshot)   ████ one-time         ░ skip (cached tag)
+  create + map daemon port           ████ one-time         ░ skip (resume start)
+  ensure_eosd_uploaded               ████ one-time         ░ skip (.eosd-sha256 marker)
+  ensure_daemon_current (spawn)      ████ one-time         ░ skip (pid+socket liveness)
+  ─────────────────────────────── REAL per-test reset ───────────────────────────────
+  git reset/clean/checkout base      ████ first use        ████ per-test
+  build_workspace_base{reset}        ████ first use        ████ per-test
+  pip install -e . / daemon rebind   ████ first use        ████ per-test IF the test mutates
+                                                                  site-packages or rebinds /eos/mount
 ```
+**Skip everything cacheable** (image/eosd/daemon/snapshot/base-layer). The
+**"active-overlay-only reset" fast path is a precondition, not the default**: it is
+safe **only** for tests that never materialize the overlay (`commit_to_workspace`)
+and never mutate site-packages. The default per-test path is the full SWE-EVO reset.
 
-**Ultrafast reuse rule**: skip image/eosd/daemon/snapshot/base-layer; pay only
-`api.build_workspace_base{reset}` + git checkout for the **active overlay** per
-test. First-use of a fresh container skips the per-test reset (Python `workspace`
-fixture `first_use` guard). This keeps reuse correct (no cross-test contamination)
-while skipping everything cacheable.
-
-### 7.3 Configurable multi-node
-
+### 8.3 Configurable multi-node — **[rev] with partial-failure rollback**
 ```
-  RunnerConfig.runner.live_e2e.concurrent_sandbox_runners = N   (semaphore cap)
-        │
-        ▼
+  RunConfig.live_e2e.concurrent_sandbox_runners = N  (semaphore cap, pre-acquire quota check)
   SandboxPool::provision_n(N):
-        shared:  ONE image/snapshot pull+tag, ONE host artifact_dir (sandbox/dist)
-        per-node: distinct name+label (instance × node_index), own SandboxId
-        ┌───────────┐ ┌───────────┐        ┌───────────┐
-        │ node 0    │ │ node 1    │  ...   │ node N-1  │   each: own container,
-        │ SandboxId │ │ SandboxId │        │ SandboxId │         own eosd, own TCP port
-        └─────┬─────┘ └─────┬─────┘        └─────┬─────┘
-              └─ ProviderRegistry.bindings keyed by SandboxId (already per-id)
-                 DaemonClient.tcp_cache keyed by SandboxId (already per-id)
-  teardown: release() deletes/disposes all N (or no-op all under Attach/Reuse)
+     shared:   ONE image/snapshot pull+tag, ONE host artifact_dir (sandbox/dist)
+     per-node: distinct SandboxId; label node_index (via set_labels post-create —
+               fresh_create_spec only mints a random request-<hex> name)  [rev]
+     ROLLBACK: SandboxLifecycle::create registers EAGERLY → if node k<N fails,
+               delete+dispose nodes 0..k-1 (else lease/quota leak)        [rev]
+  reuse/attach: requires a list()+name-filter discovery step              [rev]
+               (prepare_for_run takes an explicit id only; no name path — mirror
+                Python _find_existing_sandbox_by_name over ProviderAdapter::list())
+  teardown:    release() deletes/disposes all N (no-op all under Reuse/Attach)
 ```
-Multi-node needs **no new isolation primitive** — `ProviderRegistry.bindings` and
-`DaemonClient.tcp_cache` are already per-`SandboxId` maps; we add an N-binding
-provisioner + a concurrency semaphore + per-node naming.
+Verified: `ProviderRegistry.bindings` + `DaemonClient.tcp_cache`/`tcp_locks` are
+already per-`SandboxId` → **no new isolation primitive**. The new work is the
+N-provisioner, the rollback, the reuse discovery, and per-node labelling.
 
-### 7.4 Source-side change list (sandbox)
-- Add an **N-sandbox provisioner** (or call `prepare_for_run` N times) returning
-  `Vec<RequestSandboxBinding>`; add a reuse/attach mode with no-op release.
-- Thread the **real host artifact dir** (`sandbox/dist`) through the composition
-  root instead of `DEFAULT_LAYER_STACK_ROOT` (a latent bug flagged by exploration;
-  fix only if it blocks the harness — otherwise leave to parallel agents).
-- **Plugin gap**: add `plugin.generic.*` variants to the typed `DaemonOp` enum +
-  `tool_api` plugin helpers, so plugin tests don't fall back to string-prefix
-  routing. (Needed only for the plugin sandbox tier.)
-
-### 7.5 `sandbox` module files
-
+### 8.4 Files & source-side change
 ```
-test_runner/crates/runner-sandbox/src/
-  lib.rs
-  pool.rs           // SandboxPool: provision/provision_n, reuse modes, teardown
-  fast_setup.rs     // one-time-vs-per-test setup sequence (build_workspace_base, git reset)
-  instance.rs       // SweevoInstance resolve (EOS_SWEEVO_INSTANCE → image/base_commit)
-  multinode.rs      // semaphore + per-node naming + Vec<binding> lifecycle
-  ops.rs            // thin typed facade over eos-sandbox-api tool_api (+ plugin if enabled)
+test_runner/src/sandbox/
+  mod.rs
+  pool.rs        // SandboxPool: provision / provision_n (+rollback) / reuse / teardown
+  fast_reset.rs  // real per-test reset; cacheable-skip logic
+  instance.rs    // SweevoInstance resolve (EOS_SWEEVO_INSTANCE → image/base_commit)
+  ops.rs         // thin typed facade over eos-sandbox-api tool_api (+ plugin if that tier is built)
 ```
+Source change: N-provisioner + rollback + reuse discovery (host-side); **plugin
+`DaemonOp` variants only if the plugin sandbox tier is built**.
 
 ---
 
-## 8. Test taxonomy (preserve rigor, drop the bad layout)
+## 9. Test taxonomy (preserve rigor; drop the bad layout)
 
-### 8.1 Clean axes (replace scattered pytest markers)
+### 9.1 Axes — **[rev] three subjects** (sandbox invariants are daemon-RPC, not loop)
 ```
-  fidelity ∈ {Mock, Live}          Mock = scripted EventSource through REAL loop
-  subject  ∈ {AgentExecution, Sandbox}   (Live = real LLM / real provider)
-  load     ∈ {Single, Multi{nodes}}      (replaces smoke-vs-full + capacity mega-scenario)
-
-  Mock × AgentExecution : DAG/retry/deferral/planner-validation/root-request CORRECTNESS
-  Mock × Sandbox        : connection/stability/load via scripted high-volume tool calls
-  Live × Sandbox        : real daemon parity (the bench-script flow, asserted)
-  Live × AgentExecution : real-agent SWE-EVO F2P/P2P scoring (trivial api smoke is its floor)
+  fidelity ∈ {Mock, Live}
+  subject  ∈ {AgentExecution,        // through the real engine loop
+              SandboxTools,          // engine-driven high-volume tool calls (stability/load)
+              SandboxRpc}            // DIRECT api.* daemon RPC (IWS/OCC/overlay/layerstack invariants)
+  load     ∈ {Single, Multi{nodes}}  // replaces smoke-vs-full + the capacity mega-scenario
 ```
+**[rev]** The `isolated_workspace`/OCC/overlay/layer-stack invariants are driven by
+**direct `api.isolated_workspace.*` / `api.v1.*` daemon RPC**, NOT the engine loop —
+hence the explicit `SandboxRpc` subject. Mis-routing them through "scripted tool
+calls" would silently shrink coverage to a handful of phrases.
 
-### 8.2 Ported architecture (the good parts)
-- **`run_pipeline` 5-seam spine** → one Rust entrypoint; mode = (runner_factory,
-  bootstrap, lifecycle, sandbox, run_label).
-- **`LifecycleHooks`** trait (`before_run/on_event/after_run/on_aborted`) — the
-  per-mode observation + early-terminate seam; `Noop` default.
-- **Dual report**: narrow `PipelineReport` (core) + mode views (`RunReport`,
-  `RealAgentRunReport`) rebuilt from typed audit events.
-- **Scenario-as-data + real loop**: `Scenario` returns `ScriptedTurn`s; a Rust
-  `ScenarioRunner` injects them into the **real** `eos-runtime` loop (real tool
-  dispatch, terminal-alone, budget, real ContextEngine XML envelopes).
-- **`_graph_summary` real-state walk**: assert Workflow→Iteration→Attempt→Task
-  from persisted `eos-state` rows, never from scenario self-reporting.
-- **Declarative `Expectation`** (port of `FocusedScenarioCase`): one struct →
-  `assert_report(report, expectation)`.
+### 9.2 Ported architecture (the good parts)
+- `run_pipeline` 5-seam spine; `LifecycleHooks` (`before_run/on_event/after_run/
+  on_aborted`); dual report (`PipelineReport` + mode views from typed audit events);
+  Scenario-as-data + **real loop**; `_graph_summary` real-state walk on `eos-state`.
+- The single most important property: **mock tests drive the REAL loop** (real tool
+  dispatch, terminal-alone, budget, real ContextEngine XML envelopes); **graph shape
+  is read from persisted `eos-state` rows, never scenario self-report.**
 
+### 9.3 `Expectation` — **[rev] expanded to cover what `FocusedScenarioCase` +
+`_assert_tool_and_event_capacity` assert** (each field maps to a real Python assertion)
 ```rust
 pub struct Expectation {
     pub request_status: RequestStatus,
-    pub role_task_floors: BTreeMap<AgentRole, u32>,
-    pub role_task_absent: BTreeSet<AgentRole>,
+    pub role_task_floors:  BTreeMap<(AgentRole, TaskStatus), u32>,  // status-scoped (done/failed) [rev]
+    pub absent_done_roles: BTreeSet<AgentRole>,                     // [rev]
     pub required_event_kinds: Vec<String>,
     pub attempt_count: Option<u32>, pub iteration_count: Option<u32>,
     pub deferred_attempt_bounds: Option<(u32,u32)>,
-    pub tool_count_floors: BTreeMap<String, u32>,   // write>=30, read>=20, …
-    pub required_sandbox_events: Vec<String>,       // occ.publish, squash, conflict, …
+    pub recursive_workflow_count: Option<u32>,                      // multi-workflow/delegation [rev]
+    pub tool_count_floors: BTreeMap<String, u32>,                   // write>=30, read>=20, …
+    pub tool_error_floor: Option<u32>,                             // tool_errors_total>=1 [rev]
+    pub required_sandbox_events: Vec<String>,                       // occ.publish, squash, conflict, …
+    pub dependency_prompt_xml: bool,                               // the real-XML-envelope gate [rev]
+    pub sandbox_checks_pass: bool,                                 // [rev]
+    pub forbidden_substrings: Vec<String>,    // no-internal-error gate: "internal_error","stale lowerdir",… [rev]
 }
 ```
 
-### 8.3 Scenario catalog to port (small, orthogonal, high-signal)
-- **Mock×AgentExecution**: `initial_workflow`, `dependency_dag_{serial,parallel,
-  diamond,mixed}`, `dependency_blocked_descendants`, `attempt_retry_{planner,
-  generator,reducer}_failure`, `iterative_deferral`, `nested_workflow(_failure)`,
-  `attempt_budget_exhausted`, `generator_failure_quiescence`, + 6
-  `planner_validation` negatives (cycle/dup-id/unknown-dep/unknown-agent/
-  empty-tasks/blank-deferred-goal).
-- **Mock×Sandbox**: OCC conflict round-trip, overlay capture/publish, auto-squash,
-  lease-non-leak, read-only-plugin-no-publish vs write-plugin-publish, finite
-  command vs command-session lifecycle, isolated-workspace invariants
-  (enter-rejects-active-bg, exit-drains+releases, no-OCC-publish, audit-only
-  writes) — as a **compact table-driven suite**, not file-per-case.
-- **Live×Sandbox**: the bench-script setup flow, asserted (parity).
-- **Live×AgentExecution**: api-client smoke (§5.5) + SWE-EVO real-agent.
+### 9.4 Scenario catalog (small, orthogonal, high-signal)
+- **Mock×AgentExecution**: `initial_workflow`, `initial_messages_capture` (root-request
+  envelope) **[rev]**, `dependency_dag_{serial,parallel,diamond,mixed}` **[rev: +mixed]**,
+  `dependency_blocked_descendants`, `attempt_retry_{planner,generator,reducer}_failure`,
+  `iterative_deferral`, `nested_workflow(_failure)`, `attempt_budget_exhausted`,
+  `generator_failure_quiescence`, + 6 `planner_validation` negatives.
+- **Mock×SandboxTools**: high-volume scripted tool calls → write/read/exec/search floors.
+- **SandboxRpc** (Mock or Live) **[rev]** — enumerate invariant **categories**, table-driven
+  (not 120 files): OCC conflict round-trip; overlay capture/publish; auto-squash;
+  lease-non-leak; read-only-plugin-no-publish vs write-plugin-publish; finite-command
+  vs command-session lifecycle; **IWS**: enter-rejects-active-bg, exit-drains+releases,
+  no-OCC-publish, audit-only-writes, daemon-restart orphan-GC (cgroup/netns/scratch/
+  veth/lease), quota-one-per-agent / total-cap / host-RAM-gate / TTL-evict, **O(1)
+  lowerdir disk (`workspace_tree_bytes==0` regression gate)**, concurrent-enter IP
+  non-double-allocation, network hardening (egress masquerade / IMDS+RFC1918 drop /
+  inbound reject). State explicitly which buckets are **dropped** vs ported.
+- **Live×Sandbox**: parity asserted on **named daemon ops** (provision →
+  `ensure_workspace_base` → `api.v1.*` round-trip → `api.audit.pull`) **[rev: not "the
+  bench-script flow"; the bench files are churning in the worktree]**.
+- **Live×AgentExecution**: api smoke (§6.5) + SWE-EVO real-agent F2P/P2P.
 
-### 8.4 Explicitly dropped (do not port)
-`full_stack_adversarial`, `full_system_capacity_matrix`, `pack_catalog`
-(dead pointers), `_metrics.py` percentile aggregator (→ separate bench lane),
-the ~120-file `isolated_workspace` explosion (→ table-driven invariant set),
-smoke-vs-full duplication (→ `load` axis parameter).
+### 9.5 Dropped — **[rev] keep the cross-cutting invariants, drop only the scenario SIZE**
+Drop `full_stack_adversarial`, `full_system_capacity_matrix`, `pack_catalog`, the
+~120-file IWS layout, smoke-vs-full duplication, the percentile perf aggregator
+(→ `benches/`). **But RETAIN as `Expectation`/`Correctness`-facet queries** (they are
+cross-cutting correctness, not capacity-only): the **no-internal-error / forbidden-
+signature** gate (8 `_invariants.py` files), the **tool_error_floor**, and the **O(1)-
+overlay `workspace_tree_bytes==0`** + **`sum(phases_ms) <= total_ms`** regression gates.
 
 ---
 
-## 9. Resulting workspace layout
+## 10. Workspace layout
 
 ```
-test_runner/                          (NEW top-level Rust workspace)
-  Cargo.toml                          // workspace; path-deps → ../agent-core, ../sandbox
+test_runner/                       (NEW top-level crate)
+  Cargo.toml                       // path-deps → ../agent-core/*, ../sandbox/eos-protocol
   rust-toolchain.toml
-  crates/
-    runner-config/                    // §4  centralized config + .env
-    runner-audit/                     // §6  collector, timeline, renderer
-    runner-agent/                     // §5  MockedLlmClient, scenario runner, api smoke
-    runner-sandbox/                   // §7  SandboxPool, fast setup, multi-node
-    runner-core/                      // run_pipeline spine, LifecycleHooks, reports, Expectation
-    runner-scenarios/                 // §8  scenario data (mock turn scripts) + catalog
+  src/
+    lib.rs
+    config/                        // §5
+    audit/                         // §7  (collector owns TraceEvent + normalize)
+    agent/                         // §6  (MockedLlmClient, run, advisor stub, api smoke)
+    sandbox/                       // §8
+    core/                          // run_pipeline spine, LifecycleHooks, reports, Expectation, graph_summary
+    scenarios/                     // §9  scenario turn-script data + catalog
   tests/
-    mock_agent/                       // Mock×AgentExecution correctness
-    mock_sandbox/                     // Mock×Sandbox stability/load
-    live_sandbox/                     // Live×Sandbox parity (gated)
-    live_agent/                       // Live×AgentExecution: api smoke + sweevo (gated)
-  benches/                            // perf lane (moved out of the test taxonomy)
+    mock_agent.rs                  // Mock×AgentExecution
+    mock_sandbox.rs                // Mock×SandboxTools
+    sandbox_rpc.rs                 // SandboxRpc invariant table
+    live_sandbox.rs  live_agent.rs // gated
+  benches/                         // perf lane (out of the test taxonomy)
 ```
-
-Cross-repo source changes live in their home crates (not in `test_runner/`):
-`eos-config`, `eos-runtime`, `eos-engine`, `eos-llm-client`, `eos-audit`,
-`eos-workflow` (agent-core); `eos-protocol`, `eos-daemon` (sandbox).
+Source changes live in their home crates (P1–P6 in agent-core/sandbox; D1–D4 flagged).
 
 ---
 
-## 10. SOLID / SRP mapping (and simplicity guardrails)
+## 11. SOLID / SRP & simplicity guardrails
 
 | Principle | Where |
 |---|---|
-| **SRP** | Each crate owns one job: config / audit-collection / agent-drive / sandbox-drive / spine / scenario-data. Audit *emission* stays in source modules; audit *presentation* stays in the collector. |
-| **Open/Closed** | New scenarios = new data (`ScriptedTurn`s), no engine change. New audit source = new `to_trace()` mapping, no collector change. |
-| **Liskov** | `MockedLlmClient`/`ScenarioEventSource` are drop-in `LlmClient`/`EventSource`; `SandboxPool` honors the same `eos-sandbox-host` contract as production. |
-| **Interface Segregation** | Four narrow facets instead of one fat payload; `TurnScript` is a single method; `SandboxTransport` is one `call`. |
-| **Dependency Inversion** | test_runner depends on traits (`AuditSink`, `EventSource`, `SandboxTransport`), not concretes; injection via existing factories. |
+| **SRP** | One module per job. Audit **emission** stays in source modules; audit **presentation/normalization** stays in the collector — the bridge is consumer-side, so there is one source of truth per side. |
+| **Open/Closed** | New scenario = new `ScriptedTurn` data. New audit source = new `From<…>` in `normalize.rs`. No engine/collector change. |
+| **Liskov** | `MockedLlmClient` is a drop-in `EventSource`; `AutoApproveAdvisor` a drop-in `AdvisorPort`; `SandboxPool` honors the `eos-sandbox-host` contract. |
+| **ISP** | Four narrow facets; `TurnScript` is one method; `SandboxTransport` is one `call`. |
+| **DIP** | Harness depends on traits (`AuditSink`, `EventSource`, `AdvisorPort`, `SandboxTransport`), injected via existing `AppStateBuilder` setters (+ the new `advisor()`). |
 
-**Anti-over-engineering guardrails** (per project `CLAUDE.md` — over-engineering is
-a defect equal to under-coverage):
-- No new universal telemetry bus, no daemon push channel, no second config system.
-- The 4-facet model maps **existing** fields; it adds no new measurement code.
-- The api-client test stays trivial.
-- Multi-node reuses per-`SandboxId` maps; no new isolation machinery.
-- Scenarios are data; no per-scenario classes/inheritance trees.
+**Deliberately NOT built** (over-engineering = defect): shared audit-contract crate;
+second mock surface + precedence guard; `runner` section in production config;
+`dotenvy` in `eos-runtime::main`; `dotenv_writer` module; `env:VAR`/`SecretString`
+credential plumbing (keys stay env-only); per-scenario classes; the 120-file IWS
+layout; building the real advisor runtime (an injected stub suffices).
 
 ---
 
-## 11. Progress checker
+## 12. Progress checker
 
-> Phases are ordered so each is independently verifiable. `[ ]` = todo.
-> Source-side reforms (agent-core/sandbox) are called out because they are the
-> bridge prerequisites, not test_runner-internal work.
+> `[ ]` = todo. **P#** = in-scope source-side prerequisite (§3a). **D#** = flagged
+> external dependency (§3b). Phases are independently verifiable.
 
-### Phase 0 — Workspace skeleton
-- [ ] `test_runner/` workspace + 6 crates compile with path-deps to agent-core & sandbox
-- [ ] `runner-core` `run_pipeline` spine + `LifecycleHooks` + `PipelineReport` stubs
-- [ ] verify: `cargo build -p runner-core` green
+### Phase 0 — Skeleton
+- [ ] `test_runner/` crate compiles with path-deps to agent-core & sandbox
+- [ ] `core` `run_pipeline` spine + `LifecycleHooks` + `PipelineReport` stubs
 
-### Phase 1 — Config (centralized)
-- [ ] `eos-config`: add `providers.{active,anthropic,openai}` + `runner` section + validation
-- [ ] `eos-runtime`: `dotenvy::dotenv()` startup; `default_llm_client` reads provider config
-- [ ] `runner-config`: `RunConfig`, `load_dotenv_then_central`, `.env` writer
-- [ ] verify: a test writes a key to `.env`, loader resolves `SecretString`, client builds
+### Phase 1 — Config
+- [ ] **P6** `eos-config` `providers.active` (+ parity case + insta snapshot); fix `default_llm_client` selection bug
+- [ ] `config`: `RunConfig`, harness-only `dotenvy::dotenv()` (NOT `eos-runtime::main`)
+- [ ] verify: `.env` key hydrates env → correct provider client builds; env overrides `.env`
 
-### Phase 2 — agent-core mock seam
-- [ ] Promote `MockedLlmClient` + `ScenarioEventSource` to `pub testsupport` feature (no loop change)
-- [ ] `runner-agent`: `ScriptedTurn`/`TurnScript`, emit helpers, advisor script
-- [ ] `request_run` + `terminate` (select! on shutdown/timeout/condition)
-- [ ] verify: a 1-tool mock script runs the real loop to `submit_root_outcome`; budget parity holds
-- [ ] verify: a condition-watcher terminates a run early → `Partial`
+### Phase 2 — Mock agent (baseline)
+- [ ] **P2** `pub testsupport` `ScriptedTurn`/`TurnScript`/`MockedLlmClient` (no loop change)
+- [ ] **P3** `AppStateBuilder::advisor()` setter + `AutoApproveAdvisor` stub; register main/helper/subagent profiles
+- [ ] `agent`: `MockedLlmClient`, `trailing_tool_results` (backward scan), run driver
+- [ ] verify: 1-tool mock script reaches `submit_root_outcome`; **gated terminal passes** via stub; budget parity holds
+- [ ] verify: condition-watcher terminates a run early → `Partial` (turn-boundary; audit best-effort noted)
+- [ ] **D1** (flagged): explorer/`run_subagent` scenarios deferred until `spawn` drives `run_ephemeral_agent`
 
-### Phase 3 — Audit reform (source side)
-- [ ] `eos-audit`/`eos-engine`: **wire the dead `engine.tool.*` path** (publish on the sink)
-- [ ] `eos-workflow`: emit request/workflow/iteration/attempt lifecycle events
-- [ ] add monotonic `seq`; populate `node.tool_use_id`/`sandbox_id`
-- [ ] **correlation fix**: copy engine `tool_use_id` → `sandbox_invocation_id`; daemon stops minting uuid
-- [ ] `eos-protocol::audit`/`eos-daemon`: stamp caller `tool_use_id` + breadcrumb into every section
-- [ ] `eos-audit-contract`: `TraceEvent`/`CorrelationNode`/`Facets` + `to_trace()` both sides
-- [ ] `sandbox/CONTRACT.md`: add audit-pull schema as a coordinated surface
-- [ ] verify: a real mock run produces `engine.tool.*` events (not just `plugin.*`)
-- [ ] verify: an engine tool event and its sandbox `occ.publish` share `tool_use_id`
+### Phase 3 — Audit (correlation + dead-path + collector)
+- [ ] **P1** stamp engine `tool_use_id` → `sandbox_invocation_id` upstream; verify all mint/fallback sites reuse a present id
+- [ ] **P4** wire dead `engine.tool.*` path on the injected sink; enrich `AuditNode` from `QueryContext`; (optional) `engine.turn.completed` usage emitter
+- [ ] **P5** widen daemon `ToolCallSection` with the breadcrumb ids it already receives
+- [ ] `audit`: `CapturingSink`, `DaemonAuditPuller`, `normalize` (`From<AuditEvent>` + `From<&Section>`), `timeline` (collector-assigned `ord`), `render`
+- [ ] `CONTRACT.md`: add audit-pull schema as a coordinated surface
+- [ ] verify: a real mock run emits `engine.tool.*` (not just `plugin.*`); engine tool event ↔ its `occ.publish` share `tool_use_id`; §7.5 tree + summary render
+- [ ] **D2** (flagged): full lifecycle tree awaits `eos-workflow` lifecycle emitters
 
-### Phase 4 — Audit collector (consumer side)
-- [ ] `runner-audit`: `CapturingSink`, `DaemonAuditPuller`, `normalize`, `timeline`, `correlate`
-- [ ] `render::tree` + `render::summary` (the human-readable deliverable)
-- [ ] `RotatingJsonlSink` artifact port
-- [ ] verify: merged timeline renders the §6.5 sample shape; summary shows the 4 facets
-- [ ] verify: lossless in-proc capture (0 dropped) for an assertion run
+### Phase 4 — Sandbox (real, fast, multi-node)
+- [ ] `sandbox`: `SandboxPool` provision/reuse over `eos-sandbox-host`
+- [ ] fast reset: cacheable-skip + **real** per-test reset (git + `build_workspace_base{reset}`)
+- [ ] `provision_n` + semaphore + **partial-failure rollback** + reuse discovery + per-node labels
+- [ ] verify: warm reuse skips cacheable setup, no cross-test contamination; N=3 lanes, no quota overrun / lease leak (incl. mid-provision failure)
+- [ ] **D3/D4** (flagged): clean mid-tool early-abort awaits cooperative cancellation + OCC idempotency
 
-### Phase 5 — Sandbox (real, fast, multi-node)
-- [ ] `runner-sandbox`: `SandboxPool` provision/reuse over `eos-sandbox-host`
-- [ ] fast setup: one-time vs per-test (marker-skip eosd, daemon liveness, active-overlay reset)
-- [ ] `provision_n` + semaphore + per-node naming; reuse/attach no-op release
-- [ ] (if plugin tier) add `plugin.generic.*` to `DaemonOp` + `tool_api`
-- [ ] verify: warm container reuse < target setup time; no cross-test contamination
-- [ ] verify: N=3 lanes run without quota overrun or lease leak
+### Phase 5 — Taxonomy + scenarios
+- [ ] expanded `Expectation` + `assert_report`; `graph_summary` real-state walk (all workflows)
+- [ ] Mock×AgentExecution catalog (§9.4) as turn-script data
+- [ ] Mock×SandboxTools floors; **SandboxRpc** invariant table (categories, ported-vs-dropped stated)
+- [ ] retain cross-cutting gates (no-internal-error, tool_error_floor, O(1)-overlay, phase-sum) as facet queries
+- [ ] Live×Sandbox parity (named ops); Live×AgentExecution api smoke + sweevo (gated)
 
-### Phase 6 — Test taxonomy + scenarios
-- [ ] `Expectation` + `assert_report`; `_graph_summary` real-state walk on `eos-state`
-- [ ] Port Mock×AgentExecution correctness scenarios (§8.3) as turn-script data
-- [ ] Port Mock×Sandbox invariants as a table-driven suite
-- [ ] Live×Sandbox parity test (bench-flow); Live×AgentExecution api smoke + sweevo (gated)
-- [ ] verify: each scenario asserts via `Expectation`; graph shape from store, not self-report
-
-### Phase 7 — Cutover
-- [ ] Architecture page under `docs/architecture/` for `test_runner`
-- [ ] Retire/redirect the Python `backend/src/test_runner` once parity confirmed
-- [ ] verify: `EOS_SANDBOX_RUNTIME=rust` end-to-end; no Python sandbox internals imported
+### Phase 6 — Cutover
+- [ ] `docs/architecture/` page for `test_runner`
+- [ ] retire/redirect Python `backend/src/test_runner` after parity; no Python sandbox internals imported
 
 ---
 
-## 12. Open questions (for review)
-1. `eos-audit-contract` as a **new shared crate** vs a `contract` module inside
-   `eos-audit` that `sandbox` also depends on — which crosses the repo boundary
-   more cleanly? (Leaning: small new crate both workspaces path-dep.)
-2. Should the correlation key be `tool_use_id` reused as `invocation_id`, or a
-   **separate** explicit `caller_tool_use_id` section field (safer vs daemon
-   cancel/mint paths)? (Leaning: separate explicit field.)
-3. Is the `audit` seq best at the **sink boundary** (per-process) or assigned by
-   the collector on ingest (per-run total order)? (Leaning: collector-assigned
-   ingest order for cross-source merge; keep daemon ring `seq` for drop detection.)
+## 13. Resolved decisions (former open questions)
+- **Q1 — who owns `TraceEvent`?** The **collector** (`test_runner::audit::
+  normalize`). No shared `eos-audit-contract` crate; both source repos keep native
+  audit types. *(Review: a shared contract duplicates `AuditNode` + native
+  `*Section`, two sources of truth.)*
+- **Q2 — correlation key?** Reuse the engine `tool_use_id` as the sandbox
+  `invocation_id` (it is already the daemon's registry/cancel key and is already
+  echoed into `ToolCallSection.tool_use_id`). **No** new caller field —
+  `SandboxCaller.tool_id` already exists.
+- **Q3 — ordering?** Collector assigns the merged-timeline `ord` at ingest; the
+  daemon ring `seq`/`lost_before_seq` stay for drop detection only. No sink-boundary
+  seq in `eos-audit`.
+
+### Genuinely open (need a user call)
+- **§3b scope**: do D1 (subagent spawn) / D2 (lifecycle audit emitters) / D3 (cooperative
+  cancellation) get done as part of this effort, or are they tracked as agent-core
+  migration work that the corresponding test tiers wait on? The **baseline** mock +
+  sandbox tiers do **not** need them.
 ```

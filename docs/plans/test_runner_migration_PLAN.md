@@ -516,6 +516,10 @@ Allowed Python sandbox paths after removal:
 - `backend/src/sandbox/host/`
 - `backend/src/sandbox/provider/`
 - `backend/src/sandbox/provider/bootstrap.py`
+- `backend/src/sandbox/_shared/` protocol/request/result models required by
+  host APIs and the Rust-daemon PPC bridge
+- `backend/src/sandbox/audit/` host-readable audit schema/translation support
+- `backend/src/sandbox/_contract_fixtures/` protocol fixture pins
 - `backend/src/config/sections/sandbox.py`
 - protocol fixtures, runtime-artifact pinning, and host-side upload/signature
   verification code required by the Rust daemon
@@ -541,13 +545,16 @@ Current Phase G checkpoint (2026-06-03):
 - Host path constants live in `backend/src/sandbox/host/paths.py`; host/API/
   provider/plugin host code must not import `sandbox.daemon.paths`.
 - `backend/src/sandbox/host/runtime_bundle.py` uploads only the Rust-daemon
-  plugin bridge payload required by PPC/LSP. It must not bundle Python
-  `sandbox/daemon`, `overlay`, `occ`, `layer_stack`, `isolated_workspace`,
-  daemon scripts, peer setup scripts, or vendored `pathspec`.
+  plugin bridge payload required by PPC/LSP: `sandbox/_shared` models/contracts,
+  `plugins/runtime_bridge`, and the LSP runtime service. It must not bundle
+  Python `sandbox/daemon`, `overlay`, `occ`, `layer_stack`,
+  `ephemeral_workspace`, `isolated_workspace`, daemon scripts, peer setup
+  scripts, or vendored `pathspec`.
 - LSP is still a Rust-daemon service path, not a Python daemon path:
   `sandbox/crates/eos-plugin` owns PPC/service contracts, `eos-daemon` owns
   service process/overlay/OCC behavior, and the Python files kept in the bundle
-  are bridge payload modules exercised by `backend/scripts/bench_rust_daemon_plugin.py`.
+  are `plugins/runtime_bridge` and LSP runtime payload modules exercised by
+  `backend/scripts/bench_rust_daemon_plugin.py`.
 - Public shell cleanup is source-level, not only a plan assertion:
   `backend/scripts/bench_rust_daemon_phase3.py` and
   `backend/scripts/bench_rust_daemon_plugin.py` must call
@@ -559,9 +566,12 @@ Current Phase G checkpoint (2026-06-03):
   argument. `api.v1.write_stdin` remains the canonical daemon stdin op; the
   `api.v1.command.write_stdin` spelling is a Rust/Python compatibility alias
   only.
-- The physical deletion pass is still open until the final inventory below is
-  clean and `backend/src/sandbox` contains only host/API/provider/config/
-  protocol support.
+- Source deletion status: `backend/src/sandbox/{daemon,overlay,occ,layer_stack,
+  shared,ephemeral_workspace,isolated_workspace}` have been removed. The
+  remaining cleanup is test/script inventory: many legacy unit/live tests still
+  import deleted Python sandbox internals and must be removed, rewritten as Rust
+  daemon contract tests, or quarantined before the broad `backend/tests` grep
+  gate can be made mandatory.
 
 Pass condition:
 
