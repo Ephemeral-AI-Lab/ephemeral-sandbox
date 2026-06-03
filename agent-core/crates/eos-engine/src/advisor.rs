@@ -12,7 +12,7 @@
 //! Port of `tools/ask_helper/_lib/_compose.py` + `_transcript.py` +
 //! `ask_advisor.py::_build_advisor_user_msg_2`. **Documented deviation:** Python's
 //! `build_helper_messages` hard-errors unless the caller has ≥2 non-empty *user*
-//! messages (its ContextEngine seeds `user_msg_1` + `user_msg_2` as two messages).
+//! messages (its `ContextEngine` seeds `user_msg_1` + `user_msg_2` as two messages).
 //! The Rust runtime seeds every agent with a *single* user message, so this
 //! builder degrades for the single-seed case (`user_msg_1` = `messages[0]`,
 //! `user_msg_2` = the parent's role/system prompt, transcript from `messages[1:]`)
@@ -415,7 +415,11 @@ fn apply_byte_cap(rendered: &[String]) -> String {
 }
 
 /// `json.dumps(value, indent=2, sort_keys=True)` — recursively sort object keys,
-/// then pretty-print with two-space indent.
+/// then pretty-print with two-space indent. Deliberate divergence: Python defaults
+/// to `ensure_ascii=True` (`\uXXXX`-escaping non-ASCII), whereas serde keeps non-ASCII
+/// scalars as UTF-8. The output is advisor-facing prose read by an LLM, so UTF-8 is
+/// equivalent (more readable) and at most shifts the *soft* [`apply_byte_cap`] elision
+/// point — never correctness.
 fn json_pretty_sorted(value: &Value) -> String {
     serde_json::to_string_pretty(&sort_value(value)).unwrap_or_else(|_| value.to_string())
 }

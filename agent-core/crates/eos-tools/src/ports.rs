@@ -170,9 +170,10 @@ pub enum SubmissionAck {
 /// tools. Implemented by the `eos-workflow` `AttemptOrchestrator`.
 #[async_trait]
 pub trait PlanSubmissionPort: Sealed + Send + Sync {
-    /// Apply a validated planner DAG (`orchestrator.apply_plan_submission`). The
-    /// implementor performs the downstream-state checks (planner-task ownership,
-    /// unknown-agent, DAG cycle) and persists the task rows.
+    /// Apply a validated planner DAG (`orchestrator.record_plan`, the
+    /// non-advancing recording entry point). The implementor performs the
+    /// downstream-state checks (planner-task ownership, unknown-agent, DAG cycle)
+    /// and persists the task rows.
     async fn apply_plan(&self, plan: PlannerPlan) -> Result<SubmissionAck, ToolError>;
 
     /// Record one generator task's terminal outcome.
@@ -303,6 +304,11 @@ pub trait CommandSessionSupervisorPort: Sealed + Send + Sync {
     /// Mark a session reported (delivered) with the terminal `result` a control
     /// tool observed inline, so the heartbeat does not re-deliver it.
     async fn mark_command_session_reported(&self, command_session_id: &str, result: Value);
+
+    /// Whether a session's completion was already delivered to the model (via the
+    /// heartbeat). A late `write_stdin` poll uses this to return a terse
+    /// already-reported note instead of re-dumping the completion (anchor §8/D8).
+    async fn command_session_already_reported(&self, command_session_id: &str) -> bool;
 
     /// Count of this agent's tracked, still-running command sessions.
     async fn count_by_agent(&self, agent_id: &str) -> usize;

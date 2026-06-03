@@ -160,6 +160,16 @@ impl BackgroundTaskSupervisor {
         }
     }
 
+    /// Whether a tracked session's completion was already delivered to the model
+    /// (the heartbeat latched it `Delivered`), so a late `write_stdin` poll can
+    /// answer with a terse already-reported note instead of the full payload.
+    #[must_use]
+    pub fn command_session_already_reported(&self, command_session_id: &str) -> bool {
+        self.command_sessions
+            .get(command_session_id)
+            .is_some_and(|record| matches!(record.status, BackgroundTaskStatus::Delivered))
+    }
+
     /// Running command-session ids grouped by `(sandbox_id, agent_id)` — the
     /// heartbeat's pull plan (deterministic order for stable polling).
     #[must_use]
@@ -190,19 +200,6 @@ impl BackgroundTaskSupervisor {
                     && (agent_id.is_empty() || record.agent_id == agent_id)
             })
             .count()
-    }
-
-    /// Cancel this agent's still-running command sessions (request/loop exit).
-    /// State-only: the daemon reaper/teardown reclaims the live processes.
-    pub fn cancel_command_sessions_by_agent(&mut self, agent_id: &str) {
-        for record in self.command_sessions.values_mut() {
-            if matches!(record.status, BackgroundTaskStatus::Running)
-                && (agent_id.is_empty() || record.agent_id == agent_id)
-            {
-                record.status = BackgroundTaskStatus::Cancelled;
-                record.result = Some(serde_json::json!({"status": "cancelled"}));
-            }
-        }
     }
 }
 
@@ -235,6 +232,13 @@ impl CommandSessionSupervisorPort for BackgroundSupervisorHandle {
             .lock()
             .await
             .mark_command_session_reported(command_session_id, result);
+    }
+
+    async fn command_session_already_reported(&self, command_session_id: &str) -> bool {
+        self.inner()
+            .lock()
+            .await
+            .command_session_already_reported(command_session_id)
     }
 
     async fn count_by_agent(&self, agent_id: &str) -> usize {
@@ -289,19 +293,23 @@ mod tests {
     fn recover_race_returns_stored_terminal_and_marks_reported() {
         let mut supervisor = BackgroundTaskSupervisor::new();
         supervisor.register_command_session("cmd_2", "sb", "agent-a", "make");
-        // Still running → no recoverable result yet.
+        // Still running → no recoverable result yet, not reported.
         assert!(supervisor.command_session_result("cmd_2").is_none());
+        assert!(!supervisor.command_session_already_reported("cmd_2"));
 
         supervisor.ingest_completion(&completion("cmd_2", "agent-a", "error", "boom"));
-        // Terminal (Failed) → recover returns the stored result.
+        // Terminal (Failed) → recover returns the stored result; not yet reported.
         let recovered = supervisor
             .command_session_result("cmd_2")
             .expect("stored terminal");
         assert_eq!(recovered["status"], "error");
+        assert!(!supervisor.command_session_already_reported("cmd_2"));
 
-        // The control tool latches it Delivered → heartbeat drain stays empty.
+        // The control tool latches it Delivered → heartbeat drain stays empty and
+        // a late write_stdin poll sees it already-reported (the terse §8/D8 path).
         supervisor.mark_command_session_reported("cmd_2", recovered);
         assert!(supervisor.drain_command_session_notifications().is_empty());
+        assert!(supervisor.command_session_already_reported("cmd_2"));
     }
 
     #[test]

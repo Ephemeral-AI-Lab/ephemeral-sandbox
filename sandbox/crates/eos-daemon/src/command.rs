@@ -665,14 +665,12 @@ fn wait_for_yield(
 #[cfg(target_os = "linux")]
 struct CommandSessionRegistry {
     sessions: Mutex<HashMap<String, Arc<CommandSession>>>,
-    completed: Mutex<HashMap<String, CompletedCommandSession>>,
+    /// Parked terminal completions awaiting heartbeat collection or a late
+    /// `write_stdin` poll. Entries are removed on first delivery (by
+    /// `collect_completed`) or claim (by `take_completed_result`), so the map
+    /// stays bounded.
+    completed: Mutex<HashMap<String, Value>>,
     counter: AtomicU64,
-}
-
-#[cfg(target_os = "linux")]
-struct CompletedCommandSession {
-    completion: Value,
-    notification_delivered: bool,
 }
 
 #[cfg(target_os = "linux")]
@@ -725,21 +723,19 @@ impl CommandSessionRegistry {
         if id.is_empty() {
             return;
         }
-        lock_command_session_state(&self.completed).insert(
-            id,
-            CompletedCommandSession {
-                completion,
-                notification_delivered: false,
-            },
-        );
+        lock_command_session_state(&self.completed).insert(id, completion);
     }
 
     fn take_completed_result(&self, id: &str) -> Option<Value> {
         lock_command_session_state(&self.completed)
             .remove(id)
-            .and_then(|item| item.completion.get("result").cloned())
+            .and_then(|completion| completion.get("result").cloned())
     }
 
+    /// Collect (and **remove**, so the map stays bounded) the parked completions
+    /// matching the requested ids/agent. Removal on delivery is the exactly-once
+    /// gate: a later `write_stdin` poll finds the entry gone and recovers the
+    /// terse already-reported result from the agent-core supervisor (§8/D8).
     fn collect_completed(&self, args: &Value) -> Value {
         let wanted: Option<HashSet<String>> = args
             .get("command_session_ids")
@@ -756,27 +752,29 @@ impl CommandSessionRegistry {
             .unwrap_or_default()
             .to_owned();
         let mut completed = lock_command_session_state(&self.completed);
-        let mut returned = Vec::new();
-        for (id, item) in completed.iter_mut() {
-            if item.notification_delivered {
-                continue;
-            }
-            let item_agent = item
-                .completion
-                .get("agent_id")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            let id_matches = wanted.as_ref().is_none_or(|ids| ids.contains(id));
-            let agent_matches = agent_id.is_empty() || agent_id == item_agent;
-            if id_matches && agent_matches {
-                item.notification_delivered = true;
-                let mut completion = item.completion.clone();
+        let matched: Vec<String> = completed
+            .iter()
+            .filter(|(id, completion)| {
+                let item_agent = completion
+                    .get("agent_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let id_matches = wanted.as_ref().is_none_or(|ids| ids.contains(*id));
+                let agent_matches = agent_id.is_empty() || agent_id == item_agent;
+                id_matches && agent_matches
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        let returned: Vec<Value> = matched
+            .iter()
+            .filter_map(|id| completed.remove(id))
+            .map(|mut completion| {
                 if let Some(notification_result) = completion.get("notification_result").cloned() {
                     completion["result"] = notification_result;
                 }
-                returned.push(completion);
-            }
-        }
+                completion
+            })
+            .collect();
         drop(completed);
         json!({"success": true, "completions": returned})
     }
@@ -1517,18 +1515,38 @@ pub const fn cancel_command_session_for_exit(_id: &str) -> Result<bool, DaemonEr
     Ok(false)
 }
 
+/// Wall-clock cap (seconds) for a session started WITHOUT an explicit `timeout`
+/// (anchor §3). Without it, a fire-and-forget no-timeout command is unbounded in
+/// both the runner and the reaper. Large default (6 h) — a safety net, not a
+/// policy; override with `EOS_COMMAND_SESSION_MAX_S` (`0`/invalid → default).
+#[cfg(target_os = "linux")]
+fn command_session_max_seconds() -> u64 {
+    static MAX_SECONDS: OnceLock<u64> = OnceLock::new();
+    *MAX_SECONDS.get_or_init(|| {
+        std::env::var("EOS_COMMAND_SESSION_MAX_S")
+            .ok()
+            .and_then(|raw| raw.parse::<u64>().ok())
+            .filter(|seconds| *seconds > 0)
+            .unwrap_or(6 * 60 * 60)
+    })
+}
+
 /// Periodic reaper (sense-2 §2.4, §3): enforce the per-session timeout backstop
 /// and finalize any session whose child has exited without a live poller,
 /// parking the completion for the heartbeat. The runner enforces the per-call
 /// timeout internally (primary); this is the backstop for a wedged or
-/// no-timeout runner and the only finalizer for fire-and-forget sessions.
+/// no-timeout runner and the only finalizer for fire-and-forget sessions. A
+/// session started without an explicit `timeout` falls back to the
+/// `EOS_COMMAND_SESSION_MAX_S` wall-clock cap so it can never run forever.
 #[cfg(target_os = "linux")]
 pub fn command_session_reaper_sweep() {
+    let now = Instant::now();
     for session in command_session_registry().live() {
-        if let Some(deadline) = session.timeout_deadline {
-            if Instant::now() > deadline {
-                terminate_command_process_group(session.pgid);
-            }
+        let deadline = session.timeout_deadline.unwrap_or_else(|| {
+            session.started_at + Duration::from_secs(command_session_max_seconds())
+        });
+        if now > deadline {
+            terminate_command_process_group(session.pgid);
         }
         let _ = session.try_finalize(true);
     }
@@ -1709,6 +1727,18 @@ mod tests {
                 .ok_or("completions should be an array")?
                 .len(),
             1
+        );
+
+        // Remove-on-deliver: a second collect finds nothing — the map is bounded,
+        // not accumulating delivered entries forever.
+        let redelivered =
+            registry.collect_completed(&json!({"command_session_ids": ["cmd_keep"]}));
+        assert_eq!(
+            redelivered["completions"]
+                .as_array()
+                .ok_or("completions should be an array")?
+                .len(),
+            0
         );
         Ok(())
     }

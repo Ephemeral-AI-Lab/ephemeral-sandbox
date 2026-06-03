@@ -239,6 +239,12 @@ impl SubagentSupervisorPort for BackgroundSupervisorHandle {
         child_meta.notifications = Some(Arc::new(child_notifier.clone()));
         child_meta.conversation = Arc::from(Vec::<Message>::new());
         child_meta.tool_use_id = None;
+        // A subagent must not register background command sessions: the single
+        // per-request heartbeat drains only to the root sink, so a subagent's
+        // `[BACKGROUND COMPLETED]` would mis-route to the root conversation
+        // (anchor §5/D5). Clearing the port makes a subagent's `exec_command`
+        // run foreground-only — no supervisor registration, no heartbeat notify.
+        child_meta.command_session_supervisor = None;
 
         let run_input = EphemeralRunInput {
             agent: sub_def,

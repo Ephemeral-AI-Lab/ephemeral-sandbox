@@ -22,17 +22,6 @@ mod rules;
 
 pub use rules::{TerminalCallReminder, ToolCallBudget};
 
-/// A stream- and transcript-visible system notification.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SystemNotification {
-    /// Notification text.
-    pub text: String,
-    /// Agent label.
-    pub agent_name: String,
-    /// Agent run id as a string.
-    pub agent_run_id: String,
-}
-
 /// One engine-owned notification rule. Concrete rules live in their own modules
 /// and are registered in [`make_default_notification_rules`].
 pub trait NotificationRule: Send + Sync {

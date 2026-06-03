@@ -889,6 +889,17 @@ impl ToolExecutor for WriteStdin {
         // `Delivered` so the heartbeat never re-notifies the same completion.
         if let Some(port) = &ctx.command_session_supervisor {
             if is_command_session_not_found(&result) {
+                // Already surfaced via the heartbeat `[BACKGROUND COMPLETED]` —
+                // a terse note, not the full payload again (anchor §8/D8).
+                if port
+                    .command_session_already_reported(&command_session_id)
+                    .await
+                {
+                    return Ok(ToolResult::ok(format!(
+                        "Command session {command_session_id} already completed; \
+                         its result was already reported."
+                    )));
+                }
                 if let Some(stored) = port.command_session_result(&command_session_id).await {
                     port.mark_command_session_reported(&command_session_id, stored.clone())
                         .await;

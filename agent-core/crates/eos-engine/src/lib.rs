@@ -29,9 +29,7 @@ pub use background::{
 };
 pub use error::EngineError;
 pub use events::{stamp_identity, AssistantMessageComplete, StreamEvent};
-pub use notifications::{
-    make_default_notification_rules, NotificationRule, NotificationService, SystemNotification,
-};
+pub use notifications::{make_default_notification_rules, NotificationRule, NotificationService};
 pub use prompt_report::PromptReportRecorder;
 pub use query::{
     build_query_run_request, run_query, terminal_submission_failed, EngineStream, EventSource,
