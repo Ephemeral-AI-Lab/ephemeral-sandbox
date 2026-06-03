@@ -18,7 +18,7 @@ import tarfile
 import uuid
 from pathlib import Path
 
-from sandbox.daemon.paths import (
+from sandbox.host.paths import (
     BUNDLE_HASH_MARKER as _BUNDLE_HASH_MARKER,
     BUNDLE_REMOTE_DIR as _BUNDLE_REMOTE_DIR,
     BUNDLE_REMOTE_TARBALL as _BUNDLE_REMOTE_TARBALL,
@@ -83,82 +83,11 @@ def _add_python_tree(
         )
 
 
-def _add_peer_setup_scripts(tar: tarfile.TarFile, *, sandbox_dir: Path) -> None:
-    for path in sorted(sandbox_dir.rglob("setup.sh")):
-        if "__pycache__" in path.parts:
-            continue
-        tar.add(
-            path,
-            arcname=f"sandbox/{path.relative_to(sandbox_dir).as_posix()}",
-            filter=_normalize_tarinfo,
-        )
-
-
-def _add_runtime_scripts(tar: tarfile.TarFile, *, sandbox_dir: Path) -> None:
-    scripts_dir = sandbox_dir / "daemon" / "scripts"
-    if not scripts_dir.exists():
-        return
-    for path in sorted(scripts_dir.iterdir()):
-        if path.is_dir() or "__pycache__" in path.parts:
-            continue
-        tar.add(
-            path,
-            arcname=f"sandbox/{path.relative_to(sandbox_dir).as_posix()}",
-            filter=_normalize_tarinfo,
-        )
-
-
-def _vendor_pathspec(tar: tarfile.TarFile) -> None:
-    """Add the host's installed ``pathspec`` package to the bundle.
-
-    The runtime gitignore oracle requires ``pathspec``. Without vendoring, the
-    sandbox image would need a ``pip install pathspec`` step; vendoring keeps
-    the runtime self-contained and fail-closed when the host dependency is
-    missing.
-    """
-    import pathspec as _pathspec  # noqa: F401
-
-    pkg_root = Path(_pathspec.__file__).resolve().parent
-    for path in sorted(pkg_root.rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
-        rel = path.relative_to(pkg_root)
-        tar.add(
-            path,
-            arcname=f"pathspec/{rel.as_posix()}",
-            filter=_normalize_tarinfo,
-        )
-
-
-def _add_top_level_audit(tar: tarfile.TarFile, *, src: Path) -> None:
-    """Add the top-level ``audit/`` package to the bundle.
-
-    Isolated-workspace bootstrap imports
-    ``sandbox.isolated_workspace._control_plane.pipeline_registry._JsonlAuditSink``,
-    which uses ``audit.jsonl.append_jsonl_event`` (top-level, not
-    ``sandbox.audit``).
-    Several existing ``sandbox/audit/*.py`` modules also ``from audit.base
-    import ...``. Bundle the top-level package so those imports resolve.
-    """
-    audit_root = src / "audit"
-    if not audit_root.exists():
-        return
-    for path in sorted(audit_root.rglob("*.py")):
-        if _is_excluded(path):
-            continue
-        rel = path.relative_to(audit_root)
-        tar.add(
-            path,
-            arcname=f"audit/{rel.as_posix()}",
-            filter=_normalize_tarinfo,
-        )
-
-
 _BUNDLE_CACHE: bytes | None = None
 
 
 def _runtime_bundle_bytes() -> bytes:
-    """Build the in-sandbox runtime bundle as a gzip tarball."""
+    """Build the Rust-daemon plugin bridge payload as a gzip tarball."""
     global _BUNDLE_CACHE
     if _BUNDLE_CACHE is not None:
         return _BUNDLE_CACHE
@@ -170,50 +99,12 @@ def _runtime_bundle_bytes() -> bytes:
         _add_if_exists(tar, sandbox_dir / "__init__.py", arcname="sandbox/__init__.py")
 
         shared_dir = sandbox_dir / "shared"
-        _add_python_tree(
-            tar,
-            shared_dir,
-            sandbox_dir=sandbox_dir,
-        )
-
-        # sandbox/audit/ is imported by daemon-side handlers and artifact
-        # projection code, so keep it in the extracted runtime bundle.
-        audit_dir = sandbox_dir / "audit"
-        _add_python_tree(
-            tar,
-            audit_dir,
-            sandbox_dir=sandbox_dir,
-        )
-
-        daemon_dir = sandbox_dir / "daemon"
-        _add_python_tree(
-            tar,
-            daemon_dir,
-            sandbox_dir=sandbox_dir,
-        )
-
-        overlay_dir = sandbox_dir / "overlay"
-        _add_python_tree(
-            tar,
-            overlay_dir,
-            sandbox_dir=sandbox_dir,
-        )
-
-        main_workspace_dir = sandbox_dir / "main_workspace"
-        _add_python_tree(
-            tar,
-            main_workspace_dir,
-            sandbox_dir=sandbox_dir,
-        )
+        for name in ("__init__.py", "models.py", "command_exec_contract.py"):
+            _add_if_exists(tar, shared_dir / name, arcname=f"sandbox/shared/{name}")
 
         ephemeral_dir = sandbox_dir / "ephemeral_workspace"
         for name in (
             "__init__.py",
-            "events.py",
-            "operation_overlay.py",
-            "pipeline.py",
-            "pipeline_registry.py",
-            "workspace_publish.py",
         ):
             _add_if_exists(
                 tar,
@@ -221,47 +112,12 @@ def _runtime_bundle_bytes() -> bytes:
                 arcname=f"sandbox/ephemeral_workspace/{name}",
             )
 
-        layer_stack_dir = sandbox_dir / "layer_stack"
-        _add_python_tree(
-            tar,
-            layer_stack_dir,
-            sandbox_dir=sandbox_dir,
-        )
-
-        occ_dir = sandbox_dir / "occ"
-        _add_python_tree(
-            tar,
-            occ_dir,
-            sandbox_dir=sandbox_dir,
-        )
-
-        # sandbox/isolated_workspace/ — daemon-native per-agent isolation
-        # feature. Its handlers are registered by
-        # ``sandbox.daemon.rpc.dispatcher._register_builtin_operations``, so the
-        # extracted daemon must be able to import the package on startup.
-        iws_dir = sandbox_dir / "isolated_workspace"
-        _add_python_tree(
-            tar,
-            iws_dir,
-            sandbox_dir=sandbox_dir,
-        )
-
-        # Bundle only the in-sandbox parts of sandbox/ephemeral_workspace/plugin/ — install.py
-        # and host_dispatch.py are host-only (they import from sandbox.host and
-        # sandbox.provider). The daemon imports
-        # sandbox.ephemeral_workspace.plugin.op_registry,
-        # sandbox.ephemeral_workspace.plugin.runtime_api, and
-        # sandbox.ephemeral_workspace.plugin.projection.
         plugin_dir = ephemeral_dir / "plugin"
         for name in (
             "__init__.py",
             "op_context.py",
             "op_registry.py",
-            "overlay_child.py",
-            "overlay_dispatch.py",
             "ppc_service.py",
-            "projection.py",
-            "runtime_api.py",
         ):
             _add_if_exists(
                 tar,
@@ -269,12 +125,22 @@ def _runtime_bundle_bytes() -> bytes:
                 arcname=f"sandbox/ephemeral_workspace/plugin/{name}",
             )
 
-        _add_peer_setup_scripts(tar, sandbox_dir=sandbox_dir)
-        _add_runtime_scripts(tar, sandbox_dir=sandbox_dir)
-
-        _add_top_level_audit(tar, src=src)
-
-        _vendor_pathspec(tar)
+        plugins_dir = src / "plugins"
+        _add_if_exists(tar, plugins_dir / "__init__.py", arcname="plugins/__init__.py")
+        lsp_runtime_dir = plugins_dir / "catalog" / "lsp" / "runtime"
+        for name in (
+            "__init__.py",
+            "apply.py",
+            "lsp_jsonrpc.py",
+            "pyright_session.py",
+            "server.py",
+            "session_manager.py",
+        ):
+            _add_if_exists(
+                tar,
+                lsp_runtime_dir / name,
+                arcname=f"plugins/catalog/lsp/runtime/{name}",
+            )
 
     compressed = io.BytesIO()
     with gzip.GzipFile(fileobj=compressed, mode="wb", mtime=0) as gz:
@@ -382,7 +248,7 @@ async def _ensure_runtime_uploaded_with_exec(
 
 
 def _selected_sandbox_runtime() -> str:
-    return os.environ.get("EOS_SANDBOX_RUNTIME", "python").strip().lower() or "python"
+    return os.environ.get("EOS_SANDBOX_RUNTIME", "rust").strip().lower() or "rust"
 
 
 async def _ensure_eosd_uploaded(sandbox_id: str, adapter: object) -> None:

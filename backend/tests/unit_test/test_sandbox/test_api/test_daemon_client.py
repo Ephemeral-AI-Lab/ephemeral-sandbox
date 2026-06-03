@@ -23,16 +23,15 @@ def test_with_daemon_protocol_version_attaches_daemon_protocol_field() -> None:
     }
 
 
-def test_selected_sandbox_runtime_defaults_to_python(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_selected_sandbox_runtime_defaults_to_rust(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(daemon_client_mod.SANDBOX_RUNTIME_ENV, raising=False)
 
-    assert daemon_client_mod.selected_sandbox_runtime() == "python"
+    assert daemon_client_mod.selected_sandbox_runtime() == "rust"
 
 
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ("python", "python"),
         ("rust", "rust"),
         (" RUST ", "rust"),
     ],
@@ -50,14 +49,14 @@ def test_selected_sandbox_runtime_accepts_known_values(
 def test_selected_sandbox_runtime_rejects_unknown_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv(daemon_client_mod.SANDBOX_RUNTIME_ENV, "go")
+    monkeypatch.setenv(daemon_client_mod.SANDBOX_RUNTIME_ENV, "python")
 
     with pytest.raises(ValueError, match=daemon_client_mod.SANDBOX_RUNTIME_ENV):
         daemon_client_mod.selected_sandbox_runtime()
 
 
 def test_rust_runtime_uses_eosd_client_command(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(daemon_client_mod.SANDBOX_RUNTIME_ENV, "rust")
+    monkeypatch.delenv(daemon_client_mod.SANDBOX_RUNTIME_ENV, raising=False)
 
     command = daemon_client_mod._daemon_thin_client_command('{"op":"api.v1.heartbeat"}')
 
@@ -67,7 +66,7 @@ def test_rust_runtime_uses_eosd_client_command(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_rust_runtime_spawn_uses_eosd_spawn(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(daemon_client_mod.SANDBOX_RUNTIME_ENV, "rust")
+    monkeypatch.delenv(daemon_client_mod.SANDBOX_RUNTIME_ENV, raising=False)
     monkeypatch.setattr(daemon_client_mod, "bundle_hash", lambda: "bundle-sha")
     endpoint = daemon_client_mod._DaemonTcpEndpoint(
         host="127.0.0.1",
@@ -162,7 +161,7 @@ async def test_call_daemon_accepts_success_response_with_null_error(
     response = await daemon_client_mod._call_daemon(
         exec_fn=_Adapter().exec,
         sandbox_id="sb-1",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
         args={"invocation_id": "invocation-1"},
         timeout=10,
     )

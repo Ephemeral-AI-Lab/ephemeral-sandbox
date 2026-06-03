@@ -78,7 +78,9 @@ fn prepare_attached(controller: &File) -> io::Result<()> {
 
 #[cfg(target_os = "linux")]
 fn attached_path(controller: &File) -> io::Result<PathBuf> {
-    let mut buf = vec![0_i8; 128];
+    // `c_char` is `i8` on x86_64 but `u8` on aarch64; `ptsname_r`/`CStr::from_ptr`
+    // take `*mut/*const c_char`, so the buffer element type must follow the target.
+    let mut buf = vec![0 as libc::c_char; 128];
     loop {
         // SAFETY: `buf` is writable for `buf.len()` bytes and the descriptor is
         // valid for the lifetime of the call. libc writes a NUL-terminated path

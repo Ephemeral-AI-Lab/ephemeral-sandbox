@@ -2932,11 +2932,11 @@ fn allocated_bytes(metadata: &fs::Metadata) -> f64 {
         use std::os::unix::fs::MetadataExt;
 
         let allocated = metadata.blocks().saturating_mul(512);
-        return u64_to_f64_saturating(if allocated > 0 {
+        u64_to_f64_saturating(if allocated > 0 {
             allocated
         } else {
             metadata.len()
-        });
+        })
     }
     #[cfg(not(unix))]
     {

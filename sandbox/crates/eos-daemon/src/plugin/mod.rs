@@ -919,9 +919,8 @@ pub(crate) fn stop_services_for_layer_stack_root(
     let service_instance_ids = state
         .service_snapshots
         .iter()
-        .filter_map(|(service_instance_id, snapshot)| {
-            (snapshot.layer_stack_root == layer_stack_root).then(|| service_instance_id.clone())
-        })
+        .filter(|(_, snapshot)| snapshot.layer_stack_root == layer_stack_root)
+        .map(|(service_instance_id, _)| service_instance_id.clone())
         .collect::<Vec<_>>();
     let stopped_count = service_instance_ids.len();
     for service_instance_id in service_instance_ids {

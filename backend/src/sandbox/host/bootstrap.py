@@ -5,7 +5,6 @@ from __future__ import annotations
 import atexit
 import concurrent.futures
 import logging
-from pathlib import Path
 from typing import Any, Literal
 
 from sandbox.shared.async_bridge import run_sync
@@ -23,9 +22,6 @@ _BUNDLE_UPLOAD_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
 )
 atexit.register(_BUNDLE_UPLOAD_EXECUTOR.shutdown, wait=False, cancel_futures=True)
 LifecyclePhase = Literal["create", "start"]
-_INSTALL_GIT_SCRIPT = (
-    Path(__file__).resolve().parent.parent / "daemon" / "scripts" / "install_git.sh"
-)
 
 
 async def bootstrap_in_sandbox_runtime(
@@ -294,7 +290,36 @@ def ensure_running(sandbox_id: str) -> dict[str, Any]:
 
 
 def _install_git_script() -> str:
-    return _INSTALL_GIT_SCRIPT.read_text(encoding="utf-8")
+    return """\
+set -e
+if command -v git >/dev/null 2>&1; then exit 0; fi
+echo "[sandbox] Installing git..."
+as_root() {
+    if [ "$(id -u)" = "0" ]; then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo -n "$@"
+    else
+        return 1
+    fi
+}
+if command -v apt-get >/dev/null 2>&1; then
+    as_root mkdir -p /var/lib/apt/lists/partial
+    as_root apt-get update -qq && as_root apt-get install -y -qq git
+elif command -v apk >/dev/null 2>&1; then
+    as_root apk add --no-cache git
+elif command -v microdnf >/dev/null 2>&1; then
+    as_root microdnf install -y git
+elif command -v dnf >/dev/null 2>&1; then
+    as_root dnf install -y git
+elif command -v yum >/dev/null 2>&1; then
+    as_root yum install -y git
+else
+    echo "[sandbox] No package manager found; git not installed" >&2
+    exit 1
+fi
+echo "[sandbox] git installed"
+"""
 
 
 def setup_post_lifecycle(

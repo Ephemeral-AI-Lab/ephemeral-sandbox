@@ -327,6 +327,35 @@ impl<T: CommitTransactionPort + 'static> Drop for OccService<T> {
     }
 }
 
+/// Inverted daemon accessor: the OCC runtime-services bundle, keyed per root.
+///
+/// `eos-occ` (a lower crate) defines this PORT; `eos-daemon` implements and
+/// injects it so the upward Python edge (`daemon.occ_runtime_services` imported
+/// by shared-overlay and isolated control-plane paths) becomes a leaf→root trait
+/// dependency. The single per-root services instance is the MF-1 owner of the
+/// one `occ-commit-queue` writer — implementations MUST return the same bundle
+/// (and thus the same queue + storage lease) for a given `layer_stack_root`,
+/// never a second writer.
+// PORT backend/src/sandbox/daemon/occ_runtime_services.py:48 — get_occ_runtime_services(layer_stack_root)
+pub trait OccRuntimeServicesPort {
+    /// Concrete commit-transaction implementation the queue drives.
+    type Transaction: CommitTransactionPort + 'static;
+
+    /// Return the daemon-local OCC service for `layer_stack_root`.
+    ///
+    /// Cached per root (LRU, max 256) so the single writer is reused.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OccError`] when the per-root service cannot be created or
+    /// retrieved.
+    // PORT backend/src/sandbox/daemon/occ_runtime_services.py:48 — per-root LRU cache
+    fn occ_runtime_services(
+        &self,
+        layer_stack_root: &str,
+    ) -> Result<&OccService<Self::Transaction>, OccError>;
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
@@ -402,33 +431,4 @@ mod tests {
         );
         Ok(())
     }
-}
-
-/// Inverted daemon accessor: the OCC runtime-services bundle, keyed per root.
-///
-/// `eos-occ` (a lower crate) defines this PORT; `eos-daemon` implements and
-/// injects it so the upward Python edge (`daemon.occ_runtime_services` imported
-/// by shared-overlay and isolated control-plane paths) becomes a leaf→root trait
-/// dependency. The single per-root services instance is the MF-1 owner of the
-/// one `occ-commit-queue` writer — implementations MUST return the same bundle
-/// (and thus the same queue + storage lease) for a given `layer_stack_root`,
-/// never a second writer.
-// PORT backend/src/sandbox/daemon/occ_runtime_services.py:48 — get_occ_runtime_services(layer_stack_root)
-pub trait OccRuntimeServicesPort {
-    /// Concrete commit-transaction implementation the queue drives.
-    type Transaction: CommitTransactionPort + 'static;
-
-    /// Return the daemon-local OCC service for `layer_stack_root`.
-    ///
-    /// Cached per root (LRU, max 256) so the single writer is reused.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`OccError`] when the per-root service cannot be created or
-    /// retrieved.
-    // PORT backend/src/sandbox/daemon/occ_runtime_services.py:48 — per-root LRU cache
-    fn occ_runtime_services(
-        &self,
-        layer_stack_root: &str,
-    ) -> Result<&OccService<Self::Transaction>, OccError>;
 }

@@ -26,7 +26,7 @@ from typing import Any
 
 from plugins.core.discovery import discover_plugins
 from plugins.core.manifest import PluginManifest
-from sandbox.daemon.paths import BUNDLE_REMOTE_DIR
+from sandbox.host.paths import BUNDLE_REMOTE_DIR
 from sandbox.shared.models import Intent
 from sandbox.ephemeral_workspace.plugin.op_registry import (
     clear_plugin_registrations,

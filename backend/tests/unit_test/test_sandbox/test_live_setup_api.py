@@ -7,7 +7,7 @@ import pytest
 
 from config import load_settings
 import sandbox.api as sandbox_api
-from sandbox.daemon.paths import BUNDLE_REMOTE_DIR
+from sandbox.host.paths import BUNDLE_REMOTE_DIR
 from sandbox.host.runtime_bundle import bundle_hash
 from sandbox.host.bootstrap import setup_after_create
 from sandbox.provider.daytona.bootstrap import bootstrap_daytona_provider

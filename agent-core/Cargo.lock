@@ -640,6 +640,7 @@ name = "eos-runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "console-subscriber",
  "eos-agent-def",
  "eos-audit",
@@ -655,7 +656,11 @@ dependencies = [
  "eos-tools",
  "eos-types",
  "eos-workflow",
+ "futures",
+ "serde_json",
+ "tempfile",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "uuid",

@@ -105,7 +105,7 @@ async def test_command_session_controls_parse_generic_not_found(
     assert progress.output.stderr == "command_session_not_found"
     assert cancel.output.stderr == "command_session_not_found"
     assert [call[1] for call in transport.calls] == [
-        "api.v1.command.write_stdin",
-        "api.v1.command.write_stdin",
+        "api.v1.write_stdin",
+        "api.v1.write_stdin",
         "api.v1.command.cancel",
     ]

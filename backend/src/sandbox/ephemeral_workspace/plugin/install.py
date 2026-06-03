@@ -28,7 +28,7 @@ from typing import Any, Protocol
 
 from plugins.core.discovery import DEFAULT_CATALOG_DIR
 from plugins.core.manifest import PluginManifest
-from sandbox.daemon.paths import BUNDLE_REMOTE_DIR
+from sandbox.host.paths import BUNDLE_REMOTE_DIR
 from sandbox.ephemeral_workspace.plugin.op_registry import _PLUGIN_NAME_RE
 from sandbox.host.chunked_upload import RawExecCallable, write_base64_chunks
 from sandbox.provider.registry import get_adapter

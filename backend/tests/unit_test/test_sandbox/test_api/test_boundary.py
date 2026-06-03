@@ -28,8 +28,6 @@ ALLOWED_API_IMPORT_NAMES = {
     "SandboxCaller",
     "SandboxResultBase",
     "SearchReplaceEdit",
-    "ShellRequest",
-    "ShellResult",
     "WriteFileRequest",
     "WriteFileResult",
 }

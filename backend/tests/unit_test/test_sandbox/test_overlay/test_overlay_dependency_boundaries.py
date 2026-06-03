@@ -39,14 +39,12 @@ def test_runtime_bundle_contains_overlay_runtime_boundary() -> None:
     with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as tar:
         names = set(tar.getnames())
 
-    assert "sandbox/overlay/capture.py" in names
-    assert "sandbox/overlay/path_change.py" in names
     assert "sandbox/shared/command_exec_contract.py" in names
-    assert "sandbox/overlay/namespace_runner.py" in names
-    assert "sandbox/overlay/namespace_entrypoint.py" in names
-    assert "sandbox/overlay/mount_syscalls.py" in names
-    assert "sandbox/overlay/writable_dirs.py" in names
-    assert "sandbox/layer_stack/manifest.py" in names
+    assert "sandbox/ephemeral_workspace/plugin/ppc_service.py" in names
+    assert "plugins/catalog/lsp/runtime/server.py" in names
+    assert not any(name.startswith("sandbox/overlay/") for name in names)
+    assert not any(name.startswith("sandbox/layer_stack/") for name in names)
+    assert not any(name.startswith("sandbox/occ/") for name in names)
     assert all(not name.startswith("sandbox/host/") for name in names)
     assert all(not name.startswith("sandbox/provider/") for name in names)
     assert all(not name.startswith("sandbox/testing/") for name in names)

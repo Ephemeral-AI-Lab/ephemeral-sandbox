@@ -11,12 +11,12 @@ from sandbox import api as sandbox_api
 from sandbox.api import (
     ConflictInfo,
     EditFileResult,
+    ExecCommandResult,
     RawExecResult,
     ReadFileResult,
     SandboxCaller,
     SandboxRequestBase,
-    ShellResult,
-    ShellRequest,
+    ExecCommandRequest,
     WriteFileRequest,
     WriteFileResult,
 )
@@ -25,6 +25,7 @@ _API_ROOT = Path(sandbox_api.__file__).parent
 _EXPECTED_API_ROOT_ENTRIES = {
     "__init__.py",
     "provider_control.py",
+    "plugin_support.py",
     "raw_exec.py",
     "daemon_audit.py",
     "daemon_invocations.py",
@@ -160,12 +161,12 @@ def test_request_models_share_audit_request_base() -> None:
     assert isinstance(request, SandboxRequestBase)
     assert request.default_description("write a.py") == "write a.py"
 
-    described = ShellRequest(
-        command="pwd",
+    described = ExecCommandRequest(
+        cmd="pwd",
         caller=SandboxCaller(agent_id="worker-1"),
-        description="custom shell",
+        description="custom command",
     )
-    assert described.default_description("shell") == "custom shell"
+    assert described.default_description("exec_command") == "custom command"
 
 
 def test_result_hierarchy_exposes_conflict_fields_on_sandbox_results() -> None:
@@ -176,10 +177,11 @@ def test_result_hierarchy_exposes_conflict_fields_on_sandbox_results() -> None:
     for result in (
         WriteFileResult(success=False, conflict=conflict, conflict_reason=conflict.reason),
         EditFileResult(success=False, conflict=conflict, conflict_reason=conflict.reason),
-        ShellResult(
+        ExecCommandResult(
             success=False,
             exit_code=0,
-            stdout="",
+            status="error",
+            output={"stdout": "", "stderr": ""},
             conflict=conflict,
             conflict_reason=conflict.reason,
         ),

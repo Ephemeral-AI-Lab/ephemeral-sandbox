@@ -12,7 +12,7 @@ import pytest
 
 from plugins.core.discovery import DEFAULT_CATALOG_DIR
 from plugins.core.manifest import PluginManifest, parse_plugin_manifest
-from sandbox.daemon.paths import BUNDLE_REMOTE_DIR
+from sandbox.host.paths import BUNDLE_REMOTE_DIR
 from sandbox.ephemeral_workspace.plugin.op_registry import clear_plugin_registrations
 from sandbox.ephemeral_workspace.plugin import host_dispatch as host_dispatch_mod
 from sandbox.shared.models import Intent

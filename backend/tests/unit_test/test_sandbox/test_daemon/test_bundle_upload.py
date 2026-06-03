@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from sandbox.daemon.paths import BUNDLE_REMOTE_DIR, BUNDLE_REMOTE_TARBALL
+from sandbox.host.paths import BUNDLE_REMOTE_DIR, BUNDLE_REMOTE_TARBALL
 from sandbox.host.runtime_bundle import (
     _ensure_eosd_uploaded,
     _ensure_runtime_uploaded_with_exec,
@@ -55,59 +55,20 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
 
     required = [
         "sandbox/__init__.py",
-        "sandbox/shared/async_bridge.py",
-        "sandbox/daemon/paths.py",
         "sandbox/shared/models.py",
-        "sandbox/shared/clock.py",
-        "sandbox/shared/timing_keys.py",
-        "sandbox/daemon/__init__.py",
-        "sandbox/daemon/__main__.py",
-        "sandbox/daemon/rpc/__init__.py",
-        "sandbox/daemon/rpc/server.py",
-        "sandbox/daemon/rpc/dispatcher.py",
-        "sandbox/daemon/occ_runtime_services.py",
-        "sandbox/daemon/layer_stack_runtime.py",
-        "sandbox/daemon/builtin_operations.py",
-        "sandbox/daemon/workspace_tool/__init__.py",
-        "sandbox/daemon/workspace_tool/dispatch.py",
-        "sandbox/daemon/workspace_tool/payloads.py",
-        "sandbox/daemon/workspace_tool/changeset_projection.py",
-        "sandbox/daemon/scripts/__init__.py",
-        "sandbox/daemon/scripts/install_git.sh",
-        "sandbox/daemon/scripts/launch_daemon.sh",
-        "sandbox/daemon/scripts/thin_client.py",
-        "sandbox/ephemeral_workspace/__init__.py",
-        "sandbox/ephemeral_workspace/operation_overlay.py",
-        "sandbox/ephemeral_workspace/pipeline_registry.py",
-        "sandbox/ephemeral_workspace/pipeline.py",
-        "sandbox/ephemeral_workspace/workspace_publish.py",
         "sandbox/shared/command_exec_contract.py",
-        "sandbox/shared/command_exec_policy.py",
-        "sandbox/shared/command_exec_resource_metrics.py",
-        "sandbox/overlay/__init__.py",
-        "sandbox/overlay/mount_syscalls.py",
-        "sandbox/overlay/namespace_runner.py",
-        "sandbox/overlay/namespace_entrypoint.py",
-        "sandbox/overlay/writable_dirs.py",
-        "sandbox/overlay/subprocess_runner.py",
-        "sandbox/layer_stack/workspace_base.py",
-        "sandbox/overlay/path_change.py",
-        "sandbox/overlay/capture.py",
-        "sandbox/overlay/kernel_mount.py",
-        "sandbox/layer_stack/commit_staging.py",
-        "sandbox/layer_stack/manifest.py",
-        "sandbox/layer_stack/stack.py",
-        "sandbox/layer_stack/workspace_binding.py",
-        "sandbox/occ/changeset.py",
-        "sandbox/occ/changeset_preparation.py",
-        "sandbox/occ/commit_queue.py",
-        "sandbox/occ/commit_transaction.py",
-        "sandbox/occ/content_hashing.py",
-        "sandbox/occ/gitignore.py",
-        "sandbox/occ/layer_stack_adapter.py",
-        "sandbox/occ/overlay_change_conversion.py",
-        "sandbox/occ/path_staging.py",
-        "sandbox/occ/ports.py",
+        "sandbox/ephemeral_workspace/__init__.py",
+        "sandbox/ephemeral_workspace/plugin/__init__.py",
+        "sandbox/ephemeral_workspace/plugin/op_context.py",
+        "sandbox/ephemeral_workspace/plugin/op_registry.py",
+        "sandbox/ephemeral_workspace/plugin/ppc_service.py",
+        "plugins/__init__.py",
+        "plugins/catalog/lsp/runtime/__init__.py",
+        "plugins/catalog/lsp/runtime/apply.py",
+        "plugins/catalog/lsp/runtime/lsp_jsonrpc.py",
+        "plugins/catalog/lsp/runtime/pyright_session.py",
+        "plugins/catalog/lsp/runtime/server.py",
+        "plugins/catalog/lsp/runtime/session_manager.py",
     ]
     missing = [p for p in required if not (extract_dir / p).exists()]
     assert missing == [], f"bundle is missing required paths: {missing}"
@@ -158,9 +119,27 @@ def test_bundle_layout_includes_required_paths(tmp_path: Path) -> None:
         "sandbox/daemon/async_bridge.py",
         "sandbox/ephemeral_workspace/shell_job.py",
         "sandbox/isolated_workspace/scripts/in_ns_write.py",
+        "sandbox/daemon/paths.py",
+        "sandbox/daemon/__main__.py",
+        "sandbox/daemon/rpc/dispatcher.py",
+        "sandbox/ephemeral_workspace/plugin/overlay_child.py",
+        "sandbox/ephemeral_workspace/plugin/overlay_dispatch.py",
+        "sandbox/ephemeral_workspace/plugin/runtime_api.py",
     ]
     present_removed = [p for p in removed if (extract_dir / p).exists()]
     assert present_removed == []
+    for prefix in (
+        "sandbox/daemon/",
+        "sandbox/overlay/",
+        "sandbox/occ/",
+        "sandbox/layer_stack/",
+        "sandbox/isolated_workspace/",
+        "pathspec/",
+    ):
+        assert not any(
+            path.relative_to(extract_dir).as_posix().startswith(prefix)
+            for path in extract_dir.rglob("*")
+        )
     assert not (extract_dir / "sandbox/api/status.py").exists()
     assert not (extract_dir / "sandbox/api/tool/raw_exec.py").exists()
     assert not (extract_dir / "sandbox/api/tool/_payload.py").exists()
@@ -233,29 +212,7 @@ def test_bundle_extracted_python_modules_import_clean(tmp_path: Path) -> None:
     )
 
 
-def test_bundle_includes_peer_setup_scripts(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    src_root = tmp_path / "src"
-    setup_script = src_root / "sandbox" / "daemon" / "peer" / "setup.sh"
-    setup_script.parent.mkdir(parents=True)
-    setup_script.write_text("#!/usr/bin/env bash\necho setup\n", encoding="utf-8")
-
-    monkeypatch.setattr("sandbox.host.runtime_bundle._src_root", lambda: src_root)
-    clear_bundle_caches()
-
-    try:
-        bundle = _runtime_bundle_bytes()
-        with tarfile.open(fileobj=io.BytesIO(bundle), mode="r:gz") as tar:
-            member = tar.extractfile("sandbox/daemon/peer/setup.sh")
-            assert member is not None
-            assert member.read().decode("utf-8") == "#!/usr/bin/env bash\necho setup\n"
-    finally:
-        clear_bundle_caches()
-
-
-def test_bundle_extracted_daemon_modules_import_clean(tmp_path: Path) -> None:
+def test_bundle_extracted_plugin_runtime_modules_import_clean(tmp_path: Path) -> None:
     bundle = _runtime_bundle_bytes()
     extract_dir = tmp_path / "extracted"
     _extract_bundle(bundle, extract_dir)
@@ -265,10 +222,8 @@ def test_bundle_extracted_daemon_modules_import_clean(tmp_path: Path) -> None:
         "-c",
         (
             f"import sys; sys.path.insert(0, {str(extract_dir)!r}); "
-            "import asyncio; "
-            "from sandbox.daemon.rpc.dispatcher import OP_TABLE, dispatch_envelope_async; "
-            "response = asyncio.run(dispatch_envelope_async({'op':'missing'})); "
-            "print('ok:', isinstance(OP_TABLE, dict), response['error']['kind'])"
+            "import plugins.catalog.lsp.runtime.server as server; "
+            "print('ok:', server.__name__)"
         ),
     ]
     result = subprocess.run(
@@ -279,21 +234,9 @@ def test_bundle_extracted_daemon_modules_import_clean(tmp_path: Path) -> None:
         env={"PATH": "/usr/bin:/bin"},
     )
     assert result.returncode == 0, (
-        f"daemon import failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+        f"plugin runtime import failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert "ok: True unknown_op" in result.stdout
-
-
-def test_launch_daemon_does_not_leak_flock_fd_to_daemon(tmp_path: Path) -> None:
-    bundle = _runtime_bundle_bytes()
-    extract_dir = tmp_path / "extracted"
-    _extract_bundle(bundle, extract_dir)
-
-    script = (extract_dir / "sandbox" / "daemon" / "scripts" / "launch_daemon.sh").read_text(
-        encoding="utf-8"
-    )
-    assert 'LOCK_FILE="${SOCK}.launch.v2.lock"' in script
-    assert '9>&- </dev/null >"$LOG" 2>&1 &' in script
+    assert "ok: plugins.catalog.lsp.runtime.server" in result.stdout
 
 
 def test_bundle_hash_is_deterministic() -> None:

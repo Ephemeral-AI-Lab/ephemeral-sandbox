@@ -1051,11 +1051,9 @@ impl CommandSessionFinalizer {
             .unwrap_or("error")
             .to_owned();
         let cancelled = *lock_command_session_state(&self.session.cancelled);
-        if cancelled {
-            "cancelled".clone_into(&mut command_status);
-            exit_code = 130;
-        } else if *lock_command_session_state(&self.session.interrupted)
-            && matches!(exit_code, 130 | -2)
+        if cancelled
+            || (*lock_command_session_state(&self.session.interrupted)
+                && matches!(exit_code, 130 | -2))
         {
             "cancelled".clone_into(&mut command_status);
             exit_code = 130;
@@ -1142,11 +1140,9 @@ impl IsolatedCommandSessionFinalizer {
             .unwrap_or("error")
             .to_owned();
         let cancelled = *lock_command_session_state(&self.session.cancelled);
-        if cancelled {
-            "cancelled".clone_into(&mut command_status);
-            exit_code = 130;
-        } else if *lock_command_session_state(&self.session.interrupted)
-            && matches!(exit_code, 130 | -2)
+        if cancelled
+            || (*lock_command_session_state(&self.session.interrupted)
+                && matches!(exit_code, 130 | -2))
         {
             "cancelled".clone_into(&mut command_status);
             exit_code = 130;
@@ -1570,9 +1566,11 @@ mod tests {
             id: "cmd_a".to_owned(),
             agent_id: "agent-a".to_owned(),
             command: "python".to_owned(),
+            started_at: Instant::now(),
             pgid: 1,
             writer: writer()?,
             output: Arc::clone(&output),
+            reader_done: Mutex::new(None),
             cancelled: Mutex::new(false),
             interrupted: Mutex::new(false),
             model_cursor: Mutex::new(CommandSessionOutputCursor::default()),
@@ -1582,9 +1580,11 @@ mod tests {
             id: "cmd_b".to_owned(),
             agent_id: "agent-b".to_owned(),
             command: "bash".to_owned(),
+            started_at: Instant::now(),
             pgid: 2,
             writer: writer()?,
             output,
+            reader_done: Mutex::new(None),
             cancelled: Mutex::new(false),
             interrupted: Mutex::new(false),
             model_cursor: Mutex::new(CommandSessionOutputCursor::default()),

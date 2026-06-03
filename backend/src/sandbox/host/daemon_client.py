@@ -13,15 +13,15 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 from sandbox.shared.models import RawExecResult
-from sandbox.daemon.paths import (
+from sandbox.host.paths import (
     BUNDLE_REMOTE_DIR,
     DAEMON_ENV_SIGNATURE_PATH,
-    DAEMON_LAUNCH_SCRIPT_PATH,
     DAEMON_LOG_PATH,
     DAEMON_PID_PATH,
     DAEMON_SOCKET_PATH,
-    DAEMON_THIN_CLIENT_PATH,
     DEFAULT_LAYER_STACK_ROOT,
+    EOSD_REMOTE_PATH,
+    EOSD_SHA_MARKER,
 )
 from sandbox.host.runtime_bundle import bundle_hash
 from sandbox.provider.registry import get_adapter
@@ -34,9 +34,8 @@ _DAEMON_SOCKET = DAEMON_SOCKET_PATH
 _DAEMON_PID = DAEMON_PID_PATH
 _DAEMON_LOG = DAEMON_LOG_PATH
 _DAEMON_ENV = DAEMON_ENV_SIGNATURE_PATH
-_EOSD_REMOTE_PATH = f"{BUNDLE_REMOTE_DIR}/eosd"
-_EOSD_SHA_MARKER = f"{BUNDLE_REMOTE_DIR}/.eosd-sha256"
-_PYTHON_CANDIDATES = ("python3.13", "python3.12", "python3.11", "python3.10", "python3")
+_EOSD_REMOTE_PATH = EOSD_REMOTE_PATH
+_EOSD_SHA_MARKER = EOSD_SHA_MARKER
 _THIN_CLIENT_CONNECT_FAILED = 97
 _THIN_CLIENT_IO_FAILED = 98
 _EMPTY_RESPONSE_MESSAGE = "EOS_DAEMON_IO_FAILED:empty_response"
@@ -50,7 +49,7 @@ DAEMON_PROTOCOL_VERSION = 1
 DAEMON_PROTOCOL_FIELD = "_eos_daemon_protocol_version"
 DAEMON_AUTH_FIELD = "_eos_daemon_auth_token"
 SANDBOX_RUNTIME_ENV = "EOS_SANDBOX_RUNTIME"
-_SUPPORTED_SANDBOX_RUNTIMES = frozenset({"python", "rust"})
+_SUPPORTED_SANDBOX_RUNTIMES = frozenset({"rust"})
 
 
 @dataclass(frozen=True)
@@ -199,11 +198,10 @@ def with_daemon_protocol_version(payload: Mapping[str, object]) -> dict[str, obj
 def selected_sandbox_runtime() -> str:
     """Return the requested sandbox runtime.
 
-    Python remains the default while the Rust daemon is phased in. Selecting
-    ``rust`` switches daemon spawn and AF_UNIX fallback to the uploaded
-    ``eosd`` binary for new sandboxes.
+    The Python sandbox daemon has been retired; ``rust`` is the only supported
+    daemon-side runtime.
     """
-    runtime = os.environ.get(SANDBOX_RUNTIME_ENV, "python").strip().lower() or "python"
+    runtime = os.environ.get(SANDBOX_RUNTIME_ENV, "rust").strip().lower() or "rust"
     if runtime not in _SUPPORTED_SANDBOX_RUNTIMES:
         supported = ", ".join(sorted(_SUPPORTED_SANDBOX_RUNTIMES))
         raise ValueError(f"{SANDBOX_RUNTIME_ENV} must be one of: {supported}")
@@ -625,24 +623,17 @@ def _can_retry_empty_response(op: str) -> bool:
 
 
 def _daemon_thin_client_command(envelope_json: str) -> str:
-    """Launch the bundled thin client with one daemon envelope."""
-    if selected_sandbox_runtime() == "rust":
-        return " ".join(
-            shlex.quote(part)
-            for part in (
-                _EOSD_REMOTE_PATH,
-                "daemon",
-                "--client",
-                _DAEMON_SOCKET,
-                envelope_json,
-            )
+    """Launch ``eosd daemon --client`` with one daemon envelope."""
+    selected_sandbox_runtime()
+    return " ".join(
+        shlex.quote(part)
+        for part in (
+            _EOSD_REMOTE_PATH,
+            "daemon",
+            "--client",
+            _DAEMON_SOCKET,
+            envelope_json,
         )
-    return (
-        f"sh -c {shlex.quote(_thin_client_python_launcher())} daemon "
-        f"{shlex.quote(_python_candidates_arg())} "
-        f"{shlex.quote(DAEMON_THIN_CLIENT_PATH)} "
-        f"{shlex.quote(_DAEMON_SOCKET)} "
-        f"{shlex.quote(envelope_json)}"
     )
 
 
@@ -658,68 +649,37 @@ def _daemon_spawn_command(
     by default which does NOT auto-source it; ``set -a`` exports every
     sourced variable so the daemon inherits them.
     """
-    if selected_sandbox_runtime() == "rust":
-        spawn_parts = [
-            _EOSD_REMOTE_PATH,
-            "daemon",
-            "--spawn",
-            "--socket",
-            _DAEMON_SOCKET,
-            "--pid-file",
-            _DAEMON_PID,
-            "--log-file",
-            _DAEMON_LOG,
-        ]
-        if tcp_endpoint is not None:
-            spawn_parts.extend(
-                [
-                    "--tcp-host",
-                    "0.0.0.0",
-                    "--tcp-port",
-                    str(tcp_endpoint.internal_port or tcp_endpoint.port),
-                ]
-            )
-            if tcp_endpoint.auth_token:
-                spawn_parts.extend(["--auth-token", tcp_endpoint.auth_token])
-        inner = _rust_daemon_spawn_shell(
-            spawn_command=" ".join(shlex.quote(part) for part in spawn_parts),
-            signature=_daemon_env_signature(tcp_endpoint=tcp_endpoint),
+    selected_sandbox_runtime()
+    spawn_parts = [
+        _EOSD_REMOTE_PATH,
+        "daemon",
+        "--spawn",
+        "--socket",
+        _DAEMON_SOCKET,
+        "--pid-file",
+        _DAEMON_PID,
+        "--log-file",
+        _DAEMON_LOG,
+    ]
+    if tcp_endpoint is not None:
+        spawn_parts.extend(
+            [
+                "--tcp-host",
+                "0.0.0.0",
+                "--tcp-port",
+                str(tcp_endpoint.internal_port or tcp_endpoint.port),
+            ]
         )
-    else:
-        inner = " ".join(
-            shlex.quote(part)
-            for part in (
-                "sh",
-                DAEMON_LAUNCH_SCRIPT_PATH,
-                _python_candidates_arg(),
-                _DAEMON_SOCKET,
-                _DAEMON_PID,
-                _DAEMON_LOG,
-                _DAEMON_ENV,
-                _daemon_env_signature(tcp_endpoint=tcp_endpoint),
-                "sandbox.daemon",
-            )
-        )
+        if tcp_endpoint.auth_token:
+            spawn_parts.extend(["--auth-token", tcp_endpoint.auth_token])
+    inner = _rust_daemon_spawn_shell(
+        spawn_command=" ".join(shlex.quote(part) for part in spawn_parts),
+        signature=_daemon_env_signature(tcp_endpoint=tcp_endpoint),
+    )
     return (
         "if [ -r /etc/environment ]; then set -a; . /etc/environment; set +a; fi; "
         + inner
     )
-
-
-def _thin_client_python_launcher() -> str:
-    return """\
-candidates=$1
-script=$2
-socket_path=$3
-payload=$4
-for py in $candidates; do
-    if command -v "$py" >/dev/null 2>&1 && "$py" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
-        exec "$py" "$script" "$socket_path" "$payload"
-    fi
-done
-echo 'sandbox daemon requires Python >= 3.10' >&2
-exit 127
-"""
 
 
 def _rust_daemon_spawn_shell(*, spawn_command: str, signature: str) -> str:
@@ -766,10 +726,6 @@ def _daemon_env_signature(
         tcp_port = tcp_endpoint.internal_port or tcp_endpoint.port
         parts.append(f"daemon_tcp_port={tcp_port}")
     return ";".join(parts)
-
-
-def _python_candidates_arg() -> str:
-    return " ".join(_PYTHON_CANDIDATES)
 
 
 def _without_none(args: dict[str, Any]) -> dict[str, Any]:

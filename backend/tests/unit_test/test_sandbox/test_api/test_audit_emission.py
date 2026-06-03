@@ -7,16 +7,16 @@ import pytest
 from audit.bus import AuditEventBus
 from sandbox.api import (
     EditFileRequest,
+    ExecCommandRequest,
     ReadFileRequest,
     SandboxCaller,
     SearchReplaceEdit,
-    ShellRequest,
     WriteFileRequest,
 )
 from sandbox.audit import events
+import sandbox.api.tool.command as command_module
 import sandbox.api.tool.edit as edit_module
 import sandbox.api.tool.read as read_module
-import sandbox.api.tool.shell as shell_module
 import sandbox.api.tool.write as write_module
 
 
@@ -174,7 +174,7 @@ async def test_edit_anchor_error_publishes_operation_conflict(
 
 
 @pytest.mark.asyncio
-async def test_shell_validation_error_publishes_failed_operation_without_daemon(
+async def test_exec_command_publishes_started_and_completed(
     monkeypatch: pytest.MonkeyPatch,
     recording_transport_factory,
 ) -> None:
@@ -182,69 +182,33 @@ async def test_shell_validation_error_publishes_failed_operation_without_daemon(
     published = []
     bus.subscribe(published.append)
 
-    async def fail_call_daemon_api(_sandbox_id, _op, _args, _timeout):
-        raise AssertionError("daemon dispatch should not be called")
-
-    del monkeypatch
-    transport = recording_transport_factory(fail_call_daemon_api)
-
-    result = await shell_module.shell(
-        "sb-shell",
-        ShellRequest(
-            command="cat",
-            stdin="input",
-            caller=SandboxCaller(agent_id="agent-1"),
-        ),
-        audit_sink=bus,
-        transport=transport,
-    )
-
-    assert result.success is False
-    assert [event.type for event in published] == [
-        events.OPERATION_STARTED,
-        events.OPERATION_FAILED,
-    ]
-    assert published[1].payload["status"] == "error"
-    assert published[1].payload["conflict_reason"] == (
-        "snapshot overlay shell does not accept stdin"
-    )
-
-
-@pytest.mark.asyncio
-async def test_shell_overlay_policy_error_publishes_operation_conflict(
-    monkeypatch: pytest.MonkeyPatch,
-    recording_transport_factory,
-) -> None:
-    bus = AuditEventBus()
-    published = []
-    bus.subscribe(published.append)
-
-    async def fake_call_daemon_api(_sandbox_id, _op, _args, _timeout):
-        raise RuntimeError(
-            "internal_error: overlay capture refuses escaping symlink target: "
-            ".ephemeralos/sweevo-mock/full_stack/overlay/symlink_escape"
-        )
+    async def fake_call_daemon_api(sandbox_id, op, args, timeout):
+        del sandbox_id, op, args, timeout
+        return {
+            "status": "ok",
+            "exit_code": 0,
+            "output": {"stdout": "done\n", "stderr": ""},
+            "timings": {"api.exec_command.total_s": 0.1},
+        }
 
     del monkeypatch
     transport = recording_transport_factory(fake_call_daemon_api)
 
-    result = await shell_module.shell(
-        "sb-shell",
-        ShellRequest(
-            command="ln -s /tmp/outside link",
+    result = await command_module.exec_command(
+        "sb-command",
+        ExecCommandRequest(
+            cmd="printf done",
             caller=SandboxCaller(agent_id="agent-1"),
         ),
         audit_sink=bus,
         transport=transport,
     )
 
-    assert result.success is False
+    assert result.success is True
+    assert result.output.stdout == "done\n"
     assert [event.type for event in published] == [
         events.OPERATION_STARTED,
-        events.OPERATION_CONFLICTED,
+        events.OPERATION_COMPLETED,
     ]
-    assert published[1].payload["status"] == "conflict"
-    assert published[1].payload["conflict_reason"] == (
-        "overlay capture refuses escaping symlink target: "
-        ".ephemeralos/sweevo-mock/full_stack/overlay/symlink_escape"
-    )
+    assert published[0].payload["operation"] == "exec_command"
+    assert published[1].payload["status"] == "ok"

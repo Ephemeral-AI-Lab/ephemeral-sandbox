@@ -117,10 +117,11 @@ impl ToolExecutor for SubmitRootOutcome {
         let task = match ctx.task_store.get(task_id).await? {
             Some(task) => task,
             None => {
+                // Python `f"Root task {task_id!r} was not found."` → single quotes.
                 return Ok(ToolResult::error(format!(
-                    "Root task {:?} was not found.",
+                    "Root task '{}' was not found.",
                     task_id.as_str()
-                )))
+                )));
             }
         };
         if task.request_id != *request_id {
@@ -134,8 +135,9 @@ impl ToolExecutor for SubmitRootOutcome {
             ));
         }
         if task.role != TaskRole::Root {
+            // Python `f"Task {task_id!r} is not a root task."` → single quotes.
             return Ok(ToolResult::error(format!(
-                "Task {:?} is not a root task.",
+                "Task '{}' is not a root task.",
                 task_id.as_str()
             )));
         }
