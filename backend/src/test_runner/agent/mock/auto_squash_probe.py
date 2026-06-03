@@ -45,7 +45,7 @@ async def run_auto_squash_seed_probe(
     result = await _call_checked(
         call_tool=call_tool,
         tool_obj=exec_command_tool,
-        raw_input={"command": f"mkdir -p {ROOT}/fragments {ROOT}/independent", "timeout": 60},
+        raw_input={"cmd": f"mkdir -p {ROOT}/fragments {ROOT}/independent", "timeout": 60},
         metadata=metadata,
         emit=emit,
         record_tool_check=record_tool_check,
@@ -214,7 +214,7 @@ async def run_auto_squash_reconcile_probe(
     shell_listing = await _call_checked(
         call_tool=call_tool,
         tool_obj=exec_command_tool,
-        raw_input={"command": f"ls {ROOT} | sort | head -n 200 && cat {EDIT_TARGET}", "timeout": 60},
+        raw_input={"cmd": f"ls {ROOT} | sort | head -n 200 && cat {EDIT_TARGET}", "timeout": 60},
         metadata=metadata,
         emit=emit,
         record_tool_check=record_tool_check,

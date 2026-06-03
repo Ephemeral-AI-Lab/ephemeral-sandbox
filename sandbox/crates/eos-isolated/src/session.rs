@@ -892,12 +892,16 @@ where
         let _dns_fallback_applied = self
             .runtime
             .configure_dns(handle, &self.caps.fallback_dns)?;
-        self.runtime
-            .signal_net_ready(handle, self.caps.setup_timeout_s)?;
         phases_ms.insert(
             "configure_dns".to_owned(),
             phase_start.elapsed().as_secs_f64() * 1000.0,
         );
+        // signal_net_ready runs UNTIMED between the configure_dns and
+        // create_cgroup phase measures, matching Python
+        // workspace_handle_lifecycle.py:189 (called outside any t.measure block)
+        // so the configure_dns phase budget is not inflated by the net-ready wait.
+        self.runtime
+            .signal_net_ready(handle, self.caps.setup_timeout_s)?;
         phase_start = Instant::now();
         let cgroup_path = self.runtime.create_cgroup(handle)?;
         phases_ms.insert(

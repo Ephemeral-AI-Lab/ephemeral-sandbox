@@ -4444,10 +4444,10 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             )
             report["shell_publish"] = await daemon_client.call_daemon_api(
                 bench.sandbox_id,
-                "api.v1.shell",
+                "api.v1.exec_command",
                 {
                     "agent_id": AGENT_ID,
-                    "command": (
+                    "cmd": (
                         f"printf %s {shlex.quote(SHELL_CONTENT)} > "
                         f"{shlex.quote(f'{WORKSPACE_ROOT}/{SHELL_TARGET_REL}')}"
                     ),

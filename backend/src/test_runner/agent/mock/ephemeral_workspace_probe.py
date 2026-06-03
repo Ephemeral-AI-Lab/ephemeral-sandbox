@@ -191,7 +191,7 @@ async def run_ephemeral_all_verbs_probe(
         "shell_kinds",
         exec_command_tool,
         {
-            "command": textwrap.dedent(
+            "cmd": textwrap.dedent(
                 f"""\
                 python - <<'PY'
                 from pathlib import Path
@@ -267,7 +267,7 @@ async def run_ephemeral_concurrent_writes_probe(
     await _call_tool(
         label="concurrent_seed",
         tool_obj=exec_command_tool,
-        raw_input={"command": f"mkdir -p {root}", "timeout": 60},
+        raw_input={"cmd": f"mkdir -p {root}", "timeout": 60},
         metadata=metadata,
         emit=emit,
         call_tool=call_tool,
@@ -293,7 +293,7 @@ async def run_ephemeral_concurrent_writes_probe(
             label=f"shell_write_{index}",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": f"printf 'shell={index}\\n' > {root}/shell-{index}.txt",
+                "cmd": f"printf 'shell={index}\\n' > {root}/shell-{index}.txt",
                 "timeout": 60,
             },
             metadata=metadata,
@@ -382,7 +382,7 @@ async def run_ephemeral_policy_probe(
     hosts = await _call_tool(
         label="policy_read_hosts",
         tool_obj=exec_command_tool,
-        raw_input={"command": "cat /etc/hosts", "timeout": 20},
+        raw_input={"cmd": "cat /etc/hosts", "timeout": 20},
         metadata=metadata,
         emit=emit,
         call_tool=call_tool,
@@ -391,7 +391,7 @@ async def run_ephemeral_policy_probe(
     tmp_write = await _call_tool(
         label="policy_write_tmp",
         tool_obj=exec_command_tool,
-        raw_input={"command": "printf 'tmp-ok\\n' > /tmp/eph-scratch.txt", "timeout": 20},
+        raw_input={"cmd": "printf 'tmp-ok\\n' > /tmp/eph-scratch.txt", "timeout": 20},
         metadata=metadata,
         emit=emit,
         call_tool=call_tool,
@@ -464,7 +464,7 @@ async def run_ephemeral_cancellation_probe(
             call_tool(
                 exec_command_tool,
                 {
-                    "command": (
+                    "cmd": (
                         "python - <<'PY'\n"
                         "import os, time\n"
                         f"path = {partial_path!r}\n"
@@ -810,7 +810,7 @@ async def run_ephemeral_same_path_conflict_seed_probe(
         label="same_path_fanout_seed_dirs",
         tool_obj=exec_command_tool,
         raw_input={
-            "command": f"mkdir -p {SAME_PATH_CONFLICT_FRAGMENT_DIR}",
+            "cmd": f"mkdir -p {SAME_PATH_CONFLICT_FRAGMENT_DIR}",
             "timeout": 60,
         },
         metadata=metadata,

@@ -48,6 +48,16 @@ def _bootstrap_ready_response() -> str:
     )
 
 
+def _assert_rust_client(command_str: str) -> None:
+    assert "eosd daemon --client" in command_str
+    assert "runtime.sock" in command_str
+
+
+def _assert_rust_spawn(command_str: str) -> None:
+    assert "eosd daemon --spawn" in command_str
+    assert "--socket /eos/daemon/runtime.sock" in command_str
+
+
 async def test_daemon_uses_daemon_thin_client_by_default() -> None:
     seen: list[str] = []
 
@@ -64,8 +74,7 @@ async def test_daemon_uses_daemon_thin_client_by_default() -> None:
 
     assert response == {"success": True, "timings": {}}
     assert len(seen) == 1
-    assert "runtime.sock" in seen[0]
-    assert "thin_client.py" in seen[0]
+    _assert_rust_client(seen[0])
 
 
 async def test_daemon_uses_tcp_endpoint_before_thin_client(
@@ -155,7 +164,7 @@ async def test_daemon_tcp_endpoint_falls_back_to_thin_client_on_connect_failure(
 
     assert response == {"success": True, "timings": {}}
     assert len(seen_exec) == 1
-    assert "thin_client.py" in seen_exec[0]
+    _assert_rust_client(seen_exec[0])
 
 
 async def test_daemon_tcp_empty_response_is_io_failure(
@@ -247,11 +256,11 @@ async def test_daemon_empty_response_retries_lifecycle_op() -> None:
 
     assert response == {"success": True, "timings": {}}
     assert len(seen) == 4
-    assert "sandbox.daemon" in seen[1]
+    _assert_rust_spawn(seen[1])
     assert "api.runtime.ready" in seen[2]
 
 
-async def test_daemon_empty_response_does_not_replay_shell() -> None:
+async def test_daemon_empty_response_does_not_replay_command() -> None:
     seen: list[str] = []
 
     async def fake_exec(_sandbox_id: str, command_str: str, **_: Any) -> Any:
@@ -266,11 +275,11 @@ async def test_daemon_empty_response_does_not_replay_shell() -> None:
         await command._call_daemon(
             exec_fn=fake_exec,
             sandbox_id="sb-1",
-            op="api.v1.shell",
+            op="api.v1.exec_command",
             args={
                 "layer_stack_root": "/tmp/layers",
                 "agent_id": "agent",
-                "command": "echo unsafe",
+                "cmd": "echo unsafe",
             },
         )
 
@@ -288,14 +297,11 @@ def test_daemon_commands_do_not_forward_host_env(
     thin_client = command._daemon_thin_client_command("{}")
     daemon_spawn = command._daemon_spawn_command()
 
-    assert thin_client.startswith("sh -c ")
-    # _daemon_spawn_command now prefixes a guarded `/etc/environment` source so
-    # the spawned daemon inherits feature flags written there by tests. The
-    # `sh <launcher>` invocation still runs after the conditional.
+    assert thin_client.startswith("/eos/daemon/eosd daemon --client ")
     assert daemon_spawn.startswith(
         "if [ -r /etc/environment ]; then set -a; . /etc/environment; set +a; fi;"
     )
-    assert "; sh " in daemon_spawn
+    _assert_rust_spawn(daemon_spawn)
     assert "UNSUPPORTED_RUNTIME_ENV" not in thin_client
     assert "UNSUPPORTED_RUNTIME_ENV" not in daemon_spawn
     assert "EOS_OCC_SQUASH_MODE" not in daemon_spawn
@@ -311,7 +317,7 @@ def test_daemon_spawn_tracks_runtime_bundle_signature(
 
     assert "runtime.env" in daemon_spawn
     assert "runtime_bundle_sha=sha-current" in daemon_spawn
-    assert "launch_daemon.sh" in daemon_spawn
+    _assert_rust_spawn(daemon_spawn)
 
 
 def test_daemon_spawn_signature_tracks_tcp_port(
@@ -347,7 +353,7 @@ async def test_ensure_daemon_current_runs_spawn_command(
     await command.ensure_daemon_current("sb-1")
 
     assert len(seen) == 1
-    assert "sandbox.daemon" in seen[0]
+    _assert_rust_spawn(seen[0])
     assert timeouts == [command._DAEMON_SPAWN_TIMEOUT]
 
 
@@ -379,10 +385,10 @@ async def test_daemon_transport_spawns_on_socket_missing() -> None:
 
     assert response == {"success": True, "timings": {}}
     assert len(seen) == 4
-    assert "thin_client.py" in seen[0]
-    assert "sandbox.daemon" in seen[1]
+    _assert_rust_client(seen[0])
+    _assert_rust_spawn(seen[1])
     assert "api.runtime.ready" in seen[2]
-    assert "thin_client.py" in seen[3]
+    _assert_rust_client(seen[3])
     assert timeouts[1] == command._DAEMON_SPAWN_TIMEOUT
 
 
@@ -497,8 +503,8 @@ async def test_daemon_spawn_failure_fails_closed() -> None:
 
     assert exc.value.kind == "RuntimeExecFailed"
     assert len(seen) == 2
-    assert "thin_client.py" in seen[0]
-    assert "sandbox.daemon" in seen[1]
+    _assert_rust_client(seen[0])
+    _assert_rust_spawn(seen[1])
 
 
 async def test_daemon_transport_does_not_retry_after_io_failure() -> None:
@@ -558,7 +564,7 @@ async def test_call_daemon_envelope_with_connect_retry_retries_transient_connect
 
     assert result.exit_code == 0
     assert len(attempts) == 3
-    assert all("thin_client.py" in attempt for attempt in attempts)
+    assert all("eosd daemon --client" in attempt for attempt in attempts)
     assert sleeps == list(command._CONNECT_RETRY_DELAYS_S[:2])
 
 

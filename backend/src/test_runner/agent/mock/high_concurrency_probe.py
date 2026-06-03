@@ -60,7 +60,7 @@ async def run_high_concurrency_seed_probe(
     setup = await call_tool(
         exec_command_tool,
         {
-            "command": (
+            "cmd": (
                 f"mkdir -p {ROOT}/workers {ROOT}/fragments {ROOT}/shared "
                 f"{ROOT}/shell {ROOT}/control"
             ),

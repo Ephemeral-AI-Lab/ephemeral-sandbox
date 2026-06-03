@@ -80,12 +80,9 @@ pub struct VethAllocation {
 /// `// PORT backend/src/sandbox/isolated_workspace/network.py:231-235 — _veth_names`
 #[must_use]
 pub fn veth_names(workspace_handle_id: &str) -> (String, String) {
-    let tail = workspace_handle_id
-        .chars()
-        .rev()
-        .take(6)
-        .collect::<Vec<_>>();
-    let short: String = tail.into_iter().rev().collect();
+    // Python `_veth_names` takes the FIRST 6 chars (`workspace_handle_id[:6]`);
+    // reproduce that exactly so the interface naming is parity-equal.
+    let short: String = workspace_handle_id.chars().take(6).collect();
     (
         format!("{VETH_PREFIX}{short}h"),
         format!("{VETH_PREFIX}{short}n"),

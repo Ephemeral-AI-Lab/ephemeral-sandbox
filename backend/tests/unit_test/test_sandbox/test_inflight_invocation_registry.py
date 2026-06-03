@@ -61,14 +61,14 @@ async def test_heartbeat_reaper_cancels_stale_background_only() -> None:
         "foreground",
         foreground_task,
         agent_id="agent-a",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
         background=False,
     )
     registry.register(
         "background",
         background_task,
         agent_id="agent-a",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
         background=True,
     )
     registry._by_invocation["foreground"].last_seen -= 1.0

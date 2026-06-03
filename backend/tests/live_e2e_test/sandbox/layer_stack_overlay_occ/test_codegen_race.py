@@ -11,7 +11,7 @@ import asyncio
 
 import pytest
 
-from sandbox.api import ShellResult
+from sandbox.api import ExecCommandResult
 
 from .._harness.integrated_cases import (
     RuntimeCallMetric,
@@ -40,7 +40,7 @@ async def _paired_shell_writes(
     left_content: str,
     right_content: str,
     label: str,
-) -> tuple[list[RuntimeCallMetric], list[ShellResult]]:
+) -> tuple[list[RuntimeCallMetric], list[ExecCommandResult]]:
     run = token(label)
     proceed = tmp_path(f"{run}-go")
     start_left = tmp_path(f"{run}-left-started")

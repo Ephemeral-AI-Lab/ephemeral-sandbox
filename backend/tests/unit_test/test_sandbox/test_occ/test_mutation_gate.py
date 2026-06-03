@@ -34,7 +34,7 @@ def test_data_api_ops_do_not_dispatch_to_occ_server() -> None:
     from sandbox.daemon.rpc import dispatcher as server
 
     server._register_builtin_operations()
-    for op in ("api.write_file", "api.edit_file", "api.read_file", "api.v1.shell"):
+    for op in ("api.write_file", "api.edit_file", "api.read_file", "api.v1.exec_command"):
         handler = server.OP_TABLE[op]
         assert handler.__module__ != "sandbox.daemon.occ_runtime_services"
 

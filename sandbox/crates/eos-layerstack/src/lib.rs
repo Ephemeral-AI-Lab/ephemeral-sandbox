@@ -16,15 +16,14 @@
 //!   below a lease head folds into a checkpoint, but the underlying directory
 //!   stays on disk for that lease's frozen reads until release GCs it.
 //!
-//! # This crate OWNS the HINGE
+//! # The no-publish guarantee is enforced by the dependency graph
 //!
-//! The snapshot/lease port lives HERE, not in `eos-occ`. It is deliberately
-//! SPLIT from the publish-side transaction so the no-publish guarantee holds at
-//! the type level: [`SnapshotLeasePort`] (directly consumed by `eos-plugin`,
-//! NEVER publishes) vs [`LayerCommitTransaction`] (what `eos-occ` +
-//! daemon publish paths need). `eos-isolated` mirrors only the snapshot/lease
-//! shape as a smaller daemon-injected port so it links neither `eos-layerstack`
-//! nor `eos-occ`. See [`port`].
+//! `eos-isolated` captures writes for audit but can NEVER publish — guaranteed
+//! structurally because it does not depend on `eos-occ` (a build-time edge, not
+//! a convention). The snapshot/lease read surface ([`LayerStack`] +
+//! [`MergedView`] + [`Lease`]) is owned here; the publish-side transaction is
+//! daemon-owned. Lower crates that need a narrow read port define and inject it
+//! at their own boundary rather than importing this crate.
 //!
 //! # Build-time / threading guarantee
 //!
@@ -34,10 +33,8 @@
 //! [`storage_lock`] — do NOT 1:1-port it.
 #![forbid(unsafe_code)]
 
-pub mod commit_staging;
 pub mod error;
 pub mod lease;
-pub mod port;
 pub mod squash;
 pub mod stack;
 pub mod storage_lock;
@@ -51,10 +48,8 @@ pub use eos_protocol::{
     Manifest,
 };
 
-pub use commit_staging::{allocate_commit_staging, drop_commit_staging, CommitStagingArea};
 pub use error::LayerStackError;
 pub use lease::{LayerStackLeaseRecord, LeaseRegistry};
-pub use port::{LayerCommitTransaction, LayerStackRuntimePort, SnapshotLeasePort};
 pub use squash::{
     manifest_prefix_before_plan, CheckpointSegment, LayerCheckpointSquasher, SquashPlan,
     SquashPlanEntry,

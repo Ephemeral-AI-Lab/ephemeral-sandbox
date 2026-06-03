@@ -630,7 +630,12 @@ impl LayerStack {
         let next_version = active.version + 1;
         let (layer_id, staging_dir, layer_dir) = self.allocate_layer_paths(next_version)?;
         std::fs::create_dir_all(&staging_dir)?;
-        if let Err(err) = write_layer_changes(&staging_dir, changes) {
+        // Persist the staged layer (files, then the staging dir) BEFORE the
+        // rename so the renamed layer dir never references unflushed contents.
+        if let Err(err) = write_layer_changes(&staging_dir, changes)
+            .and_then(|()| fsync_tree_files(&staging_dir))
+            .and_then(|()| fsync_dir(&staging_dir))
+        {
             let _ = std::fs::remove_dir_all(&staging_dir);
             return Err(err);
         }
@@ -638,6 +643,10 @@ impl LayerStack {
         if let Err(err) = std::fs::rename(&staging_dir, &layer_dir) {
             let _ = std::fs::remove_dir_all(&staging_dir);
             return Err(err.into());
+        }
+        // fsync the layers/ parent so the renamed layer dir entry is durable.
+        if let Some(parent) = layer_dir.parent() {
+            fsync_dir(parent)?;
         }
 
         if let Err(err) = self.write_layer_digest(&layer_id, &digest) {
@@ -1196,9 +1205,56 @@ fn write_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), LayerStackEr
         std::process::id(),
         NEXT_TMP_WRITE.fetch_add(1, Ordering::Relaxed)
     ));
-    if let Err(err) = std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, path)) {
+    // tmp+rename+fsync(parent): the directory entry is only durable once the
+    // parent dir is fsynced after the rename, so a crash cannot leave the
+    // manifest/digest pointer-swap half-applied (CAS linearization).
+    let result = (|| -> Result<(), LayerStackError> {
+        write_bytes_fsynced(&tmp, bytes)?;
+        std::fs::rename(&tmp, path)?;
+        if let Some(parent) = path.parent() {
+            fsync_dir(parent)?;
+        }
+        Ok(())
+    })();
+    if let Err(err) = result {
         let _ = std::fs::remove_file(&tmp);
-        return Err(err.into());
+        return Err(err);
+    }
+    Ok(())
+}
+
+/// Write `bytes` to `path` (create/truncate) and fsync the file before
+/// returning; the caller fsyncs the parent dir after any rename.
+// PORT backend/src/sandbox/layer_stack/paths.py:52-64 — write_bytes_fsynced
+fn write_bytes_fsynced(path: &Path, bytes: &[u8]) -> Result<(), LayerStackError> {
+    use std::io::Write as _;
+    let mut file = std::fs::File::create(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()?;
+    Ok(())
+}
+
+/// fsync a directory so a prior create/rename into it is persisted.
+// PORT backend/src/sandbox/layer_stack/paths.py:43-49 — fsync_path (dir fd)
+pub(crate) fn fsync_dir(path: &Path) -> Result<(), LayerStackError> {
+    std::fs::File::open(path)?.sync_all()?;
+    Ok(())
+}
+
+/// fsync every non-symlink regular file under `root` (the staged layer tree),
+/// matching `os.walk(followlinks=False)` + `is_file()` filtering. Special
+/// files (char-device whiteouts) and symlinks are skipped — fsync is N/A.
+// PORT backend/src/sandbox/layer_stack/publisher.py:161-168 — _fsync_tree_files
+fn fsync_tree_files(root: &Path) -> Result<(), LayerStackError> {
+    for entry in std::fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        let file_type = std::fs::symlink_metadata(&path)?.file_type();
+        if file_type.is_dir() {
+            fsync_tree_files(&path)?;
+        } else if file_type.is_file() {
+            std::fs::File::open(&path)?.sync_all()?;
+        }
     }
     Ok(())
 }

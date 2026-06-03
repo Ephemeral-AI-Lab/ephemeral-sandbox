@@ -99,7 +99,7 @@ def inspect_full_user_input_script(ctx: ScenarioContext) -> PreparedToolScript:
                 "mkdir-evidence-root",
                 exec_command_tool,
                 {
-                    "command": (
+                    "cmd": (
                         f"mkdir -p {_ROOT} .omc/results && "
                         "test -d /testbed/.git && "
                         "printf 'declared_workspace=/testbed\\nrepo_git=yes\\n' "
@@ -161,7 +161,7 @@ def occ_conflict_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "mkdir-occ-root",
             exec_command_tool,
-            {"command": f"mkdir -p {root}", "timeout": 60},
+            {"cmd": f"mkdir -p {root}", "timeout": 60},
         ),
         ToolScriptStep(
             "same-path-write-one",
@@ -241,7 +241,7 @@ def occ_conflict_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
             "shell-stale-seed",
             exec_command_tool,
             {
-                "command": f"printf 'shell-stale\\n' > {root}/stale.txt",
+                "cmd": f"printf 'shell-stale\\n' > {root}/stale.txt",
                 "timeout": 60,
             },
         ),
@@ -259,7 +259,7 @@ def occ_conflict_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
             "nonzero-shell-commits-side-effect",
             exec_command_tool,
             {
-                "command": (
+                "cmd": (
                     f"sh -c 'printf partial > {root}/nonzero.txt; exit 7'"
                 ),
                 "timeout": 60,
@@ -275,7 +275,7 @@ def occ_conflict_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
             "tracked-and-ignored-mixed",
             exec_command_tool,
             {
-                "command": (
+                "cmd": (
                     f"mkdir -p {root} .pytest_cache && "
                     f"printf tracked > {root}/tracked.txt && "
                     "printf ignored > .pytest_cache/full-stack-ignored.txt"
@@ -296,7 +296,7 @@ def occ_conflict_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "delete-path",
             exec_command_tool,
-            {"command": f"rm -f {root}/delete-vs-write.txt", "timeout": 60},
+            {"cmd": f"rm -f {root}/delete-vs-write.txt", "timeout": 60},
         ),
         ToolScriptStep(
             "write-after-delete",
@@ -348,7 +348,7 @@ def overlay_edge_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "overlay-mixed-mutations",
             exec_command_tool,
-            {"command": _overlay_mutation_command(root), "timeout": 120},
+            {"cmd": _overlay_mutation_command(root), "timeout": 120},
         ),
         ToolScriptStep(
             "read-overlay-new",
@@ -392,7 +392,7 @@ def overlay_edge_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "symlink-inside-captured",
             exec_command_tool,
-            {"command": f"ln -s new.txt {root}/symlink_inside", "timeout": 60},
+            {"cmd": f"ln -s new.txt {root}/symlink_inside", "timeout": 60},
         ),
         ToolScriptStep(
             "write-symlink-inside-status",
@@ -414,7 +414,7 @@ def overlay_edge_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "symlink-escape-classified-outside",
             exec_command_tool,
-            {"command": f"ln -s /tmp/full-stack-symlink-escape {root}/symlink_escape", "timeout": 60},
+            {"cmd": f"ln -s /tmp/full-stack-symlink-escape {root}/symlink_escape", "timeout": 60},
         ),
         ToolScriptStep(
             "write-symlink-escape-status",
@@ -437,7 +437,7 @@ def overlay_edge_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
             "outside-workspace-write",
             exec_command_tool,
             {
-                "command": (
+                "cmd": (
                     "printf outside > /tmp/full-stack-outside-workspace.txt && "
                     "rm -f /tmp/full-stack-outside-workspace.txt && "
                     f"printf not-committed > {root}/outside-workspace.status"
@@ -448,7 +448,7 @@ def overlay_edge_matrix_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "noop-shell",
             exec_command_tool,
-            {"command": "true", "timeout": 60},
+            {"cmd": "true", "timeout": 60},
         ),
         ToolScriptStep(
             "write-overlay-artifact",
@@ -492,7 +492,7 @@ def layerstack_squash_lease_script(ctx: ScenarioContext) -> PreparedToolScript:
             "read-workspace-binding",
             exec_command_tool,
             {
-                "command": (
+                "cmd": (
                     f"mkdir -p {root}/depth && test -d /testbed/.git && "
                     f"printf 'workspace=/testbed\\n' > {root}/binding.txt"
                 ),
@@ -545,7 +545,7 @@ def layerstack_squash_lease_script(ctx: ScenarioContext) -> PreparedToolScript:
             ToolScriptStep(
                 "shell-cat-layer-current",
                 exec_command_tool,
-                {"command": f"cat {root}/manifest-depth.txt", "timeout": 60},
+                {"cmd": f"cat {root}/manifest-depth.txt", "timeout": 60},
             ),
             ToolScriptStep(
                 "write-layerstack-artifact",
@@ -588,7 +588,7 @@ def lsp_refresh_semantics_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "mkdir-lsp-package",
             exec_command_tool,
-            {"command": f"mkdir -p {root}", "timeout": 60},
+            {"cmd": f"mkdir -p {root}", "timeout": 60},
         ),
         ToolScriptStep(
             "write-lsp-init",
@@ -735,7 +735,7 @@ def lsp_refresh_semantics_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "opened-file-renamed",
             exec_command_tool,
-            {"command": f"mv {consumer_path} {root}/consumer_renamed.py", "timeout": 60},
+            {"cmd": f"mv {consumer_path} {root}/consumer_renamed.py", "timeout": 60},
         ),
         ToolScriptStep(
             "lsp-diagnostics-renamed",
@@ -782,7 +782,7 @@ def recursive_oversized_matrix_script(ctx: ScenarioContext) -> PreparedToolScrip
         ToolScriptStep(
             "mkdir-recursive-root",
             exec_command_tool,
-            {"command": f"mkdir -p {_RECURSIVE_ROOT}", "timeout": 60},
+            {"cmd": f"mkdir -p {_RECURSIVE_ROOT}", "timeout": 60},
         ),
         ToolScriptStep(
             "write-recursive-evidence",
@@ -906,7 +906,7 @@ def final_reconciliation_script(ctx: ScenarioContext) -> PreparedToolScript:
             "write-canonical-metrics-artifact",
             exec_command_tool,
             {
-                "command": _write_metrics_artifact_command(ctx, summary_row),
+                "cmd": _write_metrics_artifact_command(ctx, summary_row),
                 "timeout": 60,
             },
         ),

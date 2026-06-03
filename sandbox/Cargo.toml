@@ -30,13 +30,11 @@ regex = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["rt"] }
-tracing = "0.1"
 rustix = { version = "0.38", features = ["fs", "mount", "process", "thread"] }
 nix = "0.29"
 libc = "0.2"
 anyhow = "1"
 proptest = "1"
-criterion = "0.5"
 base64 = "0.22"
 futures-util = "0.3"
 rtnetlink = "0.21"

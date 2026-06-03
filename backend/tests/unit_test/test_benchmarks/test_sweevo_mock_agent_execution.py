@@ -11,12 +11,13 @@ from test_runner.benchmarks.sweevo.setup import build_sweevo_user_prompt
 import sandbox.api as sandbox_api
 from sandbox.api import (
     ConflictInfo,
+    CommandOutput,
     EditFileRequest,
     EditFileResult,
+    ExecCommandRequest,
+    ExecCommandResult,
     ReadFileRequest,
     ReadFileResult,
-    ShellRequest,
-    ShellResult,
     WriteFileRequest,
     WriteFileResult,
 )
@@ -111,13 +112,13 @@ class _FakeSandboxApi:
             applied_edits=applied,
         )
 
-    async def shell(
+    async def exec_command(
         self,
         _sandbox_id: str,
-        request: ShellRequest,
+        request: ExecCommandRequest,
         **_kwargs: object,
-    ) -> ShellResult:
-        command = request.command
+    ) -> ExecCommandResult:
+        command = request.cmd
         changed_paths: tuple[str, ...] = ()
         stdout = ""
         exit_code = 0
@@ -136,13 +137,12 @@ class _FakeSandboxApi:
                 exit_code = 1
                 success = False
         else:
-            raise AssertionError(f"Unexpected shell command: {command}")
+            raise AssertionError(f"Unexpected exec_command command: {command}")
 
-        return ShellResult(
+        return ExecCommandResult(
             success=success,
             exit_code=exit_code,
-            stdout=stdout,
-            stderr="",
+            output=CommandOutput(stdout=stdout, stderr=""),
             changed_paths=changed_paths,
             status="committed" if success else "error",
         )

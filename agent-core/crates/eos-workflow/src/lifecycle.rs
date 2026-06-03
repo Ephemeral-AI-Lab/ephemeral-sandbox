@@ -3,8 +3,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use eos_state::{
-    AttemptStore, IterationCreationReason, IterationStatus, IterationStore, TaskStore, Workflow,
-    WorkflowId, WorkflowStatus, WorkflowStore,
+    IterationCreationReason, IterationStatus, IterationStore, Workflow, WorkflowId, WorkflowStatus,
 };
 
 use crate::attempt::AttemptDeps;
@@ -147,7 +146,6 @@ impl WorkflowLifecycle {
         let callback: IterationClosedCallback = Arc::new(move |closed: IterationClosed| {
             let lifecycle = lifecycle.clone();
             Box::pin(async move { lifecycle.handle_iteration_closed(closed).await })
-                as Pin<Box<dyn Future<Output = Result<()>> + Send>>
         });
         let coordinator =
             IterationAttemptCoordinator::new(iteration.id.clone(), self.deps.clone(), callback);
@@ -240,11 +238,54 @@ async fn workflow_outcomes_json(
     Ok(latest.outcomes.clone().unwrap_or_else(|| "[]".to_owned()))
 }
 
-#[allow(dead_code)]
-fn _assert_store_traits(
-    _: &dyn WorkflowStore,
-    _: &dyn IterationStore,
-    _: &dyn AttemptStore,
-    _: &dyn TaskStore,
-) {
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::testsupport::{MemoryStores, QueueRunner};
+
+    // AC-eos-workflow-05 / GC-eos-workflow-01: close_workflow sets the workflow
+    // status + outcomes and performs ZERO TaskStore writes (the parent task is
+    // never mutated at close).
+    #[tokio::test]
+    async fn close_does_not_touch_parent() {
+        let stores = Arc::new(MemoryStores::default());
+        let runner = Arc::new(QueueRunner::default());
+        let deps = stores.deps(runner);
+        let coordinators = deps.iteration_coordinators.clone().unwrap();
+        let lifecycle = WorkflowLifecycle::new(deps, coordinators);
+
+        let workflow = lifecycle
+            .create_workflow(
+                &eos_state::RequestId::new_v4(),
+                &"parent".parse().unwrap(),
+                "delegated goal",
+            )
+            .await
+            .unwrap();
+        // One open iteration, no attempt -> close has no task work to do.
+        lifecycle
+            .create_iteration_with_coordinator(&workflow.id)
+            .await
+            .unwrap();
+        // Prime the counter through the counted path so the zero *delta* below is
+        // a real "close wrote no tasks", not a stuck-at-zero counter.
+        eos_state::TaskStore::upsert_task(
+            stores.as_ref(),
+            &crate::testsupport::root_task("parent", eos_state::TaskStatus::Running),
+        )
+        .await
+        .unwrap();
+
+        let writes_before = stores.task_write_count();
+        assert!(writes_before > 0, "counter must observe writes");
+        let closed = lifecycle.close_workflow(&workflow.id, true).await.unwrap();
+
+        assert_eq!(stores.task_write_count(), writes_before);
+        assert_eq!(closed.status, WorkflowStatus::Succeeded);
+        assert!(closed.closed_at.is_some());
+        assert_eq!(closed.outcomes.as_deref(), Some("[]"));
+    }
 }

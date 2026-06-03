@@ -14,9 +14,10 @@ use eos_tools::{
 };
 use eos_types::WorkflowSessionId;
 use parking_lot::Mutex;
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::attempt::AttemptOrchestratorRegistry;
+use crate::util::json_object;
 use crate::{WorkflowError, WorkflowStarter};
 
 /// Adapter from `eos-tools` planner/generator/reducer terminal ports to active
@@ -263,14 +264,13 @@ impl WorkflowControlAdapter {
                 if attempt.is_closed() {
                     continue;
                 }
-                let mut task_ids = Vec::new();
-                if let Some(planner_task_id) = &attempt.planner_task_id {
-                    task_ids.push(planner_task_id.clone());
-                }
-                task_ids.extend(attempt.generator_task_ids.iter().cloned());
-                task_ids.extend(attempt.reducer_task_ids.iter().cloned());
-                for task_id in task_ids {
-                    if let Some(task) = self.task_store.get(&task_id).await? {
+                for task_id in attempt
+                    .planner_task_id
+                    .iter()
+                    .chain(attempt.generator_task_ids.iter())
+                    .chain(attempt.reducer_task_ids.iter())
+                {
+                    if let Some(task) = self.task_store.get(task_id).await? {
                         self.cancel_active_task(&task, outcome_text).await?;
                     }
                 }
@@ -380,10 +380,4 @@ fn cancellation_outcomes(task: &Task, outcome_text: &str) -> Vec<eos_state::Exec
         TaskOutcomeStatus::Failed,
         outcome_text.to_owned(),
     )]
-}
-
-fn json_object(key: &str, value: impl Into<Value>) -> eos_state::JsonObject {
-    let mut object = eos_state::JsonObject::new();
-    object.insert(key.to_owned(), value.into());
-    object
 }

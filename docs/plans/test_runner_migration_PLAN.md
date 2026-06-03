@@ -533,6 +533,36 @@ Removal candidates:
   Rust plan marks as Phase 5 cutover removals
 - Python sandbox plugin importlib dispatch under `ephemeral_workspace/plugin/`
 
+Current Phase G checkpoint (2026-06-03):
+
+- Host daemon selection is Rust-only. `backend/src/sandbox/host/daemon_client.py`
+  must reject `EOS_SANDBOX_RUNTIME=python` and generate only `eosd daemon
+  --client` / `eosd daemon --spawn` commands.
+- Host path constants live in `backend/src/sandbox/host/paths.py`; host/API/
+  provider/plugin host code must not import `sandbox.daemon.paths`.
+- `backend/src/sandbox/host/runtime_bundle.py` uploads only the Rust-daemon
+  plugin bridge payload required by PPC/LSP. It must not bundle Python
+  `sandbox/daemon`, `overlay`, `occ`, `layer_stack`, `isolated_workspace`,
+  daemon scripts, peer setup scripts, or vendored `pathspec`.
+- LSP is still a Rust-daemon service path, not a Python daemon path:
+  `sandbox/crates/eos-plugin` owns PPC/service contracts, `eos-daemon` owns
+  service process/overlay/OCC behavior, and the Python files kept in the bundle
+  are bridge payload modules exercised by `backend/scripts/bench_rust_daemon_plugin.py`.
+- Public shell cleanup is source-level, not only a plan assertion:
+  `backend/scripts/bench_rust_daemon_phase3.py` and
+  `backend/scripts/bench_rust_daemon_plugin.py` must call
+  `api.v1.exec_command` with `cmd`; the live-e2e harness may keep a local
+  helper named `tool.shell(...)` for test readability, but it must call
+  `sandbox_api.exec_command(...)` and return `ExecCommandResult`.
+- Test-runner mock project-build probes must call the model-facing
+  `exec_command` tool with `cmd`, not the removed shell-style `command`
+  argument. `api.v1.write_stdin` remains the canonical daemon stdin op; the
+  `api.v1.command.write_stdin` spelling is a Rust/Python compatibility alias
+  only.
+- The physical deletion pass is still open until the final inventory below is
+  clean and `backend/src/sandbox` contains only host/API/provider/config/
+  protocol support.
+
 Pass condition:
 
 ```bash

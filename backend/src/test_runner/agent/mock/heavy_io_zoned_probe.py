@@ -103,7 +103,7 @@ async def run_heavy_io_zoned_seed_probe(
     setup = await call_tool(
         exec_command_tool,
         {
-            "command": (
+            "cmd": (
                 f"mkdir -p {ROOT} {FRAGMENTS_DIR} "
                 f"{WORKSPACE_ROOT}/perf_load_tracked "
                 f"{WORKSPACE_ROOT}/build "
@@ -162,7 +162,7 @@ async def run_heavy_io_zoned_worker_probe(
 
         write_result = await call_tool(
             exec_command_tool,
-            {"command": _long_write_command(zone_dir), "timeout": SHELL_TIMEOUT_S},
+            {"cmd": _long_write_command(zone_dir), "timeout": SHELL_TIMEOUT_S},
             metadata,
             emit,
             background_task_id=f"heavy_io_zoned.worker_{index:02d}.{zone}.write",
@@ -177,7 +177,7 @@ async def run_heavy_io_zoned_worker_probe(
         readback_started = time.perf_counter()
         readback_result = await call_tool(
             exec_command_tool,
-            {"command": _readback_command(zone_dir), "timeout": 60},
+            {"cmd": _readback_command(zone_dir), "timeout": 60},
             metadata,
             emit,
         )
@@ -345,7 +345,7 @@ print(json.dumps(summary, sort_keys=True))
 PY"""
     shell_result = await call_tool(
         exec_command_tool,
-        {"command": command, "timeout": 180},
+        {"cmd": command, "timeout": 180},
         metadata,
         emit,
     )

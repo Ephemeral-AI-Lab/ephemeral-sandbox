@@ -27,6 +27,10 @@ mod app_state;
 mod entry;
 pub mod observability;
 mod root_agent;
+mod tool_context;
+
+#[cfg(test)]
+mod tests;
 
 pub use app_state::{
     AppState, AppStateBuilder, EventCallback, EventSourceFactory, RequestProvisioner,

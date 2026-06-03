@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Live Phase 3 Rust daemon benchmark for CP-4s shell/search hot paths.
+"""Live Phase 3 Rust daemon benchmark for CP-4s command/search hot paths.
 
 The harness uploads a locally packaged ``eosd`` into the Docker sandbox, seeds a
 LayerStack fixture from the image's real workspace, starts the Rust daemon, then
 measures:
 
-* ``api.v1.shell`` no-op latency for the current non-login Bash string form.
-* ``api.v1.shell`` small-write publish latency.
+* ``api.v1.exec_command`` no-op latency for the current non-login Bash string form.
+* ``api.v1.exec_command`` small-write publish latency.
 * ``api.v1.glob`` and ``api.v1.grep`` read-only overlay search latency.
-* 1/3/5/10 concurrent shell-string ``api.v1.shell`` load for
+* 1/3/5/10 concurrent shell-string ``api.v1.exec_command`` load for
   no-op and unique write commands.
 * daemon memory before load, between operation groups, and after drain.
 
@@ -344,9 +344,9 @@ async def run_phase3(args: argparse.Namespace) -> dict[str, Any]:
                 "noop_shell",
                 args.samples,
                 lambda _index, invocation_id: (
-                    "api.v1.shell",
+                    "api.v1.exec_command",
                     {
-                        "command": "true",
+                        "cmd": "true",
                         "cwd": ".",
                         "timeout_seconds": 10,
                         "invocation_id": invocation_id,
@@ -638,9 +638,9 @@ def add_tar_file(
 def small_write_request(index: int, invocation_id: str) -> tuple[str, dict[str, Any]]:
     filename = f"phase3-small-{index:03d}.txt"
     return (
-        "api.v1.shell",
+        "api.v1.exec_command",
         {
-            "command": f"touch {filename}",
+            "cmd": f"touch {filename}",
             "cwd": ".",
             "timeout_seconds": 10,
             "invocation_id": invocation_id,
@@ -661,9 +661,9 @@ def load_small_write_request(
         f"s{slot:02d}-{index:04d}.txt"
     )
     return (
-        "api.v1.shell",
+        "api.v1.exec_command",
         {
-            "command": f"touch {filename}",
+            "cmd": f"touch {filename}",
             "cwd": ".",
             "timeout_seconds": 10,
             "invocation_id": invocation_id,
@@ -728,9 +728,9 @@ async def measure_load_matrix(
             concurrency=concurrency,
             rounds=rounds,
             build_request=lambda _index, _concurrency, _round, _slot, invocation_id: (
-                "api.v1.shell",
+                "api.v1.exec_command",
                 {
-                    "command": "true",
+                    "cmd": "true",
                     "cwd": ".",
                     "timeout_seconds": 10,
                     "invocation_id": invocation_id,

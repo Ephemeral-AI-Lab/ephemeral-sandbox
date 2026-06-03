@@ -9,13 +9,13 @@ use eos_state::{
     TaskStatus,
 };
 use eos_tools::PlannerPlan;
-use serde_json::Value;
 
 use crate::attempt::{
     AgentLaunch, AgentLaunchFactory, AgentRunReport, AgentTerminal, AttemptDeps,
     AttemptStageAdvancer,
 };
 use crate::ids::{generator_task_id, planner_task_id, reducer_task_id};
+use crate::util::json_object;
 use crate::{Result, WorkflowError};
 
 struct ExecutionMark {
@@ -796,8 +796,127 @@ fn assert_acyclic(plan: &PlannerPlan) -> Result<()> {
     Ok(())
 }
 
-fn json_object(key: &str, value: impl Into<Value>) -> eos_state::JsonObject {
-    let mut object = eos_state::JsonObject::new();
-    object.insert(key.to_owned(), value.into());
-    object
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use std::sync::Arc;
+
+    use eos_state::{
+        AttemptStatus, GeneratorSubmission, IterationStatus, ReducerSubmission, TaskOutcomeStatus,
+        TaskStatus, WorkflowStatus,
+    };
+
+    use crate::ids::{generator_task_id, reducer_task_id};
+    use crate::testsupport::{
+        one_step_plan, root_task, terminal_result, wait_for_workflow_status, MemoryStores,
+        QueueRunner,
+    };
+    use crate::{AgentRunReport, AgentTerminal, WorkflowStarter};
+
+    // AC-eos-workflow-06 (reducer exit gate): all generators DONE + all reducers
+    // DONE -> attempt PASSED, iteration SUCCEEDED, workflow SUCCEEDED, parent
+    // still running.
+    #[tokio::test]
+    async fn reducer_is_exit_gate() {
+        let stores = Arc::new(MemoryStores::default());
+        let runner = Arc::new(QueueRunner::default());
+        let mut deps = stores.deps(runner.clone());
+        deps.lifecycle_config.default_attempt_budget = 1;
+        let parent = root_task("parent", TaskStatus::Running);
+        stores.seed_task(parent.clone());
+        let started = WorkflowStarter::new(deps)
+            .start("delegated goal", &parent.id)
+            .await
+            .unwrap();
+        let generator_id = generator_task_id(&started.attempt_id, "g1").unwrap();
+        let reducer_id = reducer_task_id(&started.attempt_id, "r1").unwrap();
+        runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
+            one_step_plan(&started),
+        )));
+        runner.push(AgentRunReport::terminal(AgentTerminal::Generator(
+            GeneratorSubmission {
+                attempt_id: started.attempt_id.clone(),
+                task_id: generator_id,
+                status: TaskOutcomeStatus::Success,
+                outcome: "generated".to_owned(),
+                terminal_tool_result: terminal_result(),
+            },
+        )));
+        runner.push(AgentRunReport::terminal(AgentTerminal::Reducer(
+            ReducerSubmission {
+                attempt_id: started.attempt_id.clone(),
+                task_id: reducer_id,
+                status: TaskOutcomeStatus::Success,
+                outcome: "reduced".to_owned(),
+                terminal_tool_result: terminal_result(),
+            },
+        )));
+        wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Succeeded).await;
+
+        assert_eq!(
+            stores.attempt(&started.attempt_id).unwrap().status,
+            AttemptStatus::Passed
+        );
+        assert_eq!(
+            stores.iteration(&started.iteration_id).unwrap().status,
+            IterationStatus::Succeeded
+        );
+        assert_eq!(
+            stores.workflow(&started.workflow_id).unwrap().status,
+            WorkflowStatus::Succeeded
+        );
+        assert_eq!(stores.task(&parent.id).unwrap().status, TaskStatus::Running);
+        assert_eq!(runner.launches().len(), 3);
+    }
+
+    // AC-eos-workflow-06 (reducer exit gate): a FAILED reducer closes the attempt
+    // FAILED with TASK_FAILED; with no budget the iteration + workflow fail.
+    #[tokio::test]
+    async fn failed_reducer_closes_attempt_failed() {
+        let stores = Arc::new(MemoryStores::default());
+        let runner = Arc::new(QueueRunner::default());
+        let mut deps = stores.deps(runner.clone());
+        deps.lifecycle_config.default_attempt_budget = 1;
+        let parent = root_task("parent", TaskStatus::Running);
+        stores.seed_task(parent.clone());
+        let started = WorkflowStarter::new(deps)
+            .start("delegated goal", &parent.id)
+            .await
+            .unwrap();
+        let generator_id = generator_task_id(&started.attempt_id, "g1").unwrap();
+        let reducer_id = reducer_task_id(&started.attempt_id, "r1").unwrap();
+        runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
+            one_step_plan(&started),
+        )));
+        runner.push(AgentRunReport::terminal(AgentTerminal::Generator(
+            GeneratorSubmission {
+                attempt_id: started.attempt_id.clone(),
+                task_id: generator_id,
+                status: TaskOutcomeStatus::Success,
+                outcome: "generated".to_owned(),
+                terminal_tool_result: terminal_result(),
+            },
+        )));
+        runner.push(AgentRunReport::terminal(AgentTerminal::Reducer(
+            ReducerSubmission {
+                attempt_id: started.attempt_id.clone(),
+                task_id: reducer_id,
+                status: TaskOutcomeStatus::Failed,
+                outcome: "reduction failed".to_owned(),
+                terminal_tool_result: terminal_result(),
+            },
+        )));
+        wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Failed).await;
+
+        let attempt = stores.attempt(&started.attempt_id).unwrap();
+        assert_eq!(attempt.status, AttemptStatus::Failed);
+        assert_eq!(
+            attempt.fail_reason,
+            Some(eos_state::AttemptFailReason::TaskFailed)
+        );
+        assert_eq!(
+            stores.iteration(&started.iteration_id).unwrap().status,
+            IterationStatus::Failed
+        );
+    }
 }

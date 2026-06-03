@@ -18,17 +18,17 @@ import pytest
 
 from sandbox.api import (
     EditFileResult,
+    ExecCommandResult,
     GuardedResultBase,
     RawExecResult,
     ReadFileResult,
-    ShellResult,
     WriteFileResult,
 )
 
 from .sandbox_fixture import SandboxHandle
 
 
-ApiResult = ReadFileResult | WriteFileResult | EditFileResult | ShellResult
+ApiResult = ReadFileResult | WriteFileResult | EditFileResult | ExecCommandResult
 TApiResult = TypeVar("TApiResult", bound=ApiResult)
 
 
@@ -322,7 +322,7 @@ def paths_visible_summary(reads: Iterable[ReadFileResult]) -> dict[str, int]:
 def _op_name(result: ApiResult) -> str:
     if isinstance(result, ReadFileResult):
         return "read_file"
-    if isinstance(result, ShellResult):
+    if isinstance(result, ExecCommandResult):
         return "shell"
     if isinstance(result, EditFileResult):
         return "edit_file"

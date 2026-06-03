@@ -159,13 +159,13 @@ def inspect_user_input_script(ctx: ScenarioContext) -> PreparedToolScript:
             ToolScriptStep(
                 "create-ledger-dir",
                 exec_command_tool,
-                {"command": f"mkdir -p {_PACKAGE_DIR}", "timeout": 60},
+                {"cmd": f"mkdir -p {_PACKAGE_DIR}", "timeout": 60},
             ),
             ToolScriptStep(
                 "assert-daytona-workspace",
                 exec_command_tool,
                 {
-                    "command": (
+                    "cmd": (
                         "test -d /testbed/.git && "
                         f"mkdir -p {Path(_WORKSPACE_PROOF_PATH).parent.as_posix()} && "
                         f"printf 'declared_workspace=/testbed\\n' > {_WORKSPACE_PROOF_PATH} && "
@@ -208,7 +208,7 @@ def inspect_user_input_script(ctx: ScenarioContext) -> PreparedToolScript:
                 "check-ledger",
                 exec_command_tool,
                 {
-                    "command": (
+                    "cmd": (
                         f"test -s {_LEDGER_PATH} && "
                         f"printf 'requirements={len(requirements)} packages={len(packages)}\\n'"
                     ),
@@ -262,7 +262,7 @@ def execute_package_script(
             ToolScriptStep(
                 "ensure-package-dir",
                 exec_command_tool,
-                {"command": f"mkdir -p {_PACKAGE_DIR}", "timeout": 60},
+                {"cmd": f"mkdir -p {_PACKAGE_DIR}", "timeout": 60},
             ),
             ToolScriptStep(
                 "write-package-evidence",
@@ -288,7 +288,7 @@ def execute_package_script(
                 "check-package-evidence",
                 exec_command_tool,
                 {
-                    "command": (
+                    "cmd": (
                         f"test -s {evidence_path} && "
                         f"printf 'package={package_id}\\n'"
                     ),
@@ -316,7 +316,7 @@ def recursive_step_script(ctx: ScenarioContext) -> PreparedToolScript:
         ToolScriptStep(
             "ensure-recursive-dir",
             exec_command_tool,
-            {"command": f"mkdir -p {_RECURSIVE_DIR}", "timeout": 60},
+            {"cmd": f"mkdir -p {_RECURSIVE_DIR}", "timeout": 60},
         ),
         ToolScriptStep(
             "write-recursive-evidence",
@@ -351,7 +351,7 @@ def recursive_step_script(ctx: ScenarioContext) -> PreparedToolScript:
             "check-recursive-evidence",
             exec_command_tool,
             {
-                "command": f"test -s {evidence_path} && ls -1 {_RECURSIVE_DIR}",
+                "cmd": f"test -s {evidence_path} && ls -1 {_RECURSIVE_DIR}",
                 "timeout": 60,
             },
         )
@@ -386,7 +386,7 @@ def final_reconciliation_script(ctx: ScenarioContext) -> PreparedToolScript:
             ToolScriptStep(
                 "ensure-final-dir",
                 exec_command_tool,
-                {"command": f"mkdir -p {_ROOT}", "timeout": 60},
+                {"cmd": f"mkdir -p {_ROOT}", "timeout": 60},
             ),
             ToolScriptStep(
                 "write-final-stage",
@@ -417,7 +417,7 @@ def final_reconciliation_script(ctx: ScenarioContext) -> PreparedToolScript:
                 "check-final-summary",
                 exec_command_tool,
                 {
-                    "command": (
+                    "cmd": (
                         f"test -s {_FINAL_PATH} && "
                         f"find {_ROOT} -maxdepth 2 -type f | sort | head -40"
                     ),

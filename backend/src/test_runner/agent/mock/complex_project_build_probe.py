@@ -1457,7 +1457,7 @@ async def _shell(
     (the toolkit exec_command tool uses ``sandbox_repo_root_from_tool_context(context)`` as cwd) — the
     probe rebinds workspace_root in Phase 0 and updates metadata.repo_root so
     subsequent shells run inside ``/ephemeral-os``."""
-    args: dict[str, Any] = {"command": command, "timeout": timeout}
+    args: dict[str, Any] = {"cmd": command, "timeout": timeout}
     result = await ctx.call_tool(
         exec_command_tool,
         args,

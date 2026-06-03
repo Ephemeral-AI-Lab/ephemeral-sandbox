@@ -219,6 +219,14 @@ class ExecCommandResult(SandboxResultBase):
     changed_path_kinds: dict[str, str] = field(default_factory=dict)
     mutation_source: str = ""
 
+    @property
+    def stdout(self) -> str:
+        return self.output.stdout
+
+    @property
+    def stderr(self) -> str:
+        return self.output.stderr
+
 
 @dataclass(frozen=True, kw_only=True)
 class CommandSessionWriteRequest(SandboxRequestBase):

@@ -1328,3 +1328,141 @@ Current verdict:
 Remaining risk:
 - `performance_report.json` aggregates do not currently include terminal `write_stdin` resource timings, even though raw tool-call/message metadata does. Keep heavy payload assertions on `RunReport.tool_calls` until the report aggregator is extended.
 - Historical test filenames still contain `shell` in places where behavior now exercises `exec_command`; this is naming cleanup, not a live-gate failure.
+
+## Iteration 18 - 2026-06-03 10:57:53 +0800 CST
+
+Checkout summary:
+- Current checkout is a dirty multi-agent worktree. Existing unrelated edits in `agent-core/*`, `sandbox/crates/*`, and `docs/plans/backend_agent_core_rust_migration/overview.md` were left untouched.
+- This iteration focused on Phase G host-only cleanup inside Python `backend/src/sandbox`, not a full deletion pass.
+
+Plan path and target files:
+- Plan: `docs/plans/test_runner_migration_PLAN.md`.
+- Report: `docs/plans/test_runner_migration_PLAN-iteration-report.md`.
+- Target files:
+  - `backend/src/sandbox/host/daemon_client.py`
+  - `backend/src/sandbox/host/runtime_bundle.py`
+  - `backend/src/sandbox/host/paths.py`
+  - `backend/src/sandbox/host/bootstrap.py`
+  - `backend/src/sandbox/ephemeral_workspace/plugin/install.py`
+  - `backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py`
+  - focused sandbox API/bundle/plugin unit tests under `backend/tests/unit_test/test_sandbox/`
+
+Coverage gaps and findings:
+- Rust sandbox truth check:
+  - `sandbox/crates/eos-plugin` owns pure PPC/service contracts only; it explicitly leaves service processes, overlays, OCC callbacks, namespace behavior, and leases to `eos-daemon`.
+  - `agent-core/crates/eos-plugin-catalog` only parses/catalogs plugin metadata and tool specs; it does not run LSP/Pyright sessions.
+  - `backend/scripts/bench_rust_daemon_plugin.py` still proves real Pyright/LSP execution through Rust `eosd` plus a small Python PPC bridge payload.
+  - `backend/scripts/bench_rust_daemon_isolated_inspection.py` uses Rust `api.v1.exec_command` and canonical command stdin through isolated-workspace RPCs.
+- The Python host still had a live `EOS_SANDBOX_RUNTIME=python` branch that launched `sandbox.daemon` via `launch_daemon.sh`/`thin_client.py`; that contradicted the Rust-only daemon-side contract.
+- The host runtime upload still bundled Python daemon, overlay, OCC, layer-stack, isolated-workspace, audit, peer scripts, runtime scripts, and vendored `pathspec` even when Rust `eosd` was selected.
+- Host bootstrap and plugin install/dispatch still imported runtime path constants from `sandbox.daemon.paths`; those constants are host transport details, not daemon-side Python implementation.
+- Existing test coverage still had stale public-shell assumptions even though the source no longer exposes `sandbox.api.tool.shell`, `ShellRequest`, `ShellResult`, or `DAEMON_OP_SHELL`.
+
+Fixes applied:
+- Added `sandbox.host.paths` as the host-owned path constants module.
+- Made `sandbox.host.daemon_client` Rust-only:
+  - default runtime is `rust`;
+  - `EOS_SANDBOX_RUNTIME=python` is rejected;
+  - removed Python thin-client launcher/probe helpers and Python daemon spawn command generation;
+  - `eosd daemon --client` and `eosd daemon --spawn` are the only host command paths.
+- Shrunk `sandbox.host.runtime_bundle` to upload only the Rust-daemon plugin bridge payload needed by LSP/PPC:
+  - retained `sandbox/shared/models.py`, `sandbox/shared/command_exec_contract.py`, minimal `sandbox/ephemeral_workspace/plugin/{op_context,op_registry,ppc_service}.py`, and LSP runtime modules under `plugins/catalog/lsp/runtime/`;
+  - stopped bundling Python daemon, overlay, OCC, layer-stack, isolated-workspace, audit, peer setup scripts, daemon scripts, and `pathspec`.
+- Inlined the best-effort git install script in `sandbox.host.bootstrap` so host bootstrap no longer reads from `sandbox/daemon/scripts/install_git.sh`.
+- Moved plugin install/host-dispatch path imports from `sandbox.daemon.paths` to `sandbox.host.paths`.
+- Removed stale `test_shell.py` and migrated remaining API contract/audit/transport tests to `exec_command` and canonical `api.v1.write_stdin`.
+
+Commands run:
+- `python3 -m py_compile backend/src/sandbox/host/daemon_client.py backend/src/sandbox/host/runtime_bundle.py backend/src/sandbox/host/paths.py backend/src/sandbox/host/bootstrap.py backend/src/sandbox/ephemeral_workspace/plugin/install.py backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py ...`
+  - Result: passed for touched source/tests.
+- `uv run pytest -q backend/tests/unit_test/test_sandbox/test_api/test_daemon_client.py backend/tests/unit_test/test_sandbox/test_api/test_transport_protocol.py backend/tests/unit_test/test_sandbox/test_api/test_command.py backend/tests/unit_test/test_sandbox/test_api/test_contract.py backend/tests/unit_test/test_sandbox/test_api/test_audit_emission.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py backend/tests/unit_test/test_sandbox/test_runtime_bundle_includes_plugin.py backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_plugin_host_dispatch.py --tb=short`
+  - First run: failed with one stale API-root expectation missing existing `plugin_support.py`.
+  - Final run: passed with `76 passed in 0.69s`.
+- `uv run pytest -q backend/tests/unit_test/test_sandbox/test_api/test_daemon_client.py backend/tests/unit_test/test_sandbox/test_api/test_transport_protocol.py backend/tests/unit_test/test_sandbox/test_api/test_command.py backend/tests/unit_test/test_sandbox/test_api/test_contract.py backend/tests/unit_test/test_sandbox/test_api/test_audit_emission.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py backend/tests/unit_test/test_sandbox/test_runtime_bundle_includes_plugin.py backend/tests/unit_test/test_sandbox/test_overlay/test_overlay_dependency_boundaries.py backend/tests/unit_test/test_sandbox/test_plugin_host_dispatch.py backend/tests/unit_test/test_sandbox/test_plugin_install.py backend/tests/unit_test/test_sandbox/test_runtime_bootstrap.py backend/tests/unit_test/test_sandbox/test_host/test_ops_git.py --tb=short`
+  - Result: passed with `102 passed in 1.76s`.
+- `uv run ruff check backend/src/sandbox/host/daemon_client.py backend/src/sandbox/host/runtime_bundle.py backend/src/sandbox/host/paths.py backend/src/sandbox/host/bootstrap.py backend/src/sandbox/ephemeral_workspace/plugin/install.py backend/src/sandbox/ephemeral_workspace/plugin/host_dispatch.py ...`
+  - First run: failed on one unused import left after deleting the old peer setup bundle test.
+  - Final run: passed.
+
+Current verdict:
+- Correctness: PASS for the Rust-only host daemon-client/runtime-bundle checkpoint and the focused API/plugin/bundle unit slice.
+- Rust daemon truth: PASS for this checkpoint; Python host no longer selects or launches the Python daemon path.
+- LSP/plugin payload: PARTIAL by design. LSP still uses a Python PPC bridge payload, but that payload is now the small Rust-daemon service payload rather than a bundled Python sandbox daemon.
+- Host/API/provider cleanup: PARTIAL. Host paths are no longer imported from `sandbox.daemon.paths`, but `backend/src/sandbox/shared` and `backend/src/sandbox/ephemeral_workspace/plugin` still contain bridge/model code used by public APIs and plugin runtime tests.
+
+Remaining risk / next iteration entry point:
+- The full Phase G deletion pass is still open. `backend/src/sandbox/daemon`, `overlay`, `occ`, `layer_stack`, `isolated_workspace`, and most Python `ephemeral_workspace` modules still exist and many old unit tests still import them.
+- Next pass should move the remaining bridge/model code out of `backend/src/sandbox/shared` and `backend/src/sandbox/ephemeral_workspace/plugin` into an allowed host/API/provider/plugin-runtime location, then delete or quarantine the Python daemon implementation tests.
+
+## Iteration 19 - 2026-06-03 11:25:33 +0800 CST
+
+Checkout summary:
+- Current checkout remains a dirty multi-agent worktree. Existing unrelated edits in `agent-core/*`, `sandbox/crates/*`, `sandbox/Cargo.toml`, and `docs/plans/backend_agent_core_rust_migration/overview.md` were left untouched.
+- This iteration focused on stale public-shell callers and test-runner mock verification after the Rust-only host transport cleanup.
+
+Plan path and target files:
+- Plan: `docs/plans/test_runner_migration_PLAN.md`.
+- Report: `docs/plans/test_runner_migration_PLAN-iteration-report.md`.
+- Rust truth checked:
+  - `sandbox/crates/eos-plugin/src/lib.rs`
+  - `sandbox/crates/eos-daemon/src/dispatcher.rs`
+  - `sandbox/crates/eos-daemon/src/command.rs`
+  - `backend/scripts/bench_rust_daemon_phase3.py`
+  - `backend/scripts/bench_rust_daemon_plugin.py`
+- Python/test target files:
+  - `backend/src/sandbox/shared/models.py`
+  - `backend/src/test_runner/agent/mock/complex_project_build_probe.py`
+  - `backend/tests/live_e2e_test/sandbox/_harness/sandbox_fixture.py`
+  - `backend/tests/live_e2e_test/sandbox/_harness/integrated_cases.py`
+  - focused live-e2e and unit tests that still imported `ShellResult` or asserted Python thin-client transport.
+
+Findings:
+- `eos-plugin` is not the LSP runtime owner; it owns only PPC/service contracts, service metadata, refresh/public op names, and frames. `eos-daemon` owns service processes, overlays, OCC callbacks, command sessions, and isolated-workspace routing.
+- Rust `eos-daemon` registers `api.v1.exec_command`, canonical `api.v1.write_stdin`, and the compatibility alias `api.v1.command.write_stdin`. It does not register `api.v1.shell`.
+- `backend/scripts/bench_rust_daemon_phase3.py` and `backend/scripts/bench_rust_daemon_plugin.py` still had stale `api.v1.shell` calls and old `command` payload keys.
+- The live-e2e harness still imported `ShellRequest`/`ShellResult` and called `sandbox_api.shell(...)` even though the public API no longer exports those names.
+- The test-runner complex project-build probe helper called the model-facing `exec_command` tool with `command` instead of `cmd`, which would break Rust-runtime mock LSP scenarios.
+- Several daemon transport tests still asserted Python `thin_client.py`, `sandbox.daemon`, and `launch_daemon.sh` command strings after the host transport became Rust-only.
+
+Fixes applied:
+- Migrated the Rust live bench scripts to `api.v1.exec_command` with `cmd`.
+- Changed the live-e2e harness `ToolBundle.shell(...)` helper to call `sandbox_api.exec_command(...)` and return `ExecCommandResult`. The helper name remains only as a local test convenience.
+- Added read-only `stdout` / `stderr` convenience properties on `ExecCommandResult`, backed by `output.stdout` / `output.stderr`, so existing command-result assertions do not need a broad live-test rewrite.
+- Migrated live-e2e and Sweevo/mock type annotations/fakes from `ShellResult` to `ExecCommandResult`.
+- Migrated direct isolated live-e2e command RPCs from `api.v1.shell` to `api.v1.exec_command`.
+- Updated daemon in-flight, transport, OCC, and command-dispatch tests to assert the Rust op/transport names, including `eosd daemon --client`, `eosd daemon --spawn`, `api.v1.exec_command`, and `api.v1.write_stdin`.
+- Updated `complex_project_build_probe._shell(...)` to pass `{"cmd": ..., "timeout": ...}` to the model-facing `exec_command` tool.
+- Migrated remaining `backend/src/test_runner/agent/mock/*` prepared-tool scripts from `raw_input={"command": ...}` to `raw_input={"cmd": ...}` for the model-facing `exec_command` tool.
+
+Commands run:
+- `python3 -m py_compile backend/src/sandbox/shared/models.py backend/scripts/bench_rust_daemon_phase3.py backend/scripts/bench_rust_daemon_plugin.py backend/tests/live_e2e_test/sandbox/_harness/sandbox_fixture.py backend/tests/live_e2e_test/sandbox/_harness/integrated_cases.py backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_codegen_race.py backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_iws_same_port_discard_live.py backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_mixed_op_concurrent_scaling.py backend/tests/unit_test/test_benchmarks/test_sweevo_mock_agent_execution.py backend/tests/unit_test/test_sandbox/test_command_exec/test_write_edit_dispatch.py backend/tests/unit_test/test_sandbox/test_daemon/test_daemon_transport.py backend/tests/unit_test/test_sandbox/test_daemon/test_in_flight_registry.py backend/tests/unit_test/test_sandbox/test_inflight_invocation_registry.py backend/tests/unit_test/test_sandbox/test_occ/test_mutation_gate.py`
+  - Result: passed.
+- `uv run pytest -q backend/tests/unit_test/test_sandbox/test_command_exec/test_write_edit_dispatch.py backend/tests/unit_test/test_sandbox/test_daemon/test_in_flight_registry.py backend/tests/unit_test/test_sandbox/test_daemon/test_daemon_transport.py backend/tests/unit_test/test_sandbox/test_inflight_invocation_registry.py backend/tests/unit_test/test_sandbox/test_occ/test_mutation_gate.py backend/tests/unit_test/test_benchmarks/test_sweevo_mock_agent_execution.py backend/src/test_runner/tests/mock/sandbox/project_build/test_complex_project_build_shell_edit_lsp_smoke.py --tb=short`
+  - First result: failed on stale Python thin-client transport assertions.
+  - Final result: passed with `50 passed, 2 skipped in 0.31s`.
+- `uv run pytest -q backend/tests/unit_test/test_sandbox/test_api/test_command.py backend/tests/unit_test/test_sandbox/test_api/test_contract.py backend/tests/unit_test/test_sandbox/test_api/test_transport_protocol.py backend/tests/unit_test/test_sandbox/test_api/test_boundary.py backend/tests/unit_test/test_sandbox/test_api/test_daemon_client.py backend/tests/unit_test/test_sandbox/test_runtime_bundle_includes_plugin.py backend/tests/unit_test/test_sandbox/test_daemon/test_bundle_upload.py --tb=short`
+  - Result: passed with `54 passed in 0.66s`.
+- `env EOS_SANDBOX_RUNTIME=rust uv run pytest -q backend/src/test_runner/tests/mock/sandbox/project_build/test_complex_project_build_shell_edit_lsp_full.py backend/src/test_runner/tests/mock/sandbox/project_build/test_project_build_shell_edit_lsp_remount_not_restart.py --tb=short`
+  - Initial non-escalated result: blocked by local `uv` cache permission.
+  - Escalated result: first test emitted a pass; second test did not produce output within the interactive window and was stopped after process inspection. Treat this as partial evidence, not a clean two-test pass.
+- `uv run ruff check backend/src/sandbox/shared/models.py backend/src/test_runner/agent/mock/complex_project_build_probe.py backend/scripts/bench_rust_daemon_phase3.py backend/scripts/bench_rust_daemon_plugin.py backend/tests/live_e2e_test/sandbox/_harness/sandbox_fixture.py backend/tests/live_e2e_test/sandbox/_harness/integrated_cases.py backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_codegen_race.py backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_iws_same_port_discard_live.py backend/tests/live_e2e_test/sandbox/layer_stack_overlay_occ/test_mixed_op_concurrent_scaling.py backend/tests/unit_test/test_benchmarks/test_sweevo_mock_agent_execution.py backend/tests/unit_test/test_sandbox/test_command_exec/test_write_edit_dispatch.py backend/tests/unit_test/test_sandbox/test_daemon/test_daemon_transport.py backend/tests/unit_test/test_sandbox/test_daemon/test_in_flight_registry.py backend/tests/unit_test/test_sandbox/test_inflight_invocation_registry.py backend/tests/unit_test/test_sandbox/test_occ/test_mutation_gate.py`
+  - Result: passed after rerunning escalated for the local `uv` cache permission issue.
+- `rg -n "\"command\"\s*:" backend/src/test_runner/agent/mock -g '*.py'`
+  - Result: no matches after migrating prepared-tool scripts to `cmd`.
+- `python3 -m py_compile backend/src/test_runner/agent/mock/tool_scripts.py backend/src/test_runner/agent/mock/auto_squash_probe.py backend/src/test_runner/agent/mock/background_shell_probe.py backend/src/test_runner/agent/mock/ephemeral_workspace_probe.py backend/src/test_runner/agent/mock/high_concurrency_probe.py backend/src/test_runner/agent/mock/heavy_io_zoned_probe.py backend/src/test_runner/agent/mock/full_stack_tool_scripts.py`
+  - Result: passed.
+- `uv run pytest -q backend/src/test_runner/tests/mock/contracts/test_runner_imports.py backend/src/test_runner/tests/mock/sandbox/project_build/test_complex_project_build_fixtures.py -rs --tb=short`
+  - Result: `17 passed, 20 skipped in 0.17s`; skips were Rust-runtime gated fixture tests.
+- `env EOS_SANDBOX_RUNTIME=rust uv run pytest -q backend/src/test_runner/tests/mock/sandbox/project_build/test_complex_project_build_fixtures.py --tb=short`
+  - Result: passed with `20 passed in 0.12s` after rerunning escalated for local `uv` cache permission.
+- `uv run ruff check backend/src/test_runner/agent/mock/tool_scripts.py backend/src/test_runner/agent/mock/auto_squash_probe.py backend/src/test_runner/agent/mock/background_shell_probe.py backend/src/test_runner/agent/mock/ephemeral_workspace_probe.py backend/src/test_runner/agent/mock/high_concurrency_probe.py backend/src/test_runner/agent/mock/heavy_io_zoned_probe.py backend/src/test_runner/agent/mock/full_stack_tool_scripts.py`
+  - Result: passed after rerunning escalated for local `uv` cache permission.
+
+Current verdict:
+- Correctness: PASS for public `api.v1.shell` source cleanup in active Python source, live bench scripts, live-e2e harness imports, daemon transport assertions, and focused command/write_stdin API tests.
+- Test-runner mock: PASS for the focused shell/edit/LSP smoke path, import contracts, Rust-gated project-build fixture tests, and removal of stale `command` prepared-tool input keys. PARTIAL for the deeper Rust-gated remount regression because the second test was stopped after a long no-output interval.
+- Rust daemon truth: PASS for op registration and payload shape: current Rust contract is `api.v1.exec_command` + `api.v1.write_stdin`, with `api.v1.command.write_stdin` only as compatibility alias.
+- LSP/plugin: PASS for source-level owner check against `eos-plugin` and `bench_rust_daemon_plugin.py`; no new LSP implementation rock was hit, but the long remount regression needs a separately budgeted rerun.
+
+Remaining risk / next iteration entry point:
+- The full Phase G physical deletion pass remains open: old Python daemon/overlay/OCC/layer_stack/isolated_workspace implementation directories still exist and still have unit-test imports.

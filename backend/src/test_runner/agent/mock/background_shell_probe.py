@@ -270,7 +270,7 @@ async def _write_summary(
     body = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     mkdir = await call_tool(
         exec_command_tool,
-        {"command": f"mkdir -p $(dirname {path})", "timeout": 30},
+        {"cmd": f"mkdir -p $(dirname {path})", "timeout": 30},
         metadata,
         emit,
     )
@@ -329,7 +329,7 @@ async def run_background_shell_golden_probe(
         result = await call_tool(
             exec_command_tool,
             {
-                "command": f"sleep {GOLDEN_SLEEP_S}; echo done-{index}",
+                "cmd": f"sleep {GOLDEN_SLEEP_S}; echo done-{index}",
                 "timeout": 120,
             },
             metadata,
@@ -396,7 +396,7 @@ async def run_background_shell_stop_probe(
                 call_tool(
                     exec_command_tool,
                     {
-                        "command": (f"sleep {CANCEL_SLEEP_S}; echo done-{index}"),
+                        "cmd": (f"sleep {CANCEL_SLEEP_S}; echo done-{index}"),
                         "timeout": 120,
                     },
                     metadata,
@@ -437,7 +437,7 @@ async def run_background_shell_stop_probe(
     fg_t0 = time.perf_counter()
     fg_result = await call_tool(
         exec_command_tool,
-        {"command": "echo post-cancel-ok", "timeout": 30},
+        {"cmd": "echo post-cancel-ok", "timeout": 30},
         metadata,
         emit,
     )
@@ -489,7 +489,7 @@ async def run_background_shell_interleave_probe(
         call_tool(
             exec_command_tool,
             {
-                "command": (f"sleep {INTERLEAVE_BACKGROUND_SLEEP_S}; echo bg-done"),
+                "cmd": (f"sleep {INTERLEAVE_BACKGROUND_SLEEP_S}; echo bg-done"),
                 "timeout": 120,
             },
             metadata,
@@ -504,7 +504,7 @@ async def run_background_shell_interleave_probe(
             t0 = time.perf_counter()
             fg_result = await call_tool(
                 exec_command_tool,
-                {"command": f"echo fg-{index}", "timeout": 30},
+                {"cmd": f"echo fg-{index}", "timeout": 30},
                 metadata,
                 emit,
             )
@@ -592,7 +592,7 @@ async def run_background_shell_exhaustion_probe(
             label=f"exhaustion.launch.{index}",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": (f"sleep {EXHAUSTION_BACKGROUND_SLEEP_S}; echo done-{index}"),
+                "cmd": (f"sleep {EXHAUSTION_BACKGROUND_SLEEP_S}; echo done-{index}"),
                 "timeout": EXHAUSTION_BACKGROUND_SLEEP_S + 30,
                 "yield_time_ms": 50,
             },
@@ -656,7 +656,7 @@ async def run_background_shell_exhaustion_probe(
     seed_result = await call_tool(
         exec_command_tool,
         {
-            "command": (f"mkdir -p $(dirname {seed_path}) && echo probe-ok > {seed_path}"),
+            "cmd": (f"mkdir -p $(dirname {seed_path}) && echo probe-ok > {seed_path}"),
             "timeout": 30,
         },
         metadata,
@@ -739,7 +739,7 @@ async def run_background_shell_partial_write_cancel_probe(
     seed_result = await call_tool(
         exec_command_tool,
         {
-            "command": (f"mkdir -p $(dirname {target}) && touch $(dirname {target})/.sentinel"),
+            "cmd": (f"mkdir -p $(dirname {target}) && touch $(dirname {target})/.sentinel"),
             "timeout": 30,
         },
         metadata,
@@ -758,7 +758,7 @@ async def run_background_shell_partial_write_cancel_probe(
         result = await asyncio.wait_for(
             call_tool(
                 exec_command_tool,
-                {"command": dd_command, "timeout": 180},
+                {"cmd": dd_command, "timeout": 180},
                 metadata,
                 emit,
                 background_task_id=_bg_id("partial-write"),
@@ -820,7 +820,7 @@ async def run_background_shell_maintenance_probe(
     result = await call_tool(
         exec_command_tool,
         {
-            "command": (
+            "cmd": (
                 f"mkdir -p $(dirname {target}) && echo 'maintenance-test' > {target} && sleep 0.5"
             ),
             "timeout": 60,
@@ -879,7 +879,7 @@ async def run_background_shell_late_cancel_probe(
     started = time.perf_counter()
     result = await call_tool(
         exec_command_tool,
-        {"command": "sleep 1; echo done-late-cancel", "timeout": 60},
+        {"cmd": "sleep 1; echo done-late-cancel", "timeout": 60},
         metadata,
         emit,
         background_task_id=_bg_id("late-cancel"),
@@ -929,7 +929,7 @@ async def run_background_mixed_fg_bg_same_path_conflict_probe(
             label="mixed_conflict.background",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": (
+                "cmd": (
                     f"mkdir -p $(dirname {target}) && "
                     f"sleep {MIXED_CONFLICT_BG_SLEEP_S} && "
                     f"printf 'background-win\\n' > {target}"
@@ -1023,7 +1023,7 @@ async def run_background_heartbeat_loss_probe(
             label="heartbeat_loss.protected",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": (
+                "cmd": (
                     f"mkdir -p $(dirname {protected_target}) && "
                     f"sleep {HEARTBEAT_PROTECTED_SLEEP_S} && "
                     f"echo protected-ok > {protected_target}"
@@ -1043,7 +1043,7 @@ async def run_background_heartbeat_loss_probe(
             label="heartbeat_loss.stale",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": (
+                "cmd": (
                     f"mkdir -p $(dirname {stale_target}) && "
                     f"sleep {HEARTBEAT_STALE_SLEEP_S} && "
                     f"echo stale-published > {stale_target}"
@@ -1070,7 +1070,7 @@ async def run_background_heartbeat_loss_probe(
     foreground = await _call_probe_tool(
         label="heartbeat_loss.foreground",
         tool_obj=exec_command_tool,
-        raw_input={"command": "echo heartbeat-foreground-ok", "timeout": 30},
+        raw_input={"cmd": "echo heartbeat-foreground-ok", "timeout": 30},
         metadata=metadata,
         emit=emit,
         call_tool=call_tool,
@@ -1153,7 +1153,7 @@ async def run_background_exit_iws_drains_agent_tasks_probe(
             label="exit_iws.default_background",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": (
+                "cmd": (
                     f"sleep 20 && mkdir -p $(dirname {default_target}) && "
                     f"echo default-leak > {default_target}"
                 ),
@@ -1211,7 +1211,7 @@ async def run_background_exit_iws_drains_agent_tasks_probe(
         _call_probe_tool(
             label="exit_iws.iws_background",
             tool_obj=exec_command_tool,
-            raw_input={"command": iws_command, "timeout": 60},
+            raw_input={"cmd": iws_command, "timeout": 60},
             metadata=iws_metadata,
             emit=emit,
             call_tool=call_tool,
@@ -1352,7 +1352,7 @@ async def run_background_engine_restart_no_lease_leak_probe(
             label="engine_restart.abandoned",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": (
+                "cmd": (
                     f"mkdir -p $(dirname {abandoned_target}) && "
                     "for i in 1 2 3 4 5; do "
                     f"echo chunk-$i >> {abandoned_target}; sleep 1; "
@@ -1390,7 +1390,7 @@ async def run_background_engine_restart_no_lease_leak_probe(
     fg_shell = await _call_probe_tool(
         label="engine_restart.foreground_shell",
         tool_obj=exec_command_tool,
-        raw_input={"command": "echo engine-restart-foreground-ok", "timeout": 30},
+        raw_input={"cmd": "echo engine-restart-foreground-ok", "timeout": 30},
         metadata=metadata,
         emit=emit,
         call_tool=call_tool,
@@ -1485,7 +1485,7 @@ async def run_background_many_small_writes_probe(
                 label=f"many_small_writes.bg.{index}",
                 tool_obj=exec_command_tool,
                 raw_input={
-                    "command": (f"mkdir -p {root} && echo bg-{index} > {path} && sleep 0.2"),
+                    "cmd": (f"mkdir -p {root} && echo bg-{index} > {path} && sleep 0.2"),
                     "timeout": 30,
                 },
                 metadata=metadata,
@@ -1627,7 +1627,7 @@ async def run_background_mixed_op_concurrent_probe(
     await _call_probe_tool(
         label="mixed_op.seed_root",
         tool_obj=exec_command_tool,
-        raw_input={"command": f"mkdir -p {root}", "timeout": 30},
+        raw_input={"cmd": f"mkdir -p {root}", "timeout": 30},
         metadata=metadata,
         emit=emit,
         call_tool=call_tool,
@@ -1665,7 +1665,7 @@ async def run_background_mixed_op_concurrent_probe(
             _call_probe_tool(
                 label=f"mixed_op.mixed.{name}",
                 tool_obj=exec_command_tool,
-                raw_input={"command": command, "timeout": 120},
+                raw_input={"cmd": command, "timeout": 120},
                 metadata=metadata,
                 emit=emit,
                 call_tool=call_tool,
@@ -1701,7 +1701,7 @@ async def run_background_mixed_op_concurrent_probe(
             label=f"mixed_op.overlap.{index}",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": f"sleep 0.3; printf 'writer-{index}\\n' > {shared}",
+                "cmd": f"sleep 0.3; printf 'writer-{index}\\n' > {shared}",
                 "timeout": 60,
             },
             metadata=metadata,
@@ -1742,7 +1742,7 @@ async def run_background_mixed_op_concurrent_probe(
             label=f"mixed_op.disjoint.{index}",
             tool_obj=exec_command_tool,
             raw_input={
-                "command": f"sleep 0.3; printf 'disjoint-{index}\\n' > {path}",
+                "cmd": f"sleep 0.3; printf 'disjoint-{index}\\n' > {path}",
                 "timeout": 60,
             },
             metadata=metadata,

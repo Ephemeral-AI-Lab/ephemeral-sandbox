@@ -15,10 +15,15 @@ use eos_protocol::{LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
 use crate::error::LayerStackError;
 use crate::{MergedView, LAYERS_DIR, STAGING_DIR};
 
-/// Format string for a freshly-built checkpoint layer id: `B{version:06}-{uuid8}`.
+/// Leading discriminator for a built checkpoint layer id, distinguishing a
+/// squash checkpoint (`B…`) from a normal published layer (`L…`).
 ///
-/// The Rust port must reproduce `f"B{next_version:06d}-{uuid4().hex[:8]}"` exactly
-/// for layer-id parity.
+/// The full id is `B{version:06}-{unique:08x}` (see `allocate_checkpoint_paths`),
+/// mirroring Python's `B{next_version:06d}-{uuid4().hex[:8]}` SHAPE. The 8-hex
+/// suffix is a process-unique counter here rather than a random UUID: the suffix
+/// is non-deterministic on the Python side too, so cross-runtime byte-identity of
+/// a squash id is impossible by construction — only the `B`-prefix + version +
+/// uniqueness contract is load-bearing.
 /// `// PORT backend/src/sandbox/layer_stack/squash.py:179-180 — _default_checkpoint_id`
 pub const CHECKPOINT_ID_PREFIX: char = 'B';
 
@@ -270,6 +275,13 @@ impl LayerCheckpointSquasher {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::rename(current, &layer_dir)?;
+        // Persist the renamed checkpoint dir entry before the manifest that
+        // publishes it is written, matching Python squash.py:125
+        // `fsync_path(layer_dir.parent)` — else a crash can leave the fsynced
+        // manifest pointing at a non-durable layer dir entry.
+        if let Some(parent) = layer_dir.parent() {
+            crate::stack::fsync_dir(parent)?;
+        }
         Ok(LayerRef {
             layer_id: layer_id.clone(),
             path: format!("{LAYERS_DIR}/{layer_id}"),

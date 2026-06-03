@@ -1,7 +1,13 @@
+//! Shared `#[cfg(test)]` fixtures for the crate's per-module AC tests:
+//! in-memory `Store` implementations, agent-runner doubles (`QueueRunner` for
+//! scripted FIFO reports, `ScriptedRunner` for launch-derived reports), the
+//! workflow agent registry, and small builders. The proving tests live next to
+//! the code they cover (`starter::tests`, `lifecycle::tests`, etc.).
 #![allow(clippy::unwrap_used)]
 
 use std::collections::{HashMap, VecDeque};
 use std::num::NonZeroU32;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -9,10 +15,10 @@ use eos_agent_def::{AgentDefinition, AgentName, AgentRegistry, AgentRegistryBuil
 use eos_state::{
     Attempt, AttemptFailReason, AttemptId, AttemptStage, AttemptStatus, CoreError,
     ExecutionTaskOutcome, GeneratorSubmission, Iteration, IterationCreationReason, IterationId,
-    IterationStatus, JsonObject, ReducerSubmission, RequestId, Task, TaskId, TaskRole, TaskStatus,
-    Workflow, WorkflowId, WorkflowStatus,
+    IterationStatus, JsonObject, PlannerKind, ReducerSubmission, RequestId, Task, TaskId,
+    TaskOutcomeStatus, TaskRole, TaskStatus, Workflow, WorkflowId, WorkflowStatus,
 };
-use eos_tools::WorkflowControlPort;
+use eos_tools::{PlanReducer, PlanTask, PlannerPlan};
 use parking_lot::Mutex;
 use serde_json::json;
 use tokio::sync::Notify;
@@ -21,9 +27,8 @@ use crate::attempt::{
     AgentLaunch, AgentRunReport, AgentRunner, AgentTerminal, AttemptDeps,
     AttemptOrchestratorRegistry,
 };
-use crate::ids::{generator_task_id, reducer_task_id};
 use crate::iteration::OpenIterationCoordinatorRegistry;
-use crate::{Result, WorkflowControlAdapter, WorkflowStarter};
+use crate::Result;
 
 #[derive(Debug, Default)]
 pub(crate) struct MemoryStores {
@@ -31,6 +36,8 @@ pub(crate) struct MemoryStores {
     iterations: Mutex<HashMap<IterationId, Iteration>>,
     attempts: Mutex<HashMap<AttemptId, Attempt>>,
     tasks: Mutex<HashMap<TaskId, Task>>,
+    /// Count of every mutating `TaskStore` call (AC-eos-workflow-05).
+    task_writes: AtomicUsize,
 }
 
 impl MemoryStores {
@@ -69,6 +76,64 @@ impl MemoryStores {
     pub(crate) fn attempt(&self, id: &AttemptId) -> Option<Attempt> {
         self.attempts.lock().get(id).cloned()
     }
+
+    /// Total mutating `TaskStore` calls observed so far.
+    pub(crate) fn task_write_count(&self) -> usize {
+        self.task_writes.load(Ordering::Relaxed)
+    }
+
+    // Direct seeders for context/lifecycle tests (the trait `insert`/`get`
+    // methods are ambiguous across the four store traits; these inherent
+    // wrappers keep test bodies readable and do not touch `task_writes`).
+
+    pub(crate) async fn seed_workflow(&self, goal: &str) -> Workflow {
+        eos_state::WorkflowStore::insert(self, &RequestId::new_v4(), &tid("root"), goal)
+            .await
+            .unwrap()
+    }
+
+    pub(crate) async fn seed_iteration(
+        &self,
+        workflow_id: &WorkflowId,
+        sequence_no: i64,
+        creation_reason: IterationCreationReason,
+        iteration_goal: &str,
+        attempt_budget: i64,
+    ) -> Iteration {
+        let iteration = eos_state::IterationStore::insert(
+            self,
+            workflow_id,
+            sequence_no,
+            creation_reason,
+            iteration_goal,
+            attempt_budget,
+        )
+        .await
+        .unwrap();
+        eos_state::WorkflowStore::append_iteration_id(self, workflow_id, &iteration.id)
+            .await
+            .unwrap();
+        iteration
+    }
+
+    pub(crate) async fn seed_attempt(
+        &self,
+        iteration_id: &IterationId,
+        workflow_id: &WorkflowId,
+        sequence_no: i64,
+    ) -> Attempt {
+        let attempt = eos_state::AttemptStore::insert(self, iteration_id, workflow_id, sequence_no)
+            .await
+            .unwrap();
+        eos_state::IterationStore::append_attempt_id(self, iteration_id, &attempt.id)
+            .await
+            .unwrap();
+        attempt
+    }
+}
+
+pub(crate) fn tid(id: &str) -> TaskId {
+    id.parse().unwrap()
 }
 
 impl eos_state::Sealed for MemoryStores {}
@@ -414,6 +479,7 @@ impl eos_state::AttemptStore for MemoryStores {
 #[async_trait]
 impl eos_state::TaskStore for MemoryStores {
     async fn upsert_task(&self, task: &Task) -> std::result::Result<(), CoreError> {
+        self.task_writes.fetch_add(1, Ordering::Relaxed);
         self.tasks.lock().insert(task.id.clone(), task.clone());
         Ok(())
     }
@@ -429,6 +495,7 @@ impl eos_state::TaskStore for MemoryStores {
         outcomes: Option<&[ExecutionTaskOutcome]>,
         terminal_tool_result: Option<&JsonObject>,
     ) -> std::result::Result<Task, CoreError> {
+        self.task_writes.fetch_add(1, Ordering::Relaxed);
         let mut guard = self.tasks.lock();
         let task = guard
             .get_mut(id)
@@ -445,6 +512,7 @@ impl eos_state::TaskStore for MemoryStores {
         outcomes: Option<&[ExecutionTaskOutcome]>,
         terminal_tool_result: Option<&JsonObject>,
     ) -> std::result::Result<Option<Task>, CoreError> {
+        self.task_writes.fetch_add(1, Ordering::Relaxed);
         let mut guard = self.tasks.lock();
         let task = guard
             .get_mut(id)
@@ -457,6 +525,8 @@ impl eos_state::TaskStore for MemoryStores {
     }
 }
 
+/// Agent-runner double serving pre-pushed reports FIFO. Use for sequential,
+/// single-attempt scenarios where the task ids are known after `start()`.
 #[derive(Debug, Default)]
 pub(crate) struct QueueRunner {
     reports: Mutex<VecDeque<AgentRunReport>>,
@@ -484,6 +554,140 @@ impl AgentRunner for QueueRunner {
                 return Ok(report);
             }
             self.notify.notified().await;
+        }
+    }
+}
+
+/// Agent-runner double that synthesizes a role-appropriate report from each
+/// `AgentLaunch`. Needed when task/attempt ids are not known up front:
+/// concurrent fan-out (AC-08b) and retries that mint new attempt ids (AC-10).
+pub(crate) struct ScriptedRunner {
+    generators: usize,
+    reducer_status: TaskOutcomeStatus,
+    deferred_goal: String,
+    defers_remaining: AtomicUsize,
+    launches: Mutex<Vec<AgentLaunch>>,
+    in_flight: AtomicUsize,
+    max_in_flight: AtomicUsize,
+}
+
+impl ScriptedRunner {
+    /// `generators` generator tasks plus one reducer needing all of them.
+    /// `defers` planner runs emit a partial (`Defers`) plan carrying
+    /// `deferred_goal`; later runs complete. Reducers report `reducer_status`.
+    pub(crate) fn new(
+        generators: usize,
+        reducer_status: TaskOutcomeStatus,
+        defers: usize,
+        deferred_goal: &str,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            generators,
+            reducer_status,
+            deferred_goal: deferred_goal.to_owned(),
+            defers_remaining: AtomicUsize::new(defers),
+            launches: Mutex::new(Vec::new()),
+            in_flight: AtomicUsize::new(0),
+            max_in_flight: AtomicUsize::new(0),
+        })
+    }
+
+    pub(crate) fn launches(&self) -> Vec<AgentLaunch> {
+        self.launches.lock().clone()
+    }
+
+    pub(crate) fn max_in_flight(&self) -> usize {
+        self.max_in_flight.load(Ordering::Relaxed)
+    }
+
+    fn enter(&self) {
+        let n = self.in_flight.fetch_add(1, Ordering::Relaxed) + 1;
+        self.max_in_flight.fetch_max(n, Ordering::Relaxed);
+    }
+
+    fn exit(&self) {
+        self.in_flight.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    fn build_plan(&self, launch: &AgentLaunch) -> PlannerPlan {
+        let defer = self.defers_remaining.load(Ordering::Relaxed) > 0;
+        if defer {
+            self.defers_remaining.fetch_sub(1, Ordering::Relaxed);
+        }
+        let tasks = (0..self.generators)
+            .map(|i| PlanTask {
+                id: format!("g{i}"),
+                agent_name: "coder".to_owned(),
+                needs: Vec::new(),
+            })
+            .collect();
+        let task_specs = (0..self.generators)
+            .map(|i| (format!("g{i}"), format!("do work {i}")))
+            .collect();
+        let reducer_needs = (0..self.generators).map(|i| format!("g{i}")).collect();
+        PlannerPlan {
+            attempt_id: launch
+                .attempt_id
+                .clone()
+                .expect("planner launch attempt id"),
+            planner_task_id: launch.task_id.clone(),
+            kind: if defer {
+                PlannerKind::Defers
+            } else {
+                PlannerKind::Completes
+            },
+            deferred_goal_for_next_iteration: defer.then(|| self.deferred_goal.clone()),
+            tasks,
+            task_specs,
+            reducers: vec![PlanReducer {
+                id: "r1".to_owned(),
+                needs: reducer_needs,
+                prompt: "reduce".to_owned(),
+            }],
+        }
+    }
+}
+
+#[async_trait]
+impl AgentRunner for ScriptedRunner {
+    async fn run(&self, launch: AgentLaunch) -> Result<AgentRunReport> {
+        self.launches.lock().push(launch.clone());
+        let attempt_id = launch.attempt_id.clone().expect("launch attempt id");
+        match launch.role {
+            AgentRole::Planner => Ok(AgentRunReport::terminal(AgentTerminal::Planner(
+                self.build_plan(&launch),
+            ))),
+            AgentRole::Generator => {
+                self.enter();
+                for _ in 0..4 {
+                    tokio::task::yield_now().await;
+                }
+                self.exit();
+                Ok(AgentRunReport::terminal(AgentTerminal::Generator(
+                    GeneratorSubmission {
+                        attempt_id,
+                        task_id: launch.task_id.clone(),
+                        status: TaskOutcomeStatus::Success,
+                        outcome: "generated".to_owned(),
+                        terminal_tool_result: terminal_result(),
+                    },
+                )))
+            }
+            AgentRole::Reducer => {
+                self.enter();
+                tokio::task::yield_now().await;
+                self.exit();
+                Ok(AgentRunReport::terminal(AgentTerminal::Reducer(
+                    ReducerSubmission {
+                        attempt_id,
+                        task_id: launch.task_id.clone(),
+                        status: self.reducer_status,
+                        outcome: "reduced".to_owned(),
+                        terminal_tool_result: terminal_result(),
+                    },
+                )))
+            }
+            other => panic!("ScriptedRunner does not serve role {other:?}"),
         }
     }
 }
@@ -528,6 +732,28 @@ fn agent_registry() -> AgentRegistry {
     builder.build()
 }
 
+/// A registry missing the `planner` profile, used to force a launch failure in
+/// `WorkflowStarter` (AC-eos-workflow-03 compensation saga).
+pub(crate) fn agent_registry_without_planner() -> AgentRegistry {
+    let mut builder = AgentRegistryBuilder::new();
+    for (name, role, terminals) in [
+        ("root", AgentRole::Root, vec!["submit_root_outcome"]),
+        (
+            "coder",
+            AgentRole::Generator,
+            vec!["submit_generator_outcome"],
+        ),
+        (
+            "reducer",
+            AgentRole::Reducer,
+            vec!["submit_reducer_outcome"],
+        ),
+    ] {
+        builder.add(agent_def(name, role, terminals));
+    }
+    builder.build()
+}
+
 fn agent_def(name: &str, role: AgentRole, terminals: Vec<&str>) -> AgentDefinition {
     AgentDefinition {
         name: AgentName::new(name).unwrap(),
@@ -545,7 +771,7 @@ fn agent_def(name: &str, role: AgentRole, terminals: Vec<&str>) -> AgentDefiniti
     }
 }
 
-fn root_task(id: &str, status: TaskStatus) -> Task {
+pub(crate) fn root_task(id: &str, status: TaskStatus) -> Task {
     Task {
         id: id.parse().unwrap(),
         request_id: RequestId::new_v4(),
@@ -562,17 +788,18 @@ fn root_task(id: &str, status: TaskStatus) -> Task {
     }
 }
 
-fn terminal_result() -> JsonObject {
+pub(crate) fn terminal_result() -> JsonObject {
     json!({"ok": true}).as_object().unwrap().clone()
 }
 
-fn one_step_plan(started: &crate::StartedWorkflow) -> eos_tools::PlannerPlan {
-    eos_tools::PlannerPlan {
+/// A full one-generator/one-reducer plan keyed to a started workflow's attempt.
+pub(crate) fn one_step_plan(started: &crate::StartedWorkflow) -> PlannerPlan {
+    PlannerPlan {
         attempt_id: started.attempt_id.clone(),
         planner_task_id: crate::planner_task_id(&started.attempt_id).unwrap(),
-        kind: eos_state::PlannerKind::Completes,
+        kind: PlannerKind::Completes,
         deferred_goal_for_next_iteration: None,
-        tasks: vec![eos_tools::PlanTask {
+        tasks: vec![PlanTask {
             id: "g1".to_owned(),
             agent_name: "coder".to_owned(),
             needs: Vec::new(),
@@ -580,7 +807,7 @@ fn one_step_plan(started: &crate::StartedWorkflow) -> eos_tools::PlannerPlan {
         task_specs: [("g1".to_owned(), "do work".to_owned())]
             .into_iter()
             .collect(),
-        reducers: vec![eos_tools::PlanReducer {
+        reducers: vec![PlanReducer {
             id: "r1".to_owned(),
             needs: vec!["g1".to_owned()],
             prompt: "reduce".to_owned(),
@@ -588,249 +815,17 @@ fn one_step_plan(started: &crate::StartedWorkflow) -> eos_tools::PlannerPlan {
     }
 }
 
-async fn wait_for_workflow_status(
+/// Spin the runtime until `workflow_id` reaches `status`, or panic.
+pub(crate) async fn wait_for_workflow_status(
     stores: &MemoryStores,
     workflow_id: &WorkflowId,
     status: WorkflowStatus,
 ) {
-    for _ in 0..100 {
+    for _ in 0..5000 {
         if stores.workflow(workflow_id).unwrap().status == status {
             return;
         }
         tokio::task::yield_now().await;
     }
     panic!("workflow {workflow_id} did not reach {status:?}");
-}
-
-#[tokio::test]
-async fn starter_creates_delegated_workflow_without_mutating_parent() {
-    let stores = Arc::new(MemoryStores::default());
-    let runner = Arc::new(QueueRunner::default());
-    let deps = stores.deps(runner);
-    let parent = root_task("parent", TaskStatus::Running);
-    stores.seed_task(parent.clone());
-
-    let started = WorkflowStarter::new(deps)
-        .start(" delegated goal ", &parent.id)
-        .await
-        .unwrap();
-
-    assert_eq!(stores.task(&parent.id).unwrap().status, TaskStatus::Running);
-    assert_eq!(
-        stores
-            .workflow(&started.workflow_id)
-            .unwrap()
-            .parent_task_id,
-        parent.id
-    );
-    assert!(stores.iteration(&started.iteration_id).unwrap().is_open());
-    let attempt = stores.attempt(&started.attempt_id).unwrap();
-    assert_eq!(attempt.stage, AttemptStage::Plan);
-    assert_eq!(attempt.status, AttemptStatus::Running);
-    assert!(stores
-        .task(&crate::planner_task_id(&attempt.id).unwrap())
-        .is_some());
-}
-
-#[tokio::test]
-async fn reducer_success_closes_attempt_iteration_and_workflow() {
-    let stores = Arc::new(MemoryStores::default());
-    let runner = Arc::new(QueueRunner::default());
-    let mut deps = stores.deps(runner.clone());
-    deps.lifecycle_config.default_attempt_budget = 1;
-    let parent = root_task("parent", TaskStatus::Running);
-    stores.seed_task(parent.clone());
-    let started = WorkflowStarter::new(deps.clone())
-        .start("delegated goal", &parent.id)
-        .await
-        .unwrap();
-    let generator_id = generator_task_id(&started.attempt_id, "g1").unwrap();
-    let reducer_id = reducer_task_id(&started.attempt_id, "r1").unwrap();
-    runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
-        one_step_plan(&started),
-    )));
-    runner.push(AgentRunReport::terminal(AgentTerminal::Generator(
-        GeneratorSubmission {
-            attempt_id: started.attempt_id.clone(),
-            task_id: generator_id,
-            status: eos_state::TaskOutcomeStatus::Success,
-            outcome: "generated".to_owned(),
-            terminal_tool_result: terminal_result(),
-        },
-    )));
-    runner.push(AgentRunReport::terminal(AgentTerminal::Reducer(
-        ReducerSubmission {
-            attempt_id: started.attempt_id.clone(),
-            task_id: reducer_id,
-            status: eos_state::TaskOutcomeStatus::Success,
-            outcome: "reduced".to_owned(),
-            terminal_tool_result: terminal_result(),
-        },
-    )));
-    wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Succeeded).await;
-
-    assert_eq!(
-        stores.attempt(&started.attempt_id).unwrap().status,
-        AttemptStatus::Passed
-    );
-    assert_eq!(
-        stores.iteration(&started.iteration_id).unwrap().status,
-        IterationStatus::Succeeded
-    );
-    assert_eq!(
-        stores.workflow(&started.workflow_id).unwrap().status,
-        WorkflowStatus::Succeeded
-    );
-    assert_eq!(stores.task(&parent.id).unwrap().status, TaskStatus::Running);
-    assert_eq!(runner.launches().len(), 3);
-}
-
-#[tokio::test]
-async fn no_terminal_generator_fails_the_attempt_and_workflow_when_budget_is_exhausted() {
-    let stores = Arc::new(MemoryStores::default());
-    let runner = Arc::new(QueueRunner::default());
-    let mut deps = stores.deps(runner.clone());
-    deps.lifecycle_config.default_attempt_budget = 1;
-    let parent = root_task("parent", TaskStatus::Running);
-    stores.seed_task(parent.clone());
-    let started = WorkflowStarter::new(deps.clone())
-        .start("delegated goal", &parent.id)
-        .await
-        .unwrap();
-    runner.push(AgentRunReport::terminal(AgentTerminal::Planner(
-        one_step_plan(&started),
-    )));
-    runner.push(AgentRunReport::no_terminal(
-        "generator ended without terminal",
-    ));
-    wait_for_workflow_status(&stores, &started.workflow_id, WorkflowStatus::Failed).await;
-
-    let attempt = stores.attempt(&started.attempt_id).unwrap();
-    assert_eq!(attempt.status, AttemptStatus::Failed);
-    assert_eq!(attempt.fail_reason, Some(AttemptFailReason::TaskFailed));
-    assert_eq!(
-        stores.iteration(&started.iteration_id).unwrap().status,
-        IterationStatus::Failed
-    );
-    assert_eq!(
-        stores.workflow(&started.workflow_id).unwrap().status,
-        WorkflowStatus::Failed
-    );
-}
-
-#[tokio::test]
-async fn launch_failure_marks_task_failed_instead_of_stranding_running_task() {
-    let stores = Arc::new(MemoryStores::default());
-    let runner = Arc::new(QueueRunner::default());
-    let mut deps = stores.deps(runner);
-    deps.lifecycle_config.default_attempt_budget = 1;
-    let parent = root_task("parent", TaskStatus::Running);
-    stores.seed_task(parent.clone());
-    let started = WorkflowStarter::new(deps.clone())
-        .start("delegated goal", &parent.id)
-        .await
-        .unwrap();
-    let task_id = generator_task_id(&started.attempt_id, "missing-profile").unwrap();
-    stores.seed_task(Task {
-        id: task_id.clone(),
-        request_id: parent.request_id,
-        role: TaskRole::Generator,
-        instruction: "do work".to_owned(),
-        status: TaskStatus::Pending,
-        workflow_id: Some(started.workflow_id.clone()),
-        iteration_id: Some(started.iteration_id.clone()),
-        attempt_id: Some(started.attempt_id.clone()),
-        agent_name: None,
-        needs: Vec::new(),
-        outcomes: Vec::new(),
-        terminal_tool_result: None,
-    });
-    eos_state::AttemptStore::set_generator_task_ids(
-        stores.as_ref(),
-        &started.attempt_id,
-        std::slice::from_ref(&task_id),
-    )
-    .await
-    .unwrap();
-    eos_state::AttemptStore::set_stage(stores.as_ref(), &started.attempt_id, AttemptStage::Run)
-        .await
-        .unwrap();
-
-    let orchestrator = deps.orchestrator_registry.get(&started.attempt_id).unwrap();
-    crate::AttemptStageAdvancer::new(orchestrator)
-        .advance_run_stage()
-        .await
-        .unwrap();
-
-    let task = stores.task(&task_id).unwrap();
-    assert_eq!(task.status, TaskStatus::Failed);
-    assert_eq!(
-        task.terminal_tool_result.unwrap().get("fail_reason"),
-        Some(&json!("agent_launch_failed"))
-    );
-    assert_eq!(
-        stores.attempt(&started.attempt_id).unwrap().status,
-        AttemptStatus::Failed
-    );
-    assert_eq!(
-        stores.workflow(&started.workflow_id).unwrap().status,
-        WorkflowStatus::Failed
-    );
-}
-
-#[tokio::test]
-async fn workflow_control_uses_runtime_handles_and_cancels_child_state() {
-    let stores = Arc::new(MemoryStores::default());
-    let runner = Arc::new(QueueRunner::default());
-    let deps = stores.deps(runner);
-    let parent = root_task("parent", TaskStatus::Running);
-    stores.seed_task(parent.clone());
-    let adapter = WorkflowControlAdapter::new(
-        WorkflowStarter::new(deps),
-        stores.clone(),
-        stores.clone(),
-        stores.clone(),
-        stores.clone(),
-    );
-
-    let started = adapter
-        .start(&parent.id, "agent-1", "delegated goal")
-        .await
-        .unwrap();
-    assert_eq!(started.workflow_task_id.as_str(), "wf_1");
-    let derived_handle: eos_types::WorkflowSessionId =
-        format!("wf_{}", started.workflow_id.as_str())
-            .parse()
-            .unwrap();
-    assert!(adapter
-        .status(&started.workflow_id, Some(&derived_handle))
-        .await
-        .unwrap()
-        .contains("was not found"));
-
-    adapter
-        .cancel(&started.workflow_task_id, "stop now")
-        .await
-        .unwrap();
-
-    let workflow = stores.workflow(&started.workflow_id).unwrap();
-    assert_eq!(workflow.status, WorkflowStatus::Cancelled);
-    let iteration_id = workflow.iteration_ids.first().unwrap();
-    let iteration = stores.iteration(iteration_id).unwrap();
-    assert_eq!(iteration.status, IterationStatus::Cancelled);
-    let attempt_id = iteration.attempt_ids.first().unwrap();
-    let attempt = stores.attempt(attempt_id).unwrap();
-    assert_eq!(attempt.status, AttemptStatus::Failed);
-    assert_eq!(attempt.fail_reason, Some(AttemptFailReason::TaskFailed));
-    let planner_task = stores
-        .task(attempt.planner_task_id.as_ref().unwrap())
-        .unwrap();
-    assert_eq!(planner_task.status, TaskStatus::Failed);
-    assert_eq!(
-        planner_task
-            .terminal_tool_result
-            .unwrap()
-            .get("fail_reason"),
-        Some(&json!("workflow_cancelled"))
-    );
 }

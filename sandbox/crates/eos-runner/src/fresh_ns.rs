@@ -270,7 +270,7 @@ fn execute_shell(
     Ok(RunResult {
         exit_code,
         tool_result: serde_json::json!({
-            "success": true,
+            "success": exit_code == 0,
             "workspace": "ephemeral",
             "timings": {
                 "workspace.mount_s": mount_s,

@@ -30,13 +30,13 @@ from sandbox.host.daemon_client import DEFAULT_LAYER_STACK_ROOT
 from sandbox.api import (
     EditFileRequest,
     EditFileResult,
+    ExecCommandRequest,
+    ExecCommandResult,
     RawExecResult,
     ReadFileRequest,
     ReadFileResult,
     SandboxCaller,
     SearchReplaceEdit,
-    ShellRequest,
-    ShellResult,
     WriteFileRequest,
     WriteFileResult,
 )
@@ -113,14 +113,15 @@ class ToolBundle:
         cwd: str | None = None,
         timeout: float | None = None,
         description: str = "",
-    ) -> ShellResult:
-        return await sandbox_api.shell(
+    ) -> ExecCommandResult:
+        if cwd:
+            command = f"cd {shlex.quote(cwd)} && {command}"
+        return await sandbox_api.exec_command(
             self.sandbox_id,
-            ShellRequest(
-                command=command,
+            ExecCommandRequest(
+                cmd=command,
                 caller=self.caller,
-                cwd=cwd,
-                timeout=timeout,
+                timeout=int(timeout) if timeout is not None else None,
                 description=description,
             ),
         )

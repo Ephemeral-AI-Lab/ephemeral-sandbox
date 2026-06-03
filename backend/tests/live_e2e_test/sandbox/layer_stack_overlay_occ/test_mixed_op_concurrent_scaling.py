@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from sandbox.api import ShellResult
+from sandbox.api import ExecCommandResult
 
 from .._harness.concurrency import gather_with_barrier
 from .._harness.integrated_cases import (
@@ -117,7 +117,7 @@ async def _run_mixed_level(
 
         async def run_worker(
             index: int = index, command: str = command,
-        ) -> tuple[ShellResult, RuntimeCallMetric]:
+        ) -> tuple[ExecCommandResult, RuntimeCallMetric]:
             return await timed_call(
                 f"scenario1_mixed_c{concurrency:02d}_{index:02d}",
                 handle.tool.shell(

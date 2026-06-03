@@ -20,7 +20,7 @@ async def test_cancel_task_cancels_registered_invocation() -> None:
         "invocation-1",
         task,
         agent_id="agent-a",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
     )
 
     assert registry.cancel_task("invocation-1") is task
@@ -36,14 +36,14 @@ async def test_heartbeat_refreshes_and_count_by_agent() -> None:
         "foreground-invocation",
         foreground_task,
         agent_id="agent-a",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
         background=False,
     )
     registry.register(
         "background-invocation",
         background_task,
         agent_id="agent-a",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
         background=True,
     )
 
@@ -63,7 +63,7 @@ async def test_ttl_reaper_cancels_stale_invocation() -> None:
         "invocation-1",
         task,
         agent_id="agent-a",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
         background=True,
     )
     registry._by_invocation["invocation-1"].last_seen -= 1.0  # noqa: SLF001
@@ -86,7 +86,7 @@ async def test_ttl_reaper_ignores_foreground_invocation() -> None:
         "invocation-1",
         task,
         agent_id="agent-a",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
         background=False,
     )
     registry._by_invocation["invocation-1"].last_seen -= 1.0  # noqa: SLF001
@@ -130,7 +130,7 @@ async def test_cancel_handler_targets_payload_invocation_id(
         "target-invocation",
         task,
         agent_id="agent-a",
-        op="api.v1.shell",
+        op="api.v1.exec_command",
     )
     monkeypatch.setattr(
         "sandbox.daemon.builtin_operations.get_in_flight_registry",

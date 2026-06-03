@@ -38,8 +38,8 @@ _PORT = 3000
 async def _iws_shell(handle: SandboxHandle, agent_id: str, command: str) -> dict[str, object]:
     return await daemon_client_mod.call_daemon_api(
         handle.sandbox_id,
-        "api.v1.shell",
-        {"agent_id": agent_id, "command": command},
+        "api.v1.exec_command",
+        {"agent_id": agent_id, "cmd": command},
         timeout=60,
     )
 
