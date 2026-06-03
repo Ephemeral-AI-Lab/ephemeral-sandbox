@@ -12,6 +12,7 @@ eos-tools.workspace = true
 eos-sandbox-api.workspace = true
 eos-audit.workspace = true
 eos-agent-def.workspace = true
+eos-state.workspace = true
 eos-types.workspace = true
 futures.workspace = true
 schemars.workspace = true
@@ -19,10 +20,10 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 eos-skills.workspace = true
-eos-state.workspace = true
 tempfile.workspace = true
 
 [lints]

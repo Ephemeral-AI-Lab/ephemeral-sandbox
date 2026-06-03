@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use eos_sandbox_api::SandboxCaller;
 use eos_tools::{
-    CommandSessionSupervisorPort, ExecutionMetadata, NotificationSink, SubagentSupervisorPort,
-    WorkflowControlPort,
+    CommandSessionSupervisorPort, ExecutionMetadata, NotificationSink, PlanSubmissionPort,
+    SubagentSupervisorPort, WorkflowControlPort,
 };
 use eos_types::{AgentRunId, AttemptId, RequestId, SandboxId, TaskId, WorkflowId};
 
@@ -24,6 +24,10 @@ pub(crate) struct MetadataParams {
     /// Wired for the root agent (delegate/check/cancel workflow); `None` for
     /// workflow agents in Phase 6 (nested delegation is deferred).
     pub workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+    /// The recording plan-submission port (planner/generator/reducer terminals).
+    /// Wired for delegated-workflow agents so their submit tools record straight
+    /// to the orchestrator (Path A-recording); `None` for the root agent.
+    pub plan_submission: Option<Arc<dyn PlanSubmissionPort>>,
     pub subagent_supervisor: Option<Arc<dyn SubagentSupervisorPort>>,
     /// The per-request command-session supervisor port (anchor §5), shared with
     /// the heartbeat and loop notifier.

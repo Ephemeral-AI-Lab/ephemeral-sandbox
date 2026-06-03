@@ -4,10 +4,9 @@ use async_trait::async_trait;
 use eos_agent_def::{AgentDefinition, AgentName, AgentRegistry, AgentRole};
 use eos_audit::{AuditSink, NoopAuditSink};
 use eos_state::{
-    Attempt, AttemptStore, GeneratorSubmission, IterationStore, PlannerFailureSubmission,
-    ReducerSubmission, RequestId, Task, TaskId, TaskStore, WorkflowId, WorkflowStore,
+    Attempt, AttemptStore, IterationStore, RequestId, Task, TaskId, TaskStore, WorkflowId,
+    WorkflowStore,
 };
-use eos_tools::PlannerPlan;
 
 use crate::context::{AgentEntryComposer, ContextScope};
 use crate::ids::WorkflowLifecycleConfig;
@@ -16,43 +15,33 @@ use crate::{Result, WorkflowError};
 use super::AttemptOrchestratorRegistry;
 use crate::iteration::OpenIterationCoordinatorRegistry;
 
-/// Terminal result returned by an agent run.
-#[derive(Debug, Clone, PartialEq)]
-pub enum AgentTerminal {
-    /// Planner submitted a plan.
-    Planner(PlannerPlan),
-    /// Planner failed/exhausted.
-    PlannerFailure(PlannerFailureSubmission),
-    /// Generator submitted its outcome.
-    Generator(GeneratorSubmission),
-    /// Reducer submitted its outcome.
-    Reducer(ReducerSubmission),
-}
-
 /// Result of one agent run at the workflow seam.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Under Path A-recording the runner no longer ferries a terminal submission
+/// back: the submit tool records the agent's submission straight to the
+/// orchestrator *during* the run. This report carries only whether the engine
+/// run itself broke (a framework fault), which the single `advance_run_stage`
+/// loop uses as the still-RUNNING exhaustion summary for a dead agent.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AgentRunReport {
-    /// Terminal submission, if the agent called one.
-    pub terminal: Option<AgentTerminal>,
-    /// Optional free-text failure summary from the runner.
+    /// A framework-fault summary if the engine run broke; `None` on a clean run.
     pub failure_summary: Option<String>,
 }
 
 impl AgentRunReport {
-    /// Successful terminal report.
+    /// A clean run (the agent recorded its own submission, or none — the loop
+    /// catches a dead agent at join time).
     #[must_use]
-    pub fn terminal(terminal: AgentTerminal) -> Self {
+    pub fn ok() -> Self {
         Self {
-            terminal: Some(terminal),
             failure_summary: None,
         }
     }
 
-    /// No terminal was called.
+    /// A run that broke with `summary` (a framework fault).
     #[must_use]
-    pub fn no_terminal(summary: impl Into<String>) -> Self {
+    pub fn failed(summary: impl Into<String>) -> Self {
         Self {
-            terminal: None,
             failure_summary: Some(summary.into()),
         }
     }

@@ -41,6 +41,10 @@ pub struct BuildQueryContextInput {
     /// The per-request notification sink shared with the tools/heartbeat. The
     /// loop drains this concrete handle each turn (anchor §7 instance identity).
     pub notifier: NotificationService,
+    /// The explicit run handles carried onto the [`QueryContext`] so the
+    /// engine-driven advisor dispatch can spawn a child `run_ephemeral_agent`
+    /// (advisor remediation plan §2a). `None` for runs that never advise.
+    pub run_handles: Option<crate::agent_loop::EngineRunHandles>,
 }
 
 impl std::fmt::Debug for BuildQueryContextInput {
@@ -85,6 +89,7 @@ pub fn build_query_context(input: BuildQueryContextInput) -> Result<QueryContext
         task_id,
         tool_metadata,
         notifier,
+        run_handles,
     } = input;
 
     let mut allowed = parse_tool_names(&agent.allowed_tools)?;
@@ -149,6 +154,7 @@ pub fn build_query_context(input: BuildQueryContextInput) -> Result<QueryContext
         notification_fired: BTreeSet::new(),
         notification_state: JsonObject::new(),
         notifier,
+        run_handles,
     })
 }
 
@@ -245,6 +251,7 @@ mod tests {
             task_id: None,
             tool_metadata: metadata(),
             notifier: NotificationService::new(),
+            run_handles: None,
         })
         .expect("context");
 

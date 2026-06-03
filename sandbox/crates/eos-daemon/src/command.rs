@@ -422,6 +422,12 @@ impl CommandSessionOutput {
     fn spool_truncated(&self) -> bool {
         *lock_command_session_state(&self.spool_truncated)
     }
+
+    /// The next byte offset (total bytes appended) — the progress signal
+    /// `wait_for_yield` watches for quiet-after-output settling.
+    fn next_byte_offset(&self) -> u64 {
+        *lock_command_session_state(&self.next_byte_offset)
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -464,6 +470,12 @@ struct CommandSession {
     interrupted: Mutex<bool>,
     model_cursor: Mutex<CommandSessionOutputCursor>,
     notification_cursor: Mutex<CommandSessionOutputCursor>,
+    // sense-2: the child lives in the session (was moved into a per-session
+    // detached finalizer thread). One idempotent `try_finalize` reaps it.
+    child: Mutex<Option<Child>>,
+    workspace: CommandWorkspaceKind,
+    finalized: Mutex<Option<Value>>,
+    timeout_deadline: Option<Instant>,
 }
 
 #[cfg(target_os = "linux")]
@@ -476,6 +488,177 @@ impl CommandSession {
     fn read_notification_output(&self, max_tokens: Option<u64>) -> String {
         let mut cursor = lock_command_session_state(&self.notification_cursor);
         self.output.read_since(&mut cursor, max_tokens)
+    }
+
+    /// Sense-2 idempotent finalize: returns the terminal result once the child
+    /// has exited (caching it under the `finalized` latch so exec / write_stdin /
+    /// reaper are at-most-once), or `None` while still running. `publish` parks
+    /// the completion for the heartbeat (set by the reaper for unpolled exits;
+    /// `false` for the inline tool-return path, so a polled session is never
+    /// double-delivered).
+    ///
+    /// This subsumes the two former per-session detached finalizer threads;
+    /// prologue/epilogue are shared and only the workspace-finalize body and the
+    /// teardown branch on [`CommandWorkspaceKind`].
+    fn try_finalize(&self, publish: bool) -> Option<Value> {
+        let mut latch = lock_command_session_state(&self.finalized);
+        if let Some(cached) = latch.as_ref() {
+            return Some(cached.clone());
+        }
+        // Reap the child without blocking; bail while it is still running.
+        let exit_status = {
+            let mut child = lock_command_session_state(&self.child);
+            match child.as_mut() {
+                Some(handle) => match handle.try_wait() {
+                    Ok(Some(status)) => {
+                        let _ = child.take();
+                        Some(status)
+                    }
+                    Ok(None) => return None,
+                    // A wait error means the child is unwaitable; finalize anyway.
+                    Err(_) => {
+                        let _ = child.take();
+                        None
+                    }
+                },
+                // No child handle (already reaped) — finalize with the runner file.
+                None => None,
+            }
+        };
+        terminate_command_process_group(self.pgid);
+        let runner = std::fs::read(self.workspace.output_path())
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<RunResult>(&bytes).ok());
+        let mut exit_code = runner
+            .as_ref()
+            .map(|result| i64::from(result.exit_code))
+            .or_else(|| {
+                exit_status.map(|status| {
+                    status
+                        .code()
+                        .map(i64::from)
+                        .or_else(|| status.signal().map(|signal| -i64::from(signal)))
+                        .unwrap_or(1)
+                })
+            })
+            .unwrap_or(1);
+        let mut command_status = runner
+            .as_ref()
+            .and_then(|result| result.tool_result.get("status"))
+            .and_then(Value::as_str)
+            .unwrap_or("error")
+            .to_owned();
+        let cancelled = *lock_command_session_state(&self.cancelled);
+        if cancelled
+            || (*lock_command_session_state(&self.interrupted) && matches!(exit_code, 130 | -2))
+        {
+            "cancelled".clone_into(&mut command_status);
+            exit_code = 130;
+        }
+        let stdout = completed_session_stdout(self);
+        let response = match &self.workspace {
+            CommandWorkspaceKind::Ephemeral(workspace) => finalize_command_workspace(
+                self,
+                workspace,
+                &command_status,
+                exit_code,
+                &stdout,
+                publish,
+            ),
+            CommandWorkspaceKind::Isolated(workspace) => finalize_isolated_command_workspace(
+                self,
+                workspace,
+                runner.as_ref(),
+                &command_status,
+                exit_code,
+                &stdout,
+                publish,
+            ),
+        }
+        .unwrap_or_else(|err| {
+            command_result(
+                "error",
+                Some(exit_code),
+                &stdout,
+                &err.to_string(),
+                Some(self.id.clone()),
+            )
+        });
+        // Teardown MUST run even on a finalize Err, or the shared ephemeral lease
+        // leaks. Isolated teardown is deferred to `exit_isolated_workspace`.
+        match &self.workspace {
+            CommandWorkspaceKind::Ephemeral(workspace) => {
+                let _ = std::fs::remove_dir_all(&workspace.run_dir);
+                let _ = LayerStack::open(workspace.root.clone())
+                    .and_then(|mut stack| stack.release_lease(&workspace.lease_id));
+            }
+            CommandWorkspaceKind::Isolated(_) => {}
+        }
+        let owned_live_session = command_session_registry().remove(&self.id).is_some();
+        if let CommandWorkspaceKind::Isolated(_) = &self.workspace {
+            crate::isolated::unregister_command_session(&self.agent_id, &self.id);
+        }
+        if should_publish_command_session_completion(publish, cancelled, owned_live_session) {
+            command_session_registry().push_completed(json!({
+                "command_session_id": self.id,
+                "agent_id": self.agent_id,
+                "command": self.command,
+                "result": response_with_stdout(response.clone(), self.read_model_output(None)),
+                "notification_result": response_with_stdout(
+                    response.clone(),
+                    self.read_notification_output(None),
+                ),
+            }));
+        }
+        *latch = Some(response.clone());
+        Some(response)
+    }
+}
+
+/// Whether `wait_for_yield` finalized the session inline or it is still running.
+#[cfg(target_os = "linux")]
+enum WaitOutcome {
+    /// The child exited; the terminal result is ready to return.
+    Completed(Value),
+    /// Still running; the model-facing output captured so far.
+    Running(String),
+}
+
+/// Quiet window: after output appears, a settled gap this long lets a session
+/// that "responded and went quiet" (e.g. a REPL prompt) yield early.
+#[cfg(target_os = "linux")]
+const COMMAND_SESSION_QUIET_MS: u64 = 50;
+
+/// Sense-2 unified wait shared by `exec_command` and `write_stdin`: early-return
+/// on completion (inline finalize) or on quiet-after-output, capped at the
+/// caller's `yield_time_ms`.
+#[cfg(target_os = "linux")]
+fn wait_for_yield(
+    session: &Arc<CommandSession>,
+    yield_time_ms: u64,
+    max_tokens: Option<u64>,
+) -> WaitOutcome {
+    let deadline = Instant::now() + Duration::from_millis(yield_time_ms);
+    let start_off = session.output.next_byte_offset();
+    let (mut last_off, mut last_change) = (start_off, Instant::now());
+    loop {
+        if let Some(result) = session.try_finalize(false) {
+            return WaitOutcome::Completed(result);
+        }
+        let off = session.output.next_byte_offset();
+        if off != last_off {
+            last_off = off;
+            last_change = Instant::now();
+        }
+        if off > start_off
+            && last_change.elapsed() >= Duration::from_millis(COMMAND_SESSION_QUIET_MS)
+        {
+            return WaitOutcome::Running(session.read_model_output(max_tokens));
+        }
+        if Instant::now() >= deadline {
+            return WaitOutcome::Running(session.read_model_output(max_tokens));
+        }
+        thread::sleep(Duration::from_millis(5));
     }
 }
 
@@ -608,7 +791,7 @@ fn completed_session_stdout(session: &CommandSession) -> String {
 }
 
 #[cfg(target_os = "linux")]
-struct CommandWorkspace {
+struct EphemeralCommandWorkspace {
     root: PathBuf,
     lease_id: String,
     manifest: eos_layerstack::Manifest,
@@ -624,6 +807,29 @@ struct IsolatedCommandWorkspace {
     handle: crate::isolated::CommandHandle,
     output_path: PathBuf,
     final_path: PathBuf,
+}
+
+/// Which workspace a command session finalizes into (sense-2 §4). The notify
+/// `publish` flag is orthogonal to this — both kinds can be parked.
+#[cfg(target_os = "linux")]
+enum CommandWorkspaceKind {
+    /// Shared ephemeral overlay: finalize publishes via OCC and releases the
+    /// per-session lease + run dir.
+    Ephemeral(EphemeralCommandWorkspace),
+    /// Isolated private workspace: finalize captures record-only; lease/scratch
+    /// teardown is deferred to `exit_isolated_workspace`.
+    Isolated(IsolatedCommandWorkspace),
+}
+
+#[cfg(target_os = "linux")]
+impl CommandWorkspaceKind {
+    /// The runner `--output` result file path (used by `try_finalize`).
+    fn output_path(&self) -> &Path {
+        match self {
+            Self::Ephemeral(workspace) => &workspace.output_path,
+            Self::Isolated(workspace) => &workspace.output_path,
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -678,41 +884,15 @@ fn start_isolated_command_session(
         timeout_seconds,
     };
     let id = spec.id.clone();
-    let (workspace, session, mut child) = prepare_isolated_command_session(&spec, handle)?;
-    let deadline = Instant::now() + Duration::from_millis(yield_time_ms);
-    while Instant::now() < deadline {
-        if child.try_wait()?.is_some() {
-            let response = IsolatedCommandSessionFinalizer {
-                session,
-                child,
-                workspace,
-            }
-            .finish(false);
-            return Ok(strip_session_id(response));
+    let session = prepare_isolated_command_session(&spec, handle)?;
+    match wait_for_yield(&session, yield_time_ms, optional_u64(args, "max_output_tokens")) {
+        WaitOutcome::Completed(response) => Ok(strip_session_id(response)),
+        WaitOutcome::Running(stdout) => {
+            command_session_registry().insert(Arc::clone(&session));
+            crate::isolated::register_command_session(&session.agent_id, &session.id);
+            Ok(command_result("running", None, &stdout, "", Some(id)))
         }
-        thread::sleep(Duration::from_millis(5));
     }
-    if child.try_wait()?.is_some() {
-        let response = IsolatedCommandSessionFinalizer {
-            session,
-            child,
-            workspace,
-        }
-        .finish(false);
-        return Ok(strip_session_id(response));
-    }
-    let stdout = session.read_model_output(optional_u64(args, "max_output_tokens"));
-    command_session_registry().insert(Arc::clone(&session));
-    crate::isolated::register_command_session(&session.agent_id, &session.id);
-    thread::spawn(move || {
-        let _ = IsolatedCommandSessionFinalizer {
-            session,
-            child,
-            workspace,
-        }
-        .finish(true);
-    });
-    Ok(command_result("running", None, &stdout, "", Some(id)))
 }
 
 #[cfg(target_os = "linux")]
@@ -744,45 +924,19 @@ fn start_command_session(
         timeout_seconds,
     };
     let id = spec.id.clone();
-    let prepare_result = prepare_command_session(&root, &binding, &lease, &spec);
-
-    match prepare_result {
-        Ok((workspace, session, mut child)) => {
-            let deadline = Instant::now() + Duration::from_millis(yield_time_ms);
-            while Instant::now() < deadline {
-                if child.try_wait()?.is_some() {
-                    let response = CommandSessionFinalizer {
-                        session,
-                        child,
-                        workspace,
-                    }
-                    .finish(false);
-                    return Ok(strip_session_id(response));
+    match prepare_command_session(&root, &binding, &lease, &spec) {
+        Ok(session) => {
+            match wait_for_yield(&session, yield_time_ms, optional_u64(args, "max_output_tokens")) {
+                WaitOutcome::Completed(response) => Ok(strip_session_id(response)),
+                WaitOutcome::Running(stdout) => {
+                    command_session_registry().insert(Arc::clone(&session));
+                    Ok(command_result("running", None, &stdout, "", Some(id)))
                 }
-                thread::sleep(Duration::from_millis(5));
             }
-            if child.try_wait()?.is_some() {
-                let response = CommandSessionFinalizer {
-                    session,
-                    child,
-                    workspace,
-                }
-                .finish(false);
-                return Ok(strip_session_id(response));
-            }
-            let stdout = session.read_model_output(optional_u64(args, "max_output_tokens"));
-            command_session_registry().insert(Arc::clone(&session));
-            thread::spawn(move || {
-                let _ = CommandSessionFinalizer {
-                    session,
-                    child,
-                    workspace,
-                }
-                .finish(true);
-            });
-            Ok(command_result("running", None, &stdout, "", Some(id)))
         }
         Err(err) => {
+            // prepare failed before the session owns the lease — release it here
+            // (else the per-session lease leaks; sense-2 §12 guarantee).
             let _ = stack.release_lease(&lease.lease_id);
             Err(err)
         }
@@ -793,7 +947,7 @@ fn start_command_session(
 fn prepare_isolated_command_session(
     spec: &CommandSessionStartSpec,
     handle: crate::isolated::CommandHandle,
-) -> Result<(IsolatedCommandWorkspace, Arc<CommandSession>, Child), DaemonError> {
+) -> Result<Arc<CommandSession>, DaemonError> {
     let session_dir = handle.scratch_dir.join("command-sessions").join(&spec.id);
     std::fs::create_dir_all(&session_dir)?;
     let transcript_path = session_dir.join("transcript.log");
@@ -836,17 +990,12 @@ fn prepare_isolated_command_session(
         timeout_seconds: spec.timeout_seconds,
     };
     write_run_request(&request_path, &request)?;
-    let (session, child) =
-        spawn_command_runner_session(spec, &request_path, &output_path, transcript_path)?;
-    Ok((
-        IsolatedCommandWorkspace {
-            handle,
-            output_path,
-            final_path,
-        },
-        session,
-        child,
-    ))
+    let workspace = CommandWorkspaceKind::Isolated(IsolatedCommandWorkspace {
+        handle,
+        output_path,
+        final_path,
+    });
+    spawn_command_runner_session(spec, &request_path, transcript_path, workspace)
 }
 
 #[cfg(target_os = "linux")]
@@ -855,7 +1004,7 @@ fn prepare_command_session(
     binding: &WorkspaceBinding,
     lease: &Lease,
     spec: &CommandSessionStartSpec,
-) -> Result<(CommandWorkspace, Arc<CommandSession>, Child), DaemonError> {
+) -> Result<Arc<CommandSession>, DaemonError> {
     let runtime_root = overlay_writable_root()
         .map_err(|err| overlay_daemon_error("overlay writable root", &err))?
         .join("runtime");
@@ -905,22 +1054,17 @@ fn prepare_command_session(
         timeout_seconds: spec.timeout_seconds,
     };
     write_run_request(&request_path, &request)?;
-    let (session, child) =
-        spawn_command_runner_session(spec, &request_path, &output_path, transcript_path)?;
-    Ok((
-        CommandWorkspace {
-            root: root.to_path_buf(),
-            lease_id: lease.lease_id.clone(),
-            manifest: lease.manifest.clone(),
-            manifest_version: lease.manifest_version,
-            upperdir: dirs.upperdir,
-            run_dir: dirs.run_dir,
-            output_path,
-            final_path,
-        },
-        session,
-        child,
-    ))
+    let workspace = CommandWorkspaceKind::Ephemeral(EphemeralCommandWorkspace {
+        root: root.to_path_buf(),
+        lease_id: lease.lease_id.clone(),
+        manifest: lease.manifest.clone(),
+        manifest_version: lease.manifest_version,
+        upperdir: dirs.upperdir,
+        run_dir: dirs.run_dir,
+        output_path,
+        final_path,
+    });
+    spawn_command_runner_session(spec, &request_path, transcript_path, workspace)
 }
 
 #[cfg(target_os = "linux")]
@@ -936,9 +1080,9 @@ fn write_run_request(path: &Path, request: &RunRequest) -> Result<(), DaemonErro
 fn spawn_command_runner_session(
     spec: &CommandSessionStartSpec,
     request_path: &Path,
-    output_path: &Path,
     transcript_path: PathBuf,
-) -> Result<(Arc<CommandSession>, Child), DaemonError> {
+    workspace: CommandWorkspaceKind,
+) -> Result<Arc<CommandSession>, DaemonError> {
     let terminal_pair = open_terminal_pair()
         .map_err(|err| DaemonError::OverlayPipeline(format!("open terminal pair: {err}")))?;
     let master = terminal_pair.controller;
@@ -949,7 +1093,7 @@ fn spawn_command_runner_session(
         .arg("--request")
         .arg(request_path)
         .arg("--output")
-        .arg(output_path)
+        .arg(workspace.output_path())
         .stdin(Stdio::from(slave.try_clone()?))
         .stdout(Stdio::from(slave.try_clone()?))
         .stderr(Stdio::from(slave))
@@ -964,11 +1108,15 @@ fn spawn_command_runner_session(
     let output = Arc::new(CommandSessionOutput::new());
     let writer = master.try_clone()?;
     let reader_done = spawn_command_output_reader(master, Arc::clone(&output), transcript_path);
+    let started_at = Instant::now();
+    let timeout_deadline = spec
+        .timeout_seconds
+        .map(|seconds| started_at + Duration::from_secs_f64(seconds));
     let session = Arc::new(CommandSession {
         id: spec.id.clone(),
         agent_id: spec.agent_id.clone(),
         command: spec.command.clone(),
-        started_at: Instant::now(),
+        started_at,
         pgid,
         writer: Mutex::new(writer),
         output: Arc::clone(&output),
@@ -977,8 +1125,12 @@ fn spawn_command_runner_session(
         interrupted: Mutex::new(false),
         model_cursor: Mutex::new(CommandSessionOutputCursor::default()),
         notification_cursor: Mutex::new(CommandSessionOutputCursor::default()),
+        child: Mutex::new(Some(child)),
+        workspace,
+        finalized: Mutex::new(None),
+        timeout_deadline,
     });
-    Ok((session, child))
+    Ok(session)
 }
 
 /// Length of the longest valid-UTF-8 prefix of `bytes`. A trailing incomplete
@@ -1040,183 +1192,6 @@ fn spawn_command_output_reader(
         let _ = done_tx.send(());
     });
     done_rx
-}
-
-#[cfg(target_os = "linux")]
-struct CommandSessionFinalizer {
-    session: Arc<CommandSession>,
-    child: Child,
-    workspace: CommandWorkspace,
-}
-
-#[cfg(target_os = "linux")]
-impl CommandSessionFinalizer {
-    fn finish(mut self, publish_completion: bool) -> Value {
-        let status = self.child.wait();
-        terminate_command_process_group(self.session.pgid);
-        let runner = std::fs::read(&self.workspace.output_path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<RunResult>(&bytes).ok());
-        let mut exit_code = runner
-            .as_ref()
-            .map(|result| i64::from(result.exit_code))
-            .or_else(|| {
-                status.ok().map(|status| {
-                    status
-                        .code()
-                        .map(i64::from)
-                        .or_else(|| status.signal().map(|signal| -i64::from(signal)))
-                        .unwrap_or(1)
-                })
-            })
-            .unwrap_or(1);
-        let mut command_status = runner
-            .as_ref()
-            .and_then(|result| result.tool_result.get("status"))
-            .and_then(Value::as_str)
-            .unwrap_or("error")
-            .to_owned();
-        let cancelled = *lock_command_session_state(&self.session.cancelled);
-        if cancelled
-            || (*lock_command_session_state(&self.session.interrupted)
-                && matches!(exit_code, 130 | -2))
-        {
-            "cancelled".clone_into(&mut command_status);
-            exit_code = 130;
-        }
-        let stdout = completed_session_stdout(&self.session);
-        let response = finalize_command_workspace(
-            &self.session,
-            &self.workspace,
-            &command_status,
-            exit_code,
-            &stdout,
-            publish_completion,
-        )
-        .unwrap_or_else(|err| {
-            command_result(
-                "error",
-                Some(exit_code),
-                &stdout,
-                &err.to_string(),
-                Some(self.session.id.clone()),
-            )
-        });
-        let _ = std::fs::remove_dir_all(&self.workspace.run_dir);
-        let _ = LayerStack::open(self.workspace.root.clone())
-            .and_then(|mut stack| stack.release_lease(&self.workspace.lease_id));
-        let finalizer_owned_live_session = command_session_registry()
-            .remove(&self.session.id)
-            .is_some();
-        if should_publish_command_session_completion(
-            publish_completion,
-            cancelled,
-            finalizer_owned_live_session,
-        ) {
-            command_session_registry().push_completed(json!({
-                "command_session_id": self.session.id,
-                "agent_id": self.session.agent_id,
-                "command": self.session.command,
-                "result": response_with_stdout(
-                    response.clone(),
-                    self.session.read_model_output(None),
-                ),
-                "notification_result": response_with_stdout(
-                    response.clone(),
-                    self.session.read_notification_output(None),
-                ),
-            }));
-        }
-        response
-    }
-}
-
-#[cfg(target_os = "linux")]
-struct IsolatedCommandSessionFinalizer {
-    session: Arc<CommandSession>,
-    child: Child,
-    workspace: IsolatedCommandWorkspace,
-}
-
-#[cfg(target_os = "linux")]
-impl IsolatedCommandSessionFinalizer {
-    fn finish(mut self, publish_completion: bool) -> Value {
-        let status = self.child.wait();
-        terminate_command_process_group(self.session.pgid);
-        let runner = std::fs::read(&self.workspace.output_path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<RunResult>(&bytes).ok());
-        let mut exit_code = runner
-            .as_ref()
-            .map(|result| i64::from(result.exit_code))
-            .or_else(|| {
-                status.ok().map(|status| {
-                    status
-                        .code()
-                        .map(i64::from)
-                        .or_else(|| status.signal().map(|signal| -i64::from(signal)))
-                        .unwrap_or(1)
-                })
-            })
-            .unwrap_or(1);
-        let mut command_status = runner
-            .as_ref()
-            .and_then(|result| result.tool_result.get("status"))
-            .and_then(Value::as_str)
-            .unwrap_or("error")
-            .to_owned();
-        let cancelled = *lock_command_session_state(&self.session.cancelled);
-        if cancelled
-            || (*lock_command_session_state(&self.session.interrupted)
-                && matches!(exit_code, 130 | -2))
-        {
-            "cancelled".clone_into(&mut command_status);
-            exit_code = 130;
-        }
-        let stdout = completed_session_stdout(&self.session);
-        let response = finalize_isolated_command_workspace(
-            &self.session,
-            &self.workspace,
-            runner.as_ref(),
-            &command_status,
-            exit_code,
-            &stdout,
-            publish_completion,
-        )
-        .unwrap_or_else(|err| {
-            command_result(
-                "error",
-                Some(exit_code),
-                &stdout,
-                &err.to_string(),
-                Some(self.session.id.clone()),
-            )
-        });
-        let finalizer_owned_live_session = command_session_registry()
-            .remove(&self.session.id)
-            .is_some();
-        crate::isolated::unregister_command_session(&self.session.agent_id, &self.session.id);
-        if should_publish_command_session_completion(
-            publish_completion,
-            cancelled,
-            finalizer_owned_live_session,
-        ) {
-            command_session_registry().push_completed(json!({
-                "command_session_id": self.session.id,
-                "agent_id": self.session.agent_id,
-                "command": self.session.command,
-                "result": response_with_stdout(
-                    response.clone(),
-                    self.session.read_model_output(None),
-                ),
-                "notification_result": response_with_stdout(
-                    response.clone(),
-                    self.session.read_notification_output(None),
-                ),
-            }));
-        }
-        response
-    }
 }
 
 #[cfg(target_os = "linux")]
@@ -1321,7 +1296,7 @@ fn finalize_isolated_command_workspace(
 #[cfg(target_os = "linux")]
 fn finalize_command_workspace(
     session: &CommandSession,
-    workspace: &CommandWorkspace,
+    workspace: &EphemeralCommandWorkspace,
     status: &str,
     exit_code: i64,
     stdout: &str,

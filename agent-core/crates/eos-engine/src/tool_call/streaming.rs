@@ -71,6 +71,7 @@ mod tests {
             notification_fired: BTreeSet::new(),
             notification_state: JsonObject::new(),
             notifier: crate::NotificationService::new(),
+            run_handles: None,
         }
     }
 

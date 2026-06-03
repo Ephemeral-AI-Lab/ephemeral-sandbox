@@ -212,6 +212,7 @@ mod tests {
             notification_fired: BTreeSet::new(),
             notification_state: JsonObject::new(),
             notifier: NotificationService::new(),
+            run_handles: None,
         }
     }
 

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::Arc;
 
-use eos_agent_def::AgentName;
+use eos_agent_def::{AgentName, AgentRole};
 use eos_state::{
     execution_outcome_for_submission, Attempt, AttemptFailReason, AttemptId, AttemptStage,
     AttemptStatus, ExecutionRole, GeneratorSubmission, PlannerFailReason, PlannerFailureSubmission,
@@ -11,8 +11,7 @@ use eos_state::{
 use eos_tools::PlannerPlan;
 
 use crate::attempt::{
-    AgentLaunch, AgentLaunchFactory, AgentRunReport, AgentTerminal, AttemptDeps,
-    AttemptStageAdvancer,
+    AgentLaunch, AgentLaunchFactory, AgentRunReport, AttemptDeps, AttemptStageAdvancer,
 };
 use crate::ids::{generator_task_id, planner_task_id, reducer_task_id};
 use crate::util::json_object;
@@ -119,38 +118,39 @@ impl AttemptOrchestrator {
         let runner = self.deps.runner.clone();
         tokio::spawn(async move {
             let report = runner.run(launch.clone()).await;
-            if let Err(err) = orchestrator.apply_planner_report(launch, report).await {
+            if let Err(err) = orchestrator.settle_planner(launch, report).await {
                 tracing::warn!(
                     attempt_id = %orchestrator.attempt_id.as_str(),
                     error = %err,
-                    "planner launch report could not be applied"
+                    "planner run could not be settled"
                 );
             }
         });
     }
 
-    async fn apply_planner_report(
+    /// Settle the planner run after it resolves (Path A-recording). The submit
+    /// tool already recorded the plan via [`record_plan`](Self::record_plan)
+    /// *during* the run (materialize + stage RUN + planner Done), so the only
+    /// post-run jobs are: planner Done -> kick the single `advance_run_stage`;
+    /// planner still Running (a dead/failed planner that never submitted) ->
+    /// synthesize `run_exhausted` and close FAILED. This is the sole
+    /// `advance_run_stage` caller (D4: exactly one writer).
+    async fn settle_planner(
         self: &Arc<Self>,
         launch: AgentLaunch,
         report: Result<AgentRunReport>,
     ) -> Result<()> {
         match report {
-            Ok(report) => match report.terminal {
-                Some(AgentTerminal::Planner(plan)) => self.apply_plan(plan).await,
-                Some(AgentTerminal::PlannerFailure(submission)) => {
-                    self.apply_planner_failure(submission).await
-                }
-                Some(terminal) => {
+            Ok(report) => {
+                if let Some(summary) = &report.failure_summary {
                     tracing::warn!(
                         attempt_id = %self.attempt_id.as_str(),
                         task_id = %launch.task_id.as_str(),
-                        terminal = ?terminal,
-                        "planner run returned non-planner terminal"
+                        %summary,
+                        "planner run reported a failure summary"
                     );
-                    self.synthesize_planner_failure(&launch).await
                 }
-                None => self.synthesize_planner_failure(&launch).await,
-            },
+            }
             Err(err) => {
                 tracing::warn!(
                     attempt_id = %self.attempt_id.as_str(),
@@ -158,8 +158,22 @@ impl AttemptOrchestrator {
                     error = %err,
                     "planner run failed"
                 );
-                self.synthesize_planner_failure(&launch).await
             }
+        }
+        let planner_status = self
+            .deps
+            .task_store
+            .get(&launch.task_id)
+            .await?
+            .map(|task| task.status);
+        match planner_status {
+            Some(TaskStatus::Done) => {
+                AttemptStageAdvancer::new(Arc::clone(self))
+                    .advance_run_stage()
+                    .await
+            }
+            Some(TaskStatus::Failed) => Ok(()),
+            _ => self.synthesize_planner_failure(&launch).await,
         }
     }
 
@@ -175,10 +189,16 @@ impl AttemptOrchestrator {
         .await
     }
 
-    /// Apply a rich planner plan from `eos-tools`.
-    pub async fn apply_plan(self: &Arc<Self>, plan: PlannerPlan) -> Result<()> {
+    /// Record a validated planner plan from `eos-tools` (Path A-recording).
+    ///
+    /// Materializes the generator + reducer task rows, marks the planner Done,
+    /// and sets stage RUN — but does **not** advance. The single
+    /// `advance_run_stage` is kicked once by [`settle_planner`](Self::settle_planner)
+    /// in the planner's spawned continuation, so the submit tool returns promptly
+    /// (it does not block on the whole run stage).
+    pub(crate) async fn record_plan(&self, plan: PlannerPlan) -> Result<()> {
         let persisted = self.materialize_plan_tasks(&plan).await?;
-        self.apply_plan_submission(persisted).await
+        self.record_plan_submission(persisted).await
     }
 
     async fn materialize_plan_tasks(&self, plan: &PlannerPlan) -> Result<PlannerSubmission> {
@@ -221,12 +241,20 @@ impl AttemptOrchestrator {
                 })
                 .collect::<Result<Vec<_>>>()?;
             let agent_name = AgentName::new(task.agent_name.clone())?;
-            self.deps.agent_registry.get(&agent_name).ok_or_else(|| {
+            let agent_def = self.deps.agent_registry.get(&agent_name).ok_or_else(|| {
                 WorkflowError::AgentDefinition(format!(
                     "agent definition {:?} is not registered",
                     task.agent_name
                 ))
             })?;
+            // D6: a generator task must be bound to a generator-capable profile
+            // (Python `_schemas.py` requires `AgentRole.GENERATOR`).
+            if agent_def.role != AgentRole::Generator {
+                return Err(WorkflowError::invariant(format!(
+                    "generator task {:?} is bound to agent {:?} with role {:?}, expected generator",
+                    task.id, task.agent_name, agent_def.role
+                )));
+            }
             let instruction = plan
                 .task_specs
                 .get(&task.id)
@@ -310,6 +338,24 @@ impl AttemptOrchestrator {
                 "plan must contain at least one reducer",
             ));
         }
+        // D1: reject a duplicate id across the union of generators and reducers
+        // (mirror `plan_dag.py` union-dedup). The tool layer only checks
+        // generator-vs-generator duplicates, so a reducer<->reducer (or
+        // generator<->reducer) collision would otherwise push duplicate task
+        // rows into `reducer_task_ids`/`generator_task_ids`.
+        let mut seen_ids: BTreeSet<&str> = BTreeSet::new();
+        for id in plan
+            .tasks
+            .iter()
+            .map(|task| task.id.as_str())
+            .chain(plan.reducers.iter().map(|reducer| reducer.id.as_str()))
+        {
+            if !seen_ids.insert(id) {
+                return Err(WorkflowError::invariant(format!(
+                    "plan contains duplicate task id {id:?}"
+                )));
+            }
+        }
         let generator_ids: BTreeSet<&str> =
             plan.tasks.iter().map(|task| task.id.as_str()).collect();
         let reducer_ids: BTreeSet<&str> =
@@ -383,7 +429,7 @@ impl AttemptOrchestrator {
         assert_acyclic(plan)
     }
 
-    async fn apply_plan_submission(self: &Arc<Self>, submission: PlannerSubmission) -> Result<()> {
+    async fn record_plan_submission(&self, submission: PlannerSubmission) -> Result<()> {
         self.assert_submission_attempt(&submission.attempt_id)?;
         self.validate_run_concurrency()?;
         match submission.kind {
@@ -437,9 +483,9 @@ impl AttemptOrchestrator {
             .attempt_store
             .set_stage(&attempt.id, AttemptStage::Run)
             .await?;
-        AttemptStageAdvancer::new(Arc::clone(self))
-            .advance_run_stage()
-            .await
+        // NO advance here (Path A-recording): `settle_planner` kicks the single
+        // `advance_run_stage` once the planner run resolves.
+        Ok(())
     }
 
     /// Apply planner exhaustion.
@@ -463,28 +509,6 @@ impl AttemptOrchestrator {
             )
             .await?;
         self.close_attempt(AttemptStatus::Failed, Some(AttemptFailReason::TaskFailed))
-            .await
-    }
-
-    /// Apply generator submission and advance the run stage.
-    pub async fn apply_generator_submission(
-        self: &Arc<Self>,
-        submission: GeneratorSubmission,
-    ) -> Result<()> {
-        self.record_generator_submission(submission).await?;
-        AttemptStageAdvancer::new(Arc::clone(self))
-            .advance_run_stage()
-            .await
-    }
-
-    /// Apply reducer submission and advance the run stage.
-    pub async fn apply_reducer_submission(
-        self: &Arc<Self>,
-        submission: ReducerSubmission,
-    ) -> Result<()> {
-        self.record_reducer_submission(submission).await?;
-        AttemptStageAdvancer::new(Arc::clone(self))
-            .advance_run_stage()
             .await
     }
 

@@ -20,8 +20,15 @@ use crate::attempt::AttemptOrchestratorRegistry;
 use crate::util::json_object;
 use crate::{WorkflowError, WorkflowStarter};
 
-/// Adapter from `eos-tools` planner/generator/reducer terminal ports to active
-/// per-attempt orchestrators.
+/// Recording adapter from the `eos-tools` planner/generator/reducer terminal
+/// ports to the active per-attempt orchestrators (Path A-recording).
+///
+/// The submit tool writes the agent's real submission straight to the
+/// orchestrator's non-advancing `record_*` variants and returns the
+/// orchestrator's real ack; advancing the DAG stays the exclusive job of the
+/// single `advance_run_stage` loop (D4: exactly one writer). This is the wired
+/// implementor of [`PlanSubmissionPort`], constructed once at the composition
+/// root over the shared attempt registry.
 #[derive(Clone)]
 pub struct PlanSubmissionAdapter {
     registry: Arc<AttemptOrchestratorRegistry>,
@@ -53,7 +60,7 @@ impl PlanSubmissionPort for PlanSubmissionAdapter {
                 plan.attempt_id.as_str()
             )));
         };
-        submission_ack(orchestrator.apply_plan(plan).await)
+        submission_ack(orchestrator.record_plan(plan).await)
     }
 
     async fn submit_generator(
@@ -66,7 +73,7 @@ impl PlanSubmissionPort for PlanSubmissionAdapter {
                 submission.attempt_id.as_str()
             )));
         };
-        submission_ack(orchestrator.apply_generator_submission(submission).await)
+        submission_ack(orchestrator.record_generator_submission(submission).await)
     }
 
     async fn apply_reducer(
@@ -79,7 +86,7 @@ impl PlanSubmissionPort for PlanSubmissionAdapter {
                 submission.attempt_id.as_str()
             )));
         };
-        submission_ack(orchestrator.apply_reducer_submission(submission).await)
+        submission_ack(orchestrator.record_reducer_submission(submission).await)
     }
 }
 

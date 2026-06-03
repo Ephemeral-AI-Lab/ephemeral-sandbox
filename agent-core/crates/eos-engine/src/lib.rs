@@ -3,6 +3,8 @@
 #![forbid(unsafe_code)]
 
 pub mod agent;
+pub mod agent_loop;
+mod advisor;
 pub mod audit;
 pub mod background;
 mod error;
@@ -17,6 +19,10 @@ pub mod tool_call;
 mod test_support;
 
 pub use agent::{build_query_context, BuildQueryContextInput};
+pub use agent_loop::{
+    run_ephemeral_agent, EngineRunHandles, EphemeralRun, EphemeralRunInput, EventCallback,
+    EventSourceFactory,
+};
 pub use background::{
     spawn_command_completion_heartbeat, BackgroundTaskStatus, BackgroundTaskSupervisor,
     CommandSessionRecord, SharedSubagentSupervisor,
@@ -24,8 +30,7 @@ pub use background::{
 pub use error::EngineError;
 pub use events::{stamp_identity, AssistantMessageComplete, StreamEvent};
 pub use notifications::{
-    make_default_notification_rules, AdvisorService, NotificationRule, NotificationService,
-    SystemNotification,
+    make_default_notification_rules, NotificationRule, NotificationService, SystemNotification,
 };
 pub use prompt_report::PromptReportRecorder;
 pub use query::{

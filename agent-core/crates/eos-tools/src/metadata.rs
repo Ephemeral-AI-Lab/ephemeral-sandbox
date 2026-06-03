@@ -12,12 +12,16 @@
 //! Python `TaskStore`). So this struct carries **both** `task_store` and
 //! `request_store`. The Python `tool_registry` field is intentionally dropped
 //! (it existed only for skills introspecting sibling tools — out of scope).
-//! `runtime_config`/`composer`/`attempt_runtime`/`conversation_messages`/
-//! `context_preparers`/`on_progress_line`/`background_task_id` are engine
-//! plumbing (moved to `eos-engine` dispatch context), not tool-facing.
+//! `runtime_config`/`composer`/`attempt_runtime`/`context_preparers`/
+//! `on_progress_line`/`background_task_id` are engine plumbing (moved to
+//! `eos-engine` dispatch context), not tool-facing. **`conversation` is the
+//! exception** — it is the port of Python `context.conversation_messages` and IS
+//! tool-facing: the stateless advisor-approval pre-hook scans it to infer the
+//! verdict from the transcript (advisor remediation plan §2b).
 
 use std::sync::Arc;
 
+use eos_llm_client::Message;
 use eos_sandbox_api::{SandboxCaller, SandboxTransport};
 use eos_skills::SkillRegistry;
 use eos_state::{RequestStore, TaskStore};
@@ -27,8 +31,8 @@ use eos_types::{
 
 use crate::error::ToolError;
 use crate::ports::{
-    AdvisorPort, CommandSessionSupervisorPort, IsolatedWorkspacePort, NotificationSink,
-    PlanSubmissionPort, SubagentSupervisorPort, WorkflowControlPort,
+    CommandSessionSupervisorPort, IsolatedWorkspacePort, NotificationSink, PlanSubmissionPort,
+    SubagentSupervisorPort, WorkflowControlPort,
 };
 
 /// The typed bag of runtime context a tool executor reads. Built per tool call
@@ -79,12 +83,14 @@ pub struct ExecutionMetadata {
     /// Command-session supervisor port (register/recover/mark/count background
     /// PTY command sessions).
     pub command_session_supervisor: Option<Arc<dyn CommandSessionSupervisorPort>>,
-    /// Advisor port (`ask_advisor` + `AdvisorApproval` hook).
-    pub advisor: Option<Arc<dyn AdvisorPort>>,
     /// Isolated-workspace lifecycle port (enter/exit).
     pub isolated_workspace: Option<Arc<dyn IsolatedWorkspacePort>>,
     /// System-notification sink.
     pub notifications: Option<Arc<dyn NotificationSink>>,
+    /// Per-turn snapshot of the live conversation transcript (port of Python
+    /// `context.conversation_messages`). Stamped by the engine dispatch per call;
+    /// read by the stateless advisor-approval pre-hook to infer the verdict.
+    pub conversation: Arc<[Message]>,
 }
 
 impl std::fmt::Debug for ExecutionMetadata {
@@ -194,16 +200,6 @@ impl ExecutionMetadata {
         self.subagent_supervisor
             .as_deref()
             .ok_or(ToolError::MissingPort("subagent_supervisor"))
-    }
-
-    /// Require the advisor port, else a framework fault.
-    ///
-    /// # Errors
-    /// [`ToolError::MissingPort`] when the port is not wired.
-    pub fn require_advisor(&self) -> Result<&dyn AdvisorPort, ToolError> {
-        self.advisor
-            .as_deref()
-            .ok_or(ToolError::MissingPort("advisor"))
     }
 
     /// Require the isolated-workspace port, else a framework fault.

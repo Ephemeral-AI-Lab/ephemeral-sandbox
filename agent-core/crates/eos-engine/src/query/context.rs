@@ -12,6 +12,7 @@ use eos_types::{AgentRunId, JsonObject, TaskId};
 use futures::Stream;
 use serde::{Deserialize, Serialize};
 
+use crate::agent_loop::EngineRunHandles;
 use crate::{
     EngineError, NotificationRule, NotificationService, PromptReportRecorder, StreamEvent,
 };
@@ -90,6 +91,11 @@ pub struct QueryContext {
     /// instance-identity invariant (anchor §7): if these diverge it compiles and
     /// silently delivers nothing.
     pub notifier: NotificationService,
+    /// The explicit run handles the engine-driven advisor dispatch needs to spawn
+    /// a child `run_ephemeral_agent` (advisor remediation plan §2a). `None` in
+    /// tests that never exercise `ask_advisor`; the gate itself reads only the
+    /// transcript, never these handles.
+    pub run_handles: Option<EngineRunHandles>,
 }
 
 impl std::fmt::Debug for QueryContext {

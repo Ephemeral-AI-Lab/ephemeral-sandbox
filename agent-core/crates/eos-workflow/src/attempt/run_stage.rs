@@ -10,7 +10,7 @@ use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
 use crate::attempt::plan_dag::{dag_status, ready_pending_plan_ids};
-use crate::attempt::{AgentLaunch, AgentLaunchFactory, AgentRunReport, AgentTerminal, AttemptDeps};
+use crate::attempt::{AgentLaunch, AgentLaunchFactory, AgentRunReport, AttemptDeps};
 use crate::util::json_object;
 use crate::{Result, WorkflowError};
 
@@ -105,7 +105,7 @@ impl AttemptStageAdvancer {
                 Some(joined) = set.join_next() => {
                     let (launch, report) = joined
                         .map_err(|err| WorkflowError::Join(err.to_string()))?;
-                    self.apply_report(launch, report).await?;
+                    self.settle_run_task(launch, report).await?;
                 }
             }
         }
@@ -192,51 +192,33 @@ impl AttemptStageAdvancer {
         }
     }
 
-    async fn apply_report(
+    /// Settle a RUN-stage task after its run resolves (Path A-recording). The
+    /// submit tool already recorded the agent's outcome (task Done/Failed) via
+    /// the recording port *during* the run, so the loop's only post-join job is
+    /// Python's still-RUNNING exhaustion guard: a task still `Running` means the
+    /// agent died without submitting -> synthesize `run_exhausted`. A recorded
+    /// task is a no-op (the tool already wrote it).
+    async fn settle_run_task(
         &self,
         launch: AgentLaunch,
         report: Result<AgentRunReport>,
     ) -> Result<()> {
-        match report {
-            Ok(report) => {
-                if let Some(terminal) = report.terminal {
-                    self.apply_terminal(terminal).await
-                } else {
-                    self.synthesize_failure(
-                        &launch,
-                        report
-                            .failure_summary
-                            .as_deref()
-                            .unwrap_or("agent run ended without a terminal submission"),
-                    )
-                    .await
-                }
-            }
-            Err(err) => {
-                self.synthesize_failure(&launch, &format!("agent run failed: {err}"))
-                    .await
-            }
-        }
-    }
-
-    async fn apply_terminal(&self, terminal: AgentTerminal) -> Result<()> {
-        match terminal {
-            AgentTerminal::Planner(_) => Err(WorkflowError::invariant(
-                "planner plan submission cannot be applied during run stage",
-            )),
-            AgentTerminal::PlannerFailure(submission) => {
-                self.orchestrator.apply_planner_failure(submission).await
-            }
-            AgentTerminal::Generator(submission) => {
-                self.orchestrator
-                    .record_generator_submission(submission)
-                    .await
-            }
-            AgentTerminal::Reducer(submission) => {
-                self.orchestrator
-                    .record_reducer_submission(submission)
-                    .await
-            }
+        let task = self
+            .orchestrator
+            .deps()
+            .task_store
+            .get(&launch.task_id)
+            .await?;
+        if matches!(task, Some(ref task) if task.status == TaskStatus::Running) {
+            let summary = match report {
+                Ok(report) => report
+                    .failure_summary
+                    .unwrap_or_else(|| "agent run ended without a terminal submission".to_owned()),
+                Err(err) => format!("agent run failed: {err}"),
+            };
+            self.synthesize_failure(&launch, &summary).await
+        } else {
+            Ok(())
         }
     }
 

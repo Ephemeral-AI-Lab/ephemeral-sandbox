@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use eos_state::{GeneratorSubmission, PlannerKind, ReducerSubmission};
-use eos_types::{JsonObject, SandboxId, SubagentSessionId, TaskId, WorkflowId, WorkflowSessionId};
+use eos_types::{SandboxId, SubagentSessionId, TaskId, WorkflowId, WorkflowSessionId};
 use serde_json::Value;
 
 use crate::error::ToolError;
@@ -261,36 +261,6 @@ pub trait CommandSessionSupervisorPort: Sealed + Send + Sync {
 
     /// Count of this agent's tracked, still-running command sessions.
     async fn count_by_agent(&self, agent_id: &str) -> usize;
-}
-
-// ---------------------------------------------------------------------------
-// AdvisorPort — ask_advisor tool + `AdvisorApproval` pre-hook.
-// ---------------------------------------------------------------------------
-
-/// The result of checking prior advisor approval for a terminal (the
-/// `AdvisorApproval` pre-hook). When `approved` is false, `reason` is one of the
-/// Python classification tags (`missing`/`advisor_failed`/`structural`/
-/// `rejected`/`unpaired`/`wrong_tool`).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AdvisorApproval {
-    /// Whether the conversation carries a valid approving advisor verdict.
-    pub approved: bool,
-    /// The denial classification tag when not approved.
-    pub reason: Option<String>,
-}
-
-/// The advisor helper-agent runner. Implemented by `eos-engine`.
-#[async_trait]
-pub trait AdvisorPort: Sealed + Send + Sync {
-    /// Run the advisor over the pending terminal payload (`ask_advisor` tool) and
-    /// return the advisor's rendered verdict + summary.
-    async fn review(&self, tool_name: &str, tool_payload: &JsonObject)
-        -> Result<String, ToolError>;
-
-    /// Whether the conversation already carries a valid approving advisor verdict
-    /// for `target_tool` (the `AdvisorApproval` pre-hook; the implementor inspects
-    /// the engine-owned conversation history).
-    async fn approval_status(&self, target_tool: &str) -> Result<AdvisorApproval, ToolError>;
 }
 
 // ---------------------------------------------------------------------------
