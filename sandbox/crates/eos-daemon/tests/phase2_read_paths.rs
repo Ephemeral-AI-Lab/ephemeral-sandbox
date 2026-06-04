@@ -645,10 +645,6 @@ fn assert_isolated_open_state(table: &OpTable, root: &Path) {
 
 fn assert_isolated_exit(exit: &Value, handle_scratch: &Path, audit_path: &Path) -> TestResult {
     assert_eq!(exit["success"], Value::Bool(true));
-    assert_eq!(exit["force_cancel_requested"], Value::Bool(false));
-    assert_eq!(exit["force_cancelled_command_session_ids"], json!([]));
-    assert_eq!(exit["stale_command_session_ids"], json!([]));
-    assert_eq!(exit["active_command_session_ids_after"], json!([]));
     assert!(exit["evicted_upperdir_bytes"].as_u64().unwrap_or(0) > 0);
     assert_eq!(exit["inspection"]["handle_registered_after"], json!(false));
     assert_eq!(exit["inspection"]["agent_registered_after"], json!(false));

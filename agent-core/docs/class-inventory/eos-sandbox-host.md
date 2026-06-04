@@ -8,16 +8,15 @@
 > helper types are excluded. This generated inventory is distinct from any
 > hand-curated architecture memory layer.
 
-**24 types across 8 files.**
+**23 types across 7 files.**
 
-The `eos-sandbox-host` crate owns the host side of the sandbox: it uses Docker as the only Rust production provider, holds the per-process [`ProviderRegistry`] as explicit application state, runs container lifecycle with post-lifecycle bootstrap, transports JSON envelopes to the resident in-sandbox `eosd` daemon with spawn/connect/empty-response recovery and typed error decoding, and uploads + verifies the pinned `eosd` runtime artifact. The provider seam is the sealed [`ProviderAdapter`] trait (its [`Sealed`](#sealed--trait--pubcrate--l294) supertrait lives in a `pub(crate)` module so no downstream crate can implement it), with the concrete [`DockerProviderAdapter`] over `bollard` and a `#[cfg(test)]` mock substitutable behind `Arc<dyn ProviderAdapter>`. Central types are [`DaemonClient`] (the daemon-backed `SandboxTransport` implementor), [`SandboxLifecycle`] (container CRUD + `setup_post_lifecycle`), [`RequestSandboxProvisioner`] (request-scoped `prepare_for_run`), the [`ProviderRegistry`], the provider value types (`CreateSandboxSpec`, `SandboxInfo`, `DaemonTcpEndpoint`, `RawExecResult`, `ProviderHealth`, `PreviewUrl`, `SnapshotInfo`, the `ContextPreparer` fixed point), the `ProviderKind` selector, the single `SandboxHostError` enum, and the [`BackgroundManager`] seam plus the free `enter_isolated_workspace` / `exit_isolated_workspace` functions. It implements `eos-sandbox-api`'s `SandboxTransport` (over `DaemonOp`/`SandboxApiError`) and depends on `eos-types`, `eos-config`, `eos-protocol` (the sibling `sandbox/` workspace's wire-protocol crate — the single source for the daemon protocol version, field names, exit codes, and reconnect schedule, consumed via a unilateral path edge so a daemon-side bump cannot silently drift the host), `bollard`, `async-trait`, `parking_lot`, `tokio`, `serde`/`serde_json`, `schemars`, `sha2`, and `tar`; `eos-runtime` is its consumer — it injects an `Arc<dyn SandboxTransport>` (a `DaemonClient`) and wraps `RequestSandboxProvisioner` at the composition root.
+The `eos-sandbox-host` crate owns the host side of the sandbox: it uses Docker as the only Rust production provider, holds the per-process [`ProviderRegistry`] as explicit application state, runs container lifecycle with post-lifecycle bootstrap, transports JSON envelopes to the resident in-sandbox `eosd` daemon with spawn/connect/empty-response recovery and typed error decoding, and uploads + verifies the pinned `eosd` runtime artifact. The provider seam is the sealed [`ProviderAdapter`] trait (its [`Sealed`](#sealed--trait--pubcrate--l294) supertrait lives in a `pub(crate)` module so no downstream crate can implement it), with the concrete [`DockerProviderAdapter`] over `bollard` and a `#[cfg(test)]` mock substitutable behind `Arc<dyn ProviderAdapter>`. Central types are [`DaemonClient`] (the daemon-backed `SandboxTransport` implementor), [`SandboxLifecycle`] (container CRUD + `setup_post_lifecycle`), [`RequestSandboxProvisioner`] (request-scoped `prepare_for_run`), the [`ProviderRegistry`], the provider value types (`CreateSandboxSpec`, `SandboxInfo`, `DaemonTcpEndpoint`, `RawExecResult`, `ProviderHealth`, `PreviewUrl`, `SnapshotInfo`, the `ContextPreparer` fixed point), the `ProviderKind` selector, and the single `SandboxHostError` enum. It implements `eos-sandbox-api`'s `SandboxTransport` (over `DaemonOp`/`SandboxApiError`) and depends on `eos-types`, `eos-config`, `eos-protocol` (the sibling `sandbox/` workspace's wire-protocol crate — the single source for the daemon protocol version, field names, exit codes, and reconnect schedule, consumed via a unilateral path edge so a daemon-side bump cannot silently drift the host), `bollard`, `async-trait`, `parking_lot`, `tokio`, `serde`/`serde_json`, `schemars`, `sha2`, and `tar`; `eos-runtime` is its consumer — it injects an `Arc<dyn SandboxTransport>` (a `DaemonClient`) and wraps `RequestSandboxProvisioner` at the composition root.
 
 ## Contents
 
 - **`eos-sandbox-host/src/daemon_client.rs`** — `DaemonClient`, `TcpError`
 - **`eos-sandbox-host/src/docker.rs`** — `DockerProviderAdapter`
 - **`eos-sandbox-host/src/error.rs`** — `SandboxHostError`
-- **`eos-sandbox-host/src/isolated_workspace.rs`** — `BackgroundManager`
 - **`eos-sandbox-host/src/lifecycle.rs`** — `LifecyclePhase`, `SandboxLifecycle`
 - **`eos-sandbox-host/src/provider.rs`** — `Labels`, `ProviderKind`, `CreateSandboxSpec`, `SandboxInfo`, `DaemonTcpEndpoint`, `RawExecResult`, `ExecOpts`, `ProviderHealth`, `PreviewUrl`, `SnapshotInfo`, `ContextPreparer`, `DockerContextPreparer`, `Sealed`, `ProviderAdapter`
 - **`eos-sandbox-host/src/provisioning.rs`** — `RequestSandboxBinding`, `RequestSandboxProvisioner`
@@ -98,18 +97,6 @@ Every fallible operation in `eos-sandbox-host` returns this one error enum.
 - `Docker(#[source] bollard::errors::Error)` — a `bollard` Docker Engine API call failed.
 - `Io(#[from] std::io::Error)` — a transport / filesystem I/O error.
 - `Json(#[from] serde_json::Error)` — a JSON (de)serialization error.
-
----
-
-## `eos-sandbox-host/src/isolated_workspace.rs`
-
-#### `BackgroundManager`  ·  _trait_  ·  bases: `Send + Sync + std::fmt::Debug`  ·  async  ·  [L32]
-
-The host-side seam for the runtime's per-agent background-task manager; `eos-runtime` injects the concrete implementor and `None` means no local background work.
-
-**Trait items**:
-- `fn count_by_agent(&self, agent_id: &str) -> u64;`
-- `async fn cancel_by_agent(&self, agent_id: &str, grace_s: f64) -> u64;`
 
 ---
 

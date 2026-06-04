@@ -120,10 +120,7 @@ fn forbidden_in_isolated_workspace_rejected() -> Result<()> {
     );
 
     let blocked = lease.call("plugin.lsp.not_loaded_yet", json!({}))?;
-    let _ = lease.call(
-        ops::API_ISOLATED_WORKSPACE_EXIT,
-        json!({"force_cancel": true}),
-    );
+    let _ = lease.call(ops::API_ISOLATED_WORKSPACE_EXIT, json!({}));
     assert_eq!(
         error_kind(&blocked),
         Some("forbidden_in_isolated_workspace"),

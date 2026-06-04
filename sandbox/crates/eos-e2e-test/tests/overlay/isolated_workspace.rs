@@ -1,10 +1,8 @@
-mod common;
-
 use anyhow::Result;
 use eos_protocol::ops;
 use serde_json::json;
 
-use common::{array, as_bool, as_i64, as_str, live_pool_or_skip};
+use crate::common::{array, as_bool, as_i64, as_str, live_pool_or_skip};
 
 #[test]
 fn isolated_enter_status_reports_manifest_pin() -> Result<()> {

@@ -5,8 +5,9 @@
 //! namespace (ns-holder spawn -> ns FDs -> overlay mount -> DNS -> net-ready),
 //! and persists the handle. `exit` tears down the namespace + network + cgroup,
 //! releases the lease, and DISCARDS the upperdir (writes are captured for audit
-//! only, never published). Daemon-side gates own active command-session quiescence
-//! for the current Rust slice.
+//! only, never published). The agent-facing background-session guard lives in
+//! `eos-tools`; daemon enter/exit callers may still run command-session cleanup
+//! before mutating lifecycle state.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

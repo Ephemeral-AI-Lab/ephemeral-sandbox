@@ -940,36 +940,47 @@ fn command_session_cancel(args: &Value) -> Result<Value, DaemonError> {
 }
 
 #[cfg(target_os = "linux")]
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "isolated exit cleanup keeps the same fallible helper signature across cfgs"
-)]
-pub fn cancel_command_session_for_exit(id: &str) -> Result<bool, DaemonError> {
-    let Some(session) = command_session_registry().get(id) else {
-        crate::isolated::unregister_command_session_id(id);
-        return Ok(false);
-    };
-    *lock_command_session_state(&session.cancelled) = true;
-    terminate_command_process_group(session.pgid);
-    // Reap promptly so `try_finalize` releases the session and (for isolated)
-    // unregisters it before the namespace is torn down; the reaper is the
-    // backstop if the child outlives the window.
-    let deadline = Instant::now() + Duration::from_millis(COMMAND_SESSION_CANCEL_WAIT_MS);
-    while session.try_finalize(false).is_none() && Instant::now() < deadline {
-        thread::sleep(Duration::from_millis(5));
+/// Best-effort lifecycle backstop for callers that bypass the model-facing
+/// `RequireNoBackgroundSessions` hook.
+pub fn cleanup_command_sessions_for_agent(agent_id: &str, grace_s: Option<f64>) -> usize {
+    let agent_id = agent_id.trim();
+    if agent_id.is_empty() {
+        return 0;
     }
-    Ok(true)
+    let sessions: Vec<Arc<CommandSession>> = command_session_registry()
+        .live()
+        .into_iter()
+        .filter(|session| session.agent_id == agent_id)
+        .collect();
+    if sessions.is_empty() {
+        return 0;
+    }
+    for session in &sessions {
+        *lock_command_session_state(&session.cancelled) = true;
+        terminate_command_process_group(session.pgid);
+    }
+
+    let wait_s = grace_s
+        .unwrap_or(COMMAND_SESSION_CANCEL_WAIT_MS as f64 / 1000.0)
+        .max(COMMAND_SESSION_CANCEL_WAIT_MS as f64 / 1000.0);
+    let deadline = Instant::now() + Duration::from_secs_f64(wait_s);
+    let mut pending = sessions.clone();
+    loop {
+        pending.retain(|session| session.try_finalize(true).is_none());
+        if pending.is_empty() || Instant::now() >= deadline {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    for session in &pending {
+        let _ = session.try_finalize(true);
+    }
+    sessions.len()
 }
 
 #[cfg(not(target_os = "linux"))]
-// Keep the same fallible public helper signature as Linux so isolated exit can
-// call it without cfg-splitting the cleanup path.
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "non-Linux parity keeps the Linux fallible helper signature"
-)]
-pub const fn cancel_command_session_for_exit(_id: &str) -> Result<bool, DaemonError> {
-    Ok(false)
+pub const fn cleanup_command_sessions_for_agent(_agent_id: &str, _grace_s: Option<f64>) -> usize {
+    0
 }
 
 /// Wall-clock cap (seconds) for a session started WITHOUT an explicit `timeout`

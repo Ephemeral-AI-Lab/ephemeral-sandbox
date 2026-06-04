@@ -239,7 +239,7 @@ fn dynamic_plugin_op_is_blocked_in_isolated_workspace_before_route_lookup() -> T
     let exited = table.dispatch(&Request {
         op: "api.isolated_workspace.exit".to_owned(),
         invocation_id: "iws-exit-after-plugin-block".to_owned(),
-        args: json!({"agent_id": "agent-plugin", "force_cancel": true}),
+        args: json!({"agent_id": "agent-plugin"}),
     });
     assert_eq!(exited["success"], true);
     let _ = table.dispatch(&Request {

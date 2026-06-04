@@ -394,7 +394,7 @@
 
 <div class="sequence" aria-label="Isolated workspace foreground tool workflow">
   <ol>
-    <li><span>The user explicitly enters <a href="workspaces.html#isolated-workspace">isolated_workspace</a>; the host checks background gates and the daemon creates a persistent handle for the agent.</span></li>
+    <li><span>The user explicitly enters <a href="workspaces.html#isolated-workspace">isolated_workspace</a>; the agent-facing <code>RequireNoBackgroundSessions</code> gate passes before the daemon creates a persistent handle for the agent.</span></li>
     <li><span>Later daemon tool calls for that agent see the active isolated handle before any direct LayerStack fast path is attempted <span class="file-ref">backend/src/sandbox/daemon/workspace_tool_dispatch.py:30-75</span>.</span></li>
     <li><span><code>IsolatedPipeline.run_tool_call()</code> reuses the handle's namespace, upperdir, workdir, lease id, and root pid instead of acquiring and destroying a per-call overlay <span class="file-ref">backend/src/sandbox/isolated_workspace/pipeline.py:156-188</span>.</span></li>
     <li><span>Write-intent calls capture changed paths for audit/reporting only. They do not call OCC, and the scratch upperdir is discarded during isolated exit <span class="file-ref">backend/src/sandbox/isolated_workspace/_control_plane/workspace_handle_lifecycle.py:175-217</span>.</span></li>
@@ -506,35 +506,37 @@
   </ol>
 </div>
 
-<p>The invocation registry only counts entries that are both background and not done for an agent <span class="file-ref">backend/src/sandbox/daemon/rpc/in_flight.py:98-109</span>. The isolated-workspace gate now uses the daemon command-session registry count exposed as <code>api.v1.command_session_count</code>, because typed command sessions are the persistent daemon-owned command surface.</p>
+<p>The invocation registry only counts entries that are both background and not done for an agent <span class="file-ref">backend/src/sandbox/daemon/rpc/in_flight.py:98-109</span>. The Rust isolated-workspace agent gate now combines persisted delegated workflow state, in-flight subagent state, and the daemon command-session registry count exposed as <code>api.v1.command_session_count</code>; command sessions are the persistent daemon-owned command lane.</p>
 
 </section>
 <section id="isolated-background-gate"
-  data-last-reviewed-commit="2a3e6cc7c"
-  data-evidence-paths="backend/src/sandbox/host/isolated_workspace_lifecycle.py backend/src/sandbox/api/daemon_invocations.py backend/src/sandbox/isolated_workspace/_control_plane/workspace_handle_lifecycle.py backend/src/sandbox/isolated_workspace/_control_plane/namespace_runtime.py backend/src/sandbox/isolated_workspace/network.py">
+  data-last-reviewed-commit="HEAD-plus-worktree"
+  data-evidence-paths="agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-tools/src/hooks/mod.rs agent-core/crates/eos-sandbox-api/src/tool_api/control.rs backend/src/sandbox/host/isolated_workspace_lifecycle.py backend/src/sandbox/api/daemon_invocations.py backend/src/sandbox/isolated_workspace/_control_plane/workspace_handle_lifecycle.py backend/src/sandbox/isolated_workspace/_control_plane/namespace_runtime.py backend/src/sandbox/isolated_workspace/network.py sandbox/crates/eos-daemon/src/isolated.rs sandbox/crates/eos-daemon/src/command.rs">
 <h3>6.9 Isolated Background Gate <a class="anchor" href="#isolated-background-gate">§</a></h3>
 
 <div class="callout warn">
   <span class="label">Isolated vs ephemeral background behavior</span>
-  Active command sessions are daemon-owned command work that may still mutate through the default ephemeral/OCC path. Isolated enter is blocked while those sessions are still running for the same agent. Isolated exit cancels per-agent command-session work before tearing down the namespace.
+  Background sessions are outstanding workflows, in-flight subagents, and daemon-owned command sessions. Rust agent-facing isolated enter and exit are blocked while those sessions are still open for the same agent.
 </div>
 
-<p>The host-side isolated lifecycle checks both local manager state and daemon-visible command session state before entering. A nonzero count returns <code>ephemeral_jobs_in_flight</code>, because an active background task may still write through the default ephemeral/OCC path and should not race an isolated namespace transition <span class="file-ref">backend/src/sandbox/host/isolated_workspace_lifecycle.py:41-77</span>, <span class="file-ref">backend/src/sandbox/host/isolated_workspace_lifecycle.py:244-275</span>. On exit, the host lifecycle cancels per-agent sandbox-bound background tasks, then calls daemon isolated exit and includes the eviction count in the returned phases <span class="file-ref">backend/src/sandbox/host/isolated_workspace_lifecycle.py:98-136</span>, <span class="file-ref">backend/src/sandbox/host/isolated_workspace_lifecycle.py:253-264</span>.</p>
+<p>The current Rust agent path runs <code>RequireNoBackgroundSessions</code> before both lifecycle RPCs. It checks outstanding workflows, in-flight subagents, and daemon-visible command sessions; any open lane returns a <code>hook_failure</code> tagged <code>ephemeral_jobs_in_flight</code>. On exit, the model-facing path refuses while workflows or command sessions remain, then calls daemon isolated exit only after the guard passes <span class="file-ref">agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs</span>. The older Python host lifecycle checked local manager state plus daemon command-session state before enter and cancelled per-agent sandbox-bound background work before exit <span class="file-ref">backend/src/sandbox/host/isolated_workspace_lifecycle.py:41-77</span>, <span class="file-ref">backend/src/sandbox/host/isolated_workspace_lifecycle.py:98-136</span>.</p>
 
 <div class="diagram" aria-label="Isolated background gate">
   <div class="flow-row">
     <div class="node"><strong>enter_isolated_workspace</strong><small>agent requests private scratch</small></div>
     <div class="arrow">&rarr;</div>
-    <div class="node info"><strong>Local count</strong><small>manager.count_by_agent(agent)</small></div>
+    <div class="node info"><strong>Workflow count</strong><small>outstanding delegated workflows</small></div>
     <div class="arrow">&rarr;</div>
-    <div class="node info"><strong>Daemon count</strong><small><code>api.v1.command_session_count</code></small></div>
+    <div class="node info"><strong>Subagent count</strong><small>running helper sessions</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node info"><strong>Command count</strong><small><code>api.v1.command_session_count</code></small></div>
     <div class="arrow">&rarr;</div>
     <div class="node warn"><strong>Reject if nonzero</strong><small><code>ephemeral_jobs_in_flight</code></small></div>
   </div>
   <div class="flow-row">
     <div class="node"><strong>exit_isolated_workspace</strong><small>agent leaves private scratch</small></div>
     <div class="arrow">&rarr;</div>
-    <div class="node warn"><strong>Cancel background</strong><small>per-agent sandbox-bound tasks</small></div>
+    <div class="node warn"><strong>Require zero sessions</strong><small>no workflows, subagents, command sessions</small></div>
     <div class="arrow">&rarr;</div>
     <div class="node"><strong>Daemon exit</strong><small>release lease, delete scratch</small></div>
     <div class="arrow">&rarr;</div>

@@ -88,14 +88,14 @@
 <p>This is why terminal tools are suitable for final Workflow submissions: the result becomes structured lifecycle data rather than just another conversational message.</p>
 </section>
 
-<section id="workflow-terminal-profiles" data-last-reviewed-commit="HEAD-plus-worktree" data-evidence-paths="backend/src/agents/profile/main backend/src/tools/_hooks/disallow_nested_planner_deferral.py backend/src/tools/_hooks/require_no_inflight_background_tasks.py backend/src/tools/submission/notification_triggers/nested_planner_deferral_disabled.py backend/src/workflow/context_engine/skill_message.py backend/src/tools/_terminals/registry.py backend/tests/unit_test/test_tools/test_submission_main_role_terminals.py">
+<section id="workflow-terminal-profiles" data-last-reviewed-commit="HEAD-plus-worktree" data-evidence-paths="backend/src/agents/profile/main backend/src/tools/_hooks/disallow_nested_planner_deferral.py agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs backend/src/tools/submission/notification_triggers/nested_planner_deferral_disabled.py backend/src/workflow/context_engine/skill_message.py backend/src/tools/_terminals/registry.py backend/tests/unit_test/test_tools/test_submission_main_role_terminals.py">
 <h2>Workflow Terminal Profiles <a class="anchor" href="#workflow-terminal-profiles">#</a></h2>
 <p>Workflow no longer filters terminal frontmatter at launch. Main profiles expose one unified outcome terminal per role, while workflow-depth restrictions live at call time in submission prehooks and in one-shot notification triggers injected after initial launch messages. The registered profile is the effective profile.</p>
 <table>
   <thead><tr><th>Profile</th><th>Terminals</th><th>Nested-workflow policy</th></tr></thead>
   <tbody>
     <tr><td>Planner</td><td><code>submit_planner_outcome</code>.</td><td><code>DisallowNestedPlannerDeferral</code> rejects a nonblank <code>deferred_goal_for_next_iteration</code> in nested workflows; <code>nested_planner_deferral_disabled</code> reminds once on matching launches.</td></tr>
-    <tr><td>Executor / generator</td><td><code>submit_generator_outcome</code>.</td><td>Workflow delegation uses non-terminal <code>delegate_workflow</code>, <code>check_workflow_status</code>, and <code>cancel_workflow</code>; outstanding handles are gated by <code>RequireNoInflightBackgroundTasks</code>.</td></tr>
+    <tr><td>Executor / generator</td><td><code>submit_generator_outcome</code>.</td><td>Workflow delegation uses non-terminal <code>delegate_workflow</code>, <code>check_workflow_status</code>, and <code>cancel_workflow</code>; outstanding workflows, subagents, and command sessions are gated by <code>RequireNoBackgroundSessions</code>.</td></tr>
     <tr><td>Reducer</td><td><code>submit_reducer_outcome</code>.</td><td>No workflow-depth prehook.</td></tr>
     <tr><td>Explorer / Advisor</td><td><code>submit_exploration_result</code>, <code>submit_advisor_feedback</code>.</td><td>Helper terminals are outside Workflow attempt mutation and are not depth-filtered.</td></tr>
   </tbody>

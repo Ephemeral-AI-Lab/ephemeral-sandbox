@@ -1,10 +1,8 @@
-mod common;
-
 use anyhow::Result;
 use eos_protocol::ops;
 use serde_json::json;
 
-use common::{as_i64, as_str, live_pool_or_skip};
+use crate::common::{as_i64, as_str, live_pool_or_skip};
 
 #[test]
 fn deep_stack_repeated_squash() -> Result<()> {

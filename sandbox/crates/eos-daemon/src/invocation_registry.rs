@@ -2,7 +2,7 @@
 //!
 //! This is the INVOCATION-keyed registry: id -> task handle, heartbeat ->
 //! `last_seen`, cancel-by-id, and the TTL reaper loop. It is DISTINCT from the
-//! per-agent isolated-workspace lifecycle gates and active command-session records — do not
+//! per-agent isolated-workspace lifecycle state and active command-session records — do not
 //! fuse those with this invocation-keyed background-control registry.
 //!
 //! # Source divergence (noted, not silently resolved)

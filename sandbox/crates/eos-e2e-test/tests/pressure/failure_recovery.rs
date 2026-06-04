@@ -1,10 +1,8 @@
-mod common;
-
 use anyhow::Result;
 use eos_protocol::ops;
 use serde_json::json;
 
-use common::{as_bool, as_i64, as_str, live_pool_or_skip};
+use crate::common::{as_bool, as_i64, as_str, live_pool_or_skip};
 
 fn start_sleep(lease: &eos_e2e_test::NodeLease<'_>, marker: &str) -> Result<String> {
     let started = lease.call_ok(
@@ -86,10 +84,12 @@ fn iws_same_port_discard() -> Result<()> {
         }),
     )?;
     assert_eq!(as_str(&first, "status")?, "running");
+    let first_id = as_str(&first, "command_session_id")?.to_owned();
     lease.call_ok(
-        ops::API_ISOLATED_WORKSPACE_EXIT,
-        json!({"force_cancel": true, "grace_s": 0.1}),
+        ops::API_V1_COMMAND_CANCEL,
+        json!({"command_session_id": first_id}),
     )?;
+    lease.call_ok(ops::API_ISOLATED_WORKSPACE_EXIT, json!({"grace_s": 0.1}))?;
 
     lease.call_ok(ops::API_ISOLATED_WORKSPACE_ENTER, json!({}))?;
     let second = lease.call_ok(
@@ -115,9 +115,6 @@ fn iws_same_port_discard() -> Result<()> {
             json!({"command_session_id": id}),
         )?;
     }
-    lease.call_ok(
-        ops::API_ISOLATED_WORKSPACE_EXIT,
-        json!({"force_cancel": true, "grace_s": 0.1}),
-    )?;
+    lease.call_ok(ops::API_ISOLATED_WORKSPACE_EXIT, json!({"grace_s": 0.1}))?;
     Ok(())
 }

@@ -1,5 +1,3 @@
-mod common;
-
 use anyhow::{Context, Result};
 use eos_e2e_test::client::error_kind;
 use eos_protocol::{
@@ -8,7 +6,7 @@ use eos_protocol::{
 };
 use serde_json::{json, Value};
 
-use common::{array, as_bool, as_i64, as_str, conflict_message, live_pool_or_skip};
+use crate::common::{array, as_bool, as_i64, as_str, conflict_message, live_pool_or_skip};
 
 #[test]
 fn write_read_roundtrip() -> Result<()> {

@@ -26,7 +26,6 @@
 mod daemon_client;
 mod docker;
 mod error;
-mod isolated_workspace;
 mod lifecycle;
 mod provider;
 mod provisioning;
@@ -41,9 +40,6 @@ pub use daemon_client::{
 };
 pub use docker::DockerProviderAdapter;
 pub use error::SandboxHostError;
-pub use isolated_workspace::{
-    enter_isolated_workspace, exit_isolated_workspace, BackgroundManager,
-};
 pub use lifecycle::SandboxLifecycle;
 pub use provider::{
     ContextPreparer, CreateSandboxSpec, DaemonTcpEndpoint, DockerContextPreparer, ExecOpts, Labels,

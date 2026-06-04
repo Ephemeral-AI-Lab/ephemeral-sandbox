@@ -142,7 +142,7 @@
     <tr>
       <td>Isolated workspace lifecycle</td>
       <td><span class="file-ref">backend/src/sandbox/isolated_workspace</span>, <span class="file-ref">backend/src/tools/isolated_workspace</span></td>
-      <td><span class="file-ref">agent-core/crates/eos-tools/src/model_tools/isolated.rs</span>, <span class="file-ref">agent-core/crates/eos-sandbox-host/src/isolated_workspace.rs</span>, <span class="file-ref">sandbox/crates/eos-daemon/src/isolated.rs</span>, <span class="file-ref">sandbox/crates/eos-isolated</span></td>
+      <td><span class="file-ref">agent-core/crates/eos-tools/src/tools/isolated_workspace</span>, <span class="file-ref">agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs</span>, <span class="file-ref">agent-core/crates/eos-runtime/src/isolated_workspace.rs</span>, <span class="file-ref">agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs</span>, <span class="file-ref">sandbox/crates/eos-daemon/src/isolated.rs</span>, <span class="file-ref">sandbox/crates/eos-isolated</span></td>
       <td>Parity: explicit enter/exit, per-agent private namespace, background gate, plugin/LSP block, audit-only writes, and teardown remain. Optimization: public routing uses the active <code>agent_id</code> isolated handle, not a public isolated workspace id parameter.</td>
     </tr>
     <tr>

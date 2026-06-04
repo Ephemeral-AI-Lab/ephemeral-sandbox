@@ -22,5 +22,37 @@ toml = { workspace = true }
 # dev hosts run plain `cargo test` and skip the docker tiers cleanly.
 e2e = []
 
+[[test]]
+name = "command_sessions"
+path = "tests/command_sessions/mod.rs"
+
+[[test]]
+name = "isolated_workspace"
+path = "tests/isolated_workspace/mod.rs"
+
+[[test]]
+name = "layerstack"
+path = "tests/layerstack/mod.rs"
+
+[[test]]
+name = "occ"
+path = "tests/occ/mod.rs"
+
+[[test]]
+name = "overlay"
+path = "tests/overlay/mod.rs"
+
+[[test]]
+name = "pressure"
+path = "tests/pressure/mod.rs"
+
+[[test]]
+name = "protocol"
+path = "tests/protocol/mod.rs"
+
+[[test]]
+name = "workspace_ops"
+path = "tests/workspace_ops/mod.rs"
+
 [lints]
 workspace = true

@@ -15,7 +15,7 @@ HOLDS; the nuance to preserve is the gap *mechanics*, not verdict uncertainty.
 > **UPDATE (supersedes the "root is not advisor-gated" claim below).** After this
 > report was generated, `submit_root_outcome` was **intentionally advisor-gated**
 > (`eos-tools/src/meta.rs:68` now lists `Hook::AdvisorApproval` alongside
-> `RequireNoInflightBackgroundTasks`) — a deliberate divergence from the Python
+> `RequireNoBackgroundSessions`) — a deliberate divergence from the Python
 > backend, which gates only the planner/generator/reducer main-role terminals.
 > Consequence: root is **engine-loop ready but no longer completable under the
 > always-denying `AdvisorService` stub** — exactly like the workflow agents, root
@@ -29,7 +29,8 @@ HOLDS; the nuance to preserve is the gap *mechanics*, not verdict uncertainty.
 
 - **Root agent — READY.** Runs the real engine loop and persists a typed
   terminal. Decisive reason: `submit_root_outcome` is **not** advisor-gated
-  (`eos-tools/src/meta.rs:68` lists only `Hook::RequireNoInflightBackgroundTasks`),
+  (`eos-tools/src/meta.rs:68` listed only `Hook::RequireNoBackgroundSessions` in
+  the historical snapshot),
   so the always-denying advisor stub cannot block it. The test
   `successful_root_keeps_engine_terminal` passes against the real stub and asserts
   `TaskStatus::Done` with `fail_reason=None` (`eos-runtime/src/tests.rs:164-186`).
@@ -60,7 +61,7 @@ HOLDS; the nuance to preserve is the gap *mechanics*, not verdict uncertainty.
 
 **Root is genuinely ready because its terminal is not advisor-gated.**
 `tool_hooks(SubmitRootOutcome)` returns only
-`Hook::RequireNoInflightBackgroundTasks` — no `Hook::AdvisorApproval`
+`Hook::RequireNoBackgroundSessions` — no `Hook::AdvisorApproval`
 (`eos-tools/src/meta.rs:68`). Hooks run before the tool body and a `Deny`
 short-circuits (`eos-tools/src/execution.rs:48-62`), but since the advisor hook is
 absent from root's chain, the always-denying stub never sees root's terminal. The

@@ -22,7 +22,8 @@ The `eos-tools` crate owns the tool *model surface*: the typed `ToolName` set, t
 - **`eos-tools/src/intent.rs`** — `ToolIntent`
 - **`eos-tools/src/metadata.rs`** — `ExecutionMetadata`
 - **`eos-tools/src/model_tools/advisor.rs`** — `AskAdvisorInput`, `AskAdvisor`
-- **`eos-tools/src/model_tools/isolated.rs`** — `EnterIsolatedWorkspaceInput`, `ExitIsolatedWorkspaceInput`, `EnterIsolatedWorkspace`, `ExitIsolatedWorkspace`
+- **`eos-tools/src/tools/isolated_workspace/enter_isolated_workspace.rs`** — `EnterIsolatedWorkspaceInput`, `EnterIsolatedWorkspace`
+- **`eos-tools/src/tools/isolated_workspace/exit_isolated_workspace.rs`** — `ExitIsolatedWorkspaceInput`, `ExitIsolatedWorkspace`
 - **`eos-tools/src/model_tools/mod.rs`** — `CallerScope`
 - **`eos-tools/src/model_tools/sandbox.rs`** — `ReadFileOutput`, `MutationOutput`, `GrepOutput`, `GlobOutput`, `CommandToolOutput`, `ReadFileInput`, `ReadFile`, `WriteFileInput`, `WriteFile`, `EditFileInput`, `EditFile`, `MultiEditOp`, `MultiEditInput`, `MultiEdit`, `GrepMode`, `GrepInput`, `Grep`, `GlobInput`, `Glob`, `ExecCommandInput`, `ExecCommand`, `WriteStdinInput`, `WriteStdin`
 - **`eos-tools/src/model_tools/skills.rs`** — `LoadSkillReferenceInput`, `LoadSkillReference`
@@ -132,7 +133,7 @@ An executor bundled with its static registry metadata; built once at composition
 One wired pre-hook; a sealed, closed set matched exhaustively by `Hook::run` rather than an open trait pipeline. Every variant is a struct variant carrying `tool: ToolName` (the protected tool).
 
 **Variants**:
-- `RequireNoInflightBackgroundTasks { tool: ToolName }` — refuse a terminal/lifecycle tool while sandbox-bound background work is in flight.
+- `RequireNoBackgroundSessions { tool: ToolName }` — refuse a terminal/lifecycle tool while workflows, subagents, or command sessions are still open.
 - `AdvisorApproval { tool: ToolName }` — refuse a main-role terminal lacking prior advisor approval.
 - `DisallowNestedPlannerDeferral { tool: ToolName }` — refuse a nested-workflow planner that sets a deferred goal.
 - `DestructiveGitShell { tool: ToolName }` — refuse git working-tree / metadata mutation shell commands.
@@ -263,7 +264,7 @@ _Unit struct — no fields._
 
 ---
 
-## `eos-tools/src/model_tools/isolated.rs`
+## `eos-tools/src/tools/isolated_workspace`
 
 #### `EnterIsolatedWorkspaceInput`  ·  _struct_  ·  derives: `Debug, Deserialize, Serialize, JsonSchema`  ·  · private  ·  [L29]
 

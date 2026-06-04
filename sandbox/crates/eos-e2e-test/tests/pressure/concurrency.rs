@@ -1,5 +1,3 @@
-mod common;
-
 use std::sync::{Arc, Barrier};
 use std::thread;
 
@@ -8,7 +6,7 @@ use eos_e2e_test::next_invocation_id;
 use eos_protocol::ops;
 use serde_json::json;
 
-use common::{as_bool, as_i64, as_str, live_pool_or_skip};
+use crate::common::{as_bool, as_i64, as_str, live_pool_or_skip};
 
 #[test]
 fn n_concurrent_mixed_ops() -> Result<()> {

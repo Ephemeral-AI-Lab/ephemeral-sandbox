@@ -1,29 +1,12 @@
-//! The no-inflight-background-tasks prehook — relocated out of the hooks
-//! monolith into its own file (mirrors `hooks/advisor_approval.rs`), with the
-//! Rust name aligned to the full session contract.
+//! `RequireNoBackgroundSessions` is the agent-facing isolated/terminal guard for
+//! every background lane: outstanding delegated workflows, in-flight subagents,
+//! and daemon-visible command sessions.
 //!
-//! **Behavior change from HEAD's deny-if-count>0 → cancel-to-0 (D6/D9).** On a
-//! terminal / `exit_isolated_workspace` call this hook **cancels** the agent's
-//! in-flight subagent runs (settle `Cancelled` + abort) so a live or phantom
-//! subagent never permanently wedges the agent's terminal (the D9 active harm).
-//! `enter_isolated_workspace` keeps **reject** semantics (it only inspects).
-//!
-//! **Scope (resolves the plan's flagged §3e open item).** The cleanup settles only
-//! the supervisor's in-process subagent records — the kind whose phantom causes
-//! D9. Command sessions stay on the existing **daemon-authoritative** deny +
-//! bailout path for terminal validation; parent-exit cleanup cancels them through
-//! the background supervisor after the run ends.
-//!
-//! **Background task definition (§3e, all-three-kinds invariant).** This hook is
-//! the agent-facing isolated/terminal guard for every background lane:
-//! outstanding delegated workflows, in-flight subagents, and daemon-visible
-//! command sessions. Delegated workflows are background-supervisor-aware for
-//! handle bookkeeping and parent-exit cleanup, while the workflow lane (a sibling
-//! crate) remains the authoritative persisted state owner. This hook therefore
-//! keeps the persisted [`WorkflowControlPort::find_outstanding`] gate and
-//! **denies** terminal submission while a delegated workflow is open — Python
-//! `count_by_agent` parity (the agent resolves it via `check_workflow_status` /
-//! `cancel_workflow`).
+//! Terminal tools and `exit_isolated_workspace` settle in-process subagent
+//! records before checking the remaining lanes. `enter_isolated_workspace`
+//! remains inspect-only. Workflows stay owned by persisted workflow state via
+//! [`WorkflowControlPort::find_outstanding`], and command sessions stay owned by
+//! the sandbox daemon via `api.v1.command_session_count`.
 
 use eos_types::JsonObject;
 use serde_json::{json, Value};
@@ -113,9 +96,8 @@ pub(crate) async fn run_require_no_background_sessions(
     }
 
     // Workflow dimension: the supervisor tracks workflow handles, but persisted
-    // workflow lifecycle remains authoritative here. Gate on
-    // `WorkflowControlPort::find_outstanding` — Python `count_by_agent` parity:
-    // DENY while a delegated workflow is still open.
+    // workflow lifecycle remains authoritative here. Deny while a delegated
+    // workflow is still open.
     if let (Some(control), Some(task_id)) = (&ctx.workflow_control, &ctx.task_id) {
         let outstanding = control.find_outstanding(task_id, &agent_id).await?;
         if !outstanding.is_empty() {
@@ -361,9 +343,9 @@ mod tests {
         }
     }
 
-    // The workflow dimension: a terminal is DENIED while a delegated workflow is
-    // still outstanding — gated on the authoritative WorkflowControlPort, not a
-    // supervisor record (Python `count_by_agent` parity).
+    // The workflow dimension: a terminal is denied while a delegated workflow is
+    // still outstanding, gated on the authoritative WorkflowControlPort rather
+    // than a supervisor handle record.
     #[tokio::test]
     async fn outstanding_workflow_denies_terminal() {
         use crate::testsupport::metadata;
