@@ -158,6 +158,7 @@ impl AppState {
             agent_registry: self.agent_registry.clone(),
             tool_config: self.tool_config.clone(),
             tool_registry_extender: Some(Arc::new(register_plugin_tools)),
+            audit: self.audit.clone(),
             cwd: self.cwd.clone(),
         }
     }

@@ -1,5 +1,4 @@
-//! OCC service: prepare typed changesets, commit through the single writer,
-//! and expose the inverted daemon-accessor port.
+//! OCC service: prepare typed changesets and commit through the single writer.
 //!
 //! The service routes changes into [`PublishDecision`]s, submits the prepared
 //! changeset to the per-root [`CommitQueue`].
@@ -255,33 +254,6 @@ impl<T: CommitTransactionPort + 'static> Drop for OccService<T> {
     fn drop(&mut self) {
         let _ = self.commit_queue.close();
     }
-}
-
-/// Inverted daemon accessor: the OCC runtime-services bundle, keyed per root.
-///
-/// `eos-occ` (a lower crate) defines this PORT; `eos-daemon` implements and
-/// injects it so the upward Python edge (`daemon.occ_runtime_services` imported
-/// by shared-overlay and isolated control-plane paths) becomes a leaf→root trait
-/// dependency. The single per-root services instance is the MF-1 owner of the
-/// one `occ-commit-queue` writer — implementations MUST return the same bundle
-/// (and thus the same queue + storage lease) for a given `layer_stack_root`,
-/// never a second writer.
-pub trait OccRuntimeServicesPort {
-    /// Concrete commit-transaction implementation the queue drives.
-    type Transaction: CommitTransactionPort + 'static;
-
-    /// Return the daemon-local OCC service for `layer_stack_root`.
-    ///
-    /// Cached per root (LRU, max 256) so the single writer is reused.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`OccError`] when the per-root service cannot be created or
-    /// retrieved.
-    fn occ_runtime_services(
-        &self,
-        layer_stack_root: &str,
-    ) -> Result<&OccService<Self::Transaction>, OccError>;
 }
 
 #[cfg(test)]

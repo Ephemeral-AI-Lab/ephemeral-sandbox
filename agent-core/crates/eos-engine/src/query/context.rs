@@ -6,6 +6,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use eos_audit::AuditSink;
 use eos_llm_client::LlmRequest;
 use eos_tools::{ExecutionMetadata, ToolName, ToolRegistry, ToolResult};
 use eos_types::{AgentRunId, JsonObject, TaskId};
@@ -89,6 +90,8 @@ pub struct QueryContext {
     /// instance-identity invariant (anchor §7): if these diverge it compiles and
     /// silently delivers nothing.
     pub notifier: NotificationService,
+    /// Optional agent-core observability sink.
+    pub audit: Option<Arc<dyn AuditSink>>,
     /// The explicit run handles the engine-driven advisor dispatch needs to spawn
     /// a child `run_ephemeral_agent` (advisor remediation plan §2a). `None` in
     /// tests that never exercise `ask_advisor`; the gate itself reads only the

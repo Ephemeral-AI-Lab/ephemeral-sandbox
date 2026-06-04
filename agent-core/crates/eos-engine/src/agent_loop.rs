@@ -10,16 +10,20 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use eos_agent_def::{AgentDefinition, AgentRegistry};
+use eos_audit::{AuditEvent, AuditNode, AuditSink, AuditSource};
 use eos_llm_client::{LlmClient, Message, DEFAULT_MAX_TOKENS};
+use eos_obs_contract::AGENT_RUN_COMPLETED;
 use eos_state::{AgentRunStore, ModelStore};
 use eos_tools::{
     build_default_registry, BackgroundSupervisorPort, CallerScope, ExecutionMetadata,
     ToolConfigSet, ToolRegistry, ToolResult, WorkflowControlPort,
 };
-use eos_types::{AgentRunId, TaskId};
+use eos_types::{AgentRunId, JsonObject, SystemClock, TaskId};
 use futures::StreamExt;
+use serde_json::{json, Value};
 
 use crate::agent::{build_query_context, BuildQueryContextInput};
 use crate::events::StreamEvent;
@@ -64,6 +68,8 @@ pub struct EngineRunHandles {
     /// Optional runtime extender that registers dynamic plugin tools into each
     /// per-agent registry after the built-in tools are registered.
     pub tool_registry_extender: Option<ToolRegistryExtender>,
+    /// Agent-core observability sink.
+    pub audit: Arc<dyn AuditSink>,
     /// Working directory.
     pub cwd: String,
 }
@@ -176,6 +182,7 @@ pub async fn run_ephemeral_agent(
     input: EphemeralRunInput,
     on_event: Option<&EventCallback>,
 ) -> EphemeralRun {
+    let run_started = Instant::now();
     let EphemeralRunInput {
         agent,
         mut initial_messages,
@@ -247,6 +254,7 @@ pub async fn run_ephemeral_agent(
         task_id,
         tool_metadata,
         notifier,
+        audit: Some(handles.audit.clone()),
         run_handles: Some(handles.clone()),
     });
 
@@ -286,12 +294,76 @@ pub async fn run_ephemeral_agent(
     background_finalizer.disarm();
 
     let terminal_result = ctx.terminal_result.clone();
+    publish_agent_run_completed(
+        handles,
+        &ctx,
+        run_started.elapsed().as_secs_f64() * 1000.0,
+        error.as_deref(),
+    );
     if persisted {
         finish_run(handles, &agent_run_id, error.as_deref()).await;
     }
     EphemeralRun {
         terminal_result,
         error,
+    }
+}
+
+fn publish_agent_run_completed(
+    handles: &EngineRunHandles,
+    ctx: &crate::query::QueryContext,
+    duration_ms: f64,
+    error: Option<&str>,
+) {
+    let mut node = AuditNode::builder()
+        .agent_name(ctx.agent_name.clone())
+        .agent_run_id(ctx.agent_run_id.clone());
+    if let Some(request_id) = &ctx.tool_metadata.request_id {
+        node = node.request_id(request_id.clone());
+    }
+    if let Some(task_id) = ctx
+        .task_id
+        .clone()
+        .or_else(|| ctx.tool_metadata.task_id.clone())
+    {
+        node = node.task_id(task_id);
+    }
+    if let Some(sandbox_id) = &ctx.tool_metadata.sandbox_id {
+        node = node.sandbox_id(sandbox_id.clone());
+    }
+
+    let mut section = JsonObject::new();
+    section.insert("duration_ms".to_owned(), json!(duration_ms));
+    section.insert(
+        "status".to_owned(),
+        json!(if error.is_some() { "error" } else { "ok" }),
+    );
+    section.insert(
+        "exit_reason".to_owned(),
+        json!(ctx.exit_reason.map(exit_reason_value)),
+    );
+    if let Some(error) = error {
+        section.insert("error".to_owned(), json!(error));
+    }
+
+    let mut payload = JsonObject::new();
+    payload.insert("agent_run".to_owned(), Value::Object(section));
+    let event = AuditEvent::new(
+        AuditSource::Engine,
+        AGENT_RUN_COMPLETED,
+        node.build(),
+        payload,
+        &SystemClock,
+    );
+    if let Err(err) = handles.audit.publish(&event) {
+        tracing::warn!(error = %err, agent_run_id = ctx.agent_run_id.as_str(), "agent-run obs publish failed");
+    }
+}
+
+const fn exit_reason_value(reason: QueryExitReason) -> &'static str {
+    match reason {
+        QueryExitReason::ToolStop => "tool_stop",
+        QueryExitReason::TerminalNotSubmitted => "terminal_not_submitted",
     }
 }
 

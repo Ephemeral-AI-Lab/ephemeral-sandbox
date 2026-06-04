@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use eos_agent_def::AgentDefinition;
+use eos_audit::AuditSink;
 use eos_llm_client::LlmClient;
 use eos_tools::{ExecutionMetadata, ToolKey, ToolName, ToolRegistry};
 use eos_types::{AgentRunId, JsonObject, TaskId};
@@ -41,6 +42,8 @@ pub struct BuildQueryContextInput {
     /// The per-request notification sink shared with the tools/heartbeat. The
     /// loop drains this concrete handle each turn (anchor §7 instance identity).
     pub notifier: NotificationService,
+    /// Optional agent-core observability sink.
+    pub audit: Option<Arc<dyn AuditSink>>,
     /// The explicit run handles carried onto the [`QueryContext`] so the
     /// engine-driven advisor dispatch can spawn a child `run_ephemeral_agent`
     /// (advisor remediation plan §2a). `None` for runs that never advise.
@@ -98,6 +101,7 @@ pub fn build_query_context(input: BuildQueryContextInput) -> Result<QueryContext
         task_id,
         tool_metadata,
         notifier,
+        audit,
         run_handles,
     } = input;
 
@@ -162,6 +166,7 @@ pub fn build_query_context(input: BuildQueryContextInput) -> Result<QueryContext
         notification_fired: BTreeSet::new(),
         notification_state: JsonObject::new(),
         notifier,
+        audit,
         run_handles,
     })
 }
@@ -259,6 +264,7 @@ mod tests {
             task_id: None,
             tool_metadata: metadata(),
             notifier: NotificationService::new(),
+            audit: None,
             run_handles: None,
         })
         .expect("context");

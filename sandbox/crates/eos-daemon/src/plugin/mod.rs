@@ -28,6 +28,8 @@ use serde_json::{json, Value};
 
 use crate::dispatcher::DispatchContext;
 use crate::error::DaemonError;
+#[cfg(all(target_os = "linux", not(test)))]
+use crate::overlay_runner::overlay_daemon_error;
 use crate::response_timings::u64_to_f64_saturating;
 use overlay::PluginOverlayCommand;
 use process::{PluginProcessSpec, PluginServiceOverlay};
@@ -752,7 +754,7 @@ fn service_overlay_for_snapshot(
     snapshot: &PluginServiceSnapshot,
 ) -> Result<Option<PluginServiceOverlay>, DaemonError> {
     let run_dir = overlay_writable_root()
-        .map_err(|err| crate::dispatcher::overlay_daemon_error("overlay writable root", &err))?
+        .map_err(|err| overlay_daemon_error("overlay writable root", &err))?
         .join("runtime")
         .join("plugin-service")
         .join(format!(
@@ -762,7 +764,7 @@ fn service_overlay_for_snapshot(
             sanitize_path_component(&snapshot.manifest_key)
         ));
     let dirs = allocate_overlay_writable_dirs(&run_dir)
-        .map_err(|err| crate::dispatcher::overlay_daemon_error("allocate overlay dirs", &err))?;
+        .map_err(|err| overlay_daemon_error("allocate overlay dirs", &err))?;
     Ok(Some(PluginServiceOverlay {
         run_dir: dirs.run_dir,
         layer_paths: snapshot.layer_paths.iter().map(PathBuf::from).collect(),

@@ -72,9 +72,8 @@ where absent. Test-only `#[cfg(test)]` items are excluded.
   file-API writes into one manifest CAS attempt per layer_stack_root and routing
   each path to drop/direct/gated/reject. Its items cover route classification
   and per-path outcomes, the single-writer commit queue with its inverted
-  transaction port, the changeset-preparing service plus
-  maintenance/route-provider/daemon-accessor ports, and the crate-local error
-  algebra.
+  transaction port, the changeset-preparing service plus route-provider port,
+  and the crate-local error algebra.
 - `eos-isolated` — Owns the isolated-workspace subsystem: a persistent,
   network-isolated PRIVATE session whose writes are captured for audit only and
   never published (enforced at build time by not depending on eos-occ). Provides

@@ -246,7 +246,7 @@ mod tests {
 
     use async_trait::async_trait;
     use eos_llm_client::{ContentBlock, Message, MessageRole, UsageSnapshot};
-    use eos_tools::{ToolName, ToolRegistry};
+    use eos_tools::{NotificationSink, SystemNotification, ToolName, ToolRegistry};
     use eos_types::{AgentRunId, JsonObject};
     use futures::StreamExt;
 
@@ -316,6 +316,7 @@ mod tests {
             notification_fired: BTreeSet::new(),
             notification_state: JsonObject::new(),
             notifier: crate::NotificationService::new(),
+            audit: None,
             run_handles: None,
         }
     }
@@ -353,5 +354,55 @@ mod tests {
             .expect("failure event")
             .contains("without submitting a terminal tool"));
         assert_eq!(ctx.exit_reason, Some(QueryExitReason::TerminalNotSubmitted));
+    }
+
+    #[tokio::test]
+    async fn terminal_not_submitted_drains_queued_notifications_before_exit() {
+        let source = Arc::new(ScriptedSource {
+            turns: tokio::sync::Mutex::new(Vec::new()),
+        });
+        let mut ctx = ctx(source);
+        ctx.tool_calls_used = 3;
+        ctx.notifier
+            .notify_system(SystemNotification {
+                event: "cmd_1".to_owned(),
+                message: "[BACKGROUND COMPLETED] cmd_1".to_owned(),
+            })
+            .await
+            .expect("notification queued");
+        let mut messages = vec![Message::from_user_text("start")];
+        let mut stream = run_query(&mut ctx, &mut messages);
+        let mut saw_notification = false;
+        let mut saw_failure = false;
+        while let Some(item) = stream.next().await {
+            let (event, _) = item.expect("stream item");
+            match event {
+                StreamEvent::SystemNotification { text, .. } => {
+                    saw_notification |= text.contains("[BACKGROUND COMPLETED] cmd_1");
+                }
+                StreamEvent::ToolExecutionCompleted {
+                    tool_name,
+                    is_error,
+                    ..
+                } if tool_name.is_empty() && is_error => {
+                    saw_failure = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        drop(stream);
+
+        assert!(saw_notification, "queued completion must be streamed");
+        assert!(saw_failure, "hard ceiling still emits the failure event");
+        assert!(
+            messages.iter().any(|message| {
+                message.content.iter().any(|block| {
+                    matches!(block, ContentBlock::SystemNotification { text }
+                        if text.contains("[BACKGROUND COMPLETED] cmd_1"))
+                })
+            }),
+            "queued completion must be appended to the transcript before exit"
+        );
     }
 }

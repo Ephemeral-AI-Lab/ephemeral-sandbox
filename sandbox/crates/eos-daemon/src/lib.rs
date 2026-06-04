@@ -38,6 +38,7 @@ pub mod dispatcher;
 pub mod error;
 pub mod invocation_registry;
 pub(crate) mod isolated;
+pub(crate) mod occ_writer;
 pub(crate) mod overlay_runner;
 pub(crate) mod plugin;
 pub(crate) mod response_timings;

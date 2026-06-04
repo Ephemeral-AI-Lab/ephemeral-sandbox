@@ -3,7 +3,7 @@
 //! Self-managed plugin workers may need to publish their own prepared changes.
 //! This module keeps that callback on the daemon side: the plugin sends a PPC
 //! request, the daemon parses the generic changeset payload, and publishing goes
-//! through [`crate::dispatcher::apply_occ_changeset`], the same per-root OCC
+//! through [`crate::occ_writer::apply_occ_changeset`], the same per-root OCC
 //! service used by primary write/edit paths.
 
 use std::path::{Path, PathBuf};
@@ -13,8 +13,8 @@ use eos_protocol::{LayerChange, LayerPath};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::dispatcher::apply_occ_changeset;
 use crate::error::DaemonError;
+use crate::occ_writer::apply_occ_changeset;
 
 pub(super) const OCC_APPLY_CHANGESET_OP: &str = "daemon.occ.apply_changeset";
 

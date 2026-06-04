@@ -2,13 +2,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
+use std::time::Instant;
 
+use eos_audit::{AuditEvent, AuditNode, AuditSource};
 use eos_llm_client::{ContentBlock, Message};
+use eos_obs_contract::TOOL_CALL_COMPLETED;
 use eos_tools::{
     execute_tool_once, lifecycle_batch_decision, reject_terminal_batch, run_pre_hooks,
     DispatchCall, ExecutionMetadata, RegisteredTool, ToolName, ToolResult,
 };
-use eos_types::{JsonObject, ToolUseId};
+use eos_types::{JsonObject, SystemClock, ToolUseId};
+use serde_json::{json, Value};
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
@@ -112,6 +116,11 @@ fn metadata_for_call(
 struct ForegroundCompletion {
     call: ToolUseRequest,
     result: ToolResult,
+    duration_ms: f64,
+}
+
+fn elapsed_ms(started: Instant) -> f64 {
+    started.elapsed().as_secs_f64() * 1000.0
 }
 
 async fn execute_foreground_tool(
@@ -119,8 +128,13 @@ async fn execute_foreground_tool(
     tool: RegisteredTool,
     metadata: ExecutionMetadata,
 ) -> Result<ForegroundCompletion, EngineError> {
+    let started = Instant::now();
     let result = execute_tool_once(&tool, &call.input, &metadata).await?;
-    Ok(ForegroundCompletion { call, result })
+    Ok(ForegroundCompletion {
+        call,
+        result,
+        duration_ms: elapsed_ms(started),
+    })
 }
 
 async fn dispatch_single_foreground_tool(
@@ -220,6 +234,7 @@ async fn run_advisor_call(
     tool: RegisteredTool,
 ) -> Result<ForegroundCompletion, EngineError> {
     let metadata = metadata_for_call(ctx, conversation, &call.tool_use_id);
+    let started = Instant::now();
     let result = if let Some(denial) = run_pre_hooks(&tool, &call.input, &metadata).await? {
         denial
     } else if let Some(handles) = ctx.run_handles.clone() {
@@ -241,7 +256,64 @@ async fn run_advisor_call(
             "ask_advisor is unavailable: the engine run handles are not wired for this run",
         )
     };
-    Ok(ForegroundCompletion { call, result })
+    Ok(ForegroundCompletion {
+        call,
+        result,
+        duration_ms: elapsed_ms(started),
+    })
+}
+
+fn publish_tool_completed(
+    ctx: &QueryContext,
+    call: &ToolUseRequest,
+    result: &ToolResult,
+    duration_ms: f64,
+) {
+    let Some(sink) = &ctx.audit else {
+        return;
+    };
+
+    let mut node = AuditNode::builder()
+        .agent_name(ctx.agent_name.clone())
+        .agent_run_id(ctx.agent_run_id.clone())
+        .tool_use_id(call.tool_use_id.clone());
+    if let Some(request_id) = &ctx.tool_metadata.request_id {
+        node = node.request_id(request_id.clone());
+    }
+    if let Some(task_id) = ctx
+        .task_id
+        .clone()
+        .or_else(|| ctx.tool_metadata.task_id.clone())
+    {
+        node = node.task_id(task_id);
+    }
+    if let Some(sandbox_id) = &ctx.tool_metadata.sandbox_id {
+        node = node.sandbox_id(sandbox_id.clone());
+    }
+
+    let mut section = JsonObject::new();
+    section.insert("tool_name".to_owned(), json!(call.name));
+    section.insert("duration_ms".to_owned(), json!(duration_ms));
+    section.insert(
+        "status".to_owned(),
+        json!(if result.is_error { "error" } else { "ok" }),
+    );
+    section.insert("is_error".to_owned(), json!(result.is_error));
+    section.insert("is_terminal".to_owned(), json!(result.is_terminal));
+
+    let mut payload = JsonObject::new();
+    payload.insert("tool_call".to_owned(), Value::Object(section));
+    let event = AuditEvent::new(
+        AuditSource::Engine,
+        TOOL_CALL_COMPLETED,
+        node.build(),
+        payload,
+        &SystemClock,
+    );
+
+    if let Err(err) = sink.publish(&event) {
+        tracing::warn!(error = %err, tool_use_id = call.tool_use_id.as_str(), "tool-call obs publish failed");
+    }
 }
 
 /// Dispatch a complete assistant tool batch.
@@ -334,6 +406,12 @@ pub async fn dispatch_assistant_tools(
 
     for completion in completions {
         events.push(completed_event(&completion.call, &completion.result));
+        publish_tool_completed(
+            ctx,
+            &completion.call,
+            &completion.result,
+            completion.duration_ms,
+        );
         tool_results.push(result_block(
             &completion.call.tool_use_id,
             &completion.result,
@@ -364,6 +442,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::Mutex;
 
     use async_trait::async_trait;
     use eos_llm_client::ToolSpec;
@@ -377,6 +456,24 @@ mod tests {
 
     use super::*;
     use crate::test_support::metadata;
+
+    #[derive(Debug, Default)]
+    struct RecordingAuditSink {
+        events: Mutex<Vec<AuditEvent>>,
+    }
+
+    impl RecordingAuditSink {
+        fn events(&self) -> Vec<AuditEvent> {
+            self.events.lock().expect("audit lock").clone()
+        }
+    }
+
+    impl eos_audit::AuditSink for RecordingAuditSink {
+        fn publish(&self, event: &AuditEvent) -> Result<(), eos_audit::AuditError> {
+            self.events.lock().expect("audit lock").push(event.clone());
+            Ok(())
+        }
+    }
 
     #[derive(Debug)]
     struct CountingExecutor {
@@ -503,6 +600,7 @@ mod tests {
             notification_fired: BTreeSet::new(),
             notification_state: JsonObject::new(),
             notifier: crate::NotificationService::new(),
+            audit: None,
             run_handles: None,
         }
     }
@@ -513,6 +611,9 @@ mod tests {
         let mut registry = ToolRegistry::new();
         registry.register(dynamic_tool("lsp.hover", count.clone()));
         let mut ctx = ctx(registry);
+        let audit = Arc::new(RecordingAuditSink::default());
+        ctx.audit = Some(audit.clone());
+        let agent_run_id = ctx.agent_run_id.clone();
 
         let calls = vec![ToolUseRequest {
             tool_use_id: "toolu-1".parse().expect("valid id"),
@@ -533,6 +634,19 @@ mod tests {
                 ..
             } if content == "ok"
         ));
+
+        let events = audit.events();
+        assert_eq!(events.len(), 1);
+        let obs = events[0].to_obs_envelope();
+        assert_eq!(obs.event_type, TOOL_CALL_COMPLETED);
+        assert_eq!(obs.ids.agent_run_id.as_deref(), Some(agent_run_id.as_str()));
+        assert_eq!(obs.ids.tool_use_id.as_deref(), Some("toolu-1"));
+        assert_eq!(obs.payload["tool_call"]["tool_name"], json!("lsp.hover"));
+        assert_eq!(obs.payload["tool_call"]["status"], json!("ok"));
+        assert_eq!(obs.payload["tool_call"]["is_terminal"], json!(false));
+        assert!(obs.payload["tool_call"]["duration_ms"]
+            .as_f64()
+            .is_some_and(|duration| duration >= 0.0));
     }
 
     #[tokio::test]

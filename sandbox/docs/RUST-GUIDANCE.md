@@ -127,7 +127,7 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
   - `eos-protocol` → (nothing internal)
   - `eos-layerstack` → protocol
   - `eos-overlay` → protocol  (lowerdir inputs are concrete paths; no layerstack dep)
-  - `eos-occ` → overlay, protocol  (daemon injects layerstack transaction/maintenance ports)
+  - `eos-occ` → overlay, protocol  (daemon injects layerstack transaction and route providers)
   - `eos-isolated` → overlay  — **NOT occ**; daemon injects layer-stack ports and spawns holder/runner children
   - `eos-plugin` → protocol  — **NOT occ/overlay/layerstack**
   - `eos-runner` → overlay, protocol  (NOT a leaf — corrects plan §1)
@@ -135,10 +135,11 @@ absolute / `..` / NUL. Reproduce it as a `parse`-style constructor (`api-parse-d
   - `eos-daemon` → protocol, layerstack, overlay, occ, isolated, plugin, runner; implements + injects the inverted port traits; primary tokio control plane
   - `eosd` → daemon, runner, ns-holder, overlay, protocol
   - `xtask` is a workspace package for packaging and is not part of the runtime architecture graph.
-- **Port traits invert the upward edges** (so the graph stays leaf→root). Lower crates *define* a
-  trait (e.g. `OccRuntimeServicesPort` in `eos-occ`, `LayerStackSnapshotPort`/`NamespaceRuntimePort`
-  in `eos-isolated`); `eos-daemon` implements and injects it. The audit *schema* (pure dataclasses) moves into
-  `eos-protocol`; the impure `safe_emit`/`safe_record_phase` stay in `eos-daemon` (partial severing).
+- **Port traits invert the upward edges** (so the graph stays leaf→root). Lower crates define only
+  the narrow ports they actually consume (for example `OccRouteProvider` in `eos-occ` and
+  `LayerStackSnapshotPort`/`NamespaceRuntimePort` in `eos-isolated`); `eos-daemon` owns the concrete
+  caches and injections. The audit *schema* (pure dataclasses) moves into `eos-protocol`; the impure
+  `safe_emit`/`safe_record_phase` stay in `eos-daemon` (partial severing).
 
 ---
 

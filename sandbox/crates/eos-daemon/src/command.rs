@@ -39,12 +39,12 @@ use eos_protocol::Intent;
 use eos_runner::{Fd, NsFds, RunMode, RunRequest, RunResult, ToolCall, WorkspaceRoot};
 
 use crate::dispatcher::DispatchContext;
+use crate::error::DaemonError;
 #[cfg(target_os = "linux")]
-use crate::dispatcher::{
+use crate::occ_writer::{
     apply_occ_changeset, base_hashes_for_snapshot, insert_occ_route_timings, manifest_version_u64,
     occ_route_metrics,
 };
-use crate::error::DaemonError;
 #[cfg(target_os = "linux")]
 use crate::overlay_runner::{overlay_daemon_error, overlay_run_dirs};
 use crate::response_timings::u64_to_f64_saturating;

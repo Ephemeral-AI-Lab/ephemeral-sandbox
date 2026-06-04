@@ -7,6 +7,8 @@ rust-version.workspace = true
 [dependencies]
 async-stream.workspace = true
 async-trait.workspace = true
+eos-audit.workspace = true
+eos-obs-contract.workspace = true
 eos-llm-client.workspace = true
 eos-tools.workspace = true
 eos-sandbox-api.workspace = true

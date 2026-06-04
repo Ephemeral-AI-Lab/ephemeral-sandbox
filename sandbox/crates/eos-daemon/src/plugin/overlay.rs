@@ -14,17 +14,18 @@ use eos_protocol::{Intent, LayerChange};
 use eos_runner::{RunMode, RunRequest, RunResult, ToolCall, WorkspaceRoot};
 use serde_json::{json, Value};
 
-use crate::dispatcher::{
-    apply_occ_changeset, base_hashes_for_snapshot, insert_occ_route_timings, manifest_version_u64,
-    occ_route_metrics,
-};
 use crate::error::DaemonError;
+use crate::occ_writer::{
+    apply_occ_changeset, base_hashes_for_snapshot, insert_occ_route_timings, manifest_version_u64,
+    occ_route_metrics, OccRouteMetrics,
+};
 use crate::overlay_runner::{
     overlay_daemon_error, overlay_run_dirs, run_ns_runner_child, RunDirCleanup,
 };
 use crate::response_timings::{
     attach_runner_shell_fields, guarded_changeset_response, insert_tree_resource_timings,
-    layer_change_kind, merge_runner_timings, resource_timings, TreeResourceStats,
+    layer_change_kind, merge_runner_timings, published_file_count, resource_timings,
+    TreeResourceStats,
 };
 
 pub(crate) struct PluginOverlayCommand {
@@ -44,7 +45,7 @@ struct PluginOverlayRunOutcome {
     changeset: eos_occ::ChangesetResult,
     plugin_result: Option<Value>,
     path_kinds: Vec<(String, String)>,
-    route_metrics: crate::dispatcher::OccRouteMetrics,
+    route_metrics: OccRouteMetrics,
     route_s: f64,
     capture_s: f64,
     occ_s: f64,
@@ -335,12 +336,4 @@ fn read_plugin_overlay_result(path: &Path) -> Result<Option<Value>, DaemonError>
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(err) => Err(err.into()),
     }
-}
-
-fn published_file_count(result: &eos_occ::ChangesetResult) -> usize {
-    result
-        .files
-        .iter()
-        .filter(|file| file.status.is_published())
-        .count()
 }

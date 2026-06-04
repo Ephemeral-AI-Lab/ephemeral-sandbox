@@ -7,16 +7,16 @@
 > `#[cfg(test)]` are excluded. This generated inventory is distinct from the
 > hand-curated contract docs under `sandbox/docs/contract/`.
 
-**20 items (11 structs, 4 enums, 5 traits, 0 type aliases) across 4 files.**
+**16 items (10 structs, 4 enums, 2 traits, 0 type aliases) across 4 files.**
 
-`eos-occ` is the optimistic-concurrency publish layer of the eosd runtime: it owns the MF-1 single-writer publish DECISION gate, batching N disjoint file-API writes into one manifest CAS attempt per `layer_stack_root`. Its main item groups are route classification and per-path outcomes (`Route`, `OccStatus`, `PublishDecision`, `FileResult`, `ChangesetResult`), the single-writer commit queue with its inverted transaction port (`CommitQueue`, `CommitTransactionPort`, `PreparedChangeset`, `PublishConflict`), the changeset-preparing service plus maintenance/route-provider/daemon-accessor ports (`OccService`, `MaintenancePolicy`, `LayerSquashPort`, `OccRouteProvider`, `AutoSquashMaintenancePolicy`, `OccRuntimeServicesPort`), and the crate-local error algebra (`OccError`).
+`eos-occ` is the optimistic-concurrency publish layer of the eosd runtime: it owns the MF-1 single-writer publish DECISION gate, batching N disjoint file-API writes into one manifest CAS attempt per `layer_stack_root`. Its main item groups are route classification and per-path outcomes (`Route`, `OccStatus`, `PublishDecision`, `FileResult`, `ChangesetResult`), the single-writer commit queue with its inverted transaction port (`CommitQueue`, `CommitTransactionPort`, `PreparedChangeset`, `PublishConflict`), the changeset-preparing service plus route-provider port (`OccService`, `OccRouteProvider`), and the crate-local error algebra (`OccError`).
 
 ## Contents
 
 - **`eos-occ/src/commit_queue.rs`** — `PreparedChangeset`, `CommitTransactionPort`, `PublishConflict`, `WorkItem`, `QueueItem`, `CommitQueue`, `CommitWorker`
 - **`eos-occ/src/error.rs`** — `OccError`
 - **`eos-occ/src/route.rs`** — `Route`, `OccStatus`, `PublishDecision`, `FileResult`, `ChangesetResult`
-- **`eos-occ/src/service.rs`** — `MaintenancePolicy`, `LayerSquashPort`, `OccRouteProvider`, `AllGatedRouteProvider`, `AutoSquashMaintenancePolicy`, `OccService`, `OccRuntimeServicesPort`
+- **`eos-occ/src/service.rs`** — `OccRouteProvider`, `AllGatedRouteProvider`, `OccService`
 
 ---
 
@@ -195,27 +195,7 @@ Aggregate result of a published (or aborted) changeset, with per-path outcomes, 
 
 ## `eos-occ/src/service.rs`
 
-#### `MaintenancePolicy`  ·  _trait_  ·  [L26]
-
-Post-publish maintenance hook run after a successful OCC commit; implementations are synchronous.
-
-<details><summary>Methods (1)</summary>
-
-`after_publish_sync`
-
-</details>
-
-#### `LayerSquashPort`  ·  _trait_  ·  [L40]
-
-Layer-stack squash capability consumed by `AutoSquashMaintenancePolicy`; a narrow maintenance interface implemented by the daemon's layer-stack-backed adapter.
-
-<details><summary>Methods (2)</summary>
-
-`can_squash`, `squash`
-
-</details>
-
-#### `OccRouteProvider`  ·  _trait_  ·  supertraits: `Send + Sync`  ·  [L58]
+#### `OccRouteProvider`  ·  _trait_  ·  supertraits: `Send + Sync`  ·  [L22]
 
 Route/base-hash provider used while preparing OCC changesets; the daemon owns the concrete layer-stack/gitignore implementation since this crate must not know daemon workspace bindings.
 
@@ -225,7 +205,7 @@ Route/base-hash provider used while preparing OCC changesets; the daemon owns th
 
 </details>
 
-#### `AllGatedRouteProvider`  ·  _struct_  ·  derives: `Debug`  ·  [L75]
+#### `AllGatedRouteProvider`  ·  _struct_  ·  derives: `Debug`  ·  [L39]
 
 The conservative default route provider: routes every non-`.git` path as gated with an unknown base hash, giving unit tests and custom queues a safe default.
 
@@ -235,26 +215,9 @@ The conservative default route provider: routes every non-`.git` path as gated w
 
 </details>
 
-#### `AutoSquashMaintenancePolicy`  ·  _struct_  ·  generics: `<S: LayerSquashPort>`  ·  [L93]
+#### `OccService`  ·  _struct_  ·  generics: `<T: CommitTransactionPort + 'static>`  ·  [L55]
 
-Synchronous layer-stack squash after successful publishes; each policy owns its own squash lock and re-reads the active manifest under the lock before deciding.
-
-**Fields**
-
-| name | type | vis |
-|------|------|-----|
-| `squasher` | `S` |  |
-| `max_depth` | `u32` |  |
-
-<details><summary>Methods (2)</summary>
-
-`new`, `after_publish_sync`
-
-</details>
-
-#### `OccService`  ·  _struct_  ·  generics: `<T: CommitTransactionPort + 'static>`  ·  [L123]
-
-Prepares typed OCC changesets and commits them through the single writer; holds the per-root `CommitQueue` and an optional maintenance policy (exactly one `OccService` per `layer_stack_root`, the MF-1 owner).
+Prepares typed OCC changesets and commits them through the single writer; holds the per-root `CommitQueue` and route provider (exactly one `OccService` per `layer_stack_root`, the MF-1 owner).
 
 **Fields**
 
@@ -266,15 +229,5 @@ Prepares typed OCC changesets and commits them through the single writer; holds 
 <details><summary>Methods (8)</summary>
 
 `new`, `with_route_provider`, `apply_changeset`, `apply_changeset_with_base_hashes`, `prepare_changeset`, `prepare_changeset_with_base_hashes`, `apply_prepared_changeset`, `drop`
-
-</details>
-
-#### `OccRuntimeServicesPort`  ·  _trait_  ·  [L340]
-
-Inverted daemon accessor: the OCC runtime-services bundle keyed per root; implementations MUST return the same bundle (and thus the same queue + storage lease) for a given `layer_stack_root`, never a second writer.
-
-<details><summary>Methods (1)</summary>
-
-`occ_runtime_services`
 
 </details>
