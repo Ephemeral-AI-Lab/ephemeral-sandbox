@@ -1,6 +1,6 @@
 //! Subagent tools: `run_subagent` (the restricted, caller-scoped dispatch),
 //! `check_subagent_progress`, `cancel_subagent`. All call the
-//! [`SubagentSupervisorPort`].
+//! [`BackgroundSupervisorPort`].
 //!
 //! `run_subagent` is the restricted variant: its `agent_name` input schema is
 //! patched per caller with the `enum` of dispatchable subagents (§6.6). The
@@ -95,7 +95,7 @@ impl ToolExecutor for RunSubagent {
             ));
         }
         match ctx
-            .require_subagent_supervisor()?
+            .require_background_supervisor()?
             .spawn(ctx, &parsed.agent_name, &parsed.prompt)
             .await?
         {
@@ -138,7 +138,7 @@ impl ToolExecutor for CheckSubagentProgress {
                  Please retry the tool call with valid arguments.",
             ));
         }
-        ctx.require_subagent_supervisor()?
+        ctx.require_background_supervisor()?
             .progress(&parsed.subagent_session_id, parsed.last_n_messages)
             .await
     }
@@ -160,7 +160,7 @@ impl ToolExecutor for CancelSubagent {
         if parsed.subagent_session_id.as_str().is_empty() {
             return Ok(empty_subagent_session_error(ToolName::CancelSubagent));
         }
-        ctx.require_subagent_supervisor()?
+        ctx.require_background_supervisor()?
             .cancel(&parsed.subagent_session_id, &parsed.reason)
             .await
     }
@@ -216,7 +216,7 @@ mod tests {
     use std::sync::Mutex;
 
     use crate::ports::{
-        BackgroundInflightReport, Sealed, StartedWorkflow, SubagentSupervisorPort,
+        BackgroundInflightReport, BackgroundSupervisorPort, Sealed, StartedWorkflow,
         WorkflowControlPort,
     };
     use crate::testsupport::metadata;
@@ -225,14 +225,14 @@ mod tests {
     use super::*;
 
     #[derive(Default)]
-    struct FakeSubagentSupervisor {
+    struct FakeBackgroundSupervisor {
         spawned: Mutex<Vec<(String, String)>>,
     }
 
-    impl Sealed for FakeSubagentSupervisor {}
+    impl Sealed for FakeBackgroundSupervisor {}
 
     #[async_trait]
-    impl SubagentSupervisorPort for FakeSubagentSupervisor {
+    impl BackgroundSupervisorPort for FakeBackgroundSupervisor {
         async fn spawn(
             &self,
             _ctx: &ExecutionMetadata,
@@ -273,7 +273,7 @@ mod tests {
             }
         }
 
-        async fn drain_for_agent(&self, _agent_id: &str) -> BackgroundInflightReport {
+        async fn cancel_subagents_for_agent(&self, _agent_id: &str) -> BackgroundInflightReport {
             BackgroundInflightReport {
                 total: 0,
                 subagent: 0,
@@ -323,9 +323,9 @@ mod tests {
 
     #[tokio::test]
     async fn run_subagent_returns_session_handle() {
-        let supervisor = Arc::new(FakeSubagentSupervisor::default());
+        let supervisor = Arc::new(FakeBackgroundSupervisor::default());
         let mut ctx = metadata();
-        ctx.subagent_supervisor = Some(supervisor.clone());
+        ctx.background_supervisor = Some(supervisor.clone());
 
         let res = RunSubagent
             .execute(
@@ -350,9 +350,9 @@ mod tests {
 
     #[tokio::test]
     async fn check_subagent_progress_rejects_out_of_range_last_n() {
-        let supervisor = Arc::new(FakeSubagentSupervisor::default());
+        let supervisor = Arc::new(FakeBackgroundSupervisor::default());
         let mut ctx = metadata();
-        ctx.subagent_supervisor = Some(supervisor);
+        ctx.background_supervisor = Some(supervisor);
 
         for last_n in [0, 11] {
             let res = CheckSubagentProgress

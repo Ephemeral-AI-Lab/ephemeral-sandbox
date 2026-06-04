@@ -1,4 +1,4 @@
-//! Subagent orchestration: the `SubagentSupervisorPort` impl on
+//! Subagent orchestration: the `BackgroundSupervisorPort` impl on
 //! [`BackgroundSupervisorHandle`] — validate, build the child run, drive
 //! `run_ephemeral_agent` on a detached task, and settle the record when it
 //! finishes. Ports `tools/subagent/run_subagent/run_subagent.py` (driver +
@@ -16,8 +16,8 @@ use eos_agent_def::{AgentName, AgentType};
 use eos_audit::{AuditEvent, AuditNode, AuditSink, AuditSource};
 use eos_llm_client::Message;
 use eos_tools::ports::{
-    BackgroundInflightReport, SpawnedSubagent, StartedSubagent, StartedWorkflow,
-    SubagentSupervisorPort,
+    BackgroundInflightReport, BackgroundSupervisorPort, SpawnedSubagent, StartedSubagent,
+    StartedWorkflow,
 };
 use eos_tools::{ExecutionMetadata, ToolError, ToolResult, WorkflowControlPort};
 use eos_types::{AgentRunId, Clock, JsonObject, SubagentSessionId, TaskId, WorkflowSessionId};
@@ -189,7 +189,7 @@ fn subagent_status_and_result(record: &SubagentRecord) -> (&'static str, String)
 }
 
 #[async_trait]
-impl SubagentSupervisorPort for BackgroundSupervisorHandle {
+impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
     async fn spawn(
         &self,
         ctx: &ExecutionMetadata,
@@ -266,7 +266,7 @@ impl SubagentSupervisorPort for BackgroundSupervisorHandle {
         let driver_agent_id = caller_agent_id.clone();
 
         // Register, spawn the driver, and store its abort handle under one lock so
-        // a concurrent drain can never miss a not-yet-stored handle.
+        // concurrent cancellation can never miss a not-yet-stored handle.
         let task_id = {
             let mut supervisor = inner.lock().await;
             let task_id = supervisor.register_subagent(tool_input, Some(caller_agent_id.clone()));
@@ -400,11 +400,11 @@ impl SubagentSupervisorPort for BackgroundSupervisorHandle {
         self.inner().lock().await.inflight_report(agent_id)
     }
 
-    async fn drain_for_agent(&self, agent_id: &str) -> BackgroundInflightReport {
+    async fn cancel_subagents_for_agent(&self, agent_id: &str) -> BackgroundInflightReport {
         self.inner()
             .lock()
             .await
-            .drain_subagents_for_agent(agent_id)
+            .cancel_subagents_for_agent(agent_id)
     }
 
     async fn register_workflow(

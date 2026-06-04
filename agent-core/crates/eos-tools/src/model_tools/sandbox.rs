@@ -1150,7 +1150,7 @@ mod tests {
             skill_registry: Arc::new(SkillRegistry::new()),
             workflow_control: None,
             plan_submission: None,
-            subagent_supervisor: None,
+            background_supervisor: None,
             command_session_supervisor: None,
             isolated_workspace: None,
             notifications: None,

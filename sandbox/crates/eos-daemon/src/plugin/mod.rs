@@ -6,6 +6,7 @@
 //! plugin-originated OCC callbacks, and oneshot overlay execution.
 
 mod occ_callbacks;
+mod overlay;
 mod ppc_router;
 mod process;
 
@@ -25,8 +26,9 @@ use eos_plugin::{
 use eos_protocol::Intent;
 use serde_json::{json, Value};
 
-use crate::dispatcher::{DispatchContext, PluginOverlayCommand};
+use crate::dispatcher::DispatchContext;
 use crate::error::DaemonError;
+use overlay::PluginOverlayCommand;
 use process::{PluginProcessSpec, PluginServiceOverlay};
 
 type SharedPpcClient = Arc<ppc_router::PpcClient>;
@@ -1467,7 +1469,7 @@ fn dispatch_oneshot_overlay_route(
         env,
         timeout_seconds,
     };
-    Ok(Some(crate::dispatcher::run_plugin_overlay_command(
+    Ok(Some(overlay::run_plugin_overlay_command(
         &overlay_command,
         args,
         Instant::now(),

@@ -707,10 +707,10 @@ async fn provisioning_binds_request_sandbox() {
     auto.join().await;
 }
 
-// --- AC-eos-runtime-08b: shutdown drains background work and persists the root.
+// --- AC-eos-runtime-08b: shutdown cancels background work and persists the root.
 
 #[tokio::test]
-async fn shutdown_cancels_drains_and_fails_running_root() {
+async fn shutdown_cancels_background_and_fails_running_root() {
     let factory: EventSourceFactory =
         Arc::new(|_def: &AgentDefinition| Arc::new(BlockingSource) as Arc<dyn EventSource>);
     let (state, _dir) = build_test_state(Some(factory), vec![root_agent()]).await;
@@ -1054,10 +1054,10 @@ mod subagent_lifecycle {
     }
 
     // D9: a *live* subagent (its run blocks forever) must NOT wedge the root
-    // terminal. The `submit_root_outcome` prehook drains it (settle + abort), so
+    // terminal. The `submit_root_outcome` prehook cancels it (settle + abort), so
     // the root completes; the old deny-if-count>0 path would have failed the root.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn submit_root_outcome_drains_live_subagent() {
+    async fn submit_root_outcome_cancels_live_subagent() {
         let payload = json!({"status": "success", "outcome": "done despite a live subagent"});
         let root_turns = vec![
             tool_use_turn(
@@ -1102,13 +1102,13 @@ mod subagent_lifecycle {
         assert_eq!(
             task.status,
             TaskStatus::Done,
-            "a live subagent must not wedge the root terminal — the prehook drains it (D9)"
+            "a live subagent must not wedge the root terminal — the prehook cancels it (D9)"
         );
-        // The drain settled the live subagent: no Running subagent remains.
+        // The cancellation settled the live subagent: no Running subagent remains.
         assert_eq!(
             supervisor.inner().lock().await.inflight_report("").subagent,
             0,
-            "drain must leave zero in-flight subagents"
+            "cancellation must leave zero in-flight subagents"
         );
     }
 

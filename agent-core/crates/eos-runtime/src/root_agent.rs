@@ -10,7 +10,7 @@ use eos_engine::{run_ephemeral_agent, EphemeralRunInput, NotificationService};
 use eos_llm_client::Message;
 use eos_state::TaskStatus;
 use eos_tools::{
-    CommandSessionSupervisorPort, NotificationSink, SubagentSupervisorPort, WorkflowControlPort,
+    BackgroundSupervisorPort, CommandSessionSupervisorPort, NotificationSink, WorkflowControlPort,
 };
 use eos_types::{AgentRunId, JsonObject, RequestId, SandboxId, TaskId};
 use serde_json::json;
@@ -25,7 +25,7 @@ pub(crate) struct RootAgentParams {
     pub prompt: String,
     pub sandbox_id: SandboxId,
     pub workflow_control: Arc<dyn WorkflowControlPort>,
-    pub subagent_supervisor: Arc<dyn SubagentSupervisorPort>,
+    pub background_supervisor: Arc<dyn BackgroundSupervisorPort>,
     /// Per-request command-session supervisor port (same instance as the
     /// heartbeat's supervisor — anchor §7).
     pub command_session_supervisor: Arc<dyn CommandSessionSupervisorPort>,
@@ -76,7 +76,7 @@ pub(crate) async fn run_root_agent(state: AppState, params: RootAgentParams) {
             workflow_id: None,
             workflow_control: Some(params.workflow_control.clone()),
             plan_submission: None,
-            subagent_supervisor: Some(params.subagent_supervisor.clone()),
+            background_supervisor: Some(params.background_supervisor.clone()),
             command_session_supervisor: Some(params.command_session_supervisor.clone()),
             notifications: sink,
         },

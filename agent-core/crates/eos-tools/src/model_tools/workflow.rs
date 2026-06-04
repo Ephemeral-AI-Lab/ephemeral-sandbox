@@ -59,7 +59,7 @@ impl ToolExecutor for DelegateWorkflow {
         let task_id = ctx.require_task_id()?;
         let agent_id = ctx.agent_id();
         let control = ctx.require_workflow_control()?;
-        let supervisor = ctx.require_subagent_supervisor()?;
+        let supervisor = ctx.require_background_supervisor()?;
 
         let outstanding = control.find_outstanding(task_id, &agent_id).await?;
         if let Some(existing) = outstanding.first() {
@@ -177,7 +177,7 @@ impl ToolExecutor for CancelWorkflow {
             .require_workflow_control()?
             .cancel(&parsed.workflow_task_id, &parsed.reason)
             .await?;
-        if let Some(supervisor) = &ctx.subagent_supervisor {
+        if let Some(supervisor) = &ctx.background_supervisor {
             supervisor
                 .cancel_workflow_record(&parsed.workflow_task_id, &parsed.reason)
                 .await;
@@ -237,8 +237,8 @@ mod tests {
     use eos_types::{SubagentSessionId, TaskId};
 
     use crate::ports::{
-        BackgroundInflightReport, OutstandingWorkflow, Sealed, SpawnedSubagent, StartedWorkflow,
-        SubagentSupervisorPort, WorkflowControlPort,
+        BackgroundInflightReport, BackgroundSupervisorPort, OutstandingWorkflow, Sealed,
+        SpawnedSubagent, StartedWorkflow, WorkflowControlPort,
     };
     use crate::testsupport::metadata;
 
@@ -260,7 +260,7 @@ mod tests {
     impl Sealed for RecordingSupervisor {}
 
     #[async_trait]
-    impl SubagentSupervisorPort for RecordingSupervisor {
+    impl BackgroundSupervisorPort for RecordingSupervisor {
         async fn spawn(
             &self,
             _ctx: &ExecutionMetadata,
@@ -295,7 +295,7 @@ mod tests {
             }
         }
 
-        async fn drain_for_agent(&self, agent_id: &str) -> BackgroundInflightReport {
+        async fn cancel_subagents_for_agent(&self, agent_id: &str) -> BackgroundInflightReport {
             self.inflight_report(agent_id).await
         }
 
@@ -391,7 +391,7 @@ mod tests {
         let mut ctx = metadata();
         ctx.task_id = Some("parent".parse().unwrap());
         ctx.workflow_control = Some(Arc::new(OutstandingControl));
-        ctx.subagent_supervisor = Some(Arc::new(RecordingSupervisor::default()));
+        ctx.background_supervisor = Some(Arc::new(RecordingSupervisor::default()));
 
         let res = DelegateWorkflow
             .execute(&obj(&[("goal", json!("do something"))]), &ctx)
@@ -455,7 +455,7 @@ mod tests {
         let mut ctx = metadata();
         ctx.task_id = Some("parent".parse().unwrap());
         ctx.workflow_control = Some(Arc::new(StartingControl));
-        ctx.subagent_supervisor = Some(supervisor.clone());
+        ctx.background_supervisor = Some(supervisor.clone());
 
         let res = DelegateWorkflow
             .execute(&obj(&[("goal", json!("do something"))]), &ctx)

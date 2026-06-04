@@ -527,12 +527,9 @@ name = "eos-audit"
 version = "0.1.0"
 dependencies = [
  "eos-types",
- "pretty_assertions",
- "proptest",
  "schemars 0.8.22",
  "serde",
  "serde_json",
- "sha2",
  "thiserror 2.0.18",
 ]
 
@@ -614,7 +611,6 @@ dependencies = [
 name = "eos-plugin-catalog"
 version = "0.1.0"
 dependencies = [
- "eos-audit",
  "eos-config",
  "eos-sandbox-api",
  "eos-types",
@@ -623,7 +619,6 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
@@ -739,7 +734,6 @@ name = "eos-tools"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "eos-audit",
  "eos-config",
  "eos-llm-client",
  "eos-sandbox-api",

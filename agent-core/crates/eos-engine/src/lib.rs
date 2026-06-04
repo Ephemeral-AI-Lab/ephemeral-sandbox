@@ -5,7 +5,6 @@
 mod advisor;
 pub mod agent;
 pub mod agent_loop;
-pub mod audit;
 pub mod background;
 mod error;
 mod events;

@@ -5,13 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# eos-types carries `Clock`/`JsonObject`/`UtcDateTime`, named directly in this
-# crate's public surface (`audit_plugin_call`, the LSP input structs). It cannot
-# be reached transitively in a nameable way, so it is a direct edge per
-# impl-eos-plugin-catalog.md §2 (the Phase-0 frozen DAG omitted it).
+# eos-types carries `JsonObject` and the LSP input structs named directly in this
+# crate's public surface. It cannot be reached transitively in a nameable way, so
+# it is a direct edge per impl-eos-plugin-catalog.md §2.
 eos-types.workspace = true
 eos-sandbox-api.workspace = true
-eos-audit.workspace = true
 # eos-config owns the catalog-root path resolution (the root reaches
 # `discover_under` as a `&Path`); kept per the frozen DAG and §2 even though no
 # config type is named here.
@@ -21,9 +19,6 @@ serde_yaml.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
 thiserror.workspace = true
-
-[dev-dependencies]
-tokio.workspace = true
 
 [lints]
 workspace = true

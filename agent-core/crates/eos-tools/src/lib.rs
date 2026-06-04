@@ -47,9 +47,9 @@ pub use metadata::ExecutionMetadata;
 pub use model_tools::{build_default_registry, CallerScope};
 pub use name::{ToolKey, ToolName};
 pub use ports::{
-    BackgroundInflightReport, CommandSessionSupervisorPort, IsolatedWorkspacePort,
-    NotificationSink, OutstandingWorkflow, PlanReducer, PlanSubmissionPort, PlanTask, PlannerPlan,
-    SpawnedSubagent, StartedSubagent, StartedWorkflow, SubagentSupervisorPort, SubmissionAck,
+    BackgroundInflightReport, BackgroundSupervisorPort, CommandSessionSupervisorPort,
+    IsolatedWorkspacePort, NotificationSink, OutstandingWorkflow, PlanReducer, PlanSubmissionPort,
+    PlanTask, PlannerPlan, SpawnedSubagent, StartedSubagent, StartedWorkflow, SubmissionAck,
     SystemNotification, WorkflowControlPort,
 };
 pub use registry::ToolRegistry;

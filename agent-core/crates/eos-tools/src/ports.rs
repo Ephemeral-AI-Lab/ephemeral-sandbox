@@ -191,7 +191,7 @@ pub trait PlanSubmissionPort: Sealed + Send + Sync {
 }
 
 // ---------------------------------------------------------------------------
-// SubagentSupervisorPort — spawn / check / cancel subagent + background count.
+// BackgroundSupervisorPort — subagents, delegated workflow handles, parent-exit cleanup.
 // ---------------------------------------------------------------------------
 
 /// A started subagent handle (returned on the `Launched` arm of [`SpawnedSubagent`]).
@@ -201,7 +201,7 @@ pub struct StartedSubagent {
     pub subagent_session_id: SubagentSessionId,
 }
 
-/// The outcome of [`SubagentSupervisorPort::spawn`]: a tracked launch, or an
+/// The outcome of [`BackgroundSupervisorPort::spawn`]: a tracked launch, or an
 /// in-band validation rejection rendered to the model. Mirrors [`SubmissionAck`]:
 /// validation failures (recursion / unknown / non-subagent) are model-facing
 /// `Ok(Rejected)` outcomes, not `Err(ToolError)` framework faults.
@@ -214,7 +214,7 @@ pub enum SpawnedSubagent {
 }
 
 /// Per-agent, per-kind in-flight background-task count (Running records only),
-/// scoped to one `agent_id`, serialized to JSON for the terminal-drain audit
+/// scoped to one `agent_id`, serialized to JSON for the terminal-cleanup audit
 /// assertion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct BackgroundInflightReport {
@@ -231,10 +231,11 @@ pub struct BackgroundInflightReport {
     pub command_session: usize,
 }
 
-/// The engine background supervisor, for the subagent tools and the
-/// no-inflight-background-tasks hook. Implemented by `eos-engine`.
+/// The engine background supervisor surface used by subagent tools, workflow
+/// delegation handle bookkeeping, and parent-exit cleanup. Implemented by
+/// `eos-engine`.
 #[async_trait]
-pub trait SubagentSupervisorPort: Sealed + Send + Sync {
+pub trait BackgroundSupervisorPort: Sealed + Send + Sync {
     /// Validate, launch, and track a dispatchable subagent run. `ctx` is the
     /// caller's execution metadata: the implementor reads the caller identity
     /// from it (for recursion + the agent-scoped count) and clones it to build
@@ -268,10 +269,12 @@ pub trait SubagentSupervisorPort: Sealed + Send + Sync {
     /// state — the reject-mode read for `enter_isolated_workspace`.
     async fn inflight_report(&self, agent_id: &str) -> BackgroundInflightReport;
 
-    /// Drain this agent's in-flight subagent runs (settle `Cancelled` + abort)
-    /// and return the post-drain report — the drain-to-0 path the terminal /
-    /// exit prehook runs so a live or phantom subagent never wedges the terminal.
-    async fn drain_for_agent(&self, agent_id: &str) -> BackgroundInflightReport;
+    /// Cancel this agent's in-flight subagent runs only (settle `Cancelled` +
+    /// abort) and return the post-cancel report. The terminal / exit prehook
+    /// uses this lane-specific cleanup so a live or phantom subagent never
+    /// wedges the terminal, while delegated workflows remain gated by persisted
+    /// workflow state.
+    async fn cancel_subagents_for_agent(&self, agent_id: &str) -> BackgroundInflightReport;
 
     /// Track a workflow that was just delegated by this agent. The workflow
     /// control port owns persisted workflow state; the background supervisor owns
@@ -312,7 +315,7 @@ pub trait SubagentSupervisorPort: Sealed + Send + Sync {
 /// `exec_command`/`write_stdin` tools to track sandbox-bound background command
 /// sessions and to recover a terminal result across the heartbeat race
 /// (anchor §5, §8). Implemented by `eos-engine` on the same supervisor instance
-/// as [`SubagentSupervisorPort`].
+/// as [`BackgroundSupervisorPort`].
 ///
 /// The `result` payloads are the daemon completion's `result` map (status,
 /// `exit_code`, `output.stdout`, …); they are opaque JSON to the supervisor and
@@ -350,7 +353,7 @@ pub trait CommandSessionSupervisorPort: Sealed + Send + Sync {
 
 /// The `eos-runtime` adapter over the `eos-sandbox-host` isolated-workspace
 /// lifecycle. The adapter enforces *no in-flight ephemeral jobs / command
-/// sessions* before `enter`, and cancels/drains per-agent background work before
+/// sessions* before `enter`, and cancels per-agent background work before
 /// `exit`. Wired at the composition root (sandbox-host is upstream of
 /// `eos-tools`, so no direct `eos-sandbox-host -> eos-tools` edge).
 #[async_trait]

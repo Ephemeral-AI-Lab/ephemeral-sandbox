@@ -1,191 +1,257 @@
-# Audit / Observability redesign — built for a cross-workspace test runner
+# Rust audit / observability consumption plan
 
-## Context
+## Goal
 
-Rust (`agent-core/`, `sandbox/`) is the primary implementation; `backend/src` Python is
-legacy. The **primary consumer** of the audit/observability layer is a (future)
-**test runner** that runs scenarios against sandbox, agent-core, and both together, and
-extracts four validation signals: **tool use, performance stats, resource usage,
-message correctness**. So the design goal is a *clean, coherent, easily-accessible
-consumption contract*, not a richer audit framework.
+Build a Rust-only audit/observability contract for `agent-core/`, `sandbox/`, and
+the future Rust test runner.
 
-What already exists (reuse, don't reinvent):
-- **sandbox** has the read surface: `api.audit.pull` / `api.audit.snapshot` drains the
-  in-memory ring (schema `sandbox.daemon.audit.pull.v1`, counted-loss). The bench
-  harness already turns this into `bench/*.sandbox_events.jsonl` +
-  `*.performance_report.json`, whose `audit` block (`event_type_counts`, `drop_free`,
-  `missing_required_event_types`, buffer stats) IS the validation contract.
-- Related prior planning: `docs/plans/test_runner_rust_SPEC.md`,
-  `docs/plans/test_runner_migration_PLAN.md`,
-  `docs/plans/daemon-audit-pull-consolidation-*.md` — align with these.
+Python under `backend/src` is legacy migration context only. This plan does not
+add new Python audit code, does not preserve Python-specific report shapes as a
+target, and should not introduce new Python compatibility shims. The target
+consumer is a Rust collector/test runner that validates:
 
-Gaps this plan closes:
-- **agent-core has no symmetric consumable stream.**
-- **resource usage** is unwired: `OsResourceSection` is schema-defined but never emitted.
-- **no unified cross-workspace reader / correlation join.**
-- audit conflates a durable record with diagnostics; carries dead code (`AuditEventBus`)
-  and sandbox `json!` drift.
+- tool use
+- performance stats
+- resource usage
+- message correctness
 
-**This plan delivers the access contract + the missing complete-capture signals. It does
-NOT build the test runner** (that is the user's separate, future work).
+The design goal is a small, coherent consumption path, not a richer audit
+framework.
 
-## Core principle: route by *consumer*, with completeness where it's asserted
+## Current Direction
 
-The runner asserts `drop_free: true` and `missing_required_event_types: []` as PASS
-criteria — so **anything it validates on must be on a complete-capture surface**, never
-a may-drop one. That yields three surfaces, each owned by a consumer:
+The shared layer now lives in:
 
-| Surface | Guarantee | Consumer | Carries |
-|---|---|---|---|
-| **Authoritative state** (Task rows, `ToolResult`, conversation transcript) | complete by construction | runner: **tool use** + **message correctness** | the facts themselves (redaction-free) |
-| **Complete-capture obs stream** (sandbox ring pull; agent-core obs JSONL) | complete / counted-loss, `drop_free` is a property | runner: **performance** + **resource** + durable records | event-only signals (timings, RSS/cpu/io) + records (plugin, isolated) |
-| **Diagnostics** (`tracing`) | best-effort, may-drop | humans only | pure shadows reconstructable from state |
+- `base/crates/eos-obs-contract`
 
-Key consequences (these resolve the earlier "shadow→tracing" tension):
-- **tool use** and **message correctness** are read from authoritative state, which is
-  complete by construction — so the shadow events (`workflow.task.*`, subagent
-  `background_tool.*`, `engine.tool.*`) can safely become **tracing diagnostics**
-  (approved) without weakening validation; the runner never depends on them.
-- **performance** and **resource** are the only genuinely event-only signals → they get
-  a **complete-capture** surface (ring + agent-core obs JSONL), never tracing.
-- **message correctness** uses the existing transcript/state (`parity/prompt_report/
-  session_golden.jsonl` pattern); audit stays redacted (shape + `sha256` digest); the
-  obs stream keeps only digests for cross-run regression checks.
+That crate is the only shared audit/observability module. It owns the normalized
+contract row used by collectors:
 
-## The consumption contract (the deliverable)
+- `ObsEnvelope`
+- `ObsIds`
+- `ObsSource`
+- `SCHEMA = "eos.obs.v1"`
+- canonical event constants and aliases
+- JSONL parse/serialize helpers
 
-1. **Two read surfaces, same spirit:**
-   - **sandbox:** keep `api.audit.pull` / `snapshot` (schema `pull.v1`) verbatim — the
-     bench harness already consumes it. Type the ring payloads; wire the missing
-     resource events (below). Wire shape unchanged.
-   - **agent-core:** add a symmetric **obs JSONL events file** (via the existing
-     `BufferedJsonlSink` to a configured path), captured **completely in test mode**,
-     mirroring `sandbox_events.jsonl`. Reserve an in-process collecting layer only for
-     unit tests.
-2. **Reader-side categorization (NOT a wire field):** the runner maps
-   `event_type → category {Tool, Perf, Resource, Lifecycle}` and **does not** add a
-   `category` enum to the envelopes (and must not bump the frozen `pull.v1` schema).
-3. **Correlation join:** both surfaces already carry `request_id` / `agent_id` /
-   `tool_use_id` (e.g. `eos-protocol::audit` sections, agent-core `AuditNode`). The
-   reader joins on these to stitch a "both together" run.
-4. **Report shape:** extend the existing `performance_report.json` `audit` block
-   (`event_count`, `event_type_counts`, `drop_free`, `missing_required_event_types`,
-   buffer stats) to also describe an **agent-core source** — do not redesign it.
+It must stay contract-only. It must not own sinks, daemon rings, tracing setup,
+producer policy, plugin wrappers, report rendering, or test-runner orchestration.
 
-A short doc (`docs/architecture/observability` or a `CONTRACT.md` section) specifies:
-the obs JSONL line shape, the per-surface read mechanism, the `event_type→category`
-map, the correlation keys, and which categories come from state vs the obs stream.
+## Architecture
 
-## What must be added to make perf + resource accessible
+```mermaid
+flowchart LR
+  State["Rust state + transcript"] --> Runner["Rust collector / test runner"]
+  AgentObs["agent-core ObsEnvelope JSONL"] --> Runner
+  SandboxRing["sandbox api.audit.pull"] --> Normalize["normalize to ObsEnvelope"]
+  Normalize --> Runner
+  Trace["tracing"] -. "human diagnostics only" .-> Human["operators"]
+```
 
-- **sandbox resource:** wire `OsResourceSection` emission (periodic `os_resource.*`
-  sampling: rss/cpu/io) onto the ring (`Lane::Sample`). It is schema-ready and unwired.
-- **agent-core perf:** emit a small, explicit set of **complete-capture** perf events
-  to the obs JSONL — per-tool-call and per-agent-run durations — as typed records
-  (NOT tracing). Source timings at the engine/dispatch boundary.
-- **agent-core resource:** a periodic process resource sample (RSS/CPU) emitted as a
-  typed obs record.
-- **tool use / message correctness:** no new emission — documented as
-  read-from-authoritative-state (Task/`ToolResult`/transcript). Sandbox tool-use also
-  remains countable from the ring (`event_type_counts`), which is complete.
+| Surface | Owner | Guarantee | Consumer | Carries |
+|---|---|---|---|---|
+| Authoritative state and transcript | `agent-core` | complete by construction | Rust runner | tool use, terminal outcomes, message correctness |
+| Agent-core obs JSONL | `agent-core` | complete or counted-loss in test mode | Rust runner | agent/tool durations, process resource samples |
+| Sandbox audit ring | `sandbox` | bounded ring with seq/lane/loss counters | Rust runner through normalizer | sandbox timings, OCC, layer stack, overlay, background command, plugin/resource records |
+| Tracing | owning Rust crate | best effort | humans only | reconstructable lifecycle shadows and diagnostics |
 
-## Clean-ups (retained from the approved plan, but subordinate to the contract)
+## Event Routing Rule
 
-- **agent-core `eos-audit` trait redesign:** `pub trait AuditEvent: Serialize { const
-  EVENT_TYPE; const SOURCE }`, rename `struct AuditEvent → AuditEnvelope`, add
-  `AuditCtx` (explicit correlation; never `Span::current()`), `Audit::emit<E>` handle.
-  This now carries records **and** the perf/resource obs events — all to the obs JSONL.
-  **No `category` wire field** (reader-side). Keep eos-audit a `{eos-types}` leaf.
-- **Delete `AuditEventBus`** (never constructed in prod).
-- **Move shadow events to tracing** (`workflow.task.*`, subagent `background_tool.*`;
-  `engine.tool.*` dead code deleted) — they become human diagnostics; `eos-engine` /
-  `eos-workflow` drop their `eos-audit` dep.
-- **sandbox `dispatcher.rs` json! → typed `*Section`** (kills the drift; behavior-
-  preserving, matches `server.rs:408`).
-- **Relocate `PluginSection` + `plugin.*` event structs** to `eos-plugin-catalog`
-  (staged; `plugin.*` stays unwired until plugin *execution* is ported — no dispatch
-  site exists in Rust yet).
-- **Guard updates:** `agent-core/parity/tests/dependency_dag.rs` frozen edge set (fewer
-  `eos-audit` dependents); `no_downstream_deps.rs` stays `{eos-types}`.
+```mermaid
+flowchart TD
+  E["Candidate event"] --> S{"Authoritative state already records it?"}
+  S -- "yes" --> T["tracing or no event"]
+  S -- "no" --> C{"Runner validates it as perf/resource/durable record?"}
+  C -- "yes" --> O["complete obs/audit surface"]
+  C -- "no" --> D["diagnostic tracing"]
+```
 
-## Per-area change map
+Consequences:
 
-- `agent-core/crates/eos-audit/`: `event.rs` (trait + `AuditEnvelope`), new `ctx.rs`,
-  new `handle.rs`, `sink.rs`/`jsonl.rs` take `&AuditEnvelope`, `lib.rs` re-exports;
-  delete `bus.rs`/`engine_stream.rs`; move out `plugin.rs`. Add typed `PerfSample` /
-  `ResourceSample` obs-event structs (in the emitting crate, impl `AuditEvent`).
-- `agent-core/crates/eos-engine`, `eos-workflow`: shadow events → `tracing`; drop
-  `eos-audit` dep; emit per-tool/per-agent-run perf records to the obs sink at the
-  dispatch/stage boundary; periodic resource sample.
-- `agent-core/crates/eos-runtime`: build the `Audit` handle + obs JSONL path
-  (`app_state.rs:404-413`, `entry.rs`); `observability.rs` already inits tracing —
-  document the `target:"audit"` tee + a test-mode "capture everything" config.
-- `sandbox/crates/eos-daemon/dispatcher.rs`: typed sections for the emit helpers; wire
-  `os_resource.*` sampling. `eos-protocol/audit.rs`: sections already exist.
-- `sandbox/crates/eos-isolated`: type the isolated JSONL events (keep `"published":
-  false`); these remain durable records on the complete surface.
-- `docs/`: the observability consumption contract doc.
+- Tool use and message correctness come from Rust state/transcript, not audit
+  shadows.
+- Performance and resource data are event-only signals, so they must be emitted
+  on a complete/counted-loss obs surface, never only through tracing.
+- Reconstructable lifecycle rows such as `workflow.task.*`, agent-core
+  `background_tool.*`, and dead `engine.tool.*` projections move to tracing or
+  are deleted.
 
-## Staged execution (each stage builds + tests green; no runner built)
+## Shared Contract
 
-1. **eos-audit foundation:** trait + `AuditEnvelope` + `AuditCtx` + `Audit::emit<E>`;
-   delete `bus.rs`; move `PluginSection`. *Verify:* `cargo build/test -p eos-audit
-   -p eos-plugin-catalog`, `no_downstream_deps.rs`.
-2. **Shadow → tracing + dep drop:** migrate `eos-workflow` then `eos-engine`; update
-   tests (`tracing-test`); update `dependency_dag.rs`. *Verify:* `cargo test` both
-   crates + parity DAG guard.
-3. **agent-core obs surface + perf/resource events:** wire the obs JSONL path; add the
-   perf + resource typed events; test-mode complete-capture config. *Verify:* a JSONL
-   appears with the perf/resource events under a test run.
-4. **sandbox typing + resource:** `dispatcher.rs` json!→typed sections; wire
-   `os_resource.*`. *Verify:* `cargo test -p eos-daemon` (byte-identical existing
-   events; new `os_resource.*` present), `api.audit.pull` still well-formed.
-5. **sandbox isolated typing.** *Verify:* `cargo test -p eos-isolated`.
-6. **Contract doc + correlation/category map** (the reader spec the future runner uses).
+`base/crates/eos-obs-contract` is the normalized collector contract:
 
-Stages 1–3 (agent-core) and 4–5 (sandbox) are independent and parallelizable.
+```json
+{
+  "schema": "eos.obs.v1",
+  "source": "agent_core",
+  "type": "tool_call.completed",
+  "ids": {
+    "request_id": "req-1",
+    "task_id": "task-1",
+    "agent_run_id": "ar-1",
+    "tool_use_id": "toolu-1",
+    "sandbox_id": "sbx-1"
+  },
+  "payload": {
+    "tool_call": {
+      "tool_name": "exec_command",
+      "duration_ms": 42.0,
+      "status": "ok"
+    }
+  }
+}
+```
 
-## Verification
+Rules:
 
-- Per workspace: `cargo build` / `cargo test` / `cargo clippy`.
-- Guards: `no_downstream_deps.rs`, `dependency_dag.rs` (updated).
-- **Consumption smoke test (no runner):** a test that (a) runs an agent-core scenario
-  and reads the obs JSONL back, asserting perf + resource events present and
-  `drop_free`; (b) pulls the sandbox ring via `api.audit.pull` and asserts
-  `os_resource.*` present and `missing_required_event_types: []`. This proves the
-  access contract end-to-end without building the runner.
-- Byte-exact: sandbox typed sections must serialize identically to the prior `json!`.
+- `ids` contains ids only. Labels such as `tool_name` stay in `payload`.
+- `payload` preserves native sections such as `tool_call`, `occ`,
+  `layer_stack`, `overlay_workspace`, `background_tool`, `plugin`, and
+  `os_resource`.
+- Event categories are reader-side only. Do not add `category` to producer wire
+  shapes.
+- Canonical event names live in the contract. Legacy aliases can be normalized
+  by the collector, but producers should emit canonical names.
 
-## Decisions already made
+## Producer Contracts
 
-- Full trait redesign of agent-core audit API. ✓
-- Shadow events → tracing diagnostics (safe because tool-use/correctness validate from
-  authoritative state). ✓
-- Message correctness validates from the transcript / persisted state; audit stays
-  redacted (digests only in obs). ✓
-- Categorization is reader-side; agent-core obs surface is a JSONL file mirroring the
-  sandbox pattern; reuse the `performance_report` `audit` block shape. ✓
+### Agent-core
 
-## Open items to confirm
+Agent-core emits normalized `ObsEnvelope` JSONL directly.
 
-- **Agent-core perf granularity:** the plan adds per-tool-call + per-agent-run duration
-  events as the minimal complete-capture perf set. Finer (per-stage, per-LLM-call) or
-  coarser is a knob.
-- **`plugin.*` stays staged/unwired** until plugin *execution* is ported to Rust (no
-  dispatch site exists yet); the record infra is ready and lights up when it lands.
+Minimum event set:
 
-## Risks / call-outs
+| Event | Payload section | Purpose |
+|---|---|---|
+| `agent_run.completed` | `agent_run` | agent-run duration, status, exit reason |
+| `tool_call.completed` | `tool_call` | per-tool duration, status, terminal flag, optional timings |
+| `os_resource.sampled` | `os_resource` | process RSS/CPU/IO sample |
 
-- **Don't build the runner here** — deliver the surfaces + contract; the smoke test is
-  the proof, not a full runner.
-- **Completeness is the load-bearing property:** never route a runner-validated event
-  through `tracing` (EnvFilter / `STATIC_MAX_LEVEL` silent drop). Perf/resource stay on
-  the complete obs surface.
-- **No `category` on the wire** (esp. not `pull.v1`) — reader-side map only.
-- **Byte-exact sandbox parity** for the `json!`→section refactor; `os_resource.*` is the
-  only intentional new sandbox emission.
-- **Cross-workspace correlation** depends on `request_id`/`agent_id`/`tool_use_id`
-  actually flowing agent-core→sandbox at call time — verify during stage 6, since the
-  "both together" join relies on it.
-- **Parallel agents / dirty worktree:** `dispatcher.rs` has an unrelated in-flight OCC
-  change; scope edits to the audit emit helpers.
+Do not emit audit rows for tool correctness or message correctness. The runner
+reads those from state/transcript.
+
+### Sandbox
+
+Sandbox keeps `api.audit.pull` / `api.audit.snapshot` as the daemon-owned read
+surface. The ring keeps its own native mechanics:
+
+- seq
+- lane
+- bounded retention
+- pressure/loss counters
+- pull/snapshot RPCs
+
+The Rust collector converts pulled daemon events into `ObsEnvelope` rows.
+
+Required sandbox cleanup:
+
+- Replace ad hoc dispatcher `json!` payload construction with typed
+  `eos-protocol::audit::*Section` values.
+- Canonicalize event names, especially `tool_call.finished` vs
+  `tool_call.completed`.
+- Wire `OsResourceSection` emission on a sample lane.
+- Keep sandbox-native sections local to `sandbox`; do not force agent-core to use
+  sandbox section structs.
+
+### Tracing
+
+Tracing is for human diagnostics only. It may carry:
+
+- workflow task ready/launched/failed shadows
+- subagent/background lifecycle shadows
+- engine stream progress diagnostics
+- publish failures and unexpected states
+
+The Rust runner must not validate pass/fail criteria from tracing.
+
+## Cleanup Plan
+
+1. **Keep `base/eos-obs-contract` small.**
+   - No internal EphemeralOS crate dependencies.
+   - No runtime sinks.
+   - No daemon ring logic.
+   - No report builder.
+
+2. **Shrink `agent-core/crates/eos-audit`.**
+   - Delete `AuditEventBus`.
+   - Delete dead `engine_stream` projection if no production caller exists.
+   - Remove plugin audit wrappers unless they are wired to a real Rust execution
+     path.
+   - Remove redaction helpers if they become unused after deleting the engine
+     projection.
+   - Keep only the local agent-core obs writer/adapter needed to emit
+     `ObsEnvelope` JSONL.
+
+3. **Move reconstructable shadows to tracing.**
+   - `workflow.task.*`
+   - agent-core `background_tool.*`
+   - dead `engine.tool.*` audit rows
+
+4. **Reduce dependency edges.**
+   - `eos-workflow` should not depend on audit after workflow shadows move to
+     tracing.
+   - `eos-engine` should depend on the minimal obs writer only where it emits
+     real perf/resource rows.
+   - `eos-tools` should not depend on audit unless a real tool-level emission
+     site remains.
+
+5. **Type sandbox emitters.**
+   - Keep behavior and wire shape stable where possible.
+   - Use canonical event names for new/changed emissions.
+   - Add tests that pulled events normalize to valid `ObsEnvelope` rows.
+
+6. **Build the Rust collector later.**
+   - Read agent-core obs JSONL.
+   - Pull sandbox daemon audit events.
+   - Normalize both into `ObsEnvelope`.
+   - Join with Rust state/transcript for correctness checks.
+
+## Staged Execution
+
+| Stage | Work | Verification |
+|---|---|---|
+| 0 | `base/crates/eos-obs-contract` contract crate | `cargo test --manifest-path base/Cargo.toml -p eos-obs-contract`; clippy |
+| 1 | Update plan/docs to Rust-only contract direction | markdown review; no Python target paths |
+| 2 | Agent-core audit deletion pass | `cargo test -p eos-audit`; affected agent-core crates |
+| 3 | Agent-core obs JSONL using `ObsEnvelope` | JSONL unit/integration smoke test |
+| 4 | Shadow events to tracing + dependency edge cleanup | affected crate tests; dependency guard updates if still present |
+| 5 | Sandbox typed emitters + resource samples | `cargo test -p eos-protocol -p eos-daemon`; pull smoke test |
+| 6 | Rust collector normalizer | normalization tests from agent-core row + sandbox pull event |
+| 7 | Rust runner/report gates | state/transcript correctness + obs perf/resource gates |
+
+Stages 2-4 and 5 can proceed in parallel if the only shared dependency is the
+stable `base/eos-obs-contract` crate.
+
+## Verification Gates
+
+- `base`: `cargo test --manifest-path base/Cargo.toml -p eos-obs-contract`
+- `base`: `cargo clippy --manifest-path base/Cargo.toml -p eos-obs-contract --all-targets -- -D warnings`
+- `agent-core`: targeted crate tests from the owning workspace.
+- `sandbox`: targeted crate tests from the owning workspace.
+- Normalization smoke:
+  - one agent-core `ObsEnvelope` JSONL row parses
+  - one sandbox `api.audit.pull` event normalizes to `ObsEnvelope`
+  - `tool_call.finished` aliases to `tool_call.completed`
+  - `tool_use_id` joins agent-core and sandbox rows for the same tool call
+
+## Open Decisions
+
+- Whether agent-core keeps the crate name `eos-audit` for its local writer or
+  renames to an obs-focused name.
+- Exact process-resource sampling cadence for agent-core.
+- Whether isolated-workspace JSONL remains a separate sandbox source or is
+  mirrored into the daemon audit ring.
+
+## Risks
+
+- Do not let `base/` become a junk drawer. If a type needs runtime state, sinks,
+  locks, async tasks, daemon lanes, or report rendering, it does not belong in
+  `base/`.
+- Do not validate runner pass/fail criteria from tracing.
+- Do not create a shared producer framework across `agent-core` and `sandbox`.
+  Share only the normalized contract.
+- Verify correlation wiring explicitly. The join depends on the provider
+  `tool_use_id` flowing into sandbox invocation metadata or an explicit mapping
+  row.
+- Keep edits scoped around concurrent work in `agent-core/` and `sandbox/`; this
+  repo often has parallel agent edits in progress.

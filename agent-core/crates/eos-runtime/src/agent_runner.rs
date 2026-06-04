@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use eos_engine::{run_ephemeral_agent, EphemeralRunInput, NotificationService};
 use eos_llm_client::Message;
 use eos_tools::{
-    CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort, SubagentSupervisorPort,
+    BackgroundSupervisorPort, CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort,
 };
 use eos_types::AgentRunId;
 use eos_workflow::{AgentLaunch, AgentRunReport, AgentRunner, Result as WorkflowResult};
@@ -34,7 +34,7 @@ pub(crate) struct RuntimeAgentRunner {
     /// The recording plan-submission port (the wired `PlanSubmissionAdapter`
     /// over the shared attempt registry). Stateless and shared across all runs.
     plan_submission: Arc<dyn PlanSubmissionPort>,
-    subagent_supervisor: Arc<dyn SubagentSupervisorPort>,
+    background_supervisor: Arc<dyn BackgroundSupervisorPort>,
     command_session_supervisor: Arc<dyn CommandSessionSupervisorPort>,
     notifier: NotificationService,
 }
@@ -49,14 +49,14 @@ impl RuntimeAgentRunner {
     pub(crate) fn new(
         state: AppState,
         plan_submission: Arc<dyn PlanSubmissionPort>,
-        subagent_supervisor: Arc<dyn SubagentSupervisorPort>,
+        background_supervisor: Arc<dyn BackgroundSupervisorPort>,
         command_session_supervisor: Arc<dyn CommandSessionSupervisorPort>,
         notifier: NotificationService,
     ) -> Self {
         Self {
             state,
             plan_submission,
-            subagent_supervisor,
+            background_supervisor,
             command_session_supervisor,
             notifier,
         }
@@ -86,7 +86,7 @@ impl AgentRunner for RuntimeAgentRunner {
                 workflow_id: launch.workflow_id.clone(),
                 workflow_control: None,
                 plan_submission: Some(self.plan_submission.clone()),
-                subagent_supervisor: Some(self.subagent_supervisor.clone()),
+                background_supervisor: Some(self.background_supervisor.clone()),
                 command_session_supervisor: Some(self.command_session_supervisor.clone()),
                 notifications: sink,
             },

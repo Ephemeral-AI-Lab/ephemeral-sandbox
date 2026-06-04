@@ -31,8 +31,8 @@ use eos_types::{
 
 use crate::error::ToolError;
 use crate::ports::{
-    CommandSessionSupervisorPort, IsolatedWorkspacePort, NotificationSink, PlanSubmissionPort,
-    SubagentSupervisorPort, WorkflowControlPort,
+    BackgroundSupervisorPort, CommandSessionSupervisorPort, IsolatedWorkspacePort,
+    NotificationSink, PlanSubmissionPort, WorkflowControlPort,
 };
 
 /// The typed bag of runtime context a tool executor reads. Built per tool call
@@ -78,8 +78,9 @@ pub struct ExecutionMetadata {
     pub workflow_control: Option<Arc<dyn WorkflowControlPort>>,
     /// Plan-submission port (planner/generator/reducer terminals).
     pub plan_submission: Option<Arc<dyn PlanSubmissionPort>>,
-    /// Subagent supervisor port (run/check/cancel subagent + bg count).
-    pub subagent_supervisor: Option<Arc<dyn SubagentSupervisorPort>>,
+    /// Background supervisor port (subagent controls, workflow handles, and
+    /// parent-exit cleanup).
+    pub background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
     /// Command-session supervisor port (register/recover/mark/count background
     /// PTY command sessions).
     pub command_session_supervisor: Option<Arc<dyn CommandSessionSupervisorPort>>,
@@ -192,14 +193,16 @@ impl ExecutionMetadata {
             .ok_or(ToolError::MissingPort("plan_submission"))
     }
 
-    /// Require the subagent supervisor port, else a framework fault.
+    /// Require the background supervisor port, else a framework fault.
     ///
     /// # Errors
     /// [`ToolError::MissingPort`] when the port is not wired.
-    pub fn require_subagent_supervisor(&self) -> Result<&dyn SubagentSupervisorPort, ToolError> {
-        self.subagent_supervisor
+    pub fn require_background_supervisor(
+        &self,
+    ) -> Result<&dyn BackgroundSupervisorPort, ToolError> {
+        self.background_supervisor
             .as_deref()
-            .ok_or(ToolError::MissingPort("subagent_supervisor"))
+            .ok_or(ToolError::MissingPort("background_supervisor"))
     }
 
     /// Require the isolated-workspace port, else a framework fault.

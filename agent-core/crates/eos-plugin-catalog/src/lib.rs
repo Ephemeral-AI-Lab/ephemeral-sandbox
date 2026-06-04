@@ -5,8 +5,7 @@
 //! `plugin.md` frontmatter into a [`PluginManifest`], discovers all manifests
 //! under one configured catalog root as an immutable [`PluginCatalog`], supplies
 //! the catalog-native model-facing [`PluginToolSpec`] sources (today the 10 LSP
-//! specs), and provides the provider-neutral plugin audit wrapper
-//! ([`audit_plugin_call`]).
+//! specs).
 //!
 //! It deliberately does **not** import or execute plugin tool modules (no
 //! `importlib`/`BaseTool` binding — GC-plugin-catalog-01), own
@@ -15,15 +14,9 @@
 //! any Pyright/LSP session (GC-plugin-catalog-05), or traverse outside the
 //! configured catalog root. See
 //! `docs/plans/backend_agent_core_rust_migration/impl-eos-plugin-catalog.md`.
-//!
-//! The `plugin.*` audit event family ([`PluginSection`], the section shape and
-//! constructor) is owned upstream by `eos-audit`; this crate owns only the
-//! *wrapper* that times a call and emits that family (re-exported here for
-//! convenience).
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-mod audit;
 mod discovery;
 mod error;
 mod frontmatter;
@@ -31,12 +24,8 @@ mod manifest;
 mod names;
 mod tool_specs;
 
-pub use audit::{audit_plugin_call, plugin_section};
 pub use discovery::PluginCatalog;
 pub use error::PluginCatalogError;
 pub use manifest::{PluginKind, PluginManifest, ToolEntry};
 pub use names::{PluginName, PluginResolvedPath, PluginToolName};
 pub use tool_specs::{plugin_tool_specs, PluginToolSpec};
-
-#[doc(no_inline)]
-pub use eos_audit::PluginSection;

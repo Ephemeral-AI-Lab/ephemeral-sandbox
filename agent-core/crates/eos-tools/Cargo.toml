@@ -15,7 +15,6 @@ eos-types.workspace = true
 eos-state.workspace = true
 eos-sandbox-api.workspace = true
 eos-skills.workspace = true
-eos-audit.workspace = true
 eos-llm-client.workspace = true
 # Direct eos-config edge: `config.rs` names `eos_config::parse_markdown_frontmatter`
 # to split the `.eos-agents/tools/*.md` frontmatter (the shared config-format

@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use eos_sandbox_api::SandboxCaller;
 use eos_tools::{
-    CommandSessionSupervisorPort, ExecutionMetadata, NotificationSink, PlanSubmissionPort,
-    SubagentSupervisorPort, WorkflowControlPort,
+    BackgroundSupervisorPort, CommandSessionSupervisorPort, ExecutionMetadata, NotificationSink,
+    PlanSubmissionPort, WorkflowControlPort,
 };
 use eos_types::{AgentRunId, AttemptId, RequestId, SandboxId, TaskId, WorkflowId};
 
@@ -28,7 +28,7 @@ pub(crate) struct MetadataParams {
     /// Wired for delegated-workflow agents so their submit tools record straight
     /// to the orchestrator (Path A-recording); `None` for the root agent.
     pub plan_submission: Option<Arc<dyn PlanSubmissionPort>>,
-    pub subagent_supervisor: Option<Arc<dyn SubagentSupervisorPort>>,
+    pub background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
     /// The per-request command-session supervisor port (anchor §5), shared with
     /// the heartbeat and loop notifier.
     pub command_session_supervisor: Option<Arc<dyn CommandSessionSupervisorPort>>,
@@ -93,7 +93,7 @@ pub(crate) fn build_metadata(state: &AppState, params: MetadataParams) -> Execut
         skill_registry: state.skill_registry.clone(),
         workflow_control: params.workflow_control,
         plan_submission: params.plan_submission,
-        subagent_supervisor: params.subagent_supervisor,
+        background_supervisor: params.background_supervisor,
         command_session_supervisor: params.command_session_supervisor,
         isolated_workspace: None,
         notifications: Some(params.notifications),

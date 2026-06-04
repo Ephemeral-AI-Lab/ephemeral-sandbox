@@ -12,8 +12,7 @@ use crate::event::AuditEvent;
 /// Write-only audit side channel.
 ///
 /// Implementations must not panic; recoverable failures are reported through
-/// [`AuditError`] so the [`AuditEventBus`](crate::AuditEventBus) can isolate
-/// them (GC-audit-04). The event is borrowed, not consumed.
+/// [`AuditError`]. The event is borrowed, not consumed.
 pub trait AuditSink: Send + Sync {
     /// Persist one event.
     ///

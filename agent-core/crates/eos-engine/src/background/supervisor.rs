@@ -4,7 +4,7 @@
 //! ([`BackgroundInflightReport`]), and parent-exit cleanup path.
 //!
 //! [`BackgroundSupervisorHandle`] wraps that state and is the real
-//! [`SubagentSupervisorPort`](eos_tools::ports::SubagentSupervisorPort) (impl in
+//! [`BackgroundSupervisorPort`](eos_tools::ports::BackgroundSupervisorPort) (impl in
 //! `subagent.rs`) and [`CommandSessionSupervisorPort`](eos_tools::ports::CommandSessionSupervisorPort)
 //! (impl in `command_session.rs`). It also holds the [`EngineRunHandles`] +
 //! [`AuditSink`] + [`Clock`] the subagent driver needs.
@@ -268,11 +268,11 @@ impl BackgroundTaskSupervisor {
             .is_some_and(|record| record.cancel(reason))
     }
 
-    /// Drain this agent's in-flight subagent runs (settle `Cancelled` + abort the
-    /// drivers), then return the post-drain report. The terminal/exit prehook
-    /// runs this so a live or phantom subagent never wedges the agent's terminal
-    /// (D9). Command sessions are intentionally not drained here (see the hook).
-    pub fn drain_subagents_for_agent(&mut self, agent_id: &str) -> BackgroundInflightReport {
+    /// Cancel this agent's in-flight subagent runs (settle `Cancelled` + abort
+    /// the drivers), then return the post-cancel report. The terminal/exit
+    /// prehook runs this so a live or phantom subagent never wedges the agent's
+    /// terminal (D9). Workflows and commands have separate cleanup paths.
+    pub fn cancel_subagents_for_agent(&mut self, agent_id: &str) -> BackgroundInflightReport {
         let ids: Vec<SubagentSessionId> = self
             .subagents
             .values()
@@ -443,7 +443,7 @@ impl BackgroundSupervisorHandle {
     ) -> BackgroundInflightReport {
         let (workflows, commands) = {
             let mut guard = self.inner.lock().await;
-            guard.drain_subagents_for_agent(agent_id);
+            guard.cancel_subagents_for_agent(agent_id);
             (
                 guard.running_workflows_for_agent(agent_id),
                 guard.running_commands_for_agent(agent_id),
@@ -525,7 +525,7 @@ mod tests {
     fn parent_exit_then_cancel_finish_race() {
         let mut supervisor = BackgroundTaskSupervisor::new();
         let running = supervisor.register_subagent(JsonObject::new(), Some("agent".to_owned()));
-        supervisor.drain_subagents_for_agent("agent");
+        supervisor.cancel_subagents_for_agent("agent");
         let record = supervisor.get_subagent(&running).expect("record exists");
         assert_eq!(record.status, BackgroundTaskStatus::Cancelled);
         assert!(record.outstanding());
@@ -614,8 +614,8 @@ mod tests {
         assert_eq!(supervisor.inflight_report("agent-a").subagent, 1);
         assert_eq!(supervisor.inflight_report("agent-b").subagent, 1);
 
-        // Draining agent-a settles only its subagent; agent-b is untouched.
-        let report = supervisor.drain_subagents_for_agent("agent-a");
+        // Cancelling agent-a settles only its subagent; agent-b is untouched.
+        let report = supervisor.cancel_subagents_for_agent("agent-a");
         assert_eq!(report.subagent, 0);
         assert_eq!(
             supervisor.get_subagent(&a).expect("record").status,

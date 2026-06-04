@@ -14,7 +14,7 @@ use eos_engine::{
 };
 use eos_state::{Task, TaskRole, TaskStatus};
 use eos_tools::{
-    CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort, SubagentSupervisorPort,
+    BackgroundSupervisorPort, CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort,
     WorkflowControlPort,
 };
 use eos_types::{RequestId, TaskId};
@@ -139,7 +139,7 @@ pub async fn start_request(
         state.clock.clone(),
         state.transport.clone(),
     ));
-    let supervisor_port: Arc<dyn SubagentSupervisorPort> = supervisor.clone();
+    let background_supervisor_port: Arc<dyn BackgroundSupervisorPort> = supervisor.clone();
     // One NotificationService per request: its queue is shared by the tool sink,
     // the heartbeat, and (via the loop's `notifier`) the query loop — the §7
     // instance-identity invariant. The command-session port is the SAME
@@ -172,7 +172,7 @@ pub async fn start_request(
     let runner: Arc<dyn AgentRunner> = Arc::new(RuntimeAgentRunner::new(
         state.clone(),
         plan_submission,
-        supervisor_port.clone(),
+        background_supervisor_port.clone(),
         command_session_port.clone(),
         notifier.clone(),
     ));
@@ -234,7 +234,7 @@ pub async fn start_request(
         prompt,
         sandbox_id: binding.sandbox_id,
         workflow_control,
-        subagent_supervisor: supervisor_port,
+        background_supervisor: background_supervisor_port,
         command_session_supervisor: command_session_port,
         notifier,
         on_event,

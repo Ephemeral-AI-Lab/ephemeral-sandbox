@@ -168,7 +168,7 @@ fn advisor_metadata(ctx: &ExecutionMetadata, agent_run_id: &AgentRunId) -> Execu
     meta.workflow_id = None;
     meta.workflow_control = None;
     meta.plan_submission = None;
-    meta.subagent_supervisor = None;
+    meta.background_supervisor = None;
     meta.command_session_supervisor = None;
     meta.isolated_workspace = None;
     meta.notifications = None;

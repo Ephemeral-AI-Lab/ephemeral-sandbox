@@ -233,7 +233,7 @@ pub async fn run_ephemeral_agent(
 }
 
 async fn finalize_background_for_agent(ctx: &crate::query::QueryContext, error: Option<&str>) {
-    let Some(supervisor) = &ctx.tool_metadata.subagent_supervisor else {
+    let Some(supervisor) = &ctx.tool_metadata.background_supervisor else {
         return;
     };
     let reason = match (ctx.exit_reason, error) {

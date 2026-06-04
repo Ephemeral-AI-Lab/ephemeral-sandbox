@@ -2,20 +2,17 @@
 //! monolith into its own file (mirrors `hooks/advisor_approval.rs`), porting
 //! Python `tools/_hooks/require_no_inflight_background_tasks.py`.
 //!
-//! **Behavior change from HEAD's deny-if-count>0 → drain-to-0 (D6/D9).** On a
-//! terminal / `exit_isolated_workspace` call this hook **drains** the agent's
+//! **Behavior change from HEAD's deny-if-count>0 → cancel-to-0 (D6/D9).** On a
+//! terminal / `exit_isolated_workspace` call this hook **cancels** the agent's
 //! in-flight subagent runs (settle `Cancelled` + abort) so a live or phantom
 //! subagent never permanently wedges the agent's terminal (the D9 active harm).
 //! `enter_isolated_workspace` keeps **reject** semantics (it only inspects).
 //!
-//! **Scope (resolves the plan's flagged §3e open item).** The drain settles only
+//! **Scope (resolves the plan's flagged §3e open item).** The cleanup settles only
 //! the supervisor's in-process subagent records — the kind whose phantom causes
 //! D9. Command sessions stay on the existing **daemon-authoritative** deny +
-//! bailout path: in committed reality a command session is a live daemon-backed
-//! process (not a cheap in-process record as the plan assumed), so "draining" one
-//! means killing a running build at terminal time. That is a behavior change to
-//! just-committed code, a divergence from Python's deny-on-live-command-session,
-//! and unnecessary to close D9 — so it is deliberately out of scope here.
+//! bailout path for terminal validation; parent-exit cleanup cancels them through
+//! the background supervisor after the run ends.
 //!
 //! **Workflow dimension (§3e, all-three-kinds invariant).** Delegated workflows
 //! are background-supervisor-aware for handle bookkeeping and parent-exit cleanup,
@@ -34,10 +31,10 @@ use crate::name::ToolName;
 
 use super::{HookDenial, HookOutcome};
 
-/// Whether this protected tool **drains** the agent's in-flight subagents (the
+/// Whether this protected tool **cancels** the agent's in-flight subagents (the
 /// four terminals + `exit_isolated_workspace`) vs only inspects them
 /// (`enter_isolated_workspace`, which keeps reject semantics).
-fn drains_inflight(tool: ToolName) -> bool {
+fn cancels_inflight_subagents(tool: ToolName) -> bool {
     matches!(
         tool,
         ToolName::SubmitRootOutcome
@@ -72,7 +69,7 @@ fn in_flight_message(count: usize, tool: ToolName) -> String {
     )
 }
 
-/// `RequireNoInflightBackgroundTasks`: drain (or, for `enter_isolated_workspace`,
+/// `RequireNoInflightBackgroundTasks`: cancel subagents (or, for `enter_isolated_workspace`,
 /// inspect) the agent's in-flight subagents, then the daemon command-session
 /// count (deny; fail-OPEN only for bailout submissions on a daemon error).
 pub(crate) async fn run_require_no_inflight(
@@ -82,12 +79,12 @@ pub(crate) async fn run_require_no_inflight(
 ) -> Result<HookOutcome, ToolError> {
     let agent_id = ctx.agent_id();
 
-    if let Some(supervisor) = &ctx.subagent_supervisor {
-        // Draining terminals settle the agent's subagents to 0; enter_isolated
-        // only inspects (reject). After a drain `report.subagent == 0`, so the
-        // deny below fires only on the reject path.
-        let report = if drains_inflight(tool) {
-            supervisor.drain_for_agent(&agent_id).await
+    if let Some(supervisor) = &ctx.background_supervisor {
+        // Terminal/exit tools settle the agent's subagents to 0; enter_isolated
+        // only inspects (reject). After cancellation `report.subagent == 0`, so
+        // the deny below fires only on the reject path.
+        let report = if cancels_inflight_subagents(tool) {
+            supervisor.cancel_subagents_for_agent(&agent_id).await
         } else {
             supervisor.inflight_report(&agent_id).await
         };
