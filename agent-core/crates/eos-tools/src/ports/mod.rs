@@ -346,10 +346,10 @@ pub trait CommandSessionSupervisorPort: Sealed + Send + Sync {
 // ---------------------------------------------------------------------------
 
 /// The `eos-runtime` adapter over the sandbox isolated-workspace lifecycle.
-/// The tool pre-hooks enforce *no in-flight ephemeral jobs / command sessions*
-/// before `enter`, and cancel per-agent background work before `exit`. Wired at
-/// the composition root (sandbox-host is upstream of `eos-tools`, so no direct
-/// `eos-sandbox-host -> eos-tools` edge).
+/// The tool pre-hooks enforce no in-flight background tasks before `enter` and
+/// `exit`: no outstanding workflows, no subagents, and no command sessions.
+/// Wired at the composition root (sandbox-host is upstream of `eos-tools`, so
+/// no direct `eos-sandbox-host -> eos-tools` edge).
 #[async_trait]
 pub trait IsolatedWorkspacePort: Sealed + Send + Sync {
     /// Open this agent's private isolated workspace; returns the model-facing

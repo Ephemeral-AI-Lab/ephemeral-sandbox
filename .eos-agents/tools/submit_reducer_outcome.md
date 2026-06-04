@@ -1,7 +1,7 @@
 ---
 intent: read_only
 terminal: true
-hooks: [no_inflight_background_tasks, advisor_approval]
+hooks: [no_background_sessions, advisor_approval]
 ---
 Terminate your reducer run with SUCCESS or FAILED for the current reducer task.
 

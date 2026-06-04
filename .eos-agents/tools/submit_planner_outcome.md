@@ -1,7 +1,7 @@
 ---
 intent: read_only
 terminal: true
-hooks: [no_inflight_background_tasks, {disallow_nested_planner_deferral: {max_depth: 1}}, advisor_approval]
+hooks: [no_background_sessions, {disallow_nested_planner_deferral: {max_depth: 1}}, advisor_approval]
 ---
 Terminate your planner run by submitting the generator/reducer DAG for this attempt.
 

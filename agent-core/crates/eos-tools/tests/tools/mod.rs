@@ -106,10 +106,10 @@ fn advisor_gate_wired_on_exactly_the_four_main_terminals() {
     }
 }
 
-// `RequireNoInflightBackgroundTasks` precedes `AdvisorApproval` on every gated
+// `RequireNoBackgroundSessions` precedes `AdvisorApproval` on every gated
 // terminal so a background rejection surfaces before the advisor gate.
 #[test]
-fn no_inflight_precedes_advisor_on_gated_terminals() {
+fn no_background_sessions_precedes_advisor_on_gated_terminals() {
     let registry = build_default_registry(&repo_tools_config(), &CallerScope::default());
     for gated in [
         ToolName::SubmitRootOutcome,
@@ -118,15 +118,15 @@ fn no_inflight_precedes_advisor_on_gated_terminals() {
         ToolName::SubmitReducerOutcome,
     ] {
         let hooks = &registry.get(gated).expect("registered").hooks;
-        let no_inflight = hooks
+        let no_background_sessions = hooks
             .iter()
-            .position(|hook| matches!(hook, Hook::RequireNoInflightBackgroundTasks { .. }));
+            .position(|hook| matches!(hook, Hook::RequireNoBackgroundSessions { .. }));
         let advisor = hooks
             .iter()
             .position(|hook| matches!(hook, Hook::AdvisorApproval { .. }));
         assert!(
-            matches!((no_inflight, advisor), (Some(n), Some(a)) if n < a),
-            "{gated:?}: RequireNoInflight must precede AdvisorApproval"
+            matches!((no_background_sessions, advisor), (Some(n), Some(a)) if n < a),
+            "{gated:?}: RequireNoBackgroundSessions must precede AdvisorApproval"
         );
     }
 }
@@ -168,7 +168,7 @@ fn security_policy_wiring_is_locked() {
     ] {
         assert_eq!(
             hooks(iso),
-            vec![Hook::RequireNoInflightBackgroundTasks { tool: iso }],
+            vec![Hook::RequireNoBackgroundSessions { tool: iso }],
             "{iso:?} must reject while background work is in flight"
         );
     }

@@ -25,16 +25,15 @@ use crate::core::result::ToolResult;
 
 mod advisor_approval;
 mod disallow_nested_planner_deferral;
-mod require_no_inflight_background_tasks;
+mod require_no_background_sessions;
 
 /// One wired pre-hook. `#[non_exhaustive]`: hooks are added here, never as an
 /// open trait (the closed set is matched exhaustively by [`Hook::run`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Hook {
-    /// Refuse a terminal / lifecycle tool while sandbox-bound background work is
-    /// in flight (Python `RequireNoInflightBackgroundTasks`).
-    RequireNoInflightBackgroundTasks {
+    /// Refuse a terminal / lifecycle tool while background sessions are open.
+    RequireNoBackgroundSessions {
         /// The protected tool.
         tool: ToolName,
     },
@@ -132,7 +131,7 @@ impl Hook {
     #[must_use]
     pub const fn tool(self) -> ToolName {
         match self {
-            Hook::RequireNoInflightBackgroundTasks { tool }
+            Hook::RequireNoBackgroundSessions { tool }
             | Hook::AdvisorApproval { tool }
             | Hook::DisallowNestedPlannerDeferral { tool, .. }
             | Hook::DestructiveGitShell { tool }
@@ -148,7 +147,7 @@ impl Hook {
     #[must_use]
     pub const fn config_token(self) -> &'static str {
         match self {
-            Hook::RequireNoInflightBackgroundTasks { .. } => "no_inflight_background_tasks",
+            Hook::RequireNoBackgroundSessions { .. } => "no_background_sessions",
             Hook::AdvisorApproval { .. } => "advisor_approval",
             Hook::DisallowNestedPlannerDeferral { .. } => "disallow_nested_planner_deferral",
             Hook::DestructiveGitShell { .. } => "destructive_git_shell",
@@ -162,7 +161,7 @@ impl Hook {
     pub fn hook_name(self) -> String {
         let tool = self.tool().as_str();
         match self {
-            Hook::RequireNoInflightBackgroundTasks { .. } => format!("no_bg_tasks:{tool}"),
+            Hook::RequireNoBackgroundSessions { .. } => format!("no_background_sessions:{tool}"),
             Hook::AdvisorApproval { .. } => format!("advisor_approval:{tool}"),
             Hook::DisallowNestedPlannerDeferral { .. } => {
                 format!("no_nested_planner_deferral:{tool}")
@@ -187,9 +186,11 @@ impl Hook {
             Hook::DestructiveGitShell { .. } => Ok(run_destructive_git(raw_input)),
             Hook::DestructiveShell { .. } => Ok(run_destructive_shell(raw_input)),
             Hook::BlockInIsolatedMode { .. } => run_block_in_isolated_mode(ctx).await,
-            Hook::RequireNoInflightBackgroundTasks { tool } => {
-                require_no_inflight_background_tasks::run_require_no_inflight(tool, raw_input, ctx)
-                    .await
+            Hook::RequireNoBackgroundSessions { tool } => {
+                require_no_background_sessions::run_require_no_background_sessions(
+                    tool, raw_input, ctx,
+                )
+                .await
             }
             Hook::AdvisorApproval { tool } => {
                 advisor_approval::run_advisor_approval(tool, ctx).await

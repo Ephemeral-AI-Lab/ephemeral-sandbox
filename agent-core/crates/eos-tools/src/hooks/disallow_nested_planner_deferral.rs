@@ -1,6 +1,6 @@
 //! The disallow-nested-planner-deferral prehook — relocated out of the hooks
 //! module into its own file (mirrors `hooks/advisor_approval.rs`
-//! and `hooks/require_no_inflight_background_tasks.rs`), porting Python
+//! and `hooks/require_no_background_sessions.rs`), porting Python
 //! `tools/_hooks/disallow_nested_planner_deferral.py`.
 //!
 //! It denies a planner terminal that carries a nonblank

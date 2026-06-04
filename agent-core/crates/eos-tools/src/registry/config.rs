@@ -257,7 +257,7 @@ const DEFAULT_MAX_WORKFLOW_DEPTH: u32 = 1;
 /// `{ tool }` field from the owning tool and any per-hook `params`.
 fn hook_from_token(tool: ToolName, token: &str, params: Option<&Value>) -> Option<Hook> {
     Some(match token {
-        "no_inflight_background_tasks" => Hook::RequireNoInflightBackgroundTasks { tool },
+        "no_background_sessions" => Hook::RequireNoBackgroundSessions { tool },
         "advisor_approval" => Hook::AdvisorApproval { tool },
         "disallow_nested_planner_deferral" => Hook::DisallowNestedPlannerDeferral {
             tool,
@@ -484,7 +484,7 @@ mod tests {
     fn hook_tokens_round_trip() {
         let tool = ToolName::ExecCommand;
         for hook in [
-            Hook::RequireNoInflightBackgroundTasks { tool },
+            Hook::RequireNoBackgroundSessions { tool },
             Hook::AdvisorApproval { tool },
             Hook::DisallowNestedPlannerDeferral { tool, max_depth: 1 },
             Hook::DestructiveGitShell { tool },
