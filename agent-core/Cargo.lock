@@ -514,7 +514,6 @@ checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 name = "eos-agent-def"
 version = "0.1.0"
 dependencies = [
- "eos-types",
  "schemars 0.8.22",
  "serde",
  "serde_json",
@@ -526,6 +525,7 @@ dependencies = [
 name = "eos-audit"
 version = "0.1.0"
 dependencies = [
+ "eos-obs-contract",
  "eos-types",
  "schemars 0.8.22",
  "serde",
@@ -568,7 +568,6 @@ dependencies = [
  "async-stream",
  "async-trait",
  "eos-agent-def",
- "eos-audit",
  "eos-llm-client",
  "eos-sandbox-api",
  "eos-skills",
@@ -608,10 +607,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "eos-obs-contract"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "eos-plugin-catalog"
 version = "0.1.0"
 dependencies = [
- "eos-config",
  "eos-sandbox-api",
  "eos-types",
  "schemars 0.8.22",
@@ -708,7 +714,6 @@ name = "eos-skills"
 version = "0.1.0"
 dependencies = [
  "eos-config",
- "eos-types",
  "insta",
  "serde",
  "serde_yaml",
@@ -770,7 +775,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "eos-agent-def",
- "eos-audit",
  "eos-state",
  "eos-tools",
  "eos-types",
@@ -3847,6 +3851,13 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
+]
+
+[[package]]
+name = "workspace-guard"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]

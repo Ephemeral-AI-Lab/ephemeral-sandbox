@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+eos-obs-contract.workspace = true
 eos-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true

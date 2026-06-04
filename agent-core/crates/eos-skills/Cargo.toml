@@ -5,9 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# eos-types is mandated by the frozen dependency DAG; this crate mints no IDs and
-# does not reference it in code (parity with eos-agent-def's kept-but-unused edge).
-eos-types.workspace = true
 # eos-config owns the shared `---` YAML frontmatter split (parse_markdown_frontmatter),
 # the only use of this edge — the skill root itself is passed in by eos-runtime.
 eos-config.workspace = true

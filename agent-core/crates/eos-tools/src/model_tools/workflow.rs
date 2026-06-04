@@ -77,9 +77,7 @@ impl ToolExecutor for DelegateWorkflow {
         }
 
         let started = control.start(task_id, &agent_id, &parsed.goal).await?;
-        supervisor
-            .register_workflow(task_id, &agent_id, &parsed.goal, &started)
-            .await;
+        supervisor.register_workflow(&agent_id, &started).await;
         let payload = json!({
             "workflow_task_id": started.workflow_task_id.as_str(),
             "workflow_id": started.workflow_id.as_str(),
@@ -299,13 +297,7 @@ mod tests {
             self.inflight_report(agent_id).await
         }
 
-        async fn register_workflow(
-            &self,
-            _parent_task_id: &TaskId,
-            _agent_id: &str,
-            _workflow_goal: &str,
-            workflow: &StartedWorkflow,
-        ) {
+        async fn register_workflow(&self, _agent_id: &str, workflow: &StartedWorkflow) {
             self.workflows
                 .lock()
                 .unwrap()

@@ -14,13 +14,14 @@
 //! the still-RUNNING exhaustion guard. The parent task is never mutated
 //! (GC-eos-runtime-03).
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use eos_engine::{run_ephemeral_agent, EphemeralRunInput, NotificationService};
 use eos_llm_client::Message;
 use eos_tools::{
     BackgroundSupervisorPort, CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort,
+    WorkflowControlPort,
 };
 use eos_types::AgentRunId;
 use eos_workflow::{AgentLaunch, AgentRunReport, AgentRunner, Result as WorkflowResult};
@@ -34,6 +35,11 @@ pub(crate) struct RuntimeAgentRunner {
     /// The recording plan-submission port (the wired `PlanSubmissionAdapter`
     /// over the shared attempt registry). Stateless and shared across all runs.
     plan_submission: Arc<dyn PlanSubmissionPort>,
+    /// The workflow-control port, late-bound at composition (it is built
+    /// downstream of this runner via the starter→attempt_deps→runner chain).
+    /// `get()` is `Some` by the time any run starts, so workflow agents' hooks
+    /// can read `workflow_depth` (deferral) and `find_outstanding` (no-inflight).
+    workflow_control: Arc<OnceLock<Arc<dyn WorkflowControlPort>>>,
     background_supervisor: Arc<dyn BackgroundSupervisorPort>,
     command_session_supervisor: Arc<dyn CommandSessionSupervisorPort>,
     notifier: NotificationService,
@@ -49,6 +55,7 @@ impl RuntimeAgentRunner {
     pub(crate) fn new(
         state: AppState,
         plan_submission: Arc<dyn PlanSubmissionPort>,
+        workflow_control: Arc<OnceLock<Arc<dyn WorkflowControlPort>>>,
         background_supervisor: Arc<dyn BackgroundSupervisorPort>,
         command_session_supervisor: Arc<dyn CommandSessionSupervisorPort>,
         notifier: NotificationService,
@@ -56,6 +63,7 @@ impl RuntimeAgentRunner {
         Self {
             state,
             plan_submission,
+            workflow_control,
             background_supervisor,
             command_session_supervisor,
             notifier,
@@ -84,7 +92,7 @@ impl AgentRunner for RuntimeAgentRunner {
                 task_id: Some(launch.task_id.clone()),
                 attempt_id: launch.attempt_id.clone(),
                 workflow_id: launch.workflow_id.clone(),
-                workflow_control: None,
+                workflow_control: self.workflow_control.get().cloned(),
                 plan_submission: Some(self.plan_submission.clone()),
                 background_supervisor: Some(self.background_supervisor.clone()),
                 command_session_supervisor: Some(self.command_session_supervisor.clone()),

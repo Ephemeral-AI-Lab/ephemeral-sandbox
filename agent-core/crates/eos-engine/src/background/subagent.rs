@@ -13,14 +13,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_agent_def::{AgentName, AgentType};
-use eos_audit::{AuditEvent, AuditNode, AuditSink, AuditSource};
 use eos_llm_client::Message;
 use eos_tools::ports::{
     BackgroundInflightReport, BackgroundSupervisorPort, SpawnedSubagent, StartedSubagent,
     StartedWorkflow,
 };
 use eos_tools::{ExecutionMetadata, ToolError, ToolResult, WorkflowControlPort};
-use eos_types::{AgentRunId, Clock, JsonObject, SubagentSessionId, TaskId, WorkflowSessionId};
+use eos_types::{AgentRunId, JsonObject, SubagentSessionId, WorkflowSessionId};
 use serde_json::{json, Value};
 
 use super::supervisor::{BackgroundSupervisorHandle, BackgroundTaskStatus, SubagentRecord};
@@ -57,7 +56,7 @@ const fn agent_type_value(agent_type: AgentType) -> &'static str {
     }
 }
 
-/// Map a settled status to its `background_tool.*` audit event type.
+/// Map a settled status to its `background_tool.*` diagnostic event type.
 const fn terminal_event_type(status: BackgroundTaskStatus) -> &'static str {
     match status {
         BackgroundTaskStatus::Running => "background_tool.started",
@@ -68,7 +67,7 @@ const fn terminal_event_type(status: BackgroundTaskStatus) -> &'static str {
     }
 }
 
-/// Python `BackgroundTaskStatus.value` (lowercase) for the audit payload.
+/// Python `BackgroundTaskStatus.value` (lowercase) for diagnostics.
 const fn status_value(status: BackgroundTaskStatus) -> &'static str {
     match status {
         BackgroundTaskStatus::Running => "running",
@@ -79,35 +78,27 @@ const fn status_value(status: BackgroundTaskStatus) -> &'static str {
     }
 }
 
-/// Emit one `background_tool.*` audit event (the single emission point for
-/// subagent lifecycle — D8). `exit_code` is `0`/`1` on settle, absent on start.
-fn emit_background_tool(
-    audit: &Arc<dyn AuditSink>,
-    clock: &dyn Clock,
+/// Emit one `background_tool.*` diagnostic event. These lifecycle rows are
+/// reconstructable from supervisor state and terminal results, so the runner
+/// must validate correctness from state, not from tracing.
+fn trace_background_tool(
     event_type: &str,
     task_id: &str,
     agent_id: &str,
     status: BackgroundTaskStatus,
     exit_code: Option<i64>,
 ) {
-    let node = AuditNode::builder().tool_name("run_subagent").build();
-    let mut payload = JsonObject::new();
-    payload.insert("background_task_id".to_owned(), json!(task_id));
-    payload.insert("task_kind".to_owned(), json!("subagent"));
-    payload.insert("tool_name".to_owned(), json!("run_subagent"));
-    payload.insert("agent_id".to_owned(), json!(agent_id));
-    payload.insert("status".to_owned(), json!(status_value(status)));
-    if let Some(code) = exit_code {
-        payload.insert("exit_code".to_owned(), json!(code));
-    }
-    let event = AuditEvent::new(
-        AuditSource::Engine,
-        event_type.to_owned(),
-        node,
-        payload,
-        clock,
+    tracing::debug!(
+        target: "eos_engine::diagnostics",
+        event_type,
+        background_task_id = task_id,
+        task_kind = "subagent",
+        tool_name = "run_subagent",
+        agent_id,
+        status = status_value(status),
+        exit_code,
+        "background tool lifecycle"
     );
-    let _ = audit.publish(&event);
 }
 
 /// Classify a finished ephemeral run into a settled `(status, result, exit_code)`
@@ -261,8 +252,6 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
         let inner = self.inner();
         let handles = self.handles.clone();
         let driver_inner = inner.clone();
-        let driver_audit = self.audit.clone();
-        let driver_clock = self.clock.clone();
         let driver_agent_id = caller_agent_id.clone();
 
         // Register, spawn the driver, and store its abort handle under one lock so
@@ -275,9 +264,7 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
             // event until this block releases, so `started` strictly precedes any
             // terminal emit and the supervisor stays the single, ordered emitter
             // (D8). Mirrors Python emitting `started` synchronously inside launch().
-            emit_background_tool(
-                &self.audit,
-                &*self.clock,
+            trace_background_tool(
                 "background_tool.started",
                 task_id.as_str(),
                 &caller_agent_id,
@@ -293,9 +280,7 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
                     supervisor.settle_subagent(&driver_task_id, status, result);
                     supervisor.forget_handle(&driver_task_id);
                 }
-                emit_background_tool(
-                    &driver_audit,
-                    &*driver_clock,
+                trace_background_tool(
                     terminal_event_type(status),
                     driver_task_id.as_str(),
                     &driver_agent_id,
@@ -376,9 +361,7 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
                 subagent_session_id.as_str()
             )));
         }
-        emit_background_tool(
-            &self.audit,
-            &*self.clock,
+        trace_background_tool(
             "background_tool.cancelled",
             subagent_session_id.as_str(),
             &agent_id,
@@ -407,19 +390,11 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
             .cancel_subagents_for_agent(agent_id)
     }
 
-    async fn register_workflow(
-        &self,
-        parent_task_id: &TaskId,
-        agent_id: &str,
-        workflow_goal: &str,
-        workflow: &StartedWorkflow,
-    ) {
-        self.inner().lock().await.register_workflow(
-            parent_task_id,
-            agent_id,
-            workflow_goal,
-            workflow,
-        );
+    async fn register_workflow(&self, agent_id: &str, workflow: &StartedWorkflow) {
+        self.inner()
+            .lock()
+            .await
+            .register_workflow(agent_id, workflow);
     }
 
     async fn cancel_workflow_record(

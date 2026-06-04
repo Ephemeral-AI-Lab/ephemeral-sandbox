@@ -1,14 +1,9 @@
 [package]
-name = "eos-agent-def"
+name = "workspace-guard"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-
-[dependencies]
-serde.workspace = true
-serde_yaml.workspace = true
-schemars.workspace = true
-thiserror.workspace = true
+publish = false
 
 [dev-dependencies]
 serde_json.workspace = true

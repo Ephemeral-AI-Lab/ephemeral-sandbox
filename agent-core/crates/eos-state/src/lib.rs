@@ -45,7 +45,7 @@ pub use workflow::{Workflow, WorkflowStatus};
 
 // Re-export the upstream value primitives that appear in this crate's public
 // API so downstream crates (notably `eos-db`) can name them without a direct
-// `eos-types` dependency edge — keeping the frozen DAG `eos-db -> {state, config}`.
+// `eos-types` dependency edge, preserving the `eos-db -> {state, config}` topology.
 pub use eos_types::{
     AgentRunId, AttemptId, CoreError, IterationId, JsonObject, RequestId, SandboxId, TaskId,
     UtcDateTime, WorkflowId,

@@ -6,22 +6,18 @@
 //! [`BackgroundSupervisorHandle`] wraps that state and is the real
 //! [`BackgroundSupervisorPort`](eos_tools::ports::BackgroundSupervisorPort) (impl in
 //! `subagent.rs`) and [`CommandSessionSupervisorPort`](eos_tools::ports::CommandSessionSupervisorPort)
-//! (impl in `command_session.rs`). It also holds the [`EngineRunHandles`] +
-//! [`AuditSink`] + [`Clock`] the subagent driver needs.
+//! (impl in `command_session.rs`). It also holds the [`EngineRunHandles`] the
+//! subagent driver needs.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use eos_audit::AuditSink;
 use eos_sandbox_api::{
     CommandSessionCancelRequest, SandboxCaller, SandboxRequestBase, SandboxTransport,
 };
 use eos_tools::ports::Sealed;
 use eos_tools::{BackgroundInflightReport, StartedWorkflow, ToolResult, WorkflowControlPort};
-use eos_types::{
-    Clock, CommandSessionId, JsonObject, SandboxId, SubagentSessionId, TaskId, WorkflowId,
-    WorkflowSessionId,
-};
+use eos_types::{CommandSessionId, JsonObject, SandboxId, SubagentSessionId, WorkflowSessionId};
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use tokio::task::AbortHandle;
@@ -109,32 +105,20 @@ impl SubagentRecord {
 pub struct WorkflowBackgroundRecord {
     /// Agent-facing workflow handle.
     pub workflow_task_id: WorkflowSessionId,
-    /// Persisted workflow id.
-    pub workflow_id: WorkflowId,
-    /// Parent task that launched this workflow.
-    pub parent_task_id: TaskId,
-    /// Goal text submitted to `delegate_workflow`.
-    pub workflow_goal: String,
     /// Current supervisor status.
     pub status: BackgroundTaskStatus,
     /// Owning agent id (the launching agent), for the agent-scoped count.
     pub agent_id: String,
-    /// Final supervisor-side result.
-    pub result: Option<ToolResult>,
 }
 
 impl WorkflowBackgroundRecord {
     /// Cancel this workflow record in-place. Persisted state cancellation is
     /// handled by [`WorkflowControlPort`].
-    pub fn cancel(&mut self, reason: &str) -> bool {
+    pub fn cancel(&mut self, _reason: &str) -> bool {
         if !matches!(self.status, BackgroundTaskStatus::Running) {
             return false;
         }
         self.status = BackgroundTaskStatus::Cancelled;
-        self.result = Some(
-            ToolResult::error(format!("Delegated workflow cancelled: {reason}"))
-                .meta("workflow_cancelled", json!(true)),
-        );
         true
     }
 }
@@ -196,25 +180,15 @@ impl BackgroundTaskSupervisor {
     }
 
     /// Register a delegated workflow as background work. The workflow-control
-    /// adapter owns the persisted state; this supervisor owns the handle bookkeeping
-    /// used by background counts and parent-exit cleanup.
-    pub fn register_workflow(
-        &mut self,
-        parent_task_id: &TaskId,
-        agent_id: &str,
-        workflow_goal: &str,
-        workflow: &StartedWorkflow,
-    ) {
+    /// adapter owns persisted state; this supervisor only tracks the handle for
+    /// counts and parent-exit cleanup.
+    pub fn register_workflow(&mut self, agent_id: &str, workflow: &StartedWorkflow) {
         self.workflows.insert(
             workflow.workflow_task_id.clone(),
             WorkflowBackgroundRecord {
                 workflow_task_id: workflow.workflow_task_id.clone(),
-                workflow_id: workflow.workflow_id.clone(),
-                parent_task_id: parent_task_id.clone(),
-                workflow_goal: workflow_goal.to_owned(),
                 status: BackgroundTaskStatus::Running,
                 agent_id: agent_id.to_owned(),
-                result: None,
             },
         );
     }
@@ -390,14 +364,11 @@ impl BackgroundTaskSupervisor {
 }
 
 /// The run dependencies the subagent driver needs, threaded in at the
-/// composition root: the engine run handles (registry + stores + client + cwd),
-/// the audit sink (single emitter of `background_tool.*`), and the clock.
+/// composition root: the engine run handles (registry + stores + client + cwd).
 #[derive(Clone)]
 pub struct BackgroundSupervisorHandle {
     inner: Arc<Mutex<BackgroundTaskSupervisor>>,
     pub(super) handles: EngineRunHandles,
-    pub(super) audit: Arc<dyn AuditSink>,
-    pub(super) clock: Arc<dyn Clock>,
     transport: Arc<dyn SandboxTransport>,
 }
 
@@ -409,20 +380,13 @@ impl std::fmt::Debug for BackgroundSupervisorHandle {
 }
 
 impl BackgroundSupervisorHandle {
-    /// Create the shared supervisor with the run handles + audit sink + clock the
-    /// subagent driver needs. The ledger starts empty.
+    /// Create the shared supervisor with the run handles the subagent driver
+    /// needs. The ledger starts empty.
     #[must_use]
-    pub fn new(
-        handles: EngineRunHandles,
-        audit: Arc<dyn AuditSink>,
-        clock: Arc<dyn Clock>,
-        transport: Arc<dyn SandboxTransport>,
-    ) -> Self {
+    pub fn new(handles: EngineRunHandles, transport: Arc<dyn SandboxTransport>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(BackgroundTaskSupervisor::new())),
             handles,
-            audit,
-            clock,
             transport,
         }
     }
@@ -584,12 +548,7 @@ mod tests {
             workflow_id: eos_types::WorkflowId::new_v4(),
             workflow_task_id: "wf_1".parse().expect("workflow handle"),
         };
-        supervisor.register_workflow(
-            &"parent".parse().expect("parent task id"),
-            "agent-a",
-            "delegate this",
-            &workflow,
-        );
+        supervisor.register_workflow("agent-a", &workflow);
         assert_eq!(
             supervisor.inflight_report("agent-a").workflow,
             1,

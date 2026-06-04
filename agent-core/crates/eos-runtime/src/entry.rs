@@ -5,7 +5,7 @@
 //! The root is a `Task(role=root, workflow_id=None)` run directly through the
 //! engine — never the workflow starter (GC-eos-runtime-01).
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -47,6 +47,7 @@ pub struct RequestEntryHandle {
     /// request teardown.
     pub(crate) heartbeat: JoinHandle<()>,
     pub(crate) state: AppState,
+    finished: bool,
 }
 
 impl std::fmt::Debug for RequestEntryHandle {
@@ -58,13 +59,55 @@ impl std::fmt::Debug for RequestEntryHandle {
     }
 }
 
+impl Drop for RequestEntryHandle {
+    fn drop(&mut self) {
+        if self.finished {
+            return;
+        }
+        self.state.shutdown.cancel();
+        self.heartbeat.abort();
+        self.root_agent_task.abort();
+
+        let supervisor = self.supervisor.clone();
+        let workflow_control = self.workflow_control.clone();
+        let state = self.state.clone();
+        let request_id = self.request_id.clone();
+        let root_task_id = self.root_task_id.clone();
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            tracing::warn!(
+                request_id = self.request_id.as_str(),
+                "request handle dropped outside a Tokio runtime; background cleanup could not be spawned"
+            );
+            return;
+        };
+        handle.spawn(async move {
+            supervisor
+                .cancel_for_parent_exit(
+                    "",
+                    Some(workflow_control),
+                    "request handle dropped before join/shutdown",
+                )
+                .await;
+            fail_unfinished_root(
+                &state,
+                &request_id,
+                &root_task_id,
+                "request handle dropped before join/shutdown",
+            )
+            .await;
+            state.flush_audit();
+        });
+    }
+}
+
 impl RequestEntryHandle {
     /// Await the root agent to completion. On a join error (the spawned task
     /// panicked or was aborted), apply the still-running unfinished-root guard so
     /// a crash persists a failure instead of leaving the task running
     /// (AC-eos-runtime-03b).
-    pub async fn join(self) {
-        let result = self.root_agent_task.await;
+    pub async fn join(mut self) {
+        let root_agent_task = std::mem::replace(&mut self.root_agent_task, tokio::spawn(async {}));
+        let result = root_agent_task.await;
         // The root run is done; the heartbeat has nothing left to deliver.
         self.heartbeat.abort();
         self.supervisor
@@ -78,28 +121,28 @@ impl RequestEntryHandle {
             let summary = format!("root agent task did not complete: {join_err}");
             fail_unfinished_root(&self.state, &self.request_id, &self.root_task_id, &summary).await;
         }
+        self.finished = true;
     }
 
     /// Graceful shutdown: cancel the token, parent-exit the background
     /// supervisor, await the root task within `grace`, abort on timeout, run the
     /// unfinished-root guard, then flush audit (AC-eos-runtime-08b).
-    pub async fn shutdown(self, reason: &str, grace: Duration) {
+    pub async fn shutdown(mut self, reason: &str, grace: Duration) {
         self.state.shutdown.cancel();
         self.heartbeat.abort();
         self.supervisor
             .cancel_for_parent_exit("", Some(self.workflow_control.clone()), reason)
             .await;
 
-        let abort = self.root_agent_task.abort_handle();
-        if tokio::time::timeout(grace, self.root_agent_task)
-            .await
-            .is_err()
-        {
+        let root_agent_task = std::mem::replace(&mut self.root_agent_task, tokio::spawn(async {}));
+        let abort = root_agent_task.abort_handle();
+        if tokio::time::timeout(grace, root_agent_task).await.is_err() {
             abort.abort();
         }
         let summary = format!("request shutdown: {reason}");
         fail_unfinished_root(&self.state, &self.request_id, &self.root_task_id, &summary).await;
         self.state.flush_audit();
+        self.finished = true;
     }
 }
 
@@ -131,12 +174,10 @@ pub async fn start_request(
         .context("creating the request row")?;
 
     // Per-request delegated-workflow runtime (Python `_create_runtime`). The
-    // single supervisor carries the engine run handles + audit sink + clock the
-    // subagent driver needs (it calls `run_ephemeral_agent` directly).
+    // single supervisor carries the engine run handles the subagent driver needs
+    // (it calls `run_ephemeral_agent` directly).
     let supervisor = Arc::new(BackgroundSupervisorHandle::new(
         state.engine_run_handles(),
-        state.audit.clone(),
-        state.clock.clone(),
         state.transport.clone(),
     ));
     let background_supervisor_port: Arc<dyn BackgroundSupervisorPort> = supervisor.clone();
@@ -169,9 +210,14 @@ pub async fn start_request(
     // (Path A-recording). Stateless and shared across all runs.
     let plan_submission: Arc<dyn PlanSubmissionPort> =
         Arc::new(PlanSubmissionAdapter::new(orchestrator_registry.clone()));
+    // `workflow_control` is built downstream of the runner (starter → attempt_deps
+    // → runner), so it is late-bound through this cell and read at run() time.
+    let workflow_control_cell: Arc<OnceLock<Arc<dyn WorkflowControlPort>>> =
+        Arc::new(OnceLock::new());
     let runner: Arc<dyn AgentRunner> = Arc::new(RuntimeAgentRunner::new(
         state.clone(),
         plan_submission,
+        workflow_control_cell.clone(),
         background_supervisor_port.clone(),
         command_session_port.clone(),
         notifier.clone(),
@@ -186,7 +232,6 @@ pub async fn start_request(
         iteration_coordinators: Some(iteration_coordinators),
         lifecycle_config: WorkflowLifecycleConfig::default(),
         composer: Some(composer),
-        audit_sink: state.audit.clone(),
         runner,
         max_concurrent_task_runs: state.config.attempt.max_concurrent_task_runs,
     };
@@ -198,6 +243,10 @@ pub async fn start_request(
         state.attempt_store.clone(),
         state.task_store.clone(),
     ));
+    // Late-bind the control port into the workflow-agent runner (closes D1: a
+    // nested planner's deferral hook reads workflow_depth; every workflow agent's
+    // no-inflight hook reads find_outstanding).
+    let _ = workflow_control_cell.set(workflow_control.clone());
 
     // Root task: `root-<hex16>`, running, no workflow (non-goal: no root workflow).
     let root_task_id: TaskId = format!("root-{}", &Uuid::new_v4().simple().to_string()[..16])
@@ -253,5 +302,6 @@ pub async fn start_request(
         workflow_control: workflow_control_handle,
         heartbeat,
         state: state.clone(),
+        finished: false,
     })
 }

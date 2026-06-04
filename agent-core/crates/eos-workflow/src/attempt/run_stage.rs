@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
 use eos_agent_def::AgentRole;
-use eos_audit::{AuditEvent, AuditNode, AuditSource};
 use eos_state::{
     execution_outcome_for_submission, Attempt, ExecutionRole, GeneratorSubmission, JsonObject,
     PlannerFailReason, PlannerFailureSubmission, ReducerSubmission, Task, TaskOutcomeStatus,
     TaskRole, TaskStatus,
 };
-use eos_types::SystemClock;
 use serde_json::{json, Value};
 use tokio::task::JoinSet;
 
@@ -16,7 +14,7 @@ use crate::attempt::{AgentLaunch, AgentLaunchFactory, AgentRunReport, AttemptDep
 use crate::util::json_object;
 use crate::{Result, WorkflowError};
 
-/// Workflow audit event-type constants (Python `workflow._core.audit`).
+/// Workflow diagnostic event-type constants (Python `workflow._core.audit`).
 const TASK_READY: &str = "workflow.task.ready";
 const TASK_LAUNCHED: &str = "workflow.task.launched";
 const TASK_FAILED: &str = "workflow.task.failed";
@@ -211,19 +209,10 @@ impl AttemptStageAdvancer {
         Ok(())
     }
 
-    /// Emit one `workflow.task.*` audit event (D8) through the attempt's audit
-    /// sink, mirroring Python's `WorkflowAuditEmitter` node + payload shape.
-    /// Observability only: a publish failure is logged, never propagated.
+    /// Emit one `workflow.task.*` human diagnostic row. These lifecycle shadows
+    /// are reconstructable from task state, so runner correctness must come from
+    /// state/transcript, not from this trace.
     fn emit_task_event(&self, event_type: &str, task: &Task, extra: &[(&str, Value)]) {
-        let mut node = AuditNode::builder()
-            .request_id(task.request_id.clone())
-            .task_id(task.id.clone());
-        if let Some(attempt_id) = &task.attempt_id {
-            node = node.attempt_id(attempt_id.clone());
-        }
-        if let Some(agent_name) = &task.agent_name {
-            node = node.agent_name(agent_name.clone());
-        }
         let mut payload = JsonObject::new();
         payload.insert("request_id".to_owned(), json!(task.request_id.as_str()));
         payload.insert(
@@ -244,16 +233,20 @@ impl AttemptStageAdvancer {
         for (key, value) in extra {
             payload.insert((*key).to_owned(), value.clone());
         }
-        let event = AuditEvent::new(
-            AuditSource::Workflow,
+        tracing::debug!(
+            target: "eos_workflow::diagnostics",
             event_type,
-            node.build(),
-            payload,
-            &SystemClock,
+            request_id = task.request_id.as_str(),
+            task_id = task.id.as_str(),
+            attempt_id = task
+                .attempt_id
+                .as_ref()
+                .map(eos_state::AttemptId::as_str),
+            role = task_role_label(task.role),
+            agent_name = task.agent_name.as_deref(),
+            payload = ?payload,
+            "workflow task lifecycle"
         );
-        if let Err(err) = self.orchestrator.deps().audit_sink.publish(&event) {
-            tracing::warn!(error = %err, event = event_type, "workflow audit publish failed");
-        }
     }
 
     /// Settle a RUN-stage task after its run resolves (Path A-recording). The
@@ -544,11 +537,6 @@ mod tests {
         let runner = Arc::new(QueueRunner::default());
         let mut deps = stores.deps(runner);
         deps.lifecycle_config.default_attempt_budget = 1;
-        // D8: capture the workflow.task.* audit stream for this run. A launch
-        // failure exercises all three events on the one task (ready -> launched
-        // -> failed).
-        let audit = Arc::new(crate::testsupport::RecordingAuditSink::default());
-        deps.audit_sink = audit.clone();
         let parent = root_task("parent", TaskStatus::Running);
         stores.seed_task(parent.clone());
         let started = WorkflowStarter::new(deps.clone())
@@ -601,28 +589,5 @@ mod tests {
             stores.workflow(&started.workflow_id).unwrap().status,
             WorkflowStatus::Failed
         );
-
-        // D8: the three workflow.task.* events fired for the launched-then-failed
-        // task, in order.
-        let events = audit.event_types();
-        assert_eq!(
-            events,
-            vec![
-                "workflow.task.ready".to_owned(),
-                "workflow.task.launched".to_owned(),
-                "workflow.task.failed".to_owned(),
-            ],
-            "D8 audit stream: {events:?}"
-        );
-        // ...and the failed event carries the Python-shaped node + payload.
-        let failed = audit
-            .event_of("workflow.task.failed")
-            .expect("task.failed event");
-        assert_eq!(failed.node.task_id.as_ref(), Some(&task_id));
-        assert_eq!(failed.node.attempt_id.as_ref(), Some(&started.attempt_id));
-        assert_eq!(failed.payload["role"], json!("generator"));
-        assert_eq!(failed.payload["status_from"], json!("running"));
-        assert_eq!(failed.payload["status_to"], json!("failed"));
-        assert_eq!(failed.payload["fail_reason"], json!("agent_launch_failed"));
     }
 }

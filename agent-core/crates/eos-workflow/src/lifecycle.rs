@@ -166,7 +166,8 @@ impl WorkflowLifecycle {
         self.iteration_coordinators.deregister(&iteration.id);
 
         if closed.succeeded && closed.deferred_goal.is_some() {
-            self.start_continuation(&iteration.workflow_id).await
+            self.start_iteration_with_deferred_goal(&iteration.workflow_id)
+                .await
         } else {
             // succeeded + no deferral -> SUCCEEDED; not succeeded -> FAILED.
             self.close_workflow(&iteration.workflow_id, closed.succeeded)
@@ -177,7 +178,7 @@ impl WorkflowLifecycle {
 
     /// Start the deferred-goal continuation iteration, compensating on a
     /// first-attempt start failure (parity with Python `_start_deferred_iteration`).
-    async fn start_continuation(&self, workflow_id: &WorkflowId) -> Result<()> {
+    async fn start_iteration_with_deferred_goal(&self, workflow_id: &WorkflowId) -> Result<()> {
         let (next, coordinator) = self.create_iteration_with_coordinator(workflow_id).await?;
         if let Err(err) = coordinator.create_and_start_first_attempt().await {
             // Continuation could not start: cancel the new iteration, release its

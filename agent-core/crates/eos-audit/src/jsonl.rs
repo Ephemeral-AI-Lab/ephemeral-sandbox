@@ -19,11 +19,9 @@ use crate::error::AuditError;
 use crate::event::AuditEvent;
 use crate::sink::AuditSink;
 
-/// Serialize one event to its `JSONL` line (canonical row + trailing newline).
+/// Serialize one event to its normalized `JSONL` row.
 fn event_line(event: &AuditEvent) -> Result<String, AuditError> {
-    let mut line = serde_json::to_string(event)?;
-    line.push('\n');
-    Ok(line)
+    Ok(eos_obs_contract::to_jsonl_line(&event.to_obs_envelope())?)
 }
 
 /// Open `path` for appending, creating parent directories as needed.
@@ -228,9 +226,10 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert!(lines[0].contains("engine.tool.started"));
         assert!(lines[1].contains("engine.tool.completed"));
-        // Each line is a complete JSON object.
+        // Each line is a complete normalized JSON object.
         for line in lines {
-            let _: AuditEvent = serde_json::from_str(line).unwrap();
+            let row = eos_obs_contract::from_jsonl_line(line).unwrap();
+            assert_eq!(row.source, eos_obs_contract::ObsSource::AgentCore);
         }
     }
 
@@ -252,7 +251,8 @@ mod tests {
         let lines: Vec<&str> = contents.lines().collect();
         assert_eq!(lines.len(), N);
         for line in lines {
-            let _: AuditEvent = serde_json::from_str(line).unwrap();
+            let row = eos_obs_contract::from_jsonl_line(line).unwrap();
+            assert_eq!(row.event_type, "engine.tool.completed");
         }
     }
 }

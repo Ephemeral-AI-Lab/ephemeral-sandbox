@@ -220,7 +220,7 @@ mod tests {
         WorkflowControlPort,
     };
     use crate::testsupport::metadata;
-    use eos_types::{TaskId, WorkflowSessionId};
+    use eos_types::WorkflowSessionId;
 
     use super::*;
 
@@ -282,14 +282,7 @@ mod tests {
             }
         }
 
-        async fn register_workflow(
-            &self,
-            _parent_task_id: &TaskId,
-            _agent_id: &str,
-            _workflow_goal: &str,
-            _workflow: &StartedWorkflow,
-        ) {
-        }
+        async fn register_workflow(&self, _agent_id: &str, _workflow: &StartedWorkflow) {}
 
         async fn cancel_workflow_record(
             &self,

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use eos_agent_def::{AgentDefinition, AgentName, AgentRegistry, AgentRole};
-use eos_audit::{AuditSink, NoopAuditSink};
 use eos_state::{
     Attempt, AttemptStore, IterationStore, RequestId, Task, TaskId, TaskStore, WorkflowId,
     WorkflowStore,
@@ -102,8 +101,6 @@ pub struct AttemptDeps {
     pub lifecycle_config: WorkflowLifecycleConfig,
     /// Optional composer.
     pub composer: Option<Arc<AgentEntryComposer>>,
-    /// Audit sink.
-    pub audit_sink: Arc<dyn AuditSink>,
     /// Agent runner seam.
     pub runner: Arc<dyn AgentRunner>,
     /// Per-attempt run cap.
@@ -145,7 +142,6 @@ impl AttemptDeps {
             iteration_coordinators: None,
             lifecycle_config: WorkflowLifecycleConfig::default(),
             composer: None,
-            audit_sink: Arc::new(NoopAuditSink),
             max_concurrent_task_runs: 8,
         }
     }

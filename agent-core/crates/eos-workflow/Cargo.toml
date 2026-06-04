@@ -9,7 +9,6 @@ async-trait.workspace = true
 eos-state.workspace = true
 eos-tools.workspace = true
 eos-agent-def.workspace = true
-eos-audit.workspace = true
 eos-types.workspace = true
 parking_lot.workspace = true
 schemars.workspace = true

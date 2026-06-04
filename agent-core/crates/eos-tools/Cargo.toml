@@ -9,8 +9,7 @@ rust-version.workspace = true
 # WorkflowSessionId, CommandSessionId, SubagentSessionId, and JsonObject/CoreError
 # in its own signatures, and none of the other upstream deps re-export them
 # (eos-state re-exports only a subset). Mirrors the eos-sandbox-host /
-# eos-plugin-catalog precedent; the frozen DAG is updated to match
-# (parity/tests/dependency_dag.rs).
+# eos-plugin-catalog precedent.
 eos-types.workspace = true
 eos-state.workspace = true
 eos-sandbox-api.workspace = true

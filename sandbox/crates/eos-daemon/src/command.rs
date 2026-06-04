@@ -32,21 +32,27 @@ use serde_json::{json, Value};
 #[cfg(target_os = "linux")]
 use eos_layerstack::{require_workspace_binding, LayerStack, Lease, WorkspaceBinding};
 #[cfg(target_os = "linux")]
-use eos_overlay::{allocate_overlay_writable_dirs, capture_upperdir, overlay_writable_root};
+use eos_overlay::{capture_upperdir, overlay_writable_root};
 #[cfg(target_os = "linux")]
 use eos_protocol::Intent;
 #[cfg(target_os = "linux")]
 use eos_runner::{Fd, NsFds, RunMode, RunRequest, RunResult, ToolCall, WorkspaceRoot};
 
+use crate::dispatcher::DispatchContext;
 #[cfg(target_os = "linux")]
 use crate::dispatcher::{
-    apply_occ_changeset, base_hashes_for_snapshot, guarded_changeset_response,
-    insert_occ_route_timings, insert_tree_resource_timings, layer_change_kind,
-    manifest_version_u64, merge_runner_timings, occ_route_metrics, overlay_daemon_error,
-    resource_timings, TreeResourceStats,
+    apply_occ_changeset, base_hashes_for_snapshot, insert_occ_route_timings, manifest_version_u64,
+    occ_route_metrics,
 };
-use crate::dispatcher::{u64_to_f64_saturating, DispatchContext};
 use crate::error::DaemonError;
+#[cfg(target_os = "linux")]
+use crate::overlay_runner::{overlay_daemon_error, overlay_run_dirs};
+use crate::response_timings::u64_to_f64_saturating;
+#[cfg(target_os = "linux")]
+use crate::response_timings::{
+    guarded_changeset_response, insert_tree_resource_timings, layer_change_kind,
+    merge_runner_timings, resource_timings, TreeResourceStats,
+};
 
 /// `api.v1.exec_command` — command-session start contract.
 pub fn op_exec_command(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
@@ -220,25 +226,6 @@ fn optional_u64(args: &Value, key: &str) -> Option<u64> {
             .as_u64()
             .or_else(|| value.as_i64().and_then(|value| u64::try_from(value).ok()))
     })
-}
-
-#[cfg(target_os = "linux")]
-fn sanitize_path_component(value: &str) -> String {
-    let cleaned: String = value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    if cleaned.is_empty() {
-        "op".to_owned()
-    } else {
-        cleaned
-    }
 }
 
 fn command_result(
@@ -891,7 +878,11 @@ fn start_isolated_command_session(
     };
     let id = spec.id.clone();
     let session = prepare_isolated_command_session(&spec, handle)?;
-    match wait_for_yield(&session, yield_time_ms, optional_u64(args, "max_output_tokens")) {
+    match wait_for_yield(
+        &session,
+        yield_time_ms,
+        optional_u64(args, "max_output_tokens"),
+    ) {
         WaitOutcome::Completed(response) => Ok(strip_session_id(response)),
         WaitOutcome::Running(stdout) => {
             command_session_registry().insert(Arc::clone(&session));
@@ -932,7 +923,11 @@ fn start_command_session(
     let id = spec.id.clone();
     match prepare_command_session(&root, &binding, &lease, &spec) {
         Ok(session) => {
-            match wait_for_yield(&session, yield_time_ms, optional_u64(args, "max_output_tokens")) {
+            match wait_for_yield(
+                &session,
+                yield_time_ms,
+                optional_u64(args, "max_output_tokens"),
+            ) {
                 WaitOutcome::Completed(response) => Ok(strip_session_id(response)),
                 WaitOutcome::Running(stdout) => {
                     command_session_registry().insert(Arc::clone(&session));
@@ -1014,13 +1009,7 @@ fn prepare_command_session(
     let runtime_root = overlay_writable_root()
         .map_err(|err| overlay_daemon_error("overlay writable root", &err))?
         .join("runtime");
-    let run_root = runtime_root.join("sandbox-overlay").join(format!(
-        "{}-{}",
-        std::process::id(),
-        sanitize_path_component(&spec.invocation_id)
-    ));
-    let dirs = allocate_overlay_writable_dirs(&run_root)
-        .map_err(|err| overlay_daemon_error("allocate overlay dirs", &err))?;
+    let dirs = overlay_run_dirs("sandbox-overlay", &spec.invocation_id)?;
     let session_dir = runtime_root.join("command-sessions").join(&spec.id);
     std::fs::create_dir_all(&session_dir)?;
     let transcript_path = session_dir.join("transcript.log");
@@ -1647,7 +1636,10 @@ mod tests {
         let mut first = b"ab".to_vec();
         first.extend_from_slice(&euro[..1]); // "ab" + first byte of €
         let consume = utf8_consumable_prefix_len(&first);
-        assert_eq!(consume, 2, "the split multibyte tail is carried, not consumed");
+        assert_eq!(
+            consume, 2,
+            "the split multibyte tail is carried, not consumed"
+        );
         assert_eq!(&first[..consume], b"ab");
 
         // Completing the sequence makes the whole buffer consumable.
@@ -1731,8 +1723,7 @@ mod tests {
 
         // Remove-on-deliver: a second collect finds nothing — the map is bounded,
         // not accumulating delivered entries forever.
-        let redelivered =
-            registry.collect_completed(&json!({"command_session_ids": ["cmd_keep"]}));
+        let redelivered = registry.collect_completed(&json!({"command_session_ids": ["cmd_keep"]}));
         assert_eq!(
             redelivered["completions"]
                 .as_array()
@@ -1748,7 +1739,12 @@ mod tests {
     /// matter. One constructor keeps the 16-field literal in a single place.
     #[cfg(target_os = "linux")]
     fn test_command_session(id: &str, agent_id: &str) -> TestResult<CommandSession> {
-        let writer = Mutex::new(OpenOptions::new().read(true).write(true).open("/dev/null")?);
+        let writer = Mutex::new(
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open("/dev/null")?,
+        );
         Ok(CommandSession {
             id: id.to_owned(),
             agent_id: agent_id.to_owned(),

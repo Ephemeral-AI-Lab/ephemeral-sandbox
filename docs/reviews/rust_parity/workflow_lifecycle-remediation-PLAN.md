@@ -110,7 +110,7 @@ pub async fn handle_iteration_closed(&self, closed: IterationClosed) -> Result<(
     self.iteration_coordinators.deregister(&iteration.id);
 
     if closed.succeeded && closed.deferred_goal.is_some() {
-        self.start_continuation(&iteration.workflow_id).await
+        self.start_iteration_with_deferred_goal(&iteration.workflow_id).await
     } else {
         // succeeded+no-deferral -> SUCCEEDED; not-succeeded -> FAILED.
         self.close_workflow(&iteration.workflow_id, closed.succeeded).await.map(|_| ())
@@ -118,7 +118,7 @@ pub async fn handle_iteration_closed(&self, closed: IterationClosed) -> Result<(
 }
 
 /// Start the deferred-goal continuation iteration, compensating on a start failure.
-async fn start_continuation(&self, workflow_id: &WorkflowId) -> Result<()> {
+async fn start_iteration_with_deferred_goal(&self, workflow_id: &WorkflowId) -> Result<()> {
     let (next, coordinator) = self.create_iteration_with_coordinator(workflow_id).await?;
     if coordinator.create_and_start_first_attempt().await.is_err() {
         // Continuation could not start: cancel the new iteration, release its
@@ -150,7 +150,7 @@ Notes:
   propagates `Err` after the old coordinator is already deregistered (Python's `finally`
   runs, then the exception propagates; the workflow is left OPEN on both sides — an
   accepted, low-probability edge, see §7).
-- `start_continuation` is a private helper purely for readability; it can be inlined.
+- `start_iteration_with_deferred_goal` is a private helper purely for readability; it can be inlined.
   No struct, field, or public-API change.
 
 ---
@@ -188,7 +188,7 @@ already closed.
 ```
 agent-core/crates/eos-workflow/
 └── src/
-    ├── lifecycle.rs        ★ EDIT  handle_iteration_closed (rewrite) + start_continuation (new private fn)
+    ├── lifecycle.rs        ★ EDIT  handle_iteration_closed (rewrite) + start_iteration_with_deferred_goal (new private fn)
     │                       ★ EDIT  mod tests { + continuation_start_failure_compensates() }
     ├── starter.rs              (reference only — compensate_failed_start / compensation_rolls_back)
     ├── iteration/mod.rs        (untouched — owns retry + deferral creation; provides the test failure lever)

@@ -333,9 +333,6 @@ pub async fn dispatch_assistant_tools(
     }
 
     for completion in completions {
-        if completion.result.is_terminal {
-            ctx.terminal_result = Some(completion.result.clone());
-        }
         events.push(completed_event(&completion.call, &completion.result));
         tool_results.push(result_block(
             &completion.call.tool_use_id,

@@ -119,6 +119,10 @@ Rules:
 
 Agent-core emits normalized `ObsEnvelope` JSONL directly.
 
+Transition rule: until the remaining shadow producers are moved to tracing,
+existing `eos-audit::AuditEvent` producers may be adapted at the sink boundary
+with `AuditEvent::to_obs_envelope`. Do not add new old-shape JSONL producers.
+
 Minimum event set:
 
 | Event | Payload section | Purpose |
@@ -213,7 +217,7 @@ The Rust runner must not validate pass/fail criteria from tracing.
 | 0 | `base/crates/eos-obs-contract` contract crate | `cargo test --manifest-path base/Cargo.toml -p eos-obs-contract`; clippy |
 | 1 | Update plan/docs to Rust-only contract direction | markdown review; no Python target paths |
 | 2 | Agent-core audit deletion pass | `cargo test -p eos-audit`; affected agent-core crates |
-| 3 | Agent-core obs JSONL using `ObsEnvelope` | JSONL unit/integration smoke test |
+| 3 | Agent-core obs JSONL using `ObsEnvelope` | `cargo test -p eos-audit`; `cargo check -p eos-runtime`; JSONL smoke test |
 | 4 | Shadow events to tracing + dependency edge cleanup | affected crate tests; dependency guard updates if still present |
 | 5 | Sandbox typed emitters + resource samples | `cargo test -p eos-protocol -p eos-daemon`; pull smoke test |
 | 6 | Rust collector normalizer | normalization tests from agent-core row + sandbox pull event |

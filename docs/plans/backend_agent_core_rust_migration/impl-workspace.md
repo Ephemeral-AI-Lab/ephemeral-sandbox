@@ -1,4 +1,4 @@
-# impl-workspace — agent-core Cargo workspace scaffolding + Phase-0 parity harness
+# impl-workspace — agent-core Cargo workspace scaffolding + workspace guards
 
 > Owning crate in the agent-core workspace. Conforms to ./spec-conventions.md.
 > Plan section: ../backend_agent_core_rust_migration_PLAN.md §Target Workspace,
@@ -7,15 +7,16 @@
 This doc owns no Rust *crate* — it owns the **workspace root**
 (`agent-core/Cargo.toml`), the shared `[workspace.dependencies]` /
 `[workspace.lints]` / profiles, the 15 crate skeletons + their `Cargo.toml`
-dependency edges, the toolchain pin, the fmt/clippy CI, and the Phase-0 parity
-harness (`agent-core/parity/`). No domain logic lives here; every crate body is
-specified in its own `impl-<crate>.md`.
+dependency edges, the toolchain pin, the fmt/clippy CI, and the Rust-only
+workspace guard member (`agent-core/workspace-guard/`). The old Python-fixture
+parity harness (`agent-core/parity/`) has been retired. No domain logic lives
+here; every crate body is specified in its own `impl-<crate>.md`.
 
 **Workspace location:** the `agent-core/` workspace is placed at the repository
 root — `/Users/yifanxu/machine_learning/LoVC/EphemeralOS/agent-core/` — as a
 sibling of `backend/` (the Python control plane being migrated) and the existing
 `sandbox/` Rust daemon workspace. Every path in this doc (`agent-core/Cargo.toml`,
-`crates/…`, `parity/…`) is relative to that root. `agent-core` is its own
+`crates/…`, `workspace-guard/…`) is relative to that root. `agent-core` is its own
 workspace, **not** a member of the `sandbox/` workspace; the two share version
 pins by convention (§2), not a common `Cargo.toml`.
 
@@ -31,7 +32,7 @@ lints, dev/release/bench profiles (with the `panic` decision resolved below),
 the 15 member crates and the **exact `[dependencies]` edges** between them
 (encoding the dependency DAG as code, including the anchor §5a
 `eos-tools -> eos-llm-client` edge), rustfmt/clippy config, the CI lint job, and
-the snapshot/fixture/golden test corpus under `agent-core/parity/`.
+the Rust workspace guard tests under `agent-core/workspace-guard/`.
 
 This spec must **NOT**: implement any type, trait, store, client, tool, or
 state machine (those belong to the per-crate docs); add no dependency edge
@@ -147,19 +148,11 @@ agent-core/
     eos-sandbox-host/ { Cargo.toml, src/lib.rs } # -> eos-sandbox-api, eos-config
     eos-plugin-catalog/ { Cargo.toml, src/lib.rs } # -> eos-sandbox-api, eos-audit, eos-config
     eos-runtime/      { Cargo.toml, src/lib.rs, src/main.rs } # composition root -> all crates (see §5 table)
-  parity/
-    Cargo.toml                 # member crate `eos-parity` (dev/test only)
-    src/lib.rs                 # //! empty; harness lives in tests/
-    tests/dependency_dag.rs    # cargo metadata eos-* edge set vs §5 table (AC-workspace-02)
-    tests/profiles.rs          # ../Cargo.toml profile keys incl. panic=unwind (AC-workspace-04)
-    tests/schema_snapshots.rs  # insta vs parity/schemas/*.schema.json
-    tests/sqlite_schema.rs     # canonical sqlite_master vs parity/sqlite/schema.sql
-    tests/sse_fixtures.rs      # presence/shape guard over parity/sse/**
-    tests/prompt_report.rs     # golden over parity/prompt_report/*.jsonl
-    schemas/   *.schema.json
-    sqlite/    schema.sql
-    sse/       anthropic/*.sse  openai/*.sse
-    prompt_report/  *.jsonl
+  workspace-guard/
+    Cargo.toml                 # member crate `workspace-guard` (dev/test only)
+    src/lib.rs                 # empty; guard logic lives in tests/
+    tests/dependency_dag.rs    # cargo metadata eos-* edge set vs current topology
+    tests/profiles.rs          # ../Cargo.toml profile keys incl. panic=unwind
 ```
 
 Each skeleton `lib.rs` is the minimal compilable shape:
@@ -174,8 +167,8 @@ Each skeleton `lib.rs` is the minimal compilable shape:
 stays a thin `fn main() -> anyhow::Result<()>` that defers to `eos_runtime::run`
 (the body is impl-eos-runtime.md's concern). All public surface is re-exported
 from each `lib.rs` (`proj-pub-use-reexport`); internals are `pub(crate)`
-(`proj-pub-crate-internal`). The `parity` crate (`eos-parity`) carries no public
-API — it exists only to host `tests/`.
+(`proj-pub-crate-internal`). The `workspace-guard` crate carries no public API
+and exists only to host workspace-level tests.
 
 ---
 
@@ -278,7 +271,7 @@ workspace = true
 The **complete edge set** (single source of truth; mirror into `overview.md`):
 
 > **Phase-0 reconciliation (2026-06-02):** the *built* edge set asserted by
-> `parity/tests/dependency_dag.rs` follows the `overview.md` §4 topology where it
+> `workspace-guard/tests/dependency_dag.rs` follows the current dependency topology where it
 > diverges from this table, and is the live source of truth. Known divergences:
 > `eos-plugin-catalog` → `sandbox-api, audit, config` (this table's `audit`-only
 > row was an omission); `eos-engine` drops the `eos-state` edge (matches the §4
@@ -386,8 +379,8 @@ burden on Phase-0 skeletons (which have no public types yet).
 
 Per-crate lint override needed by the binary (`eos-runtime` top-level wiring may
 `unwrap` during startup is still discouraged — keep `unwrap_used = "warn"`; do
-**not** allow it). The `eos-parity` test crate overrides
-`unwrap_used = "allow"` and `print_stdout = "allow"` (test code).
+**not** allow it). The `workspace-guard` test crate follows the workspace lint
+settings; its tests avoid `unwrap` and stdout output.
 
 Parity schema fixtures are byte-stable JSON captured from Python; their "fields"
 are whatever the current Pydantic models emit. They are treated as **opaque
@@ -429,9 +422,9 @@ What this spec *fixes in place* for every downstream crate:
   also makes hold-across-await a compile error), reserving `tokio::sync` locks for
   the rare guard that must span an `.await`.
 
-The `eos-parity` crate owns its fixture files immutably; tests read them, never
-mutate them. `insta` snapshot review is the only "state change" and it is
-developer-driven (`cargo insta review`), never at test runtime.
+The `workspace-guard` crate owns only read-only workspace assertions. It shells
+out to `cargo metadata` and reads the workspace manifest; tests never mutate
+workspace files.
 
 ---
 
@@ -568,9 +561,9 @@ anchor §11 "Tests to Port First" corpus.
 - **AC-workspace-01** — `cargo build --workspace` succeeds with only skeleton
   `lib.rs`/`main.rs` files. *Proof:* CI `build` step (and local smoke). Maps to
   plan §Phase 0.
-- **AC-workspace-02** — the internal dependency edge set equals §5 exactly and is
+- **AC-workspace-02** — the internal dependency edge set equals the current topology and is
   acyclic; adding a layering-violating edge fails. *Proof:*
-  `parity/tests/dependency_dag.rs` parses `cargo metadata --format-version=1`,
+  `workspace-guard/tests/dependency_dag.rs` parses `cargo metadata --format-version=1`,
   extracts `eos-*` → `eos-*` edges, and `assert_eq!`s against a hardcoded
   expected set (including `eos-tools -> eos-llm-client`).
 - **AC-workspace-03** — `cargo fmt --check` and
@@ -580,7 +573,7 @@ anchor §11 "Tests to Port First" corpus.
 - **AC-workspace-04** — release profile sets `panic = "unwind"`, `lto="fat"`,
   `codegen-units=1`, `strip=true`; bench profile inherits release and does not
   declare ignored `panic`. *Proof:*
-  `parity/tests/profiles.rs` reads `../Cargo.toml` and asserts the profile keys
+  `workspace-guard/tests/profiles.rs` reads `../Cargo.toml` and asserts the profile keys
   (guards GC-workspace-04 against regression to `abort`).
 - **AC-workspace-05** — committed Pydantic schema JSON matches an `insta`
   snapshot; an edit to a fixture fails the test until reviewed. *Proof:*
@@ -597,9 +590,8 @@ anchor §11 "Tests to Port First" corpus.
   three unique constraints; deviation fails. *Proof:*
   `parity/tests/sqlite_schema.rs`. Seeds eos-db "store roundtrips" target
   (anchor §11).
-- **AC-workspace-09** — `cargo test -p eos-parity` runs all guard tests green in
-  CI. *Proof:* CI `test` step over the parity crate only (the 15 domain crates
-  have no tests yet).
+- **AC-workspace-09** — `cargo test -p workspace-guard` runs all workspace guard
+  tests green in CI. *Proof:* CI `test` step over the guard crate.
 - **AC-workspace-10** — `agent-core/Cargo.toml` pins observability/debug deps:
   Tokio `tracing` feature, `tracing-subscriber`, optional `console-subscriber`,
   and dev `loom`; `cargo check --workspace --features eos-runtime/tokio-console`
@@ -622,8 +614,8 @@ Ordered, small, individually verifiable (`small-incremental-changes`):
 4. Add `[workspace.lints]`, `[profile.*]` (with `panic="unwind"`),
    `rust-toolchain.toml`, `rustfmt.toml`, `clippy.toml`. → verify:
    `cargo fmt --check` and `cargo clippy --workspace --all-targets -- -D warnings`.
-5. Add the `eos-parity` member crate (empty `lib.rs`, `tests/` dir,
-   `unwrap_used=allow` override). → verify: `cargo test -p eos-parity` (no tests
+5. Add the `workspace-guard` member crate (empty `lib.rs`, `tests/` dir).
+   → verify: `cargo test -p workspace-guard` (no tests
    yet, passes).
 6. Capture Pydantic schema JSON, SSE byte streams, prompt-report JSONL, and the
    canonical SQLite `schema.sql` from the running Python backend; commit under
@@ -631,9 +623,9 @@ Ordered, small, individually verifiable (`small-incremental-changes`):
 7. Write the guard tests (`dependency_dag.rs`, `profiles.rs`,
    `schema_snapshots.rs`, `sse_fixtures.rs`, `prompt_report.rs`,
    `sqlite_schema.rs`); accept the initial `insta` snapshots. → verify:
-   `cargo test -p eos-parity` green (AC-workspace-02/04/05/06/07/08/09).
+   `cargo test -p workspace-guard` green (AC-workspace-02/04/09).
 8. Add the CI job (`.github/workflows/`): toolchain → `fmt --check` →
-   `clippy -D warnings` → `build --workspace` → `test -p eos-parity` →
+   `clippy -D warnings` → `build --workspace` → `test -p workspace-guard` →
    `check --workspace --features eos-runtime/tokio-console` (AC-workspace-10's
    observability smoke — the default `build` never enables the optional
    `console-subscriber`). → verify: CI green (AC-workspace-01/03/10).

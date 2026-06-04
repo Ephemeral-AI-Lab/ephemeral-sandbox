@@ -5,6 +5,7 @@ use std::pin::Pin;
 
 use async_stream::try_stream;
 use eos_llm_client::{ContentBlock, Message, MessageRole, UsageSnapshot};
+use eos_tools::SystemNotification;
 use eos_types::{JsonObject, ToolUseId};
 use futures::{Stream, StreamExt};
 
@@ -59,10 +60,7 @@ fn tool_uses_from_message(message: &Message) -> Vec<ToolUseRequest> {
         .collect()
 }
 
-fn append_notifications(
-    messages: &mut Vec<Message>,
-    notifications: &[eos_tools::SystemNotification],
-) {
+fn append_notifications(messages: &mut Vec<Message>, notifications: &[SystemNotification]) {
     if notifications.is_empty() {
         return;
     }
@@ -75,6 +73,23 @@ fn append_notifications(
             })
             .collect(),
     });
+}
+
+async fn collect_notifications(
+    ctx: &mut QueryContext,
+    messages: &mut Vec<Message>,
+) -> Vec<SystemNotification> {
+    let notifier = ctx.notifier.clone();
+    enqueue_notification_rules(messages, ctx, &notifier).await;
+    notifier.drain().await
+}
+
+fn notification_event(ctx: &QueryContext, notification: &SystemNotification) -> StreamEvent {
+    StreamEvent::SystemNotification {
+        agent_name: ctx.agent_name.clone(),
+        agent_run_id: Some(ctx.agent_run_id.clone()),
+        text: notification.message.clone(),
+    }
 }
 
 fn tool_result_message(tool_results: Vec<ContentBlock>) -> Message {
@@ -104,20 +119,18 @@ pub fn run_query<'a>(ctx: &'a mut QueryContext, messages: &'a mut Vec<Message>) 
     Box::pin(try_stream! {
         loop {
             if terminal_submission_failed(ctx) {
+                let notifications = collect_notifications(ctx, messages).await;
+                for notification in &notifications {
+                    yield (notification_event(ctx, notification), None);
+                }
+                append_notifications(messages, &notifications);
                 yield (terminal_not_submitted_event(ctx)?, None);
                 break;
             }
 
-            let notifier = ctx.notifier.clone();
-            enqueue_notification_rules(messages, ctx, &notifier).await;
-            let notifications = notifier.drain().await;
+            let notifications = collect_notifications(ctx, messages).await;
             for notification in &notifications {
-                let event = StreamEvent::SystemNotification {
-                    agent_name: ctx.agent_name.clone(),
-                    agent_run_id: Some(ctx.agent_run_id.clone()),
-                    text: notification.message.clone(),
-                };
-                yield (event, None);
+                yield (notification_event(ctx, notification), None);
             }
             append_notifications(messages, &notifications);
 
@@ -183,6 +196,11 @@ pub fn run_query<'a>(ctx: &'a mut QueryContext, messages: &'a mut Vec<Message>) 
                 ctx.text_only_no_terminal_turns =
                     ctx.text_only_no_terminal_turns.saturating_add(1);
                 if terminal_submission_failed(ctx) {
+                    let notifications = collect_notifications(ctx, messages).await;
+                    for notification in &notifications {
+                        yield (notification_event(ctx, notification), None);
+                    }
+                    append_notifications(messages, &notifications);
                     yield (terminal_not_submitted_event(ctx)?, None);
                     break;
                 }
@@ -207,6 +225,11 @@ pub fn run_query<'a>(ctx: &'a mut QueryContext, messages: &'a mut Vec<Message>) 
                 .is_some_and(|result| result.is_terminal)
             {
                 ctx.exit_reason = Some(QueryExitReason::ToolStop);
+                let notifications = collect_notifications(ctx, messages).await;
+                for notification in &notifications {
+                    yield (notification_event(ctx, notification), None);
+                }
+                append_notifications(messages, &notifications);
                 break;
             }
         }

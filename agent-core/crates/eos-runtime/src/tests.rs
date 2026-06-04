@@ -9,8 +9,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use eos_agent_def::{AgentDefinition, AgentRegistry, AgentRole};
-use eos_engine::EventSource;
+use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
+use eos_llm_client::{ContentBlock, LlmRequest};
 use eos_state::{TaskRole, TaskStatus, WorkflowStatus};
+use eos_tools::StartedWorkflow;
 use serde_json::json;
 
 use crate::app_state::test_seams::{
@@ -49,6 +51,51 @@ fn planner_agent() -> AgentDefinition {
     );
     def.context_recipe = Some("planner".to_owned());
     def
+}
+
+fn stream_of(events: Vec<StreamEvent>) -> EngineStream {
+    Box::pin(futures::stream::iter(events.into_iter().map(Ok)))
+}
+
+fn one_step_workflow_turns() -> (
+    Vec<Vec<StreamEvent>>,
+    Vec<Vec<StreamEvent>>,
+    Vec<Vec<StreamEvent>>,
+) {
+    let planner_payload = json!({
+        "tasks": [{"id": "g1", "agent_name": "coder", "needs": []}],
+        "task_specs": {"g1": "implement g1"},
+        "reducers": [{"id": "r1", "needs": ["g1"], "prompt": "reduce g1"}],
+    });
+    let gen_payload = json!({"status": "success", "outcome": "generated g1"});
+    let red_payload = json!({"status": "success", "outcome": "reduced"});
+
+    (
+        vec![
+            tool_use_turn(
+                "toolu_p_advise",
+                "ask_advisor",
+                json!({"tool_name": "submit_planner_outcome", "tool_payload": planner_payload.clone()}),
+            ),
+            tool_use_turn("toolu_p_submit", "submit_planner_outcome", planner_payload),
+        ],
+        vec![
+            tool_use_turn(
+                "toolu_g_advise",
+                "ask_advisor",
+                json!({"tool_name": "submit_generator_outcome", "tool_payload": gen_payload.clone()}),
+            ),
+            tool_use_turn("toolu_g_submit", "submit_generator_outcome", gen_payload),
+        ],
+        vec![
+            tool_use_turn(
+                "toolu_r_advise",
+                "ask_advisor",
+                json!({"tool_name": "submit_reducer_outcome", "tool_payload": red_payload.clone()}),
+            ),
+            tool_use_turn("toolu_r_submit", "submit_reducer_outcome", red_payload),
+        ],
+    )
 }
 
 fn sqlite_url(dir: &std::path::Path) -> String {
@@ -483,18 +530,6 @@ async fn delegate_workflow_leaves_parent_running() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn delegated_workflow_drives_to_succeeded_via_real_runner() {
     use crate::app_state::test_seams::ScriptedSource;
-    use eos_engine::EventSource;
-
-    // One-step plan: a single generator `g1` (bound to the `coder` generator
-    // profile) and one reducer `r1` gating on it. Submit payloads carry only
-    // {status, outcome}; the task/attempt ids come from the run's metadata.
-    let planner_payload = json!({
-        "tasks": [{"id": "g1", "agent_name": "coder", "needs": []}],
-        "task_specs": {"g1": "implement g1"},
-        "reducers": [{"id": "r1", "needs": ["g1"], "prompt": "reduce g1"}],
-    });
-    let gen_payload = json!({"status": "success", "outcome": "generated g1"});
-    let red_payload = json!({"status": "success", "outcome": "reduced"});
 
     // Each role: ask the advisor for its own terminal, then (with the approve
     // verdict now in its transcript) submit. The advisor profile returns approve.
@@ -503,30 +538,7 @@ async fn delegated_workflow_drives_to_succeeded_via_real_runner() {
         "delegate_workflow",
         json!({"goal": "do the subwork"}),
     );
-    let planner_turns = vec![
-        tool_use_turn(
-            "toolu_p_advise",
-            "ask_advisor",
-            json!({"tool_name": "submit_planner_outcome", "tool_payload": planner_payload.clone()}),
-        ),
-        tool_use_turn("toolu_p_submit", "submit_planner_outcome", planner_payload),
-    ];
-    let coder_turns = vec![
-        tool_use_turn(
-            "toolu_g_advise",
-            "ask_advisor",
-            json!({"tool_name": "submit_generator_outcome", "tool_payload": gen_payload.clone()}),
-        ),
-        tool_use_turn("toolu_g_submit", "submit_generator_outcome", gen_payload),
-    ];
-    let reducer_turns = vec![
-        tool_use_turn(
-            "toolu_r_advise",
-            "ask_advisor",
-            json!({"tool_name": "submit_reducer_outcome", "tool_payload": red_payload.clone()}),
-        ),
-        tool_use_turn("toolu_r_submit", "submit_reducer_outcome", red_payload),
-    ];
+    let (planner_turns, coder_turns, reducer_turns) = one_step_workflow_turns();
     let advisor_turns = vec![tool_use_turn(
         "toolu_fb",
         "submit_advisor_feedback",
@@ -658,6 +670,194 @@ async fn delegated_workflow_drives_to_succeeded_via_real_runner() {
         .await;
 }
 
+#[derive(Debug)]
+struct DelegateThenTerminalRootSource {
+    started: std::sync::atomic::AtomicBool,
+    asked_advisor: std::sync::atomic::AtomicBool,
+    saw_succeeded: Arc<std::sync::atomic::AtomicBool>,
+    checks: std::sync::atomic::AtomicUsize,
+}
+
+impl DelegateThenTerminalRootSource {
+    fn workflow_handle(request: &LlmRequest) -> Option<(String, String)> {
+        request.messages.iter().find_map(|message| {
+            message.content.iter().find_map(|block| {
+                let ContentBlock::ToolResult { content, .. } = block else {
+                    return None;
+                };
+                let value: serde_json::Value = serde_json::from_str(content).ok()?;
+                Some((
+                    value.get("workflow_id")?.as_str()?.to_owned(),
+                    value.get("workflow_task_id")?.as_str()?.to_owned(),
+                ))
+            })
+        })
+    }
+
+    fn saw_workflow_succeeded(request: &LlmRequest) -> bool {
+        request.messages.iter().any(|message| {
+            message.content.iter().any(|block| {
+                matches!(block, ContentBlock::ToolResult { content, .. }
+                    if content.contains(" is Succeeded."))
+            })
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl EventSource for DelegateThenTerminalRootSource {
+    async fn stream(&self, request: &LlmRequest) -> Result<EngineStream, EngineError> {
+        if Self::saw_workflow_succeeded(request) {
+            self.saw_succeeded
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            let payload = json!({"status": "success", "outcome": "delegated workflow succeeded"});
+            if !self
+                .asked_advisor
+                .swap(true, std::sync::atomic::Ordering::SeqCst)
+            {
+                return Ok(stream_of(tool_use_turn(
+                    "toolu_root_advise",
+                    "ask_advisor",
+                    json!({"tool_name": "submit_root_outcome", "tool_payload": payload}),
+                )));
+            }
+            return Ok(stream_of(tool_use_turn(
+                "toolu_root_done",
+                "submit_root_outcome",
+                payload,
+            )));
+        }
+
+        if let Some((workflow_id, workflow_task_id)) = Self::workflow_handle(request) {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            let check_no = self
+                .checks
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            return Ok(stream_of(tool_use_turn(
+                &format!("toolu_check_{check_no}"),
+                "check_workflow_status",
+                json!({
+                    "workflow_id": workflow_id,
+                    "workflow_task_id": workflow_task_id,
+                }),
+            )));
+        }
+
+        if !self.started.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return Ok(stream_of(tool_use_turn(
+                "toolu_delegate",
+                "delegate_workflow",
+                json!({"goal": "do the subwork"}),
+            )));
+        }
+
+        Ok(stream_of(Vec::new()))
+    }
+}
+
+// Phase-1 exit proof: one non-injected request delegates, workflow agents finish
+// through the real runtime runner, root observes the closed workflow, gets a real
+// advisor approval, and submits `submit_root_outcome`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn root_delegates_waits_and_submits_terminal() {
+    use crate::app_state::test_seams::ScriptedSource;
+
+    let (planner_turns, coder_turns, reducer_turns) = one_step_workflow_turns();
+    let advisor_turns = vec![tool_use_turn(
+        "toolu_fb",
+        "submit_advisor_feedback",
+        json!({"verdict": "approve", "summary": "phase-1 e2e path validated; approve"}),
+    )];
+
+    let saw_succeeded = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let saw_succeeded_factory = saw_succeeded.clone();
+    let factory: EventSourceFactory = Arc::new(move |def: &AgentDefinition| {
+        let turns = match def.name.as_str() {
+            "root" => {
+                return Arc::new(DelegateThenTerminalRootSource {
+                    started: std::sync::atomic::AtomicBool::new(false),
+                    asked_advisor: std::sync::atomic::AtomicBool::new(false),
+                    saw_succeeded: saw_succeeded_factory.clone(),
+                    checks: std::sync::atomic::AtomicUsize::new(0),
+                }) as Arc<dyn EventSource>
+            }
+            "planner" => planner_turns.clone(),
+            "coder" => coder_turns.clone(),
+            "reducer" => reducer_turns.clone(),
+            "advisor" => advisor_turns.clone(),
+            _ => Vec::new(),
+        };
+        Arc::new(ScriptedSource::new(turns)) as Arc<dyn EventSource>
+    });
+
+    let mut planner = agent_def(
+        "planner",
+        AgentRole::Planner,
+        &["ask_advisor", "read_file"],
+        &["submit_planner_outcome"],
+    );
+    planner.context_recipe = Some("planner".to_owned());
+    let mut coder = agent_def(
+        "coder",
+        AgentRole::Generator,
+        &["ask_advisor", "read_file"],
+        &["submit_generator_outcome"],
+    );
+    coder.context_recipe = Some("generator".to_owned());
+    let mut reducer = agent_def(
+        "reducer",
+        AgentRole::Reducer,
+        &["ask_advisor", "read_file"],
+        &["submit_reducer_outcome"],
+    );
+    reducer.context_recipe = Some("reducer".to_owned());
+    let mut root = agent_def(
+        "root",
+        AgentRole::Root,
+        &[
+            "delegate_workflow",
+            "check_workflow_status",
+            "ask_advisor",
+            "read_file",
+        ],
+        &["submit_root_outcome"],
+    );
+    root.tool_call_limit = std::num::NonZeroU32::new(40).expect("nonzero");
+
+    let (state, _dir) = build_test_state(
+        Some(factory),
+        vec![root, planner, coder, reducer, advisor_agent()],
+    )
+    .await;
+    let handle = start_request(&state, "delegate then finish", Some("sb-1"), None)
+        .await
+        .unwrap();
+    let root_task_id = handle.root_task_id.clone();
+    let request_id = handle.request_id.clone();
+    handle.join().await;
+
+    let workflows = state
+        .workflow_store
+        .list_for_parent_task(&root_task_id)
+        .await
+        .unwrap();
+    assert!(
+        saw_succeeded.load(std::sync::atomic::Ordering::SeqCst),
+        "root must observe workflow success through check_workflow_status before submitting"
+    );
+    assert_eq!(workflows.len(), 1);
+    assert_eq!(workflows[0].status, WorkflowStatus::Succeeded);
+
+    let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+    assert_eq!(
+        task.status,
+        TaskStatus::Done,
+        "root must submit its terminal after delegated workflow success"
+    );
+    let request = state.request_store.get(&request_id).await.unwrap().unwrap();
+    assert_eq!(request.status, "done");
+}
+
 // --- AC-eos-runtime-07: provisioning binds the request sandbox.
 //
 // The real `origin=workflow` label logic lives in `eos-sandbox-host`'s
@@ -730,6 +930,60 @@ async fn shutdown_cancels_background_and_fails_running_root() {
     assert!(token.is_cancelled(), "shutdown cancels the token");
     let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
     assert_eq!(task.status, TaskStatus::Failed);
+    let request = state.request_store.get(&request_id).await.unwrap().unwrap();
+    assert_eq!(request.status, "failed");
+}
+
+#[tokio::test]
+async fn dropped_handle_cancels_background_and_fails_running_root() {
+    let factory: EventSourceFactory =
+        Arc::new(|_def: &AgentDefinition| Arc::new(BlockingSource) as Arc<dyn EventSource>);
+    let (state, _dir) = build_test_state(Some(factory), vec![root_agent()]).await;
+    let handle = start_request(&state, "task", Some("sb-1"), None)
+        .await
+        .unwrap();
+    let request_id = handle.request_id.clone();
+    let root_task_id = handle.root_task_id.clone();
+    let token = state.shutdown_token();
+    let supervisor = handle.supervisor.clone();
+    let workflow = StartedWorkflow {
+        workflow_id: eos_types::WorkflowId::new_v4(),
+        workflow_task_id: "wf_drop".parse().unwrap(),
+    };
+    supervisor
+        .inner()
+        .lock()
+        .await
+        .register_workflow("root", &workflow);
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    drop(handle);
+
+    for _ in 0..20 {
+        let task_failed = state
+            .task_store
+            .get(&root_task_id)
+            .await
+            .unwrap()
+            .is_some_and(|task| task.status == TaskStatus::Failed);
+        let background_clear = supervisor.inner().lock().await.inflight_report("").total == 0;
+        if task_failed && background_clear {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    assert!(
+        token.is_cancelled(),
+        "dropping the handle cancels the token"
+    );
+    let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+    assert_eq!(task.status, TaskStatus::Failed);
+    assert_eq!(
+        supervisor.inner().lock().await.inflight_report("").total,
+        0,
+        "drop cleanup cancels supervisor-tracked background handles"
+    );
     let request = state.request_store.get(&request_id).await.unwrap().unwrap();
     assert_eq!(request.status, "failed");
 }

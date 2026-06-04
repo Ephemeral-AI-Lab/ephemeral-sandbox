@@ -279,13 +279,7 @@ pub trait BackgroundSupervisorPort: Sealed + Send + Sync {
     /// Track a workflow that was just delegated by this agent. The workflow
     /// control port owns persisted workflow state; the background supervisor owns
     /// the handle for in-flight accounting and parent-exit cancellation.
-    async fn register_workflow(
-        &self,
-        parent_task_id: &TaskId,
-        agent_id: &str,
-        workflow_goal: &str,
-        workflow: &StartedWorkflow,
-    );
+    async fn register_workflow(&self, agent_id: &str, workflow: &StartedWorkflow);
 
     /// Mark a tracked workflow handle cancelled in the supervisor ledger.
     async fn cancel_workflow_record(

@@ -9,18 +9,23 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use eos_layerstack::{require_workspace_binding, LayerStack, Lease, WorkspaceBinding};
-use eos_overlay::{allocate_overlay_writable_dirs, capture_upperdir, overlay_writable_root, OverlayWritableDirs};
+use eos_overlay::{capture_upperdir, OverlayWritableDirs};
 use eos_protocol::{Intent, LayerChange};
 use eos_runner::{RunMode, RunRequest, RunResult, ToolCall, WorkspaceRoot};
 use serde_json::{json, Value};
 
 use crate::dispatcher::{
-    apply_occ_changeset, attach_runner_shell_fields, base_hashes_for_snapshot,
-    guarded_changeset_response, insert_occ_route_timings, insert_tree_resource_timings,
-    layer_change_kind, manifest_version_u64, merge_runner_timings, occ_route_metrics,
-    resource_timings, run_ns_runner_child, TreeResourceStats,
+    apply_occ_changeset, base_hashes_for_snapshot, insert_occ_route_timings, manifest_version_u64,
+    occ_route_metrics,
 };
 use crate::error::DaemonError;
+use crate::overlay_runner::{
+    overlay_daemon_error, overlay_run_dirs, run_ns_runner_child, RunDirCleanup,
+};
+use crate::response_timings::{
+    attach_runner_shell_fields, guarded_changeset_response, insert_tree_resource_timings,
+    layer_change_kind, merge_runner_timings, resource_timings, TreeResourceStats,
+};
 
 pub(crate) struct PluginOverlayCommand {
     pub(crate) layer_stack_root: PathBuf,
@@ -44,14 +49,6 @@ struct PluginOverlayRunOutcome {
     capture_s: f64,
     occ_s: f64,
     upperdir_stats: TreeResourceStats,
-}
-
-struct RunDirCleanup(PathBuf);
-
-impl Drop for RunDirCleanup {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
 }
 
 pub(crate) fn run_plugin_overlay_command(
@@ -227,17 +224,7 @@ fn apply_plugin_overlay_status(
 }
 
 fn plugin_overlay_dirs(invocation_id: &str) -> Result<OverlayWritableDirs, DaemonError> {
-    let run_root = overlay_writable_root()
-        .map_err(|err| overlay_daemon_error("overlay writable root", &err))?
-        .join("runtime")
-        .join("plugin-overlay")
-        .join(format!(
-            "{}-{}",
-            std::process::id(),
-            sanitize_path_component(invocation_id)
-        ));
-    allocate_overlay_writable_dirs(&run_root)
-        .map_err(|err| overlay_daemon_error("allocate overlay dirs", &err))
+    overlay_run_dirs("plugin-overlay", invocation_id)
 }
 
 fn write_plugin_overlay_request(
@@ -356,26 +343,4 @@ fn published_file_count(result: &eos_occ::ChangesetResult) -> usize {
         .iter()
         .filter(|file| file.status.is_published())
         .count()
-}
-
-fn overlay_daemon_error(context: &str, err: &eos_overlay::OverlayError) -> DaemonError {
-    DaemonError::OverlayPipeline(format!("{context}: {err}"))
-}
-
-fn sanitize_path_component(value: &str) -> String {
-    let cleaned: String = value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    if cleaned.is_empty() {
-        "request".to_owned()
-    } else {
-        cleaned
-    }
 }

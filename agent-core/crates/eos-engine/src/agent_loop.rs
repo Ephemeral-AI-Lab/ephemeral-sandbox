@@ -15,7 +15,8 @@ use eos_agent_def::{AgentDefinition, AgentRegistry};
 use eos_llm_client::{LlmClient, Message, DEFAULT_MAX_TOKENS};
 use eos_state::{AgentRunStore, ModelStore};
 use eos_tools::{
-    build_default_registry, CallerScope, ExecutionMetadata, ToolConfigSet, ToolRegistry, ToolResult,
+    build_default_registry, BackgroundSupervisorPort, CallerScope, ExecutionMetadata,
+    ToolConfigSet, ToolRegistry, ToolResult, WorkflowControlPort,
 };
 use eos_types::{AgentRunId, TaskId};
 use futures::StreamExt;
@@ -107,6 +108,66 @@ pub struct EphemeralRun {
     pub terminal_result: Option<ToolResult>,
     /// A framework-fault summary if context construction or the stream broke.
     pub error: Option<String>,
+}
+
+struct BackgroundRunFinalizer {
+    supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+    workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+    agent_ids: Vec<String>,
+    armed: bool,
+}
+
+fn parent_exit_agent_ids(metadata: &ExecutionMetadata) -> Vec<String> {
+    let mut ids = Vec::new();
+    let resolved = metadata.agent_id();
+    if !resolved.trim().is_empty() {
+        ids.push(resolved);
+    }
+    let caller = metadata.caller.agent_id.trim();
+    if !caller.is_empty() && !ids.iter().any(|id| id == caller) {
+        ids.push(caller.to_owned());
+    }
+    ids
+}
+
+impl BackgroundRunFinalizer {
+    fn from_metadata(metadata: &ExecutionMetadata) -> Self {
+        Self {
+            supervisor: metadata.background_supervisor.clone(),
+            workflow_control: metadata.workflow_control.clone(),
+            agent_ids: parent_exit_agent_ids(metadata),
+            armed: true,
+        }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for BackgroundRunFinalizer {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        let Some(supervisor) = self.supervisor.take() else {
+            return;
+        };
+        let workflow_control = self.workflow_control.take();
+        let agent_ids = std::mem::take(&mut self.agent_ids);
+        let reason = "engine run dropped before background finalization".to_owned();
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            tracing::warn!("engine run dropped outside a Tokio runtime; background cleanup could not be spawned");
+            return;
+        };
+        handle.spawn(async move {
+            for agent_id in agent_ids {
+                supervisor
+                    .cancel_for_parent_exit(&agent_id, workflow_control.clone(), &reason)
+                    .await;
+            }
+        });
+    }
 }
 
 /// Drive one ephemeral agent to completion.
@@ -202,6 +263,7 @@ pub async fn run_ephemeral_agent(
             };
         }
     };
+    let mut background_finalizer = BackgroundRunFinalizer::from_metadata(&ctx.tool_metadata);
 
     let mut error: Option<String> = None;
     {
@@ -221,6 +283,7 @@ pub async fn run_ephemeral_agent(
         }
     }
     finalize_background_for_agent(&ctx, error.as_deref()).await;
+    background_finalizer.disarm();
 
     let terminal_result = ctx.terminal_result.clone();
     if persisted {
@@ -244,14 +307,15 @@ async fn finalize_background_for_agent(ctx: &crate::query::QueryContext, error: 
         (Some(QueryExitReason::ToolStop), None) => "parent agent submitted its terminal".to_owned(),
         (None, None) => "parent agent exited".to_owned(),
     };
-    let agent_id = ctx.tool_metadata.agent_id();
-    supervisor
-        .cancel_for_parent_exit(
-            &agent_id,
-            ctx.tool_metadata.workflow_control.clone(),
-            &reason,
-        )
-        .await;
+    for agent_id in parent_exit_agent_ids(&ctx.tool_metadata) {
+        supervisor
+            .cancel_for_parent_exit(
+                &agent_id,
+                ctx.tool_metadata.workflow_control.clone(),
+                &reason,
+            )
+            .await;
+    }
 }
 
 async fn finish_run(handles: &EngineRunHandles, agent_run_id: &AgentRunId, error: Option<&str>) {

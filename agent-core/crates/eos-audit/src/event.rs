@@ -5,6 +5,7 @@
 //! collapsing Python's double `ts` stamping. The `type` key maps to the Rust
 //! field `event_type` (`type` is a keyword).
 
+use eos_obs_contract::{ObsEnvelope, ObsIds, ObsSource};
 use eos_types::{Clock, JsonObject, UtcDateTime};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -80,6 +81,47 @@ impl AuditEvent {
             ts: clock.now(),
         }
     }
+
+    /// Convert this legacy producer event into the normalized collector row.
+    ///
+    /// This keeps existing emission sites stable while the JSONL surface moves
+    /// to `eos.obs.v1`. Shadow-only producers can be deleted or moved to
+    /// `tracing` later without changing the collector contract.
+    #[must_use]
+    pub fn to_obs_envelope(&self) -> ObsEnvelope {
+        let mut payload = self.payload.clone();
+        if let Some(agent_name) = &self.node.agent_name {
+            payload
+                .entry("agent_name".to_owned())
+                .or_insert_with(|| serde_json::Value::String(agent_name.clone()));
+        }
+        if let Some(tool_name) = &self.node.tool_name {
+            payload
+                .entry("tool_name".to_owned())
+                .or_insert_with(|| serde_json::Value::String(tool_name.clone()));
+        }
+
+        ObsEnvelope::new(obs_source(self.source), &self.event_type)
+            .with_ids(obs_ids(&self.node))
+            .with_payload(payload)
+    }
+}
+
+fn obs_source(source: AuditSource) -> ObsSource {
+    match source {
+        AuditSource::Sandbox => ObsSource::Sandbox,
+        AuditSource::Workflow | AuditSource::Engine | AuditSource::LiveE2e => ObsSource::AgentCore,
+    }
+}
+
+fn obs_ids(node: &AuditNode) -> ObsIds {
+    ObsIds {
+        request_id: node.request_id.as_ref().map(ToString::to_string),
+        task_id: node.task_id.as_ref().map(ToString::to_string),
+        agent_run_id: node.agent_run_id.as_ref().map(ToString::to_string),
+        tool_use_id: node.tool_use_id.as_ref().map(ToString::to_string),
+        sandbox_id: node.sandbox_id.as_ref().map(ToString::to_string),
+    }
 }
 
 #[cfg(test)]
@@ -125,6 +167,38 @@ mod tests {
 
         let back: AuditEvent = serde_json::from_value(value).unwrap();
         assert_eq!(back, event);
+    }
+
+    #[test]
+    fn event_converts_to_normalized_obs_envelope() {
+        let node = AuditNode::builder()
+            .request_id("req-1".parse().unwrap())
+            .task_id("task-1".parse().unwrap())
+            .agent_run_id("run-1".parse().unwrap())
+            .tool_use_id("toolu-1".parse().unwrap())
+            .sandbox_id("sandbox-1".parse().unwrap())
+            .tool_name("exec_command")
+            .build();
+        let event = AuditEvent::new(
+            AuditSource::Engine,
+            "tool_call.finished",
+            node,
+            JsonObject::new(),
+            &fixed_clock(),
+        );
+
+        let obs = event.to_obs_envelope();
+        let value = serde_json::to_value(obs).unwrap();
+
+        assert_eq!(value["schema"], json!(eos_obs_contract::SCHEMA));
+        assert_eq!(value["source"], json!("agent_core"));
+        assert_eq!(value["type"], json!(eos_obs_contract::TOOL_CALL_COMPLETED));
+        assert_eq!(value["ids"]["request_id"], json!("req-1"));
+        assert_eq!(value["ids"]["task_id"], json!("task-1"));
+        assert_eq!(value["ids"]["agent_run_id"], json!("run-1"));
+        assert_eq!(value["ids"]["tool_use_id"], json!("toolu-1"));
+        assert_eq!(value["ids"]["sandbox_id"], json!("sandbox-1"));
+        assert_eq!(value["payload"]["tool_name"], json!("exec_command"));
     }
 
     // AC-audit-02: AuditSource serializes to workflow|engine|sandbox|live_e2e.

@@ -1,10 +1,10 @@
-//! Colocated-spec helpers (anchor §10).
+//! Spec-building helpers (anchor §10).
 //!
-//! Each model-facing tool authors **one** [`ToolSpec`] via a free
-//! `fn spec() -> ToolSpec`, built from a `const DESCRIPTION`/`include_str!`
-//! description plus `schemars`-derived input/output schemas (no docstring
-//! fallback, GC-tools-02/09). These helpers convert a `schemars` schema into the
-//! `JsonObject` shape `ToolSpec` carries.
+//! Each model-facing tool's registration site builds **one** [`ToolSpec`] from
+//! its externalized description (loaded from `.eos-agents/tools/*.md` via
+//! [`ToolConfigSet`](crate::config::ToolConfigSet)) plus `schemars`-derived
+//! input/output schemas (no docstring fallback, GC-tools-02/09). These helpers
+//! convert a `schemars` schema into the `JsonObject` shape `ToolSpec` carries.
 
 use eos_llm_client::ToolSpec;
 use eos_types::JsonObject;

@@ -10,10 +10,6 @@ rust-version.workspace = true
 # it is a direct edge per impl-eos-plugin-catalog.md §2.
 eos-types.workspace = true
 eos-sandbox-api.workspace = true
-# eos-config owns the catalog-root path resolution (the root reaches
-# `discover_under` as a `&Path`); kept per the frozen DAG and §2 even though no
-# config type is named here.
-eos-config.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 serde_json.workspace = true

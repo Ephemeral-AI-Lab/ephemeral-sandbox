@@ -25,8 +25,9 @@ removable legacy, and were verified as faithful.
 
 The workspace lints (`spec-conventions.md` §7–9: `unwrap_used`, `await_holding_lock`,
 `unsafe_code=forbid`, `#[non_exhaustive]` pedantic set, etc.) are enforced and green,
-so the "rust requirement" is satisfied at the gate level. All 15 crates + `parity`
-build; Phase 0–6 are implemented; **Phase 7 (cutover) is not started** (expected).
+so the "rust requirement" is satisfied at the gate level. All 15 production crates
+plus the Rust-only `workspace-guard` test member build; Phase 0–6 are implemented;
+**Phase 7 (cutover) is not started** (expected).
 
 ## 2. Per-crate conformance matrix
 
@@ -50,7 +51,7 @@ build; Phase 0–6 are implemented; **Phase 7 (cutover) is not started** (expect
 | eos-engine | full | all | partial | 3→fixed | 2 parity bugs **fixed**; ENG-3 golden-test gap remains |
 | eos-workflow | minor | partial | full | 3 | Phase-6/7 dual-submission-path residuals (decisions) |
 | eos-runtime | major | partial | full | 2 | Layout diverged via parallel-agent refactor (spec stale) |
-| (workspace) | full | all | full | 0 | Conformant; frozen-DAG/test-dep flags only |
+| (workspace) | full | all | full | 0 | Conformant; dependency-topology/test-dep flags only |
 
 Overall: **structurally faithful**. No FORBIDDEN-list violations were found
 (verified per crate): no global orchestrator, no synthetic root workflow, no
@@ -113,7 +114,7 @@ is a fail-fast rejection), no p2p messaging.
 ## 5. Decisions for the user (25) — grouped by theme
 
 These are not auto-fixable: they need a spec-blessing, an architecture/ownership call,
-or a frozen-DAG rebaseline. Nothing here blocks the build.
+or a dependency-topology rebaseline. Nothing here blocks the build.
 
 ### 5a. Spec-vs-live-daemon correctness (highest cutover risk)
 - **[#4] eos-sandbox-api `exec_stdin` wire string (MAJOR).** Rust emits
@@ -164,13 +165,13 @@ or a frozen-DAG rebaseline. Nothing here blocks the build.
   (`tests/fixtures/` empty) — commit a golden or amend the AC. **[#12] SBH-01**
   `BackgroundManager` is an off-seam-map trait (justified by DIP; record it on the §5 map).
 
-### 5f. Frozen-DAG / deferred test tooling — KEEP, do not delete (flag only)
+### 5f. Dependency topology / deferred test tooling — resolved cleanup
 - **[#5] eos-agent-def→eos-types, [#8] eos-skills→eos-types, [#13] eos-plugin-catalog→eos-config,
-  [#24] four eos-* edges (incl. eos-tools→eos-audit), [#25] `wiremock`/`loom` pins.**
-  These are unreferenced-in-src but **asserted by `parity/tests/dependency_dag.rs`** (or
-  reserved for a planned audit wrapper / SSE-replay / loom phase). Deleting any one fails
-  `internal_edges_match_frozen_set`. Keep unless the frozen DAG is deliberately rebaselined
-  (then the test + edge change together).
+  [#24] eos-tools→eos-audit.** Resolved 2026-06-04: these stale internal edges
+  were removed and the Rust-only `workspace-guard` member now asserts the current
+  dependency topology and acyclicity.
+- **[#25] `wiremock`/`loom` pins.** These remain separate deferred test-tooling
+  pins; they are no longer coupled to a frozen dependency-DAG decision.
 - **[#7] eos-llm-client `LlmRequestBuilder::message` (singular)** — used only in tests;
   harmless ergonomic surface. Optional YAGNI removal; left in place (it completes the
   builder API and has test consumers).

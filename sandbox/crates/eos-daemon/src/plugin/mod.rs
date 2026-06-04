@@ -28,6 +28,7 @@ use serde_json::{json, Value};
 
 use crate::dispatcher::DispatchContext;
 use crate::error::DaemonError;
+use crate::response_timings::u64_to_f64_saturating;
 use overlay::PluginOverlayCommand;
 use process::{PluginProcessSpec, PluginServiceOverlay};
 
@@ -1457,7 +1458,7 @@ fn dispatch_oneshot_overlay_route(
     env.insert("EOS_PLUGIN_PUBLIC_OP".to_owned(), route.public_op.clone());
     let timeout_seconds = route
         .timeout_ms
-        .map(|timeout| crate::dispatcher::u64_to_f64_saturating(timeout) / 1000.0);
+        .map(|timeout| u64_to_f64_saturating(timeout) / 1000.0);
     let overlay_command = PluginOverlayCommand {
         layer_stack_root: PathBuf::from(layer_stack_root),
         invocation_id: invocation_id.to_owned(),

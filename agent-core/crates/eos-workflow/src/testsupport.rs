@@ -54,43 +54,6 @@ pub(crate) fn recording_port(
     Arc::new(PlanSubmissionAdapter::new(registry.clone()))
 }
 
-/// An in-memory [`AuditSink`](eos_audit::AuditSink) that records published events
-/// for D8 (`workflow.task.*`) assertions.
-#[derive(Debug, Default)]
-pub(crate) struct RecordingAuditSink {
-    events: Mutex<Vec<eos_audit::AuditEvent>>,
-}
-
-impl RecordingAuditSink {
-    /// The `type` of each event published so far, in order.
-    pub(crate) fn event_types(&self) -> Vec<String> {
-        self.events
-            .lock()
-            .iter()
-            .map(|event| event.event_type.clone())
-            .collect()
-    }
-
-    /// The first published event of `event_type`, if any (for payload assertions).
-    pub(crate) fn event_of(&self, event_type: &str) -> Option<eos_audit::AuditEvent> {
-        self.events
-            .lock()
-            .iter()
-            .find(|event| event.event_type == event_type)
-            .cloned()
-    }
-}
-
-impl eos_audit::AuditSink for RecordingAuditSink {
-    fn publish(
-        &self,
-        event: &eos_audit::AuditEvent,
-    ) -> std::result::Result<(), eos_audit::AuditError> {
-        self.events.lock().push(event.clone());
-        Ok(())
-    }
-}
-
 #[derive(Debug, Default)]
 pub(crate) struct MemoryStores {
     workflows: Mutex<HashMap<WorkflowId, Workflow>>,

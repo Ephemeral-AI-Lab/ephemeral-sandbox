@@ -14,12 +14,7 @@
 //! port time through the same routing.
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::fs;
-use std::io::Write;
-#[cfg(target_os = "linux")]
-use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::Instant;
 
@@ -30,14 +25,11 @@ use sha2::{Digest, Sha256};
 
 use eos_layerstack::{
     build_workspace_base, ensure_workspace_base, read_workspace_binding, require_workspace_binding,
-    LayerStack, Lease, MergedView, WorkspaceBinding, AUTO_SQUASH_MAX_DEPTH,
+    LayerStack, MergedView, WorkspaceBinding, AUTO_SQUASH_MAX_DEPTH,
 };
 use eos_occ::{
     ChangesetResult, CommitQueue, CommitTransactionPort, FileResult, OccRouteProvider, OccService,
     OccStatus, PreparedChangeset, PublishConflict, Route,
-};
-use eos_overlay::{
-    allocate_overlay_writable_dirs, capture_upperdir, overlay_writable_root, OverlayWritableDirs,
 };
 #[cfg(target_os = "linux")]
 use eos_protocol::LayerRef;
@@ -54,10 +46,17 @@ use eos_runner::{RunMode, RunRequest, RunResult, ToolCall, WorkspaceRoot};
 
 use crate::error::DaemonError;
 use crate::invocation_registry::InFlightRegistry;
+use crate::overlay_runner::{overlay_run_dirs, run_ns_runner_child, RunDirCleanup};
+use crate::response_timings::{
+    f64_to_i64_rounded_saturating, guarded_changeset_response, guarded_conflict_response,
+    i64_to_f64_saturating, merge_runner_timings, published_file_count, resource_timings,
+    u64_to_usize_saturating, usize_to_f64_saturating, usize_to_i64_saturating,
+};
+#[cfg(test)]
+use crate::response_timings::{insert_tree_resource_timings, TreeResourceStats};
 
 /// Env gate for `api.audit.reset_floor` (must be `"true"`).
 pub const AUDIT_ALLOW_FLOOR_RESET_ENV: &str = "EOS_DAEMON_AUDIT_ALLOW_FLOOR_RESET";
-const TREE_RESOURCE_ENTRY_LIMIT: usize = 2_000;
 
 /// A synchronous op handler: decoded args -> response value.
 ///
@@ -843,302 +842,6 @@ fn isolated_edit_file(
     ))
 }
 
-pub(crate) struct PluginOverlayCommand {
-    pub(crate) layer_stack_root: PathBuf,
-    pub(crate) invocation_id: String,
-    pub(crate) agent_id: String,
-    pub(crate) public_op: String,
-    pub(crate) plugin_id: String,
-    pub(crate) op_name: String,
-    pub(crate) command: Vec<String>,
-    pub(crate) env: BTreeMap<String, String>,
-    pub(crate) timeout_seconds: Option<f64>,
-}
-
-pub(crate) fn run_plugin_overlay_command(
-    spec: &PluginOverlayCommand,
-    args: &Value,
-    total_start: Instant,
-) -> Result<Value, DaemonError> {
-    if spec.command.is_empty() || spec.command[0].trim().is_empty() {
-        return Err(DaemonError::InvalidEnvelope(
-            "plugin overlay command must not be empty".to_owned(),
-        ));
-    }
-    let binding = require_workspace_binding(&spec.layer_stack_root)?;
-    let mut stack = LayerStack::open(spec.layer_stack_root.clone())?;
-    let acquire_start = Instant::now();
-    let lease = stack.acquire_snapshot(&format!(
-        "plugin-overlay:{}:{}",
-        spec.agent_id, spec.invocation_id
-    ))?;
-    let lease_acquire_s = acquire_start.elapsed().as_secs_f64();
-    let run_result = run_plugin_overlay_once(spec, args, &binding, &lease);
-    let _ = stack.release_lease(&lease.lease_id);
-    let outcome = run_result?;
-    plugin_overlay_response(
-        &spec.layer_stack_root,
-        outcome,
-        total_start,
-        lease_acquire_s,
-    )
-}
-
-fn run_plugin_overlay_once(
-    spec: &PluginOverlayCommand,
-    args: &Value,
-    binding: &WorkspaceBinding,
-    lease: &Lease,
-) -> Result<PluginOverlayRunOutcome, DaemonError> {
-    let dirs = plugin_overlay_dirs(&spec.invocation_id)?;
-    let _cleanup = RunDirCleanup(dirs.run_dir.clone());
-    let request_path = dirs.run_dir.join("plugin-overlay-request.json");
-    let result_path = dirs.run_dir.join("plugin-overlay-result.json");
-    write_plugin_overlay_request(spec, args, binding, lease, &request_path, &result_path)?;
-
-    let request =
-        plugin_overlay_run_request(spec, binding, lease, &dirs, &request_path, &result_path);
-    let runner = run_ns_runner_child(&request, None)?;
-    let plugin_result = read_plugin_overlay_result(&result_path)?;
-    let (changes, path_kinds, capture_s) = capture_upperdir_for_occ(&dirs.upperdir)?;
-    let upperdir_stats = TreeResourceStats::collect(&dirs.upperdir);
-    let route_start = Instant::now();
-    let route_metrics = occ_route_metrics(&spec.layer_stack_root, &changes)?;
-    let route_s = route_start.elapsed().as_secs_f64();
-    let base_hashes = base_hashes_for_snapshot(&spec.layer_stack_root, &lease.manifest, &changes)?;
-    let occ_start = Instant::now();
-    let changeset = apply_occ_changeset(
-        &spec.layer_stack_root,
-        Some(manifest_version_u64(lease.manifest_version)?),
-        &changes,
-        &base_hashes,
-    )?;
-    let occ_s = occ_start.elapsed().as_secs_f64();
-    Ok(PluginOverlayRunOutcome {
-        runner,
-        changeset,
-        plugin_result,
-        path_kinds,
-        route_metrics,
-        route_s,
-        capture_s,
-        occ_s,
-        upperdir_stats,
-    })
-}
-
-fn plugin_overlay_response(
-    root: &Path,
-    outcome: PluginOverlayRunOutcome,
-    total_start: Instant,
-    lease_acquire_s: f64,
-) -> Result<Value, DaemonError> {
-    let manifest = LayerStack::open(root.to_path_buf())?.read_active_manifest()?;
-    let mut timings = resource_timings(&manifest, outcome.path_kinds.len());
-    merge_runner_timings(&mut timings, &outcome.runner);
-    insert_tree_resource_timings(
-        &mut timings,
-        "resource.command_exec.upperdir",
-        &outcome.upperdir_stats,
-    );
-    timings.insert(
-        "layer_stack.acquire_snapshot.total_s".to_owned(),
-        json!(lease_acquire_s),
-    );
-    timings.insert(
-        "command_exec.capture_upperdir_s".to_owned(),
-        json!(outcome.capture_s),
-    );
-    timings.insert("command_exec.occ_apply_s".to_owned(), json!(outcome.occ_s));
-    timings.insert(
-        "command_exec.total_s".to_owned(),
-        json!(total_start.elapsed().as_secs_f64()),
-    );
-    insert_occ_route_timings(
-        &mut timings,
-        outcome.route_metrics,
-        outcome.route_s,
-        outcome.occ_s,
-    );
-    let mut response = guarded_changeset_response(
-        "plugin_overlay",
-        &outcome.changeset,
-        timings,
-        total_start,
-        None,
-    );
-    attach_runner_shell_fields(&mut response, &outcome.runner);
-    response["changed_path_kinds"] = Value::Object(
-        outcome
-            .path_kinds
-            .iter()
-            .map(|(path, kind)| (path.clone(), json!(kind)))
-            .collect(),
-    );
-    let worker_success = outcome
-        .plugin_result
-        .as_ref()
-        .and_then(|result| result.get("success"))
-        .and_then(Value::as_bool);
-    response["plugin_result"] = outcome.plugin_result.unwrap_or_else(|| json!({}));
-    response["plugin_overlay"] = json!({
-        "changed_paths": outcome
-            .path_kinds
-            .iter()
-            .map(|(path, _kind)| path.clone())
-            .collect::<Vec<_>>(),
-        "published_manifest_version": outcome.changeset.published_manifest_version,
-        "worker_exit_code": outcome.runner.exit_code,
-    });
-    apply_plugin_overlay_status(
-        &mut response,
-        outcome.runner.exit_code,
-        outcome.changeset.success(),
-        worker_success,
-    );
-    Ok(response)
-}
-
-fn apply_plugin_overlay_status(
-    response: &mut Value,
-    worker_exit_code: i32,
-    changeset_success: bool,
-    worker_success: Option<bool>,
-) {
-    if worker_exit_code != 0 {
-        response["success"] = json!(false);
-        response["status"] = json!("failed");
-        response["error"] = json!({
-            "kind": "plugin_overlay_worker_failed",
-            "message": "plugin overlay worker exited with a non-zero status",
-        });
-    } else if changeset_success && response["conflict"].is_null() {
-        if worker_success == Some(false) {
-            response["success"] = json!(false);
-            response["status"] = json!("failed");
-            response["error"] = json!({
-                "kind": "plugin_overlay_worker_failed",
-                "message": "plugin overlay worker reported failure",
-            });
-        } else {
-            response["success"] = json!(true);
-            response["status"] = json!("committed");
-        }
-    }
-}
-
-fn plugin_overlay_dirs(invocation_id: &str) -> Result<OverlayWritableDirs, DaemonError> {
-    overlay_run_dirs("plugin-overlay", invocation_id)
-}
-
-fn overlay_run_dirs(kind: &str, invocation_id: &str) -> Result<OverlayWritableDirs, DaemonError> {
-    let run_root = overlay_writable_root()
-        .map_err(|err| overlay_daemon_error("overlay writable root", &err))?
-        .join("runtime")
-        .join(kind)
-        .join(format!(
-            "{}-{}",
-            std::process::id(),
-            sanitize_path_component(invocation_id)
-        ));
-    allocate_overlay_writable_dirs(&run_root)
-        .map_err(|err| overlay_daemon_error("allocate overlay dirs", &err))
-}
-
-fn write_plugin_overlay_request(
-    spec: &PluginOverlayCommand,
-    args: &Value,
-    binding: &WorkspaceBinding,
-    lease: &Lease,
-    request_path: &Path,
-    result_path: &Path,
-) -> Result<(), DaemonError> {
-    let request_payload = json!({
-        "plugin": spec.plugin_id,
-        "op_name": spec.op_name,
-        "public_op": spec.public_op,
-        "args": args,
-        "layer_stack_root": &spec.layer_stack_root,
-        "workspace_root": &binding.workspace_root,
-        "manifest_version": lease.manifest_version,
-        "manifest_root_hash": lease.root_hash,
-        "request_path": request_path,
-        "result_path": result_path,
-    });
-    std::fs::write(
-        request_path,
-        serde_json::to_vec(&request_payload)
-            .map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))?,
-    )?;
-    Ok(())
-}
-
-fn plugin_overlay_run_request(
-    spec: &PluginOverlayCommand,
-    binding: &WorkspaceBinding,
-    lease: &Lease,
-    dirs: &OverlayWritableDirs,
-    request_path: &Path,
-    result_path: &Path,
-) -> RunRequest {
-    let mut env = spec.env.clone();
-    env.insert("EOS_PLUGIN_OPERATION".to_owned(), spec.public_op.clone());
-    env.insert("EOS_PLUGIN_OP_NAME".to_owned(), spec.op_name.clone());
-    env.insert(
-        "EOS_PLUGIN_INVOCATION_ID".to_owned(),
-        spec.invocation_id.clone(),
-    );
-    env.insert(
-        "EOS_PLUGIN_REQUEST_PATH".to_owned(),
-        request_path.to_string_lossy().into_owned(),
-    );
-    env.insert(
-        "EOS_PLUGIN_RESULT_PATH".to_owned(),
-        result_path.to_string_lossy().into_owned(),
-    );
-    RunRequest {
-        mode: RunMode::FreshNs,
-        tool_call: ToolCall {
-            invocation_id: spec.invocation_id.clone(),
-            agent_id: spec.agent_id.clone(),
-            verb: "plugin_service".to_owned(),
-            intent: Intent::WriteAllowed,
-            args: json!({
-                "command": spec.command.clone(),
-                "cwd": ".",
-                "env": env,
-            }),
-            background: false,
-        },
-        workspace_root: WorkspaceRoot(PathBuf::from(&binding.workspace_root)),
-        layer_paths: lease.layer_paths.iter().map(PathBuf::from).collect(),
-        upperdir: Some(dirs.upperdir.clone()),
-        workdir: Some(dirs.workdir.clone()),
-        ns_fds: None,
-        cgroup_path: None,
-        timeout_seconds: spec.timeout_seconds,
-    }
-}
-
-type CapturedOverlayChanges = (Vec<LayerChange>, Vec<(String, String)>, f64);
-
-fn capture_upperdir_for_occ(upperdir: &Path) -> Result<CapturedOverlayChanges, DaemonError> {
-    let capture_start = Instant::now();
-    let changes =
-        capture_upperdir(upperdir).map_err(|err| overlay_daemon_error("capture upperdir", &err))?;
-    let capture_s = capture_start.elapsed().as_secs_f64();
-    let path_kinds = changes
-        .iter()
-        .map(|change| {
-            (
-                change.path().as_str().to_owned(),
-                layer_change_kind(change).to_owned(),
-            )
-        })
-        .collect();
-    Ok((changes, path_kinds, capture_s))
-}
-
 /// `api.v1.glob` — read-only overlay namespace search.
 fn op_glob(args: &Value, _context: DispatchContext<'_>) -> Result<Value, DaemonError> {
     #[cfg(target_os = "linux")]
@@ -1177,17 +880,7 @@ fn run_overlay_read_tool(args: &Value, verb: &str) -> Result<Value, DaemonError>
     let lease = stack.acquire_snapshot(&format!("overlay:{agent_id}:{invocation_id}"))?;
     let lease_acquire_s = acquire_start.elapsed().as_secs_f64();
     let run_result: Result<RunResult, DaemonError> = (|| {
-        let run_root = overlay_writable_root()
-            .map_err(|err| overlay_daemon_error("overlay writable root", &err))?
-            .join("runtime")
-            .join("sandbox-overlay")
-            .join(format!(
-                "{}-{}",
-                std::process::id(),
-                sanitize_path_component(&invocation_id)
-            ));
-        let dirs = allocate_overlay_writable_dirs(&run_root)
-            .map_err(|err| overlay_daemon_error("allocate overlay dirs", &err))?;
+        let dirs = overlay_run_dirs("sandbox-overlay", &invocation_id)?;
         let _cleanup = RunDirCleanup(dirs.run_dir.clone());
         let request = RunRequest {
             mode: RunMode::FreshNs,
@@ -1320,120 +1013,10 @@ struct LayerStackCommitTransaction {
     root: PathBuf,
 }
 
-struct PluginOverlayRunOutcome {
-    runner: RunResult,
-    changeset: ChangesetResult,
-    plugin_result: Option<Value>,
-    path_kinds: Vec<(String, String)>,
-    route_metrics: OccRouteMetrics,
-    route_s: f64,
-    capture_s: f64,
-    occ_s: f64,
-    upperdir_stats: TreeResourceStats,
-}
-
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct OccRouteMetrics {
     gated_path_count: usize,
     direct_path_count: usize,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct TreeResourceStats {
-    exists: f64,
-    bytes: f64,
-    file_count: f64,
-    dir_count: f64,
-    entry_count: f64,
-    truncated: f64,
-}
-
-impl TreeResourceStats {
-    fn missing() -> Self {
-        Self {
-            exists: 0.0,
-            bytes: 0.0,
-            file_count: 0.0,
-            dir_count: 0.0,
-            entry_count: 0.0,
-            truncated: 0.0,
-        }
-    }
-
-    pub(crate) fn collect(path: &Path) -> Self {
-        let Ok(root_metadata) = fs::symlink_metadata(path) else {
-            return Self::missing();
-        };
-        let root_is_dir = root_metadata.is_dir();
-        let mut stats = Self {
-            exists: 1.0,
-            bytes: allocated_bytes(&root_metadata),
-            file_count: if root_is_dir { 0.0 } else { 1.0 },
-            dir_count: if root_is_dir { 1.0 } else { 0.0 },
-            entry_count: 1.0,
-            truncated: 0.0,
-        };
-        if !root_is_dir {
-            return stats;
-        }
-
-        let mut queue = VecDeque::from([path.to_path_buf()]);
-        while let Some(current) = queue.pop_front() {
-            let Ok(entries) = fs::read_dir(current) else {
-                continue;
-            };
-            for entry in entries.flatten() {
-                if stats.entry_count >= usize_to_f64_saturating(TREE_RESOURCE_ENTRY_LIMIT) {
-                    stats.truncated = 1.0;
-                    break;
-                }
-                let entry_path = entry.path();
-                let Ok(metadata) = fs::symlink_metadata(&entry_path) else {
-                    continue;
-                };
-                let is_dir = metadata.is_dir();
-                stats.entry_count += 1.0;
-                stats.bytes += allocated_bytes(&metadata);
-                if is_dir {
-                    stats.dir_count += 1.0;
-                    queue.push_back(entry_path);
-                } else {
-                    stats.file_count += 1.0;
-                }
-            }
-            if stats.truncated > 0.0 {
-                break;
-            }
-        }
-        if !queue.is_empty() {
-            stats.truncated = 1.0;
-        }
-        stats
-    }
-}
-
-struct RunDirCleanup(PathBuf);
-
-impl Drop for RunDirCleanup {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-fn read_plugin_overlay_result(path: &Path) -> Result<Option<Value>, DaemonError> {
-    match std::fs::read_to_string(path) {
-        Ok(raw) => {
-            if raw.trim().is_empty() {
-                Ok(None)
-            } else {
-                serde_json::from_str(&raw)
-                    .map(Some)
-                    .map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))
-            }
-        }
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(err) => Err(err.into()),
-    }
 }
 
 impl CommitTransactionPort for LayerStackCommitTransaction {
@@ -1781,46 +1364,6 @@ pub(crate) fn insert_occ_route_timings(
     }
 }
 
-pub(crate) fn run_ns_runner_child(
-    request: &RunRequest,
-    invocation_registry: Option<&InFlightRegistry>,
-) -> Result<RunResult, DaemonError> {
-    let payload =
-        serde_json::to_vec(request).map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))?;
-    let mut command = Command::new(std::env::current_exe()?);
-    command
-        .arg("ns-runner")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    #[cfg(target_os = "linux")]
-    command.process_group(0);
-    let mut child = command.spawn()?;
-    if let Some(registry) = invocation_registry {
-        if let Ok(pgid) = i32::try_from(child.id()) {
-            registry.register_process_group(&request.tool_call.invocation_id, pgid);
-        }
-    }
-    child
-        .stdin
-        .as_mut()
-        .ok_or_else(|| DaemonError::OverlayPipeline("ns-runner stdin unavailable".to_owned()))?
-        .write_all(&payload)?;
-    let output = child.wait_with_output()?;
-    if let Some(registry) = invocation_registry {
-        registry.clear_process_group(&request.tool_call.invocation_id);
-    }
-    if !output.status.success() {
-        return Err(DaemonError::OverlayPipeline(format!(
-            "ns-runner exited with status {}: {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr)
-        )));
-    }
-    serde_json::from_slice::<RunResult>(&output.stdout)
-        .map_err(|err| DaemonError::OverlayPipeline(format!("invalid ns-runner output: {err}")))
-}
-
 pub(crate) fn base_hashes_for_snapshot(
     root: &Path,
     manifest: &eos_layerstack::Manifest,
@@ -1840,81 +1383,6 @@ pub(crate) fn base_hashes_for_snapshot(
             ))
         })
         .collect()
-}
-
-pub(crate) fn attach_runner_shell_fields(response: &mut Value, runner: &RunResult) {
-    response["exit_code"] = runner
-        .tool_result
-        .get("exit_code")
-        .cloned()
-        .unwrap_or_else(|| json!(runner.exit_code));
-    response["stdout"] = runner
-        .tool_result
-        .get("stdout")
-        .cloned()
-        .unwrap_or_else(|| json!(""));
-    response["stderr"] = runner
-        .tool_result
-        .get("stderr")
-        .cloned()
-        .unwrap_or_else(|| json!(""));
-    response["warnings"] = runner
-        .tool_result
-        .get("warnings")
-        .cloned()
-        .unwrap_or_else(|| json!([]));
-}
-
-pub(crate) fn merge_runner_timings(
-    timings: &mut serde_json::Map<String, Value>,
-    runner: &RunResult,
-) {
-    if let Some(runner_timings) = runner.tool_result.get("timings").and_then(Value::as_object) {
-        for (key, value) in runner_timings {
-            timings.entry(key.clone()).or_insert_with(|| value.clone());
-        }
-    }
-    if let Some(value) = timings.get("workspace.mount_s").cloned() {
-        timings
-            .entry("command_exec.mount_workspace_s".to_owned())
-            .or_insert(value);
-    }
-    if let Some(value) = timings.get("workspace.tool_s").cloned() {
-        timings
-            .entry("command_exec.run_command_s".to_owned())
-            .or_insert(value);
-    }
-}
-
-pub(crate) const fn layer_change_kind(change: &LayerChange) -> &'static str {
-    match change {
-        LayerChange::Write { .. } => "write",
-        LayerChange::Delete { .. } => "delete",
-        LayerChange::Symlink { .. } => "symlink",
-        LayerChange::OpaqueDir { .. } => "opaque_dir",
-    }
-}
-
-pub(crate) fn overlay_daemon_error(context: &str, err: &eos_overlay::OverlayError) -> DaemonError {
-    DaemonError::OverlayPipeline(format!("{context}: {err}"))
-}
-
-fn sanitize_path_component(value: &str) -> String {
-    let cleaned: String = value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    if cleaned.is_empty() {
-        "op".to_owned()
-    } else {
-        cleaned
-    }
 }
 
 const OCC_SERVICE_CACHE_MAX: usize = 256;
@@ -2756,246 +2224,6 @@ fn parse_edits(args: &Value) -> Result<Vec<SearchReplaceEdit>, DaemonError> {
     Ok(parsed)
 }
 
-pub(crate) fn guarded_changeset_response(
-    verb: &str,
-    result: &ChangesetResult,
-    mut timings: serde_json::Map<String, Value>,
-    total_start: Instant,
-    applied_edits: Option<i64>,
-) -> Value {
-    for (key, value) in &result.timings {
-        timings.insert(key.clone(), json!(value));
-    }
-    timings.insert(
-        format!("api.{verb}.total_s"),
-        json!(total_start.elapsed().as_secs_f64()),
-    );
-    let changed_paths: Vec<String> = result
-        .files
-        .iter()
-        .filter(|file| file.status.is_published())
-        .map(|file| file.path.as_str().to_owned())
-        .collect();
-    let mut changed_path_kinds = serde_json::Map::new();
-    for path in &changed_paths {
-        changed_path_kinds.insert(path.to_owned(), json!("write"));
-    }
-    let conflict = first_conflict(result);
-    let mut response = json!({
-        "success": result.success(),
-        "workspace": "ephemeral",
-        "changed_paths": changed_paths,
-        "changed_path_kinds": Value::Object(changed_path_kinds),
-        "mutation_source": mutation_source(verb),
-        "status": conflict
-            .as_ref()
-            .map_or("committed", |file| occ_status_wire(file.status)),
-        "conflict": conflict.as_ref().map(|file| json!({
-            "reason": occ_status_wire(file.status),
-            "conflict_file": file.path.as_str(),
-            "message": if file.message.is_empty() { occ_status_wire(file.status) } else { file.message.as_str() },
-        })),
-        "conflict_reason": conflict.as_ref().map(|file| {
-            if file.message.is_empty() { occ_status_wire(file.status) } else { file.message.as_str() }
-        }),
-        "error": null,
-        "timings": Value::Object(timings),
-    });
-    if let Some(count) = applied_edits {
-        response["applied_edits"] = json!(count);
-    }
-    response
-}
-
-fn first_conflict(result: &ChangesetResult) -> Option<&FileResult> {
-    result.files.iter().find(|file| !file.status.is_success())
-}
-
-fn published_file_count(result: &ChangesetResult) -> usize {
-    result
-        .files
-        .iter()
-        .filter(|file| file.status.is_published())
-        .count()
-}
-
-const fn occ_status_wire(status: OccStatus) -> &'static str {
-    match status {
-        OccStatus::Accepted => "accepted",
-        OccStatus::Committed => "committed",
-        OccStatus::AbortedVersion => "aborted_version",
-        OccStatus::AbortedOverlap => "aborted_overlap",
-        OccStatus::Dropped => "dropped",
-        OccStatus::Rejected => "rejected",
-        _ => "failed",
-    }
-}
-
-fn guarded_conflict_response(
-    verb: &str,
-    path: &str,
-    status: &str,
-    reason: &str,
-    message: &str,
-    mut timings: serde_json::Map<String, Value>,
-    total_start: Instant,
-) -> Value {
-    timings.insert(
-        format!("api.{verb}.total_s"),
-        json!(total_start.elapsed().as_secs_f64()),
-    );
-    let mut response = json!({
-        "success": false,
-        "workspace": "ephemeral",
-        "changed_paths": [],
-        "changed_path_kinds": {},
-        "mutation_source": mutation_source(verb),
-        "status": status,
-        "conflict": {
-            "reason": reason,
-            "conflict_file": path,
-            "message": message,
-        },
-        "conflict_reason": reason,
-        "error": null,
-        "timings": Value::Object(timings),
-    });
-    if verb == "edit" {
-        response["applied_edits"] = json!(0);
-    }
-    response
-}
-
-pub(crate) fn resource_timings(
-    manifest: &eos_layerstack::Manifest,
-    changed_path_count: usize,
-) -> serde_json::Map<String, Value> {
-    let mut timings = serde_json::Map::new();
-    timings.insert(
-        "resource.command_exec.changed_path_count".to_owned(),
-        json!(usize_to_f64_saturating(changed_path_count)),
-    );
-    timings.insert(
-        "resource.layer_stack.manifest_depth".to_owned(),
-        json!(usize_to_f64_saturating(manifest.depth())),
-    );
-    timings.insert(
-        "resource.layer_stack.manifest_path_count".to_owned(),
-        json!(usize_to_f64_saturating(manifest.depth())),
-    );
-    for key in [
-        "resource.command_exec.run_dir_tree_exists",
-        "resource.command_exec.run_dir_tree_bytes",
-        "resource.command_exec.run_dir_tree_file_count",
-        "resource.command_exec.run_dir_tree_dir_count",
-        "resource.command_exec.run_dir_tree_entry_count",
-        "resource.command_exec.run_dir_tree_truncated",
-        "resource.command_exec.workspace_tree_exists",
-        "resource.command_exec.workspace_tree_bytes",
-        "resource.command_exec.workspace_tree_file_count",
-        "resource.command_exec.workspace_tree_dir_count",
-        "resource.command_exec.workspace_tree_entry_count",
-        "resource.command_exec.workspace_tree_truncated",
-        "resource.command_exec.upperdir_tree_exists",
-        "resource.command_exec.upperdir_tree_bytes",
-        "resource.command_exec.upperdir_tree_file_count",
-        "resource.command_exec.upperdir_tree_dir_count",
-        "resource.command_exec.upperdir_tree_entry_count",
-        "resource.command_exec.upperdir_tree_truncated",
-    ] {
-        timings.insert(key.to_owned(), json!(0.0));
-    }
-    insert_cgroup_resource_timings(&mut timings);
-    timings
-}
-
-pub(crate) fn insert_tree_resource_timings(
-    timings: &mut serde_json::Map<String, Value>,
-    prefix: &str,
-    stats: &TreeResourceStats,
-) {
-    timings.insert(format!("{prefix}_tree_exists"), json!(stats.exists));
-    timings.insert(format!("{prefix}_tree_bytes"), json!(stats.bytes));
-    timings.insert(format!("{prefix}_tree_file_count"), json!(stats.file_count));
-    timings.insert(format!("{prefix}_tree_dir_count"), json!(stats.dir_count));
-    timings.insert(
-        format!("{prefix}_tree_entry_count"),
-        json!(stats.entry_count),
-    );
-    timings.insert(format!("{prefix}_tree_truncated"), json!(stats.truncated));
-}
-
-fn allocated_bytes(metadata: &fs::Metadata) -> f64 {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-
-        let allocated = metadata.blocks().saturating_mul(512);
-        u64_to_f64_saturating(if allocated > 0 {
-            allocated
-        } else {
-            metadata.len()
-        })
-    }
-    #[cfg(not(unix))]
-    {
-        u64_to_f64_saturating(metadata.len())
-    }
-}
-
-fn insert_cgroup_resource_timings(timings: &mut serde_json::Map<String, Value>) {
-    if let Ok(raw) = std::fs::read_to_string("/sys/fs/cgroup/cpu.stat") {
-        for line in raw.lines() {
-            let mut parts = line.split_whitespace();
-            let Some(name) = parts.next() else {
-                continue;
-            };
-            let Some(value) = parts.next().and_then(|raw| raw.parse::<f64>().ok()) else {
-                continue;
-            };
-            timings.insert(format!("resource.cgroup.cpu_{name}"), json!(value));
-        }
-    }
-
-    let Ok(raw) = std::fs::read_to_string("/sys/fs/cgroup/io.stat") else {
-        return;
-    };
-    let mut totals = BTreeMap::<&str, f64>::from([
-        ("rbytes", 0.0),
-        ("wbytes", 0.0),
-        ("rios", 0.0),
-        ("wios", 0.0),
-        ("dbytes", 0.0),
-        ("dios", 0.0),
-    ]);
-    for line in raw.lines() {
-        for token in line.split_whitespace().skip(1) {
-            let Some((name, raw_value)) = token.split_once('=') else {
-                continue;
-            };
-            let Some(total) = totals.get_mut(name) else {
-                continue;
-            };
-            if let Ok(value) = raw_value.parse::<f64>() {
-                *total += value;
-            }
-        }
-    }
-    for (name, value) in totals {
-        timings.insert(format!("resource.cgroup.io_{name}"), json!(value));
-    }
-}
-
-fn mutation_source(verb: &str) -> &'static str {
-    match verb {
-        "write" => "api_write",
-        "edit" => "api_edit",
-        "exec_command" => "overlay_capture",
-        "plugin_overlay" => "plugin_overlay",
-        _ => "",
-    }
-}
-
 const fn search_replace_message(err: &SearchReplaceError) -> &'static str {
     match err {
         SearchReplaceError::EmptyAnchor => "edit anchor old_text must be non-empty",
@@ -3434,49 +2662,8 @@ fn manifest_version_u64_optional(version: i64) -> Option<u64> {
     u64::try_from(version).ok()
 }
 
-fn usize_to_i64_saturating(value: usize) -> i64 {
-    i64::try_from(value).unwrap_or(i64::MAX)
-}
-
-fn usize_to_f64_saturating(value: usize) -> f64 {
-    u32::try_from(value).map_or_else(|_| f64::from(u32::MAX), f64::from)
-}
-
-fn i64_to_f64_saturating(value: i64) -> f64 {
-    u64::try_from(value).map_or(0.0, u64_to_f64_saturating)
-}
-
-pub(crate) fn u64_to_f64_saturating(value: u64) -> f64 {
-    u32::try_from(value).map_or_else(|_| f64::from(u32::MAX), f64::from)
-}
-
-fn u64_to_usize_saturating(value: u64) -> usize {
-    usize::try_from(value).unwrap_or(usize::MAX)
-}
-
 fn timing_i64(response: &Value, key: &str) -> Option<i64> {
     timing_f64(response, key).map(f64_to_i64_rounded_saturating)
-}
-
-fn f64_to_i64_rounded_saturating(value: f64) -> i64 {
-    if value.is_nan() {
-        return 0;
-    }
-    if value.is_infinite() {
-        return if value.is_sign_negative() {
-            i64::MIN
-        } else {
-            i64::MAX
-        };
-    }
-    let rounded = value.round();
-    format!("{rounded:.0}").parse::<i64>().unwrap_or_else(|_| {
-        if rounded.is_sign_negative() {
-            i64::MIN
-        } else {
-            i64::MAX
-        }
-    })
 }
 
 fn timing_f64(response: &Value, key: &str) -> Option<f64> {

@@ -38,7 +38,9 @@ pub mod dispatcher;
 pub mod error;
 pub mod invocation_registry;
 pub(crate) mod isolated;
+pub(crate) mod overlay_runner;
 pub(crate) mod plugin;
+pub(crate) mod response_timings;
 pub mod server;
 
 pub use audit_buffer::{safe_emit, safe_record_phase, AuditBuffer, BufferedEvent, LaneCounters};
