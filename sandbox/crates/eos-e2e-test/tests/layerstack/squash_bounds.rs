@@ -60,3 +60,32 @@ fn repeated_overwrite_keeps_storage_bounded() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn squash_reclaims_superseded_layer_dirs() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    for version in 0..40 {
+        lease.call_ok(
+            ops::API_V1_WRITE_FILE,
+            json!({"path": "squash-bounds/gc.txt", "content": format!("v{version}\n"), "overwrite": true}),
+        )?;
+    }
+    // The real GC oracle (the hard-coded orphan_layer_count==0 verifies nothing):
+    // after 40 overwrites the on-disk layer dirs collapse toward the live manifest
+    // — squash folded them AND the superseded tail was reclaimed, not orphaned.
+    let metrics = wait_for_active_leases(&lease, 0)?;
+    let layer_dirs = as_i64(&metrics, "layer_dirs")?;
+    let referenced = as_i64(&metrics, "referenced_layers")?;
+    assert!(
+        layer_dirs < 40,
+        "squash + GC must fold 40 overwrites well below one dir per write: {metrics}"
+    );
+    assert!(
+        layer_dirs <= referenced + 4,
+        "on-disk layer dirs must collapse toward the live manifest (no orphan accumulation): {metrics}"
+    );
+    Ok(())
+}

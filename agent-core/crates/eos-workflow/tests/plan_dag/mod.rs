@@ -61,7 +61,11 @@ async fn plan_dag_materializes_and_parks_at_run_without_closing() {
     );
     let plan = attempt.materialized_plan().expect("plan materialized into the attempt");
     let generator_id = generator_task_id(&started.attempt_id, &node("g1")).unwrap();
-    assert_eq!(plan.generator_task_ids, vec![generator_id.clone()]);
+    assert_eq!(
+        plan.generator_task_ids,
+        vec![generator_id.clone()],
+        "the generator task was materialized at RUN"
+    );
     assert_eq!(plan.reducer_task_ids.len(), 1, "one reducer materialized");
     assert!(
         stores.task(&generator_id).is_some(),

@@ -38,12 +38,33 @@ pub fn wait_for_active_leases(lease: &NodeLease<'_>, expected: i64) -> Result<Va
     }
 }
 
-/// Tear down every open isolated workspace on this lease's daemon (test-only
-/// hook). Used at the start of tests that enter isolated sessions so leaked or
-/// still-draining sessions from a prior checkout on a recycled container do not
-/// push past the global isolated-workspace cap. Best-effort: errors are ignored.
+/// Exit every open isolated workspace on this lease's daemon. Used at the start
+/// of tests that enter isolated sessions so residue from a prior checkout on a
+/// recycled container (e.g. a session leaked when an assertion panicked past its
+/// cleanup) does not push past the global isolated-workspace cap. Drains via the
+/// ungated `list_open` + `exit` ops (the `test_reset` hook needs a daemon env
+/// flag the harness does not set). Best-effort: errors are ignored.
 pub fn reset_isolated_workspaces(lease: &NodeLease<'_>) {
-    let _ = lease.call(ops::API_ISOLATED_WORKSPACE_TEST_RESET, json!({}));
+    let Ok(listing) = lease.call(ops::API_ISOLATED_WORKSPACE_LIST_OPEN, json!({})) else {
+        return;
+    };
+    let callers: Vec<String> = listing
+        .get("open_caller_ids")
+        .and_then(Value::as_array)
+        .map(|callers| {
+            callers
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    for caller_id in callers {
+        let _ = lease.call(
+            ops::API_ISOLATED_WORKSPACE_EXIT,
+            json!({"caller_id": caller_id, "grace_s": 0.0}),
+        );
+    }
 }
 
 /// Poll `api.v1.command_session_count` until `count` settles at `expected`.

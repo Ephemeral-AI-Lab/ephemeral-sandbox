@@ -912,16 +912,14 @@ mod command_session_delivery {
 
     use async_trait::async_trait;
     use eos_agent_def::{AgentRegistry, AgentRole};
-    use eos_engine::{
-        AssistantMessageComplete, EngineError, EngineStream, EventSource, StreamEvent,
-    };
-    use eos_llm_client::{ContentBlock, LlmRequest, Message, MessageRole, UsageSnapshot};
+    use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
+    use eos_llm_client::{ContentBlock, LlmRequest};
     use eos_sandbox_api::{DaemonOp, SandboxApiError, SandboxTransport};
     use eos_state::TaskStatus;
     use eos_types::{JsonObject, RequestId, SandboxId};
     use serde_json::json;
 
-    use eos_testkit::{agent_def, ScriptedSource};
+    use eos_testkit::{agent_def, text_turn, tool_use_turn, ScriptedSource};
     use crate::app_state::support::FakeProvisioner;
     use crate::app_state::EventSourceFactory;
     use crate::entry::root_task_id_for;
@@ -972,46 +970,6 @@ mod command_session_delivery {
         Box::pin(futures::stream::iter(events.into_iter().map(Ok)))
     }
 
-    fn tool_turn(tool_use_id: &str, name: &str, input: serde_json::Value) -> Vec<StreamEvent> {
-        let input = match input {
-            serde_json::Value::Object(map) => map,
-            _ => JsonObject::new(),
-        };
-        vec![StreamEvent::AssistantMessageComplete {
-            agent_name: String::new(),
-            agent_run_id: None,
-            payload: Box::new(AssistantMessageComplete {
-                message: Message {
-                    role: MessageRole::Assistant,
-                    content: vec![ContentBlock::ToolUse {
-                        tool_use_id: tool_use_id.parse().expect("tool use id"),
-                        name: name.to_owned(),
-                        input,
-                    }],
-                },
-                usage: UsageSnapshot::default(),
-                stop_reason: None,
-            }),
-        }]
-    }
-
-    fn text_turn(text: &str) -> Vec<StreamEvent> {
-        vec![StreamEvent::AssistantMessageComplete {
-            agent_name: String::new(),
-            agent_run_id: None,
-            payload: Box::new(AssistantMessageComplete {
-                message: Message {
-                    role: MessageRole::Assistant,
-                    content: vec![ContentBlock::Text {
-                        text: text.to_owned(),
-                    }],
-                },
-                usage: UsageSnapshot::default(),
-                stop_reason: None,
-            }),
-        }]
-    }
-
     /// Drives the root: turn 1 launches a background command session; it then
     /// returns text turns until the `[BACKGROUND COMPLETED]` notification for
     /// `cmd_1` lands in the transcript. Because `submit_root_outcome` is
@@ -1036,7 +994,7 @@ mod command_session_delivery {
             if seen {
                 self.saw_notification.store(true, Ordering::SeqCst);
                 if !self.asked_advisor.swap(true, Ordering::SeqCst) {
-                    return Ok(stream_of(tool_turn(
+                    return Ok(stream_of(tool_use_turn(
                         "toolu_advise",
                         "ask_advisor",
                         json!({
@@ -1045,14 +1003,14 @@ mod command_session_delivery {
                         }),
                     )));
                 }
-                return Ok(stream_of(tool_turn(
+                return Ok(stream_of(tool_use_turn(
                     "toolu_done",
                     "submit_root_outcome",
                     json!({"status": "success", "outcome": "saw background completion"}),
                 )));
             }
             if !self.started.swap(true, Ordering::SeqCst) {
-                return Ok(stream_of(tool_turn(
+                return Ok(stream_of(tool_use_turn(
                     "toolu_exec",
                     "exec_command",
                     json!({"cmd": "sleep 1"}),
@@ -1096,7 +1054,7 @@ mod command_session_delivery {
         // rest. No injected advisor port — the gate reads the transcript.
         let factory: EventSourceFactory = Arc::new(move |def| {
             if def.name.as_str() == "advisor" {
-                Arc::new(ScriptedSource::new(vec![tool_turn(
+                Arc::new(ScriptedSource::new(vec![tool_use_turn(
                     "toolu_fb",
                     "submit_advisor_feedback",
                     json!({"verdict": "approve", "summary": "background completion is real; approve"}),
@@ -1117,9 +1075,7 @@ mod command_session_delivery {
             .database_url(url)
             .cwd(dir.path().display().to_string())
             .tools_root(eos_testkit::test_tools_root())
-            .provisioner(Arc::new(FakeProvisioner {
-                id: "sb-test".to_owned(),
-            }))
+            .provisioner(Arc::new(FakeProvisioner::default()))
             .transport(Arc::new(CommandCompletionTransport))
             .agent_registry(Arc::new(registry))
             .event_source_factory(factory)

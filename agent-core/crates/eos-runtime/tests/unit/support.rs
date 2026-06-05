@@ -21,10 +21,19 @@ use eos_types::RequestId;
 
 use super::{AppState, EventSourceFactory, RequestProvisioner};
 
-/// A provisioner that binds a fixed sandbox id without touching Docker.
+/// A provisioner that binds a fixed sandbox id (`sb-test`) without touching
+/// Docker.
 #[derive(Debug)]
 pub(crate) struct FakeProvisioner {
-    pub(crate) id: String,
+    id: String,
+}
+
+impl Default for FakeProvisioner {
+    fn default() -> Self {
+        Self {
+            id: "sb-test".to_owned(),
+        }
+    }
 }
 
 #[async_trait]
@@ -60,9 +69,7 @@ pub(crate) async fn build_test_state(
         .database_url(url)
         .cwd(dir.path().display().to_string())
         .tools_root(eos_testkit::test_tools_root())
-        .provisioner(Arc::new(FakeProvisioner {
-            id: "sb-test".to_owned(),
-        }))
+        .provisioner(Arc::new(FakeProvisioner::default()))
         .transport(Arc::new(FakeTransport))
         .agent_registry(Arc::new(registry));
     if let Some(factory) = factory {

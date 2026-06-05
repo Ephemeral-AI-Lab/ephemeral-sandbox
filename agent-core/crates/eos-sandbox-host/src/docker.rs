@@ -3,7 +3,7 @@
 //! `docker/client.py` host-config). The container/exec calls require a live
 //! Docker daemon, so their behavior is exercised at integration time (the
 //! `docker` cargo feature); unit tests cover the pure serialize/host-config/env
-//! helpers, and the `#[cfg(test)]` mock adapter (see `testutil`) substitutes for
+//! helpers, and the `#[cfg(test)]` mock adapter (see the `support` test module) substitutes for
 //! daemon/lifecycle unit tests.
 
 use std::collections::HashMap;

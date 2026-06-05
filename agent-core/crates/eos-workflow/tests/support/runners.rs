@@ -47,9 +47,7 @@ pub(crate) enum ScriptedSubmission {
 
 /// Build the recording port over an attempt registry (the test analogue of the
 /// production `PlanSubmissionAdapter` wiring at the composition root).
-pub(crate) fn recording_port(
-    registry: &Arc<AttemptOrchestratorRegistry>,
-) -> Arc<dyn PlanSubmissionPort> {
+fn recording_port(registry: &Arc<AttemptOrchestratorRegistry>) -> Arc<dyn PlanSubmissionPort> {
     Arc::new(PlanSubmissionAdapter::new(registry.clone()))
 }
 
