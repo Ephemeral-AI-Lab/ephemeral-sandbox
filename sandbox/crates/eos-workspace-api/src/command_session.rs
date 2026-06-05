@@ -20,21 +20,17 @@ pub struct PrepareCommandRequest {
 /// Prepared workspace context returned to daemon-owned command-session control.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreparedCommandWorkspace {
-    pub mode: WorkspaceMode,
     pub run_request: Value,
     pub request_path: PathBuf,
     pub output_path: PathBuf,
     pub final_path: PathBuf,
     pub session_dir: PathBuf,
     pub transcript_path: PathBuf,
-    #[serde(default)]
-    pub finalize_context: Value,
 }
 
 /// Input needed for mode-specific command workspace finalization.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FinalizeCommandRequest {
-    pub finalize_context: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runner_result: Option<Value>,
     #[serde(default)]
@@ -89,6 +85,14 @@ pub trait CommandWorkspacePolicy: Send + Sync {
         &self,
         request: PrepareCommandRequest,
     ) -> Result<PreparedCommandWorkspace, WorkspaceApiError>;
+
+    fn command_session_started(&self, command_session_id: &str, caller_id: &str) {
+        let _ = (command_session_id, caller_id);
+    }
+
+    fn command_session_finished(&self, command_session_id: &str, caller_id: &str, status: &str) {
+        let _ = (command_session_id, caller_id, status);
+    }
 
     fn finalize_command_workspace(
         &self,

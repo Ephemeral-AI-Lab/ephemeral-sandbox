@@ -156,11 +156,10 @@ fn u64_to_f64_saturating(value: u64) -> f64 {
 mod tests {
     use std::collections::BTreeMap;
 
-    use eos_workspace_api::{CommandWorkspacePolicy, WorkspaceMode};
+    use eos_workspace_api::WorkspaceMode;
 
     use super::*;
     use crate::command_session::types::IsolatedCommandFinalizeContext;
-    use crate::IsolatedWorkspaceOps;
 
     #[derive(Debug, Clone)]
     struct FakePort {
@@ -168,8 +167,19 @@ mod tests {
     }
 
     impl IsolatedCommandSessionPort for FakePort {
+        fn prepare_context(
+            &self,
+        ) -> Result<crate::command_session::types::IsolatedCommandPrepareContext, WorkspaceApiError>
+        {
+            unreachable!("finalize test does not prepare command workspaces")
+        }
+
         fn finalize_context(&self) -> Result<IsolatedCommandFinalizeContext, WorkspaceApiError> {
             Ok(self.context.clone())
+        }
+
+        fn record_command_audit(&self, _payload: Value) {
+            unreachable!("finalize test records audit in policy, not finalize helper")
         }
     }
 
@@ -184,7 +194,7 @@ mod tests {
         let upperdir = root.join("upper");
         std::fs::create_dir_all(&upperdir)?;
         std::fs::write(upperdir.join("private.txt"), b"private")?;
-        let ops = IsolatedWorkspaceOps::new(FakePort {
+        let port = FakePort {
             context: IsolatedCommandFinalizeContext {
                 caller_id: "caller-1".to_owned(),
                 workspace_handle_id: "iws-1".to_owned(),
@@ -193,27 +203,29 @@ mod tests {
                 upperdir,
                 base_timings: BTreeMap::new(),
             },
-        });
+        };
 
-        let outcome = ops.finalize_command_workspace(FinalizeCommandRequest {
-            finalize_context: json!({}),
-            runner_result: Some(json!({
-                "tool_result": {
-                    "timings": {
-                        "workspace.mount_s": 0.1,
-                        "workspace.tool_s": 0.2,
-                    }
-                },
-                "exit_code": 0,
-            })),
-            command_elapsed_s: 1.25,
-            spool_truncated: true,
-            status: "ok".to_owned(),
-            exit_code: Some(0),
-            stdout: "done".to_owned(),
-            stderr: String::new(),
-            command_session_id: Some("cmd-1".to_owned()),
-        })?;
+        let outcome = finalize_command_workspace(
+            &port,
+            FinalizeCommandRequest {
+                runner_result: Some(json!({
+                    "tool_result": {
+                        "timings": {
+                            "workspace.mount_s": 0.1,
+                            "workspace.tool_s": 0.2,
+                        }
+                    },
+                    "exit_code": 0,
+                })),
+                command_elapsed_s: 1.25,
+                spool_truncated: true,
+                status: "ok".to_owned(),
+                exit_code: Some(0),
+                stdout: "done".to_owned(),
+                stderr: String::new(),
+                command_session_id: Some("cmd-1".to_owned()),
+            },
+        )?;
 
         assert_eq!(outcome.mode, WorkspaceMode::Isolated);
         assert!(outcome.success);

@@ -233,7 +233,7 @@
 <div class="callout"><span class="label">Dynamic workflow stance</span> Workflow decomposition is dynamic through durable boundaries, not hidden script variables: fixed plan DAGs cover known fanout, <code>delegate_workflow</code> covers runtime-discovered branches, same-iteration retry handles failed generator/reducer evidence, and deferred Iterations replan only from reducer-approved evidence.</div>
 </section>
 
-<section id="workspaces" data-last-reviewed-commit="HEAD-plus-worktree" data-evidence-paths="sandbox/crates/eos-daemon/src/workspace_ops.rs sandbox/crates/eos-daemon/src/isolated.rs sandbox/crates/eos-layerstack sandbox/crates/eos-occ sandbox/crates/eos-isolated docs/architecture/sandbox/workspaces.html">
+<section id="workspaces" data-last-reviewed-commit="HEAD-plus-worktree" data-evidence-paths="sandbox/crates/eos-daemon/src/workspace_ops.rs sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-layerstack sandbox/crates/eos-occ sandbox/crates/eos-isolated docs/architecture/sandbox/workspaces.html">
 <h2>Workspace Modes <a class="anchor" href="#workspaces">§</a></h2>
 <p>One tool surface, two lifetimes. Daemon routing picks the mode from the caller's state, so agents use the same <code>read</code> / <code>write</code> / <code>edit</code> / <code>shell</code> tools either way.</p>
 <div class="lane-grid">

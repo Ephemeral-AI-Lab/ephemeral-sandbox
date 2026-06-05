@@ -209,7 +209,7 @@
               <tr>
                 <td><code>ports/mod.rs</code><br><code>tools/sandbox/</code></td>
                 <td><a href="background.html">Background</a></td>
-                <td>Typed control ports for subagents, delegated workflows, and daemon command sessions.</td>
+                <td>Typed control ports for subagents, delegated workflows, and <code>eos-command-session</code> runtime sessions.</td>
                 <td>Supervisor status lattice, sandbox heartbeat/cancel, command completion heartbeat, query loop cleanup.</td>
               </tr>
               <tr>
@@ -241,7 +241,7 @@
         </div>
       </section>
 
-      <section id="critical-routes" data-last-reviewed-commit="HEAD-plus-worktree" data-evidence-paths="agent-core/crates/eos-engine/src/background agent-core/crates/eos-tools/src/tools agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-runtime/src/isolated_workspace.rs agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/command.rs sandbox/crates/eos-daemon/src/dispatcher.rs">
+      <section id="critical-routes" data-last-reviewed-commit="HEAD-plus-worktree" data-evidence-paths="agent-core/crates/eos-engine/src/background agent-core/crates/eos-tools/src/tools agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-runtime/src/isolated_workspace.rs agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/services/command_session/mod.rs sandbox/crates/eos-command-session/src/manager.rs sandbox/crates/eos-daemon/src/dispatcher.rs">
         <h3>Critical Routes To Keep Straight</h3>
         <div class="grid">
           <div class="callout ok">

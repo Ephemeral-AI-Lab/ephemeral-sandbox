@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 
-use eos_workspace_api::{
-    PrepareCommandRequest, PreparedCommandWorkspace, WorkspaceApiError, WorkspaceMode,
-};
+use eos_workspace_api::{PrepareCommandRequest, PreparedCommandWorkspace, WorkspaceApiError};
 
 use super::types::IsolatedCommandSessionPort;
 
@@ -42,6 +40,20 @@ where
             ),
         )
     })?;
+    std::fs::write(
+        session_dir.join("metadata.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "command_session_id": &command_session_id,
+            "caller_id": &caller_id,
+            "invocation_id": &invocation_id,
+            "workspace": "isolated",
+            "workspace_handle_id": &context.workspace_handle_id,
+            "command": &cmd,
+            "status": "running",
+        }))
+        .map_err(workspace_api_error)?,
+    )
+    .map_err(workspace_api_error)?;
     let final_path = session_dir.join("final.json");
     let output_path = session_dir.join("runner-result.json");
     let request_path = session_dir.join("runner-request.json");
@@ -49,12 +61,12 @@ where
     let run_request = json!({
         "mode": mode,
         "tool_call": {
-            "invocation_id": invocation_id,
-            "caller_id": caller_id,
+            "invocation_id": &invocation_id,
+            "caller_id": &caller_id,
             "verb": "exec_command",
             "intent": "write_allowed",
             "args": {
-                "command": cmd,
+                "command": &cmd,
                 "cwd": ".",
             },
             "background": false,
@@ -69,19 +81,17 @@ where
     });
 
     Ok(PreparedCommandWorkspace {
-        mode: WorkspaceMode::Isolated,
         run_request,
         request_path,
         output_path,
         final_path,
         session_dir: session_dir.clone(),
         transcript_path,
-        finalize_context: json!({
-            "session_dir": session_dir,
-            "workspace_handle_id": context.workspace_handle_id,
-            "published": false,
-        }),
     })
+}
+
+fn workspace_api_error(error: impl std::fmt::Display) -> WorkspaceApiError {
+    WorkspaceApiError::new("isolated_command_prepare_failed", error.to_string())
 }
 
 fn ns_fds_value(map: &HashMap<String, i32>) -> Value {
@@ -109,7 +119,7 @@ mod tests {
 
     use super::*;
     use crate::command_session::types::IsolatedCommandPrepareContext;
-    use crate::IsolatedWorkspaceOps;
+    use crate::command_session::IsolatedCommandPolicy;
 
     #[derive(Debug, Clone)]
     struct FakePort {
@@ -119,6 +129,17 @@ mod tests {
     impl IsolatedCommandSessionPort for FakePort {
         fn prepare_context(&self) -> Result<IsolatedCommandPrepareContext, WorkspaceApiError> {
             Ok(self.context.clone())
+        }
+
+        fn finalize_context(
+            &self,
+        ) -> Result<crate::command_session::types::IsolatedCommandFinalizeContext, WorkspaceApiError>
+        {
+            unreachable!("prepare test does not finalize command workspaces")
+        }
+
+        fn record_command_audit(&self, _payload: Value) {
+            unreachable!("prepare test does not record command audits")
         }
     }
 
@@ -131,7 +152,7 @@ mod tests {
         ));
         let workspace_root = PathBuf::from("/configured-workspace");
         let _ = std::fs::remove_dir_all(&scratch_dir);
-        let ops = IsolatedWorkspaceOps::new(FakePort {
+        let policy = IsolatedCommandPolicy::new(FakePort {
             context: IsolatedCommandPrepareContext {
                 workspace_handle_id: "iws-1".to_owned(),
                 workspace_root: workspace_root.clone(),
@@ -149,7 +170,7 @@ mod tests {
             },
         });
 
-        let prepared = ops.prepare_command_workspace(PrepareCommandRequest {
+        let prepared = policy.prepare_command_workspace(PrepareCommandRequest {
             caller_id: "caller-1".to_owned(),
             command_session_id: "cmd-1".to_owned(),
             invocation_id: "inv-1".to_owned(),
@@ -157,7 +178,6 @@ mod tests {
             timeout_seconds: Some(4.0),
         })?;
 
-        assert_eq!(prepared.mode, WorkspaceMode::Isolated);
         assert_eq!(prepared.run_request["mode"], "set_ns");
         assert_eq!(
             prepared.run_request["workspace_root"],
@@ -167,8 +187,6 @@ mod tests {
         assert_eq!(prepared.run_request["tool_call"]["intent"], "write_allowed");
         assert_eq!(prepared.run_request["tool_call"]["args"]["command"], "pwd");
         assert_eq!(prepared.run_request["layer_paths"][0], "/lower/a");
-        assert_eq!(prepared.finalize_context["workspace_handle_id"], "iws-1");
-        assert_eq!(prepared.finalize_context["published"], false);
         assert_eq!(
             prepared.request_path,
             scratch_dir

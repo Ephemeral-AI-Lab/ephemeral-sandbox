@@ -5,7 +5,7 @@ use eos_workspace_api::{
     WorkspaceConflict, WorkspaceMode, WorkspaceTimings,
 };
 
-use super::types::EphemeralCommandSessionPort;
+use super::types::{EphemeralCommandFinalizeContext, EphemeralCommandSessionPort};
 use crate::{
     finalize_publishable_workspace, EphemeralWorkspaceError, FinalizeRequest, PathChangeKind,
     PublishOutcome, TreeResourceStats, WorkspacePublisherPort,
@@ -13,12 +13,12 @@ use crate::{
 
 pub(super) fn finalize_command_workspace<P>(
     port: &P,
+    context: EphemeralCommandFinalizeContext,
     request: FinalizeCommandRequest,
 ) -> Result<WorkspaceCommandOutcome, WorkspaceApiError>
 where
     P: EphemeralCommandSessionPort,
 {
-    let context = port.finalize_context()?;
     let publisher = CommandPublisher { port };
     let finalize = finalize_publishable_workspace(
         &publisher,
@@ -255,24 +255,41 @@ mod tests {
     use std::collections::BTreeMap;
     use std::path::PathBuf;
 
-    use eos_workspace_api::{CommandWorkspacePolicy, WorkspaceMode};
+    use eos_workspace_api::WorkspaceMode;
     use serde_json::json;
 
     use super::*;
     use crate::command_session::types::EphemeralCommandFinalizeContext;
     use crate::{
-        CallerId, EphemeralRunDirs, EphemeralSnapshot, EphemeralWorkspace, EphemeralWorkspaceOps,
-        InvocationId, PublishStatus, WorkspaceRoot,
+        CallerId, EphemeralRunDirs, EphemeralSnapshot, EphemeralWorkspace, InvocationId,
+        PublishStatus, WorkspaceRoot,
     };
 
     #[derive(Debug, Clone)]
-    struct FakePort {
-        context: EphemeralCommandFinalizeContext,
-    }
+    struct FakePort;
 
     impl EphemeralCommandSessionPort for FakePort {
-        fn finalize_context(&self) -> Result<EphemeralCommandFinalizeContext, WorkspaceApiError> {
-            Ok(self.context.clone())
+        fn prepare_context(
+            &self,
+            _command_session_id: &str,
+        ) -> Result<crate::command_session::types::EphemeralCommandPrepareContext, WorkspaceApiError>
+        {
+            unreachable!("finalize test does not prepare command workspaces")
+        }
+
+        fn acquire_snapshot(
+            &self,
+            _request_id: &str,
+        ) -> Result<EphemeralSnapshot, EphemeralWorkspaceError> {
+            unreachable!("finalize test does not acquire snapshots")
+        }
+
+        fn release_snapshot(&self, _lease_id: &str) -> Result<(), EphemeralWorkspaceError> {
+            unreachable!("finalize test does not release snapshots")
+        }
+
+        fn base_timings(&self) -> Result<WorkspaceTimings, WorkspaceApiError> {
+            unreachable!("finalize test provides timings through context")
         }
 
         fn publish_upperdir_changes(
@@ -316,44 +333,45 @@ mod tests {
         std::fs::create_dir_all(&workdir)?;
         std::fs::create_dir_all(&run_dir)?;
         std::fs::write(upperdir.join("result.txt"), b"ok")?;
-        let ops = EphemeralWorkspaceOps::new(FakePort {
-            context: EphemeralCommandFinalizeContext {
-                workspace: EphemeralWorkspace {
-                    layer_stack_root: WorkspaceRoot(PathBuf::from("/layers")),
-                    workspace_root: PathBuf::from("/workspace"),
-                    caller_id: CallerId("caller-1".to_owned()),
-                    invocation_id: InvocationId("cmd-1".to_owned()),
-                    snapshot: EphemeralSnapshot {
-                        lease_id: "lease-1".to_owned(),
-                        manifest_version: 7,
-                        manifest_root_hash: "hash".to_owned(),
-                        layer_paths: vec![PathBuf::from("/lower/a")],
-                    },
-                    dirs: EphemeralRunDirs {
-                        run_dir,
-                        upperdir,
-                        workdir,
-                        output_path: root.join("runner-result.json"),
-                        final_path: root.join("final.json"),
-                        request_path: Some(root.join("runner-request.json")),
-                        result_path: None,
-                    },
+        let context = EphemeralCommandFinalizeContext {
+            workspace: EphemeralWorkspace {
+                layer_stack_root: WorkspaceRoot(PathBuf::from("/layers")),
+                workspace_root: PathBuf::from("/workspace"),
+                caller_id: CallerId("caller-1".to_owned()),
+                invocation_id: InvocationId("cmd-1".to_owned()),
+                snapshot: EphemeralSnapshot {
+                    lease_id: "lease-1".to_owned(),
+                    manifest_version: 7,
+                    manifest_root_hash: "hash".to_owned(),
+                    layer_paths: vec![PathBuf::from("/lower/a")],
                 },
-                base_timings: BTreeMap::new(),
+                dirs: EphemeralRunDirs {
+                    run_dir,
+                    upperdir,
+                    workdir,
+                    output_path: root.join("runner-result.json"),
+                    final_path: root.join("final.json"),
+                    request_path: Some(root.join("runner-request.json")),
+                    result_path: None,
+                },
             },
-        });
+            base_timings: BTreeMap::new(),
+        };
 
-        let outcome = ops.finalize_command_workspace(FinalizeCommandRequest {
-            finalize_context: json!({}),
-            runner_result: None,
-            command_elapsed_s: 1.5,
-            spool_truncated: true,
-            status: "ok".to_owned(),
-            exit_code: Some(0),
-            stdout: "done".to_owned(),
-            stderr: String::new(),
-            command_session_id: Some("cmd-1".to_owned()),
-        })?;
+        let outcome = finalize_command_workspace(
+            &FakePort,
+            context,
+            FinalizeCommandRequest {
+                runner_result: None,
+                command_elapsed_s: 1.5,
+                spool_truncated: true,
+                status: "ok".to_owned(),
+                exit_code: Some(0),
+                stdout: "done".to_owned(),
+                stderr: String::new(),
+                command_session_id: Some("cmd-1".to_owned()),
+            },
+        )?;
 
         assert_eq!(outcome.mode, WorkspaceMode::Ephemeral);
         assert!(outcome.success);

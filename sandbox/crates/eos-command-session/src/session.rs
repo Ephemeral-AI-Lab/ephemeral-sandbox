@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-use eos_workspace_api::{FinalizeCommandRequest, WorkspaceMode};
+use eos_workspace_api::FinalizeCommandRequest;
 use serde_json::Value;
 
 #[cfg(target_os = "linux")]
@@ -24,12 +24,10 @@ pub struct CommandSession {
     id: String,
     caller_id: String,
     command: String,
-    workspace_mode: WorkspaceMode,
     output: Arc<CommandSessionOutput>,
     model_cursor: Mutex<CommandSessionOutputCursor>,
     notification_cursor: Mutex<CommandSessionOutputCursor>,
     policy: Mutex<Option<DynCommandWorkspacePolicy>>,
-    finalize_context: Value,
     #[cfg(target_os = "linux")]
     process: CommandSessionProcess,
     #[cfg(target_os = "linux")]
@@ -51,9 +49,7 @@ pub(crate) struct CommandSessionSpec {
     pub id: String,
     pub caller_id: String,
     pub command: String,
-    pub workspace_mode: WorkspaceMode,
     pub timeout_seconds: Option<f64>,
-    pub finalize_context: Value,
 }
 
 #[cfg(target_os = "linux")]
@@ -105,12 +101,10 @@ impl CommandSession {
             id: spec.id,
             caller_id: spec.caller_id,
             command: spec.command,
-            workspace_mode: spec.workspace_mode,
             output,
             model_cursor: Mutex::new(CommandSessionOutputCursor::default()),
             notification_cursor: Mutex::new(CommandSessionOutputCursor::default()),
             policy: Mutex::new(Some(policy)),
-            finalize_context: spec.finalize_context,
             #[cfg(target_os = "linux")]
             process: inactive.process,
             #[cfg(target_os = "linux")]
@@ -140,12 +134,10 @@ impl CommandSession {
             id: spec.id,
             caller_id: spec.caller_id,
             command: spec.command,
-            workspace_mode: spec.workspace_mode,
             output,
             model_cursor: Mutex::new(CommandSessionOutputCursor::default()),
             notification_cursor: Mutex::new(CommandSessionOutputCursor::default()),
             policy: Mutex::new(Some(policy)),
-            finalize_context: spec.finalize_context,
             process: running.process,
             output_path: running.output_path,
             final_path: running.final_path,
@@ -174,18 +166,8 @@ impl CommandSession {
     }
 
     #[must_use]
-    pub const fn workspace_mode(&self) -> WorkspaceMode {
-        self.workspace_mode
-    }
-
-    #[must_use]
     pub fn output(&self) -> &Arc<CommandSessionOutput> {
         &self.output
-    }
-
-    #[must_use]
-    pub fn finalize_context(&self) -> &Value {
-        &self.finalize_context
     }
 
     #[cfg(target_os = "linux")]
@@ -289,7 +271,6 @@ impl CommandSession {
             CommandSessionError::Unsupported("command session has no workspace policy".to_owned())
         })?;
         let outcome = policy.finalize_command_workspace(FinalizeCommandRequest {
-            finalize_context: self.finalize_context.clone(),
             runner_result,
             command_elapsed_s: self.started_at.elapsed().as_secs_f64(),
             spool_truncated: self.output.spool_truncated(),
@@ -302,6 +283,13 @@ impl CommandSession {
         let response = CommandResponse::from_workspace_outcome(outcome);
         *finalized = Some(response.clone());
         Ok(response)
+    }
+
+    pub fn command_session_finished(&self, status: &str) {
+        let policy = lock(&self.policy);
+        if let Some(policy) = policy.as_ref() {
+            policy.command_session_finished(&self.id, &self.caller_id, status);
+        }
     }
 
     #[cfg(target_os = "linux")]
@@ -434,9 +422,7 @@ mod tests {
                 id: "cmd_1".to_owned(),
                 caller_id: "caller".to_owned(),
                 command: "echo ok".to_owned(),
-                workspace_mode: WorkspaceMode::default(),
                 timeout_seconds: Some(0.001),
-                finalize_context: Value::Null,
             },
             Box::new(NoopPolicy),
             &config,
@@ -445,7 +431,6 @@ mod tests {
         assert_eq!(session.id(), "cmd_1");
         assert_eq!(session.caller_id(), "caller");
         assert_eq!(session.command(), "echo ok");
-        assert_eq!(session.workspace_mode(), WorkspaceMode::default());
         assert!(session.is_expired(session.started_at() + Duration::from_millis(2)));
     }
 }

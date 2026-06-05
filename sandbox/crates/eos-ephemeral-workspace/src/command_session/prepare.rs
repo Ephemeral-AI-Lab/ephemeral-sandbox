@@ -1,27 +1,45 @@
 use serde_json::json;
 
-use eos_workspace_api::{
-    PrepareCommandRequest, PreparedCommandWorkspace, WorkspaceApiError, WorkspaceMode,
-};
+use eos_workspace_api::{PrepareCommandRequest, PreparedCommandWorkspace, WorkspaceApiError};
 
+use super::policy::EphemeralCommandWorkspace;
 use super::types::EphemeralCommandSessionPort;
 use crate::{EphemeralDirAllocator, EphemeralWorkspaceError, InvocationId};
+
+pub(super) struct PreparedEphemeralCommand {
+    pub prepared: PreparedCommandWorkspace,
+    pub workspace: EphemeralCommandWorkspace,
+}
 
 pub(super) fn prepare_command_workspace<P>(
     port: &P,
     request: PrepareCommandRequest,
-) -> Result<PreparedCommandWorkspace, WorkspaceApiError>
+) -> Result<PreparedEphemeralCommand, WorkspaceApiError>
 where
     P: EphemeralCommandSessionPort,
 {
     let PrepareCommandRequest {
         caller_id,
-        command_session_id: _,
+        command_session_id,
         invocation_id,
         cmd,
         timeout_seconds,
     } = request;
-    let context = port.prepare_context()?;
+    let context = port.prepare_context(&command_session_id)?;
+    std::fs::create_dir_all(&context.session_dir).map_err(workspace_api_error)?;
+    std::fs::write(
+        context.session_dir.join("metadata.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "command_session_id": &command_session_id,
+            "caller_id": &caller_id,
+            "invocation_id": &invocation_id,
+            "workspace": "ephemeral",
+            "command": &cmd,
+            "status": "running",
+        }))
+        .map_err(workspace_api_error)?,
+    )
+    .map_err(workspace_api_error)?;
     let snapshot_request_id = format!("command_session:{caller_id}:{invocation_id}");
     let snapshot = port
         .acquire_snapshot(&snapshot_request_id)
@@ -43,17 +61,17 @@ where
     let run_request = json!({
         "mode": "fresh_ns",
         "tool_call": {
-            "invocation_id": invocation_id,
-            "caller_id": caller_id,
+            "invocation_id": &invocation_id,
+            "caller_id": &caller_id,
             "verb": "exec_command",
             "intent": "write_allowed",
             "args": {
-                "command": cmd,
+                "command": &cmd,
                 "cwd": ".",
             },
             "background": false,
         },
-        "workspace_root": context.workspace_root,
+        "workspace_root": context.workspace_root.clone(),
         "layer_paths": snapshot.layer_paths.clone(),
         "upperdir": dirs.upperdir.clone(),
         "workdir": dirs.workdir.clone(),
@@ -62,24 +80,36 @@ where
         "timeout_seconds": timeout_seconds,
     });
 
-    Ok(PreparedCommandWorkspace {
-        mode: WorkspaceMode::Ephemeral,
-        run_request,
-        request_path,
-        output_path: dirs.output_path.clone(),
-        final_path: context.final_path.clone(),
-        session_dir: context.session_dir.clone(),
-        transcript_path: context.session_dir.join("transcript.log"),
-        finalize_context: json!({
-            "root": context.layer_stack_root,
-            "session_dir": context.session_dir,
-            "snapshot": snapshot,
-            "dirs": dirs,
-        }),
+    let workspace = EphemeralCommandWorkspace {
+        caller_id,
+        invocation_id,
+        root: context.layer_stack_root,
+        lease_id: snapshot.lease_id,
+        manifest_version: snapshot.manifest_version,
+        manifest_root_hash: snapshot.manifest_root_hash,
+        layer_paths: snapshot.layer_paths,
+        workspace_root: context.workspace_root,
+        dirs: dirs.clone(),
+    };
+
+    Ok(PreparedEphemeralCommand {
+        prepared: PreparedCommandWorkspace {
+            run_request,
+            request_path,
+            output_path: dirs.output_path.clone(),
+            final_path: context.final_path,
+            session_dir: context.session_dir.clone(),
+            transcript_path: context.session_dir.join("transcript.log"),
+        },
+        workspace,
     })
 }
 
 fn prepare_error(error: EphemeralWorkspaceError) -> WorkspaceApiError {
+    WorkspaceApiError::new("ephemeral_command_prepare_failed", error.to_string())
+}
+
+fn workspace_api_error(error: impl std::fmt::Display) -> WorkspaceApiError {
     WorkspaceApiError::new("ephemeral_command_prepare_failed", error.to_string())
 }
 
@@ -91,7 +121,8 @@ mod tests {
 
     use super::*;
     use crate::command_session::types::EphemeralCommandPrepareContext;
-    use crate::{EphemeralSnapshot, EphemeralWorkspaceOps};
+    use crate::command_session::EphemeralCommandPolicy;
+    use crate::EphemeralSnapshot;
 
     #[derive(Debug, Clone)]
     struct FakePort {
@@ -99,7 +130,11 @@ mod tests {
     }
 
     impl EphemeralCommandSessionPort for FakePort {
-        fn prepare_context(&self) -> Result<EphemeralCommandPrepareContext, WorkspaceApiError> {
+        fn prepare_context(
+            &self,
+            command_session_id: &str,
+        ) -> Result<EphemeralCommandPrepareContext, WorkspaceApiError> {
+            assert_eq!(command_session_id, "cmd-1");
             Ok(self.context.clone())
         }
 
@@ -115,28 +150,48 @@ mod tests {
                 layer_paths: vec![PathBuf::from("/lower/a"), PathBuf::from("/lower/b")],
             })
         }
+
+        fn release_snapshot(&self, lease_id: &str) -> Result<(), EphemeralWorkspaceError> {
+            assert_eq!(lease_id, "lease-1");
+            Ok(())
+        }
+
+        fn base_timings(&self) -> Result<eos_workspace_api::WorkspaceTimings, WorkspaceApiError> {
+            Ok(Default::default())
+        }
+
+        fn publish_upperdir_changes(
+            &self,
+            _root: &crate::WorkspaceRoot,
+            _snapshot: &EphemeralSnapshot,
+            _changes: &[eos_protocol::LayerChange],
+            _path_kinds: &[crate::PathChange],
+        ) -> Result<crate::PublishOutcome, EphemeralWorkspaceError> {
+            unreachable!("prepare test does not finalize command workspaces")
+        }
     }
 
     #[test]
-    fn prepare_builds_fresh_runner_request_and_finalize_context(
+    fn prepare_builds_fresh_runner_request_and_session_metadata(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let writable_root = std::env::temp_dir().join(format!(
             "eos-ephemeral-command-prepare-{}",
             std::process::id()
         ));
+        let session_dir = writable_root.join("sessions").join("cmd-1");
         let workspace_root = PathBuf::from("/configured-workspace");
         let _ = std::fs::remove_dir_all(&writable_root);
-        let ops = EphemeralWorkspaceOps::new(FakePort {
+        let policy = EphemeralCommandPolicy::new(FakePort {
             context: EphemeralCommandPrepareContext {
                 layer_stack_root: PathBuf::from("/layers"),
                 workspace_root: workspace_root.clone(),
                 writable_root: writable_root.clone(),
-                session_dir: PathBuf::from("/sessions/cmd-1"),
-                final_path: PathBuf::from("/sessions/cmd-1/final.json"),
+                session_dir: session_dir.clone(),
+                final_path: session_dir.join("final.json"),
             },
         });
 
-        let prepared = ops.prepare_command_workspace(PrepareCommandRequest {
+        let prepared = policy.prepare_command_workspace(PrepareCommandRequest {
             caller_id: "caller-1".to_owned(),
             command_session_id: "cmd-1".to_owned(),
             invocation_id: "inv-1".to_owned(),
@@ -144,7 +199,6 @@ mod tests {
             timeout_seconds: Some(2.5),
         })?;
 
-        assert_eq!(prepared.mode, WorkspaceMode::Ephemeral);
         assert_eq!(prepared.run_request["mode"], "fresh_ns");
         assert_eq!(
             prepared.run_request["workspace_root"],
@@ -170,19 +224,14 @@ mod tests {
                 .and_then(|name| name.to_str()),
             Some("command-runner-result.json")
         );
-        assert_eq!(
-            prepared.final_path,
-            PathBuf::from("/sessions/cmd-1/final.json")
-        );
-        assert_eq!(prepared.session_dir, PathBuf::from("/sessions/cmd-1"));
+        assert_eq!(prepared.final_path, session_dir.join("final.json"));
+        assert_eq!(prepared.session_dir, session_dir);
         assert_eq!(
             prepared.transcript_path,
-            PathBuf::from("/sessions/cmd-1/transcript.log")
+            prepared.session_dir.join("transcript.log")
         );
-        assert_eq!(prepared.finalize_context["root"], "/layers");
-        assert_eq!(prepared.finalize_context["session_dir"], "/sessions/cmd-1");
-        assert_eq!(prepared.finalize_context["snapshot"]["lease_id"], "lease-1");
-        assert!(prepared.finalize_context.get("dirs").is_some());
+        let metadata = std::fs::read_to_string(prepared.session_dir.join("metadata.json"))?;
+        assert!(metadata.contains("\"workspace\": \"ephemeral\""));
 
         let _ = std::fs::remove_dir_all(writable_root);
         Ok(())

@@ -2,7 +2,6 @@
 
 mod config;
 mod error;
-mod event;
 mod manager;
 pub mod output;
 mod registry;
@@ -16,10 +15,6 @@ pub mod process;
 
 pub use config::CommandSessionConfig;
 pub use error::CommandSessionError;
-pub use event::{
-    CommandSessionEventSink, CommandSessionFinished, CommandSessionStarted,
-    NoopCommandSessionEventSink,
-};
 pub use manager::{CommandSessionManager, SweepReport};
 pub use output::{utf8_consumable_prefix_len, CommandSessionOutput, CommandSessionOutputCursor};
 pub use registry::{CommandSessionCompletion, CommandSessionRegistry};

@@ -5,7 +5,6 @@ use std::time::Instant;
 
 use eos_workspace_api::CommandWorkspacePolicy;
 
-use crate::event::{CommandSessionFinished, CommandSessionStarted};
 use crate::registry::CommandSessionCompletion;
 use crate::session::CommandSessionSpec;
 #[cfg(target_os = "linux")]
@@ -16,15 +15,13 @@ use crate::{
 };
 use crate::{
     CancelCommandSession, CollectCompleted, CollectCompletedResponse, CommandResponse,
-    CommandSession, CommandSessionConfig, CommandSessionError, CommandSessionEventSink,
-    CommandSessionRegistry, DynCommandWorkspacePolicy, NoopCommandSessionEventSink,
-    StartCommandSession, WriteStdin,
+    CommandSession, CommandSessionConfig, CommandSessionError, CommandSessionRegistry,
+    DynCommandWorkspacePolicy, StartCommandSession, WriteStdin,
 };
 
 pub struct CommandSessionManager {
     config: CommandSessionConfig,
     registry: Arc<CommandSessionRegistry>,
-    events: Arc<dyn CommandSessionEventSink>,
 }
 
 impl CommandSessionManager {
@@ -33,19 +30,6 @@ impl CommandSessionManager {
         Self {
             config,
             registry: Arc::new(CommandSessionRegistry::new()),
-            events: Arc::new(NoopCommandSessionEventSink),
-        }
-    }
-
-    #[must_use]
-    pub fn with_event_sink<E>(config: CommandSessionConfig, events: E) -> Self
-    where
-        E: CommandSessionEventSink + 'static,
-    {
-        Self {
-            config,
-            registry: Arc::new(CommandSessionRegistry::new()),
-            events: Arc::new(events),
         }
     }
 
@@ -92,24 +76,20 @@ impl CommandSessionManager {
             ));
         }
         let id = self.registry.next_id();
-        let prepared = policy.prepare_command_workspace(request.prepare_request(id.clone()))?;
+        let _prepared = policy.prepare_command_workspace(request.prepare_request(id.clone()))?;
+        let caller_id = request.caller_id;
+        let command = request.cmd;
+        policy.command_session_started(&id, &caller_id);
         let session = Arc::new(CommandSession::new(
             CommandSessionSpec {
                 id: id.clone(),
-                caller_id: request.caller_id,
-                command: request.cmd,
-                workspace_mode: prepared.mode,
+                caller_id,
+                command,
                 timeout_seconds: request.timeout_seconds,
-                finalize_context: prepared.finalize_context,
             },
             policy,
             &self.config,
         ));
-        self.events.session_started(CommandSessionStarted {
-            command_session_id: id.clone(),
-            caller_id: session.caller_id().to_owned(),
-            workspace_mode: session.workspace_mode(),
-        });
         self.registry.insert(Arc::clone(&session));
         Ok(CommandResponse::running(
             id,
@@ -138,14 +118,15 @@ impl CommandSessionManager {
             prepared.transcript_path.clone(),
             Arc::clone(&output),
         )?;
+        let caller_id = request.caller_id;
+        let command = request.cmd;
+        policy.command_session_started(&id, &caller_id);
         let session = Arc::new(CommandSession::new_running(
             CommandSessionSpec {
                 id: id.clone(),
-                caller_id: request.caller_id,
-                command: request.cmd,
-                workspace_mode: prepared.mode,
+                caller_id,
+                command,
                 timeout_seconds: request.timeout_seconds,
-                finalize_context: prepared.finalize_context,
             },
             policy,
             RunningCommandSessionParts {
@@ -156,11 +137,6 @@ impl CommandSessionManager {
                 output_drain_grace_ms: self.config.output_drain_grace_ms,
             },
         ));
-        self.events.session_started(CommandSessionStarted {
-            command_session_id: id.clone(),
-            caller_id: session.caller_id().to_owned(),
-            workspace_mode: session.workspace_mode(),
-        });
         self.registry.insert(Arc::clone(&session));
         match wait_for_yield(
             session.as_ref(),
@@ -446,14 +422,8 @@ impl CommandSessionManager {
         let command_session_id = session.id().to_owned();
         let caller_id = session.caller_id().to_owned();
         let command = session.command().to_owned();
-        let workspace_mode = session.workspace_mode();
+        session.command_session_finished(&result.status);
         self.registry.remove(&command_session_id);
-        self.events.session_finished(CommandSessionFinished {
-            command_session_id: command_session_id.clone(),
-            caller_id: caller_id.clone(),
-            workspace_mode,
-            status: result.status.clone(),
-        });
         if publish_completion {
             self.registry.push_completed(CommandSessionCompletion {
                 command_session_id,
@@ -501,14 +471,12 @@ mod tests {
         ) -> Result<PreparedCommandWorkspace, WorkspaceApiError> {
             let session_dir = PathBuf::from(format!("/sessions/{}", request.command_session_id));
             Ok(PreparedCommandWorkspace {
-                mode: WorkspaceMode::default(),
                 run_request: json!({ "cmd": request.cmd }),
                 request_path: session_dir.join("runner-request.json"),
                 output_path: session_dir.join("runner-result.json"),
                 final_path: session_dir.join("final.json"),
                 session_dir: session_dir.clone(),
                 transcript_path: session_dir.join("transcript.log"),
-                finalize_context: Value::Null,
             })
         }
 

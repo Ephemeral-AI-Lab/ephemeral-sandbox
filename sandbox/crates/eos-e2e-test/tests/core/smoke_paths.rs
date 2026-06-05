@@ -2,8 +2,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
-use eos_e2e_test::audit::section;
 use eos_e2e_test::cas::looks_like_sha256;
+use eos_e2e_test::{audit::section, unique_suffix};
 use eos_protocol::ops;
 use serde_json::{json, Value};
 
@@ -18,6 +18,50 @@ fn wait_for_active_leases(lease: &eos_e2e_test::NodeLease<'_>, expected: i64) ->
         }
         if Instant::now() >= deadline {
             bail!("active_leases did not reach {expected}: {metrics}");
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+}
+
+fn command_line_marker_count(lease: &eos_e2e_test::NodeLease<'_>, marker: &str) -> Result<i64> {
+    let script = format!(
+        r#"import os
+import pathlib
+
+marker = {marker:?}
+count = 0
+for proc in pathlib.Path("/proc").iterdir():
+    if not proc.name.isdigit() or int(proc.name) == os.getpid():
+        continue
+    try:
+        cmdline = proc.joinpath("cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "ignore")
+    except OSError:
+        continue
+    if marker in cmdline:
+        count += 1
+print(count)
+"#
+    );
+    let output = lease.container().exec(&["python3", "-c", &script])?;
+    output
+        .trim()
+        .parse::<i64>()
+        .with_context(|| format!("parse marker count from {output:?}"))
+}
+
+fn wait_for_command_line_marker_count(
+    lease: &eos_e2e_test::NodeLease<'_>,
+    marker: &str,
+    expected: i64,
+) -> Result<i64> {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        let count = command_line_marker_count(lease, marker)?;
+        if count == expected {
+            return Ok(count);
+        }
+        if Instant::now() >= deadline {
+            bail!("marker {marker} count did not reach {expected}; last count {count}");
         }
         thread::sleep(Duration::from_millis(50));
     }
@@ -177,6 +221,49 @@ fn command_sessions_accept_stdin_and_release_on_cancel() -> Result<()> {
         0,
         "cancelled command should release its layer lease: {released}"
     );
+    Ok(())
+}
+
+#[test]
+fn command_sessions_cancel_cleans_descendant_processes() -> Result<()> {
+    let Some(pool) = live_pool_or_skip()? else {
+        return Ok(());
+    };
+    let lease = pool.acquire()?;
+    let marker = format!("eos_e2e_descendant_{}", unique_suffix().replace('-', "_"));
+    let started = lease.call_ok(
+        ops::API_V1_EXEC_COMMAND,
+        json!({
+            "cmd": format!("bash -lc 'bash -c \"exec -a {marker} sleep 60\" & echo descendant-ready; wait'"),
+            "yield_time_ms": 500,
+            "timeout_seconds": 120,
+            "max_output_tokens": 1000
+        }),
+    )?;
+    assert_eq!(as_str(&started, "status")?, "running");
+    assert!(
+        started["output"]["stdout"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("descendant-ready"),
+        "expected descendant readiness marker: {started}"
+    );
+    let session_id = as_str(&started, "command_session_id")?.to_owned();
+    let count = command_line_marker_count(&lease, &marker)?;
+    assert!(
+        count > 0,
+        "expected at least one live descendant marker process before cancel"
+    );
+
+    let cancel = lease.call_ok(
+        ops::API_V1_COMMAND_CANCEL,
+        json!({"command_session_id": session_id, "max_output_tokens": 1000}),
+    )?;
+    assert!(matches!(
+        as_str(&cancel, "status")?,
+        "cancelled" | "ok" | "error"
+    ));
+    wait_for_command_line_marker_count(&lease, &marker, 0)?;
     Ok(())
 }
 

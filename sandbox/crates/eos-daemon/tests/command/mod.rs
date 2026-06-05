@@ -1,8 +1,10 @@
 use serde_json::json;
 
-use super::session::should_publish_command_session_completion;
 #[cfg(target_os = "linux")]
-use super::session::CommandSessionRegistry;
+use eos_command_session::{
+    CollectCompleted, CommandResponse, CommandSessionCompletion, CommandSessionRegistry,
+};
+
 use super::*;
 
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -48,84 +50,42 @@ fn command_session_cancel_suppresses_background_completion_publication() {
 #[cfg(target_os = "linux")]
 fn command_session_completion_result_can_be_claimed_by_control_tool() -> TestResult {
     let registry = CommandSessionRegistry::new();
-    registry.push_completed(json!({
-        "command_session_id": "cmd_keep",
-        "result": {"status": "ok", "exit_code": 0},
-    }));
-    registry.push_completed(json!({
-        "command_session_id": "cmd_done",
-        "result": {"status": "ok", "exit_code": 0},
-    }));
+    registry.push_completed(test_completion("cmd_keep", "caller", "keep\n"));
+    registry.push_completed(test_completion("cmd_done", "caller", "done\n"));
 
     let result = registry
         .take_completed_result("cmd_done")
         .ok_or("matching completion should be returned")?;
-    assert_eq!(result["status"], "ok");
+    assert_eq!(result.status, "ok");
     assert!(registry.take_completed_result("cmd_done").is_none());
 
-    let remaining = registry.collect_completed(&json!({"command_session_ids": ["cmd_keep"]}));
-    assert_eq!(
-        remaining["completions"]
-            .as_array()
-            .ok_or("completions should be an array")?
-            .len(),
-        1
-    );
+    let remaining = registry.collect_completed(&CollectCompleted {
+        command_session_ids: Some(vec!["cmd_keep".to_owned()]),
+        caller_id: None,
+    });
+    assert_eq!(remaining.completions.len(), 1);
 
     // Remove-on-deliver: a second collect finds nothing — the map is bounded,
     // not accumulating delivered entries forever.
-    let redelivered = registry.collect_completed(&json!({"command_session_ids": ["cmd_keep"]}));
-    assert_eq!(
-        redelivered["completions"]
-            .as_array()
-            .ok_or("completions should be an array")?
-            .len(),
-        0
-    );
+    let redelivered = registry.collect_completed(&CollectCompleted {
+        command_session_ids: Some(vec!["cmd_keep".to_owned()]),
+        caller_id: None,
+    });
+    assert_eq!(redelivered.completions.len(), 0);
     Ok(())
-}
-
-/// A minimal live `CommandSession` for registry/count tests. The workspace is
-/// never finalized here, so only `id`/`caller_id` matter. One constructor keeps
-/// the field literal in a single place.
-#[cfg(target_os = "linux")]
-fn test_command_session(id: &str, caller_id: &str) -> TestResult<CommandSession> {
-    Ok(CommandSession {
-        id: id.to_owned(),
-        caller_id: caller_id.to_owned(),
-        command: "test".to_owned(),
-        started_at: Instant::now(),
-        process: CommandSessionProcess::inactive(
-            OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open("/dev/null")?,
-        ),
-        output: Arc::new(CommandSessionOutput::new(&runtime_command_session_config())),
-        cancelled: Mutex::new(false),
-        interrupted: Mutex::new(false),
-        model_cursor: Mutex::new(CommandSessionOutputCursor::default()),
-        notification_cursor: Mutex::new(CommandSessionOutputCursor::default()),
-        workspace_mode: eos_workspace_api::WorkspaceMode::Isolated,
-        output_path: PathBuf::new(),
-        final_path: PathBuf::new(),
-        workspace_policy: Mutex::new(None),
-        finalize_context: json!({}),
-        finalized: Mutex::new(None),
-        timeout_deadline: None,
-    })
 }
 
 #[test]
 #[cfg(target_os = "linux")]
-fn command_session_count_counts_live_sessions_by_caller() -> TestResult {
-    let registry = CommandSessionRegistry::new();
-    registry.insert(Arc::new(test_command_session("cmd_a", "caller-a")?));
-    registry.insert(Arc::new(test_command_session("cmd_b", "caller-b")?));
+fn command_session_count_uses_runtime_manager() -> TestResult {
+    let response = op_command_session_count(
+        &json!({"caller_id": "no-live-session"}),
+        DispatchContext::empty(),
+    )?;
 
-    assert_eq!(registry.count_by_caller("caller-a"), 1);
-    assert_eq!(registry.count_by_caller("caller-b"), 1);
-    assert_eq!(registry.count_by_caller(""), 2);
+    assert_eq!(response["success"], true);
+    assert_eq!(response["caller_id"], "no-live-session");
+    assert_eq!(response["count"], 0);
     Ok(())
 }
 
@@ -133,21 +93,17 @@ fn command_session_count_counts_live_sessions_by_caller() -> TestResult {
 #[cfg(target_os = "linux")]
 fn command_session_write_stdin_returns_completed_result_when_live_session_is_gone() -> TestResult {
     let id = "cmd_stdin_done_unit";
-    command_session_registry().push_completed(json!({
-        "command_session_id": id,
-        "result": {
-            "status": "ok",
-            "exit_code": 0,
-            "output": {"stdout": "written\n", "stderr": ""},
-        },
-    }));
+    command_session_manager()
+        .registry()
+        .push_completed(test_completion(id, "caller", "written\n"));
 
     let response =
         command_session_write_stdin(&json!({"command_session_id": id, "chars": "ignored"}))?;
 
     assert_eq!(response["status"], "ok");
     assert_eq!(response["output"]["stdout"], "written\n");
-    assert!(command_session_registry()
+    assert!(command_session_manager()
+        .registry()
         .take_completed_result(id)
         .is_none());
     Ok(())
@@ -157,21 +113,37 @@ fn command_session_write_stdin_returns_completed_result_when_live_session_is_gon
 #[cfg(target_os = "linux")]
 fn command_session_cancel_returns_completed_result_when_live_session_is_gone() -> TestResult {
     let id = "command_session_cancel_done_unit";
-    command_session_registry().push_completed(json!({
-        "command_session_id": id,
-        "result": {
-            "status": "ok",
-            "exit_code": 0,
-            "output": {"stdout": "already-finished\n", "stderr": ""},
-        },
-    }));
+    command_session_manager()
+        .registry()
+        .push_completed(test_completion(id, "caller", "already-finished\n"));
 
     let response = command_session_cancel(&json!({"command_session_id": id}))?;
 
     assert_eq!(response["status"], "ok");
     assert_eq!(response["output"]["stdout"], "already-finished\n");
-    assert!(command_session_registry()
+    assert!(command_session_manager()
+        .registry()
         .take_completed_result(id)
         .is_none());
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn test_completion(id: &str, caller_id: &str, stdout: &str) -> CommandSessionCompletion {
+    let result = CommandResponse {
+        status: "ok".to_owned(),
+        exit_code: Some(0),
+        stdout: stdout.to_owned(),
+        stderr: String::new(),
+        command_session_id: Some(id.to_owned()),
+        workspace_mode: None,
+        metadata: serde_json::Value::Null,
+    };
+    CommandSessionCompletion {
+        command_session_id: id.to_owned(),
+        caller_id: caller_id.to_owned(),
+        command: "test".to_owned(),
+        result: result.clone(),
+        notification_result: result,
+    }
 }

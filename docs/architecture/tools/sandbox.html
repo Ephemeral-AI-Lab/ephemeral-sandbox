@@ -151,14 +151,14 @@
 </section>
 
 <section id="command-background-policy"
-  data-last-reviewed-commit="HEAD"
-  data-evidence-paths="backend/src/tools/sandbox/exec_command/exec_command.py backend/src/tools/sandbox/write_stdin/write_stdin.py backend/src/sandbox/api/tool/command.py backend/src/sandbox/api/tool/shell.py backend/src/sandbox/daemon/rpc/in_flight.py backend/src/sandbox/daemon/builtin_operations.py">
+  data-last-reviewed-commit="HEAD-plus-worktree"
+  data-evidence-paths="backend/src/tools/sandbox/exec_command/exec_command.py backend/src/tools/sandbox/write_stdin/write_stdin.py backend/src/sandbox/api/tool/command.py backend/src/sandbox/api/tool/shell.py backend/src/sandbox/daemon/rpc/in_flight.py backend/src/sandbox/daemon/builtin_operations.py sandbox/crates/eos-daemon/src/services/command_session/mod.rs sandbox/crates/eos-command-session/src/manager.rs">
 <h2>Command Sessions and Policy</h2>
 <p><code>exec_command</code> is declared <code>WRITE_ALLOWED</code> and is the model-facing replacement for the deleted public <code>shell</code> tool package. There is no public <code>mode switch</code> switch: completed commands return directly, while still-running commands return <code>command_session_id</code> and are controlled with <code>write_stdin</code>. Generic <code>background=true</code> and generic background check/wait/cancel tools are not exposed.</p>
 <p>Before daemon dispatch, <code>exec_command</code> runs destructive git and destructive shell pre-hooks through the <a class="wiki-link" href="hooks.html">Tool Hooks</a> pipeline. These hooks block command forms that would bypass the sandbox write/audit path or destructively mutate workspace/system state. That policy keeps commands useful for builds and tests while steering file edits toward <code>edit_file</code> and <code>write_file</code>.</p>
 <div class="callout">
   <span class="label">Session connection</span>
-  The internal background/session manager still tracks long-running command sessions for completion notifications and isolated-workspace lifecycle gates, but generic background management tools are no longer exposed to the model.
+  The engine supervisor tracks long-running command sessions for completion notifications and isolated-workspace lifecycle gates, while <code>eos-command-session</code> owns runtime session state behind the daemon adapter. Generic background management tools are no longer exposed to the model.
 </div>
 </section>
 

@@ -1,101 +1,58 @@
 //! Command-session operations for the daemon dispatcher.
 
+mod config;
 #[cfg(target_os = "linux")]
-mod finalize;
-#[cfg(target_os = "linux")]
-mod lifecycle;
-#[cfg(target_os = "linux")]
-mod policy;
-#[cfg(any(target_os = "linux", test))]
-mod session;
+mod ports;
+mod wire;
 
 #[cfg(target_os = "linux")]
-use std::sync::Arc;
-use std::sync::{OnceLock, RwLock};
-#[cfg(target_os = "linux")]
-use std::thread;
-#[cfg(target_os = "linux")]
-use std::time::{Duration, Instant};
-
-// Test-support imports: the `tests` child module pulls these through `use
-// super::*`. They exist only when that linux-gated test code is compiled.
-#[cfg(all(test, target_os = "linux"))]
-use std::fs::OpenOptions;
-#[cfg(all(test, target_os = "linux"))]
 use std::path::PathBuf;
-#[cfg(all(test, target_os = "linux"))]
-use std::sync::Mutex;
+#[cfg(target_os = "linux")]
+use std::sync::OnceLock;
+#[cfg(target_os = "linux")]
+use std::time::Instant;
 
+#[cfg(target_os = "linux")]
+use eos_command_session::{
+    CancelCommandSession, CommandResponse, CommandSessionCompletion, CommandSessionError,
+    CommandSessionManager, DynCommandWorkspacePolicy, StartCommandSession, WriteStdin,
+};
+#[cfg(target_os = "linux")]
+use eos_ephemeral_workspace::command_session::EphemeralCommandPolicy;
+#[cfg(target_os = "linux")]
+use eos_isolated_workspace::command_session::IsolatedCommandPolicy;
+#[cfg(target_os = "linux")]
+use eos_layerstack::require_workspace_binding;
 use serde_json::{json, Value};
 
-#[cfg(all(test, target_os = "linux"))]
-use eos_command_session::process::CommandSessionProcess;
-#[cfg(target_os = "linux")]
-use eos_command_session::CommandSessionConfig as RuntimeCommandSessionConfig;
-#[cfg(all(test, target_os = "linux"))]
-use eos_command_session::{CommandSessionOutput, CommandSessionOutputCursor};
-#[cfg(target_os = "linux")]
-use session::{command_session_registry, lock_command_session_state, CommandSession};
-
-use crate::config::CommandSessionConfig;
 use crate::dispatcher::DispatchContext;
 use crate::error::DaemonError;
 use crate::response_timings::u64_to_f64_saturating;
 
+pub(crate) use config::configure_command_sessions;
 #[cfg(target_os = "linux")]
-use finalize::*;
+use config::{
+    command_session_config, command_session_scratch_root, runtime_command_session_config,
+};
 #[cfg(target_os = "linux")]
-pub(crate) use lifecycle::*;
-
-pub(crate) fn configure_command_sessions(config: &CommandSessionConfig) {
-    let mut guard = command_session_config_cell()
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    *guard = config.clone();
-}
-
-#[cfg(any(target_os = "linux", test))]
-// Non-Linux test builds compile command output helpers without the Linux
-// lifecycle call graph that normally reads this config.
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-pub(super) fn command_session_config() -> CommandSessionConfig {
-    command_session_config_cell()
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
-}
+use ports::ephemeral::DaemonEphemeralCommandPort;
+#[cfg(target_os = "linux")]
+use ports::isolated::DaemonIsolatedCommandPort;
+#[cfg(not(target_os = "linux"))]
+use wire::command_result;
+#[cfg(test)]
+use wire::should_publish_command_session_completion;
+use wire::{caller_id_arg, command_session_not_found, optional_u64, require_command_string};
+#[cfg(target_os = "linux")]
+use wire::{
+    collect_completed_request, command_response_to_wire, command_session_completion_to_wire,
+    command_session_error, strip_session_id,
+};
 
 #[cfg(target_os = "linux")]
-pub(super) fn runtime_command_session_config() -> RuntimeCommandSessionConfig {
-    let config = command_session_config();
-    RuntimeCommandSessionConfig {
-        scratch_root: config.scratch_root,
-        default_yield_time_ms: config.default_yield_time_ms,
-        quiet_ms: config.quiet_ms,
-        cancel_wait_ms: config.cancel_wait_ms,
-        output_drain_grace_ms: config.output_drain_grace_ms,
-        max_session_s: config.max_session_s,
-        output_ring_max_bytes: config.output_ring_max_bytes,
-        output_spool_max_bytes: config.output_spool_max_bytes,
-    }
-}
-
-fn command_session_config_cell() -> &'static RwLock<CommandSessionConfig> {
-    static CONFIG: OnceLock<RwLock<CommandSessionConfig>> = OnceLock::new();
-    CONFIG.get_or_init(|| RwLock::new(default_command_session_config()))
-}
-
-fn default_command_session_config() -> CommandSessionConfig {
-    CommandSessionConfig {
-        scratch_root: std::path::PathBuf::from("/eos/scratch/command-sessions"),
-        default_yield_time_ms: 1000,
-        quiet_ms: 50,
-        cancel_wait_ms: 500,
-        output_drain_grace_ms: 500,
-        max_session_s: 6 * 60 * 60,
-        output_ring_max_bytes: 1024 * 1024,
-        output_spool_max_bytes: 32 * 1024 * 1024,
-    }
+fn command_session_manager() -> &'static CommandSessionManager {
+    static MANAGER: OnceLock<CommandSessionManager> = OnceLock::new();
+    MANAGER.get_or_init(|| CommandSessionManager::new(runtime_command_session_config()))
 }
 
 /// `api.v1.exec_command` — command-session start contract.
@@ -122,14 +79,38 @@ pub fn op_exec_command(args: &Value, _context: DispatchContext<'_>) -> Result<Va
     if let Some(handle) = crate::services::isolated_workspace::command_handle_for_args(args) {
         let yield_time_ms =
             optional_u64(args, "yield_time_ms").unwrap_or(command_config.default_yield_time_ms);
-        return start_isolated_command_session(args, &cmd, timeout_seconds, yield_time_ms, handle);
+        return start_manager_command_session(
+            args,
+            &cmd,
+            timeout_seconds,
+            yield_time_ms,
+            handle.caller_id.clone(),
+            Box::new(IsolatedCommandPolicy::new(DaemonIsolatedCommandPort::new(
+                handle,
+            ))),
+        );
     }
 
     #[cfg(target_os = "linux")]
     {
         let yield_time_ms =
             optional_u64(args, "yield_time_ms").unwrap_or(command_config.default_yield_time_ms);
-        start_command_session(args, &cmd, timeout_seconds, yield_time_ms)
+        let root = PathBuf::from(require_command_string(args, "layer_stack_root")?);
+        let binding = require_workspace_binding(&root)?;
+        start_manager_command_session(
+            args,
+            &cmd,
+            timeout_seconds,
+            yield_time_ms,
+            caller_id_arg(args).to_owned(),
+            Box::new(EphemeralCommandPolicy::new(
+                DaemonEphemeralCommandPort::new(
+                    root,
+                    PathBuf::from(binding.workspace_root),
+                    command_session_scratch_root(),
+                ),
+            )),
+        )
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -200,7 +181,14 @@ pub fn op_command_collect_completed(
 ) -> Result<Value, DaemonError> {
     #[cfg(target_os = "linux")]
     {
-        Ok(command_session_registry().collect_completed(args))
+        let response =
+            command_session_manager().collect_completed(&collect_completed_request(args));
+        let completions = response
+            .completions
+            .into_iter()
+            .map(command_session_completion_to_wire)
+            .collect::<Vec<_>>();
+        Ok(json!({"success": response.success, "completions": completions}))
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -225,7 +213,8 @@ pub fn op_command_session_count(
         .to_owned();
     #[cfg(target_os = "linux")]
     {
-        let count = command_session_registry().count_by_caller(&caller_id);
+        let count = command_session_manager()
+            .count_by_caller((!caller_id.is_empty()).then_some(&caller_id));
         Ok(json!({"success": true, "caller_id": caller_id, "count": count}))
     }
     #[cfg(not(target_os = "linux"))]
@@ -234,95 +223,87 @@ pub fn op_command_session_count(
     }
 }
 
-fn require_command_string(args: &Value, key: &str) -> Result<String, DaemonError> {
-    let value = args
-        .get(key)
+#[cfg(target_os = "linux")]
+fn start_manager_command_session(
+    args: &Value,
+    cmd: &str,
+    timeout_seconds: Option<f64>,
+    yield_time_ms: u64,
+    caller_id: String,
+    policy: DynCommandWorkspacePolicy,
+) -> Result<Value, DaemonError> {
+    let request = StartCommandSession {
+        invocation_id: args
+            .get("invocation_id")
+            .and_then(Value::as_str)
+            .unwrap_or("exec_command")
+            .to_owned(),
+        caller_id,
+        cmd: cmd.to_owned(),
+        timeout_seconds,
+        yield_time_ms,
+        max_output_tokens: optional_u64(args, "max_output_tokens"),
+    };
+    let response = command_session_manager()
+        .start_boxed(request, policy)
+        .map_err(command_session_error)?;
+    let wire = command_response_to_wire(response);
+    if wire
+        .get("status")
         .and_then(Value::as_str)
-        .ok_or_else(|| DaemonError::InvalidEnvelope(format!("{key} is required")))?;
-    if value.trim().is_empty() {
-        return Err(DaemonError::InvalidEnvelope(format!(
-            "{key} must be non-empty"
-        )));
+        .is_some_and(|status| status == "running")
+    {
+        Ok(wire)
+    } else {
+        Ok(strip_session_id(wire))
     }
-    Ok(value.to_owned())
 }
 
-#[cfg(not(target_os = "linux"))]
-fn caller_id_arg(args: &Value) -> &str {
-    args.get("caller_id")
-        .and_then(Value::as_str)
-        .unwrap_or("default")
+#[cfg(target_os = "linux")]
+pub(crate) fn command_session_write_stdin(args: &Value) -> Result<Value, DaemonError> {
+    let request = WriteStdin {
+        command_session_id: require_command_string(args, "command_session_id")?,
+        chars: args
+            .get("chars")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        terminate: args
+            .get("terminate")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        yield_time_ms: optional_u64(args, "yield_time_ms")
+            .unwrap_or(command_session_config().default_yield_time_ms),
+        max_output_tokens: optional_u64(args, "max_output_tokens"),
+    };
+    command_session_response_to_wire(command_session_manager().write_stdin(request))
 }
 
-fn optional_u64(args: &Value, key: &str) -> Option<u64> {
-    args.get(key).and_then(|value| {
-        value
-            .as_u64()
-            .or_else(|| value.as_i64().and_then(|value| u64::try_from(value).ok()))
-    })
+#[cfg(target_os = "linux")]
+pub(crate) fn command_session_cancel(args: &Value) -> Result<Value, DaemonError> {
+    let request = CancelCommandSession {
+        command_session_id: require_command_string(args, "command_session_id")?,
+        max_output_tokens: optional_u64(args, "max_output_tokens"),
+    };
+    command_session_response_to_wire(command_session_manager().cancel(request))
 }
 
-fn command_result(
-    status: &str,
-    exit_code: Option<i64>,
-    stdout: &str,
-    stderr: &str,
-    command_session_id: Option<String>,
-) -> Value {
-    let mut response = json!({
-        "status": status,
-        "exit_code": exit_code,
-        "output": {
-            "stdout": stdout,
-            "stderr": stderr,
-        },
-    });
-    if let Some(command_session_id) = command_session_id {
-        response["command_session_id"] = json!(command_session_id);
+#[cfg(target_os = "linux")]
+fn command_session_response_to_wire(
+    response: Result<CommandResponse, CommandSessionError>,
+) -> Result<Value, DaemonError> {
+    match response {
+        Ok(response) => Ok(command_response_to_wire(response)),
+        Err(CommandSessionError::NotFound(_)) => Ok(command_session_not_found()),
+        Err(error) => Err(command_session_error(error)),
     }
-    response
-}
-
-fn command_session_not_found() -> Value {
-    command_result("error", None, "", "command_session_not_found", None)
 }
 
 #[cfg(target_os = "linux")]
 /// Best-effort lifecycle backstop for callers that bypass the model-facing
 /// `RequireNoBackgroundSessions` hook.
 pub fn cleanup_command_sessions_for_caller(caller_id: &str, grace_s: Option<f64>) -> usize {
-    let caller_id = caller_id.trim();
-    if caller_id.is_empty() {
-        return 0;
-    }
-    let sessions: Vec<Arc<CommandSession>> = command_session_registry()
-        .live()
-        .into_iter()
-        .filter(|session| session.caller_id == caller_id)
-        .collect();
-    if sessions.is_empty() {
-        return 0;
-    }
-    for session in &sessions {
-        *lock_command_session_state(&session.cancelled) = true;
-        session.process.terminate();
-    }
-
-    let cancel_wait_s = command_session_config().cancel_wait_ms as f64 / 1000.0;
-    let wait_s = grace_s.unwrap_or(cancel_wait_s).max(cancel_wait_s);
-    let deadline = Instant::now() + Duration::from_secs_f64(wait_s);
-    let mut pending = sessions.clone();
-    loop {
-        pending.retain(|session| session.try_finalize(true).is_none());
-        if pending.is_empty() || Instant::now() >= deadline {
-            break;
-        }
-        thread::sleep(Duration::from_millis(10));
-    }
-    for session in &pending {
-        let _ = session.try_finalize(true);
-    }
-    sessions.len()
+    command_session_manager().cleanup_caller(caller_id, grace_s)
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -339,16 +320,7 @@ pub const fn cleanup_command_sessions_for_caller(_caller_id: &str, _grace_s: Opt
 /// wall-clock cap so it can never run forever.
 #[cfg(target_os = "linux")]
 pub fn command_session_reaper_sweep() {
-    let now = Instant::now();
-    for session in command_session_registry().live() {
-        let deadline = session.timeout_deadline.unwrap_or_else(|| {
-            session.started_at + Duration::from_secs(command_session_config().max_session_s)
-        });
-        if now > deadline {
-            session.process.terminate();
-        }
-        let _ = session.try_finalize(true);
-    }
+    let _ = command_session_manager().sweep_expired(Instant::now());
 }
 
 /// Startup recovery (sense-2 §2.4): a previous daemon may have left ephemeral
@@ -384,20 +356,24 @@ pub fn recover_orphaned_command_sessions() {
                         .get("command")
                         .and_then(Value::as_str)
                         .unwrap_or_default();
-                    let result = command_result(
-                        "error",
-                        Some(1),
-                        "",
-                        "orphan_reaped: daemon restarted",
-                        Some(id.to_owned()),
-                    );
-                    command_session_registry().push_completed(json!({
-                        "command_session_id": id,
-                        "caller_id": caller_id,
-                        "command": command,
-                        "result": result.clone(),
-                        "notification_result": result,
-                    }));
+                    let result = CommandResponse {
+                        status: "error".to_owned(),
+                        exit_code: Some(1),
+                        stdout: String::new(),
+                        stderr: "orphan_reaped: daemon restarted".to_owned(),
+                        command_session_id: Some(id.to_owned()),
+                        workspace_mode: None,
+                        metadata: Value::Null,
+                    };
+                    command_session_manager()
+                        .registry()
+                        .push_completed(CommandSessionCompletion {
+                            command_session_id: id.to_owned(),
+                            caller_id: caller_id.to_owned(),
+                            command: command.to_owned(),
+                            result: result.clone(),
+                            notification_result: result,
+                        });
                 }
             }
         }

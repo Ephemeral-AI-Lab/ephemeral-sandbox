@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use eos_workspace_api::{
-    FinalizeCommandRequest, WorkspaceApiError, WorkspaceCommandOutcome, WorkspaceTimings,
-};
+use eos_workspace_api::{WorkspaceApiError, WorkspaceTimings};
+use serde_json::Value;
 
 /// Daemon-supplied facts needed to prepare an isolated command workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,28 +34,17 @@ pub struct IsolatedCommandFinalizeContext {
 /// workspace policy compiles against `CommandWorkspacePolicy` while daemon PTY,
 /// child process, registry, and reaper control remain in `eos-daemon`.
 pub trait IsolatedCommandSessionPort {
-    fn prepare_context(&self) -> Result<IsolatedCommandPrepareContext, WorkspaceApiError> {
-        Err(WorkspaceApiError::new(
-            "unsupported_command_workspace_adapter",
-            "isolated adapter cannot prepare command workspaces",
-        ))
+    fn command_session_started(&self, command_session_id: &str, caller_id: &str) {
+        let _ = (command_session_id, caller_id);
     }
 
-    fn finalize_context(&self) -> Result<IsolatedCommandFinalizeContext, WorkspaceApiError> {
-        Err(WorkspaceApiError::new(
-            "unsupported_command_workspace_adapter",
-            "isolated adapter cannot provide command finalize context",
-        ))
+    fn command_session_finished(&self, command_session_id: &str, caller_id: &str, status: &str) {
+        let _ = (command_session_id, caller_id, status);
     }
 
-    fn finalize_isolated_command_workspace(
-        &self,
-        request: FinalizeCommandRequest,
-    ) -> Result<WorkspaceCommandOutcome, WorkspaceApiError> {
-        let _ = request;
-        Err(WorkspaceApiError::new(
-            "unsupported_command_workspace_adapter",
-            "isolated adapter cannot finalize command workspaces",
-        ))
-    }
+    fn prepare_context(&self) -> Result<IsolatedCommandPrepareContext, WorkspaceApiError>;
+
+    fn finalize_context(&self) -> Result<IsolatedCommandFinalizeContext, WorkspaceApiError>;
+
+    fn record_command_audit(&self, payload: Value);
 }

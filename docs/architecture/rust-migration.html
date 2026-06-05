@@ -136,13 +136,13 @@
     <tr>
       <td>Command sessions and PTY allocation</td>
       <td><span class="file-ref">backend/src/tools/sandbox/exec_command</span>, <span class="file-ref">backend/src/sandbox/api/tool/command.py</span></td>
-      <td><span class="file-ref">agent-core/crates/eos-sandbox-api/src/tool_api/command.rs</span>, <span class="file-ref">sandbox/crates/eos-daemon/src/command.rs</span>, <span class="file-ref">sandbox/crates/eos-daemon/src/command/pty.rs</span></td>
-      <td>Parity: commands are daemon-owned sessions with stdin, progress, cancellation, and completion delivery. Optimization: Rust command sessions use non-login Bash semantics and daemon-private PTY plumbing; old generic background task tools are no longer the model surface.</td>
+      <td><span class="file-ref">agent-core/crates/eos-sandbox-api/src/tool_api/command.rs</span>, <span class="file-ref">sandbox/crates/eos-daemon/src/services/command_session/mod.rs</span>, <span class="file-ref">sandbox/crates/eos-command-session/src/manager.rs</span>, <span class="file-ref">sandbox/crates/eos-command-session/src/process/pty.rs</span></td>
+      <td>Parity: commands are long-running command sessions with stdin, progress, cancellation, and completion delivery. Optimization: Rust command-session lifecycle, output cursors, PTY/process control, and completion parking live in the workspace-mode-agnostic <code>eos-command-session</code> crate; the daemon only selects workspace policy and maps wire JSON.</td>
     </tr>
     <tr>
       <td>Isolated workspace lifecycle</td>
       <td><span class="file-ref">backend/src/sandbox/isolated_workspace</span>, <span class="file-ref">backend/src/tools/isolated_workspace</span></td>
-      <td><span class="file-ref">agent-core/crates/eos-tools/src/tools/isolated_workspace</span>, <span class="file-ref">agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs</span>, <span class="file-ref">agent-core/crates/eos-runtime/src/isolated_workspace.rs</span>, <span class="file-ref">agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs</span>, <span class="file-ref">sandbox/crates/eos-daemon/src/isolated.rs</span>, <span class="file-ref">sandbox/crates/eos-isolated</span></td>
+      <td><span class="file-ref">agent-core/crates/eos-tools/src/tools/isolated_workspace</span>, <span class="file-ref">agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs</span>, <span class="file-ref">agent-core/crates/eos-runtime/src/isolated_workspace.rs</span>, <span class="file-ref">agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs</span>, <span class="file-ref">sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs</span>, <span class="file-ref">sandbox/crates/eos-isolated</span></td>
       <td>Parity: explicit enter/exit, per-agent private namespace, background gate, plugin/LSP block, audit-only writes, and teardown remain. Optimization: public routing uses the active sandbox <code>caller_id</code> isolated handle, not a public isolated workspace id parameter.</td>
     </tr>
     <tr>

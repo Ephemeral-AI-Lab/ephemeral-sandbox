@@ -1,31 +1,8 @@
 //! Command workspace policy boundary for ephemeral command sessions.
 
 mod finalize;
+mod policy;
 mod prepare;
 pub mod types;
 
-use eos_workspace_api::{
-    CommandWorkspacePolicy, FinalizeCommandRequest, PrepareCommandRequest,
-    PreparedCommandWorkspace, WorkspaceApiError, WorkspaceCommandOutcome,
-};
-
-use crate::ops::EphemeralWorkspaceOps;
-
-impl<P> CommandWorkspacePolicy for EphemeralWorkspaceOps<P>
-where
-    P: types::EphemeralCommandSessionPort + Send + Sync,
-{
-    fn prepare_command_workspace(
-        &self,
-        request: PrepareCommandRequest,
-    ) -> Result<PreparedCommandWorkspace, WorkspaceApiError> {
-        prepare::prepare_command_workspace(self.ports(), request)
-    }
-
-    fn finalize_command_workspace(
-        &self,
-        request: FinalizeCommandRequest,
-    ) -> Result<WorkspaceCommandOutcome, WorkspaceApiError> {
-        finalize::finalize_command_workspace(self.ports(), request)
-    }
-}
+pub use policy::EphemeralCommandPolicy;
