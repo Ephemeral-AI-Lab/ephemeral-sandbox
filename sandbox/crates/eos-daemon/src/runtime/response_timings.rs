@@ -3,9 +3,10 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-use eos_occ::{ChangesetResult, FileResult, OccStatus};
+use eos_occ::ChangesetResult;
 use eos_protocol::Manifest;
 use eos_runner::RunResult;
+use eos_workspace_api::WorkspaceTimings;
 use serde_json::{json, Value};
 
 #[derive(Clone, Copy, Debug)]
@@ -77,6 +78,10 @@ pub(crate) fn merge_runner_timings(
     }
 }
 
+pub(crate) fn timing_map(timings: serde_json::Map<String, Value>) -> WorkspaceTimings {
+    timings.into_iter().collect()
+}
+
 pub(crate) fn guarded_changeset_response(
     verb: &str,
     result: &ChangesetResult,
@@ -91,17 +96,12 @@ pub(crate) fn guarded_changeset_response(
         format!("api.{verb}.total_s"),
         json!(total_start.elapsed().as_secs_f64()),
     );
-    let changed_paths: Vec<String> = result
-        .files
-        .iter()
-        .filter(|file| file.status.is_published())
-        .map(|file| file.path.as_str().to_owned())
-        .collect();
+    let changed_paths = result.published_paths();
     let mut changed_path_kinds = serde_json::Map::new();
     for path in &changed_paths {
         changed_path_kinds.insert(path.to_owned(), json!("write"));
     }
-    let conflict = first_conflict(result);
+    let conflict = result.first_conflict();
     let mut response = json!({
         "success": result.success(),
         "workspace": "ephemeral",
@@ -110,14 +110,14 @@ pub(crate) fn guarded_changeset_response(
         "mutation_source": mutation_source(verb),
         "status": conflict
             .as_ref()
-            .map_or("committed", |file| occ_status_wire(file.status)),
+            .map_or("committed", |file| file.status.wire_str()),
         "conflict": conflict.as_ref().map(|file| json!({
-            "reason": occ_status_wire(file.status),
+            "reason": file.status.wire_str(),
             "conflict_file": file.path.as_str(),
-            "message": if file.message.is_empty() { occ_status_wire(file.status) } else { file.message.as_str() },
+            "message": file.conflict_message(file.status.wire_str()),
         })),
         "conflict_reason": conflict.as_ref().map(|file| {
-            if file.message.is_empty() { occ_status_wire(file.status) } else { file.message.as_str() }
+            file.conflict_message(file.status.wire_str())
         }),
         "error": null,
         "timings": Value::Object(timings),
@@ -126,30 +126,6 @@ pub(crate) fn guarded_changeset_response(
         response["applied_edits"] = json!(count);
     }
     response
-}
-
-pub(crate) fn published_file_count(result: &ChangesetResult) -> usize {
-    result
-        .files
-        .iter()
-        .filter(|file| file.status.is_published())
-        .count()
-}
-
-fn first_conflict(result: &ChangesetResult) -> Option<&FileResult> {
-    result.files.iter().find(|file| !file.status.is_success())
-}
-
-const fn occ_status_wire(status: OccStatus) -> &'static str {
-    match status {
-        OccStatus::Accepted => "accepted",
-        OccStatus::Committed => "committed",
-        OccStatus::AbortedVersion => "aborted_version",
-        OccStatus::AbortedOverlap => "aborted_overlap",
-        OccStatus::Dropped => "dropped",
-        OccStatus::Rejected => "rejected",
-        _ => "failed",
-    }
 }
 
 pub(crate) fn resource_timings(

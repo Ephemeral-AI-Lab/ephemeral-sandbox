@@ -18,32 +18,7 @@ pub(super) fn dispatch_connected_read_only_route(
     invocation_id: &str,
     args: &Value,
 ) -> Result<Option<Value>, DaemonError> {
-    let Some(service_instance_id) = route.service_instance_id.clone() else {
-        return Ok(None);
-    };
-    let Some(client) = ensure_connected_service_current(route, invocation_id)? else {
-        return Ok(None);
-    };
-    let timeout = Duration::from_millis(
-        route
-            .timeout_ms
-            .unwrap_or_else(|| plugin_runtime_config().ppc_timeout_ms),
-    );
-    let request = PpcEnvelope {
-        message_id: invocation_id.to_owned(),
-        direction: PpcDirection::Request,
-        op: route.public_op.clone(),
-        body: serde_json::to_string(args).map_err(|err| PluginError::Ppc(err.to_string()))?,
-    };
-    let reply = client.round_trip(&request, timeout);
-    let reply = match reply {
-        Ok(reply) => reply,
-        Err(err) => {
-            teardown_failed_connected_service(&service_instance_id, &err.to_string())?;
-            return Err(err);
-        }
-    };
-    response_payload_from_reply(&reply)
+    round_trip_connected_route(route, invocation_id, args, None)
 }
 
 pub(super) fn dispatch_connected_self_managed_route(
@@ -51,10 +26,24 @@ pub(super) fn dispatch_connected_self_managed_route(
     invocation_id: &str,
     args: &Value,
 ) -> Result<Option<Value>, DaemonError> {
-    let Some(service_instance_id) = route.service_instance_id.clone() else {
+    let Some(layer_stack_root) = route.layer_stack_root.clone() else {
         return Ok(None);
     };
-    let Some(layer_stack_root) = route.layer_stack_root.clone() else {
+    round_trip_connected_route(
+        route,
+        invocation_id,
+        args,
+        Some(PathBuf::from(layer_stack_root)),
+    )
+}
+
+fn round_trip_connected_route(
+    route: &PluginOperationRoute,
+    invocation_id: &str,
+    args: &Value,
+    layer_stack_root: Option<PathBuf>,
+) -> Result<Option<Value>, DaemonError> {
+    let Some(service_instance_id) = route.service_instance_id.clone() else {
         return Ok(None);
     };
     let Some(client) = ensure_connected_service_current(route, invocation_id)? else {
@@ -71,10 +60,14 @@ pub(super) fn dispatch_connected_self_managed_route(
         op: route.public_op.clone(),
         body: serde_json::to_string(args).map_err(|err| PluginError::Ppc(err.to_string()))?,
     };
-    let expected_root = PathBuf::from(layer_stack_root);
-    let reply = client.round_trip_with_callbacks(&request, timeout, move |callback| {
-        occ_callbacks::handle_callback_for_root(&expected_root, callback)
-    });
+    let reply = match layer_stack_root {
+        Some(expected_root) => {
+            client.round_trip_with_callbacks(&request, timeout, move |callback| {
+                occ_callbacks::handle_callback_for_root(&expected_root, callback)
+            })
+        }
+        None => client.round_trip(&request, timeout),
+    };
     let reply = match reply {
         Ok(reply) => reply,
         Err(err) => {

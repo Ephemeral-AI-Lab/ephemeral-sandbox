@@ -4,15 +4,14 @@
 use std::collections::BTreeMap;
 use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use eos_protocol::{LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
-use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use crate::error::LayerStackError;
-use crate::stack::LayerStack;
+use crate::fsutil::{join_layer_path, record_elapsed, remove_path};
+use crate::stack::{read_manifest, write_atomic, write_manifest, LayerStack};
 use crate::workspace_binding::{read_workspace_binding, WorkspaceBinding, WORKSPACE_BINDING_FILE};
 use crate::{ACTIVE_MANIFEST_FILE, LAYERS_DIR, LAYER_METADATA_DIR, STAGING_DIR};
 
@@ -397,70 +396,6 @@ fn validate_workspace_binding_paths(workspace: &Path, stack: &Path) -> Result<()
     Ok(())
 }
 
-fn read_manifest(path: impl AsRef<Path>) -> Result<Manifest, LayerStackError> {
-    let path = path.as_ref();
-    if !path.exists() {
-        return Manifest::new(0, Vec::new(), MANIFEST_SCHEMA_VERSION)
-            .map_err(LayerStackError::from);
-    }
-    let payload = std::fs::read_to_string(path)?;
-    let value: serde_json::Value =
-        serde_json::from_str(&payload).map_err(|err| LayerStackError::Manifest(err.to_string()))?;
-    let obj = value.as_object().ok_or_else(|| {
-        LayerStackError::Manifest("manifest payload must be an object".to_owned())
-    })?;
-    let version = obj
-        .get("version")
-        .and_then(serde_json::Value::as_i64)
-        .ok_or_else(|| {
-            LayerStackError::Manifest("manifest payload missing required field: version".to_owned())
-        })?;
-    let schema_version = obj
-        .get("schema_version")
-        .and_then(serde_json::Value::as_i64)
-        .unwrap_or(MANIFEST_SCHEMA_VERSION);
-    let raw_layers = obj
-        .get("layers")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| {
-            LayerStackError::Manifest("manifest payload missing required field: layers".to_owned())
-        })?;
-    let mut layers = Vec::with_capacity(raw_layers.len());
-    for item in raw_layers {
-        let item = item.as_object().ok_or_else(|| {
-            LayerStackError::Manifest("manifest layer entries must be objects".to_owned())
-        })?;
-        layers.push(LayerRef {
-            layer_id: item
-                .get("layer_id")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or_default()
-                .to_owned(),
-            path: item
-                .get("path")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or_default()
-                .to_owned(),
-        });
-    }
-    Manifest::new(version, layers, schema_version).map_err(LayerStackError::from)
-}
-
-fn write_manifest(path: impl AsRef<Path>, manifest: &Manifest) -> Result<(), LayerStackError> {
-    let value = json!({
-        "schema_version": manifest.schema_version,
-        "version": manifest.version,
-        "layers": manifest
-            .layers
-            .iter()
-            .map(|layer| json!({"layer_id": &layer.layer_id, "path": &layer.path}))
-            .collect::<Vec<_>>(),
-    });
-    let encoded = serde_json::to_vec_pretty(&value)
-        .map_err(|err| LayerStackError::Manifest(err.to_string()))?;
-    write_atomic(path, &encoded)
-}
-
 fn write_workspace_binding(binding: &WorkspaceBinding) -> Result<(), LayerStackError> {
     validate_workspace_binding_paths(
         Path::new(&binding.workspace_root),
@@ -560,10 +495,6 @@ fn record_inventory(timings: &mut BTreeMap<String, f64>, entries: &[BaseEntry]) 
     );
 }
 
-fn record_elapsed(timings: &mut BTreeMap<String, f64>, key: &str, start: Instant) {
-    timings.insert(key.to_owned(), start.elapsed().as_secs_f64());
-}
-
 fn usize_to_f64_lossy(value: usize) -> f64 {
     u64_to_f64_lossy(u64::try_from(value).unwrap_or(u64::MAX))
 }
@@ -582,16 +513,6 @@ fn relative_path(workspace: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
-fn join_layer_path(root: &Path, rel: &str) -> PathBuf {
-    rel.split('/').fold(root.to_path_buf(), |path, part| {
-        if part.is_empty() {
-            path
-        } else {
-            path.join(part)
-        }
-    })
-}
-
 fn dir_has_entries(path: &Path) -> Result<bool, LayerStackError> {
     match std::fs::read_dir(path) {
         Ok(mut entries) => Ok(entries.next().is_some()),
@@ -607,42 +528,6 @@ fn format_path_sample(paths: &[String]) -> String {
         sample.push(format!("+{} more", paths.len() - LIMIT));
     }
     sample.join(", ")
-}
-
-fn remove_path(path: &Path) -> Result<(), LayerStackError> {
-    match std::fs::symlink_metadata(path) {
-        Ok(meta) if meta.file_type().is_symlink() || meta.is_file() => {
-            std::fs::remove_file(path)?;
-        }
-        Ok(meta) if meta.is_dir() => {
-            std::fs::remove_dir_all(path)?;
-        }
-        Ok(_) => {}
-        Err(err) if err.kind() == ErrorKind::NotFound => {}
-        Err(err) => return Err(err.into()),
-    }
-    Ok(())
-}
-
-fn write_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), LayerStackError> {
-    static NEXT_TMP_WRITE: AtomicU64 = AtomicU64::new(0);
-    let path = path.as_ref();
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let tmp = path.with_file_name(format!(
-        ".{}.{}.{}.tmp",
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("layerstack"),
-        std::process::id(),
-        NEXT_TMP_WRITE.fetch_add(1, Ordering::Relaxed)
-    ));
-    if let Err(err) = std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, path)) {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(err.into());
-    }
-    Ok(())
 }
 
 fn hex_digest(bytes: impl AsRef<[u8]>) -> String {

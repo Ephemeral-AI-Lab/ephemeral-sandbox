@@ -20,6 +20,7 @@ use eos_protocol::{
 };
 
 use crate::error::LayerStackError;
+use crate::fsutil::{join_layer_path, record_elapsed, remove_path, resolve_layer_path};
 use crate::lease::{
     lock_shared_registry, lock_shared_registry_recover, shared_registry_for_root, LeaseRegistry,
     SharedLeaseRegistry,
@@ -34,12 +35,9 @@ mod manifest_io;
 mod projection;
 mod whiteout;
 
-pub(crate) use fs::fsync_dir;
-use fs::{
-    clear_storage_root_preserving_lock, fsync_tree_files, remove_path, replace_workspace_contents,
-    write_atomic,
-};
-use manifest_io::{read_manifest, validate_layer_ref, write_manifest};
+use fs::{clear_storage_root_preserving_lock, fsync_tree_files, replace_workspace_contents};
+pub(crate) use fs::{fsync_dir, write_atomic};
+pub(crate) use manifest_io::{read_manifest, validate_layer_ref, write_manifest};
 use whiteout::{is_kernel_whiteout, write_kernel_whiteout, LOGICAL_WHITEOUT_PREFIX, OPAQUE_MARKER};
 
 /// Immutable result of an O(1) snapshot: a lease id + the pinned manifest's
@@ -133,12 +131,7 @@ impl MergedView {
 
     fn layer_dir(&self, layer: &LayerRef) -> Result<PathBuf, LayerStackError> {
         validate_layer_ref(layer)?;
-        let path = PathBuf::from(&layer.path);
-        let path = if path.is_absolute() {
-            path
-        } else {
-            self.storage_root.join(path)
-        };
+        let path = resolve_layer_path(&self.storage_root, &layer.path);
         if !path.is_dir() {
             return Err(LayerStackError::Storage(format!(
                 "manifest references missing layer {}: {}",
@@ -263,16 +256,8 @@ impl LayerStack {
         let layer_paths = manifest
             .layers
             .iter()
-            .map(|layer| {
-                let path = PathBuf::from(&layer.path);
-                if path.is_absolute() {
-                    path
-                } else {
-                    self.storage_root.join(path)
-                }
-                .to_string_lossy()
-                .into_owned()
-            })
+            .map(|layer| resolve_layer_path(&self.storage_root, &layer.path))
+            .map(|path| path.to_string_lossy().into_owned())
             .collect();
         Ok(Lease {
             lease_id: lease.lease_id,
@@ -649,10 +634,6 @@ impl LayerStack {
     }
 }
 
-fn record_elapsed(timings: &mut BTreeMap<String, f64>, key: &str, start: Instant) {
-    timings.insert(key.to_owned(), start.elapsed().as_secs_f64());
-}
-
 fn release_lease_locked(
     storage_root: &Path,
     leases: &mut LeaseRegistry,
@@ -697,16 +678,6 @@ fn layer_digest_path_at(storage_root: &Path, layer_id: &str) -> PathBuf {
     storage_root
         .join(LAYER_METADATA_DIR)
         .join(format!("{layer_id}.digest"))
-}
-
-fn join_layer_path(root: &Path, rel: &str) -> PathBuf {
-    rel.split('/').fold(root.to_path_buf(), |path, part| {
-        if part.is_empty() {
-            path
-        } else {
-            path.join(part)
-        }
-    })
 }
 
 fn write_layer_changes(layer_dir: &Path, changes: &[LayerChange]) -> Result<(), LayerStackError> {

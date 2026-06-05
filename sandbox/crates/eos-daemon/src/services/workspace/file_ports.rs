@@ -7,10 +7,10 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use eos_layerstack::{require_workspace_binding, LayerStack};
 #[cfg(target_os = "linux")]
-use eos_layerstack::{MergedView, WorkspaceBinding};
-use eos_occ::{ChangesetResult, FileResult, OccStatus};
+use eos_layerstack::MergedView;
+use eos_layerstack::{require_workspace_binding, LayerStack, WorkspaceBinding};
+use eos_occ::ChangesetResult;
 use eos_protocol::{LayerChange, LayerPath};
 #[cfg(target_os = "linux")]
 use eos_protocol::{LayerRef, Manifest};
@@ -19,19 +19,31 @@ use eos_workspace_api::{
     WorkspaceMutationKind, WorkspaceMutationOutcome, WorkspaceMutationRequest,
     WorkspaceMutationSink, WorkspaceReadBytes, WorkspaceReadView, WorkspaceTimings,
 };
-use serde_json::{json, Value};
+use serde_json::json;
 
-use crate::response_timings::resource_timings;
 #[cfg(target_os = "linux")]
 use crate::response_timings::usize_to_f64_saturating;
+use crate::response_timings::{resource_timings, timing_map};
 use crate::services::occ::{apply_occ_changeset, hash_current, manifest_version_u64};
 
 fn api_error(error: impl std::fmt::Display) -> WorkspaceApiError {
     WorkspaceApiError::new("daemon_workspace_error", error.to_string())
 }
 
-fn timing_map(timings: serde_json::Map<String, Value>) -> WorkspaceTimings {
-    timings.into_iter().collect()
+fn resolve_layer_path(
+    binding: &WorkspaceBinding,
+    request_path: &str,
+) -> Result<ResolvedWorkspacePath, WorkspaceApiError> {
+    let path = if request_path.starts_with('/') {
+        binding
+            .layer_path_from_absolute(request_path)
+            .map_err(api_error)?
+    } else {
+        binding
+            .layer_path_from_relative(request_path)
+            .map_err(api_error)?
+    };
+    Ok(ResolvedWorkspacePath::new(path))
 }
 
 /// LayerStack/OCC-backed direct file ports for `ephemeral_workspace`.
@@ -49,16 +61,7 @@ impl EphemeralFilePorts {
 impl WorkspaceReadView for EphemeralFilePorts {
     fn resolve_path(&self, request_path: &str) -> Result<ResolvedWorkspacePath, WorkspaceApiError> {
         let binding = require_workspace_binding(&self.root).map_err(api_error)?;
-        let path = if request_path.starts_with('/') {
-            binding
-                .layer_path_from_absolute(request_path)
-                .map_err(api_error)?
-        } else {
-            binding
-                .layer_path_from_relative(request_path)
-                .map_err(api_error)?
-        };
-        Ok(ResolvedWorkspacePath::new(path))
+        resolve_layer_path(&binding, request_path)
     }
 
     fn read_bytes(
@@ -112,7 +115,7 @@ impl WorkspaceMutationSink for EphemeralFilePorts {
         let manifest = LayerStack::open(self.root.clone())
             .and_then(|stack| stack.read_active_manifest())
             .map_err(api_error)?;
-        let mut timings = resource_timings(&manifest, published_file_count(&result));
+        let mut timings = resource_timings(&manifest, result.published_file_count());
         timings.insert(
             format!("api.{}.occ_apply_s", request.kind.verb()),
             json!(occ_start.elapsed().as_secs_f64()),
@@ -133,33 +136,27 @@ fn changeset_outcome(
     for (key, value) in &result.timings {
         timings.insert(key.clone(), json!(value));
     }
-    let changed_paths: Vec<String> = result
-        .files
-        .iter()
-        .filter(|file| file.status.is_published())
-        .map(|file| file.path.as_str().to_owned())
-        .collect();
+    let changed_paths = result.published_paths();
     let changed_path_kinds = changed_paths
         .iter()
         .map(|path| (path.clone(), "write".to_owned()))
         .collect::<ChangedPathKinds>();
-    let conflict = first_conflict(result);
+    let conflict = result.first_conflict();
     WorkspaceMutationOutcome {
         mode: WorkspaceMode::Ephemeral,
         success: result.success(),
         published: result.success(),
         status: conflict
             .as_ref()
-            .map_or("committed", |file| occ_status_wire(file.status))
+            .map_or("committed", |file| file.status.wire_str())
             .to_owned(),
         conflict: conflict.as_ref().map(|file| {
-            let reason = occ_status_wire(file.status);
-            WorkspaceConflict::path(reason, file.path.as_str(), conflict_message(file, reason))
+            let reason = file.status.wire_str();
+            WorkspaceConflict::path(reason, file.path.as_str(), file.conflict_message(reason))
         }),
-        conflict_reason: conflict.as_ref().map(|file| {
-            let reason = occ_status_wire(file.status);
-            conflict_message(file, reason).to_owned()
-        }),
+        conflict_reason: conflict
+            .as_ref()
+            .map(|file| file.conflict_message(file.status.wire_str()).to_owned()),
         changed_paths,
         changed_path_kinds,
         mutation_source: match kind {
@@ -169,38 +166,6 @@ fn changeset_outcome(
         .to_owned(),
         error: None,
         timings,
-    }
-}
-
-fn conflict_message<'a>(file: &'a FileResult, fallback: &'a str) -> &'a str {
-    if file.message.is_empty() {
-        fallback
-    } else {
-        file.message.as_str()
-    }
-}
-
-fn first_conflict(result: &ChangesetResult) -> Option<&FileResult> {
-    result.files.iter().find(|file| !file.status.is_success())
-}
-
-fn published_file_count(result: &ChangesetResult) -> usize {
-    result
-        .files
-        .iter()
-        .filter(|file| file.status.is_published())
-        .count()
-}
-
-const fn occ_status_wire(status: OccStatus) -> &'static str {
-    match status {
-        OccStatus::Accepted => "accepted",
-        OccStatus::Committed => "committed",
-        OccStatus::AbortedVersion => "aborted_version",
-        OccStatus::AbortedOverlap => "aborted_overlap",
-        OccStatus::Dropped => "dropped",
-        OccStatus::Rejected => "rejected",
-        _ => "failed",
     }
 }
 
@@ -236,16 +201,7 @@ impl WorkspaceReadView for IsolatedFilePorts {
             base_manifest_version: self.handle.manifest_version,
             base_root_hash: self.handle.manifest_root_hash.clone(),
         };
-        let path = if request_path.starts_with('/') {
-            binding
-                .layer_path_from_absolute(request_path)
-                .map_err(api_error)?
-        } else {
-            binding
-                .layer_path_from_relative(request_path)
-                .map_err(api_error)?
-        };
-        Ok(ResolvedWorkspacePath::new(path))
+        resolve_layer_path(&binding, request_path)
     }
 
     fn read_bytes(

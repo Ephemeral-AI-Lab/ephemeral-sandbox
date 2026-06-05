@@ -6,7 +6,7 @@
 //! the iws cgroup before spawning, then the child execs the command through the
 //! same shell/tool primitive used by fresh-namespace mode. A
 //! separate helper does the in-namespace overlay mount (`setns` into `user`+`mnt`,
-//! then delegate to [`KernelMountPort`]).
+//! then call [`eos_overlay::mount_overlay`]).
 //!
 //! `setns(2)` is the only raw syscall here; child creation stays behind
 //! [`std::process::Command`] in `fresh_ns::execute_tool`. `#![deny(unsafe_op_in_unsafe_fn)]`
@@ -25,10 +25,10 @@ use std::path::PathBuf;
 #[cfg(target_os = "linux")]
 use std::time::Instant;
 
-use crate::error::RunnerError;
-use crate::mount::KernelMountPort;
 #[cfg(target_os = "linux")]
-use crate::mount::MountInputs;
+use eos_overlay::OverlayHandle;
+
+use crate::error::RunnerError;
 #[cfg(any(test, target_os = "linux"))]
 use crate::request::NsFds;
 use crate::request::{RunRequest, RunResult};
@@ -49,10 +49,7 @@ const RESOLV_CONF: &str = "/etc/resolv.conf";
 /// Returns [`RunnerError`] when namespace FDs are missing, `setns`/cgroup join
 /// fails, request validation fails, or child execution fails.
 #[cfg(target_os = "linux")]
-pub fn run_setns(
-    request: &RunRequest,
-    _mount: &dyn KernelMountPort,
-) -> Result<RunResult, RunnerError> {
+pub fn run_setns(request: &RunRequest) -> Result<RunResult, RunnerError> {
     //   setns(user), setns(mnt), setns(pid), setns(net) in order; join cgroup.procs
     //   before fork; pipe stdin_b64 to the child; fork → execvp(argv); waitpid and
     //   map waitstatus → exit code. The group is its own session so cancel killpgs it.
@@ -69,17 +66,14 @@ pub fn run_setns(
 ///
 /// Always returns [`RunnerError::Unsupported`] outside Linux because `setns(2)`
 /// is unavailable.
-pub fn run_setns(
-    _request: &RunRequest,
-    _mount: &dyn KernelMountPort,
-) -> Result<RunResult, RunnerError> {
+pub fn run_setns(_request: &RunRequest) -> Result<RunResult, RunnerError> {
     Err(RunnerError::Unsupported)
 }
 
 /// Mount the overlay inside an existing workspace mount namespace.
 ///
 /// The runner `setns`es into the holder's `user` then `mnt` FDs, gaining
-/// `CAP_SYS_ADMIN` in that namespace before delegating to [`KernelMountPort`].
+/// `CAP_SYS_ADMIN` in that namespace before calling [`eos_overlay::mount_overlay`].
 ///
 /// # Safety (future)
 ///
@@ -89,14 +83,11 @@ pub fn run_setns(
 /// # Errors
 ///
 /// Returns [`RunnerError`] when required namespace/overlay paths are missing,
-/// `setns` fails, or the overlay mount port fails.
+/// `setns` fails, or the overlay mount fails.
 #[cfg(target_os = "linux")]
-pub fn setns_overlay_mount(
-    request: &RunRequest,
-    mount: &dyn KernelMountPort,
-) -> Result<(), RunnerError> {
+pub fn setns_overlay_mount(request: &RunRequest) -> Result<(), RunnerError> {
     //   setns(ns_fds.user, CLONE_NEWUSER); setns(ns_fds.mnt, CLONE_NEWNS); then build
-    //   MountInputs (newest-first lowerdirs + upper/work) and KernelMountPort::mount_overlay.
+    //   OverlayHandle (newest-first lowerdirs + upper/work) and mount the overlay.
     let ns_fds = require_ns_fds(request)?;
     let user = ns_fds.user.ok_or_else(|| {
         RunnerError::InvalidRequest("setns overlay mount requires user ns fd".to_owned())
@@ -112,12 +103,12 @@ pub fn setns_overlay_mount(
     let workdir = request.workdir.as_ref().ok_or_else(|| {
         RunnerError::InvalidRequest("setns overlay mount requires workdir".to_owned())
     })?;
-    let guard = mount.mount_overlay(&MountInputs {
-        workspace_root: request.workspace_root.0.clone(),
+    let handle = OverlayHandle {
         layer_paths: overlay_layer_paths(request),
         upperdir: upperdir.clone(),
         workdir: workdir.clone(),
-    })?;
+    };
+    let guard = eos_overlay::mount_overlay(&request.workspace_root.0, &handle)?;
     // The setns mount helper is a one-shot process. The mounted overlay must
     // outlive this helper and remain pinned by the target mount namespace until
     // isolated teardown, matching the Python helper that exits after mounting.
@@ -132,10 +123,7 @@ pub fn setns_overlay_mount(
 ///
 /// Always returns [`RunnerError::Unsupported`] outside Linux because `setns(2)`
 /// is unavailable.
-pub fn setns_overlay_mount(
-    _request: &RunRequest,
-    _mount: &dyn KernelMountPort,
-) -> Result<(), RunnerError> {
+pub fn setns_overlay_mount(_request: &RunRequest) -> Result<(), RunnerError> {
     Err(RunnerError::Unsupported)
 }
 

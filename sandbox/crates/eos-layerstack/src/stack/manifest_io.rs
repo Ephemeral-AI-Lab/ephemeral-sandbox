@@ -4,8 +4,9 @@ use eos_protocol::{LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
 use serde_json::{json, Value};
 
 use crate::error::LayerStackError;
+use crate::fsutil::check_layer_path;
 
-pub(super) fn read_manifest(path: impl AsRef<Path>) -> Result<Manifest, LayerStackError> {
+pub(crate) fn read_manifest(path: impl AsRef<Path>) -> Result<Manifest, LayerStackError> {
     let path = path.as_ref();
     if !path.exists() {
         return Manifest::new(0, vec![], MANIFEST_SCHEMA_VERSION).map_err(LayerStackError::from);
@@ -54,7 +55,7 @@ pub(super) fn read_manifest(path: impl AsRef<Path>) -> Result<Manifest, LayerSta
     Manifest::new(version, layers, schema_version).map_err(LayerStackError::from)
 }
 
-pub(super) fn write_manifest(
+pub(crate) fn write_manifest(
     path: impl AsRef<Path>,
     manifest: &Manifest,
 ) -> Result<(), LayerStackError> {
@@ -72,35 +73,11 @@ pub(super) fn write_manifest(
     super::write_atomic(path, &encoded)
 }
 
-pub(super) fn validate_layer_ref(layer: &LayerRef) -> Result<(), LayerStackError> {
+pub(crate) fn validate_layer_ref(layer: &LayerRef) -> Result<(), LayerStackError> {
     if layer.layer_id.is_empty() {
         return Err(LayerStackError::Manifest(
             "layer_id must not be empty".to_owned(),
         ));
     }
-    if layer.path.is_empty() {
-        return Err(LayerStackError::Manifest(
-            "layer path must not be empty".to_owned(),
-        ));
-    }
-    if layer.path.contains('\0') {
-        return Err(LayerStackError::Manifest(format!(
-            "layer path must not contain NUL bytes: {:?}",
-            layer.path
-        )));
-    }
-    let path = Path::new(&layer.path);
-    if path.is_absolute() {
-        return Err(LayerStackError::Manifest(format!(
-            "layer path must be relative: {}",
-            layer.path
-        )));
-    }
-    if path.components().any(|part| part.as_os_str() == "..") {
-        return Err(LayerStackError::Manifest(format!(
-            "layer path must not contain '..': {}",
-            layer.path
-        )));
-    }
-    Ok(())
+    check_layer_path(&layer.path)
 }

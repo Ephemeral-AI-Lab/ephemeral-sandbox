@@ -28,7 +28,7 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
         return Ok(());
     }
     if config.mount_overlay {
-        eos_runner::setns::setns_overlay_mount(&request, &OverlayMountPort)
+        eos_runner::setns::setns_overlay_mount(&request)
             .context("ns-runner setns overlay mount failed")?;
         let result = eos_runner::RunResult {
             exit_code: 0,
@@ -51,7 +51,7 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
         write_payload(config.output_path.as_ref(), &output)?;
         return Ok(());
     }
-    let result = eos_runner::run(&request, &OverlayMountPort).context("ns-runner failed")?;
+    let result = eos_runner::run(&request).context("ns-runner failed")?;
     let output = serde_json::to_vec(&result).context("failed to encode ns-runner result JSON")?;
     write_payload(config.output_path.as_ref(), &output)?;
     Ok(())
@@ -188,22 +188,4 @@ fn write_payload(path: Option<&PathBuf>, payload: &[u8]) -> Result<()> {
             .context("failed to terminate ns-runner output line")?;
     }
     Ok(())
-}
-
-#[derive(Debug)]
-struct OverlayMountPort;
-
-impl eos_runner::KernelMountPort for OverlayMountPort {
-    fn mount_overlay(
-        &self,
-        inputs: &eos_runner::MountInputs,
-    ) -> std::result::Result<Box<dyn eos_runner::MountedOverlay>, eos_runner::RunnerError> {
-        let handle = eos_overlay::OverlayHandle {
-            upperdir: inputs.upperdir.clone(),
-            workdir: inputs.workdir.clone(),
-            layer_paths: inputs.layer_paths.clone(),
-        };
-        let mount = eos_overlay::mount_overlay(&inputs.workspace_root, &handle)?;
-        Ok(Box::new(mount))
-    }
 }

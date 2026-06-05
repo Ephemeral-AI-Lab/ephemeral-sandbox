@@ -10,6 +10,7 @@ use crate::response::{ChangedPathKinds, WorkspaceApiError, WorkspaceConflict, Wo
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PrepareCommandRequest {
     pub agent_id: String,
+    pub command_session_id: String,
     pub invocation_id: String,
     pub cmd: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

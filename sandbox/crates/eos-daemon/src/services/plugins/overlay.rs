@@ -21,8 +21,7 @@ use serde_json::{json, Value};
 use crate::error::DaemonError;
 use crate::response_timings::{
     attach_runner_shell_fields, guarded_changeset_response, insert_tree_resource_timings,
-    merge_runner_timings, published_file_count, resource_timings, u64_to_f64_saturating,
-    TreeResourceStats,
+    merge_runner_timings, resource_timings, u64_to_f64_saturating, TreeResourceStats,
 };
 use crate::services::overlay::{
     changeset_from_publish_outcome, ephemeral_daemon_error, overlay_run_dirs, path_changes_to_wire,
@@ -168,7 +167,7 @@ fn run_plugin_overlay_once(
     let runner = run_ns_runner_child(&request, None)?;
     let plugin_result = read_plugin_overlay_result(&result_path)?;
     let finalize = finalize_publishable_workspace(
-        &DaemonPublisherPort::new(&spec.layer_stack_root, &lease.manifest),
+        &DaemonPublisherPort::new(&spec.layer_stack_root),
         FinalizeRequest {
             workspace: EphemeralWorkspace {
                 layer_stack_root: EphemeralWorkspaceRoot(spec.layer_stack_root.clone()),
@@ -215,7 +214,7 @@ fn plugin_overlay_response(
     lease_acquire_s: f64,
 ) -> Result<Value, DaemonError> {
     let manifest = LayerStack::open(root.to_path_buf())?.read_active_manifest()?;
-    let mut timings = resource_timings(&manifest, published_file_count(&outcome.changeset));
+    let mut timings = resource_timings(&manifest, outcome.changeset.published_file_count());
     merge_runner_timings(&mut timings, &outcome.runner);
     insert_tree_resource_timings(
         &mut timings,

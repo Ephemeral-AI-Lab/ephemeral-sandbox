@@ -16,9 +16,9 @@
 //! # Two modes
 //!
 //! 1. **Fresh-ns** ([`RunMode::FreshNs`]): `unshare(CLONE_NEWUSER|CLONE_NEWNS|…)` →
-//!    write `uid_map`/`gid_map` → mount the overlay (via the [`mount::KernelMountPort`]
-//!    port, fulfilled by `eos-overlay`'s `kernel_mount`) → spawn the tool → construct
-//!    the result JSON → cleanup. One tool call per fresh namespace.
+//!    write `uid_map`/`gid_map` → mount the overlay through
+//!    [`eos_overlay::mount_overlay`] → spawn the tool → construct the result
+//!    JSON → cleanup. One tool call per fresh namespace.
 //! 2. **Setns** ([`RunMode::SetNs`]): per isolated call, `setns()` into the
 //!    ns-holder's pre-opened namespace FDs (`user`, then `mnt`, then `pid`, then
 //!    `net` — order is load-bearing) → `fork` → the child `execvp`s the command.
@@ -38,20 +38,18 @@
 //! `#![deny(unsafe_op_in_unsafe_fn)]` keeps that annotation discipline enforced.
 //!
 //! Internal deps: `eos-protocol` (verb [`Intent`](eos_protocol::Intent)); `eos-overlay`
-//! (`kernel_mount`, consumed through the local [`mount::KernelMountPort`] port).
+//! (kernel overlay mount and upper-dir capture primitives).
 #![deny(unsafe_op_in_unsafe_fn)]
 
 pub mod config;
 pub mod error;
 pub mod fresh_ns;
-pub mod mount;
 #[cfg(target_os = "linux")]
 mod path;
 pub mod request;
 pub mod setns;
 
 pub use error::RunnerError;
-pub use mount::{KernelMountPort, MountInputs, MountedOverlay};
 pub use request::{Fd, NsFds, RunMode, RunRequest, RunResult, RunnerVerb, ToolCall, WorkspaceRoot};
 
 /// Execute one tool call through the runner, dispatching on [`RunRequest::mode`].
@@ -61,17 +59,16 @@ pub use request::{Fd, NsFds, RunMode, RunRequest, RunResult, RunnerVerb, ToolCal
 /// into an existing one) and the runner performs the syscalls on this
 /// single-threaded caller.
 ///
-/// `mount` supplies the overlay-mount port; in fresh-ns mode the runner calls it
-/// after `unshare` to build the workspace mount, mirroring the Python entrypoint's
-/// `mount_overlay` call.
+/// Fresh-ns mode mounts the workspace overlay after `unshare`, mirroring the
+/// Python entrypoint's `mount_overlay` call.
 ///
 /// # Errors
 ///
 /// Returns [`RunnerError`] when the request is invalid for the selected mode,
 /// namespace setup fails, overlay mounting fails, or child execution fails.
-pub fn run(request: &RunRequest, mount: &dyn KernelMountPort) -> Result<RunResult, RunnerError> {
+pub fn run(request: &RunRequest) -> Result<RunResult, RunnerError> {
     match request.mode {
-        RunMode::FreshNs => fresh_ns::run_fresh_ns(request, mount),
-        RunMode::SetNs => setns::run_setns(request, mount),
+        RunMode::FreshNs => fresh_ns::run_fresh_ns(request),
+        RunMode::SetNs => setns::run_setns(request),
     }
 }

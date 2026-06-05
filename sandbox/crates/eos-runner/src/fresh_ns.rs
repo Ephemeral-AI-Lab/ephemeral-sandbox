@@ -4,8 +4,8 @@
 //! `unshare -Urm python -m sandbox.overlay.namespace_entrypoint <payload>` with
 //! `start_new_session=True`; the Rust port does the `unshare(CLONE_NEWUSER|
 //! CLONE_NEWNS)` itself in this single-threaded child, writes the uid/gid maps,
-//! delegates the overlay mount to [`KernelMountPort`], then spawns the tool in
-//! its own process group so timeout cleanup can kill the whole tree.
+//! mounts the overlay, then spawns the tool in its own process group so timeout
+//! cleanup can kill the whole tree.
 //!
 //! The syscall boundary is kept behind safe `rustix` wrappers here. If this
 //! later needs a raw libc gap, the block must carry a focused `// SAFETY:` note
@@ -33,10 +33,10 @@ use rustix::process::{kill_process_group, setsid, Pid, Signal};
 #[cfg(target_os = "linux")]
 use rustix::thread::{set_thread_gid, set_thread_uid, unshare, UnshareFlags};
 
-use crate::error::RunnerError;
-use crate::mount::KernelMountPort;
 #[cfg(target_os = "linux")]
-use crate::mount::MountInputs;
+use eos_overlay::OverlayHandle;
+
+use crate::error::RunnerError;
 #[cfg(target_os = "linux")]
 use crate::request::RunnerVerb;
 use crate::request::{RunRequest, RunResult};
@@ -64,14 +64,11 @@ use command::*;
 /// Returns [`RunnerError`] when namespace setup, overlay mounting, request
 /// validation, or child execution fails.
 #[cfg(target_os = "linux")]
-pub fn run_fresh_ns(
-    request: &RunRequest,
-    mount: &dyn KernelMountPort,
-) -> Result<RunResult, RunnerError> {
+pub fn run_fresh_ns(request: &RunRequest) -> Result<RunResult, RunnerError> {
     //   sequence: unshare(CLONE_NEWUSER|CLONE_NEWNS) on this single-threaded child,
-    //   write /proc/self/{uid_map,setgroups,gid_map}, KernelMountPort::mount_overlay
-    //   at workspace_root, setsid + spawn the tool, then build the result JSON
-    //   and reap the process group on timeout.
+    //   write /proc/self/{uid_map,setgroups,gid_map}, mount overlay at
+    //   workspace_root, setsid + spawn the tool, then build the result JSON and
+    //   reap the process group on timeout.
     enter_fresh_namespace()?;
     let upperdir = request
         .upperdir
@@ -82,12 +79,12 @@ pub fn run_fresh_ns(
         .as_ref()
         .ok_or_else(|| RunnerError::InvalidRequest("fresh-ns requires workdir".to_owned()))?;
     let mount_start = Instant::now();
-    let _mount_guard = mount.mount_overlay(&MountInputs {
-        workspace_root: request.workspace_root.0.clone(),
+    let handle = OverlayHandle {
         layer_paths: request.layer_paths.clone(),
         upperdir: upperdir.clone(),
         workdir: workdir.clone(),
-    })?;
+    };
+    let _mount_guard = eos_overlay::mount_overlay(&request.workspace_root.0, &handle)?;
     let mount_s = mount_start.elapsed().as_secs_f64();
 
     execute_tool(request, mount_s, Instant::now())
@@ -100,10 +97,7 @@ pub fn run_fresh_ns(
 ///
 /// Always returns [`RunnerError::Unsupported`] outside Linux because the
 /// namespace syscalls do not exist.
-pub fn run_fresh_ns(
-    _request: &RunRequest,
-    _mount: &dyn KernelMountPort,
-) -> Result<RunResult, RunnerError> {
+pub fn run_fresh_ns(_request: &RunRequest) -> Result<RunResult, RunnerError> {
     Err(RunnerError::Unsupported)
 }
 

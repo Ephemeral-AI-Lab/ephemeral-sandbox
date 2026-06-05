@@ -139,6 +139,17 @@ pub(super) fn connected_ppc_services(state: &DaemonPluginState) -> Vec<String> {
     state.service_ppc_clients.keys().cloned().collect()
 }
 
+pub(super) fn find_service_status<'a>(
+    state: &'a DaemonPluginState,
+    service_instance_id: &str,
+) -> Option<&'a PluginServiceStatus> {
+    state
+        .loaded
+        .values()
+        .flat_map(|loaded| loaded.services.iter())
+        .find(|status| status.key.service_instance_id() == service_instance_id)
+}
+
 pub(super) fn setup_failure_key(plugin_id: &str, plugin_digest: &str) -> String {
     format!("{plugin_id}:{plugin_digest}")
 }

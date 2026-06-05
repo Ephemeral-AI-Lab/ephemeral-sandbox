@@ -17,7 +17,7 @@ use super::{
         release_service_snapshot, service_status_mut, spawn_service_processes,
         PluginServiceSnapshot,
     },
-    state::{lock_state, DaemonPluginState, SharedPpcClient},
+    state::{find_service_status, lock_state, DaemonPluginState, SharedPpcClient},
 };
 use crate::error::DaemonError;
 
@@ -185,11 +185,7 @@ fn refresh_lock_for_service(service_instance_id: &str) -> Result<Arc<Mutex<()>>,
 
 fn service_was_started_before(service_instance_id: &str) -> Result<bool, DaemonError> {
     let state = lock_state()?;
-    Ok(state
-        .loaded
-        .values()
-        .flat_map(|loaded| loaded.services.iter())
-        .find(|status| status.key.service_instance_id() == service_instance_id)
+    Ok(find_service_status(&state, service_instance_id)
         .is_some_and(|status| status.manifest_key.is_some()))
 }
 
@@ -198,16 +194,13 @@ fn service_is_ready_on_manifest(
     target_manifest_key: &str,
 ) -> Result<bool, DaemonError> {
     let state = lock_state()?;
-    Ok(state
-        .loaded
-        .values()
-        .flat_map(|loaded| loaded.services.iter())
-        .find(|status| status.key.service_instance_id() == service_instance_id)
-        .is_some_and(|status| {
+    Ok(
+        find_service_status(&state, service_instance_id).is_some_and(|status| {
             status
                 .require_ready_on_manifest(target_manifest_key)
                 .is_ok()
-        }))
+        }),
+    )
 }
 
 fn refresh_connected_service(

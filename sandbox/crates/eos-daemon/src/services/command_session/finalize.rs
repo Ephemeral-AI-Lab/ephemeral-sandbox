@@ -25,7 +25,6 @@ use eos_protocol::LayerChange;
 use eos_runner::RunResult;
 use eos_workspace_api::{
     CommandWorkspaceOps, FinalizeCommandRequest, WorkspaceApiError, WorkspaceCommandOutcome,
-    WorkspaceTimings,
 };
 
 use super::lifecycle::{require_string, EphemeralCommandWorkspace, IsolatedCommandWorkspace};
@@ -35,7 +34,7 @@ use super::session::{
 };
 use super::{command_result, command_session_config, command_session_not_found, optional_u64};
 use crate::error::DaemonError;
-use crate::response_timings::resource_timings;
+use crate::response_timings::{resource_timings, timing_map};
 use crate::services::overlay::DaemonPublisherPort;
 
 fn command_workspace_error(error: WorkspaceApiError) -> DaemonError {
@@ -44,10 +43,6 @@ fn command_workspace_error(error: WorkspaceApiError) -> DaemonError {
 
 fn workspace_api_error(error: impl std::fmt::Display) -> WorkspaceApiError {
     WorkspaceApiError::new("daemon_command_workspace_error", error.to_string())
-}
-
-fn timing_map(timings: serde_json::Map<String, Value>) -> WorkspaceTimings {
-    timings.into_iter().collect()
 }
 
 fn finalize_request(
@@ -171,7 +166,7 @@ impl EphemeralCommandSessionPort for EphemeralCommandFinalizePort<'_> {
         changes: &[LayerChange],
         path_kinds: &[PathChange],
     ) -> Result<PublishOutcome, EphemeralWorkspaceError> {
-        DaemonPublisherPort::new(&self.workspace.root, &self.workspace.manifest)
+        DaemonPublisherPort::new(&self.workspace.root)
             .publish_upperdir_changes(root, snapshot, changes, path_kinds)
     }
 }

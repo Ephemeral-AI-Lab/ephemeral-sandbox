@@ -10,10 +10,9 @@ use eos_ephemeral_workspace::{
     EphemeralDirAllocator, EphemeralRunDirs, EphemeralSnapshot, EphemeralWorkspaceError,
     InvocationId, PathChange, PublishOutcome, PublishStatus, WorkspacePublisherPort, WorkspaceRoot,
 };
-use eos_layerstack::Manifest;
 use eos_occ::{ChangesetResult, FileResult, OccStatus};
 use eos_overlay::overlay_writable_root;
-use eos_protocol::{LayerChange, LayerPath};
+use eos_protocol::{LayerChange, LayerPath, LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
 use eos_runner::{RunRequest, RunResult};
 use serde_json::{json, Value};
 
@@ -28,12 +27,11 @@ pub(crate) use eos_ephemeral_workspace::RunDirCleanup;
 
 pub(crate) struct DaemonPublisherPort<'a> {
     root: &'a Path,
-    manifest: &'a Manifest,
 }
 
 impl<'a> DaemonPublisherPort<'a> {
-    pub(crate) const fn new(root: &'a Path, manifest: &'a Manifest) -> Self {
-        Self { root, manifest }
+    pub(crate) const fn new(root: &'a Path) -> Self {
+        Self { root }
     }
 }
 
@@ -52,11 +50,10 @@ impl WorkspacePublisherPort for DaemonPublisherPort<'_> {
             }
         })?;
         let route_s = route_start.elapsed().as_secs_f64();
-        let base_hashes =
-            base_hashes_for_snapshot(self.root, self.manifest, changes).map_err(|error| {
-                EphemeralWorkspaceError::PublishFailed {
-                    reason: error.to_string(),
-                }
+        let snapshot_manifest = manifest_from_snapshot(self.root, snapshot)?;
+        let base_hashes = base_hashes_for_snapshot(self.root, &snapshot_manifest, changes)
+            .map_err(|error| EphemeralWorkspaceError::PublishFailed {
+                reason: error.to_string(),
             })?;
         let occ_start = std::time::Instant::now();
         let mut changeset = apply_occ_changeset(
@@ -84,6 +81,41 @@ impl WorkspacePublisherPort for DaemonPublisherPort<'_> {
         }
         Ok(publish_outcome_from_changeset(&changeset))
     }
+}
+
+fn manifest_from_snapshot(
+    root: &Path,
+    snapshot: &EphemeralSnapshot,
+) -> Result<Manifest, EphemeralWorkspaceError> {
+    let layers = snapshot
+        .layer_paths
+        .iter()
+        .enumerate()
+        .map(|(index, path)| {
+            let relative = match path.strip_prefix(root) {
+                Ok(relative) => relative,
+                Err(_) if path.is_relative() => path,
+                Err(_) => {
+                    return Err(EphemeralWorkspaceError::PublishFailed {
+                        reason: format!(
+                            "snapshot layer path {} is outside {}",
+                            path.display(),
+                            root.display()
+                        ),
+                    });
+                }
+            };
+            Ok(LayerRef {
+                layer_id: format!("snapshot-{index}"),
+                path: relative.to_string_lossy().into_owned(),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Manifest::new(snapshot.manifest_version, layers, MANIFEST_SCHEMA_VERSION).map_err(|error| {
+        EphemeralWorkspaceError::PublishFailed {
+            reason: error.to_string(),
+        }
+    })
 }
 
 pub(crate) fn ephemeral_dir_allocator() -> Result<EphemeralDirAllocator, DaemonError> {
@@ -210,12 +242,7 @@ pub(crate) fn changeset_from_publish_outcome(
 }
 
 fn publish_outcome_from_changeset(result: &ChangesetResult) -> PublishOutcome {
-    let published_paths = result
-        .files
-        .iter()
-        .filter(|file| file.status.is_published())
-        .map(|file| file.path.as_str().to_owned())
-        .collect::<Vec<_>>();
+    let published_paths = result.published_paths();
     let conflicts = result
         .files
         .iter()
@@ -287,4 +314,49 @@ fn file_result_from_value(value: &Value) -> Result<FileResult, DaemonError> {
             .unwrap_or_default()
             .to_owned(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    #[test]
+    fn manifest_from_snapshot_converts_absolute_layer_paths_to_relative() {
+        let root = PathBuf::from("/stack");
+        let manifest = manifest_from_snapshot(
+            &root,
+            &EphemeralSnapshot {
+                lease_id: "lease-1".to_owned(),
+                manifest_version: 7,
+                manifest_root_hash: "hash".to_owned(),
+                layer_paths: vec![root.join("layers/a"), root.join("layers/b")],
+            },
+        )
+        .expect("snapshot manifest");
+
+        assert_eq!(manifest.version, 7);
+        assert_eq!(manifest.layers[0].path, "layers/a");
+        assert_eq!(manifest.layers[1].path, "layers/b");
+    }
+
+    #[test]
+    fn manifest_from_snapshot_rejects_absolute_layer_paths_outside_root() {
+        let error = manifest_from_snapshot(
+            &PathBuf::from("/stack"),
+            &EphemeralSnapshot {
+                lease_id: "lease-1".to_owned(),
+                manifest_version: 7,
+                manifest_root_hash: "hash".to_owned(),
+                layer_paths: vec![PathBuf::from("/other/layers/a")],
+            },
+        )
+        .expect_err("outside-root path should fail");
+
+        assert!(
+            error.to_string().contains("outside /stack"),
+            "unexpected error: {error}"
+        );
+    }
 }

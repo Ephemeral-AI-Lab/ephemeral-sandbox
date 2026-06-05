@@ -14,12 +14,14 @@ use serde_json::{json, Value};
 use eos_ephemeral_workspace::command_session::types::{
     EphemeralCommandPrepareContext, EphemeralCommandSessionPort,
 };
-use eos_ephemeral_workspace::{EphemeralRunDirs, EphemeralSnapshot, EphemeralWorkspaceOps};
+use eos_ephemeral_workspace::{
+    EphemeralRunDirs, EphemeralSnapshot, EphemeralWorkspaceError, EphemeralWorkspaceOps,
+};
 use eos_isolated_workspace::command_session::types::{
     IsolatedCommandPrepareContext, IsolatedCommandSessionPort,
 };
 use eos_isolated_workspace::IsolatedWorkspaceOps;
-use eos_layerstack::{require_workspace_binding, LayerStack, Lease, WorkspaceBinding};
+use eos_layerstack::{require_workspace_binding, LayerStack, WorkspaceBinding};
 use eos_workspace_api::{CommandWorkspaceOps, PrepareCommandRequest, WorkspaceApiError};
 
 use super::finalize::strip_session_id;
@@ -34,7 +36,6 @@ use crate::services::overlay::{ephemeral_dir_allocator, RunDirCleanup};
 pub(crate) struct EphemeralCommandWorkspace {
     pub(crate) root: PathBuf,
     pub(crate) lease_id: String,
-    pub(crate) manifest: eos_layerstack::Manifest,
     pub(crate) manifest_version: i64,
     pub(crate) manifest_root_hash: String,
     pub(crate) layer_paths: Vec<PathBuf>,
@@ -126,6 +127,7 @@ pub(crate) fn start_isolated_command_session(
 fn prepare_request(spec: &CommandSessionStartSpec) -> PrepareCommandRequest {
     PrepareCommandRequest {
         agent_id: spec.agent_id.clone(),
+        command_session_id: spec.id.clone(),
         invocation_id: spec.invocation_id.clone(),
         cmd: spec.command.clone(),
         timeout_seconds: spec.timeout_seconds,
@@ -143,7 +145,6 @@ fn workspace_api_error(error: impl std::fmt::Display) -> WorkspaceApiError {
 struct EphemeralCommandPreparePort<'a> {
     root: &'a Path,
     binding: &'a WorkspaceBinding,
-    lease: &'a Lease,
     session_dir: PathBuf,
     final_path: PathBuf,
 }
@@ -153,12 +154,6 @@ impl EphemeralCommandSessionPort for EphemeralCommandPreparePort<'_> {
         Ok(EphemeralCommandPrepareContext {
             layer_stack_root: self.root.to_path_buf(),
             workspace_root: PathBuf::from(&self.binding.workspace_root),
-            snapshot: EphemeralSnapshot {
-                lease_id: self.lease.lease_id.clone(),
-                manifest_version: self.lease.manifest_version,
-                manifest_root_hash: self.lease.root_hash.clone(),
-                layer_paths: self.lease.layer_paths.iter().map(PathBuf::from).collect(),
-            },
             writable_root: ephemeral_dir_allocator()
                 .map_err(workspace_api_error)?
                 .writable_root,
@@ -166,14 +161,38 @@ impl EphemeralCommandSessionPort for EphemeralCommandPreparePort<'_> {
             final_path: self.final_path.clone(),
         })
     }
+
+    fn acquire_snapshot(
+        &self,
+        request_id: &str,
+    ) -> Result<EphemeralSnapshot, EphemeralWorkspaceError> {
+        let lease = LayerStack::open(self.root.to_path_buf())
+            .and_then(|mut stack| stack.acquire_snapshot(request_id))
+            .map_err(|error| EphemeralWorkspaceError::SnapshotAcquire {
+                reason: error.to_string(),
+            })?;
+        let snapshot = EphemeralSnapshot {
+            lease_id: lease.lease_id,
+            manifest_version: lease.manifest_version,
+            manifest_root_hash: lease.root_hash,
+            layer_paths: lease.layer_paths.into_iter().map(PathBuf::from).collect(),
+        };
+        Ok(snapshot)
+    }
+
+    fn release_snapshot(&self, lease_id: &str) -> Result<(), EphemeralWorkspaceError> {
+        LayerStack::open(self.root.to_path_buf())
+            .and_then(|mut stack| stack.release_lease(lease_id))
+            .map(|_| ())
+            .map_err(|error| EphemeralWorkspaceError::LeaseRelease {
+                lease_id: lease_id.to_owned(),
+                reason: error.to_string(),
+            })
+    }
 }
 
 struct IsolatedCommandPreparePort {
     handle: crate::services::isolated_workspace::CommandHandle,
-    session_dir: PathBuf,
-    final_path: PathBuf,
-    output_path: PathBuf,
-    request_path: PathBuf,
 }
 
 impl IsolatedCommandSessionPort for IsolatedCommandPreparePort {
@@ -181,15 +200,12 @@ impl IsolatedCommandSessionPort for IsolatedCommandPreparePort {
         Ok(IsolatedCommandPrepareContext {
             workspace_handle_id: self.handle.workspace_handle_id.clone(),
             workspace_root: self.handle.workspace_root.clone(),
+            scratch_dir: self.handle.scratch_dir.clone(),
             layer_paths: self.handle.layer_paths.clone(),
             upperdir: self.handle.upperdir.clone(),
             workdir: self.handle.workdir.clone(),
             ns_fds: self.handle.ns_fds.clone(),
             cgroup_path: self.handle.cgroup_path.clone(),
-            session_dir: self.session_dir.clone(),
-            final_path: self.final_path.clone(),
-            output_path: self.output_path.clone(),
-            request_path: self.request_path.clone(),
         })
     }
 }
@@ -212,8 +228,6 @@ pub(crate) fn start_command_session(
         .unwrap_or("default")
         .to_owned();
     let binding = require_workspace_binding(&root)?;
-    let mut stack = LayerStack::open(root.clone())?;
-    let lease = stack.acquire_snapshot(&format!("command_session:{agent_id}:{invocation_id}"))?;
     let spec = CommandSessionStartSpec {
         id: command_session_registry().next_id(),
         invocation_id,
@@ -222,7 +236,7 @@ pub(crate) fn start_command_session(
         timeout_seconds,
     };
     let id = spec.id.clone();
-    match prepare_command_session(&root, &binding, &lease, &spec) {
+    match prepare_command_session(&root, &binding, &spec) {
         Ok(session) => {
             command_session_registry().insert(Arc::clone(&session));
             match wait_for_yield(
@@ -236,12 +250,7 @@ pub(crate) fn start_command_session(
                 }
             }
         }
-        Err(err) => {
-            // prepare failed before the session owns the lease — release it here
-            // (else the per-session lease leaks; sense-2 §12 guarantee).
-            let _ = stack.release_lease(&lease.lease_id);
-            Err(err)
-        }
+        Err(err) => Err(err),
     }
 }
 
@@ -249,12 +258,20 @@ fn prepare_isolated_command_session(
     spec: &CommandSessionStartSpec,
     handle: crate::services::isolated_workspace::CommandHandle,
 ) -> Result<Arc<CommandSession>, DaemonError> {
-    let session_dir = handle.scratch_dir.join("command-sessions").join(&spec.id);
-    std::fs::create_dir_all(&session_dir)?;
+    let prepared = IsolatedWorkspaceOps::new(IsolatedCommandPreparePort {
+        handle: handle.clone(),
+    })
+    .prepare_command_workspace(prepare_request(spec))
+    .map_err(command_workspace_error)?;
+    let session_dir = prepared
+        .finalize_context
+        .get("session_dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from)
+        .ok_or_else(|| {
+            DaemonError::InvalidEnvelope("missing isolated command session_dir".to_owned())
+        })?;
     let transcript_path = session_dir.join("transcript.log");
-    let final_path = session_dir.join("final.json");
-    let output_path = session_dir.join("runner-result.json");
-    let request_path = session_dir.join("runner-request.json");
     std::fs::write(
         session_dir.join("metadata.json"),
         serde_json::to_vec_pretty(&json!({
@@ -268,15 +285,6 @@ fn prepare_isolated_command_session(
         }))
         .map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))?,
     )?;
-    let prepared = IsolatedWorkspaceOps::new(IsolatedCommandPreparePort {
-        handle: handle.clone(),
-        session_dir,
-        final_path,
-        output_path,
-        request_path,
-    })
-    .prepare_command_workspace(prepare_request(spec))
-    .map_err(command_workspace_error)?;
     write_run_request(&prepared.request_path, &prepared.run_request)?;
     let workspace = CommandWorkspaceKind::Isolated(IsolatedCommandWorkspace {
         handle,
@@ -289,7 +297,6 @@ fn prepare_isolated_command_session(
 fn prepare_command_session(
     root: &Path,
     binding: &WorkspaceBinding,
-    lease: &Lease,
     spec: &CommandSessionStartSpec,
 ) -> Result<Arc<CommandSession>, DaemonError> {
     let session_root = command_session_scratch_root();
@@ -311,12 +318,20 @@ fn prepare_command_session(
     let prepared = EphemeralWorkspaceOps::new(EphemeralCommandPreparePort {
         root,
         binding,
-        lease,
         session_dir,
         final_path,
     })
     .prepare_command_workspace(prepare_request(spec))
     .map_err(command_workspace_error)?;
+    let snapshot: EphemeralSnapshot = serde_json::from_value(
+        prepared
+            .finalize_context
+            .get("snapshot")
+            .cloned()
+            .ok_or_else(|| DaemonError::InvalidEnvelope("missing command snapshot".to_owned()))?,
+    )
+    .map_err(|err| DaemonError::InvalidEnvelope(err.to_string()))?;
+    let mut lease_cleanup = LeaseCleanup::new(root.to_path_buf(), snapshot.lease_id.clone());
     let dirs: EphemeralRunDirs = serde_json::from_value(
         prepared
             .finalize_context
@@ -329,11 +344,10 @@ fn prepare_command_session(
     write_run_request(&prepared.request_path, &prepared.run_request)?;
     let workspace = CommandWorkspaceKind::Ephemeral(EphemeralCommandWorkspace {
         root: root.to_path_buf(),
-        lease_id: lease.lease_id.clone(),
-        manifest: lease.manifest.clone(),
-        manifest_version: lease.manifest_version,
-        manifest_root_hash: lease.root_hash.clone(),
-        layer_paths: lease.layer_paths.iter().map(PathBuf::from).collect(),
+        lease_id: snapshot.lease_id,
+        manifest_version: snapshot.manifest_version,
+        manifest_root_hash: snapshot.manifest_root_hash,
+        layer_paths: snapshot.layer_paths,
         workspace_root: PathBuf::from(&binding.workspace_root),
         dirs,
     });
@@ -341,8 +355,36 @@ fn prepare_command_session(
         spawn_command_runner_session(spec, &prepared.request_path, transcript_path, workspace);
     if session.is_ok() {
         run_dir_cleanup.disarm();
+        lease_cleanup.disarm();
     }
     session
+}
+
+struct LeaseCleanup {
+    root: PathBuf,
+    lease_id: Option<String>,
+}
+
+impl LeaseCleanup {
+    fn new(root: PathBuf, lease_id: String) -> Self {
+        Self {
+            root,
+            lease_id: Some(lease_id),
+        }
+    }
+
+    fn disarm(&mut self) {
+        self.lease_id = None;
+    }
+}
+
+impl Drop for LeaseCleanup {
+    fn drop(&mut self) {
+        if let Some(lease_id) = self.lease_id.take() {
+            let _ = LayerStack::open(self.root.clone())
+                .and_then(|mut stack| stack.release_lease(&lease_id));
+        }
+    }
 }
 
 fn write_run_request(path: &Path, request: &Value) -> Result<(), DaemonError> {

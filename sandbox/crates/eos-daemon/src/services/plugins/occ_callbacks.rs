@@ -76,7 +76,7 @@ fn handle_apply_changeset(
         .map(|file| {
             json!({
                 "path": file.path.as_str(),
-                "status": occ_status_wire(file.status),
+                "status": file.status.wire_str(),
                 "message": file.message,
             })
         })
@@ -193,18 +193,6 @@ fn write_content(
 
 fn empty_string_as_none(value: Option<String>) -> Option<String> {
     value.and_then(|value| if value.is_empty() { None } else { Some(value) })
-}
-
-const fn occ_status_wire(status: eos_occ::OccStatus) -> &'static str {
-    match status {
-        eos_occ::OccStatus::Accepted => "accepted",
-        eos_occ::OccStatus::Committed => "committed",
-        eos_occ::OccStatus::AbortedVersion => "aborted_version",
-        eos_occ::OccStatus::AbortedOverlap => "aborted_overlap",
-        eos_occ::OccStatus::Dropped => "dropped",
-        eos_occ::OccStatus::Rejected => "rejected",
-        _ => "failed",
-    }
 }
 
 #[cfg(test)]

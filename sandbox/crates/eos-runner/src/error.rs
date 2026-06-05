@@ -23,7 +23,7 @@ pub enum RunnerError {
     #[error("invalid namespace runner request: {0}")]
     InvalidRequest(String),
 
-    /// The overlay mount port failed.
+    /// Overlay mounting failed.
     #[error("overlay mount failed")]
     Overlay(#[source] eos_overlay::OverlayError),
 

@@ -1,7 +1,12 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use eos_layerstack::{build_workspace_base, LayerChange, LayerPath, LayerRef, LayerStack};
+use eos_layerstack::{
+    build_workspace_base, ensure_workspace_base, LayerChange, LayerPath, LayerRef, LayerStack,
+    WorkspaceBinding, ACTIVE_MANIFEST_FILE, WORKSPACE_BINDING_FILE,
+};
+use eos_protocol::MANIFEST_SCHEMA_VERSION;
+use serde_json::json;
 
 type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -150,11 +155,117 @@ fn commit_to_workspace_projects_active_manifest_and_rebuilds_base() -> TestResul
     Ok(())
 }
 
+#[test]
+fn ensure_workspace_base_rejects_too_new_manifest_schema() -> TestResult {
+    let fixture = Fixture::new("workspace_base_new_schema");
+    write_bound_manifest(
+        &fixture,
+        json!({
+            "schema_version": MANIFEST_SCHEMA_VERSION + 1,
+            "version": 1,
+            "layers": [{"layer_id": "L000001", "path": "layers/L000001"}],
+        }),
+    )?;
+
+    let err = match ensure_workspace_base(&fixture.root, &fixture.workspace) {
+        Ok(_) => return Err("too-new manifest schema was accepted".into()),
+        Err(err) => err,
+    };
+    assert!(
+        err.to_string().contains("schema_version"),
+        "unexpected error: {err}"
+    );
+    Ok(())
+}
+
+#[test]
+fn ensure_workspace_base_rejects_invalid_manifest_layer_paths() -> TestResult {
+    let cases = [
+        ("workspace_base_empty_layer_path", ""),
+        ("workspace_base_parent_layer_path", "../outside"),
+        ("workspace_base_absolute_layer_path", "/abs/layer"),
+        ("workspace_base_nul_layer_path", "layers/\0bad"),
+    ];
+    for (label, path) in cases {
+        let fixture = Fixture::new(label);
+        write_bound_manifest(
+            &fixture,
+            json!({
+                "schema_version": MANIFEST_SCHEMA_VERSION,
+                "version": 1,
+                "layers": [{"layer_id": "L000001", "path": path}],
+            }),
+        )?;
+
+        let err = match ensure_workspace_base(&fixture.root, &fixture.workspace) {
+            Ok(_) => return Err(format!("{label} was accepted").into()),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("layer path"),
+            "{label} returned unexpected error: {err}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn build_workspace_base_writes_manifest_with_canonical_atomic_path() -> TestResult {
+    let fixture = Fixture::new("workspace_base_manifest_atomic");
+    std::fs::create_dir_all(&fixture.workspace)?;
+    std::fs::write(fixture.workspace.join("tracked.txt"), "base\n")?;
+
+    build_workspace_base(&fixture.root, &fixture.workspace, false)?;
+
+    let manifest = fixture.root.join(ACTIVE_MANIFEST_FILE);
+    assert!(manifest.exists());
+    let manifest_payload: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&manifest)?)?;
+    assert_eq!(
+        manifest_payload["schema_version"].as_i64(),
+        Some(MANIFEST_SCHEMA_VERSION)
+    );
+    let stale_tmp = std::fs::read_dir(&fixture.root)?.try_fold(false, |found, entry| {
+        let entry = entry?;
+        Ok::<_, std::io::Error>(
+            found
+                || entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".manifest.json."),
+        )
+    })?;
+    assert!(!stale_tmp, "atomic manifest writer left a temporary file");
+    Ok(())
+}
+
 fn publish_text(stack: &mut LayerStack, path: &str, content: &str) -> TestResult {
     stack.publish_layer(&[LayerChange::Write {
         path: LayerPath::parse(path)?,
         content: content.as_bytes().to_vec(),
     }])?;
+    Ok(())
+}
+
+fn write_bound_manifest(fixture: &Fixture, manifest: serde_json::Value) -> TestResult {
+    std::fs::create_dir_all(&fixture.root)?;
+    std::fs::create_dir_all(&fixture.workspace)?;
+    let binding = WorkspaceBinding {
+        workspace_root: fixture.workspace.to_string_lossy().into_owned(),
+        layer_stack_root: fixture.root.to_string_lossy().into_owned(),
+        active_manifest_version: 1,
+        active_root_hash: "root".to_owned(),
+        base_manifest_version: 1,
+        base_root_hash: "root".to_owned(),
+    };
+    std::fs::write(
+        fixture.root.join(WORKSPACE_BINDING_FILE),
+        serde_json::to_vec_pretty(&binding)?,
+    )?;
+    std::fs::write(
+        fixture.root.join(ACTIVE_MANIFEST_FILE),
+        serde_json::to_vec_pretty(&manifest)?,
+    )?;
     Ok(())
 }
 

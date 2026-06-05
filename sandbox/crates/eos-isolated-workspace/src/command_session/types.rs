@@ -10,15 +10,12 @@ use eos_workspace_api::{
 pub struct IsolatedCommandPrepareContext {
     pub workspace_handle_id: String,
     pub workspace_root: PathBuf,
+    pub scratch_dir: PathBuf,
     pub layer_paths: Vec<PathBuf>,
     pub upperdir: PathBuf,
     pub workdir: PathBuf,
     pub ns_fds: HashMap<String, i32>,
     pub cgroup_path: Option<PathBuf>,
-    pub session_dir: PathBuf,
-    pub final_path: PathBuf,
-    pub output_path: PathBuf,
-    pub request_path: PathBuf,
 }
 
 /// Daemon-supplied facts needed to finalize an isolated command workspace.

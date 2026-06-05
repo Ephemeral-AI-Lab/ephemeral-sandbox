@@ -6,12 +6,13 @@
 //! pointer-swaps a shorter manifest. Layers below a lease head stay on disk for
 //! that lease's frozen reads (see the DUAL-SET note in [`crate::lease`]).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use eos_protocol::{LayerRef, Manifest, MANIFEST_SCHEMA_VERSION};
 
 use crate::error::LayerStackError;
+use crate::fsutil::{check_layer_path, resolve_layer_path};
 use crate::{MergedView, LAYERS_DIR, STAGING_DIR};
 
 /// Leading discriminator for a built checkpoint layer id, distinguishing a
@@ -313,19 +314,8 @@ impl LayerCheckpointSquasher {
     }
 
     fn layer_path(&self, layer: &LayerRef) -> Result<PathBuf, LayerStackError> {
-        if layer.path.is_empty() || layer.path.contains('\0') {
-            return Err(LayerStackError::Manifest(
-                "invalid checkpoint layer path".to_owned(),
-            ));
-        }
-        let path = Path::new(&layer.path);
-        if path.is_absolute() || path.components().any(|part| part.as_os_str() == "..") {
-            return Err(LayerStackError::Manifest(format!(
-                "invalid checkpoint layer path: {}",
-                layer.path
-            )));
-        }
-        Ok(self.storage_root.join(path))
+        check_layer_path(&layer.path)?;
+        Ok(resolve_layer_path(&self.storage_root, &layer.path))
     }
 }
 

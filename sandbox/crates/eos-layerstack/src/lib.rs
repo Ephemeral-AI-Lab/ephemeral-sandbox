@@ -34,6 +34,7 @@
 #![forbid(unsafe_code)]
 
 pub mod error;
+pub(crate) mod fsutil;
 pub mod lease;
 pub mod squash;
 pub mod stack;

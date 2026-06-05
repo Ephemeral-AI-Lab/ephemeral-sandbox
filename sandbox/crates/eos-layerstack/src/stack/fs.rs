@@ -1,8 +1,8 @@
-use std::io::ErrorKind;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
 use crate::error::LayerStackError;
+use crate::fsutil::remove_path;
 use crate::storage_lock::STORAGE_WRITER_LOCK_FILE;
 
 use super::NEXT_TMP_WRITE;
@@ -72,22 +72,7 @@ pub(super) fn clear_storage_root_preserving_lock(
     Ok(())
 }
 
-pub(super) fn remove_path(path: &Path) -> Result<(), LayerStackError> {
-    match std::fs::symlink_metadata(path) {
-        Ok(meta) if meta.file_type().is_symlink() || meta.is_file() => {
-            std::fs::remove_file(path)?;
-        }
-        Ok(meta) if meta.is_dir() => {
-            std::fs::remove_dir_all(path)?;
-        }
-        Ok(_) => {}
-        Err(err) if err.kind() == ErrorKind::NotFound => {}
-        Err(err) => return Err(err.into()),
-    }
-    Ok(())
-}
-
-pub(super) fn write_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), LayerStackError> {
+pub(crate) fn write_atomic(path: impl AsRef<Path>, bytes: &[u8]) -> Result<(), LayerStackError> {
     let path = path.as_ref();
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;

@@ -62,6 +62,20 @@ pub enum OccStatus {
 }
 
 impl OccStatus {
+    /// Stable wire string for this path status.
+    #[must_use]
+    pub const fn wire_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "accepted",
+            Self::Committed => "committed",
+            Self::AbortedVersion => "aborted_version",
+            Self::AbortedOverlap => "aborted_overlap",
+            Self::Dropped => "dropped",
+            Self::Rejected => "rejected",
+            _ => "failed",
+        }
+    }
+
     /// Did this path actually land in a published manifest?
     #[must_use]
     pub const fn is_published(self) -> bool {
@@ -105,6 +119,18 @@ pub struct FileResult {
     pub message: String,
 }
 
+impl FileResult {
+    /// Return the diagnostic message, falling back when the result has none.
+    #[must_use]
+    pub fn conflict_message<'a>(&'a self, fallback: &'a str) -> &'a str {
+        if self.message.is_empty() {
+            fallback
+        } else {
+            self.message.as_str()
+        }
+    }
+}
+
 /// Aggregate result of a published (or aborted) changeset.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChangesetResult {
@@ -122,5 +148,30 @@ impl ChangesetResult {
     #[must_use]
     pub fn success(&self) -> bool {
         self.files.iter().all(|f| f.status.is_success())
+    }
+
+    /// First path that failed to reach a success status.
+    #[must_use]
+    pub fn first_conflict(&self) -> Option<&FileResult> {
+        self.files.iter().find(|file| !file.status.is_success())
+    }
+
+    /// Paths that landed in the published manifest.
+    #[must_use]
+    pub fn published_paths(&self) -> Vec<String> {
+        self.files
+            .iter()
+            .filter(|file| file.status.is_published())
+            .map(|file| file.path.as_str().to_owned())
+            .collect()
+    }
+
+    /// Count paths that landed in the published manifest.
+    #[must_use]
+    pub fn published_file_count(&self) -> usize {
+        self.files
+            .iter()
+            .filter(|file| file.status.is_published())
+            .count()
     }
 }
