@@ -17,7 +17,7 @@ has an unchecked hard item.
 | 1 | Workspace scaffold and crate relocation | complete | 2, 3, 4, 5, 6, 7 | `agent-core` has port-only sandbox deps; backend workspace builds |
 | 2 | Agent-core runtime seams | complete | 4, 5, 6, 7 | production `SandboxGateway` injection and `state_reader()` compile |
 | 3 | Backend config, types, store, and migrations | complete | 4, 5, 6, 7 | config/store tests pass with backend DB schema |
-| 4 | Sandbox lifecycle manager | not_started | 5, 6, 7 | lifecycle/refcount/delete-guard tests pass |
+| 4 | Sandbox lifecycle manager | complete | 5, 6, 7 | lifecycle/refcount/delete-guard tests pass (14 manager tests) |
 | 5 | Run launcher, cancellation, reaper, and event bus | not_started | 6, 7 | request launch and replay-safe event persistence tests pass |
 | 6 | Observability, audit ingestion, and stats | not_started | 7 | audit/correlation/stats tests pass |
 | 7 | HTTP API, streaming API, and OpenAPI | not_started | 8 | API contract and stream replay tests pass |
@@ -244,18 +244,18 @@ Implementation components:
 
 Hard acceptance checklist:
 
-- [ ] `SandboxManager` owns setup/destroy policy and no agent-core crate owns
+- [x] `SandboxManager` owns setup/destroy policy and no agent-core crate owns
   Docker lifecycle policy.
-- [ ] `SandboxManager::transport()` and `SandboxManager::provisioner()` share
+- [x] `SandboxManager::transport()` and `SandboxManager::provisioner()` share
   the same registry/lifecycle state.
-- [ ] Active run acquisition increments sandbox refcount.
-- [ ] Run completion/reaper release decrements sandbox refcount exactly once.
-- [ ] Delete rejects active or retained sandboxes.
-- [ ] Delete never requires or returns daemon auth material.
-- [ ] Request-scoped sandbox override accepts only `sandbox_id`.
-- [ ] Manager tests cover create, bind existing, release, delete rejection,
+- [x] Active run acquisition increments sandbox refcount.
+- [x] Run completion/reaper release decrements sandbox refcount exactly once.
+- [x] Delete rejects active or retained sandboxes.
+- [x] Delete never requires or returns daemon auth material.
+- [x] Request-scoped sandbox override accepts only `sandbox_id`.
+- [x] Manager tests cover create, bind existing, release, delete rejection,
   destroy-on-finish, and sanitized view generation.
-- [ ] Runtime and sandbox-manager tests live under
+- [x] Runtime and sandbox-manager tests live under
   `backend-server/crates/eos-backend-runtime/tests/`, not under `src/`.
 
 Verification commands:
