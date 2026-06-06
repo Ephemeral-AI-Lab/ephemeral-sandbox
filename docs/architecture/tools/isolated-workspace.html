@@ -86,9 +86,9 @@
 
 <section id="enter-tool"
   data-last-reviewed-commit="HEAD-plus-worktree"
-  data-evidence-paths="sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-isolated-workspace/src/session.rs sandbox/crates/eos-isolated-workspace/src/network.rs">
+  data-evidence-paths="agent-core/crates/eos-tools/src/tools/isolated_workspace agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-isolated-workspace/src/session.rs sandbox/crates/eos-isolated-workspace/src/network.rs">
 <h2>Enter Tool</h2>
-<p><code>enter_isolated_workspace</code> accepts an optional <code>layer_stack_root</code>. If the input is empty, the Rust tool pulls the root from the sandbox execution context, builds an <code>EnterIsolatedWorkspaceRequest</code> with caller identity, and reaches the daemon through the <code>eos-runtime</code> isolated-workspace port. The prehook runs before the tool body, so raw daemon lifecycle calls are not the agent-facing policy boundary.</p>
+<p><code>enter_isolated_workspace</code> accepts an optional <code>layer_stack_root</code>. If the input is empty, the Rust tool pulls the root from the sandbox execution context, builds an <code>EnterIsolatedWorkspaceRequest</code> with caller identity, and reaches the daemon through the executor-captured <code>SandboxToolService</code>. The prehook runs before the tool body, so raw daemon lifecycle calls are not the agent-facing policy boundary.</p>
 <pre class="diagram" aria-label="Isolated workspace enter ASCII workflow">
 [agent calls enter_isolated_workspace]
         |
@@ -96,7 +96,7 @@
 [RequireNoBackgroundSessions prehook]
         |
         v
-[runtime isolated-workspace port]
+[SandboxToolService daemon API]
         |
         v
 [daemon allocates scratch + snapshot lease]
@@ -136,13 +136,13 @@
 
 <section id="rust-python-parity"
   data-last-reviewed-commit="HEAD-plus-worktree"
-  data-evidence-paths=".eos-agents/tools/enter_isolated_workspace.md .eos-agents/tools/exit_isolated_workspace.md agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-tools/src/hooks/mod.rs agent-core/crates/eos-tools/src/registry/config.rs agent-core/crates/eos-runtime/src/isolated_workspace.rs agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/workspace_ops.rs sandbox/crates/eos-daemon/src/workspace_ops/isolated_workspace.rs sandbox/crates/eos-daemon/src/services/command_session/mod.rs sandbox/crates/eos-daemon/src/services/command_session/ports/isolated.rs sandbox/crates/eos-command-session/src/manager.rs sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-daemon/src/plugin/mod.rs">
+  data-evidence-paths=".eos-agents/tools/enter_isolated_workspace.md .eos-agents/tools/exit_isolated_workspace.md agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-tools/src/hooks/mod.rs agent-core/crates/eos-tools/src/registry/config.rs agent-core/crates/eos-tools/src/tools/isolated_workspace agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/workspace_ops.rs sandbox/crates/eos-daemon/src/workspace_ops/isolated_workspace.rs sandbox/crates/eos-daemon/src/services/command_session/mod.rs sandbox/crates/eos-daemon/src/services/command_session/ports/isolated.rs sandbox/crates/eos-command-session/src/manager.rs sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-daemon/src/plugin/mod.rs">
 <h2>Rust/Python Parity</h2>
 <p>The current production caller is the agent tool path, so the parity check starts at <code>eos-tools</code>, not at raw daemon calls. Direct daemon callers are not treated as an agent-facing gap.</p>
 <table>
   <thead><tr><th>Contract</th><th>Python backend shape</th><th>Rust current shape</th><th>Status / remaining gap</th></tr></thead>
   <tbody>
-    <tr><td>Lifecycle tool registration</td><td>Lifecycle definitions are registered with the sandbox tool set and call host lifecycle enter/exit.</td><td><code>.eos-agents/tools</code> registers lifecycle tools; <code>eos-tools</code> executors call the runtime isolated-workspace port.</td><td>Equivalent agent surface.</td></tr>
+    <tr><td>Lifecycle tool registration</td><td>Lifecycle definitions are registered with the sandbox tool set and call host lifecycle enter/exit.</td><td><code>.eos-agents/tools</code> registers lifecycle tools; <code>eos-tools</code> executors use captured <code>SandboxToolService</code> to call the daemon isolated API.</td><td>Equivalent agent surface.</td></tr>
     <tr><td>Enter background guard</td><td>Host lifecycle rejects when local sandbox-bound background tasks or daemon-visible command sessions are active.</td><td><code>RequireNoBackgroundSessions</code> rejects before enter while workflows, subagents, or command sessions are open.</td><td>Rust is now correctly wired and stricter in the agent domain.</td></tr>
     <tr><td>Exit background guard</td><td>Host lifecycle cancels/drains per-agent background tasks before daemon exit.</td><td><code>RequireNoBackgroundSessions</code> runs before exit, settles subagent records, refuses while workflows or command sessions remain, then calls daemon exit.</td><td>Intentional asymmetry; closes the agent-facing gap by making exit explicit and non-forced.</td></tr>
     <tr><td>Daemon lifecycle policy</td><td>Python host lifecycle owned the background-accounting policy before calling daemon exit.</td><td>Rust daemon enter/exit run command-session cleanup as a bypass backstop; the model-facing guard is <code>RequireNoBackgroundSessions</code>.</td><td>No command-session-only daemon guard remains in the production lifecycle; cleanup prevents orphaned sessions if the hook is bypassed.</td></tr>
@@ -207,7 +207,7 @@
 
 <section id="isolated-evidence-refresh"
   data-last-reviewed-commit="HEAD-plus-worktree"
-  data-evidence-paths=".eos-agents/tools/enter_isolated_workspace.md .eos-agents/tools/exit_isolated_workspace.md agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-runtime/src/isolated_workspace.rs agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/workspace_ops.rs sandbox/crates/eos-daemon/src/workspace_ops/isolated_workspace.rs sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-daemon/src/services/command_session/mod.rs sandbox/crates/eos-daemon/src/services/command_session/ports/isolated.rs sandbox/crates/eos-command-session/src/manager.rs sandbox/crates/eos-isolated-workspace/src/session.rs sandbox/crates/eos-isolated-workspace/src/network.rs sandbox/crates/eos-runner/src/setns.rs sandbox/crates/eos-ns-holder/src/lib.rs sandbox/crates/eos-daemon/tests/phase2_read_paths.rs">
+  data-evidence-paths=".eos-agents/tools/enter_isolated_workspace.md .eos-agents/tools/exit_isolated_workspace.md agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-tools/src/tools/isolated_workspace agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/workspace_ops.rs sandbox/crates/eos-daemon/src/workspace_ops/isolated_workspace.rs sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-daemon/src/services/command_session/mod.rs sandbox/crates/eos-daemon/src/services/command_session/ports/isolated.rs sandbox/crates/eos-command-session/src/manager.rs sandbox/crates/eos-isolated-workspace/src/session.rs sandbox/crates/eos-isolated-workspace/src/network.rs sandbox/crates/eos-runner/src/setns.rs sandbox/crates/eos-ns-holder/src/lib.rs sandbox/crates/eos-daemon/tests/phase2_read_paths.rs">
 <h2>Evidence and Refresh</h2>
 <div class="evidence-grid">
   <div class="evidence-card">
@@ -215,7 +215,7 @@
     <ul>
       <li><code>.eos-agents/tools/enter_isolated_workspace.md</code> and <code>.eos-agents/tools/exit_isolated_workspace.md</code> for Rust lifecycle tool config and <code>no_background_sessions</code> hook wiring.</li>
       <li><code>agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs</code> for the Rust agent-facing workflow/subagent/command-session guard.</li>
-      <li><code>agent-core/crates/eos-runtime/src/isolated_workspace.rs</code> and <code>agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs</code> for Rust model-tool to daemon RPC bridging.</li>
+      <li><code>agent-core/crates/eos-tools/src/tools/isolated_workspace</code> and <code>agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs</code> for Rust model-tool to daemon RPC bridging.</li>
       <li><code>agent-core/crates/eos-tools/src/tools/isolated_workspace</code> and <code>agent-core/crates/eos-sandbox-host/src</code> for lifecycle tool definitions and host background gating.</li>
       <li><code>sandbox/crates/eos-daemon/src/dispatch/dispatcher.rs</code> for the active isolated routing override.</li>
       <li><code>sandbox/crates/eos-isolated-workspace/src</code> for persistent handle/session, namespace, scratch, audit, TTL, and teardown behavior.</li>

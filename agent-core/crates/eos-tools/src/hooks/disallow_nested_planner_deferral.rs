@@ -13,6 +13,7 @@ use eos_types::JsonObject;
 
 use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
+use crate::tools::HookServices;
 
 use super::{deferred_goal, HookDenial, HookOutcome};
 
@@ -26,11 +27,12 @@ pub(crate) async fn run_disallow_nested_planner_deferral(
     max_depth: u32,
     raw_input: &JsonObject,
     ctx: &ExecutionMetadata,
+    services: &HookServices,
 ) -> Result<HookOutcome, ToolError> {
     if deferred_goal(raw_input).is_none() {
         return Ok(HookOutcome::pass());
     }
-    let (Some(workflow_id), Some(control)) = (&ctx.workflow_id, &ctx.workflow_control) else {
+    let (Some(workflow_id), Some(control)) = (&ctx.workflow_id, &services.workflow_control) else {
         return Ok(HookOutcome::pass());
     };
     if control.workflow_depth(workflow_id).await? > max_depth {
@@ -104,9 +106,9 @@ mod tests {
 
         let mut ctx = metadata();
         ctx.workflow_id = Some(WorkflowId::new_v4());
-        ctx.workflow_control = Some(Arc::new(FixedDepth(2)));
+        let services = crate::tools::HookServices::new(None, Some(Arc::new(FixedDepth(2))), None);
 
-        let outcome = run_disallow_nested_planner_deferral(1, &input, &ctx)
+        let outcome = run_disallow_nested_planner_deferral(1, &input, &ctx, &services)
             .await
             .expect("hook ran");
 
@@ -130,9 +132,9 @@ mod tests {
 
         let mut ctx = metadata();
         ctx.workflow_id = Some(WorkflowId::new_v4());
-        ctx.workflow_control = Some(Arc::new(FixedDepth(1)));
+        let services = crate::tools::HookServices::new(None, Some(Arc::new(FixedDepth(1))), None);
 
-        let outcome = run_disallow_nested_planner_deferral(1, &input, &ctx)
+        let outcome = run_disallow_nested_planner_deferral(1, &input, &ctx, &services)
             .await
             .expect("hook ran");
 

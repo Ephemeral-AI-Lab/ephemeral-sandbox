@@ -14,6 +14,7 @@ use serde_json::{json, Value};
 use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
+use crate::tools::HookServices;
 
 use super::{deferred_goal, HookDenial, HookOutcome};
 
@@ -68,10 +69,11 @@ pub(crate) async fn run_require_no_background_sessions(
     tool: ToolName,
     raw_input: &JsonObject,
     ctx: &ExecutionMetadata,
+    services: &HookServices,
 ) -> Result<HookOutcome, ToolError> {
     let agent_run_id = ctx.require_agent_run_id()?;
 
-    if let Some(supervisor) = &ctx.background_supervisor {
+    if let Some(supervisor) = &services.background_supervisor {
         // Terminal/exit tools settle the agent's subagents to 0; enter_isolated
         // only inspects (reject). After cancellation `report.subagent == 0`, so
         // the deny below fires only on the reject path.
@@ -97,7 +99,7 @@ pub(crate) async fn run_require_no_background_sessions(
     // Workflow dimension: the supervisor tracks workflow handles, but persisted
     // workflow lifecycle remains authoritative here. Deny while a delegated
     // workflow is still open.
-    if let (Some(control), Some(task_id)) = (&ctx.workflow_control, &ctx.task_id) {
+    if let (Some(control), Some(task_id)) = (&services.workflow_control, &ctx.task_id) {
         let outstanding = control.find_outstanding(task_id, agent_run_id).await?;
         if !outstanding.is_empty() {
             return Ok(HookOutcome::Deny(
@@ -122,8 +124,22 @@ pub(crate) async fn run_require_no_background_sessions(
         None => return Ok(HookOutcome::pass()),
     };
 
+    let Some(transport) = &services.sandbox_transport else {
+        return Ok(HookOutcome::Deny(
+            HookDenial::new(
+                format!(
+                    "BLOCKED: could not confirm background-task state from the sandbox daemon, \
+                     so {} is refused to avoid orphaning in-flight work. Retry shortly.",
+                    tool.as_str()
+                ),
+                "no_background_sessions",
+            )
+            .with_reason("command_session_count_unavailable"),
+        ));
+    };
+
     let daemon = match eos_sandbox_api::command_session_count(
-        &*ctx.transport,
+        &**transport,
         sandbox_id,
         agent_run_id.as_str(),
     )
@@ -329,21 +345,29 @@ mod tests {
         bind_agent_run(&mut ctx);
         ctx.sandbox_id = Some("sandbox-1".parse().expect("sandbox id"));
         // Every daemon RPC (here, command_session_count) errors.
-        ctx.transport = Arc::new(FakeTransport::new(|_, _| {
-            Err(SandboxApiError::Transport {
-                code: None,
-                message: "daemon down".to_owned(),
-            })
-        }));
+        let services = crate::tools::HookServices::new(
+            Some(Arc::new(FakeTransport::new(|_, _| {
+                Err(SandboxApiError::Transport {
+                    code: None,
+                    message: "daemon down".to_owned(),
+                })
+            }))),
+            None,
+            None,
+        );
 
         // A failed generator submission qualifies as a bailout.
         let mut input = JsonObject::new();
         input.insert("status".to_owned(), Value::String("failed".to_owned()));
 
-        let outcome =
-            run_require_no_background_sessions(ToolName::SubmitGeneratorOutcome, &input, &ctx)
-                .await
-                .expect("hook ran");
+        let outcome = run_require_no_background_sessions(
+            ToolName::SubmitGeneratorOutcome,
+            &input,
+            &ctx,
+            &services,
+        )
+        .await
+        .expect("hook ran");
         match outcome {
             HookOutcome::Pass(meta) => {
                 assert_eq!(meta["reason"], json!("daemon_unavailable_bailout"));
@@ -363,12 +387,13 @@ mod tests {
         let mut ctx = metadata();
         bind_agent_run(&mut ctx);
         ctx.task_id = Some("parent".parse().expect("task id"));
-        ctx.workflow_control = Some(Arc::new(OneOutstanding));
+        let services = crate::tools::HookServices::new(None, Some(Arc::new(OneOutstanding)), None);
 
         let outcome = run_require_no_background_sessions(
             ToolName::SubmitRootOutcome,
             &JsonObject::new(),
             &ctx,
+            &services,
         )
         .await
         .expect("hook ran");
@@ -392,12 +417,13 @@ mod tests {
         let supervisor = Arc::new(ReportSupervisor::new(report(1, 0, 0)));
         let mut ctx = metadata();
         bind_agent_run(&mut ctx);
-        ctx.background_supervisor = Some(supervisor.clone());
+        let services = crate::tools::HookServices::new(None, None, Some(supervisor.clone()));
 
         let outcome = run_require_no_background_sessions(
             ToolName::EnterIsolatedWorkspace,
             &JsonObject::new(),
             &ctx,
+            &services,
         )
         .await
         .expect("hook ran");
@@ -423,12 +449,13 @@ mod tests {
         let mut ctx = metadata();
         bind_agent_run(&mut ctx);
         ctx.task_id = Some("parent".parse().expect("task id"));
-        ctx.workflow_control = Some(Arc::new(OneOutstanding));
+        let services = crate::tools::HookServices::new(None, Some(Arc::new(OneOutstanding)), None);
 
         let outcome = run_require_no_background_sessions(
             ToolName::EnterIsolatedWorkspace,
             &JsonObject::new(),
             &ctx,
+            &services,
         )
         .await
         .expect("hook ran");
@@ -456,15 +483,20 @@ mod tests {
         let mut ctx = metadata();
         bind_agent_run(&mut ctx);
         ctx.sandbox_id = Some("sandbox-1".parse().expect("sandbox id"));
-        ctx.transport = Arc::new(FakeTransport::new(|op, _| match op {
-            DaemonOp::CommandSessionCount => Ok(json_object(json!({"count": 2}))),
-            _ => Ok(JsonObject::new()),
-        }));
+        let services = crate::tools::HookServices::new(
+            Some(Arc::new(FakeTransport::new(|op, _| match op {
+                DaemonOp::CommandSessionCount => Ok(json_object(json!({"count": 2}))),
+                _ => Ok(JsonObject::new()),
+            }))),
+            None,
+            None,
+        );
 
         let outcome = run_require_no_background_sessions(
             ToolName::EnterIsolatedWorkspace,
             &JsonObject::new(),
             &ctx,
+            &services,
         )
         .await
         .expect("hook ran");
@@ -492,17 +524,21 @@ mod tests {
         let supervisor = Arc::new(ReportSupervisor::new(report(3, 0, 0)));
         let mut ctx = metadata();
         bind_agent_run(&mut ctx);
-        ctx.background_supervisor = Some(supervisor.clone());
         ctx.sandbox_id = Some("sandbox-1".parse().expect("sandbox id"));
-        ctx.transport = Arc::new(FakeTransport::new(|op, _| match op {
-            DaemonOp::CommandSessionCount => Ok(json_object(json!({"count": 1}))),
-            _ => Ok(JsonObject::new()),
-        }));
+        let services = crate::tools::HookServices::new(
+            Some(Arc::new(FakeTransport::new(|op, _| match op {
+                DaemonOp::CommandSessionCount => Ok(json_object(json!({"count": 1}))),
+                _ => Ok(JsonObject::new()),
+            }))),
+            None,
+            Some(supervisor.clone()),
+        );
 
         let outcome = run_require_no_background_sessions(
             ToolName::ExitIsolatedWorkspace,
             &JsonObject::new(),
             &ctx,
+            &services,
         )
         .await
         .expect("hook ran");

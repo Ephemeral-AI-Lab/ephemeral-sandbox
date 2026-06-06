@@ -19,7 +19,12 @@ use super::super::{
 };
 use super::outputs::{CommandToolOutput, MutationOutput, ReadFileOutput};
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    sandbox_service: super::super::super::SandboxToolService,
+    command_service: super::super::super::CommandToolService,
+) {
     let read_file = config.get(ToolName::ReadFile);
     register_tool(
         registry,
@@ -32,7 +37,7 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(ReadFileOutput),
         ),
         OutputShape::json::<ReadFileOutput>("ReadFileOutput"),
-        Arc::new(ReadFile),
+        Arc::new(ReadFile::new(sandbox_service.clone())),
     );
     let write_file = config.get(ToolName::WriteFile);
     register_tool(
@@ -46,7 +51,7 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(MutationOutput),
         ),
         OutputShape::json::<MutationOutput>("WriteFileOutput"),
-        Arc::new(WriteFile),
+        Arc::new(WriteFile::new(sandbox_service.clone())),
     );
     let edit_file = config.get(ToolName::EditFile);
     register_tool(
@@ -60,7 +65,7 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(MutationOutput),
         ),
         OutputShape::json::<MutationOutput>("EditFileOutput"),
-        Arc::new(EditFile),
+        Arc::new(EditFile::new(sandbox_service.clone())),
     );
     let multi_edit = config.get(ToolName::MultiEdit);
     register_tool(
@@ -74,7 +79,7 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(MutationOutput),
         ),
         OutputShape::json::<MutationOutput>("MultiEditOutput"),
-        Arc::new(MultiEdit),
+        Arc::new(MultiEdit::new(sandbox_service)),
     );
     let exec_command = config.get(ToolName::ExecCommand);
     register_tool(
@@ -88,7 +93,7 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(CommandToolOutput),
         ),
         OutputShape::json::<CommandToolOutput>("CommandToolOutput"),
-        Arc::new(ExecCommand),
+        Arc::new(ExecCommand::new(command_service.clone())),
     );
     let write_stdin = config.get(ToolName::WriteStdin);
     register_tool(
@@ -102,6 +107,6 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(CommandToolOutput),
         ),
         OutputShape::json::<CommandToolOutput>("CommandToolOutput"),
-        Arc::new(WriteStdin),
+        Arc::new(WriteStdin::new(command_service)),
     );
 }

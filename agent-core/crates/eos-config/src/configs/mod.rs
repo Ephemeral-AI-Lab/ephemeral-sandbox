@@ -8,11 +8,13 @@
 
 mod attempt;
 mod database;
+mod models;
 mod providers;
 mod workflow;
 
 pub use attempt::AttemptConfig;
 pub use database::{DatabaseConfig, DatabaseUrl, DEFAULT_SQLITE_DATABASE_URL};
+pub use models::{ModelRegistrationConfig, ModelsConfig};
 pub use providers::{
     AnthropicApiConfig, ClaudeCodingPlanConfig, CodexCodingPlanConfig, OpenAiApiConfig,
     ProviderKind, ProvidersConfig, RetryConfig, SecretConfigValue,

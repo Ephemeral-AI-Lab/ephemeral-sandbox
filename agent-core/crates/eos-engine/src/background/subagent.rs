@@ -25,7 +25,7 @@ use serde_json::{json, Value};
 use super::handle::BackgroundSupervisorHandle;
 use super::supervisor::{BackgroundTaskStatus, SubagentRecord};
 use crate::notifications::NotificationService;
-use crate::{run_agent, AgentRunResult, AgentRunInput};
+use crate::{run_agent, AgentRunInput, AgentRunResult};
 
 const RECURSION_MESSAGE: &str = "run_subagent: subagents may not spawn further subagents. \
      This is a hard contract — handle the work directly or submit your findings via the terminal tool.";
@@ -214,9 +214,8 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
         }
         let sub_def = (**sub_def).clone();
 
-        // Build the child run input by deriving from the parent metadata (the
-        // engine has no `&AppState`; the child needs the parent's transport /
-        // stores / skill_registry to run its tools).
+        // Build the child run input by deriving identity facts from the parent
+        // metadata. Runtime services are passed explicitly below.
         let caller_agent_run_id = ctx.require_agent_run_id()?.clone();
         let mut tool_input = JsonObject::new();
         tool_input.insert("agent_name".to_owned(), json!(agent_name));
@@ -227,7 +226,6 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
         let mut child_meta = ctx.clone();
         child_meta.agent_name = sub_def.name.as_str().to_owned();
         child_meta.agent_run_id = Some(child_run_id.clone());
-        child_meta.notifications = Some(Arc::new(child_notifier.clone()));
         child_meta.conversation = Arc::from(Vec::<Message>::new());
         child_meta.tool_use_id = None;
         // A subagent must not register background command sessions: the single
@@ -235,7 +233,6 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
         // `[BACKGROUND COMPLETED]` would mis-route to the root conversation
         // (anchor §5/D5). Clearing the port makes a subagent's `exec_command`
         // run foreground-only — no supervisor registration, no heartbeat notify.
-        child_meta.command_session_supervisor = None;
 
         let run_input = AgentRunInput {
             agent: sub_def,
@@ -246,6 +243,10 @@ impl BackgroundSupervisorPort for BackgroundSupervisorHandle {
             task_id: None,
             agent_run_id: child_run_id,
             tool_metadata: child_meta,
+            attempt_submission: None,
+            workflow_control: None,
+            background_supervisor: Some(Arc::new(self.clone())),
+            command_session_supervisor: None,
             notifier: child_notifier,
             persist_agent_run: false,
         };

@@ -92,7 +92,7 @@ impl Database {
         self.models.clone()
     }
 
-    /// The concrete model registry (for `active_resolved` / `seed_from_json`,
+    /// The concrete model registry (for `active_resolved` / `sync_from_config`,
     /// which are not part of the `ModelStore` trait).
     #[must_use]
     pub fn model_registry(&self) -> Arc<ModelRegistry> {

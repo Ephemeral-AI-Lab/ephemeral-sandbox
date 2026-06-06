@@ -97,7 +97,7 @@ pub async fn run_pre_hooks(
     // itself is recorded in `hook_failure`, not the trace — Python parity).
     let mut hook_trace: Vec<Value> = Vec::new();
     for &hook in &tool.hooks {
-        match hook.run(raw_input, ctx).await? {
+        match hook.run(raw_input, ctx, &tool.hook_services).await? {
             HookOutcome::Pass(meta) => hook_trace.push(json!({
                 "phase": "pre",
                 "hook_name": hook.hook_name(),

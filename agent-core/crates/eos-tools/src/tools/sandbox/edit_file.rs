@@ -11,6 +11,7 @@ use crate::core::result::ToolResult;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
 
+use super::super::SandboxToolService;
 use super::lib::{default_empty, default_false, edit_output, request_base, resolve_path};
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -26,7 +27,15 @@ pub(super) struct EditFileInput {
     description: String,
 }
 
-pub(super) struct EditFile;
+pub(super) struct EditFile {
+    service: SandboxToolService,
+}
+
+impl EditFile {
+    pub(super) fn new(service: SandboxToolService) -> Self {
+        Self { service }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for EditFile {
@@ -60,7 +69,13 @@ impl ToolExecutor for EditFile {
                 replace_all: parsed.replace_all,
             }],
         };
-        let result = match eos_sandbox_api::edit_file(&*ctx.transport, sandbox_id, &request).await {
+        let result = match eos_sandbox_api::edit_file(
+            &*self.service.transport,
+            sandbox_id,
+            &request,
+        )
+        .await
+        {
             Ok(result) => result,
             Err(err) => return Ok(ToolResult::error(err.to_string())),
         };

@@ -4,7 +4,7 @@
 //! **Path A-recording (Phase-7 complete).** This runner is a thin engine-run
 //! wrapper. The submit tool drives the harness *during* the run: a
 //! `submit_planner/generator/reducer_outcome` resolves the wired recording
-//! [`PlanSubmissionPort`] from `ExecutionMetadata.plan_submission` and records
+//! [`AttemptSubmissionPort`] from `ExecutionMetadata.attempt_submission` and records
 //! the agent's real submission straight to the per-attempt orchestrator's
 //! non-advancing `record_*` variants (materialize / mark task Done|Failed). The
 //! runner therefore does not ferry a typed terminal back — it reports only
@@ -20,21 +20,22 @@ use async_trait::async_trait;
 use eos_engine::{run_agent, AgentRunInput, NotificationService};
 use eos_llm_client::Message;
 use eos_tools::{
-    BackgroundSupervisorPort, CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort,
-    WorkflowControlPort,
+    AttemptSubmissionPort, AttemptSubmissionService, BackgroundSupervisorPort,
+    CommandSessionSupervisorPort, WorkflowControlPort,
 };
 use eos_types::AgentRunId;
 use eos_workflow::{AgentLaunch, AgentRunReport, AgentRunner, Result as WorkflowResult};
 
-use crate::app_state::AppState;
+use crate::runtime_services::RuntimeServices;
 use crate::tool_context::{build_metadata, MetadataParams};
 
 /// Runtime adapter over the shared engine loop, supplied to `AttemptDeps.runner`.
 pub(crate) struct RuntimeAgentRunner {
-    state: AppState,
-    /// The recording plan-submission port (the wired `PlanSubmissionAdapter`
+    services: RuntimeServices,
+    workspace_root: String,
+    /// The recording attempt-submission port (the wired `AttemptSubmissionAdapter`
     /// over the shared attempt registry). Stateless and shared across all runs.
-    plan_submission: Arc<dyn PlanSubmissionPort>,
+    attempt_submission: Arc<dyn AttemptSubmissionPort>,
     /// The workflow-control port, late-bound at composition (it is built
     /// downstream of this runner via the `starter→attempt_deps→runner` chain).
     /// `get()` is `Some` by the time any run starts, so workflow agents' hooks
@@ -53,16 +54,18 @@ impl std::fmt::Debug for RuntimeAgentRunner {
 
 impl RuntimeAgentRunner {
     pub(crate) fn new(
-        state: AppState,
-        plan_submission: Arc<dyn PlanSubmissionPort>,
+        services: RuntimeServices,
+        workspace_root: impl Into<String>,
+        attempt_submission: Arc<dyn AttemptSubmissionPort>,
         workflow_control: Arc<OnceLock<Arc<dyn WorkflowControlPort>>>,
         background_supervisor: Arc<dyn BackgroundSupervisorPort>,
         command_session_supervisor: Arc<dyn CommandSessionSupervisorPort>,
         notifier: NotificationService,
     ) -> Self {
         Self {
-            state,
-            plan_submission,
+            services,
+            workspace_root: workspace_root.into(),
+            attempt_submission,
             workflow_control,
             background_supervisor,
             command_session_supervisor,
@@ -75,9 +78,8 @@ impl RuntimeAgentRunner {
 impl AgentRunner for RuntimeAgentRunner {
     async fn run(&self, launch: AgentLaunch) -> WorkflowResult<AgentRunReport> {
         let agent_run_id = AgentRunId::new_v4();
-        let sink: Arc<dyn NotificationSink> = Arc::new(self.notifier.clone());
         let metadata = build_metadata(
-            &self.state,
+            &self.workspace_root,
             MetadataParams {
                 agent_name: launch.agent_name().to_owned(),
                 sandbox_id: None,
@@ -86,11 +88,7 @@ impl AgentRunner for RuntimeAgentRunner {
                 task_id: Some(launch.task_id().clone()),
                 attempt_id: Some(launch.attempt_id().clone()),
                 workflow_id: Some(launch.workflow_id().clone()),
-                workflow_control: self.workflow_control.get().cloned(),
-                plan_submission: Some(self.plan_submission.clone()),
-                background_supervisor: Some(self.background_supervisor.clone()),
-                command_session_supervisor: Some(self.command_session_supervisor.clone()),
-                notifications: sink,
+                is_isolated_workspace_mode: false,
             },
         );
 
@@ -105,13 +103,19 @@ impl AgentRunner for RuntimeAgentRunner {
         }
 
         let run = run_agent(
-            &self.state.engine_run_handles(),
+            &self.services.engine_run_handles(&self.workspace_root),
             AgentRunInput {
                 agent: launch.agent_def().clone(),
                 initial_messages: vec![Message::from_user_text(prompt)],
                 task_id: Some(launch.task_id().clone()),
                 agent_run_id,
                 tool_metadata: metadata,
+                attempt_submission: Some(AttemptSubmissionService::new(
+                    self.attempt_submission.clone(),
+                )),
+                workflow_control: self.workflow_control.get().cloned(),
+                background_supervisor: Some(self.background_supervisor.clone()),
+                command_session_supervisor: Some(self.command_session_supervisor.clone()),
                 notifier: self.notifier.clone(),
                 persist_agent_run: true,
             },

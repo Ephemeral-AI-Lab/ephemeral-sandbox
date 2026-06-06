@@ -123,7 +123,7 @@ Typed `sqlx` row for the `model_registrations` table; mapped to a `ModelRegistra
 
 #### `ModelRegistry`  ·  _struct_  ·  derives: `Debug`  ·  [L56]
 
-`SQLite`-backed model registry (concrete; not a `Store` seam) providing registration CRUD, secret redaction, env-placeholder resolution, and JSON seeding.
+`SQLite`-backed model registry (concrete; not a `Store` seam) providing registration CRUD, secret redaction, env-placeholder resolution, and config-driven registration sync.
 
 **Fields**
 
@@ -135,7 +135,7 @@ Typed `sqlx` row for the `model_registrations` table; mapped to a `ModelRegistra
 
 <details><summary>Methods (4)</summary>
 
-`new`, `active_resolved`, `seed_from_json`, `register_inner`
+`new`, `active_resolved`, `sync_from_config`, `register_inner`
 
 </details>
 

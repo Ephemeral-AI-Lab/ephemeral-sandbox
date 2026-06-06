@@ -49,5 +49,5 @@ pub use provider::{
     PreviewUrl, ProviderAdapter, ProviderHealth, ProviderKind, RawExecResult, SandboxInfo,
     SnapshotInfo,
 };
-pub use provisioning::{RequestSandboxBinding, RequestSandboxProvisioner};
+pub use provisioning::{RequestProvisioner, RequestSandboxBinding, RequestSandboxProvisioner};
 pub use registry::{resolve_provider_kind, ProviderRegistry};

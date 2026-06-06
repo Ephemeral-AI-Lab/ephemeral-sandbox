@@ -1,9 +1,7 @@
-//! The composition-root dependency graph ([`AppState`]) and its
-//! [`AppStateBuilder`].
+//! Runtime service construction.
 //!
 //! Every store and seam is constructed exactly once here (GC-eos-runtime-02):
-//! there are no module-level mutable singletons. `AppState` is a cheap-to-clone
-//! handle (`Arc` fields) shared into each spawned agent and delegated workflow.
+//! there are no module-level mutable singletons.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex as StdMutex};
@@ -13,72 +11,26 @@ use async_trait::async_trait;
 use eos_agent_def::{load_agents_tree, AgentRegistry, AgentRegistryBuilder};
 use eos_audit::{AuditSink, BufferedAuditShutdown, BufferedJsonlSink, NoopAuditSink};
 use eos_config::{
-    DatabaseConfig, DatabaseUrl, ProviderKind, ProvidersConfig, SecretConfigValue, WorkflowConfig,
+    DatabaseConfig, DatabaseUrl, ModelsConfig, ProviderKind, ProvidersConfig, SecretConfigValue,
+    WorkflowConfig,
 };
 use eos_db::Database;
 use eos_llm_client::{Auth, LlmClient, LlmRequest, LlmStream, ProviderError};
 use eos_sandbox_api::SandboxTransport;
 use eos_sandbox_host::{
     resolve_provider_kind, DaemonClient, DockerProviderAdapter, ProviderRegistry,
-    RequestSandboxBinding, RequestSandboxProvisioner, SandboxLifecycle,
+    RequestProvisioner, RequestSandboxProvisioner, SandboxLifecycle,
 };
 use eos_skills::SkillRegistry;
-use eos_state::{
-    AgentRunStore, AttemptStore, IterationStore, ModelStore, RequestStore, TaskStore, WorkflowStore,
-};
 use eos_tools::{
-    build_default_registry, CallerScope, IsolatedWorkspacePort, ToolConfigSet, ToolKey,
-    ToolRegistry,
+    build_default_registry, CallerScope, SandboxToolService, ToolConfigSet, ToolKey, ToolRegistry,
 };
-use eos_types::RequestId;
 
-// The per-agent event-source factory and per-run stream-event callback are owned
-// by `eos-engine` (next to the loop they drive, so the engine-driven advisor run
-// can resolve a source without a runtime back-edge) and re-exported here for the
-// composition root and the `run_request` signature.
-pub use eos_engine::{EventCallback, EventSourceFactory};
-
-use crate::isolated_workspace::RuntimeIsolatedWorkspace;
+use super::{
+    AgentCoreRegistryService, AuditService, DbStoreService, EngineService, EventSourceFactory,
+    RuntimeServices, SandboxService,
+};
 use crate::plugin_tools::register_plugin_tools;
-
-/// Request-scoped sandbox provisioning seam.
-///
-/// `eos-sandbox-host` owns the production [`RequestSandboxProvisioner`] over the
-/// sealed `ProviderAdapter`/`SandboxLifecycle` seam (a parallel agent moved the
-/// work there). Because that adapter is sealed, `eos-runtime` cannot build a mock
-/// of it, so this narrow runtime seam exists purely for testability: production
-/// wraps the host provisioner; tests inject a fake.
-#[async_trait]
-pub(crate) trait RequestProvisioner: Send + Sync + std::fmt::Debug {
-    /// Resolve the sandbox binding for one request (start an explicit id, or
-    /// create a fresh `request-<hex8>` sandbox labelled `origin=workflow`).
-    async fn prepare_for_run(
-        &self,
-        request_id: &RequestId,
-        sandbox_id: Option<&str>,
-    ) -> Result<RequestSandboxBinding>;
-}
-
-/// Production provisioner: wraps the `eos-sandbox-host` provisioner over the real
-/// container lifecycle.
-#[derive(Debug)]
-struct HostProvisioner {
-    inner: Arc<RequestSandboxProvisioner>,
-}
-
-#[async_trait]
-impl RequestProvisioner for HostProvisioner {
-    async fn prepare_for_run(
-        &self,
-        request_id: &RequestId,
-        sandbox_id: Option<&str>,
-    ) -> Result<RequestSandboxBinding> {
-        self.inner
-            .prepare_for_run(request_id, sandbox_id)
-            .await
-            .context("sandbox provisioning failed")
-    }
-}
 
 /// Placeholder client used when no provider is selected and no
 /// `event_source_factory` is set. Streaming always errors; production wires a
@@ -95,86 +47,16 @@ impl LlmClient for UnconfiguredLlmClient {
     }
 }
 
-/// The composition-root dependency graph. Cloning is cheap (every field is an
-/// `Arc` or `Clone`-internal handle).
-#[derive(Clone)]
-#[non_exhaustive]
-pub struct AppState {
-    pub(crate) workflow: WorkflowConfig,
-    pub(crate) cwd: String,
-    pub(crate) repo_root: String,
-    pub(crate) task_store: Arc<dyn TaskStore>,
-    pub(crate) request_store: Arc<dyn RequestStore>,
-    pub(crate) workflow_store: Arc<dyn WorkflowStore>,
-    pub(crate) iteration_store: Arc<dyn IterationStore>,
-    pub(crate) attempt_store: Arc<dyn AttemptStore>,
-    pub(crate) agent_run_store: Arc<dyn AgentRunStore>,
-    pub(crate) model_store: Arc<dyn ModelStore>,
-    pub(crate) llm_client: Arc<dyn LlmClient>,
-    pub(crate) event_source_factory: Option<EventSourceFactory>,
-    pub(crate) audit: Arc<dyn AuditSink>,
-    pub(crate) audit_shutdown: Arc<StdMutex<Option<BufferedAuditShutdown>>>,
-    pub(crate) tool_config: Arc<ToolConfigSet>,
-    pub(crate) agent_registry: Arc<AgentRegistry>,
-    pub(crate) skill_registry: Arc<SkillRegistry>,
-    pub(crate) transport: Arc<dyn SandboxTransport>,
-    pub(crate) isolated_workspace: Arc<dyn IsolatedWorkspacePort>,
-    pub(crate) provisioner: Arc<dyn RequestProvisioner>,
-}
-
-impl std::fmt::Debug for AppState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AppState")
-            .field("cwd", &self.cwd)
-            .field("repo_root", &self.repo_root)
-            .field("agents", &self.agent_registry.list().count())
-            .finish_non_exhaustive()
-    }
-}
-
-impl AppState {
-    /// Start building an `AppState`.
-    pub fn builder() -> AppStateBuilder {
-        AppStateBuilder::default()
-    }
-
-    /// Bundle the explicit run handles `eos_engine::run_agent` needs (in
-    /// place of `&AppState`, advisor remediation plan §6). Cheap (Arc/`String`
-    /// clones); the root-agent and delegated-workflow runners pass this in.
-    pub(crate) fn engine_run_handles(&self) -> eos_engine::EngineRunHandles {
-        eos_engine::EngineRunHandles {
-            agent_run_store: self.agent_run_store.clone(),
-            model_store: self.model_store.clone(),
-            llm_client: self.llm_client.clone(),
-            event_source_factory: self.event_source_factory.clone(),
-            agent_registry: self.agent_registry.clone(),
-            tool_config: self.tool_config.clone(),
-            tool_registry_extender: Some(Arc::new(register_plugin_tools)),
-            audit: self.audit.clone(),
-            cwd: self.cwd.clone(),
-        }
-    }
-
-    /// Flush and join the buffered audit writer thread, if any (graceful
-    /// shutdown). Idempotent: a second call is a no-op.
-    pub fn flush_audit(&self) {
-        if let Ok(mut guard) = self.audit_shutdown.lock() {
-            if let Some(shutdown) = guard.take() {
-                shutdown.shutdown();
-            }
-        }
-    }
-}
-
-/// `#[must_use]` builder for [`AppState`]. Every field is an optional override:
+/// `#[must_use]` builder for [`RuntimeServices`]. Every field is an optional override:
 /// `None` selects the production default. Tests inject in-memory stores, a mock
 /// `event_source_factory`, a fake provisioner, and explicit registries.
-#[must_use = "AppStateBuilder does nothing until build() is called"]
+#[must_use = "RuntimeServicesBuilder does nothing until build() is called"]
 #[derive(Default)]
-pub struct AppStateBuilder {
+pub struct RuntimeServicesBuilder {
     database_url: Option<String>,
-    cwd: Option<String>,
+    workspace_root: Option<String>,
     llm_client: Option<Arc<dyn LlmClient>>,
+    models_config: Option<ModelsConfig>,
     providers_config: Option<ProvidersConfig>,
     workflow_config: Option<WorkflowConfig>,
     event_source_factory: Option<EventSourceFactory>,
@@ -186,21 +68,20 @@ pub struct AppStateBuilder {
     tools_root: Option<PathBuf>,
     skill_registry: Option<Arc<SkillRegistry>>,
     skill_root: Option<PathBuf>,
-    model_registry_path: Option<PathBuf>,
     provisioner: Option<Arc<dyn RequestProvisioner>>,
     transport: Option<Arc<dyn SandboxTransport>>,
     compatibility_mode: bool,
 }
 
-impl std::fmt::Debug for AppStateBuilder {
+impl std::fmt::Debug for RuntimeServicesBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AppStateBuilder")
+        f.debug_struct("RuntimeServicesBuilder")
             .field("compatibility_mode", &self.compatibility_mode)
             .finish_non_exhaustive()
     }
 }
 
-impl AppStateBuilder {
+impl RuntimeServicesBuilder {
     /// Override the database URL (test seam; a network URL makes `build()` fail
     /// fast).
     pub fn database_url(mut self, url: impl Into<String>) -> Self {
@@ -208,15 +89,21 @@ impl AppStateBuilder {
         self
     }
 
-    /// Set the working directory (process cwd by default).
-    pub fn cwd(mut self, cwd: impl Into<String>) -> Self {
-        self.cwd = Some(cwd.into());
+    /// Set the workspace root used for build-time defaults.
+    pub fn workspace_root(mut self, workspace_root: impl Into<String>) -> Self {
+        self.workspace_root = Some(workspace_root.into());
         self
     }
 
     /// Inject an LLM client (an unconfigured placeholder by default).
     pub fn llm_client(mut self, client: Arc<dyn LlmClient>) -> Self {
         self.llm_client = Some(client);
+        self
+    }
+
+    /// Inject model registry config.
+    pub fn models_config(mut self, config: ModelsConfig) -> Self {
+        self.models_config = Some(config);
         self
     }
 
@@ -287,12 +174,6 @@ impl AppStateBuilder {
         self
     }
 
-    /// Seed the model registry from this JSON file (missing file is non-fatal).
-    pub fn model_registry_path(mut self, path: impl Into<PathBuf>) -> Self {
-        self.model_registry_path = Some(path.into());
-        self
-    }
-
     /// Inject a request provisioner (a host-backed provisioner by default).
     #[cfg(test)]
     pub(crate) fn provisioner(mut self, provisioner: Arc<dyn RequestProvisioner>) -> Self {
@@ -315,14 +196,14 @@ impl AppStateBuilder {
     }
 
     /// Construct the runtime graph: build the `SQLite` pool (fail fast on a network
-    /// URL), construct every store and seam, optionally seed the model registry,
+    /// URL), construct every store and seam, apply the model registry config,
     /// and validate agent profile tool names against the registry.
     ///
     /// # Errors
     /// Returns an error if the DB URL is non-local, the pool/migrations fail, a
     /// configured agent/skill/plugin root cannot be loaded, or (without
     /// compatibility mode) an agent names an unknown tool.
-    pub async fn build(self) -> Result<AppState> {
+    pub async fn build(self) -> Result<RuntimeServices> {
         // Database: a network URL fails fast at parse (GC: SQLite-only).
         // `DatabaseConfig` is `#[non_exhaustive]`, so override the url by mutation
         // rather than struct-update syntax.
@@ -335,38 +216,36 @@ impl AppStateBuilder {
             .await
             .context("opening the sqlite database")?;
 
-        let cwd = self
-            .cwd
+        let workspace_root = self
+            .workspace_root
             .or_else(|| {
                 std::env::current_dir()
                     .ok()
                     .map(|p| p.display().to_string())
             })
             .unwrap_or_default();
-        let repo_root = cwd.clone();
 
-        // Optional model-registry seed (GC-eos-runtime-04: missing JSON is
-        // non-fatal — seed_from_json returns Ok(0) for a missing file).
-        let model_path = self.model_registry_path.or_else(|| {
-            let candidate = PathBuf::from(&repo_root)
-                .join("models")
-                .join("registry.json");
-            candidate.is_file().then_some(candidate)
-        });
-        if let Some(path) = &model_path {
-            match database
-                .model_registry()
-                .seed_from_json(&path.display().to_string())
-                .await
-            {
-                Ok(count) => tracing::info!(models = count, "seeded model registry"),
-                Err(err) => {
-                    tracing::warn!(error = %err, "model registry seed skipped (non-fatal)");
-                }
+        let config_doc = eos_config::load().context("loading runtime config")?;
+        let models_config = match self.models_config {
+            Some(config) => config,
+            None => config_doc
+                .section::<ModelsConfig>("models")
+                .context("loading models config")?,
+        };
+        models_config
+            .validate()
+            .context("validating models config")?;
+        match database
+            .model_registry()
+            .sync_from_config(&models_config)
+            .await
+        {
+            Ok(count) => tracing::info!(models = count, "applied model registry config"),
+            Err(err) => {
+                tracing::warn!(error = %err, "model registry config skipped (non-fatal)");
             }
         }
 
-        let config_doc = eos_config::load().context("loading runtime config")?;
         let workflow_config = match self.workflow_config {
             Some(config) => config,
             None => config_doc
@@ -428,15 +307,6 @@ impl AppStateBuilder {
             ),
         };
 
-        let mut tool_registry = build_default_registry(&tool_config, &CallerScope::default());
-        register_plugin_tools(&mut tool_registry);
-
-        // Cross-registry validation: unknown agent tool names fail fast unless
-        // compatibility mode is enabled (anchor §10 / AC-eos-runtime-09).
-        if !self.compatibility_mode {
-            validate_agent_tools(&agent_registry, &tool_registry)?;
-        }
-
         let needs_host_provider = self.transport.is_none() || self.provisioner.is_none();
         let provider_registry = Arc::new(ProviderRegistry::new());
         if needs_host_provider {
@@ -445,43 +315,57 @@ impl AppStateBuilder {
         let daemon_client = Arc::new(DaemonClient::new(provider_registry));
         let transport: Arc<dyn SandboxTransport> =
             self.transport.unwrap_or_else(|| daemon_client.clone());
-        let isolated_workspace: Arc<dyn IsolatedWorkspacePort> =
-            Arc::new(RuntimeIsolatedWorkspace::new(transport.clone()));
-        let eosd_artifact_dir = default_eosd_artifact_dir(&repo_root);
+        let mut tool_registry = build_default_registry(&tool_config, &CallerScope::default());
+        register_plugin_tools(
+            &mut tool_registry,
+            &SandboxToolService::new(transport.clone()),
+        );
+
+        // Cross-registry validation: unknown agent tool names fail fast unless
+        // compatibility mode is enabled (anchor §10 / AC-eos-runtime-09).
+        if !self.compatibility_mode {
+            validate_agent_tools(&agent_registry, &tool_registry)?;
+        }
+
+        let eosd_artifact_dir = default_eosd_artifact_dir(&workspace_root);
 
         let provisioner: Arc<dyn RequestProvisioner> = self.provisioner.unwrap_or_else(|| {
             let lifecycle = SandboxLifecycle::new(daemon_client.clone(), eosd_artifact_dir);
-            Arc::new(HostProvisioner {
-                inner: Arc::new(RequestSandboxProvisioner::with_default_snapshot(
-                    Arc::new(lifecycle),
-                    // No host-side default snapshot: a fresh sandbox uses the
-                    // provider default unless a request supplies an explicit id.
-                    None,
-                )),
-            })
+            Arc::new(RequestSandboxProvisioner::with_default_snapshot(
+                Arc::new(lifecycle),
+                // No host-side default snapshot: a fresh sandbox uses the
+                // provider default unless a request supplies an explicit id.
+                None,
+            ))
         });
 
-        Ok(AppState {
-            workflow: workflow_config,
-            cwd,
-            repo_root,
-            task_store: database.tasks(),
-            request_store: database.requests(),
-            workflow_store: database.workflows(),
-            iteration_store: database.iterations(),
-            attempt_store: database.attempts(),
-            agent_run_store: database.agent_runs(),
-            model_store: database.models(),
-            llm_client,
-            event_source_factory: self.event_source_factory,
-            audit,
-            audit_shutdown: Arc::new(StdMutex::new(audit_shutdown)),
-            tool_config,
-            agent_registry,
-            skill_registry,
-            transport,
-            isolated_workspace,
-            provisioner,
+        Ok(RuntimeServices {
+            db: DbStoreService {
+                task_store: database.tasks(),
+                request_store: database.requests(),
+                workflow_store: database.workflows(),
+                iteration_store: database.iterations(),
+                attempt_store: database.attempts(),
+                agent_run_store: database.agent_runs(),
+                model_store: database.models(),
+            },
+            agent_core: AgentCoreRegistryService {
+                agent_registry,
+                skill_registry,
+                tool_config,
+            },
+            engine: EngineService {
+                llm_client,
+                event_source_factory: self.event_source_factory,
+            },
+            sandbox: SandboxService {
+                transport,
+                provisioner,
+            },
+            audit: AuditService {
+                sink: audit,
+                shutdown: Arc::new(StdMutex::new(audit_shutdown)),
+            },
         })
     }
 }
@@ -565,8 +449,8 @@ fn seed_default_sandbox_provider(registry: &ProviderRegistry) -> Result<()> {
     Ok(())
 }
 
-fn default_eosd_artifact_dir(repo_root: &str) -> PathBuf {
-    PathBuf::from(repo_root).join("sandbox").join("dist")
+fn default_eosd_artifact_dir(workspace_root: &str) -> PathBuf {
+    PathBuf::from(workspace_root).join("sandbox").join("dist")
 }
 
 fn build_agent_registry(dir: Option<&std::path::Path>) -> Result<AgentRegistry> {
@@ -593,11 +477,12 @@ fn build_skill_registry(root: Option<&std::path::Path>) -> Result<SkillRegistry>
 
 /// Load the externalized tool config. Unlike skills/plugins, the tool config is
 /// **mandatory** (the registry needs all tools), so a missing root is an error:
-/// inject via [`AppStateBuilder::tool_config`] or point at a `.eos-agents/tools`
-/// tree via [`AppStateBuilder::tools_root`].
+/// inject via [`RuntimeServicesBuilder::tool_config`] or point at a `.eos-agents/tools`
+/// tree via [`RuntimeServicesBuilder::tools_root`].
 fn build_tool_config(root: Option<&std::path::Path>) -> Result<ToolConfigSet> {
-    let root = root
-        .context("tool config root not set: call AppStateBuilder::tools_root or ::tool_config")?;
+    let root = root.context(
+        "tool config root not set: call RuntimeServicesBuilder::tools_root or ::tool_config",
+    )?;
     ToolConfigSet::load_from_dir(root).context("loading tool config")
 }
 
@@ -618,16 +503,6 @@ fn validate_agent_tools(agents: &AgentRegistry, registry: &ToolRegistry) -> Resu
     }
     Ok(())
 }
-
-// Crate-local Layer-A fixtures (`build_test_state` + `FakeProvisioner`). They
-// reference `eos-runtime` types, so the dev-dep two-instance rule bars consuming
-// them from an external `eos-testkit` in this crate's own in-crate tests
-// (`TESTING_SPEC` §14.2); the cross-crate-safe doubles still come from
-// `eos-testkit`. Declared here (not under `tests`) so they can reach the
-// `pub(crate)` provisioner seam via `super::`.
-#[cfg(test)]
-#[path = "../tests/unit/support.rs"]
-pub(crate) mod support;
 
 #[cfg(test)]
 mod tests {

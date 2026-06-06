@@ -15,12 +15,21 @@ use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
+use crate::tools::AttemptSubmissionService;
 
 use super::super::lib::{
     is_blank, meta_obj, submission_ack_result, OutcomeInput, SubmissionStatus,
 };
 
-struct SubmitReducerOutcome;
+struct SubmitReducerOutcome {
+    service: Option<AttemptSubmissionService>,
+}
+
+impl SubmitReducerOutcome {
+    fn new(service: Option<AttemptSubmissionService>) -> Self {
+        Self { service }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for SubmitReducerOutcome {
@@ -45,8 +54,11 @@ impl ToolExecutor for SubmitReducerOutcome {
             outcome: parsed.outcome.clone(),
             terminal_tool_result: JsonObject::new(),
         };
-        let ack = ctx
-            .require_plan_submission()?
+        let ack = self
+            .service
+            .as_ref()
+            .ok_or(ToolError::MissingPort("attempt_submission"))?
+            .port
             .apply_reducer(submission)
             .await?;
         Ok(submission_ack_result(
@@ -71,7 +83,11 @@ impl ToolExecutor for SubmitReducerOutcome {
     }
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    attempt_submission: Option<AttemptSubmissionService>,
+) {
     let reducer = config.get(ToolName::SubmitReducerOutcome);
     super::super::super::register_tool(
         registry,
@@ -83,6 +99,6 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(OutcomeInput),
         ),
         OutputShape::Text,
-        Arc::new(SubmitReducerOutcome),
+        Arc::new(SubmitReducerOutcome::new(attempt_submission)),
     );
 }

@@ -273,7 +273,7 @@
 <p>Subsequent tool calls do not create/destroy overlays. Python <code>IsolatedPipeline.run_tool_call()</code> wraps the existing handle into an <code>OverlayHandle</code>, runs in the existing namespace, marks <code>workspace=isolated</code>, and for <code>Intent.WRITE_ALLOWED</code> captures <code>changed_paths</code> for audit/result visibility only <span class="file-ref">sandbox/crates/eos-isolated-workspace/src/ops.rs</span>. Rust <code>workspace_ops</code> applies the same no-publish routing for file and search verbs through <span class="file-ref">sandbox/crates/eos-daemon/src/workspace_ops/isolated_workspace.rs</span>, while the daemon command-session isolated policy applies it for command sessions and <code>eos-command-session</code> remains workspace-mode agnostic <span class="file-ref">sandbox/crates/eos-daemon/src/services/command_session/ports/isolated.rs</span>, <span class="file-ref">sandbox/crates/eos-command-session/src/manager.rs</span>. Neither path commits through OCC; writes are discarded when the scratch dir is removed on exit. Exit removes the handle from the maps first, measures discarded upperdir bytes, kills the holder, tears down veth, closes fds, releases the snapshot lease, removes the cgroup, deletes the scratch dir, persists the new state, and emits an exit audit event <span class="file-ref">sandbox/crates/eos-isolated-workspace/src/session/lifecycle.rs</span>.</p>
 
 </section>
-<section id="isolated-lifecycle-detail" data-last-reviewed-commit="HEAD-plus-worktree" data-evidence-paths="agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-runtime/src/isolated_workspace.rs agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-isolated-workspace/src/session.rs sandbox/crates/eos-isolated-workspace/src/network.rs sandbox/crates/eos-daemon/src/services/command_session/mod.rs sandbox/crates/eos-command-session/src/manager.rs sandbox/crates/eos-ns-holder/src/lib.rs sandbox/crates/eos-daemon/tests/phase2_read_paths.rs">
+<section id="isolated-lifecycle-detail" data-last-reviewed-commit="HEAD-plus-worktree" data-evidence-paths="agent-core/crates/eos-tools/src/hooks/require_no_background_sessions.rs agent-core/crates/eos-tools/src/tools/isolated_workspace agent-core/crates/eos-sandbox-api/src/tool_api/isolated.rs sandbox/crates/eos-daemon/src/services/isolated_workspace/mod.rs sandbox/crates/eos-isolated-workspace/src/session.rs sandbox/crates/eos-isolated-workspace/src/network.rs sandbox/crates/eos-daemon/src/services/command_session/mod.rs sandbox/crates/eos-command-session/src/manager.rs sandbox/crates/eos-ns-holder/src/lib.rs sandbox/crates/eos-daemon/tests/phase2_read_paths.rs">
 <h3>5.4.1 Enter, Run, Exit Details <a class="anchor" href="#isolated-lifecycle-detail">§</a></h3>
 
 <pre class="diagram" aria-label="Isolated enter technical lifecycle route">
@@ -283,7 +283,7 @@
 [RequireNoBackgroundSessions prehook]
         |
         v
-[runtime isolated-workspace port]
+[SandboxToolService daemon API]
         |
         v
 [daemon control-plane enter request]

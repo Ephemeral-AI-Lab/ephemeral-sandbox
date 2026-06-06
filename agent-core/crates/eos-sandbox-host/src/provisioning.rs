@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use eos_types::{RequestId, SandboxId};
 
 use crate::error::SandboxHostError;
@@ -23,6 +24,21 @@ pub struct RequestSandboxBinding {
     pub sandbox_id: SandboxId,
     /// The originating request.
     pub request_id: RequestId,
+}
+
+/// Request-scoped sandbox provisioning contract.
+///
+/// This is the host-side boundary runtime composition depends on: callers either
+/// provide an explicit sandbox id to start, or ask the host to create and bind a
+/// fresh request sandbox.
+#[async_trait]
+pub trait RequestProvisioner: Send + Sync + std::fmt::Debug {
+    /// Resolve the sandbox binding for one request.
+    async fn prepare_for_run(
+        &self,
+        request_id: &RequestId,
+        sandbox_id: Option<&str>,
+    ) -> Result<RequestSandboxBinding, SandboxHostError>;
 }
 
 /// Builds the create spec for the fresh-sandbox branch: a `request-<8 hex>`
@@ -106,6 +122,17 @@ impl RequestSandboxProvisioner {
             sandbox_id: info.id,
             request_id: request_id.clone(),
         })
+    }
+}
+
+#[async_trait]
+impl RequestProvisioner for RequestSandboxProvisioner {
+    async fn prepare_for_run(
+        &self,
+        request_id: &RequestId,
+        sandbox_id: Option<&str>,
+    ) -> Result<RequestSandboxBinding, SandboxHostError> {
+        RequestSandboxProvisioner::prepare_for_run(self, request_id, sandbox_id).await
     }
 }
 

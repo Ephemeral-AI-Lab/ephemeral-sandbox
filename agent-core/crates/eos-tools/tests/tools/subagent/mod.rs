@@ -124,10 +124,9 @@ fn obj(pairs: &[(&str, serde_json::Value)]) -> JsonObject {
 #[tokio::test]
 async fn run_subagent_returns_session_handle() {
     let supervisor = Arc::new(FakeBackgroundSupervisor::default());
-    let mut ctx = metadata();
-    ctx.background_supervisor = Some(supervisor.clone());
+    let ctx = metadata();
 
-    let res = RunSubagent
+    let res = RunSubagent::new(Some(supervisor.clone()))
         .execute(
             &obj(&[
                 ("agent_name", json!("explorer")),
@@ -151,11 +150,10 @@ async fn run_subagent_returns_session_handle() {
 #[tokio::test]
 async fn check_subagent_progress_rejects_out_of_range_last_n() {
     let supervisor = Arc::new(FakeBackgroundSupervisor::default());
-    let mut ctx = metadata();
-    ctx.background_supervisor = Some(supervisor);
+    let ctx = metadata();
 
     for last_n in [0, 11] {
-        let res = CheckSubagentProgress
+        let res = CheckSubagentProgress::new(Some(supervisor.clone()))
             .execute(
                 &obj(&[
                     ("subagent_session_id", json!("subagent_1")),
@@ -173,7 +171,7 @@ async fn check_subagent_progress_rejects_out_of_range_last_n() {
 #[tokio::test]
 async fn subagent_controls_reject_empty_session_id() {
     let ctx = metadata();
-    let progress = CheckSubagentProgress
+    let progress = CheckSubagentProgress::new(None)
         .execute(
             &obj(&[
                 ("subagent_session_id", json!("")),
@@ -186,7 +184,7 @@ async fn subagent_controls_reject_empty_session_id() {
     assert!(progress.is_error);
     assert!(progress.output.contains("subagent_session_id"));
 
-    let cancel = CancelSubagent
+    let cancel = CancelSubagent::new(None)
         .execute(
             &obj(&[("subagent_session_id", json!("")), ("reason", json!("x"))]),
             &ctx,

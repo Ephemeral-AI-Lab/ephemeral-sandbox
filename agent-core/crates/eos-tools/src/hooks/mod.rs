@@ -22,6 +22,7 @@ use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
 use crate::core::result::ToolResult;
+use crate::tools::HookServices;
 
 mod advisor_approval;
 mod disallow_nested_planner_deferral;
@@ -181,6 +182,7 @@ impl Hook {
         self,
         raw_input: &JsonObject,
         ctx: &ExecutionMetadata,
+        services: &HookServices,
     ) -> Result<HookOutcome, ToolError> {
         match self {
             Hook::DestructiveGitShell { .. } => Ok(run_destructive_git(raw_input)),
@@ -188,7 +190,7 @@ impl Hook {
             Hook::BlockInIsolatedMode { .. } => run_block_in_isolated_mode(ctx).await,
             Hook::RequireNoBackgroundSessions { tool } => {
                 require_no_background_sessions::run_require_no_background_sessions(
-                    tool, raw_input, ctx,
+                    tool, raw_input, ctx, services,
                 )
                 .await
             }
@@ -197,7 +199,7 @@ impl Hook {
             }
             Hook::DisallowNestedPlannerDeferral { max_depth, .. } => {
                 disallow_nested_planner_deferral::run_disallow_nested_planner_deferral(
-                    max_depth, raw_input, ctx,
+                    max_depth, raw_input, ctx, services,
                 )
                 .await
             }
@@ -492,19 +494,13 @@ const BLOCK_IN_ISOLATED_MESSAGE: &str = "BLOCKED: ask_advisor is unavailable ins
 
 /// `BlockInIsolatedMode`: fail-OPEN on any daemon RPC error (Python parity).
 async fn run_block_in_isolated_mode(ctx: &ExecutionMetadata) -> Result<HookOutcome, ToolError> {
-    let sandbox_id = match &ctx.sandbox_id {
-        Some(id) => id,
-        None => return Ok(HookOutcome::pass()),
-    };
-    let agent_run_id = ctx.require_agent_run_id()?;
-    match eos_sandbox_api::isolated_active(&*ctx.transport, sandbox_id, agent_run_id.as_str()).await
-    {
-        Ok(true) => Ok(HookOutcome::Deny(
+    if ctx.is_isolated_workspace_mode {
+        Ok(HookOutcome::Deny(
             HookDenial::new(BLOCK_IN_ISOLATED_MESSAGE, "block_in_isolated_mode")
                 .with_reason("isolated_workspace_open"),
-        )),
-        // Active=false OR any daemon error → fail-open (pass).
-        Ok(false) | Err(_) => Ok(HookOutcome::pass()),
+        ))
+    } else {
+        Ok(HookOutcome::pass())
     }
 }
 

@@ -18,19 +18,20 @@ use eos_engine::{
 use eos_llm_client::Message;
 use eos_state::{RequestStatus, Task, TaskRole, TaskStatus};
 use eos_tools::{
-    BackgroundSupervisorPort, CommandSessionSupervisorPort, NotificationSink, PlanSubmissionPort,
-    WorkflowControlPort,
+    AttemptSubmissionPort, BackgroundSupervisorPort, CommandSessionSupervisorPort,
+    NotificationSink, WorkflowControlPort,
 };
 use eos_types::{AgentRunId, JsonObject, RequestId, TaskId};
 use eos_workflow::{
-    AgentEntryComposer, AgentRunner, AttemptDeps, AttemptOrchestratorRegistry, ContextEngine,
-    ContextEngineDeps, OpenIterationCoordinatorRegistry, PlanSubmissionAdapter,
+    AgentEntryComposer, AgentRunner, AttemptDeps, AttemptOrchestratorRegistry,
+    AttemptSubmissionAdapter, ContextEngine, ContextEngineDeps, OpenIterationCoordinatorRegistry,
     WorkflowControlAdapter, WorkflowLifecycleConfig, WorkflowStarter,
 };
 use serde_json::json;
 
 use crate::agent_runner::RuntimeAgentRunner;
-use crate::app_state::{AppState, EventCallback};
+use crate::request_input::RequestRunInput;
+use crate::runtime_services::{EventCallback, RuntimeServices};
 use crate::tool_context::{build_metadata, MetadataParams};
 
 /// The terminal outcome of a completed top-level request — the root's outcome
@@ -70,23 +71,34 @@ pub(crate) fn root_task_id_for(request_id: &RequestId) -> TaskId {
 /// Returns an error if provisioning, request/root-task creation, or the final
 /// root-task read-back fails.
 pub async fn run_request(
-    state: &AppState,
-    request_id: &RequestId,
-    prompt: impl Into<String>,
-    sandbox_id: Option<&str>,
+    services: &RuntimeServices,
+    input: RequestRunInput,
     on_event: Option<EventCallback>,
 ) -> Result<RequestOutcome> {
-    let prompt = prompt.into();
+    let RequestRunInput {
+        request_id,
+        prompt,
+        sandbox_id,
+        workspace_root,
+        workflow_config,
+    } = input;
 
     // [2] BOOTSTRAP — provision the sandbox and create the request row.
-    let binding = state
+    let binding = services
+        .sandbox
         .provisioner
-        .prepare_for_run(request_id, sandbox_id)
+        .prepare_for_run(&request_id, sandbox_id.as_deref())
         .await
         .context("provisioning the request sandbox")?;
-    state
+    services
+        .db
         .request_store
-        .create_request(request_id, &state.cwd, Some(&binding.sandbox_id), &prompt)
+        .create_request(
+            &request_id,
+            &workspace_root,
+            Some(&binding.sandbox_id),
+            &prompt,
+        )
         .await
         .context("creating the request row")?;
 
@@ -94,8 +106,8 @@ pub async fn run_request(
     // engine run handles the subagent driver needs (it calls `run_agent`
     // directly).
     let supervisor = Arc::new(BackgroundSupervisorHandle::new(
-        state.engine_run_handles(),
-        state.transport.clone(),
+        services.engine_run_handles(&workspace_root),
+        services.sandbox.transport.clone(),
     ));
     let background_supervisor_port: Arc<dyn BackgroundSupervisorPort> = supervisor.clone();
     // One NotificationService per request: its queue is shared by the tool sink,
@@ -111,33 +123,34 @@ pub async fn run_request(
     let heartbeat = spawn_command_completion_heartbeat(
         supervisor.inner(),
         notification_sink,
-        state.transport.clone(),
+        services.sandbox.transport.clone(),
     );
     let iteration_coordinators = Arc::new(OpenIterationCoordinatorRegistry::new());
     let orchestrator_registry = Arc::new(AttemptOrchestratorRegistry::new());
     let context_engine = ContextEngine::new(ContextEngineDeps {
-        workflow_store: state.workflow_store.clone(),
-        iteration_store: state.iteration_store.clone(),
-        attempt_store: state.attempt_store.clone(),
-        task_store: state.task_store.clone(),
+        workflow_store: services.db.workflow_store.clone(),
+        iteration_store: services.db.iteration_store.clone(),
+        attempt_store: services.db.attempt_store.clone(),
+        task_store: services.db.task_store.clone(),
     });
     let composer = Arc::new(AgentEntryComposer::new(
         context_engine,
-        state.agent_registry.clone(),
+        services.agent_core.agent_registry.clone(),
     ));
-    // The recording plan-submission port: workflow-agent submit tools record
+    // The recording attempt-submission port: workflow-agent submit tools record
     // straight to the active per-attempt orchestrator over this shared registry
     // (Path A-recording). Stateless and shared across all runs.
-    let plan_submission: Arc<dyn PlanSubmissionPort> =
-        Arc::new(PlanSubmissionAdapter::new(orchestrator_registry.clone()));
+    let attempt_submission: Arc<dyn AttemptSubmissionPort> =
+        Arc::new(AttemptSubmissionAdapter::new(orchestrator_registry.clone()));
     // GUARDRAIL: `workflow_control` is built downstream of the runner (starter →
     // attempt_deps → runner), so it is late-bound through this cell and read at
     // run() time — irreducible given the construction cycle.
     let workflow_control_cell: Arc<OnceLock<Arc<dyn WorkflowControlPort>>> =
         Arc::new(OnceLock::new());
     let runner: Arc<dyn AgentRunner> = Arc::new(RuntimeAgentRunner::new(
-        state.clone(),
-        plan_submission,
+        services.clone(),
+        workspace_root.clone(),
+        attempt_submission,
         workflow_control_cell.clone(),
         background_supervisor_port.clone(),
         command_session_port.clone(),
@@ -145,25 +158,25 @@ pub async fn run_request(
     ));
     // `attempt_deps` is a local moved into the starter (no clone, never returned).
     let attempt_deps = AttemptDeps::new(
-        state.workflow_store.clone(),
-        state.iteration_store.clone(),
-        state.attempt_store.clone(),
-        state.task_store.clone(),
-        state.agent_registry.clone(),
+        services.db.workflow_store.clone(),
+        services.db.iteration_store.clone(),
+        services.db.attempt_store.clone(),
+        services.db.task_store.clone(),
+        services.agent_core.agent_registry.clone(),
         runner,
     )
     .with_orchestrator_registry(orchestrator_registry)
     .with_iteration_coordinators(iteration_coordinators)
     .with_lifecycle_config(WorkflowLifecycleConfig::default())
     .with_composer(composer)
-    .with_max_concurrent_task_runs(state.workflow.attempt.max_concurrent_task_runs);
+    .with_max_concurrent_task_runs(workflow_config.attempt.max_concurrent_task_runs);
     let starter = WorkflowStarter::new(attempt_deps);
     let workflow_control: Arc<dyn WorkflowControlPort> = Arc::new(WorkflowControlAdapter::new(
         starter,
-        state.workflow_store.clone(),
-        state.iteration_store.clone(),
-        state.attempt_store.clone(),
-        state.task_store.clone(),
+        services.db.workflow_store.clone(),
+        services.db.iteration_store.clone(),
+        services.db.attempt_store.clone(),
+        services.db.task_store.clone(),
     ));
     // Late-bind the control port into the workflow-agent runner (closes D1: a
     // nested planner's deferral hook reads workflow_depth; every workflow agent's
@@ -171,8 +184,9 @@ pub async fn run_request(
     let _ = workflow_control_cell.set(workflow_control.clone());
 
     // Root task: `root-{request_id}` (Option A), running, no workflow.
-    let root_task_id = root_task_id_for(request_id);
-    state
+    let root_task_id = root_task_id_for(&request_id);
+    services
+        .db
         .task_store
         .upsert_task(&Task {
             id: root_task_id.clone(),
@@ -190,9 +204,10 @@ pub async fn run_request(
         })
         .await
         .context("creating the root task")?;
-    state
+    services
+        .db
         .request_store
-        .set_root_task_id(request_id, &root_task_id)
+        .set_root_task_id(&request_id, &root_task_id)
         .await
         .context("recording the root task id")?;
 
@@ -200,12 +215,11 @@ pub async fn run_request(
     // the shared engine primitive INLINE. `submit_root_outcome` closes the task
     // mid-loop on success (step 6, inside the run). `summary` feeds the post-run
     // guard; on the happy path it is unused (the guard no-ops on a closed task).
-    let summary = match resolve_root_def(state) {
+    let summary = match resolve_root_def(services) {
         Some(root_def) => {
             let agent_run_id = AgentRunId::new_v4();
-            let sink: Arc<dyn NotificationSink> = Arc::new(notifier.clone());
             let metadata = build_metadata(
-                state,
+                &workspace_root,
                 MetadataParams {
                     agent_name: "root".to_owned(),
                     sandbox_id: Some(binding.sandbox_id),
@@ -214,21 +228,21 @@ pub async fn run_request(
                     task_id: Some(root_task_id.clone()),
                     attempt_id: None,
                     workflow_id: None,
-                    workflow_control: Some(workflow_control.clone()),
-                    plan_submission: None,
-                    background_supervisor: Some(background_supervisor_port),
-                    command_session_supervisor: Some(command_session_port),
-                    notifications: sink,
+                    is_isolated_workspace_mode: false,
                 },
             );
             let run = run_agent(
-                &state.engine_run_handles(),
+                &services.engine_run_handles(&workspace_root),
                 AgentRunInput {
                     agent: root_def,
-                    initial_messages: vec![Message::from_user_text(prompt)],
+                    initial_messages: vec![Message::from_user_text(prompt.clone())],
                     task_id: Some(root_task_id.clone()),
                     agent_run_id,
                     tool_metadata: metadata,
+                    attempt_submission: None,
+                    workflow_control: Some(workflow_control.clone()),
+                    background_supervisor: Some(background_supervisor_port),
+                    command_session_supervisor: Some(command_session_port),
                     notifier: notifier.clone(),
                     persist_agent_run: true,
                 },
@@ -258,11 +272,12 @@ pub async fn run_request(
     // The single framework-side closure guard, called unconditionally: a no-op once
     // submit_root_outcome has closed the task; otherwise marks the root Failed +
     // finish_request(Failed).
-    fail_unfinished_root(state, request_id, &root_task_id, &summary).await;
-    state.flush_audit();
+    fail_unfinished_root(services, &request_id, &root_task_id, &summary).await;
+    services.flush_audit();
 
     // [7] RETURN OUTCOME — single read-back of the persisted root task.
-    let task = state
+    let task = services
+        .db
         .task_store
         .get(&root_task_id)
         .await
@@ -276,9 +291,10 @@ pub async fn run_request(
 
 /// Resolve the registered `root` agent definition, or `None` when the registry
 /// has no `root` profile (the shipped binary seeds one; tests inject one).
-fn resolve_root_def(state: &AppState) -> Option<AgentDefinition> {
+fn resolve_root_def(services: &RuntimeServices) -> Option<AgentDefinition> {
     let root_name = AgentName::new("root").ok()?;
-    state
+    services
+        .agent_core
         .agent_registry
         .get(&root_name)
         .map(|def| (**def).clone())
@@ -291,7 +307,7 @@ fn resolve_root_def(state: &AppState) -> Option<AgentDefinition> {
 /// typed outcome row (documented deviation; the typed outcome column is left
 /// empty for root).
 async fn fail_unfinished_root(
-    state: &AppState,
+    services: &RuntimeServices,
     request_id: &RequestId,
     root_task_id: &TaskId,
     summary: &str,
@@ -300,7 +316,8 @@ async fn fail_unfinished_root(
     terminal.insert("fail_reason".to_owned(), json!("root_run_exhausted"));
     terminal.insert("summary".to_owned(), json!(summary));
 
-    match state
+    match services
+        .db
         .task_store
         .set_task_status_if_current(
             root_task_id,
@@ -312,7 +329,8 @@ async fn fail_unfinished_root(
         .await
     {
         Ok(Some(_)) => {
-            if let Err(err) = state
+            if let Err(err) = services
+                .db
                 .request_store
                 .finish_request(request_id, RequestStatus::Failed)
                 .await

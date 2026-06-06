@@ -18,6 +18,7 @@ use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
+use crate::tools::RootSubmissionService;
 
 use super::super::lib::{is_blank, meta_obj, SubmissionStatus};
 
@@ -27,7 +28,15 @@ struct SubmitRootOutcomeInput {
     outcome: String,
 }
 
-struct SubmitRootOutcome;
+struct SubmitRootOutcome {
+    service: Option<RootSubmissionService>,
+}
+
+impl SubmitRootOutcome {
+    fn new(service: Option<RootSubmissionService>) -> Self {
+        Self { service }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for SubmitRootOutcome {
@@ -46,8 +55,12 @@ impl ToolExecutor for SubmitRootOutcome {
 
         let request_id = ctx.require_request_id()?;
         let task_id = ctx.require_task_id()?;
+        let service = self
+            .service
+            .as_ref()
+            .ok_or(ToolError::MissingPort("root_submission"))?;
 
-        let task = match ctx.task_store.get(task_id).await? {
+        let task = match service.task_store.get(task_id).await? {
             Some(task) => task,
             None => {
                 return Ok(ToolResult::error(format!(
@@ -85,10 +98,12 @@ impl ToolExecutor for SubmitRootOutcome {
             ("status", json!(parsed.status.as_str())),
             ("outcome", json!(parsed.outcome)),
         ]);
-        ctx.task_store
+        service
+            .task_store
             .set_task_status(task_id, task_status, None, Some(&terminal))
             .await?;
-        ctx.request_store
+        service
+            .request_store
             .finish_request(request_id, request_status)
             .await?;
 
@@ -109,7 +124,11 @@ impl ToolExecutor for SubmitRootOutcome {
     }
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    root_submission: Option<RootSubmissionService>,
+) {
     let root = config.get(ToolName::SubmitRootOutcome);
     super::super::super::register_tool(
         registry,
@@ -121,7 +140,7 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(SubmitRootOutcomeInput),
         ),
         OutputShape::Text,
-        Arc::new(SubmitRootOutcome),
+        Arc::new(SubmitRootOutcome::new(root_submission)),
     );
 }
 
@@ -161,17 +180,18 @@ mod tests {
         }
     }
 
-    fn root_metadata(
-        task_store: Arc<FakeTaskStore>,
-        request_store: Arc<FakeRequestStore>,
-        request_id: RequestId,
-    ) -> ExecutionMetadata {
+    fn root_metadata(request_id: RequestId) -> ExecutionMetadata {
         let mut ctx = metadata();
-        ctx.task_store = task_store;
-        ctx.request_store = request_store;
         ctx.request_id = Some(request_id);
         ctx.task_id = Some("root-1".parse().expect("id"));
         ctx
+    }
+
+    fn executor(
+        task_store: Arc<FakeTaskStore>,
+        request_store: Arc<FakeRequestStore>,
+    ) -> SubmitRootOutcome {
+        SubmitRootOutcome::new(Some(RootSubmissionService::new(task_store, request_store)))
     }
 
     #[tokio::test]
@@ -180,13 +200,10 @@ mod tests {
         let task_store = Arc::new(FakeTaskStore::new());
         task_store.put(root_task(&request_id));
         let request_store = Arc::new(FakeRequestStore::new());
-        let ctx = root_metadata(
-            task_store.clone(),
-            request_store.clone(),
-            request_id.clone(),
-        );
+        let ctx = root_metadata(request_id.clone());
+        let executor = executor(task_store.clone(), request_store.clone());
 
-        let res = SubmitRootOutcome
+        let res = executor
             .execute(
                 &obj(&[("status", json!("success")), ("outcome", json!("all done"))]),
                 &ctx,
@@ -200,7 +217,7 @@ mod tests {
             vec![(request_id.as_str().to_owned(), RequestStatus::Done)]
         );
 
-        let res = SubmitRootOutcome
+        let res = executor
             .execute(
                 &obj(&[("status", json!("success")), ("outcome", json!("   "))]),
                 &ctx,
@@ -210,12 +227,8 @@ mod tests {
         assert!(res.is_error);
         assert!(res.output.contains("outcome must be nonblank"));
 
-        let other = root_metadata(
-            task_store.clone(),
-            Arc::new(FakeRequestStore::new()),
-            RequestId::new_v4(),
-        );
-        let res = SubmitRootOutcome
+        let other = root_metadata(RequestId::new_v4());
+        let res = executor
             .execute(
                 &obj(&[("status", json!("failed")), ("outcome", json!("blocked"))]),
                 &other,
@@ -237,8 +250,9 @@ mod tests {
         let mut task = root_task(&request_id);
         task.role = TaskRole::Generator;
         task_store.put(task);
-        let ctx = root_metadata(task_store, Arc::new(FakeRequestStore::new()), request_id);
-        let res = SubmitRootOutcome
+        let request_store = Arc::new(FakeRequestStore::new());
+        let ctx = root_metadata(request_id);
+        let res = executor(task_store, request_store)
             .execute(
                 &obj(&[("status", json!("success")), ("outcome", json!("x"))]),
                 &ctx,

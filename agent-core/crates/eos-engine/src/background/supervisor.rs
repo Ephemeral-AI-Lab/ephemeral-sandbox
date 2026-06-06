@@ -168,7 +168,11 @@ impl BackgroundTaskSupervisor {
     /// Register a delegated workflow as background work. The workflow-control
     /// adapter owns persisted state; this supervisor only tracks the handle for
     /// counts and parent-exit cleanup.
-    pub fn register_workflow(&mut self, agent_run_id: &AgentRunId, workflow: &StartedWorkflowHandle) {
+    pub fn register_workflow(
+        &mut self,
+        agent_run_id: &AgentRunId,
+        workflow: &StartedWorkflowHandle,
+    ) {
         self.workflows.insert(
             workflow.workflow_task_id.clone(),
             WorkflowBackgroundRecord {

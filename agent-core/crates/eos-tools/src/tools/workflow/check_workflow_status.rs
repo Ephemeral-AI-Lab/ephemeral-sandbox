@@ -11,6 +11,7 @@ use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
 use crate::core::result::{OutputShape, ToolResult};
+use crate::ports::WorkflowControlPort;
 use crate::registry::config::ToolConfigSet;
 use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
@@ -26,14 +27,24 @@ struct CheckWorkflowStatusInput {
     workflow_task_id: Option<WorkflowSessionId>,
 }
 
-pub(in crate::tools::workflow) struct CheckWorkflowStatus;
+pub(in crate::tools::workflow) struct CheckWorkflowStatus {
+    workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+}
+
+impl CheckWorkflowStatus {
+    pub(in crate::tools::workflow) fn new(
+        workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+    ) -> Self {
+        Self { workflow_control }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for CheckWorkflowStatus {
     async fn execute(
         &self,
         input: &JsonObject,
-        ctx: &ExecutionMetadata,
+        _ctx: &ExecutionMetadata,
     ) -> Result<ToolResult, ToolError> {
         let parsed: CheckWorkflowStatusInput =
             match parse_input(ToolName::CheckWorkflowStatus, input) {
@@ -56,15 +67,21 @@ impl ToolExecutor for CheckWorkflowStatus {
                 "workflow_task_id",
             ));
         }
-        let output = ctx
-            .require_workflow_control()?
+        let output = self
+            .workflow_control
+            .as_deref()
+            .ok_or(ToolError::MissingPort("workflow_control"))?
             .status(&parsed.workflow_id, parsed.workflow_task_id.as_ref())
             .await?;
         Ok(ToolResult::ok(output))
     }
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+) {
     let check = config.get(ToolName::CheckWorkflowStatus);
     super::super::register_tool(
         registry,
@@ -76,6 +93,6 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(CheckWorkflowStatusInput),
         ),
         OutputShape::Text,
-        Arc::new(CheckWorkflowStatus),
+        Arc::new(CheckWorkflowStatus::new(workflow_control)),
     );
 }

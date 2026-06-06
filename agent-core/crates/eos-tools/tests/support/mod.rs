@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use eos_sandbox_api::{DaemonOp, SandboxApiError, SandboxTransport};
-use eos_skills::SkillRegistry;
 use eos_state::{
     ExecutionTaskOutcome, Request, RequestStatus, RequestStore, Sealed, Task, TaskStatus, TaskStore,
 };
@@ -214,28 +213,17 @@ pub(crate) fn test_agent_run_id() -> AgentRunId {
 pub(crate) fn metadata() -> ExecutionMetadata {
     let agent_run_id = test_agent_run_id();
     ExecutionMetadata {
-        sandbox_id: None,
-        agent_run_id: Some(agent_run_id),
         agent_name: "tester".to_owned(),
-        cwd: String::new(),
-        repo_root: String::new(),
-        exec_cwd: String::new(),
+        agent_run_id: Some(agent_run_id),
         request_id: None,
         task_id: None,
         attempt_id: None,
         workflow_id: None,
         tool_use_id: None,
         sandbox_invocation_id: None,
-        transport: Arc::new(FakeTransport::inert()),
-        task_store: Arc::new(FakeTaskStore::new()),
-        request_store: Arc::new(FakeRequestStore::new()),
-        skill_registry: Arc::new(SkillRegistry::new()),
-        workflow_control: None,
-        plan_submission: None,
-        background_supervisor: None,
-        command_session_supervisor: None,
-        isolated_workspace: None,
-        notifications: None,
+        sandbox_id: None,
+        is_isolated_workspace_mode: false,
+        workspace_root: String::new(),
         conversation: Arc::from(Vec::new()),
     }
 }

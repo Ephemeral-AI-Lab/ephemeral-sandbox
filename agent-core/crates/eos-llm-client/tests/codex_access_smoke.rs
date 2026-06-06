@@ -11,7 +11,7 @@ use std::time::Duration;
 use eos_config::{ProviderKind, ProvidersConfig};
 use eos_llm_client::{
     Auth, CodexCodingPlanClient, LlmClient, LlmRequest, LlmStreamEvent, Message, ProviderError,
-    ToolChoice, ToolSpec,
+    ReasoningEffort, ToolChoice, ToolSpec,
 };
 use eos_types::JsonObject;
 use futures::StreamExt;
@@ -58,6 +58,7 @@ async fn codex_access_token_gets_llm_client_response() -> Result<(), ProviderErr
         .tool_choice(ToolChoice::Tool {
             name: SMOKE_TOOL_NAME.to_owned(),
         })
+        .reasoning_effort(ReasoningEffort::Medium)
         .max_tokens(256)
         .build();
 

@@ -9,7 +9,7 @@ use eos_state::{
     TaskStatus, TaskStore, WorkflowId, WorkflowStatus,
 };
 use eos_tools::{
-    OutstandingWorkflow, PlanSubmissionPort, PlannerPlan, SubmissionAck, ToolError,
+    AttemptSubmissionPort, OutstandingWorkflow, PlannerPlan, SubmissionAck, ToolError,
     WorkflowControlPort,
 };
 use eos_types::{AgentRunId, WorkflowSessionId};
@@ -26,21 +26,21 @@ use crate::{WorkflowError, WorkflowStarter};
 /// orchestrator's non-advancing `record_*` variants and returns the
 /// orchestrator's real ack; advancing the DAG stays the exclusive job of the
 /// single `advance_run_stage` loop (D4: exactly one writer). This is the wired
-/// implementor of [`PlanSubmissionPort`], constructed once at the composition
+/// implementor of [`AttemptSubmissionPort`], constructed once at the composition
 /// root over the shared attempt registry.
 #[derive(Clone)]
-pub struct PlanSubmissionAdapter {
+pub struct AttemptSubmissionAdapter {
     registry: Arc<AttemptOrchestratorRegistry>,
 }
 
-impl std::fmt::Debug for PlanSubmissionAdapter {
+impl std::fmt::Debug for AttemptSubmissionAdapter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PlanSubmissionAdapter")
+        f.debug_struct("AttemptSubmissionAdapter")
             .finish_non_exhaustive()
     }
 }
 
-impl PlanSubmissionAdapter {
+impl AttemptSubmissionAdapter {
     /// Create a submission adapter over the active attempt registry.
     #[must_use]
     pub fn new(registry: Arc<AttemptOrchestratorRegistry>) -> Self {
@@ -48,10 +48,10 @@ impl PlanSubmissionAdapter {
     }
 }
 
-impl eos_tools::ports::Sealed for PlanSubmissionAdapter {}
+impl eos_tools::ports::Sealed for AttemptSubmissionAdapter {}
 
 #[async_trait]
-impl PlanSubmissionPort for PlanSubmissionAdapter {
+impl AttemptSubmissionPort for AttemptSubmissionAdapter {
     async fn apply_plan(&self, plan: PlannerPlan) -> Result<SubmissionAck, ToolError> {
         let Some(orchestrator) = self.registry.get(&plan.attempt_id) else {
             return Ok(SubmissionAck::Rejected(format!(

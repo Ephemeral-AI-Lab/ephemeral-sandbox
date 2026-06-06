@@ -37,5 +37,5 @@ pub use context::{
 pub use error::{Result, WorkflowError};
 pub use ids::{generator_task_id, planner_task_id, reducer_task_id, WorkflowLifecycleConfig};
 pub use iteration::OpenIterationCoordinatorRegistry;
-pub use ports::{PlanSubmissionAdapter, WorkflowControlAdapter};
+pub use ports::{AttemptSubmissionAdapter, WorkflowControlAdapter};
 pub use starter::{StartedWorkflow, WorkflowStarter};

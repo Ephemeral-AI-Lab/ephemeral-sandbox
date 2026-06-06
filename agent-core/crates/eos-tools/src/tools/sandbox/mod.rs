@@ -15,6 +15,8 @@ mod write_stdin;
 pub(crate) fn register(
     registry: &mut crate::registry::ToolRegistry,
     config: &crate::registry::config::ToolConfigSet,
+    sandbox_service: super::SandboxToolService,
+    command_service: super::CommandToolService,
 ) {
-    lib::register(registry, config);
+    lib::register(registry, config, sandbox_service, command_service);
 }

@@ -18,6 +18,7 @@ use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
+use crate::tools::AttemptSubmissionService;
 
 use super::super::lib::{is_blank, meta_obj, submission_ack_result};
 
@@ -46,7 +47,15 @@ struct SubmitPlannerOutcomeInput {
     deferred_goal_for_next_iteration: Option<String>,
 }
 
-struct SubmitPlannerOutcome;
+struct SubmitPlannerOutcome {
+    service: Option<AttemptSubmissionService>,
+}
+
+impl SubmitPlannerOutcome {
+    fn new(service: Option<AttemptSubmissionService>) -> Self {
+        Self { service }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for SubmitPlannerOutcome {
@@ -75,7 +84,13 @@ impl ToolExecutor for SubmitPlannerOutcome {
         };
         let submission_kind = plan.disposition.submission_kind_label();
 
-        let ack = ctx.require_plan_submission()?.apply_plan(plan).await?;
+        let ack = self
+            .service
+            .as_ref()
+            .ok_or(ToolError::MissingPort("attempt_submission"))?
+            .port
+            .apply_plan(plan)
+            .await?;
         Ok(submission_ack_result(
             ack,
             "Accepted planner submission.",
@@ -216,7 +231,11 @@ fn validate_planner_structure(input: &SubmitPlannerOutcomeInput) -> Result<(), S
     Ok(())
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    attempt_submission: Option<AttemptSubmissionService>,
+) {
     let planner = config.get(ToolName::SubmitPlannerOutcome);
     super::super::super::register_tool(
         registry,
@@ -228,6 +247,6 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(SubmitPlannerOutcomeInput),
         ),
         OutputShape::Text,
-        Arc::new(SubmitPlannerOutcome),
+        Arc::new(SubmitPlannerOutcome::new(attempt_submission)),
     );
 }

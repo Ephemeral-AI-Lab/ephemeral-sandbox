@@ -11,6 +11,7 @@ use crate::core::result::ToolResult;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
 
+use super::super::CommandToolService;
 use super::lib::{
     command_result_value, command_tool_result, command_tool_result_from_value, default_false,
     default_yield_ms, invalid_input, is_command_session_not_found, request_base,
@@ -38,7 +39,15 @@ pub(super) struct WriteStdinInput {
     terminate: bool,
 }
 
-pub(super) struct WriteStdin;
+pub(super) struct WriteStdin {
+    service: CommandToolService,
+}
+
+impl WriteStdin {
+    pub(super) fn new(service: CommandToolService) -> Self {
+        Self { service }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for WriteStdin {
@@ -79,14 +88,16 @@ impl ToolExecutor for WriteStdin {
             terminate: parsed.terminate,
         };
         let result =
-            match eos_sandbox_api::exec_stdin(&*ctx.transport, sandbox_id, &write_request).await {
+            match eos_sandbox_api::exec_stdin(&*self.service.transport, sandbox_id, &write_request)
+                .await
+            {
                 Ok(result) => result,
                 Err(err) => return Ok(ToolResult::error(err.to_string())),
             };
         // If the daemon already lost the live session, surface the supervisor's
         // stored terminal; otherwise, once a terminal status is observed inline,
         // latch it as delivered so the heartbeat never re-notifies the same result.
-        if let Some(port) = &ctx.command_session_supervisor {
+        if let Some(port) = &self.service.command_session_supervisor {
             if is_command_session_not_found(&result) {
                 if port
                     .command_session_already_reported(command_session_id)

@@ -82,6 +82,34 @@ pub enum ToolChoice {
     },
 }
 
+/// Provider reasoning-effort hint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum ReasoningEffort {
+    /// Minimal reasoning effort.
+    Minimal,
+    /// Low reasoning effort.
+    Low,
+    /// Medium reasoning effort.
+    Medium,
+    /// High reasoning effort.
+    High,
+}
+
+impl ReasoningEffort {
+    /// Wire token used by provider request bodies.
+    #[must_use]
+    pub const fn as_wire(self) -> &'static str {
+        match self {
+            Self::Minimal => "minimal",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+        }
+    }
+}
+
 /// A neutral model invocation request.
 ///
 /// Source: `types.py::MessageRequest`. Built via [`LlmRequest::builder`]
@@ -101,6 +129,8 @@ pub struct LlmRequest {
     pub tools: Vec<ToolSpec>,
     /// The tool-choice control, when forced.
     pub tool_choice: Option<ToolChoice>,
+    /// Optional reasoning-effort hint for providers that support it.
+    pub reasoning_effort: Option<ReasoningEffort>,
 }
 
 /// The `max_tokens` default mirrors `MessageRequest.max_tokens = 32768`.
@@ -116,6 +146,7 @@ impl LlmRequest {
             max_tokens: DEFAULT_MAX_TOKENS,
             tools: Vec::new(),
             tool_choice: None,
+            reasoning_effort: None,
         }
     }
 }
@@ -130,6 +161,7 @@ pub struct LlmRequestBuilder {
     max_tokens: u32,
     tools: Vec<ToolSpec>,
     tool_choice: Option<ToolChoice>,
+    reasoning_effort: Option<ReasoningEffort>,
 }
 
 impl LlmRequestBuilder {
@@ -169,6 +201,12 @@ impl LlmRequestBuilder {
         self
     }
 
+    /// Set a provider reasoning-effort hint.
+    pub fn reasoning_effort(mut self, effort: ReasoningEffort) -> Self {
+        self.reasoning_effort = Some(effort);
+        self
+    }
+
     /// Finish building the request.
     #[must_use]
     pub fn build(self) -> LlmRequest {
@@ -179,6 +217,7 @@ impl LlmRequestBuilder {
             max_tokens: self.max_tokens,
             tools: self.tools,
             tool_choice: self.tool_choice,
+            reasoning_effort: self.reasoning_effort,
         }
     }
 }
@@ -209,9 +248,11 @@ mod tests {
             .system_prompt("be terse")
             .max_tokens(64)
             .tool_choice(ToolChoice::Any)
+            .reasoning_effort(ReasoningEffort::Medium)
             .build();
         assert_eq!(req.system_prompt.as_deref(), Some("be terse"));
         assert_eq!(req.max_tokens, 64);
         assert_eq!(req.tool_choice, Some(ToolChoice::Any));
+        assert_eq!(req.reasoning_effort, Some(ReasoningEffort::Medium));
     }
 }

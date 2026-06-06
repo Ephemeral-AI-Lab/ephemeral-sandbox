@@ -15,8 +15,8 @@ use eos_sandbox_api::{
     SandboxRequestBase,
 };
 use eos_tools::{
-    ExecutionMetadata, OutputShape, RegisteredTool, ToolError, ToolExecutor, ToolIntent, ToolKey,
-    ToolRegistry, ToolResult,
+    ExecutionMetadata, OutputShape, RegisteredTool, SandboxToolService, ToolError, ToolExecutor,
+    ToolIntent, ToolKey, ToolRegistry, ToolResult,
 };
 use eos_types::JsonObject;
 use serde_json::Value;
@@ -25,15 +25,21 @@ const PLUGIN_DISPATCH_TIMEOUT_S: u32 = 150;
 const PLUGIN_ENSURE_TIMEOUT_S: u32 = 150;
 
 /// Register every built-in plugin catalog tool into `registry`.
-pub(crate) fn register_plugin_tools(registry: &mut ToolRegistry) {
+pub(crate) fn register_plugin_tools(
+    registry: &mut ToolRegistry,
+    sandbox_service: &SandboxToolService,
+) {
     for spec in plugin_tool_specs() {
-        if let Some(tool) = registered_plugin_tool(spec) {
+        if let Some(tool) = registered_plugin_tool(spec, sandbox_service.clone()) {
             registry.register(tool);
         }
     }
 }
 
-fn registered_plugin_tool(spec: PluginToolSpec) -> Option<RegisteredTool> {
+fn registered_plugin_tool(
+    spec: PluginToolSpec,
+    sandbox_service: SandboxToolService,
+) -> Option<RegisteredTool> {
     let name = spec.name.as_str().to_owned();
     let parsed_name = split_plugin_tool_name(&name);
     let package = parsed_name
@@ -54,6 +60,7 @@ fn registered_plugin_tool(spec: PluginToolSpec) -> Option<RegisteredTool> {
             parsed_name,
             intent: spec.intent,
             package,
+            service: sandbox_service,
         }),
     ))
 }
@@ -73,6 +80,7 @@ struct PluginToolExecutor {
     parsed_name: Option<(String, String)>,
     intent: Intent,
     package: PluginPackageDescriptor,
+    service: SandboxToolService,
 }
 
 #[async_trait]
@@ -94,16 +102,16 @@ impl ToolExecutor for PluginToolExecutor {
             format!("plugin {plugin_id}.{op_name}"),
             ctx.sandbox_invocation_id.clone(),
         );
-        ensure_plugin_runtime(&self.package, &base, ctx).await?;
+        ensure_plugin_runtime(&self.service, &self.package, &base, ctx).await?;
         let response = eos_sandbox_api::plugin_dispatch(
-            &*ctx.transport,
+            &*self.service.transport(),
             sandbox_id,
             PluginDispatchRequest {
                 base,
                 plugin_id: plugin_id.clone(),
                 op_name: op_name.clone(),
                 intent: self.intent,
-                workspace_root: ctx.repo_root.clone(),
+                workspace_root: ctx.workspace_root.clone(),
                 args: input.clone(),
                 timeout_s: PLUGIN_DISPATCH_TIMEOUT_S,
             },
@@ -114,17 +122,18 @@ impl ToolExecutor for PluginToolExecutor {
 }
 
 async fn ensure_plugin_runtime(
+    service: &SandboxToolService,
     package: &PluginPackageDescriptor,
     base: &SandboxRequestBase,
     ctx: &ExecutionMetadata,
 ) -> Result<(), ToolError> {
     let sandbox_id = ctx.require_sandbox_id()?;
     eos_sandbox_api::ensure_plugin_package(
-        &*ctx.transport,
+        &*service.transport(),
         sandbox_id,
         PluginPackageEnsureRequest {
             base: base.clone(),
-            workspace_root: ctx.repo_root.clone(),
+            workspace_root: ctx.workspace_root.clone(),
             package: package.clone(),
             start_services: true,
             timeout_s: PLUGIN_ENSURE_TIMEOUT_S,
@@ -158,20 +167,17 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
 
-    use eos_llm_client::Message;
     use eos_sandbox_api::{DaemonOp, SandboxApiError, SandboxTransport};
-    use eos_skills::SkillRegistry;
-    use eos_state::{
-        ExecutionTaskOutcome, Request, RequestStatus, RequestStore, Sealed, StoreError, Task,
-        TaskStatus, TaskStore,
-    };
-    use eos_types::{RequestId, SandboxId, TaskId};
+    use eos_types::SandboxId;
     use serde_json::json;
 
     #[test]
     fn registers_lsp_plugin_tools() {
         let mut registry = ToolRegistry::new();
-        register_plugin_tools(&mut registry);
+        register_plugin_tools(
+            &mut registry,
+            &SandboxToolService::new(Arc::new(RecordingTransport::default())),
+        );
         let hover = registry.get_wire("lsp.hover").expect("hover registered");
         assert_eq!(hover.name.as_str(), "lsp.hover");
         assert_eq!(hover.intent, ToolIntent::ReadOnly);
@@ -188,6 +194,7 @@ mod tests {
             parsed_name: Some(("lsp".to_owned(), "hover".to_owned())),
             intent: Intent::ReadOnly,
             package: package.clone(),
+            service: SandboxToolService::new(transport.clone()),
         };
         let input = json_object(json!({
             "file_path": "src/main.py",
@@ -305,101 +312,20 @@ mod tests {
         }
     }
 
-    fn metadata_with(transport: Arc<dyn SandboxTransport>) -> ExecutionMetadata {
-        let store = Arc::new(InertStore);
+    fn metadata_with(_transport: Arc<dyn SandboxTransport>) -> ExecutionMetadata {
         ExecutionMetadata {
             sandbox_id: Some("sandbox-1".parse().expect("sandbox id")),
             agent_run_id: Some("agent-run-1".parse().expect("agent run id")),
             agent_name: "tester".to_owned(),
-            cwd: "/repo".to_owned(),
-            repo_root: "/repo".to_owned(),
-            exec_cwd: "/repo".to_owned(),
             request_id: None,
             task_id: None,
             attempt_id: None,
             workflow_id: None,
             tool_use_id: None,
             sandbox_invocation_id: Some("inv-1".parse().expect("invocation id")),
-            transport,
-            task_store: store.clone(),
-            request_store: store,
-            skill_registry: Arc::new(SkillRegistry::new()),
-            workflow_control: None,
-            plan_submission: None,
-            background_supervisor: None,
-            command_session_supervisor: None,
-            isolated_workspace: None,
-            notifications: None,
-            conversation: Arc::from(Vec::<Message>::new()),
-        }
-    }
-
-    struct InertStore;
-
-    impl Sealed for InertStore {}
-
-    #[async_trait]
-    impl TaskStore for InertStore {
-        async fn upsert_task(&self, _task: &Task) -> Result<(), StoreError> {
-            unreachable!("plugin tools do not touch task state")
-        }
-
-        async fn get(&self, _id: &TaskId) -> Result<Option<Task>, StoreError> {
-            unreachable!("plugin tools do not touch task state")
-        }
-
-        async fn set_task_status(
-            &self,
-            _id: &TaskId,
-            _status: TaskStatus,
-            _outcomes: Option<&[ExecutionTaskOutcome]>,
-            _terminal_tool_result: Option<&JsonObject>,
-        ) -> Result<Task, StoreError> {
-            unreachable!("plugin tools do not touch task state")
-        }
-
-        async fn set_task_status_if_current(
-            &self,
-            _id: &TaskId,
-            _expected: TaskStatus,
-            _status: TaskStatus,
-            _outcomes: Option<&[ExecutionTaskOutcome]>,
-            _terminal_tool_result: Option<&JsonObject>,
-        ) -> Result<Option<Task>, StoreError> {
-            unreachable!("plugin tools do not touch task state")
-        }
-    }
-
-    #[async_trait]
-    impl RequestStore for InertStore {
-        async fn create_request(
-            &self,
-            _request_id: &RequestId,
-            _cwd: &str,
-            _sandbox_id: Option<&SandboxId>,
-            _request_prompt: &str,
-        ) -> Result<(), StoreError> {
-            unreachable!("plugin tools do not touch request state")
-        }
-
-        async fn get(&self, _id: &RequestId) -> Result<Option<Request>, StoreError> {
-            unreachable!("plugin tools do not touch request state")
-        }
-
-        async fn set_root_task_id(
-            &self,
-            _id: &RequestId,
-            _root_task_id: &TaskId,
-        ) -> Result<Request, StoreError> {
-            unreachable!("plugin tools do not touch request state")
-        }
-
-        async fn finish_request(
-            &self,
-            _id: &RequestId,
-            _status: RequestStatus,
-        ) -> Result<Option<Request>, StoreError> {
-            unreachable!("plugin tools do not touch request state")
+            is_isolated_workspace_mode: false,
+            workspace_root: "/repo".to_owned(),
+            conversation: Arc::from(Vec::new()),
         }
     }
 }

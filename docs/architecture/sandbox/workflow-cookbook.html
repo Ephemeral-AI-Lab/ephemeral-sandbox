@@ -217,7 +217,7 @@
 </pre>
 <div class="sequence" aria-label="Isolated workspace lifecycle workflow">
   <ol>
-    <li><span>The Rust public tools are configured in <code>.eos-agents/tools</code>; both lifecycle tools declare <code>no_background_sessions</code> and call the runtime isolated-workspace port after the prehook passes.</span></li>
+    <li><span>The Rust public tools are configured in <code>.eos-agents/tools</code>; both lifecycle tools declare <code>no_background_sessions</code> and call the daemon isolated API through executor-captured <code>SandboxToolService</code> after the prehook passes.</span></li>
     <li><span><code>RequireNoBackgroundSessions</code> is the gate before private scratch exists. It checks outstanding workflows, in-flight subagents, and daemon-visible command sessions for the same agent; any nonzero lane returns <code>ephemeral_jobs_in_flight</code> instead of racing an isolated namespace transition.</span></li>
     <li><span>Daemon RPC registers <code>api.isolated_workspace.enter</code>, <code>exit</code>, <code>status</code>, <code>list_open</code>, and gated <code>test_reset</code>. The enter/exit handlers catch <code>IsolatedWorkspaceError</code> and return structured handler-level error payloads.</span></li>
     <li><span>The first daemon enter lazily constructs the resident <code>IsolatedPipeline</code>: it binds the LayerStack client from the requested root, uses the overlay writable root for scratch, installs the JSONL audit sink, publishes the singleton, then runs pipeline initialization.</span></li>

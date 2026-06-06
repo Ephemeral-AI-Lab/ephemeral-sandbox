@@ -25,8 +25,10 @@ pub(super) const MAX_YIELD_TIME_MS: u32 = 30_000;
 pub(super) fn register(
     registry: &mut crate::registry::ToolRegistry,
     config: &crate::registry::config::ToolConfigSet,
+    sandbox_service: super::super::SandboxToolService,
+    command_service: super::super::CommandToolService,
 ) {
-    registration::register(registry, config);
+    registration::register(registry, config, sandbox_service, command_service);
 }
 
 pub(super) fn request_base(
@@ -41,21 +43,21 @@ pub(super) fn request_base(
     ))
 }
 
-/// Absolute paths pass through; relative paths resolve under `repo_root`.
+/// Absolute paths pass through; relative paths resolve under `workspace_root`.
 pub(super) fn resolve_path(ctx: &ExecutionMetadata, path: &str) -> String {
     if path.starts_with('/') {
         return path.to_owned();
     }
-    let repo_root = ctx.repo_root.trim();
-    if repo_root.is_empty() {
+    let workspace_root = ctx.workspace_root.trim();
+    if workspace_root.is_empty() {
         path.to_owned()
     } else {
-        format!("{}/{path}", repo_root.trim_end_matches('/'))
+        format!("{}/{path}", workspace_root.trim_end_matches('/'))
     }
 }
 
 pub(super) fn cwd(ctx: &ExecutionMetadata) -> String {
-    ctx.repo_root.trim().to_owned()
+    ctx.workspace_root.trim().to_owned()
 }
 
 pub(super) fn serialize_output<T: Serialize>(value: &T) -> Result<String, ToolResult> {

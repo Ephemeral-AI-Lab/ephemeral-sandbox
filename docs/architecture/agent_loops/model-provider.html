@@ -75,31 +75,26 @@
 
 <section id="active-model-resolution" data-last-reviewed-commit="e44ca3424f11f4cd7e9b8b2373c79f143c1e03aa" data-evidence-paths="">
 <h2>Active Model Resolution <a class="anchor" href="#active-model-resolution">#</a></h2>
-<p>The active LLM model is DB-backed. <code>ModelRegistrationRecord</code> stores <code>key</code>, <code>label</code>, <code>class_path</code>, JSON kwargs, active flag, and timestamps. <code>ModelStore</code> handles CRUD, active selection, environment-placeholder resolution, secret redaction, and registry seeding.</p>
+<p>The active LLM model is DB-backed and seeded from the merged <code>models</code> config section at runtime startup. <code>ModelRegistration</code> stores <code>key</code>, <code>label</code>, <code>class_path</code>, JSON kwargs, active flag, and timestamps. <code>ModelStore</code> handles CRUD and active selection; <code>ModelRegistry</code> still owns environment-placeholder resolution and secret redaction for persisted kwargs.</p>
 <pre class="diagram" aria-label="Active model resolution sequence">
-[agent launch config]
+[agent definition / models config]
         |
         v
-[active_model_name + provider settings]
+[agent model override or active model key]
         |
-        +--&gt; [explicit class_path configured]
-        |       -&gt; [load custom API client]
+        v
+[LlmRequest.model]
         |
-        +--&gt; [standard provider]
-                |
-                v
-        [make_api_client]
-                |  auth, base URL, retry/timeout policy
-                v
-        [streaming provider client]
-                |
-                v
-        [query loop consumes provider events]
+        v
+[selected providers.active client]
+        |  auth, base URL, retry policy
+        v
+[query loop consumes provider events]
 </pre>
 <div class="edge-list">
-  <div><b>External override</b><span>Injected clients bypass DB resolution and class-path loading entirely.</span></div>
-  <div><b>Class dispatch</b><span>Colon-form <code>class_path</code> values select explicit provider classes; empty or legacy dot-format values select the Anthropic-native fallback.</span></div>
-  <div><b>Mode kill switch</b><span>The coding-plan disable flag is checked before construction for classes under <code>providers.clients.coding_plan.*</code>.</span></div>
+  <div><b>External override</b><span>Injected clients bypass provider construction but still receive the resolved <code>LlmRequest.model</code> value.</span></div>
+  <div><b>Provider dispatch</b><span><code>providers.active</code> selects the concrete Rust client; model registry rows do not dispatch provider classes.</span></div>
+  <div><b>Config source</b><span>The committed baseline and gitignored local override merge through <code>eos-config</code>; runtime no longer scans the workspace for a model registry file.</span></div>
 </div>
 <div class="edge-list">
   <div><b>tested by</b><span><code>test_provider_routing.py</code> covers external passthrough, explicit DB kwargs, and missing API key failures.</span></div>

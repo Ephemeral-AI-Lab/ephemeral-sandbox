@@ -13,6 +13,7 @@ use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolKey;
 use crate::core::result::{OutputShape, ToolResult};
 use crate::hooks::Hook;
+use crate::tools::HookServices;
 
 /// Execute against already-parsed, hook-validated input.
 ///
@@ -46,6 +47,8 @@ pub struct RegisteredTool {
     pub spec: ToolSpec,
     /// The pre-hooks run before the body, in order.
     pub hooks: Vec<Hook>,
+    /// Dependencies available to stateful pre-hooks.
+    pub(crate) hook_services: Arc<HookServices>,
     /// The declared output shape the pipeline validates against.
     pub(crate) output: OutputShape,
     /// The executor implementation.
@@ -81,6 +84,7 @@ impl RegisteredTool {
             is_terminal,
             spec,
             hooks: Vec::new(),
+            hook_services: Arc::new(HookServices::default()),
             output,
             executor,
         }
@@ -90,6 +94,13 @@ impl RegisteredTool {
     #[must_use]
     pub fn with_hooks(mut self, hooks: Vec<Hook>) -> Self {
         self.hooks = hooks;
+        self
+    }
+
+    /// Attach stateful hook dependencies.
+    #[must_use]
+    pub fn with_hook_services(mut self, services: Arc<HookServices>) -> Self {
+        self.hook_services = services;
         self
     }
 

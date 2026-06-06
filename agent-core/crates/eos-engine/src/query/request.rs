@@ -23,12 +23,15 @@ pub async fn build_query_run_request(
         None => 0,
     };
     let provider_messages = build_provider_messages(messages);
-    let request = LlmRequest::builder(ctx.model.clone())
+    let mut builder = LlmRequest::builder(ctx.model.clone())
         .messages(provider_messages)
         .system_prompt(ctx.system_prompt.clone())
         .max_tokens(ctx.max_tokens)
-        .tools(ctx.tool_registry.specs())
-        .build();
+        .tools(ctx.tool_registry.specs());
+    if let Some(effort) = ctx.reasoning_effort {
+        builder = builder.reasoning_effort(effort);
+    }
+    let request = builder.build();
     QueryRunRequest {
         request,
         prompt_report_seq: seq,
@@ -58,6 +61,7 @@ mod tests {
             model: "model".to_owned(),
             system_prompt: "system".to_owned(),
             max_tokens: 32,
+            reasoning_effort: None,
             tool_call_limit: 8,
             agent_name: "root".to_owned(),
             agent_run_id: AgentRunId::new_v4(),

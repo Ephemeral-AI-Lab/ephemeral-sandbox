@@ -4,9 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::Instant;
 
+use eos_audit::TOOL_CALL_COMPLETED;
 use eos_audit::{AuditEvent, AuditNode, AuditSource};
 use eos_llm_client::{ContentBlock, Message};
-use eos_audit::TOOL_CALL_COMPLETED;
 use eos_tools::{
     execute_tool_once, lifecycle_batch_decision, reject_terminal_batch, run_pre_hooks,
     DispatchCall, ExecutionMetadata, RegisteredTool, ToolName, ToolResult,

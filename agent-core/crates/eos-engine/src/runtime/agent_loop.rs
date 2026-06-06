@@ -3,7 +3,7 @@
 //! plan §2a).
 //!
 //! It wraps the engine's own `build_query_context` + `run_query` seam, so it is
-//! an engine primitive, not a runtime concern. It no longer takes `&AppState`
+//! an engine primitive, not a runtime concern. It takes explicit run handles
 //! (constraint 6): the explicit run handles it needs ride in [`EngineRunHandles`],
 //! which `eos-runtime` builds from its composition root and the advisor dispatch
 //! path reads off [`QueryContext::run_handles`](crate::query::QueryContext).
@@ -14,12 +14,14 @@ use std::time::Instant;
 
 use eos_agent_def::{AgentDefinition, AgentRegistry};
 use eos_audit::{AuditEvent, AuditNode, AuditSink, AuditSource};
-use eos_llm_client::{LlmClient, Message, DEFAULT_MAX_TOKENS};
 use eos_audit::{AGENT_RUN_COMPLETED, OS_RESOURCE_SAMPLED};
+use eos_llm_client::{LlmClient, Message, ReasoningEffort, DEFAULT_MAX_TOKENS};
 use eos_state::{AgentRunStore, ModelStore};
 use eos_tools::{
-    build_default_registry, BackgroundSupervisorPort, CallerScope, ExecutionMetadata,
-    ToolConfigSet, ToolRegistry, ToolResult, WorkflowControlPort,
+    build_default_registry_with_services, AttemptSubmissionService, BackgroundSupervisorPort,
+    CallerScope, CommandSessionSupervisorPort, ExecutionMetadata, RootSubmissionService,
+    SandboxToolService, SkillToolService, ToolConfigSet, ToolRegistry, ToolResult,
+    WorkflowControlPort,
 };
 use eos_types::{AgentRunId, JsonObject, SystemClock, TaskId};
 use futures::StreamExt;
@@ -48,7 +50,7 @@ pub type EventCallback = Arc<dyn Fn(&StreamEvent) + Send + Sync>;
 /// ignorant of plugin catalog internals.
 pub type ToolRegistryExtender = Arc<dyn Fn(&mut ToolRegistry) + Send + Sync>;
 
-/// The explicit run handles `run_agent` needs, in place of `&AppState`
+/// The explicit run handles `run_agent` needs, in place of a runtime-wide state bag
 /// (constraint 6). Cheap to clone (every field is an `Arc` or a small value); it
 /// rides on the [`QueryContext`](crate::query::QueryContext) so the advisor
 /// dispatch path can spawn a child run with the same handles.
@@ -67,19 +69,26 @@ pub struct EngineRunHandles {
     /// Externalized tool config (`.eos-agents/tools`), loaded once at composition
     /// and read by `build_default_registry` for every per-agent registry.
     pub tool_config: Arc<ToolConfigSet>,
+    /// Sandbox RPC service captured by file/shell/plugin/isolated tools.
+    pub sandbox_service: SandboxToolService,
+    /// Root terminal store service. Present for request roots; tests/static
+    /// harnesses may omit it.
+    pub root_submission: Option<RootSubmissionService>,
+    /// Skill registry service captured by `load_skill_reference`.
+    pub skill_service: SkillToolService,
     /// Optional runtime extender that registers dynamic plugin tools into each
     /// per-agent registry after the built-in tools are registered.
     pub tool_registry_extender: Option<ToolRegistryExtender>,
     /// Agent-core observability sink.
     pub audit: Arc<dyn AuditSink>,
-    /// Working directory.
-    pub cwd: String,
+    /// Request-visible workspace root used as the engine/provider cwd.
+    pub workspace_root: String,
 }
 
 impl std::fmt::Debug for EngineRunHandles {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EngineRunHandles")
-            .field("cwd", &self.cwd)
+            .field("workspace_root", &self.workspace_root)
             .field(
                 "has_event_source_factory",
                 &self.event_source_factory.is_some(),
@@ -89,7 +98,6 @@ impl std::fmt::Debug for EngineRunHandles {
 }
 
 /// Inputs for [`run_agent`].
-#[derive(Debug)]
 pub struct AgentRunInput {
     /// The resolved agent definition to run.
     pub agent: AgentDefinition,
@@ -101,12 +109,44 @@ pub struct AgentRunInput {
     pub agent_run_id: AgentRunId,
     /// The typed tool execution context threaded through every tool call.
     pub tool_metadata: ExecutionMetadata,
+    /// Per-attempt terminal submission service for planner/generator/reducer
+    /// agents. `None` for root/helper runs.
+    pub attempt_submission: Option<AttemptSubmissionService>,
+    /// Workflow control service for workflow tools and workflow-state hooks.
+    pub workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+    /// Background supervisor service for subagent/workflow tools and parent-exit
+    /// cleanup.
+    pub background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+    /// Command-session supervisor service for shell tools.
+    pub command_session_supervisor: Option<Arc<dyn CommandSessionSupervisorPort>>,
     /// The per-request notification sink shared with the tools/heartbeat; the
     /// loop drains it each turn (anchor §7 instance identity). Helper
     /// runs (e.g. the advisor) pass a fresh, standalone service.
     pub notifier: NotificationService,
     /// Whether to record an `agent_run` row (create + finish).
     pub persist_agent_run: bool,
+}
+
+impl std::fmt::Debug for AgentRunInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AgentRunInput")
+            .field("agent", &self.agent.name)
+            .field("initial_messages", &self.initial_messages.len())
+            .field("task_id", &self.task_id)
+            .field("agent_run_id", &self.agent_run_id)
+            .field("has_attempt_submission", &self.attempt_submission.is_some())
+            .field("has_workflow_control", &self.workflow_control.is_some())
+            .field(
+                "has_background_supervisor",
+                &self.background_supervisor.is_some(),
+            )
+            .field(
+                "has_command_session_supervisor",
+                &self.command_session_supervisor.is_some(),
+            )
+            .field("persist_agent_run", &self.persist_agent_run)
+            .finish_non_exhaustive()
+    }
 }
 
 /// The result of one agent run, read from the loop's `QueryContext`.
@@ -125,16 +165,16 @@ struct BackgroundRunFinalizer {
     armed: bool,
 }
 
-fn parent_exit_agent_run_ids(metadata: &ExecutionMetadata) -> Vec<AgentRunId> {
-    metadata.agent_run_id.iter().cloned().collect()
-}
-
 impl BackgroundRunFinalizer {
-    fn from_metadata(metadata: &ExecutionMetadata) -> Self {
+    fn new(
+        supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+        workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+        agent_run_ids: Vec<AgentRunId>,
+    ) -> Self {
         Self {
-            supervisor: metadata.background_supervisor.clone(),
-            workflow_control: metadata.workflow_control.clone(),
-            agent_run_ids: parent_exit_agent_run_ids(metadata),
+            supervisor,
+            workflow_control,
+            agent_run_ids,
             armed: true,
         }
     }
@@ -182,6 +222,10 @@ pub async fn run_agent(
         task_id,
         agent_run_id,
         tool_metadata,
+        attempt_submission,
+        workflow_control,
+        background_supervisor,
+        command_session_supervisor,
         notifier,
         persist_agent_run,
     } = input;
@@ -197,16 +241,15 @@ pub async fn run_agent(
         }
     }
 
-    let model = match agent.model.clone() {
-        Some(model) => model,
-        None => handles
-            .model_store
-            .active()
-            .await
-            .ok()
-            .flatten()
-            .map(|registration| registration.model_key)
-            .unwrap_or_else(|| "default-model".to_owned()),
+    let (model, reasoning_effort) = match agent.model.clone() {
+        Some(model) => (model, None),
+        None => match handles.model_store.active().await.ok().flatten() {
+            Some(registration) => (
+                registration.model_key,
+                reasoning_effort_from_kwargs(&registration.kwargs_json),
+            ),
+            None => ("default-model".to_owned(), None),
+        },
     };
     let event_source: Option<Arc<dyn EventSource>> = handles
         .event_source_factory
@@ -228,7 +271,18 @@ pub async fn run_agent(
             .and_then(|p| p.file_name())
             .map(|s| s.to_string_lossy().into_owned()),
     };
-    let registry = build_default_registry(&handles.tool_config, &caller_scope);
+    let agent_run_ids: Vec<AgentRunId> = tool_metadata.agent_run_id.iter().cloned().collect();
+    let registry = build_default_registry_with_services(
+        &handles.tool_config,
+        &caller_scope,
+        handles.sandbox_service.clone(),
+        handles.root_submission.clone(),
+        attempt_submission,
+        workflow_control.clone(),
+        background_supervisor.clone(),
+        command_session_supervisor,
+        handles.skill_service.clone(),
+    );
     let mut registry = registry;
     if let Some(extender) = &handles.tool_registry_extender {
         extender(&mut registry);
@@ -242,7 +296,8 @@ pub async fn run_agent(
         registry,
         base_system_prompt: String::new(),
         max_tokens: DEFAULT_MAX_TOKENS,
-        cwd: PathBuf::from(&handles.cwd),
+        reasoning_effort,
+        cwd: PathBuf::from(&handles.workspace_root),
         agent_run_id: agent_run_id.clone(),
         task_id,
         tool_metadata,
@@ -264,7 +319,11 @@ pub async fn run_agent(
             };
         }
     };
-    let mut background_finalizer = BackgroundRunFinalizer::from_metadata(&ctx.tool_metadata);
+    let mut background_finalizer = BackgroundRunFinalizer::new(
+        background_supervisor.clone(),
+        workflow_control.clone(),
+        agent_run_ids.clone(),
+    );
 
     let mut error: Option<String> = None;
     {
@@ -283,7 +342,14 @@ pub async fn run_agent(
             }
         }
     }
-    finalize_background_for_agent(&ctx, error.as_deref()).await;
+    finalize_background_for_agent(
+        &ctx,
+        error.as_deref(),
+        background_supervisor,
+        workflow_control,
+        &agent_run_ids,
+    )
+    .await;
     background_finalizer.disarm();
 
     let terminal_result = ctx.terminal_result.clone();
@@ -300,6 +366,32 @@ pub async fn run_agent(
     AgentRunResult {
         terminal_result,
         error,
+    }
+}
+
+fn reasoning_effort_from_kwargs(kwargs_json: &str) -> Option<ReasoningEffort> {
+    let value = serde_json::from_str::<Value>(kwargs_json).ok()?;
+    let object = value.as_object()?;
+    let raw = object
+        .get("reasoning_effort")
+        .or_else(|| object.get("effort"))
+        .and_then(Value::as_str)
+        .or_else(|| {
+            object
+                .get("reasoning")
+                .and_then(|reasoning| reasoning.get("effort"))
+                .and_then(Value::as_str)
+        })?;
+    parse_reasoning_effort(raw)
+}
+
+fn parse_reasoning_effort(raw: &str) -> Option<ReasoningEffort> {
+    match raw.trim().to_ascii_lowercase().replace('-', "_").as_str() {
+        "minimal" => Some(ReasoningEffort::Minimal),
+        "low" => Some(ReasoningEffort::Low),
+        "medium" => Some(ReasoningEffort::Medium),
+        "high" => Some(ReasoningEffort::High),
+        _ => None,
     }
 }
 
@@ -396,8 +488,14 @@ const fn exit_reason_value(reason: QueryExitReason) -> &'static str {
     }
 }
 
-async fn finalize_background_for_agent(ctx: &crate::query::QueryContext, error: Option<&str>) {
-    let Some(supervisor) = &ctx.tool_metadata.background_supervisor else {
+async fn finalize_background_for_agent(
+    ctx: &crate::query::QueryContext,
+    error: Option<&str>,
+    supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+    workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+    agent_run_ids: &[AgentRunId],
+) {
+    let Some(supervisor) = supervisor else {
         return;
     };
     let reason = match (ctx.exit_reason, error) {
@@ -408,13 +506,9 @@ async fn finalize_background_for_agent(ctx: &crate::query::QueryContext, error: 
         (Some(QueryExitReason::ToolStop), None) => "parent agent submitted its terminal".to_owned(),
         (None, None) => "parent agent exited".to_owned(),
     };
-    for agent_run_id in parent_exit_agent_run_ids(&ctx.tool_metadata) {
+    for agent_run_id in agent_run_ids {
         supervisor
-            .cancel_for_parent_exit(
-                Some(&agent_run_id),
-                ctx.tool_metadata.workflow_control.clone(),
-                &reason,
-            )
+            .cancel_for_parent_exit(Some(agent_run_id), workflow_control.clone(), &reason)
             .await;
     }
 }
@@ -426,5 +520,29 @@ async fn finish_run(handles: &EngineRunHandles, agent_run_id: &AgentRunId, error
         .await
     {
         tracing::warn!(error = %err, "agent_run finish_run failed (non-fatal)");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn parses_reasoning_effort_from_model_kwargs() {
+        assert_eq!(
+            reasoning_effort_from_kwargs(&json!({"reasoning_effort": "medium"}).to_string()),
+            Some(ReasoningEffort::Medium)
+        );
+        assert_eq!(
+            reasoning_effort_from_kwargs(&json!({"effort": "high"}).to_string()),
+            Some(ReasoningEffort::High)
+        );
+        assert_eq!(
+            reasoning_effort_from_kwargs(&json!({"reasoning": {"effort": "low"}}).to_string()),
+            Some(ReasoningEffort::Low)
+        );
+        assert_eq!(reasoning_effort_from_kwargs("{}"), None);
     }
 }

@@ -8,6 +8,7 @@
 mod ask_helper;
 mod isolated_workspace;
 mod sandbox;
+mod services;
 mod skills;
 mod subagent;
 mod submission;
@@ -23,6 +24,12 @@ use crate::core::result::OutputShape;
 use crate::registry::config::{ToolConfig, ToolConfigSet};
 use crate::registry::ToolRegistry;
 use crate::runtime::executor::{RegisteredTool, ToolExecutor};
+
+use services::InertSandboxTransport;
+pub use services::{
+    AttemptSubmissionService, CommandToolService, HookServices, RootSubmissionService,
+    SandboxToolService, SkillToolService,
+};
 
 /// The per-caller scope a tool registry is built for: the caller's
 /// dispatchable-subagent allow-list (which patches the `run_subagent` input
@@ -59,14 +66,61 @@ pub(crate) fn register_tool(
 /// the agent-spawn default before `restrict`/`remove`.
 #[must_use]
 pub fn build_default_registry(config: &ToolConfigSet, caller: &CallerScope) -> ToolRegistry {
+    build_default_registry_with_services(
+        config,
+        caller,
+        SandboxToolService::new(Arc::new(InertSandboxTransport)),
+        None,
+        None,
+        None,
+        None,
+        None,
+        SkillToolService::new(Arc::new(eos_skills::SkillRegistry::new())),
+    )
+}
+
+/// Build the default tool registry for one caller scope with locally wired
+/// services. Runtime uses this entry point; tests that only need static registry
+/// policy can use [`build_default_registry`].
+#[allow(clippy::too_many_arguments)]
+#[must_use]
+pub fn build_default_registry_with_services(
+    config: &ToolConfigSet,
+    caller: &CallerScope,
+    sandbox_service: SandboxToolService,
+    root_submission: Option<RootSubmissionService>,
+    attempt_submission: Option<AttemptSubmissionService>,
+    workflow_control: Option<Arc<dyn crate::ports::WorkflowControlPort>>,
+    background_supervisor: Option<Arc<dyn crate::ports::BackgroundSupervisorPort>>,
+    command_session_supervisor: Option<Arc<dyn crate::ports::CommandSessionSupervisorPort>>,
+    skill_service: SkillToolService,
+) -> ToolRegistry {
     let mut registry = ToolRegistry::new();
-    sandbox::register(&mut registry, config);
-    isolated_workspace::register(&mut registry, config);
-    submission::register(&mut registry, config);
+    let hook_services = HookServices::new(
+        Some(sandbox_service.transport()),
+        workflow_control.clone(),
+        background_supervisor.clone(),
+    );
+    let command_service =
+        CommandToolService::new(sandbox_service.transport(), command_session_supervisor);
+    sandbox::register(
+        &mut registry,
+        config,
+        sandbox_service.clone(),
+        command_service,
+    );
+    isolated_workspace::register(&mut registry, config, sandbox_service);
+    submission::register(&mut registry, config, root_submission, attempt_submission);
     ask_helper::register(&mut registry, config);
-    workflow::register(&mut registry, config);
-    subagent::register(&mut registry, config, caller);
-    skills::register(&mut registry, config, caller);
+    workflow::register(
+        &mut registry,
+        config,
+        workflow_control,
+        background_supervisor.clone(),
+    );
+    subagent::register(&mut registry, config, caller, background_supervisor);
+    skills::register(&mut registry, config, caller, skill_service);
+    registry.apply_hook_services(hook_services);
     registry
 }
 

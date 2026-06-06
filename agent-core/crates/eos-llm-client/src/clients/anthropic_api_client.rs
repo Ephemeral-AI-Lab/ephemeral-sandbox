@@ -19,7 +19,7 @@ use eos_config::RetryConfig;
 use eos_types::ToolUseId;
 use futures::future::BoxFuture;
 use futures::{Stream, StreamExt};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE, USER_AGENT};
 use serde_json::{json, Value};
 
 use crate::auth::Auth;
@@ -35,8 +35,8 @@ use crate::types::{LlmRequest, ToolChoice, ToolSpec, UsageSnapshot};
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 /// The Messages streaming endpoint path.
 const MESSAGES_PATH: &str = "/v1/messages";
-/// The Messages beta endpoint path used by OAuth-backed Claude Code transport.
-const MESSAGES_BETA_PATH: &str = "/v1/messages?beta=true";
+/// The Claude Code system identity prepended for OAuth-backed transport.
+const CLAUDE_CODE_SYSTEM_PROMPT: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
 
 /// The Anthropic-native streaming client.
 #[derive(Debug)]
@@ -45,7 +45,8 @@ pub struct AnthropicApiClient {
     endpoint: reqwest::Url,
     auth: Arc<Auth>,
     retry: Arc<RetryConfig>,
-    beta_header: Option<HeaderValue>,
+    extra_headers: HeaderMap,
+    prepend_claude_code_system_prompt: bool,
 }
 
 impl AnthropicApiClient {
@@ -54,7 +55,7 @@ impl AnthropicApiClient {
     /// Returns the outer `Err` only on a malformed base url
     /// (`api-parse-dont-validate`).
     pub fn new(base_url: &str, auth: Auth, retry: Arc<RetryConfig>) -> Result<Self, ProviderError> {
-        Self::new_with_options(base_url, MESSAGES_PATH, auth, retry, None)
+        Self::new_with_options(base_url, auth, retry, HeaderMap::new(), false)
     }
 
     /// Construct a client for Claude coding-plan OAuth access tokens.
@@ -64,22 +65,34 @@ impl AnthropicApiClient {
         retry: Arc<RetryConfig>,
         beta_header: HeaderValue,
     ) -> Result<Self, ProviderError> {
-        Self::new_with_options(base_url, MESSAGES_BETA_PATH, auth, retry, Some(beta_header))
+        let mut extra_headers = HeaderMap::new();
+        extra_headers.insert(HeaderName::from_static("anthropic-beta"), beta_header);
+        extra_headers.insert(
+            HeaderName::from_static("anthropic-dangerous-direct-browser-access"),
+            HeaderValue::from_static("true"),
+        );
+        extra_headers.insert(USER_AGENT, HeaderValue::from_static("claude-cli/2.1.75"));
+        extra_headers.insert(
+            HeaderName::from_static("x-app"),
+            HeaderValue::from_static("cli"),
+        );
+        Self::new_with_options(base_url, auth, retry, extra_headers, true)
     }
 
     fn new_with_options(
         base_url: &str,
-        path: &str,
         auth: Auth,
         retry: Arc<RetryConfig>,
-        beta_header: Option<HeaderValue>,
+        extra_headers: HeaderMap,
+        prepend_claude_code_system_prompt: bool,
     ) -> Result<Self, ProviderError> {
         Ok(Self {
             http: reqwest::Client::new(),
-            endpoint: build_endpoint(base_url, path)?,
+            endpoint: build_endpoint(base_url, MESSAGES_PATH)?,
             auth: Arc::new(auth),
             retry,
-            beta_header,
+            extra_headers,
+            prepend_claude_code_system_prompt,
         })
     }
 
@@ -91,8 +104,8 @@ impl AnthropicApiClient {
             HeaderName::from_static("anthropic-version"),
             HeaderValue::from_static(ANTHROPIC_VERSION),
         );
-        if let Some(beta) = &self.beta_header {
-            headers.insert(HeaderName::from_static("anthropic-beta"), beta.clone());
+        for (name, value) in &self.extra_headers {
+            headers.insert(name, value.clone());
         }
         self.auth.apply(&mut headers)?;
         Ok(headers)
@@ -103,7 +116,12 @@ impl AnthropicApiClient {
 impl LlmClient for AnthropicApiClient {
     async fn stream_message(&self, request: LlmRequest) -> Result<LlmStream, ProviderError> {
         // Synchronous build — the only outer-`Err` path (§5).
-        let body = serde_json::to_vec(&encode_anthropic_body(&request)).map_err(|e| {
+        let body_value = if self.prepend_claude_code_system_prompt {
+            encode_anthropic_body_with_options(&request, true)
+        } else {
+            encode_anthropic_body(&request)
+        };
+        let body = serde_json::to_vec(&body_value).map_err(|e| {
             ProviderError::request(format!("request body serialization failed: {e}"))
         })?;
         let body = Bytes::from(body);
@@ -299,6 +317,13 @@ where
 
 /// Encode an [`LlmRequest`] into an Anthropic `/v1/messages` request body.
 pub(crate) fn encode_anthropic_body(request: &LlmRequest) -> Value {
+    encode_anthropic_body_with_options(request, false)
+}
+
+fn encode_anthropic_body_with_options(
+    request: &LlmRequest,
+    prepend_claude_code_system_prompt: bool,
+) -> Value {
     let messages: Vec<Value> = request
         .messages
         .iter()
@@ -319,7 +344,19 @@ pub(crate) fn encode_anthropic_body(request: &LlmRequest) -> Value {
         "max_tokens": request.max_tokens,
         "stream": true,
     });
-    if let Some(system) = &request.system_prompt {
+    if prepend_claude_code_system_prompt {
+        let mut system = vec![json!({
+            "type": "text",
+            "text": CLAUDE_CODE_SYSTEM_PROMPT,
+        })];
+        if let Some(prompt) = &request.system_prompt {
+            system.push(json!({
+                "type": "text",
+                "text": prompt,
+            }));
+        }
+        body["system"] = Value::Array(system);
+    } else if let Some(system) = &request.system_prompt {
         body["system"] = json!(system);
     }
     if !request.tools.is_empty() {
@@ -599,26 +636,58 @@ mod tests {
     }
 
     #[test]
-    fn claude_coding_plan_uses_oauth_beta_endpoint_and_headers() {
+    fn claude_coding_plan_uses_oauth_transport_shape() {
         let client = AnthropicApiClient::new_claude_coding_plan(
             "https://api.anthropic.com",
             Auth::bearer("oauth-token"),
             Arc::new(RetryConfig::default()),
-            HeaderValue::from_static("oauth-2025-04-20"),
+            HeaderValue::from_static("claude-code-20250219,oauth-2025-04-20"),
         )
         .unwrap();
 
         assert_eq!(
             client.endpoint.as_str(),
-            "https://api.anthropic.com/v1/messages?beta=true"
+            "https://api.anthropic.com/v1/messages"
         );
         let headers = client.build_headers().unwrap();
-        assert_eq!(headers.get("anthropic-beta").unwrap(), "oauth-2025-04-20");
+        assert_eq!(
+            headers.get("anthropic-beta").unwrap(),
+            "claude-code-20250219,oauth-2025-04-20"
+        );
+        assert_eq!(headers.get("x-app").unwrap(), "cli");
+        assert_eq!(headers.get("user-agent").unwrap(), "claude-cli/2.1.75");
+        assert_eq!(
+            headers
+                .get("anthropic-dangerous-direct-browser-access")
+                .unwrap(),
+            "true"
+        );
         assert_eq!(
             headers.get("authorization").unwrap().to_str().unwrap(),
             "Bearer oauth-token"
         );
         assert!(headers.get("x-api-key").is_none());
+
+        let body = encode_anthropic_body_with_options(
+            &LlmRequest::builder("claude")
+                .system_prompt("repo prompt")
+                .message(Message::from_user_text("hi"))
+                .build(),
+            true,
+        );
+        assert_eq!(
+            body["system"],
+            json!([
+                {
+                    "type": "text",
+                    "text": "You are Claude Code, Anthropic's official CLI for Claude."
+                },
+                {
+                    "type": "text",
+                    "text": "repo prompt"
+                }
+            ])
+        );
     }
 
     // AC-llm-client-05: a forced SSE parse failure logs without echoing frame

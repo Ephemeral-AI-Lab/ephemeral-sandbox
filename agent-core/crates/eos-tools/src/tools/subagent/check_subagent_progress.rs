@@ -11,6 +11,7 @@ use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
 use crate::core::result::{OutputShape, ToolResult};
+use crate::ports::BackgroundSupervisorPort;
 use crate::registry::config::ToolConfigSet;
 use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
@@ -28,14 +29,26 @@ struct CheckSubagentProgressInput {
     last_n_messages: u8,
 }
 
-pub(in crate::tools::subagent) struct CheckSubagentProgress;
+pub(in crate::tools::subagent) struct CheckSubagentProgress {
+    background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+}
+
+impl CheckSubagentProgress {
+    pub(in crate::tools::subagent) fn new(
+        background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+    ) -> Self {
+        Self {
+            background_supervisor,
+        }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for CheckSubagentProgress {
     async fn execute(
         &self,
         input: &JsonObject,
-        ctx: &ExecutionMetadata,
+        _ctx: &ExecutionMetadata,
     ) -> Result<ToolResult, ToolError> {
         let parsed: CheckSubagentProgressInput =
             match parse_input(ToolName::CheckSubagentProgress, input) {
@@ -53,13 +66,19 @@ impl ToolExecutor for CheckSubagentProgress {
                  Please retry the tool call with valid arguments.",
             ));
         }
-        ctx.require_background_supervisor()?
+        self.background_supervisor
+            .as_deref()
+            .ok_or(ToolError::MissingPort("background_supervisor"))?
             .progress(&parsed.subagent_session_id, parsed.last_n_messages)
             .await
     }
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+) {
     let check = config.get(ToolName::CheckSubagentProgress);
     super::super::register_tool(
         registry,
@@ -71,6 +90,6 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(CheckSubagentProgressInput),
         ),
         OutputShape::Text,
-        Arc::new(CheckSubagentProgress),
+        Arc::new(CheckSubagentProgress::new(background_supervisor)),
     );
 }

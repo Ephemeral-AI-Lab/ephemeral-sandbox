@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use eos_agent_def::AgentDefinition;
 use eos_audit::AuditSink;
-use eos_llm_client::LlmClient;
+use eos_llm_client::{LlmClient, ReasoningEffort};
 use eos_tools::{ExecutionMetadata, ToolKey, ToolName, ToolRegistry};
 use eos_types::{AgentRunId, TaskId};
 
@@ -31,6 +31,8 @@ pub struct BuildQueryContextInput {
     pub base_system_prompt: String,
     /// Max completion tokens.
     pub max_tokens: u32,
+    /// Provider reasoning-effort hint.
+    pub reasoning_effort: Option<ReasoningEffort>,
     /// Working directory.
     pub cwd: PathBuf,
     /// Agent run id.
@@ -57,6 +59,7 @@ impl std::fmt::Debug for BuildQueryContextInput {
             .field("model", &self.model)
             .field("base_system_prompt", &self.base_system_prompt)
             .field("max_tokens", &self.max_tokens)
+            .field("reasoning_effort", &self.reasoning_effort)
             .field("cwd", &self.cwd)
             .field("agent_run_id", &self.agent_run_id)
             .field("task_id", &self.task_id)
@@ -96,6 +99,7 @@ pub fn build_query_context(input: BuildQueryContextInput) -> Result<QueryContext
         mut registry,
         base_system_prompt,
         max_tokens,
+        reasoning_effort,
         cwd,
         agent_run_id,
         task_id,
@@ -150,6 +154,7 @@ pub fn build_query_context(input: BuildQueryContextInput) -> Result<QueryContext
         model,
         system_prompt: prompt_parts.join("\n\n"),
         max_tokens,
+        reasoning_effort,
         tool_call_limit: agent.tool_call_limit.get(),
         agent_name: agent.name.as_str().to_owned(),
         agent_run_id,
@@ -259,6 +264,7 @@ mod tests {
             registry: registry(),
             base_system_prompt: "base".to_owned(),
             max_tokens: 32,
+            reasoning_effort: None,
             cwd: PathBuf::new(),
             agent_run_id: AgentRunId::new_v4(),
             task_id: None,

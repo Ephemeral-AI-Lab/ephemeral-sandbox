@@ -12,6 +12,7 @@ use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
 use crate::core::result::{OutputShape, ToolResult};
+use crate::ports::{BackgroundSupervisorPort, WorkflowControlPort};
 use crate::registry::config::ToolConfigSet;
 use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
@@ -23,7 +24,22 @@ struct DelegateWorkflowInput {
     goal: String,
 }
 
-pub(in crate::tools::workflow) struct DelegateWorkflow;
+pub(in crate::tools::workflow) struct DelegateWorkflow {
+    workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+    background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+}
+
+impl DelegateWorkflow {
+    pub(in crate::tools::workflow) fn new(
+        workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+        background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+    ) -> Self {
+        Self {
+            workflow_control,
+            background_supervisor,
+        }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for DelegateWorkflow {
@@ -41,8 +57,14 @@ impl ToolExecutor for DelegateWorkflow {
         }
         let task_id = ctx.require_task_id()?;
         let agent_run_id = ctx.require_agent_run_id()?;
-        let control = ctx.require_workflow_control()?;
-        let supervisor = ctx.require_background_supervisor()?;
+        let control = self
+            .workflow_control
+            .as_deref()
+            .ok_or(ToolError::MissingPort("workflow_control"))?;
+        let supervisor = self
+            .background_supervisor
+            .as_deref()
+            .ok_or(ToolError::MissingPort("background_supervisor"))?;
 
         let outstanding = control.find_outstanding(task_id, agent_run_id).await?;
         if let Some(existing) = outstanding.first() {
@@ -86,7 +108,12 @@ impl ToolExecutor for DelegateWorkflow {
     }
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    workflow_control: Option<Arc<dyn WorkflowControlPort>>,
+    background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+) {
     let delegate = config.get(ToolName::DelegateWorkflow);
     super::super::register_tool(
         registry,
@@ -98,6 +125,9 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(DelegateWorkflowInput),
         ),
         OutputShape::Text,
-        Arc::new(DelegateWorkflow),
+        Arc::new(DelegateWorkflow::new(
+            workflow_control,
+            background_supervisor,
+        )),
     );
 }

@@ -13,7 +13,7 @@ use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
 use crate::core::result::{OutputShape, ToolResult};
-use crate::ports::{SpawnedSubagent, StartedSubagent};
+use crate::ports::{BackgroundSupervisorPort, SpawnedSubagent, StartedSubagent};
 use crate::registry::config::ToolConfigSet;
 use crate::registry::spec::text_spec_with_agent_enum;
 use crate::registry::ToolRegistry;
@@ -27,7 +27,19 @@ struct RunSubagentInput {
     prompt: String,
 }
 
-pub(in crate::tools::subagent) struct RunSubagent;
+pub(in crate::tools::subagent) struct RunSubagent {
+    background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+}
+
+impl RunSubagent {
+    pub(in crate::tools::subagent) fn new(
+        background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+    ) -> Self {
+        Self {
+            background_supervisor,
+        }
+    }
+}
 
 fn launch_result(agent_name: &str, started: &StartedSubagent) -> ToolResult {
     let session_id = started.subagent_session_id.as_str();
@@ -66,8 +78,10 @@ impl ToolExecutor for RunSubagent {
                 "run_subagent: `prompt` must be a non-empty string.",
             ));
         }
-        match ctx
-            .require_background_supervisor()?
+        match self
+            .background_supervisor
+            .as_deref()
+            .ok_or(ToolError::MissingPort("background_supervisor"))?
             .spawn(ctx, &parsed.agent_name, &parsed.prompt)
             .await?
         {
@@ -77,7 +91,12 @@ impl ToolExecutor for RunSubagent {
     }
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet, caller: &CallerScope) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    caller: &CallerScope,
+    background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
+) {
     let run = config.get(ToolName::RunSubagent);
     super::super::register_tool(
         registry,
@@ -90,6 +109,6 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet, call
             &caller.dispatchable_subagents,
         ),
         OutputShape::Text,
-        Arc::new(RunSubagent),
+        Arc::new(RunSubagent::new(background_supervisor)),
     );
 }

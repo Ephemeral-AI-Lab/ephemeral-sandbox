@@ -1,6 +1,6 @@
 //! The `load_skill_reference` tool — serves one named `references/*.md` document
 //! from the bound agent's own skill. The skill *content* comes from the shared
-//! [`SkillRegistry`](eos_skills::SkillRegistry) in [`ExecutionMetadata`]; the
+//! [`SkillRegistry`](eos_skills::SkillRegistry) captured by this executor; the
 //! per-agent **allowlist** ([`CallerScope::skill_slug`](super::CallerScope),
 //! baked in at registration) scopes which skill the caller may read: an agent
 //! reads only its own skill's references, and a not-found error lists only that
@@ -25,6 +25,7 @@ use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
+use crate::tools::SkillToolService;
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 struct LoadSkillReferenceInput {
@@ -39,6 +40,7 @@ struct LoadSkillReferenceInput {
 /// registration; empty ⇒ a no-op tool that errors on every call.
 struct LoadSkillReference {
     allowed: Vec<SkillName>,
+    service: SkillToolService,
 }
 
 #[async_trait]
@@ -46,7 +48,7 @@ impl ToolExecutor for LoadSkillReference {
     async fn execute(
         &self,
         input: &JsonObject,
-        ctx: &ExecutionMetadata,
+        _ctx: &ExecutionMetadata,
     ) -> Result<ToolResult, ToolError> {
         let parsed: LoadSkillReferenceInput = match parse_input(ToolName::LoadSkillReference, input)
         {
@@ -58,7 +60,7 @@ impl ToolExecutor for LoadSkillReference {
         let available: Vec<String> = self
             .allowed
             .iter()
-            .filter_map(|slug| ctx.skill_registry.get(slug))
+            .filter_map(|slug| self.service.skill_registry.get(slug))
             .map(|s| s.name.as_str().to_owned())
             .collect();
 
@@ -74,7 +76,7 @@ impl ToolExecutor for LoadSkillReference {
 
         let skill = SkillName::parse(parsed.skill_name.clone())
             .ok()
-            .and_then(|name| ctx.skill_registry.get(&name));
+            .and_then(|name| self.service.skill_registry.get(&name));
         let Some(skill) = skill else {
             return Ok(ToolResult::error(format!(
                 "Skill '{}' not found in registry.",
@@ -108,7 +110,12 @@ impl ToolExecutor for LoadSkillReference {
     }
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet, caller: &CallerScope) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    caller: &CallerScope,
+    skill_service: SkillToolService,
+) {
     // Scope to the caller's own skill folder slug (0-or-1 entries).
     let allowed: Vec<SkillName> = caller
         .skill_slug
@@ -127,7 +134,10 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet, call
             schema_for!(LoadSkillReferenceInput),
         ),
         OutputShape::Text,
-        Arc::new(LoadSkillReference { allowed }),
+        Arc::new(LoadSkillReference {
+            allowed,
+            service: skill_service,
+        }),
     );
 }
 
@@ -190,10 +200,8 @@ mod tests {
         SkillRegistry::load_from_dir(scratch.path()).unwrap()
     }
 
-    fn ctx_with(registry: SkillRegistry) -> ExecutionMetadata {
-        let mut ctx = metadata();
-        ctx.skill_registry = Arc::new(registry);
-        ctx
+    fn service_with(registry: SkillRegistry) -> SkillToolService {
+        SkillToolService::new(Arc::new(registry))
     }
 
     fn input(skill: &str, reference: &str) -> JsonObject {
@@ -206,9 +214,10 @@ mod tests {
         m
     }
 
-    fn scoped_to(slug: &str) -> LoadSkillReference {
+    fn scoped_to(slug: &str, service: SkillToolService) -> LoadSkillReference {
         LoadSkillReference {
             allowed: vec![SkillName::parse(slug.to_owned()).unwrap()],
+            service,
         }
     }
 
@@ -218,8 +227,8 @@ mod tests {
     #[tokio::test]
     async fn scoped_agent_cannot_read_other_skill() {
         let scratch = Scratch::new("d7-isolation");
-        let ctx = ctx_with(two_skill_registry(&scratch));
-        let res = scoped_to("a")
+        let ctx = metadata();
+        let res = scoped_to("a", service_with(two_skill_registry(&scratch)))
             .execute(&input("b", "secret"), &ctx)
             .await
             .unwrap();
@@ -242,8 +251,8 @@ mod tests {
     #[tokio::test]
     async fn scoped_agent_reads_own_reference() {
         let scratch = Scratch::new("d7-own");
-        let ctx = ctx_with(two_skill_registry(&scratch));
-        let res = scoped_to("a")
+        let ctx = metadata();
+        let res = scoped_to("a", service_with(two_skill_registry(&scratch)))
             .execute(&input("a", "ref_a"), &ctx)
             .await
             .unwrap();
@@ -257,11 +266,14 @@ mod tests {
     #[tokio::test]
     async fn skill_less_agent_has_empty_allowlist() {
         let scratch = Scratch::new("d7-noskill");
-        let ctx = ctx_with(two_skill_registry(&scratch));
-        let res = LoadSkillReference { allowed: vec![] }
-            .execute(&input("a", "ref_a"), &ctx)
-            .await
-            .unwrap();
+        let ctx = metadata();
+        let res = LoadSkillReference {
+            allowed: vec![],
+            service: service_with(two_skill_registry(&scratch)),
+        }
+        .execute(&input("a", "ref_a"), &ctx)
+        .await
+        .unwrap();
 
         assert!(res.is_error);
         let body: Value = serde_json::from_str(&res.output).unwrap();
@@ -280,6 +292,7 @@ mod tests {
                 dispatchable_subagents: vec![],
                 skill_slug: Some("a".to_owned()),
             },
+            SkillToolService::new(Arc::new(SkillRegistry::new())),
         );
         assert!(
             registry.get(ToolName::LoadSkillReference).is_some(),

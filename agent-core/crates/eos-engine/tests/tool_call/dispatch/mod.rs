@@ -142,6 +142,7 @@ fn ctx(registry: ToolRegistry) -> QueryContext {
         model: "m".to_owned(),
         system_prompt: String::new(),
         max_tokens: 1,
+        reasoning_effort: None,
         tool_call_limit: 1,
         agent_name: "root".to_owned(),
         agent_run_id: AgentRunId::new_v4(),

@@ -31,7 +31,7 @@ use serde_json::Value;
 
 use crate::notifications::NotificationService;
 
-use super::agent_loop::{run_agent, EngineRunHandles, AgentRunInput};
+use super::agent_loop::{run_agent, AgentRunInput, EngineRunHandles};
 
 const MAX_TRANSCRIPT_MESSAGES: usize = 40;
 const MAX_TOOL_RESULT_CHARS: usize = 4096;
@@ -135,6 +135,10 @@ pub(crate) async fn run_advisor(
             task_id: None,
             agent_run_id,
             tool_metadata: advisor_meta,
+            attempt_submission: None,
+            workflow_control: None,
+            background_supervisor: None,
+            command_session_supervisor: None,
             notifier: NotificationService::new(),
             persist_agent_run: false,
         },
@@ -167,12 +171,7 @@ fn advisor_metadata(ctx: &ExecutionMetadata, agent_run_id: &AgentRunId) -> Execu
     meta.task_id = None;
     meta.attempt_id = None;
     meta.workflow_id = None;
-    meta.workflow_control = None;
-    meta.plan_submission = None;
-    meta.background_supervisor = None;
-    meta.command_session_supervisor = None;
-    meta.isolated_workspace = None;
-    meta.notifications = None;
+    meta.is_isolated_workspace_mode = false;
     meta.conversation = Arc::from(Vec::new());
     meta
 }

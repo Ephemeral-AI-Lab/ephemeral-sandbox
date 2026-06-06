@@ -15,12 +15,21 @@ use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
+use crate::tools::AttemptSubmissionService;
 
 use super::super::lib::{
     is_blank, meta_obj, submission_ack_result, OutcomeInput, SubmissionStatus,
 };
 
-struct SubmitGeneratorOutcome;
+struct SubmitGeneratorOutcome {
+    service: Option<AttemptSubmissionService>,
+}
+
+impl SubmitGeneratorOutcome {
+    fn new(service: Option<AttemptSubmissionService>) -> Self {
+        Self { service }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for SubmitGeneratorOutcome {
@@ -45,8 +54,11 @@ impl ToolExecutor for SubmitGeneratorOutcome {
             outcome: parsed.outcome.clone(),
             terminal_tool_result: meta_obj(&[("generator_role", json!("generator"))]),
         };
-        let ack = ctx
-            .require_plan_submission()?
+        let ack = self
+            .service
+            .as_ref()
+            .ok_or(ToolError::MissingPort("attempt_submission"))?
+            .port
             .submit_generator(submission)
             .await?;
         Ok(submission_ack_result(
@@ -71,7 +83,11 @@ impl ToolExecutor for SubmitGeneratorOutcome {
     }
 }
 
-pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
+pub(super) fn register(
+    registry: &mut ToolRegistry,
+    config: &ToolConfigSet,
+    attempt_submission: Option<AttemptSubmissionService>,
+) {
     let generator = config.get(ToolName::SubmitGeneratorOutcome);
     super::super::super::register_tool(
         registry,
@@ -83,6 +99,6 @@ pub(super) fn register(registry: &mut ToolRegistry, config: &ToolConfigSet) {
             schema_for!(OutcomeInput),
         ),
         OutputShape::Text,
-        Arc::new(SubmitGeneratorOutcome),
+        Arc::new(SubmitGeneratorOutcome::new(attempt_submission)),
     );
 }

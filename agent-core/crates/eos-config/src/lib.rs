@@ -10,12 +10,12 @@
 //! DAG — no internal upstream edge (not even `eos-types`) — consumed read-only.
 //!
 //! It deliberately does **not** aggregate sections into a central composition
-//! struct (there is no `CentralConfig`), resolve the active model (that is
-//! `eos-db`), hold secrets (those live only in the gitignored override), open
-//! connections, or spawn tasks.
+//! struct (there is no `CentralConfig`), persist or resolve the active model
+//! (that is `eos-db`), hold secrets (those live only in the gitignored override),
+//! open connections, or spawn tasks.
 //!
 //! The section schemas ([`DatabaseConfig`], [`ProvidersConfig`],
-//! [`WorkflowConfig`], …) live here for now; they migrate to their owning
+//! [`ModelsConfig`], [`WorkflowConfig`], …) live here for now; they migrate to their owning
 //! crates' `config.rs` as those crates stabilize.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -28,8 +28,9 @@ mod markdown;
 
 pub use configs::{
     AnthropicApiConfig, AttemptConfig, ClaudeCodingPlanConfig, CodexCodingPlanConfig,
-    DatabaseConfig, DatabaseUrl, OpenAiApiConfig, ProviderKind, ProvidersConfig, RetryConfig,
-    SecretConfigValue, WorkflowConfig, DEFAULT_SQLITE_DATABASE_URL, DEFAULT_WORKFLOW_MAX_DEPTH,
+    DatabaseConfig, DatabaseUrl, ModelRegistrationConfig, ModelsConfig, OpenAiApiConfig,
+    ProviderKind, ProvidersConfig, RetryConfig, SecretConfigValue, WorkflowConfig,
+    DEFAULT_SQLITE_DATABASE_URL, DEFAULT_WORKFLOW_MAX_DEPTH,
 };
 pub use document::ConfigDocument;
 pub use error::ConfigError;

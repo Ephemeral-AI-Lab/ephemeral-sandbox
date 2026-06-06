@@ -1,5 +1,5 @@
 //! `ModelRegistry` — model-registration CRUD, secret redaction, env-placeholder
-//! resolution, and JSON seeding (Python `model_store.py`).
+//! resolution, and config-driven registration sync (Python `model_store.py`).
 //!
 //! `class_path` is carried verbatim and never used to import or dispatch
 //! (anchor §2, GC-eos-db-01).
@@ -9,6 +9,7 @@ use serde_json::{Map, Value};
 use sqlx::{Sqlite, SqlitePool};
 use time::OffsetDateTime;
 
+use eos_config::ModelsConfig;
 use eos_state::{CoreError, JsonObject, ModelRegistration, ModelStore, Sealed, UtcDateTime};
 
 use crate::error::DbError;
@@ -87,57 +88,37 @@ impl ModelRegistry {
         }))
     }
 
-    /// Seed registrations from a `registry.json` file. No-op (returns 0) when the
-    /// DB already has entries or the file is missing/unreadable (Python
-    /// `seed_from_json`).
+    /// Apply registrations from typed config. When `models.active` names a key
+    /// absent from `registrations`, the active row is synthesized with default
+    /// metadata so simple configs only need the active model key.
     ///
     /// # Errors
     /// Returns [`DbError`] on a query or registration failure.
-    pub async fn seed_from_json(&self, json_path: &str) -> Result<usize, DbError> {
-        let count: i64 =
-            sqlx::query_scalar::<Sqlite, i64>("SELECT COUNT(*) FROM model_registrations")
-                .fetch_one(&self.pool)
+    pub async fn sync_from_config(&self, config: &ModelsConfig) -> Result<usize, DbError> {
+        let active_key = config.active_key().unwrap_or("");
+        let mut active_seen = false;
+        let mut applied = 0;
+
+        for entry in &config.registrations {
+            let key = entry.key();
+            let label = entry.label();
+            let is_active = key == active_key;
+            active_seen |= is_active;
+            self.register_inner(key, &label, entry.class_path(), &entry.kwargs, is_active)
                 .await?;
-        if count > 0 {
-            return Ok(0);
+            applied += 1;
         }
-        let Ok(text) = std::fs::read_to_string(json_path) else {
-            return Ok(0);
-        };
-        let Ok(data) = serde_json::from_str::<Value>(&text) else {
-            return Ok(0);
-        };
-        let active_key = data.get("active").and_then(Value::as_str).unwrap_or("");
-        let models = data
-            .get("models")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
-        let mut imported = 0;
-        for entry in &models {
-            let key = entry.get("key").and_then(Value::as_str).unwrap_or("");
-            if key.is_empty() {
-                continue;
-            }
-            let factory = entry.get("factory").unwrap_or(entry);
-            let class_path = factory
-                .get("class_path")
-                .and_then(Value::as_str)
-                .unwrap_or("");
-            let kwargs = factory
-                .get("kwargs")
-                .and_then(Value::as_object)
-                .cloned()
-                .unwrap_or_default();
-            let label = entry.get("label").and_then(Value::as_str).unwrap_or(key);
-            self.register_inner(key, label, class_path, &kwargs, key == active_key)
+
+        if !active_key.is_empty() && !active_seen {
+            self.register_inner(active_key, active_key, "", &JsonObject::new(), true)
                 .await?;
-            imported += 1;
+            applied += 1;
         }
-        Ok(imported)
+
+        Ok(applied)
     }
 
-    /// `register` shared by the `ModelStore` trait impl and `seed_from_json`,
+    /// `register` shared by the `ModelStore` trait impl and `sync_from_config`,
     /// returning the crate-native [`DbError`] so seeding propagates the real
     /// store failure (the trait impl flattens it to `CoreError`).
     async fn register_inner(
@@ -480,37 +461,48 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn seed_from_json_imports_once() {
-        let (dir, reg) = registry().await;
-        let seed = dir.path().join("registry.json");
-        std::fs::write(
-            &seed,
-            serde_json::to_string(&json!({
-                "active": "k2",
-                "models": [
-                    { "key": "k1", "label": "One", "factory": { "class_path": "p.One", "kwargs": {} } },
-                    { "key": "k2", "label": "Two", "factory": { "class_path": "p.Two", "kwargs": { "model": "x" } } }
-                ]
-            }))
-            .expect("json"),
-        )
-        .expect("write seed");
+    async fn sync_from_config_imports_and_updates_active() {
+        let (_dir, reg) = registry().await;
+        let seed: ModelsConfig = serde_json::from_value(json!({
+            "active": "k2",
+            "registrations": [
+                { "key": "k1", "label": "One", "class_path": "p.One", "kwargs": {} },
+                { "key": "k2", "label": "Two", "class_path": "p.Two", "kwargs": { "model": "x" } }
+            ]
+        }))
+        .expect("model config");
 
-        let n = reg
-            .seed_from_json(seed.to_str().expect("path"))
-            .await
-            .expect("seed");
+        let n = reg.sync_from_config(&seed).await.expect("sync");
         assert_eq!(n, 2);
         assert_eq!(
             reg.active().await.expect("active").expect("some").model_key,
             "k2"
         );
-        // Second seed is a no-op (DB already populated).
-        assert_eq!(
-            reg.seed_from_json(seed.to_str().expect("path"))
-                .await
-                .expect("seed2"),
-            0
-        );
+
+        let update: ModelsConfig = serde_json::from_value(json!({
+            "active": "k1",
+            "registrations": [
+                { "key": "k1", "label": "One Updated", "class_path": "p.One", "kwargs": {} }
+            ]
+        }))
+        .expect("model config");
+        assert_eq!(reg.sync_from_config(&update).await.expect("sync2"), 1);
+        let active = reg.active().await.expect("active").expect("some");
+        assert_eq!(active.model_key, "k1");
+        assert_eq!(active.label, "One Updated");
+    }
+
+    #[tokio::test]
+    async fn sync_from_config_synthesizes_active_only_model() {
+        let (_dir, reg) = registry().await;
+        let seed: ModelsConfig = serde_json::from_value(json!({
+            "active": "claude-sonnet-4-6"
+        }))
+        .expect("model config");
+
+        assert_eq!(reg.sync_from_config(&seed).await.expect("sync"), 1);
+        let active = reg.active().await.expect("active").expect("some");
+        assert_eq!(active.model_key, "claude-sonnet-4-6");
+        assert_eq!(active.label, "claude-sonnet-4-6");
     }
 }

@@ -31,5 +31,6 @@ pub use error::{ProviderError, ProviderErrorKind};
 pub use events::{LlmStreamEvent, StopReason};
 pub use message::{ContentBlock, Message, MessageRole};
 pub use types::{
-    LlmRequest, LlmRequestBuilder, ToolChoice, ToolSpec, UsageSnapshot, DEFAULT_MAX_TOKENS,
+    LlmRequest, LlmRequestBuilder, ReasoningEffort, ToolChoice, ToolSpec, UsageSnapshot,
+    DEFAULT_MAX_TOKENS,
 };

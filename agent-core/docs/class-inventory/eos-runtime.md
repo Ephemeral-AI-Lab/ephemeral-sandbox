@@ -178,7 +178,7 @@ The composition-root dependency graph; cloning is cheap (every field is an `Arc`
 | `skill_root` | `Option<PathBuf>` |  |
 | `plugin_catalog` | `Option<Arc<PluginCatalog>>` |  |
 | `plugin_root` | `Option<PathBuf>` |  |
-| `model_registry_path` | `Option<PathBuf>` |  |
+| `models_config` | `Option<ModelsConfig>` |  |
 | `provisioner` | `Option<Arc<dyn RequestProvisioner>>` |  |
 | `transport` | `Option<Arc<dyn SandboxTransport>>` |  |
 | `compatibility_mode` | `bool` |  |
@@ -187,7 +187,7 @@ The composition-root dependency graph; cloning is cheap (every field is an `Arc`
 
 <details><summary>Methods (19)</summary>
 
-`config`, `database_url`, `clock`, `cwd`, `llm_client`, `event_source_factory`, `audit`, `audit_path`, `agent_registry`, `agents_dir`, `skill_registry`, `skill_root`, `plugin_catalog`, `plugin_root`, `model_registry_path`, `provisioner`, `transport`, `compatibility_mode`, `build`
+`config`, `database_url`, `clock`, `cwd`, `llm_client`, `models_config`, `event_source_factory`, `audit`, `audit_path`, `agent_registry`, `agents_dir`, `skill_registry`, `skill_root`, `plugin_catalog`, `plugin_root`, `provisioner`, `transport`, `compatibility_mode`, `build`
 
 </details>
 

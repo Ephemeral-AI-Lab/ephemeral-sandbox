@@ -1,13 +1,14 @@
 //! eos-runtime binary entry point.
 //!
 //! Thin by design (`proj-lib-main-split`): it initializes tracing, constructs the
-//! single multi-thread Tokio runtime, builds the [`AppState`] graph, and — when a
+//! single multi-thread Tokio runtime, builds the [`RuntimeServices`] graph, and — when a
 //! prompt argument is given — starts one request and awaits it. All logic lives
 //! in the library.
 #![forbid(unsafe_code)]
 
+use eos_config::WorkflowConfig;
 use eos_runtime::observability::{init_tracing, LogFormat};
-use eos_runtime::{run_request, AppState};
+use eos_runtime::{run_request, RequestRunInput, RuntimeServices};
 
 fn main() -> anyhow::Result<()> {
     init_tracing(LogFormat::Text).map_err(|err| anyhow::anyhow!(err.to_string()))?;
@@ -17,19 +18,23 @@ fn main() -> anyhow::Result<()> {
         .build()?;
 
     runtime.block_on(async {
-        let state = build_app_state().await?;
-        tracing::info!("eos-runtime app state constructed");
+        let services = build_runtime_services().await?;
+        tracing::info!("eos-runtime services constructed");
 
         if let Some(prompt) = std::env::args().nth(1) {
             let request_id = eos_types::RequestId::new_v4();
-            let outcome = run_request(&state, &request_id, prompt, None, None).await?;
+            let workspace_root = std::env::current_dir()?.display().to_string();
+            let workflow_config = load_workflow_config()?;
+            let input =
+                RequestRunInput::new(request_id.clone(), prompt, workspace_root, workflow_config);
+            let outcome = run_request(&services, input, None).await?;
             tracing::info!(
                 request_id = %request_id,
                 status = ?outcome.status,
                 "request finished"
             );
         }
-        state.flush_audit();
+        services.flush_audit();
         anyhow::Ok(())
     })
 }
@@ -43,7 +48,7 @@ const DEFAULT_AGENTS_DIR: &str = ".eos-agents/profile";
 /// default source for the shipped binary. `EOS_TOOLS_DIR` overrides it.
 const DEFAULT_TOOLS_DIR: &str = ".eos-agents/tools";
 
-/// Build the application state, seeding the agent registry so `root` resolves
+/// Build runtime services, seeding the agent registry so `root` resolves
 /// (`request_completion` NF1 — the binary otherwise ships with an empty registry
 /// and fails every request at root resolution).
 ///
@@ -52,8 +57,8 @@ const DEFAULT_TOOLS_DIR: &str = ".eos-agents/tools";
 /// when run from the repo root; a missing dir yields an empty registry, the
 /// prior no-op behavior). Bundled profiles are validated normally; dynamic
 /// plugin tools such as `lsp.*` are registered through the Rust plugin facade.
-async fn build_app_state() -> anyhow::Result<AppState> {
-    let mut builder = AppState::builder();
+async fn build_runtime_services() -> anyhow::Result<RuntimeServices> {
+    let mut builder = RuntimeServices::builder();
     if let Ok(dir) = std::env::var("EOS_AGENTS_DIR") {
         builder = builder.agents_dir(dir);
     } else if std::path::Path::new(DEFAULT_AGENTS_DIR).is_dir() {
@@ -65,4 +70,11 @@ async fn build_app_state() -> anyhow::Result<AppState> {
     let tools_dir = std::env::var("EOS_TOOLS_DIR").unwrap_or_else(|_| DEFAULT_TOOLS_DIR.to_owned());
     builder = builder.tools_root(tools_dir);
     builder.build().await
+}
+
+fn load_workflow_config() -> anyhow::Result<WorkflowConfig> {
+    let config = eos_config::load()?;
+    let workflow = config.section::<WorkflowConfig>("workflow")?;
+    workflow.validate()?;
+    Ok(workflow)
 }

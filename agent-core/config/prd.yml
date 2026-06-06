@@ -19,6 +19,12 @@ providers:
   claude_coding_plan:
     base_url: https://api.anthropic.com
 
+models:
+  active: default-model
+  registrations:
+    - key: default-model
+      label: Default Model
+
 workflow:
   max-depth: 2
   attempt:

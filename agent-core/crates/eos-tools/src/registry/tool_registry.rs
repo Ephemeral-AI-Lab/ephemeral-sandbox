@@ -13,6 +13,7 @@ use eos_llm_client::ToolSpec;
 
 use crate::core::name::ToolKey;
 use crate::runtime::executor::RegisteredTool;
+use crate::tools::HookServices;
 
 /// An insertion-ordered registry of [`RegisteredTool`]s.
 #[derive(Debug, Default)]
@@ -37,6 +38,14 @@ impl ToolRegistry {
             let idx = self.tools.len();
             self.index.insert(tool.name.clone(), idx);
             self.tools.push(tool);
+        }
+    }
+
+    /// Attach one hook-service set to every registered tool.
+    pub(crate) fn apply_hook_services(&mut self, services: HookServices) {
+        let services = std::sync::Arc::new(services);
+        for tool in &mut self.tools {
+            tool.hook_services = services.clone();
         }
     }
 

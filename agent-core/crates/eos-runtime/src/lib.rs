@@ -1,6 +1,6 @@
 //! `eos-runtime` — the composition root of agent-core.
 //!
-//! This crate owns the typed dependency graph ([`AppState`]) that constructs
+//! This crate owns the typed dependency graph ([`RuntimeServices`]) that constructs
 //! every concrete store (from `eos-db`) and every concrete seam implementation
 //! ([`LlmClient`](eos_llm_client::LlmClient), provider registry, audit sink,
 //! clock, registries), then injects those concretes into the trait seams the
@@ -23,19 +23,22 @@
 #![warn(missing_docs)]
 
 mod agent_runner;
-mod app_state;
 mod entry;
-mod isolated_workspace;
 pub mod observability;
 mod plugin_tools;
+mod request_input;
+mod runtime_services;
 mod tool_context;
 
 #[cfg(test)]
 #[path = "../tests/unit/mod.rs"]
 mod tests;
 
-pub use app_state::{AppState, AppStateBuilder, EventCallback, EventSourceFactory};
 pub use entry::{run_request, RequestOutcome};
+pub use request_input::RequestRunInput;
+pub use runtime_services::{
+    EventCallback, EventSourceFactory, RuntimeServices, RuntimeServicesBuilder,
+};
 
 // Re-export the sandbox binding value object owned upstream by `eos-sandbox-host`
 // (a parallel agent moved provisioning there); this crate references it.

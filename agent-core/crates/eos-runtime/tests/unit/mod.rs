@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use eos_agent_def::{AgentDefinition, AgentRegistry, AgentRole};
-use eos_config::WorkflowConfig;
+use eos_config::{ModelsConfig, WorkflowConfig};
 use eos_engine::{EngineError, EngineStream, EventSource, StreamEvent};
 use eos_llm_client::{ContentBlock, LlmRequest};
 use eos_state::{RequestStatus, TaskRole, TaskStatus, WorkflowStatus};
@@ -17,10 +17,10 @@ use eos_tools::{Hook, ToolName};
 use eos_types::RequestId;
 use serde_json::json;
 
-use crate::app_state::support::build_test_state;
-use crate::app_state::EventSourceFactory;
 use crate::entry::root_task_id_for;
-use crate::{run_request, AppState};
+use crate::runtime_services::support::build_test_state;
+use crate::runtime_services::{EventCallback, EventSourceFactory};
+use crate::{RequestOutcome, RequestRunInput, RuntimeServices};
 use eos_testkit::{
     agent_def, factory_by_agent, factory_from, factory_root_blocks_after, test_tools_root,
     tool_use_turn,
@@ -104,6 +104,25 @@ fn sqlite_url(dir: &std::path::Path) -> String {
     format!("sqlite://{}", dir.join("t.db").display())
 }
 
+async fn run_request(
+    services: &RuntimeServices,
+    request_id: &RequestId,
+    prompt: impl Into<String>,
+    sandbox_id: Option<&str>,
+    on_event: Option<EventCallback>,
+) -> anyhow::Result<RequestOutcome> {
+    let mut input = RequestRunInput::new(
+        request_id.clone(),
+        prompt,
+        std::env::current_dir()?.display().to_string(),
+        WorkflowConfig::default(),
+    );
+    if let Some(sandbox_id) = sandbox_id {
+        input = input.with_sandbox_id(sandbox_id);
+    }
+    crate::run_request(services, input, on_event).await
+}
+
 // --- AC-eos-runtime-04: single-place graph construction + network-url fail-fast.
 
 #[tokio::test]
@@ -111,16 +130,17 @@ async fn builder_constructs_all_stores_and_seams() {
     let (state, _dir) = build_test_state(None, vec![root_agent()]).await;
     let req: eos_types::RequestId = "req-build".parse().unwrap();
     state
+        .db
         .request_store
         .create_request(&req, "/tmp", None, "hi")
         .await
         .unwrap();
-    assert!(state.request_store.get(&req).await.unwrap().is_some());
+    assert!(state.db.request_store.get(&req).await.unwrap().is_some());
 }
 
 #[tokio::test]
 async fn network_database_url_fails_fast() {
-    let result = AppState::builder()
+    let result = RuntimeServices::builder()
         .database_url("postgres://localhost/db")
         .tools_root(test_tools_root())
         .build()
@@ -128,21 +148,26 @@ async fn network_database_url_fails_fast() {
     assert!(result.is_err(), "a network db url must fail fast");
 }
 
-// --- AC-eos-runtime-06: missing model registry is non-fatal.
+// --- AC-eos-runtime-06: model registry seeds from config.
 
 #[tokio::test]
-async fn missing_model_registry_does_not_fail_startup() {
+async fn models_config_seeds_model_registry() {
     let dir = tempfile::tempdir().unwrap();
-    let state = AppState::builder()
+    let models: ModelsConfig = serde_json::from_value(json!({
+        "active": "claude-sonnet-4-6"
+    }))
+    .unwrap();
+
+    let state = RuntimeServices::builder()
         .database_url(sqlite_url(dir.path()))
         .tools_root(test_tools_root())
-        .model_registry_path(dir.path().join("does-not-exist.json"))
+        .models_config(models)
         .build()
-        .await;
-    assert!(
-        state.is_ok(),
-        "missing model registry json must be non-fatal"
-    );
+        .await
+        .unwrap();
+
+    let active = state.db.model_store.active().await.unwrap().unwrap();
+    assert_eq!(active.model_key, "claude-sonnet-4-6");
 }
 
 #[tokio::test]
@@ -152,7 +177,7 @@ async fn workflow_config_wires_attempt_and_planner_depth() {
     workflow.max_depth = 3;
     workflow.attempt.max_concurrent_task_runs = 5;
 
-    let state = AppState::builder()
+    let state = RuntimeServices::builder()
         .database_url(sqlite_url(dir.path()))
         .tools_root(test_tools_root())
         .workflow_config(workflow)
@@ -160,9 +185,8 @@ async fn workflow_config_wires_attempt_and_planner_depth() {
         .await
         .unwrap();
 
-    assert_eq!(state.workflow.max_depth, 3);
-    assert_eq!(state.workflow.attempt.max_concurrent_task_runs, 5);
     assert!(state
+        .agent_core
         .tool_config
         .get(ToolName::SubmitPlannerOutcome)
         .hooks
@@ -185,7 +209,7 @@ async fn unknown_profile_tool_fails_startup() {
     let dir = tempfile::tempdir().unwrap();
 
     let registry: AgentRegistry = vec![bad.clone()].into_iter().collect();
-    let result = AppState::builder()
+    let result = RuntimeServices::builder()
         .database_url(sqlite_url(dir.path()))
         .tools_root(test_tools_root())
         .agent_registry(Arc::new(registry))
@@ -194,7 +218,7 @@ async fn unknown_profile_tool_fails_startup() {
     assert!(result.is_err(), "an unknown tool name must fail startup");
 
     let registry: AgentRegistry = vec![bad].into_iter().collect();
-    let ok = AppState::builder()
+    let ok = RuntimeServices::builder()
         .database_url(sqlite_url(dir.path()))
         .tools_root(test_tools_root())
         .agent_registry(Arc::new(registry))
@@ -218,7 +242,7 @@ async fn plugin_profile_tool_passes_startup_validation() {
     let dir = tempfile::tempdir().unwrap();
 
     let registry: AgentRegistry = vec![root].into_iter().collect();
-    let state = AppState::builder()
+    let state = RuntimeServices::builder()
         .database_url(sqlite_url(dir.path()))
         .tools_root(test_tools_root())
         .agent_registry(Arc::new(registry))
@@ -249,7 +273,7 @@ async fn agents_dir_seeds_registry_so_root_resolves() {
     )
     .unwrap();
 
-    let state = AppState::builder()
+    let state = RuntimeServices::builder()
         .database_url(sqlite_url(dir.path()))
         .tools_root(test_tools_root())
         .agents_dir(profiles)
@@ -259,7 +283,7 @@ async fn agents_dir_seeds_registry_so_root_resolves() {
 
     let root = eos_agent_def::AgentName::new("root").unwrap();
     assert!(
-        state.agent_registry.get(&root).is_some(),
+        state.agent_core.agent_registry.get(&root).is_some(),
         "agents_dir build must resolve the root profile without injection"
     );
 }
@@ -283,6 +307,7 @@ async fn run_request_mints_root_task_no_workflow() {
         .unwrap();
 
     let task = state
+        .db
         .task_store
         .get(&root_task_id)
         .await
@@ -296,6 +321,7 @@ async fn run_request_mints_root_task_no_workflow() {
     assert_eq!(outcome.terminal, task.terminal_tool_result);
 
     let request = state
+        .db
         .request_store
         .get(&request_id)
         .await
@@ -304,6 +330,7 @@ async fn run_request_mints_root_task_no_workflow() {
     assert_eq!(request.root_task_id.as_ref(), Some(&root_task_id));
 
     let workflows = state
+        .db
         .workflow_store
         .list_for_parent_task(&root_task_id)
         .await
@@ -352,7 +379,13 @@ async fn successful_root_keeps_engine_terminal() {
         .await
         .unwrap();
 
-    let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+    let task = state
+        .db
+        .task_store
+        .get(&root_task_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(task.status, TaskStatus::Done);
     let terminal = task.terminal_tool_result.expect("terminal tool result");
     assert_eq!(
@@ -364,7 +397,13 @@ async fn successful_root_keeps_engine_terminal() {
         "success must not be clobbered by the unfinished-root guard"
     );
 
-    let request = state.request_store.get(&request_id).await.unwrap().unwrap();
+    let request = state
+        .db
+        .request_store
+        .get(&request_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(request.status, RequestStatus::Done);
 }
 
@@ -390,7 +429,13 @@ async fn root_terminal_blocked_without_advisor_approval() {
         .await
         .unwrap();
 
-    let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+    let task = state
+        .db
+        .task_store
+        .get(&root_task_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(
         task.status,
         TaskStatus::Failed,
@@ -402,7 +447,13 @@ async fn root_terminal_blocked_without_advisor_approval() {
         Some("root_run_exhausted")
     );
 
-    let request = state.request_store.get(&request_id).await.unwrap().unwrap();
+    let request = state
+        .db
+        .request_store
+        .get(&request_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(request.status, RequestStatus::Failed);
 }
 
@@ -420,7 +471,13 @@ async fn unfinished_root_sets_run_exhausted() {
         .await
         .unwrap();
 
-    let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+    let task = state
+        .db
+        .task_store
+        .get(&root_task_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(task.status, TaskStatus::Failed);
     let terminal = task.terminal_tool_result.expect("terminal tool result");
     assert_eq!(
@@ -428,7 +485,13 @@ async fn unfinished_root_sets_run_exhausted() {
         Some("root_run_exhausted")
     );
 
-    let request = state.request_store.get(&request_id).await.unwrap().unwrap();
+    let request = state
+        .db
+        .request_store
+        .get(&request_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(request.status, RequestStatus::Failed);
 }
 
@@ -460,6 +523,7 @@ async fn delegate_workflow_leaves_parent_running() {
     let mut workflow_id = None;
     for _ in 0..150 {
         let workflows = state
+            .db
             .workflow_store
             .list_for_parent_task(&root_task_id)
             .await
@@ -474,6 +538,7 @@ async fn delegate_workflow_leaves_parent_running() {
 
     // The workflow owns an iteration and a first attempt.
     let workflow = state
+        .db
         .workflow_store
         .get(&workflow_id)
         .await
@@ -481,12 +546,14 @@ async fn delegate_workflow_leaves_parent_running() {
         .unwrap();
     assert_eq!(workflow.parent_task_id, root_task_id);
     let iterations = state
+        .db
         .iteration_store
         .list_for_workflow(&workflow_id)
         .await
         .unwrap();
     assert!(!iterations.is_empty(), "workflow must create an iteration");
     let attempts = state
+        .db
         .attempt_store
         .list_for_iteration(&iterations[0].id)
         .await
@@ -500,6 +567,7 @@ async fn delegate_workflow_leaves_parent_running() {
     let mut closed = false;
     for _ in 0..200 {
         let workflow = state
+            .db
             .workflow_store
             .get(&workflow_id)
             .await
@@ -518,7 +586,13 @@ async fn delegate_workflow_leaves_parent_running() {
 
     // GC-eos-runtime-03: the parent root Task is NOT mutated at workflow close —
     // it is still running (the root agent is blocked, not closed by the workflow).
-    let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+    let task = state
+        .db
+        .task_store
+        .get(&root_task_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(
         task.status,
         TaskStatus::Running,
@@ -624,6 +698,7 @@ async fn delegated_workflow_drives_to_succeeded_via_real_runner() {
     let mut workflow_id = None;
     for _ in 0..200 {
         if let Some(workflow) = state
+            .db
             .workflow_store
             .list_for_parent_task(&root_task_id)
             .await
@@ -640,6 +715,7 @@ async fn delegated_workflow_drives_to_succeeded_via_real_runner() {
     let mut final_status = None;
     for _ in 0..500 {
         let status = state
+            .db
             .workflow_store
             .get(&workflow_id)
             .await
@@ -661,11 +737,13 @@ async fn delegated_workflow_drives_to_succeeded_via_real_runner() {
     // The success cascade reached every level: attempt PASSED, iteration
     // SUCCEEDED, and the parent root Task is untouched (still running).
     let iterations = state
+        .db
         .iteration_store
         .list_for_workflow(&workflow_id)
         .await
         .unwrap();
     let attempts = state
+        .db
         .attempt_store
         .list_for_iteration(&iterations[0].id)
         .await
@@ -674,6 +752,7 @@ async fn delegated_workflow_drives_to_succeeded_via_real_runner() {
     assert_eq!(iterations[0].status, eos_state::IterationStatus::Succeeded);
     assert_eq!(
         state
+            .db
             .task_store
             .get(&root_task_id)
             .await
@@ -860,6 +939,7 @@ async fn root_delegates_waits_and_submits_terminal() {
     .unwrap();
 
     let workflows = state
+        .db
         .workflow_store
         .list_for_parent_task(&root_task_id)
         .await
@@ -871,13 +951,25 @@ async fn root_delegates_waits_and_submits_terminal() {
     assert_eq!(workflows.len(), 1);
     assert_eq!(workflows[0].status, WorkflowStatus::Succeeded);
 
-    let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+    let task = state
+        .db
+        .task_store
+        .get(&root_task_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(
         task.status,
         TaskStatus::Done,
         "root must submit its terminal after delegated workflow success"
     );
-    let request = state.request_store.get(&request_id).await.unwrap().unwrap();
+    let request = state
+        .db
+        .request_store
+        .get(&request_id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(request.status, RequestStatus::Done);
 }
 
@@ -898,6 +990,7 @@ async fn provisioning_binds_request_sandbox() {
         .await
         .unwrap();
     let request = state
+        .db
         .request_store
         .get(&explicit_id)
         .await
@@ -916,7 +1009,7 @@ async fn provisioning_binds_request_sandbox() {
     run_request(&state, &auto_id, "task", None, None)
         .await
         .unwrap();
-    let request = state.request_store.get(&auto_id).await.unwrap().unwrap();
+    let request = state.db.request_store.get(&auto_id).await.unwrap().unwrap();
     assert_eq!(
         request
             .sandbox_id
@@ -949,10 +1042,11 @@ mod command_session_delivery {
     use eos_types::{JsonObject, RequestId, SandboxId};
     use serde_json::json;
 
-    use crate::app_state::support::FakeProvisioner;
-    use crate::app_state::EventSourceFactory;
+    use super::run_request;
     use crate::entry::root_task_id_for;
-    use crate::{run_request, AppState};
+    use crate::runtime_services::support::FakeProvisioner;
+    use crate::runtime_services::EventSourceFactory;
+    use crate::RuntimeServices;
     use eos_testkit::{agent_def, text_turn, tool_use_turn, ScriptedSource};
 
     /// A fake daemon transport: `exec_command` starts a backgrounded session
@@ -1101,9 +1195,9 @@ mod command_session_delivery {
         let dir = tempfile::tempdir().expect("tempdir");
         let url = format!("sqlite://{}", dir.path().join("t.db").display());
         let registry: AgentRegistry = vec![root, advisor].into_iter().collect();
-        let state = AppState::builder()
+        let state = RuntimeServices::builder()
             .database_url(url)
-            .cwd(dir.path().display().to_string())
+            .workspace_root(dir.path().display().to_string())
             .tools_root(eos_testkit::test_tools_root())
             .provisioner(Arc::new(FakeProvisioner::default()))
             .transport(Arc::new(CommandCompletionTransport))
@@ -1130,7 +1224,13 @@ mod command_session_delivery {
             "the backgrounded completion must reach the model as a SystemNotification \
              (heartbeat sink and loop notifier must be the same instance)"
         );
-        let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+        let task = state
+            .db
+            .task_store
+            .get(&root_task_id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(
             task.status,
             TaskStatus::Done,
@@ -1156,10 +1256,10 @@ mod subagent_lifecycle {
     use eos_types::RequestId;
     use serde_json::json;
 
-    use crate::app_state::support::build_test_state;
-    use crate::app_state::EventSourceFactory;
+    use super::run_request;
     use crate::entry::root_task_id_for;
-    use crate::run_request;
+    use crate::runtime_services::support::build_test_state;
+    use crate::runtime_services::EventSourceFactory;
     use eos_testkit::{agent_def, tool_use_turn, ScriptedSource};
 
     fn stream_of(events: Vec<StreamEvent>) -> EngineStream {
@@ -1262,13 +1362,25 @@ mod subagent_lifecycle {
         // terminal (D9). The per-request supervisor is now a `run_request` local and
         // is intentionally not re-exposed, so the cancellation is observed through
         // the persisted task/request rows.
-        let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+        let task = state
+            .db
+            .task_store
+            .get(&root_task_id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(
             task.status,
             TaskStatus::Done,
             "a live subagent must not wedge the root terminal — the prehook cancels it (D9)"
         );
-        let request = state.request_store.get(&request_id).await.unwrap().unwrap();
+        let request = state
+            .db
+            .request_store
+            .get(&request_id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(
             request.status,
             RequestStatus::Done,
@@ -1370,7 +1482,13 @@ mod subagent_lifecycle {
             saw_finished.load(Ordering::SeqCst),
             "the child explorer must run and report finished via check_subagent_progress"
         );
-        let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+        let task = state
+            .db
+            .task_store
+            .get(&root_task_id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(
             task.status,
             TaskStatus::Done,
@@ -1454,7 +1572,13 @@ mod subagent_lifecycle {
             Some("run_subagent: agent 'explorer' is not registered."),
             "an unregistered agent is rejected with the Python error text"
         );
-        let task = state.task_store.get(&root_task_id).await.unwrap().unwrap();
+        let task = state
+            .db
+            .task_store
+            .get(&root_task_id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(
             task.status,
             TaskStatus::Done,

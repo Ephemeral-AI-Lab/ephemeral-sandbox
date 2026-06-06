@@ -1,57 +1,27 @@
-//! [`ExecutionMetadata`] — the typed runtime context threaded through every tool
-//! execution.
+//! [`ExecutionMetadata`] — the immutable facts threaded through one tool call.
 //!
-//! Ports `_framework/core/runtime.py::ExecutionMetadata`, **dropping** the
-//! `Mapping`-emulation shim (`get`/`__getitem__`/`__iter__`/`extras`/
-//! `_TYPED_FIELDS`) — that was migration scaffolding. IDs become newtypes;
-//! downstream services become injected port-trait objects (§5.6).
-//!
-//! **Deliberate deviation from spec §6.4 (documented):** the table lists only
-//! `task_store`, but `submit_root_outcome` also *finishes the request*, and in
-//! `eos-state` `finish_request` lives on `RequestStore` (the ISP split of the
-//! Python `TaskStore`). So this struct carries **both** `task_store` and
-//! `request_store`. The Python `tool_registry` field is intentionally dropped
-//! (it existed only for skills introspecting sibling tools — out of scope).
-//! `runtime_config`/`composer`/`attempt_runtime`/`context_preparers`/
-//! `on_progress_line`/`background_task_id` are engine plumbing (moved to
-//! `eos-engine` dispatch context), not tool-facing. **`conversation` is the
-//! exception** — it is the port of Python `context.conversation_messages` and IS
-//! tool-facing: the stateless advisor-approval pre-hook scans it to infer the
-//! verdict from the transcript (advisor remediation plan §2b).
+//! Service dependencies are intentionally absent. Stores, transports, registries,
+//! workflow/background ports, and command-session supervisors are captured by the
+//! registered tool executor or hook wiring that needs them. `conversation` stays
+//! here because it is an immutable per-dispatch input fact read by advisor gates.
 
 use std::sync::Arc;
 
 use eos_llm_client::Message;
-use eos_sandbox_api::SandboxTransport;
-use eos_skills::SkillRegistry;
-use eos_state::{RequestStore, TaskStore};
 use eos_types::{
     AgentRunId, AttemptId, InvocationId, RequestId, SandboxId, TaskId, ToolUseId, WorkflowId,
 };
 
 use crate::core::error::ToolError;
-use crate::ports::{
-    BackgroundSupervisorPort, CommandSessionSupervisorPort, IsolatedWorkspacePort,
-    NotificationSink, PlanSubmissionPort, WorkflowControlPort,
-};
 
-/// The typed bag of runtime context a tool executor reads. Built per tool call
-/// and owned by the call (no shared mutation); ports are `Arc<dyn _>` cloned
-/// cheaply.
+/// The typed facts a tool executor reads. Built per tool call and owned by the
+/// call; no shared mutable service state is stored here.
 #[derive(Clone)]
 pub struct ExecutionMetadata {
-    /// Provisioned sandbox, when the agent is sandbox-bound.
-    pub sandbox_id: Option<SandboxId>,
-    /// Agent-run id (engine agent factory).
-    pub agent_run_id: Option<AgentRunId>,
     /// Bound agent profile name.
     pub agent_name: String,
-    /// Working directory.
-    pub cwd: String,
-    /// Repository root.
-    pub repo_root: String,
-    /// Effective exec cwd.
-    pub exec_cwd: String,
+    /// Agent-run id (engine agent factory).
+    pub agent_run_id: Option<AgentRunId>,
     /// Owning request, when set.
     pub request_id: Option<RequestId>,
     /// Owning task, when set.
@@ -64,28 +34,13 @@ pub struct ExecutionMetadata {
     pub tool_use_id: Option<ToolUseId>,
     /// In-flight sandbox correlation id, when set.
     pub sandbox_invocation_id: Option<InvocationId>,
-    /// The sandbox RPC surface (`sandbox_api.*`).
-    pub transport: Arc<dyn SandboxTransport>,
-    /// Task persistence (`submit_root_outcome` and task lookups).
-    pub task_store: Arc<dyn TaskStore>,
-    /// Request persistence (`submit_root_outcome` finishes the request).
-    pub request_store: Arc<dyn RequestStore>,
-    /// Per-agent skill content for `load_skill_reference`.
-    pub skill_registry: Arc<SkillRegistry>,
-    /// Workflow control port (delegate/check/cancel workflow).
-    pub workflow_control: Option<Arc<dyn WorkflowControlPort>>,
-    /// Plan-submission port (planner/generator/reducer terminals).
-    pub plan_submission: Option<Arc<dyn PlanSubmissionPort>>,
-    /// Background supervisor port (subagent controls, workflow handles, and
-    /// parent-exit cleanup).
-    pub background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
-    /// Command-session supervisor port (register/recover/mark/count background
-    /// PTY command sessions).
-    pub command_session_supervisor: Option<Arc<dyn CommandSessionSupervisorPort>>,
-    /// Isolated-workspace lifecycle port (enter/exit).
-    pub isolated_workspace: Option<Arc<dyn IsolatedWorkspacePort>>,
-    /// System-notification sink.
-    pub notifications: Option<Arc<dyn NotificationSink>>,
+    /// Provisioned sandbox, when the agent is sandbox-bound.
+    pub sandbox_id: Option<SandboxId>,
+    /// Whether this agent currently has an open isolated workspace.
+    pub is_isolated_workspace_mode: bool,
+    /// Request-visible workspace root. Relative sandbox paths resolve under this
+    /// one root; there is no separate `cwd` / `repo_root` / `exec_cwd` fact.
+    pub workspace_root: String,
     /// Per-turn snapshot of the live conversation transcript (port of Python
     /// `context.conversation_messages`). Stamped by the engine dispatch per call;
     /// read by the stateless advisor-approval pre-hook to infer the verdict.
@@ -96,14 +51,18 @@ impl std::fmt::Debug for ExecutionMetadata {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Ports/stores are trait objects (no Debug); show the identifiers only.
         f.debug_struct("ExecutionMetadata")
-            .field("sandbox_id", &self.sandbox_id)
-            .field("agent_run_id", &self.agent_run_id)
             .field("agent_name", &self.agent_name)
+            .field("agent_run_id", &self.agent_run_id)
             .field("request_id", &self.request_id)
             .field("task_id", &self.task_id)
             .field("attempt_id", &self.attempt_id)
             .field("workflow_id", &self.workflow_id)
             .field("tool_use_id", &self.tool_use_id)
+            .field("sandbox_id", &self.sandbox_id)
+            .field(
+                "is_isolated_workspace_mode",
+                &self.is_isolated_workspace_mode,
+            )
             .finish_non_exhaustive()
     }
 }
@@ -164,47 +123,5 @@ impl ExecutionMetadata {
         self.attempt_id
             .as_ref()
             .ok_or(ToolError::MissingContext("attempt_id"))
-    }
-
-    /// Require the workflow-control port, else a framework fault.
-    ///
-    /// # Errors
-    /// [`ToolError::MissingPort`] when the port is not wired.
-    pub fn require_workflow_control(&self) -> Result<&dyn WorkflowControlPort, ToolError> {
-        self.workflow_control
-            .as_deref()
-            .ok_or(ToolError::MissingPort("workflow_control"))
-    }
-
-    /// Require the plan-submission port, else a framework fault.
-    ///
-    /// # Errors
-    /// [`ToolError::MissingPort`] when the port is not wired.
-    pub fn require_plan_submission(&self) -> Result<&dyn PlanSubmissionPort, ToolError> {
-        self.plan_submission
-            .as_deref()
-            .ok_or(ToolError::MissingPort("plan_submission"))
-    }
-
-    /// Require the background supervisor port, else a framework fault.
-    ///
-    /// # Errors
-    /// [`ToolError::MissingPort`] when the port is not wired.
-    pub fn require_background_supervisor(
-        &self,
-    ) -> Result<&dyn BackgroundSupervisorPort, ToolError> {
-        self.background_supervisor
-            .as_deref()
-            .ok_or(ToolError::MissingPort("background_supervisor"))
-    }
-
-    /// Require the isolated-workspace port, else a framework fault.
-    ///
-    /// # Errors
-    /// [`ToolError::MissingPort`] when the port is not wired.
-    pub fn require_isolated_workspace(&self) -> Result<&dyn IsolatedWorkspacePort, ToolError> {
-        self.isolated_workspace
-            .as_deref()
-            .ok_or(ToolError::MissingPort("isolated_workspace"))
     }
 }

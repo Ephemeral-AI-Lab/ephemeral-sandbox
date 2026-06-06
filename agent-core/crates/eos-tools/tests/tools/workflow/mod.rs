@@ -166,13 +166,14 @@ impl WorkflowControlPort for OutstandingControl {
 async fn delegate_workflow_outstanding_is_error() {
     let mut ctx = metadata();
     ctx.task_id = Some("parent".parse().unwrap());
-    ctx.workflow_control = Some(Arc::new(OutstandingControl));
-    ctx.background_supervisor = Some(Arc::new(RecordingSupervisor::default()));
 
-    let res = DelegateWorkflow
-        .execute(&obj(&[("goal", json!("do something"))]), &ctx)
-        .await
-        .expect("ok");
+    let res = DelegateWorkflow::new(
+        Some(Arc::new(OutstandingControl)),
+        Some(Arc::new(RecordingSupervisor::default())),
+    )
+    .execute(&obj(&[("goal", json!("do something"))]), &ctx)
+    .await
+    .expect("ok");
 
     assert!(res.is_error, "outstanding-workflow branch must be is_error");
     assert!(res.output.contains("already outstanding"), "{}", res.output);
@@ -230,10 +231,8 @@ async fn delegate_workflow_registers_background_record() {
     let supervisor = Arc::new(RecordingSupervisor::default());
     let mut ctx = metadata();
     ctx.task_id = Some("parent".parse().unwrap());
-    ctx.workflow_control = Some(Arc::new(StartingControl));
-    ctx.background_supervisor = Some(supervisor.clone());
 
-    let res = DelegateWorkflow
+    let res = DelegateWorkflow::new(Some(Arc::new(StartingControl)), Some(supervisor.clone()))
         .execute(&obj(&[("goal", json!("do something"))]), &ctx)
         .await
         .expect("ok");
@@ -257,12 +256,15 @@ async fn workflow_controls_reject_empty_ids() {
             ("workflow_task_id", json!("")),
         ]),
     ] {
-        let res = CheckWorkflowStatus.execute(&input, &ctx).await.expect("ok");
+        let res = CheckWorkflowStatus::new(None)
+            .execute(&input, &ctx)
+            .await
+            .expect("ok");
         assert!(res.is_error);
         assert!(res.output.contains("workflow"), "{}", res.output);
     }
 
-    let cancel = CancelWorkflow
+    let cancel = CancelWorkflow::new(None, None)
         .execute(&obj(&[("workflow_task_id", json!(""))]), &ctx)
         .await
         .expect("ok");

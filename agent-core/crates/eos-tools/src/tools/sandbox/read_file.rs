@@ -11,6 +11,7 @@ use crate::core::result::ToolResult;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
 
+use super::super::SandboxToolService;
 use super::lib::outputs::ReadFileOutput;
 use super::lib::{cwd, invalid_input, ok_json, request_base, resolve_path, MAX_READ_FILE_LINES};
 
@@ -32,7 +33,15 @@ pub(super) struct ReadFileInput {
     end_line: u32,
 }
 
-pub(super) struct ReadFile;
+pub(super) struct ReadFile {
+    service: SandboxToolService,
+}
+
+impl ReadFile {
+    pub(super) fn new(service: SandboxToolService) -> Self {
+        Self { service }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for ReadFile {
@@ -78,7 +87,13 @@ impl ToolExecutor for ReadFile {
             base: request_base(ctx, &format!("read {path}"))?,
             path: path.clone(),
         };
-        let result = match eos_sandbox_api::read_file(&*ctx.transport, sandbox_id, &request).await {
+        let result = match eos_sandbox_api::read_file(
+            &*self.service.transport,
+            sandbox_id,
+            &request,
+        )
+        .await
+        {
             Ok(result) => result,
             Err(err) => return Ok(ToolResult::error(err.to_string())),
         };

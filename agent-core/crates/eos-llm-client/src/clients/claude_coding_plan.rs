@@ -2,7 +2,8 @@
 //!
 //! This is the explicit client surface for Claude Code OAuth access tokens. It
 //! reuses the Anthropic Messages projection with the OAuth beta transport shape:
-//! bearer auth, `anthropic-beta: oauth-2025-04-20`, and `/v1/messages?beta=true`.
+//! bearer auth, Claude Code identity headers, and
+//! `anthropic-beta: claude-code-20250219,oauth-2025-04-20`.
 
 use std::sync::Arc;
 
@@ -17,7 +18,7 @@ use crate::types::LlmRequest;
 use super::anthropic_api_client::AnthropicApiClient;
 
 /// OAuth beta header required by Claude Code subscription access tokens.
-const CLAUDE_CODING_PLAN_BETA: &str = "oauth-2025-04-20";
+const CLAUDE_CODING_PLAN_BETA: &str = "claude-code-20250219,oauth-2025-04-20";
 
 /// Claude coding-plan streaming client.
 #[derive(Debug)]

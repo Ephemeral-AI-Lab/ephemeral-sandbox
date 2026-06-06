@@ -19,7 +19,7 @@ use super::supervisor::{BackgroundTaskSupervisor, CommandSessionCancelTarget};
 use crate::EngineRunHandles;
 
 /// The run dependencies the subagent driver needs, threaded in at the
-/// composition root: the engine run handles (registry + stores + client + cwd).
+/// composition root: the engine run handles (registry + stores + client + workspace root).
 #[derive(Clone)]
 pub struct BackgroundSupervisorHandle {
     inner: Arc<Mutex<BackgroundTaskSupervisor>>,

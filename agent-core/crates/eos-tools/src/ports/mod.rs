@@ -1,10 +1,10 @@
-//! The six narrow downstream-state **port traits** (anchor §6b), owned here and
+//! The five narrow downstream-state **port traits** (anchor §6b), owned here and
 //! implemented downstream, injected at the composition root.
 //!
 //! These satisfy DIP for tools that need engine/workflow/host state without a
 //! backward DAG edge (`eos-tools` is upstream of `eos-engine`/`eos-workflow`).
-//! Each is `#[async_trait]` (stored behind `Arc<dyn _>` in [`ExecutionMetadata`])
-//! and **sealed** (`api-sealed-trait`) via the [`Sealed`] friend-marker so only
+//! Each is `#[async_trait]` and **sealed** (`api-sealed-trait`) via the
+//! [`Sealed`] friend-marker so only
 //! agent-core crates implement them. Each has exactly one wired implementor
 //! (ISP), recorded on the anchor §6 SOLID Seam Map.
 //!
@@ -106,7 +106,7 @@ pub trait WorkflowControlPort: Sealed + Send + Sync {
 }
 
 // ---------------------------------------------------------------------------
-// PlanSubmissionPort — planner / generator / reducer terminal submissions.
+// AttemptSubmissionPort — planner / generator / reducer terminal submissions.
 // ---------------------------------------------------------------------------
 
 /// One planner-authored generator task (id + bound agent + `needs` edges).
@@ -171,7 +171,7 @@ pub enum SubmissionAck {
 /// Per-Attempt submission application for the planner/generator/reducer terminal
 /// tools. Implemented by the `eos-workflow` `AttemptOrchestrator`.
 #[async_trait]
-pub trait PlanSubmissionPort: Sealed + Send + Sync {
+pub trait AttemptSubmissionPort: Sealed + Send + Sync {
     /// Apply a validated planner DAG (`orchestrator.record_plan`, the
     /// non-advancing recording entry point). The implementor performs the
     /// downstream-state checks (planner-task ownership, unknown-agent, DAG cycle)
@@ -348,36 +348,6 @@ pub trait CommandSessionSupervisorPort: Sealed + Send + Sync {
     /// already-reported note instead of re-dumping the completion (anchor §8/D8).
     async fn command_session_already_reported(&self, command_session_id: &CommandSessionId)
         -> bool;
-}
-
-// ---------------------------------------------------------------------------
-// IsolatedWorkspacePort — enter / exit isolated workspace.
-// ---------------------------------------------------------------------------
-
-/// The `eos-runtime` adapter over the sandbox isolated-workspace lifecycle.
-/// The tool pre-hooks enforce no in-flight background tasks before `enter` and
-/// `exit`: no outstanding workflows, no subagents, and no command sessions.
-/// Wired at the composition root (sandbox-host is upstream of `eos-tools`, so
-/// no direct `eos-sandbox-host -> eos-tools` edge).
-#[async_trait]
-pub trait IsolatedWorkspacePort: Sealed + Send + Sync {
-    /// Open this agent run's private isolated workspace; returns the model-facing
-    /// in-band result.
-    async fn enter(
-        &self,
-        agent_run_id: &AgentRunId,
-        sandbox_id: &SandboxId,
-        layer_stack_root: &str,
-    ) -> Result<ToolResult, ToolError>;
-
-    /// Close and discard this agent run's isolated workspace; returns the
-    /// model-facing in-band result.
-    async fn exit(
-        &self,
-        agent_run_id: &AgentRunId,
-        sandbox_id: &SandboxId,
-        grace_s: f64,
-    ) -> Result<ToolResult, ToolError>;
 }
 
 // ---------------------------------------------------------------------------

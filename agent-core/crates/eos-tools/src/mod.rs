@@ -38,9 +38,9 @@ pub use core::name::{ToolKey, ToolName};
 pub use core::result::{OutputShape, ToolResult};
 pub use hooks::{Hook, HookDenial, HookOutcome};
 pub use ports::{
-    BackgroundInflightReport, BackgroundSupervisorPort, CommandSessionSupervisorPort,
-    IsolatedWorkspacePort, NotificationSink, OutstandingWorkflow, PlanReducer, PlanSubmissionPort,
-    PlanTask, PlannerPlan, SpawnedSubagent, StartedSubagent, StartedWorkflowHandle, SubmissionAck,
+    AttemptSubmissionPort, BackgroundInflightReport, BackgroundSupervisorPort,
+    CommandSessionSupervisorPort, NotificationSink, OutstandingWorkflow, PlanReducer, PlanTask,
+    PlannerPlan, SpawnedSubagent, StartedSubagent, StartedWorkflowHandle, SubmissionAck,
     SystemNotification, WorkflowControlPort,
 };
 pub use registry::config::{ToolConfig, ToolConfigError, ToolConfigSet};
@@ -54,4 +54,8 @@ pub use runtime::executor::{RegisteredTool, ToolExecutor};
 pub use tools::terminal::{
     descriptor, render_tool_instruction, TerminalDescriptor, TerminalTool, ToolInstructions,
 };
-pub use tools::{build_default_registry, CallerScope};
+pub use tools::{
+    build_default_registry, build_default_registry_with_services, AttemptSubmissionService,
+    CallerScope, CommandToolService, HookServices, RootSubmissionService, SandboxToolService,
+    SkillToolService,
+};

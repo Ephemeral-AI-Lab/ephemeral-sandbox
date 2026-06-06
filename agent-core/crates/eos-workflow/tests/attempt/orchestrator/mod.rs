@@ -125,9 +125,9 @@ async fn failed_reducer_closes_attempt_failed() {
 #[tokio::test]
 async fn record_plan_rejects_bad_shape_with_real_ack() {
     use eos_state::{PlanDisposition, PlanNodeId};
-    use eos_tools::{PlanReducer, PlanSubmissionPort, PlanTask, PlannerPlan, SubmissionAck};
+    use eos_tools::{AttemptSubmissionPort, PlanReducer, PlanTask, PlannerPlan, SubmissionAck};
 
-    use crate::PlanSubmissionAdapter;
+    use crate::AttemptSubmissionAdapter;
 
     fn node(id: &str) -> PlanNodeId {
         PlanNodeId::new(id).unwrap()
@@ -143,7 +143,7 @@ async fn record_plan_rejects_bad_shape_with_real_ack() {
         .start("delegated goal", &parent.id)
         .await
         .unwrap();
-    let adapter = PlanSubmissionAdapter::new(registry);
+    let adapter = AttemptSubmissionAdapter::new(registry);
     let planner_task_id = crate::planner_task_id(&started.attempt_id).unwrap();
     let plan = |tasks: Vec<PlanTask>, reducers: Vec<PlanReducer>| PlannerPlan {
         attempt_id: started.attempt_id.clone(),
@@ -219,9 +219,9 @@ async fn record_plan_rejects_bad_shape_with_real_ack() {
 #[tokio::test]
 async fn record_plan_rejects_late_agent_without_orphan_rows() {
     use eos_state::{PlanDisposition, PlanNodeId};
-    use eos_tools::{PlanReducer, PlanSubmissionPort, PlanTask, PlannerPlan, SubmissionAck};
+    use eos_tools::{AttemptSubmissionPort, PlanReducer, PlanTask, PlannerPlan, SubmissionAck};
 
-    use crate::PlanSubmissionAdapter;
+    use crate::AttemptSubmissionAdapter;
 
     fn node(id: &str) -> PlanNodeId {
         PlanNodeId::new(id).unwrap()
@@ -237,7 +237,7 @@ async fn record_plan_rejects_late_agent_without_orphan_rows() {
         .start("delegated goal", &parent.id)
         .await
         .unwrap();
-    let adapter = PlanSubmissionAdapter::new(registry);
+    let adapter = AttemptSubmissionAdapter::new(registry);
 
     // g1 -> registered generator "coder"; g2 -> unregistered "ghost". Both
     // feed the reducer, so the DAG shape is valid and validation reaches the

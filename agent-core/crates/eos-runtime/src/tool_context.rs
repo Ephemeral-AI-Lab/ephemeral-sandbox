@@ -3,13 +3,8 @@
 
 use std::sync::Arc;
 
-use eos_tools::{
-    BackgroundSupervisorPort, CommandSessionSupervisorPort, ExecutionMetadata, NotificationSink,
-    PlanSubmissionPort, WorkflowControlPort,
-};
+use eos_tools::ExecutionMetadata;
 use eos_types::{AgentRunId, AttemptId, RequestId, SandboxId, TaskId, WorkflowId};
-
-use crate::app_state::AppState;
 
 /// The per-run identifiers and ports that distinguish one agent's tool context.
 pub(crate) struct MetadataParams {
@@ -20,50 +15,25 @@ pub(crate) struct MetadataParams {
     pub task_id: Option<TaskId>,
     pub attempt_id: Option<AttemptId>,
     pub workflow_id: Option<WorkflowId>,
-    /// Workflow control for delegate/check/cancel workflow and workflow-agent
-    /// hooks that need workflow state.
-    pub workflow_control: Option<Arc<dyn WorkflowControlPort>>,
-    /// The recording plan-submission port (planner/generator/reducer terminals).
-    /// Wired for delegated-workflow agents so their submit tools record straight
-    /// to the orchestrator (Path A-recording); `None` for the root agent.
-    pub plan_submission: Option<Arc<dyn PlanSubmissionPort>>,
-    pub background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
-    /// The per-request command-session supervisor port (anchor §5), shared with
-    /// the heartbeat and loop notifier.
-    pub command_session_supervisor: Option<Arc<dyn CommandSessionSupervisorPort>>,
-    /// The per-request notification sink the `exec_command`/`write_stdin` tools
-    /// push to and the loop drains (anchor §7 instance identity).
-    pub notifications: Arc<dyn NotificationSink>,
+    pub is_isolated_workspace_mode: bool,
 }
 
-/// Assemble the tool execution context from the shared app state plus per-run
-/// params. The `conversation` transcript starts empty here and is stamped
-/// per-call by the engine dispatch before any hook reads it (advisor remediation
-/// plan §2b).
-pub(crate) fn build_metadata(state: &AppState, params: MetadataParams) -> ExecutionMetadata {
+/// Assemble the tool execution context from request-scoped workspace facts plus
+/// per-run ids. The `conversation` transcript starts empty here and is stamped
+/// per-call by the engine dispatch before any hook reads it.
+pub(crate) fn build_metadata(workspace_root: &str, params: MetadataParams) -> ExecutionMetadata {
     ExecutionMetadata {
         sandbox_id: params.sandbox_id,
         agent_run_id: Some(params.agent_run_id),
         agent_name: params.agent_name,
-        cwd: state.cwd.clone(),
-        repo_root: state.repo_root.clone(),
-        exec_cwd: state.cwd.clone(),
         request_id: params.request_id,
         task_id: params.task_id,
         attempt_id: params.attempt_id,
         workflow_id: params.workflow_id,
         tool_use_id: None,
         sandbox_invocation_id: None,
-        transport: state.transport.clone(),
-        task_store: state.task_store.clone(),
-        request_store: state.request_store.clone(),
-        skill_registry: state.skill_registry.clone(),
-        workflow_control: params.workflow_control,
-        plan_submission: params.plan_submission,
-        background_supervisor: params.background_supervisor,
-        command_session_supervisor: params.command_session_supervisor,
-        isolated_workspace: Some(state.isolated_workspace.clone()),
-        notifications: Some(params.notifications),
+        is_isolated_workspace_mode: params.is_isolated_workspace_mode,
+        workspace_root: workspace_root.to_owned(),
         conversation: Arc::from(Vec::new()),
     }
 }

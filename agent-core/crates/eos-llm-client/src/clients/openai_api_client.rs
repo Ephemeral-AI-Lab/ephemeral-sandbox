@@ -299,6 +299,9 @@ fn encode_openai_body_with_dialect(request: &LlmRequest, dialect: OpenAiRequestD
     if let Some(choice) = &request.tool_choice {
         body["tool_choice"] = encode_openai_tool_choice(choice, dialect);
     }
+    if let Some(effort) = request.reasoning_effort {
+        body["reasoning"] = json!({ "effort": effort.as_wire() });
+    }
     body
 }
 
@@ -508,6 +511,7 @@ mod tests {
             .tool_choice(ToolChoice::Tool {
                 name: "smoke".to_owned(),
             })
+            .reasoning_effort(crate::types::ReasoningEffort::Medium)
             .max_tokens(256)
             .build();
         let body = encode_openai_body_with_dialect(&request, OpenAiRequestDialect::CodexResponses);
@@ -517,5 +521,6 @@ mod tests {
         assert_eq!(body["tool_choice"], json!("required"));
         assert_eq!(body["parallel_tool_calls"], json!(false));
         assert_eq!(body["include"], json!([]));
+        assert_eq!(body["reasoning"], json!({ "effort": "medium" }));
     }
 }

@@ -14,6 +14,7 @@ use crate::core::result::ToolResult;
 use crate::runtime::execution::parse_input;
 use crate::runtime::executor::ToolExecutor;
 
+use super::super::SandboxToolService;
 use super::lib::outputs::MutationOutput;
 use super::lib::{cwd, failure_status, mutation_result, request_base, resolve_path};
 
@@ -23,7 +24,15 @@ pub(super) struct WriteFileInput {
     content: String,
 }
 
-pub(super) struct WriteFile;
+pub(super) struct WriteFile {
+    service: SandboxToolService,
+}
+
+impl WriteFile {
+    pub(super) fn new(service: SandboxToolService) -> Self {
+        Self { service }
+    }
+}
 
 #[async_trait]
 impl ToolExecutor for WriteFile {
@@ -44,11 +53,12 @@ impl ToolExecutor for WriteFile {
             content: parsed.content.clone(),
             overwrite: true,
         };
-        let result = match eos_sandbox_api::write_file(&*ctx.transport, sandbox_id, &request).await
-        {
-            Ok(result) => result,
-            Err(err) => return Ok(ToolResult::error(err.to_string())),
-        };
+        let result =
+            match eos_sandbox_api::write_file(&*self.service.transport, sandbox_id, &request).await
+            {
+                Ok(result) => result,
+                Err(err) => return Ok(ToolResult::error(err.to_string())),
+            };
         let bytes = parsed.content.len() as u64;
         let output = MutationOutput {
             cwd: cwd(ctx),
