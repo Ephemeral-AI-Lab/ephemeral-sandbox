@@ -2,7 +2,7 @@
 //! DTOes). This is the movable, pure schema; the impure audit emission
 //! bridge stays daemon-side.
 //!
-//! Invariant: serialization reproduces Rust `_drop_none` — a field whose value
+//! Invariant: serialization omits `None`-valued fields — a field whose value
 //! is `None` is OMITTED; a field with a non-None default IS emitted. Modeled
 //! here as `Option<T>` with `skip_serializing_if = "Option::is_none"` for the
 //! droppable fields, and plain fields (with `Default`) for the always-emitted

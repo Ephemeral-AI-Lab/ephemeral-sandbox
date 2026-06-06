@@ -29,7 +29,7 @@ macro_rules! define_id {
             /// this generic helper.
             #[must_use]
             pub fn new_v4() -> Self {
-                Self(::std::sync::Arc::from(::uuid::Uuid::new_v4().to_string()))
+                Self(::uuid::Uuid::new_v4().to_string().into())
             }
         }
     };

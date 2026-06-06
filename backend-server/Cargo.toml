@@ -47,6 +47,10 @@ tokio-util  = { version = "0.7", features = ["rt"] }
 # eos-sandbox-host: typed async Docker Engine API client (hyper 1.x stack).
 bollard     = "0.17"
 tar         = "0.4"
+# eos-backend-api HTTP surface: axum router + SSE/WebSocket streaming. Pins ride
+# the hyper 1.x / http 1.x / tower 0.5 stack already resolved by bollard.
+axum        = { version = "0.8", features = ["ws"] }
+tower       = { version = "0.5", features = ["util"] }
 uuid        = { version = "1", features = ["v4", "serde"] }
 # dev
 proptest    = "1"

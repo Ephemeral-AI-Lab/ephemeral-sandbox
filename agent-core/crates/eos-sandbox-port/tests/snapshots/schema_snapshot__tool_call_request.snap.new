@@ -1,0 +1,78 @@
+---
+source: crates/eos-sandbox-port/tests/schema_snapshot.rs
+assertion_line: 41
+expression: schema
+---
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ToolCallRequest",
+  "description": "One tool invocation routed through a workspace pipeline.\n\n`invocation_id` is the typed [`InvocationId`]; [`Self::from_payload`] parses it at the boundary and is fallible (a spec-sanctioned tightening of the Rust path, which tolerated an empty id string).",
+  "type": "object",
+  "required": [
+    "args",
+    "caller_id",
+    "intent",
+    "invocation_id",
+    "verb"
+  ],
+  "properties": {
+    "args": {
+      "description": "Untyped tool arguments.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "background": {
+      "description": "Whether the invocation runs in the background.",
+      "default": false,
+      "type": "boolean"
+    },
+    "caller_id": {
+      "description": "Calling sandbox principal id.",
+      "type": "string"
+    },
+    "intent": {
+      "description": "Execution intent.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Intent"
+        }
+      ]
+    },
+    "invocation_id": {
+      "description": "Correlation id for this invocation.",
+      "type": "string"
+    },
+    "verb": {
+      "description": "Tool verb (e.g. `read_file`).",
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "Intent": {
+      "description": "High-level execution intent for a foreground sandbox tool call.",
+      "oneOf": [
+        {
+          "description": "Read-only operation (no mutations).",
+          "type": "string",
+          "enum": [
+            "read_only"
+          ]
+        },
+        {
+          "description": "Operation permitted to mutate the workspace.",
+          "type": "string",
+          "enum": [
+            "write_allowed"
+          ]
+        },
+        {
+          "description": "Workspace lifecycle operation (e.g. isolated enter/exit).",
+          "type": "string",
+          "enum": [
+            "lifecycle"
+          ]
+        }
+      ]
+    }
+  }
+}

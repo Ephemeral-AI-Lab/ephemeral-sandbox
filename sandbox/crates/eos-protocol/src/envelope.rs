@@ -120,11 +120,10 @@ pub fn encode(envelope: &Envelope) -> Result<Vec<u8>, ProtocolError> {
 /// [`ProtocolError::NotAnObject`] when the decoded value is not a JSON object.
 pub fn decode(bytes: &[u8]) -> Result<Envelope, ProtocolError> {
     let value: Value = serde_json::from_slice(bytes)?;
-    if !value.is_object() {
-        return Err(ProtocolError::NotAnObject);
-    }
     // Disambiguate so a request never deserializes as a bare `Response(Value)`.
-    let obj = value.as_object().ok_or(ProtocolError::NotAnObject)?;
+    let Some(obj) = value.as_object() else {
+        return Err(ProtocolError::NotAnObject);
+    };
     if obj.contains_key("op") {
         let req: Request = serde_json::from_value(value)?;
         return Ok(Envelope::Request(req));

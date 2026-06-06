@@ -21,7 +21,11 @@ license = "MIT"
 tokio       = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "tracing"] }
 tokio-util  = { version = "0.7", features = ["rt"] }
 futures     = "0.3"
-serde       = { version = "1", features = ["derive"] }
+# `rc` enables `Serialize`/`Deserialize` for `Arc<str>`/`Rc<str>`, required by the
+# `#[serde(transparent)]` typed IDs in `eos-types` whose inner type is `Arc<str>`
+# (so id clones are O(1) refcount bumps). serde does not preserve shared identity
+# across an `Arc` on deserialize, which is irrelevant for value-like IDs.
+serde       = { version = "1", features = ["derive", "rc"] }
 # Insertion-ordered JSON map keys, workspace-wide. The Python control plane this
 # crate ports emits insertion-ordered dicts (`json.dumps` over insertion-ordered
 # `dict`), so this is the parity-faithful default; it also makes the

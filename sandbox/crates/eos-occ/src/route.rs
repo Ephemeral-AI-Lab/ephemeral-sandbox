@@ -72,7 +72,7 @@ impl OccStatus {
             Self::AbortedOverlap => "aborted_overlap",
             Self::Dropped => "dropped",
             Self::Rejected => "rejected",
-            _ => "failed",
+            Self::Failed => "failed",
         }
     }
 

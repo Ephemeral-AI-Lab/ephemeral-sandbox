@@ -1,7 +1,7 @@
 //! Shared verb request/response wire models + the search/replace primitive.
 //!
-//! Invariant: these model the WIRE shape (the daemon's recursive `asdict`
-//! response), NOT the Rust DTO front door. Field order/name/type follow
+//! Invariant: these model the WIRE shape (the daemon's recursively-serialized
+//! response object), NOT the Rust DTO front door. Field order/name/type follow
 //! the §6 serialization in `docs/contract/04-shared-models.md`. Two
 //! representations of the same types, kept canonically-equal by fixtures.
 
@@ -71,12 +71,18 @@ pub struct ReadFileArgs {
     pub path: String,
 }
 
-/// `write_file` request args. `overwrite` defaults `true` at the primitive.
+/// `write_file` request args. `overwrite` defaults `true` at the primitive, so
+/// an omitted wire key deserializes to `true` to match the documented contract.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WriteFileArgs {
     pub path: String,
     pub content: String,
+    #[serde(default = "write_overwrite_default")]
     pub overwrite: bool,
+}
+
+fn write_overwrite_default() -> bool {
+    true
 }
 
 /// `edit_file` request args.
@@ -223,7 +229,7 @@ pub fn apply_search_replace(
     if old.is_empty() {
         return Err(SearchReplaceError::EmptyAnchor);
     }
-    // Rust str.count = number of non-overlapping occurrences.
+    // Number of non-overlapping occurrences of the anchor.
     let count = text.matches(old).count();
     if replace_all {
         if count == 0 {

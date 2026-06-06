@@ -6,9 +6,9 @@
 //! divergence that passes every ASCII test. The two hashes are deliberately
 //! OPPOSITE on non-ASCII handling:
 //!
-//! - `manifest_root_hash` serializes via Rust `json.dumps(..., ensure_ascii=
-//!   True)` — non-ASCII is `\uXXXX`-escaped (hand-built here; `serde_json` emits
-//!   raw UTF-8 and would diverge).
+//! - `manifest_root_hash` serializes with ASCII-only JSON string escaping: every
+//!   non-ASCII scalar is `\uXXXX`-escaped (hand-built here, since `serde_json`
+//!   emits raw UTF-8 and would diverge).
 //! - `layer_digest` hashes RAW UTF-8 path/source bytes with NUL framing.
 //!
 
@@ -106,8 +106,8 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    /// Construct a manifest, rejecting an unsupported `schema_version` exactly
-    /// as Rust `Manifest.__post_init__`.
+    /// Construct a manifest, rejecting any `schema_version` that does not equal
+    /// [`MANIFEST_SCHEMA_VERSION`].
     ///
     /// # Errors
     ///
@@ -131,9 +131,9 @@ impl Manifest {
     }
 }
 
-/// Append the Rust `json.dumps(ensure_ascii=True)` escaping of `s` (without
-/// surrounding quotes) to `out`. Matches `CRust`'s
-/// `c_encode_basestring_ascii`.
+/// Append the ASCII-only JSON string escaping of `s` (without surrounding
+/// quotes) to `out`: control/quote/backslash use short escapes and every
+/// non-ASCII scalar becomes `\uXXXX` (surrogate pairs for non-BMP).
 ///
 fn push_json_ascii_escaped(out: &mut String, s: &str) {
     for ch in s.chars() {
