@@ -41,21 +41,6 @@ impl Lane {
     pub const EVICTION_ORDER: [Self; 3] = [Self::Sample, Self::Normal, Self::Critical];
 }
 
-/// `daemon` section.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct DaemonSection {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub boot_epoch_id: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pid: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pressure: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retained_events: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retained_bytes: Option<i64>,
-}
-
 /// `layer_stack` section.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct LayerStackSection {
@@ -140,69 +125,6 @@ impl Default for OverlayWorkspaceSection {
             publish_layer_ms: None,
             changed_path_count: None,
             upperdir_bytes: None,
-        }
-    }
-}
-
-/// `isolated_workspace` section. `workspace_mode` defaults `"isolated"`; the
-/// three `orphan_*_count` default `0` (all always emitted).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct IsolatedWorkspaceSection {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub operation_id: Option<String>,
-    pub workspace_mode: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub workspace_handle_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub caller_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub holder_pid: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub holder_pid_alive: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cgroup_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cgroup_removed: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scratch_removed: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub upperdir_bytes: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub upperdir_cap_bytes: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub memory_current_bytes: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub memory_peak_bytes: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cpu_usage_usec_delta: Option<i64>,
-    pub orphan_holder_count: i64,
-    pub orphan_cgroup_count: i64,
-    pub orphan_scratch_count: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sampled_at_monotonic_s: Option<f64>,
-}
-
-impl Default for IsolatedWorkspaceSection {
-    fn default() -> Self {
-        Self {
-            operation_id: None,
-            workspace_mode: "isolated".to_owned(),
-            workspace_handle_id: None,
-            caller_id: None,
-            holder_pid: None,
-            holder_pid_alive: None,
-            cgroup_id: None,
-            cgroup_removed: None,
-            scratch_removed: None,
-            upperdir_bytes: None,
-            upperdir_cap_bytes: None,
-            memory_current_bytes: None,
-            memory_peak_bytes: None,
-            cpu_usage_usec_delta: None,
-            orphan_holder_count: 0,
-            orphan_cgroup_count: 0,
-            orphan_scratch_count: 0,
-            sampled_at_monotonic_s: None,
         }
     }
 }
@@ -344,52 +266,9 @@ mod tests {
     type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
     #[test]
-    fn isolated_default_drops_none_keeps_defaults() -> TestResult {
-        // Doc §1.1 ground truth: only the four non-None defaults survive.
-        let v = serde_json::to_value(IsolatedWorkspaceSection::default())?;
-        assert_eq!(
-            v,
-            serde_json::json!({
-                "orphan_cgroup_count": 0,
-                "orphan_holder_count": 0,
-                "orphan_scratch_count": 0,
-                "workspace_mode": "isolated"
-            })
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn daemon_section_drops_none() -> TestResult {
-        let s = DaemonSection {
-            pid: Some(42),
-            boot_epoch_id: Some(123),
-            ..Default::default()
-        };
-        assert_eq!(
-            serde_json::to_value(&s)?,
-            serde_json::json!({"boot_epoch_id": 123, "pid": 42})
-        );
-        Ok(())
-    }
-
-    #[test]
     fn event_payloads_match_fixture_embedded_events() -> TestResult {
-        // From audit_pull_two_events.json: a daemon.started with {pid:1} and a
-        // tool_call.started with {tool_use_id, tool_name}.
-        let daemon_evt = build_event(
-            "daemon.started",
-            "daemon",
-            serde_json::to_value(DaemonSection {
-                pid: Some(1),
-                ..Default::default()
-            })?,
-        );
-        assert_eq!(
-            daemon_evt,
-            serde_json::json!({"type":"daemon.started","payload":{"daemon":{"pid":1}}})
-        );
-
+        // build_event wraps a typed section as {type, payload:{section_key:...}},
+        // matching the tool_call.started event embedded in audit_pull_two_events.json.
         let tool_evt = build_event(
             "tool_call.started",
             "tool_call",

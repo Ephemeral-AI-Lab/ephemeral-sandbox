@@ -30,12 +30,7 @@ pub use envelope::{
     decode, decode_value, encode, Envelope, ErrorEnvelope, ErrorKind, ProtocolError, Request,
 };
 pub use ids::{CallerId, InvocationId, WorkspaceHandleId};
-pub use models::{
-    apply_search_replace, CommandOutput, CommandSessionCancelArgs, CommandSessionWriteArgs,
-    ConflictInfo, EditFileArgs, EditFileResult, ExecCommandArgs, ExecCommandResult, Intent,
-    ReadFileArgs, ReadFileResult, SearchReplaceEdit, SearchReplaceError, WriteFileArgs,
-    WriteFileResult,
-};
+pub use models::Intent;
 pub use version::{
     CONNECT_FAILED, CONNECT_RETRY_DELAYS_S, DAEMON_AUTH_FIELD, DAEMON_PROTOCOL_FIELD,
     DAEMON_PROTOCOL_VERSION, IO_FAILED, MANIFEST_SCHEMA_VERSION, MAX_REQUEST_BYTES,

@@ -192,17 +192,6 @@ pub struct ProviderHealth {
     pub error: Option<String>,
 }
 
-/// A signed-preview-URL result. Docker returns `{ url: None, reason }`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-pub struct PreviewUrl {
-    /// The signed URL, or `None` for providers without one (Docker).
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub url: Option<String>,
-    /// Why the URL is absent, when it is.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub reason: Option<String>,
-}
-
 /// A provider snapshot/image listing entry (mirrors Docker `_serialize_image`:
 /// `name == image == first repo tag`).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
@@ -285,8 +274,7 @@ pub(crate) mod sealed {
 ///
 /// Method names drop the
 /// `get_` prefix per Rust API guidelines C-GETTER: `health` ← `get_health`,
-/// `signed_preview_url` ← `get_signed_preview_url`, `build_logs_url` ←
-/// `get_build_logs_url`, `daemon_tcp_endpoint` ← `get_daemon_tcp_endpoint`,
+/// `daemon_tcp_endpoint` ← `get_daemon_tcp_endpoint`,
 /// `kind()` ← the `name: str` class attribute.
 #[async_trait]
 pub trait ProviderAdapter: sealed::Sealed + Send + Sync + std::fmt::Debug {
@@ -317,14 +305,6 @@ pub trait ProviderAdapter: sealed::Sealed + Send + Sync + std::fmt::Debug {
         labels: &Labels,
     ) -> Result<SandboxInfo, SandboxHostError>;
 
-    /// A signed preview URL for `port` (Docker returns `url: None`).
-    async fn signed_preview_url(
-        &self,
-        id: &SandboxId,
-        port: u16,
-    ) -> Result<PreviewUrl, SandboxHostError>;
-    /// A build-logs URL, if the provider exposes one.
-    async fn build_logs_url(&self, id: &SandboxId) -> Result<Option<String>, SandboxHostError>;
     /// Docker-only host→daemon TCP endpoint; default `None` for providers with
     /// no TCP daemon path.
     async fn daemon_tcp_endpoint(

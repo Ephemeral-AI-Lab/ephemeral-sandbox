@@ -282,13 +282,10 @@ fn validate_relative_package_path(field: &str, value: &str) -> Result<()> {
         return Err(PluginError::Manifest(format!("{field} must be relative")));
     }
     for component in value.split('/') {
-        match component {
-            ".." => {
-                return Err(PluginError::Manifest(format!(
-                    "{field} must not contain path traversal"
-                )));
-            }
-            _ => {}
+        if component == ".." {
+            return Err(PluginError::Manifest(format!(
+                "{field} must not contain path traversal"
+            )));
         }
     }
     Ok(())

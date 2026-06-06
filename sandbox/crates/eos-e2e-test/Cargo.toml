@@ -10,7 +10,6 @@ description = "Protocol-only sandbox correctness/pressure suite: drives a live e
 # The ONLY operation interface: raw eos-protocol envelopes against a live eosd.
 eos-config = { workspace = true }
 eos-protocol = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 # Test-edge orchestration error type (binary/test boundary, per Rust guidance).

@@ -14,7 +14,7 @@ use eos_types::SandboxId;
 use crate::error::SandboxHostError;
 use crate::provider::{
     sealed, ContextPreparer, CreateSandboxSpec, DaemonTcpEndpoint, DockerContextPreparer, ExecOpts,
-    Labels, PreviewUrl, ProviderAdapter, ProviderHealth, ProviderKind, RawExecResult, SandboxInfo,
+    Labels, ProviderAdapter, ProviderHealth, ProviderKind, RawExecResult, SandboxInfo,
     SnapshotInfo,
 };
 
@@ -172,21 +172,6 @@ impl ProviderAdapter for MockAdapter {
         _labels: &Labels,
     ) -> Result<SandboxInfo, SandboxHostError> {
         Ok(self.info())
-    }
-
-    async fn signed_preview_url(
-        &self,
-        _id: &SandboxId,
-        _port: u16,
-    ) -> Result<PreviewUrl, SandboxHostError> {
-        Ok(PreviewUrl {
-            url: None,
-            reason: Some("mock".to_owned()),
-        })
-    }
-
-    async fn build_logs_url(&self, _id: &SandboxId) -> Result<Option<String>, SandboxHostError> {
-        Ok(None)
     }
 
     async fn daemon_tcp_endpoint(

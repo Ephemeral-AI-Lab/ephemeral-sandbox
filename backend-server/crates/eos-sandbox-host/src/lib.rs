@@ -46,9 +46,7 @@ pub use error::SandboxHostError;
 pub use lifecycle::SandboxLifecycle;
 pub use provider::{
     ContextPreparer, CreateSandboxSpec, DaemonTcpEndpoint, DockerContextPreparer, ExecOpts, Labels,
-    PreviewUrl, ProviderAdapter, ProviderHealth, ProviderKind, RawExecResult, SandboxInfo,
-    SnapshotInfo,
+    ProviderAdapter, ProviderHealth, ProviderKind, RawExecResult, SandboxInfo, SnapshotInfo,
 };
-pub use eos_sandbox_port::{RequestProvisioner, RequestSandboxBinding};
 pub use provisioning::RequestSandboxProvisioner;
 pub use registry::{resolve_provider_kind, ProviderRegistry};
