@@ -52,9 +52,8 @@ impl PendingCalls {
 
     pub(super) fn complete_reply(&self, frame: PpcEnvelope) {
         let message_id = frame.message_id.clone();
-        let pending_request = match self.take(&message_id) {
-            Ok(pending_request) => pending_request,
-            Err(_) => return,
+        let Ok(pending_request) = self.take(&message_id) else {
+            return;
         };
         // A reply matching no in-flight request is a benign late/duplicate reply
         // (its caller already timed out and `discard`ed the entry) or a stray
@@ -68,9 +67,8 @@ impl PendingCalls {
     }
 
     pub(super) fn fail_one(&self, message_id: &str, message: String) {
-        let pending_request = match self.take(message_id) {
-            Ok(pending_request) => pending_request,
-            Err(_) => return,
+        let Ok(pending_request) = self.take(message_id) else {
+            return;
         };
         if let Some(pending_request) = pending_request {
             let _ = pending_request

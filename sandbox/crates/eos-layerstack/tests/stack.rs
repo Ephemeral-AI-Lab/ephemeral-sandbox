@@ -167,9 +167,8 @@ fn ensure_workspace_base_rejects_too_new_manifest_schema() -> TestResult {
         }),
     )?;
 
-    let err = match ensure_workspace_base(&fixture.root, &fixture.workspace) {
-        Ok(_) => return Err("too-new manifest schema was accepted".into()),
-        Err(err) => err,
+    let Err(err) = ensure_workspace_base(&fixture.root, &fixture.workspace) else {
+        return Err("too-new manifest schema was accepted".into());
     };
     assert!(
         err.to_string().contains("schema_version"),
@@ -197,9 +196,8 @@ fn ensure_workspace_base_rejects_invalid_manifest_layer_paths() -> TestResult {
             }),
         )?;
 
-        let err = match ensure_workspace_base(&fixture.root, &fixture.workspace) {
-            Ok(_) => return Err(format!("{label} was accepted").into()),
-            Err(err) => err,
+        let Err(err) = ensure_workspace_base(&fixture.root, &fixture.workspace) else {
+            return Err(format!("{label} was accepted").into());
         };
         assert!(
             err.to_string().contains("layer path"),

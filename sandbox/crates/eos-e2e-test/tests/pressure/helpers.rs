@@ -2,7 +2,7 @@ use anyhow::{bail, ensure, Result};
 use eos_e2e_test::{client::ProtocolClient, next_invocation_id, NodePool};
 use serde_json::Value;
 
-pub fn pressure_levels(pool: &NodePool) -> Result<Vec<usize>> {
+pub(crate) fn pressure_levels(pool: &NodePool) -> Result<Vec<usize>> {
     let levels = pool.workload().concurrency_levels.clone();
     ensure!(
         levels == vec![1, 3, 6, 12],
@@ -11,11 +11,11 @@ pub fn pressure_levels(pool: &NodePool) -> Result<Vec<usize>> {
     Ok(levels)
 }
 
-pub fn workload_timeout_s(pool: &NodePool) -> u64 {
+pub(crate) fn workload_timeout_s(pool: &NodePool) -> u64 {
     pool.workload().timeout.as_secs().max(1)
 }
 
-pub fn request_with_identity(
+pub(crate) fn request_with_identity(
     client: &ProtocolClient,
     op: &str,
     root: &str,
