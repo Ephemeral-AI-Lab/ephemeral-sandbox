@@ -16,7 +16,7 @@ has an unchecked hard item.
 | 0 | Baseline, ownership audit, and migration guardrails | complete | all phases | Phase 0 notes below |
 | 1 | Workspace scaffold and crate relocation | complete | 2, 3, 4, 5, 6, 7 | `agent-core` has port-only sandbox deps; backend workspace builds |
 | 2 | Agent-core runtime seams | not_started | 4, 5, 6, 7 | production `SandboxGateway` injection and `state_reader()` compile |
-| 3 | Backend config, types, store, and migrations | not_started | 4, 5, 6, 7 | config/store tests pass with backend DB schema |
+| 3 | Backend config, types, store, and migrations | complete | 4, 5, 6, 7 | config/store tests pass with backend DB schema |
 | 4 | Sandbox lifecycle manager | not_started | 5, 6, 7 | lifecycle/refcount/delete-guard tests pass |
 | 5 | Run launcher, cancellation, reaper, and event bus | not_started | 6, 7 | request launch and replay-safe event persistence tests pass |
 | 6 | Observability, audit ingestion, and stats | not_started | 7 | audit/correlation/stats tests pass |
@@ -199,17 +199,17 @@ Implementation components:
 
 Hard acceptance checklist:
 
-- [ ] `ServerConfig` does not embed `ProvidersConfig` or `WorkflowConfig`.
-- [ ] Backend config owns only backend deployment and sandbox lifecycle defaults.
-- [ ] `run_meta` schema contains `status`, `created_at`, `finished_at`, and
+- [x] `ServerConfig` does not embed `ProvidersConfig` or `WorkflowConfig`.
+- [x] Backend config owns only backend deployment and sandbox lifecycle defaults.
+- [x] `run_meta` schema contains `status`, `created_at`, `finished_at`, and
   `cancel_reason`.
-- [ ] `obs_event` contains both `tool_use_id` and `sandbox_invocation_id`.
-- [ ] `sandbox_call_correlation` has primary key
+- [x] `obs_event` contains both `tool_use_id` and `sandbox_invocation_id`.
+- [x] `sandbox_call_correlation` has primary key
   `(sandbox_id, caller_id, sandbox_invocation_id)`.
-- [ ] `audit_cursor.boot_epoch_id` is an integer column.
-- [ ] `SandboxView` has no credential-bearing fields.
-- [ ] Store tests prove round-trip persistence for every table.
-- [ ] `eos-backend-types`, `eos-backend-config`, and `eos-backend-store` keep
+- [x] `audit_cursor.boot_epoch_id` is an integer column.
+- [x] `SandboxView` has no credential-bearing fields.
+- [x] Store tests prove round-trip persistence for every table.
+- [x] `eos-backend-types`, `eos-backend-config`, and `eos-backend-store` keep
   all test files, fixtures, fakes, mocks, and support modules under their crate
   `tests/` directories.
 

@@ -1,6 +1,6 @@
 //! Config loader contract: the committed baseline loads, overrides merge, range
 //! validation fires, and a `providers:` / `workflow:` section is rejected — the
-//! enforceable form of "ServerConfig embeds no provider/workflow config" (AC11).
+//! enforceable form of "`ServerConfig` embeds no provider/workflow config" (AC11).
 #![allow(clippy::unwrap_used)] // unwrap is permitted in tests
 
 use std::path::{Path, PathBuf};

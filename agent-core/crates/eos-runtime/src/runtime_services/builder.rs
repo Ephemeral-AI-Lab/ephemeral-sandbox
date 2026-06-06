@@ -19,8 +19,8 @@ use eos_llm_client::{
     Auth, ConfiguredLlmClient, LlmClient, LlmRequest, LlmRequestDefaults, LlmStream, ProviderError,
 };
 use eos_sandbox_port::{
-    DaemonOp, RequestProvisioner, RequestSandboxBinding, SandboxPortError, SandboxProvisionError,
-    SandboxTransport,
+    DaemonOp, RequestProvisioner, RequestSandboxBinding, SandboxGateway, SandboxPortError,
+    SandboxProvisionError, SandboxTransport,
 };
 use eos_skills::SkillRegistry;
 use eos_tools::{
@@ -93,7 +93,7 @@ impl RequestProvisioner for UnconfiguredProvisioner {
 
 /// `#[must_use]` builder for [`RuntimeServices`]. Every field is an optional override:
 /// `None` selects the production default. Tests inject in-memory stores, a mock
-/// `event_source_factory`, a fake provisioner, and explicit registries.
+/// `event_source_factory`, a fake sandbox gateway, and explicit registries.
 #[must_use = "RuntimeServicesBuilder does nothing until build() is called"]
 #[derive(Default)]
 pub struct RuntimeServicesBuilder {
@@ -110,8 +110,7 @@ pub struct RuntimeServicesBuilder {
     tools_root: Option<PathBuf>,
     skill_registry: Option<Arc<SkillRegistry>>,
     skill_root: Option<PathBuf>,
-    provisioner: Option<Arc<dyn RequestProvisioner>>,
-    transport: Option<Arc<dyn SandboxTransport>>,
+    gateway: Option<Arc<dyn SandboxGateway>>,
     compatibility_mode: bool,
 }
 
@@ -204,21 +203,14 @@ impl RuntimeServicesBuilder {
         self
     }
 
-    /// Inject a request provisioner. Without injection an erroring placeholder
-    /// is used until the backend composition root injects a host-backed
-    /// provisioner (Phase 2 `SandboxGateway`); tests inject a fake.
-    #[cfg(test)]
-    pub(crate) fn provisioner(mut self, provisioner: Arc<dyn RequestProvisioner>) -> Self {
-        self.provisioner = Some(provisioner);
-        self
-    }
-
-    /// Inject the sandbox transport. Without injection an erroring placeholder
-    /// is used until the backend composition root injects the daemon-backed
-    /// transport (Phase 2 `SandboxGateway`); tests inject a fake transport to
-    /// avoid a live daemon.
-    pub fn transport(mut self, transport: Arc<dyn SandboxTransport>) -> Self {
-        self.transport = Some(transport);
+    /// Inject the production sandbox gateway: one handle that hands back the
+    /// transport (per-tool daemon RPC) and provisioner (request binding) sharing
+    /// the backend's registry/lifecycle. This is the production-visible seam the
+    /// backend composition root wires its `SandboxManager` into; without it the
+    /// runtime falls back to placeholders that error on first sandbox use. Tests
+    /// inject a fake gateway wrapping a fake transport and provisioner.
+    pub fn sandbox_gateway(mut self, gateway: Arc<dyn SandboxGateway>) -> Self {
+        self.gateway = Some(gateway);
         self
     }
 
@@ -314,13 +306,19 @@ impl RuntimeServicesBuilder {
             ),
         };
 
-        // Sandbox transport/provisioner are injected ports. The Docker/daemon
-        // host implementation lives in `eos-sandbox-host` and is wired by the
-        // backend composition root (Phase 2 `SandboxGateway`); tests inject
-        // fakes. Without injection the placeholders error at first use.
-        let transport: Arc<dyn SandboxTransport> = self
-            .transport
-            .unwrap_or_else(|| Arc::new(UnconfiguredSandboxTransport));
+        // Sandbox access is one injected gateway (the backend `SandboxManager`)
+        // that hands back the transport + provisioner sharing its registry; the
+        // Docker/daemon host implementation lives in `eos-sandbox-host`. Without
+        // injection the placeholders error at first use; tests inject a fake
+        // gateway.
+        let (transport, provisioner): (Arc<dyn SandboxTransport>, Arc<dyn RequestProvisioner>) =
+            match self.gateway {
+                Some(gateway) => (gateway.transport(), gateway.provisioner()),
+                None => (
+                    Arc::new(UnconfiguredSandboxTransport),
+                    Arc::new(UnconfiguredProvisioner),
+                ),
+            };
         let mut tool_registry = build_default_registry(&tool_config, &CallerScope::default());
         register_plugin_tools(
             &mut tool_registry,
@@ -332,10 +330,6 @@ impl RuntimeServicesBuilder {
         if !self.compatibility_mode {
             validate_agent_tools(&agent_registry, &tool_registry)?;
         }
-
-        let provisioner: Arc<dyn RequestProvisioner> = self
-            .provisioner
-            .unwrap_or_else(|| Arc::new(UnconfiguredProvisioner));
 
         Ok(RuntimeServices {
             db: DbStoreService {

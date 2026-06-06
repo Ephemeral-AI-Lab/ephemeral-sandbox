@@ -7,7 +7,7 @@ use time::OffsetDateTime;
 
 use eos_backend_types::{ObsEvent, ObsSource, SandboxCallCorrelation};
 use eos_protocol::CallerId;
-use eos_types::{AgentRunId, InvocationId, RequestId, SandboxId};
+use eos_types::{AgentRunId, InvocationId, RequestId, SandboxId, TaskId, ToolUseId};
 
 use crate::db::{id_in, json_decode, json_encode, opt_id_in, ts_in, ts_out, StoreError};
 
@@ -41,9 +41,9 @@ impl ObsEventRepo {
             "INSERT INTO obs_event ({OBS_INSERT_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ))
         .bind(event.request_id.as_ref().map(RequestId::as_str))
-        .bind(event.task_id.as_ref().map(|id| id.as_str()))
+        .bind(event.task_id.as_ref().map(TaskId::as_str))
         .bind(event.agent_run_id.as_ref().map(AgentRunId::as_str))
-        .bind(event.tool_use_id.as_ref().map(|id| id.as_str()))
+        .bind(event.tool_use_id.as_ref().map(ToolUseId::as_str))
         .bind(event.sandbox_invocation_id.as_ref().map(InvocationId::as_str))
         .bind(event.sandbox_id.as_ref().map(SandboxId::as_str))
         .bind(event.source.as_str())
