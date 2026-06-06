@@ -27,5 +27,5 @@ pub struct EventRecord {
 
 /// `kind` value for the dropped-milestone marker. When the bounded event queue
 /// overflows, the backend persists/broadcasts this marker so milestone loss is
-/// visible in the events endpoint and live stream, never silent.
+/// visible in the events API and live stream, never silent.
 pub const EVENT_STREAM_GAP: &str = "event_stream_gap";

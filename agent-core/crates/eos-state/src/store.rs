@@ -22,6 +22,7 @@ use crate::attempt::{Attempt, AttemptClosure};
 use crate::iteration::{Iteration, IterationCreationReason, IterationStatus};
 use crate::model::ModelRegistration;
 use crate::outcomes::ExecutionTaskOutcome;
+use crate::pagination::{Page, PageResult, RequestListFilter};
 use crate::plan::{AttemptBudget, DeferredGoal, MaterializedPlan};
 use crate::request::{Request, RequestStatus};
 use crate::task::{Task, TaskStatus};
@@ -107,6 +108,11 @@ pub trait TaskStore: Sealed + Send + Sync {
         outcomes: Option<&[ExecutionTaskOutcome]>,
         terminal_tool_result: Option<&JsonObject>,
     ) -> Result<Option<Task>, CoreError>;
+
+    /// All tasks owned by one request, ordered by creation — the request task
+    /// tree (`needs` edges live on each [`Task`]). Read-side API for the backend
+    /// composition root (spec §State Reader).
+    async fn list_for_request(&self, request_id: &RequestId) -> Result<Vec<Task>, CoreError>;
 }
 
 /// Persistence surface for [`Iteration`] (Python `IterationStoreProtocol`).
@@ -233,6 +239,16 @@ pub trait RequestStore: Sealed + Send + Sync {
         id: &RequestId,
         status: RequestStatus,
     ) -> Result<Option<Request>, CoreError>;
+
+    /// List requests matching `filter`, newest first, within the `page` window.
+    /// `total` counts every match ignoring the window. Read-side API for the
+    /// backend composition root (spec §State Reader); not used by agent-core's
+    /// own request lifecycle.
+    async fn list(
+        &self,
+        filter: RequestListFilter,
+        page: Page,
+    ) -> Result<PageResult<Request>, CoreError>;
 }
 
 /// Persistence surface for [`AgentRun`] (Python `AgentRunStore`).
@@ -259,6 +275,11 @@ pub trait AgentRunStore: Sealed + Send + Sync {
 
     /// Load a run by id.
     async fn get(&self, agent_run_id: &AgentRunId) -> Result<Option<AgentRun>, CoreError>;
+
+    /// The latest agent run for one task, if any. `AgentRun.task_id` is 1:1 in
+    /// practice; the newest row wins if a task was ever re-run. Read-side API for
+    /// the backend composition root (spec §State Reader).
+    async fn get_for_task(&self, task_id: &TaskId) -> Result<Option<AgentRun>, CoreError>;
 }
 
 /// Persistence surface for [`ModelRegistration`] (Python `ModelStore`).

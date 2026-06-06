@@ -11,7 +11,7 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 
-use eos_types::{CoreError, JsonObject, TaskId};
+use eos_types::{CoreError, JsonObject, RequestId, TaskId};
 
 use crate::outcomes::ExecutionTaskOutcome;
 use crate::store::{Sealed, TaskStore};
@@ -104,5 +104,18 @@ impl TaskStore for FakeTaskStore {
         }
         apply_task_updates(task, status, outcomes, terminal_tool_result);
         Ok(Some(task.clone()))
+    }
+
+    async fn list_for_request(&self, request_id: &RequestId) -> Result<Vec<Task>, CoreError> {
+        let mut tasks: Vec<Task> = self
+            .tasks
+            .lock()
+            .expect("lock")
+            .values()
+            .filter(|task| &task.request_id == request_id)
+            .cloned()
+            .collect();
+        tasks.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+        Ok(tasks)
     }
 }

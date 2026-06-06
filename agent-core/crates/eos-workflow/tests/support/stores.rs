@@ -467,6 +467,21 @@ impl eos_state::TaskStore for MemoryStores {
         update_task(task, status, outcomes, terminal_tool_result);
         Ok(Some(task.clone()))
     }
+
+    async fn list_for_request(
+        &self,
+        request_id: &RequestId,
+    ) -> std::result::Result<Vec<Task>, CoreError> {
+        let mut tasks: Vec<Task> = self
+            .tasks
+            .lock()
+            .values()
+            .filter(|task| &task.request_id == request_id)
+            .cloned()
+            .collect();
+        tasks.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+        Ok(tasks)
+    }
 }
 
 fn update_task(

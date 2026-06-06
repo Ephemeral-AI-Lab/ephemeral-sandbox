@@ -10,7 +10,8 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use eos_sandbox_port::{DaemonOp, SandboxPortError, SandboxTransport};
 use eos_state::{
-    ExecutionTaskOutcome, Request, RequestStatus, RequestStore, Sealed, Task, TaskStatus, TaskStore,
+    ExecutionTaskOutcome, Page, PageResult, Request, RequestListFilter, RequestStatus, RequestStore,
+    Sealed, Task, TaskStatus, TaskStore,
 };
 use eos_types::{AgentRunId, CoreError, JsonObject, RequestId, SandboxId, TaskId, UtcDateTime};
 
@@ -133,6 +134,19 @@ impl TaskStore for FakeTaskStore {
                 .await?,
         ))
     }
+
+    async fn list_for_request(&self, request_id: &RequestId) -> Result<Vec<Task>, CoreError> {
+        let mut tasks: Vec<Task> = self
+            .tasks
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|task| &task.request_id == request_id)
+            .cloned()
+            .collect();
+        tasks.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+        Ok(tasks)
+    }
 }
 
 /// An in-memory `RequestStore` that records `finish_request` calls.
@@ -202,6 +216,19 @@ impl RequestStore for FakeRequestStore {
             .unwrap()
             .push((id.as_str().to_owned(), status));
         Ok(Some(synthetic_request(id, status)))
+    }
+
+    async fn list(
+        &self,
+        _filter: RequestListFilter,
+        _page: Page,
+    ) -> Result<PageResult<Request>, CoreError> {
+        // This fake records only `finish_request`; the list surface is unused by
+        // the tool tests, so an empty page is the honest result.
+        Ok(PageResult {
+            items: Vec::new(),
+            total: 0,
+        })
     }
 }
 

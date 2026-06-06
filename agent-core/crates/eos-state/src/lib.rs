@@ -12,6 +12,7 @@ mod attempt;
 mod iteration;
 mod model;
 mod outcomes;
+mod pagination;
 mod plan;
 mod request;
 mod store;
@@ -34,6 +35,7 @@ pub use outcomes::{
     project_attempt_outcomes, project_iteration_outcomes, ExecutionRole, ExecutionTaskOutcome,
     TaskOutcomeStatus, NO_OUTCOME,
 };
+pub use pagination::{Page, PageResult, RequestListFilter};
 pub use plan::{AttemptBudget, DeferredGoal, MaterializedPlan, PlanDisposition, PlanNodeId};
 pub use request::{Request, RequestStatus};
 pub use store::{

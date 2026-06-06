@@ -90,4 +90,15 @@ impl AgentRunStore for SqlAgentRunStore {
             .map_err(DbError::from)?;
         Ok(row.map(row_to_agent_run).transpose()?)
     }
+
+    async fn get_for_task(&self, task_id: &TaskId) -> Result<Option<AgentRun>, CoreError> {
+        let row = sqlx::query_as::<Sqlite, AgentRunRow>(
+            "SELECT * FROM agent_runs WHERE task_id = ? ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(task_id.as_str())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(DbError::from)?;
+        Ok(row.map(row_to_agent_run).transpose()?)
+    }
 }

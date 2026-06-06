@@ -8,6 +8,8 @@
 //! - the typed daemon op constants ([`DaemonOp`]);
 //! - the [`SandboxTransport`] async trait seam (DIP — implemented downstream in
 //!   `eos-sandbox-host`, injected by `eos-runtime`);
+//! - the [`SandboxGateway`] single-handle injection seam that bundles the
+//!   transport and provisioner (implemented by the backend `SandboxManager`);
 //! - the timeout policy ([`exec_dispatch_timeout`] and the `*_TIMEOUT_S`
 //!   constants); and
 //! - the pure `tool_api` helpers that build a daemon payload, call a transport,
@@ -20,6 +22,7 @@
 #![warn(missing_docs)]
 
 mod error;
+mod gateway;
 mod models;
 mod ops;
 mod provision;
@@ -28,6 +31,7 @@ mod tool_api;
 mod transport;
 
 pub use error::SandboxPortError;
+pub use gateway::SandboxGateway;
 pub use provision::{RequestProvisioner, RequestSandboxBinding, SandboxProvisionError};
 pub use models::{
     CommandOutput, CommandSessionCancelRequest, CommandStatusView, ConflictInfo, EditFileRequest,
