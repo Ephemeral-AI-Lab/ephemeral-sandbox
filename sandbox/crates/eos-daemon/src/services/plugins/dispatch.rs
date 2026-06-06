@@ -20,6 +20,9 @@ pub(super) fn dispatch_registered_op(
     if !op.starts_with("plugin.") {
         return None;
     }
+    // Single caller-family gate for the whole registered-op dispatch chain; the
+    // private `dispatch_registered_route`/`dispatch_deferred_route` helpers below
+    // are only reachable from here and trust the already-validated args.
     if let Err(err) = ensure_plugin_family_allowed(args) {
         return Some(Err(err));
     }
@@ -44,7 +47,6 @@ fn dispatch_registered_route(
     invocation_id: &str,
     args: &Value,
 ) -> Result<Value, DaemonError> {
-    ensure_plugin_family_allowed(args)?;
     if route.intent == Intent::ReadOnly && route.service_id.is_some() {
         if let Some(response) = dispatch_connected_read_only_route(route, invocation_id, args)? {
             return Ok(response);
@@ -63,14 +65,10 @@ fn dispatch_registered_route(
             return Ok(response);
         }
     }
-    dispatch_deferred_route(route, args)
+    dispatch_deferred_route(route)
 }
 
-fn dispatch_deferred_route(
-    route: &PluginOperationRoute,
-    args: &Value,
-) -> Result<Value, DaemonError> {
-    ensure_plugin_family_allowed(args)?;
+fn dispatch_deferred_route(route: &PluginOperationRoute) -> Result<Value, DaemonError> {
     Ok(json!({
         "success": false,
         "status": "deferred",

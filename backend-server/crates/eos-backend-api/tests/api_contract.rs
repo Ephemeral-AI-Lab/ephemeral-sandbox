@@ -236,6 +236,29 @@ async fn detail_joins_and_persists_terminal_outcome() {
 }
 
 #[tokio::test]
+async fn detail_failed_outcome_is_persisted() {
+    let (store, _dir) = test_store().await;
+    let id = RequestId::new_v4();
+    // Backend still Running, agent-core reports Failed -> resolved `failed` + write-back.
+    seed_run(&store, &id, BackendRunStatus::Running).await;
+    let app = router(
+        &store,
+        Arc::new(FakeRunControl::new(CancelOutcome::Requested)),
+        Arc::new(FakeSandboxRegistry::new(vec![])),
+        fake_reads(Some(RequestStatus::Failed), vec![], None),
+    );
+
+    let (status, body) = send(&app, get(&format!("/api/user-requests/{}", id.as_str()))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json_of(&body)["status"], json!("failed"));
+
+    // The CAS write-back persisted the terminal Failed status + finished_at.
+    let persisted = store.run_meta().get(&id).await.expect("get").expect("row");
+    assert_eq!(persisted.status, BackendRunStatus::Failed);
+    assert!(persisted.finished_at.is_some());
+}
+
+#[tokio::test]
 async fn detail_cancelled_is_not_clobbered_by_agent_terminal() {
     let (store, _dir) = test_store().await;
     let id = RequestId::new_v4();

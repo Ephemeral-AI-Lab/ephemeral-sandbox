@@ -111,7 +111,7 @@ pub(super) fn acquire_service_snapshot(
     key: &PluginServiceKey,
     reason: &str,
 ) -> Result<PluginServiceSnapshot, DaemonError> {
-    let mut stack = LayerStack::open(PathBuf::from(&key.layer_stack_root))?;
+    let stack = LayerStack::open(PathBuf::from(&key.layer_stack_root))?;
     let lease = stack.acquire_snapshot(&format!(
         "plugin-service:{}:{}:{reason}",
         key.plugin_id, key.service_id

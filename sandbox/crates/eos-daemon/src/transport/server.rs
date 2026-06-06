@@ -40,7 +40,7 @@ use eos_protocol::{
     decode, encode, Envelope, ErrorKind, Request,
 };
 
-use crate::audit::buffer::{safe_emit, AuditBuffer};
+use crate::audit::buffer::safe_emit;
 use crate::dispatcher::{DispatchContext, OpTable};
 use crate::error::DaemonError;
 use crate::invocation_registry::InFlightRegistry;
@@ -361,13 +361,11 @@ impl DaemonServer {
         }
         let table = Arc::clone(&self.op_table);
         let registry = Arc::clone(&self.invocation_registry);
-        let task_invocation_id = invocation_id.clone();
         let task_registry = Arc::clone(&registry);
         let audit_config = self.audit_config.clone();
         let (start_tx, start_rx) = std_mpsc::channel::<()>();
         let task = tokio::task::spawn_blocking(move || {
             let _ = start_rx.recv();
-            let _active_call = task_registry.enter_call(&task_invocation_id);
             table.dispatch_with_context(
                 &request,
                 DispatchContext::with_runtime_config(&task_registry, &audit_config, read_request_s),

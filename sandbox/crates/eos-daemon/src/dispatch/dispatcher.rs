@@ -121,7 +121,6 @@ impl OpTable {
     pub fn with_builtins() -> Self {
         let mut table = Self::default();
         for op in BUILTIN_OPS {
-            let _ = op.kind;
             table.register_builtin(op.wire, op.handler);
         }
         table

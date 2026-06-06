@@ -62,7 +62,7 @@ pub(super) struct DaemonLayerStackPort {
 impl LayerStackSnapshotPort for DaemonLayerStackPort {
     fn acquire_snapshot(&self, request_id: &str) -> Result<SnapshotLease, IsolatedError> {
         let lease = {
-            let mut stack = self
+            let stack = self
                 .stack
                 .lock()
                 .map_err(|_| setup_error("layer stack lock poisoned"))?;

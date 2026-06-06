@@ -22,6 +22,4 @@ mod openapi;
 mod router;
 mod stream;
 
-pub use error::ApiError;
-pub use openapi::{document as openapi_document, openapi_doc};
 pub use router::{build_router, AgentCoreReads, AppState, RunControl, SandboxRegistry};

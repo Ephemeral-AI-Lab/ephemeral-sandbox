@@ -56,7 +56,7 @@ impl EphemeralCommandSessionPort for DaemonEphemeralCommandPort {
         request_id: &str,
     ) -> Result<EphemeralSnapshot, EphemeralWorkspaceError> {
         let lease = LayerStack::open(self.root.clone())
-            .and_then(|mut stack| stack.acquire_snapshot(request_id))
+            .and_then(|stack| stack.acquire_snapshot(request_id))
             .map_err(|error| EphemeralWorkspaceError::SnapshotAcquire {
                 reason: error.to_string(),
             })?;

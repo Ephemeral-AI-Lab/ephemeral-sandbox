@@ -9,13 +9,11 @@ workspace = true
 
 [dependencies]
 axum.workspace = true
-tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
 futures.workspace = true
 async-trait.workspace = true
-thiserror.workspace = true
 tracing.workspace = true
 
 eos-types.workspace = true
@@ -26,6 +24,7 @@ eos-backend-runtime.workspace = true
 eos-backend-obs.workspace = true
 
 [dev-dependencies]
+tokio.workspace = true
 tower.workspace = true
 tempfile.workspace = true
 tokio-tungstenite.workspace = true

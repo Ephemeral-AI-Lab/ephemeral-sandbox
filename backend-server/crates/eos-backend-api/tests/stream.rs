@@ -17,7 +17,7 @@ use tower::ServiceExt;
 
 use eos_backend_runtime::CancelOutcome;
 use eos_backend_store::BackendStore;
-use eos_backend_types::{BackendRunStatus, EventRecord, RunMeta};
+use eos_backend_types::{BackendRunStatus, EventRecord, RunMeta, EVENT_STREAM_GAP};
 use eos_types::{RequestId, UtcDateTime};
 
 use support::{fake_reads, router, test_store, FakeRunControl, FakeSandboxRegistry};
@@ -169,4 +169,45 @@ async fn websocket_replays_persisted_events() {
     server.abort();
 
     assert_eq!(seqs, vec![1, 2, 3], "websocket replay sequence mismatch");
+}
+
+/// A persisted `event_stream_gap` marker (dropped-milestone loss) must replay to
+/// the live stream, so milestone loss stays visible to clients and is never
+/// silent (SPEC §Event Stream overflow policy). The handler does not filter the
+/// gap kind out of the replay.
+#[tokio::test]
+async fn sse_replays_event_stream_gap_marker() {
+    let (store, _dir) = test_store().await;
+    let id = RequestId::new_v4();
+    seed_run(&store, &id).await;
+    // One real milestone, then a gap marker recording dropped milestones.
+    seed_events(&store, &id, 1).await;
+    store
+        .event_log()
+        .append(&EventRecord {
+            request_id: id.clone(),
+            seq: 2,
+            kind: EVENT_STREAM_GAP.to_owned(),
+            payload: json!({ "dropped": 3 }),
+            created_at: UtcDateTime::now(),
+        })
+        .await
+        .expect("seed gap marker");
+    let app = app(&store);
+
+    let request = Request::builder()
+        .method("GET")
+        .uri(format!("/api/user-requests/{}/stream", id.as_str()))
+        .body(Body::empty())
+        .expect("request");
+    let response = app.oneshot(request).await.expect("response");
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body");
+    let text = String::from_utf8(bytes.to_vec()).expect("utf8");
+
+    // The gap marker rides the stream as its own milestone kind (loss is visible).
+    assert!(text.contains(EVENT_STREAM_GAP), "gap marker not replayed: {text}");
+    assert!(text.contains(r#"{"dropped":3}"#), "gap payload missing: {text}");
 }

@@ -716,7 +716,7 @@ fn occ_service_cache_is_bounded_lru() -> TestResult {
         std::fs::create_dir_all(&root)?;
         let transaction = LayerStackCommitTransaction { root: root.clone() };
         let service = Arc::new(OccService::new(CommitQueue::new(transaction))?);
-        let lookup = cache.insert_or_get(normalize_root_key(&root), service, 0.0);
+        let (lookup, _rejected) = cache.insert_or_get(normalize_root_key(&root), service, 0.0);
         assert!(lookup.cache_created);
     }
 
@@ -727,7 +727,7 @@ fn occ_service_cache_is_bounded_lru() -> TestResult {
         root: first.clone(),
     };
     let service = Arc::new(OccService::new(CommitQueue::new(transaction))?);
-    let recreated = cache.insert_or_get(normalize_root_key(&first), service, 0.0);
+    let (recreated, _rejected) = cache.insert_or_get(normalize_root_key(&first), service, 0.0);
     assert!(!recreated.cache_hit);
     assert!(recreated.cache_created);
     assert_eq!(recreated.evicted_count, 1);

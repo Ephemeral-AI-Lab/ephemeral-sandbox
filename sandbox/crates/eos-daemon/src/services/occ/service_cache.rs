@@ -99,24 +99,35 @@ impl OccServiceCache {
         })
     }
 
+    /// Insert `service` for `key`, or return the already-cached service when a
+    /// concurrent caller won the race. On a hit the passed-in `service` is handed
+    /// back as the second tuple element so the caller can drop it AFTER releasing
+    /// the cache lock: its `Drop` closes a commit queue and joins the worker
+    /// thread, which must not block the process-wide cache mutex.
     pub(crate) fn insert_or_get(
         &mut self,
         key: String,
         service: Arc<OccService<LayerStackCommitTransaction>>,
         lock_wait_s: f64,
-    ) -> OccServiceLookup {
+    ) -> (
+        OccServiceLookup,
+        Option<Arc<OccService<LayerStackCommitTransaction>>>,
+    ) {
         self.record_lock_wait(lock_wait_s);
         if let Some(existing) = self.entries.get(&key).cloned() {
             self.touch(&key);
             self.stats.hits_total += 1;
-            return OccServiceLookup {
-                service: existing,
-                lock_wait_s,
-                cache_hit: true,
-                cache_created: false,
-                evicted_count: 0,
-                cache_size: self.entries.len(),
-            };
+            return (
+                OccServiceLookup {
+                    service: existing,
+                    lock_wait_s,
+                    cache_hit: true,
+                    cache_created: false,
+                    evicted_count: 0,
+                    cache_size: self.entries.len(),
+                },
+                Some(service),
+            );
         }
         self.stats.misses_total += 1;
         self.stats.creates_total += 1;
@@ -127,14 +138,17 @@ impl OccServiceCache {
             .stats
             .evictions_total
             .saturating_add(u64::try_from(evicted_count).unwrap_or(u64::MAX));
-        OccServiceLookup {
-            service,
-            lock_wait_s,
-            cache_hit: false,
-            cache_created: true,
-            evicted_count,
-            cache_size: self.entries.len(),
-        }
+        (
+            OccServiceLookup {
+                service,
+                lock_wait_s,
+                cache_hit: false,
+                cache_created: true,
+                evicted_count,
+                cache_size: self.entries.len(),
+            },
+            None,
+        )
     }
 
     fn touch(&mut self, key: &str) {
@@ -179,7 +193,13 @@ pub(super) fn occ_service_for_root(root: &Path) -> Result<OccServiceLookup, Daem
     )?);
     let lock_start = Instant::now();
     let mut cache = lock_occ_services()?;
-    Ok(cache.insert_or_get(key, service, lock_start.elapsed().as_secs_f64()))
+    let (lookup, rejected) = cache.insert_or_get(key, service, lock_start.elapsed().as_secs_f64());
+    // Release the global cache lock BEFORE dropping the rejected loser: its
+    // `OccService::drop` closes the commit queue and joins the worker thread,
+    // which must not run while the process-wide cache mutex is held.
+    drop(cache);
+    drop(rejected);
+    Ok(lookup)
 }
 
 fn occ_services() -> &'static Mutex<OccServiceCache> {

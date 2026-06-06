@@ -17,13 +17,13 @@ use eos_backend_types::{
 use eos_state::{AgentRun, Task};
 
 /// `GET /openapi.json` — the assembled `OpenAPI` 3.0 document.
-pub async fn openapi_doc() -> Json<Value> {
+pub(crate) async fn openapi_doc() -> Json<Value> {
     Json(document())
 }
 
 /// Build the document: component schemas from the DTO derives, plus the static
 /// path table mirroring [`build_router`](crate::build_router).
-pub fn document() -> Value {
+fn document() -> Value {
     let mut generator = SchemaGenerator::new(SchemaSettings::openapi3());
     reg::<CreateUserRequest>(&mut generator);
     reg::<CreateUserRequestResponse>(&mut generator);

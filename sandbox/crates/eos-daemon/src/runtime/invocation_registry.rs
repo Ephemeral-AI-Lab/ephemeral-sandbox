@@ -38,10 +38,6 @@ pub struct InFlightInvocation {
     pub last_seen: f64,
     /// Whether this is a background invocation (only background entries reap).
     pub background: bool,
-    /// Concurrently active runtime calls; retained for diagnostics/parity with
-    /// active-call bookkeeping, but stale background cancellation does not wait
-    /// for the call to go idle.
-    pub active_calls: u32,
     /// Process group for the namespace runner child, when the invocation owns
     /// one. Cancelling the tokio task alone cannot interrupt a blocking
     /// `wait_with_output`, so cancellation also terminates this group.
@@ -109,7 +105,6 @@ impl InFlightRegistry {
                 op: op.to_owned(),
                 last_seen: monotonic_seconds(),
                 background,
-                active_calls: 0,
                 process_group_id: None,
                 ttl_reaped: false,
             },
@@ -200,18 +195,6 @@ impl InFlightRegistry {
             .count()
     }
 
-    /// Acquire an [`ActiveCallGuard`]: bumps `active_calls` for diagnostics.
-    /// The guard decrements on drop.
-    pub fn enter_call<'r>(&'r self, invocation_id: &str) -> ActiveCallGuard<'r> {
-        if let Some(entry) = self.lock_state().by_invocation.get_mut(invocation_id) {
-            entry.active_calls = entry.active_calls.saturating_add(1);
-        }
-        ActiveCallGuard {
-            registry: self,
-            invocation_id: invocation_id.to_owned(),
-        }
-    }
-
     /// Cancel every background entry idle past the TTL.
     pub fn ttl_sweep(&self) {
         let mut state = self.lock_state();
@@ -232,29 +215,6 @@ impl InFlightRegistry {
     pub fn metrics(&self) -> (usize, u64) {
         let state = self.lock_state();
         (state.by_invocation.len(), state.ttl_reaped_total)
-    }
-}
-
-/// RAII guard counting one active runtime call against an invocation.
-///
-/// Holding it keeps `active_calls > 0`; dropping it decrements the counter.
-#[derive(Debug)]
-#[must_use = "dropping this guard decrements the active-call count; bind it for the call's duration"]
-pub struct ActiveCallGuard<'r> {
-    registry: &'r InFlightRegistry,
-    invocation_id: String,
-}
-
-impl Drop for ActiveCallGuard<'_> {
-    fn drop(&mut self) {
-        if let Some(entry) = self
-            .registry
-            .lock_state()
-            .by_invocation
-            .get_mut(&self.invocation_id)
-        {
-            entry.active_calls = entry.active_calls.saturating_sub(1);
-        }
     }
 }
 
@@ -354,10 +314,7 @@ mod tests {
 
         assert_eq!(registry.count_by_caller("caller-a"), 1);
         assert_eq!(registry.heartbeat(&["bg-poisoned".to_owned()]), 1);
-        {
-            let _guard = registry.enter_call("bg-poisoned");
-            registry.ttl_sweep();
-        }
+        registry.ttl_sweep();
         assert!(registry.cancel("bg-poisoned"));
         assert_task_cancelled(task).await?;
         registry.deregister("bg-poisoned");
@@ -377,13 +334,10 @@ mod tests {
             true,
         );
 
-        {
-            let _active = registry.enter_call("bg-ttl");
-            thread::sleep(Duration::from_millis(3));
-            registry.ttl_sweep();
-            assert_eq!(registry.metrics(), (1, 1));
-            assert_eq!(registry.count_by_caller("caller-a"), 0);
-        }
+        thread::sleep(Duration::from_millis(3));
+        registry.ttl_sweep();
+        assert_eq!(registry.metrics(), (1, 1));
+        assert_eq!(registry.count_by_caller("caller-a"), 0);
 
         assert_task_cancelled(task).await?;
         assert_eq!(registry.count_by_caller("caller-a"), 0);
