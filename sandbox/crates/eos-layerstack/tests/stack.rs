@@ -64,7 +64,7 @@ fn cross_instance_lease_retains_squashed_layers_until_reopened_release() -> Test
     publish_text(&mut stack, "c.txt", "three\n")?;
     drop(stack);
 
-    let mut lease_stack = LayerStack::open(fixture.root.clone())?;
+    let lease_stack = LayerStack::open(fixture.root.clone())?;
     let lease = lease_stack.acquire_snapshot("reader")?;
     let old_tail: Vec<LayerRef> = lease.manifest.layers[1..].to_vec();
     assert_eq!(

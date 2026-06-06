@@ -125,7 +125,12 @@ impl StorageWriterLockLease {
     /// Enter the in-process exclusive (reentrant) write guard for this root.
     ///
     /// See the module-level DEADLOCK TRAP: the returned guard must tolerate
-    /// same-thread re-entry (Rust `threading.RLock`).
+    /// same-thread re-entry (a reentrant write lock).
+    ///
+    /// CAUTION: re-entry is write-over-write only. Calling `exclusive()` while
+    /// the same thread still holds a [`SharedGuard`] for this root self-deadlocks
+    /// (the writer waits for `readers == 0`, which includes its own read). Drop
+    /// the shared guard before acquiring the exclusive one.
     ///
     /// # Errors
     ///

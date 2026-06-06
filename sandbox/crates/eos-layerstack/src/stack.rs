@@ -246,7 +246,7 @@ impl LayerStack {
     /// Returns [`LayerStackError`] when the storage lock, active manifest, or
     /// lease registry cannot be acquired.
     ///
-    pub fn acquire_snapshot(&mut self, owner_request_id: &str) -> Result<Lease, LayerStackError> {
+    pub fn acquire_snapshot(&self, owner_request_id: &str) -> Result<Lease, LayerStackError> {
         let _guard = self.writer_lock.shared()?;
         let manifest = self.read_active_manifest()?;
         let lease = {
@@ -371,8 +371,19 @@ impl LayerStack {
             release_lease_locked(&self.storage_root, &mut leases, &squash_lease.lease_id)
         };
         match (outcome, release) {
-            (Err(err), _) | (Ok(_), Err(err)) => Err(err),
+            (Err(err), _) => Err(err),
             (Ok(manifest), Ok(_)) => Ok(manifest),
+            (Ok(manifest), Err(release_err)) => {
+                if committed {
+                    // The manifest swap already succeeded, so a lease-release/GC
+                    // failure on this path must not invert the success signal:
+                    // report the committed squash and let the now-unreferenced
+                    // squash lease be reclaimed by the next release/squash.
+                    Ok(manifest)
+                } else {
+                    Err(release_err)
+                }
+            }
         }
     }
 
