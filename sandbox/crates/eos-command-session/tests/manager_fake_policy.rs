@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use eos_command_session::{
     CollectCompleted, CommandResponse, CommandSessionCompletion, CommandSessionConfig,
-    CommandSessionManager, ReadCommandProgress, StartCommandSession, WriteStdin,
+    CommandSessionManager, ReadCommandProgress, StartCommandSession, WorkspaceRunKind, WriteStdin,
 };
 use eos_workspace_api::{
     CommandWorkspacePolicy, FinalizeCommandRequest, PrepareCommandRequest,
@@ -111,6 +111,7 @@ fn manager_starts_boxed_policy_and_counts_by_caller() -> Result<(), Box<dyn std:
     let response = manager.start_boxed(
         start_request("caller-1", "printf ok"),
         Box::new(policy.clone()),
+        WorkspaceRunKind::Ephemeral,
     )?;
 
     assert_eq!(response.status, "running");
@@ -127,7 +128,11 @@ fn manager_starts_boxed_policy_and_counts_by_caller() -> Result<(), Box<dyn std:
 fn ctrl_c_discards_through_policy_and_parks_completion() -> Result<(), Box<dyn std::error::Error>> {
     let policy = FakePolicy::new();
     let manager = CommandSessionManager::new(CommandSessionConfig::default());
-    let started = manager.start(start_request("caller-1", "cat"), policy.clone())?;
+    let started = manager.start(
+        start_request("caller-1", "cat"),
+        policy.clone(),
+        WorkspaceRunKind::Ephemeral,
+    )?;
     let command_session_id = started.command_session_id.ok_or_else(|| {
         std::io::Error::other("running response should include command_session_id")
     })?;

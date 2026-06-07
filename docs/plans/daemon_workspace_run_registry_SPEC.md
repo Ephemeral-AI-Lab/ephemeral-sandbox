@@ -22,12 +22,16 @@ from `caller_id` and hand-partition "is this caller in isolated mode?".
 Target: the daemon holds **one workspace-run registry keyed by `CallerId`**, and
 **each workspace run owns its own command session(s)**:
 
-- **ephemeral workspace run** — per caller, owns exactly **one** command session
-- **isolated workspace run** — per caller, owns **many** command sessions, persistent
+- **ephemeral workspace run** — owns exactly **one** command session; a caller may
+  hold **many** of these (each its own ephemeral workspace)
+- **isolated workspace run** — owns **many** command sessions, persistent; a caller
+  has **at most one**
 
-A caller has **at most one** run, of one kind, so a single
-`HashMap<CallerId, WorkspaceRun>` (enum) holds both — the XOR is structural, not a
-maintained invariant. This makes `cancel_all_workspace_runs_by_caller_id(caller)` a one-call,
+A caller is in exactly **one mode** — many ephemeral runs *or* the one isolated run;
+the XOR is enforced by the isolated enter/exit gate, not a per-session cap. A single
+`HashMap<CallerId, CallerRun>` keys both, where `CallerRun` is an enum holding the
+caller's set of ephemeral runs or its lone isolated run. This makes
+`cancel_all_workspace_runs_by_caller_id(caller)` a one-call,
 self-contained teardown, `cancel_all_workspace_runs` a single iteration, and gives
 the lease/enter gates an authoritative source of truth. It is the **prerequisite**
 for the clean §3 sandbox-cancel flow in the cancellation spec.
@@ -63,28 +67,29 @@ Replaces `OnceLock<CommandSessionManager>` (the flat session map) **and** folds 
 
 ```rust
 struct WorkspaceRunRegistry {
-    runs: HashMap<CallerId, WorkspaceRun>,                 // ONE map — XOR (ephemeral|isolated) is structural
+    runs: HashMap<CallerId, CallerRun>,                    // ONE map — each caller's runs, keyed by caller
     completed: HashMap<CommandSessionId, CompletedEntry>,  // completion queue, drained by the agent-core heartbeat
     layer_stack_root: PathBuf,
     config: CommandSessionConfig,
 }
 ```
 
-A caller has **at most one** `WorkspaceRun`. The isolated enter-gate already rejects
-entering while a caller's ephemeral session is active (`mod.rs:69`), so a caller is
-either ephemeral *or* isolated, never both — one map entry expresses that directly.
-Session-targeted ops resolve via `runs[caller_id]` then match the session id (the
-wire request carries `caller_id`).
+A caller maps to **one `CallerRun`**: its set of ephemeral runs *or* its lone
+isolated run (§3.2). The isolated enter-gate rejects entering while a caller has any
+active command sessions (`mod.rs:69`), so a caller is either ephemeral *or* isolated,
+never both — the `CallerRun` enum expresses that directly. Session-targeted ops
+resolve via `runs[caller_id]` then match the session id (the wire request carries
+`caller_id`).
 
 Unchanged daemon statics: plugin state, OCC cache, audit buffer,
 `invocation_registry`, config `RwLock`s.
 
-> **Behavior change (deliberate):** today a caller may hold *multiple* concurrent
-> command sessions (no per-caller cap; `exec_command` just inserts; `count_by_caller`
-> / `cleanup_caller` handle multiples). The per-caller model constrains a
-> non-isolated caller to **one ephemeral command session at a time**; `exec_command`
-> rejects a second while one is live. Concurrent commands then require separate
-> callers (subagents) or isolated mode (which permits many).
+> **No per-caller cap (corrected).** A non-isolated caller may hold **many**
+> concurrent ephemeral command sessions — each is its own ephemeral workspace run
+> (1 session : 1 workspace), and they accumulate under the caller's `CallerRun`.
+> `exec_command` never rejects a second. (An earlier draft proposed a one-ephemeral-
+> session-per-caller cap; that was wrong — agent runs legitimately hold multiple
+> ephemeral workspaces, so the cap is a regression and was removed.)
 
 ### 3.2 Workspace-run structs
 
@@ -118,10 +123,15 @@ struct IsolatedWorkspaceRun {            // 1:N
     life: Lifecycle,
 }
 
-enum WorkspaceRun { Ephemeral(EphemeralWorkspaceRun), Isolated(IsolatedWorkspaceRun) }
+// The caller-keyed value: a caller holds MANY ephemeral runs OR the ONE isolated
+// run. The per-run cardinality above (session singular vs sessions map) is the
+// load-bearing invariant; this enum carries the per-caller XOR.
+enum CallerRun {
+    Ephemeral(HashMap<CommandSessionId, EphemeralWorkspaceRun>),  // many 1-session runs
+    Isolated(IsolatedWorkspaceRun),                              // the one many-session run
+}
 
-impl WorkspaceRun {
-    fn caller_id(&self) -> &CallerId;
+impl CallerRun {
     fn command_sessions(&self) -> Vec<&CommandSession>;
     async fn cancel_workspace(&mut self, reason: &str, grace: Option<f64>);   // tear down OWN resources; never OCC-publishes
 }
@@ -132,8 +142,8 @@ inner `CommandSession`(s) keep their own `command_session_id` for session-target
 ops. `CommandSession` stays in `eos-command-session`, re-parented (see §3.3 for the
 one substantive change to it).
 
-`exec_command` (non-isolated) → create the caller's `EphemeralWorkspaceRun` if
-absent; **reject if one is already live** (the one-per-caller constraint).
+`exec_command` (non-isolated) → add a new `EphemeralWorkspaceRun` (one session) to
+the caller's `CallerRun::Ephemeral` set, creating the set on the first session.
 `exec_command` while in isolated mode → insert a session into that caller's
 `IsolatedWorkspaceRun.sessions`.
 
@@ -294,7 +304,7 @@ The rest of this spec assumes **Option B**.
 | `cleanup_caller(caller_id)` | `cancel_all_workspace_runs_by_caller_id(caller)` |
 | `collect_completed` / `push_completed` / `sweep_expired` | iterate `runs` → each run's sessions (completion queue stays daemon-level, Option B) |
 | isolated `active_command_sessions` + `cleanup_command_sessions_for_caller` | `IsolatedWorkspaceRun.sessions` owned directly (no call back into a global manager) |
-| `exec_command` handler | resolve-or-create the caller's run; ephemeral → reject if one is live; isolated → insert session |
+| `exec_command` handler | resolve-or-create the caller's `CallerRun`; ephemeral → add a new 1-session run; isolated → insert session |
 
 ### 5.3 Drop
 
@@ -308,18 +318,19 @@ The rest of this spec assumes **Option B**.
 
 | Op | Resolution under the registry |
 |---|---|
-| `op_exec_command` | resolve-or-create `runs[caller]`; ephemeral → reject if a live ephemeral run exists; isolated → insert a session |
+| `op_exec_command` | resolve-or-create `runs[caller]`; ephemeral → add a new 1-session run; isolated → insert a session |
 | `op_command_write_stdin` / `op_command_read_progress` / `op_command_cancel` | `runs[caller]` → the session matching `command_session_id` |
 | `op_command_collect_completed` | drain `completed` (by caller) |
-| `op_command_session_count` | `0` / `1` (ephemeral) or N (isolated) for the caller — feeds the enter gate |
-| `op_enter` (isolated) | reject if `runs[caller]` is a live ephemeral run |
+| `op_command_session_count` | N (count of the caller's command sessions, ephemeral or isolated) — feeds the enter gate |
+| `op_enter` (isolated) | reject if the caller has any live command sessions |
 | `op_exit` (isolated) | `cancel_all_workspace_runs_by_caller_id(caller)` |
 
 ## 6. Invariants to preserve
 
-- **One run per caller** (`HashMap<CallerId, WorkspaceRun>`): ephemeral = 1 session,
-  isolated = N. XOR is structural. Enforced at `exec_command` (reject second
-  ephemeral) and the enter gate.
+- **One `CallerRun` per caller** (`HashMap<CallerId, CallerRun>`): many ephemeral
+  runs (each = 1 session, 1 workspace) **or** the one isolated run (N sessions). The
+  ephemeral-vs-isolated XOR is structural and enforced by the isolated enter/exit
+  gate; there is **no** per-caller ephemeral-session cap.
 - **A command session belongs to exactly one run** — removes the
   ephemeral-vs-isolated `caller_id` partition entirely.
 - **Substrate vs policy split**: `CommandSession` reaps; the run publishes (complete)
@@ -394,9 +405,10 @@ LAYER 2 — sandbox stage, per request       (backend_server_cancellation_wiring
 3. **Introduce the registry (behind the flat manager).** Add `WorkspaceRun` enum,
    `EphemeralWorkspaceRun`, `IsolatedWorkspaceRun`, `WorkspaceRunRegistry` in a new
    `services/workspace_run/`. Verify: `cargo check -p eos-daemon --all-targets`.
-4. **Re-home ephemeral.** `exec_command` (non-isolated) creates the caller's
-   ephemeral run (reject second); route `write_stdin`/`read_progress`/`cancel`/`count`
-   through it. Verify: command-session matrix E2E.
+4. **Re-home ephemeral.** `exec_command` (non-isolated) adds a new 1-session
+   ephemeral run to the caller's set (no cap); route
+   `write_stdin`/`read_progress`/`cancel`/`count` through it. Verify: command-session
+   matrix E2E.
 5. **Re-home isolated.** `IsolatedWorkspaceRun` owns its sessions; drop
    `active_command_sessions` + `cleanup_command_sessions_for_caller`; `op_exit` =
    `cancel_all_workspace_runs_by_caller_id(caller)`. Verify: isolated lifecycle + enter-gate E2E.
@@ -413,8 +425,9 @@ LAYER 2 — sandbox stage, per request       (backend_server_cancellation_wiring
 
 ### Success criteria
 
-- The daemon holds one `HashMap<CallerId, WorkspaceRun>`; every command session is
-  owned by exactly one run (ephemeral = 1, isolated = N).
+- The daemon holds one `HashMap<CallerId, CallerRun>`; every command session is
+  owned by exactly one workspace run (ephemeral run = 1 session, isolated run = N),
+  and a caller holds many ephemeral runs or the one isolated run.
 - All existing command-session and isolated wire ops behave identically (same E2E
   results), routed through the registry.
 - A cancelled command never OCC-merges (cancel-mid-write manifest test passes).

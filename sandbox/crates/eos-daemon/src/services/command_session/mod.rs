@@ -16,7 +16,7 @@ use std::time::Instant;
 use eos_command_session::{
     CancelCommandSession, CommandResponse, CommandSessionCompletion, CommandSessionError,
     CommandSessionManager, DynCommandWorkspacePolicy, ReadCommandProgress, StartCommandSession,
-    WriteStdin,
+    WorkspaceRunKind, WriteStdin,
 };
 #[cfg(target_os = "linux")]
 use eos_ephemeral_workspace::command_session::EphemeralCommandPolicy;
@@ -94,6 +94,7 @@ pub fn op_exec_command(args: &Value, _context: DispatchContext<'_>) -> Result<Va
             Box::new(IsolatedCommandPolicy::new(DaemonIsolatedCommandPort::new(
                 handle,
             ))),
+            WorkspaceRunKind::Isolated,
         );
     }
 
@@ -116,6 +117,7 @@ pub fn op_exec_command(args: &Value, _context: DispatchContext<'_>) -> Result<Va
                     command_session_scratch_root(),
                 ),
             )),
+            WorkspaceRunKind::Ephemeral,
         )
     }
     #[cfg(not(target_os = "linux"))]
@@ -268,6 +270,7 @@ fn start_manager_command_session(
     yield_time_ms: u64,
     caller_id: String,
     policy: DynCommandWorkspacePolicy,
+    kind: WorkspaceRunKind,
 ) -> Result<Value, DaemonError> {
     let request = StartCommandSession {
         invocation_id: args
@@ -281,7 +284,7 @@ fn start_manager_command_session(
         yield_time_ms,
     };
     let response = command_session_manager()
-        .start_boxed(request, policy)
+        .start_boxed(request, policy, kind)
         .map_err(command_session_error)?;
     let wire = command_response_to_wire(response);
     if wire

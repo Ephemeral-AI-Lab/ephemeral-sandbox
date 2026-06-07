@@ -23,7 +23,7 @@ pub use config::CommandSessionConfig;
 pub use error::CommandSessionError;
 pub use manager::{CommandSessionManager, SweepReport};
 pub use output::tail_lines;
-pub use registry::CommandSessionCompletion;
+pub use registry::{CommandSessionCompletion, WorkspaceRunKind};
 pub use request::{
     CancelCommandSession, CollectCompleted, ReadCommandProgress, StartCommandSession, WriteStdin,
 };

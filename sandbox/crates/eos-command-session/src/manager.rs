@@ -7,7 +7,7 @@ use eos_workspace_api::CommandWorkspacePolicy;
 
 #[cfg(target_os = "linux")]
 use crate::process::spawn_current_exe_ns_runner;
-use crate::registry::{CommandSessionCompletion, CommandSessionRegistry};
+use crate::registry::{CommandSessionCompletion, CommandSessionRegistry, WorkspaceRunKind};
 #[cfg(target_os = "linux")]
 use crate::session::RunningCommandSessionParts;
 use crate::session::{CommandSession, CommandSessionSpec};
@@ -37,25 +37,27 @@ impl CommandSessionManager {
         &self,
         request: StartCommandSession,
         policy: P,
+        kind: WorkspaceRunKind,
     ) -> Result<CommandResponse, CommandSessionError>
     where
         P: CommandWorkspacePolicy + 'static,
     {
-        self.start_boxed(request, Box::new(policy))
+        self.start_boxed(request, Box::new(policy), kind)
     }
 
     pub fn start_boxed(
         &self,
         request: StartCommandSession,
         policy: DynCommandWorkspacePolicy,
+        kind: WorkspaceRunKind,
     ) -> Result<CommandResponse, CommandSessionError> {
         #[cfg(target_os = "linux")]
         {
-            self.start_boxed_linux(request, policy)
+            self.start_boxed_linux(request, policy, kind)
         }
         #[cfg(not(target_os = "linux"))]
         {
-            self.start_boxed_scaffold(request, policy)
+            self.start_boxed_scaffold(request, policy, kind)
         }
     }
 
@@ -64,6 +66,7 @@ impl CommandSessionManager {
         &self,
         request: StartCommandSession,
         policy: DynCommandWorkspacePolicy,
+        kind: WorkspaceRunKind,
     ) -> Result<CommandResponse, CommandSessionError> {
         if request.cmd.trim().is_empty() {
             return Err(CommandSessionError::InvalidRequest(
@@ -85,7 +88,7 @@ impl CommandSessionManager {
             policy,
             &self.config,
         ));
-        self.registry.insert(Arc::clone(&session));
+        self.registry.insert(session, kind);
         Ok(CommandResponse::running(id, String::new()))
     }
 
@@ -94,6 +97,7 @@ impl CommandSessionManager {
         &self,
         request: StartCommandSession,
         policy: DynCommandWorkspacePolicy,
+        kind: WorkspaceRunKind,
     ) -> Result<CommandResponse, CommandSessionError> {
         if request.cmd.trim().is_empty() {
             return Err(CommandSessionError::InvalidRequest(
@@ -128,7 +132,7 @@ impl CommandSessionManager {
                 output_drain_grace_ms: self.config.output_drain_grace_ms,
             },
         ));
-        self.registry.insert(Arc::clone(&session));
+        self.registry.insert(Arc::clone(&session), kind);
         match wait_for_yield(session.as_ref(), &self.config, request.yield_time_ms, 0) {
             WaitOutcome::Completed(result) => {
                 let response = result?;
@@ -338,12 +342,7 @@ impl CommandSessionManager {
         if caller_id.is_empty() {
             return 0;
         }
-        let sessions: Vec<Arc<CommandSession>> = self
-            .registry
-            .live()
-            .into_iter()
-            .filter(|session| session.caller_id() == caller_id)
-            .collect();
+        let sessions: Vec<Arc<CommandSession>> = self.registry.caller_sessions(caller_id);
         if sessions.is_empty() {
             return 0;
         }
@@ -566,6 +565,7 @@ mod tests {
                     yield_time_ms: 1000,
                 },
                 ExpiringPolicy,
+                WorkspaceRunKind::Ephemeral,
             )
             .unwrap_or_else(|error| panic!("start session: {error}"));
         let id = started
@@ -579,6 +579,32 @@ mod tests {
 
         assert_eq!(report.expired, 1);
         assert_eq!(report.live, 0);
+    }
+
+    fn ephemeral_request(caller_id: &str) -> StartCommandSession {
+        StartCommandSession {
+            invocation_id: "inv".to_owned(),
+            caller_id: caller_id.to_owned(),
+            cmd: "sleep 1".to_owned(),
+            timeout_seconds: None,
+            yield_time_ms: 1000,
+        }
+    }
+
+    #[test]
+    fn caller_may_hold_multiple_sessions_per_kind() {
+        // A caller holds many ephemeral command sessions (each its own ephemeral
+        // workspace); an isolated caller holds many sessions in its one workspace.
+        for kind in [WorkspaceRunKind::Ephemeral, WorkspaceRunKind::Isolated] {
+            let manager = CommandSessionManager::default();
+            for _ in 0..3 {
+                manager
+                    .start(ephemeral_request("caller"), ExpiringPolicy, kind)
+                    .unwrap_or_else(|error| panic!("start ({kind:?}): {error}"));
+            }
+            assert_eq!(manager.count_by_caller(Some("caller")), 3);
+            assert_eq!(manager.count_by_caller(Some("other")), 0);
+        }
     }
 
     #[test]
