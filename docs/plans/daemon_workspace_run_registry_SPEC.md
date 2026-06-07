@@ -104,7 +104,7 @@ struct EphemeralWorkspaceRun {           // 1:1
     caller_id: CallerId,
     session: CommandSession,             // exactly ONE (moved in from the flat manager)
     snapshot: SnapshotLease,
-    dirs: EphemeralRunDirs,              // run_dir, upperdir, workdir, output/final/result paths
+    dirs: EphemeralRunDirs,              // run_dir, upperdir, workdir,
     life: Lifecycle,
 }
 
@@ -114,7 +114,7 @@ struct IsolatedWorkspaceRun {            // 1:N
     sessions: HashMap<CommandSessionId, CommandSession>,   // MANY (replaces active_command_sessions)
     snapshot: SnapshotLease,
     ns: NamespaceHandle,                 // ns_fds, holder_pid, readiness_fd, control_fd, veth, cgroup_path
-    dirs: IsolatedDirs,                  // scratch_dir, upperdir, workdir, workspace_root
+    dirs: IsolatedRunDirs,                  // scratch_dir, upperdir, workdir,
     life: Lifecycle,
 }
 
@@ -123,7 +123,7 @@ enum WorkspaceRun { Ephemeral(EphemeralWorkspaceRun), Isolated(IsolatedWorkspace
 impl WorkspaceRun {
     fn caller_id(&self) -> &CallerId;
     fn command_sessions(&self) -> Vec<&CommandSession>;
-    async fn teardown(&mut self, reason: &str, grace: Option<f64>);   // tear down OWN resources; never OCC-publishes
+    async fn cancel_workspace(&mut self, reason: &str, grace: Option<f64>);   // tear down OWN resources; never OCC-publishes
 }
 ```
 
@@ -157,13 +157,13 @@ Fix by **separating substrate from policy**:
   "cancel never OCC-merges" is enforced by structure.
 
 ```
-EphemeralWorkspaceRun::teardown(reason, grace):          // 1 session
+EphemeralWorkspaceRun::cancel_workspace(reason, grace):          // 1 session
   1. session.cancel_process()                  SIGTERM→SIGKILL on pgid; mark cancelled; drain output
   2. session.reap()                            reap child + capture delta — DO NOT publish
   3. discard_overlay(dirs, snapshot)           remove run_dir/upperdir/workdir; release_snapshot(lease)  (NO publish_upperdir_changes)
   // shared LayerStack is persisted only by the request-level commit gate, never by cancel
 
-IsolatedWorkspaceRun::teardown(reason, grace):           // N sessions (≈ today's session.exit)
+IsolatedWorkspaceRun::cancel_workspace(reason, grace):           // N sessions (≈ today's session.exit)
   1. for s in sessions.values(): s.cancel_process(); s.reap()      discard each (isolated upperdir is never published, by design)
   2. kill_holder(ns.holder_pid); close ns.{ns_fds, readiness_fd, control_fd}
   3. teardown_veth(ns.veth); cgroup_rmdir(ns.cgroup_path)
@@ -175,10 +175,10 @@ IsolatedWorkspaceRun::teardown(reason, grace):           // N sessions (≈ toda
 
 ```
 WorkspaceRunRegistry::cancel_all_workspace_runs_by_caller_id(caller_id, reason, grace):   // per-caller op = agent-core's one RPC (§7); caller_id == agent_run_id
-  if let Some(run) = runs.get_mut(caller_id): run.teardown(reason, grace); runs.remove(caller_id)
+  if let Some(run) = runs.get_mut(caller_id): run.cancel_workspace(reason, grace); runs.remove(caller_id)
 
 WorkspaceRunRegistry::cancel_all_workspace_runs(reason, grace):
-  for run in runs.values_mut(): run.teardown(reason, grace)
+  for run in runs.values_mut(): run.cancel_workspace(reason, grace)
   runs.clear()
   reap_orphan_resources()                  // GC handle-less eos-iws-* veth/cgroup/scratch
   // GATE (assert no leases) + commit_to_workspace live in the cancellation spec §3
@@ -223,8 +223,8 @@ sandbox/crates/
     │   ├── workspace_run/                NEW  (replaces command_session/ + isolated_workspace/)
     │   │   ├── mod.rs                     NEW  service entry + with_state(WorkspaceRunRegistry)
     │   │   ├── registry.rs                NEW  WorkspaceRunRegistry + WorkspaceRun enum
-    │   │   ├── ephemeral.rs               NEW  EphemeralWorkspaceRun + teardown/complete (composes session + overlay)
-    │   │   ├── isolated.rs                NEW  IsolatedWorkspaceRun + teardown (composes sessions + namespace)
+    │   │   ├── ephemeral.rs               NEW  EphemeralWorkspaceRun + cancel_workspace/complete (composes session + overlay)
+    │   │   ├── isolated.rs                NEW  IsolatedWorkspaceRun + cancel_workspace (composes sessions + namespace)
     │   │   ├── cancel.rs                  NEW  cancel_all_workspace_runs_by_caller_id(caller) / cancel_all_workspace_runs
     │   │   ├── completion.rs              NEW  completed queue + sweep_expired (iterate runs)
     │   │   ├── wire.rs                    MOD  (from command_session/wire.rs) op shaping
@@ -381,8 +381,9 @@ LAYER 2 — sandbox stage, per request       (backend_server_cancellation_wiring
 
 ## 8. Migration phases & verification
 
-0. **Verify `caller_id` granularity** (gates §7). Confirm `caller_id` is per-agent-run
-   (or document the actual scope). Decides one-RPC vs per-session agent-core cancel.
+0. **`caller_id` granularity — DONE.** Verified `caller_id == agent_run_id`
+   (`eos-tools/src/tools/sandbox/lib.rs:34-44`; isolated enter/exit pass
+   `agent_run_id`). The §7 one-RPC-per-caller design is confirmed.
 1. **Shared value objects.** Add `SnapshotLease`, `Lifecycle` to `eos-workspace-api`;
    point `EphemeralSnapshot`/isolated lease fields at them. Verify:
    `cargo check -p eos-workspace-api -p eos-ephemeral-workspace -p eos-isolated-workspace`.
@@ -422,8 +423,9 @@ LAYER 2 — sandbox stage, per request       (backend_server_cancellation_wiring
 
 ## 9. Risks & open questions
 
-- **`caller_id` granularity (highest priority).** Gates the §7 one-RPC agent-core
-  integration and the one-per-caller constraint. Must verify it is per-agent-run.
+- **`caller_id` granularity — RESOLVED.** Verified `caller_id == agent_run_id`
+  (`eos-tools/src/tools/sandbox/lib.rs:34-44`; isolated enter/exit pass `agent_run_id`),
+  so the §7 one-RPC integration and the one-per-caller constraint are sound.
 - **Finalize split (OCC merge).** Removing `policy`/`finalize` from `CommandSession`
   is the highest-churn change (its tests assume the session finalizes). Risk: a
   missed branch silently merges a cancelled command's writes. Cover with the
