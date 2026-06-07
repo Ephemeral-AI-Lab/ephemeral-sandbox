@@ -13,7 +13,10 @@ use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
 use crate::core::result::{OutputShape, ToolResult};
-use crate::ports::{BackgroundSupervisorPort, SpawnedSubagent, StartedSubagent};
+use crate::ports::{
+    BackgroundSupervisorPort, SpawnedSubagent, StartedSubagent, SubagentLaunch,
+    SubagentLaunchRejection,
+};
 use crate::registry::config::ToolConfigSet;
 use crate::registry::spec::text_spec_with_agent_enum;
 use crate::registry::ToolRegistry;
@@ -57,6 +60,44 @@ fn launch_result(agent_name: &str, started: &StartedSubagent) -> ToolResult {
     .with_metadata(metadata)
 }
 
+fn launch_rejection(rejection: SubagentLaunchRejection) -> ToolResult {
+    let message = match rejection {
+        SubagentLaunchRejection::Recursive => {
+            "run_subagent: subagents may not spawn further subagents. \
+             This is a hard contract — handle the work directly or submit your findings via the terminal tool."
+                .to_owned()
+        }
+        SubagentLaunchRejection::NotRegistered { agent_name } => {
+            format!("run_subagent: agent '{agent_name}' is not registered.")
+        }
+        SubagentLaunchRejection::NotSubagent {
+            agent_name,
+            agent_type,
+        } => format!(
+            "run_subagent: agent '{agent_name}' is not a subagent \
+             (agent_type='{agent_type}'); only subagent-typed agents may be dispatched here."
+        ),
+    };
+    ToolResult::error(message)
+}
+
+fn explorer_launch_guidance() -> String {
+    "# What's in context\n\
+     - Parent's user message above\n\
+     \n\
+     # What to do\n\
+     - Investigate the parent's question and return concrete findings.\n\
+     \n\
+     ## Deliver\n\
+     - File paths, line numbers, specific symbols. No vague hand-waves.\n\
+     - Missing context the parent will need to act on the findings.\n\
+     - Obvious areas you skipped.\n\
+     \n\
+     ## Submit\n\
+     Call `submit_exploration_result`."
+        .to_owned()
+}
+
 #[async_trait]
 impl ToolExecutor for RunSubagent {
     async fn execute(
@@ -82,11 +123,18 @@ impl ToolExecutor for RunSubagent {
             .background_supervisor
             .as_deref()
             .ok_or(ToolError::MissingPort("background_supervisor"))?
-            .spawn(ctx, &parsed.agent_name, &parsed.prompt)
+            .spawn(
+                ctx,
+                SubagentLaunch {
+                    agent_name: parsed.agent_name.clone(),
+                    prompt: parsed.prompt.clone(),
+                    guidance: explorer_launch_guidance(),
+                },
+            )
             .await?
         {
             SpawnedSubagent::Launched(started) => Ok(launch_result(&parsed.agent_name, &started)),
-            SpawnedSubagent::Rejected(message) => Ok(ToolResult::error(message)),
+            SpawnedSubagent::Rejected(rejection) => Ok(launch_rejection(rejection)),
         }
     }
 }

@@ -1,6 +1,6 @@
 # Background Session Manager Refactor — SPEC
 
-Status: Proposed
+Status: Implemented
 Date: 2026-06-08
 Owner: agent-core engine
 Scope: `agent-core/crates/eos-engine`, `agent-core/crates/eos-tools`,
@@ -440,9 +440,9 @@ completions. It should not render model-facing tool output.
 
 | Phase | Status | Work |
 | --- | --- | --- |
-| 1 | Planned | Introduce new modules and shared interfaces without changing behavior. |
-| 2 | Planned | Move subagent tracking to `session_managers/subagent`; move model-facing subagent behavior out of `background`. |
-| 3 | Planned | Move workflow tracking/polling to `session_managers/workflow`; keep workflow creation in `eos-workflow`. |
-| 4 | Planned | Move command tracking/polling to `session_managers/command`; keep command execution/output rendering outside `background`. |
-| 5 | Planned | Replace old `lane`/`record`/`supervisor` exports and remove stale files. |
-| 6 | Planned | Run focused checks and update architecture references if implementation lands. |
+| 1 | Complete | Introduce new modules and shared interfaces without changing behavior. |
+| 2 | Complete | Move subagent tracking to `session_managers/subagent`; move model-facing subagent behavior out of `background`. |
+| 3 | Complete | Move workflow tracking/polling to `session_managers/workflow`; keep workflow creation in `eos-workflow`. |
+| 4 | Complete | Move command tracking/polling to `session_managers/command`; keep command execution/output rendering outside `background`. |
+| 5 | Complete | Replace old `lane`/`record`/`supervisor` exports and remove stale files. |
+| 6 | Complete | Run focused checks and update architecture references if implementation lands. |

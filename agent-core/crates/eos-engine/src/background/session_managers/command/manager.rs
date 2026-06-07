@@ -9,8 +9,8 @@ use eos_types::{AgentRunId, CommandSessionId, SandboxId};
 use serde_json::Value;
 use tokio::sync::Mutex;
 
-use super::session::CommandSession;
 use super::super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
+use super::session::CommandSession;
 use crate::background::notification::{BackgroundCompletion, BackgroundNotificationEmitter};
 
 type CommandSessions = HashMap<CommandSessionId, CommandSession>;
@@ -256,10 +256,10 @@ mod tests {
     use serde_json::json;
     use tokio::time::{sleep, timeout};
 
-    use crate::notifications::NotificationService;
-    use crate::background::session_managers::{BackgroundSessionManager, BackgroundSessionMonitor};
     use super::super::CommandSessionMonitor;
     use super::*;
+    use crate::background::session_managers::{BackgroundSessionManager, BackgroundSessionMonitor};
+    use crate::notifications::NotificationService;
 
     #[derive(Debug, Default)]
     struct RecordingTransport {
@@ -303,7 +303,10 @@ mod tests {
                     .expect("responses")
                     .pop_front()
                     .unwrap_or_default(),
-                _ => json!({"success": true}).as_object().expect("object").clone(),
+                _ => json!({"success": true})
+                    .as_object()
+                    .expect("object")
+                    .clone(),
             };
             Ok(response)
         }
@@ -372,9 +375,11 @@ mod tests {
         let collect = transport.payloads(DaemonOp::CommandCollectCompleted);
         assert!(!collect.is_empty());
         assert_eq!(collect[0]["caller_id"], json!("agent-a"));
-        assert!(manager
-            .command_session_already_reported(&"cmd_1".parse().expect("command id"))
-            .await);
+        assert!(
+            manager
+                .command_session_already_reported(&"cmd_1".parse().expect("command id"))
+                .await
+        );
     }
 
     #[tokio::test]

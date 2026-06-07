@@ -102,8 +102,8 @@ pub struct AgentRunInput {
     pub attempt_submission: Option<AttemptSubmissionService>,
     /// Workflow control service for workflow tools and workflow-state hooks.
     pub workflow_control: Option<Arc<dyn WorkflowControlPort>>,
-    /// Background supervisor service for subagent/workflow tools and parent-exit
-    /// cleanup.
+    /// Background supervisor service for subagent/workflow tools and
+    /// run-finalization cleanup.
     pub background_supervisor: Option<Arc<dyn BackgroundSupervisorPort>>,
     /// Command-session supervisor service for shell tools.
     pub command_session_supervisor: Option<Arc<dyn CommandSessionSupervisorPort>>,

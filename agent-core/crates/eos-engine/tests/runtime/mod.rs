@@ -21,10 +21,11 @@ use eos_testkit::{
     FakeTransport,
 };
 use eos_tools::{
-    RunningBackgroundTasks, BackgroundSupervisorPort, CancelPort, ExecutionMetadata,
-    NotificationSink, OutputShape, RegisteredTool, SandboxToolService, SkillToolService,
-    SpawnedSubagent, StartedSubagent, StartedWorkflowHandle, SystemNotification, ToolConfigSet,
-    ToolError, ToolExecutor, ToolIntent, ToolName, ToolRegistry, ToolResult, WorkflowControlPort,
+    BackgroundSupervisorPort, CancelPort, CancelledSubagent, ExecutionMetadata, NotificationSink,
+    OutputShape, RegisteredTool, RunningBackgroundTasks, SandboxToolService, SkillToolService,
+    SpawnedSubagent, StartedSubagent, StartedWorkflowHandle, SubagentLaunch, SubagentProgress,
+    SystemNotification, ToolConfigSet, ToolError, ToolExecutor, ToolIntent, ToolName, ToolRegistry,
+    ToolResult, WorkflowControlPort,
 };
 use eos_types::{AgentRunId, JsonObject, SubagentSessionId, WorkflowSessionId};
 use serde_json::json;
@@ -213,8 +214,7 @@ impl BackgroundSupervisorPort for RecordingBackgroundSupervisor {
     async fn spawn(
         &self,
         _ctx: &ExecutionMetadata,
-        _agent_name: &str,
-        _prompt: &str,
+        _launch: SubagentLaunch,
     ) -> Result<SpawnedSubagent, ToolError> {
         Ok(SpawnedSubagent::Launched(StartedSubagent {
             subagent_session_id: "subagent_1".parse().expect("subagent id"),
@@ -223,18 +223,22 @@ impl BackgroundSupervisorPort for RecordingBackgroundSupervisor {
 
     async fn progress(
         &self,
-        _subagent_session_id: &SubagentSessionId,
+        subagent_session_id: &SubagentSessionId,
         _last_n_messages: u8,
-    ) -> Result<ToolResult, ToolError> {
-        Ok(ToolResult::ok("idle"))
+    ) -> Result<SubagentProgress, ToolError> {
+        Ok(SubagentProgress::Missing {
+            subagent_session_id: subagent_session_id.clone(),
+        })
     }
 
     async fn cancel(
         &self,
-        _subagent_session_id: &SubagentSessionId,
+        subagent_session_id: &SubagentSessionId,
         _reason: &str,
-    ) -> Result<ToolResult, ToolError> {
-        Ok(ToolResult::ok("cancelled"))
+    ) -> Result<CancelledSubagent, ToolError> {
+        Ok(CancelledSubagent::MissingOrSettled {
+            subagent_session_id: subagent_session_id.clone(),
+        })
     }
 
     async fn running_background_tasks(&self) -> RunningBackgroundTasks {
@@ -349,9 +353,7 @@ fn input(
     tool_metadata.task_id = Some(task_id.clone());
     tool_metadata.workspace_root = "/tmp".to_owned();
 
-    let foreground = Arc::new(
-        eos_engine::ForegroundExecutorFactory.create(agent_run_id.clone()),
-    );
+    let foreground = Arc::new(eos_engine::ForegroundExecutorFactory.create(agent_run_id.clone()));
     AgentRunInput {
         agent,
         initial_messages: vec![eos_llm_client::Message::from_user_text("start")],

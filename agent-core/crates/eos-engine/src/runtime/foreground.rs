@@ -48,7 +48,7 @@ pub struct InlineAgentRunHandle {
 
 /// Per-agent-run registry of foreground cancelable effects.
 pub struct ForegroundExecutor {
-    owner_agent_run_id: AgentRunId,
+    agent_run_id: AgentRunId,
     resources: Mutex<HashMap<ForegroundResourceId, std::sync::Arc<dyn CancelableResource>>>,
     inline_agent_runs: Mutex<HashMap<AgentRunId, InlineAgentRunHandle>>,
 }
@@ -56,15 +56,15 @@ pub struct ForegroundExecutor {
 impl std::fmt::Debug for ForegroundExecutor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ForegroundExecutor")
-            .field("owner_agent_run_id", &self.owner_agent_run_id)
+            .field("agent_run_id", &self.agent_run_id)
             .finish_non_exhaustive()
     }
 }
 
 impl ForegroundExecutor {
-    fn new(owner_agent_run_id: AgentRunId) -> Self {
+    fn new(agent_run_id: AgentRunId) -> Self {
         Self {
-            owner_agent_run_id,
+            agent_run_id,
             resources: Mutex::new(HashMap::new()),
             inline_agent_runs: Mutex::new(HashMap::new()),
         }
@@ -76,7 +76,10 @@ impl ForegroundExecutor {
         id: ForegroundResourceId,
         resource: std::sync::Arc<dyn CancelableResource>,
     ) {
-        self.resources.lock().expect("foreground lock").insert(id, resource);
+        self.resources
+            .lock()
+            .expect("foreground lock")
+            .insert(id, resource);
     }
 
     /// Drop a foreground resource once its tool call has settled.
@@ -103,10 +106,17 @@ impl ForegroundExecutor {
     /// Tear down every registered foreground effect: cancel inline child runs
     /// through the recursive [`CancelPort`], then tear down registered
     /// resources. Errors are logged and do not abort the sweep.
-    pub async fn teardown(&self, cancel_port: &dyn CancelPort, reason: &str) -> Result<(), ToolError> {
+    pub async fn teardown(
+        &self,
+        cancel_port: &dyn CancelPort,
+        reason: &str,
+    ) -> Result<(), ToolError> {
         let inline: Vec<AgentRunId> = {
             let mut guard = self.inline_agent_runs.lock().expect("foreground lock");
-            guard.drain().map(|(_, handle)| handle.agent_run_id).collect()
+            guard
+                .drain()
+                .map(|(_, handle)| handle.agent_run_id)
+                .collect()
         };
         for agent_run_id in inline {
             if let Err(err) = cancel_port.cancel_agent_run(&agent_run_id, reason).await {
@@ -217,6 +227,10 @@ mod tests {
             .teardown(&cancel_port, "again")
             .await
             .expect("teardown");
-        assert_eq!(cancel_port.cancelled_runs().len(), 1, "teardown is one-shot");
+        assert_eq!(
+            cancel_port.cancelled_runs().len(),
+            1,
+            "teardown is one-shot"
+        );
     }
 }

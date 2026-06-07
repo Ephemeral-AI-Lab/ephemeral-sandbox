@@ -12,10 +12,10 @@ use super::super::{
 };
 use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
-use crate::core::result::ToolResult;
 use crate::ports::{
-    RunningBackgroundTasks, BackgroundSupervisorPort, Sealed, SpawnedSubagent, StartedSubagent,
-    StartedWorkflowHandle, WorkflowControlPort,
+    BackgroundSupervisorPort, CancelledSubagent, RunningBackgroundTasks, Sealed, SpawnedSubagent,
+    StartedSubagent, StartedWorkflowHandle, SubagentLaunch, SubagentProgress,
+    SubagentProgressSnapshot, SubagentSessionStatus, WorkflowControlPort,
 };
 use crate::runtime::executor::ToolExecutor;
 use crate::support::metadata;
@@ -32,13 +32,12 @@ impl BackgroundSupervisorPort for FakeBackgroundSupervisor {
     async fn spawn(
         &self,
         _ctx: &ExecutionMetadata,
-        agent_name: &str,
-        prompt: &str,
+        launch: SubagentLaunch,
     ) -> Result<SpawnedSubagent, ToolError> {
         self.spawned
             .lock()
             .unwrap()
-            .push((agent_name.to_owned(), prompt.to_owned()));
+            .push((launch.agent_name, launch.prompt));
         Ok(SpawnedSubagent::Launched(StartedSubagent {
             subagent_session_id: "subagent_1".parse()?,
         }))
@@ -46,18 +45,26 @@ impl BackgroundSupervisorPort for FakeBackgroundSupervisor {
 
     async fn progress(
         &self,
-        _subagent_session_id: &SubagentSessionId,
+        subagent_session_id: &SubagentSessionId,
         _last_n_messages: u8,
-    ) -> Result<ToolResult, ToolError> {
-        Ok(ToolResult::ok("running"))
+    ) -> Result<SubagentProgress, ToolError> {
+        Ok(SubagentProgress::Found(SubagentProgressSnapshot {
+            subagent_session_id: subagent_session_id.clone(),
+            status: SubagentSessionStatus::Running,
+            agent_name: "explorer".to_owned(),
+            result: None,
+        }))
     }
 
     async fn cancel(
         &self,
-        _subagent_session_id: &SubagentSessionId,
-        _reason: &str,
-    ) -> Result<ToolResult, ToolError> {
-        Ok(ToolResult::ok("cancelled"))
+        subagent_session_id: &SubagentSessionId,
+        reason: &str,
+    ) -> Result<CancelledSubagent, ToolError> {
+        Ok(CancelledSubagent::Cancelled {
+            subagent_session_id: subagent_session_id.clone(),
+            reason: reason.to_owned(),
+        })
     }
 
     async fn running_background_tasks(&self) -> RunningBackgroundTasks {

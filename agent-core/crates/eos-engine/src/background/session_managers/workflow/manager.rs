@@ -6,8 +6,8 @@ use eos_tools::{StartedWorkflowHandle, WorkflowControlPort};
 use eos_types::{WorkflowId, WorkflowSessionId};
 use tokio::sync::Mutex;
 
-use super::session::WorkflowSession;
 use super::super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
+use super::session::WorkflowSession;
 use crate::background::notification::{BackgroundCompletion, BackgroundNotificationEmitter};
 
 pub(in crate::background) type WorkflowControlCell = Arc<OnceLock<Arc<dyn WorkflowControlPort>>>;

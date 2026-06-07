@@ -8,7 +8,10 @@ use super::super::{BackgroundSession, BackgroundSessionStatus};
 #[derive(Debug, Clone)]
 pub(in crate::background) struct SubagentSession {
     id: SubagentSessionId,
-    #[allow(dead_code, reason = "Subagent sessions retain the child agent run id for diagnostics")]
+    #[allow(
+        dead_code,
+        reason = "Subagent sessions retain the child agent run id for diagnostics"
+    )]
     agent_run_id: AgentRunId,
     driver_abort: AbortHandle,
     tool_input: JsonObject,

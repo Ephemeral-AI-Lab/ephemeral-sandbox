@@ -7,20 +7,18 @@ use eos_agent_message_records::AgentRunRecordKind;
 use eos_llm_client::Message;
 use eos_tools::ports::{
     BackgroundSupervisorPort, CommandSessionSupervisorPort, SpawnedSubagent, StartedSubagent,
+    SubagentLaunch, SubagentLaunchRejection,
 };
 use eos_tools::{ExecutionMetadata, ToolError, ToolResult};
 use eos_types::{AgentRunId, JsonObject, SubagentSessionId};
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use super::session::SubagentSession;
 use super::super::{BackgroundSession, BackgroundSessionManager, BackgroundSessionStatus};
+use super::session::SubagentSession;
 use crate::background::notification::{BackgroundCompletion, BackgroundNotificationEmitter};
 use crate::runtime::AgentRunControlFactory;
 use crate::{run_agent, AgentRunInput, AgentRunResult, EngineRunHandles};
-
-const RECURSION_MESSAGE: &str = "run_subagent: subagents may not spawn further subagents. \
-     This is a hard contract — handle the work directly or submit your findings via the terminal tool.";
 
 #[derive(Debug, Clone)]
 pub(in crate::background) struct SubagentCompletion {
@@ -75,37 +73,52 @@ impl SubagentSessionManager {
     pub(in crate::background) async fn spawn(
         &self,
         ctx: &ExecutionMetadata,
-        agent_name: &str,
-        prompt: &str,
+        launch: SubagentLaunch,
     ) -> Result<SpawnedSubagent, ToolError> {
         let registry = &self.handles.agent_registry;
 
         if let Ok(caller) = AgentName::new(ctx.agent_name.as_str()) {
             if registry.get(&caller).map(|def| def.agent_type) == Some(AgentType::Subagent) {
-                return Ok(SpawnedSubagent::Rejected(RECURSION_MESSAGE.to_owned()));
+                return Ok(SpawnedSubagent::Rejected(
+                    SubagentLaunchRejection::Recursive,
+                ));
             }
         }
 
-        let not_registered = || format!("run_subagent: agent '{agent_name}' is not registered.");
-        let Ok(target) = AgentName::new(agent_name) else {
-            return Ok(SpawnedSubagent::Rejected(not_registered()));
+        let requested_agent_name = launch.agent_name.clone();
+        let Ok(target) = AgentName::new(&requested_agent_name) else {
+            return Ok(SpawnedSubagent::Rejected(
+                SubagentLaunchRejection::NotRegistered {
+                    agent_name: requested_agent_name,
+                },
+            ));
         };
         let Some(sub_def) = registry.get(&target) else {
-            return Ok(SpawnedSubagent::Rejected(not_registered()));
+            return Ok(SpawnedSubagent::Rejected(
+                SubagentLaunchRejection::NotRegistered {
+                    agent_name: requested_agent_name,
+                },
+            ));
         };
         if sub_def.agent_type != AgentType::Subagent {
-            return Ok(SpawnedSubagent::Rejected(format!(
-                "run_subagent: agent '{agent_name}' is not a subagent \
-                 (agent_type='{}'); only subagent-typed agents may be dispatched here.",
-                agent_type_value(sub_def.agent_type)
-            )));
+            return Ok(SpawnedSubagent::Rejected(
+                SubagentLaunchRejection::NotSubagent {
+                    agent_name: requested_agent_name,
+                    agent_type: agent_type_value(sub_def.agent_type).to_owned(),
+                },
+            ));
         }
         let sub_def = (**sub_def).clone();
+        let SubagentLaunch {
+            agent_name,
+            prompt,
+            guidance,
+        } = launch;
 
         let caller_agent_run_id = ctx.require_agent_run_id()?.clone();
         let mut tool_input = JsonObject::new();
-        tool_input.insert("agent_name".to_owned(), json!(agent_name));
-        tool_input.insert("prompt".to_owned(), json!(prompt));
+        tool_input.insert("agent_name".to_owned(), json!(agent_name.clone()));
+        tool_input.insert("prompt".to_owned(), json!(prompt.clone()));
 
         let child_run_id = AgentRunId::new_v4();
         let subagent_control = self.control_factory.ephemeral(child_run_id.clone());
@@ -123,7 +136,7 @@ impl SubagentSessionManager {
             agent: sub_def,
             initial_messages: vec![
                 Message::from_user_text(prompt),
-                Message::from_user_text(build_explorer_launch_prompt()),
+                Message::from_user_text(guidance),
             ],
             task_id: None,
             agent_run_id: child_run_id.clone(),
@@ -159,10 +172,7 @@ impl SubagentSessionManager {
             let _subagent_control = subagent_control;
             let run = run_agent(&handles, run_input, None).await;
             let (status, result, exit_code) = classify_run(run);
-            if let Some(completion) = driver_manager
-                .settle(&driver_task_id, status, result)
-                .await
-            {
+            if let Some(completion) = driver_manager.settle(&driver_task_id, status, result).await {
                 driver_manager.finish(completion).await;
             }
             trace_background_tool(
@@ -289,24 +299,6 @@ impl BackgroundSessionManager for SubagentSessionManager {
     }
 }
 
-/// Port of `explorer_guidance.py::build_explorer_launch_prompt`.
-fn build_explorer_launch_prompt() -> String {
-    "# What's in context\n\
-     - Parent's user message above\n\
-     \n\
-     # What to do\n\
-     - Investigate the parent's question and return concrete findings.\n\
-     \n\
-     ## Deliver\n\
-     - File paths, line numbers, specific symbols. No vague hand-waves.\n\
-     - Missing context the parent will need to act on the findings.\n\
-     - Obvious areas you skipped.\n\
-     \n\
-     ## Submit\n\
-     Call `submit_exploration_result`."
-        .to_owned()
-}
-
 const fn agent_type_value(agent_type: AgentType) -> &'static str {
     match agent_type {
         AgentType::Agent => "agent",
@@ -370,9 +362,9 @@ pub(super) fn classify_run(run: AgentRunResult) -> (BackgroundSessionStatus, Too
         }
         None => {
             let message = match run.error {
-                Some(error) => format!("run_subagent: subagent crashed: {error}"),
-                None => "run_subagent: subagent exited without calling a terminal tool. \
-                         The findings were not delivered."
+                Some(error) => format!("subagent crashed: {error}"),
+                None => "subagent exited without calling a terminal tool. \
+                         Findings were not delivered."
                     .to_owned(),
             };
             let result = ToolResult::error(message).meta("subagent_terminal_called", json!(false));
@@ -381,6 +373,7 @@ pub(super) fn classify_run(run: AgentRunResult) -> (BackgroundSessionStatus, Too
     }
 }
 
+#[cfg(test)]
 fn terminal_called(result: Option<&ToolResult>) -> bool {
     result
         .and_then(|result| result.metadata.get("subagent_terminal_called"))
@@ -388,7 +381,8 @@ fn terminal_called(result: Option<&ToolResult>) -> bool {
         .unwrap_or(false)
 }
 
-pub(in crate::background) fn subagent_status_and_result(
+#[cfg(test)]
+fn subagent_status_and_result(
     status: BackgroundSessionStatus,
     result: Option<&ToolResult>,
 ) -> (&'static str, String) {
@@ -406,7 +400,11 @@ pub(in crate::background) fn subagent_status_and_result(
     {
         return ("cancelled", "[cancelled] ".to_owned());
     }
-    let output = || result.map(|result| result.output.clone()).unwrap_or_default();
+    let output = || {
+        result
+            .map(|result| result.output.clone())
+            .unwrap_or_default()
+    };
     match status {
         BackgroundSessionStatus::Running => ("running", String::new()),
         BackgroundSessionStatus::Completed | BackgroundSessionStatus::Delivered
@@ -439,11 +437,11 @@ mod tests {
     use eos_tools::{SandboxToolService, SkillToolService, ToolConfigSet};
 
     use crate::background::session_managers::BackgroundSessionManager;
+    use crate::NotificationService;
     use crate::{
         AgentRunControlFactory, BackgroundSessionFactory, EngineRunHandles,
         ForegroundExecutorFactory,
     };
-    use crate::NotificationService;
 
     use super::*;
 

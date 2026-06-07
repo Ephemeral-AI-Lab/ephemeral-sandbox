@@ -92,7 +92,7 @@
                               +--&gt; [terminal result] ----&gt; [TOOL_STOP]
 </pre>
 <div class="edge-list">
-  <div><b>Runtime setup</b><span>The loop coerces or creates <code>ExecutionMetadata</code>, installs the run-scoped notification service, and creates <code>BackgroundTaskSupervisor</code> only when typed background surfaces are enabled.</span></div>
+  <div><b>Runtime setup</b><span>The loop coerces or creates <code>ExecutionMetadata</code>, installs the run-scoped notification service, and wires <code>BackgroundSessionService</code> for typed background surfaces.</span></div>
   <div><b>Request copy</b><span><code>build_provider_messages()</code> sanitizes the provider-visible history and feeds <code>MessageRequest</code> without changing the durable transcript.</span></div>
   <div><b>Dispatch precondition</b><span>Final tool dispatch waits for <code>AssistantMessageCompleteEvent</code> so the complete assistant message is available before side effects continue.</span></div>
 </div>

@@ -12,10 +12,10 @@ use super::super::{
 };
 use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
-use crate::core::result::ToolResult;
 use crate::ports::{
-    RunningBackgroundTasks, BackgroundSupervisorPort, OutstandingWorkflow, Sealed,
-    SpawnedSubagent, StartedWorkflowHandle, WorkflowControlPort,
+    BackgroundSupervisorPort, CancelledSubagent, OutstandingWorkflow, RunningBackgroundTasks,
+    Sealed, SpawnedSubagent, StartedWorkflowHandle, SubagentLaunch, SubagentProgress,
+    WorkflowControlPort,
 };
 use crate::runtime::executor::ToolExecutor;
 use crate::support::metadata;
@@ -40,8 +40,7 @@ impl BackgroundSupervisorPort for RecordingSupervisor {
     async fn spawn(
         &self,
         _ctx: &ExecutionMetadata,
-        _agent_name: &str,
-        _prompt: &str,
+        _launch: SubagentLaunch,
     ) -> Result<SpawnedSubagent, ToolError> {
         unreachable!()
     }
@@ -50,7 +49,7 @@ impl BackgroundSupervisorPort for RecordingSupervisor {
         &self,
         _subagent_session_id: &SubagentSessionId,
         _last_n_messages: u8,
-    ) -> Result<ToolResult, ToolError> {
+    ) -> Result<SubagentProgress, ToolError> {
         unreachable!()
     }
 
@@ -58,7 +57,7 @@ impl BackgroundSupervisorPort for RecordingSupervisor {
         &self,
         _subagent_session_id: &SubagentSessionId,
         _reason: &str,
-    ) -> Result<ToolResult, ToolError> {
+    ) -> Result<CancelledSubagent, ToolError> {
         unreachable!()
     }
 

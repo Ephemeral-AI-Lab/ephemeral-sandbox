@@ -11,7 +11,7 @@ use crate::core::error::ToolError;
 use crate::core::metadata::ExecutionMetadata;
 use crate::core::name::ToolName;
 use crate::core::result::{OutputShape, ToolResult};
-use crate::ports::BackgroundSupervisorPort;
+use crate::ports::{BackgroundSupervisorPort, CancelledSubagent};
 use crate::registry::config::ToolConfigSet;
 use crate::registry::spec::text_spec;
 use crate::registry::ToolRegistry;
@@ -55,12 +55,38 @@ impl ToolExecutor for CancelSubagent {
         if parsed.subagent_session_id.as_str().is_empty() {
             return Ok(empty_subagent_session_error(ToolName::CancelSubagent));
         }
-        self.background_supervisor
+        match self
+            .background_supervisor
             .as_deref()
             .ok_or(ToolError::MissingPort("background_supervisor"))?
             .cancel(&parsed.subagent_session_id, &parsed.reason)
-            .await
+            .await?
+        {
+            CancelledSubagent::Cancelled {
+                subagent_session_id,
+                reason,
+            } => Ok(render_cancelled(&subagent_session_id, &reason)),
+            CancelledSubagent::MissingOrSettled {
+                subagent_session_id,
+            } => Ok(ToolResult::error(format!(
+                "Could not cancel subagent session {}. It may have already completed \
+                 or does not exist.",
+                subagent_session_id.as_str()
+            ))),
+        }
     }
+}
+
+fn render_cancelled(subagent_session_id: &SubagentSessionId, reason: &str) -> ToolResult {
+    let reason_suffix = if reason.is_empty() {
+        String::new()
+    } else {
+        format!(" Reason: {reason}")
+    };
+    ToolResult::ok(format!(
+        "Subagent session {} cancellation requested.{reason_suffix}",
+        subagent_session_id.as_str()
+    ))
 }
 
 pub(super) fn register(

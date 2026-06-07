@@ -172,10 +172,10 @@ impl AgentRunFinalization {
 
 /// The live object for one agent run (spec §6.3).
 ///
-/// The run's command-completion heartbeat is owned by the
-/// `CommandSessionMonitor` inside `background`, so dropping this control (the
-/// last service clone) drops the runtime and aborts the monitors (RAII) — no
-/// separate guard is held here.
+/// The run's command-session completion monitor is owned by
+/// `BackgroundSessionRuntime`, so dropping this control (the last service clone)
+/// drops the runtime and aborts the monitors (RAII) — no separate guard is held
+/// here.
 pub struct AgentRunControl {
     agent_run_id: AgentRunId,
     cancellation: AgentRunCancellation,
@@ -244,7 +244,8 @@ impl AgentRunControl {
     }
 
     /// A clone of the run-local notification service (the exact queue the loop
-    /// drains and the lanes enqueue into — the §7 instance-identity invariant).
+    /// drains and the background managers enqueue into — the §7 instance-identity
+    /// invariant.
     #[must_use]
     pub fn notifications(&self) -> NotificationService {
         self.notifications.clone()

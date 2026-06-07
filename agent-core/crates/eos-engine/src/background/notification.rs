@@ -7,11 +7,11 @@
 //! [`NotificationService`]. The emitter wraps the exact service owned by the
 //! run's `AgentRunControl`, so a completion reaches the run that owns the work
 //! and never another run's queue (spec §13.1). Callers must clone the terminal
-//! data out from under any lane lock and drop the lock *before* awaiting `emit`.
+//! data out from under any manager lock and drop the lock *before* awaiting `emit`.
 
 use eos_tools::SystemNotification as ToolNotification;
-use eos_tools::ToolResult;
 use eos_tools::ToolError;
+use eos_tools::ToolResult;
 use eos_types::{CommandSessionId, SandboxId, SubagentSessionId, WorkflowId, WorkflowSessionId};
 use serde_json::Value;
 

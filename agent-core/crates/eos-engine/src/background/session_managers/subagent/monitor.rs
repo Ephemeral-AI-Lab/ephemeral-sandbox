@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use tokio::task::JoinHandle;
 
-use super::SubagentSessionManager;
 use super::super::{spawn_monitor_loop, BackgroundSessionMonitor};
+use super::SubagentSessionManager;
 
 /// Polls subagent sessions through the shared monitor loop.
 pub(in crate::background) struct SubagentSessionMonitor {

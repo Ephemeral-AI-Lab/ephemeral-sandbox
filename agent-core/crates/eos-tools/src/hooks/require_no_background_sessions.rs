@@ -1,9 +1,9 @@
 //! `RequireNoBackgroundSessions` is the agent-facing isolated/terminal guard for
-//! every background lane: outstanding delegated workflows, in-flight subagents,
-//! and daemon-visible command sessions.
+//! every background session family: outstanding delegated workflows, in-flight
+//! subagents, and daemon-visible command sessions.
 //!
 //! Terminal tools and `exit_isolated_workspace` settle in-process subagent
-//! records before checking the remaining lanes. `enter_isolated_workspace`
+//! records before checking the remaining session families. `enter_isolated_workspace`
 //! remains inspect-only. Workflows stay owned by persisted workflow state via
 //! [`WorkflowControlPort::find_outstanding`], and command sessions stay owned by
 //! the sandbox daemon via `api.v1.command_session_count`.
@@ -193,11 +193,10 @@ mod tests {
     use eos_types::{AgentRunId, SubagentSessionId, TaskId, WorkflowId, WorkflowSessionId};
 
     use crate::ports::{
-        RunningBackgroundTasks, BackgroundSupervisorPort, OutstandingWorkflow, Sealed,
-        SpawnedSubagent, StartedWorkflowHandle, WorkflowControlPort,
+        BackgroundSupervisorPort, CancelledSubagent, OutstandingWorkflow, RunningBackgroundTasks,
+        Sealed, SpawnedSubagent, StartedWorkflowHandle, SubagentLaunch, SubagentProgress,
+        WorkflowControlPort,
     };
-    use crate::ToolResult;
-
     struct ReportSupervisor {
         report: RunningBackgroundTasks,
         cancel_called: AtomicBool,
@@ -219,17 +218,24 @@ mod tests {
         async fn spawn(
             &self,
             _: &ExecutionMetadata,
-            _: &str,
-            _: &str,
+            _: SubagentLaunch,
         ) -> Result<SpawnedSubagent, ToolError> {
             unreachable!("not used by hook tests")
         }
 
-        async fn progress(&self, _: &SubagentSessionId, _: u8) -> Result<ToolResult, ToolError> {
+        async fn progress(
+            &self,
+            _: &SubagentSessionId,
+            _: u8,
+        ) -> Result<SubagentProgress, ToolError> {
             unreachable!("not used by hook tests")
         }
 
-        async fn cancel(&self, _: &SubagentSessionId, _: &str) -> Result<ToolResult, ToolError> {
+        async fn cancel(
+            &self,
+            _: &SubagentSessionId,
+            _: &str,
+        ) -> Result<CancelledSubagent, ToolError> {
             unreachable!("not used by hook tests")
         }
 

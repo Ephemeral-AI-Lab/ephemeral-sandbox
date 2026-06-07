@@ -127,7 +127,7 @@ pub(crate) async fn run_advisor(
     let parent_agent_run_id = ctx.agent_run_id.clone();
     let advisor_meta = advisor_metadata(ctx, &agent_run_id);
     // The advisor is a standalone helper run: a fresh standalone notifier,
-    // cancellation token, and foreground executor (it owns no background lanes).
+    // cancellation token, and foreground executor (it owns no background session managers).
     let foreground = Arc::new(ForegroundExecutorFactory.create(agent_run_id.clone()));
 
     let run = run_agent(

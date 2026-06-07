@@ -21,7 +21,7 @@ use crate::notifications::NotificationService;
 use crate::runtime::AgentRunControlFactory;
 use crate::EngineRunHandles;
 
-/// Request-scoped, immutable factory for per-agent-run background supervisors.
+/// Request-scoped, immutable factory for per-agent-run background session services.
 #[derive(Clone)]
 pub struct BackgroundSessionFactory {
     handles: EngineRunHandles,
@@ -65,8 +65,8 @@ impl BackgroundSessionFactory {
     /// daemon calls); `notifications` is this run's queue (the service wraps it so
     /// background completions surface to the owning run, spec §8.4); and
     /// `control_factory` lets `spawn` give each subagent its own ephemeral control
-    /// (spec §8.1/§11.3). Must be called within a Tokio runtime — the command lane
-    /// spawns this run's heartbeat.
+    /// (spec §8.1/§11.3). Must be called within a Tokio runtime — the command
+    /// manager spawns this run's completion monitor.
     #[must_use]
     pub fn create(
         &self,

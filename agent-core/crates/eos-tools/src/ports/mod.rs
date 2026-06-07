@@ -192,7 +192,7 @@ pub trait AttemptSubmissionPort: Sealed + Send + Sync {
 }
 
 // ---------------------------------------------------------------------------
-// BackgroundSupervisorPort — subagents, delegated workflow handles, parent-exit cleanup.
+// BackgroundSupervisorPort — subagents, delegated workflow handles, run-finalization cleanup.
 // ---------------------------------------------------------------------------
 
 /// A started subagent handle (returned on the `Launched` arm of [`SpawnedSubagent`]).
@@ -202,16 +202,104 @@ pub struct StartedSubagent {
     pub subagent_session_id: SubagentSessionId,
 }
 
-/// The outcome of [`BackgroundSupervisorPort::spawn`]: a tracked launch, or an
-/// in-band validation rejection rendered to the model. Mirrors [`SubmissionAck`]:
-/// validation failures (recursion / unknown / non-subagent) are model-facing
-/// `Ok(Rejected)` outcomes, not `Err(ToolError)` framework faults.
+/// Tool-owned launch facts for `run_subagent`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubagentLaunch {
+    /// Registered subagent name requested by the model.
+    pub agent_name: String,
+    /// User/model supplied subagent task prompt.
+    pub prompt: String,
+    /// Tool-owned launch guidance appended to the child run.
+    pub guidance: String,
+}
+
+/// Typed launch rejection facts. Rendering stays in `eos-tools`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SubagentLaunchRejection {
+    /// The caller is already a subagent.
+    Recursive,
+    /// The requested agent name is not registered.
+    NotRegistered {
+        /// Requested agent name.
+        agent_name: String,
+    },
+    /// The requested agent exists but is not subagent-typed.
+    NotSubagent {
+        /// Requested agent name.
+        agent_name: String,
+        /// Registered agent type string.
+        agent_type: String,
+    },
+}
+
+/// The outcome of [`BackgroundSupervisorPort::spawn`]: a tracked launch, or a
+/// typed in-band validation rejection. Mirrors [`SubmissionAck`]: validation
+/// failures (recursion / unknown / non-subagent) are model-facing `Ok(Rejected)`
+/// outcomes, not `Err(ToolError)` framework faults.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SpawnedSubagent {
     /// The subagent run was launched and is tracked.
     Launched(StartedSubagent),
-    /// Validation rejected the dispatch; the message is shown to the model.
-    Rejected(String),
+    /// Validation rejected the dispatch.
+    Rejected(SubagentLaunchRejection),
+}
+
+/// Background-session status facts returned by the engine for subagent control
+/// tools. Rendering stays in `eos-tools`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubagentSessionStatus {
+    /// The subagent is still running.
+    Running,
+    /// The subagent called its terminal tool.
+    Completed,
+    /// The subagent crashed or exited without terminal output.
+    Failed,
+    /// The subagent was cancelled.
+    Cancelled,
+    /// The subagent result was already delivered.
+    Delivered,
+}
+
+/// A subagent progress snapshot for `check_subagent_progress`.
+#[derive(Debug, Clone)]
+pub struct SubagentProgressSnapshot {
+    /// Agent-facing subagent session id.
+    pub subagent_session_id: SubagentSessionId,
+    /// Current tracked status.
+    pub status: SubagentSessionStatus,
+    /// Registered subagent name.
+    pub agent_name: String,
+    /// Terminal result, when available.
+    pub result: Option<ToolResult>,
+}
+
+/// Result of looking up a tracked subagent session.
+#[derive(Debug, Clone)]
+pub enum SubagentProgress {
+    /// The session exists.
+    Found(SubagentProgressSnapshot),
+    /// The session id is unknown to the owning run.
+    Missing {
+        /// Agent-facing subagent session id that was requested.
+        subagent_session_id: SubagentSessionId,
+    },
+}
+
+/// Result of a `cancel_subagent` request.
+#[derive(Debug, Clone)]
+pub enum CancelledSubagent {
+    /// A running subagent was cancelled.
+    Cancelled {
+        /// Agent-facing subagent session id.
+        subagent_session_id: SubagentSessionId,
+        /// User/tool supplied cancellation reason.
+        reason: String,
+    },
+    /// The session id is unknown or already terminal.
+    MissingOrSettled {
+        /// Agent-facing subagent session id that could not be cancelled.
+        subagent_session_id: SubagentSessionId,
+    },
 }
 
 /// Per-kind in-flight background-task count (Running records only) for one agent
@@ -234,7 +322,7 @@ pub struct RunningBackgroundTasks {
 }
 
 /// The engine background supervisor surface used by subagent tools, workflow
-/// delegation handle bookkeeping, and parent-exit cleanup. Implemented by
+/// delegation handle bookkeeping, and run-finalization cleanup. Implemented by
 /// `eos-engine`.
 #[async_trait]
 pub trait BackgroundSupervisorPort: Sealed + Send + Sync {
@@ -246,26 +334,24 @@ pub trait BackgroundSupervisorPort: Sealed + Send + Sync {
     async fn spawn(
         &self,
         ctx: &ExecutionMetadata,
-        agent_name: &str,
-        prompt: &str,
+        launch: SubagentLaunch,
     ) -> Result<SpawnedSubagent, ToolError>;
 
-    /// Render a tracked subagent's status/result as the model-facing
-    /// [`ToolResult`] (the rendered JSON payload, or `is_error` for a missing
-    /// session).
+    /// Return a tracked subagent's status/result facts for the model-facing
+    /// `check_subagent_progress` renderer.
     async fn progress(
         &self,
         subagent_session_id: &SubagentSessionId,
         last_n_messages: u8,
-    ) -> Result<ToolResult, ToolError>;
+    ) -> Result<SubagentProgress, ToolError>;
 
-    /// Cancel a tracked subagent session, returning the model-facing
-    /// [`ToolResult`] (`is_error` for an unknown / already-settled session).
+    /// Cancel a tracked subagent session and return the cancellation fact for
+    /// the model-facing `cancel_subagent` renderer.
     async fn cancel(
         &self,
         subagent_session_id: &SubagentSessionId,
         reason: &str,
-    ) -> Result<ToolResult, ToolError>;
+    ) -> Result<CancelledSubagent, ToolError>;
 
     /// This agent run's in-flight background report (Running-only), without mutating
     /// state — the reject-mode read for `enter_isolated_workspace`. The handle
@@ -281,7 +367,7 @@ pub trait BackgroundSupervisorPort: Sealed + Send + Sync {
 
     /// Track a workflow that was just delegated by this agent run. The workflow
     /// control port owns persisted workflow state; the background supervisor owns
-    /// the handle for in-flight accounting and parent-exit cancellation.
+    /// the handle for in-flight accounting and run-finalization cancellation.
     async fn register_workflow(&self, workflow: &StartedWorkflowHandle);
 
     /// Mark a tracked workflow handle cancelled in the supervisor ledger.
@@ -295,7 +381,7 @@ pub trait BackgroundSupervisorPort: Sealed + Send + Sync {
     /// abort subagents, cancel delegated workflows through the optional
     /// authoritative workflow-control port (a missing port still settles the
     /// in-memory record), and cancel all command sessions in one per-caller daemon
-    /// RPC. The common parent-exit / cancellation finalizer.
+    /// RPC. The common run-finalization / cancellation finalizer.
     async fn teardown(
         &self,
         workflow_control: Option<Arc<dyn WorkflowControlPort>>,

@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use tokio::task::JoinHandle;
 
-use super::WorkflowSessionManager;
 use super::super::{spawn_monitor_loop, BackgroundSessionMonitor};
+use super::WorkflowSessionManager;
 
 /// Polls delegated workflow sessions through the shared monitor loop.
 pub(in crate::background) struct WorkflowSessionMonitor {

@@ -201,10 +201,10 @@
 <h2>Background Control <a class="anchor" href="#background-control">#</a></h2>
 <p>Background sandbox control is split by typed surface. <code>launch_background_tool()</code> is subagent-only. <code>exec_command</code> creates an <code>eos-command-session</code> runtime session through the daemon adapter, registers its <code>command_session_id</code> with the engine supervisor, and exposes typed command-session progress, stdin, cancel, and completion delivery.</p>
 <div class="edge-list">
-  <div><b>tracks</b><span><code>BackgroundTaskSupervisor</code> stores subagent records, workflow records, and command-session command records keyed by their typed ids.</span></div>
+  <div><b>tracks</b><span><code>BackgroundSessionRuntime</code> stores subagent, workflow, and command-session records through concrete managers keyed by their typed ids.</span></div>
   <div><b>registers</b><span><code>dispatch_envelope_async()</code> registers the current daemon asyncio task by invocation id, agent id, op, and background flag before invoking the handler.</span></div>
   <div><b>cancels</b><span>Subagent cancellation targets the engine task. command-session cancellation calls the typed daemon command-session cancel API through <code>api.v1.command.cancel</code> or isolated-workspace drain.</span></div>
-  <div><b>heartbeats</b><span>The supervisor periodically polls command-session completions and keeps lifecycle state current for isolated-workspace gates and automatic notifications.</span></div>
+  <div><b>monitors</b><span><code>CommandSessionMonitor</code> periodically polls command-session completions and keeps lifecycle state current for isolated-workspace gates and automatic notifications.</span></div>
   <div><b>gates</b><span><code>enter_isolated_workspace()</code> checks both local background count and daemon <code>command_session_count</code> before opening private scratch.</span></div>
 </div>
 <p>The daemon exposes <code>api.v1.cancel</code>, <code>api.v1.heartbeat</code>, and <code>api.v1.inflight_count</code> for invocation registry control, while <code>api.v1.command_session_count</code> reads the <code>eos-command-session</code> runtime registry through the daemon adapter. Foreground requests do not block isolated entry through the invocation registry path; live command sessions are counted through the command-session-specific path.</p>
