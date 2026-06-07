@@ -11,6 +11,8 @@ use eos_layerstack::LayerStack;
 use eos_protocol::LayerChange;
 use eos_workspace_api::{WorkspaceApiError, WorkspaceTimings};
 
+use super::workspace_api_error;
+
 use crate::response_timings::{resource_timings, timing_map};
 use crate::services::overlay::{ephemeral_dir_allocator, DaemonPublisherPort};
 
@@ -95,8 +97,4 @@ impl EphemeralCommandSessionPort for DaemonEphemeralCommandPort {
         DaemonPublisherPort::new(&self.root)
             .publish_upperdir_changes(root, snapshot, changes, path_kinds)
     }
-}
-
-fn workspace_api_error(error: impl std::fmt::Display) -> WorkspaceApiError {
-    WorkspaceApiError::new("daemon_command_workspace_error", error.to_string())
 }

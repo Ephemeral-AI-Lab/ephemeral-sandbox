@@ -5,7 +5,8 @@ use crate::network::{
     bring_loopback_up, configure_namespace_veth, disable_ipv6_ra, flush_ipv6_default_route,
     parse_network_config, NetworkConfig,
 };
-use crate::{HeldNamespaces, NsHolderError, NET_READY, NS_UP, READY, TEST_HOLDER_CRASH_ENV};
+use crate::namespace::HeldNamespaces;
+use crate::{NsHolderError, NET_READY, NS_UP, READY, TEST_HOLDER_CRASH_ENV};
 
 /// Where the handshake driver currently is.
 ///
@@ -14,7 +15,7 @@ use crate::{HeldNamespaces, NsHolderError, NET_READY, NS_UP, READY, TEST_HOLDER_
 /// `Unshared → ProcBound → NsUpSent → NetReadyReceived → Ready → Paused`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum HandshakeState {
+pub(crate) enum HandshakeState {
     /// Namespace stack `unshare`d; FDs not yet pinned.
     Unshared,
     /// Parent `/proc` recursively bound into the new mount namespace.
@@ -36,7 +37,7 @@ pub enum HandshakeState {
 /// because they are inherited (not owned) — the daemon owns the other ends and
 /// closes them; the holder reads/writes but does not own their lifetime.
 #[derive(Debug)]
-pub struct Handshake {
+pub(crate) struct Handshake {
     readiness_fd: RawFd,
     control_fd: RawFd,
     state: HandshakeState,
@@ -60,9 +61,11 @@ impl Handshake {
         }
     }
 
-    /// The current handshake position.
-    #[must_use]
-    pub const fn state(&self) -> HandshakeState {
+    /// The current handshake position. Test-only accessor used to assert the
+    /// state machine advances correctly; production code drives `state` forward
+    /// through the step methods and never reads it back.
+    #[cfg(test)]
+    pub(crate) const fn state(&self) -> HandshakeState {
         self.state
     }
 
@@ -72,7 +75,7 @@ impl Handshake {
     /// # Errors
     ///
     /// Returns [`NsHolderError::PipeIo`] when the readiness pipe write fails.
-    pub fn signal_ns_up(&mut self) -> Result<(), NsHolderError> {
+    pub(crate) fn signal_ns_up(&mut self) -> Result<(), NsHolderError> {
         write_all_fd(self.readiness_fd, NS_UP)?;
         self.state = HandshakeState::NsUpSent;
         Ok(())
@@ -87,7 +90,7 @@ impl Handshake {
     /// Returns [`NsHolderError::ControlPipeClosed`] on EOF,
     /// [`NsHolderError::UnexpectedToken`] for a non-`net-ready` token, or
     /// [`NsHolderError::PipeIo`] for read failures.
-    pub fn await_net_ready(&mut self) -> Result<(), NsHolderError> {
+    pub(crate) fn await_net_ready(&mut self) -> Result<(), NsHolderError> {
         let mut buf = Vec::new();
         while !buf.contains(&b'\n') {
             let mut chunk = [0_u8; 64];
@@ -112,7 +115,7 @@ impl Handshake {
     ///
     /// Returns [`NsHolderError::PipeIo`] when the final readiness pipe write
     /// fails.
-    pub fn finish_ready(&mut self) -> Result<(), NsHolderError> {
+    pub(crate) fn finish_ready(&mut self) -> Result<(), NsHolderError> {
         bring_loopback_up();
         if let Some(config) = self.network_config.as_ref() {
             configure_namespace_veth(config);
@@ -218,7 +221,9 @@ fn read_fd(fd: RawFd, bytes: &mut [u8]) -> Result<usize, NsHolderError> {
 mod tests {
     use std::os::fd::AsRawFd;
 
-    use crate::{Handshake, HandshakeState, HeldNamespaces, NsHolderError, NS_UP, READY};
+    use super::{Handshake, HandshakeState};
+    use crate::namespace::HeldNamespaces;
+    use crate::{NsHolderError, NS_UP, READY};
 
     type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 

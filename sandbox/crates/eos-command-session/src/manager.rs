@@ -10,9 +10,9 @@ use crate::registry::{CommandSessionCompletion, CommandSessionRegistry};
 use crate::session::RunningCommandSessionParts;
 use crate::session::{CommandSession, CommandSessionSpec};
 #[cfg(target_os = "linux")]
-use crate::{
-    process::spawn_current_exe_ns_runner, wait_for_yield, CommandSessionOutput, WaitOutcome,
-};
+use crate::wait::{wait_for_yield, WaitOutcome};
+#[cfg(target_os = "linux")]
+use crate::{process::spawn_current_exe_ns_runner, CommandSessionOutput};
 use crate::{
     CancelCommandSession, CollectCompleted, CollectCompletedResponse, CommandResponse,
     CommandSessionConfig, CommandSessionError, DynCommandWorkspacePolicy, StartCommandSession,

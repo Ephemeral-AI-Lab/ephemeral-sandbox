@@ -32,19 +32,19 @@ use crate::error::OccError;
 use crate::route::{ChangesetResult, FileResult, OccStatus, PublishDecision, Route};
 
 /// Dedicated single-writer thread name (reproduce exactly).
-pub const COMMIT_QUEUE_THREAD_NAME: &str = "occ-commit-queue";
+pub(crate) const COMMIT_QUEUE_THREAD_NAME: &str = "occ-commit-queue";
 
 /// Default upper bound on changesets coalesced into one CAS attempt.
-pub const MAX_BATCH_SIZE: usize = 64;
+pub(crate) const MAX_BATCH_SIZE: usize = 64;
 
 /// Default batch-coalescing window in seconds (2 ms).
 ///
 /// Only paid when a non-blocking drain emptied the queue AND batch headroom
 /// remains; otherwise it is dead wall-clock on the single-commit hot path.
-pub const BATCH_WINDOW_S: f64 = 0.002;
+pub(crate) const BATCH_WINDOW_S: f64 = 0.002;
 
 /// Bounded CAS-mismatch retry budget before `AbortedVersion`.
-pub const MAX_OCC_CAS_RETRIES: u32 = 3;
+pub(crate) const MAX_OCC_CAS_RETRIES: u32 = 3;
 
 /// A routed changeset ready for the publish transaction.
 ///

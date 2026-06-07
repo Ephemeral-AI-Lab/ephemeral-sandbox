@@ -1,10 +1,10 @@
 //! Route classification and per-path publish outcomes.
 //!
-//! A changeset is split into disjoint normalized paths; each path is routed to
-//! exactly one of four destinations and, after the publish transaction, lands a
-//! per-path [`OccStatus`]. These mirror the Rust `RouteDecision` /
-//! `FileStatus` enums byte-for-byte (the `str` values are part of the wire
-//! contract, so the `serde` rename strings below are load-bearing).
+//! A changeset is split into disjoint normalized paths; each path is routed by
+//! [`Route`] to exactly one of four destinations and, after the publish
+//! transaction, lands a per-path [`OccStatus`]. The `str` values of both enums
+//! are part of the wire contract, so the `serde` rename strings below are
+//! load-bearing.
 
 use std::collections::BTreeMap;
 
@@ -115,7 +115,7 @@ pub struct FileResult {
     pub path: LayerPath,
     /// Terminal status.
     pub status: OccStatus,
-    /// Diagnostic message (empty by default, mirrors Rust).
+    /// Diagnostic message (empty by default).
     pub message: String,
 }
 

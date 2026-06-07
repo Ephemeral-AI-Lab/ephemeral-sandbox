@@ -3,19 +3,19 @@ use std::time::{Duration, Instant};
 
 use crate::CommandSessionConfig;
 
-pub trait CommandSessionWaitTarget<T> {
+pub(crate) trait CommandSessionWaitTarget<T> {
     fn try_finalize(&self, publish_completion: bool) -> Option<T>;
     fn next_output_byte_offset(&self) -> u64;
     fn read_model_output(&self, max_tokens: Option<u64>) -> String;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum WaitOutcome<T> {
+pub(crate) enum WaitOutcome<T> {
     Completed(T),
     Running(String),
 }
 
-pub fn wait_for_yield<T, S>(
+pub(crate) fn wait_for_yield<T, S>(
     session: &S,
     config: &CommandSessionConfig,
     yield_time_ms: u64,

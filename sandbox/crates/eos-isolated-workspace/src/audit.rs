@@ -13,9 +13,6 @@ use serde_json::Value;
 
 use crate::error::IsolatedError;
 
-/// Default JSONL path used by the default isolated workspace config.
-pub const DEFAULT_AUDIT_JSONL_PATH: &str = "/eos/scratch/isolated/audit.jsonl";
-
 /// Sink for isolated-workspace audit events.
 ///
 /// The only production implementation is the JSONL sink; the trait exists so

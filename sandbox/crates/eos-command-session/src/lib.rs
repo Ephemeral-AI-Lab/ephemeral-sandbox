@@ -7,6 +7,7 @@ mod registry;
 mod request;
 mod response;
 mod session;
+#[cfg(any(target_os = "linux", test))]
 mod wait;
 
 #[cfg(target_os = "linux")]
@@ -23,7 +24,6 @@ pub use output::{utf8_consumable_prefix_len, CommandSessionOutput, CommandSessio
 pub use registry::CommandSessionCompletion;
 pub use request::{CancelCommandSession, CollectCompleted, StartCommandSession, WriteStdin};
 pub use response::{CollectCompletedResponse, CommandResponse};
-pub use wait::{wait_for_yield, CommandSessionWaitTarget, WaitOutcome};
 
 pub type DynCommandWorkspacePolicy =
     Box<dyn eos_workspace_api::CommandWorkspacePolicy + Send + Sync + 'static>;

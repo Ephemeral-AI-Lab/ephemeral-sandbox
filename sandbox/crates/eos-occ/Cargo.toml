@@ -6,7 +6,6 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-eos-overlay.workspace = true
 eos-protocol.workspace = true
 serde.workspace = true
 thiserror.workspace = true

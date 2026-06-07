@@ -3,6 +3,8 @@ use eos_isolated_workspace::command_session::types::{
 };
 use eos_layerstack::LayerStack;
 use eos_workspace_api::WorkspaceApiError;
+
+use super::workspace_api_error;
 use serde_json::Value;
 
 use crate::response_timings::{resource_timings, timing_map};
@@ -63,8 +65,4 @@ impl IsolatedCommandSessionPort for DaemonIsolatedCommandPort {
     fn record_command_audit(&self, payload: Value) {
         crate::services::isolated_workspace::record_tool_call(&self.handle.caller_id, payload);
     }
-}
-
-fn workspace_api_error(error: impl std::fmt::Display) -> WorkspaceApiError {
-    WorkspaceApiError::new("daemon_command_workspace_error", error.to_string())
 }

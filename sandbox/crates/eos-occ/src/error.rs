@@ -44,15 +44,6 @@ pub enum OccError {
         attempts: u32,
     },
 
-    /// An overlay capture lacked a field required to build an OCC change.
-    #[error("invalid overlay change for path {path}: {reason}")]
-    InvalidOverlayChange {
-        /// The offending workspace-relative path.
-        path: String,
-        /// Why the conversion could not proceed.
-        reason: String,
-    },
-
     /// Route/base-hash preparation failed before enqueueing.
     #[error("occ route preparation failed: {0}")]
     RoutePreparation(String),

@@ -3,8 +3,6 @@
 //! This registry deliberately performs no process I/O. `eos-daemon` wraps this
 //! contract with live process, namespace, and PPC management.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use crate::error::{PluginError, Result};
@@ -78,64 +76,6 @@ impl PluginServiceStatus {
     }
 }
 
-/// Pure registry keyed by [`PluginServiceKey`].
-#[derive(Debug, Default)]
-pub struct PluginServiceRegistry {
-    services: BTreeMap<PluginServiceKey, PluginServiceStatus>,
-}
-
-impl PluginServiceRegistry {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Get or insert a service status.
-    pub fn ensure(&mut self, key: PluginServiceKey) -> &mut PluginServiceStatus {
-        self.services
-            .entry(key.clone())
-            .or_insert_with(|| PluginServiceStatus::new(key))
-    }
-
-    #[must_use]
-    pub fn get(&self, key: &PluginServiceKey) -> Option<&PluginServiceStatus> {
-        self.services.get(key)
-    }
-
-    /// Mark a registered service ready for `manifest_key`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`PluginError::Ensure`] when `key` has not been registered.
-    pub fn mark_ready(&mut self, key: &PluginServiceKey, manifest_key: String) -> Result<()> {
-        let status = self.services.get_mut(key).ok_or_else(|| {
-            PluginError::Ensure(format!(
-                "service {} is not registered",
-                key.service_instance_id()
-            ))
-        })?;
-        status.state = PluginServiceState::Ready;
-        status.manifest_key = Some(manifest_key);
-        status.last_error = None;
-        Ok(())
-    }
-
-    #[must_use]
-    pub fn statuses(&self) -> Vec<&PluginServiceStatus> {
-        self.services.values().collect()
-    }
-
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.services.len()
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.services.is_empty()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,26 +98,10 @@ mod tests {
     }
 
     #[test]
-    fn registry_reuses_exact_key_only() -> TestResult {
-        let mut registry = PluginServiceRegistry::new();
-        registry.ensure(key("profile-a")?);
-        registry.ensure(key("profile-a")?);
-        registry.ensure(key("profile-b")?);
-        assert_eq!(registry.len(), 2);
-        Ok(())
-    }
-
-    #[test]
     fn ready_check_rejects_stale_manifest() -> TestResult {
-        let mut registry = PluginServiceRegistry::new();
-        let key = key("profile-a")?;
-        registry.ensure(key.clone());
-        registry.mark_ready(&key, "manifest@1".to_owned())?;
-        let Some(status) = registry.get(&key) else {
-            return Err(PluginError::Ensure(
-                "expected service status after ensure".to_owned(),
-            ));
-        };
+        let mut status = PluginServiceStatus::new(key("profile-a")?);
+        status.state = PluginServiceState::Ready;
+        status.manifest_key = Some("manifest@1".to_owned());
         assert!(status.require_ready_on_manifest("manifest@2").is_err());
         Ok(())
     }

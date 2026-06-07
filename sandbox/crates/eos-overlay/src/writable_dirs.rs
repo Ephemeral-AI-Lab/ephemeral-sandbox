@@ -26,9 +26,9 @@ pub struct OverlayWritableDirs {
 
 /// Return the canonical writable root, creating it if its parent exists.
 ///
-/// Mirrors Rust `overlay_writable_root()`: create `OVERLAY_WRITABLE_ROOT`
-/// only when its parent is already a directory, then require the result to be a
-/// directory or raise [`OverlayError::WritableRootUnavailable`]. No fallback.
+/// Creates `OVERLAY_WRITABLE_ROOT` only when its parent is already a directory,
+/// then requires the result to be a directory or raises
+/// [`OverlayError::WritableRootUnavailable`]. No fallback.
 ///
 /// # Errors
 ///

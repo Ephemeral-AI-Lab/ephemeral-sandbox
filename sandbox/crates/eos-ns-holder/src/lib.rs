@@ -42,8 +42,7 @@ mod handshake;
 mod namespace;
 mod network;
 
-pub use handshake::{run, Handshake, HandshakeState};
-pub use namespace::HeldNamespaces;
+pub use handshake::run;
 
 /// Readiness handshake token (`b"ns-up\n"`) written to the readiness FD once the
 /// holder is inside the new namespace stack.

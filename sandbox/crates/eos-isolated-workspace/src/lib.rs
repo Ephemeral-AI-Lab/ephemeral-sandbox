@@ -39,7 +39,7 @@ pub mod config {
     pub use eos_config::configs::isolated_workspace::*;
 }
 
-pub use audit::{AuditSink, JsonlAuditSink, DEFAULT_AUDIT_JSONL_PATH};
+pub use audit::{AuditSink, JsonlAuditSink};
 pub use caps::{
     ResourceCaps, Rfc1918Egress, CGROUP_ROOT, HANDLE_PREFIX, PERSISTED_HANDLES_SCHEMA_VERSION,
 };

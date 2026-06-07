@@ -259,7 +259,6 @@ dependencies = [
 name = "eos-occ"
 version = "0.1.0"
 dependencies = [
- "eos-overlay",
  "eos-protocol",
  "serde",
  "thiserror 2.0.18",

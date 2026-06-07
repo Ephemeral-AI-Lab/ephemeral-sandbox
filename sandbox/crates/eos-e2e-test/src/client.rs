@@ -33,12 +33,6 @@ impl ProtocolClient {
         }
     }
 
-    /// The endpoint this client talks to.
-    #[must_use]
-    pub fn addr(&self) -> SocketAddr {
-        self.addr
-    }
-
     /// A clone of this client with a different auth token (for auth tests).
     #[must_use]
     pub fn with_token(&self, auth_token: Option<String>) -> Self {

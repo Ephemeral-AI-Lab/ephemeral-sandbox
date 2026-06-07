@@ -1,7 +1,6 @@
 //! Workspace binding persisted beside the active manifest.
 //!
-//! This is the read-side equivalent of `layer_stack/workspace_binding.py`: it
-//! maps public absolute or repo-relative tool paths onto layer-relative paths.
+//! Maps public absolute or repo-relative tool paths onto layer-relative paths.
 
 use std::path::{Path, PathBuf};
 

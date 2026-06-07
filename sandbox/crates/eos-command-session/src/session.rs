@@ -14,7 +14,7 @@ use crate::process::{
 #[cfg(any(not(target_os = "linux"), test))]
 use crate::CommandSessionConfig;
 #[cfg(target_os = "linux")]
-use crate::CommandSessionWaitTarget;
+use crate::wait::CommandSessionWaitTarget;
 use crate::{
     CommandResponse, CommandSessionError, CommandSessionOutput, CommandSessionOutputCursor,
     DynCommandWorkspacePolicy,

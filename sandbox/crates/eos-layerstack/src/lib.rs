@@ -66,13 +66,13 @@ pub use workspace_binding::{
 pub const AUTO_SQUASH_MAX_DEPTH: usize = 100;
 
 /// Storage layout subdirectory for immutable layer directories.
-pub const LAYERS_DIR: &str = "layers";
+pub(crate) const LAYERS_DIR: &str = "layers";
 
 /// Storage layout subdirectory for in-flight commit/checkpoint staging dirs.
-pub const STAGING_DIR: &str = "staging";
+pub(crate) const STAGING_DIR: &str = "staging";
 
 /// Active-manifest pointer filename under a storage root.
 pub const ACTIVE_MANIFEST_FILE: &str = "manifest.json";
 
 /// Sidecar directory for per-layer digests used by head-layer idempotency.
-pub const LAYER_METADATA_DIR: &str = ".layer-metadata";
+pub(crate) const LAYER_METADATA_DIR: &str = ".layer-metadata";

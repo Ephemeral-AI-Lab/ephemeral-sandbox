@@ -18,10 +18,9 @@ use crate::{MergedView, LAYERS_DIR, STAGING_DIR};
 /// Leading discriminator for a built checkpoint layer id, distinguishing a
 /// squash checkpoint (`B…`) from a normal published layer (`L…`).
 ///
-/// The full id is `B{version:06}-{unique:08x}` (see `allocate_checkpoint_paths`),
-/// mirroring Rust's `B{next_version:06d}-{uuid4().hex[:8]}` SHAPE. The 8-hex
-/// suffix is a process-unique counter here rather than a random UUID: the suffix
-/// is non-deterministic on the Rust side too, so cross-runtime byte-identity of
+/// The full id is `B{version:06}-{unique:08x}` (see `allocate_checkpoint_paths`).
+/// The 8-hex suffix is a process-unique counter rather than a random UUID: the
+/// suffix is intentionally non-deterministic, so cross-runtime byte-identity of
 /// a squash id is impossible by construction — only the `B`-prefix + version +
 /// uniqueness contract is load-bearing.
 pub const CHECKPOINT_ID_PREFIX: char = 'B';
@@ -264,8 +263,7 @@ impl LayerCheckpointSquasher {
         }
         std::fs::rename(current, &layer_dir)?;
         // Persist the renamed checkpoint dir entry before the manifest that
-        // publishes it is written, matching Rust squash.py:125
-        // `fsync_path(layer_dir.parent)` — else a crash can leave the fsynced
+        // publishes it is written — else a crash can leave the fsynced
         // manifest pointing at a non-durable layer dir entry.
         if let Some(parent) = layer_dir.parent() {
             crate::stack::fsync_dir(parent)?;

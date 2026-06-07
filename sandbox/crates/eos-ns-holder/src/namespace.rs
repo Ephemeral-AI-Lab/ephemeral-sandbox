@@ -26,8 +26,12 @@ use crate::NsHolderError;
 /// last referencing FD (and the holder task) is gone. The daemon reads the
 /// matching `/proc/{holder_pid}/ns/*` symlinks while this struct keeps the
 /// holder alive; the daemon side opens these symlinks against the live holder.
+// The four namespace FDs are pinned solely for close-on-drop RAII (see the
+// doc above): they are never read in-process — the daemon reads the matching
+// `/proc/{holder_pid}/ns/*` symlinks instead — so `dead_code` is expected.
+#[allow(dead_code)]
 #[derive(Debug)]
-pub struct HeldNamespaces {
+pub(crate) struct HeldNamespaces {
     /// User namespace FD (`/proc/self/ns/user`).
     pub user: OwnedFd,
     /// Mount namespace FD (`/proc/self/ns/mnt`).
